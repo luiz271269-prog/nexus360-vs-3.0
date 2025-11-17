@@ -5,7 +5,7 @@ import { ptBR } from 'date-fns/locale';
 import {
   CheckCheck, Check, Forward, Trash2, MoreVertical, Loader2, Copy,
   Zap, CheckCircle2, AlertCircle, ChevronRight, Clock, Search, ArrowRight,
-  Reply, Target // Added Target icon
+  Reply, Target, Play, FileIcon, Download, Image as ImageIcon // Added Play, FileIcon, Download, ImageIcon
 } from 'lucide-react';
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
@@ -353,25 +353,30 @@ export default function MessageBubble({
           )}
 
           <div className={cn(
-            "rounded-2xl px-4 py-2 relative shadow-sm",
+            "rounded-2xl relative shadow-sm",
             isOwn
-              ? "bg-gradient-to-r from-blue-500 to-blue-600 text-white"
-              : "bg-white border border-slate-200 text-slate-800",
-            selecionada ? 'ring-2 ring-blue-500' : ''
+              ? "bg-gradient-to-r from-blue-500 to-blue-600"
+              : "bg-white border border-slate-200",
+            selecionada ? 'ring-2 ring-blue-500' : '',
+            // ✅ Remover padding para mídias, adicionar para texto
+            (message.media_url && message.media_type !== 'none') ? '' : 'px-4 py-2'
           )}>
-            {!modoSelecao && !isSystemMessage && ( // Added !isSystemMessage condition
-              <div className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity"> {/* Updated position class */}
+            {!modoSelecao && !isSystemMessage && (
+              <div className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity z-10">
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                     <Button
                       variant="ghost"
                       size="icon"
-                      className="h-8 w-8 rounded-full hover:bg-slate-100"
+                      className={cn(
+                        "h-8 w-8 rounded-full",
+                        isOwn ? "hover:bg-white/20" : "hover:bg-slate-100"
+                      )}
                     >
-                      <MoreVertical className="w-4 h-4 text-slate-600" />
+                      <MoreVertical className={cn("w-4 h-4", isOwn ? "text-white" : "text-slate-600")} />
                     </Button>
                   </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end"> {/* Updated align to always be "end" */}
+                  <DropdownMenuContent align="end">
                     {onResponder && (
                       <DropdownMenuItem onClick={() => onResponder(message)}>
                         <Reply className="w-4 h-4 mr-2" />
@@ -400,7 +405,6 @@ export default function MessageBubble({
                       </DropdownMenuItem>
                     )}
 
-                    {/* NOVA OPÇÃO: CRIAR OPORTUNIDADE - DISPONÍVEL PARA TODAS AS MENSAGENS */}
                     <DropdownMenuSeparator />
                     <DropdownMenuItem
                       onClick={() => {
@@ -418,139 +422,266 @@ export default function MessageBubble({
               </div>
             )}
 
-            {message.content && (
-              <div className="break-words whitespace-pre-wrap">
-                {isOwn ? (
-                  <p className="text-sm leading-relaxed">{message.content}</p>
-                ) : (
-                  <ReactMarkdown
-                    className="text-sm prose prose-sm prose-slate max-w-none [&>*:first-child]:mt-0 [&>*:last-child]:mb-0"
-                    components={{
-                      code: ({ inline, className, children, ...props }) => {
-                        const match = /language-(\w+)/.exec(className || '');
-                        return !inline && match ? (
-                          <div className="relative group/code">
-                            <pre className="bg-slate-900 text-slate-100 rounded-lg p-3 overflow-x-auto my-2">
-                              <code className={className} {...props}>{children}</code>
-                            </pre>
-                            <Button
-                              size="icon"
-                              variant="ghost"
-                              className="absolute top-2 right-2 h-6 w-6 opacity-0 group-hover/code:opacity-100 bg-slate-800 hover:bg-slate-700"
-                              onClick={() => {
-                                navigator.clipboard.writeText(String(children).replace(/\n$/, ''));
-                                toast.success('Code copied');
-                              }}
-                            >
-                              <Copy className="h-3 w-3 text-slate-400" />
-                            </Button>
-                          </div>
-                        ) : (
-                          <code className="px-1 py-0.5 rounded bg-slate-100 text-slate-700 text-xs">
-                            {children}
-                          </code>
-                        );
-                      },
-                      a: ({ children, ...props }) => (
-                        <a {...props} target="_blank" rel="noopener noreferrer">{children}</a>
-                      ),
-                      p: ({ children }) => <p className="my-1 leading-relaxed">{children}</p>,
-                      ul: ({ children }) => <ul className="my-1 ml-4 list-disc">{children}</ul>,
-                      ol: ({ children }) => <ol className="my-1 ml-4 list-decimal">{children}</ol>,
-                      li: ({ children }) => <li className="my-0.5">{children}</li>,
-                      h1: ({ children }) => <h1 className="text-lg font-semibold my-2">{children}</h1>,
-                      h2: ({ children }) => <h2 className="text-base font-semibold my-2">{children}</h2>,
-                      h3: ({ children }) => <h3 className="text-sm font-semibold my-2">{children}</h3>,
-                      blockquote: ({ children }) => (
-                        <blockquote className="border-l-2 border-slate-300 pl-3 my-2 text-slate-600">
-                          {children}
-                        </blockquote>
-                      ),
-                    }}
-                  >
-                    {message.content}
-                  </ReactMarkdown>
+            {/* ✅ IMAGEM - ESTILO WHATSAPP */}
+            {message.media_type === 'image' && message.media_url && (
+              <div className="relative overflow-hidden rounded-2xl">
+                <img
+                  src={message.media_url}
+                  alt="Imagem"
+                  className="max-w-full max-h-96 object-cover rounded-2xl"
+                  loading="lazy"
+                />
+                {message.media_caption && (
+                  <div className={cn(
+                    "px-4 py-2",
+                    isOwn ? "text-white" : "text-slate-800"
+                  )}>
+                    <p className="text-sm leading-relaxed">{message.media_caption}</p>
+                  </div>
                 )}
+                {/* Timestamp no canto da imagem */}
+                <div className="absolute bottom-2 right-2 bg-black/50 backdrop-blur-sm px-2 py-0.5 rounded-md">
+                  <div className="flex items-center gap-1">
+                    <span className="text-[10px] text-white">
+                      {formatarHorario(message.sent_at || message.created_date)}
+                    </span>
+                    {isOwn && message.status === 'lida' && (
+                      <CheckCheck className="w-3.5 h-3.5 text-blue-300" />
+                    )}
+                    {isOwn && message.status === 'entregue' && (
+                      <CheckCheck className="w-3.5 h-3.5 text-white/70" />
+                    )}
+                    {isOwn && message.status === 'enviada' && (
+                      <Check className="w-3.5 h-3.5 text-white/70" />
+                    )}
+                  </div>
+                </div>
               </div>
             )}
 
-            {message.media_url && message.media_type !== 'none' && (
-              <div className={message.content ? "mt-2" : ""}>
-                {message.media_type === 'image' && (
-                  <img
-                    src={message.media_url}
-                    alt="Imagem"
-                    className="rounded-lg max-w-full"
-                  />
-                )}
-                {message.media_type === 'video' && (
-                  <video
-                    src={message.media_url}
-                    controls
-                    className="rounded-lg max-w-full"
-                  />
-                )}
-                {message.media_type === 'audio' && (
+            {/* ✅ ÁUDIO - ESTILO WHATSAPP */}
+            {message.media_type === 'audio' && message.media_url && (
+              <div className={cn(
+                "px-3 py-2 min-w-[200px]",
+                isOwn ? "text-white" : "text-slate-800"
+              )}>
+                <div className="flex items-center gap-3">
+                  <div className={cn(
+                    "w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0",
+                    isOwn ? "bg-white/20" : "bg-green-500"
+                  )}>
+                    <Play className={cn("w-5 h-5", isOwn ? "text-white" : "text-white")} />
+                  </div>
                   <audio
                     src={message.media_url}
                     controls
-                    className="w-full"
+                    className="flex-1 h-8"
+                    style={{
+                      filter: isOwn ? 'invert(1) hue-rotate(180deg)' : 'none'
+                    }}
                   />
-                )}
-                {message.media_type === 'document' && (
-                  <a
-                    href={message.media_url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-blue-500 underline"
-                  >
-                    📄 Documento
-                  </a>
-                )}
+                </div>
+                <div className="flex items-center justify-end gap-1 mt-1">
+                  <span className={cn("text-[10px]", isOwn ? "text-white/70" : "text-slate-500")}>
+                    {formatarHorario(message.sent_at || message.created_date)}
+                  </span>
+                  {isOwn && message.status === 'lida' && (
+                    <CheckCheck className="w-3.5 h-3.5 text-blue-300" />
+                  )}
+                  {isOwn && message.status === 'entregue' && (
+                    <CheckCheck className="w-3.5 h-3.5 text-white/70" />
+                  )}
+                  {isOwn && message.status === 'enviada' && (
+                    <Check className="w-3.5 h-3.5 text-white/70" />
+                  )}
+                </div>
               </div>
             )}
 
+            {/* ✅ VÍDEO - ESTILO WHATSAPP */}
+            {message.media_type === 'video' && message.media_url && (
+              <div className="relative overflow-hidden rounded-2xl">
+                <video
+                  src={message.media_url}
+                  controls
+                  className="max-w-full max-h-96 rounded-2xl"
+                  preload="metadata"
+                />
+                {message.media_caption && (
+                  <div className={cn(
+                    "px-4 py-2",
+                    isOwn ? "text-white" : "text-slate-800"
+                  )}>
+                    <p className="text-sm leading-relaxed">{message.media_caption}</p>
+                  </div>
+                )}
+                <div className="absolute bottom-2 right-2 bg-black/50 backdrop-blur-sm px-2 py-0.5 rounded-md">
+                  <div className="flex items-center gap-1">
+                    <span className="text-[10px] text-white">
+                      {formatarHorario(message.sent_at || message.created_date)}
+                    </span>
+                    {isOwn && message.status === 'lida' && (
+                      <CheckCheck className="w-3.5 h-3.5 text-blue-300" />
+                    )}
+                    {isOwn && message.status === 'entregue' && (
+                      <CheckCheck className="w-3.5 h-3.5 text-white/70" />
+                    )}
+                    {isOwn && message.status === 'enviada' && (
+                      <Check className="w-3.5 h-3.5 text-white/70" />
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* ✅ DOCUMENTO - ESTILO WHATSAPP */}
+            {message.media_type === 'document' && message.media_url && (
+              <div className={cn(
+                "px-4 py-3 min-w-[250px]",
+                isOwn ? "text-white" : "text-slate-800"
+              )}>
+                <a
+                  href={message.media_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-3 hover:opacity-80 transition-opacity"
+                >
+                  <div className={cn(
+                    "w-12 h-12 rounded-lg flex items-center justify-center flex-shrink-0",
+                    isOwn ? "bg-white/20" : "bg-blue-50"
+                  )}>
+                    <FileIcon className={cn("w-6 h-6", isOwn ? "text-white" : "text-blue-600")} />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className={cn("text-sm font-medium truncate", isOwn ? "text-white" : "text-slate-900")}>
+                      {message.content?.replace('[Documento: ', '').replace(']', '') || 'Documento'}
+                    </p>
+                    <p className={cn("text-xs", isOwn ? "text-white/70" : "text-slate-500")}>
+                      Clique para baixar
+                    </p>
+                  </div>
+                  <Download className={cn("w-5 h-5 flex-shrink-0", isOwn ? "text-white/70" : "text-slate-400")} />
+                </a>
+                <div className="flex items-center justify-end gap-1 mt-2">
+                  <span className={cn("text-[10px]", isOwn ? "text-white/70" : "text-slate-500")}>
+                    {formatarHorario(message.sent_at || message.created_date)}
+                  </span>
+                  {isOwn && message.status === 'lida' && (
+                    <CheckCheck className="w-3.5 h-3.5 text-blue-300" />
+                  )}
+                  {isOwn && message.status === 'entregue' && (
+                    <CheckCheck className="w-3.5 h-3.5 text-white/70" />
+                  )}
+                  {isOwn && message.status === 'enviada' && (
+                    <Check className="w-3.5 h-3.5 text-white/70" />
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* ✅ TEXTO - SEM MÍDIA */}
+            {(!message.media_url || message.media_type === 'none') && message.content && (
+              <>
+                <div className={cn(
+                  "break-words whitespace-pre-wrap",
+                  isOwn ? "text-white" : "text-slate-800"
+                )}>
+                  {isOwn ? (
+                    <p className="text-sm leading-relaxed">{message.content}</p>
+                  ) : (
+                    <ReactMarkdown
+                      className="text-sm prose prose-sm prose-slate max-w-none [&>*:first-child]:mt-0 [&>*:last-child]:mb-0"
+                      components={{
+                        code: ({ inline, className, children, ...props }) => {
+                          const match = /language-(\w+)/.exec(className || '');
+                          return !inline && match ? (
+                            <div className="relative group/code">
+                              <pre className="bg-slate-900 text-slate-100 rounded-lg p-3 overflow-x-auto my-2">
+                                <code className={className} {...props}>{children}</code>
+                              </pre>
+                              <Button
+                                size="icon"
+                                variant="ghost"
+                                className="absolute top-2 right-2 h-6 w-6 opacity-0 group-hover/code:opacity-100 bg-slate-800 hover:bg-slate-700"
+                                onClick={() => {
+                                  navigator.clipboard.writeText(String(children).replace(/\n$/, ''));
+                                  toast.success('Code copied');
+                                }}
+                              >
+                                <Copy className="h-3 w-3 text-slate-400" />
+                              </Button>
+                            </div>
+                          ) : (
+                            <code className="px-1 py-0.5 rounded bg-slate-100 text-slate-700 text-xs">
+                              {children}
+                            </code>
+                          );
+                        },
+                        a: ({ children, ...props }) => (
+                          <a {...props} target="_blank" rel="noopener noreferrer">{children}</a>
+                        ),
+                        p: ({ children }) => <p className="my-1 leading-relaxed">{children}</p>,
+                        ul: ({ children }) => <ul className="my-1 ml-4 list-disc">{children}</ul>,
+                        ol: ({ children }) => <ol className="my-1 ml-4 list-decimal">{children}</ol>,
+                        li: ({ children }) => <li className="my-0.5">{children}</li>,
+                        h1: ({ children }) => <h1 className="text-lg font-semibold my-2">{children}</h1>,
+                        h2: ({ children }) => <h2 className="text-base font-semibold my-2">{children}</h2>,
+                        h3: ({ children }) => <h3 className="text-sm font-semibold my-2">{children}</h3>,
+                        blockquote: ({ children }) => (
+                          <blockquote className="border-l-2 border-slate-300 pl-3 my-2 text-slate-600">
+                            {children}
+                          </blockquote>
+                        ),
+                      }}
+                    >
+                      {message.content}
+                    </ReactMarkdown>
+                  )}
+                </div>
+
+                {/* ✅ TIMESTAMP PARA MENSAGENS DE TEXTO */}
+                <div className="flex items-center justify-end gap-1 mt-1">
+                  <span className={cn(
+                    "text-[10px]",
+                    isOwn ? "text-white/70" : "text-slate-500"
+                  )}>
+                    {formatarHorario(message.sent_at || message.created_date)}
+                  </span>
+
+                  {isOwn && (
+                    <>
+                      {message.status === 'enviando' && (
+                        <Loader2 className="w-3 h-3 text-white/70 animate-spin" />
+                      )}
+
+                      {message.status === 'enviada' && (
+                        <Check className="w-3.5 h-3.5 text-white/70" />
+                      )}
+
+                      {message.status === 'entregue' && (
+                        <CheckCheck className="w-3.5 h-3.5 text-white/70" />
+                      )}
+
+                      {message.status === 'lida' && (
+                        <CheckCheck className="w-3.5 h-3.5 text-blue-300" />
+                      )}
+
+                      {message.status === 'falhou' && (
+                        <AlertCircle className="w-3.5 h-3.5 text-red-300" />
+                      )}
+                    </>
+                  )}
+                </div>
+              </>
+            )}
+
             {message.tool_calls?.length > 0 && (
-              <div className="space-y-1 mt-2">
+              <div className="space-y-1 mt-2 px-4 py-2">
                 {message.tool_calls.map((toolCall, idx) => (
                   <FunctionDisplay key={idx} toolCall={toolCall} />
                 ))}
               </div>
             )}
-
-            {/* ✅ TIMESTAMP ESTILO WHATSAPP - CANTO INFERIOR DIREITO */}
-            <div className="flex items-center justify-end gap-1 mt-1">
-              <span className={cn(
-                "text-[10px]",
-                isOwn ? "text-white/70" : "text-slate-500"
-              )}>
-                {formatarHorario(message.sent_at || message.created_date)}
-              </span>
-
-              {isOwn && (
-                <>
-                  {message.status === 'enviando' && (
-                    <Loader2 className="w-3 h-3 text-white/70 animate-spin" />
-                  )}
-
-                  {message.status === 'enviada' && (
-                    <Check className="w-3.5 h-3.5 text-white/70" />
-                  )}
-
-                  {message.status === 'entregue' && (
-                    <CheckCheck className="w-3.5 h-3.5 text-white/70" />
-                  )}
-
-                  {message.status === 'lida' && (
-                    <CheckCheck className="w-3.5 h-3.5 text-blue-300" />
-                  )}
-
-                  {message.status === 'falhou' && (
-                    <AlertCircle className="w-3.5 h-3.5 text-red-300" />
-                  )}
-                </>
-              )}
-            </div>
           </div>
         </div>
       </div>
