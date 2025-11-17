@@ -1,3 +1,4 @@
+
 import React, { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -17,7 +18,10 @@ import {
   CheckSquare,
   Camera,
   Sparkles,
-  UserPlus
+  UserPlus,
+  Image as ImageIcon,
+  FileText,
+  Video
 } from "lucide-react";
 import MessageBubble from "./MessageBubble";
 import { base44 } from "@/api/base44Client";
@@ -72,6 +76,11 @@ export default function ChatWindow({
 
   const [mostrarSugestor, setMostrarSugestor] = useState(false);
   const [ultimaMensagemCliente, setUltimaMensagemCliente] = useState(null);
+
+  const [arquivoSelecionado, setArquivoSelecionado] = useState(null);
+  const [legendaArquivo, setLegendaArquivo] = useState("");
+  const [mostrarPreviewArquivo, setMostrarPreviewArquivo] = useState(false);
+  const fileInputRef = useRef(null);
 
   const messagesEndRef = useRef(null);
   const inputRef = useRef(null);
@@ -379,7 +388,7 @@ export default function ChatWindow({
       return;
     }
 
-    if (enviando || gravandoAudio || uploadingPastedFile) {
+    if (enviando || gravandoAudio || uploadingPastedFile || mostrarPreviewArquivo) {
       return;
     }
 
@@ -601,9 +610,161 @@ export default function ChatWindow({
     }
   };
 
+  const handleSelecionarArquivo = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const maxSize = 16 * 1024 * 1024;
+    if (file.size > maxSize) {
+      toast.error('❌ Arquivo muito grande. Limite: 16MB.');
+      if (fileInputRef.current) fileInputRef.current.value = '';
+      return;
+    }
+
+    const isImage = file.type.startsWith('image/');
+    const isVideo = file.type.startsWith('video/');
+    const isAudio = file.type.startsWith('audio/');
+    const isDocument = file.type.startsWith('application/') || file.type.startsWith('text/');
+
+    if (!isImage && !isVideo && !isAudio && !isDocument) {
+      toast.error('❌ Tipo de arquivo não suportado.');
+      if (fileInputRef.current) fileInputRef.current.value = '';
+      return;
+    }
+
+    setArquivoSelecionado(file);
+    setLegendaArquivo("");
+    setMostrarPreviewArquivo(true);
+  };
+
+  const handleEnviarArquivo = async () => {
+    if (!podeEnviarMidias) {
+      toast.error("❌ Você não tem permissão para enviar mídias");
+      return;
+    }
+
+    if (!arquivoSelecionado || !thread || !usuario || carregandoContato) {
+      toast.error("Dados da conversa, contato ou arquivo não disponíveis para enviar.");
+      return;
+    }
+
+    if (!contatoCompleto) {
+      toast.error('Contato não carregado. Por favor, recarregue a página.');
+      return;
+    }
+
+    const telefone = contatoCompleto.telefone || contatoCompleto.celular;
+    if (!telefone) {
+      toast.error('Este contato não possui telefone cadastrado para enviar arquivos.');
+      return;
+    }
+
+    setEnviando(true);
+
+    try {
+      let mediaType = 'document';
+      let contentText = `[Documento: ${arquivoSelecionado.name}]`;
+
+      if (arquivoSelecionado.type.startsWith('image/')) {
+        mediaType = 'image';
+        contentText = legendaArquivo || '[Imagem]';
+      } else if (arquivoSelecionado.type.startsWith('video/')) {
+        mediaType = 'video';
+        contentText = legendaArquivo || '[Vídeo]';
+      } else if (arquivoSelecionado.type.startsWith('audio/')) {
+        mediaType = 'audio';
+        contentText = '[Áudio]';
+      }
+
+      toast.info(`📤 Enviando ${mediaType === 'image' ? 'imagem' : mediaType === 'video' ? 'vídeo' : mediaType === 'audio' ? 'áudio' : 'documento'}...`, { duration: 999999 });
+
+      const uploadResponse = await base44.integrations.Core.UploadFile({
+        file: arquivoSelecionado
+      });
+
+      const fileUrl = uploadResponse.file_url;
+
+      const dadosEnvio = {
+        integration_id: thread.whatsapp_integration_id,
+        numero_destino: telefone,
+        media_url: fileUrl,
+        media_type: mediaType,
+        mensagem: legendaArquivo || ''
+      };
+
+      if (mensagemResposta?.whatsapp_message_id) {
+        dadosEnvio.reply_to_message_id = mensagemResposta.whatsapp_message_id;
+      }
+
+      const resultado = await base44.functions.invoke('enviarWhatsApp', dadosEnvio);
+
+      toast.dismiss();
+
+      if (resultado.data.success) {
+        await base44.entities.Message.create({
+          thread_id: thread.id,
+          sender_id: usuario.id,
+          sender_type: "user",
+          recipient_id: thread.contact_id,
+          recipient_type: "contact",
+          content: contentText,
+          channel: "whatsapp",
+          status: "enviada",
+          whatsapp_message_id: resultado.data.message_id,
+          sent_at: new Date().toISOString(),
+          media_url: fileUrl,
+          media_type: mediaType,
+          media_caption: legendaArquivo || null,
+          reply_to_message_id: mensagemResposta?.id || null
+        });
+
+        await base44.entities.MessageThread.update(thread.id, {
+          last_message_content: contentText,
+          last_message_at: new Date().toISOString(),
+          last_message_sender: "user"
+        });
+
+        toast.success(`✅ ${mediaType === 'image' ? 'Imagem' : mediaType === 'video' ? 'Vídeo' : mediaType === 'audio' ? 'Áudio' : 'Documento'} enviado com sucesso!`);
+
+        setArquivoSelecionado(null);
+        setLegendaArquivo("");
+        setMostrarPreviewArquivo(false);
+        setMensagemResposta(null);
+        setMostrarSugestor(false);
+
+        if (fileInputRef.current) {
+          fileInputRef.current.value = '';
+        }
+
+        if (onAtualizarMensagens) {
+          setTimeout(async () => {
+            const novasMensagens = await base44.entities.Message.filter(
+              { thread_id: thread.id },
+              'created_date',
+              500
+            );
+            onAtualizarMensagens(novasMensagens);
+          }, 500);
+        }
+      } else {
+        throw new Error(resultado.data.error || 'Erro desconhecido ao enviar mídia pelo WhatsApp');
+      }
+
+    } catch (error) {
+      console.error('[CHAT] ❌ Erro ao enviar arquivo:', error);
+      toast.dismiss();
+
+      const mensagemErro = error.message || 'Erro ao enviar arquivo';
+      setErro(mensagemErro);
+      toast.error(mensagemErro);
+    } finally {
+      setEnviando(false);
+    }
+  };
+
   useEffect(() => {
     const handlePaste = async (e) => {
-      if (!podeEnviarMidias || enviando || gravandoAudio || modoSelecao || uploadingPastedFile) {
+      if (!podeEnviarMidias || enviando || gravandoAudio || modoSelecao || uploadingPastedFile || mostrarPreviewArquivo) {
         return;
       }
 
@@ -644,7 +805,7 @@ export default function ChatWindow({
     return () => {
       document.removeEventListener('paste', handlePaste);
     };
-  }, [podeEnviarMidias, enviando, gravandoAudio, modoSelecao, uploadingPastedFile, thread, usuario, contatoCompleto, mensagemResposta, onAtualizarMensagens]);
+  }, [podeEnviarMidias, enviando, gravandoAudio, modoSelecao, uploadingPastedFile, mostrarPreviewArquivo, thread, usuario, contatoCompleto, mensagemResposta, onAtualizarMensagens]);
 
 
   const handleEnviarArquivoColado = async (file) => {
@@ -1048,7 +1209,7 @@ ${conteudoMensagem}
             variant="outline"
             size="sm"
             onClick={handlePrintChat}
-            disabled={capturandoTela || modoSelecao || enviando || gravandoAudio || uploadingPastedFile}
+            disabled={capturandoTela || modoSelecao || enviando || gravandoAudio || uploadingPastedFile || mostrarPreviewArquivo}
             className="gap-2"
             title="Capturar conversa como imagem"
           >
@@ -1066,7 +1227,7 @@ ${conteudoMensagem}
               size="sm"
               onClick={ativarModoSelecao}
               className="gap-2"
-              disabled={enviando || gravandoAudio || uploadingPastedFile || !podeApagarMensagens}
+              disabled={enviando || gravandoAudio || uploadingPastedFile || mostrarPreviewArquivo || !podeApagarMensagens}
               title={!podeApagarMensagens ? "Sem permissão para apagar mensagens" : "Selecionar"}
             >
               <CheckSquare className="w-4 h-4" />
@@ -1081,7 +1242,7 @@ ${conteudoMensagem}
                 variant="destructive"
                 size="sm"
                 onClick={apagarMensagensSelecionadas}
-                disabled={enviando || uploadingPastedFile || mensagensSelecionadas.length === 0}
+                disabled={enviando || uploadingPastedFile || mensagensSelecionadas.length === 0 || mostrarPreviewArquivo}
                 className="gap-2"
               >
                 {enviando ? (
@@ -1110,7 +1271,7 @@ ${conteudoMensagem}
                   variant="outline"
                   size="sm"
                   className="gap-2"
-                  disabled={modoSelecao || enviando || gravandoAudio || uploadingPastedFile || !podeTransferirConversas}
+                  disabled={modoSelecao || enviando || gravandoAudio || uploadingPastedFile || mostrarPreviewArquivo || !podeTransferirConversas}
                   title={!podeTransferirConversas ? "Sem permissão para transferir conversas" : (thread.assigned_user_id ? 'Transferir conversa' : 'Atribuir conversa')}
                 >
                   <Users className="w-4 h-4" />
@@ -1133,7 +1294,7 @@ ${conteudoMensagem}
             size="icon"
             onClick={onShowContactInfo}
             className="hover:bg-slate-100"
-            disabled={modoSelecao || enviando || gravandoAudio || uploadingPastedFile}
+            disabled={modoSelecao || enviando || gravandoAudio || uploadingPastedFile || mostrarPreviewArquivo}
           >
             <Info className="w-5 h-5 text-slate-600" />
           </Button>
@@ -1227,12 +1388,21 @@ ${conteudoMensagem}
 
       <form onSubmit={handleEnviar} className="p-4 border-t bg-white flex-shrink-0">
         <div className="flex items-end gap-2">
+          <input
+            ref={fileInputRef}
+            type="file"
+            className="hidden"
+            accept="image/*,video/*,audio/*,.pdf,.doc,.docx,.xls,.xlsx,.txt"
+            onChange={handleSelecionarArquivo}
+          />
+          
           <Button
             type="button"
             variant="ghost"
             size="icon"
             className="flex-shrink-0"
-            disabled={enviando || carregandoContato || gravandoAudio || modoSelecao || uploadingPastedFile || !podeEnviarMidias}
+            disabled={enviando || carregandoContato || gravandoAudio || modoSelecao || uploadingPastedFile || mostrarPreviewArquivo || !podeEnviarMidias}
+            onClick={() => fileInputRef.current?.click()}
             title={!podeEnviarMidias ? "Sem permissão para enviar mídias" : "Anexar arquivo"}
           >
             <Paperclip className="w-5 h-5 text-slate-600" />
@@ -1243,7 +1413,7 @@ ${conteudoMensagem}
             variant={gravandoAudio ? "destructive" : "ghost"}
             size="icon"
             className="flex-shrink-0"
-            disabled={enviando || carregandoContato || modoSelecao || uploadingPastedFile || !podeEnviarAudios}
+            disabled={enviando || carregandoContato || modoSelecao || uploadingPastedFile || mostrarPreviewArquivo || !podeEnviarAudios}
             onClick={gravandoAudio ? pararGravacaoAudio : iniciarGravacaoAudio}
             title={!podeEnviarAudios ? "Sem permissão para enviar áudios" : (gravandoAudio ? "Parar gravação" : "Gravar áudio")}
           >
@@ -1262,7 +1432,7 @@ ${conteudoMensagem}
               size="icon"
               className="flex-shrink-0 text-purple-600 hover:bg-purple-50"
               title="Sugestões de IA"
-              disabled={enviando || carregandoContato || gravandoAudio || modoSelecao || uploadingPastedFile}
+              disabled={enviando || carregandoContato || gravandoAudio || modoSelecao || uploadingPastedFile || mostrarPreviewArquivo}
             >
               <Sparkles className="w-5 h-5" />
             </Button>
@@ -1277,13 +1447,13 @@ ${conteudoMensagem}
               placeholder={!podeEnviarMensagens ? "Sem permissão para enviar mensagens" : "Digite sua mensagem..."}
               rows={Math.max(1, Math.min(5, mensagemTexto.split('\n').length))}
               className="w-full p-3 border border-slate-300 rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-orange-500"
-              disabled={enviando || carregandoContato || gravandoAudio || modoSelecao || uploadingPastedFile || !podeEnviarMensagens}
+              disabled={enviando || carregandoContato || gravandoAudio || modoSelecao || uploadingPastedFile || mostrarPreviewArquivo || !podeEnviarMensagens}
             />
           </div>
           
           <Button
             type="submit"
-            disabled={!mensagemTexto.trim() || enviando || carregandoContato || gravandoAudio || modoSelecao || uploadingPastedFile || !podeEnviarMensagens}
+            disabled={!mensagemTexto.trim() || enviando || carregandoContato || gravandoAudio || modoSelecao || uploadingPastedFile || mostrarPreviewArquivo || !podeEnviarMensagens}
             className="bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white flex-shrink-0"
             title={!podeEnviarMensagens ? "Sem permissão para enviar mensagens" : "Enviar mensagem"}
           >
@@ -1310,6 +1480,133 @@ ${conteudoMensagem}
           </div>
         )}
       </form>
+
+      {/* MODAL DE PREVIEW E ENVIO DE ARQUIVO - ESTILO WHATSAPP */}
+      <Dialog open={mostrarPreviewArquivo} onOpenChange={setMostrarPreviewArquivo}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              {arquivoSelecionado?.type.startsWith('image/') && <ImageIcon className="w-5 h-5 text-green-600" />}
+              {arquivoSelecionado?.type.startsWith('video/') && <Video className="w-5 h-5 text-blue-600" />}
+              {arquivoSelecionado?.type.startsWith('audio/') && <Mic className="w-5 h-5 text-purple-600" />}
+              {(!arquivoSelecionado?.type.startsWith('image/') && !arquivoSelecionado?.type.startsWith('video/') && !arquivoSelecionado?.type.startsWith('audio/')) && (
+                <FileText className="w-5 h-5 text-orange-600" />
+              )}
+              Enviar Arquivo
+            </DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            {/* Preview do arquivo */}
+            <div className="bg-slate-50 rounded-xl p-4 flex items-center justify-center min-h-[200px] max-h-[400px] overflow-hidden">
+              {arquivoSelecionado?.type.startsWith('image/') && (
+                <img
+                  src={URL.createObjectURL(arquivoSelecionado)}
+                  alt="Preview"
+                  className="max-w-full max-h-[380px] object-contain rounded-lg"
+                />
+              )}
+              
+              {arquivoSelecionado?.type.startsWith('video/') && (
+                <video
+                  src={URL.createObjectURL(arquivoSelecionado)}
+                  controls
+                  className="max-w-full max-h-[380px] rounded-lg"
+                />
+              )}
+              
+              {arquivoSelecionado?.type.startsWith('audio/') && (
+                <div className="w-full max-w-md bg-white rounded-xl p-6 shadow-lg">
+                  <div className="flex items-center gap-3 mb-4">
+                    <div className="w-12 h-12 bg-purple-500 rounded-full flex items-center justify-center">
+                      <Mic className="w-6 h-6 text-white" />
+                    </div>
+                    <div>
+                      <p className="font-semibold text-slate-900">{arquivoSelecionado.name}</p>
+                      <p className="text-xs text-slate-500">
+                        {(arquivoSelecionado.size / 1024).toFixed(1)} KB
+                      </p>
+                    </div>
+                  </div>
+                  <audio
+                    src={URL.createObjectURL(arquivoSelecionado)}
+                    controls
+                    className="w-full"
+                  />
+                </div>
+              )}
+              
+              {(!arquivoSelecionado?.type.startsWith('image/') && 
+                !arquivoSelecionado?.type.startsWith('video/') && 
+                !arquivoSelecionado?.type.startsWith('audio/')) && (
+                <div className="w-full max-w-md bg-white rounded-xl p-6 shadow-lg">
+                  <div className="flex items-center gap-3">
+                    <div className="w-16 h-16 bg-orange-100 rounded-xl flex items-center justify-center">
+                      <FileText className="w-8 h-8 text-orange-600" />
+                    </div>
+                    <div className="flex-1">
+                      <p className="font-semibold text-slate-900">{arquivoSelecionado?.name}</p>
+                      <p className="text-xs text-slate-500 mt-1">
+                        {(arquivoSelecionado?.size / 1024).toFixed(1)} KB
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Legenda (apenas para imagens e vídeos) */}
+            {(arquivoSelecionado?.type.startsWith('image/') || arquivoSelecionado?.type.startsWith('video/')) && (
+              <div>
+                <textarea
+                  value={legendaArquivo}
+                  onChange={(e) => setLegendaArquivo(e.target.value)}
+                  placeholder="Adicionar legenda (opcional)..."
+                  rows={2}
+                  className="w-full p-3 border border-slate-300 rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-green-500"
+                  disabled={enviando}
+                />
+              </div>
+            )}
+
+            {/* Botões de ação */}
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setMostrarPreviewArquivo(false);
+                  setArquivoSelecionado(null);
+                  setLegendaArquivo("");
+                  if (fileInputRef.current) {
+                    fileInputRef.current.value = '';
+                  }
+                }}
+                className="flex-1"
+                disabled={enviando}
+              >
+                Cancelar
+              </Button>
+              <Button
+                onClick={handleEnviarArquivo}
+                disabled={enviando}
+                className="flex-1 bg-green-600 hover:bg-green-700"
+              >
+                {enviando ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Enviando...
+                  </>
+                ) : (
+                  <>
+                    <Send className="w-4 h-4 mr-2" />
+                    Enviar
+                  </>
+                )}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* MODAL DE ATRIBUIÇÃO */}
       <Dialog open={mostrarModalAtribuicao} onOpenChange={setMostrarModalAtribuicao}>
@@ -1354,7 +1651,7 @@ ${conteudoMensagem}
                         <p className="text-xs text-slate-500">{atendente.email}</p>
                       </div>
                       {thread?.assigned_user_id === atendente.id && (
-                        <CheckCircle className="w-5 h-5 text-green-600" />
+                        <CheckSquare className="w-5 h-5 text-green-600" />
                       )}
                     </div>
                   </Button>
