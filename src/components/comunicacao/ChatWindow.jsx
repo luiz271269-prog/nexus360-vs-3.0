@@ -1,6 +1,6 @@
-
 import React, { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import {
@@ -12,6 +12,7 @@ import {
   AlertCircle,
   Clock,
   FileText,
+  CheckCircle,
   UserPlus,
   Users,
   Mic,
@@ -27,8 +28,13 @@ import { base44 } from "@/api/base44Client";
 import { toast } from "sonner";
 import { isJanelaAtiva, formatarTempoRestante } from "@/components/lib/complianceUtils";
 import html2canvas from "html2canvas";
-
-
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription
+} from "@/components/ui/dialog";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -37,6 +43,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { Label } from "@/components/ui/label";
 import SugestorRespostasRapidas from './SugestorRespostasRapidas';
 import { useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
@@ -60,7 +67,7 @@ export default function ChatWindow({
   const [mostrarModalVariaveis, setMostrarModalVariaveis] = useState(false);
   const [contatoCompleto, setContatoCompleto] = useState(null);
   const [carregandoContato, setCarregandoContato] = useState(true);
-  const contatoLoadedRef = useRef(new Set()); // Cache de contatos já carregados
+  const contatoLoadedRef = useRef(new Set());
   const [mostrarModalAtribuicao, setMostrarModalAtribuicao] = useState(false);
   const [atendentes, setAtendentes] = useState([]);
   const [carregandoAtendentes, setCarregandoAtendentes] = useState(false);
@@ -94,7 +101,6 @@ export default function ChatWindow({
 
   const navigate = useNavigate();
 
-  // 🔍 LOG: Monitora mudanças em thread e contatoCompleto
   useEffect(() => {
     console.log('🟡 [ChatWindow] Render/Update - Props:', {
       thread_id: thread?.id,
@@ -124,7 +130,6 @@ export default function ChatWindow({
       } catch (error) {
         console.error('❌ [ChatWindow] Erro ao carregar contato:', error);
         
-        // TRATAMENTO DE RATE LIMIT
         if (error.message?.includes('Rate limit') || error.message?.includes('429')) {
           toast.warning('⏳ Muitas requisições. Aguarde alguns segundos...', { duration: 5000 });
         } else {
@@ -244,34 +249,13 @@ export default function ChatWindow({
     }
   };
 
-  // The 'janelaAtiva' variable is needed inside this effect, so it must be declared before.
-  // The original code had it declared after `if (!thread)` which meant it might not exist
-  // when this effect runs. This is handled by moving the declaration to a safe point
-  // AFTER thread is guaranteed to exist.
-
-  // Moved declaration of 'janelaAtiva' and 'tempoRestante' below to ensure 'thread' is defined.
-  // This useEffect (carregarTemplates) does not depend on 'janelaAtiva' directly for its logic,
-  // but the condition check `!janelaAtiva` would fail if `janelaAtiva` was not defined.
-  // The error description referred to 'janelaAtiva' initialization, so ensuring it's always
-  // calculated from a valid 'thread' is key.
-
-  // We keep this useEffect here, but `janelaAtiva` is now a derived variable that will be
-  // correctly scoped and defined when needed.
-
   useEffect(() => {
-    // We can assume thread is defined here if the component is rendered,
-    // but the `janelaAtiva` variable itself should be declared later
-    // to avoid early access before `thread` is properly checked.
-    // This `useEffect` is now correctly checking for `mostrarSeletorTemplate`
-    // and `carregandoTemplates` along with its internal logic.
-    // The `janelaAtiva` check here should be `isJanelaAtiva(thread)` if needed directly.
     if (mostrarSeletorTemplate && !carregandoTemplates && templates.length === 0) {
-      // Re-evaluate `janelaAtiva` here for consistency if needed, but not strictly for carregarTemplates
-      if (!isJanelaAtiva(thread)) { // Using the complianceUtils directly
+      if (!isJanelaAtiva(thread)) {
         carregarTemplates();
       }
     }
-  }, [thread, mostrarSeletorTemplate]); // Added thread to dependencies
+  }, [thread, mostrarSeletorTemplate]);
 
   const carregarTemplates = async () => {
     setCarregandoTemplates(true);
@@ -474,7 +458,6 @@ export default function ChatWindow({
       return;
     }
 
-    // Ensure `janelaAtiva` is computed here for the current `thread` state
     const currentJanelaAtiva = isJanelaAtiva(thread);
 
     if (!currentJanelaAtiva) {
@@ -555,7 +538,7 @@ export default function ChatWindow({
 
         setMensagemTexto("");
         setMensagemResposta(null);
-        setMostrarSugestor(false); // Hide suggestions after sending a message
+        setMostrarSugestor(false);
 
         if (onAtualizarMensagens) {
           setTimeout(async () => {
@@ -676,7 +659,7 @@ export default function ChatWindow({
         });
 
         setMensagemResposta(null);
-        setMostrarSugestor(false); // Hide suggestions after sending a message
+        setMostrarSugestor(false);
 
         if (onAtualizarMensagens) {
           const novasMensagens = await base44.entities.Message.filter(
@@ -714,7 +697,7 @@ export default function ChatWindow({
     setMensagemResposta(mensagem);
     setModoSelecao(false);
     setMensagensSelecionadas([]);
-    setMostrarSugestor(false); // Hide suggestions when replying
+    setMostrarSugestor(false);
 
     setTimeout(() => {
       if (inputRef.current) {
@@ -732,7 +715,7 @@ export default function ChatWindow({
     setModoSelecao(true);
     setMensagensSelecionadas([]);
     setMensagemResposta(null);
-    setMostrarSugestor(false); // Hide suggestions when in selection mode
+    setMostrarSugestor(false);
   };
 
   const cancelarModoSelecao = () => {
@@ -969,7 +952,7 @@ export default function ChatWindow({
         toast.success(`✅ ${mediaType === 'image' ? 'Imagem' : mediaType === 'video' ? 'Vídeo' : mediaType === 'audio' ? 'Áudio' : 'Documento'} enviado com sucesso!`);
 
         setMensagemResposta(null);
-        setMostrarSugestor(false); // Hide suggestions after sending a message
+        setMostrarSugestor(false);
 
         if (onAtualizarMensagens) {
           setTimeout(async () => {
@@ -1132,13 +1115,10 @@ export default function ChatWindow({
   useEffect(() => {
     if (mensagens && mensagens.length > 0) {
       const ultimaMensagem = mensagens[mensagens.length - 1];
-      // Ensure `janelaAtiva` is derived from the current thread state
       const currentJanelaAtiva = isJanelaAtiva(thread);
 
       if (ultimaMensagem.sender_type === 'contact' && ultimaMensagem.content) {
         setUltimaMensagemCliente(ultimaMensagem.content);
-        // Do not automatically show suggestions, let the button control it.
-        // setMostrarSugestor(currentJanelaAtiva && ultimaMensagem.content.length > 10);
       } else {
         setUltimaMensagemCliente(null);
         setMostrarSugestor(false);
@@ -1147,7 +1127,7 @@ export default function ChatWindow({
       setUltimaMensagemCliente(null);
       setMostrarSugestor(false);
     }
-  }, [mensagens, thread]); // Added thread to dependencies to re-evaluate `janelaAtiva`
+  }, [mensagens, thread]);
 
   useEffect(() => {
     if (erro) {
@@ -1156,7 +1136,6 @@ export default function ChatWindow({
     }
   }, [erro]);
 
-  // 🎯 FASE 3: EXPANDIR COLETA DE DADOS PARA PRÉ-PREENCHER TODOS OS CAMPOS
   useEffect(() => {
     window.handleCriarOportunidadeDeChat = (mensagem, threadData) => {
       if (!contatoCompleto) {
@@ -1164,7 +1143,6 @@ export default function ChatWindow({
         return;
       }
 
-      // Preparar conteúdo baseado no tipo de mensagem
       let conteudoMensagem = '';
       
       if (mensagem.content) {
@@ -1189,25 +1167,21 @@ export default function ChatWindow({
         ? (usuario?.full_name || 'Atendente') 
         : (contatoCompleto?.nome || 'Cliente');
 
-      // 🆕 COLETAR TODOS OS DADOS DISPONÍVEIS DO CONTATO
       const queryParams = new URLSearchParams({
         origem: 'chat',
-        thread_id: threadData.id, // Para FASE 5
-        message_id: mensagem.id, // 🆕 ADICIONAR ID DA MENSAGEM PARA DESTACAR
+        thread_id: threadData.id,
+        message_id: mensagem.id,
         
-        // Dados do Cliente (máximo de informações)
         cliente_nome: contatoCompleto.nome || '',
         cliente_telefone: contatoCompleto.telefone || '',
-        cliente_celular: contatoCompleto.celular || contatoCompleto.telefone || '', // Fallback para telefone se não tiver celular
+        cliente_celular: contatoCompleto.celular || contatoCompleto.telefone || '',
         cliente_email: contatoCompleto.email || '',
         cliente_empresa: contatoCompleto.empresa || '',
         
-        // Dados do Orçamento
         vendedor: usuario?.full_name || usuario?.email || '',
         data_orcamento: new Date().toISOString().slice(0, 10),
         status: 'enviado',
         
-        // Observações com contexto completo
         observacoes: `[Oportunidade criada a partir do Chat WhatsApp - ${new Date().toLocaleString('pt-BR')}]
 
 📱 Thread ID: ${threadData.id}
@@ -1225,7 +1199,6 @@ ${conteudoMensagem}
 
       console.log('[FASE 3] Navegando para OrcamentoDetalhes com dados:', Object.fromEntries(queryParams));
 
-      // Navegar para a página de novo orçamento com dados pré-preenchidos
       navigate(createPageUrl('OrcamentoDetalhes') + '?' + queryParams.toString());
       
       toast.success('🎯 Oportunidade criada! Preencha os detalhes do orçamento.', { duration: 3000 });
@@ -1236,7 +1209,6 @@ ${conteudoMensagem}
     };
   }, [contatoCompleto, usuario, navigate]);
 
-  // Validação inicial - retorna antes de qualquer declaração de variável que dependa de thread
   if (!thread) {
     console.log('⚠️ [ChatWindow] Thread é null/undefined');
     return (
@@ -1262,11 +1234,9 @@ ${conteudoMensagem}
     );
   }
 
-  // ✅ AGORA é seguro declarar variáveis que dependam de thread
   const nomeContato = contatoCompleto?.nome || thread?.contato?.nome || contatoCompleto?.telefone || thread?.contato?.telefone || 'Contato';
   const telefoneExibicao = contatoCompleto?.telefone || thread?.contato?.telefone || contatoCompleto?.celular || thread?.contato?.celular || 'Sem telefone';
 
-  // Declarations moved here to ensure 'thread' is always defined
   const janelaAtiva = isJanelaAtiva(thread);
   const tempoRestante = formatarTempoRestante(thread);
 
@@ -1430,17 +1400,6 @@ ${conteudoMensagem}
         </div>
       </div>
 
-      {!janelaAtiva && (
-        <div className="px-4 py-2 bg-amber-50 border-b border-amber-200 flex-shrink-0">
-          <Alert className="bg-transparent border-0 p-0">
-            <AlertCircle className="h-4 w-4 text-amber-600" />
-            <AlertDescription className="text-sm text-amber-800 ml-2">
-              ⏰ A janela de 24h expirou. Você precisa usar um <strong>template aprovado</strong> pela Meta para enviar mensagens.
-            </AlertDescription>
-          </Alert>
-        </div>
-      )}
-
       {mensagemResposta && (
         <div className="px-4 py-2 bg-blue-50 border-b border-blue-200 flex-shrink-0">
           <div className="flex items-start justify-between gap-2">
@@ -1561,7 +1520,6 @@ ${conteudoMensagem}
             )}
           </Button>
 
-          {/* BOTÃO COMPACTO QUADRADO DE SUGESTÕES - AO LADO DOS OUTROS */}
           {ultimaMensagemCliente && janelaAtiva && podeEnviarMensagens && !mostrarSugestor && (
             <Button
               type="button"
@@ -1611,7 +1569,6 @@ ${conteudoMensagem}
           </Button>
         </div>
 
-        {/* PAINEL DE SUGESTÕES EXPANDIDO - ABAIXO DO INPUT */}
         {mostrarSugestor && (
           <div className="mt-2 border border-purple-200 rounded-lg bg-purple-50/50 p-3">
             <SugestorRespostasRapidas
@@ -1627,8 +1584,6 @@ ${conteudoMensagem}
           </div>
         )}
       </form>
-
-      {/* DIALOGS E MODAIS CONTINUAM AQUI... */}
     </div>
   );
 }
