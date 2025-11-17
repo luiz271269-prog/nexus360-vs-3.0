@@ -231,7 +231,7 @@ export default function OrcamentoDetalhes() {
     } finally {
       setLoading(false);
     }
-  }, [orcamentoId, carrinhoData, modoOperacao, location.state]);
+  }, [orcamentoId, carrinhoData, modoOperacao, location.state, urlParams]);
 
   useEffect(() => {
     loadData();
@@ -748,7 +748,7 @@ RETORNE o JSON estruturado conforme o schema.`;
       <div className="max-w-7xl mx-auto px-4 py-4 space-y-4">
         
         {/* ZONAS DE IMPORTAÇÃO COM IA */}
-        {modoOperacao === 'novo' && (
+        {(modoOperacao === 'novo' || modoOperacao === 'chat') && (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             {/* IMPORTAÇÃO COMPLETA */}
             <div
@@ -825,7 +825,7 @@ RETORNE o JSON estruturado conforme o schema.`;
         )}
 
         {/* ALERTA DE PASTE */}
-        {modoOperacao === 'novo' && (
+        {(modoOperacao === 'novo' || modoOperacao === 'chat') && (
           <Card className="bg-gradient-to-r from-indigo-900/20 to-purple-900/20 border border-indigo-500/50">
             <CardContent className="p-2">
               <div className="flex items-center gap-2">
