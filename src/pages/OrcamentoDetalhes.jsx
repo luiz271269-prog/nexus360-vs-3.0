@@ -749,26 +749,26 @@ RETORNE o JSON estruturado conforme o schema.`;
         
         {/* ZONAS DE IMPORTAÇÃO COM IA */}
         {modoOperacao === 'novo' && (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             {/* IMPORTAÇÃO COMPLETA */}
             <div
               onDrop={(e) => handleDrop(e, 'completo')}
               onDragOver={(e) => handleDragOver(e, 'completo')}
               onDragLeave={handleDragLeave}
-              className={`relative border-2 border-dashed rounded-xl p-6 transition-all ${
+              className={`relative border-2 border-dashed rounded-lg p-2 transition-all cursor-pointer ${
                 dragOver === 'completo'
-                  ? 'border-amber-400 bg-amber-500/10 scale-105'
-                  : 'border-amber-500/50 bg-gradient-to-br from-amber-900/10 to-orange-900/10'
+                  ? 'border-amber-400 bg-amber-500/10'
+                  : 'border-amber-500/50 bg-gradient-to-br from-amber-900/10 to-orange-900/10 hover:border-amber-400'
               }`}
             >
-              <div className="flex flex-col items-center gap-4">
-                <div className="w-16 h-16 bg-gradient-to-br from-amber-500 to-orange-600 rounded-2xl flex items-center justify-center shadow-lg">
-                  <ImageIcon className="w-8 h-8 text-white" />
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 bg-gradient-to-br from-amber-500 to-orange-600 rounded-lg flex items-center justify-center flex-shrink-0">
+                  <ImageIcon className="w-4 h-4 text-white" />
                 </div>
                 
-                <div className="text-center">
-                  <h3 className="text-lg font-bold text-white mb-1">Importar Orçamento Completo</h3>
-                  <p className="text-sm text-slate-400 mb-4">IA extrai cliente, vendedor e todos os itens</p>
+                <div className="flex-1">
+                  <h3 className="text-xs font-bold text-white">Importar Orçamento Completo</h3>
+                  <p className="text-[10px] text-slate-400">IA extrai cliente, vendedor e itens</p>
                 </div>
 
                 <input
@@ -778,16 +778,11 @@ RETORNE o JSON estruturado conforme o schema.`;
                   className="hidden"
                   id="upload-completo"
                 />
-                <label htmlFor="upload-completo" className="w-full">
-                  <Button type="button" className="w-full bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600">
-                    <Upload className="w-4 h-4 mr-2" />
-                    Selecionar Imagem
+                <label htmlFor="upload-completo">
+                  <Button type="button" size="sm" className="bg-amber-500 hover:bg-amber-600 h-7 px-2">
+                    <Sparkles className="w-3 h-3" />
                   </Button>
                 </label>
-
-                <p className="text-xs text-slate-500 text-center">
-                  Arraste uma imagem aqui ou clique para selecionar
-                </p>
               </div>
             </div>
 
@@ -796,20 +791,20 @@ RETORNE o JSON estruturado conforme o schema.`;
               onDrop={(e) => handleDrop(e, 'itens')}
               onDragOver={(e) => handleDragOver(e, 'itens')}
               onDragLeave={handleDragLeave}
-              className={`relative border-2 border-dashed rounded-xl p-6 transition-all ${
+              className={`relative border-2 border-dashed rounded-lg p-2 transition-all cursor-pointer ${
                 dragOver === 'itens'
-                  ? 'border-purple-400 bg-purple-500/10 scale-105'
-                  : 'border-purple-500/50 bg-gradient-to-br from-purple-900/10 to-indigo-900/10'
+                  ? 'border-purple-400 bg-purple-500/10'
+                  : 'border-purple-500/50 bg-gradient-to-br from-purple-900/10 to-indigo-900/10 hover:border-purple-400'
               }`}
             >
-              <div className="flex flex-col items-center gap-4">
-                <div className="w-16 h-16 bg-gradient-to-br from-purple-500 to-indigo-600 rounded-2xl flex items-center justify-center shadow-lg">
-                  <ShoppingCart className="w-8 h-8 text-white" />
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 bg-gradient-to-br from-purple-500 to-indigo-600 rounded-lg flex items-center justify-center flex-shrink-0">
+                  <ShoppingCart className="w-4 h-4 text-white" />
                 </div>
                 
-                <div className="text-center">
-                  <h3 className="text-lg font-bold text-white mb-1">Importar Apenas Itens</h3>
-                  <p className="text-sm text-slate-400 mb-4">Adicione produtos com IA ao orçamento atual</p>
+                <div className="flex-1">
+                  <h3 className="text-xs font-bold text-white">Importar Apenas Itens</h3>
+                  <p className="text-[10px] text-slate-400">Adicione produtos com IA</p>
                 </div>
 
                 <input
@@ -819,16 +814,11 @@ RETORNE o JSON estruturado conforme o schema.`;
                   className="hidden"
                   id="upload-itens"
                 />
-                <label htmlFor="upload-itens" className="w-full">
-                  <Button type="button" className="w-full bg-gradient-to-r from-purple-500 to-indigo-500 hover:from-purple-600 hover:to-indigo-600">
-                    <Plus className="w-4 h-4 mr-2" />
-                    Selecionar Imagem
+                <label htmlFor="upload-itens">
+                  <Button type="button" size="sm" className="bg-purple-500 hover:bg-purple-600 h-7 px-2">
+                    <Plus className="w-3 h-3" />
                   </Button>
                 </label>
-
-                <p className="text-xs text-slate-500 text-center">
-                  Arraste uma imagem aqui ou clique para selecionar
-                </p>
               </div>
             </div>
           </div>
@@ -837,11 +827,11 @@ RETORNE o JSON estruturado conforme o schema.`;
         {/* ALERTA DE PASTE */}
         {modoOperacao === 'novo' && (
           <Card className="bg-gradient-to-r from-indigo-900/20 to-purple-900/20 border border-indigo-500/50">
-            <CardContent className="p-3">
-              <div className="flex items-center gap-3">
-                <Sparkles className="w-5 h-5 text-indigo-400 flex-shrink-0" />
-                <p className="text-sm text-slate-300">
-                  <strong className="text-white">💡 Dica:</strong> Cole uma imagem do orçamento (Ctrl+V) em qualquer lugar da página para extração automática!
+            <CardContent className="p-2">
+              <div className="flex items-center gap-2">
+                <Sparkles className="w-4 h-4 text-indigo-400 flex-shrink-0" />
+                <p className="text-xs text-slate-300">
+                  <strong className="text-white">💡 Dica:</strong> Cole uma imagem (Ctrl+V) para extração automática!
                 </p>
               </div>
             </CardContent>
