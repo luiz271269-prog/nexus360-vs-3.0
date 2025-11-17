@@ -1,5 +1,4 @@
 import React, { useState } from "react";
-import { base44 } from "@/api/base44Client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -14,6 +13,7 @@ import {
   FileText
 } from "lucide-react";
 import { toast } from "sonner";
+import { base44 } from "@/api/base44Client";
 
 // Importar módulos a serem testados
 import { MotorRAG } from "../inteligencia/MotorRAG";
@@ -45,8 +45,14 @@ export default function TestSuite() {
         const criado = await base44.entities.Cliente.create(clienteTeste);
         if (!criado.id) throw new Error("Cliente não criado");
         
-        const atualizado = await base44.entities.Cliente.update(criado.id, { status: "Ativo" });
-        if (atualizado.status !== "Ativo") {
+        const lido = await base44.entities.Cliente.filter({ id: criado.id });
+        if (!lido || lido.length === 0) {
+          throw new Error("Cliente lido incorretamente");
+        }
+        
+        await base44.entities.Cliente.update(criado.id, { status: "Ativo" });
+        const atualizado = await base44.entities.Cliente.filter({ id: criado.id });
+        if (atualizado[0].status !== "Ativo") {
           throw new Error("Cliente não atualizado");
         }
         
@@ -152,7 +158,7 @@ export default function TestSuite() {
       teste: async () => {
         const fluxoTeste = {
           nome: `Fluxo Teste ${Date.now()}`,
-          categoria: "teste",
+          categoria: "vendas",
           gatilhos: ["teste"],
           steps: [
             {
