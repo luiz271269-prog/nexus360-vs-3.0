@@ -1,30 +1,55 @@
-import { useState } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Plus,
   Search,
+  TrendingUp,
+  AlertCircle,
   Clock,
   CheckCircle,
   XCircle,
   FileText,
   BarChart3,
+  Zap,
+  Calendar,
   DollarSign,
-  Loader2
+  User,
+  ChevronRight,
+  RefreshCw,
+  Loader2,
+  Eye,
+  Edit,
+  Trash2,
+  Download,
+  Brain,
+  Sparkles
 } from "lucide-react";
 import { toast } from "sonner";
 import OrcamentoKanban from "../components/orcamentos/OrcamentoKanban";
 import OrcamentoTable from "../components/orcamentos/OrcamentoTable";
+import ImportacaoCompletaOrcamento from "../components/importacao/ImportacaoCompletaOrcamento";
 import { createPageUrl } from "@/utils";
 import { useNavigate } from "react-router-dom";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 export default function Orcamentos() {
   const [viewMode, setViewMode] = useState('kanban');
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState('all');
+  const [mostrarImportacao, setMostrarImportacao] = useState(false);
   const queryClient = useQueryClient();
   const navigate = useNavigate();
 
@@ -78,12 +103,18 @@ export default function Orcamentos() {
   };
 
   const handleEdit = (orcamento) => {
-    // Navega para a página de detalhes com o ID do orçamento
     navigate(createPageUrl(`OrcamentoDetalhes?id=${orcamento.id}`));
   };
 
   const handleView = (orcamento) => {
     navigate(createPageUrl(`OrcamentoDetalhes?id=${orcamento.id}`));
+  };
+
+  const handleImportacaoCompleta = (dadosImportados) => {
+    setMostrarImportacao(false);
+    navigate(createPageUrl(`OrcamentoDetalhes?importacao=true`), {
+      state: { dadosImportados }
+    });
   };
 
   return (
@@ -102,13 +133,29 @@ export default function Orcamentos() {
                 </div>
               </div>
               
-              <Button
-                onClick={() => navigate(createPageUrl("OrcamentoDetalhes"))}
-                className="bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white shadow-lg"
-              >
-                <Plus className="w-5 h-5 mr-2" />
-                Novo Orçamento
-              </Button>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button className="bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white shadow-lg">
+                    <Plus className="w-5 h-5 mr-2" />
+                    Novo Orçamento
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-64">
+                  <DropdownMenuLabel>Criar Novo Orçamento</DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={() => navigate(createPageUrl("OrcamentoDetalhes"))}>
+                    <Plus className="w-4 h-4 mr-2" />
+                    Orçamento em Branco
+                  </DropdownMenuItem>
+                  <DropdownMenuItem 
+                    onClick={() => setMostrarImportacao(true)}
+                    className="text-purple-600 focus:text-purple-700 focus:bg-purple-50"
+                  >
+                    <Sparkles className="w-4 h-4 mr-2" />
+                    Importar Proposta (IA)
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-5 gap-4 mt-6">
@@ -250,6 +297,13 @@ export default function Orcamentos() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Modal de Importação Inteligente */}
+      <ImportacaoCompletaOrcamento
+        isOpen={mostrarImportacao}
+        onClose={() => setMostrarImportacao(false)}
+        onConfirm={handleImportacaoCompleta}
+      />
     </div>
   );
 }
