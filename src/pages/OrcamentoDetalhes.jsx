@@ -10,15 +10,13 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
   ArrowLeft, Save, Plus, Trash2, Loader2, Sparkles, FileText, ShoppingCart, DollarSign,
-  User, Upload, Image as ImageIcon
+  User, Upload, Image as ImageIcon, CheckCircle, AlertTriangle
 } from 'lucide-react';
 import { toast } from "sonner";
 import { createPageUrl } from '@/utils';
 import StatusPipeline from '../components/orcamentos/StatusPipeline';
 import PlanosPagamento from '../components/orcamentos/PlanosPagamento';
 import ClienteCombobox from '../components/orcamentos/ClienteCombobox';
-import IntelligentImporter from '../components/importacao/IntelligentImporter';
-import ImportacaoCompletaOrcamento from '../components/importacao/ImportacaoCompletaOrcamento';
 
 export default function OrcamentoDetalhes() {
   const [orcamento, setOrcamento] = useState(null);
@@ -26,20 +24,18 @@ export default function OrcamentoDetalhes() {
   const [vendedores, setVendedores] = useState([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [showImporterItens, setShowImporterItens] = useState(false);
-  const [showImporterCompleto, setShowImporterCompleto] = useState(false);
+  const [processing, setProcessing] = useState(false);
+  const [dragOver, setDragOver] = useState(null);
 
   const location = useLocation();
   const navigate = useNavigate();
   
-  // DETECTAR MODO DE OPERAÇÃO
   const urlParams = new URLSearchParams(location.search);
   const orcamentoId = urlParams.get('id');
   const carrinhoData = urlParams.get('carrinho');
   const origemChat = urlParams.get('origem') === 'chat';
   const origemImportacao = urlParams.get('importacao') === 'true';
   
-  // Determinar modo: 'edicao', 'carrinho', 'chat', 'importacao', 'novo'
   const modoOperacao = orcamentoId ? 'edicao' 
     : carrinhoData ? 'carrinho' 
     : origemChat ? 'chat'
@@ -67,7 +63,6 @@ export default function OrcamentoDetalhes() {
       const vendedoresData = await base44.entities.Vendedor.list();
       setVendedores(Array.isArray(vendedoresData) ? vendedoresData : []);
 
-      // ========== MODO 1: EDIÇÃO (ID existente) ==========
       if (modoOperacao === 'edicao') {
         const [orcData, itensData] = await Promise.all([
           base44.entities.Orcamento.get(orcamentoId),
@@ -76,8 +71,6 @@ export default function OrcamentoDetalhes() {
         setOrcamento(orcData);
         setItens(Array.isArray(itensData) ? itensData : []);
       } 
-      
-      // ========== MODO 2: CARRINHO (Produtos) ==========
       else if (modoOperacao === 'carrinho') {
         try {
           const produtosCarrinho = JSON.parse(decodeURIComponent(carrinhoData));
@@ -120,8 +113,6 @@ export default function OrcamentoDetalhes() {
           toast.error("Erro ao carregar produtos do carrinho.");
         }
       } 
-      
-      // ========== MODO 3: CHAT (Criar Oportunidade) ==========
       else if (modoOperacao === 'chat') {
         const cliente_nome = urlParams.get('cliente_nome') || '';
         const cliente_telefone = urlParams.get('cliente_telefone') || '';
@@ -154,18 +145,14 @@ export default function OrcamentoDetalhes() {
         });
 
         setItens([]);
-        
         toast.success('🎯 Oportunidade criada! Adicione os itens do orçamento.', { duration: 5000 });
       }
-      
-      // ========== MODO 4: IMPORTAÇÃO (Via IA) ==========
       else if (modoOperacao === 'importacao') {
         const dadosImportados = location.state?.dadosImportados;
         
         if (dadosImportados) {
           const { dadosCabecalho, itens: importedItens } = dadosImportados;
           
-          // Preencher dados do orçamento
           const orcamentoInicial = {
             cliente_id: null,
             cliente_nome: dadosCabecalho?.cliente_nome || "",
@@ -181,7 +168,6 @@ export default function OrcamentoDetalhes() {
             observacoes: dadosCabecalho?.observacoes ? `[Importado via IA]\n\n${dadosCabecalho.observacoes}` : "[Importado via IA]"
           };
           
-          // Mapear itens importados
           const itensIniciais = Array.isArray(importedItens) ? importedItens.map((item, idx) => ({
             _tempId: `import-${Date.now()}-${idx}`,
             produto_id: null,
@@ -204,7 +190,6 @@ export default function OrcamentoDetalhes() {
           
           toast.success(`✅ Orçamento importado com ${itensIniciais.length} itens!`, { duration: 4000 });
         } else {
-          // Fallback se não houver dados
           setOrcamento({
             cliente_id: null,
             cliente_nome: "",
@@ -222,8 +207,6 @@ export default function OrcamentoDetalhes() {
           setItens([]);
         }
       }
-      
-      // ========== MODO 5: NOVO (Limpo) ==========
       else {
         setOrcamento({
           cliente_id: null,
@@ -248,11 +231,264 @@ export default function OrcamentoDetalhes() {
     } finally {
       setLoading(false);
     }
-  }, [orcamentoId, carrinhoData, modoOperacao]);
+  }, [orcamentoId, carrinhoData, modoOperacao, location.state]);
 
   useEffect(() => {
     loadData();
   }, [loadData]);
+
+  // PASTE LISTENER - Detecta quando o usuário cola uma imagem
+  useEffect(() => {
+    const handlePaste = async (e) => {
+      const items = e.clipboardData?.items;
+      if (!items) return;
+
+      for (let i = 0; i < items.length; i++) {
+        if (items[i].type.indexOf('image') !== -1) {
+          e.preventDefault();
+          const file = items[i].getAsFile();
+          if (file) {
+            toast.info('🖼️ Imagem detectada! Processando com IA...');
+            await processarImagemCompleta(file);
+          }
+          break;
+        }
+      }
+    };
+
+    document.addEventListener('paste', handlePaste);
+    return () => document.removeEventListener('paste', handlePaste);
+  }, []);
+
+  const processarImagemCompleta = async (file) => {
+    setProcessing(true);
+    try {
+      toast.info('📤 Salvando imagem...');
+      const uploadResult = await base44.integrations.Core.UploadFile({ file });
+      const fileUrl = uploadResult.file_url;
+
+      toast.info('🔍 Carregando dados da base...');
+      const [clientes, vendedoresBase] = await Promise.all([
+        base44.entities.Cliente.list(),
+        base44.entities.Vendedor.list()
+      ]);
+
+      const clientesInfo = clientes.map(c => ({
+        id: c.id,
+        razao_social: c.razao_social,
+        nome_fantasia: c.nome_fantasia,
+        cnpj: c.cnpj,
+        telefone: c.telefone
+      }));
+
+      const vendedoresInfo = vendedoresBase.map(v => ({
+        id: v.id,
+        nome: v.nome,
+        codigo: v.codigo,
+        email: v.email
+      }));
+
+      const prompt = `Analise este orçamento e extraia TODOS os dados estruturados.
+
+CLIENTES DISPONÍVEIS NA BASE:
+${JSON.stringify(clientesInfo, null, 2)}
+
+VENDEDORES DISPONÍVEIS NA BASE:
+${JSON.stringify(vendedoresInfo, null, 2)}
+
+INSTRUÇÕES:
+1. IDENTIFIQUE o cliente pelo nome, CNPJ ou qualquer informação que apareça
+2. Se encontrar o cliente na base, use o ID dele. Se não encontrar, extraia os dados para criar novo.
+3. IDENTIFIQUE o vendedor/atendente responsável
+4. Se não houver vendedor explícito, use "Atendente" ou o primeiro vendedor da lista
+5. EXTRAIA todos os itens/produtos com quantidade, descrição e valores
+6. EXTRAIA datas, condições de pagamento, observações
+
+RETORNE o JSON estruturado conforme o schema.`;
+
+      const schema = {
+        type: "object",
+        properties: {
+          cliente_encontrado: { type: "boolean" },
+          cliente_id: { type: "string" },
+          cliente_nome: { type: "string" },
+          cliente_cnpj: { type: "string" },
+          cliente_telefone: { type: "string" },
+          cliente_email: { type: "string" },
+          vendedor_encontrado: { type: "boolean" },
+          vendedor_id: { type: "string" },
+          vendedor_nome: { type: "string" },
+          numero_orcamento: { type: "string" },
+          data_orcamento: { type: "string" },
+          data_validade: { type: "string" },
+          condicao_pagamento: { type: "string" },
+          observacoes: { type: "string" },
+          valor_total: { type: "number" },
+          itens: {
+            type: "array",
+            items: {
+              type: "object",
+              properties: {
+                codigo: { type: "string" },
+                nome: { type: "string" },
+                descricao: { type: "string" },
+                quantidade: { type: "number" },
+                valor_unitario: { type: "number" },
+                valor_total: { type: "number" }
+              }
+            }
+          }
+        },
+        required: ["cliente_nome", "itens"]
+      };
+
+      toast.info('🤖 IA analisando orçamento...');
+      const iaResult = await base44.integrations.Core.InvokeLLM({
+        prompt,
+        response_json_schema: schema,
+        file_urls: [fileUrl],
+      });
+
+      if (!iaResult || !iaResult.itens || iaResult.itens.length === 0) {
+        toast.warning('⚠️ Nenhum item foi encontrado no orçamento.');
+        return;
+      }
+
+      // PREENCHER CAMPOS DIRETAMENTE
+      setOrcamento(prev => ({
+        ...prev,
+        cliente_id: iaResult.cliente_id || prev.cliente_id,
+        cliente_nome: iaResult.cliente_nome || prev.cliente_nome,
+        cliente_telefone: iaResult.cliente_telefone || prev.cliente_telefone,
+        cliente_email: iaResult.cliente_email || prev.cliente_email,
+        vendedor: iaResult.vendedor_nome || prev.vendedor,
+        numero_orcamento: iaResult.numero_orcamento || prev.numero_orcamento,
+        data_orcamento: iaResult.data_orcamento || prev.data_orcamento,
+        data_vencimento: iaResult.data_validade || prev.data_vencimento,
+        condicao_pagamento: iaResult.condicao_pagamento || prev.condicao_pagamento,
+        observacoes: `${prev.observacoes ? prev.observacoes + '\n\n' : ''}[Importado via IA - ${new Date().toLocaleString()}]\n${iaResult.observacoes || ''}\n\nImagem: ${fileUrl}`.trim()
+      }));
+
+      const novosItens = iaResult.itens.map((item, idx) => ({
+        _tempId: `ia-${Date.now()}-${idx}`,
+        produto_id: null,
+        nome_produto: item.nome || item.descricao || '',
+        descricao: item.descricao || '',
+        marca: item.marca || '',
+        modelo: item.modelo || '',
+        referencia: item.codigo || '',
+        quantidade: parseFloat(item.quantidade || 0),
+        valor_unitario: parseFloat(item.valor_unitario || 0),
+        valor_total: parseFloat(item.quantidade || 0) * parseFloat(item.valor_unitario || 0),
+        is_opcional: false
+      }));
+
+      setItens(prev => [...prev, ...novosItens]);
+
+      toast.success(`✅ ${novosItens.length} itens extraídos e adicionados!`, { duration: 4000 });
+
+      if (!iaResult.cliente_encontrado) {
+        toast.info('ℹ️ Cliente não encontrado na base. Será criado ao salvar.', { duration: 3000 });
+      }
+      if (!iaResult.vendedor_encontrado) {
+        toast.info('ℹ️ Vendedor não identificado. Verifique o campo.', { duration: 3000 });
+      }
+
+    } catch (error) {
+      console.error('Erro ao processar imagem:', error);
+      toast.error('❌ Erro ao processar: ' + error.message);
+    } finally {
+      setProcessing(false);
+    }
+  };
+
+  const processarApenasItens = async (file) => {
+    setProcessing(true);
+    try {
+      toast.info('📤 Salvando imagem...');
+      const uploadResult = await base44.integrations.Core.UploadFile({ file });
+      const fileUrl = uploadResult.file_url;
+
+      const prompt = `Extraia TODOS os produtos/itens desta imagem. Para cada um: código, nome, descrição, quantidade, valor unitário, valor total.`;
+
+      const schema = {
+        type: "object",
+        properties: {
+          produtos: {
+            type: "array",
+            items: {
+              type: "object",
+              properties: {
+                codigo: { type: "string" },
+                nome: { type: "string" },
+                descricao: { type: "string" },
+                quantidade: { type: "number" },
+                valor_unitario: { type: "number" },
+                valor_total: { type: "number" }
+              }
+            }
+          }
+        }
+      };
+
+      toast.info('🤖 IA extraindo itens...');
+      const iaResult = await base44.integrations.Core.InvokeLLM({
+        prompt,
+        response_json_schema: schema,
+        file_urls: [fileUrl],
+      });
+
+      if (!iaResult || !iaResult.produtos || iaResult.produtos.length === 0) {
+        toast.warning('⚠️ Nenhum item foi encontrado.');
+        return;
+      }
+
+      const novosItens = iaResult.produtos.map(p => ({
+        _tempId: `import-${Date.now()}-${Math.random()}`,
+        produto_id: null,
+        nome_produto: p.nome,
+        descricao: p.descricao || '',
+        referencia: p.codigo || '',
+        quantidade: parseFloat(p.quantidade || 0),
+        valor_unitario: parseFloat(p.valor_unitario || 0),
+        valor_total: parseFloat(p.quantidade || 0) * parseFloat(p.valor_unitario || 0),
+        is_opcional: false
+      }));
+
+      setItens(prev => [...prev, ...novosItens]);
+      toast.success(`✅ ${novosItens.length} itens adicionados!`);
+
+    } catch (error) {
+      console.error('Erro ao processar itens:', error);
+      toast.error('❌ Erro: ' + error.message);
+    } finally {
+      setProcessing(false);
+    }
+  };
+
+  const handleDrop = (e, tipo) => {
+    e.preventDefault();
+    setDragOver(null);
+    const file = e.dataTransfer.files[0];
+    if (file && file.type.startsWith('image/')) {
+      if (tipo === 'completo') {
+        processarImagemCompleta(file);
+      } else {
+        processarApenasItens(file);
+      }
+    } else {
+      toast.error('Por favor, envie uma imagem.');
+    }
+  };
+
+  const handleDragOver = (e, tipo) => {
+    e.preventDefault();
+    setDragOver(tipo);
+  };
+
+  const handleDragLeave = () => {
+    setDragOver(null);
+  };
 
   const handleOrcamentoChange = (e) => {
     const { name, value } = e.target;
@@ -428,57 +664,6 @@ export default function OrcamentoDetalhes() {
     }
   };
 
-  const handleImportacaoCompleta = (dadosImportados) => {
-    const { dadosCabecalho, itens: importedItens, imagemOriginal, cliente_encontrado, vendedor_encontrado } = dadosImportados;
-
-    if (dadosCabecalho) {
-      setOrcamento(prev => {
-        const newOrcamento = { ...prev };
-        if (dadosCabecalho.cliente_nome) newOrcamento.cliente_nome = dadosCabecalho.cliente_nome;
-        if (dadosCabecalho.cliente_telefone) newOrcamento.cliente_telefone = dadosCabecalho.cliente_telefone;
-        if (dadosCabecalho.cliente_email) newOrcamento.cliente_email = dadosCabecalho.cliente_email;
-        if (dadosCabecalho.vendedor_nome) newOrcamento.vendedor = dadosCabecalho.vendedor_nome;
-        if (dadosCabecalho.numero_orcamento) newOrcamento.numero_orcamento = dadosCabecalho.numero_orcamento;
-        if (dadosCabecalho.data_orcamento) newOrcamento.data_orcamento = dadosCabecalho.data_orcamento;
-        if (dadosCabecalho.data_validade) newOrcamento.data_vencimento = dadosCabecalho.data_validade;
-        if (dadosCabecalho.condicao_pagamento) newOrcamento.condicao_pagamento = dadosCabecalho.condicao_pagamento;
-
-        let newObservacoes = prev.observacoes || '';
-        if (dadosCabecalho.observacoes) {
-          newObservacoes = `${newObservacoes}\n\n[Importado]: ${dadosCabecalho.observacoes}`.trim();
-        }
-        if (imagemOriginal) {
-          newObservacoes = `${newObservacoes}\n\n[Imagem Original]: ${imagemOriginal}`.trim();
-        }
-        newOrcamento.observacoes = newObservacoes;
-
-        return newOrcamento;
-      });
-    }
-
-    if (Array.isArray(importedItens) && importedItens.length > 0) {
-      const novosItensMapeados = importedItens.map(item => ({
-        _tempId: `completa-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-        produto_id: null,
-        nome_produto: item.nome || item.descricao || '',
-        descricao: item.descricao || '',
-        marca: item.marca || '',
-        modelo: item.modelo || '',
-        referencia: item.codigo || '',
-        quantidade: parseFloat(item.quantidade || 0),
-        valor_unitario: parseFloat(item.valor_unitario || 0),
-        valor_total: (parseFloat(item.quantidade || 0) * parseFloat(item.valor_unitario || 0)),
-        is_opcional: false
-      }));
-      setItens(prev => Array.isArray(prev) ? [...prev, ...novosItensMapeados] : novosItensMapeados);
-    }
-
-    toast.success(
-      `✅ Orçamento importado!\n${cliente_encontrado ? '✓' : '⚠'} Cliente\n${vendedor_encontrado ? '✓' : '⚠'} Vendedor\n📦 ${Array.isArray(importedItens) ? importedItens.length : 0} itens`,
-      { duration: 6000 }
-    );
-  };
-
   if (loading) {
     return (
       <div className="flex justify-center items-center h-screen bg-gradient-to-br from-slate-900 to-slate-800">
@@ -501,7 +686,6 @@ export default function OrcamentoDetalhes() {
     );
   }
 
-  // Título dinâmico baseado no modo
   const getTitulo = () => {
     if (modoOperacao === 'edicao') return `#${orcamento.numero_orcamento || orcamento.id?.slice(-6)}`;
     if (modoOperacao === 'carrinho') return '🛒 Orçamento do Carrinho';
@@ -512,6 +696,15 @@ export default function OrcamentoDetalhes() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 to-slate-800 pb-16">
+      {processing && (
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center">
+          <div className="bg-slate-800 rounded-xl p-8 border border-amber-500 shadow-2xl">
+            <Loader2 className="w-16 h-16 text-amber-400 animate-spin mx-auto mb-4" />
+            <p className="text-white text-lg font-semibold">🤖 IA processando dados...</p>
+          </div>
+        </div>
+      )}
+
       {/* HEADER */}
       <div className="sticky top-0 z-20 bg-slate-900/95 backdrop-blur border-b border-slate-700 shadow-xl">
         <div className="max-w-7xl mx-auto px-4 py-3 flex justify-between items-center">
@@ -554,62 +747,102 @@ export default function OrcamentoDetalhes() {
 
       <div className="max-w-7xl mx-auto px-4 py-4 space-y-4">
         
-        {/* CARDS DE IMPORTAÇÃO - APENAS PARA MODO NOVO */}
+        {/* ZONAS DE IMPORTAÇÃO COM IA */}
         {modoOperacao === 'novo' && (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            <Card className="bg-gradient-to-br from-amber-900/20 to-orange-900/20 border border-amber-500/50 hover:border-amber-400 transition-all cursor-pointer">
-              <CardContent className="p-4">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-gradient-to-br from-amber-500 to-orange-600 rounded-lg flex items-center justify-center flex-shrink-0">
-                    <ImageIcon className="w-5 h-5 text-white" />
-                  </div>
-                  <div className="flex-1">
-                    <h3 className="text-sm font-bold text-white">Importar Orçamento Completo</h3>
-                    <p className="text-xs text-slate-400">IA extrai cliente, vendedor e itens</p>
-                  </div>
-                  <Button size="sm" onClick={() => setShowImporterCompleto(true)} className="bg-amber-500 hover:bg-amber-600 h-8">
-                    <Sparkles className="w-4 h-4" />
-                  </Button>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* IMPORTAÇÃO COMPLETA */}
+            <div
+              onDrop={(e) => handleDrop(e, 'completo')}
+              onDragOver={(e) => handleDragOver(e, 'completo')}
+              onDragLeave={handleDragLeave}
+              className={`relative border-2 border-dashed rounded-xl p-6 transition-all ${
+                dragOver === 'completo'
+                  ? 'border-amber-400 bg-amber-500/10 scale-105'
+                  : 'border-amber-500/50 bg-gradient-to-br from-amber-900/10 to-orange-900/10'
+              }`}
+            >
+              <div className="flex flex-col items-center gap-4">
+                <div className="w-16 h-16 bg-gradient-to-br from-amber-500 to-orange-600 rounded-2xl flex items-center justify-center shadow-lg">
+                  <ImageIcon className="w-8 h-8 text-white" />
                 </div>
-              </CardContent>
-            </Card>
+                
+                <div className="text-center">
+                  <h3 className="text-lg font-bold text-white mb-1">Importar Orçamento Completo</h3>
+                  <p className="text-sm text-slate-400 mb-4">IA extrai cliente, vendedor e todos os itens</p>
+                </div>
 
-            <Card className="bg-gradient-to-br from-purple-900/20 to-indigo-900/20 border border-purple-500/50 hover:border-purple-400 transition-all cursor-pointer">
-              <CardContent className="p-4">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-indigo-600 rounded-lg flex items-center justify-center flex-shrink-0">
-                    <Upload className="w-5 h-5 text-white" />
-                  </div>
-                  <div className="flex-1">
-                    <h3 className="text-sm font-bold text-white">Importar Apenas Itens</h3>
-                    <p className="text-xs text-slate-400">Adicione produtos com IA</p>
-                  </div>
-                  <Button size="sm" onClick={() => setShowImporterItens(true)} className="bg-purple-500 hover:bg-purple-600 h-8">
-                    <Plus className="w-4 h-4" />
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={(e) => e.target.files?.[0] && processarImagemCompleta(e.target.files[0])}
+                  className="hidden"
+                  id="upload-completo"
+                />
+                <label htmlFor="upload-completo" className="w-full">
+                  <Button type="button" className="w-full bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600">
+                    <Upload className="w-4 h-4 mr-2" />
+                    Selecionar Imagem
                   </Button>
+                </label>
+
+                <p className="text-xs text-slate-500 text-center">
+                  Arraste uma imagem aqui ou clique para selecionar
+                </p>
+              </div>
+            </div>
+
+            {/* IMPORTAÇÃO APENAS ITENS */}
+            <div
+              onDrop={(e) => handleDrop(e, 'itens')}
+              onDragOver={(e) => handleDragOver(e, 'itens')}
+              onDragLeave={handleDragLeave}
+              className={`relative border-2 border-dashed rounded-xl p-6 transition-all ${
+                dragOver === 'itens'
+                  ? 'border-purple-400 bg-purple-500/10 scale-105'
+                  : 'border-purple-500/50 bg-gradient-to-br from-purple-900/10 to-indigo-900/10'
+              }`}
+            >
+              <div className="flex flex-col items-center gap-4">
+                <div className="w-16 h-16 bg-gradient-to-br from-purple-500 to-indigo-600 rounded-2xl flex items-center justify-center shadow-lg">
+                  <ShoppingCart className="w-8 h-8 text-white" />
                 </div>
-              </CardContent>
-            </Card>
+                
+                <div className="text-center">
+                  <h3 className="text-lg font-bold text-white mb-1">Importar Apenas Itens</h3>
+                  <p className="text-sm text-slate-400 mb-4">Adicione produtos com IA ao orçamento atual</p>
+                </div>
+
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={(e) => e.target.files?.[0] && processarApenasItens(e.target.files[0])}
+                  className="hidden"
+                  id="upload-itens"
+                />
+                <label htmlFor="upload-itens" className="w-full">
+                  <Button type="button" className="w-full bg-gradient-to-r from-purple-500 to-indigo-500 hover:from-purple-600 hover:to-indigo-600">
+                    <Plus className="w-4 h-4 mr-2" />
+                    Selecionar Imagem
+                  </Button>
+                </label>
+
+                <p className="text-xs text-slate-500 text-center">
+                  Arraste uma imagem aqui ou clique para selecionar
+                </p>
+              </div>
+            </div>
           </div>
         )}
 
-        {/* BOTÃO DE IMPORTAÇÃO PARA OUTROS MODOS */}
-        {(modoOperacao === 'chat' || modoOperacao === 'carrinho') && (
-          <Card className="bg-gradient-to-br from-purple-900/20 to-indigo-900/20 border border-purple-500/50">
-            <CardContent className="p-4">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-indigo-600 rounded-lg flex items-center justify-center">
-                    <Upload className="w-5 h-5 text-white" />
-                  </div>
-                  <div>
-                    <h3 className="text-sm font-bold text-white">Adicionar Mais Itens com IA</h3>
-                    <p className="text-xs text-slate-400">Cole texto ou envie print para adicionar produtos</p>
-                  </div>
-                </div>
-                <Button size="sm" onClick={() => setShowImporterItens(true)} className="bg-purple-500 hover:bg-purple-600 h-8">
-                  <Plus className="w-4 h-4 mr-1" /> Importar
-                </Button>
+        {/* ALERTA DE PASTE */}
+        {modoOperacao === 'novo' && (
+          <Card className="bg-gradient-to-r from-indigo-900/20 to-purple-900/20 border border-indigo-500/50">
+            <CardContent className="p-3">
+              <div className="flex items-center gap-3">
+                <Sparkles className="w-5 h-5 text-indigo-400 flex-shrink-0" />
+                <p className="text-sm text-slate-300">
+                  <strong className="text-white">💡 Dica:</strong> Cole uma imagem do orçamento (Ctrl+V) em qualquer lugar da página para extração automática!
+                </p>
               </div>
             </CardContent>
           </Card>
@@ -735,64 +968,6 @@ export default function OrcamentoDetalhes() {
           </Card>
         )}
       </div>
-
-      {/* MODAIS */}
-      <ImportacaoCompletaOrcamento
-        isOpen={showImporterCompleto}
-        onOpenChange={setShowImporterCompleto}
-        onSuccess={handleImportacaoCompleta}
-      />
-
-      <IntelligentImporter
-        isOpen={showImporterItens}
-        onOpenChange={setShowImporterItens}
-        title="Importar Itens com IA"
-        description="Cole texto ou envie print da lista de produtos"
-        aiPromptBase="Extraia TODOS os produtos. Para cada um: código, nome, descrição, quantidade, valor unitário, valor total."
-        dataSchema={{
-          type: "object",
-          properties: {
-            produtos: {
-              type: "array",
-              items: {
-                type: "object",
-                properties: {
-                  codigo: { type: "string" },
-                  nome: { type: "string" },
-                  descricao: { type: "string" },
-                  quantidade: { type: "number" },
-                  valor_unitario: { type: "number" },
-                  valor_total: { type: "number" }
-                }
-              }
-            }
-          }
-        }}
-        entityKey="produtos"
-        fieldDefinitions={[
-          { key: 'codigo', label: 'Código', type: 'text' },
-          { key: 'nome', label: 'Nome', type: 'text', required: true },
-          { key: 'quantidade', label: 'Qtd', type: 'number', required: true },
-          { key: 'valor_unitario', label: 'Vlr Unit.', type: 'number', required: true }
-        ]}
-        onSuccess={(data) => {
-          if (data.produtos && data.produtos.length > 0) {
-            const novosItens = data.produtos.map(p => ({
-              _tempId: `import-${Date.now()}-${Math.random()}`,
-              produto_id: null,
-              nome_produto: p.nome,
-              descricao: p.descricao || '',
-              referencia: p.codigo || '',
-              quantidade: parseFloat(p.quantidade || 0),
-              valor_unitario: parseFloat(p.valor_unitario || 0),
-              valor_total: parseFloat(p.quantidade || 0) * parseFloat(p.valor_unitario || 0),
-              is_opcional: false
-            }));
-            setItens(prev => Array.isArray(prev) ? [...prev, ...novosItens] : novosItens);
-            toast.success(`${novosItens.length} itens adicionados!`);
-          }
-        }}
-      />
     </div>
   );
 }
