@@ -322,7 +322,8 @@ export default function ChatWindow({
       const dadosEnvio = {
         integration_id: thread.whatsapp_integration_id,
         numero_destino: telefone,
-        audio_url: audioUrl
+        audio_url: audioUrl,
+        media_type: 'audio' // Adiciona media_type para consistência
       };
 
       if (mensagemResposta?.whatsapp_message_id) {
@@ -644,7 +645,6 @@ export default function ChatWindow({
     }
 
     if (!arquivoSelecionado || !thread || !usuario || carregandoContato) {
-      toast.error("Dados da conversa, contato ou arquivo não disponíveis para enviar.");
       return;
     }
 
@@ -678,27 +678,46 @@ export default function ChatWindow({
 
       toast.info(`📤 Enviando ${mediaType === 'image' ? 'imagem' : mediaType === 'video' ? 'vídeo' : mediaType === 'audio' ? 'áudio' : 'documento'}...`, { duration: 999999 });
 
+      console.log('[CHAT] 📤 Iniciando upload do arquivo:', {
+        name: arquivoSelecionado.name,
+        type: arquivoSelecionado.type,
+        size: arquivoSelecionado.size,
+        mediaType
+      });
+
       const uploadResponse = await base44.integrations.Core.UploadFile({
         file: arquivoSelecionado
       });
 
       const fileUrl = uploadResponse.file_url;
+      console.log('[CHAT] ✅ Arquivo uploaded:', fileUrl);
 
       const dadosEnvio = {
         integration_id: thread.whatsapp_integration_id,
         numero_destino: telefone,
-        media_url: fileUrl,
         media_type: mediaType,
-        mensagem: legendaArquivo || ''
+        media_caption: legendaArquivo || ''
       };
+
+      // ✅ CORREÇÃO: Usar campo correto baseado no tipo
+      if (mediaType === 'audio') {
+        dadosEnvio.audio_url = fileUrl;
+      } else {
+        dadosEnvio.media_url = fileUrl;
+      }
 
       if (mensagemResposta?.whatsapp_message_id) {
         dadosEnvio.reply_to_message_id = mensagemResposta.whatsapp_message_id;
+        console.log('[CHAT] 💬 Enviando mídia como resposta a:', mensagemResposta.whatsapp_message_id);
       }
+
+      console.log('[CHAT] 📤 Dados de envio para backend:', dadosEnvio);
 
       const resultado = await base44.functions.invoke('enviarWhatsApp', dadosEnvio);
 
       toast.dismiss();
+
+      console.log('[CHAT] 📥 Resultado do backend:', resultado.data);
 
       if (resultado.data.success) {
         await base44.entities.Message.create({
@@ -850,27 +869,46 @@ export default function ChatWindow({
 
       toast.info(`📤 Enviando ${mediaType === 'image' ? 'imagem' : mediaType === 'video' ? 'vídeo' : mediaType === 'audio' ? 'áudio' : 'documento'}...`, { duration: 999999 });
 
+      console.log('[CHAT] 📤 Iniciando upload do arquivo colado:', {
+        name: file.name,
+        type: file.type,
+        size: file.size,
+        mediaType
+      });
+
       const uploadResponse = await base44.integrations.Core.UploadFile({
         file: file
       });
 
       const fileUrl = uploadResponse.file_url;
+      console.log('[CHAT] ✅ Arquivo uploaded:', fileUrl);
 
       const dadosEnvio = {
         integration_id: thread.whatsapp_integration_id,
         numero_destino: telefone,
-        media_url: fileUrl,
         media_type: mediaType,
-        mensagem: ''
+        media_caption: ''
       };
+
+      // ✅ CORREÇÃO: Usar campo correto baseado no tipo
+      if (mediaType === 'audio') {
+        dadosEnvio.audio_url = fileUrl;
+      } else {
+        dadosEnvio.media_url = fileUrl;
+      }
 
       if (mensagemResposta?.whatsapp_message_id) {
         dadosEnvio.reply_to_message_id = mensagemResposta.whatsapp_message_id;
+        console.log('[CHAT] 💬 Enviando mídia como resposta a:', mensagemResposta.whatsapp_message_id);
       }
+
+      console.log('[CHAT] 📤 Dados de envio para backend:', dadosEnvio);
 
       const resultado = await base44.functions.invoke('enviarWhatsApp', dadosEnvio);
 
       toast.dismiss();
+
+      console.log('[CHAT] 📥 Resultado do backend:', resultado.data);
 
       if (resultado.data.success) {
         await base44.entities.Message.create({
@@ -1664,3 +1702,4 @@ ${conteudoMensagem}
     </div>
   );
 }
+
