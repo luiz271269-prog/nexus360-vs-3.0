@@ -1,5 +1,12 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.4';
 
+// ✅ Mapeamento de tipos de mídia para endpoints e campos Z-API
+const ZAPI_MEDIA_CONFIG = {
+  image: { endpoint: 'send-image', field: 'image' },
+  video: { endpoint: 'send-video', field: 'video' },
+  document: { endpoint: 'send-document', field: 'document' }
+};
+
 Deno.serve(async (req) => {
   const headers = {
     'Content-Type': 'application/json',
@@ -53,6 +60,7 @@ Deno.serve(async (req) => {
     let endpoint;
     let body;
 
+    // ========== TEMPLATES ==========
     if (template_name) {
       endpoint = `${baseUrl}/instances/${instanceId}/token/${token}/send-template`;
       body = {
@@ -61,7 +69,9 @@ Deno.serve(async (req) => {
         variables: template_variables || {}
       };
       console.log('[ENVIAR-WHATSAPP] 📋 Enviando template:', template_name);
-    } else if (audio_url) {
+    } 
+    // ========== ÁUDIO (audio_url específico) ==========
+    else if (audio_url) {
       endpoint = `${baseUrl}/instances/${instanceId}/token/${token}/send-audio`;
       body = {
         phone: numero_destino,
@@ -73,54 +83,24 @@ Deno.serve(async (req) => {
         console.log('[ENVIAR-WHATSAPP] 💬 Áudio como resposta a:', reply_to_message_id);
       }
       
-      console.log('[ENVIAR-WHATSAPP] 🎵 Enviando áudio');
-    } else if (media_url && media_type) {
-      // ✅ CORREÇÃO CIRÚRGICA: Validação de extensão para documentos (PDFs)
-      if (media_type === 'document') {
-        try {
-          const url = new URL(media_url);
-          const ext = url.pathname.split('.').pop()?.toLowerCase() || '';
-          const extensoesValidas = ['pdf', 'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx', 'txt'];
-          
-          if (!extensoesValidas.includes(ext)) {
-            console.warn('[ENVIAR-WHATSAPP] ⚠️ Extensão de documento não convencional:', ext);
-          }
-          
-          console.log('[ENVIAR-WHATSAPP] 📄 Validação documento - Extensão:', ext, 'URL:', media_url);
-        } catch (urlError) {
-          console.warn('[ENVIAR-WHATSAPP] ⚠️ URL de mídia pode estar malformada:', media_url);
-        }
+      console.log('[ENVIAR-WHATSAPP] 🎵 Enviando áudio:', { endpoint, body });
+    } 
+    // ========== MÍDIAS (imagem, vídeo, documento/PDF) ==========
+    else if (media_url && media_type) {
+      const config = ZAPI_MEDIA_CONFIG[media_type];
+      
+      if (!config) {
+        throw new Error(`Tipo de mídia não suportado: ${media_type}. Tipos válidos: image, video, document`);
       }
       
-      const mediaEndpoints = {
-        image: 'send-image',
-        video: 'send-video',
-        document: 'send-document'
+      endpoint = `${baseUrl}/instances/${instanceId}/token/${token}/${config.endpoint}`;
+      
+      // ✅ Construir body usando o campo correto para o tipo de mídia
+      body = {
+        phone: numero_destino,
+        [config.field]: media_url,
+        caption: media_caption || ''
       };
-      
-      const mediaEndpoint = mediaEndpoints[media_type] || 'send-document';
-      endpoint = `${baseUrl}/instances/${instanceId}/token/${token}/${mediaEndpoint}`;
-      
-      if (media_type === 'image') {
-        body = {
-          phone: numero_destino,
-          image: media_url,
-          caption: media_caption || ''
-        };
-      } else if (media_type === 'video') {
-        body = {
-          phone: numero_destino,
-          video: media_url,
-          caption: media_caption || ''
-        };
-      } else {
-        // ✅ Documentos (incluindo PDFs) usam o campo 'document'
-        body = {
-          phone: numero_destino,
-          document: media_url,
-          caption: media_caption || ''
-        };
-      }
       
       if (reply_to_message_id) {
         body.messageId = reply_to_message_id;
@@ -129,11 +109,14 @@ Deno.serve(async (req) => {
       
       console.log('[ENVIAR-WHATSAPP] 📎 Enviando mídia:', {
         tipo: media_type,
-        endpoint: mediaEndpoint,
-        campo_usado: media_type === 'image' ? 'image' : media_type === 'video' ? 'video' : 'document',
-        url_midia: media_url
+        endpoint_usado: config.endpoint,
+        campo_json: config.field,
+        url_completa: endpoint,
+        body_completo: body
       });
-    } else if (mensagem) {
+    } 
+    // ========== MENSAGEM DE TEXTO ==========
+    else if (mensagem) {
       endpoint = `${baseUrl}/instances/${instanceId}/token/${token}/send-text`;
       body = {
         phone: numero_destino,
@@ -150,8 +133,8 @@ Deno.serve(async (req) => {
       throw new Error('Nenhum conteúdo fornecido (mensagem, template, mídia ou áudio)');
     }
 
-    console.log('[ENVIAR-WHATSAPP] 🌐 Endpoint:', endpoint);
-    console.log('[ENVIAR-WHATSAPP] 📦 Body:', JSON.stringify(body, null, 2));
+    console.log('[ENVIAR-WHATSAPP] 🌐 Endpoint completo:', endpoint);
+    console.log('[ENVIAR-WHATSAPP] 📦 Body final para Z-API:', JSON.stringify(body, null, 2));
 
     const response = await fetch(endpoint, {
       method: 'POST',
@@ -163,7 +146,7 @@ Deno.serve(async (req) => {
     });
 
     const responseText = await response.text();
-    console.log('[ENVIAR-WHATSAPP] 📥 Resposta bruta Z-API:', responseText);
+    console.log('[ENVIAR-WHATSAPP] 📥 Resposta bruta Z-API (HTTP ' + response.status + '):', responseText);
 
     let result;
     try {
@@ -177,18 +160,23 @@ Deno.serve(async (req) => {
 
     if (!response.ok || result.error) {
       const errorMsg = result.error || result.message || `Erro HTTP ${response.status}`;
-      console.error('[ENVIAR-WHATSAPP] ❌ Erro Z-API:', {
-        status: response.status,
-        erro: errorMsg,
+      console.error('[ENVIAR-WHATSAPP] ❌ ERRO Z-API DETALHADO:', {
+        status_http: response.status,
+        erro_mensagem: errorMsg,
+        endpoint_chamado: endpoint,
         body_enviado: body,
-        endpoint_usado: endpoint
+        resposta_completa: result
       });
-      throw new Error(errorMsg);
+      throw new Error(`Z-API retornou erro: ${errorMsg}`);
     }
 
     const messageId = result.messageId || result.message?.key?.id || result.key?.id;
 
-    console.log('[ENVIAR-WHATSAPP] ✅ Mensagem enviada com sucesso! ID:', messageId);
+    if (!messageId) {
+      console.warn('[ENVIAR-WHATSAPP] ⚠️ Nenhum messageId encontrado na resposta da Z-API:', result);
+    }
+
+    console.log('[ENVIAR-WHATSAPP] ✅ Mensagem enviada com sucesso! messageId:', messageId);
 
     return new Response(
       JSON.stringify({
@@ -200,8 +188,8 @@ Deno.serve(async (req) => {
     );
 
   } catch (error) {
-    console.error('[ENVIAR-WHATSAPP] ❌ Erro fatal:', error.message);
-    console.error('[ENVIAR-WHATSAPP] ❌ Stack:', error.stack);
+    console.error('[ENVIAR-WHATSAPP] ❌ ERRO FATAL:', error.message);
+    console.error('[ENVIAR-WHATSAPP] ❌ Stack completo:', error.stack);
     
     return new Response(
       JSON.stringify({
