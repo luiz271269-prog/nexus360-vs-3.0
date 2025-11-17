@@ -269,16 +269,21 @@ export async function processarComIntegracaoCompleta(dados, destinoFinal, mapeam
     };
     
     const entityName = entidadesMap[destinoFinal];
+    
+    if (!entityName) {
+      throw new Error(`Destino '${destinoFinal}' não mapeado para nenhuma entidade válida.`);
+    }
+    
     const entidade = base44.entities[entityName];
     
     if (!entidade || typeof entidade.bulkCreate !== 'function') {
-      throw new Error(`Entidade '${destinoFinal}' não possui método 'bulkCreate' ou não está corretamente configurada.`);
+      throw new Error(`Entidade '${entityName}' não possui método 'bulkCreate' ou não está disponível.`);
     }
 
     await entidade.bulkCreate(dadosPreProcessados);
     resultados.sucesso = dadosPreProcessados.length;
 
-    console.log(`✅ ${resultados.sucesso} registros salvos com sucesso em ${destinoFinal}`);
+    console.log(`✅ ${resultados.sucesso} registros salvos com sucesso em ${entityName}`);
 
   } catch (error) {
     console.error('❌ Erro no processamento:', error);
