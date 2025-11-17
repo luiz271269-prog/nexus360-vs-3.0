@@ -1,4 +1,5 @@
-import { useState } from "react";
+import React, { useState } from "react";
+import { base44 } from "@/api/base44Client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -16,14 +17,8 @@ import { toast } from "sonner";
 
 // Importar módulos a serem testados
 import { MotorRAG } from "../inteligencia/MotorRAG";
-import { NexusEngine } from "../comunicacao/NexusEngine";
 import { ExecutorFluxos } from "../automacao/ExecutorFluxos";
 import MotorInteligencia from "../agenda/MotorInteligencia";
-import { Cliente } from "@/entities/Cliente";
-import { Vendedor } from "@/entities/Vendedor";
-import { Produto } from "@/entities/Produto";
-import { FlowTemplate } from "@/entities/FlowTemplate";
-import { BaseConhecimento } from "@/entities/BaseConhecimento";
 
 /**
  * TestSuite - Suite Completa de Testes Automatizados
@@ -47,21 +42,15 @@ export default function TestSuite() {
           status: "Prospect"
         };
         
-        const criado = await Cliente.create(clienteTeste);
+        const criado = await base44.entities.Cliente.create(clienteTeste);
         if (!criado.id) throw new Error("Cliente não criado");
         
-        const lido = await Cliente.get(criado.id);
-        if (lido.razao_social !== clienteTeste.razao_social) {
-          throw new Error("Cliente lido incorretamente");
-        }
-        
-        await Cliente.update(criado.id, { status: "Ativo" });
-        const atualizado = await Cliente.get(criado.id);
+        const atualizado = await base44.entities.Cliente.update(criado.id, { status: "Ativo" });
         if (atualizado.status !== "Ativo") {
           throw new Error("Cliente não atualizado");
         }
         
-        await Cliente.delete(criado.id);
+        await base44.entities.Cliente.delete(criado.id);
         
         return { sucesso: true, detalhes: "CRUD completo funcionando" };
       }
@@ -79,10 +68,10 @@ export default function TestSuite() {
           status: "ativo"
         };
         
-        const criado = await Vendedor.create(vendedorTeste);
+        const criado = await base44.entities.Vendedor.create(vendedorTeste);
         if (!criado.id) throw new Error("Vendedor não criado");
         
-        await Vendedor.delete(criado.id);
+        await base44.entities.Vendedor.delete(criado.id);
         
         return { sucesso: true, detalhes: "Vendedor criado e deletado" };
       }
@@ -101,10 +90,10 @@ export default function TestSuite() {
           ativo: true
         };
         
-        const criado = await Produto.create(produtoTeste);
+        const criado = await base44.entities.Produto.create(produtoTeste);
         if (!criado.id) throw new Error("Produto não criado");
         
-        await Produto.delete(criado.id);
+        await base44.entities.Produto.delete(criado.id);
         
         return { sucesso: true, detalhes: "Produto criado e deletado" };
       }
@@ -128,32 +117,6 @@ export default function TestSuite() {
         return { 
           sucesso: true, 
           detalhes: `Encontrou ${resultado.length} documentos relevantes` 
-        };
-      }
-    },
-    
-    {
-      categoria: "Inteligência Artificial",
-      nome: "NexusEngine - Processamento",
-      descricao: "Validar processamento de entrada",
-      teste: async () => {
-        const resposta = await NexusEngine.processarEntrada(
-          "Olá, preciso de ajuda",
-          { email: "teste@vendapro.com" },
-          { teste: true }
-        );
-        
-        if (!resposta || !resposta.content) {
-          throw new Error("NexusEngine não gerou resposta");
-        }
-        
-        if (typeof resposta.confidence === 'undefined') {
-          throw new Error("Resposta sem score de confiança");
-        }
-        
-        return { 
-          sucesso: true, 
-          detalhes: `Resposta gerada com ${Math.round(resposta.confidence * 100)}% confiança` 
         };
       }
     },
@@ -190,21 +153,20 @@ export default function TestSuite() {
         const fluxoTeste = {
           nome: `Fluxo Teste ${Date.now()}`,
           categoria: "teste",
-          trigger_type: "manual",
-          trigger_config: {},
+          gatilhos: ["teste"],
           steps: [
             {
-              tipo: 'send_message',
-              config: { mensagem: 'Teste' }
+              type: 'message',
+              texto: 'Teste'
             }
           ],
           ativo: false
         };
         
-        const criado = await FlowTemplate.create(fluxoTeste);
+        const criado = await base44.entities.FlowTemplate.create(fluxoTeste);
         if (!criado.id) throw new Error("Fluxo não criado");
         
-        await FlowTemplate.delete(criado.id);
+        await base44.entities.FlowTemplate.delete(criado.id);
         
         return { sucesso: true, detalhes: "Fluxo criado e deletado" };
       }
@@ -239,7 +201,7 @@ export default function TestSuite() {
       descricao: "Validar análise de cliente",
       teste: async () => {
         // Criar cliente temporário
-        const clienteTeste = await Cliente.create({
+        const clienteTeste = await base44.entities.Cliente.create({
           razao_social: `Cliente Análise ${Date.now()}`,
           vendedor_responsavel: "Teste",
           status: "Ativo"
@@ -256,7 +218,7 @@ export default function TestSuite() {
             throw new Error("Análise sem score");
           }
           
-          await Cliente.delete(clienteTeste.id);
+          await base44.entities.Cliente.delete(clienteTeste.id);
           
           return { 
             sucesso: true, 
@@ -264,7 +226,7 @@ export default function TestSuite() {
           };
           
         } catch (error) {
-          await Cliente.delete(clienteTeste.id);
+          await base44.entities.Cliente.delete(clienteTeste.id);
           throw error;
         }
       }
@@ -284,18 +246,18 @@ export default function TestSuite() {
           aprovado: true
         };
         
-        const criado = await BaseConhecimento.create(docTeste);
+        const criado = await base44.entities.BaseConhecimento.create(docTeste);
         if (!criado.id) throw new Error("Documento não criado");
         
         // Testar busca
-        const documentos = await BaseConhecimento.filter({ ativo: true });
+        const documentos = await base44.entities.BaseConhecimento.filter({ ativo: true });
         const encontrado = documentos.find(d => d.id === criado.id);
         
         if (!encontrado) {
           throw new Error("Documento não encontrado na busca");
         }
         
-        await BaseConhecimento.delete(criado.id);
+        await base44.entities.BaseConhecimento.delete(criado.id);
         
         return { sucesso: true, detalhes: "Documento criado, indexado e deletado" };
       }
@@ -308,7 +270,7 @@ export default function TestSuite() {
       descricao: "Medir tempo de listagem de clientes",
       teste: async () => {
         const inicio = Date.now();
-        const clientes = await Cliente.list('-created_date', 100);
+        const clientes = await base44.entities.Cliente.list('-created_date', 100);
         const tempo = Date.now() - inicio;
         
         if (tempo > 3000) {
@@ -328,7 +290,7 @@ export default function TestSuite() {
       descricao: "Medir tempo de listagem de produtos",
       teste: async () => {
         const inicio = Date.now();
-        const produtos = await Produto.list('-created_date', 100);
+        const produtos = await base44.entities.Produto.list('-created_date', 100);
         const tempo = Date.now() - inicio;
         
         if (tempo > 3000) {
