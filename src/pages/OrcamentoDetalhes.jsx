@@ -846,7 +846,17 @@ RETORNE o JSON estruturado conforme o schema.`;
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-2">
+            <div className="grid grid-cols-1 md:grid-cols-5 gap-2">
+              <div>
+                <Label className="text-slate-300 text-xs mb-1">Código</Label>
+                <Input 
+                  name="numero_orcamento" 
+                  value={orcamento.numero_orcamento || ''} 
+                  onChange={handleOrcamentoChange} 
+                  placeholder="Código do orçamento"
+                  className="bg-slate-900 border-slate-600 text-white h-9 text-sm" 
+                />
+              </div>
               <div>
                 <Label className="text-slate-300 text-xs mb-1">Cliente *</Label>
                 <ClienteCombobox value={orcamento.cliente_nome} onSelect={(value) => handleSelectChange('cliente_nome', value)} />
@@ -865,7 +875,7 @@ RETORNE o JSON estruturado conforme o schema.`;
               </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-2">
               <div>
                 <Label className="text-slate-300 text-xs mb-1">Vendedor</Label>
                 <Select value={orcamento.vendedor} onValueChange={(value) => handleSelectChange('vendedor', value)}>
@@ -876,6 +886,28 @@ RETORNE o JSON estruturado conforme o schema.`;
                     {Array.isArray(vendedores) && vendedores.map((v) => (
                       <SelectItem key={v.id} value={v.nome} className="text-white text-sm">{v.nome}</SelectItem>
                     ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label className="text-slate-300 text-xs mb-1">Etapa do Kanban</Label>
+                <Select value={orcamento.status} onValueChange={(value) => handleSelectChange('status', value)}>
+                  <SelectTrigger className="bg-slate-900 border-slate-600 text-white h-9 text-sm">
+                    <SelectValue placeholder="Selecione" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-slate-900 border-slate-700">
+                    <SelectItem value="rascunho" className="text-white text-sm">Rascunho</SelectItem>
+                    <SelectItem value="aguardando_cotacao" className="text-white text-sm">Aguardando Cotação</SelectItem>
+                    <SelectItem value="cotando" className="text-white text-sm">Cotando</SelectItem>
+                    <SelectItem value="aguardando_analise" className="text-white text-sm">Aguardando Análise</SelectItem>
+                    <SelectItem value="analisando" className="text-white text-sm">Analisando</SelectItem>
+                    <SelectItem value="aguardando_liberacao" className="text-white text-sm">Aguardando Liberação</SelectItem>
+                    <SelectItem value="liberado" className="text-white text-sm">Liberado</SelectItem>
+                    <SelectItem value="enviado" className="text-white text-sm">Enviado</SelectItem>
+                    <SelectItem value="negociando" className="text-white text-sm">Negociando</SelectItem>
+                    <SelectItem value="aprovado" className="text-white text-sm">Aprovado</SelectItem>
+                    <SelectItem value="rejeitado" className="text-white text-sm">Rejeitado</SelectItem>
+                    <SelectItem value="vencido" className="text-white text-sm">Vencido</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
