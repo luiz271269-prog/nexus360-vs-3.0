@@ -1,4 +1,5 @@
-import { useState, useEffect, useCallback } from 'react';
+
+import React, { useState, useEffect, useCallback } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { base44 } from '@/api/base44Client';
 import { Button } from '@/components/ui/button';
@@ -36,11 +37,13 @@ export default function OrcamentoDetalhes() {
   const orcamentoId = urlParams.get('id');
   const carrinhoData = urlParams.get('carrinho');
   const origemChat = urlParams.get('origem') === 'chat';
+  const origemImportacao = urlParams.get('importacao') === 'true';
   
-  // Determinar modo: 'edicao', 'carrinho', 'chat', 'novo'
+  // Determinar modo: 'edicao', 'carrinho', 'chat', 'importacao', 'novo'
   const modoOperacao = orcamentoId ? 'edicao' 
     : carrinhoData ? 'carrinho' 
-    : origemChat ? 'chat' 
+    : origemChat ? 'chat'
+    : origemImportacao ? 'importacao'
     : 'novo';
 
   const recalculateTotal = useCallback(() => {
@@ -153,9 +156,74 @@ export default function OrcamentoDetalhes() {
         setItens([]);
         
         toast.success('🎯 Oportunidade criada! Adicione os itens do orçamento.', { duration: 5000 });
-      } 
+      }
       
-      // ========== MODO 4: NOVO (Limpo para Print) ==========
+      // ========== MODO 4: IMPORTAÇÃO (Via IA) ==========
+      else if (modoOperacao === 'importacao') {
+        const dadosImportados = location.state?.dadosImportados;
+        
+        if (dadosImportados) {
+          const { dadosCabecalho, itens: importedItens } = dadosImportados;
+          
+          // Preencher dados do orçamento
+          const orcamentoInicial = {
+            cliente_id: null,
+            cliente_nome: dadosCabecalho?.cliente_nome || "",
+            cliente_telefone: dadosCabecalho?.cliente_telefone || "",
+            cliente_celular: "",
+            cliente_email: dadosCabecalho?.cliente_email || "",
+            cliente_empresa: "",
+            vendedor: dadosCabecalho?.vendedor_nome || "",
+            data_orcamento: dadosCabecalho?.data_orcamento || new Date().toISOString().slice(0, 10),
+            data_vencimento: dadosCabecalho?.data_validade || "",
+            status: "rascunho",
+            valor_total: 0,
+            observacoes: dadosCabecalho?.observacoes ? `[Importado via IA]\n\n${dadosCabecalho.observacoes}` : "[Importado via IA]"
+          };
+          
+          // Mapear itens importados
+          const itensIniciais = Array.isArray(importedItens) ? importedItens.map((item, idx) => ({
+            _tempId: `import-${Date.now()}-${idx}`,
+            produto_id: null,
+            nome_produto: item.nome || item.descricao || '',
+            descricao: item.descricao || '',
+            marca: item.marca || '',
+            modelo: item.modelo || '',
+            referencia: item.codigo || '',
+            quantidade: parseFloat(item.quantidade || 0),
+            valor_unitario: parseFloat(item.valor_unitario || 0),
+            valor_total: (parseFloat(item.quantidade || 0) * parseFloat(item.valor_unitario || 0)),
+            is_opcional: false
+          })) : [];
+          
+          const totalCalculado = itensIniciais.reduce((acc, item) => acc + (item.valor_total || 0), 0);
+          orcamentoInicial.valor_total = totalCalculado;
+          
+          setOrcamento(orcamentoInicial);
+          setItens(itensIniciais);
+          
+          toast.success(`✅ Orçamento importado com ${itensIniciais.length} itens!`, { duration: 4000 });
+        } else {
+          // Fallback se não houver dados
+          setOrcamento({
+            cliente_id: null,
+            cliente_nome: "",
+            cliente_telefone: "",
+            cliente_celular: "",
+            cliente_email: "",
+            cliente_empresa: "",
+            vendedor: "",
+            data_orcamento: new Date().toISOString().slice(0, 10),
+            data_vencimento: "",
+            status: "rascunho",
+            valor_total: 0,
+            observacoes: ""
+          });
+          setItens([]);
+        }
+      }
+      
+      // ========== MODO 5: NOVO (Limpo) ==========
       else {
         setOrcamento({
           cliente_id: null,
@@ -180,7 +248,7 @@ export default function OrcamentoDetalhes() {
     } finally {
       setLoading(false);
     }
-  }, [orcamentoId, carrinhoData, modoOperacao, urlParams]);
+  }, [orcamentoId, carrinhoData, modoOperacao, urlParams, location.state]);
 
   useEffect(() => {
     loadData();
@@ -438,6 +506,7 @@ export default function OrcamentoDetalhes() {
     if (modoOperacao === 'edicao') return `#${orcamento.numero_orcamento || orcamento.id?.slice(-6)}`;
     if (modoOperacao === 'carrinho') return '🛒 Orçamento do Carrinho';
     if (modoOperacao === 'chat') return '🗨️ Oportunidade do Chat';
+    if (modoOperacao === 'importacao') return '✨ Orçamento Importado';
     return '📄 Novo Orçamento';
   };
 
