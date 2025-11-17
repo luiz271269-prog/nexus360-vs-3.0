@@ -1,13 +1,14 @@
-import { useState } from 'react';
+
+import React, { useState } from 'react';
 import { base44 } from '@/api/base44Client';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Upload, Loader2, Image as ImageIcon, CheckCircle, Sparkles, AlertTriangle } from 'lucide-react';
+import { Upload, Loader2, FileText, Image as ImageIcon, CheckCircle, Sparkles, AlertTriangle } from 'lucide-react';
 import { toast } from 'sonner';
 
-export default function ImportacaoCompletaOrcamento({ isOpen, onOpenChange, onSuccess }) {
+export default function ImportacaoCompletaOrcamento({ isOpen, onClose, onSuccess }) {
   const [step, setStep] = useState('input');
   const [inputText, setInputText] = useState('');
   const [selectedFile, setSelectedFile] = useState(null);
@@ -22,7 +23,7 @@ export default function ImportacaoCompletaOrcamento({ isOpen, onOpenChange, onSu
     setExtractedData(null);
     setSavedImageUrl(null);
     setLoading(false);
-    onOpenChange(false);
+    if (onClose) onClose();
   };
 
   const handleFileSelect = (e) => {
@@ -244,7 +245,7 @@ RETORNE o JSON estruturado conforme o schema.`;
   };
 
   return (
-    <Dialog open={isOpen} onOpenChange={handleClose}>
+    <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto bg-gradient-to-br from-slate-900 to-slate-800 border-slate-700">
         <DialogHeader>
           <DialogTitle className="text-2xl font-bold bg-gradient-to-r from-amber-400 via-orange-400 to-red-500 bg-clip-text text-transparent flex items-center gap-2">
@@ -407,7 +408,7 @@ RETORNE o JSON estruturado conforme o schema.`;
                       <div className="flex-1">
                         <p className="text-white font-semibold">{item.nome}</p>
                         {item.descricao && (
-                          <p className="text-slate-400 text-sm">{item.descricao}</p>
+                          <p className="text-slate-400	text-sm">{item.descricao}</p>
                         )}
                       </div>
                       <div className="text-right">
