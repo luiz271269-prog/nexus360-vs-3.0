@@ -34,7 +34,6 @@ import {
 import { toast } from "sonner";
 import OrcamentoKanban from "../components/orcamentos/OrcamentoKanban";
 import OrcamentoTable from "../components/orcamentos/OrcamentoTable";
-import ImportacaoCompletaOrcamento from "../components/importacao/ImportacaoCompletaOrcamento";
 import { createPageUrl } from "@/utils";
 import { useNavigate } from "react-router-dom";
 import {
@@ -50,7 +49,6 @@ export default function Orcamentos() {
   const [viewMode, setViewMode] = useState('kanban');
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState('all');
-  const [mostrarImportacao, setMostrarImportacao] = useState(false);
   const queryClient = useQueryClient();
   const navigate = useNavigate();
 
@@ -81,18 +79,18 @@ export default function Orcamentos() {
   };
 
   const filteredOrcamentos = orcamentos.filter(orcamento => {
-    const matchesSearch = searchTerm === '' || 
+    const matchesSearch = searchTerm === '' ||
       orcamento.numero_orcamento?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       orcamento.nome_cliente?.toLowerCase().includes(searchTerm.toLowerCase());
-    
+
     const matchesStatus = filterStatus === 'all' || orcamento.status === filterStatus;
-    
+
     return matchesSearch && matchesStatus;
   });
 
   const handleDelete = async (id) => {
     if (!confirm('Tem certeza que deseja excluir este orçamento?')) return;
-    
+
     try {
       await base44.entities.Orcamento.delete(id);
       toast.success('Orçamento excluído com sucesso!');
@@ -111,11 +109,8 @@ export default function Orcamentos() {
     navigate(createPageUrl(`OrcamentoDetalhes?id=${orcamento.id}`));
   };
 
-  const handleImportacaoCompleta = (dadosImportados) => {
-    setMostrarImportacao(false);
-    navigate(createPageUrl(`OrcamentoDetalhes?importacao=true`), {
-      state: { dadosImportados }
-    });
+  const handleImportacaoIA = () => {
+    navigate(createPageUrl('Importacao'));
   };
 
   return (
@@ -133,7 +128,7 @@ export default function Orcamentos() {
                   <p className="text-slate-400 mt-1">Gestão inteligente com insights de IA em tempo real</p>
                 </div>
               </div>
-              
+
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button className="bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white shadow-lg">
@@ -148,8 +143,8 @@ export default function Orcamentos() {
                     <Plus className="w-4 h-4 mr-2" />
                     Orçamento em Branco
                   </DropdownMenuItem>
-                  <DropdownMenuItem 
-                    onClick={() => setMostrarImportacao(true)}
+                  <DropdownMenuItem
+                    onClick={handleImportacaoIA}
                     className="text-purple-600 focus:text-purple-700 focus:bg-purple-50"
                   >
                     <Sparkles className="w-4 h-4 mr-2" />
@@ -241,7 +236,7 @@ export default function Orcamentos() {
                     className="pl-10 bg-slate-700 border-slate-600 text-white"
                   />
                 </div>
-                
+
                 <select
                   value={filterStatus}
                   onChange={(e) => setFilterStatus(e.target.value)}
@@ -298,13 +293,6 @@ export default function Orcamentos() {
           </CardContent>
         </Card>
       </div>
-
-      {/* Modal de Importação Inteligente */}
-      <ImportacaoCompletaOrcamento
-        isOpen={mostrarImportacao}
-        onClose={() => setMostrarImportacao(false)}
-        onSuccess={handleImportacaoCompleta}
-      />
     </div>
   );
 }
