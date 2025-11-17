@@ -1,3 +1,4 @@
+
 import React, { useState } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery } from "@tanstack/react-query";
@@ -625,8 +626,8 @@ export default function AnalisePlaybooksCritica() {
               <p className="text-slate-400 text-sm mt-2">
                 A análise crítica identificará todos os pontos de melhoria do sistema
               </p>
-            </Card>
-          </CardContent>
+            </CardContent>
+          </Card>
         )}
       </div>
     </div>

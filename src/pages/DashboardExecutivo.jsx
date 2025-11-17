@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   TrendingUp,
+  TrendingDown,
   DollarSign,
   Users,
   MessageSquare,
@@ -23,9 +24,8 @@ import {
   Eye,
   AlertCircle
 } from "lucide-react";
-import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
+import { AreaChart, Area, BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
 import { toast } from "sonner";
-import { getAllCircuitBreakerStats } from "../components/lib/retryHandler";
 
 /**
  * ╔═══════════════════════════════════════════════════════════════╗
@@ -74,7 +74,6 @@ const MetricCard = ({ titulo, valor, variacao, icone: Icon, cor, descricao, tren
 export default function DashboardExecutivo() {
   const [periodo, setPeriodo] = useState('30d');
   const [autoRefresh, setAutoRefresh] = useState(true);
-  const [circuitBreakers, setCircuitBreakers] = useState([]);
 
   // ═══════════════════════════════════════════════════════════
   // Query principal de KPIs
@@ -321,19 +320,6 @@ export default function DashboardExecutivo() {
     refetchInterval: autoRefresh ? 60000 : false // Refresh automático a cada 1 min
   });
 
-  // ═══════════════════════════════════════════════════════════
-  // Monitorar circuit breakers
-  // ═══════════════════════════════════════════════════════════
-  
-  useEffect(() => {
-    const interval = setInterval(() => {
-      const stats = getAllCircuitBreakerStats();
-      setCircuitBreakers(stats);
-    }, 5000);
-
-    return () => clearInterval(interval);
-  }, []);
-
   const handleRefresh = () => {
     refetch();
     toast.success('Dashboard atualizado!');
@@ -453,7 +439,7 @@ export default function DashboardExecutivo() {
       </div>
 
       <Tabs defaultValue="negocio" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-3">
+        <TabsList className="grid w-full grid-cols-2">
           <TabsTrigger value="negocio">
             <BarChart3 className="w-4 h-4 mr-2" />
             Negócio
@@ -461,10 +447,6 @@ export default function DashboardExecutivo() {
           <TabsTrigger value="automacao">
             <Zap className="w-4 h-4 mr-2" />
             Automação
-          </TabsTrigger>
-          <TabsTrigger value="sistema">
-            <Activity className="w-4 h-4 mr-2" />
-            Sistema
           </TabsTrigger>
         </TabsList>
 
@@ -590,53 +572,6 @@ export default function DashboardExecutivo() {
               loading={isLoading}
             />
           </div>
-        </TabsContent>
-
-        {/* TAB: Sistema */}
-        <TabsContent value="sistema" className="space-y-6">
-          
-          {/* Circuit Breakers */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Activity className="w-5 h-5" />
-                Status dos Serviços
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                {circuitBreakers.map(cb => (
-                  <div key={cb.service} className="flex items-center justify-between p-4 border rounded-lg hover:bg-slate-50 transition-colors">
-                    <div className="flex items-center gap-3">
-                      <div className={`w-3 h-3 rounded-full ${
-                        cb.state === 'CLOSED' ? 'bg-green-500 animate-pulse' :
-                        cb.state === 'HALF_OPEN' ? 'bg-yellow-500 animate-pulse' : 
-                        'bg-red-500 animate-pulse'
-                      }`} />
-                      <div>
-                        <p className="font-semibold capitalize">{cb.service}</p>
-                        <p className="text-sm text-slate-600">
-                          State: <Badge className={
-                            cb.state === 'CLOSED' ? 'bg-green-500' :
-                            cb.state === 'HALF_OPEN' ? 'bg-yellow-500' : 'bg-red-500'
-                          }>
-                            {cb.state}
-                          </Badge>
-                        </p>
-                      </div>
-                    </div>
-                    <div className="text-right">
-                      <p className="text-sm text-slate-600">Success Rate</p>
-                      <p className="text-lg font-bold">{cb.successRate}</p>
-                      <p className="text-xs text-slate-500">
-                        {cb.totalRequests} requisições
-                      </p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
         </TabsContent>
       </Tabs>
     </div>
