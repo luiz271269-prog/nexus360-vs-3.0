@@ -1,0 +1,663 @@
+
+import { useState, useEffect } from 'react';
+import { format } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
+import {
+  CheckCheck, Check, Forward, Trash2, MoreVertical, Loader2, Copy,
+  Zap, CheckCircle2, AlertCircle, ChevronRight, Clock, Search, ArrowRight,
+  Reply, Target // Added Target icon
+} from 'lucide-react';
+import { cn } from "@/lib/utils";
+import { toast } from "sonner";
+import { base44 } from "@/api/base44Client";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+  DropdownMenuSeparator, // Added DropdownMenuSeparator
+} from "@/components/ui/dropdown-menu";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Badge } from "@/components/ui/badge";
+
+import ReactMarkdown from 'react-markdown';
+
+const FunctionDisplay = ({ toolCall }) => {
+  const [expanded, setExpanded] = useState(false);
+  const name = toolCall?.name || 'Function';
+  const status = toolCall?.status || 'pending';
+  const results = toolCall?.results;
+  
+  const parsedResults = (() => {
+    if (!results) return null;
+    try {
+      return typeof results === 'string' ? JSON.parse(results) : results;
+    } catch {
+      return results;
+    }
+  })();
+  
+  const isError = results && (
+    (typeof results === 'string' && /error|failed/i.test(results)) ||
+    (parsedResults?.success === false)
+  );
+  
+  const statusConfig = {
+    pending: { icon: Clock, color: 'text-slate-400', text: 'Pending' },
+    running: { icon: Loader2, color: 'text-slate-500', text: 'Running...', spin: true },
+    in_progress: { icon: Loader2, color: 'text-slate-500', text: 'Running...', spin: true },
+    completed: isError ? 
+      { icon: AlertCircle, color: 'text-red-500', text: 'Failed' } : 
+      { icon: CheckCircle2, color: 'text-green-600', text: 'Success' },
+    success: { icon: CheckCircle2, color: 'text-green-600', text: 'Success' },
+    failed: { icon: AlertCircle, color: 'text-red-500', text: 'Failed' },
+    error: { icon: AlertCircle, color: 'text-red-500', text: 'Failed' }
+  }[status] || { icon: Zap, color: 'text-slate-500', text: '' };
+  
+  const Icon = statusConfig.icon;
+  const formattedName = name.split('.').reverse().join(' ').toLowerCase();
+  
+  return (
+    <div className="mt-2 text-xs">
+      <button
+        onClick={() => setExpanded(!expanded)}
+        className={cn(
+          "flex items-center gap-2 px-3 py-1.5 rounded-lg border transition-all",
+          "hover:bg-slate-50",
+          expanded ? "bg-slate-50 border-slate-300" : "bg-white border-slate-200"
+        )}
+      >
+        <Icon className={cn("h-3 w-3", statusConfig.color, statusConfig.spin && "animate-spin")} />
+        <span className="text-slate-700">{formattedName}</span>
+        {statusConfig.text && (
+          <span className={cn("text-slate-500", isError && "text-red-600")}>
+            • {statusConfig.text}
+          </span>
+        )}
+        {!statusConfig.spin && (toolCall.arguments_string || results) && (
+          <ChevronRight className={cn("h-3 w-3 text-slate-400 transition-transform ml-auto", 
+            expanded && "rotate-90")} />
+        )}
+      </button>
+      
+      {expanded && !statusConfig.spin && (
+        <div className="mt-1.5 ml-3 pl-3 border-l-2 border-slate-200 space-y-2">
+          {toolCall.arguments_string && (
+            <div>
+              <div className="text-xs text-slate-500 mb-1">Parameters:</div>
+              <pre className="bg-slate-50 rounded-md p-2 text-xs text-slate-600 whitespace-pre-wrap">
+                {(() => {
+                  try {
+                    return JSON.stringify(JSON.parse(toolCall.arguments_string), null, 2);
+                  } catch {
+                    return toolCall.arguments_string;
+                  }
+                })()}
+              </pre>
+            </div>
+          )}
+          {parsedResults && (
+            <div>
+              <div className="text-xs text-slate-500 mb-1">Result:</div>
+              <pre className="bg-slate-50 rounded-md p-2 text-xs text-slate-600 whitespace-pre-wrap max-h-48 overflow-auto">
+                {typeof parsedResults === 'object' ? 
+                  JSON.stringify(parsedResults, null, 2) : parsedResults}
+              </pre>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+};
+
+export default function MessageBubble({
+  message,
+  isOwn,
+  thread,
+  onResponder,
+  modoSelecao,
+  selecionada,
+  onToggleSelecao,
+  mensagens
+}) {
+  const [mostrarDialogEncaminhar, setMostrarDialogEncaminhar] = useState(false);
+  const [encaminhando, setEncaminhando] = useState(false);
+  const [apagando, setApagando] = useState(false);
+
+  const [contatos, setContatos] = useState([]);
+  const [contatosSelecionados, setContatosSelecionados] = useState([]);
+  const [buscaContato, setBuscaContato] = useState("");
+  const [carregandoContatos, setCarregandoContatos] = useState(false);
+
+  // Define isSystemMessage based on message sender_type, assuming it exists.
+  // If message.sender_type is not always present, a more robust check might be needed.
+  const isSystemMessage = message.sender_type === 'system';
+
+  useEffect(() => {
+    if (mostrarDialogEncaminhar && contatos.length === 0) {
+      carregarContatos();
+    }
+  }, [mostrarDialogEncaminhar]);
+
+  const formatarHorario = (timestamp) => {
+    if (!timestamp) return '';
+    try {
+      return format(new Date(timestamp), 'HH:mm', { locale: ptBR });
+    } catch {
+      return '';
+    }
+  };
+
+  const carregarContatos = async () => {
+    setCarregandoContatos(true);
+    try {
+      const threadsRecentes = await base44.entities.MessageThread.list('-last_message_at', 50);
+      const contatosIds = [...new Set(threadsRecentes.map(t => t.contact_id))];
+      const contatosCarregados = await Promise.all(
+        contatosIds.map(id => base44.entities.Contact.get(id).catch(() => null))
+      );
+
+      const contatosValidos = contatosCarregados
+        .filter(c => c && !c.bloqueado && c.telefone)
+        .sort((a, b) => (a.nome || '').localeCompare(b.nome || ''));
+
+      setContatos(contatosValidos);
+    } catch (error) {
+      console.error('[BUBBLE] Erro ao carregar contatos:', error);
+      toast.error("Erro ao carregar contatos");
+    } finally {
+      setCarregandoContatos(false);
+    }
+  };
+
+  const toggleContatoSelecionado = (contato) => {
+    setContatosSelecionados(prev => {
+      const jaEsta = prev.find(c => c.id === contato.id);
+      if (jaEsta) {
+        return prev.filter(c => c.id !== contato.id);
+      } else {
+        return [...prev, contato];
+      }
+    });
+  };
+
+  const handleEncaminhar = async () => {
+    if (contatosSelecionados.length === 0) {
+      toast.error("Selecione pelo menos um contato");
+      return;
+    }
+
+    if (!thread || !thread.whatsapp_integration_id) {
+      toast.error("❌ Não foi possível determinar a integração do WhatsApp");
+      return;
+    }
+
+    setEncaminhando(true);
+    try {
+      let sucessos = 0;
+      let erros = 0;
+
+      for (const contato of contatosSelecionados) {
+        try {
+          const resultado = await base44.functions.invoke('encaminharMensagem', {
+            message_id: message.id,
+            target_phone: contato.telefone,
+            integration_id: thread.whatsapp_integration_id
+          });
+
+          if (resultado.data.success) {
+            sucessos++;
+          } else {
+            erros++;
+          }
+        } catch (error) {
+          console.error(`[BUBBLE] Erro ao encaminhar para ${contato.nome}:`, error);
+          erros++;
+        }
+      }
+
+      if (sucessos > 0) {
+        toast.success(`✅ Mensagem encaminhada para ${sucessos} contato(s)!`);
+      }
+
+      if (erros > 0) {
+        toast.error(`❌ ${erros} encaminhamento(s) falharam`);
+      }
+
+      setMostrarDialogEncaminhar(false);
+      setContatosSelecionados([]);
+      setBuscaContato("");
+    } catch (error) {
+      console.error('[BUBBLE] Erro ao encaminhar:', error);
+      toast.error(`Erro: ${error.message}`);
+    } finally {
+      setEncaminhando(false);
+    }
+  };
+
+  const handleApagar = async () => {
+    if (!confirm("Tem certeza que deseja apagar esta mensagem?")) return;
+
+    setApagando(true);
+    try {
+      const resultado = await base44.functions.invoke('apagarMensagem', {
+        message_id: message.id,
+        delete_for_everyone: true
+      });
+
+      if (resultado.data.success) {
+        toast.success("✅ Mensagem apagada!");
+      } else {
+        throw new Error(resultado.data.error || "Erro ao apagar");
+      }
+    } catch (error) {
+      console.error('[BUBBLE] Erro ao apagar:', error);
+      toast.error(`Erro: ${error.message}`);
+    } finally {
+      setApagando(false);
+    }
+  };
+
+  const mensagemOriginal = message.reply_to_message_id
+    ? mensagens?.find(m => m.id === message.reply_to_message_id)
+    : null;
+
+  if (message.metadata?.deleted) {
+    return (
+      <div className={cn("flex gap-3", isOwn ? "justify-end" : "justify-start")}>
+        <div className={cn(
+          "max-w-[85%] rounded-2xl px-4 py-2.5 bg-slate-100 text-slate-400 italic",
+          isOwn && "bg-slate-200"
+        )}>
+          <p className="text-sm">🗑️ Mensagem apagada</p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <>
+      <div className={cn(
+        "flex gap-3",
+        isOwn ? "justify-end" : "justify-start",
+        modoSelecao && "cursor-pointer"
+      )}
+        onClick={() => modoSelecao && onToggleSelecao?.()}
+      >
+        {modoSelecao && (
+          <div className="flex items-center justify-center">
+            <div className={cn(
+              "w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all",
+              selecionada ? "bg-blue-500 border-blue-500" : "border-slate-300"
+            )}>
+              {selecionada && <Check className="w-4 h-4 text-white" />}
+            </div>
+          </div>
+        )}
+
+        {!isOwn && !modoSelecao && (
+          <div className="h-7 w-7 rounded-lg bg-slate-100 flex items-center justify-center mt-0.5 flex-shrink-0">
+            <div className="h-1.5 w-1.5 rounded-full bg-slate-400" />
+          </div>
+        )}
+
+        <div className={cn(
+          "max-w-[70%]",
+          isOwn ? 'items-end' : 'items-start',
+          "flex flex-col group relative"
+        )}>
+          {mensagemOriginal && (
+            <div className={cn(
+              "mb-1 px-3 py-2 rounded-lg border-l-4 text-xs bg-slate-100",
+              isOwn ? "border-blue-500" : "border-green-500"
+            )}>
+              <p className="font-semibold text-slate-600 mb-0.5">
+                {mensagemOriginal.sender_type === 'user' ? 'Você' : 'Cliente'}
+              </p>
+              <p className="text-slate-500 line-clamp-2">
+                {mensagemOriginal.content || "[Mídia/Conteúdo sem texto]"}
+              </p>
+            </div>
+          )}
+
+          <div className={cn(
+            "rounded-2xl px-4 py-2 relative shadow-sm",
+            isOwn
+              ? "bg-gradient-to-r from-blue-500 to-blue-600 text-white"
+              : "bg-white border border-slate-200 text-slate-800",
+            selecionada ? 'ring-2 ring-blue-500' : ''
+          )}>
+            {!modoSelecao && !isSystemMessage && ( // Added !isSystemMessage condition
+              <div className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity"> {/* Updated position class */}
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8 rounded-full hover:bg-slate-100"
+                    >
+                      <MoreVertical className="w-4 h-4 text-slate-600" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end"> {/* Updated align to always be "end" */}
+                    {onResponder && (
+                      <DropdownMenuItem onClick={() => onResponder(message)}>
+                        <Reply className="w-4 h-4 mr-2" />
+                        Responder
+                      </DropdownMenuItem>
+                    )}
+                    <DropdownMenuItem
+                      onClick={() => {
+                        setMostrarDialogEncaminhar(true);
+                        setContatosSelecionados([]);
+                        setBuscaContato("");
+                      }}
+                      disabled={encaminhando}
+                    >
+                      <Forward className="w-4 h-4 mr-2" />
+                      Encaminhar
+                    </DropdownMenuItem>
+                    {isOwn && (
+                      <DropdownMenuItem
+                        onClick={handleApagar}
+                        disabled={apagando}
+                        className="text-red-600"
+                      >
+                        <Trash2 className="w-4 h-4 mr-2" />
+                        Apagar
+                      </DropdownMenuItem>
+                    )}
+
+                    {/* NOVA OPÇÃO: CRIAR OPORTUNIDADE - DISPONÍVEL PARA TODAS AS MENSAGENS */}
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem
+                      onClick={() => {
+                        if (window.handleCriarOportunidadeDeChat) {
+                          window.handleCriarOportunidadeDeChat(message, thread);
+                        }
+                      }}
+                      className="gap-2 text-green-600"
+                    >
+                      <Target className="w-4 h-4" />
+                      Criar Oportunidade (Orçamento)
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
+            )}
+
+            {message.content && (
+              <div className="break-words whitespace-pre-wrap">
+                {isOwn ? (
+                  <p className="text-sm leading-relaxed">{message.content}</p>
+                ) : (
+                  <ReactMarkdown
+                    className="text-sm prose prose-sm prose-slate max-w-none [&>*:first-child]:mt-0 [&>*:last-child]:mb-0"
+                    components={{
+                      code: ({ inline, className, children, ...props }) => {
+                        const match = /language-(\w+)/.exec(className || '');
+                        return !inline && match ? (
+                          <div className="relative group/code">
+                            <pre className="bg-slate-900 text-slate-100 rounded-lg p-3 overflow-x-auto my-2">
+                              <code className={className} {...props}>{children}</code>
+                            </pre>
+                            <Button
+                              size="icon"
+                              variant="ghost"
+                              className="absolute top-2 right-2 h-6 w-6 opacity-0 group-hover/code:opacity-100 bg-slate-800 hover:bg-slate-700"
+                              onClick={() => {
+                                navigator.clipboard.writeText(String(children).replace(/\n$/, ''));
+                                toast.success('Code copied');
+                              }}
+                            >
+                              <Copy className="h-3 w-3 text-slate-400" />
+                            </Button>
+                          </div>
+                        ) : (
+                          <code className="px-1 py-0.5 rounded bg-slate-100 text-slate-700 text-xs">
+                            {children}
+                          </code>
+                        );
+                      },
+                      a: ({ children, ...props }) => (
+                        <a {...props} target="_blank" rel="noopener noreferrer">{children}</a>
+                      ),
+                      p: ({ children }) => <p className="my-1 leading-relaxed">{children}</p>,
+                      ul: ({ children }) => <ul className="my-1 ml-4 list-disc">{children}</ul>,
+                      ol: ({ children }) => <ol className="my-1 ml-4 list-decimal">{children}</ol>,
+                      li: ({ children }) => <li className="my-0.5">{children}</li>,
+                      h1: ({ children }) => <h1 className="text-lg font-semibold my-2">{children}</h1>,
+                      h2: ({ children }) => <h2 className="text-base font-semibold my-2">{children}</h2>,
+                      h3: ({ children }) => <h3 className="text-sm font-semibold my-2">{children}</h3>,
+                      blockquote: ({ children }) => (
+                        <blockquote className="border-l-2 border-slate-300 pl-3 my-2 text-slate-600">
+                          {children}
+                        </blockquote>
+                      ),
+                    }}
+                  >
+                    {message.content}
+                  </ReactMarkdown>
+                )}
+              </div>
+            )}
+
+            {message.media_url && message.media_type !== 'none' && (
+              <div className={message.content ? "mt-2" : ""}>
+                {message.media_type === 'image' && (
+                  <img
+                    src={message.media_url}
+                    alt="Imagem"
+                    className="rounded-lg max-w-full"
+                  />
+                )}
+                {message.media_type === 'video' && (
+                  <video
+                    src={message.media_url}
+                    controls
+                    className="rounded-lg max-w-full"
+                  />
+                )}
+                {message.media_type === 'audio' && (
+                  <audio
+                    src={message.media_url}
+                    controls
+                    className="w-full"
+                  />
+                )}
+                {message.media_type === 'document' && (
+                  <a
+                    href={message.media_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-blue-500 underline"
+                  >
+                    📄 Documento
+                  </a>
+                )}
+              </div>
+            )}
+
+            {message.tool_calls?.length > 0 && (
+              <div className="space-y-1 mt-2">
+                {message.tool_calls.map((toolCall, idx) => (
+                  <FunctionDisplay key={idx} toolCall={toolCall} />
+                ))}
+              </div>
+            )}
+          </div>
+
+          {isOwn && (
+            <div className="flex items-center gap-1 mt-1 px-2">
+              <span className="text-xs text-slate-500">
+                {formatarHorario(message.sent_at || message.created_date)}
+              </span>
+
+              {message.status === 'enviando' && (
+                <Loader2 className="w-3 h-3 text-slate-400 animate-spin" />
+              )}
+
+              {message.status === 'enviada' && (
+                <Check className="w-4 h-4 text-slate-400" />
+              )}
+
+              {message.status === 'entregue' && (
+                <CheckCheck className="w-4 h-4 text-slate-500" />
+              )}
+
+              {message.status === 'lida' && (
+                <CheckCheck className="w-4 h-4 text-blue-500" />
+              )}
+
+              {message.status === 'falhou' && (
+                <AlertCircle className="w-4 h-4 text-red-500" />
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+
+      <Dialog open={mostrarDialogEncaminhar} onOpenChange={setMostrarDialogEncaminhar}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Forward className="w-5 h-5 text-blue-600" />
+              Encaminhar Mensagem
+            </DialogTitle>
+            <DialogDescription>
+              Selecione os contatos que devem receber esta mensagem
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 w-4 h-4" />
+              <Input
+                placeholder="Buscar contato..."
+                value={buscaContato}
+                onChange={(e) => setBuscaContato(e.target.value)}
+                className="pl-10"
+              />
+            </div>
+
+            {contatosSelecionados.length > 0 && (
+              <div className="flex flex-wrap gap-2 p-3 bg-blue-50 rounded-lg border border-blue-200">
+                {contatosSelecionados.map(contato => (
+                  <Badge
+                    key={contato.id}
+                    variant="secondary"
+                    className="bg-blue-100 text-blue-800 gap-1"
+                  >
+                    {contato.nome || contato.telefone}
+                    <button
+                      onClick={() => toggleContatoSelecionado(contato)}
+                      className="ml-1 hover:bg-blue-200 rounded-full p-0.5"
+                    >
+                      ×
+                    </button>
+                  </Badge>
+                ))}
+              </div>
+            )}
+
+            <ScrollArea className="h-64 border rounded-lg">
+              {carregandoContatos ? (
+                <div className="flex items-center justify-center h-full">
+                  <Loader2 className="w-6 h-6 animate-spin text-blue-600" />
+                </div>
+              ) : (contatos.filter(c =>
+                (c.nome || '').toLowerCase().includes(buscaContato.toLowerCase()) ||
+                (c.telefone || '').includes(buscaContato)
+              ).length === 0 && !carregandoContatos) ? (
+                <div className="flex flex-col items-center justify-center h-full text-slate-400">
+                  <p className="text-sm">Nenhum contato encontrado</p>
+                </div>
+              ) : (
+                <div className="p-2">
+                  {contatos
+                    .filter(c =>
+                      !buscaContato ||
+                      c.nome?.toLowerCase().includes(buscaContato.toLowerCase()) ||
+                      c.telefone?.includes(buscaContato)
+                    )
+                    .map(contato => {
+                      const selecionado = contatosSelecionados.find(c => c.id === contato.id);
+
+                      return (
+                        <button
+                          key={contato.id}
+                          onClick={() => toggleContatoSelecionado(contato)}
+                          className={cn(
+                            "w-full flex items-center gap-3 p-3 rounded-lg hover:bg-slate-50 transition-colors",
+                            selecionado && "bg-blue-50 hover:bg-blue-100"
+                          )}
+                        >
+                          <div className={cn(
+                            "w-10 h-10 rounded-full flex items-center justify-center text-white font-bold flex-shrink-0",
+                            selecionado ? "bg-blue-600" : "bg-slate-400"
+                          )}>
+                            {selecionado ? (
+                              <Check className="w-5 h-5" />
+                            ) : (
+                              (contato.nome || contato.telefone)?.charAt(0)?.toUpperCase() || '?'
+                            )}
+                          </div>
+                          <div className="flex-1 text-left">
+                            <p className="font-medium text-slate-900">
+                              {contato.nome || 'Sem nome'}
+                            </p>
+                            <p className="text-sm text-slate-500">{contato.telefone}</p>
+                          </div>
+                        </button>
+                      );
+                    })}
+                </div>
+              )}
+            </ScrollArea>
+          </div>
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setMostrarDialogEncaminhar(false);
+                setContatosSelecionados([]);
+                setBuscaContato("");
+              }}
+            >
+              Cancelar
+            </Button>
+            <Button
+              onClick={handleEncaminhar}
+              disabled={contatosSelecionados.length === 0 || encaminhando}
+              className="bg-blue-600 hover:bg-blue-700"
+            >
+              {encaminhando ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Encaminhando...
+                </>
+              ) : (
+                <>
+                  Encaminhar
+                  <ArrowRight className="w-4 h-4 ml-2" />
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
+  );
+}

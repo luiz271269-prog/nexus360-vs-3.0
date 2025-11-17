@@ -1,0 +1,219 @@
+import { useState } from "react";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import {
+  CheckCircle,
+  XCircle,
+  Loader2,
+  AlertTriangle,
+  RefreshCw,
+  Activity
+} from "lucide-react";
+import { toast } from "sonner";
+
+export default function DiagnosticoZAPICentralizado({ integracao, onRecarregar, testarConexao, isTesting }) {
+  const [diagnostico, setDiagnostico] = useState(null);
+  const [executando, setExecutando] = useState(false);
+
+  const executarDiagnostico = async () => {
+    setExecutando(true);
+    setDiagnostico(null);
+
+    try {
+      console.log('[DIAGNOSTICO] 🚀 Iniciando diagnóstico completo da instância:', integracao.instance_id_provider);
+
+      const resultado = {
+        timestamp: new Date().toISOString(),
+        instancia: integracao.nome_instancia,
+        testes: []
+      };
+
+      // Teste 1: Verificar se testarConexao existe
+      if (typeof testarConexao === 'function') {
+        resultado.testes.push({
+          nome: 'Conexão Z-API',
+          status: 'executando',
+          mensagem: 'Testando conexão com a Z-API...'
+        });
+
+        try {
+          await testarConexao(integracao);
+          resultado.testes[0].status = 'sucesso';
+          resultado.testes[0].mensagem = 'Conexão estabelecida com sucesso';
+        } catch (error) {
+          resultado.testes[0].status = 'erro';
+          resultado.testes[0].mensagem = error.message;
+        }
+      } else {
+        resultado.testes.push({
+          nome: 'Conexão Z-API',
+          status: 'aviso',
+          mensagem: 'Função de teste não disponível'
+        });
+      }
+
+      // Teste 2: Verificar configurações
+      resultado.testes.push({
+        nome: 'Configurações',
+        status: integracao.api_key_provider && integracao.security_client_token_header ? 'sucesso' : 'erro',
+        mensagem: integracao.api_key_provider && integracao.security_client_token_header 
+          ? 'Tokens configurados corretamente' 
+          : 'Tokens incompletos ou ausentes'
+      });
+
+      // Teste 3: Verificar webhook
+      resultado.testes.push({
+        nome: 'Webhook',
+        status: integracao.webhook_url ? 'sucesso' : 'aviso',
+        mensagem: integracao.webhook_url 
+          ? `Configurado: ${integracao.webhook_url.substring(0, 50)}...` 
+          : 'URL do webhook não configurada'
+      });
+
+      setDiagnostico(resultado);
+      
+      const sucessos = resultado.testes.filter(t => t.status === 'sucesso').length;
+      const total = resultado.testes.length;
+      
+      if (sucessos === total) {
+        toast.success(`✅ Diagnóstico completo: ${sucessos}/${total} testes OK`);
+      } else {
+        toast.warning(`⚠️ Diagnóstico completo: ${sucessos}/${total} testes OK`);
+      }
+
+    } catch (error) {
+      console.error('[DIAGNOSTICO] ❌ Erro ao executar teste:', error);
+      toast.error('Erro ao executar diagnóstico');
+      
+      setDiagnostico({
+        timestamp: new Date().toISOString(),
+        instancia: integracao.nome_instancia,
+        erro: error.message,
+        testes: []
+      });
+    } finally {
+      setExecutando(false);
+    }
+  };
+
+  const getStatusIcon = (status) => {
+    switch (status) {
+      case 'sucesso':
+        return <CheckCircle className="w-4 h-4 text-green-600" />;
+      case 'erro':
+        return <XCircle className="w-4 h-4 text-red-600" />;
+      case 'aviso':
+        return <AlertTriangle className="w-4 h-4 text-yellow-600" />;
+      case 'executando':
+        return <Loader2 className="w-4 h-4 text-blue-600 animate-spin" />;
+      default:
+        return <Activity className="w-4 h-4 text-gray-600" />;
+    }
+  };
+
+  const getStatusColor = (status) => {
+    switch (status) {
+      case 'sucesso':
+        return 'bg-green-50 border-green-200';
+      case 'erro':
+        return 'bg-red-50 border-red-200';
+      case 'aviso':
+        return 'bg-yellow-50 border-yellow-200';
+      default:
+        return 'bg-gray-50 border-gray-200';
+    }
+  };
+
+  return (
+    <Card className="border-2 border-indigo-200 bg-gradient-to-br from-indigo-50 to-purple-50">
+      <CardHeader>
+        <CardTitle className="flex items-center justify-between">
+          <span className="flex items-center gap-2 text-indigo-900">
+            <Activity className="w-5 h-5" />
+            Diagnóstico Completo
+          </span>
+          <Button
+            onClick={executarDiagnostico}
+            disabled={executando || isTesting}
+            size="sm"
+            className="bg-indigo-600 hover:bg-indigo-700"
+          >
+            {executando || isTesting ? (
+              <>
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                Testando...
+              </>
+            ) : (
+              <>
+                <RefreshCw className="w-4 h-4 mr-2" />
+                Executar Diagnóstico
+              </>
+            )}
+          </Button>
+        </CardTitle>
+      </CardHeader>
+
+      <CardContent className="space-y-4">
+        {!diagnostico && !executando && (
+          <Alert className="bg-indigo-100 border-indigo-300">
+            <Activity className="h-4 w-4 text-indigo-700" />
+            <AlertDescription className="text-indigo-900">
+              Clique em "Executar Diagnóstico" para testar a conexão e configurações desta instância.
+            </AlertDescription>
+          </Alert>
+        )}
+
+        {diagnostico && (
+          <div className="space-y-3">
+            <div className="flex items-center justify-between text-sm text-indigo-700">
+              <span>Executado em: {new Date(diagnostico.timestamp).toLocaleString('pt-BR')}</span>
+            </div>
+
+            {diagnostico.erro && (
+              <Alert className="bg-red-50 border-red-200">
+                <XCircle className="h-4 w-4 text-red-600" />
+                <AlertDescription className="text-red-900">
+                  {diagnostico.erro}
+                </AlertDescription>
+              </Alert>
+            )}
+
+            {diagnostico.testes.map((teste, index) => (
+              <div
+                key={index}
+                className={`p-4 rounded-lg border-2 ${getStatusColor(teste.status)} transition-all`}
+              >
+                <div className="flex items-start gap-3">
+                  {getStatusIcon(teste.status)}
+                  <div className="flex-1">
+                    <h4 className="font-semibold text-sm mb-1">{teste.nome}</h4>
+                    <p className="text-sm text-gray-700">{teste.mensagem}</p>
+                  </div>
+                </div>
+              </div>
+            ))}
+
+            {diagnostico.testes.length > 0 && (
+              <div className="mt-4 p-4 bg-white rounded-lg border-2 border-indigo-200">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-semibold text-indigo-900">Resultado Geral:</span>
+                  <Badge className={
+                    diagnostico.testes.every(t => t.status === 'sucesso')
+                      ? 'bg-green-100 text-green-800'
+                      : diagnostico.testes.some(t => t.status === 'erro')
+                      ? 'bg-red-100 text-red-800'
+                      : 'bg-yellow-100 text-yellow-800'
+                  }>
+                    {diagnostico.testes.filter(t => t.status === 'sucesso').length} / {diagnostico.testes.length} OK
+                  </Badge>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
