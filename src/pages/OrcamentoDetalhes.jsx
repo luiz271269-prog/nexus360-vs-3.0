@@ -248,7 +248,7 @@ export default function OrcamentoDetalhes() {
     } finally {
       setLoading(false);
     }
-  }, [orcamentoId, carrinhoData, modoOperacao, urlParams, location.state]);
+  }, [orcamentoId, carrinhoData, modoOperacao]);
 
   useEffect(() => {
     loadData();
