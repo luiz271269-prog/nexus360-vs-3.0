@@ -1,5 +1,5 @@
 
-import { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
@@ -20,7 +20,7 @@ import ChatWindow from "../components/comunicacao/ChatWindow";
 import ContactInfoPanel from "../components/comunicacao/ContactInfoPanel";
 import ConfiguracaoWhatsAppHub from "../components/comunicacao/ConfiguracaoWhatsAppHub";
 import DiagnosticoInbound from "../components/comunicacao/DiagnosticoInbound";
-// This import is now redundant but kept for safety if it's used elsewhere or if its removal is not explicit. The new component `BibliotecaAutomacoes` will be used instead in the UI.
+import PlaybookManager from "../components/automacao/PlaybookManager"; // This import is now redundant but kept for safety if it's used elsewhere or if its removal is not explicit. The new component `BibliotecaAutomacoes` will be used instead in the UI.
 import DashboardSaudeOperacional from "../components/comunicacao/DashboardSaudeOperacional";
 import DashboardUnificado from "../components/comunicacao/DashboardUnificado";
 import SearchAndFilter from "../components/comunicacao/SearchAndFilter";
@@ -212,8 +212,10 @@ export default function Comunicacao() {
       await queryClient.invalidateQueries({ queryKey: ['threads'] });
       
       if (threadAtiva) {
-        const threadAtualizada = await base44.entities.MessageThread.get(threadAtiva.id);
-        setThreadAtiva(threadAtualizada);
+        const threadAtualizada = await base44.entities.MessageThread.filter({ id: threadAtiva.id });
+        if (threadAtualizada && threadAtualizada.length > 0) {
+          setThreadAtiva(threadAtualizada[0]);
+        }
       }
       
       toast.success('✅ Informações atualizadas!');
@@ -412,6 +414,7 @@ export default function Comunicacao() {
                       {showContactInfo && contatoAtivo && (
                         <ContactInfoPanel
                           contact={contatoAtivo}
+                          threadAtual={threadAtiva}
                           onClose={() => setShowContactInfo(false)}
                           onUpdate={handleAtualizarContato}
                         />

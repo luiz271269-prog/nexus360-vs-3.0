@@ -1,3 +1,4 @@
+
 import React, { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -1584,6 +1585,60 @@ ${conteudoMensagem}
           </div>
         )}
       </form>
+
+      {/* MODAL DE ATRIBUIÇÃO */}
+      <Dialog open={mostrarModalAtribuicao} onOpenChange={setMostrarModalAtribuicao}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>
+              {thread?.assigned_user_id ? 'Transferir Conversa' : 'Atribuir Conversa'}
+            </DialogTitle>
+            <DialogDescription>
+              Selecione o atendente que será responsável por esta conversa
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-4">
+            {carregandoAtendentes ? (
+              <div className="flex items-center justify-center py-8">
+                <Loader2 className="w-8 h-8 animate-spin text-orange-500" />
+              </div>
+            ) : atendentes.length === 0 ? (
+              <Alert>
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription>
+                  Nenhum atendente disponível. Configure atendentes em Configurações.
+                </AlertDescription>
+              </Alert>
+            ) : (
+              <div className="grid gap-2">
+                {atendentes.map(atendente => (
+                  <Button
+                    key={atendente.id}
+                    onClick={() => handleAtribuirConversa(atendente.id)}
+                    disabled={atribuindo || thread?.assigned_user_id === atendente.id}
+                    variant="outline"
+                    className="w-full justify-start h-auto py-3"
+                  >
+                    <div className="flex items-center gap-3 flex-1">
+                      <div className="w-10 h-10 bg-gradient-to-br from-amber-400 to-orange-500 rounded-full flex items-center justify-center text-white font-bold">
+                        {atendente.full_name?.charAt(0).toUpperCase() || '?'}
+                      </div>
+                      <div className="text-left flex-1">
+                        <p className="font-semibold">{atendente.full_name}</p>
+                        <p className="text-xs text-slate-500">{atendente.email}</p>
+                      </div>
+                      {thread?.assigned_user_id === atendente.id && (
+                        <CheckCircle className="w-5 h-5 text-green-600" />
+                      )}
+                    </div>
+                  </Button>
+                ))}
+              </div>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

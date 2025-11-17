@@ -1,5 +1,4 @@
-
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { base44 } from '@/api/base44Client';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -18,29 +17,30 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Alert } from '@/components/ui/alert';
 import { format } from 'date-fns';
-import { normalizarTelefone } from '../lib/phoneUtils'; // Added import for phone normalization
+import { normalizarTelefone } from '../lib/phoneUtils';
 
-export default function ContactInfoPanel({ contact, novoContatoTelefone, onClose, onUpdate }) {
+export default function ContactInfoPanel({ contact, novoContatoTelefone, onClose, onUpdate, threadAtual }) {
   const [vendedores, setVendedores] = useState([]);
-
-  // New states for permissions and manual editing flow
-  const [editando, setEditando] = useState(!!novoContatoTelefone); // Se é novo contato, já inicia editando
+  const [atendentes, setAtendentes] = useState([]);
+  const [editando, setEditando] = useState(!!novoContatoTelefone);
   const [salvando, setSalvando] = useState(false);
   const [usuario, setUsuario] = useState(null);
 
-  // formData now includes all editable fields, including tipo_contato and vendedor_responsavel
   const [formData, setFormData] = useState({
     nome: contact?.nome || '',
     tipo_contato: contact?.tipo_contato || 'lead',
     vendedor_responsavel: contact?.vendedor_responsavel || '',
+    atendente_fidelizado_vendas: contact?.atendente_fidelizado_vendas || '',
+    atendente_fidelizado_assistencia: contact?.atendente_fidelizado_assistencia || '',
+    atendente_fidelizado_financeiro: contact?.atendente_fidelizado_financeiro || '',
+    atendente_fidelizado_fornecedor: contact?.atendente_fidelizado_fornecedor || '',
     empresa: contact?.empresa || '',
     cargo: contact?.cargo || '',
     email: contact?.email || '',
-    telefone: novoContatoTelefone || contact?.telefone || '', // Já normalizado (expected by parent/prop)
+    telefone: novoContatoTelefone || contact?.telefone || '',
     observacoes: contact?.observacoes || ''
   });
 
-  // Load user for permissions on component mount
   useEffect(() => {
     const carregarUsuario = async () => {
       try {
@@ -53,20 +53,21 @@ export default function ContactInfoPanel({ contact, novoContatoTelefone, onClose
     carregarUsuario();
   }, []);
 
-  // Define permissions based on loaded user
   const permissoes = usuario?.permissoes_comunicacao || {};
-  const podeEditarContatos = permissoes.pode_editar_contatos !== false; // Default true if not explicitly false
+  const podeEditarContatos = permissoes.pode_editar_contatos !== false;
   const podeBloquearContatos = permissoes.pode_bloquear_contatos === true;
   const podeDeletarContatos = permissoes.pode_deletar_contatos === true;
 
-  // Update formData when the contact prop changes (e.g., when a different contact is selected)
-  // Or initialize for a new contact
   useEffect(() => {
     if (contact) {
       setFormData({
         nome: contact.nome || contact.telefone || '',
         tipo_contato: contact.tipo_contato || 'lead',
         vendedor_responsavel: contact.vendedor_responsavel || '',
+        atendente_fidelizado_vendas: contact.atendente_fidelizado_vendas || '',
+        atendente_fidelizado_assistencia: contact.atendente_fidelizado_assistencia || '',
+        atendente_fidelizado_financeiro: contact.atendente_fidelizado_financeiro || '',
+        atendente_fidelizado_fornecedor: contact.atendente_fidelizado_fornecedor || '',
         empresa: contact.empresa || '',
         cargo: contact.cargo || '',
         email: contact.email || '',
@@ -74,13 +75,17 @@ export default function ContactInfoPanel({ contact, novoContatoTelefone, onClose
         observacoes: contact.observacoes || ''
       });
       carregarVendedores();
-      setEditando(false); // Exit editing mode when contact changes
+      carregarAtendentes();
+      setEditando(false);
     } else if (novoContatoTelefone) {
-      // Modo de criação de novo contato
       setFormData({
         nome: '',
         tipo_contato: 'lead',
-        vendedor_responsavel: usuario?.full_name || '', // Default to current user's full name
+        vendedor_responsavel: usuario?.full_name || '',
+        atendente_fidelizado_vendas: '',
+        atendente_fidelizado_assistencia: '',
+        atendente_fidelizado_financeiro: '',
+        atendente_fidelizado_fornecedor: '',
         empresa: '',
         cargo: '',
         email: '',
@@ -88,11 +93,11 @@ export default function ContactInfoPanel({ contact, novoContatoTelefone, onClose
         observacoes: ''
       });
       carregarVendedores();
+      carregarAtendentes();
       setEditando(true);
     }
-  }, [contact?.id, novoContatoTelefone, usuario]); // Added novoContatoTelefone and usuario to dependencies
+  }, [contact?.id, novoContatoTelefone, usuario]);
 
-  // Fetch sellers for the dropdown
   const carregarVendedores = async () => {
     try {
       const vendedoresData = await base44.entities.Vendedor.list('nome');
@@ -102,14 +107,20 @@ export default function ContactInfoPanel({ contact, novoContatoTelefone, onClose
     }
   };
 
-  // Generic handler for form field changes
+  const carregarAtendentes = async () => {
+    try {
+      const atendentesData = await base44.entities.User.filter({ is_whatsapp_attendant: true }, 'full_name');
+      setAtendentes(atendentesData);
+    } catch (error) {
+      console.error('[ContactInfoPanel] Erro ao carregar atendentes:', error);
+    }
+  };
+
   const handleChange = (campo, valor) => {
     setFormData(prev => ({ ...prev, [campo]: valor }));
   };
 
-  // Handles saving the contact's editable information
   const handleSalvar = async () => {
-    // VALIDAÇÃO: Nome obrigatório
     if (!formData.nome || formData.nome.trim() === '') {
       toast.error('❌ O campo "Nome" é obrigatório');
       return;
@@ -127,7 +138,6 @@ export default function ContactInfoPanel({ contact, novoContatoTelefone, onClose
           return;
         }
 
-        // GARANTIR QUE O TELEFONE ESTÁ NORMALIZADO ANTES DE SALVAR
         const telefoneNormalizado = normalizarTelefone(formData.telefone);
 
         if (!telefoneNormalizado) {
@@ -138,18 +148,15 @@ export default function ContactInfoPanel({ contact, novoContatoTelefone, onClose
 
         const dadosParaSalvar = {
           ...formData,
-          telefone: telefoneNormalizado // USAR TELEFONE NORMALIZADO
+          telefone: telefoneNormalizado
         };
 
-        // Chamar onUpdate que vai criar o contato e iniciar a conversa
-        // The parent component is responsible for handling the actual creation and permissions.
-        if (onUpdate) await onUpdate(dadosParaSalvar); // Pass the new contact data
-        // The panel will be closed by the parent component after successful creation.
+        if (onUpdate) await onUpdate(dadosParaSalvar);
         return;
       }
 
-      // --- This section is for UPDATING an EXISTING contact ---
-      if (!podeEditarContatos) { // This permission check is specific to editing existing contacts
+      // ATUALIZAÇÃO DE CONTATO EXISTENTE
+      if (!podeEditarContatos) {
         toast.error("❌ Você não tem permissão para editar contatos");
         setSalvando(false);
         return;
@@ -158,7 +165,6 @@ export default function ContactInfoPanel({ contact, novoContatoTelefone, onClose
       let dataToSave = { ...formData };
       let telefoneNormalizado = formData.telefone;
 
-      // NORMALIZAR TELEFONE ANTES DE VERIFICAR DUPLICAÇÃO, SOMENTE SE HOUVE MUDANÇA
       if (formData.telefone && formData.telefone !== contact.telefone) {
         telefoneNormalizado = normalizarTelefone(formData.telefone);
 
@@ -168,25 +174,21 @@ export default function ContactInfoPanel({ contact, novoContatoTelefone, onClose
           return;
         }
 
-        // Verificar duplicação com telefone normalizado
         const contatosComMesmoTelefone = await base44.entities.Contact.filter({
           telefone: telefoneNormalizado
         });
 
         if (contatosComMesmoTelefone.length > 0 && contatosComMesmoTelefone[0].id !== contact.id) {
           toast.error('❌ Este telefone já está cadastrado em outro contato');
-          setFormData(prev => ({ ...prev, telefone: contact.telefone })); // Revert phone to original
+          setFormData(prev => ({ ...prev, telefone: contact.telefone }));
           setSalvando(false);
           return;
         }
 
-        // Atualizar dataToSave com telefone normalizado para a próxima etapa (hasChanges e update)
         dataToSave.telefone = telefoneNormalizado;
       }
 
-      // Check if any changes were actually made before saving
       const hasChanges = Object.keys(dataToSave).some(key => {
-        // Handle null/undefined vs empty string consistency
         const currentVal = dataToSave[key] === null ? '' : String(dataToSave[key]);
         const contactVal = contact[key] === null ? '' : String(contact[key]);
         return currentVal !== contactVal;
@@ -199,10 +201,60 @@ export default function ContactInfoPanel({ contact, novoContatoTelefone, onClose
         return;
       }
 
-      await base44.entities.Contact.update(contact.id, dataToSave); // Use dataToSave which contains normalized phone
+      await base44.entities.Contact.update(contact.id, dataToSave);
+
+      // ✅ ATRIBUIÇÃO AUTOMÁTICA: Se definiu atendente fidelizado E há thread ativa
+      if (threadAtual) {
+        let atendenteParaAtribuir = null;
+        let atendenteNome = null;
+
+        // Verificar qual atendente fidelizado foi definido baseado no tipo
+        if (formData.tipo_contato === 'fornecedor' && formData.atendente_fidelizado_fornecedor) {
+          atendenteNome = formData.atendente_fidelizado_fornecedor;
+        } else if (formData.tipo_contato === 'cliente' && formData.atendente_fidelizado_vendas) {
+          atendenteNome = formData.atendente_fidelizado_vendas;
+        }
+
+        // Buscar o ID do atendente
+        if (atendenteNome) {
+          atendenteParaAtribuir = atendentes.find(a => a.full_name === atendenteNome);
+        }
+
+        // Se encontrou o atendente E a thread não está atribuída a ele ainda
+        if (atendenteParaAtribuir && threadAtual.assigned_user_id !== atendenteParaAtribuir.id) {
+          console.log('[ContactInfoPanel] 🎯 Atribuindo thread automaticamente para:', atendenteParaAtribuir.full_name);
+
+          await base44.entities.MessageThread.update(threadAtual.id, {
+            assigned_user_id: atendenteParaAtribuir.id,
+            assigned_user_name: atendenteParaAtribuir.full_name,
+            pre_atendimento_ativo: false,
+            pre_atendimento_state: 'COMPLETED'
+          });
+
+          await base44.entities.AutomationLog.create({
+            acao: 'atribuicao_automatica_por_classificacao',
+            contato_id: contact.id,
+            thread_id: threadAtual.id,
+            usuario_id: usuario?.id || 'system',
+            resultado: 'sucesso',
+            timestamp: new Date().toISOString(),
+            detalhes: {
+              mensagem: `Conversa atribuída automaticamente para ${atendenteParaAtribuir.full_name} baseado na classificação do contato`,
+              tipo_contato: formData.tipo_contato,
+              atendente_fidelizado: atendenteNome,
+              classificado_por: usuario?.full_name || 'Sistema'
+            },
+            origem: 'automatica',
+            prioridade: 'normal'
+          });
+
+          toast.success(`✅ Conversa atribuída automaticamente para ${atendenteParaAtribuir.full_name}`);
+        }
+      }
+
       toast.success("✅ Contato atualizado com sucesso!");
       setEditando(false);
-      if (onUpdate) await onUpdate({ ...contact, ...dataToSave }); // Pass updated contact data to parent
+      if (onUpdate) await onUpdate({ ...contact, ...dataToSave });
     } catch (error) {
       console.error('[ContactInfoPanel] Erro ao salvar contato:', error);
       toast.error("Erro ao salvar contato");
@@ -211,7 +263,6 @@ export default function ContactInfoPanel({ contact, novoContatoTelefone, onClose
     }
   };
 
-  // Handles blocking/unblocking the contact
   const handleBloquear = async () => {
     if (!podeBloquearContatos) {
       toast.error("❌ Você não tem permissão para bloquear contatos");
@@ -232,7 +283,7 @@ export default function ContactInfoPanel({ contact, novoContatoTelefone, onClose
       toast.success(`✅ Contato ${action}ado com sucesso!`);
       if (onUpdate) await onUpdate();
       if (action === 'bloquear') {
-        onClose(); // Close the panel if contact is blocked
+        onClose();
       }
     } catch (error) {
       console.error(`[ContactInfoPanel] Erro ao ${action} contato:`, error);
@@ -242,7 +293,6 @@ export default function ContactInfoPanel({ contact, novoContatoTelefone, onClose
     }
   };
 
-  // Handles deleting the contact
   const handleDeletar = async () => {
     if (!podeDeletarContatos) {
       toast.error("❌ Você não tem permissão para deletar contatos");
@@ -255,7 +305,7 @@ export default function ContactInfoPanel({ contact, novoContatoTelefone, onClose
     try {
       await base44.entities.Contact.delete(contact.id);
       toast.success("✅ Contato deletado com sucesso!");
-      onClose(); // Close the panel after deletion
+      onClose();
       if (onUpdate) await onUpdate();
     } catch (error) {
       console.error('[ContactInfoPanel] Erro ao deletar contato:', error);
@@ -265,7 +315,7 @@ export default function ContactInfoPanel({ contact, novoContatoTelefone, onClose
     }
   };
 
-  // Se é novo contato e não tem dados de um contato existente, mostrar o formulário de criação
+  // FORMULÁRIO PARA NOVO CONTATO
   if (novoContatoTelefone && !contact) {
     const tiposContato = [
       { value: 'lead', label: 'Lead', icon: '🎯' },
@@ -425,7 +475,7 @@ export default function ContactInfoPanel({ contact, novoContatoTelefone, onClose
             </div>
           </div>
 
-          {/* Seção Classificação */}
+          {/* Seção Classificação - NOVO CONTATO */}
           <div className="mt-6 px-4 pb-4 space-y-3">
             <h4 className="text-sm font-semibold text-slate-700 px-3">Classificação CRM</h4>
 
@@ -460,12 +510,67 @@ export default function ContactInfoPanel({ contact, novoContatoTelefone, onClose
               </div>
             </div>
 
+            {/* Atendente Fidelizado */}
+            {formData.tipo_contato === 'fornecedor' && (
+              <div className="bg-white border-2 border-purple-200 rounded-lg hover:border-purple-400 transition-colors hover:shadow-md">
+                <div className="flex items-center gap-3 p-3">
+                  <User className="w-5 h-5 text-purple-500 flex-shrink-0" />
+                  <div className="flex-1">
+                    <Label className="text-xs text-slate-500 mb-2 block">Atendente (Fornecedor)</Label>
+                    <Select
+                      value={formData.atendente_fidelizado_fornecedor || "nao_atribuido"}
+                      onValueChange={(value) => handleChange('atendente_fidelizado_fornecedor', value === "nao_atribuido" ? "" : value)}
+                    >
+                      <SelectTrigger className="border-0 p-0 h-auto focus:ring-0">
+                        <SelectValue placeholder="Não atribuído" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="nao_atribuido">Não atribuído</SelectItem>
+                        {atendentes.map(atendente => (
+                          <SelectItem key={atendente.id} value={atendente.full_name}>
+                            {atendente.full_name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {formData.tipo_contato === 'cliente' && (
+              <div className="bg-white border-2 border-purple-200 rounded-lg hover:border-purple-400 transition-colors hover:shadow-md">
+                <div className="flex items-center gap-3 p-3">
+                  <User className="w-5 h-5 text-purple-500 flex-shrink-0" />
+                  <div className="flex-1">
+                    <Label className="text-xs text-slate-500 mb-2 block">Atendente (Vendas)</Label>
+                    <Select
+                      value={formData.atendente_fidelizado_vendas || "nao_atribuido"}
+                      onValueChange={(value) => handleChange('atendente_fidelizado_vendas', value === "nao_atribuido" ? "" : value)}
+                    >
+                      <SelectTrigger className="border-0 p-0 h-auto focus:ring-0">
+                        <SelectValue placeholder="Não atribuído" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="nao_atribuido">Não atribuído</SelectItem>
+                        {atendentes.map(atendente => (
+                          <SelectItem key={atendente.id} value={atendente.full_name}>
+                            {atendente.full_name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+              </div>
+            )}
+
             {/* Vendedor Responsável */}
             <div className="bg-white border-2 border-orange-200 rounded-lg hover:border-orange-400 transition-colors hover:shadow-md">
               <div className="flex items-center gap-3 p-3">
                 <User className="w-5 h-5 text-orange-500 flex-shrink-0" />
                 <div className="flex-1">
-                  <Label className="text-xs text-slate-500 mb-2 block">Atendente</Label>
+                  <Label className="text-xs text-slate-500 mb-2 block">Vendedor</Label>
                   <Select
                     value={formData.vendedor_responsavel || "nao_atribuido"}
                     onValueChange={(value) => handleChange('vendedor_responsavel', value === "nao_atribuido" ? "" : value)}
@@ -520,8 +625,6 @@ export default function ContactInfoPanel({ contact, novoContatoTelefone, onClose
     );
   }
 
-  // If not a new contact, and no contact data, return null.
-  // This covers cases where `contact` is null and `novoContatoTelefone` is also null/undefined.
   if (!contact) return null;
 
   const tiposContato = [
@@ -554,7 +657,6 @@ export default function ContactInfoPanel({ contact, novoContatoTelefone, onClose
             <h3 className="font-medium text-lg">Informações do contato</h3>
           </div>
 
-          {/* Salvando indicator for manual save */}
           {salvando && (
             <motion.div
               initial={{ scale: 0 }}
@@ -715,7 +817,7 @@ export default function ContactInfoPanel({ contact, novoContatoTelefone, onClose
           </div>
         </div>
 
-        {/* Seção Classificação */}
+        {/* Seção Classificação - CONTATO EXISTENTE */}
         <div className="mt-6 px-4 pb-4 space-y-3">
           <h4 className="text-sm font-semibold text-slate-700 px-3">Classificação CRM</h4>
 
@@ -759,12 +861,80 @@ export default function ContactInfoPanel({ contact, novoContatoTelefone, onClose
             </div>
           </div>
 
-          {/* Atendente Responsável */}
+          {/* Atendente Fidelizado - Fornecedor */}
+          {formData.tipo_contato === 'fornecedor' && (
+            <div className="bg-white border-2 border-purple-200 rounded-lg hover:border-purple-400 transition-colors hover:shadow-md">
+              <div className="flex items-center gap-3 p-3">
+                <User className="w-5 h-5 text-purple-500 flex-shrink-0" />
+                <div className="flex-1">
+                  <Label className="text-xs text-slate-500 mb-2 block">Atendente (Fornecedor)</Label>
+                  {editando ? (
+                    <Select
+                      value={formData.atendente_fidelizado_fornecedor || "nao_atribuido"}
+                      onValueChange={(value) => handleChange('atendente_fidelizado_fornecedor', value === "nao_atribuido" ? "" : value)}
+                      disabled={!podeEditarContatos}
+                    >
+                      <SelectTrigger className="border-0 p-0 h-auto focus:ring-0">
+                        <SelectValue placeholder="Não atribuído" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="nao_atribuido">Não atribuído</SelectItem>
+                        {atendentes.map(atendente => (
+                          <SelectItem key={atendente.id} value={atendente.full_name}>
+                            {atendente.full_name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  ) : (
+                    <p className="font-medium text-slate-700 py-1">{formData.atendente_fidelizado_fornecedor || 'Não atribuído'}</p>
+                  )}
+                </div>
+                {!editando && <ChevronRight className="w-4 h-4 text-purple-500" />}
+              </div>
+            </div>
+          )}
+
+          {/* Atendente Fidelizado - Cliente/Vendas */}
+          {formData.tipo_contato === 'cliente' && (
+            <div className="bg-white border-2 border-purple-200 rounded-lg hover:border-purple-400 transition-colors hover:shadow-md">
+              <div className="flex items-center gap-3 p-3">
+                <User className="w-5 h-5 text-purple-500 flex-shrink-0" />
+                <div className="flex-1">
+                  <Label className="text-xs text-slate-500 mb-2 block">Atendente (Vendas)</Label>
+                  {editando ? (
+                    <Select
+                      value={formData.atendente_fidelizado_vendas || "nao_atribuido"}
+                      onValueChange={(value) => handleChange('atendente_fidelizado_vendas', value === "nao_atribuido" ? "" : value)}
+                      disabled={!podeEditarContatos}
+                    >
+                      <SelectTrigger className="border-0 p-0 h-auto focus:ring-0">
+                        <SelectValue placeholder="Não atribuído" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="nao_atribuido">Não atribuído</SelectItem>
+                        {atendentes.map(atendente => (
+                          <SelectItem key={atendente.id} value={atendente.full_name}>
+                            {atendente.full_name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  ) : (
+                    <p className="font-medium text-slate-700 py-1">{formData.atendente_fidelizado_vendas || 'Não atribuído'}</p>
+                  )}
+                </div>
+                {!editando && <ChevronRight className="w-4 h-4 text-purple-500" />}
+              </div>
+            </div>
+          )}
+
+          {/* Vendedor Responsável */}
           <div className="bg-white border-2 border-orange-200 rounded-lg hover:border-orange-400 transition-colors hover:shadow-md">
             <div className="flex items-center gap-3 p-3">
               <User className="w-5 h-5 text-orange-500 flex-shrink-0" />
               <div className="flex-1">
-                <Label className="text-xs text-slate-500 mb-2 block">Atendente</Label>
+                <Label className="text-xs text-slate-500 mb-2 block">Vendedor</Label>
                 {editando ? (
                   <Select
                     value={formData.vendedor_responsavel || "nao_atribuido"}
@@ -833,9 +1003,8 @@ export default function ContactInfoPanel({ contact, novoContatoTelefone, onClose
               </Button>
             </div>
           ) : (
-            // These buttons are displayed when contact is NOT blocked
             <>
-              {!editando && ( // "Edit Contact" and "Block Contact" buttons are visible only when not in edit mode
+              {!editando && (
                 <>
                   <Button
                     onClick={() => {
@@ -878,7 +1047,6 @@ export default function ContactInfoPanel({ contact, novoContatoTelefone, onClose
             </>
           )}
 
-          {/* Save/Cancel buttons when in edit mode */}
           {editando && (
             <div className="flex gap-2 pt-4">
               <Button
@@ -894,11 +1062,14 @@ export default function ContactInfoPanel({ contact, novoContatoTelefone, onClose
                 variant="outline"
                 onClick={() => {
                   setEditando(false);
-                  // Reset formData to original contact values on cancel
                   setFormData({
                     nome: contact.nome || contact.telefone || '',
                     tipo_contato: contact.tipo_contato || 'lead',
                     vendedor_responsavel: contact.vendedor_responsavel || '',
+                    atendente_fidelizado_vendas: contact.atendente_fidelizado_vendas || '',
+                    atendente_fidelizado_assistencia: contact.atendente_fidelizado_assistencia || '',
+                    atendente_fidelizado_financeiro: contact.atendente_fidelizado_financeiro || '',
+                    atendente_fidelizado_fornecedor: contact.atendente_fidelizado_fornecedor || '',
                     empresa: contact.empresa || '',
                     cargo: contact.cargo || '',
                     email: contact.email || '',
@@ -913,7 +1084,6 @@ export default function ContactInfoPanel({ contact, novoContatoTelefone, onClose
             </div>
           )}
 
-          {/* Delete button, available if permissions allow, independent of edit/blocked mode */}
           {podeDeletarContatos && (
             <Button
               onClick={handleDeletar}
@@ -932,7 +1102,6 @@ export default function ContactInfoPanel({ contact, novoContatoTelefone, onClose
           )}
         </div>
 
-        {/* Tags (if any) */}
         {contact.tags && contact.tags.length > 0 && (
           <div className="px-4 pb-6">
             <h4 className="text-sm font-semibold text-slate-700 px-3 mb-3">Etiquetas</h4>
