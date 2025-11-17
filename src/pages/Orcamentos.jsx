@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useCallback } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -302,7 +303,7 @@ export default function Orcamentos() {
       <ImportacaoCompletaOrcamento
         isOpen={mostrarImportacao}
         onClose={() => setMostrarImportacao(false)}
-        onConfirm={handleImportacaoCompleta}
+        onSuccess={handleImportacaoCompleta}
       />
     </div>
   );
