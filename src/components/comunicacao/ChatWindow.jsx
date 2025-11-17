@@ -1,7 +1,5 @@
-
 import React, { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import {
@@ -11,10 +9,6 @@ import {
   MessageSquare,
   Loader2,
   AlertCircle,
-  Clock,
-  FileText,
-  CheckCircle,
-  UserPlus,
   Users,
   Mic,
   StopCircle,
@@ -22,19 +16,19 @@ import {
   Trash2,
   CheckSquare,
   Camera,
-  Sparkles
+  Sparkles,
+  UserPlus
 } from "lucide-react";
 import MessageBubble from "./MessageBubble";
 import { base44 } from "@/api/base44Client";
 import { toast } from "sonner";
-import { isJanelaAtiva, formatarTempoRestante } from "@/components/lib/complianceUtils";
 import html2canvas from "html2canvas";
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
-  DialogDescription
+  DialogDescription,
 } from "@/components/ui/dialog";
 import {
   DropdownMenu,
@@ -44,7 +38,6 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Label } from "@/components/ui/label";
 import SugestorRespostasRapidas from './SugestorRespostasRapidas';
 import { useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
@@ -60,15 +53,8 @@ export default function ChatWindow({
   const [mensagemTexto, setMensagemTexto] = useState("");
   const [enviando, setEnviando] = useState(false);
   const [erro, setErro] = useState(null);
-  const [mostrarSeletorTemplate, setMostrarSeletorTemplate] = useState(false);
-  const [templates, setTemplates] = useState([]);
-  const [carregandoTemplates, setCarregandoTemplates] = useState(false);
-  const [templateSelecionado, setTemplateSelecionado] = useState(null);
-  const [variaveisTemplate, setVariaveisTemplate] = useState({});
-  const [mostrarModalVariaveis, setMostrarModalVariaveis] = useState(false);
   const [contatoCompleto, setContatoCompleto] = useState(null);
   const [carregandoContato, setCarregandoContato] = useState(true);
-  const contatoLoadedRef = useRef(new Set());
   const [mostrarModalAtribuicao, setMostrarModalAtribuicao] = useState(false);
   const [atendentes, setAtendentes] = useState([]);
   const [carregandoAtendentes, setCarregandoAtendentes] = useState(false);
@@ -98,35 +84,21 @@ export default function ChatWindow({
   const podeEnviarAudios = permissoes.pode_enviar_audios !== false;
   const podeApagarMensagens = permissoes.pode_apagar_mensagens === true;
   const podeTransferirConversas = permissoes.pode_transferir_conversas !== false;
-  const podeUsarTemplates = permissoes.pode_usar_templates !== false;
 
   const navigate = useNavigate();
 
   useEffect(() => {
-    console.log('🟡 [ChatWindow] Render/Update - Props:', {
-      thread_id: thread?.id,
-      contact_id: thread?.contact_id,
-      thread_contato_nome: thread?.contato?.nome,
-      contatoCompleto_nome: contatoCompleto?.nome,
-      carregandoContato
-    });
-  }, [thread?.id, thread?.contact_id, contatoCompleto, carregandoContato]);
-
-  useEffect(() => {
     const carregarContato = async () => {
       if (!thread?.contact_id) {
-        console.log('⚠️ [ChatWindow] contact_id ausente, resetando contato');
         setContatoCompleto(null);
         setCarregandoContato(false);
         return;
       }
 
-      console.log('🔄 [ChatWindow] Iniciando carregamento do contato:', thread.contact_id);
       setCarregandoContato(true);
 
       try {
         const contato = await base44.entities.Contact.get(thread.contact_id);
-        console.log('✅ [ChatWindow] Contato carregado com sucesso:', contato.nome);
         setContatoCompleto(contato);
       } catch (error) {
         console.error('❌ [ChatWindow] Erro ao carregar contato:', error);
@@ -250,30 +222,6 @@ export default function ChatWindow({
     }
   };
 
-  useEffect(() => {
-    if (mostrarSeletorTemplate && !carregandoTemplates && templates.length === 0) {
-      if (!isJanelaAtiva(thread)) {
-        carregarTemplates();
-      }
-    }
-  }, [thread, mostrarSeletorTemplate]);
-
-  const carregarTemplates = async () => {
-    setCarregandoTemplates(true);
-    try {
-      const templatesDisponiveis = await base44.entities.WhatsAppTemplate.filter({
-        status_meta: 'aprovado',
-        ativo: true
-      });
-      setTemplates(templatesDisponiveis);
-    } catch (error) {
-      console.error('[CHAT] Erro ao carregar templates:', error);
-      toast.error("Erro ao carregar templates");
-    } finally {
-      setCarregandoTemplates(false);
-    }
-  };
-
   const iniciarGravacaoAudio = async () => {
     if (!podeEnviarAudios) {
       toast.error("❌ Você não tem permissão para enviar áudios");
@@ -350,18 +298,10 @@ export default function ChatWindow({
     setEnviando(true);
     setErro(null);
     try {
-      console.log('[CHAT] 🎵 Iniciando envio de áudio');
-
       const timestamp = new Date().getTime();
       const audioFile = new File([audioBlob], `audio-${timestamp}.ogg`, {
         type: 'audio/ogg; codecs=opus',
         lastModified: timestamp
-      });
-
-      console.log('[CHAT] 🎵 File criado:', {
-        name: audioFile.name,
-        size: audioFile.size,
-        type: audioFile.type
       });
 
       const uploadResponse = await base44.integrations.Core.UploadFile({
@@ -369,7 +309,6 @@ export default function ChatWindow({
       });
 
       const audioUrl = uploadResponse.file_url;
-      console.log('[CHAT] 🎵 Áudio uploaded para:', audioUrl);
 
       const dadosEnvio = {
         integration_id: thread.whatsapp_integration_id,
@@ -379,7 +318,6 @@ export default function ChatWindow({
 
       if (mensagemResposta?.whatsapp_message_id) {
         dadosEnvio.reply_to_message_id = mensagemResposta.whatsapp_message_id;
-        console.log('[CHAT] 💬 Enviando como resposta a:', mensagemResposta.whatsapp_message_id);
       }
 
       const resultado = await base44.functions.invoke('enviarWhatsApp', dadosEnvio);
@@ -408,7 +346,6 @@ export default function ChatWindow({
         });
 
         toast.success("✅ Áudio enviado com sucesso!");
-
         setMensagemResposta(null);
 
         if (onAtualizarMensagens) {
@@ -426,14 +363,7 @@ export default function ChatWindow({
       }
     } catch (error) {
       console.error('[CHAT] ❌ Erro ao enviar áudio:', error);
-      let mensagemErro = 'Erro ao enviar áudio';
-      if (error.message?.includes('telefone') || error.message?.includes('contato')) {
-        mensagemErro = '❌ ' + error.message;
-      } else if (error.message?.includes('compliance')) {
-        mensagemErro = '❌ Erro de compliance: Janela de 24h expirada para mídia';
-      } else {
-        mensagemErro = error.message || mensagemErro;
-      }
+      const mensagemErro = error.message || 'Erro ao enviar áudio';
       setErro(mensagemErro);
       toast.error(mensagemErro);
     } finally {
@@ -450,24 +380,11 @@ export default function ChatWindow({
     }
 
     if (enviando || gravandoAudio || uploadingPastedFile) {
-      console.log('[CHAT] ⚠️ Já está enviando ou gravando, ignorando clique duplicado');
       return;
     }
 
     if (carregandoContato) {
       toast.warning('⏳ Aguarde o contato ser carregado antes de enviar mensagens.');
-      return;
-    }
-
-    const currentJanelaAtiva = isJanelaAtiva(thread);
-
-    if (!currentJanelaAtiva) {
-      if (!podeUsarTemplates) {
-        toast.error("❌ Você não tem permissão para usar templates");
-        return;
-      }
-      setMensagemTexto("");
-      setMostrarSeletorTemplate(true);
       return;
     }
 
@@ -477,8 +394,6 @@ export default function ChatWindow({
     setErro(null);
 
     try {
-      console.log('[CHAT] 📤 Iniciando envio de mensagem');
-
       if (!thread?.whatsapp_integration_id) {
         throw new Error('Thread sem integração WhatsApp configurada');
       }
@@ -490,12 +405,8 @@ export default function ChatWindow({
       const telefone = contatoCompleto.telefone || contatoCompleto.celular;
 
       if (!telefone) {
-        console.error('[CHAT] ❌ Contato sem telefone:', contatoCompleto);
         throw new Error('Este contato não possui telefone cadastrado. Por favor, edite o contato e adicione um número de telefone.');
       }
-
-      console.log('[CHAT] 📱 Telefone do contato:', telefone);
-      console.log('[CHAT] 🔗 Integration ID:', thread.whatsapp_integration_id);
 
       const mensagemParaEnviar = mensagemTexto.trim();
       const dadosEnvio = {
@@ -506,7 +417,6 @@ export default function ChatWindow({
 
       if (mensagemResposta?.whatsapp_message_id) {
         dadosEnvio.reply_to_message_id = mensagemResposta.whatsapp_message_id;
-        console.log('[CHAT] 💬 Enviando como resposta a:', mensagemResposta.whatsapp_message_id);
       }
 
       const resultado = await base44.functions.invoke('enviarWhatsApp', dadosEnvio);
@@ -562,8 +472,6 @@ export default function ChatWindow({
 
       if (error.message?.includes('telefone') || error.message?.includes('contato')) {
         mensagemErro = '❌ ' + error.message;
-      } else if (error.message?.includes('compliance')) {
-        mensagemErro = '❌ Erro de compliance: Janela de 24h expirada';
       } else if (error.message?.includes('bloqueado')) {
         mensagemErro = '❌ Número bloqueado pela Meta';
       } else if (error.message?.includes('rate limit')) {
@@ -579,122 +487,7 @@ export default function ChatWindow({
     }
   };
 
-  const handleSelecionarTemplate = (template) => {
-    if (!podeUsarTemplates) {
-      toast.error("❌ Você não tem permissão para usar templates");
-      return;
-    }
-    if (template.variaveis && template.variaveis.length > 0) {
-      setTemplateSelecionado(template);
-      setVariaveisTemplate({});
-      setMostrarModalVariaveis(true);
-    } else {
-      enviarTemplate(template, {});
-    }
-  };
-
-  const enviarTemplate = async (template, variaveis) => {
-    if (!podeUsarTemplates) {
-      toast.error("❌ Você não tem permissão para usar templates");
-      return;
-    }
-    if (enviando || gravandoAudio || uploadingPastedFile) return;
-
-    if (carregandoContato) {
-      toast.warning('⏳ Aguarde o contato ser carregado antes de enviar o template.');
-      return;
-    }
-
-    if (!contatoCompleto) {
-      toast.error('Contato não carregado. Por favor, recarregue a página.');
-      return;
-    }
-
-    setEnviando(true);
-    try {
-      const telefone = contatoCompleto.telefone || contatoCompleto.celular;
-      if (!telefone) {
-        throw new Error('Este contato não possui telefone cadastrado. Por favor, edite o contato e adicione um número de telefone.');
-      }
-
-      const variaveisFinal = {};
-
-      if (template.variaveis && template.variaveis.length > 0) {
-        template.variaveis.forEach((v, idx) => {
-          variaveisFinal[String(idx + 1)] = variaveis[v.nome] || contatoCompleto.nome || 'Cliente';
-        });
-      }
-
-      const resultado = await base44.functions.invoke('enviarWhatsApp', {
-        integration_id: thread.whatsapp_integration_id,
-        numero_destino: telefone,
-        template_name: template.nome,
-        template_variables: variaveisFinal
-      });
-
-      if (resultado.data.success) {
-        toast.success("✅ Template enviado com sucesso!");
-        setMostrarSeletorTemplate(false);
-        setMostrarModalVariaveis(false);
-        setTemplateSelecionado(null);
-
-        await base44.entities.Message.create({
-          thread_id: thread.id,
-          sender_id: usuario.id,
-          sender_type: 'user',
-          recipient_id: thread.contact_id,
-          recipient_type: 'contact',
-          content: `[Template: ${template.nome_exibicao || template.nome}]`,
-          channel: 'whatsapp',
-          status: 'enviada',
-          sent_at: new Date().toISOString(),
-          is_template: true,
-          template_name: template.nome,
-          reply_to_message_id: mensagemResposta?.id || null
-        });
-
-        await base44.entities.MessageThread.update(thread.id, {
-          last_message_content: `[Template: ${template.nome_exibicao || template.nome}]`,
-          last_message_at: new Date().toISOString(),
-          last_message_sender: 'user'
-        });
-
-        setMensagemResposta(null);
-        setMostrarSugestor(false);
-
-        if (onAtualizarMensagens) {
-          const novasMensagens = await base44.entities.Message.filter(
-            { thread: thread.id },
-            'created_date',
-            500
-          );
-          onAtualizarMensagens(novasMensagens);
-        }
-      } else {
-        throw new Error(resultado.data.error || 'Erro ao enviar template');
-      }
-    } catch (error) {
-      console.error('[CHAT] Erro ao enviar template:', error);
-
-      let mensagemErro = "Erro ao enviar template";
-      if (error.message?.includes('telefone') || error.message?.includes('contato')) {
-        mensagemErro = '❌ ' + error.message;
-      } else if (error.message?.includes('Meta')) {
-        mensagemErro = "❌ Template rejeitado pela Meta. Verifique se está aprovado.";
-      } else if (error.message?.includes('variáveis')) {
-        mensagemErro = "❌ Erro nas variáveis do template";
-      } else {
-        mensagemErro = error.message || mensagemErro;
-      }
-
-      toast.error(mensagemErro);
-    } finally {
-      setEnviando(false);
-    }
-  };
-
   const handleResponderMensagem = (mensagem) => {
-    console.log('[CHAT] 💬 Respondendo mensagem:', mensagem);
     setMensagemResposta(mensagem);
     setModoSelecao(false);
     setMensagensSelecionadas([]);
@@ -758,7 +551,6 @@ export default function ChatWindow({
         try {
           const messageToDelete = mensagens.find(m => m.id === mensagemId);
           if (!messageToDelete || !messageToDelete.whatsapp_message_id) {
-            console.warn(`[CHAT] Mensagem ${mensagemId} não encontrada ou sem whatsapp_message_id para apagar.`);
             erros++;
             continue;
           }
@@ -773,11 +565,9 @@ export default function ChatWindow({
           if (resultado.data.success) {
             sucessos++;
           } else {
-            console.error(`[CHAT] Erro ao apagar mensagem ${mensagemId} no WhatsApp:`, resultado.data.error);
             erros++;
           }
         } catch (error) {
-          console.error(`[CHAT] Erro inesperado ao apagar mensagem ${mensagemId}:`, error);
           erros++;
         }
       }
@@ -787,7 +577,7 @@ export default function ChatWindow({
       }
 
       if (erros > 0) {
-        toast.error(`❌ ${erros} mensagem(ns) não puderam ser apagadas do WhatsApp. Verifique o console para detalhes.`);
+        toast.error(`❌ ${erros} mensagem(ns) não puderam ser apagadas do WhatsApp.`);
       }
 
       setModoSelecao(false);
@@ -827,8 +617,6 @@ export default function ChatWindow({
           e.preventDefault();
           const file = item.getAsFile();
           if (!file) continue;
-
-          console.log('[CHAT] 📋 Arquivo colado:', file.name, file.type, file.size);
 
           const isImage = file.type.startsWith('image/');
           const isVideo = file.type.startsWith('video/');
@@ -885,8 +673,6 @@ export default function ChatWindow({
     setEnviando(true);
 
     try {
-      console.log('[CHAT] 📤 Fazendo upload do arquivo colado...');
-
       let mediaType = 'document';
       let contentText = `[Documento: ${file.name}]`;
 
@@ -908,7 +694,6 @@ export default function ChatWindow({
       });
 
       const fileUrl = uploadResponse.file_url;
-      console.log('[CHAT] ✅ Arquivo uploaded:', fileUrl);
 
       const dadosEnvio = {
         integration_id: thread.whatsapp_integration_id,
@@ -920,7 +705,6 @@ export default function ChatWindow({
 
       if (mensagemResposta?.whatsapp_message_id) {
         dadosEnvio.reply_to_message_id = mensagemResposta.whatsapp_message_id;
-        console.log('[CHAT] 💬 Enviando mídia como resposta a:', mensagemResposta.whatsapp_message_id);
       }
 
       const resultado = await base44.functions.invoke('enviarWhatsApp', dadosEnvio);
@@ -973,15 +757,7 @@ export default function ChatWindow({
       console.error('[CHAT] ❌ Erro ao enviar arquivo colado:', error);
       toast.dismiss();
 
-      let mensagemErro = 'Erro ao enviar arquivo';
-      if (error.message?.includes('telefone') || error.message?.includes('contato')) {
-        mensagemErro = '❌ ' + error.message;
-      } else if (error.message?.includes('compliance')) {
-        mensagemErro = '❌ Erro de compliance: Janela de 24h expirada para mídia';
-      } else {
-        mensagemErro = error.message || mensagemErro;
-      }
-
+      const mensagemErro = error.message || 'Erro ao enviar arquivo';
       setErro(mensagemErro);
       toast.error(mensagemErro);
     } finally {
@@ -1048,8 +824,6 @@ export default function ChatWindow({
       if (mensagensNaoLidas.length === 0) return;
 
       try {
-        console.log('[CHAT] 🔵 Marcando', mensagensNaoLidas.length, 'mensagens como lidas');
-
         for (const msg of mensagensNaoLidas) {
           await base44.entities.Message.update(msg.id, {
             status: 'lida',
@@ -1062,8 +836,6 @@ export default function ChatWindow({
             unread_count: 0
           });
         }
-
-        console.log('[CHAT] ✅ Mensagens marcadas como lidas');
 
         if (onAtualizarMensagens) {
           setTimeout(async () => {
@@ -1087,18 +859,11 @@ export default function ChatWindow({
   useEffect(() => {
     if (!mensagens.length) return;
 
-    console.log('[CHAT] 🔵 Calculando scroll. Total de mensagens:', mensagens.length);
-
     const primeiraLidaIndex = mensagens.findIndex(
       m => m.sender_type === 'contact' && m.status !== 'lida' && m.status !== 'apagada'
     );
 
-    console.log('[CHAT] 🔵 Índice primeira não lida:', primeiraLidaIndex);
-    console.log('[CHAT] 🔵 unread_count da thread:', thread?.unread_count);
-    console.log('[CHAT] 🔵 Ref do separador existe?', !!unreadSeparatorRef.current);
-
     if (primeiraLidaIndex !== -1 && thread?.unread_count > 0 && unreadSeparatorRef.current) {
-      console.log('[CHAT] ✅ Scrollando para primeira não lida');
       setTimeout(() => {
         unreadSeparatorRef.current?.scrollIntoView({
           behavior: 'smooth',
@@ -1106,7 +871,6 @@ export default function ChatWindow({
         });
       }, 100);
     } else {
-      console.log('[CHAT] ✅ Scrollando para o fim');
       setTimeout(() => {
         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
       }, 100);
@@ -1116,7 +880,6 @@ export default function ChatWindow({
   useEffect(() => {
     if (mensagens && mensagens.length > 0) {
       const ultimaMensagem = mensagens[mensagens.length - 1];
-      const currentJanelaAtiva = isJanelaAtiva(thread);
 
       if (ultimaMensagem.sender_type === 'contact' && ultimaMensagem.content) {
         setUltimaMensagemCliente(ultimaMensagem.content);
@@ -1198,8 +961,6 @@ ${conteudoMensagem}
 🎯 Próximos passos: Adicionar itens, valores e enviar proposta formal`
       });
 
-      console.log('[FASE 3] Navegando para OrcamentoDetalhes com dados:', Object.fromEntries(queryParams));
-
       navigate(createPageUrl('OrcamentoDetalhes') + '?' + queryParams.toString());
       
       toast.success('🎯 Oportunidade criada! Preencha os detalhes do orçamento.', { duration: 3000 });
@@ -1211,7 +972,6 @@ ${conteudoMensagem}
   }, [contatoCompleto, usuario, navigate]);
 
   if (!thread) {
-    console.log('⚠️ [ChatWindow] Thread é null/undefined');
     return (
       <div className="flex items-center justify-center h-full bg-slate-50">
         <div className="text-center">
@@ -1224,7 +984,6 @@ ${conteudoMensagem}
   }
 
   if (carregandoContato) {
-    console.log('⏳ [ChatWindow] Carregando contato...');
     return (
       <div className="flex items-center justify-center h-full bg-slate-50">
         <div className="text-center">
@@ -1237,9 +996,6 @@ ${conteudoMensagem}
 
   const nomeContato = contatoCompleto?.nome || thread?.contato?.nome || contatoCompleto?.telefone || thread?.contato?.telefone || 'Contato';
   const telefoneExibicao = contatoCompleto?.telefone || thread?.contato?.telefone || contatoCompleto?.celular || thread?.contato?.celular || 'Sem telefone';
-
-  const janelaAtiva = isJanelaAtiva(thread);
-  const tempoRestante = formatarTempoRestante(thread);
 
   const getInitials = (name) => {
     if (!name) return '?';
@@ -1260,8 +1016,6 @@ ${conteudoMensagem}
     }
   };
 
-  console.log('✅ [ChatWindow] Renderizando ChatWindow para:', nomeContato);
-
   return (
     <div className="flex flex-col h-full bg-white">
       {/* Header */}
@@ -1272,20 +1026,7 @@ ${conteudoMensagem}
           </div>
           <div>
             <h3 className="font-bold text-slate-900">{nomeContato}</h3>
-            <div className="flex items-center gap-2">
-              <p className="text-xs text-slate-500">{telefoneExibicao}</p>
-              {janelaAtiva ? (
-                <Badge className="bg-green-500 text-white text-[10px] flex items-center gap-1">
-                  <Clock className="w-3 h-3" />
-                  {tempoRestante}
-                </Badge>
-              ) : (
-                <Badge className="bg-red-500 text-white text-[10px] flex items-center gap-1">
-                  <AlertCircle className="w-3 h-3" />
-                  Janela Expirada
-                </Badge>
-              )}
-            </div>
+            <p className="text-xs text-slate-500">{telefoneExibicao}</p>
             {thread.assigned_user_id && (
               <p className="text-xs text-slate-600 mt-1 flex items-center gap-1">
                 <Users className="w-3 h-3 text-slate-500" />
@@ -1369,7 +1110,6 @@ ${conteudoMensagem}
                   variant="outline"
                   size="sm"
                   className="gap-2"
-                  aria-label={thread.assigned_user_id ? 'Transferir conversa' : 'Atribuir conversa'}
                   disabled={modoSelecao || enviando || gravandoAudio || uploadingPastedFile || !podeTransferirConversas}
                   title={!podeTransferirConversas ? "Sem permissão para transferir conversas" : (thread.assigned_user_id ? 'Transferir conversa' : 'Atribuir conversa')}
                 >
@@ -1393,7 +1133,6 @@ ${conteudoMensagem}
             size="icon"
             onClick={onShowContactInfo}
             className="hover:bg-slate-100"
-            aria-label="Informações do contato"
             disabled={modoSelecao || enviando || gravandoAudio || uploadingPastedFile}
           >
             <Info className="w-5 h-5 text-slate-600" />
@@ -1442,10 +1181,6 @@ ${conteudoMensagem}
                   mensagens[index - 1].sender_type === 'user'
                 )
               ));
-
-            if (isFirstUnread) {
-              console.log('[CHAT] 🟢 Primeira não lida encontrada no índice:', index, 'msg:', mensagem.id);
-            }
 
             return (
               <React.Fragment key={mensagem.id}>
@@ -1498,7 +1233,6 @@ ${conteudoMensagem}
             size="icon"
             className="flex-shrink-0"
             disabled={enviando || carregandoContato || gravandoAudio || modoSelecao || uploadingPastedFile || !podeEnviarMidias}
-            aria-label="Anexar arquivo"
             title={!podeEnviarMidias ? "Sem permissão para enviar mídias" : "Anexar arquivo"}
           >
             <Paperclip className="w-5 h-5 text-slate-600" />
@@ -1511,7 +1245,6 @@ ${conteudoMensagem}
             className="flex-shrink-0"
             disabled={enviando || carregandoContato || modoSelecao || uploadingPastedFile || !podeEnviarAudios}
             onClick={gravandoAudio ? pararGravacaoAudio : iniciarGravacaoAudio}
-            aria-label={gravandoAudio ? "Parar gravação" : "Gravar áudio"}
             title={!podeEnviarAudios ? "Sem permissão para enviar áudios" : (gravandoAudio ? "Parar gravação" : "Gravar áudio")}
           >
             {gravandoAudio ? (
@@ -1521,7 +1254,7 @@ ${conteudoMensagem}
             )}
           </Button>
 
-          {ultimaMensagemCliente && janelaAtiva && podeEnviarMensagens && !mostrarSugestor && (
+          {ultimaMensagemCliente && podeEnviarMensagens && !mostrarSugestor && (
             <Button
               type="button"
               onClick={() => setMostrarSugestor(true)}
@@ -1541,31 +1274,23 @@ ${conteudoMensagem}
               value={mensagemTexto}
               onChange={(e) => setMensagemTexto(e.target.value)}
               onKeyDown={handleKeyDown}
-              placeholder={
-                !podeEnviarMensagens ? "Sem permissão para enviar mensagens" :
-                  janelaAtiva ? "Digite sua mensagem..." : "Clique em enviar para selecionar template..."
-              }
+              placeholder={!podeEnviarMensagens ? "Sem permissão para enviar mensagens" : "Digite sua mensagem..."}
               rows={Math.max(1, Math.min(5, mensagemTexto.split('\n').length))}
               className="w-full p-3 border border-slate-300 rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-orange-500"
               disabled={enviando || carregandoContato || gravandoAudio || modoSelecao || uploadingPastedFile || !podeEnviarMensagens}
-              readOnly={!janelaAtiva || !podeEnviarMensagens}
-              aria-label="Campo de mensagem"
             />
           </div>
           
           <Button
             type="submit"
-            disabled={(!mensagemTexto.trim() && janelaAtiva && podeEnviarMensagens) || enviando || carregandoContato || gravandoAudio || modoSelecao || uploadingPastedFile || !podeEnviarMensagens}
+            disabled={!mensagemTexto.trim() || enviando || carregandoContato || gravandoAudio || modoSelecao || uploadingPastedFile || !podeEnviarMensagens}
             className="bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white flex-shrink-0"
-            aria-label={janelaAtiva ? "Enviar mensagem" : "Selecionar template"}
-            title={!podeEnviarMensagens ? "Sem permissão para enviar mensagens" : (janelaAtiva ? "Enviar mensagem" : "Selecionar template")}
+            title={!podeEnviarMensagens ? "Sem permissão para enviar mensagens" : "Enviar mensagem"}
           >
             {enviando ? (
               <Loader2 className="w-5 h-5 animate-spin" />
-            ) : janelaAtiva ? (
-              <Send className="w-5 h-5" />
             ) : (
-              <FileText className="w-5 h-5" />
+              <Send className="w-5 h-5" />
             )}
           </Button>
         </div>

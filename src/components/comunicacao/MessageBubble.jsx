@@ -1,5 +1,5 @@
 
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import {
@@ -153,7 +153,28 @@ export default function MessageBubble({
   const formatarHorario = (timestamp) => {
     if (!timestamp) return '';
     try {
-      return format(new Date(timestamp), 'HH:mm', { locale: ptBR });
+      const data = new Date(timestamp);
+      const hoje = new Date();
+      const ontem = new Date(hoje);
+      ontem.setDate(ontem.getDate() - 1);
+
+      // Se é hoje, mostra apenas HH:mm
+      if (data.toDateString() === hoje.toDateString()) {
+        return format(data, 'HH:mm', { locale: ptBR });
+      }
+      
+      // Se é ontem, mostra "Ontem HH:mm"
+      if (data.toDateString() === ontem.toDateString()) {
+        return `Ontem ${format(data, 'HH:mm', { locale: ptBR })}`;
+      }
+      
+      // Se é este ano, mostra "dd/MM HH:mm"
+      if (data.getFullYear() === hoje.getFullYear()) {
+        return format(data, 'dd/MM HH:mm', { locale: ptBR });
+      }
+      
+      // Se é ano anterior, mostra "dd/MM/yyyy HH:mm"
+      return format(data, 'dd/MM/yyyy HH:mm', { locale: ptBR });
     } catch {
       return '';
     }
@@ -496,35 +517,41 @@ export default function MessageBubble({
                 ))}
               </div>
             )}
-          </div>
 
-          {isOwn && (
-            <div className="flex items-center gap-1 mt-1 px-2">
-              <span className="text-xs text-slate-500">
+            {/* ✅ TIMESTAMP ESTILO WHATSAPP - CANTO INFERIOR DIREITO */}
+            <div className="flex items-center justify-end gap-1 mt-1">
+              <span className={cn(
+                "text-[10px]",
+                isOwn ? "text-white/70" : "text-slate-500"
+              )}>
                 {formatarHorario(message.sent_at || message.created_date)}
               </span>
 
-              {message.status === 'enviando' && (
-                <Loader2 className="w-3 h-3 text-slate-400 animate-spin" />
-              )}
+              {isOwn && (
+                <>
+                  {message.status === 'enviando' && (
+                    <Loader2 className="w-3 h-3 text-white/70 animate-spin" />
+                  )}
 
-              {message.status === 'enviada' && (
-                <Check className="w-4 h-4 text-slate-400" />
-              )}
+                  {message.status === 'enviada' && (
+                    <Check className="w-3.5 h-3.5 text-white/70" />
+                  )}
 
-              {message.status === 'entregue' && (
-                <CheckCheck className="w-4 h-4 text-slate-500" />
-              )}
+                  {message.status === 'entregue' && (
+                    <CheckCheck className="w-3.5 h-3.5 text-white/70" />
+                  )}
 
-              {message.status === 'lida' && (
-                <CheckCheck className="w-4 h-4 text-blue-500" />
-              )}
+                  {message.status === 'lida' && (
+                    <CheckCheck className="w-3.5 h-3.5 text-blue-300" />
+                  )}
 
-              {message.status === 'falhou' && (
-                <AlertCircle className="w-4 h-4 text-red-500" />
+                  {message.status === 'falhou' && (
+                    <AlertCircle className="w-3.5 h-3.5 text-red-300" />
+                  )}
+                </>
               )}
             </div>
-          )}
+          </div>
         </div>
       </div>
 
