@@ -75,6 +75,23 @@ Deno.serve(async (req) => {
       
       console.log('[ENVIAR-WHATSAPP] 🎵 Enviando áudio');
     } else if (media_url && media_type) {
+      // ✅ CORREÇÃO CIRÚRGICA: Validação de extensão para documentos (PDFs)
+      if (media_type === 'document') {
+        try {
+          const url = new URL(media_url);
+          const ext = url.pathname.split('.').pop()?.toLowerCase() || '';
+          const extensoesValidas = ['pdf', 'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx', 'txt'];
+          
+          if (!extensoesValidas.includes(ext)) {
+            console.warn('[ENVIAR-WHATSAPP] ⚠️ Extensão de documento não convencional:', ext);
+          }
+          
+          console.log('[ENVIAR-WHATSAPP] 📄 Validação documento - Extensão:', ext, 'URL:', media_url);
+        } catch (urlError) {
+          console.warn('[ENVIAR-WHATSAPP] ⚠️ URL de mídia pode estar malformada:', media_url);
+        }
+      }
+      
       const mediaEndpoints = {
         image: 'send-image',
         video: 'send-video',
@@ -97,6 +114,7 @@ Deno.serve(async (req) => {
           caption: media_caption || ''
         };
       } else {
+        // ✅ Documentos (incluindo PDFs) usam o campo 'document'
         body = {
           phone: numero_destino,
           document: media_url,
@@ -109,7 +127,12 @@ Deno.serve(async (req) => {
         console.log('[ENVIAR-WHATSAPP] 💬 Mídia como resposta a:', reply_to_message_id);
       }
       
-      console.log('[ENVIAR-WHATSAPP] 📎 Enviando mídia:', media_type);
+      console.log('[ENVIAR-WHATSAPP] 📎 Enviando mídia:', {
+        tipo: media_type,
+        endpoint: mediaEndpoint,
+        campo_usado: media_type === 'image' ? 'image' : media_type === 'video' ? 'video' : 'document',
+        url_midia: media_url
+      });
     } else if (mensagem) {
       endpoint = `${baseUrl}/instances/${instanceId}/token/${token}/send-text`;
       body = {
@@ -154,7 +177,12 @@ Deno.serve(async (req) => {
 
     if (!response.ok || result.error) {
       const errorMsg = result.error || result.message || `Erro HTTP ${response.status}`;
-      console.error('[ENVIAR-WHATSAPP] ❌ Erro Z-API:', errorMsg);
+      console.error('[ENVIAR-WHATSAPP] ❌ Erro Z-API:', {
+        status: response.status,
+        erro: errorMsg,
+        body_enviado: body,
+        endpoint_usado: endpoint
+      });
       throw new Error(errorMsg);
     }
 
