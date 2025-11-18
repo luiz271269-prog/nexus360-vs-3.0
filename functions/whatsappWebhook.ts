@@ -1,4 +1,3 @@
-
 import { createClientFromRequest } from 'npm:@base44/sdk@0.7.1';
 
 /**
@@ -305,7 +304,26 @@ async function processarMensagemRecebida(instance, data, base44, corsHeaders) {
         console.log(`[WEBHOOK] ✅ Contato existente: ${contato.nome}`);
       }
 
-      // PASSO 2: BUSCAR OU CRIAR THREAD
+      // PASSO 2: BUSCAR WHATSAPP INTEGRATION POR NOME DA INSTÂNCIA
+      const integracoes = await base44.entities.WhatsAppIntegration.filter({
+        nome_instancia: instance
+      });
+
+      let integracaoId = null;
+      if (integracoes.length > 0) {
+        integracaoId = integracoes[0].id;
+        console.log(`[WEBHOOK] ✅ WhatsAppIntegration encontrada: ${integracaoId}`);
+        
+        // Atualizar estatísticas de recebimento
+        await base44.entities.WhatsAppIntegration.update(integracaoId, {
+          'estatisticas.total_mensagens_recebidas': (integracoes[0].estatisticas?.total_mensagens_recebidas || 0) + 1,
+          ultima_atividade: new Date().toISOString()
+        });
+      } else {
+        console.warn(`[WEBHOOK] ⚠️ Nenhuma WhatsAppIntegration encontrada para instância: ${instance}`);
+      }
+
+      // PASSO 3: BUSCAR OU CRIAR THREAD
       let threads = await base44.entities.MessageThread.filter({ contact_id: contato.id });
       let thread;
 
@@ -313,6 +331,7 @@ async function processarMensagemRecebida(instance, data, base44, corsHeaders) {
         console.log('[WEBHOOK] 💬 Criando nova thread');
         thread = await base44.entities.MessageThread.create({
           contact_id: contato.id,
+          whatsapp_integration_id: integracaoId,
           status: 'aberta',
           primeira_mensagem_at: new Date().toISOString(),
           ultima_atividade: new Date().toISOString(),
@@ -324,12 +343,18 @@ async function processarMensagemRecebida(instance, data, base44, corsHeaders) {
         threadCriada = thread;
       } else {
         thread = threads[0];
-        // Renovar janela 24h
-        await base44.entities.MessageThread.update(thread.id, {
+        // Renovar janela 24h e atualizar integration_id se necessário
+        const updateData = {
           janela_24h_expira_em: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
           can_send_without_template: true,
           ultima_atividade: new Date().toISOString()
-        });
+        };
+        
+        if (integracaoId && !thread.whatsapp_integration_id) {
+          updateData.whatsapp_integration_id = integracaoId;
+        }
+        
+        await base44.entities.MessageThread.update(thread.id, updateData);
         console.log(`[WEBHOOK] ✅ Thread existente: ${thread.id}`);
       }
 

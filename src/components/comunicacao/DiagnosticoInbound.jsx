@@ -1,5 +1,4 @@
-
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -59,26 +58,31 @@ export default function DiagnosticoInbound({ integracoes }) {
   };
 
   const enviarMensagemTeste = async (integracao) => {
-    setEnviandoTeste(true);
+    setEnviandoTeste(integracao.id);
     try {
       const appUrl = window.location.origin;
-      const webhookUrl = `${appUrl}/api/functions/inboundWebhook?provider=z_api&instance=${integracao.instance_id_provider}`;
+      const webhookUrl = `${appUrl}/api/functions/whatsappWebhook`;
 
       const payloadTeste = {
-        event: "message-received",
+        event: "messages.upsert",
+        instance: integracao.nome_instancia,
         data: {
-          key: {
-            remoteJid: "554899999999@s.whatsapp.net",
-            id: "TEST_MESSAGE_" + Date.now(),
-            fromMe: false
-          },
-          pushName: "Teste VendaPro",
-          message: {
-            conversation: "Esta é uma mensagem de teste enviada pelo Diagnóstico Inbound do VendaPro."
-          }
-        },
-        timestamp: new Date().toISOString()
+          messages: [{
+            key: {
+              remoteJid: "554899999999@s.whatsapp.net",
+              id: "TEST_MESSAGE_" + Date.now(),
+              fromMe: false
+            },
+            pushName: "Teste VendaPro",
+            message: {
+              conversation: `🧪 Teste de recebimento para ${integracao.nome_instancia} (${integracao.numero_telefone})`
+            },
+            messageTimestamp: Math.floor(Date.now() / 1000)
+          }]
+        }
       };
+
+      console.log('[TESTE] 📤 Enviando payload de teste:', payloadTeste);
 
       const response = await fetch(webhookUrl, {
         method: 'POST',
@@ -88,18 +92,24 @@ export default function DiagnosticoInbound({ integracoes }) {
         body: JSON.stringify(payloadTeste)
       });
 
-      if (response.ok) {
-        toast.success("✅ Mensagem de teste enviada com sucesso!");
-        setTimeout(() => recarregarDados(), 2000); // Changed from carregarLogs to recarregarDados
+      const result = await response.json();
+      console.log('[TESTE] 📥 Resposta do webhook:', result);
+
+      if (response.ok && result.success) {
+        toast.success(`✅ Teste para ${integracao.nome_instancia} processado!`, {
+          description: `Contact: ${result.contact_id}, Thread: ${result.thread_id}`
+        });
+        setTimeout(() => recarregarDados(), 2000);
       } else {
-        const errorData = await response.json();
-        toast.error("Erro ao enviar teste: " + (errorData.error || response.statusText));
+        toast.error(`❌ Erro no teste de ${integracao.nome_instancia}`, {
+          description: result.error || response.statusText
+        });
       }
     } catch (error) {
       console.error("Erro ao enviar mensagem de teste:", error);
       toast.error("Erro ao enviar mensagem de teste: " + error.message);
     }
-    setEnviandoTeste(false);
+    setEnviandoTeste(null);
   };
 
   const getStatusBadge = (log) => {
@@ -207,7 +217,7 @@ export default function DiagnosticoInbound({ integracoes }) {
           {/* Guia Passo-a-Passo */}
           <GuiaConfiguracao etapaAtual={1} />
 
-          {/* Instruções de Configuração */}
+          {/* Instruções de Configuração - SEPARADAS POR CONEXÃO */}
           {integracoes.length > 0 && (
             <div className="grid grid-cols-1 gap-4">
               {integracoes.map((integracao) => (
@@ -216,7 +226,7 @@ export default function DiagnosticoInbound({ integracoes }) {
                     <CardTitle className="flex items-center justify-between">
                       <span className="flex items-center gap-2">
                         <Code className="w-5 h-5 text-blue-600" />
-                        Webhook: {integracao.nome_instancia}
+                        {integracao.nome_instancia} - {integracao.numero_telefone}
                       </span>
                       {integracao.status === 'conectado' ? (
                         <Badge className="bg-green-100 text-green-800">
@@ -239,16 +249,22 @@ export default function DiagnosticoInbound({ integracoes }) {
                       </label>
                       <div className="bg-white p-3 rounded-lg border border-blue-300 flex items-center gap-2">
                         <code className="text-sm text-blue-800 flex-1 break-all font-mono">
-                          {window.location.origin}/api/functions/inboundWebhook?provider=z_api&instance={integracao.instance_id_provider}
+                          {window.location.origin}/api/functions/whatsappWebhook
                         </code>
                         <Button
                           size="sm"
-                          onClick={() => copiarWebhookUrl(integracao)}
+                          onClick={() => {
+                            navigator.clipboard.writeText(`${window.location.origin}/api/functions/whatsappWebhook`);
+                            toast.success("URL do webhook copiada!");
+                          }}
                           className="bg-blue-500 hover:bg-blue-600 flex-shrink-0"
                         >
                           <Copy className="w-4 h-4" />
                         </Button>
                       </div>
+                      <p className="text-xs text-amber-700 mt-2 bg-amber-50 p-2 rounded border border-amber-200">
+                        ⚠️ Configure esta URL EXATA na Z-API para a instância {integracao.instance_id_provider}
+                      </p>
                     </div>
 
                     {/* Instruções */}
@@ -258,9 +274,9 @@ export default function DiagnosticoInbound({ integracoes }) {
                       <AlertDescription className="text-blue-800 text-sm mt-2">
                         <ol className="list-decimal ml-4 space-y-1">
                           <li>Acesse o painel da Z-API: <a href="https://api.z-api.io" target="_blank" rel="noopener noreferrer" className="underline font-bold">https://api.z-api.io</a></li>
-                          <li>Vá em <strong>"Instâncias"</strong> → Selecione sua instância</li>
+                          <li>Vá em <strong>"Instâncias"</strong> → Selecione a instância <strong>{integracao.instance_id_provider}</strong></li>
                           <li>Clique em <strong>"Webhooks e configurações gerais"</strong></li>
-                          <li>Cole a URL copiada acima nos campos: <strong>"Receive"</strong> e <strong>"Message Status"</strong></li>
+                          <li>Cole a URL copiada acima no campo: <strong>"Receive"</strong></li>
                           <li>Clique em <strong>"Salvar"</strong></li>
                         </ol>
                       </AlertDescription>
@@ -270,15 +286,15 @@ export default function DiagnosticoInbound({ integracoes }) {
                     <div className="flex gap-3">
                       <Button
                         onClick={() => enviarMensagemTeste(integracao)}
-                        disabled={enviandoTeste}
+                        disabled={enviandoTeste === integracao.id}
                         className="bg-gradient-to-r from-green-500 to-emerald-600"
                       >
-                        {enviandoTeste ? (
+                        {enviandoTeste === integracao.id ? (
                           <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                         ) : (
                           <Send className="w-4 h-4 mr-2" />
                         )}
-                        Enviar Mensagem de Teste
+                        Testar Recebimento
                       </Button>
 
                       <Button
