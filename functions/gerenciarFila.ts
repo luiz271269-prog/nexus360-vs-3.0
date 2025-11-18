@@ -100,7 +100,7 @@ async function enfileirar(base44, data, headers) {
     // VALIDAÇÃO 2: Verificar se já está na fila ativa
     const jaEnfileirado = await base44.asServiceRole.entities.FilaAtendimento.filter({
       thread_id: thread_id,
-      removido_da_fila: false
+      status: 'aguardando'
     });
 
     if (jaEnfileirado.length > 0) {
@@ -237,13 +237,17 @@ async function desenfileirar(base44, data, headers) {
       atendido_por_nome: atendente_nome,
       atendido_em: new Date().toISOString()
     });
+    
+    // Remover fila_atendimento_id da thread
+    await base44.asServiceRole.entities.MessageThread.update(proximaFila.thread_id, {
+      fila_atendimento_id: null,
+      entrou_na_fila_em: null
+    });
 
-    // Atualizar a MessageThread
+    // Atribuir thread ao atendente
     await base44.asServiceRole.entities.MessageThread.update(proximaFila.thread_id, {
       assigned_user_id: atendente_id,
-      assigned_user_name: atendente_nome,
-      fila_atendimento_id: null, // Remove referência da fila
-      entrou_na_fila_em: null
+      assigned_user_name: atendente_nome
     });
 
     console.log('[DESENFILEIRAR] ✅ Thread atribuída:', {
@@ -351,6 +355,12 @@ async function removerDaFila(base44, data, headers) {
       status: 'removido',
       motivo_remocao: motivo,
       atendido_em: new Date().toISOString()
+    });
+    
+    // Remover fila_atendimento_id da thread
+    await base44.asServiceRole.entities.MessageThread.update(thread_id, {
+      fila_atendimento_id: null,
+      entrou_na_fila_em: null
     });
 
     console.log('[REMOVER-FILA] ✅ Thread removida da fila');
