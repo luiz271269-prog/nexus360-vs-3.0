@@ -1,14 +1,22 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.7.1';
+import { 
+  normalizarPayloadZAPI, 
+  validarPayloadNormalizado,
+  extrairInstanceId
+} from './adapters/zapiAdapter.js';
 
 /**
  * ╔══════════════════════════════════════════════════════════════╗
- * ║  WHATSAPP WEBHOOK - EVOLUTION API                           ║
- * ║  Versão: ESTABILIZADA - Validação Rigorosa + Mídia         ║
+ * ║  WHATSAPP WEBHOOK - Z-API + EVOLUTION API                   ║
+ * ║  Versão: 2.0 - Normalização + Multi-Conexão + Filas        ║
  * ╚══════════════════════════════════════════════════════════════╝
  * 
- * Processa eventos da Evolution API com:
- * - Validação rigorosa de payload
- * - Tratamento robusto de erros
+ * Processa eventos com:
+ * - Normalização de payload via adapters
+ * - Persistência de payload bruto para auditoria
+ * - Validação rigorosa
+ * - Multi-conexão robusta
+ * - Auto-enfileiramento inteligente
  * - Download e persistência de mídia
  * - Processamento assíncrono de IA
  */
@@ -42,7 +50,7 @@ Deno.serve(async (req) => {
     console.log('[WEBHOOK] ✅ Base44 inicializado (Service Role)');
 
     // ═══════════════════════════════════════════════════════════
-    // 2. VALIDAÇÃO DO PAYLOAD
+    // 2. VALIDAÇÃO E PARSING DO PAYLOAD
     // ═══════════════════════════════════════════════════════════
     let evento;
     try {
@@ -56,8 +64,9 @@ Deno.serve(async (req) => {
     }
 
     const { event, instance, data } = evento;
+    const instanceExtraido = instance || extrairInstanceId(evento);
 
-    if (!event || !instance) {
+    if (!event || !instanceExtraido) {
       console.warn('[WEBHOOK] ⚠️ Campos obrigatórios faltando (event ou instance)');
       return Response.json(
         { success: true, ignored: 'missing_required_fields' },
@@ -65,39 +74,105 @@ Deno.serve(async (req) => {
       );
     }
 
-    console.log(`[WEBHOOK] 📋 Evento: ${event} | Instância: ${instance}`);
-    console.log('[WEBHOOK] 📦 Data:', JSON.stringify(data, null, 2));
+    console.log(`[WEBHOOK] 📋 Evento: ${event} | Instância: ${instanceExtraido}`);
+    
+    // ═══════════════════════════════════════════════════════════
+    // 3. PERSISTIR PAYLOAD BRUTO PARA AUDITORIA
+    // ═══════════════════════════════════════════════════════════
+    const timestampRecebido = new Date().toISOString();
+    let auditLogId = null;
+    
+    try {
+      const auditLog = await base44.entities.ZapiPayloadNormalized.create({
+        payload_bruto: evento,
+        instance_identificado: instanceExtraido,
+        evento: event,
+        timestamp_recebido: timestampRecebido,
+        sucesso_processamento: false // Será atualizado ao final
+      });
+      auditLogId = auditLog.id;
+      console.log('[WEBHOOK] 📝 Payload bruto persistido para auditoria:', auditLogId);
+    } catch (auditError) {
+      console.error('[WEBHOOK] ⚠️ Erro ao persistir auditoria (não crítico):', auditError);
+    }
 
     // ═══════════════════════════════════════════════════════════
-    // 3. PROCESSAR EVENTO
+    // 4. NORMALIZAR PAYLOAD COM ADAPTER
     // ═══════════════════════════════════════════════════════════
-    switch (event) {
-      case 'qrcode.updated':
-        return await processarQRCodeUpdate(instance, data, base44, corsHeaders);
-
-      case 'connection.update':
-        return await processarConnectionUpdate(instance, data, base44, corsHeaders);
-
-      case 'messages.upsert':
-        return await processarMensagemRecebida(instance, data, base44, corsHeaders);
-
-      case 'messages.update':
-        return await processarMensagemUpdate(data, base44, corsHeaders);
-
-      case 'send.message':
-        console.log('[WEBHOOK] ℹ️ Evento send.message (confirmação de envio)');
+    let payloadNormalizado = null;
+    try {
+      payloadNormalizado = normalizarPayloadZAPI(evento);
+      console.log('[WEBHOOK] ✅ Payload normalizado:', JSON.stringify(payloadNormalizado, null, 2));
+      
+      const validacao = validarPayloadNormalizado(payloadNormalizado);
+      if (!validacao.valido) {
+        console.warn('[WEBHOOK] ⚠️ Payload normalizado inválido:', validacao.erro);
         return Response.json(
+          { success: true, ignored: 'invalid_normalized_payload', details: validacao.erro },
+          { status: 200, headers: corsHeaders }
+        );
+      }
+    } catch (normError) {
+      console.error('[WEBHOOK] ❌ Erro na normalização:', normError);
+      return Response.json(
+        { success: true, ignored: 'normalization_error', error: normError.message },
+        { status: 200, headers: corsHeaders }
+      );
+    }
+
+    // ═══════════════════════════════════════════════════════════
+    // 5. PROCESSAR EVENTO POR TIPO
+    // ═══════════════════════════════════════════════════════════
+    let resultado;
+    
+    switch (payloadNormalizado.type) {
+      case 'qrcode':
+        resultado = await processarQRCodeUpdate(instanceExtraido, payloadNormalizado, base44, corsHeaders);
+        break;
+
+      case 'connection':
+        resultado = await processarConnectionUpdate(instanceExtraido, payloadNormalizado, base44, corsHeaders);
+        break;
+
+      case 'message':
+        resultado = await processarMensagemRecebida(instanceExtraido, payloadNormalizado, base44, corsHeaders);
+        break;
+
+      case 'message_update':
+        resultado = await processarMensagemUpdate(payloadNormalizado, base44, corsHeaders);
+        break;
+
+      case 'send_confirmation':
+        console.log('[WEBHOOK] ℹ️ Confirmação de envio');
+        resultado = Response.json(
           { success: true, processed: 'send_confirmation' },
           { status: 200, headers: corsHeaders }
         );
+        break;
 
       default:
-        console.log(`[WEBHOOK] ⚠️ Evento não tratado: ${event}`);
-        return Response.json(
-          { success: true, ignored: 'unknown_event', event },
+        console.log(`[WEBHOOK] ⚠️ Tipo não tratado: ${payloadNormalizado.type}`);
+        resultado = Response.json(
+          { success: true, ignored: 'unknown_type', type: payloadNormalizado.type },
           { status: 200, headers: corsHeaders }
         );
     }
+    
+    // ═══════════════════════════════════════════════════════════
+    // 6. ATUALIZAR AUDITORIA COM SUCESSO
+    // ═══════════════════════════════════════════════════════════
+    if (auditLogId) {
+      try {
+        await base44.entities.ZapiPayloadNormalized.update(auditLogId, {
+          sucesso_processamento: true,
+          integration_id: payloadNormalizado.integrationId || null
+        });
+      } catch (auditError) {
+        console.error('[WEBHOOK] ⚠️ Erro ao atualizar auditoria (não crítico):', auditError);
+      }
+    }
+    
+    return resultado;
 
   } catch (error) {
     console.error('[WEBHOOK] ❌ ERRO FATAL:', error);
@@ -121,15 +196,13 @@ Deno.serve(async (req) => {
  * ═══════════════════════════════════════════════════════════════
  */
 
-async function processarQRCodeUpdate(instance, data, base44, corsHeaders) {
+async function processarQRCodeUpdate(instance, payloadNormalizado, base44, corsHeaders) {
   console.log('[WEBHOOK] 🔄 Processando atualização de QR Code');
 
   try {
-    const integracoes = await base44.entities.WhatsAppIntegration.filter({
-      nome_instancia: instance
-    });
+    const integracao = await buscarIntegracaoPorInstance(instance, base44);
 
-    if (integracoes.length === 0) {
+    if (!integracao) {
       console.warn(`[WEBHOOK] ⚠️ Nenhuma integração encontrada para instância: ${instance}`);
       return Response.json(
         { success: true, warning: 'integration_not_found' },
@@ -137,8 +210,8 @@ async function processarQRCodeUpdate(instance, data, base44, corsHeaders) {
       );
     }
 
-    await base44.entities.WhatsAppIntegration.update(integracoes[0].id, {
-      qr_code_url: data.qrcode || data.qr,
+    await base44.entities.WhatsAppIntegration.update(integracao.id, {
+      qr_code_url: payloadNormalizado.qrCodeUrl,
       status: 'pendente_qrcode',
       ultima_atividade: new Date().toISOString()
     });
@@ -156,15 +229,13 @@ async function processarQRCodeUpdate(instance, data, base44, corsHeaders) {
   }
 }
 
-async function processarConnectionUpdate(instance, data, base44, corsHeaders) {
+async function processarConnectionUpdate(instance, payloadNormalizado, base44, corsHeaders) {
   console.log('[WEBHOOK] 🔄 Processando atualização de conexão');
 
   try {
-    const integracoes = await base44.entities.WhatsAppIntegration.filter({
-      nome_instancia: instance
-    });
+    const integracao = await buscarIntegracaoPorInstance(instance, base44);
 
-    if (integracoes.length === 0) {
+    if (!integracao) {
       console.warn(`[WEBHOOK] ⚠️ Nenhuma integração encontrada para instância: ${instance}`);
       return Response.json(
         { success: true, warning: 'integration_not_found' },
@@ -172,25 +243,15 @@ async function processarConnectionUpdate(instance, data, base44, corsHeaders) {
       );
     }
 
-    let novoStatus = 'desconectado';
-
-    if (data.state === 'open' || data.status === 'open') {
-      novoStatus = 'conectado';
-    } else if (data.state === 'connecting') {
-      novoStatus = 'reconectando';
-    } else if (data.state === 'close' || data.status === 'close') {
-      novoStatus = 'desconectado';
-    }
-
-    await base44.entities.WhatsAppIntegration.update(integracoes[0].id, {
-      status: novoStatus,
+    await base44.entities.WhatsAppIntegration.update(integracao.id, {
+      status: payloadNormalizado.status,
       ultima_atividade: new Date().toISOString()
     });
 
-    console.log(`[WEBHOOK] ✅ Status de conexão atualizado para: ${novoStatus}`);
+    console.log(`[WEBHOOK] ✅ Status de conexão atualizado para: ${payloadNormalizado.status}`);
 
     return Response.json(
-      { success: true, processed: 'connection_updated', status: novoStatus },
+      { success: true, processed: 'connection_updated', status: payloadNormalizado.status },
       { status: 200, headers: corsHeaders }
     );
 
@@ -200,75 +261,18 @@ async function processarConnectionUpdate(instance, data, base44, corsHeaders) {
   }
 }
 
-async function processarMensagemRecebida(instance, data, base44, corsHeaders) {
-  console.log('[WEBHOOK] 💬 Processando mensagem recebida');
+async function processarMensagemRecebida(instance, payloadNormalizado, base44, corsHeaders) {
+  console.log('[WEBHOOK] 💬 Processando mensagem recebida (normalizada)');
 
   try {
-    // ═══════════════════════════════════════════════════════════
-    // VALIDAÇÃO RIGOROSA
-    // ═══════════════════════════════════════════════════════════
-    if (!data.messages || !Array.isArray(data.messages) || data.messages.length === 0) {
-      console.warn('[WEBHOOK] ⚠️ Estrutura messages ausente ou vazia');
-      return Response.json(
-        { success: true, ignored: 'invalid_message_format' },
-        { status: 200, headers: corsHeaders }
-      );
-    }
-
-    const mensagem = data.messages[0];
-
-    if (!mensagem.key || !mensagem.key.remoteJid || !mensagem.message) {
-      console.warn('[WEBHOOK] ⚠️ Campos obrigatórios faltando na mensagem');
-      return Response.json(
-        { success: true, ignored: 'invalid_message_format' },
-        { status: 200, headers: corsHeaders }
-      );
-    }
-
-    // Ignorar mensagens próprias
-    if (mensagem.key.fromMe) {
-      console.log('[WEBHOOK] ℹ️ Mensagem própria ignorada');
-      return Response.json(
-        { success: true, ignored: 'own_message' },
-        { status: 200, headers: corsHeaders }
-      );
-    }
-
-    // ═══════════════════════════════════════════════════════════
-    // EXTRAÇÃO DE DADOS
-    // ═══════════════════════════════════════════════════════════
-    const numero = mensagem.key.remoteJid.replace('@s.whatsapp.net', '').replace('@g.us', '');
-    const numeroFormatado = numero.startsWith('+') ? numero : `+${numero}`;
-
-    // Extrair conteúdo e tipo de mídia
-    let conteudo = '[Mensagem vazia]';
-    let mediaType = 'none';
-    let mediaUrl = null;
-
-    if (mensagem.message.conversation) {
-      conteudo = mensagem.message.conversation;
-    } else if (mensagem.message.extendedTextMessage?.text) {
-      conteudo = mensagem.message.extendedTextMessage.text;
-    } else if (mensagem.message.imageMessage) {
-      conteudo = mensagem.message.imageMessage.caption || '[Imagem]';
-      mediaType = 'image';
-      mediaUrl = mensagem.message.imageMessage.url;
-    } else if (mensagem.message.videoMessage) {
-      conteudo = mensagem.message.videoMessage.caption || '[Vídeo]';
-      mediaType = 'video';
-      mediaUrl = mensagem.message.videoMessage.url;
-    } else if (mensagem.message.audioMessage) {
-      conteudo = '[Áudio]';
-      mediaType = 'audio';
-      mediaUrl = mensagem.message.audioMessage.url;
-    } else if (mensagem.message.documentMessage) {
-      conteudo = mensagem.message.documentMessage.fileName || '[Documento]';
-      mediaType = 'document';
-      mediaUrl = mensagem.message.documentMessage.url;
-    } else if (mensagem.message.stickerMessage) {
-      conteudo = '[Figurinha]';
-      mediaType = 'sticker';
-    }
+    // Usar dados normalizados
+    const numeroFormatado = payloadNormalizado.from;
+    const conteudo = payloadNormalizado.content;
+    const mediaType = payloadNormalizado.mediaType;
+    const mediaUrl = payloadNormalizado.mediaTempUrl;
+    const messageId = payloadNormalizado.messageId;
+    const timestamp = payloadNormalizado.timestamp;
+    const pushName = payloadNormalizado.pushName;
 
     console.log(`[WEBHOOK] 📱 Número: ${numeroFormatado}`);
     console.log(`[WEBHOOK] 💬 Conteúdo: ${conteudo.substring(0, 50)}...`);
@@ -289,7 +293,7 @@ async function processarMensagemRecebida(instance, data, base44, corsHeaders) {
       if (contatos.length === 0) {
         console.log('[WEBHOOK] 👤 Criando novo contato');
         contato = await base44.entities.Contact.create({
-          nome: mensagem.pushName || numeroFormatado,
+          nome: pushName || numeroFormatado,
           telefone: numeroFormatado,
           tipo_contato: 'lead',
           whatsapp_status: 'verificado',
@@ -304,36 +308,26 @@ async function processarMensagemRecebida(instance, data, base44, corsHeaders) {
         console.log(`[WEBHOOK] ✅ Contato existente: ${contato.nome}`);
       }
 
-      // PASSO 2: BUSCAR WHATSAPP INTEGRATION POR NOME DA INSTÂNCIA OU INSTANCE_ID
+      // PASSO 2: BUSCAR WHATSAPP INTEGRATION (FUNÇÃO CENTRALIZADA)
       console.log(`[WEBHOOK] 🔍 Buscando integração para instance: ${instance}`);
       
-      let integracoes = await base44.entities.WhatsAppIntegration.filter({
-        nome_instancia: instance
-      });
-
-      // 🆕 FALLBACK: Se não encontrou por nome, tenta por instance_id_provider
-      if (integracoes.length === 0 && instance) {
-        console.log(`[WEBHOOK] 🔄 Tentando buscar por instance_id_provider: ${instance}`);
-        integracoes = await base44.entities.WhatsAppIntegration.filter({
-          instance_id_provider: instance
-        });
-      }
-
+      const integracao = await buscarIntegracaoPorInstance(instance, base44);
+      
       let integracaoId = null;
-      if (integracoes.length > 0) {
-        integracaoId = integracoes[0].id;
+      if (integracao) {
+        integracaoId = integracao.id;
         console.log(`[WEBHOOK] ✅ WhatsAppIntegration encontrada:`, {
           id: integracaoId,
-          nome: integracoes[0].nome_instancia,
-          numero: integracoes[0].numero_telefone,
-          instance_id: integracoes[0].instance_id_provider
+          nome: integracao.nome_instancia,
+          numero: integracao.numero_telefone,
+          instance_id: integracao.instance_id_provider
         });
         
         // Atualizar estatísticas de recebimento
         await base44.entities.WhatsAppIntegration.update(integracaoId, {
-          'estatisticas.total_mensagens_recebidas': (integracoes[0].estatisticas?.total_mensagens_recebidas || 0) + 1,
+          'estatisticas.total_mensagens_recebidas': (integracao.estatisticas?.total_mensagens_recebidas || 0) + 1,
           ultima_atividade: new Date().toISOString(),
-          status: 'conectado' // 🆕 Atualizar status para conectado ao receber mensagem
+          status: 'conectado'
         });
       } else {
         console.warn(`[WEBHOOK] ⚠️ Nenhuma WhatsAppIntegration encontrada para instância: ${instance}`);
@@ -381,7 +375,7 @@ async function processarMensagemRecebida(instance, data, base44, corsHeaders) {
         mediaUrlPermanente = await baixarEPersistirMidia(mediaUrl, mediaType, base44);
       }
 
-      // PASSO 4: CRIAR MESSAGE
+      // PASSO 4: CRIAR MESSAGE (USANDO DADOS NORMALIZADOS)
       console.log('[WEBHOOK] 📝 Criando message');
       const message = await base44.entities.Message.create({
         thread_id: thread.id,
@@ -392,43 +386,13 @@ async function processarMensagemRecebida(instance, data, base44, corsHeaders) {
         media_type: mediaType,
         channel: 'whatsapp',
         status: 'entregue',
-        whatsapp_message_id: mensagem.key.id,
-        sent_at: new Date((mensagem.messageTimestamp || Date.now() / 1000) * 1000).toISOString(),
+        whatsapp_message_id: messageId,
+        sent_at: new Date(timestamp).toISOString(),
         delivered_at: new Date().toISOString()
       });
       mensagemCriada = message;
 
-      // 🆕 NOVO: Registrar indicador de digitação se aplicável
-      if (data.isTyping || data.typing) {
-        try {
-          await base44.entities.AutomationLog.create({
-            acao: 'typing_indicator',
-            thread_id: thread.id,
-            contato_id: contato.id,
-            resultado: 'sucesso',
-            timestamp: new Date().toISOString(),
-            detalhes: {
-              mensagem: 'Contato está digitando'
-            },
-            origem: 'webhook',
-            prioridade: 'baixa'
-          });
-          console.log('[WEBHOOK] ✅ Typing indicator registrado.');
-        } catch (err) {
-          console.error('[WEBHOOK] Erro ao registrar typing:', err);
-        }
-      }
 
-      // 🆕 NOVO: Atualizar status de entrega
-      // Note: A mensagem é criada com status 'entregue' por padrão, então este bloco
-      // só teria efeito se o status inicial fosse 'enviando' por alguma razão futura.
-      if (message.status === 'enviando') {
-        await base44.entities.Message.update(message.id, {
-          status: 'entregue',
-          delivered_at: new Date().toISOString()
-        });
-        console.log(`[WEBHOOK] ✅ Status da mensagem atualizado para 'entregue' (do estado 'enviando').`);
-      }
 
       // PASSO 5: ATUALIZAR THREAD
       console.log('[WEBHOOK] 🔄 Atualizando thread');
@@ -532,12 +496,12 @@ async function processarMensagemRecebida(instance, data, base44, corsHeaders) {
   }
 }
 
-async function processarMensagemUpdate(data, base44, corsHeaders) {
+async function processarMensagemUpdate(payloadNormalizado, base44, corsHeaders) {
   console.log('[WEBHOOK] 🔄 Processando atualização de status de mensagem');
 
   try {
-    const status = data.status;
-    const messageId = data.key?.id;
+    const messageId = payloadNormalizado.messageId;
+    const statusZAPI = payloadNormalizado.status;
 
     if (!messageId) {
       console.warn('[WEBHOOK] ⚠️ Message ID não encontrado no update');
@@ -561,10 +525,10 @@ async function processarMensagemUpdate(data, base44, corsHeaders) {
 
     const updates = {};
 
-    if (status === 'READ' || status === 'read') {
+    if (statusZAPI === 'READ' || statusZAPI === 'read') {
       updates.status = 'lida';
       updates.read_at = new Date().toISOString();
-    } else if (status === 'DELIVERY_ACK' || status === 'delivered') {
+    } else if (statusZAPI === 'DELIVERY_ACK' || statusZAPI === 'delivered') {
       updates.status = 'entregue';
       updates.delivered_at = new Date().toISOString();
     }
@@ -590,6 +554,35 @@ async function processarMensagemUpdate(data, base44, corsHeaders) {
  * FUNÇÕES AUXILIARES
  * ═══════════════════════════════════════════════════════════════
  */
+
+/**
+ * Busca integração por instance - PRIORIZA instance_id_provider
+ */
+async function buscarIntegracaoPorInstance(instance, base44) {
+  if (!instance) return null;
+  
+  // PRIORIDADE 1: Buscar por instance_id_provider (mais confiável)
+  let integracoes = await base44.entities.WhatsAppIntegration.filter({
+    instance_id_provider: instance
+  });
+  
+  if (integracoes.length > 0) {
+    console.log('[WEBHOOK] ✅ Integração encontrada por instance_id_provider');
+    return integracoes[0];
+  }
+  
+  // FALLBACK: Buscar por nome_instancia
+  integracoes = await base44.entities.WhatsAppIntegration.filter({
+    nome_instancia: instance
+  });
+  
+  if (integracoes.length > 0) {
+    console.log('[WEBHOOK] ✅ Integração encontrada por nome_instancia');
+    return integracoes[0];
+  }
+  
+  return null;
+}
 
 async function baixarEPersistirMidia(mediaUrl, mediaType, base44) {
   try {

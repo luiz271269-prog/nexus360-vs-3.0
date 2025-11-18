@@ -82,7 +82,22 @@ async function enfileirar(base44, data, headers) {
   console.log('[ENFILEIRAR] 📥 Adicionando à fila:', { thread_id, setor, prioridade });
 
   try {
-    // Verificar se já está na fila
+    // VALIDAÇÃO 1: Verificar se thread existe e NÃO está atribuída
+    const thread = await base44.asServiceRole.entities.MessageThread.get(thread_id);
+    
+    if (thread.assigned_user_id) {
+      console.log('[ENFILEIRAR] ⚠️ Thread já está atribuída, não deve entrar na fila');
+      return Response.json(
+        { 
+          success: false, 
+          message: 'Thread já está atribuída a um usuário',
+          assigned_to: thread.assigned_user_name
+        },
+        { status: 200, headers }
+      );
+    }
+    
+    // VALIDAÇÃO 2: Verificar se já está na fila ativa
     const jaEnfileirado = await base44.asServiceRole.entities.FilaAtendimento.filter({
       thread_id: thread_id,
       removido_da_fila: false
@@ -100,8 +115,7 @@ async function enfileirar(base44, data, headers) {
       );
     }
 
-    // Buscar dados da thread para enriquecer metadata
-    const thread = await base44.asServiceRole.entities.MessageThread.get(thread_id);
+    // Buscar contato para enriquecer metadata (thread já foi buscado na validação)
     const contato = thread.contact_id 
       ? await base44.asServiceRole.entities.Contact.get(thread.contact_id).catch(() => null)
       : null;
@@ -128,7 +142,7 @@ async function enfileirar(base44, data, headers) {
       setor,
       prioridade,
       entrou_em: new Date().toISOString(),
-      removido_da_fila: false,
+      status: 'aguardando',
       tentativas_atribuicao: 0,
       metadata: metadataEnriquecido
     });
@@ -178,7 +192,7 @@ async function desenfileirar(base44, data, headers) {
       // Ordenar por prioridade (urgente > alta > normal > baixa) e depois por FIFO
       const todasThreads = await base44.asServiceRole.entities.FilaAtendimento.filter({
         setor: setor,
-        removido_da_fila: false
+        status: 'aguardando'
       }, 'entrou_em', 100);
 
       const ordemPrioridade = { 'urgente': 4, 'alta': 3, 'normal': 2, 'baixa': 1 };
@@ -196,7 +210,7 @@ async function desenfileirar(base44, data, headers) {
     } else {
       // FIFO puro
       threadsNaFila = await base44.asServiceRole.entities.FilaAtendimento.filter(
-        { setor, removido_da_fila: false },
+        { setor, status: 'aguardando' },
         'entrou_em', // Ordena pelo mais antigo primeiro
         1 // Pega apenas o primeiro
       );
@@ -215,14 +229,13 @@ async function desenfileirar(base44, data, headers) {
       (Date.now() - new Date(proximaFila.entrou_em).getTime()) / 1000
     );
 
-    // Marcar como removido da fila
+    // Marcar como atendido (ATÔMICO)
     await base44.asServiceRole.entities.FilaAtendimento.update(proximaFila.id, {
-      removido_da_fila: true,
+      status: 'atendido',
       motivo_remocao: 'atribuido',
       atendido_por: atendente_id,
       atendido_por_nome: atendente_nome,
-      atendido_em: new Date().toISOString(),
-      tempo_espera_segundos: tempoEsperaSegundos
+      atendido_em: new Date().toISOString()
     });
 
     // Atualizar a MessageThread
@@ -269,7 +282,7 @@ async function listarFila(base44, data, headers) {
   console.log('[LISTAR-FILA] 📋 Listando fila:', { setor, whatsapp_integration_id });
 
   try {
-    const filtro = { removido_da_fila: false };
+    const filtro = { status: 'aguardando' };
     
     if (setor) filtro.setor = setor;
     if (whatsapp_integration_id) filtro.whatsapp_integration_id = whatsapp_integration_id;
@@ -324,7 +337,7 @@ async function removerDaFila(base44, data, headers) {
   try {
     const filaEntries = await base44.asServiceRole.entities.FilaAtendimento.filter({
       thread_id: thread_id,
-      removido_da_fila: false
+      status: 'aguardando'
     });
 
     if (filaEntries.length === 0) {
@@ -335,7 +348,7 @@ async function removerDaFila(base44, data, headers) {
     }
 
     await base44.asServiceRole.entities.FilaAtendimento.update(filaEntries[0].id, {
-      removido_da_fila: true,
+      status: 'removido',
       motivo_remocao: motivo,
       atendido_em: new Date().toISOString()
     });
@@ -366,7 +379,7 @@ async function obterEstatisticas(base44, data, headers) {
 
   try {
     const todasFilas = await base44.asServiceRole.entities.FilaAtendimento.filter(
-      { removido_da_fila: false },
+      { status: 'aguardando' },
       'entrou_em',
       500
     );
