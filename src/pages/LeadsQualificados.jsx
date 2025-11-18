@@ -1,7 +1,7 @@
-
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -10,17 +10,30 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Target,
   Users,
+  TrendingUp,
+  AlertCircle,
   Activity,
+  Grid3x3,
+  List,
   RefreshCw,
+  Filter,
   Search,
-  Plus
-} from
-  "lucide-react";
+  Plus,
+  Eye,
+  Edit,
+  Trash2,
+  FileText
+} from "lucide-react";
 import { toast } from "sonner";
 import ClienteKanban from "../components/clientes/ClienteKanban";
+import ClienteTable from "../components/clientes/ClienteTable";
 import ClienteForm from "../components/clientes/ClienteForm";
 import { listarVendedoresParaSelect, sincronizarClientesComVendedores } from '../components/lib/vendedorSync';
 import { validarMudancaStatus, getMensagemMotivacional, getProximaAcaoSugerida } from '../components/clientes/ClienteFormValidation';
+import OrcamentoKanban from "../components/orcamentos/OrcamentoKanban";
+import OrcamentoTable from "../components/orcamentos/OrcamentoTable";
+import { createPageUrl } from "@/utils";
+import { useNavigate } from "react-router-dom";
 
 export default function LeadsQualificados() {
   const [loading, setLoading] = useState(true);
@@ -31,6 +44,10 @@ export default function LeadsQualificados() {
   const [pendingStatusChange, setPendingStatusChange] = useState(null);
   const [showClienteForm, setShowClienteForm] = useState(false);
   const [editingCliente, setEditingCliente] = useState(null);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [filterStatus, setFilterStatus] = useState('all');
+
+  const navigate = useNavigate();
 
   const [filtrosLeads, setFiltrosLeads] = useState({
     busca: '',
@@ -55,6 +72,14 @@ export default function LeadsQualificados() {
   const { data: clientesScores = [] } = useQuery({
     queryKey: ['clientesScores'],
     queryFn: () => base44.entities.ClienteScore.list('-score_total', 500)
+  });
+
+  const { data: orcamentos = [], isLoading: loadingOrcamentos } = useQuery({
+    queryKey: ['orcamentos'],
+    queryFn: async () => {
+      const data = await base44.entities.Orcamento.list();
+      return data;
+    },
   });
 
   useEffect(() => {
@@ -289,6 +314,27 @@ export default function LeadsQualificados() {
     window.open(`/Clientes?id=${cliente.id}`, '_blank');
   };
 
+  const handleDeleteOrcamento = async (id) => {
+    if (!confirm('Tem certeza que deseja excluir este orçamento?')) return;
+
+    try {
+      await base44.entities.Orcamento.delete(id);
+      toast.success('Orçamento excluído com sucesso!');
+      queryClient.invalidateQueries({ queryKey: ['orcamentos'] });
+    } catch (error) {
+      toast.error('Erro ao excluir orçamento');
+      console.error(error);
+    }
+  };
+
+  const handleEditOrcamento = (orcamento) => {
+    navigate(createPageUrl(`OrcamentoDetalhes?id=${orcamento.id}`));
+  };
+
+  const handleViewOrcamento = (orcamento) => {
+    navigate(createPageUrl(`OrcamentoDetalhes?id=${orcamento.id}`));
+  };
+
   const leadsFiltrados = (clientes || []).filter((c) => {
     const isLead = ['novo_lead', 'primeiro_contato', 'em_conversa', 'levantamento_dados',
       'pre_qualificado', 'qualificacao_tecnica', 'em_aquecimento',
@@ -341,6 +387,16 @@ export default function LeadsQualificados() {
     return true;
   });
 
+  const orcamentosFiltrados = orcamentos.filter(orcamento => {
+    const matchesSearch = searchTerm === '' ||
+      orcamento.numero_orcamento?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      orcamento.cliente_nome?.toLowerCase().includes(searchTerm.toLowerCase());
+
+    const matchesStatus = filterStatus === 'all' || orcamento.status === filterStatus;
+
+    return matchesSearch && matchesStatus;
+  });
+
   const scoresParaKanban = clientesScores || [];
 
   return (
@@ -357,7 +413,7 @@ export default function LeadsQualificados() {
               <div>
                 <h1 className="text-xl font-bold text-slate-800">🎯 Central de Qualificação</h1>
                 <p className="text-slate-600 text-xs">
-                  Funil de Leads + Gestão de Clientes Ativos
+                  Funil de Leads + Gestão de Clientes + Pipeline de Orçamentos
                 </p>
               </div>
             </div>
@@ -374,11 +430,17 @@ export default function LeadsQualificados() {
               </Button>
 
               <Button
-                onClick={handleNovoLead}
+                onClick={() => {
+                  if (activeTab === 'orcamentos') {
+                    navigate(createPageUrl('OrcamentoDetalhes'));
+                  } else {
+                    handleNovoLead();
+                  }
+                }}
                 size="sm"
                 className="bg-gradient-to-r from-orange-400 to-orange-500 hover:from-orange-500 hover:to-orange-600 text-white shadow-md h-8 text-xs">
                 <Plus className="w-4 h-4 mr-1" />
-                {activeTab === 'leads' ? 'Novo Lead' : 'Novo Cliente'}
+                {activeTab === 'leads' ? 'Novo Lead' : activeTab === 'clientes' ? 'Novo Cliente' : 'Novo Orçamento'}
               </Button>
             </div>
           </div>
@@ -404,6 +466,13 @@ export default function LeadsQualificados() {
                   Kanban de Gestão de Clientes
                   <Badge variant="secondary" className="ml-2 bg-orange-100 text-orange-700 text-[10px] h-4">{clientesAtivos.length}</Badge>
                 </TabsTrigger>
+                <TabsTrigger
+                  value="orcamentos"
+                  className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-orange-600 data-[state=active]:to-orange-500 data-[state=active]:text-white text-slate-300 h-9 px-4 text-xs font-semibold">
+                  <FileText className="w-3 h-3 mr-1" />
+                  Pipeline de Orçamentos
+                  <Badge variant="secondary" className="ml-2 bg-orange-100 text-orange-700 text-[10px] h-4">{orcamentos.length}</Badge>
+                </TabsTrigger>
               </TabsList>
 
               {/* FILTROS COMPACTOS */}
@@ -412,9 +481,11 @@ export default function LeadsQualificados() {
                   <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-3 h-3 text-slate-400" />
                   <Input
                     placeholder="Buscar..."
-                    value={activeTab === 'leads' ? filtrosLeads.busca : filtrosClientes.busca}
+                    value={activeTab === 'orcamentos' ? searchTerm : (activeTab === 'leads' ? filtrosLeads.busca : filtrosClientes.busca)}
                     onChange={(e) => {
-                      if (activeTab === 'leads') {
+                      if (activeTab === 'orcamentos') {
+                        setSearchTerm(e.target.value);
+                      } else if (activeTab === 'leads') {
                         setFiltrosLeads({ ...filtrosLeads, busca: e.target.value });
                       } else {
                         setFiltrosClientes({ ...filtrosClientes, busca: e.target.value });
@@ -423,26 +494,58 @@ export default function LeadsQualificados() {
                     className="pl-7 h-7 w-[180px] text-xs bg-black/30 border-orange-500/30 text-white placeholder:text-slate-400" />
                 </div>
 
-                <Select
-                  value={activeTab === 'leads' ? filtrosLeads.vendedor : filtrosClientes.vendedor}
-                  onValueChange={(v) => {
-                    if (activeTab === 'leads') {
-                      setFiltrosLeads({ ...filtrosLeads, vendedor: v });
-                    } else {
-                      setFiltrosClientes({ ...filtrosClientes, vendedor: v });
-                    }
-                  }}>
-                  <SelectTrigger className="h-7 w-[140px] text-xs bg-black/30 border-orange-500/30 text-white">
-                    <SelectValue placeholder="Vendedor" />
-                  </SelectTrigger>
-                  <SelectContent className="bg-gray-800 text-white border-slate-600">
-                    <SelectItem value="todos" className="text-xs">Todos</SelectItem>
-                    {atendentes.map((v) =>
-                      <SelectItem key={v.value} value={v.value} className="text-xs">{v.label}</SelectItem>
-                    )}
-                    <SelectItem value="nao_atribuido" className="text-xs">Não Atribuído</SelectItem>
-                  </SelectContent>
-                </Select>
+                {activeTab !== 'orcamentos' && (
+                  <Select
+                    value={activeTab === 'leads' ? filtrosLeads.vendedor : filtrosClientes.vendedor}
+                    onValueChange={(v) => {
+                      if (activeTab === 'leads') {
+                        setFiltrosLeads({ ...filtrosLeads, vendedor: v });
+                      } else {
+                        setFiltrosClientes({ ...filtrosClientes, vendedor: v });
+                      }
+                    }}>
+                    <SelectTrigger className="h-7 w-[140px] text-xs bg-black/30 border-orange-500/30 text-white">
+                      <SelectValue placeholder="Vendedor" />
+                    </SelectTrigger>
+                    <SelectContent className="bg-gray-800 text-white border-slate-600">
+                      <SelectItem value="todos" className="text-xs">Todos</SelectItem>
+                      {atendentes.map((v) =>
+                        <SelectItem key={v.value} value={v.value} className="text-xs">{v.label}</SelectItem>
+                      )}
+                      <SelectItem value="nao_atribuido" className="text-xs">Não Atribuído</SelectItem>
+                    </SelectContent>
+                  </Select>
+                )}
+
+                {activeTab === 'orcamentos' && (
+                  <>
+                    <select
+                      value={filterStatus}
+                      onChange={(e) => setFilterStatus(e.target.value)}
+                      className="h-7 px-3 text-xs bg-black/30 border border-orange-500/30 rounded-md text-white">
+                      <option value="all">Todos Status</option>
+                      <option value="rascunho">Rascunho</option>
+                      <option value="enviado">Enviado</option>
+                      <option value="aprovado">Aprovado</option>
+                      <option value="rejeitado">Rejeitado</option>
+                    </select>
+
+                    <Button
+                      variant={viewMode === 'kanban' ? 'default' : 'outline'}
+                      onClick={() => setViewMode('kanban')}
+                      size="sm"
+                      className={`h-7 px-2 text-xs ${viewMode === 'kanban' ? 'bg-orange-500 hover:bg-orange-600' : 'bg-black/30 border-orange-500/30 text-white'}`}>
+                      <Grid3x3 className="w-3 h-3" />
+                    </Button>
+                    <Button
+                      variant={viewMode === 'table' ? 'default' : 'outline'}
+                      onClick={() => setViewMode('table')}
+                      size="sm"
+                      className={`h-7 px-2 text-xs ${viewMode === 'table' ? 'bg-orange-500 hover:bg-orange-600' : 'bg-black/30 border-orange-500/30 text-white'}`}>
+                      <List className="w-3 h-3" />
+                    </Button>
+                  </>
+                )}
               </div>
             </div>
           </div>
@@ -476,6 +579,30 @@ export default function LeadsQualificados() {
               verDetalhes={verDetalhes}
               mode="clientes" />
           </TabsContent>
+
+          {/* TAB: PIPELINE DE ORÇAMENTOS */}
+          <TabsContent value="orcamentos" className="space-y-2 mt-2">
+            {loadingOrcamentos ? (
+              <div className="flex items-center justify-center py-20">
+                <Activity className="w-8 h-8 animate-spin text-orange-500" />
+                <span className="ml-3 text-slate-600">Carregando orçamentos...</span>
+              </div>
+            ) : viewMode === 'kanban' ? (
+              <OrcamentoKanban
+                orcamentos={orcamentosFiltrados}
+                onView={handleViewOrcamento}
+                onEdit={handleEditOrcamento}
+                onDelete={handleDeleteOrcamento}
+              />
+            ) : (
+              <OrcamentoTable
+                orcamentos={orcamentosFiltrados}
+                onView={handleViewOrcamento}
+                onEdit={handleEditOrcamento}
+                onDelete={handleDeleteOrcamento}
+              />
+            )}
+          </TabsContent>
         </Tabs>
 
         {/* MODAL DE FORMULÁRIO */}
@@ -495,6 +622,6 @@ export default function LeadsQualificados() {
           </div>
         }
       </div>
-    </div>);
-
+    </div>
+  );
 }
