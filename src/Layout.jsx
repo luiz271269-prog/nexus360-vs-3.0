@@ -1,4 +1,5 @@
-import { useState, useEffect, useRef } from "react";
+
+import React, { useState, useEffect, useRef } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import { base44 } from "@/api/base44Client";
@@ -10,15 +11,29 @@ import {
   TrendingUp,
   Upload,
   Menu,
+  X,
+  ShoppingCart,
+  Briefcase,
   Brain,
   MessageSquare,
+  Bot,
   Zap,
+  CalendarCheck,
+  BrainCircuit,
   Home,
+  UserCheck,
+  DollarSign,
   Calendar,
   Sparkles,
+  Settings,
+  Calculator,
   Building2,
   Package,
+  Bug,
   UserCog,
+  Activity,
+  BookOpen,
+  Workflow,
   Shield
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -26,6 +41,7 @@ import { Badge } from "@/components/ui/badge";
 import NexusChat from "../components/global/NexusChat";
 import LembreteFlutuanteIA from "../components/global/LembreteFlutuanteIA";
 import NotificationSystem from "../components/comunicacao/NotificationSystem";
+import { toast } from "sonner";
 import InitializadorSistema from "../components/global/InitializadorSistema";
 import DeploymentBanner from "../components/global/DeploymentBanner";
 import CacheBuster from "../components/global/CacheBuster";
@@ -161,7 +177,6 @@ export default function Layout({ children, currentPageName }) {
     { name: "Analytics Avançado", icon: BarChart3, page: "AnalyticsAvancado" },
     { name: "Vendedores", icon: Users, page: "Vendedores" },
     { name: "Clientes", icon: Building2, page: "Clientes" },
-    { name: "Orçamentos", icon: FileText, page: "Orcamentos" },
     { name: "Vendas", icon: TrendingUp, page: "Vendas" },
     { name: "Produtos", icon: Package, page: "Produtos" },
     { name: "💬 Central de Comunicação", icon: MessageSquare, page: "Comunicacao" },
