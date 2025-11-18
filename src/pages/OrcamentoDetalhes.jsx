@@ -418,53 +418,63 @@ RETORNE o JSON estruturado conforme o schema.`;
         email: v.email
       }));
 
-      const prompt = `Analise este orçamento e extraia TODOS os dados estruturados.
+      const prompt = `Analise este orçamento/proposta comercial e extraia TODOS os dados estruturados com PRECISÃO MÁXIMA.
 
-CLIENTES DISPONÍVEIS NA BASE:
-${JSON.stringify(clientesInfo, null, 2)}
+      CLIENTES DISPONÍVEIS NA BASE:
+      ${JSON.stringify(clientesInfo, null, 2)}
 
-VENDEDORES DISPONÍVEIS NA BASE:
-${JSON.stringify(vendedoresInfo, null, 2)}
+      VENDEDORES DISPONÍVEIS NA BASE:
+      ${JSON.stringify(vendedoresInfo, null, 2)}
 
-INSTRUÇÕES:
-1. IDENTIFIQUE o cliente pelo nome, CNPJ ou qualquer informação que apareça
-2. Se encontrar o cliente na base, use o ID dele. Se não encontrar, extraia os dados para criar novo.
-3. IDENTIFIQUE o vendedor/atendente responsável
-4. Se não houver vendedor explícito, use "Atendente" ou o primeiro vendedor da lista
-5. EXTRAIA todos os itens/produtos com quantidade, descrição e valores
-6. EXTRAIA datas, condições de pagamento, observações
+      INSTRUÇÕES DE EXTRAÇÃO:
+      1. CÓDIGO DO ORÇAMENTO: Procure por "Proposta Nº", "Orçamento", "Pedido", etc.
+      2. CLIENTE: Nome completo, CNPJ, razão social. Verifique se existe na base de clientes.
+      3. TELEFONE: Qualquer telefone de contato do cliente (fixo ou celular)
+      4. EMAIL: Email de contato do cliente
+      5. VENDEDOR: Nome do vendedor/atendente responsável. Verifique se existe na base.
+      6. DATA DE EMISSÃO: Data em que o orçamento foi emitido
+      7. ITENS: TODOS os produtos/serviços com código, descrição, quantidade, valor unitário e total
+      8. OBSERVAÇÕES: Condições gerais, formas de pagamento, prazo de validade, informações adicionais
 
-RETORNE o JSON estruturado conforme o schema.`;
+      RETORNE o JSON estruturado conforme o schema.`;
 
       const schema = {
         type: "object",
         properties: {
+          numero_orcamento: { type: "string", description: "Código/número do orçamento" },
+
           cliente_encontrado: { type: "boolean" },
           cliente_id: { type: "string" },
-          cliente_nome: { type: "string" },
+          cliente_nome: { type: "string", description: "Nome ou razão social do cliente" },
           cliente_cnpj: { type: "string" },
-          cliente_telefone: { type: "string" },
-          cliente_email: { type: "string" },
+          cliente_telefone: { type: "string", description: "Telefone do cliente" },
+          cliente_email: { type: "string", description: "Email do cliente" },
+          cliente_empresa: { type: "string", description: "Nome fantasia ou empresa do cliente" },
+
           vendedor_encontrado: { type: "boolean" },
           vendedor_id: { type: "string" },
-          vendedor_nome: { type: "string" },
-          numero_orcamento: { type: "string" },
-          data_orcamento: { type: "string" },
-          data_validade: { type: "string" },
-          condicao_pagamento: { type: "string" },
-          observacoes: { type: "string" },
-          valor_total: { type: "number" },
+          vendedor_nome: { type: "string", description: "Nome do vendedor/atendente" },
+
+          data_orcamento: { type: "string", description: "Data de emissão (formato: YYYY-MM-DD)" },
+          data_validade: { type: "string", description: "Data de validade/vencimento (formato: YYYY-MM-DD)" },
+
+          condicao_pagamento: { type: "string", description: "Condições de pagamento" },
+          observacoes: { type: "string", description: "Observações gerais, termos e condições" },
+
+          valor_total: { type: "number", description: "Valor total do orçamento" },
+
           itens: {
             type: "array",
+            description: "Lista de produtos/serviços",
             items: {
               type: "object",
               properties: {
-                codigo: { type: "string" },
-                nome: { type: "string" },
-                descricao: { type: "string" },
-                quantidade: { type: "number" },
-                valor_unitario: { type: "number" },
-                valor_total: { type: "number" }
+                codigo: { type: "string", description: "Código/referência do produto" },
+                nome: { type: "string", description: "Nome do produto/serviço" },
+                descricao: { type: "string", description: "Descrição detalhada" },
+                quantidade: { type: "number", description: "Quantidade" },
+                valor_unitario: { type: "number", description: "Valor unitário" },
+                valor_total: { type: "number", description: "Valor total do item" }
               }
             }
           }
@@ -507,12 +517,13 @@ RETORNE o JSON estruturado conforme o schema.`;
         cliente_nome: iaResult.cliente_nome || prev.cliente_nome,
         cliente_telefone: iaResult.cliente_telefone || prev.cliente_telefone,
         cliente_email: iaResult.cliente_email || prev.cliente_email,
+        cliente_empresa: iaResult.cliente_empresa || prev.cliente_empresa,
         vendedor: iaResult.vendedor_nome || prev.vendedor,
         numero_orcamento: iaResult.numero_orcamento || prev.numero_orcamento,
         data_orcamento: iaResult.data_orcamento || prev.data_orcamento,
         data_vencimento: iaResult.data_validade || prev.data_vencimento,
         condicao_pagamento: iaResult.condicao_pagamento || prev.condicao_pagamento,
-        observacoes: `${prev.observacoes ? prev.observacoes + '\n\n' : ''}[Importado via IA - ${new Date().toLocaleString()}]\n${iaResult.observacoes || ''}\n\nImagem: ${fileUrl}`.trim(),
+        observacoes: `${prev.observacoes ? prev.observacoes + '\n\n' : ''}[📄 Importado via IA - ${new Date().toLocaleString('pt-BR')}]\n\n${iaResult.observacoes || ''}\n\n📎 Imagem: ${fileUrl}`.trim(),
         valor_total: totalCalculado
       }));
 
