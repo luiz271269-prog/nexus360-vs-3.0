@@ -219,28 +219,11 @@ RETORNE o JSON estruturado conforme o schema.`;
           observacoesFinal += `Thread ID: ${thread_id}\n`;
         }
 
-        let itensFinais = [];
-        let dadosIA = {};
-        
+        // Apenas anexa a imagem, não processa automaticamente
         if (mediaUrlFromChat) {
           setImagemAnexada(mediaUrlFromChat);
-          
-          const [clientes, vendedoresBase] = await Promise.all([
-            base44.entities.Cliente.list(),
-            base44.entities.Vendedor.list()
-          ]);
-          
-          const resultado = await processarImagemUrl(mediaUrlFromChat, clientes, vendedoresBase);
-          itensFinais = resultado.itens;
-          dadosIA = resultado.dados;
-          
-          if (itensFinais.length > 0) {
-            observacoesFinal += `\n[Imagem processada via IA - ${new Date().toLocaleString()}]\nImagem: ${mediaUrlFromChat}`;
-            toast.success(`✅ ${itensFinais.length} itens extraídos!`, { duration: 3000 });
-          }
+          observacoesFinal += `\n[Imagem anexada aguardando processamento]\nImagem: ${mediaUrlFromChat}`;
         }
-
-        const totalCalculado = calcularTotal(itensFinais);
 
         setOrcamento({
           cliente_id: null,
@@ -250,16 +233,16 @@ RETORNE o JSON estruturado conforme o schema.`;
           cliente_email: decodeURIComponent(cliente_email),
           cliente_empresa: '',
           vendedor: decodeURIComponent(vendedor),
-          numero_orcamento: dadosIA.numero_orcamento || '',
-          data_orcamento: dadosIA.data_orcamento || new Date().toISOString().slice(0, 10),
+          numero_orcamento: '',
+          data_orcamento: new Date().toISOString().slice(0, 10),
           data_vencimento: '',
-          condicao_pagamento: dadosIA.condicao_pagamento || '',
+          condicao_pagamento: '',
           status: "rascunho",
-          valor_total: totalCalculado,
+          valor_total: 0,
           observacoes: observacoesFinal
         });
 
-        setItens(itensFinais);
+        setItens([]);
       }
       else if (modoOperacao === 'importacao') {
         const dadosImportados = location.state?.dadosImportados;
@@ -885,10 +868,25 @@ RETORNE o JSON estruturado conforme o schema.`;
         {imagemAnexada && (
           <Card className="bg-slate-800/50 border-slate-700">
             <CardHeader className="pb-3">
-              <CardTitle className="text-sm text-white flex items-center gap-2">
-                <ImageIcon className="w-4 h-4 text-amber-400" /> 
-                Imagem Anexada
-              </CardTitle>
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-sm text-white flex items-center gap-2">
+                  <ImageIcon className="w-4 h-4 text-amber-400" /> 
+                  Imagem Anexada
+                </CardTitle>
+                <Button 
+                  size="sm" 
+                  onClick={async () => {
+                    const response = await fetch(imagemAnexada);
+                    const blob = await response.blob();
+                    const file = new File([blob], "imagem.png", { type: blob.type });
+                    await processarImagemCompleta(file);
+                  }}
+                  className="bg-amber-500 hover:bg-amber-600 h-7"
+                >
+                  <Sparkles className="w-3 h-3 mr-1" />
+                  Processar com IA
+                </Button>
+              </div>
             </CardHeader>
             <CardContent>
               <img 
