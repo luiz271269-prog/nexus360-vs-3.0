@@ -460,6 +460,34 @@ async function processarMensagemRecebida(instance, data, base44, corsHeaders) {
         console.error('[WEBHOOK] ⚠️ Erro no processamento assíncrono de IA:', error);
       });
 
+      // 🆕 PASSO 8: AUTO-ENFILEIRAR SE THREAD NÃO ESTÁ ATRIBUÍDA
+      if (!thread.assigned_user_id) {
+        const setor = thread.sector_id || 'geral';
+        
+        console.log('[WEBHOOK] 📥 Thread não atribuída, enfileirando no setor:', setor);
+        
+        // Chamar função de enfileiramento de forma assíncrona (não bloqueia webhook)
+        base44.functions.invoke('gerenciarFila', {
+          action: 'enqueue',
+          thread_id: thread.id,
+          whatsapp_integration_id: integracaoId,
+          setor: setor,
+          prioridade: thread.prioridade || 'normal',
+          metadata: {
+            cliente_nome: contato.nome,
+            cliente_telefone: contato.telefone
+          }
+        }).then(result => {
+          if (result.data.success) {
+            console.log('[WEBHOOK] ✅ Thread enfileirada com sucesso');
+          } else {
+            console.log('[WEBHOOK] ℹ️ Thread já estava na fila ou erro ao enfileirar');
+          }
+        }).catch(error => {
+          console.error('[WEBHOOK] ⚠️ Erro ao enfileirar (não crítico):', error);
+        });
+      }
+
       console.log('[WEBHOOK] ✅ Mensagem processada com sucesso');
 
       return Response.json(

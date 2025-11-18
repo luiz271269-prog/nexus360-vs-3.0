@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useCallback } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -31,6 +30,7 @@ import NotificationSystem from "../components/comunicacao/NotificationSystem";
 import { useDebounce } from "../components/lib/useDebounce";
 import { normalizarTelefone } from "../components/lib/phoneUtils";
 import BibliotecaAutomacoes from "../components/automacao/BibliotecaAutomacoes"; // NEW IMPORT
+import VisualizadorFilas from "../components/comunicacao/VisualizadorFilas";
 
 export default function Comunicacao() {
   const [usuario, setUsuario] = useState(null);
@@ -339,6 +339,10 @@ export default function Comunicacao() {
                 <MessageCircle className="w-4 h-4" />
                 Conversas
               </TabsTrigger>
+              <TabsTrigger value="filas" className="gap-2">
+                <Users className="w-4 h-4" />
+                Filas
+              </TabsTrigger>
               <TabsTrigger value="automacao" className="gap-2">
                 <Zap className="w-4 h-4" />
                 Automação
@@ -442,6 +446,16 @@ export default function Comunicacao() {
                     <EmptyState />
                   )}
                 </div>
+              </div>
+            </TabsContent>
+
+            {/* TAB: FILAS - VISUALIZADOR DE FILAS FIFO */}
+            <TabsContent value="filas" className="h-full m-0 overflow-hidden">
+              <div className="h-full overflow-y-auto p-6">
+                <VisualizadorFilas 
+                  onSelecionarThread={handleSelecionarThread}
+                  usuarioAtual={usuario}
+                />
               </div>
             </TabsContent>
 
