@@ -2,7 +2,6 @@ import Dashboard from './pages/Dashboard';
 import Vendedores from './pages/Vendedores';
 import Clientes from './pages/Clientes';
 import Orcamentos from './pages/Orcamentos';
-import Relatorios from './pages/Relatorios';
 import Importacao from './pages/Importacao';
 import Vendas from './pages/Vendas';
 import Usuarios from './pages/Usuarios';
@@ -62,7 +61,6 @@ export const PAGES = {
     "Vendedores": Vendedores,
     "Clientes": Clientes,
     "Orcamentos": Orcamentos,
-    "Relatorios": Relatorios,
     "Importacao": Importacao,
     "Vendas": Vendas,
     "Usuarios": Usuarios,

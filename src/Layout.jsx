@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
@@ -34,8 +33,7 @@ import {
   Activity,
   BookOpen,
   Workflow,
-  Shield,
-  PieChart
+  Shield
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -155,7 +153,6 @@ export default function Layout({ children, currentPageName }) {
     { name: "🎯 Leads Qualificados", icon: Target, page: "LeadsQualificados" },
     { name: "🤖 Nexus Command Center", icon: Brain, page: "NexusCommandCenter" },
     { name: "Analytics Avançado", icon: BarChart3, page: "AnalyticsAvancado" },
-    { name: "Relatórios Executivos", icon: PieChart, page: "Relatorios" },
     { name: "Vendedores", icon: Users, page: "Vendedores" },
     { name: "Clientes", icon: Building2, page: "Clientes" },
     { name: "Produtos", icon: Package, page: "Produtos" },
