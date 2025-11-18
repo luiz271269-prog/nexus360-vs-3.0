@@ -33,10 +33,17 @@ export default function DiagnosticoInbound({ integracoes }) {
   const [loading, setLoading] = useState(false);
   const [enviandoTeste, setEnviandoTeste] = useState(false);
   const [logExpandido, setLogExpandido] = useState(null);
+  const [conexaoSelecionada, setConexaoSelecionada] = useState(integracoes[0] || null);
 
   useEffect(() => {
     recarregarDados();
   }, []);
+
+  useEffect(() => {
+    if (integracoes.length > 0 && !conexaoSelecionada) {
+      setConexaoSelecionada(integracoes[0]);
+    }
+  }, [integracoes]);
 
   const recarregarDados = async () => { // Renamed from carregarLogs to recarregarDados as per outline
     setLoading(true);
@@ -197,7 +204,7 @@ export default function DiagnosticoInbound({ integracoes }) {
           </TabsTrigger>
         </TabsList>
 
-        {/* Aba 1: Diagnóstico de Webhooks Reais - SEPARADO POR CONEXÃO */}
+        {/* Aba 1: Diagnóstico de Webhooks Reais - LAYOUT EM GRADE (2 COLUNAS) */}
         <TabsContent value="webhook-real">
           {integracoes.length === 0 ? (
             <Alert className="bg-yellow-50 border-yellow-300">
@@ -207,30 +214,83 @@ export default function DiagnosticoInbound({ integracoes }) {
               </AlertDescription>
             </Alert>
           ) : (
-            <div className="space-y-6">
-              {integracoes.map((integracao) => (
-                <Card key={integracao.id} className="border-l-4" style={{ borderLeftColor: integracao.status === 'conectado' ? '#22c55e' : '#ef4444' }}>
-                  <CardHeader className="pb-3">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-3">
-                        <div className={`w-3 h-3 rounded-full ${integracao.status === 'conectado' ? 'bg-green-500 animate-pulse' : 'bg-red-500'}`} />
-                        <div>
-                          <h3 className="text-lg font-bold text-slate-900">
+            <div className="grid grid-cols-12 gap-4 h-[calc(100vh-300px)]">
+              {/* COLUNA 1: Lista de Conexões (3 colunas) */}
+              <div className="col-span-3 space-y-2 overflow-y-auto pr-2">
+                <h3 className="text-sm font-semibold text-slate-700 mb-3 sticky top-0 bg-white py-2">
+                  Conexões ({integracoes.length})
+                </h3>
+                {integracoes.map((integracao) => (
+                  <Card 
+                    key={integracao.id} 
+                    className={`cursor-pointer transition-all border-l-4 ${
+                      conexaoSelecionada?.id === integracao.id 
+                        ? 'shadow-lg ring-2 ring-orange-400' 
+                        : 'hover:shadow-md'
+                    }`}
+                    style={{ borderLeftColor: integracao.status === 'conectado' ? '#22c55e' : '#ef4444' }}
+                    onClick={() => setConexaoSelecionada(integracao)}
+                  >
+                    <CardContent className="p-3">
+                      <div className="flex items-start gap-2">
+                        <div className={`w-2 h-2 rounded-full mt-1.5 flex-shrink-0 ${
+                          integracao.status === 'conectado' ? 'bg-green-500 animate-pulse' : 'bg-red-500'
+                        }`} />
+                        <div className="flex-1 min-w-0">
+                          <h4 className="font-semibold text-sm text-slate-900 truncate">
                             {integracao.nome_instancia}
-                          </h3>
-                          <p className="text-sm text-slate-600">{integracao.numero_telefone}</p>
+                          </h4>
+                          <p className="text-xs text-slate-600 truncate">{integracao.numero_telefone}</p>
+                          <Badge 
+                            className={`mt-1 text-[10px] ${
+                              integracao.status === 'conectado' 
+                                ? 'bg-green-100 text-green-800' 
+                                : 'bg-red-100 text-red-800'
+                            }`}
+                          >
+                            {integracao.status}
+                          </Badge>
                         </div>
                       </div>
-                      <Badge className={integracao.status === 'conectado' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}>
-                        {integracao.status}
-                      </Badge>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+
+              {/* COLUNA 2: Mensagens da Conexão Selecionada (9 colunas) */}
+              <div className="col-span-9 overflow-y-auto">
+                {conexaoSelecionada ? (
+                  <div className="space-y-4">
+                    <div className="sticky top-0 bg-white z-10 pb-3 border-b border-slate-200">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          <div className={`w-3 h-3 rounded-full ${
+                            conexaoSelecionada.status === 'conectado' ? 'bg-green-500 animate-pulse' : 'bg-red-500'
+                          }`} />
+                          <div>
+                            <h3 className="text-lg font-bold text-slate-900">
+                              {conexaoSelecionada.nome_instancia}
+                            </h3>
+                            <p className="text-sm text-slate-600">{conexaoSelecionada.numero_telefone}</p>
+                          </div>
+                        </div>
+                        <Badge className={conexaoSelecionada.status === 'conectado' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}>
+                          {conexaoSelecionada.status}
+                        </Badge>
+                      </div>
                     </div>
-                  </CardHeader>
-                  <CardContent>
-                    <DiagnosticoWebhookReal integracaoFiltro={integracao} />
-                  </CardContent>
-                </Card>
-              ))}
+                    
+                    <DiagnosticoWebhookReal integracaoFiltro={conexaoSelecionada} />
+                  </div>
+                ) : (
+                  <div className="flex items-center justify-center h-full text-slate-500">
+                    <div className="text-center">
+                      <Phone className="w-12 h-12 mx-auto mb-3 text-slate-300" />
+                      <p>Selecione uma conexão para ver as mensagens</p>
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
           )}
         </TabsContent>
