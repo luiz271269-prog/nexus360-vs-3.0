@@ -126,6 +126,19 @@ Deno.serve(async (req) => {
         );
         break;
 
+      case 'WAITING_QUEUE_DECISION':
+        if (!user_message) {
+          throw new Error('user_message é obrigatório para WAITING_QUEUE_DECISION');
+        }
+        resultado = await FluxoController.processarWAITING_QUEUE_DECISION(
+          base44,
+          thread,
+          contact,
+          user_message,
+          whatsappIntegration.id
+        );
+        break;
+
       case 'TRANSFERRING':
         resultado = {
           success: false,

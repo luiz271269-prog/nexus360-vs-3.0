@@ -15,12 +15,14 @@ import {
   ArrowRight
 } from 'lucide-react';
 import { toast } from 'sonner';
+import SeletorEstrategia from './SeletorEstrategia';
 
 export default function VisualizadorFilas({ onSelecionarThread, usuarioAtual }) {
   const [filas, setFilas] = useState([]);
   const [estatisticas, setEstatisticas] = useState(null);
   const [loading, setLoading] = useState(true);
   const [atribuindo, setAtribuindo] = useState(null);
+  const [estrategia, setEstrategia] = useState('prioridade');
 
   useEffect(() => {
     carregarFilas();
@@ -64,7 +66,7 @@ export default function VisualizadorFilas({ onSelecionarThread, usuarioAtual }) 
         setor: setor,
         atendente_id: usuarioAtual.id,
         atendente_nome: usuarioAtual.full_name,
-        estrategia: 'prioridade' // Pode ser 'fifo' ou 'prioridade'
+        estrategia: estrategia
       });
 
       if (result.data.success && result.data.thread_id) {
@@ -133,7 +135,17 @@ export default function VisualizadorFilas({ onSelecionarThread, usuarioAtual }) 
   const setores = ['geral', 'vendas', 'assistencia', 'financeiro', 'fornecedor'];
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
+      {/* SELETOR DE ESTRATÉGIA */}
+      <div>
+        <h3 className="text-lg font-semibold text-slate-900 mb-3">Estratégia de Atendimento</h3>
+        <SeletorEstrategia 
+          estrategiaAtual={estrategia}
+          onMudarEstrategia={setEstrategia}
+          disabled={loading || atribuindo}
+        />
+      </div>
+
       {/* ESTATÍSTICAS GERAIS */}
       {estatisticas && (
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
