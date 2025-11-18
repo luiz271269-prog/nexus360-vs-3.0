@@ -370,7 +370,7 @@ RETORNE o JSON estruturado conforme o schema.`;
 
     document.addEventListener('paste', handlePaste);
     return () => document.removeEventListener('paste', handlePaste);
-  }, []);
+  }, [itens]);
 
   const processarImagemCompleta = async (file) => {
     setProcessing(true);
