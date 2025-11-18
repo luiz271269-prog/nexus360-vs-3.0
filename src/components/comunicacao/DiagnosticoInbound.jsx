@@ -197,9 +197,34 @@ export default function DiagnosticoInbound({ integracoes }) {
           </TabsTrigger>
         </TabsList>
 
-        {/* Aba 1: Diagnóstico de Webhooks Reais (NOVO) */}
+        {/* Aba 1: Diagnóstico de Webhooks Reais - SEPARADO POR CONEXÃO */}
         <TabsContent value="webhook-real">
-          <DiagnosticoWebhookReal />
+          {integracoes.length === 0 ? (
+            <Alert className="bg-yellow-50 border-yellow-300">
+              <AlertTriangle className="h-4 w-4 text-yellow-700" />
+              <AlertDescription className="text-yellow-800">
+                Nenhuma integração configurada. Configure uma conexão na aba "Configurações".
+              </AlertDescription>
+            </Alert>
+          ) : (
+            <div className="space-y-6">
+              {integracoes.map((integracao) => (
+                <div key={integracao.id} className="space-y-3">
+                  <div className="flex items-center gap-3 mb-3">
+                    <div className={`w-3 h-3 rounded-full ${integracao.status === 'conectado' ? 'bg-green-500' : 'bg-red-500'}`} />
+                    <h3 className="text-lg font-bold text-slate-900">
+                      {integracao.nome_instancia} - {integracao.numero_telefone}
+                    </h3>
+                    <Badge className={integracao.status === 'conectado' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}>
+                      {integracao.status}
+                    </Badge>
+                  </div>
+                  
+                  <DiagnosticoWebhookReal integracaoFiltro={integracao} />
+                </div>
+              ))}
+            </div>
+          )}
         </TabsContent>
 
         {/* Aba 2: Estatísticas */}

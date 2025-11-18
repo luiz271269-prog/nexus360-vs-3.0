@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -19,18 +19,29 @@ import {
 } from "lucide-react";
 import { format } from "date-fns";
 
-export default function DiagnosticoWebhookReal() {
+export default function DiagnosticoWebhookReal({ integracaoFiltro = null }) {
   const [logs, setLogs] = useState([]);
   const [loading, setLoading] = useState(false);
   const [filtro, setFiltro] = useState('todos'); // todos, sucesso, erro
   const [expandido, setExpandido] = useState(null);
+  const [integracoes, setIntegracoes] = useState([]);
 
   useEffect(() => {
+    carregarIntegracoes();
     carregarLogs();
     // Auto-refresh a cada 5 segundos
     const interval = setInterval(carregarLogs, 5000);
     return () => clearInterval(interval);
   }, []);
+
+  const carregarIntegracoes = async () => {
+    try {
+      const data = await base44.entities.WhatsAppIntegration.list();
+      setIntegracoes(data);
+    } catch (error) {
+      console.error('[DIAGNOSTICO] Erro ao carregar integrações:', error);
+    }
+  };
 
   const carregarLogs = async () => {
     setLoading(true);
@@ -44,8 +55,16 @@ export default function DiagnosticoWebhookReal() {
   };
 
   const logsFiltrados = logs.filter(log => {
-    if (filtro === 'sucesso') return log.success === true;
-    if (filtro === 'erro') return log.success === false;
+    // Filtro por tipo (sucesso/erro)
+    if (filtro === 'sucesso' && log.success !== true) return false;
+    if (filtro === 'erro' && log.success !== false) return false;
+    
+    // Filtro por integração (se especificado)
+    if (integracaoFiltro) {
+      return log.instance_id === integracaoFiltro.instance_id_provider ||
+             log.instance_id === integracaoFiltro.nome_instancia;
+    }
+    
     return true;
   });
 
@@ -87,7 +106,7 @@ export default function DiagnosticoWebhookReal() {
         <div className="flex items-center justify-between">
           <CardTitle className="flex items-center gap-2">
             <Phone className="w-5 h-5 text-green-600" />
-            Mensagens Reais Recebidas
+            {integracaoFiltro ? `Mensagens - ${integracaoFiltro.nome_instancia}` : 'Mensagens Reais Recebidas'}
           </CardTitle>
           <div className="flex items-center gap-2">
             <select 
@@ -109,6 +128,11 @@ export default function DiagnosticoWebhookReal() {
             </Button>
           </div>
         </div>
+        {integracaoFiltro && (
+          <p className="text-sm text-slate-600 mt-2">
+            📞 Filtrando mensagens para: {integracaoFiltro.numero_telefone}
+          </p>
+        )}
       </CardHeader>
       <CardContent>
         {logsFiltrados.length === 0 ? (
@@ -149,6 +173,11 @@ export default function DiagnosticoWebhookReal() {
                         <Badge variant="outline" className="text-xs">
                           {log.raw_data?.phone || 'Sem telefone'}
                         </Badge>
+                        {log.instance_id && (
+                          <Badge className="bg-purple-100 text-purple-700 text-xs">
+                            {integracoes.find(i => i.instance_id_provider === log.instance_id || i.nome_instancia === log.instance_id)?.nome_instancia || log.instance_id}
+                          </Badge>
+                        )}
                       </div>
                       <p className="text-sm text-slate-600 truncate">
                         {getConteudoPreview(log)}
