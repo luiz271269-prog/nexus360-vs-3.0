@@ -304,20 +304,36 @@ async function processarMensagemRecebida(instance, data, base44, corsHeaders) {
         console.log(`[WEBHOOK] ✅ Contato existente: ${contato.nome}`);
       }
 
-      // PASSO 2: BUSCAR WHATSAPP INTEGRATION POR NOME DA INSTÂNCIA
-      const integracoes = await base44.entities.WhatsAppIntegration.filter({
+      // PASSO 2: BUSCAR WHATSAPP INTEGRATION POR NOME DA INSTÂNCIA OU INSTANCE_ID
+      console.log(`[WEBHOOK] 🔍 Buscando integração para instance: ${instance}`);
+      
+      let integracoes = await base44.entities.WhatsAppIntegration.filter({
         nome_instancia: instance
       });
+
+      // 🆕 FALLBACK: Se não encontrou por nome, tenta por instance_id_provider
+      if (integracoes.length === 0 && instance) {
+        console.log(`[WEBHOOK] 🔄 Tentando buscar por instance_id_provider: ${instance}`);
+        integracoes = await base44.entities.WhatsAppIntegration.filter({
+          instance_id_provider: instance
+        });
+      }
 
       let integracaoId = null;
       if (integracoes.length > 0) {
         integracaoId = integracoes[0].id;
-        console.log(`[WEBHOOK] ✅ WhatsAppIntegration encontrada: ${integracaoId}`);
+        console.log(`[WEBHOOK] ✅ WhatsAppIntegration encontrada:`, {
+          id: integracaoId,
+          nome: integracoes[0].nome_instancia,
+          numero: integracoes[0].numero_telefone,
+          instance_id: integracoes[0].instance_id_provider
+        });
         
         // Atualizar estatísticas de recebimento
         await base44.entities.WhatsAppIntegration.update(integracaoId, {
           'estatisticas.total_mensagens_recebidas': (integracoes[0].estatisticas?.total_mensagens_recebidas || 0) + 1,
-          ultima_atividade: new Date().toISOString()
+          ultima_atividade: new Date().toISOString(),
+          status: 'conectado' // 🆕 Atualizar status para conectado ao receber mensagem
         });
       } else {
         console.warn(`[WEBHOOK] ⚠️ Nenhuma WhatsAppIntegration encontrada para instância: ${instance}`);
