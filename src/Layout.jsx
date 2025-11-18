@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
@@ -34,7 +33,8 @@ import {
   Activity,
   BookOpen,
   Workflow,
-  Shield
+  Shield,
+  PieChart
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -107,7 +107,7 @@ function NavItem({ href, icon: Icon, label, badge, badgeColor, lembretesCount })
   );
 }
 
-function SideBar({ isOpen, menuItems, statusIA, contadoresLembretes }) {
+function SideBar({ isOpen, menuItems, contadoresLembretes }) {
   return (
     <aside
       className={`fixed inset-y-0 left-0 z-50 w-20 bg-gradient-to-b from-slate-900 via-slate-800 to-slate-900 text-white transform ${
@@ -136,26 +136,6 @@ function SideBar({ isOpen, menuItems, statusIA, contadoresLembretes }) {
           />
         ))}
       </nav>
-
-      {statusIA && (
-        <div className="p-3 border-t border-slate-700/50">
-          <div className="bg-gradient-to-br from-purple-900/50 to-indigo-900/50 rounded-lg p-2 border border-purple-500/30">
-            <div className="flex items-center justify-center gap-2">
-              <div className={`w-2 h-2 rounded-full ${statusIA.ativo ? 'bg-green-400 animate-pulse' : 'bg-red-400'}`} />
-              <span className="text-xs font-medium text-purple-200">
-                IA {statusIA.ativo ? 'Ativa' : 'Inativa'}
-              </span>
-            </div>
-            {statusIA.fluxosAtivos > 0 && (
-              <div className="text-center mt-1">
-                <Badge className="bg-purple-500 text-white text-[10px] px-2">
-                  {statusIA.fluxosAtivos} fluxos
-                </Badge>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
     </aside>
   );
 }
@@ -164,7 +144,6 @@ export default function Layout({ children, currentPageName }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [nexusOpen, setNexusOpen] = useState(false);
   const [globalUsuario, setGlobalUsuario] = useState(null);
-  const [statusIA, setStatusIA] = useState(null);
   const [badges, setBadges] = useState({});
   const [contadoresLembretes, setContadoresLembretes] = useState({});
   const navigate = useNavigate();
@@ -175,6 +154,7 @@ export default function Layout({ children, currentPageName }) {
     { name: "🎯 Leads Qualificados", icon: Target, page: "LeadsQualificados" },
     { name: "🤖 Nexus Command Center", icon: Brain, page: "NexusCommandCenter" },
     { name: "Analytics Avançado", icon: BarChart3, page: "AnalyticsAvancado" },
+    { name: "Relatórios Executivos", icon: PieChart, page: "Relatorios" },
     { name: "Vendedores", icon: Users, page: "Vendedores" },
     { name: "Clientes", icon: Building2, page: "Clientes" },
     { name: "Vendas", icon: TrendingUp, page: "Vendas" },
@@ -182,7 +162,6 @@ export default function Layout({ children, currentPageName }) {
     { name: "💬 Central de Comunicação", icon: MessageSquare, page: "Comunicacao" },
     { name: "Agenda Inteligente", icon: Calendar, page: "Agenda" },
     { name: "Importação", icon: Upload, page: "Importacao" },
-    { name: "Relatórios", icon: BarChart3, page: "Relatorios" },
     { name: "Auditoria", icon: Shield, page: "Auditoria" },
     { name: "🔐 Matriz de Permissões", icon: Shield, page: "GerenciadorPermissoes" },
     { name: "Usuários", icon: UserCog, page: "Usuarios" }
@@ -220,12 +199,6 @@ export default function Layout({ children, currentPageName }) {
         }
       }
 
-      setStatusIA({
-        ativo: true,
-        fluxosAtivos: 0,
-        tarefasCriticas: contadoresLembretes.Agenda || 0
-      });
-
       setBadges({});
 
     } catch (error) {
@@ -255,7 +228,6 @@ export default function Layout({ children, currentPageName }) {
       <SideBar
         isOpen={sidebarOpen}
         menuItems={menuItems}
-        statusIA={statusIA}
         contadoresLembretes={contadoresLembretes}
       />
 
@@ -305,12 +277,6 @@ export default function Layout({ children, currentPageName }) {
         >
           <Sparkles className="w-6 h-6 text-white" />
           <div className="absolute inset-0 bg-gradient-to-br from-white/20 to-transparent rounded-full" />
-
-          {statusIA?.tarefasCriticas > 0 && (
-            <Badge className="absolute -top-1 -right-1 bg-red-500 text-white text-xs px-2">
-              {statusIA.tarefasCriticas}
-            </Badge>
-          )}
         </Button>
 
         <NexusChat
