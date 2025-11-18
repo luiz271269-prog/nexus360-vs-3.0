@@ -208,23 +208,55 @@ RETORNE o JSON estruturado conforme o schema.`;
         const cliente_nome = urlParams.get('cliente_nome') || '';
         const cliente_telefone = urlParams.get('cliente_telefone') || '';
         const cliente_email = urlParams.get('cliente_email') || '';
+        const cliente_empresa = urlParams.get('cliente_empresa') || '';
         const vendedor = urlParams.get('vendedor') || '';
         const observacoes_chat = urlParams.get('observacoes') || '';
         const thread_id = urlParams.get('thread_id') || '';
-        
+        const numero_orcamento = urlParams.get('numero_orcamento') || '';
+        const condicao_pagamento = urlParams.get('condicao_pagamento') || '';
+        const data_vencimento = urlParams.get('data_vencimento') || '';
+        const status_kanban = urlParams.get('status') || 'rascunho';
+
         let observacoesFinal = '🗨️ OPORTUNIDADE CRIADA DA CENTRAL DE COMUNICAÇÃO\n\n';
         if (observacoes_chat) {
-          observacoesFinal += `Contexto da conversa:\n${decodeURIComponent(observacoes_chat)}\n\n`;
-        }
-        if (thread_id) {
-          observacoesFinal += `Thread ID: ${thread_id}\n`;
+          observacoesFinal += `${decodeURIComponent(observacoes_chat)}\n`;
         }
 
-        // Apenas anexa a imagem, não processa automaticamente
+        // Processar itens extraídos pela IA
+        let itensExtraidos = [];
+        const itensParam = urlParams.get('itens_extraidos');
+        if (itensParam) {
+          try {
+            const itensDecoded = JSON.parse(decodeURIComponent(itensParam));
+            itensExtraidos = itensDecoded.map((item, idx) => ({
+              _tempId: `chat-ia-${Date.now()}-${idx}`,
+              produto_id: null,
+              nome_produto: item.nome_produto || '',
+              descricao: item.descricao || '',
+              marca: item.marca || '',
+              modelo: item.modelo || '',
+              referencia: item.referencia || item.codigo || '',
+              quantidade: parseFloat(item.quantidade || 1),
+              valor_unitario: parseFloat(item.valor_unitario || 0),
+              valor_total: parseFloat(item.quantidade || 1) * parseFloat(item.valor_unitario || 0),
+              is_opcional: false
+            }));
+
+            if (itensExtraidos.length > 0) {
+              toast.success(`✅ ${itensExtraidos.length} item(ns) extraído(s) da conversa!`, { duration: 3000 });
+            }
+          } catch (error) {
+            console.error('[ORCAMENTO] Erro ao processar itens extraídos:', error);
+          }
+        }
+
+        // Anexar imagem se houver
         if (mediaUrlFromChat) {
           setImagemAnexada(mediaUrlFromChat);
           observacoesFinal += `\n[Imagem anexada aguardando processamento]\nImagem: ${mediaUrlFromChat}`;
         }
+
+        const totalCalculado = calcularTotal(itensExtraidos);
 
         setOrcamento({
           cliente_id: null,
@@ -232,18 +264,18 @@ RETORNE o JSON estruturado conforme o schema.`;
           cliente_telefone: decodeURIComponent(cliente_telefone),
           cliente_celular: '',
           cliente_email: decodeURIComponent(cliente_email),
-          cliente_empresa: '',
+          cliente_empresa: decodeURIComponent(cliente_empresa),
           vendedor: decodeURIComponent(vendedor),
-          numero_orcamento: '',
+          numero_orcamento: numero_orcamento ? decodeURIComponent(numero_orcamento) : '',
           data_orcamento: new Date().toISOString().slice(0, 10),
-          data_vencimento: '',
-          condicao_pagamento: '',
-          status: "rascunho",
-          valor_total: 0,
+          data_vencimento: data_vencimento ? decodeURIComponent(data_vencimento) : '',
+          condicao_pagamento: condicao_pagamento ? decodeURIComponent(condicao_pagamento) : '',
+          status: status_kanban,
+          valor_total: totalCalculado,
           observacoes: observacoesFinal
         });
 
-        setItens([]);
+        setItens(itensExtraidos);
       }
       else if (modoOperacao === 'importacao') {
         const dadosImportados = location.state?.dadosImportados;
