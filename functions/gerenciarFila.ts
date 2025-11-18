@@ -156,19 +156,8 @@ async function enfileirar(base44, data, headers) {
       status: 'aberta'
     });
 
-    // Calcular posição
-    const todasNaFila = await base44.asServiceRole.entities.FilaAtendimento.filter({ 
-      setor, 
-      status: 'aguardando' 
-    });
-
     return Response.json(
-      { 
-        success: true, 
-        message: 'Thread enfileirada com sucesso',
-        fila_entry: filaEntry,
-        posicao: todasNaFila.length
-      },
+      { success: true, fila_entry: filaEntry },
       { status: 200, headers }
     );
 
@@ -196,93 +185,148 @@ async function desenfileirar(base44, data, headers) {
 
   console.log('[DESENFILEIRAR] 🎯 Buscando próxima thread:', { setor, estrategia });
 
-  try {
-    let threadsNaFila;
-
-    if (estrategia === 'prioridade') {
-      // Ordenar por prioridade (urgente > alta > normal > baixa) e depois por FIFO
-      const todasThreads = await base44.asServiceRole.entities.FilaAtendimento.filter({
-        setor: setor,
-        status: 'aguardando'
-      }, 'entrou_em', 100);
-
-      const ordemPrioridade = { 'urgente': 4, 'alta': 3, 'normal': 2, 'baixa': 1 };
+  // ATOMICIDADE: Tentar até 3 vezes com delay entre tentativas
+  const MAX_TENTATIVAS = 3;
+  
+  for (let tentativa = 1; tentativa <= MAX_TENTATIVAS; tentativa++) {
+    try {
+      console.log(`[DESENFILEIRAR] 🔄 Tentativa ${tentativa}/${MAX_TENTATIVAS}`);
       
-      threadsNaFila = todasThreads.sort((a, b) => {
-        const prioA = ordemPrioridade[a.prioridade] || 2;
-        const prioB = ordemPrioridade[b.prioridade] || 2;
+      let threadsNaFila;
+
+      if (estrategia === 'prioridade') {
+        // Ordenar por prioridade (urgente > alta > normal > baixa) e depois por FIFO
+        const todasThreads = await base44.asServiceRole.entities.FilaAtendimento.filter({
+          setor: setor,
+          status: 'aguardando'
+        }, 'entrou_em', 100);
+
+        const ordemPrioridade = { 'urgente': 4, 'alta': 3, 'normal': 2, 'baixa': 1 };
         
-        if (prioA !== prioB) return prioB - prioA; // Maior prioridade primeiro
+        threadsNaFila = todasThreads.sort((a, b) => {
+          const prioA = ordemPrioridade[a.prioridade] || 2;
+          const prioB = ordemPrioridade[b.prioridade] || 2;
+          
+          if (prioA !== prioB) return prioB - prioA; // Maior prioridade primeiro
+          
+          return new Date(a.entrou_em) - new Date(b.entrou_em); // FIFO para mesma prioridade
+        });
+
+        threadsNaFila = threadsNaFila.slice(0, 1);
+      } else {
+        // FIFO puro
+        threadsNaFila = await base44.asServiceRole.entities.FilaAtendimento.filter(
+          { setor, status: 'aguardando' },
+          'entrou_em', // Ordena pelo mais antigo primeiro
+          1 // Pega apenas o primeiro
+        );
+      }
+
+      if (threadsNaFila.length === 0) {
+        console.log('[DESENFILEIRAR] ℹ️ Nenhuma thread na fila do setor:', setor);
+        return Response.json(
+          { success: true, message: 'Nenhuma thread na fila', thread: null },
+          { status: 200, headers }
+        );
+      }
+
+      const proximaFila = threadsNaFila[0];
+      
+      // VALIDAÇÃO CRÍTICA: Re-fetch da fila para garantir status atualizado
+      const filaAtual = await base44.asServiceRole.entities.FilaAtendimento.get(proximaFila.id);
+      
+      if (filaAtual.status !== 'aguardando') {
+        console.warn(`[DESENFILEIRAR] ⚠️ Race condition detectada - fila ${proximaFila.id} status: ${filaAtual.status}`);
         
-        return new Date(a.entrou_em) - new Date(b.entrou_em); // FIFO para mesma prioridade
+        if (tentativa < MAX_TENTATIVAS) {
+          await new Promise(resolve => setTimeout(resolve, 100 * tentativa));
+          continue;
+        } else {
+          return Response.json(
+            { success: false, message: 'Fila vazia após race condition', thread: null },
+            { status: 200, headers }
+          );
+        }
+      }
+      
+      // ATOMICIDADE: Claim-first - Marcar como atendido PRIMEIRO
+      await base44.asServiceRole.entities.FilaAtendimento.update(proximaFila.id, {
+        status: 'atendido',
+        motivo_remocao: 'atribuido',
+        atendido_por: atendente_id,
+        atendido_por_nome: atendente_nome,
+        atendido_em: new Date().toISOString(),
+        tentativas_atribuicao: (filaAtual.tentativas_atribuicao || 0) + 1,
+        ultima_tentativa_atribuicao: new Date().toISOString()
+      });
+      
+      console.log(`[DESENFILEIRAR] 🔒 Fila marcada como atendida - claim estabelecido`);
+      
+      // VALIDAÇÃO PÓS-CLAIM: Verificar se thread ainda não foi atribuída
+      const threadAtual = await base44.asServiceRole.entities.MessageThread.get(proximaFila.thread_id);
+      
+      if (threadAtual.assigned_user_id && threadAtual.assigned_user_id !== atendente_id) {
+        console.warn(`[DESENFILEIRAR] ⚠️ Conflito - thread ${proximaFila.thread_id} já atribuída: ${threadAtual.assigned_user_name}`);
+        
+        // Reverter claim (marcar como removido por conflito)
+        await base44.asServiceRole.entities.FilaAtendimento.update(proximaFila.id, {
+          status: 'removido',
+          motivo_remocao: 'conflito_atribuicao'
+        });
+        
+        if (tentativa < MAX_TENTATIVAS) {
+          await new Promise(resolve => setTimeout(resolve, 100 * tentativa));
+          continue;
+        } else {
+          return Response.json(
+            { success: false, message: 'Thread já atribuída a outro usuário', thread: null },
+            { status: 200, headers }
+          );
+        }
+      }
+
+      // Atualizar a MessageThread
+      await base44.asServiceRole.entities.MessageThread.update(proximaFila.thread_id, {
+        assigned_user_id: atendente_id,
+        assigned_user_name: atendente_nome,
+        fila_atendimento_id: proximaFila.id,
+        entrou_na_fila_em: proximaFila.entrou_em
       });
 
-      threadsNaFila = threadsNaFila.slice(0, 1);
-    } else {
-      // FIFO puro
-      threadsNaFila = await base44.asServiceRole.entities.FilaAtendimento.filter(
-        { setor, status: 'aguardando' },
-        'entrou_em', // Ordena pelo mais antigo primeiro
-        1 // Pega apenas o primeiro
+      const tempoEsperaSegundos = Math.floor(
+        (Date.now() - new Date(proximaFila.entrou_em).getTime()) / 1000
       );
-    }
 
-    if (threadsNaFila.length === 0) {
-      console.log('[DESENFILEIRAR] ℹ️ Nenhuma thread na fila do setor:', setor);
+      console.log('[DESENFILEIRAR] ✅ Thread atribuída com sucesso (atômica):', {
+        thread_id: proximaFila.thread_id,
+        atendente: atendente_nome,
+        tempo_espera: `${tempoEsperaSegundos}s`,
+        tentativa: tentativa
+      });
+
       return Response.json(
-        { success: true, message: 'Nenhuma thread na fila', thread: null },
+        { 
+          success: true, 
+          fila_entry: proximaFila,
+          thread_id: proximaFila.thread_id,
+          tempo_espera_segundos: tempoEsperaSegundos
+        },
         { status: 200, headers }
       );
+
+    } catch (error) {
+      console.error(`[DESENFILEIRAR] ❌ Erro na tentativa ${tentativa}:`, error);
+      
+      if (tentativa < MAX_TENTATIVAS) {
+        await new Promise(resolve => setTimeout(resolve, 100 * tentativa));
+        continue;
+      }
+      
+      return Response.json(
+        { success: false, error: error.message },
+        { status: 500, headers }
+      );
     }
-
-    const proximaFila = threadsNaFila[0];
-    const tempoEsperaSegundos = Math.floor(
-      (Date.now() - new Date(proximaFila.entrou_em).getTime()) / 1000
-    );
-
-    // Marcar como atendido (ATÔMICO)
-    await base44.asServiceRole.entities.FilaAtendimento.update(proximaFila.id, {
-      status: 'atendido',
-      motivo_remocao: 'atribuido',
-      atendido_por: atendente_id,
-      atendido_por_nome: atendente_nome,
-      atendido_em: new Date().toISOString()
-    });
-    
-    // Remover fila_atendimento_id da thread
-    await base44.asServiceRole.entities.MessageThread.update(proximaFila.thread_id, {
-      fila_atendimento_id: null,
-      entrou_na_fila_em: null
-    });
-
-    // Atribuir thread ao atendente
-    await base44.asServiceRole.entities.MessageThread.update(proximaFila.thread_id, {
-      assigned_user_id: atendente_id,
-      assigned_user_name: atendente_nome
-    });
-
-    console.log('[DESENFILEIRAR] ✅ Thread atribuída:', {
-      thread_id: proximaFila.thread_id,
-      atendente: atendente_nome,
-      tempo_espera: `${tempoEsperaSegundos}s`
-    });
-
-    return Response.json(
-      { 
-        success: true, 
-        fila_entry: proximaFila,
-        thread_id: proximaFila.thread_id,
-        tempo_espera_segundos: tempoEsperaSegundos
-      },
-      { status: 200, headers }
-    );
-
-  } catch (error) {
-    console.error('[DESENFILEIRAR] ❌ Erro:', error);
-    return Response.json(
-      { success: false, error: error.message },
-      { status: 500, headers }
-    );
   }
 }
 
@@ -366,12 +410,6 @@ async function removerDaFila(base44, data, headers) {
       status: 'removido',
       motivo_remocao: motivo,
       atendido_em: new Date().toISOString()
-    });
-    
-    // Remover fila_atendimento_id da thread
-    await base44.asServiceRole.entities.MessageThread.update(thread_id, {
-      fila_atendimento_id: null,
-      entrou_na_fila_em: null
     });
 
     console.log('[REMOVER-FILA] ✅ Thread removida da fila');
