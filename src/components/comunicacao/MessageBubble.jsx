@@ -1,22 +1,14 @@
-
 import React, { useState, useEffect } from 'react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import {
-  CheckCheck, Check, Forward, Trash2, MoreVertical, Loader2, Copy,
+  CheckCheck, Check, Forward, Trash2, Loader2, Copy,
   Zap, CheckCircle2, AlertCircle, ChevronRight, Clock, Search, ArrowRight,
-  Reply, Target, Play, FileIcon, Download, Image as ImageIcon // Added Play, FileIcon, Download, ImageIcon
+  Reply, Target, Play, FileIcon, Download, ImageIcon
 } from 'lucide-react';
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { base44 } from "@/api/base44Client";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-  DropdownMenuSeparator, // Added DropdownMenuSeparator
-} from "@/components/ui/dropdown-menu";
 import {
   Dialog,
   DialogContent,
@@ -29,6 +21,12 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 import ReactMarkdown from 'react-markdown';
 
@@ -140,8 +138,6 @@ export default function MessageBubble({
   const [buscaContato, setBuscaContato] = useState("");
   const [carregandoContatos, setCarregandoContatos] = useState(false);
 
-  // Define isSystemMessage based on message sender_type, assuming it exists.
-  // If message.sender_type is not always present, a more robust check might be needed.
   const isSystemMessage = message.sender_type === 'system';
 
   useEffect(() => {
@@ -158,22 +154,18 @@ export default function MessageBubble({
       const ontem = new Date(hoje);
       ontem.setDate(ontem.getDate() - 1);
 
-      // Se é hoje, mostra apenas HH:mm
       if (data.toDateString() === hoje.toDateString()) {
         return format(data, 'HH:mm', { locale: ptBR });
       }
       
-      // Se é ontem, mostra "Ontem HH:mm"
       if (data.toDateString() === ontem.toDateString()) {
         return `Ontem ${format(data, 'HH:mm', { locale: ptBR })}`;
       }
       
-      // Se é este ano, mostra "dd/MM HH:mm"
       if (data.getFullYear() === hoje.getFullYear()) {
         return format(data, 'dd/MM HH:mm', { locale: ptBR });
       }
       
-      // Se é ano anterior, mostra "dd/MM/yyyy HH:mm"
       return format(data, 'dd/MM/yyyy HH:mm', { locale: ptBR });
     } catch {
       return '';
@@ -358,68 +350,95 @@ export default function MessageBubble({
               ? "bg-gradient-to-r from-blue-500 to-blue-600"
               : "bg-white border border-slate-200",
             selecionada ? 'ring-2 ring-blue-500' : '',
-            // ✅ Remover padding para mídias, adicionar para texto
             (message.media_url && message.media_type !== 'none') ? '' : 'px-4 py-2'
           )}>
+            {/* ✅ ÍCONES FLUTUANTES - APARECEM AO PASSAR O MOUSE */}
             {!modoSelecao && !isSystemMessage && (
-              <div className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity z-10">
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className={cn(
-                        "h-8 w-8 rounded-full",
-                        isOwn ? "hover:bg-white/20" : "hover:bg-slate-100"
-                      )}
-                    >
-                      <MoreVertical className={cn("w-4 h-4", isOwn ? "text-white" : "text-slate-600")} />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end">
-                    {onResponder && (
-                      <DropdownMenuItem onClick={() => onResponder(message)}>
-                        <Reply className="w-4 h-4 mr-2" />
-                        Responder
-                      </DropdownMenuItem>
-                    )}
-                    <DropdownMenuItem
-                      onClick={() => {
-                        setMostrarDialogEncaminhar(true);
-                        setContatosSelecionados([]);
-                        setBuscaContato("");
-                      }}
-                      disabled={encaminhando}
-                    >
-                      <Forward className="w-4 h-4 mr-2" />
-                      Encaminhar
-                    </DropdownMenuItem>
-                    {isOwn && (
-                      <DropdownMenuItem
-                        onClick={handleApagar}
-                        disabled={apagando}
-                        className="text-red-600"
-                      >
-                        <Trash2 className="w-4 h-4 mr-2" />
-                        Apagar
-                      </DropdownMenuItem>
-                    )}
+              <TooltipProvider>
+                <div className="absolute -top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-all duration-200 z-20">
+                  {onResponder && (
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => onResponder(message)}
+                          className={cn(
+                            "h-7 w-7 rounded-full shadow-lg backdrop-blur-sm",
+                            "bg-white/90 hover:bg-white border border-slate-200"
+                          )}
+                        >
+                          <Reply className="w-3.5 h-3.5 text-slate-700" />
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent side="top">Responder</TooltipContent>
+                    </Tooltip>
+                  )}
 
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem
-                      onClick={() => {
-                        if (window.handleCriarOportunidadeDeChat) {
-                          window.handleCriarOportunidadeDeChat(message, thread);
-                        }
-                      }}
-                      className="gap-2 text-green-600"
-                    >
-                      <Target className="w-4 h-4" />
-                      Criar Oportunidade (Orçamento)
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              </div>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => {
+                          setMostrarDialogEncaminhar(true);
+                          setContatosSelecionados([]);
+                          setBuscaContato("");
+                        }}
+                        disabled={encaminhando}
+                        className={cn(
+                          "h-7 w-7 rounded-full shadow-lg backdrop-blur-sm",
+                          "bg-white/90 hover:bg-white border border-slate-200"
+                        )}
+                      >
+                        <Forward className="w-3.5 h-3.5 text-slate-700" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent side="top">Encaminhar</TooltipContent>
+                  </Tooltip>
+
+                  {isOwn && (
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={handleApagar}
+                          disabled={apagando}
+                          className={cn(
+                            "h-7 w-7 rounded-full shadow-lg backdrop-blur-sm",
+                            "bg-white/90 hover:bg-red-50 border border-slate-200"
+                          )}
+                        >
+                          <Trash2 className="w-3.5 h-3.5 text-red-600" />
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent side="top">Apagar</TooltipContent>
+                    </Tooltip>
+                  )}
+
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => {
+                          if (window.handleCriarOportunidadeDeChat) {
+                            window.handleCriarOportunidadeDeChat(message, thread);
+                          }
+                        }}
+                        className={cn(
+                          "h-7 w-7 rounded-full shadow-lg backdrop-blur-sm",
+                          "bg-white/90 hover:bg-green-50 border border-slate-200"
+                        )}
+                      >
+                        <Target className="w-3.5 h-3.5 text-green-600" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent side="top">Criar Oportunidade de Negócio</TooltipContent>
+                  </Tooltip>
+                </div>
+              </TooltipProvider>
             )}
 
             {/* ✅ IMAGEM - ESTILO WHATSAPP */}
@@ -439,7 +458,6 @@ export default function MessageBubble({
                     <p className="text-sm leading-relaxed">{message.media_caption}</p>
                   </div>
                 )}
-                {/* Timestamp no canto da imagem */}
                 <div className="absolute bottom-2 right-2 bg-black/50 backdrop-blur-sm px-2 py-0.5 rounded-md">
                   <div className="flex items-center gap-1">
                     <span className="text-[10px] text-white">
@@ -639,7 +657,6 @@ export default function MessageBubble({
                   )}
                 </div>
 
-                {/* ✅ TIMESTAMP PARA MENSAGENS DE TEXTO */}
                 <div className="flex items-center justify-end gap-1 mt-1">
                   <span className={cn(
                     "text-[10px]",
