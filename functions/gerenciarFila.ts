@@ -237,6 +237,12 @@ async function desenfileirar(base44, data, headers) {
       atendido_por_nome: atendente_nome,
       atendido_em: new Date().toISOString()
     });
+    
+    // Remover fila_atendimento_id da thread
+    await base44.asServiceRole.entities.MessageThread.update(proximaFila.thread_id, {
+      fila_atendimento_id: null,
+      entrou_na_fila_em: null
+    });
 
     // Atualizar a MessageThread
     await base44.asServiceRole.entities.MessageThread.update(proximaFila.thread_id, {
@@ -351,6 +357,12 @@ async function removerDaFila(base44, data, headers) {
       status: 'removido',
       motivo_remocao: motivo,
       atendido_em: new Date().toISOString()
+    });
+    
+    // Remover fila_atendimento_id da thread
+    await base44.asServiceRole.entities.MessageThread.update(thread_id, {
+      fila_atendimento_id: null,
+      entrou_na_fila_em: null
     });
 
     console.log('[REMOVER-FILA] ✅ Thread removida da fila');

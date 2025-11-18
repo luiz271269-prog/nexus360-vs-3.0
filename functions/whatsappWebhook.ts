@@ -441,9 +441,20 @@ async function processarMensagemRecebida(instance, payloadNormalizado, base44, c
             cliente_nome: contato.nome,
             cliente_telefone: contato.telefone
           }
-        }).then(result => {
-          if (result.data.success) {
+        }).then(async result => {
+          if (result.data.success && result.data.fila_entry) {
             console.log('[WEBHOOK] ✅ Thread enfileirada com sucesso');
+            
+            // Atualizar thread com ID da fila
+            try {
+              await base44.entities.MessageThread.update(thread.id, {
+                fila_atendimento_id: result.data.fila_entry.id,
+                entrou_na_fila_em: result.data.fila_entry.entrou_em
+              });
+              console.log('[WEBHOOK] ✅ Thread atualizada com fila_atendimento_id');
+            } catch (updateError) {
+              console.error('[WEBHOOK] ⚠️ Erro ao atualizar thread com fila_id:', updateError);
+            }
           } else {
             console.log('[WEBHOOK] ℹ️ Thread já estava na fila ou erro ao enfileirar');
           }
