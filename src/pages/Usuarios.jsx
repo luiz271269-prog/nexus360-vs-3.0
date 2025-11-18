@@ -5,6 +5,7 @@ import PermissionGuard, { PERMISSIONS } from "../components/security/PermissionG
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Plus, Users, Shield, UserCheck, Search, UserCog, CheckCircle, XCircle, AlertCircle } from "lucide-react";
 import { toast } from "sonner";
 
