@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useCallback } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { base44 } from '@/api/base44Client';
@@ -44,31 +43,15 @@ export default function OrcamentoDetalhes() {
     : origemImportacao ? 'importacao'
     : 'novo';
 
-  const recalculateTotal = useCallback(() => {
-    if (!orcamento || !Array.isArray(itens)) return 0;
-    const total = itens
+  const calcularTotal = useCallback((items) => {
+    if (!Array.isArray(items)) return 0;
+    return items
       .filter((item) => !item.is_opcional)
       .reduce((acc, item) => acc + (parseFloat(item.valor_total) || 0), 0);
-    setOrcamento((prev) => ({ ...prev, valor_total: total }));
-    return total;
-  }, [itens, orcamento]);
+  }, []);
 
-  useEffect(() => {
-    if (orcamento && Array.isArray(itens)) {
-      recalculateTotal();
-    }
-  }, [itens, orcamento, recalculateTotal]);
-
-  // NEW FUNCTION: Process image by URL (from chat)
-  const processarImagemUrl = useCallback(async (imageUrl) => {
-    setProcessing(true);
+  const processarImagemUrl = async (imageUrl, clientes, vendedoresBase) => {
     try {
-      toast.info('🔍 Carregando dados da base...');
-      const [clientes, vendedoresBase] = await Promise.all([
-        base44.entities.Cliente.list(),
-        base44.entities.Vendedor.list()
-      ]);
-
       const clientesInfo = clientes.map(c => ({
         id: c.id,
         razao_social: c.razao_social,
@@ -126,7 +109,6 @@ RETORNE o JSON estruturado conforme o schema.`;
         required: ["itens"]
       };
 
-      toast.info('🤖 IA extraindo itens da imagem...');
       const iaResult = await base44.integrations.Core.InvokeLLM({
         prompt,
         response_json_schema: schema,
@@ -134,16 +116,8 @@ RETORNE o JSON estruturado conforme o schema.`;
       });
 
       if (!iaResult || !iaResult.itens || iaResult.itens.length === 0) {
-        toast.warning('⚠️ Nenhum item foi encontrado na imagem.');
-        return;
+        return { itens: [], dados: {} };
       }
-
-      // ATUALIZAR CAMPOS SE ENCONTROU DADOS ADICIONAIS
-      setOrcamento(prev => ({
-        ...prev,
-        numero_orcamento: iaResult.numero_orcamento || prev.numero_orcamento,
-        observacoes: `${prev.observacoes}\n\n[Imagem processada via IA - ${new Date().toLocaleString()}]\nImagem: ${imageUrl}`.trim()
-      }));
 
       const novosItens = iaResult.itens.map((item, idx) => ({
         _tempId: `chat-img-${Date.now()}-${idx}`,
@@ -159,17 +133,21 @@ RETORNE o JSON estruturado conforme o schema.`;
         is_opcional: false
       }));
 
-      setItens(prev => [...prev, ...novosItens]);
-
-      toast.success(`✅ ${novosItens.length} itens extraídos da imagem do chat!`, { duration: 4000 });
+      return { 
+        itens: novosItens, 
+        dados: {
+          numero_orcamento: iaResult.numero_orcamento,
+          data_orcamento: iaResult.data_orcamento,
+          condicao_pagamento: iaResult.condicao_pagamento
+        }
+      };
 
     } catch (error) {
       console.error('Erro ao processar imagem do chat:', error);
       toast.error('❌ Erro ao processar imagem: ' + error.message);
-    } finally {
-      setProcessing(false);
+      return { itens: [], dados: {} };
     }
-  }, []);
+  };
 
   const loadData = useCallback(async () => {
     setLoading(true);
@@ -202,9 +180,7 @@ RETORNE o JSON estruturado conforme o schema.`;
             is_opcional: produto.is_opcional || false
           })) : [];
 
-          const initialTotal = itensIniciais
-            .filter((item) => !item.is_opcional)
-            .reduce((acc, item) => acc + (item.valor_total || 0), 0);
+          const initialTotal = calcularTotal(itensIniciais);
 
           setOrcamento({
             cliente_id: null,
@@ -243,6 +219,29 @@ RETORNE o JSON estruturado conforme o schema.`;
           observacoesFinal += `Thread ID: ${thread_id}\n`;
         }
 
+        let itensFinais = [];
+        let dadosIA = {};
+        
+        if (mediaUrlFromChat) {
+          setImagemAnexada(mediaUrlFromChat);
+          
+          const [clientes, vendedoresBase] = await Promise.all([
+            base44.entities.Cliente.list(),
+            base44.entities.Vendedor.list()
+          ]);
+          
+          const resultado = await processarImagemUrl(mediaUrlFromChat, clientes, vendedoresBase);
+          itensFinais = resultado.itens;
+          dadosIA = resultado.dados;
+          
+          if (itensFinais.length > 0) {
+            observacoesFinal += `\n[Imagem processada via IA - ${new Date().toLocaleString()}]\nImagem: ${mediaUrlFromChat}`;
+            toast.success(`✅ ${itensFinais.length} itens extraídos!`, { duration: 3000 });
+          }
+        }
+
+        const totalCalculado = calcularTotal(itensFinais);
+
         setOrcamento({
           cliente_id: null,
           cliente_nome: decodeURIComponent(cliente_nome),
@@ -251,47 +250,22 @@ RETORNE o JSON estruturado conforme o schema.`;
           cliente_email: decodeURIComponent(cliente_email),
           cliente_empresa: '',
           vendedor: decodeURIComponent(vendedor),
-          data_orcamento: new Date().toISOString().slice(0, 10),
+          numero_orcamento: dadosIA.numero_orcamento || '',
+          data_orcamento: dadosIA.data_orcamento || new Date().toISOString().slice(0, 10),
           data_vencimento: '',
+          condicao_pagamento: dadosIA.condicao_pagamento || '',
           status: "rascunho",
-          valor_total: 0,
+          valor_total: totalCalculado,
           observacoes: observacoesFinal
         });
 
-        setItens([]);
-        
-        // ✅ SE VEM COM IMAGEM, PROCESSAR AUTOMATICAMENTE
-        if (mediaUrlFromChat) {
-          setImagemAnexada(mediaUrlFromChat);
-          toast.info('🖼️ Imagem detectada do chat! Processando automaticamente...', { duration: 3000 });
-          
-          setTimeout(() => {
-            processarImagemUrl(mediaUrlFromChat);
-          }, 1000);
-        } else {
-          toast.success('🎯 Oportunidade criada! Adicione os itens do orçamento.', { duration: 5000 });
-        }
+        setItens(itensFinais);
       }
       else if (modoOperacao === 'importacao') {
         const dadosImportados = location.state?.dadosImportados;
         
         if (dadosImportados) {
           const { dadosCabecalho, itens: importedItens } = dadosImportados;
-          
-          const orcamentoInicial = {
-            cliente_id: null,
-            cliente_nome: dadosCabecalho?.cliente_nome || "",
-            cliente_telefone: dadosCabecalho?.cliente_telefone || "",
-            cliente_celular: "",
-            cliente_email: dadosCabecalho?.cliente_email || "",
-            cliente_empresa: "",
-            vendedor: dadosCabecalho?.vendedor_nome || "",
-            data_orcamento: dadosCabecalho?.data_orcamento || new Date().toISOString().slice(0, 10),
-            data_vencimento: dadosCabecalho?.data_validade || "",
-            status: "rascunho",
-            valor_total: 0,
-            observacoes: dadosCabecalho?.observacoes ? `[Importado via IA]\n\n${dadosCabecalho.observacoes}` : "[Importado via IA]"
-          };
           
           const itensIniciais = Array.isArray(importedItens) ? importedItens.map((item, idx) => ({
             _tempId: `import-${Date.now()}-${idx}`,
@@ -307,10 +281,23 @@ RETORNE o JSON estruturado conforme o schema.`;
             is_opcional: false
           })) : [];
           
-          const totalCalculado = itensIniciais.reduce((acc, item) => acc + (item.valor_total || 0), 0);
-          orcamentoInicial.valor_total = totalCalculado;
+          const totalCalculado = calcularTotal(itensIniciais);
           
-          setOrcamento(orcamentoInicial);
+          setOrcamento({
+            cliente_id: null,
+            cliente_nome: dadosCabecalho?.cliente_nome || "",
+            cliente_telefone: dadosCabecalho?.cliente_telefone || "",
+            cliente_celular: "",
+            cliente_email: dadosCabecalho?.cliente_email || "",
+            cliente_empresa: "",
+            vendedor: dadosCabecalho?.vendedor_nome || "",
+            data_orcamento: dadosCabecalho?.data_orcamento || new Date().toISOString().slice(0, 10),
+            data_vencimento: dadosCabecalho?.data_validade || "",
+            status: "rascunho",
+            valor_total: totalCalculado,
+            observacoes: dadosCabecalho?.observacoes ? `[Importado via IA]\n\n${dadosCabecalho.observacoes}` : "[Importado via IA]"
+          });
+          
           setItens(itensIniciais);
           
           toast.success(`✅ Orçamento importado com ${itensIniciais.length} itens!`, { duration: 4000 });
@@ -356,7 +343,7 @@ RETORNE o JSON estruturado conforme o schema.`;
     } finally {
       setLoading(false);
     }
-  }, [orcamentoId, carrinhoData, modoOperacao, location.state, urlParams, mediaUrlFromChat, processarImagemUrl]); // Added processarImagemUrl to dependencies
+  }, [orcamentoId, carrinhoData, modoOperacao, location.state, urlParams, mediaUrlFromChat, calcularTotal]);
 
   useEffect(() => {
     loadData();
@@ -392,7 +379,7 @@ RETORNE o JSON estruturado conforme o schema.`;
       const uploadResult = await base44.integrations.Core.UploadFile({ file });
       const fileUrl = uploadResult.file_url;
       
-      setImagemAnexada(fileUrl); // Update state with the uploaded image URL
+      setImagemAnexada(fileUrl);
 
       toast.info('🔍 Carregando dados da base...');
       const [clientes, vendedoresBase] = await Promise.all([
@@ -481,21 +468,6 @@ RETORNE o JSON estruturado conforme o schema.`;
         return;
       }
 
-      // PREENCHER CAMPOS DIRETAMENTE
-      setOrcamento(prev => ({
-        ...prev,
-        cliente_id: iaResult.cliente_id || prev.cliente_id,
-        cliente_nome: iaResult.cliente_nome || prev.cliente_nome,
-        cliente_telefone: iaResult.cliente_telefone || prev.cliente_telefone,
-        cliente_email: iaResult.cliente_email || prev.cliente_email,
-        vendedor: iaResult.vendedor_nome || prev.vendedor,
-        numero_orcamento: iaResult.numero_orcamento || prev.numero_orcamento,
-        data_orcamento: iaResult.data_orcamento || prev.data_orcamento,
-        data_vencimento: iaResult.data_validade || prev.data_vencimento,
-        condicao_pagamento: iaResult.condicao_pagamento || prev.condicao_pagamento,
-        observacoes: `${prev.observacoes ? prev.observacoes + '\n\n' : ''}[Importado via IA - ${new Date().toLocaleString()}]\n${iaResult.observacoes || ''}\n\nImagem: ${fileUrl}`.trim()
-      }));
-
       const novosItens = iaResult.itens.map((item, idx) => ({
         _tempId: `ia-${Date.now()}-${idx}`,
         produto_id: null,
@@ -510,7 +482,25 @@ RETORNE o JSON estruturado conforme o schema.`;
         is_opcional: false
       }));
 
-      setItens(prev => [...prev, ...novosItens]);
+      const itensAtualizados = [...itens, ...novosItens];
+      const totalCalculado = calcularTotal(itensAtualizados);
+
+      setOrcamento(prev => ({
+        ...prev,
+        cliente_id: iaResult.cliente_id || prev.cliente_id,
+        cliente_nome: iaResult.cliente_nome || prev.cliente_nome,
+        cliente_telefone: iaResult.cliente_telefone || prev.cliente_telefone,
+        cliente_email: iaResult.cliente_email || prev.cliente_email,
+        vendedor: iaResult.vendedor_nome || prev.vendedor,
+        numero_orcamento: iaResult.numero_orcamento || prev.numero_orcamento,
+        data_orcamento: iaResult.data_orcamento || prev.data_orcamento,
+        data_vencimento: iaResult.data_validade || prev.data_vencimento,
+        condicao_pagamento: iaResult.condicao_pagamento || prev.condicao_pagamento,
+        observacoes: `${prev.observacoes ? prev.observacoes + '\n\n' : ''}[Importado via IA - ${new Date().toLocaleString()}]\n${iaResult.observacoes || ''}\n\nImagem: ${fileUrl}`.trim(),
+        valor_total: totalCalculado
+      }));
+
+      setItens(itensAtualizados);
 
       toast.success(`✅ ${novosItens.length} itens extraídos e adicionados!`, { duration: 4000 });
 
@@ -582,7 +572,12 @@ RETORNE o JSON estruturado conforme o schema.`;
         is_opcional: false
       }));
 
-      setItens(prev => [...prev, ...novosItens]);
+      const itensAtualizados = [...itens, ...novosItens];
+      const totalCalculado = calcularTotal(itensAtualizados);
+
+      setItens(itensAtualizados);
+      setOrcamento(prev => ({ ...prev, valor_total: totalCalculado }));
+      
       toast.success(`✅ ${novosItens.length} itens adicionados!`);
 
     } catch (error) {
@@ -640,13 +635,14 @@ RETORNE o JSON estruturado conforme o schema.`;
       valor_total: 0,
       is_opcional: false
     };
-    setItens(prev => Array.isArray(prev) ? [...prev, novoItem] : [novoItem]);
+    const itensAtualizados = Array.isArray(itens) ? [...itens, novoItem] : [novoItem];
+    setItens(itensAtualizados);
   };
 
   const atualizarItem = useCallback((itemId, campo, valor) => {
     setItens(prev => {
       if (!Array.isArray(prev)) return [];
-      return prev.map(item => {
+      const itensAtualizados = prev.map(item => {
         const id = item.id || item._tempId;
         if (id !== itemId) return item;
 
@@ -660,8 +656,13 @@ RETORNE o JSON estruturado conforme o schema.`;
 
         return itemAtualizado;
       });
+
+      const totalCalculado = calcularTotal(itensAtualizados);
+      setOrcamento(orcPrev => ({ ...orcPrev, valor_total: totalCalculado }));
+
+      return itensAtualizados;
     });
-  }, []);
+  }, [calcularTotal]);
 
   const removerItem = async (itemId) => {
     if (!Array.isArray(itens)) return;
@@ -677,10 +678,16 @@ RETORNE o JSON estruturado conforme o schema.`;
         return;
       }
     }
-    setItens(prev => Array.isArray(prev) ? prev.filter(item => {
+    
+    const itensAtualizados = itens.filter(item => {
       const id = item.id || item._tempId;
       return id !== itemId;
-    }) : []);
+    });
+    
+    const totalCalculado = calcularTotal(itensAtualizados);
+    
+    setItens(itensAtualizados);
+    setOrcamento(prev => ({ ...prev, valor_total: totalCalculado }));
   };
 
   const validarFormulario = useCallback(() => {
@@ -713,7 +720,7 @@ RETORNE o JSON estruturado conforme o schema.`;
     setSaving(true);
     try {
       let currentOrcamentoId = orcamentoId;
-      const totalCalculado = recalculateTotal();
+      const totalCalculado = calcularTotal(itens);
 
       const orcamentoDataToSave = {
         ...orcamento,
