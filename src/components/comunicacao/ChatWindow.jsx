@@ -1107,6 +1107,7 @@ export default function ChatWindow({
       }
 
       let conteudoMensagem = '';
+      let mediaUrl = null;
       
       if (mensagem.content) {
         conteudoMensagem = mensagem.content;
@@ -1114,6 +1115,7 @@ export default function ChatWindow({
         conteudoMensagem = '[Áudio gravado]';
       } else if (mensagem.media_type === 'image') {
         conteudoMensagem = '[Imagem/Print enviada]';
+        mediaUrl = mensagem.media_url;
         if (mensagem.media_url) {
           conteudoMensagem += `\n\nURL da imagem: ${mensagem.media_url}`;
         }
@@ -1159,6 +1161,11 @@ ${conteudoMensagem}
 ✅ Status inicial: Enviado (Aguardando resposta do cliente)
 🎯 Próximos passos: Adicionar itens, valores e enviar proposta formal`
       });
+
+      // ✅ ADICIONAR media_url se for imagem
+      if (mediaUrl) {
+        queryParams.set('media_url', mediaUrl);
+      }
 
       navigate(createPageUrl('OrcamentoDetalhes') + '?' + queryParams.toString());
       
@@ -1702,4 +1709,3 @@ ${conteudoMensagem}
     </div>
   );
 }
-

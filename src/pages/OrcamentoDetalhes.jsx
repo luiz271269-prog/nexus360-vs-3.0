@@ -26,6 +26,7 @@ export default function OrcamentoDetalhes() {
   const [saving, setSaving] = useState(false);
   const [processing, setProcessing] = useState(false);
   const [dragOver, setDragOver] = useState(null);
+  const [imagemAnexada, setImagemAnexada] = useState(null); // New state for attached image URL
 
   const location = useLocation();
   const navigate = useNavigate();
@@ -35,7 +36,8 @@ export default function OrcamentoDetalhes() {
   const carrinhoData = urlParams.get('carrinho');
   const origemChat = urlParams.get('origem') === 'chat';
   const origemImportacao = urlParams.get('importacao') === 'true';
-  
+  const mediaUrlFromChat = urlParams.get('media_url'); // New URL parameter
+
   const modoOperacao = orcamentoId ? 'edicao' 
     : carrinhoData ? 'carrinho' 
     : origemChat ? 'chat'
@@ -56,6 +58,118 @@ export default function OrcamentoDetalhes() {
       recalculateTotal();
     }
   }, [itens, orcamento, recalculateTotal]);
+
+  // NEW FUNCTION: Process image by URL (from chat)
+  const processarImagemUrl = useCallback(async (imageUrl) => {
+    setProcessing(true);
+    try {
+      toast.info('🔍 Carregando dados da base...');
+      const [clientes, vendedoresBase] = await Promise.all([
+        base44.entities.Cliente.list(),
+        base44.entities.Vendedor.list()
+      ]);
+
+      const clientesInfo = clientes.map(c => ({
+        id: c.id,
+        razao_social: c.razao_social,
+        nome_fantasia: c.nome_fantasia,
+        cnpj: c.cnpj,
+        telefone: c.telefone
+      }));
+
+      const vendedoresInfo = vendedoresBase.map(v => ({
+        id: v.id,
+        nome: v.nome,
+        codigo: v.codigo,
+        email: v.email
+      }));
+
+      const prompt = `Analise este orçamento/proposta e extraia TODOS os itens/produtos.
+
+CLIENTES DISPONÍVEIS NA BASE:
+${JSON.stringify(clientesInfo, null, 2)}
+
+VENDEDORES DISPONÍVEIS NA BASE:
+${JSON.stringify(vendedoresInfo, null, 2)}
+
+INSTRUÇÕES:
+1. EXTRAIA todos os itens/produtos com quantidade, descrição e valores
+2. Se encontrar dados do cliente, extraia também (mas foco principal nos ITENS)
+3. EXTRAIA número da proposta, datas, condições de pagamento se houver
+
+RETORNE o JSON estruturado conforme o schema.`;
+
+      const schema = {
+        type: "object",
+        properties: {
+          cliente_encontrado: { type: "boolean" },
+          cliente_id: { type: "string" },
+          cliente_nome: { type: "string" },
+          numero_orcamento: { type: "string" },
+          data_orcamento: { type: "string" },
+          condicao_pagamento: { type: "string" },
+          itens: {
+            type: "array",
+            items: {
+              type: "object",
+              properties: {
+                codigo: { type: "string" },
+                nome: { type: "string" },
+                descricao: { type: "string" },
+                quantidade: { type: "number" },
+                valor_unitario: { type: "number" },
+                valor_total: { type: "number" }
+              }
+            }
+          }
+        },
+        required: ["itens"]
+      };
+
+      toast.info('🤖 IA extraindo itens da imagem...');
+      const iaResult = await base44.integrations.Core.InvokeLLM({
+        prompt,
+        response_json_schema: schema,
+        file_urls: [imageUrl],
+      });
+
+      if (!iaResult || !iaResult.itens || iaResult.itens.length === 0) {
+        toast.warning('⚠️ Nenhum item foi encontrado na imagem.');
+        return;
+      }
+
+      // ATUALIZAR CAMPOS SE ENCONTROU DADOS ADICIONAIS
+      setOrcamento(prev => ({
+        ...prev,
+        numero_orcamento: iaResult.numero_orcamento || prev.numero_orcamento,
+        observacoes: `${prev.observacoes}\n\n[Imagem processada via IA - ${new Date().toLocaleString()}]\nImagem: ${imageUrl}`.trim()
+      }));
+
+      const novosItens = iaResult.itens.map((item, idx) => ({
+        _tempId: `chat-img-${Date.now()}-${idx}`,
+        produto_id: null,
+        nome_produto: item.nome || item.descricao || '',
+        descricao: item.descricao || '',
+        marca: item.marca || '',
+        modelo: item.modelo || '',
+        referencia: item.codigo || '',
+        quantidade: parseFloat(item.quantidade || 0),
+        valor_unitario: parseFloat(item.valor_unitario || 0),
+        valor_total: parseFloat(item.quantidade || 0) * parseFloat(item.valor_unitario || 0),
+        is_opcional: false
+      }));
+
+      setItens(prev => [...prev, ...novosItens]);
+
+      toast.success(`✅ ${novosItens.length} itens extraídos da imagem do chat!`, { duration: 4000 });
+
+    } catch (error) {
+      console.error('Erro ao processar imagem do chat:', error);
+      toast.error('❌ Erro ao processar imagem: ' + error.message);
+    } finally {
+      setProcessing(false);
+    }
+  }, []);
 
   const loadData = useCallback(async () => {
     setLoading(true);
@@ -145,7 +259,18 @@ export default function OrcamentoDetalhes() {
         });
 
         setItens([]);
-        toast.success('🎯 Oportunidade criada! Adicione os itens do orçamento.', { duration: 5000 });
+        
+        // ✅ SE VEM COM IMAGEM, PROCESSAR AUTOMATICAMENTE
+        if (mediaUrlFromChat) {
+          setImagemAnexada(mediaUrlFromChat);
+          toast.info('🖼️ Imagem detectada do chat! Processando automaticamente...', { duration: 3000 });
+          
+          setTimeout(() => {
+            processarImagemUrl(mediaUrlFromChat);
+          }, 1000);
+        } else {
+          toast.success('🎯 Oportunidade criada! Adicione os itens do orçamento.', { duration: 5000 });
+        }
       }
       else if (modoOperacao === 'importacao') {
         const dadosImportados = location.state?.dadosImportados;
@@ -231,7 +356,7 @@ export default function OrcamentoDetalhes() {
     } finally {
       setLoading(false);
     }
-  }, [orcamentoId, carrinhoData, modoOperacao, location.state, urlParams]);
+  }, [orcamentoId, carrinhoData, modoOperacao, location.state, urlParams, mediaUrlFromChat, processarImagemUrl]); // Added processarImagemUrl to dependencies
 
   useEffect(() => {
     loadData();
@@ -266,6 +391,8 @@ export default function OrcamentoDetalhes() {
       toast.info('📤 Salvando imagem...');
       const uploadResult = await base44.integrations.Core.UploadFile({ file });
       const fileUrl = uploadResult.file_url;
+      
+      setImagemAnexada(fileUrl); // Update state with the uploaded image URL
 
       toast.info('🔍 Carregando dados da base...');
       const [clientes, vendedoresBase] = await Promise.all([
@@ -747,6 +874,25 @@ RETORNE o JSON estruturado conforme o schema.`;
 
       <div className="max-w-7xl mx-auto px-4 py-4 space-y-4">
         
+        {/* ✅ PREVIEW DA IMAGEM ANEXADA */}
+        {imagemAnexada && (
+          <Card className="bg-slate-800/50 border-slate-700">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm text-white flex items-center gap-2">
+                <ImageIcon className="w-4 h-4 text-amber-400" /> 
+                Imagem Anexada
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <img 
+                src={imagemAnexada} 
+                alt="Imagem da proposta" 
+                className="w-full max-h-96 object-contain rounded-lg border border-slate-600"
+              />
+            </CardContent>
+          </Card>
+        )}
+
         {/* ZONAS DE IMPORTAÇÃO COM IA */}
         {(modoOperacao === 'novo' || modoOperacao === 'chat') && (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
