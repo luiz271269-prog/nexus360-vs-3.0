@@ -30,19 +30,6 @@ export default function OrcamentoDetalhes() {
   const location = useLocation();
   const navigate = useNavigate();
   
-  const urlParams = new URLSearchParams(location.search);
-  const orcamentoId = urlParams.get('id');
-  const carrinhoData = urlParams.get('carrinho');
-  const origemChat = urlParams.get('origem') === 'chat';
-  const origemImportacao = urlParams.get('importacao') === 'true';
-  const mediaUrlFromChat = urlParams.get('media_url'); // New URL parameter
-
-  const modoOperacao = orcamentoId ? 'edicao' 
-    : carrinhoData ? 'carrinho' 
-    : origemChat ? 'chat'
-    : origemImportacao ? 'importacao'
-    : 'novo';
-
   const calcularTotal = useCallback((items) => {
     if (!Array.isArray(items)) return 0;
     return items
@@ -152,6 +139,20 @@ RETORNE o JSON estruturado conforme o schema.`;
   const loadData = useCallback(async () => {
     setLoading(true);
     try {
+      // Parse URL params inside loadData to avoid dependency issues
+      const urlParams = new URLSearchParams(location.search);
+      const orcamentoId = urlParams.get('id');
+      const carrinhoData = urlParams.get('carrinho');
+      const origemChat = urlParams.get('origem') === 'chat';
+      const origemImportacao = urlParams.get('importacao') === 'true';
+      const mediaUrlFromChat = urlParams.get('media_url');
+
+      const modoOperacao = orcamentoId ? 'edicao' 
+        : carrinhoData ? 'carrinho' 
+        : origemChat ? 'chat'
+        : origemImportacao ? 'importacao'
+        : 'novo';
+
       const vendedoresData = await base44.entities.Vendedor.list();
       setVendedores(Array.isArray(vendedoresData) ? vendedoresData : []);
 
@@ -326,7 +327,7 @@ RETORNE o JSON estruturado conforme o schema.`;
     } finally {
       setLoading(false);
     }
-  }, [orcamentoId, carrinhoData, modoOperacao, location.state, urlParams, mediaUrlFromChat, calcularTotal]);
+  }, [location.search, location.state, calcularTotal]);
 
   useEffect(() => {
     loadData();
@@ -802,6 +803,19 @@ RETORNE o JSON estruturado conforme o schema.`;
       </div>
     );
   }
+
+  // Parse URL params for display purposes (outside loadData)
+  const urlParams = new URLSearchParams(location.search);
+  const orcamentoId = urlParams.get('id');
+  const origemChat = urlParams.get('origem') === 'chat';
+  const origemImportacao = urlParams.get('importacao') === 'true';
+  const carrinhoData = urlParams.get('carrinho');
+
+  const modoOperacao = orcamentoId ? 'edicao' 
+    : carrinhoData ? 'carrinho' 
+    : origemChat ? 'chat'
+    : origemImportacao ? 'importacao'
+    : 'novo';
 
   const getTitulo = () => {
     if (modoOperacao === 'edicao') return `#${orcamento.numero_orcamento || orcamento.id?.slice(-6)}`;
