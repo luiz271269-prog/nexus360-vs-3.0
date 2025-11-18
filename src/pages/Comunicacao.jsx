@@ -10,7 +10,8 @@ import {
   Zap,
   MessageCircle,
   Activity,
-  BarChart3
+  BarChart3,
+  Users
 } from "lucide-react";
 import { toast } from "sonner";
 
