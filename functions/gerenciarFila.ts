@@ -156,8 +156,19 @@ async function enfileirar(base44, data, headers) {
       status: 'aberta'
     });
 
+    // Calcular posição
+    const todasNaFila = await base44.asServiceRole.entities.FilaAtendimento.filter({ 
+      setor, 
+      status: 'aguardando' 
+    });
+
     return Response.json(
-      { success: true, fila_entry: filaEntry },
+      { 
+        success: true, 
+        message: 'Thread enfileirada com sucesso',
+        fila_entry: filaEntry,
+        posicao: todasNaFila.length
+      },
       { status: 200, headers }
     );
 
