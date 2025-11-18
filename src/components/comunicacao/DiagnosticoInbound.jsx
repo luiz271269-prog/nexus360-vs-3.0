@@ -209,19 +209,27 @@ export default function DiagnosticoInbound({ integracoes }) {
           ) : (
             <div className="space-y-6">
               {integracoes.map((integracao) => (
-                <div key={integracao.id} className="space-y-3">
-                  <div className="flex items-center gap-3 mb-3">
-                    <div className={`w-3 h-3 rounded-full ${integracao.status === 'conectado' ? 'bg-green-500' : 'bg-red-500'}`} />
-                    <h3 className="text-lg font-bold text-slate-900">
-                      {integracao.nome_instancia} - {integracao.numero_telefone}
-                    </h3>
-                    <Badge className={integracao.status === 'conectado' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}>
-                      {integracao.status}
-                    </Badge>
-                  </div>
-                  
-                  <DiagnosticoWebhookReal integracaoFiltro={integracao} />
-                </div>
+                <Card key={integracao.id} className="border-l-4" style={{ borderLeftColor: integracao.status === 'conectado' ? '#22c55e' : '#ef4444' }}>
+                  <CardHeader className="pb-3">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <div className={`w-3 h-3 rounded-full ${integracao.status === 'conectado' ? 'bg-green-500 animate-pulse' : 'bg-red-500'}`} />
+                        <div>
+                          <h3 className="text-lg font-bold text-slate-900">
+                            {integracao.nome_instancia}
+                          </h3>
+                          <p className="text-sm text-slate-600">{integracao.numero_telefone}</p>
+                        </div>
+                      </div>
+                      <Badge className={integracao.status === 'conectado' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}>
+                        {integracao.status}
+                      </Badge>
+                    </div>
+                  </CardHeader>
+                  <CardContent>
+                    <DiagnosticoWebhookReal integracaoFiltro={integracao} />
+                  </CardContent>
+                </Card>
               ))}
             </div>
           )}
