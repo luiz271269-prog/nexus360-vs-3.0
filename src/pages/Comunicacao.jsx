@@ -48,7 +48,6 @@ export default function Comunicacao() {
   
   const [filterScope, setFilterScope] = useState('all');
   const [selectedAttendantId, setSelectedAttendantId] = useState(null);
-  const [selectedIntegrationId, setSelectedIntegrationId] = useState(null);
 
   const queryClient = useQueryClient();
 
@@ -241,13 +240,6 @@ export default function Comunicacao() {
     const contato = contatos.find((c) => c.id === thread.contact_id);
     if (!contato) return false;
 
-    // Filtro por canal WhatsApp
-    if (selectedIntegrationId && selectedIntegrationId !== 'all') {
-      if (thread.whatsapp_integration_id !== selectedIntegrationId) {
-        return false;
-      }
-    }
-
     if (debouncedSearchTerm) {
       const termoBusca = debouncedSearchTerm.toLowerCase();
       return (
@@ -397,9 +389,6 @@ export default function Comunicacao() {
                       setThreadAtiva(null);
                       setShowContactInfo(true);
                     }}
-                    integracoes={integracoes}
-                    selectedIntegrationId={selectedIntegrationId}
-                    onSelectedIntegrationChange={setSelectedIntegrationId}
                   />
 
                   <div className="flex-1 overflow-y-auto">

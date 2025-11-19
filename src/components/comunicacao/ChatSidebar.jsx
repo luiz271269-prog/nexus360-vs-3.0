@@ -213,8 +213,12 @@ export default function ChatSidebar({ threads, threadAtiva, onSelecionarThread, 
                   </p>
                 )}
                 {getIntegracaoNome(thread) && (
-                  <Badge variant="outline" className="text-xs py-0 px-1.5 h-5 bg-green-50 text-green-700 border-green-200">
-                    {getIntegracaoNome(thread)}
+                  <Badge 
+                    variant="outline" 
+                    className="text-xs py-0 px-1.5 h-5 bg-green-50 text-green-700 border-green-200 cursor-help"
+                    title={`Canal: ${integracoes.find(i => i.id === thread.whatsapp_integration_id)?.numero_telefone || 'N/A'}`}
+                  >
+                    📱 {getIntegracaoNome(thread)}
                   </Badge>
                 )}
               </div>

@@ -16,10 +16,7 @@ export default function SearchAndFilter({
   isManager,
   novoContatoTelefone,
   onNovoContatoTelefoneChange,
-  onCreateContact,
-  integracoes = [],
-  selectedIntegrationId,
-  onSelectedIntegrationChange
+  onCreateContact
 }) {
   // ✅ RESTAURADO: Detectar telefone automaticamente
   useEffect(() => {
@@ -131,26 +128,6 @@ export default function SearchAndFilter({
             ))}
           </SelectContent>
         </Select>
-      )}
-
-      {/* 🆕 FILTRO POR CANAL WHATSAPP */}
-      {integracoes.length > 1 && (
-        <div className="w-full">
-          <label className="text-xs text-slate-600 mb-1 block">Canal WhatsApp:</label>
-          <Select value={selectedIntegrationId || 'all'} onValueChange={onSelectedIntegrationChange}>
-            <SelectTrigger className="w-full">
-              <SelectValue placeholder="Todos os canais" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">📱 Todos os canais</SelectItem>
-              {integracoes.map((integracao) => (
-                <SelectItem key={integracao.id} value={integracao.id}>
-                  {integracao.nome_instancia} ({integracao.numero_telefone})
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
       )}
     </div>
   );
