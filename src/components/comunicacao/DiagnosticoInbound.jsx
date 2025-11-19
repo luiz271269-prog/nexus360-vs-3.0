@@ -335,6 +335,31 @@ export default function DiagnosticoInbound({ integracoes }) {
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-4">
+                    {/* Instance ID Verification */}
+                    <div className="bg-slate-50 p-4 rounded-lg border-2 border-slate-300">
+                      <label className="text-sm font-bold text-slate-900 mb-2 flex items-center gap-2">
+                        <Code className="w-4 h-4" />
+                        Instance ID (Z-API)
+                      </label>
+                      <div className="bg-white p-3 rounded border border-slate-300">
+                        <code className="text-sm font-mono text-slate-900 break-all">
+                          {integracao.instance_id_provider || (
+                            <span className="text-red-600 font-bold">
+                              ⚠️ NÃO CONFIGURADO - MENSAGENS NÃO SERÃO RECEBIDAS!
+                            </span>
+                          )}
+                        </code>
+                      </div>
+                      {!integracao.instance_id_provider && (
+                        <Alert className="bg-red-50 border-red-300 mt-3">
+                          <AlertTriangle className="h-4 w-4 text-red-700" />
+                          <AlertDescription className="text-red-800 text-xs">
+                            <strong>AÇÃO NECESSÁRIA:</strong> Vá para a aba "Configurações" e edite esta integração para adicionar o Instance ID correto da Z-API.
+                          </AlertDescription>
+                        </Alert>
+                      )}
+                    </div>
+
                     {/* URL do Webhook */}
                     <div>
                       <label className="text-sm font-medium text-blue-900 mb-2 block">
@@ -355,9 +380,6 @@ export default function DiagnosticoInbound({ integracoes }) {
                           <Copy className="w-4 h-4" />
                         </Button>
                       </div>
-                      <p className="text-xs text-amber-700 mt-2 bg-amber-50 p-2 rounded border border-amber-200">
-                        ⚠️ Configure esta URL EXATA na Z-API para a instância {integracao.instance_id_provider}
-                      </p>
                     </div>
 
                     {/* Instruções */}
