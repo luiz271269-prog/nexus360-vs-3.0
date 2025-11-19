@@ -94,6 +94,29 @@ export default function ConfiguracaoWhatsAppHub({ integracoes, onRecarregar }) {
     return erros;
   };
 
+  const detectarAmbiente = () => {
+    const hostname = window.location.hostname;
+    
+    // Detecta se é preview/staging
+    const isPreview = hostname.includes('preview--');
+    const isStaging = hostname.includes('staging');
+    
+    // URL de produção principal
+    const prodUrl = 'https://nexus360-pro.base44.app';
+    
+    // Se for preview ou staging, usa a URL atual
+    const baseUrl = (isPreview || isStaging) ? window.location.origin : prodUrl;
+    
+    return {
+      ambiente: isPreview ? 'preview' : (isStaging ? 'staging' : 'production'),
+      isProduction: !isPreview && !isStaging,
+      webhookUrl: `${baseUrl}/api/functions/whatsappWebhook`,
+      alertMessage: (isPreview || isStaging) ? 
+        `⚠️ ATENÇÃO: Você está em ambiente de ${isPreview ? 'PREVIEW' : 'STAGING'}. Esta URL NÃO deve ser usada em produção!` : 
+        null
+    };
+  };
+
   const handleCriarInstancia = async () => {
     try {
       setLoading(true);
@@ -113,10 +136,16 @@ export default function ConfiguracaoWhatsAppHub({ integracoes, onRecarregar }) {
       const tokenConta = novaIntegracao.zapi_client_token_conta.trim();
       const baseUrl = novaIntegracao.zapi_base_url.trim();
 
-      // CONSTRUIR URL DO WEBHOOK CORRETO
-      const webhookUrl = `https://nexus360-pro.base44.app/api/functions/whatsappWebhook`;
+      // DETECTAR AMBIENTE E GERAR URL CORRETA
+      const { ambiente, isProduction, webhookUrl, alertMessage } = detectarAmbiente();
 
+      console.log('[CONFIG] 🌐 Ambiente detectado:', ambiente);
       console.log('[CONFIG] 🔗 URL do Webhook:', webhookUrl);
+
+      // Alertar se não for produção
+      if (alertMessage) {
+        toast.warning(alertMessage, { duration: 10000 });
+      }
 
       const dadosIntegracao = {
         nome_instancia: novaIntegracao.nome_instancia.trim(),
