@@ -46,8 +46,24 @@ export default function DiagnosticoWebhookReal({ integracaoFiltro = null }) {
   const carregarLogs = async () => {
     setLoading(true);
     try {
-      const webhookLogs = await base44.entities.WebhookLog.list('-timestamp', 50);
-      setLogs(webhookLogs);
+      // ✅ BUSCAR LOGS DE AUDITORIA NORMALIZADOS (MAIS RECENTE)
+      const auditLogs = await base44.entities.ZapiPayloadNormalized.list('-created_date', 100);
+      console.log('[DIAGNOSTICO] 📊 Logs carregados:', auditLogs.length);
+      
+      // Transformar para formato esperado
+      const logsTransformados = auditLogs.map(audit => ({
+        id: audit.id,
+        timestamp: audit.timestamp_recebido || audit.created_date,
+        event_type: audit.evento || 'unknown',
+        instance_id: audit.instance_identificado,
+        success: audit.sucesso_processamento,
+        processed: true,
+        raw_data: audit.payload_bruto || {},
+        result: { processed: audit.sucesso_processamento },
+        processing_time_ms: null
+      }));
+      
+      setLogs(logsTransformados);
     } catch (error) {
       console.error('[DIAGNOSTICO] Erro ao carregar logs:', error);
     }
@@ -59,10 +75,18 @@ export default function DiagnosticoWebhookReal({ integracaoFiltro = null }) {
     if (filtro === 'sucesso' && log.success !== true) return false;
     if (filtro === 'erro' && log.success !== false) return false;
     
-    // Filtro por integração (se especificado)
+    // ✅ FILTRO POR INTEGRAÇÃO CORRIGIDO
     if (integracaoFiltro) {
-      return log.instance_id === integracaoFiltro.instance_id_provider ||
-             log.instance_id === integracaoFiltro.nome_instancia;
+      const instanceMatch = log.instance_id === integracaoFiltro.instance_id_provider ||
+                           log.instance_id === integracaoFiltro.nome_instancia;
+      if (!instanceMatch) {
+        console.log('[DIAGNOSTICO] ❌ Log ignorado:', {
+          log_instance: log.instance_id,
+          integracao_instance_id: integracaoFiltro.instance_id_provider,
+          integracao_nome: integracaoFiltro.nome_instancia
+        });
+      }
+      return instanceMatch;
     }
     
     return true;
@@ -85,17 +109,26 @@ export default function DiagnosticoWebhookReal({ integracaoFiltro = null }) {
   const getConteudoPreview = (log) => {
     const dados = log.raw_data || {};
     
+    // ✅ SUPORTE PARA MÚLTIPLOS FORMATOS DE PAYLOAD
     if (log.event_type === 'MessageStatusCallback') {
       return `Status: ${dados.status} (${dados.ids?.length || 0} mensagem(ns))`;
     }
     
+    // Formato Z-API ReceivedCallback
+    if (dados.text?.message) {
+      return dados.text.message.substring(0, 50) + (dados.text.message.length > 50 ? '...' : '');
+    }
+    
+    // Formato antigo (texto.mensagem)
     if (dados.texto?.mensagem) {
       return dados.texto.mensagem.substring(0, 50) + (dados.texto.mensagem.length > 50 ? '...' : '');
     }
     
-    if (dados.image) return '📷 Imagem';
+    // Mídia
+    if (dados.image) return '📷 Imagem' + (dados.image.caption ? ': ' + dados.image.caption.substring(0, 30) : '');
     if (dados.audio) return '🎤 Áudio';
-    if (dados.document) return '📄 Documento';
+    if (dados.video) return '🎬 Vídeo' + (dados.video.caption ? ': ' + dados.video.caption.substring(0, 30) : '');
+    if (dados.document) return '📄 ' + (dados.document.fileName || 'Documento');
     
     return 'Sem conteúdo';
   };
@@ -171,7 +204,7 @@ export default function DiagnosticoWebhookReal({ integracaoFiltro = null }) {
                           {log.event_type}
                         </span>
                         <Badge variant="outline" className="text-xs">
-                          {log.raw_data?.phone || 'Sem telefone'}
+                          {log.raw_data?.telefone || log.raw_data?.phone || 'Sem telefone'}
                         </Badge>
                         {log.instance_id && (
                           <Badge className="bg-purple-100 text-purple-700 text-xs">
