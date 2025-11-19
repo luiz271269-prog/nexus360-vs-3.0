@@ -37,6 +37,14 @@ Deno.serve(async (req) => {
     return new Response(null, { status: 204, headers: corsHeaders });
   }
 
+  // ═══════════════════════════════════════════════════════════
+  // TRATAMENTO PARA REQUISIÇÕES GET (HEALTH CHECKS)
+  // ═══════════════════════════════════════════════════════════
+  if (req.method === 'GET') {
+    console.log('[WEBHOOK] ℹ️ Recebido GET request (health check). Respondendo com 200 OK.');
+    return new Response('ok', { status: 200, headers: corsHeaders });
+  }
+
   try {
     // ═══════════════════════════════════════════════════════════
     // 1. INICIALIZAR BASE44 COM SERVICE ROLE
@@ -59,13 +67,32 @@ Deno.serve(async (req) => {
       );
     }
 
-    const { event, type, instance, instanceId, data } = evento;
-    const instanceExtraido = instance || instanceId || extrairInstanceId(evento);
-    const eventoTipo = event || type;
+    // Log das chaves do payload para diagnóstico
+    console.log('[WEBHOOK] 📋 Chaves do payload:', Object.keys(evento));
+
+    // Extração robusta de evento e instância, cobrindo variações comuns
+    const eventoTipo = evento.event || evento.type || evento.event_type || evento.eventName;
+    const instanceExtraido = evento.instance || evento.instanceId || evento.instance_id || extrairInstanceId(evento);
 
     if (!eventoTipo || !instanceExtraido) {
       console.warn('[WEBHOOK] ⚠️ Campos obrigatórios faltando (event/type ou instance/instanceId)');
-      console.warn('[WEBHOOK] Payload recebido:', JSON.stringify(evento, null, 2));
+      console.warn('[WEBHOOK] 📦 Payload recebido:', JSON.stringify(evento, null, 2));
+      console.warn('[WEBHOOK] 🔍 Chaves disponíveis:', Object.keys(evento).join(', '));
+
+      // Mesmo assim, persistir para auditoria
+      try {
+        await base44.entities.ZapiPayloadNormalized.create({
+          payload_bruto: evento,
+          instance_identificado: instanceExtraido || 'unknown',
+          evento: eventoTipo || 'unknown',
+          timestamp_recebido: new Date().toISOString(),
+          sucesso_processamento: false,
+          erro_detalhes: 'Campos obrigatórios faltando: event/type ou instance/instanceId'
+        });
+      } catch (err) {
+        console.error('[WEBHOOK] ⚠️ Erro ao persistir payload com campos faltando:', err);
+      }
+
       return Response.json(
         { success: true, ignored: 'missing_required_fields' },
         { status: 200, headers: corsHeaders }

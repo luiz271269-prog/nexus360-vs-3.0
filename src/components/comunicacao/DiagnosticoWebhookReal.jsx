@@ -59,13 +59,15 @@ export default function DiagnosticoWebhookReal({ integracaoFiltro = null }) {
         success: audit.sucesso_processamento,
         processed: true,
         raw_data: audit.payload_bruto || {},
-        result: { processed: audit.sucesso_processamento },
+        result: audit.sucesso_processamento ? { processed: true } : null,
+        error: audit.erro_detalhes || null,
         processing_time_ms: null
       }));
       
       setLogs(logsTransformados);
+      console.log('[DIAGNOSTICO] ✅ Logs transformados:', logsTransformados.length);
     } catch (error) {
-      console.error('[DIAGNOSTICO] Erro ao carregar logs:', error);
+      console.error('[DIAGNOSTICO] ❌ Erro ao carregar logs:', error);
     }
     setLoading(false);
   };
@@ -168,11 +170,18 @@ export default function DiagnosticoWebhookReal({ integracaoFiltro = null }) {
         )}
       </CardHeader>
       <CardContent>
-        {logsFiltrados.length === 0 ? (
+        {loading ? (
+          <div className="flex items-center justify-center py-8">
+            <RefreshCw className="w-6 h-6 animate-spin text-blue-500" />
+            <span className="ml-2 text-slate-600">Carregando logs...</span>
+          </div>
+        ) : logsFiltrados.length === 0 ? (
           <Alert>
             <AlertTriangle className="h-4 w-4" />
             <AlertDescription>
-              Nenhuma mensagem recebida ainda. Envie uma mensagem do seu WhatsApp para testar.
+              {integracaoFiltro 
+                ? `Nenhuma mensagem recebida para ${integracaoFiltro.nome_instancia}. Envie uma mensagem do seu WhatsApp para testar.`
+                : 'Nenhuma mensagem recebida ainda. Envie uma mensagem do seu WhatsApp para testar.'}
             </AlertDescription>
           </Alert>
         ) : (
