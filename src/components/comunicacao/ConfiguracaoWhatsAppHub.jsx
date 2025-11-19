@@ -177,7 +177,17 @@ export default function ConfiguracaoWhatsAppHub({ integracoes, onRecarregar }) {
       } else {
         await base44.entities.WhatsAppIntegration.create(dadosIntegracao);
         toast.success("✅ Instância criada! Configure o webhook na Z-API.");
-        toast.info(`📋 URL do Webhook: ${webhookUrl}`, { duration: 10000 });
+        
+        // Mostrar URL do webhook com indicador de ambiente
+        const ambienteLabel = isProduction ? '🟢 PRODUÇÃO' : '🟠 TESTE';
+        toast.info(
+          <div className="space-y-1">
+            <p className="font-bold">{ambienteLabel}</p>
+            <p className="text-sm">📋 URL do Webhook:</p>
+            <code className="text-xs bg-slate-100 px-2 py-1 rounded block">{webhookUrl}</code>
+          </div>, 
+          { duration: 15000 }
+        );
       }
 
       setShowForm(false);
