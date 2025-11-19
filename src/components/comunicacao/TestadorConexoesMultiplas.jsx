@@ -86,6 +86,8 @@ export default function TestadorConexoesMultiplas({ integracoes }) {
       
       const payloadTeste = {
         instanceId: integracao.instance_id_provider,
+        instance: integracao.instance_id_provider, // ✅ ADICIONAR instance também
+        event: "ReceivedCallback", // ✅ USAR event em vez de type
         type: "ReceivedCallback",
         phone: "5548999999999",
         momment: Date.now(),
@@ -107,57 +109,17 @@ export default function TestadorConexoesMultiplas({ integracoes }) {
       const result = await response.json();
       addLog(`📊 Resposta: ${JSON.stringify(result, null, 2)}`, result.success ? 'success' : 'warning');
 
-      // 4. VERIFICAR SE PAYLOAD FOI SALVO
-      addLog('🔍 Verificando se payload foi salvo...', 'info');
-      
-      await new Promise(resolve => setTimeout(resolve, 2000)); // Aguardar processamento
-
-      const payloadsRecebidos = await base44.asServiceRole.entities.ZapiPayloadNormalized.filter({
-        instance_identificado: integracao.instance_id_provider
-      }, '-created_date', 5);
-
-      addLog(`📊 Total de payloads no banco: ${payloadsRecebidos.length}`, 'info');
-
-      const payloadRecente = payloadsRecebidos.find(p => 
-        Math.abs(new Date(p.created_date).getTime() - Date.now()) < 10000
-      );
-
-      if (payloadRecente) {
-        addLog('✅ Payload foi salvo no banco com sucesso!', 'success');
-        addLog(`🔍 ID do registro: ${payloadRecente.id}`, 'success');
-      } else {
-        addLog('⚠️ Payload não foi encontrado no banco (pode demorar alguns segundos)', 'warning');
-      }
-
-      // 5. VERIFICAR MENSAGENS
-      const mensagens = await base44.asServiceRole.entities.Message.filter({
-        channel: 'whatsapp'
-      }, '-created_date', 5);
-
-      const mensagemTeste = mensagens.find(m => 
-        m.content?.includes('TESTE AUTOMÁTICO') &&
-        Math.abs(new Date(m.created_date).getTime() - Date.now()) < 10000
-      );
-
-      if (mensagemTeste) {
-        addLog('✅ Mensagem foi processada e salva!', 'success');
-        addLog(`📝 ID da mensagem: ${mensagemTeste.id}`, 'success');
-      } else {
-        addLog('⚠️ Mensagem não foi processada ainda', 'warning');
-      }
-
-      // 6. RESULTADO FINAL
-      const sucesso = response.ok && result.success;
+      // 4. RESULTADO FINAL (sem verificar banco - requer service role)
+      const sucesso = response.ok && !result.ignored;
       
       salvarResultados({
         ...resultados,
         [integracao.id]: {
           status: sucesso ? 'success' : 'warning',
           timestamp: new Date().toISOString(),
-          payloadSalvo: !!payloadRecente,
-          mensagemProcessada: !!mensagemTeste,
           httpStatus: response.status,
-          webhookUrl
+          webhookUrl,
+          webhookResponse: result
         }
       });
 
@@ -366,24 +328,31 @@ export default function TestadorConexoesMultiplas({ integracoes }) {
               {resultado && (
                 <div className="bg-slate-50 rounded-lg p-3 mb-4">
                   <h4 className="text-sm font-semibold text-slate-900 mb-2">Resultado do Teste:</h4>
-                  <div className="space-y-1 text-sm">
+                  <div className="space-y-2 text-sm">
                     <div className="flex items-center gap-2">
-                      {resultado.payloadSalvo ? 
-                        <CheckCircle className="w-4 h-4 text-green-600" /> : 
-                        <XCircle className="w-4 h-4 text-red-600" />
-                      }
-                      <span>Payload salvo no banco</span>
+                      <Badge variant="outline" className="bg-blue-100">HTTP {resultado.httpStatus}</Badge>
+                      <span className="text-slate-600">
+                        {resultado.httpStatus === 200 ? '✅ Webhook respondeu' : '❌ Erro HTTP'}
+                      </span>
                     </div>
-                    <div className="flex items-center gap-2">
-                      {resultado.mensagemProcessada ? 
-                        <CheckCircle className="w-4 h-4 text-green-600" /> : 
-                        <XCircle className="w-4 h-4 text-red-600" />
+                    {resultado.webhookResponse && (
+                      <div className="bg-white p-2 rounded border border-slate-300">
+                        <p className="text-xs font-semibold text-slate-700 mb-1">Resposta do Webhook:</p>
+                        <pre className="text-xs text-slate-600 overflow-x-auto">
+                          {JSON.stringify(resultado.webhookResponse, null, 2)}
+                        </pre>
+                      </div>
+                    )}
+                    <div className="flex items-center gap-2 pt-2 border-t border-slate-200">
+                      {resultado.webhookResponse?.success && !resultado.webhookResponse?.ignored ? 
+                        <CheckCircle className="w-5 h-5 text-green-600" /> : 
+                        <AlertTriangle className="w-5 h-5 text-yellow-600" />
                       }
-                      <span>Mensagem processada</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Badge variant="outline">HTTP {resultado.httpStatus}</Badge>
-                      <span className="text-slate-600">Status da resposta</span>
+                      <span className="font-semibold">
+                        {resultado.webhookResponse?.success && !resultado.webhookResponse?.ignored 
+                          ? 'Teste bem-sucedido' 
+                          : 'Teste com avisos - verifique logs'}
+                      </span>
                     </div>
                   </div>
                 </div>
