@@ -77,15 +77,26 @@ export default function DiagnosticoWebhookReal({ integracaoFiltro = null }) {
     if (filtro === 'sucesso' && log.success !== true) return false;
     if (filtro === 'erro' && log.success !== false) return false;
     
-    // ✅ FILTRO POR INTEGRAÇÃO CORRIGIDO
+    // ✅ FILTRO POR INTEGRAÇÃO - BUSCA NO PAYLOAD BRUTO TAMBÉM
     if (integracaoFiltro) {
-      const instanceMatch = log.instance_id === integracaoFiltro.instance_id_provider ||
-                           log.instance_id === integracaoFiltro.nome_instancia;
+      const payloadInstance = log.raw_data?.instanceId || log.raw_data?.instance;
+      const logInstanceId = log.instance_id;
+      
+      // Comparar com múltiplos campos da integração
+      const instanceMatch = 
+        logInstanceId === integracaoFiltro.instance_id_provider ||
+        logInstanceId === integracaoFiltro.nome_instancia ||
+        logInstanceId === integracaoFiltro.numero_telefone?.replace(/\D/g, '') ||
+        payloadInstance === integracaoFiltro.instance_id_provider ||
+        payloadInstance === integracaoFiltro.nome_instancia;
+      
       if (!instanceMatch) {
-        console.log('[DIAGNOSTICO] ❌ Log ignorado:', {
-          log_instance: log.instance_id,
+        console.log('[DIAGNOSTICO] ⚠️ Log não corresponde ao filtro:', {
+          log_instance_id: logInstanceId,
+          payload_instance: payloadInstance,
           integracao_instance_id: integracaoFiltro.instance_id_provider,
-          integracao_nome: integracaoFiltro.nome_instancia
+          integracao_nome: integracaoFiltro.nome_instancia,
+          integracao_numero: integracaoFiltro.numero_telefone
         });
       }
       return instanceMatch;
