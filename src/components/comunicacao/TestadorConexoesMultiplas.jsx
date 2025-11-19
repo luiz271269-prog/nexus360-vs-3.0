@@ -73,12 +73,13 @@ export default function TestadorConexoesMultiplas({ integracoes }) {
         throw new Error('Instance ID não configurado - Configure em "Configurações"');
       }
 
-      // 2. TESTAR WEBHOOK URL - Usar URL de produção
-      const isProd = window.location.hostname.includes('base44.app');
-      const webhookUrl = isProd 
-        ? `https://nexus360-pro.base44.app/api/functions/whatsappWebhook`
-        : `${window.location.origin}/api/functions/whatsappWebhook`;
+      // 2. BUSCAR WEBHOOK URL DA INTEGRAÇÃO (salvada automaticamente)
+      const webhookUrl = integracao.webhook_url || `${window.location.origin}/api/functions/whatsappWebhook`;
       addLog(`🌐 URL do Webhook: ${webhookUrl}`, 'info');
+      
+      if (!integracao.webhook_url) {
+        addLog('⚠️ Webhook URL não está salva na integração - usando fallback', 'warning');
+      }
 
       // 3. ENVIAR PAYLOAD DE TESTE
       addLog('📤 Enviando payload de teste...', 'info');
