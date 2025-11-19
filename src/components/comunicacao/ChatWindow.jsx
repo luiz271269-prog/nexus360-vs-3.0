@@ -51,7 +51,8 @@ export default function ChatWindow({
   usuario,
   onEnviarMensagem,
   onShowContactInfo,
-  onAtualizarMensagens
+  onAtualizarMensagens,
+  integracoes = []
 }) {
   const [mensagemTexto, setMensagemTexto] = useState("");
   const [enviando, setEnviando] = useState(false);
@@ -1307,7 +1308,17 @@ export default function ChatWindow({
           </div>
           <div>
             <h3 className="font-bold text-slate-900">{nomeContato}</h3>
-            <p className="text-xs text-slate-500">{telefoneExibicao}</p>
+            <div className="flex items-center gap-2 flex-wrap">
+              <p className="text-xs text-slate-500">{telefoneExibicao}</p>
+              {thread.whatsapp_integration_id && integracoes.length > 0 && (() => {
+                const integracao = integracoes.find(i => i.id === thread.whatsapp_integration_id);
+                return integracao ? (
+                  <Badge variant="outline" className="text-xs py-0 px-1.5 h-5 bg-green-50 text-green-700 border-green-200">
+                    {integracao.nome_instancia}
+                  </Badge>
+                ) : null;
+              })()}
+            </div>
             {thread.assigned_user_id && (
               <p className="text-xs text-slate-600 mt-1 flex items-center gap-1">
                 <Users className="w-3 h-3 text-slate-500" />

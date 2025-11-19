@@ -414,6 +414,7 @@ export default function Comunicacao() {
                           onEnviarMensagem={async () => {}}
                           onShowContactInfo={() => setShowContactInfo(!showContactInfo)}
                           onAtualizarMensagens={handleAtualizarMensagens}
+                          integracoes={integracoes}
                         />
                       </div>
                       
