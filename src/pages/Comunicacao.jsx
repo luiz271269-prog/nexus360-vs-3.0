@@ -241,13 +241,14 @@ export default function Comunicacao() {
     const contato = contatos.find((c) => c.id === thread.contact_id);
     if (!contato) return false;
 
-    // Filtro por canal WhatsApp
+    // ✅ FILTRO POR CANAL WHATSAPP (MULTI-INSTÂNCIA)
     if (selectedIntegrationId && selectedIntegrationId !== 'all') {
       if (thread.whatsapp_integration_id !== selectedIntegrationId) {
         return false;
       }
     }
 
+    // Filtro por termo de busca
     if (debouncedSearchTerm) {
       const termoBusca = debouncedSearchTerm.toLowerCase();
       return (
