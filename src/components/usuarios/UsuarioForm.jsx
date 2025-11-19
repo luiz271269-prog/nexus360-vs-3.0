@@ -1,5 +1,4 @@
-
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -7,6 +6,7 @@ import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { 
   User, 
@@ -18,9 +18,11 @@ import {
   XCircle,
   AlertCircle,
   Users,
-  FileText
+  FileText,
+  Phone
 } from "lucide-react";
 import { toast } from "sonner";
+import ConfiguracaoPermissoesWhatsApp from "./ConfiguracaoPermissoesWhatsApp";
 
 export default function UsuarioForm({ usuario, onSave, onCancel }) {
   const [formData, setFormData] = useState({
@@ -60,7 +62,8 @@ export default function UsuarioForm({ usuario, onSave, onCancel }) {
       pode_exportar_conversas: false,
       pode_acessar_relatorios: false,
       pode_configurar_integracao: false
-    }
+    },
+    whatsapp_permissions: []
   });
 
   const [activeTab, setActiveTab] = useState("basico");
@@ -104,7 +107,8 @@ export default function UsuarioForm({ usuario, onSave, onCancel }) {
           pode_exportar_conversas: false,
           pode_acessar_relatorios: false,
           pode_configurar_integracao: false
-        }
+        },
+        whatsapp_permissions: usuario.whatsapp_permissions || []
       });
     }
   }, [usuario]);
@@ -242,7 +246,7 @@ export default function UsuarioForm({ usuario, onSave, onCancel }) {
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid w-full grid-cols-4">
+        <TabsList className="grid w-full grid-cols-5">
           <TabsTrigger value="basico" className="flex items-center gap-2">
             <User className="w-4 h-4" />
             Básico
@@ -254,6 +258,10 @@ export default function UsuarioForm({ usuario, onSave, onCancel }) {
           <TabsTrigger value="permissoes" className="flex items-center gap-2">
             <Shield className="w-4 h-4" />
             Permissões
+          </TabsTrigger>
+          <TabsTrigger value="whatsapp" className="flex items-center gap-2">
+            <Phone className="w-4 h-4" />
+            WhatsApp
           </TabsTrigger>
           <TabsTrigger value="horarios" className="flex items-center gap-2">
             <Clock className="w-4 h-4" />
@@ -659,7 +667,31 @@ export default function UsuarioForm({ usuario, onSave, onCancel }) {
           </Card>
         </TabsContent>
 
-        {/* TAB 4: HORÁRIOS */}
+        {/* TAB 4: PERMISSÕES WHATSAPP POR INSTÂNCIA */}
+        <TabsContent value="whatsapp" className="space-y-4 mt-4">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Phone className="w-5 h-5" />
+                Permissões por Instância WhatsApp
+              </CardTitle>
+              <CardDescription>
+                Configure quais canais este usuário pode acessar
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <ConfiguracaoPermissoesWhatsApp
+                whatsappPermissions={formData.whatsapp_permissions}
+                onChange={(novasPermissoes) => setFormData({
+                  ...formData,
+                  whatsapp_permissions: novasPermissoes
+                })}
+              />
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* TAB 5: HORÁRIOS */}
         <TabsContent value="horarios" className="space-y-4 mt-4">
           <Card>
             <CardHeader>
