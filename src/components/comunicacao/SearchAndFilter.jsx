@@ -1,4 +1,5 @@
-import { useEffect } from 'react';
+import React, { useEffect } from 'react';
+import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
 import { Search, UserPlus, User, Users, AlertCircle } from 'lucide-react';
@@ -15,7 +16,10 @@ export default function SearchAndFilter({
   isManager,
   novoContatoTelefone,
   onNovoContatoTelefoneChange,
-  onCreateContact
+  onCreateContact,
+  integracoes = [],
+  selectedIntegrationId,
+  onSelectedIntegrationChange
 }) {
   // ✅ RESTAURADO: Detectar telefone automaticamente
   useEffect(() => {
