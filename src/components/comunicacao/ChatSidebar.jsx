@@ -58,6 +58,13 @@ export default function ChatSidebar({ threads, threadAtiva, onSelecionarThread, 
     return dateB - dateA;
   });
 
+  // Função para buscar nome da integração
+  const getIntegracaoNome = (thread) => {
+    if (!thread.whatsapp_integration_id || integracoes.length === 0) return null;
+    const integracao = integracoes.find(i => i.id === thread.whatsapp_integration_id);
+    return integracao?.nome_instancia || null;
+  };
+
   if (threadsSorted.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center h-64 text-center p-6">
