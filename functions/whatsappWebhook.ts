@@ -56,10 +56,12 @@ Deno.serve(async (req) => {
     // ═══════════════════════════════════════════════════════════
     // 2. VALIDAÇÃO E PARSING DO PAYLOAD
     // ═══════════════════════════════════════════════════════════
+    console.log('[WEBHOOK] 🔄 Iniciando leitura do body...');
     let evento;
     try {
       const rawBody = await req.text();
-      console.log('[WEBHOOK] 📥 Raw body recebido:', rawBody);
+      console.log('[WEBHOOK] 📥 RAW BODY COMPLETO:', rawBody);
+      console.log('[WEBHOOK] 📏 Tamanho do body:', rawBody.length, 'caracteres');
       
       if (!rawBody || rawBody.trim() === '') {
         console.error('[WEBHOOK] ❌ Body vazio recebido');
