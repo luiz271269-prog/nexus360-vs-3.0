@@ -85,7 +85,7 @@ Deno.serve(async (req) => {
     console.log('[WEBHOOK] 📦 Payload completo:', JSON.stringify(evento, null, 2));
 
     // Extração robusta de evento e instância, cobrindo variações comuns
-    const eventoTipo = evento.event || evento.type || evento.event_type || evento.eventName;
+    const eventoTipo = evento.event || evento.type || evento.event_type || evento.eventName || 'ReceivedCallback';
     const instanceExtraido = evento.instance || evento.instanceId || evento.instance_id || extrairInstanceId(evento);
 
     console.log('[WEBHOOK] 🔍 Extração tentada:', {
@@ -194,6 +194,14 @@ Deno.serve(async (req) => {
         console.log('[WEBHOOK] ℹ️ Confirmação de envio');
         resultado = Response.json(
           { success: true, processed: 'send_confirmation' },
+          { status: 200, headers: corsHeaders }
+        );
+        break;
+
+      case 'unknown':
+        console.log(`[WEBHOOK] ⚠️ Evento não reconhecido pelo adapter: ${payloadNormalizado.event}`);
+        resultado = Response.json(
+          { success: true, ignored: 'unknown_event', event: payloadNormalizado.event },
           { status: 200, headers: corsHeaders }
         );
         break;
