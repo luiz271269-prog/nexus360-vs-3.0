@@ -36,6 +36,56 @@ export function extrairInstanceId(payload) {
 }
 
 /**
+ * Normaliza mensagem no formato Z-API direto (ReceivedCallback)
+ */
+export function normalizarMensagemZAPI(payload) {
+  const numeroFormatado = payload.phone?.startsWith('+') ? payload.phone : `+${payload.phone}`;
+  
+  // Extrair conteúdo
+  let conteudo = '[Mensagem vazia]';
+  let mediaType = 'none';
+  let mediaTempUrl = null;
+  let mediaCaption = null;
+  
+  if (payload.text?.message) {
+    conteudo = payload.text.message;
+  } else if (payload.image) {
+    conteudo = payload.image.caption || '[Imagem]';
+    mediaType = 'image';
+    mediaTempUrl = payload.image.imageUrl;
+    mediaCaption = payload.image.caption;
+  } else if (payload.video) {
+    conteudo = payload.video.caption || '[Vídeo]';
+    mediaType = 'video';
+    mediaTempUrl = payload.video.videoUrl;
+    mediaCaption = payload.video.caption;
+  } else if (payload.audio) {
+    conteudo = '[Áudio]';
+    mediaType = 'audio';
+    mediaTempUrl = payload.audio.audioUrl;
+  } else if (payload.document) {
+    conteudo = payload.document.fileName || '[Documento]';
+    mediaType = 'document';
+    mediaTempUrl = payload.document.documentUrl;
+  }
+  
+  return {
+    instanceId: payload.instanceId,
+    from: numeroFormatado,
+    to: payload.connectedPhone ? `+${payload.connectedPhone}` : null,
+    messageId: payload.messageId,
+    timestamp: payload.momment || Date.now(),
+    content: conteudo,
+    mediaType: mediaType,
+    mediaTempUrl: mediaTempUrl,
+    mediaCaption: mediaCaption,
+    type: 'message',
+    isFromMe: payload.fromMe || false,
+    pushName: payload.senderName || payload.chatName || null
+  };
+}
+
+/**
  * Normaliza um evento de mensagem (messages.upsert)
  */
 export function normalizarMensagem(payload) {
@@ -168,10 +218,18 @@ export function normalizarMensagemUpdate(payload) {
  */
 export function normalizarPayloadZAPI(payload) {
   const event = payload.event;
+  const type = payload.type;
   
-  console.log('[ZAPI-ADAPTER] 🔄 Normalizando evento:', event);
+  console.log('[ZAPI-ADAPTER] 🔄 Normalizando evento:', event || type);
   
   try {
+    // FORMATO Z-API DIRETO (type: "ReceivedCallback")
+    if (type === 'ReceivedCallback') {
+      console.log('[ZAPI-ADAPTER] ✅ Detectado formato Z-API direto');
+      return normalizarMensagemZAPI(payload);
+    }
+    
+    // FORMATO EVOLUTION API
     switch (event) {
       case 'messages.upsert':
         return normalizarMensagem(payload);
@@ -186,7 +244,6 @@ export function normalizarPayloadZAPI(payload) {
         return normalizarMensagemUpdate(payload);
       
       case 'send.message':
-        // Confirmação de envio - não precisa normalizar
         return {
           instanceId: extrairInstanceId(payload),
           type: 'send_confirmation',
