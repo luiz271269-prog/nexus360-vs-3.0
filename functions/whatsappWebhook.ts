@@ -380,8 +380,13 @@ async function processarMensagemRecebida(instance, payloadNormalizado, base44, c
         });
         
         // Atualizar estatísticas de recebimento
+        const estatisticasAtualizadas = {
+          ...(integracao.estatisticas || {}),
+          total_mensagens_recebidas: (integracao.estatisticas?.total_mensagens_recebidas || 0) + 1
+        };
+        
         await base44.entities.WhatsAppIntegration.update(integracaoId, {
-          'estatisticas.total_mensagens_recebidas': (integracao.estatisticas?.total_mensagens_recebidas || 0) + 1,
+          estatisticas: estatisticasAtualizadas,
           ultima_atividade: new Date().toISOString(),
           status: 'conectado'
         });
