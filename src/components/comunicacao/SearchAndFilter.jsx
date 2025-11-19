@@ -135,9 +135,9 @@ export default function SearchAndFilter({
       )}
 
       {/* 🆕 FILTRO POR CANAL WHATSAPP - GRADE DE BADGES */}
-      {integracoes.length > 1 && (
+      {integracoes.filter(i => i.status === 'conectado').length > 0 && (
         <div className="w-full pt-2 border-t border-slate-200">
-          <label className="text-xs text-slate-600 mb-2 block font-medium">Filtrar por canal:</label>
+          <label className="text-xs text-slate-600 mb-2 block font-medium">Canais de conexão:</label>
           <div className="flex flex-wrap gap-2">
             <Badge
               onClick={() => onSelectedIntegrationChange('all')}
@@ -150,7 +150,7 @@ export default function SearchAndFilter({
               <Phone className="w-3 h-3 mr-1" />
               Todos
             </Badge>
-            {integracoes.map((integracao) => (
+            {integracoes.filter(i => i.status === 'conectado').map((integracao) => (
               <Badge
                 key={integracao.id}
                 onClick={() => onSelectedIntegrationChange(integracao.id)}
@@ -159,7 +159,7 @@ export default function SearchAndFilter({
                     ? 'bg-green-600 text-white hover:bg-green-700'
                     : 'bg-green-50 text-green-700 border border-green-200 hover:bg-green-100'
                 }`}
-                title={`${integracao.numero_telefone}\n${integracao.status === 'conectado' ? '🟢 Conectado' : '🔴 Desconectado'}`}
+                title={`Canal: ${integracao.numero_telefone}`}
               >
                 📱 {integracao.nome_instancia}
               </Badge>
