@@ -1,9 +1,10 @@
+import React from "react";
 import { CheckCheck, Clock, User, Users, AlertCircle } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { motion } from "framer-motion";
 import { format } from "date-fns";
 
-export default function ChatSidebar({ threads, threadAtiva, onSelecionarThread, loading, usuarioAtual }) {
+export default function ChatSidebar({ threads, threadAtiva, onSelecionarThread, loading, usuarioAtual, integracoes = [] }) {
 
   const formatarHorario = (timestamp) => {
     if (!timestamp) return "";
