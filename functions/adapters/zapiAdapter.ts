@@ -75,7 +75,7 @@ export function normalizarMensagemZAPI(payload) {
     instanceId: payload.instanceId,
     from: numeroFormatado,
     to: payload.connectedPhone ? `+${payload.connectedPhone}` : null,
-    messageId: payload.messageId,
+    messageId: payload.messageId || `TEST_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
     timestamp: payload.momento || payload.momment || Date.now(),
     content: conteudo,
     mediaType: mediaType,
