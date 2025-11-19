@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -85,38 +85,46 @@ export default function TestadorRecebimentoMensagens() {
       console.log('[TESTE-RECEBIMENTO] 📱 Integração:', integracaoAtiva.nome_instancia);
       console.log('[TESTE-RECEBIMENTO] 📞 Número:', numeroFormatado);
 
-      // Payload simulado do webhook Z-API
+      // ✅ PAYLOAD EXATAMENTE COMO A Z-API ENVIA (ReceivedCallback)
       const payloadSimulado = {
+        type: 'ReceivedCallback',
         instanceId: integracaoAtiva.instance_id_provider,
-        event: 'received-message',
-        data: {
-          key: {
-            remoteJid: `${numeroFormatado}@s.whatsapp.net`,
-            fromMe: false,
-            id: 'TESTE_' + Date.now()
-          },
-          message: {
-            conversation: mensagemTeste
-          },
-          messageTimestamp: Math.floor(Date.now() / 1000),
-          pushName: 'Teste Simulado'
+        messageId: 'TESTE_MSG_' + Date.now(),
+        telefone: numeroFormatado,
+        fromMe: false,
+        momment: Date.now(),
+        status: 'RECEIVED',
+        chatName: 'Teste Simulado',
+        senderName: 'Teste Simulado',
+        photo: null,
+        broadcast: false,
+        text: {
+          message: mensagemTeste
         }
       };
 
-      console.log('[TESTE-RECEBIMENTO] 📦 Payload:', payloadSimulado);
+      console.log('[TESTE-RECEBIMENTO] 📦 Payload simulado (formato Z-API):', JSON.stringify(payloadSimulado, null, 2));
 
-      // Invocar função de webhook diretamente
-      const response = await base44.functions.invoke('inboundWebhook', {
-        provider: 'z_api',
-        instance: integracaoAtiva.instance_id_provider,
-        payload: payloadSimulado
+      // Chamar webhook diretamente
+      const webhookUrl = `${window.location.origin}/api/functions/whatsappWebhook`;
+      console.log('[TESTE-RECEBIMENTO] 🔗 Chamando webhook:', webhookUrl);
+
+      const response = await fetch(webhookUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(payloadSimulado)
       });
 
-      console.log('[TESTE-RECEBIMENTO] 📥 Resposta:', response.data);
+      const resultado = await response.json();
 
-      if (response.data && response.data.success) {
+      console.log('[TESTE-RECEBIMENTO] 📥 Resposta do webhook:', resultado);
+
+      if (resultado.success) {
         toast.success('✅ Mensagem simulada processada com sucesso!', {
-          description: 'Verifique as conversas na Central de Comunicação'
+          description: `Contact: ${resultado.contact_id || 'N/A'}, Thread: ${resultado.thread_id || 'N/A'}`,
+          duration: 5000
         });
 
         // Aguardar um pouco e recarregar dados
@@ -126,7 +134,7 @@ export default function TestadorRecebimentoMensagens() {
 
       } else {
         toast.error('❌ Erro ao processar webhook simulado', {
-          description: response.data?.error || 'Erro desconhecido'
+          description: resultado.error || 'Erro desconhecido'
         });
       }
 
