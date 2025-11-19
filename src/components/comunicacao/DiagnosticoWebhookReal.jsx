@@ -66,18 +66,28 @@ export default function DiagnosticoWebhookReal({ integracaoFiltro = null }) {
           result: audit.sucesso_processamento ? { processed: true } : null,
           error: audit.erro_detalhes || null,
           processing_time_ms: null,
-          integration_id: audit.integration_id
+          integration_id: audit.integration_id,
+          // ✅ ADICIONAR CAMPOS PARA FACILITAR FILTRO
+          payload_instance: payload.instance,
+          payload_instanceId: payload.instanceId,
+          instance_identificado: audit.instance_identificado
         };
       });
       
       setLogs(logsTransformados);
       console.log('[DIAGNOSTICO] ✅ Logs transformados:', logsTransformados.length);
+      
       if (integracaoFiltro) {
         console.log('[DIAGNOSTICO] 🔍 Filtrando por integração:', {
+          id: integracaoFiltro.id,
           nome: integracaoFiltro.nome_instancia,
           instance_id_provider: integracaoFiltro.instance_id_provider,
           numero: integracaoFiltro.numero_telefone
         });
+        
+        // Debug: mostrar todas as instances nos logs
+        const instancesNosLogs = [...new Set(logsTransformados.map(l => l.instance_id))];
+        console.log('[DIAGNOSTICO] 📋 Instances encontradas nos logs:', instancesNosLogs);
       }
     } catch (error) {
       console.error('[DIAGNOSTICO] ❌ Erro ao carregar logs:', error);
@@ -90,17 +100,48 @@ export default function DiagnosticoWebhookReal({ integracaoFiltro = null }) {
     if (filtro === 'sucesso' && log.success !== true) return false;
     if (filtro === 'erro' && log.success !== false) return false;
     
-    // ✅ FILTRO POR INTEGRAÇÃO - COMPARAÇÃO ROBUSTA
+    // ✅ FILTRO POR INTEGRAÇÃO - COMPARAÇÃO ROBUSTA E ABRANGENTE
     if (integracaoFiltro) {
       const logInstanceId = log.instance_id;
       const numeroIntegracao = integracaoFiltro.numero_telefone?.replace(/\D/g, '');
+      const numeroIntegracaoComPais = integracaoFiltro.numero_telefone;
       
-      // Comparar com múltiplos campos possíveis
+      // Normalizar números para comparação (remover +, espaços, etc)
+      const normalizarTelefone = (tel) => tel ? tel.replace(/\D/g, '') : '';
+      
+      const numeroLogNormalizado = normalizarTelefone(logInstanceId);
+      const numeroIntegracaoNormalizado = normalizarTelefone(numeroIntegracao);
+      
+      // Comparar com TODOS os campos possíveis
       const instanceMatch = 
+        // Comparação direta de IDs
         logInstanceId === integracaoFiltro.instance_id_provider ||
         logInstanceId === integracaoFiltro.nome_instancia ||
+        log.integration_id === integracaoFiltro.id ||
+        
+        // Comparação de números (normalizada)
         logInstanceId === numeroIntegracao ||
-        log.integration_id === integracaoFiltro.id;
+        logInstanceId === numeroIntegracaoComPais ||
+        numeroLogNormalizado === numeroIntegracaoNormalizado ||
+        
+        // Comparação com campos alternativos do payload
+        log.payload_instance === integracaoFiltro.instance_id_provider ||
+        log.payload_instanceId === integracaoFiltro.instance_id_provider ||
+        log.instance_identificado === integracaoFiltro.instance_id_provider ||
+        
+        // Match parcial de número (últimos 10 dígitos)
+        (numeroLogNormalizado.length >= 10 && numeroIntegracaoNormalizado.length >= 10 &&
+         numeroLogNormalizado.slice(-10) === numeroIntegracaoNormalizado.slice(-10));
+      
+      if (!instanceMatch) {
+        console.log('[DIAGNOSTICO] ❌ Log NÃO passou no filtro:', {
+          log_instance_id: logInstanceId,
+          log_integration_id: log.integration_id,
+          filtro_instance_id: integracaoFiltro.instance_id_provider,
+          filtro_numero: numeroIntegracaoComPais,
+          filtro_nome: integracaoFiltro.nome_instancia
+        });
+      }
       
       return instanceMatch;
     }
