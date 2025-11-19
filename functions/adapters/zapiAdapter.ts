@@ -39,7 +39,9 @@ export function extrairInstanceId(payload) {
  * Normaliza mensagem no formato Z-API direto (ReceivedCallback)
  */
 export function normalizarMensagemZAPI(payload) {
-  const numeroFormatado = payload.phone?.startsWith('+') ? payload.phone : `+${payload.phone}`;
+  // Z-API usa "telefone" no ReceivedCallback
+  const telefone = payload.telefone || payload.phone;
+  const numeroFormatado = telefone?.startsWith('+') ? telefone : `+${telefone}`;
   
   // Extrair conteúdo
   let conteudo = '[Mensagem vazia]';
@@ -74,7 +76,7 @@ export function normalizarMensagemZAPI(payload) {
     from: numeroFormatado,
     to: payload.connectedPhone ? `+${payload.connectedPhone}` : null,
     messageId: payload.messageId,
-    timestamp: payload.momment || Date.now(),
+    timestamp: payload.momento || payload.momment || Date.now(),
     content: conteudo,
     mediaType: mediaType,
     mediaTempUrl: mediaTempUrl,
