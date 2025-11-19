@@ -95,6 +95,16 @@ export default function DiagnosticoWebhookReal({ integracaoFiltro = null }) {
     setLoading(false);
   };
 
+  console.log('[DIAGNOSTICO] 🔍 Aplicando filtro. Total de logs:', logs.length);
+  if (integracaoFiltro) {
+    console.log('[DIAGNOSTICO] 🎯 Filtro ativo para integração:', {
+      id: integracaoFiltro.id,
+      nome: integracaoFiltro.nome_instancia,
+      instance_id_provider: integracaoFiltro.instance_id_provider,
+      numero: integracaoFiltro.numero_telefone
+    });
+  }
+  
   const logsFiltrados = logs.filter(log => {
     // Filtro por tipo (sucesso/erro)
     if (filtro === 'sucesso' && log.success !== true) return false;
@@ -149,14 +159,32 @@ export default function DiagnosticoWebhookReal({ integracaoFiltro = null }) {
     return true;
   });
   
-  // Debug do filtro
+  console.log('[DIAGNOSTICO] 📊 Resultado do filtro:', {
+    total_logs: logs.length,
+    logs_filtrados: logsFiltrados.length,
+    filtro_ativo: !!integracaoFiltro
+  });
+  
+  // Debug detalhado do filtro
   if (integracaoFiltro && logsFiltrados.length === 0 && logs.length > 0) {
-    console.log('[DIAGNOSTICO] 🚨 Nenhum log filtrado! Detalhes:', {
-      total_logs: logs.length,
-      instances_nos_logs: [...new Set(logs.map(l => l.instance_id))],
-      instance_id_filtro: integracaoFiltro.instance_id_provider,
-      nome_filtro: integracaoFiltro.nome_instancia,
-      numero_filtro: integracaoFiltro.numero_telefone
+    console.log('[DIAGNOSTICO] 🚨 NENHUM LOG PASSOU NO FILTRO!');
+    console.log('[DIAGNOSTICO] 📋 Instances nos logs:', [...new Set(logs.map(l => l.instance_id))]);
+    console.log('[DIAGNOSTICO] 🎯 Filtro buscando:', {
+      instance_id_provider: integracaoFiltro.instance_id_provider,
+      nome_instancia: integracaoFiltro.nome_instancia,
+      numero_telefone: integracaoFiltro.numero_telefone,
+      id: integracaoFiltro.id
+    });
+    
+    console.log('[DIAGNOSTICO] 🔬 Amostra de logs (primeiros 3):');
+    logs.slice(0, 3).forEach((log, idx) => {
+      console.log(`[DIAGNOSTICO]   Log ${idx + 1}:`, {
+        instance_id: log.instance_id,
+        integration_id: log.integration_id,
+        payload_instance: log.payload_instance,
+        payload_instanceId: log.payload_instanceId,
+        instance_identificado: log.instance_identificado
+      });
     });
   }
 
