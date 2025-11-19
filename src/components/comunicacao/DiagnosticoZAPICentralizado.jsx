@@ -1,4 +1,4 @@
-import { useState } from "react";
+import React, { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -9,7 +9,11 @@ import {
   Loader2,
   AlertTriangle,
   RefreshCw,
-  Activity
+  Phone,
+  Wifi,
+  Server,
+  Activity,
+  Copy
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -68,8 +72,9 @@ export default function DiagnosticoZAPICentralizado({ integracao, onRecarregar, 
         nome: 'Webhook',
         status: integracao.webhook_url ? 'sucesso' : 'aviso',
         mensagem: integracao.webhook_url 
-          ? `Configurado: ${integracao.webhook_url.substring(0, 50)}...` 
-          : 'URL do webhook não configurada'
+          ? integracao.webhook_url
+          : 'URL do webhook não configurada',
+        webhookUrl: integracao.webhook_url
       });
 
       setDiagnostico(resultado);
@@ -189,7 +194,29 @@ export default function DiagnosticoZAPICentralizado({ integracao, onRecarregar, 
                   {getStatusIcon(teste.status)}
                   <div className="flex-1">
                     <h4 className="font-semibold text-sm mb-1">{teste.nome}</h4>
-                    <p className="text-sm text-gray-700">{teste.mensagem}</p>
+                    {teste.webhookUrl ? (
+                      <div className="space-y-2">
+                        <div className="bg-white p-2 rounded border border-gray-300 flex items-center gap-2">
+                          <code className="text-xs text-gray-700 flex-1 break-all font-mono">
+                            {teste.webhookUrl}
+                          </code>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => {
+                              navigator.clipboard.writeText(teste.webhookUrl);
+                              toast.success("URL do webhook copiada!");
+                            }}
+                            className="flex-shrink-0 h-7 w-7 p-0"
+                          >
+                            <Copy className="w-3 h-3" />
+                          </Button>
+                        </div>
+                        <p className="text-xs text-green-700">✅ URL configurada e pronta para uso na Z-API</p>
+                      </div>
+                    ) : (
+                      <p className="text-sm text-gray-700">{teste.mensagem}</p>
+                    )}
                   </div>
                 </div>
               </div>
