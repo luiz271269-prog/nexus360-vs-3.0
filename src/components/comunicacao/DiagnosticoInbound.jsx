@@ -27,6 +27,7 @@ import GuiaConfiguracao from "./GuiaConfiguracao";
 import EstatisticasMensagens from "./EstatisticasMensagens";
 import TestadorTiposMidia from "./TestadorTiposMidia";
 import DiagnosticoWebhookReal from "./DiagnosticoWebhookReal";
+import TestadorConexoesMultiplas from "./TestadorConexoesMultiplas";
 
 export default function DiagnosticoInbound({ integracoes }) {
   const [logs, setLogs] = useState([]);
@@ -182,8 +183,12 @@ export default function DiagnosticoInbound({ integracoes }) {
       </Card>
 
       {/* NOVO: Tabs para organizar as ferramentas */}
-      <Tabs defaultValue="webhook-real" className="w-full">
-        <TabsList className="grid w-full grid-cols-4">
+      <Tabs defaultValue="testador-pro" className="w-full">
+        <TabsList className="grid w-full grid-cols-5">
+          <TabsTrigger value="testador-pro">
+            <Activity className="w-4 h-4 mr-2" />
+            Testador Profissional
+          </TabsTrigger>
           <TabsTrigger value="webhook-real">
             <Phone className="w-4 h-4 mr-2" />
             Mensagens Reais
@@ -201,6 +206,11 @@ export default function DiagnosticoInbound({ integracoes }) {
             Logs Completos
           </TabsTrigger>
         </TabsList>
+
+        {/* Aba 0: Testador Profissional */}
+        <TabsContent value="testador-pro">
+          <TestadorConexoesMultiplas integracoes={integracoes} />
+        </TabsContent>
 
         {/* Aba 1: Mensagens Reais - LAYOUT EM GRADE (2 COLUNAS) */}
         <TabsContent value="webhook-real">
