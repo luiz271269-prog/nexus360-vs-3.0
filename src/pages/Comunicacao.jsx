@@ -398,6 +398,7 @@ export default function Comunicacao() {
                       onSelecionarThread={handleSelecionarThread}
                       loading={loadingThreads}
                       usuarioAtual={usuario}
+                      integracoes={integracoes}
                     />
                   </div>
                 </div>
