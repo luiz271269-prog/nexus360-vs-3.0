@@ -334,10 +334,10 @@ async function processarMensagemRecebida(instance, payloadNormalizado, base44, c
       }
 
       // PASSO 2: BUSCAR WHATSAPP INTEGRATION (FUNÇÃO CENTRALIZADA)
-      console.log(`[WEBHOOK] 🔍 Buscando integração para instance: ${instance}`);
-      
+      console.log(`[WEBHOOK] 🔍 Buscando integração para instance: "${instance}"`);
+
       const integracao = await buscarIntegracaoPorInstance(instance, base44);
-      
+
       let integracaoId = null;
       if (integracao) {
         integracaoId = integracao.id;
@@ -345,7 +345,15 @@ async function processarMensagemRecebida(instance, payloadNormalizado, base44, c
           id: integracaoId,
           nome: integracao.nome_instancia,
           numero: integracao.numero_telefone,
-          instance_id: integracao.instance_id_provider
+          instance_id_provider: integracao.instance_id_provider
+        });
+
+        console.log(`[WEBHOOK] 📊 DIAGNÓSTICO - Comparação:`, {
+          instance_recebida: instance,
+          instance_id_db: integracao.instance_id_provider,
+          nome_instancia_db: integracao.nome_instancia,
+          match_exato: instance === integracao.instance_id_provider,
+          match_nome: instance === integracao.nome_instancia
         });
         
         // Atualizar estatísticas de recebimento
@@ -595,7 +603,19 @@ async function processarMensagemUpdate(payloadNormalizado, base44, corsHeaders) 
  * Busca integração por instance - PRIORIZA instance_id_provider
  */
 async function buscarIntegracaoPorInstance(instance, base44) {
-  if (!instance) return null;
+  if (!instance) {
+    console.log('[WEBHOOK] ⚠️ Nenhuma instance fornecida para busca');
+    return null;
+  }
+  
+  console.log(`[WEBHOOK] 🔎 Iniciando busca de integração para: "${instance}"`);
+  
+  // Listar TODAS as integrações para diagnóstico
+  const todasIntegracoes = await base44.entities.WhatsAppIntegration.list();
+  console.log(`[WEBHOOK] 📋 Total de integrações cadastradas: ${todasIntegracoes.length}`);
+  todasIntegracoes.forEach((int, idx) => {
+    console.log(`[WEBHOOK]   ${idx + 1}. ${int.nome_instancia} | instance_id: "${int.instance_id_provider}" | tel: ${int.numero_telefone}`);
+  });
   
   // PRIORIDADE 1: Buscar por instance_id_provider (mais confiável)
   let integracoes = await base44.entities.WhatsAppIntegration.filter({
@@ -603,9 +623,11 @@ async function buscarIntegracaoPorInstance(instance, base44) {
   });
   
   if (integracoes.length > 0) {
-    console.log('[WEBHOOK] ✅ Integração encontrada por instance_id_provider');
+    console.log(`[WEBHOOK] ✅ Integração encontrada por instance_id_provider: ${integracoes[0].nome_instancia}`);
     return integracoes[0];
   }
+  
+  console.log('[WEBHOOK] ⚠️ Nenhuma integração encontrada por instance_id_provider');
   
   // FALLBACK: Buscar por nome_instancia
   integracoes = await base44.entities.WhatsAppIntegration.filter({
@@ -613,10 +635,11 @@ async function buscarIntegracaoPorInstance(instance, base44) {
   });
   
   if (integracoes.length > 0) {
-    console.log('[WEBHOOK] ✅ Integração encontrada por nome_instancia');
+    console.log(`[WEBHOOK] ✅ Integração encontrada por nome_instancia: ${integracoes[0].nome_instancia}`);
     return integracoes[0];
   }
   
+  console.log('[WEBHOOK] ❌ NENHUMA INTEGRAÇÃO ENCONTRADA para instance:', instance);
   return null;
 }
 
