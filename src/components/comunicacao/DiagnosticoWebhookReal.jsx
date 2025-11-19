@@ -48,8 +48,9 @@ export default function DiagnosticoWebhookReal({ integracaoFiltro = null }) {
     setLoading(true);
     try {
       // ✅ BUSCAR LOGS DE AUDITORIA NORMALIZADOS (MAIS RECENTE)
-      const auditLogs = await base44.entities.ZapiPayloadNormalized.list('-created_date', 100);
+      const auditLogs = await base44.asServiceRole.entities.ZapiPayloadNormalized.list('-created_date', 100);
       console.log('[DIAGNOSTICO] 📊 Logs carregados:', auditLogs.length);
+      console.log('[DIAGNOSTICO] 📦 Primeiros 3 logs:', auditLogs.slice(0, 3));
       
       // Transformar para formato esperado
       const logsTransformados = auditLogs.map(audit => {
