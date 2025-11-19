@@ -58,11 +58,22 @@ Deno.serve(async (req) => {
     // ═══════════════════════════════════════════════════════════
     let evento;
     try {
-      evento = await req.json();
+      const rawBody = await req.text();
+      console.log('[WEBHOOK] 📥 Raw body recebido:', rawBody);
+      
+      if (!rawBody || rawBody.trim() === '') {
+        console.error('[WEBHOOK] ❌ Body vazio recebido');
+        return Response.json(
+          { success: false, error: 'Empty body' },
+          { status: 200, headers: corsHeaders }
+        );
+      }
+      
+      evento = JSON.parse(rawBody);
     } catch (e) {
-      console.error('[WEBHOOK] ❌ Payload JSON inválido:', e);
+      console.error('[WEBHOOK] ❌ Erro ao parsear JSON:', e.message);
       return Response.json(
-        { success: false, error: 'Invalid JSON payload' },
+        { success: false, error: 'Invalid JSON payload: ' + e.message },
         { status: 200, headers: corsHeaders }
       );
     }
