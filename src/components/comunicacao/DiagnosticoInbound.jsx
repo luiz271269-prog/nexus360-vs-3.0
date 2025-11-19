@@ -26,8 +26,7 @@ import { format } from "date-fns";
 import GuiaConfiguracao from "./GuiaConfiguracao";
 import EstatisticasMensagens from "./EstatisticasMensagens";
 import TestadorTiposMidia from "./TestadorTiposMidia";
-import DiagnosticoWebhookReal from "./DiagnosticoWebhookReal";
-import TestadorConexoesMultiplas from "./TestadorConexoesMultiplas";
+import DiagnosticoProfissionalZAPI from "./DiagnosticoProfissionalZAPI";
 
 export default function DiagnosticoInbound({ integracoes }) {
   const [logs, setLogs] = useState([]);
@@ -212,8 +211,8 @@ export default function DiagnosticoInbound({ integracoes }) {
         </CardContent>
       </Card>
 
-      {/* Layout em Grid Único - Sem Abas */}
-            <div className="grid grid-cols-12 gap-4">
+      {/* Sistema de Diagnóstico Profissional */}
+      <DiagnosticoProfissionalZAPI integracoes={integracoes} />
               {/* COLUNA ESQUERDA: Conexões (3 colunas) */}
               <div className="col-span-3 space-y-4">
                 <div className="sticky top-0 bg-white z-10 pb-3 border-b border-slate-200">
