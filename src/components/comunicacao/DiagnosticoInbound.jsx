@@ -85,6 +85,7 @@ export default function DiagnosticoInbound({ integracoes }) {
         audio: null
       };
 
+      console.log('[TESTE] 📤 URL do webhook:', webhookUrl);
       console.log('[TESTE] 📤 Enviando payload de teste (formato Z-API):', payloadTeste);
 
       const response = await fetch(webhookUrl, {
@@ -95,6 +96,7 @@ export default function DiagnosticoInbound({ integracoes }) {
         body: JSON.stringify(payloadTeste)
       });
 
+      console.log('[TESTE] 📥 Status da resposta:', response.status);
       const result = await response.json();
       console.log('[TESTE] 📥 Resposta do webhook:', result);
 
