@@ -63,18 +63,20 @@ Deno.serve(async (req) => {
       );
     }
 
-    const { event, instance, data } = evento;
-    const instanceExtraido = instance || extrairInstanceId(evento);
+    const { event, type, instance, instanceId, data } = evento;
+    const instanceExtraido = instance || instanceId || extrairInstanceId(evento);
+    const eventoTipo = event || type;
 
-    if (!event || !instanceExtraido) {
-      console.warn('[WEBHOOK] ⚠️ Campos obrigatórios faltando (event ou instance)');
+    if (!eventoTipo || !instanceExtraido) {
+      console.warn('[WEBHOOK] ⚠️ Campos obrigatórios faltando (event/type ou instance/instanceId)');
+      console.warn('[WEBHOOK] Payload recebido:', JSON.stringify(evento, null, 2));
       return Response.json(
         { success: true, ignored: 'missing_required_fields' },
         { status: 200, headers: corsHeaders }
       );
     }
 
-    console.log(`[WEBHOOK] 📋 Evento: ${event} | Instância: ${instanceExtraido}`);
+    console.log(`[WEBHOOK] 📋 Evento: ${eventoTipo} | Instância: ${instanceExtraido}`);
     
     // ═══════════════════════════════════════════════════════════
     // 3. PERSISTIR PAYLOAD BRUTO PARA AUDITORIA
@@ -86,7 +88,7 @@ Deno.serve(async (req) => {
       const auditLog = await base44.entities.ZapiPayloadNormalized.create({
         payload_bruto: evento,
         instance_identificado: instanceExtraido,
-        evento: event,
+        evento: eventoTipo,
         timestamp_recebido: timestampRecebido,
         sucesso_processamento: false // Será atualizado ao final
       });
