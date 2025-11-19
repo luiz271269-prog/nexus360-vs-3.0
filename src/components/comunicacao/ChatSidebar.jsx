@@ -199,18 +199,25 @@ export default function ChatSidebar({ threads, threadAtiva, onSelecionarThread, 
                 )}
               </div>
               
-              {thread.assigned_user_name && (
-                <p className="text-xs text-slate-500 mt-1 flex items-center gap-1">
-                  <User className="w-3 h-3 text-slate-400" />
-                  {isAssignedToMe ? 'Atribuída a mim' : `${thread.assigned_user_name}`}
-                </p>
-              )}
-              {isUnassigned && (
-                <p className="text-xs text-red-500 mt-1 flex items-center gap-1 font-medium">
-                  <AlertCircle className="w-3 h-3 text-red-400" />
-                  Não Atribuída
-                </p>
-              )}
+              <div className="flex items-center gap-2 mt-1 flex-wrap">
+                {thread.assigned_user_name && (
+                  <p className="text-xs text-slate-500 flex items-center gap-1">
+                    <User className="w-3 h-3 text-slate-400" />
+                    {isAssignedToMe ? 'Atribuída a mim' : `${thread.assigned_user_name}`}
+                  </p>
+                )}
+                {isUnassigned && (
+                  <p className="text-xs text-red-500 flex items-center gap-1 font-medium">
+                    <AlertCircle className="w-3 h-3 text-red-400" />
+                    Não Atribuída
+                  </p>
+                )}
+                {getIntegracaoNome(thread) && (
+                  <Badge variant="outline" className="text-xs py-0 px-1.5 h-5 bg-green-50 text-green-700 border-green-200">
+                    {getIntegracaoNome(thread)}
+                  </Badge>
+                )}
+              </div>
             </div>
           </motion.div>
         );
