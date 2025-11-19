@@ -305,6 +305,25 @@ export default function DiagnosticoInbound({ integracoes }) {
 
         {/* Aba 4: Logs Completos (Mantém a visualização original) */}
         <TabsContent value="logs">
+          {/* 🆕 LOGS EM TEMPO REAL DO WEBHOOK */}
+          <Card className="mb-6 border-2 border-purple-300 bg-purple-50">
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <CardTitle className="flex items-center gap-2">
+                  <Activity className="w-5 h-5 text-purple-600 animate-pulse" />
+                  Logs do Webhook em Tempo Real
+                </CardTitle>
+                <Button onClick={recarregarDados} variant="outline" size="sm">
+                  <RefreshCw className={`w-4 h-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
+                  Atualizar
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <DiagnosticoWebhookReal integracaoFiltro={null} />
+            </CardContent>
+          </Card>
+
           {/* Guia Passo-a-Passo */}
           <GuiaConfiguracao etapaAtual={1} />
 
