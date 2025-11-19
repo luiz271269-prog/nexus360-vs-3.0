@@ -1,4 +1,4 @@
-import { createClientFromRequest } from 'npm:@base44/sdk@0.7.1';
+import { createClientFromRequest } from 'npm:@base44/sdk@0.8.4';
 import { 
   normalizarPayloadZAPI, 
   validarPayloadNormalizado,
@@ -41,11 +41,7 @@ Deno.serve(async (req) => {
     // ═══════════════════════════════════════════════════════════
     // 1. INICIALIZAR BASE44 COM SERVICE ROLE
     // ═══════════════════════════════════════════════════════════
-    const { createClient } = await import('npm:@base44/sdk@0.7.1');
-    const base44 = createClient({
-      appId: Deno.env.get('BASE44_APP_ID'),
-      apiKey: Deno.env.get('BASE44_SERVICE_ROLE_KEY')
-    });
+    const base44 = createClientFromRequest(req);
 
     console.log('[WEBHOOK] ✅ Base44 inicializado (Service Role)');
 
