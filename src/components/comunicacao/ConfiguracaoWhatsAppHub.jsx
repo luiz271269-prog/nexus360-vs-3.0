@@ -1,5 +1,4 @@
-
-import { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -114,9 +113,8 @@ export default function ConfiguracaoWhatsAppHub({ integracoes, onRecarregar }) {
       const tokenConta = novaIntegracao.zapi_client_token_conta.trim();
       const baseUrl = novaIntegracao.zapi_base_url.trim();
 
-      // CONSTRUIR URL DO WEBHOOK
-      const appUrl = window.location.origin;
-      const webhookUrl = `${appUrl}/api/functions/inboundWebhook?provider=z_api&instance=${instanceId}`;
+      // CONSTRUIR URL DO WEBHOOK CORRETO
+      const webhookUrl = `https://nexus360-pro.base44.app/api/functions/whatsappWebhook`;
 
       console.log('[CONFIG] 🔗 URL do Webhook:', webhookUrl);
 
