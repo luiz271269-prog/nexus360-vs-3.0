@@ -270,14 +270,65 @@ export default function DiagnosticoWebhookReal({ integracaoFiltro = null }) {
             <span className="ml-2 text-slate-600">Carregando logs...</span>
           </div>
         ) : logsFiltrados.length === 0 ? (
-          <Alert>
-            <AlertTriangle className="h-4 w-4" />
-            <AlertDescription>
-              {integracaoFiltro 
-                ? `Nenhuma mensagem recebida para ${integracaoFiltro.nome_instancia}. Envie uma mensagem do seu WhatsApp para testar.`
-                : 'Nenhuma mensagem recebida ainda. Envie uma mensagem do seu WhatsApp para testar.'}
-            </AlertDescription>
-          </Alert>
+          <div className="space-y-4">
+            <Alert>
+              <AlertTriangle className="h-4 w-4" />
+              <AlertDescription>
+                {integracaoFiltro 
+                  ? `Nenhuma mensagem recebida para ${integracaoFiltro.nome_instancia}. Envie uma mensagem do seu WhatsApp para testar.`
+                  : 'Nenhuma mensagem recebida ainda. Envie uma mensagem do seu WhatsApp para testar.'}
+              </AlertDescription>
+            </Alert>
+            
+            {/* 🔍 DEBUG VISUAL */}
+            {integracaoFiltro && logs.length > 0 && (
+              <div className="bg-yellow-50 border-2 border-yellow-400 rounded-lg p-4">
+                <h4 className="font-bold text-yellow-900 mb-3 flex items-center gap-2">
+                  🔍 Debug: Por que não aparecem mensagens?
+                </h4>
+                
+                <div className="space-y-3 text-sm">
+                  <div className="bg-white rounded p-3 border border-yellow-200">
+                    <p className="font-semibold text-yellow-900 mb-2">📱 Integração Selecionada:</p>
+                    <div className="font-mono text-xs space-y-1 text-slate-700">
+                      <p><strong>ID:</strong> {integracaoFiltro.id}</p>
+                      <p><strong>Nome:</strong> {integracaoFiltro.nome_instancia}</p>
+                      <p className="bg-yellow-100 p-1 rounded"><strong>instance_id_provider:</strong> {integracaoFiltro.instance_id_provider || '❌ (VAZIO - PROBLEMA!)'}</p>
+                      <p><strong>Telefone:</strong> {integracaoFiltro.numero_telefone}</p>
+                    </div>
+                  </div>
+                  
+                  <div className="bg-white rounded p-3 border border-yellow-200">
+                    <p className="font-semibold text-yellow-900 mb-2">📊 Mensagens Recebidas no Webhook ({logs.length} total):</p>
+                    <div className="font-mono text-xs space-y-2 max-h-64 overflow-y-auto">
+                      {logs.slice(0, 5).map((log, idx) => (
+                        <div key={idx} className="p-2 bg-slate-50 rounded border border-slate-200">
+                          <p className="font-bold text-slate-900">#{idx + 1} - {log.event_type}</p>
+                          <p className="bg-blue-100 p-1 rounded mt-1"><strong>instance_id no log:</strong> {log.instance_id || '(vazio)'}</p>
+                          <p><strong>integration_id:</strong> {log.integration_id || '(vazio)'}</p>
+                          <p><strong>Telefone:</strong> {log.raw_data?.telefone || log.raw_data?.phone || '(vazio)'}</p>
+                          <p className="text-[10px] text-slate-500 mt-1">{formatarTimestamp(log.timestamp)}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                  
+                  <div className="bg-red-100 rounded p-3 border-2 border-red-400">
+                    <p className="font-bold text-red-900 mb-2">❌ Problema:</p>
+                    <p className="text-red-800 text-xs leading-relaxed">
+                      O <code className="bg-red-200 px-1 rounded font-bold">instance_id_provider</code> da integração 
+                      ({integracaoFiltro.instance_id_provider || 'VAZIO'}) não está batendo com 
+                      o <code className="bg-red-200 px-1 rounded font-bold">instance_id</code> dos logs recebidos.
+                    </p>
+                    <p className="text-red-900 text-xs mt-3 font-bold">
+                      ✅ SOLUÇÃO: Vá em "Configurações" → Edite "{integracaoFiltro.nome_instancia}" → 
+                      Cole o valor correto do "Instance ID" que aparece nos logs acima.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
         ) : (
           <div className="space-y-2">
             {logsFiltrados.map((log) => (
