@@ -69,10 +69,20 @@ Deno.serve(async (req) => {
 
     // Log das chaves do payload para diagnóstico
     console.log('[WEBHOOK] 📋 Chaves do payload:', Object.keys(evento));
+    console.log('[WEBHOOK] 📦 Payload completo:', JSON.stringify(evento, null, 2));
 
     // Extração robusta de evento e instância, cobrindo variações comuns
     const eventoTipo = evento.event || evento.type || evento.event_type || evento.eventName;
     const instanceExtraido = evento.instance || evento.instanceId || evento.instance_id || extrairInstanceId(evento);
+
+    console.log('[WEBHOOK] 🔍 Extração tentada:', {
+      eventoTipo,
+      instanceExtraido,
+      evento_event: evento.event,
+      evento_type: evento.type,
+      evento_instance: evento.instance,
+      evento_instanceId: evento.instanceId
+    });
 
     if (!eventoTipo || !instanceExtraido) {
       console.warn('[WEBHOOK] ⚠️ Campos obrigatórios faltando (event/type ou instance/instanceId)');
