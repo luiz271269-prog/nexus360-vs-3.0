@@ -86,8 +86,6 @@ export default function TestadorConexoesMultiplas({ integracoes }) {
       
       const payloadTeste = {
         instanceId: integracao.instance_id_provider,
-        instance: integracao.instance_id_provider, // ✅ ADICIONAR instance também
-        event: "ReceivedCallback", // ✅ USAR event em vez de type
         type: "ReceivedCallback",
         phone: "5548999999999",
         momment: Date.now(),
