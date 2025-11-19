@@ -18,6 +18,7 @@ import {
   Mic
 } from "lucide-react";
 import { format } from "date-fns";
+import AnalisadorLogsWebhook from "./AnalisadorLogsWebhook";
 
 export default function DiagnosticoWebhookReal({ integracaoFiltro = null }) {
   const [logs, setLogs] = useState([]);
@@ -264,6 +265,11 @@ export default function DiagnosticoWebhookReal({ integracaoFiltro = null }) {
         )}
       </CardHeader>
       <CardContent>
+        {/* Analisador de Sistema - Acima dos Logs */}
+        <div className="mb-6">
+          <AnalisadorLogsWebhook integracoes={integracoes} />
+        </div>
+
         {loading ? (
           <div className="flex items-center justify-center py-8">
             <RefreshCw className="w-6 h-6 animate-spin text-blue-500" />
