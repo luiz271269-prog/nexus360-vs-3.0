@@ -70,26 +70,22 @@ export default function DiagnosticoInbound({ integracoes }) {
       const appUrl = window.location.origin;
       const webhookUrl = `${appUrl}/api/functions/whatsappWebhook`;
 
+      // ✅ PAYLOAD NO FORMATO REAL DO Z-API
       const payloadTeste = {
-        event: "messages.upsert",
-        instance: integracao.nome_instancia,
-        data: {
-          messages: [{
-            key: {
-              remoteJid: "554899999999@s.whatsapp.net",
-              id: "TEST_MESSAGE_" + Date.now(),
-              fromMe: false
-            },
-            pushName: "Teste VendaPro",
-            message: {
-              conversation: `🧪 Teste de recebimento para ${integracao.nome_instancia} (${integracao.numero_telefone})`
-            },
-            messageTimestamp: Math.floor(Date.now() / 1000)
-          }]
-        }
+        instanceId: integracao.instance_id_provider || integracao.nome_instancia,
+        type: "ReceivedCallback",
+        phone: "554899999999",
+        momment: Date.now(),
+        text: {
+          message: `🧪 Mensagem de TESTE para ${integracao.nome_instancia} - ${new Date().toLocaleString('pt-BR')}`
+        },
+        image: null,
+        video: null,
+        document: null,
+        audio: null
       };
 
-      console.log('[TESTE] 📤 Enviando payload de teste:', payloadTeste);
+      console.log('[TESTE] 📤 Enviando payload de teste (formato Z-API):', payloadTeste);
 
       const response = await fetch(webhookUrl, {
         method: 'POST',
@@ -103,13 +99,13 @@ export default function DiagnosticoInbound({ integracoes }) {
       console.log('[TESTE] 📥 Resposta do webhook:', result);
 
       if (response.ok && result.success) {
-        toast.success(`✅ Teste para ${integracao.nome_instancia} processado!`, {
-          description: `Contact: ${result.contact_id}, Thread: ${result.thread_id}`
+        toast.success(`✅ Teste enviado para ${integracao.nome_instancia}!`, {
+          description: 'Verifique a aba "Mensagens Reais" para ver o resultado'
         });
         setTimeout(() => recarregarDados(), 2000);
       } else {
-        toast.error(`❌ Erro no teste de ${integracao.nome_instancia}`, {
-          description: result.error || response.statusText
+        toast.warning(`⚠️ Teste processado com avisos`, {
+          description: result.ignored || result.error || 'Verifique os logs da função whatsappWebhook'
         });
       }
     } catch (error) {
