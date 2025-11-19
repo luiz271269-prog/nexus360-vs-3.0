@@ -1,4 +1,4 @@
-import { createClientFromRequest } from 'npm:@base44/sdk@0.7.1';
+import { createClientFromRequest } from 'npm:@base44/sdk@0.8.4';
 import { FluxoController } from './preAtendimento/fluxoController.js';
 import { RetryHandler, circuitBreakers } from './lib/retryHandler.js';
 import { ErrorHandler } from './lib/errorHandler.js';
@@ -30,7 +30,8 @@ Deno.serve(async (req) => {
 
     console.log('[PRE-ATENDIMENTO] 📥 Payload recebido:', payload);
 
-    const { thread_id, contact_id, action, user_message, whatsapp_integration_id } = payload;
+    const { thread_id, contact_id, mensagem_cliente, whatsapp_integration_id } = payload;
+    const user_message = mensagem_cliente; // Alias para compatibilidade
 
     if (!thread_id || !contact_id) {
       throw new Error('thread_id e contact_id são obrigatórios');
