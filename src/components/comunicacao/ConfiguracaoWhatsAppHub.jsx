@@ -460,9 +460,35 @@ export default function ConfiguracaoWhatsAppHub({ integracoes, onRecarregar }) {
           </DialogHeader>
 
           <div className="space-y-4 mt-4">
+            {/* DETECÇÃO AUTOMÁTICA DE AMBIENTE */}
+            {(() => {
+              const { ambiente, isProduction, webhookUrl, alertMessage } = detectarAmbiente();
+              return (
+                <Alert className={isProduction ? "bg-green-50 border-green-200" : "bg-orange-50 border-orange-200"}>
+                  <Zap className={`h-4 w-4 ${isProduction ? 'text-green-600' : 'text-orange-600'}`} />
+                  <AlertTitle className={isProduction ? "text-green-900" : "text-orange-900"}>
+                    {isProduction ? '🟢 Ambiente de PRODUÇÃO' : '🟠 Ambiente de TESTE/PREVIEW'}
+                  </AlertTitle>
+                  <AlertDescription className={`${isProduction ? 'text-green-800' : 'text-orange-800'} text-sm`}>
+                    <div className="space-y-2">
+                      <p><strong>URL do Webhook que será configurada:</strong></p>
+                      <code className="bg-white px-2 py-1 rounded block text-xs break-all">
+                        {webhookUrl}
+                      </code>
+                      {!isProduction && (
+                        <p className="text-orange-700 font-bold mt-2">
+                          ⚠️ Esta URL é temporária e NÃO deve ser usada em produção!
+                        </p>
+                      )}
+                    </div>
+                  </AlertDescription>
+                </Alert>
+              );
+            })()}
+
             <Alert className="bg-blue-50 border-blue-200">
               <Zap className="h-4 w-4 text-blue-600" />
-              <AlertTitle className="text-blue-900">📋 Onde encontrar as credenciais</AlertTitle>
+              <AlertTitle className="text-blue-900">📋 Onde encontrar as credenciais da Z-API</AlertTitle>
               <AlertDescription className="text-blue-800 text-sm">
                 <ol className="list-decimal ml-4 mt-2 space-y-1">
                   <li>Acesse <a href="https://www.z-api.io" target="_blank" rel="noopener noreferrer" className="underline font-semibold">https://www.z-api.io</a></li>
