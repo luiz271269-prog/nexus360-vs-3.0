@@ -77,6 +77,8 @@ export default function ChatWindow({
   const [mostrarSugestor, setMostrarSugestor] = useState(false);
   const [ultimaMensagemCliente, setUltimaMensagemCliente] = useState(null);
 
+  const [canalSelecionado, setCanalSelecionado] = useState(null);
+
   const [arquivoSelecionado, setArquivoSelecionado] = useState(null);
   const [legendaArquivo, setLegendaArquivo] = useState("");
   const [mostrarPreviewArquivo, setMostrarPreviewArquivo] = useState(false);
@@ -139,6 +141,16 @@ export default function ChatWindow({
 
     carregarContato();
   }, [thread?.contact_id]);
+
+  // Inicializar canal selecionado com o da thread
+  useEffect(() => {
+    if (thread?.whatsapp_integration_id && integracoes.length > 0) {
+      const integracaoAtual = integracoes.find(i => i.id === thread.whatsapp_integration_id);
+      if (integracaoAtual) {
+        setCanalSelecionado(integracaoAtual.id);
+      }
+    }
+  }, [thread?.whatsapp_integration_id, integracoes]);
 
   useEffect(() => {
     if (mostrarModalAtribuicao && atendentes.length === 0) {
@@ -333,11 +345,13 @@ export default function ChatWindow({
 
       const audioUrl = uploadResponse.file_url;
 
+      const integrationIdParaUso = canalSelecionado || thread.whatsapp_integration_id;
+      
       const dadosEnvio = {
-        integration_id: thread.whatsapp_integration_id,
+        integration_id: integrationIdParaUso,
         numero_destino: telefone,
         audio_url: audioUrl,
-        media_type: 'audio' // Adiciona media_type para consistência
+        media_type: 'audio'
       };
 
       if (mensagemResposta?.whatsapp_message_id) {
@@ -433,8 +447,16 @@ export default function ChatWindow({
       }
 
       const mensagemParaEnviar = mensagemTexto.trim();
+      const integrationIdParaUso = canalSelecionado || thread.whatsapp_integration_id;
+      
+      console.log('[CHAT] 📤 Enviando com integração:', {
+        thread_integration: thread.whatsapp_integration_id,
+        canal_selecionado: canalSelecionado,
+        integration_id_usado: integrationIdParaUso
+      });
+      
       const dadosEnvio = {
-        integration_id: thread.whatsapp_integration_id,
+        integration_id: integrationIdParaUso,
         numero_destino: telefone,
         mensagem: mensagemParaEnviar
       };
@@ -706,8 +728,10 @@ export default function ChatWindow({
       const fileUrl = uploadResponse.file_url;
       console.log('[CHAT] ✅ Arquivo uploaded:', fileUrl);
 
+      const integrationIdParaUso = canalSelecionado || thread.whatsapp_integration_id;
+      
       const dadosEnvio = {
-        integration_id: thread.whatsapp_integration_id,
+        integration_id: integrationIdParaUso,
         numero_destino: telefone,
         media_type: mediaType,
         media_caption: legendaArquivo || ''
@@ -897,8 +921,10 @@ export default function ChatWindow({
       const fileUrl = uploadResponse.file_url;
       console.log('[CHAT] ✅ Arquivo uploaded:', fileUrl);
 
+      const integrationIdParaUso = canalSelecionado || thread.whatsapp_integration_id;
+      
       const dadosEnvio = {
-        integration_id: thread.whatsapp_integration_id,
+        integration_id: integrationIdParaUso,
         numero_destino: telefone,
         media_type: mediaType,
         media_caption: ''
@@ -1536,6 +1562,24 @@ export default function ChatWindow({
       )}
 
       <form onSubmit={handleEnviar} className="p-4 border-t bg-white flex-shrink-0">
+        {/* Seletor de Canal WhatsApp */}
+        {integracoes.length > 1 && (
+          <div className="mb-2 flex items-center gap-2">
+            <label className="text-xs font-medium text-slate-600">Enviar por:</label>
+            <select
+              value={canalSelecionado || thread.whatsapp_integration_id || ''}
+              onChange={(e) => setCanalSelecionado(e.target.value)}
+              className="text-xs px-2 py-1 border border-slate-300 rounded bg-white"
+            >
+              {integracoes.map(int => (
+                <option key={int.id} value={int.id}>
+                  📱 {int.nome_instancia} ({int.numero_telefone})
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
+        
         <div className="flex items-end gap-2">
           <input
             ref={fileInputRef}
