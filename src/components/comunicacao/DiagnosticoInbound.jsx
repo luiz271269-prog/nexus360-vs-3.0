@@ -68,8 +68,8 @@ export default function DiagnosticoInbound({ integracoes }) {
   const enviarMensagemTeste = async (integracao) => {
     setEnviandoTeste(integracao.id);
     try {
-      const appUrl = window.location.origin;
-      const webhookUrl = `${appUrl}/api/functions/whatsappWebhook`;
+      // ✅ BUSCAR URL DO WEBHOOK DA INTEGRAÇÃO
+      const webhookUrl = integracao.webhook_url || `${window.location.origin}/api/functions/whatsappWebhook`;
 
       // ✅ PAYLOAD NO FORMATO REAL DO Z-API
       const payloadTeste = {
@@ -396,12 +396,13 @@ export default function DiagnosticoInbound({ integracoes }) {
                       </label>
                       <div className="bg-white p-3 rounded-lg border border-blue-300 flex items-center gap-2">
                         <code className="text-sm text-blue-800 flex-1 break-all font-mono">
-                          {window.location.origin}/api/functions/whatsappWebhook
+                          {integracao.webhook_url || `${window.location.origin}/api/functions/whatsappWebhook`}
                         </code>
                         <Button
                           size="sm"
                           onClick={() => {
-                            navigator.clipboard.writeText(`${window.location.origin}/api/functions/whatsappWebhook`);
+                            const url = integracao.webhook_url || `${window.location.origin}/api/functions/whatsappWebhook`;
+                            navigator.clipboard.writeText(url);
                             toast.success("URL do webhook copiada!");
                           }}
                           className="bg-blue-500 hover:bg-blue-600 flex-shrink-0"
