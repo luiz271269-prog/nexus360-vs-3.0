@@ -51,21 +51,34 @@ export default function DiagnosticoWebhookReal({ integracaoFiltro = null }) {
       console.log('[DIAGNOSTICO] 📊 Logs carregados:', auditLogs.length);
       
       // Transformar para formato esperado
-      const logsTransformados = auditLogs.map(audit => ({
-        id: audit.id,
-        timestamp: audit.timestamp_recebido || audit.created_date,
-        event_type: audit.evento || 'unknown',
-        instance_id: audit.instance_identificado,
-        success: audit.sucesso_processamento,
-        processed: true,
-        raw_data: audit.payload_bruto || {},
-        result: audit.sucesso_processamento ? { processed: true } : null,
-        error: audit.erro_detalhes || null,
-        processing_time_ms: null
-      }));
+      const logsTransformados = auditLogs.map(audit => {
+        const payload = audit.payload_bruto || {};
+        const instanceExtraido = payload.instanceId || payload.instance || audit.instance_identificado;
+        
+        return {
+          id: audit.id,
+          timestamp: audit.timestamp_recebido || audit.created_date,
+          event_type: audit.evento || 'unknown',
+          instance_id: instanceExtraido,
+          success: audit.sucesso_processamento,
+          processed: true,
+          raw_data: payload,
+          result: audit.sucesso_processamento ? { processed: true } : null,
+          error: audit.erro_detalhes || null,
+          processing_time_ms: null,
+          integration_id: audit.integration_id
+        };
+      });
       
       setLogs(logsTransformados);
       console.log('[DIAGNOSTICO] ✅ Logs transformados:', logsTransformados.length);
+      if (integracaoFiltro) {
+        console.log('[DIAGNOSTICO] 🔍 Filtrando por integração:', {
+          nome: integracaoFiltro.nome_instancia,
+          instance_id_provider: integracaoFiltro.instance_id_provider,
+          numero: integracaoFiltro.numero_telefone
+        });
+      }
     } catch (error) {
       console.error('[DIAGNOSTICO] ❌ Erro ao carregar logs:', error);
     }
@@ -77,33 +90,34 @@ export default function DiagnosticoWebhookReal({ integracaoFiltro = null }) {
     if (filtro === 'sucesso' && log.success !== true) return false;
     if (filtro === 'erro' && log.success !== false) return false;
     
-    // ✅ FILTRO POR INTEGRAÇÃO - BUSCA NO PAYLOAD BRUTO TAMBÉM
+    // ✅ FILTRO POR INTEGRAÇÃO - COMPARAÇÃO ROBUSTA
     if (integracaoFiltro) {
-      const payloadInstance = log.raw_data?.instanceId || log.raw_data?.instance;
       const logInstanceId = log.instance_id;
+      const numeroIntegracao = integracaoFiltro.numero_telefone?.replace(/\D/g, '');
       
-      // Comparar com múltiplos campos da integração
+      // Comparar com múltiplos campos possíveis
       const instanceMatch = 
         logInstanceId === integracaoFiltro.instance_id_provider ||
         logInstanceId === integracaoFiltro.nome_instancia ||
-        logInstanceId === integracaoFiltro.numero_telefone?.replace(/\D/g, '') ||
-        payloadInstance === integracaoFiltro.instance_id_provider ||
-        payloadInstance === integracaoFiltro.nome_instancia;
+        logInstanceId === numeroIntegracao ||
+        log.integration_id === integracaoFiltro.id;
       
-      if (!instanceMatch) {
-        console.log('[DIAGNOSTICO] ⚠️ Log não corresponde ao filtro:', {
-          log_instance_id: logInstanceId,
-          payload_instance: payloadInstance,
-          integracao_instance_id: integracaoFiltro.instance_id_provider,
-          integracao_nome: integracaoFiltro.nome_instancia,
-          integracao_numero: integracaoFiltro.numero_telefone
-        });
-      }
       return instanceMatch;
     }
     
     return true;
   });
+  
+  // Debug do filtro
+  if (integracaoFiltro && logsFiltrados.length === 0 && logs.length > 0) {
+    console.log('[DIAGNOSTICO] 🚨 Nenhum log filtrado! Detalhes:', {
+      total_logs: logs.length,
+      instances_nos_logs: [...new Set(logs.map(l => l.instance_id))],
+      instance_id_filtro: integracaoFiltro.instance_id_provider,
+      nome_filtro: integracaoFiltro.nome_instancia,
+      numero_filtro: integracaoFiltro.numero_telefone
+    });
+  }
 
   const getIconeTipoMensagem = (log) => {
     if (log.event_type === 'MessageStatusCallback') {
