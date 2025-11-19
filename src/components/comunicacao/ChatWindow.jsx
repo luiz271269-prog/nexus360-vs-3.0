@@ -88,9 +88,23 @@ export default function ChatWindow({
   const unreadSeparatorRef = useRef(null);
 
   const permissoes = usuario?.permissoes_comunicacao || {};
-  const podeEnviarMensagens = permissoes.pode_enviar_mensagens !== false;
-  const podeEnviarMidias = permissoes.pode_enviar_midias !== false;
-  const podeEnviarAudios = permissoes.pode_enviar_audios !== false;
+  
+  // ✅ VERIFICAR PERMISSÕES ESPECÍFICAS DA INSTÂNCIA
+  const getPermissaoInstancia = (permissionKey) => {
+    if (!thread?.whatsapp_integration_id || !usuario) return true; // Sem restrições se não tiver thread
+    if (usuario.role === 'admin') return true; // Admin sempre pode tudo
+    
+    const whatsappPerms = usuario.whatsapp_permissions || [];
+    if (whatsappPerms.length === 0) return true; // Sem restrições configuradas
+    
+    const perm = whatsappPerms.find(p => p.integration_id === thread.whatsapp_integration_id);
+    return perm ? perm[permissionKey] : false;
+  };
+  
+  const podeEnviarPorInstancia = getPermissaoInstancia('can_send');
+  const podeEnviarMensagens = permissoes.pode_enviar_mensagens !== false && podeEnviarPorInstancia;
+  const podeEnviarMidias = permissoes.pode_enviar_midias !== false && podeEnviarPorInstancia;
+  const podeEnviarAudios = permissoes.pode_enviar_audios !== false && podeEnviarPorInstancia;
   const podeApagarMensagens = permissoes.pode_apagar_mensagens === true;
   const podeTransferirConversas = permissoes.pode_transferir_conversas !== false;
 

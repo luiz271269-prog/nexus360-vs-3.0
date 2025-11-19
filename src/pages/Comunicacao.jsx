@@ -136,12 +136,29 @@ export default function Comunicacao() {
     retry: 2
   });
 
-  const { data: integracoes = [] } = useQuery({
+  const { data: todasIntegracoes = [] } = useQuery({
     queryKey: ['integracoes'],
     queryFn: () => base44.entities.WhatsAppIntegration.list(),
     staleTime: 2 * 60 * 1000,
     retry: 2
   });
+
+  // Filtrar integrações baseado nas permissões do usuário
+  const integracoes = React.useMemo(() => {
+    if (!usuario) return [];
+    
+    // Admin pode ver todas
+    if (usuario.role === 'admin') return todasIntegracoes;
+    
+    // Filtrar por whatsapp_permissions
+    const whatsappPerms = usuario.whatsapp_permissions || [];
+    if (whatsappPerms.length === 0) return todasIntegracoes; // Sem restrições configuradas = acesso total
+    
+    return todasIntegracoes.filter(integracao => {
+      const perm = whatsappPerms.find(p => p.integration_id === integracao.id);
+      return perm ? perm.can_view : false;
+    });
+  }, [todasIntegracoes, usuario]);
 
   const { data: atendentes = [] } = useQuery({
     queryKey: ['atendentes'],
@@ -240,6 +257,19 @@ export default function Comunicacao() {
   const threadsFiltradas = threads.filter((thread) => {
     const contato = contatos.find((c) => c.id === thread.contact_id);
     if (!contato) return false;
+
+    // ✅ FILTRO POR PERMISSÕES DE INSTÂNCIA DO USUÁRIO
+    if (thread.whatsapp_integration_id && usuario) {
+      const whatsappPerms = usuario.whatsapp_permissions || [];
+      
+      // Admin sempre pode ver todas
+      if (usuario.role !== 'admin' && whatsappPerms.length > 0) {
+        const perm = whatsappPerms.find(p => p.integration_id === thread.whatsapp_integration_id);
+        if (!perm || !perm.can_view) {
+          return false; // Usuário não tem permissão para ver threads desta instância
+        }
+      }
+    }
 
     // ✅ FILTRO POR CANAL WHATSAPP (MULTI-INSTÂNCIA)
     if (selectedIntegrationId && selectedIntegrationId !== 'all') {
