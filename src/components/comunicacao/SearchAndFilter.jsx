@@ -1,8 +1,9 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
-import { Search, UserPlus, User, Users, AlertCircle } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
+import { Search, UserPlus, User, Users, AlertCircle, Phone } from 'lucide-react';
 import { normalizarTelefone } from '../lib/phoneUtils';
 
 export default function SearchAndFilter({
@@ -16,7 +17,10 @@ export default function SearchAndFilter({
   isManager,
   novoContatoTelefone,
   onNovoContatoTelefoneChange,
-  onCreateContact
+  onCreateContact,
+  integracoes = [],
+  selectedIntegrationId,
+  onSelectedIntegrationChange
 }) {
   // ✅ RESTAURADO: Detectar telefone automaticamente
   useEffect(() => {
@@ -128,6 +132,40 @@ export default function SearchAndFilter({
             ))}
           </SelectContent>
         </Select>
+      )}
+
+      {/* 🆕 FILTRO POR CANAL WHATSAPP - GRADE DE BADGES */}
+      {integracoes.length > 1 && (
+        <div className="w-full pt-2 border-t border-slate-200">
+          <label className="text-xs text-slate-600 mb-2 block font-medium">Filtrar por canal:</label>
+          <div className="flex flex-wrap gap-2">
+            <Badge
+              onClick={() => onSelectedIntegrationChange('all')}
+              className={`cursor-pointer transition-all ${
+                !selectedIntegrationId || selectedIntegrationId === 'all'
+                  ? 'bg-blue-600 text-white hover:bg-blue-700'
+                  : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+              }`}
+            >
+              <Phone className="w-3 h-3 mr-1" />
+              Todos
+            </Badge>
+            {integracoes.map((integracao) => (
+              <Badge
+                key={integracao.id}
+                onClick={() => onSelectedIntegrationChange(integracao.id)}
+                className={`cursor-pointer transition-all ${
+                  selectedIntegrationId === integracao.id
+                    ? 'bg-green-600 text-white hover:bg-green-700'
+                    : 'bg-green-50 text-green-700 border border-green-200 hover:bg-green-100'
+                }`}
+                title={`${integracao.numero_telefone}\n${integracao.status === 'conectado' ? '🟢 Conectado' : '🔴 Desconectado'}`}
+              >
+                📱 {integracao.nome_instancia}
+              </Badge>
+            ))}
+          </div>
+        </div>
       )}
     </div>
   );
