@@ -204,7 +204,7 @@ export default function DiagnosticoInbound({ integracoes }) {
           </TabsTrigger>
         </TabsList>
 
-        {/* Aba 1: Diagnóstico de Webhooks Reais - LAYOUT EM GRADE (2 COLUNAS) */}
+        {/* Aba 1: Mensagens Reais - LAYOUT EM GRADE (2 COLUNAS) */}
         <TabsContent value="webhook-real">
           {integracoes.length === 0 ? (
             <Alert className="bg-yellow-50 border-yellow-300">
@@ -225,7 +225,7 @@ export default function DiagnosticoInbound({ integracoes }) {
                     key={integracao.id} 
                     className={`cursor-pointer transition-all border-l-4 ${
                       conexaoSelecionada?.id === integracao.id 
-                        ? 'shadow-lg ring-2 ring-orange-400' 
+                        ? 'shadow-lg ring-2 ring-orange-400 bg-orange-50' 
                         : 'hover:shadow-md'
                     }`}
                     style={{ borderLeftColor: integracao.status === 'conectado' ? '#22c55e' : '#ef4444' }}
@@ -269,9 +269,11 @@ export default function DiagnosticoInbound({ integracoes }) {
                           }`} />
                           <div>
                             <h3 className="text-lg font-bold text-slate-900">
-                              {conexaoSelecionada.nome_instancia}
+                              Mensagens - {conexaoSelecionada.nome_instancia}
                             </h3>
-                            <p className="text-sm text-slate-600">{conexaoSelecionada.numero_telefone}</p>
+                            <p className="text-sm text-slate-600">
+                              Filtrando mensagens para: {conexaoSelecionada.numero_telefone}
+                            </p>
                           </div>
                         </div>
                         <Badge className={conexaoSelecionada.status === 'conectado' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}>
