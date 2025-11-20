@@ -405,7 +405,7 @@ async function processarQRCodeUpdate(instance, payloadNormalizado, base44, corsH
       );
     }
 
-    await base44.entities.WhatsAppIntegration.update(integracao.id, {
+    await base44.asServiceRole.entities.WhatsAppIntegration.update(integracao.id, {
       qr_code_url: payloadNormalizado.qrCodeUrl,
       status: 'pendente_qrcode',
       ultima_atividade: new Date().toISOString()
@@ -438,7 +438,7 @@ async function processarConnectionUpdate(instance, payloadNormalizado, base44, c
       );
     }
 
-    await base44.entities.WhatsAppIntegration.update(integracao.id, {
+    await base44.asServiceRole.entities.WhatsAppIntegration.update(integracao.id, {
       status: payloadNormalizado.status,
       ultima_atividade: new Date().toISOString()
     });
@@ -536,7 +536,7 @@ async function processarMensagemRecebida(instance, payloadNormalizado, base44, c
           total_mensagens_recebidas: (integracao.estatisticas?.total_mensagens_recebidas || 0) + 1
         };
         
-        await base44.entities.WhatsAppIntegration.update(integracaoId, {
+        await base44.asServiceRole.entities.WhatsAppIntegration.update(integracaoId, {
           estatisticas: estatisticasAtualizadas,
           ultima_atividade: new Date().toISOString(),
           status: 'conectado'
@@ -761,7 +761,7 @@ async function processarMensagemUpdate(payloadNormalizado, base44, corsHeaders) 
       );
     }
 
-    const mensagens = await base44.entities.Message.filter({
+    const mensagens = await base44.asServiceRole.entities.Message.filter({
       whatsapp_message_id: messageId
     });
 
@@ -784,7 +784,7 @@ async function processarMensagemUpdate(payloadNormalizado, base44, corsHeaders) 
     }
 
     if (Object.keys(updates).length > 0) {
-      await base44.entities.Message.update(mensagens[0].id, updates);
+      await base44.asServiceRole.entities.Message.update(mensagens[0].id, updates);
       console.log(`[WEBHOOK] OK: Status da mensagem atualizado: ${updates.status}`);
     }
 
@@ -817,26 +817,26 @@ async function buscarIntegracaoPorInstance(instance, base44) {
   console.log(`[WEBHOOK] Iniciando busca de integracao para: "${instance}"`);
   
   // Listar TODAS as integracoes para diagnostico
-  const todasIntegracoes = await base44.entities.WhatsAppIntegration.list();
+  const todasIntegracoes = await base44.asServiceRole.entities.WhatsAppIntegration.list();
   console.log(`[WEBHOOK] Total de integracoes cadastradas: ${todasIntegracoes.length}`);
   todasIntegracoes.forEach((int, idx) => {
     console.log(`[WEBHOOK]   ${idx + 1}. ${int.nome_instancia} | instance_id: "${int.instance_id_provider}" | tel: ${int.numero_telefone}`);
   });
-  
+
   // PRIORIDADE 1: Buscar por instance_id_provider (mais confiável)
-  let integracoes = await base44.entities.WhatsAppIntegration.filter({
+  let integracoes = await base44.asServiceRole.entities.WhatsAppIntegration.filter({
     instance_id_provider: instance
   });
-  
+
   if (integracoes.length > 0) {
     console.log(`[WEBHOOK] OK: Integracao encontrada por instance_id_provider: ${integracoes[0].nome_instancia}`);
     return integracoes[0];
   }
-  
+
   console.log('[WEBHOOK] AVISO: Nenhuma integracao encontrada por instance_id_provider');
-  
+
   // FALLBACK: Buscar por nome_instancia
-  integracoes = await base44.entities.WhatsAppIntegration.filter({
+  integracoes = await base44.asServiceRole.entities.WhatsAppIntegration.filter({
     nome_instancia: instance
   });
   
@@ -895,7 +895,7 @@ async function processarComIAAsync(thread, message, base44) {
     console.log('[IA] Processando mensagem com IA (assincrono)');
 
     // Carregar últimas 10 mensagens
-    const messages = await base44.entities.Message.filter({
+    const messages = await base44.asServiceRole.entities.Message.filter({
       thread_id: thread.id
     }, '-sent_at', 10);
 
@@ -929,7 +929,7 @@ Gere 3 sugestões práticas que o vendedor possa usar imediatamente.`,
     });
 
     // Salvar sugestões na thread
-    await base44.entities.MessageThread.update(thread.id, {
+    await base44.asServiceRole.entities.MessageThread.update(thread.id, {
       sugestoes_ia_prontas: response.sugestoes || [],
       ultima_analise_ia: new Date().toISOString()
     });
