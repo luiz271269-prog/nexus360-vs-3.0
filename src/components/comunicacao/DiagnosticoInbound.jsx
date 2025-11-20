@@ -18,8 +18,10 @@ import {
   Code,
   Clock,
   Phone,
-  MessageSquare, // NEW
-  Play // NEW
+  MessageSquare,
+  Play,
+  Zap,
+  Database
 } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
@@ -210,6 +212,53 @@ export default function DiagnosticoInbound({ integracoes }) {
 
       {/* Sistema de Diagnóstico Profissional */}
       <DiagnosticoProfissionalZAPI integracoes={integracoes} />
+
+      {/* Grid de Testes Extras */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        {/* Card: Teste Fluxo Controlado */}
+        <Card className="border-2 border-purple-300 bg-gradient-to-r from-purple-50 to-indigo-50">
+          <CardHeader>
+            <CardTitle className="text-sm font-bold text-purple-900 flex items-center gap-2">
+              <Zap className="w-5 h-5" />
+              🔬 Teste de Fluxo Controlado
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <p className="text-sm text-purple-800">
+              Replica EXATAMENTE o fluxo do webhook com logs detalhados de cada etapa para 
+              identificar onde está falhando a persistência.
+            </p>
+            <Button
+              onClick={() => window.open('/pages/TesteFluxoControlado', '_blank')}
+              className="w-full bg-purple-600 hover:bg-purple-700"
+            >
+              🚀 Abrir Teste Controlado
+            </Button>
+          </CardContent>
+        </Card>
+
+        {/* Card: Teste Persistência Direta */}
+        <Card className="border-2 border-indigo-300 bg-gradient-to-r from-indigo-50 to-blue-50">
+          <CardHeader>
+            <CardTitle className="text-sm font-bold text-indigo-900 flex items-center gap-2">
+              <Database className="w-5 h-5" />
+              💾 Teste de Persistência Direta
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <p className="text-sm text-indigo-800">
+              Testa se o Service Role consegue persistir dados diretamente no banco.
+              Identifica se o problema é permissão ou código.
+            </p>
+            <Button
+              onClick={() => window.open('/pages/TestePersistenciaDireta', '_blank')}
+              className="w-full bg-indigo-600 hover:bg-indigo-700"
+            >
+              🔍 Abrir Teste Persistência
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 }
