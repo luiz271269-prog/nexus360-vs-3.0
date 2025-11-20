@@ -229,14 +229,21 @@ export function normalizarMensagemUpdate(payload) {
 export function normalizarPayloadZAPI(payload) {
   const event = payload.event;
   const type = payload.type;
+  const eventType = payload.eventType;
   
-  console.log('[ZAPI-ADAPTER] 🔄 Normalizando evento:', event || type);
-  console.log('[ZAPI-ADAPTER] 📦 Payload recebido:', JSON.stringify(payload, null, 2));
+  console.log('[ZAPI-ADAPTER] 🔄 Normalizando evento');
+  console.log('[ZAPI-ADAPTER] 📦 Chaves disponíveis:', Object.keys(payload));
+  console.log('[ZAPI-ADAPTER] 🔍 event:', event, '| type:', type, '| eventType:', eventType);
   
   try {
-    // FORMATO Z-API DIRETO (type: "ReceivedCallback" OU event: "ReceivedCallback")
-    // 🔥 CORREÇÃO: Verificar AMBOS type e event
-    if (type === 'ReceivedCallback' || event === 'ReceivedCallback') {
+    // 🔥 NORMALIZAÇÃO DE CAMPOS - case-insensitive com trim
+    const rawType = String(type || event || eventType || 'unknown').trim();
+    const normalizedType = rawType.toLowerCase();
+    
+    console.log('[ZAPI-ADAPTER] 🔍 rawType:', rawType, '| normalizedType:', normalizedType);
+    
+    // FORMATO Z-API DIRETO (type/event/eventType: "ReceivedCallback")
+    if (normalizedType === 'receivedcallback') {
       console.log('[ZAPI-ADAPTER] ✅ Detectado formato Z-API direto (ReceivedCallback)');
       const normalizado = normalizarMensagemZAPI(payload);
       console.log('[ZAPI-ADAPTER] ✅ Payload normalizado:', JSON.stringify(normalizado, null, 2));
@@ -246,18 +253,23 @@ export function normalizarPayloadZAPI(payload) {
     // FORMATO EVOLUTION API
     switch (event) {
       case 'messages.upsert':
+        console.log('[ZAPI-ADAPTER] ✅ Detectado messages.upsert');
         return normalizarMensagem(payload);
       
       case 'qrcode.updated':
+        console.log('[ZAPI-ADAPTER] ✅ Detectado qrcode.updated');
         return normalizarQRCode(payload);
       
       case 'connection.update':
+        console.log('[ZAPI-ADAPTER] ✅ Detectado connection.update');
         return normalizarConnection(payload);
       
       case 'messages.update':
+        console.log('[ZAPI-ADAPTER] ✅ Detectado messages.update');
         return normalizarMensagemUpdate(payload);
       
       case 'send.message':
+        console.log('[ZAPI-ADAPTER] ✅ Detectado send.message');
         return {
           instanceId: extrairInstanceId(payload),
           type: 'send_confirmation',
@@ -266,15 +278,17 @@ export function normalizarPayloadZAPI(payload) {
       
       default:
         console.log('[ZAPI-ADAPTER] ⚠️ Evento não mapeado:', event);
+        console.log('[ZAPI-ADAPTER] 📦 Payload completo:', JSON.stringify(payload, null, 2));
         return {
           instanceId: extrairInstanceId(payload),
           type: 'unknown',
-          event: event,
+          event: event || type || eventType,
           timestamp: Date.now()
         };
     }
   } catch (error) {
     console.error('[ZAPI-ADAPTER] ❌ Erro ao normalizar:', error);
+    console.error('[ZAPI-ADAPTER] Stack:', error.stack);
     throw error;
   }
 }
