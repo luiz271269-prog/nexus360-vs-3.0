@@ -16,7 +16,8 @@ import {
   Zap,
   Info,
   Download,
-  BarChart3
+  BarChart3,
+  Copy
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
@@ -28,7 +29,7 @@ export default function DiagnosticoProfissionalZAPI({ integracoes }) {
   const [resultadoAtual, setResultadoAtual] = useState(null);
   const [historico, setHistorico] = useState([]);
   const [carregandoHistorico, setCarregandoHistorico] = useState(false);
-  const [testeExpandido, setTesteExpandido] = useState(null);
+  const [testesExpandidos, setTestesExpandidos] = useState(new Set());
 
   useEffect(() => {
     if (integracoes.length > 0 && !conexaoSelecionada) {
@@ -92,6 +93,63 @@ export default function DiagnosticoProfissionalZAPI({ integracoes }) {
 
 
   // Funções de etapas removidas - agora executadas no backend
+
+  const toggleTesteExpandido = (testeId) => {
+    setTestesExpandidos(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(testeId)) {
+        newSet.delete(testeId);
+      } else {
+        newSet.add(testeId);
+      }
+      return newSet;
+    });
+  };
+
+  const copiarLogCompleto = () => {
+    if (!resultadoAtual) {
+      toast.error('Nenhum resultado para copiar');
+      return;
+    }
+
+    const logDetalhado = {
+      timestamp: new Date().toISOString(),
+      integracao: {
+        id: conexaoSelecionada.id,
+        nome: conexaoSelecionada.nome_instancia,
+        numero: conexaoSelecionada.numero_telefone,
+        instance_id: conexaoSelecionada.instance_id_provider
+      },
+      diagnostico: {
+        score_total: resultadoAtual.score_total,
+        status_geral: resultadoAtual.status_geral,
+        tempo_total_ms: resultadoAtual.tempo_total_ms,
+        data_execucao: resultadoAtual.data_execucao,
+        etapa_bloqueada: resultadoAtual.etapa_bloqueada
+      },
+      etapas_detalhadas: resultadoAtual.etapas.map(etapa => ({
+        numero: etapa.numero,
+        nome: etapa.nome,
+        score: etapa.score,
+        tempo_ms: etapa.tempo_ms,
+        status: etapa.status,
+        testes: etapa.testes.map(teste => ({
+          nome: teste.nome,
+          status: teste.status,
+          critico: teste.critico,
+          tempo_ms: teste.tempo_ms,
+          detalhes: teste.detalhes,
+          sugestao_correcao: teste.sugestao_correcao
+        }))
+      })),
+      ambiente: resultadoAtual.ambiente,
+      comparacao_anterior: resultadoAtual.comparacao_execucao_anterior
+    };
+
+    const textoFormatado = JSON.stringify(logDetalhado, null, 2);
+    navigator.clipboard.writeText(textoFormatado);
+    toast.success('Log completo copiado! Cole em um editor de texto.');
+  };
 
 
 
@@ -250,13 +308,24 @@ export default function DiagnosticoProfissionalZAPI({ integracoes }) {
             {resultadoAtual && (
               <Card className="border-2 border-slate-200">
                 <CardHeader className="pb-3 bg-slate-50">
-                  <CardTitle className="text-sm font-bold text-slate-900 flex items-center gap-2">
-                    <BarChart3 className="w-5 h-5 text-blue-600" />
-                    Resultados do Diagnóstico
-                    <Badge className="ml-auto bg-blue-600 text-white">
-                      Score: {resultadoAtual.score_total}%
-                    </Badge>
-                  </CardTitle>
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="text-sm font-bold text-slate-900 flex items-center gap-2">
+                      <BarChart3 className="w-5 h-5 text-blue-600" />
+                      Resultados do Diagnóstico
+                      <Badge className="bg-blue-600 text-white">
+                        Score: {resultadoAtual.score_total}%
+                      </Badge>
+                    </CardTitle>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={copiarLogCompleto}
+                      className="gap-2"
+                    >
+                      <Copy className="w-4 h-4" />
+                      Copiar Log Completo
+                    </Button>
+                  </div>
                 </CardHeader>
                 <CardContent className="p-0">
                   <div className="overflow-x-auto">
@@ -305,9 +374,7 @@ export default function DiagnosticoProfissionalZAPI({ integracoes }) {
                               <React.Fragment key={`${etapa.numero}-${idx}`}>
                                 <tr 
                                   className={`border-b border-slate-200 transition-colors ${getCorLinha(teste.status)} cursor-pointer`}
-                                  onClick={() => setTesteExpandido(
-                                    testeExpandido === `${etapa.numero}-${idx}` ? null : `${etapa.numero}-${idx}`
-                                  )}
+                                  onClick={() => toggleTesteExpandido(`${etapa.numero}-${idx}`)}
                                 >
                                   <td className="px-4 py-2 text-center">
                                     {getIconeTeste(teste.status)}
@@ -343,7 +410,7 @@ export default function DiagnosticoProfissionalZAPI({ integracoes }) {
                                 </tr>
                                 
                                 {/* Detalhes expandidos */}
-                                {testeExpandido === `${etapa.numero}-${idx}` && (teste.detalhes || teste.sugestao_correcao) && (
+                                {testesExpandidos.has(`${etapa.numero}-${idx}`) && (teste.detalhes || teste.sugestao_correcao) && (
                                   <tr className="bg-blue-50 border-b border-blue-200">
                                     <td colSpan="6" className="px-4 py-3">
                                       <div className="space-y-2 text-xs">
