@@ -69,6 +69,14 @@ export function normalizarMensagemZAPI(payload) {
     conteudo = payload.document.fileName || '[Documento]';
     mediaType = 'document';
     mediaTempUrl = payload.document.documentUrl;
+  } else if (payload.buttonsResponseMessage) {
+    // 🆕 Suporte para botões interativos
+    conteudo = payload.buttonsResponseMessage.message || '[Resposta de Botão]';
+    mediaType = 'button_reply';
+  } else if (payload.listResponseMessage) {
+    // 🆕 Suporte para listas interativas
+    conteudo = payload.listResponseMessage.title || '[Resposta de Lista]';
+    mediaType = 'list_reply';
   }
   
   return {
