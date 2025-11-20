@@ -789,7 +789,8 @@ export default function ChatWindow({
         await base44.entities.MessageThread.update(thread.id, {
           last_message_content: contentText,
           last_message_at: new Date().toISOString(),
-          last_message_sender: "user"
+          last_message_sender: "user",
+          whatsapp_integration_id: integrationIdParaUso
         });
 
         toast.success(`✅ ${mediaType === 'image' ? 'Imagem' : mediaType === 'video' ? 'Vídeo' : mediaType === 'audio' ? 'Áudio' : 'Documento'} enviado com sucesso!`);
@@ -984,7 +985,8 @@ export default function ChatWindow({
         await base44.entities.MessageThread.update(thread.id, {
           last_message_content: contentText,
           last_message_at: new Date().toISOString(),
-          last_message_sender: "user"
+          last_message_sender: "user",
+          whatsapp_integration_id: integrationIdParaUso
         });
 
         toast.success(`✅ ${mediaType === 'image' ? 'Imagem' : mediaType === 'video' ? 'Vídeo' : mediaType === 'audio' ? 'Áudio' : 'Documento'} enviado com sucesso!`);
