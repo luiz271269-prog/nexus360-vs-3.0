@@ -213,18 +213,22 @@ async function executarEtapa2(integracao) {
   // Teste 3: POST com Payload
   const t3Inicio = Date.now();
   try {
+    const payloadEnviado = {
+      instanceId: integracao.instance_id_provider,
+      instance: integracao.instance_id_provider,
+      type: 'ReceivedCallback',
+      event: 'ReceivedCallback',
+      phone: '5548999999999',
+      momment: Date.now(),
+      text: { message: '🧪 TESTE DIAGNÓSTICO COMPLETO' }
+    };
+
+    console.log('[ETAPA2] 📤 Payload sendo enviado:', JSON.stringify(payloadEnviado, null, 2));
+
     const response = await fetch(webhookUrl, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        instanceId: integracao.instance_id_provider,
-        instance: integracao.instance_id_provider,
-        type: 'ReceivedCallback',
-        event: 'ReceivedCallback',
-        phone: '5548999999999',
-        momment: Date.now(),
-        text: { message: '🧪 TESTE DIAGNÓSTICO COMPLETO' }
-      })
+      body: JSON.stringify(payloadEnviado)
     });
 
     const result = await response.json();
@@ -294,11 +298,16 @@ async function executarEtapa3(base44, integracao) {
       text: { message: '🧪 TESTE DIAGNÓSTICO - Mensagem de texto' }
     };
 
-    await fetch(webhookUrl, {
+    console.log('[ETAPA3] 📤 Payload TEXTO enviado:', JSON.stringify(payloadTexto, null, 2));
+
+    const response = await fetch(webhookUrl, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payloadTexto)
     });
+
+    const responseData = await response.json();
+    console.log('[ETAPA3] 📥 Resposta do webhook (TEXTO):', JSON.stringify(responseData, null, 2));
 
     // Aguardar 2s para processamento
     await new Promise(resolve => setTimeout(resolve, 2000));
