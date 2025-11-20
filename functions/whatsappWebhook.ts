@@ -125,13 +125,13 @@ Deno.serve(async (req) => {
     console.log(`[WEBHOOK] 📋 Evento: ${eventoTipo} | Instância: ${instanceExtraido}`);
     
     // ═══════════════════════════════════════════════════════════
-    // 3. PERSISTIR PAYLOAD BRUTO PARA AUDITORIA
+    // 3. PERSISTIR PAYLOAD BRUTO PARA AUDITORIA (SEMPRE)
     // ═══════════════════════════════════════════════════════════
     const timestampRecebido = new Date().toISOString();
     let auditLogId = null;
-    
+
     try {
-      const auditLog = await base44.entities.ZapiPayloadNormalized.create({
+      const auditLog = await base44.asServiceRole.entities.ZapiPayloadNormalized.create({
         payload_bruto: evento,
         instance_identificado: instanceExtraido,
         evento: eventoTipo,
@@ -139,9 +139,38 @@ Deno.serve(async (req) => {
         sucesso_processamento: false // Será atualizado ao final
       });
       auditLogId = auditLog.id;
-      console.log('[WEBHOOK] 📝 Payload bruto persistido para auditoria:', auditLogId);
+      console.log('[WEBHOOK] ✅ Payload bruto persistido para auditoria:', auditLogId);
     } catch (auditError) {
-      console.error('[WEBHOOK] ⚠️ Erro ao persistir auditoria (não crítico):', auditError);
+      console.error('[WEBHOOK] ❌ ERRO CRÍTICO ao persistir auditoria:', auditError);
+      console.error('[WEBHOOK] Stack:', auditError.stack);
+
+      // MESMO COM ERRO, continuar processamento
+      return Response.json(
+        { 
+          success: false, 
+          error: 'Falha ao persistir payload: ' + auditError.message,
+          timestamp: timestampRecebido 
+        },
+        { status: 200, headers: corsHeaders }
+      );
+    }
+
+    // ═══════════════════════════════════════════════════════════
+    // 3.1 PERSISTIR WEBHOOK LOG (SEMPRE)
+    // ═══════════════════════════════════════════════════════════
+    try {
+      await base44.asServiceRole.entities.WebhookLog.create({
+        timestamp: timestampRecebido,
+        provider: 'z_api',
+        instance_id: instanceExtraido,
+        event_type: eventoTipo,
+        payload: evento,
+        processed: false, // Será atualizado ao final
+        success: false
+      });
+      console.log('[WEBHOOK] ✅ WebhookLog persistido');
+    } catch (logError) {
+      console.error('[WEBHOOK] ⚠️ Erro ao persistir WebhookLog (não crítico):', logError);
     }
 
     // ═══════════════════════════════════════════════════════════
@@ -215,24 +244,59 @@ Deno.serve(async (req) => {
     }
     
     // ═══════════════════════════════════════════════════════════
-    // 6. ATUALIZAR AUDITORIA COM SUCESSO
+    // 6. ATUALIZAR AUDITORIA E LOG COM SUCESSO
     // ═══════════════════════════════════════════════════════════
     if (auditLogId) {
       try {
-        await base44.entities.ZapiPayloadNormalized.update(auditLogId, {
+        await base44.asServiceRole.entities.ZapiPayloadNormalized.update(auditLogId, {
           sucesso_processamento: true,
           integration_id: payloadNormalizado.integrationId || null
         });
+        console.log('[WEBHOOK] ✅ Auditoria atualizada com sucesso');
       } catch (auditError) {
-        console.error('[WEBHOOK] ⚠️ Erro ao atualizar auditoria (não crítico):', auditError);
+        console.error('[WEBHOOK] ⚠️ Erro ao atualizar auditoria:', auditError);
       }
     }
-    
+
+    // Atualizar WebhookLog
+    try {
+      const logs = await base44.asServiceRole.entities.WebhookLog.filter(
+        { 
+          instance_id: instanceExtraido,
+          timestamp: timestampRecebido
+        },
+        '-timestamp',
+        1
+      );
+
+      if (logs.length > 0) {
+        await base44.asServiceRole.entities.WebhookLog.update(logs[0].id, {
+          processed: true,
+          success: true
+        });
+        console.log('[WEBHOOK] ✅ WebhookLog atualizado com sucesso');
+      }
+    } catch (logError) {
+      console.error('[WEBHOOK] ⚠️ Erro ao atualizar WebhookLog:', logError);
+    }
+
     return resultado;
 
   } catch (error) {
     console.error('[WEBHOOK] ❌ ERRO FATAL:', error);
     console.error('[WEBHOOK] Stack:', error.stack);
+
+    // Tentar atualizar auditoria mesmo com erro
+    if (auditLogId) {
+      try {
+        await base44.asServiceRole.entities.ZapiPayloadNormalized.update(auditLogId, {
+          sucesso_processamento: false,
+          erro_detalhes: error.message
+        });
+      } catch (updateError) {
+        console.error('[WEBHOOK] ⚠️ Erro ao atualizar auditoria com erro:', updateError);
+      }
+    }
 
     // SEMPRE retornar 200 para evitar retry infinito da Evolution API
     return Response.json(
@@ -323,8 +387,8 @@ async function processarMensagemRecebida(instance, payloadNormalizado, base44, c
   try {
     // Usar dados normalizados
     const numeroFormatado = payloadNormalizado.from;
-    const conteudo = payloadNormalizado.content;
-    const mediaType = payloadNormalizado.mediaType;
+    const conteudo = payloadNormalizado.content || '';
+    const mediaType = payloadNormalizado.mediaType || 'none';
     const mediaUrl = payloadNormalizado.mediaTempUrl;
     const messageId = payloadNormalizado.messageId;
     const timestamp = payloadNormalizado.timestamp;
@@ -343,12 +407,12 @@ async function processarMensagemRecebida(instance, payloadNormalizado, base44, c
 
     try {
       // PASSO 1: BUSCAR OU CRIAR CONTACT
-      let contatos = await base44.entities.Contact.filter({ telefone: numeroFormatado });
+      let contatos = await base44.asServiceRole.entities.Contact.filter({ telefone: numeroFormatado });
       let contato;
 
       if (contatos.length === 0) {
         console.log('[WEBHOOK] 👤 Criando novo contato');
-        contato = await base44.entities.Contact.create({
+        contato = await base44.asServiceRole.entities.Contact.create({
           nome: pushName || numeroFormatado,
           telefone: numeroFormatado,
           tipo_contato: 'lead',
@@ -356,9 +420,10 @@ async function processarMensagemRecebida(instance, payloadNormalizado, base44, c
           ultima_interacao: new Date().toISOString()
         });
         contatoCriado = contato;
+        console.log(`[WEBHOOK] ✅ Contato criado: ${contato.id}`);
       } else {
         contato = contatos[0];
-        await base44.entities.Contact.update(contato.id, {
+        await base44.asServiceRole.entities.Contact.update(contato.id, {
           ultima_interacao: new Date().toISOString()
         });
         console.log(`[WEBHOOK] ✅ Contato existente: ${contato.nome}`);
@@ -403,12 +468,12 @@ async function processarMensagemRecebida(instance, payloadNormalizado, base44, c
       }
 
       // PASSO 3: BUSCAR OU CRIAR THREAD
-      let threads = await base44.entities.MessageThread.filter({ contact_id: contato.id });
+      let threads = await base44.asServiceRole.entities.MessageThread.filter({ contact_id: contato.id });
       let thread;
 
       if (threads.length === 0) {
         console.log('[WEBHOOK] 💬 Criando nova thread');
-        thread = await base44.entities.MessageThread.create({
+        thread = await base44.asServiceRole.entities.MessageThread.create({
           contact_id: contato.id,
           whatsapp_integration_id: integracaoId,
           status: 'aberta',
@@ -420,6 +485,7 @@ async function processarMensagemRecebida(instance, payloadNormalizado, base44, c
           unread_count: 0
         });
         threadCriada = thread;
+        console.log(`[WEBHOOK] ✅ Thread criada: ${thread.id}`);
       } else {
         thread = threads[0];
         // Renovar janela 24h e atualizar integration_id se necessário
@@ -428,12 +494,12 @@ async function processarMensagemRecebida(instance, payloadNormalizado, base44, c
           can_send_without_template: true,
           ultima_atividade: new Date().toISOString()
         };
-        
+
         if (integracaoId && !thread.whatsapp_integration_id) {
           updateData.whatsapp_integration_id = integracaoId;
         }
-        
-        await base44.entities.MessageThread.update(thread.id, updateData);
+
+        await base44.asServiceRole.entities.MessageThread.update(thread.id, updateData);
         console.log(`[WEBHOOK] ✅ Thread existente: ${thread.id}`);
       }
 
@@ -446,7 +512,7 @@ async function processarMensagemRecebida(instance, payloadNormalizado, base44, c
 
       // PASSO 4: CRIAR MESSAGE (USANDO DADOS NORMALIZADOS)
       console.log('[WEBHOOK] 📝 Criando message');
-      const message = await base44.entities.Message.create({
+      const message = await base44.asServiceRole.entities.Message.create({
         thread_id: thread.id,
         sender_id: contato.id,
         sender_type: 'contact',
@@ -460,23 +526,25 @@ async function processarMensagemRecebida(instance, payloadNormalizado, base44, c
         delivered_at: new Date().toISOString()
       });
       mensagemCriada = message;
+      console.log(`[WEBHOOK] ✅ Message criada: ${message.id}`);
 
 
 
       // PASSO 5: ATUALIZAR THREAD
       console.log('[WEBHOOK] 🔄 Atualizando thread');
-      await base44.entities.MessageThread.update(thread.id, {
+      await base44.asServiceRole.entities.MessageThread.update(thread.id, {
         last_message_content: conteudo.substring(0, 100),
         last_message_at: new Date().toISOString(),
         last_message_sender: 'contact',
         unread_count: (thread.unread_count || 0) + 1,
         total_mensagens: (thread.total_mensagens || 0) + 1
       });
+      console.log('[WEBHOOK] ✅ Thread atualizada');
 
       // PASSO 6: CRIAR INTERAÇÃO (SE CLIENTE ASSOCIADO)
       if (contato.cliente_id) {
         console.log('[WEBHOOK] 📊 Criando interação');
-        await base44.entities.Interacao.create({
+        await base44.asServiceRole.entities.Interacao.create({
           cliente_id: contato.cliente_id,
           cliente_nome: contato.empresa || contato.nome,
           contact_id: contato.id,
@@ -486,6 +554,7 @@ async function processarMensagemRecebida(instance, payloadNormalizado, base44, c
           resultado: 'sucesso',
           observacoes: conteudo.substring(0, 500)
         });
+        console.log('[WEBHOOK] ✅ Interação criada');
       }
 
       // PASSO 7: PROCESSAR COM IA (ASSÍNCRONO - NÃO BLOQUEIA WEBHOOK)
@@ -550,19 +619,19 @@ async function processarMensagemRecebida(instance, payloadNormalizado, base44, c
       console.error('[WEBHOOK] ❌ ERRO no fluxo transacional:', error);
 
       if (mensagemCriada) {
-        await base44.entities.Message.delete(mensagemCriada.id).catch(e =>
+        await base44.asServiceRole.entities.Message.delete(mensagemCriada.id).catch(e =>
           console.error('[WEBHOOK] Erro ao deletar mensagem no rollback:', e)
         );
       }
 
       if (threadCriada) {
-        await base44.entities.MessageThread.delete(threadCriada.id).catch(e =>
+        await base44.asServiceRole.entities.MessageThread.delete(threadCriada.id).catch(e =>
           console.error('[WEBHOOK] Erro ao deletar thread no rollback:', e)
         );
       }
 
       if (contatoCriado) {
-        await base44.entities.Contact.delete(contatoCriado.id).catch(e =>
+        await base44.asServiceRole.entities.Contact.delete(contatoCriado.id).catch(e =>
           console.error('[WEBHOOK] Erro ao deletar contato no rollback:', e)
         );
       }
