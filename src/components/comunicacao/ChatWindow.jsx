@@ -383,7 +383,8 @@ export default function ChatWindow({
         await base44.entities.MessageThread.update(thread.id, {
           last_message_content: "[Áudio]",
           last_message_at: new Date().toISOString(),
-          last_message_sender: "user"
+          last_message_sender: "user",
+          whatsapp_integration_id: integrationIdParaUso
         });
 
         toast.success("✅ Áudio enviado com sucesso!");
@@ -491,7 +492,8 @@ export default function ChatWindow({
         await base44.entities.MessageThread.update(thread.id, {
           last_message_content: mensagemParaEnviar.substring(0, 100),
           last_message_at: new Date().toISOString(),
-          last_message_sender: "user"
+          last_message_sender: "user",
+          whatsapp_integration_id: integrationIdParaUso
         });
 
         toast.success('✅ Mensagem enviada com sucesso!', {
