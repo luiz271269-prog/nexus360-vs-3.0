@@ -22,9 +22,9 @@ import {
  */
 
 Deno.serve(async (req) => {
-  console.log('[WEBHOOK] ═══════════════════════════════════════════════');
-  console.log('[WEBHOOK] 📨 Webhook recebido');
-  console.log('[WEBHOOK] ═══════════════════════════════════════════════');
+  console.log('[WEBHOOK] ===============================================');
+  console.log('[WEBHOOK] Webhook recebido');
+  console.log('[WEBHOOK] ===============================================');
 
   const corsHeaders = {
     'Content-Type': 'application/json',
@@ -51,20 +51,20 @@ Deno.serve(async (req) => {
     // ═══════════════════════════════════════════════════════════
     const base44 = createClientFromRequest(req);
 
-    console.log('[WEBHOOK] ✅ Base44 inicializado (Service Role)');
+    console.log('[WEBHOOK] Base44 inicializado (Service Role)');
 
-    // ═══════════════════════════════════════════════════════════
-    // 2. VALIDAÇÃO E PARSING DO PAYLOAD
-    // ═══════════════════════════════════════════════════════════
-    console.log('[WEBHOOK] 🔄 Iniciando leitura do body...');
+    // ===============================================================
+    // 2. VALIDACAO E PARSING DO PAYLOAD
+    // ===============================================================
+    console.log('[WEBHOOK] Iniciando leitura do body...');
     let evento;
     try {
       const rawBody = await req.text();
-      console.log('[WEBHOOK] 📥 RAW BODY COMPLETO:', rawBody);
-      console.log('[WEBHOOK] 📏 Tamanho do body:', rawBody.length, 'caracteres');
+      console.log('[WEBHOOK] RAW BODY COMPLETO:', rawBody);
+      console.log('[WEBHOOK] Tamanho do body:', rawBody.length, 'caracteres');
       
       if (!rawBody || rawBody.trim() === '') {
-        console.error('[WEBHOOK] ❌ Body vazio recebido');
+        console.error('[WEBHOOK] ERRO: Body vazio recebido');
         return Response.json(
           { success: false, error: 'Empty body' },
           { status: 200, headers: corsHeaders }
@@ -73,22 +73,22 @@ Deno.serve(async (req) => {
       
       evento = JSON.parse(rawBody);
     } catch (e) {
-      console.error('[WEBHOOK] ❌ Erro ao parsear JSON:', e.message);
+      console.error('[WEBHOOK] ERRO ao parsear JSON:', e.message);
       return Response.json(
         { success: false, error: 'Invalid JSON payload: ' + e.message },
         { status: 200, headers: corsHeaders }
       );
     }
 
-    // Log das chaves do payload para diagnóstico
-    console.log('[WEBHOOK] 📋 Chaves do payload:', Object.keys(evento));
-    console.log('[WEBHOOK] 📦 Payload completo:', JSON.stringify(evento, null, 2));
+    // Log das chaves do payload para diagnostico
+    console.log('[WEBHOOK] Chaves do payload:', Object.keys(evento));
+    console.log('[WEBHOOK] Payload completo:', JSON.stringify(evento, null, 2));
 
-    // Extração robusta de evento e instância, cobrindo variações comuns
+    // Extracao robusta de evento e instancia, cobrindo variacoes comuns
     const eventoTipo = evento.event || evento.type || evento.event_type || evento.eventName || 'ReceivedCallback';
     const instanceExtraido = evento.instance || evento.instanceId || evento.instance_id || extrairInstanceId(evento);
 
-    console.log('[WEBHOOK] 🔍 Extração tentada:', {
+    console.log('[WEBHOOK] Extracao tentada:', {
       eventoTipo,
       instanceExtraido,
       evento_event: evento.event,
@@ -98,9 +98,9 @@ Deno.serve(async (req) => {
     });
 
     if (!eventoTipo || !instanceExtraido) {
-      console.warn('[WEBHOOK] ⚠️ Campos obrigatórios faltando (event/type ou instance/instanceId)');
-      console.warn('[WEBHOOK] 📦 Payload recebido:', JSON.stringify(evento, null, 2));
-      console.warn('[WEBHOOK] 🔍 Chaves disponíveis:', Object.keys(evento).join(', '));
+      console.warn('[WEBHOOK] AVISO: Campos obrigatorios faltando (event/type ou instance/instanceId)');
+      console.warn('[WEBHOOK] Payload recebido:', JSON.stringify(evento, null, 2));
+      console.warn('[WEBHOOK] Chaves disponiveis:', Object.keys(evento).join(', '));
 
       // Mesmo assim, persistir para auditoria
       try {
@@ -110,10 +110,10 @@ Deno.serve(async (req) => {
           evento: eventoTipo || 'unknown',
           timestamp_recebido: new Date().toISOString(),
           sucesso_processamento: false,
-          erro_detalhes: 'Campos obrigatórios faltando: event/type ou instance/instanceId'
+          erro_detalhes: 'Campos obrigatorios faltando: event/type ou instance/instanceId'
         });
       } catch (err) {
-        console.error('[WEBHOOK] ⚠️ Erro ao persistir payload com campos faltando:', err);
+        console.error('[WEBHOOK] AVISO: Erro ao persistir payload com campos faltando:', err);
       }
 
       return Response.json(
@@ -122,23 +122,23 @@ Deno.serve(async (req) => {
       );
     }
 
-    console.log(`[WEBHOOK] 📋 Evento: ${eventoTipo} | Instância: ${instanceExtraido}`);
+    console.log(`[WEBHOOK] Evento: ${eventoTipo} | Instancia: ${instanceExtraido}`);
     
-    // ═══════════════════════════════════════════════════════════
+    // ===============================================================
     // 3. PERSISTIR PAYLOAD BRUTO PARA AUDITORIA (SEMPRE)
-    // ═══════════════════════════════════════════════════════════
+    // ===============================================================
     const timestampRecebido = new Date().toISOString();
     let auditLogId = null;
 
     try {
-      console.log('[WEBHOOK] 📝 Tentando persistir payload bruto para auditoria...');
-      console.log('[WEBHOOK] 🔍 VERIFICAÇÃO PRÉ-INSERT:');
+      console.log('[WEBHOOK] Tentando persistir payload bruto para auditoria...');
+      console.log('[WEBHOOK] VERIFICACAO PRE-INSERT:');
       console.log('[WEBHOOK]   - instance_identificado:', instanceExtraido, '(tipo:', typeof instanceExtraido, ')');
       console.log('[WEBHOOK]   - evento:', eventoTipo, '(tipo:', typeof eventoTipo, ')');
       console.log('[WEBHOOK]   - timestamp_recebido:', timestampRecebido, '(tipo:', typeof timestampRecebido, ')');
       console.log('[WEBHOOK]   - payload_bruto tipo:', typeof evento, '(keys:', Object.keys(evento).length, ')');
 
-      console.log('[WEBHOOK] 🚀 Chamando base44.asServiceRole.entities.ZapiPayloadNormalized.create...');
+      console.log('[WEBHOOK] Chamando base44.asServiceRole.entities.ZapiPayloadNormalized.create...');
 
       const dadosParaCriar = {
         payload_bruto: evento,
@@ -148,22 +148,22 @@ Deno.serve(async (req) => {
         sucesso_processamento: false
       };
 
-      console.log('[WEBHOOK] 📦 Dados que serão enviados:', JSON.stringify(dadosParaCriar, null, 2));
+      console.log('[WEBHOOK] Dados que serao enviados:', JSON.stringify(dadosParaCriar, null, 2));
 
       const auditLog = await base44.asServiceRole.entities.ZapiPayloadNormalized.create(dadosParaCriar);
 
       auditLogId = auditLog.id;
-      console.log('[WEBHOOK] ✅ Payload bruto persistido para auditoria com sucesso!');
-      console.log('[WEBHOOK] 🆔 ID criado:', auditLogId);
-      console.log('[WEBHOOK] 📊 Objeto completo retornado:', JSON.stringify(auditLog, null, 2));
+      console.log('[WEBHOOK] Payload bruto persistido para auditoria com sucesso!');
+      console.log('[WEBHOOK] ID criado:', auditLogId);
+      console.log('[WEBHOOK] Objeto completo retornado:', JSON.stringify(auditLog, null, 2));
     } catch (auditError) {
-      console.error('[WEBHOOK] ❌❌❌ ERRO CRÍTICO ao persistir auditoria ❌❌❌');
-      console.error('[WEBHOOK] 📛 Nome do erro:', auditError.name);
-      console.error('[WEBHOOK] 📛 Mensagem:', auditError.message);
-      console.error('[WEBHOOK] 📛 Código:', auditError.code);
-      console.error('[WEBHOOK] 📛 Stack completo:', auditError.stack);
-      console.error('[WEBHOOK] 📦 Payload que falhou:', JSON.stringify(evento, null, 2));
-      console.error('[WEBHOOK] 🔍 Detalhes do erro completo:', JSON.stringify(auditError, Object.getOwnPropertyNames(auditError), 2));
+      console.error('[WEBHOOK] ERRO CRITICO ao persistir auditoria');
+      console.error('[WEBHOOK] Nome do erro:', auditError.name);
+      console.error('[WEBHOOK] Mensagem:', auditError.message);
+      console.error('[WEBHOOK] Codigo:', auditError.code);
+      console.error('[WEBHOOK] Stack completo:', auditError.stack);
+      console.error('[WEBHOOK] Payload que falhou:', JSON.stringify(evento, null, 2));
+      console.error('[WEBHOOK] Detalhes do erro completo:', JSON.stringify(auditError, Object.getOwnPropertyNames(auditError), 2));
 
       // MESMO COM ERRO, continuar processamento
       return Response.json(
@@ -185,11 +185,11 @@ Deno.serve(async (req) => {
       );
     }
 
-    // ═══════════════════════════════════════════════════════════
+    // ===============================================================
     // 3.1 PERSISTIR WEBHOOK LOG (SEMPRE)
-    // ═══════════════════════════════════════════════════════════
+    // ===============================================================
     try {
-      console.log('[WEBHOOK] 📝 Tentando persistir WebhookLog:', {
+      console.log('[WEBHOOK] Tentando persistir WebhookLog:', {
         instance_id: instanceExtraido,
         event_type: eventoTipo,
         timestamp: timestampRecebido
@@ -201,40 +201,40 @@ Deno.serve(async (req) => {
         instance_id: instanceExtraido,
         event_type: eventoTipo,
         payload: evento,
-        processed: false, // Será atualizado ao final
+        processed: false, // Sera atualizado ao final
         success: false
       });
-      console.log('[WEBHOOK] ✅ WebhookLog persistido com sucesso');
+      console.log('[WEBHOOK] WebhookLog persistido com sucesso');
     } catch (logError) {
-      console.error('[WEBHOOK] ❌ ERRO ao persistir WebhookLog:', logError.message);
+      console.error('[WEBHOOK] ERRO ao persistir WebhookLog:', logError.message);
       console.error('[WEBHOOK] Stack:', logError.stack);
     }
 
-    // ═══════════════════════════════════════════════════════════
+    // ===============================================================
     // 4. NORMALIZAR PAYLOAD COM ADAPTER
-    // ═══════════════════════════════════════════════════════════
+    // ===============================================================
     let payloadNormalizado = null;
     try {
-      console.log('[WEBHOOK] 🔄 Chamando normalizarPayloadZAPI...');
-      console.log('[WEBHOOK] 📦 Evento original - type:', evento.type, '| event:', evento.event);
+      console.log('[WEBHOOK] Chamando normalizarPayloadZAPI...');
+      console.log('[WEBHOOK] Evento original - type:', evento.type, '| event:', evento.event);
 
       payloadNormalizado = normalizarPayloadZAPI(evento);
 
-      console.log('[WEBHOOK] ✅ Payload normalizado COMPLETO:', JSON.stringify(payloadNormalizado, null, 2));
-      console.log('[WEBHOOK] 🔍 payloadNormalizado.type =', payloadNormalizado.type);
+      console.log('[WEBHOOK] Payload normalizado COMPLETO:', JSON.stringify(payloadNormalizado, null, 2));
+      console.log('[WEBHOOK] payloadNormalizado.type =', payloadNormalizado.type);
 
       const validacao = validarPayloadNormalizado(payloadNormalizado);
       if (!validacao.valido) {
-        console.warn('[WEBHOOK] ⚠️ Payload normalizado inválido:', validacao.erro);
+        console.warn('[WEBHOOK] AVISO: Payload normalizado invalido:', validacao.erro);
         return Response.json(
           { success: true, ignored: 'invalid_normalized_payload', details: validacao.erro },
           { status: 200, headers: corsHeaders }
         );
       }
 
-      console.log('[WEBHOOK] ✅ Payload normalizado VÁLIDO');
+      console.log('[WEBHOOK] Payload normalizado VALIDO');
     } catch (normError) {
-      console.error('[WEBHOOK] ❌ Erro na normalização:', normError);
+      console.error('[WEBHOOK] ERRO na normalizacao:', normError);
       console.error('[WEBHOOK] Stack:', normError.stack);
       return Response.json(
         { success: true, ignored: 'normalization_error', error: normError.message },
@@ -242,36 +242,36 @@ Deno.serve(async (req) => {
       );
     }
 
-    // ═══════════════════════════════════════════════════════════
+    // ===============================================================
     // 5. PROCESSAR EVENTO POR TIPO
-    // ═══════════════════════════════════════════════════════════
+    // ===============================================================
     let resultado;
 
-    console.log('[WEBHOOK] 🔀 Iniciando switch com type:', payloadNormalizado.type);
+    console.log('[WEBHOOK] Iniciando switch com type:', payloadNormalizado.type);
 
     switch (payloadNormalizado.type) {
       case 'qrcode':
-        console.log('[WEBHOOK] 🔀 Entrando em case: qrcode');
+        console.log('[WEBHOOK] Entrando em case: qrcode');
         resultado = await processarQRCodeUpdate(instanceExtraido, payloadNormalizado, base44, corsHeaders);
         break;
 
       case 'connection':
-        console.log('[WEBHOOK] 🔀 Entrando em case: connection');
+        console.log('[WEBHOOK] Entrando em case: connection');
         resultado = await processarConnectionUpdate(instanceExtraido, payloadNormalizado, base44, corsHeaders);
         break;
 
       case 'message':
-        console.log('[WEBHOOK] 🔀 Entrando em case: message');
+        console.log('[WEBHOOK] Entrando em case: message');
         resultado = await processarMensagemRecebida(instanceExtraido, payloadNormalizado, base44, corsHeaders);
         break;
 
       case 'message_update':
-        console.log('[WEBHOOK] 🔀 Entrando em case: message_update');
+        console.log('[WEBHOOK] Entrando em case: message_update');
         resultado = await processarMensagemUpdate(payloadNormalizado, base44, corsHeaders);
         break;
 
       case 'send_confirmation':
-        console.log('[WEBHOOK] 🔀 Entrando em case: send_confirmation');
+        console.log('[WEBHOOK] Entrando em case: send_confirmation');
         resultado = Response.json(
           { success: true, processed: 'send_confirmation' },
           { status: 200, headers: corsHeaders }
@@ -279,10 +279,10 @@ Deno.serve(async (req) => {
         break;
 
       case 'unknown':
-        console.log('[WEBHOOK] 🔀 Entrando em case: unknown');
-        console.log(`[WEBHOOK] ⚠️ Evento não reconhecido pelo adapter: ${payloadNormalizado.event}`);
-        console.log('[WEBHOOK] 🔍 DEBUG - Payload normalizado completo:', JSON.stringify(payloadNormalizado, null, 2));
-        console.log('[WEBHOOK] ⚠️ ATENÇÃO: Evento sendo IGNORADO - nenhuma persistência será feita!');
+        console.log('[WEBHOOK] Entrando em case: unknown');
+        console.log(`[WEBHOOK] AVISO: Evento nao reconhecido pelo adapter: ${payloadNormalizado.event}`);
+        console.log('[WEBHOOK] DEBUG - Payload normalizado completo:', JSON.stringify(payloadNormalizado, null, 2));
+        console.log('[WEBHOOK] ATENCAO: Evento sendo IGNORADO - nenhuma persistencia sera feita!');
         resultado = Response.json(
           { success: true, ignored: 'unknown_event', event: payloadNormalizado.event },
           { status: 200, headers: corsHeaders }
@@ -290,28 +290,28 @@ Deno.serve(async (req) => {
         break;
 
       default:
-        console.log('[WEBHOOK] 🔀 Entrando em case: default');
-        console.log(`[WEBHOOK] ⚠️ Tipo não tratado: ${payloadNormalizado.type}`);
+        console.log('[WEBHOOK] Entrando em case: default');
+        console.log(`[WEBHOOK] AVISO: Tipo nao tratado: ${payloadNormalizado.type}`);
         resultado = Response.json(
           { success: true, ignored: 'unknown_type', type: payloadNormalizado.type },
           { status: 200, headers: corsHeaders }
         );
     }
 
-    console.log('[WEBHOOK] 🔀 Switch concluído. Resultado:', resultado ? 'definido' : 'undefined');
+    console.log('[WEBHOOK] Switch concluido. Resultado:', resultado ? 'definido' : 'undefined');
     
-    // ═══════════════════════════════════════════════════════════
+    // ===============================================================
     // 6. ATUALIZAR AUDITORIA E LOG COM SUCESSO
-    // ═══════════════════════════════════════════════════════════
+    // ===============================================================
     if (auditLogId) {
       try {
         await base44.asServiceRole.entities.ZapiPayloadNormalized.update(auditLogId, {
           sucesso_processamento: true,
           integration_id: payloadNormalizado.integrationId || null
         });
-        console.log('[WEBHOOK] ✅ Auditoria atualizada com sucesso');
+        console.log('[WEBHOOK] Auditoria atualizada com sucesso');
       } catch (auditError) {
-        console.error('[WEBHOOK] ⚠️ Erro ao atualizar auditoria:', auditError);
+        console.error('[WEBHOOK] AVISO: Erro ao atualizar auditoria:', auditError);
       }
     }
 
@@ -331,16 +331,16 @@ Deno.serve(async (req) => {
           processed: true,
           success: true
         });
-        console.log('[WEBHOOK] ✅ WebhookLog atualizado com sucesso');
+        console.log('[WEBHOOK] WebhookLog atualizado com sucesso');
       }
     } catch (logError) {
-      console.error('[WEBHOOK] ⚠️ Erro ao atualizar WebhookLog:', logError);
+      console.error('[WEBHOOK] AVISO: Erro ao atualizar WebhookLog:', logError);
     }
 
     return resultado;
 
   } catch (error) {
-    console.error('[WEBHOOK] ❌ ERRO FATAL:', error);
+    console.error('[WEBHOOK] ERRO FATAL:', error);
     console.error('[WEBHOOK] Stack:', error.stack);
 
     // Tentar atualizar auditoria mesmo com erro
@@ -351,7 +351,7 @@ Deno.serve(async (req) => {
           erro_detalhes: error.message
         });
       } catch (updateError) {
-        console.error('[WEBHOOK] ⚠️ Erro ao atualizar auditoria com erro:', updateError);
+        console.error('[WEBHOOK] AVISO: Erro ao atualizar auditoria com erro:', updateError);
       }
     }
 
@@ -368,13 +368,13 @@ Deno.serve(async (req) => {
 });
 
 /**
- * ═══════════════════════════════════════════════════════════════
- * PROCESSADORES ESPECÍFICOS POR TIPO DE EVENTO
- * ═══════════════════════════════════════════════════════════════
+ * ===============================================================
+ * PROCESSADORES ESPECIFICOS POR TIPO DE EVENTO
+ * ===============================================================
  */
 
 async function processarQRCodeUpdate(instance, payloadNormalizado, base44, corsHeaders) {
-  console.log('[WEBHOOK] 🔄 Processando atualização de QR Code');
+  console.log('[WEBHOOK] Processando atualizacao de QR Code');
 
   try {
     const integracao = await buscarIntegracaoPorInstance(instance, base44);
@@ -393,7 +393,7 @@ async function processarQRCodeUpdate(instance, payloadNormalizado, base44, corsH
       ultima_atividade: new Date().toISOString()
     });
 
-    console.log('[WEBHOOK] ✅ QR Code atualizado com sucesso');
+    console.log('[WEBHOOK] QR Code atualizado com sucesso');
 
     return Response.json(
       { success: true, processed: 'qrcode_updated' },
@@ -401,13 +401,13 @@ async function processarQRCodeUpdate(instance, payloadNormalizado, base44, corsH
     );
 
   } catch (error) {
-    console.error('[WEBHOOK] ❌ Erro ao processar QR Code:', error);
+    console.error('[WEBHOOK] ERRO ao processar QR Code:', error);
     throw error;
   }
 }
 
 async function processarConnectionUpdate(instance, payloadNormalizado, base44, corsHeaders) {
-  console.log('[WEBHOOK] 🔄 Processando atualização de conexão');
+  console.log('[WEBHOOK] Processando atualizacao de conexao');
 
   try {
     const integracao = await buscarIntegracaoPorInstance(instance, base44);
@@ -425,7 +425,7 @@ async function processarConnectionUpdate(instance, payloadNormalizado, base44, c
       ultima_atividade: new Date().toISOString()
     });
 
-    console.log(`[WEBHOOK] ✅ Status de conexão atualizado para: ${payloadNormalizado.status}`);
+    console.log(`[WEBHOOK] Status de conexao atualizado para: ${payloadNormalizado.status}`);
 
     return Response.json(
       { success: true, processed: 'connection_updated', status: payloadNormalizado.status },
@@ -433,14 +433,14 @@ async function processarConnectionUpdate(instance, payloadNormalizado, base44, c
     );
 
   } catch (error) {
-    console.error('[WEBHOOK] ❌ Erro ao processar conexão:', error);
+    console.error('[WEBHOOK] ERRO ao processar conexao:', error);
     throw error;
   }
 }
 
 async function processarMensagemRecebida(instance, payloadNormalizado, base44, corsHeaders) {
-  console.log('[WEBHOOK] 💬 Processando mensagem recebida (normalizada)');
-  console.log('[WEBHOOK] 📋 Payload normalizado completo:', JSON.stringify(payloadNormalizado, null, 2));
+  console.log('[WEBHOOK] Processando mensagem recebida (normalizada)');
+  console.log('[WEBHOOK] Payload normalizado completo:', JSON.stringify(payloadNormalizado, null, 2));
 
   try {
     // Usar dados normalizados
@@ -452,15 +452,15 @@ async function processarMensagemRecebida(instance, payloadNormalizado, base44, c
     const timestamp = payloadNormalizado.timestamp;
     const pushName = payloadNormalizado.pushName;
 
-    console.log(`[WEBHOOK] 📱 Número: ${numeroFormatado}`);
-    console.log(`[WEBHOOK] 💬 Conteúdo: ${conteudo.substring(0, 50)}...`);
-    console.log(`[WEBHOOK] 📎 Tipo de mídia: ${mediaType}`);
-    console.log(`[WEBHOOK] 🆔 Message ID: ${messageId}`);
-    console.log(`[WEBHOOK] ⏰ Timestamp: ${timestamp}`);
+    console.log(`[WEBHOOK] Numero: ${numeroFormatado}`);
+    console.log(`[WEBHOOK] Conteudo: ${conteudo.substring(0, 50)}...`);
+    console.log(`[WEBHOOK] Tipo de midia: ${mediaType}`);
+    console.log(`[WEBHOOK] Message ID: ${messageId}`);
+    console.log(`[WEBHOOK] Timestamp: ${timestamp}`);
 
-    // ═══════════════════════════════════════════════════════════
+    // ===============================================================
     // FLUXO TRANSACIONAL MANUAL (SEM SDK TRANSACTION)
-    // ═══════════════════════════════════════════════════════════
+    // ===============================================================
     let contatoCriado = null;
     let threadCriada = null;
     let mensagemCriada = null;
@@ -471,7 +471,7 @@ async function processarMensagemRecebida(instance, payloadNormalizado, base44, c
       let contato;
 
       if (contatos.length === 0) {
-        console.log('[WEBHOOK] 👤 Criando novo contato');
+        console.log('[WEBHOOK] Criando novo contato');
         contato = await base44.asServiceRole.entities.Contact.create({
           nome: pushName || numeroFormatado,
           telefone: numeroFormatado,
@@ -480,31 +480,31 @@ async function processarMensagemRecebida(instance, payloadNormalizado, base44, c
           ultima_interacao: new Date().toISOString()
         });
         contatoCriado = contato;
-        console.log(`[WEBHOOK] ✅ Contato criado: ${contato.id}`);
+        console.log(`[WEBHOOK] Contato criado: ${contato.id}`);
       } else {
         contato = contatos[0];
         await base44.asServiceRole.entities.Contact.update(contato.id, {
           ultima_interacao: new Date().toISOString()
         });
-        console.log(`[WEBHOOK] ✅ Contato existente: ${contato.nome}`);
+        console.log(`[WEBHOOK] Contato existente: ${contato.nome}`);
       }
 
-      // PASSO 2: BUSCAR WHATSAPP INTEGRATION (FUNÇÃO CENTRALIZADA)
-      console.log(`[WEBHOOK] 🔍 Buscando integração para instance: "${instance}"`);
+      // PASSO 2: BUSCAR WHATSAPP INTEGRATION (FUNCAO CENTRALIZADA)
+      console.log(`[WEBHOOK] Buscando integracao para instance: "${instance}"`);
 
       const integracao = await buscarIntegracaoPorInstance(instance, base44);
 
       let integracaoId = null;
       if (integracao) {
         integracaoId = integracao.id;
-        console.log(`[WEBHOOK] ✅ WhatsAppIntegration encontrada:`, {
+        console.log(`[WEBHOOK] WhatsAppIntegration encontrada:`, {
           id: integracaoId,
           nome: integracao.nome_instancia,
           numero: integracao.numero_telefone,
           instance_id_provider: integracao.instance_id_provider
         });
 
-        console.log(`[WEBHOOK] 📊 DIAGNÓSTICO - Comparação:`, {
+        console.log(`[WEBHOOK] DIAGNOSTICO - Comparacao:`, {
           instance_recebida: instance,
           instance_id_db: integracao.instance_id_provider,
           nome_instancia_db: integracao.nome_instancia,
@@ -524,7 +524,7 @@ async function processarMensagemRecebida(instance, payloadNormalizado, base44, c
           status: 'conectado'
         });
       } else {
-        console.warn(`[WEBHOOK] ⚠️ Nenhuma WhatsAppIntegration encontrada para instância: ${instance}`);
+        console.warn(`[WEBHOOK] AVISO: Nenhuma WhatsAppIntegration encontrada para instancia: ${instance}`);
       }
 
       // PASSO 3: BUSCAR OU CRIAR THREAD
@@ -532,7 +532,7 @@ async function processarMensagemRecebida(instance, payloadNormalizado, base44, c
       let thread;
 
       if (threads.length === 0) {
-        console.log('[WEBHOOK] 💬 Criando nova thread');
+        console.log('[WEBHOOK] Criando nova thread');
         thread = await base44.asServiceRole.entities.MessageThread.create({
           contact_id: contato.id,
           whatsapp_integration_id: integracaoId,
@@ -545,7 +545,7 @@ async function processarMensagemRecebida(instance, payloadNormalizado, base44, c
           unread_count: 0
         });
         threadCriada = thread;
-        console.log(`[WEBHOOK] ✅ Thread criada: ${thread.id}`);
+        console.log(`[WEBHOOK] Thread criada: ${thread.id}`);
       } else {
         thread = threads[0];
         // Renovar janela 24h e atualizar integration_id se necessário
@@ -560,13 +560,13 @@ async function processarMensagemRecebida(instance, payloadNormalizado, base44, c
         }
 
         await base44.asServiceRole.entities.MessageThread.update(thread.id, updateData);
-        console.log(`[WEBHOOK] ✅ Thread existente: ${thread.id}`);
+        console.log(`[WEBHOOK] Thread existente: ${thread.id}`);
       }
 
-      // PASSO 3: PERSISTIR MÍDIA (SE HOUVER)
+      // PASSO 3: PERSISTIR MIDIA (SE HOUVER)
       let mediaUrlPermanente = null;
       if (mediaType !== 'none' && mediaUrl) {
-        console.log('[WEBHOOK] 📥 Baixando e persistindo mídia...');
+        console.log('[WEBHOOK] Baixando e persistindo midia...');
         mediaUrlPermanente = await baixarEPersistirMidia(mediaUrl, mediaType, base44);
       }
 
@@ -577,7 +577,7 @@ async function processarMensagemRecebida(instance, payloadNormalizado, base44, c
         });
 
         if (mensagensExistentes.length > 0) {
-          console.log(`[WEBHOOK] ⚠️ DUPLICIDADE DETECTADA: Message ID ${messageId} já existe - descartando`);
+          console.log(`[WEBHOOK] AVISO: DUPLICIDADE DETECTADA: Message ID ${messageId} ja existe - descartando`);
           return Response.json(
             {
               success: true,
@@ -591,7 +591,7 @@ async function processarMensagemRecebida(instance, payloadNormalizado, base44, c
       }
 
       // PASSO 4: CRIAR MESSAGE (USANDO DADOS NORMALIZADOS)
-      console.log('[WEBHOOK] 📝 Criando message');
+      console.log('[WEBHOOK] Criando message');
       const message = await base44.asServiceRole.entities.Message.create({
         thread_id: thread.id,
         sender_id: contato.id,
@@ -609,12 +609,12 @@ async function processarMensagemRecebida(instance, payloadNormalizado, base44, c
         }
       });
       mensagemCriada = message;
-      console.log(`[WEBHOOK] ✅ Message criada: ${message.id}`);
+      console.log(`[WEBHOOK] Message criada: ${message.id}`);
 
 
 
       // PASSO 5: ATUALIZAR THREAD
-      console.log('[WEBHOOK] 🔄 Atualizando thread');
+      console.log('[WEBHOOK] Atualizando thread');
       await base44.asServiceRole.entities.MessageThread.update(thread.id, {
         last_message_content: conteudo.substring(0, 100),
         last_message_at: new Date().toISOString(),
@@ -622,11 +622,11 @@ async function processarMensagemRecebida(instance, payloadNormalizado, base44, c
         unread_count: (thread.unread_count || 0) + 1,
         total_mensagens: (thread.total_mensagens || 0) + 1
       });
-      console.log('[WEBHOOK] ✅ Thread atualizada');
+      console.log('[WEBHOOK] Thread atualizada');
 
-      // PASSO 6: CRIAR INTERAÇÃO (SE CLIENTE ASSOCIADO)
+      // PASSO 6: CRIAR INTERACAO (SE CLIENTE ASSOCIADO)
       if (contato.cliente_id) {
-        console.log('[WEBHOOK] 📊 Criando interação');
+        console.log('[WEBHOOK] Criando interacao');
         await base44.asServiceRole.entities.Interacao.create({
           cliente_id: contato.cliente_id,
           cliente_nome: contato.empresa || contato.nome,
@@ -637,21 +637,21 @@ async function processarMensagemRecebida(instance, payloadNormalizado, base44, c
           resultado: 'sucesso',
           observacoes: conteudo.substring(0, 500)
         });
-        console.log('[WEBHOOK] ✅ Interação criada');
+        console.log('[WEBHOOK] Interacao criada');
       }
 
-      // PASSO 7: PROCESSAR COM IA (ASSÍNCRONO - NÃO BLOQUEIA WEBHOOK)
+      // PASSO 7: PROCESSAR COM IA (ASSINCRONO - NAO BLOQUEIA WEBHOOK)
       processarComIAAsync(thread, message, base44).catch(error => {
-        console.error('[WEBHOOK] ⚠️ Erro no processamento assíncrono de IA:', error);
+        console.error('[WEBHOOK] AVISO: Erro no processamento assincrono de IA:', error);
       });
 
-      // 🆕 PASSO 8: AUTO-ENFILEIRAR SE THREAD NÃO ESTÁ ATRIBUÍDA
+      // PASSO 8: AUTO-ENFILEIRAR SE THREAD NAO ESTA ATRIBUIDA
       if (!thread.assigned_user_id) {
         const setor = thread.sector_id || 'geral';
         
-        console.log('[WEBHOOK] 📥 Thread não atribuída, enfileirando no setor:', setor);
+        console.log('[WEBHOOK] Thread nao atribuida, enfileirando no setor:', setor);
         
-        // Chamar função de enfileiramento de forma assíncrona (não bloqueia webhook)
+        // Chamar funcao de enfileiramento de forma assincrona (nao bloqueia webhook)
         base44.functions.invoke('gerenciarFila', {
           action: 'enqueue',
           thread_id: thread.id,
@@ -664,7 +664,7 @@ async function processarMensagemRecebida(instance, payloadNormalizado, base44, c
           }
         }).then(async result => {
           if (result.data.success && result.data.fila_entry) {
-            console.log('[WEBHOOK] ✅ Thread enfileirada com sucesso');
+            console.log('[WEBHOOK] Thread enfileirada com sucesso');
             
             // Atualizar thread com ID da fila
             try {
@@ -672,19 +672,19 @@ async function processarMensagemRecebida(instance, payloadNormalizado, base44, c
                 fila_atendimento_id: result.data.fila_entry.id,
                 entrou_na_fila_em: result.data.fila_entry.entrou_em
               });
-              console.log('[WEBHOOK] ✅ Thread atualizada com fila_atendimento_id');
+              console.log('[WEBHOOK] Thread atualizada com fila_atendimento_id');
             } catch (updateError) {
-              console.error('[WEBHOOK] ⚠️ Erro ao atualizar thread com fila_id:', updateError);
+              console.error('[WEBHOOK] AVISO: Erro ao atualizar thread com fila_id:', updateError);
             }
           } else {
-            console.log('[WEBHOOK] ℹ️ Thread já estava na fila ou erro ao enfileirar');
+            console.log('[WEBHOOK] INFO: Thread ja estava na fila ou erro ao enfileirar');
           }
         }).catch(error => {
-          console.error('[WEBHOOK] ⚠️ Erro ao enfileirar (não crítico):', error);
+          console.error('[WEBHOOK] AVISO: Erro ao enfileirar (nao critico):', error);
         });
       }
 
-      console.log('[WEBHOOK] ✅ Mensagem processada com sucesso');
+      console.log('[WEBHOOK] Mensagem processada com sucesso');
 
       return Response.json(
         {
@@ -699,7 +699,7 @@ async function processarMensagemRecebida(instance, payloadNormalizado, base44, c
 
     } catch (error) {
       // ROLLBACK MANUAL em caso de erro
-      console.error('[WEBHOOK] ❌ ERRO no fluxo transacional:', error);
+      console.error('[WEBHOOK] ERRO no fluxo transacional:', error);
 
       if (mensagemCriada) {
         await base44.asServiceRole.entities.Message.delete(mensagemCriada.id).catch(e =>
@@ -723,20 +723,20 @@ async function processarMensagemRecebida(instance, payloadNormalizado, base44, c
     }
 
   } catch (error) {
-    console.error('[WEBHOOK] ❌ Erro ao processar mensagem:', error);
+    console.error('[WEBHOOK] ERRO ao processar mensagem:', error);
     throw error;
   }
 }
 
 async function processarMensagemUpdate(payloadNormalizado, base44, corsHeaders) {
-  console.log('[WEBHOOK] 🔄 Processando atualização de status de mensagem');
+  console.log('[WEBHOOK] Processando atualizacao de status de mensagem');
 
   try {
     const messageId = payloadNormalizado.messageId;
     const statusZAPI = payloadNormalizado.status;
 
     if (!messageId) {
-      console.warn('[WEBHOOK] ⚠️ Message ID não encontrado no update');
+      console.warn('[WEBHOOK] AVISO: Message ID nao encontrado no update');
       return Response.json(
         { success: true, ignored: 'missing_message_id' },
         { status: 200, headers: corsHeaders }
@@ -748,7 +748,7 @@ async function processarMensagemUpdate(payloadNormalizado, base44, corsHeaders) 
     });
 
     if (mensagens.length === 0) {
-      console.warn(`[WEBHOOK] ⚠️ Mensagem não encontrada: ${messageId}`);
+      console.warn(`[WEBHOOK] AVISO: Mensagem nao encontrada: ${messageId}`);
       return Response.json(
         { success: true, ignored: 'message_not_found' },
         { status: 200, headers: corsHeaders }
@@ -767,7 +767,7 @@ async function processarMensagemUpdate(payloadNormalizado, base44, corsHeaders) 
 
     if (Object.keys(updates).length > 0) {
       await base44.entities.Message.update(mensagens[0].id, updates);
-      console.log(`[WEBHOOK] ✅ Status da mensagem atualizado: ${updates.status}`);
+      console.log(`[WEBHOOK] Status da mensagem atualizado: ${updates.status}`);
     }
 
     return Response.json(
@@ -776,46 +776,46 @@ async function processarMensagemUpdate(payloadNormalizado, base44, corsHeaders) 
     );
 
   } catch (error) {
-    console.error('[WEBHOOK] ❌ Erro ao processar update:', error);
+    console.error('[WEBHOOK] ERRO ao processar update:', error);
     throw error;
   }
 }
 
 /**
- * ═══════════════════════════════════════════════════════════════
- * FUNÇÕES AUXILIARES
- * ═══════════════════════════════════════════════════════════════
+ * ===============================================================
+ * FUNCOES AUXILIARES
+ * ===============================================================
  */
 
 /**
- * Busca integração por instance - PRIORIZA instance_id_provider
+ * Busca integracao por instance - PRIORIZA instance_id_provider
  */
 async function buscarIntegracaoPorInstance(instance, base44) {
   if (!instance) {
-    console.log('[WEBHOOK] ⚠️ Nenhuma instance fornecida para busca');
+    console.log('[WEBHOOK] AVISO: Nenhuma instance fornecida para busca');
     return null;
   }
   
-  console.log(`[WEBHOOK] 🔎 Iniciando busca de integração para: "${instance}"`);
+  console.log(`[WEBHOOK] Iniciando busca de integracao para: "${instance}"`);
   
-  // Listar TODAS as integrações para diagnóstico
+  // Listar TODAS as integracoes para diagnostico
   const todasIntegracoes = await base44.entities.WhatsAppIntegration.list();
-  console.log(`[WEBHOOK] 📋 Total de integrações cadastradas: ${todasIntegracoes.length}`);
+  console.log(`[WEBHOOK] Total de integracoes cadastradas: ${todasIntegracoes.length}`);
   todasIntegracoes.forEach((int, idx) => {
     console.log(`[WEBHOOK]   ${idx + 1}. ${int.nome_instancia} | instance_id: "${int.instance_id_provider}" | tel: ${int.numero_telefone}`);
   });
   
-  // PRIORIDADE 1: Buscar por instance_id_provider (mais confiável)
+  // PRIORIDADE 1: Buscar por instance_id_provider (mais confiavel)
   let integracoes = await base44.entities.WhatsAppIntegration.filter({
     instance_id_provider: instance
   });
   
   if (integracoes.length > 0) {
-    console.log(`[WEBHOOK] ✅ Integração encontrada por instance_id_provider: ${integracoes[0].nome_instancia}`);
+    console.log(`[WEBHOOK] Integracao encontrada por instance_id_provider: ${integracoes[0].nome_instancia}`);
     return integracoes[0];
   }
   
-  console.log('[WEBHOOK] ⚠️ Nenhuma integração encontrada por instance_id_provider');
+  console.log('[WEBHOOK] AVISO: Nenhuma integracao encontrada por instance_id_provider');
   
   // FALLBACK: Buscar por nome_instancia
   integracoes = await base44.entities.WhatsAppIntegration.filter({
@@ -823,17 +823,17 @@ async function buscarIntegracaoPorInstance(instance, base44) {
   });
   
   if (integracoes.length > 0) {
-    console.log(`[WEBHOOK] ✅ Integração encontrada por nome_instancia: ${integracoes[0].nome_instancia}`);
+    console.log(`[WEBHOOK] Integracao encontrada por nome_instancia: ${integracoes[0].nome_instancia}`);
     return integracoes[0];
   }
   
-  console.log('[WEBHOOK] ❌ NENHUMA INTEGRAÇÃO ENCONTRADA para instance:', instance);
+  console.log('[WEBHOOK] ERRO: NENHUMA INTEGRACAO ENCONTRADA para instance:', instance);
   return null;
 }
 
 async function baixarEPersistirMidia(mediaUrl, mediaType, base44) {
   try {
-    console.log(`[MÍDIA] 📥 Baixando ${mediaType} de:`, mediaUrl.substring(0, 50) + '...');
+    console.log(`[MIDIA] Baixando ${mediaType} de:`, mediaUrl.substring(0, 50) + '...');
 
     // Download da mídia
     const response = await fetch(mediaUrl);
@@ -850,12 +850,12 @@ async function baixarEPersistirMidia(mediaUrl, mediaType, base44) {
     const file = new File([blob], fileName, { type: blob.type });
     const { file_url } = await base44.integrations.Core.UploadFile({ file });
 
-    console.log('[MÍDIA] ✅ Mídia persistida:', file_url);
+    console.log('[MIDIA] Midia persistida:', file_url);
 
     return file_url;
 
   } catch (error) {
-    console.error('[MÍDIA] ❌ Erro ao persistir mídia:', error);
+    console.error('[MIDIA] ERRO ao persistir midia:', error);
     // Retornar null em vez de quebrar o fluxo
     return null;
   }
@@ -874,7 +874,7 @@ function getExtensaoPorTipo(mediaType) {
 
 async function processarComIAAsync(thread, message, base44) {
   try {
-    console.log('[IA] 🧠 Processando mensagem com IA (assíncrono)');
+    console.log('[IA] Processando mensagem com IA (assincrono)');
 
     // Carregar últimas 10 mensagens
     const messages = await base44.entities.Message.filter({
@@ -916,10 +916,10 @@ Gere 3 sugestões práticas que o vendedor possa usar imediatamente.`,
       ultima_analise_ia: new Date().toISOString()
     });
 
-    console.log('[IA] ✅ Sugestões geradas e salvas');
+    console.log('[IA] Sugestoes geradas e salvas');
 
   } catch (error) {
-    console.error('[IA] ❌ Erro no processamento com IA:', error);
-    // Não lançar erro para não quebrar o webhook
+    console.error('[IA] ERRO no processamento com IA:', error);
+    // Nao lancar erro para nao quebrar o webhook
   }
 }
