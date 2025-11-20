@@ -374,7 +374,10 @@ export default function ChatWindow({
           sent_at: new Date().toISOString(),
           media_url: audioUrl,
           media_type: 'audio',
-          reply_to_message_id: mensagemResposta?.id || null
+          reply_to_message_id: mensagemResposta?.id || null,
+          metadata: {
+            whatsapp_integration_id: integrationIdParaUso
+          }
         });
 
         await base44.entities.MessageThread.update(thread.id, {
@@ -479,7 +482,10 @@ export default function ChatWindow({
           status: "enviada",
           whatsapp_message_id: resultado.data.message_id,
           sent_at: new Date().toISOString(),
-          reply_to_message_id: mensagemResposta?.id || null
+          reply_to_message_id: mensagemResposta?.id || null,
+          metadata: {
+            whatsapp_integration_id: integrationIdParaUso
+          }
         });
 
         await base44.entities.MessageThread.update(thread.id, {
@@ -772,7 +778,10 @@ export default function ChatWindow({
           media_url: fileUrl,
           media_type: mediaType,
           media_caption: legendaArquivo || null,
-          reply_to_message_id: mensagemResposta?.id || null
+          reply_to_message_id: mensagemResposta?.id || null,
+          metadata: {
+            whatsapp_integration_id: integrationIdParaUso
+          }
         });
 
         await base44.entities.MessageThread.update(thread.id, {
@@ -964,7 +973,10 @@ export default function ChatWindow({
           sent_at: new Date().toISOString(),
           media_url: fileUrl,
           media_type: mediaType,
-          reply_to_message_id: mensagemResposta?.id || null
+          reply_to_message_id: mensagemResposta?.id || null,
+          metadata: {
+            whatsapp_integration_id: integrationIdParaUso
+          }
         });
 
         await base44.entities.MessageThread.update(thread.id, {
