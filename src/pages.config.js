@@ -58,6 +58,7 @@ import DiagnosticoDetalhado from './pages/DiagnosticoDetalhado';
 import DiagnosticoCirurgico from './pages/DiagnosticoCirurgico';
 import TestePersistenciaDireta from './pages/TestePersistenciaDireta';
 import TesteFluxoControlado from './pages/TesteFluxoControlado';
+import RepositorioTecnico from './pages/RepositorioTecnico';
 import __Layout from './Layout.jsx';
 
 
@@ -122,6 +123,7 @@ export const PAGES = {
     "DiagnosticoCirurgico": DiagnosticoCirurgico,
     "TestePersistenciaDireta": TestePersistenciaDireta,
     "TesteFluxoControlado": TesteFluxoControlado,
+    "RepositorioTecnico": RepositorioTecnico,
 }
 
 export const pagesConfig = {
