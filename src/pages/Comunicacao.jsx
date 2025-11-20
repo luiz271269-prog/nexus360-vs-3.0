@@ -21,8 +21,6 @@ import ContactInfoPanel from "../components/comunicacao/ContactInfoPanel";
 import ConfiguracaoWhatsAppHub from "../components/comunicacao/ConfiguracaoWhatsAppHub";
 import DiagnosticoInbound from "../components/comunicacao/DiagnosticoInbound";
 import PlaybookManager from "../components/automacao/PlaybookManager"; // This import is now redundant but kept for safety if it's used elsewhere or if its removal is not explicit. The new component `BibliotecaAutomacoes` will be used instead in the UI.
-import DashboardSaudeOperacional from "../components/comunicacao/DashboardSaudeOperacional";
-import DashboardUnificado from "../components/comunicacao/DashboardUnificado";
 import SearchAndFilter from "../components/comunicacao/SearchAndFilter";
 import EmptyState from "../components/comunicacao/EmptyState";
 import WebhookInstructions from "../components/comunicacao/WebhookInstructions";
@@ -30,8 +28,8 @@ import ErrorBoundary from "../components/comunicacao/ErrorBoundary";
 import NotificationSystem from "../components/comunicacao/NotificationSystem";
 import { useDebounce } from "../components/lib/useDebounce";
 import { normalizarTelefone } from "../components/lib/phoneUtils";
-import BibliotecaAutomacoes from "../components/automacao/BibliotecaAutomacoes"; // NEW IMPORT
-import VisualizadorFilas from "../components/comunicacao/VisualizadorFilas";
+import BibliotecaAutomacoes from "../components/automacao/BibliotecaAutomacoes";
+import CentralControleOperacional from "../components/comunicacao/CentralControleOperacional";
 
 export default function Comunicacao() {
   const [usuario, setUsuario] = useState(null);
@@ -379,24 +377,16 @@ export default function Comunicacao() {
                 <MessageCircle className="w-4 h-4" />
                 Conversas
               </TabsTrigger>
-              <TabsTrigger value="filas" className="gap-2">
-                <Users className="w-4 h-4" />
-                Filas
+              <TabsTrigger value="controle" className="gap-2">
+                <Activity className="w-4 h-4" />
+                Controle Operacional
               </TabsTrigger>
               <TabsTrigger value="automacao" className="gap-2">
                 <Zap className="w-4 h-4" />
                 Automação
               </TabsTrigger>
-              <TabsTrigger value="dashboard" className="gap-2">
-                <BarChart3 className="w-4 h-4" />
-                Dashboard
-              </TabsTrigger>
-              <TabsTrigger value="saude" className="gap-2">
-                <Activity className="w-4 h-4" />
-                Saúde
-              </TabsTrigger>
               <TabsTrigger value="diagnostico" className="gap-2">
-                <Activity className="w-4 h-4" />
+                <BarChart3 className="w-4 h-4" />
                 Diagnóstico
               </TabsTrigger>
               <TabsTrigger value="configuracoes" className="gap-2">
@@ -494,32 +484,20 @@ export default function Comunicacao() {
               </div>
             </TabsContent>
 
-            {/* TAB: FILAS - VISUALIZADOR DE FILAS FIFO */}
-            <TabsContent value="filas" className="h-full m-0 overflow-hidden">
-              <div className="h-full overflow-y-auto p-6">
-                <VisualizadorFilas 
+            {/* TAB: CONTROLE OPERACIONAL - FILAS + SAÚDE + DASHBOARD CONSOLIDADO */}
+            <TabsContent value="controle" className="h-full m-0 overflow-hidden">
+              <div className="h-full overflow-y-auto p-6 bg-slate-50">
+                <CentralControleOperacional 
                   onSelecionarThread={handleSelecionarThread}
                   usuarioAtual={usuario}
                 />
               </div>
             </TabsContent>
 
-            {/* TAB: AUTOMAÇÃO - NOVA ABA COM A BIBLIOTECA UNIFICADA */}
+            {/* TAB: AUTOMAÇÃO */}
             <TabsContent value="automacao" className="h-full m-0 overflow-hidden">
               <div className="h-full overflow-y-auto p-6">
                 <BibliotecaAutomacoes />
-              </div>
-            </TabsContent>
-
-            <TabsContent value="dashboard" className="h-full m-0 overflow-hidden">
-              <div className="h-full overflow-y-auto">
-                <DashboardUnificado onChangeTab={setActiveTab} />
-              </div>
-            </TabsContent>
-
-            <TabsContent value="saude" className="h-full m-0 overflow-hidden">
-              <div className="h-full overflow-y-auto p-6">
-                <DashboardSaudeOperacional />
               </div>
             </TabsContent>
 
