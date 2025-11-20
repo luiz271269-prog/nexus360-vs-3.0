@@ -56,6 +56,7 @@ import GerenciadorPermissoes from './pages/GerenciadorPermissoes';
 import TesteWebhookDireto from './pages/TesteWebhookDireto';
 import DiagnosticoDetalhado from './pages/DiagnosticoDetalhado';
 import DiagnosticoCirurgico from './pages/DiagnosticoCirurgico';
+import TestePersistenciaDireta from './pages/TestePersistenciaDireta';
 import __Layout from './Layout.jsx';
 
 
@@ -118,6 +119,7 @@ export const PAGES = {
     "TesteWebhookDireto": TesteWebhookDireto,
     "DiagnosticoDetalhado": DiagnosticoDetalhado,
     "DiagnosticoCirurgico": DiagnosticoCirurgico,
+    "TestePersistenciaDireta": TestePersistenciaDireta,
 }
 
 export const pagesConfig = {

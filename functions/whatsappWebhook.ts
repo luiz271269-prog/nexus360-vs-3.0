@@ -132,36 +132,53 @@ Deno.serve(async (req) => {
 
     try {
       console.log('[WEBHOOK] 📝 Tentando persistir payload bruto para auditoria...');
-      console.log('[WEBHOOK] Dados da auditoria:', {
-        instance_identificado: instanceExtraido,
-        evento: eventoTipo,
-        timestamp_recebido: timestampRecebido,
-        payload_keys: Object.keys(evento)
-      });
+      console.log('[WEBHOOK] 🔍 VERIFICAÇÃO PRÉ-INSERT:');
+      console.log('[WEBHOOK]   - instance_identificado:', instanceExtraido, '(tipo:', typeof instanceExtraido, ')');
+      console.log('[WEBHOOK]   - evento:', eventoTipo, '(tipo:', typeof eventoTipo, ')');
+      console.log('[WEBHOOK]   - timestamp_recebido:', timestampRecebido, '(tipo:', typeof timestampRecebido, ')');
+      console.log('[WEBHOOK]   - payload_bruto tipo:', typeof evento, '(keys:', Object.keys(evento).length, ')');
 
-      const auditLog = await base44.asServiceRole.entities.ZapiPayloadNormalized.create({
+      console.log('[WEBHOOK] 🚀 Chamando base44.asServiceRole.entities.ZapiPayloadNormalized.create...');
+
+      const dadosParaCriar = {
         payload_bruto: evento,
         instance_identificado: instanceExtraido,
         evento: eventoTipo,
         timestamp_recebido: timestampRecebido,
-        sucesso_processamento: false // Será atualizado ao final
-      });
+        sucesso_processamento: false
+      };
+
+      console.log('[WEBHOOK] 📦 Dados que serão enviados:', JSON.stringify(dadosParaCriar, null, 2));
+
+      const auditLog = await base44.asServiceRole.entities.ZapiPayloadNormalized.create(dadosParaCriar);
+
       auditLogId = auditLog.id;
-      console.log('[WEBHOOK] ✅ Payload bruto persistido para auditoria com sucesso:', auditLogId);
+      console.log('[WEBHOOK] ✅ Payload bruto persistido para auditoria com sucesso!');
+      console.log('[WEBHOOK] 🆔 ID criado:', auditLogId);
+      console.log('[WEBHOOK] 📊 Objeto completo retornado:', JSON.stringify(auditLog, null, 2));
     } catch (auditError) {
-      console.error('[WEBHOOK] ❌ ERRO CRÍTICO ao persistir auditoria:', auditError.message);
-      console.error('[WEBHOOK] Stack completo:', auditError.stack);
-      console.error('[WEBHOOK] Payload que falhou:', JSON.stringify(evento, null, 2));
+      console.error('[WEBHOOK] ❌❌❌ ERRO CRÍTICO ao persistir auditoria ❌❌❌');
+      console.error('[WEBHOOK] 📛 Nome do erro:', auditError.name);
+      console.error('[WEBHOOK] 📛 Mensagem:', auditError.message);
+      console.error('[WEBHOOK] 📛 Código:', auditError.code);
+      console.error('[WEBHOOK] 📛 Stack completo:', auditError.stack);
+      console.error('[WEBHOOK] 📦 Payload que falhou:', JSON.stringify(evento, null, 2));
+      console.error('[WEBHOOK] 🔍 Detalhes do erro completo:', JSON.stringify(auditError, Object.getOwnPropertyNames(auditError), 2));
 
       // MESMO COM ERRO, continuar processamento
       return Response.json(
         { 
           success: false, 
           error: 'Falha ao persistir payload: ' + auditError.message,
+          error_name: auditError.name,
+          error_code: auditError.code,
+          error_stack: auditError.stack,
           timestamp: timestampRecebido,
           debug: {
             instance: instanceExtraido,
-            evento: eventoTipo
+            evento: eventoTipo,
+            payload_type: typeof evento,
+            payload_keys: Object.keys(evento)
           }
         },
         { status: 200, headers: corsHeaders }
