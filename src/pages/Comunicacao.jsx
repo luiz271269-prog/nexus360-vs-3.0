@@ -486,7 +486,7 @@ export default function Comunicacao() {
 
             {/* TAB: CONTROLE OPERACIONAL - FILAS + SAÚDE + DASHBOARD CONSOLIDADO */}
             <TabsContent value="controle" className="h-full m-0 overflow-hidden">
-              <div className="h-full overflow-y-auto p-6 bg-slate-50">
+              <div className="h-full overflow-y-auto bg-slate-900">
                 <CentralControleOperacional 
                   onSelecionarThread={handleSelecionarThread}
                   usuarioAtual={usuario}

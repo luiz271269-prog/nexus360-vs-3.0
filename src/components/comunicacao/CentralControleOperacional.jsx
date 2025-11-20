@@ -4,8 +4,7 @@ import { base44 } from '@/api/base44Client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Progress } from '@/components/ui/progress';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   Activity,
   AlertTriangle,
@@ -18,12 +17,16 @@ import {
   UserPlus,
   AlertCircle,
   Timer,
-  Battery,
   MessageSquare,
   BarChart3,
   Wifi,
   WifiOff,
-  Phone
+  Phone,
+  Server,
+  Target,
+  Sparkles,
+  Grid3x3,
+  ArrowUpRight
 } from 'lucide-react';
 import { toast } from 'sonner';
 import SeletorEstrategia from './SeletorEstrategia';
@@ -293,164 +296,452 @@ export default function CentralControleOperacional({ onSelecionarThread, usuario
 
   const setores = ['geral', 'vendas', 'assistencia', 'financeiro', 'fornecedor'];
 
+  // Agrupar filas por instância
+  const filasPorInstancia = {};
+  filas.forEach(fila => {
+    const integracao = integracoes.find(i => i.id === fila.whatsapp_integration_id);
+    const instanciaKey = integracao?.id || 'sem_instancia';
+    if (!filasPorInstancia[instanciaKey]) {
+      filasPorInstancia[instanciaKey] = {
+        integracao: integracao,
+        filas: [],
+        totalFila: 0,
+        urgentes: 0
+      };
+    }
+    filasPorInstancia[instanciaKey].filas.push(fila);
+    filasPorInstancia[instanciaKey].totalFila++;
+    if (fila.prioridade === 'urgente' || fila.prioridade === 'alta') {
+      filasPorInstancia[instanciaKey].urgentes++;
+    }
+  });
+
   return (
-    <div className="space-y-6">
+    <div className="min-h-screen bg-slate-900">
       {/* ═══════════════════════════════════════════════════════ */}
-      {/* 1. SCORE GERAL DE SAÚDE */}
+      {/* HEADER DO SISTEMA */}
       {/* ═══════════════════════════════════════════════════════ */}
       
-      <Card className={`border-2 ${
-        statusGeral === 'excelente' ? 'bg-gradient-to-br from-green-50 to-emerald-50 border-green-200' :
-        statusGeral === 'bom' ? 'bg-gradient-to-br from-blue-50 to-cyan-50 border-blue-200' :
-        statusGeral === 'atencao' ? 'bg-gradient-to-br from-amber-50 to-orange-50 border-amber-200' :
-        'bg-gradient-to-br from-red-50 to-pink-50 border-red-200'
-      }`}>
-        <CardContent className="pt-6">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <div className={`w-20 h-20 rounded-2xl flex items-center justify-center shadow-xl ${
-                statusGeral === 'excelente' ? 'bg-gradient-to-br from-green-500 to-emerald-600' :
-                statusGeral === 'bom' ? 'bg-gradient-to-br from-blue-500 to-cyan-600' :
-                statusGeral === 'atencao' ? 'bg-gradient-to-br from-amber-500 to-orange-600' :
-                'bg-gradient-to-br from-red-500 to-pink-600'
-              }`}>
-                {statusGeral === 'excelente' ? <CheckCircle className="w-10 h-10 text-white" /> :
-                 statusGeral === 'bom' ? <TrendingUp className="w-10 h-10 text-white" /> :
-                 statusGeral === 'atencao' ? <AlertTriangle className="w-10 h-10 text-white" /> :
-                 <AlertCircle className="w-10 h-10 text-white" />}
-              </div>
+      <div className="bg-gradient-to-r from-slate-950 via-slate-900 to-slate-950 border-b border-slate-700/50 px-6 py-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <div className="w-12 h-12 bg-gradient-to-br from-blue-500 via-indigo-500 to-purple-600 rounded-xl flex items-center justify-center shadow-lg shadow-blue-500/20">
+              <Server className="w-6 h-6 text-white" />
+            </div>
+            <div>
+              <h1 className="text-xl font-bold text-white">Central de Controle Operacional</h1>
+              <p className="text-sm text-slate-400">Sistema de Gestão WhatsApp Multi-Instância</p>
+            </div>
+          </div>
 
-              <div>
-                <h2 className="text-3xl font-bold text-slate-900">
-                  Score de Saúde: {scoreGeral}/100
-                </h2>
-                <Badge className={`${
-                  statusGeral === 'excelente' ? 'bg-green-600' :
-                  statusGeral === 'bom' ? 'bg-blue-600' :
-                  statusGeral === 'atencao' ? 'bg-amber-600' :
-                  'bg-red-600'
-                } text-white mt-2`}>
-                  {statusGeral === 'excelente' ? '✨ Excelente' :
-                   statusGeral === 'bom' ? '👍 Bom' :
-                   statusGeral === 'atencao' ? '⚠️ Atenção' :
-                   '🚨 Crítico'}
-                </Badge>
-                <p className="text-sm text-slate-600 mt-2">
-                  Sistema de Comunicação WhatsApp
-                </p>
-              </div>
+          <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2 bg-slate-800/50 px-4 py-2 rounded-lg border border-slate-700">
+              <div className={`w-2 h-2 rounded-full ${statusGeral === 'excelente' ? 'bg-green-500 animate-pulse' : statusGeral === 'bom' ? 'bg-blue-500' : statusGeral === 'atencao' ? 'bg-amber-500 animate-pulse' : 'bg-red-500 animate-pulse'}`} />
+              <span className="text-sm text-slate-300">Score: {scoreGeral}/100</span>
             </div>
 
-            <Button onClick={() => window.location.reload()} variant="outline" size="sm">
+            <Button onClick={() => window.location.reload()} size="sm" className="bg-slate-800 hover:bg-slate-700 border border-slate-600">
               <RefreshCw className="w-4 h-4 mr-2" />
               Atualizar
             </Button>
           </div>
-
-          <Progress value={scoreGeral} className="h-3 mt-4" />
-        </CardContent>
-      </Card>
-
-      {/* ═══════════════════════════════════════════════════════ */}
-      {/* 2. MÉTRICAS OPERACIONAIS PRINCIPAIS */}
-      {/* ═══════════════════════════════════════════════════════ */}
-
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <Card className={statusIntegracoes === 'saudavel' ? 'border-green-200 bg-green-50/30' :
-                        statusIntegracoes === 'atencao' ? 'border-amber-200 bg-amber-50/30' :
-                        'border-red-200 bg-red-50/30'}>
-          <CardContent className="pt-6">
-            <div className="flex items-center justify-between mb-3">
-              {statusIntegracoes === 'saudavel' ? 
-                <Wifi className="w-8 h-8 text-green-600" /> :
-                <WifiOff className="w-8 h-8 text-red-600" />
-              }
-              <Badge className={`${
-                statusIntegracoes === 'saudavel' ? 'bg-green-600' :
-                statusIntegracoes === 'atencao' ? 'bg-amber-600' :
-                'bg-red-600'
-              } text-white`}>
-                {integracoesConectadas}/{integracoesTotal}
-              </Badge>
-            </div>
-            <p className="text-sm text-slate-600">Conexões WhatsApp</p>
-            <p className="text-2xl font-bold text-slate-900 mt-1">
-              {Math.round((integracoesConectadas / Math.max(integracoesTotal, 1)) * 100)}%
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card className={statusTempoResposta === 'excelente' ? 'border-green-200 bg-green-50/30' :
-                        statusTempoResposta === 'bom' ? 'border-blue-200 bg-blue-50/30' :
-                        statusTempoResposta === 'atencao' ? 'border-amber-200 bg-amber-50/30' :
-                        'border-red-200 bg-red-50/30'}>
-          <CardContent className="pt-6">
-            <div className="flex items-center justify-between mb-3">
-              <Clock className={`w-8 h-8 ${
-                statusTempoResposta === 'excelente' ? 'text-green-600' :
-                statusTempoResposta === 'bom' ? 'text-blue-600' :
-                statusTempoResposta === 'atencao' ? 'text-amber-600' :
-                'text-red-600'
-              }`} />
-              <Badge className={`${
-                statusTempoResposta === 'excelente' ? 'bg-green-600' :
-                statusTempoResposta === 'bom' ? 'bg-blue-600' :
-                statusTempoResposta === 'atencao' ? 'bg-amber-600' :
-                'bg-red-600'
-              } text-white`}>
-                Meta: 15min
-              </Badge>
-            </div>
-            <p className="text-sm text-slate-600">Tempo Médio Resposta</p>
-            <p className="text-2xl font-bold text-slate-900 mt-1">
-              {tempoMedioResposta}min
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center justify-between mb-3">
-              <Users className="w-8 h-8 text-blue-600" />
-              <Badge className="bg-blue-600 text-white">
-                {atendentesOnline}/{atendentesTotal}
-              </Badge>
-            </div>
-            <p className="text-sm text-slate-600">Atendentes Online</p>
-            <p className="text-2xl font-bold text-slate-900 mt-1">
-              {percentualAtendentesOnline}%
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card className={statusCarga === 'saudavel' ? 'border-green-200 bg-green-50/30' :
-                        statusCarga === 'atencao' ? 'border-amber-200 bg-amber-50/30' :
-                        'border-red-200 bg-red-50/30'}>
-          <CardContent className="pt-6">
-            <div className="flex items-center justify-between mb-3">
-              <Battery className={`w-8 h-8 ${
-                statusCarga === 'saudavel' ? 'text-green-600' :
-                statusCarga === 'atencao' ? 'text-amber-600' :
-                'text-red-600'
-              }`} />
-              <Badge className={`${
-                statusCarga === 'saudavel' ? 'bg-green-600' :
-                statusCarga === 'atencao' ? 'bg-amber-600' :
-                'bg-red-600'
-              } text-white`}>
-                {cargaTotal}/{capacidadeTotal}
-              </Badge>
-            </div>
-            <p className="text-sm text-slate-600">Capacidade Utilizada</p>
-            <p className="text-2xl font-bold text-slate-900 mt-1">
-              {percentualCarga}%
-            </p>
-          </CardContent>
-        </Card>
+        </div>
       </div>
 
       {/* ═══════════════════════════════════════════════════════ */}
-      {/* 3. ALERTAS CRÍTICOS */}
+      {/* BARRA DE STATUS GERAL */}
+      {/* ═══════════════════════════════════════════════════════ */}
+      
+      <div className="px-6 py-3 bg-slate-800/30 border-y border-slate-700/30">
+        <div className="grid grid-cols-6 gap-4">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-slate-800 rounded-lg flex items-center justify-center border border-slate-700">
+              {statusIntegracoes === 'saudavel' ? <Wifi className="w-5 h-5 text-green-500" /> : <WifiOff className="w-5 h-5 text-red-500" />}
+            </div>
+            <div>
+              <p className="text-xs text-slate-500">Conexões</p>
+              <p className="text-sm font-bold text-white">{integracoesConectadas}/{integracoesTotal}</p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-slate-800 rounded-lg flex items-center justify-center border border-slate-700">
+              <Clock className="w-5 h-5 text-blue-400" />
+            </div>
+            <div>
+              <p className="text-xs text-slate-500">Resp. Média</p>
+              <p className="text-sm font-bold text-white">{tempoMedioResposta}min</p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-slate-800 rounded-lg flex items-center justify-center border border-slate-700">
+              <Users className="w-5 h-5 text-purple-400" />
+            </div>
+            <div>
+              <p className="text-xs text-slate-500">Atendentes</p>
+              <p className="text-sm font-bold text-white">{atendentesOnline}/{atendentesTotal}</p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-slate-800 rounded-lg flex items-center justify-center border border-slate-700">
+              <MessageSquare className="w-5 h-5 text-amber-400" />
+            </div>
+            <div>
+              <p className="text-xs text-slate-500">Conversas</p>
+              <p className="text-sm font-bold text-white">{conversasAbertas}</p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-slate-800 rounded-lg flex items-center justify-center border border-slate-700">
+              <Target className="w-5 h-5 text-orange-400" />
+            </div>
+            <div>
+              <p className="text-xs text-slate-500">Na Fila</p>
+              <p className="text-sm font-bold text-white">{estatisticasFilas?.total_na_fila || 0}</p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-slate-800 rounded-lg flex items-center justify-center border border-slate-700">
+              <Zap className="w-5 h-5 text-indigo-400" />
+            </div>
+            <div>
+              <p className="text-xs text-slate-500">Automações</p>
+              <p className="text-sm font-bold text-white">{execucoesAtivas}</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* ═══════════════════════════════════════════════════════ */}
+      {/* CONTEÚDO PRINCIPAL */}
+      {/* ═══════════════════════════════════════════════════════ */}
+
+      <div className="px-6 py-6">
+        {/* ALERTAS CRÍTICOS */}
+        {(statusIntegracoes === 'critico' || conversasProximasExpirar > 0 || conversasNaoAtribuidas > 5) && (
+          <div className="mb-6 space-y-3">
+            {statusIntegracoes === 'critico' && (
+              <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-4 flex items-start gap-3">
+                <AlertCircle className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" />
+                <div className="flex-1">
+                  <p className="font-semibold text-red-400">Sistema Desconectado</p>
+                  <p className="text-sm text-slate-400">Todas as integrações WhatsApp estão offline. Verifique configurações.</p>
+                </div>
+                <Button size="sm" className="bg-red-600 hover:bg-red-700">Resolver</Button>
+              </div>
+            )}
+
+            {conversasProximasExpirar > 0 && (
+              <div className="bg-amber-500/10 border border-amber-500/30 rounded-lg p-4 flex items-start gap-3">
+                <Timer className="w-5 h-5 text-amber-500 flex-shrink-0 mt-0.5" />
+                <div className="flex-1">
+                  <p className="font-semibold text-amber-400">Janelas Expirando</p>
+                  <p className="text-sm text-slate-400">{conversasProximasExpirar} conversas com janela 24h expirando em menos de 2 horas</p>
+                </div>
+                <Button size="sm" className="bg-amber-600 hover:bg-amber-700">Ver</Button>
+              </div>
+            )}
+
+            {conversasNaoAtribuidas > 5 && (
+              <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-4 flex items-start gap-3">
+                <Users className="w-5 h-5 text-blue-500 flex-shrink-0 mt-0.5" />
+                <div className="flex-1">
+                  <p className="font-semibold text-blue-400">Conversas Sem Atendente</p>
+                  <p className="text-sm text-slate-400">{conversasNaoAtribuidas} conversas aguardando atribuição</p>
+                </div>
+                <Button size="sm" className="bg-blue-600 hover:bg-blue-700">Atribuir</Button>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* TABS POR INSTÂNCIA WhatsApp */}
+        <Tabs defaultValue={integracoes[0]?.id || 'geral'} className="space-y-4">
+          <TabsList className="bg-slate-800 border border-slate-700 p-1">
+            {integracoes.map(integracao => (
+              <TabsTrigger 
+                key={integracao.id} 
+                value={integracao.id}
+                className="data-[state=active]:bg-slate-700 text-slate-300 data-[state=active]:text-white flex items-center gap-2"
+              >
+                <div className={`w-2 h-2 rounded-full ${integracao.status === 'conectado' ? 'bg-green-500' : 'bg-red-500'}`} />
+                {integracao.nome_instancia}
+                {filasPorInstancia[integracao.id]?.totalFila > 0 && (
+                  <Badge className="bg-orange-600 text-white ml-1 text-xs h-5">
+                    {filasPorInstancia[integracao.id].totalFila}
+                  </Badge>
+                )}
+              </TabsTrigger>
+            ))}
+          </TabsList>
+
+          {integracoes.map(integracao => (
+            <TabsContent key={integracao.id} value={integracao.id} className="space-y-4">
+              {/* HEADER DA INSTÂNCIA */}
+              <div className="bg-slate-800/50 border border-slate-700 rounded-lg p-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-4">
+                    <div className="w-14 h-14 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-xl flex items-center justify-center">
+                      <Phone className="w-7 h-7 text-white" />
+                    </div>
+                    <div>
+                      <h3 className="text-lg font-bold text-white">{integracao.nome_instancia}</h3>
+                      <div className="flex items-center gap-3 mt-1">
+                        <div className="flex items-center gap-2">
+                          <div className={`w-2 h-2 rounded-full ${integracao.status === 'conectado' ? 'bg-green-500 animate-pulse' : 'bg-red-500'}`} />
+                          <span className="text-sm text-slate-400">
+                            {integracao.status === 'conectado' ? 'Conectado' : 'Desconectado'}
+                          </span>
+                        </div>
+                        <span className="text-slate-600">•</span>
+                        <span className="text-sm text-slate-400">{integracao.numero_telefone}</span>
+                        {integracao.estatisticas && (
+                          <>
+                            <span className="text-slate-600">•</span>
+                            <span className="text-sm text-slate-400">
+                              {integracao.estatisticas.total_mensagens_recebidas || 0} msgs recebidas
+                            </span>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    {filasPorInstancia[integracao.id]?.urgentes > 0 && (
+                      <Badge className="bg-red-600 text-white">
+                        {filasPorInstancia[integracao.id].urgentes} urgentes
+                      </Badge>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* MÉTRICAS DA INSTÂNCIA */}
+              <div className="grid grid-cols-4 gap-4">
+                <Card className="bg-slate-800/30 border-slate-700">
+                  <CardContent className="pt-6">
+                    <div className="flex items-center justify-between mb-2">
+                      <MessageSquare className="w-5 h-5 text-blue-400" />
+                      <ArrowUpRight className="w-4 h-4 text-slate-600" />
+                    </div>
+                    <p className="text-xs text-slate-500 uppercase tracking-wide">Conversas Ativas</p>
+                    <p className="text-3xl font-bold text-white mt-2">
+                      {threads.filter(t => t.whatsapp_integration_id === integracao.id && t.status === 'aberta').length}
+                    </p>
+                    <p className="text-xs text-slate-500 mt-1">
+                      {threads.filter(t => t.whatsapp_integration_id === integracao.id && !t.assigned_user_id).length} não atribuídas
+                    </p>
+                  </CardContent>
+                </Card>
+
+                <Card className="bg-slate-800/30 border-slate-700">
+                  <CardContent className="pt-6">
+                    <div className="flex items-center justify-between mb-2">
+                      <Target className="w-5 h-5 text-orange-400" />
+                      <ArrowUpRight className="w-4 h-4 text-slate-600" />
+                    </div>
+                    <p className="text-xs text-slate-500 uppercase tracking-wide">Na Fila</p>
+                    <p className="text-3xl font-bold text-white mt-2">
+                      {filasPorInstancia[integracao.id]?.totalFila || 0}
+                    </p>
+                    <p className="text-xs text-slate-500 mt-1">
+                      {filasPorInstancia[integracao.id]?.urgentes || 0} urgentes
+                    </p>
+                  </CardContent>
+                </Card>
+
+                <Card className="bg-slate-800/30 border-slate-700">
+                  <CardContent className="pt-6">
+                    <div className="flex items-center justify-between mb-2">
+                      <Timer className="w-5 h-5 text-purple-400" />
+                      <ArrowUpRight className="w-4 h-4 text-slate-600" />
+                    </div>
+                    <p className="text-xs text-slate-500 uppercase tracking-wide">Janela 24h</p>
+                    <p className="text-3xl font-bold text-white mt-2">
+                      {threads.filter(t => {
+                        if (t.whatsapp_integration_id !== integracao.id || !t.janela_24h_expira_em) return false;
+                        return new Date(t.janela_24h_expira_em) > agora;
+                      }).length}
+                    </p>
+                    <p className="text-xs text-red-400 mt-1">
+                      {threads.filter(t => {
+                        if (t.whatsapp_integration_id !== integracao.id || !t.janela_24h_expira_em) return false;
+                        const horasRestantes = (new Date(t.janela_24h_expira_em) - agora) / (1000 * 60 * 60);
+                        return horasRestantes > 0 && horasRestantes < 2;
+                      }).length} expirando
+                    </p>
+                  </CardContent>
+                </Card>
+
+                <Card className="bg-slate-800/30 border-slate-700">
+                  <CardContent className="pt-6">
+                    <div className="flex items-center justify-between mb-2">
+                      <BarChart3 className="w-5 h-5 text-green-400" />
+                      <ArrowUpRight className="w-4 h-4 text-slate-600" />
+                    </div>
+                    <p className="text-xs text-slate-500 uppercase tracking-wide">Taxa Resposta</p>
+                    <p className="text-3xl font-bold text-white mt-2">
+                      {integracao.estatisticas?.taxa_resposta_24h || 0}%
+                    </p>
+                    <p className="text-xs text-slate-500 mt-1">
+                      ⌀ {integracao.estatisticas?.tempo_medio_resposta_minutos || 0}min
+                    </p>
+                  </CardContent>
+                </Card>
+              </div>
+
+              {/* FILAS POR SETOR DESTA INSTÂNCIA */}
+              {filasPorInstancia[integracao.id] && filasPorInstancia[integracao.id].totalFila > 0 && (
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <h4 className="text-sm font-semibold text-slate-300 uppercase tracking-wide">Filas por Setor</h4>
+                    <SeletorEstrategia 
+                      estrategiaAtual={estrategia}
+                      onMudarEstrategia={setEstrategia}
+                      disabled={loadingFilas || atribuindo}
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    {setores.map(setor => {
+                      const threadsDoSetor = filasPorInstancia[integracao.id].filas.filter(f => f.setor === setor);
+                      if (threadsDoSetor.length === 0) return null;
+
+                      return (
+                        <Card key={setor} className="bg-slate-800/30 border-slate-700">
+                          <CardHeader className="pb-3">
+                            <div className="flex items-center justify-between">
+                              <CardTitle className="text-sm font-semibold text-white capitalize flex items-center gap-2">
+                                <Grid3x3 className="w-4 h-4 text-amber-400" />
+                                {setor}
+                              </CardTitle>
+                              <div className="flex items-center gap-2">
+                                <Badge className="bg-orange-600 text-white text-xs">{threadsDoSetor.length}</Badge>
+                                <Button
+                                  size="sm"
+                                  onClick={() => atenderProximo(setor)}
+                                  disabled={atribuindo === setor}
+                                  className="bg-green-600 hover:bg-green-700 h-7 text-xs"
+                                >
+                                  {atribuindo === setor ? (
+                                    <RefreshCw className="w-3 h-3 animate-spin" />
+                                  ) : (
+                                    <>
+                                      <UserPlus className="w-3 h-3 mr-1" />
+                                      Atender
+                                    </>
+                                  )}
+                                </Button>
+                              </div>
+                            </div>
+                          </CardHeader>
+                          <CardContent className="p-0">
+                            <div className="divide-y divide-slate-700/50 max-h-40 overflow-y-auto">
+                              {threadsDoSetor.slice(0, 3).map((item, index) => (
+                                <div
+                                  key={item.id}
+                                  className="p-3 hover:bg-slate-700/30 transition-colors cursor-pointer"
+                                  onClick={() => {
+                                    if (onSelecionarThread && item.thread_id) {
+                                      base44.entities.MessageThread.get(item.thread_id)
+                                        .then(thread => onSelecionarThread(thread))
+                                        .catch(() => toast.error('Erro ao carregar'));
+                                    }
+                                  }}
+                                >
+                                  <div className="flex items-center gap-2">
+                                    <div className="w-6 h-6 bg-gradient-to-br from-amber-500 to-orange-600 rounded-full flex items-center justify-center text-white font-bold text-xs flex-shrink-0">
+                                      {index + 1}
+                                    </div>
+                                    <div className="flex-1 min-w-0">
+                                      <p className="text-xs font-semibold text-white truncate">
+                                        {item.metadata?.cliente_nome || 'Cliente'}
+                                      </p>
+                                      <div className="flex items-center gap-2 mt-1">
+                                        <Badge className={`${getPrioridadeColor(item.prioridade)} text-[10px] h-4 px-1.5`}>
+                                          {item.prioridade}
+                                        </Badge>
+                                        <span className={`text-[10px] font-semibold ${getTempoEsperaColor(item.tempo_espera_segundos)}`}>
+                                          {item.tempo_espera_formatado}
+                                        </span>
+                                      </div>
+                                    </div>
+                                  </div>
+                                </div>
+                              ))}
+                              {threadsDoSetor.length > 3 && (
+                                <div className="p-2 text-center">
+                                  <span className="text-xs text-slate-500">+{threadsDoSetor.length - 3} mais...</span>
+                                </div>
+                              )}
+                            </div>
+                          </CardContent>
+                        </Card>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+            </TabsContent>
+          ))}
+        </Tabs>
+
+        {/* RODAPÉ - AUTOMAÇÕES E PLAYBOOKS */}
+        <div className="mt-6 grid grid-cols-3 gap-4">
+          <Card className="bg-slate-800/30 border-slate-700">
+            <CardContent className="pt-6">
+              <div className="flex items-center justify-between mb-2">
+                <Zap className="w-5 h-5 text-purple-400" />
+                <Sparkles className="w-4 h-4 text-slate-600" />
+              </div>
+              <p className="text-xs text-slate-500 uppercase tracking-wide">Playbooks Ativos</p>
+              <p className="text-3xl font-bold text-white mt-2">{playbooksAtivos}</p>
+              <p className="text-xs text-slate-400 mt-1">{execucoesAtivas} em execução</p>
+            </CardContent>
+          </Card>
+
+          <Card className="bg-slate-800/30 border-slate-700">
+            <CardContent className="pt-6">
+              <div className="flex items-center justify-between mb-2">
+                <CheckCircle className="w-5 h-5 text-green-400" />
+                <TrendingUp className="w-4 h-4 text-slate-600" />
+              </div>
+              <p className="text-xs text-slate-500 uppercase tracking-wide">Taxa Sucesso 24h</p>
+              <p className="text-3xl font-bold text-white mt-2">{taxaSucessoPlaybooks}%</p>
+              <p className="text-xs text-slate-400 mt-1">{execucoesUltimas24h.length} execuções</p>
+            </CardContent>
+          </Card>
+
+          <Card className="bg-slate-800/30 border-slate-700">
+            <CardContent className="pt-6">
+              <div className="flex items-center justify-between mb-2">
+                <Activity className="w-5 h-5 text-blue-400" />
+                <BarChart3 className="w-4 h-4 text-slate-600" />
+              </div>
+              <p className="text-xs text-slate-500 uppercase tracking-wide">Score Geral</p>
+              <p className="text-3xl font-bold text-white mt-2">{scoreGeral}/100</p>
+              <p className={`text-xs font-semibold mt-1 ${
+                statusGeral === 'excelente' ? 'text-green-400' :
+                statusGeral === 'bom' ? 'text-blue-400' :
+                statusGeral === 'atencao' ? 'text-amber-400' :
+                'text-red-400'
+              }`}>
+                {statusGeral === 'excelente' ? 'Excelente' :
+                 statusGeral === 'bom' ? 'Bom' :
+                 statusGeral === 'atencao' ? 'Atenção' : 'Crítico'}
+              </p>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+
+      {/* ═══════════════════════════════════════════════════════ */}
+      {/* REMOVIDO: SEÇÕES ANTIGAS */}
       {/* ═══════════════════════════════════════════════════════ */}
 
       {statusIntegracoes === 'critico' && (
