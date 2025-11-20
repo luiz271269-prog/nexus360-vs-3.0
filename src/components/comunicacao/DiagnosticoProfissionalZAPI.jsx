@@ -17,7 +17,8 @@ import {
   Info,
   Download,
   BarChart3,
-  Copy
+  Copy,
+  Code
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
@@ -30,6 +31,8 @@ export default function DiagnosticoProfissionalZAPI({ integracoes }) {
   const [historico, setHistorico] = useState([]);
   const [carregandoHistorico, setCarregandoHistorico] = useState(false);
   const [testesExpandidos, setTestesExpandidos] = useState(new Set());
+  const [sugestoesIA, setSugestoesIA] = useState(null);
+  const [carregandoIA, setCarregandoIA] = useState(false);
 
   useEffect(() => {
     if (integracoes.length > 0 && !conexaoSelecionada) {
@@ -149,6 +152,34 @@ export default function DiagnosticoProfissionalZAPI({ integracoes }) {
     const textoFormatado = JSON.stringify(logDetalhado, null, 2);
     navigator.clipboard.writeText(textoFormatado);
     toast.success('Log completo copiado! Cole em um editor de texto.');
+  };
+
+  const gerarSugestoesIA = async () => {
+    if (!resultadoAtual) {
+      toast.error('Nenhum diagnóstico para analisar');
+      return;
+    }
+
+    setCarregandoIA(true);
+    setSugestoesIA(null);
+
+    try {
+      const { data } = await base44.functions.invoke('gerarSugestoesDiagnosticoIA', {
+        diagnostico_data: resultadoAtual
+      });
+
+      if (data.success) {
+        setSugestoesIA(data);
+        toast.success(`IA gerou ${data.sugestoes?.length || 0} sugestões de correção`);
+      } else {
+        toast.error('Erro ao gerar sugestões: ' + data.error);
+      }
+    } catch (error) {
+      console.error('Erro ao chamar IA:', error);
+      toast.error('Erro ao gerar sugestões de IA');
+    } finally {
+      setCarregandoIA(false);
+    }
   };
 
 
@@ -316,15 +347,36 @@ export default function DiagnosticoProfissionalZAPI({ integracoes }) {
                         Score: {resultadoAtual.score_total}%
                       </Badge>
                     </CardTitle>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={copiarLogCompleto}
-                      className="gap-2"
-                    >
-                      <Copy className="w-4 h-4" />
-                      Copiar Log Completo
-                    </Button>
+                    <div className="flex gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={gerarSugestoesIA}
+                        disabled={carregandoIA}
+                        className="gap-2 bg-purple-50 hover:bg-purple-100 border-purple-300"
+                      >
+                        {carregandoIA ? (
+                          <>
+                            <Activity className="w-4 h-4 animate-spin" />
+                            Analisando...
+                          </>
+                        ) : (
+                          <>
+                            <Zap className="w-4 h-4 text-purple-600" />
+                            Sugestões de IA
+                          </>
+                        )}
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={copiarLogCompleto}
+                        className="gap-2"
+                      >
+                        <Copy className="w-4 h-4" />
+                        Copiar Log Completo
+                      </Button>
+                    </div>
                   </div>
                 </CardHeader>
                 <CardContent className="p-0">
@@ -504,8 +556,130 @@ export default function DiagnosticoProfissionalZAPI({ integracoes }) {
                 </CardContent>
               </Card>
             )}
-          </>
-        ) : (
+
+            {/* Sugestões de IA */}
+            {sugestoesIA && sugestoesIA.sugestoes && sugestoesIA.sugestoes.length > 0 && (
+              <Card className="border-2 border-purple-300 bg-gradient-to-r from-purple-50 to-indigo-50">
+                <CardHeader className="pb-3 bg-gradient-to-r from-purple-100 to-indigo-100">
+                  <CardTitle className="text-sm font-bold text-purple-900 flex items-center gap-2">
+                    <Zap className="w-5 h-5 text-purple-600" />
+                    Sugestões de Correção da IA
+                    <Badge className="bg-purple-600 text-white ml-auto">
+                      {sugestoesIA.sugestoes.length} sugestões
+                    </Badge>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="pt-4 space-y-4">
+                  {/* Análise Geral */}
+                  {sugestoesIA.analise_geral && (
+                    <div className="bg-white rounded-lg p-4 border border-purple-200">
+                      <h4 className="font-semibold text-sm text-purple-900 mb-2">📊 Análise Geral</h4>
+                      <p className="text-sm text-slate-700 mb-2">{sugestoesIA.analise_geral.resumo}</p>
+                      <div className="flex gap-4 text-xs text-slate-600">
+                        <span><strong>Impacto:</strong> {sugestoesIA.analise_geral.impacto}</span>
+                        <span><strong>Tempo Estimado:</strong> {sugestoesIA.analise_geral.tempo_estimado_correcao}</span>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Sugestões */}
+                  <div className="space-y-3">
+                    {sugestoesIA.sugestoes.map((sugestao, idx) => (
+                      <div
+                        key={idx}
+                        className="bg-white rounded-lg p-4 border-l-4 shadow-sm hover:shadow-md transition-shadow"
+                        style={{
+                          borderLeftColor: 
+                            sugestao.prioridade === 'Alta' ? '#ef4444' :
+                            sugestao.prioridade === 'Média' ? '#f59e0b' :
+                            '#22c55e'
+                        }}
+                      >
+                        {/* Header */}
+                        <div className="flex items-start justify-between mb-3">
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2 mb-1">
+                              <Badge className="text-[10px] bg-slate-200 text-slate-700">
+                                Etapa {sugestao.etapa_numero}
+                              </Badge>
+                              <Badge className={`text-[10px] ${
+                                sugestao.prioridade === 'Alta' ? 'bg-red-100 text-red-800' :
+                                sugestao.prioridade === 'Média' ? 'bg-yellow-100 text-yellow-800' :
+                                'bg-green-100 text-green-800'
+                              }`}>
+                                {sugestao.prioridade}
+                              </Badge>
+                              <Badge className="text-[10px] bg-purple-100 text-purple-800">
+                                {sugestao.categoria}
+                              </Badge>
+                            </div>
+                            <h5 className="font-semibold text-sm text-slate-900">
+                              {sugestao.teste_nome}
+                            </h5>
+                          </div>
+                        </div>
+
+                        {/* Causa Provável */}
+                        <div className="mb-3">
+                          <h6 className="text-xs font-semibold text-slate-700 mb-1 flex items-center gap-1">
+                            <AlertTriangle className="w-3 h-3" />
+                            Causa Provável:
+                          </h6>
+                          <p className="text-sm text-slate-600 bg-slate-50 rounded p-2">
+                            {sugestao.causa_provavel}
+                          </p>
+                        </div>
+
+                        {/* Ações Corretivas */}
+                        <div className="mb-3">
+                          <h6 className="text-xs font-semibold text-slate-700 mb-2 flex items-center gap-1">
+                            <CheckCircle className="w-3 h-3 text-green-600" />
+                            Ações Corretivas:
+                          </h6>
+                          <ul className="space-y-1">
+                            {sugestao.acoes_corretivas.map((acao, aIdx) => (
+                              <li key={aIdx} className="text-sm text-slate-700 flex items-start gap-2">
+                                <span className="text-purple-600 mt-0.5">▸</span>
+                                <span>{acao}</span>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+
+                        {/* Código Exemplo */}
+                        {sugestao.codigo_exemplo && (
+                          <div className="mb-3">
+                            <h6 className="text-xs font-semibold text-slate-700 mb-1 flex items-center gap-1">
+                              <Code className="w-3 h-3" />
+                              Código/Comando:
+                            </h6>
+                            <pre className="bg-slate-900 text-slate-100 rounded p-3 text-xs overflow-x-auto">
+                              {sugestao.codigo_exemplo}
+                            </pre>
+                          </div>
+                        )}
+
+                        {/* Referências */}
+                        {sugestao.referencias && sugestao.referencias.length > 0 && (
+                          <div>
+                            <h6 className="text-xs font-semibold text-slate-700 mb-1">📚 Referências:</h6>
+                            <div className="flex flex-wrap gap-1">
+                              {sugestao.referencias.map((ref, rIdx) => (
+                                <span key={rIdx} className="text-xs text-blue-600 hover:underline cursor-pointer">
+                                  {ref}
+                                </span>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+            </>
+            ) : (
           <div className="flex items-center justify-center h-full text-slate-500">
             <div className="text-center">
               <Phone className="w-16 h-16 mx-auto mb-4 text-slate-300" />
