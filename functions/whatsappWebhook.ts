@@ -380,7 +380,7 @@ async function processarQRCodeUpdate(instance, payloadNormalizado, base44, corsH
     const integracao = await buscarIntegracaoPorInstance(instance, base44);
 
     if (!integracao) {
-      console.warn(`[WEBHOOK] ⚠️ Nenhuma integração encontrada para instância: ${instance}`);
+      console.warn(`[WEBHOOK] AVISO: Nenhuma integracao encontrada para instancia: ${instance}`);
       return Response.json(
         { success: true, warning: 'integration_not_found' },
         { status: 200, headers: corsHeaders }
