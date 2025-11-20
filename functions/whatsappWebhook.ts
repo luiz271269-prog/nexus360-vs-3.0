@@ -510,6 +510,26 @@ async function processarMensagemRecebida(instance, payloadNormalizado, base44, c
         mediaUrlPermanente = await baixarEPersistirMidia(mediaUrl, mediaType, base44);
       }
 
+      // PASSO 3.5: VERIFICAR DUPLICIDADE (mesmo whatsapp_message_id)
+      if (messageId) {
+        const mensagensExistentes = await base44.asServiceRole.entities.Message.filter({
+          whatsapp_message_id: messageId
+        });
+
+        if (mensagensExistentes.length > 0) {
+          console.log(`[WEBHOOK] ⚠️ DUPLICIDADE DETECTADA: Message ID ${messageId} já existe - descartando`);
+          return Response.json(
+            {
+              success: true,
+              processed: 'duplicate_discarded',
+              message_id: messageId,
+              existing_message_id: mensagensExistentes[0].id
+            },
+            { status: 200, headers: corsHeaders }
+          );
+        }
+      }
+
       // PASSO 4: CRIAR MESSAGE (USANDO DADOS NORMALIZADOS)
       console.log('[WEBHOOK] 📝 Criando message');
       const message = await base44.asServiceRole.entities.Message.create({

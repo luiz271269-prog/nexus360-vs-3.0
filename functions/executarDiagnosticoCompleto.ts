@@ -268,36 +268,75 @@ async function executarEtapa2(integracao) {
 async function executarEtapa3(base44, integracao) {
   const inicio = Date.now();
   const testes = [];
+  const webhookUrl = integracao.webhook_url || `${Deno.env.get('BASE44_APP_URL') || 'http://localhost:8000'}/api/functions/whatsappWebhook`;
+  
+  // IDs únicos para rastreamento
+  const timestampBase = Date.now();
+  const messageIdTexto = `TEST_TEXT_${timestampBase}`;
+  const messageIdMidia = `TEST_MEDIA_${timestampBase}`;
+  const messageIdBotao = `TEST_BUTTON_${timestampBase}`;
+  const messageIdDuplicado = `TEST_DUP_${timestampBase}`;
 
-  // Aguardar 2s para mensagem ser processada
-  await new Promise(resolve => setTimeout(resolve, 2000));
+  console.log('[ETAPA3] 🧪 Iniciando simulações de recebimento...');
 
-  // Teste 1: Payload persistido
+  // ========== SIMULAÇÃO 1: MENSAGEM DE TEXTO (3.2) ==========
   const t1Inicio = Date.now();
   try {
+    console.log('[ETAPA3] 📤 Simulando mensagem de texto...');
+    const payloadTexto = {
+      instanceId: integracao.instance_id_provider,
+      instance: integracao.instance_id_provider,
+      type: 'ReceivedCallback',
+      event: 'ReceivedCallback',
+      phone: '5548999888777',
+      momment: Date.now(),
+      messageId: messageIdTexto,
+      text: { message: '🧪 TESTE DIAGNÓSTICO - Mensagem de texto' }
+    };
+
+    await fetch(webhookUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payloadTexto)
+    });
+
+    // Aguardar 2s para processamento
+    await new Promise(resolve => setTimeout(resolve, 2000));
+
+    // Verificar persistência
     const payloads = await base44.asServiceRole.entities.ZapiPayloadNormalized.filter(
       { instance_identificado: integracao.instance_id_provider },
       '-timestamp_recebido',
-      5
+      10
     );
-    const payloadRecente = payloads.find(p => 
-      new Date(p.timestamp_recebido) > new Date(Date.now() - 60000)
+    const payloadPersistido = payloads.find(p => 
+      p.payload_bruto?.messageId === messageIdTexto ||
+      p.payload_bruto?.text?.message?.includes('Mensagem de texto')
     );
+
+    const messages = await base44.asServiceRole.entities.Message.filter(
+      { whatsapp_message_id: messageIdTexto },
+      '-created_date',
+      1
+    );
+
     testes.push({
-      nome: 'Payload recebido e persistido',
+      nome: '3.2 Processamento Básico (Texto)',
       critico: true,
-      status: payloadRecente ? 'sucesso' : 'erro',
+      status: payloadPersistido && messages.length > 0 ? 'sucesso' : 'erro',
       tempo_ms: Date.now() - t1Inicio,
       detalhes: { 
-        total_payloads: payloads.length,
-        payload_recente: !!payloadRecente,
-        normalized_created: !!payloadRecente
+        payload_persistido: !!payloadPersistido,
+        message_criada: messages.length > 0,
+        message_id: messageIdTexto,
+        text_message: payloadPersistido?.payload_bruto?.text?.message
       },
-      sugestao_correcao: !payloadRecente ? 'Nenhum payload recente - verifique adapter' : null
+      sugestao_correcao: !payloadPersistido ? 'Payload de texto não foi persistido' : 
+                        messages.length === 0 ? 'Message não foi criada a partir do payload' : null
     });
   } catch (error) {
     testes.push({
-      nome: 'Payload recebido e persistido',
+      nome: '3.2 Processamento Básico (Texto)',
       critico: true,
       status: 'erro',
       tempo_ms: Date.now() - t1Inicio,
@@ -305,88 +344,210 @@ async function executarEtapa3(base44, integracao) {
     });
   }
 
-  // Teste 2: Instance ID identificado
+  // ========== SIMULAÇÃO 2: MENSAGEM COM MÍDIA (3.3a) ==========
   const t2Inicio = Date.now();
   try {
+    console.log('[ETAPA3] 📤 Simulando mensagem com mídia...');
+    const payloadMidia = {
+      instanceId: integracao.instance_id_provider,
+      instance: integracao.instance_id_provider,
+      type: 'ReceivedCallback',
+      event: 'ReceivedCallback',
+      phone: '5548999888777',
+      momment: Date.now(),
+      messageId: messageIdMidia,
+      image: {
+        caption: '🧪 TESTE DIAGNÓSTICO - Imagem',
+        imageUrl: 'https://via.placeholder.com/300',
+        thumbnailUrl: 'https://via.placeholder.com/150',
+        mimeType: 'image/jpeg'
+      }
+    };
+
+    await fetch(webhookUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payloadMidia)
+    });
+
+    await new Promise(resolve => setTimeout(resolve, 2000));
+
     const payloads = await base44.asServiceRole.entities.ZapiPayloadNormalized.filter(
       { instance_identificado: integracao.instance_id_provider },
       '-timestamp_recebido',
+      10
+    );
+    const payloadPersistido = payloads.find(p => 
+      p.payload_bruto?.messageId === messageIdMidia ||
+      p.payload_bruto?.image
+    );
+
+    const messages = await base44.asServiceRole.entities.Message.filter(
+      { whatsapp_message_id: messageIdMidia },
+      '-created_date',
       1
     );
-    const identificado = payloads.length > 0 && payloads[0].integration_id;
+
     testes.push({
-      nome: 'Instance ID identificado corretamente',
-      critico: true,
-      status: identificado ? 'sucesso' : 'aviso',
+      nome: '3.3a Conteúdo: Mídia/Arquivo',
+      critico: false,
+      status: payloadPersistido && messages.length > 0 && messages[0].media_type === 'image' ? 'sucesso' : 'aviso',
       tempo_ms: Date.now() - t2Inicio,
       detalhes: { 
-        instance_esperado: integracao.instance_id_provider,
-        integration_id_encontrado: payloads[0]?.integration_id,
-        instance_id: payloads[0]?.instance_identificado
+        payload_persistido: !!payloadPersistido,
+        message_criada: messages.length > 0,
+        media_type: messages[0]?.media_type,
+        media_url: messages[0]?.media_url
       },
-      sugestao_correcao: !identificado ? 'Verifique busca por instance no webhook' : null
+      sugestao_correcao: !payloadPersistido ? 'Payload de mídia não foi persistido' :
+                        messages.length === 0 ? 'Message com mídia não foi criada' :
+                        messages[0].media_type !== 'image' ? 'Media type não foi identificado corretamente' : null
     });
   } catch (error) {
     testes.push({
-      nome: 'Instance ID identificado corretamente',
-      critico: true,
-      status: 'erro',
+      nome: '3.3a Conteúdo: Mídia/Arquivo',
+      critico: false,
+      status: 'aviso',
       tempo_ms: Date.now() - t2Inicio,
       detalhes: { erro: error.message }
     });
   }
 
-  // Teste 3: Evento classificado
+  // ========== SIMULAÇÃO 3: MENSAGEM COM BOTÃO (3.3b) ==========
   const t3Inicio = Date.now();
   try {
+    console.log('[ETAPA3] 📤 Simulando mensagem com botão...');
+    const payloadBotao = {
+      instanceId: integracao.instance_id_provider,
+      instance: integracao.instance_id_provider,
+      type: 'ReceivedCallback',
+      event: 'ReceivedCallback',
+      phone: '5548999888777',
+      momment: Date.now(),
+      messageId: messageIdBotao,
+      buttonsResponseMessage: {
+        buttonId: 'btn_option_1',
+        message: '🧪 TESTE DIAGNÓSTICO - Botão'
+      }
+    };
+
+    await fetch(webhookUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payloadBotao)
+    });
+
+    await new Promise(resolve => setTimeout(resolve, 2000));
+
     const payloads = await base44.asServiceRole.entities.ZapiPayloadNormalized.filter(
       { instance_identificado: integracao.instance_id_provider },
       '-timestamp_recebido',
+      10
+    );
+    const payloadPersistido = payloads.find(p => 
+      p.payload_bruto?.messageId === messageIdBotao ||
+      p.payload_bruto?.buttonsResponseMessage
+    );
+
+    const messages = await base44.asServiceRole.entities.Message.filter(
+      { whatsapp_message_id: messageIdBotao },
+      '-created_date',
       1
     );
-    const classificado = payloads.length > 0 && payloads[0].evento;
+
     testes.push({
-      nome: 'Evento classificado',
+      nome: '3.3b Conteúdo: Botão Interativo',
       critico: false,
-      status: classificado ? 'sucesso' : 'aviso',
+      status: payloadPersistido && messages.length > 0 ? 'sucesso' : 'aviso',
       tempo_ms: Date.now() - t3Inicio,
       detalhes: { 
-        evento: payloads[0]?.evento,
-        evento_esperado: 'ReceivedCallback'
+        payload_persistido: !!payloadPersistido,
+        message_criada: messages.length > 0,
+        button_id: payloadPersistido?.payload_bruto?.buttonsResponseMessage?.buttonId,
+        interactive_type: 'button_reply'
       },
-      sugestao_correcao: !classificado ? 'Adapter não está classificando eventos' : null
+      sugestao_correcao: !payloadPersistido ? 'Payload de botão não foi persistido' :
+                        messages.length === 0 ? 'Message com botão não foi criada' : null
     });
   } catch (error) {
     testes.push({
-      nome: 'Evento classificado',
+      nome: '3.3b Conteúdo: Botão Interativo',
       critico: false,
-      status: 'erro',
+      status: 'aviso',
       tempo_ms: Date.now() - t3Inicio,
       detalhes: { erro: error.message }
     });
   }
 
-  // Teste 4: Log recente no WebhookLog
+  // ========== SIMULAÇÃO 4: DUPLICIDADE (3.4) ==========
   const t4Inicio = Date.now();
   try {
-    const logs = await base44.asServiceRole.entities.WebhookLog.list('-timestamp', 5);
-    const logRecente = logs.find(l => 
-      new Date(l.timestamp) > new Date(Date.now() - 60000)
+    console.log('[ETAPA3] 📤 Simulando duplicidade (reenvio do mesmo message ID)...');
+    const payloadDup1 = {
+      instanceId: integracao.instance_id_provider,
+      instance: integracao.instance_id_provider,
+      type: 'ReceivedCallback',
+      event: 'ReceivedCallback',
+      phone: '5548999888777',
+      momment: Date.now(),
+      messageId: messageIdDuplicado,
+      text: { message: '🧪 TESTE DUPLICIDADE - Primeira vez' }
+    };
+
+    // Enviar primeira vez
+    await fetch(webhookUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payloadDup1)
+    });
+
+    await new Promise(resolve => setTimeout(resolve, 1000));
+
+    // Enviar segunda vez (DUPLICADO)
+    await fetch(webhookUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payloadDup1)
+    });
+
+    await new Promise(resolve => setTimeout(resolve, 2000));
+
+    // Verificar quantas Messages foram criadas
+    const messages = await base44.asServiceRole.entities.Message.filter(
+      { whatsapp_message_id: messageIdDuplicado }
     );
+
+    // Verificar payloads persistidos
+    const payloads = await base44.asServiceRole.entities.ZapiPayloadNormalized.filter(
+      { instance_identificado: integracao.instance_id_provider },
+      '-timestamp_recebido',
+      20
+    );
+    const payloadsDuplicados = payloads.filter(p => 
+      p.payload_bruto?.messageId === messageIdDuplicado
+    );
+
+    const temDuplicidade = messages.length === 1;
+
     testes.push({
-      nome: 'Log de webhook recente',
+      nome: '3.4 Tratamento de Duplicidade',
       critico: false,
-      status: logRecente ? 'sucesso' : 'aviso',
+      status: temDuplicidade ? 'sucesso' : 'aviso',
       tempo_ms: Date.now() - t4Inicio,
       detalhes: { 
-        log_recente: !!logRecente,
-        total_logs: logs.length
+        envios_simulados: 2,
+        messages_criadas: messages.length,
+        payloads_persistidos: payloadsDuplicados.length,
+        tratamento_ok: temDuplicidade,
+        message_id: messageIdDuplicado
       },
-      sugestao_correcao: !logRecente ? 'WebhookLog não está sendo persistido' : null
+      sugestao_correcao: !temDuplicidade ? 
+        `${messages.length} mensagens criadas para o mesmo ID - implemente verificação de whatsapp_message_id antes de criar Message` : 
+        null
     });
   } catch (error) {
     testes.push({
-      nome: 'Log de webhook recente',
+      nome: '3.4 Tratamento de Duplicidade',
       critico: false,
       status: 'aviso',
       tempo_ms: Date.now() - t4Inicio,
@@ -396,6 +557,8 @@ async function executarEtapa3(base44, integracao) {
 
   const testesComSucesso = testes.filter(t => t.status === 'sucesso').length;
   const score = Math.round((testesComSucesso / testes.length) * 100);
+
+  console.log(`[ETAPA3] ✅ Concluído - Score: ${score}%`);
 
   return {
     numero: 3,
