@@ -247,6 +247,20 @@ Deno.serve(async (req) => {
     }
 
     // ================================================================
+    // LOGGING CIRURGICO - DEBUG DO ROTEAMENTO
+    // ================================================================
+    console.log('='.repeat(80));
+    console.log('[DEBUG_FLUXO] CHECKPOINT ANTES DO SWITCH PRINCIPAL');
+    console.log('[DEBUG_FLUXO] Instancia Bruta:', evento.instance || evento.instanceId);
+    console.log('[DEBUG_FLUXO] Tipo Bruto Recebido (Pre-Adapter):', evento.type || evento.event);
+    console.log('[DEBUG_FLUXO] Tipo Normalizado (Pos-Adapter):', payloadNormalizado.type);
+    console.log('[DEBUG_FLUXO] Payload Normalizado COMPLETO:');
+    console.log(JSON.stringify(payloadNormalizado, null, 2));
+    console.log('[DEBUG_FLUXO] typeof payloadNormalizado.type:', typeof payloadNormalizado.type);
+    console.log('[DEBUG_FLUXO] payloadNormalizado.type === "message":', payloadNormalizado.type === 'message');
+    console.log('='.repeat(80));
+
+    // ================================================================
     // 5. PROCESSAR EVENTO POR TIPO
     // ================================================================
     let resultado;
