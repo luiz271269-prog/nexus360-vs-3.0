@@ -215,9 +215,14 @@ Deno.serve(async (req) => {
     // ═══════════════════════════════════════════════════════════
     let payloadNormalizado = null;
     try {
+      console.log('[WEBHOOK] 🔄 Chamando normalizarPayloadZAPI...');
+      console.log('[WEBHOOK] 📦 Evento original - type:', evento.type, '| event:', evento.event);
+
       payloadNormalizado = normalizarPayloadZAPI(evento);
-      console.log('[WEBHOOK] ✅ Payload normalizado:', JSON.stringify(payloadNormalizado, null, 2));
-      
+
+      console.log('[WEBHOOK] ✅ Payload normalizado COMPLETO:', JSON.stringify(payloadNormalizado, null, 2));
+      console.log('[WEBHOOK] 🔍 payloadNormalizado.type =', payloadNormalizado.type);
+
       const validacao = validarPayloadNormalizado(payloadNormalizado);
       if (!validacao.valido) {
         console.warn('[WEBHOOK] ⚠️ Payload normalizado inválido:', validacao.erro);
@@ -226,8 +231,11 @@ Deno.serve(async (req) => {
           { status: 200, headers: corsHeaders }
         );
       }
+
+      console.log('[WEBHOOK] ✅ Payload normalizado VÁLIDO');
     } catch (normError) {
       console.error('[WEBHOOK] ❌ Erro na normalização:', normError);
+      console.error('[WEBHOOK] Stack:', normError.stack);
       return Response.json(
         { success: true, ignored: 'normalization_error', error: normError.message },
         { status: 200, headers: corsHeaders }
@@ -238,26 +246,32 @@ Deno.serve(async (req) => {
     // 5. PROCESSAR EVENTO POR TIPO
     // ═══════════════════════════════════════════════════════════
     let resultado;
-    
+
+    console.log('[WEBHOOK] 🔀 Iniciando switch com type:', payloadNormalizado.type);
+
     switch (payloadNormalizado.type) {
       case 'qrcode':
+        console.log('[WEBHOOK] 🔀 Entrando em case: qrcode');
         resultado = await processarQRCodeUpdate(instanceExtraido, payloadNormalizado, base44, corsHeaders);
         break;
 
       case 'connection':
+        console.log('[WEBHOOK] 🔀 Entrando em case: connection');
         resultado = await processarConnectionUpdate(instanceExtraido, payloadNormalizado, base44, corsHeaders);
         break;
 
       case 'message':
+        console.log('[WEBHOOK] 🔀 Entrando em case: message');
         resultado = await processarMensagemRecebida(instanceExtraido, payloadNormalizado, base44, corsHeaders);
         break;
 
       case 'message_update':
+        console.log('[WEBHOOK] 🔀 Entrando em case: message_update');
         resultado = await processarMensagemUpdate(payloadNormalizado, base44, corsHeaders);
         break;
 
       case 'send_confirmation':
-        console.log('[WEBHOOK] ℹ️ Confirmação de envio');
+        console.log('[WEBHOOK] 🔀 Entrando em case: send_confirmation');
         resultado = Response.json(
           { success: true, processed: 'send_confirmation' },
           { status: 200, headers: corsHeaders }
@@ -265,6 +279,7 @@ Deno.serve(async (req) => {
         break;
 
       case 'unknown':
+        console.log('[WEBHOOK] 🔀 Entrando em case: unknown');
         console.log(`[WEBHOOK] ⚠️ Evento não reconhecido pelo adapter: ${payloadNormalizado.event}`);
         console.log('[WEBHOOK] 🔍 DEBUG - Payload normalizado completo:', JSON.stringify(payloadNormalizado, null, 2));
         console.log('[WEBHOOK] ⚠️ ATENÇÃO: Evento sendo IGNORADO - nenhuma persistência será feita!');
@@ -275,12 +290,15 @@ Deno.serve(async (req) => {
         break;
 
       default:
+        console.log('[WEBHOOK] 🔀 Entrando em case: default');
         console.log(`[WEBHOOK] ⚠️ Tipo não tratado: ${payloadNormalizado.type}`);
         resultado = Response.json(
           { success: true, ignored: 'unknown_type', type: payloadNormalizado.type },
           { status: 200, headers: corsHeaders }
         );
     }
+
+    console.log('[WEBHOOK] 🔀 Switch concluído. Resultado:', resultado ? 'definido' : 'undefined');
     
     // ═══════════════════════════════════════════════════════════
     // 6. ATUALIZAR AUDITORIA E LOG COM SUCESSO
