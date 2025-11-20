@@ -54,6 +54,7 @@ import Metas from './pages/Metas';
 import LeadsQualificados from './pages/LeadsQualificados';
 import GerenciadorPermissoes from './pages/GerenciadorPermissoes';
 import TesteWebhookDireto from './pages/TesteWebhookDireto';
+import DiagnosticoDetalhado from './pages/DiagnosticoDetalhado';
 import __Layout from './Layout.jsx';
 
 
@@ -114,6 +115,7 @@ export const PAGES = {
     "LeadsQualificados": LeadsQualificados,
     "GerenciadorPermissoes": GerenciadorPermissoes,
     "TesteWebhookDireto": TesteWebhookDireto,
+    "DiagnosticoDetalhado": DiagnosticoDetalhado,
 }
 
 export const pagesConfig = {
