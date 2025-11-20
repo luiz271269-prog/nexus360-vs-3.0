@@ -170,13 +170,13 @@ export default function DiagnosticoProfissionalZAPI({ integracoes }) {
 
       if (data.success) {
         setSugestoesIA(data);
-        toast.success(`IA gerou ${data.sugestoes?.length || 0} sugestões de correção`);
+        toast.success(`IA gerou ${data.sugestoes?.length || 0} sugestoes de correcao`);
       } else {
-        toast.error('Erro ao gerar sugestões: ' + data.error);
+        toast.error('Erro ao gerar sugestoes: ' + data.error);
       }
     } catch (error) {
       console.error('Erro ao chamar IA:', error);
-      toast.error('Erro ao gerar sugestões de IA');
+      toast.error('Erro ao gerar sugestoes de IA');
     } finally {
       setCarregandoIA(false);
     }
@@ -217,7 +217,7 @@ export default function DiagnosticoProfissionalZAPI({ integracoes }) {
       <Alert className="bg-yellow-50 border-yellow-300">
         <AlertTriangle className="h-4 w-4 text-yellow-700" />
         <AlertDescription className="text-yellow-800">
-          Nenhuma integração configurada. Configure uma conexão na aba "Configurações".
+          Nenhuma integracao configurada. Configure uma conexao na aba "Configuracoes".
         </AlertDescription>
       </Alert>
     );
@@ -230,7 +230,7 @@ export default function DiagnosticoProfissionalZAPI({ integracoes }) {
         <div className="sticky top-0 bg-white z-10 pb-3 border-b border-slate-200">
           <h3 className="text-sm font-semibold text-slate-700 flex items-center gap-2">
             <Phone className="w-4 h-4" />
-            Conexões ({integracoes.length})
+            Conexoes ({integracoes.length})
           </h3>
         </div>
 
@@ -311,7 +311,7 @@ export default function DiagnosticoProfissionalZAPI({ integracoes }) {
                       <RefreshCw
                         className={`w-4 h-4 mr-2 ${carregandoHistorico ? 'animate-spin' : ''}`}
                       />
-                      Histórico
+                      Historico
                     </Button>
                     <Button
                       onClick={executarDiagnostico}
@@ -326,7 +326,7 @@ export default function DiagnosticoProfissionalZAPI({ integracoes }) {
                       ) : (
                         <>
                           <Play className="w-4 h-4 mr-2" />
-                          Diagnóstico Completo
+                          Diagnostico Completo
                         </>
                       )}
                     </Button>
@@ -342,7 +342,7 @@ export default function DiagnosticoProfissionalZAPI({ integracoes }) {
                   <div className="flex items-center justify-between">
                     <CardTitle className="text-sm font-bold text-slate-900 flex items-center gap-2">
                       <BarChart3 className="w-5 h-5 text-blue-600" />
-                      Resultados do Diagnóstico
+                      Resultados do Diagnostico
                       <Badge className="bg-blue-600 text-white">
                         Score: {resultadoAtual.score_total}%
                       </Badge>
@@ -384,12 +384,12 @@ export default function DiagnosticoProfissionalZAPI({ integracoes }) {
                     <table className="w-full text-sm">
                       <thead className="bg-slate-100 border-b-2 border-slate-300">
                         <tr>
-                          <th className="px-4 py-2 text-left font-semibold text-slate-700 w-12">✓</th>
+                          <th className="px-4 py-2 text-left font-semibold text-slate-700 w-12">OK</th>
                           <th className="px-4 py-2 text-left font-semibold text-slate-700 w-16">Etapa</th>
                           <th className="px-4 py-2 text-left font-semibold text-slate-700">Teste</th>
                           <th className="px-4 py-2 text-center font-semibold text-slate-700 w-24">Status</th>
                           <th className="px-4 py-2 text-center font-semibold text-slate-700 w-24">Tempo</th>
-                          <th className="px-4 py-2 text-center font-semibold text-slate-700 w-20">Ação</th>
+                          <th className="px-4 py-2 text-center font-semibold text-slate-700 w-20">Acao</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -398,7 +398,7 @@ export default function DiagnosticoProfissionalZAPI({ integracoes }) {
                             {/* Linha de cabeçalho da etapa */}
                             <tr className="bg-slate-200 border-b border-slate-300">
                               <td className="px-4 py-2">
-                                {etapa.status === 'sucesso' ? '✅' : etapa.status === 'erro' ? '❌' : '⚠️'}
+                                {etapa.status === 'sucesso' ? 'OK' : etapa.status === 'erro' ? 'ERRO' : 'AVISO'}
                               </td>
                               <td className="px-4 py-2 font-bold text-slate-900">
                                 {etapa.numero}
@@ -502,7 +502,7 @@ export default function DiagnosticoProfissionalZAPI({ integracoes }) {
                 <CardHeader className="pb-3 bg-slate-50">
                   <CardTitle className="text-sm font-bold text-slate-900 flex items-center gap-2">
                     <Clock className="w-5 h-5 text-slate-600" />
-                    Últimas Execuções
+                    Ultimas Execucoes
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="p-0">
@@ -563,9 +563,9 @@ export default function DiagnosticoProfissionalZAPI({ integracoes }) {
                 <CardHeader className="pb-3 bg-gradient-to-r from-purple-100 to-indigo-100">
                   <CardTitle className="text-sm font-bold text-purple-900 flex items-center gap-2">
                     <Zap className="w-5 h-5 text-purple-600" />
-                    Sugestões de Correção da IA
+                    Sugestoes de Correcao da IA
                     <Badge className="bg-purple-600 text-white ml-auto">
-                      {sugestoesIA.sugestoes.length} sugestões
+                      {sugestoesIA.sugestoes.length} sugestoes
                     </Badge>
                   </CardTitle>
                 </CardHeader>
@@ -604,7 +604,7 @@ export default function DiagnosticoProfissionalZAPI({ integracoes }) {
                               </Badge>
                               <Badge className={`text-[10px] ${
                                 sugestao.prioridade === 'Alta' ? 'bg-red-100 text-red-800' :
-                                sugestao.prioridade === 'Média' ? 'bg-yellow-100 text-yellow-800' :
+                                sugestao.prioridade === 'Media' ? 'bg-yellow-100 text-yellow-800' :
                                 'bg-green-100 text-green-800'
                               }`}>
                                 {sugestao.prioridade}
@@ -662,7 +662,7 @@ export default function DiagnosticoProfissionalZAPI({ integracoes }) {
                         {/* Referências */}
                         {sugestao.referencias && sugestao.referencias.length > 0 && (
                           <div>
-                            <h6 className="text-xs font-semibold text-slate-700 mb-1">📚 Referências:</h6>
+                            <h6 className="text-xs font-semibold text-slate-700 mb-1">Referencias:</h6>
                             <div className="flex flex-wrap gap-1">
                               {sugestao.referencias.map((ref, rIdx) => (
                                 <span key={rIdx} className="text-xs text-blue-600 hover:underline cursor-pointer">

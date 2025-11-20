@@ -57,12 +57,12 @@ export function normalizarMensagemZAPI(payload) {
     mediaTempUrl = payload.image.imageUrl;
     mediaCaption = payload.image.caption;
   } else if (payload.video) {
-    conteudo = payload.video.caption || '[Vídeo]';
+    conteudo = payload.video.caption || '[Video]';
     mediaType = 'video';
     mediaTempUrl = payload.video.videoUrl;
     mediaCaption = payload.video.caption;
   } else if (payload.audio) {
-    conteudo = '[Áudio]';
+    conteudo = '[Audio]';
     mediaType = 'audio';
     mediaTempUrl = payload.audio.audioUrl;
   } else if (payload.document) {
@@ -70,19 +70,15 @@ export function normalizarMensagemZAPI(payload) {
     mediaType = 'document';
     mediaTempUrl = payload.document.documentUrl;
   } else if (payload.buttonsResponseMessage) {
-    // Suporte para botões interativos (formato antigo)
-    conteudo = payload.buttonsResponseMessage.message || '[Resposta de Botão]';
+    conteudo = payload.buttonsResponseMessage.message || '[Resposta de Botao]';
     mediaType = 'button_reply';
   } else if (payload.listResponseMessage) {
-    // Suporte para listas interativas (formato antigo)
     conteudo = payload.listResponseMessage.title || '[Resposta de Lista]';
     mediaType = 'list_reply';
   } else if (payload.interactive?.type === 'button_reply') {
-    // 🆕 Suporte para payload.interactive (formato NOVO da Z-API - botões)
-    conteudo = payload.interactive.button_reply?.title || payload.interactive.button_reply?.id || '[Resposta de Botão]';
+    conteudo = payload.interactive.button_reply?.title || payload.interactive.button_reply?.id || '[Resposta de Botao]';
     mediaType = 'button_reply';
   } else if (payload.interactive?.type === 'list_reply') {
-    // 🆕 Suporte para payload.interactive (formato NOVO da Z-API - listas)
     conteudo = payload.interactive.list_reply?.title || payload.interactive.list_reply?.id || '[Resposta de Lista]';
     mediaType = 'list_reply';
   }
@@ -239,45 +235,45 @@ export function normalizarPayloadZAPI(payload) {
   const type = payload.type;
   const eventType = payload.eventType;
   
-  console.log('[ZAPI-ADAPTER] 🔄 Normalizando evento');
-  console.log('[ZAPI-ADAPTER] 📦 Chaves disponíveis:', Object.keys(payload));
-  console.log('[ZAPI-ADAPTER] 🔍 event:', event, '| type:', type, '| eventType:', eventType);
+  console.log('[ZAPI-ADAPTER] Normalizando evento');
+  console.log('[ZAPI-ADAPTER] Chaves disponíveis:', Object.keys(payload));
+  console.log('[ZAPI-ADAPTER] event:', event, '| type:', type, '| eventType:', eventType);
   
   try {
-    // 🔥 NORMALIZAÇÃO DE CAMPOS - case-insensitive com trim
+    // NORMALIZAÇÃO DE CAMPOS - case-insensitive com trim
     const rawType = String(type || event || eventType || 'unknown').trim();
     const normalizedType = rawType.toLowerCase();
     
-    console.log('[ZAPI-ADAPTER] 🔍 rawType:', rawType, '| normalizedType:', normalizedType);
+    console.log('[ZAPI-ADAPTER] rawType:', rawType, '| normalizedType:', normalizedType);
     
     // 1. FORMATO Z-API DIRETO (PRIORIDADE MÁXIMA - RETURN IMEDIATO)
     if (normalizedType === 'receivedcallback') {
-      console.log('[ZAPI-ADAPTER] ✅ Detectado formato Z-API direto (ReceivedCallback)');
+      console.log('[ZAPI-ADAPTER] Detectado formato Z-API direto (ReceivedCallback)');
       const normalizado = normalizarMensagemZAPI(payload);
-      console.log('[ZAPI-ADAPTER] ✅ Payload normalizado (ReceivedCallback):', JSON.stringify(normalizado, null, 2));
-      return normalizado; // ✅ RETURN IMEDIATO - NÃO CONTINUA PARA O SWITCH
+      console.log('[ZAPI-ADAPTER] Payload normalizado (ReceivedCallback):', JSON.stringify(normalizado, null, 2));
+      return normalizado;
     }
     
     // 2. FORMATO EVOLUTION API (APENAS SE NÃO FOR RECEIVEDCALLBACK)
     switch (event) {
       case 'messages.upsert':
-        console.log('[ZAPI-ADAPTER] ✅ Detectado messages.upsert');
+        console.log('[ZAPI-ADAPTER] Detectado messages.upsert');
         return normalizarMensagem(payload);
       
       case 'qrcode.updated':
-        console.log('[ZAPI-ADAPTER] ✅ Detectado qrcode.updated');
+        console.log('[ZAPI-ADAPTER] Detectado qrcode.updated');
         return normalizarQRCode(payload);
       
       case 'connection.update':
-        console.log('[ZAPI-ADAPTER] ✅ Detectado connection.update');
+        console.log('[ZAPI-ADAPTER] Detectado connection.update');
         return normalizarConnection(payload);
       
       case 'messages.update':
-        console.log('[ZAPI-ADAPTER] ✅ Detectado messages.update');
+        console.log('[ZAPI-ADAPTER] Detectado messages.update');
         return normalizarMensagemUpdate(payload);
       
       case 'send.message':
-        console.log('[ZAPI-ADAPTER] ✅ Detectado send.message');
+        console.log('[ZAPI-ADAPTER] Detectado send.message');
         return {
           instanceId: extrairInstanceId(payload),
           type: 'send_confirmation',
@@ -285,8 +281,8 @@ export function normalizarPayloadZAPI(payload) {
         };
       
       default:
-        console.log('[ZAPI-ADAPTER] ⚠️ Evento não mapeado:', event);
-        console.log('[ZAPI-ADAPTER] 📦 Payload completo:', JSON.stringify(payload, null, 2));
+        console.log('[ZAPI-ADAPTER] AVISO: Evento não mapeado:', event);
+        console.log('[ZAPI-ADAPTER] Payload completo:', JSON.stringify(payload, null, 2));
         return {
           instanceId: extrairInstanceId(payload),
           type: 'unknown',
@@ -295,7 +291,7 @@ export function normalizarPayloadZAPI(payload) {
         };
     }
   } catch (error) {
-    console.error('[ZAPI-ADAPTER] ❌ Erro ao normalizar:', error);
+    console.error('[ZAPI-ADAPTER] ERRO ao normalizar:', error);
     console.error('[ZAPI-ADAPTER] Stack:', error.stack);
     throw error;
   }

@@ -30,7 +30,7 @@ export default function DiagnosticoCirurgico() {
 
     try {
       // ========== TESTE 1: BUSCAR INTEGRAÇÃO ==========
-      console.log('[DIAG] 🔍 Buscando integração...');
+      console.log('[DIAG] Buscando integracao...');
       const integracoes = await base44.entities.WhatsAppIntegration.list();
       
       diagnostico.testes.push({
@@ -51,7 +51,7 @@ export default function DiagnosticoCirurgico() {
       const integracao = integracoes[0];
 
       // ========== TESTE 2: TESTAR CONEXÃO HTTP ==========
-      console.log('[DIAG] 🌐 Testando conexão HTTP com webhook...');
+      console.log('[DIAG] Testando conexao HTTP com webhook...');
       const webhookUrl = integracao.webhook_url || `${window.location.origin}/api/functions/whatsappWebhook`;
       
       try {
@@ -76,7 +76,7 @@ export default function DiagnosticoCirurgico() {
       }
 
       // ========== TESTE 3: ENVIAR PAYLOAD TESTE ==========
-      console.log('[DIAG] 📤 Enviando payload de teste...');
+      console.log('[DIAG] Enviando payload de teste...');
       const messageIdTeste = `DIAG_TEST_${Date.now()}`;
       const payloadTeste = {
         instanceId: integracao.instance_id_provider,
@@ -86,7 +86,7 @@ export default function DiagnosticoCirurgico() {
         phone: '5548999000111',
         momment: Date.now(),
         messageId: messageIdTeste,
-        text: { message: '🔬 TESTE CIRÚRGICO' }
+        text: { message: 'TESTE CIRURGICO' }
       };
 
       let webhookResponse = null;
@@ -117,11 +117,11 @@ export default function DiagnosticoCirurgico() {
       }
 
       // ========== TESTE 4: AGUARDAR PROCESSAMENTO ==========
-      console.log('[DIAG] ⏳ Aguardando 3 segundos para processamento...');
+      console.log('[DIAG] Aguardando 3 segundos para processamento...');
       await new Promise(resolve => setTimeout(resolve, 3000));
 
       // ========== TESTE 5: VERIFICAR ZAPIPALOADNORMALIZED ==========
-      console.log('[DIAG] 🗄️ Verificando ZapiPayloadNormalized...');
+      console.log('[DIAG] Verificando ZapiPayloadNormalized...');
       try {
         const payloads = await base44.asServiceRole.entities.ZapiPayloadNormalized.filter(
           { instance_identificado: integracao.instance_id_provider },
@@ -155,7 +155,7 @@ export default function DiagnosticoCirurgico() {
       }
 
       // ========== TESTE 6: VERIFICAR MESSAGE ==========
-      console.log('[DIAG] 💬 Verificando Message...');
+      console.log('[DIAG] Verificando Message...');
       try {
         const messages = await base44.asServiceRole.entities.Message.filter(
           { whatsapp_message_id: messageIdTeste },
@@ -184,7 +184,7 @@ export default function DiagnosticoCirurgico() {
       }
 
       // ========== TESTE 7: VERIFICAR CONTACT ==========
-      console.log('[DIAG] 👤 Verificando Contact...');
+      console.log('[DIAG] Verificando Contact...');
       try {
         const contacts = await base44.asServiceRole.entities.Contact.filter(
           { telefone: '5548999000111' },
@@ -213,7 +213,7 @@ export default function DiagnosticoCirurgico() {
       }
 
       // ========== TESTE 8: VERIFICAR SCHEMA DA ENTIDADE ==========
-      console.log('[DIAG] 📋 Verificando schema ZapiPayloadNormalized...');
+      console.log('[DIAG] Verificando schema ZapiPayloadNormalized...');
       try {
         const schema = await base44.entities.ZapiPayloadNormalized.schema();
         
@@ -242,8 +242,8 @@ export default function DiagnosticoCirurgico() {
       setResultado(diagnostico);
 
     } catch (error) {
-      console.error('[DIAG] ❌ Erro fatal:', error);
-      toast.error('Erro no diagnóstico: ' + error.message);
+      console.error('[DIAG] Erro fatal:', error);
+      toast.error('Erro no diagnostico: ' + error.message);
     } finally {
       setTestando(false);
     }
@@ -266,10 +266,10 @@ export default function DiagnosticoCirurgico() {
           <div>
             <h1 className="text-3xl font-bold text-slate-900 flex items-center gap-3">
               <Zap className="w-8 h-8 text-red-600" />
-              Diagnóstico Cirúrgico
+              Diagnostico Cirurgico
             </h1>
             <p className="text-slate-600 mt-1">
-              Identifica EXATAMENTE onde o sistema está falhando
+              Identifica EXATAMENTE onde o sistema esta falhando
             </p>
           </div>
           
@@ -287,7 +287,7 @@ export default function DiagnosticoCirurgico() {
             ) : (
               <>
                 <Zap className="w-5 h-5" />
-                Executar Diagnóstico
+                Executar Diagnostico
               </>
             )}
           </Button>
@@ -297,7 +297,7 @@ export default function DiagnosticoCirurgico() {
         <Alert className="bg-blue-50 border-blue-300">
           <Database className="h-4 w-4 text-blue-700" />
           <AlertDescription className="text-blue-800">
-            <strong>O que este diagnóstico faz:</strong>
+            <strong>O que este diagnostico faz:</strong>
             <ol className="list-decimal ml-6 mt-2 space-y-1">
               <li>Verifica se a integração WhatsApp está configurada</li>
               <li>Testa se o webhook responde (GET e POST)</li>
@@ -316,7 +316,7 @@ export default function DiagnosticoCirurgico() {
             <CardHeader className="bg-slate-50">
               <CardTitle className="text-sm flex items-center gap-2">
                 <Code className="w-4 h-4" />
-                Resultados do Diagnóstico
+                Resultados do Diagnostico
                 <Badge className="ml-auto">
                   {resultado.testes.filter(t => t.status === 'sucesso').length} / {resultado.testes.length}
                 </Badge>
@@ -364,7 +364,7 @@ export default function DiagnosticoCirurgico() {
           <Card className="border-2 border-red-300 bg-red-50">
             <CardHeader>
               <CardTitle className="text-sm text-red-900">
-                🔴 Análise de Falhas Detectadas
+                Analise de Falhas Detectadas
               </CardTitle>
             </CardHeader>
             <CardContent className="text-sm space-y-3">
@@ -377,23 +377,23 @@ export default function DiagnosticoCirurgico() {
                       {teste.detalhes.erro || 'Falha detectada - veja detalhes acima'}
                     </p>
                     
-                    {/* Sugestões específicas */}
+                    {/* Sugestoes especificas */}
                     {teste.nome.includes('ZapiPayloadNormalized') && (
                       <div className="mt-2 p-2 bg-yellow-50 rounded text-xs">
-                        <strong>💡 Solução:</strong> O webhook não está conseguindo persistir no banco.
+                        <strong>Solucao:</strong> O webhook nao esta conseguindo persistir no banco.
                         Verifique:
                         <ul className="list-disc ml-6 mt-1">
-                          <li>Permissões do Service Role</li>
-                          <li>Logs da função whatsappWebhook (Code → Functions → whatsappWebhook → Logs)</li>
-                          <li>Se há erros de validação de schema</li>
+                          <li>Permissoes do Service Role</li>
+                          <li>Logs da funcao whatsappWebhook (Code - Functions - whatsappWebhook - Logs)</li>
+                          <li>Se ha erros de validacao de schema</li>
                         </ul>
                       </div>
                     )}
                     
                     {teste.nome.includes('Message Criada') && (
                       <div className="mt-2 p-2 bg-yellow-50 rounded text-xs">
-                        <strong>💡 Solução:</strong> O fluxo está sendo interrompido antes de criar a Message.
-                        Se ZapiPayloadNormalized foi criado mas Message não, o erro está no processamento após normalização.
+                        <strong>Solucao:</strong> O fluxo esta sendo interrompido antes de criar a Message.
+                        Se ZapiPayloadNormalized foi criado mas Message nao, o erro esta no processamento apos normalizacao.
                       </div>
                     )}
                   </AlertDescription>
@@ -404,7 +404,7 @@ export default function DiagnosticoCirurgico() {
                 <Alert className="bg-green-50 border-green-300">
                   <CheckCircle className="h-4 w-4 text-green-600" />
                   <AlertDescription className="text-green-800">
-                    ✅ Todos os testes passaram! O sistema está funcionando corretamente.
+                    Todos os testes passaram! O sistema esta funcionando corretamente.
                   </AlertDescription>
                 </Alert>
               )}
