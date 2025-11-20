@@ -131,6 +131,14 @@ Deno.serve(async (req) => {
     let auditLogId = null;
 
     try {
+      console.log('[WEBHOOK] 📝 Tentando persistir payload bruto para auditoria...');
+      console.log('[WEBHOOK] Dados da auditoria:', {
+        instance_identificado: instanceExtraido,
+        evento: eventoTipo,
+        timestamp_recebido: timestampRecebido,
+        payload_keys: Object.keys(evento)
+      });
+
       const auditLog = await base44.asServiceRole.entities.ZapiPayloadNormalized.create({
         payload_bruto: evento,
         instance_identificado: instanceExtraido,
@@ -139,17 +147,22 @@ Deno.serve(async (req) => {
         sucesso_processamento: false // Será atualizado ao final
       });
       auditLogId = auditLog.id;
-      console.log('[WEBHOOK] ✅ Payload bruto persistido para auditoria:', auditLogId);
+      console.log('[WEBHOOK] ✅ Payload bruto persistido para auditoria com sucesso:', auditLogId);
     } catch (auditError) {
-      console.error('[WEBHOOK] ❌ ERRO CRÍTICO ao persistir auditoria:', auditError);
-      console.error('[WEBHOOK] Stack:', auditError.stack);
+      console.error('[WEBHOOK] ❌ ERRO CRÍTICO ao persistir auditoria:', auditError.message);
+      console.error('[WEBHOOK] Stack completo:', auditError.stack);
+      console.error('[WEBHOOK] Payload que falhou:', JSON.stringify(evento, null, 2));
 
       // MESMO COM ERRO, continuar processamento
       return Response.json(
         { 
           success: false, 
           error: 'Falha ao persistir payload: ' + auditError.message,
-          timestamp: timestampRecebido 
+          timestamp: timestampRecebido,
+          debug: {
+            instance: instanceExtraido,
+            evento: eventoTipo
+          }
         },
         { status: 200, headers: corsHeaders }
       );
@@ -159,6 +172,12 @@ Deno.serve(async (req) => {
     // 3.1 PERSISTIR WEBHOOK LOG (SEMPRE)
     // ═══════════════════════════════════════════════════════════
     try {
+      console.log('[WEBHOOK] 📝 Tentando persistir WebhookLog:', {
+        instance_id: instanceExtraido,
+        event_type: eventoTipo,
+        timestamp: timestampRecebido
+      });
+
       await base44.asServiceRole.entities.WebhookLog.create({
         timestamp: timestampRecebido,
         provider: 'z_api',
@@ -168,9 +187,10 @@ Deno.serve(async (req) => {
         processed: false, // Será atualizado ao final
         success: false
       });
-      console.log('[WEBHOOK] ✅ WebhookLog persistido');
+      console.log('[WEBHOOK] ✅ WebhookLog persistido com sucesso');
     } catch (logError) {
-      console.error('[WEBHOOK] ⚠️ Erro ao persistir WebhookLog (não crítico):', logError);
+      console.error('[WEBHOOK] ❌ ERRO ao persistir WebhookLog:', logError.message);
+      console.error('[WEBHOOK] Stack:', logError.stack);
     }
 
     // ═══════════════════════════════════════════════════════════
@@ -383,6 +403,7 @@ async function processarConnectionUpdate(instance, payloadNormalizado, base44, c
 
 async function processarMensagemRecebida(instance, payloadNormalizado, base44, corsHeaders) {
   console.log('[WEBHOOK] 💬 Processando mensagem recebida (normalizada)');
+  console.log('[WEBHOOK] 📋 Payload normalizado completo:', JSON.stringify(payloadNormalizado, null, 2));
 
   try {
     // Usar dados normalizados
@@ -397,6 +418,8 @@ async function processarMensagemRecebida(instance, payloadNormalizado, base44, c
     console.log(`[WEBHOOK] 📱 Número: ${numeroFormatado}`);
     console.log(`[WEBHOOK] 💬 Conteúdo: ${conteudo.substring(0, 50)}...`);
     console.log(`[WEBHOOK] 📎 Tipo de mídia: ${mediaType}`);
+    console.log(`[WEBHOOK] 🆔 Message ID: ${messageId}`);
+    console.log(`[WEBHOOK] ⏰ Timestamp: ${timestamp}`);
 
     // ═══════════════════════════════════════════════════════════
     // FLUXO TRANSACIONAL MANUAL (SEM SDK TRANSACTION)

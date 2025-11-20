@@ -231,12 +231,15 @@ export function normalizarPayloadZAPI(payload) {
   const type = payload.type;
   
   console.log('[ZAPI-ADAPTER] 🔄 Normalizando evento:', event || type);
+  console.log('[ZAPI-ADAPTER] 📦 Payload recebido:', JSON.stringify(payload, null, 2));
   
   try {
     // FORMATO Z-API DIRETO (type: "ReceivedCallback")
     if (type === 'ReceivedCallback') {
       console.log('[ZAPI-ADAPTER] ✅ Detectado formato Z-API direto');
-      return normalizarMensagemZAPI(payload);
+      const normalizado = normalizarMensagemZAPI(payload);
+      console.log('[ZAPI-ADAPTER] ✅ Payload normalizado:', JSON.stringify(normalizado, null, 2));
+      return normalizado;
     }
     
     // FORMATO EVOLUTION API
