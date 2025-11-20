@@ -70,12 +70,20 @@ export function normalizarMensagemZAPI(payload) {
     mediaType = 'document';
     mediaTempUrl = payload.document.documentUrl;
   } else if (payload.buttonsResponseMessage) {
-    // 🆕 Suporte para botões interativos
+    // Suporte para botões interativos (formato antigo)
     conteudo = payload.buttonsResponseMessage.message || '[Resposta de Botão]';
     mediaType = 'button_reply';
   } else if (payload.listResponseMessage) {
-    // 🆕 Suporte para listas interativas
+    // Suporte para listas interativas (formato antigo)
     conteudo = payload.listResponseMessage.title || '[Resposta de Lista]';
+    mediaType = 'list_reply';
+  } else if (payload.interactive?.type === 'button_reply') {
+    // 🆕 Suporte para payload.interactive (formato NOVO da Z-API - botões)
+    conteudo = payload.interactive.button_reply?.title || payload.interactive.button_reply?.id || '[Resposta de Botão]';
+    mediaType = 'button_reply';
+  } else if (payload.interactive?.type === 'list_reply') {
+    // 🆕 Suporte para payload.interactive (formato NOVO da Z-API - listas)
+    conteudo = payload.interactive.list_reply?.title || payload.interactive.list_reply?.id || '[Resposta de Lista]';
     mediaType = 'list_reply';
   }
   
@@ -242,15 +250,15 @@ export function normalizarPayloadZAPI(payload) {
     
     console.log('[ZAPI-ADAPTER] 🔍 rawType:', rawType, '| normalizedType:', normalizedType);
     
-    // FORMATO Z-API DIRETO (type/event/eventType: "ReceivedCallback")
+    // 1. FORMATO Z-API DIRETO (PRIORIDADE MÁXIMA - RETURN IMEDIATO)
     if (normalizedType === 'receivedcallback') {
       console.log('[ZAPI-ADAPTER] ✅ Detectado formato Z-API direto (ReceivedCallback)');
       const normalizado = normalizarMensagemZAPI(payload);
-      console.log('[ZAPI-ADAPTER] ✅ Payload normalizado:', JSON.stringify(normalizado, null, 2));
-      return normalizado;
+      console.log('[ZAPI-ADAPTER] ✅ Payload normalizado (ReceivedCallback):', JSON.stringify(normalizado, null, 2));
+      return normalizado; // ✅ RETURN IMEDIATO - NÃO CONTINUA PARA O SWITCH
     }
     
-    // FORMATO EVOLUTION API
+    // 2. FORMATO EVOLUTION API (APENAS SE NÃO FOR RECEIVEDCALLBACK)
     switch (event) {
       case 'messages.upsert':
         console.log('[ZAPI-ADAPTER] ✅ Detectado messages.upsert');
