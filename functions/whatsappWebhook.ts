@@ -585,7 +585,10 @@ async function processarMensagemRecebida(instance, payloadNormalizado, base44, c
         status: 'entregue',
         whatsapp_message_id: messageId,
         sent_at: new Date(timestamp).toISOString(),
-        delivered_at: new Date().toISOString()
+        delivered_at: new Date().toISOString(),
+        metadata: {
+          whatsapp_integration_id: integracaoId
+        }
       });
       mensagemCriada = message;
       console.log(`[WEBHOOK] ✅ Message criada: ${message.id}`);
