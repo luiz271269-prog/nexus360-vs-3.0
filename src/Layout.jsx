@@ -159,6 +159,7 @@ export default function Layout({ children, currentPageName }) {
     { name: "💬 Central de Comunicação", icon: MessageSquare, page: "Comunicacao" },
     { name: "Agenda Inteligente", icon: Calendar, page: "Agenda" },
     { name: "Importação", icon: Upload, page: "Importacao" },
+    { name: "🔬 Diagnóstico Cirúrgico", icon: Bug, page: "DiagnosticoCirurgico" },
     { name: "Auditoria", icon: Shield, page: "Auditoria" },
     { name: "Gerenciamento de Usuários", icon: UserCog, page: "Usuarios" }
   ].filter((item) => item.disponivel !== false);
