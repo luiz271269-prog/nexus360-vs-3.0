@@ -80,9 +80,13 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Log das chaves do payload para diagnostico
+    // Log DETALHADO das chaves do payload para diagnostico
+    console.log('[WEBHOOK] ========== DIAGNOSTICO PAYLOAD ==========');
+    console.log('[WEBHOOK] Tipo do evento:', typeof evento);
+    console.log('[WEBHOOK] Evento eh objeto?', evento && typeof evento === 'object');
     console.log('[WEBHOOK] Chaves do payload:', Object.keys(evento));
     console.log('[WEBHOOK] Payload completo:', JSON.stringify(evento, null, 2));
+    console.log('[WEBHOOK] ==========================================');
 
     // Extracao robusta de evento e instancia, cobrindo variacoes comuns
     const eventoTipo = evento.event || evento.type || evento.event_type || evento.eventName || 'ReceivedCallback';
