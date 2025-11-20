@@ -286,7 +286,10 @@ async function executarEtapa3(base44, integracao) {
   // ========== SIMULAÇÃO 1: MENSAGEM DE TEXTO (3.2) ==========
   const t1Inicio = Date.now();
   try {
-    console.log('[ETAPA3] 📤 Simulando mensagem de texto...');
+    console.log('\n\n[ETAPA3.2] ════════════════════════════════════════════════════════');
+    console.log('[ETAPA3.2] 🧪 TESTE: Mensagem de Texto');
+    console.log('[ETAPA3.2] ════════════════════════════════════════════════════════');
+    
     const payloadTexto = {
       instanceId: integracao.instance_id_provider,
       instance: integracao.instance_id_provider,
@@ -298,7 +301,9 @@ async function executarEtapa3(base44, integracao) {
       text: { message: '🧪 TESTE DIAGNÓSTICO - Mensagem de texto' }
     };
 
-    console.log('[ETAPA3] 📤 Payload TEXTO enviado:', JSON.stringify(payloadTexto, null, 2));
+    console.log('[ETAPA3.2] 📤 1️⃣ ENVIANDO PAYLOAD:');
+    console.log(JSON.stringify(payloadTexto, null, 2));
+    console.log('[ETAPA3.2] 🌐 URL:', webhookUrl);
 
     const response = await fetch(webhookUrl, {
       method: 'POST',
@@ -306,28 +311,75 @@ async function executarEtapa3(base44, integracao) {
       body: JSON.stringify(payloadTexto)
     });
 
+    console.log('[ETAPA3.2] 📥 2️⃣ RESPOSTA HTTP:', response.status, response.statusText);
+    
     const responseData = await response.json();
-    console.log('[ETAPA3] 📥 Resposta do webhook (TEXTO):', JSON.stringify(responseData, null, 2));
+    console.log('[ETAPA3.2] 📥 RESPOSTA JSON:');
+    console.log(JSON.stringify(responseData, null, 2));
 
     // Aguardar 2s para processamento
+    console.log('[ETAPA3.2] ⏳ Aguardando 2s para processamento...');
     await new Promise(resolve => setTimeout(resolve, 2000));
 
     // Verificar persistência
+    console.log('[ETAPA3.2] 🔍 3️⃣ VERIFICANDO PERSISTÊNCIA...');
+    console.log('[ETAPA3.2] 🔍 Buscando ZapiPayloadNormalized com instance:', integracao.instance_id_provider);
+    
     const payloads = await base44.asServiceRole.entities.ZapiPayloadNormalized.filter(
       { instance_identificado: integracao.instance_id_provider },
       '-timestamp_recebido',
       10
     );
+    
+    console.log('[ETAPA3.2] 📊 Total de payloads encontrados:', payloads.length);
+    payloads.forEach((p, idx) => {
+      console.log(`[ETAPA3.2]   ${idx + 1}. messageId: ${p.payload_bruto?.messageId}, evento: ${p.evento}, sucesso: ${p.sucesso_processamento}`);
+    });
+    
     const payloadPersistido = payloads.find(p => 
       p.payload_bruto?.messageId === messageIdTexto ||
       p.payload_bruto?.text?.message?.includes('Mensagem de texto')
     );
 
+    console.log('[ETAPA3.2] ✅ Payload persistido?', !!payloadPersistido);
+    if (payloadPersistido) {
+      console.log('[ETAPA3.2] 📦 Payload encontrado:', {
+        id: payloadPersistido.id,
+        messageId: payloadPersistido.payload_bruto?.messageId,
+        sucesso: payloadPersistido.sucesso_processamento,
+        erro: payloadPersistido.erro_detalhes
+      });
+    } else {
+      console.log('[ETAPA3.2] ❌ NENHUM payload com messageId:', messageIdTexto);
+    }
+
+    console.log('[ETAPA3.2] 🔍 4️⃣ VERIFICANDO MESSAGE...');
+    console.log('[ETAPA3.2] 🔍 Buscando Message com whatsapp_message_id:', messageIdTexto);
+    
     const messages = await base44.asServiceRole.entities.Message.filter(
       { whatsapp_message_id: messageIdTexto },
       '-created_date',
       1
     );
+    
+    console.log('[ETAPA3.2] 📊 Messages encontradas:', messages.length);
+    if (messages.length > 0) {
+      console.log('[ETAPA3.2] ✅ Message encontrada:', {
+        id: messages[0].id,
+        content: messages[0].content?.substring(0, 50),
+        sender_id: messages[0].sender_id,
+        thread_id: messages[0].thread_id
+      });
+    } else {
+      console.log('[ETAPA3.2] ❌ NENHUMA Message encontrada');
+    }
+
+    console.log('[ETAPA3.2] ════════════════════════════════════════════════════════');
+    console.log('[ETAPA3.2] 📊 RESULTADO FINAL:');
+    console.log('[ETAPA3.2]   - Payload Persistido:', !!payloadPersistido);
+    console.log('[ETAPA3.2]   - Message Criada:', messages.length > 0);
+    console.log('[ETAPA3.2]   - Status:', payloadPersistido && messages.length > 0 ? '✅ SUCESSO' : '❌ ERRO');
+    console.log('[ETAPA3.2] ════════════════════════════════════════════════════════\n\n');
 
     testes.push({
       nome: '3.2 Processamento Básico (Texto)',
@@ -338,25 +390,39 @@ async function executarEtapa3(base44, integracao) {
         payload_persistido: !!payloadPersistido,
         message_criada: messages.length > 0,
         message_id: messageIdTexto,
-        text_message: payloadPersistido?.payload_bruto?.text?.message
+        webhook_response: responseData,
+        payloads_encontrados: payloads.length,
+        payload_id: payloadPersistido?.id,
+        payload_sucesso: payloadPersistido?.sucesso_processamento,
+        payload_erro: payloadPersistido?.erro_detalhes,
+        message_id_db: messages[0]?.id
       },
-      sugestao_correcao: !payloadPersistido ? 'Payload de texto não foi persistido' : 
-                        messages.length === 0 ? 'Message não foi criada a partir do payload' : null
+      sugestao_correcao: !payloadPersistido ? 'Payload de texto não foi persistido - webhook não salvou no ZapiPayloadNormalized' : 
+                        messages.length === 0 ? 'Message não foi criada - webhook salvou payload mas não criou Message' : null
     });
   } catch (error) {
+    console.error('[ETAPA3.2] ❌❌❌ ERRO CRÍTICO:', error);
+    console.error('[ETAPA3.2] Stack:', error.stack);
     testes.push({
       nome: '3.2 Processamento Básico (Texto)',
       critico: true,
       status: 'erro',
       tempo_ms: Date.now() - t1Inicio,
-      detalhes: { erro: error.message }
+      detalhes: { 
+        erro: error.message,
+        erro_stack: error.stack,
+        erro_completo: JSON.stringify(error, Object.getOwnPropertyNames(error))
+      }
     });
   }
 
   // ========== SIMULAÇÃO 2: MENSAGEM COM MÍDIA (3.3a) ==========
   const t2Inicio = Date.now();
   try {
-    console.log('[ETAPA3] 📤 Simulando mensagem com mídia...');
+    console.log('\n\n[ETAPA3.3a] ════════════════════════════════════════════════════════');
+    console.log('[ETAPA3.3a] 🧪 TESTE: Mensagem com Mídia');
+    console.log('[ETAPA3.3a] ════════════════════════════════════════════════════════');
+    
     const payloadMidia = {
       instanceId: integracao.instance_id_provider,
       instance: integracao.instance_id_provider,
@@ -373,29 +439,51 @@ async function executarEtapa3(base44, integracao) {
       }
     };
 
-    await fetch(webhookUrl, {
+    console.log('[ETAPA3.3a] 📤 ENVIANDO PAYLOAD:');
+    console.log(JSON.stringify(payloadMidia, null, 2));
+
+    const response = await fetch(webhookUrl, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payloadMidia)
     });
 
+    const responseData = await response.json();
+    console.log('[ETAPA3.3a] 📥 RESPOSTA:', JSON.stringify(responseData, null, 2));
+
+    console.log('[ETAPA3.3a] ⏳ Aguardando 2s...');
     await new Promise(resolve => setTimeout(resolve, 2000));
 
+    console.log('[ETAPA3.3a] 🔍 VERIFICANDO PERSISTÊNCIA...');
     const payloads = await base44.asServiceRole.entities.ZapiPayloadNormalized.filter(
       { instance_identificado: integracao.instance_id_provider },
       '-timestamp_recebido',
       10
     );
+    
+    console.log('[ETAPA3.3a] 📊 Payloads encontrados:', payloads.length);
     const payloadPersistido = payloads.find(p => 
       p.payload_bruto?.messageId === messageIdMidia ||
       p.payload_bruto?.image
     );
+    console.log('[ETAPA3.3a] ✅ Payload MÍDIA persistido?', !!payloadPersistido);
 
     const messages = await base44.asServiceRole.entities.Message.filter(
       { whatsapp_message_id: messageIdMidia },
       '-created_date',
       1
     );
+    
+    console.log('[ETAPA3.3a] 📊 Messages encontradas:', messages.length);
+    if (messages.length > 0) {
+      console.log('[ETAPA3.3a] 📦 Message:', {
+        media_type: messages[0].media_type,
+        media_url: messages[0].media_url?.substring(0, 50)
+      });
+    }
+    
+    console.log('[ETAPA3.3a] 📊 RESULTADO:', payloadPersistido && messages.length > 0 && messages[0].media_type === 'image' ? '✅ SUCESSO' : '⚠️ AVISO');
+    console.log('[ETAPA3.3a] ════════════════════════════════════════════════════════\n\n');
 
     testes.push({
       nome: '3.3a Conteúdo: Mídia/Arquivo',
@@ -406,26 +494,31 @@ async function executarEtapa3(base44, integracao) {
         payload_persistido: !!payloadPersistido,
         message_criada: messages.length > 0,
         media_type: messages[0]?.media_type,
-        media_url: messages[0]?.media_url
+        media_url: messages[0]?.media_url,
+        webhook_response: responseData
       },
       sugestao_correcao: !payloadPersistido ? 'Payload de mídia não foi persistido' :
                         messages.length === 0 ? 'Message com mídia não foi criada' :
                         messages[0].media_type !== 'image' ? 'Media type não foi identificado corretamente' : null
     });
   } catch (error) {
+    console.error('[ETAPA3.3a] ❌ ERRO:', error);
     testes.push({
       nome: '3.3a Conteúdo: Mídia/Arquivo',
       critico: false,
       status: 'aviso',
       tempo_ms: Date.now() - t2Inicio,
-      detalhes: { erro: error.message }
+      detalhes: { erro: error.message, erro_stack: error.stack }
     });
   }
 
   // ========== SIMULAÇÃO 3: MENSAGEM COM BOTÃO (3.3b) ==========
   const t3Inicio = Date.now();
   try {
-    console.log('[ETAPA3] 📤 Simulando mensagem com botão...');
+    console.log('\n\n[ETAPA3.3b] ════════════════════════════════════════════════════════');
+    console.log('[ETAPA3.3b] 🧪 TESTE: Mensagem com Botão');
+    console.log('[ETAPA3.3b] ════════════════════════════════════════════════════════');
+    
     const payloadBotao = {
       instanceId: integracao.instance_id_provider,
       instance: integracao.instance_id_provider,
@@ -440,29 +533,41 @@ async function executarEtapa3(base44, integracao) {
       }
     };
 
-    await fetch(webhookUrl, {
+    console.log('[ETAPA3.3b] 📤 ENVIANDO PAYLOAD:');
+    console.log(JSON.stringify(payloadBotao, null, 2));
+
+    const response = await fetch(webhookUrl, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payloadBotao)
     });
 
+    const responseData = await response.json();
+    console.log('[ETAPA3.3b] 📥 RESPOSTA:', JSON.stringify(responseData, null, 2));
+
+    console.log('[ETAPA3.3b] ⏳ Aguardando 2s...');
     await new Promise(resolve => setTimeout(resolve, 2000));
 
+    console.log('[ETAPA3.3b] 🔍 VERIFICANDO...');
     const payloads = await base44.asServiceRole.entities.ZapiPayloadNormalized.filter(
       { instance_identificado: integracao.instance_id_provider },
       '-timestamp_recebido',
       10
     );
+    
     const payloadPersistido = payloads.find(p => 
       p.payload_bruto?.messageId === messageIdBotao ||
       p.payload_bruto?.buttonsResponseMessage
     );
+    console.log('[ETAPA3.3b] ✅ Payload BOTÃO persistido?', !!payloadPersistido);
 
     const messages = await base44.asServiceRole.entities.Message.filter(
       { whatsapp_message_id: messageIdBotao },
       '-created_date',
       1
     );
+    console.log('[ETAPA3.3b] 📊 Messages:', messages.length);
+    console.log('[ETAPA3.3b] ════════════════════════════════════════════════════════\n\n');
 
     testes.push({
       nome: '3.3b Conteúdo: Botão Interativo',
@@ -473,25 +578,30 @@ async function executarEtapa3(base44, integracao) {
         payload_persistido: !!payloadPersistido,
         message_criada: messages.length > 0,
         button_id: payloadPersistido?.payload_bruto?.buttonsResponseMessage?.buttonId,
-        interactive_type: 'button_reply'
+        interactive_type: 'button_reply',
+        webhook_response: responseData
       },
       sugestao_correcao: !payloadPersistido ? 'Payload de botão não foi persistido' :
                         messages.length === 0 ? 'Message com botão não foi criada' : null
     });
   } catch (error) {
+    console.error('[ETAPA3.3b] ❌ ERRO:', error);
     testes.push({
       nome: '3.3b Conteúdo: Botão Interativo',
       critico: false,
       status: 'aviso',
       tempo_ms: Date.now() - t3Inicio,
-      detalhes: { erro: error.message }
+      detalhes: { erro: error.message, erro_stack: error.stack }
     });
   }
 
   // ========== SIMULAÇÃO 4: DUPLICIDADE (3.4) ==========
   const t4Inicio = Date.now();
   try {
-    console.log('[ETAPA3] 📤 Simulando duplicidade (reenvio do mesmo message ID)...');
+    console.log('\n\n[ETAPA3.4] ════════════════════════════════════════════════════════');
+    console.log('[ETAPA3.4] 🧪 TESTE: Tratamento de Duplicidade');
+    console.log('[ETAPA3.4] ════════════════════════════════════════════════════════');
+    
     const payloadDup1 = {
       instanceId: integracao.instance_id_provider,
       instance: integracao.instance_id_provider,
@@ -503,30 +613,38 @@ async function executarEtapa3(base44, integracao) {
       text: { message: '🧪 TESTE DUPLICIDADE - Primeira vez' }
     };
 
-    // Enviar primeira vez
-    await fetch(webhookUrl, {
+    console.log('[ETAPA3.4] 📤 ENVIANDO 1ª VEZ...');
+    console.log(JSON.stringify(payloadDup1, null, 2));
+    
+    const resp1 = await fetch(webhookUrl, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payloadDup1)
     });
+    const data1 = await resp1.json();
+    console.log('[ETAPA3.4] 📥 Resposta 1:', JSON.stringify(data1, null, 2));
 
+    console.log('[ETAPA3.4] ⏳ Aguardando 1s...');
     await new Promise(resolve => setTimeout(resolve, 1000));
 
-    // Enviar segunda vez (DUPLICADO)
-    await fetch(webhookUrl, {
+    console.log('[ETAPA3.4] 📤 ENVIANDO 2ª VEZ (DUPLICADO)...');
+    const resp2 = await fetch(webhookUrl, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payloadDup1)
     });
+    const data2 = await resp2.json();
+    console.log('[ETAPA3.4] 📥 Resposta 2:', JSON.stringify(data2, null, 2));
 
+    console.log('[ETAPA3.4] ⏳ Aguardando 2s...');
     await new Promise(resolve => setTimeout(resolve, 2000));
 
-    // Verificar quantas Messages foram criadas
+    console.log('[ETAPA3.4] 🔍 VERIFICANDO DUPLICIDADE...');
     const messages = await base44.asServiceRole.entities.Message.filter(
       { whatsapp_message_id: messageIdDuplicado }
     );
+    console.log('[ETAPA3.4] 📊 Messages criadas:', messages.length);
 
-    // Verificar payloads persistidos
     const payloads = await base44.asServiceRole.entities.ZapiPayloadNormalized.filter(
       { instance_identificado: integracao.instance_id_provider },
       '-timestamp_recebido',
@@ -535,8 +653,11 @@ async function executarEtapa3(base44, integracao) {
     const payloadsDuplicados = payloads.filter(p => 
       p.payload_bruto?.messageId === messageIdDuplicado
     );
+    console.log('[ETAPA3.4] 📊 Payloads persistidos:', payloadsDuplicados.length);
 
     const temDuplicidade = messages.length === 1;
+    console.log('[ETAPA3.4] 📊 RESULTADO:', temDuplicidade ? '✅ SUCESSO (1 message)' : `⚠️ AVISO (${messages.length} messages)`);
+    console.log('[ETAPA3.4] ════════════════════════════════════════════════════════\n\n');
 
     testes.push({
       nome: '3.4 Tratamento de Duplicidade',
@@ -548,19 +669,22 @@ async function executarEtapa3(base44, integracao) {
         messages_criadas: messages.length,
         payloads_persistidos: payloadsDuplicados.length,
         tratamento_ok: temDuplicidade,
-        message_id: messageIdDuplicado
+        message_id: messageIdDuplicado,
+        resposta_envio1: data1,
+        resposta_envio2: data2
       },
       sugestao_correcao: !temDuplicidade ? 
         `${messages.length} mensagens criadas para o mesmo ID - implemente verificação de whatsapp_message_id antes de criar Message` : 
         null
     });
   } catch (error) {
+    console.error('[ETAPA3.4] ❌ ERRO:', error);
     testes.push({
       nome: '3.4 Tratamento de Duplicidade',
       critico: false,
       status: 'aviso',
       tempo_ms: Date.now() - t4Inicio,
-      detalhes: { erro: error.message }
+      detalhes: { erro: error.message, erro_stack: error.stack }
     });
   }
 
