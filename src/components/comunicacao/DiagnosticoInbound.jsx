@@ -26,6 +26,7 @@ import {
 import { toast } from "sonner";
 import { format } from "date-fns";
 import DiagnosticoProfissionalZAPI from "./DiagnosticoProfissionalZAPI";
+import AnalisadorMensagensRecebidas from "./AnalisadorMensagensRecebidas";
 
 export default function DiagnosticoInbound({ integracoes }) {
   const [logs, setLogs] = useState([]);
@@ -209,6 +210,9 @@ export default function DiagnosticoInbound({ integracoes }) {
           </div>
         </CardContent>
       </Card>
+
+      {/* 🆕 ANALISADOR DE MENSAGENS RECEBIDAS - DIAGNÓSTICO EM TEMPO REAL */}
+      <AnalisadorMensagensRecebidas />
 
       {/* Sistema de Diagnóstico Profissional */}
       <DiagnosticoProfissionalZAPI integracoes={integracoes} />
