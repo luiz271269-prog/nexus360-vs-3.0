@@ -266,6 +266,8 @@ Deno.serve(async (req) => {
 
       case 'unknown':
         console.log(`[WEBHOOK] ⚠️ Evento não reconhecido pelo adapter: ${payloadNormalizado.event}`);
+        console.log('[WEBHOOK] 🔍 DEBUG - Payload normalizado completo:', JSON.stringify(payloadNormalizado, null, 2));
+        console.log('[WEBHOOK] ⚠️ ATENÇÃO: Evento sendo IGNORADO - nenhuma persistência será feita!');
         resultado = Response.json(
           { success: true, ignored: 'unknown_event', event: payloadNormalizado.event },
           { status: 200, headers: corsHeaders }
