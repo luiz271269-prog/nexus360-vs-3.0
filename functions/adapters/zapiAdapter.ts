@@ -240,14 +240,15 @@ export function normalizarPayloadZAPI(payload) {
   const event = payload.event;
   const type = payload.type;
   const eventType = payload.eventType;
+  const eventName = payload.eventName;
   
   console.log('[ZAPI-ADAPTER] Normalizando evento');
   console.log('[ZAPI-ADAPTER] Chaves disponíveis:', Object.keys(payload));
-  console.log('[ZAPI-ADAPTER] event:', event, '| type:', type, '| eventType:', eventType);
+  console.log('[ZAPI-ADAPTER] event:', event, '| type:', type, '| eventType:', eventType, '| eventName:', eventName);
   
   try {
     // NORMALIZAÇÃO DE CAMPOS - case-insensitive com trim
-    const rawType = String(type || event || eventType || 'unknown').trim();
+    const rawType = String(type || event || eventType || eventName || 'unknown').trim();
     const normalizedType = rawType.toLowerCase();
     
     console.log('[ZAPI-ADAPTER] rawType:', rawType, '| normalizedType:', normalizedType);
@@ -261,7 +262,9 @@ export function normalizarPayloadZAPI(payload) {
     }
     
     // 2. FORMATO EVOLUTION API (APENAS SE NÃO FOR RECEIVEDCALLBACK)
-    switch (event) {
+    // Usar normalizedType em vez de apenas event para cobrir todos os aliases
+    const tipoEvento = event || type || eventType || eventName;
+    switch (tipoEvento) {
       case 'messages.upsert':
         console.log('[ZAPI-ADAPTER] Detectado messages.upsert');
         return normalizarMensagem(payload);
@@ -287,12 +290,12 @@ export function normalizarPayloadZAPI(payload) {
         };
       
       default:
-        console.log('[ZAPI-ADAPTER] AVISO: Evento não mapeado:', event);
+        console.log('[ZAPI-ADAPTER] AVISO: Evento não mapeado:', tipoEvento);
         console.log('[ZAPI-ADAPTER] Payload completo:', JSON.stringify(payload, null, 2));
         return {
           instanceId: extrairInstanceId(payload),
           type: 'unknown',
-          event: event || type || eventType,
+          event: tipoEvento,
           timestamp: Date.now()
         };
     }
