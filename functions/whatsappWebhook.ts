@@ -6,21 +6,19 @@ import {
 } from './adapters/zapiAdapter.js';
 
 /**
- * WHATSAPP WEBHOOK - Z-API + EVOLUTION API
- * Versao: 2.5 - FORCE UPDATE (Identificador Unico de Versao)
- *
- * Processa eventos com:
- * - Protecao de Stream (Clone)
- * - Normalizacao de payload
- * - Bypass de roteamento
- * - SEM EMOJIS
+ * WHATSAPP WEBHOOK V2.6
+ * FORCE UPDATE - VERSAO COMPLETAMENTE REESCRITA
  */
 
 Deno.serve(async (req) => {
-  // LOG DE VERSAO CRITICO - SE ESTE LOG NAO APARECER, O DEPLOY FALHOU
-  console.log('[WEBHOOK] ---------------------------------------------------');
-  console.log('[WEBHOOK] v2.5 INICIADA - NOVA VERSAO CARREGADA');
-  console.log('[WEBHOOK] ---------------------------------------------------');
+  // ========================================
+  // LOG CRITICO DE VERSAO
+  // SE ESTE LOG NAO APARECER = DEPLOY FALHOU
+  // ========================================
+  console.log('========================================');
+  console.log('[WEBHOOK] v2.6 FORCE UPDATE INICIADA');
+  console.log('[WEBHOOK] TIMESTAMP:', new Date().toISOString());
+  console.log('========================================');
 
   const corsHeaders = {
     'Content-Type': 'application/json',
@@ -34,91 +32,85 @@ Deno.serve(async (req) => {
   }
 
   if (req.method === 'GET') {
-    console.log('[WEBHOOK] GET Health Check OK');
-    return new Response('ok', { status: 200, headers: corsHeaders });
+    console.log('[WEBHOOK] Health check OK');
+    return new Response('v2.6', { status: 200, headers: corsHeaders });
   }
 
-  try {
-    // 1. INICIALIZAR BASE44 (USANDO CLONE)
-    const base44 = createClientFromRequest(req.clone());
-    console.log('[WEBHOOK] Base44 inicializado');
+  let auditLogId = null;
 
-    // 2. LEITURA DO PAYLOAD
+  try {
+    // STEP 1: Inicializar SDK com req.clone()
+    const base44 = createClientFromRequest(req.clone());
+    console.log('[WEBHOOK] SDK inicializado');
+
+    // STEP 2: Ler payload
     let evento;
     let rawBody = '';
 
     try {
       rawBody = await req.text();
-      console.log(`[WEBHOOK] Tamanho do Payload: ${rawBody.length} caracteres`);
+      console.log(`[WEBHOOK] Payload size: ${rawBody.length} bytes`);
       
       if (!rawBody || rawBody.trim() === '') {
-        console.warn('[WEBHOOK] AVISO: Body vazio.');
+        console.warn('[WEBHOOK] Empty body');
         return Response.json(
-          { success: false, error: 'Empty body received' },
+          { success: false, error: 'Empty body' },
           { status: 200, headers: corsHeaders }
         );
       }
       
       evento = JSON.parse(rawBody);
-      console.log('[WEBHOOK] JSON parseado com sucesso');
+      console.log('[WEBHOOK] JSON parsed OK');
 
     } catch (e) {
-      console.error('[WEBHOOK] ERRO CRITICO na leitura do Body:', e.message);
+      console.error('[WEBHOOK] Parse error:', e.message);
       return Response.json(
-        { success: false, error: 'JSON Parse Error: ' + e.message },
+        { success: false, error: 'Parse error: ' + e.message },
         { status: 200, headers: corsHeaders }
       );
     }
 
-    // 3. EXTRACAO E NORMALIZACAO
+    // STEP 3: Extrair dados
     const eventoTipo = evento.event || evento.type || evento.event_type || evento.eventName || 'ReceivedCallback';
     const instanceExtraido = evento.instance || evento.instanceId || evento.instance_id || extrairInstanceId(evento);
 
-    console.log('[WEBHOOK] Identificacao preliminar - Tipo:', eventoTipo, 'Instancia:', instanceExtraido);
+    console.log('[WEBHOOK] Type:', eventoTipo, '| Instance:', instanceExtraido);
 
-    // Persistir Auditoria
-    const timestampRecebido = new Date().toISOString();
-    let auditLogId = null;
-
+    // STEP 4: Auditoria
     try {
-      const auditData = {
+      const auditLog = await base44.asServiceRole.entities.ZapiPayloadNormalized.create({
         payload_bruto: evento,
         instance_identificado: instanceExtraido || 'unknown',
         evento: eventoTipo || 'unknown',
-        timestamp_recebido: timestampRecebido,
+        timestamp_recebido: new Date().toISOString(),
         sucesso_processamento: false
-      };
-      
-      const auditLog = await base44.asServiceRole.entities.ZapiPayloadNormalized.create(auditData);
+      });
       auditLogId = auditLog.id;
-      console.log(`[WEBHOOK] Auditoria criada ID: ${auditLogId}`);
+      console.log(`[WEBHOOK] Audit log created: ${auditLogId}`);
     } catch (err) {
-      console.error('[WEBHOOK] Falha na auditoria (nao critico):', err.message);
+      console.error('[WEBHOOK] Audit error (non-critical):', err.message);
     }
 
-    // 4. ADAPTER E BYPASS
+    // STEP 5: Normalizar
     let payloadNormalizado = normalizarPayloadZAPI(evento);
 
-    // BYPASS DE EMERGENCIA
+    // BYPASS para ReceivedCallback
     if (!payloadNormalizado || payloadNormalizado.type === 'unknown') {
         const rawEventStr = String(evento.event || evento.type || '').trim().toLowerCase();
         if (rawEventStr.includes('receivedcallback') || rawEventStr.includes('message')) {
-           console.warn('[WEBHOOK] MITIGACAO: Forcando tipo "message"');
+           console.warn('[WEBHOOK] Forcing type to "message"');
            if (!payloadNormalizado) payloadNormalizado = {};
            payloadNormalizado.type = 'message';
            payloadNormalizado.instanceId = instanceExtraido;
-           
-           payloadNormalizado.messageId = evento.messageId || payloadNormalizado.messageId || `FALLBACK_${Date.now()}`;
-           payloadNormalizado.from = payloadNormalizado.from || evento.phone || evento.telefone;
-           if(!payloadNormalizado.content) {
-               payloadNormalizado.content = evento.text?.message || evento.content || '[Conteudo Recuperado]';
-           }
+           payloadNormalizado.messageId = evento.messageId || `FALLBACK_${Date.now()}`;
+           payloadNormalizado.from = evento.phone || evento.telefone;
+           payloadNormalizado.content = evento.text?.message || '[Content recovered]';
         }
     }
 
-    console.log(`[WEBHOOK] Roteando para tipo: ${payloadNormalizado.type}`);
+    console.log(`[WEBHOOK] Routing to: ${payloadNormalizado.type}`);
 
-    // 5. ROTEAMENTO
+    // STEP 6: Rotear
     let resultado;
     switch (payloadNormalizado.type) {
       case 'qrcode':
@@ -137,14 +129,14 @@ Deno.serve(async (req) => {
         resultado = Response.json({ success: true, processed: 'send_confirmation' }, { status: 200, headers: corsHeaders });
         break;
       default:
-        console.log('[WEBHOOK] Evento ignorado/desconhecido:', payloadNormalizado.type);
+        console.log('[WEBHOOK] Unknown event:', payloadNormalizado.type);
         resultado = Response.json(
           { success: true, ignored: 'unknown_event', type: payloadNormalizado.type },
           { status: 200, headers: corsHeaders }
         );
     }
 
-    // Atualizar sucesso na auditoria
+    // STEP 7: Atualizar auditoria
     if (auditLogId) {
         await base44.asServiceRole.entities.ZapiPayloadNormalized.update(auditLogId, {
             sucesso_processamento: true,
@@ -155,7 +147,7 @@ Deno.serve(async (req) => {
     return resultado;
 
   } catch (error) {
-    console.error('[WEBHOOK] ERRO FATAL NO HANDLER:', error);
+    console.error('[WEBHOOK] FATAL ERROR:', error);
     return Response.json(
       { success: false, error: error.message },
       { status: 500, headers: corsHeaders }
@@ -163,7 +155,9 @@ Deno.serve(async (req) => {
   }
 });
 
-// --- FUNCOES DE PROCESSAMENTO ---
+// ========================================
+// FUNCOES DE PROCESSAMENTO
+// ========================================
 
 async function processarQRCodeUpdate(instance, payload, base44, headers) {
     const integracao = await buscarIntegracaoPorInstance(instance, base44);
@@ -207,12 +201,12 @@ async function processarMensagemUpdate(payload, base44, headers) {
 }
 
 async function processarMensagemRecebida(instance, payload, base44, headers) {
-    console.log('[WEBHOOK] Iniciando processamento de mensagem...');
+    console.log('[WEBHOOK] Processing message start');
     
     try {
-        // 1. Buscar/Criar Contato
+        // 1. Contact
         const numero = payload.from;
-        if (!numero) throw new Error('Numero de origem nao encontrado');
+        if (!numero) throw new Error('Missing phone number');
 
         let contato = (await base44.asServiceRole.entities.Contact.filter({ telefone: numero }))[0];
         if (!contato) {
@@ -223,19 +217,19 @@ async function processarMensagemRecebida(instance, payload, base44, headers) {
                 whatsapp_status: 'verificado',
                 ultima_interacao: new Date().toISOString()
             });
-            console.log('[WEBHOOK] Contato criado:', contato.id);
+            console.log('[WEBHOOK] Contact created:', contato.id);
         } else {
              await base44.asServiceRole.entities.Contact.update(contato.id, { ultima_interacao: new Date().toISOString() });
         }
 
-        // 2. Buscar Integracao
+        // 2. Integration
         let integracaoId = null;
         if (instance) {
             const ints = await base44.asServiceRole.entities.WhatsAppIntegration.filter({ instance_id_provider: instance });
             if (ints.length > 0) integracaoId = ints[0].id;
         }
 
-        // 3. Criar/Buscar Thread
+        // 3. Thread
         let thread = (await base44.asServiceRole.entities.MessageThread.filter({ contact_id: contato.id }))[0];
         if (!thread) {
             thread = await base44.asServiceRole.entities.MessageThread.create({
@@ -249,16 +243,16 @@ async function processarMensagemRecebida(instance, payload, base44, headers) {
             });
         }
 
-        // 4. Verificar Duplicidade
+        // 4. Duplicate check
         if (payload.messageId) {
             const exists = await base44.asServiceRole.entities.Message.filter({ whatsapp_message_id: payload.messageId });
             if (exists.length > 0) {
-                console.log('[WEBHOOK] Mensagem duplicada.');
+                console.log('[WEBHOOK] Duplicate message');
                 return Response.json({ success: true, processed: 'duplicate' }, { status: 200, headers });
             }
         }
 
-        // 5. Criar Mensagem
+        // 5. Create message
         const msg = await base44.asServiceRole.entities.Message.create({
             thread_id: thread.id,
             sender_id: contato.id,
@@ -273,7 +267,7 @@ async function processarMensagemRecebida(instance, payload, base44, headers) {
             metadata: { whatsapp_integration_id: integracaoId }
         });
 
-        console.log('[WEBHOOK] MENSAGEM SALVA COM SUCESSO ID:', msg.id);
+        console.log('[WEBHOOK] MESSAGE SAVED ID:', msg.id);
         
         return Response.json({ 
             success: true, 
@@ -282,7 +276,7 @@ async function processarMensagemRecebida(instance, payload, base44, headers) {
         }, { status: 200, headers });
 
     } catch (e) {
-        console.error('[WEBHOOK] Erro ao salvar mensagem:', e);
+        console.error('[WEBHOOK] Error saving message:', e);
         throw e;
     }
 }
