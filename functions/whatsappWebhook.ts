@@ -827,18 +827,18 @@ async function processarMensagemUpdate(payloadNormalizado, base44, corsHeaders) 
  */
 async function buscarIntegracaoPorInstance(instance, base44) {
   if (!instance) {
-    console.log('[BUSCA_INT] ⚠️ Nenhuma instance fornecida');
+    console.log('[BUSCA_INT] AVISO: Nenhuma instance fornecida');
     return null;
   }
   
-  console.log('[BUSCA_INT] 🔍 Buscando integracao para:', instance);
+  console.log('[BUSCA_INT] Buscando integracao para:', instance);
   
   // Listar TODAS as integracoes para diagnostico detalhado
   const todasIntegracoes = await base44.asServiceRole.entities.WhatsAppIntegration.list();
-  console.log('[BUSCA_INT] 📊 Total de integracoes cadastradas:', todasIntegracoes.length);
+  console.log('[BUSCA_INT] Total de integracoes cadastradas:', todasIntegracoes.length);
   
   if (todasIntegracoes.length === 0) {
-    console.error('[BUSCA_INT] ❌ ERRO: Nenhuma integracao cadastrada no sistema!');
+    console.error('[BUSCA_INT] ERRO: Nenhuma integracao cadastrada no sistema!');
     return null;
   }
   
@@ -851,19 +851,19 @@ async function buscarIntegracaoPorInstance(instance, base44) {
   });
 
   // PRIORIDADE 1: Buscar por instance_id_provider (EXATA)
-  console.log('[BUSCA_INT] 🎯 Tentando busca por instance_id_provider exato...');
+  console.log('[BUSCA_INT] Tentando busca por instance_id_provider exato...');
   let integracoes = await base44.asServiceRole.entities.WhatsAppIntegration.filter({
     instance_id_provider: instance
   });
 
   if (integracoes.length > 0) {
-    console.log(`[BUSCA_INT] ✅ Integracao encontrada por instance_id_provider!`);
+    console.log(`[BUSCA_INT] OK: Integracao encontrada por instance_id_provider!`);
     console.log(`[BUSCA_INT]    Nome: ${integracoes[0].nome_instancia}`);
     console.log(`[BUSCA_INT]    ID: ${integracoes[0].id}`);
     return integracoes[0];
   }
 
-  console.log('[BUSCA_INT] ⚠️ Nenhuma integracao por instance_id_provider, tentando nome_instancia...');
+  console.log('[BUSCA_INT] AVISO: Nenhuma integracao por instance_id_provider, tentando nome_instancia...');
 
   // FALLBACK 1: Buscar por nome_instancia
   integracoes = await base44.asServiceRole.entities.WhatsAppIntegration.filter({
@@ -871,14 +871,14 @@ async function buscarIntegracaoPorInstance(instance, base44) {
   });
   
   if (integracoes.length > 0) {
-    console.log(`[BUSCA_INT] ✅ Integracao encontrada por nome_instancia!`);
+    console.log(`[BUSCA_INT] OK: Integracao encontrada por nome_instancia!`);
     console.log(`[BUSCA_INT]    Nome: ${integracoes[0].nome_instancia}`);
     console.log(`[BUSCA_INT]    ID: ${integracoes[0].id}`);
     return integracoes[0];
   }
   
   // FALLBACK 2: Busca parcial case-insensitive no instance_id_provider
-  console.log('[BUSCA_INT] ⚠️ Tentando busca parcial case-insensitive...');
+  console.log('[BUSCA_INT] AVISO: Tentando busca parcial case-insensitive...');
   const instanceLower = instance.toLowerCase();
   const integracaoParcial = todasIntegracoes.find(int => 
     int.instance_id_provider?.toLowerCase().includes(instanceLower) ||
@@ -886,14 +886,14 @@ async function buscarIntegracaoPorInstance(instance, base44) {
   );
   
   if (integracaoParcial) {
-    console.log(`[BUSCA_INT] ✅ Integracao encontrada por match parcial!`);
+    console.log(`[BUSCA_INT] OK: Integracao encontrada por match parcial!`);
     console.log(`[BUSCA_INT]    Nome: ${integracaoParcial.nome_instancia}`);
     console.log(`[BUSCA_INT]    ID: ${integracaoParcial.id}`);
     return integracaoParcial;
   }
   
-  console.error('[BUSCA_INT] ❌ NENHUMA INTEGRACAO ENCONTRADA para:', instance);
-  console.error('[BUSCA_INT] 💡 Dica: Verifique se o instance_id_provider esta cadastrado corretamente');
+  console.error('[BUSCA_INT] ERRO: NENHUMA INTEGRACAO ENCONTRADA para:', instance);
+  console.error('[BUSCA_INT] DICA: Verifique se o instance_id_provider esta cadastrado corretamente');
   return null;
 }
 
