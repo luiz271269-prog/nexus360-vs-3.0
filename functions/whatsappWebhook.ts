@@ -88,17 +88,37 @@ Deno.serve(async (req) => {
     console.log('[WEBHOOK] Payload completo:', JSON.stringify(evento, null, 2));
     console.log('[WEBHOOK] ==========================================');
 
+    // ================================================================
+    // LOGGING CIRURGICO PRE-VALIDACAO
+    // ================================================================
+    console.log('[WEBHOOK] ========== DIAGNOSTIC PAYLOAD EXTRACTION ==========');
+    console.log('[WEBHOOK] Todas as chaves do payload:', Object.keys(evento).join(', '));
+    console.log('[WEBHOOK] evento.event:', evento.event);
+    console.log('[WEBHOOK] evento.type:', evento.type);
+    console.log('[WEBHOOK] evento.event_type:', evento.event_type);
+    console.log('[WEBHOOK] evento.eventName:', evento.eventName);
+    console.log('[WEBHOOK] evento.instance:', evento.instance);
+    console.log('[WEBHOOK] evento.instanceId:', evento.instanceId);
+    console.log('[WEBHOOK] evento.instance_id:', evento.instance_id);
+
+    // Se há objeto 'evento' aninhado
+    if (evento.evento) {
+      console.log('[WEBHOOK] OBJETO ANINHADO DETECTADO: evento.evento');
+      console.log('[WEBHOOK] evento.evento.event:', evento.evento.event);
+      console.log('[WEBHOOK] evento.evento.type:', evento.evento.type);
+      console.log('[WEBHOOK] evento.evento.instanceId:', evento.evento.instanceId);
+    }
+    console.log('[WEBHOOK] =============================================');
+
     // Extracao robusta de evento e instancia, cobrindo variacoes comuns
     const eventoTipo = evento.event || evento.type || evento.event_type || evento.eventName || 'ReceivedCallback';
     const instanceExtraido = evento.instance || evento.instanceId || evento.instance_id || extrairInstanceId(evento);
 
-    console.log('[WEBHOOK] Extracao tentada:', {
+    console.log('[WEBHOOK] RESULTADO DA EXTRACAO:', {
       eventoTipo,
       instanceExtraido,
-      evento_event: evento.event,
-      evento_type: evento.type,
-      evento_instance: evento.instance,
-      evento_instanceId: evento.instanceId
+      eventoTipo_is_truthy: !!eventoTipo,
+      instanceExtraido_is_truthy: !!instanceExtraido
     });
 
     if (!eventoTipo || !instanceExtraido) {
