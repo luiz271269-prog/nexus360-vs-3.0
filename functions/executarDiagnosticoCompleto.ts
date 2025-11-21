@@ -168,12 +168,28 @@ async function executarEtapa2(integracao) {
   try {
     const response = await fetch(webhookUrl, { method: 'GET' });
     const t1Tempo = Date.now() - t1Inicio;
+    let healthData = null;
+    
+    if (response.ok) {
+      try {
+        healthData = await response.json();
+      } catch (e) {
+        console.warn('Não foi possível fazer parse do health check:', e);
+      }
+    }
+    
     testes.push({
       nome: 'Webhook responde GET (health check)',
       critico: true,
       status: response.ok ? 'sucesso' : 'erro',
       tempo_ms: t1Tempo,
-      detalhes: { status: response.status, statusText: response.statusText },
+      detalhes: { 
+        status: response.status, 
+        statusText: response.statusText,
+        version: healthData?.version,
+        build: healthData?.build,
+        timestamp_funcao: healthData?.timestamp
+      },
       sugestao_correcao: !response.ok ? 'Verifique se a função está implantada' : null
     });
   } catch (error) {
