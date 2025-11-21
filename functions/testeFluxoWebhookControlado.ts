@@ -20,15 +20,15 @@ Deno.serve(async (req) => {
   };
 
   try {
-    addLog('INFO', '🚀 Iniciando teste controlado do fluxo webhook');
+    addLog('INFO', 'Iniciando teste controlado do fluxo webhook');
 
     // ========== ETAPA 1: INICIALIZAR BASE44 ==========
-    addLog('INFO', '1️⃣ Inicializando Base44 com Service Role...');
+    addLog('INFO', 'ETAPA 1: Inicializando Base44 com Service Role...');
     const base44 = createClientFromRequest(req);
-    addLog('SUCCESS', '✅ Base44 inicializado');
+    addLog('SUCCESS', 'Base44 inicializado');
 
     // ========== ETAPA 2: PREPARAR PAYLOAD DE TESTE ==========
-    addLog('INFO', '2️⃣ Preparando payload de teste...');
+    addLog('INFO', 'ETAPA 2: Preparando payload de teste...');
     const timestampTeste = Date.now();
     const messageIdTeste = `TESTE_CONTROLADO_${timestampTeste}`;
     
@@ -40,17 +40,17 @@ Deno.serve(async (req) => {
       phone: '5548999000222',
       momment: timestampTeste,
       messageId: messageIdTeste,
-      text: { message: '🧪 TESTE CONTROLADO' }
+      text: { message: 'TESTE CONTROLADO' }
     };
     
-    addLog('SUCCESS', '✅ Payload preparado', { messageId: messageIdTeste });
+    addLog('SUCCESS', 'Payload preparado', { messageId: messageIdTeste });
 
     // ========== ETAPA 3: TENTAR PERSISTIR ZAPIPALOADNORMALIZED ==========
-    addLog('INFO', '3️⃣ Tentando persistir ZapiPayloadNormalized...');
+    addLog('INFO', 'ETAPA 3: Tentando persistir ZapiPayloadNormalized...');
     
     let auditLogId = null;
     try {
-      addLog('INFO', '  📝 Preparando dados para create...');
+      addLog('INFO', '  Preparando dados para create...');
       
       const dadosAudit = {
         payload_bruto: payloadTeste,
@@ -60,16 +60,16 @@ Deno.serve(async (req) => {
         sucesso_processamento: false
       };
       
-      addLog('INFO', '  📦 Dados preparados', dadosAudit);
-      addLog('INFO', '  🚀 Chamando base44.asServiceRole.entities.ZapiPayloadNormalized.create...');
+      addLog('INFO', '  Dados preparados', dadosAudit);
+      addLog('INFO', '  Chamando base44.asServiceRole.entities.ZapiPayloadNormalized.create...');
       
       const auditLog = await base44.asServiceRole.entities.ZapiPayloadNormalized.create(dadosAudit);
       
       auditLogId = auditLog.id;
-      addLog('SUCCESS', `✅ ZapiPayloadNormalized criado com sucesso! ID: ${auditLogId}`, auditLog);
+      addLog('SUCCESS', `ZapiPayloadNormalized criado com sucesso! ID: ${auditLogId}`, auditLog);
       
     } catch (error) {
-      addLog('ERROR', '❌ FALHA ao criar ZapiPayloadNormalized', {
+      addLog('ERROR', 'FALHA ao criar ZapiPayloadNormalized', {
         error_name: error.name,
         error_message: error.message,
         error_code: error.code,
@@ -85,7 +85,7 @@ Deno.serve(async (req) => {
     }
 
     // ========== ETAPA 4: NORMALIZAR PAYLOAD ==========
-    addLog('INFO', '4️⃣ Normalizando payload...');
+    addLog('INFO', 'ETAPA 4: Normalizando payload...');
     
     const payloadNormalizado = {
       type: 'message',
@@ -97,10 +97,10 @@ Deno.serve(async (req) => {
       pushName: 'Teste'
     };
     
-    addLog('SUCCESS', '✅ Payload normalizado', payloadNormalizado);
+    addLog('SUCCESS', 'Payload normalizado', payloadNormalizado);
 
     // ========== ETAPA 5: CRIAR CONTACT ==========
-    addLog('INFO', '5️⃣ Criando Contact...');
+    addLog('INFO', 'ETAPA 5: Criando Contact...');
     
     let contact;
     try {
@@ -110,17 +110,17 @@ Deno.serve(async (req) => {
       
       if (contactsExistentes.length > 0) {
         contact = contactsExistentes[0];
-        addLog('INFO', '  ℹ️ Contact já existe', { contact_id: contact.id });
+        addLog('INFO', '  Contact ja existe', { contact_id: contact.id });
       } else {
         contact = await base44.asServiceRole.entities.Contact.create({
           nome: payloadNormalizado.pushName,
           telefone: payloadNormalizado.from,
           tipo_contato: 'lead'
         });
-        addLog('SUCCESS', `✅ Contact criado! ID: ${contact.id}`);
+        addLog('SUCCESS', `Contact criado! ID: ${contact.id}`);
       }
     } catch (error) {
-      addLog('ERROR', '❌ FALHA ao criar Contact', {
+      addLog('ERROR', 'FALHA ao criar Contact', {
         error_message: error.message,
         error_stack: error.stack
       });
@@ -134,7 +134,7 @@ Deno.serve(async (req) => {
     }
 
     // ========== ETAPA 6: CRIAR MESSAGETHREAD ==========
-    addLog('INFO', '6️⃣ Criando MessageThread...');
+    addLog('INFO', 'ETAPA 6: Criando MessageThread...');
     
     let thread;
     try {
@@ -144,17 +144,17 @@ Deno.serve(async (req) => {
       
       if (threadsExistentes.length > 0) {
         thread = threadsExistentes[0];
-        addLog('INFO', '  ℹ️ Thread já existe', { thread_id: thread.id });
+        addLog('INFO', '  Thread ja existe', { thread_id: thread.id });
       } else {
         thread = await base44.asServiceRole.entities.MessageThread.create({
           contact_id: contact.id,
           status: 'aberta',
           primeira_mensagem_at: new Date().toISOString()
         });
-        addLog('SUCCESS', `✅ Thread criada! ID: ${thread.id}`);
+        addLog('SUCCESS', `Thread criada! ID: ${thread.id}`);
       }
     } catch (error) {
-      addLog('ERROR', '❌ FALHA ao criar MessageThread', {
+      addLog('ERROR', 'FALHA ao criar MessageThread', {
         error_message: error.message,
         error_stack: error.stack
       });
@@ -169,7 +169,7 @@ Deno.serve(async (req) => {
     }
 
     // ========== ETAPA 7: VERIFICAR DUPLICIDADE ==========
-    addLog('INFO', '7️⃣ Verificando duplicidade de mensagem...');
+    addLog('INFO', 'ETAPA 7: Verificando duplicidade de mensagem...');
     
     try {
       const messagesExistentes = await base44.asServiceRole.entities.Message.filter({
@@ -177,7 +177,7 @@ Deno.serve(async (req) => {
       });
       
       if (messagesExistentes.length > 0) {
-        addLog('WARNING', '⚠️ Mensagem duplicada detectada! Abortando.', {
+        addLog('WARNING', 'Mensagem duplicada detectada! Abortando.', {
           message_id: messagesExistentes[0].id
         });
         
@@ -187,16 +187,16 @@ Deno.serve(async (req) => {
           logs
         });
       } else {
-        addLog('SUCCESS', '✅ Mensagem não é duplicata');
+        addLog('SUCCESS', 'Mensagem nao e duplicata');
       }
     } catch (error) {
-      addLog('ERROR', '❌ FALHA ao verificar duplicidade', {
+      addLog('ERROR', 'FALHA ao verificar duplicidade', {
         error_message: error.message
       });
     }
 
     // ========== ETAPA 8: CRIAR MESSAGE ==========
-    addLog('INFO', '8️⃣ Criando Message...');
+    addLog('INFO', 'ETAPA 8: Criando Message...');
     
     let message;
     try {
@@ -211,9 +211,9 @@ Deno.serve(async (req) => {
         sent_at: payloadNormalizado.timestamp
       });
       
-      addLog('SUCCESS', `✅ Message criada! ID: ${message.id}`);
+      addLog('SUCCESS', `Message criada! ID: ${message.id}`);
     } catch (error) {
-      addLog('ERROR', '❌ FALHA ao criar Message', {
+      addLog('ERROR', 'FALHA ao criar Message', {
         error_message: error.message,
         error_stack: error.stack
       });
@@ -229,21 +229,21 @@ Deno.serve(async (req) => {
     }
 
     // ========== ETAPA 9: ATUALIZAR AUDITLOG ==========
-    addLog('INFO', '9️⃣ Atualizando ZapiPayloadNormalized com sucesso...');
+    addLog('INFO', 'ETAPA 9: Atualizando ZapiPayloadNormalized com sucesso...');
     
     try {
       await base44.asServiceRole.entities.ZapiPayloadNormalized.update(auditLogId, {
         sucesso_processamento: true
       });
-      addLog('SUCCESS', '✅ Auditoria atualizada');
+      addLog('SUCCESS', 'Auditoria atualizada');
     } catch (error) {
-      addLog('WARNING', '⚠️ Falha ao atualizar auditoria (não crítico)', {
+      addLog('WARNING', 'Falha ao atualizar auditoria (nao critico)', {
         error_message: error.message
       });
     }
 
     // ========== SUCESSO TOTAL ==========
-    addLog('SUCCESS', '🎉 FLUXO COMPLETO EXECUTADO COM SUCESSO!');
+    addLog('SUCCESS', 'FLUXO COMPLETO EXECUTADO COM SUCESSO!');
 
     return Response.json({
       success: true,
@@ -258,7 +258,7 @@ Deno.serve(async (req) => {
     });
 
   } catch (error) {
-    addLog('ERROR', '❌ ERRO FATAL NÃO CAPTURADO', {
+    addLog('ERROR', 'ERRO FATAL NAO CAPTURADO', {
       error_name: error.name,
       error_message: error.message,
       error_stack: error.stack
