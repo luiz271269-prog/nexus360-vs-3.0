@@ -133,16 +133,10 @@ Deno.serve(async (req) => {
     // ================================================================
     const timestampRecebido = new Date().toISOString();
     let auditLogId = null;
+    let webhookLogId = null;
 
     try {
       console.log('[WEBHOOK] Tentando persistir payload bruto para auditoria...');
-      console.log('[WEBHOOK] VERIFICACAO PRE-INSERT:');
-      console.log('[WEBHOOK]   - instance_identificado:', instanceExtraido, '(tipo:', typeof instanceExtraido, ')');
-      console.log('[WEBHOOK]   - evento:', eventoTipo, '(tipo:', typeof eventoTipo, ')');
-      console.log('[WEBHOOK]   - timestamp_recebido:', timestampRecebido, '(tipo:', typeof timestampRecebido, ')');
-      console.log('[WEBHOOK]   - payload_bruto tipo:', typeof evento, '(keys:', Object.keys(evento).length, ')');
-
-      console.log('[WEBHOOK] Chamando base44.asServiceRole.entities.ZapiPayloadNormalized.create...');
 
       const dadosParaCriar = {
         payload_bruto: evento,
@@ -152,66 +146,31 @@ Deno.serve(async (req) => {
         sucesso_processamento: false
       };
 
-      console.log('[WEBHOOK] Dados que serao enviados:', JSON.stringify(dadosParaCriar, null, 2));
-
       const auditLog = await base44.asServiceRole.entities.ZapiPayloadNormalized.create(dadosParaCriar);
-
       auditLogId = auditLog.id;
-      console.log('[WEBHOOK] OK: Payload bruto persistido para auditoria com sucesso!');
-      console.log('[WEBHOOK] ID criado:', auditLogId);
-      console.log('[WEBHOOK] Objeto completo retornado:', JSON.stringify(auditLog, null, 2));
+      console.log('[WEBHOOK] OK: Payload bruto persistido com ID:', auditLogId);
     } catch (auditError) {
-      console.error('[WEBHOOK] ERRO CRITICO ao persistir auditoria');
-      console.error('[WEBHOOK] Nome do erro:', auditError.name);
-      console.error('[WEBHOOK] Mensagem:', auditError.message);
-      console.error('[WEBHOOK] Codigo:', auditError.code);
-      console.error('[WEBHOOK] Stack completo:', auditError.stack);
-      console.error('[WEBHOOK] Payload que falhou:', JSON.stringify(evento, null, 2));
-      console.error('[WEBHOOK] Detalhes do erro completo:', JSON.stringify(auditError, Object.getOwnPropertyNames(auditError), 2));
-
-      // MESMO COM ERRO, continuar processamento
-      return Response.json(
-        { 
-          success: false, 
-          error: 'Falha ao persistir payload: ' + auditError.message,
-          error_name: auditError.name,
-          error_code: auditError.code,
-          error_stack: auditError.stack,
-          timestamp: timestampRecebido,
-          debug: {
-            instance: instanceExtraido,
-            evento: eventoTipo,
-            payload_type: typeof evento,
-            payload_keys: Object.keys(evento)
-          }
-        },
-        { status: 200, headers: corsHeaders }
-      );
+      console.error('[WEBHOOK] ERRO ao persistir auditoria:', auditError.message);
+      // Continua processamento mesmo com erro de auditoria
     }
 
     // ================================================================
     // 3.1 PERSISTIR WEBHOOK LOG (SEMPRE)
     // ================================================================
     try {
-      console.log('[WEBHOOK] Tentando persistir WebhookLog:', {
-        instance_id: instanceExtraido,
-        event_type: eventoTipo,
-        timestamp: timestampRecebido
-      });
-
-      await base44.asServiceRole.entities.WebhookLog.create({
+      const webhookLog = await base44.asServiceRole.entities.WebhookLog.create({
         timestamp: timestampRecebido,
         provider: 'z_api',
         instance_id: instanceExtraido,
         event_type: eventoTipo,
         payload: evento,
-        processed: false, // Será atualizado ao final
+        processed: false,
         success: false
       });
-      console.log('[WEBHOOK] OK: WebhookLog persistido com sucesso');
+      webhookLogId = webhookLog.id;
+      console.log('[WEBHOOK] OK: WebhookLog persistido com ID:', webhookLogId);
     } catch (logError) {
       console.error('[WEBHOOK] ERRO ao persistir WebhookLog:', logError.message);
-      console.error('[WEBHOOK] Stack:', logError.stack);
     }
 
     // ================================================================
@@ -334,25 +293,16 @@ Deno.serve(async (req) => {
     }
 
     // Atualizar WebhookLog
-    try {
-      const logs = await base44.asServiceRole.entities.WebhookLog.filter(
-        { 
-          instance_id: instanceExtraido,
-          timestamp: timestampRecebido
-        },
-        '-timestamp',
-        1
-      );
-
-      if (logs.length > 0) {
-        await base44.asServiceRole.entities.WebhookLog.update(logs[0].id, {
+    if (webhookLogId) {
+      try {
+        await base44.asServiceRole.entities.WebhookLog.update(webhookLogId, {
           processed: true,
           success: true
         });
-        console.log('[WEBHOOK] OK: WebhookLog atualizado com sucesso');
+        console.log('[WEBHOOK] OK: WebhookLog atualizado');
+      } catch (logError) {
+        console.error('[WEBHOOK] AVISO: Erro ao atualizar WebhookLog:', logError.message);
       }
-    } catch (logError) {
-      console.error('[WEBHOOK] AVISO: Erro ao atualizar WebhookLog:', logError);
     }
 
     return resultado;
@@ -515,34 +465,28 @@ async function processarMensagemRecebida(instance, payloadNormalizado, base44, c
       let integracaoId = null;
       if (integracao) {
         integracaoId = integracao.id;
-        console.log(`[WEBHOOK] OK: WhatsAppIntegration encontrada:`, {
-          id: integracaoId,
-          nome: integracao.nome_instancia,
-          numero: integracao.numero_telefone,
-          instance_id_provider: integracao.instance_id_provider
-        });
 
-        console.log(`[WEBHOOK] DIAGNOSTICO - Comparacao:`, {
-          instance_recebida: instance,
-          instance_id_db: integracao.instance_id_provider,
-          nome_instancia_db: integracao.nome_instancia,
-          match_exato: instance === integracao.instance_id_provider,
-          match_nome: instance === integracao.nome_instancia
-        });
-        
+        if (Deno.env.get('DEBUG_INTEGRATIONS') === '1') {
+          console.log(`[WEBHOOK] WhatsAppIntegration encontrada:`, {
+            id: integracaoId,
+            nome: integracao.nome_instancia,
+            instance_id_provider: integracao.instance_id_provider
+          });
+        }
+
         // Atualizar estatísticas de recebimento
         const estatisticasAtualizadas = {
           ...(integracao.estatisticas || {}),
           total_mensagens_recebidas: (integracao.estatisticas?.total_mensagens_recebidas || 0) + 1
         };
-        
+
         await base44.asServiceRole.entities.WhatsAppIntegration.update(integracaoId, {
           estatisticas: estatisticasAtualizadas,
           ultima_atividade: new Date().toISOString(),
           status: 'conectado'
         });
       } else {
-        console.warn(`[WEBHOOK] AVISO: Nenhuma WhatsAppIntegration encontrada para instancia: ${instance}`);
+        console.warn(`[WEBHOOK] AVISO: Integracao nao encontrada para: ${instance}`);
       }
 
       // PASSO 3: BUSCAR OU CRIAR THREAD
@@ -618,9 +562,9 @@ async function processarMensagemRecebida(instance, payloadNormalizado, base44, c
         media_url: mediaUrlPermanente || mediaUrl,
         media_type: mediaType,
         channel: 'whatsapp',
-        status: 'entregue',
+        status: 'recebida',
         whatsapp_message_id: messageId,
-        sent_at: new Date(timestamp).toISOString(),
+        sent_at: new Date(timestamp < 1e12 ? timestamp * 1000 : timestamp).toISOString(),
         delivered_at: new Date().toISOString(),
         metadata: {
           whatsapp_integration_id: integracaoId
@@ -737,7 +681,20 @@ async function processarMensagemRecebida(instance, payloadNormalizado, base44, c
         );
       }
 
-      throw error;
+      // Atualizar auditoria com erro
+      if (auditLogId) {
+        await base44.asServiceRole.entities.ZapiPayloadNormalized.update(auditLogId, {
+          sucesso_processamento: false,
+          erro_detalhes: error.message
+        }).catch(() => {});
+      }
+
+      // Nao re-lanca erro para evitar retry infinito
+      console.error('[WEBHOOK] Processamento falhou mas retornando 200 OK');
+      return Response.json(
+        { success: false, error: 'Erro no processamento', stage: 'message_processing' },
+        { status: 200, headers: corsHeaders }
+      );
     }
 
   } catch (error) {

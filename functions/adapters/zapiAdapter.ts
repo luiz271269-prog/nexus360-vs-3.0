@@ -152,10 +152,10 @@ export function normalizarMensagem(payload) {
     mediaType = 'sticker';
   }
   
-  // Timestamp
+  // Timestamp (defensivo para segundos ou milissegundos)
   const timestamp = mensagem.messageTimestamp 
     ? (typeof mensagem.messageTimestamp === 'number' 
-        ? mensagem.messageTimestamp * 1000 
+        ? (mensagem.messageTimestamp < 1e12 ? mensagem.messageTimestamp * 1000 : mensagem.messageTimestamp)
         : parseInt(mensagem.messageTimestamp) * 1000)
     : Date.now();
   
