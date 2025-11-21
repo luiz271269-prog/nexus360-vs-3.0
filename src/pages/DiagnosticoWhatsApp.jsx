@@ -1,5 +1,4 @@
-
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -21,9 +20,11 @@ import { WhatsAppIntegration } from "@/entities/WhatsAppIntegration";
 import { MessageThread } from "@/entities/MessageThread";
 import { Message } from "@/entities/Message";
 import { Contact } from "@/entities/Contact";
-import { WebhookLog } from "@/entities/WebhookLog";
 import { testarConexaoWhatsApp } from "@/functions/testarConexaoWhatsApp";
 import { enviarWhatsApp } from "@/functions/enviarWhatsApp";
+import { base44 } from "@/api/base44Client";
+import { createPageUrl } from "@/utils";
+import { Link } from "react-router-dom";
 
 export default function DiagnosticoWhatsApp() {
   const [testando, setTestando] = useState(false);
@@ -93,40 +94,40 @@ export default function DiagnosticoWhatsApp() {
     }
     setResultados([...novosResultados]);
 
-    // Teste 2: Webhooks Recebidos
+    // Teste 2: Webhooks Recebidos (ZapiPayloadNormalized)
     novosResultados.push({
       etapa: "Webhooks Recebidos",
       status: "testando",
-      detalhes: "Verificando logs de webhooks..."
+      detalhes: "Verificando payloads recebidos..."
     });
     setResultados([...novosResultados]);
 
     try {
-      const logs = await WebhookLog.list("-timestamp", 10);
-      const logsRecentes = logs.filter(log => {
-        const diff = Date.now() - new Date(log.timestamp).getTime();
-        return diff < 5 * 60 * 1000; // últimos 5 minutos
+      const payloads = await base44.entities.ZapiPayloadNormalized.list("-timestamp_recebido", 20);
+      const payloadsRecentes = payloads.filter(p => {
+        const diff = Date.now() - new Date(p.timestamp_recebido).getTime();
+        return diff < 5 * 60 * 1000;
       });
 
-      if (logsRecentes.length > 0) {
-        const sucessos = logsRecentes.filter(l => l.success).length;
+      if (payloadsRecentes.length > 0) {
+        const sucessos = payloadsRecentes.filter(p => p.sucesso_processamento).length;
         novosResultados[1] = {
           etapa: "Webhooks Recebidos",
           status: "sucesso",
-          detalhes: `✅ ${logsRecentes.length} webhooks nos últimos 5min (${sucessos} processados com sucesso)`
+          detalhes: `✅ ${payloadsRecentes.length} payloads nos últimos 5min (${sucessos} processados OK)`
         };
       } else {
         novosResultados[1] = {
           etapa: "Webhooks Recebidos",
           status: "aviso",
-          detalhes: "⚠️ Nenhum webhook recebido nos últimos 5 minutos"
+          detalhes: "⚠️ Nenhum payload recebido nos últimos 5 minutos"
         };
       }
     } catch (error) {
       novosResultados[1] = {
         etapa: "Webhooks Recebidos",
         status: "erro",
-        detalhes: `❌ Erro ao verificar logs: ${error.message}`
+        detalhes: `❌ Erro ao verificar payloads: ${error.message}`
       };
     }
     setResultados([...novosResultados]);
@@ -437,11 +438,30 @@ export default function DiagnosticoWhatsApp() {
           </Card>
         )}
 
+        {/* Link para Monitor de Logs */}
+        <Card className="bg-gradient-to-r from-blue-500 to-purple-600 text-white">
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="text-xl font-bold mb-2">Monitor de Logs em Tempo Real</h3>
+                <p className="text-blue-100 text-sm">
+                  Acompanhe os payloads recebidos e execute testes automáticos
+                </p>
+              </div>
+              <Link to={createPageUrl("MonitorWebhookLogs")}>
+                <Button className="bg-white text-blue-600 hover:bg-blue-50">
+                  Abrir Monitor
+                </Button>
+              </Link>
+            </div>
+          </CardContent>
+        </Card>
+
         {/* Guia de Solução de Problemas */}
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <Brain className="w-5 h-5 text-orange-500" /> {/* Changed color */}
+              <Brain className="w-5 h-5 text-orange-500" />
               Guia de Solução de Problemas
             </CardTitle>
           </CardHeader>
