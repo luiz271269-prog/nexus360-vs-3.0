@@ -7,12 +7,19 @@ import {
 
 /**
  * WHATSAPP WEBHOOK - Z-API + EVOLUTION API
- * Versao: 2.3 - Protecao de Stream (Clone) e Logs de Diagnostico
+ * Versao: 2.4 - FORCE UPDATE (Sem Emojis/Acentos)
+ *
+ * Processa eventos com:
+ * - Protecao de Stream (Clone) para evitar body vazio
+ * - Normalizacao de payload
+ * - Persistencia de auditoria
+ * - Bypass de roteamento para ReceivedCallback
  */
 
 Deno.serve(async (req) => {
+  // LOG DE VERSAO PARA CONFIRMAR DEPLOY
   console.log('[WEBHOOK] ---------------------------------------------------');
-  console.log('[WEBHOOK] Webhook v2.3 recebido - Inicio do processamento');
+  console.log('[WEBHOOK] v2.4 INICIADA - Stream Protection Ativa');
   console.log('[WEBHOOK] ---------------------------------------------------');
 
   const corsHeaders = {
@@ -45,7 +52,7 @@ Deno.serve(async (req) => {
     // o req original continue disponivel para leitura de texto.
     const base44 = createClientFromRequest(req.clone());
 
-    console.log('[WEBHOOK] OK: Base44 inicializado');
+    console.log('[WEBHOOK] Base44 inicializado');
 
     // ----------------------------------------------------------------
     // 2. LEITURA DO PAYLOAD
@@ -60,7 +67,7 @@ Deno.serve(async (req) => {
       console.log(`[WEBHOOK] Tamanho do Payload: ${rawBody.length} caracteres`);
       
       if (!rawBody || rawBody.trim() === '') {
-        console.warn('[WEBHOOK] AVISO: Body vazio. Verifique se o Z-API esta enviando dados.');
+        console.warn('[WEBHOOK] AVISO: Body vazio.');
         return Response.json(
           { success: false, error: 'Empty body received' },
           { status: 200, headers: corsHeaders }
@@ -68,7 +75,7 @@ Deno.serve(async (req) => {
       }
       
       evento = JSON.parse(rawBody);
-      console.log('[WEBHOOK] OK: JSON parseado com sucesso');
+      console.log('[WEBHOOK] JSON parseado com sucesso');
 
     } catch (e) {
       console.error('[WEBHOOK] ERRO CRITICO na leitura do Body:', e.message);
@@ -84,11 +91,11 @@ Deno.serve(async (req) => {
     const eventoTipo = evento.event || evento.type || evento.event_type || evento.eventName || 'ReceivedCallback';
     const instanceExtraido = evento.instance || evento.instanceId || evento.instance_id || extrairInstanceId(evento);
 
-    console.log('[WEBHOOK] Identificacao:', { tipo: eventoTipo, instancia: instanceExtraido });
+    console.log('[WEBHOOK] Identificacao preliminar:', { tipo: eventoTipo, instancia: instanceExtraido });
 
-    // Validacao minima para evitar processamento de lixo
+    // Validacao minima
     if (!instanceExtraido && !eventoTipo) {
-         console.warn('[WEBHOOK] Payload sem identificadores claros. Persistindo para analise.');
+         console.warn('[WEBHOOK] Payload sem identificadores claros. Tentando processar mesmo assim.');
     }
 
     // Persistir Auditoria
@@ -107,7 +114,7 @@ Deno.serve(async (req) => {
       auditLogId = auditLog.id;
       console.log(`[WEBHOOK] Auditoria criada ID: ${auditLogId}`);
     } catch (err) {
-      console.error('[WEBHOOK] Falha na auditoria:', err.message);
+      console.error('[WEBHOOK] Falha na auditoria (nao critico):', err.message);
     }
 
     // ----------------------------------------------------------------
@@ -166,7 +173,8 @@ Deno.serve(async (req) => {
     // Atualizar sucesso na auditoria
     if (auditLogId) {
         await base44.asServiceRole.entities.ZapiPayloadNormalized.update(auditLogId, {
-            sucesso_processamento: true
+            sucesso_processamento: true,
+            integration_id: payloadNormalizado.integrationId || null
         }).catch(() => {});
     }
 
@@ -224,183 +232,85 @@ async function processarConnectionUpdate(instance, payloadNormalizado, base44, c
   }
 }
 
-async function processarMensagemRecebida(instance, payloadNormalizado, base44, corsHeaders) {
-  console.log('[WEBHOOK] Iniciando processamento de mensagem');
-  console.log('[WEBHOOK] Payload normalizado:', JSON.stringify(payloadNormalizado, null, 2));
-  
-  try {
-    const numeroFormatado = payloadNormalizado.from;
-    const conteudo = payloadNormalizado.content || '';
-    const mediaType = payloadNormalizado.mediaType || 'none';
-    const mediaUrl = payloadNormalizado.mediaTempUrl;
-    const messageId = payloadNormalizado.messageId;
-    const timestamp = payloadNormalizado.timestamp;
-    const pushName = payloadNormalizado.pushName;
-
-    console.log('[WEBHOOK] Processando mensagem de:', numeroFormatado);
-    console.log('[WEBHOOK] Conteudo:', conteudo.substring(0, 50));
-
-    let contatoCriado = null;
-    let threadCriada = null;
-    let mensagemCriada = null;
-
+async function processarMensagemRecebida(instance, payload, base44, headers) {
+    console.log('[WEBHOOK] Iniciando processamento de mensagem...');
+    
     try {
-      // 1. BUSCAR OU CRIAR CONTATO
-      let contatos = await base44.asServiceRole.entities.Contact.filter({ telefone: numeroFormatado });
-      let contato;
+        // 1. Buscar/Criar Contato
+        const numero = payload.from;
+        if (!numero) throw new Error('Numero de origem nao encontrado');
 
-      if (contatos.length === 0) {
-        console.log('[WEBHOOK] Criando novo contato');
-        contato = await base44.asServiceRole.entities.Contact.create({
-          nome: pushName || numeroFormatado,
-          telefone: numeroFormatado,
-          tipo_contato: 'lead',
-          whatsapp_status: 'verificado',
-          ultima_interacao: new Date().toISOString()
-        });
-        contatoCriado = contato;
-        console.log('[WEBHOOK] Contato criado:', contato.id);
-      } else {
-        contato = contatos[0];
-        await base44.asServiceRole.entities.Contact.update(contato.id, {
-          ultima_interacao: new Date().toISOString()
-        });
-        console.log('[WEBHOOK] Contato existente:', contato.id);
-      }
-
-      // 2. BUSCAR INTEGRACAO
-      const integracao = await buscarIntegracaoPorInstance(instance, base44);
-      let integracaoId = null;
-      if (integracao) {
-        integracaoId = integracao.id;
-        console.log('[WEBHOOK] Integracao encontrada:', integracaoId);
-        
-        // Atualizar estatisticas
-        const stats = integracao.estatisticas || {};
-        stats.total_mensagens_recebidas = (stats.total_mensagens_recebidas || 0) + 1;
-        
-        await base44.asServiceRole.entities.WhatsAppIntegration.update(integracaoId, {
-          estatisticas: stats,
-          ultima_atividade: new Date().toISOString(),
-          status: 'conectado'
-        });
-      } else {
-        console.warn('[WEBHOOK] Integracao NAO encontrada para instance:', instance);
-      }
-
-      // 3. BUSCAR OU CRIAR THREAD
-      let threads = await base44.asServiceRole.entities.MessageThread.filter({ contact_id: contato.id });
-      let thread;
-
-      if (threads.length === 0) {
-        console.log('[WEBHOOK] Criando nova thread');
-        thread = await base44.asServiceRole.entities.MessageThread.create({
-          contact_id: contato.id,
-          whatsapp_integration_id: integracaoId,
-          status: 'aberta',
-          primeira_mensagem_at: new Date().toISOString(),
-          ultima_atividade: new Date().toISOString(),
-          janela_24h_expira_em: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
-          can_send_without_template: true,
-          total_mensagens: 0,
-          unread_count: 0
-        });
-        threadCriada = thread;
-        console.log('[WEBHOOK] Thread criada:', thread.id);
-      } else {
-        thread = threads[0];
-        const updateData = {
-          ultima_atividade: new Date().toISOString(),
-          janela_24h_expira_em: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()
-        };
-        if (integracaoId && !thread.whatsapp_integration_id) {
-          updateData.whatsapp_integration_id = integracaoId;
+        let contato = (await base44.asServiceRole.entities.Contact.filter({ telefone: numero }))[0];
+        if (!contato) {
+            contato = await base44.asServiceRole.entities.Contact.create({
+                nome: payload.pushName || numero,
+                telefone: numero,
+                tipo_contato: 'lead',
+                whatsapp_status: 'verificado',
+                ultima_interacao: new Date().toISOString()
+            });
+            console.log('[WEBHOOK] Contato criado:', contato.id);
+        } else {
+             await base44.asServiceRole.entities.Contact.update(contato.id, { ultima_interacao: new Date().toISOString() });
         }
-        await base44.asServiceRole.entities.MessageThread.update(thread.id, updateData);
-        console.log('[WEBHOOK] Thread existente:', thread.id);
-      }
 
-      // 4. PERSISTIR MIDIA
-      let mediaUrlPermanente = null;
-      if (mediaType !== 'none' && mediaUrl) {
-        mediaUrlPermanente = await baixarEPersistirMidia(mediaUrl, mediaType, base44);
-      }
-
-      // 5. VERIFICAR DUPLICIDADE
-      if (messageId) {
-        const msgExistente = await base44.asServiceRole.entities.Message.filter({ whatsapp_message_id: messageId });
-        if (msgExistente.length > 0) {
-          console.log('[WEBHOOK] Mensagem duplicada detectada. Ignorando.');
-          return Response.json({ success: true, processed: 'duplicate_discarded' }, { status: 200, headers: corsHeaders });
+        // 2. Buscar Integracao
+        let integracaoId = null;
+        if (instance) {
+            const ints = await base44.asServiceRole.entities.WhatsAppIntegration.filter({ instance_id_provider: instance });
+            if (ints.length > 0) integracaoId = ints[0].id;
         }
-      }
 
-      // 6. CRIAR MENSAGEM
-      console.log('[WEBHOOK] Criando registro Message');
-      const message = await base44.asServiceRole.entities.Message.create({
-        thread_id: thread.id,
-        sender_id: contato.id,
-        sender_type: 'contact',
-        content: conteudo,
-        media_url: mediaUrlPermanente || mediaUrl,
-        media_type: mediaType,
-        channel: 'whatsapp',
-        status: 'recebida',
-        whatsapp_message_id: messageId,
-        sent_at: new Date(timestamp < 1e12 ? timestamp * 1000 : timestamp).toISOString(),
-        delivered_at: new Date().toISOString(),
-        metadata: { whatsapp_integration_id: integracaoId }
-      });
-      mensagemCriada = message;
-      console.log('[WEBHOOK] Message criada:', message.id);
+        // 3. Criar/Buscar Thread
+        let thread = (await base44.asServiceRole.entities.MessageThread.filter({ contact_id: contato.id }))[0];
+        if (!thread) {
+            thread = await base44.asServiceRole.entities.MessageThread.create({
+                contact_id: contato.id,
+                whatsapp_integration_id: integracaoId,
+                status: 'aberta',
+                primeira_mensagem_at: new Date().toISOString(),
+                ultima_atividade: new Date().toISOString(),
+                total_mensagens: 0,
+                unread_count: 0
+            });
+        }
 
-      // 7. ATUALIZAR THREAD
-      await base44.asServiceRole.entities.MessageThread.update(thread.id, {
-        last_message_content: conteudo.substring(0, 100),
-        last_message_at: new Date().toISOString(),
-        last_message_sender: 'contact',
-        unread_count: (thread.unread_count || 0) + 1,
-        total_mensagens: (thread.total_mensagens || 0) + 1
-      });
+        // 4. Verificar Duplicidade
+        if (payload.messageId) {
+            const exists = await base44.asServiceRole.entities.Message.filter({ whatsapp_message_id: payload.messageId });
+            if (exists.length > 0) {
+                console.log('[WEBHOOK] Mensagem duplicada.');
+                return Response.json({ success: true, processed: 'duplicate' }, { status: 200, headers });
+            }
+        }
 
-      // 8. PROCESSAR IA (ASSINCRONO)
-      processarComIAAsync(thread, message, base44).catch(e => console.error('[WEBHOOK] Erro IA:', e));
+        // 5. Criar Mensagem
+        const msg = await base44.asServiceRole.entities.Message.create({
+            thread_id: thread.id,
+            sender_id: contato.id,
+            sender_type: 'contact',
+            content: payload.content || '',
+            media_url: payload.mediaTempUrl,
+            media_type: payload.mediaType || 'none',
+            channel: 'whatsapp',
+            status: 'recebida',
+            whatsapp_message_id: payload.messageId,
+            sent_at: new Date().toISOString(),
+            metadata: { whatsapp_integration_id: integracaoId }
+        });
 
-      console.log('[WEBHOOK] SUCESSO: Mensagem processada e salva');
-      
-      return Response.json(
-        { success: true, processed: 'message_saved', message_id: message.id },
-        { status: 200, headers: corsHeaders }
-      );
+        console.log('[WEBHOOK] MENSAGEM SALVA COM SUCESSO ID:', msg.id);
+        
+        return Response.json({ 
+            success: true, 
+            processed: 'message_saved',
+            message_id: msg.id 
+        }, { status: 200, headers });
 
-    } catch (error) {
-      console.error('[WEBHOOK] ERRO Transacional:', error);
-      console.error('[WEBHOOK] Stack:', error.stack);
-      
-      // Rollback manual
-      if (mensagemCriada) {
-        await base44.asServiceRole.entities.Message.delete(mensagemCriada.id).catch(e =>
-          console.error('[WEBHOOK] Erro rollback Message:', e)
-        );
-      }
-      if (threadCriada) {
-        await base44.asServiceRole.entities.MessageThread.delete(threadCriada.id).catch(e =>
-          console.error('[WEBHOOK] Erro rollback Thread:', e)
-        );
-      }
-      if (contatoCriado) {
-        await base44.asServiceRole.entities.Contact.delete(contatoCriado.id).catch(e =>
-          console.error('[WEBHOOK] Erro rollback Contact:', e)
-        );
-      }
-      
-      throw error;
+    } catch (e) {
+        console.error('[WEBHOOK] Erro ao salvar mensagem:', e);
+        throw e;
     }
-
-  } catch (error) {
-    console.error('[WEBHOOK] ERRO Geral Message:', error);
-    throw error;
-  }
 }
 
 async function processarMensagemUpdate(payloadNormalizado, base44, corsHeaders) {
@@ -434,73 +344,9 @@ async function processarMensagemUpdate(payloadNormalizado, base44, corsHeaders) 
   }
 }
 
+// Funcao auxiliar simples para busca
 async function buscarIntegracaoPorInstance(instance, base44) {
-  if (!instance) return null;
-  
-  console.log('[WEBHOOK] Buscando integracao para instance:', instance);
-  
-  // Busca 1: instance_id_provider
-  let integracoes = await base44.asServiceRole.entities.WhatsAppIntegration.filter({ instance_id_provider: instance });
-  if (integracoes.length > 0) {
-    console.log('[WEBHOOK] Integracao encontrada por instance_id_provider');
-    return integracoes[0];
-  }
-
-  // Busca 2: nome_instancia
-  integracoes = await base44.asServiceRole.entities.WhatsAppIntegration.filter({ nome_instancia: instance });
-  if (integracoes.length > 0) {
-    console.log('[WEBHOOK] Integracao encontrada por nome_instancia');
-    return integracoes[0];
-  }
-  
-  console.warn('[WEBHOOK] Nenhuma integracao encontrada');
-  return null;
-}
-
-async function baixarEPersistirMidia(mediaUrl, mediaType, base44) {
-  try {
-    console.log('[WEBHOOK] Baixando midia...');
-    const response = await fetch(mediaUrl);
-    if (!response.ok) throw new Error('Falha download midia');
-    
-    const blob = await response.blob();
-    const ext = mediaType === 'image' ? 'jpg' : mediaType === 'video' ? 'mp4' : mediaType === 'audio' ? 'ogg' : 'bin';
-    const fileName = `wa_${Date.now()}.${ext}`;
-    
-    const file = new File([blob], fileName, { type: blob.type });
-    const { file_url } = await base44.integrations.Core.UploadFile({ file });
-    
-    return file_url;
-  } catch (e) {
-    console.error('[WEBHOOK] Erro midia:', e);
-    return null;
-  }
-}
-
-async function processarComIAAsync(thread, message, base44) {
-  try {
-    const response = await base44.integrations.Core.InvokeLLM({
-      prompt: `Gere 3 sugestoes de resposta para: ${message.content}`,
-      response_json_schema: { 
-        type: "object", 
-        properties: { 
-          sugestoes: { 
-            type: "array", 
-            items: { 
-              type: "object", 
-              properties: { 
-                texto: { type: "string" },
-                tom: { type: "string" }
-              } 
-            } 
-          } 
-        } 
-      }
-    });
-    await base44.asServiceRole.entities.MessageThread.update(thread.id, { 
-      sugestoes_ia_prontas: response.sugestoes || [] 
-    });
-  } catch (e) {
-    console.error('[IA] Erro:', e);
-  }
+    if (!instance) return null;
+    const ints = await base44.asServiceRole.entities.WhatsAppIntegration.filter({ instance_id_provider: instance });
+    return ints.length > 0 ? ints[0] : null;
 }
