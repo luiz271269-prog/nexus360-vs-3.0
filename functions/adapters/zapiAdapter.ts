@@ -41,7 +41,12 @@ export function extrairInstanceId(payload) {
 export function normalizarMensagemZAPI(payload) {
   // Z-API usa "telefone" no ReceivedCallback
   const telefone = payload.telefone || payload.phone;
-  const numeroFormatado = telefone?.startsWith('+') ? telefone : `+${telefone}`;
+  
+  // Garantir formatação correta do número
+  let numeroFormatado = telefone;
+  if (telefone && !telefone.startsWith('+')) {
+    numeroFormatado = `+${telefone}`;
+  }
   
   // Extrair conteúdo
   let conteudo = '[Mensagem vazia]';

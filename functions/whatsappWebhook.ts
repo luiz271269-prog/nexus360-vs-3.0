@@ -486,13 +486,12 @@ async function processarMensagemRecebida(instance, payloadNormalizado, base44, c
       if (integracao) {
         integracaoId = integracao.id;
 
-        if (Deno.env.get('DEBUG_INTEGRATIONS') === '1') {
-          console.log(`[WEBHOOK] WhatsAppIntegration encontrada:`, {
-            id: integracaoId,
-            nome: integracao.nome_instancia,
-            instance_id_provider: integracao.instance_id_provider
-          });
-        }
+        console.log(`[WEBHOOK] ✅ WhatsAppIntegration encontrada:`, {
+          id: integracaoId,
+          nome: integracao.nome_instancia,
+          instance_id_provider: integracao.instance_id_provider,
+          numero_telefone: integracao.numero_telefone
+        });
 
         // Atualizar estatísticas de recebimento
         const estatisticasAtualizadas = {
@@ -506,7 +505,8 @@ async function processarMensagemRecebida(instance, payloadNormalizado, base44, c
           status: 'conectado'
         });
       } else {
-        console.warn(`[WEBHOOK] AVISO: Integracao nao encontrada para: ${instance}`);
+        console.error(`[WEBHOOK] ❌ ERRO CRITICO: Integracao nao encontrada para instance: "${instance}"`);
+        console.error(`[WEBHOOK] Mensagem sera descartada pois nao conseguimos identificar a conexao de origem`);
       }
 
       // PASSO 3: BUSCAR OU CRIAR THREAD
@@ -787,42 +787,73 @@ async function processarMensagemUpdate(payloadNormalizado, base44, corsHeaders) 
  */
 async function buscarIntegracaoPorInstance(instance, base44) {
   if (!instance) {
-    console.log('[WEBHOOK] AVISO: Nenhuma instance fornecida para busca');
+    console.log('[BUSCA_INT] ⚠️ Nenhuma instance fornecida');
     return null;
   }
   
-  console.log(`[WEBHOOK] Iniciando busca de integracao para: "${instance}"`);
+  console.log('[BUSCA_INT] 🔍 Buscando integracao para:', instance);
   
-  // Listar TODAS as integracoes para diagnostico
+  // Listar TODAS as integracoes para diagnostico detalhado
   const todasIntegracoes = await base44.asServiceRole.entities.WhatsAppIntegration.list();
-  console.log(`[WEBHOOK] Total de integracoes cadastradas: ${todasIntegracoes.length}`);
+  console.log('[BUSCA_INT] 📊 Total de integracoes cadastradas:', todasIntegracoes.length);
+  
+  if (todasIntegracoes.length === 0) {
+    console.error('[BUSCA_INT] ❌ ERRO: Nenhuma integracao cadastrada no sistema!');
+    return null;
+  }
+  
+  // Log detalhado de TODAS as integracoes
   todasIntegracoes.forEach((int, idx) => {
-    console.log(`[WEBHOOK]   ${idx + 1}. ${int.nome_instancia} | instance_id: "${int.instance_id_provider}" | tel: ${int.numero_telefone}`);
+    console.log(`[BUSCA_INT]   ${idx + 1}. Nome: "${int.nome_instancia}"`);
+    console.log(`[BUSCA_INT]      instance_id_provider: "${int.instance_id_provider}"`);
+    console.log(`[BUSCA_INT]      Telefone: ${int.numero_telefone}`);
+    console.log(`[BUSCA_INT]      Status: ${int.status}`);
   });
 
-  // PRIORIDADE 1: Buscar por instance_id_provider (mais confiável)
+  // PRIORIDADE 1: Buscar por instance_id_provider (EXATA)
+  console.log('[BUSCA_INT] 🎯 Tentando busca por instance_id_provider exato...');
   let integracoes = await base44.asServiceRole.entities.WhatsAppIntegration.filter({
     instance_id_provider: instance
   });
 
   if (integracoes.length > 0) {
-    console.log(`[WEBHOOK] OK: Integracao encontrada por instance_id_provider: ${integracoes[0].nome_instancia}`);
+    console.log(`[BUSCA_INT] ✅ Integracao encontrada por instance_id_provider!`);
+    console.log(`[BUSCA_INT]    Nome: ${integracoes[0].nome_instancia}`);
+    console.log(`[BUSCA_INT]    ID: ${integracoes[0].id}`);
     return integracoes[0];
   }
 
-  console.log('[WEBHOOK] AVISO: Nenhuma integracao encontrada por instance_id_provider');
+  console.log('[BUSCA_INT] ⚠️ Nenhuma integracao por instance_id_provider, tentando nome_instancia...');
 
-  // FALLBACK: Buscar por nome_instancia
+  // FALLBACK 1: Buscar por nome_instancia
   integracoes = await base44.asServiceRole.entities.WhatsAppIntegration.filter({
     nome_instancia: instance
   });
   
   if (integracoes.length > 0) {
-    console.log(`[WEBHOOK] OK: Integracao encontrada por nome_instancia: ${integracoes[0].nome_instancia}`);
+    console.log(`[BUSCA_INT] ✅ Integracao encontrada por nome_instancia!`);
+    console.log(`[BUSCA_INT]    Nome: ${integracoes[0].nome_instancia}`);
+    console.log(`[BUSCA_INT]    ID: ${integracoes[0].id}`);
     return integracoes[0];
   }
   
-  console.log('[WEBHOOK] ERRO: NENHUMA INTEGRACAO ENCONTRADA para instance:', instance);
+  // FALLBACK 2: Busca parcial case-insensitive no instance_id_provider
+  console.log('[BUSCA_INT] ⚠️ Tentando busca parcial case-insensitive...');
+  const instanceLower = instance.toLowerCase();
+  const integracaoParcial = todasIntegracoes.find(int => 
+    int.instance_id_provider?.toLowerCase().includes(instanceLower) ||
+    instanceLower.includes(int.instance_id_provider?.toLowerCase())
+  );
+  
+  if (integracaoParcial) {
+    console.log(`[BUSCA_INT] ✅ Integracao encontrada por match parcial!`);
+    console.log(`[BUSCA_INT]    Nome: ${integracaoParcial.nome_instancia}`);
+    console.log(`[BUSCA_INT]    ID: ${integracaoParcial.id}`);
+    return integracaoParcial;
+  }
+  
+  console.error('[BUSCA_INT] ❌ NENHUMA INTEGRACAO ENCONTRADA para:', instance);
+  console.error('[BUSCA_INT] 💡 Dica: Verifique se o instance_id_provider esta cadastrado corretamente');
   return null;
 }
 
