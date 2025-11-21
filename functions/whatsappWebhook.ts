@@ -1,6 +1,8 @@
-// VERSION: v3.1.0-PRODUCTION
-// BUILD: 2025-11-21T14:30:00Z
+// ============================================================================
+// WEBHOOK WHATSAPP - VERSAO 3.2.0 - FORCE REDEPLOY
+// BUILD: 2025-11-21T15:00:00Z
 // OBJETIVO: RECEBIMENTO COMPLETO DE MENSAGENS Z-API
+// ============================================================================
 
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.4';
 import { 
@@ -9,13 +11,13 @@ import {
   validarPayloadNormalizado
 } from './adapters/zapiAdapter.js';
 
-const VERSION = 'v3.1.0-PRODUCTION';
-const BUILD = '2025-11-21T14:30:00Z';
+const VERSION = 'v3.2.0-FORCE-REDEPLOY';
+const BUILD = '2025-11-21T15:00:00Z';
 
-console.log('==========================================================');
-console.log('WEBHOOK ' + VERSION + ' LOADED - BUILD ' + BUILD);
-console.log('OBJETIVO: RECEBIMENTO COMPLETO DE MENSAGENS');
-console.log('==========================================================');
+console.log('====================================================================');
+console.log('🚀 WEBHOOK WHATSAPP ' + VERSION + ' - BUILD: ' + BUILD);
+console.log('📡 RECEBIMENTO COMPLETO DE MENSAGENS Z-API');
+console.log('====================================================================');
 
 const corsHeaders = {
   'Content-Type': 'application/json',
