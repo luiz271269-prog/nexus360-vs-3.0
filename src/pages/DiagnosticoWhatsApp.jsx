@@ -13,7 +13,8 @@ import {
   Webhook,
   Database,
   Brain,
-  Bug // Added Bug icon
+  Bug,
+  RefreshCw
 } from "lucide-react";
 import { toast } from "sonner";
 import { WhatsAppIntegration } from "@/entities/WhatsAppIntegration";
@@ -23,18 +24,25 @@ import { Contact } from "@/entities/Contact";
 import { testarConexaoWhatsApp } from "@/functions/testarConexaoWhatsApp";
 import { enviarWhatsApp } from "@/functions/enviarWhatsApp";
 import { base44 } from "@/api/base44Client";
-import { createPageUrl } from "@/utils";
-import { Link } from "react-router-dom";
 
 export default function DiagnosticoWhatsApp() {
   const [testando, setTestando] = useState(false);
   const [resultados, setResultados] = useState([]);
   const [integracao, setIntegracao] = useState(null);
   const [numeroTeste, setNumeroTeste] = useState("");
+  const [logs, setLogs] = useState([]);
+  const [autoRefresh, setAutoRefresh] = useState(true);
 
   useEffect(() => {
     carregarIntegracao();
+    carregarLogs();
   }, []);
+
+  useEffect(() => {
+    if (!autoRefresh) return;
+    const interval = setInterval(carregarLogs, 5000);
+    return () => clearInterval(interval);
+  }, [autoRefresh]);
 
   const carregarIntegracao = async () => {
     try {
@@ -48,6 +56,16 @@ export default function DiagnosticoWhatsApp() {
     } catch (error) {
       console.error("Erro ao carregar integração:", error);
       toast.error("Erro ao carregar integração WhatsApp");
+    }
+  };
+
+  const carregarLogs = async () => {
+    try {
+      const payloads = await base44.entities.ZapiPayloadNormalized.list('-timestamp_recebido', 20);
+      setLogs(payloads);
+      console.log('[DIAGNOSTICO] Logs atualizados:', payloads.length);
+    } catch (error) {
+      console.error('[DIAGNOSTICO] Erro ao carregar logs:', error);
     }
   };
 
@@ -438,22 +456,81 @@ export default function DiagnosticoWhatsApp() {
           </Card>
         )}
 
-        {/* Link para Monitor de Logs */}
-        <Card className="bg-gradient-to-r from-blue-500 to-purple-600 text-white">
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <h3 className="text-xl font-bold mb-2">Monitor de Logs em Tempo Real</h3>
-                <p className="text-blue-100 text-sm">
-                  Acompanhe os payloads recebidos e execute testes automáticos
-                </p>
-              </div>
-              <Link to={createPageUrl("MonitorWebhookLogs")}>
-                <Button className="bg-white text-blue-600 hover:bg-blue-50">
-                  Abrir Monitor
+        {/* Monitor de Logs em Tempo Real */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center justify-between">
+              <span className="flex items-center gap-2">
+                <Database className="w-5 h-5 text-purple-500" />
+                Monitor de Logs (Últimos 20 Payloads)
+              </span>
+              <div className="flex items-center gap-2">
+                <Button
+                  onClick={() => setAutoRefresh(!autoRefresh)}
+                  size="sm"
+                  variant={autoRefresh ? "default" : "outline"}
+                  className={autoRefresh ? "bg-green-600" : ""}
+                >
+                  {autoRefresh ? "Auto 5s ✓" : "Manual"}
                 </Button>
-              </Link>
-            </div>
+                <Button onClick={carregarLogs} size="sm">
+                  <RefreshCw className="w-4 h-4" />
+                </Button>
+              </div>
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {logs.length === 0 ? (
+              <Alert>
+                <AlertDescription>
+                  Nenhum payload recebido ainda. Envie uma mensagem via WhatsApp para testar.
+                </AlertDescription>
+              </Alert>
+            ) : (
+              <div className="space-y-3 max-h-96 overflow-y-auto">
+                {logs.map((log) => (
+                  <div
+                    key={log.id}
+                    className={`p-3 rounded-lg border-2 ${
+                      log.sucesso_processamento
+                        ? 'bg-green-50 border-green-200'
+                        : 'bg-red-50 border-red-200'
+                    }`}
+                  >
+                    <div className="flex items-start justify-between mb-2">
+                      <div className="flex items-center gap-2">
+                        {log.sucesso_processamento ? (
+                          <CheckCircle className="w-4 h-4 text-green-600" />
+                        ) : (
+                          <XCircle className="w-4 h-4 text-red-600" />
+                        )}
+                        <div>
+                          <p className="font-semibold text-xs">
+                            {log.evento || 'unknown'} • {log.instance_identificado || 'N/A'}
+                          </p>
+                          <p className="text-xs text-slate-500">
+                            {new Date(log.timestamp_recebido).toLocaleString('pt-BR')}
+                          </p>
+                        </div>
+                      </div>
+                      <Badge className={log.sucesso_processamento ? 'bg-green-500' : 'bg-red-500'}>
+                        {log.sucesso_processamento ? 'OK' : 'ERRO'}
+                      </Badge>
+                    </div>
+                    {log.erro_detalhes && (
+                      <div className="mt-2 p-2 bg-red-100 rounded">
+                        <p className="text-red-600 text-xs">{log.erro_detalhes}</p>
+                      </div>
+                    )}
+                    {log.payload_bruto?.messageId && (
+                      <p className="text-xs text-slate-600 mt-1">
+                        MessageId: {log.payload_bruto.messageId}
+                      </p>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
           </CardContent>
         </Card>
 

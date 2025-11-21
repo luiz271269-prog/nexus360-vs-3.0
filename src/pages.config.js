@@ -58,7 +58,6 @@ import DiagnosticoDetalhado from './pages/DiagnosticoDetalhado';
 import DiagnosticoCirurgico from './pages/DiagnosticoCirurgico';
 import TestePersistenciaDireta from './pages/TestePersistenciaDireta';
 import TesteFluxoControlado from './pages/TesteFluxoControlado';
-import MonitorWebhookLogs from './pages/MonitorWebhookLogs';
 import __Layout from './Layout.jsx';
 
 
@@ -123,7 +122,6 @@ export const PAGES = {
     "DiagnosticoCirurgico": DiagnosticoCirurgico,
     "TestePersistenciaDireta": TestePersistenciaDireta,
     "TesteFluxoControlado": TesteFluxoControlado,
-    "MonitorWebhookLogs": MonitorWebhookLogs,
 }
 
 export const pagesConfig = {
