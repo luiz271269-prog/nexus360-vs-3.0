@@ -169,28 +169,36 @@ async function executarEtapa2(integracao) {
     const response = await fetch(webhookUrl, { method: 'GET' });
     const t1Tempo = Date.now() - t1Inicio;
     let healthData = null;
+    let rawResponse = null;
     
-    if (response.ok) {
-      try {
-        healthData = await response.json();
-      } catch (e) {
-        console.warn('Não foi possível fazer parse do health check:', e);
+    try {
+      rawResponse = await response.text();
+      if (rawResponse) {
+        healthData = JSON.parse(rawResponse);
       }
+    } catch (e) {
+      console.warn('[ETAPA2] Resposta não é JSON válido:', rawResponse);
     }
+    
+    const isDeploymentError = rawResponse?.includes('Deployment') || rawResponse?.includes('deploymentNotFound');
     
     testes.push({
       nome: 'Webhook responde GET (health check)',
       critico: true,
-      status: response.ok ? 'sucesso' : 'erro',
+      status: response.ok && healthData ? 'sucesso' : 'erro',
       tempo_ms: t1Tempo,
       detalhes: { 
         status: response.status, 
         statusText: response.statusText,
-        version: healthData?.version,
-        build: healthData?.build,
-        timestamp_funcao: healthData?.timestamp
+        version: healthData?.version || null,
+        build: healthData?.build || null,
+        timestamp_funcao: healthData?.timestamp || null,
+        deployment_error: isDeploymentError,
+        raw_response: isDeploymentError ? rawResponse.substring(0, 200) : null
       },
-      sugestao_correcao: !response.ok ? 'Verifique se a função está implantada' : null
+      sugestao_correcao: isDeploymentError ? 
+        '🚨 ERRO DE DEPLOYMENT: A função não está implantada na Base44. Vá em Code → Functions → whatsappWebhook e force um novo deploy.' :
+        !response.ok ? 'Função não responde - verifique logs da função' : null
     });
   } catch (error) {
     testes.push({
@@ -199,7 +207,7 @@ async function executarEtapa2(integracao) {
       status: 'erro',
       tempo_ms: Date.now() - t1Inicio,
       detalhes: { erro: error.message },
-      sugestao_correcao: 'Webhook inacessível - verifique deploy'
+      sugestao_correcao: 'Webhook inacessível - URL incorreta ou função não existe'
     });
   }
 
@@ -247,27 +255,48 @@ async function executarEtapa2(integracao) {
       body: JSON.stringify(payloadEnviado)
     });
 
-    const result = await response.json();
+    let result = null;
+    let rawResponse = null;
+    let isDeploymentError = false;
+    
+    try {
+      rawResponse = await response.text();
+      result = JSON.parse(rawResponse);
+    } catch (e) {
+      console.error('[ETAPA2] Erro ao fazer parse da resposta POST:', e);
+      isDeploymentError = rawResponse?.includes('Deployment') || rawResponse?.includes('deploymentNotFound');
+    }
     
     testes.push({
       nome: 'POST com payload aceito',
       critico: true,
-      status: response.ok ? 'sucesso' : 'erro',
+      status: response.ok && result ? 'sucesso' : 'erro',
       tempo_ms: Date.now() - t3Inicio,
       detalhes: { 
         status: response.status, 
-        payload_aceito: result.success || false,
-        response: result
+        payload_aceito: result?.success || false,
+        response: result,
+        deployment_error: isDeploymentError,
+        erro: isDeploymentError ? 'deploymentNotFound' : null
       },
-      sugestao_correcao: !response.ok ? 'Webhook rejeitou POST - verifique handler' : null
+      sugestao_correcao: isDeploymentError ?
+        '🚨 DEPLOYMENT NOT FOUND: Função não está acessível. Force novo deploy no painel Code → Functions.' :
+        !response.ok ? 'Webhook rejeitou POST - verifique código do handler' : null
     });
   } catch (error) {
+    const isDeployError = error.message?.includes('Deployment') || error.message?.includes('JSON');
     testes.push({
       nome: 'POST com payload aceito',
       critico: true,
       status: 'erro',
       tempo_ms: Date.now() - t3Inicio,
-      detalhes: { erro: error.message }
+      detalhes: { 
+        erro: error.message,
+        deployment_suspected: isDeployError
+      },
+      sugestao_correcao: isDeployError ?
+        '🚨 SUSPEITA DE DEPLOYMENT ERROR: Verifique se a função foi implantada corretamente.' :
+        'Erro ao enviar POST - verifique conectividade'
     });
   }
 
