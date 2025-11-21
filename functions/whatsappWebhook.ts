@@ -1,5 +1,5 @@
-// VERSION: v3.0.0-PRODUCTION
-// BUILD: 2025-11-21T08:50:00Z
+// VERSION: v3.1.0-PRODUCTION
+// BUILD: 2025-11-21T14:30:00Z
 // OBJETIVO: RECEBIMENTO COMPLETO DE MENSAGENS Z-API
 
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.4';
@@ -9,8 +9,8 @@ import {
   validarPayloadNormalizado
 } from './adapters/zapiAdapter.js';
 
-const VERSION = 'v3.0.0-PRODUCTION';
-const BUILD = '2025-11-21T08:50:00Z';
+const VERSION = 'v3.1.0-PRODUCTION';
+const BUILD = '2025-11-21T14:30:00Z';
 
 console.log('==========================================================');
 console.log('WEBHOOK ' + VERSION + ' LOADED - BUILD ' + BUILD);
