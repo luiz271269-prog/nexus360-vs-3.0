@@ -8,7 +8,7 @@ import {
 /**
  * ╔══════════════════════════════════════════════════════════════╗
  * ║  WHATSAPP WEBHOOK - Z-API + EVOLUTION API                   ║
- * ║  Versão: 2.0 - Normalização + Multi-Conexão + Filas        ║
+ * ║  Versão: 2.1 - Com Bypass de Roteamento de Emergência       ║
  * ╚══════════════════════════════════════════════════════════════╝
  * 
  * Processa eventos com:
@@ -19,6 +19,7 @@ import {
  * - Auto-enfileiramento inteligente
  * - Download e persistência de mídia
  * - Processamento assíncrono de IA
+ * - BYPASS DE EMERGÊNCIA para ReceivedCallback
  */
 
 Deno.serve(async (req) => {
@@ -210,6 +211,7 @@ Deno.serve(async (req) => {
       if (payloadNormalizado.type === 'unknown') {
         const rawEvent = (evento.event || evento.type || evento.eventName || '').toString();
         
+        // Verifica variacoes comuns do evento de recebimento
         if (rawEvent === 'ReceivedCallback' || rawEvent === 'receivedcallback' || rawEvent.toLowerCase() === 'receivedcallback') {
            console.warn('[WEBHOOK] MITIGACAO ATIVA: Forcando roteamento de ReceivedCallback para "message"');
            
