@@ -1,9 +1,3 @@
-// ============================================================================
-// WEBHOOK WHATSAPP - VERSAO 3.2.0 - FORCE REDEPLOY
-// BUILD: 2025-11-21T15:00:00Z
-// OBJETIVO: RECEBIMENTO COMPLETO DE MENSAGENS Z-API
-// ============================================================================
-
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.4';
 import { 
   normalizarPayloadZAPI, 
@@ -11,13 +5,8 @@ import {
   validarPayloadNormalizado
 } from './adapters/zapiAdapter.js';
 
-const VERSION = 'v3.2.0-FORCE-REDEPLOY';
-const BUILD = '2025-11-21T15:00:00Z';
-
-console.log('====================================================================');
-console.log('🚀 WEBHOOK WHATSAPP ' + VERSION + ' - BUILD: ' + BUILD);
-console.log('📡 RECEBIMENTO COMPLETO DE MENSAGENS Z-API');
-console.log('====================================================================');
+const VERSION = 'v3.3.0';
+const BUILD = '2025-11-21T16:00:00Z';
 
 const corsHeaders = {
   'Content-Type': 'application/json',
@@ -28,7 +17,7 @@ const corsHeaders = {
 
 Deno.serve(async (req) => {
   const startTime = Date.now();
-  console.log('[' + VERSION + '] REQUEST RECEIVED at ' + new Date().toISOString());
+  console.log('[WEBHOOK] v' + VERSION + ' - Request received at ' + new Date().toISOString());
 
   if (req.method === 'OPTIONS') {
     return new Response(null, { status: 204, headers: corsHeaders });
