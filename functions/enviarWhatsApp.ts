@@ -36,12 +36,53 @@ Deno.serve(async (req) => {
       reply_to_message_id
     } = payload;
 
-    if (!integration_id) {
-      throw new Error('integration_id é obrigatório');
+    // ✅ Validação de campos obrigatórios
+    if (!integration_id || !numero_destino) {
+      return new Response(
+        JSON.stringify({ 
+          success: false,
+          error: 'Campos obrigatórios ausentes', 
+          missing: {
+            integration_id: !integration_id,
+            numero_destino: !numero_destino
+          }
+        }),
+        { status: 400, headers }
+      );
     }
 
-    if (!numero_destino) {
-      throw new Error('numero_destino é obrigatório');
+    // ✅ Validação de conteúdo - pelo menos uma das opções deve estar presente
+    if (!mensagem && !template_name && !media_url && !audio_url) {
+      return new Response(
+        JSON.stringify({ 
+          success: false,
+          error: 'Nenhum conteúdo fornecido. Forneça pelo menos um dos seguintes: mensagem, template_name, media_url ou audio_url'
+        }),
+        { status: 400, headers }
+      );
+    }
+
+    // ✅ Validação de mídia - se media_url está presente, media_type é obrigatório
+    if (media_url && !media_type) {
+      return new Response(
+        JSON.stringify({ 
+          success: false,
+          error: 'media_type é obrigatório quando media_url é fornecido. Valores válidos: image, video, document'
+        }),
+        { status: 400, headers }
+      );
+    }
+
+    // ✅ Validação de tipo de mídia suportado
+    if (media_type && !ZAPI_MEDIA_CONFIG[media_type]) {
+      return new Response(
+        JSON.stringify({ 
+          success: false,
+          error: `Tipo de mídia não suportado: ${media_type}`,
+          supported_types: Object.keys(ZAPI_MEDIA_CONFIG)
+        }),
+        { status: 400, headers }
+      );
     }
 
     const integracao = await base44.asServiceRole.entities.WhatsAppIntegration.get(integration_id);
