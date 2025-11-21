@@ -70,7 +70,6 @@ Deno.serve(async (req) => {
       );
     }
 
-    // EXTRACAO MAXIMA DE CAMPOS DE ROTEAMENTO
     const eventoTipo = evento.event || evento.type || evento.event_type || 
                        evento.eventType || evento.eventName || evento.evento?.event || 
                        'unknown';
@@ -82,7 +81,6 @@ Deno.serve(async (req) => {
     console.log('[' + VERSION + '] Event Type: ' + eventoTipo);
     console.log('[' + VERSION + '] Instance ID: ' + instanceId);
 
-    // CRIAR AUDIT LOG IMEDIATAMENTE
     try {
       const auditLog = await base44.asServiceRole.entities.ZapiPayloadNormalized.create({
         payload_bruto: evento,
@@ -98,7 +96,6 @@ Deno.serve(async (req) => {
       console.error('[' + VERSION + '] Audit error stack: ' + err.stack);
     }
 
-    // NORMALIZAR PAYLOAD
     let payloadNormalizado;
     try {
       payloadNormalizado = normalizarPayloadZAPI(evento);
@@ -108,12 +105,10 @@ Deno.serve(async (req) => {
       payloadNormalizado = null;
     }
 
-    // VALIDACAO E EMERGENCY BYPASS
     if (!payloadNormalizado || payloadNormalizado.type === 'unknown') {
       const rawEventStr = String(eventoTipo).trim().toLowerCase();
       console.warn('[' + VERSION + '] Unknown payload type, checking emergency bypass');
       
-      // DETECCAO PELA ESTRUTURA: se tem telefone/phone E messageId = mensagem Z-API
       if ((evento.telefone || evento.phone) && evento.messageId) {
         console.warn('[' + VERSION + '] EMERGENCY BYPASS: Detected Z-API message by structure');
         payloadNormalizado = {
@@ -130,7 +125,6 @@ Deno.serve(async (req) => {
           pushName: evento.senderName || evento.chatName || null
         };
       }
-      // DETECCAO PELO NOME DO EVENTO
       else if (rawEventStr.includes('receivedcallback') || 
                rawEventStr.includes('message') || 
                rawEventStr.includes('received')) {
@@ -147,7 +141,6 @@ Deno.serve(async (req) => {
       }
     }
 
-    // VALIDAR PAYLOAD NORMALIZADO
     const validacao = validarPayloadNormalizado(payloadNormalizado);
     if (!validacao.valido) {
       console.error('[' + VERSION + '] Validation failed: ' + validacao.erro);
@@ -165,7 +158,6 @@ Deno.serve(async (req) => {
 
     console.log('[' + VERSION + '] Routing to handler: ' + payloadNormalizado.type);
 
-    // ROTEAMENTO PARA HANDLERS
     let resultado;
     switch (payloadNormalizado.type) {
       case 'qrcode':
@@ -195,7 +187,6 @@ Deno.serve(async (req) => {
         }, { status: 200, headers: corsHeaders });
     }
 
-    // ATUALIZAR AUDIT LOG COM SUCESSO
     if (auditLogId) {
       try {
         await base44.asServiceRole.entities.ZapiPayloadNormalized.update(auditLogId, {
@@ -217,7 +208,6 @@ Deno.serve(async (req) => {
     console.error('[' + VERSION + '] FATAL ERROR: ' + error.message);
     console.error('[' + VERSION + '] Stack trace: ' + error.stack);
     
-    // TENTAR ATUALIZAR AUDIT LOG COM ERRO
     if (auditLogId && base44) {
       try {
         await base44.asServiceRole.entities.ZapiPayloadNormalized.update(auditLogId, {
@@ -238,9 +228,6 @@ Deno.serve(async (req) => {
   }
 });
 
-// ========================================================================
-// HANDLER: QRCODE
-// ========================================================================
 async function handleQRCode(instance, payload, base44, headers) {
   console.log('[HANDLER-QRCODE] Processing QR Code update');
   
@@ -269,9 +256,6 @@ async function handleQRCode(instance, payload, base44, headers) {
   }
 }
 
-// ========================================================================
-// HANDLER: CONNECTION STATUS
-// ========================================================================
 async function handleConnection(instance, payload, base44, headers) {
   console.log('[HANDLER-CONNECTION] Processing connection status: ' + payload.status);
   
@@ -300,9 +284,6 @@ async function handleConnection(instance, payload, base44, headers) {
   }
 }
 
-// ========================================================================
-// HANDLER: MESSAGE UPDATE (STATUS)
-// ========================================================================
 async function handleMessageUpdate(payload, base44, headers) {
   console.log('[HANDLER-MESSAGE-UPDATE] Processing message status update');
   
@@ -347,21 +328,16 @@ async function handleMessageUpdate(payload, base44, headers) {
   }
 }
 
-// ========================================================================
-// HANDLER: MESSAGE (PRINCIPAL - RECEBIMENTO DE MENSAGENS)
-// ========================================================================
 async function handleMessage(instance, payload, base44, headers) {
   console.log('[HANDLER-MESSAGE] START - Processing incoming message');
   
   try {
-    // VALIDAR NUMERO DE TELEFONE
     const numero = payload.from;
     if (!numero || numero === 'unknown') {
       throw new Error('Phone number missing or invalid');
     }
     console.log('[HANDLER-MESSAGE] Phone number: ' + numero);
 
-    // BUSCAR OU CRIAR CONTACT
     let contato;
     const contatosExistentes = await base44.asServiceRole.entities.Contact.filter({ 
       telefone: numero 
@@ -371,7 +347,6 @@ async function handleMessage(instance, payload, base44, headers) {
       contato = contatosExistentes[0];
       console.log('[HANDLER-MESSAGE] Contact found: ' + contato.id);
       
-      // ATUALIZAR ULTIMA INTERACAO
       await base44.asServiceRole.entities.Contact.update(contato.id, { 
         ultima_interacao: new Date().toISOString() 
       });
@@ -386,7 +361,6 @@ async function handleMessage(instance, payload, base44, headers) {
       console.log('[HANDLER-MESSAGE] Contact created: ' + contato.id);
     }
 
-    // BUSCAR INTEGRACAO
     let integracaoId = null;
     if (instance && instance !== 'unknown') {
       const integracoes = await base44.asServiceRole.entities.WhatsAppIntegration.filter({ 
@@ -400,7 +374,6 @@ async function handleMessage(instance, payload, base44, headers) {
       }
     }
 
-    // BUSCAR OU CRIAR MESSAGE THREAD
     let thread;
     const threadsExistentes = await base44.asServiceRole.entities.MessageThread.filter({ 
       contact_id: contato.id 
@@ -410,7 +383,6 @@ async function handleMessage(instance, payload, base44, headers) {
       thread = threadsExistentes[0];
       console.log('[HANDLER-MESSAGE] Thread found: ' + thread.id);
       
-      // ATUALIZAR THREAD
       await base44.asServiceRole.entities.MessageThread.update(thread.id, {
         last_message_at: new Date().toISOString(),
         last_message_sender: 'contact',
@@ -434,7 +406,6 @@ async function handleMessage(instance, payload, base44, headers) {
       console.log('[HANDLER-MESSAGE] Thread created: ' + thread.id);
     }
 
-    // VERIFICAR DUPLICIDADE
     if (payload.messageId) {
       const mensagensExistentes = await base44.asServiceRole.entities.Message.filter({ 
         whatsapp_message_id: payload.messageId 
@@ -451,7 +422,6 @@ async function handleMessage(instance, payload, base44, headers) {
       }
     }
 
-    // CRIAR MESSAGE
     const mensagem = await base44.asServiceRole.entities.Message.create({
       thread_id: thread.id,
       sender_id: contato.id,
@@ -489,9 +459,6 @@ async function handleMessage(instance, payload, base44, headers) {
   }
 }
 
-// ========================================================================
-// HELPER: BUSCAR INTEGRACAO
-// ========================================================================
 async function findIntegration(instance, base44) {
   if (!instance || instance === 'unknown') {
     console.warn('[HELPER-FIND-INTEGRATION] No instance provided');
