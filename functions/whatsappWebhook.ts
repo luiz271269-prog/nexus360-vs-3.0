@@ -204,37 +204,41 @@ Deno.serve(async (req) => {
       payloadNormalizado = normalizarPayloadZAPI(evento);
 
       // =================================================================================
-      // 🛡️ CORREÇÃO CIRÚRGICA DE EMERGÊNCIA (BYPASS DE ROTEAMENTO)
-      // Se o adapter retornou 'unknown' mas é claramente um ReceivedCallback, forçamos o tipo.
+      // CORRECAO CIRURGICA DE EMERGENCIA (BYPASS DE ROTEAMENTO)
+      // Se o adapter retornou 'unknown' mas e claramente um ReceivedCallback, forcamos o tipo.
       // =================================================================================
       if (payloadNormalizado.type === 'unknown') {
         const rawEvent = (evento.event || evento.type || evento.eventName || '').toString();
         
         if (rawEvent === 'ReceivedCallback' || rawEvent === 'receivedcallback' || rawEvent.toLowerCase() === 'receivedcallback') {
-           console.warn('[WEBHOOK] ⚠️ MITIGAÇÃO ATIVA: Forçando roteamento de ReceivedCallback para "message"');
+           console.warn('[WEBHOOK] MITIGACAO ATIVA: Forcando roteamento de ReceivedCallback para "message"');
            
-           // Forçar o tipo correto para entrar no switch
+           // Forcar o tipo correto para entrar no switch
            payloadNormalizado.type = 'message';
            
-           // Garantir preenchimento de campos críticos caso o adapter tenha falhado neles também
+           // Garantir preenchimento de campos criticos caso o adapter tenha falhado neles tambem
            if (!payloadNormalizado.messageId) payloadNormalizado.messageId = evento.messageId || evento.id || `FALLBACK_${Date.now()}`;
+           
            if (!payloadNormalizado.from) {
-             const telefone = evento.phone || evento.telefone;
+             const telefone = evento.phone || evento.telefone || evento.connectedPhone;
              payloadNormalizado.from = telefone?.startsWith('+') ? telefone : `+${telefone}`;
            }
+           
            if (!payloadNormalizado.timestamp) payloadNormalizado.timestamp = evento.momment || evento.momento || Date.now();
            
-           // Tentar resgatar conteúdo de texto básico se estiver vazio
-           if (!payloadNormalizado.content && evento.text && evento.text.message) {
-               payloadNormalizado.content = evento.text.message;
+           // Tentar resgatar conteudo de texto basico se estiver vazio
+           if (!payloadNormalizado.content) {
+               if (evento.text && evento.text.message) payloadNormalizado.content = evento.text.message;
+               else if (evento.content) payloadNormalizado.content = evento.content;
+               else payloadNormalizado.content = '[Conteudo recuperado via bypass]';
            }
            
            // Garantir instanceId
            if (!payloadNormalizado.instanceId) {
-             payloadNormalizado.instanceId = evento.instanceId || evento.instance || evento.instance_id;
+             payloadNormalizado.instanceId = evento.instanceId || evento.instance || evento.instance_id || instanceExtraido;
            }
            
-           console.log('[WEBHOOK] ✅ Payload corrigido via mitigação:', JSON.stringify(payloadNormalizado, null, 2));
+           console.log('[WEBHOOK] OK: Payload corrigido via mitigacao:', JSON.stringify(payloadNormalizado, null, 2));
         }
       }
       // =================================================================================
@@ -522,7 +526,7 @@ async function processarMensagemRecebida(instance, payloadNormalizado, base44, c
       if (integracao) {
         integracaoId = integracao.id;
 
-        console.log(`[WEBHOOK] ✅ WhatsAppIntegration encontrada:`, {
+        console.log(`[WEBHOOK] OK WhatsAppIntegration encontrada:`, {
           id: integracaoId,
           nome: integracao.nome_instancia,
           instance_id_provider: integracao.instance_id_provider,
@@ -541,7 +545,7 @@ async function processarMensagemRecebida(instance, payloadNormalizado, base44, c
           status: 'conectado'
         });
       } else {
-        console.error(`[WEBHOOK] ❌ ERRO CRITICO: Integracao nao encontrada para instance: "${instance}"`);
+        console.error(`[WEBHOOK] ERRO CRITICO: Integracao nao encontrada para instance: "${instance}"`);
         console.error(`[WEBHOOK] Mensagem sera descartada pois nao conseguimos identificar a conexao de origem`);
       }
 
@@ -972,7 +976,7 @@ Gere 3 sugestões práticas que o vendedor possa usar imediatamente.`,
       }
     });
 
-    // Salvar sugestões na thread
+    // Salvar sugestoes na thread
     await base44.asServiceRole.entities.MessageThread.update(thread.id, {
       sugestoes_ia_prontas: response.sugestoes || [],
       ultima_analise_ia: new Date().toISOString()
