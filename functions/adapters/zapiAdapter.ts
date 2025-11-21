@@ -218,11 +218,17 @@ export function normalizarConnection(payload) {
 export function normalizarMensagemUpdate(payload) {
   const data = payload.data || payload;
   
+  // Tentar extrair messageId de múltiplas fontes
+  const messageId = data.key?.id || payload.messageId || payload.id || data.messageId || data.id || null;
+  
+  // Tentar extrair status de múltiplas fontes
+  const status = payload.status || data.status || null;
+  
   return {
     instanceId: extrairInstanceId(payload),
     type: 'message_update',
-    messageId: data.key?.id || null,
-    status: data.status || null, // READ, DELIVERY_ACK, etc
+    messageId: messageId,
+    status: status, // READ, DELIVERY_ACK, etc
     timestamp: Date.now()
   };
 }
