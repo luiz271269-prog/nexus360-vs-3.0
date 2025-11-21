@@ -5,8 +5,16 @@ import {
   validarPayloadNormalizado
 } from './adapters/zapiAdapter.js';
 
-const VERSION = 'v3.3.0';
-const BUILD = '2025-11-21T16:00:00Z';
+const VERSION = 'v3.3.1';
+const BUILD = '2025-11-21T14:50:00Z';
+
+console.log('╔═══════════════════════════════════════════════════════════╗');
+console.log('║         WHATSAPP WEBHOOK - STARTUP                        ║');
+console.log('╚═══════════════════════════════════════════════════════════╝');
+console.log('📦 VERSION:', VERSION);
+console.log('🏗️  BUILD:', BUILD);
+console.log('⏰ DEPLOYED:', new Date().toISOString());
+console.log('═══════════════════════════════════════════════════════════');
 
 const corsHeaders = {
   'Content-Type': 'application/json',
