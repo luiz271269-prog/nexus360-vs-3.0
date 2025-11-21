@@ -25,7 +25,11 @@ const corsHeaders = {
 
 Deno.serve(async (req) => {
   const startTime = Date.now();
+  const url = new URL(req.url);
+  const debugMode = url.searchParams.get('debug') === 'true';
+  
   console.log('[WEBHOOK] v' + VERSION + ' - Request received at ' + new Date().toISOString());
+  if (debugMode) console.log('[DEBUG] Debug mode ENABLED');
 
   if (req.method === 'OPTIONS') {
     return new Response(null, { status: 204, headers: corsHeaders });
@@ -159,30 +163,40 @@ Deno.serve(async (req) => {
         debug: {
           eventoTipo: eventoTipo,
           instanceId: instanceId,
-          payloadKeys: Object.keys(evento)
+          payloadKeys: Object.keys(evento),
+          normalized_type: payloadNormalizado?.type || 'null'
         }
       }, { status: 200, headers: corsHeaders });
     }
 
     console.log('[' + VERSION + '] Routing to handler: ' + payloadNormalizado.type);
+    if (debugMode) {
+      console.log('[DEBUG] Normalized payload type: ' + payloadNormalizado.type);
+      console.log('[DEBUG] Instance: ' + instanceId);
+      console.log('[DEBUG] Event: ' + eventoTipo);
+    }
 
     let resultado;
     switch (payloadNormalizado.type) {
       case 'qrcode':
-        resultado = await handleQRCode(instanceId, payloadNormalizado, base44, corsHeaders);
+        resultado = await handleQRCode(instanceId, payloadNormalizado, base44, corsHeaders, debugMode);
         break;
       case 'connection':
-        resultado = await handleConnection(instanceId, payloadNormalizado, base44, corsHeaders);
+        resultado = await handleConnection(instanceId, payloadNormalizado, base44, corsHeaders, debugMode);
         break;
       case 'message':
-        resultado = await handleMessage(instanceId, payloadNormalizado, base44, corsHeaders);
+        resultado = await handleMessage(instanceId, payloadNormalizado, base44, corsHeaders, debugMode);
         break;
       case 'message_update':
-        resultado = await handleMessageUpdate(payloadNormalizado, base44, corsHeaders);
+        resultado = await handleMessageUpdate(payloadNormalizado, base44, corsHeaders, debugMode);
         break;
       case 'send_confirmation':
         console.log('[' + VERSION + '] Send confirmation received, ignoring');
-        resultado = Response.json({ success: true, ignored: true }, { status: 200, headers: corsHeaders });
+        resultado = Response.json({ 
+          success: true, 
+          ignored: true,
+          ...(debugMode && { debug: { type: 'send_confirmation' } })
+        }, { status: 200, headers: corsHeaders });
         break;
       default:
         console.log('[' + VERSION + '] Unknown event type: ' + payloadNormalizado.type);
@@ -191,7 +205,8 @@ Deno.serve(async (req) => {
           ignored: true,
           reason: 'unknown_event_type',
           type: payloadNormalizado.type,
-          version: VERSION
+          version: VERSION,
+          ...(debugMode && { debug: { eventoTipo, instanceId, normalized_type: payloadNormalizado.type } })
         }, { status: 200, headers: corsHeaders });
     }
 
@@ -236,7 +251,7 @@ Deno.serve(async (req) => {
   }
 });
 
-async function handleQRCode(instance, payload, base44, headers) {
+async function handleQRCode(instance, payload, base44, headers, debugMode) {
   console.log('[HANDLER-QRCODE] Processing QR Code update');
   
   try {
@@ -264,7 +279,7 @@ async function handleQRCode(instance, payload, base44, headers) {
   }
 }
 
-async function handleConnection(instance, payload, base44, headers) {
+async function handleConnection(instance, payload, base44, headers, debugMode) {
   console.log('[HANDLER-CONNECTION] Processing connection status: ' + payload.status);
   
   try {
@@ -292,7 +307,7 @@ async function handleConnection(instance, payload, base44, headers) {
   }
 }
 
-async function handleMessageUpdate(payload, base44, headers) {
+async function handleMessageUpdate(payload, base44, headers, debugMode) {
   console.log('[HANDLER-MESSAGE-UPDATE] Processing message status update');
   
   try {
@@ -310,11 +325,19 @@ async function handleMessageUpdate(payload, base44, headers) {
       whatsapp_message_id: msgId 
     });
     
+    let status_local = null;
     if (messages.length > 0) {
       const updates = {};
-      if (payload.status === 'READ') updates.status = 'lida';
-      else if (payload.status === 'DELIVERED') updates.status = 'entregue';
-      else if (payload.status === 'SENT') updates.status = 'enviada';
+      if (payload.status === 'READ') {
+        updates.status = 'lida';
+        status_local = 'lida';
+      } else if (payload.status === 'DELIVERED') {
+        updates.status = 'entregue';
+        status_local = 'entregue';
+      } else if (payload.status === 'SENT') {
+        updates.status = 'enviada';
+        status_local = 'enviada';
+      }
       
       if (Object.keys(updates).length > 0) {
         await base44.asServiceRole.entities.Message.update(messages[0].id, updates);
@@ -324,11 +347,22 @@ async function handleMessageUpdate(payload, base44, headers) {
       console.warn('[HANDLER-MESSAGE-UPDATE] Message not found: ' + msgId);
     }
     
-    return Response.json({ 
+    const response = { 
       success: true, 
-      processed: 'message_status_update',
+      processed: 'message_status_updated',
       messageId: msgId
-    }, { status: 200, headers });
+    };
+    
+    if (status_local) response.status_local = status_local;
+    if (debugMode) {
+      response.debug = {
+        message_found: messages.length > 0,
+        status_received: payload.status,
+        status_local: status_local
+      };
+    }
+    
+    return Response.json(response, { status: 200, headers });
     
   } catch (error) {
     console.error('[HANDLER-MESSAGE-UPDATE] Error: ' + error.message);
@@ -336,7 +370,7 @@ async function handleMessageUpdate(payload, base44, headers) {
   }
 }
 
-async function handleMessage(instance, payload, base44, headers) {
+async function handleMessage(instance, payload, base44, headers, debugMode) {
   console.log('[HANDLER-MESSAGE] START - Processing incoming message');
   
   try {
@@ -451,14 +485,25 @@ async function handleMessage(instance, payload, base44, headers) {
 
     console.log('[HANDLER-MESSAGE] SUCCESS - Message saved: ' + mensagem.id);
     
-    return Response.json({ 
+    const response = { 
       success: true, 
       processed: 'message_saved',
       message_id: mensagem.id,
       contact_id: contato.id,
       thread_id: thread.id,
       version: VERSION
-    }, { status: 200, headers });
+    };
+    
+    if (debugMode) {
+      response.debug = {
+        phone: numero,
+        content_length: payload.content?.length || 0,
+        media_type: payload.mediaType,
+        integration_id: integracaoId
+      };
+    }
+    
+    return Response.json(response, { status: 200, headers });
 
   } catch (error) {
     console.error('[HANDLER-MESSAGE] FAILED: ' + error.message);
