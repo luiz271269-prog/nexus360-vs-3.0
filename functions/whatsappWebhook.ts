@@ -8,13 +8,13 @@ import {
 const VERSION = 'v3.3.1';
 const BUILD = '2025-11-21T14:50:00Z';
 
-console.log('╔═══════════════════════════════════════════════════════════╗');
-console.log('║         WHATSAPP WEBHOOK - STARTUP                        ║');
-console.log('╚═══════════════════════════════════════════════════════════╝');
-console.log('📦 VERSION:', VERSION);
-console.log('🏗️  BUILD:', BUILD);
-console.log('⏰ DEPLOYED:', new Date().toISOString());
-console.log('═══════════════════════════════════════════════════════════');
+console.log('=============================================================');
+console.log('         WHATSAPP WEBHOOK - STARTUP                        ');
+console.log('=============================================================');
+console.log('VERSION:', VERSION);
+console.log('BUILD:', BUILD);
+console.log('DEPLOYED:', new Date().toISOString());
+console.log('=============================================================');
 
 const corsHeaders = {
   'Content-Type': 'application/json',
