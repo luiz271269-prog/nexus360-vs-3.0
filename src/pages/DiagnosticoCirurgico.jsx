@@ -52,7 +52,8 @@ export default function DiagnosticoCirurgico() {
 
       // ========== TESTE 2: TESTAR CONEXÃO HTTP ==========
       console.log('[DIAG] Testando conexao HTTP com webhook...');
-      const webhookUrl = integracao.webhook_url || `${window.location.origin}/api/functions/whatsappWebhook`;
+      const webhookUrlBase = integracao.webhook_url || `${window.location.origin}/api/functions/whatsappWebhook`;
+      const webhookUrl = webhookUrlBase.includes('?') ? `${webhookUrlBase}&debug=true` : `${webhookUrlBase}?debug=true`;
       
       try {
         const response = await fetch(webhookUrl, { method: 'GET' });
@@ -79,13 +80,29 @@ export default function DiagnosticoCirurgico() {
       console.log('[DIAG] Enviando payload de teste...');
       const messageIdTeste = `DIAG_TEST_${Date.now()}`;
       const payloadTeste = {
+        // Chaves de roteamento: incluir todos os aliases comuns
         instanceId: integracao.instance_id_provider,
         instance: integracao.instance_id_provider,
+        instance_id: integracao.instance_id_provider,
+        
         type: 'ReceivedCallback',
         event: 'ReceivedCallback',
+        eventName: 'ReceivedCallback',
+        event_type: 'ReceivedCallback',
+        
+        // Objeto evento aninhado (opcional, para compatibilidade)
+        evento: {
+          event: 'ReceivedCallback',
+          instanceId: integracao.instance_id_provider,
+          type: 'ReceivedCallback'
+        },
+        
+        // Dados da mensagem
         phone: '5548999000111',
+        telefone: '5548999000111',
         momment: Date.now(),
         messageId: messageIdTeste,
+        id: messageIdTeste, // espelhar para id
         text: { message: 'TESTE CIRURGICO' }
       };
 
@@ -103,7 +120,8 @@ export default function DiagnosticoCirurgico() {
           status: response.ok ? 'sucesso' : 'erro',
           detalhes: {
             status: response.status,
-            response: webhookResponse
+            response: webhookResponse,
+            debug: webhookResponse?.debug || null
           }
         });
       } catch (error) {
