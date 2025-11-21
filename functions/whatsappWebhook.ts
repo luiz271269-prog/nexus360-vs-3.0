@@ -203,6 +203,42 @@ Deno.serve(async (req) => {
 
       payloadNormalizado = normalizarPayloadZAPI(evento);
 
+      // =================================================================================
+      // 🛡️ CORREÇÃO CIRÚRGICA DE EMERGÊNCIA (BYPASS DE ROTEAMENTO)
+      // Se o adapter retornou 'unknown' mas é claramente um ReceivedCallback, forçamos o tipo.
+      // =================================================================================
+      if (payloadNormalizado.type === 'unknown') {
+        const rawEvent = (evento.event || evento.type || evento.eventName || '').toString();
+        
+        if (rawEvent === 'ReceivedCallback' || rawEvent === 'receivedcallback' || rawEvent.toLowerCase() === 'receivedcallback') {
+           console.warn('[WEBHOOK] ⚠️ MITIGAÇÃO ATIVA: Forçando roteamento de ReceivedCallback para "message"');
+           
+           // Forçar o tipo correto para entrar no switch
+           payloadNormalizado.type = 'message';
+           
+           // Garantir preenchimento de campos críticos caso o adapter tenha falhado neles também
+           if (!payloadNormalizado.messageId) payloadNormalizado.messageId = evento.messageId || evento.id || `FALLBACK_${Date.now()}`;
+           if (!payloadNormalizado.from) {
+             const telefone = evento.phone || evento.telefone;
+             payloadNormalizado.from = telefone?.startsWith('+') ? telefone : `+${telefone}`;
+           }
+           if (!payloadNormalizado.timestamp) payloadNormalizado.timestamp = evento.momment || evento.momento || Date.now();
+           
+           // Tentar resgatar conteúdo de texto básico se estiver vazio
+           if (!payloadNormalizado.content && evento.text && evento.text.message) {
+               payloadNormalizado.content = evento.text.message;
+           }
+           
+           // Garantir instanceId
+           if (!payloadNormalizado.instanceId) {
+             payloadNormalizado.instanceId = evento.instanceId || evento.instance || evento.instance_id;
+           }
+           
+           console.log('[WEBHOOK] ✅ Payload corrigido via mitigação:', JSON.stringify(payloadNormalizado, null, 2));
+        }
+      }
+      // =================================================================================
+
       console.log('[WEBHOOK] OK: Payload normalizado COMPLETO:', JSON.stringify(payloadNormalizado, null, 2));
       console.log('[WEBHOOK] payloadNormalizado.type =', payloadNormalizado.type);
 
