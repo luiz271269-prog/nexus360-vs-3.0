@@ -169,17 +169,17 @@ export default function ConfiguracaoWhatsAppHub({ integracoes, onRecarregar }) {
 
       if (editandoIntegracao) {
         await base44.entities.WhatsAppIntegration.update(editandoIntegracao.id, dadosIntegracao);
-        toast.success("✅ Configurações salvas!");
+        toast.success("Configurações salvas!");
       } else {
         await base44.entities.WhatsAppIntegration.create(dadosIntegracao);
-        toast.success("✅ Instância criada! Configure o webhook na Z-API.");
+        toast.success("Instância criada! Configure o webhook na Z-API.");
         
         // Mostrar URL do webhook com indicador de ambiente
-        const ambienteLabel = isProduction ? '🟢 PRODUÇÃO' : '🟠 TESTE';
+        const ambienteLabel = isProduction ? 'PRODUÇÃO' : 'TESTE';
         toast.info(
           <div className="space-y-1">
             <p className="font-bold">{ambienteLabel}</p>
-            <p className="text-sm">📋 URL do Webhook:</p>
+            <p className="text-sm">URL do Webhook:</p>
             <code className="text-xs bg-slate-100 px-2 py-1 rounded block">{webhookUrl}</code>
           </div>, 
           { duration: 15000 }
@@ -232,41 +232,40 @@ export default function ConfiguracaoWhatsAppHub({ integracoes, onRecarregar }) {
   const testarConexao = async (integracao) => {
     setTestando(integracao.id);
     try {
-      console.log('[TESTE] 🚀 Iniciando teste de conexão completo...');
-      console.log('[TESTE] 📋 Dados da integração:', {
+      console.log('[TESTE] Iniciando teste de conexão completo...');
+      console.log('[TESTE] Dados da integração:', {
         id: integracao.id,
         instanceId: integracao.instance_id_provider,
         hasToken: !!integracao.api_key_provider,
         hasClientToken: !!integracao.security_client_token_header
       });
 
-      // URL do webhook (sempre produção para testes)
       const webhookUrl = getWebhookUrlProducao();
       
       const response = await base44.functions.invoke('testarConexaoWhatsApp', {
-        integration_id: integracao.id // Usar o parâmetro correto
+        integration_id: integracao.id
       });
 
-      console.log('[TESTE] 📡 Resposta recebida:', response.data);
+      console.log('[TESTE] Resposta recebida:', response.data);
 
       if (response.data.success) {
-        const dados = response.data.dados;
+        const dados = response.data.dados || {};
         
         toast.success(
           <div className="space-y-2">
-            <p className="font-bold">✅ Conexão estabelecida!</p>
+            <p className="font-bold">Conexão estabelecida!</p>
             <p className="text-sm">Status: {dados.conectado ? 'Conectado' : 'Desconectado'}</p>
             {dados.smartphoneConectado && (
-              <p className="text-sm">📱 Smartphone conectado</p>
+              <p className="text-sm">Smartphone conectado</p>
             )}
             {dados.nomeInstancia && (
-              <p className="text-sm">📝 {dados.nomeInstancia}</p>
+              <p className="text-sm">{dados.nomeInstancia}</p>
             )}
             {dados.telefone && (
-              <p className="text-sm">📞 {dados.telefone}</p>
+              <p className="text-sm">{dados.telefone}</p>
             )}
             {dados.webhookConfigurado && (
-              <p className="text-sm">🔗 Webhook configurado</p>
+              <p className="text-sm">Webhook configurado</p>
             )}
           </div>,
           { duration: 8000 }
@@ -277,7 +276,7 @@ export default function ConfiguracaoWhatsAppHub({ integracoes, onRecarregar }) {
       } else {
         toast.error(
           <div>
-            <p className="font-bold">❌ Falha na conexão</p>
+            <p className="font-bold">Falha na conexão</p>
             <p className="text-sm mt-1">{response.data.error || 'Erro desconhecido'}</p>
             {response.data.detalhes && (
               <p className="text-xs mt-1 opacity-75">{response.data.detalhes}</p>
@@ -287,10 +286,10 @@ export default function ConfiguracaoWhatsAppHub({ integracoes, onRecarregar }) {
         );
       }
     } catch (error) {
-      console.error('[TESTE] ❌ Erro ao testar conexão:', error);
+      console.error('[TESTE] Erro ao testar conexão:', error);
       toast.error(
         <div>
-          <p className="font-bold">❌ Erro ao testar</p>
+          <p className="font-bold">Erro ao testar</p>
           <p className="text-sm mt-1">{error.message}</p>
         </div>
       );
@@ -458,7 +457,7 @@ export default function ConfiguracaoWhatsAppHub({ integracoes, onRecarregar }) {
                 <Alert className={isProduction ? "bg-green-50 border-green-200" : "bg-orange-50 border-orange-200"}>
                   <Zap className={`h-4 w-4 ${isProduction ? 'text-green-600' : 'text-orange-600'}`} />
                   <AlertTitle className={isProduction ? "text-green-900" : "text-orange-900"}>
-                    {isProduction ? '🟢 Ambiente de PRODUÇÃO' : '🟠 Ambiente de TESTE/PREVIEW'}
+                    {isProduction ? 'Ambiente de PRODUÇÃO' : 'Ambiente de TESTE/PREVIEW'}
                   </AlertTitle>
                   <AlertDescription className={`${isProduction ? 'text-green-800' : 'text-orange-800'} text-sm`}>
                     <div className="space-y-2">
@@ -468,7 +467,7 @@ export default function ConfiguracaoWhatsAppHub({ integracoes, onRecarregar }) {
                       </code>
                       {!isProduction && (
                         <p className="text-orange-700 font-bold mt-2">
-                          ⚠️ Esta URL é temporária e NÃO deve ser usada em produção!
+                          Esta URL é temporária e NÃO deve ser usada em produção!
                         </p>
                       )}
                     </div>
@@ -479,7 +478,7 @@ export default function ConfiguracaoWhatsAppHub({ integracoes, onRecarregar }) {
 
             <Alert className="bg-blue-50 border-blue-200">
               <Zap className="h-4 w-4 text-blue-600" />
-              <AlertTitle className="text-blue-900">📋 Onde encontrar as credenciais da Z-API</AlertTitle>
+              <AlertTitle className="text-blue-900">Onde encontrar as credenciais da Z-API</AlertTitle>
               <AlertDescription className="text-blue-800 text-sm">
                 <ol className="list-decimal ml-4 mt-2 space-y-1">
                   <li>Acesse <a href="https://www.z-api.io" target="_blank" rel="noopener noreferrer" className="underline font-semibold">https://www.z-api.io</a></li>
@@ -548,7 +547,7 @@ export default function ConfiguracaoWhatsAppHub({ integracoes, onRecarregar }) {
                 </Button>
               </div>
               <p className="text-xs text-blue-600 mt-1">
-                ℹ️ Token encontrado na página da instância no painel Z-API
+                Token encontrado na página da instância no painel Z-API
               </p>
             </div>
 
@@ -576,7 +575,7 @@ export default function ConfiguracaoWhatsAppHub({ integracoes, onRecarregar }) {
                 </Button>
               </div>
               <p className="text-xs text-purple-600 mt-1">
-                ℹ️ Token encontrado em "Configurações da Conta" {'>'} "Token de Segurança" (ex: F16***)
+                Token encontrado em "Configurações da Conta" {'>'} "Token de Segurança" (ex: F16***)
               </p>
               <div className="flex items-start gap-2 mt-2 text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded p-2">
                 <Shield className="w-4 h-4 flex-shrink-0 mt-0.5" />
