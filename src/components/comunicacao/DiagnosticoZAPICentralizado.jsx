@@ -67,14 +67,13 @@ export default function DiagnosticoZAPICentralizado({ integracao, onRecarregar, 
           : 'Tokens incompletos ou ausentes'
       });
 
-      // Teste 3: Verificar webhook
+      // Teste 3: Verificar webhook (CALCULADO DINAMICAMENTE)
+      const webhookUrlAutomatica = `${window.location.origin}/api/functions/webhookWatsZapi`;
       resultado.testes.push({
         nome: 'Webhook',
-        status: integracao.webhook_url ? 'sucesso' : 'aviso',
-        mensagem: integracao.webhook_url 
-          ? integracao.webhook_url
-          : 'URL do webhook não configurada',
-        webhookUrl: integracao.webhook_url
+        status: 'sucesso',
+        mensagem: 'URL gerada automaticamente pelo sistema',
+        webhookUrl: webhookUrlAutomatica
       });
 
       setDiagnostico(resultado);
