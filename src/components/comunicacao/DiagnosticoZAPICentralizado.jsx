@@ -185,9 +185,9 @@ export default function DiagnosticoZAPICentralizado({ integracao, onRecarregar, 
               </Alert>
             )}
 
-            {diagnostico.testes.map((teste, index) => (
+            {diagnostico.testes && diagnostico.testes.length > 0 && diagnostico.testes.map((teste, index) => (
               <div
-                key={index}
+                key={`teste-${index}-${teste.nome}`}
                 className={`p-4 rounded-lg border-2 ${getStatusColor(teste.status)} transition-all`}
               >
                 <div className="flex items-start gap-3">
