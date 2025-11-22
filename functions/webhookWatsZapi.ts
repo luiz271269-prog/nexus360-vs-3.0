@@ -5,8 +5,8 @@ import {
   validarPayloadNormalizado
 } from './adapters/zapiAdapter.js';
 
-// 🔥 VERSÃO AUTO-ATUALIZADA - Modifique quando publicar uma nova versão
-const VERSION = 'v3.4.0';
+// VERSÃO AUTO-ATUALIZADA - Modifique quando publicar uma nova versão
+const VERSION = 'v3.5.0';
 const BUILD_DATE = '2025-01-22'; // Data do último deploy
 const DEPLOYED_AT = new Date().toISOString(); // Auto-capturado no startup
 
