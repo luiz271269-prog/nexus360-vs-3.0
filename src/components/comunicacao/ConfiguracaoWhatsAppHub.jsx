@@ -110,7 +110,7 @@ export default function ConfiguracaoWhatsAppHub({ integracoes, onRecarregar }) {
     return {
       ambiente: isPreview ? 'preview' : (isStaging ? 'staging' : 'production'),
       isProduction: !isPreview && !isStaging,
-      webhookUrl: `${baseUrl}/api/functions/whatsappWebhook`,
+      webhookUrl: `${baseUrl}/api/functions/webhookWatsZapi`,
       alertMessage: (isPreview || isStaging) ? 
         `⚠️ ATENÇÃO: Você está em ambiente de ${isPreview ? 'PREVIEW' : 'STAGING'}. Esta URL NÃO deve ser usada em produção!` : 
         null
