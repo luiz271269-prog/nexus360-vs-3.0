@@ -170,7 +170,7 @@ async function executarEtapa2(integracao) {
     const t1Tempo = Date.now() - t1Inicio;
     let healthData = null;
     let rawResponse = null;
-    
+
     try {
       rawResponse = await response.text();
       if (rawResponse) {
@@ -179,9 +179,13 @@ async function executarEtapa2(integracao) {
     } catch (e) {
       console.warn('[ETAPA2] Resposta não é JSON válido:', rawResponse);
     }
-    
+
     const isDeploymentError = rawResponse?.includes('Deployment') || rawResponse?.includes('deploymentNotFound');
-    
+
+    // ✅ EXTRAIR NOME DA FUNÇÃO DINAMICAMENTE DA URL
+    const webhookUrlParts = webhookUrl.split('/');
+    const nomeFuncao = webhookUrlParts[webhookUrlParts.length - 1].split('?')[0]; // Remove query params
+
     testes.push({
       nome: 'Webhook responde GET (health check)',
       critico: true,
@@ -190,6 +194,8 @@ async function executarEtapa2(integracao) {
       detalhes: { 
         status: response.status, 
         statusText: response.statusText,
+        function_name: nomeFuncao,
+        webhook_url: webhookUrl,
         version: healthData?.version || null,
         build: healthData?.build || null,
         timestamp_funcao: healthData?.timestamp || null,
@@ -197,8 +203,8 @@ async function executarEtapa2(integracao) {
         raw_response: isDeploymentError ? rawResponse.substring(0, 200) : null
       },
       sugestao_correcao: isDeploymentError ? 
-        '🚨 ERRO DE DEPLOYMENT: A função não está implantada na Base44. Vá em Code → Functions → whatsappWebhook e force um novo deploy.' :
-        !response.ok ? 'Função não responde - verifique logs da função' : null
+        `🚨 ERRO DE DEPLOYMENT: A função "${nomeFuncao}" não está implantada na Base44. Vá em Code → Functions → ${nomeFuncao} e force um novo deploy.` :
+        !response.ok ? `Função "${nomeFuncao}" não responde - verifique logs da função` : null
     });
   } catch (error) {
     testes.push({
@@ -267,24 +273,34 @@ async function executarEtapa2(integracao) {
       isDeploymentError = rawResponse?.includes('Deployment') || rawResponse?.includes('deploymentNotFound');
     }
     
+    // ✅ EXTRAIR NOME DA FUNÇÃO DINAMICAMENTE DA URL
+    const webhookUrlParts = webhookUrl.split('/');
+    const nomeFuncao = webhookUrlParts[webhookUrlParts.length - 1].split('?')[0];
+
     testes.push({
       nome: 'POST com payload aceito',
       critico: true,
       status: response.ok && result ? 'sucesso' : 'erro',
       tempo_ms: Date.now() - t3Inicio,
       detalhes: { 
-        status: response.status, 
+        status: response.status,
+        function_name: nomeFuncao,
+        webhook_url: webhookUrl,
         payload_aceito: result?.success || false,
         response: result,
         deployment_error: isDeploymentError,
         erro: isDeploymentError ? 'deploymentNotFound' : null
       },
       sugestao_correcao: isDeploymentError ?
-        '🚨 DEPLOYMENT NOT FOUND: Função não está acessível. Force novo deploy no painel Code → Functions.' :
-        !response.ok ? 'Webhook rejeitou POST - verifique código do handler' : null
+        `🚨 DEPLOYMENT NOT FOUND: A função "${nomeFuncao}" não está acessível. Force novo deploy em Code → Functions → ${nomeFuncao}.` :
+        !response.ok ? `Webhook "${nomeFuncao}" rejeitou POST - verifique código do handler` : null
     });
   } catch (error) {
     const isDeployError = error.message?.includes('Deployment') || error.message?.includes('JSON');
+    // ✅ EXTRAIR NOME DA FUNÇÃO DINAMICAMENTE DA URL
+    const webhookUrlParts = webhookUrl.split('/');
+    const nomeFuncao = webhookUrlParts[webhookUrlParts.length - 1].split('?')[0];
+
     testes.push({
       nome: 'POST com payload aceito',
       critico: true,
@@ -292,10 +308,12 @@ async function executarEtapa2(integracao) {
       tempo_ms: Date.now() - t3Inicio,
       detalhes: { 
         erro: error.message,
+        function_name: nomeFuncao,
+        webhook_url: webhookUrl,
         deployment_suspected: isDeployError
       },
       sugestao_correcao: isDeployError ?
-        '🚨 SUSPEITA DE DEPLOYMENT ERROR: Verifique se a função foi implantada corretamente.' :
+        `🚨 SUSPEITA DE DEPLOYMENT ERROR: Verifique se a função "${nomeFuncao}" foi implantada corretamente em Code → Functions → ${nomeFuncao}.` :
         'Erro ao enviar POST - verifique conectividade'
     });
   }
