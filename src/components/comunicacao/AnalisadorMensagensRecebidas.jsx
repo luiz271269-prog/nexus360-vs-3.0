@@ -21,10 +21,26 @@ import { toast } from "sonner";
 export default function AnalisadorMensagensRecebidas() {
   const [loading, setLoading] = useState(false);
   const [analise, setAnalise] = useState([]);
+  const [webhookInfo, setWebhookInfo] = useState(null);
 
   useEffect(() => {
     carregarDados();
+    buscarInfoWebhook();
   }, []);
+
+  const buscarInfoWebhook = async () => {
+    try {
+      const webhookUrl = `${window.location.origin}/api/functions/webhookWatsZapi`;
+      const response = await fetch(webhookUrl, { method: 'GET' });
+      if (response.ok) {
+        const data = await response.json();
+        setWebhookInfo(data);
+        console.log('[ANALISADOR] 🔧 Webhook Info:', data);
+      }
+    } catch (error) {
+      console.error('[ANALISADOR] ⚠️ Erro ao buscar info do webhook:', error);
+    }
+  };
 
   const carregarDados = async () => {
     setLoading(true);
@@ -130,6 +146,24 @@ export default function AnalisadorMensagensRecebidas() {
           <p className="text-slate-600 mt-1">
             Diagnóstico detalhado: Payload → Message → Thread → Conexão Real
           </p>
+          {webhookInfo && (
+            <div className="flex items-center gap-3 mt-2">
+              <Badge className="bg-blue-100 text-blue-800 text-xs">
+                v{webhookInfo.version}
+              </Badge>
+              <Badge className="bg-green-100 text-green-800 text-xs">
+                Build: {webhookInfo.build_date}
+              </Badge>
+              <Badge className="bg-purple-100 text-purple-800 text-xs">
+                Deployed: {webhookInfo.deployed_at ? new Date(webhookInfo.deployed_at).toLocaleString('pt-BR') : 'N/A'}
+              </Badge>
+              {webhookInfo.uptime_seconds !== undefined && (
+                <Badge className="bg-slate-100 text-slate-800 text-xs">
+                  Uptime: {Math.floor(webhookInfo.uptime_seconds / 60)}min
+                </Badge>
+              )}
+            </div>
+          )}
         </div>
         <Button onClick={carregarDados} disabled={loading}>
           <RefreshCw className={`w-4 h-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
