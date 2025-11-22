@@ -5,15 +5,17 @@ import {
   validarPayloadNormalizado
 } from './adapters/zapiAdapter.js';
 
-const VERSION = 'v3.3.1';
-const BUILD = '2025-11-22T00:00:00Z';
+// 🔥 VERSÃO AUTO-ATUALIZADA - Modifique quando publicar uma nova versão
+const VERSION = 'v3.3.2';
+const BUILD_DATE = '2025-01-22'; // Data do último deploy
+const DEPLOYED_AT = new Date().toISOString(); // Auto-capturado no startup
 
 console.log('=============================================================');
 console.log('         WHATSAPP WEBHOOK - STARTUP                        ');
 console.log('=============================================================');
 console.log('VERSION:', VERSION);
-console.log('BUILD:', BUILD);
-console.log('DEPLOYED:', new Date().toISOString());
+console.log('BUILD DATE:', BUILD_DATE);
+console.log('DEPLOYED AT:', DEPLOYED_AT);
 console.log('=============================================================');
 
 const corsHeaders = {
@@ -39,8 +41,10 @@ Deno.serve(async (req) => {
     console.log('[' + VERSION + '] Health check OK');
     return new Response(JSON.stringify({ 
       version: VERSION, 
-      build: BUILD,
+      build_date: BUILD_DATE,
+      deployed_at: DEPLOYED_AT,
       status: 'operational',
+      uptime_seconds: Math.floor((Date.now() - new Date(DEPLOYED_AT).getTime()) / 1000),
       timestamp: new Date().toISOString()
     }), { 
       status: 200, 
