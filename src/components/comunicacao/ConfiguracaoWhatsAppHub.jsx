@@ -244,16 +244,11 @@ export default function ConfiguracaoWhatsAppHub({ integracoes, onRecarregar }) {
         hasClientToken: !!integracao.security_client_token_header
       });
 
-      // This webhookUrl is the generic inbound webhook URL for our system that the backend function will configure Z-API to hit.
-      const webhookUrl = `${window.location.origin}/api/functions/inboundWebhook`;
+      // URL CORRIGIDA para o webhook ÚNICO: whatsappWebhook
+      const webhookUrl = `${window.location.origin}/api/functions/whatsappWebhook`;
       
       const response = await base44.functions.invoke('testarConexaoWhatsApp', {
-        integracaoId: integracao.id, // ID for persistence
-        instanceId: integracao.instance_id_provider,
-        tokenInstancia: integracao.api_key_provider,
-        clientToken: integracao.security_client_token_header,
-        baseUrl: integracao.base_url_provider || 'https://api.z-api.io',
-        webhookUrl: webhookUrl // Configure webhook automatically
+        integration_id: integracao.id // Usar o parâmetro correto
       });
 
       console.log('[TESTE] 📡 Resposta recebida:', response.data);
