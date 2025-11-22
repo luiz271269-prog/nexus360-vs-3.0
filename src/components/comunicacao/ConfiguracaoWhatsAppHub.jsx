@@ -349,8 +349,8 @@ export default function ConfiguracaoWhatsAppHub({ integracoes, onRecarregar }) {
       </Card>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {integracoes.map((integracao) => (
-          <div key={integracao.id} className="space-y-4">
+        {integracoes && integracoes.length > 0 && integracoes.map((integracao) => (
+          <div key={`integracao-${integracao.id}`} className="space-y-4">
             <Card className={`hover:shadow-lg transition-all ${
               integracao.status === 'conectado' ? 'border-green-200 bg-green-50/30' : ''
             }`}>
