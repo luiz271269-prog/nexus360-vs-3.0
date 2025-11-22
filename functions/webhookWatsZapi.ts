@@ -96,6 +96,7 @@ Deno.serve(async (req) => {
 
     console.log('[' + VERSION + '] Event Type: ' + eventoTipo);
     console.log('[' + VERSION + '] Instance ID: ' + instanceId);
+    console.log('[' + VERSION + '] Full payload: ' + JSON.stringify(evento).substring(0, 500));
 
     try {
       const auditLog = await base44.asServiceRole.entities.ZapiPayloadNormalized.create({
@@ -124,36 +125,51 @@ Deno.serve(async (req) => {
     if (!payloadNormalizado || payloadNormalizado.type === 'unknown') {
       const rawEventStr = String(eventoTipo).trim().toLowerCase();
       console.warn('[' + VERSION + '] Unknown payload type, checking emergency bypass');
+      console.warn('[' + VERSION + '] Checking for Z-API direct structure...');
       
+      // Detectar mensagem Z-API direta
       if ((evento.telefone || evento.phone) && evento.messageId) {
         console.warn('[' + VERSION + '] EMERGENCY BYPASS: Detected Z-API message by structure');
+        const telefone = evento.telefone || evento.phone;
+        const telefoneFormatado = telefone.startsWith('+') ? telefone : '+' + telefone;
+        
         payloadNormalizado = {
           type: 'message',
           instanceId: instanceId,
           messageId: evento.messageId,
-          from: evento.telefone || evento.phone,
-          content: evento.text?.message || '[Message content missing]',
-          mediaType: 'none',
-          mediaTempUrl: null,
-          mediaCaption: null,
-          timestamp: evento.momment || Date.now(),
+          from: telefoneFormatado,
+          content: evento.text?.message || evento.body || '[Message content missing]',
+          mediaType: evento.image ? 'image' : evento.video ? 'video' : evento.audio ? 'audio' : 'none',
+          mediaTempUrl: evento.image?.imageUrl || evento.video?.videoUrl || evento.audio?.audioUrl || null,
+          mediaCaption: evento.image?.caption || evento.video?.caption || null,
+          timestamp: evento.momment || evento.timestamp || Date.now(),
           isFromMe: evento.fromMe || false,
           pushName: evento.senderName || evento.chatName || null
         };
       }
       else if (rawEventStr.includes('receivedcallback') || 
                rawEventStr.includes('message') || 
-               rawEventStr.includes('received')) {
+               rawEventStr.includes('received') ||
+               rawEventStr.includes('callback')) {
         console.warn('[' + VERSION + '] EMERGENCY BYPASS: Detected by event name');
+        const telefone = evento.phone || evento.telefone || 'unknown';
+        const telefoneFormatado = telefone.startsWith('+') ? telefone : '+' + telefone;
+        
         payloadNormalizado = {
           type: 'message',
           instanceId: instanceId,
           messageId: evento.messageId || 'FALLBACK_' + Date.now(),
-          from: evento.phone || evento.telefone || 'unknown',
-          content: evento.text?.message || '[Recovered message]',
+          from: telefoneFormatado,
+          content: evento.text?.message || evento.body || '[Recovered message]',
           mediaType: 'none',
-          timestamp: Date.now()
+          timestamp: evento.momment || evento.timestamp || Date.now(),
+          isFromMe: evento.fromMe || false,
+          pushName: evento.senderName || evento.chatName || null
         };
+      }
+      
+      if (!payloadNormalizado || payloadNormalizado.type === 'unknown') {
+        console.error('[' + VERSION + '] FAILED TO NORMALIZE - Raw payload:', JSON.stringify(evento, null, 2));
       }
     }
 

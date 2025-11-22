@@ -202,7 +202,9 @@ export function normalizarPayloadZAPI(payload) {
     // ================================================================
     if (normalizedType === 'receivedcallback' || 
         normalizedType === 'received_callback' ||
-        normalizedType === 'message_received') {
+        normalizedType === 'message_received' ||
+        normalizedType.includes('received') ||
+        normalizedType.includes('callback')) {
       console.log('[ZAPI-ADAPTER] DETECTADO: ReceivedCallback (Z-API)');
       const result = normalizarMensagemZAPI(payload);
       console.log('[ZAPI-ADAPTER] Resultado:', JSON.stringify(result, null, 2));
