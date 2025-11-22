@@ -160,8 +160,8 @@ export default function SearchAndFilter({
                     : 'bg-green-50 text-green-700 border border-green-200 hover:bg-green-100'
                 }`}
                 title={`${integracao.numero_telefone}\n${integracao.status === 'conectado' ? '🟢 Conectado' : '🔴 Desconectado'}`}
-              >
-                📱 {integracao.nome_instancia}
+                >
+                {integracao.status === 'conectado' ? '🟢' : '🔴'} {integracao.nome_instancia}
               </Badge>
             ))}
           </div>
