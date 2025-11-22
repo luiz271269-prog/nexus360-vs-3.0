@@ -16,6 +16,7 @@ import {
   Copy
 } from "lucide-react";
 import { toast } from "sonner";
+import { getWebhookUrlProducao } from "../lib/webhookUtils";
 
 export default function DiagnosticoZAPICentralizado({ integracao, onRecarregar, testarConexao, isTesting }) {
   const [diagnostico, setDiagnostico] = useState(null);
@@ -68,8 +69,7 @@ export default function DiagnosticoZAPICentralizado({ integracao, onRecarregar, 
       });
 
       // Teste 3: Verificar webhook (SEMPRE PRODUÇÃO)
-      const prodUrl = 'https://nexus360-pro.base44.app';
-      const webhookUrlAutomatica = `${prodUrl}/api/functions/webhookWatsZapi`;
+      const webhookUrlAutomatica = getWebhookUrlProducao();
       resultado.testes.push({
         nome: 'Webhook',
         status: 'sucesso',

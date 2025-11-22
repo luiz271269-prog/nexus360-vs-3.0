@@ -14,6 +14,7 @@ import {
   Zap
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { getWebhookUrlIntegracao } from '../components/lib/webhookUtils';
 
 export default function DiagnosticoCirurgico() {
   const [testando, setTestando] = useState(false);
@@ -52,7 +53,7 @@ export default function DiagnosticoCirurgico() {
 
       // ========== TESTE 2: TESTAR CONEXÃO HTTP ==========
       console.log('[DIAG] Testando conexao HTTP com webhook...');
-      const webhookUrlBase = integracao.webhook_url || `${window.location.origin}/api/functions/whatsappWebhook`;
+      const webhookUrlBase = getWebhookUrlIntegracao(integracao);
       const webhookUrl = webhookUrlBase.includes('?') ? `${webhookUrlBase}&debug=true` : `${webhookUrlBase}?debug=true`;
       
       try {

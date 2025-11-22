@@ -27,6 +27,7 @@ import { toast } from "sonner";
 import { format } from "date-fns";
 import DiagnosticoProfissionalZAPI from "./DiagnosticoProfissionalZAPI";
 import AnalisadorMensagensRecebidas from "./AnalisadorMensagensRecebidas";
+import { getWebhookUrlIntegracao } from "../lib/webhookUtils";
 
 export default function DiagnosticoInbound({ integracoes }) {
   const [logs, setLogs] = useState([]);
@@ -58,8 +59,7 @@ export default function DiagnosticoInbound({ integracoes }) {
   };
 
   const copiarWebhookUrl = (integracao) => {
-    const appUrl = window.location.origin;
-    const webhookUrl = `${appUrl}/api/functions/whatsappWebhook`;
+    const webhookUrl = getWebhookUrlIntegracao(integracao);
     navigator.clipboard.writeText(webhookUrl);
     toast.success("URL do webhook copiada!");
   };
@@ -68,7 +68,7 @@ export default function DiagnosticoInbound({ integracoes }) {
     setEnviandoTeste(integracao.id);
     try {
       // ✅ BUSCAR URL DO WEBHOOK DA INTEGRAÇÃO
-      const webhookUrl = integracao.webhook_url || `${window.location.origin}/api/functions/whatsappWebhook`;
+      const webhookUrl = getWebhookUrlIntegracao(integracao);
 
       // ✅ PAYLOAD NO FORMATO REAL DO Z-API
       const payloadTeste = {
