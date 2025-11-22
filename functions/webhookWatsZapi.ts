@@ -1,4 +1,5 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.4';
+import { normalizarTelefone } from './lib/phoneUtils.js';
 
 // Funções do adapter inline para evitar problemas de importação
 function extrairInstanceId(payload) {
@@ -9,15 +10,35 @@ function extrairInstanceId(payload) {
 function normalizarPayloadZAPI(evento) {
   if (!evento) return { type: 'unknown' };
 
-  // Detectar mensagem Z-API (ReceivedCallback)
+  const eventoTipo = String(evento.event || evento.type || 'unknown').toLowerCase();
+  const instanceId = extrairInstanceId(evento);
+
+  // === 1. MessageStatusCallback (Z-API) - Atualização de Status ===
+  // CRÍTICO: Detectar ANTES de ReceivedCallback para evitar mensagens [No content]
+  if (eventoTipo.includes('messagestatuscallback') || (evento.status && evento.ids && !evento.phone)) {
+    return {
+      type: 'message_update',
+      instanceId: instanceId,
+      messageId: evento.ids ? evento.ids[0] : null,
+      status: evento.status, // EX: READ, DELIVERED, SENT
+      timestamp: evento.momment || Date.now()
+    };
+  }
+
+  // === 2. ReceivedCallback (Z-API) - Mensagem Real ===
   if (evento.telefone || evento.phone) {
-    const telefone = evento.telefone || evento.phone;
+    const numeroLimpo = normalizarTelefone(evento.phone || evento.telefone);
+    if (!numeroLimpo) {
+      console.warn('[NORMALIZAR] ❌ Telefone inválido:', evento.phone || evento.telefone);
+      return { type: 'unknown', error: 'Telefone inválido' };
+    }
+
     return {
       type: 'message',
-      instanceId: extrairInstanceId(evento),
+      instanceId: instanceId,
       messageId: evento.messageId,
-      from: telefone.startsWith('+') ? telefone : '+' + telefone,
-      content: evento.text?.message || evento.body || '',
+      from: numeroLimpo, // ✅ Agora limpo, sem @lid
+      content: evento.text?.message || evento.body || evento.buttonsResponseMessage?.message || '',
       mediaType: evento.image ? 'image' : evento.video ? 'video' : evento.audio ? 'audio' : 'none',
       mediaTempUrl: evento.image?.imageUrl || evento.video?.videoUrl || evento.audio?.audioUrl || null,
       mediaCaption: evento.image?.caption || evento.video?.caption || null,
@@ -27,21 +48,20 @@ function normalizarPayloadZAPI(evento) {
     };
   }
 
-  // Outros tipos de evento
-  const eventoTipo = String(evento.event || evento.type || 'unknown').toLowerCase();
-  
+  // === 3. QR Code Update ===
   if (eventoTipo.includes('qrcode')) {
     return {
       type: 'qrcode',
-      instanceId: extrairInstanceId(evento),
+      instanceId: instanceId,
       qrCodeUrl: evento.qrcode || evento.qr || null
     };
   }
   
-  if (eventoTipo.includes('connection') || eventoTipo.includes('status')) {
+  // === 4. Connection Status Update ===
+  if (eventoTipo.includes('connection')) {
     return {
       type: 'connection',
-      instanceId: extrairInstanceId(evento),
+      instanceId: instanceId,
       status: evento.connected ? 'conectado' : 'desconectado'
     };
   }
