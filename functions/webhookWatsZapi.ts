@@ -496,14 +496,22 @@ async function handleMessage(instance, payload, base44, headers, debugMode) {
       thread = threadsExistentes[0];
       console.log('[HANDLER-MESSAGE] Thread found: ' + thread.id);
       
-      await base44.asServiceRole.entities.MessageThread.update(thread.id, {
+      const updateData = {
         last_message_at: new Date().toISOString(),
         last_message_sender: 'contact',
         last_message_content: payload.content ? payload.content.substring(0, 100) : '[No content]',
         unread_count: (thread.unread_count || 0) + 1,
         total_mensagens: (thread.total_mensagens || 0) + 1,
         status: 'aberta'
-      });
+      };
+      
+      // Garantir que o thread tenha a integração correta identificada
+      if (integracaoId && !thread.whatsapp_integration_id) {
+        updateData.whatsapp_integration_id = integracaoId;
+        console.log('[HANDLER-MESSAGE] Integration ID added to thread: ' + integracaoId);
+      }
+      
+      await base44.asServiceRole.entities.MessageThread.update(thread.id, updateData);
     } else {
       thread = await base44.asServiceRole.entities.MessageThread.create({
         contact_id: contato.id,
