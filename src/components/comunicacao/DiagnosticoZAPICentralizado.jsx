@@ -67,12 +67,13 @@ export default function DiagnosticoZAPICentralizado({ integracao, onRecarregar, 
           : 'Tokens incompletos ou ausentes'
       });
 
-      // Teste 3: Verificar webhook (CALCULADO DINAMICAMENTE)
-      const webhookUrlAutomatica = `${window.location.origin}/api/functions/webhookWatsZapi`;
+      // Teste 3: Verificar webhook (SEMPRE PRODUÇÃO)
+      const prodUrl = 'https://nexus360-pro.base44.app';
+      const webhookUrlAutomatica = `${prodUrl}/api/functions/webhookWatsZapi`;
       resultado.testes.push({
         nome: 'Webhook',
         status: 'sucesso',
-        mensagem: 'URL gerada automaticamente pelo sistema',
+        mensagem: 'URL de PRODUÇÃO (use esta na Z-API)',
         webhookUrl: webhookUrlAutomatica
       });
 
