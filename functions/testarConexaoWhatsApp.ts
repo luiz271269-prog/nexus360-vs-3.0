@@ -15,41 +15,46 @@ Deno.serve(async (req) => {
     const base44 = createClientFromRequest(req);
     const body = await req.json();
 
-    const { integracaoId, instanceId, tokenInstancia, clientToken, baseUrl } = body;
+    const { integration_id } = body;
 
-    console.log('[TESTE_CONEXAO] 🔍 Parâmetros recebidos para diagnóstico:', {
-      integracaoId: integracaoId ? '✓' : '✗',
-      instanceId: instanceId ? `✓ (${instanceId.substring(0, 8)}...)` : '✗',
-      tokenInstancia: tokenInstancia ? '✓ (presente)' : '✗',
-      clientToken: clientToken ? '✓ (presente)' : '✗',
-      baseUrl: baseUrl || '(não informado)'
-    });
-
-    // Validação de parâmetros
-    if (!integracaoId || !instanceId || !tokenInstancia || !clientToken) {
-      console.error('[TESTE_CONEXAO] ❌ Parâmetros obrigatórios faltando');
+    if (!integration_id) {
       return new Response(
         JSON.stringify({
           success: false,
-          error: 'Parâmetros obrigatórios faltando no backend: integracaoId, instanceId, tokenInstancia, clientToken'
+          error: 'integration_id é obrigatório'
         }),
         { status: 400, headers }
       );
     }
-    
-    // Validar formato do Instance ID
-    if (instanceId.includes('http') || instanceId.includes('/')) {
-        return new Response(
-            JSON.stringify({
-                success: false,
-                error: 'Instance ID inválido: não deve conter URL, apenas o ID (ex: 3E5D2BD1BF421127B24ECEF0269361A3)'
-            }),
-            { status: 400, headers }
-        );
+
+    // Buscar integração
+    const integracoes = await base44.entities.WhatsAppIntegration.filter({ id: integration_id });
+    if (integracoes.length === 0) {
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: 'Integração não encontrada'
+        }),
+        { status: 404, headers }
+      );
     }
 
-    // Endpoint de diagnóstico Z-API - CORRIGIDO
-    const urlBase = (baseUrl || 'https://api.z-api.io').replace(/\/$/, '');
+    const integracao = integracoes[0];
+    const instanceId = integracao.instance_id_provider;
+    const tokenInstancia = integracao.api_key_provider;
+    const clientToken = integracao.security_client_token_header;
+    const baseUrl = integracao.base_url_provider || 'https://api.z-api.io';
+
+    console.log('[TESTE_CONEXAO] 🔍 Testando integração:', {
+      id: integration_id,
+      nome: integracao.nome_instancia,
+      instanceId: instanceId ? `✓ (${instanceId.substring(0, 8)}...)` : '✗',
+      tokenInstancia: tokenInstancia ? '✓ (presente)' : '✗',
+      clientToken: clientToken ? '✓ (presente)' : '✗'
+    });
+
+    // Endpoint de diagnóstico Z-API
+    const urlBase = baseUrl.replace(/\/$/, '');
     const urlDiagnostico = `${urlBase}/instances/${instanceId}/token/${tokenInstancia}/status`;
         
     console.log('[TESTE_CONEXAO] 🌐 Verificando status via Z-API endpoint:', urlDiagnostico.replace(tokenInstancia, '***'));
@@ -88,7 +93,7 @@ Deno.serve(async (req) => {
 
     // Atualizar status da integração no Base44
     if (sucessoConexao) {
-        await base44.asServiceRole.entities.WhatsAppIntegration.update(integracaoId, {
+        await base44.asServiceRole.entities.WhatsAppIntegration.update(integration_id, {
             status: 'conectado',
             ultima_atividade: new Date().toISOString()
         });
@@ -97,20 +102,22 @@ Deno.serve(async (req) => {
         return new Response(
             JSON.stringify({
                 success: true,
+                conectado: true,
                 message: `✅ Diagnóstico concluído com sucesso! ${mensagemStatus}`,
+                instanceName: data.instanceName || integracao.nome_instancia,
                 data: data,
                 dados: {
                     conectado: true,
                     smartphoneConectado: data.connected || data.status === 'connected',
-                    nomeInstancia: data.instanceName || integracaoId,
-                    telefone: data.phone || integracaoId,
+                    nomeInstancia: data.instanceName || integracao.nome_instancia,
+                    telefone: data.phone || integracao.numero_telefone,
                     statusCompleto: data
                 }
             }),
             { status: 200, headers }
         );
     } else {
-        await base44.asServiceRole.entities.WhatsAppIntegration.update(integracaoId, {
+        await base44.asServiceRole.entities.WhatsAppIntegration.update(integration_id, {
             status: 'desconectado',
             ultima_atividade: new Date().toISOString()
         });
@@ -119,6 +126,7 @@ Deno.serve(async (req) => {
         return new Response(
             JSON.stringify({
                 success: false,
+                conectado: false,
                 error: `Falha na conexão: ${mensagemStatus}`,
                 detalhes: `Erro HTTP: ${zapiResponse.status}. Resposta Z-API: ${JSON.stringify(data)}`
             }),

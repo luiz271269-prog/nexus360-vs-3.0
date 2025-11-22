@@ -59,7 +59,7 @@ export default function DiagnosticoInbound({ integracoes }) {
 
   const copiarWebhookUrl = (integracao) => {
     const appUrl = window.location.origin;
-    const webhookUrl = `${appUrl}/api/functions/inboundWebhook?provider=z_api&instance=${integracao.instance_id_provider}`;
+    const webhookUrl = `${appUrl}/api/functions/whatsappWebhook`;
     navigator.clipboard.writeText(webhookUrl);
     toast.success("URL do webhook copiada!");
   };
@@ -151,65 +151,9 @@ export default function DiagnosticoInbound({ integracoes }) {
         </Button>
       </div>
 
-      {/* 🆕 CARD DE ACESSO RÁPIDO AOS TESTES DE PRÉ-ATENDIMENTO */}
-      <Card className="border-2 border-purple-200 bg-gradient-to-r from-purple-50 to-indigo-50">
-        <CardContent className="pt-6">
-          <div className="flex items-start gap-4">
-            <div className="w-12 h-12 bg-gradient-to-br from-purple-600 to-indigo-600 rounded-xl flex items-center justify-center flex-shrink-0">
-              <MessageSquare className="w-6 h-6 text-white" />
-            </div>
-            <div className="flex-1">
-              <h3 className="text-lg font-bold text-purple-900 mb-2">
-                🧪 Testes de Pré-atendimento
-              </h3>
-              <p className="text-sm text-purple-700 mb-4">
-                Ambiente isolado para testar o fluxo completo de pré-atendimento: 
-                menu de setores, seleção de atendentes e atribuição de conversas.
-              </p>
-              <a
-                href="/TestesPreAtendimento"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-lg hover:from-purple-700 hover:to-indigo-700 transition-all shadow-lg hover:shadow-xl"
-              >
-                <Play className="w-4 h-4" />
-                Abrir Página de Testes
-                <ExternalLink className="w-4 h-4" />
-              </a>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
 
-      {/* 🆕 CARD DE TESTE DIRETO DO WEBHOOK */}
-      <Card className="border-2 border-orange-200 bg-gradient-to-r from-orange-50 to-red-50">
-        <CardContent className="pt-6">
-          <div className="flex items-start gap-4">
-            <div className="w-12 h-12 bg-gradient-to-br from-orange-600 to-red-600 rounded-xl flex items-center justify-center flex-shrink-0">
-              <Activity className="w-6 h-6 text-white" />
-            </div>
-            <div className="flex-1">
-              <h3 className="text-lg font-bold text-orange-900 mb-2">
-                🔍 Diagnóstico Direto do Webhook
-              </h3>
-              <p className="text-sm text-orange-700 mb-4">
-                Teste direto do navegador para o webhook com análise completa de status HTTP, 
-                tempo de resposta, payload e variações de URL.
-              </p>
-              <a
-                href="/TesteWebhookDireto"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-orange-600 to-red-600 text-white rounded-lg hover:from-orange-700 hover:to-red-700 transition-all shadow-lg hover:shadow-xl"
-              >
-                <Play className="w-4 h-4" />
-                Executar Diagnóstico
-                <ExternalLink className="w-4 h-4" />
-              </a>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+
+
 
       {/* 🆕 ANALISADOR DE MENSAGENS RECEBIDAS - DIAGNÓSTICO EM TEMPO REAL */}
       <AnalisadorMensagensRecebidas />
@@ -217,52 +161,7 @@ export default function DiagnosticoInbound({ integracoes }) {
       {/* Sistema de Diagnóstico Profissional */}
       <DiagnosticoProfissionalZAPI integracoes={integracoes} />
 
-      {/* Grid de Testes Extras */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {/* Card: Teste Fluxo Controlado */}
-        <Card className="border-2 border-purple-300 bg-gradient-to-r from-purple-50 to-indigo-50">
-          <CardHeader>
-            <CardTitle className="text-sm font-bold text-purple-900 flex items-center gap-2">
-              <Zap className="w-5 h-5" />
-              🔬 Teste de Fluxo Controlado
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            <p className="text-sm text-purple-800">
-              Replica EXATAMENTE o fluxo do webhook com logs detalhados de cada etapa para 
-              identificar onde está falhando a persistência.
-            </p>
-            <Button
-              onClick={() => window.open('/pages/TesteFluxoControlado', '_blank')}
-              className="w-full bg-purple-600 hover:bg-purple-700"
-            >
-              🚀 Abrir Teste Controlado
-            </Button>
-          </CardContent>
-        </Card>
 
-        {/* Card: Teste Persistência Direta */}
-        <Card className="border-2 border-indigo-300 bg-gradient-to-r from-indigo-50 to-blue-50">
-          <CardHeader>
-            <CardTitle className="text-sm font-bold text-indigo-900 flex items-center gap-2">
-              <Database className="w-5 h-5" />
-              💾 Teste de Persistência Direta
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            <p className="text-sm text-indigo-800">
-              Testa se o Service Role consegue persistir dados diretamente no banco.
-              Identifica se o problema é permissão ou código.
-            </p>
-            <Button
-              onClick={() => window.open('/pages/TestePersistenciaDireta', '_blank')}
-              className="w-full bg-indigo-600 hover:bg-indigo-700"
-            >
-              🔍 Abrir Teste Persistência
-            </Button>
-          </CardContent>
-        </Card>
-      </div>
     </div>
   );
 }

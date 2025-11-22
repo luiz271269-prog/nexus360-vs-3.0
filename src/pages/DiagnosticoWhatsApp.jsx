@@ -550,7 +550,7 @@ export default function DiagnosticoWhatsApp() {
                   <strong>Webhooks não estão chegando?</strong>
                   <ul className="mt-2 ml-4 list-disc text-sm space-y-1">
                     <li>Verifique se a URL do webhook está configurada no painel da Z-API</li>
-                    <li>A URL deve ser: <code className="bg-slate-100 px-2 py-1 rounded">https://[SEU_DOMINIO]/functions/inboundWebhook?provider=z_api&instance=[NOME_INSTANCIA]</code></li>
+                    <li>A URL deve ser: <code className="bg-slate-100 px-2 py-1 rounded">https://[SEU_DOMINIO]/api/functions/whatsappWebhook</code></li>
                     <li>Certifique-se de que o HTTPS está habilitado</li>
                   </ul>
                 </AlertDescription>
