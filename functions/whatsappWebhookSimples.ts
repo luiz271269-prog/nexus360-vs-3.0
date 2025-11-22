@@ -1,6 +1,4 @@
-// WEBHOOK SIMPLIFICADO - TESTE DE DEPLOYMENT
-// VERSION: v1.0.0-SIMPLE
-// BUILD: 2025-11-21T15:10:00Z
+// WEBHOOK SIMPLIFICADO 
 
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.4';
 
