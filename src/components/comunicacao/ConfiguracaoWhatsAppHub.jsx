@@ -244,8 +244,8 @@ export default function ConfiguracaoWhatsAppHub({ integracoes, onRecarregar }) {
         hasClientToken: !!integracao.security_client_token_header
       });
 
-      // URL CORRIGIDA para o webhook ÚNICO: whatsappWebhook
-      const webhookUrl = `${window.location.origin}/api/functions/whatsappWebhook`;
+      // URL CORRIGIDA para o webhook ÚNICO: webhookWatsZapi
+      const webhookUrl = `${window.location.origin}/api/functions/webhookWatsZapi`;
       
       const response = await base44.functions.invoke('testarConexaoWhatsApp', {
         integration_id: integracao.id // Usar o parâmetro correto
