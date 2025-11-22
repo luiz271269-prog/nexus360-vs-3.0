@@ -17,7 +17,7 @@ export function getWebhookUrlProducao() {
  */
 export function getWebhookUrlAmbienteAtual() {
   const origin = typeof window !== 'undefined' ? window.location.origin : '';
-  return `${origin}/api/functions/webhookWatsZapi`;
+  return `${origin}/api/apps/68a7d067890527304dbe8477/functions/webhookWatsZapi`;
 }
 
 /**
