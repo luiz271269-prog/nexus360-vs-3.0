@@ -198,45 +198,44 @@ Deno.serve(async (req) => {
       console.warn('[' + VERSION + '] Unknown payload type, checking emergency bypass');
       console.warn('[' + VERSION + '] Checking for Z-API direct structure...');
       
-      // Detectar mensagem Z-API direta
-      if ((evento.telefone || evento.phone) && evento.messageId) {
+      // Detectar mensagem Z-API direta (EXCLUIR MessageStatusCallback)
+      if ((evento.telefone || evento.phone) && evento.messageId && !evento.status && !evento.ids) {
         console.warn('[' + VERSION + '] EMERGENCY BYPASS: Detected Z-API message by structure');
-        const telefone = evento.telefone || evento.phone;
-        const telefoneFormatado = telefone.startsWith('+') ? telefone : '+' + telefone;
+        const numeroLimpo = normalizarTelefone(evento.telefone || evento.phone);
         
-        payloadNormalizado = {
-          type: 'message',
-          instanceId: instanceId,
-          messageId: evento.messageId,
-          from: telefoneFormatado,
-          content: evento.text?.message || evento.body || '[Message content missing]',
-          mediaType: evento.image ? 'image' : evento.video ? 'video' : evento.audio ? 'audio' : 'none',
-          mediaTempUrl: evento.image?.imageUrl || evento.video?.videoUrl || evento.audio?.audioUrl || null,
-          mediaCaption: evento.image?.caption || evento.video?.caption || null,
-          timestamp: evento.momment || evento.timestamp || Date.now(),
-          isFromMe: evento.fromMe || false,
-          pushName: evento.senderName || evento.chatName || null
-        };
+        if (numeroLimpo) {
+          payloadNormalizado = {
+            type: 'message',
+            instanceId: instanceId,
+            messageId: evento.messageId,
+            from: numeroLimpo,
+            content: evento.text?.message || evento.body || '[Message content missing]',
+            mediaType: evento.image ? 'image' : evento.video ? 'video' : evento.audio ? 'audio' : 'none',
+            mediaTempUrl: evento.image?.imageUrl || evento.video?.videoUrl || evento.audio?.audioUrl || null,
+            mediaCaption: evento.image?.caption || evento.video?.caption || null,
+            timestamp: evento.momment || evento.timestamp || Date.now(),
+            isFromMe: evento.fromMe || false,
+            pushName: evento.senderName || evento.chatName || null
+          };
+        }
       }
-      else if (rawEventStr.includes('receivedcallback') || 
-               rawEventStr.includes('message') || 
-               rawEventStr.includes('received') ||
-               rawEventStr.includes('callback')) {
+      else if (rawEventStr.includes('receivedcallback') && !evento.status && !evento.ids) {
         console.warn('[' + VERSION + '] EMERGENCY BYPASS: Detected by event name');
-        const telefone = evento.phone || evento.telefone || 'unknown';
-        const telefoneFormatado = telefone.startsWith('+') ? telefone : '+' + telefone;
+        const numeroLimpo = normalizarTelefone(evento.phone || evento.telefone || '');
         
-        payloadNormalizado = {
-          type: 'message',
-          instanceId: instanceId,
-          messageId: evento.messageId || 'FALLBACK_' + Date.now(),
-          from: telefoneFormatado,
-          content: evento.text?.message || evento.body || '[Recovered message]',
-          mediaType: 'none',
-          timestamp: evento.momment || evento.timestamp || Date.now(),
-          isFromMe: evento.fromMe || false,
-          pushName: evento.senderName || evento.chatName || null
-        };
+        if (numeroLimpo) {
+          payloadNormalizado = {
+            type: 'message',
+            instanceId: instanceId,
+            messageId: evento.messageId || 'FALLBACK_' + Date.now(),
+            from: numeroLimpo,
+            content: evento.text?.message || evento.body || '[Recovered message]',
+            mediaType: 'none',
+            timestamp: evento.momment || evento.timestamp || Date.now(),
+            isFromMe: evento.fromMe || false,
+            pushName: evento.senderName || evento.chatName || null
+          };
+        }
       }
       
       if (!payloadNormalizado || payloadNormalizado.type === 'unknown') {
