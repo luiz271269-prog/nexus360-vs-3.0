@@ -335,7 +335,7 @@ async function executarEtapa2(integracao) {
 async function executarEtapa3(base44, integracao) {
   const inicio = Date.now();
   const testes = [];
-  const webhookUrl = integracao.webhook_url || `${Deno.env.get('BASE44_APP_URL') || 'http://localhost:8000'}/api/functions/webhookWatsZapi`;
+  const webhookUrl = 'https://nexus360-pro.base44.app/api/functions/webhookWatsZapi';
   
   // IDs únicos para rastreamento
   const timestampBase = Date.now();
