@@ -161,7 +161,7 @@ async function executarEtapa1(integracao) {
 async function executarEtapa2(integracao) {
   const inicio = Date.now();
   const testes = [];
-  const webhookUrl = integracao.webhook_url || `${Deno.env.get('BASE44_APP_URL') || 'http://localhost:8000'}/api/functions/webhookWatsZapi`;
+  const webhookUrl = 'https://nexus360-pro.base44.app/api/functions/webhookWatsZapi';
 
   // Teste 1: GET Health Check
   const t1Inicio = Date.now();
