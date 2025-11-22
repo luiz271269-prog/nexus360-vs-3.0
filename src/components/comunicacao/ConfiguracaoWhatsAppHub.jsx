@@ -321,7 +321,7 @@ export default function ConfiguracaoWhatsAppHub({ integracoes, onRecarregar }) {
               <div>
                 <h2 className="text-2xl font-bold text-green-900">Gerenciar Conexões WhatsApp</h2>
                 <p className="text-green-700 mt-1">
-                  Z-API - Configure múltiplas instâncias
+                  Z-API - Configure multiplas instancias
                 </p>
                 <div className="flex gap-2 mt-3">
                   <Badge className="bg-green-100 text-green-800">
@@ -478,7 +478,7 @@ export default function ConfiguracaoWhatsAppHub({ integracoes, onRecarregar }) {
 
             <Alert className="bg-blue-50 border-blue-200">
               <Zap className="h-4 w-4 text-blue-600" />
-              <AlertTitle className="text-blue-900">Onde encontrar as credenciais da Z-API</AlertTitle>
+              <AlertTitle className="text-blue-900">Localizacao das credenciais Z-API</AlertTitle>
               <AlertDescription className="text-blue-800 text-sm">
                 <ol className="list-decimal ml-4 mt-2 space-y-1">
                   <li>Acesse <a href="https://www.z-api.io" target="_blank" rel="noopener noreferrer" className="underline font-semibold">https://www.z-api.io</a></li>

@@ -322,7 +322,7 @@ export default function Comunicacao() {
               </div>
               <div>
                 <h1 className="text-2xl font-bold bg-gradient-to-r from-amber-400 via-orange-500 to-red-500 bg-clip-text text-transparent">
-                  💬 Central de Comunicação
+                  Central de Comunicacao
                 </h1>
                 <p className="text-sm text-slate-300">
                   WhatsApp, Templates e Automação
@@ -338,7 +338,7 @@ export default function Comunicacao() {
                   size="sm"
                   className="border-white/30 text-white hover:bg-white/20"
                 >
-                  ⚠️ Configurar Webhook
+                  Configurar Webhook
                 </Button>
               )}
 

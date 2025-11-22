@@ -1,5 +1,6 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.4';
 import { normalizarTelefone } from './lib/phoneUtils.js';
+import { connectionManager } from './lib/connectionManager.js';
 
 // Funções do adapter inline para evitar problemas de importação
 function extrairInstanceId(payload) {
@@ -13,8 +14,8 @@ function normalizarPayloadZAPI(evento) {
   const eventoTipo = String(evento.event || evento.type || 'unknown').toLowerCase();
   const instanceId = extrairInstanceId(evento);
 
-  // === 1. MessageStatusCallback (Z-API) - Atualização de Status ===
-  // CRÍTICO: Detectar ANTES de ReceivedCallback para evitar mensagens [No content]
+  // === 1. MessageStatusCallback (Z-API) - Atualizacao de Status ===
+  // CRITICO: Detectar ANTES de ReceivedCallback para evitar mensagens [No content]
   if (eventoTipo.includes('messagestatuscallback') || (evento.status && evento.ids && !evento.phone)) {
     return {
       type: 'message_update',
@@ -29,7 +30,7 @@ function normalizarPayloadZAPI(evento) {
   if (evento.telefone || evento.phone) {
     const numeroLimpo = normalizarTelefone(evento.phone || evento.telefone);
     if (!numeroLimpo) {
-      console.warn('[NORMALIZAR] ❌ Telefone inválido:', evento.phone || evento.telefone);
+      console.warn('[NORMALIZAR] Telefone invalido:', evento.phone || evento.telefone);
       return { type: 'unknown', error: 'Telefone inválido' };
     }
 
@@ -37,7 +38,7 @@ function normalizarPayloadZAPI(evento) {
       type: 'message',
       instanceId: instanceId,
       messageId: evento.messageId,
-      from: numeroLimpo, // ✅ Agora limpo, sem @lid
+      from: numeroLimpo, // Normalizado sem sufixos WhatsApp
       content: evento.text?.message || evento.body || evento.buttonsResponseMessage?.message || '',
       mediaType: evento.image ? 'image' : evento.video ? 'video' : evento.audio ? 'audio' : 'none',
       mediaTempUrl: evento.image?.imageUrl || evento.video?.videoUrl || evento.audio?.audioUrl || null,
@@ -77,9 +78,9 @@ function validarPayloadNormalizado(payload) {
 }
 
 // VERSÃO AUTO-ATUALIZADA - Modifique quando publicar uma nova versão
-const VERSION = 'v3.5.0';
-const BUILD_DATE = '2025-01-22'; // Data do último deploy
-const DEPLOYED_AT = new Date().toISOString(); // Auto-capturado no startup
+const VERSION = 'v4.0.0';
+const BUILD_DATE = '2025-01-22';
+const DEPLOYED_AT = new Date().toISOString();
 
 console.log('=============================================================');
 console.log('         WHATSAPP WEBHOOK - STARTUP                        ');
@@ -87,6 +88,7 @@ console.log('=============================================================');
 console.log('VERSION:', VERSION);
 console.log('BUILD DATE:', BUILD_DATE);
 console.log('DEPLOYED AT:', DEPLOYED_AT);
+console.log('MULTI-CONNECTION MANAGER: ACTIVE');
 console.log('=============================================================');
 
 const corsHeaders = {
@@ -110,12 +112,14 @@ Deno.serve(async (req) => {
 
   if (req.method === 'GET') {
     console.log('[' + VERSION + '] Health check OK');
+    const metrics = connectionManager.getMetrics();
     return new Response(JSON.stringify({ 
       version: VERSION, 
       build_date: BUILD_DATE,
       deployed_at: DEPLOYED_AT,
       status: 'operational',
       uptime_seconds: Math.floor((Date.now() - new Date(DEPLOYED_AT).getTime()) / 1000),
+      connection_manager: metrics,
       timestamp: new Date().toISOString()
     }), { 
       status: 200, 
@@ -168,6 +172,13 @@ Deno.serve(async (req) => {
     console.log('[' + VERSION + '] Event Type: ' + eventoTipo);
     console.log('[' + VERSION + '] Instance ID: ' + instanceId);
     console.log('[' + VERSION + '] Full payload: ' + JSON.stringify(evento).substring(0, 500));
+
+    // Registrar/atualizar conexão no gerenciador
+    connectionManager.register(instanceId, {
+      provider: 'z_api',
+      phone: evento.phone || evento.telefone,
+      instanceName: evento.instanceName
+    });
 
     try {
       const auditLog = await base44.asServiceRole.entities.ZapiPayloadNormalized.create({
@@ -257,6 +268,11 @@ Deno.serve(async (req) => {
           normalized_type: payloadNormalizado?.type || 'null'
         }
       }, { status: 200, headers: corsHeaders });
+    }
+
+    // Validar se a conexão está ativa antes de processar
+    if (!connectionManager.isActive(instanceId)) {
+      console.warn('[' + VERSION + '] Connection is INACTIVE: ' + instanceId);
     }
 
     console.log('[' + VERSION + '] Routing to handler: ' + payloadNormalizado.type);
