@@ -1,9 +1,60 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.4';
-import { 
-  normalizarPayloadZAPI, 
-  extrairInstanceId,
-  validarPayloadNormalizado
-} from './adapters/zapiAdapter.js';
+
+// Funções do adapter inline para evitar problemas de importação
+function extrairInstanceId(payload) {
+  return payload.instance || payload.instanceId || payload.instance_id || 
+         payload.instance_id_provider || payload.instanceName || 'unknown';
+}
+
+function normalizarPayloadZAPI(evento) {
+  if (!evento) return { type: 'unknown' };
+
+  // Detectar mensagem Z-API (ReceivedCallback)
+  if (evento.telefone || evento.phone) {
+    const telefone = evento.telefone || evento.phone;
+    return {
+      type: 'message',
+      instanceId: extrairInstanceId(evento),
+      messageId: evento.messageId,
+      from: telefone.startsWith('+') ? telefone : '+' + telefone,
+      content: evento.text?.message || evento.body || '',
+      mediaType: evento.image ? 'image' : evento.video ? 'video' : evento.audio ? 'audio' : 'none',
+      mediaTempUrl: evento.image?.imageUrl || evento.video?.videoUrl || evento.audio?.audioUrl || null,
+      mediaCaption: evento.image?.caption || evento.video?.caption || null,
+      timestamp: evento.momment || evento.timestamp || Date.now(),
+      isFromMe: evento.fromMe || false,
+      pushName: evento.senderName || evento.chatName || null
+    };
+  }
+
+  // Outros tipos de evento
+  const eventoTipo = String(evento.event || evento.type || 'unknown').toLowerCase();
+  
+  if (eventoTipo.includes('qrcode')) {
+    return {
+      type: 'qrcode',
+      instanceId: extrairInstanceId(evento),
+      qrCodeUrl: evento.qrcode || evento.qr || null
+    };
+  }
+  
+  if (eventoTipo.includes('connection') || eventoTipo.includes('status')) {
+    return {
+      type: 'connection',
+      instanceId: extrairInstanceId(evento),
+      status: evento.connected ? 'conectado' : 'desconectado'
+    };
+  }
+
+  return { type: 'unknown' };
+}
+
+function validarPayloadNormalizado(payload) {
+  if (!payload) return { valido: false, erro: 'Payload nulo' };
+  if (payload.type === 'unknown') return { valido: false, erro: 'Tipo desconhecido' };
+  if (!payload.instanceId) return { valido: false, erro: 'Instance ID ausente' };
+  return { valido: true };
+}
 
 // VERSÃO AUTO-ATUALIZADA - Modifique quando publicar uma nova versão
 const VERSION = 'v3.5.0';
