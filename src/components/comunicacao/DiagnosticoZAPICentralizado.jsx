@@ -27,7 +27,7 @@ export default function DiagnosticoZAPICentralizado({ integracao, onRecarregar, 
     setDiagnostico(null);
 
     try {
-      console.log('[DIAGNOSTICO] 🚀 Iniciando diagnóstico completo da instância:', integracao.instance_id_provider);
+      console.log('[DIAGNOSTICO] Iniciando diagnóstico completo da instância:', integracao.instance_id_provider);
 
       const resultado = {
         timestamp: new Date().toISOString(),
@@ -83,13 +83,13 @@ export default function DiagnosticoZAPICentralizado({ integracao, onRecarregar, 
       const total = resultado.testes.length;
       
       if (sucessos === total) {
-        toast.success(`✅ Diagnóstico completo: ${sucessos}/${total} testes OK`);
+        toast.success(`Diagnóstico completo: ${sucessos}/${total} testes OK`);
       } else {
-        toast.warning(`⚠️ Diagnóstico completo: ${sucessos}/${total} testes OK`);
+        toast.warning(`Diagnóstico completo: ${sucessos}/${total} testes OK`);
       }
 
     } catch (error) {
-      console.error('[DIAGNOSTICO] ❌ Erro ao executar teste:', error);
+      console.error('[DIAGNOSTICO] Erro ao executar teste:', error);
       toast.error('Erro ao executar diagnóstico');
       
       setDiagnostico({
@@ -212,7 +212,7 @@ export default function DiagnosticoZAPICentralizado({ integracao, onRecarregar, 
                             <Copy className="w-3 h-3" />
                           </Button>
                         </div>
-                        <p className="text-xs text-green-700">✅ URL configurada e pronta para uso na Z-API</p>
+                        <p className="text-xs text-green-700">URL configurada e pronta para uso na Z-API</p>
                       </div>
                     ) : (
                       <p className="text-sm text-gray-700">{teste.mensagem}</p>
