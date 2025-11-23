@@ -170,7 +170,6 @@ export default function SearchAndFilter({
           </div>
         </div>
       )}
-
     </div>
   );
 }

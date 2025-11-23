@@ -83,7 +83,7 @@ export default function CategorizadorRapido({ thread, onUpdate }) {
         </DropdownMenuContent>
       </DropdownMenu>
 
-      {/* Badges visuais das categorias ativas - Melhorados */}
+      {/* Badges visuais das categorias ativas */}
       {categorias.map(cat => {
         const config = CATEGORIAS_DISPONIVEIS.find(c => c.value === cat);
         if (!config) return null;
@@ -91,11 +91,12 @@ export default function CategorizadorRapido({ thread, onUpdate }) {
         return (
           <Badge 
             key={cat}
-            className={`${config.color} text-white border-0 gap-1.5 cursor-pointer hover:opacity-80 transition-all shadow-sm px-2.5 py-1`}
+            className={`${config.color} text-white border-0 gap-1.5 cursor-pointer hover:opacity-80 transition-all shadow-md px-3 py-1.5 text-sm font-medium`}
             onClick={() => toggleCategoria(cat)}
+            title="Clique para remover"
           >
-            <span className="font-medium">{config.label}</span>
-            <X className="w-3.5 h-3.5 hover:scale-110 transition-transform" />
+            <span>{config.label}</span>
+            <X className="w-4 h-4 hover:scale-125 transition-transform" />
           </Badge>
         );
       })}
