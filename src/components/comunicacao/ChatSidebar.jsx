@@ -59,11 +59,15 @@ export default function ChatSidebar({ threads, threadAtiva, onSelecionarThread, 
     return dateB - dateA;
   });
 
-  // Função para buscar nome da integração
-  const getIntegracaoNome = (thread) => {
+  // Função para buscar nome e número da integração
+  const getIntegracaoInfo = (thread) => {
     if (!thread.whatsapp_integration_id || integracoes.length === 0) return null;
     const integracao = integracoes.find(i => i.id === thread.whatsapp_integration_id);
-    return integracao?.nome_instancia || null;
+    if (!integracao) return null;
+    return {
+      nome: integracao.nome_instancia,
+      numero: integracao.numero_telefone
+    };
   };
 
   if (threadsSorted.length === 0) {
@@ -237,15 +241,18 @@ export default function ChatSidebar({ threads, threadAtiva, onSelecionarThread, 
                     Não Atribuída
                   </p>
                 )}
-                {getIntegracaoNome(thread) && (
-                  <Badge 
-                    variant="outline" 
-                    className="text-xs py-0 px-1.5 h-5 bg-green-50 text-green-700 border-green-200 cursor-help"
-                    title={`Canal: ${integracoes.find(i => i.id === thread.whatsapp_integration_id)?.numero_telefone || 'N/A'}`}
-                  >
-                    📱 {getIntegracaoNome(thread)}
-                  </Badge>
-                )}
+                {(() => {
+                  const info = getIntegracaoInfo(thread);
+                  return info && (
+                    <Badge 
+                      variant="outline" 
+                      className="text-xs py-0 px-1.5 h-5 bg-green-50 text-green-700 border-green-200 cursor-help"
+                      title={`Canal WhatsApp: ${info.numero}`}
+                    >
+                      📱 {info.numero}
+                    </Badge>
+                  );
+                })()}
                 {/* Badges de Categorias */}
                 {thread.categorias && thread.categorias.length > 0 && (
                   thread.categorias.slice(0, 2).map(cat => {
