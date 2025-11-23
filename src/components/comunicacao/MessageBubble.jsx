@@ -30,6 +30,7 @@ import {
 import ReactMarkdown from 'react-markdown';
 import { CATEGORIAS_FIXAS, getCategoriaConfig } from './CategorizadorRapido';
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { base44 } from "@/api/base44Client";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -147,6 +148,17 @@ export default function MessageBubble({
   const [contatosSelecionados, setContatosSelecionados] = useState([]);
   const [buscaContato, setBuscaContato] = useState("");
   const [carregandoContatos, setCarregandoContatos] = useState(false);
+
+  const queryClient = useQueryClient();
+
+  // Buscar categorias dinâmicas
+  const { data: categoriasDB = [] } = useQuery({
+    queryKey: ['categorias-mensagens'],
+    queryFn: () => base44.entities.CategoriasMensagens.filter({ ativa: true }, 'nome'),
+    staleTime: 5 * 60 * 1000
+  });
+
+  const todasCategorias = [...CATEGORIAS_FIXAS, ...categoriasDB];
 
   const isSystemMessage = message.sender_type === 'system';
 
@@ -326,7 +338,6 @@ export default function MessageBubble({
     setCategorizando(true);
     try {
       const categoriaNormalizada = nomeCategoria.toLowerCase().replace(/\s+/g, '_');
-      const queryClient = useQueryClient?.();
 
       // Verificar se categoria já existe no banco
       const existente = categoriasDB.find(c => c.nome === categoriaNormalizada);
@@ -343,9 +354,7 @@ export default function MessageBubble({
           uso_count: 1
         });
         
-        if (queryClient) {
-          queryClient.invalidateQueries({ queryKey: ['categorias-mensagens'] });
-        }
+        queryClient.invalidateQueries({ queryKey: ['categorias-mensagens'] });
       }
 
       // Adicionar à thread
