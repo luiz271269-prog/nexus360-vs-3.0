@@ -1,9 +1,10 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Tag, Check, X } from "lucide-react";
 import { base44 } from "@/api/base44Client";
 import { toast } from "sonner";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -13,15 +14,15 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 
-const CATEGORIAS_DISPONIVEIS = [
-  { value: 'venda', label: '💰 Venda', color: 'bg-green-500' },
-  { value: 'suporte', label: '🛠️ Suporte', color: 'bg-blue-500' },
-  { value: 'urgente', label: '🚨 Urgente', color: 'bg-red-500' },
-  { value: 'aguardando_pagamento', label: '💳 Aguardando Pagamento', color: 'bg-yellow-500' },
-  { value: 'cotacao', label: '📋 Cotação', color: 'bg-purple-500' },
-  { value: 'pos_venda', label: '✅ Pós-Venda', color: 'bg-indigo-500' },
-  { value: 'duvida', label: '❓ Dúvida', color: 'bg-gray-500' },
-  { value: 'reclamacao', label: '⚠️ Reclamação', color: 'bg-orange-500' }
+const CATEGORIAS_FIXAS = [
+  { nome: 'venda', label: 'Venda', emoji: '💰', cor: 'bg-green-500', tipo: 'fixa' },
+  { nome: 'suporte', label: 'Suporte', emoji: '🛠️', cor: 'bg-blue-500', tipo: 'fixa' },
+  { nome: 'urgente', label: 'Urgente', emoji: '🚨', cor: 'bg-red-500', tipo: 'fixa' },
+  { nome: 'aguardando_pagamento', label: 'Aguardando Pagamento', emoji: '💳', cor: 'bg-yellow-500', tipo: 'fixa' },
+  { nome: 'cotacao', label: 'Cotação', emoji: '📋', cor: 'bg-purple-500', tipo: 'fixa' },
+  { nome: 'pos_venda', label: 'Pós-Venda', emoji: '✅', cor: 'bg-indigo-500', tipo: 'fixa' },
+  { nome: 'duvida', label: 'Dúvida', emoji: '❓', cor: 'bg-gray-500', tipo: 'fixa' },
+  { nome: 'reclamacao', label: 'Reclamação', emoji: '⚠️', cor: 'bg-orange-500', tipo: 'fixa' }
 ];
 
 export default function CategorizadorRapido({ thread, onUpdate }) {
@@ -29,6 +30,23 @@ export default function CategorizadorRapido({ thread, onUpdate }) {
   const [novaCategoria, setNovaCategoria] = useState('');
   const [adicionandoNova, setAdicionandoNova] = useState(false);
   const categorias = thread?.categorias || [];
+  const queryClient = useQueryClient();
+
+  // Buscar categorias dinâmicas do banco
+  const { data: categoriasDB = [] } = useQuery({
+    queryKey: ['categorias-mensagens'],
+    queryFn: () => base44.entities.CategoriasMensagens.filter({ ativa: true }, 'nome'),
+    staleTime: 5 * 60 * 1000
+  });
+
+  // Combinar categorias fixas + dinâmicas
+  const todasCategorias = [...CATEGORIAS_FIXAS, ...categoriasDB.map(cat => ({
+    nome: cat.nome,
+    label: cat.label,
+    emoji: cat.emoji || '🏷️',
+    cor: cat.cor || 'bg-slate-400',
+    tipo: cat.tipo
+  }))];
 
   const toggleCategoria = async (valor) => {
     if (salvando || !thread) return;
@@ -59,6 +77,7 @@ export default function CategorizadorRapido({ thread, onUpdate }) {
     setSalvando(true);
     try {
       const categoriaNormalizada = novaCategoria.trim().toLowerCase().replace(/\s+/g, '_');
+      const labelOriginal = novaCategoria.trim();
       
       if (categorias.includes(categoriaNormalizada)) {
         toast.warning('Categoria já existe nesta conversa');
@@ -68,8 +87,31 @@ export default function CategorizadorRapido({ thread, onUpdate }) {
         return;
       }
 
-      const novasCategorias = [...categorias, categoriaNormalizada];
+      // Verificar se categoria já existe no banco
+      const existente = categoriasDB.find(c => c.nome === categoriaNormalizada);
+      
+      if (!existente) {
+        // Criar nova categoria no banco
+        await base44.entities.CategoriasMensagens.create({
+          nome: categoriaNormalizada,
+          label: labelOriginal,
+          emoji: '🏷️',
+          cor: 'bg-slate-400',
+          tipo: 'personalizada',
+          ativa: true,
+          uso_count: 1
+        });
+        
+        queryClient.invalidateQueries({ queryKey: ['categorias-mensagens'] });
+      } else {
+        // Incrementar contador de uso
+        await base44.entities.CategoriasMensagens.update(existente.id, {
+          uso_count: (existente.uso_count || 0) + 1
+        });
+      }
 
+      // Adicionar categoria à thread
+      const novasCategorias = [...categorias, categoriaNormalizada];
       await base44.entities.MessageThread.update(thread.id, {
         categorias: novasCategorias
       });
@@ -167,30 +209,16 @@ export default function CategorizadorRapido({ thread, onUpdate }) {
           
           <DropdownMenuSeparator />
           
-          {/* Categorias padrão */}
-          {CATEGORIAS_DISPONIVEIS.map(cat => (
+          {/* Todas as categorias (fixas + dinâmicas) */}
+          {todasCategorias.map(cat => (
             <DropdownMenuCheckboxItem
-              key={cat.value}
-              checked={categorias.includes(cat.value)}
-              onCheckedChange={() => toggleCategoria(cat.value)}
+              key={cat.nome}
+              checked={categorias.includes(cat.nome)}
+              onCheckedChange={() => toggleCategoria(cat.nome)}
             >
               <div className="flex items-center gap-2">
-                <div className={`w-3 h-3 rounded-full ${cat.color}`} />
-                <span>{cat.label}</span>
-              </div>
-            </DropdownMenuCheckboxItem>
-          ))}
-          
-          {/* Categorias personalizadas existentes */}
-          {categorias.filter(cat => !CATEGORIAS_DISPONIVEIS.find(c => c.value === cat)).map(cat => (
-            <DropdownMenuCheckboxItem
-              key={cat}
-              checked={true}
-              onCheckedChange={() => toggleCategoria(cat)}
-            >
-              <div className="flex items-center gap-2">
-                <div className="w-3 h-3 rounded-full bg-slate-400" />
-                <span className="italic">🏷️ {cat.replace(/_/g, ' ')}</span>
+                <div className={`w-3 h-3 rounded-full ${cat.cor}`} />
+                <span>{cat.emoji} {cat.label}</span>
               </div>
             </DropdownMenuCheckboxItem>
           ))}
@@ -199,16 +227,16 @@ export default function CategorizadorRapido({ thread, onUpdate }) {
 
       {/* Badges visuais das categorias ativas */}
       {categorias.map(cat => {
-        const config = CATEGORIAS_DISPONIVEIS.find(c => c.value === cat);
+        const config = todasCategorias.find(c => c.nome === cat);
         
         return (
           <Badge 
             key={cat}
-            className={`${config ? config.color : 'bg-slate-400'} text-white border-0 gap-1.5 cursor-pointer hover:opacity-80 transition-all shadow-md px-3 py-1.5 text-sm font-medium`}
+            className={`${config?.cor || 'bg-slate-400'} text-white border-0 gap-1.5 cursor-pointer hover:opacity-80 transition-all shadow-md px-3 py-1.5 text-sm font-medium`}
             onClick={() => toggleCategoria(cat)}
             title="Clique para remover"
           >
-            <span>{config ? config.label : `🏷️ ${cat.replace(/_/g, ' ')}`}</span>
+            <span>{config ? `${config.emoji} ${config.label}` : `🏷️ ${cat.replace(/_/g, ' ')}`}</span>
             <X className="w-4 h-4 hover:scale-125 transition-transform" />
           </Badge>
         );
@@ -217,4 +245,15 @@ export default function CategorizadorRapido({ thread, onUpdate }) {
   );
 }
 
-export { CATEGORIAS_DISPONIVEIS };
+// Exportar para uso em filtros
+export const getCategoriaConfig = (nome, categoriasDB = []) => {
+  const fixa = CATEGORIAS_FIXAS.find(c => c.nome === nome);
+  if (fixa) return { value: fixa.nome, label: `${fixa.emoji} ${fixa.label}`, color: fixa.cor };
+  
+  const dinamica = categoriasDB.find(c => c.nome === nome);
+  if (dinamica) return { value: dinamica.nome, label: `${dinamica.emoji || '🏷️'} ${dinamica.label}`, color: dinamica.cor || 'bg-slate-400' };
+  
+  return { value: nome, label: `🏷️ ${nome.replace(/_/g, ' ')}`, color: 'bg-slate-400' };
+};
+
+export { CATEGORIAS_FIXAS };

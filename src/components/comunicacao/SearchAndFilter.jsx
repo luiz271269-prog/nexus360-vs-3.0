@@ -169,7 +169,7 @@ export default function SearchAndFilter({
             <button className="px-3 py-2 text-sm border border-slate-300 rounded-lg hover:bg-slate-50 transition-colors flex items-center gap-2">
               <Tag className="w-4 h-4" />
               {selectedCategoria && selectedCategoria !== 'all'
-                ? CATEGORIAS_DISPONIVEIS.find(c => c.value === selectedCategoria)?.label || 'Categoria'
+                ? todasCategorias.find(c => c.value === selectedCategoria)?.label || 'Categoria'
                 : 'Todas categorias'}
             </button>
           </DropdownMenuTrigger>
@@ -183,7 +183,7 @@ export default function SearchAndFilter({
                 <Check className="w-4 h-4 text-green-600" />
               )}
             </DropdownMenuItem>
-            {CATEGORIAS_DISPONIVEIS.map((cat) => (
+            {todasCategorias.map((cat) => (
               <DropdownMenuItem
                 key={cat.value}
                 onClick={() => onSelectedCategoriaChange(cat.value)}

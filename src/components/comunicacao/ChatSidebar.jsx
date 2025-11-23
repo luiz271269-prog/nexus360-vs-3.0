@@ -3,9 +3,17 @@ import { CheckCheck, Clock, User, Users, AlertCircle } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { motion } from "framer-motion";
 import { format } from "date-fns";
-import { CATEGORIAS_DISPONIVEIS } from "./CategorizadorRapido";
+import { CATEGORIAS_FIXAS, getCategoriaConfig } from "./CategorizadorRapido";
+import { useQuery } from "@tanstack/react-query";
+import { base44 } from "@/api/base44Client";
 
 export default function ChatSidebar({ threads, threadAtiva, onSelecionarThread, loading, usuarioAtual, integracoes = [] }) {
+  // Buscar categorias dinâmicas
+  const { data: categoriasDB = [] } = useQuery({
+    queryKey: ['categorias-mensagens'],
+    queryFn: () => base44.entities.CategoriasMensagens.filter({ ativa: true }, 'nome'),
+    staleTime: 5 * 60 * 1000
+  });
 
   const formatarHorario = (timestamp) => {
     if (!timestamp) return "";
@@ -256,8 +264,7 @@ export default function ChatSidebar({ threads, threadAtiva, onSelecionarThread, 
                 {/* Badges de Categorias */}
                 {thread.categorias && thread.categorias.length > 0 && (
                   thread.categorias.slice(0, 2).map(cat => {
-                    const config = CATEGORIAS_DISPONIVEIS.find(c => c.value === cat);
-                    if (!config) return null;
+                    const config = getCategoriaConfig(cat, categoriasDB);
                     return (
                       <Badge 
                         key={cat}
