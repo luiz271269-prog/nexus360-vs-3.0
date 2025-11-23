@@ -3,9 +3,15 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Search, UserPlus, User, Users, AlertCircle, Phone, Tag } from 'lucide-react';
+import { Search, UserPlus, User, Users, AlertCircle, Phone, Tag, Check } from 'lucide-react';
 import { normalizarTelefone } from '../lib/phoneUtils';
 import { CATEGORIAS_DISPONIVEIS } from './CategorizadorRapido';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 export default function SearchAndFilter({
   searchTerm,
@@ -137,67 +143,99 @@ export default function SearchAndFilter({
         </Select>
       )}
 
-      {/* FILTRO POR CANAL - ESTILO CABEÇALHO */}
+      {/* FILTRO POR CANAL - DROPDOWN */}
       {integracoes.length > 1 && (
-        <div className="w-full pt-2 border-t border-slate-200">
-          <label className="text-xs text-slate-600 mb-2 block font-medium">📱 Canal:</label>
-          <div className="flex flex-wrap gap-2">
-            <Badge
-              onClick={() => onSelectedIntegrationChange('all')}
-              className={`cursor-pointer transition-all shadow-sm px-3 py-1.5 text-sm font-medium ${
-                !selectedIntegrationId || selectedIntegrationId === 'all'
-                  ? 'bg-blue-600 text-white hover:opacity-80'
-                  : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'
-              }`}
-            >
-              Todos
-            </Badge>
-            {integracoes.map((integracao) => (
-              <Badge
-                key={integracao.id}
-                onClick={() => onSelectedIntegrationChange(integracao.id)}
-                className={`cursor-pointer transition-all shadow-sm px-3 py-1.5 text-sm font-medium ${
-                  selectedIntegrationId === integracao.id
-                    ? 'bg-green-600 text-white hover:opacity-80'
-                    : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'
-                }`}
-                title={integracao.numero_telefone}
-              >
-                {integracao.status === 'conectado' ? '🟢' : '🔴'} {integracao.nome_instancia}
+        <div className="flex items-center gap-2 pt-2 border-t border-slate-200">
+          <Tag className="w-4 h-4 text-slate-500" />
+          <span className="text-sm text-slate-600">Canal:</span>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Badge className="cursor-pointer bg-white text-slate-700 border border-slate-300 hover:bg-slate-50">
+                {selectedIntegrationId && selectedIntegrationId !== 'all'
+                  ? integracoes.find(i => i.id === selectedIntegrationId)?.nome_instancia || 'Selecionar'
+                  : 'Todos'}
               </Badge>
-            ))}
-          </div>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start" className="w-56">
+              <DropdownMenuItem
+                onClick={() => onSelectedIntegrationChange('all')}
+                className="cursor-pointer"
+              >
+                <div className="flex items-center justify-between w-full">
+                  <div className="flex items-center gap-2">
+                    <Phone className="w-4 h-4" />
+                    <span>Todos os canais</span>
+                  </div>
+                  {(!selectedIntegrationId || selectedIntegrationId === 'all') && (
+                    <Check className="w-4 h-4 text-green-600" />
+                  )}
+                </div>
+              </DropdownMenuItem>
+              {integracoes.map((integracao) => (
+                <DropdownMenuItem
+                  key={integracao.id}
+                  onClick={() => onSelectedIntegrationChange(integracao.id)}
+                  className="cursor-pointer"
+                >
+                  <div className="flex items-center justify-between w-full">
+                    <div className="flex items-center gap-2">
+                      <span>{integracao.status === 'conectado' ? '🟢' : '🔴'}</span>
+                      <span>{integracao.nome_instancia}</span>
+                    </div>
+                    {selectedIntegrationId === integracao.id && (
+                      <Check className="w-4 h-4 text-green-600" />
+                    )}
+                  </div>
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       )}
 
-      {/* FILTRO POR CATEGORIA - ESTILO CABEÇALHO */}
-      <div className="w-full pt-2 border-t border-slate-200">
-        <label className="text-xs text-slate-600 mb-2 block font-medium">🏷️ Categoria:</label>
-        <div className="flex flex-wrap gap-2">
-          <Badge
-            onClick={() => onSelectedCategoriaChange('all')}
-            className={`cursor-pointer transition-all shadow-sm px-3 py-1.5 text-sm font-medium ${
-              !selectedCategoria || selectedCategoria === 'all'
-                ? 'bg-slate-600 text-white hover:opacity-80'
-                : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'
-            }`}
-          >
-            Todas
-          </Badge>
-          {CATEGORIAS_DISPONIVEIS.map((cat) => (
-            <Badge
-              key={cat.value}
-              onClick={() => onSelectedCategoriaChange(cat.value)}
-              className={`cursor-pointer transition-all shadow-md px-3 py-1.5 text-sm font-medium ${
-                selectedCategoria === cat.value
-                  ? `${cat.color} text-white hover:opacity-80`
-                  : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'
-              }`}
-            >
-              {cat.label}
+      {/* FILTRO POR CATEGORIA - DROPDOWN */}
+      <div className="flex items-center gap-2 pt-2 border-t border-slate-200">
+        <Tag className="w-4 h-4 text-slate-500" />
+        <span className="text-sm text-slate-600">Categorias:</span>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Badge className="cursor-pointer bg-white text-slate-700 border border-slate-300 hover:bg-slate-50">
+              {selectedCategoria && selectedCategoria !== 'all'
+                ? CATEGORIAS_DISPONIVEIS.find(c => c.value === selectedCategoria)?.label || 'Selecionar'
+                : 'Todas'}
             </Badge>
-          ))}
-        </div>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="start" className="w-56">
+            <DropdownMenuItem
+              onClick={() => onSelectedCategoriaChange('all')}
+              className="cursor-pointer"
+            >
+              <div className="flex items-center justify-between w-full">
+                <span>Todas as categorias</span>
+                {(!selectedCategoria || selectedCategoria === 'all') && (
+                  <Check className="w-4 h-4 text-green-600" />
+                )}
+              </div>
+            </DropdownMenuItem>
+            {CATEGORIAS_DISPONIVEIS.map((cat) => (
+              <DropdownMenuItem
+                key={cat.value}
+                onClick={() => onSelectedCategoriaChange(cat.value)}
+                className="cursor-pointer"
+              >
+                <div className="flex items-center justify-between w-full">
+                  <div className="flex items-center gap-2">
+                    <div className={`w-3 h-3 rounded-full ${cat.color}`} />
+                    <span>{cat.label}</span>
+                  </div>
+                  {selectedCategoria === cat.value && (
+                    <Check className="w-4 h-4 text-green-600" />
+                  )}
+                </div>
+              </DropdownMenuItem>
+            ))}
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
     </div>
   );
