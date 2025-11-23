@@ -205,7 +205,14 @@ export default function ChatSidebar({ threads, threadAtiva, onSelecionarThread, 
                     <CheckCheck className="w-4 h-4 text-blue-500 flex-shrink-0" />
                   )}
                   <span className="truncate">
-                    {thread.last_message_content || "Nenhuma mensagem"}
+                    {(() => {
+                      const content = thread.last_message_content;
+                      // Ocultar JIDs e mensagens vazias
+                      if (!content || content === '[No content]' || /^[\+\d]+@(lid|s\.whatsapp\.net|c\.us)/.test(content)) {
+                        return "Mídia enviada";
+                      }
+                      return content;
+                    })()}
                   </span>
                 </p>
 

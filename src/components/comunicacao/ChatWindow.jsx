@@ -1251,21 +1251,30 @@ export default function ChatWindow({
               if (m.metadata?.deleted) return true;
               if (m.metadata?.is_system_message) return true;
 
-              // ❌ BLOQUEAR mensagens que são apenas JID/telefones (ex: +105299763548377@lid)
-              if (m.content && /^[\+\d]+@[\w]+$/.test(m.content.trim())) {
+              // ❌ BLOQUEAR JIDs puros (ex: +105299763548377@lid ou +numbers@lid)
+              if (m.content && /^[\+\d]+@(lid|s\.whatsapp\.net|c\.us)/.test(m.content.trim())) {
+                console.log('🚫 Bloqueando JID:', m.content);
                 return false;
               }
 
-              // ❌ FILTRO RIGOROSO: Bloquear mensagens vazias e de atualização de status
+              // ❌ BLOQUEAR mensagens sem conteúdo válido
+              const conteudoInvalido = [
+                '[No content]',
+                '[Message content missing]',
+                '[Recovered message]',
+                '',
+                null,
+                undefined
+              ];
+
               const conteudoVazio = !m.content || 
-                                   m.content.trim() === '' || 
-                                   m.content === '[No content]' ||
-                                   m.content === '[Message content missing]' ||
-                                   m.content === '[Recovered message]' ||
+                                   conteudoInvalido.includes(m.content) ||
+                                   m.content.trim() === '' ||
                                    m.content.startsWith('[Media type:');
 
               // Se conteúdo vazio E sem mídia válida = BLOQUEAR
-              if (conteudoVazio && (!m.media_url || m.media_type === 'none')) {
+              if (conteudoVazio && (!m.media_url || m.media_type === 'none' || !m.media_type)) {
+                console.log('🚫 Bloqueando mensagem vazia sem mídia');
                 return false;
               }
 
@@ -1286,6 +1295,7 @@ export default function ChatWindow({
               }
 
               // ❌ Caso contrário, bloquear
+              console.log('🚫 Bloqueando mensagem inválida:', m.id);
               return false;
             })
             .map((mensagem, index) => {
