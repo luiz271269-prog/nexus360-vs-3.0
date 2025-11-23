@@ -5,7 +5,9 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Search, UserPlus, User, Users, AlertCircle, Phone, Tag, Check } from 'lucide-react';
 import { normalizarTelefone } from '../lib/phoneUtils';
-import { CATEGORIAS_DISPONIVEIS } from './CategorizadorRapido';
+import { CATEGORIAS_FIXAS } from './CategorizadorRapido';
+import { useQuery } from "@tanstack/react-query";
+import { base44 } from "@/api/base44Client";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -31,6 +33,19 @@ export default function SearchAndFilter({
   selectedCategoria,
   onSelectedCategoriaChange
 }) {
+  // Buscar categorias dinâmicas
+  const { data: categoriasDB = [] } = useQuery({
+    queryKey: ['categorias-mensagens'],
+    queryFn: () => base44.entities.CategoriasMensagens.filter({ ativa: true }, 'nome'),
+    staleTime: 5 * 60 * 1000
+  });
+
+  const todasCategorias = [...CATEGORIAS_FIXAS, ...categoriasDB].map(cat => ({
+    value: cat.nome,
+    label: `${cat.emoji || '🏷️'} ${cat.label}`,
+    color: cat.cor
+  }));
+
   // ✅ RESTAURADO: Detectar telefone automaticamente
   useEffect(() => {
     if (!searchTerm || searchTerm.trim() === '') {
