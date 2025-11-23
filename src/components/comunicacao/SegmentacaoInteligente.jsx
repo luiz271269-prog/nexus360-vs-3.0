@@ -79,6 +79,21 @@ export default function SegmentacaoInteligente({ contactId }) {
       if (resultado.data.success) {
         const resumo = resultado.data.resumo;
         
+        // 📸 Buscar foto de perfil após análise
+        try {
+          const contato = await base44.entities.Contact.get(contactId);
+          const threads = await base44.entities.MessageThread.list('-created_date', 1, { contact_id: contactId });
+          
+          if (threads.length > 0 && threads[0].whatsapp_integration_id) {
+            await base44.functions.invoke('buscarFotoPerfilWhatsApp', {
+              integration_id: threads[0].whatsapp_integration_id,
+              phone: contato.telefone
+            });
+          }
+        } catch (fotoError) {
+          console.warn('Erro ao buscar foto:', fotoError);
+        }
+        
         // Mensagem de sucesso mais informativa
         toast.success(
           `✅ Análise concluída!\n` +
