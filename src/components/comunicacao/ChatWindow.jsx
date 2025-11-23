@@ -1236,6 +1236,11 @@ export default function ChatWindow({
               if (m.metadata?.deleted) return true;
               if (m.metadata?.is_system_message) return true;
 
+              // ❌ BLOQUEAR mensagens que são apenas JID/telefones (ex: +105299763548377@lid)
+              if (m.content && /^[\+\d]+@[\w]+$/.test(m.content.trim())) {
+                return false;
+              }
+
               // ❌ FILTRO RIGOROSO: Bloquear mensagens vazias e de atualização de status
               const conteudoVazio = !m.content || 
                                    m.content.trim() === '' || 
