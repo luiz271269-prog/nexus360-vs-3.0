@@ -8,8 +8,6 @@ import {
 } from 'lucide-react';
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
-import { base44 } from "@/api/base44Client";
-import { useQueryClient } from "@tanstack/react-query";
 import {
   Dialog,
   DialogContent,
@@ -31,8 +29,7 @@ import {
 
 import ReactMarkdown from 'react-markdown';
 import { CATEGORIAS_FIXAS, getCategoriaConfig } from './CategorizadorRapido';
-import { useQuery } from "@tanstack/react-query";
-import { base44 } from "@/api/base44Client";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   DropdownMenu,
   DropdownMenuContent,
