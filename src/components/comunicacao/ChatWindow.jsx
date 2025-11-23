@@ -439,7 +439,7 @@ export default function ChatWindow({
       return;
     }
 
-    if (enviando || gravandoAudio || uploadingPastedFile || mostrarPreviewArquivo) {
+    if (enviando || gravandoAudio || uploadingPastedFile) {
       return;
     }
 
@@ -1330,7 +1330,7 @@ export default function ChatWindow({
             variant={gravandoAudio ? "destructive" : "ghost"}
             size="icon"
             className="flex-shrink-0"
-            disabled={enviando || carregandoContato || modoSelecao || uploadingPastedFile || mostrarPreviewArquivo || !podeEnviarAudios}
+            disabled={enviando || carregandoContato || modoSelecao || uploadingPastedFile || !podeEnviarAudios}
             onClick={gravandoAudio ? pararGravacaoAudio : iniciarGravacaoAudio}
             title={!podeEnviarAudios ? "Sem permissão para enviar áudios" : (gravandoAudio ? "Parar gravação" : "Gravar áudio")}
           >
@@ -1349,7 +1349,7 @@ export default function ChatWindow({
               size="icon"
               className="flex-shrink-0 text-purple-600 hover:bg-purple-50"
               title="Sugestões de IA"
-              disabled={enviando || carregandoContato || gravandoAudio || modoSelecao || uploadingPastedFile || mostrarPreviewArquivo}
+              disabled={enviando || carregandoContato || gravandoAudio || modoSelecao || uploadingPastedFile}
             >
               <Sparkles className="w-5 h-5" />
             </Button>
@@ -1364,13 +1364,13 @@ export default function ChatWindow({
               placeholder={!podeEnviarMensagens ? "Sem permissão para enviar mensagens" : "Digite sua mensagem..."}
               rows={Math.max(1, Math.min(5, mensagemTexto.split('\n').length))}
               className="w-full p-3 border border-slate-300 rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-orange-500"
-              disabled={enviando || carregandoContato || gravandoAudio || modoSelecao || uploadingPastedFile || mostrarPreviewArquivo || !podeEnviarMensagens}
+              disabled={enviando || carregandoContato || gravandoAudio || modoSelecao || uploadingPastedFile || !podeEnviarMensagens}
             />
           </div>
           
           <Button
             type="submit"
-            disabled={!mensagemTexto.trim() || enviando || carregandoContato || gravandoAudio || modoSelecao || uploadingPastedFile || mostrarPreviewArquivo || !podeEnviarMensagens}
+            disabled={!mensagemTexto.trim() || enviando || carregandoContato || gravandoAudio || modoSelecao || uploadingPastedFile || !podeEnviarMensagens}
             className="bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white flex-shrink-0"
             title={!podeEnviarMensagens ? "Sem permissão para enviar mensagens" : "Enviar mensagem"}
           >
