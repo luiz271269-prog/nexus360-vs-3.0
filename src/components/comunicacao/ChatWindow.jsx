@@ -1230,17 +1230,7 @@ export default function ChatWindow({
             </div>
             </div>
 
-            {/* Linha de Categorização Rápida - Melhorada */}
-            <div className="pl-16 flex items-center gap-3">
-              <div className="flex items-center gap-2">
-                <Tag className="w-4 h-4 text-slate-500" />
-                <span className="text-sm font-medium text-slate-700">Categorias:</span>
-              </div>
-              <CategorizadorRapido 
-                thread={thread}
-                onUpdate={onAtualizarMensagens}
-              />
-            </div>
+
             </div>
 
             {mensagemResposta && (
