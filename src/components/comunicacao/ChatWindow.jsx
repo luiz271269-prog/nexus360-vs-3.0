@@ -45,6 +45,7 @@ import SugestorRespostasRapidas from './SugestorRespostasRapidas';
 import { useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import MediaAttachmentSystem from './MediaAttachmentSystem';
+import CategorizadorRapido from './CategorizadorRapido';
 
 export default function ChatWindow({
   thread,
@@ -1098,7 +1099,7 @@ export default function ChatWindow({
   return (
     <div className="flex flex-col h-full bg-white">
       {/* Header com Cards de Classificação */}
-      <div className="border-b bg-gradient-to-r from-slate-50 to-blue-50 p-4 flex-shrink-0">
+      <div className="border-b bg-gradient-to-r from-slate-50 to-blue-50 p-4 flex-shrink-0 space-y-3">
         <div className="flex items-center gap-4">
           {/* Avatar e Nome à Esquerda */}
           <div className="flex items-center gap-3">
@@ -1224,11 +1225,19 @@ export default function ChatWindow({
               <span className="text-[10px] font-semibold opacity-90">Ver</span>
               <span className="text-xs -mt-1">Detalhes</span>
             </div>
-          </div>
-        </div>
-      </div>
+            </div>
+            </div>
 
-      {mensagemResposta && (
+            {/* Linha de Categorização Rápida */}
+            <div className="pl-16">
+            <CategorizadorRapido 
+            thread={thread}
+            onUpdate={onAtualizarMensagens}
+            />
+            </div>
+            </div>
+
+            {mensagemResposta && (
         <div className="px-4 py-2 bg-blue-50 border-b border-blue-200 flex-shrink-0">
           <div className="flex items-start justify-between gap-2">
             <div className="flex-1">

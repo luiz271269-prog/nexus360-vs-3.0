@@ -3,6 +3,7 @@ import { CheckCheck, Clock, User, Users, AlertCircle } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { motion } from "framer-motion";
 import { format } from "date-fns";
+import { CATEGORIAS_DISPONIVEIS } from "./CategorizadorRapido";
 
 export default function ChatSidebar({ threads, threadAtiva, onSelecionarThread, loading, usuarioAtual, integracoes = [] }) {
 
@@ -243,6 +244,26 @@ export default function ChatSidebar({ threads, threadAtiva, onSelecionarThread, 
                     title={`Canal: ${integracoes.find(i => i.id === thread.whatsapp_integration_id)?.numero_telefone || 'N/A'}`}
                   >
                     📱 {getIntegracaoNome(thread)}
+                  </Badge>
+                )}
+                {/* Badges de Categorias */}
+                {thread.categorias && thread.categorias.length > 0 && (
+                  thread.categorias.slice(0, 2).map(cat => {
+                    const config = CATEGORIAS_DISPONIVEIS.find(c => c.value === cat);
+                    if (!config) return null;
+                    return (
+                      <Badge 
+                        key={cat}
+                        className={`text-xs py-0 px-1.5 h-5 ${config.color} text-white border-0`}
+                      >
+                        {config.label.split(' ')[0]}
+                      </Badge>
+                    );
+                  })
+                )}
+                {thread.categorias && thread.categorias.length > 2 && (
+                  <Badge variant="outline" className="text-xs py-0 px-1.5 h-5">
+                    +{thread.categorias.length - 2}
                   </Badge>
                 )}
               </div>

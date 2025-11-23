@@ -47,6 +47,7 @@ export default function Comunicacao() {
   const [filterScope, setFilterScope] = useState('all');
   const [selectedAttendantId, setSelectedAttendantId] = useState(null);
   const [selectedIntegrationId, setSelectedIntegrationId] = useState('all');
+  const [selectedCategoria, setSelectedCategoria] = useState('all');
 
   const queryClient = useQueryClient();
 
@@ -276,6 +277,13 @@ export default function Comunicacao() {
       }
     }
 
+    // ✅ FILTRO POR CATEGORIA
+    if (selectedCategoria && selectedCategoria !== 'all') {
+      if (!thread.categorias || !thread.categorias.includes(selectedCategoria)) {
+        return false;
+      }
+    }
+
     // 🔍 BUSCA AMPLIADA: Número + Empresa + Cargo + Nome
     if (debouncedSearchTerm) {
       const termoBusca = debouncedSearchTerm.toLowerCase();
@@ -422,7 +430,9 @@ export default function Comunicacao() {
                     }}
                     integracoes={integracoes}
                     selectedIntegrationId={selectedIntegrationId}
-                    onSelectedIntegrationChange={setSelectedIntegrationId} />
+                    onSelectedIntegrationChange={setSelectedIntegrationId}
+                    selectedCategoria={selectedCategoria}
+                    onSelectedCategoriaChange={setSelectedCategoria} />
 
 
                   <div className="flex-1 overflow-y-auto">

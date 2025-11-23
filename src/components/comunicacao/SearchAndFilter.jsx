@@ -20,7 +20,9 @@ export default function SearchAndFilter({
   onCreateContact,
   integracoes = [],
   selectedIntegrationId,
-  onSelectedIntegrationChange
+  onSelectedIntegrationChange,
+  selectedCategoria,
+  onSelectedCategoriaChange
 }) {
   // ✅ RESTAURADO: Detectar telefone automaticamente
   useEffect(() => {
