@@ -143,24 +143,32 @@ export default function ChatWindow({
       try {
         const contato = await base44.entities.Contact.get(thread.contact_id);
         setContatoCompleto(contato);
-        
-        // 📸 Buscar foto se não existir ou estiver antiga (>7 dias)
-        const fotoAntiga = !contato.foto_perfil_atualizada_em || 
-          (Date.now() - new Date(contato.foto_perfil_atualizada_em).getTime()) > 7 * 24 * 60 * 60 * 1000;
-        
-        if (fotoAntiga && thread.whatsapp_integration_id) {
+
+        // 📸 SEMPRE buscar foto ao carregar contato
+        if (thread.whatsapp_integration_id && contato.telefone) {
           try {
+            console.log('📸 Buscando foto de perfil WhatsApp...', contato.telefone);
             const resultado = await base44.functions.invoke('buscarFotoPerfilWhatsApp', {
               integration_id: thread.whatsapp_integration_id,
               phone: contato.telefone
             });
-            
-            if (resultado.profilePictureUrl) {
+
+            console.log('📸 Resultado busca foto:', resultado);
+
+            if (resultado?.data?.profilePictureUrl) {
+              console.log('✅ Foto encontrada, atualizando...');
+              await base44.entities.Contact.update(contato.id, {
+                foto_perfil_url: resultado.data.profilePictureUrl,
+                foto_perfil_atualizada_em: new Date().toISOString()
+              });
+
               setContatoCompleto(prev => ({
                 ...prev,
-                foto_perfil_url: resultado.profilePictureUrl,
+                foto_perfil_url: resultado.data.profilePictureUrl,
                 foto_perfil_atualizada_em: new Date().toISOString()
               }));
+            } else {
+              console.warn('⚠️ Foto não encontrada na resposta');
             }
           } catch (error) {
             console.warn('❌ Erro ao buscar foto de perfil:', error);
