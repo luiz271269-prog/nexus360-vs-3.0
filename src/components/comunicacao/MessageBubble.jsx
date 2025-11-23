@@ -9,6 +9,7 @@ import {
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { base44 } from "@/api/base44Client";
+import { useQueryClient } from "@tanstack/react-query";
 import {
   Dialog,
   DialogContent,
@@ -312,11 +313,57 @@ export default function MessageBubble({
         categorias: novasCategorias
       });
 
-      const catConfig = CATEGORIAS_DISPONIVEIS.find(c => c.value === valorCategoria);
-      toast.success(`${catConfig?.label} ${novasCategorias.includes(valorCategoria) ? 'adicionada' : 'removida'}`);
+      const catConfig = todasCategorias.find(c => c.nome === valorCategoria);
+      toast.success(`${catConfig?.emoji || '🏷️'} ${catConfig?.label || valorCategoria} ${novasCategorias.includes(valorCategoria) ? 'adicionada' : 'removida'}`);
     } catch (error) {
       console.error('[BUBBLE] Erro ao categorizar:', error);
       toast.error('Erro ao atualizar categoria');
+    } finally {
+      setCategorizando(false);
+    }
+  };
+
+  const adicionarNovaCategoria = async (nomeCategoria) => {
+    if (categorizando || !thread) return;
+
+    setCategorizando(true);
+    try {
+      const categoriaNormalizada = nomeCategoria.toLowerCase().replace(/\s+/g, '_');
+      const queryClient = useQueryClient?.();
+
+      // Verificar se categoria já existe no banco
+      const existente = categoriasDB.find(c => c.nome === categoriaNormalizada);
+      
+      if (!existente) {
+        // Criar nova categoria no banco
+        await base44.entities.CategoriasMensagens.create({
+          nome: categoriaNormalizada,
+          label: nomeCategoria,
+          emoji: '🏷️',
+          cor: 'bg-slate-400',
+          tipo: 'personalizada',
+          ativa: true,
+          uso_count: 1
+        });
+        
+        if (queryClient) {
+          queryClient.invalidateQueries({ queryKey: ['categorias-mensagens'] });
+        }
+      }
+
+      // Adicionar à thread
+      const categoriasAtuais = thread.categorias || [];
+      if (!categoriasAtuais.includes(categoriaNormalizada)) {
+        await base44.entities.MessageThread.update(thread.id, {
+          categorias: [...categoriasAtuais, categoriaNormalizada]
+        });
+        toast.success(`✅ Categoria "${nomeCategoria}" criada e adicionada!`);
+      } else {
+        toast.warning('Categoria já existe nesta conversa');
+      }
+    } catch (error) {
+      console.error('[BUBBLE] Erro ao adicionar categoria:', error);
+      toast.error('Erro ao criar categoria');
     } finally {
       setCategorizando(false);
     }
@@ -493,14 +540,29 @@ export default function MessageBubble({
                       </TooltipTrigger>
                       <TooltipContent side="top">Categorizar Conversa</TooltipContent>
                     </Tooltip>
-                    <DropdownMenuContent align="end" className="w-56">
-                      <DropdownMenuLabel>Categorizar conversa</DropdownMenuLabel>
+                    <DropdownMenuContent align="end" className="w-64">
+                      <DropdownMenuLabel className="flex items-center justify-between">
+                        <span>Categorizar conversa</span>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => {
+                            const novaCategoria = prompt("Digite o nome da nova categoria:");
+                            if (novaCategoria && novaCategoria.trim()) {
+                              adicionarNovaCategoria(novaCategoria.trim());
+                            }
+                          }}
+                          className="h-6 w-6 p-0 hover:bg-blue-50"
+                        >
+                          <span className="text-blue-600 font-bold text-lg">+</span>
+                        </Button>
+                      </DropdownMenuLabel>
                       <DropdownMenuSeparator />
-                      {CATEGORIAS_DISPONIVEIS.map(cat => (
+                      {todasCategorias.map(cat => (
                         <DropdownMenuCheckboxItem
-                          key={cat.value}
-                          checked={thread?.categorias?.includes(cat.value)}
-                          onCheckedChange={() => handleToggleCategoria(cat.value)}
+                          key={cat.nome}
+                          checked={thread?.categorias?.includes(cat.nome)}
+                          onCheckedChange={() => handleToggleCategoria(cat.nome)}
                         >
                           <div className="flex items-center gap-2">
                             <div className={`w-3 h-3 rounded-full ${cat.cor || 'bg-slate-400'}`} />
