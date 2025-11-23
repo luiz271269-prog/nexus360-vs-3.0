@@ -125,12 +125,15 @@ export default function ChatSidebar({ threads, threadAtiva, onSelecionarThread, 
           );
         }
 
-        let nomeExibicao = "Sem Nome";
-        
-        if (contato.nome && contato.nome.trim() !== '' && contato.nome !== contato.telefone) {
-          nomeExibicao = contato.nome;
-        } else if (contato.telefone) {
-          nomeExibicao = contato.telefone;
+        // Nome formatado: Empresa + Cargo + Nome
+        let nomeExibicao = "";
+
+        if (contato.empresa) nomeExibicao += contato.empresa;
+        if (contato.cargo) nomeExibicao += (nomeExibicao ? " - " : "") + contato.cargo;
+        if (contato.nome && contato.nome !== contato.telefone) nomeExibicao += (nomeExibicao ? " - " : "") + contato.nome;
+
+        if (!nomeExibicao || nomeExibicao.trim() === '') {
+          nomeExibicao = contato.telefone || "Sem Nome";
         }
 
         return (
