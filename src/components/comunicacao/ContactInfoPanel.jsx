@@ -10,6 +10,7 @@ import {
   UserPlus, CheckCircle2
 } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from 'sonner';
 import { motion } from 'framer-motion';
 
@@ -18,6 +19,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Alert } from '@/components/ui/alert';
 import { format } from 'date-fns';
 import { normalizarTelefone } from '../lib/phoneUtils';
+import SegmentacaoInteligente from './SegmentacaoInteligente';
 
 export default function ContactInfoPanel({ contact, novoContatoTelefone, onClose, onUpdate, threadAtual }) {
   const [vendedores, setVendedores] = useState([]);
@@ -670,8 +672,21 @@ export default function ContactInfoPanel({ contact, novoContatoTelefone, onClose
         </div>
       </div>
 
-      {/* Body - Scrollable */}
-      <div className="flex-1 overflow-y-auto">
+      {/* Tabs: Dados básicos + IA */}
+      <Tabs defaultValue="dados" className="flex-1 flex flex-col overflow-hidden">
+        <TabsList className="grid w-full grid-cols-2 mx-4 mt-2">
+          <TabsTrigger value="dados">
+            <User className="w-4 h-4 mr-2" />
+            Dados
+          </TabsTrigger>
+          <TabsTrigger value="ia">
+            <Brain className="w-4 h-4 mr-2" />
+            IA
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="dados" className="flex-1 overflow-y-auto m-0">
+          <div className="flex-1 overflow-y-auto">
         {/* Profile Picture with Gradient */}
         <div className="bg-gradient-to-br from-amber-50 via-orange-50 to-red-50 p-6 flex flex-col items-center">
           <div className="w-32 h-32 bg-gradient-to-br from-amber-400 via-orange-500 to-red-500 rounded-full flex items-center justify-center text-white font-bold text-5xl shadow-xl mb-3">
@@ -1117,7 +1132,13 @@ export default function ContactInfoPanel({ contact, novoContatoTelefone, onClose
             </div>
           </div>
         )}
-      </div>
+          </div>
+        </TabsContent>
+
+        <TabsContent value="ia" className="flex-1 overflow-y-auto p-4 m-0">
+          <SegmentacaoInteligente contactId={contact.id} />
+        </TabsContent>
+      </Tabs>
     </motion.div>
   );
 }
