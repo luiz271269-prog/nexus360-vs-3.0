@@ -56,104 +56,80 @@ export default function SearchAndFilter({
 
   return (
     <div className="p-4 border-b border-slate-200 flex-shrink-0 space-y-3">
-      <div className="relative">
-        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 w-4 h-4" />
-        <input
-          type="text"
-          placeholder="Buscar ou adicionar contato..."
-          value={searchTerm}
-          onChange={(e) => onSearchChange(e.target.value)}
-          className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-        />
-        
-        {/* ✅ RESTAURADO: Botão para criar contato quando telefone detectado */}
-        {novoContatoTelefone && (
-          <Button
-            onClick={onCreateContact}
-            className="w-full mt-2 bg-green-600 hover:bg-green-700"
-            size="sm"
-          >
-            <UserPlus className="w-4 h-4 mr-2" />
-            Criar Contato: {novoContatoTelefone}
-          </Button>
-        )}
-      </div>
+      {/* FILTROS NO TOPO - LADO A LADO */}
+      <div className="flex items-center gap-2 flex-wrap">
+        <Select value={filterScope} onValueChange={onFilterScopeChange}>
+          <SelectTrigger className="w-auto">
+            <SelectValue placeholder="Escopo" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="my">
+              <div className="flex items-center gap-2">
+                <User className="w-4 h-4" /> Minhas
+              </div>
+            </SelectItem>
+            {isManager && (
+              <>
+                <SelectItem value="unassigned">
+                  <div className="flex items-center gap-2">
+                    <AlertCircle className="w-4 h-4" /> Não Atribuídas
+                  </div>
+                </SelectItem>
+                <SelectItem value="all">
+                  <div className="flex items-center gap-2">
+                    <Users className="w-4 h-4" /> Todas
+                  </div>
+                </SelectItem>
+                {atendentes.length > 0 && (
+                  <SelectItem value="specific_user">
+                    <div className="flex items-center gap-2">
+                      <User className="w-4 h-4" /> Por Atendente
+                    </div>
+                  </SelectItem>
+                )}
+              </>
+            )}
+          </SelectContent>
+        </Select>
 
-      <Select value={filterScope} onValueChange={onFilterScopeChange}>
-        <SelectTrigger>
-          <SelectValue placeholder="Escopo" />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="my">
-            <div className="flex items-center gap-2">
-              <User className="w-4 h-4" /> Minhas
-            </div>
-          </SelectItem>
-          {isManager && (
-            <>
-              <SelectItem value="unassigned">
+        {isManager && filterScope === 'specific_user' && (
+          <Select
+            value={selectedAttendantId || 'all_unfiltered'}
+            onValueChange={onSelectedAttendantChange}
+          >
+            <SelectTrigger className="w-auto">
+              <SelectValue placeholder="Atendente" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all_unfiltered">
+                <div className="flex items-center gap-2">
+                  <Users className="w-4 h-4" /> Todos
+                </div>
+              </SelectItem>
+              <SelectItem value="unassigned_explicit">
                 <div className="flex items-center gap-2">
                   <AlertCircle className="w-4 h-4" /> Não Atribuídas
                 </div>
               </SelectItem>
-              <SelectItem value="all">
-                <div className="flex items-center gap-2">
-                  <Users className="w-4 h-4" /> Todas
-                </div>
-              </SelectItem>
-              {atendentes.length > 0 && (
-                <SelectItem value="specific_user">
+              {atendentes.map(att => (
+                <SelectItem key={att.id} value={att.id}>
                   <div className="flex items-center gap-2">
-                    <User className="w-4 h-4" /> Por Atendente
+                    <User className="w-4 h-4" /> {att.full_name}
                   </div>
                 </SelectItem>
-              )}
-            </>
-          )}
-        </SelectContent>
-      </Select>
+              ))}
+            </SelectContent>
+          </Select>
+        )}
 
-      {isManager && filterScope === 'specific_user' && (
-        <Select
-          value={selectedAttendantId || 'all_unfiltered'}
-          onValueChange={onSelectedAttendantChange}
-        >
-          <SelectTrigger>
-            <SelectValue placeholder="Atendente" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all_unfiltered">
-              <div className="flex items-center gap-2">
-                <Users className="w-4 h-4" /> Todos
-              </div>
-            </SelectItem>
-            <SelectItem value="unassigned_explicit">
-              <div className="flex items-center gap-2">
-                <AlertCircle className="w-4 h-4" /> Não Atribuídas
-              </div>
-            </SelectItem>
-            {atendentes.map(att => (
-              <SelectItem key={att.id} value={att.id}>
-                <div className="flex items-center gap-2">
-                  <User className="w-4 h-4" /> {att.full_name}
-                </div>
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      )}
-
-      {/* FILTRO POR CANAL */}
-      {integracoes.length > 1 && (
-        <div className="flex items-center gap-2 pt-2 border-t border-slate-200">
-          <Tag className="w-4 h-4 text-slate-500" />
-          <span className="text-sm text-slate-600">Canal:</span>
+        {integracoes.length > 1 && (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <button className="px-2 py-1 text-sm border border-slate-300 rounded hover:bg-slate-50 transition-colors">
+              <button className="px-3 py-2 text-sm border border-slate-300 rounded-lg hover:bg-slate-50 transition-colors flex items-center gap-2">
+                <Phone className="w-4 h-4" />
                 {selectedIntegrationId && selectedIntegrationId !== 'all'
-                  ? integracoes.find(i => i.id === selectedIntegrationId)?.nome_instancia || 'Selecionar canal'
-                  : 'Todos os canais'}
+                  ? integracoes.find(i => i.id === selectedIntegrationId)?.nome_instancia || 'Canal'
+                  : 'Todos canais'}
               </button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="start" className="w-64">
@@ -186,19 +162,15 @@ export default function SearchAndFilter({
               ))}
             </DropdownMenuContent>
           </DropdownMenu>
-        </div>
-      )}
+        )}
 
-      {/* FILTRO POR CATEGORIA */}
-      <div className="flex items-center gap-2 pt-2 border-t border-slate-200">
-        <Tag className="w-4 h-4 text-slate-500" />
-        <span className="text-sm text-slate-600">Categorias:</span>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <button className="px-2 py-1 text-sm border border-slate-300 rounded hover:bg-slate-50 transition-colors">
+            <button className="px-3 py-2 text-sm border border-slate-300 rounded-lg hover:bg-slate-50 transition-colors flex items-center gap-2">
+              <Tag className="w-4 h-4" />
               {selectedCategoria && selectedCategoria !== 'all'
-                ? CATEGORIAS_DISPONIVEIS.find(c => c.value === selectedCategoria)?.label || 'Selecione as categorias'
-                : 'Todas as categorias'}
+                ? CATEGORIAS_DISPONIVEIS.find(c => c.value === selectedCategoria)?.label || 'Categoria'
+                : 'Todas categorias'}
             </button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="start" className="w-64">
@@ -228,6 +200,29 @@ export default function SearchAndFilter({
             ))}
           </DropdownMenuContent>
         </DropdownMenu>
+      </div>
+
+      {/* BUSCA ABAIXO DOS FILTROS */}
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 w-4 h-4" />
+        <input
+          type="text"
+          placeholder="Buscar ou adicionar contato..."
+          value={searchTerm}
+          onChange={(e) => onSearchChange(e.target.value)}
+          className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+        />
+        
+        {novoContatoTelefone && (
+          <Button
+            onClick={onCreateContact}
+            className="w-full mt-2 bg-green-600 hover:bg-green-700"
+            size="sm"
+          >
+            <UserPlus className="w-4 h-4 mr-2" />
+            Criar Contato: {novoContatoTelefone}
+          </Button>
+        )}
       </div>
     </div>
   );
