@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
@@ -65,12 +65,38 @@ export default function Comunicacao() {
     carregarUsuario();
   }, []);
 
-  const { data: contatos = [] } = useQuery({
+  const { data: contatosBrutos = [] } = useQuery({
     queryKey: ['contacts'],
     queryFn: () => base44.entities.Contact.list('-created_date'),
     staleTime: 2 * 60 * 1000,
     retry: 2
   });
+
+  // ✅ FILTRAR CONTATOS VÁLIDOS (excluir IDs de sistema, @lid, @g.us, etc.)
+  const contatos = React.useMemo(() => {
+    return contatosBrutos.filter(contato => {
+      if (!contato.telefone) return false;
+      
+      const tel = String(contato.telefone).toLowerCase();
+      
+      // ❌ EXCLUIR padrões de sistema WhatsApp
+      if (tel.includes('@lid')) return false;
+      if (tel.includes('@g.us')) return false;
+      if (tel.includes('@c.us')) return false;
+      if (tel.includes('@broadcast')) return false;
+      if (tel.includes('@newsletter')) return false;
+      
+      // ❌ EXCLUIR IDs muito longos (provavelmente são IDs de sistema)
+      const numbersOnly = tel.replace(/\D/g, '');
+      if (numbersOnly.length > 20) return false;
+      
+      // ❌ EXCLUIR telefones que começam com +1052 ou outros prefixos inválidos
+      if (tel.startsWith('+1052')) return false;
+      
+      // ✅ ACEITAR apenas números de telefone reais
+      return numbersOnly.length >= 10 && numbersOnly.length <= 15;
+    });
+  }, [contatosBrutos]);
 
   const { data: threads = [], isLoading: loadingThreads } = useQuery({
     queryKey: ['threads', usuario?.id, filterScope, selectedAttendantId],
