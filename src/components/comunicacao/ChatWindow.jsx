@@ -1552,15 +1552,26 @@ export default function ChatWindow({
         ) : (
           mensagens
             .filter(m => {
-              // ✅ FILTRAR MENSAGENS VAZIAS E DE CONTROLE
+              // ✅ SEMPRE MOSTRAR mensagens deletadas e de sistema importantes
               if (m.metadata?.deleted) return true;
-              if (m.metadata?.is_system_message && m.content?.includes('🔔')) return true;
+              if (m.metadata?.is_system_message) return true;
 
-              // Filtrar mensagens sem conteúdo válido
-              const temConteudo = m.content && m.content.trim() !== '' && m.content !== '[No content]';
-              const temMidia = m.media_url && m.media_type && m.media_type !== 'none';
+              // ❌ NUNCA MOSTRAR mensagens completamente vazias
+              if (!m.content && !m.media_url && !m.media_type) return false;
+              if (m.content === '[No content]' && !m.media_url) return false;
 
-              return temConteudo || temMidia;
+              // ✅ PERMITIR mensagens com conteúdo válido
+              const temConteudoTexto = m.content && 
+                                      m.content.trim() !== '' && 
+                                      m.content !== '[No content]' &&
+                                      !m.content.startsWith('[Media type:');
+
+              // ✅ PERMITIR mensagens com mídia válida (incluindo contact e location)
+              const tiposValidosSemUrl = ['contact', 'location'];
+              const temMidiaComUrl = m.media_url && m.media_type && m.media_type !== 'none';
+              const temMidiaSemUrl = tiposValidosSemUrl.includes(m.media_type) && m.content;
+
+              return temConteudoTexto || temMidiaComUrl || temMidiaSemUrl;
             })
             .map((mensagem, index) => {
             const isFirstUnread =
