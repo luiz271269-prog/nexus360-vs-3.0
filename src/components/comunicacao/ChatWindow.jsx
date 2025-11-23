@@ -1267,8 +1267,14 @@ export default function ChatWindow({
             .filter(m => {
               // 🏷️ FILTRO POR CATEGORIA SELECIONADA (PRIMEIRO FILTRO)
               if (selectedCategoria && selectedCategoria !== 'all') {
-                const temCategoria = m.categorias && m.categorias.includes(selectedCategoria);
-                console.log('[FILTRO] 🏷️ Mensagem:', m.id, 'Categorias:', m.categorias, 'Filtro:', selectedCategoria, 'Passou?', temCategoria);
+                const temCategoria = m.categorias && Array.isArray(m.categorias) && m.categorias.includes(selectedCategoria);
+                console.log('[FILTRO] 🏷️ Mensagem ID:', m.id, 
+                  'Content:', m.content?.substring(0, 30), 
+                  'Categorias:', JSON.stringify(m.categorias), 
+                  'Filtro:', selectedCategoria, 
+                  'Tipo categorias:', typeof m.categorias,
+                  'É array?', Array.isArray(m.categorias),
+                  'Passou?', temCategoria);
                 if (!temCategoria) {
                   return false;
                 }

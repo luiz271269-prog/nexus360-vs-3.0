@@ -309,7 +309,10 @@ export default function MessageBubble({
     : null;
 
   const handleToggleCategoria = async (valorCategoria) => {
-    if (categorizando || !message) return;
+    if (categorizando || !message) {
+      console.log('[ETIQUETA] ⚠️ Ignorando - categorizando:', categorizando, 'message:', !!message);
+      return;
+    }
 
     setCategorizando(true);
     try {
@@ -318,26 +321,39 @@ export default function MessageBubble({
         ? categoriasAtuais.filter(c => c !== valorCategoria)
         : [...categoriasAtuais, valorCategoria];
 
-      console.log('[ETIQUETA] 🏷️ Salvando etiqueta:', {
+      console.log('[ETIQUETA] 🏷️ SALVANDO etiqueta na MENSAGEM:', {
         message_id: message.id,
+        message_content_preview: message.content?.substring(0, 50),
         categorias_antes: categoriasAtuais,
         categorias_depois: novasCategorias,
-        categoria_alterada: valorCategoria
+        categoria_alterada: valorCategoria,
+        thread_id: thread?.id
       });
 
-      await base44.entities.Message.update(message.id, {
+      const resultado = await base44.entities.Message.update(message.id, {
         categorias: novasCategorias
       });
 
-      console.log('[ETIQUETA] ✅ Etiqueta salva no banco de dados');
+      console.log('[ETIQUETA] ✅ SUCESSO - Resposta do banco:', resultado);
 
-      queryClient.invalidateQueries({ queryKey: ['mensagens', thread?.id] });
+      // Forçar reload imediato
+      await queryClient.invalidateQueries({ queryKey: ['mensagens', thread?.id] });
+      
+      // Verificar se salvou
+      setTimeout(async () => {
+        try {
+          const msgAtualizada = await base44.entities.Message.get(message.id);
+          console.log('[ETIQUETA] 🔍 VERIFICAÇÃO - Categorias salvas no banco:', msgAtualizada.categorias);
+        } catch (e) {
+          console.error('[ETIQUETA] ❌ Erro ao verificar:', e);
+        }
+      }, 500);
 
       const catConfig = todasCategorias.find(c => c.nome === valorCategoria);
       toast.success(`${catConfig?.emoji || '🏷️'} ${catConfig?.label || valorCategoria} ${novasCategorias.includes(valorCategoria) ? 'adicionada' : 'removida'}`);
     } catch (error) {
-      console.error('[BUBBLE] ❌ Erro ao categorizar:', error);
-      toast.error('Erro ao atualizar categoria');
+      console.error('[BUBBLE] ❌ ERRO GRAVE ao categorizar:', error);
+      toast.error(`Erro ao atualizar categoria: ${error.message}`);
     } finally {
       setCategorizando(false);
     }
