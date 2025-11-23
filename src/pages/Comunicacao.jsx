@@ -379,19 +379,19 @@ export default function Comunicacao() {
                 <MessageCircle className="w-4 h-4" />
                 Conversas
               </TabsTrigger>
-              <TabsTrigger value="controle" className="gap-2">
+              <TabsTrigger value="controle" className="gap-2 data-[state=active]:bg-gradient-to-r data-[state=active]:from-amber-500 data-[state=active]:to-orange-600 data-[state=active]:text-white text-slate-300 hover:text-white transition-all">
                 <Activity className="w-4 h-4" />
                 Controle Operacional
               </TabsTrigger>
-              <TabsTrigger value="automacao" className="gap-2">
+              <TabsTrigger value="automacao" className="gap-2 data-[state=active]:bg-gradient-to-r data-[state=active]:from-amber-500 data-[state=active]:to-orange-600 data-[state=active]:text-white text-slate-300 hover:text-white transition-all">
                 <Zap className="w-4 h-4" />
                 Automação
               </TabsTrigger>
-              <TabsTrigger value="diagnostico" className="gap-2">
+              <TabsTrigger value="diagnostico" className="gap-2 data-[state=active]:bg-gradient-to-r data-[state=active]:from-amber-500 data-[state=active]:to-orange-600 data-[state=active]:text-white text-slate-300 hover:text-white transition-all">
                 <BarChart3 className="w-4 h-4" />
                 Diagnóstico
               </TabsTrigger>
-              <TabsTrigger value="configuracoes" className="gap-2">
+              <TabsTrigger value="configuracoes" className="gap-2 data-[state=active]:bg-gradient-to-r data-[state=active]:from-amber-500 data-[state=active]:to-orange-600 data-[state=active]:text-white text-slate-300 hover:text-white transition-all">
                 <Settings className="w-4 h-4" />
                 Configurações
               </TabsTrigger>
