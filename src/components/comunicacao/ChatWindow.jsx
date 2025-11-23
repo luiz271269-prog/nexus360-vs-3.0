@@ -84,6 +84,9 @@ export default function ChatWindow({
   const [mostrarPreviewArquivo, setMostrarPreviewArquivo] = useState(false);
   const fileInputRef = useRef(null);
 
+  const [vendedores, setVendedores] = useState([]);
+  const [atendentesLista, setAtendentesLista] = useState([]);
+
   const messagesEndRef = useRef(null);
   const inputRef = useRef(null);
   const chatContainerRef = useRef(null);
@@ -1332,30 +1335,6 @@ export default function ChatWindow({
     );
   }
 
-  // Nome formatado: Empresa + Cargo + Nome
-  let nomeContato = "";
-  if (contatoCompleto?.empresa) nomeContato += contatoCompleto.empresa;
-  if (contatoCompleto?.cargo) nomeContato += (nomeContato ? " - " : "") + contatoCompleto.cargo;
-  if (contatoCompleto?.nome && contatoCompleto.nome !== contatoCompleto.telefone) {
-    nomeContato += (nomeContato ? " - " : "") + contatoCompleto.nome;
-  }
-  if (!nomeContato || nomeContato.trim() === '') {
-    nomeContato = contatoCompleto?.telefone || thread?.contato?.telefone || 'Contato';
-  }
-
-  const telefoneExibicao = contatoCompleto?.telefone || thread?.contato?.telefone || contatoCompleto?.celular || thread?.contato?.celular || 'Sem telefone';
-
-  const tiposContato = [
-    { value: 'lead', label: 'Lead', icon: '🎯' },
-    { value: 'cliente', label: 'Cliente', icon: '💎' },
-    { value: 'fornecedor', label: 'Fornecedor', icon: '🏭' },
-    { value: 'parceiro', label: 'Parceiro', icon: '🤝' }
-  ];
-  const tipoAtual = tiposContato.find(t => t.value === contatoCompleto?.tipo_contato);
-
-  const [vendedores, setVendedores] = useState([]);
-  const [atendentesLista, setAtendentesLista] = useState([]);
-
   useEffect(() => {
     const carregarDados = async () => {
       try {
@@ -1383,6 +1362,27 @@ export default function ChatWindow({
       toast.error('Erro ao atualizar');
     }
   };
+
+  // Nome formatado: Empresa + Cargo + Nome
+  let nomeContato = "";
+  if (contatoCompleto?.empresa) nomeContato += contatoCompleto.empresa;
+  if (contatoCompleto?.cargo) nomeContato += (nomeContato ? " - " : "") + contatoCompleto.cargo;
+  if (contatoCompleto?.nome && contatoCompleto.nome !== contatoCompleto.telefone) {
+    nomeContato += (nomeContato ? " - " : "") + contatoCompleto.nome;
+  }
+  if (!nomeContato || nomeContato.trim() === '') {
+    nomeContato = contatoCompleto?.telefone || thread?.contato?.telefone || 'Contato';
+  }
+
+  const telefoneExibicao = contatoCompleto?.telefone || thread?.contato?.telefone || contatoCompleto?.celular || thread?.contato?.celular || 'Sem telefone';
+
+  const tiposContato = [
+    { value: 'lead', label: 'Lead', icon: '🎯' },
+    { value: 'cliente', label: 'Cliente', icon: '💎' },
+    { value: 'fornecedor', label: 'Fornecedor', icon: '🏭' },
+    { value: 'parceiro', label: 'Parceiro', icon: '🤝' }
+  ];
+  const tipoAtual = tiposContato.find(t => t.value === contatoCompleto?.tipo_contato);
 
   const getInitials = (name) => {
     if (!name) return '?';
