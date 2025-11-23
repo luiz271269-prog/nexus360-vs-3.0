@@ -1508,14 +1508,16 @@ export default function ChatWindow({
           </div>
 
           {/* Botão de Info */}
-          <Button
-            variant="ghost"
-            size="icon"
+          <div 
             onClick={onShowContactInfo}
-            className="hover:bg-slate-100 flex-shrink-0"
+            className="bg-gradient-to-r from-slate-600 to-slate-700 text-white rounded-lg px-3 shadow h-[1cm] flex items-center gap-2 hover:from-slate-700 hover:to-slate-800 transition-all cursor-pointer flex-shrink-0"
           >
-            <Info className="w-5 h-5 text-slate-600" />
-          </Button>
+            <Info className="w-4 h-4" />
+            <div className="flex flex-col justify-center">
+              <span className="text-[9px] font-semibold opacity-90">Ver</span>
+              <span className="text-xs -mt-1">Detalhes</span>
+            </div>
+          </div>
         </div>
       </div>
 
