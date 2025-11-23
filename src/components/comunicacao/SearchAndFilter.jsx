@@ -3,8 +3,9 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Search, UserPlus, User, Users, AlertCircle, Phone } from 'lucide-react';
+import { Search, UserPlus, User, Users, AlertCircle, Phone, Tag } from 'lucide-react';
 import { normalizarTelefone } from '../lib/phoneUtils';
+import { CATEGORIAS_DISPONIVEIS } from './CategorizadorRapido';
 
 export default function SearchAndFilter({
   searchTerm,
@@ -169,6 +170,37 @@ export default function SearchAndFilter({
           </div>
         </div>
       )}
+
+      {/* 🆕 FILTRO POR CATEGORIA */}
+      <div className="w-full pt-2 border-t border-slate-200">
+        <label className="text-xs text-slate-600 mb-2 block font-medium">Filtrar por categoria:</label>
+        <div className="flex flex-wrap gap-2">
+          <Badge
+            onClick={() => onSelectedCategoriaChange('all')}
+            className={`cursor-pointer transition-all ${
+              !selectedCategoria || selectedCategoria === 'all'
+                ? 'bg-slate-600 text-white hover:bg-slate-700'
+                : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+            }`}
+          >
+            <Tag className="w-3 h-3 mr-1" />
+            Todas
+          </Badge>
+          {CATEGORIAS_DISPONIVEIS.map((cat) => (
+            <Badge
+              key={cat.value}
+              onClick={() => onSelectedCategoriaChange(cat.value)}
+              className={`cursor-pointer transition-all border-0 ${
+                selectedCategoria === cat.value
+                  ? `${cat.color} text-white opacity-100`
+                  : `${cat.color} text-white opacity-40 hover:opacity-70`
+              }`}
+            >
+              {cat.label}
+            </Badge>
+          ))}
+        </div>
+      </div>
     </div>
   );
 }
