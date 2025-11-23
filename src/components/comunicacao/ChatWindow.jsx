@@ -44,6 +44,7 @@ import {
 import SugestorRespostasRapidas from './SugestorRespostasRapidas';
 import { useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
+import MediaAttachmentSystem from './MediaAttachmentSystem';
 
 export default function ChatWindow({
   thread,
@@ -79,10 +80,7 @@ export default function ChatWindow({
 
   const [canalSelecionado, setCanalSelecionado] = useState(null);
 
-  const [arquivoSelecionado, setArquivoSelecionado] = useState(null);
-  const [legendaArquivo, setLegendaArquivo] = useState("");
-  const [mostrarPreviewArquivo, setMostrarPreviewArquivo] = useState(false);
-  const fileInputRef = useRef(null);
+  const [mostrarMediaSystem, setMostrarMediaSystem] = useState(false);
 
   const [vendedores, setVendedores] = useState([]);
   const [atendentesLista, setAtendentesLista] = useState([]);
@@ -675,371 +673,14 @@ export default function ChatWindow({
     }
   };
 
-  const handleSelecionarArquivo = (e) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+  // Removido - agora usa MediaAttachmentSystem
 
-    const maxSize = 16 * 1024 * 1024;
-    if (file.size > maxSize) {
-      toast.error('❌ Arquivo muito grande. Limite: 16MB.');
-      if (fileInputRef.current) fileInputRef.current.value = '';
-      return;
-    }
+  // Removido - agora usa MediaAttachmentSystem
 
-    const isImage = file.type.startsWith('image/');
-    const isVideo = file.type.startsWith('video/');
-    const isAudio = file.type.startsWith('audio/');
-    const isDocument = file.type.startsWith('application/') || file.type.startsWith('text/');
+  // Paste handling agora integrado no MediaAttachmentSystem
 
-    if (!isImage && !isVideo && !isAudio && !isDocument) {
-      toast.error('❌ Tipo de arquivo não suportado.');
-      if (fileInputRef.current) fileInputRef.current.value = '';
-      return;
-    }
 
-    setArquivoSelecionado(file);
-    setLegendaArquivo("");
-    setMostrarPreviewArquivo(true);
-  };
-
-  const handleEnviarArquivo = async () => {
-    if (!podeEnviarMidias) {
-      toast.error("❌ Você não tem permissão para enviar mídias");
-      return;
-    }
-
-    if (!arquivoSelecionado || !thread || !usuario || carregandoContato) {
-      return;
-    }
-
-    if (!contatoCompleto) {
-      toast.error('Contato não carregado. Por favor, recarregue a página.');
-      return;
-    }
-
-    const telefone = contatoCompleto.telefone || contatoCompleto.celular;
-    if (!telefone) {
-      toast.error('Este contato não possui telefone cadastrado para enviar arquivos.');
-      return;
-    }
-
-    setEnviando(true);
-
-    try {
-      let mediaType = 'document';
-      let contentText = `[Documento: ${arquivoSelecionado.name}]`;
-
-      if (arquivoSelecionado.type.startsWith('image/')) {
-        mediaType = 'image';
-        contentText = legendaArquivo || '[Imagem]';
-      } else if (arquivoSelecionado.type.startsWith('video/')) {
-        mediaType = 'video';
-        contentText = legendaArquivo || '[Vídeo]';
-      } else if (arquivoSelecionado.type.startsWith('audio/')) {
-        mediaType = 'audio';
-        contentText = '[Áudio]';
-      }
-
-      toast.info(`📤 Enviando ${mediaType === 'image' ? 'imagem' : mediaType === 'video' ? 'vídeo' : mediaType === 'audio' ? 'áudio' : 'documento'}...`, { duration: 999999 });
-
-      console.log('[CHAT] 📤 Iniciando upload do arquivo:', {
-        name: arquivoSelecionado.name,
-        type: arquivoSelecionado.type,
-        size: arquivoSelecionado.size,
-        mediaType
-      });
-
-      const uploadResponse = await base44.integrations.Core.UploadFile({
-        file: arquivoSelecionado
-      });
-
-      const fileUrl = uploadResponse.file_url;
-      console.log('[CHAT] ✅ Arquivo uploaded:', fileUrl);
-
-      const integrationIdParaUso = canalSelecionado || thread.whatsapp_integration_id;
-      
-      const dadosEnvio = {
-        integration_id: integrationIdParaUso,
-        numero_destino: telefone,
-        media_type: mediaType,
-        media_caption: legendaArquivo || ''
-      };
-
-      // ✅ CORREÇÃO: Usar campo correto baseado no tipo
-      if (mediaType === 'audio') {
-        dadosEnvio.audio_url = fileUrl;
-      } else {
-        dadosEnvio.media_url = fileUrl;
-      }
-
-      if (mensagemResposta?.whatsapp_message_id) {
-        dadosEnvio.reply_to_message_id = mensagemResposta.whatsapp_message_id;
-        console.log('[CHAT] 💬 Enviando mídia como resposta a:', mensagemResposta.whatsapp_message_id);
-      }
-
-      console.log('[CHAT] 📤 Dados de envio para backend:', dadosEnvio);
-
-      const resultado = await base44.functions.invoke('enviarWhatsApp', dadosEnvio);
-
-      toast.dismiss();
-
-      console.log('[CHAT] 📥 Resultado do backend:', resultado.data);
-
-      if (resultado.data.success) {
-        await base44.entities.Message.create({
-          thread_id: thread.id,
-          sender_id: usuario.id,
-          sender_type: "user",
-          recipient_id: thread.contact_id,
-          recipient_type: "contact",
-          content: contentText,
-          channel: "whatsapp",
-          status: "enviada",
-          whatsapp_message_id: resultado.data.message_id,
-          sent_at: new Date().toISOString(),
-          media_url: fileUrl,
-          media_type: mediaType,
-          media_caption: legendaArquivo || null,
-          reply_to_message_id: mensagemResposta?.id || null,
-          metadata: {
-            whatsapp_integration_id: integrationIdParaUso
-          }
-        });
-
-        await base44.entities.MessageThread.update(thread.id, {
-          last_message_content: contentText,
-          last_message_at: new Date().toISOString(),
-          last_message_sender: "user",
-          whatsapp_integration_id: integrationIdParaUso
-        });
-
-        toast.success(`✅ ${mediaType === 'image' ? 'Imagem' : mediaType === 'video' ? 'Vídeo' : mediaType === 'audio' ? 'Áudio' : 'Documento'} enviado com sucesso!`);
-
-        setArquivoSelecionado(null);
-        setLegendaArquivo("");
-        setMostrarPreviewArquivo(false);
-        setMensagemResposta(null);
-        setMostrarSugestor(false);
-
-        if (fileInputRef.current) {
-          fileInputRef.current.value = '';
-        }
-
-        if (onAtualizarMensagens) {
-          setTimeout(async () => {
-            const novasMensagens = await base44.entities.Message.filter(
-              { thread_id: thread.id },
-              'created_date',
-              500
-            );
-            onAtualizarMensagens(novasMensagens);
-          }, 500);
-        }
-      } else {
-        throw new Error(resultado.data.error || 'Erro desconhecido ao enviar mídia pelo WhatsApp');
-      }
-
-    } catch (error) {
-      console.error('[CHAT] ❌ Erro ao enviar arquivo:', error);
-      toast.dismiss();
-
-      const mensagemErro = error.message || 'Erro ao enviar arquivo';
-      setErro(mensagemErro);
-      toast.error(mensagemErro);
-    } finally {
-      setEnviando(false);
-    }
-  };
-
-  useEffect(() => {
-    const handlePaste = async (e) => {
-      if (!podeEnviarMidias || enviando || gravandoAudio || modoSelecao || uploadingPastedFile || mostrarPreviewArquivo) {
-        return;
-      }
-
-      const clipboardItems = e.clipboardData?.items;
-      if (!clipboardItems) return;
-
-      for (let i = 0; i < clipboardItems.length; i++) {
-        const item = clipboardItems[i];
-
-        if (item.kind === 'file') {
-          e.preventDefault();
-          const file = item.getAsFile();
-          if (!file) continue;
-
-          const isImage = file.type.startsWith('image/');
-          const isVideo = file.type.startsWith('video/');
-          const isDocument = file.type.startsWith('application/') || file.type.startsWith('text/') || file.type.startsWith('audio/');
-
-          if (!isImage && !isVideo && !isDocument) {
-            toast.error('Tipo de arquivo não suportado. Cole imagens, vídeos ou documentos (incluindo áudio).');
-            return;
-          }
-
-          const maxSize = 16 * 1024 * 1024;
-          if (file.size > maxSize) {
-            toast.error('Arquivo muito grande. Limite: 16MB.');
-            return;
-          }
-
-          await handleEnviarArquivoColado(file);
-          break;
-        }
-      }
-    };
-
-    document.addEventListener('paste', handlePaste);
-
-    return () => {
-      document.removeEventListener('paste', handlePaste);
-    };
-  }, [podeEnviarMidias, enviando, gravandoAudio, modoSelecao, uploadingPastedFile, mostrarPreviewArquivo, thread, usuario, contatoCompleto, mensagemResposta, onAtualizarMensagens]);
-
-
-  const handleEnviarArquivoColado = async (file) => {
-    if (!podeEnviarMidias) {
-      toast.error("❌ Você não tem permissão para enviar mídias");
-      return;
-    }
-
-    if (!thread || !usuario || carregandoContato) {
-      toast.error("Dados da conversa ou contato não disponíveis para enviar arquivo.");
-      return;
-    }
-
-    if (!contatoCompleto) {
-      toast.error('Contato não carregado. Por favor, recarregue a página.');
-      return;
-    }
-
-    const telefone = contatoCompleto.telefone || contatoCompleto.celular;
-    if (!telefone) {
-      toast.error('Este contato não possui telefone cadastrado para enviar arquivos.');
-      return;
-    }
-
-    setUploadingPastedFile(true);
-    setEnviando(true);
-
-    try {
-      let mediaType = 'document';
-      let contentText = `[Documento: ${file.name}]`;
-
-      if (file.type.startsWith('image/')) {
-        mediaType = 'image';
-        contentText = '[Imagem]';
-      } else if (file.type.startsWith('video/')) {
-        mediaType = 'video';
-        contentText = '[Vídeo]';
-      } else if (file.type.startsWith('audio/')) {
-        mediaType = 'audio';
-        contentText = '[Áudio]';
-      }
-
-      toast.info(`📤 Enviando ${mediaType === 'image' ? 'imagem' : mediaType === 'video' ? 'vídeo' : mediaType === 'audio' ? 'áudio' : 'documento'}...`, { duration: 999999 });
-
-      console.log('[CHAT] 📤 Iniciando upload do arquivo colado:', {
-        name: file.name,
-        type: file.type,
-        size: file.size,
-        mediaType
-      });
-
-      const uploadResponse = await base44.integrations.Core.UploadFile({
-        file: file
-      });
-
-      const fileUrl = uploadResponse.file_url;
-      console.log('[CHAT] ✅ Arquivo uploaded:', fileUrl);
-
-      const integrationIdParaUso = canalSelecionado || thread.whatsapp_integration_id;
-      
-      const dadosEnvio = {
-        integration_id: integrationIdParaUso,
-        numero_destino: telefone,
-        media_type: mediaType,
-        media_caption: ''
-      };
-
-      // ✅ CORREÇÃO: Usar campo correto baseado no tipo
-      if (mediaType === 'audio') {
-        dadosEnvio.audio_url = fileUrl;
-      } else {
-        dadosEnvio.media_url = fileUrl;
-      }
-
-      if (mensagemResposta?.whatsapp_message_id) {
-        dadosEnvio.reply_to_message_id = mensagemResposta.whatsapp_message_id;
-        console.log('[CHAT] 💬 Enviando mídia como resposta a:', mensagemResposta.whatsapp_message_id);
-      }
-
-      console.log('[CHAT] 📤 Dados de envio para backend:', dadosEnvio);
-
-      const resultado = await base44.functions.invoke('enviarWhatsApp', dadosEnvio);
-
-      toast.dismiss();
-
-      console.log('[CHAT] 📥 Resultado do backend:', resultado.data);
-
-      if (resultado.data.success) {
-        await base44.entities.Message.create({
-          thread_id: thread.id,
-          sender_id: usuario.id,
-          sender_type: "user",
-          recipient_id: thread.contact_id,
-          recipient_type: "contact",
-          content: contentText,
-          channel: "whatsapp",
-          status: "enviada",
-          whatsapp_message_id: resultado.data.message_id,
-          sent_at: new Date().toISOString(),
-          media_url: fileUrl,
-          media_type: mediaType,
-          reply_to_message_id: mensagemResposta?.id || null,
-          metadata: {
-            whatsapp_integration_id: integrationIdParaUso
-          }
-        });
-
-        await base44.entities.MessageThread.update(thread.id, {
-          last_message_content: contentText,
-          last_message_at: new Date().toISOString(),
-          last_message_sender: "user",
-          whatsapp_integration_id: integrationIdParaUso
-        });
-
-        toast.success(`✅ ${mediaType === 'image' ? 'Imagem' : mediaType === 'video' ? 'Vídeo' : mediaType === 'audio' ? 'Áudio' : 'Documento'} enviado com sucesso!`);
-
-        setMensagemResposta(null);
-        setMostrarSugestor(false);
-
-        if (onAtualizarMensagens) {
-          setTimeout(async () => {
-            const novasMensagens = await base44.entities.Message.filter(
-              { thread_id: thread.id },
-              'created_date',
-              500
-            );
-            onAtualizarMensagens(novasMensagens);
-          }, 500);
-        }
-      } else {
-        throw new Error(resultado.data.error || 'Erro desconhecido ao enviar mídia pelo WhatsApp');
-      }
-
-    } catch (error) {
-      console.error('[CHAT] ❌ Erro ao enviar arquivo colado:', error);
-      toast.dismiss();
-
-      const mensagemErro = error.message || 'Erro ao enviar arquivo';
-      setErro(mensagemErro);
-      toast.error(mensagemErro);
-    } finally {
-      setUploadingPastedFile(false);
-      setEnviando(false);
-    }
-  };
+  // Removido - agora usa MediaAttachmentSystem
 
   const handlePrintChat = async () => {
     if (!chatContainerRef.current) {
@@ -1629,6 +1270,29 @@ export default function ChatWindow({
         </div>
       )}
 
+      {/* Sistema de Anexos Melhorado */}
+      {mostrarMediaSystem && (
+        <MediaAttachmentSystem
+          onSend={() => {
+            setMostrarMediaSystem(false);
+            if (onAtualizarMensagens) {
+              setTimeout(async () => {
+                const novasMensagens = await base44.entities.Message.filter(
+                  { thread_id: thread.id },
+                  'created_date',
+                  500
+                );
+                onAtualizarMensagens(novasMensagens);
+              }, 500);
+            }
+          }}
+          disabled={enviando || carregandoContato || gravandoAudio || modoSelecao}
+          replyToMessage={mensagemResposta}
+          thread={thread}
+          usuario={usuario}
+        />
+      )}
+
       <form onSubmit={handleEnviar} className="p-4 border-t bg-white flex-shrink-0">
         {/* Seletor de Canal WhatsApp */}
         {integracoes.length > 1 && (
@@ -1649,21 +1313,13 @@ export default function ChatWindow({
         )}
         
         <div className="flex items-end gap-2">
-          <input
-            ref={fileInputRef}
-            type="file"
-            className="hidden"
-            accept="image/*,video/*,audio/*,.pdf,.doc,.docx,.xls,.xlsx,.txt"
-            onChange={handleSelecionarArquivo}
-          />
-          
           <Button
             type="button"
             variant="ghost"
             size="icon"
             className="flex-shrink-0"
-            disabled={enviando || carregandoContato || gravandoAudio || modoSelecao || uploadingPastedFile || mostrarPreviewArquivo || !podeEnviarMidias}
-            onClick={() => fileInputRef.current?.click()}
+            disabled={enviando || carregandoContato || gravandoAudio || modoSelecao || !podeEnviarMidias}
+            onClick={() => setMostrarMediaSystem(!mostrarMediaSystem)}
             title={!podeEnviarMidias ? "Sem permissão para enviar mídias" : "Anexar arquivo"}
           >
             <Paperclip className="w-5 h-5 text-slate-600" />
@@ -1742,132 +1398,7 @@ export default function ChatWindow({
         )}
       </form>
 
-      {/* MODAL DE PREVIEW E ENVIO DE ARQUIVO - ESTILO WHATSAPP */}
-      <Dialog open={mostrarPreviewArquivo} onOpenChange={setMostrarPreviewArquivo}>
-        <DialogContent className="max-w-2xl">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              {arquivoSelecionado?.type.startsWith('image/') && <ImageIcon className="w-5 h-5 text-green-600" />}
-              {arquivoSelecionado?.type.startsWith('video/') && <Video className="w-5 h-5 text-blue-600" />}
-              {arquivoSelecionado?.type.startsWith('audio/') && <Mic className="w-5 h-5 text-purple-600" />}
-              {(!arquivoSelecionado?.type.startsWith('image/') && !arquivoSelecionado?.type.startsWith('video/') && !arquivoSelecionado?.type.startsWith('audio/')) && (
-                <FileText className="w-5 h-5 text-orange-600" />
-              )}
-              Enviar Arquivo
-            </DialogTitle>
-          </DialogHeader>
-
-          <div className="space-y-4">
-            {/* Preview do arquivo */}
-            <div className="bg-slate-50 rounded-xl p-4 flex items-center justify-center min-h-[200px] max-h-[400px] overflow-hidden">
-              {arquivoSelecionado?.type.startsWith('image/') && (
-                <img
-                  src={URL.createObjectURL(arquivoSelecionado)}
-                  alt="Preview"
-                  className="max-w-full max-h-[380px] object-contain rounded-lg"
-                />
-              )}
-              
-              {arquivoSelecionado?.type.startsWith('video/') && (
-                <video
-                  src={URL.createObjectURL(arquivoSelecionado)}
-                  controls
-                  className="max-w-full max-h-[380px] rounded-lg"
-                />
-              )}
-              
-              {arquivoSelecionado?.type.startsWith('audio/') && (
-                <div className="w-full max-w-md bg-white rounded-xl p-6 shadow-lg">
-                  <div className="flex items-center gap-3 mb-4">
-                    <div className="w-12 h-12 bg-purple-500 rounded-full flex items-center justify-center">
-                      <Mic className="w-6 h-6 text-white" />
-                    </div>
-                    <div>
-                      <p className="font-semibold text-slate-900">{arquivoSelecionado.name}</p>
-                      <p className="text-xs text-slate-500">
-                        {(arquivoSelecionado.size / 1024).toFixed(1)} KB
-                      </p>
-                    </div>
-                  </div>
-                  <audio
-                    src={URL.createObjectURL(arquivoSelecionado)}
-                    controls
-                    className="w-full"
-                  />
-                </div>
-              )}
-              
-              {(!arquivoSelecionado?.type.startsWith('image/') && 
-                !arquivoSelecionado?.type.startsWith('video/') && 
-                !arquivoSelecionado?.type.startsWith('audio/')) && (
-                <div className="w-full max-w-md bg-white rounded-xl p-6 shadow-lg">
-                  <div className="flex items-center gap-3">
-                    <div className="w-16 h-16 bg-orange-100 rounded-xl flex items-center justify-center">
-                      <FileText className="w-8 h-8 text-orange-600" />
-                    </div>
-                    <div className="flex-1">
-                      <p className="font-semibold text-slate-900">{arquivoSelecionado?.name}</p>
-                      <p className="text-xs text-slate-500 mt-1">
-                        {(arquivoSelecionado?.size / 1024).toFixed(1)} KB
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {/* Legenda (apenas para imagens e vídeos) */}
-            {(arquivoSelecionado?.type.startsWith('image/') || arquivoSelecionado?.type.startsWith('video/')) && (
-              <div>
-                <textarea
-                  value={legendaArquivo}
-                  onChange={(e) => setLegendaArquivo(e.target.value)}
-                  placeholder="Adicionar legenda (opcional)..."
-                  rows={2}
-                  className="w-full p-3 border border-slate-300 rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-green-500"
-                  disabled={enviando}
-                />
-              </div>
-            )}
-
-            {/* Botões de ação */}
-            <div className="flex gap-2">
-              <Button
-                variant="outline"
-                onClick={() => {
-                  setMostrarPreviewArquivo(false);
-                  setArquivoSelecionado(null);
-                  setLegendaArquivo("");
-                  if (fileInputRef.current) {
-                    fileInputRef.current.value = '';
-                  }
-                }}
-                className="flex-1"
-                disabled={enviando}
-              >
-                Cancelar
-              </Button>
-              <Button
-                onClick={handleEnviarArquivo}
-                disabled={enviando}
-                className="flex-1 bg-green-600 hover:bg-green-700"
-              >
-                {enviando ? (
-                  <>
-                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                    Enviando...
-                  </>
-                ) : (
-                  <>
-                    <Send className="w-4 h-4 mr-2" />
-                    Enviar
-                  </>
-                )}
-              </Button>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
+      {/* Modal removido - agora usa MediaAttachmentSystem */}
 
       {/* MODAL DE ATRIBUIÇÃO */}
       <Dialog open={mostrarModalAtribuicao} onOpenChange={setMostrarModalAtribuicao}>
