@@ -68,24 +68,84 @@ export default function SegmentacaoInteligente({ contactId }) {
 
   const analisarComportamento = async () => {
     setAnalisando(true);
+    const toastId = toast.loading('🤖 IA analisando histórico de conversas...', { duration: Infinity });
+    
     try {
-      toast.info('🤖 Analisando comportamento com IA...');
-      
       const resultado = await base44.functions.invoke('analisarComportamentoContato', {
         contact_id: contactId,
         periodo_dias: 30
       });
 
       if (resultado.data.success) {
-        toast.success(`✅ Análise concluída! Segmento: ${resultado.data.resumo.segmento}`);
+        const resumo = resultado.data.resumo;
+        
+        // Mensagem de sucesso mais informativa
+        toast.success(
+          `✅ Análise concluída!\n` +
+          `📊 Segmento: ${resumo.segmento?.replace(/_/g, ' ')}\n` +
+          `⭐ Score: ${resumo.score}/100\n` +
+          `${resumo.tags_atribuidas?.length > 0 ? `🏷️ ${resumo.tags_atribuidas.length} tag(s) aplicada(s)` : ''}`,
+          { duration: 5000 }
+        );
+
+        // Atualizar MessageThreads com nova prioridade baseada na análise
+        try {
+          const threads = await base44.entities.MessageThread.list('-created_date', 10, { contact_id: contactId });
+          
+          if (threads.length > 0) {
+            // Calcular prioridade baseada no segmento e score
+            let novaPrioridade = 'normal';
+            
+            if (resumo.segmento === 'risco_churn' || resumo.score < 30) {
+              novaPrioridade = 'urgente';
+            } else if (resumo.segmento === 'lead_quente' || resumo.score > 80) {
+              novaPrioridade = 'alta';
+            } else if (resumo.segmento === 'lead_morno' || (resumo.score >= 50 && resumo.score <= 80)) {
+              novaPrioridade = 'normal';
+            } else {
+              novaPrioridade = 'baixa';
+            }
+
+            // Atualizar prioridade das threads ativas
+            for (const thread of threads) {
+              if (thread.status === 'aberta' || thread.status === 'aguardando_cliente') {
+                await base44.entities.MessageThread.update(thread.id, {
+                  prioridade: novaPrioridade
+                });
+              }
+            }
+
+            console.log(`✅ Prioridade das conversas atualizada para: ${novaPrioridade}`);
+          }
+        } catch (threadError) {
+          console.warn('Erro ao atualizar prioridade das threads:', threadError);
+        }
+        
         await carregarAnalise();
         await carregarTags();
+        
+        toast.dismiss(toastId);
       } else {
-        throw new Error(resultado.data.error);
+        throw new Error(resultado.data.error || 'Erro desconhecido na análise');
       }
     } catch (error) {
-      console.error('Erro ao analisar:', error);
-      toast.error('Erro ao analisar comportamento');
+      console.error('❌ Erro ao analisar:', error);
+      toast.dismiss(toastId);
+      
+      // Mensagens de erro mais amigáveis
+      let mensagemErro = 'Erro ao analisar comportamento';
+      
+      if (error.message?.includes('Rate limit') || error.message?.includes('429')) {
+        mensagemErro = '⏳ Muitas requisições. Aguarde alguns segundos e tente novamente.';
+      } else if (error.message?.includes('timeout')) {
+        mensagemErro = '⏱️ Análise demorou muito. Tente novamente ou reduza o período.';
+      } else if (error.message?.includes('Não autorizado')) {
+        mensagemErro = '🔒 Você não tem permissão para analisar contatos.';
+      } else if (error.message) {
+        mensagemErro = `❌ ${error.message}`;
+      }
+      
+      toast.error(mensagemErro, { duration: 6000 });
     } finally {
       setAnalisando(false);
     }
@@ -151,8 +211,20 @@ export default function SegmentacaoInteligente({ contactId }) {
             </Button>
           </div>
           {analise && (
-            <CardDescription>
+            <CardDescription className="flex items-center gap-2">
+              <Clock className="w-3 h-3" />
               Última análise: {new Date(analise.ultima_analise).toLocaleString('pt-BR')}
+              {(() => {
+                const diasDesdeAnalise = Math.floor((Date.now() - new Date(analise.ultima_analise).getTime()) / (1000 * 60 * 60 * 24));
+                if (diasDesdeAnalise > 7) {
+                  return (
+                    <Badge variant="outline" className="ml-2 text-orange-600 border-orange-300">
+                      ⚠️ Recomendado reanalisar
+                    </Badge>
+                  );
+                }
+                return null;
+              })()}
             </CardDescription>
           )}
         </CardHeader>
@@ -162,9 +234,27 @@ export default function SegmentacaoInteligente({ contactId }) {
         <Card>
           <CardContent className="p-8 text-center">
             <Sparkles className="w-12 h-12 text-purple-300 mx-auto mb-3" />
-            <p className="text-slate-600 mb-4">Nenhuma análise disponível ainda</p>
-            <Button onClick={analisarComportamento} disabled={analisando}>
-              Realizar Primeira Análise
+            <p className="text-slate-600 mb-2 font-medium">Nenhuma análise disponível ainda</p>
+            <p className="text-sm text-slate-500 mb-4">
+              A IA analisará o histórico de mensagens para identificar padrões de comportamento,
+              sentimento e recomendar ações.
+            </p>
+            <Button 
+              onClick={analisarComportamento} 
+              disabled={analisando}
+              className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700"
+            >
+              {analisando ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Analisando...
+                </>
+              ) : (
+                <>
+                  <Brain className="w-4 h-4 mr-2" />
+                  Realizar Primeira Análise
+                </>
+              )}
             </Button>
           </CardContent>
         </Card>
