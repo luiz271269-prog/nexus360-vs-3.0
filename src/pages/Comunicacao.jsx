@@ -173,6 +173,7 @@ export default function Comunicacao() {
     setNovoContatoTelefone("");
     setShowContactInfo(false);
     setThreadAtiva(thread);
+    setSelectedCategoria('all'); // Limpar filtro ao mudar de conversa
   }, []);
 
   // RESTAURADO: Handler para criar novo contato
