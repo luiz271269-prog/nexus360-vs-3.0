@@ -137,30 +137,29 @@ export default function SearchAndFilter({
         </Select>
       )}
 
-      {/* FILTRO POR CANAL - BADGES */}
+      {/* FILTRO POR CANAL - ESTILO CABEÇALHO */}
       {integracoes.length > 1 && (
         <div className="w-full pt-2 border-t border-slate-200">
-          <label className="text-xs text-slate-600 mb-2 block font-medium">Canal:</label>
+          <label className="text-xs text-slate-600 mb-2 block font-medium">📱 Canal:</label>
           <div className="flex flex-wrap gap-2">
             <Badge
               onClick={() => onSelectedIntegrationChange('all')}
-              className={`cursor-pointer transition-all ${
+              className={`cursor-pointer transition-all shadow-sm px-3 py-1.5 text-sm font-medium ${
                 !selectedIntegrationId || selectedIntegrationId === 'all'
-                  ? 'bg-blue-600 text-white hover:bg-blue-700'
-                  : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                  ? 'bg-blue-600 text-white hover:opacity-80'
+                  : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'
               }`}
             >
-              <Phone className="w-3 h-3 mr-1" />
               Todos
             </Badge>
             {integracoes.map((integracao) => (
               <Badge
                 key={integracao.id}
                 onClick={() => onSelectedIntegrationChange(integracao.id)}
-                className={`cursor-pointer transition-all ${
+                className={`cursor-pointer transition-all shadow-sm px-3 py-1.5 text-sm font-medium ${
                   selectedIntegrationId === integracao.id
-                    ? 'bg-green-600 text-white hover:bg-green-700'
-                    : 'bg-slate-50 text-slate-700 border border-slate-200 hover:bg-slate-100'
+                    ? 'bg-green-600 text-white hover:opacity-80'
+                    : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'
                 }`}
                 title={integracao.numero_telefone}
               >
@@ -171,16 +170,16 @@ export default function SearchAndFilter({
         </div>
       )}
 
-      {/* FILTRO POR CATEGORIA - BADGES */}
+      {/* FILTRO POR CATEGORIA - ESTILO CABEÇALHO */}
       <div className="w-full pt-2 border-t border-slate-200">
-        <label className="text-xs text-slate-600 mb-2 block font-medium">Categoria:</label>
+        <label className="text-xs text-slate-600 mb-2 block font-medium">🏷️ Categoria:</label>
         <div className="flex flex-wrap gap-2">
           <Badge
             onClick={() => onSelectedCategoriaChange('all')}
-            className={`cursor-pointer transition-all ${
+            className={`cursor-pointer transition-all shadow-sm px-3 py-1.5 text-sm font-medium ${
               !selectedCategoria || selectedCategoria === 'all'
-                ? 'bg-slate-600 text-white hover:bg-slate-700'
-                : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                ? 'bg-slate-600 text-white hover:opacity-80'
+                : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'
             }`}
           >
             Todas
@@ -189,10 +188,10 @@ export default function SearchAndFilter({
             <Badge
               key={cat.value}
               onClick={() => onSelectedCategoriaChange(cat.value)}
-              className={`cursor-pointer transition-all ${
+              className={`cursor-pointer transition-all shadow-md px-3 py-1.5 text-sm font-medium ${
                 selectedCategoria === cat.value
-                  ? `${cat.color} text-white shadow-md`
-                  : 'bg-slate-50 text-slate-600 border border-slate-200 hover:bg-slate-100'
+                  ? `${cat.color} text-white hover:opacity-80`
+                  : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'
               }`}
             >
               {cat.label}
