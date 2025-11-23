@@ -609,7 +609,19 @@ export default function MessageBubble({
                   </div>
                 )}
                 <div className="absolute bottom-2 right-2 bg-black/50 backdrop-blur-sm px-2 py-0.5 rounded-md">
-                  <div className="flex items-center gap-1">
+                  <div className="flex items-center gap-1 flex-wrap">
+                    {thread?.categorias && thread.categorias.length > 0 && (
+                      <div className="flex gap-1 mr-1">
+                        {thread.categorias.slice(0, 3).map(cat => {
+                          const config = getCategoriaConfig(cat, categoriasDB);
+                          return (
+                            <span key={cat} className="text-[9px] px-1 py-0.5 bg-white/20 rounded">
+                              {config.emoji}
+                            </span>
+                          );
+                        })}
+                      </div>
+                    )}
                     <span className="text-[10px] text-white">
                       {formatarHorario(message.sent_at || message.created_date)}
                     </span>
@@ -742,7 +754,25 @@ export default function MessageBubble({
                     </p>
                   </div>
                 </div>
-                <div className="flex items-center justify-end gap-1 mt-2">
+                <div className="flex items-center justify-end gap-1 mt-2 flex-wrap">
+                  {thread?.categorias && thread.categorias.length > 0 && (
+                    <div className="flex gap-1 mr-1">
+                      {thread.categorias.slice(0, 3).map(cat => {
+                        const config = getCategoriaConfig(cat, categoriasDB);
+                        return (
+                          <span
+                            key={cat}
+                            className={cn(
+                              "text-[9px] px-1.5 py-0.5 rounded",
+                              isOwn ? "bg-white/20 text-white" : `${config.color} text-white`
+                            )}
+                          >
+                            {config.emoji}
+                          </span>
+                        );
+                      })}
+                    </div>
+                  )}
                   <span className={cn("text-[10px]", isOwn ? "text-white/70" : "text-slate-500")}>
                     {formatarHorario(message.sent_at || message.created_date)}
                   </span>
