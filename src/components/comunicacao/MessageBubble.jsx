@@ -442,7 +442,7 @@ export default function MessageBubble({
             )}
 
             {/* ✅ IMAGEM - ESTILO WHATSAPP */}
-            {(message.media_type === 'image' && message.media_url) || (message.content?.includes('[Imagem]')) ? (
+            {(message.media_type === 'image' || message.content?.includes('[Imagem]')) && (
               <div className="relative overflow-hidden rounded-2xl">
                 {message.media_url ? (
                   <img
@@ -607,13 +607,12 @@ export default function MessageBubble({
             )}
 
             {/* ✅ TEXTO - SEM MÍDIA */}
-            {(!message.media_url || message.media_type === 'none') && (
+            {(!message.media_url || message.media_type === 'none') && message.content && message.content.trim() !== '' && message.content !== '[No content]' && (
               <>
-                {message.content && message.content.trim() !== '' && message.content !== '[No content]' && (
-                  <div className={cn(
-                    "break-words whitespace-pre-wrap",
-                    isOwn ? "text-white" : "text-slate-800"
-                  )}>
+                <div className={cn(
+                  "break-words whitespace-pre-wrap",
+                  isOwn ? "text-white" : "text-slate-800"
+                )}>
                   {isOwn ? (
                     <p className="text-sm leading-relaxed">{message.content}</p>
                   ) : (
@@ -661,14 +660,13 @@ export default function MessageBubble({
                           </blockquote>
                         ),
                       }}
-                      >
-                        {message.content}
-                      </ReactMarkdown>
-                    )}
-                  </div>
+                    >
+                      {message.content}
+                    </ReactMarkdown>
                   )}
+                </div>
 
-                  <div className="flex items-center justify-end gap-1 mt-1">
+                <div className="flex items-center justify-end gap-1 mt-1">
                   <span className={cn(
                     "text-[10px]",
                     isOwn ? "text-white/70" : "text-slate-500"
@@ -698,10 +696,9 @@ export default function MessageBubble({
                         <AlertCircle className="w-3.5 h-3.5 text-red-300" />
                       )}
                     </>
-                    )}
-                  </div>
-                </>
-              ) : null
+                  )}
+                </div>
+              </>
             )}
 
             {message.tool_calls?.length > 0 && (
