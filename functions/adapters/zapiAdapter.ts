@@ -1,291 +1,426 @@
-/**
- * Z-API ADAPTER - NORMALIZACAO DE PAYLOADS
- * Versao: 1.1 - Deteccao Robusta de ReceivedCallback
- * 
- * Transforma payloads da Z-API em formato padronizado interno
- */
-
-export function extrairInstanceId(payload) {
-  if (payload.instance) return payload.instance;
-  if (payload.instanceId) return payload.instanceId;
-  if (payload.instance_id) return payload.instance_id;
-  if (payload.data?.instance) return payload.data.instance;
-  if (payload.data?.instanceId) return payload.data.instanceId;
-  return null;
-}
+// ==========================================
+// Z-API ADAPTER v4.0 - ENTERPRISE GRADE
+// ==========================================
+// Extrai TODOS os metadados de mensagens Z-API
+// Suporta: texto, mídia, áudio PTT, quoted, location, vCard
+// ==========================================
 
 /**
- * Normaliza mensagem no formato Z-API direto (ReceivedCallback)
- */
-export function normalizarMensagemZAPI(payload) {
-  console.log('[ZAPI-ADAPTER] Normalizando ReceivedCallback');
-  
-  const telefone = payload.telefone || payload.phone;
-  let numeroFormatado = telefone;
-  if (telefone && !telefone.startsWith('+')) {
-    numeroFormatado = `+${telefone}`;
-  }
-  
-  let conteudo = '[Mensagem vazia]';
-  let mediaType = 'none';
-  let mediaTempUrl = null;
-  let mediaCaption = null;
-  
-  if (payload.text?.message) {
-    conteudo = payload.text.message;
-  } else if (payload.image) {
-    conteudo = payload.image.caption || '[Imagem]';
-    mediaType = 'image';
-    mediaTempUrl = payload.image.imageUrl;
-    mediaCaption = payload.image.caption;
-  } else if (payload.video) {
-    conteudo = payload.video.caption || '[Video]';
-    mediaType = 'video';
-    mediaTempUrl = payload.video.videoUrl;
-    mediaCaption = payload.video.caption;
-  } else if (payload.audio) {
-    conteudo = '[Audio]';
-    mediaType = 'audio';
-    mediaTempUrl = payload.audio.audioUrl;
-  } else if (payload.document) {
-    conteudo = payload.document.fileName || '[Documento]';
-    mediaType = 'document';
-    mediaTempUrl = payload.document.documentUrl;
-  }
-  
-  return {
-    instanceId: payload.instanceId || payload.instance || payload.instance_id,
-    from: numeroFormatado,
-    to: payload.connectedPhone ? `+${payload.connectedPhone}` : null,
-    messageId: payload.messageId || payload.id || `MSG_${Date.now()}`,
-    timestamp: payload.momment || payload.momento || Date.now(),
-    content: conteudo,
-    mediaType: mediaType,
-    mediaTempUrl: mediaTempUrl,
-    mediaCaption: mediaCaption,
-    type: 'message',
-    isFromMe: payload.fromMe || false,
-    pushName: payload.senderName || payload.chatName || null
-  };
-}
-
-/**
- * Normaliza um evento de mensagem (messages.upsert)
- */
-export function normalizarMensagem(payload) {
-  const data = payload.data || payload;
-  const messages = data.messages || [];
-  
-  if (messages.length === 0) return null;
-  
-  const mensagem = messages[0];
-  const key = mensagem.key || {};
-  const message = mensagem.message || {};
-  
-  const remoteJid = key.remoteJid || '';
-  const numero = remoteJid.replace('@s.whatsapp.net', '').replace('@g.us', '');
-  const numeroFormatado = numero.startsWith('+') ? numero : `+${numero}`;
-  
-  let conteudo = '[Mensagem vazia]';
-  let mediaType = 'none';
-  let mediaTempUrl = null;
-  let mediaCaption = null;
-  
-  if (message.conversation) {
-    conteudo = message.conversation;
-  } else if (message.extendedTextMessage?.text) {
-    conteudo = message.extendedTextMessage.text;
-  } else if (message.imageMessage) {
-    conteudo = message.imageMessage.caption || '[Imagem]';
-    mediaType = 'image';
-    mediaTempUrl = message.imageMessage.url;
-    mediaCaption = message.imageMessage.caption;
-  } else if (message.videoMessage) {
-    conteudo = message.videoMessage.caption || '[Video]';
-    mediaType = 'video';
-    mediaTempUrl = message.videoMessage.url;
-    mediaCaption = message.videoMessage.caption;
-  } else if (message.audioMessage) {
-    conteudo = '[Audio]';
-    mediaType = 'audio';
-    mediaTempUrl = message.audioMessage.url;
-  } else if (message.documentMessage) {
-    conteudo = message.documentMessage.fileName || '[Documento]';
-    mediaType = 'document';
-    mediaTempUrl = message.documentMessage.url;
-  }
-  
-  const timestamp = mensagem.messageTimestamp 
-    ? (typeof mensagem.messageTimestamp === 'number' 
-        ? (mensagem.messageTimestamp < 1e12 ? mensagem.messageTimestamp * 1000 : mensagem.messageTimestamp)
-        : parseInt(mensagem.messageTimestamp) * 1000)
-    : Date.now();
-  
-  return {
-    instanceId: extrairInstanceId(payload),
-    from: numeroFormatado,
-    to: null,
-    messageId: key.id,
-    timestamp: timestamp,
-    content: conteudo,
-    mediaType: mediaType,
-    mediaTempUrl: mediaTempUrl,
-    mediaCaption: mediaCaption,
-    type: 'message',
-    isFromMe: key.fromMe || false,
-    pushName: mensagem.pushName || null
-  };
-}
-
-export function normalizarQRCode(payload) {
-  const data = payload.data || payload;
-  return {
-    instanceId: extrairInstanceId(payload),
-    type: 'qrcode',
-    qrCodeUrl: data.qrcode || data.qr || null,
-    timestamp: Date.now()
-  };
-}
-
-export function normalizarConnection(payload) {
-  const data = payload.data || payload;
-  let status = 'desconectado';
-  if (data.state === 'open' || data.status === 'open') status = 'conectado';
-  else if (data.state === 'connecting') status = 'reconectando';
-  else if (data.state === 'close' || data.status === 'close') status = 'desconectado';
-  
-  return {
-    instanceId: extrairInstanceId(payload),
-    type: 'connection',
-    status: status,
-    timestamp: Date.now()
-  };
-}
-
-export function normalizarMensagemUpdate(payload) {
-  const data = payload.data || payload;
-  const messageId = data.key?.id || payload.messageId || payload.id || data.messageId || data.id || null;
-  const status = payload.status || data.status || null;
-  
-  return {
-    instanceId: extrairInstanceId(payload),
-    type: 'message_update',
-    messageId: messageId,
-    status: status,
-    timestamp: Date.now()
-  };
-}
-
-/**
- * FUNCAO PRINCIPAL - Detecta e normaliza qualquer tipo de payload
+ * 🎯 Extrai dados estruturados de payloads Z-API
+ * @param {Object} payload - Payload bruto da Z-API
+ * @returns {Object} Dados normalizados
  */
 export function normalizarPayloadZAPI(payload) {
-  console.log('[ZAPI-ADAPTER] Iniciando normalizacao');
-  console.log('[ZAPI-ADAPTER] Chaves payload:', Object.keys(payload).join(', '));
-  
-  try {
-    // Extrair todos os possiveis campos de tipo de evento
-    const event = payload.event;
-    const type = payload.type;
-    const eventType = payload.eventType;
-    const eventName = payload.eventName;
-    
-    // Normalizar para lowercase
-    const rawType = String(type || event || eventType || eventName || '').trim();
-    const normalizedType = rawType.toLowerCase();
-    
-    console.log('[ZAPI-ADAPTER] Raw Type:', rawType);
-    console.log('[ZAPI-ADAPTER] Normalized Type:', normalizedType);
-    
-    // ================================================================
-    // DETECCAO PRIORIZADA: ReceivedCallback (Z-API)
-    // ================================================================
-    if (normalizedType === 'receivedcallback' || 
-        normalizedType === 'received_callback' ||
-        normalizedType === 'message_received' ||
-        normalizedType.includes('received') ||
-        normalizedType.includes('callback')) {
-      console.log('[ZAPI-ADAPTER] DETECTADO: ReceivedCallback (Z-API)');
-      const result = normalizarMensagemZAPI(payload);
-      console.log('[ZAPI-ADAPTER] Resultado:', JSON.stringify(result, null, 2));
-      return result;
-    }
-    
-    // ================================================================
-    // DETECCAO POR ESTRUTURA: Se tem telefone + messageId = Z-API
-    // ================================================================
-    if ((payload.telefone || payload.phone) && payload.messageId) {
-      console.log('[ZAPI-ADAPTER] DETECTADO por estrutura: Mensagem Z-API');
-      const result = normalizarMensagemZAPI(payload);
-      console.log('[ZAPI-ADAPTER] Resultado:', JSON.stringify(result, null, 2));
-      return result;
-    }
-    
-    // ================================================================
-    // FORMATO EVOLUTION API
-    // ================================================================
-    const tipoEvento = event || type || eventType || eventName;
-    
-    switch (tipoEvento) {
-      case 'messages.upsert':
-        console.log('[ZAPI-ADAPTER] DETECTADO: messages.upsert');
-        return normalizarMensagem(payload);
-      
-      case 'qrcode.updated':
-        console.log('[ZAPI-ADAPTER] DETECTADO: qrcode.updated');
-        return normalizarQRCode(payload);
-      
-      case 'connection.update':
-        console.log('[ZAPI-ADAPTER] DETECTADO: connection.update');
-        return normalizarConnection(payload);
-      
-      case 'messages.update':
-        console.log('[ZAPI-ADAPTER] DETECTADO: messages.update');
-        return normalizarMensagemUpdate(payload);
-      
-      case 'send.message':
-        console.log('[ZAPI-ADAPTER] DETECTADO: send.message');
-        return {
-          instanceId: extrairInstanceId(payload),
-          type: 'send_confirmation',
-          timestamp: Date.now()
-        };
-      
-      default:
-        console.log('[ZAPI-ADAPTER] AVISO: Evento nao mapeado');
-        console.log('[ZAPI-ADAPTER] Tipo:', tipoEvento);
-        console.log('[ZAPI-ADAPTER] Payload:', JSON.stringify(payload, null, 2));
-        return {
-          instanceId: extrairInstanceId(payload),
-          type: 'unknown',
-          event: tipoEvento,
-          timestamp: Date.now()
-        };
-    }
-  } catch (error) {
-    console.error('[ZAPI-ADAPTER] ERRO:', error);
-    console.error('[ZAPI-ADAPTER] Stack:', error.stack);
-    throw error;
+  if (!payload) return { type: 'unknown' };
+
+  const eventoTipo = String(payload.event || payload.type || '').toLowerCase();
+  const instanceId = extrairInstanceId(payload);
+
+  // ========================================
+  // 1. STATUS DE MENSAGEM (lida, entregue)
+  // ========================================
+  if (eventoTipo.includes('messagestatuscallback') || (payload.status && payload.ids && !payload.phone)) {
+    return {
+      type: 'message_update',
+      instanceId,
+      messageId: payload.ids ? payload.ids[0] : null,
+      status: payload.status, // READ, DELIVERED, SENT
+      timestamp: payload.momment || Date.now()
+    };
   }
+
+  // ========================================
+  // 2. MENSAGEM RECEBIDA (ReceivedCallback)
+  // ========================================
+  if (payload.telefone || payload.phone) {
+    const telefoneRaw = payload.phone || payload.telefone;
+    const numeroLimpo = normalizarTelefone(telefoneRaw);
+    
+    if (!numeroLimpo) {
+      console.warn('[ADAPTER] Telefone inválido:', telefoneRaw);
+      return { type: 'unknown', error: 'Telefone inválido' };
+    }
+
+    // 🔹 MENSAGEM DE TEXTO SIMPLES
+    if (payload.text?.message) {
+      return construirMensagemTexto(payload, numeroLimpo, instanceId);
+    }
+
+    // 🔹 IMAGEM
+    if (payload.image) {
+      return construirMensagemImagem(payload, numeroLimpo, instanceId);
+    }
+
+    // 🔹 VÍDEO
+    if (payload.video) {
+      return construirMensagemVideo(payload, numeroLimpo, instanceId);
+    }
+
+    // 🔹 ÁUDIO / PTT
+    if (payload.audio) {
+      return construirMensagemAudio(payload, numeroLimpo, instanceId);
+    }
+
+    // 🔹 DOCUMENTO
+    if (payload.document || payload.documentMessage) {
+      return construirMensagemDocumento(payload, numeroLimpo, instanceId);
+    }
+
+    // 🔹 LOCALIZAÇÃO
+    if (payload.location || payload.lat) {
+      return construirMensagemLocalizacao(payload, numeroLimpo, instanceId);
+    }
+
+    // 🔹 vCARD (Contato Compartilhado)
+    if (payload.vcard || payload.contactMessage) {
+      return construirMensagemVCard(payload, numeroLimpo, instanceId);
+    }
+
+    // 🔹 BOTÃO RESPONDIDO
+    if (payload.buttonsResponseMessage) {
+      return construirMensagemBotao(payload, numeroLimpo, instanceId);
+    }
+
+    // 🔹 STICKER
+    if (payload.sticker || payload.stickerMessage) {
+      return construirMensagemSticker(payload, numeroLimpo, instanceId);
+    }
+
+    // 🔹 FALLBACK - Mensagem Desconhecida
+    console.warn('[ADAPTER] Tipo de mensagem não reconhecido:', Object.keys(payload));
+    return {
+      type: 'message',
+      instanceId,
+      messageId: payload.messageId,
+      from: numeroLimpo,
+      content: '[Mensagem não suportada]',
+      mediaType: 'unknown',
+      timestamp: payload.momment || Date.now(),
+      isFromMe: payload.fromMe || false,
+      pushName: payload.senderName || payload.chatName || null,
+      rawPayload: payload
+    };
+  }
+
+  // ========================================
+  // 3. QR CODE UPDATE
+  // ========================================
+  if (eventoTipo.includes('qrcode')) {
+    return {
+      type: 'qrcode',
+      instanceId,
+      qrCodeUrl: payload.qrcode || payload.qr || null
+    };
+  }
+
+  // ========================================
+  // 4. CONNECTION STATUS
+  // ========================================
+  if (eventoTipo.includes('connection')) {
+    return {
+      type: 'connection',
+      instanceId,
+      status: payload.connected ? 'conectado' : 'desconectado'
+    };
+  }
+
+  return { type: 'unknown' };
 }
 
-export function validarPayloadNormalizado(payloadNormalizado) {
-  if (!payloadNormalizado) {
-    return { valido: false, erro: 'Payload normalizado e null' };
+// ==========================================
+// CONSTRUTORES DE MENSAGEM POR TIPO
+// ==========================================
+
+function construirMensagemTexto(payload, numeroLimpo, instanceId) {
+  const conteudo = payload.text.message;
+  
+  // ✅ Detectar se é RESPOSTA a outra mensagem
+  const quotedInfo = extrairMensagemRespondida(payload);
+  
+  return {
+    type: 'message',
+    instanceId,
+    messageId: payload.messageId,
+    from: numeroLimpo,
+    content: conteudo,
+    mediaType: 'none',
+    timestamp: payload.momment || Date.now(),
+    isFromMe: payload.fromMe || false,
+    pushName: payload.senderName || payload.chatName || null,
+    quotedMessage: quotedInfo, // ✨ NOVO - Mensagem respondida
+    groupId: payload.chatId?.includes('@g.us') ? payload.chatId : null
+  };
+}
+
+function construirMensagemImagem(payload, numeroLimpo, instanceId) {
+  const quotedInfo = extrairMensagemRespondida(payload);
+  
+  return {
+    type: 'message',
+    instanceId,
+    messageId: payload.messageId,
+    from: numeroLimpo,
+    content: payload.image.caption || '[Imagem]', // ✨ LEGENDA
+    mediaType: 'image',
+    mediaTempUrl: payload.image.imageUrl,
+    mediaCaption: payload.image.caption || null,
+    mediaMimeType: payload.image.mimetype || 'image/jpeg',
+    timestamp: payload.momment || Date.now(),
+    isFromMe: payload.fromMe || false,
+    pushName: payload.senderName || payload.chatName || null,
+    quotedMessage: quotedInfo,
+    groupId: payload.chatId?.includes('@g.us') ? payload.chatId : null
+  };
+}
+
+function construirMensagemVideo(payload, numeroLimpo, instanceId) {
+  const quotedInfo = extrairMensagemRespondida(payload);
+  
+  return {
+    type: 'message',
+    instanceId,
+    messageId: payload.messageId,
+    from: numeroLimpo,
+    content: payload.video.caption || '[Vídeo]',
+    mediaType: 'video',
+    mediaTempUrl: payload.video.videoUrl,
+    mediaCaption: payload.video.caption || null,
+    mediaMimeType: payload.video.mimetype || 'video/mp4',
+    timestamp: payload.momment || Date.now(),
+    isFromMe: payload.fromMe || false,
+    pushName: payload.senderName || payload.chatName || null,
+    quotedMessage: quotedInfo,
+    groupId: payload.chatId?.includes('@g.us') ? payload.chatId : null
+  };
+}
+
+function construirMensagemAudio(payload, numeroLimpo, instanceId) {
+  const quotedInfo = extrairMensagemRespondida(payload);
+  
+  // ✨ DIFERENCIA ÁUDIO PTT (voz) de ÁUDIO ENCAMINHADO
+  const isPTT = payload.audio.ptt === true || payload.mediaType === 'ptt';
+  
+  return {
+    type: 'message',
+    instanceId,
+    messageId: payload.messageId,
+    from: numeroLimpo,
+    content: isPTT ? '[Áudio de voz]' : '[Áudio]',
+    mediaType: isPTT ? 'ptt' : 'audio', // ✨ NOVO - Diferenciação
+    mediaTempUrl: payload.audio.audioUrl,
+    mediaMimeType: payload.audio.mimetype || 'audio/ogg',
+    timestamp: payload.momment || Date.now(),
+    isFromMe: payload.fromMe || false,
+    pushName: payload.senderName || payload.chatName || null,
+    quotedMessage: quotedInfo,
+    groupId: payload.chatId?.includes('@g.us') ? payload.chatId : null
+  };
+}
+
+function construirMensagemDocumento(payload, numeroLimpo, instanceId) {
+  const quotedInfo = extrairMensagemRespondida(payload);
+  const doc = payload.document || payload.documentMessage || {};
+  
+  // ✨ EXTRAI NOME DO ARQUIVO
+  const fileName = doc.fileName || doc.title || 'documento.pdf';
+  
+  return {
+    type: 'message',
+    instanceId,
+    messageId: payload.messageId,
+    from: numeroLimpo,
+    content: `[Documento: ${fileName}]`, // ✨ NOME DO ARQUIVO
+    mediaType: 'document',
+    mediaTempUrl: doc.documentUrl || doc.url,
+    mediaCaption: doc.caption || null,
+    mediaFileName: fileName, // ✨ NOVO
+    mediaMimeType: doc.mimetype || 'application/pdf',
+    timestamp: payload.momment || Date.now(),
+    isFromMe: payload.fromMe || false,
+    pushName: payload.senderName || payload.chatName || null,
+    quotedMessage: quotedInfo,
+    groupId: payload.chatId?.includes('@g.us') ? payload.chatId : null
+  };
+}
+
+function construirMensagemLocalizacao(payload, numeroLimpo, instanceId) {
+  const quotedInfo = extrairMensagemRespondida(payload);
+  const loc = payload.location || {};
+  
+  const lat = loc.latitude || payload.lat || loc.degreesLatitude;
+  const lng = loc.longitude || payload.lng || loc.degreesLongitude;
+  const address = loc.address || loc.name || 'Localização';
+  
+  return {
+    type: 'message',
+    instanceId,
+    messageId: payload.messageId,
+    from: numeroLimpo,
+    content: `📍 ${address}`,
+    mediaType: 'location',
+    location: {
+      latitude: lat,
+      longitude: lng,
+      address: address,
+      googleMapsUrl: `https://www.google.com/maps?q=${lat},${lng}` // ✨ LINK DIRETO
+    },
+    timestamp: payload.momment || Date.now(),
+    isFromMe: payload.fromMe || false,
+    pushName: payload.senderName || payload.chatName || null,
+    quotedMessage: quotedInfo,
+    groupId: payload.chatId?.includes('@g.us') ? payload.chatId : null
+  };
+}
+
+function construirMensagemVCard(payload, numeroLimpo, instanceId) {
+  const quotedInfo = extrairMensagemRespondida(payload);
+  const vcard = payload.vcard || payload.contactMessage?.vcard || '';
+  
+  // ✨ EXTRAI NOME E TELEFONE DO vCARD
+  const nomeMatch = vcard.match(/FN:(.*)/);
+  const telefoneMatch = vcard.match(/TEL.*:(.*)/);
+  
+  const nomeContato = nomeMatch ? nomeMatch[1].trim() : 'Contato';
+  const telefoneContato = telefoneMatch ? telefoneMatch[1].trim() : '';
+  
+  return {
+    type: 'message',
+    instanceId,
+    messageId: payload.messageId,
+    from: numeroLimpo,
+    content: `👤 Contato: ${nomeContato}`,
+    mediaType: 'vcard',
+    vcard: {
+      name: nomeContato,
+      phone: telefoneContato,
+      rawVCard: vcard
+    },
+    timestamp: payload.momment || Date.now(),
+    isFromMe: payload.fromMe || false,
+    pushName: payload.senderName || payload.chatName || null,
+    quotedMessage: quotedInfo,
+    groupId: payload.chatId?.includes('@g.us') ? payload.chatId : null
+  };
+}
+
+function construirMensagemBotao(payload, numeroLimpo, instanceId) {
+  const quotedInfo = extrairMensagemRespondida(payload);
+  
+  return {
+    type: 'message',
+    instanceId,
+    messageId: payload.messageId,
+    from: numeroLimpo,
+    content: payload.buttonsResponseMessage?.message || '[Botão selecionado]',
+    mediaType: 'button_response',
+    buttonId: payload.buttonsResponseMessage?.selectedButtonId,
+    timestamp: payload.momment || Date.now(),
+    isFromMe: payload.fromMe || false,
+    pushName: payload.senderName || payload.chatName || null,
+    quotedMessage: quotedInfo,
+    groupId: payload.chatId?.includes('@g.us') ? payload.chatId : null
+  };
+}
+
+function construirMensagemSticker(payload, numeroLimpo, instanceId) {
+  const quotedInfo = extrairMensagemRespondida(payload);
+  const sticker = payload.sticker || payload.stickerMessage || {};
+  
+  return {
+    type: 'message',
+    instanceId,
+    messageId: payload.messageId,
+    from: numeroLimpo,
+    content: '[Figurinha]',
+    mediaType: 'sticker',
+    mediaTempUrl: sticker.url || sticker.stickerUrl,
+    timestamp: payload.momment || Date.now(),
+    isFromMe: payload.fromMe || false,
+    pushName: payload.senderName || payload.chatName || null,
+    quotedMessage: quotedInfo,
+    groupId: payload.chatId?.includes('@g.us') ? payload.chatId : null
+  };
+}
+
+// ==========================================
+// FUNÇÕES AUXILIARES
+// ==========================================
+
+/**
+ * ✨ EXTRAI MENSAGEM RESPONDIDA (Quoted Message)
+ * Quando o cliente responde a uma mensagem anterior
+ */
+function extrairMensagemRespondida(payload) {
+  const contextInfo = payload.contextInfo || 
+                      payload.text?.contextInfo || 
+                      payload.image?.contextInfo ||
+                      payload.video?.contextInfo;
+  
+  if (!contextInfo?.quotedMessage) return null;
+  
+  const quoted = contextInfo.quotedMessage;
+  let quotedContent = '';
+  let quotedType = 'text';
+  
+  if (quoted.conversation) {
+    quotedContent = quoted.conversation;
+  } else if (quoted.extendedTextMessage) {
+    quotedContent = quoted.extendedTextMessage.text;
+  } else if (quoted.imageMessage) {
+    quotedContent = quoted.imageMessage.caption || '[Imagem]';
+    quotedType = 'image';
+  } else if (quoted.videoMessage) {
+    quotedContent = quoted.videoMessage.caption || '[Vídeo]';
+    quotedType = 'video';
+  } else if (quoted.documentMessage) {
+    quotedContent = `[Documento: ${quoted.documentMessage.title || 'arquivo'}]`;
+    quotedType = 'document';
   }
   
-  if (!payloadNormalizado.instanceId) {
-    return { valido: false, erro: 'instanceId nao identificado' };
+  return {
+    content: quotedContent,
+    type: quotedType,
+    messageId: contextInfo.stanzaId, // ID da mensagem original
+    participant: contextInfo.participant // Quem enviou a mensagem original
+  };
+}
+
+function extrairInstanceId(payload) {
+  return payload.instance || 
+         payload.instanceId || 
+         payload.instance_id || 
+         payload.instance_id_provider || 
+         payload.instanceName || 
+         'unknown';
+}
+
+function normalizarTelefone(telefone) {
+  if (!telefone) return null;
+  
+  // Remove sufixos WhatsApp
+  let limpo = String(telefone).replace(/@s\.whatsapp\.net|@c\.us|@g\.us/g, '');
+  
+  // Remove caracteres não numéricos
+  limpo = limpo.replace(/\D/g, '');
+  
+  if (limpo.length < 10) return null;
+  
+  // Adiciona código Brasil se necessário
+  if (limpo.length === 11 && !limpo.startsWith('55')) {
+    limpo = '55' + limpo;
+  } else if (limpo.length === 10 && !limpo.startsWith('55')) {
+    limpo = '55' + limpo;
   }
   
-  if (payloadNormalizado.type === 'message') {
-    if (!payloadNormalizado.from) {
-      return { valido: false, erro: 'Numero de origem nao identificado' };
-    }
-    if (!payloadNormalizado.messageId) {
-      return { valido: false, erro: 'messageId nao identificado' };
-    }
-  }
-  
+  return '+' + limpo;
+}
+
+/**
+ * ✅ VALIDA PAYLOAD NORMALIZADO
+ */
+export function validarPayloadNormalizado(payload) {
+  if (!payload) return { valido: false, erro: 'Payload nulo' };
+  if (payload.type === 'unknown') return { valido: false, erro: 'Tipo desconhecido' };
+  if (!payload.instanceId) return { valido: false, erro: 'Instance ID ausente' };
   return { valido: true };
 }

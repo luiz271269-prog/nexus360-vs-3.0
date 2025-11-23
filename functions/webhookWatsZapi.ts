@@ -490,9 +490,17 @@ async function handleMessage(instance, payload, base44, headers, debugMode) {
     let contato;
     if (contatosExistentes.length > 0) {
       contato = contatosExistentes[0];
-      await base44.asServiceRole.entities.Contact.update(contato.id, { 
-        ultima_interacao: new Date().toISOString() 
-      });
+      
+      // ✨ ATUALIZA NOME SE PUSHNAME ESTIVER DISPONÍVEL E CONTATO ESTIVER SEM NOME
+      const updateData = { ultima_interacao: new Date().toISOString() };
+      
+      if (payload.pushName && 
+          (!contato.nome || contato.nome === numero || contato.nome === contato.telefone)) {
+        updateData.nome = payload.pushName;
+        if (debugMode) console.log('[HANDLER-MESSAGE] 📝 Atualizando nome: ' + payload.pushName);
+      }
+      
+      await base44.asServiceRole.entities.Contact.update(contato.id, updateData);
     } else {
       contato = await base44.asServiceRole.entities.Contact.create({
         nome: payload.pushName || numero,
@@ -570,7 +578,13 @@ async function handleMessage(instance, payload, base44, headers, debugMode) {
       metadata: { 
         whatsapp_integration_id: integracaoId,
         is_from_me: payload.isFromMe || false,
-        timestamp: payload.timestamp
+        timestamp: payload.timestamp,
+        quoted_message: payload.quotedMessage || null, // ✨ MENSAGEM RESPONDIDA
+        media_file_name: payload.mediaFileName || null, // ✨ NOME DO ARQUIVO
+        location: payload.location || null, // ✨ LOCALIZAÇÃO
+        vcard: payload.vcard || null, // ✨ CONTATO COMPARTILHADO
+        group_id: payload.groupId || null, // ✨ GRUPO (futuro)
+        mime_type: payload.mediaMimeType || null
       }
     });
     if (debugMode) console.log('[HANDLER-MESSAGE] Message save completed in ' + (Date.now() - t3) + 'ms');
