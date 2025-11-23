@@ -143,49 +143,45 @@ export default function SearchAndFilter({
         </Select>
       )}
 
-      {/* FILTRO POR CANAL - DROPDOWN */}
+      {/* FILTRO POR CANAL */}
       {integracoes.length > 1 && (
         <div className="flex items-center gap-2 pt-2 border-t border-slate-200">
           <Tag className="w-4 h-4 text-slate-500" />
           <span className="text-sm text-slate-600">Canal:</span>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Badge className="cursor-pointer bg-white text-slate-700 border border-slate-300 hover:bg-slate-50">
+              <button className="px-2 py-1 text-sm border border-slate-300 rounded hover:bg-slate-50 transition-colors">
                 {selectedIntegrationId && selectedIntegrationId !== 'all'
-                  ? integracoes.find(i => i.id === selectedIntegrationId)?.nome_instancia || 'Selecionar'
-                  : 'Todos'}
-              </Badge>
+                  ? integracoes.find(i => i.id === selectedIntegrationId)?.nome_instancia || 'Selecionar canal'
+                  : 'Todos os canais'}
+              </button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="start" className="w-56">
+            <DropdownMenuContent align="start" className="w-64">
               <DropdownMenuItem
                 onClick={() => onSelectedIntegrationChange('all')}
-                className="cursor-pointer"
+                className="cursor-pointer flex items-center justify-between"
               >
-                <div className="flex items-center justify-between w-full">
-                  <div className="flex items-center gap-2">
-                    <Phone className="w-4 h-4" />
-                    <span>Todos os canais</span>
-                  </div>
-                  {(!selectedIntegrationId || selectedIntegrationId === 'all') && (
-                    <Check className="w-4 h-4 text-green-600" />
-                  )}
+                <div className="flex items-center gap-2">
+                  <Phone className="w-4 h-4" />
+                  <span>Todos os canais</span>
                 </div>
+                {(!selectedIntegrationId || selectedIntegrationId === 'all') && (
+                  <Check className="w-4 h-4 text-green-600" />
+                )}
               </DropdownMenuItem>
               {integracoes.map((integracao) => (
                 <DropdownMenuItem
                   key={integracao.id}
                   onClick={() => onSelectedIntegrationChange(integracao.id)}
-                  className="cursor-pointer"
+                  className="cursor-pointer flex items-center justify-between"
                 >
-                  <div className="flex items-center justify-between w-full">
-                    <div className="flex items-center gap-2">
-                      <span>{integracao.status === 'conectado' ? '🟢' : '🔴'}</span>
-                      <span>{integracao.nome_instancia}</span>
-                    </div>
-                    {selectedIntegrationId === integracao.id && (
-                      <Check className="w-4 h-4 text-green-600" />
-                    )}
+                  <div className="flex items-center gap-2">
+                    <span>{integracao.status === 'conectado' ? '🟢' : '🔴'}</span>
+                    <span>{integracao.nome_instancia}</span>
                   </div>
+                  {selectedIntegrationId === integracao.id && (
+                    <Check className="w-4 h-4 text-green-600" />
+                  )}
                 </DropdownMenuItem>
               ))}
             </DropdownMenuContent>
@@ -193,45 +189,41 @@ export default function SearchAndFilter({
         </div>
       )}
 
-      {/* FILTRO POR CATEGORIA - DROPDOWN */}
+      {/* FILTRO POR CATEGORIA */}
       <div className="flex items-center gap-2 pt-2 border-t border-slate-200">
         <Tag className="w-4 h-4 text-slate-500" />
         <span className="text-sm text-slate-600">Categorias:</span>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Badge className="cursor-pointer bg-white text-slate-700 border border-slate-300 hover:bg-slate-50">
+            <button className="px-2 py-1 text-sm border border-slate-300 rounded hover:bg-slate-50 transition-colors">
               {selectedCategoria && selectedCategoria !== 'all'
-                ? CATEGORIAS_DISPONIVEIS.find(c => c.value === selectedCategoria)?.label || 'Selecionar'
-                : 'Todas'}
-            </Badge>
+                ? CATEGORIAS_DISPONIVEIS.find(c => c.value === selectedCategoria)?.label || 'Selecione as categorias'
+                : 'Todas as categorias'}
+            </button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="start" className="w-56">
+          <DropdownMenuContent align="start" className="w-64">
             <DropdownMenuItem
               onClick={() => onSelectedCategoriaChange('all')}
-              className="cursor-pointer"
+              className="cursor-pointer flex items-center justify-between"
             >
-              <div className="flex items-center justify-between w-full">
-                <span>Todas as categorias</span>
-                {(!selectedCategoria || selectedCategoria === 'all') && (
-                  <Check className="w-4 h-4 text-green-600" />
-                )}
-              </div>
+              <span>Todas as categorias</span>
+              {(!selectedCategoria || selectedCategoria === 'all') && (
+                <Check className="w-4 h-4 text-green-600" />
+              )}
             </DropdownMenuItem>
             {CATEGORIAS_DISPONIVEIS.map((cat) => (
               <DropdownMenuItem
                 key={cat.value}
                 onClick={() => onSelectedCategoriaChange(cat.value)}
-                className="cursor-pointer"
+                className="cursor-pointer flex items-center justify-between"
               >
-                <div className="flex items-center justify-between w-full">
-                  <div className="flex items-center gap-2">
-                    <div className={`w-3 h-3 rounded-full ${cat.color}`} />
-                    <span>{cat.label}</span>
-                  </div>
-                  {selectedCategoria === cat.value && (
-                    <Check className="w-4 h-4 text-green-600" />
-                  )}
+                <div className="flex items-center gap-2">
+                  <div className={`w-3 h-3 rounded-full ${cat.color}`} />
+                  <span>{cat.label}</span>
                 </div>
+                {selectedCategoria === cat.value && (
+                  <Check className="w-4 h-4 text-green-600" />
+                )}
               </DropdownMenuItem>
             ))}
           </DropdownMenuContent>
