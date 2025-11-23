@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
@@ -11,8 +11,8 @@ import {
   MessageCircle,
   Activity,
   BarChart3,
-  Users
-} from "lucide-react";
+  Users } from
+"lucide-react";
 import { toast } from "sonner";
 
 import ChatSidebar from "../components/comunicacao/ChatSidebar";
@@ -39,11 +39,11 @@ export default function Comunicacao() {
   const [searchTerm, setSearchTerm] = useState("");
   const debouncedSearchTerm = useDebounce(searchTerm, 300);
   const [mostrarInstrucoesWebhook, setMostrarInstrucoesWebhook] = useState(false);
-  
+
   // RESTAURADO: Estados para criar novo contato
   const [novoContatoTelefone, setNovoContatoTelefone] = useState("");
   const [criandoNovoContato, setCriandoNovoContato] = useState(false);
-  
+
   const [filterScope, setFilterScope] = useState('all');
   const [selectedAttendantId, setSelectedAttendantId] = useState(null);
   const [selectedIntegrationId, setSelectedIntegrationId] = useState('all');
@@ -65,38 +65,12 @@ export default function Comunicacao() {
     carregarUsuario();
   }, []);
 
-  const { data: contatosBrutos = [] } = useQuery({
+  const { data: contatos = [] } = useQuery({
     queryKey: ['contacts'],
     queryFn: () => base44.entities.Contact.list('-created_date'),
     staleTime: 2 * 60 * 1000,
     retry: 2
   });
-
-  // ✅ FILTRAR CONTATOS VÁLIDOS (excluir IDs de sistema, @lid, @g.us, etc.)
-  const contatos = React.useMemo(() => {
-    return contatosBrutos.filter(contato => {
-      if (!contato.telefone) return false;
-      
-      const tel = String(contato.telefone).toLowerCase();
-      
-      // ❌ EXCLUIR padrões de sistema WhatsApp
-      if (tel.includes('@lid')) return false;
-      if (tel.includes('@g.us')) return false;
-      if (tel.includes('@c.us')) return false;
-      if (tel.includes('@broadcast')) return false;
-      if (tel.includes('@newsletter')) return false;
-      
-      // ❌ EXCLUIR IDs muito longos (provavelmente são IDs de sistema)
-      const numbersOnly = tel.replace(/\D/g, '');
-      if (numbersOnly.length > 20) return false;
-      
-      // ❌ EXCLUIR telefones que começam com +1052 ou outros prefixos inválidos
-      if (tel.startsWith('+1052')) return false;
-      
-      // ✅ ACEITAR apenas números de telefone reais
-      return numbersOnly.length >= 10 && numbersOnly.length <= 15;
-    });
-  }, [contatosBrutos]);
 
   const { data: threads = [], isLoading: loadingThreads } = useQuery({
     queryKey: ['threads', usuario?.id, filterScope, selectedAttendantId],
@@ -131,8 +105,8 @@ export default function Comunicacao() {
         return allThreads;
       }
 
-      return allThreads.filter(thread => {
-        return Object.keys(queryParams).every(key => {
+      return allThreads.filter((thread) => {
+        return Object.keys(queryParams).every((key) => {
           if (queryParams[key] === null) {
             return thread[key] === null || thread[key] === undefined;
           }
@@ -170,16 +144,16 @@ export default function Comunicacao() {
   // Filtrar integrações baseado nas permissões do usuário
   const integracoes = React.useMemo(() => {
     if (!usuario) return [];
-    
+
     // Admin pode ver todas
     if (usuario.role === 'admin') return todasIntegracoes;
-    
+
     // Filtrar por whatsapp_permissions
     const whatsappPerms = usuario.whatsapp_permissions || [];
     if (whatsappPerms.length === 0) return todasIntegracoes; // Sem restrições configuradas = acesso total
-    
-    return todasIntegracoes.filter(integracao => {
-      const perm = whatsappPerms.find(p => p.integration_id === integracao.id);
+
+    return todasIntegracoes.filter((integracao) => {
+      const perm = whatsappPerms.find((p) => p.integration_id === integracao.id);
       return perm ? perm.can_view : false;
     });
   }, [todasIntegracoes, usuario]);
@@ -204,7 +178,7 @@ export default function Comunicacao() {
   const handleCriarNovoContato = useCallback(async (dadosContato) => {
     try {
       console.log('[Comunicacao] Criando novo contato:', dadosContato);
-      
+
       const telefoneNormalizado = normalizarTelefone(dadosContato.telefone);
       if (!telefoneNormalizado) {
         toast.error('❌ Telefone inválido');
@@ -217,7 +191,7 @@ export default function Comunicacao() {
         whatsapp_status: 'nao_verificado'
       });
 
-      const integracaoAtiva = integracoes.find(i => i.status === 'conectado');
+      const integracaoAtiva = integracoes.find((i) => i.status === 'conectado');
       if (!integracaoAtiva) {
         toast.error('❌ Nenhuma integração WhatsApp ativa encontrada');
         return;
@@ -253,14 +227,14 @@ export default function Comunicacao() {
     try {
       await queryClient.invalidateQueries({ queryKey: ['contacts'] });
       await queryClient.invalidateQueries({ queryKey: ['threads'] });
-      
+
       if (threadAtiva) {
         const threadAtualizada = await base44.entities.MessageThread.filter({ id: threadAtiva.id });
         if (threadAtualizada && threadAtualizada.length > 0) {
           setThreadAtiva(threadAtualizada[0]);
         }
       }
-      
+
       toast.success('✅ Informações atualizadas!');
     } catch (error) {
       console.error('[Comunicacao] Erro ao atualizar:', error);
@@ -285,10 +259,10 @@ export default function Comunicacao() {
     // ✅ FILTRO POR PERMISSÕES DE INSTÂNCIA DO USUÁRIO
     if (thread.whatsapp_integration_id && usuario) {
       const whatsappPerms = usuario.whatsapp_permissions || [];
-      
+
       // Admin sempre pode ver todas
       if (usuario.role !== 'admin' && whatsappPerms.length > 0) {
-        const perm = whatsappPerms.find(p => p.integration_id === thread.whatsapp_integration_id);
+        const perm = whatsappPerms.find((p) => p.integration_id === thread.whatsapp_integration_id);
         if (!perm || !perm.can_view) {
           return false; // Usuário não tem permissão para ver threads desta instância
         }
@@ -310,21 +284,21 @@ export default function Comunicacao() {
         contato.empresa?.toLowerCase().includes(termoBusca) ||
         contato.cargo?.toLowerCase().includes(termoBusca) ||
         thread.last_message_content?.toLowerCase().includes(termoBusca) ||
-        contato.telefone?.includes(debouncedSearchTerm)
-      );
+        contato.telefone?.includes(debouncedSearchTerm));
+
     }
 
     return true;
   });
 
-  const threadsComContato = threadsFiltradas.map(thread => ({
+  const threadsComContato = threadsFiltradas.map((thread) => ({
     ...thread,
-    contato: contatos.find(c => c.id === thread.contact_id),
-    atendente_atribuido: atendentes.find(a => a.id === thread.assigned_user_id)
+    contato: contatos.find((c) => c.id === thread.contact_id),
+    atendente_atribuido: atendentes.find((a) => a.id === thread.assigned_user_id)
   }));
 
   const isManager = usuario?.role === 'admin' || usuario?.role === 'supervisor';
-  const contatoAtivo = threadAtiva ? contatos.find(c => c.id === threadAtiva.contact_id) : null;
+  const contatoAtivo = threadAtiva ? contatos.find((c) => c.id === threadAtiva.contact_id) : null;
 
   if (!usuario) {
     return (
@@ -333,8 +307,8 @@ export default function Comunicacao() {
           <RefreshCw className="w-8 h-8 animate-spin text-blue-500 mx-auto mb-4" />
           <p>Carregando usuário...</p>
         </div>
-      </div>
-    );
+      </div>);
+
   }
 
   return (
@@ -359,16 +333,16 @@ export default function Comunicacao() {
             </div>
 
             <div className="flex items-center gap-3">
-              {integracoes.length === 0 && (
-                <Button
-                  onClick={() => setMostrarInstrucoesWebhook(true)}
-                  variant="outline"
-                  size="sm"
-                  className="border-white/30 text-white hover:bg-white/20"
-                >
+              {integracoes.length === 0 &&
+              <Button
+                onClick={() => setMostrarInstrucoesWebhook(true)}
+                variant="outline"
+                size="sm"
+                className="border-white/30 text-white hover:bg-white/20">
+
                   Configurar Webhook
                 </Button>
-              )}
+              }
 
               <Button
                 variant="outline"
@@ -376,16 +350,16 @@ export default function Comunicacao() {
                 onClick={async () => {
                   toast.info("Recarregando...");
                   await Promise.all([
-                    queryClient.invalidateQueries({ queryKey: ['threads'] }),
-                    queryClient.invalidateQueries({ queryKey: ['contacts'] }),
-                    queryClient.invalidateQueries({ queryKey: ['integracoes'] }),
-                    queryClient.invalidateQueries({ queryKey: ['atendentes'] }),
-                    threadAtiva ? queryClient.invalidateQueries({ queryKey: ['mensagens', threadAtiva.id] }) : Promise.resolve()
-                  ]);
+                  queryClient.invalidateQueries({ queryKey: ['threads'] }),
+                  queryClient.invalidateQueries({ queryKey: ['contacts'] }),
+                  queryClient.invalidateQueries({ queryKey: ['integracoes'] }),
+                  queryClient.invalidateQueries({ queryKey: ['atendentes'] }),
+                  threadAtiva ? queryClient.invalidateQueries({ queryKey: ['mensagens', threadAtiva.id] }) : Promise.resolve()]
+                  );
                   toast.success("Atualizado!");
                 }}
-                className="border-white/30 text-white hover:bg-white/20"
-              >
+                className="border-white/30 text-white hover:bg-white/20">
+
                 <RefreshCw className="w-4 h-4 mr-2" />
                 Atualizar
               </Button>
@@ -395,8 +369,8 @@ export default function Comunicacao() {
 
         <WebhookInstructions
           isOpen={mostrarInstrucoesWebhook}
-          onClose={() => setMostrarInstrucoesWebhook(false)}
-        />
+          onClose={() => setMostrarInstrucoesWebhook(false)} />
+
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col overflow-hidden">
           <div className="bg-white border-b border-slate-200 px-6 flex-shrink-0">
@@ -427,7 +401,7 @@ export default function Comunicacao() {
           <div className="flex-1 overflow-hidden">
             {/* TAB: CONVERSAS */}
             <TabsContent value="conversas" className="h-full m-0 p-0">
-              <div className="flex h-full">
+              <div className="px-3 py-1 text-sm font-medium rounded-md inline-flex items-center justify-center whitespace-nowrap ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow gap-2">
                 <div className="w-80 border-r border-slate-200 bg-white flex flex-col overflow-hidden">
                   {/* RESTAURADO: SearchAndFilter com TODOS os props */}
                   <SearchAndFilter
@@ -448,8 +422,8 @@ export default function Comunicacao() {
                     }}
                     integracoes={integracoes}
                     selectedIntegrationId={selectedIntegrationId}
-                    onSelectedIntegrationChange={setSelectedIntegrationId}
-                  />
+                    onSelectedIntegrationChange={setSelectedIntegrationId} />
+
 
                   <div className="flex-1 overflow-y-auto">
                     <ChatSidebar
@@ -458,56 +432,56 @@ export default function Comunicacao() {
                       onSelecionarThread={handleSelecionarThread}
                       loading={loadingThreads}
                       usuarioAtual={usuario}
-                      integracoes={integracoes}
-                    />
+                      integracoes={integracoes} />
+
                   </div>
                 </div>
 
                 <div className="flex-1 flex overflow-hidden">
-                  {threadAtiva && !criandoNovoContato ? (
-                    <>
+                  {threadAtiva && !criandoNovoContato ?
+                  <>
                       <div className="flex-1 overflow-hidden">
                         <ChatWindow
-                          thread={threadAtiva}
-                          mensagens={mensagens}
-                          usuario={usuario}
-                          onEnviarMensagem={async () => {}}
-                          onShowContactInfo={() => setShowContactInfo(!showContactInfo)}
-                          onAtualizarMensagens={handleAtualizarMensagens}
-                          integracoes={integracoes}
-                        />
+                        thread={threadAtiva}
+                        mensagens={mensagens}
+                        usuario={usuario}
+                        onEnviarMensagem={async () => {}}
+                        onShowContactInfo={() => setShowContactInfo(!showContactInfo)}
+                        onAtualizarMensagens={handleAtualizarMensagens}
+                        integracoes={integracoes} />
+
                       </div>
                       
-                      {showContactInfo && contatoAtivo && (
-                        <ContactInfoPanel
-                          contact={contatoAtivo}
-                          threadAtual={threadAtiva}
-                          onClose={() => setShowContactInfo(false)}
-                          onUpdate={handleAtualizarContato}
-                        />
-                      )}
-                    </>
-                  ) : criandoNovoContato ? (
-                    <>
-                      <EmptyState 
-                        message="Criar Novo Contato" 
-                        subtitle="Preencha as informações ao lado" 
-                      />
+                      {showContactInfo && contatoAtivo &&
+                    <ContactInfoPanel
+                      contact={contatoAtivo}
+                      threadAtual={threadAtiva}
+                      onClose={() => setShowContactInfo(false)}
+                      onUpdate={handleAtualizarContato} />
+
+                    }
+                    </> :
+                  criandoNovoContato ?
+                  <>
+                      <EmptyState
+                      message="Criar Novo Contato"
+                      subtitle="Preencha as informações ao lado" />
+
                       
                       <ContactInfoPanel
-                        contact={null}
-                        novoContatoTelefone={novoContatoTelefone}
-                        onClose={() => {
-                          setCriandoNovoContato(false);
-                          setNovoContatoTelefone("");
-                          setShowContactInfo(false);
-                        }}
-                        onUpdate={handleCriarNovoContato}
-                      />
-                    </>
-                  ) : (
-                    <EmptyState />
-                  )}
+                      contact={null}
+                      novoContatoTelefone={novoContatoTelefone}
+                      onClose={() => {
+                        setCriandoNovoContato(false);
+                        setNovoContatoTelefone("");
+                        setShowContactInfo(false);
+                      }}
+                      onUpdate={handleCriarNovoContato} />
+
+                    </> :
+
+                  <EmptyState />
+                  }
                 </div>
               </div>
             </TabsContent>
@@ -515,10 +489,10 @@ export default function Comunicacao() {
             {/* TAB: CONTROLE OPERACIONAL - FILAS + SAÚDE + DASHBOARD CONSOLIDADO */}
             <TabsContent value="controle" className="h-full m-0 overflow-hidden">
               <div className="h-full overflow-y-auto bg-slate-900">
-                <CentralControleOperacional 
+                <CentralControleOperacional
                   onSelecionarThread={handleSelecionarThread}
-                  usuarioAtual={usuario}
-                />
+                  usuarioAtual={usuario} />
+
               </div>
             </TabsContent>
 
@@ -539,13 +513,13 @@ export default function Comunicacao() {
               <div className="h-full overflow-y-auto p-6">
                 <ConfiguracaoWhatsAppHub
                   integracoes={integracoes}
-                  onRecarregar={() => queryClient.invalidateQueries({ queryKey: ['integracoes'] })}
-                />
+                  onRecarregar={() => queryClient.invalidateQueries({ queryKey: ['integracoes'] })} />
+
               </div>
             </TabsContent>
           </div>
         </Tabs>
       </div>
-    </ErrorBoundary>
-  );
+    </ErrorBoundary>);
+
 }
