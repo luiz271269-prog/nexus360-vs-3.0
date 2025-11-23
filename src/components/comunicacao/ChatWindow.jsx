@@ -1351,6 +1351,8 @@ export default function ChatWindow({
     carregarDados();
   }, []);
 
+
+
   const handleAtualizarContato = async (campo, valor) => {
     if (!contatoCompleto || !podeTransferirConversas) return;
     
