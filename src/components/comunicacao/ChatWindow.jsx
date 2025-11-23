@@ -1127,7 +1127,7 @@ export default function ChatWindow({
       }, 100);
     } else {
       setTimeout(() => {
-        messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+        messagesEndRef.current?.scrollIntoView({ behavior: 'instant' });
       }, 100);
     }
   }, [mensagens, thread?.id, thread?.unread_count]);
