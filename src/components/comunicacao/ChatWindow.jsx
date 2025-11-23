@@ -115,6 +115,23 @@ export default function ChatWindow({
 
   const navigate = useNavigate();
 
+  // ✅ TODOS OS useEffect NO TOPO - ANTES DE QUALQUER RETURN
+  useEffect(() => {
+    const carregarDados = async () => {
+      try {
+        const [vend, atend] = await Promise.all([
+          base44.entities.Vendedor.list('nome'),
+          base44.entities.User.filter({ is_whatsapp_attendant: true }, 'full_name')
+        ]);
+        setVendedores(vend);
+        setAtendentesLista(atend);
+      } catch (error) {
+        console.error('[ChatWindow] Erro ao carregar dados:', error);
+      }
+    };
+    carregarDados();
+  }, []);
+
   useEffect(() => {
     const carregarContato = async () => {
       if (!thread?.contact_id) {
@@ -1334,24 +1351,6 @@ export default function ChatWindow({
       </div>
     );
   }
-
-  useEffect(() => {
-    const carregarDados = async () => {
-      try {
-        const [vend, atend] = await Promise.all([
-          base44.entities.Vendedor.list('nome'),
-          base44.entities.User.filter({ is_whatsapp_attendant: true }, 'full_name')
-        ]);
-        setVendedores(vend);
-        setAtendentesLista(atend);
-      } catch (error) {
-        console.error('[ChatWindow] Erro ao carregar dados:', error);
-      }
-    };
-    carregarDados();
-  }, []);
-
-
 
   const handleAtualizarContato = async (campo, valor) => {
     if (!contatoCompleto || !podeTransferirConversas) return;
