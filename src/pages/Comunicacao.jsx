@@ -276,11 +276,13 @@ export default function Comunicacao() {
       }
     }
 
-    // Filtro por termo de busca
+    // 🔍 BUSCA AMPLIADA: Número + Empresa + Cargo + Nome
     if (debouncedSearchTerm) {
       const termoBusca = debouncedSearchTerm.toLowerCase();
       return (
         contato.nome?.toLowerCase().includes(termoBusca) ||
+        contato.empresa?.toLowerCase().includes(termoBusca) ||
+        contato.cargo?.toLowerCase().includes(termoBusca) ||
         thread.last_message_content?.toLowerCase().includes(termoBusca) ||
         contato.telefone?.includes(debouncedSearchTerm)
       );
