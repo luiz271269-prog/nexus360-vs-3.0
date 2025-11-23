@@ -58,11 +58,11 @@ export default function CategorizadorRapido({ thread, onUpdate }) {
           <Button 
             variant="outline" 
             size="sm" 
-            className="h-8"
+            className="h-7 border-dashed hover:border-solid hover:bg-slate-50"
             disabled={salvando}
           >
-            <Tag className="w-4 h-4 mr-2" />
-            Categorias {categorias.length > 0 && `(${categorias.length})`}
+            <Tag className="w-3.5 h-3.5 mr-1.5" />
+            {categorias.length > 0 ? `${categorias.length} categorizadas` : 'Adicionar'}
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="w-56">
@@ -83,7 +83,7 @@ export default function CategorizadorRapido({ thread, onUpdate }) {
         </DropdownMenuContent>
       </DropdownMenu>
 
-      {/* Badges visuais das categorias ativas */}
+      {/* Badges visuais das categorias ativas - Melhorados */}
       {categorias.map(cat => {
         const config = CATEGORIAS_DISPONIVEIS.find(c => c.value === cat);
         if (!config) return null;
@@ -91,11 +91,11 @@ export default function CategorizadorRapido({ thread, onUpdate }) {
         return (
           <Badge 
             key={cat}
-            className={`${config.color} text-white border-0 gap-1 cursor-pointer hover:opacity-80`}
+            className={`${config.color} text-white border-0 gap-1.5 cursor-pointer hover:opacity-80 transition-all shadow-sm px-2.5 py-1`}
             onClick={() => toggleCategoria(cat)}
           >
-            {config.label}
-            <X className="w-3 h-3" />
+            <span className="font-medium">{config.label}</span>
+            <X className="w-3.5 h-3.5 hover:scale-110 transition-transform" />
           </Badge>
         );
       })}
