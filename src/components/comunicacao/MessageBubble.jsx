@@ -309,18 +309,20 @@ export default function MessageBubble({
     : null;
 
   const handleToggleCategoria = async (valorCategoria) => {
-    if (categorizando || !thread) return;
+    if (categorizando || !message) return;
 
     setCategorizando(true);
     try {
-      const categoriasAtuais = thread.categorias || [];
+      const categoriasAtuais = message.categorias || [];
       const novasCategorias = categoriasAtuais.includes(valorCategoria)
         ? categoriasAtuais.filter(c => c !== valorCategoria)
         : [...categoriasAtuais, valorCategoria];
 
-      await base44.entities.MessageThread.update(thread.id, {
+      await base44.entities.Message.update(message.id, {
         categorias: novasCategorias
       });
+
+      queryClient.invalidateQueries({ queryKey: ['mensagens', thread?.id] });
 
       const catConfig = todasCategorias.find(c => c.nome === valorCategoria);
       toast.success(`${catConfig?.emoji || '🏷️'} ${catConfig?.label || valorCategoria} ${novasCategorias.includes(valorCategoria) ? 'adicionada' : 'removida'}`);
@@ -333,7 +335,7 @@ export default function MessageBubble({
   };
 
   const adicionarNovaCategoria = async (nomeCategoria) => {
-    if (categorizando || !thread) return;
+    if (categorizando || !message) return;
 
     setCategorizando(true);
     try {
@@ -357,15 +359,16 @@ export default function MessageBubble({
         queryClient.invalidateQueries({ queryKey: ['categorias-mensagens'] });
       }
 
-      // Adicionar à thread
-      const categoriasAtuais = thread.categorias || [];
+      // Adicionar à mensagem
+      const categoriasAtuais = message.categorias || [];
       if (!categoriasAtuais.includes(categoriaNormalizada)) {
-        await base44.entities.MessageThread.update(thread.id, {
+        await base44.entities.Message.update(message.id, {
           categorias: [...categoriasAtuais, categoriaNormalizada]
         });
+        queryClient.invalidateQueries({ queryKey: ['mensagens', thread?.id] });
         toast.success(`✅ Categoria "${nomeCategoria}" criada e adicionada!`);
       } else {
-        toast.warning('Categoria já existe nesta conversa');
+        toast.warning('Categoria já existe nesta mensagem');
       }
     } catch (error) {
       console.error('[BUBBLE] Erro ao adicionar categoria:', error);
@@ -544,16 +547,16 @@ export default function MessageBubble({
                           </Button>
                         </DropdownMenuTrigger>
                       </TooltipTrigger>
-                      <TooltipContent side="top">Categorizar Conversa</TooltipContent>
+                      <TooltipContent side="top">Etiquetar Mensagem</TooltipContent>
                     </Tooltip>
                     <DropdownMenuContent align="end" className="w-64">
                       <DropdownMenuLabel className="flex items-center justify-between">
-                        <span>Categorizar conversa</span>
+                        <span>Etiquetar mensagem</span>
                         <Button
                           size="sm"
                           variant="ghost"
                           onClick={() => {
-                            const novaCategoria = prompt("Digite o nome da nova categoria:");
+                            const novaCategoria = prompt("Digite o nome da nova etiqueta:");
                             if (novaCategoria && novaCategoria.trim()) {
                               adicionarNovaCategoria(novaCategoria.trim());
                             }
@@ -567,7 +570,7 @@ export default function MessageBubble({
                       {todasCategorias.map(cat => (
                         <DropdownMenuCheckboxItem
                           key={cat.nome}
-                          checked={thread?.categorias?.includes(cat.nome)}
+                          checked={message?.categorias?.includes(cat.nome)}
                           onCheckedChange={() => handleToggleCategoria(cat.nome)}
                         >
                           <div className="flex items-center gap-2">
