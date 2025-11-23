@@ -143,6 +143,29 @@ export default function ChatWindow({
       try {
         const contato = await base44.entities.Contact.get(thread.contact_id);
         setContatoCompleto(contato);
+        
+        // 📸 Buscar foto se não existir ou estiver antiga (>7 dias)
+        const fotoAntiga = !contato.foto_perfil_atualizada_em || 
+          (Date.now() - new Date(contato.foto_perfil_atualizada_em).getTime()) > 7 * 24 * 60 * 60 * 1000;
+        
+        if (fotoAntiga && thread.whatsapp_integration_id) {
+          try {
+            const resultado = await base44.functions.invoke('buscarFotoPerfilWhatsApp', {
+              integration_id: thread.whatsapp_integration_id,
+              phone: contato.telefone
+            });
+            
+            if (resultado.profilePictureUrl) {
+              setContatoCompleto(prev => ({
+                ...prev,
+                foto_perfil_url: resultado.profilePictureUrl,
+                foto_perfil_atualizada_em: new Date().toISOString()
+              }));
+            }
+          } catch (error) {
+            console.warn('❌ Erro ao buscar foto de perfil:', error);
+          }
+        }
       } catch (error) {
         console.error('❌ [ChatWindow] Erro ao carregar contato:', error);
         
@@ -158,7 +181,7 @@ export default function ChatWindow({
     };
 
     carregarContato();
-  }, [thread?.contact_id]);
+  }, [thread?.contact_id, thread?.whatsapp_integration_id]);
 
   // Inicializar canal selecionado com o da thread
   useEffect(() => {
