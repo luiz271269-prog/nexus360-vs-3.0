@@ -78,8 +78,8 @@ function validarPayloadNormalizado(payload) {
 }
 
 // VERSÃO AUTO-ATUALIZADA - Modifique quando publicar uma nova versão
-const VERSION = 'v4.0.0';
-const BUILD_DATE = '2025-01-22';
+const VERSION = 'v4.1.0';
+const BUILD_DATE = '2025-01-23';
 const DEPLOYED_AT = new Date().toISOString();
 
 console.log('=============================================================');
@@ -487,13 +487,10 @@ async function handleMessage(instance, payload, base44, headers, debugMode) {
     console.log('[HANDLER-MESSAGE] Phone number: ' + numero);
 
     let contato;
-    const contatosExistentes = await base44.asServiceRole.entities.Contact.filter({ 
-      telefone: numero 
-    });
+    const contatosExistentes = await base44.asServiceRole.entities.Contact.list('-created_date', 1, { telefone: numero });
     
     if (contatosExistentes.length > 0) {
       contato = contatosExistentes[0];
-      console.log('[HANDLER-MESSAGE] Contact found: ' + contato.id);
       
       await base44.asServiceRole.entities.Contact.update(contato.id, { 
         ultima_interacao: new Date().toISOString() 
@@ -506,30 +503,21 @@ async function handleMessage(instance, payload, base44, headers, debugMode) {
         whatsapp_status: 'verificado',
         ultima_interacao: new Date().toISOString()
       });
-      console.log('[HANDLER-MESSAGE] Contact created: ' + contato.id);
     }
 
     let integracaoId = null;
     if (instance && instance !== 'unknown') {
-      const integracoes = await base44.asServiceRole.entities.WhatsAppIntegration.filter({ 
-        instance_id_provider: instance 
-      });
+      const integracoes = await base44.asServiceRole.entities.WhatsAppIntegration.list('-created_date', 1, { instance_id_provider: instance });
       if (integracoes.length > 0) {
         integracaoId = integracoes[0].id;
-        console.log('[HANDLER-MESSAGE] Integration found: ' + integracaoId);
-      } else {
-        console.warn('[HANDLER-MESSAGE] Integration not found for instance: ' + instance);
       }
     }
 
     let thread;
-    const threadsExistentes = await base44.asServiceRole.entities.MessageThread.filter({ 
-      contact_id: contato.id 
-    });
+    const threadsExistentes = await base44.asServiceRole.entities.MessageThread.list('-last_message_at', 1, { contact_id: contato.id });
     
     if (threadsExistentes.length > 0) {
       thread = threadsExistentes[0];
-      console.log('[HANDLER-MESSAGE] Thread found: ' + thread.id);
       
       const updateData = {
         last_message_at: new Date().toISOString(),
@@ -540,10 +528,8 @@ async function handleMessage(instance, payload, base44, headers, debugMode) {
         status: 'aberta'
       };
       
-      // Garantir que o thread tenha a integração correta identificada
       if (integracaoId && !thread.whatsapp_integration_id) {
         updateData.whatsapp_integration_id = integracaoId;
-        console.log('[HANDLER-MESSAGE] Integration ID added to thread: ' + integracaoId);
       }
       
       await base44.asServiceRole.entities.MessageThread.update(thread.id, updateData);
@@ -559,16 +545,12 @@ async function handleMessage(instance, payload, base44, headers, debugMode) {
         total_mensagens: 1,
         unread_count: 1
       });
-      console.log('[HANDLER-MESSAGE] Thread created: ' + thread.id);
     }
 
     if (payload.messageId) {
-      const mensagensExistentes = await base44.asServiceRole.entities.Message.filter({ 
-        whatsapp_message_id: payload.messageId 
-      });
+      const mensagensExistentes = await base44.asServiceRole.entities.Message.list('-created_date', 1, { whatsapp_message_id: payload.messageId });
       
       if (mensagensExistentes.length > 0) {
-        console.log('[HANDLER-MESSAGE] DUPLICATE detected: ' + payload.messageId);
         return Response.json({ 
           success: true, 
           processed: 'duplicate',
@@ -597,7 +579,7 @@ async function handleMessage(instance, payload, base44, headers, debugMode) {
       }
     });
 
-    console.log('[HANDLER-MESSAGE] SUCCESS - Message saved: ' + mensagem.id);
+    if (debugMode) console.log('[HANDLER-MESSAGE] Message saved: ' + mensagem.id);
     
     const response = { 
       success: true, 
