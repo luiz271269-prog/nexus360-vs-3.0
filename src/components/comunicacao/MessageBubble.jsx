@@ -318,16 +318,25 @@ export default function MessageBubble({
         ? categoriasAtuais.filter(c => c !== valorCategoria)
         : [...categoriasAtuais, valorCategoria];
 
+      console.log('[ETIQUETA] 🏷️ Salvando etiqueta:', {
+        message_id: message.id,
+        categorias_antes: categoriasAtuais,
+        categorias_depois: novasCategorias,
+        categoria_alterada: valorCategoria
+      });
+
       await base44.entities.Message.update(message.id, {
         categorias: novasCategorias
       });
+
+      console.log('[ETIQUETA] ✅ Etiqueta salva no banco de dados');
 
       queryClient.invalidateQueries({ queryKey: ['mensagens', thread?.id] });
 
       const catConfig = todasCategorias.find(c => c.nome === valorCategoria);
       toast.success(`${catConfig?.emoji || '🏷️'} ${catConfig?.label || valorCategoria} ${novasCategorias.includes(valorCategoria) ? 'adicionada' : 'removida'}`);
     } catch (error) {
-      console.error('[BUBBLE] Erro ao categorizar:', error);
+      console.error('[BUBBLE] ❌ Erro ao categorizar:', error);
       toast.error('Erro ao atualizar categoria');
     } finally {
       setCategorizando(false);

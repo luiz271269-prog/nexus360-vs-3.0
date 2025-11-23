@@ -54,7 +54,8 @@ export default function ChatWindow({
   onEnviarMensagem,
   onShowContactInfo,
   onAtualizarMensagens,
-  integracoes = []
+  integracoes = [],
+  selectedCategoria = 'all'
 }) {
   const [mensagemTexto, setMensagemTexto] = useState("");
   const [enviando, setEnviando] = useState(false);
@@ -1264,6 +1265,13 @@ export default function ChatWindow({
         ) : (
           mensagens
             .filter(m => {
+              // 🏷️ FILTRO POR CATEGORIA SELECIONADA
+              if (selectedCategoria && selectedCategoria !== 'all') {
+                if (!m.categorias || !m.categorias.includes(selectedCategoria)) {
+                  return false;
+                }
+              }
+
               // ✅ SEMPRE MOSTRAR mensagens deletadas e de sistema
               if (m.metadata?.deleted) return true;
               if (m.metadata?.is_system_message) return true;

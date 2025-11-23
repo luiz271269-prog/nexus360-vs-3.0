@@ -458,7 +458,8 @@ export default function Comunicacao() {
                         onEnviarMensagem={async () => {}}
                         onShowContactInfo={() => setShowContactInfo(!showContactInfo)}
                         onAtualizarMensagens={handleAtualizarMensagens}
-                        integracoes={integracoes} />
+                        integracoes={integracoes}
+                        selectedCategoria={selectedCategoria} />
 
                       </div>
                       
