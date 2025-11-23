@@ -137,39 +137,50 @@ export default function SearchAndFilter({
         </Select>
       )}
 
-      {/* 🆕 FILTRO POR CANAL WHATSAPP - GRADE DE BADGES */}
+      {/* FILTRO POR CANAL WHATSAPP - DROPDOWN */}
       {integracoes.length > 1 && (
-        <div className="w-full pt-2 border-t border-slate-200">
-          <label className="text-xs text-slate-600 mb-2 block font-medium">Filtrar por canal:</label>
-          <div className="flex flex-wrap gap-2">
-            <Badge
-              onClick={() => onSelectedIntegrationChange('all')}
-              className={`cursor-pointer transition-all ${
-                !selectedIntegrationId || selectedIntegrationId === 'all'
-                  ? 'bg-blue-600 text-white hover:bg-blue-700'
-                  : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
-              }`}
-            >
-              <Phone className="w-3 h-3 mr-1" />
-              Todos
-            </Badge>
+        <Select value={selectedIntegrationId || 'all'} onValueChange={onSelectedIntegrationChange}>
+          <SelectTrigger>
+            <SelectValue placeholder="Filtrar por canal" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">
+              <div className="flex items-center gap-2">
+                <Phone className="w-4 h-4" /> Todos os canais
+              </div>
+            </SelectItem>
             {integracoes.map((integracao) => (
-              <Badge
-                key={integracao.id}
-                onClick={() => onSelectedIntegrationChange(integracao.id)}
-                className={`cursor-pointer transition-all ${
-                  selectedIntegrationId === integracao.id
-                    ? 'bg-green-600 text-white hover:bg-green-700'
-                    : 'bg-green-50 text-green-700 border border-green-200 hover:bg-green-100'
-                }`}
-                title={`${integracao.numero_telefone}\n${integracao.status === 'conectado' ? '🟢 Conectado' : '🔴 Desconectado'}`}
-                >
-                {integracao.status === 'conectado' ? '🟢' : '🔴'} {integracao.nome_instancia}
-              </Badge>
+              <SelectItem key={integracao.id} value={integracao.id}>
+                <div className="flex items-center gap-2">
+                  {integracao.status === 'conectado' ? '🟢' : '🔴'} {integracao.nome_instancia}
+                </div>
+              </SelectItem>
             ))}
-          </div>
-        </div>
+          </SelectContent>
+        </Select>
       )}
+
+      {/* FILTRO POR CATEGORIA - DROPDOWN */}
+      <Select value={selectedCategoria || 'all'} onValueChange={onSelectedCategoriaChange}>
+        <SelectTrigger>
+          <SelectValue placeholder="Filtrar por categoria" />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="all">
+            <div className="flex items-center gap-2">
+              <Tag className="w-4 h-4" /> Todas as categorias
+            </div>
+          </SelectItem>
+          {CATEGORIAS_DISPONIVEIS.map((cat) => (
+            <SelectItem key={cat.value} value={cat.value}>
+              <div className="flex items-center gap-2">
+                <div className={`w-3 h-3 rounded-full ${cat.color}`} />
+                {cat.label}
+              </div>
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
     </div>
   );
 }
