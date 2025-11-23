@@ -1407,18 +1407,107 @@ export default function ChatWindow({
   return (
     <div className="flex flex-col h-full bg-white">
       {/* Header com Cards de Classificação */}
-      <div className="border-b bg-gradient-to-r from-slate-50 to-blue-50 flex-shrink-0">
-        <div className="flex items-center justify-between p-4">
-          <div className="flex items-center gap-3 flex-1">
+      <div className="border-b bg-gradient-to-r from-slate-50 to-blue-50 p-4 flex-shrink-0">
+        <div className="flex items-center gap-4">
+          {/* Avatar e Nome à Esquerda */}
+          <div className="flex items-center gap-3">
             <div className="w-12 h-12 bg-gradient-to-br from-amber-400 via-orange-500 to-red-500 rounded-full flex items-center justify-center text-white font-bold text-lg shadow-lg flex-shrink-0">
               {getInitials(nomeContato)}
             </div>
-            <div className="flex-1 min-w-0">
-              <h3 className="font-bold text-slate-900 truncate">{nomeContato}</h3>
+            <div>
+              <h3 className="font-bold text-slate-900">{nomeContato}</h3>
               <p className="text-xs text-slate-500">{telefoneExibicao}</p>
             </div>
           </div>
 
+          {/* Cards de Classificação à Direita - 1cm altura */}
+          <div className="flex gap-2 overflow-x-auto flex-1 justify-end">
+            <div className="bg-gradient-to-r from-orange-500 to-red-500 text-white rounded-lg px-3 shadow h-[1cm] flex items-center gap-2 flex-shrink-0">
+              <Tag className="w-4 h-4" />
+              <div className="flex flex-col justify-center">
+                <span className="text-[9px] font-semibold opacity-90">Tipo</span>
+                <select
+                  value={contatoCompleto?.tipo_contato || 'lead'}
+                  onChange={(e) => handleAtualizarContato('tipo_contato', e.target.value)}
+                  className="bg-transparent border-0 text-white text-xs focus:outline-none cursor-pointer -mt-1"
+                  disabled={!podeTransferirConversas}
+                >
+                  {tiposContato.map(tipo => (
+                    <option key={tipo.value} value={tipo.value}>{tipo.icon} {tipo.label}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            {contatoCompleto?.tipo_contato === 'fornecedor' && (
+              <div className="bg-purple-500 text-white rounded-lg px-3 shadow h-[1cm] flex items-center gap-2 flex-shrink-0">
+                <User className="w-4 h-4" />
+                <div className="flex flex-col justify-center">
+                  <span className="text-[9px] font-semibold opacity-90">Atendente</span>
+                  <select
+                    value={contatoCompleto?.atendente_fidelizado_fornecedor || "nao"}
+                    onChange={(e) => handleAtualizarContato('atendente_fidelizado_fornecedor', e.target.value === "nao" ? "" : e.target.value)}
+                    className="bg-transparent border-0 text-white text-xs focus:outline-none cursor-pointer -mt-1"
+                    disabled={!podeTransferirConversas}
+                  >
+                    <option value="nao">Não atribuído</option>
+                    {atendentesLista.map(a => <option key={a.id} value={a.full_name}>{a.full_name}</option>)}
+                  </select>
+                </div>
+              </div>
+            )}
+
+            {contatoCompleto?.tipo_contato === 'cliente' && (
+              <div className="bg-purple-500 text-white rounded-lg px-3 shadow h-[1cm] flex items-center gap-2 flex-shrink-0">
+                <User className="w-4 h-4" />
+                <div className="flex flex-col justify-center">
+                  <span className="text-[9px] font-semibold opacity-90">Atendente</span>
+                  <select
+                    value={contatoCompleto?.atendente_fidelizado_vendas || "nao"}
+                    onChange={(e) => handleAtualizarContato('atendente_fidelizado_vendas', e.target.value === "nao" ? "" : e.target.value)}
+                    className="bg-transparent border-0 text-white text-xs focus:outline-none cursor-pointer -mt-1"
+                    disabled={!podeTransferirConversas}
+                  >
+                    <option value="nao">Não atribuído</option>
+                    {atendentesLista.map(a => <option key={a.id} value={a.full_name}>{a.full_name}</option>)}
+                  </select>
+                </div>
+              </div>
+            )}
+
+            <div className="bg-amber-500 text-white rounded-lg px-3 shadow h-[1cm] flex items-center gap-2 flex-shrink-0">
+              <Briefcase className="w-4 h-4" />
+              <div className="flex flex-col justify-center">
+                <span className="text-[9px] font-semibold opacity-90">Vendedor</span>
+                <select
+                  value={contatoCompleto?.vendedor_responsavel || "nao"}
+                  onChange={(e) => handleAtualizarContato('vendedor_responsavel', e.target.value === "nao" ? "" : e.target.value)}
+                  className="bg-transparent border-0 text-white text-xs focus:outline-none cursor-pointer -mt-1"
+                  disabled={!podeTransferirConversas}
+                >
+                  <option value="nao">Não atribuído</option>
+                  {vendedores.map(v => <option key={v.id} value={v.nome}>{v.nome}</option>)}
+                </select>
+              </div>
+            </div>
+
+            {canManageConversation && podeTransferirConversas && (
+              <div className="bg-gradient-to-r from-blue-500 to-indigo-500 text-white rounded-lg px-3 shadow h-[1cm] flex items-center gap-2 flex-shrink-0">
+                <Users className="w-4 h-4" />
+                <div className="flex flex-col justify-center">
+                  <span className="text-[9px] font-semibold opacity-90">Ação</span>
+                  <button
+                    onClick={() => setMostrarModalAtribuicao(true)}
+                    className="bg-transparent border-0 text-white text-xs focus:outline-none cursor-pointer hover:opacity-90 transition-opacity -mt-1 text-left"
+                  >
+                    Transferir
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Botão de Info */}
           <Button
             variant="ghost"
             size="icon"
@@ -1427,88 +1516,6 @@ export default function ChatWindow({
           >
             <Info className="w-5 h-5 text-slate-600" />
           </Button>
-        </div>
-
-        {/* Cards de Classificação - 1cm altura */}
-        <div className="px-4 pb-3 flex gap-2 overflow-x-auto">
-          <div className="bg-gradient-to-r from-orange-500 to-red-500 text-white rounded-lg px-3 shadow h-[1cm] flex items-center gap-2 flex-shrink-0">
-            <Tag className="w-4 h-4" />
-            <div className="flex flex-col justify-center">
-              <span className="text-[9px] font-semibold opacity-90">Tipo</span>
-              <select
-                value={contatoCompleto?.tipo_contato || 'lead'}
-                onChange={(e) => handleAtualizarContato('tipo_contato', e.target.value)}
-                className="bg-transparent border-0 text-white text-xs focus:outline-none cursor-pointer -mt-1"
-                disabled={!podeTransferirConversas}
-              >
-                {tiposContato.map(tipo => (
-                  <option key={tipo.value} value={tipo.value}>{tipo.icon} {tipo.label}</option>
-                ))}
-              </select>
-            </div>
-          </div>
-
-          {contatoCompleto?.tipo_contato === 'fornecedor' && (
-            <div className="bg-purple-500 text-white rounded-lg px-3 shadow h-[1cm] flex items-center gap-2 flex-shrink-0">
-              <User className="w-4 h-4" />
-              <div className="flex flex-col justify-center">
-                <span className="text-[9px] font-semibold opacity-90">Atendente</span>
-                <select
-                  value={contatoCompleto?.atendente_fidelizado_fornecedor || "nao"}
-                  onChange={(e) => handleAtualizarContato('atendente_fidelizado_fornecedor', e.target.value === "nao" ? "" : e.target.value)}
-                  className="bg-transparent border-0 text-white text-xs focus:outline-none cursor-pointer -mt-1"
-                  disabled={!podeTransferirConversas}
-                >
-                  <option value="nao">Não atribuído</option>
-                  {atendentesLista.map(a => <option key={a.id} value={a.full_name}>{a.full_name}</option>)}
-                </select>
-              </div>
-            </div>
-          )}
-
-          {contatoCompleto?.tipo_contato === 'cliente' && (
-            <div className="bg-purple-500 text-white rounded-lg px-3 shadow h-[1cm] flex items-center gap-2 flex-shrink-0">
-              <User className="w-4 h-4" />
-              <div className="flex flex-col justify-center">
-                <span className="text-[9px] font-semibold opacity-90">Atendente</span>
-                <select
-                  value={contatoCompleto?.atendente_fidelizado_vendas || "nao"}
-                  onChange={(e) => handleAtualizarContato('atendente_fidelizado_vendas', e.target.value === "nao" ? "" : e.target.value)}
-                  className="bg-transparent border-0 text-white text-xs focus:outline-none cursor-pointer -mt-1"
-                  disabled={!podeTransferirConversas}
-                >
-                  <option value="nao">Não atribuído</option>
-                  {atendentesLista.map(a => <option key={a.id} value={a.full_name}>{a.full_name}</option>)}
-                </select>
-              </div>
-            </div>
-          )}
-
-          <div className="bg-amber-500 text-white rounded-lg px-3 shadow h-[1cm] flex items-center gap-2 flex-shrink-0">
-            <Briefcase className="w-4 h-4" />
-            <div className="flex flex-col justify-center">
-              <span className="text-[9px] font-semibold opacity-90">Vendedor</span>
-              <select
-                value={contatoCompleto?.vendedor_responsavel || "nao"}
-                onChange={(e) => handleAtualizarContato('vendedor_responsavel', e.target.value === "nao" ? "" : e.target.value)}
-                className="bg-transparent border-0 text-white text-xs focus:outline-none cursor-pointer -mt-1"
-                disabled={!podeTransferirConversas}
-              >
-                <option value="nao">Não atribuído</option>
-                {vendedores.map(v => <option key={v.id} value={v.nome}>{v.nome}</option>)}
-              </select>
-            </div>
-          </div>
-
-          {canManageConversation && podeTransferirConversas && (
-            <button
-              onClick={() => setMostrarModalAtribuicao(true)}
-              className="bg-gradient-to-r from-blue-500 to-indigo-500 text-white rounded-lg px-3 shadow h-[1cm] flex items-center gap-2 hover:from-blue-600 hover:to-indigo-600 transition-all flex-shrink-0"
-            >
-              <Users className="w-4 h-4" />
-              <span className="text-sm font-medium">Transferir</span>
-            </button>
-          )}
         </div>
       </div>
 
