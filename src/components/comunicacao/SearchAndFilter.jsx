@@ -181,7 +181,11 @@ export default function SearchAndFilter({
 
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <button className="px-3 py-2 text-sm border border-slate-300 rounded-lg hover:bg-slate-50 transition-colors flex items-center gap-2">
+            <button className={`px-3 py-2 text-sm border rounded-lg transition-colors flex items-center gap-2 ${
+              selectedCategoria && selectedCategoria !== 'all'
+                ? 'border-purple-500 bg-purple-50 text-purple-700 font-medium'
+                : 'border-slate-300 hover:bg-slate-50'
+            }`}>
               <Tag className="w-4 h-4" />
               {selectedCategoria && selectedCategoria !== 'all'
                 ? todasCategorias.find(c => c.value === selectedCategoria)?.label || 'Categoria'
