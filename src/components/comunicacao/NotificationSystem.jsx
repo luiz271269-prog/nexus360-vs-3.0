@@ -67,22 +67,7 @@ export default function NotificationSystem({ usuario }) {
 
   return (
     <>
-      {/* Badge flutuante com total de não lidas */}
-      {totalNaoLidas > 0 && (
-        <motion.div
-          initial={{ scale: 0 }}
-          animate={{ scale: 1 }}
-          className="fixed top-4 right-4 z-50"
-        >
-          <div className="bg-gradient-to-r from-red-500 to-orange-500 text-white rounded-full px-4 py-2 shadow-2xl flex items-center gap-2 border-2 border-white">
-            <MessageCircle className="w-5 h-5" />
-            <span className="font-bold text-lg">{totalNaoLidas}</span>
-            <span className="text-sm">nova{totalNaoLidas > 1 ? 's' : ''}</span>
-          </div>
-        </motion.div>
-      )}
-
-      {/* Notificações de novas mensagens */}
+      {/* Notificações toast apenas para NOVAS mensagens */}
       <AnimatePresence>
         {novasMensagens.map((msg, index) => (
           <motion.div
@@ -91,13 +76,13 @@ export default function NotificationSystem({ usuario }) {
             animate={{ x: 0, opacity: 1, scale: 1 }}
             exit={{ x: 400, opacity: 0, scale: 0.8 }}
             className="fixed right-4 z-50"
-            style={{ top: `${120 + index * 80}px` }}
+            style={{ top: `${20 + index * 70}px` }}
           >
-            <div className="bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-lg px-6 py-4 shadow-2xl flex items-center gap-3 border-2 border-white animate-pulse">
-              <Bell className="w-6 h-6" />
+            <div className="bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-lg px-5 py-3 shadow-2xl flex items-center gap-3 border-2 border-white">
+              <Bell className="w-5 h-5" />
               <div>
-                <p className="font-bold text-lg">Nova mensagem!</p>
-                <p className="text-sm opacity-90">+{msg.count} não lida{msg.count > 1 ? 's' : ''}</p>
+                <p className="font-bold">Nova mensagem!</p>
+                <p className="text-sm opacity-90">+{msg.count}</p>
               </div>
             </div>
           </motion.div>

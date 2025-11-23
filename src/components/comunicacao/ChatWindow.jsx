@@ -802,19 +802,26 @@ export default function ChatWindow({
       m => m.sender_type === 'contact' && m.status !== 'lida' && m.status !== 'apagada'
     );
 
-    if (primeiraLidaIndex !== -1 && thread?.unread_count > 0 && unreadSeparatorRef.current) {
-      setTimeout(() => {
-        unreadSeparatorRef.current?.scrollIntoView({
-          behavior: 'smooth',
-          block: 'center'
-        });
-      }, 100);
-    } else {
-      setTimeout(() => {
+    // Delay maior para garantir DOM renderizado
+    const timer = setTimeout(() => {
+      if (primeiraLidaIndex !== -1 && thread?.unread_count > 0) {
+        if (unreadSeparatorRef.current) {
+          console.log('✅ Rolando para mensagens não lidas');
+          unreadSeparatorRef.current.scrollIntoView({
+            behavior: 'smooth',
+            block: 'center'
+          });
+        } else {
+          console.warn('⚠️ Separador não encontrado');
+          messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+        }
+      } else {
         messagesEndRef.current?.scrollIntoView({ behavior: 'instant' });
-      }, 100);
-    }
-  }, [mensagens, thread?.id, thread?.unread_count]);
+      }
+    }, 300);
+
+    return () => clearTimeout(timer);
+    }, [mensagens, thread?.id, thread?.unread_count]);
 
   useEffect(() => {
     if (mensagens && mensagens.length > 0) {
