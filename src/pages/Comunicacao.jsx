@@ -401,7 +401,7 @@ export default function Comunicacao() {
           <div className="flex-1 overflow-hidden">
             {/* TAB: CONVERSAS */}
             <TabsContent value="conversas" className="h-full m-0 p-0">
-              <div className="px-3 py-1 text-sm font-medium rounded-md inline-flex items-center justify-center whitespace-nowrap ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow gap-2">
+              <div className="flex h-full">
                 <div className="w-80 border-r border-slate-200 bg-white flex flex-col overflow-hidden">
                   {/* RESTAURADO: SearchAndFilter com TODOS os props */}
                   <SearchAndFilter
