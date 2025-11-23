@@ -4,7 +4,7 @@ import { ptBR } from 'date-fns/locale';
 import {
   CheckCheck, Check, Forward, Trash2, Loader2, Copy,
   Zap, CheckCircle2, AlertCircle, ChevronRight, Clock, Search, ArrowRight,
-  Reply, Target, Play, FileIcon, Download, ImageIcon
+  Reply, Target, Play, FileIcon, Download, ImageIcon, User
 } from 'lucide-react';
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
@@ -557,6 +557,45 @@ export default function MessageBubble({
                       <Check className="w-3.5 h-3.5 text-white/70" />
                     )}
                   </div>
+                </div>
+              </div>
+            )}
+
+            {/* ✅ CONTATO COMPARTILHADO - VCARD */}
+            {message.media_type === 'contact' && (
+              <div className={cn(
+                "px-4 py-3 min-w-[250px]",
+                isOwn ? "text-white" : "text-slate-800"
+              )}>
+                <div className="flex items-center gap-3">
+                  <div className={cn(
+                    "w-12 h-12 rounded-lg flex items-center justify-center flex-shrink-0",
+                    isOwn ? "bg-white/20" : "bg-blue-50"
+                  )}>
+                    <User className={cn("w-6 h-6", isOwn ? "text-white" : "text-blue-600")} />
+                  </div>
+                  <div className="flex-1">
+                    <p className={cn("text-sm font-medium", isOwn ? "text-white" : "text-slate-900")}>
+                      {message.content?.replace('📇 Contato compartilhado: ', '') || 'Contato'}
+                    </p>
+                    <p className={cn("text-xs", isOwn ? "text-white/70" : "text-slate-500")}>
+                      Contato compartilhado
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-center justify-end gap-1 mt-2">
+                  <span className={cn("text-[10px]", isOwn ? "text-white/70" : "text-slate-500")}>
+                    {formatarHorario(message.sent_at || message.created_date)}
+                  </span>
+                  {isOwn && message.status === 'lida' && (
+                    <CheckCheck className="w-3.5 h-3.5 text-blue-300" />
+                  )}
+                  {isOwn && message.status === 'entregue' && (
+                    <CheckCheck className="w-3.5 h-3.5 text-white/70" />
+                  )}
+                  {isOwn && message.status === 'enviada' && (
+                    <Check className="w-3.5 h-3.5 text-white/70" />
+                  )}
                 </div>
               </div>
             )}

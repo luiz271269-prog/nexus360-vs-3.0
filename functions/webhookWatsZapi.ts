@@ -34,18 +34,51 @@ function normalizarPayloadZAPI(evento) {
       return { type: 'unknown', error: 'Telefone inválido' };
     }
 
+    // ✅ DETECTAR VCARD (compartilhamento de contato)
+    let mediaType = 'none';
+    let mediaTempUrl = null;
+    let conteudo = evento.text?.message || evento.body || evento.buttonsResponseMessage?.message || '';
+    
+    if (evento.image) {
+      mediaType = 'image';
+      mediaTempUrl = evento.image.imageUrl;
+    } else if (evento.video) {
+      mediaType = 'video';
+      mediaTempUrl = evento.video.videoUrl;
+    } else if (evento.audio) {
+      mediaType = 'audio';
+      mediaTempUrl = evento.audio.audioUrl;
+    } else if (evento.contactMessage || evento.vcard) {
+      // 📇 VCARD - Compartilhamento de contato
+      mediaType = 'contact';
+      const contactData = evento.contactMessage || evento.vcard;
+      conteudo = `📇 Contato compartilhado: ${contactData.displayName || contactData.name || 'Sem nome'}`;
+    } else if (evento.location || evento.locationMessage) {
+      // 📍 LOCALIZAÇÃO
+      mediaType = 'location';
+      const loc = evento.location || evento.locationMessage;
+      conteudo = `📍 Localização: ${loc.name || 'Localização compartilhada'}`;
+    } else if (evento.documentMessage) {
+      // 📄 DOCUMENTO
+      mediaType = 'document';
+      mediaTempUrl = evento.documentMessage.documentUrl;
+      conteudo = `📄 Documento: ${evento.documentMessage.fileName || 'Arquivo'}`;
+    }
+
     return {
       type: 'message',
       instanceId: instanceId,
       messageId: evento.messageId,
-      from: numeroLimpo, // Normalizado sem sufixos WhatsApp
-      content: evento.text?.message || evento.body || evento.buttonsResponseMessage?.message || '',
-      mediaType: evento.image ? 'image' : evento.video ? 'video' : evento.audio ? 'audio' : 'none',
-      mediaTempUrl: evento.image?.imageUrl || evento.video?.videoUrl || evento.audio?.audioUrl || null,
+      from: numeroLimpo,
+      content: conteudo,
+      mediaType: mediaType,
+      mediaTempUrl: mediaTempUrl,
       mediaCaption: evento.image?.caption || evento.video?.caption || null,
       timestamp: evento.momment || evento.timestamp || Date.now(),
       isFromMe: evento.fromMe || false,
-      pushName: evento.senderName || evento.chatName || null
+      pushName: evento.senderName || evento.chatName || null,
+      vcard: evento.contactMessage || evento.vcard || null,
+      location: evento.location || evento.locationMessage || null
     };
   }
 
@@ -563,17 +596,24 @@ async function handleMessage(instance, payload, base44, headers, debugMode) {
     }
 
     const t3 = Date.now();
-    // ✅ NÃO SALVAR MENSAGENS VAZIAS (sem conteúdo E sem mídia)
+    // ✅ VALIDAR CONTEÚDO ANTES DE SALVAR
     const temConteudoValido = payload.content && payload.content.trim() !== '' && payload.content !== '[No content]';
-    const temMidiaValida = payload.mediaTempUrl && payload.mediaType && payload.mediaType !== 'none';
+    const temMidiaValida = payload.mediaTempUrl || payload.mediaType === 'contact' || payload.mediaType === 'location';
     
+    // ❌ IGNORAR mensagens completamente vazias
     if (!temConteudoValido && !temMidiaValida) {
-      console.warn('[HANDLER-MESSAGE] ⚠️ Mensagem vazia detectada - NÃO SALVANDO');
+      console.warn('[HANDLER-MESSAGE] ⚠️ Mensagem vazia ignorada:', {
+        messageId: payload.messageId,
+        content: payload.content,
+        mediaType: payload.mediaType,
+        hasMediaUrl: !!payload.mediaTempUrl
+      });
+      
       return Response.json({ 
         success: true, 
         processed: 'empty_message_ignored',
         messageId: payload.messageId,
-        reason: 'No content and no media',
+        reason: 'No valid content or media',
         version: VERSION
       }, { status: 200, headers });
     }
@@ -582,7 +622,7 @@ async function handleMessage(instance, payload, base44, headers, debugMode) {
       thread_id: thread.id,
       sender_id: contato.id,
       sender_type: 'contact',
-      content: payload.content || (temMidiaValida ? `[${payload.mediaType}]` : ''),
+      content: payload.content || `[${payload.mediaType}]`,
       media_url: payload.mediaTempUrl || null,
       media_type: payload.mediaType || 'none',
       media_caption: payload.mediaCaption || null,
