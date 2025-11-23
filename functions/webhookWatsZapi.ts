@@ -543,7 +543,32 @@ async function handleMessage(instance, payload, base44, headers, debugMode) {
       }, { status: 200, headers });
     }
 
-    // 4️⃣ Bloquear mensagens sem conteúdo válido
+    // 4️⃣ Bloquear mensagens de confirmação de recebimento (acknowledgments)
+    // Padrões comuns: JID puro OU conteúdo genérico tipo "Mídia enviada"
+    const acknowledgmentPatterns = [
+      /^[\+\d]+@lid$/i,                    // Ex: +105299763548377@lid
+      /^[\+\d]+@s\.whatsapp\.net$/i,       // Ex: +5548999000111@s.whatsapp.net
+      /^mídia enviada$/i,                  // Ex: "Mídia enviada"
+      /^media sent$/i,                     // Ex: "Media sent"
+      /^mensagem enviada$/i,               // Ex: "Mensagem enviada"
+      /^message sent$/i                    // Ex: "Message sent"
+    ];
+
+    const isAcknowledgment = payload.content && 
+      acknowledgmentPatterns.some(pattern => pattern.test(payload.content.trim()));
+
+    if (isAcknowledgment) {
+      console.log('🚫 [FIREWALL] Bloqueado: Acknowledgment/confirmação ->', payload.content);
+      return Response.json({ 
+        success: true, 
+        blocked: true,
+        reason: 'acknowledgment_message',
+        content: payload.content,
+        version: VERSION
+      }, { status: 200, headers });
+    }
+
+    // 5️⃣ Bloquear mensagens sem conteúdo válido
     const conteudoInvalido = [
       '[No content]',
       '[Message content missing]',
