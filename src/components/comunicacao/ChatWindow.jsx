@@ -1102,7 +1102,7 @@ export default function ChatWindow({
       <div className="border-b bg-gradient-to-r from-slate-50 to-blue-50 p-4 flex-shrink-0 space-y-3">
         <div className="flex items-center gap-4">
           {/* Avatar e Nome à Esquerda */}
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 flex-1">
             <div className="w-12 h-12 rounded-full flex items-center justify-center text-white font-bold text-lg shadow-lg flex-shrink-0 overflow-hidden relative bg-gradient-to-br from-amber-400 via-orange-500 to-red-500">
               {contatoCompleto?.foto_perfil_url ? (
                 <img 
@@ -1118,8 +1118,14 @@ export default function ChatWindow({
                 <span>{getInitials(nomeContato)}</span>
               )}
             </div>
-            <div>
-              <h3 className="font-bold text-slate-900">{nomeContato}</h3>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2">
+                <h3 className="font-bold text-slate-900 truncate">{nomeContato}</h3>
+                <CategorizadorRapido 
+                  thread={thread}
+                  onUpdate={onAtualizarMensagens}
+                />
+              </div>
               <p className="text-xs text-slate-500">{telefoneExibicao}</p>
             </div>
           </div>
