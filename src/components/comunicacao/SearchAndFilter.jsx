@@ -137,50 +137,69 @@ export default function SearchAndFilter({
         </Select>
       )}
 
-      {/* FILTRO POR CANAL WHATSAPP - DROPDOWN */}
+      {/* FILTRO POR CANAL - BADGES */}
       {integracoes.length > 1 && (
-        <Select value={selectedIntegrationId || 'all'} onValueChange={onSelectedIntegrationChange}>
-          <SelectTrigger>
-            <SelectValue placeholder="Filtrar por canal" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">
-              <div className="flex items-center gap-2">
-                <Phone className="w-4 h-4" /> Todos os canais
-              </div>
-            </SelectItem>
+        <div className="w-full pt-2 border-t border-slate-200">
+          <label className="text-xs text-slate-600 mb-2 block font-medium">Canal:</label>
+          <div className="flex flex-wrap gap-2">
+            <Badge
+              onClick={() => onSelectedIntegrationChange('all')}
+              className={`cursor-pointer transition-all ${
+                !selectedIntegrationId || selectedIntegrationId === 'all'
+                  ? 'bg-blue-600 text-white hover:bg-blue-700'
+                  : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+              }`}
+            >
+              <Phone className="w-3 h-3 mr-1" />
+              Todos
+            </Badge>
             {integracoes.map((integracao) => (
-              <SelectItem key={integracao.id} value={integracao.id}>
-                <div className="flex items-center gap-2">
-                  {integracao.status === 'conectado' ? '🟢' : '🔴'} {integracao.nome_instancia}
-                </div>
-              </SelectItem>
+              <Badge
+                key={integracao.id}
+                onClick={() => onSelectedIntegrationChange(integracao.id)}
+                className={`cursor-pointer transition-all ${
+                  selectedIntegrationId === integracao.id
+                    ? 'bg-green-600 text-white hover:bg-green-700'
+                    : 'bg-slate-50 text-slate-700 border border-slate-200 hover:bg-slate-100'
+                }`}
+                title={integracao.numero_telefone}
+              >
+                {integracao.status === 'conectado' ? '🟢' : '🔴'} {integracao.nome_instancia}
+              </Badge>
             ))}
-          </SelectContent>
-        </Select>
+          </div>
+        </div>
       )}
 
-      {/* FILTRO POR CATEGORIA - DROPDOWN */}
-      <Select value={selectedCategoria || 'all'} onValueChange={onSelectedCategoriaChange}>
-        <SelectTrigger>
-          <SelectValue placeholder="Filtrar por categoria" />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="all">
-            <div className="flex items-center gap-2">
-              <Tag className="w-4 h-4" /> Todas as categorias
-            </div>
-          </SelectItem>
+      {/* FILTRO POR CATEGORIA - BADGES */}
+      <div className="w-full pt-2 border-t border-slate-200">
+        <label className="text-xs text-slate-600 mb-2 block font-medium">Categoria:</label>
+        <div className="flex flex-wrap gap-2">
+          <Badge
+            onClick={() => onSelectedCategoriaChange('all')}
+            className={`cursor-pointer transition-all ${
+              !selectedCategoria || selectedCategoria === 'all'
+                ? 'bg-slate-600 text-white hover:bg-slate-700'
+                : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+            }`}
+          >
+            Todas
+          </Badge>
           {CATEGORIAS_DISPONIVEIS.map((cat) => (
-            <SelectItem key={cat.value} value={cat.value}>
-              <div className="flex items-center gap-2">
-                <div className={`w-3 h-3 rounded-full ${cat.color}`} />
-                {cat.label}
-              </div>
-            </SelectItem>
+            <Badge
+              key={cat.value}
+              onClick={() => onSelectedCategoriaChange(cat.value)}
+              className={`cursor-pointer transition-all ${
+                selectedCategoria === cat.value
+                  ? `${cat.color} text-white shadow-md`
+                  : 'bg-slate-50 text-slate-600 border border-slate-200 hover:bg-slate-100'
+              }`}
+            >
+              {cat.label}
+            </Badge>
           ))}
-        </SelectContent>
-      </Select>
+        </div>
+      </div>
     </div>
   );
 }
