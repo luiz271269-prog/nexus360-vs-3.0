@@ -29,7 +29,9 @@ import {
 } from "@/components/ui/tooltip";
 
 import ReactMarkdown from 'react-markdown';
-import { CATEGORIAS_DISPONIVEIS } from './CategorizadorRapido';
+import { CATEGORIAS_FIXAS, getCategoriaConfig } from './CategorizadorRapido';
+import { useQuery } from "@tanstack/react-query";
+import { base44 } from "@/api/base44Client";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -501,8 +503,8 @@ export default function MessageBubble({
                           onCheckedChange={() => handleToggleCategoria(cat.value)}
                         >
                           <div className="flex items-center gap-2">
-                            <div className={`w-3 h-3 rounded-full ${cat.color}`} />
-                            <span>{cat.label}</span>
+                            <div className={`w-3 h-3 rounded-full ${cat.cor || 'bg-slate-400'}`} />
+                            <span>{cat.emoji || '🏷️'} {cat.label}</span>
                           </div>
                         </DropdownMenuCheckboxItem>
                       ))}
