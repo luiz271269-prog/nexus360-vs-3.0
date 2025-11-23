@@ -358,7 +358,7 @@ Deno.serve(async (req) => {
 });
 
 async function handleQRCode(instance, payload, base44, headers, debugMode) {
-  console.log('[HANDLER-QRCODE] Processing QR Code update');
+  if (debugMode) console.log('[HANDLER-QRCODE] Processing QR Code update');
   
   try {
     const integration = await findIntegration(instance, base44);
@@ -368,9 +368,7 @@ async function handleQRCode(instance, payload, base44, headers, debugMode) {
         status: 'pendente_qrcode',
         ultima_atividade: new Date().toISOString()
       });
-      console.log('[HANDLER-QRCODE] Integration updated with QR code');
-    } else {
-      console.warn('[HANDLER-QRCODE] Integration not found for instance: ' + instance);
+      if (debugMode) console.log('[HANDLER-QRCODE] Integration updated with QR code');
     }
     
     return Response.json({ 
@@ -386,7 +384,7 @@ async function handleQRCode(instance, payload, base44, headers, debugMode) {
 }
 
 async function handleConnection(instance, payload, base44, headers, debugMode) {
-  console.log('[HANDLER-CONNECTION] Processing connection status: ' + payload.status);
+  if (debugMode) console.log('[HANDLER-CONNECTION] Processing connection status: ' + payload.status);
   
   try {
     const integration = await findIntegration(instance, base44);
@@ -395,9 +393,7 @@ async function handleConnection(instance, payload, base44, headers, debugMode) {
         status: payload.status,
         ultima_atividade: new Date().toISOString()
       });
-      console.log('[HANDLER-CONNECTION] Integration status updated to: ' + payload.status);
-    } else {
-      console.warn('[HANDLER-CONNECTION] Integration not found for instance: ' + instance);
+      if (debugMode) console.log('[HANDLER-CONNECTION] Integration status updated to: ' + payload.status);
     }
     
     return Response.json({ 
@@ -414,12 +410,11 @@ async function handleConnection(instance, payload, base44, headers, debugMode) {
 }
 
 async function handleMessageUpdate(payload, base44, headers, debugMode) {
-  console.log('[HANDLER-MESSAGE-UPDATE] Processing message status update');
+  if (debugMode) console.log('[HANDLER-MESSAGE-UPDATE] Processing message status update');
   
   try {
     const msgId = payload.messageId;
     if (!msgId) {
-      console.warn('[HANDLER-MESSAGE-UPDATE] No messageId provided');
       return Response.json({ 
         success: true, 
         ignored: true,
@@ -427,9 +422,7 @@ async function handleMessageUpdate(payload, base44, headers, debugMode) {
       }, { status: 200, headers });
     }
     
-    const messages = await base44.asServiceRole.entities.Message.filter({ 
-      whatsapp_message_id: msgId 
-    });
+    const messages = await base44.asServiceRole.entities.Message.list('-created_date', 1, { whatsapp_message_id: msgId });
     
     let status_local = null;
     if (messages.length > 0) {
@@ -447,10 +440,8 @@ async function handleMessageUpdate(payload, base44, headers, debugMode) {
       
       if (Object.keys(updates).length > 0) {
         await base44.asServiceRole.entities.Message.update(messages[0].id, updates);
-        console.log('[HANDLER-MESSAGE-UPDATE] Message status updated to: ' + updates.status);
+        if (debugMode) console.log('[HANDLER-MESSAGE-UPDATE] Message status updated to: ' + updates.status);
       }
-    } else {
-      console.warn('[HANDLER-MESSAGE-UPDATE] Message not found: ' + msgId);
     }
     
     const response = { 
@@ -477,21 +468,28 @@ async function handleMessageUpdate(payload, base44, headers, debugMode) {
 }
 
 async function handleMessage(instance, payload, base44, headers, debugMode) {
-  console.log('[HANDLER-MESSAGE] START - Processing incoming message');
+  const startTime = Date.now();
+  if (debugMode) console.log('[HANDLER-MESSAGE] START - Processing incoming message');
   
   try {
     const numero = payload.from;
     if (!numero || numero === 'unknown') {
       throw new Error('Phone number missing or invalid');
     }
-    console.log('[HANDLER-MESSAGE] Phone number: ' + numero);
+    if (debugMode) console.log('[HANDLER-MESSAGE] Phone number: ' + numero);
+
+    const t1 = Date.now();
+    const [contatosExistentes, integracoes] = await Promise.all([
+      base44.asServiceRole.entities.Contact.list('-created_date', 1, { telefone: numero }),
+      (instance && instance !== 'unknown') 
+        ? base44.asServiceRole.entities.WhatsAppIntegration.list('-created_date', 1, { instance_id_provider: instance })
+        : Promise.resolve([])
+    ]);
+    if (debugMode) console.log('[HANDLER-MESSAGE] Parallel queries completed in ' + (Date.now() - t1) + 'ms');
 
     let contato;
-    const contatosExistentes = await base44.asServiceRole.entities.Contact.list('-created_date', 1, { telefone: numero });
-    
     if (contatosExistentes.length > 0) {
       contato = contatosExistentes[0];
-      
       await base44.asServiceRole.entities.Contact.update(contato.id, { 
         ultima_interacao: new Date().toISOString() 
       });
@@ -505,17 +503,13 @@ async function handleMessage(instance, payload, base44, headers, debugMode) {
       });
     }
 
-    let integracaoId = null;
-    if (instance && instance !== 'unknown') {
-      const integracoes = await base44.asServiceRole.entities.WhatsAppIntegration.list('-created_date', 1, { instance_id_provider: instance });
-      if (integracoes.length > 0) {
-        integracaoId = integracoes[0].id;
-      }
-    }
+    const integracaoId = integracoes.length > 0 ? integracoes[0].id : null;
 
-    let thread;
+    const t2 = Date.now();
     const threadsExistentes = await base44.asServiceRole.entities.MessageThread.list('-last_message_at', 1, { contact_id: contato.id });
+    if (debugMode) console.log('[HANDLER-MESSAGE] Thread query completed in ' + (Date.now() - t2) + 'ms');
     
+    let thread;
     if (threadsExistentes.length > 0) {
       thread = threadsExistentes[0];
       
@@ -560,6 +554,7 @@ async function handleMessage(instance, payload, base44, headers, debugMode) {
       }
     }
 
+    const t3 = Date.now();
     const mensagem = await base44.asServiceRole.entities.Message.create({
       thread_id: thread.id,
       sender_id: contato.id,
@@ -578,8 +573,9 @@ async function handleMessage(instance, payload, base44, headers, debugMode) {
         timestamp: payload.timestamp
       }
     });
-
-    if (debugMode) console.log('[HANDLER-MESSAGE] Message saved: ' + mensagem.id);
+    if (debugMode) console.log('[HANDLER-MESSAGE] Message save completed in ' + (Date.now() - t3) + 'ms');
+    
+    const totalTime = Date.now() - startTime;
     
     const response = { 
       success: true, 
@@ -595,8 +591,10 @@ async function handleMessage(instance, payload, base44, headers, debugMode) {
         phone: numero,
         content_length: payload.content?.length || 0,
         media_type: payload.mediaType,
-        integration_id: integracaoId
+        integration_id: integracaoId,
+        processing_time_ms: totalTime
       };
+      console.log('[HANDLER-MESSAGE] Total processing time: ' + totalTime + 'ms');
     }
     
     return Response.json(response, { status: 200, headers });
@@ -609,24 +607,11 @@ async function handleMessage(instance, payload, base44, headers, debugMode) {
 }
 
 async function findIntegration(instance, base44) {
-  if (!instance || instance === 'unknown') {
-    console.warn('[HELPER-FIND-INTEGRATION] No instance provided');
-    return null;
-  }
+  if (!instance || instance === 'unknown') return null;
   
   try {
-    const integrations = await base44.asServiceRole.entities.WhatsAppIntegration.filter({ 
-      instance_id_provider: instance 
-    });
-    
-    if (integrations.length > 0) {
-      console.log('[HELPER-FIND-INTEGRATION] Found integration: ' + integrations[0].id);
-      return integrations[0];
-    }
-    
-    console.warn('[HELPER-FIND-INTEGRATION] No integration found for instance: ' + instance);
-    return null;
-    
+    const integrations = await base44.asServiceRole.entities.WhatsAppIntegration.list('-created_date', 1, { instance_id_provider: instance });
+    return integrations.length > 0 ? integrations[0] : null;
   } catch (error) {
     console.error('[HELPER-FIND-INTEGRATION] Error: ' + error.message);
     return null;
