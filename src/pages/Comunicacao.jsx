@@ -373,9 +373,9 @@ export default function Comunicacao() {
 
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col overflow-hidden">
-          <div className="bg-sky-800 px-6 border-b border-slate-200 flex-shrink-0">
-            <TabsList className="bg-transparent">
-              <TabsTrigger value="conversas" className="gap-2">
+          <div className="bg-gradient-to-r from-slate-800 via-slate-700 to-slate-800 px-6 border-b border-slate-600 flex-shrink-0">
+            <TabsList className="bg-transparent border-0">
+              <TabsTrigger value="conversas" className="gap-2 data-[state=active]:bg-gradient-to-r data-[state=active]:from-amber-500 data-[state=active]:to-orange-600 data-[state=active]:text-white text-slate-300 hover:text-white transition-all">
                 <MessageCircle className="w-4 h-4" />
                 Conversas
               </TabsTrigger>
