@@ -1550,7 +1550,19 @@ export default function ChatWindow({
             <p className="text-slate-400">Nenhuma mensagem ainda. Inicie a conversa!</p>
           </div>
         ) : (
-          mensagens.map((mensagem, index) => {
+          mensagens
+            .filter(m => {
+              // ✅ FILTRAR MENSAGENS VAZIAS E DE CONTROLE
+              if (m.metadata?.deleted) return true;
+              if (m.metadata?.is_system_message && m.content?.includes('🔔')) return true;
+
+              // Filtrar mensagens sem conteúdo válido
+              const temConteudo = m.content && m.content.trim() !== '' && m.content !== '[No content]';
+              const temMidia = m.media_url && m.media_type && m.media_type !== 'none';
+
+              return temConteudo || temMidia;
+            })
+            .map((mensagem, index) => {
             const isFirstUnread =
               mensagem.sender_type === 'contact' &&
               mensagem.status !== 'lida' &&

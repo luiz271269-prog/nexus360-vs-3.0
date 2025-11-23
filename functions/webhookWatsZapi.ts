@@ -563,11 +563,26 @@ async function handleMessage(instance, payload, base44, headers, debugMode) {
     }
 
     const t3 = Date.now();
+    // ✅ NÃO SALVAR MENSAGENS VAZIAS (sem conteúdo E sem mídia)
+    const temConteudoValido = payload.content && payload.content.trim() !== '' && payload.content !== '[No content]';
+    const temMidiaValida = payload.mediaTempUrl && payload.mediaType && payload.mediaType !== 'none';
+    
+    if (!temConteudoValido && !temMidiaValida) {
+      console.warn('[HANDLER-MESSAGE] ⚠️ Mensagem vazia detectada - NÃO SALVANDO');
+      return Response.json({ 
+        success: true, 
+        processed: 'empty_message_ignored',
+        messageId: payload.messageId,
+        reason: 'No content and no media',
+        version: VERSION
+      }, { status: 200, headers });
+    }
+    
     const mensagem = await base44.asServiceRole.entities.Message.create({
       thread_id: thread.id,
       sender_id: contato.id,
       sender_type: 'contact',
-      content: payload.content || '[No content]',
+      content: payload.content || (temMidiaValida ? `[${payload.mediaType}]` : ''),
       media_url: payload.mediaTempUrl || null,
       media_type: payload.mediaType || 'none',
       media_caption: payload.mediaCaption || null,
@@ -579,11 +594,11 @@ async function handleMessage(instance, payload, base44, headers, debugMode) {
         whatsapp_integration_id: integracaoId,
         is_from_me: payload.isFromMe || false,
         timestamp: payload.timestamp,
-        quoted_message: payload.quotedMessage || null, // ✨ MENSAGEM RESPONDIDA
-        media_file_name: payload.mediaFileName || null, // ✨ NOME DO ARQUIVO
-        location: payload.location || null, // ✨ LOCALIZAÇÃO
-        vcard: payload.vcard || null, // ✨ CONTATO COMPARTILHADO
-        group_id: payload.groupId || null, // ✨ GRUPO (futuro)
+        quoted_message: payload.quotedMessage || null,
+        media_file_name: payload.mediaFileName || null,
+        location: payload.location || null,
+        vcard: payload.vcard || null,
+        group_id: payload.groupId || null,
         mime_type: payload.mediaMimeType || null
       }
     });
