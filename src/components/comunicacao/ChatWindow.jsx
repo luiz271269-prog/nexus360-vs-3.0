@@ -1232,26 +1232,41 @@ export default function ChatWindow({
         ) : (
           mensagens
             .filter(m => {
-              // ✅ SEMPRE MOSTRAR mensagens deletadas e de sistema importantes
+              // ✅ SEMPRE MOSTRAR mensagens deletadas e de sistema
               if (m.metadata?.deleted) return true;
               if (m.metadata?.is_system_message) return true;
 
-              // ❌ NUNCA MOSTRAR mensagens completamente vazias
-              if (!m.content && !m.media_url && !m.media_type) return false;
-              if (m.content === '[No content]' && !m.media_url) return false;
+              // ❌ FILTRO RIGOROSO: Bloquear mensagens vazias e de atualização de status
+              const conteudoVazio = !m.content || 
+                                   m.content.trim() === '' || 
+                                   m.content === '[No content]' ||
+                                   m.content === '[Message content missing]' ||
+                                   m.content === '[Recovered message]' ||
+                                   m.content.startsWith('[Media type:');
 
-              // ✅ PERMITIR mensagens com conteúdo válido
-              const temConteudoTexto = m.content && 
-                                      m.content.trim() !== '' && 
-                                      m.content !== '[No content]' &&
-                                      !m.content.startsWith('[Media type:');
+              // Se conteúdo vazio E sem mídia válida = BLOQUEAR
+              if (conteudoVazio && (!m.media_url || m.media_type === 'none')) {
+                return false;
+              }
 
-              // ✅ PERMITIR mensagens com mídia válida (incluindo contact e location)
-              const tiposValidosSemUrl = ['contact', 'location'];
-              const temMidiaComUrl = m.media_url && m.media_type && m.media_type !== 'none';
-              const temMidiaSemUrl = tiposValidosSemUrl.includes(m.media_type) && m.content;
+              // ✅ Tipos especiais que podem não ter media_url
+              const tiposEspeciais = ['contact', 'location'];
+              if (tiposEspeciais.includes(m.media_type) && m.content && !conteudoVazio) {
+                return true;
+              }
 
-              return temConteudoTexto || temMidiaComUrl || temMidiaSemUrl;
+              // ✅ Mensagens com mídia válida
+              if (m.media_url && m.media_type && m.media_type !== 'none') {
+                return true;
+              }
+
+              // ✅ Mensagens com texto válido
+              if (!conteudoVazio) {
+                return true;
+              }
+
+              // ❌ Caso contrário, bloquear
+              return false;
             })
             .map((mensagem, index) => {
             const isFirstUnread =

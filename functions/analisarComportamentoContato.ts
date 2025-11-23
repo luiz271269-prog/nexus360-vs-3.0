@@ -256,14 +256,37 @@ ${textosMensagens}`,
     });
 
     // ==========================================
-    // 7. ATUALIZAR CONTATO
+    // 7. ATUALIZAR CONTATO + BUSCAR FOTO
     // ==========================================
-    await base44.asServiceRole.entities.Contact.update(contact_id, {
+    const updateData = {
       segmento_atual: segmentoSugerido,
       estagio_ciclo_vida: estagioVida,
       score_engajamento: scoreEngajamento,
       ultima_analise_comportamento: new Date().toISOString()
-    });
+    };
+
+    // 📸 Buscar foto de perfil se não existir ou estiver antiga (>7 dias)
+    const fotoAntiga = !contato.foto_perfil_atualizada_em || 
+      (Date.now() - new Date(contato.foto_perfil_atualizada_em).getTime()) > 7 * 24 * 60 * 60 * 1000;
+
+    if (fotoAntiga && threads.length > 0 && threads[0].whatsapp_integration_id) {
+      try {
+        const fotoResult = await base44.asServiceRole.functions.invoke('buscarFotoPerfilWhatsApp', {
+          integration_id: threads[0].whatsapp_integration_id,
+          phone: contato.telefone
+        });
+        
+        if (fotoResult?.profilePictureUrl) {
+          updateData.foto_perfil_url = fotoResult.profilePictureUrl;
+          updateData.foto_perfil_atualizada_em = new Date().toISOString();
+          console.log('📸 Foto de perfil atualizada durante análise');
+        }
+      } catch (error) {
+        console.warn('⚠️ Erro ao buscar foto durante análise:', error.message);
+      }
+    }
+
+    await base44.asServiceRole.entities.Contact.update(contact_id, updateData);
 
     // ==========================================
     // 8. ATRIBUIR TAGS AUTOMATICAMENTE
