@@ -4,7 +4,7 @@ import { ptBR } from 'date-fns/locale';
 import {
   CheckCheck, Check, Forward, Trash2, Loader2, Copy,
   Zap, CheckCircle2, AlertCircle, ChevronRight, Clock, Search, ArrowRight,
-  Reply, Target, Play, FileIcon, Download, ImageIcon, User
+  Reply, Target, Play, FileIcon, Download, ImageIcon, User, Tag
 } from 'lucide-react';
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
@@ -29,6 +29,15 @@ import {
 } from "@/components/ui/tooltip";
 
 import ReactMarkdown from 'react-markdown';
+import { CATEGORIAS_DISPONIVEIS } from './CategorizadorRapido';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuCheckboxItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 const FunctionDisplay = ({ toolCall }) => {
   const [expanded, setExpanded] = useState(false);
@@ -132,6 +141,7 @@ export default function MessageBubble({
   const [mostrarDialogEncaminhar, setMostrarDialogEncaminhar] = useState(false);
   const [encaminhando, setEncaminhando] = useState(false);
   const [apagando, setApagando] = useState(false);
+  const [categorizando, setCategorizando] = useState(false);
 
   const [contatos, setContatos] = useState([]);
   const [contatosSelecionados, setContatosSelecionados] = useState([]);
@@ -286,6 +296,30 @@ export default function MessageBubble({
     ? mensagens?.find(m => m.id === message.reply_to_message_id)
     : null;
 
+  const handleToggleCategoria = async (valorCategoria) => {
+    if (categorizando || !thread) return;
+
+    setCategorizando(true);
+    try {
+      const categoriasAtuais = thread.categorias || [];
+      const novasCategorias = categoriasAtuais.includes(valorCategoria)
+        ? categoriasAtuais.filter(c => c !== valorCategoria)
+        : [...categoriasAtuais, valorCategoria];
+
+      await base44.entities.MessageThread.update(thread.id, {
+        categorias: novasCategorias
+      });
+
+      const catConfig = CATEGORIAS_DISPONIVEIS.find(c => c.value === valorCategoria);
+      toast.success(`${catConfig?.label} ${novasCategorias.includes(valorCategoria) ? 'adicionada' : 'removida'}`);
+    } catch (error) {
+      console.error('[BUBBLE] Erro ao categorizar:', error);
+      toast.error('Erro ao atualizar categoria');
+    } finally {
+      setCategorizando(false);
+    }
+  };
+
   if (message.metadata?.deleted) {
     return (
       <div className={cn("flex gap-3", isOwn ? "justify-end" : "justify-start")}>
@@ -437,6 +471,43 @@ export default function MessageBubble({
                     </TooltipTrigger>
                     <TooltipContent side="top">Criar Oportunidade de Negócio</TooltipContent>
                   </Tooltip>
+
+                  <DropdownMenu>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <DropdownMenuTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            disabled={categorizando}
+                            className={cn(
+                              "h-7 w-7 rounded-full shadow-lg backdrop-blur-sm",
+                              "bg-white/90 hover:bg-purple-50 border border-slate-200"
+                            )}
+                          >
+                            <Tag className="w-3.5 h-3.5 text-purple-600" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                      </TooltipTrigger>
+                      <TooltipContent side="top">Categorizar Conversa</TooltipContent>
+                    </Tooltip>
+                    <DropdownMenuContent align="end" className="w-56">
+                      <DropdownMenuLabel>Categorizar conversa</DropdownMenuLabel>
+                      <DropdownMenuSeparator />
+                      {CATEGORIAS_DISPONIVEIS.map(cat => (
+                        <DropdownMenuCheckboxItem
+                          key={cat.value}
+                          checked={thread?.categorias?.includes(cat.value)}
+                          onCheckedChange={() => handleToggleCategoria(cat.value)}
+                        >
+                          <div className="flex items-center gap-2">
+                            <div className={`w-3 h-3 rounded-full ${cat.color}`} />
+                            <span>{cat.label}</span>
+                          </div>
+                        </DropdownMenuCheckboxItem>
+                      ))}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                 </div>
               </TooltipProvider>
             )}
