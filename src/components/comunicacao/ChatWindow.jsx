@@ -1425,7 +1425,7 @@ export default function ChatWindow({
             <div className="bg-gradient-to-r from-orange-500 to-red-500 text-white rounded-lg px-3 shadow h-[1cm] flex items-center gap-2 flex-shrink-0">
               <Tag className="w-4 h-4" />
               <div className="flex flex-col justify-center">
-                <span className="text-[9px] font-semibold opacity-90">Tipo</span>
+                <span className="text-[10px] font-semibold opacity-90">Tipo</span>
                 <select
                   value={contatoCompleto?.tipo_contato || 'lead'}
                   onChange={(e) => handleAtualizarContato('tipo_contato', e.target.value)}
@@ -1443,7 +1443,7 @@ export default function ChatWindow({
               <div className="bg-purple-500 text-white rounded-lg px-3 shadow h-[1cm] flex items-center gap-2 flex-shrink-0">
                 <User className="w-4 h-4" />
                 <div className="flex flex-col justify-center">
-                  <span className="text-[9px] font-semibold opacity-90">Atendente</span>
+                  <span className="text-[10px] font-semibold opacity-90">Atendente</span>
                   <select
                     value={contatoCompleto?.atendente_fidelizado_fornecedor || "nao"}
                     onChange={(e) => handleAtualizarContato('atendente_fidelizado_fornecedor', e.target.value === "nao" ? "" : e.target.value)}
@@ -1461,7 +1461,7 @@ export default function ChatWindow({
               <div className="bg-purple-500 text-white rounded-lg px-3 shadow h-[1cm] flex items-center gap-2 flex-shrink-0">
                 <User className="w-4 h-4" />
                 <div className="flex flex-col justify-center">
-                  <span className="text-[9px] font-semibold opacity-90">Atendente</span>
+                  <span className="text-[10px] font-semibold opacity-90">Atendente</span>
                   <select
                     value={contatoCompleto?.atendente_fidelizado_vendas || "nao"}
                     onChange={(e) => handleAtualizarContato('atendente_fidelizado_vendas', e.target.value === "nao" ? "" : e.target.value)}
@@ -1478,7 +1478,7 @@ export default function ChatWindow({
             <div className="bg-amber-500 text-white rounded-lg px-3 shadow h-[1cm] flex items-center gap-2 flex-shrink-0">
               <Briefcase className="w-4 h-4" />
               <div className="flex flex-col justify-center">
-                <span className="text-[9px] font-semibold opacity-90">Vendedor</span>
+                <span className="text-[10px] font-semibold opacity-90">Vendedor</span>
                 <select
                   value={contatoCompleto?.vendedor_responsavel || "nao"}
                   onChange={(e) => handleAtualizarContato('vendedor_responsavel', e.target.value === "nao" ? "" : e.target.value)}
@@ -1495,7 +1495,7 @@ export default function ChatWindow({
               <div className="bg-gradient-to-r from-blue-500 to-indigo-500 text-white rounded-lg px-3 shadow h-[1cm] flex items-center gap-2 flex-shrink-0">
                 <Users className="w-4 h-4" />
                 <div className="flex flex-col justify-center">
-                  <span className="text-[9px] font-semibold opacity-90">Ação</span>
+                  <span className="text-[10px] font-semibold opacity-90">Ação</span>
                   <button
                     onClick={() => setMostrarModalAtribuicao(true)}
                     className="bg-transparent border-0 text-white text-xs focus:outline-none cursor-pointer hover:opacity-90 transition-opacity -mt-1 text-left"
@@ -1514,7 +1514,7 @@ export default function ChatWindow({
           >
             <Info className="w-4 h-4" />
             <div className="flex flex-col justify-center">
-              <span className="text-[9px] font-semibold opacity-90">Ver</span>
+              <span className="text-[10px] font-semibold opacity-90">Ver</span>
               <span className="text-xs -mt-1">Detalhes</span>
             </div>
           </div>
