@@ -505,6 +505,78 @@ async function handleMessage(instance, payload, base44, headers, debugMode) {
   if (debugMode) console.log('[HANDLER-MESSAGE] START - Processing incoming message');
   
   try {
+    // 🛡️ FIREWALL DE QUALIDADE - Bloquear mensagens indesejadas ANTES de salvar
+    // =========================================================================
+    
+    // 1️⃣ Bloquear JIDs puros (ex: +105299763548377@lid, números@domínio)
+    const jidPattern = /^[\+\d]+@(lid|s\.whatsapp\.net|c\.us|broadcast)$/;
+    if (payload.content && jidPattern.test(payload.content.trim())) {
+      console.log('🚫 [FIREWALL] Bloqueado: JID puro detectado ->', payload.content);
+      return Response.json({ 
+        success: true, 
+        blocked: true,
+        reason: 'jid_pattern',
+        content: payload.content,
+        version: VERSION
+      }, { status: 200, headers });
+    }
+
+    // 2️⃣ Bloquear broadcasts não solicitados
+    if (payload.from && payload.from.includes('@broadcast')) {
+      console.log('🚫 [FIREWALL] Bloqueado: Broadcast ->', payload.from);
+      return Response.json({ 
+        success: true, 
+        blocked: true,
+        reason: 'broadcast',
+        version: VERSION
+      }, { status: 200, headers });
+    }
+
+    // 3️⃣ Bloquear status do WhatsApp
+    if (payload.from && payload.from.includes('status@broadcast')) {
+      console.log('🚫 [FIREWALL] Bloqueado: Status do WhatsApp');
+      return Response.json({ 
+        success: true, 
+        blocked: true,
+        reason: 'status_broadcast',
+        version: VERSION
+      }, { status: 200, headers });
+    }
+
+    // 4️⃣ Bloquear mensagens sem conteúdo válido
+    const conteudoInvalido = [
+      '[No content]',
+      '[Message content missing]',
+      '[Recovered message]',
+      '',
+      null,
+      undefined
+    ];
+
+    const conteudoVazio = !payload.content || 
+                         conteudoInvalido.includes(payload.content) ||
+                         payload.content.trim() === '' ||
+                         payload.content.startsWith('[Media type:');
+
+    // Se conteúdo vazio E sem mídia válida = BLOQUEAR
+    const temMidiaValida = payload.mediaTempUrl || 
+                          payload.mediaType === 'contact' || 
+                          payload.mediaType === 'location' ||
+                          (payload.mediaType && payload.mediaType !== 'none');
+
+    if (conteudoVazio && !temMidiaValida) {
+      console.log('🚫 [FIREWALL] Bloqueado: Mensagem vazia sem mídia');
+      return Response.json({ 
+        success: true, 
+        blocked: true,
+        reason: 'empty_content_no_media',
+        version: VERSION
+      }, { status: 200, headers });
+    }
+
+    // ✅ Mensagem passou pelo firewall, continuar processamento
+    console.log('✅ [FIREWALL] Mensagem aprovada para processamento');
+    
     const numero = payload.from;
     if (!numero || numero === 'unknown') {
       throw new Error('Phone number missing or invalid');
