@@ -13,14 +13,14 @@ import {
   Mic,
   StopCircle,
   X,
-  Trash2,
-  CheckSquare,
-  Camera,
   Sparkles,
   UserPlus,
   Image as ImageIcon,
   FileText,
-  Video
+  Video,
+  Tag,
+  User,
+  Briefcase
 } from "lucide-react";
 import MessageBubble from "./MessageBubble";
 import { base44 } from "@/api/base44Client";
@@ -1332,8 +1332,57 @@ export default function ChatWindow({
     );
   }
 
-  const nomeContato = contatoCompleto?.nome || thread?.contato?.nome || contatoCompleto?.telefone || thread?.contato?.telefone || 'Contato';
+  // Nome formatado: Empresa + Cargo + Nome
+  let nomeContato = "";
+  if (contatoCompleto?.empresa) nomeContato += contatoCompleto.empresa;
+  if (contatoCompleto?.cargo) nomeContato += (nomeContato ? " - " : "") + contatoCompleto.cargo;
+  if (contatoCompleto?.nome && contatoCompleto.nome !== contatoCompleto.telefone) {
+    nomeContato += (nomeContato ? " - " : "") + contatoCompleto.nome;
+  }
+  if (!nomeContato || nomeContato.trim() === '') {
+    nomeContato = contatoCompleto?.telefone || thread?.contato?.telefone || 'Contato';
+  }
+
   const telefoneExibicao = contatoCompleto?.telefone || thread?.contato?.telefone || contatoCompleto?.celular || thread?.contato?.celular || 'Sem telefone';
+
+  const tiposContato = [
+    { value: 'lead', label: 'Lead', icon: '🎯' },
+    { value: 'cliente', label: 'Cliente', icon: '💎' },
+    { value: 'fornecedor', label: 'Fornecedor', icon: '🏭' },
+    { value: 'parceiro', label: 'Parceiro', icon: '🤝' }
+  ];
+  const tipoAtual = tiposContato.find(t => t.value === contatoCompleto?.tipo_contato);
+
+  const [vendedores, setVendedores] = useState([]);
+  const [atendentesLista, setAtendentesLista] = useState([]);
+
+  useEffect(() => {
+    const carregarDados = async () => {
+      try {
+        const [vend, atend] = await Promise.all([
+          base44.entities.Vendedor.list('nome'),
+          base44.entities.User.filter({ is_whatsapp_attendant: true }, 'full_name')
+        ]);
+        setVendedores(vend);
+        setAtendentesLista(atend);
+      } catch (error) {
+        console.error('[ChatWindow] Erro ao carregar dados:', error);
+      }
+    };
+    carregarDados();
+  }, []);
+
+  const handleAtualizarContato = async (campo, valor) => {
+    if (!contatoCompleto || !podeTransferirConversas) return;
+    
+    try {
+      await base44.entities.Contact.update(contatoCompleto.id, { [campo]: valor });
+      setContatoCompleto(prev => ({ ...prev, [campo]: valor }));
+    } catch (error) {
+      console.error('[ChatWindow] Erro ao atualizar contato:', error);
+      toast.error('Erro ao atualizar');
+    }
+  };
 
   const getInitials = (name) => {
     if (!name) return '?';
@@ -1356,139 +1405,97 @@ export default function ChatWindow({
 
   return (
     <div className="flex flex-col h-full bg-white">
-      {/* Header */}
-      <div className="relative flex items-center justify-between p-4 border-b bg-gradient-to-r from-slate-50 to-blue-50 flex-shrink-0">
-        <div className="flex items-center gap-3">
-          <div className="w-12 h-12 bg-gradient-to-br from-amber-400 via-orange-500 to-red-500 rounded-full flex items-center justify-center text-white font-bold text-lg shadow-lg">
-            {getInitials(nomeContato)}
-          </div>
-          <div>
-            <h3 className="font-bold text-slate-900">{nomeContato}</h3>
-            <div className="flex items-center gap-2 flex-wrap">
-              <p className="text-xs text-slate-500">{telefoneExibicao}</p>
-              {thread.whatsapp_integration_id && integracoes.length > 0 && (() => {
-                const integracao = integracoes.find(i => i.id === thread.whatsapp_integration_id);
-                return integracao ? (
-                  <Badge 
-                    variant="outline" 
-                    className="text-xs py-0 px-1.5 h-5 bg-green-50 text-green-700 border-green-200 cursor-help"
-                    title={`Canal WhatsApp: ${integracao.numero_telefone}\nStatus: ${integracao.status === 'conectado' ? '🟢 Conectado' : '🔴 Desconectado'}`}
-                  >
-                    📱 {integracao.nome_instancia}
-                  </Badge>
-                ) : null;
-              })()}
+      {/* Header com Cards de Classificação */}
+      <div className="border-b bg-gradient-to-r from-slate-50 to-blue-50 flex-shrink-0">
+        <div className="flex items-center justify-between p-4">
+          <div className="flex items-center gap-3 flex-1">
+            <div className="w-12 h-12 bg-gradient-to-br from-amber-400 via-orange-500 to-red-500 rounded-full flex items-center justify-center text-white font-bold text-lg shadow-lg flex-shrink-0">
+              {getInitials(nomeContato)}
             </div>
-            {thread.assigned_user_id && (
-              <p className="text-xs text-slate-600 mt-1 flex items-center gap-1">
-                <Users className="w-3 h-3 text-slate-500" />
-                Atribuída a: <span className="font-semibold">{thread.assigned_user_name}</span>
-              </p>
-            )}
+            <div className="flex-1 min-w-0">
+              <h3 className="font-bold text-slate-900 truncate">{nomeContato}</h3>
+              <p className="text-xs text-slate-500">{telefoneExibicao}</p>
+            </div>
           </div>
-        </div>
-
-        <div className="flex items-center gap-2">
-          {uploadingPastedFile && (
-            <Badge className="bg-blue-500 text-white flex items-center gap-1">
-              <Loader2 className="w-3 h-3 animate-spin" />
-              Enviando...
-            </Badge>
-          )}
-
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handlePrintChat}
-            disabled={capturandoTela || modoSelecao || enviando || gravandoAudio || uploadingPastedFile || mostrarPreviewArquivo}
-            className="gap-2"
-            title="Capturar conversa como imagem"
-          >
-            {capturandoTela ? (
-              <Loader2 className="w-4 h-4 animate-spin" />
-            ) : (
-              <Camera className="w-4 h-4" />
-            )}
-            Capturar
-          </Button>
-
-          {!modoSelecao ? (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={ativarModoSelecao}
-              className="gap-2"
-              disabled={enviando || gravandoAudio || uploadingPastedFile || mostrarPreviewArquivo || !podeApagarMensagens}
-              title={!podeApagarMensagens ? "Sem permissão para apagar mensagens" : "Selecionar"}
-            >
-              <CheckSquare className="w-4 h-4" />
-              Selecionar
-            </Button>
-          ) : (
-            <>
-              <Badge className="bg-blue-500 text-white">
-                {mensagensSelecionadas.length} selecionadas
-              </Badge>
-              <Button
-                variant="destructive"
-                size="sm"
-                onClick={apagarMensagensSelecionadas}
-                disabled={enviando || uploadingPastedFile || mensagensSelecionadas.length === 0 || mostrarPreviewArquivo}
-                className="gap-2"
-              >
-                {enviando ? (
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                ) : (
-                  <Trash2 className="w-4 h-4" />
-                )}
-                Apagar
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={cancelarModoSelecao}
-                className="gap-2"
-              >
-                <X className="w-4 h-4" />
-                Cancelar
-              </Button>
-            </>
-          )}
-
-          {canManageConversation && (
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="gap-2"
-                  disabled={modoSelecao || enviando || gravandoAudio || uploadingPastedFile || mostrarPreviewArquivo || !podeTransferirConversas}
-                  title={!podeTransferirConversas ? "Sem permissão para transferir conversas" : (thread.assigned_user_id ? 'Transferir conversa' : 'Atribuir conversa')}
-                >
-                  <Users className="w-4 h-4" />
-                  {thread.assigned_user_id ? 'Transferir' : 'Atribuir'}
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-56">
-                <DropdownMenuLabel>Gerenciar Conversa</DropdownMenuLabel>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={() => setMostrarModalAtribuicao(true)}>
-                  <UserPlus className="w-4 h-4 mr-2" />
-                  {thread.assigned_user_id ? 'Transferir para outro atendente' : 'Atribuir a um atendente'}
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          )}
 
           <Button
             variant="ghost"
             size="icon"
             onClick={onShowContactInfo}
-            className="hover:bg-slate-100"
-            disabled={modoSelecao || enviando || gravandoAudio || uploadingPastedFile || mostrarPreviewArquivo}
+            className="hover:bg-slate-100 flex-shrink-0"
           >
             <Info className="w-5 h-5 text-slate-600" />
           </Button>
+        </div>
+
+        {/* Cards de Classificação - 1cm altura */}
+        <div className="px-4 pb-3 flex gap-2 overflow-x-auto">
+          <div className="bg-gradient-to-r from-orange-500 to-red-500 text-white rounded-lg px-3 shadow h-[1cm] flex items-center gap-2 flex-shrink-0">
+            <Tag className="w-4 h-4" />
+            <select
+              value={contatoCompleto?.tipo_contato || 'lead'}
+              onChange={(e) => handleAtualizarContato('tipo_contato', e.target.value)}
+              className="bg-transparent border-0 text-white text-sm focus:outline-none cursor-pointer"
+              disabled={!podeTransferirConversas}
+            >
+              {tiposContato.map(tipo => (
+                <option key={tipo.value} value={tipo.value}>{tipo.icon} {tipo.label}</option>
+              ))}
+            </select>
+          </div>
+
+          {contatoCompleto?.tipo_contato === 'fornecedor' && (
+            <div className="bg-purple-500 text-white rounded-lg px-3 shadow h-[1cm] flex items-center gap-2 flex-shrink-0">
+              <User className="w-4 h-4" />
+              <select
+                value={contatoCompleto?.atendente_fidelizado_fornecedor || "nao"}
+                onChange={(e) => handleAtualizarContato('atendente_fidelizado_fornecedor', e.target.value === "nao" ? "" : e.target.value)}
+                className="bg-transparent border-0 text-white text-sm focus:outline-none cursor-pointer"
+                disabled={!podeTransferirConversas}
+              >
+                <option value="nao">Não atribuído</option>
+                {atendentesLista.map(a => <option key={a.id} value={a.full_name}>{a.full_name}</option>)}
+              </select>
+            </div>
+          )}
+
+          {contatoCompleto?.tipo_contato === 'cliente' && (
+            <div className="bg-purple-500 text-white rounded-lg px-3 shadow h-[1cm] flex items-center gap-2 flex-shrink-0">
+              <User className="w-4 h-4" />
+              <select
+                value={contatoCompleto?.atendente_fidelizado_vendas || "nao"}
+                onChange={(e) => handleAtualizarContato('atendente_fidelizado_vendas', e.target.value === "nao" ? "" : e.target.value)}
+                className="bg-transparent border-0 text-white text-sm focus:outline-none cursor-pointer"
+                disabled={!podeTransferirConversas}
+              >
+                <option value="nao">Não atribuído</option>
+                {atendentesLista.map(a => <option key={a.id} value={a.full_name}>{a.full_name}</option>)}
+              </select>
+            </div>
+          )}
+
+          <div className="bg-amber-500 text-white rounded-lg px-3 shadow h-[1cm] flex items-center gap-2 flex-shrink-0">
+            <Briefcase className="w-4 h-4" />
+            <select
+              value={contatoCompleto?.vendedor_responsavel || "nao"}
+              onChange={(e) => handleAtualizarContato('vendedor_responsavel', e.target.value === "nao" ? "" : e.target.value)}
+              className="bg-transparent border-0 text-white text-sm focus:outline-none cursor-pointer"
+              disabled={!podeTransferirConversas}
+            >
+              <option value="nao">Não atribuído</option>
+              {vendedores.map(v => <option key={v.id} value={v.nome}>{v.nome}</option>)}
+            </select>
+          </div>
+
+          {canManageConversation && podeTransferirConversas && (
+            <button
+              onClick={() => setMostrarModalAtribuicao(true)}
+              className="bg-gradient-to-r from-blue-500 to-indigo-500 text-white rounded-lg px-3 shadow h-[1cm] flex items-center gap-2 hover:from-blue-600 hover:to-indigo-600 transition-all flex-shrink-0"
+            >
+              <Users className="w-4 h-4" />
+              <span className="text-sm font-medium">Transferir</span>
+            </button>
+          )}
         </div>
       </div>
 
