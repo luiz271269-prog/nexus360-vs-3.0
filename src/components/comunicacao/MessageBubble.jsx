@@ -442,14 +442,23 @@ export default function MessageBubble({
             )}
 
             {/* ✅ IMAGEM - ESTILO WHATSAPP */}
-            {message.media_type === 'image' && message.media_url && (
+            {(message.media_type === 'image' && message.media_url) || (message.content?.includes('[Imagem]')) ? (
               <div className="relative overflow-hidden rounded-2xl">
-                <img
-                  src={message.media_url}
-                  alt="Imagem"
-                  className="max-w-full max-h-96 object-cover rounded-2xl"
-                  loading="lazy"
-                />
+                {message.media_url ? (
+                  <img
+                    src={message.media_url}
+                    alt="Imagem"
+                    className="max-w-full max-h-96 object-cover rounded-2xl"
+                    loading="lazy"
+                  />
+                ) : (
+                  <div className="flex items-center justify-center bg-slate-100 rounded-2xl p-8 min-h-[200px]">
+                    <div className="text-center">
+                      <ImageIcon className="w-12 h-12 text-slate-400 mx-auto mb-2" />
+                      <p className="text-sm text-slate-500">Imagem não disponível</p>
+                    </div>
+                  </div>
+                )}
                 {message.media_caption && (
                   <div className={cn(
                     "px-4 py-2",
@@ -598,12 +607,13 @@ export default function MessageBubble({
             )}
 
             {/* ✅ TEXTO - SEM MÍDIA */}
-            {(!message.media_url || message.media_type === 'none') && message.content && (
+            {(!message.media_url || message.media_type === 'none') && (
               <>
-                <div className={cn(
-                  "break-words whitespace-pre-wrap",
-                  isOwn ? "text-white" : "text-slate-800"
-                )}>
+                {message.content && message.content.trim() !== '' && message.content !== '[No content]' && (
+                  <div className={cn(
+                    "break-words whitespace-pre-wrap",
+                    isOwn ? "text-white" : "text-slate-800"
+                  )}>
                   {isOwn ? (
                     <p className="text-sm leading-relaxed">{message.content}</p>
                   ) : (
@@ -651,13 +661,14 @@ export default function MessageBubble({
                           </blockquote>
                         ),
                       }}
-                    >
-                      {message.content}
-                    </ReactMarkdown>
+                      >
+                        {message.content}
+                      </ReactMarkdown>
+                    )}
+                  </div>
                   )}
-                </div>
 
-                <div className="flex items-center justify-end gap-1 mt-1">
+                  <div className="flex items-center justify-end gap-1 mt-1">
                   <span className={cn(
                     "text-[10px]",
                     isOwn ? "text-white/70" : "text-slate-500"
@@ -687,9 +698,10 @@ export default function MessageBubble({
                         <AlertCircle className="w-3.5 h-3.5 text-red-300" />
                       )}
                     </>
-                  )}
-                </div>
-              </>
+                    )}
+                  </div>
+                </>
+              ) : null
             )}
 
             {message.tool_calls?.length > 0 && (
