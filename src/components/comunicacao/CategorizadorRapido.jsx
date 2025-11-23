@@ -26,6 +26,8 @@ const CATEGORIAS_DISPONIVEIS = [
 
 export default function CategorizadorRapido({ thread, onUpdate }) {
   const [salvando, setSalvando] = useState(false);
+  const [novaCategoria, setNovaCategoria] = useState('');
+  const [adicionandoNova, setAdicionandoNova] = useState(false);
   const categorias = thread?.categorias || [];
 
   const toggleCategoria = async (valor) => {
@@ -51,6 +53,39 @@ export default function CategorizadorRapido({ thread, onUpdate }) {
     }
   };
 
+  const adicionarNovaCategoria = async () => {
+    if (!novaCategoria.trim() || salvando || !thread) return;
+
+    setSalvando(true);
+    try {
+      const categoriaNormalizada = novaCategoria.trim().toLowerCase().replace(/\s+/g, '_');
+      
+      if (categorias.includes(categoriaNormalizada)) {
+        toast.warning('Categoria já existe nesta conversa');
+        setNovaCategoria('');
+        setAdicionandoNova(false);
+        setSalvando(false);
+        return;
+      }
+
+      const novasCategorias = [...categorias, categoriaNormalizada];
+
+      await base44.entities.MessageThread.update(thread.id, {
+        categorias: novasCategorias
+      });
+
+      toast.success('✅ Nova categoria adicionada!');
+      setNovaCategoria('');
+      setAdicionandoNova(false);
+      if (onUpdate) onUpdate();
+    } catch (error) {
+      console.error('[CategorizadorRapido] Erro ao adicionar:', error);
+      toast.error('Erro ao adicionar categoria');
+    } finally {
+      setSalvando(false);
+    }
+  };
+
   return (
     <div className="flex items-center gap-2 flex-wrap">
       <DropdownMenu>
@@ -65,9 +100,74 @@ export default function CategorizadorRapido({ thread, onUpdate }) {
             {categorias.length > 0 ? `${categorias.length} categorizadas` : 'Adicionar'}
           </Button>
         </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" className="w-56">
+        <DropdownMenuContent align="end" className="w-64">
           <DropdownMenuLabel>Selecione as categorias</DropdownMenuLabel>
           <DropdownMenuSeparator />
+          
+          {/* Botão para adicionar nova categoria */}
+          {!adicionandoNova ? (
+            <div 
+              className="px-2 py-2 cursor-pointer hover:bg-slate-50 rounded flex items-center gap-2 text-sm text-blue-600 font-medium"
+              onClick={(e) => {
+                e.stopPropagation();
+                setAdicionandoNova(true);
+              }}
+            >
+              <div className="w-5 h-5 rounded-full bg-blue-100 flex items-center justify-center">
+                <span className="text-blue-600 font-bold text-xs">+</span>
+              </div>
+              <span>Nova categoria personalizada</span>
+            </div>
+          ) : (
+            <div className="px-2 py-2 space-y-2">
+              <input
+                type="text"
+                placeholder="Digite o nome..."
+                value={novaCategoria}
+                onChange={(e) => setNovaCategoria(e.target.value)}
+                onKeyDown={(e) => {
+                  e.stopPropagation();
+                  if (e.key === 'Enter') adicionarNovaCategoria();
+                  if (e.key === 'Escape') {
+                    setAdicionandoNova(false);
+                    setNovaCategoria('');
+                  }
+                }}
+                onClick={(e) => e.stopPropagation()}
+                className="w-full px-2 py-1 text-sm border border-slate-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                autoFocus
+              />
+              <div className="flex gap-2">
+                <Button
+                  size="sm"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    adicionarNovaCategoria();
+                  }}
+                  disabled={!novaCategoria.trim() || salvando}
+                  className="flex-1 h-7 text-xs"
+                >
+                  ✓ Adicionar
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setAdicionandoNova(false);
+                    setNovaCategoria('');
+                  }}
+                  className="h-7 text-xs"
+                >
+                  ✕
+                </Button>
+              </div>
+            </div>
+          )}
+          
+          <DropdownMenuSeparator />
+          
+          {/* Categorias padrão */}
           {CATEGORIAS_DISPONIVEIS.map(cat => (
             <DropdownMenuCheckboxItem
               key={cat.value}
@@ -80,22 +180,35 @@ export default function CategorizadorRapido({ thread, onUpdate }) {
               </div>
             </DropdownMenuCheckboxItem>
           ))}
+          
+          {/* Categorias personalizadas existentes */}
+          {categorias.filter(cat => !CATEGORIAS_DISPONIVEIS.find(c => c.value === cat)).map(cat => (
+            <DropdownMenuCheckboxItem
+              key={cat}
+              checked={true}
+              onCheckedChange={() => toggleCategoria(cat)}
+            >
+              <div className="flex items-center gap-2">
+                <div className="w-3 h-3 rounded-full bg-slate-400" />
+                <span className="italic">🏷️ {cat.replace(/_/g, ' ')}</span>
+              </div>
+            </DropdownMenuCheckboxItem>
+          ))}
         </DropdownMenuContent>
       </DropdownMenu>
 
       {/* Badges visuais das categorias ativas */}
       {categorias.map(cat => {
         const config = CATEGORIAS_DISPONIVEIS.find(c => c.value === cat);
-        if (!config) return null;
         
         return (
           <Badge 
             key={cat}
-            className={`${config.color} text-white border-0 gap-1.5 cursor-pointer hover:opacity-80 transition-all shadow-md px-3 py-1.5 text-sm font-medium`}
+            className={`${config ? config.color : 'bg-slate-400'} text-white border-0 gap-1.5 cursor-pointer hover:opacity-80 transition-all shadow-md px-3 py-1.5 text-sm font-medium`}
             onClick={() => toggleCategoria(cat)}
             title="Clique para remover"
           >
-            <span>{config.label}</span>
+            <span>{config ? config.label : `🏷️ ${cat.replace(/_/g, ' ')}`}</span>
             <X className="w-4 h-4 hover:scale-125 transition-transform" />
           </Badge>
         );
