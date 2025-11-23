@@ -147,25 +147,39 @@ export default function ChatSidebar({ threads, threadAtiva, onSelecionarThread, 
               isAtiva ? 'bg-gradient-to-r from-amber-50 via-orange-50 to-red-50 border-l-4 border-l-orange-500' : ''
             }`}
           >
-            <div className={`relative w-12 h-12 rounded-full flex items-center justify-center text-white font-bold text-lg shadow-md flex-shrink-0 ${
+            <div className={`relative w-12 h-12 rounded-full flex items-center justify-center text-white font-bold text-lg shadow-md flex-shrink-0 overflow-hidden ${
               hasUnread 
                 ? 'bg-gradient-to-br from-amber-400 via-orange-500 to-red-500' 
                 : 'bg-gradient-to-br from-slate-400 to-slate-500'
             }`}>
-              {nomeExibicao.charAt(0).toUpperCase()}
+              {contato.foto_perfil_url ? (
+                <>
+                  <img 
+                    src={contato.foto_perfil_url} 
+                    alt={nomeExibicao}
+                    className="w-full h-full object-cover absolute inset-0"
+                    onError={(e) => {
+                      e.target.style.display = 'none';
+                    }}
+                  />
+                  <span className="relative z-10">{nomeExibicao.charAt(0).toUpperCase()}</span>
+                </>
+              ) : (
+                nomeExibicao.charAt(0).toUpperCase()
+              )}
               
               {isUnassigned && (
-                <div className="absolute -bottom-1 -right-1 bg-red-500 rounded-full p-1 border-2 border-white shadow-sm">
+                <div className="absolute -bottom-1 -right-1 bg-red-500 rounded-full p-1 border-2 border-white shadow-sm z-20">
                   <AlertCircle className="w-3 h-3 text-white" />
                 </div>
               )}
               {isAssignedToMe && (
-                <div className="absolute -bottom-1 -right-1 bg-blue-500 rounded-full p-1 border-2 border-white shadow-sm">
+                <div className="absolute -bottom-1 -right-1 bg-blue-500 rounded-full p-1 border-2 border-white shadow-sm z-20">
                   <User className="w-3 h-3 text-white" />
                 </div>
               )}
               {!isAssignedToMe && thread.assigned_user_id && (
-                <div className="absolute -bottom-1 -right-1 bg-green-500 rounded-full p-1 border-2 border-white shadow-sm">
+                <div className="absolute -bottom-1 -right-1 bg-green-500 rounded-full p-1 border-2 border-white shadow-sm z-20">
                   <Users className="w-3 h-3 text-white" />
                 </div>
               )}

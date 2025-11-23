@@ -523,24 +523,60 @@ async function handleMessage(instance, payload, base44, headers, debugMode) {
     let contato;
     if (contatosExistentes.length > 0) {
       contato = contatosExistentes[0];
-      
+
       // ✨ ATUALIZA NOME SE PUSHNAME ESTIVER DISPONÍVEL E CONTATO ESTIVER SEM NOME
       const updateData = { ultima_interacao: new Date().toISOString() };
-      
+
       if (payload.pushName && 
           (!contato.nome || contato.nome === numero || contato.nome === contato.telefone)) {
         updateData.nome = payload.pushName;
         if (debugMode) console.log('[HANDLER-MESSAGE] 📝 Atualizando nome: ' + payload.pushName);
       }
-      
+
+      // 📸 ATUALIZAR FOTO SE NÃO EXISTIR OU ESTIVER ANTIGA (>7 dias)
+      const fotoAntiga = !contato.foto_perfil_atualizada_em || 
+        (Date.now() - new Date(contato.foto_perfil_atualizada_em).getTime()) > 7 * 24 * 60 * 60 * 1000;
+
+      if (fotoAntiga && integracaoId) {
+        try {
+          const fotoResult = await base44.asServiceRole.functions.invoke('buscarFotoPerfilWhatsApp', {
+            integration_id: integracaoId,
+            phone: numero
+          });
+          if (fotoResult?.profilePictureUrl) {
+            updateData.foto_perfil_url = fotoResult.profilePictureUrl;
+            updateData.foto_perfil_atualizada_em = new Date().toISOString();
+            if (debugMode) console.log('[HANDLER-MESSAGE] 📸 Foto de perfil atualizada');
+          }
+        } catch (error) {
+          console.warn('[HANDLER-MESSAGE] Erro ao buscar foto:', error.message);
+        }
+      }
+
       await base44.asServiceRole.entities.Contact.update(contato.id, updateData);
     } else {
+      // 📸 BUSCAR FOTO PARA NOVO CONTATO
+      let fotoPerfil = null;
+      try {
+        if (integracaoId) {
+          const fotoResult = await base44.asServiceRole.functions.invoke('buscarFotoPerfilWhatsApp', {
+            integration_id: integracaoId,
+            phone: numero
+          });
+          fotoPerfil = fotoResult?.profilePictureUrl || null;
+        }
+      } catch (error) {
+        console.warn('[HANDLER-MESSAGE] Erro ao buscar foto:', error.message);
+      }
+
       contato = await base44.asServiceRole.entities.Contact.create({
         nome: payload.pushName || numero,
         telefone: numero,
         tipo_contato: 'lead',
         whatsapp_status: 'verificado',
-        ultima_interacao: new Date().toISOString()
+        ultima_interacao: new Date().toISOString(),
+        foto_perfil_url: fotoPerfil,
+        foto_perfil_atualizada_em: fotoPerfil ? new Date().toISOString() : null
       });
     }
 
