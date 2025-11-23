@@ -253,51 +253,53 @@ export default function Comunicacao() {
     await queryClient.invalidateQueries({ queryKey: ['threads'] });
   }, [threadAtiva, queryClient]);
 
-  const threadsFiltradas = threads.filter((thread) => {
-    const contato = contatos.find((c) => c.id === thread.contact_id);
-    if (!contato) return false;
+  const threadsFiltradas = React.useMemo(() => {
+    return threads.filter((thread) => {
+      const contato = contatos.find((c) => c.id === thread.contact_id);
+      if (!contato) return false;
 
-    // ✅ FILTRO POR PERMISSÕES DE INSTÂNCIA DO USUÁRIO
-    if (thread.whatsapp_integration_id && usuario) {
-      const whatsappPerms = usuario.whatsapp_permissions || [];
+      // ✅ FILTRO POR PERMISSÕES DE INSTÂNCIA DO USUÁRIO
+      if (thread.whatsapp_integration_id && usuario) {
+        const whatsappPerms = usuario.whatsapp_permissions || [];
 
-      // Admin sempre pode ver todas
-      if (usuario.role !== 'admin' && whatsappPerms.length > 0) {
-        const perm = whatsappPerms.find((p) => p.integration_id === thread.whatsapp_integration_id);
-        if (!perm || !perm.can_view) {
-          return false; // Usuário não tem permissão para ver threads desta instância
+        // Admin sempre pode ver todas
+        if (usuario.role !== 'admin' && whatsappPerms.length > 0) {
+          const perm = whatsappPerms.find((p) => p.integration_id === thread.whatsapp_integration_id);
+          if (!perm || !perm.can_view) {
+            return false; // Usuário não tem permissão para ver threads desta instância
+          }
         }
       }
-    }
 
-    // ✅ FILTRO POR CANAL WHATSAPP (MULTI-INSTÂNCIA)
-    if (selectedIntegrationId && selectedIntegrationId !== 'all') {
-      if (thread.whatsapp_integration_id !== selectedIntegrationId) {
-        return false;
+      // ✅ FILTRO POR CANAL WHATSAPP (MULTI-INSTÂNCIA)
+      if (selectedIntegrationId && selectedIntegrationId !== 'all') {
+        if (thread.whatsapp_integration_id !== selectedIntegrationId) {
+          return false;
+        }
       }
-    }
 
-    // ✅ FILTRO POR CATEGORIA
-    if (selectedCategoria && selectedCategoria !== 'all') {
-      if (!thread.categorias || !thread.categorias.includes(selectedCategoria)) {
-        return false;
+      // ✅ FILTRO POR CATEGORIA - VERIFICA NAS MENSAGENS
+      if (selectedCategoria && selectedCategoria !== 'all') {
+        // Como as categorias agora estão nas mensagens, não nas threads,
+        // vamos incluir TODAS as threads. O filtro será aplicado no ChatWindow
+        // para mostrar apenas mensagens com a categoria selecionada
       }
-    }
 
-    // 🔍 BUSCA AMPLIADA: Número + Empresa + Cargo + Nome
-    if (debouncedSearchTerm) {
-      const termoBusca = debouncedSearchTerm.toLowerCase();
-      return (
-        contato.nome?.toLowerCase().includes(termoBusca) ||
-        contato.empresa?.toLowerCase().includes(termoBusca) ||
-        contato.cargo?.toLowerCase().includes(termoBusca) ||
-        thread.last_message_content?.toLowerCase().includes(termoBusca) ||
-        contato.telefone?.includes(debouncedSearchTerm));
+      // 🔍 BUSCA AMPLIADA: Número + Empresa + Cargo + Nome
+      if (debouncedSearchTerm) {
+        const termoBusca = debouncedSearchTerm.toLowerCase();
+        return (
+          contato.nome?.toLowerCase().includes(termoBusca) ||
+          contato.empresa?.toLowerCase().includes(termoBusca) ||
+          contato.cargo?.toLowerCase().includes(termoBusca) ||
+          thread.last_message_content?.toLowerCase().includes(termoBusca) ||
+          contato.telefone?.includes(debouncedSearchTerm));
 
-    }
+      }
 
-    return true;
-  });
+      return true;
+    });
+  }, [threads, contatos, usuario, selectedIntegrationId, selectedCategoria, debouncedSearchTerm]);
 
   const threadsComContato = threadsFiltradas.map((thread) => ({
     ...thread,

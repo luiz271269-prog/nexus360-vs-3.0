@@ -1265,14 +1265,16 @@ export default function ChatWindow({
         ) : (
           mensagens
             .filter(m => {
-              // 🏷️ FILTRO POR CATEGORIA SELECIONADA
+              // 🏷️ FILTRO POR CATEGORIA SELECIONADA (PRIMEIRO FILTRO)
               if (selectedCategoria && selectedCategoria !== 'all') {
-                if (!m.categorias || !m.categorias.includes(selectedCategoria)) {
+                const temCategoria = m.categorias && m.categorias.includes(selectedCategoria);
+                console.log('[FILTRO] 🏷️ Mensagem:', m.id, 'Categorias:', m.categorias, 'Filtro:', selectedCategoria, 'Passou?', temCategoria);
+                if (!temCategoria) {
                   return false;
                 }
               }
 
-              // ✅ SEMPRE MOSTRAR mensagens deletadas e de sistema
+              // ✅ SEMPRE MOSTRAR mensagens deletadas e de sistema (SE PASSAR NO FILTRO DE CATEGORIA)
               if (m.metadata?.deleted) return true;
               if (m.metadata?.is_system_message) return true;
 

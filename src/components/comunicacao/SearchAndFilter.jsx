@@ -181,15 +181,18 @@ export default function SearchAndFilter({
 
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <button className={`px-3 py-2 text-sm border rounded-lg transition-colors flex items-center gap-2 ${
-              selectedCategoria && selectedCategoria !== 'all'
-                ? 'border-purple-500 bg-purple-50 text-purple-700 font-medium'
-                : 'border-slate-300 hover:bg-slate-50'
-            }`}>
+            <button 
+              className={`px-3 py-2 text-sm border rounded-lg transition-colors flex items-center gap-2 ${
+                selectedCategoria && selectedCategoria !== 'all'
+                  ? 'border-purple-500 bg-purple-50 text-purple-700 font-medium shadow-sm'
+                  : 'border-slate-300 hover:bg-slate-50'
+              }`}
+              title="Filtrar mensagens por categoria"
+            >
               <Tag className="w-4 h-4" />
               {selectedCategoria && selectedCategoria !== 'all'
                 ? todasCategorias.find(c => c.value === selectedCategoria)?.label || 'Categoria'
-                : 'Todas categorias'}
+                : 'Filtrar mensagens'}
             </button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="start" className="w-64">
@@ -197,7 +200,7 @@ export default function SearchAndFilter({
               onClick={() => onSelectedCategoriaChange('all')}
               className="cursor-pointer flex items-center justify-between"
             >
-              <span>Todas as categorias</span>
+              <span className="font-medium">Todas as mensagens</span>
               {(!selectedCategoria || selectedCategoria === 'all') && (
                 <Check className="w-4 h-4 text-green-600" />
               )}
