@@ -144,35 +144,47 @@ export default function ChatWindow({
         const contato = await base44.entities.Contact.get(thread.contact_id);
         setContatoCompleto(contato);
 
-        // 📸 SEMPRE buscar foto ao carregar contato
-        if (thread.whatsapp_integration_id && contato.telefone) {
-          try {
-            console.log('📸 Buscando foto de perfil WhatsApp...', contato.telefone);
-            const resultado = await base44.functions.invoke('buscarFotoPerfilWhatsApp', {
-              integration_id: thread.whatsapp_integration_id,
-              phone: contato.telefone
-            });
+        // 📸 BUSCA INTELIGENTE DE FOTO COM CACHE
+        // Só busca se:
+        // 1. Não tem foto OU
+        // 2. Foto foi atualizada há mais de 24 horas
+        const deveBuscarFoto = !contato.foto_perfil_url || 
+          !contato.foto_perfil_atualizada_em ||
+          (new Date() - new Date(contato.foto_perfil_atualizada_em)) > (24 * 60 * 60 * 1000);
 
-            console.log('📸 Resultado busca foto:', resultado);
-
-            if (resultado?.data?.profilePictureUrl) {
-              console.log('✅ Foto encontrada, atualizando...');
-              await base44.entities.Contact.update(contato.id, {
-                foto_perfil_url: resultado.data.profilePictureUrl,
-                foto_perfil_atualizada_em: new Date().toISOString()
+        if (thread.whatsapp_integration_id && contato.telefone && deveBuscarFoto) {
+          // ⚡ Busca em background (não bloqueia a UI)
+          setTimeout(async () => {
+            try {
+              console.log('📸 [Background] Buscando foto de perfil...', contato.telefone);
+              const resultado = await base44.functions.invoke('buscarFotoPerfilWhatsApp', {
+                integration_id: thread.whatsapp_integration_id,
+                phone: contato.telefone
               });
 
-              setContatoCompleto(prev => ({
-                ...prev,
-                foto_perfil_url: resultado.data.profilePictureUrl,
-                foto_perfil_atualizada_em: new Date().toISOString()
-              }));
-            } else {
-              console.warn('⚠️ Foto não encontrada na resposta');
+              if (resultado?.data?.success && resultado?.data?.profilePictureUrl) {
+                console.log('✅ Foto encontrada, atualizando...');
+                
+                // Atualizar no banco
+                await base44.entities.Contact.update(contato.id, {
+                  foto_perfil_url: resultado.data.profilePictureUrl,
+                  foto_perfil_atualizada_em: new Date().toISOString()
+                });
+
+                // Atualizar estado local
+                setContatoCompleto(prev => ({
+                  ...prev,
+                  foto_perfil_url: resultado.data.profilePictureUrl,
+                  foto_perfil_atualizada_em: new Date().toISOString()
+                }));
+              }
+            } catch (error) {
+              // Silencioso - não atrapalha a experiência do usuário
+              console.warn('⚠️ [Background] Não foi possível buscar foto:', error.message);
             }
-          } catch (error) {
-            console.warn('❌ Erro ao buscar foto de perfil:', error);
-          }
+          }, 500); // Delay de 500ms para não sobrecarregar
+        } else if (contato.foto_perfil_url) {
+          console.log('✅ Foto em cache (válida por 24h)');
         }
       } catch (error) {
         console.error('❌ [ChatWindow] Erro ao carregar contato:', error);
