@@ -163,28 +163,45 @@ export default function ChatWindow({
 
             setTimeout(async () => {
               try {
-                const resultado = await base44.functions.invoke('buscarFotoPerfilWhatsApp', {
-                  integration_id: thread.whatsapp_integration_id,
-                  phone: contato.telefone
-                });
+                // Buscar foto e nome em paralelo
+                const [resultadoFoto, resultadoNome] = await Promise.all([
+                  base44.functions.invoke('buscarFotoPerfilWhatsApp', {
+                    integration_id: thread.whatsapp_integration_id,
+                    phone: contato.telefone
+                  }),
+                  base44.functions.invoke('buscarNomeContatoWhatsApp', {
+                    integration_id: thread.whatsapp_integration_id,
+                    phone: contato.telefone
+                  })
+                ]);
 
-                if (resultado?.data?.success && resultado?.data?.profilePictureUrl) {
-                  await base44.entities.Contact.update(contato.id, {
-                    foto_perfil_url: resultado.data.profilePictureUrl,
-                    foto_perfil_atualizada_em: new Date().toISOString()
-                  });
+                const updates = {};
+
+                if (resultadoFoto?.data?.success && resultadoFoto?.data?.profilePictureUrl) {
+                  updates.foto_perfil_url = resultadoFoto.data.profilePictureUrl;
+                  updates.foto_perfil_atualizada_em = new Date().toISOString();
+                }
+
+                if (resultadoNome?.data?.success && resultadoNome?.data?.contactName) {
+                  const nomeAtualGenerico = !contato.nome || 
+                    contato.nome === contato.telefone ||
+                    /^[\+\d\s\-\(\)]+$/.test(contato.nome);
+
+                  if (nomeAtualGenerico) {
+                    updates.nome = resultadoNome.data.contactName;
+                  }
+                }
+
+                if (Object.keys(updates).length > 0) {
+                  await base44.entities.Contact.update(contato.id, updates);
 
                   setContatoCompleto((prev) => {
                     if (!prev || prev.id !== contato.id) return prev;
-                    return {
-                      ...prev,
-                      foto_perfil_url: resultado.data.profilePictureUrl,
-                      foto_perfil_atualizada_em: new Date().toISOString()
-                    };
+                    return { ...prev, ...updates };
                   });
                 }
               } catch (error) {
-                console.warn('Erro ao buscar foto:', error.message);
+                console.warn('Erro ao buscar dados:', error.message);
               }
             }, 500);
           }
