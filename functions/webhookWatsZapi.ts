@@ -402,6 +402,16 @@ Deno.serve(async (req) => {
           ...(debugMode && { debug: { type: 'send_confirmation' } })
         }, { status: 200, headers: corsHeaders });
         break;
+      case 'ignored':
+        // ✅ NOVO: Tratar eventos ignorados na normalização
+        console.log('[' + VERSION + '] Event ignored by normalizer: ' + (payloadNormalizado.reason || 'unknown'));
+        resultado = Response.json({ 
+          success: true, 
+          ignored: true,
+          reason: payloadNormalizado.reason || 'filtered_by_normalizer',
+          version: VERSION
+        }, { status: 200, headers: corsHeaders });
+        break;
       default:
         console.log('[' + VERSION + '] Unknown event type: ' + payloadNormalizado.type);
         resultado = Response.json({
