@@ -176,8 +176,8 @@ function validarPayloadNormalizado(payload) {
 }
 
 // VERSÃO AUTO-ATUALIZADA - Modifique quando publicar uma nova versão
-const VERSION = 'v4.1.0';
-const BUILD_DATE = '2025-01-23';
+const VERSION = 'v4.2.0';
+const BUILD_DATE = '2025-01-24';
 const DEPLOYED_AT = new Date().toISOString();
 
 console.log('=============================================================');
