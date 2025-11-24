@@ -532,13 +532,24 @@ async function handleMessage(instance, payload, base44, headers, debugMode) {
       }, { status: 200, headers });
     }
 
-    // 3️⃣ Bloquear status do WhatsApp
-    if (payload.from && payload.from.includes('status@broadcast')) {
-      console.log('🚫 [FIREWALL] Bloqueado: Status do WhatsApp');
+    // 3️⃣ Bloquear status do WhatsApp (+status@broadcast e variações)
+    if (payload.from && (payload.from.includes('status@broadcast') || /[\+\-\d\s]*status@broadcast/i.test(payload.from))) {
+      console.log('🚫 [FIREWALL] Bloqueado: Status do WhatsApp ->', payload.from);
       return Response.json({ 
         success: true, 
         blocked: true,
         reason: 'status_broadcast',
+        version: VERSION
+      }, { status: 200, headers });
+    }
+
+    // 3.1️⃣ Bloquear conteúdo que seja status@broadcast
+    if (payload.content && /[\+\-\d\s]*status@broadcast/i.test(payload.content.trim())) {
+      console.log('🚫 [FIREWALL] Bloqueado: Conteúdo status@broadcast ->', payload.content);
+      return Response.json({ 
+        success: true, 
+        blocked: true,
+        reason: 'status_broadcast_content',
         version: VERSION
       }, { status: 200, headers });
     }
@@ -549,9 +560,13 @@ async function handleMessage(instance, payload, base44, headers, debugMode) {
       /^[\+\d]+@lid$/i,                    // Ex: +105299763548377@lid
       /^[\+\d]+@s\.whatsapp\.net$/i,       // Ex: +5548999000111@s.whatsapp.net
       /^mídia enviada$/i,                  // Ex: "Mídia enviada"
+      /^media enviada$/i,                  // Ex: "Media enviada" (sem acento)
       /^media sent$/i,                     // Ex: "Media sent"
       /^mensagem enviada$/i,               // Ex: "Mensagem enviada"
-      /^message sent$/i                    // Ex: "Message sent"
+      /^message sent$/i,                   // Ex: "Message sent"
+      /^adicionar$/i,                      // Ex: "Adicionar"
+      /^referência$/i,                     // Ex: "Referência"
+      /^referencia$/i                      // Ex: "Referencia" (sem acento)
     ];
 
     const isAcknowledgment = payload.content && 
