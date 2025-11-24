@@ -79,15 +79,15 @@ export default function Comunicacao() {
       if (!usuario) return [];
 
       const isManager = usuario.role === 'admin' || usuario.role === 'supervisor';
-      const allThreads = await base44.entities.MessageThread.list('-last_message_at', 200);
+      
+      // ⚡ OTIMIZAÇÃO: Buscar apenas 50 threads mais recentes
+      const allThreads = await base44.entities.MessageThread.list('-last_message_at', 50);
 
       // 🔐 FILTRO INTELIGENTE POR PERMISSÕES DE SETOR
-      let threadsPermitidas = allThreads;
-
       if (!isManager && usuario.is_whatsapp_attendant) {
         const setoresAtendente = usuario.whatsapp_setores || [];
         
-        threadsPermitidas = allThreads.filter((thread) => {
+        return allThreads.filter((thread) => {
           // ✅ Conversas atribuídas ao atendente
           if (thread.assigned_user_id === usuario.id) return true;
           
@@ -99,45 +99,30 @@ export default function Comunicacao() {
           return false;
         });
       } else if (!isManager && !usuario.is_whatsapp_attendant) {
-        // Usuário comum sem ser atendente - não vê nada
-        threadsPermitidas = [];
+        return [];
       }
 
-      // 📌 APLICAR FILTROS ADICIONAIS (UI)
-      if (filterScope === 'my') {
-        return threadsPermitidas.filter(t => t.assigned_user_id === usuario.id);
-      } else if (filterScope === 'unassigned') {
-        return threadsPermitidas.filter(t => !t.assigned_user_id);
-      } else if (filterScope === 'specific_user' && selectedAttendantId) {
-        if (selectedAttendantId === 'all_unfiltered') {
-          return threadsPermitidas;
-        } else if (selectedAttendantId === 'unassigned_explicit') {
-          return threadsPermitidas.filter(t => !t.assigned_user_id);
-        } else {
-          return threadsPermitidas.filter(t => t.assigned_user_id === selectedAttendantId);
-        }
-      }
-
-      return threadsPermitidas;
+      // Admin/Manager vê tudo
+      return allThreads;
     },
-    refetchInterval: 10000,
-    staleTime: 5000,
+    refetchInterval: 30000,
+    staleTime: 10000,
     enabled: !!usuario,
-    retry: 2
+    retry: 1
   });
 
   const { data: mensagens = [] } = useQuery({
     queryKey: ['mensagens', threadAtiva?.id],
     queryFn: () => {
       if (threadAtiva) {
-        return base44.entities.Message.filter({ thread_id: threadAtiva.id }, 'created_date', 500);
+        return base44.entities.Message.filter({ thread_id: threadAtiva.id }, 'created_date', 200);
       }
       return Promise.resolve([]);
     },
     enabled: !!threadAtiva,
-    refetchInterval: 5000,
-    staleTime: 2000,
-    retry: 2
+    refetchInterval: 15000,
+    staleTime: 5000,
+    retry: 1
   });
 
   const { data: todasIntegracoes = [] } = useQuery({
@@ -178,14 +163,13 @@ export default function Comunicacao() {
     queryFn: async () => {
       if (!selectedCategoria || selectedCategoria === 'all') return [];
       
-      // Buscar todas as mensagens que contêm a categoria selecionada
-      const todasMensagens = await base44.entities.Message.list('-created_date', 1000);
+      const todasMensagens = await base44.entities.Message.list('-created_date', 200);
       return todasMensagens.filter(m => 
         Array.isArray(m.categorias) && m.categorias.includes(selectedCategoria)
       );
     },
     enabled: !!selectedCategoria && selectedCategoria !== 'all',
-    staleTime: 30 * 1000,
+    staleTime: 60 * 1000,
     retry: 1
   });
 
@@ -276,52 +260,51 @@ export default function Comunicacao() {
   }, [threadAtiva, queryClient]);
 
   const threadsFiltradas = React.useMemo(() => {
-    return threads.filter((thread) => {
-      const contato = contatos.find((c) => c.id === thread.contact_id);
-      if (!contato) return false;
+    // ⚡ OTIMIZAÇÃO: Aplicar filtros em ordem de eficiência
+    let filtered = threads;
 
-      // ✅ FILTRO POR PERMISSÕES DE INSTÂNCIA DO USUÁRIO
-      if (thread.whatsapp_integration_id && usuario) {
-        const whatsappPerms = usuario.whatsapp_permissions || [];
-
-        // Admin sempre pode ver todas
-        if (usuario.role !== 'admin' && whatsappPerms.length > 0) {
-          const perm = whatsappPerms.find((p) => p.integration_id === thread.whatsapp_integration_id);
-          if (!perm || !perm.can_view) {
-            return false; // Usuário não tem permissão para ver threads desta instância
-          }
-        }
-      }
-
-      // ✅ FILTRO POR CANAL WHATSAPP (MULTI-INSTÂNCIA)
-      if (selectedIntegrationId && selectedIntegrationId !== 'all') {
-        if (thread.whatsapp_integration_id !== selectedIntegrationId) {
-          return false;
-        }
-      }
-
-      // 🏷️ FILTRO POR CATEGORIA NA SIDEBAR - Mostrar apenas threads com mensagens da categoria
-      if (selectedCategoria && selectedCategoria !== 'all') {
-        const threadIdsComCategoria = new Set(mensagensComCategoria.map(m => m.thread_id));
-        if (!threadIdsComCategoria.has(thread.id)) {
-          return false;
-        }
-      }
-
-      // 🔍 BUSCA AMPLIADA: Número + Empresa + Cargo + Nome
-      if (debouncedSearchTerm) {
-        const termoBusca = debouncedSearchTerm.toLowerCase();
+    // 1️⃣ Filtro de busca (mais restritivo primeiro)
+    if (debouncedSearchTerm) {
+      const termoBusca = debouncedSearchTerm.toLowerCase();
+      filtered = filtered.filter((thread) => {
+        const contato = contatos.find((c) => c.id === thread.contact_id);
+        if (!contato) return false;
+        
         return (
           contato.nome?.toLowerCase().includes(termoBusca) ||
           contato.empresa?.toLowerCase().includes(termoBusca) ||
           contato.cargo?.toLowerCase().includes(termoBusca) ||
           thread.last_message_content?.toLowerCase().includes(termoBusca) ||
-          contato.telefone?.includes(debouncedSearchTerm));
+          contato.telefone?.includes(debouncedSearchTerm)
+        );
+      });
+    }
 
+    // 2️⃣ Filtro por categoria
+    if (selectedCategoria && selectedCategoria !== 'all') {
+      const threadIdsComCategoria = new Set(mensagensComCategoria.map(m => m.thread_id));
+      filtered = filtered.filter(t => threadIdsComCategoria.has(t.id));
+    }
+
+    // 3️⃣ Filtro por integração
+    if (selectedIntegrationId && selectedIntegrationId !== 'all') {
+      filtered = filtered.filter(t => t.whatsapp_integration_id === selectedIntegrationId);
+    }
+
+    // 4️⃣ Filtro de permissões (apenas se necessário)
+    if (usuario && usuario.role !== 'admin') {
+      const whatsappPerms = usuario.whatsapp_permissions || [];
+      if (whatsappPerms.length > 0) {
+        filtered = filtered.filter((thread) => {
+          if (!thread.whatsapp_integration_id) return true;
+          const perm = whatsappPerms.find((p) => p.integration_id === thread.whatsapp_integration_id);
+          return perm ? perm.can_view : false;
+        });
       }
+    }
 
-      return true;
-    });
+    // 5️⃣ Filtrar threads sem contato
+    return filtered.filter(thread => contatos.find(c => c.id === thread.contact_id));
   }, [threads, contatos, usuario, selectedIntegrationId, selectedCategoria, debouncedSearchTerm, mensagensComCategoria]);
 
   const threadsComContato = threadsFiltradas.map((thread) => ({
