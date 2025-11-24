@@ -14,30 +14,89 @@ function normalizarPayloadZAPI(evento) {
   const eventoTipo = String(evento.event || evento.type || 'unknown').toLowerCase();
   const instanceId = extrairInstanceId(evento);
 
+  // === 0. PRÉ-FILTRO: Detectar e IGNORAR eventos de sistema/lixo ANTES de tudo ===
+  // ================================================================================
+  
+  // 🚫 Ignorar eventos de presença (online/offline/typing)
+  if (eventoTipo.includes('presence') || eventoTipo.includes('typing') || eventoTipo.includes('composing')) {
+    console.log('🚫 [NORMALIZAR] Ignorado: Evento de presença ->', eventoTipo);
+    return { type: 'ignored', reason: 'presence_event' };
+  }
+
+  // 🚫 Ignorar eventos de ACK/confirmação de entrega
+  if (eventoTipo.includes('ack') || eventoTipo.includes('delivery') || eventoTipo.includes('seen')) {
+    console.log('🚫 [NORMALIZAR] Ignorado: Evento de ACK/delivery ->', eventoTipo);
+    return { type: 'ignored', reason: 'ack_event' };
+  }
+
+  // 🚫 Ignorar eventos de chat (arquivar, fixar, etc)
+  if (eventoTipo.includes('chat-update') || eventoTipo.includes('chatupdate')) {
+    console.log('🚫 [NORMALIZAR] Ignorado: Evento de chat update ->', eventoTipo);
+    return { type: 'ignored', reason: 'chat_update_event' };
+  }
+
   // === 1. MessageStatusCallback (Z-API) - Atualizacao de Status ===
   // CRITICO: Detectar ANTES de ReceivedCallback para evitar mensagens [No content]
-  if (eventoTipo.includes('messagestatuscallback') || (evento.status && evento.ids && !evento.phone)) {
+  if (eventoTipo.includes('messagestatuscallback') || eventoTipo.includes('status-find') || 
+      (evento.status && evento.ids && !evento.phone) || 
+      (evento.status && !evento.text && !evento.body)) {
+    console.log('📊 [NORMALIZAR] Detectado: MessageStatusCallback ->', evento.status);
     return {
       type: 'message_update',
       instanceId: instanceId,
-      messageId: evento.ids ? evento.ids[0] : null,
-      status: evento.status, // EX: READ, DELIVERED, SENT
+      messageId: evento.ids ? evento.ids[0] : evento.messageId || null,
+      status: evento.status,
       timestamp: evento.momment || Date.now()
     };
   }
 
   // === 2. ReceivedCallback (Z-API) - Mensagem Real ===
   if (evento.telefone || evento.phone) {
-    const numeroLimpo = normalizarTelefone(evento.phone || evento.telefone);
+    const telefoneOriginal = evento.phone || evento.telefone;
+    
+    // 🚫 PRÉ-FILTRO: Ignorar JIDs de sistema (@lid, @broadcast, @g.us grupos)
+    if (/@(lid|broadcast|g\.us|s\.whatsapp\.net|c\.us)$/i.test(telefoneOriginal)) {
+      // Verificar se é um JID de sistema sem conteúdo real
+      const conteudoBruto = evento.text?.message || evento.body || '';
+      
+      // Se o conteúdo também parece ser um JID ou "Adicionar", ignorar
+      if (!conteudoBruto || 
+          /@(lid|broadcast|g\.us|s\.whatsapp\.net|c\.us)/i.test(conteudoBruto) ||
+          /^\s*adicionar\s*$/i.test(conteudoBruto) ||
+          /^[\+\d\s@\.\-]+$/i.test(conteudoBruto.trim())) {
+        console.log('🚫 [NORMALIZAR] Ignorado: JID de sistema sem conteúdo válido ->', telefoneOriginal);
+        return { type: 'ignored', reason: 'system_jid_no_content' };
+      }
+    }
+
+    // 🚫 PRÉ-FILTRO: Ignorar mensagens que são apenas JIDs ou "Adicionar"
+    const conteudoBruto = evento.text?.message || evento.body || evento.buttonsResponseMessage?.message || '';
+    
+    // Padrões de lixo a ignorar na normalização
+    const padraoLixo = [
+      /^[\+\d\s@\.\-]+@(lid|broadcast|s\.whatsapp\.net|c\.us)$/i,  // JID puro
+      /adicionar\s*[\+\d\s@\.\-]+@/i,                              // "Adicionar +numero@lid"
+      /^[\+\d\s]+\s*adicionar\s*[\+\d\s@\.\-]+$/i,                 // "+8 Adicionar +numero@lid"
+      /^[\+\d\s@\.\-]+\s+adicionar\s+[\+\d\s@\.\-]+$/i,            // "numero Adicionar numero"
+      /^\s*adicionar\s*$/i,                                        // Apenas "Adicionar"
+      /^[\+\d\s@\.\-\(\)]+$/i,                                     // Apenas números e símbolos
+    ];
+
+    if (conteudoBruto && padraoLixo.some(p => p.test(conteudoBruto.trim()))) {
+      console.log('🚫 [NORMALIZAR] Ignorado: Conteúdo de sistema/lixo ->', conteudoBruto.substring(0, 50));
+      return { type: 'ignored', reason: 'junk_content' };
+    }
+
+    const numeroLimpo = normalizarTelefone(telefoneOriginal);
     if (!numeroLimpo) {
-      console.warn('[NORMALIZAR] Telefone invalido:', evento.phone || evento.telefone);
+      console.warn('[NORMALIZAR] Telefone invalido:', telefoneOriginal);
       return { type: 'unknown', error: 'Telefone inválido' };
     }
 
     // ✅ DETECTAR VCARD (compartilhamento de contato)
     let mediaType = 'none';
     let mediaTempUrl = null;
-    let conteudo = evento.text?.message || evento.body || evento.buttonsResponseMessage?.message || '';
+    let conteudo = conteudoBruto;
     
     if (evento.image) {
       mediaType = 'image';
@@ -63,6 +122,12 @@ function normalizarPayloadZAPI(evento) {
       mediaType = 'document';
       mediaTempUrl = evento.documentMessage.documentUrl;
       conteudo = `📄 Documento: ${evento.documentMessage.fileName || 'Arquivo'}`;
+    }
+
+    // 🚫 ÚLTIMA VALIDAÇÃO: Se não tem conteúdo E não tem mídia, ignorar
+    if (!conteudo && mediaType === 'none' && !mediaTempUrl) {
+      console.log('🚫 [NORMALIZAR] Ignorado: Sem conteúdo e sem mídia');
+      return { type: 'ignored', reason: 'no_content_no_media' };
     }
 
     return {
