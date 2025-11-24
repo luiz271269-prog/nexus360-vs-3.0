@@ -91,6 +91,7 @@ export default function ChatWindow({
   const inputRef = useRef(null);
   const chatContainerRef = useRef(null);
   const unreadSeparatorRef = useRef(null);
+  const fotoJaBuscada = useRef(new Set());
 
   const permissoes = usuario?.permissoes_comunicacao || {};
 
@@ -155,10 +156,13 @@ export default function ChatWindow({
             !contato.foto_perfil_atualizada_em ||
             new Date() - new Date(contato.foto_perfil_atualizada_em) > 24 * 60 * 60 * 1000;
 
-          if (deveBuscarFoto) {
+          const chaveCache = `${contato.id}-${thread.whatsapp_integration_id}`;
+
+          if (deveBuscarFoto && !fotoJaBuscada.current.has(chaveCache)) {
+            fotoJaBuscada.current.add(chaveCache);
+
             setTimeout(async () => {
               try {
-                console.log('Buscando foto de perfil...', contato.telefone);
                 const resultado = await base44.functions.invoke('buscarFotoPerfilWhatsApp', {
                   integration_id: thread.whatsapp_integration_id,
                   phone: contato.telefone
@@ -178,8 +182,6 @@ export default function ChatWindow({
                       foto_perfil_atualizada_em: new Date().toISOString()
                     };
                   });
-
-                  toast.success('Foto de perfil carregada!', { duration: 2000 });
                 }
               } catch (error) {
                 console.warn('Erro ao buscar foto:', error.message);
