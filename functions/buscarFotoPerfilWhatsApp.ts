@@ -56,22 +56,30 @@ Deno.serve(async (req) => {
       }
     });
 
-    const data = await response.json();
-
     if (!response.ok) {
-      throw new Error(data.error || 'Erro ao buscar foto de perfil');
+      console.warn(`[PROFILE_PIC] Erro Z-API: ${response.status}`);
+      return Response.json({
+        success: false,
+        profilePictureUrl: null,
+        error: `Z-API Error: ${response.status}`
+      }, { status: 200, headers: corsHeaders });
     }
 
+    const data = await response.json();
+
+    // Z-API retorna a foto na propriedade 'link'
+    const photoUrl = data.link || null;
+
     // Salvar URL no contato se disponível
-    if (data.profilePictureUrl) {
+    if (photoUrl) {
       try {
         const contatos = await base44.asServiceRole.entities.Contact.list('-created_date', 1, { 
-          telefone: phone 
+          telefone: phoneClean 
         });
 
         if (contatos.length > 0) {
           await base44.asServiceRole.entities.Contact.update(contatos[0].id, {
-            foto_perfil_url: data.profilePictureUrl,
+            foto_perfil_url: photoUrl,
             foto_perfil_atualizada_em: new Date().toISOString()
           });
         }
@@ -80,9 +88,11 @@ Deno.serve(async (req) => {
       }
     }
 
+    console.log(`[PROFILE_PIC] Sucesso. URL encontrada: ${!!photoUrl}`);
+
     return Response.json({
       success: true,
-      profilePictureUrl: data.profilePictureUrl || null
+      profilePictureUrl: photoUrl
     }, { status: 200, headers: corsHeaders });
 
   } catch (error) {
