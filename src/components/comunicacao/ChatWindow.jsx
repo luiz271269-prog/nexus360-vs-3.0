@@ -146,80 +146,51 @@ export default function ChatWindow({
         const contato = await base44.entities.Contact.get(thread.contact_id);
         setContatoCompleto(contato);
 
-        // 🔍 IDENTIFICAR SE É CONTATO REAL (não é JID genérico)
         const isContatoReal = contato.telefone && 
           !/^[\+\d\s]+@(lid|broadcast|s\.whatsapp\.net|c\.us)/i.test(contato.telefone) &&
           !/^[\+\d\s]+@/i.test(contato.nome || '');
 
-        console.log('🔍 Verificando contato:', {
-          id: contato.id,
-          nome: contato.nome,
-          telefone: contato.telefone,
-          isContatoReal
-        });
-
         if (isContatoReal && thread.whatsapp_integration_id && contato.telefone) {
-          // ⚡ BUSCA AUTOMÁTICA DE DADOS EM BACKGROUND
-          setTimeout(async () => {
-            try {
-              // 📸 BUSCAR FOTO (se não tiver ou estiver desatualizada)
-              const deveBuscarFoto = !contato.foto_perfil_url ||
-                !contato.foto_perfil_atualizada_em ||
-                new Date() - new Date(contato.foto_perfil_atualizada_em) > 24 * 60 * 60 * 1000;
+          const deveBuscarFoto = !contato.foto_perfil_url ||
+            !contato.foto_perfil_atualizada_em ||
+            new Date() - new Date(contato.foto_perfil_atualizada_em) > 24 * 60 * 60 * 1000;
 
-              if (deveBuscarFoto) {
-                console.log('📸 [Auto] Buscando foto de perfil...', contato.telefone);
+          if (deveBuscarFoto) {
+            setTimeout(async () => {
+              try {
+                console.log('Buscando foto de perfil...', contato.telefone);
                 const resultado = await base44.functions.invoke('buscarFotoPerfilWhatsApp', {
                   integration_id: thread.whatsapp_integration_id,
                   phone: contato.telefone
                 });
 
                 if (resultado?.data?.success && resultado?.data?.profilePictureUrl) {
-                  console.log('✅ Foto encontrada automaticamente!');
-                  
-                  // Atualizar no banco
                   await base44.entities.Contact.update(contato.id, {
                     foto_perfil_url: resultado.data.profilePictureUrl,
                     foto_perfil_atualizada_em: new Date().toISOString()
                   });
 
-                  // Atualizar estado local
-                  setContatoCompleto((prev) => ({
-                    ...prev,
-                    foto_perfil_url: resultado.data.profilePictureUrl,
-                    foto_perfil_atualizada_em: new Date().toISOString()
-                  }));
+                  setContatoCompleto((prev) => {
+                    if (!prev || prev.id !== contato.id) return prev;
+                    return {
+                      ...prev,
+                      foto_perfil_url: resultado.data.profilePictureUrl,
+                      foto_perfil_atualizada_em: new Date().toISOString()
+                    };
+                  });
 
-                  toast.success('📸 Foto de perfil carregada!', { duration: 2000 });
+                  toast.success('Foto de perfil carregada!', { duration: 2000 });
                 }
-              } else {
-                console.log('✅ Foto em cache (válida por 24h)');
+              } catch (error) {
+                console.warn('Erro ao buscar foto:', error.message);
               }
-
-              // 🔄 ATUALIZAR DADOS DO CONTATO (se nome for genérico)
-              const nomeGenerico = !contato.nome || 
-                contato.nome === contato.telefone ||
-                /^[\+\d\s\-\(\)]+$/.test(contato.nome);
-
-              if (nomeGenerico) {
-                console.log('🔄 [Auto] Nome genérico detectado, buscando dados do WhatsApp...');
-                // Aqui você pode adicionar uma função para buscar o nome real do WhatsApp
-                // Por enquanto, apenas loga
-                toast.info('💡 Dica: Adicione nome e empresa para melhor organização', { duration: 3000 });
-              }
-
-            } catch (error) {
-              console.warn('⚠️ [Auto] Erro ao buscar dados:', error.message);
-            }
-          }, 500);
-        } else if (!isContatoReal) {
-          console.warn('⚠️ Contato identificado como JID/genérico - pulando busca automática');
+            }, 500);
+          }
         }
       } catch (error) {
-        console.error('❌ [ChatWindow] Erro ao carregar contato:', error);
-
+        console.error('Erro ao carregar contato:', error);
         if (error.message?.includes('Rate limit') || error.message?.includes('429')) {
-          toast.warning('⏳ Muitas requisições. Aguarde alguns segundos...', { duration: 5000 });
+          toast.warning('Muitas requisições. Aguarde alguns segundos...', { duration: 5000 });
         } else {
           toast.error('Erro ao carregar informações do contato');
         }
