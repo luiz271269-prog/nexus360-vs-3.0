@@ -1284,37 +1284,37 @@ export default function ChatWindow({
               if (m.metadata?.deleted) return true;
               if (m.metadata?.is_system_message) return true;
 
-              // ❌ BLOQUEAR @broadcast e status updates
-              if (m.content && /@broadcast/i.test(m.content)) {
-                console.log('🚫 Bloqueando @broadcast:', m.content);
+              // ❌ BLOQUEAR @broadcast, @lid e status updates
+              if (m.content && (/@broadcast/i.test(m.content) || /@lid/i.test(m.content) || /status@/i.test(m.content))) {
                 return false;
               }
 
               // ❌ BLOQUEAR JIDs puros (ex: +105299763548377@lid, +status@broadcast)
-              if (m.content && /^[\+\d]+@(lid|broadcast|s\.whatsapp\.net|c\.us)/i.test(m.content.trim())) {
-                console.log('🚫 Bloqueando JID:', m.content);
+              if (m.content && /^[\+\d\s]+@(lid|broadcast|s\.whatsapp\.net|c\.us)/i.test(m.content.trim())) {
+                return false;
+              }
+
+              // ❌ BLOQUEAR nomes de contatos genéricos que são JIDs
+              if (m.content && /^Referência\s+/i.test(m.content) && !m.media_url) {
                 return false;
               }
 
               // ❌ BLOQUEAR mensagens sem conteúdo válido
               const conteudoInvalido = [
+                'Mídia enviada',
                 '[No content]',
                 '[Message content missing]',
                 '[Recovered message]',
-                'Mídia enviada',
-                '',
-                null,
-                undefined
+                ''
               ];
 
               const conteudoVazio = !m.content || 
-                                   conteudoInvalido.includes(m.content) ||
+                                   conteudoInvalido.includes(m.content?.trim()) ||
                                    m.content.trim() === '' ||
                                    m.content.startsWith('[Media type:');
 
               // Se conteúdo vazio E sem mídia válida = BLOQUEAR
               if (conteudoVazio && (!m.media_url || m.media_type === 'none' || !m.media_type)) {
-                console.log('🚫 Bloqueando mensagem vazia sem mídia:', m.id);
                 return false;
               }
 

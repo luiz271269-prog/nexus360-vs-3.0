@@ -139,6 +139,12 @@ export default function MessageBubble({
   onToggleSelecao,
   mensagens
 }) {
+  // ⚠️ SEGURANÇA: Não renderizar se mensagem for inválida
+  if (!message || typeof message !== 'object') {
+    console.warn('[MessageBubble] Mensagem inválida recebida:', message);
+    return null;
+  }
+
   const [mostrarDialogEncaminhar, setMostrarDialogEncaminhar] = useState(false);
   const [encaminhando, setEncaminhando] = useState(false);
   const [apagando, setApagando] = useState(false);
@@ -160,7 +166,7 @@ export default function MessageBubble({
 
   const todasCategorias = [...CATEGORIAS_FIXAS, ...categoriasDB];
 
-  const isSystemMessage = message.sender_type === 'system';
+  const isSystemMessage = message?.sender_type === 'system';
 
   useEffect(() => {
     if (mostrarDialogEncaminhar && contatos.length === 0) {
@@ -304,7 +310,7 @@ export default function MessageBubble({
     }
   };
 
-  const mensagemOriginal = message.reply_to_message_id
+  const mensagemOriginal = message?.reply_to_message_id
     ? mensagens?.find(m => m.id === message.reply_to_message_id)
     : null;
 
@@ -403,7 +409,7 @@ export default function MessageBubble({
     }
   };
 
-  if (message.metadata?.deleted) {
+  if (message?.metadata?.deleted) {
     return (
       <div className={cn("flex gap-3", isOwn ? "justify-end" : "justify-start")}>
         <div className={cn(
@@ -453,10 +459,10 @@ export default function MessageBubble({
               isOwn ? "border-blue-500" : "border-green-500"
             )}>
               <p className="font-semibold text-slate-600 mb-0.5">
-                {mensagemOriginal.sender_type === 'user' ? 'Você' : 'Cliente'}
+                {mensagemOriginal?.sender_type === 'user' ? 'Você' : 'Cliente'}
               </p>
               <p className="text-slate-500 line-clamp-2">
-                {mensagemOriginal.content || "[Mídia/Conteúdo sem texto]"}
+                {String(mensagemOriginal?.content || "[Mídia/Conteúdo sem texto]")}
               </p>
             </div>
           )}
@@ -870,54 +876,54 @@ export default function MessageBubble({
                   isOwn ? "text-white" : "text-slate-800"
                 )}>
                   {isOwn ? (
-                    <p className="text-sm leading-relaxed">{message.content}</p>
+                   <p className="text-sm leading-relaxed">{String(message.content || '')}</p>
                   ) : (
                     <ReactMarkdown
-                      className="text-sm prose prose-sm prose-slate max-w-none [&>*:first-child]:mt-0 [&>*:last-child]:mb-0"
-                      components={{
-                        code: ({ inline, className, children, ...props }) => {
-                          const match = /language-(\w+)/.exec(className || '');
-                          return !inline && match ? (
-                            <div className="relative group/code">
-                              <pre className="bg-slate-900 text-slate-100 rounded-lg p-3 overflow-x-auto my-2">
-                                <code className={className} {...props}>{children}</code>
-                              </pre>
-                              <Button
-                                size="icon"
-                                variant="ghost"
-                                className="absolute top-2 right-2 h-6 w-6 opacity-0 group-hover/code:opacity-100 bg-slate-800 hover:bg-slate-700"
-                                onClick={() => {
-                                  navigator.clipboard.writeText(String(children).replace(/\n$/, ''));
-                                  toast.success('Code copied');
-                                }}
-                              >
-                                <Copy className="h-3 w-3 text-slate-400" />
-                              </Button>
-                            </div>
-                          ) : (
-                            <code className="px-1 py-0.5 rounded bg-slate-100 text-slate-700 text-xs">
-                              {children}
-                            </code>
-                          );
-                        },
-                        a: ({ children, ...props }) => (
-                          <a {...props} target="_blank" rel="noopener noreferrer">{children}</a>
-                        ),
-                        p: ({ children }) => <p className="my-1 leading-relaxed">{children}</p>,
-                        ul: ({ children }) => <ul className="my-1 ml-4 list-disc">{children}</ul>,
-                        ol: ({ children }) => <ol className="my-1 ml-4 list-decimal">{children}</ol>,
-                        li: ({ children }) => <li className="my-0.5">{children}</li>,
-                        h1: ({ children }) => <h1 className="text-lg font-semibold my-2">{children}</h1>,
-                        h2: ({ children }) => <h2 className="text-base font-semibold my-2">{children}</h2>,
-                        h3: ({ children }) => <h3 className="text-sm font-semibold my-2">{children}</h3>,
-                        blockquote: ({ children }) => (
-                          <blockquote className="border-l-2 border-slate-300 pl-3 my-2 text-slate-600">
-                            {children}
-                          </blockquote>
-                        ),
-                      }}
+                     className="text-sm prose prose-sm prose-slate max-w-none [&>*:first-child]:mt-0 [&>*:last-child]:mb-0"
+                     components={{
+                       code: ({ inline, className, children, ...props }) => {
+                         const match = /language-(\w+)/.exec(className || '');
+                         return !inline && match ? (
+                           <div className="relative group/code">
+                             <pre className="bg-slate-900 text-slate-100 rounded-lg p-3 overflow-x-auto my-2">
+                               <code className={className} {...props}>{children}</code>
+                             </pre>
+                             <Button
+                               size="icon"
+                               variant="ghost"
+                               className="absolute top-2 right-2 h-6 w-6 opacity-0 group-hover/code:opacity-100 bg-slate-800 hover:bg-slate-700"
+                               onClick={() => {
+                                 navigator.clipboard.writeText(String(children).replace(/\n$/, ''));
+                                 toast.success('Code copied');
+                               }}
+                             >
+                               <Copy className="h-3 w-3 text-slate-400" />
+                             </Button>
+                           </div>
+                         ) : (
+                           <code className="px-1 py-0.5 rounded bg-slate-100 text-slate-700 text-xs">
+                             {children}
+                           </code>
+                         );
+                       },
+                       a: ({ children, ...props }) => (
+                         <a {...props} target="_blank" rel="noopener noreferrer">{children}</a>
+                       ),
+                       p: ({ children }) => <p className="my-1 leading-relaxed">{children}</p>,
+                       ul: ({ children }) => <ul className="my-1 ml-4 list-disc">{children}</ul>,
+                       ol: ({ children }) => <ol className="my-1 ml-4 list-decimal">{children}</ol>,
+                       li: ({ children }) => <li className="my-0.5">{children}</li>,
+                       h1: ({ children }) => <h1 className="text-lg font-semibold my-2">{children}</h1>,
+                       h2: ({ children }) => <h2 className="text-base font-semibold my-2">{children}</h2>,
+                       h3: ({ children }) => <h3 className="text-sm font-semibold my-2">{children}</h3>,
+                       blockquote: ({ children }) => (
+                         <blockquote className="border-l-2 border-slate-300 pl-3 my-2 text-slate-600">
+                           {children}
+                         </blockquote>
+                       ),
+                     }}
                     >
-                      {message.content}
+                     {String(message.content || '')}
                     </ReactMarkdown>
                   )}
                 </div>
