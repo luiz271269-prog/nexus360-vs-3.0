@@ -1335,10 +1335,10 @@ export default function ChatWindow({
               }
 
               // ❌ Caso contrário, bloquear
-              console.log('🚫 Bloqueando mensagem inválida:', m.id);
               return false;
-            })
-            .map((mensagem, index) => {
+              });
+              })()
+              .map((mensagem, index) => {
             const isFirstUnread =
               mensagem.sender_type === 'contact' &&
               mensagem.status !== 'lida' &&

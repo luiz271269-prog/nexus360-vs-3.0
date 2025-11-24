@@ -167,6 +167,23 @@ export default function Comunicacao() {
     retry: 2
   });
 
+  // 🏷️ Buscar mensagens com categoria selecionada para filtrar threads na sidebar
+  const { data: mensagensComCategoria = [] } = useQuery({
+    queryKey: ['mensagens-com-categoria', selectedCategoria],
+    queryFn: async () => {
+      if (!selectedCategoria || selectedCategoria === 'all') return [];
+      
+      // Buscar todas as mensagens que contêm a categoria selecionada
+      const todasMensagens = await base44.entities.Message.list('-created_date', 1000);
+      return todasMensagens.filter(m => 
+        Array.isArray(m.categorias) && m.categorias.includes(selectedCategoria)
+      );
+    },
+    enabled: !!selectedCategoria && selectedCategoria !== 'all',
+    staleTime: 30 * 1000,
+    retry: 1
+  });
+
   const handleSelecionarThread = useCallback((thread) => {
     console.log('🔴 Selecionando thread:', thread.id);
     setCriandoNovoContato(false);
@@ -278,11 +295,12 @@ export default function Comunicacao() {
         }
       }
 
-      // ✅ FILTRO POR CATEGORIA - VERIFICA NAS MENSAGENS
+      // 🏷️ FILTRO POR CATEGORIA NA SIDEBAR - Mostrar apenas threads com mensagens da categoria
       if (selectedCategoria && selectedCategoria !== 'all') {
-        // Como as categorias agora estão nas mensagens, não nas threads,
-        // vamos incluir TODAS as threads. O filtro será aplicado no ChatWindow
-        // para mostrar apenas mensagens com a categoria selecionada
+        const threadIdsComCategoria = new Set(mensagensComCategoria.map(m => m.thread_id));
+        if (!threadIdsComCategoria.has(thread.id)) {
+          return false;
+        }
       }
 
       // 🔍 BUSCA AMPLIADA: Número + Empresa + Cargo + Nome
@@ -299,7 +317,7 @@ export default function Comunicacao() {
 
       return true;
     });
-  }, [threads, contatos, usuario, selectedIntegrationId, selectedCategoria, debouncedSearchTerm]);
+  }, [threads, contatos, usuario, selectedIntegrationId, selectedCategoria, debouncedSearchTerm, mensagensComCategoria]);
 
   const threadsComContato = threadsFiltradas.map((thread) => ({
     ...thread,
