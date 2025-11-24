@@ -134,6 +134,8 @@ export default function ChatWindow({
   }, []);
 
   useEffect(() => {
+    let isMounted = true;
+
     const carregarContato = async () => {
       if (!thread?.contact_id) {
         setContatoCompleto(null);
@@ -145,13 +147,16 @@ export default function ChatWindow({
 
       try {
         const contato = await base44.entities.Contact.get(thread.contact_id);
+        if (!isMounted) return;
+        
         setContatoCompleto(contato);
+        setCarregandoContato(false);
 
+        // Buscar foto/nome em background (não bloqueia UI)
         const isContatoReal = contato.telefone && 
-          !/^[\+\d\s]+@(lid|broadcast|s\.whatsapp\.net|c\.us)/i.test(contato.telefone) &&
-          !/^[\+\d\s]+@/i.test(contato.nome || '');
+          !/^[\+\d\s]+@(lid|broadcast|s\.whatsapp\.net|c\.us)/i.test(contato.telefone);
 
-        if (isContatoReal && thread.whatsapp_integration_id && contato.telefone) {
+        if (isContatoReal && thread.whatsapp_integration_id) {
           const deveBuscarFoto = !contato.foto_perfil_url ||
             !contato.foto_perfil_atualizada_em ||
             new Date() - new Date(contato.foto_perfil_atualizada_em) > 24 * 60 * 60 * 1000;
@@ -162,18 +167,21 @@ export default function ChatWindow({
             fotoJaBuscada.current.add(chaveCache);
 
             setTimeout(async () => {
+              if (!isMounted) return;
+              
               try {
-                // Buscar foto e nome em paralelo
                 const [resultadoFoto, resultadoNome] = await Promise.all([
                   base44.functions.invoke('buscarFotoPerfilWhatsApp', {
                     integration_id: thread.whatsapp_integration_id,
                     phone: contato.telefone
-                  }),
+                  }).catch(() => null),
                   base44.functions.invoke('buscarNomeContatoWhatsApp', {
                     integration_id: thread.whatsapp_integration_id,
                     phone: contato.telefone
-                  })
+                  }).catch(() => null)
                 ]);
+
+                if (!isMounted) return;
 
                 const updates = {};
 
@@ -192,34 +200,34 @@ export default function ChatWindow({
                   }
                 }
 
-                if (Object.keys(updates).length > 0) {
+                if (Object.keys(updates).length > 0 && isMounted) {
                   await base44.entities.Contact.update(contato.id, updates);
-
-                  setContatoCompleto((prev) => {
-                    if (!prev || prev.id !== contato.id) return prev;
-                    return { ...prev, ...updates };
-                  });
+                  setContatoCompleto(prev => prev?.id === contato.id ? { ...prev, ...updates } : prev);
                 }
               } catch (error) {
                 console.warn('Erro ao buscar dados:', error.message);
               }
-            }, 500);
+            }, 1000);
           }
         }
       } catch (error) {
+        if (!isMounted) return;
+        
         console.error('Erro ao carregar contato:', error);
-        if (error.message?.includes('Rate limit') || error.message?.includes('429')) {
-          toast.warning('Muitas requisições. Aguarde alguns segundos...', { duration: 5000 });
-        } else {
-          toast.error('Erro ao carregar informações do contato');
-        }
         setContatoCompleto(null);
-      } finally {
         setCarregandoContato(false);
+        
+        if (!error.message?.includes('Rate limit') && !error.message?.includes('429')) {
+          toast.error('Erro ao carregar contato');
+        }
       }
     };
 
     carregarContato();
+
+    return () => {
+      isMounted = false;
+    };
   }, [thread?.contact_id, thread?.whatsapp_integration_id]);
 
   // Inicializar canal selecionado com o da thread

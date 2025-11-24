@@ -68,9 +68,10 @@ export default function Comunicacao() {
 
   const { data: contatos = [] } = useQuery({
     queryKey: ['contacts'],
-    queryFn: () => base44.entities.Contact.list('-created_date'),
-    staleTime: 2 * 60 * 1000,
-    retry: 2
+    queryFn: () => base44.entities.Contact.list('-created_date', 100),
+    staleTime: 5 * 60 * 1000,
+    cacheTime: 10 * 60 * 1000,
+    retry: 1
   });
 
   const { data: threads = [], isLoading: loadingThreads } = useQuery({
@@ -128,26 +129,22 @@ export default function Comunicacao() {
   const { data: todasIntegracoes = [] } = useQuery({
     queryKey: ['integracoes'],
     queryFn: () => base44.entities.WhatsAppIntegration.list(),
-    staleTime: 2 * 60 * 1000,
-    retry: 2
+    staleTime: 10 * 60 * 1000,
+    cacheTime: 15 * 60 * 1000,
+    retry: 1
   });
 
   // Filtrar integrações baseado nas permissões do usuário
   const integracoes = React.useMemo(() => {
-    if (!usuario) return [];
-
-    // Admin pode ver todas
+    if (!usuario || !todasIntegracoes.length) return [];
     if (usuario.role === 'admin') return todasIntegracoes;
 
-    // Filtrar por whatsapp_permissions
     const whatsappPerms = usuario.whatsapp_permissions || [];
-    if (whatsappPerms.length === 0) return todasIntegracoes; // Sem restrições configuradas = acesso total
+    if (whatsappPerms.length === 0) return todasIntegracoes;
 
-    return todasIntegracoes.filter((integracao) => {
-      const perm = whatsappPerms.find((p) => p.integration_id === integracao.id);
-      return perm ? perm.can_view : false;
-    });
-  }, [todasIntegracoes, usuario]);
+    const permMap = new Map(whatsappPerms.map(p => [p.integration_id, p.can_view]));
+    return todasIntegracoes.filter(i => permMap.get(i.id));
+  }, [todasIntegracoes, usuario?.id, usuario?.role]);
 
   const { data: atendentes = [] } = useQuery({
     queryKey: ['atendentes'],
@@ -260,58 +257,60 @@ export default function Comunicacao() {
   }, [threadAtiva, queryClient]);
 
   const threadsFiltradas = React.useMemo(() => {
-    // ⚡ OTIMIZAÇÃO: Aplicar filtros em ordem de eficiência
-    let filtered = threads;
+    if (!threads.length || !contatos.length) return [];
 
-    // 1️⃣ Filtro de busca (mais restritivo primeiro)
-    if (debouncedSearchTerm) {
-      const termoBusca = debouncedSearchTerm.toLowerCase();
-      filtered = filtered.filter((thread) => {
-        const contato = contatos.find((c) => c.id === thread.contact_id);
-        if (!contato) return false;
-        
+    // 🗺️ Criar maps para lookups O(1)
+    const contatosMap = new Map(contatos.map(c => [c.id, c]));
+    const categoriasSet = selectedCategoria !== 'all' ? new Set(mensagensComCategoria.map(m => m.thread_id)) : null;
+    const permMap = usuario?.role !== 'admin' && usuario?.whatsapp_permissions?.length > 0
+      ? new Map(usuario.whatsapp_permissions.map(p => [p.integration_id, p.can_view]))
+      : null;
+
+    return threads.filter(thread => {
+      const contato = contatosMap.get(thread.contact_id);
+      if (!contato) return false;
+
+      // Filtro de integração
+      if (selectedIntegrationId !== 'all' && thread.whatsapp_integration_id !== selectedIntegrationId) {
+        return false;
+      }
+
+      // Filtro de categoria
+      if (categoriasSet && !categoriasSet.has(thread.id)) {
+        return false;
+      }
+
+      // Filtro de permissões
+      if (permMap && thread.whatsapp_integration_id) {
+        if (!permMap.get(thread.whatsapp_integration_id)) return false;
+      }
+
+      // Filtro de busca
+      if (debouncedSearchTerm) {
+        const termo = debouncedSearchTerm.toLowerCase();
         return (
-          contato.nome?.toLowerCase().includes(termoBusca) ||
-          contato.empresa?.toLowerCase().includes(termoBusca) ||
-          contato.cargo?.toLowerCase().includes(termoBusca) ||
-          thread.last_message_content?.toLowerCase().includes(termoBusca) ||
+          contato.nome?.toLowerCase().includes(termo) ||
+          contato.empresa?.toLowerCase().includes(termo) ||
+          contato.cargo?.toLowerCase().includes(termo) ||
+          thread.last_message_content?.toLowerCase().includes(termo) ||
           contato.telefone?.includes(debouncedSearchTerm)
         );
-      });
-    }
-
-    // 2️⃣ Filtro por categoria
-    if (selectedCategoria && selectedCategoria !== 'all') {
-      const threadIdsComCategoria = new Set(mensagensComCategoria.map(m => m.thread_id));
-      filtered = filtered.filter(t => threadIdsComCategoria.has(t.id));
-    }
-
-    // 3️⃣ Filtro por integração
-    if (selectedIntegrationId && selectedIntegrationId !== 'all') {
-      filtered = filtered.filter(t => t.whatsapp_integration_id === selectedIntegrationId);
-    }
-
-    // 4️⃣ Filtro de permissões (apenas se necessário)
-    if (usuario && usuario.role !== 'admin') {
-      const whatsappPerms = usuario.whatsapp_permissions || [];
-      if (whatsappPerms.length > 0) {
-        filtered = filtered.filter((thread) => {
-          if (!thread.whatsapp_integration_id) return true;
-          const perm = whatsappPerms.find((p) => p.integration_id === thread.whatsapp_integration_id);
-          return perm ? perm.can_view : false;
-        });
       }
-    }
 
-    // 5️⃣ Filtrar threads sem contato
-    return filtered.filter(thread => contatos.find(c => c.id === thread.contact_id));
-  }, [threads, contatos, usuario, selectedIntegrationId, selectedCategoria, debouncedSearchTerm, mensagensComCategoria]);
+      return true;
+    });
+  }, [threads, contatos, usuario?.id, usuario?.role, selectedIntegrationId, selectedCategoria, debouncedSearchTerm, mensagensComCategoria]);
 
-  const threadsComContato = threadsFiltradas.map((thread) => ({
-    ...thread,
-    contato: contatos.find((c) => c.id === thread.contact_id),
-    atendente_atribuido: atendentes.find((a) => a.id === thread.assigned_user_id)
-  }));
+  const threadsComContato = React.useMemo(() => {
+    const contatosMap = new Map(contatos.map(c => [c.id, c]));
+    const atendentesMap = new Map(atendentes.map(a => [a.id, a]));
+
+    return threadsFiltradas.map(thread => ({
+      ...thread,
+      contato: contatosMap.get(thread.contact_id),
+      atendente_atribuido: atendentesMap.get(thread.assigned_user_id)
+    }));
+  }, [threadsFiltradas, contatos, atendentes]);
 
   const isManager = usuario?.role === 'admin' || usuario?.role === 'supervisor';
   const contatoAtivo = threadAtiva ? contatos.find((c) => c.id === threadAtiva.contact_id) : null;
