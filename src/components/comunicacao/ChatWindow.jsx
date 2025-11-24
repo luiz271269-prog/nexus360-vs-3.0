@@ -1292,43 +1292,62 @@ export default function ChatWindow({
               if (m.metadata?.deleted) return true;
               if (m.metadata?.is_system_message) return true;
 
-              // ❌ BLOQUEAR @broadcast, @lid e status updates
-              if (m.content && (/@broadcast/i.test(m.content) || /@lid/i.test(m.content) || /status@/i.test(m.content))) {
+              const content = (m.content || '').trim();
+
+              // ❌ BLOQUEAR mensagens vazias primeiro
+              if (!content && (!m.media_url || m.media_type === 'none' || !m.media_type)) {
                 return false;
               }
 
-              // ❌ BLOQUEAR JIDs puros (ex: +105299763548377@lid, +status@broadcast)
-              if (m.content && /^[\+\d\s]+@(lid|broadcast|s\.whatsapp\.net|c\.us)/i.test(m.content.trim())) {
+              // ❌ BLOQUEAR qualquer coisa que contenha @broadcast, @lid, status@, @s.whatsapp.net, @c.us
+              if (/@(broadcast|lid|s\.whatsapp\.net|c\.us)|status@/i.test(content)) {
                 return false;
               }
 
-              // ❌ BLOQUEAR nomes de contatos genéricos que são JIDs
-              if (m.content && /^Referência\s+/i.test(m.content) && !m.media_url) {
+              // ❌ BLOQUEAR JIDs iniciando com + seguido de números e @
+              if (/^[\+\d\s]+@/i.test(content)) {
+                return false;
+              }
+
+              // ❌ BLOQUEAR mensagens que são apenas números de telefone com @
+              if (/^\+?\d+@/i.test(content)) {
+                return false;
+              }
+
+              // ❌ BLOQUEAR "Adicionar", "Referência" isolados
+              if (/^(Adicionar|Referência)$/i.test(content)) {
                 return false;
               }
 
               // ❌ BLOQUEAR mensagens sem conteúdo válido
               const conteudoInvalido = [
                 'Mídia enviada',
+                'Adicionar',
+                'Referência',
                 '[No content]',
                 '[Message content missing]',
                 '[Recovered message]',
+                'Media enviada',
                 ''
               ];
 
-              const conteudoVazio = !m.content || 
-                                   conteudoInvalido.includes(m.content?.trim()) ||
-                                   m.content.trim() === '' ||
-                                   m.content.startsWith('[Media type:');
+              if (conteudoInvalido.includes(content)) {
+                return false;
+              }
 
-              // Se conteúdo vazio E sem mídia válida = BLOQUEAR
-              if (conteudoVazio && (!m.media_url || m.media_type === 'none' || !m.media_type)) {
+              // ❌ BLOQUEAR se contém apenas caracteres especiais e números
+              if (/^[\+\-\s\d@\.]+$/.test(content) && content.length < 50) {
+                return false;
+              }
+
+              // ❌ BLOQUEAR conteúdo que começa com [Media type:
+              if (content.startsWith('[Media type:')) {
                 return false;
               }
 
               // ✅ Tipos especiais que podem não ter media_url
               const tiposEspeciais = ['contact', 'location'];
-              if (tiposEspeciais.includes(m.media_type) && m.content && !conteudoVazio) {
+              if (tiposEspeciais.includes(m.media_type) && content && content.length > 0) {
                 return true;
               }
 
@@ -1337,8 +1356,8 @@ export default function ChatWindow({
                 return true;
               }
 
-              // ✅ Mensagens com texto válido
-              if (!conteudoVazio) {
+              // ✅ Mensagens com texto válido (mínimo 1 caractere)
+              if (content && content.length > 0) {
                 return true;
               }
 
