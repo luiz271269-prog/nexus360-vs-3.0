@@ -1315,47 +1315,76 @@ export default function ChatWindow({
 
           return mensagensFiltradas.
           filter((m) => {
-            // ✅ SEMPRE MOSTRAR mensagens deletadas e de sistema
+            // ✅ SEMPRE MOSTRAR mensagens deletadas e de sistema legítimas
             if (m.metadata?.deleted) return true;
             if (m.metadata?.is_system_message) return true;
 
-            // ❌ BLOQUEAR @broadcast, @lid e status updates
-            if (m.content && (/@broadcast/i.test(m.content) || /@lid/i.test(m.content) || /status@/i.test(m.content))) {
+            const content = (m.content || '').trim();
+
+            // ❌ BLOQUEAR IMEDIATAMENTE: mensagens vazias sem mídia
+            if (!content && (!m.media_url || m.media_type === 'none' || !m.media_type)) {
               return false;
             }
 
-            // ❌ BLOQUEAR JIDs puros (ex: +105299763548377@lid, +status@broadcast)
-            if (m.content && /^[\+\d\s]+@(lid|broadcast|s\.whatsapp\.net|c\.us)/i.test(m.content.trim())) {
+            // ❌ BLOQUEAR: +status@broadcast e variações
+            if (/[\+\-\d\s]*status@broadcast/i.test(content)) {
               return false;
             }
 
-            // ❌ BLOQUEAR nomes de contatos genéricos que são JIDs
-            if (m.content && /^Referência\s+/i.test(m.content) && !m.media_url) {
+            // ❌ BLOQUEAR: qualquer JID do WhatsApp (@broadcast, @lid, @s.whatsapp.net, @c.us)
+            if (/@(broadcast|lid|s\.whatsapp\.net|c\.us)/i.test(content)) {
               return false;
             }
 
-            // ❌ BLOQUEAR mensagens sem conteúdo válido
+            // ❌ BLOQUEAR: status@ em qualquer posição
+            if (/status@/i.test(content)) {
+              return false;
+            }
+
+            // ❌ BLOQUEAR: JIDs iniciando com números/símbolos seguidos de @
+            if (/^[\+\-\d\s]+@/i.test(content)) {
+              return false;
+            }
+
+            // ❌ BLOQUEAR: apenas números e @ (telefones com @)
+            if (/^\+?\d+@/i.test(content)) {
+              return false;
+            }
+
+            // ❌ BLOQUEAR: palavras específicas isoladas
+            if (/^(Adicionar|Referência|Mídia enviada|Media enviada)$/i.test(content)) {
+              return false;
+            }
+
+            // ❌ BLOQUEAR: lista de conteúdos inválidos
             const conteudoInvalido = [
-            'Mídia enviada',
-            '[No content]',
-            '[Message content missing]',
-            '[Recovered message]',
-            ''];
+              'Mídia enviada',
+              'Media enviada',
+              'Adicionar',
+              'Referência',
+              '[No content]',
+              '[Message content missing]',
+              '[Recovered message]',
+              ''
+            ];
 
-
-            const conteudoVazio = !m.content ||
-            conteudoInvalido.includes(m.content?.trim()) ||
-            m.content.trim() === '' ||
-            m.content.startsWith('[Media type:');
-
-            // Se conteúdo vazio E sem mídia válida = BLOQUEAR
-            if (conteudoVazio && (!m.media_url || m.media_type === 'none' || !m.media_type)) {
+            if (conteudoInvalido.includes(content)) {
               return false;
             }
 
-            // ✅ Tipos especiais que podem não ter media_url
+            // ❌ BLOQUEAR: apenas caracteres especiais e números (sem texto real)
+            if (/^[\+\-\s\d@\.]+$/.test(content) && content.length < 50) {
+              return false;
+            }
+
+            // ❌ BLOQUEAR: prefixos inválidos
+            if (content.startsWith('[Media type:')) {
+              return false;
+            }
+
+            // ✅ Tipos especiais de mensagem (contato, localização)
             const tiposEspeciais = ['contact', 'location'];
-            if (tiposEspeciais.includes(m.media_type) && m.content && !conteudoVazio) {
+            if (tiposEspeciais.includes(m.media_type) && content.length > 0) {
               return true;
             }
 
@@ -1364,12 +1393,12 @@ export default function ChatWindow({
               return true;
             }
 
-            // ✅ Mensagens com texto válido
-            if (!conteudoVazio) {
+            // ✅ Mensagens com texto válido (mínimo 1 caractere real)
+            if (content.length > 0) {
               return true;
             }
 
-            // ❌ Caso contrário, bloquear
+            // ❌ Bloquear tudo que não passou pelos filtros acima
             return false;
           }).
           map((mensagem, index) => {
