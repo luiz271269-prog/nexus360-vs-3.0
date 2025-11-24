@@ -1148,9 +1148,10 @@ export default function ChatWindow({
             </div>
           </div>
 
-          {/* Cards de Classificação à Direita - 1cm altura */}
+          {/* Cards de Classificação à Direita - Padronizados */}
           <div className="flex gap-2 overflow-x-auto flex-1 justify-end">
-            <div className="bg-gradient-to-r from-orange-500 to-red-500 text-white rounded-lg px-3 shadow h-[1cm] flex items-center gap-2 flex-shrink-0">
+            {/* Card Tipo */}
+            <div className="bg-gradient-to-br from-blue-500 to-blue-600 text-white rounded-lg px-3 shadow-md h-[1cm] flex items-center gap-2 flex-shrink-0 hover:shadow-lg transition-shadow">
               <Tag className="w-4 h-4" />
               <div className="flex flex-col justify-center">
                 <span className="text-[10px] font-semibold opacity-90">Tipo</span>
@@ -1167,8 +1168,9 @@ export default function ChatWindow({
               </div>
             </div>
 
+            {/* Card Atendente Fornecedor */}
             {contatoCompleto?.tipo_contato === 'fornecedor' &&
-            <div className="bg-purple-500 text-white rounded-lg px-3 shadow h-[1cm] flex items-center gap-2 flex-shrink-0">
+            <div className="bg-gradient-to-br from-purple-500 to-purple-600 text-white rounded-lg px-3 shadow-md h-[1cm] flex items-center gap-2 flex-shrink-0 hover:shadow-lg transition-shadow">
                 <User className="w-4 h-4" />
                 <div className="flex flex-col justify-center">
                   <span className="text-[10px] font-semibold opacity-90">Atendente</span>
@@ -1185,8 +1187,9 @@ export default function ChatWindow({
               </div>
             }
 
+            {/* Card Atendente Cliente */}
             {contatoCompleto?.tipo_contato === 'cliente' &&
-            <div className="bg-purple-500 text-white rounded-lg px-3 shadow h-[1cm] flex items-center gap-2 flex-shrink-0">
+            <div className="bg-gradient-to-br from-purple-500 to-purple-600 text-white rounded-lg px-3 shadow-md h-[1cm] flex items-center gap-2 flex-shrink-0 hover:shadow-lg transition-shadow">
                 <User className="w-4 h-4" />
                 <div className="flex flex-col justify-center">
                   <span className="text-[10px] font-semibold opacity-90">Atendente</span>
@@ -1203,7 +1206,8 @@ export default function ChatWindow({
               </div>
             }
 
-            <div className="bg-amber-500 text-white rounded-lg px-3 shadow h-[1cm] flex items-center gap-2 flex-shrink-0">
+            {/* Card Vendedor */}
+            <div className="bg-gradient-to-br from-emerald-500 to-emerald-600 text-white rounded-lg px-3 shadow-md h-[1cm] flex items-center gap-2 flex-shrink-0 hover:shadow-lg transition-shadow">
               <Briefcase className="w-4 h-4" />
               <div className="flex flex-col justify-center">
                 <span className="text-[10px] font-semibold opacity-90">Vendedor</span>
@@ -1219,8 +1223,9 @@ export default function ChatWindow({
               </div>
             </div>
 
+            {/* Card Transferir */}
             {canManageConversation && podeTransferirConversas &&
-            <div className="bg-gradient-to-r from-blue-500 to-indigo-500 text-white rounded-lg px-3 shadow h-[1cm] flex items-center gap-2 flex-shrink-0">
+            <div className="bg-gradient-to-br from-amber-500 to-amber-600 text-white rounded-lg px-3 shadow-md h-[1cm] flex items-center gap-2 flex-shrink-0 hover:shadow-lg transition-shadow">
                 <Users className="w-4 h-4" />
                 <div className="flex flex-col justify-center">
                   <span className="text-[10px] font-semibold opacity-90">Ação</span>
@@ -1235,10 +1240,10 @@ export default function ChatWindow({
             }
           </div>
 
-          {/* Botão de Info */}
+          {/* Botão Ver Detalhes */}
           <div
             onClick={onShowContactInfo}
-            className="bg-gradient-to-r from-slate-600 to-slate-700 text-white rounded-lg px-3 shadow h-[1cm] flex items-center gap-2 hover:from-slate-700 hover:to-slate-800 transition-all cursor-pointer flex-shrink-0">
+            className="bg-gradient-to-br from-slate-600 to-slate-700 text-white rounded-lg px-3 shadow-md h-[1cm] flex items-center gap-2 hover:from-slate-700 hover:to-slate-800 hover:shadow-lg transition-all cursor-pointer flex-shrink-0">
 
             <Info className="w-4 h-4" />
             <div className="flex flex-col justify-center">
