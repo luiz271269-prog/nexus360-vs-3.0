@@ -20,8 +20,8 @@ import {
   Video,
   Tag,
   User,
-  Briefcase
-} from "lucide-react";
+  Briefcase } from
+"lucide-react";
 import MessageBubble from "./MessageBubble";
 import { base44 } from "@/api/base44Client";
 import { toast } from "sonner";
@@ -31,16 +31,16 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
-  DialogDescription,
-} from "@/components/ui/dialog";
+  DialogDescription } from
+"@/components/ui/dialog";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+  DropdownMenuTrigger } from
+"@/components/ui/dropdown-menu";
 import SugestorRespostasRapidas from './SugestorRespostasRapidas';
 import { useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
@@ -93,19 +93,19 @@ export default function ChatWindow({
   const unreadSeparatorRef = useRef(null);
 
   const permissoes = usuario?.permissoes_comunicacao || {};
-  
+
   // ✅ VERIFICAR PERMISSÕES ESPECÍFICAS DA INSTÂNCIA
   const getPermissaoInstancia = (permissionKey) => {
     if (!thread?.whatsapp_integration_id || !usuario) return true; // Sem restrições se não tiver thread
     if (usuario.role === 'admin') return true; // Admin sempre pode tudo
-    
+
     const whatsappPerms = usuario.whatsapp_permissions || [];
     if (whatsappPerms.length === 0) return true; // Sem restrições configuradas
-    
-    const perm = whatsappPerms.find(p => p.integration_id === thread.whatsapp_integration_id);
+
+    const perm = whatsappPerms.find((p) => p.integration_id === thread.whatsapp_integration_id);
     return perm ? perm[permissionKey] : false;
   };
-  
+
   const podeEnviarPorInstancia = getPermissaoInstancia('can_send');
   const podeEnviarMensagens = permissoes.pode_enviar_mensagens !== false && podeEnviarPorInstancia;
   const podeEnviarMidias = permissoes.pode_enviar_midias !== false && podeEnviarPorInstancia;
@@ -120,9 +120,9 @@ export default function ChatWindow({
     const carregarDados = async () => {
       try {
         const [vend, atend] = await Promise.all([
-          base44.entities.Vendedor.list('nome'),
-          base44.entities.User.filter({ is_whatsapp_attendant: true }, 'full_name')
-        ]);
+        base44.entities.Vendedor.list('nome'),
+        base44.entities.User.filter({ is_whatsapp_attendant: true }, 'full_name')]
+        );
         setVendedores(vend);
         setAtendentesLista(atend);
       } catch (error) {
@@ -150,9 +150,9 @@ export default function ChatWindow({
         // Só busca se:
         // 1. Não tem foto OU
         // 2. Foto foi atualizada há mais de 24 horas
-        const deveBuscarFoto = !contato.foto_perfil_url || 
-          !contato.foto_perfil_atualizada_em ||
-          (new Date() - new Date(contato.foto_perfil_atualizada_em)) > (24 * 60 * 60 * 1000);
+        const deveBuscarFoto = !contato.foto_perfil_url ||
+        !contato.foto_perfil_atualizada_em ||
+        new Date() - new Date(contato.foto_perfil_atualizada_em) > 24 * 60 * 60 * 1000;
 
         if (thread.whatsapp_integration_id && contato.telefone && deveBuscarFoto) {
           // ⚡ Busca em background (não bloqueia a UI)
@@ -166,7 +166,7 @@ export default function ChatWindow({
 
               if (resultado?.data?.success && resultado?.data?.profilePictureUrl) {
                 console.log('✅ Foto encontrada, atualizando...');
-                
+
                 // Atualizar no banco
                 await base44.entities.Contact.update(contato.id, {
                   foto_perfil_url: resultado.data.profilePictureUrl,
@@ -174,7 +174,7 @@ export default function ChatWindow({
                 });
 
                 // Atualizar estado local
-                setContatoCompleto(prev => ({
+                setContatoCompleto((prev) => ({
                   ...prev,
                   foto_perfil_url: resultado.data.profilePictureUrl,
                   foto_perfil_atualizada_em: new Date().toISOString()
@@ -190,7 +190,7 @@ export default function ChatWindow({
         }
       } catch (error) {
         console.error('❌ [ChatWindow] Erro ao carregar contato:', error);
-        
+
         if (error.message?.includes('Rate limit') || error.message?.includes('429')) {
           toast.warning('⏳ Muitas requisições. Aguarde alguns segundos...', { duration: 5000 });
         } else {
@@ -208,7 +208,7 @@ export default function ChatWindow({
   // Inicializar canal selecionado com o da thread
   useEffect(() => {
     if (thread?.whatsapp_integration_id && integracoes.length > 0) {
-      const integracaoAtual = integracoes.find(i => i.id === thread.whatsapp_integration_id);
+      const integracaoAtual = integracoes.find((i) => i.id === thread.whatsapp_integration_id);
       if (integracaoAtual) {
         setCanalSelecionado(integracaoAtual.id);
       }
@@ -247,7 +247,7 @@ export default function ChatWindow({
 
     setAtribuindo(true);
     try {
-      const atendenteEscolhido = atendentes.find(a => a.id === atendenteId);
+      const atendenteEscolhido = atendentes.find((a) => a.id === atendenteId);
 
       if (!atendenteEscolhido) {
         throw new Error("Atendente não encontrado");
@@ -294,9 +294,9 @@ export default function ChatWindow({
       });
 
       toast.success(
-        thread.assigned_user_id
-          ? `✅ Conversa transferida para ${atendenteEscolhido.full_name}`
-          : `✅ Conversa atribuída a ${atendenteEscolhido.full_name}`
+        thread.assigned_user_id ?
+        `✅ Conversa transferida para ${atendenteEscolhido.full_name}` :
+        `✅ Conversa atribuída a ${atendenteEscolhido.full_name}`
       );
 
       setMostrarModalAtribuicao(false);
@@ -342,7 +342,7 @@ export default function ChatWindow({
         const audioBlob = new Blob(chunks, { type: 'audio/ogg; codecs=opus' });
 
         if (audioStreamRef.current) {
-          audioStreamRef.current.getTracks().forEach(track => track.stop());
+          audioStreamRef.current.getTracks().forEach((track) => track.stop());
           audioStreamRef.current = null;
         }
 
@@ -409,7 +409,7 @@ export default function ChatWindow({
       const audioUrl = uploadResponse.file_url;
 
       const integrationIdParaUso = canalSelecionado || thread.whatsapp_integration_id;
-      
+
       const dadosEnvio = {
         integration_id: integrationIdParaUso,
         numero_destino: telefone,
@@ -515,13 +515,13 @@ export default function ChatWindow({
 
       const mensagemParaEnviar = mensagemTexto.trim();
       const integrationIdParaUso = canalSelecionado || thread.whatsapp_integration_id;
-      
+
       console.log('[CHAT] 📤 Enviando com integração:', {
         thread_integration: thread.whatsapp_integration_id,
         canal_selecionado: canalSelecionado,
         integration_id_usado: integrationIdParaUso
       });
-      
+
       const dadosEnvio = {
         integration_id: integrationIdParaUso,
         numero_destino: telefone,
@@ -635,9 +635,9 @@ export default function ChatWindow({
   };
 
   const toggleSelecionarMensagem = (mensagemId) => {
-    setMensagensSelecionadas(prev => {
+    setMensagensSelecionadas((prev) => {
       if (prev.includes(mensagemId)) {
-        return prev.filter(id => id !== mensagemId);
+        return prev.filter((id) => id !== mensagemId);
       } else {
         return [...prev, mensagemId];
       }
@@ -666,7 +666,7 @@ export default function ChatWindow({
 
       for (const mensagemId of mensagensSelecionadas) {
         try {
-          const messageToDelete = mensagens.find(m => m.id === mensagemId);
+          const messageToDelete = mensagens.find((m) => m.id === mensagemId);
           if (!messageToDelete || !messageToDelete.whatsapp_message_id) {
             erros++;
             continue;
@@ -779,7 +779,7 @@ export default function ChatWindow({
 
     const marcarComoLida = async () => {
       const mensagensNaoLidas = mensagens.filter(
-        m => m.sender_type === 'contact' && m.status !== 'lida' && m.status !== 'apagada'
+        (m) => m.sender_type === 'contact' && m.status !== 'lida' && m.status !== 'apagada'
       );
 
       if (mensagensNaoLidas.length === 0) return;
@@ -821,7 +821,7 @@ export default function ChatWindow({
     if (!mensagens.length) return;
 
     const primeiraLidaIndex = mensagens.findIndex(
-      m => m.sender_type === 'contact' && m.status !== 'lida' && m.status !== 'apagada'
+      (m) => m.sender_type === 'contact' && m.status !== 'lida' && m.status !== 'apagada'
     );
 
     // Delay maior para garantir DOM renderizado
@@ -843,7 +843,7 @@ export default function ChatWindow({
     }, 300);
 
     return () => clearTimeout(timer);
-    }, [mensagens, thread?.id, thread?.unread_count]);
+  }, [mensagens, thread?.id, thread?.unread_count]);
 
   useEffect(() => {
     if (mensagens && mensagens.length > 0) {
@@ -897,9 +897,9 @@ export default function ChatWindow({
       }
 
       const tipoRemetente = mensagem.sender_type === 'user' ? 'Atendente' : 'Cliente';
-      const nomeRemetente = mensagem.sender_type === 'user' 
-        ? (usuario?.full_name || 'Atendente') 
-        : (contatoCompleto?.nome || 'Cliente');
+      const nomeRemetente = mensagem.sender_type === 'user' ?
+      usuario?.full_name || 'Atendente' :
+      contatoCompleto?.nome || 'Cliente';
 
       // Extração inteligente de dados estruturados com IA
       let dadosExtraidos = null;
@@ -969,9 +969,9 @@ export default function ChatWindow({
     💬 Conteúdo da Mensagem:
     ${conteudoMensagem}`;
 
-      const observacoesFinal = dadosExtraidos?.observacoes_extraidas 
-        ? `${observacoesBase}\n\n📋 Observações Extraídas pela IA:\n${dadosExtraidos.observacoes_extraidas}\n\n---\n✅ Status inicial: Enviado (Aguardando resposta do cliente)\n🎯 Próximos passos: Revisar itens extraídos e enviar proposta formal`
-        : `${observacoesBase}\n\n---\n✅ Status inicial: Enviado (Aguardando resposta do cliente)\n🎯 Próximos passos: Adicionar itens, valores e enviar proposta formal`;
+      const observacoesFinal = dadosExtraidos?.observacoes_extraidas ?
+      `${observacoesBase}\n\n📋 Observações Extraídas pela IA:\n${dadosExtraidos.observacoes_extraidas}\n\n---\n✅ Status inicial: Enviado (Aguardando resposta do cliente)\n🎯 Próximos passos: Revisar itens extraídos e enviar proposta formal` :
+      `${observacoesBase}\n\n---\n✅ Status inicial: Enviado (Aguardando resposta do cliente)\n🎯 Próximos passos: Adicionar itens, valores e enviar proposta formal`;
 
       const queryParams = new URLSearchParams({
         origem: 'chat',
@@ -1030,8 +1030,8 @@ export default function ChatWindow({
           <p className="text-xl font-semibold text-slate-600">Selecione uma conversa</p>
           <p className="text-sm text-slate-400 mt-2">ou digite um número para criar contato</p>
         </div>
-      </div>
-    );
+      </div>);
+
   }
 
   if (carregandoContato) {
@@ -1041,16 +1041,16 @@ export default function ChatWindow({
           <Loader2 className="w-8 h-8 animate-spin text-orange-500 mx-auto mb-4" />
           <p className="text-slate-600">Carregando informações do contato...</p>
         </div>
-      </div>
-    );
+      </div>);
+
   }
 
   const handleAtualizarContato = async (campo, valor) => {
     if (!contatoCompleto || !podeTransferirConversas) return;
-    
+
     try {
       await base44.entities.Contact.update(contatoCompleto.id, { [campo]: valor });
-      setContatoCompleto(prev => ({ ...prev, [campo]: valor }));
+      setContatoCompleto((prev) => ({ ...prev, [campo]: valor }));
     } catch (error) {
       console.error('[ChatWindow] Erro ao atualizar contato:', error);
       toast.error('Erro ao atualizar');
@@ -1071,12 +1071,12 @@ export default function ChatWindow({
   const telefoneExibicao = contatoCompleto?.telefone || thread?.contato?.telefone || contatoCompleto?.celular || thread?.contato?.celular || 'Sem telefone';
 
   const tiposContato = [
-    { value: 'lead', label: 'Lead', icon: '🎯' },
-    { value: 'cliente', label: 'Cliente', icon: '💎' },
-    { value: 'fornecedor', label: 'Fornecedor', icon: '🏭' },
-    { value: 'parceiro', label: 'Parceiro', icon: '🤝' }
-  ];
-  const tipoAtual = tiposContato.find(t => t.value === contatoCompleto?.tipo_contato);
+  { value: 'lead', label: 'Lead', icon: '🎯' },
+  { value: 'cliente', label: 'Cliente', icon: '💎' },
+  { value: 'fornecedor', label: 'Fornecedor', icon: '🏭' },
+  { value: 'parceiro', label: 'Parceiro', icon: '🤝' }];
+
+  const tipoAtual = tiposContato.find((t) => t.value === contatoCompleto?.tipo_contato);
 
   const getInitials = (name) => {
     if (!name) return '?';
@@ -1100,32 +1100,32 @@ export default function ChatWindow({
   return (
     <div className="flex flex-col h-full bg-white">
       {/* Header com Cards de Classificação */}
-      <div className="border-b bg-gradient-to-r from-slate-50 to-blue-50 p-4 flex-shrink-0 space-y-3">
+      <div className="bg-[#d7cecc] p-4 rounded-md border-b from-slate-50 to-blue-50 flex-shrink-0 space-y-3">
         <div className="flex items-center gap-4">
           {/* Avatar e Nome à Esquerda */}
           <div className="flex items-center gap-3 flex-1">
             <div className="w-12 h-12 rounded-full flex items-center justify-center text-white font-bold text-lg shadow-lg flex-shrink-0 overflow-hidden relative bg-gradient-to-br from-amber-400 via-orange-500 to-red-500">
-              {contatoCompleto?.foto_perfil_url ? (
-                <img 
-                  src={contatoCompleto.foto_perfil_url} 
-                  alt={nomeContato}
-                  className="w-full h-full object-cover"
-                  onError={(e) => {
-                    console.warn('Erro ao carregar foto:', e);
-                    e.target.style.display = 'none';
-                  }}
-                />
-              ) : (
-                <span>{getInitials(nomeContato)}</span>
-              )}
+              {contatoCompleto?.foto_perfil_url ?
+              <img
+                src={contatoCompleto.foto_perfil_url}
+                alt={nomeContato}
+                className="w-full h-full object-cover"
+                onError={(e) => {
+                  console.warn('Erro ao carregar foto:', e);
+                  e.target.style.display = 'none';
+                }} /> :
+
+
+              <span>{getInitials(nomeContato)}</span>
+              }
             </div>
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2">
                 <h3 className="font-bold text-slate-900 truncate">{nomeContato}</h3>
-                <CategorizadorRapido 
+                <CategorizadorRapido
                   thread={thread}
-                  onUpdate={onAtualizarMensagens}
-                />
+                  onUpdate={onAtualizarMensagens} />
+
               </div>
               <p className="text-xs text-slate-500">{telefoneExibicao}</p>
             </div>
@@ -1141,50 +1141,50 @@ export default function ChatWindow({
                   value={contatoCompleto?.tipo_contato || 'lead'}
                   onChange={(e) => handleAtualizarContato('tipo_contato', e.target.value)}
                   className="bg-transparent border-0 text-white text-xs focus:outline-none cursor-pointer -mt-1"
-                  disabled={!podeTransferirConversas}
-                >
-                  {tiposContato.map(tipo => (
-                    <option key={tipo.value} value={tipo.value}>{tipo.icon} {tipo.label}</option>
-                  ))}
+                  disabled={!podeTransferirConversas}>
+
+                  {tiposContato.map((tipo) =>
+                  <option key={tipo.value} value={tipo.value}>{tipo.icon} {tipo.label}</option>
+                  )}
                 </select>
               </div>
             </div>
 
-            {contatoCompleto?.tipo_contato === 'fornecedor' && (
-              <div className="bg-purple-500 text-white rounded-lg px-3 shadow h-[1cm] flex items-center gap-2 flex-shrink-0">
+            {contatoCompleto?.tipo_contato === 'fornecedor' &&
+            <div className="bg-purple-500 text-white rounded-lg px-3 shadow h-[1cm] flex items-center gap-2 flex-shrink-0">
                 <User className="w-4 h-4" />
                 <div className="flex flex-col justify-center">
                   <span className="text-[10px] font-semibold opacity-90">Atendente</span>
                   <select
-                    value={contatoCompleto?.atendente_fidelizado_fornecedor || "nao"}
-                    onChange={(e) => handleAtualizarContato('atendente_fidelizado_fornecedor', e.target.value === "nao" ? "" : e.target.value)}
-                    className="bg-transparent border-0 text-white text-xs focus:outline-none cursor-pointer -mt-1"
-                    disabled={!podeTransferirConversas}
-                  >
-                    <option value="nao">Não atribuído</option>
-                    {atendentesLista.map(a => <option key={a.id} value={a.full_name}>{a.full_name}</option>)}
-                  </select>
-                </div>
-              </div>
-            )}
+                  value={contatoCompleto?.atendente_fidelizado_fornecedor || "nao"}
+                  onChange={(e) => handleAtualizarContato('atendente_fidelizado_fornecedor', e.target.value === "nao" ? "" : e.target.value)}
+                  className="bg-transparent border-0 text-white text-xs focus:outline-none cursor-pointer -mt-1"
+                  disabled={!podeTransferirConversas}>
 
-            {contatoCompleto?.tipo_contato === 'cliente' && (
-              <div className="bg-purple-500 text-white rounded-lg px-3 shadow h-[1cm] flex items-center gap-2 flex-shrink-0">
+                    <option value="nao">Não atribuído</option>
+                    {atendentesLista.map((a) => <option key={a.id} value={a.full_name}>{a.full_name}</option>)}
+                  </select>
+                </div>
+              </div>
+            }
+
+            {contatoCompleto?.tipo_contato === 'cliente' &&
+            <div className="bg-purple-500 text-white rounded-lg px-3 shadow h-[1cm] flex items-center gap-2 flex-shrink-0">
                 <User className="w-4 h-4" />
                 <div className="flex flex-col justify-center">
                   <span className="text-[10px] font-semibold opacity-90">Atendente</span>
                   <select
-                    value={contatoCompleto?.atendente_fidelizado_vendas || "nao"}
-                    onChange={(e) => handleAtualizarContato('atendente_fidelizado_vendas', e.target.value === "nao" ? "" : e.target.value)}
-                    className="bg-transparent border-0 text-white text-xs focus:outline-none cursor-pointer -mt-1"
-                    disabled={!podeTransferirConversas}
-                  >
+                  value={contatoCompleto?.atendente_fidelizado_vendas || "nao"}
+                  onChange={(e) => handleAtualizarContato('atendente_fidelizado_vendas', e.target.value === "nao" ? "" : e.target.value)}
+                  className="bg-transparent border-0 text-white text-xs focus:outline-none cursor-pointer -mt-1"
+                  disabled={!podeTransferirConversas}>
+
                     <option value="nao">Não atribuído</option>
-                    {atendentesLista.map(a => <option key={a.id} value={a.full_name}>{a.full_name}</option>)}
+                    {atendentesLista.map((a) => <option key={a.id} value={a.full_name}>{a.full_name}</option>)}
                   </select>
                 </div>
               </div>
-            )}
+            }
 
             <div className="bg-amber-500 text-white rounded-lg px-3 shadow h-[1cm] flex items-center gap-2 flex-shrink-0">
               <Briefcase className="w-4 h-4" />
@@ -1194,35 +1194,35 @@ export default function ChatWindow({
                   value={contatoCompleto?.vendedor_responsavel || "nao"}
                   onChange={(e) => handleAtualizarContato('vendedor_responsavel', e.target.value === "nao" ? "" : e.target.value)}
                   className="bg-transparent border-0 text-white text-xs focus:outline-none cursor-pointer -mt-1"
-                  disabled={!podeTransferirConversas}
-                >
+                  disabled={!podeTransferirConversas}>
+
                   <option value="nao">Não atribuído</option>
-                  {vendedores.map(v => <option key={v.id} value={v.nome}>{v.nome}</option>)}
+                  {vendedores.map((v) => <option key={v.id} value={v.nome}>{v.nome}</option>)}
                 </select>
               </div>
             </div>
 
-            {canManageConversation && podeTransferirConversas && (
-              <div className="bg-gradient-to-r from-blue-500 to-indigo-500 text-white rounded-lg px-3 shadow h-[1cm] flex items-center gap-2 flex-shrink-0">
+            {canManageConversation && podeTransferirConversas &&
+            <div className="bg-gradient-to-r from-blue-500 to-indigo-500 text-white rounded-lg px-3 shadow h-[1cm] flex items-center gap-2 flex-shrink-0">
                 <Users className="w-4 h-4" />
                 <div className="flex flex-col justify-center">
                   <span className="text-[10px] font-semibold opacity-90">Ação</span>
                   <button
-                    onClick={() => setMostrarModalAtribuicao(true)}
-                    className="bg-transparent border-0 text-white text-xs focus:outline-none cursor-pointer hover:opacity-90 transition-opacity -mt-1 text-left"
-                  >
+                  onClick={() => setMostrarModalAtribuicao(true)}
+                  className="bg-transparent border-0 text-white text-xs focus:outline-none cursor-pointer hover:opacity-90 transition-opacity -mt-1 text-left">
+
                     Transferir
                   </button>
                 </div>
               </div>
-            )}
+            }
           </div>
 
           {/* Botão de Info */}
-          <div 
+          <div
             onClick={onShowContactInfo}
-            className="bg-gradient-to-r from-slate-600 to-slate-700 text-white rounded-lg px-3 shadow h-[1cm] flex items-center gap-2 hover:from-slate-700 hover:to-slate-800 transition-all cursor-pointer flex-shrink-0"
-          >
+            className="bg-gradient-to-r from-slate-600 to-slate-700 text-white rounded-lg px-3 shadow h-[1cm] flex items-center gap-2 hover:from-slate-700 hover:to-slate-800 transition-all cursor-pointer flex-shrink-0">
+
             <Info className="w-4 h-4" />
             <div className="flex flex-col justify-center">
               <span className="text-[10px] font-semibold opacity-90">Ver</span>
@@ -1234,8 +1234,8 @@ export default function ChatWindow({
 
             </div>
 
-            {mensagemResposta && (
-        <div className="px-4 py-2 bg-blue-50 border-b border-blue-200 flex-shrink-0">
+            {mensagemResposta &&
+      <div className="px-4 py-2 bg-blue-50 border-b border-blue-200 flex-shrink-0">
           <div className="flex items-start justify-between gap-2">
             <div className="flex-1">
               <p className="text-xs text-blue-600 font-semibold mb-1">
@@ -1246,28 +1246,28 @@ export default function ChatWindow({
               </p>
             </div>
             <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => setMensagemResposta(null)}
-              className="h-6 w-6"
-            >
+            variant="ghost"
+            size="icon"
+            onClick={() => setMensagemResposta(null)}
+            className="h-6 w-6">
+
               <X className="w-4 h-4" />
             </Button>
           </div>
         </div>
-      )}
+      }
 
       <div ref={chatContainerRef} className="flex-1 overflow-y-auto p-4 space-y-3 bg-slate-50">
-        {mensagens.length === 0 ? (
-          <div className="flex items-center justify-center h-full">
+        {mensagens.length === 0 ?
+        <div className="flex items-center justify-center h-full">
             <p className="text-slate-400">Nenhuma mensagem ainda. Inicie a conversa!</p>
-          </div>
-        ) : (() => {
+          </div> :
+        (() => {
           // 🏷️ FILTRO POR CATEGORIA - Aplicado ANTES de todos os outros filtros
           let mensagensFiltradas = mensagens;
-          
+
           if (selectedCategoria && selectedCategoria !== 'all') {
-            mensagensFiltradas = mensagens.filter(m => {
+            mensagensFiltradas = mensagens.filter((m) => {
               const temCategoria = m.categorias && Array.isArray(m.categorias) && m.categorias.includes(selectedCategoria);
               return temCategoria;
             });
@@ -1282,135 +1282,116 @@ export default function ChatWindow({
                   <p className="text-slate-600 font-semibold">Nenhuma mensagem com esta etiqueta</p>
                   <p className="text-sm text-slate-400 mt-2">Remova o filtro para ver todas as mensagens</p>
                 </div>
-              </div>
-            );
+              </div>);
+
           }
 
-          return mensagensFiltradas
-            .filter(m => {
-              // ✅ SEMPRE MOSTRAR mensagens deletadas e de sistema
-              if (m.metadata?.deleted) return true;
-              if (m.metadata?.is_system_message) return true;
+          return mensagensFiltradas.
+          filter((m) => {
+            // ✅ SEMPRE MOSTRAR mensagens deletadas e de sistema
+            if (m.metadata?.deleted) return true;
+            if (m.metadata?.is_system_message) return true;
 
-              const content = (m.content || '').trim();
-
-              // ❌ BLOQUEAR mensagens vazias primeiro
-              if (!content && (!m.media_url || m.media_type === 'none' || !m.media_type)) {
-                return false;
-              }
-
-              // ❌ BLOQUEAR qualquer coisa que contenha @broadcast, @lid, status@, @s.whatsapp.net, @c.us
-              if (/@(broadcast|lid|s\.whatsapp\.net|c\.us)|status@/i.test(content)) {
-                return false;
-              }
-
-              // ❌ BLOQUEAR JIDs iniciando com + seguido de números e @
-              if (/^[\+\d\s]+@/i.test(content)) {
-                return false;
-              }
-
-              // ❌ BLOQUEAR mensagens que são apenas números de telefone com @
-              if (/^\+?\d+@/i.test(content)) {
-                return false;
-              }
-
-              // ❌ BLOQUEAR "Adicionar", "Referência" isolados
-              if (/^(Adicionar|Referência)$/i.test(content)) {
-                return false;
-              }
-
-              // ❌ BLOQUEAR mensagens sem conteúdo válido
-              const conteudoInvalido = [
-                'Mídia enviada',
-                'Adicionar',
-                'Referência',
-                '[No content]',
-                '[Message content missing]',
-                '[Recovered message]',
-                'Media enviada',
-                ''
-              ];
-
-              if (conteudoInvalido.includes(content)) {
-                return false;
-              }
-
-              // ❌ BLOQUEAR se contém apenas caracteres especiais e números
-              if (/^[\+\-\s\d@\.]+$/.test(content) && content.length < 50) {
-                return false;
-              }
-
-              // ❌ BLOQUEAR conteúdo que começa com [Media type:
-              if (content.startsWith('[Media type:')) {
-                return false;
-              }
-
-              // ✅ Tipos especiais que podem não ter media_url
-              const tiposEspeciais = ['contact', 'location'];
-              if (tiposEspeciais.includes(m.media_type) && content && content.length > 0) {
-                return true;
-              }
-
-              // ✅ Mensagens com mídia válida
-              if (m.media_url && m.media_type && m.media_type !== 'none') {
-                return true;
-              }
-
-              // ✅ Mensagens com texto válido (mínimo 1 caractere)
-              if (content && content.length > 0) {
-                return true;
-              }
-
-              // ❌ Caso contrário, bloquear
+            // ❌ BLOQUEAR @broadcast, @lid e status updates
+            if (m.content && (/@broadcast/i.test(m.content) || /@lid/i.test(m.content) || /status@/i.test(m.content))) {
               return false;
-            })
-            .map((mensagem, index) => {
-              const isFirstUnread =
-                mensagem.sender_type === 'contact' &&
-                mensagem.status !== 'lida' &&
-                mensagem.status !== 'apagada' &&
-                (index === 0 || (
-                  mensagens[index - 1] && (
-                    mensagens[index - 1].status === 'lida' ||
-                    mensagens[index - 1].status === 'apagada' ||
-                    mensagens[index - 1].sender_type === 'user'
-                  )
-                ));
+            }
 
-              return (
-                <React.Fragment key={mensagem.id}>
-                  {isFirstUnread && thread.unread_count > 0 && (
-                    <div
-                      ref={unreadSeparatorRef}
-                      className="flex items-center justify-center my-4"
-                    >
+            // ❌ BLOQUEAR JIDs puros (ex: +105299763548377@lid, +status@broadcast)
+            if (m.content && /^[\+\d\s]+@(lid|broadcast|s\.whatsapp\.net|c\.us)/i.test(m.content.trim())) {
+              return false;
+            }
+
+            // ❌ BLOQUEAR nomes de contatos genéricos que são JIDs
+            if (m.content && /^Referência\s+/i.test(m.content) && !m.media_url) {
+              return false;
+            }
+
+            // ❌ BLOQUEAR mensagens sem conteúdo válido
+            const conteudoInvalido = [
+            'Mídia enviada',
+            '[No content]',
+            '[Message content missing]',
+            '[Recovered message]',
+            ''];
+
+
+            const conteudoVazio = !m.content ||
+            conteudoInvalido.includes(m.content?.trim()) ||
+            m.content.trim() === '' ||
+            m.content.startsWith('[Media type:');
+
+            // Se conteúdo vazio E sem mídia válida = BLOQUEAR
+            if (conteudoVazio && (!m.media_url || m.media_type === 'none' || !m.media_type)) {
+              return false;
+            }
+
+            // ✅ Tipos especiais que podem não ter media_url
+            const tiposEspeciais = ['contact', 'location'];
+            if (tiposEspeciais.includes(m.media_type) && m.content && !conteudoVazio) {
+              return true;
+            }
+
+            // ✅ Mensagens com mídia válida
+            if (m.media_url && m.media_type && m.media_type !== 'none') {
+              return true;
+            }
+
+            // ✅ Mensagens com texto válido
+            if (!conteudoVazio) {
+              return true;
+            }
+
+            // ❌ Caso contrário, bloquear
+            return false;
+          }).
+          map((mensagem, index) => {
+            const isFirstUnread =
+            mensagem.sender_type === 'contact' &&
+            mensagem.status !== 'lida' &&
+            mensagem.status !== 'apagada' && (
+            index === 0 ||
+            mensagens[index - 1] && (
+            mensagens[index - 1].status === 'lida' ||
+            mensagens[index - 1].status === 'apagada' ||
+            mensagens[index - 1].sender_type === 'user'));
+
+
+
+            return (
+              <React.Fragment key={mensagem.id}>
+                  {isFirstUnread && thread.unread_count > 0 &&
+                <div
+                  ref={unreadSeparatorRef}
+                  className="flex items-center justify-center my-4">
+
                       <div className="flex-1 h-px bg-gradient-to-r from-transparent via-red-300 to-transparent"></div>
                       <span className="px-4 py-1 text-xs font-semibold text-red-600 bg-red-50 rounded-full border border-red-200 shadow-sm">
                         {thread.unread_count} {thread.unread_count === 1 ? 'mensagem não lida' : 'mensagens não lidas'}
                       </span>
                       <div className="flex-1 h-px bg-gradient-to-r from-transparent via-red-300 to-transparent"></div>
                     </div>
-                  )}
+                }
 
                   <MessageBubble
-                    message={mensagem}
-                    isOwn={mensagem.sender_type === 'user'}
-                    thread={thread}
-                    onResponder={handleResponderMensagem}
-                    modoSelecao={modoSelecao}
-                    selecionada={mensagensSelecionadas.includes(mensagem.id)}
-                    onToggleSelecao={() => toggleSelecionarMensagem(mensagem.id)}
-                    mensagens={mensagens}
-                  />
-                </React.Fragment>
-              );
-            });
+                  message={mensagem}
+                  isOwn={mensagem.sender_type === 'user'}
+                  thread={thread}
+                  onResponder={handleResponderMensagem}
+                  modoSelecao={modoSelecao}
+                  selecionada={mensagensSelecionadas.includes(mensagem.id)}
+                  onToggleSelecao={() => toggleSelecionarMensagem(mensagem.id)}
+                  mensagens={mensagens} />
+
+                </React.Fragment>);
+
+          });
         })()}
         <div ref={messagesEndRef} />
       </div>
 
-      {erro && (
-        <div className="px-4 py-2 bg-red-50 border-t border-red-200 flex-shrink-0">
+      {erro &&
+      <div className="px-4 py-2 bg-red-50 border-t border-red-200 flex-shrink-0">
           <Alert className="bg-transparent border-0 p-0">
             <AlertCircle className="h-4 w-4 text-red-600" />
             <AlertDescription className="text-sm text-red-800 ml-2">
@@ -1418,49 +1399,49 @@ export default function ChatWindow({
             </AlertDescription>
           </Alert>
         </div>
-      )}
+      }
 
       {/* Sistema de Anexos Melhorado */}
-      {mostrarMediaSystem && (
-        <MediaAttachmentSystem
-          onSend={() => {
-            setMostrarMediaSystem(false);
-            if (onAtualizarMensagens) {
-              setTimeout(async () => {
-                const novasMensagens = await base44.entities.Message.filter(
-                  { thread_id: thread.id },
-                  'created_date',
-                  500
-                );
-                onAtualizarMensagens(novasMensagens);
-              }, 500);
-            }
-          }}
-          disabled={enviando || carregandoContato || gravandoAudio || modoSelecao}
-          replyToMessage={mensagemResposta}
-          thread={thread}
-          usuario={usuario}
-        />
-      )}
+      {mostrarMediaSystem &&
+      <MediaAttachmentSystem
+        onSend={() => {
+          setMostrarMediaSystem(false);
+          if (onAtualizarMensagens) {
+            setTimeout(async () => {
+              const novasMensagens = await base44.entities.Message.filter(
+                { thread_id: thread.id },
+                'created_date',
+                500
+              );
+              onAtualizarMensagens(novasMensagens);
+            }, 500);
+          }
+        }}
+        disabled={enviando || carregandoContato || gravandoAudio || modoSelecao}
+        replyToMessage={mensagemResposta}
+        thread={thread}
+        usuario={usuario} />
+
+      }
 
       <form onSubmit={handleEnviar} className="p-4 border-t bg-white flex-shrink-0">
         {/* Seletor de Canal WhatsApp */}
-        {integracoes.length > 1 && (
-          <div className="mb-2 flex items-center gap-2">
+        {integracoes.length > 1 &&
+        <div className="mb-2 flex items-center gap-2">
             <label className="text-xs font-medium text-slate-600">Enviar por:</label>
             <select
-              value={canalSelecionado || thread.whatsapp_integration_id || ''}
-              onChange={(e) => setCanalSelecionado(e.target.value)}
-              className="text-xs px-2 py-1 border border-slate-300 rounded bg-white"
-            >
-              {integracoes.map(int => (
-                <option key={int.id} value={int.id}>
+            value={canalSelecionado || thread.whatsapp_integration_id || ''}
+            onChange={(e) => setCanalSelecionado(e.target.value)}
+            className="text-xs px-2 py-1 border border-slate-300 rounded bg-white">
+
+              {integracoes.map((int) =>
+            <option key={int.id} value={int.id}>
                   📱 {int.nome_instancia} ({int.numero_telefone})
                 </option>
-              ))}
+            )}
             </select>
           </div>
-        )}
+        }
         
         <div className="flex items-end gap-2">
           <Button
@@ -1470,8 +1451,8 @@ export default function ChatWindow({
             className="flex-shrink-0"
             disabled={enviando || carregandoContato || gravandoAudio || modoSelecao || !podeEnviarMidias}
             onClick={() => setMostrarMediaSystem(!mostrarMediaSystem)}
-            title={!podeEnviarMidias ? "Sem permissão para enviar mídias" : "Anexar arquivo"}
-          >
+            title={!podeEnviarMidias ? "Sem permissão para enviar mídias" : "Anexar arquivo"}>
+
             <Paperclip className="w-5 h-5 text-slate-600" />
           </Button>
 
@@ -1482,28 +1463,28 @@ export default function ChatWindow({
             className="flex-shrink-0"
             disabled={enviando || carregandoContato || modoSelecao || uploadingPastedFile || !podeEnviarAudios}
             onClick={gravandoAudio ? pararGravacaoAudio : iniciarGravacaoAudio}
-            title={!podeEnviarAudios ? "Sem permissão para enviar áudios" : (gravandoAudio ? "Parar gravação" : "Gravar áudio")}
-          >
-            {gravandoAudio ? (
-              <StopCircle className="w-5 h-5 animate-pulse" />
-            ) : (
-              <Mic className="w-5 h-5 text-slate-600" />
-            )}
+            title={!podeEnviarAudios ? "Sem permissão para enviar áudios" : gravandoAudio ? "Parar gravação" : "Gravar áudio"}>
+
+            {gravandoAudio ?
+            <StopCircle className="w-5 h-5 animate-pulse" /> :
+
+            <Mic className="w-5 h-5 text-slate-600" />
+            }
           </Button>
 
-          {ultimaMensagemCliente && podeEnviarMensagens && !mostrarSugestor && (
-            <Button
-              type="button"
-              onClick={() => setMostrarSugestor(true)}
-              variant="ghost"
-              size="icon"
-              className="flex-shrink-0 text-purple-600 hover:bg-purple-50"
-              title="Sugestões de IA"
-              disabled={enviando || carregandoContato || gravandoAudio || modoSelecao || uploadingPastedFile}
-            >
+          {ultimaMensagemCliente && podeEnviarMensagens && !mostrarSugestor &&
+          <Button
+            type="button"
+            onClick={() => setMostrarSugestor(true)}
+            variant="ghost"
+            size="icon"
+            className="flex-shrink-0 text-purple-600 hover:bg-purple-50"
+            title="Sugestões de IA"
+            disabled={enviando || carregandoContato || gravandoAudio || modoSelecao || uploadingPastedFile}>
+
               <Sparkles className="w-5 h-5" />
             </Button>
-          )}
+          }
 
           <div className="flex-1">
             <textarea
@@ -1514,38 +1495,38 @@ export default function ChatWindow({
               placeholder={!podeEnviarMensagens ? "Sem permissão para enviar mensagens" : "Digite sua mensagem..."}
               rows={Math.max(1, Math.min(5, mensagemTexto.split('\n').length))}
               className="w-full p-3 border border-slate-300 rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-orange-500"
-              disabled={enviando || carregandoContato || gravandoAudio || modoSelecao || uploadingPastedFile || !podeEnviarMensagens}
-            />
+              disabled={enviando || carregandoContato || gravandoAudio || modoSelecao || uploadingPastedFile || !podeEnviarMensagens} />
+
           </div>
           
           <Button
             type="submit"
             disabled={!mensagemTexto.trim() || enviando || carregandoContato || gravandoAudio || modoSelecao || uploadingPastedFile || !podeEnviarMensagens}
             className="bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white flex-shrink-0"
-            title={!podeEnviarMensagens ? "Sem permissão para enviar mensagens" : "Enviar mensagem"}
-          >
-            {enviando ? (
-              <Loader2 className="w-5 h-5 animate-spin" />
-            ) : (
-              <Send className="w-5 h-5" />
-            )}
+            title={!podeEnviarMensagens ? "Sem permissão para enviar mensagens" : "Enviar mensagem"}>
+
+            {enviando ?
+            <Loader2 className="w-5 h-5 animate-spin" /> :
+
+            <Send className="w-5 h-5" />
+            }
           </Button>
         </div>
 
-        {mostrarSugestor && (
-          <div className="mt-2 border border-purple-200 rounded-lg bg-purple-50/50 p-3">
+        {mostrarSugestor &&
+        <div className="mt-2 border border-purple-200 rounded-lg bg-purple-50/50 p-3">
             <SugestorRespostasRapidas
-              mensagemCliente={ultimaMensagemCliente}
-              threadId={thread.id}
-              contactId={thread.contact_id}
-              onUseResposta={(conteudo) => {
-                setMensagemTexto(conteudo);
-                setMostrarSugestor(false);
-              }}
-              onClose={() => setMostrarSugestor(false)}
-            />
+            mensagemCliente={ultimaMensagemCliente}
+            threadId={thread.id}
+            contactId={thread.contact_id}
+            onUseResposta={(conteudo) => {
+              setMensagemTexto(conteudo);
+              setMostrarSugestor(false);
+            }}
+            onClose={() => setMostrarSugestor(false)} />
+
           </div>
-        )}
+        }
       </form>
 
       {/* Modal removido - agora usa MediaAttachmentSystem */}
@@ -1563,27 +1544,27 @@ export default function ChatWindow({
           </DialogHeader>
 
           <div className="space-y-4 py-4">
-            {carregandoAtendentes ? (
-              <div className="flex items-center justify-center py-8">
+            {carregandoAtendentes ?
+            <div className="flex items-center justify-center py-8">
                 <Loader2 className="w-8 h-8 animate-spin text-orange-500" />
-              </div>
-            ) : atendentes.length === 0 ? (
-              <Alert>
+              </div> :
+            atendentes.length === 0 ?
+            <Alert>
                 <AlertCircle className="h-4 w-4" />
                 <AlertDescription>
                   Nenhum atendente disponível. Configure atendentes em Configurações.
                 </AlertDescription>
-              </Alert>
-            ) : (
-              <div className="grid gap-2">
-                {atendentes.map(atendente => (
-                  <Button
-                    key={atendente.id}
-                    onClick={() => handleAtribuirConversa(atendente.id)}
-                    disabled={atribuindo || thread?.assigned_user_id === atendente.id}
-                    variant="outline"
-                    className="w-full justify-start h-auto py-3"
-                  >
+              </Alert> :
+
+            <div className="grid gap-2">
+                {atendentes.map((atendente) =>
+              <Button
+                key={atendente.id}
+                onClick={() => handleAtribuirConversa(atendente.id)}
+                disabled={atribuindo || thread?.assigned_user_id === atendente.id}
+                variant="outline"
+                className="w-full justify-start h-auto py-3">
+
                     <div className="flex items-center gap-3 flex-1">
                       <div className="w-10 h-10 bg-gradient-to-br from-amber-400 to-orange-500 rounded-full flex items-center justify-center text-white font-bold">
                         {atendente.full_name?.charAt(0).toUpperCase() || '?'}
@@ -1592,17 +1573,17 @@ export default function ChatWindow({
                         <p className="font-semibold">{atendente.full_name}</p>
                         <p className="text-xs text-slate-500">{atendente.email}</p>
                       </div>
-                      {thread?.assigned_user_id === atendente.id && (
-                        <CheckSquare className="w-5 h-5 text-green-600" />
-                      )}
+                      {thread?.assigned_user_id === atendente.id &&
+                  <CheckSquare className="w-5 h-5 text-green-600" />
+                  }
                     </div>
                   </Button>
-                ))}
+              )}
               </div>
-            )}
+            }
           </div>
         </DialogContent>
       </Dialog>
-    </div>
-  );
+    </div>);
+
 }
