@@ -78,42 +78,47 @@ export default function Comunicacao() {
     queryFn: async () => {
       if (!usuario) return [];
 
-      let queryParams = {};
       const isManager = usuario.role === 'admin' || usuario.role === 'supervisor';
-
-      if (filterScope === 'my') {
-        queryParams = { assigned_user_id: usuario.id };
-      } else if (filterScope === 'unassigned') {
-        if (!isManager) return [];
-        queryParams = { assigned_user_id: null };
-      } else if (filterScope === 'specific_user' && selectedAttendantId) {
-        if (!isManager) return [];
-        if (selectedAttendantId === 'all_unfiltered') {
-          queryParams = {};
-        } else if (selectedAttendantId === 'unassigned_explicit') {
-          queryParams = { assigned_user_id: null };
-        } else {
-          queryParams = { assigned_user_id: selectedAttendantId };
-        }
-      } else if (filterScope === 'all') {
-        if (!isManager) return [];
-        queryParams = {};
-      }
-
       const allThreads = await base44.entities.MessageThread.list('-last_message_at', 200);
 
-      if (Object.keys(queryParams).length === 0) {
-        return allThreads;
+      // 🔐 FILTRO INTELIGENTE POR PERMISSÕES DE SETOR
+      let threadsPermitidas = allThreads;
+
+      if (!isManager && usuario.is_whatsapp_attendant) {
+        const setoresAtendente = usuario.whatsapp_setores || [];
+        
+        threadsPermitidas = allThreads.filter((thread) => {
+          // ✅ Conversas atribuídas ao atendente
+          if (thread.assigned_user_id === usuario.id) return true;
+          
+          // ✅ Conversas não atribuídas do setor do atendente
+          if (!thread.assigned_user_id && thread.sector_id && setoresAtendente.includes(thread.sector_id)) {
+            return true;
+          }
+          
+          return false;
+        });
+      } else if (!isManager && !usuario.is_whatsapp_attendant) {
+        // Usuário comum sem ser atendente - não vê nada
+        threadsPermitidas = [];
       }
 
-      return allThreads.filter((thread) => {
-        return Object.keys(queryParams).every((key) => {
-          if (queryParams[key] === null) {
-            return thread[key] === null || thread[key] === undefined;
-          }
-          return thread[key] === queryParams[key];
-        });
-      });
+      // 📌 APLICAR FILTROS ADICIONAIS (UI)
+      if (filterScope === 'my') {
+        return threadsPermitidas.filter(t => t.assigned_user_id === usuario.id);
+      } else if (filterScope === 'unassigned') {
+        return threadsPermitidas.filter(t => !t.assigned_user_id);
+      } else if (filterScope === 'specific_user' && selectedAttendantId) {
+        if (selectedAttendantId === 'all_unfiltered') {
+          return threadsPermitidas;
+        } else if (selectedAttendantId === 'unassigned_explicit') {
+          return threadsPermitidas.filter(t => !t.assigned_user_id);
+        } else {
+          return threadsPermitidas.filter(t => t.assigned_user_id === selectedAttendantId);
+        }
+      }
+
+      return threadsPermitidas;
     },
     refetchInterval: 10000,
     staleTime: 5000,
