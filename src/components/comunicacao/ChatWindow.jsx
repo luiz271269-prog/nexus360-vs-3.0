@@ -1262,131 +1262,130 @@ export default function ChatWindow({
           <div className="flex items-center justify-center h-full">
             <p className="text-slate-400">Nenhuma mensagem ainda. Inicie a conversa!</p>
           </div>
-        ) : (
-          (() => {
-            // 🏷️ FILTRO POR CATEGORIA - Aplicado ANTES de todos os outros filtros
-            let mensagensFiltradas = mensagens;
-            
-            if (selectedCategoria && selectedCategoria !== 'all') {
-              mensagensFiltradas = mensagens.filter(m => {
-                const temCategoria = m.categorias && Array.isArray(m.categorias) && m.categorias.includes(selectedCategoria);
-                return temCategoria;
-              });
-            }
+        ) : (() => {
+          // 🏷️ FILTRO POR CATEGORIA - Aplicado ANTES de todos os outros filtros
+          let mensagensFiltradas = mensagens;
+          
+          if (selectedCategoria && selectedCategoria !== 'all') {
+            mensagensFiltradas = mensagens.filter(m => {
+              const temCategoria = m.categorias && Array.isArray(m.categorias) && m.categorias.includes(selectedCategoria);
+              return temCategoria;
+            });
+          }
 
-            // Se não há mensagens após filtro de categoria, mostrar aviso
-            if (mensagensFiltradas.length === 0 && selectedCategoria && selectedCategoria !== 'all') {
-              return (
-                <div className="flex items-center justify-center h-full">
-                  <div className="text-center">
-                    <Tag className="w-16 h-16 text-slate-300 mx-auto mb-4" />
-                    <p className="text-slate-600 font-semibold">Nenhuma mensagem com esta etiqueta</p>
-                    <p className="text-sm text-slate-400 mt-2">Remova o filtro para ver todas as mensagens</p>
-                  </div>
-                </div>
-              );
-            }
-
-            return mensagensFiltradas
-              .filter(m => {
-                // ✅ SEMPRE MOSTRAR mensagens deletadas e de sistema
-                if (m.metadata?.deleted) return true;
-                if (m.metadata?.is_system_message) return true;
-
-                // ❌ BLOQUEAR @broadcast, @lid e status updates
-                if (m.content && (/@broadcast/i.test(m.content) || /@lid/i.test(m.content) || /status@/i.test(m.content))) {
-                  return false;
-                }
-
-                // ❌ BLOQUEAR JIDs puros (ex: +105299763548377@lid, +status@broadcast)
-                if (m.content && /^[\+\d\s]+@(lid|broadcast|s\.whatsapp\.net|c\.us)/i.test(m.content.trim())) {
-                  return false;
-                }
-
-                // ❌ BLOQUEAR nomes de contatos genéricos que são JIDs
-                if (m.content && /^Referência\s+/i.test(m.content) && !m.media_url) {
-                  return false;
-                }
-
-                // ❌ BLOQUEAR mensagens sem conteúdo válido
-                const conteudoInvalido = [
-                  'Mídia enviada',
-                  '[No content]',
-                  '[Message content missing]',
-                  '[Recovered message]',
-                  ''
-                ];
-
-                const conteudoVazio = !m.content || 
-                                     conteudoInvalido.includes(m.content?.trim()) ||
-                                     m.content.trim() === '' ||
-                                     m.content.startsWith('[Media type:');
-
-                // Se conteúdo vazio E sem mídia válida = BLOQUEAR
-                if (conteudoVazio && (!m.media_url || m.media_type === 'none' || !m.media_type)) {
-                  return false;
-                }
-
-                // ✅ Tipos especiais que podem não ter media_url
-                const tiposEspeciais = ['contact', 'location'];
-                if (tiposEspeciais.includes(m.media_type) && m.content && !conteudoVazio) {
-                  return true;
-                }
-
-                // ✅ Mensagens com mídia válida
-                if (m.media_url && m.media_type && m.media_type !== 'none') {
-                  return true;
-                }
-
-                // ✅ Mensagens com texto válido
-                if (!conteudoVazio) {
-                  return true;
-                }
-
-                // ❌ Caso contrário, bloquear
-                return false;
-              })
-              .map((mensagem, index) => {
-            const isFirstUnread =
-              mensagem.sender_type === 'contact' &&
-              mensagem.status !== 'lida' &&
-              mensagem.status !== 'apagada' &&
-              (index === 0 || (
-                mensagens[index - 1] && (
-                  mensagens[index - 1].status === 'lida' ||
-                  mensagens[index - 1].status === 'apagada' ||
-                  mensagens[index - 1].sender_type === 'user'
-                )
-              ));
-
+          // Se não há mensagens após filtro de categoria, mostrar aviso
+          if (mensagensFiltradas.length === 0 && selectedCategoria && selectedCategoria !== 'all') {
             return (
-              <React.Fragment key={mensagem.id}>
-                {isFirstUnread && thread.unread_count > 0 && (
-                  <div
-                    ref={unreadSeparatorRef}
-                    className="flex items-center justify-center my-4"
-                  >
-                    <div className="flex-1 h-px bg-gradient-to-r from-transparent via-red-300 to-transparent"></div>
-                    <span className="px-4 py-1 text-xs font-semibold text-red-600 bg-red-50 rounded-full border border-red-200 shadow-sm">
-                      {thread.unread_count} {thread.unread_count === 1 ? 'mensagem não lida' : 'mensagens não lidas'}
-                    </span>
-                    <div className="flex-1 h-px bg-gradient-to-r from-transparent via-red-300 to-transparent"></div>
-                  </div>
-                )}
-
-                <MessageBubble
-                  message={mensagem}
-                  isOwn={mensagem.sender_type === 'user'}
-                  thread={thread}
-                  onResponder={handleResponderMensagem}
-                  modoSelecao={modoSelecao}
-                  selecionada={mensagensSelecionadas.includes(mensagem.id)}
-                  onToggleSelecao={() => toggleSelecionarMensagem(mensagem.id)}
-                  mensagens={mensagens}
-                />
-              </React.Fragment>
+              <div className="flex items-center justify-center h-full">
+                <div className="text-center">
+                  <Tag className="w-16 h-16 text-slate-300 mx-auto mb-4" />
+                  <p className="text-slate-600 font-semibold">Nenhuma mensagem com esta etiqueta</p>
+                  <p className="text-sm text-slate-400 mt-2">Remova o filtro para ver todas as mensagens</p>
+                </div>
+              </div>
             );
-          });
+          }
+
+          return mensagensFiltradas
+            .filter(m => {
+              // ✅ SEMPRE MOSTRAR mensagens deletadas e de sistema
+              if (m.metadata?.deleted) return true;
+              if (m.metadata?.is_system_message) return true;
+
+              // ❌ BLOQUEAR @broadcast, @lid e status updates
+              if (m.content && (/@broadcast/i.test(m.content) || /@lid/i.test(m.content) || /status@/i.test(m.content))) {
+                return false;
+              }
+
+              // ❌ BLOQUEAR JIDs puros (ex: +105299763548377@lid, +status@broadcast)
+              if (m.content && /^[\+\d\s]+@(lid|broadcast|s\.whatsapp\.net|c\.us)/i.test(m.content.trim())) {
+                return false;
+              }
+
+              // ❌ BLOQUEAR nomes de contatos genéricos que são JIDs
+              if (m.content && /^Referência\s+/i.test(m.content) && !m.media_url) {
+                return false;
+              }
+
+              // ❌ BLOQUEAR mensagens sem conteúdo válido
+              const conteudoInvalido = [
+                'Mídia enviada',
+                '[No content]',
+                '[Message content missing]',
+                '[Recovered message]',
+                ''
+              ];
+
+              const conteudoVazio = !m.content || 
+                                   conteudoInvalido.includes(m.content?.trim()) ||
+                                   m.content.trim() === '' ||
+                                   m.content.startsWith('[Media type:');
+
+              // Se conteúdo vazio E sem mídia válida = BLOQUEAR
+              if (conteudoVazio && (!m.media_url || m.media_type === 'none' || !m.media_type)) {
+                return false;
+              }
+
+              // ✅ Tipos especiais que podem não ter media_url
+              const tiposEspeciais = ['contact', 'location'];
+              if (tiposEspeciais.includes(m.media_type) && m.content && !conteudoVazio) {
+                return true;
+              }
+
+              // ✅ Mensagens com mídia válida
+              if (m.media_url && m.media_type && m.media_type !== 'none') {
+                return true;
+              }
+
+              // ✅ Mensagens com texto válido
+              if (!conteudoVazio) {
+                return true;
+              }
+
+              // ❌ Caso contrário, bloquear
+              return false;
+            })
+            .map((mensagem, index) => {
+              const isFirstUnread =
+                mensagem.sender_type === 'contact' &&
+                mensagem.status !== 'lida' &&
+                mensagem.status !== 'apagada' &&
+                (index === 0 || (
+                  mensagens[index - 1] && (
+                    mensagens[index - 1].status === 'lida' ||
+                    mensagens[index - 1].status === 'apagada' ||
+                    mensagens[index - 1].sender_type === 'user'
+                  )
+                ));
+
+              return (
+                <React.Fragment key={mensagem.id}>
+                  {isFirstUnread && thread.unread_count > 0 && (
+                    <div
+                      ref={unreadSeparatorRef}
+                      className="flex items-center justify-center my-4"
+                    >
+                      <div className="flex-1 h-px bg-gradient-to-r from-transparent via-red-300 to-transparent"></div>
+                      <span className="px-4 py-1 text-xs font-semibold text-red-600 bg-red-50 rounded-full border border-red-200 shadow-sm">
+                        {thread.unread_count} {thread.unread_count === 1 ? 'mensagem não lida' : 'mensagens não lidas'}
+                      </span>
+                      <div className="flex-1 h-px bg-gradient-to-r from-transparent via-red-300 to-transparent"></div>
+                    </div>
+                  )}
+
+                  <MessageBubble
+                    message={mensagem}
+                    isOwn={mensagem.sender_type === 'user'}
+                    thread={thread}
+                    onResponder={handleResponderMensagem}
+                    modoSelecao={modoSelecao}
+                    selecionada={mensagensSelecionadas.includes(mensagem.id)}
+                    onToggleSelecao={() => toggleSelecionarMensagem(mensagem.id)}
+                    mensagens={mensagens}
+                  />
+                </React.Fragment>
+              );
+            });
         })()}
         <div ref={messagesEndRef} />
       </div>
