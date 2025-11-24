@@ -1263,81 +1263,89 @@ export default function ChatWindow({
             <p className="text-slate-400">Nenhuma mensagem ainda. Inicie a conversa!</p>
           </div>
         ) : (
-          mensagens
-            .filter(m => {
-              // 🏷️ FILTRO POR CATEGORIA SELECIONADA (PRIMEIRO FILTRO)
-              if (selectedCategoria && selectedCategoria !== 'all') {
+          (() => {
+            // 🏷️ FILTRO POR CATEGORIA - Aplicado ANTES de todos os outros filtros
+            let mensagensFiltradas = mensagens;
+            
+            if (selectedCategoria && selectedCategoria !== 'all') {
+              mensagensFiltradas = mensagens.filter(m => {
                 const temCategoria = m.categorias && Array.isArray(m.categorias) && m.categorias.includes(selectedCategoria);
-                console.log('[FILTRO] 🏷️ Mensagem ID:', m.id, 
-                  'Content:', m.content?.substring(0, 30), 
-                  'Categorias:', JSON.stringify(m.categorias), 
-                  'Filtro:', selectedCategoria, 
-                  'Tipo categorias:', typeof m.categorias,
-                  'É array?', Array.isArray(m.categorias),
-                  'Passou?', temCategoria);
-                if (!temCategoria) {
+                return temCategoria;
+              });
+            }
+
+            // Se não há mensagens após filtro de categoria, mostrar aviso
+            if (mensagensFiltradas.length === 0 && selectedCategoria && selectedCategoria !== 'all') {
+              return (
+                <div className="flex items-center justify-center h-full">
+                  <div className="text-center">
+                    <Tag className="w-16 h-16 text-slate-300 mx-auto mb-4" />
+                    <p className="text-slate-600 font-semibold">Nenhuma mensagem com esta etiqueta</p>
+                    <p className="text-sm text-slate-400 mt-2">Remova o filtro para ver todas as mensagens</p>
+                  </div>
+                </div>
+              );
+            }
+
+            return mensagensFiltradas
+              .filter(m => {
+                // ✅ SEMPRE MOSTRAR mensagens deletadas e de sistema
+                if (m.metadata?.deleted) return true;
+                if (m.metadata?.is_system_message) return true;
+
+                // ❌ BLOQUEAR @broadcast, @lid e status updates
+                if (m.content && (/@broadcast/i.test(m.content) || /@lid/i.test(m.content) || /status@/i.test(m.content))) {
                   return false;
                 }
-              }
 
-              // ✅ SEMPRE MOSTRAR mensagens deletadas e de sistema (SE PASSAR NO FILTRO DE CATEGORIA)
-              if (m.metadata?.deleted) return true;
-              if (m.metadata?.is_system_message) return true;
+                // ❌ BLOQUEAR JIDs puros (ex: +105299763548377@lid, +status@broadcast)
+                if (m.content && /^[\+\d\s]+@(lid|broadcast|s\.whatsapp\.net|c\.us)/i.test(m.content.trim())) {
+                  return false;
+                }
 
-              // ❌ BLOQUEAR @broadcast, @lid e status updates
-              if (m.content && (/@broadcast/i.test(m.content) || /@lid/i.test(m.content) || /status@/i.test(m.content))) {
+                // ❌ BLOQUEAR nomes de contatos genéricos que são JIDs
+                if (m.content && /^Referência\s+/i.test(m.content) && !m.media_url) {
+                  return false;
+                }
+
+                // ❌ BLOQUEAR mensagens sem conteúdo válido
+                const conteudoInvalido = [
+                  'Mídia enviada',
+                  '[No content]',
+                  '[Message content missing]',
+                  '[Recovered message]',
+                  ''
+                ];
+
+                const conteudoVazio = !m.content || 
+                                     conteudoInvalido.includes(m.content?.trim()) ||
+                                     m.content.trim() === '' ||
+                                     m.content.startsWith('[Media type:');
+
+                // Se conteúdo vazio E sem mídia válida = BLOQUEAR
+                if (conteudoVazio && (!m.media_url || m.media_type === 'none' || !m.media_type)) {
+                  return false;
+                }
+
+                // ✅ Tipos especiais que podem não ter media_url
+                const tiposEspeciais = ['contact', 'location'];
+                if (tiposEspeciais.includes(m.media_type) && m.content && !conteudoVazio) {
+                  return true;
+                }
+
+                // ✅ Mensagens com mídia válida
+                if (m.media_url && m.media_type && m.media_type !== 'none') {
+                  return true;
+                }
+
+                // ✅ Mensagens com texto válido
+                if (!conteudoVazio) {
+                  return true;
+                }
+
+                // ❌ Caso contrário, bloquear
                 return false;
-              }
-
-              // ❌ BLOQUEAR JIDs puros (ex: +105299763548377@lid, +status@broadcast)
-              if (m.content && /^[\+\d\s]+@(lid|broadcast|s\.whatsapp\.net|c\.us)/i.test(m.content.trim())) {
-                return false;
-              }
-
-              // ❌ BLOQUEAR nomes de contatos genéricos que são JIDs
-              if (m.content && /^Referência\s+/i.test(m.content) && !m.media_url) {
-                return false;
-              }
-
-              // ❌ BLOQUEAR mensagens sem conteúdo válido
-              const conteudoInvalido = [
-                'Mídia enviada',
-                '[No content]',
-                '[Message content missing]',
-                '[Recovered message]',
-                ''
-              ];
-
-              const conteudoVazio = !m.content || 
-                                   conteudoInvalido.includes(m.content?.trim()) ||
-                                   m.content.trim() === '' ||
-                                   m.content.startsWith('[Media type:');
-
-              // Se conteúdo vazio E sem mídia válida = BLOQUEAR
-              if (conteudoVazio && (!m.media_url || m.media_type === 'none' || !m.media_type)) {
-                return false;
-              }
-
-              // ✅ Tipos especiais que podem não ter media_url
-              const tiposEspeciais = ['contact', 'location'];
-              if (tiposEspeciais.includes(m.media_type) && m.content && !conteudoVazio) {
-                return true;
-              }
-
-              // ✅ Mensagens com mídia válida
-              if (m.media_url && m.media_type && m.media_type !== 'none') {
-                return true;
-              }
-
-              // ✅ Mensagens com texto válido
-              if (!conteudoVazio) {
-                return true;
-              }
-
-              // ❌ Caso contrário, bloquear
-              return false;
-              });
-              })()
+              })
               .map((mensagem, index) => {
             const isFirstUnread =
               mensagem.sender_type === 'contact' &&
@@ -1378,8 +1386,8 @@ export default function ChatWindow({
                 />
               </React.Fragment>
             );
-          })
-        )}
+          });
+        })()}
         <div ref={messagesEndRef} />
       </div>
 
