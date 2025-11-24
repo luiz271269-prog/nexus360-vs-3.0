@@ -322,21 +322,21 @@ export default function MessageBubble({
 
     setCategorizando(true);
     try {
-      const categoriasAtuais = message.categorias || [];
+      const categoriasAtuais = message?.categorias || [];
       const novasCategorias = categoriasAtuais.includes(valorCategoria)
         ? categoriasAtuais.filter(c => c !== valorCategoria)
         : [...categoriasAtuais, valorCategoria];
 
       console.log('[ETIQUETA] 🏷️ SALVANDO etiqueta na MENSAGEM:', {
-        message_id: message.id,
-        message_content_preview: message.content?.substring(0, 50),
+        message_id: message?.id,
+        message_content_preview: String(message?.content || '').substring(0, 50),
         categorias_antes: categoriasAtuais,
         categorias_depois: novasCategorias,
         categoria_alterada: valorCategoria,
         thread_id: thread?.id
-      });
+        });
 
-      const resultado = await base44.entities.Message.update(message.id, {
+        const resultado = await base44.entities.Message.update(message?.id, {
         categorias: novasCategorias
       });
 
@@ -348,8 +348,8 @@ export default function MessageBubble({
       // Verificar se salvou
       setTimeout(async () => {
         try {
-          const msgAtualizada = await base44.entities.Message.get(message.id);
-          console.log('[ETIQUETA] 🔍 VERIFICAÇÃO - Categorias salvas no banco:', msgAtualizada.categorias);
+          const msgAtualizada = await base44.entities.Message.get(message?.id);
+          console.log('[ETIQUETA] 🔍 VERIFICAÇÃO - Categorias salvas no banco:', msgAtualizada?.categorias);
         } catch (e) {
           console.error('[ETIQUETA] ❌ Erro ao verificar:', e);
         }
@@ -391,9 +391,9 @@ export default function MessageBubble({
       }
 
       // Adicionar à mensagem
-      const categoriasAtuais = message.categorias || [];
+      const categoriasAtuais = message?.categorias || [];
       if (!categoriasAtuais.includes(categoriaNormalizada)) {
-        await base44.entities.Message.update(message.id, {
+        await base44.entities.Message.update(message?.id, {
           categorias: [...categoriasAtuais, categoriaNormalizada]
         });
         queryClient.invalidateQueries({ queryKey: ['mensagens', thread?.id] });
@@ -516,12 +516,12 @@ export default function MessageBubble({
                       >
                         <Forward className="w-3.5 h-3.5 text-slate-700" />
                       </Button>
-                    </TooltipTrigger>
-                    <TooltipContent side="top">Encaminhar</TooltipContent>
-                  </Tooltip>
+                      </TooltipTrigger>
+                      <TooltipContent side="top">Encaminhar</TooltipContent>
+                      </Tooltip>
 
-                  {isOwn && (
-                    <Tooltip>
+                      {isOwn && (
+                      <Tooltip>
                       <TooltipTrigger asChild>
                         <Button
                           variant="ghost"
@@ -537,16 +537,16 @@ export default function MessageBubble({
                         </Button>
                       </TooltipTrigger>
                       <TooltipContent side="top">Apagar</TooltipContent>
-                    </Tooltip>
-                  )}
+                      </Tooltip>
+                      )}
 
-                  <Tooltip>
-                    <TooltipTrigger asChild>
+                      <Tooltip>
+                      <TooltipTrigger asChild>
                       <Button
                         variant="ghost"
                         size="icon"
                         onClick={() => {
-                          if (window.handleCriarOportunidadeDeChat) {
+                          if (window.handleCriarOportunidadeDeChat && message && thread) {
                             window.handleCriarOportunidadeDeChat(message, thread);
                           }
                         }}
@@ -601,7 +601,7 @@ export default function MessageBubble({
                       {todasCategorias.map(cat => (
                         <DropdownMenuCheckboxItem
                           key={cat.nome}
-                          checked={message?.categorias?.includes(cat.nome)}
+                          checked={(message?.categorias || []).includes(cat.nome)}
                           onCheckedChange={() => handleToggleCategoria(cat.nome)}
                         >
                           <div className="flex items-center gap-2">
@@ -674,7 +674,7 @@ export default function MessageBubble({
             )}
 
             {/* ✅ ÁUDIO - ESTILO WHATSAPP */}
-            {message.media_type === 'audio' && message.media_url && (
+            {message?.media_type === 'audio' && message?.media_url && (
               <div className={cn(
                 "px-3 py-2 min-w-[200px]",
                 isOwn ? "text-white" : "text-slate-800"
@@ -687,7 +687,7 @@ export default function MessageBubble({
                     <Play className={cn("w-5 h-5", isOwn ? "text-white" : "text-white")} />
                   </div>
                   <audio
-                    src={message.media_url}
+                    src={message?.media_url}
                     controls
                     className="flex-1 h-8"
                     style={{
@@ -731,10 +731,10 @@ export default function MessageBubble({
             )}
 
             {/* ✅ VÍDEO - ESTILO WHATSAPP */}
-            {message.media_type === 'video' && message.media_url && (
+            {message?.media_type === 'video' && message?.media_url && (
               <div className="relative overflow-hidden rounded-2xl">
                 <video
-                  src={message.media_url}
+                  src={message?.media_url}
                   controls
                   className="max-w-full max-h-96 rounded-2xl"
                   preload="metadata"
@@ -750,15 +750,15 @@ export default function MessageBubble({
                 <div className="absolute bottom-2 right-2 bg-black/50 backdrop-blur-sm px-2 py-0.5 rounded-md">
                   <div className="flex items-center gap-1">
                     <span className="text-[10px] text-white">
-                      {formatarHorario(message.sent_at || message.created_date)}
+                      {formatarHorario(message?.sent_at || message?.created_date)}
                     </span>
-                    {isOwn && message.status === 'lida' && (
+                    {isOwn && message?.status === 'lida' && (
                       <CheckCheck className="w-3.5 h-3.5 text-blue-300" />
                     )}
-                    {isOwn && message.status === 'entregue' && (
+                    {isOwn && message?.status === 'entregue' && (
                       <CheckCheck className="w-3.5 h-3.5 text-white/70" />
                     )}
-                    {isOwn && message.status === 'enviada' && (
+                    {isOwn && message?.status === 'enviada' && (
                       <Check className="w-3.5 h-3.5 text-white/70" />
                     )}
                   </div>
@@ -767,7 +767,7 @@ export default function MessageBubble({
             )}
 
             {/* ✅ CONTATO COMPARTILHADO - VCARD */}
-            {message.media_type === 'contact' && (
+            {message?.media_type === 'contact' && (
               <div className={cn(
                 "px-4 py-3 min-w-[250px]",
                 isOwn ? "text-white" : "text-slate-800"
@@ -781,7 +781,7 @@ export default function MessageBubble({
                   </div>
                   <div className="flex-1">
                     <p className={cn("text-sm font-medium", isOwn ? "text-white" : "text-slate-900")}>
-                      {message.content?.replace('📇 Contato compartilhado: ', '') || 'Contato'}
+                      {String(message?.content || 'Contato').replace('📇 Contato compartilhado: ', '')}
                     </p>
                     <p className={cn("text-xs", isOwn ? "text-white/70" : "text-slate-500")}>
                       Contato compartilhado
@@ -824,13 +824,13 @@ export default function MessageBubble({
             )}
 
             {/* ✅ DOCUMENTO - ESTILO WHATSAPP */}
-            {message.media_type === 'document' && message.media_url && (
+            {message?.media_type === 'document' && message?.media_url && (
               <div className={cn(
                 "px-4 py-3 min-w-[250px]",
                 isOwn ? "text-white" : "text-slate-800"
               )}>
                 <a
-                  href={message.media_url}
+                  href={message?.media_url}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="flex items-center gap-3 hover:opacity-80 transition-opacity"
@@ -843,7 +843,7 @@ export default function MessageBubble({
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className={cn("text-sm font-medium truncate", isOwn ? "text-white" : "text-slate-900")}>
-                      {message.content?.replace('[Documento: ', '').replace(']', '') || 'Documento'}
+                      {String(message?.content || 'Documento').replace('[Documento: ', '').replace(']', '')}
                     </p>
                     <p className={cn("text-xs", isOwn ? "text-white/70" : "text-slate-500")}>
                       Clique para baixar
@@ -853,15 +853,15 @@ export default function MessageBubble({
                 </a>
                 <div className="flex items-center justify-end gap-1 mt-2">
                   <span className={cn("text-[10px]", isOwn ? "text-white/70" : "text-slate-500")}>
-                    {formatarHorario(message.sent_at || message.created_date)}
+                    {formatarHorario(message?.sent_at || message?.created_date)}
                   </span>
-                  {isOwn && message.status === 'lida' && (
+                  {isOwn && message?.status === 'lida' && (
                     <CheckCheck className="w-3.5 h-3.5 text-blue-300" />
                   )}
-                  {isOwn && message.status === 'entregue' && (
+                  {isOwn && message?.status === 'entregue' && (
                     <CheckCheck className="w-3.5 h-3.5 text-white/70" />
                   )}
-                  {isOwn && message.status === 'enviada' && (
+                  {isOwn && message?.status === 'enviada' && (
                     <Check className="w-3.5 h-3.5 text-white/70" />
                   )}
                 </div>
@@ -869,7 +869,7 @@ export default function MessageBubble({
             )}
 
             {/* ✅ TEXTO - SEM MÍDIA */}
-            {(!message.media_url || message.media_type === 'none') && message.content && message.content.trim() !== '' && message.content !== '[No content]' && (
+            {(!message?.media_url || message?.media_type === 'none') && message?.content && String(message.content).trim() !== '' && message.content !== '[No content]' && (
               <>
                 <div className={cn(
                   "break-words whitespace-pre-wrap",
@@ -981,7 +981,7 @@ export default function MessageBubble({
               </>
             )}
 
-            {message.tool_calls?.length > 0 && (
+            {message?.tool_calls?.length > 0 && (
               <div className="space-y-1 mt-2 px-4 py-2">
                 {message.tool_calls.map((toolCall, idx) => (
                   <FunctionDisplay key={idx} toolCall={toolCall} />
