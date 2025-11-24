@@ -557,16 +557,78 @@ async function handleMessage(instance, payload, base44, headers, debugMode) {
     // 4️⃣ Bloquear mensagens de confirmação de recebimento (acknowledgments)
     // Padrões comuns: JID puro OU conteúdo genérico tipo "Mídia enviada"
     const acknowledgmentPatterns = [
+      // === JIDs e Padrões de Sistema ===
       /^[\+\d]+@lid$/i,                    // Ex: +105299763548377@lid
       /^[\+\d]+@s\.whatsapp\.net$/i,       // Ex: +5548999000111@s.whatsapp.net
-      /^mídia enviada$/i,                  // Ex: "Mídia enviada"
-      /^media enviada$/i,                  // Ex: "Media enviada" (sem acento)
-      /^media sent$/i,                     // Ex: "Media sent"
-      /^mensagem enviada$/i,               // Ex: "Mensagem enviada"
-      /^message sent$/i,                   // Ex: "Message sent"
-      /^adicionar$/i,                      // Ex: "Adicionar"
-      /^referência$/i,                     // Ex: "Referência"
-      /^referencia$/i                      // Ex: "Referencia" (sem acento)
+      /^[\+\d]+@c\.us$/i,                  // Ex: +5548999000111@c.us
+      
+      // === Confirmações de Mídia (PT/EN) ===
+      /^mídia enviada$/i,
+      /^media enviada$/i,
+      /^media sent$/i,
+      /^imagem enviada$/i,
+      /^image sent$/i,
+      /^vídeo enviado$/i,
+      /^video sent$/i,
+      /^áudio enviado$/i,
+      /^audio sent$/i,
+      /^documento enviado$/i,
+      /^document sent$/i,
+      /^arquivo enviado$/i,
+      /^file sent$/i,
+      
+      // === Confirmações de Mensagem (PT/EN) ===
+      /^mensagem enviada$/i,
+      /^message sent$/i,
+      /^mensagem entregue$/i,
+      /^message delivered$/i,
+      /^recebi sua mensagem$/i,
+      /^sua mensagem foi entregue$/i,
+      /^sua mensagem foi recebida$/i,
+      /^obrigado por sua mensagem$/i,
+      /^obrigado pela mensagem$/i,
+      
+      // === Auto-Respostas e Bots ===
+      /^esta é uma mensagem automática$/i,
+      /^esta e uma mensagem automatica$/i,
+      /^this is an automatic reply$/i,
+      /^this is an automated message$/i,
+      /^resposta automática$/i,
+      /^resposta automatica$/i,
+      /^auto[- ]?resposta$/i,
+      /^auto[- ]?reply$/i,
+      
+      // === Instruções de Sistema ===
+      /^não responda a esta mensagem$/i,
+      /^nao responda a esta mensagem$/i,
+      /^do not reply to this message$/i,
+      /^please do not reply$/i,
+      
+      // === Menus e CTAs Genéricos ===
+      /^pressione \d+ para/i,
+      /^digite \d+ para/i,
+      /^press \d+ for/i,
+      /^type \d+ for/i,
+      
+      // === Termos Genéricos Curtos ===
+      /^adicionar$/i,
+      /^referência$/i,
+      /^referencia$/i,
+      /^retorno$/i,
+      /^confirmação$/i,
+      /^confirmacao$/i,
+      /^ok$/i,
+      /^sim$/i,
+      /^não$/i,
+      /^nao$/i,
+      /^yes$/i,
+      /^no$/i,
+      
+      // === Agradecimentos Automáticos ===
+      /^obrigado!?$/i,
+      /^obrigada!?$/i,
+      /^thanks!?$/i,
+      /^thank you!?$/i
     ];
 
     const isAcknowledgment = payload.content && 
@@ -632,24 +694,48 @@ async function handleMessage(instance, payload, base44, headers, debugMode) {
     ]);
     if (debugMode) console.log('[HANDLER-MESSAGE] Parallel queries completed in ' + (Date.now() - t1) + 'ms');
 
+    // 🔧 CORREÇÃO: Declarar integracaoId ANTES de usar na lógica de contato
+    const integracaoId = integracoes.length > 0 ? integracoes[0].id : null;
+
     let contato;
     if (contatosExistentes.length > 0) {
       contato = contatosExistentes[0];
 
-      // ✨ ATUALIZA NOME SE PUSHNAME ESTIVER DISPONÍVEL E CONTATO ESTIVER SEM NOME
+      // ✨ ATUALIZA NOME SE PUSHNAME ESTIVER DISPONÍVEL E CONTATO TIVER NOME GENÉRICO
       const updateData = { ultima_interacao: new Date().toISOString() };
 
-      if (payload.pushName && 
-          (!contato.nome || contato.nome === numero || contato.nome === contato.telefone)) {
+      // 🔍 Detectar nomes genéricos que devem ser substituídos
+      const nomesGenericos = [
+        'Usuário do WhatsApp',
+        'User',
+        'Contato',
+        'Cliente',
+        'Lead',
+        'Desconhecido',
+        'Unknown',
+        ''
+      ];
+      
+      const nomeAtual = contato.nome?.trim() || '';
+      const nomeEhGenerico = !nomeAtual || 
+                            nomeAtual === numero || 
+                            nomeAtual === contato.telefone ||
+                            nomesGenericos.some(g => nomeAtual.toLowerCase() === g.toLowerCase()) ||
+                            /^[\+\d\s\-\(\)]+$/.test(nomeAtual); // Nome é apenas números/símbolos
+
+      if (payload.pushName && nomeEhGenerico) {
         updateData.nome = payload.pushName;
-        if (debugMode) console.log('[HANDLER-MESSAGE] 📝 Atualizando nome: ' + payload.pushName);
+        if (debugMode) console.log('[HANDLER-MESSAGE] 📝 Atualizando nome genérico para: ' + payload.pushName);
       }
 
-      // 📸 ATUALIZAR FOTO SE NÃO EXISTIR OU ESTIVER ANTIGA (>7 dias)
+      // 📸 ATUALIZAR FOTO APENAS SE NÃO EXISTIR OU ESTIVER MUITO ANTIGA (>7 dias)
+      // ⚡ OTIMIZAÇÃO: Não buscar foto se já existe e está atualizada
+      const temFotoAtual = !!contato.foto_perfil_url;
       const fotoAntiga = !contato.foto_perfil_atualizada_em || 
         (Date.now() - new Date(contato.foto_perfil_atualizada_em).getTime()) > 7 * 24 * 60 * 60 * 1000;
 
-      if (fotoAntiga && integracaoId) {
+      // Só busca foto se: não tem foto OU foto está antiga (>7 dias)
+      if ((!temFotoAtual || fotoAntiga) && integracaoId) {
         try {
           const fotoResult = await base44.asServiceRole.functions.invoke('buscarFotoPerfilWhatsApp', {
             integration_id: integracaoId,
@@ -661,7 +747,8 @@ async function handleMessage(instance, payload, base44, headers, debugMode) {
             if (debugMode) console.log('[HANDLER-MESSAGE] 📸 Foto de perfil atualizada');
           }
         } catch (error) {
-          console.warn('[HANDLER-MESSAGE] Erro ao buscar foto:', error.message);
+          // Silenciar erro - não é crítico
+          if (debugMode) console.warn('[HANDLER-MESSAGE] Erro ao buscar foto:', error.message);
         }
       }
 
@@ -691,8 +778,6 @@ async function handleMessage(instance, payload, base44, headers, debugMode) {
         foto_perfil_atualizada_em: fotoPerfil ? new Date().toISOString() : null
       });
     }
-
-    const integracaoId = integracoes.length > 0 ? integracoes[0].id : null;
 
     const t2 = Date.now();
     const threadsExistentes = await base44.asServiceRole.entities.MessageThread.list('-last_message_at', 1, { contact_id: contato.id });
