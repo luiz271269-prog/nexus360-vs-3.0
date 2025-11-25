@@ -65,6 +65,13 @@ function normalizarPayloadZAPI(evento) {
     return { type: 'ignored', reason: 'chat_event' };
   }
 
+  // 0.4 Ignorar eventos de STATUS do WhatsApp (stories)
+  // Z-API envia: StatusCallback, status-update, status-view, etc.
+  if (eventoTipo.includes('status') && !eventoTipo.includes('messagestatus')) {
+    console.log('[NORMALIZAR] Ignorado: Evento de Status/Story ->', eventoTipo);
+    return { type: 'ignored', reason: 'status_story_event' };
+  }
+
   // === 1. MessageStatusCallback (Z-API) - Atualizacao de Status ===
   // CRITICO: Detectar ANTES de ReceivedCallback para evitar mensagens [No content]
   // Detecta por MULTIPLAS formas para garantir que NUNCA passe como mensagem:
@@ -94,10 +101,17 @@ function normalizarPayloadZAPI(evento) {
     const telefoneOriginal = evento.phone || evento.telefone;
 
     // PRE-FILTRO RIGOROSO: Ignorar QUALQUER telefone que seja JID de sistema
-    // Isso inclui @lid, @broadcast, @g.us (grupos), etc.
+    // Isso inclui @lid, @broadcast, @g.us (grupos), status@broadcast, etc.
     if (/@(lid|broadcast|g\.us)$/i.test(telefoneOriginal)) {
       console.log('[NORMALIZAR] Ignorado: Telefone e JID de sistema ->', telefoneOriginal);
       return { type: 'ignored', reason: 'system_jid_phone' };
+    }
+
+    // PRE-FILTRO: Ignorar STATUS do WhatsApp (stories) - detectar por telefone
+    // Formatos comuns: status@broadcast, +status@broadcast, 5511999@status, etc.
+    if (/status/i.test(telefoneOriginal) || telefoneOriginal.includes('status@')) {
+      console.log('[NORMALIZAR] Ignorado: Status/Story do WhatsApp ->', telefoneOriginal);
+      return { type: 'ignored', reason: 'whatsapp_status_story' };
     }
 
     // PRE-FILTRO: Ignorar JIDs de sistema no conteudo
@@ -235,7 +249,7 @@ function validarPayloadNormalizado(payload) {
 }
 
 // VERSAO AUTO-ATUALIZADA - Modifique quando publicar uma nova versao
-const VERSION = 'v4.5.2';
+const VERSION = 'v4.5.3';
 const BUILD_DATE = '2025-01-25';
 const DEPLOYED_AT = new Date().toISOString();
 
