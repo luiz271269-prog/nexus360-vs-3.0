@@ -8,7 +8,7 @@
  * Esta URL deve ser configurada na Z-API
  */
 export function getWebhookUrlProducao() {
-  return 'https://nexus360-pro.base44.app/api/functions/webhookWatsZapi';
+  return 'https://nexus360-pro.base44.app/api/functions/webhookFinalZapi';
 }
 
 /**
@@ -17,7 +17,7 @@ export function getWebhookUrlProducao() {
  */
 export function getWebhookUrlAmbienteAtual() {
   const origin = typeof window !== 'undefined' ? window.location.origin : '';
-  return `${origin}/api/functions/webhookWatsZapi`;
+  return `${origin}/api/functions/webhookFinalZapi`;
 }
 
 /**
