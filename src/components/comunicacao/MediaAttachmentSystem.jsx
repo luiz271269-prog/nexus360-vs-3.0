@@ -257,9 +257,24 @@ export default function MediaAttachmentSystem({
 
         // Enviar via WhatsApp - usar integração selecionada ou da thread
         const integrationIdParaUso = integrationIdOverride || thread.whatsapp_integration_id;
+        // Buscar telefone do contato
+        let telefoneDestino = null;
+        if (thread?.contact_id) {
+          try {
+            const contato = await base44.entities.Contact.get(thread.contact_id);
+            telefoneDestino = contato?.telefone || contato?.celular;
+          } catch (e) {
+            console.error('[MEDIA] Erro ao buscar contato:', e);
+          }
+        }
+
+        if (!telefoneDestino) {
+          throw new Error('Contato sem telefone cadastrado');
+        }
+
         const dadosEnvio = {
           integration_id: integrationIdParaUso,
-          numero_destino: thread.contato?.telefone || thread.contato?.celular,
+          numero_destino: telefoneDestino,
           media_type: mediaType,
           media_caption: caption
         };
