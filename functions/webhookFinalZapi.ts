@@ -80,13 +80,19 @@ function deveIgnorar(payload) {
     return null; // Processar atualizações de status válidas
   }
 
-  // Para mensagens recebidas
-  const hasMsgId =
-    payload.messageId ||
-    payload.id ||
-    (Array.isArray(payload.ids) && payload.ids.length > 0 && payload.ids[0]);
+  // Para mensagens recebidas - verificar messageId E phone (mensagem real)
+  const hasMsgId = payload.messageId || payload.id;
+  const hasPhone = payload.phone || payload.from;
+  const hasContent = payload.text || payload.body || payload.message || payload.image || payload.video || payload.audio || payload.document;
 
-  if (tipo.includes('receivedcallback') || hasMsgId) {
+  // Se tem messageId + phone + conteúdo = é mensagem real
+  if (hasMsgId && hasPhone && (hasContent || payload.momment)) {
+    if (payload.fromMe === true) return 'from_me';
+    return null; // PROCESSAR!
+  }
+
+  // ReceivedCallback explícito
+  if (tipo.includes('receivedcallback')) {
     if (payload.fromMe === true) return 'from_me';
     if (!payload.phone && !payload.from) return 'sem_telefone';
     return null;
