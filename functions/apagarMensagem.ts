@@ -86,15 +86,19 @@ Deno.serve(async (req) => {
     }
 
     // Marcar como deletada no sistema (soft delete)
+    // Preservar whatsapp_integration_id no metadata
+    const metadataAtualizado = {
+      ...(mensagem.metadata || {}),
+      deleted: true,
+      deleted_at: new Date().toISOString(),
+      deleted_by: user.id,
+      original_content: mensagem.content
+    };
+    
     await base44.asServiceRole.entities.Message.update(message_id, {
       status: 'deletada',
       content: '[Mensagem apagada]',
-      metadata: {
-        ...mensagem.metadata,
-        deleted_at: new Date().toISOString(),
-        deleted_by: user.id,
-        original_content: mensagem.content
-      }
+      metadata: metadataAtualizado
     });
 
     console.log('[APAGAR] ✅ Mensagem marcada como deletada');
