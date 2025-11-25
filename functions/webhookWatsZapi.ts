@@ -1,270 +1,16 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.4';
 import { normalizarTelefone } from './lib/phoneUtils.js';
-import { connectionManager } from './lib/connectionManager.js';
 
-// Funções do adapter inline para evitar problemas de importação
-function extrairInstanceId(payload) {
-  if (!payload || typeof payload !== 'object') {
-    console.error('[ERRO] Payload inválido em extrairInstanceId:', typeof payload);
-    return 'unknown';
-  }
+// ============================================================================
+// WEBHOOK WHATSAPP Z-API - VERSÃO SIMPLIFICADA v5.0.0
+// ============================================================================
+// PRINCÍPIO: Filtrar CEDO, logar APENAS o necessário, processar APENAS mensagens reais
+// ============================================================================
 
-  const instanceId = payload.instance || payload.instanceId || payload.instance_id || 
-                     payload.instance_id_provider || payload.instanceName;
-
-  if (!instanceId) {
-    console.warn('[AVISO] Instance ID não encontrado no payload. Keys:', Object.keys(payload).join(', '));
-    return 'unknown';
-  }
-
-  return instanceId;
-}
-
-function normalizarPayloadZAPI(evento) {
-  if (!evento || typeof evento !== 'object') {
-    console.error('[NORMALIZAR] Evento invalido ou nulo:', typeof evento);
-    return { type: 'unknown', error: 'Evento invalido' };
-  }
-
-  // Normalizar tipo de evento para minusculas (case-insensitive)
-  const eventoTipoRaw = evento.event || evento.type || 'unknown';
-  const eventoTipo = String(eventoTipoRaw).toLowerCase().trim();
-  const instanceId = extrairInstanceId(evento);
-
-  console.log('[NORMALIZAR] Processando evento:', eventoTipo, '| Instance:', instanceId);
-
-  // === 0. PRE-FILTRO BLINDADO: Detectar e IGNORAR eventos de sistema ANTES de tudo ===
-  // ====================================================================================
-  
-  // 0.1 Ignorar eventos de presenca (online/offline/typing)
-  // Inclui PresenceChatCallback que a Z-API envia frequentemente
-  // NOTA: NAO filtrar 'recording' aqui pois pode conflitar com audios
-  if (eventoTipo.includes('presence') || 
-      eventoTipo.includes('typing') || 
-      eventoTipo.includes('composing') ||
-      eventoTipo === 'presencechatcallback' ||
-      eventoTipo === 'recording') {
-    console.log('[NORMALIZAR] Ignorado: Evento de presenca ->', eventoTipo);
-    return { type: 'ignored', reason: 'presence_event' };
-  }
-
-  // 0.2 Ignorar eventos de ACK/confirmacao de entrega
-  if (eventoTipo.includes('ack') || 
-      eventoTipo.includes('delivery') || 
-      eventoTipo.includes('seen') ||
-      eventoTipo.includes('message-status')) {
-    console.log('[NORMALIZAR] Ignorado: Evento de ACK/delivery ->', eventoTipo);
-    return { type: 'ignored', reason: 'ack_event' };
-  }
-
-  // 0.3 Ignorar eventos de chat (arquivar, fixar, etc) e chamadas
-  if (eventoTipo.includes('chat-update') || 
-      eventoTipo.includes('chatupdate') ||
-      eventoTipo.includes('call')) {
-    console.log('[NORMALIZAR] Ignorado: Evento de chat/chamada ->', eventoTipo);
-    return { type: 'ignored', reason: 'chat_event' };
-  }
-
-  // 0.4 Ignorar eventos de STATUS do WhatsApp (stories)
-  // Z-API envia: StatusCallback, status-update, status-view, etc.
-  if (eventoTipo.includes('status') && !eventoTipo.includes('messagestatus')) {
-    console.log('[NORMALIZAR] Ignorado: Evento de Status/Story ->', eventoTipo);
-    return { type: 'ignored', reason: 'status_story_event' };
-  }
-
-  // === 1. MessageStatusCallback (Z-API) - Atualizacao de Status ===
-  // CRITICO: Detectar ANTES de ReceivedCallback para evitar mensagens [No content]
-  // Detecta por MULTIPLAS formas para garantir que NUNCA passe como mensagem:
-  // - Por nome do evento (eventoTipo)
-  // - Por evento.type original (case-insensitive)
-  // - Por estrutura (tem ids[] + status)
-  const eventoTypeOriginal = String(evento.type || '').toLowerCase();
-  
-  if (eventoTipo.includes('messagestatuscallback') || 
-      eventoTipo.includes('status-find') || 
-      eventoTypeOriginal === 'messagestatuscallback' ||
-      eventoTypeOriginal.includes('statuscallback') ||
-      (evento.ids && Array.isArray(evento.ids) && evento.status)) {
-    console.log('[NORMALIZAR] Detectado MessageStatusCallback - Ignorando como mensagem');
-    console.log('[NORMALIZAR] Status:', evento.status, '| IDs:', evento.ids);
-    return {
-      type: 'message_update',
-      instanceId: instanceId,
-      messageId: evento.ids ? evento.ids[0] : evento.messageId || null,
-      status: evento.status,
-      timestamp: evento.momment || evento.moment || Date.now()
-    };
-  }
-
-  // === 2. ReceivedCallback (Z-API) - Mensagem Real ===
-  if (evento.telefone || evento.phone) {
-    const telefoneOriginal = evento.phone || evento.telefone;
-
-    // PRE-FILTRO RIGOROSO: Ignorar QUALQUER telefone que seja JID de sistema
-    // Isso inclui @lid, @broadcast, @g.us (grupos), status@broadcast, etc.
-    // CORRIGIDO: Usar .includes() ao invés de regex $ para pegar qualquer posição
-    if (telefoneOriginal.includes('@lid') || 
-        telefoneOriginal.includes('@broadcast') || 
-        telefoneOriginal.includes('@g.us') ||
-        /@(lid|broadcast|g\.us)/i.test(telefoneOriginal)) {
-      console.log('[NORMALIZAR] Ignorado: Telefone e JID de sistema ->', telefoneOriginal);
-      return { type: 'ignored', reason: 'system_jid_phone' };
-    }
-
-    // PRE-FILTRO: Ignorar STATUS do WhatsApp (stories) - detectar por telefone
-    // Formatos comuns: status@broadcast, +status@broadcast, 5511999@status, etc.
-    if (/status/i.test(telefoneOriginal) || telefoneOriginal.includes('status@')) {
-      console.log('[NORMALIZAR] Ignorado: Status/Story do WhatsApp ->', telefoneOriginal);
-      return { type: 'ignored', reason: 'whatsapp_status_story' };
-    }
-
-    // PRE-FILTRO: Ignorar JIDs de sistema no conteudo
-    // NOTA: Mensagens de audio/video/imagem podem nao ter texto, entao verificar midia primeiro
-    const temMidia = evento.audio || evento.video || evento.image || evento.documentMessage || evento.sticker;
-    const conteudoBruto = evento.text?.message || evento.body || evento.buttonsResponseMessage?.message || '';
-    
-    // Se o telefone parece ser JID interno (@s.whatsapp.net, @c.us) verificar conteudo
-    // MAS permitir se tiver midia anexada
-    if (/@(s\.whatsapp\.net|c\.us)$/i.test(telefoneOriginal) && !temMidia) {
-      // Se o conteudo tambem parece ser um JID ou "Adicionar", ignorar
-      if (!conteudoBruto || 
-          /@(lid|broadcast|g\.us|s\.whatsapp\.net|c\.us)/i.test(conteudoBruto) ||
-          /^\s*adicionar\s*$/i.test(conteudoBruto) ||
-          /^[\+\d\s@\.\-]+$/i.test(conteudoBruto.trim())) {
-        console.log('[NORMALIZAR] Ignorado: JID de sistema sem conteudo valido ->', telefoneOriginal);
-        return { type: 'ignored', reason: 'system_jid_no_content' };
-      }
-    }
-
-    // Padroes de lixo a ignorar na normalizacao
-    const padraoLixo = [
-      /^[\+\d\s@\.\-]+@(lid|broadcast|s\.whatsapp\.net|c\.us)$/i,  // JID puro
-      /adicionar\s*[\+\d\s@\.\-]+@/i,                              // "Adicionar +numero@lid"
-      /^[\+\d\s]+\s*adicionar\s*[\+\d\s@\.\-]+$/i,                 // "+8 Adicionar +numero@lid"
-      /^[\+\d\s@\.\-]+\s+adicionar\s+[\+\d\s@\.\-]+$/i,            // "numero Adicionar numero"
-      /^\s*adicionar\s*$/i,                                        // Apenas "Adicionar"
-      /^[\+\d\s@\.\-\(\)]+$/i,                                     // Apenas numeros e simbolos
-    ];
-
-    if (conteudoBruto && padraoLixo.some(p => p.test(conteudoBruto.trim()))) {
-      console.log('[NORMALIZAR] Ignorado: Conteudo de sistema/lixo ->', conteudoBruto.substring(0, 50));
-      return { type: 'ignored', reason: 'junk_content' };
-    }
-
-    const numeroLimpo = normalizarTelefone(telefoneOriginal);
-    if (!numeroLimpo) {
-      console.warn('[NORMALIZAR] Telefone invalido:', telefoneOriginal);
-      return { type: 'unknown', error: 'Telefone inválido' };
-    }
-
-    // DETECTAR TIPO DE MIDIA (imagem, video, audio, documento, sticker, contato, localizacao)
-    let mediaType = 'none';
-    let mediaTempUrl = null;
-    let conteudo = conteudoBruto;
-
-    // DEBUG: Logar chaves do evento para identificar estrutura de midia
-    console.log('[NORMALIZAR] Verificando midia. Chaves do evento:', Object.keys(evento).join(', '));
-
-    if (evento.image) {
-      mediaType = 'image';
-      mediaTempUrl = evento.image.imageUrl || evento.image.url || evento.image.link;
-      console.log('[NORMALIZAR] Detectado: IMAGEM ->', mediaTempUrl);
-    } else if (evento.video) {
-      mediaType = 'video';
-      mediaTempUrl = evento.video.videoUrl || evento.video.url || evento.video.link;
-      console.log('[NORMALIZAR] Detectado: VIDEO ->', mediaTempUrl);
-    } else if (evento.audio) {
-      mediaType = 'audio';
-      mediaTempUrl = evento.audio.audioUrl || evento.audio.url || evento.audio.link;
-      console.log('[NORMALIZAR] Detectado: AUDIO ->', mediaTempUrl);
-    } else if (evento.sticker) {
-      mediaType = 'sticker';
-      mediaTempUrl = evento.sticker.stickerUrl || evento.sticker.url || evento.sticker.link;
-      console.log('[NORMALIZAR] Detectado: STICKER ->', mediaTempUrl);
-      conteudo = '[Sticker]';
-    } else if (evento.document || evento.documentMessage) {
-      // DOCUMENTO - verificar ambas as estruturas possíveis
-      mediaType = 'document';
-      const doc = evento.document || evento.documentMessage;
-      mediaTempUrl = doc.documentUrl || doc.url || doc.link;
-      conteudo = `[Documento: ${doc.fileName || doc.title || 'Arquivo'}]`;
-      console.log('[NORMALIZAR] Detectado: DOCUMENTO ->', mediaTempUrl);
-    } else if (evento.contactMessage || evento.vcard) {
-      // VCARD - Compartilhamento de contato
-      mediaType = 'contact';
-      const contactData = evento.contactMessage || evento.vcard;
-      conteudo = `[Contato compartilhado: ${contactData.displayName || contactData.name || 'Sem nome'}]`;
-    } else if (evento.location || evento.locationMessage) {
-      // LOCALIZACAO
-      mediaType = 'location';
-      const loc = evento.location || evento.locationMessage;
-      conteudo = `[Localizacao: ${loc.name || 'Localizacao compartilhada'}]`;
-    }
-
-    // ULTIMA VALIDACAO: Se nao tem conteudo E nao tem midia, ignorar
-    if (!conteudo && mediaType === 'none' && !mediaTempUrl) {
-      console.log('[NORMALIZAR] Ignorado: Sem conteudo e sem midia');
-      return { type: 'ignored', reason: 'no_content_no_media' };
-    }
-
-    return {
-      type: 'message',
-      instanceId: instanceId,
-      messageId: evento.messageId,
-      from: numeroLimpo,
-      content: conteudo,
-      mediaType: mediaType,
-      mediaTempUrl: mediaTempUrl,
-      mediaCaption: evento.image?.caption || evento.video?.caption || null,
-      timestamp: evento.momment || evento.timestamp || Date.now(),
-      isFromMe: evento.fromMe || false,
-      pushName: evento.senderName || evento.chatName || null,
-      vcard: evento.contactMessage || evento.vcard || null,
-      location: evento.location || evento.locationMessage || null
-    };
-  }
-
-  // === 3. QR Code Update ===
-  if (eventoTipo.includes('qrcode')) {
-    return {
-      type: 'qrcode',
-      instanceId: instanceId,
-      qrCodeUrl: evento.qrcode || evento.qr || null
-    };
-  }
-  
-  // === 4. Connection Status Update ===
-  if (eventoTipo.includes('connection')) {
-    return {
-      type: 'connection',
-      instanceId: instanceId,
-      status: evento.connected ? 'conectado' : 'desconectado'
-    };
-  }
-
-  return { type: 'unknown' };
-}
-
-function validarPayloadNormalizado(payload) {
-  if (!payload) return { valido: false, erro: 'Payload nulo' };
-  if (payload.type === 'unknown') return { valido: false, erro: 'Tipo desconhecido' };
-  if (!payload.instanceId) return { valido: false, erro: 'Instance ID ausente' };
-  return { valido: true };
-}
-
-// VERSAO AUTO-ATUALIZADA - Modifique quando publicar uma nova versao
-const VERSION = 'v4.5.4';
+const VERSION = 'v5.0.0';
 const BUILD_DATE = '2025-01-25';
-const DEPLOYED_AT = new Date().toISOString();
 
-console.log('=============================================================');
-console.log('         WHATSAPP WEBHOOK - STARTUP                        ');
-console.log('=============================================================');
-console.log('VERSION:', VERSION);
-console.log('BUILD DATE:', BUILD_DATE);
-console.log('DEPLOYED AT:', DEPLOYED_AT);
-console.log('MULTI-CONNECTION MANAGER: ACTIVE');
-console.log('=============================================================');
+console.log('=== WEBHOOK Z-API ' + VERSION + ' INICIADO ===');
 
 const corsHeaders = {
   'Content-Type': 'application/json',
@@ -273,686 +19,229 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'Content-Type',
 };
 
-Deno.serve(async (req) => {
-  const startTime = Date.now();
-  const url = new URL(req.url);
-  const debugMode = url.searchParams.get('debug') === 'true';
-  
-  console.log('[WEBHOOK] v' + VERSION + ' - Request received at ' + new Date().toISOString());
-  if (debugMode) console.log('[DEBUG] Debug mode ENABLED');
+// ============================================================================
+// FILTRO ULTRA-RÁPIDO: Decide em microsegundos se o evento é relevante
+// ============================================================================
+function deveIgnorar(evento) {
+  if (!evento || typeof evento !== 'object') return { ignorar: true, motivo: 'payload_invalido' };
 
+  const tipo = String(evento.event || evento.type || '').toLowerCase();
+  const telefone = evento.phone || evento.telefone || '';
+  const conteudo = evento.text?.message || evento.body || '';
+
+  // 1. IGNORAR: Eventos de sistema (presença, typing, ACK, status)
+  if (tipo.includes('presence') || tipo.includes('typing') || tipo.includes('composing') ||
+      tipo.includes('ack') || tipo.includes('delivery') || tipo.includes('seen') ||
+      tipo.includes('chat-update') || tipo.includes('call') ||
+      (tipo.includes('status') && !tipo.includes('messagestatus'))) {
+    return { ignorar: true, motivo: 'evento_sistema' };
+  }
+
+  // 2. IGNORAR: MessageStatusCallback (tem ids[] + status)
+  if ((evento.ids && Array.isArray(evento.ids)) || tipo.includes('statuscallback')) {
+    return { ignorar: true, motivo: 'status_callback' };
+  }
+
+  // 3. IGNORAR: JIDs de sistema (@lid, @broadcast, @g.us, status@broadcast)
+  if (telefone.includes('@lid') || telefone.includes('@broadcast') || 
+      telefone.includes('@g.us') || telefone.includes('status@')) {
+    return { ignorar: true, motivo: 'jid_sistema' };
+  }
+
+  // 4. IGNORAR: Conteúdo lixo (confirmações, JIDs no texto)
+  const lixo = [
+    /^[\+\d]+@(lid|broadcast|s\.whatsapp\.net|c\.us)$/i,
+    /^mídia enviada$/i, /^media enviada$/i, /^media sent$/i,
+    /^mensagem enviada$/i, /^message sent$/i,
+    /^imagem enviada$/i, /^vídeo enviado$/i, /^áudio enviado$/i,
+    /^documento enviado$/i, /^arquivo enviado$/i,
+    /^\s*adicionar\s*$/i, /^[\+\d\s@\.\-\(\)]+$/i,
+    /status@broadcast/i
+  ];
+  if (conteudo && lixo.some(p => p.test(conteudo.trim()))) {
+    return { ignorar: true, motivo: 'conteudo_lixo' };
+  }
+
+  // 5. IGNORAR: Sem telefone válido E sem mídia
+  const temMidia = evento.image || evento.video || evento.audio || evento.document || evento.sticker;
+  if (!telefone && !temMidia) {
+    return { ignorar: true, motivo: 'sem_telefone_sem_midia' };
+  }
+
+  return { ignorar: false };
+}
+
+// ============================================================================
+// EXTRAIR DADOS DA MENSAGEM (só chamado se passar no filtro)
+// ============================================================================
+function extrairMensagem(evento) {
+  const telefone = evento.phone || evento.telefone || '';
+  const numeroLimpo = normalizarTelefone(telefone);
+  
+  if (!numeroLimpo) return null;
+
+  // Detectar mídia
+  let mediaType = 'none';
+  let mediaUrl = null;
+  let conteudo = evento.text?.message || evento.body || '';
+
+  if (evento.image) {
+    mediaType = 'image';
+    mediaUrl = evento.image.imageUrl || evento.image.url || evento.image.link;
+  } else if (evento.video) {
+    mediaType = 'video';
+    mediaUrl = evento.video.videoUrl || evento.video.url || evento.video.link;
+  } else if (evento.audio) {
+    mediaType = 'audio';
+    mediaUrl = evento.audio.audioUrl || evento.audio.url || evento.audio.link;
+  } else if (evento.document || evento.documentMessage) {
+    mediaType = 'document';
+    const doc = evento.document || evento.documentMessage;
+    mediaUrl = doc.documentUrl || doc.url || doc.link;
+    conteudo = conteudo || `[Documento: ${doc.fileName || 'Arquivo'}]`;
+  } else if (evento.sticker) {
+    mediaType = 'sticker';
+    mediaUrl = evento.sticker.stickerUrl || evento.sticker.url;
+    conteudo = '[Sticker]';
+  } else if (evento.contactMessage || evento.vcard) {
+    mediaType = 'contact';
+    const c = evento.contactMessage || evento.vcard;
+    conteudo = `[Contato: ${c.displayName || c.name || 'Sem nome'}]`;
+  } else if (evento.location || evento.locationMessage) {
+    mediaType = 'location';
+    conteudo = '[Localização compartilhada]';
+  }
+
+  // Validar: precisa ter conteúdo OU mídia
+  if (!conteudo && mediaType === 'none') return null;
+
+  return {
+    from: numeroLimpo,
+    content: conteudo,
+    mediaType,
+    mediaUrl,
+    mediaCaption: evento.image?.caption || evento.video?.caption || null,
+    messageId: evento.messageId,
+    pushName: evento.senderName || evento.chatName || null,
+    isFromMe: evento.fromMe || false,
+    timestamp: evento.momment || evento.timestamp || Date.now(),
+    instanceId: evento.instance || evento.instanceId || evento.instance_id || 'unknown'
+  };
+}
+
+// ============================================================================
+// HANDLER PRINCIPAL
+// ============================================================================
+Deno.serve(async (req) => {
+  const inicio = Date.now();
+
+  // CORS
   if (req.method === 'OPTIONS') {
     return new Response(null, { status: 204, headers: corsHeaders });
   }
 
+  // Health check
   if (req.method === 'GET') {
-    console.log('[' + VERSION + '] Health check OK');
-    const metrics = connectionManager.getMetrics();
-    return new Response(JSON.stringify({ 
-      version: VERSION, 
-      build_date: BUILD_DATE,
-      deployed_at: DEPLOYED_AT,
-      status: 'operational',
-      uptime_seconds: Math.floor((Date.now() - new Date(DEPLOYED_AT).getTime()) / 1000),
-      connection_manager: metrics,
-      timestamp: new Date().toISOString()
-    }), { 
-      status: 200, 
-      headers: corsHeaders 
-    });
+    return Response.json({ version: VERSION, status: 'ok', timestamp: new Date().toISOString() }, { headers: corsHeaders });
   }
 
-  let auditLogId = null;
   let base44;
-
   try {
     base44 = createClientFromRequest(req.clone());
-    console.log('[' + VERSION + '] SDK initialized');
+  } catch (e) {
+    return Response.json({ success: false, error: 'SDK error' }, { status: 500, headers: corsHeaders });
+  }
 
-    let rawBody = '';
-    let evento;
+  // Parsear payload
+  let evento;
+  try {
+    const body = await req.text();
+    if (!body) return Response.json({ success: true, ignored: true, reason: 'empty' }, { headers: corsHeaders });
+    evento = JSON.parse(body);
+  } catch (e) {
+    return Response.json({ success: false, error: 'JSON inválido' }, { status: 200, headers: corsHeaders });
+  }
 
-    try {
-      rawBody = await req.text();
-      console.log('[' + VERSION + '] Payload received: ' + rawBody.length + ' bytes');
-      
-      if (!rawBody || rawBody.trim() === '') {
-        console.warn('[' + VERSION + '] Empty payload received');
-        return Response.json(
-          { success: false, error: 'Empty payload', version: VERSION },
-          { status: 200, headers: corsHeaders }
-        );
-      }
-      
-      evento = JSON.parse(rawBody);
-      console.log('[' + VERSION + '] JSON parsed successfully');
-      console.log('[' + VERSION + '] Payload keys: ' + Object.keys(evento).join(', '));
+  // ========== FILTRO RÁPIDO: Decidir ANTES de qualquer operação de banco ==========
+  const filtro = deveIgnorar(evento);
+  if (filtro.ignorar) {
+    console.log('[' + VERSION + '] IGNORADO:', filtro.motivo);
+    return Response.json({ success: true, ignored: true, reason: filtro.motivo, version: VERSION }, { headers: corsHeaders });
+  }
 
-    } catch (e) {
-      console.error('[' + VERSION + '] JSON parse error: ' + e.message);
-      return Response.json(
-        { success: false, error: 'Invalid JSON: ' + e.message, version: VERSION },
-        { status: 200, headers: corsHeaders }
-      );
-    }
+  // ========== EXTRAIR MENSAGEM ==========
+  const msg = extrairMensagem(evento);
+  if (!msg) {
+    console.log('[' + VERSION + '] Mensagem inválida após extração');
+    return Response.json({ success: true, ignored: true, reason: 'extracao_falhou', version: VERSION }, { headers: corsHeaders });
+  }
 
-    const eventoTipo = evento.event || evento.type || evento.event_type || 
-                       evento.eventType || evento.eventName || evento.evento?.event || 
-                       'unknown';
-    
-    const instanceId = evento.instance || evento.instanceId || evento.instance_id || 
-                       evento.instance_id_provider || evento.instanceName || 
-                       extrairInstanceId(evento) || 'unknown';
+  console.log('[' + VERSION + '] Processando mensagem de:', msg.from, '| Mídia:', msg.mediaType);
 
-    console.log('[' + VERSION + '] Event Type: ' + eventoTipo);
-    console.log('[' + VERSION + '] Instance ID: ' + instanceId);
-    console.log('[' + VERSION + '] Full payload: ' + JSON.stringify(evento).substring(0, 500));
-
-    // Registrar/atualizar conexão no gerenciador
-    connectionManager.register(instanceId, {
-      provider: 'z_api',
-      phone: evento.phone || evento.telefone,
-      instanceName: evento.instanceName
+  // ========== CRIAR LOG DE AUDITORIA (só para mensagens válidas) ==========
+  let auditId = null;
+  try {
+    const audit = await base44.asServiceRole.entities.ZapiPayloadNormalized.create({
+      payload_bruto: evento,
+      instance_identificado: msg.instanceId,
+      evento: 'message',
+      timestamp_recebido: new Date().toISOString(),
+      sucesso_processamento: false
     });
-
-    try {
-      const auditLog = await base44.asServiceRole.entities.ZapiPayloadNormalized.create({
-        payload_bruto: evento,
-        instance_identificado: instanceId,
-        evento: eventoTipo,
-        timestamp_recebido: new Date().toISOString(),
-        sucesso_processamento: false
-      });
-      auditLogId = auditLog.id;
-      console.log('[' + VERSION + '] Audit log created: ' + auditLogId);
-    } catch (err) {
-      console.error('[' + VERSION + '] AUDIT LOG FAILED: ' + err.message);
-      console.error('[' + VERSION + '] Audit error stack: ' + err.stack);
-    }
-
-    let payloadNormalizado;
-    try {
-      payloadNormalizado = normalizarPayloadZAPI(evento);
-      console.log('[' + VERSION + '] Payload normalized: type=' + payloadNormalizado.type);
-    } catch (err) {
-      console.error('[' + VERSION + '] Normalization failed: ' + err.message);
-      payloadNormalizado = null;
-    }
-
-    if (!payloadNormalizado || payloadNormalizado.type === 'unknown') {
-      const rawEventStr = String(eventoTipo).trim().toLowerCase();
-      console.warn('[' + VERSION + '] Unknown payload type, checking emergency bypass');
-      console.warn('[' + VERSION + '] Checking for Z-API direct structure...');
-      
-      // Detectar mensagem Z-API direta (EXCLUIR MessageStatusCallback)
-      if ((evento.telefone || evento.phone) && evento.messageId && !evento.status && !evento.ids) {
-        console.warn('[' + VERSION + '] EMERGENCY BYPASS: Detected Z-API message by structure');
-        const numeroLimpo = normalizarTelefone(evento.telefone || evento.phone);
-        
-        if (numeroLimpo) {
-          payloadNormalizado = {
-            type: 'message',
-            instanceId: instanceId,
-            messageId: evento.messageId,
-            from: numeroLimpo,
-            content: evento.text?.message || evento.body || '[Message content missing]',
-            mediaType: evento.image ? 'image' : evento.video ? 'video' : evento.audio ? 'audio' : 'none',
-            mediaTempUrl: evento.image?.imageUrl || evento.video?.videoUrl || evento.audio?.audioUrl || null,
-            mediaCaption: evento.image?.caption || evento.video?.caption || null,
-            timestamp: evento.momment || evento.timestamp || Date.now(),
-            isFromMe: evento.fromMe || false,
-            pushName: evento.senderName || evento.chatName || null
-          };
-        }
-      }
-      else if (rawEventStr.includes('receivedcallback') && !evento.status && !evento.ids) {
-        console.warn('[' + VERSION + '] EMERGENCY BYPASS: Detected by event name');
-        const numeroLimpo = normalizarTelefone(evento.phone || evento.telefone || '');
-        
-        if (numeroLimpo) {
-          payloadNormalizado = {
-            type: 'message',
-            instanceId: instanceId,
-            messageId: evento.messageId || 'FALLBACK_' + Date.now(),
-            from: numeroLimpo,
-            content: evento.text?.message || evento.body || '[Recovered message]',
-            mediaType: 'none',
-            timestamp: evento.momment || evento.timestamp || Date.now(),
-            isFromMe: evento.fromMe || false,
-            pushName: evento.senderName || evento.chatName || null
-          };
-        }
-      }
-      
-      if (!payloadNormalizado || payloadNormalizado.type === 'unknown') {
-        console.error('[' + VERSION + '] FAILED TO NORMALIZE - Raw payload:', JSON.stringify(evento, null, 2));
-      }
-    }
-
-    const validacao = validarPayloadNormalizado(payloadNormalizado);
-    if (!validacao.valido) {
-      console.error('[' + VERSION + '] Validation failed: ' + validacao.erro);
-      return Response.json({
-        success: false,
-        error: 'Validation failed: ' + validacao.erro,
-        version: VERSION,
-        debug: {
-          eventoTipo: eventoTipo,
-          instanceId: instanceId,
-          payloadKeys: Object.keys(evento),
-          normalized_type: payloadNormalizado?.type || 'null'
-        }
-      }, { status: 200, headers: corsHeaders });
-    }
-
-    // Validar se a conexão está ativa antes de processar
-    if (!connectionManager.isActive(instanceId)) {
-      console.warn('[' + VERSION + '] Connection is INACTIVE: ' + instanceId);
-    }
-
-    console.log('[' + VERSION + '] Routing to handler: ' + payloadNormalizado.type);
-    if (debugMode) {
-      console.log('[DEBUG] Normalized payload type: ' + payloadNormalizado.type);
-      console.log('[DEBUG] Instance: ' + instanceId);
-      console.log('[DEBUG] Event: ' + eventoTipo);
-    }
-
-    let resultado;
-    switch (payloadNormalizado.type) {
-      case 'qrcode':
-        resultado = await handleQRCode(instanceId, payloadNormalizado, base44, corsHeaders, debugMode);
-        break;
-      case 'connection':
-        resultado = await handleConnection(instanceId, payloadNormalizado, base44, corsHeaders, debugMode);
-        break;
-      case 'message':
-        resultado = await handleMessage(instanceId, payloadNormalizado, base44, corsHeaders, debugMode);
-        break;
-      case 'message_update':
-        resultado = await handleMessageUpdate(payloadNormalizado, base44, corsHeaders, debugMode);
-        break;
-      case 'send_confirmation':
-        console.log('[' + VERSION + '] Send confirmation received, ignoring');
-        resultado = Response.json({ 
-          success: true, 
-          ignored: true,
-          ...(debugMode && { debug: { type: 'send_confirmation' } })
-        }, { status: 200, headers: corsHeaders });
-        break;
-      case 'ignored':
-        // Tratar eventos ignorados na normalizacao
-        console.log('[' + VERSION + '] Event ignored by normalizer: ' + (payloadNormalizado.reason || 'unknown'));
-        resultado = Response.json({ 
-          success: true, 
-          ignored: true,
-          reason: payloadNormalizado.reason || 'filtered_by_normalizer',
-          version: VERSION
-        }, { status: 200, headers: corsHeaders });
-        break;
-      default:
-        console.log('[' + VERSION + '] Unknown event type: ' + payloadNormalizado.type);
-        resultado = Response.json({
-          success: true,
-          ignored: true,
-          reason: 'unknown_event_type',
-          type: payloadNormalizado.type,
-          version: VERSION,
-          ...(debugMode && { debug: { eventoTipo, instanceId, normalized_type: payloadNormalizado.type } })
-        }, { status: 200, headers: corsHeaders });
-    }
-
-    if (auditLogId) {
-      try {
-        await base44.asServiceRole.entities.ZapiPayloadNormalized.update(auditLogId, {
-          sucesso_processamento: true,
-          integration_id: payloadNormalizado.integrationId || null
-        });
-        console.log('[' + VERSION + '] Audit log updated: SUCCESS');
-      } catch (err) {
-        console.error('[' + VERSION + '] Failed to update audit log: ' + err.message);
-      }
-    }
-
-    const duration = Date.now() - startTime;
-    console.log('[' + VERSION + '] Request completed in ' + duration + 'ms');
-    
-    return resultado;
-
-  } catch (error) {
-    console.error('[' + VERSION + '] FATAL ERROR: ' + error.message);
-    console.error('[' + VERSION + '] Stack trace: ' + error.stack);
-    
-    if (auditLogId && base44) {
-      try {
-        await base44.asServiceRole.entities.ZapiPayloadNormalized.update(auditLogId, {
-          sucesso_processamento: false,
-          erro_detalhes: error.message
-        });
-      } catch (e) {
-        console.error('[' + VERSION + '] Failed to update audit log with error');
-      }
-    }
-    
-    return Response.json({
-      success: false,
-      error: error.message,
-      version: VERSION,
-      timestamp: new Date().toISOString()
-    }, { status: 500, headers: corsHeaders });
+    auditId = audit.id;
+  } catch (e) {
+    console.warn('[' + VERSION + '] Erro ao criar audit log:', e.message);
   }
-});
 
-async function handleQRCode(instance, payload, base44, headers, debugMode) {
-  if (debugMode) console.log('[HANDLER-QRCODE] Processing QR Code update');
-  
   try {
-    const integration = await findIntegration(instance, base44);
-    if (integration) {
-      await base44.asServiceRole.entities.WhatsAppIntegration.update(integration.id, {
-        qr_code_url: payload.qrCodeUrl,
-        status: 'pendente_qrcode',
-        ultima_atividade: new Date().toISOString()
-      });
-      if (debugMode) console.log('[HANDLER-QRCODE] Integration updated with QR code');
-    }
-    
-    return Response.json({ 
-      success: true, 
-      processed: 'qrcode',
-      instance: instance
-    }, { status: 200, headers });
-    
-  } catch (error) {
-    console.error('[HANDLER-QRCODE] Error: ' + error.message);
-    throw error;
-  }
-}
-
-async function handleConnection(instance, payload, base44, headers, debugMode) {
-  if (debugMode) console.log('[HANDLER-CONNECTION] Processing connection status: ' + payload.status);
-  
-  try {
-    const integration = await findIntegration(instance, base44);
-    if (integration) {
-      await base44.asServiceRole.entities.WhatsAppIntegration.update(integration.id, {
-        status: payload.status,
-        ultima_atividade: new Date().toISOString()
-      });
-      if (debugMode) console.log('[HANDLER-CONNECTION] Integration status updated to: ' + payload.status);
-    }
-    
-    return Response.json({ 
-      success: true, 
-      processed: 'connection',
-      status: payload.status,
-      instance: instance
-    }, { status: 200, headers });
-    
-  } catch (error) {
-    console.error('[HANDLER-CONNECTION] Error: ' + error.message);
-    throw error;
-  }
-}
-
-async function handleMessageUpdate(payload, base44, headers, debugMode) {
-  if (debugMode) console.log('[HANDLER-MESSAGE-UPDATE] Processing message status update');
-  
-  try {
-    const msgId = payload.messageId;
-    if (!msgId) {
-      return Response.json({ 
-        success: true, 
-        ignored: true,
-        reason: 'no_message_id'
-      }, { status: 200, headers });
-    }
-    
-    const messages = await base44.asServiceRole.entities.Message.list('-created_date', 1, { whatsapp_message_id: msgId });
-    
-    let status_local = null;
-    if (messages.length > 0) {
-      const updates = {};
-      if (payload.status === 'READ') {
-        updates.status = 'lida';
-        status_local = 'lida';
-      } else if (payload.status === 'DELIVERED') {
-        updates.status = 'entregue';
-        status_local = 'entregue';
-      } else if (payload.status === 'SENT') {
-        updates.status = 'enviada';
-        status_local = 'enviada';
-      }
-      
-      if (Object.keys(updates).length > 0) {
-        await base44.asServiceRole.entities.Message.update(messages[0].id, updates);
-        if (debugMode) console.log('[HANDLER-MESSAGE-UPDATE] Message status updated to: ' + updates.status);
-      }
-    }
-    
-    const response = { 
-      success: true, 
-      processed: 'message_status_updated',
-      messageId: msgId
-    };
-    
-    if (status_local) response.status_local = status_local;
-    if (debugMode) {
-      response.debug = {
-        message_found: messages.length > 0,
-        status_received: payload.status,
-        status_local: status_local
-      };
-    }
-    
-    return Response.json(response, { status: 200, headers });
-    
-  } catch (error) {
-    console.error('[HANDLER-MESSAGE-UPDATE] Error: ' + error.message);
-    throw error;
-  }
-}
-
-async function handleMessage(instance, payload, base44, headers, debugMode) {
-  const startTime = Date.now();
-  if (debugMode) console.log('[HANDLER-MESSAGE] START - Processing incoming message');
-  
-  try {
-    // 🛡️ FIREWALL DE QUALIDADE - Bloquear mensagens indesejadas ANTES de salvar
-    // =========================================================================
-    
-    // 1. Bloquear JIDs puros (ex: +105299763548377@lid, numeros@dominio)
-    const jidPattern = /^[\+\d]+@(lid|s\.whatsapp\.net|c\.us|broadcast)$/;
-    if (payload.content && jidPattern.test(payload.content.trim())) {
-      console.log('[FIREWALL] Bloqueado: JID puro detectado ->', payload.content);
-      return Response.json({ 
-        success: true, 
-        blocked: true,
-        reason: 'jid_pattern',
-        content: payload.content,
-        version: VERSION
-      }, { status: 200, headers });
-    }
-
-    // 2. Bloquear broadcasts nao solicitados
-    if (payload.from && payload.from.includes('@broadcast')) {
-      console.log('[FIREWALL] Bloqueado: Broadcast ->', payload.from);
-      return Response.json({ 
-        success: true, 
-        blocked: true,
-        reason: 'broadcast',
-        version: VERSION
-      }, { status: 200, headers });
-    }
-
-    // 3. Bloquear status do WhatsApp (+status@broadcast e variacoes)
-    if (payload.from && (payload.from.includes('status@broadcast') || /[\+\-\d\s]*status@broadcast/i.test(payload.from))) {
-      console.log('[FIREWALL] Bloqueado: Status do WhatsApp ->', payload.from);
-      return Response.json({ 
-        success: true, 
-        blocked: true,
-        reason: 'status_broadcast',
-        version: VERSION
-      }, { status: 200, headers });
-    }
-
-    // 3.1. Bloquear conteudo que seja status@broadcast
-    if (payload.content && /[\+\-\d\s]*status@broadcast/i.test(payload.content.trim())) {
-      console.log('[FIREWALL] Bloqueado: Conteudo status@broadcast ->', payload.content);
-      return Response.json({ 
-        success: true, 
-        blocked: true,
-        reason: 'status_broadcast_content',
-        version: VERSION
-      }, { status: 200, headers });
-    }
-
-    // 4. Bloquear mensagens de confirmacao de recebimento (acknowledgments)
-    // Padrões comuns: JID puro OU conteúdo genérico tipo "Mídia enviada"
-    const acknowledgmentPatterns = [
-      // === JIDs e Padrões de Sistema ===
-      /^[\+\d]+@lid$/i,                    // Ex: +105299763548377@lid
-      /^[\+\d]+@s\.whatsapp\.net$/i,       // Ex: +5548999000111@s.whatsapp.net
-      /^[\+\d]+@c\.us$/i,                  // Ex: +5548999000111@c.us
-      
-      // === Confirmações de Mídia (PT/EN) ===
-      /^mídia enviada$/i,
-      /^media enviada$/i,
-      /^media sent$/i,
-      /^imagem enviada$/i,
-      /^image sent$/i,
-      /^vídeo enviado$/i,
-      /^video sent$/i,
-      /^áudio enviado$/i,
-      /^audio sent$/i,
-      /^documento enviado$/i,
-      /^document sent$/i,
-      /^arquivo enviado$/i,
-      /^file sent$/i,
-      
-      // === Confirmações de Mensagem (PT/EN) ===
-      /^mensagem enviada$/i,
-      /^message sent$/i,
-      /^mensagem entregue$/i,
-      /^message delivered$/i,
-      /^recebi sua mensagem$/i,
-      /^sua mensagem foi entregue$/i,
-      /^sua mensagem foi recebida$/i,
-      /^obrigado por sua mensagem$/i,
-      /^obrigado pela mensagem$/i,
-      
-      // === Auto-Respostas e Bots ===
-      /^esta é uma mensagem automática$/i,
-      /^esta e uma mensagem automatica$/i,
-      /^this is an automatic reply$/i,
-      /^this is an automated message$/i,
-      /^resposta automática$/i,
-      /^resposta automatica$/i,
-      /^auto[- ]?resposta$/i,
-      /^auto[- ]?reply$/i,
-      
-      // === Instruções de Sistema ===
-      /^não responda a esta mensagem$/i,
-      /^nao responda a esta mensagem$/i,
-      /^do not reply to this message$/i,
-      /^please do not reply$/i,
-      
-      // === Menus e CTAs Genéricos ===
-      /^pressione \d+ para/i,
-      /^digite \d+ para/i,
-      /^press \d+ for/i,
-      /^type \d+ for/i,
-      
-      // === Termos Genéricos Curtos ===
-      /^adicionar$/i,
-      /^referência$/i,
-      /^referencia$/i,
-      /^retorno$/i,
-      /^confirmação$/i,
-      /^confirmacao$/i,
-      /^ok$/i,
-      /^sim$/i,
-      /^não$/i,
-      /^nao$/i,
-      /^yes$/i,
-      /^no$/i,
-      
-      // === Agradecimentos Automáticos ===
-      /^obrigado!?$/i,
-      /^obrigada!?$/i,
-      /^thanks!?$/i,
-      /^thank you!?$/i
-    ];
-
-    const isAcknowledgment = payload.content && 
-      acknowledgmentPatterns.some(pattern => pattern.test(payload.content.trim()));
-
-    if (isAcknowledgment) {
-      console.log('[FIREWALL] Bloqueado: Acknowledgment/confirmacao ->', payload.content);
-      return Response.json({ 
-        success: true, 
-        blocked: true,
-        reason: 'acknowledgment_message',
-        content: payload.content,
-        version: VERSION
-      }, { status: 200, headers });
-    }
-
-    // 5. Bloquear mensagens sem conteudo valido
-    const conteudoInvalido = [
-      '[No content]',
-      '[Message content missing]',
-      '[Recovered message]',
-      '',
-      null,
-      undefined
-    ];
-
-    const conteudoVazio = !payload.content || 
-                         conteudoInvalido.includes(payload.content) ||
-                         payload.content.trim() === '' ||
-                         payload.content.startsWith('[Media type:');
-
-    // Se conteudo vazio E sem midia valida = BLOQUEAR
-    const temMidiaValida = payload.mediaTempUrl || 
-                          payload.mediaType === 'contact' || 
-                          payload.mediaType === 'location' ||
-                          (payload.mediaType && payload.mediaType !== 'none');
-
-    if (conteudoVazio && !temMidiaValida) {
-      console.log('[FIREWALL] Bloqueado: Mensagem vazia sem midia');
-      return Response.json({ 
-        success: true, 
-        blocked: true,
-        reason: 'empty_content_no_media',
-        version: VERSION
-      }, { status: 200, headers });
-    }
-
-    // Mensagem passou pelo firewall, continuar processamento
-    console.log('[FIREWALL] Mensagem aprovada para processamento');
-    
-    const numero = payload.from;
-    if (!numero || numero === 'unknown') {
-      throw new Error('Phone number missing or invalid');
-    }
-    if (debugMode) console.log('[HANDLER-MESSAGE] Phone number: ' + numero);
-
-    const t1 = Date.now();
-    const [contatosExistentes, integracoes] = await Promise.all([
-      base44.asServiceRole.entities.Contact.list('-created_date', 1, { telefone: numero }),
-      (instance && instance !== 'unknown') 
-        ? base44.asServiceRole.entities.WhatsAppIntegration.list('-created_date', 1, { instance_id_provider: instance })
+    // ========== BUSCAR/CRIAR CONTATO ==========
+    const [contatos, integracoes] = await Promise.all([
+      base44.asServiceRole.entities.Contact.list('-created_date', 1, { telefone: msg.from }),
+      msg.instanceId !== 'unknown' 
+        ? base44.asServiceRole.entities.WhatsAppIntegration.list('-created_date', 1, { instance_id_provider: msg.instanceId })
         : Promise.resolve([])
     ]);
-    if (debugMode) console.log('[HANDLER-MESSAGE] Parallel queries completed in ' + (Date.now() - t1) + 'ms');
 
-    // 🔧 CORREÇÃO: Declarar integracaoId ANTES de usar na lógica de contato
     const integracaoId = integracoes.length > 0 ? integracoes[0].id : null;
-
     let contato;
-    if (contatosExistentes.length > 0) {
-      contato = contatosExistentes[0];
 
-      // ATUALIZA NOME SE PUSHNAME ESTIVER DISPONIVEL E CONTATO TIVER NOME GENERICO
-      const updateData = { ultima_interacao: new Date().toISOString() };
-
-      // Detectar nomes genericos que devem ser substituidos
-      const nomesGenericos = [
-        'Usuário do WhatsApp',
-        'User',
-        'Contato',
-        'Cliente',
-        'Lead',
-        'Desconhecido',
-        'Unknown',
-        ''
-      ];
+    if (contatos.length > 0) {
+      contato = contatos[0];
+      const atualizacao = { ultima_interacao: new Date().toISOString() };
       
+      // Atualizar nome se for genérico
       const nomeAtual = contato.nome?.trim() || '';
-      const nomeEhGenerico = !nomeAtual || 
-                            nomeAtual === numero || 
-                            nomeAtual === contato.telefone ||
-                            nomesGenericos.some(g => nomeAtual.toLowerCase() === g.toLowerCase()) ||
-                            /^[\+\d\s\-\(\)]+$/.test(nomeAtual); // Nome é apenas números/símbolos
-
-      if (payload.pushName && nomeEhGenerico) {
-        updateData.nome = payload.pushName;
-        if (debugMode) console.log('[HANDLER-MESSAGE] Atualizando nome generico para: ' + payload.pushName);
+      const nomeGenerico = !nomeAtual || nomeAtual === msg.from || /^[\+\d\s\-\(\)]+$/.test(nomeAtual);
+      if (msg.pushName && nomeGenerico) {
+        atualizacao.nome = msg.pushName;
       }
-
-      // ATUALIZAR FOTO APENAS SE NAO EXISTIR OU ESTIVER MUITO ANTIGA (>7 dias)
-      // OTIMIZACAO: Nao buscar foto se ja existe e esta atualizada
-      const temFotoAtual = !!contato.foto_perfil_url;
-      const fotoAntiga = !contato.foto_perfil_atualizada_em || 
-        (Date.now() - new Date(contato.foto_perfil_atualizada_em).getTime()) > 7 * 24 * 60 * 60 * 1000;
-
-      // Só busca foto se: não tem foto OU foto está antiga (>7 dias)
-      if ((!temFotoAtual || fotoAntiga) && integracaoId) {
-        try {
-          const fotoResult = await base44.asServiceRole.functions.invoke('buscarFotoPerfilWhatsApp', {
-            integration_id: integracaoId,
-            phone: numero
-          });
-          if (fotoResult?.profilePictureUrl) {
-              updateData.foto_perfil_url = fotoResult.profilePictureUrl;
-              updateData.foto_perfil_atualizada_em = new Date().toISOString();
-              if (debugMode) console.log('[HANDLER-MESSAGE] Foto de perfil atualizada');
-            }
-          } catch (error) {
-            // Silenciar erro - nao e critico
-            if (debugMode) console.warn('[HANDLER-MESSAGE] Erro ao buscar foto:', error.message);
-          }
-          }
-
-          await base44.asServiceRole.entities.Contact.update(contato.id, updateData);
-          } else {
-          // BUSCAR FOTO PARA NOVO CONTATO
-      let fotoPerfil = null;
-      try {
-        if (integracaoId) {
-          const fotoResult = await base44.asServiceRole.functions.invoke('buscarFotoPerfilWhatsApp', {
-            integration_id: integracaoId,
-            phone: numero
-          });
-          fotoPerfil = fotoResult?.profilePictureUrl || null;
-        }
-      } catch (error) {
-        console.warn('[HANDLER-MESSAGE] Erro ao buscar foto:', error.message);
-      }
-
+      
+      await base44.asServiceRole.entities.Contact.update(contato.id, atualizacao);
+    } else {
       contato = await base44.asServiceRole.entities.Contact.create({
-        nome: payload.pushName || numero,
-        telefone: numero,
+        nome: msg.pushName || msg.from,
+        telefone: msg.from,
         tipo_contato: 'lead',
         whatsapp_status: 'verificado',
-        ultima_interacao: new Date().toISOString(),
-        foto_perfil_url: fotoPerfil,
-        foto_perfil_atualizada_em: fotoPerfil ? new Date().toISOString() : null
+        ultima_interacao: new Date().toISOString()
       });
     }
 
-    const t2 = Date.now();
-    const threadsExistentes = await base44.asServiceRole.entities.MessageThread.list('-last_message_at', 1, { contact_id: contato.id });
-    if (debugMode) console.log('[HANDLER-MESSAGE] Thread query completed in ' + (Date.now() - t2) + 'ms');
-    
+    // ========== BUSCAR/CRIAR THREAD ==========
+    const threads = await base44.asServiceRole.entities.MessageThread.list('-last_message_at', 1, { contact_id: contato.id });
     let thread;
-    if (threadsExistentes.length > 0) {
-      thread = threadsExistentes[0];
-      
-      const updateData = {
+
+    if (threads.length > 0) {
+      thread = threads[0];
+      await base44.asServiceRole.entities.MessageThread.update(thread.id, {
         last_message_at: new Date().toISOString(),
         last_message_sender: 'contact',
-        last_message_content: payload.content ? payload.content.substring(0, 100) : '[No content]',
+        last_message_content: (msg.content || '').substring(0, 100),
         unread_count: (thread.unread_count || 0) + 1,
         total_mensagens: (thread.total_mensagens || 0) + 1,
-        status: 'aberta'
-      };
-      
-      if (integracaoId && !thread.whatsapp_integration_id) {
-        updateData.whatsapp_integration_id = integracaoId;
-      }
-      
-      await base44.asServiceRole.entities.MessageThread.update(thread.id, updateData);
+        status: 'aberta',
+        ...(integracaoId && !thread.whatsapp_integration_id ? { whatsapp_integration_id: integracaoId } : {})
+      });
     } else {
       thread = await base44.asServiceRole.entities.MessageThread.create({
         contact_id: contato.id,
@@ -961,122 +250,70 @@ async function handleMessage(instance, payload, base44, headers, debugMode) {
         primeira_mensagem_at: new Date().toISOString(),
         last_message_at: new Date().toISOString(),
         last_message_sender: 'contact',
-        last_message_content: payload.content ? payload.content.substring(0, 100) : '[No content]',
+        last_message_content: (msg.content || '').substring(0, 100),
         total_mensagens: 1,
         unread_count: 1
       });
     }
 
-    if (payload.messageId) {
-      const mensagensExistentes = await base44.asServiceRole.entities.Message.list('-created_date', 1, { whatsapp_message_id: payload.messageId });
-      
-      if (mensagensExistentes.length > 0) {
-        return Response.json({ 
-          success: true, 
-          processed: 'duplicate',
-          messageId: payload.messageId,
-          version: VERSION
-        }, { status: 200, headers });
+    // ========== VERIFICAR DUPLICATA ==========
+    if (msg.messageId) {
+      const duplicatas = await base44.asServiceRole.entities.Message.list('-created_date', 1, { whatsapp_message_id: msg.messageId });
+      if (duplicatas.length > 0) {
+        console.log('[' + VERSION + '] Mensagem duplicada ignorada');
+        return Response.json({ success: true, ignored: true, reason: 'duplicata', version: VERSION }, { headers: corsHeaders });
       }
     }
 
-    const t3 = Date.now();
-    // VALIDAR CONTEUDO ANTES DE SALVAR
-    const temConteudoValido = payload.content && payload.content.trim() !== '' && payload.content !== '[No content]';
-    // CORRIGIDO: Considerar QUALQUER tipo de mídia como válido, não apenas URL
-    const temMidiaValida = payload.mediaTempUrl || 
-                          payload.mediaType === 'contact' || 
-                          payload.mediaType === 'location' ||
-                          payload.mediaType === 'image' ||
-                          payload.mediaType === 'video' ||
-                          payload.mediaType === 'audio' ||
-                          payload.mediaType === 'document' ||
-                          payload.mediaType === 'sticker' ||
-                          (payload.mediaType && payload.mediaType !== 'none');
-
-    // IGNORAR mensagens completamente vazias
-    if (!temConteudoValido && !temMidiaValida) {
-      console.warn('[HANDLER-MESSAGE] Mensagem vazia ignorada:', {
-        messageId: payload.messageId,
-        content: payload.content,
-        mediaType: payload.mediaType,
-        hasMediaUrl: !!payload.mediaTempUrl
-      });
-      
-      return Response.json({ 
-        success: true, 
-        processed: 'empty_message_ignored',
-        messageId: payload.messageId,
-        reason: 'No valid content or media',
-        version: VERSION
-      }, { status: 200, headers });
-    }
-    
+    // ========== SALVAR MENSAGEM ==========
     const mensagem = await base44.asServiceRole.entities.Message.create({
       thread_id: thread.id,
       sender_id: contato.id,
       sender_type: 'contact',
-      content: payload.content || `[${payload.mediaType}]`,
-      media_url: payload.mediaTempUrl || null,
-      media_type: payload.mediaType || 'none',
-      media_caption: payload.mediaCaption || null,
+      content: msg.content || `[${msg.mediaType}]`,
+      media_url: msg.mediaUrl || null,
+      media_type: msg.mediaType,
+      media_caption: msg.mediaCaption,
       channel: 'whatsapp',
       status: 'recebida',
-      whatsapp_message_id: payload.messageId,
+      whatsapp_message_id: msg.messageId,
       sent_at: new Date().toISOString(),
-      metadata: { 
+      metadata: {
         whatsapp_integration_id: integracaoId,
-        is_from_me: payload.isFromMe || false,
-        timestamp: payload.timestamp,
-        quoted_message: payload.quotedMessage || null,
-        media_file_name: payload.mediaFileName || null,
-        location: payload.location || null,
-        vcard: payload.vcard || null,
-        group_id: payload.groupId || null,
-        mime_type: payload.mediaMimeType || null
+        is_from_me: msg.isFromMe,
+        timestamp: msg.timestamp
       }
     });
-    if (debugMode) console.log('[HANDLER-MESSAGE] Message save completed in ' + (Date.now() - t3) + 'ms');
-    
-    const totalTime = Date.now() - startTime;
-    
-    const response = { 
-      success: true, 
-      processed: 'message_saved',
+
+    // Atualizar audit log
+    if (auditId) {
+      await base44.asServiceRole.entities.ZapiPayloadNormalized.update(auditId, { sucesso_processamento: true });
+    }
+
+    const duracao = Date.now() - inicio;
+    console.log('[' + VERSION + '] ✅ Mensagem salva em ' + duracao + 'ms | ID:', mensagem.id);
+
+    return Response.json({
+      success: true,
       message_id: mensagem.id,
       contact_id: contato.id,
       thread_id: thread.id,
+      duration_ms: duracao,
       version: VERSION
-    };
+    }, { headers: corsHeaders });
+
+  } catch (error) {
+    console.error('[' + VERSION + '] ERRO:', error.message);
     
-    if (debugMode) {
-      response.debug = {
-        phone: numero,
-        content_length: payload.content?.length || 0,
-        media_type: payload.mediaType,
-        integration_id: integracaoId,
-        processing_time_ms: totalTime
-      };
-      console.log('[HANDLER-MESSAGE] Total processing time: ' + totalTime + 'ms');
+    if (auditId) {
+      try {
+        await base44.asServiceRole.entities.ZapiPayloadNormalized.update(auditId, { 
+          sucesso_processamento: false, 
+          erro_detalhes: error.message 
+        });
+      } catch (e) {}
     }
-    
-    return Response.json(response, { status: 200, headers });
 
-  } catch (error) {
-    console.error('[HANDLER-MESSAGE] FAILED: ' + error.message);
-    console.error('[HANDLER-MESSAGE] Stack: ' + error.stack);
-    throw error;
+    return Response.json({ success: false, error: error.message, version: VERSION }, { status: 500, headers: corsHeaders });
   }
-}
-
-async function findIntegration(instance, base44) {
-  if (!instance || instance === 'unknown') return null;
-  
-  try {
-    const integrations = await base44.asServiceRole.entities.WhatsAppIntegration.list('-created_date', 1, { instance_id_provider: instance });
-    return integrations.length > 0 ? integrations[0] : null;
-  } catch (error) {
-    console.error('[HELPER-FIND-INTEGRATION] Error: ' + error.message);
-    return null;
-  }
-}
+});
