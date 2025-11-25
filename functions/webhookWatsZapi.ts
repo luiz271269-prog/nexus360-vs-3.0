@@ -66,19 +66,25 @@ function normalizarPayloadZAPI(evento) {
 
   // === 1. MessageStatusCallback (Z-API) - Atualizacao de Status ===
   // CRITICO: Detectar ANTES de ReceivedCallback para evitar mensagens [No content]
-  // Tambem detecta por estrutura: tem status + ids mas NAO tem texto/body
+  // Detecta por MULTIPLAS formas para garantir que NUNCA passe como mensagem:
+  // - Por nome do evento (eventoTipo)
+  // - Por evento.type original (case-insensitive)
+  // - Por estrutura (tem ids[] + status)
+  const eventoTypeOriginal = String(evento.type || '').toLowerCase();
+  
   if (eventoTipo.includes('messagestatuscallback') || 
       eventoTipo.includes('status-find') || 
-      eventoTipo === 'messagestatuscallback' ||
-      (evento.status && evento.ids && Array.isArray(evento.ids)) ||
-      (evento.status && evento.type === 'MessageStatusCallback')) {
-    console.log('[NORMALIZAR] Detectado: MessageStatusCallback ->', evento.status);
+      eventoTypeOriginal === 'messagestatuscallback' ||
+      eventoTypeOriginal.includes('statuscallback') ||
+      (evento.ids && Array.isArray(evento.ids) && evento.status)) {
+    console.log('[NORMALIZAR] Detectado MessageStatusCallback - Ignorando como mensagem');
+    console.log('[NORMALIZAR] Status:', evento.status, '| IDs:', evento.ids);
     return {
       type: 'message_update',
       instanceId: instanceId,
       messageId: evento.ids ? evento.ids[0] : evento.messageId || null,
       status: evento.status,
-      timestamp: evento.momment || Date.now()
+      timestamp: evento.momment || evento.moment || Date.now()
     };
   }
 
@@ -215,7 +221,7 @@ function validarPayloadNormalizado(payload) {
 }
 
 // VERSAO AUTO-ATUALIZADA - Modifique quando publicar uma nova versao
-const VERSION = 'v4.4.0';
+const VERSION = 'v4.5.0';
 const BUILD_DATE = '2025-01-25';
 const DEPLOYED_AT = new Date().toISOString();
 
