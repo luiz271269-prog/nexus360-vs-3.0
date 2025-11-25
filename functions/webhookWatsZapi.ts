@@ -4,15 +4,32 @@ import { connectionManager } from './lib/connectionManager.js';
 
 // Funções do adapter inline para evitar problemas de importação
 function extrairInstanceId(payload) {
-  return payload.instance || payload.instanceId || payload.instance_id || 
-         payload.instance_id_provider || payload.instanceName || 'unknown';
+  if (!payload || typeof payload !== 'object') {
+    console.error('[ERRO] Payload inválido em extrairInstanceId:', typeof payload);
+    return 'unknown';
+  }
+
+  const instanceId = payload.instance || payload.instanceId || payload.instance_id || 
+                     payload.instance_id_provider || payload.instanceName;
+
+  if (!instanceId) {
+    console.warn('[AVISO] Instance ID não encontrado no payload. Keys:', Object.keys(payload).join(', '));
+    return 'unknown';
+  }
+
+  return instanceId;
 }
 
 function normalizarPayloadZAPI(evento) {
-  if (!evento) return { type: 'unknown' };
+  if (!evento || typeof evento !== 'object') {
+    console.error('[NORMALIZAR] Evento inválido ou nulo:', typeof evento);
+    return { type: 'unknown', error: 'Evento inválido' };
+  }
 
   const eventoTipo = String(evento.event || evento.type || 'unknown').toLowerCase();
   const instanceId = extrairInstanceId(evento);
+
+  console.log('[NORMALIZAR] Processando evento:', eventoTipo, '| Instance:', instanceId);
 
   // === 0. PRÉ-FILTRO: Detectar e IGNORAR eventos de sistema/lixo ANTES de tudo ===
   // ================================================================================
@@ -176,8 +193,8 @@ function validarPayloadNormalizado(payload) {
 }
 
 // VERSÃO AUTO-ATUALIZADA - Modifique quando publicar uma nova versão
-const VERSION = 'v4.2.0';
-const BUILD_DATE = '2025-01-24';
+const VERSION = 'v4.3.0';
+const BUILD_DATE = '2025-01-25';
 const DEPLOYED_AT = new Date().toISOString();
 
 console.log('=============================================================');
