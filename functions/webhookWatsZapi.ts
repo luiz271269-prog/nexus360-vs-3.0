@@ -181,11 +181,6 @@ function normalizarPayloadZAPI(evento) {
       mediaType = 'location';
       const loc = evento.location || evento.locationMessage;
       conteudo = `[Localizacao: ${loc.name || 'Localizacao compartilhada'}]`;
-    } else if (evento.documentMessage) {
-      // DOCUMENTO
-      mediaType = 'document';
-      mediaTempUrl = evento.documentMessage.documentUrl;
-      conteudo = `[Documento: ${evento.documentMessage.fileName || 'Arquivo'}]`;
     }
 
     // ULTIMA VALIDACAO: Se nao tem conteudo E nao tem midia, ignorar
