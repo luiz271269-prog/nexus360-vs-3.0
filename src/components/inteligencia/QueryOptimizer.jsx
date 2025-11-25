@@ -8,6 +8,7 @@
  * ╚═══════════════════════════════════════════════════════════════╝
  */
 
+import { base44 } from "@/api/base44Client";
 import { cacheGlobal } from "./CacheInteligente";
 
 export class QueryOptimizer {
@@ -16,7 +17,8 @@ export class QueryOptimizer {
     this.metricas = {
       queries_executadas: 0,
       tempo_total_ms: 0,
-      queries_lentas: []
+      queries_lentas: [],
+      cache_hits: 0
     };
   }
 
@@ -177,10 +179,15 @@ export class QueryOptimizer {
 
     return {
       total_queries: this.metricas.queries_executadas,
+      queries_otimizadas: this.metricas.queries_executadas,
+      cache_hits: this.metricas.cache_hits || 0,
       tempo_total_ms: this.metricas.tempo_total_ms,
       tempo_medio_ms: tempoMedio.toFixed(2),
       queries_lentas: this.metricas.queries_lentas.length,
-      detalhes_lentas: this.metricas.queries_lentas.slice(-10) // Últimas 10
+      detalhes_lentas: this.metricas.queries_lentas.slice(-10),
+      economia_estimada_percentual: this.metricas.cache_hits > 0 
+        ? Math.round((this.metricas.cache_hits / (this.metricas.queries_executadas || 1)) * 100)
+        : 0
     };
   }
 
