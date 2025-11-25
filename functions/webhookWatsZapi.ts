@@ -36,13 +36,14 @@ function normalizarPayloadZAPI(evento) {
   // === 0. PRE-FILTRO BLINDADO: Detectar e IGNORAR eventos de sistema ANTES de tudo ===
   // ====================================================================================
   
-  // 0.1 Ignorar eventos de presenca (online/offline/typing/recording)
+  // 0.1 Ignorar eventos de presenca (online/offline/typing)
   // Inclui PresenceChatCallback que a Z-API envia frequentemente
+  // NOTA: NAO filtrar 'recording' aqui pois pode conflitar com audios
   if (eventoTipo.includes('presence') || 
       eventoTipo.includes('typing') || 
       eventoTipo.includes('composing') ||
-      eventoTipo.includes('recording') ||
-      eventoTipo === 'presencechatcallback') {
+      eventoTipo === 'presencechatcallback' ||
+      eventoTipo === 'recording') {
     console.log('[NORMALIZAR] Ignorado: Evento de presenca ->', eventoTipo);
     return { type: 'ignored', reason: 'presence_event' };
   }
@@ -100,10 +101,13 @@ function normalizarPayloadZAPI(evento) {
     }
 
     // PRE-FILTRO: Ignorar JIDs de sistema no conteudo
-    const conteudoBruto = evento.text?.message || evento.body || '';
+    // NOTA: Mensagens de audio/video/imagem podem nao ter texto, entao verificar midia primeiro
+    const temMidia = evento.audio || evento.video || evento.image || evento.documentMessage || evento.sticker;
+    const conteudoBruto = evento.text?.message || evento.body || evento.buttonsResponseMessage?.message || '';
     
     // Se o telefone parece ser JID interno (@s.whatsapp.net, @c.us) verificar conteudo
-    if (/@(s\.whatsapp\.net|c\.us)$/i.test(telefoneOriginal)) {
+    // MAS permitir se tiver midia anexada
+    if (/@(s\.whatsapp\.net|c\.us)$/i.test(telefoneOriginal) && !temMidia) {
       // Se o conteudo tambem parece ser um JID ou "Adicionar", ignorar
       if (!conteudoBruto || 
           /@(lid|broadcast|g\.us|s\.whatsapp\.net|c\.us)/i.test(conteudoBruto) ||
@@ -113,9 +117,6 @@ function normalizarPayloadZAPI(evento) {
         return { type: 'ignored', reason: 'system_jid_no_content' };
       }
     }
-
-    // PRE-FILTRO: Ignorar mensagens que sao apenas JIDs ou "Adicionar"
-    const conteudoBruto = evento.text?.message || evento.body || evento.buttonsResponseMessage?.message || '';
 
     // Padroes de lixo a ignorar na normalizacao
     const padraoLixo = [
@@ -221,7 +222,7 @@ function validarPayloadNormalizado(payload) {
 }
 
 // VERSAO AUTO-ATUALIZADA - Modifique quando publicar uma nova versao
-const VERSION = 'v4.5.0';
+const VERSION = 'v4.5.1';
 const BUILD_DATE = '2025-01-25';
 const DEPLOYED_AT = new Date().toISOString();
 
