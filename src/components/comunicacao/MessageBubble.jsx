@@ -390,8 +390,8 @@ export default function MessageBubble({
         queryClient.invalidateQueries({ queryKey: ['categorias-mensagens'] });
       }
 
-      // Adicionar à mensagem
-      const categoriasAtuais = message?.categorias || [];
+      // Adicionar a mensagem (normalizar antes)
+      const categoriasAtuais = normalizarCategorias(message?.categorias);
       if (!categoriasAtuais.includes(categoriaNormalizada)) {
         await base44.entities.Message.update(message?.id, {
           categorias: [...categoriasAtuais, categoriaNormalizada]
