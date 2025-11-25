@@ -1,6 +1,21 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.4';
-import { normalizarTelefone } from './lib/phoneUtils.js';
-import { connectionManager } from './lib/connectionManager.js';
+
+// ============================================================================
+// FUNÇÕES UTILITÁRIAS INLINE (evitar imports externos)
+// ============================================================================
+
+function normalizarTelefone(telefone) {
+  if (!telefone) return null;
+  let numeroLimpo = String(telefone).split('@')[0];
+  let apenasNumeros = numeroLimpo.replace(/\D/g, '');
+  if (!apenasNumeros || apenasNumeros.length < 10) return null;
+  if (!apenasNumeros.startsWith('55')) {
+    if (apenasNumeros.length === 10 || apenasNumeros.length === 11) {
+      apenasNumeros = '55' + apenasNumeros;
+    }
+  }
+  return '+' + apenasNumeros;
+}
 
 // ============================================================================
 // WEBHOOK WHATSAPP Z-API - v9.1.0 FINAL
