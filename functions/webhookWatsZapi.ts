@@ -11,9 +11,9 @@ import { connectionManager } from './lib/connectionManager.js';
 // 4. whatsapp_integration_id SEMPRE no metadata
 // ============================================================================
 
-const VERSION = 'v8.0.1';
+const VERSION = 'v8.1.0';
 const BUILD_DATE = '2025-11-25';
-const BUILD_TIMESTAMP = '20251125-174500';
+const BUILD_TIMESTAMP = '20251125-220000';
 
 const corsHeaders = {
   'Content-Type': 'application/json',
