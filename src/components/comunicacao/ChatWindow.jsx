@@ -1603,7 +1603,8 @@ export default function ChatWindow({
         disabled={enviando || carregandoContato || gravandoAudio || modoSelecao}
         replyToMessage={mensagemResposta}
         thread={thread}
-        usuario={usuario} />
+        usuario={usuario}
+        integrationIdOverride={canalSelecionado} />
 
       }
 
