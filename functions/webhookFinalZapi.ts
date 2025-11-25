@@ -143,8 +143,20 @@ function normalizarPayload(payload) {
     };
   }
 
-  // Status de mensagem
-  if (tipoRaw.includes('messagestatuscallback') || tipoRaw.includes('message-status') || payload.status) {
+  // ⚠️ IMPORTANTE: Detectar se é MENSAGEM REAL antes de status update
+  // Mensagem real tem: messageId + phone + (text/senderName/chatName) + fromMe=false
+  const temConteudoMensagem = payload.text || payload.body || payload.message || 
+                              payload.image || payload.video || payload.audio || 
+                              payload.document || payload.sticker;
+  const temIndicadoresMensagem = payload.senderName || payload.chatName || payload.pushName;
+  const ehMensagemReal = payload.messageId && 
+                         payload.phone && 
+                         payload.fromMe === false && 
+                         (temConteudoMensagem || temIndicadoresMensagem);
+
+  // Status de mensagem - APENAS se NÃO for mensagem real
+  // MessageStatusCallback geralmente vem com array "ids" e sem senderName
+  if (!ehMensagemReal && (tipoRaw.includes('messagestatuscallback') || tipoRaw.includes('message-status') || (Array.isArray(payload.ids) && payload.ids.length > 0))) {
     const messageId =
       (Array.isArray(payload.ids) && payload.ids[0]) ||
       payload.messageId ||
