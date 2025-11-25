@@ -1670,12 +1670,39 @@ export default function ChatWindow({
           }
 
           <div className="flex-1">
+            {/* Preview da imagem colada */}
+            {pastedImagePreview && (
+              <div className="mb-2 p-2 bg-blue-50 border border-blue-200 rounded-lg">
+                <div className="flex items-start gap-3">
+                  <img 
+                    src={pastedImagePreview} 
+                    alt="Preview" 
+                    className="w-20 h-20 object-cover rounded-lg border border-blue-300"
+                  />
+                  <div className="flex-1">
+                    <p className="text-sm font-medium text-blue-800 mb-1">📷 Imagem colada</p>
+                    <p className="text-xs text-blue-600">Digite uma legenda (opcional) e clique em enviar</p>
+                  </div>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    onClick={cancelarImagemColada}
+                    className="h-6 w-6 text-blue-600 hover:text-blue-800 hover:bg-blue-100"
+                  >
+                    <X className="w-4 h-4" />
+                  </Button>
+                </div>
+              </div>
+            )}
+            
             <textarea
               ref={inputRef}
               value={mensagemTexto}
               onChange={(e) => setMensagemTexto(e.target.value)}
               onKeyDown={handleKeyDown}
-              placeholder={!podeEnviarMensagens ? "Sem permissão para enviar mensagens" : "Digite sua mensagem..."}
+              onPaste={handlePaste}
+              placeholder={pastedImagePreview ? "Digite uma legenda para a imagem..." : (!podeEnviarMensagens ? "Sem permissão para enviar mensagens" : "Digite sua mensagem... (Ctrl+V para colar imagem)")}
               rows={Math.max(1, Math.min(5, mensagemTexto.split('\n').length))}
               className="w-full p-3 border border-slate-300 rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-orange-500"
               disabled={enviando || carregandoContato || gravandoAudio || modoSelecao || uploadingPastedFile || !podeEnviarMensagens} />
