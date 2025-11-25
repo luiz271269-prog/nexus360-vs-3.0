@@ -1124,6 +1124,128 @@ export default function ChatWindow({
     }
   };
 
+  // Handler para colar imagem (Ctrl+V / Cmd+V)
+  const handlePaste = async (e) => {
+    const items = e.clipboardData?.items;
+    if (!items) return;
+
+    for (const item of items) {
+      if (item.type.startsWith('image/')) {
+        e.preventDefault();
+        const file = item.getAsFile();
+        if (file) {
+          setPastedImage(file);
+          const previewUrl = URL.createObjectURL(file);
+          setPastedImagePreview(previewUrl);
+          toast.info('📷 Imagem colada! Clique em enviar para compartilhar.');
+        }
+        break;
+      }
+    }
+  };
+
+  const cancelarImagemColada = () => {
+    if (pastedImagePreview) {
+      URL.revokeObjectURL(pastedImagePreview);
+    }
+    setPastedImage(null);
+    setPastedImagePreview(null);
+  };
+
+  const enviarImagemColada = async () => {
+    if (!pastedImage || !thread || !usuario || !podeEnviarMidias) {
+      toast.error('Não foi possível enviar a imagem');
+      return;
+    }
+
+    setUploadingPastedFile(true);
+    try {
+      const contatoTel = contatoCompleto?.telefone || contatoCompleto?.celular;
+      if (!contatoTel) {
+        throw new Error('Contato sem telefone');
+      }
+
+      // Upload da imagem
+      const timestamp = Date.now();
+      const fileName = `print-${timestamp}.png`;
+      const imageFile = new File([pastedImage], fileName, { type: pastedImage.type });
+      
+      const uploadResponse = await base44.integrations.Core.UploadFile({ file: imageFile });
+      const imageUrl = uploadResponse.file_url;
+
+      // Enviar via WhatsApp
+      const integrationId = canalSelecionado || thread.whatsapp_integration_id;
+      const dadosEnvio = {
+        integration_id: integrationId,
+        numero_destino: contatoTel,
+        media_url: imageUrl,
+        media_type: 'image',
+        media_caption: mensagemTexto.trim() || null
+      };
+
+      if (mensagemResposta?.whatsapp_message_id) {
+        dadosEnvio.reply_to_message_id = mensagemResposta.whatsapp_message_id;
+      }
+
+      const resultado = await base44.functions.invoke('enviarWhatsApp', dadosEnvio);
+
+      if (resultado.data.success) {
+        // Salvar mensagem no banco
+        await base44.entities.Message.create({
+          thread_id: thread.id,
+          sender_id: usuario.id,
+          sender_type: 'user',
+          recipient_id: thread.contact_id,
+          recipient_type: 'contact',
+          content: mensagemTexto.trim() || '[Imagem]',
+          channel: 'whatsapp',
+          status: 'enviada',
+          whatsapp_message_id: resultado.data.message_id,
+          sent_at: new Date().toISOString(),
+          media_url: imageUrl,
+          media_type: 'image',
+          media_caption: mensagemTexto.trim() || null,
+          reply_to_message_id: mensagemResposta?.id || null,
+          metadata: {
+            whatsapp_integration_id: integrationId,
+            is_pasted_image: true
+          }
+        });
+
+        // Atualizar thread
+        await base44.entities.MessageThread.update(thread.id, {
+          last_message_content: '[Imagem]',
+          last_message_at: new Date().toISOString(),
+          last_message_sender: 'user',
+          whatsapp_integration_id: integrationId
+        });
+
+        toast.success('✅ Imagem enviada com sucesso!');
+        cancelarImagemColada();
+        setMensagemTexto('');
+        setMensagemResposta(null);
+
+        if (onAtualizarMensagens) {
+          setTimeout(async () => {
+            const novasMensagens = await base44.entities.Message.filter(
+              { thread_id: thread.id },
+              'created_date',
+              500
+            );
+            onAtualizarMensagens(novasMensagens);
+          }, 500);
+        }
+      } else {
+        throw new Error(resultado.data.error || 'Erro ao enviar imagem');
+      }
+    } catch (error) {
+      console.error('[CHAT] Erro ao enviar imagem colada:', error);
+      toast.error(`Erro: ${error.message}`);
+    } finally {
+      setUploadingPastedFile(false);
+    }
+  };
+
   return (
     <div className="flex flex-col h-full bg-white">
       {/* Header com Cards de Classificação */}
