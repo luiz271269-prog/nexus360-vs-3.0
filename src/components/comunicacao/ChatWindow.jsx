@@ -1709,18 +1709,36 @@ export default function ChatWindow({
 
           </div>
           
-          <Button
-            type="submit"
-            disabled={!mensagemTexto.trim() || enviando || carregandoContato || gravandoAudio || modoSelecao || uploadingPastedFile || !podeEnviarMensagens}
-            className="bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white flex-shrink-0"
-            title={!podeEnviarMensagens ? "Sem permissão para enviar mensagens" : "Enviar mensagem"}>
+          {pastedImagePreview ? (
+            <Button
+              type="button"
+              onClick={enviarImagemColada}
+              disabled={enviando || carregandoContato || uploadingPastedFile || !podeEnviarMidias}
+              className="bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white flex-shrink-0"
+              title="Enviar imagem colada">
+              {uploadingPastedFile ? (
+                <Loader2 className="w-5 h-5 animate-spin" />
+              ) : (
+                <>
+                  <ImageIcon className="w-4 h-4 mr-1" />
+                  <Send className="w-4 h-4" />
+                </>
+              )}
+            </Button>
+          ) : (
+            <Button
+              type="submit"
+              disabled={!mensagemTexto.trim() || enviando || carregandoContato || gravandoAudio || modoSelecao || uploadingPastedFile || !podeEnviarMensagens}
+              className="bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white flex-shrink-0"
+              title={!podeEnviarMensagens ? "Sem permissão para enviar mensagens" : "Enviar mensagem"}>
 
-            {enviando ?
-            <Loader2 className="w-5 h-5 animate-spin" /> :
+              {enviando ?
+              <Loader2 className="w-5 h-5 animate-spin" /> :
 
-            <Send className="w-5 h-5" />
-            }
-          </Button>
+              <Send className="w-5 h-5" />
+              }
+            </Button>
+          )}
         </div>
 
         {mostrarSugestor &&
