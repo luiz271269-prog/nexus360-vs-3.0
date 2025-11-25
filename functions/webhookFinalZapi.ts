@@ -271,13 +271,7 @@ Deno.serve(async (req) => {
 
     console.log(`[${VERSION}] 🔄 Processando: ${dados.type}`);
 
-    if (dados.instanceId) {
-      try {
-        connectionManager.register(dados.instanceId, { provider: 'z_api' });
-      } catch {
-        // não bloquear fluxo
-      }
-    }
+    // Connection manager removido para simplificar
 
     switch (dados.type) {
       case 'qrcode':
