@@ -139,20 +139,38 @@ function normalizarPayloadZAPI(evento) {
       return { type: 'unknown', error: 'Telefone inválido' };
     }
 
-    // DETECTAR VCARD (compartilhamento de contato)
+    // DETECTAR TIPO DE MIDIA (imagem, video, audio, documento, sticker, contato, localizacao)
     let mediaType = 'none';
     let mediaTempUrl = null;
     let conteudo = conteudoBruto;
 
+    // DEBUG: Logar chaves do evento para identificar estrutura de midia
+    console.log('[NORMALIZAR] Verificando midia. Chaves do evento:', Object.keys(evento).join(', '));
+
     if (evento.image) {
       mediaType = 'image';
-      mediaTempUrl = evento.image.imageUrl;
+      mediaTempUrl = evento.image.imageUrl || evento.image.url || evento.image.link;
+      console.log('[NORMALIZAR] Detectado: IMAGEM ->', mediaTempUrl);
     } else if (evento.video) {
       mediaType = 'video';
-      mediaTempUrl = evento.video.videoUrl;
+      mediaTempUrl = evento.video.videoUrl || evento.video.url || evento.video.link;
+      console.log('[NORMALIZAR] Detectado: VIDEO ->', mediaTempUrl);
     } else if (evento.audio) {
       mediaType = 'audio';
-      mediaTempUrl = evento.audio.audioUrl;
+      mediaTempUrl = evento.audio.audioUrl || evento.audio.url || evento.audio.link;
+      console.log('[NORMALIZAR] Detectado: AUDIO ->', mediaTempUrl);
+    } else if (evento.sticker) {
+      mediaType = 'sticker';
+      mediaTempUrl = evento.sticker.stickerUrl || evento.sticker.url || evento.sticker.link;
+      console.log('[NORMALIZAR] Detectado: STICKER ->', mediaTempUrl);
+      conteudo = '[Sticker]';
+    } else if (evento.document || evento.documentMessage) {
+      // DOCUMENTO - verificar ambas as estruturas possíveis
+      mediaType = 'document';
+      const doc = evento.document || evento.documentMessage;
+      mediaTempUrl = doc.documentUrl || doc.url || doc.link;
+      conteudo = `[Documento: ${doc.fileName || doc.title || 'Arquivo'}]`;
+      console.log('[NORMALIZAR] Detectado: DOCUMENTO ->', mediaTempUrl);
     } else if (evento.contactMessage || evento.vcard) {
       // VCARD - Compartilhamento de contato
       mediaType = 'contact';
@@ -222,7 +240,7 @@ function validarPayloadNormalizado(payload) {
 }
 
 // VERSAO AUTO-ATUALIZADA - Modifique quando publicar uma nova versao
-const VERSION = 'v4.5.1';
+const VERSION = 'v4.5.2';
 const BUILD_DATE = '2025-01-25';
 const DEPLOYED_AT = new Date().toISOString();
 
@@ -952,7 +970,16 @@ async function handleMessage(instance, payload, base44, headers, debugMode) {
     const t3 = Date.now();
     // VALIDAR CONTEUDO ANTES DE SALVAR
     const temConteudoValido = payload.content && payload.content.trim() !== '' && payload.content !== '[No content]';
-    const temMidiaValida = payload.mediaTempUrl || payload.mediaType === 'contact' || payload.mediaType === 'location';
+    // CORRIGIDO: Considerar QUALQUER tipo de mídia como válido, não apenas URL
+    const temMidiaValida = payload.mediaTempUrl || 
+                          payload.mediaType === 'contact' || 
+                          payload.mediaType === 'location' ||
+                          payload.mediaType === 'image' ||
+                          payload.mediaType === 'video' ||
+                          payload.mediaType === 'audio' ||
+                          payload.mediaType === 'document' ||
+                          payload.mediaType === 'sticker' ||
+                          (payload.mediaType && payload.mediaType !== 'none');
 
     // IGNORAR mensagens completamente vazias
     if (!temConteudoValido && !temMidiaValida) {
