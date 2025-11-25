@@ -34,21 +34,21 @@ function normalizarPayloadZAPI(evento) {
   // === 0. PRÉ-FILTRO: Detectar e IGNORAR eventos de sistema/lixo ANTES de tudo ===
   // ================================================================================
   
-  // 🚫 Ignorar eventos de presença (online/offline/typing)
+  // Ignorar eventos de presenca (online/offline/typing)
   if (eventoTipo.includes('presence') || eventoTipo.includes('typing') || eventoTipo.includes('composing')) {
-    console.log('🚫 [NORMALIZAR] Ignorado: Evento de presença ->', eventoTipo);
+    console.log('[NORMALIZAR] Ignorado: Evento de presenca ->', eventoTipo);
     return { type: 'ignored', reason: 'presence_event' };
   }
 
-  // 🚫 Ignorar eventos de ACK/confirmação de entrega
+  // Ignorar eventos de ACK/confirmacao de entrega
   if (eventoTipo.includes('ack') || eventoTipo.includes('delivery') || eventoTipo.includes('seen')) {
-    console.log('🚫 [NORMALIZAR] Ignorado: Evento de ACK/delivery ->', eventoTipo);
+    console.log('[NORMALIZAR] Ignorado: Evento de ACK/delivery ->', eventoTipo);
     return { type: 'ignored', reason: 'ack_event' };
   }
 
-  // 🚫 Ignorar eventos de chat (arquivar, fixar, etc)
+  // Ignorar eventos de chat (arquivar, fixar, etc)
   if (eventoTipo.includes('chat-update') || eventoTipo.includes('chatupdate')) {
-    console.log('🚫 [NORMALIZAR] Ignorado: Evento de chat update ->', eventoTipo);
+    console.log('[NORMALIZAR] Ignorado: Evento de chat update ->', eventoTipo);
     return { type: 'ignored', reason: 'chat_update_event' };
   }
 
@@ -70,37 +70,37 @@ function normalizarPayloadZAPI(evento) {
   // === 2. ReceivedCallback (Z-API) - Mensagem Real ===
   if (evento.telefone || evento.phone) {
     const telefoneOriginal = evento.phone || evento.telefone;
-    
-    // 🚫 PRÉ-FILTRO: Ignorar JIDs de sistema (@lid, @broadcast, @g.us grupos)
+
+    // PRE-FILTRO: Ignorar JIDs de sistema (@lid, @broadcast, @g.us grupos)
     if (/@(lid|broadcast|g\.us|s\.whatsapp\.net|c\.us)$/i.test(telefoneOriginal)) {
-      // Verificar se é um JID de sistema sem conteúdo real
+      // Verificar se e um JID de sistema sem conteudo real
       const conteudoBruto = evento.text?.message || evento.body || '';
-      
-      // Se o conteúdo também parece ser um JID ou "Adicionar", ignorar
+
+      // Se o conteudo tambem parece ser um JID ou "Adicionar", ignorar
       if (!conteudoBruto || 
           /@(lid|broadcast|g\.us|s\.whatsapp\.net|c\.us)/i.test(conteudoBruto) ||
           /^\s*adicionar\s*$/i.test(conteudoBruto) ||
           /^[\+\d\s@\.\-]+$/i.test(conteudoBruto.trim())) {
-        console.log('🚫 [NORMALIZAR] Ignorado: JID de sistema sem conteúdo válido ->', telefoneOriginal);
+        console.log('[NORMALIZAR] Ignorado: JID de sistema sem conteudo valido ->', telefoneOriginal);
         return { type: 'ignored', reason: 'system_jid_no_content' };
       }
     }
 
-    // 🚫 PRÉ-FILTRO: Ignorar mensagens que são apenas JIDs ou "Adicionar"
+    // PRE-FILTRO: Ignorar mensagens que sao apenas JIDs ou "Adicionar"
     const conteudoBruto = evento.text?.message || evento.body || evento.buttonsResponseMessage?.message || '';
-    
-    // Padrões de lixo a ignorar na normalização
+
+    // Padroes de lixo a ignorar na normalizacao
     const padraoLixo = [
       /^[\+\d\s@\.\-]+@(lid|broadcast|s\.whatsapp\.net|c\.us)$/i,  // JID puro
       /adicionar\s*[\+\d\s@\.\-]+@/i,                              // "Adicionar +numero@lid"
       /^[\+\d\s]+\s*adicionar\s*[\+\d\s@\.\-]+$/i,                 // "+8 Adicionar +numero@lid"
       /^[\+\d\s@\.\-]+\s+adicionar\s+[\+\d\s@\.\-]+$/i,            // "numero Adicionar numero"
       /^\s*adicionar\s*$/i,                                        // Apenas "Adicionar"
-      /^[\+\d\s@\.\-\(\)]+$/i,                                     // Apenas números e símbolos
+      /^[\+\d\s@\.\-\(\)]+$/i,                                     // Apenas numeros e simbolos
     ];
 
     if (conteudoBruto && padraoLixo.some(p => p.test(conteudoBruto.trim()))) {
-      console.log('🚫 [NORMALIZAR] Ignorado: Conteúdo de sistema/lixo ->', conteudoBruto.substring(0, 50));
+      console.log('[NORMALIZAR] Ignorado: Conteudo de sistema/lixo ->', conteudoBruto.substring(0, 50));
       return { type: 'ignored', reason: 'junk_content' };
     }
 
@@ -110,11 +110,11 @@ function normalizarPayloadZAPI(evento) {
       return { type: 'unknown', error: 'Telefone inválido' };
     }
 
-    // ✅ DETECTAR VCARD (compartilhamento de contato)
+    // DETECTAR VCARD (compartilhamento de contato)
     let mediaType = 'none';
     let mediaTempUrl = null;
     let conteudo = conteudoBruto;
-    
+
     if (evento.image) {
       mediaType = 'image';
       mediaTempUrl = evento.image.imageUrl;
@@ -125,25 +125,25 @@ function normalizarPayloadZAPI(evento) {
       mediaType = 'audio';
       mediaTempUrl = evento.audio.audioUrl;
     } else if (evento.contactMessage || evento.vcard) {
-      // 📇 VCARD - Compartilhamento de contato
+      // VCARD - Compartilhamento de contato
       mediaType = 'contact';
       const contactData = evento.contactMessage || evento.vcard;
-      conteudo = `📇 Contato compartilhado: ${contactData.displayName || contactData.name || 'Sem nome'}`;
+      conteudo = `[Contato compartilhado: ${contactData.displayName || contactData.name || 'Sem nome'}]`;
     } else if (evento.location || evento.locationMessage) {
-      // 📍 LOCALIZAÇÃO
+      // LOCALIZACAO
       mediaType = 'location';
       const loc = evento.location || evento.locationMessage;
-      conteudo = `📍 Localização: ${loc.name || 'Localização compartilhada'}`;
+      conteudo = `[Localizacao: ${loc.name || 'Localizacao compartilhada'}]`;
     } else if (evento.documentMessage) {
-      // 📄 DOCUMENTO
+      // DOCUMENTO
       mediaType = 'document';
       mediaTempUrl = evento.documentMessage.documentUrl;
-      conteudo = `📄 Documento: ${evento.documentMessage.fileName || 'Arquivo'}`;
+      conteudo = `[Documento: ${evento.documentMessage.fileName || 'Arquivo'}]`;
     }
 
-    // 🚫 ÚLTIMA VALIDAÇÃO: Se não tem conteúdo E não tem mídia, ignorar
+    // ULTIMA VALIDACAO: Se nao tem conteudo E nao tem midia, ignorar
     if (!conteudo && mediaType === 'none' && !mediaTempUrl) {
-      console.log('🚫 [NORMALIZAR] Ignorado: Sem conteúdo e sem mídia');
+      console.log('[NORMALIZAR] Ignorado: Sem conteudo e sem midia');
       return { type: 'ignored', reason: 'no_content_no_media' };
     }
 
@@ -420,7 +420,7 @@ Deno.serve(async (req) => {
         }, { status: 200, headers: corsHeaders });
         break;
       case 'ignored':
-        // ✅ NOVO: Tratar eventos ignorados na normalização
+        // Tratar eventos ignorados na normalizacao
         console.log('[' + VERSION + '] Event ignored by normalizer: ' + (payloadNormalizado.reason || 'unknown'));
         resultado = Response.json({ 
           success: true, 
@@ -600,10 +600,10 @@ async function handleMessage(instance, payload, base44, headers, debugMode) {
     // 🛡️ FIREWALL DE QUALIDADE - Bloquear mensagens indesejadas ANTES de salvar
     // =========================================================================
     
-    // 1️⃣ Bloquear JIDs puros (ex: +105299763548377@lid, números@domínio)
+    // 1. Bloquear JIDs puros (ex: +105299763548377@lid, numeros@dominio)
     const jidPattern = /^[\+\d]+@(lid|s\.whatsapp\.net|c\.us|broadcast)$/;
     if (payload.content && jidPattern.test(payload.content.trim())) {
-      console.log('🚫 [FIREWALL] Bloqueado: JID puro detectado ->', payload.content);
+      console.log('[FIREWALL] Bloqueado: JID puro detectado ->', payload.content);
       return Response.json({ 
         success: true, 
         blocked: true,
@@ -613,9 +613,9 @@ async function handleMessage(instance, payload, base44, headers, debugMode) {
       }, { status: 200, headers });
     }
 
-    // 2️⃣ Bloquear broadcasts não solicitados
+    // 2. Bloquear broadcasts nao solicitados
     if (payload.from && payload.from.includes('@broadcast')) {
-      console.log('🚫 [FIREWALL] Bloqueado: Broadcast ->', payload.from);
+      console.log('[FIREWALL] Bloqueado: Broadcast ->', payload.from);
       return Response.json({ 
         success: true, 
         blocked: true,
@@ -624,9 +624,9 @@ async function handleMessage(instance, payload, base44, headers, debugMode) {
       }, { status: 200, headers });
     }
 
-    // 3️⃣ Bloquear status do WhatsApp (+status@broadcast e variações)
+    // 3. Bloquear status do WhatsApp (+status@broadcast e variacoes)
     if (payload.from && (payload.from.includes('status@broadcast') || /[\+\-\d\s]*status@broadcast/i.test(payload.from))) {
-      console.log('🚫 [FIREWALL] Bloqueado: Status do WhatsApp ->', payload.from);
+      console.log('[FIREWALL] Bloqueado: Status do WhatsApp ->', payload.from);
       return Response.json({ 
         success: true, 
         blocked: true,
@@ -635,9 +635,9 @@ async function handleMessage(instance, payload, base44, headers, debugMode) {
       }, { status: 200, headers });
     }
 
-    // 3.1️⃣ Bloquear conteúdo que seja status@broadcast
+    // 3.1. Bloquear conteudo que seja status@broadcast
     if (payload.content && /[\+\-\d\s]*status@broadcast/i.test(payload.content.trim())) {
-      console.log('🚫 [FIREWALL] Bloqueado: Conteúdo status@broadcast ->', payload.content);
+      console.log('[FIREWALL] Bloqueado: Conteudo status@broadcast ->', payload.content);
       return Response.json({ 
         success: true, 
         blocked: true,
@@ -646,7 +646,7 @@ async function handleMessage(instance, payload, base44, headers, debugMode) {
       }, { status: 200, headers });
     }
 
-    // 4️⃣ Bloquear mensagens de confirmação de recebimento (acknowledgments)
+    // 4. Bloquear mensagens de confirmacao de recebimento (acknowledgments)
     // Padrões comuns: JID puro OU conteúdo genérico tipo "Mídia enviada"
     const acknowledgmentPatterns = [
       // === JIDs e Padrões de Sistema ===
@@ -727,7 +727,7 @@ async function handleMessage(instance, payload, base44, headers, debugMode) {
       acknowledgmentPatterns.some(pattern => pattern.test(payload.content.trim()));
 
     if (isAcknowledgment) {
-      console.log('🚫 [FIREWALL] Bloqueado: Acknowledgment/confirmação ->', payload.content);
+      console.log('[FIREWALL] Bloqueado: Acknowledgment/confirmacao ->', payload.content);
       return Response.json({ 
         success: true, 
         blocked: true,
@@ -737,7 +737,7 @@ async function handleMessage(instance, payload, base44, headers, debugMode) {
       }, { status: 200, headers });
     }
 
-    // 5️⃣ Bloquear mensagens sem conteúdo válido
+    // 5. Bloquear mensagens sem conteudo valido
     const conteudoInvalido = [
       '[No content]',
       '[Message content missing]',
@@ -752,14 +752,14 @@ async function handleMessage(instance, payload, base44, headers, debugMode) {
                          payload.content.trim() === '' ||
                          payload.content.startsWith('[Media type:');
 
-    // Se conteúdo vazio E sem mídia válida = BLOQUEAR
+    // Se conteudo vazio E sem midia valida = BLOQUEAR
     const temMidiaValida = payload.mediaTempUrl || 
                           payload.mediaType === 'contact' || 
                           payload.mediaType === 'location' ||
                           (payload.mediaType && payload.mediaType !== 'none');
 
     if (conteudoVazio && !temMidiaValida) {
-      console.log('🚫 [FIREWALL] Bloqueado: Mensagem vazia sem mídia');
+      console.log('[FIREWALL] Bloqueado: Mensagem vazia sem midia');
       return Response.json({ 
         success: true, 
         blocked: true,
@@ -768,8 +768,8 @@ async function handleMessage(instance, payload, base44, headers, debugMode) {
       }, { status: 200, headers });
     }
 
-    // ✅ Mensagem passou pelo firewall, continuar processamento
-    console.log('✅ [FIREWALL] Mensagem aprovada para processamento');
+    // Mensagem passou pelo firewall, continuar processamento
+    console.log('[FIREWALL] Mensagem aprovada para processamento');
     
     const numero = payload.from;
     if (!numero || numero === 'unknown') {
@@ -793,10 +793,10 @@ async function handleMessage(instance, payload, base44, headers, debugMode) {
     if (contatosExistentes.length > 0) {
       contato = contatosExistentes[0];
 
-      // ✨ ATUALIZA NOME SE PUSHNAME ESTIVER DISPONÍVEL E CONTATO TIVER NOME GENÉRICO
+      // ATUALIZA NOME SE PUSHNAME ESTIVER DISPONIVEL E CONTATO TIVER NOME GENERICO
       const updateData = { ultima_interacao: new Date().toISOString() };
 
-      // 🔍 Detectar nomes genéricos que devem ser substituídos
+      // Detectar nomes genericos que devem ser substituidos
       const nomesGenericos = [
         'Usuário do WhatsApp',
         'User',
@@ -817,11 +817,11 @@ async function handleMessage(instance, payload, base44, headers, debugMode) {
 
       if (payload.pushName && nomeEhGenerico) {
         updateData.nome = payload.pushName;
-        if (debugMode) console.log('[HANDLER-MESSAGE] 📝 Atualizando nome genérico para: ' + payload.pushName);
+        if (debugMode) console.log('[HANDLER-MESSAGE] Atualizando nome generico para: ' + payload.pushName);
       }
 
-      // 📸 ATUALIZAR FOTO APENAS SE NÃO EXISTIR OU ESTIVER MUITO ANTIGA (>7 dias)
-      // ⚡ OTIMIZAÇÃO: Não buscar foto se já existe e está atualizada
+      // ATUALIZAR FOTO APENAS SE NAO EXISTIR OU ESTIVER MUITO ANTIGA (>7 dias)
+      // OTIMIZACAO: Nao buscar foto se ja existe e esta atualizada
       const temFotoAtual = !!contato.foto_perfil_url;
       const fotoAntiga = !contato.foto_perfil_atualizada_em || 
         (Date.now() - new Date(contato.foto_perfil_atualizada_em).getTime()) > 7 * 24 * 60 * 60 * 1000;
@@ -834,19 +834,19 @@ async function handleMessage(instance, payload, base44, headers, debugMode) {
             phone: numero
           });
           if (fotoResult?.profilePictureUrl) {
-            updateData.foto_perfil_url = fotoResult.profilePictureUrl;
-            updateData.foto_perfil_atualizada_em = new Date().toISOString();
-            if (debugMode) console.log('[HANDLER-MESSAGE] 📸 Foto de perfil atualizada');
+              updateData.foto_perfil_url = fotoResult.profilePictureUrl;
+              updateData.foto_perfil_atualizada_em = new Date().toISOString();
+              if (debugMode) console.log('[HANDLER-MESSAGE] Foto de perfil atualizada');
+            }
+          } catch (error) {
+            // Silenciar erro - nao e critico
+            if (debugMode) console.warn('[HANDLER-MESSAGE] Erro ao buscar foto:', error.message);
           }
-        } catch (error) {
-          // Silenciar erro - não é crítico
-          if (debugMode) console.warn('[HANDLER-MESSAGE] Erro ao buscar foto:', error.message);
-        }
-      }
+          }
 
-      await base44.asServiceRole.entities.Contact.update(contato.id, updateData);
-    } else {
-      // 📸 BUSCAR FOTO PARA NOVO CONTATO
+          await base44.asServiceRole.entities.Contact.update(contato.id, updateData);
+          } else {
+          // BUSCAR FOTO PARA NOVO CONTATO
       let fotoPerfil = null;
       try {
         if (integracaoId) {
@@ -921,13 +921,13 @@ async function handleMessage(instance, payload, base44, headers, debugMode) {
     }
 
     const t3 = Date.now();
-    // ✅ VALIDAR CONTEÚDO ANTES DE SALVAR
+    // VALIDAR CONTEUDO ANTES DE SALVAR
     const temConteudoValido = payload.content && payload.content.trim() !== '' && payload.content !== '[No content]';
     const temMidiaValida = payload.mediaTempUrl || payload.mediaType === 'contact' || payload.mediaType === 'location';
-    
-    // ❌ IGNORAR mensagens completamente vazias
+
+    // IGNORAR mensagens completamente vazias
     if (!temConteudoValido && !temMidiaValida) {
-      console.warn('[HANDLER-MESSAGE] ⚠️ Mensagem vazia ignorada:', {
+      console.warn('[HANDLER-MESSAGE] Mensagem vazia ignorada:', {
         messageId: payload.messageId,
         content: payload.content,
         mediaType: payload.mediaType,
