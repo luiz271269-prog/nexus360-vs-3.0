@@ -73,9 +73,11 @@ Deno.serve(async (req) => {
     // Salvar URL no contato se disponível
     if (photoUrl) {
       try {
-        const contatos = await base44.asServiceRole.entities.Contact.list('-created_date', 1, { 
-          telefone: phoneClean 
-        });
+        // Buscar contato pelo telefone normalizado (com + ou sem)
+        const telefoneComPlus = phoneClean.startsWith('+') ? phoneClean : `+${phoneClean}`;
+        const contatos = await base44.asServiceRole.entities.Contact.filter({ 
+          telefone: telefoneComPlus 
+        }, '-created_date', 1);
 
         if (contatos.length > 0) {
           await base44.asServiceRole.entities.Contact.update(contatos[0].id, {
