@@ -155,7 +155,8 @@ export default function MediaAttachmentSystem({
   disabled,
   replyToMessage,
   thread,
-  usuario
+  usuario,
+  integrationIdOverride = null // Permite usar canal selecionado
 }) {
   const [selectedFiles, setSelectedFiles] = useState([]);
   const [captions, setCaptions] = useState({});
@@ -254,9 +255,10 @@ export default function MediaAttachmentSystem({
           [file.name]: 'sending'
         }));
 
-        // Enviar via WhatsApp
+        // Enviar via WhatsApp - usar integração selecionada ou da thread
+        const integrationIdParaUso = integrationIdOverride || thread.whatsapp_integration_id;
         const dadosEnvio = {
-          integration_id: thread.whatsapp_integration_id,
+          integration_id: integrationIdParaUso,
           numero_destino: thread.contato?.telefone || thread.contato?.celular,
           media_type: mediaType,
           media_caption: caption
@@ -292,7 +294,7 @@ export default function MediaAttachmentSystem({
             media_caption: caption || null,
             reply_to_message_id: replyToMessage?.id || null,
             metadata: {
-              whatsapp_integration_id: thread.whatsapp_integration_id,
+              whatsapp_integration_id: integrationIdParaUso,
               file_name: file.name,
               file_size: file.size,
               mime_type: file.type
