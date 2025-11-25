@@ -67,8 +67,10 @@ function deveIgnorar(payload) {
   }
 
   // IGNORAR: Eventos de presença/digitação/chamada (alto volume)
+  // MAS APENAS SE NÃO TIVER messageId (mensagem real)
   const eventosLixo = ['presence', 'typing', 'composing', 'chat-update', 'call'];
-  if (eventosLixo.some((e) => tipo.includes(e))) {
+  const temMessageId = payload.messageId || payload.id;
+  if (!temMessageId && eventosLixo.some((e) => tipo.includes(e))) {
     return 'evento_sistema';
   }
 
