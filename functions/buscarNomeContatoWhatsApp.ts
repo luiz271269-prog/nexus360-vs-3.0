@@ -73,9 +73,11 @@ Deno.serve(async (req) => {
     // Atualizar contato se nome encontrado e for diferente do telefone
     if (contactName && contactName !== phoneClean && contactName !== phone) {
       try {
-        const contatos = await base44.asServiceRole.entities.Contact.list('-created_date', 1, { 
-          telefone: phoneClean 
-        });
+        // Buscar contato pelo telefone normalizado (com + ou sem)
+        const telefoneComPlus = phoneClean.startsWith('+') ? phoneClean : `+${phoneClean}`;
+        const contatos = await base44.asServiceRole.entities.Contact.filter({ 
+          telefone: telefoneComPlus 
+        }, '-created_date', 1);
 
         if (contatos.length > 0) {
           const contatoAtual = contatos[0];
