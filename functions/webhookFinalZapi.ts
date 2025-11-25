@@ -454,14 +454,44 @@ async function handleMessage(dados, payloadBruto, base44) {
   }
   console.log(`[${VERSION}] 🔗 Integração: ${integracaoId || 'não encontrada'}`);
 
-  // Buscar/criar contato
+  // Buscar/criar contato - tentar múltiplas variações do telefone
   let contato;
   try {
-    const contatos = await base44.asServiceRole.entities.Contact.filter(
-      { telefone: dados.from },
-      '-created_date',
-      1
-    );
+    // Gerar variações do telefone para busca
+    const telefoneBase = dados.from.replace(/\D/g, '');
+    const variacoes = [
+      dados.from,                                    // +554899322400
+      dados.from.replace('+', ''),                   // 554899322400
+      '+55' + telefoneBase.substring(2),            // +5548999322400 (se já tem 55)
+    ];
+    
+    // Se tem 13 dígitos (55+DDD+9+8), também buscar versão sem o 9
+    if (telefoneBase.length === 13 && telefoneBase.startsWith('55')) {
+      const semNono = telefoneBase.substring(0, 4) + telefoneBase.substring(5);
+      variacoes.push('+' + semNono);
+      variacoes.push(semNono);
+    }
+    
+    // Se tem 12 dígitos (55+DDD+8), também buscar versão com o 9
+    if (telefoneBase.length === 12 && telefoneBase.startsWith('55')) {
+      const comNono = telefoneBase.substring(0, 4) + '9' + telefoneBase.substring(4);
+      variacoes.push('+' + comNono);
+      variacoes.push(comNono);
+    }
+    
+    console.log(`[${VERSION}] 🔍 Buscando contato com variações:`, variacoes.slice(0, 3).join(', '));
+    
+    let contatos = [];
+    for (const tel of variacoes) {
+      if (contatos.length > 0) break;
+      try {
+        contatos = await base44.asServiceRole.entities.Contact.filter(
+          { telefone: tel },
+          '-created_date',
+          1
+        );
+      } catch { /* continua */ }
+    }
 
     if (contatos.length > 0) {
       contato = contatos[0];
