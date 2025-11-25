@@ -22,42 +22,57 @@ function extrairInstanceId(payload) {
 
 function normalizarPayloadZAPI(evento) {
   if (!evento || typeof evento !== 'object') {
-    console.error('[NORMALIZAR] Evento inválido ou nulo:', typeof evento);
-    return { type: 'unknown', error: 'Evento inválido' };
+    console.error('[NORMALIZAR] Evento invalido ou nulo:', typeof evento);
+    return { type: 'unknown', error: 'Evento invalido' };
   }
 
-  const eventoTipo = String(evento.event || evento.type || 'unknown').toLowerCase();
+  // Normalizar tipo de evento para minusculas (case-insensitive)
+  const eventoTipoRaw = evento.event || evento.type || 'unknown';
+  const eventoTipo = String(eventoTipoRaw).toLowerCase().trim();
   const instanceId = extrairInstanceId(evento);
 
   console.log('[NORMALIZAR] Processando evento:', eventoTipo, '| Instance:', instanceId);
 
-  // === 0. PRÉ-FILTRO: Detectar e IGNORAR eventos de sistema/lixo ANTES de tudo ===
-  // ================================================================================
+  // === 0. PRE-FILTRO BLINDADO: Detectar e IGNORAR eventos de sistema ANTES de tudo ===
+  // ====================================================================================
   
-  // Ignorar eventos de presenca (online/offline/typing)
-  if (eventoTipo.includes('presence') || eventoTipo.includes('typing') || eventoTipo.includes('composing')) {
+  // 0.1 Ignorar eventos de presenca (online/offline/typing/recording)
+  // Inclui PresenceChatCallback que a Z-API envia frequentemente
+  if (eventoTipo.includes('presence') || 
+      eventoTipo.includes('typing') || 
+      eventoTipo.includes('composing') ||
+      eventoTipo.includes('recording') ||
+      eventoTipo === 'presencechatcallback') {
     console.log('[NORMALIZAR] Ignorado: Evento de presenca ->', eventoTipo);
     return { type: 'ignored', reason: 'presence_event' };
   }
 
-  // Ignorar eventos de ACK/confirmacao de entrega
-  if (eventoTipo.includes('ack') || eventoTipo.includes('delivery') || eventoTipo.includes('seen')) {
+  // 0.2 Ignorar eventos de ACK/confirmacao de entrega
+  if (eventoTipo.includes('ack') || 
+      eventoTipo.includes('delivery') || 
+      eventoTipo.includes('seen') ||
+      eventoTipo.includes('message-status')) {
     console.log('[NORMALIZAR] Ignorado: Evento de ACK/delivery ->', eventoTipo);
     return { type: 'ignored', reason: 'ack_event' };
   }
 
-  // Ignorar eventos de chat (arquivar, fixar, etc)
-  if (eventoTipo.includes('chat-update') || eventoTipo.includes('chatupdate')) {
-    console.log('[NORMALIZAR] Ignorado: Evento de chat update ->', eventoTipo);
-    return { type: 'ignored', reason: 'chat_update_event' };
+  // 0.3 Ignorar eventos de chat (arquivar, fixar, etc) e chamadas
+  if (eventoTipo.includes('chat-update') || 
+      eventoTipo.includes('chatupdate') ||
+      eventoTipo.includes('call')) {
+    console.log('[NORMALIZAR] Ignorado: Evento de chat/chamada ->', eventoTipo);
+    return { type: 'ignored', reason: 'chat_event' };
   }
 
   // === 1. MessageStatusCallback (Z-API) - Atualizacao de Status ===
   // CRITICO: Detectar ANTES de ReceivedCallback para evitar mensagens [No content]
-  if (eventoTipo.includes('messagestatuscallback') || eventoTipo.includes('status-find') || 
-      (evento.status && evento.ids && !evento.phone) || 
-      (evento.status && !evento.text && !evento.body)) {
-    console.log('📊 [NORMALIZAR] Detectado: MessageStatusCallback ->', evento.status);
+  // Tambem detecta por estrutura: tem status + ids mas NAO tem texto/body
+  if (eventoTipo.includes('messagestatuscallback') || 
+      eventoTipo.includes('status-find') || 
+      eventoTipo === 'messagestatuscallback' ||
+      (evento.status && evento.ids && Array.isArray(evento.ids)) ||
+      (evento.status && evento.type === 'MessageStatusCallback')) {
+    console.log('[NORMALIZAR] Detectado: MessageStatusCallback ->', evento.status);
     return {
       type: 'message_update',
       instanceId: instanceId,
@@ -71,11 +86,18 @@ function normalizarPayloadZAPI(evento) {
   if (evento.telefone || evento.phone) {
     const telefoneOriginal = evento.phone || evento.telefone;
 
-    // PRE-FILTRO: Ignorar JIDs de sistema (@lid, @broadcast, @g.us grupos)
-    if (/@(lid|broadcast|g\.us|s\.whatsapp\.net|c\.us)$/i.test(telefoneOriginal)) {
-      // Verificar se e um JID de sistema sem conteudo real
-      const conteudoBruto = evento.text?.message || evento.body || '';
+    // PRE-FILTRO RIGOROSO: Ignorar QUALQUER telefone que seja JID de sistema
+    // Isso inclui @lid, @broadcast, @g.us (grupos), etc.
+    if (/@(lid|broadcast|g\.us)$/i.test(telefoneOriginal)) {
+      console.log('[NORMALIZAR] Ignorado: Telefone e JID de sistema ->', telefoneOriginal);
+      return { type: 'ignored', reason: 'system_jid_phone' };
+    }
 
+    // PRE-FILTRO: Ignorar JIDs de sistema no conteudo
+    const conteudoBruto = evento.text?.message || evento.body || '';
+    
+    // Se o telefone parece ser JID interno (@s.whatsapp.net, @c.us) verificar conteudo
+    if (/@(s\.whatsapp\.net|c\.us)$/i.test(telefoneOriginal)) {
       // Se o conteudo tambem parece ser um JID ou "Adicionar", ignorar
       if (!conteudoBruto || 
           /@(lid|broadcast|g\.us|s\.whatsapp\.net|c\.us)/i.test(conteudoBruto) ||
@@ -192,8 +214,8 @@ function validarPayloadNormalizado(payload) {
   return { valido: true };
 }
 
-// VERSÃO AUTO-ATUALIZADA - Modifique quando publicar uma nova versão
-const VERSION = 'v4.3.0';
+// VERSAO AUTO-ATUALIZADA - Modifique quando publicar uma nova versao
+const VERSION = 'v4.4.0';
 const BUILD_DATE = '2025-01-25';
 const DEPLOYED_AT = new Date().toISOString();
 
