@@ -76,6 +76,8 @@ export default function ChatWindow({
   const [mediaRecorder, setMediaRecorder] = useState(null);
   const audioStreamRef = useRef(null);
   const [uploadingPastedFile, setUploadingPastedFile] = useState(false);
+  const [pastedImage, setPastedImage] = useState(null);
+  const [pastedImagePreview, setPastedImagePreview] = useState(null);
 
   const [mostrarSugestor, setMostrarSugestor] = useState(false);
   const [ultimaMensagemCliente, setUltimaMensagemCliente] = useState(null);
