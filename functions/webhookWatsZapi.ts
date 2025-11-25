@@ -102,7 +102,11 @@ function normalizarPayloadZAPI(evento) {
 
     // PRE-FILTRO RIGOROSO: Ignorar QUALQUER telefone que seja JID de sistema
     // Isso inclui @lid, @broadcast, @g.us (grupos), status@broadcast, etc.
-    if (/@(lid|broadcast|g\.us)$/i.test(telefoneOriginal)) {
+    // CORRIGIDO: Usar .includes() ao invés de regex $ para pegar qualquer posição
+    if (telefoneOriginal.includes('@lid') || 
+        telefoneOriginal.includes('@broadcast') || 
+        telefoneOriginal.includes('@g.us') ||
+        /@(lid|broadcast|g\.us)/i.test(telefoneOriginal)) {
       console.log('[NORMALIZAR] Ignorado: Telefone e JID de sistema ->', telefoneOriginal);
       return { type: 'ignored', reason: 'system_jid_phone' };
     }
@@ -249,7 +253,7 @@ function validarPayloadNormalizado(payload) {
 }
 
 // VERSAO AUTO-ATUALIZADA - Modifique quando publicar uma nova versao
-const VERSION = 'v4.5.3';
+const VERSION = 'v4.5.4';
 const BUILD_DATE = '2025-01-25';
 const DEPLOYED_AT = new Date().toISOString();
 
