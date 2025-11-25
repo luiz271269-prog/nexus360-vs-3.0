@@ -314,15 +314,28 @@ export default function MessageBubble({
     ? mensagens?.find(m => m.id === message.reply_to_message_id)
     : null;
 
+  // Funcao auxiliar para normalizar tags (objeto -> string ID)
+  const normalizarCategorias = (categorias) => {
+    if (!Array.isArray(categorias)) return [];
+    return categorias.map(cat => {
+      if (typeof cat === 'string') return cat;
+      if (typeof cat === 'object' && cat !== null) {
+        return cat.id || cat.nome || cat._id || String(cat);
+      }
+      return String(cat);
+    }).filter(Boolean);
+  };
+
   const handleToggleCategoria = async (valorCategoria) => {
     if (categorizando || !message) {
-      console.log('[ETIQUETA] ⚠️ Ignorando - categorizando:', categorizando, 'message:', !!message);
+      console.log('[ETIQUETA] Ignorando - categorizando:', categorizando, 'message:', !!message);
       return;
     }
 
     setCategorizando(true);
     try {
-      const categoriasAtuais = message?.categorias || [];
+      // Normalizar categorias existentes para garantir que sao strings
+      const categoriasAtuais = normalizarCategorias(message?.categorias);
       const novasCategorias = categoriasAtuais.includes(valorCategoria)
         ? categoriasAtuais.filter(c => c !== valorCategoria)
         : [...categoriasAtuais, valorCategoria];
