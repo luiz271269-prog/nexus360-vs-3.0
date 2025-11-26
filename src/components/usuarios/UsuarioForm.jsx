@@ -19,7 +19,17 @@ import {
   AlertCircle,
   Users,
   FileText,
-  Phone
+  Phone,
+  LayoutGrid,
+  Home,
+  Target,
+  Building2,
+  Package,
+  Calendar,
+  Brain,
+  Upload,
+  UserCog,
+  Bug
 } from "lucide-react";
 import { toast } from "sonner";
 import ConfiguracaoPermissoesWhatsApp from "./ConfiguracaoPermissoesWhatsApp";
@@ -63,8 +73,75 @@ export default function UsuarioForm({ usuario, onSave, onCancel }) {
       pode_acessar_relatorios: false,
       pode_configurar_integracao: false
     },
-    whatsapp_permissions: []
+    whatsapp_permissions: [],
+    paginas_acesso: [],
+    perfil_acesso: ""
   });
+
+  // Definição das páginas disponíveis
+  const paginasDisponiveis = [
+    { page: "Comunicacao", name: "💬 Central de Comunicação", icon: MessageSquare, sempre: true },
+    { page: "Dashboard", name: "Dashboard", icon: Home },
+    { page: "LeadsQualificados", name: "🎯 Leads Qualificados", icon: Target },
+    { page: "Clientes", name: "Clientes", icon: Building2 },
+    { page: "Vendedores", name: "Vendedores", icon: Users },
+    { page: "Produtos", name: "Produtos", icon: Package },
+    { page: "Agenda", name: "Agenda Inteligente", icon: Calendar },
+    { page: "AnalyticsAvancado", name: "Analytics Avançado", icon: BarChart3 },
+    { page: "NexusCommandCenter", name: "🤖 Nexus Command Center", icon: Brain },
+    { page: "Importacao", name: "Importação", icon: Upload },
+    { page: "Usuarios", name: "Gerenciamento de Usuários", icon: UserCog },
+    { page: "Auditoria", name: "Auditoria", icon: Shield },
+    { page: "DiagnosticoCirurgico", name: "🔬 Diagnóstico Cirúrgico", icon: Bug }
+  ];
+
+  // Perfis de acesso predefinidos
+  const perfisAcesso = {
+    admin: {
+      label: "Administrador",
+      paginas: ["Comunicacao", "Dashboard", "Usuarios", "Auditoria", "DiagnosticoCirurgico", "AnalyticsAvancado", "NexusCommandCenter", "Importacao", "Clientes", "Vendedores", "Produtos", "LeadsQualificados", "Agenda"]
+    },
+    gerencia_vendas: {
+      label: "Gerência - Vendas",
+      paginas: ["Comunicacao", "Dashboard", "LeadsQualificados", "Vendedores", "Clientes", "AnalyticsAvancado", "Agenda", "Produtos"]
+    },
+    gerencia_compras: {
+      label: "Gerência - Compras",
+      paginas: ["Comunicacao", "Produtos", "Importacao", "Dashboard", "Clientes", "Agenda", "AnalyticsAvancado"]
+    },
+    gerencia_assistencia: {
+      label: "Gerência - Assistência",
+      paginas: ["Comunicacao", "Clientes", "Agenda", "Dashboard", "Produtos", "AnalyticsAvancado"]
+    },
+    supervisor_vendas: {
+      label: "Supervisor - Vendas",
+      paginas: ["Comunicacao", "LeadsQualificados", "Vendedores", "Clientes", "Agenda", "Dashboard", "Produtos"]
+    },
+    supervisor_compras: {
+      label: "Supervisor - Compras",
+      paginas: ["Comunicacao", "Produtos", "Importacao", "Agenda", "Dashboard"]
+    },
+    supervisor_assistencia: {
+      label: "Supervisor - Assistência",
+      paginas: ["Comunicacao", "Clientes", "Agenda", "Dashboard", "Produtos"]
+    },
+    atendente_vendas: {
+      label: "Atendente - Vendas",
+      paginas: ["Comunicacao", "LeadsQualificados", "Clientes", "Produtos", "Agenda", "Dashboard"]
+    },
+    atendente_compras: {
+      label: "Atendente - Compras",
+      paginas: ["Comunicacao", "Produtos", "Clientes", "Agenda", "Dashboard"]
+    },
+    atendente_assistencia: {
+      label: "Atendente - Assistência",
+      paginas: ["Comunicacao", "Clientes", "Produtos", "Agenda", "Dashboard"]
+    },
+    personalizado: {
+      label: "Personalizado",
+      paginas: []
+    }
+  };
 
   const [activeTab, setActiveTab] = useState("basico");
 
@@ -108,10 +185,39 @@ export default function UsuarioForm({ usuario, onSave, onCancel }) {
           pode_acessar_relatorios: false,
           pode_configurar_integracao: false
         },
-        whatsapp_permissions: usuario.whatsapp_permissions || []
+        whatsapp_permissions: usuario.whatsapp_permissions || [],
+        paginas_acesso: usuario.paginas_acesso || [],
+        perfil_acesso: usuario.perfil_acesso || ""
       });
     }
   }, [usuario]);
+
+  const aplicarPerfilAcesso = (perfilKey) => {
+    const perfil = perfisAcesso[perfilKey];
+    if (perfil) {
+      setFormData(prev => ({
+        ...prev,
+        perfil_acesso: perfilKey,
+        paginas_acesso: perfilKey === 'personalizado' ? prev.paginas_acesso : perfil.paginas
+      }));
+      if (perfilKey !== 'personalizado') {
+        toast.success(`Perfil "${perfil.label}" aplicado!`);
+      }
+    }
+  };
+
+  const togglePaginaAcesso = (pagina) => {
+    setFormData(prev => {
+      const novasPaginas = prev.paginas_acesso.includes(pagina)
+        ? prev.paginas_acesso.filter(p => p !== pagina)
+        : [...prev.paginas_acesso, pagina];
+      return {
+        ...prev,
+        paginas_acesso: novasPaginas,
+        perfil_acesso: 'personalizado'
+      };
+    });
+  };
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -246,10 +352,14 @@ export default function UsuarioForm({ usuario, onSave, onCancel }) {
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid w-full grid-cols-5">
+        <TabsList className="grid w-full grid-cols-6">
           <TabsTrigger value="basico" className="flex items-center gap-2">
             <User className="w-4 h-4" />
             Básico
+          </TabsTrigger>
+          <TabsTrigger value="paginas" className="flex items-center gap-2">
+            <LayoutGrid className="w-4 h-4" />
+            Páginas
           </TabsTrigger>
           <TabsTrigger value="atendente" className="flex items-center gap-2">
             <MessageSquare className="w-4 h-4" />
@@ -338,7 +448,118 @@ export default function UsuarioForm({ usuario, onSave, onCancel }) {
           </Card>
         </TabsContent>
 
-        {/* TAB 2: ATENDENTE */}
+        {/* TAB 2: PÁGINAS DE ACESSO */}
+        <TabsContent value="paginas" className="space-y-4 mt-4">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <LayoutGrid className="w-5 h-5" />
+                Páginas de Acesso
+              </CardTitle>
+              <CardDescription>
+                Configure quais páginas este usuário pode visualizar no menu
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {/* Seletor de Perfil */}
+              <div>
+                <Label className="mb-2 block">Perfil de Acesso Rápido</Label>
+                <Select
+                  value={formData.perfil_acesso || ""}
+                  onValueChange={(value) => aplicarPerfilAcesso(value)}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecione um perfil predefinido" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="admin">👑 Administrador (Acesso Total)</SelectItem>
+                    <SelectItem value="gerencia_vendas">📊 Gerência - Vendas</SelectItem>
+                    <SelectItem value="gerencia_compras">📦 Gerência - Compras</SelectItem>
+                    <SelectItem value="gerencia_assistencia">🔧 Gerência - Assistência</SelectItem>
+                    <SelectItem value="supervisor_vendas">👔 Supervisor - Vendas</SelectItem>
+                    <SelectItem value="supervisor_compras">📋 Supervisor - Compras</SelectItem>
+                    <SelectItem value="supervisor_assistencia">🛠️ Supervisor - Assistência</SelectItem>
+                    <SelectItem value="atendente_vendas">💼 Atendente - Vendas</SelectItem>
+                    <SelectItem value="atendente_compras">🛒 Atendente - Compras</SelectItem>
+                    <SelectItem value="atendente_assistencia">🎧 Atendente - Assistência</SelectItem>
+                    <SelectItem value="personalizado">⚙️ Personalizado</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <Separator />
+
+              {/* Lista de Páginas */}
+              <div>
+                <Label className="mb-3 block">Páginas Habilitadas</Label>
+                <div className="grid grid-cols-2 gap-2">
+                  {paginasDisponiveis.map((pagina) => {
+                    const IconComponent = pagina.icon;
+                    const isSelected = formData.paginas_acesso.includes(pagina.page);
+                    const isAdmin = formData.role === 'admin';
+                    
+                    return (
+                      <div
+                        key={pagina.page}
+                        onClick={() => !isAdmin && togglePaginaAcesso(pagina.page)}
+                        className={`
+                          flex items-center gap-3 p-3 rounded-lg border-2 cursor-pointer transition-all
+                          ${isAdmin || isSelected 
+                            ? 'bg-gradient-to-r from-green-50 to-emerald-50 border-green-300 shadow-sm' 
+                            : 'bg-slate-50 border-slate-200 hover:border-slate-300'
+                          }
+                          ${isAdmin ? 'opacity-70 cursor-not-allowed' : ''}
+                        `}
+                      >
+                        <div className={`p-2 rounded-lg ${isAdmin || isSelected ? 'bg-green-500' : 'bg-slate-300'}`}>
+                          <IconComponent className="w-4 h-4 text-white" />
+                        </div>
+                        <div className="flex-1">
+                          <p className={`text-sm font-medium ${isAdmin || isSelected ? 'text-green-800' : 'text-slate-600'}`}>
+                            {pagina.name}
+                          </p>
+                        </div>
+                        {(isAdmin || isSelected) && (
+                          <CheckCircle2 className="w-5 h-5 text-green-600" />
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {formData.role === 'admin' && (
+                <div className="p-4 bg-amber-50 rounded-lg border border-amber-200">
+                  <div className="flex items-start gap-2">
+                    <AlertCircle className="w-5 h-5 text-amber-600 mt-0.5" />
+                    <div>
+                      <p className="text-sm font-medium text-amber-900">Administrador</p>
+                      <p className="text-sm text-amber-700 mt-1">
+                        Administradores têm acesso automático a todas as páginas do sistema.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {formData.perfil_acesso === 'personalizado' && formData.paginas_acesso.length > 0 && (
+                <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
+                  <div className="flex items-start gap-2">
+                    <AlertCircle className="w-5 h-5 text-blue-600 mt-0.5" />
+                    <div>
+                      <p className="text-sm font-medium text-blue-900">Configuração Personalizada</p>
+                      <p className="text-sm text-blue-700 mt-1">
+                        {formData.paginas_acesso.length} página(s) selecionada(s): {formData.paginas_acesso.join(", ")}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* TAB 3: ATENDENTE */}
         <TabsContent value="atendente" className="space-y-4 mt-4">
           <Card>
             <CardHeader>
