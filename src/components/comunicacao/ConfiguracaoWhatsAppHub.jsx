@@ -16,7 +16,8 @@ import {
   EyeOff,
   Shield,
   Edit,
-  Key
+  Key,
+  Settings
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -359,97 +360,122 @@ export default function ConfiguracaoWhatsAppHub({ integracoes, onRecarregar, usu
         </CardContent>
       </Card>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {integracoes && integracoes.length > 0 && integracoes.map((integracao) => (
-          <div key={`integracao-${integracao.id}`} className="space-y-4">
-            <Card className={`hover:shadow-lg transition-all ${
-              integracao.status === 'conectado' ? 'border-green-200 bg-green-50/30' : ''
-            }`}>
-              <CardHeader>
-                <div className="flex items-start justify-between">
-                  <div className="flex-1">
-                    <CardTitle className="text-lg">{integracao.nome_instancia}</CardTitle>
-                    <p className="text-sm text-slate-600 mt-1">{integracao.numero_telefone}</p>
-
-                    <div className="flex gap-2 mt-2 flex-wrap">
-                      {statusBadge(integracao.status)}
-                      <Badge variant="outline" className="bg-blue-100 text-blue-700">
-                        Z-API
-                      </Badge>
-                    </div>
-                  </div>
-                  <div className="flex gap-1">
-                    {podeEditar && (
-                      <Button
-                        size="icon"
-                        variant="ghost"
-                        onClick={() => handleEditarIntegracao(integracao)}
-                        className="h-8 w-8"
-                        title="Editar Instância">
-                        <Edit className="w-4 h-4 text-blue-500" />
-                      </Button>
-                    )}
-                    {podeExcluir && (
-                      <Button
-                        size="icon"
-                        variant="ghost"
-                        onClick={() => handleExcluir(integracao)}
-                        className="h-8 w-8 text-red-500"
-                        title="Excluir Instância">
-                        <Trash2 className="w-4 h-4" />
-                      </Button>
-                    )}
-                  </div>
-                </div>
-              </CardHeader>
-
-              {integracao.estatisticas && (
-                <CardContent className="pt-0">
-                  <div className="grid grid-cols-2 gap-3 text-sm">
-                    <div className="bg-white/50 rounded-lg p-2">
-                      <div className="text-slate-500">Enviadas</div>
-                      <div className="font-bold text-green-600">
-                        {integracao.estatisticas.total_mensagens_enviadas || 0}
-                      </div>
-                    </div>
-                    <div className="bg-white/50 rounded-lg p-2">
-                      <div className="text-slate-500">Recebidas</div>
-                      <div className="font-bold text-blue-600">
-                        {integracao.estatisticas.total_mensagens_recebidas || 0}
-                      </div>
-                    </div>
-                  </div>
-                </CardContent>
-              )}
+      {/* Layout 2 Colunas: Conexões | Diagnóstico */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* COLUNA 1: Lista de Conexões */}
+        <div className="space-y-4">
+          <h3 className="text-lg font-bold text-slate-700 flex items-center gap-2">
+            <Zap className="w-5 h-5 text-green-600" />
+            Conexões Cadastradas
+          </h3>
+          
+          {integracoes.length === 0 ? (
+            <Card>
+              <CardContent className="py-12 text-center">
+                <Zap className="w-12 h-12 text-slate-300 mx-auto mb-4" />
+                <p className="text-xl font-bold text-slate-700">Nenhuma instância</p>
+                <p className="text-slate-500 mt-2">
+                  {podeAdicionar ? 'Crie sua primeira conexão' : 'Solicite ao administrador'}
+                </p>
+                {podeAdicionar && (
+                  <Button onClick={() => setShowForm(true)} className="mt-4 bg-gradient-to-r from-green-500 to-emerald-600">
+                    <Plus className="w-4 h-4 mr-2" />
+                    Criar Primeira Instância
+                  </Button>
+                )}
+              </CardContent>
             </Card>
+          ) : (
+            integracoes.map((integracao) => (
+              <Card key={`integracao-${integracao.id}`} className={`hover:shadow-lg transition-all ${
+                integracao.status === 'conectado' ? 'border-green-200 bg-green-50/30' : ''
+              }`}>
+                <CardHeader className="pb-2">
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1">
+                      <CardTitle className="text-lg">{integracao.nome_instancia}</CardTitle>
+                      <p className="text-sm text-slate-600 mt-1">{integracao.numero_telefone}</p>
+                      <div className="flex gap-2 mt-2 flex-wrap">
+                        {statusBadge(integracao.status)}
+                        <Badge variant="outline" className="bg-blue-100 text-blue-700">
+                          {integracao.base_url_provider?.includes('w-api') ? 'W-API' : 'Z-API'}
+                        </Badge>
+                      </div>
+                    </div>
+                    <div className="flex gap-1">
+                      {podeEditar && (
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          onClick={() => handleEditarIntegracao(integracao)}
+                          className="h-8 w-8"
+                          title="Editar Instância">
+                          <Edit className="w-4 h-4 text-blue-500" />
+                        </Button>
+                      )}
+                      {podeExcluir && (
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          onClick={() => handleExcluir(integracao)}
+                          className="h-8 w-8 text-red-500"
+                          title="Excluir Instância">
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                </CardHeader>
+                {integracao.estatisticas && (
+                  <CardContent className="pt-0">
+                    <div className="grid grid-cols-2 gap-3 text-sm">
+                      <div className="bg-white/50 rounded-lg p-2">
+                        <div className="text-slate-500">Enviadas</div>
+                        <div className="font-bold text-green-600">
+                          {integracao.estatisticas.total_mensagens_enviadas || 0}
+                        </div>
+                      </div>
+                      <div className="bg-white/50 rounded-lg p-2">
+                        <div className="text-slate-500">Recebidas</div>
+                        <div className="font-bold text-blue-600">
+                          {integracao.estatisticas.total_mensagens_recebidas || 0}
+                        </div>
+                      </div>
+                    </div>
+                  </CardContent>
+                )}
+              </Card>
+            ))
+          )}
+        </div>
 
-            <DiagnosticoZAPICentralizado 
-              integracao={integracao} 
-              onRecarregar={onRecarregar}
-              testarConexao={testarConexao} // Pass the testarConexao function
-              isTesting={testando === integracao.id} // Pass the testing state
-            />
-          </div>
-        ))}
+        {/* COLUNA 2: Diagnóstico e Configurações */}
+        <div className="space-y-4">
+          <h3 className="text-lg font-bold text-slate-700 flex items-center gap-2">
+            <Settings className="w-5 h-5 text-blue-600" />
+            Diagnóstico & Testes
+          </h3>
+          
+          {integracoes.length === 0 ? (
+            <Card>
+              <CardContent className="py-12 text-center">
+                <Settings className="w-12 h-12 text-slate-300 mx-auto mb-4" />
+                <p className="text-slate-500">Cadastre uma conexão para ver o diagnóstico</p>
+              </CardContent>
+            </Card>
+          ) : (
+            integracoes.map((integracao) => (
+              <DiagnosticoZAPICentralizado 
+                key={`diag-${integracao.id}`}
+                integracao={integracao} 
+                onRecarregar={onRecarregar}
+                testarConexao={testarConexao}
+                isTesting={testando === integracao.id}
+              />
+            ))
+          )}
+        </div>
       </div>
-
-      {integracoes.length === 0 && (
-        <Card>
-          <CardContent className="py-12 text-center">
-            <Zap className="w-12 h-12 text-slate-300 mx-auto mb-4" />
-            <p className="text-xl font-bold text-slate-700">Nenhuma instância configurada</p>
-            <p className="text-slate-500 mt-2">
-              {podeAdicionar ? 'Crie sua primeira instância WhatsApp' : 'Solicite ao administrador para configurar'}
-            </p>
-            {podeAdicionar && (
-              <Button onClick={() => setShowForm(true)} className="mt-4 bg-gradient-to-r from-green-500 to-emerald-600">
-                <Plus className="w-4 h-4 mr-2" />
-                Criar Primeira Instância
-              </Button>
-            )}
-          </CardContent>
-        </Card>
-      )}
 
       {/* Dialog de Criação/Edição */}
       <Dialog open={showForm} onOpenChange={(open) => {
