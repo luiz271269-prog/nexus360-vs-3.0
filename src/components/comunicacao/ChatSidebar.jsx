@@ -98,17 +98,6 @@ export default function ChatSidebar({ threads, threadAtiva, onSelecionarThread, 
     }
   };
 
-  // Função para buscar nome e número da integração
-  const getIntegracaoInfo = (thread) => {
-    if (!thread.whatsapp_integration_id || integracoes.length === 0) return null;
-    const integracao = integracoes.find(i => i.id === thread.whatsapp_integration_id);
-    if (!integracao) return null;
-    return {
-      nome: integracao.nome_instancia,
-      numero: integracao.numero_telefone
-    };
-  };
-
   if (loading) {
     return (
       <div className="p-4">
