@@ -16,6 +16,13 @@ export default function ChatSidebar({ threads, threadAtiva, onSelecionarThread, 
     staleTime: 5 * 60 * 1000
   });
 
+  // Buscar etiquetas de contato dinâmicas
+  const { data: etiquetasDB = [] } = useQuery({
+    queryKey: ['etiquetas-contato'],
+    queryFn: () => base44.entities.EtiquetaContato.filter({ ativa: true }, 'nome'),
+    staleTime: 5 * 60 * 1000
+  });
+
   const formatarHorario = (timestamp) => {
     if (!timestamp) return "";
     try {
