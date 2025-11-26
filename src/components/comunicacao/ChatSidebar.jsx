@@ -1,11 +1,12 @@
 import React from "react";
-import { CheckCheck, Clock, User, Users, AlertCircle, Image, Video, Mic, FileText, MapPin, Phone as PhoneIcon } from "lucide-react";
+import { CheckCheck, Clock, User, Users, AlertCircle, Image, Video, Mic, FileText, MapPin, Phone as PhoneIcon, Tag } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { motion } from "framer-motion";
 import { format } from "date-fns";
 import { CATEGORIAS_FIXAS, getCategoriaConfig } from "./CategorizadorRapido";
 import { useQuery } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
+import EtiquetadorContato, { getEtiquetaContatoConfig } from "./EtiquetadorContato";
 
 export default function ChatSidebar({ threads, threadAtiva, onSelecionarThread, loading, usuarioAtual, integracoes = [] }) {
   // Buscar categorias dinâmicas
