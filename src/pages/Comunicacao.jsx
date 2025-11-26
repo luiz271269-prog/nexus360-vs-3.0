@@ -554,6 +554,7 @@ export default function Comunicacao() {
               <div className="h-full overflow-y-auto p-6">
                 <ConfiguracaoWhatsAppHub
                   integracoes={integracoes}
+                  usuarioAtual={usuario}
                   onRecarregar={() => queryClient.invalidateQueries({ queryKey: ['integracoes'] })} />
 
               </div>
