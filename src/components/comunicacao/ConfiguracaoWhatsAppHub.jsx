@@ -343,6 +343,7 @@ export default function ConfiguracaoWhatsAppHub({ integracoes, onRecarregar, usu
                 </div>
               </div>
             </div>
+            {podeAdicionar && (
             <Button
               onClick={() => {
                 setEditandoIntegracao(null);
@@ -353,6 +354,7 @@ export default function ConfiguracaoWhatsAppHub({ integracoes, onRecarregar, usu
               <Plus className="w-4 h-4 mr-2" />
               Nova Instância
             </Button>
+          )}
           </div>
         </CardContent>
       </Card>
@@ -377,22 +379,26 @@ export default function ConfiguracaoWhatsAppHub({ integracoes, onRecarregar, usu
                     </div>
                   </div>
                   <div className="flex gap-1">
-                    <Button
-                      size="icon"
-                      variant="ghost"
-                      onClick={() => handleEditarIntegracao(integracao)}
-                      className="h-8 w-8"
-                      title="Editar Instância">
-                      <Edit className="w-4 h-4 text-blue-500" />
-                    </Button>
-                    <Button
-                      size="icon"
-                      variant="ghost"
-                      onClick={() => handleExcluir(integracao)}
-                      className="h-8 w-8 text-red-500"
-                      title="Excluir Instância">
-                      <Trash2 className="w-4 h-4" />
-                    </Button>
+                    {podeEditar && (
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        onClick={() => handleEditarIntegracao(integracao)}
+                        className="h-8 w-8"
+                        title="Editar Instância">
+                        <Edit className="w-4 h-4 text-blue-500" />
+                      </Button>
+                    )}
+                    {podeExcluir && (
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        onClick={() => handleExcluir(integracao)}
+                        className="h-8 w-8 text-red-500"
+                        title="Excluir Instância">
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
+                    )}
                   </div>
                 </div>
               </CardHeader>
@@ -432,11 +438,15 @@ export default function ConfiguracaoWhatsAppHub({ integracoes, onRecarregar, usu
           <CardContent className="py-12 text-center">
             <Zap className="w-12 h-12 text-slate-300 mx-auto mb-4" />
             <p className="text-xl font-bold text-slate-700">Nenhuma instância configurada</p>
-            <p className="text-slate-500 mt-2">Crie sua primeira instância WhatsApp</p>
-            <Button onClick={() => setShowForm(true)} className="mt-4 bg-gradient-to-r from-green-500 to-emerald-600">
-              <Plus className="w-4 h-4 mr-2" />
-              Criar Primeira Instância
-            </Button>
+            <p className="text-slate-500 mt-2">
+              {podeAdicionar ? 'Crie sua primeira instância WhatsApp' : 'Solicite ao administrador para configurar'}
+            </p>
+            {podeAdicionar && (
+              <Button onClick={() => setShowForm(true)} className="mt-4 bg-gradient-to-r from-green-500 to-emerald-600">
+                <Plus className="w-4 h-4 mr-2" />
+                Criar Primeira Instância
+              </Button>
+            )}
           </CardContent>
         </Card>
       )}
