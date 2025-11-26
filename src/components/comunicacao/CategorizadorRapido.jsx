@@ -25,7 +25,7 @@ const CATEGORIAS_FIXAS = [
   { nome: 'reclamacao', label: 'Reclamação', emoji: '⚠️', cor: 'bg-orange-500', tipo: 'fixa', tipos_contato_aplicaveis: ['cliente'], filas_aplicaveis: [] }
 ];
 
-export default function CategorizadorRapido({ thread, onUpdate, contato = null }) {
+export default function CategorizadorRapido({ thread, contato = null, onUpdate }) {
   const [salvando, setSalvando] = useState(false);
   const [novaCategoria, setNovaCategoria] = useState('');
   const [adicionandoNova, setAdicionandoNova] = useState(false);
