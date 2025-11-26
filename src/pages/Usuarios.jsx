@@ -6,13 +6,14 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Plus, Users, Shield, UserCheck, Search, UserCog, CheckCircle, XCircle, AlertCircle } from "lucide-react";
+import { Plus, Users, Shield, UserCheck, Search, UserCog, CheckCircle, XCircle, AlertCircle, BarChart3 } from "lucide-react";
 import { toast } from "sonner";
 
 import TabelaUsuarios from "../components/usuarios/TabelaUsuarios";
 import UsuarioForm from "../components/usuarios/UsuarioForm";
 import AlertasInteligentesIA from '../components/global/AlertasInteligentesIA';
 import BotaoNexusFlutuante from '../components/global/BotaoNexusFlutuante';
+import GerenciadorPermissoes3Colunas from "../components/usuarios/GerenciadorPermissoes3Colunas";
 
 export default function Usuarios() {
   return (
@@ -266,17 +267,25 @@ function UsuariosContent() {
         </div>
       </div>
 
-      <Tabs defaultValue="usuarios" className="space-y-4">
-        <TabsList className="grid w-full grid-cols-2 max-w-md">
+      <Tabs defaultValue="permissoes3col" className="space-y-4">
+        <TabsList className="grid w-full grid-cols-3 max-w-lg">
+          <TabsTrigger value="permissoes3col" className="flex items-center gap-2">
+            <Shield className="w-4 h-4" />
+            Permissões
+          </TabsTrigger>
           <TabsTrigger value="usuarios" className="flex items-center gap-2">
             <Users className="w-4 h-4" />
             Usuários
           </TabsTrigger>
           <TabsTrigger value="permissoes" className="flex items-center gap-2">
-            <Shield className="w-4 h-4" />
-            Matriz de Permissões
+            <BarChart3 className="w-4 h-4" />
+            Matriz
           </TabsTrigger>
         </TabsList>
+
+        <TabsContent value="permissoes3col" className="space-y-4">
+          <GerenciadorPermissoes3Colunas />
+        </TabsContent>
 
         <TabsContent value="usuarios" className="space-y-4">
           {/* Filtros */}
