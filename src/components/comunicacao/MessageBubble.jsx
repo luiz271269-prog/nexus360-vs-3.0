@@ -630,7 +630,7 @@ export default function MessageBubble({
             )}
 
             {/* ✅ IMAGEM - ESTILO WHATSAPP */}
-            {(message.media_type === 'image' || message.content?.includes('[Imagem]')) && (
+            {(message.media_type === 'image' || message.content?.includes('[Imagem]') || (message.media_url && message.media_url.match(/\.(jpg|jpeg|png|gif|webp)(\?|$)/i))) && (
               <div className="relative overflow-hidden rounded-2xl">
                 {message.media_url ? (
                   <img
