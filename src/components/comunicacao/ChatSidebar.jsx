@@ -76,6 +76,14 @@ export default function ChatSidebar({ threads, threadAtiva, onSelecionarThread, 
     });
   }, [threads, usuarioAtual]);
 
+  const threadsSorted = useMemo(() => {
+    return [...threadsFiltradas].sort((a, b) => {
+      const dateA = new Date(a.last_message_at || 0);
+      const dateB = new Date(b.last_message_at || 0);
+      return dateB - dateA;
+    });
+  }, [threadsFiltradas]);
+
   const formatarHorario = (timestamp) => {
     if (!timestamp) return "";
     try {
@@ -113,14 +121,6 @@ export default function ChatSidebar({ threads, threadAtiva, onSelecionarThread, 
       </div>
     );
   }
-
-  const threadsSorted = useMemo(() => {
-    return [...threadsFiltradas].sort((a, b) => {
-      const dateA = new Date(a.last_message_at || 0);
-      const dateB = new Date(b.last_message_at || 0);
-      return dateB - dateA;
-    });
-  }, [threadsFiltradas]);
 
   // Função para buscar nome e número da integração
   const getIntegracaoInfo = (thread) => {
