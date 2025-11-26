@@ -746,13 +746,17 @@ RETORNE o JSON estruturado conforme o schema.`;
 
     setSaving(true);
     try {
-      let currentOrcamentoId = orcamentoId;
       const totalCalculado = calcularTotal(itens);
 
       const orcamentoDataToSave = {
         ...orcamento,
         valor_total: totalCalculado,
       };
+
+      // Buscar modoOperacao dentro da função
+      const urlParamsSave = new URLSearchParams(location.search);
+      const orcamentoIdSave = urlParamsSave.get('id');
+      const origemChatSave = urlParamsSave.get('origem') === 'chat';
 
       let clienteIdFinal = orcamento.cliente_id;
       if (!clienteIdFinal && orcamento.cliente_nome) {
@@ -771,7 +775,7 @@ RETORNE o JSON estruturado conforme o schema.`;
               celular: orcamento.cliente_celular,
               email: orcamento.cliente_email,
               nome_fantasia: orcamento.cliente_empresa || orcamento.cliente_nome,
-              origem: modoOperacao === 'chat' ? 'WhatsApp' : 'Orçamento',
+              origem: origemChatSave ? 'WhatsApp' : 'Orçamento',
             });
             clienteIdFinal = novoCliente.id;
             toast.success(`Novo cliente "${orcamento.cliente_nome}" criado!`);
@@ -784,17 +788,23 @@ RETORNE o JSON estruturado conforme o schema.`;
         }
       }
 
-      if (currentOrcamentoId) {
-        await base44.entities.Orcamento.update(currentOrcamentoId, orcamentoDataToSave);
+      let savedOrcamento;
+      if (orcamento.id) {
+        // Editando orçamento existente
+        savedOrcamento = await base44.entities.Orcamento.update(orcamento.id, orcamentoDataToSave);
+        toast.success('✅ Orçamento atualizado!');
       } else {
-        const novoOrcamento = await base44.entities.Orcamento.create(orcamentoDataToSave);
-        currentOrcamentoId = novoOrcamento.id;
+        // Criando novo orçamento
+        savedOrcamento = await base44.entities.Orcamento.create(orcamentoDataToSave);
+        setOrcamento(prev => ({...prev, id: savedOrcamento.id}));
+        toast.success('✅ Orçamento criado!');
       }
 
+      // Salvar itens
       if (Array.isArray(itens)) {
         for (const item of itens) {
           const itemData = {
-            orcamento_id: currentOrcamentoId,
+            orcamento_id: savedOrcamento.id,
             produto_id: item.produto_id || null,
             nome_produto: item.nome_produto,
             descricao: item.descricao,
@@ -810,13 +820,19 @@ RETORNE o JSON estruturado conforme o schema.`;
           if (item.id) {
             await base44.entities.ItemOrcamento.update(item.id, itemData);
           } else {
-            await base44.entities.ItemOrcamento.create(itemData);
+            const novoItem = await base44.entities.ItemOrcamento.create(itemData);
+            // Atualizar o item local com o ID do banco
+            setItens(prev => prev.map(i => 
+              (i._tempId === item._tempId) ? {...i, id: novoItem.id, _tempId: undefined} : i
+            ));
           }
         }
       }
 
-      toast.success(currentOrcamentoId && orcamentoId ? '✅ Orçamento atualizado!' : '✅ Orçamento criado!');
-      navigate(createPageUrl(`OrcamentoDetalhes?id=${currentOrcamentoId}`), { replace: true });
+      // Redirecionar apenas se era novo (não tinha ID antes)
+      if (!orcamento.id) {
+        navigate(createPageUrl(`OrcamentoDetalhes?id=${savedOrcamento.id}`), { replace: true });
+      }
     } catch (error) {
       console.error('Erro ao salvar orçamento:', error);
       toast.error('Erro ao salvar orçamento: ' + error.message);
@@ -898,6 +914,16 @@ RETORNE o JSON estruturado conforme o schema.`;
           </div>
 
           <div className="flex items-center gap-3">
+            {modoOperacao === 'edicao' && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => window.print()}
+                className="text-white border-slate-600 hover:bg-slate-700"
+              >
+                Imprimir
+              </Button>
+            )}
             <div className="text-right bg-slate-800 rounded-lg px-3 py-1.5 border border-slate-700">
               <p className="text-xs text-slate-400">Total</p>
               <p className="text-xl font-bold text-green-400">
