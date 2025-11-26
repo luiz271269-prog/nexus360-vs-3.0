@@ -1,668 +1,507 @@
 // components/usuarios/GerenciadorUsuariosUnificado.jsx
-import React, { useMemo, useState, useEffect } from "react";
-// Configuração inline para evitar dependência de arquivo externo
-const PAGINAS_E_ACOES_DO_SISTEMA = [
+import React, { useMemo, useState, useEffect, useCallback } from "react";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { Switch } from "@/components/ui/switch";
+import { Badge } from "@/components/ui/badge";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Search, Plus, Save, User, Shield, Settings, ChevronRight, Check, Loader2 } from "lucide-react";
+import { toast } from "sonner";
+import debounce from "lodash/debounce";
+
+// ══════════════════════════════════════════════════════════════════════════════
+// CONFIGURAÇÃO DE RECURSOS DO SISTEMA
+// ══════════════════════════════════════════════════════════════════════════════
+const RECURSOS_SISTEMA = [
   {
-    identificador: "Comunicacao",
+    id: "dados_usuario",
+    nome: "📝 Dados do Usuário",
+    tipo: "config",
+    description: "Nome, e-mail, setor, função e status do usuário."
+  },
+  {
+    id: "Comunicacao",
     nome: "💬 Central de Comunicação",
     tipo: "menu",
     categoria: "Comunicação",
-    description: "Gerencia a comunicação via WhatsApp e outros canais.",
-    sub_recursos: [
-      { identificador: "Comunicacao.conversas", nome: "Conversas", tipo: "subtela", description: "Interface de chat.", permissoes_funcao: [
-        { identificador: "Comunicacao.conversas.enviar_mensagem", nome: "Enviar Mensagem", tipo: "acao" },
-        { identificador: "Comunicacao.conversas.enviar_midia", nome: "Enviar Mídia", tipo: "acao" },
-        { identificador: "Comunicacao.conversas.transferir", nome: "Transferir Conversa", tipo: "acao" },
-        { identificador: "Comunicacao.conversas.ver_todas", nome: "Ver Todas Conversas", tipo: "acao" },
-      ]},
-      { identificador: "Comunicacao.controle_operacional", nome: "Controle Operacional", tipo: "subtela", description: "Monitoramento de filas." },
-      { identificador: "Comunicacao.automacao", nome: "Automação", tipo: "subtela", description: "Playbooks e respostas rápidas." },
-      { identificador: "Comunicacao.configuracoes", nome: "Configurações", tipo: "subtela", description: "Integrações WhatsApp." },
+    description: "WhatsApp e canais de atendimento.",
+    acoes: [
+      { id: "Comunicacao.conversas", nome: "Ver Conversas", tipo: "subtela" },
+      { id: "Comunicacao.conversas.enviar", nome: "Enviar Mensagens", tipo: "acao" },
+      { id: "Comunicacao.conversas.midia", nome: "Enviar Mídia", tipo: "acao" },
+      { id: "Comunicacao.conversas.transferir", nome: "Transferir Conversa", tipo: "acao" },
+      { id: "Comunicacao.conversas.ver_todas", nome: "Ver Todas (Supervisão)", tipo: "acao" },
+      { id: "Comunicacao.controle", nome: "Controle Operacional", tipo: "subtela" },
+      { id: "Comunicacao.automacao", nome: "Automação", tipo: "subtela" },
+      { id: "Comunicacao.config", nome: "Configurações WhatsApp", tipo: "subtela" },
     ]
   },
   {
-    identificador: "Dashboard",
+    id: "Dashboard",
     nome: "📊 Dashboard",
     tipo: "menu",
     categoria: "Geral",
-    description: "Visão geral do desempenho comercial.",
-    permissoes_funcao: [
-      { identificador: "Dashboard.filtrar", nome: "Filtrar Dados", tipo: "acao" },
-      { identificador: "Dashboard.exportar", nome: "Exportar Dashboard", tipo: "acao" },
+    description: "Visão geral e KPIs.",
+    acoes: [
+      { id: "Dashboard.filtrar", nome: "Filtrar Dados", tipo: "acao" },
+      { id: "Dashboard.exportar", nome: "Exportar", tipo: "acao" },
     ]
   },
   {
-    identificador: "LeadsQualificados",
-    nome: "🎯 Leads Qualificados",
+    id: "LeadsQualificados",
+    nome: "🎯 Leads & Qualificação",
     tipo: "menu",
     categoria: "Vendas",
-    description: "Gestão do funil de leads e orçamentos.",
-    sub_recursos: [
-      { identificador: "LeadsQualificados.kanban_leads", nome: "Kanban de Leads", tipo: "subtela" },
-      { identificador: "LeadsQualificados.kanban_clientes", nome: "Kanban de Clientes", tipo: "subtela" },
-      { identificador: "LeadsQualificados.pipeline_orcamentos", nome: "Pipeline de Orçamentos", tipo: "subtela" },
+    description: "Funil de leads e orçamentos.",
+    acoes: [
+      { id: "LeadsQualificados.kanban_leads", nome: "Kanban Leads", tipo: "subtela" },
+      { id: "LeadsQualificados.kanban_clientes", nome: "Kanban Clientes", tipo: "subtela" },
+      { id: "LeadsQualificados.orcamentos", nome: "Pipeline Orçamentos", tipo: "subtela" },
     ]
   },
   {
-    identificador: "Clientes",
+    id: "Clientes",
     nome: "🏢 Clientes",
     tipo: "menu",
     categoria: "CRM",
-    description: "Gerenciamento de clientes.",
-    permissoes_funcao: [
-      { identificador: "Clientes.novo", nome: "Novo Cliente", tipo: "acao" },
-      { identificador: "Clientes.editar", nome: "Editar Cliente", tipo: "acao" },
-      { identificador: "Clientes.excluir", nome: "Excluir Cliente", tipo: "acao" },
+    description: "Gestão de clientes.",
+    acoes: [
+      { id: "Clientes.novo", nome: "Criar Cliente", tipo: "acao" },
+      { id: "Clientes.editar", nome: "Editar Cliente", tipo: "acao" },
+      { id: "Clientes.excluir", nome: "Excluir Cliente", tipo: "acao" },
     ]
   },
   {
-    identificador: "Vendedores",
+    id: "Vendedores",
     nome: "👥 Vendedores",
     tipo: "menu",
     categoria: "Vendas",
-    description: "Gestão de vendedores.",
-    permissoes_funcao: [
-      { identificador: "Vendedores.novo", nome: "Novo Vendedor", tipo: "acao" },
-      { identificador: "Vendedores.editar", nome: "Editar Vendedor", tipo: "acao" },
-      { identificador: "Vendedores.excluir", nome: "Excluir Vendedor", tipo: "acao" },
+    description: "Equipe de vendas.",
+    acoes: [
+      { id: "Vendedores.novo", nome: "Criar Vendedor", tipo: "acao" },
+      { id: "Vendedores.editar", nome: "Editar Vendedor", tipo: "acao" },
+      { id: "Vendedores.excluir", nome: "Excluir Vendedor", tipo: "acao" },
     ]
   },
   {
-    identificador: "Produtos",
+    id: "Produtos",
     nome: "📦 Produtos",
     tipo: "menu",
     categoria: "Catálogo",
     description: "Catálogo de produtos.",
-    permissoes_funcao: [
-      { identificador: "Produtos.novo", nome: "Novo Produto", tipo: "acao" },
-      { identificador: "Produtos.editar", nome: "Editar Produto", tipo: "acao" },
-      { identificador: "Produtos.excluir", nome: "Excluir Produto", tipo: "acao" },
+    acoes: [
+      { id: "Produtos.novo", nome: "Criar Produto", tipo: "acao" },
+      { id: "Produtos.editar", nome: "Editar Produto", tipo: "acao" },
+      { id: "Produtos.excluir", nome: "Excluir Produto", tipo: "acao" },
     ]
   },
-  {
-    identificador: "Agenda",
-    nome: "📅 Agenda",
-    tipo: "menu",
-    categoria: "Geral",
-    description: "Tarefas e agenda inteligente."
-  },
-  {
-    identificador: "AnalyticsAvancado",
-    nome: "📈 Analytics",
-    tipo: "menu",
-    categoria: "Relatórios",
-    description: "Análise de dados e tendências."
-  },
-  {
-    identificador: "Importacao",
-    nome: "📥 Importação",
-    tipo: "menu",
-    categoria: "Dados",
-    description: "Importação de dados."
-  },
-  {
-    identificador: "Usuarios",
-    nome: "👤 Usuários",
-    tipo: "menu",
-    categoria: "Administração",
-    description: "Gerenciamento de usuários e permissões."
-  },
-  {
-    identificador: "Auditoria",
-    nome: "🔒 Auditoria",
-    tipo: "menu",
-    categoria: "Administração",
-    description: "Logs de auditoria."
-  },
+  { id: "Agenda", nome: "📅 Agenda", tipo: "menu", categoria: "Geral", description: "Tarefas inteligentes." },
+  { id: "AnalyticsAvancado", nome: "📈 Analytics", tipo: "menu", categoria: "Relatórios", description: "Análises avançadas." },
+  { id: "Importacao", nome: "📥 Importação", tipo: "menu", categoria: "Dados", description: "Importar dados." },
+  { id: "Usuarios", nome: "👤 Usuários", tipo: "menu", categoria: "Admin", description: "Gerenciar usuários." },
+  { id: "Auditoria", nome: "🔒 Auditoria", tipo: "menu", categoria: "Admin", description: "Logs do sistema." },
 ];
 
-const PERFIS_ACESSO_RAPIDO = {
-  admin: { label: "👑 Administrador", permissoes: PAGINAS_E_ACOES_DO_SISTEMA.flatMap(m => [m.identificador, ...(m.sub_recursos || []).map(s => s.identificador), ...(m.permissoes_funcao || []).map(a => a.identificador)]) },
+const PERFIS_RAPIDOS = {
+  admin: { label: "👑 Admin Total", permissoes: RECURSOS_SISTEMA.flatMap(r => [r.id, ...(r.acoes || []).map(a => a.id)]) },
   gerente: { label: "👔 Gerente", permissoes: ["Comunicacao", "Dashboard", "LeadsQualificados", "Clientes", "Vendedores", "Produtos", "Agenda", "AnalyticsAvancado"] },
   vendedor: { label: "💼 Vendedor", permissoes: ["Comunicacao", "Dashboard", "LeadsQualificados", "Clientes", "Produtos", "Agenda"] },
   suporte: { label: "🎧 Suporte", permissoes: ["Comunicacao", "Clientes", "Agenda"] },
-  personalizado: { label: "⚙️ Personalizado", permissoes: [] }
 };
-import UsuarioForm from "./UsuarioForm";
 
-// Se você estiver usando shadcn/ui, adapte estes imports para os componentes reais.
-// Aqui vou usar HTML básico + Tailwind para manter genérico.
+const SETORES = [
+  { value: "vendas", label: "Vendas" },
+  { value: "assistencia", label: "Assistência" },
+  { value: "financeiro", label: "Financeiro" },
+  { value: "fornecedor", label: "Fornecedor" },
+  { value: "geral", label: "Geral" },
+];
 
-function filtrarUsuarios(usuarios, termo) {
-  if (!termo) return usuarios;
-  const t = termo.toLowerCase();
-  return usuarios.filter(
-    (u) =>
-      (u.nome && u.nome.toLowerCase().includes(t)) ||
-      (u.email && u.email.toLowerCase().includes(t))
-  );
-}
+const FUNCOES = [
+  { value: "junior", label: "Júnior" },
+  { value: "pleno", label: "Pleno" },
+  { value: "senior", label: "Sênior" },
+  { value: "coordenador", label: "Coordenador" },
+  { value: "gerente", label: "Gerente" },
+];
 
-function coletarPermissoesRecurso(recurso) {
-  const itens = [];
-
-  // o próprio menu/subtela pode ser permissionável
-  if (recurso.identificador && recurso.tipo) {
-    itens.push({
-      identificador: recurso.identificador,
-      nome: recurso.nome,
-      tipo: recurso.tipo,
-      description: recurso.description || "",
-    });
-  }
-
-  // subtelas
-  if (recurso.sub_recursos && recurso.sub_recursos.length) {
-    recurso.sub_recursos.forEach((sub) => {
-      itens.push({
-        identificador: sub.identificador,
-        nome: sub.nome,
-        tipo: sub.tipo,
-        description: sub.description || "",
-      });
-
-      // ações da subtela
-      if (sub.permissoes_funcao && sub.permissoes_funcao.length) {
-        sub.permissoes_funcao.forEach((acao) => {
-          itens.push({
-            identificador: acao.identificador,
-            nome: `↳ ${acao.nome}`,
-            tipo: acao.tipo,
-            description: acao.description || "",
-          });
-        });
-      }
-    });
-  }
-
-  // ações diretas do menu (sem subtela)
-  if (recurso.permissoes_funcao && recurso.permissoes_funcao.length) {
-    recurso.permissoes_funcao.forEach((acao) => {
-      itens.push({
-        identificador: acao.identificador,
-        nome: `↳ ${acao.nome}`,
-        tipo: acao.tipo,
-        description: acao.description || "",
-      });
-    });
-  }
-
-  return itens;
-}
-
+// ══════════════════════════════════════════════════════════════════════════════
+// COMPONENTE PRINCIPAL
+// ══════════════════════════════════════════════════════════════════════════════
 export default function GerenciadorUsuariosUnificado({
-  // Opcional: você pode passar estes via props,
-  // ou substituir internamente por hooks de backend/Base44.
-  usuariosIniciais = [],
-  carregarUsuarios,      // async () => lista
-  salvarUsuario,         // async (usuario) => usuarioAtualizado
-  salvarPermissoes,      // async (usuarioId, listaDePermissoes) => void
+  carregarUsuarios,
+  salvarUsuario,
+  salvarPermissoes,
 }) {
-  const [usuarios, setUsuarios] = useState(usuariosIniciais);
-  const [filtroUsuarios, setFiltroUsuarios] = useState("");
+  const [usuarios, setUsuarios] = useState([]);
+  const [filtro, setFiltro] = useState("");
   const [usuarioSelecionado, setUsuarioSelecionado] = useState(null);
-
-  const [recursoSelecionadoId, setRecursoSelecionadoId] = useState(null);
-  const [perfilSelecionado, setPerfilSelecionado] = useState(null);
-
-  const [permissoesUsuario, setPermissoesUsuario] = useState([]); // array de identificadores
+  const [recursoSelecionado, setRecursoSelecionado] = useState(RECURSOS_SISTEMA[0]);
   const [carregando, setCarregando] = useState(false);
   const [salvando, setSalvando] = useState(false);
 
-  // Carregar usuários ao montar, se função fornecida
+  // Carregar usuários
   useEffect(() => {
     if (!carregarUsuarios) return;
-
     let ativo = true;
     (async () => {
+      setCarregando(true);
       try {
-        setCarregando(true);
         const lista = await carregarUsuarios();
-        if (!ativo) return;
-        setUsuarios(lista || []);
-      } catch (err) {
-        console.error("Erro ao carregar usuários:", err);
+        if (ativo) setUsuarios(lista || []);
+      } catch (e) {
+        console.error("Erro ao carregar:", e);
       } finally {
         if (ativo) setCarregando(false);
       }
     })();
-
-    return () => {
-      ativo = false;
-    };
+    return () => { ativo = false; };
   }, [carregarUsuarios]);
 
-  // Quando selecionar usuário, carregar permissões (a partir do próprio user ou de uma fonte externa)
-  useEffect(() => {
-    if (!usuarioSelecionado) {
-      setPermissoesUsuario([]);
-      setPerfilSelecionado(null);
-      return;
-    }
-
-    // Aqui assumo que o usuário tem um campo permissoes (array de strings).
-    // Adapte para o seu modelo real.
-    setPermissoesUsuario(usuarioSelecionado.permissoes || []);
-    setPerfilSelecionado(usuarioSelecionado.perfilAcesso || null);
-  }, [usuarioSelecionado]);
-
-  const usuariosFiltrados = useMemo(
-    () => filtrarUsuarios(usuarios, filtroUsuarios),
-    [usuarios, filtroUsuarios]
+  // Auto-save com debounce
+  const salvarAutomatico = useCallback(
+    debounce(async (usuario) => {
+      if (!usuario || !salvarUsuario) return;
+      setSalvando(true);
+      try {
+        const atualizado = await salvarUsuario(usuario);
+        setUsuarios(prev => prev.map(u => u.id === atualizado.id ? atualizado : u));
+        toast.success("Salvo automaticamente", { duration: 1500 });
+      } catch (e) {
+        toast.error("Erro ao salvar");
+      } finally {
+        setSalvando(false);
+      }
+    }, 1000),
+    [salvarUsuario]
   );
 
-  const recursoSelecionado = useMemo(() => {
-    if (!recursoSelecionadoId) return null;
-
-    // procure em menus
-    for (const menu of PAGINAS_E_ACOES_DO_SISTEMA) {
-      if (menu.identificador === recursoSelecionadoId) return menu;
-      if (menu.sub_recursos) {
-        for (const sub of menu.sub_recursos) {
-          if (sub.identificador === recursoSelecionadoId) return sub;
-        }
-      }
-      if (menu.permissoes_funcao) {
-        for (const acao of menu.permissoes_funcao) {
-          if (acao.identificador === recursoSelecionadoId) return acao;
-        }
-      }
-    }
-    return null;
-  }, [recursoSelecionadoId]);
-
-  const permissoesDoRecurso = useMemo(() => {
-    if (!recursoSelecionado) return [];
-    // Se for menu completo, queremos todo o "galho" dele
-    if (recursoSelecionado.tipo === "menu") {
-      return coletarPermissoesRecurso(recursoSelecionado);
-    }
-    // Se for subtela / ação individual
-    if (recursoSelecionado.identificador) {
-      return [
-        {
-          identificador: recursoSelecionado.identificador,
-          nome: recursoSelecionado.nome,
-          tipo: recursoSelecionado.tipo,
-          description: recursoSelecionado.description || "",
-        },
-      ];
-    }
-    return [];
-  }, [recursoSelecionado]);
-
-  function togglePermissao(identificador) {
-    setPermissoesUsuario((prev) =>
-      prev.includes(identificador)
-        ? prev.filter((p) => p !== identificador)
-        : [...prev, identificador]
-    );
-  }
-
-  function isMarcado(identificador) {
-    return permissoesUsuario.includes(identificador);
-  }
-
-  async function handleSalvarTudo() {
+  // Atualizar campo do usuário
+  const atualizarUsuario = (campo, valor) => {
     if (!usuarioSelecionado) return;
-    try {
-      setSalvando(true);
+    const atualizado = { ...usuarioSelecionado, [campo]: valor };
+    setUsuarioSelecionado(atualizado);
+    setUsuarios(prev => prev.map(u => u.id === atualizado.id ? atualizado : u));
+    salvarAutomatico(atualizado);
+  };
 
-      const payloadUsuario = {
-        ...usuarioSelecionado,
-        permissoes: permissoesUsuario,
-        perfilAcesso: perfilSelecionado,
-      };
+  // Toggle permissão
+  const togglePermissao = (permId) => {
+    if (!usuarioSelecionado) return;
+    const perms = usuarioSelecionado.permissoes || [];
+    const novasPerms = perms.includes(permId)
+      ? perms.filter(p => p !== permId)
+      : [...perms, permId];
+    atualizarUsuario("permissoes", novasPerms);
+  };
 
-      // TODO: integrar com seu backend/Base44
-      if (salvarUsuario) {
-        const atualizado = await salvarUsuario(payloadUsuario);
-        // atualiza lista local
-        setUsuarios((prev) =>
-          prev.map((u) => (u.id === atualizado.id ? atualizado : u))
-        );
-        setUsuarioSelecionado(atualizado);
-      }
+  // Aplicar perfil
+  const aplicarPerfil = (perfilKey) => {
+    const perfil = PERFIS_RAPIDOS[perfilKey];
+    if (!perfil || !usuarioSelecionado) return;
+    atualizarUsuario("permissoes", [...perfil.permissoes]);
+    toast.success(`Perfil "${perfil.label}" aplicado`);
+  };
 
-      if (salvarPermissoes) {
-        await salvarPermissoes(usuarioSelecionado.id, permissoesUsuario);
-      }
-
-      console.log("Permissões salvas:", permissoesUsuario);
-    } catch (err) {
-      console.error("Erro ao salvar usuário/permissões:", err);
-    } finally {
-      setSalvando(false);
-    }
-  }
-
-  function aplicarPerfil(perfilKey) {
-    setPerfilSelecionado(perfilKey);
-    const perfil = PERFIS_ACESSO_RAPIDO[perfilKey];
-    if (!perfil) return;
-
-    // Para administradores, perfil.permissoes já é a lista completa de identificadores
-    setPermissoesUsuario(perfil.permissoes || []);
-  }
-
-  function handleNovoUsuario() {
+  // Novo usuário
+  const novoUsuario = () => {
     const novo = {
       id: `temp-${Date.now()}`,
       nome: "",
       email: "",
-      setor: "",
-      funcao: "",
-      ativo: true,
+      setor: "geral",
+      funcao: "pleno",
       tipoAcesso: "user",
+      ativo: true,
       permissoes: [],
-      perfilAcesso: "personalizado",
       isNovo: true,
     };
-    setUsuarios((prev) => [novo, ...prev]);
+    setUsuarios(prev => [novo, ...prev]);
     setUsuarioSelecionado(novo);
-    setPermissoesUsuario([]);
-    setPerfilSelecionado("personalizado");
-  }
+    setRecursoSelecionado(RECURSOS_SISTEMA[0]);
+  };
 
-  function handleChangeUsuario(camposAtualizados) {
-    if (!usuarioSelecionado) return;
-    const atualizado = { ...usuarioSelecionado, ...camposAtualizados };
-    setUsuarioSelecionado(atualizado);
-    setUsuarios((prev) =>
-      prev.map((u) => (u.id === atualizado.id ? atualizado : u))
+  // Filtrar usuários
+  const usuariosFiltrados = useMemo(() => {
+    if (!filtro) return usuarios;
+    const t = filtro.toLowerCase();
+    return usuarios.filter(u =>
+      (u.nome && u.nome.toLowerCase().includes(t)) ||
+      (u.email && u.email.toLowerCase().includes(t))
     );
-  }
+  }, [usuarios, filtro]);
+
+  const temPermissao = (permId) => (usuarioSelecionado?.permissoes || []).includes(permId);
 
   return (
-    <div className="flex h-[calc(100vh-120px)] gap-3">
-      {/* COLUNA 1 - USUÁRIOS */}
-      <section className="w-1/4 flex flex-col border rounded-xl bg-white/80 shadow-sm overflow-hidden">
-        <header className="p-3 border-b flex items-center gap-2">
-          <div className="flex-1">
-            <h2 className="text-sm font-semibold">Usuários</h2>
-            <p className="text-xs text-gray-500">
-              Selecione um usuário para configurar permissões.
-            </p>
+    <div className="flex h-[calc(100vh-140px)] gap-3">
+      {/* ════════════════════════════════════════════════════════════════════════ */}
+      {/* COLUNA 1: LISTA DE USUÁRIOS */}
+      {/* ════════════════════════════════════════════════════════════════════════ */}
+      <section className="w-64 flex flex-col bg-white rounded-xl border shadow-sm overflow-hidden">
+        <header className="p-3 border-b bg-gradient-to-r from-slate-50 to-slate-100">
+          <div className="flex items-center justify-between mb-2">
+            <h2 className="text-sm font-bold text-slate-800">Usuários</h2>
+            <Button size="sm" variant="outline" onClick={novoUsuario} className="h-7 px-2">
+              <Plus className="w-3 h-3 mr-1" /> Novo
+            </Button>
           </div>
-          <button
-            onClick={handleNovoUsuario}
-            className="text-xs px-2 py-1 rounded-md border hover:bg-gray-50"
-          >
-            + Novo
-          </button>
+          <div className="relative">
+            <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-3 h-3 text-slate-400" />
+            <Input
+              placeholder="Buscar..."
+              value={filtro}
+              onChange={(e) => setFiltro(e.target.value)}
+              className="h-7 pl-7 text-xs"
+            />
+          </div>
         </header>
 
-        <div className="p-2 border-b">
-          <input
-            type="text"
-            placeholder="Buscar por nome ou e-mail..."
-            className="w-full text-xs px-2 py-1 border rounded-md outline-none"
-            value={filtroUsuarios}
-            onChange={(e) => setFiltroUsuarios(e.target.value)}
-          />
-        </div>
-
-        <div className="flex-1 overflow-auto text-sm">
-          {carregando && (
-            <div className="p-3 text-xs text-gray-500">Carregando usuários...</div>
+        <div className="flex-1 overflow-auto">
+          {carregando ? (
+            <div className="p-4 text-center text-xs text-slate-500">
+              <Loader2 className="w-4 h-4 animate-spin mx-auto mb-1" />
+              Carregando...
+            </div>
+          ) : usuariosFiltrados.length === 0 ? (
+            <div className="p-4 text-center text-xs text-slate-500">Nenhum usuário</div>
+          ) : (
+            <ul>
+              {usuariosFiltrados.map(u => (
+                <li
+                  key={u.id}
+                  onClick={() => { setUsuarioSelecionado(u); setRecursoSelecionado(RECURSOS_SISTEMA[0]); }}
+                  className={`px-3 py-2 cursor-pointer border-b text-xs transition-colors ${
+                    usuarioSelecionado?.id === u.id
+                      ? "bg-indigo-50 border-l-2 border-l-indigo-500"
+                      : "hover:bg-slate-50"
+                  }`}
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="font-medium text-slate-800 truncate">{u.nome || "(sem nome)"}</span>
+                    <Badge variant={u.ativo ? "default" : "secondary"} className="text-[9px] px-1.5 py-0">
+                      {u.ativo ? "Ativo" : "Inativo"}
+                    </Badge>
+                  </div>
+                  <div className="text-[10px] text-slate-500 truncate">{u.email}</div>
+                  {u.setor && <div className="text-[10px] text-slate-400">{u.setor} • {u.funcao}</div>}
+                </li>
+              ))}
+            </ul>
           )}
-          {!carregando && usuariosFiltrados.length === 0 && (
-            <div className="p-3 text-xs text-gray-500">
-              Nenhum usuário encontrado.
+        </div>
+      </section>
+
+      {/* ════════════════════════════════════════════════════════════════════════ */}
+      {/* COLUNA 2: RECURSOS DO SISTEMA */}
+      {/* ════════════════════════════════════════════════════════════════════════ */}
+      <section className="w-72 flex flex-col bg-white rounded-xl border shadow-sm overflow-hidden">
+        <header className="p-3 border-b bg-gradient-to-r from-slate-50 to-slate-100">
+          <h2 className="text-sm font-bold text-slate-800">Recursos & Páginas</h2>
+          <p className="text-[10px] text-slate-500">Selecione para configurar</p>
+        </header>
+
+        <div className="flex-1 overflow-auto p-2 space-y-1">
+          {RECURSOS_SISTEMA.map(recurso => {
+            const selecionado = recursoSelecionado?.id === recurso.id;
+            const temAcessoMenu = temPermissao(recurso.id);
+            
+            return (
+              <button
+                key={recurso.id}
+                onClick={() => setRecursoSelecionado(recurso)}
+                disabled={!usuarioSelecionado}
+                className={`w-full text-left px-3 py-2 rounded-lg text-xs transition-all flex items-center gap-2 ${
+                  selecionado
+                    ? "bg-indigo-100 border border-indigo-300"
+                    : "hover:bg-slate-50 border border-transparent"
+                } ${!usuarioSelecionado ? "opacity-50 cursor-not-allowed" : ""}`}
+              >
+                <div className="flex-1">
+                  <div className="flex items-center gap-2">
+                    <span className="font-medium">{recurso.nome}</span>
+                    {recurso.tipo === "config" && <Settings className="w-3 h-3 text-slate-400" />}
+                    {recurso.tipo === "menu" && temAcessoMenu && (
+                      <Check className="w-3 h-3 text-green-600" />
+                    )}
+                  </div>
+                  <div className="text-[10px] text-slate-500">{recurso.description}</div>
+                </div>
+                <ChevronRight className={`w-4 h-4 text-slate-400 transition-transform ${selecionado ? "rotate-90" : ""}`} />
+              </button>
+            );
+          })}
+        </div>
+      </section>
+
+      {/* ════════════════════════════════════════════════════════════════════════ */}
+      {/* COLUNA 3: DETALHES / PERMISSÕES / DADOS */}
+      {/* ════════════════════════════════════════════════════════════════════════ */}
+      <section className="flex-1 flex flex-col bg-white rounded-xl border shadow-sm overflow-hidden">
+        <header className="p-3 border-b bg-gradient-to-r from-slate-50 to-slate-100 flex items-center justify-between">
+          <div>
+            <h2 className="text-sm font-bold text-slate-800">
+              {recursoSelecionado?.nome || "Detalhes"}
+            </h2>
+            <p className="text-[10px] text-slate-500">
+              {recursoSelecionado?.description || "Selecione um recurso"}
+            </p>
+          </div>
+          {salvando && (
+            <div className="flex items-center gap-1 text-xs text-amber-600">
+              <Loader2 className="w-3 h-3 animate-spin" />
+              Salvando...
             </div>
           )}
-          <ul>
-            {usuariosFiltrados.map((u) => (
-              <li
-                key={u.id}
-                onClick={() => setUsuarioSelecionado(u)}
-                className={`px-3 py-2 cursor-pointer border-b text-xs ${
-                  usuarioSelecionado?.id === u.id
-                    ? "bg-indigo-50 border-indigo-200 font-semibold"
-                    : "hover:bg-gray-50"
-                }`}
-              >
-                <div className="flex justify-between items-center">
-                  <span>{u.nome || "(sem nome)"}</span>
-                  <span
-                    className={`text-[10px] px-2 py-0.5 rounded-full ${
-                      u.ativo ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"
-                    }`}
-                  >
-                    {u.ativo ? "Ativo" : "Inativo"}
-                  </span>
-                </div>
-                <div className="text-[10px] text-gray-500 truncate">{u.email}</div>
-                {u.setor && u.funcao && (
-                  <div className="text-[10px] text-gray-500">
-                    {u.setor} • {u.funcao}
-                  </div>
-                )}
-              </li>
-            ))}
-          </ul>
-        </div>
-      </section>
-
-      {/* COLUNA 2 - RECURSOS / MENUS / AÇÕES */}
-      <section className="w-1/3 flex flex-col border rounded-xl bg-white/80 shadow-sm overflow-hidden">
-        <header className="p-3 border-b">
-          <h2 className="text-sm font-semibold">Recursos & Páginas do Sistema</h2>
-          <p className="text-xs text-gray-500">
-            Selecione um menu ou subtela para ajustar as permissões.
-          </p>
-        </header>
-
-        <div className="flex-1 overflow-auto text-sm">
-          <ul className="p-2 space-y-1">
-            {PAGINAS_E_ACOES_DO_SISTEMA.map((menu) => {
-              const selecionado = recursoSelecionadoId === menu.identificador;
-              return (
-                <li key={menu.identificador}>
-                  <button
-                    onClick={() => setRecursoSelecionadoId(menu.identificador)}
-                    className={`w-full text-left px-2 py-1 rounded-md text-xs flex flex-col ${
-                      selecionado
-                        ? "bg-indigo-50 border border-indigo-200"
-                        : "hover:bg-gray-50"
-                    }`}
-                  >
-                    <span className="font-semibold">
-                      {menu.nome}{" "}
-                      <span className="text-[10px] text-gray-400">
-                        ({menu.categoria || "Sem categoria"})
-                      </span>
-                    </span>
-                    <span className="text-[10px] text-gray-500">
-                      {menu.description}
-                    </span>
-                  </button>
-
-                  {/* Sub-recursos */}
-                  {menu.sub_recursos && menu.sub_recursos.length > 0 && (
-                    <ul className="ml-3 mt-1 space-y-0.5">
-                      {menu.sub_recursos.map((sub) => {
-                        const subSel = recursoSelecionadoId === sub.identificador;
-                        return (
-                          <li key={sub.identificador}>
-                            <button
-                              onClick={() =>
-                                setRecursoSelecionadoId(sub.identificador)
-                              }
-                              className={`w-full text-left px-2 py-1 rounded-md text-[11px] flex flex-col ${
-                                subSel
-                                  ? "bg-indigo-50 border border-indigo-200"
-                                  : "hover:bg-gray-50"
-                              }`}
-                            >
-                              <span>{sub.nome}</span>
-                              {sub.description && (
-                                <span className="text-[10px] text-gray-500">
-                                  {sub.description}
-                                </span>
-                              )}
-                            </button>
-                          </li>
-                        );
-                      })}
-                    </ul>
-                  )}
-
-                  {/* Ações diretas do menu */}
-                  {menu.permissoes_funcao && menu.permissoes_funcao.length > 0 && (
-                    <ul className="ml-3 mt-1 space-y-0.5">
-                      {menu.permissoes_funcao.map((acao) => {
-                        const acaoSel = recursoSelecionadoId === acao.identificador;
-                        return (
-                          <li key={acao.identificador}>
-                            <button
-                              onClick={() =>
-                                setRecursoSelecionadoId(acao.identificador)
-                              }
-                              className={`w-full text-left px-2 py-1 rounded-md text-[11px] flex flex-col ${
-                                acaoSel
-                                  ? "bg-indigo-50 border border-indigo-200"
-                                  : "hover:bg-gray-50"
-                              }`}
-                            >
-                              <span>↳ {acao.nome}</span>
-                              {acao.description && (
-                                <span className="text-[10px] text-gray-500">
-                                  {acao.description}
-                                </span>
-                              )}
-                            </button>
-                          </li>
-                        );
-                      })}
-                    </ul>
-                  )}
-                </li>
-              );
-            })}
-          </ul>
-        </div>
-      </section>
-
-      {/* COLUNA 3 - DETALHES DO USUÁRIO + PERMISSÕES */}
-      <section className="flex-1 flex flex-col border rounded-xl bg-white/80 shadow-sm overflow-hidden">
-        <header className="p-3 border-b flex items-center justify-between">
-          <div>
-            <h2 className="text-sm font-semibold">Detalhes & Permissões</h2>
-            <p className="text-xs text-gray-500">
-              Edite os dados do usuário e as permissões para o recurso selecionado.
-            </p>
-          </div>
-          <button
-            onClick={handleSalvarTudo}
-            disabled={!usuarioSelecionado || salvando}
-            className={`px-3 py-1.5 text-xs rounded-md ${
-              !usuarioSelecionado || salvando
-                ? "bg-gray-200 text-gray-500 cursor-not-allowed"
-                : "bg-indigo-600 text-white hover:bg-indigo-700"
-            }`}
-          >
-            {salvando ? "Salvando..." : "Salvar alterações"}
-          </button>
         </header>
 
         {!usuarioSelecionado ? (
-          <div className="flex-1 flex items-center justify-center text-xs text-gray-500">
-            Selecione um usuário na coluna da esquerda para começar.
+          <div className="flex-1 flex items-center justify-center text-slate-400 text-sm">
+            <User className="w-8 h-8 mr-2 opacity-50" />
+            Selecione um usuário para começar
           </div>
         ) : (
-          <div className="flex-1 grid grid-rows-[auto,auto,1fr] gap-2 overflow-hidden">
-            {/* Dados básicos do usuário */}
-            <div className="p-3 border-b overflow-auto">
-              <UsuarioForm
-                usuario={usuarioSelecionado}
-                onChange={handleChangeUsuario}
-              />
-            </div>
-
-            {/* Perfis de acesso rápido */}
-            <div className="px-3 pb-2 border-b">
-              <h3 className="text-xs font-semibold mb-2">
-                Perfis de acesso rápido
-              </h3>
-              <div className="flex flex-wrap gap-2">
-                {Object.entries(PERFIS_ACESSO_RAPIDO).map(([key, perfil]) => (
-                  <button
-                    key={key}
-                    type="button"
-                    onClick={() => aplicarPerfil(key)}
-                    className={`text-[11px] px-2 py-1 rounded-full border ${
-                      perfilSelecionado === key
-                        ? "bg-indigo-600 text-white border-indigo-600"
-                        : "bg-white text-gray-700 hover:bg-gray-50"
-                    }`}
-                  >
-                    {perfil.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Permissões do recurso selecionado */}
-            <div className="p-3 overflow-auto">
-              {!recursoSelecionado ? (
-                <div className="text-xs text-gray-500">
-                  Selecione um menu/subtela na coluna do meio para ver as permissões
-                  disponíveis.
-                </div>
-              ) : (
-                <>
-                  <div className="mb-3">
-                    <h3 className="text-xs font-semibold">
-                      Permissões para:{" "}
-                      <span className="text-indigo-700">
-                        {recursoSelecionado.nome}
-                      </span>
-                    </h3>
-                    {recursoSelecionado.description && (
-                      <p className="text-[11px] text-gray-500">
-                        {recursoSelecionado.description}
-                      </p>
-                    )}
+          <div className="flex-1 overflow-auto p-4">
+            {/* ══════════════════════════════════════════════════════════════════ */}
+            {/* DADOS DO USUÁRIO (config) */}
+            {/* ══════════════════════════════════════════════════════════════════ */}
+            {recursoSelecionado?.tipo === "config" && (
+              <div className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-xs font-medium text-slate-700 mb-1 block">Nome Completo</label>
+                    <Input
+                      value={usuarioSelecionado.nome || ""}
+                      onChange={(e) => atualizarUsuario("nome", e.target.value)}
+                      placeholder="Nome do usuário"
+                      className="h-9"
+                    />
                   </div>
+                  <div>
+                    <label className="text-xs font-medium text-slate-700 mb-1 block">E-mail</label>
+                    <Input
+                      value={usuarioSelecionado.email || ""}
+                      onChange={(e) => atualizarUsuario("email", e.target.value)}
+                      placeholder="email@empresa.com"
+                      className="h-9"
+                      disabled={!usuarioSelecionado.isNovo}
+                    />
+                  </div>
+                </div>
 
-                  {permissoesDoRecurso.length === 0 ? (
-                    <div className="text-xs text-gray-500">
-                      Nenhuma permissão configurável diretamente para este recurso.
-                    </div>
-                  ) : (
-                    <div className="space-y-1">
-                      {permissoesDoRecurso.map((perm) => (
-                        <label
-                          key={perm.identificador}
-                          className="flex items-start gap-2 text-xs border rounded-md px-2 py-1 hover:bg-gray-50 cursor-pointer"
-                        >
-                          <input
-                            type="checkbox"
-                            className="mt-0.5"
-                            checked={isMarcado(perm.identificador)}
-                            onChange={() =>
-                              togglePermissao(perm.identificador)
-                            }
-                          />
-                          <div>
-                            <div className="font-semibold">{perm.nome}</div>
-                            {perm.description && (
-                              <div className="text-[11px] text-gray-500">
-                                {perm.description}
-                              </div>
-                            )}
-                            <div className="text-[10px] text-gray-400 mt-0.5">
-                              ID: {perm.identificador} • Tipo: {perm.tipo}
-                            </div>
-                          </div>
-                        </label>
-                      ))}
-                    </div>
-                  )}
-                </>
-              )}
-            </div>
+                <div className="grid grid-cols-3 gap-4">
+                  <div>
+                    <label className="text-xs font-medium text-slate-700 mb-1 block">Setor</label>
+                    <Select value={usuarioSelecionado.setor || "geral"} onValueChange={(v) => atualizarUsuario("setor", v)}>
+                      <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        {SETORES.map(s => <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <label className="text-xs font-medium text-slate-700 mb-1 block">Função</label>
+                    <Select value={usuarioSelecionado.funcao || "pleno"} onValueChange={(v) => atualizarUsuario("funcao", v)}>
+                      <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        {FUNCOES.map(f => <SelectItem key={f.value} value={f.value}>{f.label}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <label className="text-xs font-medium text-slate-700 mb-1 block">Tipo de Acesso</label>
+                    <Select value={usuarioSelecionado.tipoAcesso || "user"} onValueChange={(v) => atualizarUsuario("tipoAcesso", v)}>
+                      <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="admin">Administrador</SelectItem>
+                        <SelectItem value="user">Usuário</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between p-3 bg-slate-50 rounded-lg">
+                  <div>
+                    <p className="text-sm font-medium text-slate-800">Status do Usuário</p>
+                    <p className="text-xs text-slate-500">Usuários inativos não podem acessar o sistema</p>
+                  </div>
+                  <Switch
+                    checked={usuarioSelecionado.ativo !== false}
+                    onCheckedChange={(v) => atualizarUsuario("ativo", v)}
+                  />
+                </div>
+
+                {/* Perfis Rápidos */}
+                <div className="pt-4 border-t">
+                  <h3 className="text-xs font-bold text-slate-700 mb-2 flex items-center gap-1">
+                    <Shield className="w-3 h-3" /> Aplicar Perfil Rápido
+                  </h3>
+                  <div className="flex flex-wrap gap-2">
+                    {Object.entries(PERFIS_RAPIDOS).map(([key, perfil]) => (
+                      <Button
+                        key={key}
+                        size="sm"
+                        variant="outline"
+                        onClick={() => aplicarPerfil(key)}
+                        className="h-7 text-xs"
+                      >
+                        {perfil.label}
+                      </Button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* ══════════════════════════════════════════════════════════════════ */}
+            {/* PERMISSÕES DO MENU (menu) */}
+            {/* ══════════════════════════════════════════════════════════════════ */}
+            {recursoSelecionado?.tipo === "menu" && (
+              <div className="space-y-4">
+                {/* Acesso ao Menu Principal */}
+                <div className="flex items-center justify-between p-3 bg-gradient-to-r from-indigo-50 to-purple-50 rounded-lg border border-indigo-200">
+                  <div>
+                    <p className="text-sm font-bold text-indigo-800">{recursoSelecionado.nome}</p>
+                    <p className="text-xs text-indigo-600">Acesso à página principal</p>
+                  </div>
+                  <Switch
+                    checked={temPermissao(recursoSelecionado.id)}
+                    onCheckedChange={() => togglePermissao(recursoSelecionado.id)}
+                  />
+                </div>
+
+                {/* Ações/Subtelas */}
+                {recursoSelecionado.acoes && recursoSelecionado.acoes.length > 0 && (
+                  <div className="space-y-2">
+                    <h4 className="text-xs font-bold text-slate-700">Permissões Granulares</h4>
+                    {recursoSelecionado.acoes.map(acao => (
+                      <label
+                        key={acao.id}
+                        className="flex items-center gap-3 p-2 rounded-lg hover:bg-slate-50 cursor-pointer transition-colors"
+                      >
+                        <Checkbox
+                          checked={temPermissao(acao.id)}
+                          onCheckedChange={() => togglePermissao(acao.id)}
+                          disabled={!temPermissao(recursoSelecionado.id)}
+                        />
+                        <div className="flex-1">
+                          <span className="text-sm font-medium text-slate-800">{acao.nome}</span>
+                          <Badge variant="outline" className="ml-2 text-[9px]">{acao.tipo}</Badge>
+                        </div>
+                      </label>
+                    ))}
+                  </div>
+                )}
+
+                {/* Resumo */}
+                <div className="p-3 bg-slate-50 rounded-lg text-xs text-slate-600">
+                  <strong>Resumo:</strong> {(usuarioSelecionado.permissoes || []).filter(p => 
+                    p === recursoSelecionado.id || (recursoSelecionado.acoes || []).some(a => a.id === p)
+                  ).length} permissões ativas neste recurso
+                </div>
+              </div>
+            )}
           </div>
         )}
       </section>
