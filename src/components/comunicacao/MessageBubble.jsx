@@ -891,14 +891,41 @@ export default function MessageBubble({
             )}
 
             {/* 📱 CANAL WHATSAPP - Badge mostrando de qual conexão veio */}
-            {!isOwn && (message?.metadata?.canal_numero || message?.metadata?.connected_phone) && (
-              <div className={cn(
-                "text-[9px] px-2 py-0.5 rounded-full mb-1 inline-flex items-center gap-1",
-                "bg-green-50 text-green-600 border border-green-200"
-              )}>
-                📱 Via: {message.metadata.canal_numero || message.metadata.connected_phone}
-              </div>
-            )}
+            {!isOwn && (() => {
+              // Tentar várias formas de obter info do canal
+              const canalNumero = message?.metadata?.canal_numero || message?.metadata?.connected_phone;
+              const canalNome = message?.metadata?.canal_nome;
+              const integracaoId = message?.metadata?.whatsapp_integration_id || thread?.whatsapp_integration_id;
+              
+              // Se temos o número diretamente
+              if (canalNumero) {
+                return (
+                  <div className={cn(
+                    "text-[9px] px-2 py-0.5 rounded-full mb-1 inline-flex items-center gap-1",
+                    "bg-green-50 text-green-600 border border-green-200"
+                  )}>
+                    📱 Via: {canalNome || canalNumero}
+                  </div>
+                );
+              }
+              
+              // Fallback: buscar na lista de integrações
+              if (integracaoId && integracoes.length > 0) {
+                const integracao = integracoes.find(i => i.id === integracaoId);
+                if (integracao) {
+                  return (
+                    <div className={cn(
+                      "text-[9px] px-2 py-0.5 rounded-full mb-1 inline-flex items-center gap-1",
+                      "bg-green-50 text-green-600 border border-green-200"
+                    )}>
+                      📱 Via: {integracao.numero_telefone || integracao.nome_instancia}
+                    </div>
+                  );
+                }
+              }
+              
+              return null;
+            })()}
 
             {/* ✅ TEXTO - SEM MÍDIA */}
             {(!message?.media_url || message?.media_type === 'none') && message?.content && String(message.content).trim() !== '' && message.content !== '[No content]' && (
