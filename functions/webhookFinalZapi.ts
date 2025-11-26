@@ -611,6 +611,7 @@ async function handleMessage(dados, payloadBruto, base44) {
         last_message_at: new Date().toISOString(),
         last_message_sender: 'contact',
         last_message_content: String(dados.content || '').substring(0, 100),
+        last_media_type: dados.mediaType || 'none',
         unread_count: (thread.unread_count || 0) + 1,
         total_mensagens: (thread.total_mensagens || 0) + 1,
         status: 'aberta',
@@ -629,6 +630,7 @@ async function handleMessage(dados, payloadBruto, base44) {
         last_message_at: new Date().toISOString(),
         last_message_sender: 'contact',
         last_message_content: String(dados.content || '').substring(0, 100),
+        last_media_type: dados.mediaType || 'none',
         total_mensagens: 1,
         unread_count: 1,
       });
