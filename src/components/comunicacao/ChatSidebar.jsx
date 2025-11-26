@@ -124,59 +124,14 @@ export default function ChatSidebar({ threads, threadAtiva, onSelecionarThread, 
       </div>
     );
   }
-    if (!threads || threads.length === 0) return [];
-    
-    return threads.filter(thread => {
-      const contato = thread.contato;
-      
-      // 1️⃣ Filtrar bloqueados
-      if (contato && contato.bloqueado) return false;
-      
-      // 2️⃣ Admin vê tudo
-      if (usuarioAtual?.role === 'admin') return true;
-      
-      // 3️⃣ Verificar permissões de conexão WhatsApp
-      const whatsappPerms = usuarioAtual?.whatsapp_permissions || [];
-      if (whatsappPerms.length > 0 && thread.whatsapp_integration_id) {
-        const permissao = whatsappPerms.find(p => p.integration_id === thread.whatsapp_integration_id);
-        if (!permissao || !permissao.can_view) return false;
-      }
-      
-      // 4️⃣ Verificar hierarquia Setor → Função → Nível
-      const setorUsuario = usuarioAtual?.attendant_sector;
-      const funcaoUsuario = usuarioAtual?.attendant_role;
-      const podeVerTodos = verificarPermissaoUsuario(usuarioAtual, 'ver_todos');
-      
-      // Se pode ver todos (gerente/coordenador/supervisor), passa
-      if (podeVerTodos) return true;
-      
-      // 5️⃣ Verificar setor da conversa vs setor do atendente
-      const setorThread = thread.sector_id;
-      if (setorThread && setorUsuario && setorThread !== setorUsuario && setorUsuario !== 'geral') {
-        // Conversa de outro setor - não mostrar
-        return false;
-      }
-      
-      // 6️⃣ Verificar tipo de contato vs setor do atendente
-      const tipoContato = contato?.tipo_contato || 'novo';
-      const configSetor = SETORES_ATENDIMENTO.find(s => s.value === setorUsuario);
-      if (configSetor && !configSetor.tipos_contato_aceitos.includes(tipoContato)) {
-        // Tipo de contato não é do setor deste atendente - não mostrar
-        // Exceção: se a conversa está atribuída a ele, mostra
-        if (thread.assigned_user_id !== usuarioAtual?.id) {
-          return false;
-        }
-      }
-      
-      return true;
-    });
-  }, [threads, usuarioAtual]);
 
-  const threadsSorted = threadsFiltradas.sort((a, b) => {
-    const dateA = new Date(a.last_message_at || 0);
-    const dateB = new Date(b.last_message_at || 0);
-    return dateB - dateA;
-  });
+  const threadsSorted = useMemo(() => {
+    return [...threadsFiltradas].sort((a, b) => {
+      const dateA = new Date(a.last_message_at || 0);
+      const dateB = new Date(b.last_message_at || 0);
+      return dateB - dateA;
+    });
+  }, [threadsFiltradas]);
 
   // Função para buscar nome e número da integração
   const getIntegracaoInfo = (thread) => {
