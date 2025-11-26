@@ -403,16 +403,22 @@ export default function CentralInteligenciaContato({
   });
 
   // Combinar etiquetas fixas + dinâmicas
-  const todasEtiquetas = [
+  const todasEtiquetasBase = [
     ...ETIQUETAS_CONTATO,
     ...etiquetasDB.map(etq => ({
       nome: etq.nome,
       label: etq.label,
       emoji: etq.emoji || '🏷️',
       cor: etq.cor || 'bg-slate-400',
-      destaque: etq.destaque || false
+      destaque: etq.destaque || false,
+      tipos_contato_aplicaveis: etq.tipos_contato_aplicaveis || [],
+      filas_aplicaveis: etq.filas_aplicaveis || []
     }))
   ];
+  
+  // Filtrar etiquetas aplicáveis ao contexto do contato
+  const tipoContatoAtual = contato?.tipo_contato || 'novo';
+  const todasEtiquetas = filtrarEtiquetasAplicaveis(todasEtiquetasBase, tipoContatoAtual, null);
 
   // Calcular dados do contato
   const score = calcularScoreContato(contato);
