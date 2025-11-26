@@ -20,7 +20,9 @@ import {
   Video,
   Tag,
   User,
-  Briefcase } from
+  Briefcase,
+  Flame,
+  TrendingUp } from
 "lucide-react";
 import MessageBubble from "./MessageBubble";
 import { base44 } from "@/api/base44Client";
@@ -46,6 +48,8 @@ import { useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import MediaAttachmentSystem from './MediaAttachmentSystem';
 import CategorizadorRapido from './CategorizadorRapido';
+import DermometroImportancia, { BarraDermometro, calcularScoreImportancia, getNivelImportancia } from './DermometroImportancia';
+import ClassificadorContatoRapido from './ClassificadorContatoRapido';
 
 export default function ChatWindow({
   thread,
@@ -1248,12 +1252,12 @@ export default function ChatWindow({
 
   return (
     <div className="flex flex-col h-full bg-white">
-      {/* Header com Cards de Classificação */}
-      <div className="bg-[#d7cecc] p-4 rounded-md border-b from-slate-50 to-blue-50 flex-shrink-0 space-y-3">
+      {/* Header REVOLUCIONÁRIO com Dermômetro e Classificações */}
+      <div className="bg-gradient-to-r from-slate-100 via-slate-50 to-white p-4 border-b border-slate-200 flex-shrink-0 space-y-3 shadow-sm">
         <div className="flex items-center gap-4">
-          {/* Avatar e Nome à Esquerda */}
-          <div className="flex items-center gap-3 flex-1">
-            <div className="w-12 h-12 rounded-full flex items-center justify-center text-white font-bold text-lg shadow-lg flex-shrink-0 overflow-hidden relative bg-gradient-to-br from-amber-400 via-orange-500 to-red-500">
+          {/* Avatar com Dermômetro Integrado */}
+          <div className="relative flex-shrink-0">
+            <div className="w-14 h-14 rounded-full flex items-center justify-center text-white font-bold text-xl shadow-lg overflow-hidden relative bg-gradient-to-br from-amber-400 via-orange-500 to-red-500">
               {contatoCompleto?.foto_perfil_url ?
               <img
                 src={contatoCompleto.foto_perfil_url}
@@ -1263,127 +1267,81 @@ export default function ChatWindow({
                   console.warn('Erro ao carregar foto:', e);
                   e.target.style.display = 'none';
                 }} /> :
-
-
               <span>{getInitials(nomeContato)}</span>
               }
             </div>
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2">
-                <h3 className="font-bold text-slate-900 truncate">{nomeContato}</h3>
-                <CategorizadorRapido
-                  thread={thread}
-                  onUpdate={onAtualizarMensagens} />
-
-              </div>
-              <p className="text-xs text-slate-500">{telefoneExibicao}</p>
+            {/* Dermômetro Grande no Avatar */}
+            <div className="absolute -top-2 -left-2">
+              <DermometroImportancia 
+                contato={contatoCompleto} 
+                tamanho="sm"
+                animado={true}
+              />
             </div>
           </div>
 
-          {/* Cards de Classificação à Direita - Padronizados */}
-          <div className="flex gap-2 overflow-x-auto flex-1 justify-end">
-            {/* Card Tipo */}
-            <div className="bg-gradient-to-br from-blue-500 to-blue-600 text-white rounded-lg px-3 shadow-md h-[1cm] flex items-center gap-2 flex-shrink-0 hover:shadow-lg transition-shadow">
-              <Tag className="w-4 h-4" />
-              <div className="flex flex-col justify-center">
-                <span className="text-[10px] font-semibold opacity-90">Tipo</span>
-                <select
-                  value={contatoCompleto?.tipo_contato || 'lead'}
-                  onChange={(e) => handleAtualizarContato('tipo_contato', e.target.value)}
-                  className="bg-transparent border-0 text-white text-xs focus:outline-none cursor-pointer -mt-1"
-                  disabled={!podeTransferirConversas}>
+          {/* Nome, Telefone e Barra do Dermômetro */}
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 mb-1">
+              <h3 className="font-bold text-slate-900 truncate text-lg">{nomeContato}</h3>
+              <CategorizadorRapido
+                thread={thread}
+                onUpdate={onAtualizarMensagens} />
+            </div>
+            <p className="text-xs text-slate-500 mb-2">{telefoneExibicao}</p>
+            {/* Barra Visual do Dermômetro */}
+            <BarraDermometro contato={contatoCompleto} className="max-w-[200px]" />
+          </div>
 
-                  {tiposContato.map((tipo) =>
-                  <option key={tipo.value} value={tipo.value}>{tipo.icon} {tipo.label}</option>
-                  )}
-                </select>
-              </div>
+          {/* Classificador Completo e Ações à Direita */}
+          <div className="flex items-center gap-2 flex-shrink-0">
+            {/* Classificador Completo */}
+            <div onClick={(e) => e.stopPropagation()}>
+              <ClassificadorContatoRapido 
+                contato={contatoCompleto} 
+                onUpdate={onAtualizarMensagens}
+                compact={false}
+              />
             </div>
 
-            {/* Card Atendente Fornecedor */}
-            {contatoCompleto?.tipo_contato === 'fornecedor' &&
-            <div className="bg-gradient-to-br from-purple-500 to-purple-600 text-white rounded-lg px-3 shadow-md h-[1cm] flex items-center gap-2 flex-shrink-0 hover:shadow-lg transition-shadow">
-                <User className="w-4 h-4" />
-                <div className="flex flex-col justify-center">
-                  <span className="text-[10px] font-semibold opacity-90">Atendente</span>
-                  <select
-                  value={contatoCompleto?.atendente_fidelizado_fornecedor || "nao"}
-                  onChange={(e) => handleAtualizarContato('atendente_fidelizado_fornecedor', e.target.value === "nao" ? "" : e.target.value)}
-                  className="bg-transparent border-0 text-white text-xs focus:outline-none cursor-pointer -mt-1"
-                  disabled={!podeTransferirConversas}>
-
-                    <option value="nao">Não atribuído</option>
-                    {atendentesLista.map((a) => <option key={a.id} value={a.full_name}>{a.full_name}</option>)}
-                  </select>
-                </div>
-              </div>
-            }
-
-            {/* Card Atendente Cliente */}
-            {contatoCompleto?.tipo_contato === 'cliente' &&
-            <div className="bg-gradient-to-br from-purple-500 to-purple-600 text-white rounded-lg px-3 shadow-md h-[1cm] flex items-center gap-2 flex-shrink-0 hover:shadow-lg transition-shadow">
-                <User className="w-4 h-4" />
-                <div className="flex flex-col justify-center">
-                  <span className="text-[10px] font-semibold opacity-90">Atendente</span>
-                  <select
-                  value={contatoCompleto?.atendente_fidelizado_vendas || "nao"}
-                  onChange={(e) => handleAtualizarContato('atendente_fidelizado_vendas', e.target.value === "nao" ? "" : e.target.value)}
-                  className="bg-transparent border-0 text-white text-xs focus:outline-none cursor-pointer -mt-1"
-                  disabled={!podeTransferirConversas}>
-
-                    <option value="nao">Não atribuído</option>
-                    {atendentesLista.map((a) => <option key={a.id} value={a.full_name}>{a.full_name}</option>)}
-                  </select>
-                </div>
-              </div>
-            }
-
-            {/* Card Vendedor */}
-            <div className="bg-gradient-to-br from-emerald-500 to-emerald-600 text-white rounded-lg px-3 shadow-md h-[1cm] flex items-center gap-2 flex-shrink-0 hover:shadow-lg transition-shadow">
-              <Briefcase className="w-4 h-4" />
-              <div className="flex flex-col justify-center">
-                <span className="text-[10px] font-semibold opacity-90">Vendedor</span>
-                <select
-                  value={contatoCompleto?.vendedor_responsavel || "nao"}
-                  onChange={(e) => handleAtualizarContato('vendedor_responsavel', e.target.value === "nao" ? "" : e.target.value)}
-                  className="bg-transparent border-0 text-white text-xs focus:outline-none cursor-pointer -mt-1"
-                  disabled={!podeTransferirConversas}>
-
-                  <option value="nao">Não atribuído</option>
-                  {vendedores.map((v) => <option key={v.id} value={v.nome}>{v.nome}</option>)}
-                </select>
-              </div>
-            </div>
-
-            {/* Card Transferir */}
-            {canManageConversation && podeTransferirConversas &&
-            <div className="bg-gradient-to-br from-amber-500 to-amber-600 text-white rounded-lg px-3 shadow-md h-[1cm] flex items-center gap-2 flex-shrink-0 hover:shadow-lg transition-shadow">
+            {/* Botão Transferir */}
+            {canManageConversation && podeTransferirConversas && (
+              <button
+                onClick={() => setMostrarModalAtribuicao(true)}
+                className="bg-gradient-to-br from-amber-500 to-amber-600 text-white rounded-lg px-3 py-2 shadow-md flex items-center gap-2 hover:shadow-lg transition-all text-xs font-medium"
+              >
                 <Users className="w-4 h-4" />
-                <div className="flex flex-col justify-center">
-                  <span className="text-[10px] font-semibold opacity-90">Ação</span>
-                  <button
-                  onClick={() => setMostrarModalAtribuicao(true)}
-                  className="bg-transparent border-0 text-white text-xs focus:outline-none cursor-pointer hover:opacity-90 transition-opacity -mt-1 text-left">
+                Transferir
+              </button>
+            )}
 
-                    Transferir
-                  </button>
-                </div>
-              </div>
-            }
+            {/* Botão Ver Detalhes */}
+            <button
+              onClick={onShowContactInfo}
+              className="bg-gradient-to-br from-slate-600 to-slate-700 text-white rounded-lg px-3 py-2 shadow-md flex items-center gap-2 hover:from-slate-700 hover:to-slate-800 hover:shadow-lg transition-all"
+            >
+              <Info className="w-4 h-4" />
+              <span className="text-xs font-medium">Detalhes</span>
+            </button>
+          </div>
           </div>
 
-          {/* Botão Ver Detalhes */}
-          <div
-            onClick={onShowContactInfo}
-            className="bg-gradient-to-br from-slate-600 to-slate-700 text-white rounded-lg px-3 shadow-md h-[1cm] flex items-center gap-2 hover:from-slate-700 hover:to-slate-800 hover:shadow-lg transition-all cursor-pointer flex-shrink-0">
-
-            <Info className="w-4 h-4" />
-            <div className="flex flex-col justify-center">
-              <span className="text-[10px] font-semibold opacity-90">Ver</span>
-              <span className="text-xs -mt-1">Detalhes</span>
+          {/* Alerta de Classificação Incompleta */}
+          {contatoCompleto && (!contatoCompleto.tipo_contato || !contatoCompleto.tags?.length) && (
+          <div className="flex items-center gap-2 p-2 bg-amber-50 border border-amber-200 rounded-lg animate-pulse">
+            <AlertCircle className="w-4 h-4 text-amber-500 flex-shrink-0" />
+            <span className="text-xs text-amber-700 font-medium">
+              ⚠️ Complete a classificação deste contato para melhorar o atendimento!
+            </span>
+            <div onClick={(e) => e.stopPropagation()} className="ml-auto">
+              <ClassificadorContatoRapido 
+                contato={contatoCompleto} 
+                onUpdate={onAtualizarMensagens}
+                compact={true}
+              />
             </div>
-            </div>
-            </div>
+          </div>
+          )}
 
 
             </div>

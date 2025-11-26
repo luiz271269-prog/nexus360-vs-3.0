@@ -8,6 +8,7 @@ import { useQuery } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
 import EtiquetadorContato, { getEtiquetaContatoConfig } from "./EtiquetadorContato";
 import ClassificadorContatoRapido, { TIPOS_CONTATO, ESTAGIOS_KANBAN } from "./ClassificadorContatoRapido";
+import { DermometroCompacto, calcularScoreImportancia, getNivelImportancia } from "./DermometroImportancia";
 
 export default function ChatSidebar({ threads, threadAtiva, onSelecionarThread, loading, usuarioAtual, integracoes = [] }) {
   // Buscar categorias dinâmicas
