@@ -530,21 +530,55 @@ async function handleMessage(dados, payloadBruto, base44) {
     }
   }
 
-  // Buscar integração
+  // Buscar integração - PRIORIZAR connectedPhone para identificar canal exato
   let integracaoId = null;
-  if (dados.instanceId) {
+  let integracaoInfo = null;
+
+  // Primeiro: tentar por connectedPhone (mais preciso - identifica QUAL conexão recebeu)
+  if (connectedPhone) {
+    try {
+      // Normalizar o connectedPhone para busca
+      const phoneVariacoes = [
+        '+' + connectedPhone,
+        connectedPhone,
+        '+55' + connectedPhone.replace(/^55/, '')
+      ];
+
+      for (const tel of phoneVariacoes) {
+        if (integracaoId) break;
+        const int = await base44.asServiceRole.entities.WhatsAppIntegration.filter(
+          { numero_telefone: tel },
+          '-created_date',
+          1
+        );
+        if (int.length > 0) {
+          integracaoId = int[0].id;
+          integracaoInfo = { nome: int[0].nome_instancia, numero: int[0].numero_telefone };
+        }
+      }
+    } catch {
+      // silencioso
+    }
+  }
+
+  // Fallback: buscar por instanceId
+  if (!integracaoId && dados.instanceId) {
     try {
       const int = await base44.asServiceRole.entities.WhatsAppIntegration.filter(
         { instance_id_provider: dados.instanceId },
         '-created_date',
         1
       );
-      if (int.length > 0) integracaoId = int[0].id;
+      if (int.length > 0) {
+        integracaoId = int[0].id;
+        integracaoInfo = { nome: int[0].nome_instancia, numero: int[0].numero_telefone };
+      }
     } catch {
       // silencioso
     }
   }
-  console.log(`[${VERSION}] 🔗 Integração: ${integracaoId || 'não encontrada'}`);
+
+  console.log(`[${VERSION}] 🔗 Integração: ${integracaoId || 'não encontrada'} | Canal: ${integracaoInfo?.numero || connectedPhone || 'N/A'}`);
 
   // Buscar/criar contato - tentar múltiplas variações do telefone
   let contato;
