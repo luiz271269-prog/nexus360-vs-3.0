@@ -52,10 +52,20 @@ import {
 
 // 📌 TIPOS DE CONTATO
 export const TIPOS_CONTATO = [
-  { value: 'lead', label: 'Lead', icon: Target, color: 'bg-amber-500', emoji: '🎯', prioridade: 1 },
-  { value: 'cliente', label: 'Cliente', icon: Building2, color: 'bg-emerald-500', emoji: '💎', prioridade: 3 },
-  { value: 'fornecedor', label: 'Fornecedor', icon: Truck, color: 'bg-blue-500', emoji: '🏭', prioridade: 2 },
-  { value: 'parceiro', label: 'Parceiro', icon: Handshake, color: 'bg-purple-500', emoji: '🤝', prioridade: 2 },
+  { value: 'novo', label: 'Novo Contato', icon: User, color: 'bg-slate-400', emoji: '🆕', prioridade: 0, descricao: 'Contato ainda não classificado' },
+  { value: 'lead', label: 'Lead', icon: Target, color: 'bg-amber-500', emoji: '🎯', prioridade: 1, descricao: 'Potencial cliente em prospecção' },
+  { value: 'cliente', label: 'Cliente', icon: Building2, color: 'bg-emerald-500', emoji: '💎', prioridade: 3, descricao: 'Cliente ativo com histórico de compras' },
+  { value: 'fornecedor', label: 'Fornecedor', icon: Truck, color: 'bg-blue-500', emoji: '🏭', prioridade: 2, descricao: 'Fornecedor de produtos/serviços' },
+  { value: 'parceiro', label: 'Parceiro', icon: Handshake, color: 'bg-purple-500', emoji: '🤝', prioridade: 2, descricao: 'Parceiro comercial ou de negócios' },
+];
+
+// 📌 FILAS DE ATENDIMENTO
+export const FILAS_ATENDIMENTO = [
+  { value: 'vendas', label: 'Vendas', emoji: '💰', color: 'bg-green-500', descricao: 'Atendimento comercial e orçamentos' },
+  { value: 'assistencia', label: 'Assistência', emoji: '🔧', color: 'bg-blue-500', descricao: 'Suporte técnico e assistência' },
+  { value: 'financeiro', label: 'Financeiro', emoji: '💳', color: 'bg-amber-500', descricao: 'Pagamentos, boletos e notas' },
+  { value: 'fornecedor', label: 'Fornecedor', emoji: '🏭', color: 'bg-purple-500', descricao: 'Cotações e ofertas de fornecedores' },
+  { value: 'geral', label: 'Geral', emoji: '📋', color: 'bg-slate-500', descricao: 'Atendimento geral' },
 ];
 
 // 📌 ESTÁGIOS DO KANBAN/JORNADA
@@ -281,10 +291,87 @@ export function getEtiquetaConfig(nome, etiquetasDB = []) {
     label: dinamica.label,
     emoji: dinamica.emoji || '🏷️',
     cor: dinamica.cor || 'bg-slate-400',
-    destaque: dinamica.destaque || false
+    destaque: dinamica.destaque || false,
+    tipos_contato_aplicaveis: dinamica.tipos_contato_aplicaveis || [],
+    filas_aplicaveis: dinamica.filas_aplicaveis || []
   };
   
   return { nome, label: nome, emoji: '🏷️', cor: 'bg-slate-400', destaque: false };
+}
+
+/**
+ * Filtra etiquetas aplicáveis ao tipo de contato e fila
+ */
+export function filtrarEtiquetasAplicaveis(etiquetas, tipoContato, filaAtual) {
+  return etiquetas.filter(etq => {
+    // Etiquetas fixas sempre são aplicáveis
+    if (ETIQUETAS_CONTATO.some(e => e.nome === etq.nome)) return true;
+    
+    // Se não tem restrição de tipo, é aplicável a todos
+    const tiposAplicaveis = etq.tipos_contato_aplicaveis || [];
+    const filasAplicaveis = etq.filas_aplicaveis || [];
+    
+    const tipoOk = tiposAplicaveis.length === 0 || tiposAplicaveis.includes(tipoContato);
+    const filaOk = filasAplicaveis.length === 0 || filasAplicaveis.includes(filaAtual);
+    
+    return tipoOk && filaOk;
+  });
+}
+
+/**
+ * Retorna o pré-atendimento recomendado baseado no tipo de contato e fila
+ */
+export function getPreAtendimentoRecomendado(tipoContato, filaAtual) {
+  const configs = {
+    // Novo contato - precisa coletar dados para qualificar
+    'novo': {
+      acao: 'qualificar',
+      mensagem: 'Olá! Seja bem-vindo. Para melhor atendê-lo, poderia me informar:',
+      dadosNecessarios: ['nome', 'empresa', 'interesse'],
+      fluxo: 'pre_atendimento_qualificacao'
+    },
+    // Lead em vendas - foco em conversão
+    'lead_vendas': {
+      acao: 'converter',
+      mensagem: 'Olá! Que bom ter você de volta. Como posso ajudar com sua cotação?',
+      dadosNecessarios: [],
+      fluxo: 'pre_atendimento_lead_vendas'
+    },
+    // Cliente em vendas - prioridade alta
+    'cliente_vendas': {
+      acao: 'atender_prioritario',
+      mensagem: 'Olá! É sempre um prazer atendê-lo. Em que posso ajudar?',
+      dadosNecessarios: [],
+      fluxo: 'pre_atendimento_cliente_vip'
+    },
+    // Cliente em assistência
+    'cliente_assistencia': {
+      acao: 'suporte',
+      mensagem: 'Olá! Nosso suporte técnico está pronto para ajudá-lo.',
+      dadosNecessarios: ['numero_pedido', 'problema'],
+      fluxo: 'pre_atendimento_suporte'
+    },
+    // Fornecedor - cotações e ofertas
+    'fornecedor_fornecedor': {
+      acao: 'cotacao',
+      mensagem: 'Olá! Agradecemos seu contato. Por favor, envie sua proposta/cotação.',
+      dadosNecessarios: ['produto', 'preco', 'prazo'],
+      fluxo: 'pre_atendimento_fornecedor'
+    },
+    // Parceiro
+    'parceiro_geral': {
+      acao: 'parceria',
+      mensagem: 'Olá! Seja bem-vindo. Como podemos colaborar?',
+      dadosNecessarios: [],
+      fluxo: 'pre_atendimento_parceiro'
+    }
+  };
+  
+  // Buscar config específica ou genérica
+  const chaveEspecifica = `${tipoContato}_${filaAtual}`;
+  const chaveGenerica = tipoContato;
+  
+  return configs[chaveEspecifica] || configs[chaveGenerica] || configs['novo'];
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
