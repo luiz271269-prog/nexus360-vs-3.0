@@ -208,26 +208,81 @@ function normalizarPayload(payload) {
     payload.caption ??
     '';
 
-  // Z-API costuma trazer estruturas como { image: { url, imageUrl, caption } }
+  // LOG DETALHADO PARA DEBUG DE MÍDIA
+  const mediaFields = ['image', 'video', 'audio', 'document', 'sticker', 'imageUrl', 'videoUrl', 'audioUrl', 'documentUrl', 'mediaUrl'];
+  const presentMediaFields = mediaFields.filter(f => payload[f]);
+  if (presentMediaFields.length > 0) {
+    console.log(`[${VERSION}] 📎 Campos de mídia presentes:`, presentMediaFields);
+    for (const field of presentMediaFields) {
+      console.log(`[${VERSION}] 📎 ${field}:`, JSON.stringify(payload[field]).substring(0, 300));
+    }
+  }
+
+  // Z-API pode enviar mídia de várias formas:
+  // 1. { image: { imageUrl: "...", caption: "..." } }
+  // 2. { image: "base64..." } 
+  // 3. { imageUrl: "..." } direto no root
+  // 4. { mediaUrl: "..." } genérico
+  
   if (payload.image) {
     mediaType = 'image';
-    mediaUrl = payload.image.imageUrl ?? payload.image.url ?? payload.image.link ?? null;
-    if (!conteudo) conteudo = payload.image.caption ?? '[Imagem]';
+    if (typeof payload.image === 'object') {
+      mediaUrl = payload.image.imageUrl ?? payload.image.url ?? payload.image.link ?? payload.image.mediaUrl ?? null;
+      if (!conteudo) conteudo = payload.image.caption ?? '[Imagem]';
+    } else if (typeof payload.image === 'string' && payload.image.startsWith('http')) {
+      mediaUrl = payload.image;
+      if (!conteudo) conteudo = '[Imagem]';
+    }
+  } else if (payload.imageUrl) {
+    // URL direta no root
+    mediaType = 'image';
+    mediaUrl = payload.imageUrl;
+    if (!conteudo) conteudo = payload.caption ?? '[Imagem]';
   } else if (payload.video) {
     mediaType = 'video';
-    mediaUrl = payload.video.videoUrl ?? payload.video.url ?? payload.video.link ?? null;
-    if (!conteudo) conteudo = payload.video.caption ?? '[Vídeo]';
+    if (typeof payload.video === 'object') {
+      mediaUrl = payload.video.videoUrl ?? payload.video.url ?? payload.video.link ?? payload.video.mediaUrl ?? null;
+      if (!conteudo) conteudo = payload.video.caption ?? '[Vídeo]';
+    } else if (typeof payload.video === 'string' && payload.video.startsWith('http')) {
+      mediaUrl = payload.video;
+      if (!conteudo) conteudo = '[Vídeo]';
+    }
+  } else if (payload.videoUrl) {
+    mediaType = 'video';
+    mediaUrl = payload.videoUrl;
+    if (!conteudo) conteudo = payload.caption ?? '[Vídeo]';
   } else if (payload.audio) {
     mediaType = 'audio';
-    mediaUrl = payload.audio.audioUrl ?? payload.audio.url ?? payload.audio.link ?? null;
+    if (typeof payload.audio === 'object') {
+      mediaUrl = payload.audio.audioUrl ?? payload.audio.url ?? payload.audio.link ?? payload.audio.mediaUrl ?? null;
+    } else if (typeof payload.audio === 'string' && payload.audio.startsWith('http')) {
+      mediaUrl = payload.audio;
+    }
+    conteudo = conteudo || '[Áudio]';
+  } else if (payload.audioUrl) {
+    mediaType = 'audio';
+    mediaUrl = payload.audioUrl;
     conteudo = conteudo || '[Áudio]';
   } else if (payload.document) {
     mediaType = 'document';
-    mediaUrl = payload.document.documentUrl ?? payload.document.url ?? payload.document.link ?? null;
-    if (!conteudo) conteudo = payload.document.caption ?? '[Documento]';
+    if (typeof payload.document === 'object') {
+      mediaUrl = payload.document.documentUrl ?? payload.document.url ?? payload.document.link ?? payload.document.mediaUrl ?? null;
+      if (!conteudo) conteudo = payload.document.caption ?? payload.document.fileName ?? '[Documento]';
+    } else if (typeof payload.document === 'string' && payload.document.startsWith('http')) {
+      mediaUrl = payload.document;
+      if (!conteudo) conteudo = '[Documento]';
+    }
+  } else if (payload.documentUrl) {
+    mediaType = 'document';
+    mediaUrl = payload.documentUrl;
+    if (!conteudo) conteudo = payload.caption ?? '[Documento]';
   } else if (payload.sticker) {
     mediaType = 'sticker';
-    mediaUrl = payload.sticker.stickerUrl ?? payload.sticker.url ?? null;
+    if (typeof payload.sticker === 'object') {
+      mediaUrl = payload.sticker.stickerUrl ?? payload.sticker.url ?? null;
+    } else if (typeof payload.sticker === 'string' && payload.sticker.startsWith('http')) {
+      mediaUrl = payload.sticker;
+    }
     conteudo = '[Sticker]';
   } else if (payload.contactMessage || payload.vcard) {
     mediaType = 'contact';
@@ -235,6 +290,31 @@ function normalizarPayload(payload) {
   } else if (payload.location) {
     mediaType = 'location';
     conteudo = '📍 Localização';
+  }
+  
+  // Fallback: mediaUrl genérico no root
+  if (mediaType === 'none' && payload.mediaUrl) {
+    mediaUrl = payload.mediaUrl;
+    // Tentar detectar tipo pela extensão
+    const ext = (payload.mediaUrl.split('.').pop() || '').toLowerCase().split('?')[0];
+    if (['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(ext)) {
+      mediaType = 'image';
+      if (!conteudo) conteudo = '[Imagem]';
+    } else if (['mp4', 'mov', 'avi', '3gp'].includes(ext)) {
+      mediaType = 'video';
+      if (!conteudo) conteudo = '[Vídeo]';
+    } else if (['mp3', 'ogg', 'opus', 'wav', 'm4a'].includes(ext)) {
+      mediaType = 'audio';
+      if (!conteudo) conteudo = '[Áudio]';
+    } else {
+      mediaType = 'document';
+      if (!conteudo) conteudo = '[Documento]';
+    }
+  }
+
+  // Log final de mídia detectada
+  if (mediaType !== 'none') {
+    console.log(`[${VERSION}] 📎 Mídia detectada: ${mediaType} | URL: ${mediaUrl ? mediaUrl.substring(0, 80) + '...' : 'null'}`);
   }
 
   if (!conteudo && mediaType === 'none') {
