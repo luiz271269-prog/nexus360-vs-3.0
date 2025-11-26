@@ -1,5 +1,5 @@
 import React from "react";
-import { CheckCheck, Clock, User, Users, AlertCircle, Image, Video, Mic, FileText, MapPin, Phone as PhoneIcon, Tag } from "lucide-react";
+import { CheckCheck, Clock, User, Users, AlertCircle, Image, Video, Mic, FileText, MapPin, Phone as PhoneIcon, Tag, Target, Building2, Truck, Handshake, Star } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { motion } from "framer-motion";
 import { format } from "date-fns";
@@ -7,6 +7,7 @@ import { CATEGORIAS_FIXAS, getCategoriaConfig } from "./CategorizadorRapido";
 import { useQuery } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
 import EtiquetadorContato, { getEtiquetaContatoConfig } from "./EtiquetadorContato";
+import ClassificadorContatoRapido, { TIPOS_CONTATO, ESTAGIOS_KANBAN } from "./ClassificadorContatoRapido";
 
 export default function ChatSidebar({ threads, threadAtiva, onSelecionarThread, loading, usuarioAtual, integracoes = [] }) {
   // Buscar categorias dinâmicas
@@ -208,13 +209,13 @@ export default function ChatSidebar({ threads, threadAtiva, onSelecionarThread, 
 
             <div className="flex-1 min-w-0">
               <div className="flex items-center justify-between mb-1">
-                <div className="flex items-center gap-1.5 min-w-0 flex-1">
+                <div className="flex items-center gap-1 min-w-0 flex-1">
                   <h3 className={`font-semibold truncate ${hasUnread ? 'text-slate-900' : 'text-slate-700'}`}>
                     {nomeExibicao}
                   </h3>
-                  {/* Ícone de Etiquetar Contato */}
+                  {/* Classificador Completo do Contato */}
                   <div onClick={(e) => e.stopPropagation()}>
-                    <EtiquetadorContato 
+                    <ClassificadorContatoRapido 
                       contato={contato} 
                       onUpdate={() => {}} 
                       compact={true}
