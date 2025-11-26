@@ -29,7 +29,7 @@ function UsuariosContent() {
   const [editingUsuario, setEditingUsuario] = useState(null); // Preserving 'editingUsuario' as it's consistently used
   const [loading, setLoading] = useState(true);
   const [usuarioAtual, setUsuarioAtual] = useState(null);
-  const [filtro, setFiltro] = useState({ busca: "", role: "todos" });
+
   const [alertasIA, setAlertasIA] = useState([]);
   
   const queryClient = useQueryClient();
@@ -163,12 +163,7 @@ function UsuariosContent() {
   }
   */
 
-  const filteredUsuarios = usuarios.filter(u => {
-    const buscaMatch = u.full_name?.toLowerCase().includes(filtro.busca.toLowerCase()) ||
-                       u.email?.toLowerCase().includes(filtro.busca.toLowerCase());
-    const roleMatch = filtro.role === 'todos' || u.role === filtro.role;
-    return buscaMatch && roleMatch;
-  });
+
 
   return (
     <div className="space-y-6 p-6">
@@ -266,77 +261,28 @@ function UsuariosContent() {
         </div>
       </div>
 
-      <Tabs defaultValue="permissoes3col" className="space-y-4">
-        <TabsList className="grid w-full grid-cols-3 max-w-lg">
-          <TabsTrigger value="permissoes3col" className="flex items-center gap-2">
-            <Shield className="w-4 h-4" />
-            Permissões
-          </TabsTrigger>
+      <Tabs defaultValue="usuarios" className="space-y-4">
+        <TabsList className="grid w-full grid-cols-2 max-w-md">
           <TabsTrigger value="usuarios" className="flex items-center gap-2">
             <Users className="w-4 h-4" />
             Usuários
           </TabsTrigger>
-          <TabsTrigger value="permissoes" className="flex items-center gap-2">
+          <TabsTrigger value="matriz" className="flex items-center gap-2">
             <BarChart3 className="w-4 h-4" />
             Matriz
           </TabsTrigger>
         </TabsList>
 
-        <TabsContent value="permissoes3col" className="space-y-4">
-          <GerenciadorPermissoes3Colunas />
-        </TabsContent>
-
         <TabsContent value="usuarios" className="space-y-4">
-          {/* Filtros */}
-          <div className="bg-white rounded-2xl border border-slate-200 p-4 shadow-lg">
-            <div className="flex items-center gap-4">
-              <div className="relative flex-grow">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                <Input 
-                  placeholder="Buscar por nome ou e-mail..."
-                  className="pl-10"
-                  value={filtro.busca}
-                  onChange={(e) => setFiltro(prev => ({ ...prev, busca: e.target.value }))}
-                />
-              </div>
-              <Select 
-                value={filtro.role}
-                onValueChange={(value) => setFiltro(prev => ({ ...prev, role: value }))}
-              >
-                <SelectTrigger className="w-[180px]">
-                  <SelectValue placeholder="Filtrar por perfil" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="todos">Todos os Perfis</SelectItem>
-                  <SelectItem value="admin">Administrador</SelectItem>
-                  <SelectItem value="user">Vendedor</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-          
-          {loading ? (
-            <div className="text-center py-12">Carregando usuários...</div>
-          ) : (
-            <TabelaUsuarios
-              usuarios={filteredUsuarios}
-              vendedores={vendedores}
-              onEditar={handleEditar}
-              onAlterarRole={handleAlterarRole}
-              usuarioAtual={usuarioAtual}
-            />
-          )}
-
-          {filteredUsuarios.length === 0 && !loading && (
-            <div className="text-center py-12 bg-slate-50 rounded-2xl border border-slate-200">
-              <Users className="w-12 h-12 text-slate-400 mx-auto mb-4" />
-              <p className="text-xl font-bold text-slate-800">Nenhum usuário encontrado</p>
-              <p className="text-slate-600 mt-2">Ajuste os filtros ou convide novos usuários.</p>
-            </div>
-          )}
+          <GerenciadorUsuariosUnificado 
+            onNovoUsuario={() => {
+              setEditingUsuario(null);
+              setShowForm(true);
+            }}
+          />
         </TabsContent>
 
-        <TabsContent value="permissoes">
+        <TabsContent value="matriz">
           <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-lg">
             <div className="flex items-center gap-3 mb-6">
               <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-indigo-600 rounded-lg flex items-center justify-center">
@@ -356,16 +302,13 @@ function UsuariosContent() {
                     <th className="text-center p-3 font-semibold text-slate-700 min-w-[100px]">Role</th>
                     <th className="text-center p-3 font-semibold text-slate-700 min-w-[120px]">Atendente<br/>WhatsApp</th>
                     <th className="text-center p-3 font-semibold text-slate-700 min-w-[120px]">Enviar<br/>Mensagens</th>
-                    <th className="text-center p-3 font-semibold text-slate-700 min-w-[120px]">Enviar<br/>Mídias</th>
                     <th className="text-center p-3 font-semibold text-slate-700 min-w-[120px]">Ver Todas<br/>Conversas</th>
                     <th className="text-center p-3 font-semibold text-slate-700 min-w-[120px]">Transferir<br/>Conversas</th>
-                    <th className="text-center p-3 font-semibold text-slate-700 min-w-[120px]">Apagar<br/>Mensagens</th>
                     <th className="text-center p-3 font-semibold text-slate-700 min-w-[120px]">Acessar<br/>Relatórios</th>
-                    <th className="text-center p-3 font-semibold text-slate-700 min-w-[120px]">Configurar<br/>Integração</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredUsuarios.map((user, index) => {
+                  {usuarios.map((user, index) => {
                     const perms = user.permissoes_comunicacao || {};
                     return (
                       <tr 
@@ -380,86 +323,31 @@ function UsuariosContent() {
                         </td>
                         <td className="p-3 text-center">
                           <span className={`inline-flex px-2 py-1 rounded-full text-xs font-semibold ${
-                            user.role === 'admin' 
-                              ? 'bg-red-100 text-red-700' 
-                              : 'bg-blue-100 text-blue-700'
+                            user.role === 'admin' ? 'bg-red-100 text-red-700' : 'bg-blue-100 text-blue-700'
                           }`}>
                             {user.role === 'admin' ? 'Admin' : 'Usuário'}
                           </span>
                         </td>
                         <td className="p-3 text-center">
-                          {user.is_whatsapp_attendant ? (
-                            <CheckCircle className="w-5 h-5 text-green-600 mx-auto" />
-                          ) : (
-                            <XCircle className="w-5 h-5 text-slate-300 mx-auto" />
-                          )}
+                          {user.is_whatsapp_attendant ? <CheckCircle className="w-5 h-5 text-green-600 mx-auto" /> : <XCircle className="w-5 h-5 text-slate-300 mx-auto" />}
                         </td>
                         <td className="p-3 text-center">
-                          {perms.pode_enviar_mensagens ? (
-                            <CheckCircle className="w-5 h-5 text-green-600 mx-auto" />
-                          ) : (
-                            <XCircle className="w-5 h-5 text-slate-300 mx-auto" />
-                          )}
+                          {perms.pode_enviar_mensagens ? <CheckCircle className="w-5 h-5 text-green-600 mx-auto" /> : <XCircle className="w-5 h-5 text-slate-300 mx-auto" />}
                         </td>
                         <td className="p-3 text-center">
-                          {perms.pode_enviar_midias ? (
-                            <CheckCircle className="w-5 h-5 text-green-600 mx-auto" />
-                          ) : (
-                            <XCircle className="w-5 h-5 text-slate-300 mx-auto" />
-                          )}
+                          {perms.pode_ver_todas_conversas ? <CheckCircle className="w-5 h-5 text-green-600 mx-auto" /> : <XCircle className="w-5 h-5 text-slate-300 mx-auto" />}
                         </td>
                         <td className="p-3 text-center">
-                          {perms.pode_ver_todas_conversas ? (
-                            <CheckCircle className="w-5 h-5 text-green-600 mx-auto" />
-                          ) : (
-                            <XCircle className="w-5 h-5 text-slate-300 mx-auto" />
-                          )}
+                          {perms.pode_transferir_conversas ? <CheckCircle className="w-5 h-5 text-green-600 mx-auto" /> : <XCircle className="w-5 h-5 text-slate-300 mx-auto" />}
                         </td>
                         <td className="p-3 text-center">
-                          {perms.pode_transferir_conversas ? (
-                            <CheckCircle className="w-5 h-5 text-green-600 mx-auto" />
-                          ) : (
-                            <XCircle className="w-5 h-5 text-slate-300 mx-auto" />
-                          )}
-                        </td>
-                        <td className="p-3 text-center">
-                          {perms.pode_apagar_mensagens ? (
-                            <CheckCircle className="w-5 h-5 text-green-600 mx-auto" />
-                          ) : (
-                            <XCircle className="w-5 h-5 text-slate-300 mx-auto" />
-                          )}
-                        </td>
-                        <td className="p-3 text-center">
-                          {perms.pode_acessar_relatorios ? (
-                            <CheckCircle className="w-5 h-5 text-green-600 mx-auto" />
-                          ) : (
-                            <XCircle className="w-5 h-5 text-slate-300 mx-auto" />
-                          )}
-                        </td>
-                        <td className="p-3 text-center">
-                          {perms.pode_configurar_integracao ? (
-                            <CheckCircle className="w-5 h-5 text-green-600 mx-auto" />
-                          ) : (
-                            <XCircle className="w-5 h-5 text-slate-300 mx-auto" />
-                          )}
+                          {perms.pode_acessar_relatorios ? <CheckCircle className="w-5 h-5 text-green-600 mx-auto" /> : <XCircle className="w-5 h-5 text-slate-300 mx-auto" />}
                         </td>
                       </tr>
                     );
                   })}
                 </tbody>
               </table>
-            </div>
-
-            <div className="mt-4 p-4 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg border border-blue-200">
-              <div className="flex items-start gap-2">
-                <AlertCircle className="w-5 h-5 text-blue-600 mt-0.5 flex-shrink-0" />
-                <div>
-                  <p className="text-sm font-medium text-blue-900">Como editar permissões</p>
-                  <p className="text-sm text-blue-700 mt-1">
-                    Clique no botão "Editar" de um usuário na aba "Usuários" e acesse a aba "Permissões" para ajustar as configurações detalhadas.
-                  </p>
-                </div>
-              </div>
             </div>
           </div>
         </TabsContent>
