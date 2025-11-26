@@ -1,14 +1,18 @@
 import React from "react";
-import { CheckCheck, Clock, User, Users, AlertCircle, Image, Video, Mic, FileText, MapPin, Phone as PhoneIcon, Tag, Target, Building2, Truck, Handshake, Star, Lightbulb } from "lucide-react";
+import { CheckCheck, Clock, User, Users, AlertCircle, Image, Video, Mic, FileText, MapPin, Phone as PhoneIcon, Tag } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { motion } from "framer-motion";
 import { format } from "date-fns";
 import { CATEGORIAS_FIXAS, getCategoriaConfig } from "./CategorizadorRapido";
 import { useQuery } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
-import EtiquetadorContato, { getEtiquetaContatoConfig } from "./EtiquetadorContato";
-import ClassificadorContatoRapido, { TIPOS_CONTATO, ESTAGIOS_KANBAN } from "./ClassificadorContatoRapido";
-import CentralInteligenciaContato, { calcularScoreContato, getNivelTemperatura, getProximaAcaoSugerida } from "./CentralInteligenciaContato";
+import CentralInteligenciaContato, { 
+  calcularScoreContato, 
+  getNivelTemperatura, 
+  getProximaAcaoSugerida,
+  getEtiquetaConfig,
+  TIPOS_CONTATO
+} from "./CentralInteligenciaContato";
 
 export default function ChatSidebar({ threads, threadAtiva, onSelecionarThread, loading, usuarioAtual, integracoes = [] }) {
   // Buscar categorias dinâmicas
@@ -18,12 +22,7 @@ export default function ChatSidebar({ threads, threadAtiva, onSelecionarThread, 
     staleTime: 5 * 60 * 1000
   });
 
-  // Buscar etiquetas de contato dinâmicas
-  const { data: etiquetasDB = [] } = useQuery({
-    queryKey: ['etiquetas-contato'],
-    queryFn: () => base44.entities.EtiquetaContato.filter({ ativa: true }, 'nome'),
-    staleTime: 5 * 60 * 1000
-  });
+
 
   const formatarHorario = (timestamp) => {
     if (!timestamp) return "";
@@ -170,13 +169,13 @@ export default function ChatSidebar({ threads, threadAtiva, onSelecionarThread, 
               isAtiva ? 'bg-gradient-to-r from-amber-50 via-orange-50 to-red-50 border-l-4 border-l-orange-500' : ''
             }`}
           >
-            {/* Avatar com Central de Inteligência Integrada */}
+            {/* Avatar com Central de Inteligência - ÚNICA FONTE */}
             <div className="relative flex-shrink-0">
-              {/* Termômetro de Temperatura no topo */}
+              {/* Termômetro Clicável - Abre menu completo */}
               <div className="absolute -top-1 -left-1 z-30" onClick={(e) => e.stopPropagation()}>
                 <CentralInteligenciaContato contato={contato} variant="mini" showSugestoes={true} />
               </div>
-              
+
               <div className={`relative w-12 h-12 rounded-full flex items-center justify-center text-white font-bold text-lg shadow-md overflow-hidden ${
                 hasUnread 
                   ? 'bg-gradient-to-br from-amber-400 via-orange-500 to-red-500' 
@@ -188,9 +187,7 @@ export default function ChatSidebar({ threads, threadAtiva, onSelecionarThread, 
                       src={contato.foto_perfil_url} 
                       alt={nomeExibicao}
                       className="w-full h-full object-cover absolute inset-0"
-                      onError={(e) => {
-                        e.target.style.display = 'none';
-                      }}
+                      onError={(e) => { e.target.style.display = 'none'; }}
                     />
                     <span className="relative z-10">{nomeExibicao.charAt(0).toUpperCase()}</span>
                   </>
@@ -198,21 +195,8 @@ export default function ChatSidebar({ threads, threadAtiva, onSelecionarThread, 
                   nomeExibicao.charAt(0).toUpperCase()
                 )}
               </div>
-              
-              {/* Indicador de Próxima Ação Sugerida - canto inferior esquerdo */}
-              {(() => {
-                const proxAcao = getProximaAcaoSugerida(contato);
-                return (
-                  <div 
-                    className={`absolute -bottom-1 -left-1 w-5 h-5 ${proxAcao.cor} rounded-full flex items-center justify-center border-2 border-white shadow-sm z-20`}
-                    title={`Sugestão: ${proxAcao.label}`}
-                  >
-                    <proxAcao.icon className="w-2.5 h-2.5 text-white" />
-                  </div>
-                );
-              })()}
-              
-              {/* Indicadores de Atribuição no canto inferior direito */}
+
+              {/* Indicadores de Atribuição */}
               {isUnassigned && (
                 <div className="absolute -bottom-1 -right-1 bg-red-500 rounded-full p-1 border-2 border-white shadow-sm z-20">
                   <AlertCircle className="w-3 h-3 text-white" />
@@ -233,18 +217,17 @@ export default function ChatSidebar({ threads, threadAtiva, onSelecionarThread, 
             <div className="flex-1 min-w-0">
               <div className="flex items-center justify-between mb-1">
                 <div className="flex items-center gap-1 min-w-0 flex-1">
-                  <h3 className={`font-semibold truncate ${hasUnread ? 'text-slate-900' : 'text-slate-700'}`}>
-                    {nomeExibicao}
-                  </h3>
-                  {/* Classificador Completo do Contato */}
-                  <div onClick={(e) => e.stopPropagation()}>
-                    <ClassificadorContatoRapido 
-                      contato={contato} 
-                      onUpdate={() => {}} 
-                      compact={true}
-                    />
+                    <h3 className={`font-semibold truncate ${hasUnread ? 'text-slate-900' : 'text-slate-700'}`}>
+                      {nomeExibicao}
+                    </h3>
+                    {/* Tipo do Contato - Visual Rápido */}
+                    {(() => {
+                      const tipo = TIPOS_CONTATO.find(t => t.value === contato?.tipo_contato);
+                      return tipo ? (
+                        <span className="text-xs" title={tipo.label}>{tipo.emoji}</span>
+                      ) : null;
+                    })()}
                   </div>
-                </div>
                 <span className={`text-xs flex-shrink-0 ml-2 ${
                   hasUnread ? 'text-orange-600 font-medium' : 'text-slate-500'
                 }`}>
@@ -322,25 +305,14 @@ export default function ChatSidebar({ threads, threadAtiva, onSelecionarThread, 
                     </Badge>
                   );
                 })()}
-                {/* Badges de Etiquetas do Contato */}
+                {/* Etiquetas Destaque - Visual Compacto */}
                 {contato?.tags && contato.tags.length > 0 && (
-                  contato.tags.slice(0, 2).map(etq => {
-                    const config = getEtiquetaContatoConfig(etq, etiquetasDB);
+                  contato.tags.filter(t => ['vip', 'prioridade', 'fidelizado'].includes(t)).slice(0, 2).map(etq => {
+                    const config = getEtiquetaConfig(etq);
                     return (
-                      <Badge 
-                        key={etq}
-                        className={`text-xs py-0 px-1.5 h-5 ${config.color} text-white border-0`}
-                        title={config.label}
-                      >
-                        {config.emoji}
-                      </Badge>
+                      <span key={etq} className="text-xs" title={config.label}>{config.emoji}</span>
                     );
                   })
-                )}
-                {contato?.tags && contato.tags.length > 2 && (
-                  <Badge variant="outline" className="text-xs py-0 px-1.5 h-5">
-                    +{contato.tags.length - 2}
-                  </Badge>
                 )}
                 {/* Badges de Categorias da Conversa */}
                 {thread.categorias && thread.categorias.length > 0 && (
