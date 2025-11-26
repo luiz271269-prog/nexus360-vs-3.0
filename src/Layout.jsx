@@ -148,21 +148,116 @@ export default function Layout({ children, currentPageName }) {
   const navigate = useNavigate();
   const ultimaAtualizacaoRef = useRef(0);
 
-  const baseMenuItems = [
+  // Definição completa de todos os itens do menu
+  const todosMenuItems = [
+    { name: "💬 Central de Comunicação", icon: MessageSquare, page: "Comunicacao" },
     { name: "Dashboard", icon: Home, page: "Dashboard" },
     { name: "🎯 Leads Qualificados", icon: Target, page: "LeadsQualificados" },
-    { name: "🤖 Nexus Command Center", icon: Brain, page: "NexusCommandCenter" },
-    { name: "Analytics Avançado", icon: BarChart3, page: "AnalyticsAvancado" },
-    { name: "Vendedores", icon: Users, page: "Vendedores" },
     { name: "Clientes", icon: Building2, page: "Clientes" },
+    { name: "Vendedores", icon: Users, page: "Vendedores" },
     { name: "Produtos", icon: Package, page: "Produtos" },
-    { name: "💬 Central de Comunicação", icon: MessageSquare, page: "Comunicacao" },
     { name: "Agenda Inteligente", icon: Calendar, page: "Agenda" },
+    { name: "Analytics Avançado", icon: BarChart3, page: "AnalyticsAvancado" },
+    { name: "🤖 Nexus Command Center", icon: Brain, page: "NexusCommandCenter" },
     { name: "Importação", icon: Upload, page: "Importacao" },
-    { name: "🔬 Diagnóstico Cirúrgico", icon: Bug, page: "DiagnosticoCirurgico" },
+    { name: "Gerenciamento de Usuários", icon: UserCog, page: "Usuarios" },
     { name: "Auditoria", icon: Shield, page: "Auditoria" },
-    { name: "Gerenciamento de Usuários", icon: UserCog, page: "Usuarios" }
-  ].filter((item) => item.disponivel !== false);
+    { name: "🔬 Diagnóstico Cirúrgico", icon: Bug, page: "DiagnosticoCirurgico" }
+  ];
+
+  // Função para obter os itens de menu baseado no perfil do usuário
+  const getMenuItemsParaPerfil = (usuario) => {
+    if (!usuario) return todosMenuItems; // Fallback: mostrar todos
+
+    const role = usuario.role;
+    const setor = usuario.attendant_sector || usuario.whatsapp_setores?.[0] || 'geral';
+    const nivelAtendente = usuario.attendant_role || 'pleno';
+    const paginasAcesso = usuario.paginas_acesso || [];
+
+    // Se tem páginas específicas configuradas, usa elas
+    if (paginasAcesso.length > 0) {
+      return todosMenuItems.filter(item => paginasAcesso.includes(item.page));
+    }
+
+    // Administrador - acesso total
+    if (role === 'admin') {
+      return todosMenuItems;
+    }
+
+    // Gerência (coordenador/gerente)
+    if (['coordenador', 'gerente'].includes(nivelAtendente)) {
+      if (setor === 'vendas') {
+        return todosMenuItems.filter(item => [
+          'Comunicacao', 'Dashboard', 'LeadsQualificados', 'Vendedores', 
+          'Clientes', 'AnalyticsAvancado', 'Agenda', 'Produtos'
+        ].includes(item.page));
+      }
+      if (setor === 'assistencia') {
+        return todosMenuItems.filter(item => [
+          'Comunicacao', 'Clientes', 'Agenda', 'Dashboard', 'Produtos', 'AnalyticsAvancado'
+        ].includes(item.page));
+      }
+      if (setor === 'fornecedor') {
+        return todosMenuItems.filter(item => [
+          'Comunicacao', 'Produtos', 'Importacao', 'Dashboard', 'Clientes', 'Agenda', 'AnalyticsAvancado'
+        ].includes(item.page));
+      }
+      // Gerência geral
+      return todosMenuItems.filter(item => [
+        'Comunicacao', 'Dashboard', 'LeadsQualificados', 'Clientes', 
+        'Vendedores', 'Produtos', 'Agenda', 'AnalyticsAvancado'
+      ].includes(item.page));
+    }
+
+    // Supervisor (senior)
+    if (nivelAtendente === 'senior') {
+      if (setor === 'vendas') {
+        return todosMenuItems.filter(item => [
+          'Comunicacao', 'LeadsQualificados', 'Vendedores', 'Clientes', 
+          'Agenda', 'Dashboard', 'Produtos'
+        ].includes(item.page));
+      }
+      if (setor === 'assistencia') {
+        return todosMenuItems.filter(item => [
+          'Comunicacao', 'Clientes', 'Agenda', 'Dashboard', 'Produtos'
+        ].includes(item.page));
+      }
+      if (setor === 'fornecedor') {
+        return todosMenuItems.filter(item => [
+          'Comunicacao', 'Produtos', 'Importacao', 'Agenda', 'Dashboard'
+        ].includes(item.page));
+      }
+      // Supervisor geral
+      return todosMenuItems.filter(item => [
+        'Comunicacao', 'Clientes', 'Agenda', 'Dashboard', 'Produtos'
+      ].includes(item.page));
+    }
+
+    // Atendente (junior/pleno)
+    if (setor === 'vendas') {
+      return todosMenuItems.filter(item => [
+        'Comunicacao', 'LeadsQualificados', 'Clientes', 'Produtos', 'Agenda', 'Dashboard'
+      ].includes(item.page));
+    }
+    if (setor === 'assistencia') {
+      return todosMenuItems.filter(item => [
+        'Comunicacao', 'Clientes', 'Produtos', 'Agenda', 'Dashboard'
+      ].includes(item.page));
+    }
+    if (setor === 'fornecedor') {
+      return todosMenuItems.filter(item => [
+        'Comunicacao', 'Produtos', 'Clientes', 'Agenda', 'Dashboard'
+      ].includes(item.page));
+    }
+
+    // Usuário padrão (fallback)
+    return todosMenuItems.filter(item => [
+      'Comunicacao', 'Dashboard', 'Clientes', 'Agenda'
+    ].includes(item.page));
+  };
+
+  // Aplicar filtro de perfil
+  const baseMenuItems = getMenuItemsParaPerfil(globalUsuario);
 
   useEffect(() => {
     carregarDadosGlobais();
