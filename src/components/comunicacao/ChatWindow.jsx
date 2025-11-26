@@ -22,7 +22,8 @@ import {
   User,
   Briefcase,
   Flame,
-  TrendingUp } from
+  TrendingUp,
+  CheckSquare } from
 "lucide-react";
 import MessageBubble from "./MessageBubble";
 import { base44 } from "@/api/base44Client";
