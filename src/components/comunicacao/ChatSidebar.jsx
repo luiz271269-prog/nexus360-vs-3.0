@@ -1,5 +1,5 @@
 import React from "react";
-import { CheckCheck, Clock, User, Users, AlertCircle, Image, Video, Mic, FileText, MapPin, Phone as PhoneIcon, Tag, Target, Building2, Truck, Handshake, Star } from "lucide-react";
+import { CheckCheck, Clock, User, Users, AlertCircle, Image, Video, Mic, FileText, MapPin, Phone as PhoneIcon, Tag, Target, Building2, Truck, Handshake, Star, Lightbulb } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { motion } from "framer-motion";
 import { format } from "date-fns";
@@ -8,7 +8,7 @@ import { useQuery } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
 import EtiquetadorContato, { getEtiquetaContatoConfig } from "./EtiquetadorContato";
 import ClassificadorContatoRapido, { TIPOS_CONTATO, ESTAGIOS_KANBAN } from "./ClassificadorContatoRapido";
-import { DermometroCompacto, calcularScoreImportancia, getNivelImportancia } from "./DermometroImportancia";
+import CentralInteligenciaContato, { calcularScoreContato, getNivelTemperatura, getProximaAcaoSugerida } from "./CentralInteligenciaContato";
 
 export default function ChatSidebar({ threads, threadAtiva, onSelecionarThread, loading, usuarioAtual, integracoes = [] }) {
   // Buscar categorias dinâmicas
@@ -170,27 +170,49 @@ export default function ChatSidebar({ threads, threadAtiva, onSelecionarThread, 
               isAtiva ? 'bg-gradient-to-r from-amber-50 via-orange-50 to-red-50 border-l-4 border-l-orange-500' : ''
             }`}
           >
-            <div className={`relative w-12 h-12 rounded-full flex items-center justify-center text-white font-bold text-lg shadow-md flex-shrink-0 overflow-hidden ${
-              hasUnread 
-                ? 'bg-gradient-to-br from-amber-400 via-orange-500 to-red-500' 
-                : 'bg-gradient-to-br from-slate-400 to-slate-500'
-            }`}>
-              {contato.foto_perfil_url ? (
-                <>
-                  <img 
-                    src={contato.foto_perfil_url} 
-                    alt={nomeExibicao}
-                    className="w-full h-full object-cover absolute inset-0"
-                    onError={(e) => {
-                      e.target.style.display = 'none';
-                    }}
-                  />
-                  <span className="relative z-10">{nomeExibicao.charAt(0).toUpperCase()}</span>
-                </>
-              ) : (
-                nomeExibicao.charAt(0).toUpperCase()
-              )}
+            {/* Avatar com Central de Inteligência Integrada */}
+            <div className="relative flex-shrink-0">
+              {/* Termômetro de Temperatura no topo */}
+              <div className="absolute -top-1 -left-1 z-30" onClick={(e) => e.stopPropagation()}>
+                <CentralInteligenciaContato contato={contato} variant="mini" showSugestoes={true} />
+              </div>
               
+              <div className={`relative w-12 h-12 rounded-full flex items-center justify-center text-white font-bold text-lg shadow-md overflow-hidden ${
+                hasUnread 
+                  ? 'bg-gradient-to-br from-amber-400 via-orange-500 to-red-500' 
+                  : 'bg-gradient-to-br from-slate-400 to-slate-500'
+              }`}>
+                {contato.foto_perfil_url ? (
+                  <>
+                    <img 
+                      src={contato.foto_perfil_url} 
+                      alt={nomeExibicao}
+                      className="w-full h-full object-cover absolute inset-0"
+                      onError={(e) => {
+                        e.target.style.display = 'none';
+                      }}
+                    />
+                    <span className="relative z-10">{nomeExibicao.charAt(0).toUpperCase()}</span>
+                  </>
+                ) : (
+                  nomeExibicao.charAt(0).toUpperCase()
+                )}
+              </div>
+              
+              {/* Indicador de Próxima Ação Sugerida - canto inferior esquerdo */}
+              {(() => {
+                const proxAcao = getProximaAcaoSugerida(contato);
+                return (
+                  <div 
+                    className={`absolute -bottom-1 -left-1 w-5 h-5 ${proxAcao.cor} rounded-full flex items-center justify-center border-2 border-white shadow-sm z-20`}
+                    title={`Sugestão: ${proxAcao.label}`}
+                  >
+                    <proxAcao.icon className="w-2.5 h-2.5 text-white" />
+                  </div>
+                );
+              })()}
+              
+              {/* Indicadores de Atribuição no canto inferior direito */}
               {isUnassigned && (
                 <div className="absolute -bottom-1 -right-1 bg-red-500 rounded-full p-1 border-2 border-white shadow-sm z-20">
                   <AlertCircle className="w-3 h-3 text-white" />

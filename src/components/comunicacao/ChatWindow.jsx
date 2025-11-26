@@ -49,8 +49,7 @@ import { useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import MediaAttachmentSystem from './MediaAttachmentSystem';
 import CategorizadorRapido from './CategorizadorRapido';
-import DermometroImportancia, { BarraDermometro, calcularScoreImportancia, getNivelImportancia } from './DermometroImportancia';
-import ClassificadorContatoRapido from './ClassificadorContatoRapido';
+import CentralInteligenciaContato, { calcularScoreContato, getNivelTemperatura, getProximaAcaoSugerida, getClassificacaoStatus } from './CentralInteligenciaContato';
 
 export default function ChatWindow({
   thread,
@@ -1253,11 +1252,20 @@ export default function ChatWindow({
 
   return (
     <div className="flex flex-col h-full bg-white">
-      {/* Header REVOLUCIONÁRIO com Dermômetro e Classificações */}
-      <div className="bg-gradient-to-r from-slate-100 via-slate-50 to-white p-4 border-b border-slate-200 flex-shrink-0 space-y-3 shadow-sm">
+      {/* Header REVOLUCIONÁRIO - Central de Inteligência do Cliente */}
+      <div className="bg-gradient-to-r from-slate-100 via-slate-50 to-white p-4 border-b border-slate-200 flex-shrink-0 shadow-sm">
         <div className="flex items-center gap-4">
-          {/* Avatar com Dermômetro Integrado */}
+          {/* Avatar com Central Inteligente */}
           <div className="relative flex-shrink-0">
+            {/* Termômetro no topo */}
+            <div className="absolute -top-2 -left-2 z-20">
+              <CentralInteligenciaContato 
+                contato={contatoCompleto} 
+                variant="mini"
+                showSugestoes={true}
+              />
+            </div>
+            
             <div className="w-14 h-14 rounded-full flex items-center justify-center text-white font-bold text-xl shadow-lg overflow-hidden relative bg-gradient-to-br from-amber-400 via-orange-500 to-red-500">
               {contatoCompleto?.foto_perfil_url ?
               <img
@@ -1271,17 +1279,22 @@ export default function ChatWindow({
               <span>{getInitials(nomeContato)}</span>
               }
             </div>
-            {/* Dermômetro Grande no Avatar */}
-            <div className="absolute -top-2 -left-2">
-              <DermometroImportancia 
-                contato={contatoCompleto} 
-                tamanho="sm"
-                animado={true}
-              />
-            </div>
+            
+            {/* Próxima Ação Sugerida - canto inferior */}
+            {(() => {
+              const proxAcao = getProximaAcaoSugerida(contatoCompleto);
+              return (
+                <div 
+                  className={`absolute -bottom-1 -right-1 w-6 h-6 ${proxAcao.cor} rounded-full flex items-center justify-center border-2 border-white shadow-md z-20`}
+                  title={`Sugestão: ${proxAcao.label}`}
+                >
+                  <proxAcao.icon className="w-3 h-3 text-white" />
+                </div>
+              );
+            })()}
           </div>
 
-          {/* Nome, Telefone e Barra do Dermômetro */}
+          {/* Nome, Telefone e Barra de Temperatura */}
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 mb-1">
               <h3 className="font-bold text-slate-900 truncate text-lg">{nomeContato}</h3>
@@ -1290,18 +1303,45 @@ export default function ChatWindow({
                 onUpdate={onAtualizarMensagens} />
             </div>
             <p className="text-xs text-slate-500 mb-2">{telefoneExibicao}</p>
-            {/* Barra Visual do Dermômetro */}
-            <BarraDermometro contato={contatoCompleto} className="max-w-[200px]" />
+            
+            {/* Barra de Temperatura Visual */}
+            {(() => {
+              const score = calcularScoreContato(contatoCompleto);
+              const nivel = getNivelTemperatura(score);
+              const Icon = nivel.icon;
+              return (
+                <div className="flex items-center gap-2 max-w-[220px]">
+                  <div className={`w-6 h-6 rounded-full bg-gradient-to-br ${nivel.gradiente} flex items-center justify-center shadow-md`}>
+                    <Icon className="w-3.5 h-3.5 text-white" />
+                  </div>
+                  <div className="flex-1">
+                    <div className="flex items-center justify-between mb-0.5">
+                      <span className="text-[10px] font-bold text-slate-700">
+                        {nivel.emoji} {nivel.label}
+                      </span>
+                      <span className="text-[10px] text-slate-400">{score}%</span>
+                    </div>
+                    <div className="w-full h-1.5 bg-slate-200 rounded-full overflow-hidden">
+                      <div 
+                        className={`h-full bg-gradient-to-r ${nivel.gradiente} transition-all duration-700`}
+                        style={{ width: `${score}%` }}
+                      />
+                    </div>
+                  </div>
+                </div>
+              );
+            })()}
           </div>
 
-          {/* Classificador Completo e Ações à Direita */}
+          {/* Classificação Compacta e Ações */}
           <div className="flex items-center gap-2 flex-shrink-0">
-            {/* Classificador Completo */}
+            {/* Central Compacta */}
             <div onClick={(e) => e.stopPropagation()}>
-              <ClassificadorContatoRapido 
+              <CentralInteligenciaContato 
                 contato={contatoCompleto} 
+                variant="compact"
                 onUpdate={onAtualizarMensagens}
-                compact={false}
+                showSugestoes={false}
               />
             </div>
 
@@ -1325,27 +1365,42 @@ export default function ChatWindow({
               <span className="text-xs font-medium">Detalhes</span>
             </button>
           </div>
-          </div>
+        </div>
 
-          {/* Alerta de Classificação Incompleta */}
-          {contatoCompleto && (!contatoCompleto.tipo_contato || !contatoCompleto.tags?.length) && (
-          <div className="flex items-center gap-2 p-2 bg-amber-50 border border-amber-200 rounded-lg animate-pulse">
-            <AlertCircle className="w-4 h-4 text-amber-500 flex-shrink-0" />
-            <span className="text-xs text-amber-700 font-medium">
-              ⚠️ Complete a classificação deste contato para melhorar o atendimento!
-            </span>
-            <div onClick={(e) => e.stopPropagation()} className="ml-auto">
-              <ClassificadorContatoRapido 
-                contato={contatoCompleto} 
-                onUpdate={onAtualizarMensagens}
-                compact={true}
-              />
+        {/* Alerta Inteligente de Classificação */}
+        {(() => {
+          const status = getClassificacaoStatus(contatoCompleto);
+          if (status.status === 'completo') return null;
+          
+          return (
+            <div className={`mt-3 flex items-center gap-2 p-2.5 rounded-lg border ${
+              status.status === 'parcial' 
+                ? 'bg-amber-50 border-amber-200' 
+                : 'bg-red-50 border-red-200 animate-pulse'
+            }`}>
+              <status.icon className={`w-5 h-5 flex-shrink-0 ${status.cor}`} />
+              <div className="flex-1 min-w-0">
+                <p className={`text-xs font-bold ${status.cor}`}>
+                  {status.status === 'parcial' ? '⚠️ Classificação Parcial' : '❌ Classificar Este Contato!'}
+                </p>
+                {status.problemas && (
+                  <p className="text-[10px] text-slate-500 truncate">
+                    Falta: {status.problemas.join(' • ')}
+                  </p>
+                )}
+              </div>
+              <div onClick={(e) => e.stopPropagation()}>
+                <CentralInteligenciaContato 
+                  contato={contatoCompleto} 
+                  variant="mini"
+                  onUpdate={onAtualizarMensagens}
+                  showSugestoes={false}
+                />
+              </div>
             </div>
-          </div>
-          )}
-
-
-            </div>
+          );
+        })()}
+      </div>
 
             {mensagemResposta &&
       <div className="px-4 py-2 bg-blue-50 border-b border-blue-200 flex-shrink-0">
