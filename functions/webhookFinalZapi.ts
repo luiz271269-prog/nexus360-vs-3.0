@@ -381,7 +381,7 @@ Deno.serve(async (req) => {
       return jsonBadRequest({ success: false, error: 'json_invalido' });
     }
 
-    console.log(`[${VERSION}] 📥 Payload recebido:`, JSON.stringify(payload).substring(0, 500));
+    console.log(`[${VERSION}] 📥 Payload recebido:`, JSON.stringify(payload).substring(0, 800));
 
     const motivoIgnorar = deveIgnorar(payload);
     if (motivoIgnorar) {
