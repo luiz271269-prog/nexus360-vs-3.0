@@ -649,7 +649,7 @@ export default function CentralControleOperacional({ onSelecionarThread, usuario
                                   onClick={() => {
                                     if (onSelecionarThread && item.thread_id) {
                                       base44.entities.MessageThread.get(item.thread_id)
-                                        .then(thread => onSelecionarThread(thread))
+                                        .then(threadData => onSelecionarThread(threadData))
                                         .catch(() => toast.error('Erro ao carregar'));
                                     }
                                   }}

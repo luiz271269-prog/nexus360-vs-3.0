@@ -604,14 +604,16 @@ export default function ConfiguracaoWhatsAppHub({ integracoes, onRecarregar, usu
             </div>
 
             <div>
-              <Label>URL Base da Z-API *</Label>
+              <Label>URL Base da API *</Label>
               <Input
                 value={novaIntegracao.zapi_base_url}
                 onChange={(e) => setNovaIntegracao({...novaIntegracao, zapi_base_url: e.target.value.trim()})}
-                placeholder="https://api.z-api.io"
+                placeholder="https://api.z-api.io ou https://painel.w-api.app"
                 className="mt-1 font-mono text-sm"
-                readOnly
               />
+              <p className="text-xs text-slate-500 mt-1">
+                Exemplos: https://api.z-api.io (Z-API) ou https://painel.w-api.app (W-API)
+              </p>
             </div>
 
             <div className="flex justify-end gap-2 pt-4 border-t">
