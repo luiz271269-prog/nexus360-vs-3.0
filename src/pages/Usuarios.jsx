@@ -1,30 +1,44 @@
 // pages/Usuarios.jsx
 import React from "react";
-import { PAGINAS_E_ACOES_DO_SISTEMA, PERFIS_ACESSO_RAPIDO } from "@/components/config/acessoConfig.js";
 import GerenciadorUsuariosUnificado from "@/components/usuarios/GerenciadorUsuariosUnificado";
+import { base44 } from "@/api/base44Client";
 
 // Aqui é só exemplo: adapte para seu layout padrão (Navbar, container, etc).
 export default function UsuariosPage() {
-  // TODO: integrar com seu backend/Base44.
-  // Exemplos de funções de carregamento/salvamento:
   async function carregarUsuarios() {
-    // Exemplo: buscar da sua API ou Base44
-    // const res = await fetch("/api/usuarios");
-    // return await res.json();
-    return [];
+    const users = await base44.entities.User.list();
+    return users.map(u => ({
+      id: u.id,
+      nome: u.full_name,
+      email: u.email,
+      setor: u.attendant_sector || "",
+      funcao: u.attendant_role || "",
+      tipoAcesso: u.role,
+      ativo: u.is_active !== false,
+      permissoes: u.permissoes || [],
+      perfilAcesso: u.perfilAcesso || "personalizado"
+    }));
   }
 
   async function salvarUsuario(usuario) {
-    // Exemplo: POST/PUT para sua API
-    // const res = await fetch("/api/usuarios", { ... });
-    // return await res.json();
-    console.log("Salvar usuário (mock):", usuario);
-    return usuario;
+    const payload = {
+      full_name: usuario.nome,
+      attendant_sector: usuario.setor,
+      attendant_role: usuario.funcao,
+      role: usuario.tipoAcesso,
+      is_active: usuario.ativo,
+      permissoes: usuario.permissoes,
+      perfilAcesso: usuario.perfilAcesso
+    };
+    
+    if (usuario.isNovo) {
+      return await base44.entities.User.create({ ...payload, email: usuario.email });
+    }
+    return await base44.entities.User.update(usuario.id, payload);
   }
 
   async function salvarPermissoes(usuarioId, permissoes) {
-    // Exemplo: endpoint específico de permissões
-    console.log("Salvar permissões (mock):", { usuarioId, permissoes });
+    await base44.entities.User.update(usuarioId, { permissoes });
   }
 
   return (

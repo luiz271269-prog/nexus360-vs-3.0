@@ -1,6 +1,128 @@
 // components/usuarios/GerenciadorUsuariosUnificado.jsx
 import React, { useMemo, useState, useEffect } from "react";
-import { PAGINAS_E_ACOES_DO_SISTEMA, PERFIS_ACESSO_RAPIDO } from "@/components/config/acessoConfig.js";
+// Configuração inline para evitar dependência de arquivo externo
+const PAGINAS_E_ACOES_DO_SISTEMA = [
+  {
+    identificador: "Comunicacao",
+    nome: "💬 Central de Comunicação",
+    tipo: "menu",
+    categoria: "Comunicação",
+    description: "Gerencia a comunicação via WhatsApp e outros canais.",
+    sub_recursos: [
+      { identificador: "Comunicacao.conversas", nome: "Conversas", tipo: "subtela", description: "Interface de chat.", permissoes_funcao: [
+        { identificador: "Comunicacao.conversas.enviar_mensagem", nome: "Enviar Mensagem", tipo: "acao" },
+        { identificador: "Comunicacao.conversas.enviar_midia", nome: "Enviar Mídia", tipo: "acao" },
+        { identificador: "Comunicacao.conversas.transferir", nome: "Transferir Conversa", tipo: "acao" },
+        { identificador: "Comunicacao.conversas.ver_todas", nome: "Ver Todas Conversas", tipo: "acao" },
+      ]},
+      { identificador: "Comunicacao.controle_operacional", nome: "Controle Operacional", tipo: "subtela", description: "Monitoramento de filas." },
+      { identificador: "Comunicacao.automacao", nome: "Automação", tipo: "subtela", description: "Playbooks e respostas rápidas." },
+      { identificador: "Comunicacao.configuracoes", nome: "Configurações", tipo: "subtela", description: "Integrações WhatsApp." },
+    ]
+  },
+  {
+    identificador: "Dashboard",
+    nome: "📊 Dashboard",
+    tipo: "menu",
+    categoria: "Geral",
+    description: "Visão geral do desempenho comercial.",
+    permissoes_funcao: [
+      { identificador: "Dashboard.filtrar", nome: "Filtrar Dados", tipo: "acao" },
+      { identificador: "Dashboard.exportar", nome: "Exportar Dashboard", tipo: "acao" },
+    ]
+  },
+  {
+    identificador: "LeadsQualificados",
+    nome: "🎯 Leads Qualificados",
+    tipo: "menu",
+    categoria: "Vendas",
+    description: "Gestão do funil de leads e orçamentos.",
+    sub_recursos: [
+      { identificador: "LeadsQualificados.kanban_leads", nome: "Kanban de Leads", tipo: "subtela" },
+      { identificador: "LeadsQualificados.kanban_clientes", nome: "Kanban de Clientes", tipo: "subtela" },
+      { identificador: "LeadsQualificados.pipeline_orcamentos", nome: "Pipeline de Orçamentos", tipo: "subtela" },
+    ]
+  },
+  {
+    identificador: "Clientes",
+    nome: "🏢 Clientes",
+    tipo: "menu",
+    categoria: "CRM",
+    description: "Gerenciamento de clientes.",
+    permissoes_funcao: [
+      { identificador: "Clientes.novo", nome: "Novo Cliente", tipo: "acao" },
+      { identificador: "Clientes.editar", nome: "Editar Cliente", tipo: "acao" },
+      { identificador: "Clientes.excluir", nome: "Excluir Cliente", tipo: "acao" },
+    ]
+  },
+  {
+    identificador: "Vendedores",
+    nome: "👥 Vendedores",
+    tipo: "menu",
+    categoria: "Vendas",
+    description: "Gestão de vendedores.",
+    permissoes_funcao: [
+      { identificador: "Vendedores.novo", nome: "Novo Vendedor", tipo: "acao" },
+      { identificador: "Vendedores.editar", nome: "Editar Vendedor", tipo: "acao" },
+      { identificador: "Vendedores.excluir", nome: "Excluir Vendedor", tipo: "acao" },
+    ]
+  },
+  {
+    identificador: "Produtos",
+    nome: "📦 Produtos",
+    tipo: "menu",
+    categoria: "Catálogo",
+    description: "Catálogo de produtos.",
+    permissoes_funcao: [
+      { identificador: "Produtos.novo", nome: "Novo Produto", tipo: "acao" },
+      { identificador: "Produtos.editar", nome: "Editar Produto", tipo: "acao" },
+      { identificador: "Produtos.excluir", nome: "Excluir Produto", tipo: "acao" },
+    ]
+  },
+  {
+    identificador: "Agenda",
+    nome: "📅 Agenda",
+    tipo: "menu",
+    categoria: "Geral",
+    description: "Tarefas e agenda inteligente."
+  },
+  {
+    identificador: "AnalyticsAvancado",
+    nome: "📈 Analytics",
+    tipo: "menu",
+    categoria: "Relatórios",
+    description: "Análise de dados e tendências."
+  },
+  {
+    identificador: "Importacao",
+    nome: "📥 Importação",
+    tipo: "menu",
+    categoria: "Dados",
+    description: "Importação de dados."
+  },
+  {
+    identificador: "Usuarios",
+    nome: "👤 Usuários",
+    tipo: "menu",
+    categoria: "Administração",
+    description: "Gerenciamento de usuários e permissões."
+  },
+  {
+    identificador: "Auditoria",
+    nome: "🔒 Auditoria",
+    tipo: "menu",
+    categoria: "Administração",
+    description: "Logs de auditoria."
+  },
+];
+
+const PERFIS_ACESSO_RAPIDO = {
+  admin: { label: "👑 Administrador", permissoes: PAGINAS_E_ACOES_DO_SISTEMA.flatMap(m => [m.identificador, ...(m.sub_recursos || []).map(s => s.identificador), ...(m.permissoes_funcao || []).map(a => a.identificador)]) },
+  gerente: { label: "👔 Gerente", permissoes: ["Comunicacao", "Dashboard", "LeadsQualificados", "Clientes", "Vendedores", "Produtos", "Agenda", "AnalyticsAvancado"] },
+  vendedor: { label: "💼 Vendedor", permissoes: ["Comunicacao", "Dashboard", "LeadsQualificados", "Clientes", "Produtos", "Agenda"] },
+  suporte: { label: "🎧 Suporte", permissoes: ["Comunicacao", "Clientes", "Agenda"] },
+  personalizado: { label: "⚙️ Personalizado", permissoes: [] }
+};
 import UsuarioForm from "./UsuarioForm";
 
 // Se você estiver usando shadcn/ui, adapte estes imports para os componentes reais.
