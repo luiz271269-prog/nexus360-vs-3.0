@@ -1,514 +1,549 @@
-import React, { useState } from "react";
-import { base44 } from "@/api/base44Client";
-import { useQuery } from "@tanstack/react-query";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Switch } from "@/components/ui/switch";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { Separator } from "@/components/ui/separator";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { 
-  User, Shield, MessageSquare, Clock, BarChart3, CheckCircle2, XCircle, 
-  AlertCircle, Users, FileText, Phone, Home, Target, Building2, Package, 
-  Calendar, Brain, Upload, UserCog, Bug, Search, Save, Loader2, 
-  ChevronRight, Settings, Eye, Send, Plus, Trash2, UserCheck
-} from "lucide-react";
-import { toast } from "sonner";
+// components/usuarios/GerenciadorUsuariosUnificado.jsx
+import React, { useMemo, useState, useEffect } from "react";
+import { PAGINAS_E_ACOES_DO_SISTEMA, PERFIS_ACESSO_RAPIDO } from "@/utils/acessoConfig";
+import UsuarioForm from "./UsuarioForm";
 
-// Páginas disponíveis
-const PAGINAS_DISPONIVEIS = [
-  { page: "Comunicacao", name: "💬 Central de Comunicação", icon: MessageSquare, categoria: "Comunicação" },
-  { page: "Dashboard", name: "Dashboard", icon: Home, categoria: "Geral" },
-  { page: "LeadsQualificados", name: "🎯 Leads Qualificados", icon: Target, categoria: "Vendas" },
-  { page: "Clientes", name: "Clientes", icon: Building2, categoria: "CRM" },
-  { page: "Vendedores", name: "Vendedores", icon: Users, categoria: "Vendas" },
-  { page: "Produtos", name: "Produtos", icon: Package, categoria: "Catálogo" },
-  { page: "Agenda", name: "Agenda Inteligente", icon: Calendar, categoria: "Geral" },
-  { page: "AnalyticsAvancado", name: "Analytics Avançado", icon: BarChart3, categoria: "Relatórios" },
-  { page: "NexusCommandCenter", name: "🤖 Nexus Command Center", icon: Brain, categoria: "IA" },
-  { page: "Importacao", name: "Importação", icon: Upload, categoria: "Dados" },
-  { page: "Usuarios", name: "Gerenciamento de Usuários", icon: UserCog, categoria: "Administração" },
-  { page: "Auditoria", name: "Auditoria", icon: Shield, categoria: "Administração" },
-  { page: "DiagnosticoCirurgico", name: "🔬 Diagnóstico Cirúrgico", icon: Bug, categoria: "Administração" }
-];
+// Se você estiver usando shadcn/ui, adapte estes imports para os componentes reais.
+// Aqui vou usar HTML básico + Tailwind para manter genérico.
 
-// Perfis predefinidos
-const PERFIS_ACESSO = {
-  admin: { label: "👑 Administrador", paginas: PAGINAS_DISPONIVEIS.map(p => p.page) },
-  gerencia_vendas: { label: "📊 Gerência - Vendas", paginas: ["Comunicacao", "Dashboard", "LeadsQualificados", "Vendedores", "Clientes", "AnalyticsAvancado", "Agenda", "Produtos"] },
-  gerencia_compras: { label: "📦 Gerência - Compras", paginas: ["Comunicacao", "Produtos", "Importacao", "Dashboard", "Clientes", "Agenda", "AnalyticsAvancado"] },
-  supervisor_vendas: { label: "👔 Supervisor - Vendas", paginas: ["Comunicacao", "LeadsQualificados", "Vendedores", "Clientes", "Agenda", "Dashboard", "Produtos"] },
-  atendente_vendas: { label: "💼 Atendente - Vendas", paginas: ["Comunicacao", "LeadsQualificados", "Clientes", "Produtos", "Agenda", "Dashboard"] },
-  atendente_assistencia: { label: "🎧 Atendente - Assistência", paginas: ["Comunicacao", "Clientes", "Produtos", "Agenda", "Dashboard"] },
-  personalizado: { label: "⚙️ Personalizado", paginas: [] }
-};
+function filtrarUsuarios(usuarios, termo) {
+  if (!termo) return usuarios;
+  const t = termo.toLowerCase();
+  return usuarios.filter(
+    (u) =>
+      (u.nome && u.nome.toLowerCase().includes(t)) ||
+      (u.email && u.email.toLowerCase().includes(t))
+  );
+}
 
-// Permissões granulares
-const PERMISSOES_COMUNICACAO = [
-  { key: "pode_criar_contatos", label: "Criar Contatos", grupo: "Contatos" },
-  { key: "pode_editar_contatos", label: "Editar Contatos", grupo: "Contatos" },
-  { key: "pode_bloquear_contatos", label: "Bloquear Contatos", grupo: "Contatos" },
-  { key: "pode_deletar_contatos", label: "Deletar Contatos", grupo: "Contatos" },
-  { key: "pode_enviar_mensagens", label: "Enviar Mensagens", grupo: "Mensagens" },
-  { key: "pode_enviar_midias", label: "Enviar Mídias", grupo: "Mensagens" },
-  { key: "pode_enviar_audios", label: "Enviar Áudios", grupo: "Mensagens" },
-  { key: "pode_apagar_mensagens", label: "Apagar Mensagens", grupo: "Mensagens" },
-  { key: "pode_transferir_conversas", label: "Transferir Conversas", grupo: "Conversas" },
-  { key: "pode_ver_todas_conversas", label: "Ver Todas Conversas", grupo: "Conversas" },
-  { key: "pode_atribuir_conversas", label: "Atribuir Conversas", grupo: "Conversas" },
-  { key: "pode_usar_templates", label: "Usar Templates", grupo: "Templates" },
-  { key: "pode_criar_templates", label: "Criar Templates", grupo: "Templates" },
-  { key: "pode_acessar_relatorios", label: "Acessar Relatórios", grupo: "Dados" },
-  { key: "pode_exportar_conversas", label: "Exportar Conversas", grupo: "Dados" },
-  { key: "pode_configurar_integracao", label: "Configurar Integração", grupo: "Admin" }
-];
+function coletarPermissoesRecurso(recurso) {
+  const itens = [];
 
-export default function GerenciadorUsuariosUnificado({ onNovoUsuario }) {
+  // o próprio menu/subtela pode ser permissionável
+  if (recurso.identificador && recurso.tipo) {
+    itens.push({
+      identificador: recurso.identificador,
+      nome: recurso.nome,
+      tipo: recurso.tipo,
+      description: recurso.description || "",
+    });
+  }
+
+  // subtelas
+  if (recurso.sub_recursos && recurso.sub_recursos.length) {
+    recurso.sub_recursos.forEach((sub) => {
+      itens.push({
+        identificador: sub.identificador,
+        nome: sub.nome,
+        tipo: sub.tipo,
+        description: sub.description || "",
+      });
+
+      // ações da subtela
+      if (sub.permissoes_funcao && sub.permissoes_funcao.length) {
+        sub.permissoes_funcao.forEach((acao) => {
+          itens.push({
+            identificador: acao.identificador,
+            nome: `↳ ${acao.nome}`,
+            tipo: acao.tipo,
+            description: acao.description || "",
+          });
+        });
+      }
+    });
+  }
+
+  // ações diretas do menu (sem subtela)
+  if (recurso.permissoes_funcao && recurso.permissoes_funcao.length) {
+    recurso.permissoes_funcao.forEach((acao) => {
+      itens.push({
+        identificador: acao.identificador,
+        nome: `↳ ${acao.nome}`,
+        tipo: acao.tipo,
+        description: acao.description || "",
+      });
+    });
+  }
+
+  return itens;
+}
+
+export default function GerenciadorUsuariosUnificado({
+  // Opcional: você pode passar estes via props,
+  // ou substituir internamente por hooks de backend/Base44.
+  usuariosIniciais = [],
+  carregarUsuarios,      // async () => lista
+  salvarUsuario,         // async (usuario) => usuarioAtualizado
+  salvarPermissoes,      // async (usuarioId, listaDePermissoes) => void
+}) {
+  const [usuarios, setUsuarios] = useState(usuariosIniciais);
+  const [filtroUsuarios, setFiltroUsuarios] = useState("");
   const [usuarioSelecionado, setUsuarioSelecionado] = useState(null);
-  const [busca, setBusca] = useState("");
-  const [saving, setSaving] = useState(false);
-  const [alteracoesPendentes, setAlteracoesPendentes] = useState(false);
-  const [tabAtiva, setTabAtiva] = useState("paginas");
 
-  // Carregar usuários
-  const { data: usuarios = [], isLoading, refetch } = useQuery({
-    queryKey: ['usuarios-unificado'],
-    queryFn: () => base44.entities.User.list(),
-  });
+  const [recursoSelecionadoId, setRecursoSelecionadoId] = useState(null);
+  const [perfilSelecionado, setPerfilSelecionado] = useState(null);
 
-  // Carregar integrações WhatsApp
-  const { data: integracoes = [] } = useQuery({
-    queryKey: ['whatsapp-integracoes'],
-    queryFn: () => base44.entities.WhatsAppIntegration.list(),
-  });
+  const [permissoesUsuario, setPermissoesUsuario] = useState([]); // array de identificadores
+  const [carregando, setCarregando] = useState(false);
+  const [salvando, setSalvando] = useState(false);
 
-  // Filtrar usuários
-  const usuariosFiltrados = usuarios.filter(u => 
-    u.full_name?.toLowerCase().includes(busca.toLowerCase()) ||
-    u.email?.toLowerCase().includes(busca.toLowerCase())
+  // Carregar usuários ao montar, se função fornecida
+  useEffect(() => {
+    if (!carregarUsuarios) return;
+
+    let ativo = true;
+    (async () => {
+      try {
+        setCarregando(true);
+        const lista = await carregarUsuarios();
+        if (!ativo) return;
+        setUsuarios(lista || []);
+      } catch (err) {
+        console.error("Erro ao carregar usuários:", err);
+      } finally {
+        if (ativo) setCarregando(false);
+      }
+    })();
+
+    return () => {
+      ativo = false;
+    };
+  }, [carregarUsuarios]);
+
+  // Quando selecionar usuário, carregar permissões (a partir do próprio user ou de uma fonte externa)
+  useEffect(() => {
+    if (!usuarioSelecionado) {
+      setPermissoesUsuario([]);
+      setPerfilSelecionado(null);
+      return;
+    }
+
+    // Aqui assumo que o usuário tem um campo permissoes (array de strings).
+    // Adapte para o seu modelo real.
+    setPermissoesUsuario(usuarioSelecionado.permissoes || []);
+    setPerfilSelecionado(usuarioSelecionado.perfilAcesso || null);
+  }, [usuarioSelecionado]);
+
+  const usuariosFiltrados = useMemo(
+    () => filtrarUsuarios(usuarios, filtroUsuarios),
+    [usuarios, filtroUsuarios]
   );
 
-  // Selecionar usuário
-  const selecionarUsuario = (usuario) => {
-    setUsuarioSelecionado({
-      ...usuario,
-      paginas_acesso: usuario.paginas_acesso || [],
-      perfil_acesso: usuario.perfil_acesso || "",
-      permissoes_comunicacao: usuario.permissoes_comunicacao || {},
-      whatsapp_permissions: usuario.whatsapp_permissions || [],
-      horario_atendimento: usuario.horario_atendimento || { inicio: "08:00", fim: "18:00", dias_semana: [1,2,3,4,5] }
-    });
-    setAlteracoesPendentes(false);
-    setTabAtiva("paginas");
-  };
+  const recursoSelecionado = useMemo(() => {
+    if (!recursoSelecionadoId) return null;
 
-  // Alterar campo do usuário
-  const alterarCampo = (campo, valor) => {
-    setUsuarioSelecionado(prev => ({ ...prev, [campo]: valor }));
-    setAlteracoesPendentes(true);
-  };
-
-  // Alterar perfil de acesso
-  const alterarPerfil = (perfilKey) => {
-    const perfil = PERFIS_ACESSO[perfilKey];
-    if (perfil) {
-      setUsuarioSelecionado(prev => ({
-        ...prev,
-        perfil_acesso: perfilKey,
-        paginas_acesso: perfilKey === 'personalizado' ? prev.paginas_acesso : perfil.paginas
-      }));
-      setAlteracoesPendentes(true);
-    }
-  };
-
-  // Toggle página
-  const togglePagina = (pagina) => {
-    if (usuarioSelecionado?.role === 'admin') return;
-    setUsuarioSelecionado(prev => {
-      const novasPaginas = prev.paginas_acesso.includes(pagina)
-        ? prev.paginas_acesso.filter(p => p !== pagina)
-        : [...prev.paginas_acesso, pagina];
-      return { ...prev, paginas_acesso: novasPaginas, perfil_acesso: 'personalizado' };
-    });
-    setAlteracoesPendentes(true);
-  };
-
-  // Toggle permissão
-  const togglePermissao = (key) => {
-    setUsuarioSelecionado(prev => ({
-      ...prev,
-      permissoes_comunicacao: { ...prev.permissoes_comunicacao, [key]: !prev.permissoes_comunicacao[key] }
-    }));
-    setAlteracoesPendentes(true);
-  };
-
-  // Toggle WhatsApp permission
-  const toggleWhatsAppPerm = (integracaoId, tipo) => {
-    setUsuarioSelecionado(prev => {
-      const perms = [...(prev.whatsapp_permissions || [])];
-      const idx = perms.findIndex(p => p.integration_id === integracaoId);
-      if (idx >= 0) {
-        perms[idx] = { ...perms[idx], [tipo]: !perms[idx][tipo] };
-      } else {
-        perms.push({ integration_id: integracaoId, [tipo]: true });
+    // procure em menus
+    for (const menu of PAGINAS_E_ACOES_DO_SISTEMA) {
+      if (menu.identificador === recursoSelecionadoId) return menu;
+      if (menu.sub_recursos) {
+        for (const sub of menu.sub_recursos) {
+          if (sub.identificador === recursoSelecionadoId) return sub;
+        }
       }
-      return { ...prev, whatsapp_permissions: perms };
-    });
-    setAlteracoesPendentes(true);
-  };
-
-  // Salvar
-  const salvarAlteracoes = async () => {
-    if (!usuarioSelecionado) return;
-    setSaving(true);
-    try {
-      await base44.entities.User.update(usuarioSelecionado.id, {
-        full_name: usuarioSelecionado.full_name,
-        role: usuarioSelecionado.role,
-        is_whatsapp_attendant: usuarioSelecionado.is_whatsapp_attendant,
-        attendant_sector: usuarioSelecionado.attendant_sector,
-        attendant_role: usuarioSelecionado.attendant_role,
-        availability_status: usuarioSelecionado.availability_status,
-        max_concurrent_conversations: usuarioSelecionado.max_concurrent_conversations,
-        paginas_acesso: usuarioSelecionado.paginas_acesso,
-        perfil_acesso: usuarioSelecionado.perfil_acesso,
-        permissoes_comunicacao: usuarioSelecionado.permissoes_comunicacao,
-        whatsapp_permissions: usuarioSelecionado.whatsapp_permissions,
-        horario_atendimento: usuarioSelecionado.horario_atendimento
-      });
-      toast.success("✅ Usuário atualizado!");
-      setAlteracoesPendentes(false);
-      refetch();
-    } catch (error) {
-      toast.error("❌ Erro ao salvar");
-    } finally {
-      setSaving(false);
+      if (menu.permissoes_funcao) {
+        for (const acao of menu.permissoes_funcao) {
+          if (acao.identificador === recursoSelecionadoId) return acao;
+        }
+      }
     }
-  };
+    return null;
+  }, [recursoSelecionadoId]);
 
-  const diasSemana = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
+  const permissoesDoRecurso = useMemo(() => {
+    if (!recursoSelecionado) return [];
+    // Se for menu completo, queremos todo o "galho" dele
+    if (recursoSelecionado.tipo === "menu") {
+      return coletarPermissoesRecurso(recursoSelecionado);
+    }
+    // Se for subtela / ação individual
+    if (recursoSelecionado.identificador) {
+      return [
+        {
+          identificador: recursoSelecionado.identificador,
+          nome: recursoSelecionado.nome,
+          tipo: recursoSelecionado.tipo,
+          description: recursoSelecionado.description || "",
+        },
+      ];
+    }
+    return [];
+  }, [recursoSelecionado]);
+
+  function togglePermissao(identificador) {
+    setPermissoesUsuario((prev) =>
+      prev.includes(identificador)
+        ? prev.filter((p) => p !== identificador)
+        : [...prev, identificador]
+    );
+  }
+
+  function isMarcado(identificador) {
+    return permissoesUsuario.includes(identificador);
+  }
+
+  async function handleSalvarTudo() {
+    if (!usuarioSelecionado) return;
+    try {
+      setSalvando(true);
+
+      const payloadUsuario = {
+        ...usuarioSelecionado,
+        permissoes: permissoesUsuario,
+        perfilAcesso: perfilSelecionado,
+      };
+
+      // TODO: integrar com seu backend/Base44
+      if (salvarUsuario) {
+        const atualizado = await salvarUsuario(payloadUsuario);
+        // atualiza lista local
+        setUsuarios((prev) =>
+          prev.map((u) => (u.id === atualizado.id ? atualizado : u))
+        );
+        setUsuarioSelecionado(atualizado);
+      }
+
+      if (salvarPermissoes) {
+        await salvarPermissoes(usuarioSelecionado.id, permissoesUsuario);
+      }
+
+      console.log("Permissões salvas:", permissoesUsuario);
+    } catch (err) {
+      console.error("Erro ao salvar usuário/permissões:", err);
+    } finally {
+      setSalvando(false);
+    }
+  }
+
+  function aplicarPerfil(perfilKey) {
+    setPerfilSelecionado(perfilKey);
+    const perfil = PERFIS_ACESSO_RAPIDO[perfilKey];
+    if (!perfil) return;
+
+    // Para administradores, perfil.permissoes já é a lista completa de identificadores
+    setPermissoesUsuario(perfil.permissoes || []);
+  }
+
+  function handleNovoUsuario() {
+    const novo = {
+      id: `temp-${Date.now()}`,
+      nome: "",
+      email: "",
+      setor: "",
+      funcao: "",
+      ativo: true,
+      tipoAcesso: "user",
+      permissoes: [],
+      perfilAcesso: "personalizado",
+      isNovo: true,
+    };
+    setUsuarios((prev) => [novo, ...prev]);
+    setUsuarioSelecionado(novo);
+    setPermissoesUsuario([]);
+    setPerfilSelecionado("personalizado");
+  }
+
+  function handleChangeUsuario(camposAtualizados) {
+    if (!usuarioSelecionado) return;
+    const atualizado = { ...usuarioSelecionado, ...camposAtualizados };
+    setUsuarioSelecionado(atualizado);
+    setUsuarios((prev) =>
+      prev.map((u) => (u.id === atualizado.id ? atualizado : u))
+    );
+  }
 
   return (
-    <div className="flex gap-4 h-[calc(100vh-280px)]">
-      {/* COLUNA 1: USUÁRIOS */}
-      <Card className="w-72 flex-shrink-0 flex flex-col">
-        <CardHeader className="pb-2">
-          <div className="flex items-center justify-between">
-            <CardTitle className="text-sm flex items-center gap-2">
-              <Users className="w-4 h-4" /> Usuários
-            </CardTitle>
-            <Button size="sm" onClick={onNovoUsuario} className="h-7 px-2 bg-gradient-to-r from-amber-500 to-orange-500">
-              <Plus className="w-3 h-3" />
-            </Button>
+    <div className="flex h-[calc(100vh-120px)] gap-3">
+      {/* COLUNA 1 - USUÁRIOS */}
+      <section className="w-1/4 flex flex-col border rounded-xl bg-white/80 shadow-sm overflow-hidden">
+        <header className="p-3 border-b flex items-center gap-2">
+          <div className="flex-1">
+            <h2 className="text-sm font-semibold">Usuários</h2>
+            <p className="text-xs text-gray-500">
+              Selecione um usuário para configurar permissões.
+            </p>
           </div>
-          <div className="relative mt-2">
-            <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-3 h-3 text-slate-400" />
-            <Input placeholder="Buscar..." value={busca} onChange={(e) => setBusca(e.target.value)} className="pl-7 h-8 text-xs" />
-          </div>
-        </CardHeader>
-        <CardContent className="flex-1 p-0 overflow-hidden">
-          <ScrollArea className="h-full">
-            {isLoading ? (
-              <div className="flex justify-center p-4"><Loader2 className="w-5 h-5 animate-spin" /></div>
-            ) : (
-              <div className="p-2 space-y-1">
-                {usuariosFiltrados.map((usuario) => (
-                  <div
-                    key={usuario.id}
-                    onClick={() => selecionarUsuario(usuario)}
-                    className={`p-2 rounded-lg cursor-pointer transition-all ${
-                      usuarioSelecionado?.id === usuario.id
-                        ? 'bg-gradient-to-r from-amber-100 to-orange-100 border-l-3 border-orange-500'
-                        : 'hover:bg-slate-50'
+          <button
+            onClick={handleNovoUsuario}
+            className="text-xs px-2 py-1 rounded-md border hover:bg-gray-50"
+          >
+            + Novo
+          </button>
+        </header>
+
+        <div className="p-2 border-b">
+          <input
+            type="text"
+            placeholder="Buscar por nome ou e-mail..."
+            className="w-full text-xs px-2 py-1 border rounded-md outline-none"
+            value={filtroUsuarios}
+            onChange={(e) => setFiltroUsuarios(e.target.value)}
+          />
+        </div>
+
+        <div className="flex-1 overflow-auto text-sm">
+          {carregando && (
+            <div className="p-3 text-xs text-gray-500">Carregando usuários...</div>
+          )}
+          {!carregando && usuariosFiltrados.length === 0 && (
+            <div className="p-3 text-xs text-gray-500">
+              Nenhum usuário encontrado.
+            </div>
+          )}
+          <ul>
+            {usuariosFiltrados.map((u) => (
+              <li
+                key={u.id}
+                onClick={() => setUsuarioSelecionado(u)}
+                className={`px-3 py-2 cursor-pointer border-b text-xs ${
+                  usuarioSelecionado?.id === u.id
+                    ? "bg-indigo-50 border-indigo-200 font-semibold"
+                    : "hover:bg-gray-50"
+                }`}
+              >
+                <div className="flex justify-between items-center">
+                  <span>{u.nome || "(sem nome)"}</span>
+                  <span
+                    className={`text-[10px] px-2 py-0.5 rounded-full ${
+                      u.ativo ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"
                     }`}
                   >
-                    <div className="flex items-center gap-2">
-                      <div className={`w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold ${
-                        usuario.role === 'admin' ? 'bg-gradient-to-br from-red-500 to-orange-500' : 'bg-slate-400'
-                      }`}>
-                        {usuario.full_name?.charAt(0)?.toUpperCase() || '?'}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-xs font-medium truncate">{usuario.full_name}</p>
-                        <p className="text-[10px] text-slate-500 truncate">{usuario.email}</p>
-                      </div>
-                    </div>
-                    <div className="mt-1 flex gap-1 flex-wrap">
-                      {usuario.role === 'admin' && <Badge className="bg-red-100 text-red-700 text-[9px] h-4">Admin</Badge>}
-                      {usuario.is_whatsapp_attendant && <Badge className="bg-green-100 text-green-700 text-[9px] h-4">Atendente</Badge>}
-                    </div>
+                    {u.ativo ? "Ativo" : "Inativo"}
+                  </span>
+                </div>
+                <div className="text-[10px] text-gray-500 truncate">{u.email}</div>
+                {u.setor && u.funcao && (
+                  <div className="text-[10px] text-gray-500">
+                    {u.setor} • {u.funcao}
                   </div>
+                )}
+              </li>
+            ))}
+          </ul>
+        </div>
+      </section>
+
+      {/* COLUNA 2 - RECURSOS / MENUS / AÇÕES */}
+      <section className="w-1/3 flex flex-col border rounded-xl bg-white/80 shadow-sm overflow-hidden">
+        <header className="p-3 border-b">
+          <h2 className="text-sm font-semibold">Recursos & Páginas do Sistema</h2>
+          <p className="text-xs text-gray-500">
+            Selecione um menu ou subtela para ajustar as permissões.
+          </p>
+        </header>
+
+        <div className="flex-1 overflow-auto text-sm">
+          <ul className="p-2 space-y-1">
+            {PAGINAS_E_ACOES_DO_SISTEMA.map((menu) => {
+              const selecionado = recursoSelecionadoId === menu.identificador;
+              return (
+                <li key={menu.identificador}>
+                  <button
+                    onClick={() => setRecursoSelecionadoId(menu.identificador)}
+                    className={`w-full text-left px-2 py-1 rounded-md text-xs flex flex-col ${
+                      selecionado
+                        ? "bg-indigo-50 border border-indigo-200"
+                        : "hover:bg-gray-50"
+                    }`}
+                  >
+                    <span className="font-semibold">
+                      {menu.nome}{" "}
+                      <span className="text-[10px] text-gray-400">
+                        ({menu.categoria || "Sem categoria"})
+                      </span>
+                    </span>
+                    <span className="text-[10px] text-gray-500">
+                      {menu.description}
+                    </span>
+                  </button>
+
+                  {/* Sub-recursos */}
+                  {menu.sub_recursos && menu.sub_recursos.length > 0 && (
+                    <ul className="ml-3 mt-1 space-y-0.5">
+                      {menu.sub_recursos.map((sub) => {
+                        const subSel = recursoSelecionadoId === sub.identificador;
+                        return (
+                          <li key={sub.identificador}>
+                            <button
+                              onClick={() =>
+                                setRecursoSelecionadoId(sub.identificador)
+                              }
+                              className={`w-full text-left px-2 py-1 rounded-md text-[11px] flex flex-col ${
+                                subSel
+                                  ? "bg-indigo-50 border border-indigo-200"
+                                  : "hover:bg-gray-50"
+                              }`}
+                            >
+                              <span>{sub.nome}</span>
+                              {sub.description && (
+                                <span className="text-[10px] text-gray-500">
+                                  {sub.description}
+                                </span>
+                              )}
+                            </button>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  )}
+
+                  {/* Ações diretas do menu */}
+                  {menu.permissoes_funcao && menu.permissoes_funcao.length > 0 && (
+                    <ul className="ml-3 mt-1 space-y-0.5">
+                      {menu.permissoes_funcao.map((acao) => {
+                        const acaoSel = recursoSelecionadoId === acao.identificador;
+                        return (
+                          <li key={acao.identificador}>
+                            <button
+                              onClick={() =>
+                                setRecursoSelecionadoId(acao.identificador)
+                              }
+                              className={`w-full text-left px-2 py-1 rounded-md text-[11px] flex flex-col ${
+                                acaoSel
+                                  ? "bg-indigo-50 border border-indigo-200"
+                                  : "hover:bg-gray-50"
+                              }`}
+                            >
+                              <span>↳ {acao.nome}</span>
+                              {acao.description && (
+                                <span className="text-[10px] text-gray-500">
+                                  {acao.description}
+                                </span>
+                              )}
+                            </button>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  )}
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+      </section>
+
+      {/* COLUNA 3 - DETALHES DO USUÁRIO + PERMISSÕES */}
+      <section className="flex-1 flex flex-col border rounded-xl bg-white/80 shadow-sm overflow-hidden">
+        <header className="p-3 border-b flex items-center justify-between">
+          <div>
+            <h2 className="text-sm font-semibold">Detalhes & Permissões</h2>
+            <p className="text-xs text-gray-500">
+              Edite os dados do usuário e as permissões para o recurso selecionado.
+            </p>
+          </div>
+          <button
+            onClick={handleSalvarTudo}
+            disabled={!usuarioSelecionado || salvando}
+            className={`px-3 py-1.5 text-xs rounded-md ${
+              !usuarioSelecionado || salvando
+                ? "bg-gray-200 text-gray-500 cursor-not-allowed"
+                : "bg-indigo-600 text-white hover:bg-indigo-700"
+            }`}
+          >
+            {salvando ? "Salvando..." : "Salvar alterações"}
+          </button>
+        </header>
+
+        {!usuarioSelecionado ? (
+          <div className="flex-1 flex items-center justify-center text-xs text-gray-500">
+            Selecione um usuário na coluna da esquerda para começar.
+          </div>
+        ) : (
+          <div className="flex-1 grid grid-rows-[auto,auto,1fr] gap-2 overflow-hidden">
+            {/* Dados básicos do usuário */}
+            <div className="p-3 border-b overflow-auto">
+              <UsuarioForm
+                usuario={usuarioSelecionado}
+                onChange={handleChangeUsuario}
+              />
+            </div>
+
+            {/* Perfis de acesso rápido */}
+            <div className="px-3 pb-2 border-b">
+              <h3 className="text-xs font-semibold mb-2">
+                Perfis de acesso rápido
+              </h3>
+              <div className="flex flex-wrap gap-2">
+                {Object.entries(PERFIS_ACESSO_RAPIDO).map(([key, perfil]) => (
+                  <button
+                    key={key}
+                    type="button"
+                    onClick={() => aplicarPerfil(key)}
+                    className={`text-[11px] px-2 py-1 rounded-full border ${
+                      perfilSelecionado === key
+                        ? "bg-indigo-600 text-white border-indigo-600"
+                        : "bg-white text-gray-700 hover:bg-gray-50"
+                    }`}
+                  >
+                    {perfil.label}
+                  </button>
                 ))}
               </div>
-            )}
-          </ScrollArea>
-        </CardContent>
-      </Card>
-
-      {/* COLUNA 2 e 3: CONFIGURAÇÕES */}
-      <Card className="flex-1 flex flex-col">
-        <CardHeader className="pb-2">
-          <div className="flex items-center justify-between">
-            <CardTitle className="text-sm flex items-center gap-2">
-              <Settings className="w-4 h-4" />
-              {usuarioSelecionado ? usuarioSelecionado.full_name : 'Selecione um usuário'}
-            </CardTitle>
-            {alteracoesPendentes && usuarioSelecionado && (
-              <Button onClick={salvarAlteracoes} disabled={saving} size="sm" className="h-7 bg-green-600 hover:bg-green-700">
-                {saving ? <Loader2 className="w-3 h-3 animate-spin mr-1" /> : <Save className="w-3 h-3 mr-1" />}
-                Salvar
-              </Button>
-            )}
-          </div>
-        </CardHeader>
-        <CardContent className="flex-1 p-0 overflow-hidden">
-          {!usuarioSelecionado ? (
-            <div className="flex flex-col items-center justify-center h-full text-slate-400">
-              <User className="w-12 h-12 mb-2" />
-              <p className="text-sm">Selecione um usuário para configurar</p>
             </div>
-          ) : (
-            <Tabs value={tabAtiva} onValueChange={setTabAtiva} className="h-full flex flex-col">
-              <TabsList className="mx-4 mt-2 grid grid-cols-4 h-8">
-                <TabsTrigger value="paginas" className="text-xs h-7">Páginas</TabsTrigger>
-                <TabsTrigger value="permissoes" className="text-xs h-7">Permissões</TabsTrigger>
-                <TabsTrigger value="whatsapp" className="text-xs h-7">WhatsApp</TabsTrigger>
-                <TabsTrigger value="dados" className="text-xs h-7">Dados</TabsTrigger>
-              </TabsList>
 
-              <ScrollArea className="flex-1 p-4">
-                {/* TAB PÁGINAS */}
-                <TabsContent value="paginas" className="mt-0 space-y-3">
-                  <div>
-                    <Label className="text-xs">Perfil de Acesso</Label>
-                    <Select value={usuarioSelecionado.perfil_acesso || ""} onValueChange={alterarPerfil} disabled={usuarioSelecionado.role === 'admin'}>
-                      <SelectTrigger className="h-8 text-xs mt-1"><SelectValue placeholder="Selecione..." /></SelectTrigger>
-                      <SelectContent>
-                        {Object.entries(PERFIS_ACESSO).map(([key, perfil]) => (
-                          <SelectItem key={key} value={key} className="text-xs">{perfil.label}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+            {/* Permissões do recurso selecionado */}
+            <div className="p-3 overflow-auto">
+              {!recursoSelecionado ? (
+                <div className="text-xs text-gray-500">
+                  Selecione um menu/subtela na coluna do meio para ver as permissões
+                  disponíveis.
+                </div>
+              ) : (
+                <>
+                  <div className="mb-3">
+                    <h3 className="text-xs font-semibold">
+                      Permissões para:{" "}
+                      <span className="text-indigo-700">
+                        {recursoSelecionado.nome}
+                      </span>
+                    </h3>
+                    {recursoSelecionado.description && (
+                      <p className="text-[11px] text-gray-500">
+                        {recursoSelecionado.description}
+                      </p>
+                    )}
                   </div>
 
-                  {usuarioSelecionado.role === 'admin' && (
-                    <div className="p-2 bg-amber-50 rounded border border-amber-200 text-xs text-amber-800">
-                      ⚠️ Administradores têm acesso a todas as páginas
+                  {permissoesDoRecurso.length === 0 ? (
+                    <div className="text-xs text-gray-500">
+                      Nenhuma permissão configurável diretamente para este recurso.
                     </div>
-                  )}
-
-                  <div className="grid grid-cols-2 gap-2">
-                    {PAGINAS_DISPONIVEIS.map((pagina) => {
-                      const IconComponent = pagina.icon;
-                      const temAcesso = usuarioSelecionado.role === 'admin' || usuarioSelecionado.paginas_acesso?.includes(pagina.page);
-                      return (
-                        <div
-                          key={pagina.page}
-                          onClick={() => togglePagina(pagina.page)}
-                          className={`p-2 rounded border cursor-pointer transition-all flex items-center gap-2 ${
-                            temAcesso ? 'bg-green-50 border-green-300' : 'bg-slate-50 border-slate-200'
-                          } ${usuarioSelecionado.role === 'admin' ? 'cursor-not-allowed opacity-70' : ''}`}
+                  ) : (
+                    <div className="space-y-1">
+                      {permissoesDoRecurso.map((perm) => (
+                        <label
+                          key={perm.identificador}
+                          className="flex items-start gap-2 text-xs border rounded-md px-2 py-1 hover:bg-gray-50 cursor-pointer"
                         >
-                          <div className={`p-1 rounded ${temAcesso ? 'bg-green-500' : 'bg-slate-300'}`}>
-                            <IconComponent className="w-3 h-3 text-white" />
-                          </div>
-                          <span className={`text-xs ${temAcesso ? 'text-green-800' : 'text-slate-500'}`}>{pagina.name}</span>
-                          {temAcesso && <CheckCircle2 className="w-3 h-3 text-green-600 ml-auto" />}
-                        </div>
-                      );
-                    })}
-                  </div>
-                </TabsContent>
-
-                {/* TAB PERMISSÕES */}
-                <TabsContent value="permissoes" className="mt-0 space-y-3">
-                  <div className="p-2 bg-blue-50 rounded border border-blue-200 text-xs text-blue-800">
-                    Permissões da Central de Comunicação
-                  </div>
-                  
-                  {["Contatos", "Mensagens", "Conversas", "Templates", "Dados", "Admin"].map(grupo => (
-                    <div key={grupo}>
-                      <p className="text-xs font-semibold text-slate-600 mb-1">{grupo}</p>
-                      <div className="space-y-1">
-                        {PERMISSOES_COMUNICACAO.filter(p => p.grupo === grupo).map(perm => (
-                          <div key={perm.key} className="flex items-center justify-between p-2 bg-white rounded border">
-                            <span className="text-xs">{perm.label}</span>
-                            <Switch
-                              checked={usuarioSelecionado.permissoes_comunicacao?.[perm.key] || false}
-                              onCheckedChange={() => togglePermissao(perm.key)}
-                            />
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  ))}
-                </TabsContent>
-
-                {/* TAB WHATSAPP */}
-                <TabsContent value="whatsapp" className="mt-0 space-y-3">
-                  <div className="flex items-center justify-between p-2 bg-green-50 rounded border border-green-200">
-                    <div>
-                      <p className="text-xs font-medium">Atendente WhatsApp</p>
-                      <p className="text-[10px] text-slate-500">Recebe conversas</p>
-                    </div>
-                    <Switch
-                      checked={usuarioSelecionado.is_whatsapp_attendant || false}
-                      onCheckedChange={(v) => alterarCampo('is_whatsapp_attendant', v)}
-                    />
-                  </div>
-
-                  {usuarioSelecionado.is_whatsapp_attendant && (
-                    <>
-                      <div className="grid grid-cols-2 gap-2">
-                        <div>
-                          <Label className="text-xs">Setor</Label>
-                          <Select value={usuarioSelecionado.attendant_sector || "geral"} onValueChange={(v) => alterarCampo('attendant_sector', v)}>
-                            <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="vendas">Vendas</SelectItem>
-                              <SelectItem value="assistencia">Assistência</SelectItem>
-                              <SelectItem value="financeiro">Financeiro</SelectItem>
-                              <SelectItem value="fornecedor">Fornecedor</SelectItem>
-                              <SelectItem value="geral">Geral</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
-                        <div>
-                          <Label className="text-xs">Função</Label>
-                          <Select value={usuarioSelecionado.attendant_role || "pleno"} onValueChange={(v) => alterarCampo('attendant_role', v)}>
-                            <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="junior">Júnior</SelectItem>
-                              <SelectItem value="pleno">Pleno</SelectItem>
-                              <SelectItem value="senior">Sênior</SelectItem>
-                              <SelectItem value="coordenador">Coordenador</SelectItem>
-                              <SelectItem value="gerente">Gerente</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
-                      </div>
-
-                      <div>
-                        <Label className="text-xs">Máx. Conversas Simultâneas</Label>
-                        <Input
-                          type="number"
-                          min="1"
-                          max="50"
-                          value={usuarioSelecionado.max_concurrent_conversations || 5}
-                          onChange={(e) => alterarCampo('max_concurrent_conversations', parseInt(e.target.value))}
-                          className="h-8 text-xs mt-1"
-                        />
-                      </div>
-                    </>
-                  )}
-
-                  {integracoes.length > 0 && (
-                    <div>
-                      <p className="text-xs font-semibold text-slate-600 mb-2">Permissões por Canal</p>
-                      {integracoes.map((integracao) => {
-                        const perm = usuarioSelecionado.whatsapp_permissions?.find(p => p.integration_id === integracao.id) || {};
-                        return (
-                          <div key={integracao.id} className="p-2 bg-white rounded border mb-2">
-                            <div className="flex items-center gap-2 mb-2">
-                              <Phone className="w-4 h-4 text-green-600" />
-                              <div>
-                                <p className="text-xs font-medium">{integracao.nome_instancia}</p>
-                                <p className="text-[10px] text-slate-500">{integracao.numero_telefone}</p>
+                          <input
+                            type="checkbox"
+                            className="mt-0.5"
+                            checked={isMarcado(perm.identificador)}
+                            onChange={() =>
+                              togglePermissao(perm.identificador)
+                            }
+                          />
+                          <div>
+                            <div className="font-semibold">{perm.nome}</div>
+                            {perm.description && (
+                              <div className="text-[11px] text-gray-500">
+                                {perm.description}
                               </div>
-                            </div>
-                            <div className="grid grid-cols-3 gap-1">
-                              {["can_view", "can_receive", "can_send"].map(tipo => (
-                                <div key={tipo} className="flex items-center justify-between bg-slate-50 p-1 rounded text-[10px]">
-                                  <span>{tipo === 'can_view' ? 'Ver' : tipo === 'can_receive' ? 'Receber' : 'Enviar'}</span>
-                                  <Switch checked={perm[tipo] || false} onCheckedChange={() => toggleWhatsAppPerm(integracao.id, tipo)} />
-                                </div>
-                              ))}
+                            )}
+                            <div className="text-[10px] text-gray-400 mt-0.5">
+                              ID: {perm.identificador} • Tipo: {perm.tipo}
                             </div>
                           </div>
-                        );
-                      })}
+                        </label>
+                      ))}
                     </div>
                   )}
-                </TabsContent>
-
-                {/* TAB DADOS */}
-                <TabsContent value="dados" className="mt-0 space-y-3">
-                  <div>
-                    <Label className="text-xs">Nome Completo</Label>
-                    <Input
-                      value={usuarioSelecionado.full_name || ""}
-                      onChange={(e) => alterarCampo('full_name', e.target.value)}
-                      className="h-8 text-xs mt-1"
-                    />
-                  </div>
-                  <div>
-                    <Label className="text-xs">E-mail</Label>
-                    <Input value={usuarioSelecionado.email || ""} disabled className="h-8 text-xs mt-1 bg-slate-100" />
-                  </div>
-                  <div>
-                    <Label className="text-xs">Tipo de Acesso</Label>
-                    <Select value={usuarioSelecionado.role || "user"} onValueChange={(v) => alterarCampo('role', v)}>
-                      <SelectTrigger className="h-8 text-xs mt-1"><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="admin">👑 Administrador</SelectItem>
-                        <SelectItem value="user">👤 Usuário</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  
-                  <Separator />
-                  
-                  <div>
-                    <Label className="text-xs">Horário de Atendimento</Label>
-                    <div className="grid grid-cols-2 gap-2 mt-1">
-                      <Input
-                        type="time"
-                        value={usuarioSelecionado.horario_atendimento?.inicio || "08:00"}
-                        onChange={(e) => alterarCampo('horario_atendimento', { ...usuarioSelecionado.horario_atendimento, inicio: e.target.value })}
-                        className="h-8 text-xs"
-                      />
-                      <Input
-                        type="time"
-                        value={usuarioSelecionado.horario_atendimento?.fim || "18:00"}
-                        onChange={(e) => alterarCampo('horario_atendimento', { ...usuarioSelecionado.horario_atendimento, fim: e.target.value })}
-                        className="h-8 text-xs"
-                      />
-                    </div>
-                  </div>
-                  <div>
-                    <Label className="text-xs">Dias da Semana</Label>
-                    <div className="flex gap-1 mt-1">
-                      {diasSemana.map((dia, idx) => {
-                        const ativo = usuarioSelecionado.horario_atendimento?.dias_semana?.includes(idx);
-                        return (
-                          <Button
-                            key={idx}
-                            type="button"
-                            size="sm"
-                            variant={ativo ? "default" : "outline"}
-                            className={`h-6 w-8 text-[10px] p-0 ${ativo ? 'bg-green-600' : ''}`}
-                            onClick={() => {
-                              const dias = usuarioSelecionado.horario_atendimento?.dias_semana || [];
-                              const novosDias = dias.includes(idx) ? dias.filter(d => d !== idx) : [...dias, idx].sort();
-                              alterarCampo('horario_atendimento', { ...usuarioSelecionado.horario_atendimento, dias_semana: novosDias });
-                            }}
-                          >
-                            {dia}
-                          </Button>
-                        );
-                      })}
-                    </div>
-                  </div>
-                </TabsContent>
-              </ScrollArea>
-            </Tabs>
-          )}
-        </CardContent>
-      </Card>
+                </>
+              )}
+            </div>
+          </div>
+        )}
+      </section>
     </div>
   );
 }
