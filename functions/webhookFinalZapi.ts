@@ -209,13 +209,19 @@ function normalizarPayload(payload) {
     '';
 
   // LOG DETALHADO PARA DEBUG DE MÍDIA
-  const mediaFields = ['image', 'video', 'audio', 'document', 'sticker', 'imageUrl', 'videoUrl', 'audioUrl', 'documentUrl', 'mediaUrl'];
+  const mediaFields = ['image', 'video', 'audio', 'document', 'sticker', 'imageUrl', 'videoUrl', 'audioUrl', 'documentUrl', 'mediaUrl', 'forwardedFrom'];
   const presentMediaFields = mediaFields.filter(f => payload[f]);
   if (presentMediaFields.length > 0) {
     console.log(`[${VERSION}] 📎 Campos de mídia presentes:`, presentMediaFields);
     for (const field of presentMediaFields) {
       console.log(`[${VERSION}] 📎 ${field}:`, JSON.stringify(payload[field]).substring(0, 300));
     }
+  }
+  
+  // LOG ESPECIAL PARA MENSAGENS ENCAMINHADAS
+  if (payload.isForwarded || payload.forwardedFrom) {
+    console.log(`[${VERSION}] 📨 MENSAGEM ENCAMINHADA detectada!`);
+    console.log(`[${VERSION}] 📨 forwardedFrom:`, JSON.stringify(payload.forwardedFrom || {}).substring(0, 200));
   }
 
   // Z-API pode enviar mídia de várias formas:
