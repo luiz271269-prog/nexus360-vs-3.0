@@ -67,6 +67,26 @@ export default function ConfiguracaoWhatsAppHub({ integracoes, onRecarregar, usu
 
   const resetForm = () => {
     setNovaIntegracao(initialNovaIntegracaoState);
+    setModoEdicao(false);
+  };
+
+  const selecionarIntegracao = (integracao) => {
+    setIntegracaoSelecionada(integracao);
+    setNovaIntegracao({
+      nome_instancia: integracao.nome_instancia,
+      numero_telefone: integracao.numero_telefone,
+      zapi_instance_id: integracao.instance_id_provider,
+      zapi_token_instancia: integracao.api_key_provider || "",
+      zapi_client_token_conta: integracao.security_client_token_header || "",
+      zapi_base_url: integracao.base_url_provider || "https://api.z-api.io"
+    });
+    setModoEdicao(false);
+  };
+
+  const iniciarNovaIntegracao = () => {
+    setIntegracaoSelecionada(null);
+    resetForm();
+    setModoEdicao(true);
   };
 
   const validarCampos = () => {
