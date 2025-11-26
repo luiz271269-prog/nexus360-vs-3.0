@@ -57,19 +57,19 @@ export default function ChatSidebar({ threads, threadAtiva, onSelecionarThread, 
       // Se pode ver todos (gerente/coordenador/supervisor), passa
       if (podeVerTodos) return true;
 
-      // 5️⃣ NOVA REGRA: Conversas não atribuídas são visíveis se:
+      // 5️⃣ NOVA REGRA: Conversas não atribuídas são visíveis para todos com acesso à conexão
       //    - Usuário tem acesso à conexão (já verificado acima)
-      //    - Contato NÃO é fidelizado
-      //    - Conversa não tem setor definido OU não tem usuário atribuído
+      //    - Contato NÃO é fidelizado (fidelizado = tem atendente fixo)
       const isNaoAtribuida = !thread.assigned_user_id;
       const isContatoNaoFidelizado = !contato?.is_cliente_fidelizado;
-      const isSemSetorDefinido = !thread.sector_id;
 
-      if (isNaoAtribuida && isContatoNaoFidelizado && isSemSetorDefinido) {
-        return true; // Conversa não atribuída visível para todos com acesso à conexão
+      // Conversas não atribuídas E de contatos não fidelizados são visíveis para TODOS
+      // Ignora verificação de setor/tipo de contato para essas conversas
+      if (isNaoAtribuida && isContatoNaoFidelizado) {
+        return true;
       }
 
-      // 6️⃣ Verificar setor da conversa vs setor do atendente
+      // 6️⃣ Verificar setor da conversa vs setor do atendente (apenas para conversas atribuídas ou fidelizadas)
       const setorThread = thread.sector_id;
       if (setorThread && setorUsuario && setorThread !== setorUsuario && setorUsuario !== 'geral') {
         return false;
