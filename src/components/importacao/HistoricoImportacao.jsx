@@ -1,8 +1,8 @@
-
-import { useState } from "react";
+import React, { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { CheckCircle, XCircle, Clock, AlertTriangle, Eye, RefreshCw, FileText, Image, Table, Loader2, Brain, RotateCcw, Trash2, Edit, Upload, Merge, Replace, Plus } from "lucide-react";
 
@@ -311,7 +311,7 @@ Digite "LIMPAR TUDO AGORA" para confirmar (sem aspas):
 
       for (const nomeEntidade of todasAsEntidades) {
         try {
-          const module = await import(`@/entities/${nomeEntidade}`);
+          const module = await import(`../../entities/${nomeEntidade}.json`);
           const Entidade = module[nomeEntidade];
 
           if (!Entidade || typeof Entidade.list !== 'function' || typeof Entidade.delete !== 'function') {

@@ -1,5 +1,6 @@
 // pages/Usuarios.jsx
 import React from "react";
+import { PAGINAS_E_ACOES_DO_SISTEMA, PERFIS_ACESSO_RAPIDO } from "@/components/config/acessoConfig.js";
 import GerenciadorUsuariosUnificado from "@/components/usuarios/GerenciadorUsuariosUnificado";
 
 // Aqui é só exemplo: adapte para seu layout padrão (Navbar, container, etc).
