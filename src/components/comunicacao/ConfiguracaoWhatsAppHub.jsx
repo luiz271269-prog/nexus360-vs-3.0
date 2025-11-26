@@ -35,21 +35,31 @@ import {
 import DiagnosticoZAPICentralizado from "./DiagnosticoZAPICentralizado";
 import { getWebhookUrlProducao, getWebhookUrlAmbienteAtual } from "../lib/webhookUtils";
 
-export default function ConfiguracaoWhatsAppHub({ integracoes, onRecarregar }) {
+export default function ConfiguracaoWhatsAppHub({ integracoes, onRecarregar, usuarioAtual }) {
   const [loading, setLoading] = useState(false);
   const [showForm, setShowForm] = useState(false);
   const [showTokenInstancia, setShowTokenInstancia] = useState(false);
   const [showTokenConta, setShowTokenConta] = useState(false);
   const [editandoIntegracao, setEditandoIntegracao] = useState(null);
-  const [testando, setTestando] = useState(null); // State to track which integration is being tested
+  const [testando, setTestando] = useState(null);
+
+  // 🔐 CONTROLE DE ACESSO POR HIERARQUIA
+  const isAdmin = usuarioAtual?.role === 'admin';
+  const isGerente = ['gerente', 'coordenador'].includes(usuarioAtual?.attendant_role);
+  const podeAdicionar = isAdmin; // Apenas admin adiciona novas conexões
+  const podeEditar = isAdmin; // Apenas admin edita configuração completa
+  const podeReiniciar = isAdmin || isGerente; // Gerente pode reiniciar
+  const podeExcluir = isAdmin; // Apenas admin exclui
 
   const initialNovaIntegracaoState = {
     nome_instancia: "",
     numero_telefone: "",
     zapi_instance_id: "",
-    zapi_token_instancia: "", // Token da URL
-    zapi_client_token_conta: "", // Token de Segurança da Conta (Header)
-    zapi_base_url: "https://api.z-api.io"
+    zapi_token_instancia: "",
+    zapi_client_token_conta: "",
+    zapi_base_url: "https://api.z-api.io",
+    setores_atendidos: ["geral"],
+    setor_principal: "geral"
   };
 
   const [novaIntegracao, setNovaIntegracao] = useState(initialNovaIntegracaoState);
