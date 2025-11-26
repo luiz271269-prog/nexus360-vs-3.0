@@ -298,7 +298,27 @@ export default function ChatSidebar({ threads, threadAtiva, onSelecionarThread, 
                     </Badge>
                   );
                 })()}
-                {/* Badges de Categorias */}
+                {/* Badges de Etiquetas do Contato */}
+                {contato?.tags && contato.tags.length > 0 && (
+                  contato.tags.slice(0, 2).map(etq => {
+                    const config = getEtiquetaContatoConfig(etq, etiquetasDB);
+                    return (
+                      <Badge 
+                        key={etq}
+                        className={`text-xs py-0 px-1.5 h-5 ${config.color} text-white border-0`}
+                        title={config.label}
+                      >
+                        {config.emoji}
+                      </Badge>
+                    );
+                  })
+                )}
+                {contato?.tags && contato.tags.length > 2 && (
+                  <Badge variant="outline" className="text-xs py-0 px-1.5 h-5">
+                    +{contato.tags.length - 2}
+                  </Badge>
+                )}
+                {/* Badges de Categorias da Conversa */}
                 {thread.categorias && thread.categorias.length > 0 && (
                   thread.categorias.slice(0, 2).map(cat => {
                     const config = getCategoriaConfig(cat, categoriasDB);
