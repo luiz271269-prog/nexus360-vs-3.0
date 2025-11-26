@@ -322,54 +322,113 @@ export function filtrarEtiquetasAplicaveis(etiquetas, tipoContato, filaAtual) {
 
 /**
  * Retorna o pré-atendimento recomendado baseado no tipo de contato e fila
+ * LÓGICA: 1-Conexão → 2-Setor → 3-Tipo Contato → 4-Hierarquia → 5-Fidelização
  */
-export function getPreAtendimentoRecomendado(tipoContato, filaAtual) {
+export function getPreAtendimentoRecomendado(tipoContato, filaAtual, contato = null) {
+  // Verificar fidelização primeiro
+  const configFila = FILAS_ATENDIMENTO.find(f => f.value === filaAtual);
+  const campoFidelizacao = configFila?.campo_fidelizacao;
+  const atendenteFidelizado = campoFidelizacao && contato?.[campoFidelizacao];
+  
+  if (atendenteFidelizado) {
+    return {
+      acao: 'atribuir_fidelizado',
+      mensagem: 'Olá! Estou transferindo você para seu atendente.',
+      dadosNecessarios: [],
+      fluxo: 'pre_atendimento_fidelizado',
+      atendente_destino: atendenteFidelizado,
+      prioridade: 'alta'
+    };
+  }
+  
   const configs = {
-    // Novo contato - precisa coletar dados para qualificar
+    // Novo contato (s/ definição) - SEMPRE precisa de pré-atendimento para escolher setor
     'novo': {
-      acao: 'qualificar',
-      mensagem: 'Olá! Seja bem-vindo. Para melhor atendê-lo, poderia me informar:',
-      dadosNecessarios: ['nome', 'empresa', 'interesse'],
-      fluxo: 'pre_atendimento_qualificacao'
+      acao: 'coletar_setor',
+      mensagem: 'Olá! Seja bem-vindo. Para melhor atendê-lo, por favor escolha o setor:\n\n1️⃣ Vendas\n2️⃣ Assistência Técnica\n3️⃣ Financeiro\n4️⃣ Fornecedor',
+      dadosNecessarios: ['setor', 'nome', 'empresa'],
+      fluxo: 'pre_atendimento_novo',
+      requer_escolha_setor: true,
+      prioridade: 'normal'
     },
     // Lead em vendas - foco em conversão
     'lead_vendas': {
       acao: 'converter',
       mensagem: 'Olá! Que bom ter você de volta. Como posso ajudar com sua cotação?',
       dadosNecessarios: [],
-      fluxo: 'pre_atendimento_lead_vendas'
+      fluxo: 'pre_atendimento_lead_vendas',
+      prioridade: 'normal'
+    },
+    // Lead em geral - precisa qualificar
+    'lead': {
+      acao: 'qualificar',
+      mensagem: 'Olá! Em que posso ajudá-lo?',
+      dadosNecessarios: [],
+      fluxo: 'pre_atendimento_lead',
+      setor_padrao: 'vendas',
+      prioridade: 'normal'
     },
     // Cliente em vendas - prioridade alta
     'cliente_vendas': {
       acao: 'atender_prioritario',
       mensagem: 'Olá! É sempre um prazer atendê-lo. Em que posso ajudar?',
       dadosNecessarios: [],
-      fluxo: 'pre_atendimento_cliente_vip'
+      fluxo: 'pre_atendimento_cliente_vendas',
+      prioridade: 'alta'
     },
     // Cliente em assistência
     'cliente_assistencia': {
       acao: 'suporte',
       mensagem: 'Olá! Nosso suporte técnico está pronto para ajudá-lo.',
       dadosNecessarios: ['numero_pedido', 'problema'],
-      fluxo: 'pre_atendimento_suporte'
+      fluxo: 'pre_atendimento_suporte',
+      prioridade: 'alta'
+    },
+    // Cliente em financeiro
+    'cliente_financeiro': {
+      acao: 'financeiro',
+      mensagem: 'Olá! Nosso departamento financeiro está à disposição.',
+      dadosNecessarios: [],
+      fluxo: 'pre_atendimento_financeiro',
+      prioridade: 'alta'
+    },
+    // Cliente sem setor definido - perguntar
+    'cliente': {
+      acao: 'perguntar_setor',
+      mensagem: 'Olá! Em que posso ajudá-lo hoje?\n\n1️⃣ Vendas/Orçamentos\n2️⃣ Assistência Técnica\n3️⃣ Financeiro',
+      dadosNecessarios: ['setor'],
+      fluxo: 'pre_atendimento_cliente',
+      requer_escolha_setor: true,
+      prioridade: 'alta'
     },
     // Fornecedor - cotações e ofertas
     'fornecedor_fornecedor': {
       acao: 'cotacao',
       mensagem: 'Olá! Agradecemos seu contato. Por favor, envie sua proposta/cotação.',
       dadosNecessarios: ['produto', 'preco', 'prazo'],
-      fluxo: 'pre_atendimento_fornecedor'
+      fluxo: 'pre_atendimento_fornecedor',
+      prioridade: 'normal'
+    },
+    'fornecedor': {
+      acao: 'direcionar_compras',
+      mensagem: 'Olá! Agradecemos seu contato. Encaminhando para o setor de compras.',
+      dadosNecessarios: [],
+      fluxo: 'pre_atendimento_fornecedor',
+      setor_padrao: 'fornecedor',
+      prioridade: 'normal'
     },
     // Parceiro
-    'parceiro_geral': {
+    'parceiro': {
       acao: 'parceria',
-      mensagem: 'Olá! Seja bem-vindo. Como podemos colaborar?',
+      mensagem: 'Olá! Seja bem-vindo, parceiro. Como podemos colaborar?',
       dadosNecessarios: [],
-      fluxo: 'pre_atendimento_parceiro'
+      fluxo: 'pre_atendimento_parceiro',
+      setor_padrao: 'vendas',
+      prioridade: 'normal'
     }
   };
   
-  // Buscar config específica ou genérica
+  // Buscar config específica (tipo_setor) ou genérica (tipo)
   const chaveEspecifica = `${tipoContato}_${filaAtual}`;
   const chaveGenerica = tipoContato;
   
