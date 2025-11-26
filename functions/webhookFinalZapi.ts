@@ -705,6 +705,9 @@ async function handleMessage(dados, payloadBruto, base44) {
       metadata: {
         whatsapp_integration_id: integracaoId,
         instance_id: dados.instanceId ?? null,
+        connected_phone: connectedPhone,
+        canal_nome: integracaoInfo?.nome ?? null,
+        canal_numero: integracaoInfo?.numero ?? connectedPhone ?? null,
         vcard: dados.vcard ?? null,
         location: dados.location ?? null,
         quoted_message: dados.quotedMessage ?? null,
