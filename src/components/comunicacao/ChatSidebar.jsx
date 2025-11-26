@@ -208,9 +208,19 @@ export default function ChatSidebar({ threads, threadAtiva, onSelecionarThread, 
 
             <div className="flex-1 min-w-0">
               <div className="flex items-center justify-between mb-1">
-                <h3 className={`font-semibold truncate ${hasUnread ? 'text-slate-900' : 'text-slate-700'}`}>
-                  {nomeExibicao}
-                </h3>
+                <div className="flex items-center gap-1.5 min-w-0 flex-1">
+                  <h3 className={`font-semibold truncate ${hasUnread ? 'text-slate-900' : 'text-slate-700'}`}>
+                    {nomeExibicao}
+                  </h3>
+                  {/* Ícone de Etiquetar Contato */}
+                  <div onClick={(e) => e.stopPropagation()}>
+                    <EtiquetadorContato 
+                      contato={contato} 
+                      onUpdate={() => {}} 
+                      compact={true}
+                    />
+                  </div>
+                </div>
                 <span className={`text-xs flex-shrink-0 ml-2 ${
                   hasUnread ? 'text-orange-600 font-medium' : 'text-slate-500'
                 }`}>
