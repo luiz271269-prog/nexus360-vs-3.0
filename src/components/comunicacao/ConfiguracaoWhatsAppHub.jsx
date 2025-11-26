@@ -38,10 +38,10 @@ import { getWebhookUrlProducao, getWebhookUrlAmbienteAtual } from "../lib/webhoo
 
 export default function ConfiguracaoWhatsAppHub({ integracoes, onRecarregar, usuarioAtual }) {
   const [loading, setLoading] = useState(false);
-  const [showForm, setShowForm] = useState(false);
   const [showTokenInstancia, setShowTokenInstancia] = useState(false);
   const [showTokenConta, setShowTokenConta] = useState(false);
-  const [editandoIntegracao, setEditandoIntegracao] = useState(null);
+  const [integracaoSelecionada, setIntegracaoSelecionada] = useState(null);
+  const [modoEdicao, setModoEdicao] = useState(false);
   const [testando, setTestando] = useState(null);
 
   // 🔐 CONTROLE DE ACESSO POR HIERARQUIA
