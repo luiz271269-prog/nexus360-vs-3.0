@@ -198,9 +198,10 @@ export default function ConfiguracaoWhatsAppHub({ integracoes, onRecarregar, usu
         ultima_atividade: new Date().toISOString()
       };
 
-      if (editandoIntegracao) {
-        await base44.entities.WhatsAppIntegration.update(editandoIntegracao.id, dadosIntegracao);
+      if (integracaoSelecionada) {
+        await base44.entities.WhatsAppIntegration.update(integracaoSelecionada.id, dadosIntegracao);
         toast.success("Configurações salvas!");
+        setModoEdicao(false);
       } else {
         await base44.entities.WhatsAppIntegration.create(dadosIntegracao);
         toast.success("Instância criada! Configure o webhook na Z-API.");
