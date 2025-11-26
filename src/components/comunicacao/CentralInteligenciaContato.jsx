@@ -50,22 +50,24 @@ import {
 // 🎯 FONTE ÚNICA DE VERDADE - CLASSIFICAÇÃO DE CONTATOS
 // ═══════════════════════════════════════════════════════════════════════════════
 
-// 📌 TIPOS DE CONTATO
+// 📌 TIPOS DE CONTATO (Importado do Motor de Roteamento)
+// 1-Novo (s/ definição), 2-Lead, 3-Cliente, 4-Fornecedor, 5-Parceiro
 export const TIPOS_CONTATO = [
-  { value: 'novo', label: 'Novo Contato', icon: User, color: 'bg-slate-400', emoji: '🆕', prioridade: 0, descricao: 'Contato ainda não classificado' },
+  { value: 'novo', label: 'Contato s/ Definição', icon: User, color: 'bg-slate-400', emoji: '❓', prioridade: 0, descricao: 'Contato ainda não classificado - precisa de pré-atendimento' },
   { value: 'lead', label: 'Lead', icon: Target, color: 'bg-amber-500', emoji: '🎯', prioridade: 1, descricao: 'Potencial cliente em prospecção' },
   { value: 'cliente', label: 'Cliente', icon: Building2, color: 'bg-emerald-500', emoji: '💎', prioridade: 3, descricao: 'Cliente ativo com histórico de compras' },
   { value: 'fornecedor', label: 'Fornecedor', icon: Truck, color: 'bg-blue-500', emoji: '🏭', prioridade: 2, descricao: 'Fornecedor de produtos/serviços' },
   { value: 'parceiro', label: 'Parceiro', icon: Handshake, color: 'bg-purple-500', emoji: '🤝', prioridade: 2, descricao: 'Parceiro comercial ou de negócios' },
 ];
 
-// 📌 FILAS DE ATENDIMENTO
+// 📌 FILAS/SETORES DE ATENDIMENTO
+// Cada setor tem tipos de contato aceitos e campo de fidelização específico
 export const FILAS_ATENDIMENTO = [
-  { value: 'vendas', label: 'Vendas', emoji: '💰', color: 'bg-green-500', descricao: 'Atendimento comercial e orçamentos' },
-  { value: 'assistencia', label: 'Assistência', emoji: '🔧', color: 'bg-blue-500', descricao: 'Suporte técnico e assistência' },
-  { value: 'financeiro', label: 'Financeiro', emoji: '💳', color: 'bg-amber-500', descricao: 'Pagamentos, boletos e notas' },
-  { value: 'fornecedor', label: 'Fornecedor', emoji: '🏭', color: 'bg-purple-500', descricao: 'Cotações e ofertas de fornecedores' },
-  { value: 'geral', label: 'Geral', emoji: '📋', color: 'bg-slate-500', descricao: 'Atendimento geral' },
+  { value: 'vendas', label: 'Vendas', emoji: '💰', color: 'bg-green-500', descricao: 'Atendimento comercial e orçamentos', tipos_aceitos: ['lead', 'cliente', 'parceiro', 'novo'], campo_fidelizacao: 'atendente_fidelizado_vendas' },
+  { value: 'assistencia', label: 'Assistência', emoji: '🔧', color: 'bg-orange-500', descricao: 'Suporte técnico e assistência', tipos_aceitos: ['cliente'], campo_fidelizacao: 'atendente_fidelizado_assistencia' },
+  { value: 'financeiro', label: 'Financeiro', emoji: '💳', color: 'bg-amber-500', descricao: 'Pagamentos, boletos e notas', tipos_aceitos: ['cliente'], campo_fidelizacao: 'atendente_fidelizado_financeiro' },
+  { value: 'fornecedor', label: 'Fornecedor/Compras', emoji: '📦', color: 'bg-blue-500', descricao: 'Cotações e ofertas de fornecedores', tipos_aceitos: ['fornecedor'], campo_fidelizacao: 'atendente_fidelizado_fornecedor' },
+  { value: 'geral', label: 'Geral', emoji: '📋', color: 'bg-slate-500', descricao: 'Atendimento geral', tipos_aceitos: ['novo', 'lead', 'cliente', 'fornecedor', 'parceiro'], campo_fidelizacao: null },
 ];
 
 // 📌 ESTÁGIOS DO KANBAN/JORNADA
