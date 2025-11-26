@@ -6,14 +6,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Plus, Users, Shield, UserCheck, Search, UserCog, CheckCircle, XCircle, AlertCircle, BarChart3 } from "lucide-react";
+import { Plus, Users, Shield, UserCheck, Search, UserCog, CheckCircle, XCircle, AlertCircle, BarChart3, Grid3X3 } from "lucide-react";
 import { toast } from "sonner";
 
-import TabelaUsuarios from "../components/usuarios/TabelaUsuarios";
 import UsuarioForm from "../components/usuarios/UsuarioForm";
 import AlertasInteligentesIA from '../components/global/AlertasInteligentesIA';
 import BotaoNexusFlutuante from '../components/global/BotaoNexusFlutuante';
-import GerenciadorPermissoes3Colunas from "../components/usuarios/GerenciadorPermissoes3Colunas";
+import GerenciadorUsuariosUnificado from "../components/usuarios/GerenciadorUsuariosUnificado";
 
 export default function Usuarios() {
   return (
