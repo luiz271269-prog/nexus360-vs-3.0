@@ -274,12 +274,27 @@ export default function ChatSidebar({ threads, threadAtiva, onSelecionarThread, 
                     <h3 className={`font-semibold truncate ${hasUnread ? 'text-slate-900' : 'text-slate-700'}`}>
                       {nomeExibicao}
                     </h3>
-                    {/* Tipo do Contato - Visual Rápido */}
+                    {/* Tipo do Contato - Visual Rápido com Indicador Especial para "Novo" */}
                     {(() => {
-                      const tipo = TIPOS_CONTATO.find(t => t.value === contato?.tipo_contato);
-                      return tipo ? (
+                      const tipoContato = contato?.tipo_contato || 'novo';
+                      const tipo = TIPOS_CONTATO.find(t => t.value === tipoContato);
+                      if (!tipo) return null;
+                      
+                      // Destaque especial para contatos sem definição
+                      if (tipoContato === 'novo') {
+                        return (
+                          <span 
+                            className="text-xs px-1 py-0.5 bg-slate-200 text-slate-600 rounded animate-pulse" 
+                            title="Contato s/ Definição - Precisa qualificar"
+                          >
+                            {tipo.emoji}
+                          </span>
+                        );
+                      }
+                      
+                      return (
                         <span className="text-xs" title={tipo.label}>{tipo.emoji}</span>
-                      ) : null;
+                      );
                     })()}
                   </div>
                 <span className={`text-xs flex-shrink-0 ml-2 ${
