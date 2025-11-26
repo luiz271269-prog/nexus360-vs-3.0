@@ -33,37 +33,49 @@ export default function ChatSidebar({ threads, threadAtiva, onSelecionarThread, 
   // ═══════════════════════════════════════════════════════════════════════════════
   const threadsFiltradas = useMemo(() => {
     if (!threads || threads.length === 0) return [];
-    
+
     return threads.filter(thread => {
       const contato = thread.contato;
-      
+
       // 1️⃣ Filtrar bloqueados
       if (contato && contato.bloqueado) return false;
-      
+
       // 2️⃣ Admin vê tudo
       if (usuarioAtual?.role === 'admin') return true;
-      
+
       // 3️⃣ Verificar permissões de conexão WhatsApp
       const whatsappPerms = usuarioAtual?.whatsapp_permissions || [];
       if (whatsappPerms.length > 0 && thread.whatsapp_integration_id) {
         const permissao = whatsappPerms.find(p => p.integration_id === thread.whatsapp_integration_id);
         if (!permissao || !permissao.can_view) return false;
       }
-      
+
       // 4️⃣ Verificar hierarquia Setor → Função → Nível
       const setorUsuario = usuarioAtual?.attendant_sector;
       const podeVerTodos = verificarPermissaoUsuario(usuarioAtual, 'ver_todos');
-      
+
       // Se pode ver todos (gerente/coordenador/supervisor), passa
       if (podeVerTodos) return true;
-      
-      // 5️⃣ Verificar setor da conversa vs setor do atendente
+
+      // 5️⃣ NOVA REGRA: Conversas não atribuídas são visíveis se:
+      //    - Usuário tem acesso à conexão (já verificado acima)
+      //    - Contato NÃO é fidelizado
+      //    - Conversa não tem setor definido OU não tem usuário atribuído
+      const isNaoAtribuida = !thread.assigned_user_id;
+      const isContatoNaoFidelizado = !contato?.is_cliente_fidelizado;
+      const isSemSetorDefinido = !thread.sector_id;
+
+      if (isNaoAtribuida && isContatoNaoFidelizado && isSemSetorDefinido) {
+        return true; // Conversa não atribuída visível para todos com acesso à conexão
+      }
+
+      // 6️⃣ Verificar setor da conversa vs setor do atendente
       const setorThread = thread.sector_id;
       if (setorThread && setorUsuario && setorThread !== setorUsuario && setorUsuario !== 'geral') {
         return false;
       }
-      
-      // 6️⃣ Verificar tipo de contato vs setor do atendente
+
+      // 7️⃣ Verificar tipo de contato vs setor do atendente
       const tipoContato = contato?.tipo_contato || 'novo';
       const configSetor = SETORES_ATENDIMENTO.find(s => s.value === setorUsuario);
       if (configSetor && !configSetor.tipos_contato_aceitos.includes(tipoContato)) {
@@ -71,7 +83,7 @@ export default function ChatSidebar({ threads, threadAtiva, onSelecionarThread, 
           return false;
         }
       }
-      
+
       return true;
     });
   }, [threads, usuarioAtual]);
