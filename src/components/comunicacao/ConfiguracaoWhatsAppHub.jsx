@@ -360,17 +360,13 @@ export default function ConfiguracaoWhatsAppHub({ integracoes, onRecarregar, usu
               </div>
             </div>
             {podeAdicionar && (
-            <Button
-              onClick={() => {
-                setEditandoIntegracao(null);
-                resetForm();
-                setShowForm(true);
-              }}
-              className="bg-gradient-to-r from-green-500 to-emerald-600">
-              <Plus className="w-4 h-4 mr-2" />
-              Nova Instância
-            </Button>
-          )}
+              <Button
+                onClick={iniciarNovaIntegracao}
+                className="bg-gradient-to-r from-green-500 to-emerald-600">
+                <Plus className="w-4 h-4 mr-2" />
+                Nova Instância
+              </Button>
+            )}
           </div>
         </CardContent>
       </Card>
