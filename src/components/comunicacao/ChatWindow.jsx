@@ -1463,6 +1463,11 @@ export default function ChatWindow({
 
             const content = (m.content || '').trim();
 
+            // ✅ SEMPRE MOSTRAR mensagens com mídia válida (imagem, vídeo, áudio, etc)
+            if (m.media_url && m.media_type && m.media_type !== 'none') {
+              return true;
+            }
+
             // ❌ BLOQUEAR IMEDIATAMENTE: mensagens vazias sem mídia
             if (!content && (!m.media_url || m.media_type === 'none' || !m.media_type)) {
               return false;
