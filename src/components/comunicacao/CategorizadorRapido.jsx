@@ -15,22 +15,26 @@ import {
 } from "@/components/ui/dropdown-menu";
 
 const CATEGORIAS_FIXAS = [
-  { nome: 'venda', label: 'Venda', emoji: '💰', cor: 'bg-green-500', tipo: 'fixa' },
-  { nome: 'suporte', label: 'Suporte', emoji: '🛠️', cor: 'bg-blue-500', tipo: 'fixa' },
-  { nome: 'urgente', label: 'Urgente', emoji: '🚨', cor: 'bg-red-500', tipo: 'fixa' },
-  { nome: 'aguardando_pagamento', label: 'Aguardando Pagamento', emoji: '💳', cor: 'bg-yellow-500', tipo: 'fixa' },
-  { nome: 'cotacao', label: 'Cotação', emoji: '📋', cor: 'bg-purple-500', tipo: 'fixa' },
-  { nome: 'pos_venda', label: 'Pós-Venda', emoji: '✅', cor: 'bg-indigo-500', tipo: 'fixa' },
-  { nome: 'duvida', label: 'Dúvida', emoji: '❓', cor: 'bg-gray-500', tipo: 'fixa' },
-  { nome: 'reclamacao', label: 'Reclamação', emoji: '⚠️', cor: 'bg-orange-500', tipo: 'fixa' }
+  { nome: 'venda', label: 'Venda', emoji: '💰', cor: 'bg-green-500', tipo: 'fixa', tipos_contato_aplicaveis: ['lead', 'cliente'], filas_aplicaveis: ['vendas'] },
+  { nome: 'suporte', label: 'Suporte', emoji: '🛠️', cor: 'bg-blue-500', tipo: 'fixa', tipos_contato_aplicaveis: ['cliente'], filas_aplicaveis: ['assistencia'] },
+  { nome: 'urgente', label: 'Urgente', emoji: '🚨', cor: 'bg-red-500', tipo: 'fixa', tipos_contato_aplicaveis: [], filas_aplicaveis: [] },
+  { nome: 'aguardando_pagamento', label: 'Aguardando Pagamento', emoji: '💳', cor: 'bg-yellow-500', tipo: 'fixa', tipos_contato_aplicaveis: ['cliente'], filas_aplicaveis: ['financeiro', 'vendas'] },
+  { nome: 'cotacao', label: 'Cotação', emoji: '📋', cor: 'bg-purple-500', tipo: 'fixa', tipos_contato_aplicaveis: ['lead', 'cliente', 'fornecedor'], filas_aplicaveis: ['vendas', 'fornecedor'] },
+  { nome: 'pos_venda', label: 'Pós-Venda', emoji: '✅', cor: 'bg-indigo-500', tipo: 'fixa', tipos_contato_aplicaveis: ['cliente'], filas_aplicaveis: ['vendas', 'assistencia'] },
+  { nome: 'duvida', label: 'Dúvida', emoji: '❓', cor: 'bg-gray-500', tipo: 'fixa', tipos_contato_aplicaveis: [], filas_aplicaveis: [] },
+  { nome: 'reclamacao', label: 'Reclamação', emoji: '⚠️', cor: 'bg-orange-500', tipo: 'fixa', tipos_contato_aplicaveis: ['cliente'], filas_aplicaveis: [] }
 ];
 
-export default function CategorizadorRapido({ thread, onUpdate }) {
+export default function CategorizadorRapido({ thread, onUpdate, contato = null }) {
   const [salvando, setSalvando] = useState(false);
   const [novaCategoria, setNovaCategoria] = useState('');
   const [adicionandoNova, setAdicionandoNova] = useState(false);
   const categorias = thread?.categorias || [];
   const queryClient = useQueryClient();
+  
+  // Contexto do contato para filtragem inteligente
+  const tipoContato = contato?.tipo_contato || 'novo';
+  const filaAtual = thread?.sector_id || 'geral';
 
   // Buscar categorias dinâmicas do banco
   const { data: categoriasDB = [] } = useQuery({
@@ -40,13 +44,27 @@ export default function CategorizadorRapido({ thread, onUpdate }) {
   });
 
   // Combinar categorias fixas + dinâmicas
-  const todasCategorias = [...CATEGORIAS_FIXAS, ...categoriasDB.map(cat => ({
+  const todasCategoriasBase = [...CATEGORIAS_FIXAS, ...categoriasDB.map(cat => ({
     nome: cat.nome,
     label: cat.label,
     emoji: cat.emoji || '🏷️',
     cor: cat.cor || 'bg-slate-400',
-    tipo: cat.tipo
+    tipo: cat.tipo,
+    tipos_contato_aplicaveis: cat.tipos_contato_aplicaveis || [],
+    filas_aplicaveis: cat.filas_aplicaveis || []
   }))];
+  
+  // Filtrar categorias aplicáveis ao contexto atual
+  const todasCategorias = todasCategoriasBase.filter(cat => {
+    // Categorias urgente e dúvida sempre disponíveis
+    if (cat.nome === 'urgente' || cat.nome === 'duvida') return true;
+    
+    // Se não tem restrição, disponível para todos
+    const tiposOk = !cat.tipos_contato_aplicaveis || cat.tipos_contato_aplicaveis.length === 0 || cat.tipos_contato_aplicaveis.includes(tipoContato);
+    const filasOk = !cat.filas_aplicaveis || cat.filas_aplicaveis.length === 0 || cat.filas_aplicaveis.includes(filaAtual);
+    
+    return tiposOk && filasOk;
+  });
 
   const toggleCategoria = async (valor) => {
     if (salvando || !thread) return;
