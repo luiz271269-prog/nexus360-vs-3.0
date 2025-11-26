@@ -498,8 +498,9 @@ async function handleMessageUpdate(dados, base44) {
 }
 
 async function handleMessage(dados, payloadBruto, base44) {
-  const inicio = Date.now();
-  console.log(`[${VERSION}] 💬 Nova mensagem de: ${dados.from}`);
+    const inicio = Date.now();
+    const connectedPhone = payloadBruto.connectedPhone || 'não informado';
+    console.log(`[${VERSION}] 💬 Nova mensagem de: ${dados.from} | Via: ${connectedPhone}`);
 
   // Idempotência por whatsapp_message_id
   if (dados.messageId) {
