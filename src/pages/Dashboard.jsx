@@ -1,6 +1,7 @@
-import { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { base44 } from "@/api/base44Client";
-import { TrendingUp, Users, Target, Award, BarChart3, Brain, Zap, AlertCircle, CheckCircle, TrendingDown, Activity } from "lucide-react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { TrendingUp, Users, DollarSign, Target, Award, Calendar, Filter, BarChart3, Brain, Zap, AlertCircle, CheckCircle, TrendingDown, Activity, ChevronRight, Building2 } from "lucide-react";
 
 import VisaoGeralEmpresa from "../components/dashboard/VisaoGeralEmpresa";
 import PerformanceVendedores from "../components/dashboard/PerformanceVendedores";
@@ -8,12 +9,19 @@ import AnaliseClientes from "../components/dashboard/AnaliseClientes";
 import MetricasOperacionais from "../components/dashboard/MetricasOperacionais";
 import FiltrosAvancados from "../components/dashboard/FiltrosAvancados";
 import ExportadorDashboard from "../components/dashboard/ExportadorDashboard";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Progress } from "@/components/ui/progress";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
+import { motion, AnimatePresence } from "framer-motion";
 import AlertasInteligentesIA from "../components/global/AlertasInteligentesIA";
 import BotaoNexusFlutuante from "../components/global/BotaoNexusFlutuante";
 import { queryOptimizer } from "../components/inteligencia/QueryOptimizer";
+import { cacheGlobal } from "../components/inteligencia/CacheInteligente";
 
 // Cache global para evitar chamadas desnecessárias
 const dashboardCache = {
@@ -596,46 +604,7 @@ export default function Dashboard() {
           )}
         </div>
 
-        {/* KPIs Principais + KPIs de IA */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          {metricasIA &&
-            <>
-              <MetricCard
-                titulo="Taxa de Resolução IA"
-                valor={`${metricasIA.taxaResolucao}%`}
-                icone={Brain}
-                cor="from-orange-500 to-red-600"
-                descricao={`${metricasIA.totalInteracoes} interações • ${metricasIA.latenciaMedia}min latência`}
-                trend={metricasIA.taxaResolucao >= 70 ? 'up' : 'down'}
-                trendValue={`${metricasIA.taxaResolucao >= 70 ? 'Excelente' : 'Melhorar'}`} />
 
-              <MetricCard
-                titulo="Tarefas Inteligentes"
-                valor={metricasIA.tarefasPendentes}
-                icone={CheckCircle}
-                cor="from-amber-500 to-orange-600"
-                descricao="Ações sugeridas pela IA"
-                trend="up"
-                trendValue="Geradas automaticamente" />
-
-              <MetricCard
-                titulo="Fluxos Ativos"
-                valor={metricasIA.fluxosAtivos}
-                icone={Activity}
-                cor="from-red-500 to-pink-600"
-                descricao="Automações em execução" />
-
-              <MetricCard
-                titulo="Taxa de Handoff"
-                valor={`${metricasIA.taxaHandoff}%`}
-                icone={Users}
-                cor="from-amber-500 to-orange-600"
-                descricao="Conversas escaladas para humano"
-                trend={metricasIA.taxaHandoff <= 30 ? 'up' : 'down'}
-                trendValue={`${metricasIA.taxaHandoff <= 30 ? 'Ótimo' : 'Revisar'}`} />
-            </>
-          }
-        </div>
 
         {/* Estatísticas Resumo */}
         <div className="bg-gradient-to-r from-orange-500 via-orange-600 to-red-500 px-5 py-3 backdrop-blur-md rounded-xl border border-slate-200/50">
