@@ -49,7 +49,13 @@ import { useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import MediaAttachmentSystem from './MediaAttachmentSystem';
 import CategorizadorRapido from './CategorizadorRapido';
-import CentralInteligenciaContato, { calcularScoreContato, getNivelTemperatura, getProximaAcaoSugerida, getClassificacaoStatus } from './CentralInteligenciaContato';
+import CentralInteligenciaContato, { 
+  calcularScoreContato, 
+  getNivelTemperatura, 
+  getProximaAcaoSugerida, 
+  getClassificacaoStatus,
+  TIPOS_CONTATO
+} from './CentralInteligenciaContato';
 
 export default function ChatWindow({
   thread,
@@ -1101,13 +1107,7 @@ export default function ChatWindow({
 
   const telefoneExibicao = contatoCompleto?.telefone || thread?.contato?.telefone || contatoCompleto?.celular || thread?.contato?.celular || 'Sem telefone';
 
-  const tiposContato = [
-  { value: 'lead', label: 'Lead', icon: '🎯' },
-  { value: 'cliente', label: 'Cliente', icon: '💎' },
-  { value: 'fornecedor', label: 'Fornecedor', icon: '🏭' },
-  { value: 'parceiro', label: 'Parceiro', icon: '🤝' }];
-
-  const tipoAtual = tiposContato.find((t) => t.value === contatoCompleto?.tipo_contato);
+  const tipoAtual = TIPOS_CONTATO.find((t) => t.value === contatoCompleto?.tipo_contato);
 
   const getInitials = (name) => {
     if (!name) return '?';
