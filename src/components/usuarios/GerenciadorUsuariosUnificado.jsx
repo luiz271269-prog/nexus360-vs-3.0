@@ -1,6 +1,6 @@
 // components/usuarios/GerenciadorUsuariosUnificado.jsx
 import React, { useMemo, useState, useEffect } from "react";
-import { PAGINAS_E_ACOES_DO_SISTEMA, PERFIS_ACESSO_RAPIDO } from "@/utils/acessoConfig";
+import { PAGINAS_E_ACOES_DO_SISTEMA, PERFIS_ACESSO_RAPIDO } from "@/components/config/acessoConfig.js";
 import UsuarioForm from "./UsuarioForm";
 
 // Se você estiver usando shadcn/ui, adapte estes imports para os componentes reais.
