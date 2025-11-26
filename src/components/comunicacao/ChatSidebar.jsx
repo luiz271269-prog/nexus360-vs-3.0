@@ -1,5 +1,5 @@
 import React from "react";
-import { CheckCheck, Clock, User, Users, AlertCircle } from "lucide-react";
+import { CheckCheck, Clock, User, Users, AlertCircle, Image, Video, Mic, FileText, MapPin, Phone as PhoneIcon } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { motion } from "framer-motion";
 import { format } from "date-fns";
@@ -217,12 +217,31 @@ export default function ChatSidebar({ threads, threadAtiva, onSelecionarThread, 
                   {thread.last_message_sender === 'user' && (
                     <CheckCheck className="w-4 h-4 text-blue-500 flex-shrink-0" />
                   )}
+                  {/* Ícone de mídia baseado no tipo */}
+                  {thread.last_media_type === 'image' && <Image className="w-4 h-4 text-blue-500 flex-shrink-0" />}
+                  {thread.last_media_type === 'video' && <Video className="w-4 h-4 text-purple-500 flex-shrink-0" />}
+                  {thread.last_media_type === 'audio' && <Mic className="w-4 h-4 text-green-500 flex-shrink-0" />}
+                  {thread.last_media_type === 'document' && <FileText className="w-4 h-4 text-orange-500 flex-shrink-0" />}
+                  {thread.last_media_type === 'location' && <MapPin className="w-4 h-4 text-red-500 flex-shrink-0" />}
+                  {thread.last_media_type === 'contact' && <PhoneIcon className="w-4 h-4 text-cyan-500 flex-shrink-0" />}
                   <span className="truncate">
                     {(() => {
                       const content = thread.last_message_content;
                       // Ocultar JIDs e mensagens vazias
                       if (!content || content === '[No content]' || /^[\+\d]+@(lid|s\.whatsapp\.net|c\.us)/.test(content)) {
-                        return "Mídia enviada";
+                        // Mostrar tipo de mídia específico
+                        if (thread.last_media_type === 'image') return "📷 Imagem";
+                        if (thread.last_media_type === 'video') return "🎥 Vídeo";
+                        if (thread.last_media_type === 'audio') return "🎤 Áudio";
+                        if (thread.last_media_type === 'document') return "📄 Documento";
+                        if (thread.last_media_type === 'location') return "📍 Localização";
+                        if (thread.last_media_type === 'contact') return "👤 Contato";
+                        if (thread.last_media_type === 'sticker') return "🎨 Sticker";
+                        return "📎 Mídia";
+                      }
+                      // Se tem mídia mas também tem conteúdo de texto
+                      if (thread.last_media_type && thread.last_media_type !== 'none') {
+                        return content;
                       }
                       return content;
                     })()}
