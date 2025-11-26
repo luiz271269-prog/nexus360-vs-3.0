@@ -890,6 +890,21 @@ export default function MessageBubble({
               </div>
             )}
 
+            {/* 📱 CANAL WHATSAPP - Badge mostrando de qual conexão veio */}
+            {thread?.whatsapp_integration_id && integracoes.length > 0 && (
+              (() => {
+                const integracao = integracoes.find(i => i.id === thread.whatsapp_integration_id);
+                return integracao && (
+                  <div className={cn(
+                    "text-[9px] px-2 py-0.5 rounded-full mb-1 inline-flex items-center gap-1",
+                    isOwn ? "bg-white/10 text-white/70" : "bg-green-50 text-green-600 border border-green-200"
+                  )}>
+                    📱 {integracao.numero_telefone || integracao.nome_instancia}
+                  </div>
+                );
+              })()
+            )}
+
             {/* ✅ TEXTO - SEM MÍDIA */}
             {(!message?.media_url || message?.media_type === 'none') && message?.content && String(message.content).trim() !== '' && message.content !== '[No content]' && (
               <>
