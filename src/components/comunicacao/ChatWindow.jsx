@@ -1300,6 +1300,7 @@ export default function ChatWindow({
               <h3 className="font-bold text-slate-900 truncate text-lg">{nomeContato}</h3>
               <CategorizadorRapido
                 thread={thread}
+                contato={contatoCompleto}
                 onUpdate={onAtualizarMensagens} />
             </div>
             <p className="text-xs text-slate-500 mb-2">{telefoneExibicao}</p>
