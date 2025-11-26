@@ -230,13 +230,17 @@ function normalizarPayload(payload) {
   // 3. { imageUrl: "..." } direto no root
   // 4. { mediaUrl: "..." } genérico
   
-  if (payload.image) {
+  // ✅ PRIMEIRO: Verificar se é mensagem encaminhada com mídia
+  const forwardedImage = payload.forwardedFrom?.image || payload.isForwarded && payload.image;
+  
+  if (payload.image || forwardedImage) {
     mediaType = 'image';
-    if (typeof payload.image === 'object') {
-      mediaUrl = payload.image.imageUrl ?? payload.image.url ?? payload.image.link ?? payload.image.mediaUrl ?? null;
-      if (!conteudo) conteudo = payload.image.caption ?? '[Imagem]';
-    } else if (typeof payload.image === 'string' && payload.image.startsWith('http')) {
-      mediaUrl = payload.image;
+    const imgData = payload.image || forwardedImage;
+    if (typeof imgData === 'object') {
+      mediaUrl = imgData.imageUrl ?? imgData.url ?? imgData.link ?? imgData.mediaUrl ?? null;
+      if (!conteudo) conteudo = imgData.caption ?? '[Imagem]';
+    } else if (typeof imgData === 'string' && imgData.startsWith('http')) {
+      mediaUrl = imgData;
       if (!conteudo) conteudo = '[Imagem]';
     }
   } else if (payload.imageUrl) {
