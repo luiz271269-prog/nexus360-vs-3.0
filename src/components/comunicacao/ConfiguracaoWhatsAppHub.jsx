@@ -218,11 +218,14 @@ export default function ConfiguracaoWhatsAppHub({ integracoes, onRecarregar, usu
         );
       }
 
-      setShowForm(false);
-      setEditandoIntegracao(null);
       resetForm();
-
       if (onRecarregar) await onRecarregar();
+      
+      // Reselecionar a integração atualizada
+      if (integracaoSelecionada) {
+        const atualizada = integracoes.find(i => i.id === integracaoSelecionada.id);
+        if (atualizada) setIntegracaoSelecionada(atualizada);
+      }
 
     } catch (error) {
       console.error("[CONFIG] ❌ Erro ao salvar instância:", error);
