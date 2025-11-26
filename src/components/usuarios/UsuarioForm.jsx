@@ -95,47 +95,79 @@ export default function UsuarioForm({ usuario, onSave, onCancel }) {
     { page: "DiagnosticoCirurgico", name: "🔬 Diagnóstico Cirúrgico", icon: Bug }
   ];
 
-  // Perfis de acesso predefinidos
+  // Setores disponíveis
+  const SETORES = [
+    { value: "vendas", label: "🛒 Vendas", cor: "bg-green-500" },
+    { value: "compras", label: "📦 Compras/Fornecedor", cor: "bg-blue-500" },
+    { value: "assistencia", label: "🔧 Assistência Técnica", cor: "bg-orange-500" },
+    { value: "financeiro", label: "💰 Financeiro", cor: "bg-purple-500" },
+    { value: "geral", label: "🏢 Geral", cor: "bg-slate-500" }
+  ];
+
+  // Funções/Cargos disponíveis
+  const FUNCOES = [
+    { value: "gerente", label: "👔 Gerente", nivel: 1 },
+    { value: "coordenador", label: "📋 Coordenador", nivel: 2 },
+    { value: "supervisor", label: "👁️ Supervisor", nivel: 3 },
+    { value: "senior", label: "⭐ Sênior", nivel: 4 },
+    { value: "pleno", label: "🔹 Pleno", nivel: 5 },
+    { value: "junior", label: "🔸 Júnior", nivel: 6 }
+  ];
+
+  // Matriz de páginas por Setor + Função
+  const MATRIZ_ACESSO = {
+    // VENDAS
+    vendas: {
+      gerente: ["Comunicacao", "Dashboard", "LeadsQualificados", "Vendedores", "Clientes", "AnalyticsAvancado", "Agenda", "Produtos", "NexusCommandCenter"],
+      coordenador: ["Comunicacao", "Dashboard", "LeadsQualificados", "Vendedores", "Clientes", "AnalyticsAvancado", "Agenda", "Produtos"],
+      supervisor: ["Comunicacao", "Dashboard", "LeadsQualificados", "Vendedores", "Clientes", "Agenda", "Produtos"],
+      senior: ["Comunicacao", "LeadsQualificados", "Clientes", "Produtos", "Agenda", "Dashboard"],
+      pleno: ["Comunicacao", "LeadsQualificados", "Clientes", "Produtos", "Agenda", "Dashboard"],
+      junior: ["Comunicacao", "Clientes", "Produtos", "Agenda", "Dashboard"]
+    },
+    // COMPRAS/FORNECEDOR
+    compras: {
+      gerente: ["Comunicacao", "Dashboard", "Produtos", "Importacao", "Clientes", "AnalyticsAvancado", "Agenda", "NexusCommandCenter"],
+      coordenador: ["Comunicacao", "Dashboard", "Produtos", "Importacao", "Clientes", "AnalyticsAvancado", "Agenda"],
+      supervisor: ["Comunicacao", "Dashboard", "Produtos", "Importacao", "Clientes", "Agenda"],
+      senior: ["Comunicacao", "Produtos", "Importacao", "Clientes", "Agenda", "Dashboard"],
+      pleno: ["Comunicacao", "Produtos", "Clientes", "Agenda", "Dashboard"],
+      junior: ["Comunicacao", "Produtos", "Clientes", "Dashboard"]
+    },
+    // ASSISTÊNCIA TÉCNICA
+    assistencia: {
+      gerente: ["Comunicacao", "Dashboard", "Clientes", "Produtos", "AnalyticsAvancado", "Agenda", "NexusCommandCenter"],
+      coordenador: ["Comunicacao", "Dashboard", "Clientes", "Produtos", "AnalyticsAvancado", "Agenda"],
+      supervisor: ["Comunicacao", "Dashboard", "Clientes", "Produtos", "Agenda"],
+      senior: ["Comunicacao", "Clientes", "Produtos", "Agenda", "Dashboard"],
+      pleno: ["Comunicacao", "Clientes", "Produtos", "Agenda", "Dashboard"],
+      junior: ["Comunicacao", "Clientes", "Agenda", "Dashboard"]
+    },
+    // FINANCEIRO
+    financeiro: {
+      gerente: ["Comunicacao", "Dashboard", "Clientes", "AnalyticsAvancado", "Agenda"],
+      coordenador: ["Comunicacao", "Dashboard", "Clientes", "AnalyticsAvancado", "Agenda"],
+      supervisor: ["Comunicacao", "Dashboard", "Clientes", "Agenda"],
+      senior: ["Comunicacao", "Clientes", "Agenda", "Dashboard"],
+      pleno: ["Comunicacao", "Clientes", "Agenda", "Dashboard"],
+      junior: ["Comunicacao", "Clientes", "Dashboard"]
+    },
+    // GERAL
+    geral: {
+      gerente: ["Comunicacao", "Dashboard", "Clientes", "Produtos", "AnalyticsAvancado", "Agenda"],
+      coordenador: ["Comunicacao", "Dashboard", "Clientes", "Produtos", "Agenda"],
+      supervisor: ["Comunicacao", "Dashboard", "Clientes", "Agenda"],
+      senior: ["Comunicacao", "Clientes", "Agenda", "Dashboard"],
+      pleno: ["Comunicacao", "Clientes", "Agenda", "Dashboard"],
+      junior: ["Comunicacao", "Dashboard"]
+    }
+  };
+
+  // Perfis de acesso predefinidos (mantido para compatibilidade)
   const perfisAcesso = {
     admin: {
       label: "Administrador",
       paginas: ["Comunicacao", "Dashboard", "Usuarios", "Auditoria", "DiagnosticoCirurgico", "AnalyticsAvancado", "NexusCommandCenter", "Importacao", "Clientes", "Vendedores", "Produtos", "LeadsQualificados", "Agenda"]
-    },
-    gerencia_vendas: {
-      label: "Gerência - Vendas",
-      paginas: ["Comunicacao", "Dashboard", "LeadsQualificados", "Vendedores", "Clientes", "AnalyticsAvancado", "Agenda", "Produtos"]
-    },
-    gerencia_compras: {
-      label: "Gerência - Compras",
-      paginas: ["Comunicacao", "Produtos", "Importacao", "Dashboard", "Clientes", "Agenda", "AnalyticsAvancado"]
-    },
-    gerencia_assistencia: {
-      label: "Gerência - Assistência",
-      paginas: ["Comunicacao", "Clientes", "Agenda", "Dashboard", "Produtos", "AnalyticsAvancado"]
-    },
-    supervisor_vendas: {
-      label: "Supervisor - Vendas",
-      paginas: ["Comunicacao", "LeadsQualificados", "Vendedores", "Clientes", "Agenda", "Dashboard", "Produtos"]
-    },
-    supervisor_compras: {
-      label: "Supervisor - Compras",
-      paginas: ["Comunicacao", "Produtos", "Importacao", "Agenda", "Dashboard"]
-    },
-    supervisor_assistencia: {
-      label: "Supervisor - Assistência",
-      paginas: ["Comunicacao", "Clientes", "Agenda", "Dashboard", "Produtos"]
-    },
-    atendente_vendas: {
-      label: "Atendente - Vendas",
-      paginas: ["Comunicacao", "LeadsQualificados", "Clientes", "Produtos", "Agenda", "Dashboard"]
-    },
-    atendente_compras: {
-      label: "Atendente - Compras",
-      paginas: ["Comunicacao", "Produtos", "Clientes", "Agenda", "Dashboard"]
-    },
-    atendente_assistencia: {
-      label: "Atendente - Assistência",
-      paginas: ["Comunicacao", "Clientes", "Produtos", "Agenda", "Dashboard"]
     },
     personalizado: {
       label: "Personalizado",
@@ -203,6 +235,41 @@ export default function UsuarioForm({ usuario, onSave, onCancel }) {
       if (perfilKey !== 'personalizado') {
         toast.success(`Perfil "${perfil.label}" aplicado!`);
       }
+    }
+  };
+
+  // Aplicar acesso baseado em Setor + Função
+  const aplicarAcessoPorSetorFuncao = (setor, funcao) => {
+    if (!setor || !funcao) return;
+    
+    const paginas = MATRIZ_ACESSO[setor]?.[funcao] || ["Comunicacao", "Dashboard"];
+    const perfilKey = `${funcao}_${setor}`;
+    
+    setFormData(prev => ({
+      ...prev,
+      attendant_sector: setor,
+      attendant_role: funcao,
+      perfil_acesso: perfilKey,
+      paginas_acesso: paginas
+    }));
+    
+    const setorLabel = SETORES.find(s => s.value === setor)?.label || setor;
+    const funcaoLabel = FUNCOES.find(f => f.value === funcao)?.label || funcao;
+    toast.success(`Acesso configurado: ${funcaoLabel} de ${setorLabel}`);
+  };
+
+  // Quando muda setor ou função, recalcula páginas
+  const handleSetorChange = (novoSetor) => {
+    setFormData(prev => ({ ...prev, attendant_sector: novoSetor }));
+    if (formData.attendant_role && novoSetor) {
+      aplicarAcessoPorSetorFuncao(novoSetor, formData.attendant_role);
+    }
+  };
+
+  const handleFuncaoChange = (novaFuncao) => {
+    setFormData(prev => ({ ...prev, attendant_role: novaFuncao }));
+    if (formData.attendant_sector && novaFuncao) {
+      aplicarAcessoPorSetorFuncao(formData.attendant_sector, novaFuncao);
     }
   };
 
@@ -390,37 +457,39 @@ export default function UsuarioForm({ usuario, onSave, onCancel }) {
               <CardDescription>Dados principais do usuário</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div>
-                <Label htmlFor="full_name">Nome Completo *</Label>
-                <Input
-                  id="full_name"
-                  value={formData.full_name}
-                  onChange={(e) => setFormData({...formData, full_name: e.target.value})}
-                  placeholder="Nome completo"
-                  required
-                />
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="full_name">Nome Completo *</Label>
+                  <Input
+                    id="full_name"
+                    value={formData.full_name}
+                    onChange={(e) => setFormData({...formData, full_name: e.target.value})}
+                    placeholder="Nome completo"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <Label htmlFor="email">E-mail *</Label>
+                  <Input
+                    id="email"
+                    type="email"
+                    value={formData.email}
+                    onChange={(e) => setFormData({...formData, email: e.target.value})}
+                    placeholder="email@empresa.com"
+                    required
+                    disabled={!!usuario}
+                  />
+                  {usuario && (
+                    <p className="text-xs text-slate-500 mt-1">
+                      O e-mail não pode ser alterado
+                    </p>
+                  )}
+                </div>
               </div>
 
               <div>
-                <Label htmlFor="email">E-mail *</Label>
-                <Input
-                  id="email"
-                  type="email"
-                  value={formData.email}
-                  onChange={(e) => setFormData({...formData, email: e.target.value})}
-                  placeholder="email@empresa.com"
-                  required
-                  disabled={!!usuario}
-                />
-                {usuario && (
-                  <p className="text-xs text-slate-500 mt-1">
-                    O e-mail não pode ser alterado após criação
-                  </p>
-                )}
-              </div>
-
-              <div>
-                <Label htmlFor="role">Tipo de Acesso</Label>
+                <Label htmlFor="role">Tipo de Acesso ao Sistema</Label>
                 <Select
                   value={formData.role}
                   onValueChange={(value) => setFormData({...formData, role: value})}
@@ -432,18 +501,105 @@ export default function UsuarioForm({ usuario, onSave, onCancel }) {
                     <SelectItem value="admin">
                       <div className="flex items-center gap-2">
                         <Shield className="w-4 h-4 text-red-500" />
-                        <span>Administrador</span>
+                        <span>Administrador (Acesso Total)</span>
                       </div>
                     </SelectItem>
                     <SelectItem value="user">
                       <div className="flex items-center gap-2">
                         <User className="w-4 h-4 text-blue-500" />
-                        <span>Usuário Padrão</span>
+                        <span>Usuário (Acesso por Setor/Função)</span>
                       </div>
                     </SelectItem>
                   </SelectContent>
                 </Select>
               </div>
+
+              {formData.role !== 'admin' && (
+                <>
+                  <Separator className="my-4" />
+
+                  <div className="p-4 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg border border-blue-200">
+                    <h4 className="font-semibold text-blue-900 mb-3 flex items-center gap-2">
+                      <Shield className="w-4 h-4" />
+                      Configuração de Acesso: Setor → Função → Nível
+                    </h4>
+
+                    <div className="grid grid-cols-2 gap-4">
+                      {/* 1. SETOR */}
+                      <div>
+                        <Label className="text-blue-800 font-medium">1️⃣ Setor</Label>
+                        <Select
+                          value={formData.attendant_sector}
+                          onValueChange={handleSetorChange}
+                        >
+                          <SelectTrigger className="mt-1">
+                            <SelectValue placeholder="Selecione o setor..." />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {SETORES.map((setor) => (
+                              <SelectItem key={setor.value} value={setor.value}>
+                                {setor.label}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      {/* 2. FUNÇÃO */}
+                      <div>
+                        <Label className="text-blue-800 font-medium">2️⃣ Função/Cargo</Label>
+                        <Select
+                          value={formData.attendant_role}
+                          onValueChange={handleFuncaoChange}
+                        >
+                          <SelectTrigger className="mt-1">
+                            <SelectValue placeholder="Selecione a função..." />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {FUNCOES.map((funcao) => (
+                              <SelectItem key={funcao.value} value={funcao.value}>
+                                {funcao.label}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+
+                    {formData.attendant_sector && formData.attendant_role && (
+                      <div className="mt-4 p-3 bg-white rounded-lg border border-blue-100">
+                        <p className="text-sm font-medium text-slate-700">
+                          3️⃣ Nível de Acesso Resultante:
+                        </p>
+                        <div className="flex flex-wrap gap-1 mt-2">
+                          {(MATRIZ_ACESSO[formData.attendant_sector]?.[formData.attendant_role] || []).map((pagina) => {
+                            const paginaInfo = paginasDisponiveis.find(p => p.page === pagina);
+                            return (
+                              <span key={pagina} className="text-xs bg-green-100 text-green-800 px-2 py-1 rounded-full">
+                                {paginaInfo?.name || pagina}
+                              </span>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </>
+              )}
+
+              {formData.role === 'admin' && (
+                <div className="p-4 bg-gradient-to-r from-amber-50 to-orange-50 rounded-lg border border-amber-200">
+                  <div className="flex items-start gap-2">
+                    <AlertCircle className="w-5 h-5 text-amber-600 mt-0.5" />
+                    <div>
+                      <p className="text-sm font-medium text-amber-900">Administrador</p>
+                      <p className="text-sm text-amber-700 mt-1">
+                        Administradores têm acesso total a todas as funcionalidades do sistema, independente de setor ou função.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
