@@ -1,5 +1,5 @@
-import React from "react";
-import { CheckCheck, Clock, User, Users, AlertCircle, Image, Video, Mic, FileText, MapPin, Phone as PhoneIcon, Tag } from "lucide-react";
+import React, { useMemo } from "react";
+import { CheckCheck, Clock, User, Users, AlertCircle, Image, Video, Mic, FileText, MapPin, Phone as PhoneIcon, Tag, Building2, Target, Truck, Handshake, HelpCircle } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { motion } from "framer-motion";
 import { format } from "date-fns";
@@ -11,8 +11,14 @@ import CentralInteligenciaContato, {
   getNivelTemperatura, 
   getProximaAcaoSugerida,
   getEtiquetaConfig,
-  TIPOS_CONTATO
+  TIPOS_CONTATO,
+  FILAS_ATENDIMENTO
 } from "./CentralInteligenciaContato";
+import { 
+  SETORES_ATENDIMENTO,
+  podeAtenderContato,
+  verificarPermissaoUsuario
+} from "./MotorRoteamentoAtendimento";
 
 export default function ChatSidebar({ threads, threadAtiva, onSelecionarThread, loading, usuarioAtual, integracoes = [] }) {
   // Buscar categorias dinâmicas
@@ -62,13 +68,57 @@ export default function ChatSidebar({ threads, threadAtiva, onSelecionarThread, 
     );
   }
 
-  const threadsFiltradas = threads.filter(thread => {
-    const contato = thread.contato;
-    if (contato && contato.bloqueado) {
-      return false;
-    }
-    return true;
-  });
+  // ═══════════════════════════════════════════════════════════════════════════════
+  // 🔐 FILTRO INTELIGENTE: Tipo Contato + Conexão WhatsApp + Hierarquia Usuário
+  // ═══════════════════════════════════════════════════════════════════════════════
+  const threadsFiltradas = useMemo(() => {
+    if (!threads || threads.length === 0) return [];
+    
+    return threads.filter(thread => {
+      const contato = thread.contato;
+      
+      // 1️⃣ Filtrar bloqueados
+      if (contato && contato.bloqueado) return false;
+      
+      // 2️⃣ Admin vê tudo
+      if (usuarioAtual?.role === 'admin') return true;
+      
+      // 3️⃣ Verificar permissões de conexão WhatsApp
+      const whatsappPerms = usuarioAtual?.whatsapp_permissions || [];
+      if (whatsappPerms.length > 0 && thread.whatsapp_integration_id) {
+        const permissao = whatsappPerms.find(p => p.integration_id === thread.whatsapp_integration_id);
+        if (!permissao || !permissao.can_view) return false;
+      }
+      
+      // 4️⃣ Verificar hierarquia Setor → Função → Nível
+      const setorUsuario = usuarioAtual?.attendant_sector;
+      const funcaoUsuario = usuarioAtual?.attendant_role;
+      const podeVerTodos = verificarPermissaoUsuario(usuarioAtual, 'ver_todos');
+      
+      // Se pode ver todos (gerente/coordenador/supervisor), passa
+      if (podeVerTodos) return true;
+      
+      // 5️⃣ Verificar setor da conversa vs setor do atendente
+      const setorThread = thread.sector_id;
+      if (setorThread && setorUsuario && setorThread !== setorUsuario && setorUsuario !== 'geral') {
+        // Conversa de outro setor - não mostrar
+        return false;
+      }
+      
+      // 6️⃣ Verificar tipo de contato vs setor do atendente
+      const tipoContato = contato?.tipo_contato || 'novo';
+      const configSetor = SETORES_ATENDIMENTO.find(s => s.value === setorUsuario);
+      if (configSetor && !configSetor.tipos_contato_aceitos.includes(tipoContato)) {
+        // Tipo de contato não é do setor deste atendente - não mostrar
+        // Exceção: se a conversa está atribuída a ele, mostra
+        if (thread.assigned_user_id !== usuarioAtual?.id) {
+          return false;
+        }
+      }
+      
+      return true;
+    });
+  }, [threads, usuarioAtual]);
 
   const threadsSorted = threadsFiltradas.sort((a, b) => {
     const dateA = new Date(a.last_message_at || 0);
@@ -297,15 +347,29 @@ export default function ChatSidebar({ threads, threadAtiva, onSelecionarThread, 
                     Não Atribuída
                   </p>
                 )}
+                {/* Conexão WhatsApp */}
                 {(() => {
                   const info = getIntegracaoInfo(thread);
                   return info && (
                     <Badge 
                       variant="outline" 
                       className="text-xs py-0 px-1.5 h-5 bg-green-50 text-green-700 border-green-200 cursor-help"
-                      title={`Canal WhatsApp: ${info.numero}`}
+                      title={`Canal WhatsApp: ${info.numero} (${info.nome})`}
                     >
-                      📱 {info.numero}
+                      📱 {info.numero?.slice(-4)}
+                    </Badge>
+                  );
+                })()}
+                {/* Setor da Conversa */}
+                {thread.sector_id && (() => {
+                  const setor = SETORES_ATENDIMENTO.find(s => s.value === thread.sector_id);
+                  return setor && (
+                    <Badge 
+                      variant="outline" 
+                      className={`text-xs py-0 px-1.5 h-5 ${setor.color} text-white border-0 cursor-help`}
+                      title={setor.descricao}
+                    >
+                      {setor.emoji}
                     </Badge>
                   );
                 })()}

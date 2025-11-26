@@ -84,17 +84,40 @@ export default function Comunicacao() {
       // ⚡ OTIMIZAÇÃO: Buscar apenas 50 threads mais recentes
       const allThreads = await base44.entities.MessageThread.list('-last_message_at', 50);
 
-      // 🔐 FILTRO INTELIGENTE POR PERMISSÕES DE SETOR
+      // 🔐 FILTRO INTELIGENTE POR PERMISSÕES: Setor → Função → Conexão WhatsApp
       if (!isManager && usuario.is_whatsapp_attendant) {
-        const setoresAtendente = usuario.whatsapp_setores || [];
+        const setorAtendente = usuario.attendant_sector || 'geral';
+        const funcaoAtendente = usuario.attendant_role || 'junior';
+        const whatsappPerms = usuario.whatsapp_permissions || [];
+        
+        // Níveis que podem ver todas as conversas do setor
+        const podeVerTodos = ['gerente', 'coordenador', 'supervisor'].includes(funcaoAtendente);
         
         return allThreads.filter((thread) => {
-          // ✅ Conversas atribuídas ao atendente
+          // ✅ Conversas atribuídas ao atendente SEMPRE aparecem
           if (thread.assigned_user_id === usuario.id) return true;
           
-          // ✅ Conversas não atribuídas do setor do atendente
-          if (!thread.assigned_user_id && thread.sector_id && setoresAtendente.includes(thread.sector_id)) {
-            return true;
+          // 🔐 Verificar permissão de conexão WhatsApp
+          if (whatsappPerms.length > 0 && thread.whatsapp_integration_id) {
+            const permissao = whatsappPerms.find(p => p.integration_id === thread.whatsapp_integration_id);
+            if (!permissao || !permissao.can_view) return false;
+          }
+          
+          // 👁️ Gerentes/Coordenadores/Supervisores veem todas do setor
+          if (podeVerTodos) {
+            // Se tem setor definido, verificar compatibilidade
+            if (thread.sector_id && setorAtendente !== 'geral') {
+              return thread.sector_id === setorAtendente;
+            }
+            return true; // Sem setor = geral = todos veem
+          }
+          
+          // 👤 Atendentes (senior, pleno, junior) veem:
+          // - Conversas não atribuídas do seu setor
+          // - Conversas sem setor (geral)
+          if (!thread.assigned_user_id) {
+            if (!thread.sector_id || thread.sector_id === 'geral') return true;
+            if (thread.sector_id === setorAtendente) return true;
           }
           
           return false;
