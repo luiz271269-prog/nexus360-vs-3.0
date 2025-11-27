@@ -100,10 +100,10 @@ export default function ConfiguracaoWhatsAppHub({ integracoes, onRecarregar, usu
     setNovaIntegracao({
       nome_instancia: integracao.nome_instancia,
       numero_telefone: integracao.numero_telefone,
-      zapi_instance_id: integracao.instance_id_provider,
-      zapi_token_instancia: integracao.api_key_provider || "",
-      zapi_client_token_conta: integracao.security_client_token_header || "",
-      zapi_base_url: integracao.base_url_provider || "https://api.z-api.io"
+      api_provider: integracao.api_provider || "z_api",
+      instance_id: integracao.instance_id_provider || "",
+      token_instancia: integracao.api_key_provider || "",
+      client_token_conta: integracao.security_client_token_header || ""
     });
     setModoEdicao(false);
   };
