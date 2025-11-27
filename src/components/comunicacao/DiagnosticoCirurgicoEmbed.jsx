@@ -80,28 +80,52 @@ export default function DiagnosticoCirurgicoEmbed() {
       }
 
       // ========== TESTE 3: ENVIAR PAYLOAD TESTE ==========
-      console.log('[DIAG] Enviando payload de teste...');
+      console.log('[DIAG] Enviando payload de teste para', providerNome);
       const messageIdTeste = `DIAG_TEST_${Date.now()}`;
-      const payloadTeste = {
-        instanceId: integracao.instance_id_provider,
-        instance: integracao.instance_id_provider,
-        instance_id: integracao.instance_id_provider,
-        type: 'ReceivedCallback',
-        event: 'ReceivedCallback',
-        eventName: 'ReceivedCallback',
-        event_type: 'ReceivedCallback',
-        evento: {
-          event: 'ReceivedCallback',
+      
+      // Payload adaptado ao provedor (Z-API vs W-API)
+      let payloadTeste;
+      if (isWAPI) {
+        // Formato W-API
+        payloadTeste = {
           instanceId: integracao.instance_id_provider,
-          type: 'ReceivedCallback'
-        },
-        phone: '5548999000111',
-        telefone: '5548999000111',
-        momment: Date.now(),
-        messageId: messageIdTeste,
-        id: messageIdTeste,
-        text: { message: 'TESTE CIRURGICO' }
-      };
+          event: 'message',
+          data: {
+            key: {
+              remoteJid: '5548999000111@s.whatsapp.net',
+              fromMe: false,
+              id: messageIdTeste
+            },
+            message: {
+              conversation: 'TESTE CIRURGICO W-API'
+            },
+            messageTimestamp: Math.floor(Date.now() / 1000),
+            pushName: 'Teste Diagnóstico'
+          }
+        };
+      } else {
+        // Formato Z-API (mantido igual)
+        payloadTeste = {
+          instanceId: integracao.instance_id_provider,
+          instance: integracao.instance_id_provider,
+          instance_id: integracao.instance_id_provider,
+          type: 'ReceivedCallback',
+          event: 'ReceivedCallback',
+          eventName: 'ReceivedCallback',
+          event_type: 'ReceivedCallback',
+          evento: {
+            event: 'ReceivedCallback',
+            instanceId: integracao.instance_id_provider,
+            type: 'ReceivedCallback'
+          },
+          phone: '5548999000111',
+          telefone: '5548999000111',
+          momment: Date.now(),
+          messageId: messageIdTeste,
+          id: messageIdTeste,
+          text: { message: 'TESTE CIRURGICO' }
+        };
+      }
 
       let webhookResponse = null;
       try {
