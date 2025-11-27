@@ -416,19 +416,41 @@ export default function ContactInfoPanel({ contact, novoContatoTelefone, onClose
       animate={{ x: 0, opacity: 1 }}
       className="w-96 h-full bg-white flex flex-col overflow-hidden"
     >
-      <div className="bg-gradient-to-r from-amber-400 via-orange-500 to-red-500 text-white p-4 shadow-lg">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <button onClick={onClose} className="hover:bg-white/10 rounded-full p-1">
-              <X className="w-5 h-5" />
-            </button>
-            <h3 className="font-medium text-lg">Informações do contato</h3>
+      {/* HEADER COM FOTO NO TOPO */}
+      <div className="bg-gradient-to-r from-amber-400 via-orange-500 to-red-500 text-white p-3 shadow-lg">
+        <div className="flex items-center gap-3">
+          <button onClick={onClose} className="hover:bg-white/10 rounded-full p-1 flex-shrink-0">
+            <X className="w-5 h-5" />
+          </button>
+          
+          {/* FOTO DO CONTATO */}
+          <div className="relative flex-shrink-0">
+            <div className="w-14 h-14 rounded-full bg-white/20 flex items-center justify-center overflow-hidden border-2 border-white/40 shadow-lg">
+              {contact.foto_perfil_url ? (
+                <img 
+                  src={contact.foto_perfil_url} 
+                  alt={formData.nome}
+                  className="w-full h-full object-cover"
+                  onError={(e) => { e.target.style.display = 'none'; }}
+                />
+              ) : (
+                <span className="text-2xl font-bold text-white">
+                  {formData.nome?.charAt(0)?.toUpperCase() || '?'}
+                </span>
+              )}
+            </div>
+            {salvando && (
+              <div className="absolute -bottom-1 -right-1 w-5 h-5 bg-white rounded-full flex items-center justify-center">
+                <Loader2 className="w-3 h-3 text-orange-500 animate-spin" />
+              </div>
+            )}
           </div>
-          {salvando && (
-            <motion.div className="flex items-center gap-1 text-xs bg-white/20 px-2 py-1 rounded-full">
-              <Loader2 className="w-3 h-3 animate-spin" />
-            </motion.div>
-          )}
+
+          {/* NOME + TELEFONE */}
+          <div className="flex-1 min-w-0">
+            <h3 className="font-bold text-lg truncate">{formData.nome || 'Sem nome'}</h3>
+            <p className="text-sm text-white/80 font-mono">{formData.telefone}</p>
+          </div>
         </div>
       </div>
 
@@ -439,79 +461,71 @@ export default function ContactInfoPanel({ contact, novoContatoTelefone, onClose
         </TabsList>
 
         <TabsContent value="dados" className="flex-1 overflow-y-auto m-0">
-          {/* Cards Classificação - 1cm altura NO TOPO */}
-          <div className="p-3 space-y-2 bg-slate-50 border-b">
-            <div className="bg-gradient-to-r from-orange-500 to-red-500 text-white rounded-lg px-3 shadow h-[1cm] flex items-center gap-2">
-              <Tag className="w-4 h-4 flex-shrink-0" />
-              <Select
-                value={formData.tipo_contato}
-                onValueChange={(value) => handleChange('tipo_contato', value)}
-                disabled={!podeEditarContatos}
-              >
-                <SelectTrigger className="border-0 bg-transparent text-white h-6 p-0 focus:ring-0 flex-1">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {tiposContato.map(tipo => (
-                    <SelectItem key={tipo.value} value={tipo.value}>{tipo.icon} {tipo.label}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            {formData.tipo_contato === 'fornecedor' && (
-              <div className="bg-purple-500 text-white rounded-lg px-3 shadow h-[1cm] flex items-center gap-2">
-                <User className="w-4 h-4 flex-shrink-0" />
+          {/* LINHA ÚNICA: TIPO + ATENDENTE + VENDEDOR */}
+          <div className="p-3 bg-slate-50 border-b">
+            <div className="flex gap-2">
+              {/* TIPO */}
+              <div className="flex-1 bg-gradient-to-r from-orange-500 to-red-500 text-white rounded-lg px-2 shadow h-9 flex items-center gap-1">
+                <Tag className="w-3.5 h-3.5 flex-shrink-0" />
                 <Select
-                  value={formData.atendente_fidelizado_fornecedor || "nao"}
-                  onValueChange={(value) => handleChange('atendente_fidelizado_fornecedor', value === "nao" ? "" : value)}
+                  value={formData.tipo_contato}
+                  onValueChange={(value) => handleChange('tipo_contato', value)}
                   disabled={!podeEditarContatos}
                 >
-                  <SelectTrigger className="border-0 bg-transparent text-white h-6 p-0 focus:ring-0 flex-1">
-                    <SelectValue placeholder="Atendente" />
+                  <SelectTrigger className="border-0 bg-transparent text-white h-6 p-0 focus:ring-0 flex-1 text-xs">
+                    <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="nao">Não atribuído</SelectItem>
-                    {atendentes.map(a => <SelectItem key={a.id} value={a.full_name}>{a.full_name}</SelectItem>)}
+                    {tiposContato.map(tipo => (
+                      <SelectItem key={tipo.value} value={tipo.value}>{tipo.icon} {tipo.label}</SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
-            )}
 
-            {formData.tipo_contato === 'cliente' && (
-              <div className="bg-purple-500 text-white rounded-lg px-3 shadow h-[1cm] flex items-center gap-2">
-                <User className="w-4 h-4 flex-shrink-0" />
+              {/* ATENDENTE (condicional) */}
+              {(formData.tipo_contato === 'fornecedor' || formData.tipo_contato === 'cliente') && (
+                <div className="flex-1 bg-purple-500 text-white rounded-lg px-2 shadow h-9 flex items-center gap-1">
+                  <User className="w-3.5 h-3.5 flex-shrink-0" />
+                  <Select
+                    value={formData.tipo_contato === 'fornecedor' 
+                      ? (formData.atendente_fidelizado_fornecedor || "nao")
+                      : (formData.atendente_fidelizado_vendas || "nao")
+                    }
+                    onValueChange={(value) => handleChange(
+                      formData.tipo_contato === 'fornecedor' ? 'atendente_fidelizado_fornecedor' : 'atendente_fidelizado_vendas',
+                      value === "nao" ? "" : value
+                    )}
+                    disabled={!podeEditarContatos}
+                  >
+                    <SelectTrigger className="border-0 bg-transparent text-white h-6 p-0 focus:ring-0 flex-1 text-xs">
+                      <SelectValue placeholder="Atend." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="nao">Nenhum</SelectItem>
+                      {atendentes.map(a => <SelectItem key={a.id} value={a.full_name}>{a.full_name}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+
+              {/* VENDEDOR */}
+              <div className="flex-1 bg-amber-500 text-white rounded-lg px-2 shadow h-9 flex items-center gap-1">
+                <User className="w-3.5 h-3.5 flex-shrink-0" />
                 <Select
-                  value={formData.atendente_fidelizado_vendas || "nao"}
-                  onValueChange={(value) => handleChange('atendente_fidelizado_vendas', value === "nao" ? "" : value)}
+                  value={formData.vendedor_responsavel || "nao"}
+                  onValueChange={(value) => handleChange('vendedor_responsavel', value === "nao" ? "" : value)}
                   disabled={!podeEditarContatos}
                 >
-                  <SelectTrigger className="border-0 bg-transparent text-white h-6 p-0 focus:ring-0 flex-1">
-                    <SelectValue placeholder="Atendente" />
+                  <SelectTrigger className="border-0 bg-transparent text-white h-6 p-0 focus:ring-0 flex-1 text-xs">
+                    <SelectValue placeholder="Vend." />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="nao">Não atribuído</SelectItem>
-                    {atendentes.map(a => <SelectItem key={a.id} value={a.full_name}>{a.full_name}</SelectItem>)}
+                    <SelectItem value="nao">Nenhum</SelectItem>
+                    {vendedores.map(v => <SelectItem key={v.id} value={v.nome}>{v.nome}</SelectItem>)}
                   </SelectContent>
                 </Select>
               </div>
-            )}
-
-            <div className="bg-amber-500 text-white rounded-lg px-3 shadow h-[1cm] flex items-center gap-2">
-              <User className="w-4 h-4 flex-shrink-0" />
-              <Select
-                value={formData.vendedor_responsavel || "nao"}
-                onValueChange={(value) => handleChange('vendedor_responsavel', value === "nao" ? "" : value)}
-                disabled={!podeEditarContatos}
-              >
-                <SelectTrigger className="border-0 bg-transparent text-white h-6 p-0 focus:ring-0 flex-1">
-                  <SelectValue placeholder="Vendedor" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="nao">Não atribuído</SelectItem>
-                  {vendedores.map(v => <SelectItem key={v.id} value={v.nome}>{v.nome}</SelectItem>)}
-                </SelectContent>
-              </Select>
             </div>
           </div>
 
