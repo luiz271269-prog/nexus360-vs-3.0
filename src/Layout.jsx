@@ -157,8 +157,6 @@ export default function Layout({ children, currentPageName }) {
     { name: "Vendedores", icon: Users, page: "Vendedores" },
     { name: "Produtos", icon: Package, page: "Produtos" },
     { name: "Agenda Inteligente", icon: Calendar, page: "Agenda" },
-    { name: "Analytics Avançado", icon: BarChart3, page: "AnalyticsAvancado" },
-    { name: "🤖 Nexus Command Center", icon: Brain, page: "NexusCommandCenter" },
     { name: "Importação", icon: Upload, page: "Importacao" },
     { name: "Gerenciamento de Usuários", icon: UserCog, page: "Usuarios" },
     { name: "Auditoria", icon: Shield, page: "Auditoria" },

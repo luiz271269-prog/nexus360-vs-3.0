@@ -54,6 +54,10 @@ const RECURSOS_SISTEMA = [
       { id: "Dashboard.visao_empresa", nome: "Visão Empresa", tipo: "subtela" },
       { id: "Dashboard.visao_empresa.ver_faturamento", nome: "Ver Faturamento", tipo: "acao" },
       { id: "Dashboard.visao_empresa.ver_metas", nome: "Ver Metas Globais", tipo: "acao" },
+      { id: "Dashboard.analytics_avancado", nome: "Analytics Avançado", tipo: "subtela" },
+      { id: "Dashboard.analytics_avancado.relatorios", nome: "Ver Relatórios", tipo: "acao" },
+      { id: "Dashboard.analytics_avancado.graficos", nome: "Ver Gráficos", tipo: "acao" },
+      { id: "Dashboard.analytics_avancado.configurar", nome: "Configurar Métricas", tipo: "acao" },
       { id: "Dashboard.performance_vendas", nome: "Performance Vendas", tipo: "subtela" },
       { id: "Dashboard.performance_vendas.ranking", nome: "Ver Ranking Vendedores", tipo: "acao" },
       { id: "Dashboard.performance_vendas.detalhes_vendedor", nome: "Acessar Detalhes Vendedor", tipo: "acao" },
@@ -83,6 +87,9 @@ const RECURSOS_SISTEMA = [
       { id: "LeadsQualificados.orcamentos.criar", nome: "Criar Orçamento", tipo: "acao" },
       { id: "LeadsQualificados.orcamentos.editar", nome: "Editar Orçamento", tipo: "acao" },
       { id: "LeadsQualificados.orcamentos.ver_detalhes", nome: "Ver Detalhes Orçamento", tipo: "acao" },
+      { id: "LeadsQualificados.nexus_command", nome: "Nexus Command Center", tipo: "subtela" },
+      { id: "LeadsQualificados.nexus_command.ver", nome: "Visualizar Nexus", tipo: "acao" },
+      { id: "LeadsQualificados.nexus_command.configurar", nome: "Configurar Nexus", tipo: "acao" },
     ]
   },
   {
@@ -145,19 +152,7 @@ const RECURSOS_SISTEMA = [
       { id: "Agenda.ver_calendario", nome: "Ver Calendário", tipo: "subtela" },
     ]
   },
-  { 
-    id: "AnalyticsAvancado", 
-    nome: "📈 Analytics Avançado", 
-    tipo: "menu", 
-    categoria: "Relatórios", 
-    description: "Análises avançadas e BI.",
-    acoes: [
-      { id: "AnalyticsAvancado.relatorios", nome: "Ver Relatórios", tipo: "subtela" },
-      { id: "AnalyticsAvancado.graficos", nome: "Ver Gráficos", tipo: "subtela" },
-      { id: "AnalyticsAvancado.exportar", nome: "Exportar Dados", tipo: "acao" },
-      { id: "AnalyticsAvancado.configurar", nome: "Configurar Métricas", tipo: "acao" },
-    ]
-  },
+
   { 
     id: "Importacao", 
     nome: "📥 Importação", 
