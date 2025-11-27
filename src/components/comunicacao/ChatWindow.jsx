@@ -1584,7 +1584,7 @@ export default function ChatWindow({
 
       }
 
-      <form onSubmit={handleEnviar} className="bg-[#737f96] text-gray-950 px-3 rounded-lg border-t flex-shrink-0">
+      <form onSubmit={handleEnviar} className="bg-[#73858c] text-gray-950 px-3 rounded-lg border-t flex-shrink-0">
         {/* Seletor de Canal WhatsApp */}
         {integracoes.length > 1 &&
         <div className="mb-2 flex items-center gap-2">
