@@ -1,13 +1,21 @@
+import React from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
+  TrendingUp,
+  AlertCircle,
   Phone,
   Mail,
+  Calendar,
   Edit,
   Eye,
-  DollarSign
+  DollarSign,
+  Users
 } from 'lucide-react';
+import { format } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
+import AtribuidorAtendenteRapido from '../comunicacao/AtribuidorAtendenteRapido';
 
 export default function ClienteKanbanCard({ cliente, score, isDragging, onEdit, onViewDetails, statusGradient }) {
   const getScoreColor = (scoreTotal) => {
@@ -86,12 +94,20 @@ export default function ClienteKanbanCard({ cliente, score, isDragging, onEdit, 
           )}
         </div>
 
-        {/* Vendedor */}
-        {cliente.vendedor_responsavel && (
-          <div className="text-[10px] text-slate-600 truncate">
-            👤 {cliente.vendedor_responsavel}
-          </div>
-        )}
+        {/* Vendedor/Atendente - Com atribuição rápida */}
+        <div className="flex items-center gap-1">
+          <Users className="w-2.5 h-2.5 text-slate-400" />
+          <AtribuidorAtendenteRapido
+            contato={{ 
+              id: cliente.id, 
+              vendedor_responsavel: cliente.vendedor_responsavel,
+              tipo_contato: 'cliente'
+            }}
+            tipoContato="cliente"
+            setorAtual="vendas"
+            variant="mini"
+          />
+        </div>
 
         {/* Métricas (Score) */}
         {score && (

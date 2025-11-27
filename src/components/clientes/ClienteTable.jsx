@@ -1,8 +1,10 @@
+import React from 'react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { MoreHorizontal, Edit, Trash2, Eye } from "lucide-react";
+import { MoreHorizontal, Edit, Trash2, Eye, Users } from "lucide-react";
+import AtribuidorAtendenteRapido from '../comunicacao/AtribuidorAtendenteRapido';
 
 export default function ClienteTable({ clientes, onEdit, onDelete, onViewDetails }) {
 
@@ -46,7 +48,18 @@ export default function ClienteTable({ clientes, onEdit, onDelete, onViewDetails
                 <div className="text-sm text-slate-500">{cliente.nome_fantasia}</div>
               </TableCell>
               <TableCell className="font-mono text-sm text-slate-600">{cliente.cnpj}</TableCell>
-              <TableCell>{cliente.vendedor_responsavel}</TableCell>
+              <TableCell>
+                <AtribuidorAtendenteRapido
+                  contato={{ 
+                    id: cliente.id, 
+                    vendedor_responsavel: cliente.vendedor_responsavel,
+                    tipo_contato: 'cliente'
+                  }}
+                  tipoContato="cliente"
+                  setorAtual="vendas"
+                  variant="compact"
+                />
+              </TableCell>
               <TableCell>{getStatusChip(cliente.status)}</TableCell>
               <TableCell>{cliente.segmento}</TableCell>
               <TableCell className="text-right font-medium text-slate-700">{formatCurrency(cliente.valor_recorrente_mensal)}</TableCell>
