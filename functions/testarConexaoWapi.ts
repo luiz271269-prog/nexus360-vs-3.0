@@ -108,8 +108,11 @@ Deno.serve(async (req) => {
     return new Response(
       JSON.stringify({
         success: true,
-        conectado: conectado,
-        status: novoStatus,
+        dados: {
+          conectado: conectado,
+          status: novoStatus,
+          smartphoneConectado: result.connected === true
+        },
         provider: 'w_api',
         integracao: {
           id: integracao.id,
