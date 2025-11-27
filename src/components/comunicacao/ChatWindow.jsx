@@ -1252,7 +1252,7 @@ export default function ChatWindow({
   return (
     <div className="flex flex-col h-full bg-white">
       {/* Header Compacto com Gradiente Vibrante */}
-      <div className="bg-gradient-to-r from-violet-600 via-purple-600 to-fuchsia-600 p-3 border-b border-purple-700 flex-shrink-0 shadow-lg">
+      <div className="bg-gradient-to-r from-amber-500 via-orange-500 to-red-500 p-3 border-b border-orange-600 flex-shrink-0 shadow-lg">
         <div className="flex items-center gap-3">
           {/* Avatar Compacto */}
           <div className="relative flex-shrink-0">
