@@ -6,19 +6,19 @@ import { format } from "date-fns";
 import { CATEGORIAS_FIXAS, getCategoriaConfig } from "./CategorizadorRapido";
 import { useQuery } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
-import CentralInteligenciaContato, { 
-  calcularScoreContato, 
-  getNivelTemperatura, 
+import CentralInteligenciaContato, {
+  calcularScoreContato,
+  getNivelTemperatura,
   getProximaAcaoSugerida,
   getEtiquetaConfig,
   TIPOS_CONTATO,
-  FILAS_ATENDIMENTO
-} from "./CentralInteligenciaContato";
-import { 
+  FILAS_ATENDIMENTO } from
+"./CentralInteligenciaContato";
+import {
   SETORES_ATENDIMENTO,
   podeAtenderContato,
-  verificarPermissaoUsuario
-} from "./MotorRoteamentoAtendimento";
+  verificarPermissaoUsuario } from
+"./MotorRoteamentoAtendimento";
 
 export default function ChatSidebar({ threads, threadAtiva, onSelecionarThread, loading, usuarioAtual, integracoes = [] }) {
   // Buscar categorias dinâmicas
@@ -34,7 +34,7 @@ export default function ChatSidebar({ threads, threadAtiva, onSelecionarThread, 
   const threadsFiltradas = useMemo(() => {
     if (!threads || threads.length === 0) return [];
 
-    return threads.filter(thread => {
+    return threads.filter((thread) => {
       const contato = thread.contato;
 
       // 1️⃣ Filtrar bloqueados
@@ -46,7 +46,7 @@ export default function ChatSidebar({ threads, threadAtiva, onSelecionarThread, 
       // 3️⃣ Verificar permissões de conexão WhatsApp
       const whatsappPerms = usuarioAtual?.whatsapp_permissions || [];
       if (whatsappPerms.length > 0 && thread.whatsapp_integration_id) {
-        const permissao = whatsappPerms.find(p => p.integration_id === thread.whatsapp_integration_id);
+        const permissao = whatsappPerms.find((p) => p.integration_id === thread.whatsapp_integration_id);
         if (!permissao || !permissao.can_view) return false;
       }
 
@@ -77,7 +77,7 @@ export default function ChatSidebar({ threads, threadAtiva, onSelecionarThread, 
 
       // 7️⃣ Verificar tipo de contato vs setor do atendente
       const tipoContato = contato?.tipo_contato || 'novo';
-      const configSetor = SETORES_ATENDIMENTO.find(s => s.value === setorUsuario);
+      const configSetor = SETORES_ATENDIMENTO.find((s) => s.value === setorUsuario);
       if (configSetor && !configSetor.tipos_contato_aceitos.includes(tipoContato)) {
         if (thread.assigned_user_id !== usuarioAtual?.id) {
           return false;
@@ -121,23 +121,23 @@ export default function ChatSidebar({ threads, threadAtiva, onSelecionarThread, 
   if (loading) {
     return (
       <div className="p-4">
-        {Array(5).fill(0).map((_, i) => (
-          <div key={i} className="animate-pulse flex gap-3 mb-4">
+        {Array(5).fill(0).map((_, i) =>
+        <div key={i} className="animate-pulse flex gap-3 mb-4">
             <div className="w-12 h-12 bg-slate-200 rounded-full"></div>
             <div className="flex-1">
               <div className="h-4 bg-slate-200 rounded w-3/4 mb-2"></div>
               <div className="h-3 bg-slate-200 rounded w-1/2"></div>
             </div>
           </div>
-        ))}
-      </div>
-    );
+        )}
+      </div>);
+
   }
 
   // Função para buscar nome e número da integração
   const getIntegracaoInfo = (thread) => {
     if (!thread.whatsapp_integration_id || integracoes.length === 0) return null;
-    const integracao = integracoes.find(i => i.id === thread.whatsapp_integration_id);
+    const integracao = integracoes.find((i) => i.id === thread.whatsapp_integration_id);
     if (!integracao) return null;
     return {
       nome: integracao.nome_instancia,
@@ -153,24 +153,24 @@ export default function ChatSidebar({ threads, threadAtiva, onSelecionarThread, 
         <p className="text-sm text-slate-500 mt-1">
           Use a busca acima para iniciar
         </p>
-      </div>
-    );
+      </div>);
+
   }
 
   const handleClick = (thread) => {
     console.log('🖱️ [ChatSidebar] Click na thread:', thread.id, thread.contato?.nome);
-    
+
     // Validação antes de chamar onSelecionarThread
     if (!thread || !thread.id) {
       console.error('❌ [ChatSidebar] Thread inválida:', thread);
       return;
     }
-    
+
     if (!thread.contact_id) {
       console.error('❌ [ChatSidebar] Thread sem contact_id:', thread);
       return;
     }
-    
+
     // Chamar callback
     onSelecionarThread(thread);
   };
@@ -192,8 +192,8 @@ export default function ChatSidebar({ threads, threadAtiva, onSelecionarThread, 
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: index * 0.05 }}
               onClick={() => handleClick(thread)}
-              className="flex items-center gap-3 p-4 cursor-pointer transition-all border-b border-slate-100 hover:bg-slate-50"
-            >
+              className="flex items-center gap-3 p-4 cursor-pointer transition-all border-b border-slate-100 hover:bg-slate-50">
+
               <div className="w-12 h-12 rounded-full flex items-center justify-center text-white font-bold text-lg shadow-md bg-gradient-to-br from-slate-400 to-slate-500">
                 ?
               </div>
@@ -201,8 +201,8 @@ export default function ChatSidebar({ threads, threadAtiva, onSelecionarThread, 
                 <h3 className="font-semibold text-slate-700">Contato Desconhecido</h3>
                 <p className="text-sm text-slate-600">ID: {thread.contact_id}</p>
               </div>
-            </motion.div>
-          );
+            </motion.div>);
+
         }
 
         // Nome formatado: Empresa + Cargo + Nome
@@ -222,31 +222,31 @@ export default function ChatSidebar({ threads, threadAtiva, onSelecionarThread, 
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: index * 0.05 }}
-            onClick={() => handleClick(thread)}
-            className={`flex items-center gap-3 p-4 cursor-pointer transition-all border-b border-slate-100 hover:bg-gradient-to-r hover:from-amber-50 hover:to-orange-50 ${
-              isAtiva ? 'bg-gradient-to-r from-amber-50 via-orange-50 to-red-50 border-l-4 border-l-orange-500' : ''
-            }`}
-          >
+            onClick={() => handleClick(thread)} className="px-2 py-2 flex items-center gap-3 cursor-pointer transition-all border-b border-slate-100 hover:bg-gradient-to-r hover:from-amber-50 hover:to-orange-50">
+
+
+
+
             {/* Avatar */}
             <div className="relative flex-shrink-0">
               <div className={`relative w-12 h-12 rounded-full flex items-center justify-center text-white font-bold text-lg shadow-md overflow-hidden ${
-                hasUnread 
-                  ? 'bg-gradient-to-br from-amber-400 via-orange-500 to-red-500' 
-                  : 'bg-gradient-to-br from-slate-400 to-slate-500'
-              }`}>
-                {contato.foto_perfil_url ? (
-                  <>
-                    <img 
-                      src={contato.foto_perfil_url} 
-                      alt={nomeExibicao}
-                      className="w-full h-full object-cover absolute inset-0"
-                      onError={(e) => { e.target.style.display = 'none'; }}
-                    />
+              hasUnread ?
+              'bg-gradient-to-br from-amber-400 via-orange-500 to-red-500' :
+              'bg-gradient-to-br from-slate-400 to-slate-500'}`
+              }>
+                {contato.foto_perfil_url ?
+                <>
+                    <img
+                    src={contato.foto_perfil_url}
+                    alt={nomeExibicao}
+                    className="w-full h-full object-cover absolute inset-0"
+                    onError={(e) => {e.target.style.display = 'none';}} />
+
                     <span className="relative z-10">{nomeExibicao.charAt(0).toUpperCase()}</span>
-                  </>
-                ) : (
-                  nomeExibicao.charAt(0).toUpperCase()
-                )}
+                  </> :
+
+                nomeExibicao.charAt(0).toUpperCase()
+                }
               </div>
             </div>
 
@@ -256,26 +256,26 @@ export default function ChatSidebar({ threads, threadAtiva, onSelecionarThread, 
                     <h3 className={`font-semibold truncate ${hasUnread ? 'text-slate-900' : 'text-slate-700'}`}>
                       {nomeExibicao}
                     </h3>
-                    {hasUnread && (
-                      <Badge className="rounded-full min-w-[20px] h-5 flex items-center justify-center p-0 px-1.5 bg-gradient-to-r from-amber-400 via-orange-500 to-red-500 text-white text-xs font-bold border-0 shadow-lg">
+                    {hasUnread &&
+                  <Badge className="rounded-full min-w-[20px] h-5 flex items-center justify-center p-0 px-1.5 bg-gradient-to-r from-amber-400 via-orange-500 to-red-500 text-white text-xs font-bold border-0 shadow-lg">
                         {thread.unread_count}
                       </Badge>
-                    )}
+                  }
                   </div>
                 <span className={`text-xs flex-shrink-0 ml-2 ${
-                  hasUnread ? 'text-orange-600 font-medium' : 'text-slate-500'
-                }`}>
+                hasUnread ? 'text-orange-600 font-medium' : 'text-slate-500'}`
+                }>
                   {formatarHorario(thread.last_message_at)}
                 </span>
               </div>
 
               <div className="flex items-center justify-between">
                 <p className={`text-sm truncate flex-1 flex items-center gap-1.5 ${
-                  hasUnread ? 'text-slate-900 font-medium' : 'text-slate-600'
-                }`}>
-                  {thread.last_message_sender === 'user' && (
-                    <CheckCheck className="w-4 h-4 text-blue-500 flex-shrink-0" />
-                  )}
+                hasUnread ? 'text-slate-900 font-medium' : 'text-slate-600'}`
+                }>
+                  {thread.last_message_sender === 'user' &&
+                  <CheckCheck className="w-4 h-4 text-blue-500 flex-shrink-0" />
+                  }
                   {/* Ícone de mídia baseado no tipo */}
                   {thread.last_media_type === 'image' && <Image className="w-4 h-4 text-blue-500 flex-shrink-0" />}
                   {thread.last_media_type === 'video' && <Video className="w-4 h-4 text-purple-500 flex-shrink-0" />}
@@ -315,60 +315,60 @@ export default function ChatSidebar({ threads, threadAtiva, onSelecionarThread, 
                 {/* Tipo do Contato com descrição */}
                 {(() => {
                   const tipoContato = contato?.tipo_contato || 'novo';
-                  const tipo = TIPOS_CONTATO.find(t => t.value === tipoContato);
+                  const tipo = TIPOS_CONTATO.find((t) => t.value === tipoContato);
                   if (!tipo) return null;
                   return (
                     <span className="flex items-center gap-1" title={tipo.label}>
                       <Tag className="w-3 h-3" />
                       {tipo.label}
-                    </span>
-                  );
+                    </span>);
+
                 })()}
 
                 {/* Separador */}
                 {contato?.vendedor_responsavel && <span className="text-slate-300">•</span>}
 
                 {/* Vendedor Responsável */}
-                {contato?.vendedor_responsavel && (
-                  <span className="flex items-center gap-1" title="Vendedor Responsável">
+                {contato?.vendedor_responsavel &&
+                <span className="flex items-center gap-1" title="Vendedor Responsável">
                     <User className="w-3 h-3" />
                     {contato.vendedor_responsavel}
                   </span>
-                )}
+                }
 
                 {/* Separador */}
                 {thread.assigned_user_name && <span className="text-slate-300">•</span>}
 
                 {/* Atribuição */}
-                {thread.assigned_user_name && (
-                  <span className="flex items-center gap-1">
+                {thread.assigned_user_name &&
+                <span className="flex items-center gap-1">
                     <Users className="w-3 h-3 text-blue-500" />
                     {isAssignedToMe ? 'Minha' : thread.assigned_user_name}
                   </span>
-                )}
-                {isUnassigned && (
-                  <span className="flex items-center gap-1 text-red-500 font-medium">
+                }
+                {isUnassigned &&
+                <span className="flex items-center gap-1 text-red-500 font-medium">
                     <AlertCircle className="w-3 h-3" />
                     Não Atribuída
                   </span>
-                )}
+                }
 
                 {/* Etiquetas especiais */}
-                {contato?.tags && contato.tags.length > 0 && (
-                  contato.tags.filter(t => ['vip', 'prioridade', 'fidelizado'].includes(t)).slice(0, 2).map(etq => {
-                    const config = getEtiquetaConfig(etq);
-                    return (
-                      <Badge key={etq} variant="outline" className="text-xs py-0 px-1.5 h-4">
+                {contato?.tags && contato.tags.length > 0 &&
+                contato.tags.filter((t) => ['vip', 'prioridade', 'fidelizado'].includes(t)).slice(0, 2).map((etq) => {
+                  const config = getEtiquetaConfig(etq);
+                  return (
+                    <Badge key={etq} variant="outline" className="text-xs py-0 px-1.5 h-4">
                         {config.emoji} {config.label}
-                      </Badge>
-                    );
-                  })
-                )}
+                      </Badge>);
+
+                })
+                }
               </div>
             </div>
-          </motion.div>
-        );
+          </motion.div>);
+
       })}
-    </div>
-  );
+    </div>);
+
 }
