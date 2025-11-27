@@ -1328,33 +1328,7 @@ export default function ChatWindow({
               })()}
             </div>
 
-            {/* Barra de Temperatura Visual */}
-            {(() => {
-              const score = calcularScoreContato(contatoCompleto);
-              const nivel = getNivelTemperatura(score);
-              const Icon = nivel.icon;
-              return (
-                <div className="flex items-center gap-2 max-w-[220px]">
-                  <div className={`w-6 h-6 rounded-full bg-gradient-to-br ${nivel.gradiente} flex items-center justify-center shadow-md`}>
-                    <Icon className="w-3.5 h-3.5 text-white" />
-                  </div>
-                  <div className="flex-1">
-                    <div className="flex items-center justify-between mb-0.5">
-                      <span className="text-[10px] font-bold text-slate-700">
-                        {nivel.emoji} {nivel.label}
-                      </span>
-                      <span className="text-[10px] text-slate-400">{score}%</span>
-                    </div>
-                    <div className="w-full h-1.5 bg-slate-200 rounded-full overflow-hidden">
-                      <div 
-                        className={`h-full bg-gradient-to-r ${nivel.gradiente} transition-all duration-700`}
-                        style={{ width: `${score}%` }}
-                      />
-                    </div>
-                  </div>
-                </div>
-              );
-            })()}
+
           </div>
 
           {/* Ações */}
