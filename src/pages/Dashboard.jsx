@@ -584,28 +584,28 @@ export default function Dashboard() {
           }} />
 
         {/* Navegação por Perspectivas */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
           {navegacao.map((item) =>
             <button
               key={item.key}
               onClick={() => setViewMode(item.key)}
-              className={`bg-gradient-to-br from-orange-500 via-orange-600 to-red-500 hover:from-orange-600 hover:via-red-500 hover:to-red-600 text-slate-50 p-4 rounded-xl border border-slate-200/50 transition-all duration-300 transform hover:-translate-y-1 hover:shadow-2xl shadow-xl ${
+              className={`bg-gradient-to-br from-orange-500 via-orange-600 to-red-500 hover:from-orange-600 hover:via-red-500 hover:to-red-600 text-slate-50 p-3 rounded-xl border border-slate-200/50 transition-all duration-300 transform hover:-translate-y-1 hover:shadow-2xl shadow-xl ${
                 viewMode === item.key ? 'scale-105 ring-2 ring-orange-400' : ''}`
               }>
 
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-2">
                 <div
-                  className={`w-10 h-10 rounded-lg flex items-center justify-center ${
+                  className={`w-8 h-8 rounded-lg flex items-center justify-center ${
                     viewMode === item.key ?
                       'bg-gradient-to-br from-amber-500 to-orange-500 text-white shadow-lg' :
                       'bg-white/20 text-slate-100 backdrop-blur-sm'}`
                   }>
 
-                  <item.icon className="w-5 h-5" />
+                  <item.icon className="w-4 h-4" />
                 </div>
                 <div className="text-left">
-                  <h3 className="text-slate-50 font-semibold">{item.label}</h3>
-                  <p className="text-slate-200 text-sm">{item.descricao}</p>
+                  <h3 className="text-slate-50 font-semibold text-sm">{item.label}</h3>
+                  <p className="text-slate-200 text-xs hidden md:block">{item.descricao}</p>
                 </div>
               </div>
             </button>
