@@ -147,18 +147,36 @@ export default function CategorizadorRapido({ thread, contato = null, onUpdate }
   };
 
   return (
-    <div className="flex items-center gap-2 flex-wrap">
+    <div className="flex items-center gap-1.5 flex-wrap">
+      {/* Badges compactos das categorias ativas - ao lado do nome */}
+      {categorias.slice(0, 3).map(cat => {
+        const config = todasCategorias.find(c => c.nome === cat);
+        return (
+          <Badge 
+            key={cat}
+            className={`${config?.cor || 'bg-slate-400'} text-white border-0 px-1.5 py-0.5 text-[10px] font-medium cursor-pointer hover:opacity-80`}
+            onClick={() => toggleCategoria(cat)}
+            title={`${config?.label || cat} - Clique para remover`}
+          >
+            {config?.emoji || '🏷️'}
+          </Badge>
+        );
+      })}
+      {categorias.length > 3 && (
+        <Badge variant="secondary" className="px-1.5 py-0.5 text-[10px]">
+          +{categorias.length - 3}
+        </Badge>
+      )}
+      
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <Button 
-            variant="outline" 
-            size="sm" 
-            className="h-7 border-dashed hover:border-solid hover:bg-slate-50"
+          <button 
+            className="w-6 h-6 rounded-full bg-slate-100 hover:bg-slate-200 flex items-center justify-center cursor-pointer transition-colors border border-dashed border-slate-300 hover:border-solid"
             disabled={salvando}
+            title="Adicionar categoria"
           >
-            <Tag className="w-3.5 h-3.5 mr-1.5" />
-            {categorias.length > 0 ? `${categorias.length} categorizadas` : 'Adicionar'}
-          </Button>
+            <Tag className="w-3 h-3 text-slate-500" />
+          </button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="w-64">
           <DropdownMenuLabel>Selecione as categorias</DropdownMenuLabel>
