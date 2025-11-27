@@ -525,6 +525,33 @@ export default function ConfiguracaoWhatsAppHub({ integracoes, onRecarregar, usu
                 <CardContent>
                   {modoEdicao ? (
                     <div className="space-y-4">
+                      {/* Seletor de Provedor */}
+                      <div>
+                        <Label className="text-xs font-bold">Provedor da API *</Label>
+                        <Select
+                          value={novaIntegracao.api_provider}
+                          onValueChange={(v) => setNovaIntegracao({...novaIntegracao, api_provider: v, client_token_conta: ""})}
+                        >
+                          <SelectTrigger className="mt-1 h-9">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="z_api">
+                              <span className="flex items-center gap-2">
+                                <Badge className="bg-blue-100 text-blue-700 text-[10px]">Z-API</Badge>
+                                API estável e robusta
+                              </span>
+                            </SelectItem>
+                            <SelectItem value="w_api">
+                              <span className="flex items-center gap-2">
+                                <Badge className="bg-purple-100 text-purple-700 text-[10px]">W-API</Badge>
+                                QR Code e Pairing Code
+                              </span>
+                            </SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+
                       <div className="grid grid-cols-2 gap-4">
                         <div>
                           <Label className="text-xs">Nome da Instância *</Label>
@@ -549,9 +576,9 @@ export default function ConfiguracaoWhatsAppHub({ integracoes, onRecarregar, usu
                       <div>
                         <Label className="text-xs">Instance ID *</Label>
                         <Input
-                          value={novaIntegracao.zapi_instance_id}
-                          onChange={(e) => setNovaIntegracao({...novaIntegracao, zapi_instance_id: e.target.value.trim()})}
-                          placeholder="3E5D2BD1BF421127B24ECEF0269361A3"
+                          value={novaIntegracao.instance_id}
+                          onChange={(e) => setNovaIntegracao({...novaIntegracao, instance_id: e.target.value.trim()})}
+                          placeholder={novaIntegracao.api_provider === 'w_api' ? "T34398-VYR3QD..." : "3E5D2BD1BF421127B24ECEF0269361A3"}
                           className="mt-1 h-9 font-mono text-xs"
                         />
                       </div>
@@ -560,13 +587,13 @@ export default function ConfiguracaoWhatsAppHub({ integracoes, onRecarregar, usu
                         <div>
                           <Label className="text-xs flex items-center gap-1">
                             <Key className="w-3 h-3 text-blue-600" />
-                            Token da Instância *
+                            {novaIntegracao.api_provider === 'w_api' ? 'Token (Bearer) *' : 'Token da Instância *'}
                           </Label>
                           <div className="relative mt-1">
                             <Input
                               type={showTokenInstancia ? "text" : "password"}
-                              value={novaIntegracao.zapi_token_instancia}
-                              onChange={(e) => setNovaIntegracao({...novaIntegracao, zapi_token_instancia: e.target.value.trim()})}
+                              value={novaIntegracao.token_instancia}
+                              onChange={(e) => setNovaIntegracao({...novaIntegracao, token_instancia: e.target.value.trim()})}
                               placeholder="Token..."
                               className="h-9 pr-8 font-mono text-xs"
                             />
@@ -580,39 +607,33 @@ export default function ConfiguracaoWhatsAppHub({ integracoes, onRecarregar, usu
                             </Button>
                           </div>
                         </div>
-                        <div>
-                          <Label className="text-xs flex items-center gap-1">
-                            <Shield className="w-3 h-3 text-purple-600" />
-                            Client-Token Segurança *
-                          </Label>
-                          <div className="relative mt-1">
-                            <Input
-                              type={showTokenConta ? "text" : "password"}
-                              value={novaIntegracao.zapi_client_token_conta}
-                              onChange={(e) => setNovaIntegracao({...novaIntegracao, zapi_client_token_conta: e.target.value.trim()})}
-                              placeholder="Token..."
-                              className="h-9 pr-8 font-mono text-xs"
-                            />
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="icon"
-                              className="absolute right-0 top-0 h-9 w-8"
-                              onClick={() => setShowTokenConta(!showTokenConta)}>
-                              {showTokenConta ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}
-                            </Button>
+                        
+                        {/* Client-Token apenas para Z-API */}
+                        {novaIntegracao.api_provider === 'z_api' && (
+                          <div>
+                            <Label className="text-xs flex items-center gap-1">
+                              <Shield className="w-3 h-3 text-purple-600" />
+                              Client-Token Segurança *
+                            </Label>
+                            <div className="relative mt-1">
+                              <Input
+                                type={showTokenConta ? "text" : "password"}
+                                value={novaIntegracao.client_token_conta}
+                                onChange={(e) => setNovaIntegracao({...novaIntegracao, client_token_conta: e.target.value.trim()})}
+                                placeholder="Token..."
+                                className="h-9 pr-8 font-mono text-xs"
+                              />
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon"
+                                className="absolute right-0 top-0 h-9 w-8"
+                                onClick={() => setShowTokenConta(!showTokenConta)}>
+                                {showTokenConta ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}
+                              </Button>
+                            </div>
                           </div>
-                        </div>
-                      </div>
-
-                      <div>
-                        <Label className="text-xs">URL Base da API (Z-API ou W-API)</Label>
-                        <Input
-                          value={novaIntegracao.zapi_base_url}
-                          onChange={(e) => setNovaIntegracao({...novaIntegracao, zapi_base_url: e.target.value.trim()})}
-                          placeholder="https://api.z-api.io"
-                          className="mt-1 h-9 font-mono text-xs"
-                        />
+                        )}
                       </div>
 
                       <div className="flex justify-end gap-2 pt-2 border-t">
