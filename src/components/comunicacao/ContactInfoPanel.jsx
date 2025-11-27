@@ -18,6 +18,7 @@ import { Alert } from '@/components/ui/alert';
 import { format } from 'date-fns';
 import { normalizarTelefone } from '../lib/phoneUtils';
 import SegmentacaoInteligente from './SegmentacaoInteligente';
+import AtribuidorAtendenteRapido from './AtribuidorAtendenteRapido';
 
 export default function ContactInfoPanel({ contact, novoContatoTelefone, onClose, onUpdate, threadAtual }) {
   const [vendedores, setVendedores] = useState([]);

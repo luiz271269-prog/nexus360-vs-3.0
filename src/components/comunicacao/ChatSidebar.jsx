@@ -14,6 +14,7 @@ import CentralInteligenciaContato, {
   TIPOS_CONTATO,
   FILAS_ATENDIMENTO } from
 "./CentralInteligenciaContato";
+import AtribuidorAtendenteRapido from "./AtribuidorAtendenteRapido";
 import {
   SETORES_ATENDIMENTO,
   podeAtenderContato,
@@ -345,21 +346,14 @@ export default function ChatSidebar({ threads, threadAtiva, onSelecionarThread, 
                   });
                 })()}
 
-                {/* ATENDENTE */}
-                {(thread.assigned_user_name || contato?.vendedor_responsavel) ? (
-                  <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-medium bg-slate-100 text-slate-600 truncate max-w-[70px]">
-                    <Users className="w-2.5 h-2.5 text-blue-500 flex-shrink-0" />
-                    {thread.assigned_user_name 
-                      ? (isAssignedToMe ? 'Eu' : thread.assigned_user_name.split(' ')[0])
-                      : contato?.vendedor_responsavel?.split(' ')[0]
-                    }
-                  </span>
-                ) : (
-                  <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-medium bg-red-50 text-red-500">
-                    <AlertCircle className="w-2.5 h-2.5" />
-                    S/atend.
-                  </span>
-                )}
+                {/* ATENDENTE - Com atribuição rápida */}
+                <AtribuidorAtendenteRapido
+                  contato={contato}
+                  thread={thread}
+                  tipoContato={contato?.tipo_contato || 'novo'}
+                  setorAtual={thread?.sector_id || 'geral'}
+                  variant="mini"
+                />
               </div>
             </div>
           </motion.div>);
