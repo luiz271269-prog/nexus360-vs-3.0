@@ -529,17 +529,17 @@ export default function ContactInfoPanel({ contact, novoContatoTelefone, onClose
             </div>
           </div>
 
-          {/* Campos - ORDEM: Empresa → Cargo → Nome */}
-          <div className="p-4 space-y-1">
+          {/* Campos - ORDEM: Empresa → Cargo → Nome - FONTE COMPACTA */}
+          <div className="p-3 space-y-0">
             <div className="bg-white hover:bg-slate-50 transition-colors">
-              <div className="flex items-center gap-3 p-3">
-                <Building2 className="w-5 h-5 text-slate-400 flex-shrink-0" />
+              <div className="flex items-center gap-2 px-2 py-1.5">
+                <Building2 className="w-4 h-4 text-slate-400 flex-shrink-0" />
                 <div className="flex-1">
-                  <Label className="text-xs text-slate-500 mb-1 block">Empresa</Label>
+                  <Label className="text-[10px] text-slate-400 block">Empresa</Label>
                   <Input
                     value={formData.empresa}
                     onChange={(e) => handleChange('empresa', e.target.value)}
-                    className="border-0 bg-transparent p-0 h-auto focus-visible:ring-0"
+                    className="border-0 bg-transparent p-0 h-auto focus-visible:ring-0 text-sm"
                     placeholder="Nome da empresa"
                     disabled={!podeEditarContatos}
                   />
@@ -549,14 +549,14 @@ export default function ContactInfoPanel({ contact, novoContatoTelefone, onClose
             <div className="h-px bg-slate-100" />
 
             <div className="bg-white hover:bg-slate-50 transition-colors">
-              <div className="flex items-center gap-3 p-3">
-                <Briefcase className="w-5 h-5 text-slate-400 flex-shrink-0" />
+              <div className="flex items-center gap-2 px-2 py-1.5">
+                <Briefcase className="w-4 h-4 text-slate-400 flex-shrink-0" />
                 <div className="flex-1">
-                  <Label className="text-xs text-slate-500 mb-1 block">Cargo</Label>
+                  <Label className="text-[10px] text-slate-400 block">Cargo</Label>
                   <Input
                     value={formData.cargo}
                     onChange={(e) => handleChange('cargo', e.target.value)}
-                    className="border-0 bg-transparent p-0 h-auto focus-visible:ring-0"
+                    className="border-0 bg-transparent p-0 h-auto focus-visible:ring-0 text-sm"
                     placeholder="Cargo"
                     disabled={!podeEditarContatos}
                   />
@@ -566,14 +566,14 @@ export default function ContactInfoPanel({ contact, novoContatoTelefone, onClose
             <div className="h-px bg-slate-100" />
 
             <div className="bg-white hover:bg-slate-50 transition-colors">
-              <div className="flex items-center gap-3 p-3">
-                <User className="w-5 h-5 text-slate-400 flex-shrink-0" />
+              <div className="flex items-center gap-2 px-2 py-1.5">
+                <User className="w-4 h-4 text-slate-400 flex-shrink-0" />
                 <div className="flex-1">
-                  <Label className="text-xs text-slate-500 mb-1 block">Nome</Label>
+                  <Label className="text-[10px] text-slate-400 block">Nome</Label>
                   <Input
                     value={formData.nome}
                     onChange={(e) => handleChange('nome', e.target.value)}
-                    className="border-0 bg-transparent p-0 h-auto focus-visible:ring-0"
+                    className="border-0 bg-transparent p-0 h-auto focus-visible:ring-0 text-sm"
                     placeholder="Nome completo"
                     disabled={!podeEditarContatos}
                   />
@@ -583,15 +583,15 @@ export default function ContactInfoPanel({ contact, novoContatoTelefone, onClose
             <div className="h-px bg-slate-100" />
 
             <div className="bg-white hover:bg-slate-50 transition-colors">
-              <div className="flex items-center gap-3 p-3">
-                <Mail className="w-5 h-5 text-slate-400 flex-shrink-0" />
+              <div className="flex items-center gap-2 px-2 py-1.5">
+                <Mail className="w-4 h-4 text-slate-400 flex-shrink-0" />
                 <div className="flex-1">
-                  <Label className="text-xs text-slate-500 mb-1 block">Email</Label>
+                  <Label className="text-[10px] text-slate-400 block">Email</Label>
                   <Input
                     type="email"
                     value={formData.email}
                     onChange={(e) => handleChange('email', e.target.value)}
-                    className="border-0 bg-transparent p-0 h-auto focus-visible:ring-0"
+                    className="border-0 bg-transparent p-0 h-auto focus-visible:ring-0 text-sm"
                     placeholder="email@exemplo.com"
                     disabled={!podeEditarContatos}
                   />
@@ -601,25 +601,25 @@ export default function ContactInfoPanel({ contact, novoContatoTelefone, onClose
             <div className="h-px bg-slate-100" />
 
             <div className="bg-slate-50">
-              <div className="flex items-center gap-3 p-3">
-                <Phone className="w-5 h-5 text-slate-400 flex-shrink-0" />
+              <div className="flex items-center gap-2 px-2 py-1.5">
+                <Phone className="w-4 h-4 text-slate-400 flex-shrink-0" />
                 <div className="flex-1">
-                  <Label className="text-xs text-slate-500 mb-1 block">Telefone</Label>
-                  <p className="text-base font-medium text-slate-700 font-mono">{formData.telefone}</p>
+                  <Label className="text-[10px] text-slate-400 block">Telefone</Label>
+                  <p className="text-sm font-medium text-slate-700 font-mono">{formData.telefone}</p>
                 </div>
               </div>
             </div>
             <div className="h-px bg-slate-100" />
 
             <div className="bg-white hover:bg-slate-50 transition-colors">
-              <div className="flex items-center gap-3 p-3">
-                <Brain className="w-5 h-5 text-slate-400 flex-shrink-0" />
+              <div className="flex items-center gap-2 px-2 py-1.5">
+                <Brain className="w-4 h-4 text-slate-400 flex-shrink-0" />
                 <div className="flex-1">
-                  <Label className="text-xs text-slate-500 mb-1 block">Observações</Label>
+                  <Label className="text-[10px] text-slate-400 block">Observações</Label>
                   <Textarea
                     value={formData.observacoes}
                     onChange={(e) => handleChange('observacoes', e.target.value)}
-                    className="border-0 bg-transparent p-0 h-auto focus-visible:ring-0"
+                    className="border-0 bg-transparent p-0 h-auto focus-visible:ring-0 text-sm"
                     placeholder="Observações"
                     rows={2}
                     disabled={!podeEditarContatos}
