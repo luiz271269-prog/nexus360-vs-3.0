@@ -152,9 +152,9 @@ export default function Layout({ children, currentPageName }) {
   const todosMenuItems = [
     { name: "💬 Central de Comunicação", icon: MessageSquare, page: "Comunicacao" },
     { name: "Dashboard", icon: Home, page: "Dashboard" },
+    { name: "📊 Metas de Vendas", icon: Users, page: "Vendedores" },
     { name: "🎯 Leads & Qualificação", icon: Target, page: "LeadsQualificados" },
     { name: "Clientes", icon: Building2, page: "Clientes" },
-    { name: "Vendedores", icon: Users, page: "Vendedores" },
     { name: "Produtos", icon: Package, page: "Produtos" },
     { name: "Agenda Inteligente", icon: Calendar, page: "Agenda" },
     { name: "Importação", icon: Upload, page: "Importacao" },
