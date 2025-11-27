@@ -108,6 +108,24 @@ export default function DiagnosticoZAPICentralizado({ integracao, onRecarregar, 
       const baseAppUrl = window.location.origin.replace('preview.', '').replace(':3000', '');
       const webhookUrl = `${baseAppUrl}/api/functions/${provider.webhookFn}`;
       
+      // Teste 3: Verificar Security Token (apenas para Z-API)
+      if (provider.requerClientToken) {
+        resultado.testes.push({
+          nome: 'Security Token',
+          status: integracao.security_client_token_header ? 'sucesso' : 'erro',
+          mensagem: integracao.security_client_token_header 
+            ? 'Client-Token de Segurança configurado' 
+            : 'Client-Token não configurado (obrigatório para Z-API)'
+        });
+      } else {
+        resultado.testes.push({
+          nome: 'Security Token',
+          status: 'sucesso',
+          mensagem: 'Não aplicável para W-API (usa Bearer Token)'
+        });
+      }
+
+      // Teste 4: Verificar webhook
       resultado.testes.push({
         nome: 'Webhook',
         status: 'sucesso',
@@ -251,9 +269,7 @@ export default function DiagnosticoZAPICentralizado({ integracao, onRecarregar, 
                             <Copy className="w-3 h-3" />
                           </Button>
                         </div>
-                        <p className="text-xs text-green-700">
-                        URL configurada e pronta para uso na {diagnostico.provider || 'API'}
-                      </p>
+                        <p className="text-xs text-green-700">URL configurada e pronta para uso na Z-API</p>
                       </div>
                     ) : (
                       <p className="text-sm text-gray-700">{teste.mensagem}</p>
