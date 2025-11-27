@@ -1298,18 +1298,7 @@ export default function ChatWindow({
                 contato={contatoCompleto}
                 onUpdate={onAtualizarMensagens} />
             </div>
-            <div className="flex items-center gap-2 mb-2">
-              <p className="text-xs text-slate-500">{telefoneExibicao}</p>
-              {(() => {
-                const score = calcularScoreContato(contatoCompleto);
-                const nivel = getNivelTemperatura(score);
-                return (
-                  <span className={`text-xs font-medium px-2 py-0.5 rounded-full bg-gradient-to-r ${nivel.gradiente} text-white shadow-sm`}>
-                    {nivel.emoji} {nivel.label} {score}%
-                  </span>
-                );
-              })()}
-            </div>
+            <p className="text-xs text-slate-500 mb-2">{telefoneExibicao}</p>
 
             {/* Barra de Temperatura Visual */}
             {(() => {
