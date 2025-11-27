@@ -251,127 +251,113 @@ export default function ChatSidebar({ threads, threadAtiva, onSelecionarThread, 
             </div>
 
             <div className="flex-1 min-w-0">
-              <div className="flex items-center justify-between mb-1">
+              {/* Linha 1: Nome + Horário */}
+              <div className="flex items-center justify-between mb-0.5">
                 <div className="flex items-center gap-1 min-w-0 flex-1">
-                    <h3 className={`font-semibold truncate ${hasUnread ? 'text-slate-900' : 'text-slate-700'}`}>
+                    <h3 className={`font-semibold truncate text-sm ${hasUnread ? 'text-slate-900' : 'text-slate-700'}`}>
                       {nomeExibicao}
                     </h3>
                     {hasUnread &&
-                  <Badge className="rounded-full min-w-[20px] h-5 flex items-center justify-center p-0 px-1.5 bg-gradient-to-r from-amber-400 via-orange-500 to-red-500 text-white text-xs font-bold border-0 shadow-lg">
+                  <Badge className="rounded-full min-w-[18px] h-4 flex items-center justify-center p-0 px-1 bg-gradient-to-r from-amber-400 via-orange-500 to-red-500 text-white text-[10px] font-bold border-0 shadow-lg">
                         {thread.unread_count}
                       </Badge>
                   }
                   </div>
-                <span className={`text-xs flex-shrink-0 ml-2 ${
-                hasUnread ? 'text-orange-600 font-medium' : 'text-slate-500'}`
+                <span className={`text-[10px] flex-shrink-0 ml-2 ${
+                hasUnread ? 'text-orange-600 font-medium' : 'text-slate-400'}`
                 }>
                   {formatarHorario(thread.last_message_at)}
                 </span>
               </div>
 
-              <div className="flex items-center justify-between">
-                <p className={`text-sm truncate flex-1 flex items-center gap-1.5 ${
-                hasUnread ? 'text-slate-900 font-medium' : 'text-slate-600'}`
+              {/* Linha 2: Preview mensagem */}
+              <p className={`text-xs truncate flex items-center gap-1 ${
+                hasUnread ? 'text-slate-800' : 'text-slate-500'}`
                 }>
-                  {thread.last_message_sender === 'user' &&
-                  <CheckCheck className="w-4 h-4 text-blue-500 flex-shrink-0" />
-                  }
-                  {/* Ícone de mídia baseado no tipo */}
-                  {thread.last_media_type === 'image' && <Image className="w-4 h-4 text-blue-500 flex-shrink-0" />}
-                  {thread.last_media_type === 'video' && <Video className="w-4 h-4 text-purple-500 flex-shrink-0" />}
-                  {thread.last_media_type === 'audio' && <Mic className="w-4 h-4 text-green-500 flex-shrink-0" />}
-                  {thread.last_media_type === 'document' && <FileText className="w-4 h-4 text-orange-500 flex-shrink-0" />}
-                  {thread.last_media_type === 'location' && <MapPin className="w-4 h-4 text-red-500 flex-shrink-0" />}
-                  {thread.last_media_type === 'contact' && <PhoneIcon className="w-4 h-4 text-cyan-500 flex-shrink-0" />}
-                  <span className="truncate">
-                    {(() => {
-                      const content = thread.last_message_content;
-                      // Ocultar JIDs e mensagens vazias
-                      if (!content || content === '[No content]' || /^[\+\d]+@(lid|s\.whatsapp\.net|c\.us)/.test(content)) {
-                        // Mostrar tipo de mídia específico
-                        if (thread.last_media_type === 'image') return "📷 Imagem";
-                        if (thread.last_media_type === 'video') return "🎥 Vídeo";
-                        if (thread.last_media_type === 'audio') return "🎤 Áudio";
-                        if (thread.last_media_type === 'document') return "📄 Documento";
-                        if (thread.last_media_type === 'location') return "📍 Localização";
-                        if (thread.last_media_type === 'contact') return "👤 Contato";
-                        if (thread.last_media_type === 'sticker') return "🎨 Sticker";
-                        return "📎 Mídia";
-                      }
-                      // Se tem mídia mas também tem conteúdo de texto
-                      if (thread.last_media_type && thread.last_media_type !== 'none') {
-                        return content;
-                      }
-                      return content;
-                    })()}
-                  </span>
-                </p>
+                {thread.last_message_sender === 'user' &&
+                  <CheckCheck className="w-3 h-3 text-blue-500 flex-shrink-0" />
+                }
+                {thread.last_media_type === 'image' && <Image className="w-3 h-3 text-blue-500 flex-shrink-0" />}
+                {thread.last_media_type === 'video' && <Video className="w-3 h-3 text-purple-500 flex-shrink-0" />}
+                {thread.last_media_type === 'audio' && <Mic className="w-3 h-3 text-green-500 flex-shrink-0" />}
+                {thread.last_media_type === 'document' && <FileText className="w-3 h-3 text-orange-500 flex-shrink-0" />}
+                {thread.last_media_type === 'location' && <MapPin className="w-3 h-3 text-red-500 flex-shrink-0" />}
+                {thread.last_media_type === 'contact' && <PhoneIcon className="w-3 h-3 text-cyan-500 flex-shrink-0" />}
+                <span className="truncate">
+                  {(() => {
+                    const content = thread.last_message_content;
+                    if (!content || content === '[No content]' || /^[\+\d]+@(lid|s\.whatsapp\.net|c\.us)/.test(content)) {
+                      if (thread.last_media_type === 'image') return "📷 Imagem";
+                      if (thread.last_media_type === 'video') return "🎥 Vídeo";
+                      if (thread.last_media_type === 'audio') return "🎤 Áudio";
+                      if (thread.last_media_type === 'document') return "📄 Documento";
+                      if (thread.last_media_type === 'location') return "📍 Localização";
+                      if (thread.last_media_type === 'contact') return "👤 Contato";
+                      if (thread.last_media_type === 'sticker') return "🎨 Sticker";
+                      return "📎 Mídia";
+                    }
+                    return content;
+                  })()}
+                </span>
+              </p>
 
-
-              </div>
-              
-              {/* Rodapé: TIPO → DESTAQUE → ATENDENTE */}
-              <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
-                {/* 1️⃣ TIPO DO CONTATO - Badge colorido vibrante */}
+              {/* Linha 3: TIPO + DESTAQUE + ATENDENTE (tudo horizontal compacto) */}
+              <div className="flex items-center gap-1 mt-1 overflow-hidden">
+                {/* TIPO */}
                 {(() => {
                   const tipoContato = contato?.tipo_contato || 'novo';
                   const tiposConfig = {
-                    'novo': { emoji: '❓', label: 'Novo', bg: 'bg-slate-500', text: 'text-white' },
-                    'lead': { emoji: '🎯', label: 'Lead', bg: 'bg-gradient-to-r from-amber-500 to-orange-500', text: 'text-white' },
-                    'cliente': { emoji: '💎', label: 'Cliente', bg: 'bg-gradient-to-r from-emerald-500 to-green-600', text: 'text-white' },
-                    'fornecedor': { emoji: '🏭', label: 'Fornecedor', bg: 'bg-gradient-to-r from-blue-500 to-indigo-600', text: 'text-white' },
-                    'parceiro': { emoji: '🤝', label: 'Parceiro', bg: 'bg-gradient-to-r from-purple-500 to-pink-500', text: 'text-white' }
+                    'novo': { emoji: '❓', bg: 'bg-slate-400' },
+                    'lead': { emoji: '🎯', bg: 'bg-amber-500' },
+                    'cliente': { emoji: '💎', bg: 'bg-emerald-500' },
+                    'fornecedor': { emoji: '🏭', bg: 'bg-blue-500' },
+                    'parceiro': { emoji: '🤝', bg: 'bg-purple-500' }
                   };
                   const cfg = tiposConfig[tipoContato] || tiposConfig['novo'];
                   return (
-                    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold ${cfg.bg} ${cfg.text} shadow-sm`}>
-                      <span className="text-sm">{cfg.emoji}</span>
-                      {cfg.label}
+                    <span className={`inline-flex items-center justify-center w-5 h-5 rounded-full text-xs ${cfg.bg} shadow-sm`} title={tipoContato}>
+                      {cfg.emoji}
                     </span>
                   );
                 })()}
 
-                {/* 2️⃣ ETIQUETAS DESTAQUE - Cores vibrantes */}
+                {/* DESTAQUES (max 2) */}
                 {contato?.tags && contato.tags.length > 0 && (() => {
                   const etiquetasDestaque = {
-                    'vip': { emoji: '👑', label: 'VIP', bg: 'bg-gradient-to-r from-yellow-400 to-amber-500', text: 'text-white' },
-                    'prioridade': { emoji: '⚡', label: 'Prioridade', bg: 'bg-gradient-to-r from-red-500 to-rose-600', text: 'text-white' },
-                    'fidelizado': { emoji: '💎', label: 'Fidelizado', bg: 'bg-gradient-to-r from-cyan-500 to-teal-500', text: 'text-white' },
-                    'potencial': { emoji: '🚀', label: 'Potencial', bg: 'bg-gradient-to-r from-violet-500 to-purple-600', text: 'text-white' }
+                    'vip': { emoji: '👑', bg: 'bg-yellow-400' },
+                    'prioridade': { emoji: '⚡', bg: 'bg-red-500' },
+                    'fidelizado': { emoji: '💎', bg: 'bg-cyan-500' },
+                    'potencial': { emoji: '🚀', bg: 'bg-violet-500' }
                   };
                   const ordem = ['vip', 'prioridade', 'fidelizado', 'potencial'];
                   const tagsOrdenadas = contato.tags
                     .filter(t => ordem.includes(t))
                     .sort((a, b) => ordem.indexOf(a) - ordem.indexOf(b))
                     .slice(0, 2);
-                  
+
                   return tagsOrdenadas.map(etq => {
                     const cfg = etiquetasDestaque[etq];
                     return (
-                      <span key={etq} className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold ${cfg.bg} ${cfg.text} shadow-sm`}>
-                        <span className="text-sm">{cfg.emoji}</span>
-                        {cfg.label}
+                      <span key={etq} className={`inline-flex items-center justify-center w-5 h-5 rounded-full text-xs ${cfg.bg} shadow-sm`} title={etq}>
+                        {cfg.emoji}
                       </span>
                     );
                   });
                 })()}
 
-                {/* 3️⃣ ATENDENTE/VENDEDOR */}
-                {(thread.assigned_user_name || contato?.vendedor_responsavel) && (
-                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium bg-slate-100 text-slate-700">
-                    <Users className="w-3 h-3 text-blue-500" />
+                {/* ATENDENTE */}
+                {(thread.assigned_user_name || contato?.vendedor_responsavel) ? (
+                  <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-medium bg-slate-100 text-slate-600 truncate max-w-[70px]">
+                    <Users className="w-2.5 h-2.5 text-blue-500 flex-shrink-0" />
                     {thread.assigned_user_name 
-                      ? (isAssignedToMe ? 'Minha' : thread.assigned_user_name.split(' ')[0])
+                      ? (isAssignedToMe ? 'Eu' : thread.assigned_user_name.split(' ')[0])
                       : contato?.vendedor_responsavel?.split(' ')[0]
                     }
                   </span>
-                )}
-
-                {/* ⚠️ NÃO ATRIBUÍDA */}
-                {isUnassigned && !contato?.vendedor_responsavel && (
-                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-red-100 text-red-600 animate-pulse">
-                    <AlertCircle className="w-3 h-3" />
-                    Sem atendente
+                ) : (
+                  <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-medium bg-red-50 text-red-500">
+                    <AlertCircle className="w-2.5 h-2.5" />
+                    S/atend.
                   </span>
                 )}
               </div>
