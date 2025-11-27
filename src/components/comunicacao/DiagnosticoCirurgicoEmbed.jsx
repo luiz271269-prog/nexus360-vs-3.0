@@ -148,9 +148,10 @@ export default function DiagnosticoCirurgicoEmbed() {
         });
       } catch (error) {
         diagnostico.testes.push({
-          nome: '3. Webhook Aceita POST',
+          nome: `3. Webhook ${providerNome} Aceita POST`,
           status: 'erro',
           detalhes: {
+            provider: providerNome,
             erro: error.message
           }
         });
