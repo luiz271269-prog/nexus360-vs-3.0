@@ -227,35 +227,9 @@ export default function ChatSidebar({ threads, threadAtiva, onSelecionarThread, 
               isAtiva ? 'bg-gradient-to-r from-amber-50 via-orange-50 to-red-50 border-l-4 border-l-orange-500' : ''
             }`}
           >
-            {/* Avatar com Ícones Alinhados no Topo */}
+            {/* Avatar */}
             <div className="relative flex-shrink-0">
-              {/* Ícones Superiores Alinhados */}
-              <div className="absolute -top-2 left-0 right-0 flex justify-center gap-0.5 z-30">
-                {/* Termômetro de Temperatura */}
-                <div onClick={(e) => e.stopPropagation()}>
-                  <CentralInteligenciaContato contato={contato} variant="mini" showSugestoes={true} />
-                </div>
-
-                {/* Indicador de Atribuição */}
-                {isUnassigned && (
-                  <div className="w-6 h-6 bg-red-500 rounded-full flex items-center justify-center border-2 border-white shadow-sm">
-                    <AlertCircle className="w-3 h-3 text-white" />
-                  </div>
-                )}
-                {isAssignedToMe && (
-                  <div className="w-6 h-6 bg-blue-500 rounded-full flex items-center justify-center border-2 border-white shadow-sm">
-                    <User className="w-3 h-3 text-white" />
-                  </div>
-                )}
-                {!isAssignedToMe && thread.assigned_user_id && (
-                  <div className="w-6 h-6 bg-green-500 rounded-full flex items-center justify-center border-2 border-white shadow-sm">
-                    <Users className="w-3 h-3 text-white" />
-                  </div>
-                )}
-              </div>
-
-              {/* Avatar */}
-              <div className={`relative w-12 h-12 mt-2 rounded-full flex items-center justify-center text-white font-bold text-lg shadow-md overflow-hidden ${
+              <div className={`relative w-12 h-12 rounded-full flex items-center justify-center text-white font-bold text-lg shadow-md overflow-hidden ${
                 hasUnread 
                   ? 'bg-gradient-to-br from-amber-400 via-orange-500 to-red-500' 
                   : 'bg-gradient-to-br from-slate-400 to-slate-500'
