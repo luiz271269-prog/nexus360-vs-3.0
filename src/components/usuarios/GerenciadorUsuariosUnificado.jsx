@@ -6,7 +6,7 @@ import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Search, Plus, Save, User, Shield, Settings, ChevronRight, Check, Loader2 } from "lucide-react";
+import { Search, Plus, Save, User, Shield, Settings, ChevronRight, Check, Loader2, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import debounce from "lodash/debounce";
 
@@ -321,6 +321,32 @@ export default function GerenciadorUsuariosUnificado({
     toast.success(`Perfil "${perfil.label}" aplicado`);
   };
 
+  // Excluir usuário
+  const excluirUsuario = async (usuario) => {
+    if (!usuario) return;
+    const confirmar = window.confirm(`Tem certeza que deseja EXCLUIR o usuário "${usuario.nome || usuario.email}"?\n\nEsta ação é irreversível.`);
+    if (!confirmar) return;
+    
+    try {
+      // Se for novo (não salvo), apenas remove da lista local
+      if (usuario.isNovo) {
+        setUsuarios(prev => prev.filter(u => u.id !== usuario.id));
+        if (usuarioSelecionado?.id === usuario.id) setUsuarioSelecionado(null);
+        toast.success("Usuário removido");
+        return;
+      }
+      
+      // Caso contrário, chamar API de exclusão
+      // Nota: A entidade User tem restrições, então usamos desativação ou API específica
+      await salvarUsuario({ ...usuario, ativo: false, excluido: true });
+      setUsuarios(prev => prev.filter(u => u.id !== usuario.id));
+      if (usuarioSelecionado?.id === usuario.id) setUsuarioSelecionado(null);
+      toast.success("Usuário excluído com sucesso");
+    } catch (e) {
+      toast.error("Erro ao excluir usuário");
+    }
+  };
+
   // Novo usuário
   const novoUsuario = () => {
     const novo = {
@@ -432,7 +458,7 @@ export default function GerenciadorUsuariosUnificado({
                         <li
                           key={u.id}
                           onClick={() => { setUsuarioSelecionado(u); setRecursoSelecionado(RECURSOS_SISTEMA[0]); }}
-                          className={`px-3 py-2 cursor-pointer border-b text-xs transition-colors ${
+                          className={`px-3 py-2 cursor-pointer border-b text-xs transition-colors group ${
                             usuarioSelecionado?.id === u.id
                               ? "bg-indigo-50 border-l-2 border-l-indigo-500"
                               : "hover:bg-slate-50"
@@ -440,9 +466,18 @@ export default function GerenciadorUsuariosUnificado({
                         >
                           <div className="flex items-center justify-between">
                             <span className="font-medium text-slate-800 truncate">{u.nome || "(sem nome)"}</span>
-                            <Badge variant={u.ativo ? "default" : "secondary"} className="text-[9px] px-1.5 py-0">
-                              {u.ativo ? "Ativo" : "Inativo"}
-                            </Badge>
+                            <div className="flex items-center gap-1">
+                              <Badge variant={u.ativo ? "default" : "secondary"} className="text-[9px] px-1.5 py-0">
+                                {u.ativo ? "Ativo" : "Inativo"}
+                              </Badge>
+                              <button
+                                onClick={(e) => { e.stopPropagation(); excluirUsuario(u); }}
+                                className="opacity-0 group-hover:opacity-100 p-1 hover:bg-red-100 rounded transition-all"
+                                title="Excluir usuário"
+                              >
+                                <Trash2 className="w-3 h-3 text-red-500" />
+                              </button>
+                            </div>
                           </div>
                           <div className="text-[10px] text-slate-500 truncate">{u.email}</div>
                           <div className="text-[10px] text-slate-400">{u.funcao || "—"}</div>
