@@ -261,22 +261,6 @@ export default function CategorizadorRapido({ thread, contato = null, onUpdate }
         </DropdownMenuContent>
       </DropdownMenu>
 
-      {/* Badges visuais das categorias ativas */}
-      {categorias.map(cat => {
-        const config = todasCategorias.find(c => c.nome === cat);
-        
-        return (
-          <Badge 
-            key={cat}
-            className={`${config?.cor || 'bg-slate-400'} text-white border-0 gap-1.5 cursor-pointer hover:opacity-80 transition-all shadow-md px-3 py-1.5 text-sm font-medium`}
-            onClick={() => toggleCategoria(cat)}
-            title="Clique para remover"
-          >
-            <span>{config ? `${config.emoji} ${config.label}` : `🏷️ ${cat.replace(/_/g, ' ')}`}</span>
-            <X className="w-4 h-4 hover:scale-125 transition-transform" />
-          </Badge>
-        );
-      })}
     </div>
   );
 }
