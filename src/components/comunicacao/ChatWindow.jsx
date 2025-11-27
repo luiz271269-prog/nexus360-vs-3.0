@@ -1286,8 +1286,8 @@ export default function ChatWindow({
 
           {/* Nome, Telefone e Barra de Temperatura */}
           <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2 mb-1">
-              <h3 className="text-gray-50 text-lg font-bold truncate">{nomeContato}</h3>
+            <div className="bg-transparent text-black mb-1 flex items-center gap-2">
+              <h3 className="text-slate-800 text-lg font-bold truncate">{nomeContato}</h3>
               <CentralInteligenciaContato
                 contato={contatoCompleto}
                 variant="mini"
