@@ -1,10 +1,24 @@
 // pages/Usuarios.jsx
-import React from "react";
+import React, { useState, useEffect } from "react";
 import GerenciadorUsuariosUnificado from "@/components/usuarios/GerenciadorUsuariosUnificado";
 import { base44 } from "@/api/base44Client";
 
-// Aqui é só exemplo: adapte para seu layout padrão (Navbar, container, etc).
 export default function UsuariosPage() {
+  const [integracoes, setIntegracoes] = useState([]);
+
+  // Carregar integrações WhatsApp
+  useEffect(() => {
+    const carregarIntegracoes = async () => {
+      try {
+        const ints = await base44.entities.WhatsAppIntegration.list();
+        setIntegracoes(ints || []);
+      } catch (e) {
+        console.error("Erro ao carregar integrações:", e);
+      }
+    };
+    carregarIntegracoes();
+  }, []);
+
   async function carregarUsuarios() {
     const users = await base44.entities.User.list();
     return users.map(u => ({
@@ -16,7 +30,14 @@ export default function UsuariosPage() {
       tipoAcesso: u.role,
       ativo: u.is_active !== false,
       permissoes: u.permissoes || [],
-      perfilAcesso: u.perfilAcesso || "personalizado"
+      perfilAcesso: u.perfilAcesso || "personalizado",
+      // Campos adicionais para edição completa
+      is_whatsapp_attendant: u.is_whatsapp_attendant || false,
+      whatsapp_setores: u.whatsapp_setores || [],
+      whatsapp_permissions: u.whatsapp_permissions || [],
+      permissoes_comunicacao: u.permissoes_comunicacao || {},
+      paginas_acesso: u.paginas_acesso || [],
+      max_concurrent_conversations: u.max_concurrent_conversations || 5,
     }));
   }
 
@@ -28,13 +49,24 @@ export default function UsuariosPage() {
       role: usuario.tipoAcesso,
       is_active: usuario.ativo,
       permissoes: usuario.permissoes,
-      perfilAcesso: usuario.perfilAcesso
+      perfilAcesso: usuario.perfilAcesso,
+      // Campos de WhatsApp e comunicação
+      is_whatsapp_attendant: usuario.is_whatsapp_attendant,
+      whatsapp_setores: usuario.whatsapp_setores,
+      whatsapp_permissions: usuario.whatsapp_permissions,
+      permissoes_comunicacao: usuario.permissoes_comunicacao,
+      paginas_acesso: usuario.paginas_acesso,
+      max_concurrent_conversations: usuario.max_concurrent_conversations,
     };
     
     if (usuario.isNovo) {
       return await base44.entities.User.create({ ...payload, email: usuario.email });
     }
     return await base44.entities.User.update(usuario.id, payload);
+  }
+
+  async function excluirUsuario(usuarioId) {
+    await base44.entities.User.delete(usuarioId);
   }
 
   async function salvarPermissoes(usuarioId, permissoes) {
@@ -54,6 +86,8 @@ export default function UsuariosPage() {
         carregarUsuarios={carregarUsuarios}
         salvarUsuario={salvarUsuario}
         salvarPermissoes={salvarPermissoes}
+        excluirUsuario={excluirUsuario}
+        integracoesWhatsApp={integracoes}
       />
     </div>
   );
