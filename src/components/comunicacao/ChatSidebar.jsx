@@ -310,27 +310,59 @@ export default function ChatSidebar({ threads, threadAtiva, onSelecionarThread, 
 
               </div>
               
-              {/* Rodapé com ícone + descrição */}
-              <div className="flex items-center gap-1.5 mt-1.5 flex-wrap text-[11px] text-slate-500">
-                {/* Tipo do Contato */}
+              {/* Rodapé com ícones + descrição */}
+              <div className="flex items-center gap-2 mt-1.5 flex-wrap text-xs text-slate-500">
+                {/* Tipo do Contato com descrição */}
                 {(() => {
                   const tipoContato = contato?.tipo_contato || 'novo';
                   const tipo = TIPOS_CONTATO.find(t => t.value === tipoContato);
                   if (!tipo) return null;
                   return (
-                    <span className="flex items-center gap-0.5">
-                      <Tag className="w-3 h-3" />{tipo.label}
+                    <span className="flex items-center gap-1" title={tipo.label}>
+                      <Tag className="w-3 h-3" />
+                      {tipo.label}
                     </span>
                   );
                 })()}
 
+                {/* Separador */}
                 {contato?.vendedor_responsavel && <span className="text-slate-300">•</span>}
 
                 {/* Vendedor Responsável */}
                 {contato?.vendedor_responsavel && (
-                  <span className="flex items-center gap-0.5">
-                    <User className="w-3 h-3" />{contato.vendedor_responsavel}
+                  <span className="flex items-center gap-1" title="Vendedor Responsável">
+                    <User className="w-3 h-3" />
+                    {contato.vendedor_responsavel}
                   </span>
+                )}
+
+                {/* Separador */}
+                {thread.assigned_user_name && <span className="text-slate-300">•</span>}
+
+                {/* Atribuição */}
+                {thread.assigned_user_name && (
+                  <span className="flex items-center gap-1">
+                    <Users className="w-3 h-3 text-blue-500" />
+                    {isAssignedToMe ? 'Minha' : thread.assigned_user_name}
+                  </span>
+                )}
+                {isUnassigned && (
+                  <span className="flex items-center gap-1 text-red-500 font-medium">
+                    <AlertCircle className="w-3 h-3" />
+                    Não Atribuída
+                  </span>
+                )}
+
+                {/* Etiquetas especiais */}
+                {contato?.tags && contato.tags.length > 0 && (
+                  contato.tags.filter(t => ['vip', 'prioridade', 'fidelizado'].includes(t)).slice(0, 2).map(etq => {
+                    const config = getEtiquetaConfig(etq);
+                    return (
+                      <Badge key={etq} variant="outline" className="text-xs py-0 px-1.5 h-4">
+                        {config.emoji} {config.label}
+                      </Badge>
+                    );
+                  })
                 )}
               </div>
             </div>
