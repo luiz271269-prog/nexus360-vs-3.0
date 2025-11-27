@@ -1251,61 +1251,123 @@ export default function ChatWindow({
 
   return (
     <div className="flex flex-col h-full bg-white">
-      {/* Header Moderno */}
-      <div className="bg-white border-b border-slate-200/80 flex-shrink-0">
-        <div className="flex items-center gap-3 px-4 py-3">
-          {/* Avatar */}
+      {/* Header REVOLUCIONÁRIO - Central de Inteligência do Cliente */}
+      <div className="bg-gradient-to-r from-slate-100 via-slate-50 to-white p-4 border-b border-slate-200 flex-shrink-0 shadow-sm">
+        <div className="flex items-center gap-4">
+          {/* Avatar com Central Inteligente */}
           <div className="relative flex-shrink-0">
-            <div className="w-12 h-12 rounded-2xl flex items-center justify-center text-white font-semibold text-lg shadow-sm overflow-hidden bg-gradient-to-br from-violet-500 to-purple-600">
-              {contatoCompleto?.foto_perfil_url ? (
-                <img
-                  src={contatoCompleto.foto_perfil_url}
-                  alt={nomeContato}
-                  className="w-full h-full object-cover"
-                  onError={(e) => { e.target.style.display = 'none'; }}
-                />
-              ) : (
-                <span>{getInitials(nomeContato)}</span>
-              )}
+            {/* Termômetro no topo */}
+            <div className="absolute -top-2 -left-2 z-20">
+              <CentralInteligenciaContato 
+                contato={contatoCompleto} 
+                variant="mini"
+                showSugestoes={true}
+              />
             </div>
-            {/* Status indicator */}
-            <div className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 bg-emerald-500 rounded-full border-2 border-white" />
+            
+            <div className="w-14 h-14 rounded-full flex items-center justify-center text-white font-bold text-xl shadow-lg overflow-hidden relative bg-gradient-to-br from-amber-400 via-orange-500 to-red-500">
+              {contatoCompleto?.foto_perfil_url ?
+              <img
+                src={contatoCompleto.foto_perfil_url}
+                alt={nomeContato}
+                className="w-full h-full object-cover"
+                onError={(e) => {
+                  console.warn('Erro ao carregar foto:', e);
+                  e.target.style.display = 'none';
+                }} /> :
+              <span>{getInitials(nomeContato)}</span>
+              }
+            </div>
+            
+            {/* Próxima Ação Sugerida - canto inferior */}
+            {(() => {
+              const proxAcao = getProximaAcaoSugerida(contatoCompleto);
+              return (
+                <div 
+                  className={`absolute -bottom-1 -right-1 w-6 h-6 ${proxAcao.cor} rounded-full flex items-center justify-center border-2 border-white shadow-md z-20`}
+                  title={`Sugestão: ${proxAcao.label}`}
+                >
+                  <proxAcao.icon className="w-3 h-3 text-white" />
+                </div>
+              );
+            })()}
           </div>
 
-          {/* Info */}
+          {/* Nome, Telefone e Barra de Temperatura */}
           <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2">
-              <h3 className="font-semibold text-slate-800 truncate">{nomeContato}</h3>
+            <div className="flex items-center gap-2 mb-1">
+              <h3 className="font-bold text-slate-900 truncate text-lg">{nomeContato}</h3>
               <CategorizadorRapido
                 thread={thread}
                 contato={contatoCompleto}
-                onUpdate={onAtualizarMensagens}
-              />
+                onUpdate={onAtualizarMensagens} />
             </div>
-            <p className="text-sm text-slate-500 truncate">{telefoneExibicao}</p>
+            <p className="text-xs text-slate-500 mb-2">{telefoneExibicao}</p>
+            
+            {/* Barra de Temperatura Visual */}
+            {(() => {
+              const score = calcularScoreContato(contatoCompleto);
+              const nivel = getNivelTemperatura(score);
+              const Icon = nivel.icon;
+              return (
+                <div className="flex items-center gap-2 max-w-[220px]">
+                  <div className={`w-6 h-6 rounded-full bg-gradient-to-br ${nivel.gradiente} flex items-center justify-center shadow-md`}>
+                    <Icon className="w-3.5 h-3.5 text-white" />
+                  </div>
+                  <div className="flex-1">
+                    <div className="flex items-center justify-between mb-0.5">
+                      <span className="text-[10px] font-bold text-slate-700">
+                        {nivel.emoji} {nivel.label}
+                      </span>
+                      <span className="text-[10px] text-slate-400">{score}%</span>
+                    </div>
+                    <div className="w-full h-1.5 bg-slate-200 rounded-full overflow-hidden">
+                      <div 
+                        className={`h-full bg-gradient-to-r ${nivel.gradiente} transition-all duration-700`}
+                        style={{ width: `${score}%` }}
+                      />
+                    </div>
+                  </div>
+                </div>
+              );
+            })()}
           </div>
 
-          {/* Ações */}
+          {/* Classificação Compacta e Ações */}
           <div className="flex items-center gap-2 flex-shrink-0">
+            {/* Central Compacta */}
+            <div onClick={(e) => e.stopPropagation()}>
+              <CentralInteligenciaContato 
+                contato={contatoCompleto} 
+                variant="compact"
+                onUpdate={onAtualizarMensagens}
+                showSugestoes={false}
+              />
+            </div>
+
+            {/* Botão Transferir */}
             {canManageConversation && podeTransferirConversas && (
               <button
                 onClick={() => setMostrarModalAtribuicao(true)}
-                className="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-xl transition-colors"
+                className="bg-gradient-to-br from-amber-500 to-amber-600 text-white rounded-lg px-3 py-2 shadow-md flex items-center gap-2 hover:shadow-lg transition-all text-xs font-medium"
               >
                 <Users className="w-4 h-4" />
-                <span className="hidden sm:inline">Transferir</span>
+                Transferir
               </button>
             )}
 
+            {/* Botão Ver Detalhes */}
             <button
               onClick={onShowContactInfo}
-              className="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-white bg-slate-800 hover:bg-slate-900 rounded-xl transition-colors shadow-sm"
+              className="bg-gradient-to-br from-slate-600 to-slate-700 text-white rounded-lg px-3 py-2 shadow-md flex items-center gap-2 hover:from-slate-700 hover:to-slate-800 hover:shadow-lg transition-all"
             >
               <Info className="w-4 h-4" />
-              <span className="hidden sm:inline">Detalhes</span>
+              <span className="text-xs font-medium">Detalhes</span>
             </button>
           </div>
         </div>
+
+
       </div>
 
             {mensagemResposta &&
