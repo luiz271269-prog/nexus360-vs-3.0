@@ -312,6 +312,17 @@ export default function Comunicacao() {
         if (!permMap.get(thread.whatsapp_integration_id)) return false;
       }
 
+      // Filtro de tipo de contato
+      if (selectedTipoContato && selectedTipoContato !== 'all') {
+        if (contato.tipo_contato !== selectedTipoContato) return false;
+      }
+
+      // Filtro de tag/destaque do contato
+      if (selectedTagContato && selectedTagContato !== 'all') {
+        const tags = contato.tags || [];
+        if (!tags.includes(selectedTagContato)) return false;
+      }
+
       // Filtro de busca
       if (debouncedSearchTerm) {
         const termo = debouncedSearchTerm.toLowerCase();
@@ -326,7 +337,7 @@ export default function Comunicacao() {
 
       return true;
     });
-  }, [threads, contatos, usuario?.id, usuario?.role, selectedIntegrationId, selectedCategoria, debouncedSearchTerm, mensagensComCategoria]);
+  }, [threads, contatos, usuario?.id, usuario?.role, selectedIntegrationId, selectedCategoria, selectedTipoContato, selectedTagContato, debouncedSearchTerm, mensagensComCategoria]);
 
   const threadsComContato = React.useMemo(() => {
     const contatosMap = new Map(contatos.map(c => [c.id, c]));
