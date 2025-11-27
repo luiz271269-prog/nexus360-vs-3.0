@@ -16,7 +16,24 @@ import {
   Copy
 } from "lucide-react";
 import { toast } from "sonner";
-import { getWebhookUrlProducao } from "../lib/webhookUtils";
+
+// Configuração dos provedores
+const PROVIDERS = {
+  z_api: {
+    nome: "Z-API",
+    cor: "blue",
+    webhookFn: "webhookWatsZapi",
+    testarFn: "testarConexaoWhatsApp",
+    requerClientToken: true
+  },
+  w_api: {
+    nome: "W-API",
+    cor: "purple",
+    webhookFn: "webhookWapi",
+    testarFn: "testarConexaoWapi",
+    requerClientToken: false
+  }
+};
 
 export default function DiagnosticoZAPICentralizado({ integracao, onRecarregar, testarConexao, isTesting }) {
   const [diagnostico, setDiagnostico] = useState(null);
