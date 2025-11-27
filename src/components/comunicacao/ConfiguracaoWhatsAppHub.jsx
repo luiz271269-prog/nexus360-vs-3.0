@@ -78,15 +78,17 @@ export default function ConfiguracaoWhatsAppHub({ integracoes, onRecarregar, usu
   const initialNovaIntegracaoState = {
     nome_instancia: "",
     numero_telefone: "",
-    zapi_instance_id: "",
-    zapi_token_instancia: "",
-    zapi_client_token_conta: "",
-    zapi_base_url: "https://api.z-api.io",
+    api_provider: "z_api",
+    instance_id: "",
+    token_instancia: "",
+    client_token_conta: "",
     setores_atendidos: ["geral"],
     setor_principal: "geral"
   };
 
   const [novaIntegracao, setNovaIntegracao] = useState(initialNovaIntegracaoState);
+  const [qrCodeData, setQrCodeData] = useState({});
+  const [gerandoQR, setGerandoQR] = useState(null);
 
   const resetForm = () => {
     setNovaIntegracao(initialNovaIntegracaoState);
