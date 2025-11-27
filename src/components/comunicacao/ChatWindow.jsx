@@ -1251,29 +1251,43 @@ export default function ChatWindow({
 
   return (
     <div className="flex flex-col h-full bg-white">
-      {/* Header Compacto com Gradiente Vibrante */}
-      <div className="bg-gradient-to-r from-amber-500 via-orange-500 to-red-500 p-3 border-b border-orange-600 flex-shrink-0 shadow-lg">
-        <div className="flex items-center gap-3">
-          {/* Avatar Compacto */}
+      {/* Header REVOLUCIONÁRIO - Central de Inteligência do Cliente */}
+      <div className="bg-gradient-to-r from-slate-100 via-slate-50 to-white p-4 border-b border-slate-200 flex-shrink-0 shadow-sm">
+        <div className="flex items-center gap-4">
+          {/* Avatar */}
           <div className="relative flex-shrink-0">
-            <div className="w-11 h-11 rounded-full flex items-center justify-center text-white font-bold text-base shadow-lg overflow-hidden bg-white/20 backdrop-blur-sm border-2 border-white/30">
+            <div className="w-14 h-14 rounded-full flex items-center justify-center text-white font-bold text-xl shadow-lg overflow-hidden relative bg-gradient-to-br from-amber-400 via-orange-500 to-red-500">
               {contatoCompleto?.foto_perfil_url ?
               <img
                 src={contatoCompleto.foto_perfil_url}
                 alt={nomeContato}
                 className="w-full h-full object-cover"
                 onError={(e) => {
+                  console.warn('Erro ao carregar foto:', e);
                   e.target.style.display = 'none';
                 }} /> :
               <span>{getInitials(nomeContato)}</span>
               }
             </div>
+            
+            {/* Próxima Ação Sugerida - canto inferior */}
+            {(() => {
+              const proxAcao = getProximaAcaoSugerida(contatoCompleto);
+              return (
+                <div 
+                  className={`absolute -bottom-1 -right-1 w-6 h-6 ${proxAcao.cor} rounded-full flex items-center justify-center border-2 border-white shadow-md z-20`}
+                  title={`Sugestão: ${proxAcao.label}`}
+                >
+                  <proxAcao.icon className="w-3 h-3 text-white" />
+                </div>
+              );
+            })()}
           </div>
 
-          {/* Info Principal */}
+          {/* Nome, Telefone e Barra de Temperatura */}
           <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2 mb-0.5">
-              <h3 className="font-bold text-white truncate text-sm">{nomeContato}</h3>
+            <div className="flex items-center gap-2 mb-1">
+              <h3 className="font-bold text-slate-900 truncate text-lg">{nomeContato}</h3>
               <CentralInteligenciaContato 
                 contato={contatoCompleto} 
                 variant="mini"
@@ -1284,49 +1298,64 @@ export default function ChatWindow({
                 contato={contatoCompleto}
                 onUpdate={onAtualizarMensagens} />
             </div>
-            <div className="flex items-center gap-3">
-              <p className="text-[11px] text-white/70">{telefoneExibicao}</p>
-              {/* Barra de Temperatura Compacta */}
+            <div className="flex items-center gap-3 mb-2">
+              <p className="text-xs text-slate-500">{telefoneExibicao}</p>
+
+              {/* Barra de Temperatura Visual */}
               {(() => {
                 const score = calcularScoreContato(contatoCompleto);
                 const nivel = getNivelTemperatura(score);
                 const Icon = nivel.icon;
                 return (
-                  <div className="flex items-center gap-1.5 bg-white/10 rounded-full px-2 py-0.5">
-                    <Icon className="w-3 h-3 text-white" />
-                    <span className="text-[10px] font-medium text-white/90">{nivel.emoji} {score}%</span>
-                    <div className="w-12 h-1 bg-white/20 rounded-full overflow-hidden">
-                      <div 
-                        className="h-full bg-white/80 transition-all duration-500"
-                        style={{ width: `${score}%` }}
-                      />
+                  <div className="flex items-center gap-2 flex-1 max-w-[200px]">
+                    <div className={`w-5 h-5 rounded-full bg-gradient-to-br ${nivel.gradiente} flex items-center justify-center shadow-sm`}>
+                      <Icon className="w-3 h-3 text-white" />
+                    </div>
+                    <div className="flex-1">
+                      <div className="flex items-center justify-between mb-0.5">
+                        <span className="text-[10px] font-semibold text-slate-600">{nivel.emoji} {nivel.label}</span>
+                        <span className="text-[10px] font-bold text-slate-500">{score}%</span>
+                      </div>
+                      <div className="w-full h-1.5 bg-slate-200 rounded-full overflow-hidden">
+                        <div 
+                          className={`h-full bg-gradient-to-r ${nivel.gradiente} transition-all duration-500`}
+                          style={{ width: `${score}%` }}
+                        />
+                      </div>
                     </div>
                   </div>
                 );
               })()}
             </div>
+
+
           </div>
 
-          {/* Ações Compactas */}
-          <div className="flex items-center gap-1.5 flex-shrink-0">
+          {/* Ações */}
+          <div className="flex items-center gap-2 flex-shrink-0">
+            {/* Botão Transferir */}
             {canManageConversation && podeTransferirConversas && (
               <button
                 onClick={() => setMostrarModalAtribuicao(true)}
-                className="bg-white/20 hover:bg-white/30 text-white rounded-lg p-2 shadow-md transition-all"
-                title="Transferir"
+                className="bg-gradient-to-br from-amber-500 to-amber-600 text-white rounded-lg px-3 py-2 shadow-md flex items-center gap-2 hover:shadow-lg transition-all text-xs font-medium"
               >
                 <Users className="w-4 h-4" />
+                Transferir
               </button>
             )}
+
+            {/* Botão Ver Detalhes */}
             <button
               onClick={onShowContactInfo}
-              className="bg-white/20 hover:bg-white/30 text-white rounded-lg p-2 shadow-md transition-all"
-              title="Ver Detalhes"
+              className="bg-gradient-to-br from-slate-600 to-slate-700 text-white rounded-lg px-3 py-2 shadow-md flex items-center gap-2 hover:from-slate-700 hover:to-slate-800 hover:shadow-lg transition-all"
             >
               <Info className="w-4 h-4" />
+              <span className="text-xs font-medium">Detalhes</span>
             </button>
           </div>
         </div>
+
+
       </div>
 
             {mensagemResposta &&
