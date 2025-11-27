@@ -33,10 +33,16 @@ import {
   Activity,
   BookOpen,
   Workflow,
-  Shield } from
-"lucide-react";
+  Shield
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import NexusChat from "../components/global/NexusChat";
 import LembreteFlutuanteIA from "../components/global/LembreteFlutuanteIA";
 import NotificationSystem from "../components/comunicacao/NotificationSystem";
@@ -62,57 +68,57 @@ function NavItem({ href, icon: Icon, label, badge, badgeColor, lembretesCount })
       to={href}
       title={label}
       className={`relative flex items-center justify-center p-3 text-sm font-medium rounded-xl transition-all duration-300 transform hover:scale-105 group ${
-      isActive ?
-      'bg-gradient-to-br from-amber-400 via-orange-500 to-red-500 text-white shadow-xl shadow-orange-500/30' :
-      'text-slate-300 hover:bg-gradient-to-br hover:from-slate-700 hover:to-slate-600 hover:text-white hover:shadow-lg'}`
-      }>
-
+        isActive
+          ? 'bg-gradient-to-br from-amber-400 via-orange-500 to-red-500 text-white shadow-xl shadow-orange-500/30'
+          : 'text-slate-300 hover:bg-gradient-to-br hover:from-slate-700 hover:to-slate-600 hover:text-white hover:shadow-lg'
+      }`}
+    >
       <Icon className="h-6 w-6 flex-shrink-0" />
       <span className="sr-only">{label}</span>
 
-      {badge && !lembretesCount &&
-      <Badge className={`absolute -top-1 -right-1 h-6 min-w-6 flex items-center justify-center text-[11px] font-bold px-1.5 ${badgeColor || 'bg-red-500 text-white'} rounded-full shadow-lg`}>
+      {badge && !lembretesCount && (
+        <Badge className={`absolute -top-1 -right-1 h-6 min-w-6 flex items-center justify-center text-[11px] font-bold px-1.5 ${badgeColor || 'bg-red-500 text-white'} rounded-full shadow-lg`}>
           {badge}
         </Badge>
-      }
+      )}
 
-      {lembretesCount > 0 &&
-      <div className="absolute -top-2 -right-2">
+      {lembretesCount > 0 && (
+        <div className="absolute -top-2 -right-2">
           <div className={`${getBadgeColor(lembretesCount)} w-7 h-7 rounded-full flex items-center justify-center shadow-lg shadow-black/30 border-2 border-slate-900 animate-pulse`}>
             <span className="text-white text-[11px] font-bold">
               {lembretesCount > 99 ? '99+' : lembretesCount}
             </span>
           </div>
         </div>
-      }
+      )}
 
-      {isActive &&
-      <div className="absolute inset-0 bg-gradient-to-br from-white/20 to-transparent rounded-xl" />
-      }
+      {isActive && (
+        <div className="absolute inset-0 bg-gradient-to-br from-white/20 to-transparent rounded-xl" />
+      )}
 
       <div className="absolute left-full ml-3 px-3 py-2 bg-slate-800 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-50 shadow-xl border border-slate-700">
         {label}
         {badge && <span className="ml-2 text-amber-400">({badge})</span>}
-        {lembretesCount > 0 &&
-        <div className="flex items-center gap-1 mt-1">
+        {lembretesCount > 0 && (
+          <div className="flex items-center gap-1 mt-1">
             <Zap className="w-3 h-3 text-purple-400" />
             <span className="text-purple-300 font-semibold">
               {lembretesCount} lembrete{lembretesCount > 1 ? 's' : ''}
             </span>
           </div>
-        }
+        )}
       </div>
-    </Link>);
-
+    </Link>
+  );
 }
 
 function SideBar({ isOpen, menuItems, contadoresLembretes }) {
   return (
     <aside
       className={`fixed inset-y-0 left-0 z-50 w-20 bg-gradient-to-b from-slate-900 via-slate-800 to-slate-900 text-white transform ${
-      isOpen ? 'translate-x-0' : '-translate-x-full'} transition-transform duration-300 ease-in-out md:relative md:translate-x-0 flex flex-col border-r border-slate-700/50`
-      }>
-
+        isOpen ? 'translate-x-0' : '-translate-x-full'
+      } transition-transform duration-300 ease-in-out md:relative md:translate-x-0 flex flex-col border-r border-slate-700/50`}
+    >
       <div className="flex items-center justify-center p-4 border-b border-slate-700/50">
         <Link to={createPageUrl("Dashboard")} className="relative group">
           <div className="w-12 h-12 bg-gradient-to-br from-amber-400 via-orange-500 to-red-500 rounded-xl flex items-center justify-center shadow-lg group-hover:shadow-xl group-hover:shadow-orange-500/30 transition-all duration-300">
@@ -123,20 +129,20 @@ function SideBar({ isOpen, menuItems, contadoresLembretes }) {
       </div>
 
       <nav className="flex-1 px-2 py-4 space-y-2 overflow-y-auto">
-        {menuItems.map((item) =>
-        <NavItem
-          key={item.page}
-          href={createPageUrl(item.page)}
-          icon={item.icon}
-          label={item.name}
-          badge={item.badge}
-          badgeColor={item.badgeColor}
-          lembretesCount={contadoresLembretes[item.page] || 0} />
-
-        )}
+        {menuItems.map((item) => (
+          <NavItem
+            key={item.page}
+            href={createPageUrl(item.page)}
+            icon={item.icon}
+            label={item.name}
+            badge={item.badge}
+            badgeColor={item.badgeColor}
+            lembretesCount={contadoresLembretes[item.page] || 0}
+          />
+        ))}
       </nav>
-    </aside>);
-
+    </aside>
+  );
 }
 
 export default function Layout({ children, currentPageName }) {
@@ -150,17 +156,17 @@ export default function Layout({ children, currentPageName }) {
 
   // Definição completa de todos os itens do menu
   const todosMenuItems = [
-  { name: "💬 Central de Comunicação", icon: MessageSquare, page: "Comunicacao" },
-  { name: "Dashboard", icon: Home, page: "Dashboard" },
-  { name: "📊 Metas de Vendas", icon: Users, page: "Vendedores" },
-  { name: "🎯 Leads & Qualificação", icon: Target, page: "LeadsQualificados" },
-  { name: "👥 Clientes", icon: Building2, page: "Clientes" },
-  { name: "Produtos", icon: Package, page: "Produtos" },
-  { name: "Agenda Inteligente", icon: Calendar, page: "Agenda" },
-  { name: "Importação", icon: Upload, page: "Importacao" },
-  { name: "Gerenciamento de Usuários", icon: UserCog, page: "Usuarios" },
-  { name: "Auditoria", icon: Shield, page: "Auditoria" }];
-
+    { name: "💬 Central de Comunicação", icon: MessageSquare, page: "Comunicacao" },
+    { name: "Dashboard", icon: Home, page: "Dashboard" },
+    { name: "📊 Metas de Vendas", icon: Users, page: "Vendedores" },
+    { name: "🎯 Leads & Qualificação", icon: Target, page: "LeadsQualificados" },
+    { name: "👥 Clientes", icon: Building2, page: "Clientes" },
+    { name: "Produtos", icon: Package, page: "Produtos" },
+    { name: "Agenda Inteligente", icon: Calendar, page: "Agenda" },
+    { name: "Importação", icon: Upload, page: "Importacao" },
+    { name: "Gerenciamento de Usuários", icon: UserCog, page: "Usuarios" },
+    { name: "Auditoria", icon: Shield, page: "Auditoria" }
+  ];
 
   // Função para obter os itens de menu baseado no perfil do usuário
   const getMenuItemsParaPerfil = (usuario) => {
@@ -173,7 +179,7 @@ export default function Layout({ children, currentPageName }) {
 
     // Se tem páginas específicas configuradas, usa elas
     if (paginasAcesso.length > 0) {
-      return todosMenuItems.filter((item) => paginasAcesso.includes(item.page));
+      return todosMenuItems.filter(item => paginasAcesso.includes(item.page));
     }
 
     // Administrador - acesso total
@@ -184,73 +190,73 @@ export default function Layout({ children, currentPageName }) {
     // Gerência (coordenador/gerente)
     if (['coordenador', 'gerente'].includes(nivelAtendente)) {
       if (setor === 'vendas') {
-        return todosMenuItems.filter((item) => [
-        'Comunicacao', 'Dashboard', 'LeadsQualificados', 'Vendedores',
-        'Clientes', 'AnalyticsAvancado', 'Agenda', 'Produtos'].
-        includes(item.page));
+        return todosMenuItems.filter(item => [
+          'Comunicacao', 'Dashboard', 'LeadsQualificados', 'Vendedores', 
+          'Clientes', 'AnalyticsAvancado', 'Agenda', 'Produtos'
+        ].includes(item.page));
       }
       if (setor === 'assistencia') {
-        return todosMenuItems.filter((item) => [
-        'Comunicacao', 'Clientes', 'Agenda', 'Dashboard', 'Produtos', 'AnalyticsAvancado'].
-        includes(item.page));
+        return todosMenuItems.filter(item => [
+          'Comunicacao', 'Clientes', 'Agenda', 'Dashboard', 'Produtos', 'AnalyticsAvancado'
+        ].includes(item.page));
       }
       if (setor === 'fornecedor') {
-        return todosMenuItems.filter((item) => [
-        'Comunicacao', 'Produtos', 'Importacao', 'Dashboard', 'Clientes', 'Agenda', 'AnalyticsAvancado'].
-        includes(item.page));
+        return todosMenuItems.filter(item => [
+          'Comunicacao', 'Produtos', 'Importacao', 'Dashboard', 'Clientes', 'Agenda', 'AnalyticsAvancado'
+        ].includes(item.page));
       }
       // Gerência geral
-      return todosMenuItems.filter((item) => [
-      'Comunicacao', 'Dashboard', 'LeadsQualificados', 'Clientes',
-      'Vendedores', 'Produtos', 'Agenda', 'AnalyticsAvancado'].
-      includes(item.page));
+      return todosMenuItems.filter(item => [
+        'Comunicacao', 'Dashboard', 'LeadsQualificados', 'Clientes', 
+        'Vendedores', 'Produtos', 'Agenda', 'AnalyticsAvancado'
+      ].includes(item.page));
     }
 
     // Supervisor (senior)
     if (nivelAtendente === 'senior') {
       if (setor === 'vendas') {
-        return todosMenuItems.filter((item) => [
-        'Comunicacao', 'LeadsQualificados', 'Vendedores', 'Clientes',
-        'Agenda', 'Dashboard', 'Produtos'].
-        includes(item.page));
+        return todosMenuItems.filter(item => [
+          'Comunicacao', 'LeadsQualificados', 'Vendedores', 'Clientes', 
+          'Agenda', 'Dashboard', 'Produtos'
+        ].includes(item.page));
       }
       if (setor === 'assistencia') {
-        return todosMenuItems.filter((item) => [
-        'Comunicacao', 'Clientes', 'Agenda', 'Dashboard', 'Produtos'].
-        includes(item.page));
+        return todosMenuItems.filter(item => [
+          'Comunicacao', 'Clientes', 'Agenda', 'Dashboard', 'Produtos'
+        ].includes(item.page));
       }
       if (setor === 'fornecedor') {
-        return todosMenuItems.filter((item) => [
-        'Comunicacao', 'Produtos', 'Importacao', 'Agenda', 'Dashboard'].
-        includes(item.page));
+        return todosMenuItems.filter(item => [
+          'Comunicacao', 'Produtos', 'Importacao', 'Agenda', 'Dashboard'
+        ].includes(item.page));
       }
       // Supervisor geral
-      return todosMenuItems.filter((item) => [
-      'Comunicacao', 'Clientes', 'Agenda', 'Dashboard', 'Produtos'].
-      includes(item.page));
+      return todosMenuItems.filter(item => [
+        'Comunicacao', 'Clientes', 'Agenda', 'Dashboard', 'Produtos'
+      ].includes(item.page));
     }
 
     // Atendente (junior/pleno)
     if (setor === 'vendas') {
-      return todosMenuItems.filter((item) => [
-      'Comunicacao', 'LeadsQualificados', 'Clientes', 'Produtos', 'Agenda', 'Dashboard'].
-      includes(item.page));
+      return todosMenuItems.filter(item => [
+        'Comunicacao', 'LeadsQualificados', 'Clientes', 'Produtos', 'Agenda', 'Dashboard'
+      ].includes(item.page));
     }
     if (setor === 'assistencia') {
-      return todosMenuItems.filter((item) => [
-      'Comunicacao', 'Clientes', 'Produtos', 'Agenda', 'Dashboard'].
-      includes(item.page));
+      return todosMenuItems.filter(item => [
+        'Comunicacao', 'Clientes', 'Produtos', 'Agenda', 'Dashboard'
+      ].includes(item.page));
     }
     if (setor === 'fornecedor') {
-      return todosMenuItems.filter((item) => [
-      'Comunicacao', 'Produtos', 'Clientes', 'Agenda', 'Dashboard'].
-      includes(item.page));
+      return todosMenuItems.filter(item => [
+        'Comunicacao', 'Produtos', 'Clientes', 'Agenda', 'Dashboard'
+      ].includes(item.page));
     }
 
     // Usuário padrão (fallback)
-    return todosMenuItems.filter((item) => [
-    'Comunicacao', 'Dashboard', 'Clientes', 'Agenda'].
-    includes(item.page));
+    return todosMenuItems.filter(item => [
+      'Comunicacao', 'Dashboard', 'Clientes', 'Agenda'
+    ].includes(item.page));
   };
 
   // Aplicar filtro de perfil
@@ -258,7 +264,7 @@ export default function Layout({ children, currentPageName }) {
 
   useEffect(() => {
     carregarDadosGlobais();
-
+    
     const interval = setInterval(carregarDadosGlobais, 10 * 60 * 1000);
     return () => clearInterval(interval);
   }, []);
@@ -281,7 +287,7 @@ export default function Layout({ children, currentPageName }) {
           setContadoresLembretes(contadores);
         } catch (error) {
           console.error('[LAYOUT] Erro ao calcular lembretes:', error);
-
+          
           if (error.message?.includes('Rate limit') || error.message?.includes('429')) {
             console.warn('[LAYOUT] ⚠️ Rate limit atingido. Próxima atualização de lembretes em 10 minutos.');
           }
@@ -292,7 +298,7 @@ export default function Layout({ children, currentPageName }) {
 
     } catch (error) {
       console.error("Erro ao carregar dados globais:", error);
-
+      
       if (error.message?.includes('Rate limit') || error.message?.includes('429')) {
         console.warn('[LAYOUT] ⚠️ Rate limit atingido nos dados globais.');
       }
@@ -317,15 +323,15 @@ export default function Layout({ children, currentPageName }) {
       <SideBar
         isOpen={sidebarOpen}
         menuItems={menuItems}
-        contadoresLembretes={contadoresLembretes} />
+        contadoresLembretes={contadoresLembretes}
+      />
 
-
-      {sidebarOpen &&
-      <div
-        className="fixed inset-0 bg-black/50 backdrop-blur-sm z-40 md:hidden"
-        onClick={() => setSidebarOpen(false)} />
-
-      }
+      {sidebarOpen && (
+        <div
+          className="fixed inset-0 bg-black/50 backdrop-blur-sm z-40 md:hidden"
+          onClick={() => setSidebarOpen(false)}
+        />
+      )}
 
       <header className="md:hidden bg-gradient-to-r from-slate-900 to-slate-800 shadow-xl flex items-center justify-between p-4 border-b border-slate-700/50">
         <Link to={createPageUrl("Dashboard")} className="flex items-center gap-3">
@@ -340,8 +346,8 @@ export default function Layout({ children, currentPageName }) {
           variant="ghost"
           size="icon"
           onClick={() => setSidebarOpen(true)}
-          className="text-white hover:bg-white/10">
-
+          className="text-white hover:bg-white/10"
+        >
           <Menu className="h-6 w-6" />
         </Button>
       </header>
@@ -361,22 +367,22 @@ export default function Layout({ children, currentPageName }) {
       <Button
         onClick={() => setNexusOpen(true)}
         className="fixed bottom-6 right-6 w-14 h-14 rounded-full bg-gradient-to-br from-purple-600 via-indigo-600 to-blue-600 hover:from-purple-700 hover:via-indigo-700 hover:to-blue-700 shadow-2xl shadow-purple-500/25 z-40 border-2 border-white/20 transition-all duration-300 hover:scale-110"
-        style={{ display: nexusOpen ? 'none' : 'flex' }}>
-
+        style={{ display: nexusOpen ? 'none' : 'flex' }}
+      >
         <Sparkles className="w-6 h-6 text-white" />
-        <div className="bg-gradient-to-br px-2 rounded-full absolute inset-0 from-white/20 to-transparent" />
+        <div className="absolute inset-0 bg-gradient-to-br from-white/20 to-transparent rounded-full" />
       </Button>
 
       <NexusChat
         isOpen={nexusOpen}
-        onToggle={() => setNexusOpen(false)} />
-
+        onToggle={() => setNexusOpen(false)}
+      />
 
       <LembreteFlutuanteIA
         orcamentos={[]}
         usuario={globalUsuario}
-        onAcaoIA={() => {}} />
-
-    </div>);
-
+        onAcaoIA={() => {}}
+      />
+    </div>
+  );
 }
