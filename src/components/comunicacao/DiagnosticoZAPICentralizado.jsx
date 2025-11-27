@@ -43,21 +43,26 @@ export default function DiagnosticoZAPICentralizado({ integracao, onRecarregar, 
     setExecutando(true);
     setDiagnostico(null);
 
+    // Detectar provedor
+    const providerKey = integracao.api_provider || 'z_api';
+    const provider = PROVIDERS[providerKey] || PROVIDERS.z_api;
+
     try {
-      console.log('[DIAGNOSTICO] Iniciando diagnóstico completo da instância:', integracao.instance_id_provider);
+      console.log('[DIAGNOSTICO] Iniciando diagnóstico completo da instância:', integracao.instance_id_provider, '- Provedor:', provider.nome);
 
       const resultado = {
         timestamp: new Date().toISOString(),
         instancia: integracao.nome_instancia,
+        provider: provider.nome,
         testes: []
       };
 
-      // Teste 1: Verificar se testarConexao existe
+      // Teste 1: Verificar conexão (adaptar nome ao provedor)
       if (typeof testarConexao === 'function') {
         resultado.testes.push({
-          nome: 'Conexão Z-API',
+          nome: `Conexão ${provider.nome}`,
           status: 'executando',
-          mensagem: 'Testando conexão com a Z-API...'
+          mensagem: `Testando conexão com a ${provider.nome}...`
         });
 
         try {
@@ -70,28 +75,44 @@ export default function DiagnosticoZAPICentralizado({ integracao, onRecarregar, 
         }
       } else {
         resultado.testes.push({
-          nome: 'Conexão Z-API',
+          nome: `Conexão ${provider.nome}`,
           status: 'aviso',
           mensagem: 'Função de teste não disponível'
         });
       }
 
-      // Teste 2: Verificar configurações
+      // Teste 2: Verificar configurações (adaptar ao provedor)
+      let configOk = !!integracao.api_key_provider;
+      let configMsg = '';
+      
+      if (provider.requerClientToken) {
+        // Z-API requer Client-Token
+        configOk = configOk && !!integracao.security_client_token_header;
+        configMsg = configOk 
+          ? 'Token da Instância e Client-Token configurados' 
+          : 'Tokens incompletos (Z-API requer Token + Client-Token)';
+      } else {
+        // W-API só precisa do Bearer Token
+        configMsg = configOk 
+          ? 'Bearer Token configurado corretamente' 
+          : 'Bearer Token não configurado';
+      }
+
       resultado.testes.push({
         nome: 'Configurações',
-        status: integracao.api_key_provider && integracao.security_client_token_header ? 'sucesso' : 'erro',
-        mensagem: integracao.api_key_provider && integracao.security_client_token_header 
-          ? 'Tokens configurados corretamente' 
-          : 'Tokens incompletos ou ausentes'
+        status: configOk ? 'sucesso' : 'erro',
+        mensagem: configMsg
       });
 
-      // Teste 3: Verificar webhook (SEMPRE PRODUÇÃO)
-      const webhookUrlAutomatica = getWebhookUrlProducao();
+      // Teste 3: Verificar webhook (usar função específica do provedor)
+      const baseAppUrl = window.location.origin.replace('preview.', '').replace(':3000', '');
+      const webhookUrl = `${baseAppUrl}/api/functions/${provider.webhookFn}`;
+      
       resultado.testes.push({
         nome: 'Webhook',
         status: 'sucesso',
-        mensagem: 'URL de PRODUÇÃO (use esta na Z-API)',
-        webhookUrl: webhookUrlAutomatica
+        mensagem: `URL de PRODUÇÃO (use esta na ${provider.nome})`,
+        webhookUrl: webhookUrl
       });
 
       setDiagnostico(resultado);
@@ -100,9 +121,9 @@ export default function DiagnosticoZAPICentralizado({ integracao, onRecarregar, 
       const total = resultado.testes.length;
       
       if (sucessos === total) {
-        toast.success(`Diagnóstico completo: ${sucessos}/${total} testes OK`);
+        toast.success(`Diagnóstico ${provider.nome}: ${sucessos}/${total} testes OK`);
       } else {
-        toast.warning(`Diagnóstico completo: ${sucessos}/${total} testes OK`);
+        toast.warning(`Diagnóstico ${provider.nome}: ${sucessos}/${total} testes OK`);
       }
 
     } catch (error) {
@@ -112,6 +133,7 @@ export default function DiagnosticoZAPICentralizado({ integracao, onRecarregar, 
       setDiagnostico({
         timestamp: new Date().toISOString(),
         instancia: integracao.nome_instancia,
+        provider: provider.nome,
         erro: error.message,
         testes: []
       });
