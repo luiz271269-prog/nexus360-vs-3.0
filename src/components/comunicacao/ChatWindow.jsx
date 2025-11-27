@@ -1252,8 +1252,8 @@ export default function ChatWindow({
   return (
     <div className="flex flex-col h-full bg-white">
       {/* Header REVOLUCIONÁRIO - Central de Inteligência do Cliente */}
-      <div className="bg-[#151537] text-slate-50 p-3 opacity-100 from-amber-50 via-orange-50 to-rose-50 border-b border-orange-200 flex-shrink-0 shadow-sm">
-        <div className="flex items-center gap-4">
+      <div className="bg-[#151537] text-slate-50 px-2 opacity-100 from-amber-50 via-orange-50 to-rose-50 border-b border-orange-200 flex-shrink-0 shadow-sm">
+        <div className="rounded-md flex items-center gap-4">
           {/* Avatar */}
           <div className="relative flex-shrink-0">
             <div className="w-14 h-14 rounded-full flex items-center justify-center text-white font-bold text-xl shadow-lg overflow-hidden relative bg-gradient-to-br from-amber-400 via-orange-500 to-red-500">
@@ -1287,7 +1287,7 @@ export default function ChatWindow({
           {/* Nome, Telefone e Barra de Temperatura */}
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 mb-1">
-              <h3 className="font-bold text-slate-900 truncate text-lg">{nomeContato}</h3>
+              <h3 className="text-gray-50 text-lg font-bold truncate">{nomeContato}</h3>
               <CentralInteligenciaContato
                 contato={contatoCompleto}
                 variant="mini"
@@ -1299,7 +1299,7 @@ export default function ChatWindow({
                 onUpdate={onAtualizarMensagens} />
             </div>
             <div className="flex items-center gap-3 mb-2">
-              <p className="text-xs text-slate-500">{telefoneExibicao}</p>
+              <p className="text-slate-50 text-xs">{telefoneExibicao}</p>
 
               {/* Barra de Temperatura Visual */}
               {(() => {
@@ -1313,7 +1313,7 @@ export default function ChatWindow({
                     </div>
                     <div className="flex-1">
                       <div className="flex items-center justify-between mb-0.5">
-                        <span className="text-[10px] font-semibold text-slate-600">{nivel.emoji} {nivel.label}</span>
+                        <span className="text-slate-50 font-semibold">{nivel.emoji} {nivel.label}</span>
                         <span className="text-[10px] font-bold text-slate-500">{score}%</span>
                       </div>
                       <div className="w-full h-1.5 bg-slate-200 rounded-full overflow-hidden">
