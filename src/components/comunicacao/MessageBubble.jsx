@@ -895,7 +895,9 @@ export default function MessageBubble({
             }
 
             {/* 📱 CANAL WHATSAPP - Badge mostrando de qual conexão veio */}
-            {!isOwn && thread && (() => {
+            {!isOwn && (() => {
+              // Verificar se thread existe antes de acessar
+              if (!thread) return null;
               // Tentar várias formas de obter info do canal
               const canalNumero = message?.metadata?.canal_numero || message?.metadata?.connected_phone;
               const canalNome = message?.metadata?.canal_nome;
