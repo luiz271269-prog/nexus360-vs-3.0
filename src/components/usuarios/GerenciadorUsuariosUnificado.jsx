@@ -32,20 +32,39 @@ const RECURSOS_SISTEMA = [
       { id: "Comunicacao.conversas.midia", nome: "Enviar Mídia", tipo: "acao" },
       { id: "Comunicacao.conversas.transferir", nome: "Transferir Conversa", tipo: "acao" },
       { id: "Comunicacao.conversas.ver_todas", nome: "Ver Todas (Supervisão)", tipo: "acao" },
+      { id: "Comunicacao.conversas.ver_contato", nome: "Ver Detalhes Contato", tipo: "acao" },
+      { id: "Comunicacao.conversas.editar_contato", nome: "Editar Contato", tipo: "acao" },
       { id: "Comunicacao.controle", nome: "Controle Operacional", tipo: "subtela" },
+      { id: "Comunicacao.controle.gerenciar_filas", nome: "Gerenciar Filas", tipo: "acao" },
+      { id: "Comunicacao.controle.reatribuir", nome: "Reatribuir Conversas", tipo: "acao" },
       { id: "Comunicacao.automacao", nome: "Automação", tipo: "subtela" },
+      { id: "Comunicacao.automacao.criar", nome: "Criar Playbooks", tipo: "acao" },
+      { id: "Comunicacao.automacao.editar", nome: "Editar Playbooks", tipo: "acao" },
       { id: "Comunicacao.config", nome: "Configurações WhatsApp", tipo: "subtela" },
+      { id: "Comunicacao.config.conexoes", nome: "Gerenciar Conexões", tipo: "acao" },
     ]
   },
   {
     id: "Dashboard",
-    nome: "📊 Dashboard",
+    nome: "📊 Dashboard Executivo",
     tipo: "menu",
     categoria: "Geral",
-    description: "Visão geral e KPIs.",
+    description: "Visão geral e KPIs da empresa.",
     acoes: [
+      { id: "Dashboard.visao_empresa", nome: "Visão Empresa", tipo: "subtela" },
+      { id: "Dashboard.visao_empresa.ver_faturamento", nome: "Ver Faturamento", tipo: "acao" },
+      { id: "Dashboard.visao_empresa.ver_metas", nome: "Ver Metas Globais", tipo: "acao" },
+      { id: "Dashboard.performance_vendas", nome: "Performance Vendas", tipo: "subtela" },
+      { id: "Dashboard.performance_vendas.ranking", nome: "Ver Ranking Vendedores", tipo: "acao" },
+      { id: "Dashboard.performance_vendas.detalhes_vendedor", nome: "Acessar Detalhes Vendedor", tipo: "acao" },
+      { id: "Dashboard.analise_clientes", nome: "Análise Clientes", tipo: "subtela" },
+      { id: "Dashboard.analise_clientes.curva_abc", nome: "Ver Curva ABC", tipo: "acao" },
+      { id: "Dashboard.analise_clientes.detalhes_cliente", nome: "Acessar Detalhes Cliente", tipo: "acao" },
+      { id: "Dashboard.metricas_operacionais", nome: "Métricas Operacionais", tipo: "subtela" },
+      { id: "Dashboard.metricas_operacionais.tempo_resposta", nome: "Ver Tempo Resposta", tipo: "acao" },
+      { id: "Dashboard.metricas_operacionais.taxa_conversao", nome: "Ver Taxa Conversão", tipo: "acao" },
       { id: "Dashboard.filtrar", nome: "Filtrar Dados", tipo: "acao" },
-      { id: "Dashboard.exportar", nome: "Exportar", tipo: "acao" },
+      { id: "Dashboard.exportar", nome: "Exportar Relatórios", tipo: "acao" },
     ]
   },
   {
@@ -56,8 +75,14 @@ const RECURSOS_SISTEMA = [
     description: "Funil de leads e orçamentos.",
     acoes: [
       { id: "LeadsQualificados.kanban_leads", nome: "Kanban Leads", tipo: "subtela" },
+      { id: "LeadsQualificados.kanban_leads.mover", nome: "Mover Cards", tipo: "acao" },
+      { id: "LeadsQualificados.kanban_leads.ver_detalhes", nome: "Ver Detalhes Lead", tipo: "acao" },
       { id: "LeadsQualificados.kanban_clientes", nome: "Kanban Clientes", tipo: "subtela" },
+      { id: "LeadsQualificados.kanban_clientes.mover", nome: "Mover Cards", tipo: "acao" },
       { id: "LeadsQualificados.orcamentos", nome: "Pipeline Orçamentos", tipo: "subtela" },
+      { id: "LeadsQualificados.orcamentos.criar", nome: "Criar Orçamento", tipo: "acao" },
+      { id: "LeadsQualificados.orcamentos.editar", nome: "Editar Orçamento", tipo: "acao" },
+      { id: "LeadsQualificados.orcamentos.ver_detalhes", nome: "Ver Detalhes Orçamento", tipo: "acao" },
     ]
   },
   {
@@ -67,6 +92,10 @@ const RECURSOS_SISTEMA = [
     categoria: "CRM",
     description: "Gestão de clientes.",
     acoes: [
+      { id: "Clientes.listar", nome: "Listar Clientes", tipo: "subtela" },
+      { id: "Clientes.ver_detalhes", nome: "Ver Detalhes Cliente", tipo: "acao" },
+      { id: "Clientes.ver_historico", nome: "Ver Histórico", tipo: "acao" },
+      { id: "Clientes.ver_interacoes", nome: "Ver Interações", tipo: "acao" },
       { id: "Clientes.novo", nome: "Criar Cliente", tipo: "acao" },
       { id: "Clientes.editar", nome: "Editar Cliente", tipo: "acao" },
       { id: "Clientes.excluir", nome: "Excluir Cliente", tipo: "acao" },
@@ -79,6 +108,9 @@ const RECURSOS_SISTEMA = [
     categoria: "Vendas",
     description: "Equipe de vendas.",
     acoes: [
+      { id: "Vendedores.listar", nome: "Listar Vendedores", tipo: "subtela" },
+      { id: "Vendedores.ver_performance", nome: "Ver Performance", tipo: "acao" },
+      { id: "Vendedores.ver_metas", nome: "Ver Metas", tipo: "acao" },
       { id: "Vendedores.novo", nome: "Criar Vendedor", tipo: "acao" },
       { id: "Vendedores.editar", nome: "Editar Vendedor", tipo: "acao" },
       { id: "Vendedores.excluir", nome: "Excluir Vendedor", tipo: "acao" },
@@ -91,16 +123,81 @@ const RECURSOS_SISTEMA = [
     categoria: "Catálogo",
     description: "Catálogo de produtos.",
     acoes: [
+      { id: "Produtos.listar", nome: "Listar Produtos", tipo: "subtela" },
+      { id: "Produtos.ver_detalhes", nome: "Ver Detalhes Produto", tipo: "acao" },
+      { id: "Produtos.ver_estoque", nome: "Ver Estoque", tipo: "acao" },
       { id: "Produtos.novo", nome: "Criar Produto", tipo: "acao" },
       { id: "Produtos.editar", nome: "Editar Produto", tipo: "acao" },
       { id: "Produtos.excluir", nome: "Excluir Produto", tipo: "acao" },
     ]
   },
-  { id: "Agenda", nome: "📅 Agenda", tipo: "menu", categoria: "Geral", description: "Tarefas inteligentes." },
-  { id: "AnalyticsAvancado", nome: "📈 Analytics", tipo: "menu", categoria: "Relatórios", description: "Análises avançadas." },
-  { id: "Importacao", nome: "📥 Importação", tipo: "menu", categoria: "Dados", description: "Importar dados." },
-  { id: "Usuarios", nome: "👤 Usuários", tipo: "menu", categoria: "Admin", description: "Gerenciar usuários." },
-  { id: "Auditoria", nome: "🔒 Auditoria", tipo: "menu", categoria: "Admin", description: "Logs do sistema." },
+  { 
+    id: "Agenda", 
+    nome: "📅 Agenda", 
+    tipo: "menu", 
+    categoria: "Geral", 
+    description: "Tarefas inteligentes.",
+    acoes: [
+      { id: "Agenda.ver_tarefas", nome: "Ver Tarefas", tipo: "subtela" },
+      { id: "Agenda.criar_tarefa", nome: "Criar Tarefa", tipo: "acao" },
+      { id: "Agenda.editar_tarefa", nome: "Editar Tarefa", tipo: "acao" },
+      { id: "Agenda.concluir_tarefa", nome: "Concluir Tarefa", tipo: "acao" },
+      { id: "Agenda.ver_calendario", nome: "Ver Calendário", tipo: "subtela" },
+    ]
+  },
+  { 
+    id: "AnalyticsAvancado", 
+    nome: "📈 Analytics Avançado", 
+    tipo: "menu", 
+    categoria: "Relatórios", 
+    description: "Análises avançadas e BI.",
+    acoes: [
+      { id: "AnalyticsAvancado.relatorios", nome: "Ver Relatórios", tipo: "subtela" },
+      { id: "AnalyticsAvancado.graficos", nome: "Ver Gráficos", tipo: "subtela" },
+      { id: "AnalyticsAvancado.exportar", nome: "Exportar Dados", tipo: "acao" },
+      { id: "AnalyticsAvancado.configurar", nome: "Configurar Métricas", tipo: "acao" },
+    ]
+  },
+  { 
+    id: "Importacao", 
+    nome: "📥 Importação", 
+    tipo: "menu", 
+    categoria: "Dados", 
+    description: "Importar dados.",
+    acoes: [
+      { id: "Importacao.upload", nome: "Upload Arquivos", tipo: "subtela" },
+      { id: "Importacao.google_sheets", nome: "Google Sheets", tipo: "subtela" },
+      { id: "Importacao.historico", nome: "Ver Histórico", tipo: "subtela" },
+      { id: "Importacao.processar", nome: "Processar Importação", tipo: "acao" },
+      { id: "Importacao.excluir", nome: "Excluir Importação", tipo: "acao" },
+    ]
+  },
+  { 
+    id: "Usuarios", 
+    nome: "👤 Usuários", 
+    tipo: "menu", 
+    categoria: "Admin", 
+    description: "Gerenciar usuários.",
+    acoes: [
+      { id: "Usuarios.listar", nome: "Listar Usuários", tipo: "subtela" },
+      { id: "Usuarios.criar", nome: "Criar Usuário", tipo: "acao" },
+      { id: "Usuarios.editar", nome: "Editar Usuário", tipo: "acao" },
+      { id: "Usuarios.permissoes", nome: "Gerenciar Permissões", tipo: "acao" },
+      { id: "Usuarios.desativar", nome: "Desativar Usuário", tipo: "acao" },
+    ]
+  },
+  { 
+    id: "Auditoria", 
+    nome: "🔒 Auditoria", 
+    tipo: "menu", 
+    categoria: "Admin", 
+    description: "Logs do sistema.",
+    acoes: [
+      { id: "Auditoria.logs", nome: "Ver Logs", tipo: "subtela" },
+      { id: "Auditoria.filtrar", nome: "Filtrar Logs", tipo: "acao" },
+      { id: "Auditoria.exportar", nome: "Exportar Logs", tipo: "acao" },
+    ]
+  },
 ];
 
 const PERFIS_RAPIDOS = {
@@ -242,15 +339,47 @@ export default function GerenciadorUsuariosUnificado({
     setRecursoSelecionado(RECURSOS_SISTEMA[0]);
   };
 
-  // Filtrar usuários
+  // Filtrar e agrupar usuários por setor
   const usuariosFiltrados = useMemo(() => {
-    if (!filtro) return usuarios;
-    const t = filtro.toLowerCase();
-    return usuarios.filter(u =>
-      (u.nome && u.nome.toLowerCase().includes(t)) ||
-      (u.email && u.email.toLowerCase().includes(t))
-    );
+    let lista = usuarios;
+    if (filtro) {
+      const t = filtro.toLowerCase();
+      lista = usuarios.filter(u =>
+        (u.nome && u.nome.toLowerCase().includes(t)) ||
+        (u.email && u.email.toLowerCase().includes(t))
+      );
+    }
+    return lista;
   }, [usuarios, filtro]);
+
+  // Agrupar por setor
+  const usuariosAgrupados = useMemo(() => {
+    const grupos = {};
+    usuariosFiltrados.forEach(u => {
+      const setor = u.setor || "geral";
+      if (!grupos[setor]) grupos[setor] = [];
+      grupos[setor].push(u);
+    });
+    // Ordenar setores
+    const ordem = ["vendas", "assistencia", "financeiro", "fornecedor", "geral"];
+    const resultado = {};
+    ordem.forEach(s => {
+      if (grupos[s]) resultado[s] = grupos[s];
+    });
+    // Adicionar setores não listados
+    Object.keys(grupos).forEach(s => {
+      if (!resultado[s]) resultado[s] = grupos[s];
+    });
+    return resultado;
+  }, [usuariosFiltrados]);
+
+  const SETOR_LABELS = {
+    vendas: { label: "🟢 Vendas", cor: "bg-green-100 text-green-800" },
+    assistencia: { label: "🔵 Assistência", cor: "bg-blue-100 text-blue-800" },
+    financeiro: { label: "🟡 Financeiro", cor: "bg-yellow-100 text-yellow-800" },
+    fornecedor: { label: "🟠 Fornecedor", cor: "bg-orange-100 text-orange-800" },
+    geral: { label: "⚪ Geral", cor: "bg-slate-100 text-slate-800" },
+  };
 
   const temPermissao = (permId) => (usuarioSelecionado?.permissoes || []).includes(permId);
 
@@ -287,28 +416,43 @@ export default function GerenciadorUsuariosUnificado({
           ) : usuariosFiltrados.length === 0 ? (
             <div className="p-4 text-center text-xs text-slate-500">Nenhum usuário</div>
           ) : (
-            <ul>
-              {usuariosFiltrados.map(u => (
-                <li
-                  key={u.id}
-                  onClick={() => { setUsuarioSelecionado(u); setRecursoSelecionado(RECURSOS_SISTEMA[0]); }}
-                  className={`px-3 py-2 cursor-pointer border-b text-xs transition-colors ${
-                    usuarioSelecionado?.id === u.id
-                      ? "bg-indigo-50 border-l-2 border-l-indigo-500"
-                      : "hover:bg-slate-50"
-                  }`}
-                >
-                  <div className="flex items-center justify-between">
-                    <span className="font-medium text-slate-800 truncate">{u.nome || "(sem nome)"}</span>
-                    <Badge variant={u.ativo ? "default" : "secondary"} className="text-[9px] px-1.5 py-0">
-                      {u.ativo ? "Ativo" : "Inativo"}
-                    </Badge>
+            <div>
+              {Object.entries(usuariosAgrupados).map(([setor, listaUsuarios]) => {
+                const setorConfig = SETOR_LABELS[setor] || SETOR_LABELS.geral;
+                return (
+                  <div key={setor}>
+                    {/* Header do Grupo/Setor */}
+                    <div className={`px-3 py-1.5 ${setorConfig.cor} border-b sticky top-0 z-10`}>
+                      <span className="text-[10px] font-bold">{setorConfig.label}</span>
+                      <Badge variant="outline" className="ml-2 text-[9px] px-1">{listaUsuarios.length}</Badge>
+                    </div>
+                    {/* Usuários do Grupo */}
+                    <ul>
+                      {listaUsuarios.map(u => (
+                        <li
+                          key={u.id}
+                          onClick={() => { setUsuarioSelecionado(u); setRecursoSelecionado(RECURSOS_SISTEMA[0]); }}
+                          className={`px-3 py-2 cursor-pointer border-b text-xs transition-colors ${
+                            usuarioSelecionado?.id === u.id
+                              ? "bg-indigo-50 border-l-2 border-l-indigo-500"
+                              : "hover:bg-slate-50"
+                          }`}
+                        >
+                          <div className="flex items-center justify-between">
+                            <span className="font-medium text-slate-800 truncate">{u.nome || "(sem nome)"}</span>
+                            <Badge variant={u.ativo ? "default" : "secondary"} className="text-[9px] px-1.5 py-0">
+                              {u.ativo ? "Ativo" : "Inativo"}
+                            </Badge>
+                          </div>
+                          <div className="text-[10px] text-slate-500 truncate">{u.email}</div>
+                          <div className="text-[10px] text-slate-400">{u.funcao || "—"}</div>
+                        </li>
+                      ))}
+                    </ul>
                   </div>
-                  <div className="text-[10px] text-slate-500 truncate">{u.email}</div>
-                  {u.setor && <div className="text-[10px] text-slate-400">{u.setor} • {u.funcao}</div>}
-                </li>
-              ))}
-            </ul>
+                );
+              })}
+            </div>
           )}
         </div>
       </section>
