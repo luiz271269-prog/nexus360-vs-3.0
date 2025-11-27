@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -26,14 +26,6 @@ const TIPOS_CONTATO = [
   { value: 'cliente', label: 'Clientes', icon: Building2, color: 'bg-emerald-500', emoji: '💎' },
   { value: 'fornecedor', label: 'Fornecedores', icon: Truck, color: 'bg-blue-500', emoji: '🏭' },
   { value: 'parceiro', label: 'Parceiros', icon: Handshake, color: 'bg-purple-500', emoji: '🤝' },
-];
-
-// Configuração de etiquetas/destaques
-const ETIQUETAS_DESTAQUE = [
-  { value: 'vip', label: 'VIP', icon: Crown, color: 'bg-yellow-500', emoji: '👑' },
-  { value: 'prioridade', label: 'Prioridade', icon: Zap, color: 'bg-red-500', emoji: '⚡' },
-  { value: 'fidelizado', label: 'Fidelizado', icon: Star, color: 'bg-cyan-500', emoji: '💎' },
-  { value: 'potencial', label: 'Potencial', icon: Sparkles, color: 'bg-violet-500', emoji: '🚀' },
 ];
 
 export default function SearchAndFilter({
@@ -67,6 +59,23 @@ export default function SearchAndFilter({
     queryFn: () => base44.entities.CategoriasMensagens.filter({ ativa: true }, 'nome'),
     staleTime: 5 * 60 * 1000
   });
+
+  // Buscar etiquetas de contato dinâmicas
+  const { data: etiquetasDB = [] } = useQuery({
+    queryKey: ['etiquetas-contato'],
+    queryFn: () => base44.entities.EtiquetaContato.filter({ ativa: true, destaque: true }, 'ordem'),
+    staleTime: 5 * 60 * 1000
+  });
+
+  // Etiquetas de destaque dinâmicas
+  const etiquetasDestaque = useMemo(() => {
+    return etiquetasDB.map(etq => ({
+      value: etq.nome,
+      label: etq.label,
+      color: etq.cor || 'bg-slate-500',
+      emoji: etq.emoji || '🏷️'
+    }));
+  }, [etiquetasDB]);
 
   const todasCategorias = [...CATEGORIAS_FIXAS, ...categoriasDB].map(cat => ({
     value: cat.nome,
@@ -302,7 +311,7 @@ export default function SearchAndFilter({
                 </div>
               )}
 
-              {/* Por etiqueta/destaque */}
+              {/* Por etiqueta/destaque - DINÂMICO */}
               {onSelectedTagContatoChange && (
                 <div>
                   <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2 block">
@@ -316,7 +325,7 @@ export default function SearchAndFilter({
                       label="Todos"
                       color="bg-slate-500"
                     />
-                    {ETIQUETAS_DESTAQUE.map(tag => (
+                    {etiquetasDestaque.map(tag => (
                       <FilterOption
                         key={tag.value}
                         selected={selectedTagContato === tag.value}
@@ -397,13 +406,13 @@ export default function SearchAndFilter({
             )}
             
             {selectedTagContato && selectedTagContato !== 'all' && (
-              <FilterChip
-                label={ETIQUETAS_DESTAQUE.find(t => t.value === selectedTagContato)?.label || selectedTagContato}
-                emoji={ETIQUETAS_DESTAQUE.find(t => t.value === selectedTagContato)?.emoji || '🏷️'}
-                color={ETIQUETAS_DESTAQUE.find(t => t.value === selectedTagContato)?.color || 'bg-purple-500'}
-                onRemove={() => onSelectedTagContatoChange && onSelectedTagContatoChange('all')}
-              />
-            )}
+                <FilterChip
+                  label={etiquetasDestaque.find(t => t.value === selectedTagContato)?.label || selectedTagContato}
+                  emoji={etiquetasDestaque.find(t => t.value === selectedTagContato)?.emoji || '🏷️'}
+                  color={etiquetasDestaque.find(t => t.value === selectedTagContato)?.color || 'bg-purple-500'}
+                  onRemove={() => onSelectedTagContatoChange && onSelectedTagContatoChange('all')}
+                />
+              )}
             
             {selectedCategoria && selectedCategoria !== 'all' && (
               <FilterChip

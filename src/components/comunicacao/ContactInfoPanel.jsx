@@ -19,6 +19,7 @@ import { format } from 'date-fns';
 import { normalizarTelefone } from '../lib/phoneUtils';
 import SegmentacaoInteligente from './SegmentacaoInteligente';
 import AtribuidorAtendenteRapido from './AtribuidorAtendenteRapido';
+import SeletorEtiquetasContato from './SeletorEtiquetasContato';
 
 export default function ContactInfoPanel({ contact, novoContatoTelefone, onClose, onUpdate, threadAtual }) {
   const [vendedores, setVendedores] = useState([]);
@@ -614,9 +615,28 @@ export default function ContactInfoPanel({ contact, novoContatoTelefone, onClose
                 </div>
               </div>
             </div>
-          </div>
+            <div className="h-px bg-slate-100" />
 
-          {/* Gerenciamento */}
+            {/* Etiquetas */}
+            <div className="bg-white hover:bg-slate-50 transition-colors">
+              <div className="flex items-center gap-3 p-3">
+                <Tag className="w-5 h-5 text-slate-400 flex-shrink-0" />
+                <div className="flex-1">
+                  <Label className="text-xs text-slate-500 mb-1 block">Etiquetas</Label>
+                  <SeletorEtiquetasContato
+                    contato={contact}
+                    onUpdate={onUpdate}
+                    setorUsuario={usuario?.attendant_sector || 'geral'}
+                    tipoContato={formData.tipo_contato}
+                    variant="default"
+                    disabled={!podeEditarContatos}
+                  />
+                </div>
+              </div>
+            </div>
+            </div>
+
+            {/* Gerenciamento */}
           <div className="mt-4 px-4 pb-4 border-t pt-4">
             {contact.bloqueado ? (
               <Alert className="bg-red-50 border-red-200 p-3">

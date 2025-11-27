@@ -20,6 +20,7 @@ import {
   podeAtenderContato,
   verificarPermissaoUsuario } from
 "./MotorRoteamentoAtendimento";
+import { useEtiquetasContato } from "./SeletorEtiquetasContato";
 
 export default function ChatSidebar({ threads, threadAtiva, onSelecionarThread, loading, usuarioAtual, integracoes = [] }) {
   // Buscar categorias dinâmicas
@@ -28,6 +29,9 @@ export default function ChatSidebar({ threads, threadAtiva, onSelecionarThread, 
     queryFn: () => base44.entities.CategoriasMensagens.filter({ ativa: true }, 'nome'),
     staleTime: 5 * 60 * 1000
   });
+
+  // Buscar etiquetas dinâmicas do banco
+  const { etiquetas: etiquetasDB, getConfig: getEtiquetaConfigDinamico } = useEtiquetasContato();
 
   // ═══════════════════════════════════════════════════════════════════════════════
   // 🔐 FILTRO INTELIGENTE: Tipo Contato + Conexão WhatsApp + Hierarquia Usuário
@@ -322,25 +326,26 @@ export default function ChatSidebar({ threads, threadAtiva, onSelecionarThread, 
                   );
                 })()}
 
-                {/* DESTAQUES (max 2) */}
+                {/* DESTAQUES (max 2) - DINÂMICO */}
                 {contato?.tags && contato.tags.length > 0 && (() => {
-                  const etiquetasDestaque = {
-                    'vip': { emoji: '👑', label: 'VIP', bg: 'bg-yellow-500' },
-                    'prioridade': { emoji: '⚡', label: 'Prior.', bg: 'bg-red-500' },
-                    'fidelizado': { emoji: '💎', label: 'Fidel.', bg: 'bg-cyan-500' },
-                    'potencial': { emoji: '🚀', label: 'Potenc.', bg: 'bg-violet-500' }
-                  };
-                  const ordem = ['vip', 'prioridade', 'fidelizado', 'potencial'];
+                  // Buscar etiquetas de destaque do banco
+                  const etiquetasDestaqueDB = etiquetasDB.filter(e => e.destaque === true);
+                  const nomesDestaque = etiquetasDestaqueDB.map(e => e.nome);
+
                   const tagsOrdenadas = contato.tags
-                    .filter(t => ordem.includes(t))
-                    .sort((a, b) => ordem.indexOf(a) - ordem.indexOf(b))
+                    .filter(t => nomesDestaque.includes(t))
+                    .sort((a, b) => {
+                      const ordemA = etiquetasDestaqueDB.find(e => e.nome === a)?.ordem || 100;
+                      const ordemB = etiquetasDestaqueDB.find(e => e.nome === b)?.ordem || 100;
+                      return ordemA - ordemB;
+                    })
                     .slice(0, 2);
 
                   return tagsOrdenadas.map(etq => {
-                    const cfg = etiquetasDestaque[etq];
+                    const cfg = getEtiquetaConfigDinamico(etq);
                     return (
-                      <span key={etq} className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-semibold text-white ${cfg.bg} shadow-sm`}>
-                        {cfg.emoji} {cfg.label}
+                      <span key={etq} className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-semibold text-white ${cfg.cor || 'bg-slate-500'} shadow-sm`}>
+                        {cfg.emoji || '🏷️'} {cfg.label?.substring(0, 6) || etq}
                       </span>
                     );
                   });
