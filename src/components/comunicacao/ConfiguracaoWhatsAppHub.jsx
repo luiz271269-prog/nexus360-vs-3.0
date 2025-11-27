@@ -116,6 +116,7 @@ export default function ConfiguracaoWhatsAppHub({ integracoes, onRecarregar, usu
 
   const validarCampos = () => {
     const erros = [];
+    const provider = PROVIDERS[novaIntegracao.api_provider];
 
     if (!novaIntegracao.nome_instancia?.trim()) {
       erros.push("Nome da instância é obrigatório");
@@ -125,7 +126,7 @@ export default function ConfiguracaoWhatsAppHub({ integracoes, onRecarregar, usu
       erros.push("Número de telefone é obrigatório");
     }
 
-    const instanceId = novaIntegracao.zapi_instance_id.trim();
+    const instanceId = novaIntegracao.instance_id.trim();
     if (!instanceId) {
       erros.push("Instance ID é obrigatório");
     } else if (instanceId.includes('http') || instanceId.includes('/')) {
@@ -134,18 +135,21 @@ export default function ConfiguracaoWhatsAppHub({ integracoes, onRecarregar, usu
       erros.push("Instance ID muito curto: verifique se copiou corretamente");
     }
 
-    const tokenInstancia = novaIntegracao.zapi_token_instancia.trim();
+    const tokenInstancia = novaIntegracao.token_instancia.trim();
     if (!tokenInstancia) {
       erros.push("Token da Instância é obrigatório");
     } else if (tokenInstancia.length < 10) {
       erros.push("Token da Instância muito curto: verifique se copiou corretamente");
     }
 
-    const tokenConta = novaIntegracao.zapi_client_token_conta.trim();
-    if (!tokenConta) {
-      erros.push("Client-Token de Segurança da Conta é obrigatório");
-    } else if (tokenConta.length < 10) {
-      erros.push("Client-Token de Segurança muito curto: verifique se copiou corretamente");
+    // Client-Token apenas obrigatório para Z-API
+    if (provider.requerClientToken) {
+      const tokenConta = novaIntegracao.client_token_conta.trim();
+      if (!tokenConta) {
+        erros.push("Client-Token de Segurança da Conta é obrigatório para Z-API");
+      } else if (tokenConta.length < 10) {
+        erros.push("Client-Token de Segurança muito curto: verifique se copiou corretamente");
+      }
     }
 
     return erros;
