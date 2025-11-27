@@ -1252,8 +1252,8 @@ export default function ChatWindow({
   return (
     <div className="flex flex-col h-full bg-white">
       {/* Header REVOLUCIONÁRIO - Central de Inteligência do Cliente */}
-      <div className="bg-[#151537] text-slate-50 px-2 opacity-100 from-amber-50 via-orange-50 to-rose-50 border-b border-orange-200 flex-shrink-0 shadow-sm">
-        <div className="rounded-md flex items-center gap-4">
+      <div className="bg-[#a2bbcd] text-slate-50 px-2 opacity-100 from-amber-50 via-orange-50 to-rose-50 border-b border-orange-200 flex-shrink-0 shadow-sm">
+        <div className="text-[#6e94c9] rounded-md flex items-center gap-4">
           {/* Avatar */}
           <div className="relative flex-shrink-0">
             <div className="w-14 h-14 rounded-full flex items-center justify-center text-white font-bold text-xl shadow-lg overflow-hidden relative bg-gradient-to-br from-amber-400 via-orange-500 to-red-500">
