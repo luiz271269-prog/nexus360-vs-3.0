@@ -50,6 +50,8 @@ export default function Comunicacao() {
   const [selectedAttendantId, setSelectedAttendantId] = useState(null);
   const [selectedIntegrationId, setSelectedIntegrationId] = useState('all');
   const [selectedCategoria, setSelectedCategoria] = useState('all');
+  const [selectedTipoContato, setSelectedTipoContato] = useState('all');
+  const [selectedTagContato, setSelectedTagContato] = useState('all');
 
   const queryClient = useQueryClient();
 
