@@ -9,6 +9,7 @@ import AnaliseClientes from "../components/dashboard/AnaliseClientes";
 import MetricasOperacionais from "../components/dashboard/MetricasOperacionais";
 import FiltrosAvancados from "../components/dashboard/FiltrosAvancados";
 import ExportadorDashboard from "../components/dashboard/ExportadorDashboard";
+import AnalyticsAvancadoEmbed from "../components/dashboard/AnalyticsAvancadoEmbed";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -659,6 +660,10 @@ export default function Dashboard() {
 
             {viewMode === 'operacional' &&
               <MetricasOperacionais dados={dados} filtros={filtros} isGerente={isGerente} />
+            }
+
+            {viewMode === 'analytics' && isGerente &&
+              <AnalyticsAvancadoEmbed />
             }
           </>
         }
