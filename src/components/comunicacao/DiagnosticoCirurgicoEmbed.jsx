@@ -50,6 +50,8 @@ export default function DiagnosticoCirurgicoEmbed() {
       }
 
       const integracao = integracoes[0];
+      const providerNome = getProviderNome(integracao);
+      const isWAPI = integracao.api_provider === 'w_api';
 
       // ========== TESTE 2: TESTAR CONEXÃO HTTP ==========
       console.log('[DIAG] Testando conexao HTTP com webhook...');
