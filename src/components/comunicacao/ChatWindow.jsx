@@ -1588,10 +1588,10 @@ export default function ChatWindow({
         {/* Seletor de Canal WhatsApp */}
         {integracoes.length > 1 &&
         <div className="mb-2 flex items-center gap-2">
-            <label className="text-slate-50 text-xs font-medium">Enviar por:</label>
+            <label className="text-gray-900 text-xs font-medium">Enviar por:</label>
             <select
             value={canalSelecionado || thread.whatsapp_integration_id || ''}
-            onChange={(e) => setCanalSelecionado(e.target.value)} className="bg-[#151532] text-slate-50 px-2 py-1 text-xs rounded border border-slate-300">
+            onChange={(e) => setCanalSelecionado(e.target.value)} className="bg-[#778ca6] text-slate-50 px-2 py-1 text-xs rounded border border-slate-300">
 
 
               {integracoes.map((int) =>
