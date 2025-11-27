@@ -227,10 +227,29 @@ export default function ChatSidebar({ threads, threadAtiva, onSelecionarThread, 
               isAtiva ? 'bg-gradient-to-r from-amber-50 via-orange-50 to-red-50 border-l-4 border-l-orange-500' : ''
             }`}
           >
-            {/* Avatar com Ícones Alinhados no Topo */}
+            {/* Avatar com Indicadores Posicionados */}
             <div className="relative flex-shrink-0">
-              {/* Ícones Superiores Alinhados */}
-              <div className="absolute -top-2 left-0 right-0 flex justify-center gap-0.5 z-30">
+              {/* Avatar */}
+              <div className={`relative w-12 h-12 rounded-full flex items-center justify-center text-white font-bold text-lg shadow-md overflow-hidden ${
+                hasUnread 
+                  ? 'bg-gradient-to-br from-amber-400 via-orange-500 to-red-500' 
+                  : 'bg-gradient-to-br from-slate-400 to-slate-500'
+              }`}>
+                {contato.foto_perfil_url ? (
+                  <img 
+                    src={contato.foto_perfil_url} 
+                    alt={nomeExibicao}
+                    className="w-full h-full object-cover"
+                    onError={(e) => { e.target.style.display = 'none'; e.target.nextSibling.style.display = 'flex'; }}
+                  />
+                ) : null}
+                <span className={`${contato.foto_perfil_url ? 'hidden' : ''} w-full h-full flex items-center justify-center`}>
+                  {nomeExibicao.charAt(0).toUpperCase()}
+                </span>
+              </div>
+
+              {/* Indicadores no canto inferior direito do avatar */}
+              <div className="absolute -bottom-1 -right-1 flex gap-0.5">
                 {/* Termômetro de Temperatura */}
                 <div onClick={(e) => e.stopPropagation()}>
                   <CentralInteligenciaContato contato={contato} variant="mini" showSugestoes={true} />
@@ -238,40 +257,19 @@ export default function ChatSidebar({ threads, threadAtiva, onSelecionarThread, 
 
                 {/* Indicador de Atribuição */}
                 {isUnassigned && (
-                  <div className="w-6 h-6 bg-red-500 rounded-full flex items-center justify-center border-2 border-white shadow-sm">
-                    <AlertCircle className="w-3 h-3 text-white" />
+                  <div className="w-5 h-5 bg-red-500 rounded-full flex items-center justify-center border-2 border-white shadow-sm">
+                    <AlertCircle className="w-2.5 h-2.5 text-white" />
                   </div>
                 )}
                 {isAssignedToMe && (
-                  <div className="w-6 h-6 bg-blue-500 rounded-full flex items-center justify-center border-2 border-white shadow-sm">
-                    <User className="w-3 h-3 text-white" />
+                  <div className="w-5 h-5 bg-blue-500 rounded-full flex items-center justify-center border-2 border-white shadow-sm">
+                    <User className="w-2.5 h-2.5 text-white" />
                   </div>
                 )}
                 {!isAssignedToMe && thread.assigned_user_id && (
-                  <div className="w-6 h-6 bg-green-500 rounded-full flex items-center justify-center border-2 border-white shadow-sm">
-                    <Users className="w-3 h-3 text-white" />
+                  <div className="w-5 h-5 bg-green-500 rounded-full flex items-center justify-center border-2 border-white shadow-sm">
+                    <Users className="w-2.5 h-2.5 text-white" />
                   </div>
-                )}
-              </div>
-
-              {/* Avatar */}
-              <div className={`relative w-12 h-12 mt-2 rounded-full flex items-center justify-center text-white font-bold text-lg shadow-md overflow-hidden ${
-                hasUnread 
-                  ? 'bg-gradient-to-br from-amber-400 via-orange-500 to-red-500' 
-                  : 'bg-gradient-to-br from-slate-400 to-slate-500'
-              }`}>
-                {contato.foto_perfil_url ? (
-                  <>
-                    <img 
-                      src={contato.foto_perfil_url} 
-                      alt={nomeExibicao}
-                      className="w-full h-full object-cover absolute inset-0"
-                      onError={(e) => { e.target.style.display = 'none'; }}
-                    />
-                    <span className="relative z-10">{nomeExibicao.charAt(0).toUpperCase()}</span>
-                  </>
-                ) : (
-                  nomeExibicao.charAt(0).toUpperCase()
                 )}
               </div>
             </div>
