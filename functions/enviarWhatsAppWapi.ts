@@ -3,19 +3,21 @@ import { createClientFromRequest } from 'npm:@base44/sdk@0.8.4';
 // ============================================================================
 // FUNÇÃO DE ENVIO WHATSAPP - W-API (Paralela à Z-API)
 // ============================================================================
-// Esta função é específica para a W-API e não interfere na Z-API
-// TODO: Ajustar endpoints e payload conforme documentação W-API
+// Baseado na documentação oficial W-API:
+// - URL base: https://api.w-api.app/v1
+// - instanceId como query parameter: ?instanceId=XXX
+// - Token no header: Authorization: Bearer XXX
 // ============================================================================
 
-const VERSION = 'v1.0.0';
+const VERSION = 'v1.0.1';
+const WAPI_BASE_URL = 'https://api.w-api.app/v1';
 
 // Mapeamento de tipos de mídia para endpoints W-API
-// TODO: Ajustar conforme documentação W-API
 const WAPI_MEDIA_CONFIG = {
-  image: { endpoint: 'send-image', field: 'image' },
-  video: { endpoint: 'send-video', field: 'video' },
-  document: { endpoint: 'send-document', field: 'document' },
-  audio: { endpoint: 'send-audio', field: 'audio' }
+  image: { endpoint: 'send-image' },
+  video: { endpoint: 'send-video' },
+  document: { endpoint: 'send-document' },
+  audio: { endpoint: 'send-audio' }
 };
 
 Deno.serve(async (req) => {
@@ -93,31 +95,33 @@ Deno.serve(async (req) => {
 
     console.log('[ENVIAR-WHATSAPP-WAPI] 🔗 Integração W-API carregada:', integracao.nome_instancia);
 
-    // TODO: Ajustar conforme estrutura da W-API
-    const baseUrl = integracao.base_url_provider?.replace(/\/$/, '') || 'https://api.w-api.app';
     const instanceId = integracao.instance_id_provider;
     const token = integracao.api_key_provider;
+    
+    // Formatar número (remover caracteres especiais)
+    const numeroFormatado = numero_destino.replace(/\D/g, '');
 
     let endpoint;
     let body;
 
     // ========== TEMPLATES ==========
     if (template_name) {
-      // TODO: Ajustar endpoint de template conforme W-API
-      endpoint = `${baseUrl}/instances/${instanceId}/send-template`;
+      endpoint = `${WAPI_BASE_URL}/message/send-template?instanceId=${instanceId}`;
       body = {
-        phone: numero_destino,
+        phone: numeroFormatado,
         template: template_name,
-        variables: template_variables || {}
+        variables: template_variables || {},
+        delayMessage: 1
       };
       console.log('[ENVIAR-WHATSAPP-WAPI] 📋 Enviando template:', template_name);
     } 
     // ========== ÁUDIO ==========
     else if (audio_url) {
-      endpoint = `${baseUrl}/instances/${instanceId}/send-audio`;
+      endpoint = `${WAPI_BASE_URL}/message/send-audio?instanceId=${instanceId}`;
       body = {
-        phone: numero_destino,
-        audio: audio_url
+        phone: numeroFormatado,
+        url: audio_url, // W-API usa 'url' para mídia
+        delayMessage: 1
       };
       
       if (reply_to_message_id) {
@@ -126,20 +130,22 @@ Deno.serve(async (req) => {
       
       console.log('[ENVIAR-WHATSAPP-WAPI] 🎵 Enviando áudio');
     } 
-    // ========== MÍDIAS ==========
+    // ========== MÍDIAS (imagem, vídeo, documento) ==========
     else if (media_url && media_type) {
       const config = WAPI_MEDIA_CONFIG[media_type];
       
       if (!config) {
-        throw new Error(`Tipo de mídia não suportado: ${media_type}`);
+        throw new Error(`Tipo de mídia não suportado: ${media_type}. Válidos: image, video, document, audio`);
       }
       
-      endpoint = `${baseUrl}/instances/${instanceId}/${config.endpoint}`;
+      endpoint = `${WAPI_BASE_URL}/message/${config.endpoint}?instanceId=${instanceId}`;
       
+      // W-API usa 'url' para todas as mídias
       body = {
-        phone: numero_destino,
-        [config.field]: media_url,
-        caption: media_caption || ''
+        phone: numeroFormatado,
+        url: media_url,
+        caption: media_caption || '',
+        delayMessage: 1
       };
       
       if (reply_to_message_id) {
@@ -150,10 +156,11 @@ Deno.serve(async (req) => {
     } 
     // ========== TEXTO ==========
     else if (mensagem) {
-      endpoint = `${baseUrl}/instances/${instanceId}/send-text`;
+      endpoint = `${WAPI_BASE_URL}/message/send-text?instanceId=${instanceId}`;
       body = {
-        phone: numero_destino,
-        message: mensagem
+        phone: numeroFormatado,
+        message: mensagem,
+        delayMessage: 1 // Delay recomendado pela doc
       };
 
       if (reply_to_message_id) {
@@ -168,13 +175,11 @@ Deno.serve(async (req) => {
     console.log('[ENVIAR-WHATSAPP-WAPI] 🌐 Endpoint:', endpoint);
     console.log('[ENVIAR-WHATSAPP-WAPI] 📦 Body:', JSON.stringify(body, null, 2));
 
-    // TODO: Ajustar headers conforme W-API (pode usar Bearer token, API Key, etc)
     const response = await fetch(endpoint, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${token}`
-        // TODO: Adicionar outros headers necessários
       },
       body: JSON.stringify(body)
     });
@@ -200,8 +205,7 @@ Deno.serve(async (req) => {
       throw new Error(`W-API retornou erro: ${errorMsg}`);
     }
 
-    // TODO: Ajustar extração do messageId conforme resposta W-API
-    const messageId = result.messageId || result.message?.key?.id || result.key?.id || result.id;
+    const messageId = result.messageId || result.key?.id || result.id;
 
     console.log('[ENVIAR-WHATSAPP-WAPI] ✅ Mensagem enviada! messageId:', messageId);
 

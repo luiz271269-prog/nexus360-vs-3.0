@@ -1,15 +1,15 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.4';
-import { normalizarTelefone } from './lib/phoneUtils.js';
-import { connectionManager } from './lib/connectionManager.js';
 
 // ============================================================================
-// WEBHOOK WHATSAPP W-API - v1.0.0 (Paralelo ao Z-API)
+// WEBHOOK WHATSAPP W-API - v1.0.1 (Paralelo ao Z-API)
 // ============================================================================
-// Esta função é específica para a W-API e não interfere no webhookWatsZapi
-// TODO: Ajustar parsing conforme formato de eventos da W-API
+// Baseado na documentação oficial W-API:
+// - Evento de mensagem: webhookReceived
+// - Evento de status: webhookDelivery  
+// - Estrutura: { event, sender: { id }, chat: { id }, msgContent: { ... }, instanceId }
 // ============================================================================
 
-const VERSION = 'v1.0.0-wapi';
+const VERSION = 'v1.0.1-wapi';
 const BUILD_DATE = '2025-01-27';
 
 const corsHeaders = {
@@ -19,44 +19,61 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'Content-Type, Authorization',
 };
 
+// Normalizar telefone (remover @s.whatsapp.net e caracteres especiais)
+function normalizarTelefone(telefone) {
+  if (!telefone) return null;
+  // Remove @s.whatsapp.net, @c.us, etc
+  let limpo = telefone.replace(/@.*$/, '');
+  // Remove caracteres não numéricos
+  limpo = limpo.replace(/\D/g, '');
+  // Validar tamanho mínimo
+  if (limpo.length < 10) return null;
+  return limpo;
+}
+
 // ============================================================================
 // FILTRO ULTRA-RÁPIDO - Retorna motivo se IGNORAR, null se processar
-// TODO: Ajustar conforme formato de eventos da W-API
+// Baseado nos eventos da W-API
 // ============================================================================
 function deveIgnorar(payload) {
   if (!payload || typeof payload !== 'object') return 'payload_invalido';
 
-  const tipo = String(payload.type || payload.event || '').toLowerCase();
-  const phone = String(payload.phone || payload.from || payload.sender || '').toLowerCase();
+  const evento = String(payload.event || '').toLowerCase();
+  
+  // Extrair telefone do sender ou chat (formato W-API)
+  const senderId = payload.sender?.id || payload.chat?.id || '';
+  const phone = senderId.replace(/@.*$/, '').toLowerCase();
 
-  // IGNORAR: status@broadcast e JIDs de sistema
-  if (phone.includes('status@') || phone.includes('@broadcast') || 
-      phone.includes('@lid') || phone.includes('@g.us')) {
-    return 'jid_sistema';
+  // IGNORAR: status@broadcast e JIDs de sistema/grupos
+  if (phone.includes('status') || senderId.includes('@broadcast') || 
+      senderId.includes('@g.us') || senderId.includes('@lid')) {
+    return 'jid_sistema_ou_grupo';
   }
 
   // PERMITIR: QR Code e Connection
-  if (tipo.includes('qrcode') || tipo.includes('connection')) {
+  if (evento.includes('qrcode') || evento.includes('connection')) {
     return null;
   }
 
   // IGNORAR: Eventos de presença/digitação
   const eventosLixo = ['presence', 'typing', 'composing', 'chat-update', 'call'];
-  if (eventosLixo.some(e => tipo.includes(e))) {
+  if (eventosLixo.some(e => evento.includes(e))) {
     return 'evento_sistema';
   }
 
-  // Para mensagens recebidas
-  // TODO: Ajustar condição conforme formato W-API
-  if (tipo === 'message' || tipo === 'received' || (payload.phone && payload.messageId)) {
+  // PERMITIR: webhookReceived (mensagem recebida)
+  if (evento === 'webhookreceived' || payload.msgContent) {
+    // Ignorar mensagens de grupo
     if (payload.isGroup === true) return 'grupo';
+    // Ignorar mensagens enviadas por mim
     if (payload.fromMe === true) return 'from_me';
-    if (!payload.phone && !payload.from && !payload.sender) return 'sem_telefone';
+    // Validar se tem telefone
+    if (!senderId) return 'sem_telefone';
     return null;
   }
 
-  // Status de mensagem
-  if (tipo.includes('status') || tipo.includes('ack')) {
+  // PERMITIR: webhookDelivery (status de entrega)
+  if (evento === 'webhookdelivery' || evento.includes('delivery')) {
     return null;
   }
 
@@ -64,14 +81,15 @@ function deveIgnorar(payload) {
 }
 
 // ============================================================================
-// NORMALIZAR PAYLOAD
-// TODO: Ajustar conforme formato de payload da W-API
+// NORMALIZAR PAYLOAD - Baseado no formato W-API
+// Estrutura: { event, sender: { id }, chat: { id }, msgContent: { ... }, instanceId }
 // ============================================================================
 function normalizarPayload(payload) {
-  const tipo = String(payload.type || payload.event || '').toLowerCase();
-  const instanceId = payload.instanceId || payload.instance || payload.session || null;
+  const evento = String(payload.event || '').toLowerCase();
+  const instanceId = payload.instanceId || null;
 
-  if (tipo.includes('qrcode')) {
+  // QR Code
+  if (evento.includes('qrcode') || payload.qrcode) {
     return { 
       type: 'qrcode', 
       instanceId, 
@@ -79,56 +97,63 @@ function normalizarPayload(payload) {
     };
   }
 
-  if (tipo.includes('connection')) {
-    const status = payload.connected === true || payload.status === 'connected' 
-      ? 'conectado' 
-      : 'desconectado';
+  // Conexão
+  if (evento.includes('connection')) {
+    const status = payload.connected === true ? 'conectado' : 'desconectado';
     return { type: 'connection', instanceId, status };
   }
 
-  if (tipo.includes('status') || tipo.includes('ack')) {
+  // Status de entrega (webhookDelivery)
+  if (evento === 'webhookdelivery' || evento.includes('delivery')) {
     return {
       type: 'message_update',
       instanceId,
-      messageId: payload.messageId || payload.id || payload.ids?.[0],
+      messageId: payload.messageId || payload.key?.id,
       status: payload.status || payload.ack
     };
   }
 
-  // Mensagem real
-  const telefone = payload.phone || payload.from || payload.sender || '';
-  const numeroLimpo = normalizarTelefone(telefone);
+  // Mensagem recebida (webhookReceived)
+  // Extrair telefone do sender.id (formato: 5511999999999@s.whatsapp.net)
+  const senderId = payload.sender?.id || payload.chat?.id || '';
+  const numeroLimpo = normalizarTelefone(senderId);
   if (!numeroLimpo) return { type: 'unknown', error: 'telefone_invalido' };
 
   let mediaType = 'none';
   let mediaUrl = null;
-  let conteudo = payload.text?.message || payload.message || payload.body || '';
-
-  // TODO: Ajustar extração de mídia conforme W-API
-  if (payload.image || payload.imageMessage) {
+  let conteudo = '';
+  
+  // Extrair conteúdo do msgContent (estrutura aninhada da W-API)
+  const msgContent = payload.msgContent || {};
+  
+  if (msgContent.extendedTextMessage) {
+    conteudo = msgContent.extendedTextMessage.text || '';
+  } else if (msgContent.conversation) {
+    conteudo = msgContent.conversation;
+  } else if (msgContent.imageMessage) {
     mediaType = 'image';
-    mediaUrl = payload.image?.url || payload.imageMessage?.url || payload.mediaUrl;
-    conteudo = conteudo || payload.image?.caption || '[Imagem]';
-  } else if (payload.video || payload.videoMessage) {
+    mediaUrl = msgContent.imageMessage.url;
+    conteudo = msgContent.imageMessage.caption || '[Imagem]';
+  } else if (msgContent.videoMessage) {
     mediaType = 'video';
-    mediaUrl = payload.video?.url || payload.videoMessage?.url || payload.mediaUrl;
-    conteudo = conteudo || payload.video?.caption || '[Vídeo]';
-  } else if (payload.audio || payload.audioMessage) {
+    mediaUrl = msgContent.videoMessage.url;
+    conteudo = msgContent.videoMessage.caption || '[Vídeo]';
+  } else if (msgContent.audioMessage) {
     mediaType = 'audio';
-    mediaUrl = payload.audio?.url || payload.audioMessage?.url || payload.mediaUrl;
+    mediaUrl = msgContent.audioMessage.url;
     conteudo = '[Áudio]';
-  } else if (payload.document || payload.documentMessage) {
+  } else if (msgContent.documentMessage) {
     mediaType = 'document';
-    mediaUrl = payload.document?.url || payload.documentMessage?.url || payload.mediaUrl;
-    conteudo = conteudo || '[Documento]';
-  } else if (payload.sticker || payload.stickerMessage) {
+    mediaUrl = msgContent.documentMessage.url;
+    conteudo = msgContent.documentMessage.fileName || '[Documento]';
+  } else if (msgContent.stickerMessage) {
     mediaType = 'sticker';
-    mediaUrl = payload.sticker?.url || payload.stickerMessage?.url;
+    mediaUrl = msgContent.stickerMessage.url;
     conteudo = '[Sticker]';
-  } else if (payload.contact || payload.contactMessage || payload.vcard) {
+  } else if (msgContent.contactMessage || msgContent.contactsArrayMessage) {
     mediaType = 'contact';
     conteudo = '📇 Contato compartilhado';
-  } else if (payload.location || payload.locationMessage) {
+  } else if (msgContent.locationMessage) {
     mediaType = 'location';
     conteudo = '📍 Localização';
   }
@@ -140,16 +165,16 @@ function normalizarPayload(payload) {
   return {
     type: 'message',
     instanceId,
-    messageId: payload.messageId || payload.id || payload.key?.id,
+    messageId: payload.messageId || payload.key?.id,
     from: numeroLimpo,
     content: conteudo,
     mediaType,
     mediaUrl,
-    mediaCaption: payload.image?.caption || payload.video?.caption || payload.caption,
-    pushName: payload.pushName || payload.senderName || payload.contactName || payload.chatName,
-    vcard: payload.contact || payload.contactMessage || payload.vcard,
-    location: payload.location || payload.locationMessage,
-    quotedMessage: payload.quotedMsg || payload.quotedMessage
+    mediaCaption: msgContent.imageMessage?.caption || msgContent.videoMessage?.caption,
+    pushName: payload.pushName || payload.senderName || payload.sender?.pushName,
+    vcard: msgContent.contactMessage || msgContent.contactsArrayMessage,
+    location: msgContent.locationMessage,
+    quotedMessage: payload.quotedMsg || msgContent.extendedTextMessage?.contextInfo?.quotedMessage
   };
 }
 

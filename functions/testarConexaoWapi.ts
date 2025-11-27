@@ -3,11 +3,13 @@ import { createClientFromRequest } from 'npm:@base44/sdk@0.8.4';
 // ============================================================================
 // TESTAR CONEXÃO W-API (Paralelo ao Z-API)
 // ============================================================================
-// Função para testar se a conexão com a W-API está funcionando
-// TODO: Ajustar endpoints conforme documentação W-API
+// Baseado na documentação oficial W-API:
+// - GET /v1/instance/status?instanceId=XXX
+// - Authorization: Bearer TOKEN
 // ============================================================================
 
-const VERSION = 'v1.0.0';
+const VERSION = 'v1.0.1';
+const WAPI_BASE_URL = 'https://api.w-api.app/v1';
 
 Deno.serve(async (req) => {
   const headers = {
@@ -58,13 +60,11 @@ Deno.serve(async (req) => {
 
     console.log('[TESTAR-WAPI] 🔗 Integração W-API:', integracao.nome_instancia);
 
-    // TODO: Ajustar URL e headers conforme documentação W-API
-    const baseUrl = integracao.base_url_provider?.replace(/\/$/, '') || 'https://api.w-api.app';
     const instanceId = integracao.instance_id_provider;
     const token = integracao.api_key_provider;
 
-    // TODO: Ajustar endpoint de status conforme W-API
-    const statusUrl = `${baseUrl}/instances/${instanceId}/status`;
+    // W-API: GET /v1/instance/status?instanceId=XXX
+    const statusUrl = `${WAPI_BASE_URL}/instance/status?instanceId=${instanceId}`;
 
     console.log('[TESTAR-WAPI] 🌐 Verificando status:', statusUrl);
 
@@ -73,7 +73,6 @@ Deno.serve(async (req) => {
       headers: {
         'Accept': 'application/json',
         'Authorization': `Bearer ${token}`
-        // TODO: Adicionar outros headers se necessário
       }
     });
 
@@ -94,13 +93,8 @@ Deno.serve(async (req) => {
       );
     }
 
-    // TODO: Ajustar verificação de conexão conforme resposta W-API
-    const conectado = response.ok && (
-      result.connected === true || 
-      result.status === 'connected' ||
-      result.state === 'connected' ||
-      result.authenticated === true
-    );
+    // W-API retorna { connected: true/false }
+    const conectado = response.ok && result.connected === true;
 
     // Atualizar status da integração
     const novoStatus = conectado ? 'conectado' : 'desconectado';

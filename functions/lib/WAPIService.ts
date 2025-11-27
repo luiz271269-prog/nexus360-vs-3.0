@@ -1,8 +1,12 @@
 /**
- * Serviço para W-API (duplicado do ZAPIService)
- * Este é um módulo utilitário, não uma função endpoint
+ * Serviço para W-API
+ * Baseado na documentação oficial: https://api.w-api.app/v1
  * 
- * NOTA: Ajustar os endpoints conforme documentação da W-API
+ * Diferenças da Z-API:
+ * - URL base: https://api.w-api.app/v1
+ * - instanceId vai como query parameter (?instanceId=XXX)
+ * - Token vai no header Authorization: Bearer XXX
+ * - Estrutura de payload diferente (phone, message, delayMessage)
  */
 export default class WAPIService {
   
@@ -10,9 +14,11 @@ export default class WAPIService {
     try {
       console.log('🔍 [W-API] Verificando conexão...');
 
-      // TODO: Ajustar URL base e endpoint conforme documentação W-API
-      const baseUrl = integracao.base_url_provider?.replace(/\/$/, '') || 'https://api.w-api.app';
-      const url = `${baseUrl}/instances/${integracao.instance_id_provider}/status`;
+      const instanceId = integracao.instance_id_provider;
+      const token = integracao.api_key_provider;
+      
+      // W-API: GET /v1/instance/status?instanceId=XXX
+      const url = `https://api.w-api.app/v1/instance/status?instanceId=${instanceId}`;
 
       console.log('[W-API] URL:', url);
 
@@ -20,16 +26,15 @@ export default class WAPIService {
         method: 'GET',
         headers: {
           'Accept': 'application/json',
-          'Authorization': `Bearer ${integracao.api_key_provider}`,
-          // TODO: Ajustar headers conforme documentação W-API
+          'Authorization': `Bearer ${token}`
         }
       });
 
       const data = await response.json();
       console.log('[W-API] Resposta status:', data);
 
-      // TODO: Ajustar lógica de verificação conforme resposta da W-API
-      const conectado = response.ok && (data.connected === true || data.status === 'connected');
+      // W-API retorna { connected: true/false, ... }
+      const conectado = response.ok && data.connected === true;
 
       return {
         conectado: conectado,
@@ -51,14 +56,16 @@ export default class WAPIService {
   static async enviarMensagemTexto(integracao, destinatario, mensagem, replyToMessageId = null) {
     try {
       const numeroFormatado = destinatario.replace(/\D/g, '');
-      const baseUrl = integracao.base_url_provider?.replace(/\/$/, '') || 'https://api.w-api.app';
+      const instanceId = integracao.instance_id_provider;
+      const token = integracao.api_key_provider;
       
-      // TODO: Ajustar endpoint conforme documentação W-API
-      const url = `${baseUrl}/instances/${integracao.instance_id_provider}/send-text`;
+      // W-API: POST /v1/message/send-text?instanceId=XXX
+      const url = `https://api.w-api.app/v1/message/send-text?instanceId=${instanceId}`;
 
       const payload = {
         phone: numeroFormatado,
-        message: mensagem
+        message: mensagem,
+        delayMessage: 1 // Delay recomendado pela doc
       };
 
       if (replyToMessageId) {
@@ -71,8 +78,7 @@ export default class WAPIService {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${integracao.api_key_provider}`,
-          // TODO: Ajustar headers conforme documentação W-API
+          'Authorization': `Bearer ${token}`
         },
         body: JSON.stringify(payload)
       });
@@ -99,9 +105,10 @@ export default class WAPIService {
   static async enviarMensagemMidia(integracao, destinatario, mediaUrl, mediaType, caption = '', replyToMessageId = null) {
     try {
       const numeroFormatado = destinatario.replace(/\D/g, '');
-      const baseUrl = integracao.base_url_provider?.replace(/\/$/, '') || 'https://api.w-api.app';
+      const instanceId = integracao.instance_id_provider;
+      const token = integracao.api_key_provider;
 
-      // TODO: Ajustar endpoints conforme documentação W-API
+      // W-API endpoints de mídia
       const endpointMap = {
         'image': 'send-image',
         'video': 'send-video',
@@ -110,12 +117,14 @@ export default class WAPIService {
       };
 
       const endpoint = endpointMap[mediaType] || 'send-document';
-      const url = `${baseUrl}/instances/${integracao.instance_id_provider}/${endpoint}`;
+      const url = `https://api.w-api.app/v1/message/${endpoint}?instanceId=${instanceId}`;
 
+      // W-API usa 'url' para mídia, não o nome do tipo
       const payload = {
         phone: numeroFormatado,
-        [mediaType]: mediaUrl,
-        caption: caption
+        url: mediaUrl,
+        caption: caption,
+        delayMessage: 1
       };
 
       if (replyToMessageId) {
@@ -128,8 +137,7 @@ export default class WAPIService {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${integracao.api_key_provider}`,
-          // TODO: Ajustar headers conforme documentação W-API
+          'Authorization': `Bearer ${token}`
         },
         body: JSON.stringify(payload)
       });
@@ -156,14 +164,16 @@ export default class WAPIService {
   static async enviarAudio(integracao, destinatario, audioUrl, replyToMessageId = null) {
     try {
       const numeroFormatado = destinatario.replace(/\D/g, '');
-      const baseUrl = integracao.base_url_provider?.replace(/\/$/, '') || 'https://api.w-api.app';
+      const instanceId = integracao.instance_id_provider;
+      const token = integracao.api_key_provider;
       
-      // TODO: Ajustar endpoint conforme documentação W-API
-      const url = `${baseUrl}/instances/${integracao.instance_id_provider}/send-audio`;
+      // W-API: POST /v1/message/send-audio?instanceId=XXX
+      const url = `https://api.w-api.app/v1/message/send-audio?instanceId=${instanceId}`;
 
       const payload = {
         phone: numeroFormatado,
-        audio: audioUrl
+        url: audioUrl,
+        delayMessage: 1
       };
 
       if (replyToMessageId) {
@@ -176,7 +186,7 @@ export default class WAPIService {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${integracao.api_key_provider}`,
+          'Authorization': `Bearer ${token}`
         },
         body: JSON.stringify(payload)
       });
@@ -200,52 +210,103 @@ export default class WAPIService {
     }
   }
 
+  /**
+   * Processa webhook da W-API
+   * Evento principal: webhookReceived
+   * Estrutura: { event, sender: { id }, chat: { id }, msgContent: { ... }, instanceId }
+   */
   static processarWebhook(payload) {
     try {
       console.log('📥 [W-API] Processando webhook:', payload);
 
-      // TODO: Ajustar parsing conforme formato de webhook da W-API
+      const evento = payload.event || '';
       
-      // Mensagem recebida
-      if (payload.event === 'message' || payload.type === 'message' || payload.messageType) {
+      // Mensagem recebida - evento: webhookReceived
+      if (evento === 'webhookReceived' || payload.msgContent) {
+        // Extrair telefone do sender.id ou chat.id (formato: 5511999999999@s.whatsapp.net)
+        const rawPhone = payload.sender?.id || payload.chat?.id || '';
+        const telefone = rawPhone.replace(/@.*$/, ''); // Remove @s.whatsapp.net
+        
+        // Extrair texto da mensagem (estrutura aninhada da W-API)
+        let mensagem = '';
+        let mediaType = 'none';
+        let mediaUrl = null;
+        
+        if (payload.msgContent) {
+          if (payload.msgContent.extendedTextMessage) {
+            mensagem = payload.msgContent.extendedTextMessage.text || '';
+          } else if (payload.msgContent.conversation) {
+            mensagem = payload.msgContent.conversation;
+          } else if (payload.msgContent.imageMessage) {
+            mediaType = 'image';
+            mediaUrl = payload.msgContent.imageMessage.url;
+            mensagem = payload.msgContent.imageMessage.caption || '[Imagem]';
+          } else if (payload.msgContent.videoMessage) {
+            mediaType = 'video';
+            mediaUrl = payload.msgContent.videoMessage.url;
+            mensagem = payload.msgContent.videoMessage.caption || '[Vídeo]';
+          } else if (payload.msgContent.audioMessage) {
+            mediaType = 'audio';
+            mediaUrl = payload.msgContent.audioMessage.url;
+            mensagem = '[Áudio]';
+          } else if (payload.msgContent.documentMessage) {
+            mediaType = 'document';
+            mediaUrl = payload.msgContent.documentMessage.url;
+            mensagem = payload.msgContent.documentMessage.fileName || '[Documento]';
+          } else if (payload.msgContent.stickerMessage) {
+            mediaType = 'sticker';
+            mediaUrl = payload.msgContent.stickerMessage.url;
+            mensagem = '[Sticker]';
+          } else if (payload.msgContent.contactMessage || payload.msgContent.contactsArrayMessage) {
+            mediaType = 'contact';
+            mensagem = '📇 Contato compartilhado';
+          } else if (payload.msgContent.locationMessage) {
+            mediaType = 'location';
+            mensagem = '📍 Localização';
+          }
+        }
+        
         return {
           tipo: 'mensagem_recebida',
-          remetente: payload.phone || payload.from || payload.sender,
-          mensagem: payload.text?.message || payload.message || payload.body || '',
-          messageId: payload.messageId || payload.id || payload.key?.id,
+          remetente: telefone,
+          mensagem: mensagem,
+          messageId: payload.messageId || payload.key?.id,
           timestamp: payload.timestamp || new Date().toISOString(),
-          mediaType: payload.mediaType || 'none',
-          mediaUrl: payload.mediaUrl || payload.media?.url,
-          pushName: payload.pushName || payload.senderName || payload.contactName,
+          mediaType: mediaType,
+          mediaUrl: mediaUrl,
+          pushName: payload.pushName || payload.senderName || payload.sender?.pushName,
+          instanceId: payload.instanceId,
           dadosCompletos: payload
         };
       }
 
-      // Status de mensagem
-      if (payload.event === 'message-status' || payload.type === 'status' || payload.status) {
+      // Status de mensagem - evento: webhookDelivery
+      if (evento === 'webhookDelivery' || evento === 'message-status') {
         return {
           tipo: 'status_mensagem',
-          messageId: payload.messageId || payload.id || payload.key?.id,
-          status: payload.status,
+          messageId: payload.messageId || payload.key?.id,
+          status: payload.status || payload.ack,
           timestamp: payload.timestamp || new Date().toISOString(),
           dadosCompletos: payload
         };
       }
 
       // Conexão
-      if (payload.event === 'connection' || payload.type === 'connection') {
+      if (evento === 'connection' || evento === 'webhookConnection') {
         return {
           tipo: 'conexao',
-          status: payload.status || payload.state,
+          status: payload.connected ? 'conectado' : 'desconectado',
+          instanceId: payload.instanceId,
           dadosCompletos: payload
         };
       }
 
       // QR Code
-      if (payload.event === 'qrcode' || payload.type === 'qrcode' || payload.qrcode) {
+      if (evento === 'qrcode' || payload.qrcode) {
         return {
           tipo: 'qrcode',
           qrCodeUrl: payload.qrcode || payload.qr || payload.base64,
+          instanceId: payload.instanceId,
           dadosCompletos: payload
         };
       }
