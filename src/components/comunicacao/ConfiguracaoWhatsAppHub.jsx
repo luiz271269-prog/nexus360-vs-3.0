@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   Plus,
   CheckCircle,
@@ -17,7 +18,9 @@ import {
   Shield,
   Edit,
   Key,
-  Settings
+  Settings,
+  QrCode,
+  Smartphone
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -35,6 +38,26 @@ import {
 
 import DiagnosticoZAPICentralizado from "./DiagnosticoZAPICentralizado";
 import { getWebhookUrlProducao, getWebhookUrlAmbienteAtual } from "../lib/webhookUtils";
+
+// Configuração dos provedores
+const PROVIDERS = {
+  z_api: {
+    nome: "Z-API",
+    cor: "blue",
+    baseUrl: "https://api.z-api.io",
+    requerClientToken: true,
+    webhookFn: "webhookWatsZapi",
+    testarFn: "testarConexaoWhatsApp"
+  },
+  w_api: {
+    nome: "W-API",
+    cor: "purple",
+    baseUrl: "https://api.w-api.app/v1",
+    requerClientToken: false,
+    webhookFn: "webhookWapi",
+    testarFn: "testarConexaoWapi"
+  }
+};
 
 export default function ConfiguracaoWhatsAppHub({ integracoes, onRecarregar, usuarioAtual }) {
   const [loading, setLoading] = useState(false);
