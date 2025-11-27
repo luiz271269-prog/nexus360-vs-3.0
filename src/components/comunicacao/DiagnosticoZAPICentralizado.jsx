@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { base44 } from "@/api/base44Client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -17,21 +18,23 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 
-// Configuração dos provedores
+// Configuração dos provedores - ISOLADOS
 const PROVIDERS = {
   z_api: {
     nome: "Z-API",
     cor: "blue",
     webhookFn: "webhookWatsZapi",
     testarFn: "testarConexaoWhatsApp",
-    requerClientToken: true
+    requerClientToken: true,
+    baseUrl: "https://api.z-api.io"
   },
   w_api: {
     nome: "W-API",
     cor: "purple",
     webhookFn: "webhookWapi",
     testarFn: "testarConexaoWapi",
-    requerClientToken: false
+    requerClientToken: false,
+    baseUrl: "https://api.w-api.app/v1"
   }
 };
 
@@ -57,28 +60,31 @@ export default function DiagnosticoZAPICentralizado({ integracao, onRecarregar, 
         testes: []
       };
 
-      // Teste 1: Verificar conexão (adaptar nome ao provedor)
-      if (typeof testarConexao === 'function') {
-        resultado.testes.push({
-          nome: `Conexão ${provider.nome}`,
-          status: 'executando',
-          mensagem: `Testando conexão com a ${provider.nome}...`
+      // Teste 1: Verificar conexão via função específica do provedor
+      resultado.testes.push({
+        nome: `Conexão ${provider.nome}`,
+        status: 'executando',
+        mensagem: `Testando conexão com ${provider.nome}...`
+      });
+
+      try {
+        // Usar função de teste específica do provedor
+        const response = await base44.functions.invoke(provider.testarFn, {
+          integration_id: integracao.id
         });
 
-        try {
-          await testarConexao(integracao);
+        if (response.data?.success) {
           resultado.testes[0].status = 'sucesso';
-          resultado.testes[0].mensagem = 'Conexão estabelecida com sucesso';
-        } catch (error) {
+          resultado.testes[0].mensagem = `Conectado! Status: ${response.data?.dados?.conectado ? 'Online' : 'Verificado'}`;
+          resultado.testes[0].detalhes = response.data;
+        } else {
           resultado.testes[0].status = 'erro';
-          resultado.testes[0].mensagem = error.message;
+          resultado.testes[0].mensagem = response.data?.error || 'Falha na conexão';
+          resultado.testes[0].detalhes = response.data;
         }
-      } else {
-        resultado.testes.push({
-          nome: `Conexão ${provider.nome}`,
-          status: 'aviso',
-          mensagem: 'Função de teste não disponível'
-        });
+      } catch (error) {
+        resultado.testes[0].status = 'erro';
+        resultado.testes[0].mensagem = `Erro: ${error.message}`;
       }
 
       // Teste 2: Verificar configurações (adaptar ao provedor)
