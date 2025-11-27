@@ -60,11 +60,24 @@ Deno.serve(async (req) => {
 
     console.log('[TESTAR-WAPI] 🔗 Integração W-API:', integracao.nome_instancia);
 
-    const instanceId = integracao.instance_id_provider;
-    const token = integracao.api_key_provider;
+    const instanceId = (integracao.instance_id_provider || '').trim();
+    const token = (integracao.api_key_provider || '').trim();
 
-    // W-API: GET /v1/instance/status?instanceId=XXX
-    const statusUrl = `${WAPI_BASE_URL}/instance/status?instanceId=${instanceId}`;
+    // Validar que não estão vazios
+    if (!instanceId || !token) {
+      return new Response(
+        JSON.stringify({ 
+          success: false, 
+          error: 'Instance ID ou Token não configurados',
+          detalhes: `instanceId: ${instanceId ? 'OK' : 'VAZIO'}, token: ${token ? 'OK' : 'VAZIO'}`,
+          provider: 'w_api'
+        }),
+        { status: 200, headers }
+      );
+    }
+
+    // W-API: GET /v1/instance/status-instance?instanceId=XXX (URL CORRETA!)
+    const statusUrl = `${WAPI_BASE_URL}/instance/status-instance?instanceId=${instanceId}`;
 
     console.log('[TESTAR-WAPI] 🌐 Verificando status:', statusUrl);
 
