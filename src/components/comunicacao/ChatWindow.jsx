@@ -1584,15 +1584,15 @@ export default function ChatWindow({
 
       }
 
-      <form onSubmit={handleEnviar} className="p-4 border-t bg-white flex-shrink-0">
+      <form onSubmit={handleEnviar} className="bg-[#737f96] text-gray-950 px-3 rounded-lg border-t flex-shrink-0">
         {/* Seletor de Canal WhatsApp */}
         {integracoes.length > 1 &&
         <div className="mb-2 flex items-center gap-2">
-            <label className="text-xs font-medium text-slate-600">Enviar por:</label>
+            <label className="text-slate-50 text-xs font-medium">Enviar por:</label>
             <select
             value={canalSelecionado || thread.whatsapp_integration_id || ''}
-            onChange={(e) => setCanalSelecionado(e.target.value)}
-            className="text-xs px-2 py-1 border border-slate-300 rounded bg-white">
+            onChange={(e) => setCanalSelecionado(e.target.value)} className="bg-[#151532] text-slate-50 px-2 py-1 text-xs rounded border border-slate-300">
+
 
               {integracoes.map((int) =>
             <option key={int.id} value={int.id}>
@@ -1607,8 +1607,8 @@ export default function ChatWindow({
           <Button
             type="button"
             variant="ghost"
-            size="icon"
-            className="flex-shrink-0"
+            size="icon" className="bg-[#202d60] text-red-600 text-sm font-medium rounded-md inline-flex items-center justify-center gap-2 whitespace-nowrap transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 hover:bg-accent hover:text-accent-foreground h-9 w-9 flex-shrink-0"
+
             disabled={enviando || carregandoContato || gravandoAudio || modoSelecao || !podeEnviarMidias}
             onClick={() => setMostrarMediaSystem(!mostrarMediaSystem)}
             title={!podeEnviarMidias ? "Sem permissão para enviar mídias" : "Anexar arquivo"}>
@@ -1637,8 +1637,8 @@ export default function ChatWindow({
             type="button"
             onClick={() => setMostrarSugestor(true)}
             variant="ghost"
-            size="icon"
-            className="flex-shrink-0 text-purple-600 hover:bg-purple-50"
+            size="icon" className="text-red-600 text-sm font-medium rounded-md inline-flex items-center justify-center gap-2 whitespace-nowrap transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 hover:text-accent-foreground h-9 w-9 flex-shrink-0 hover:bg-purple-50"
+
             title="Sugestões de IA"
             disabled={enviando || carregandoContato || gravandoAudio || modoSelecao || uploadingPastedFile}>
 
