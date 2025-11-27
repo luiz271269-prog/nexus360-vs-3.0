@@ -481,7 +481,11 @@ export default function Comunicacao() {
                     selectedIntegrationId={selectedIntegrationId}
                     onSelectedIntegrationChange={setSelectedIntegrationId}
                     selectedCategoria={selectedCategoria}
-                    onSelectedCategoriaChange={setSelectedCategoria} />
+                    onSelectedCategoriaChange={setSelectedCategoria}
+                    selectedTipoContato={selectedTipoContato}
+                    onSelectedTipoContatoChange={setSelectedTipoContato}
+                    selectedTagContato={selectedTagContato}
+                    onSelectedTagContatoChange={setSelectedTagContato} />
 
 
                   <div className="flex-1 overflow-y-auto">
