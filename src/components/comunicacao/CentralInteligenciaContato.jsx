@@ -511,7 +511,7 @@ export default function CentralInteligenciaContato({
     }
   };
 
-  // Toggle etiqueta
+  // Toggle etiqueta - GRAVA DINAMICAMENTE
   const toggleEtiqueta = async (nome) => {
     if (salvando || !contato) return;
     setSalvando(true);
@@ -520,7 +520,29 @@ export default function CentralInteligenciaContato({
         ? etiquetasContato.filter(e => e !== nome)
         : [...etiquetasContato, nome];
       
+      // Salvar no contato
       await base44.entities.Contact.update(contato.id, { tags: novas });
+      
+      // Criar etiqueta dinamicamente se não existir
+      const etiquetaExiste = ETIQUETAS_CONTATO.some(e => e.nome === nome) || 
+                            etiquetasDB.some(e => e.nome === nome);
+      
+      if (!etiquetaExiste && novas.includes(nome)) {
+        try {
+          await base44.entities.EtiquetaContato.create({
+            nome: nome,
+            label: nome.charAt(0).toUpperCase() + nome.slice(1),
+            emoji: '🏷️',
+            cor: 'bg-slate-400',
+            ativa: true,
+            destaque: false
+          });
+          queryClient.invalidateQueries({ queryKey: ['etiquetas-central'] });
+        } catch (err) {
+          console.log('[Etiqueta] Já existe ou erro:', err);
+        }
+      }
+      
       const config = getEtiquetaConfig(nome, etiquetasDB);
       toast.success(`${config.emoji} ${novas.includes(nome) ? 'Adicionada' : 'Removida'}`);
       queryClient.invalidateQueries({ queryKey: ['contatos'] });
@@ -742,23 +764,7 @@ export default function CentralInteligenciaContato({
             </DropdownMenuSub>
           </div>
 
-          {/* Status da Classificação */}
-          {statusClass.status !== 'completo' && (
-            <div className={`mx-2 mb-2 p-2 rounded-lg border ${
-              statusClass.status === 'parcial' ? 'bg-amber-50 border-amber-200' : 'bg-red-50 border-red-200'
-            }`}>
-              <div className="flex items-center gap-2">
-                <statusClass.icon className={`w-4 h-4 ${statusClass.cor}`} />
-                <span className={`text-xs font-bold ${statusClass.cor}`}>
-                  {statusClass.status === 'parcial' ? '⚠️ Quase completo' : '❌ Classificar!'}
-                </span>
-              </div>
-              {statusClass.problemas && (
-                <p className="text-[10px] text-slate-500 mt-1">Falta: {statusClass.problemas.join(', ')}</p>
-              )}
-            </div>
-          )}
-        </DropdownMenuContent>
+          </DropdownMenuContent>
       </DropdownMenu>
     );
   }
