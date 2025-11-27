@@ -32,6 +32,7 @@ import { normalizarTelefone } from "../components/lib/phoneUtils";
 import BibliotecaAutomacoes from "../components/automacao/BibliotecaAutomacoes";
 import CentralControleOperacional from "../components/comunicacao/CentralControleOperacional";
 import DiagnosticoCirurgicoEmbed from "../components/comunicacao/DiagnosticoCirurgicoEmbed";
+import GerenciadorEtiquetasUnificado from "../components/comunicacao/GerenciadorEtiquetasUnificado";
 
 export default function Comunicacao() {
   const [usuario, setUsuario] = useState(null);
@@ -448,6 +449,10 @@ export default function Comunicacao() {
                 <Bug className="w-4 h-4" />
                 Diagnóstico Cirúrgico
               </TabsTrigger>
+              <TabsTrigger value="etiquetas" className="gap-2 data-[state=active]:bg-gradient-to-r data-[state=active]:from-purple-500 data-[state=active]:to-purple-600 data-[state=active]:text-white text-slate-300 hover:text-white transition-all">
+                <Users className="w-4 h-4" />
+                Etiquetas
+              </TabsTrigger>
               <TabsTrigger value="configuracoes" className="gap-2 data-[state=active]:bg-gradient-to-r data-[state=active]:from-amber-500 data-[state=active]:to-orange-600 data-[state=active]:text-white text-slate-300 hover:text-white transition-all">
                 <Settings className="w-4 h-4" />
                 Configurações
@@ -576,6 +581,12 @@ export default function Comunicacao() {
             <TabsContent value="diagnostico-cirurgico" className="h-full m-0 overflow-hidden">
               <div className="h-full overflow-y-auto p-6">
                 <DiagnosticoCirurgicoEmbed />
+              </div>
+            </TabsContent>
+
+            <TabsContent value="etiquetas" className="h-full m-0 overflow-hidden">
+              <div className="h-full overflow-y-auto p-6">
+                <GerenciadorEtiquetasUnificado usuarioAtual={usuario} />
               </div>
             </TabsContent>
 
