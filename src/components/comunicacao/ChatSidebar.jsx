@@ -310,60 +310,70 @@ export default function ChatSidebar({ threads, threadAtiva, onSelecionarThread, 
 
               </div>
               
-              {/* Rodapé com ícones + descrição */}
-              <div className="flex items-center gap-2 mt-1.5 flex-wrap text-xs text-slate-500">
-                {/* Tipo do Contato com descrição */}
+              {/* Rodapé: TIPO → DESTAQUE → ATENDENTE */}
+              <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
+                {/* 1️⃣ TIPO DO CONTATO - Badge colorido vibrante */}
                 {(() => {
                   const tipoContato = contato?.tipo_contato || 'novo';
-                  const tipo = TIPOS_CONTATO.find((t) => t.value === tipoContato);
-                  if (!tipo) return null;
+                  const tiposConfig = {
+                    'novo': { emoji: '❓', label: 'Novo', bg: 'bg-slate-500', text: 'text-white' },
+                    'lead': { emoji: '🎯', label: 'Lead', bg: 'bg-gradient-to-r from-amber-500 to-orange-500', text: 'text-white' },
+                    'cliente': { emoji: '💎', label: 'Cliente', bg: 'bg-gradient-to-r from-emerald-500 to-green-600', text: 'text-white' },
+                    'fornecedor': { emoji: '🏭', label: 'Fornecedor', bg: 'bg-gradient-to-r from-blue-500 to-indigo-600', text: 'text-white' },
+                    'parceiro': { emoji: '🤝', label: 'Parceiro', bg: 'bg-gradient-to-r from-purple-500 to-pink-500', text: 'text-white' }
+                  };
+                  const cfg = tiposConfig[tipoContato] || tiposConfig['novo'];
                   return (
-                    <span className="flex items-center gap-1" title={tipo.label}>
-                      <Tag className="w-3 h-3" />
-                      {tipo.label}
-                    </span>);
-
+                    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold ${cfg.bg} ${cfg.text} shadow-sm`}>
+                      <span className="text-sm">{cfg.emoji}</span>
+                      {cfg.label}
+                    </span>
+                  );
                 })()}
 
-                {/* Separador */}
-                {contato?.vendedor_responsavel && <span className="text-slate-300">•</span>}
+                {/* 2️⃣ ETIQUETAS DESTAQUE - Cores vibrantes */}
+                {contato?.tags && contato.tags.length > 0 && (() => {
+                  const etiquetasDestaque = {
+                    'vip': { emoji: '👑', label: 'VIP', bg: 'bg-gradient-to-r from-yellow-400 to-amber-500', text: 'text-white' },
+                    'prioridade': { emoji: '⚡', label: 'Prioridade', bg: 'bg-gradient-to-r from-red-500 to-rose-600', text: 'text-white' },
+                    'fidelizado': { emoji: '💎', label: 'Fidelizado', bg: 'bg-gradient-to-r from-cyan-500 to-teal-500', text: 'text-white' },
+                    'potencial': { emoji: '🚀', label: 'Potencial', bg: 'bg-gradient-to-r from-violet-500 to-purple-600', text: 'text-white' }
+                  };
+                  const ordem = ['vip', 'prioridade', 'fidelizado', 'potencial'];
+                  const tagsOrdenadas = contato.tags
+                    .filter(t => ordem.includes(t))
+                    .sort((a, b) => ordem.indexOf(a) - ordem.indexOf(b))
+                    .slice(0, 2);
+                  
+                  return tagsOrdenadas.map(etq => {
+                    const cfg = etiquetasDestaque[etq];
+                    return (
+                      <span key={etq} className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold ${cfg.bg} ${cfg.text} shadow-sm`}>
+                        <span className="text-sm">{cfg.emoji}</span>
+                        {cfg.label}
+                      </span>
+                    );
+                  });
+                })()}
 
-                {/* Vendedor Responsável */}
-                {contato?.vendedor_responsavel &&
-                <span className="flex items-center gap-1" title="Vendedor Responsável">
-                    <User className="w-3 h-3" />
-                    {contato.vendedor_responsavel}
-                  </span>
-                }
-
-                {/* Separador */}
-                {thread.assigned_user_name && <span className="text-slate-300">•</span>}
-
-                {/* Atribuição */}
-                {thread.assigned_user_name &&
-                <span className="flex items-center gap-1">
+                {/* 3️⃣ ATENDENTE/VENDEDOR */}
+                {(thread.assigned_user_name || contato?.vendedor_responsavel) && (
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium bg-slate-100 text-slate-700">
                     <Users className="w-3 h-3 text-blue-500" />
-                    {isAssignedToMe ? 'Minha' : thread.assigned_user_name}
+                    {thread.assigned_user_name 
+                      ? (isAssignedToMe ? 'Minha' : thread.assigned_user_name.split(' ')[0])
+                      : contato?.vendedor_responsavel?.split(' ')[0]
+                    }
                   </span>
-                }
-                {isUnassigned &&
-                <span className="flex items-center gap-1 text-red-500 font-medium">
+                )}
+
+                {/* ⚠️ NÃO ATRIBUÍDA */}
+                {isUnassigned && !contato?.vendedor_responsavel && (
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-red-100 text-red-600 animate-pulse">
                     <AlertCircle className="w-3 h-3" />
-                    Não Atribuída
+                    Sem atendente
                   </span>
-                }
-
-                {/* Etiquetas especiais */}
-                {contato?.tags && contato.tags.length > 0 &&
-                contato.tags.filter((t) => ['vip', 'prioridade', 'fidelizado'].includes(t)).slice(0, 2).map((etq) => {
-                  const config = getEtiquetaConfig(etq);
-                  return (
-                    <Badge key={etq} variant="outline" className="text-xs py-0 px-1.5 h-4">
-                        {config.emoji} {config.label}
-                      </Badge>);
-
-                })
-                }
+                )}
               </div>
             </div>
           </motion.div>);
