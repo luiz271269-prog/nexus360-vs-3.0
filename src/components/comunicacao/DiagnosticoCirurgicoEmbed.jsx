@@ -137,9 +137,10 @@ export default function DiagnosticoCirurgicoEmbed() {
         webhookResponse = await response.json();
         
         diagnostico.testes.push({
-          nome: '3. Webhook Aceita POST',
+          nome: `3. Webhook ${providerNome} Aceita POST`,
           status: response.ok ? 'sucesso' : 'erro',
           detalhes: {
+            provider: providerNome,
             status: response.status,
             response: webhookResponse,
             debug: webhookResponse?.debug || null
