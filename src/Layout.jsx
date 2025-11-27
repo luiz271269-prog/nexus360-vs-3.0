@@ -112,36 +112,86 @@ function NavItem({ href, icon: Icon, label, badge, badgeColor, lembretesCount })
   );
 }
 
-function SideBar({ isOpen, menuItems, contadoresLembretes }) {
-  return (
-    <aside
-      className={`fixed inset-y-0 left-0 z-50 w-20 bg-gradient-to-b from-slate-900 via-slate-800 to-slate-900 text-white transform ${
-        isOpen ? 'translate-x-0' : '-translate-x-full'
-      } transition-transform duration-300 ease-in-out md:relative md:translate-x-0 flex flex-col border-r border-slate-700/50`}
-    >
-      <div className="flex items-center justify-center p-4 border-b border-slate-700/50">
-        <Link to={createPageUrl("Dashboard")} className="relative group">
-          <div className="w-12 h-12 bg-gradient-to-br from-amber-400 via-orange-500 to-red-500 rounded-xl flex items-center justify-center shadow-lg group-hover:shadow-xl group-hover:shadow-orange-500/30 transition-all duration-300">
-            <Zap className="h-7 w-7 text-white" />
-            <div className="absolute inset-0 bg-gradient-to-br from-white/20 to-transparent rounded-xl" />
-          </div>
-        </Link>
-      </div>
+const APP_VERSION = "1.0.0";
+const APP_BUILD_DATE = "2025-11-27";
 
-      <nav className="flex-1 px-2 py-4 space-y-2 overflow-y-auto">
-        {menuItems.map((item) => (
-          <NavItem
-            key={item.page}
-            href={createPageUrl(item.page)}
-            icon={item.icon}
-            label={item.name}
-            badge={item.badge}
-            badgeColor={item.badgeColor}
-            lembretesCount={contadoresLembretes[item.page] || 0}
-          />
-        ))}
-      </nav>
-    </aside>
+function SideBar({ isOpen, menuItems, contadoresLembretes, usuario }) {
+  return (
+    <TooltipProvider>
+      <aside
+        className={`fixed inset-y-0 left-0 z-50 w-20 bg-gradient-to-b from-slate-900 via-slate-800 to-slate-900 text-white transform ${
+          isOpen ? 'translate-x-0' : '-translate-x-full'
+        } transition-transform duration-300 ease-in-out md:relative md:translate-x-0 flex flex-col border-r border-slate-700/50`}
+      >
+        <div className="flex items-center justify-center p-4 border-b border-slate-700/50">
+          <Link to={createPageUrl("Dashboard")} className="relative group">
+            <div className="w-12 h-12 bg-gradient-to-br from-amber-400 via-orange-500 to-red-500 rounded-xl flex items-center justify-center shadow-lg group-hover:shadow-xl group-hover:shadow-orange-500/30 transition-all duration-300">
+              <Zap className="h-7 w-7 text-white" />
+              <div className="absolute inset-0 bg-gradient-to-br from-white/20 to-transparent rounded-xl" />
+            </div>
+          </Link>
+        </div>
+
+        <nav className="flex-1 px-2 py-4 space-y-2 overflow-y-auto">
+          {menuItems.map((item) => (
+            <NavItem
+              key={item.page}
+              href={createPageUrl(item.page)}
+              icon={item.icon}
+              label={item.name}
+              badge={item.badge}
+              badgeColor={item.badgeColor}
+              lembretesCount={contadoresLembretes[item.page] || 0}
+            />
+          ))}
+        </nav>
+
+        {/* Rodapé com usuário e versão */}
+        <div className="p-2 border-t border-slate-700/50 space-y-2">
+          {/* Emoji Usuário Logado */}
+          {usuario && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <div className="flex items-center justify-center p-2 rounded-xl bg-slate-800/50 hover:bg-slate-700/50 cursor-pointer transition-all">
+                  <span className="text-2xl">👤</span>
+                </div>
+              </TooltipTrigger>
+              <TooltipContent side="right" className="bg-slate-800 border-slate-700 p-3 max-w-xs">
+                <div className="space-y-1">
+                  <p className="font-bold text-white">{usuario.full_name || 'Usuário'}</p>
+                  <p className="text-xs text-slate-400">{usuario.email}</p>
+                  <div className="flex items-center gap-1 mt-2">
+                    <Badge className="bg-amber-500 text-white text-[10px]">{usuario.role || 'user'}</Badge>
+                    {usuario.attendant_sector && (
+                      <Badge className="bg-blue-500 text-white text-[10px]">{usuario.attendant_sector}</Badge>
+                    )}
+                  </div>
+                  {usuario.attendant_role && (
+                    <p className="text-[10px] text-slate-500 mt-1">Nível: {usuario.attendant_role}</p>
+                  )}
+                </div>
+              </TooltipContent>
+            </Tooltip>
+          )}
+
+          {/* Emoji Versão do App */}
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <div className="flex items-center justify-center p-2 rounded-xl bg-slate-800/50 hover:bg-slate-700/50 cursor-pointer transition-all">
+                <span className="text-2xl">ℹ️</span>
+              </div>
+            </TooltipTrigger>
+            <TooltipContent side="right" className="bg-slate-800 border-slate-700 p-3">
+              <div className="space-y-1">
+                <p className="font-bold text-white">VendaPro CRM</p>
+                <p className="text-xs text-slate-400">Versão: {APP_VERSION}</p>
+                <p className="text-xs text-slate-400">Build: {APP_BUILD_DATE}</p>
+              </div>
+            </TooltipContent>
+          </Tooltip>
+        </div>
+      </aside>
+    </TooltipProvider>
   );
 }
 
