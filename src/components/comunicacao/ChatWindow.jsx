@@ -53,7 +53,6 @@ import CentralInteligenciaContato, {
   calcularScoreContato, 
   getNivelTemperatura, 
   getProximaAcaoSugerida, 
-  getClassificacaoStatus,
   TIPOS_CONTATO
 } from './CentralInteligenciaContato';
 
@@ -1368,39 +1367,7 @@ export default function ChatWindow({
           </div>
         </div>
 
-        {/* Alerta Inteligente de Classificação */}
-        {(() => {
-          const status = getClassificacaoStatus(contatoCompleto);
-          if (status.status === 'completo') return null;
-          
-          return (
-            <div className={`mt-3 flex items-center gap-2 p-2.5 rounded-lg border ${
-              status.status === 'parcial' 
-                ? 'bg-amber-50 border-amber-200' 
-                : 'bg-red-50 border-red-200 animate-pulse'
-            }`}>
-              <status.icon className={`w-5 h-5 flex-shrink-0 ${status.cor}`} />
-              <div className="flex-1 min-w-0">
-                <p className={`text-xs font-bold ${status.cor}`}>
-                  {status.status === 'parcial' ? '⚠️ Classificação Parcial' : '❌ Classificar Este Contato!'}
-                </p>
-                {status.problemas && (
-                  <p className="text-[10px] text-slate-500 truncate">
-                    Falta: {status.problemas.join(' • ')}
-                  </p>
-                )}
-              </div>
-              <div onClick={(e) => e.stopPropagation()}>
-                <CentralInteligenciaContato 
-                  contato={contatoCompleto} 
-                  variant="mini"
-                  onUpdate={onAtualizarMensagens}
-                  showSugestoes={false}
-                />
-              </div>
-            </div>
-          );
-        })()}
+
       </div>
 
             {mensagemResposta &&
