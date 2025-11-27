@@ -630,6 +630,146 @@ export default function GerenciadorUsuariosUnificado({
                   />
                 </div>
 
+                {/* Atendente WhatsApp */}
+                <div className="flex items-center justify-between p-3 bg-green-50 rounded-lg border border-green-200">
+                  <div>
+                    <p className="text-sm font-medium text-green-800">📱 Atendente WhatsApp</p>
+                    <p className="text-xs text-green-600">Habilitar para receber conversas do WhatsApp</p>
+                  </div>
+                  <Switch
+                    checked={usuarioSelecionado.is_whatsapp_attendant || false}
+                    onCheckedChange={(v) => atualizarUsuario("is_whatsapp_attendant", v)}
+                  />
+                </div>
+
+                {/* Conexões WhatsApp */}
+                {usuarioSelecionado.is_whatsapp_attendant && integracoesWhatsApp.length > 0 && (
+                  <div className="p-3 bg-blue-50 rounded-lg border border-blue-200">
+                    <h4 className="text-xs font-bold text-blue-800 mb-2">📞 Conexões WhatsApp Permitidas</h4>
+                    <p className="text-[10px] text-blue-600 mb-3">
+                      Selecione quais conexões este usuário pode acessar
+                    </p>
+                    <div className="space-y-2">
+                      {integracoesWhatsApp.map(int => {
+                        const perms = usuarioSelecionado.whatsapp_permissions || [];
+                        const perm = perms.find(p => p.integration_id === int.id);
+                        const habilitado = !!perm;
+                        
+                        const toggleConexao = () => {
+                          let novasPerms = [...perms];
+                          if (habilitado) {
+                            novasPerms = novasPerms.filter(p => p.integration_id !== int.id);
+                          } else {
+                            novasPerms.push({
+                              integration_id: int.id,
+                              integration_name: int.nome_instancia,
+                              can_view: true,
+                              can_receive: true,
+                              can_send: true
+                            });
+                          }
+                          atualizarUsuario("whatsapp_permissions", novasPerms);
+                        };
+
+                        const togglePermissao = (campo) => {
+                          if (!habilitado) return;
+                          const novasPerms = perms.map(p => {
+                            if (p.integration_id === int.id) {
+                              return { ...p, [campo]: !p[campo] };
+                            }
+                            return p;
+                          });
+                          atualizarUsuario("whatsapp_permissions", novasPerms);
+                        };
+                        
+                        return (
+                          <div key={int.id} className="p-2 bg-white rounded border">
+                            <div className="flex items-center justify-between mb-2">
+                              <div className="flex items-center gap-2">
+                                <Checkbox
+                                  checked={habilitado}
+                                  onCheckedChange={toggleConexao}
+                                />
+                                <span className="text-sm font-medium">{int.nome_instancia}</span>
+                                <Badge variant="outline" className="text-[9px]">{int.numero_telefone}</Badge>
+                              </div>
+                              <Badge className={int.status === 'conectado' ? 'bg-green-500' : 'bg-red-500'}>
+                                {int.status}
+                              </Badge>
+                            </div>
+                            {habilitado && (
+                              <div className="flex gap-4 pl-6 text-xs">
+                                <label className="flex items-center gap-1 cursor-pointer">
+                                  <Checkbox
+                                    checked={perm?.can_view !== false}
+                                    onCheckedChange={() => togglePermissao("can_view")}
+                                  />
+                                  <span>Ver</span>
+                                </label>
+                                <label className="flex items-center gap-1 cursor-pointer">
+                                  <Checkbox
+                                    checked={perm?.can_receive !== false}
+                                    onCheckedChange={() => togglePermissao("can_receive")}
+                                  />
+                                  <span>Receber</span>
+                                </label>
+                                <label className="flex items-center gap-1 cursor-pointer">
+                                  <Checkbox
+                                    checked={perm?.can_send !== false}
+                                    onCheckedChange={() => togglePermissao("can_send")}
+                                  />
+                                  <span>Enviar</span>
+                                </label>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {/* Capacidade de Conversas */}
+                {usuarioSelecionado.is_whatsapp_attendant && (
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="text-xs font-medium text-slate-700 mb-1 block">Máx. Conversas Simultâneas</label>
+                      <Input
+                        type="number"
+                        min="1"
+                        max="50"
+                        value={usuarioSelecionado.max_concurrent_conversations || 5}
+                        onChange={(e) => atualizarUsuario("max_concurrent_conversations", parseInt(e.target.value) || 5)}
+                        className="h-9"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-xs font-medium text-slate-700 mb-1 block">Setores Atendidos</label>
+                      <div className="flex flex-wrap gap-1">
+                        {SETORES.map(s => {
+                          const setores = usuarioSelecionado.whatsapp_setores || [];
+                          const ativo = setores.includes(s.value);
+                          return (
+                            <Badge
+                              key={s.value}
+                              variant={ativo ? "default" : "outline"}
+                              className={`cursor-pointer text-[10px] ${ativo ? 'bg-blue-500' : ''}`}
+                              onClick={() => {
+                                const novos = ativo 
+                                  ? setores.filter(x => x !== s.value)
+                                  : [...setores, s.value];
+                                atualizarUsuario("whatsapp_setores", novos);
+                              }}
+                            >
+                              {s.label}
+                            </Badge>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  </div>
+                )}
+
                 {/* Perfis Rápidos */}
                 <div className="pt-4 border-t">
                   <h3 className="text-xs font-bold text-slate-700 mb-3 flex items-center gap-1">
