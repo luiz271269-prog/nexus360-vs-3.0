@@ -1333,18 +1333,8 @@ export default function ChatWindow({
             })()}
           </div>
 
-          {/* Classificação Compacta e Ações */}
+          {/* Ações */}
           <div className="flex items-center gap-2 flex-shrink-0">
-            {/* Central Compacta */}
-            <div onClick={(e) => e.stopPropagation()}>
-              <CentralInteligenciaContato 
-                contato={contatoCompleto} 
-                variant="compact"
-                onUpdate={onAtualizarMensagens}
-                showSugestoes={false}
-              />
-            </div>
-
             {/* Botão Transferir */}
             {canManageConversation && podeTransferirConversas && (
               <button
