@@ -1254,17 +1254,8 @@ export default function ChatWindow({
       {/* Header REVOLUCIONÁRIO - Central de Inteligência do Cliente */}
       <div className="bg-gradient-to-r from-slate-100 via-slate-50 to-white p-4 border-b border-slate-200 flex-shrink-0 shadow-sm">
         <div className="flex items-center gap-4">
-          {/* Avatar com Central Inteligente */}
+          {/* Avatar */}
           <div className="relative flex-shrink-0">
-            {/* Termômetro no topo */}
-            <div className="absolute -top-2 -left-2 z-20">
-              <CentralInteligenciaContato 
-                contato={contatoCompleto} 
-                variant="mini"
-                showSugestoes={true}
-              />
-            </div>
-            
             <div className="w-14 h-14 rounded-full flex items-center justify-center text-white font-bold text-xl shadow-lg overflow-hidden relative bg-gradient-to-br from-amber-400 via-orange-500 to-red-500">
               {contatoCompleto?.foto_perfil_url ?
               <img
@@ -1297,6 +1288,11 @@ export default function ChatWindow({
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 mb-1">
               <h3 className="font-bold text-slate-900 truncate text-lg">{nomeContato}</h3>
+              <CentralInteligenciaContato 
+                contato={contatoCompleto} 
+                variant="mini"
+                showSugestoes={true}
+              />
               <CategorizadorRapido
                 thread={thread}
                 contato={contatoCompleto}
