@@ -301,22 +301,22 @@ export default function ChatSidebar({ threads, threadAtiva, onSelecionarThread, 
                 </span>
               </p>
 
-              {/* Linha 3: TIPO + DESTAQUE + ATENDENTE (tudo horizontal compacto) */}
+              {/* Linha 3: TIPO + DESTAQUE + ATENDENTE (horizontal compacto com labels) */}
               <div className="flex items-center gap-1 mt-1 overflow-hidden">
                 {/* TIPO */}
                 {(() => {
                   const tipoContato = contato?.tipo_contato || 'novo';
                   const tiposConfig = {
-                    'novo': { emoji: '❓', bg: 'bg-slate-400' },
-                    'lead': { emoji: '🎯', bg: 'bg-amber-500' },
-                    'cliente': { emoji: '💎', bg: 'bg-emerald-500' },
-                    'fornecedor': { emoji: '🏭', bg: 'bg-blue-500' },
-                    'parceiro': { emoji: '🤝', bg: 'bg-purple-500' }
+                    'novo': { emoji: '❓', label: 'Novo', bg: 'bg-slate-400' },
+                    'lead': { emoji: '🎯', label: 'Lead', bg: 'bg-amber-500' },
+                    'cliente': { emoji: '💎', label: 'Cliente', bg: 'bg-emerald-500' },
+                    'fornecedor': { emoji: '🏭', label: 'Fornec.', bg: 'bg-blue-500' },
+                    'parceiro': { emoji: '🤝', label: 'Parceiro', bg: 'bg-purple-500' }
                   };
                   const cfg = tiposConfig[tipoContato] || tiposConfig['novo'];
                   return (
-                    <span className={`inline-flex items-center justify-center w-5 h-5 rounded-full text-xs ${cfg.bg} shadow-sm`} title={tipoContato}>
-                      {cfg.emoji}
+                    <span className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-semibold text-white ${cfg.bg} shadow-sm`}>
+                      {cfg.emoji} {cfg.label}
                     </span>
                   );
                 })()}
@@ -324,10 +324,10 @@ export default function ChatSidebar({ threads, threadAtiva, onSelecionarThread, 
                 {/* DESTAQUES (max 2) */}
                 {contato?.tags && contato.tags.length > 0 && (() => {
                   const etiquetasDestaque = {
-                    'vip': { emoji: '👑', bg: 'bg-yellow-400' },
-                    'prioridade': { emoji: '⚡', bg: 'bg-red-500' },
-                    'fidelizado': { emoji: '💎', bg: 'bg-cyan-500' },
-                    'potencial': { emoji: '🚀', bg: 'bg-violet-500' }
+                    'vip': { emoji: '👑', label: 'VIP', bg: 'bg-yellow-500' },
+                    'prioridade': { emoji: '⚡', label: 'Prior.', bg: 'bg-red-500' },
+                    'fidelizado': { emoji: '💎', label: 'Fidel.', bg: 'bg-cyan-500' },
+                    'potencial': { emoji: '🚀', label: 'Potenc.', bg: 'bg-violet-500' }
                   };
                   const ordem = ['vip', 'prioridade', 'fidelizado', 'potencial'];
                   const tagsOrdenadas = contato.tags
@@ -338,8 +338,8 @@ export default function ChatSidebar({ threads, threadAtiva, onSelecionarThread, 
                   return tagsOrdenadas.map(etq => {
                     const cfg = etiquetasDestaque[etq];
                     return (
-                      <span key={etq} className={`inline-flex items-center justify-center w-5 h-5 rounded-full text-xs ${cfg.bg} shadow-sm`} title={etq}>
-                        {cfg.emoji}
+                      <span key={etq} className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-semibold text-white ${cfg.bg} shadow-sm`}>
+                        {cfg.emoji} {cfg.label}
                       </span>
                     );
                   });
