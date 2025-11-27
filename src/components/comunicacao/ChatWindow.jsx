@@ -49,12 +49,12 @@ import { useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import MediaAttachmentSystem from './MediaAttachmentSystem';
 import CategorizadorRapido from './CategorizadorRapido';
-import CentralInteligenciaContato, { 
-  calcularScoreContato, 
-  getNivelTemperatura, 
-  getProximaAcaoSugerida, 
-  TIPOS_CONTATO
-} from './CentralInteligenciaContato';
+import CentralInteligenciaContato, {
+  calcularScoreContato,
+  getNivelTemperatura,
+  getProximaAcaoSugerida,
+  TIPOS_CONTATO } from
+'./CentralInteligenciaContato';
 
 export default function ChatWindow({
   thread,
@@ -159,18 +159,18 @@ export default function ChatWindow({
       try {
         const contato = await base44.entities.Contact.get(thread.contact_id);
         if (!isMounted) return;
-        
+
         setContatoCompleto(contato);
         setCarregandoContato(false);
 
         // Buscar foto/nome em background (não bloqueia UI)
-        const isContatoReal = contato.telefone && 
-          !/^[\+\d\s]+@(lid|broadcast|s\.whatsapp\.net|c\.us)/i.test(contato.telefone);
+        const isContatoReal = contato.telefone &&
+        !/^[\+\d\s]+@(lid|broadcast|s\.whatsapp\.net|c\.us)/i.test(contato.telefone);
 
         if (isContatoReal && thread.whatsapp_integration_id) {
           const deveBuscarFoto = !contato.foto_perfil_url ||
-            !contato.foto_perfil_atualizada_em ||
-            new Date() - new Date(contato.foto_perfil_atualizada_em) > 24 * 60 * 60 * 1000;
+          !contato.foto_perfil_atualizada_em ||
+          new Date() - new Date(contato.foto_perfil_atualizada_em) > 24 * 60 * 60 * 1000;
 
           const chaveCache = `${contato.id}-${thread.whatsapp_integration_id}`;
 
@@ -179,18 +179,18 @@ export default function ChatWindow({
 
             setTimeout(async () => {
               if (!isMounted) return;
-              
+
               try {
                 const [resultadoFoto, resultadoNome] = await Promise.all([
-                  base44.functions.invoke('buscarFotoPerfilWhatsApp', {
-                    integration_id: thread.whatsapp_integration_id,
-                    phone: contato.telefone
-                  }).catch(() => null),
-                  base44.functions.invoke('buscarNomeContatoWhatsApp', {
-                    integration_id: thread.whatsapp_integration_id,
-                    phone: contato.telefone
-                  }).catch(() => null)
-                ]);
+                base44.functions.invoke('buscarFotoPerfilWhatsApp', {
+                  integration_id: thread.whatsapp_integration_id,
+                  phone: contato.telefone
+                }).catch(() => null),
+                base44.functions.invoke('buscarNomeContatoWhatsApp', {
+                  integration_id: thread.whatsapp_integration_id,
+                  phone: contato.telefone
+                }).catch(() => null)]
+                );
 
                 if (!isMounted) return;
 
@@ -202,9 +202,9 @@ export default function ChatWindow({
                 }
 
                 if (resultadoNome?.data?.success && resultadoNome?.data?.contactName) {
-                  const nomeAtualGenerico = !contato.nome || 
-                    contato.nome === contato.telefone ||
-                    /^[\+\d\s\-\(\)]+$/.test(contato.nome);
+                  const nomeAtualGenerico = !contato.nome ||
+                  contato.nome === contato.telefone ||
+                  /^[\+\d\s\-\(\)]+$/.test(contato.nome);
 
                   if (nomeAtualGenerico) {
                     updates.nome = resultadoNome.data.contactName;
@@ -213,7 +213,7 @@ export default function ChatWindow({
 
                 if (Object.keys(updates).length > 0 && isMounted) {
                   await base44.entities.Contact.update(contato.id, updates);
-                  setContatoCompleto(prev => prev?.id === contato.id ? { ...prev, ...updates } : prev);
+                  setContatoCompleto((prev) => prev?.id === contato.id ? { ...prev, ...updates } : prev);
                 }
               } catch (error) {
                 console.warn('Erro ao buscar dados:', error.message);
@@ -223,11 +223,11 @@ export default function ChatWindow({
         }
       } catch (error) {
         if (!isMounted) return;
-        
+
         console.error('Erro ao carregar contato:', error);
         setContatoCompleto(null);
         setCarregandoContato(false);
-        
+
         if (!error.message?.includes('Rate limit') && !error.message?.includes('429')) {
           toast.error('Erro ao carregar contato');
         }
@@ -1172,7 +1172,7 @@ export default function ChatWindow({
       const timestamp = Date.now();
       const fileName = `print-${timestamp}.png`;
       const imageFile = new File([pastedImage], fileName, { type: pastedImage.type });
-      
+
       const uploadResponse = await base44.integrations.Core.UploadFile({ file: imageFile });
       const imageUrl = uploadResponse.file_url;
 
@@ -1251,12 +1251,12 @@ export default function ChatWindow({
 
   return (
     <div className="flex flex-col h-full bg-white">
-      {/* Header Compacto com Gradiente */}
-      <div className="bg-gradient-to-r from-amber-50 via-orange-50 to-rose-50 p-3 border-b border-orange-200 flex-shrink-0 shadow-sm">
-        <div className="flex items-center gap-3">
+      {/* Header REVOLUCIONÁRIO - Central de Inteligência do Cliente */}
+      <div className="bg-[#151537] text-slate-50 p-3 opacity-100 from-amber-50 via-orange-50 to-rose-50 border-b border-orange-200 flex-shrink-0 shadow-sm">
+        <div className="flex items-center gap-4">
           {/* Avatar */}
           <div className="relative flex-shrink-0">
-            <div className="w-11 h-11 rounded-full flex items-center justify-center text-white font-bold text-lg shadow-lg overflow-hidden relative bg-gradient-to-br from-amber-400 via-orange-500 to-red-500">
+            <div className="w-14 h-14 rounded-full flex items-center justify-center text-white font-bold text-xl shadow-lg overflow-hidden relative bg-gradient-to-br from-amber-400 via-orange-500 to-red-500">
               {contatoCompleto?.foto_perfil_url ?
               <img
                 src={contatoCompleto.foto_perfil_url}
@@ -1274,31 +1274,31 @@ export default function ChatWindow({
             {(() => {
               const proxAcao = getProximaAcaoSugerida(contatoCompleto);
               return (
-                <div 
-                  className={`absolute -bottom-1 -right-1 w-5 h-5 ${proxAcao.cor} rounded-full flex items-center justify-center border-2 border-white shadow-md z-20`}
-                  title={`Sugestão: ${proxAcao.label}`}
-                >
-                  <proxAcao.icon className="w-2.5 h-2.5 text-white" />
-                </div>
-              );
+                <div
+                  className={`absolute -bottom-1 -right-1 w-6 h-6 ${proxAcao.cor} rounded-full flex items-center justify-center border-2 border-white shadow-md z-20`}
+                  title={`Sugestão: ${proxAcao.label}`}>
+
+                  <proxAcao.icon className="w-3 h-3 text-white" />
+                </div>);
+
             })()}
           </div>
 
           {/* Nome, Telefone e Barra de Temperatura */}
           <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2 mb-0.5">
-              <h3 className="font-bold text-slate-800 truncate text-base">{nomeContato}</h3>
-              <CentralInteligenciaContato 
-                contato={contatoCompleto} 
+            <div className="flex items-center gap-2 mb-1">
+              <h3 className="font-bold text-slate-900 truncate text-lg">{nomeContato}</h3>
+              <CentralInteligenciaContato
+                contato={contatoCompleto}
                 variant="mini"
-                showSugestoes={true}
-              />
+                showSugestoes={true} />
+
               <CategorizadorRapido
                 thread={thread}
                 contato={contatoCompleto}
                 onUpdate={onAtualizarMensagens} />
             </div>
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-3 mb-2">
               <p className="text-xs text-slate-500">{telefoneExibicao}</p>
 
               {/* Barra de Temperatura Visual */}
@@ -1307,24 +1307,24 @@ export default function ChatWindow({
                 const nivel = getNivelTemperatura(score);
                 const Icon = nivel.icon;
                 return (
-                  <div className="flex items-center gap-1.5 flex-1 max-w-[160px]">
-                    <div className={`w-4 h-4 rounded-full bg-gradient-to-br ${nivel.gradiente} flex items-center justify-center`}>
-                      <Icon className="w-2.5 h-2.5 text-white" />
+                  <div className="flex items-center gap-2 flex-1 max-w-[200px]">
+                    <div className={`w-5 h-5 rounded-full bg-gradient-to-br ${nivel.gradiente} flex items-center justify-center shadow-sm`}>
+                      <Icon className="w-3 h-3 text-white" />
                     </div>
                     <div className="flex-1">
-                      <div className="flex items-center justify-between">
-                        <span className="text-[9px] font-medium text-slate-600">{nivel.emoji} {nivel.label}</span>
-                        <span className="text-[9px] font-bold text-slate-500">{score}%</span>
+                      <div className="flex items-center justify-between mb-0.5">
+                        <span className="text-[10px] font-semibold text-slate-600">{nivel.emoji} {nivel.label}</span>
+                        <span className="text-[10px] font-bold text-slate-500">{score}%</span>
                       </div>
-                      <div className="w-full h-1 bg-slate-200 rounded-full overflow-hidden">
-                        <div 
+                      <div className="w-full h-1.5 bg-slate-200 rounded-full overflow-hidden">
+                        <div
                           className={`h-full bg-gradient-to-r ${nivel.gradiente} transition-all duration-500`}
-                          style={{ width: `${score}%` }}
-                        />
+                          style={{ width: `${score}%` }} />
+
                       </div>
                     </div>
-                  </div>
-                );
+                  </div>);
+
               })()}
             </div>
 
@@ -1332,28 +1332,28 @@ export default function ChatWindow({
           </div>
 
           {/* Ações */}
-          <div className="flex items-center gap-1.5 flex-shrink-0">
+          <div className="flex items-center gap-2 flex-shrink-0">
             {/* Botão Transferir */}
-            {canManageConversation && podeTransferirConversas && (
-              <button
-                onClick={() => setMostrarModalAtribuicao(true)}
-                className="bg-gradient-to-br from-amber-500 to-amber-600 text-white rounded-lg px-2.5 py-1.5 shadow flex items-center gap-1.5 hover:shadow-md transition-all text-xs font-medium"
-              >
-                <Users className="w-3.5 h-3.5" />
+            {canManageConversation && podeTransferirConversas &&
+            <button
+              onClick={() => setMostrarModalAtribuicao(true)}
+              className="bg-gradient-to-br from-amber-500 to-amber-600 text-white rounded-lg px-3 py-2 shadow-md flex items-center gap-2 hover:shadow-lg transition-all text-xs font-medium">
+
+                <Users className="w-4 h-4" />
                 Transferir
               </button>
-            )}
+            }
 
             {/* Botão Ver Detalhes */}
             <button
               onClick={onShowContactInfo}
-              className="bg-white hover:bg-slate-50 text-slate-700 rounded-lg px-2.5 py-1.5 flex items-center gap-1.5 transition-all border border-slate-200 shadow-sm"
-            >
-              <Info className="w-3.5 h-3.5" />
+              className="bg-gradient-to-br from-slate-600 to-slate-700 text-white rounded-lg px-3 py-2 shadow-md flex items-center gap-2 hover:from-slate-700 hover:to-slate-800 hover:shadow-lg transition-all">
+
+              <Info className="w-4 h-4" />
               <span className="text-xs font-medium">Detalhes</span>
             </button>
           </div>
-          </div>
+        </div>
 
 
       </div>
@@ -1460,15 +1460,15 @@ export default function ChatWindow({
 
             // ❌ BLOQUEAR: lista de conteúdos inválidos
             const conteudoInvalido = [
-              'Mídia enviada',
-              'Media enviada',
-              'Adicionar',
-              'Referência',
-              '[No content]',
-              '[Message content missing]',
-              '[Recovered message]',
-              ''
-            ];
+            'Mídia enviada',
+            'Media enviada',
+            'Adicionar',
+            'Referência',
+            '[No content]',
+            '[Message content missing]',
+            '[Recovered message]',
+            ''];
+
 
             if (conteudoInvalido.includes(content)) {
               return false;
@@ -1648,30 +1648,30 @@ export default function ChatWindow({
 
           <div className="flex-1">
             {/* Preview da imagem colada */}
-            {pastedImagePreview && (
-              <div className="mb-2 p-2 bg-blue-50 border border-blue-200 rounded-lg">
+            {pastedImagePreview &&
+            <div className="mb-2 p-2 bg-blue-50 border border-blue-200 rounded-lg">
                 <div className="flex items-start gap-3">
-                  <img 
-                    src={pastedImagePreview} 
-                    alt="Preview" 
-                    className="w-20 h-20 object-cover rounded-lg border border-blue-300"
-                  />
+                  <img
+                  src={pastedImagePreview}
+                  alt="Preview"
+                  className="w-20 h-20 object-cover rounded-lg border border-blue-300" />
+
                   <div className="flex-1">
                     <p className="text-sm font-medium text-blue-800 mb-1">📷 Imagem colada</p>
                     <p className="text-xs text-blue-600">Digite uma legenda (opcional) e clique em enviar</p>
                   </div>
                   <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    onClick={cancelarImagemColada}
-                    className="h-6 w-6 text-blue-600 hover:text-blue-800 hover:bg-blue-100"
-                  >
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  onClick={cancelarImagemColada}
+                  className="h-6 w-6 text-blue-600 hover:text-blue-800 hover:bg-blue-100">
+
                     <X className="w-4 h-4" />
                   </Button>
                 </div>
               </div>
-            )}
+            }
             
             <textarea
               ref={inputRef}
@@ -1679,43 +1679,43 @@ export default function ChatWindow({
               onChange={(e) => setMensagemTexto(e.target.value)}
               onKeyDown={handleKeyDown}
               onPaste={handlePaste}
-              placeholder={pastedImagePreview ? "Digite uma legenda para a imagem..." : (!podeEnviarMensagens ? "Sem permissão para enviar mensagens" : "Digite sua mensagem... (Ctrl+V para colar imagem)")}
+              placeholder={pastedImagePreview ? "Digite uma legenda para a imagem..." : !podeEnviarMensagens ? "Sem permissão para enviar mensagens" : "Digite sua mensagem... (Ctrl+V para colar imagem)"}
               rows={Math.max(1, Math.min(5, mensagemTexto.split('\n').length))}
               className="w-full p-3 border border-slate-300 rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-orange-500"
               disabled={enviando || carregandoContato || gravandoAudio || modoSelecao || uploadingPastedFile || !podeEnviarMensagens} />
 
           </div>
           
-          {pastedImagePreview ? (
-            <Button
-              type="button"
-              onClick={enviarImagemColada}
-              disabled={enviando || carregandoContato || uploadingPastedFile || !podeEnviarMidias}
-              className="bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white flex-shrink-0"
-              title="Enviar imagem colada">
-              {uploadingPastedFile ? (
-                <Loader2 className="w-5 h-5 animate-spin" />
-              ) : (
-                <>
+          {pastedImagePreview ?
+          <Button
+            type="button"
+            onClick={enviarImagemColada}
+            disabled={enviando || carregandoContato || uploadingPastedFile || !podeEnviarMidias}
+            className="bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white flex-shrink-0"
+            title="Enviar imagem colada">
+              {uploadingPastedFile ?
+            <Loader2 className="w-5 h-5 animate-spin" /> :
+
+            <>
                   <ImageIcon className="w-4 h-4 mr-1" />
                   <Send className="w-4 h-4" />
                 </>
-              )}
-            </Button>
-          ) : (
-            <Button
-              type="submit"
-              disabled={!mensagemTexto.trim() || enviando || carregandoContato || gravandoAudio || modoSelecao || uploadingPastedFile || !podeEnviarMensagens}
-              className="bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white flex-shrink-0"
-              title={!podeEnviarMensagens ? "Sem permissão para enviar mensagens" : "Enviar mensagem"}>
+            }
+            </Button> :
+
+          <Button
+            type="submit"
+            disabled={!mensagemTexto.trim() || enviando || carregandoContato || gravandoAudio || modoSelecao || uploadingPastedFile || !podeEnviarMensagens}
+            className="bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white flex-shrink-0"
+            title={!podeEnviarMensagens ? "Sem permissão para enviar mensagens" : "Enviar mensagem"}>
 
               {enviando ?
-              <Loader2 className="w-5 h-5 animate-spin" /> :
+            <Loader2 className="w-5 h-5 animate-spin" /> :
 
-              <Send className="w-5 h-5" />
-              }
+            <Send className="w-5 h-5" />
+            }
             </Button>
-          )}
+          }
         </div>
 
         {mostrarSugestor &&
