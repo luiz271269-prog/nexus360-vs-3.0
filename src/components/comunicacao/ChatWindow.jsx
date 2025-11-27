@@ -1252,7 +1252,7 @@ export default function ChatWindow({
   return (
     <div className="flex flex-col h-full bg-white">
       {/* Header Compacto com Gradiente */}
-      <div className="bg-gradient-to-r from-slate-800 via-slate-700 to-slate-600 p-3 border-b border-slate-600 flex-shrink-0 shadow-md">
+      <div className="bg-gradient-to-r from-amber-50 via-orange-50 to-rose-50 p-3 border-b border-orange-200 flex-shrink-0 shadow-sm">
         <div className="flex items-center gap-3">
           {/* Avatar */}
           <div className="relative flex-shrink-0">
@@ -1275,7 +1275,7 @@ export default function ChatWindow({
               const proxAcao = getProximaAcaoSugerida(contatoCompleto);
               return (
                 <div 
-                  className={`absolute -bottom-1 -right-1 w-5 h-5 ${proxAcao.cor} rounded-full flex items-center justify-center border-2 border-slate-700 shadow-md z-20`}
+                  className={`absolute -bottom-1 -right-1 w-5 h-5 ${proxAcao.cor} rounded-full flex items-center justify-center border-2 border-white shadow-md z-20`}
                   title={`Sugestão: ${proxAcao.label}`}
                 >
                   <proxAcao.icon className="w-2.5 h-2.5 text-white" />
@@ -1287,7 +1287,7 @@ export default function ChatWindow({
           {/* Nome, Telefone e Barra de Temperatura */}
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 mb-0.5">
-              <h3 className="font-bold text-white truncate text-base">{nomeContato}</h3>
+              <h3 className="font-bold text-slate-800 truncate text-base">{nomeContato}</h3>
               <CentralInteligenciaContato 
                 contato={contatoCompleto} 
                 variant="mini"
@@ -1299,7 +1299,7 @@ export default function ChatWindow({
                 onUpdate={onAtualizarMensagens} />
             </div>
             <div className="flex items-center gap-3">
-              <p className="text-xs text-slate-400">{telefoneExibicao}</p>
+              <p className="text-xs text-slate-500">{telefoneExibicao}</p>
 
               {/* Barra de Temperatura Visual */}
               {(() => {
@@ -1313,10 +1313,10 @@ export default function ChatWindow({
                     </div>
                     <div className="flex-1">
                       <div className="flex items-center justify-between">
-                        <span className="text-[9px] font-medium text-slate-300">{nivel.emoji} {nivel.label}</span>
-                        <span className="text-[9px] font-bold text-slate-400">{score}%</span>
+                        <span className="text-[9px] font-medium text-slate-600">{nivel.emoji} {nivel.label}</span>
+                        <span className="text-[9px] font-bold text-slate-500">{score}%</span>
                       </div>
-                      <div className="w-full h-1 bg-slate-600 rounded-full overflow-hidden">
+                      <div className="w-full h-1 bg-slate-200 rounded-full overflow-hidden">
                         <div 
                           className={`h-full bg-gradient-to-r ${nivel.gradiente} transition-all duration-500`}
                           style={{ width: `${score}%` }}
@@ -1347,7 +1347,7 @@ export default function ChatWindow({
             {/* Botão Ver Detalhes */}
             <button
               onClick={onShowContactInfo}
-              className="bg-white/10 hover:bg-white/20 text-white rounded-lg px-2.5 py-1.5 flex items-center gap-1.5 transition-all border border-white/20"
+              className="bg-white hover:bg-slate-50 text-slate-700 rounded-lg px-2.5 py-1.5 flex items-center gap-1.5 transition-all border border-slate-200 shadow-sm"
             >
               <Info className="w-3.5 h-3.5" />
               <span className="text-xs font-medium">Detalhes</span>
