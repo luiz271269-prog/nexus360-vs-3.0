@@ -33,6 +33,7 @@ import { listarVendedoresParaSelect, sincronizarClientesComVendedores } from '..
 import { validarMudancaStatus, getMensagemMotivacional, getProximaAcaoSugerida } from '../components/clientes/ClienteFormValidation';
 import OrcamentoKanban from "../components/orcamentos/OrcamentoKanban";
 import OrcamentoTable from "../components/orcamentos/OrcamentoTable";
+import ControlCenter from "../components/dashboard/ControlCenter";
 import { createPageUrl } from "@/utils";
 import { useNavigate } from "react-router-dom";
 
@@ -474,6 +475,12 @@ export default function LeadsQualificados() {
                   Pipeline de Orçamentos
                   <Badge variant="secondary" className="ml-2 bg-orange-100 text-orange-700 text-[10px] h-4">{orcamentos.length}</Badge>
                 </TabsTrigger>
+                <TabsTrigger
+                  value="nexus"
+                  className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-purple-600 data-[state=active]:to-indigo-500 data-[state=active]:text-white text-slate-300 h-9 px-4 text-xs font-semibold">
+                  <Zap className="w-3 h-3 mr-1" />
+                  Nexus Command Center
+                </TabsTrigger>
               </TabsList>
 
               {/* FILTROS COMPACTOS */}
@@ -603,6 +610,11 @@ export default function LeadsQualificados() {
                 onDelete={handleDeleteOrcamento}
               />
             )}
+          </TabsContent>
+
+          {/* TAB: NEXUS COMMAND CENTER */}
+          <TabsContent value="nexus" className="mt-2">
+            <ControlCenter />
           </TabsContent>
         </Tabs>
 
