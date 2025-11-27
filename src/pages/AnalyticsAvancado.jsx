@@ -1,5 +1,5 @@
 
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -14,8 +14,11 @@ import {
   Users,
   DollarSign,
   Target,
+  Calendar,
+  Zap,
   Brain,
   Download,
+  Filter,
   RefreshCw,
   AlertCircle,
   CheckCircle,
@@ -31,6 +34,7 @@ import {
   PieChart,
   Pie,
   Cell,
+  AreaChart,
   Area,
   RadarChart,
   Radar,

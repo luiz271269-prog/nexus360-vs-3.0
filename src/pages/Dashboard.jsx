@@ -487,6 +487,13 @@ export default function Dashboard() {
       disponivel: isGerente
     },
     {
+      key: 'analytics',
+      label: 'Analytics Avançado',
+      icon: BarChart3,
+      descricao: 'Análises avançadas e BI',
+      disponivel: isGerente
+    },
+    {
       key: 'vendedores',
       label: 'Performance Vendas',
       icon: Award,
