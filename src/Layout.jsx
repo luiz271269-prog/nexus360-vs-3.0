@@ -112,8 +112,7 @@ function NavItem({ href, icon: Icon, label, badge, badgeColor, lembretesCount })
   );
 }
 
-const APP_VERSION = "1.0.0";
-const APP_BUILD_DATE = "2025-11-27";
+
 
 function SideBar({ isOpen, menuItems, contadoresLembretes, usuario }) {
   return (
@@ -174,21 +173,7 @@ function SideBar({ isOpen, menuItems, contadoresLembretes, usuario }) {
             </Tooltip>
           )}
 
-          {/* Emoji Versão do App */}
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <div className="flex items-center justify-center p-2 rounded-xl bg-slate-800/50 hover:bg-slate-700/50 cursor-pointer transition-all">
-                <span className="text-2xl">ℹ️</span>
-              </div>
-            </TooltipTrigger>
-            <TooltipContent side="right" className="bg-slate-800 border-slate-700 p-3">
-              <div className="space-y-1">
-                <p className="font-bold text-white">VendaPro CRM</p>
-                <p className="text-xs text-slate-400">Versão: {APP_VERSION}</p>
-                <p className="text-xs text-slate-400">Build: {APP_BUILD_DATE}</p>
-              </div>
-            </TooltipContent>
-          </Tooltip>
+
         </div>
       </aside>
     </TooltipProvider>
