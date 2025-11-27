@@ -1302,7 +1302,7 @@ export default function ChatWindow({
                 contato={contatoCompleto}
                 onUpdate={onAtualizarMensagens} />
             </div>
-            <div className="flex items-center gap-2 mb-2">
+            <div className="flex items-center gap-2 mb-2 flex-wrap">
               <p className="text-xs text-slate-500">{telefoneExibicao}</p>
               {(() => {
                 const score = calcularScoreContato(contatoCompleto);
@@ -1310,6 +1310,14 @@ export default function ChatWindow({
                 return (
                   <span className={`text-xs font-medium px-2 py-0.5 rounded-full bg-gradient-to-r ${nivel.gradiente} text-white shadow-sm`}>
                     {nivel.emoji} {nivel.label} {score}%
+                  </span>
+                );
+              })()}
+              {(() => {
+                const tipo = TIPOS_CONTATO.find(t => t.value === contatoCompleto?.tipo_contato) || TIPOS_CONTATO[0];
+                return (
+                  <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${tipo.cor} text-white shadow-sm`}>
+                    {tipo.emoji} {tipo.label}
                   </span>
                 );
               })()}
