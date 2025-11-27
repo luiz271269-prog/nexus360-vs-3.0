@@ -638,7 +638,7 @@ export default function ContactInfoPanel({ contact, novoContatoTelefone, onClose
                 <Button onClick={handleBloquear} variant="outline" size="sm" className="flex-1" disabled={!podeBloquearContatos}>
                   <ShieldAlert className="w-3 h-3 mr-1" /> Bloquear
                 </Button>
-                {podeDeletarContatos && (
+                {usuario?.role === 'admin' && (
                   <Button onClick={handleDeletar} variant="destructive" size="sm" className="flex-1">
                     <Trash2 className="w-3 h-3 mr-1" /> Deletar
                   </Button>
