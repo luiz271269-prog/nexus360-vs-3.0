@@ -674,11 +674,62 @@ export default function ConfiguracaoWhatsAppHub({ integracoes, onRecarregar, usu
                         </div>
                         <div>
                           <span className="text-slate-500">Provedor:</span>
-                          <Badge variant="outline" className="bg-blue-100 text-blue-700 mt-1">
-                            {integracaoSelecionada?.base_url_provider?.includes('w-api') ? 'W-API' : 'Z-API'}
+                          <Badge variant="outline" className={`mt-1 ${integracaoSelecionada?.api_provider === 'w_api' ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700'}`}>
+                            {PROVIDERS[integracaoSelecionada?.api_provider]?.nome || 'Z-API'}
                           </Badge>
                         </div>
                       </div>
+                      
+                      {/* Botões de QR Code / Pairing Code para W-API */}
+                      {integracaoSelecionada?.api_provider === 'w_api' && integracaoSelecionada?.status !== 'conectado' && (
+                        <div className="border-t pt-3">
+                          <p className="text-xs text-slate-500 mb-2">Conectar WhatsApp:</p>
+                          <div className="flex gap-2">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => gerarQRCode(integracaoSelecionada, false)}
+                              disabled={gerandoQR === integracaoSelecionada.id}
+                            >
+                              {gerandoQR === integracaoSelecionada.id ? <Loader2 className="w-3 h-3 animate-spin mr-1" /> : <QrCode className="w-3 h-3 mr-1" />}
+                              QR Code
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => gerarQRCode(integracaoSelecionada, true)}
+                              disabled={gerandoQR === integracaoSelecionada.id}
+                            >
+                              <Smartphone className="w-3 h-3 mr-1" />
+                              Código Pareamento
+                            </Button>
+                          </div>
+                          
+                          {/* Mostrar QR Code ou Pairing Code */}
+                          {qrCodeData[integracaoSelecionada.id] && (
+                            <div className="mt-3 p-3 bg-white rounded-lg border-2 border-green-200">
+                              {qrCodeData[integracaoSelecionada.id].pairingCode && (
+                                <div className="text-center">
+                                  <p className="text-xs text-slate-500 mb-2">Digite no celular:</p>
+                                  <p className="text-2xl font-mono font-bold tracking-widest">
+                                    {qrCodeData[integracaoSelecionada.id].pairingCode}
+                                  </p>
+                                </div>
+                              )}
+                              {qrCodeData[integracaoSelecionada.id].qrCodeUrl && (
+                                <div className="flex justify-center">
+                                  <img 
+                                    src={qrCodeData[integracaoSelecionada.id].qrCodeUrl} 
+                                    alt="QR Code" 
+                                    className="w-40 h-40 border-2 border-green-500 rounded"
+                                  />
+                                </div>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      )}
+                      
                       {integracaoSelecionada?.estatisticas && (
                         <div className="grid grid-cols-2 gap-3 pt-2 border-t">
                           <div className="bg-green-50 rounded-lg p-2 text-center">
