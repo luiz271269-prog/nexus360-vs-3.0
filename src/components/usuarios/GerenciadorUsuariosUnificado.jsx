@@ -333,14 +333,16 @@ export default function GerenciadorUsuariosUnificado({
         return;
       }
       
-      // Caso contrário, chamar API de exclusão
-      // Nota: A entidade User tem restrições, então usamos desativação ou API específica
-      await salvarUsuario({ ...usuario, ativo: false, excluido: true });
+      // Chamar API de exclusão real do banco de dados
+      if (excluirUsuarioAPI) {
+        await excluirUsuarioAPI(usuario.id);
+      }
       setUsuarios(prev => prev.filter(u => u.id !== usuario.id));
       if (usuarioSelecionado?.id === usuario.id) setUsuarioSelecionado(null);
       toast.success("Usuário excluído com sucesso");
     } catch (e) {
-      toast.error("Erro ao excluir usuário");
+      console.error("Erro ao excluir:", e);
+      toast.error("Erro ao excluir usuário: " + (e.message || "Erro desconhecido"));
     }
   };
 
