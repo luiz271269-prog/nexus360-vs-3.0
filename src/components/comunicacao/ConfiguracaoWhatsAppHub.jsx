@@ -290,17 +290,10 @@ export default function ConfiguracaoWhatsAppHub({ integracoes, onRecarregar, usu
   const testarConexao = async (integracao) => {
     setTestando(integracao.id);
     try {
-      console.log('[TESTE] Iniciando teste de conexão completo...');
-      console.log('[TESTE] Dados da integração:', {
-        id: integracao.id,
-        instanceId: integracao.instance_id_provider,
-        hasToken: !!integracao.api_key_provider,
-        hasClientToken: !!integracao.security_client_token_header
-      });
-
-      const webhookUrl = getWebhookUrlProducao();
+      const provider = PROVIDERS[integracao.api_provider] || PROVIDERS.z_api;
+      console.log('[TESTE] Iniciando teste de conexão...', provider.nome);
       
-      const response = await base44.functions.invoke('testarConexaoWhatsApp', {
+      const response = await base44.functions.invoke(provider.testarFn, {
         integration_id: integracao.id
       });
 
@@ -311,48 +304,87 @@ export default function ConfiguracaoWhatsAppHub({ integracoes, onRecarregar, usu
         
         toast.success(
           <div className="space-y-2">
-            <p className="font-bold">Conexão estabelecida!</p>
+            <p className="font-bold">{provider.nome} - Conexão OK!</p>
             <p className="text-sm">Status: {dados.conectado ? 'Conectado' : 'Desconectado'}</p>
             {dados.smartphoneConectado && (
               <p className="text-sm">Smartphone conectado</p>
-            )}
-            {dados.nomeInstancia && (
-              <p className="text-sm">{dados.nomeInstancia}</p>
-            )}
-            {dados.telefone && (
-              <p className="text-sm">{dados.telefone}</p>
-            )}
-            {dados.webhookConfigurado && (
-              <p className="text-sm">Webhook configurado</p>
             )}
           </div>,
           { duration: 8000 }
         );
 
-        // Update the list of integrations
         if (onRecarregar) await onRecarregar();
       } else {
         toast.error(
           <div>
-            <p className="font-bold">Falha na conexão</p>
+            <p className="font-bold">{provider.nome} - Falha</p>
             <p className="text-sm mt-1">{response.data.error || 'Erro desconhecido'}</p>
-            {response.data.detalhes && (
-              <p className="text-xs mt-1 opacity-75">{response.data.detalhes}</p>
-            )}
           </div>,
           { duration: 10000 }
         );
       }
     } catch (error) {
       console.error('[TESTE] Erro ao testar conexão:', error);
-      toast.error(
-        <div>
-          <p className="font-bold">Erro ao testar</p>
-          <p className="text-sm mt-1">{error.message}</p>
-        </div>
-      );
+      toast.error(`Erro ao testar: ${error.message}`);
     } finally {
       setTestando(null);
+    }
+  };
+
+  // Gerar QR Code / Pairing Code para W-API
+  const gerarQRCode = async (integracao, usarPairingCode = false) => {
+    setGerandoQR(integracao.id);
+    try {
+      const provider = PROVIDERS[integracao.api_provider];
+      
+      if (integracao.api_provider !== 'w_api') {
+        toast.info("QR Code é gerenciado diretamente no painel da Z-API");
+        setGerandoQR(null);
+        return;
+      }
+
+      let url;
+      if (usarPairingCode) {
+        const telefone = integracao.numero_telefone.replace(/\D/g, '');
+        url = `https://api.w-api.app/v1/instance/pairing-code?instanceId=${integracao.instance_id_provider}&phoneNumber=${telefone}`;
+      } else {
+        url = `https://api.w-api.app/v1/instance/qr-code?instanceId=${integracao.instance_id_provider}&image=enable`;
+      }
+
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: {
+          'Accept': 'application/json',
+          'Authorization': `Bearer ${integracao.api_key_provider}`
+        }
+      });
+
+      const data = await response.json();
+      
+      if (usarPairingCode) {
+        setQrCodeData(prev => ({
+          ...prev,
+          [integracao.id]: { pairingCode: data.pairingCode || data.code, qrCodeUrl: null }
+        }));
+        toast.success("Código de pareamento gerado!");
+      } else {
+        setQrCodeData(prev => ({
+          ...prev,
+          [integracao.id]: { qrCodeUrl: data.qrcode || data.base64 || data.image, pairingCode: null }
+        }));
+        toast.success("QR Code gerado!");
+      }
+
+      await base44.entities.WhatsAppIntegration.update(integracao.id, {
+        status: "pendente_qrcode"
+      });
+      if (onRecarregar) await onRecarregar();
+
+    } catch (error) {
+      console.error('[QR] Erro:', error);
+      toast.error(`Erro ao gerar código: ${error.message}`);
+    } finally {
+      setGerandoQR(null);
     }
   };
 
