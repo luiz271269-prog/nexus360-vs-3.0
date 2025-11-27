@@ -535,22 +535,22 @@ export default function Dashboard() {
               </div>
             </div>
 
-            <FiltroMes mesSelecionado={mesSelecionado} onMesChange={handleMesChange} />
+            {/* Filtros, Mês e Exportar no Cabeçalho */}
+            <div className="flex items-center gap-3">
+              <FiltrosAvancados
+                filtros={filtros}
+                onFiltrosChange={setFiltros}
+                vendedores={dados.vendedores}
+                isGerente={isGerente} />
+
+              <FiltroMes mesSelecionado={mesSelecionado} onMesChange={handleMesChange} />
+
+              <ExportadorDashboard
+                dados={dados}
+                filtros={filtros}
+                viewMode={viewMode} />
+            </div>
           </div>
-        </div>
-
-        {/* Botões de Filtros Avançados e Exportador */}
-        <div className="flex flex-col md:flex-row justify-end items-center gap-4">
-          <FiltrosAvancados
-            filtros={filtros}
-            onFiltrosChange={setFiltros}
-            vendedores={dados.vendedores}
-            isGerente={isGerente} />
-
-          <ExportadorDashboard
-            dados={dados}
-            filtros={filtros}
-            viewMode={viewMode} />
         </div>
 
         <BotaoNexusFlutuante
