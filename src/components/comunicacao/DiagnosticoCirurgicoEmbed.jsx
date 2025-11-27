@@ -161,8 +161,8 @@ export default function DiagnosticoCirurgicoEmbed() {
       console.log('[DIAG] Aguardando 3 segundos para processamento...');
       await new Promise(resolve => setTimeout(resolve, 3000));
 
-      // ========== TESTE 5: VERIFICAR ZAPIPALOADNORMALIZED ==========
-      console.log('[DIAG] Verificando ZapiPayloadNormalized...');
+      // ========== TESTE 5: VERIFICAR PAYLOAD NORMALIZADO ==========
+      console.log('[DIAG] Verificando PayloadNormalized...');
       try {
         const payloads = await base44.entities.ZapiPayloadNormalized.filter(
           { instance_identificado: integracao.instance_id_provider },
@@ -170,14 +170,19 @@ export default function DiagnosticoCirurgicoEmbed() {
           10
         );
 
-        const payloadEncontrado = payloads.find(p => 
-          p.payload_bruto?.messageId === messageIdTeste
-        );
+        // Buscar payload - adaptar busca ao formato do provedor
+        const payloadEncontrado = payloads.find(p => {
+          if (isWAPI) {
+            return p.payload_bruto?.data?.key?.id === messageIdTeste;
+          }
+          return p.payload_bruto?.messageId === messageIdTeste;
+        });
 
         diagnostico.testes.push({
-          nome: '4. ZapiPayloadNormalized Criado',
+          nome: `4. PayloadNormalized (${providerNome})`,
           status: payloadEncontrado ? 'sucesso' : 'erro',
           detalhes: {
+            provider: providerNome,
             total_recentes: payloads.length,
             encontrado: !!payloadEncontrado,
             messageId_buscado: messageIdTeste,
@@ -186,9 +191,10 @@ export default function DiagnosticoCirurgicoEmbed() {
         });
       } catch (error) {
         diagnostico.testes.push({
-          nome: '4. ZapiPayloadNormalized Criado',
+          nome: `4. PayloadNormalized (${providerNome})`,
           status: 'erro',
           detalhes: {
+            provider: providerNome,
             erro: error.message,
             stack: error.stack
           }
