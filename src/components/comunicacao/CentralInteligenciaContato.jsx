@@ -259,26 +259,7 @@ export function getProximaAcaoSugerida(contato) {
   return ACOES_SUGERIDAS[4];
 }
 
-/**
- * Verifica o status da classificação do contato
- */
-export function getClassificacaoStatus(contato) {
-  if (!contato) return { status: 'incompleto', problemas: ['Contato não encontrado'], icon: AlertTriangle, cor: 'text-red-500' };
-  
-  const problemas = [];
-  
-  if (!contato.tipo_contato) problemas.push('Tipo');
-  if (!contato.estagio_ciclo_vida) problemas.push('Estágio');
-  if (!contato.tags || contato.tags.length === 0) problemas.push('Etiquetas');
-  
-  if (problemas.length === 0) {
-    return { status: 'completo', icon: CheckCircle, cor: 'text-green-500' };
-  } else if (problemas.length <= 1) {
-    return { status: 'parcial', problemas, icon: Clock, cor: 'text-amber-500' };
-  } else {
-    return { status: 'incompleto', problemas, icon: AlertTriangle, cor: 'text-red-500' };
-  }
-}
+
 
 /**
  * Busca config de etiqueta (fixa ou dinâmica)
@@ -485,7 +466,6 @@ export default function CentralInteligenciaContato({
   const score = calcularScoreContato(contato);
   const nivel = getNivelTemperatura(score);
   const proxAcao = getProximaAcaoSugerida(contato);
-  const statusClass = getClassificacaoStatus(contato);
   const Icon = nivel.icon;
   
   // Dados atuais
@@ -942,22 +922,6 @@ export default function CentralInteligenciaContato({
         </div>
       </div>
 
-      {/* Status */}
-      {statusClass.status !== 'completo' && (
-        <div className={`p-3 rounded-lg border ${
-          statusClass.status === 'parcial' ? 'bg-amber-50 border-amber-200' : 'bg-red-50 border-red-200 animate-pulse'
-        }`}>
-          <div className="flex items-center gap-2">
-            <statusClass.icon className={`w-5 h-5 ${statusClass.cor}`} />
-            <span className={`font-bold ${statusClass.cor}`}>
-              {statusClass.status === 'parcial' ? '⚠️ Classificação Parcial' : '❌ Complete a Classificação!'}
-            </span>
-          </div>
-          {statusClass.problemas && (
-            <p className="text-sm text-slate-600 mt-1">Falta definir: {statusClass.problemas.join(', ')}</p>
-          )}
-        </div>
-      )}
     </div>
   );
 }
