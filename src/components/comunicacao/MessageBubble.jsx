@@ -357,7 +357,9 @@ export default function MessageBubble({
       console.log('[ETIQUETA] ✅ SUCESSO - Resposta do banco:', resultado);
 
       // Forçar reload imediato
-      await queryClient.invalidateQueries({ queryKey: ['mensagens', thread?.id] });
+      if (thread?.id) {
+        await queryClient.invalidateQueries({ queryKey: ['mensagens', thread.id] });
+      }
 
       // Verificar se salvou
       setTimeout(async () => {
