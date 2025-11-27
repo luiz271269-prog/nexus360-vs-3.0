@@ -438,7 +438,7 @@ export default function MessageBubble({
 
   return (
     <>
-      <div className="px-1 flex gap-3 justify-start"
+      <div className="flex gap-3 justify-start"
 
 
 
