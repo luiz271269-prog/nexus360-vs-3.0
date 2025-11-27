@@ -14,7 +14,7 @@ import {
   Zap
 } from 'lucide-react';
 import { toast } from 'sonner';
-import { getWebhookUrlIntegracao } from '../lib/webhookUtils';
+import { getWebhookUrlIntegracao, getProviderNome } from '../lib/webhookUtils';
 
 export default function DiagnosticoCirurgicoEmbed() {
   const [testando, setTestando] = useState(false);
