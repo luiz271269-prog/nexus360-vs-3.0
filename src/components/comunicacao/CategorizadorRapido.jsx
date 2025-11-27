@@ -29,17 +29,7 @@ export default function CategorizadorRapido({ thread, contato = null, onUpdate }
   const [salvando, setSalvando] = useState(false);
   const [novaCategoria, setNovaCategoria] = useState('');
   const [adicionandoNova, setAdicionandoNova] = useState(false);
-  const categorias = thread?.categorias || [];
   const queryClient = useQueryClient();
-  
-  // Proteção: não renderizar se thread não existir
-  if (!thread) {
-    return null;
-  }
-  
-  // Contexto do contato para filtragem inteligente
-  const tipoContato = contato?.tipo_contato || 'novo';
-  const filaAtual = thread.sector_id || 'geral';
 
   // Buscar categorias dinâmicas do banco
   const { data: categoriasDB = [] } = useQuery({
