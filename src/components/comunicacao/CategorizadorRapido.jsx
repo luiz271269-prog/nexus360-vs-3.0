@@ -38,6 +38,17 @@ export default function CategorizadorRapido({ thread, contato = null, onUpdate }
     staleTime: 5 * 60 * 1000
   });
 
+  // Proteção: não renderizar se thread não existir (após hooks)
+  if (!thread) {
+    return null;
+  }
+
+  const categorias = thread.categorias || [];
+  
+  // Contexto do contato para filtragem inteligente
+  const tipoContato = contato?.tipo_contato || 'novo';
+  const filaAtual = thread.sector_id || 'geral';
+
   // Combinar categorias fixas + dinâmicas
   const todasCategoriasBase = [...CATEGORIAS_FIXAS, ...categoriasDB.map(cat => ({
     nome: cat.nome,
