@@ -1,4 +1,5 @@
 
+import React from "react";
 import ControlCenter from "../components/dashboard/ControlCenter";
 
 export default function NexusCommandCenter() {

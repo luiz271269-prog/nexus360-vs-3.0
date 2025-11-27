@@ -22,7 +22,8 @@ import {
   Eye,
   Edit,
   Trash2,
-  FileText
+  FileText,
+  Zap
 } from "lucide-react";
 import { toast } from "sonner";
 import ClienteKanban from "../components/clientes/ClienteKanban";
