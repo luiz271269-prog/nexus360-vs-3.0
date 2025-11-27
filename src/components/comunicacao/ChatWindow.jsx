@@ -1251,12 +1251,12 @@ export default function ChatWindow({
 
   return (
     <div className="flex flex-col h-full bg-white">
-      {/* Header REVOLUCIONÁRIO - Central de Inteligência do Cliente */}
-      <div className="bg-gradient-to-r from-slate-100 via-slate-50 to-white p-4 border-b border-slate-200 flex-shrink-0 shadow-sm">
-        <div className="flex items-center gap-4">
+      {/* Header Compacto com Gradiente */}
+      <div className="bg-gradient-to-r from-slate-800 via-slate-700 to-slate-600 p-3 border-b border-slate-600 flex-shrink-0 shadow-md">
+        <div className="flex items-center gap-3">
           {/* Avatar */}
           <div className="relative flex-shrink-0">
-            <div className="w-14 h-14 rounded-full flex items-center justify-center text-white font-bold text-xl shadow-lg overflow-hidden relative bg-gradient-to-br from-amber-400 via-orange-500 to-red-500">
+            <div className="w-11 h-11 rounded-full flex items-center justify-center text-white font-bold text-lg shadow-lg overflow-hidden relative bg-gradient-to-br from-amber-400 via-orange-500 to-red-500">
               {contatoCompleto?.foto_perfil_url ?
               <img
                 src={contatoCompleto.foto_perfil_url}
@@ -1275,10 +1275,10 @@ export default function ChatWindow({
               const proxAcao = getProximaAcaoSugerida(contatoCompleto);
               return (
                 <div 
-                  className={`absolute -bottom-1 -right-1 w-6 h-6 ${proxAcao.cor} rounded-full flex items-center justify-center border-2 border-white shadow-md z-20`}
+                  className={`absolute -bottom-1 -right-1 w-5 h-5 ${proxAcao.cor} rounded-full flex items-center justify-center border-2 border-slate-700 shadow-md z-20`}
                   title={`Sugestão: ${proxAcao.label}`}
                 >
-                  <proxAcao.icon className="w-3 h-3 text-white" />
+                  <proxAcao.icon className="w-2.5 h-2.5 text-white" />
                 </div>
               );
             })()}
@@ -1286,8 +1286,8 @@ export default function ChatWindow({
 
           {/* Nome, Telefone e Barra de Temperatura */}
           <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2 mb-1">
-              <h3 className="font-bold text-slate-900 truncate text-lg">{nomeContato}</h3>
+            <div className="flex items-center gap-2 mb-0.5">
+              <h3 className="font-bold text-white truncate text-base">{nomeContato}</h3>
               <CentralInteligenciaContato 
                 contato={contatoCompleto} 
                 variant="mini"
@@ -1298,8 +1298,8 @@ export default function ChatWindow({
                 contato={contatoCompleto}
                 onUpdate={onAtualizarMensagens} />
             </div>
-            <div className="flex items-center gap-3 mb-2">
-              <p className="text-xs text-slate-500">{telefoneExibicao}</p>
+            <div className="flex items-center gap-3">
+              <p className="text-xs text-slate-400">{telefoneExibicao}</p>
 
               {/* Barra de Temperatura Visual */}
               {(() => {
@@ -1307,16 +1307,16 @@ export default function ChatWindow({
                 const nivel = getNivelTemperatura(score);
                 const Icon = nivel.icon;
                 return (
-                  <div className="flex items-center gap-2 flex-1 max-w-[200px]">
-                    <div className={`w-5 h-5 rounded-full bg-gradient-to-br ${nivel.gradiente} flex items-center justify-center shadow-sm`}>
-                      <Icon className="w-3 h-3 text-white" />
+                  <div className="flex items-center gap-1.5 flex-1 max-w-[160px]">
+                    <div className={`w-4 h-4 rounded-full bg-gradient-to-br ${nivel.gradiente} flex items-center justify-center`}>
+                      <Icon className="w-2.5 h-2.5 text-white" />
                     </div>
                     <div className="flex-1">
-                      <div className="flex items-center justify-between mb-0.5">
-                        <span className="text-[10px] font-semibold text-slate-600">{nivel.emoji} {nivel.label}</span>
-                        <span className="text-[10px] font-bold text-slate-500">{score}%</span>
+                      <div className="flex items-center justify-between">
+                        <span className="text-[9px] font-medium text-slate-300">{nivel.emoji} {nivel.label}</span>
+                        <span className="text-[9px] font-bold text-slate-400">{score}%</span>
                       </div>
-                      <div className="w-full h-1.5 bg-slate-200 rounded-full overflow-hidden">
+                      <div className="w-full h-1 bg-slate-600 rounded-full overflow-hidden">
                         <div 
                           className={`h-full bg-gradient-to-r ${nivel.gradiente} transition-all duration-500`}
                           style={{ width: `${score}%` }}
@@ -1332,14 +1332,14 @@ export default function ChatWindow({
           </div>
 
           {/* Ações */}
-          <div className="flex items-center gap-2 flex-shrink-0">
+          <div className="flex items-center gap-1.5 flex-shrink-0">
             {/* Botão Transferir */}
             {canManageConversation && podeTransferirConversas && (
               <button
                 onClick={() => setMostrarModalAtribuicao(true)}
-                className="bg-gradient-to-br from-amber-500 to-amber-600 text-white rounded-lg px-3 py-2 shadow-md flex items-center gap-2 hover:shadow-lg transition-all text-xs font-medium"
+                className="bg-gradient-to-br from-amber-500 to-amber-600 text-white rounded-lg px-2.5 py-1.5 shadow flex items-center gap-1.5 hover:shadow-md transition-all text-xs font-medium"
               >
-                <Users className="w-4 h-4" />
+                <Users className="w-3.5 h-3.5" />
                 Transferir
               </button>
             )}
@@ -1347,13 +1347,13 @@ export default function ChatWindow({
             {/* Botão Ver Detalhes */}
             <button
               onClick={onShowContactInfo}
-              className="bg-gradient-to-br from-slate-600 to-slate-700 text-white rounded-lg px-3 py-2 shadow-md flex items-center gap-2 hover:from-slate-700 hover:to-slate-800 hover:shadow-lg transition-all"
+              className="bg-white/10 hover:bg-white/20 text-white rounded-lg px-2.5 py-1.5 flex items-center gap-1.5 transition-all border border-white/20"
             >
-              <Info className="w-4 h-4" />
+              <Info className="w-3.5 h-3.5" />
               <span className="text-xs font-medium">Detalhes</span>
             </button>
           </div>
-        </div>
+          </div>
 
 
       </div>
