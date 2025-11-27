@@ -547,14 +547,17 @@ export default function CentralInteligenciaContato({
       <DropdownMenu open={menuAberto} onOpenChange={setMenuAberto}>
         <DropdownMenuTrigger asChild onClick={handleClick}>
           <button
-            className={`w-7 h-7 rounded-full bg-gradient-to-br ${nivel.gradiente} flex items-center justify-center shadow-lg border-2 border-white cursor-pointer hover:scale-110 transition-transform`}
+            className={`flex items-center gap-1.5 px-2 py-1 rounded-full bg-gradient-to-br ${nivel.gradiente} shadow-lg border border-white/30 cursor-pointer hover:scale-105 transition-transform`}
             title={`${nivel.emoji} ${nivel.label} (${score}%) - Clique para classificar`}
             disabled={salvando}
           >
             {salvando ? (
               <Loader2 className="w-3.5 h-3.5 text-white animate-spin" />
             ) : (
-              <Icon className="w-3.5 h-3.5 text-white" />
+              <>
+                <Tag className="w-3.5 h-3.5 text-white" />
+                <span className="text-[10px] font-semibold text-white">Etiquetar</span>
+              </>
             )}
           </button>
         </DropdownMenuTrigger>
