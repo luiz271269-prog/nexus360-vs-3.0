@@ -68,33 +68,78 @@ Deno.serve(async (req) => {
 
     console.log('[TESTAR-WAPI] 🌐 Verificando status:', statusUrl);
 
-    const response = await fetch(statusUrl, {
-      method: 'GET',
-      headers: {
-        'Accept': 'application/json',
-        'Authorization': `Bearer ${token}`
-      }
-    });
-
-    const responseText = await response.text();
-    console.log('[TESTAR-WAPI] 📥 Resposta (HTTP ' + response.status + '):', responseText);
-
+    let response;
+    let responseText;
     let result;
+
+    try {
+      response = await fetch(statusUrl, {
+        method: 'GET',
+        headers: {
+          'Accept': 'application/json',
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      responseText = await response.text();
+      console.log('[TESTAR-WAPI] 📥 Resposta (HTTP ' + response.status + '):', responseText);
+
+    } catch (fetchError) {
+      console.error('[TESTAR-WAPI] ❌ Erro de fetch:', fetchError.message);
+      return new Response(
+        JSON.stringify({ 
+          success: false, 
+          error: 'Não foi possível conectar à W-API. Verifique suas credenciais.',
+          detalhes: fetchError.message,
+          provider: 'w_api'
+        }),
+        { status: 200, headers }
+      );
+    }
+
     try {
       result = JSON.parse(responseText);
     } catch (e) {
+      console.error('[TESTAR-WAPI] ❌ Erro ao parsear JSON:', responseText);
       return new Response(
         JSON.stringify({ 
           success: false, 
           error: 'Resposta inválida da W-API',
-          raw_response: responseText.substring(0, 500)
+          detalhes: 'A API retornou um formato inesperado',
+          raw_response: responseText.substring(0, 200),
+          provider: 'w_api'
         }),
-        { status: 500, headers }
+        { status: 200, headers }
       );
     }
 
-    // W-API retorna { connected: true/false }
-    const conectado = response.ok && result.connected === true;
+    // Verificar erros de autenticação
+    if (response.status === 401 || response.status === 403) {
+      return new Response(
+        JSON.stringify({ 
+          success: false, 
+          error: 'Token W-API inválido ou expirado',
+          detalhes: 'Verifique o Bearer Token nas configurações',
+          provider: 'w_api'
+        }),
+        { status: 200, headers }
+      );
+    }
+
+    if (response.status === 404) {
+      return new Response(
+        JSON.stringify({ 
+          success: false, 
+          error: 'Instance ID não encontrado',
+          detalhes: 'O Instance ID informado não existe na W-API',
+          provider: 'w_api'
+        }),
+        { status: 200, headers }
+      );
+    }
+
+    // W-API retorna { connected: true/false } ou { status: "connected" }
+    const conectado = response.ok && (result.connected === true || result.status === 'connected');
 
     // Atualizar status da integração
     const novoStatus = conectado ? 'conectado' : 'desconectado';
