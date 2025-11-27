@@ -126,16 +126,33 @@ Deno.serve(async (req) => {
     );
 
   } catch (error) {
-    console.error('[TESTAR-WAPI] ❌ ERRO:', error.message);
+    console.error('[TESTAR-WAPI] ❌ ERRO:', error.message, error.stack);
+    
+    // Identificar tipo de erro para melhor diagnóstico
+    let errorMessage = error.message;
+    let errorDetails = null;
+    
+    if (error.message?.includes('fetch')) {
+      errorMessage = 'Falha na conexão com W-API. Verifique o Instance ID e Token.';
+      errorDetails = 'Erro de rede ou credenciais inválidas';
+    } else if (error.message?.includes('401') || error.message?.includes('Unauthorized')) {
+      errorMessage = 'Token inválido ou expirado';
+      errorDetails = 'Verifique o Bearer Token da W-API';
+    } else if (error.message?.includes('404')) {
+      errorMessage = 'Instance ID não encontrado na W-API';
+      errorDetails = 'Verifique se o Instance ID está correto';
+    }
     
     return new Response(
       JSON.stringify({
         success: false,
-        error: error.message,
+        error: errorMessage,
+        detalhes: errorDetails,
+        erro_original: error.message,
         provider: 'w_api',
         version: VERSION
       }),
-      { status: 500, headers }
+      { status: 200, headers } // Retorna 200 para não quebrar o frontend
     );
   }
 });
