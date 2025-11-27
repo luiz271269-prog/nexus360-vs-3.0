@@ -104,10 +104,30 @@ const RECURSOS_SISTEMA = [
 ];
 
 const PERFIS_RAPIDOS = {
-  admin: { label: "👑 Admin Total", permissoes: RECURSOS_SISTEMA.flatMap(r => [r.id, ...(r.acoes || []).map(a => a.id)]) },
-  gerente: { label: "👔 Gerente", permissoes: ["Comunicacao", "Dashboard", "LeadsQualificados", "Clientes", "Vendedores", "Produtos", "Agenda", "AnalyticsAvancado"] },
-  vendedor: { label: "💼 Vendedor", permissoes: ["Comunicacao", "Dashboard", "LeadsQualificados", "Clientes", "Produtos", "Agenda"] },
-  suporte: { label: "🎧 Suporte", permissoes: ["Comunicacao", "Clientes", "Agenda"] },
+  admin: { 
+    label: "👑 Admin Total", 
+    desc: "Acesso completo a todos os recursos e configurações",
+    cor: "from-red-500 to-orange-500",
+    permissoes: RECURSOS_SISTEMA.flatMap(r => [r.id, ...(r.acoes || []).map(a => a.id)]) 
+  },
+  gerente: { 
+    label: "👔 Gerente", 
+    desc: "Visão completa + gestão de equipe e relatórios",
+    cor: "from-blue-500 to-indigo-500",
+    permissoes: ["Comunicacao", "Dashboard", "LeadsQualificados", "Clientes", "Vendedores", "Produtos", "Agenda", "AnalyticsAvancado"] 
+  },
+  vendedor: { 
+    label: "💼 Vendedor", 
+    desc: "Atendimento, leads, clientes e produtos",
+    cor: "from-green-500 to-emerald-500",
+    permissoes: ["Comunicacao", "Dashboard", "LeadsQualificados", "Clientes", "Produtos", "Agenda"] 
+  },
+  suporte: { 
+    label: "🎧 Suporte", 
+    desc: "Atendimento ao cliente e agenda",
+    cor: "from-purple-500 to-pink-500",
+    permissoes: ["Comunicacao", "Clientes", "Agenda"] 
+  },
 };
 
 const SETORES = [
@@ -434,20 +454,23 @@ export default function GerenciadorUsuariosUnificado({
 
                 {/* Perfis Rápidos */}
                 <div className="pt-4 border-t">
-                  <h3 className="text-xs font-bold text-slate-700 mb-2 flex items-center gap-1">
-                    <Shield className="w-3 h-3" /> Aplicar Perfil Rápido
+                  <h3 className="text-xs font-bold text-slate-700 mb-3 flex items-center gap-1">
+                    <Shield className="w-3 h-3" /> Perfis de Acesso Rápido
                   </h3>
-                  <div className="flex flex-wrap gap-2">
+                  <p className="text-[10px] text-slate-500 mb-3">
+                    Clique em um perfil para aplicar automaticamente as permissões predefinidas
+                  </p>
+                  <div className="grid grid-cols-2 gap-2">
                     {Object.entries(PERFIS_RAPIDOS).map(([key, perfil]) => (
-                      <Button
+                      <button
                         key={key}
-                        size="sm"
-                        variant="outline"
                         onClick={() => aplicarPerfil(key)}
-                        className="h-7 text-xs"
+                        className={`p-3 rounded-lg text-left transition-all hover:scale-[1.02] hover:shadow-md border-2 border-transparent hover:border-white/50 bg-gradient-to-br ${perfil.cor} text-white`}
                       >
-                        {perfil.label}
-                      </Button>
+                        <div className="font-bold text-sm">{perfil.label}</div>
+                        <div className="text-[10px] opacity-90">{perfil.desc}</div>
+                        <div className="text-[9px] mt-1 opacity-75">{perfil.permissoes.length} permissões</div>
+                      </button>
                     ))}
                   </div>
                 </div>
