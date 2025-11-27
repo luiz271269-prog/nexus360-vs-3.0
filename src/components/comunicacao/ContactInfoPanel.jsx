@@ -529,103 +529,63 @@ export default function ContactInfoPanel({ contact, novoContatoTelefone, onClose
             </div>
           </div>
 
-          {/* Campos - ORDEM: Empresa → Cargo → Nome - FONTE COMPACTA */}
-          <div className="p-3 space-y-0">
-            <div className="bg-white hover:bg-slate-50 transition-colors">
-              <div className="flex items-center gap-2 px-2 py-1.5">
-                <Building2 className="w-4 h-4 text-slate-400 flex-shrink-0" />
-                <div className="flex-1">
-                  <Label className="text-[10px] text-slate-400 block">Empresa</Label>
-                  <Input
-                    value={formData.empresa}
-                    onChange={(e) => handleChange('empresa', e.target.value)}
-                    className="border-0 bg-transparent p-0 h-auto focus-visible:ring-0 text-sm"
-                    placeholder="Nome da empresa"
-                    disabled={!podeEditarContatos}
-                  />
-                </div>
-              </div>
+          {/* Campos ULTRA COMPACTOS */}
+          <div className="px-2 py-1">
+            <div className="flex items-center gap-1.5 py-1 border-b border-slate-100">
+              <Building2 className="w-3 h-3 text-slate-400" />
+              <Input
+                value={formData.empresa}
+                onChange={(e) => handleChange('empresa', e.target.value)}
+                className="border-0 bg-transparent p-0 h-5 focus-visible:ring-0 text-xs flex-1"
+                placeholder="Empresa"
+                disabled={!podeEditarContatos}
+              />
             </div>
-            <div className="h-px bg-slate-100" />
-
-            <div className="bg-white hover:bg-slate-50 transition-colors">
-              <div className="flex items-center gap-2 px-2 py-1.5">
-                <Briefcase className="w-4 h-4 text-slate-400 flex-shrink-0" />
-                <div className="flex-1">
-                  <Label className="text-[10px] text-slate-400 block">Cargo</Label>
-                  <Input
-                    value={formData.cargo}
-                    onChange={(e) => handleChange('cargo', e.target.value)}
-                    className="border-0 bg-transparent p-0 h-auto focus-visible:ring-0 text-sm"
-                    placeholder="Cargo"
-                    disabled={!podeEditarContatos}
-                  />
-                </div>
-              </div>
+            <div className="flex items-center gap-1.5 py-1 border-b border-slate-100">
+              <Briefcase className="w-3 h-3 text-slate-400" />
+              <Input
+                value={formData.cargo}
+                onChange={(e) => handleChange('cargo', e.target.value)}
+                className="border-0 bg-transparent p-0 h-5 focus-visible:ring-0 text-xs flex-1"
+                placeholder="Cargo"
+                disabled={!podeEditarContatos}
+              />
             </div>
-            <div className="h-px bg-slate-100" />
-
-            <div className="bg-white hover:bg-slate-50 transition-colors">
-              <div className="flex items-center gap-2 px-2 py-1.5">
-                <User className="w-4 h-4 text-slate-400 flex-shrink-0" />
-                <div className="flex-1">
-                  <Label className="text-[10px] text-slate-400 block">Nome</Label>
-                  <Input
-                    value={formData.nome}
-                    onChange={(e) => handleChange('nome', e.target.value)}
-                    className="border-0 bg-transparent p-0 h-auto focus-visible:ring-0 text-sm"
-                    placeholder="Nome completo"
-                    disabled={!podeEditarContatos}
-                  />
-                </div>
-              </div>
+            <div className="flex items-center gap-1.5 py-1 border-b border-slate-100">
+              <User className="w-3 h-3 text-slate-400" />
+              <Input
+                value={formData.nome}
+                onChange={(e) => handleChange('nome', e.target.value)}
+                className="border-0 bg-transparent p-0 h-5 focus-visible:ring-0 text-xs flex-1"
+                placeholder="Nome"
+                disabled={!podeEditarContatos}
+              />
             </div>
-            <div className="h-px bg-slate-100" />
-
-            <div className="bg-white hover:bg-slate-50 transition-colors">
-              <div className="flex items-center gap-2 px-2 py-1.5">
-                <Mail className="w-4 h-4 text-slate-400 flex-shrink-0" />
-                <div className="flex-1">
-                  <Label className="text-[10px] text-slate-400 block">Email</Label>
-                  <Input
-                    type="email"
-                    value={formData.email}
-                    onChange={(e) => handleChange('email', e.target.value)}
-                    className="border-0 bg-transparent p-0 h-auto focus-visible:ring-0 text-sm"
-                    placeholder="email@exemplo.com"
-                    disabled={!podeEditarContatos}
-                  />
-                </div>
-              </div>
+            <div className="flex items-center gap-1.5 py-1 border-b border-slate-100">
+              <Mail className="w-3 h-3 text-slate-400" />
+              <Input
+                type="email"
+                value={formData.email}
+                onChange={(e) => handleChange('email', e.target.value)}
+                className="border-0 bg-transparent p-0 h-5 focus-visible:ring-0 text-xs flex-1"
+                placeholder="Email"
+                disabled={!podeEditarContatos}
+              />
             </div>
-            <div className="h-px bg-slate-100" />
-
-            <div className="bg-slate-50">
-              <div className="flex items-center gap-2 px-2 py-1.5">
-                <Phone className="w-4 h-4 text-slate-400 flex-shrink-0" />
-                <div className="flex-1">
-                  <Label className="text-[10px] text-slate-400 block">Telefone</Label>
-                  <p className="text-sm font-medium text-slate-700 font-mono">{formData.telefone}</p>
-                </div>
-              </div>
+            <div className="flex items-center gap-1.5 py-1 border-b border-slate-100 bg-slate-50 -mx-2 px-2">
+              <Phone className="w-3 h-3 text-slate-400" />
+              <span className="text-xs font-mono text-slate-600">{formData.telefone}</span>
             </div>
-            <div className="h-px bg-slate-100" />
-
-            <div className="bg-white hover:bg-slate-50 transition-colors">
-              <div className="flex items-center gap-2 px-2 py-1.5">
-                <Brain className="w-4 h-4 text-slate-400 flex-shrink-0" />
-                <div className="flex-1">
-                  <Label className="text-[10px] text-slate-400 block">Observações</Label>
-                  <Textarea
-                    value={formData.observacoes}
-                    onChange={(e) => handleChange('observacoes', e.target.value)}
-                    className="border-0 bg-transparent p-0 h-auto focus-visible:ring-0 text-sm"
-                    placeholder="Observações"
-                    rows={2}
-                    disabled={!podeEditarContatos}
-                  />
-                </div>
-              </div>
+            <div className="flex items-start gap-1.5 py-1">
+              <Brain className="w-3 h-3 text-slate-400 mt-0.5" />
+              <Textarea
+                value={formData.observacoes}
+                onChange={(e) => handleChange('observacoes', e.target.value)}
+                className="border-0 bg-transparent p-0 h-auto focus-visible:ring-0 text-xs flex-1 resize-none"
+                placeholder="Obs..."
+                rows={1}
+                disabled={!podeEditarContatos}
+              />
             </div>
           </div>
 
