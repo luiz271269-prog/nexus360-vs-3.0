@@ -187,16 +187,19 @@ export default function ConfiguracaoWhatsAppHub({ integracoes, onRecarregar, usu
         return;
       }
       
-      const instanceId = novaIntegracao.zapi_instance_id.trim();
-      const tokenInstancia = novaIntegracao.zapi_token_instancia.trim();
-      const tokenConta = novaIntegracao.zapi_client_token_conta.trim();
-      const baseUrl = novaIntegracao.zapi_base_url.trim();
+      const provider = PROVIDERS[novaIntegracao.api_provider];
+      const instanceId = novaIntegracao.instance_id.trim();
+      const tokenInstancia = novaIntegracao.token_instancia.trim();
+      const tokenConta = novaIntegracao.client_token_conta.trim();
 
-      // DETECTAR AMBIENTE E GERAR URL CORRETA
-      const { ambiente, isProduction, webhookUrl, alertMessage } = detectarAmbiente();
+      // DETECTAR AMBIENTE E GERAR URL CORRETA (com função de webhook específica)
+      const { ambiente, isProduction, alertMessage } = detectarAmbiente();
+      const baseAppUrl = window.location.origin.replace('preview.', '').replace(':3000', '');
+      const webhookUrl = `${baseAppUrl}/api/functions/${provider.webhookFn}`;
 
       console.log('[CONFIG] 🌐 Ambiente detectado:', ambiente);
       console.log('[CONFIG] 🔗 URL do Webhook:', webhookUrl);
+      console.log('[CONFIG] 📦 Provedor:', provider.nome);
 
       // Alertar se não for produção
       if (alertMessage) {
@@ -208,12 +211,12 @@ export default function ConfiguracaoWhatsAppHub({ integracoes, onRecarregar, usu
         numero_telefone: novaIntegracao.numero_telefone.trim(),
         status: 'pendente',
         tipo_conexao: 'webhook',
-        api_provider: 'z_api',
+        api_provider: novaIntegracao.api_provider,
         instance_id_provider: instanceId,
-        api_key_provider: tokenInstancia, // Token da URL
-        security_client_token_header: tokenConta, // Token de Segurança da Conta
-        base_url_provider: baseUrl,
-        webhook_url: webhookUrl, // SALVAR URL DO WEBHOOK
+        api_key_provider: tokenInstancia,
+        security_client_token_header: provider.requerClientToken ? tokenConta : null,
+        base_url_provider: provider.baseUrl,
+        webhook_url: webhookUrl,
         configuracoes_avancadas: {
           auto_resposta_fora_horario: false,
           rate_limit_mensagens_hora: 100
@@ -233,13 +236,13 @@ export default function ConfiguracaoWhatsAppHub({ integracoes, onRecarregar, usu
         setModoEdicao(false);
       } else {
         await base44.entities.WhatsAppIntegration.create(dadosIntegracao);
-        toast.success("Instância criada! Configure o webhook na Z-API.");
+        toast.success(`Instância ${provider.nome} criada! Configure o webhook.`);
         
-        // Mostrar URL do webhook com indicador de ambiente
+        // Mostrar URL do webhook com indicador de ambiente e provedor
         const ambienteLabel = isProduction ? 'PRODUÇÃO' : 'TESTE';
         toast.info(
           <div className="space-y-1">
-            <p className="font-bold">{ambienteLabel}</p>
+            <p className="font-bold">{ambienteLabel} - {provider.nome}</p>
             <p className="text-sm">URL do Webhook:</p>
             <code className="text-xs bg-slate-100 px-2 py-1 rounded block">{webhookUrl}</code>
           </div>, 
