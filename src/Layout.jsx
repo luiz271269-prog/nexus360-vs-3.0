@@ -374,6 +374,7 @@ export default function Layout({ children, currentPageName }) {
         isOpen={sidebarOpen}
         menuItems={menuItems}
         contadoresLembretes={contadoresLembretes}
+        usuario={globalUsuario}
       />
 
       {sidebarOpen && (
