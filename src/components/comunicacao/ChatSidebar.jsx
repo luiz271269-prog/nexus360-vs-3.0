@@ -331,72 +331,59 @@ export default function ChatSidebar({ threads, threadAtiva, onSelecionarThread, 
                 )}
               </div>
               
-              <div className="flex items-center gap-2 mt-1 flex-wrap">
+              {/* Rodapé com ícones + descrição */}
+              <div className="flex items-center gap-2 mt-1.5 flex-wrap text-xs text-slate-500">
+                {/* Tipo do Contato com descrição */}
+                {(() => {
+                  const tipoContato = contato?.tipo_contato || 'novo';
+                  const tipo = TIPOS_CONTATO.find(t => t.value === tipoContato);
+                  if (!tipo) return null;
+                  return (
+                    <span className="flex items-center gap-1" title={tipo.label}>
+                      <Tag className="w-3 h-3" />
+                      {tipo.label}
+                    </span>
+                  );
+                })()}
+
+                {/* Separador */}
+                {contato?.vendedor_responsavel && <span className="text-slate-300">•</span>}
+
+                {/* Vendedor Responsável */}
+                {contato?.vendedor_responsavel && (
+                  <span className="flex items-center gap-1" title="Vendedor Responsável">
+                    <User className="w-3 h-3" />
+                    {contato.vendedor_responsavel}
+                  </span>
+                )}
+
+                {/* Separador */}
+                {thread.assigned_user_name && <span className="text-slate-300">•</span>}
+
+                {/* Atribuição */}
                 {thread.assigned_user_name && (
-                  <p className="text-xs text-slate-500 flex items-center gap-1">
-                    <User className="w-3 h-3 text-slate-400" />
-                    {isAssignedToMe ? 'Atribuída a mim' : `${thread.assigned_user_name}`}
-                  </p>
+                  <span className="flex items-center gap-1">
+                    <Users className="w-3 h-3 text-blue-500" />
+                    {isAssignedToMe ? 'Minha' : thread.assigned_user_name}
+                  </span>
                 )}
                 {isUnassigned && (
-                  <p className="text-xs text-red-500 flex items-center gap-1 font-medium">
-                    <AlertCircle className="w-3 h-3 text-red-400" />
+                  <span className="flex items-center gap-1 text-red-500 font-medium">
+                    <AlertCircle className="w-3 h-3" />
                     Não Atribuída
-                  </p>
+                  </span>
                 )}
-                {/* Conexão WhatsApp */}
-                {(() => {
-                  const info = getIntegracaoInfo(thread);
-                  return info && (
-                    <Badge 
-                      variant="outline" 
-                      className="text-xs py-0 px-1.5 h-5 bg-green-50 text-green-700 border-green-200 cursor-help"
-                      title={`Canal WhatsApp: ${info.numero} (${info.nome})`}
-                    >
-                      📱 {info.numero?.slice(-4)}
-                    </Badge>
-                  );
-                })()}
-                {/* Setor da Conversa */}
-                {thread.sector_id && (() => {
-                  const setor = SETORES_ATENDIMENTO.find(s => s.value === thread.sector_id);
-                  return setor && (
-                    <Badge 
-                      variant="outline" 
-                      className={`text-xs py-0 px-1.5 h-5 ${setor.color} text-white border-0 cursor-help`}
-                      title={setor.descricao}
-                    >
-                      {setor.emoji}
-                    </Badge>
-                  );
-                })()}
-                {/* Etiquetas Destaque - Visual Compacto */}
+
+                {/* Etiquetas especiais */}
                 {contato?.tags && contato.tags.length > 0 && (
                   contato.tags.filter(t => ['vip', 'prioridade', 'fidelizado'].includes(t)).slice(0, 2).map(etq => {
                     const config = getEtiquetaConfig(etq);
                     return (
-                      <span key={etq} className="text-xs" title={config.label}>{config.emoji}</span>
-                    );
-                  })
-                )}
-                {/* Badges de Categorias da Conversa */}
-                {thread.categorias && thread.categorias.length > 0 && (
-                  thread.categorias.slice(0, 2).map(cat => {
-                    const config = getCategoriaConfig(cat, categoriasDB);
-                    return (
-                      <Badge 
-                        key={cat}
-                        className={`text-xs py-0 px-1.5 h-5 ${config.color} text-white border-0`}
-                      >
-                        {config.label.split(' ')[0]}
+                      <Badge key={etq} variant="outline" className="text-xs py-0 px-1.5 h-4">
+                        {config.emoji} {config.label}
                       </Badge>
                     );
                   })
-                )}
-                {thread.categorias && thread.categorias.length > 2 && (
-                  <Badge variant="outline" className="text-xs py-0 px-1.5 h-5">
-                    +{thread.categorias.length - 2}
-                  </Badge>
                 )}
               </div>
             </div>
