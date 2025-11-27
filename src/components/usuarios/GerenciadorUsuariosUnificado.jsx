@@ -245,6 +245,8 @@ export default function GerenciadorUsuariosUnificado({
   carregarUsuarios,
   salvarUsuario,
   salvarPermissoes,
+  excluirUsuario: excluirUsuarioAPI,
+  integracoesWhatsApp = [],
 }) {
   const [usuarios, setUsuarios] = useState([]);
   const [filtro, setFiltro] = useState("");
