@@ -8,7 +8,8 @@
  * ╚═══════════════════════════════════════════════════════════════╝
  */
 
-import { base44 } from "@/api/base44Client";
+// NOTA: Este arquivo é uma classe utilitária, NÃO um componente React.
+// Não usar hooks do React aqui.
 
 // Cache local para evitar dependencia circular
 const localCache = {
