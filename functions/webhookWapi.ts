@@ -41,12 +41,13 @@ function deveIgnorar(payload) {
   const evento = String(payload.event || '').toLowerCase();
   
   // Extrair telefone do sender ou chat (formato W-API)
+  // W-API pode enviar IDs no formato: 554899322400 ou 554899322400@lid ou 554899322400@s.whatsapp.net
   const senderId = payload.sender?.id || payload.chat?.id || '';
   const phone = senderId.replace(/@.*$/, '').toLowerCase();
 
-  // IGNORAR: status@broadcast e JIDs de sistema/grupos
-  if (phone.includes('status') || senderId.includes('@broadcast') || 
-      senderId.includes('@g.us') || senderId.includes('@lid')) {
+  // IGNORAR: status@broadcast e grupos (@g.us)
+  // NOTA: @lid é um formato válido da W-API para contatos, NÃO ignorar
+  if (phone.includes('status') || senderId.includes('@broadcast') || senderId.includes('@g.us')) {
     return 'jid_sistema_ou_grupo';
   }
 
