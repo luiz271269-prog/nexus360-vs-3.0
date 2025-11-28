@@ -439,6 +439,31 @@ export default function ConfiguracaoWhatsAppUnificado({ onClose }) {
                     </div>
                   )}
                   
+                  {/* URL do Webhook - Exibe a URL correta para configurar na W-API ou Z-API */}
+                  {integracao.api_provider === 'w_api' && (
+                    <div className="mb-4 p-3 bg-purple-50 border border-purple-200 rounded-lg">
+                      <Label className="text-xs text-purple-700 font-semibold mb-1 block">🔗 URL do Webhook (configure na W-API)</Label>
+                      <div className="flex items-center gap-2">
+                        <Input 
+                          value={getWebhookUrl(integracao)}
+                          readOnly
+                          className="text-xs bg-white font-mono"
+                        />
+                        <Button
+                          onClick={() => copiarWebhookUrl(integracao)}
+                          size="sm"
+                          variant="outline"
+                          className="flex-shrink-0"
+                        >
+                          <Copy className="w-4 h-4" />
+                        </Button>
+                      </div>
+                      <p className="text-[10px] text-purple-600 mt-1">
+                        Configure esta URL nos campos "Ao receber mensagem", "Ao enviar mensagem" e "Ao desconectar" na W-API
+                      </p>
+                    </div>
+                  )}
+
                   {/* Botões de Ação */}
                   <div className="flex flex-wrap gap-2">
                     {integracao.status === "desconectado" && (
