@@ -191,6 +191,14 @@ function normalizarPayload(payload) {
     return { type: 'unknown', error: 'mensagem_vazia' };
   }
 
+  // Fallback para mediaUrl do payload raiz se não encontrou no msgContent
+  const finalMediaUrl = mediaUrl || mediaUrlRaiz;
+  
+  // Log para debug de mídia
+  if (mediaType !== 'none') {
+    console.log('[W-API WEBHOOK] 🖼️ Mídia detectada:', mediaType, '| URL:', finalMediaUrl?.substring(0, 80) || 'NENHUMA');
+  }
+
   return {
     type: 'message',
     instanceId,
@@ -198,7 +206,7 @@ function normalizarPayload(payload) {
     from: numeroLimpo,
     content: conteudo,
     mediaType,
-    mediaUrl,
+    mediaUrl: finalMediaUrl,
     mediaCaption: msgContent.imageMessage?.caption || msgContent.videoMessage?.caption,
     pushName: payload.pushName || payload.senderName || payload.sender?.pushName,
     vcard: msgContent.contactMessage || msgContent.contactsArrayMessage,
