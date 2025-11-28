@@ -36,7 +36,7 @@ export default function CategorizadorRapido({ thread = null, contato = null, onU
     queryKey: ['categorias-mensagens'],
     queryFn: () => base44.entities.CategoriasMensagens.filter({ ativa: true }, 'nome'),
     staleTime: 5 * 60 * 1000,
-    enabled: !!thread // Só busca se thread existir
+    enabled: !!thread
   });
 
   // Proteção: não renderizar se thread não existir (após hooks)
@@ -44,7 +44,7 @@ export default function CategorizadorRapido({ thread = null, contato = null, onU
     return null;
   }
 
-  const categorias = thread.categorias || [];
+  const categorias = thread?.categorias || [];
   
   // Contexto do contato para filtragem inteligente
   const tipoContato = contato?.tipo_contato || 'novo';
