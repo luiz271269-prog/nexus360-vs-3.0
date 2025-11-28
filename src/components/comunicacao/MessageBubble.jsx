@@ -132,7 +132,7 @@ const FunctionDisplay = ({ toolCall }) => {
 export default function MessageBubble({
   message,
   isOwn,
-  thread,
+  thread = null,
   onResponder,
   modoSelecao,
   selecionada,
