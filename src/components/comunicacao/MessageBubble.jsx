@@ -256,7 +256,7 @@ export default function MessageBubble({
           const resultado = await base44.functions.invoke('encaminharMensagem', {
             message_id: message.id,
             target_phone: contato.telefone,
-            integration_id: thread.whatsapp_integration_id
+            integration_id: integrationId
           });
 
           if (resultado.data.success) {
