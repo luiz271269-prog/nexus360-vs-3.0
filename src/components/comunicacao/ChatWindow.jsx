@@ -57,9 +57,9 @@ import CentralInteligenciaContato, {
 './CentralInteligenciaContato';
 
 export default function ChatWindow({
-  thread,
-  mensagens,
-  usuario,
+  thread = null,
+  mensagens = [],
+  usuario = null,
   onEnviarMensagem,
   onShowContactInfo,
   onAtualizarMensagens,
