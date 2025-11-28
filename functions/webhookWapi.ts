@@ -211,14 +211,24 @@ Deno.serve(async (req) => {
     return Response.json({ success: false, error: 'JSON invalido' }, { status: 200, headers: corsHeaders });
   }
 
-  console.log('[W-API WEBHOOK] Payload recebido:', JSON.stringify(payload, null, 2).substring(0, 500));
+  console.log('[W-API WEBHOOK] ========== PAYLOAD RECEBIDO ==========');
+  console.log('[W-API WEBHOOK] Evento:', payload.event);
+  console.log('[W-API WEBHOOK] InstanceId:', payload.instanceId);
+  console.log('[W-API WEBHOOK] FromMe:', payload.fromMe);
+  console.log('[W-API WEBHOOK] IsGroup:', payload.isGroup);
+  console.log('[W-API WEBHOOK] Sender:', JSON.stringify(payload.sender));
+  console.log('[W-API WEBHOOK] MsgContent:', JSON.stringify(payload.msgContent)?.substring(0, 300));
+  console.log('[W-API WEBHOOK] Keys:', Object.keys(payload).join(', '));
+  console.log('[W-API WEBHOOK] ===========================================');
 
   // FILTRO ULTRA-RAPIDO
   const motivoIgnorar = deveIgnorar(payload);
   if (motivoIgnorar) {
-    console.log('[W-API WEBHOOK] Ignorado:', motivoIgnorar);
+    console.log('[W-API WEBHOOK] ❌ IGNORADO:', motivoIgnorar);
     return Response.json({ success: true, ignored: true, reason: motivoIgnorar }, { headers: corsHeaders });
   }
+  
+  console.log('[W-API WEBHOOK] ✅ ACEITO - Processando...');
 
   const dados = normalizarPayload(payload);
   if (dados.type === 'unknown') {
