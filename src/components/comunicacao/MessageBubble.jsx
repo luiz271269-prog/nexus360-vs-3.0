@@ -567,8 +567,8 @@ export default function MessageBubble({
                       variant="ghost"
                       size="icon"
                       onClick={() => {
-                        if (window.handleCriarOportunidadeDeChat && message && thread) {
-                          window.handleCriarOportunidadeDeChat(message, thread);
+                        if (window.handleCriarOportunidadeDeChat && message) {
+                          window.handleCriarOportunidadeDeChat(message, thread || {});
                         }
                       }}
                       className={cn(
