@@ -88,6 +88,9 @@ function deveIgnorar(payload) {
 function normalizarPayload(payload) {
   const evento = String(payload.event || '').toLowerCase();
   const instanceId = payload.instanceId || null;
+  
+  // W-API pode enviar mediaUrl no nível raiz do payload
+  const mediaUrlRaiz = payload.mediaUrl || payload.media?.url || payload.downloadUrl || null;
 
   // QR Code
   if (evento.includes('qrcode') || payload.qrcode) {
