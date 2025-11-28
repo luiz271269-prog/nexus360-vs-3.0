@@ -508,6 +508,32 @@ async function handleMessage(dados, payloadBruto, base44) {
   const duracao = Date.now() - inicio;
   console.log('[W-API WEBHOOK] ✅ Msg:', mensagem.id, '| Tipo:', dados.mediaType, '| URL:', dados.mediaUrl ? 'SIM' : 'NÃO', '| ' + duracao + 'ms');
 
+  // ✅ PERSISTIR MÍDIA AUTOMATICAMENTE (se tiver URL temporária)
+  if (dados.mediaUrl && dados.mediaUrl.includes('mmg.whatsapp.net')) {
+    try {
+      console.log('[W-API WEBHOOK] 📤 Iniciando persistência de mídia...');
+
+      // Chamar função de persistência de forma assíncrona (não bloqueia)
+      fetch(Deno.env.get('BASE44_FUNCTIONS_URL') + '/persistirMidiaWapi', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': req.headers.get('Authorization') || ''
+        },
+        body: JSON.stringify({
+          message_id: mensagem.id,
+          media_url: dados.mediaUrl,
+          media_type: dados.mediaType,
+          integration_id: integracaoId
+        })
+      }).catch(e => console.error('[W-API WEBHOOK] ⚠️ Erro ao chamar persistência:', e.message));
+
+    } catch (persistError) {
+      console.error('[W-API WEBHOOK] ⚠️ Erro ao iniciar persistência:', persistError.message);
+      // Não falha o webhook, apenas loga o erro
+    }
+  }
+
   return Response.json({
     success: true,
     message_id: mensagem.id,
