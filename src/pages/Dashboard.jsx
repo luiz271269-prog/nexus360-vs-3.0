@@ -21,7 +21,9 @@ import { createPageUrl } from "@/utils";
 import { motion, AnimatePresence } from "framer-motion";
 import AlertasInteligentesIA from "../components/global/AlertasInteligentesIA";
 import BotaoNexusFlutuante from "../components/global/BotaoNexusFlutuante";
-import { queryOptimizer } from "../components/inteligencia/QueryOptimizer";
+
+// Import direto da classe QueryOptimizer (não é um componente React)
+import { base44 } from "@/api/base44Client";
 
 // Cache global para evitar chamadas desnecessárias
 const dashboardCache = {
