@@ -167,11 +167,12 @@ Deno.serve(async (req) => {
     // ========== ÁUDIO ==========
     else if (audio_url) {
       if (isWAPI) {
-        // W-API: usar send-ptt para nota de voz (melhor experiência)
-        endpoint = `${baseUrl}/message/send-ptt?instanceId=${instanceId}`;
+        // W-API: usar send-audio (campo 'url' para a URL do áudio)
+        // Baseado no WAPIService que funciona
+        endpoint = `${baseUrl}/message/send-audio?instanceId=${instanceId}`;
         body = {
           phone: numeroFormatado,
-          audio: audio_url,
+          url: audio_url,         // W-API usa 'url' não 'audio'
           delayMessage: 1
         };
         
@@ -185,7 +186,7 @@ Deno.serve(async (req) => {
         endpoint = `${baseUrl}/instances/${instanceId}/token/${token}/send-audio`;
         body = {
           phone: numeroFormatado, // Apenas dígitos: 5511999999999
-          audio: audio_url,       // URL ou Base64
+          audio: audio_url,       // Z-API usa 'audio' para URL ou Base64
           waveform: true          // Mostrar forma de onda (melhor UX)
         };
         
