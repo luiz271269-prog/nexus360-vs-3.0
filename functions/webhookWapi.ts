@@ -1,9 +1,9 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.4';
 
 // ============================================================================
-// WEBHOOK WHATSAPP W-API - v1.0.1 (Paralelo ao Z-API)
+// WEBHOOK WHATSAPP W-API - v1.0.1
 // ============================================================================
-// Baseado na documentação oficial W-API:
+// Baseado na documentacao oficial W-API:
 // - Evento de mensagem: webhookReceived
 // - Evento de status: webhookDelivery  
 // - Estrutura: { event, sender: { id }, chat: { id }, msgContent: { ... }, instanceId }
@@ -24,15 +24,15 @@ function normalizarTelefone(telefone) {
   if (!telefone) return null;
   // Remove @s.whatsapp.net, @c.us, etc
   let limpo = telefone.replace(/@.*$/, '');
-  // Remove caracteres não numéricos
+  // Remove caracteres nao numericos
   limpo = limpo.replace(/\D/g, '');
-  // Validar tamanho mínimo
+  // Validar tamanho minimo
   if (limpo.length < 10) return null;
   return limpo;
 }
 
 // ============================================================================
-// FILTRO ULTRA-RÁPIDO - Retorna motivo se IGNORAR, null se processar
+// FILTRO ULTRA-RAPIDO - Retorna motivo se IGNORAR, null se processar
 // Baseado nos eventos da W-API
 // ============================================================================
 function deveIgnorar(payload) {
@@ -55,7 +55,7 @@ function deveIgnorar(payload) {
     return null;
   }
 
-  // IGNORAR: Eventos de presença/digitação
+  // IGNORAR: Eventos de presenca/digitacao
   const eventosLixo = ['presence', 'typing', 'composing', 'chat-update', 'call'];
   if (eventosLixo.some(e => evento.includes(e))) {
     return 'evento_sistema';
@@ -97,7 +97,7 @@ function normalizarPayload(payload) {
     };
   }
 
-  // Conexão
+  // Conexao
   if (evento.includes('connection')) {
     const status = payload.connected === true ? 'conectado' : 'desconectado';
     return { type: 'connection', instanceId, status };
@@ -123,7 +123,7 @@ function normalizarPayload(payload) {
   let mediaUrl = null;
   let conteudo = '';
   
-  // Extrair conteúdo do msgContent (estrutura aninhada da W-API)
+  // Extrair conteudo do msgContent (estrutura aninhada da W-API)
   const msgContent = payload.msgContent || {};
   
   if (msgContent.extendedTextMessage) {
@@ -137,11 +137,11 @@ function normalizarPayload(payload) {
   } else if (msgContent.videoMessage) {
     mediaType = 'video';
     mediaUrl = msgContent.videoMessage.url;
-    conteudo = msgContent.videoMessage.caption || '[Vídeo]';
+    conteudo = msgContent.videoMessage.caption || '[Video]';
   } else if (msgContent.audioMessage) {
     mediaType = 'audio';
     mediaUrl = msgContent.audioMessage.url;
-    conteudo = '[Áudio]';
+    conteudo = '[Audio]';
   } else if (msgContent.documentMessage) {
     mediaType = 'document';
     mediaUrl = msgContent.documentMessage.url;
@@ -152,10 +152,10 @@ function normalizarPayload(payload) {
     conteudo = '[Sticker]';
   } else if (msgContent.contactMessage || msgContent.contactsArrayMessage) {
     mediaType = 'contact';
-    conteudo = '📇 Contato compartilhado';
+    conteudo = 'Contato compartilhado';
   } else if (msgContent.locationMessage) {
     mediaType = 'location';
-    conteudo = '📍 Localização';
+    conteudo = 'Localizacao';
   }
 
   if (!conteudo && mediaType === 'none') {
@@ -208,15 +208,15 @@ Deno.serve(async (req) => {
     if (!body) return Response.json({ success: true, ignored: true }, { headers: corsHeaders });
     payload = JSON.parse(body);
   } catch (e) {
-    return Response.json({ success: false, error: 'JSON inválido' }, { status: 200, headers: corsHeaders });
+    return Response.json({ success: false, error: 'JSON invalido' }, { status: 200, headers: corsHeaders });
   }
 
-  console.log('[W-API WEBHOOK] 📥 Payload recebido:', JSON.stringify(payload, null, 2).substring(0, 500));
+  console.log('[W-API WEBHOOK] Payload recebido:', JSON.stringify(payload, null, 2).substring(0, 500));
 
-  // FILTRO ULTRA-RÁPIDO
+  // FILTRO ULTRA-RAPIDO
   const motivoIgnorar = deveIgnorar(payload);
   if (motivoIgnorar) {
-    console.log('[W-API WEBHOOK] ⏭️ Ignorado:', motivoIgnorar);
+    console.log('[W-API WEBHOOK] Ignorado:', motivoIgnorar);
     return Response.json({ success: true, ignored: true, reason: motivoIgnorar }, { headers: corsHeaders });
   }
 
@@ -225,9 +225,9 @@ Deno.serve(async (req) => {
     return Response.json({ success: true, ignored: true, reason: dados.error }, { headers: corsHeaders });
   }
 
-  // Log da conexão (sem connectionManager externo)
+  // Log da conexao
   if (dados.instanceId) {
-    console.log('[W-API WEBHOOK] 📡 Conexão ativa:', dados.instanceId);
+    console.log('[W-API WEBHOOK] Conexao ativa:', dados.instanceId);
   }
 
   try {
@@ -244,7 +244,7 @@ Deno.serve(async (req) => {
         return Response.json({ success: true, ignored: true }, { headers: corsHeaders });
     }
   } catch (error) {
-    console.error('[W-API WEBHOOK] ❌ ERRO:', error.message);
+    console.error('[W-API WEBHOOK] ERRO:', error.message);
     return Response.json({ success: false, error: error.message }, { status: 500, headers: corsHeaders });
   }
 });
@@ -301,7 +301,6 @@ async function handleMessageUpdate(dados, base44) {
       { whatsapp_message_id: dados.messageId }, '-created_date', 1
     );
     if (mensagens.length > 0) {
-      // TODO: Ajustar mapeamento de status conforme W-API
       const statusMap = { 
         'READ': 'lida', 
         'read': 'lida',
@@ -340,7 +339,7 @@ async function handleMessage(dados, payloadBruto, base44) {
     } catch (e) {}
   }
 
-  // Buscar integração W-API
+  // Buscar integracao W-API
   let integracaoId = null;
   if (dados.instanceId) {
     try {
@@ -434,7 +433,7 @@ async function handleMessage(dados, payloadBruto, base44) {
 
   // Audit log
   try {
-    await base44.asServiceRole.entities.ZapiPayloadNormalized.create({
+    await base44.asServiceRole.entities.WebhookLog.create({
       payload_bruto: payloadBruto,
       instance_identificado: dados.instanceId,
       integration_id: integracaoId,
@@ -445,7 +444,7 @@ async function handleMessage(dados, payloadBruto, base44) {
   } catch (e) {}
 
   const duracao = Date.now() - inicio;
-  console.log('[W-API WEBHOOK] ✅ Msg:', mensagem.id, '| De:', dados.from, '| Int:', integracaoId, '| ' + duracao + 'ms');
+  console.log('[W-API WEBHOOK] Msg:', mensagem.id, '| De:', dados.from, '| Int:', integracaoId, '| ' + duracao + 'ms');
 
   return Response.json({
     success: true,
