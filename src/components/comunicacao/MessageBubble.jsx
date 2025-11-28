@@ -898,13 +898,11 @@ export default function MessageBubble({
             }
 
             {/* 📱 CANAL WHATSAPP - Badge mostrando de qual conexão veio */}
-            {!isOwn && (() => {
-              // Verificar se thread existe antes de acessar
-              if (!thread) return null;
+            {!isOwn && thread && (() => {
               // Tentar várias formas de obter info do canal
               const canalNumero = message?.metadata?.canal_numero || message?.metadata?.connected_phone;
               const canalNome = message?.metadata?.canal_nome;
-              const integracaoId = message?.metadata?.whatsapp_integration_id || thread.whatsapp_integration_id;
+              const integracaoId = message?.metadata?.whatsapp_integration_id || thread?.whatsapp_integration_id;
 
               // Se temos o número diretamente
               if (canalNumero) {
