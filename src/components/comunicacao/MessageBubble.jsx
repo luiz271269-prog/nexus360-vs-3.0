@@ -749,13 +749,27 @@ export default function MessageBubble({
                 )}>
                     <Play className={cn("w-5 h-5", isOwn ? "text-white" : "text-white")} />
                   </div>
-                  <audio
-                  src={message?.media_url}
-                  controls
-                  className="flex-1 h-8"
-                  style={{
-                    filter: isOwn ? 'invert(1) hue-rotate(180deg)' : 'none'
-                  }} />
+                  {message?.media_url?.includes('mmg.whatsapp.net') ? (
+                    <div className={cn(
+                      "flex-1 flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs",
+                      isOwn ? "bg-white/10 text-white/80" : "bg-slate-100 text-slate-600"
+                    )}>
+                      <Mic className="w-4 h-4 flex-shrink-0" />
+                      <span>Áudio recebido (arquivo temporário do WhatsApp)</span>
+                    </div>
+                  ) : (
+                    <audio
+                      src={message?.media_url}
+                      controls
+                      className="flex-1 h-8"
+                      style={{
+                        filter: isOwn ? 'invert(1) hue-rotate(180deg)' : 'none'
+                      }}
+                      onError={(e) => {
+                        console.warn('[AUDIO] Erro ao carregar:', message?.media_url);
+                      }}
+                    />
+                  )}
 
                 </div>
                 <div className="flex items-center justify-end gap-1 mt-1 flex-wrap">
