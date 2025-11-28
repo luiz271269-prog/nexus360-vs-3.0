@@ -240,7 +240,8 @@ export default function MessageBubble({
       return;
     }
 
-    if (!thread || !thread.whatsapp_integration_id) {
+    const integrationId = thread?.whatsapp_integration_id;
+    if (!integrationId) {
       toast.error("❌ Não foi possível determinar a integração do WhatsApp");
       return;
     }
