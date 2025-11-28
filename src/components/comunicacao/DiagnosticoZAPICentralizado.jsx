@@ -111,8 +111,8 @@ export default function DiagnosticoZAPICentralizado({ integracao, onRecarregar, 
       });
 
       // Teste 3: Verificar webhook (usar função específica do provedor)
-      const baseAppUrl = window.location.origin.replace('preview.', '').replace(':3000', '');
-      const webhookUrl = `${baseAppUrl}/api/functions/${provider.webhookFn}`;
+      // URL de PRODUÇÃO fixa - não usar window.location para evitar URLs de desenvolvimento
+      const webhookUrl = `https://app.base44.com/api/functions/${provider.webhookFn}`;
       
       // Teste 3: Verificar Security Token (apenas para Z-API)
       if (provider.requerClientToken) {
