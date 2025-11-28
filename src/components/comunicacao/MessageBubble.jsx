@@ -652,19 +652,12 @@ export default function MessageBubble({
             {message.media_type === 'image' && message.media_url &&
             <div className="relative overflow-hidden rounded-2xl">
                 {message.media_url ?
-              <img
+              <ImageWithFallback
                 src={message.media_url}
                 alt="Imagem"
                 className="max-w-full max-h-96 object-cover rounded-2xl cursor-pointer"
-                loading="lazy"
                 onClick={() => window.open(message.media_url, '_blank')}
-                onError={(e) => {
-                  console.warn('[MSG] Erro ao carregar imagem:', message.media_url);
-                  e.target.onerror = null;
-                  e.target.src = '';
-                  e.target.style.display = 'none';
-                  e.target.parentElement.innerHTML = '<div class="flex items-center justify-center bg-slate-100 rounded-2xl p-8 min-h-[200px]"><div class="text-center"><p class="text-sm text-slate-500">Imagem expirada ou indisponível</p></div></div>';
-                }} /> :
+              /> :
 
 
               <div className="flex items-center justify-center bg-slate-100 rounded-2xl p-8 min-h-[200px]">
