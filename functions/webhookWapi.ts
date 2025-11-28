@@ -311,7 +311,7 @@ Deno.serve(async (req) => {
       case 'message_update':
         return await handleMessageUpdate(dados, base44);
       case 'message':
-        return await handleMessage(dados, payload, base44);
+        return await handleMessage(dados, payload, base44, req);
       default:
         return Response.json({ success: true, ignored: true }, { headers: corsHeaders });
     }
@@ -384,7 +384,7 @@ async function handleMessageUpdate(dados, base44) {
   return Response.json({ success: true, processed: 'status_update', provider: 'w_api' }, { headers: corsHeaders });
 }
 
-async function handleMessage(dados, payloadBruto, base44) {
+async function handleMessage(dados, payloadBruto, base44, req) {
   const inicio = Date.now();
   
   // Verificar duplicata
