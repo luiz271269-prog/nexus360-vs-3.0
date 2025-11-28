@@ -4,7 +4,7 @@ import { ptBR } from 'date-fns/locale';
 import {
   CheckCheck, Check, Forward, Trash2, Loader2, Copy,
   Zap, CheckCircle2, AlertCircle, ChevronRight, Clock, Search, ArrowRight,
-  Reply, Target, Play, FileIcon, Download, ImageIcon, User, Tag } from
+  Reply, Target, Play, FileIcon, Download, ImageIcon, User, Tag, Mic } from
 'lucide-react';
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
