@@ -347,7 +347,7 @@ export default function MessageBubble({
         categorias_antes: categoriasAtuais,
         categorias_depois: novasCategorias,
         categoria_alterada: valorCategoria,
-        thread_id: thread?.id
+        thread_id: thread?.id || null
       });
 
       const resultado = await base44.entities.Message.update(message?.id, {
@@ -356,9 +356,10 @@ export default function MessageBubble({
 
       console.log('[ETIQUETA] ✅ SUCESSO - Resposta do banco:', resultado);
 
-      // Forçar reload imediato
-      if (thread?.id) {
-        await queryClient.invalidateQueries({ queryKey: ['mensagens', thread.id] });
+      // Forçar reload imediato (apenas se thread existir)
+      const threadId = thread?.id;
+      if (threadId) {
+        await queryClient.invalidateQueries({ queryKey: ['mensagens', threadId] });
       }
 
       // Verificar se salvou
