@@ -22,7 +22,6 @@ import { motion, AnimatePresence } from "framer-motion";
 import AlertasInteligentesIA from "../components/global/AlertasInteligentesIA";
 import BotaoNexusFlutuante from "../components/global/BotaoNexusFlutuante";
 import { queryOptimizer } from "../components/inteligencia/QueryOptimizer";
-import { cacheGlobal } from "../components/inteligencia/CacheInteligente";
 
 // Cache global para evitar chamadas desnecessárias
 const dashboardCache = {
