@@ -174,28 +174,29 @@ Deno.serve(async (req) => {
           audio: audio_url,
           delayMessage: 1
         };
+        
+        if (reply_to_message_id) {
+          body.messageId = reply_to_message_id;
+        }
       } else {
-        // Z-API: usar send-audio (formato correto da API)
+        // Z-API: usar send-audio (formato oficial da documentação)
         // Endpoint: POST https://api.z-api.io/instances/{instanceId}/token/{token}/send-audio
+        // Docs: https://developer.z-api.io/en/message/send-message-audio
         endpoint = `${baseUrl}/instances/${instanceId}/token/${token}/send-audio`;
         body = {
-          phone: numeroFormatado, // Z-API também aceita apenas dígitos
-          audio: audio_url,
-          messageId: reply_to_message_id || undefined
+          phone: numeroFormatado, // Apenas dígitos: 5511999999999
+          audio: audio_url,       // URL ou Base64
+          waveform: true          // Mostrar forma de onda (melhor UX)
         };
         
-        // Remover messageId se não existir para evitar enviar undefined
-        if (!body.messageId) {
-          delete body.messageId;
+        // Adicionar reply se existir
+        if (reply_to_message_id) {
+          body.messageId = reply_to_message_id;
         }
       }
       
-      // Para W-API, adicionar reply separadamente
-      if (isWAPI && reply_to_message_id) {
-        body.messageId = reply_to_message_id;
-      }
-      
       console.log(`[ENVIAR-WHATSAPP-UNIFICADO] 🎵 Enviando áudio (${providerName}):`, audio_url);
+      console.log(`[ENVIAR-WHATSAPP-UNIFICADO] 🎵 Body áudio:`, JSON.stringify(body));
     } 
     
     // ========== MÍDIAS (imagem, vídeo, documento) ==========
