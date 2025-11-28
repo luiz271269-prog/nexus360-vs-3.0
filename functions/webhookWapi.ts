@@ -244,6 +244,7 @@ Deno.serve(async (req) => {
   console.log('[W-API WEBHOOK] IsGroup:', payload.isGroup);
   console.log('[W-API WEBHOOK] Sender:', JSON.stringify(payload.sender));
   console.log('[W-API WEBHOOK] MsgContent:', JSON.stringify(payload.msgContent)?.substring(0, 300));
+  console.log('[W-API WEBHOOK] MediaUrl:', payload.mediaUrl || payload.media?.url || payload.downloadUrl || 'N/A');
   console.log('[W-API WEBHOOK] Keys:', Object.keys(payload).join(', '));
   console.log('[W-API WEBHOOK] ===========================================');
 
