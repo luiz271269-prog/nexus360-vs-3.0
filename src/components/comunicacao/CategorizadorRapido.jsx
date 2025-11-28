@@ -25,7 +25,7 @@ const CATEGORIAS_FIXAS = [
   { nome: 'reclamacao', label: 'Reclamação', emoji: '⚠️', cor: 'bg-orange-500', tipo: 'fixa', tipos_contato_aplicaveis: ['cliente'], filas_aplicaveis: [] }
 ];
 
-export default function CategorizadorRapido({ thread, contato = null, onUpdate }) {
+export default function CategorizadorRapido({ thread = null, contato = null, onUpdate }) {
   const [salvando, setSalvando] = useState(false);
   const [novaCategoria, setNovaCategoria] = useState('');
   const [adicionandoNova, setAdicionandoNova] = useState(false);
@@ -35,7 +35,8 @@ export default function CategorizadorRapido({ thread, contato = null, onUpdate }
   const { data: categoriasDB = [] } = useQuery({
     queryKey: ['categorias-mensagens'],
     queryFn: () => base44.entities.CategoriasMensagens.filter({ ativa: true }, 'nome'),
-    staleTime: 5 * 60 * 1000
+    staleTime: 5 * 60 * 1000,
+    enabled: !!thread // Só busca se thread existir
   });
 
   // Proteção: não renderizar se thread não existir (após hooks)
