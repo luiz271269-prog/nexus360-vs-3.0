@@ -225,8 +225,9 @@ Deno.serve(async (req) => {
     return Response.json({ success: true, ignored: true, reason: dados.error }, { headers: corsHeaders });
   }
 
+  // Log da conexão (sem connectionManager externo)
   if (dados.instanceId) {
-    connectionManager.register(dados.instanceId, { provider: 'w_api' });
+    console.log('[W-API WEBHOOK] 📡 Conexão ativa:', dados.instanceId);
   }
 
   try {
