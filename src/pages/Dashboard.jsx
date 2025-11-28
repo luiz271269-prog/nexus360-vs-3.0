@@ -254,41 +254,17 @@ export default function Dashboard() {
       return dashboardCache.data;
     }
 
-    console.log("🔄 Carregando dados COM QUERY OPTIMIZER...");
+    console.log("🔄 Carregando dados do Dashboard...");
 
     try {
       const usuarioAtual = await base44.auth.me();
 
       const [vendedoresData, clientesData, vendasData, orcamentosData, interacoesData] = await Promise.all([
-        queryOptimizer.listOtimizado(base44.entities.Vendedor, { 
-          limite: 100,
-          cache: true,
-          cacheTTL: 5
-        }),
-        queryOptimizer.listOtimizado(base44.entities.Cliente, { 
-          limite: 500,
-          ordenacao: '-updated_date',
-          cache: true,
-          cacheTTL: 3
-        }),
-        queryOptimizer.listOtimizado(base44.entities.Venda, { 
-          limite: 500,
-          ordenacao: '-data_venda',
-          cache: true,
-          cacheTTL: 2
-        }),
-        queryOptimizer.listOtimizado(base44.entities.Orcamento, { 
-          limite: 300,
-          ordenacao: '-data_orcamento',
-          cache: true,
-          cacheTTL: 2
-        }),
-        queryOptimizer.listOtimizado(base44.entities.Interacao, { 
-          limite: 500,
-          ordenacao: '-data_interacao',
-          cache: true,
-          cacheTTL: 2
-        })
+        base44.entities.Vendedor.list('-created_date', 100),
+        base44.entities.Cliente.list('-updated_date', 500),
+        base44.entities.Venda.list('-data_venda', 500),
+        base44.entities.Orcamento.list('-data_orcamento', 300),
+        base44.entities.Interacao.list('-data_interacao', 500)
       ]);
 
       const dadosCarregados = {
