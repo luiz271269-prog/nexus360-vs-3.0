@@ -9,7 +9,23 @@
  */
 
 import { base44 } from "@/api/base44Client";
-import { cacheGlobal } from "./CacheInteligente";
+
+// Cache local para evitar dependencia circular
+const localCache = {
+  data: new Map(),
+  get(key) {
+    const item = this.data.get(key);
+    if (!item) return null;
+    if (Date.now() - item.timestamp > item.ttl * 60 * 1000) {
+      this.data.delete(key);
+      return null;
+    }
+    return item.value;
+  },
+  set(key, value, ttl = 5) {
+    this.data.set(key, { value, timestamp: Date.now(), ttl });
+  }
+};
 
 export class QueryOptimizer {
   
