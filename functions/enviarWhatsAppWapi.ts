@@ -132,10 +132,10 @@ Deno.serve(async (req) => {
     // ========== ÁUDIO ==========
     else if (audio_url) {
       endpoint = `${WAPI_BASE_URL}/message/send-audio?instanceId=${instanceId}`;
-      // ✅ CORREÇÃO: W-API usa campo "audio", não "url"
+      // ✅ CORREÇÃO: W-API usa campo "audioUrl" para áudio
       body = {
         phone: numeroFormatado,
-        audio: audio_url,
+        audioUrl: audio_url,
         delayMessage: 1
       };
       
