@@ -275,7 +275,7 @@ export default function DiagnosticoZAPICentralizado({ integracao, onRecarregar, 
                             <Copy className="w-3 h-3" />
                           </Button>
                         </div>
-                        <p className="text-xs text-green-700">URL configurada e pronta para uso na Z-API</p>
+                        <p className="text-xs text-green-700">URL configurada e pronta para uso na {diagnostico.provider}</p>
                       </div>
                     ) : (
                       <p className="text-sm text-gray-700">{teste.mensagem}</p>
