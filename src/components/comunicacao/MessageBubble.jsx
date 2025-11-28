@@ -445,12 +445,8 @@ export default function MessageBubble({
 
   return (
     <>
-      <div className="flex gap-3 justify-start"
-
-
-
-
-      onClick={() => modoSelecao && onToggleSelecao?.()}>
+      <div className={cn("flex gap-3", isOwn ? "justify-end" : "justify-start")}
+          onClick={() => modoSelecao && onToggleSelecao?.()}>
 
         {modoSelecao &&
         <div className="flex items-center justify-center">
