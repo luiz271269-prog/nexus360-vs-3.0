@@ -1,7 +1,7 @@
-
-import { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Badge } from '@/components/ui/badge';
 import {
   Sparkles,
   X,
@@ -12,7 +12,7 @@ import {
   AlertCircle,
   RefreshCw,
 } from 'lucide-react';
-import { User as UserEntity } from '@/entities/User';
+import { base44 } from '@/api/base44Client';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
 
@@ -42,7 +42,7 @@ export default function NexusChat({ isOpen, onToggle }) {
 
   const inicializar = async () => {
     try {
-      const user = await UserEntity.me();
+      const user = await base44.auth.me();
       setUsuario(user);
 
       if (mensagens.length === 0) {

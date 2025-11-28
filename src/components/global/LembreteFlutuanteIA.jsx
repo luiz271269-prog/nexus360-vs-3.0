@@ -1,9 +1,8 @@
-
-import { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { AlertTriangle, X, Zap, ArrowRight, Clock, CheckCircle, Brain } from 'lucide-react'; // Added Brain icon
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import NexusEngineV3 from '../inteligencia/NexusEngineV3'; // Added import for NexusEngineV3
+// NexusEngineV3 removido para evitar erro de import circular
 
 // --- Card do Alerta ---
 function AlertaCard({ alerta, onAcaoIA }) {
@@ -80,22 +79,8 @@ export default function LembreteFlutuanteIA({ orcamentos, usuario, onAcaoIA }) {
     const novosAlertas = [];
     let currentConhecimentosForAlerts = []; // Local variable to use immediately
 
-    // ═══════════════════════════════════════════════════════════
-    // 🆕 CONSULTAR CONHECIMENTO DA NKDB PARA ALERTAS MAIS RICOS
-    // ═══════════════════════════════════════════════════════════
-    try {
-      const conhecimentos = await NexusEngineV3.consultarConhecimento({
-        tipo_registro: 'resultado_acao',
-        categoria: 'estrategia',
-        tags: ['urgente', 'alerta'],
-        limite: 5
-      });
-
-      setConhecimentosRelevantes(conhecimentos); // Update state for UI indicator
-      currentConhecimentosForAlerts = conhecimentos; // Use this for enriching current alerts
-    } catch (error) {
-      console.warn('[LembreteFlutuanteIA] Erro ao buscar conhecimento:', error);
-    }
+    // Consulta de conhecimento desativada temporariamente
+    setConhecimentosRelevantes([]);
 
     // Análise tradicional de orçamentos
     orcamentos.forEach((orcamento) => {
