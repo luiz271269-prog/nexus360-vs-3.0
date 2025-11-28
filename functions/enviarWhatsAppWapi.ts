@@ -129,13 +129,15 @@ Deno.serve(async (req) => {
       };
       console.log('[ENVIAR-WHATSAPP-WAPI] 📋 Enviando template:', template_name);
     } 
-    // ========== ÁUDIO ==========
+    // ========== ÁUDIO (PTT - Push To Talk) ==========
     else if (audio_url) {
-      endpoint = `${WAPI_BASE_URL}/message/send-audio?instanceId=${instanceId}`;
-      // ✅ CORREÇÃO: W-API usa campo "audioUrl" para áudio
+      // W-API usa endpoint send-ptt para áudios gravados (tipo WhatsApp voice message)
+      endpoint = `${WAPI_BASE_URL}/message/send-ptt?instanceId=${instanceId}`;
+      
+      // ✅ W-API espera o campo "audio" com a URL do arquivo
       body = {
         phone: numeroFormatado,
-        audioUrl: audio_url,
+        audio: audio_url,
         delayMessage: 1
       };
       
@@ -143,7 +145,7 @@ Deno.serve(async (req) => {
         body.messageId = reply_to_message_id;
       }
       
-      console.log('[ENVIAR-WHATSAPP-WAPI] 🎵 Enviando áudio:', audio_url);
+      console.log('[ENVIAR-WHATSAPP-WAPI] 🎵 Enviando PTT (áudio gravado):', audio_url);
     } 
     // ========== MÍDIAS (imagem, vídeo, documento) ==========
     else if (media_url && media_type) {
