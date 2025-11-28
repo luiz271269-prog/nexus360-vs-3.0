@@ -91,7 +91,20 @@ Deno.serve(async (req) => {
       throw new Error('Integração WhatsApp não encontrada');
     }
 
-    console.log('[ENVIAR-WHATSAPP] 🔗 Integração carregada:', integracao.nome_instancia);
+    console.log('[ENVIAR-WHATSAPP] 🔗 Integração carregada:', integracao.nome_instancia, '- Provider:', integracao.api_provider);
+
+    // ✅ Redirecionar para função W-API se for esse provedor
+    if (integracao.api_provider === 'w_api') {
+      console.log('[ENVIAR-WHATSAPP] 🔀 Redirecionando para enviarWhatsAppWapi (provedor W-API)');
+      
+      // Chamar função W-API diretamente
+      const wapiResult = await base44.functions.invoke('enviarWhatsAppWapi', payload);
+      
+      return new Response(
+        JSON.stringify(wapiResult.data),
+        { status: wapiResult.data?.success ? 200 : 500, headers }
+      );
+    }
 
     const baseUrl = integracao.base_url_provider;
     const instanceId = integracao.instance_id_provider;
