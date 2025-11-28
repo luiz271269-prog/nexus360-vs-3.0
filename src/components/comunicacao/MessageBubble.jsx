@@ -486,8 +486,23 @@ export default function MessageBubble({
 
           <div className={cn(
             "rounded-2xl relative shadow-sm",
-            isOwn ?
-            "bg-gradient-to-r from-blue-500 to-blue-600" :
+            isOwn ? (() => {
+              // Buscar cor da integração
+              const integracaoId = message?.metadata?.whatsapp_integration_id || thread?.whatsapp_integration_id;
+              const integracao = integracoes?.find(i => i.id === integracaoId);
+              const cor = integracao?.cor_chat || 'blue';
+              const coresMap = {
+                blue: "bg-gradient-to-r from-blue-500 to-blue-600",
+                green: "bg-gradient-to-r from-green-500 to-green-600",
+                purple: "bg-gradient-to-r from-purple-500 to-purple-600",
+                orange: "bg-gradient-to-r from-orange-500 to-orange-600",
+                pink: "bg-gradient-to-r from-pink-500 to-pink-600",
+                teal: "bg-gradient-to-r from-teal-500 to-teal-600",
+                indigo: "bg-gradient-to-r from-indigo-500 to-indigo-600",
+                rose: "bg-gradient-to-r from-rose-500 to-rose-600"
+              };
+              return coresMap[cor] || coresMap.blue;
+            })() :
             "bg-white border border-slate-200",
             selecionada ? 'ring-2 ring-blue-500' : '',
             message.media_url && message.media_type !== 'none' ? '' : 'px-4 py-2'
