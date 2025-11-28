@@ -1,24 +1,38 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.4';
 
 // ============================================================================
-// FUNÇÃO DE ENVIO WHATSAPP - W-API (Paralela à Z-API)
+// FUNÇÃO DE ENVIO WHATSAPP - W-API v1.1.0 CORRIGIDO
 // ============================================================================
-// Baseado na documentação oficial W-API:
-// - URL base: https://api.w-api.app/v1
-// - instanceId como query parameter: ?instanceId=XXX
-// - Token no header: Authorization: Bearer XXX
+// CORREÇÕES BASEADAS NO MANUAL W-API:
+// - Imagem: { phone, image: "url" } 
+// - Áudio: { phone, audio: "url" }
+// - Documento: { phone, document: "url", extension: "pdf" }
+// - Vídeo: { phone, video: "url" }
 // ============================================================================
 
-const VERSION = 'v1.0.1';
+const VERSION = 'v1.1.0';
 const WAPI_BASE_URL = 'https://api.w-api.app/v1';
 
-// Mapeamento de tipos de mídia para endpoints W-API
+// Mapeamento de tipos de mídia para endpoints e campos W-API
 const WAPI_MEDIA_CONFIG = {
-  image: { endpoint: 'send-image' },
-  video: { endpoint: 'send-video' },
-  document: { endpoint: 'send-document' },
-  audio: { endpoint: 'send-audio' }
+  image: { endpoint: 'send-image', field: 'image' },
+  video: { endpoint: 'send-video', field: 'video' },
+  document: { endpoint: 'send-document', field: 'document' },
+  audio: { endpoint: 'send-audio', field: 'audio' }
 };
+
+// Extrair extensão de uma URL
+function extrairExtensao(url) {
+  if (!url) return 'file';
+  try {
+    const path = new URL(url).pathname;
+    const parts = path.split('.');
+    if (parts.length > 1) {
+      return parts[parts.length - 1].split('?')[0].toLowerCase();
+    }
+  } catch (e) {}
+  return 'file';
+}
 
 Deno.serve(async (req) => {
   const headers = {
@@ -118,9 +132,10 @@ Deno.serve(async (req) => {
     // ========== ÁUDIO ==========
     else if (audio_url) {
       endpoint = `${WAPI_BASE_URL}/message/send-audio?instanceId=${instanceId}`;
+      // ✅ CORREÇÃO: W-API usa campo "audio", não "url"
       body = {
         phone: numeroFormatado,
-        url: audio_url, // W-API usa 'url' para mídia
+        audio: audio_url,
         delayMessage: 1
       };
       
@@ -128,7 +143,7 @@ Deno.serve(async (req) => {
         body.messageId = reply_to_message_id;
       }
       
-      console.log('[ENVIAR-WHATSAPP-WAPI] 🎵 Enviando áudio');
+      console.log('[ENVIAR-WHATSAPP-WAPI] 🎵 Enviando áudio:', audio_url);
     } 
     // ========== MÍDIAS (imagem, vídeo, documento) ==========
     else if (media_url && media_type) {
@@ -140,19 +155,36 @@ Deno.serve(async (req) => {
       
       endpoint = `${WAPI_BASE_URL}/message/${config.endpoint}?instanceId=${instanceId}`;
       
-      // W-API usa 'url' para todas as mídias
+      // ✅ CORREÇÃO: W-API usa campos específicos (image, video, document)
       body = {
         phone: numeroFormatado,
-        url: media_url,
-        caption: media_caption || '',
+        [config.field]: media_url,
         delayMessage: 1
       };
+      
+      // Caption apenas para imagem e vídeo
+      if ((media_type === 'image' || media_type === 'video') && media_caption) {
+        body.caption = media_caption;
+      }
+      
+      // ✅ CORREÇÃO: Documento precisa de extension
+      if (media_type === 'document') {
+        body.extension = extrairExtensao(media_url);
+        // Nome do arquivo opcional
+        if (media_caption) {
+          body.fileName = media_caption;
+        }
+      }
       
       if (reply_to_message_id) {
         body.messageId = reply_to_message_id;
       }
       
-      console.log('[ENVIAR-WHATSAPP-WAPI] 📎 Enviando mídia:', media_type);
+      console.log('[ENVIAR-WHATSAPP-WAPI] 📎 Enviando mídia:', {
+        tipo: media_type,
+        campo: config.field,
+        url: media_url
+      });
     } 
     // ========== TEXTO ==========
     else if (mensagem) {
@@ -160,7 +192,7 @@ Deno.serve(async (req) => {
       body = {
         phone: numeroFormatado,
         message: mensagem,
-        delayMessage: 1 // Delay recomendado pela doc
+        delayMessage: 1
       };
 
       if (reply_to_message_id) {

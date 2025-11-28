@@ -1,16 +1,15 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.4';
 
 // ============================================================================
-// WEBHOOK WHATSAPP W-API - v1.1.0 CORRIGIDO
+// WEBHOOK WHATSAPP W-API - v1.2.0 CORRIGIDO
 // ============================================================================
-// Baseado na documentacao oficial W-API:
-// - Evento de mensagem: webhookReceived
-// - Evento de status: webhookDelivery  
-// - Estrutura: { event, sender: { id }, chat: { id }, msgContent: { ... }, instanceId }
-// CORRIGIDO: Normalização de telefone SEM + para evitar duplicatas com Z-API
+// CORREÇÕES:
+// 1. Extração de mediaUrl CORRIGIDA - buscar em múltiplos campos
+// 2. Normalização de telefone SEM + para consistência
+// 3. Logs detalhados para debug de mídia
 // ============================================================================
 
-const VERSION = 'v1.1.0-wapi';
+const VERSION = 'v1.2.0-wapi';
 const BUILD_DATE = '2025-11-28';
 
 const corsHeaders = {
@@ -26,73 +25,51 @@ const corsHeaders = {
 function normalizarTelefoneUnificado(telefone) {
   if (!telefone) return null;
   
-  // Remover sufixos do WhatsApp (@lid, @s.whatsapp.net, @g.us, etc.)
   let numeroLimpo = String(telefone).split('@')[0];
-  
-  // Remover tudo que não é número (incluindo +)
   let apenasNumeros = numeroLimpo.replace(/\D/g, '');
   
-  // Se não tem números, retornar null
   if (!apenasNumeros) return null;
-  
-  // Se tem menos de 10 dígitos, é inválido
   if (apenasNumeros.length < 10) return null;
   
-  // Se não começa com código do país, assumir Brasil (55)
   if (!apenasNumeros.startsWith('55')) {
-    // Se tem 10 ou 11 dígitos, é um número brasileiro sem DDI
     if (apenasNumeros.length === 10 || apenasNumeros.length === 11) {
       apenasNumeros = '55' + apenasNumeros;
     }
   }
   
-  // IMPORTANTE: Retornar SEM + para garantir consistência entre provedores
   return apenasNumeros;
 }
 
 // ============================================================================
-// FILTRO ULTRA-RAPIDO - Retorna motivo se IGNORAR, null se processar
-// Baseado nos eventos da W-API
+// FILTRO ULTRA-RAPIDO
 // ============================================================================
 function deveIgnorar(payload) {
   if (!payload || typeof payload !== 'object') return 'payload_invalido';
 
   const evento = String(payload.event || '').toLowerCase();
-  
-  // Extrair telefone do sender ou chat (formato W-API)
-  // W-API pode enviar IDs no formato: 554899322400 ou 554899322400@lid ou 554899322400@s.whatsapp.net
   const senderId = payload.sender?.id || payload.chat?.id || '';
   const phone = senderId.replace(/@.*$/, '').toLowerCase();
 
-  // IGNORAR: status@broadcast e grupos (@g.us)
-  // NOTA: @lid é um formato válido da W-API para contatos, NÃO ignorar
   if (phone.includes('status') || senderId.includes('@broadcast') || senderId.includes('@g.us')) {
     return 'jid_sistema_ou_grupo';
   }
 
-  // PERMITIR: QR Code e Connection
   if (evento.includes('qrcode') || evento.includes('connection')) {
     return null;
   }
 
-  // IGNORAR: Eventos de presenca/digitacao
   const eventosLixo = ['presence', 'typing', 'composing', 'chat-update', 'call'];
   if (eventosLixo.some(e => evento.includes(e))) {
     return 'evento_sistema';
   }
 
-  // PERMITIR: webhookReceived (mensagem recebida)
   if (evento === 'webhookreceived' || payload.msgContent) {
-    // Ignorar mensagens de grupo
     if (payload.isGroup === true) return 'grupo';
-    // Ignorar mensagens enviadas por mim
     if (payload.fromMe === true) return 'from_me';
-    // Validar se tem telefone
     if (!senderId) return 'sem_telefone';
     return null;
   }
 
-  // PERMITIR: webhookDelivery (status de entrega)
   if (evento === 'webhookdelivery' || evento.includes('delivery')) {
     return null;
   }
@@ -101,15 +78,73 @@ function deveIgnorar(payload) {
 }
 
 // ============================================================================
-// NORMALIZAR PAYLOAD - Baseado no formato W-API
-// Estrutura: { event, sender: { id }, chat: { id }, msgContent: { ... }, instanceId }
+// EXTRAIR URL DE MÍDIA - FUNÇÃO DEDICADA
+// ============================================================================
+function extrairMediaUrl(payload, msgContent, tipoMidia) {
+  // Campos do payload raiz (W-API frequentemente coloca aqui)
+  const camposRaiz = [
+    payload.mediaUrl,
+    payload.media?.url,
+    payload.downloadUrl,
+    payload.fileUrl,
+    payload.url
+  ];
+  
+  // Campos específicos por tipo de mídia no msgContent
+  const camposMsgContent = {
+    image: [
+      msgContent?.imageMessage?.url,
+      msgContent?.imageMessage?.directPath,
+      msgContent?.imageMessage?.mediaUrl
+    ],
+    video: [
+      msgContent?.videoMessage?.url,
+      msgContent?.videoMessage?.directPath,
+      msgContent?.videoMessage?.mediaUrl
+    ],
+    audio: [
+      msgContent?.audioMessage?.url,
+      msgContent?.audioMessage?.directPath,
+      msgContent?.audioMessage?.mediaUrl
+    ],
+    document: [
+      msgContent?.documentMessage?.url,
+      msgContent?.documentMessage?.directPath,
+      msgContent?.documentMessage?.mediaUrl
+    ],
+    sticker: [
+      msgContent?.stickerMessage?.url,
+      msgContent?.stickerMessage?.directPath
+    ]
+  };
+  
+  // Buscar primeiro nos campos do tipo específico
+  const camposDoTipo = camposMsgContent[tipoMidia] || [];
+  for (const campo of camposDoTipo) {
+    if (campo && typeof campo === 'string' && campo.startsWith('http')) {
+      console.log(`[W-API WEBHOOK] 📎 URL encontrada em msgContent.${tipoMidia}Message:`, campo.substring(0, 80));
+      return campo;
+    }
+  }
+  
+  // Buscar nos campos raiz
+  for (const campo of camposRaiz) {
+    if (campo && typeof campo === 'string' && campo.startsWith('http')) {
+      console.log('[W-API WEBHOOK] 📎 URL encontrada no payload raiz:', campo.substring(0, 80));
+      return campo;
+    }
+  }
+  
+  console.log('[W-API WEBHOOK] ⚠️ Nenhuma URL de mídia encontrada');
+  return null;
+}
+
+// ============================================================================
+// NORMALIZAR PAYLOAD - CORRIGIDO
 // ============================================================================
 function normalizarPayload(payload) {
   const evento = String(payload.event || '').toLowerCase();
   const instanceId = payload.instanceId || null;
-  
-  // W-API pode enviar mediaUrl no nível raiz do payload
-  const mediaUrlRaiz = payload.mediaUrl || payload.media?.url || payload.downloadUrl || null;
 
   // QR Code
   if (evento.includes('qrcode') || payload.qrcode) {
@@ -126,7 +161,7 @@ function normalizarPayload(payload) {
     return { type: 'connection', instanceId, status };
   }
 
-  // Status de entrega (webhookDelivery)
+  // Status de entrega
   if (evento === 'webhookdelivery' || evento.includes('delivery')) {
     return {
       type: 'message_update',
@@ -136,93 +171,61 @@ function normalizarPayload(payload) {
     };
   }
 
-  // Mensagem recebida (webhookReceived)
-  // Extrair telefone do sender.id (formato: 5511999999999@s.whatsapp.net)
+  // Mensagem recebida
   const senderId = payload.sender?.id || payload.chat?.id || '';
   const numeroLimpo = normalizarTelefoneUnificado(senderId);
   if (!numeroLimpo) return { type: 'unknown', error: 'telefone_invalido' };
 
+  const msgContent = payload.msgContent || {};
+  
   let mediaType = 'none';
   let mediaUrl = null;
   let conteudo = '';
-  
-  // Extrair conteudo do msgContent (estrutura aninhada da W-API)
-  const msgContent = payload.msgContent || {};
-  
-  if (msgContent.extendedTextMessage) {
-    conteudo = msgContent.extendedTextMessage.text || '';
-  } else if (msgContent.conversation) {
-    conteudo = msgContent.conversation;
-  } else if (msgContent.imageMessage) {
+
+  // Detectar tipo e extrair URL
+  if (msgContent.imageMessage) {
     mediaType = 'image';
-    // W-API: a URL pode estar em diferentes campos dependendo da versão
-    // Prioridade: campos específicos da W-API > campos genéricos
-    mediaUrl = payload.mediaUrl 
-      || payload.media?.url
-      || payload.downloadUrl
-      || payload.fileUrl
-      || msgContent.imageMessage.url 
-      || msgContent.imageMessage.directPath
-      || msgContent.imageMessage.jpegThumbnail
-      || null;
+    mediaUrl = extrairMediaUrl(payload, msgContent, 'image');
     conteudo = msgContent.imageMessage.caption || '[Imagem]';
-    console.log('[W-API WEBHOOK] 🖼️ ImageMessage detectada - URL encontrada:', mediaUrl ? 'SIM' : 'NÃO');
   } else if (msgContent.videoMessage) {
     mediaType = 'video';
-    mediaUrl = payload.mediaUrl 
-      || payload.media?.url
-      || payload.downloadUrl
-      || payload.fileUrl
-      || msgContent.videoMessage.url 
-      || msgContent.videoMessage.directPath
-      || null;
+    mediaUrl = extrairMediaUrl(payload, msgContent, 'video');
     conteudo = msgContent.videoMessage.caption || '[Video]';
   } else if (msgContent.audioMessage) {
     mediaType = 'audio';
-    mediaUrl = payload.mediaUrl 
-      || payload.media?.url
-      || payload.downloadUrl
-      || payload.fileUrl
-      || msgContent.audioMessage.url 
-      || msgContent.audioMessage.directPath
-      || null;
+    mediaUrl = extrairMediaUrl(payload, msgContent, 'audio');
     conteudo = '[Audio]';
   } else if (msgContent.documentMessage) {
     mediaType = 'document';
-    mediaUrl = payload.mediaUrl 
-      || payload.media?.url
-      || payload.downloadUrl
-      || payload.fileUrl
-      || msgContent.documentMessage.url 
-      || msgContent.documentMessage.directPath
-      || null;
+    mediaUrl = extrairMediaUrl(payload, msgContent, 'document');
     conteudo = msgContent.documentMessage.fileName || '[Documento]';
   } else if (msgContent.stickerMessage) {
     mediaType = 'sticker';
-    mediaUrl = msgContent.stickerMessage.url 
-      || msgContent.stickerMessage.directPath 
-      || payload.mediaUrl 
-      || payload.media?.url
-      || null;
+    mediaUrl = extrairMediaUrl(payload, msgContent, 'sticker');
     conteudo = '[Sticker]';
   } else if (msgContent.contactMessage || msgContent.contactsArrayMessage) {
     mediaType = 'contact';
-    conteudo = 'Contato compartilhado';
+    conteudo = '📇 Contato compartilhado';
   } else if (msgContent.locationMessage) {
     mediaType = 'location';
-    conteudo = 'Localizacao';
+    conteudo = '📍 Localização';
+  } else if (msgContent.extendedTextMessage) {
+    conteudo = msgContent.extendedTextMessage.text || '';
+  } else if (msgContent.conversation) {
+    conteudo = msgContent.conversation;
   }
 
   if (!conteudo && mediaType === 'none') {
     return { type: 'unknown', error: 'mensagem_vazia' };
   }
 
-  // Fallback para mediaUrl do payload raiz se não encontrou no msgContent
-  const finalMediaUrl = mediaUrl || mediaUrlRaiz;
-  
-  // Log para debug de mídia
+  // Log final de mídia
   if (mediaType !== 'none') {
-    console.log('[W-API WEBHOOK] 🖼️ Mídia detectada:', mediaType, '| URL:', finalMediaUrl?.substring(0, 80) || 'NENHUMA');
+    console.log('[W-API WEBHOOK] 📊 Resultado extração:', {
+      tipo: mediaType,
+      temUrl: !!mediaUrl,
+      urlPreview: mediaUrl?.substring(0, 60) || 'NENHUMA'
+    });
   }
 
   return {
@@ -232,7 +235,7 @@ function normalizarPayload(payload) {
     from: numeroLimpo,
     content: conteudo,
     mediaType,
-    mediaUrl: finalMediaUrl,
+    mediaUrl,
     mediaCaption: msgContent.imageMessage?.caption || msgContent.videoMessage?.caption,
     pushName: payload.pushName || payload.senderName || payload.sender?.pushName,
     vcard: msgContent.contactMessage || msgContent.contactsArrayMessage,
@@ -274,36 +277,29 @@ Deno.serve(async (req) => {
     return Response.json({ success: false, error: 'JSON invalido' }, { status: 200, headers: corsHeaders });
   }
 
+  // Log detalhado para debug
   console.log('[W-API WEBHOOK] ========== PAYLOAD RECEBIDO ==========');
   console.log('[W-API WEBHOOK] Evento:', payload.event);
   console.log('[W-API WEBHOOK] InstanceId:', payload.instanceId);
-  console.log('[W-API WEBHOOK] FromMe:', payload.fromMe);
-  console.log('[W-API WEBHOOK] IsGroup:', payload.isGroup);
-  console.log('[W-API WEBHOOK] Sender:', JSON.stringify(payload.sender));
-  console.log('[W-API WEBHOOK] MsgContent:', JSON.stringify(payload.msgContent)?.substring(0, 300));
-  console.log('[W-API WEBHOOK] MediaUrl:', payload.mediaUrl || payload.media?.url || payload.downloadUrl || payload.fileUrl || 'N/A');
-  console.log('[W-API WEBHOOK] Sender.profilePicture:', payload.sender?.profilePicture ? 'SIM' : 'NÃO');
-  console.log('[W-API WEBHOOK] Keys:', Object.keys(payload).join(', '));
-  if (payload.sender) console.log('[W-API WEBHOOK] Sender Keys:', Object.keys(payload.sender).join(', '));
+  console.log('[W-API WEBHOOK] Sender:', payload.sender?.id);
+  console.log('[W-API WEBHOOK] mediaUrl (raiz):', payload.mediaUrl || 'N/A');
+  console.log('[W-API WEBHOOK] downloadUrl:', payload.downloadUrl || 'N/A');
+  console.log('[W-API WEBHOOK] fileUrl:', payload.fileUrl || 'N/A');
+  if (payload.msgContent) {
+    console.log('[W-API WEBHOOK] msgContent keys:', Object.keys(payload.msgContent).join(', '));
+  }
   console.log('[W-API WEBHOOK] ===========================================');
 
-  // FILTRO ULTRA-RAPIDO
+  // FILTRO
   const motivoIgnorar = deveIgnorar(payload);
   if (motivoIgnorar) {
     console.log('[W-API WEBHOOK] ❌ IGNORADO:', motivoIgnorar);
     return Response.json({ success: true, ignored: true, reason: motivoIgnorar }, { headers: corsHeaders });
   }
-  
-  console.log('[W-API WEBHOOK] ✅ ACEITO - Processando...');
 
   const dados = normalizarPayload(payload);
   if (dados.type === 'unknown') {
     return Response.json({ success: true, ignored: true, reason: dados.error }, { headers: corsHeaders });
-  }
-
-  // Log da conexao
-  if (dados.instanceId) {
-    console.log('[W-API WEBHOOK] Conexao ativa:', dados.instanceId);
   }
 
   try {
@@ -342,9 +338,7 @@ async function handleQRCode(dados, base44) {
         ultima_atividade: new Date().toISOString()
       });
     }
-  } catch (e) {
-    console.error('[W-API WEBHOOK] Erro QRCode:', e.message);
-  }
+  } catch (e) {}
   
   return Response.json({ success: true, processed: 'qrcode', provider: 'w_api' }, { headers: corsHeaders });
 }
@@ -362,9 +356,7 @@ async function handleConnection(dados, base44) {
         ultima_atividade: new Date().toISOString()
       });
     }
-  } catch (e) {
-    console.error('[W-API WEBHOOK] Erro Connection:', e.message);
-  }
+  } catch (e) {}
   
   return Response.json({ success: true, processed: 'connection', status: dados.status, provider: 'w_api' }, { headers: corsHeaders });
 }
@@ -378,24 +370,16 @@ async function handleMessageUpdate(dados, base44) {
     );
     if (mensagens.length > 0) {
       const statusMap = { 
-        'READ': 'lida', 
-        'read': 'lida',
-        'DELIVERED': 'entregue', 
-        'delivered': 'entregue',
-        'SENT': 'enviada',
-        'sent': 'enviada',
-        '3': 'lida',
-        '2': 'entregue',
-        '1': 'enviada'
+        'READ': 'lida', 'read': 'lida', '3': 'lida',
+        'DELIVERED': 'entregue', 'delivered': 'entregue', '2': 'entregue',
+        'SENT': 'enviada', 'sent': 'enviada', '1': 'enviada'
       };
       const novoStatus = statusMap[dados.status] || statusMap[String(dados.status)];
       if (novoStatus) {
         await base44.asServiceRole.entities.Message.update(mensagens[0].id, { status: novoStatus });
       }
     }
-  } catch (e) {
-    console.error('[W-API WEBHOOK] Erro MessageUpdate:', e.message);
-  }
+  } catch (e) {}
   
   return Response.json({ success: true, processed: 'status_update', provider: 'w_api' }, { headers: corsHeaders });
 }
@@ -426,21 +410,11 @@ async function handleMessage(dados, payloadBruto, base44) {
     } catch (e) {}
   }
 
-  // Extrair foto de perfil do payload W-API (vários formatos possíveis)
-  // Documentação W-API: sender.profilePicture é o campo principal
+  // Extrair foto de perfil
   const profilePicUrl = payloadBruto.sender?.profilePicture
     || payloadBruto.sender?.profilePicThumbObj?.eurl 
-    || payloadBruto.sender?.profilePicThumbObj?.url
     || payloadBruto.sender?.imgUrl
-    || payloadBruto.sender?.thumbnail
-    || payloadBruto.profilePicThumb
-    || payloadBruto.senderProfilePic
-    || payloadBruto.profilePicUrl
     || null;
-  
-  if (profilePicUrl) {
-    console.log('[W-API WEBHOOK] 📷 Foto de perfil encontrada no payload:', profilePicUrl.substring(0, 60) + '...');
-  }
 
   // Buscar/criar contato
   let contato;
@@ -454,11 +428,9 @@ async function handleMessage(dados, payloadBruto, base44) {
     if (dados.pushName && (!contato.nome || contato.nome === dados.from)) {
       update.nome = dados.pushName;
     }
-    // Atualizar foto se disponível e diferente
     if (profilePicUrl && profilePicUrl !== 'null' && contato.foto_perfil_url !== profilePicUrl) {
       update.foto_perfil_url = profilePicUrl;
       update.foto_perfil_atualizada_em = new Date().toISOString();
-      console.log('[W-API WEBHOOK] 📷 Foto de perfil atualizada:', profilePicUrl.substring(0, 50) + '...');
     }
     await base44.asServiceRole.entities.Contact.update(contato.id, update);
   } else {
@@ -468,7 +440,7 @@ async function handleMessage(dados, payloadBruto, base44) {
       tipo_contato: 'lead',
       whatsapp_status: 'verificado',
       ultima_interacao: new Date().toISOString(),
-      foto_perfil_url: profilePicUrl && profilePicUrl !== 'null' ? profilePicUrl : null,
+      foto_perfil_url: profilePicUrl || null,
       foto_perfil_atualizada_em: profilePicUrl ? new Date().toISOString() : null
     });
   }
@@ -485,6 +457,7 @@ async function handleMessage(dados, payloadBruto, base44) {
       last_message_at: new Date().toISOString(),
       last_message_sender: 'contact',
       last_message_content: (dados.content || '').substring(0, 100),
+      last_media_type: dados.mediaType,
       unread_count: (thread.unread_count || 0) + 1,
       total_mensagens: (thread.total_mensagens || 0) + 1,
       status: 'aberta'
@@ -502,6 +475,7 @@ async function handleMessage(dados, payloadBruto, base44) {
       last_message_at: new Date().toISOString(),
       last_message_sender: 'contact',
       last_message_content: (dados.content || '').substring(0, 100),
+      last_media_type: dados.mediaType,
       total_mensagens: 1,
       unread_count: 1
     });
@@ -531,24 +505,8 @@ async function handleMessage(dados, payloadBruto, base44) {
     }
   });
 
-  // Audit log
-  try {
-    await base44.asServiceRole.entities.WebhookLog.create({
-      timestamp: new Date().toISOString(),
-      provider: 'w_api',
-      instance_id: dados.instanceId || 'unknown',
-      event_type: 'ReceivedCallback',
-      raw_data: payloadBruto,
-      processed: true,
-      success: true,
-      result: { message_id: mensagem.id, contact_id: contato.id, thread_id: thread.id }
-    });
-  } catch (e) {
-    console.warn('[W-API WEBHOOK] Erro ao salvar log de auditoria:', e.message);
-  }
-
   const duracao = Date.now() - inicio;
-  console.log('[W-API WEBHOOK] Msg:', mensagem.id, '| De:', dados.from, '| Int:', integracaoId, '| ' + duracao + 'ms');
+  console.log('[W-API WEBHOOK] ✅ Msg:', mensagem.id, '| Tipo:', dados.mediaType, '| URL:', dados.mediaUrl ? 'SIM' : 'NÃO', '| ' + duracao + 'ms');
 
   return Response.json({
     success: true,
