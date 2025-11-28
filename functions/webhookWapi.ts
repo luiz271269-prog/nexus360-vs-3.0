@@ -9,8 +9,8 @@ import { createClientFromRequest } from 'npm:@base44/sdk@0.8.4';
 // - Estrutura: { event, sender: { id }, chat: { id }, msgContent: { ... }, instanceId }
 // ============================================================================
 
-const VERSION = 'v1.0.1-wapi';
-const BUILD_DATE = '2025-01-27';
+const VERSION = 'v1.0.2-wapi';
+const BUILD_DATE = '2025-11-28';
 
 const corsHeaders = {
   'Content-Type': 'application/json',
@@ -150,29 +150,32 @@ function normalizarPayload(payload) {
     console.log('[W-API WEBHOOK] 🖼️ ImageMessage detectada - URL encontrada:', mediaUrl ? 'SIM' : 'NÃO');
   } else if (msgContent.videoMessage) {
     mediaType = 'video';
-    mediaUrl = msgContent.videoMessage.url 
-      || msgContent.videoMessage.directPath 
-      || payload.mediaUrl 
+    mediaUrl = payload.mediaUrl 
       || payload.media?.url
       || payload.downloadUrl
+      || payload.fileUrl
+      || msgContent.videoMessage.url 
+      || msgContent.videoMessage.directPath
       || null;
     conteudo = msgContent.videoMessage.caption || '[Video]';
   } else if (msgContent.audioMessage) {
     mediaType = 'audio';
-    mediaUrl = msgContent.audioMessage.url 
-      || msgContent.audioMessage.directPath 
-      || payload.mediaUrl 
+    mediaUrl = payload.mediaUrl 
       || payload.media?.url
       || payload.downloadUrl
+      || payload.fileUrl
+      || msgContent.audioMessage.url 
+      || msgContent.audioMessage.directPath
       || null;
     conteudo = '[Audio]';
   } else if (msgContent.documentMessage) {
     mediaType = 'document';
-    mediaUrl = msgContent.documentMessage.url 
-      || msgContent.documentMessage.directPath 
-      || payload.mediaUrl 
+    mediaUrl = payload.mediaUrl 
       || payload.media?.url
       || payload.downloadUrl
+      || payload.fileUrl
+      || msgContent.documentMessage.url 
+      || msgContent.documentMessage.directPath
       || null;
     conteudo = msgContent.documentMessage.fileName || '[Documento]';
   } else if (msgContent.stickerMessage) {
