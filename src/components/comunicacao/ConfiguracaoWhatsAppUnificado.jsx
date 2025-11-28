@@ -300,9 +300,17 @@ export default function ConfiguracaoWhatsAppUnificado({ onClose }) {
   };
 
   const copiarWebhookUrl = (integracao) => {
-    const baseUrl = window.location.origin.replace('preview.', '').replace(':3000', '');
-    const webhookFn = integracao.api_provider === 'w_api' ? 'webhookWapi' : 'webhookWatsZapi';
-    const url = `${baseUrl}/api/functions/${webhookFn}`;
+    let url;
+    
+    if (integracao.api_provider === 'w_api') {
+      // W-API: Usa a URL pública do Base44
+      url = `https://app.base44.com/api/functions/webhookWapi`;
+    } else {
+      // Z-API: Usa a URL dinâmica do ambiente
+      const baseUrl = window.location.origin.replace('preview.', '').replace(':3000', '');
+      url = `${baseUrl}/api/functions/webhookWatsZapi`;
+    }
+    
     navigator.clipboard.writeText(url);
     toast.success("URL do webhook copiada!");
   };
@@ -489,6 +497,30 @@ export default function ConfiguracaoWhatsAppUnificado({ onClose }) {
                     >
                       <Copy className="w-4 h-4" />
                     </Button>
+                  </div>
+                  
+                  {/* URL do Webhook - Apenas para W-API */}
+                  {integracao.api_provider === 'w_api' && (
+                    <div className="mt-4 p-3 bg-purple-50 rounded-lg border border-purple-200">
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs font-medium text-purple-700 mb-1">🔗 URL do Webhook (configure na W-API)</p>
+                          <code className="text-xs bg-white px-2 py-1 rounded border border-purple-200 block truncate">
+                            https://app.base44.com/api/functions/webhookWapi
+                          </code>
+                        </div>
+                        <Button
+                          onClick={() => copiarWebhookUrl(integracao)}
+                          size="sm"
+                          variant="outline"
+                          className="flex-shrink-0 border-purple-300 text-purple-700 hover:bg-purple-100"
+                        >
+                          <Copy className="w-3 h-3 mr-1" />
+                          Copiar
+                        </Button>
+                      </div>
+                    </div>
+                  )}
                   </div>
                 </div>
               ))}
