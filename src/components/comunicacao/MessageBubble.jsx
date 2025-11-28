@@ -906,6 +906,24 @@ export default function MessageBubble({
               "px-4 py-3 min-w-[250px]",
               isOwn ? "text-white" : "text-slate-800"
             )}>
+                {message?.media_url?.includes('mmg.whatsapp.net') ? (
+                  <div className="flex items-center gap-3">
+                    <div className={cn(
+                      "w-12 h-12 rounded-lg flex items-center justify-center flex-shrink-0",
+                      isOwn ? "bg-white/20" : "bg-orange-50"
+                    )}>
+                      <FileIcon className={cn("w-6 h-6", isOwn ? "text-white" : "text-orange-600")} />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className={cn("text-sm font-medium truncate", isOwn ? "text-white" : "text-slate-900")}>
+                        {String(message?.content || 'Documento').replace('[Documento: ', '').replace(']', '')}
+                      </p>
+                      <p className={cn("text-xs", isOwn ? "text-white/70" : "text-orange-600")}>
+                        ⚠️ Arquivo temporário (instância LITE)
+                      </p>
+                    </div>
+                  </div>
+                ) : (
                 <a
                 href={message?.media_url}
                 target="_blank"
@@ -928,6 +946,7 @@ export default function MessageBubble({
                   </div>
                   <Download className={cn("w-5 h-5 flex-shrink-0", isOwn ? "text-white/70" : "text-slate-400")} />
                 </a>
+                )}
                 <div className="flex items-center justify-end gap-1 mt-2">
                   <span className={cn("text-[10px]", isOwn ? "text-white/70" : "text-slate-500")}>
                     {formatarHorario(message?.sent_at || message?.created_date)}
