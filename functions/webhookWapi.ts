@@ -133,23 +133,48 @@ function normalizarPayload(payload) {
     conteudo = msgContent.conversation;
   } else if (msgContent.imageMessage) {
     mediaType = 'image';
-    mediaUrl = msgContent.imageMessage.url;
+    // W-API: a URL pode estar em diferentes campos dependendo da versão
+    mediaUrl = msgContent.imageMessage.url 
+      || msgContent.imageMessage.directPath 
+      || payload.mediaUrl 
+      || payload.media?.url
+      || payload.downloadUrl
+      || null;
     conteudo = msgContent.imageMessage.caption || '[Imagem]';
   } else if (msgContent.videoMessage) {
     mediaType = 'video';
-    mediaUrl = msgContent.videoMessage.url;
+    mediaUrl = msgContent.videoMessage.url 
+      || msgContent.videoMessage.directPath 
+      || payload.mediaUrl 
+      || payload.media?.url
+      || payload.downloadUrl
+      || null;
     conteudo = msgContent.videoMessage.caption || '[Video]';
   } else if (msgContent.audioMessage) {
     mediaType = 'audio';
-    mediaUrl = msgContent.audioMessage.url;
+    mediaUrl = msgContent.audioMessage.url 
+      || msgContent.audioMessage.directPath 
+      || payload.mediaUrl 
+      || payload.media?.url
+      || payload.downloadUrl
+      || null;
     conteudo = '[Audio]';
   } else if (msgContent.documentMessage) {
     mediaType = 'document';
-    mediaUrl = msgContent.documentMessage.url;
+    mediaUrl = msgContent.documentMessage.url 
+      || msgContent.documentMessage.directPath 
+      || payload.mediaUrl 
+      || payload.media?.url
+      || payload.downloadUrl
+      || null;
     conteudo = msgContent.documentMessage.fileName || '[Documento]';
   } else if (msgContent.stickerMessage) {
     mediaType = 'sticker';
-    mediaUrl = msgContent.stickerMessage.url;
+    mediaUrl = msgContent.stickerMessage.url 
+      || msgContent.stickerMessage.directPath 
+      || payload.mediaUrl 
+      || payload.media?.url
+      || null;
     conteudo = '[Sticker]';
   } else if (msgContent.contactMessage || msgContent.contactsArrayMessage) {
     mediaType = 'contact';
