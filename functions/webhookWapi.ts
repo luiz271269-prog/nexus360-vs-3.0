@@ -445,14 +445,18 @@ async function handleMessage(dados, payloadBruto, base44) {
   // Audit log
   try {
     await base44.asServiceRole.entities.WebhookLog.create({
-      payload_bruto: payloadBruto,
-      instance_identificado: dados.instanceId,
-      integration_id: integracaoId,
-      evento: 'ReceivedCallback-WAPI',
-      timestamp_recebido: new Date().toISOString(),
-      sucesso_processamento: true
+      timestamp: new Date().toISOString(),
+      provider: 'w_api',
+      instance_id: dados.instanceId || 'unknown',
+      event_type: 'ReceivedCallback',
+      raw_data: payloadBruto,
+      processed: true,
+      success: true,
+      result: { message_id: mensagem.id, contact_id: contato.id, thread_id: thread.id }
     });
-  } catch (e) {}
+  } catch (e) {
+    console.warn('[W-API WEBHOOK] Erro ao salvar log de auditoria:', e.message);
+  }
 
   const duracao = Date.now() - inicio;
   console.log('[W-API WEBHOOK] Msg:', mensagem.id, '| De:', dados.from, '| Int:', integracaoId, '| ' + duracao + 'ms');
