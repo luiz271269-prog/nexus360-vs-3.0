@@ -300,17 +300,9 @@ export default function ConfiguracaoWhatsAppUnificado({ onClose }) {
   };
 
   const copiarWebhookUrl = (integracao) => {
-    let url;
-    
-    if (integracao.api_provider === 'w_api') {
-      // W-API: Usa a URL pública do Base44
-      url = `https://app.base44.com/api/functions/webhookWapi`;
-    } else {
-      // Z-API: Usa a URL dinâmica do ambiente
-      const baseUrl = window.location.origin.replace('preview.', '').replace(':3000', '');
-      url = `${baseUrl}/api/functions/webhookWatsZapi`;
-    }
-    
+    const baseUrl = window.location.origin.replace('preview.', '').replace(':3000', '');
+    const webhookFn = integracao.api_provider === 'w_api' ? 'webhookWapi' : 'webhookWatsZapi';
+    const url = `${baseUrl}/api/functions/${webhookFn}`;
     navigator.clipboard.writeText(url);
     toast.success("URL do webhook copiada!");
   };
