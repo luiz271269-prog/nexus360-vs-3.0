@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import {
@@ -29,36 +29,6 @@ import {
 
 import ReactMarkdown from 'react-markdown';
 import { CATEGORIAS_FIXAS, getCategoriaConfig } from './CategorizadorRapido';
-
-// Componente de imagem com fallback seguro (sem manipulação de innerHTML)
-const ImageWithFallback = ({ src, alt, className, onClick }) => {
-  const [hasError, setHasError] = React.useState(false);
-
-  if (hasError || !src) {
-    return (
-      <div className="flex items-center justify-center bg-slate-100 rounded-2xl p-8 min-h-[200px]">
-        <div className="text-center">
-          <ImageIcon className="w-12 h-12 text-slate-400 mx-auto mb-2" />
-          <p className="text-sm text-slate-500">Imagem expirada ou indisponível</p>
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <img
-      src={src}
-      alt={alt}
-      className={className}
-      loading="lazy"
-      onClick={onClick}
-      onError={() => {
-        console.warn('[MSG] Erro ao carregar imagem:', src);
-        setHasError(true);
-      }}
-    />
-  );
-};
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
 import {
