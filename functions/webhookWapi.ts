@@ -137,13 +137,17 @@ function normalizarPayload(payload) {
   } else if (msgContent.imageMessage) {
     mediaType = 'image';
     // W-API: a URL pode estar em diferentes campos dependendo da versão
-    mediaUrl = msgContent.imageMessage.url 
-      || msgContent.imageMessage.directPath 
-      || payload.mediaUrl 
+    // Prioridade: campos específicos da W-API > campos genéricos
+    mediaUrl = payload.mediaUrl 
       || payload.media?.url
       || payload.downloadUrl
+      || payload.fileUrl
+      || msgContent.imageMessage.url 
+      || msgContent.imageMessage.directPath
+      || msgContent.imageMessage.jpegThumbnail
       || null;
     conteudo = msgContent.imageMessage.caption || '[Imagem]';
+    console.log('[W-API WEBHOOK] 🖼️ ImageMessage detectada - URL encontrada:', mediaUrl ? 'SIM' : 'NÃO');
   } else if (msgContent.videoMessage) {
     mediaType = 'video';
     mediaUrl = msgContent.videoMessage.url 
@@ -255,8 +259,10 @@ Deno.serve(async (req) => {
   console.log('[W-API WEBHOOK] IsGroup:', payload.isGroup);
   console.log('[W-API WEBHOOK] Sender:', JSON.stringify(payload.sender));
   console.log('[W-API WEBHOOK] MsgContent:', JSON.stringify(payload.msgContent)?.substring(0, 300));
-  console.log('[W-API WEBHOOK] MediaUrl:', payload.mediaUrl || payload.media?.url || payload.downloadUrl || 'N/A');
+  console.log('[W-API WEBHOOK] MediaUrl:', payload.mediaUrl || payload.media?.url || payload.downloadUrl || payload.fileUrl || 'N/A');
+  console.log('[W-API WEBHOOK] Sender.profilePicture:', payload.sender?.profilePicture ? 'SIM' : 'NÃO');
   console.log('[W-API WEBHOOK] Keys:', Object.keys(payload).join(', '));
+  if (payload.sender) console.log('[W-API WEBHOOK] Sender Keys:', Object.keys(payload.sender).join(', '));
   console.log('[W-API WEBHOOK] ===========================================');
 
   // FILTRO ULTRA-RAPIDO
@@ -405,12 +411,20 @@ async function handleMessage(dados, payloadBruto, base44) {
   );
 
   // Extrair foto de perfil do payload W-API (vários formatos possíveis)
-  const profilePicUrl = payloadBruto.sender?.profilePicThumbObj?.eurl 
+  // Documentação W-API: sender.profilePicture é o campo principal
+  const profilePicUrl = payloadBruto.sender?.profilePicture
+    || payloadBruto.sender?.profilePicThumbObj?.eurl 
     || payloadBruto.sender?.profilePicThumbObj?.url
     || payloadBruto.sender?.imgUrl
+    || payloadBruto.sender?.thumbnail
     || payloadBruto.profilePicThumb
     || payloadBruto.senderProfilePic
+    || payloadBruto.profilePicUrl
     || null;
+  
+  if (profilePicUrl) {
+    console.log('[W-API WEBHOOK] 📷 Foto de perfil encontrada no payload:', profilePicUrl.substring(0, 60) + '...');
+  }
 
   if (contatos.length > 0) {
     contato = contatos[0];
