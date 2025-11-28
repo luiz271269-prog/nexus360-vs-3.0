@@ -96,15 +96,20 @@ export class QueryOptimizer {
 
     let resultado;
     
+    const cacheKey = `${nomeEntidade}_filter_${JSON.stringify(filtros)}_${ordenacao}_${limite}`;
+    
     if (usarCache) {
-      resultado = await cacheGlobal.cacheQuery(
-        nomeEntidade,
-        { method: 'filter', filtros, ordenacao, limite },
-        async () => await entidade.filter(filtros, ordenacao, limite),
-        ttlCache
-      );
-    } else {
-      resultado = await entidade.filter(filtros, ordenacao, limite);
+      const cached = localCache.get(cacheKey);
+      if (cached) {
+        this.metricas.cache_hits = (this.metricas.cache_hits || 0) + 1;
+        return cached;
+      }
+    }
+    
+    resultado = await entidade.filter(filtros, ordenacao, limite);
+    
+    if (usarCache) {
+      localCache.set(cacheKey, resultado, ttlCache);
     }
 
     const tempoQuery = Date.now() - inicioQuery;
