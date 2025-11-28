@@ -279,14 +279,7 @@ export default function Dashboard() {
       dashboardCache.data = dadosCarregados;
       dashboardCache.timestamp = agora;
 
-      console.log("✅ Dashboard carregado com QUERY OPTIMIZER");
-
-      const stats = queryOptimizer.obterEstatisticas();
-      console.log("📊 Performance:", {
-        queriesOtimizadas: stats.queries_otimizadas,
-        cacheHits: stats.cache_hits,
-        economiaEstimada: `${stats.economia_estimada_percentual}%`
-      });
+      console.log("✅ Dashboard carregado com sucesso");
 
       return dadosCarregados;
     } catch (error) {
