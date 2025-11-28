@@ -1,19 +1,19 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.4';
-import { normalizarTelefone } from './lib/phoneUtils.js';
 import { connectionManager } from './lib/connectionManager.js';
 
 // ============================================================================
-// WEBHOOK WHATSAPP Z-API - v8.0.0 OTIMIZADO
+// WEBHOOK WHATSAPP Z-API - v8.1.0 CORRIGIDO
 // ============================================================================
 // 1. Filtrar ULTRA-CEDO antes de qualquer operação
 // 2. Logs MÍNIMOS - apenas mensagens reais salvas
 // 3. Ignorar: status@broadcast, @lid, grupos, fromMe, typing
 // 4. whatsapp_integration_id SEMPRE no metadata
+// 5. CORRIGIDO: Normalização de telefone SEM + para evitar duplicatas
 // ============================================================================
 
-const VERSION = 'v8.0.1';
-const BUILD_DATE = '2025-11-25';
-const BUILD_TIMESTAMP = '20251125-174500';
+const VERSION = 'v8.1.0';
+const BUILD_DATE = '2025-11-28';
+const BUILD_TIMESTAMP = '20251128-150000';
 
 const corsHeaders = {
   'Content-Type': 'application/json',
@@ -21,6 +21,36 @@ const corsHeaders = {
   'Access-Control-Allow-Methods': 'POST, GET, OPTIONS',
   'Access-Control-Allow-Headers': 'Content-Type',
 };
+
+// ============================================================================
+// NORMALIZAÇÃO DE TELEFONE - VERSÃO UNIFICADA (SEM + para consistência)
+// ============================================================================
+function normalizarTelefoneUnificado(telefone) {
+  if (!telefone) return null;
+  
+  // Remover sufixos do WhatsApp (@lid, @s.whatsapp.net, @g.us, etc.)
+  let numeroLimpo = String(telefone).split('@')[0];
+  
+  // Remover tudo que não é número (incluindo +)
+  let apenasNumeros = numeroLimpo.replace(/\D/g, '');
+  
+  // Se não tem números, retornar null
+  if (!apenasNumeros) return null;
+  
+  // Se tem menos de 10 dígitos, é inválido
+  if (apenasNumeros.length < 10) return null;
+  
+  // Se não começa com código do país, assumir Brasil (55)
+  if (!apenasNumeros.startsWith('55')) {
+    // Se tem 10 ou 11 dígitos, é um número brasileiro sem DDI
+    if (apenasNumeros.length === 10 || apenasNumeros.length === 11) {
+      apenasNumeros = '55' + apenasNumeros;
+    }
+  }
+  
+  // IMPORTANTE: Retornar SEM + para garantir consistência entre provedores
+  return apenasNumeros;
+}
 
 // ============================================================================
 // FILTRO ULTRA-RÁPIDO - Retorna motivo se IGNORAR, null se processar
@@ -93,7 +123,7 @@ function normalizarPayload(payload) {
 
   // Mensagem real
   const telefone = payload.phone || '';
-  const numeroLimpo = normalizarTelefone(telefone);
+  const numeroLimpo = normalizarTelefoneUnificado(telefone);
   if (!numeroLimpo) return { type: 'unknown', error: 'telefone_invalido' };
 
   let mediaType = 'none';
@@ -102,23 +132,23 @@ function normalizarPayload(payload) {
 
   if (payload.image) {
     mediaType = 'image';
-    mediaUrl = payload.image.imageUrl || payload.image.url;
+    mediaUrl = payload.image.imageUrl || payload.image.url || payload.image.urlWithToken || payload.fileUrl || null;
     conteudo = conteudo || payload.image.caption || '[Imagem]';
   } else if (payload.video) {
     mediaType = 'video';
-    mediaUrl = payload.video.videoUrl || payload.video.url;
+    mediaUrl = payload.video.videoUrl || payload.video.url || payload.video.urlWithToken || payload.fileUrl || null;
     conteudo = conteudo || payload.video.caption || '[Vídeo]';
   } else if (payload.audio) {
     mediaType = 'audio';
-    mediaUrl = payload.audio.audioUrl || payload.audio.url;
+    mediaUrl = payload.audio.audioUrl || payload.audio.url || payload.audio.urlWithToken || payload.fileUrl || null;
     conteudo = '[Áudio]';
   } else if (payload.document) {
     mediaType = 'document';
-    mediaUrl = payload.document.documentUrl || payload.document.url;
+    mediaUrl = payload.document.documentUrl || payload.document.url || payload.document.urlWithToken || payload.fileUrl || null;
     conteudo = conteudo || '[Documento]';
   } else if (payload.sticker) {
     mediaType = 'sticker';
-    mediaUrl = payload.sticker.stickerUrl;
+    mediaUrl = payload.sticker.stickerUrl || payload.sticker.url || payload.fileUrl || null;
     conteudo = '[Sticker]';
   } else if (payload.contactMessage || payload.vcard) {
     mediaType = 'contact';
@@ -295,6 +325,16 @@ async function handleMessage(dados, payloadBruto, base44) {
     } catch (e) {}
   }
 
+  // Extrair foto de perfil do payload Z-API
+  const profilePicUrl = payloadBruto.photo
+    || payloadBruto.senderName?.profilePicUrl
+    || payloadBruto.profilePicUrl
+    || null;
+
+  if (profilePicUrl) {
+    console.log('[Z-API WEBHOOK] 📷 Foto de perfil encontrada:', profilePicUrl.substring(0, 60) + '...');
+  }
+
   // Buscar/criar contato
   let contato;
   const contatos = await base44.asServiceRole.entities.Contact.filter(
@@ -307,6 +347,11 @@ async function handleMessage(dados, payloadBruto, base44) {
     if (dados.pushName && (!contato.nome || contato.nome === dados.from)) {
       update.nome = dados.pushName;
     }
+    // Atualizar foto se disponível e diferente
+    if (profilePicUrl && profilePicUrl !== 'null' && contato.foto_perfil_url !== profilePicUrl) {
+      update.foto_perfil_url = profilePicUrl;
+      update.foto_perfil_atualizada_em = new Date().toISOString();
+    }
     await base44.asServiceRole.entities.Contact.update(contato.id, update);
   } else {
     contato = await base44.asServiceRole.entities.Contact.create({
@@ -314,7 +359,9 @@ async function handleMessage(dados, payloadBruto, base44) {
       telefone: dados.from,
       tipo_contato: 'lead',
       whatsapp_status: 'verificado',
-      ultima_interacao: new Date().toISOString()
+      ultima_interacao: new Date().toISOString(),
+      foto_perfil_url: profilePicUrl && profilePicUrl !== 'null' ? profilePicUrl : null,
+      foto_perfil_atualizada_em: profilePicUrl ? new Date().toISOString() : null
     });
   }
 

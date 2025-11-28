@@ -1,14 +1,20 @@
 /**
- * Normaliza números de telefone para um formato padrão
- * Exemplo: 5548999999999 -> +5548999999999
- * Exemplo: 5548999999999@s.whatsapp.net -> +5548999999999
- * Exemplo: 48999999999 -> +5548999999999
+ * Normaliza números de telefone para um formato padrão SEM +
+ * Isso garante consistência entre diferentes provedores (Z-API, W-API)
+ * 
+ * Exemplo: +5548999999999 -> 5548999999999
+ * Exemplo: 5548999999999@s.whatsapp.net -> 5548999999999
+ * Exemplo: 5548999999999@lid -> 5548999999999
+ * Exemplo: 48999999999 -> 5548999999999
  */
 export function normalizarTelefone(telefone) {
   if (!telefone) return null;
   
-  // Remover tudo que não é número
-  let apenasNumeros = telefone.replace(/\D/g, '');
+  // Remover sufixos do WhatsApp (@lid, @s.whatsapp.net, @g.us, etc.)
+  let numeroLimpo = String(telefone).split('@')[0];
+  
+  // Remover tudo que não é número (incluindo +)
+  let apenasNumeros = numeroLimpo.replace(/\D/g, '');
   
   // Se não tem números, retornar null
   if (!apenasNumeros) return null;
@@ -16,7 +22,7 @@ export function normalizarTelefone(telefone) {
   // Se tem menos de 10 dígitos, é inválido
   if (apenasNumeros.length < 10) return null;
   
-  // Se não começa com código do país, assumir Brasil (+55)
+  // Se não começa com código do país, assumir Brasil (55)
   if (!apenasNumeros.startsWith('55')) {
     // Se tem 10 ou 11 dígitos, é um número brasileiro sem DDI
     if (apenasNumeros.length === 10 || apenasNumeros.length === 11) {
@@ -24,32 +30,39 @@ export function normalizarTelefone(telefone) {
     }
   }
   
-  // Retornar no formato +DDI
-  return '+' + apenasNumeros;
+  // IMPORTANTE: Retornar SEM + para garantir consistência entre provedores
+  return apenasNumeros;
 }
 
 /**
- * Compara dois números de telefone para verificar se são iguais
- * (ignora formatação, espaços, etc.)
+ * Compara dois números de telefone após normalização
+ * Retorna true se forem o mesmo número
  */
-export function telefonesIguais(tel1, tel2) {
-  const norm1 = normalizarTelefone(tel1);
-  const norm2 = normalizarTelefone(tel2);
+export function compararTelefones(tel1, tel2) {
+  const n1 = normalizarTelefone(tel1);
+  const n2 = normalizarTelefone(tel2);
   
-  if (!norm1 || !norm2) return false;
-  
-  return norm1 === norm2;
+  if (!n1 || !n2) return false;
+  return n1 === n2;
 }
 
 /**
- * Extrai número de telefone de um JID do WhatsApp
- * Exemplo: 5548999999999@s.whatsapp.net -> +5548999999999
+ * Extrai o número de telefone de um JID do WhatsApp
+ * @param {string} jid - JID no formato 5548999999999@s.whatsapp.net
+ * @returns {string|null} - Número normalizado ou null se inválido
  */
 export function extrairTelefoneDeJID(jid) {
   if (!jid) return null;
-  
-  // Remover sufixos do WhatsApp (@s.whatsapp.net, @g.us, etc.)
-  const numeroLimpo = jid.split('@')[0];
-  
-  return normalizarTelefone(numeroLimpo);
+  return normalizarTelefone(jid);
+}
+
+/**
+ * Formata telefone para exibição com +
+ * @param {string} telefone - Telefone normalizado (apenas números)
+ * @returns {string} - Telefone formatado com +
+ */
+export function formatarTelefoneExibicao(telefone) {
+  const normalizado = normalizarTelefone(telefone);
+  if (!normalizado) return telefone || '';
+  return '+' + normalizado;
 }

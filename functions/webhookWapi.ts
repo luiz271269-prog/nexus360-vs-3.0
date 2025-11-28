@@ -1,15 +1,16 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.4';
 
 // ============================================================================
-// WEBHOOK WHATSAPP W-API - v1.0.1
+// WEBHOOK WHATSAPP W-API - v1.1.0 CORRIGIDO
 // ============================================================================
 // Baseado na documentacao oficial W-API:
 // - Evento de mensagem: webhookReceived
 // - Evento de status: webhookDelivery  
 // - Estrutura: { event, sender: { id }, chat: { id }, msgContent: { ... }, instanceId }
+// CORRIGIDO: Normalização de telefone SEM + para evitar duplicatas com Z-API
 // ============================================================================
 
-const VERSION = 'v1.0.2-wapi';
+const VERSION = 'v1.1.0-wapi';
 const BUILD_DATE = '2025-11-28';
 
 const corsHeaders = {
@@ -19,16 +20,34 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'Content-Type, Authorization',
 };
 
-// Normalizar telefone (remover @s.whatsapp.net e caracteres especiais)
-function normalizarTelefone(telefone) {
+// ============================================================================
+// NORMALIZAÇÃO DE TELEFONE - VERSÃO UNIFICADA (SEM + para consistência)
+// ============================================================================
+function normalizarTelefoneUnificado(telefone) {
   if (!telefone) return null;
-  // Remove @s.whatsapp.net, @c.us, etc
-  let limpo = telefone.replace(/@.*$/, '');
-  // Remove caracteres nao numericos
-  limpo = limpo.replace(/\D/g, '');
-  // Validar tamanho minimo
-  if (limpo.length < 10) return null;
-  return limpo;
+  
+  // Remover sufixos do WhatsApp (@lid, @s.whatsapp.net, @g.us, etc.)
+  let numeroLimpo = String(telefone).split('@')[0];
+  
+  // Remover tudo que não é número (incluindo +)
+  let apenasNumeros = numeroLimpo.replace(/\D/g, '');
+  
+  // Se não tem números, retornar null
+  if (!apenasNumeros) return null;
+  
+  // Se tem menos de 10 dígitos, é inválido
+  if (apenasNumeros.length < 10) return null;
+  
+  // Se não começa com código do país, assumir Brasil (55)
+  if (!apenasNumeros.startsWith('55')) {
+    // Se tem 10 ou 11 dígitos, é um número brasileiro sem DDI
+    if (apenasNumeros.length === 10 || apenasNumeros.length === 11) {
+      apenasNumeros = '55' + apenasNumeros;
+    }
+  }
+  
+  // IMPORTANTE: Retornar SEM + para garantir consistência entre provedores
+  return apenasNumeros;
 }
 
 // ============================================================================
@@ -120,7 +139,7 @@ function normalizarPayload(payload) {
   // Mensagem recebida (webhookReceived)
   // Extrair telefone do sender.id (formato: 5511999999999@s.whatsapp.net)
   const senderId = payload.sender?.id || payload.chat?.id || '';
-  const numeroLimpo = normalizarTelefone(senderId);
+  const numeroLimpo = normalizarTelefoneUnificado(senderId);
   if (!numeroLimpo) return { type: 'unknown', error: 'telefone_invalido' };
 
   let mediaType = 'none';
@@ -407,12 +426,6 @@ async function handleMessage(dados, payloadBruto, base44) {
     } catch (e) {}
   }
 
-  // Buscar/criar contato
-  let contato;
-  const contatos = await base44.asServiceRole.entities.Contact.filter(
-    { telefone: dados.from }, '-created_date', 1
-  );
-
   // Extrair foto de perfil do payload W-API (vários formatos possíveis)
   // Documentação W-API: sender.profilePicture é o campo principal
   const profilePicUrl = payloadBruto.sender?.profilePicture
@@ -428,6 +441,12 @@ async function handleMessage(dados, payloadBruto, base44) {
   if (profilePicUrl) {
     console.log('[W-API WEBHOOK] 📷 Foto de perfil encontrada no payload:', profilePicUrl.substring(0, 60) + '...');
   }
+
+  // Buscar/criar contato
+  let contato;
+  const contatos = await base44.asServiceRole.entities.Contact.filter(
+    { telefone: dados.from }, '-created_date', 1
+  );
 
   if (contatos.length > 0) {
     contato = contatos[0];
