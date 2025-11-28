@@ -413,8 +413,9 @@ export default function MessageBubble({
         await base44.entities.Message.update(message?.id, {
           categorias: [...categoriasAtuais, categoriaNormalizada]
         });
-        if (thread?.id) {
-          queryClient.invalidateQueries({ queryKey: ['mensagens', thread.id] });
+        const threadId = thread?.id;
+        if (threadId) {
+          queryClient.invalidateQueries({ queryKey: ['mensagens', threadId] });
         }
         toast.success(`✅ Categoria "${nomeCategoria}" criada e adicionada!`);
       } else {
