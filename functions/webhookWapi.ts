@@ -367,11 +367,25 @@ async function handleMessage(dados, payloadBruto, base44) {
     { telefone: dados.from }, '-created_date', 1
   );
 
+  // Extrair foto de perfil do payload W-API (vários formatos possíveis)
+  const profilePicUrl = payloadBruto.sender?.profilePicThumbObj?.eurl 
+    || payloadBruto.sender?.profilePicThumbObj?.url
+    || payloadBruto.sender?.imgUrl
+    || payloadBruto.profilePicThumb
+    || payloadBruto.senderProfilePic
+    || null;
+
   if (contatos.length > 0) {
     contato = contatos[0];
     const update = { ultima_interacao: new Date().toISOString() };
     if (dados.pushName && (!contato.nome || contato.nome === dados.from)) {
       update.nome = dados.pushName;
+    }
+    // Atualizar foto se disponível e diferente
+    if (profilePicUrl && profilePicUrl !== 'null' && contato.foto_perfil_url !== profilePicUrl) {
+      update.foto_perfil_url = profilePicUrl;
+      update.foto_perfil_atualizada_em = new Date().toISOString();
+      console.log('[W-API WEBHOOK] 📷 Foto de perfil atualizada:', profilePicUrl.substring(0, 50) + '...');
     }
     await base44.asServiceRole.entities.Contact.update(contato.id, update);
   } else {
@@ -380,7 +394,9 @@ async function handleMessage(dados, payloadBruto, base44) {
       telefone: dados.from,
       tipo_contato: 'lead',
       whatsapp_status: 'verificado',
-      ultima_interacao: new Date().toISOString()
+      ultima_interacao: new Date().toISOString(),
+      foto_perfil_url: profilePicUrl && profilePicUrl !== 'null' ? profilePicUrl : null,
+      foto_perfil_atualizada_em: profilePicUrl ? new Date().toISOString() : null
     });
   }
 
