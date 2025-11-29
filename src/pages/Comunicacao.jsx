@@ -89,42 +89,52 @@ export default function Comunicacao() {
       // ⚡ OTIMIZAÇÃO: Buscar apenas 50 threads mais recentes
       const allThreads = await base44.entities.MessageThread.list('-last_message_at', 50);
 
-      // 🔐 FILTRO INTELIGENTE POR PERMISSÕES: Setor → Função → Conexão WhatsApp
+      // 🔐 FILTRO INTELIGENTE POR PERMISSÕES: Conexão → Setor → Atendente Nomeado
+      // Garante que conversas novas (sem atendente) não se percam
       if (!isManager && usuario.is_whatsapp_attendant) {
         const setorAtendente = usuario.attendant_sector || 'geral';
+        const setoresUsuario = usuario.whatsapp_setores || [setorAtendente];
         const funcaoAtendente = usuario.attendant_role || 'junior';
         const whatsappPerms = usuario.whatsapp_permissions || [];
         
         // Níveis que podem ver todas as conversas do setor
-        const podeVerTodos = ['gerente', 'coordenador', 'supervisor'].includes(funcaoAtendente);
+        const podeVerTodosNoSetor = ['gerente', 'coordenador', 'supervisor'].includes(funcaoAtendente);
         
         return allThreads.filter((thread) => {
-          // ✅ Conversas atribuídas ao atendente SEMPRE aparecem
+          // 1️⃣ ✅ REGRA PRINCIPAL: Conversas atribuídas ao usuário SEMPRE aparecem
           if (thread.assigned_user_id === usuario.id) return true;
           
-          // 🔐 Verificar permissão de conexão WhatsApp
+          // 2️⃣ 🔐 VERIFICAR PERMISSÃO DE CONEXÃO WHATSAPP
+          // Se o usuário tem permissões específicas configuradas, verificar
           if (whatsappPerms.length > 0 && thread.whatsapp_integration_id) {
             const permissao = whatsappPerms.find(p => p.integration_id === thread.whatsapp_integration_id);
-            if (!permissao || !permissao.can_view) return false;
-          }
-          
-          // 👁️ Gerentes/Coordenadores/Supervisores veem todas do setor
-          if (podeVerTodos) {
-            // Se tem setor definido, verificar compatibilidade
-            if (thread.sector_id && setorAtendente !== 'geral') {
-              return thread.sector_id === setorAtendente;
+            if (!permissao || !permissao.can_view) {
+              // Sem permissão para esta conexão = não vê
+              return false;
             }
-            return true; // Sem setor = geral = todos veem
           }
           
-          // 👤 Atendentes (senior, pleno, junior) veem:
-          // - Conversas não atribuídas do seu setor
-          // - Conversas sem setor (geral)
+          // 3️⃣ 📋 VERIFICAR SETOR DA CONVERSA
+          // Conversa tem setor definido? Verificar compatibilidade
+          const setorThread = thread.sector_id || 'geral';
+          const usuarioTemAcessoAoSetor = 
+            setorAtendente === 'geral' || 
+            setorThread === 'geral' || 
+            setorThread === setorAtendente ||
+            setoresUsuario.includes(setorThread);
+          
+          // 4️⃣ 👁️ GERENTES/COORDENADORES/SUPERVISORES - veem todas do setor
+          if (podeVerTodosNoSetor) {
+            return usuarioTemAcessoAoSetor;
+          }
+          
+          // 5️⃣ 🆕 CONVERSAS SEM ATENDENTE (NOVAS) - não podem se perder!
+          // Atendentes veem conversas não atribuídas SE tiverem acesso ao setor
           if (!thread.assigned_user_id) {
-            if (!thread.sector_id || thread.sector_id === 'geral') return true;
-            if (thread.sector_id === setorAtendente) return true;
+            return usuarioTemAcessoAoSetor;
           }
           
+          // 6️⃣ ❌ Conversas atribuídas a OUTROS atendentes - não aparecem
           return false;
         });
       } else if (!isManager && !usuario.is_whatsapp_attendant) {
