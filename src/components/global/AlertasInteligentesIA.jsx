@@ -50,10 +50,7 @@ export default function AlertasInteligentesIA({
   if (alertas.length === 0) return null;
 
   return (
-    <motion.div
-      initial={{ x: 400, opacity: 0 }}
-      animate={{ x: 0, opacity: 1 }}
-      transition={{ type: "spring", damping: 20 }}
+    <div
       className="fixed top-20 right-6 z-40 w-[5cm] max-h-[calc(100vh-120px)] flex flex-col"
     >
       {/* Header */}
@@ -91,63 +88,54 @@ export default function AlertasInteligentesIA({
       </div>
 
       {/* Cards de Alertas */}
-      <AnimatePresence>
-        {expandido && (
-          <motion.div
-            initial={{ height: 0, opacity: 0 }}
-            animate={{ height: 'auto', opacity: 1 }}
-            exit={{ height: 0, opacity: 0 }}
-            transition={{ duration: 0.2 }}
-            className="bg-slate-900/95 backdrop-blur-xl rounded-b-2xl border-2 border-t-0 border-slate-700 shadow-2xl overflow-hidden"
-          >
-            <div className="p-2 space-y-2 max-h-[calc(100vh-200px)] overflow-y-auto scrollbar-thin scrollbar-thumb-slate-700 scrollbar-track-slate-800">
-              {alertas.map((alerta, index) => {
-                const config = PRIORIDADE_CONFIG[alerta.prioridade] || PRIORIDADE_CONFIG.media;
-                const IconComponent = config.icon;
+      {expandido && (
+        <div
+          className="bg-slate-900/95 backdrop-blur-xl rounded-b-2xl border-2 border-t-0 border-slate-700 shadow-2xl overflow-hidden transition-all duration-200"
+        >
+          <div className="p-2 space-y-2 max-h-[calc(100vh-200px)] overflow-y-auto scrollbar-thin scrollbar-thumb-slate-700 scrollbar-track-slate-800">
+            {alertas.map((alerta, index) => {
+              const config = PRIORIDADE_CONFIG[alerta.prioridade] || PRIORIDADE_CONFIG.media;
+              const IconComponent = config.icon;
 
-                return (
-                  <motion.div
-                    key={alerta.id || index}
-                    initial={{ x: 50, opacity: 0 }}
-                    animate={{ x: 0, opacity: 1 }}
-                    transition={{ delay: index * 0.05 }}
-                    className={`${config.cardBg} rounded-xl p-2 shadow-lg`}
-                  >
-                    <div className="flex items-start gap-2">
-                      <IconComponent className="w-4 h-4 text-white flex-shrink-0 mt-0.5" />
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center justify-between mb-1">
-                          <h4 className="text-white font-bold text-[10px] leading-tight">
-                            {alerta.titulo}
-                          </h4>
-                          <Badge className={`${config.badgeColor} text-white text-[7px] px-1 py-0`}>
-                            {config.badge}
-                          </Badge>
-                        </div>
-                        
-                        <p className="text-white/90 text-[9px] leading-tight mb-1.5">
-                          {alerta.descricao}
-                        </p>
-
-                        {alerta.acao_sugerida && (
-                          <Button
-                            onClick={() => alerta.onAcao && alerta.onAcao()}
-                            size="sm"
-                            className="w-full bg-white/20 hover:bg-white/30 text-white text-[9px] h-6 px-2 backdrop-blur-sm"
-                          >
-                            {alerta.acao_sugerida}
-                            <ChevronRight className="w-3 h-3 ml-1" />
-                          </Button>
-                        )}
+              return (
+                <div
+                  key={alerta.id || index}
+                  className={`${config.cardBg} rounded-xl p-2 shadow-lg`}
+                >
+                  <div className="flex items-start gap-2">
+                    <IconComponent className="w-4 h-4 text-white flex-shrink-0 mt-0.5" />
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between mb-1">
+                        <h4 className="text-white font-bold text-[10px] leading-tight">
+                          {alerta.titulo}
+                        </h4>
+                        <Badge className={`${config.badgeColor} text-white text-[7px] px-1 py-0`}>
+                          {config.badge}
+                        </Badge>
                       </div>
+                      
+                      <p className="text-white/90 text-[9px] leading-tight mb-1.5">
+                        {alerta.descricao}
+                      </p>
+
+                      {alerta.acao_sugerida && (
+                        <Button
+                          onClick={() => alerta.onAcao && alerta.onAcao()}
+                          size="sm"
+                          className="w-full bg-white/20 hover:bg-white/30 text-white text-[9px] h-6 px-2 backdrop-blur-sm"
+                        >
+                          {alerta.acao_sugerida}
+                          <ChevronRight className="w-3 h-3 ml-1" />
+                        </Button>
+                      )}
                     </div>
-                  </motion.div>
-                );
-              })}
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </motion.div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+    </div>
   );
 }

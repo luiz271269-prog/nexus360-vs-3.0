@@ -16,10 +16,7 @@ export default function BotaoNexusFlutuante({
   className = ''
 }) {
   return (
-    <motion.div
-      initial={{ scale: 0, opacity: 0 }}
-      animate={{ scale: 1, opacity: 1 }}
-      transition={{ type: "spring", damping: 15 }}
+    <div
       className={`fixed bottom-24 right-6 z-50 ${className}`}
     >
       <Button
@@ -34,17 +31,8 @@ export default function BotaoNexusFlutuante({
         
         {/* Animação de Pulse */}
         {contadorLembretes > 0 && (
-          <motion.div
-            animate={{
-              scale: [1, 1.2, 1],
-              opacity: [0.5, 0.8, 0.5]
-            }}
-            transition={{
-              duration: 2,
-              repeat: Infinity,
-              ease: "easeInOut"
-            }}
-            className="absolute inset-0 rounded-full bg-red-500/30"
+          <div
+            className="absolute inset-0 rounded-full bg-red-500/30 animate-pulse"
           />
         )}
         
@@ -72,6 +60,6 @@ export default function BotaoNexusFlutuante({
           'Nexus Co-Piloto'
         )}
       </div>
-    </motion.div>
+    </div>
   );
 }
