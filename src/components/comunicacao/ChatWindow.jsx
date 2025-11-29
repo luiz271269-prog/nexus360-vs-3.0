@@ -1540,7 +1540,9 @@ export default function ChatWindow({
                   selecionada={mensagensSelecionadas.includes(mensagem.id)}
                   onToggleSelecao={() => toggleSelecionarMensagem(mensagem.id)}
                   mensagens={mensagens}
-                  integracoes={integracoes} />
+                  integracoes={integracoes}
+                  usuarioAtual={usuario}
+                  contato={contatoCompleto} />
 
                 </React.Fragment>);
 
