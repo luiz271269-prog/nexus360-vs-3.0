@@ -492,8 +492,19 @@ export default function MessageBubble({
         }
 
         {!isOwn && !modoSelecao &&
-        <div className="h-7 w-7 rounded-lg bg-slate-100 flex items-center justify-center mt-0.5 flex-shrink-0">
-            <div className="h-1.5 w-1.5 rounded-full bg-slate-400" />
+        <div className="h-8 w-8 rounded-full bg-slate-200 flex items-center justify-center mt-0.5 flex-shrink-0 overflow-hidden">
+            {contato?.foto_perfil_url ? (
+              <img 
+                src={contato.foto_perfil_url} 
+                alt={contato?.nome || 'Contato'} 
+                className="w-full h-full object-cover"
+                onError={(e) => { e.target.style.display = 'none'; }}
+              />
+            ) : (
+              <span className="text-xs font-bold text-slate-500">
+                {(contato?.nome || 'C').charAt(0).toUpperCase()}
+              </span>
+            )}
           </div>
         }
 
