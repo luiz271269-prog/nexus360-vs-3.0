@@ -18,7 +18,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
-import { motion, AnimatePresence } from "framer-motion";
+
 import AlertasInteligentesIA from "../components/global/AlertasInteligentesIA";
 import BotaoNexusFlutuante from "../components/global/BotaoNexusFlutuante";
 
