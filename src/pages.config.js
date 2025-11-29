@@ -32,7 +32,6 @@ import Fase2 from './pages/Fase2';
 import Fase3 from './pages/Fase3';
 import Fase4 from './pages/Fase4';
 import DiagnosticoInbound from './pages/DiagnosticoInbound';
-import comunicacao from './pages/comunicacao';
 import ChecklistValidacaoZAPI from './pages/ChecklistValidacaoZAPI';
 import BackupManager from './pages/BackupManager';
 import PlanoImplementacao from './pages/PlanoImplementacao';
@@ -96,7 +95,6 @@ export const PAGES = {
     "Fase3": Fase3,
     "Fase4": Fase4,
     "DiagnosticoInbound": DiagnosticoInbound,
-    "comunicacao": comunicacao,
     "ChecklistValidacaoZAPI": ChecklistValidacaoZAPI,
     "BackupManager": BackupManager,
     "PlanoImplementacao": PlanoImplementacao,
