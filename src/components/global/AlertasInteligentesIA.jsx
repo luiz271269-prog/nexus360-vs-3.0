@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import React, { useState } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -12,7 +12,6 @@ import {
   ChevronRight,
   Brain
 } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
 
 const PRIORIDADE_CONFIG = {
   critica: {
