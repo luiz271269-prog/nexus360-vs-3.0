@@ -169,7 +169,8 @@ export default function MessageBubble({
   onToggleSelecao,
   mensagens,
   integracoes = [],
-  usuarioAtual = null
+  usuarioAtual = null,
+  contato = null
 }) {
   // ⚠️ SEGURANÇA: Não renderizar se mensagem for inválida
   if (!message || typeof message !== 'object') {
