@@ -8,13 +8,17 @@
  * Exemplo: 48999999999 -> 5548999999999
  */
 export function normalizarTelefone(telefone) {
-  if (!telefone) return null;
+  if (!telefone || telefone === null || telefone === undefined) return null;
+  
+  // Converter para string de forma segura
+  const telefoneStr = String(telefone || '');
+  if (!telefoneStr || telefoneStr.trim() === '') return null;
   
   // Remover sufixos do WhatsApp (@lid, @s.whatsapp.net, @g.us, etc.)
-  let numeroLimpo = String(telefone).split('@')[0];
+  let numeroLimpo = telefoneStr.split('@')[0];
   
   // Remover tudo que não é número (incluindo +)
-  let apenasNumeros = numeroLimpo.replace(/\D/g, '');
+  let apenasNumeros = (numeroLimpo || '').replace(/\D/g, '');
   
   // Se não tem números, retornar null
   if (!apenasNumeros) return null;
@@ -62,7 +66,8 @@ export function extrairTelefoneDeJID(jid) {
  * @returns {string} - Telefone formatado com +
  */
 export function formatarTelefoneExibicao(telefone) {
+  if (!telefone || telefone === null || telefone === undefined) return '';
   const normalizado = normalizarTelefone(telefone);
-  if (!normalizado) return telefone || '';
+  if (!normalizado) return String(telefone || '');
   return '+' + normalizado;
 }
