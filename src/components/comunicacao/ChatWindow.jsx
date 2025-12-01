@@ -1190,9 +1190,18 @@ export default function ChatWindow({
     setUploadingPastedFile(true);
     setErro(null);
 
+    // Guardar referências antes de limpar UI
+    const imagemParaEnviar = pastedImage;
+    const legendaImagem = mensagemTexto.trim() || null;
+    const respostaParaMensagem = mensagemResposta;
+
+    // Limpar UI imediatamente para feedback visual
+    cancelarImagemColada();
+    setMensagemTexto('');
+    setMensagemResposta(null);
+
     // 1. Criar mensagem com status 'enviando' ANTES do upload
     let novaMensagem;
-    const legendaImagem = mensagemTexto.trim() || null;
 
     try {
       novaMensagem = await base44.entities.Message.create({
@@ -1205,20 +1214,15 @@ export default function ChatWindow({
         channel: 'whatsapp',
         status: 'enviando',
         sent_at: new Date().toISOString(),
-        media_url: pastedImagePreview, // Preview temporário
+        media_url: null, // Será atualizado após upload
         media_type: 'image',
         media_caption: legendaImagem,
-        reply_to_message_id: mensagemResposta?.id || null,
+        reply_to_message_id: respostaParaMensagem?.id || null,
         metadata: {
           whatsapp_integration_id: integrationIdParaUso,
           is_pasted_image: true
         }
       });
-
-      // Limpar UI e atualizar lista
-      cancelarImagemColada();
-      setMensagemTexto('');
-      setMensagemResposta(null);
 
       if (onAtualizarMensagens) {
         onAtualizarMensagens();
@@ -1231,11 +1235,34 @@ export default function ChatWindow({
     }
 
     try {
-      // 2. Upload da imagem
-      console.log('[CHAT] 📤 Fazendo upload da imagem...');
+      // 2. Upload da imagem - garantir tipo MIME correto
+      console.log('[CHAT] 📤 Fazendo upload da imagem colada...');
       const timestamp = Date.now();
-      const fileName = `print-${timestamp}.png`;
-      const imageFile = new File([pastedImage], fileName, { type: pastedImage.type });
+      
+      // Determinar extensão e tipo MIME corretos
+      let mimeType = imagemParaEnviar.type || 'image/png';
+      let extension = 'png';
+      if (mimeType.includes('jpeg') || mimeType.includes('jpg')) {
+        extension = 'jpg';
+      } else if (mimeType.includes('webp')) {
+        extension = 'webp';
+      } else if (mimeType.includes('gif')) {
+        extension = 'gif';
+      }
+      
+      // Se o tipo MIME estiver vazio ou inválido, forçar PNG
+      if (!mimeType || !mimeType.startsWith('image/')) {
+        mimeType = 'image/png';
+        extension = 'png';
+      }
+      
+      const fileName = `print-${timestamp}.${extension}`;
+      console.log('[CHAT] 📋 Arquivo:', { fileName, mimeType, size: imagemParaEnviar.size });
+      
+      const imageFile = new File([imagemParaEnviar], fileName, { 
+        type: mimeType,
+        lastModified: timestamp
+      });
 
       const uploadResponse = await base44.integrations.Core.UploadFile({ file: imageFile });
       const imageUrl = uploadResponse.file_url;
@@ -1251,8 +1278,8 @@ export default function ChatWindow({
         media_caption: legendaImagem
       };
 
-      if (mensagemResposta?.whatsapp_message_id) {
-        dadosEnvio.reply_to_message_id = mensagemResposta.whatsapp_message_id;
+      if (respostaParaMensagem?.whatsapp_message_id) {
+        dadosEnvio.reply_to_message_id = respostaParaMensagem.whatsapp_message_id;
       }
 
       console.log('[CHAT] 📦 Dados envio:', JSON.stringify(dadosEnvio));

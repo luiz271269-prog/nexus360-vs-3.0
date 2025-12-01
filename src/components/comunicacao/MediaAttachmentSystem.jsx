@@ -44,11 +44,20 @@ const MIME_TYPES = {
 };
 
 const getMediaTypeFromMime = (mimeType) => {
+  if (!mimeType) return 'document';
+  
+  // Verificação exata primeiro para documentos (application/pdf, etc.)
   for (const [type, mimes] of Object.entries(MIME_TYPES)) {
-    if (mimes.some(mime => mimeType.startsWith(mime.split('/')[0]))) {
+    if (mimes.includes(mimeType)) {
       return type;
     }
   }
+  
+  // Fallback por prefixo para tipos genéricos
+  if (mimeType.startsWith('image/')) return 'image';
+  if (mimeType.startsWith('video/')) return 'video';
+  if (mimeType.startsWith('audio/')) return 'audio';
+  
   return 'document';
 };
 
@@ -175,8 +184,15 @@ export default function MediaAttachmentSystem({
       toast.warning(`Imagem grande (${formatFileSize(file.size)}). Recomendado: ${formatFileSize(IMAGE_MAX_SIZE)}`);
     }
 
+    // Validação de tipo - aceita tipos conhecidos ou genéricos de mídia
     const allMimeTypes = Object.values(MIME_TYPES).flat();
-    if (!allMimeTypes.some(mime => file.type.startsWith(mime.split('/')[0]))) {
+    const isKnownType = allMimeTypes.includes(file.type);
+    const isGenericMedia = file.type.startsWith('image/') || 
+                           file.type.startsWith('video/') || 
+                           file.type.startsWith('audio/') ||
+                           file.type.startsWith('application/');
+    
+    if (!isKnownType && !isGenericMedia) {
       return `Tipo de arquivo não suportado: ${file.type}`;
     }
 
