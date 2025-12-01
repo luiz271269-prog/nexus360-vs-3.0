@@ -1666,35 +1666,52 @@ async function executarPreAtendimentoInline(base44, params) {
     // 3B: Cotação/Orçamento/Compra
     if (contexto.intencoes.cotacao >= 3 || intencaoDominante[0] === 'cotacao' || contexto.setores.vendas > 5) {
       console.log('[PRE-ATEND] 🛒 Intenção: COTAÇÃO/VENDAS');
-      
+
       let atendente = null;
+
+      // 1. Tentar atendente fidelizado
       if (contato.atendente_fidelizado_vendas) {
         try { atendente = await base44.asServiceRole.entities.User.get(contato.atendente_fidelizado_vendas); } catch (e) {}
       }
-      
+
+      // 2. Se não tem fidelizado, buscar atendente do setor vendas
+      if (!atendente) {
+        try {
+          const atendentesSetor = await base44.asServiceRole.entities.User.filter({
+            attendant_sector: 'vendas'
+          }, '-created_date', 10);
+          if (atendentesSetor.length > 0) {
+            atendente = atendentesSetor[0];
+            console.log('[PRE-ATEND] 👤 Atendente do setor encontrado:', atendente.full_name);
+          }
+        } catch (e) {
+          console.log('[PRE-ATEND] ⚠️ Erro ao buscar atendentes do setor:', e?.message);
+        }
+      }
+
       const threadUpdate = {
         sector_id: 'vendas',
         pre_atendimento_ativo: false,
         pre_atendimento_state: 'COMPLETED',
         categorias: ['cotacao']
       };
-      
+
       let msg;
       if (atendente) {
         threadUpdate.assigned_user_id = atendente.id;
         threadUpdate.assigned_user_name = atendente.full_name;
-        msg = `🛒 Entendido! *${atendente.full_name}* de Vendas irá atendê-lo. Aguarde um momento!`;
+        msg = `🛒 Perfeito! Vou te conectar com *${atendente.full_name}* de Vendas. Aguarde um instante! 😊`;
       } else {
-        msg = `🛒 Entendido! Sua solicitação foi direcionada para *Vendas*. Um consultor entrará em contato em breve!`;
+        msg = `🛒 Perfeito! Estou direcionando você para o setor de *Vendas*. Um consultor vai te atender em breve! 😊`;
       }
-      
+
       await base44.asServiceRole.entities.MessageThread.update(thread_id, threadUpdate);
       await base44.asServiceRole.entities.FlowExecution.update(execucao.id, {
         status: 'concluido',
         completed_at: new Date().toISOString(),
         variables: { ...execucao.variables, intencao: 'cotacao', setor_escolhido: 'vendas' }
       });
-      
+
       await enviarMensagem(msg);
       return { success: true, intencao: 'cotacao', setor_escolhido: 'vendas' };
     }
