@@ -1034,7 +1034,7 @@ async function executarPreAtendimentoInline(base44, params) {
     const execucao = execucoes[0];
     const opcoesSetor = execucao.variables?.opcoes_setor || [];
     const tentativas = execucao.variables?.tentativas_nao_entendidas || 0;
-    const textoLower = (resposta_usuario || '').toLowerCase().trim();
+    const textoLower = (resposta_usuario || '').toLowerCase().trim().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
     
     const contato = await base44.asServiceRole.entities.Contact.get(contact_id);
     const isFidelizado = contato.is_cliente_fidelizado === true;
@@ -1080,7 +1080,6 @@ async function executarPreAtendimentoInline(base44, params) {
           body: JSON.stringify({ phone: telefoneNumerico, message: msg })
         });
       }
-      // Salvar mensagem no histórico
       await base44.asServiceRole.entities.Message.create({
         thread_id: thread_id,
         sender_id: 'system',
@@ -1094,50 +1093,163 @@ async function executarPreAtendimentoInline(base44, params) {
     }
 
     // ============================================================================
-    // 1. VERIFICAR SE DIGITOU NOME DE ATENDENTE
+    // 🧠 ANÁLISE INTELIGENTE COM HISTÓRICO DE CONVERSAS
     // ============================================================================
-    let atendenteEncontrado = null;
+    console.log('[PRE-ATEND] 🔍 Analisando resposta:', textoLower);
+
+    // Carregar histórico de mensagens da thread para análise de contexto
+    let historicoMensagens = [];
     try {
-      // Buscar em User (atendentes)
+      historicoMensagens = await base44.asServiceRole.entities.Message.filter(
+        { thread_id: thread_id },
+        '-created_date',
+        20 // últimas 20 mensagens para contexto
+      );
+      console.log('[PRE-ATEND] 📜 Histórico carregado:', historicoMensagens.length, 'mensagens');
+    } catch (e) {
+      console.log('[PRE-ATEND] ⚠️ Erro ao carregar histórico:', e?.message);
+    }
+
+    // Extrair contexto do histórico (nomes mencionados, setores, intenções)
+    const contextoHistorico = {
+      nomesMencionados: [],
+      setoresMencionados: [],
+      intencoes: []
+    };
+    
+    for (const msg of historicoMensagens) {
+      const conteudo = (msg.content || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+      // Detectar menções de setores no histórico
+      if (conteudo.includes('venda') || conteudo.includes('compra') || conteudo.includes('comercial')) {
+        contextoHistorico.setoresMencionados.push('vendas');
+      }
+      if (conteudo.includes('suporte') || conteudo.includes('tecnico') || conteudo.includes('assistencia') || conteudo.includes('problema')) {
+        contextoHistorico.setoresMencionados.push('assistencia');
+      }
+      if (conteudo.includes('financeiro') || conteudo.includes('boleto') || conteudo.includes('pagamento') || conteudo.includes('nota')) {
+        contextoHistorico.setoresMencionados.push('financeiro');
+      }
+      if (conteudo.includes('fornecedor') || conteudo.includes('parceiro') || conteudo.includes('parceria')) {
+        contextoHistorico.setoresMencionados.push('fornecedor');
+      }
+      // Detectar intenções no histórico
+      if (conteudo.includes('cotacao') || conteudo.includes('orcamento') || conteudo.includes('preco') || conteudo.includes('valor')) {
+        contextoHistorico.intencoes.push('cotacao');
+      }
+    }
+
+    // Carregar todos os atendentes para busca
+    let todosAtendentes = [];
+    try {
       const usuarios = await base44.asServiceRole.entities.User.filter({}, '-created_date', 100);
-      for (const user of usuarios) {
-        const nomeUser = (user.full_name || '').toLowerCase();
-        const primeiroNome = nomeUser.split(' ')[0];
-        if (primeiroNome && textoLower.includes(primeiroNome) && primeiroNome.length > 2) {
-          atendenteEncontrado = user;
-          break;
+      const vendedores = await base44.asServiceRole.entities.Vendedor.filter({ status: 'ativo' }, '-created_date', 50);
+      
+      for (const u of usuarios) {
+        if (u.full_name) {
+          const nomeNorm = u.full_name.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+          todosAtendentes.push({
+            id: u.id,
+            nome: u.full_name,
+            nomeNorm: nomeNorm,
+            primeiroNome: nomeNorm.split(' ')[0],
+            email: u.email,
+            tipo: 'user'
+          });
         }
       }
       
-      // Buscar em Vendedor também
-      if (!atendenteEncontrado) {
-        const vendedores = await base44.asServiceRole.entities.Vendedor.filter({ status: 'ativo' }, '-created_date', 50);
-        for (const vend of vendedores) {
-          const nomeVend = (vend.nome || '').toLowerCase();
-          const primeiroNome = nomeVend.split(' ')[0];
-          if (primeiroNome && textoLower.includes(primeiroNome) && primeiroNome.length > 2) {
-            // Buscar o User correspondente pelo email
-            if (vend.email) {
-              const usersMatch = await base44.asServiceRole.entities.User.filter({ email: vend.email }, '-created_date', 1);
-              if (usersMatch.length > 0) {
-                atendenteEncontrado = usersMatch[0];
-                break;
-              }
-            }
+      for (const v of vendedores) {
+        if (v.nome) {
+          const nomeNorm = v.nome.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+          // Verificar se já não existe pelo email
+          const jaExiste = todosAtendentes.some(a => a.email === v.email);
+          if (!jaExiste) {
+            todosAtendentes.push({
+              id: v.id,
+              nome: v.nome,
+              nomeNorm: nomeNorm,
+              primeiroNome: nomeNorm.split(' ')[0],
+              email: v.email,
+              tipo: 'vendedor'
+            });
           }
         }
       }
+      console.log('[PRE-ATEND] 👥 Atendentes carregados:', todosAtendentes.length);
     } catch (e) {
-      console.log('[PRE-ATEND] ⚠️ Erro ao buscar atendentes:', e?.message);
+      console.log('[PRE-ATEND] ⚠️ Erro ao carregar atendentes:', e?.message);
     }
 
-    if (atendenteEncontrado) {
-      console.log('[PRE-ATEND] 👤 Atendente identificado por nome:', atendenteEncontrado.full_name);
+    // ============================================================================
+    // 1. BUSCA INTELIGENTE DE ATENDENTE (nome parcial, apelido, contexto)
+    // ============================================================================
+    let atendenteEncontrado = null;
+    let scoreAtendente = 0;
+
+    for (const atend of todosAtendentes) {
+      let score = 0;
       
+      // Match exato do primeiro nome
+      if (textoLower === atend.primeiroNome) {
+        score = 100;
+      }
+      // Texto contém o primeiro nome completo (mínimo 3 chars)
+      else if (atend.primeiroNome.length >= 3 && textoLower.includes(atend.primeiroNome)) {
+        score = 90;
+      }
+      // Primeiro nome contém o texto (busca parcial - ex: "gab" encontra "gabriel")
+      else if (textoLower.length >= 3 && atend.primeiroNome.includes(textoLower)) {
+        score = 80;
+      }
+      // Nome completo contém o texto
+      else if (textoLower.length >= 3 && atend.nomeNorm.includes(textoLower)) {
+        score = 70;
+      }
+      // Texto contém parte do nome (mínimo 4 chars para evitar falsos positivos)
+      else if (textoLower.length >= 4) {
+        const partes = atend.nomeNorm.split(' ');
+        for (const parte of partes) {
+          if (parte.length >= 4 && textoLower.includes(parte)) {
+            score = 60;
+            break;
+          }
+        }
+      }
+
+      // Bonus se nome aparece no histórico
+      const nomeNoHistorico = historicoMensagens.some(m => 
+        (m.content || '').toLowerCase().includes(atend.primeiroNome)
+      );
+      if (nomeNoHistorico && score > 0) {
+        score += 10;
+      }
+
+      if (score > scoreAtendente) {
+        scoreAtendente = score;
+        atendenteEncontrado = atend;
+      }
+    }
+
+    if (atendenteEncontrado && scoreAtendente >= 60) {
+      console.log('[PRE-ATEND] 👤 Atendente encontrado:', atendenteEncontrado.nome, '| Score:', scoreAtendente);
+      
+      // Buscar User ID se for vendedor
+      let userId = atendenteEncontrado.id;
+      let userNome = atendenteEncontrado.nome;
+      if (atendenteEncontrado.tipo === 'vendedor' && atendenteEncontrado.email) {
+        try {
+          const userMatch = await base44.asServiceRole.entities.User.filter({ email: atendenteEncontrado.email }, '-created_date', 1);
+          if (userMatch.length > 0) {
+            userId = userMatch[0].id;
+            userNome = userMatch[0].full_name;
+          }
+        } catch (e) {}
+      }
+
       await base44.asServiceRole.entities.MessageThread.update(thread_id, {
-        assigned_user_id: atendenteEncontrado.id,
-        assigned_user_name: atendenteEncontrado.full_name,
-        sector_id: 'vendas', // Padrão vendas quando pede atendente específico
+        assigned_user_id: userId,
+        assigned_user_name: userNome,
+        sector_id: atendenteEncontrado.tipo === 'vendedor' ? 'vendas' : 'geral',
         pre_atendimento_ativo: false,
         pre_atendimento_state: 'COMPLETED'
       });
@@ -1145,30 +1257,80 @@ async function executarPreAtendimentoInline(base44, params) {
       await base44.asServiceRole.entities.FlowExecution.update(execucao.id, {
         status: 'concluido',
         completed_at: new Date().toISOString(),
-        variables: { ...execucao.variables, atendente_escolhido: atendenteEncontrado.full_name }
+        variables: { ...execucao.variables, atendente_escolhido: userNome, match_score: scoreAtendente }
       });
 
-      const msgAtendente = `✅ Perfeito! Vou direcionar você para *${atendenteEncontrado.full_name}*. Aguarde um momento que ele(a) já vai te atender!`;
-      await enviarMensagem(msgAtendente);
-      
-      return { success: true, atendente_escolhido: atendenteEncontrado.id };
+      await enviarMensagem(`✅ Perfeito! Vou direcionar você para *${userNome}*. Aguarde um momento!`);
+      return { success: true, atendente_escolhido: userId, score: scoreAtendente };
     }
 
     // ============================================================================
-    // 2. VERIFICAR INTENÇÃO: COTAÇÃO / ORÇAMENTO / PREÇO
+    // 2. DETECTAR PEDIDO DE ATENDENTE GENÉRICO
     // ============================================================================
-    const palavrasCotacao = ['cotação', 'cotacao', 'orçamento', 'orcamento', 'preço', 'preco', 'valor', 'quanto custa', 'tabela', 'proposta'];
-    const querCotacao = palavrasCotacao.some(p => textoLower.includes(p));
+    const pedidoAtendente = ['atendente', 'humano', 'pessoa', 'falar com alguem', 'falar com alguém', 'quero falar', 'me ajuda', 'preciso de ajuda', 'atender'];
+    const querAtendente = pedidoAtendente.some(p => textoLower.includes(p));
+    
+    if (querAtendente) {
+      console.log('[PRE-ATEND] 🙋 Pedido de atendente genérico detectado');
+      
+      // Se tem setor no histórico, usar ele
+      let setorDestino = 'geral';
+      if (contextoHistorico.setoresMencionados.length > 0) {
+        setorDestino = contextoHistorico.setoresMencionados[contextoHistorico.setoresMencionados.length - 1];
+      }
+      
+      // Verificar fidelização
+      let atendenteFidelizado = null;
+      const camposFidelizacao = {
+        'vendas': 'atendente_fidelizado_vendas',
+        'assistencia': 'atendente_fidelizado_assistencia',
+        'financeiro': 'atendente_fidelizado_financeiro',
+        'fornecedor': 'atendente_fidelizado_fornecedor',
+        'geral': 'atendente_fidelizado_vendas'
+      };
+      const campoFid = camposFidelizacao[setorDestino];
+      if (campoFid && contato[campoFid]) {
+        try { atendenteFidelizado = await base44.asServiceRole.entities.User.get(contato[campoFid]); } catch (e) {}
+      }
+
+      const threadUpdate = {
+        sector_id: setorDestino,
+        pre_atendimento_ativo: false,
+        pre_atendimento_state: 'COMPLETED'
+      };
+
+      let msgConfirmacao;
+      if (atendenteFidelizado) {
+        threadUpdate.assigned_user_id = atendenteFidelizado.id;
+        threadUpdate.assigned_user_name = atendenteFidelizado.full_name;
+        msgConfirmacao = `✅ Certo! Vou direcionar você para *${atendenteFidelizado.full_name}*. Aguarde um momento!`;
+      } else {
+        msgConfirmacao = `✅ Sem problemas! Um atendente do setor de *${setorDestino}* entrará em contato em breve!`;
+      }
+
+      await base44.asServiceRole.entities.MessageThread.update(thread_id, threadUpdate);
+      await base44.asServiceRole.entities.FlowExecution.update(execucao.id, {
+        status: 'concluido',
+        completed_at: new Date().toISOString(),
+        variables: { ...execucao.variables, setor_escolhido: setorDestino, pediu_atendente: true }
+      });
+
+      await enviarMensagem(msgConfirmacao);
+      return { success: true, setor_escolhido: setorDestino, pediu_atendente: true };
+    }
+
+    // ============================================================================
+    // 3. VERIFICAR INTENÇÃO: COTAÇÃO / ORÇAMENTO / PREÇO
+    // ============================================================================
+    const palavrasCotacao = ['cotacao', 'orcamento', 'preco', 'valor', 'quanto custa', 'tabela', 'proposta', 'comprar', 'adquirir'];
+    const querCotacao = palavrasCotacao.some(p => textoLower.includes(p)) || contextoHistorico.intencoes.includes('cotacao');
     
     if (querCotacao) {
       console.log('[PRE-ATEND] 💰 Intenção de cotação detectada');
       
-      // Verificar se tem atendente fidelizado de vendas
       let atendenteVendas = null;
       if (contato.atendente_fidelizado_vendas) {
-        try {
-          atendenteVendas = await base44.asServiceRole.entities.User.get(contato.atendente_fidelizado_vendas);
-        } catch (e) {}
+        try { atendenteVendas = await base44.asServiceRole.entities.User.get(contato.atendente_fidelizado_vendas); } catch (e) {}
       }
       
       const threadUpdate = {
@@ -1178,13 +1340,13 @@ async function executarPreAtendimentoInline(base44, params) {
         categorias: ['cotacao']
       };
       
-      let msgCotacao = '';
+      let msgCotacao;
       if (atendenteVendas) {
         threadUpdate.assigned_user_id = atendenteVendas.id;
         threadUpdate.assigned_user_name = atendenteVendas.full_name;
-        msgCotacao = `💰 Entendido! Vou direcionar você para *${atendenteVendas.full_name}* do setor de vendas para sua cotação. Aguarde um momento!`;
+        msgCotacao = `💰 Entendido! *${atendenteVendas.full_name}* do setor de Vendas irá atendê-lo. Aguarde um momento!`;
       } else {
-        msgCotacao = `💰 Entendido! Sua solicitação de cotação foi direcionada para o setor de *Vendas*. Um consultor entrará em contato em breve para te ajudar!`;
+        msgCotacao = `💰 Entendido! Sua solicitação foi direcionada para *Vendas*. Um consultor entrará em contato em breve!`;
       }
       
       await base44.asServiceRole.entities.MessageThread.update(thread_id, threadUpdate);
@@ -1199,12 +1361,18 @@ async function executarPreAtendimentoInline(base44, params) {
     }
 
     // ============================================================================
-    // 3. VERIFICAR SETOR PADRÃO
+    // 4. VERIFICAR SETOR (com contexto do histórico)
     // ============================================================================
-    const setorEscolhido = mapearSetorDeResposta(resposta_usuario, opcoesSetor);
+    let setorEscolhido = mapearSetorDeResposta(resposta_usuario, opcoesSetor);
+    
+    // Se não encontrou no texto atual, verificar se tem setor claro no histórico
+    if (!setorEscolhido && contextoHistorico.setoresMencionados.length > 0) {
+      // Usar o setor mais recente mencionado no histórico
+      setorEscolhido = contextoHistorico.setoresMencionados[contextoHistorico.setoresMencionados.length - 1];
+      console.log('[PRE-ATEND] 📜 Setor inferido do histórico:', setorEscolhido);
+    }
     
     if (setorEscolhido) {
-      // Buscar atendente fidelizado para o setor
       const campoFidelizado = {
         'vendas': 'atendente_fidelizado_vendas',
         'assistencia': 'atendente_fidelizado_assistencia',
@@ -1215,9 +1383,7 @@ async function executarPreAtendimentoInline(base44, params) {
       let atendenteFidelizado = null;
       const campo = campoFidelizado[setorEscolhido];
       if (campo && contato[campo]) {
-        try {
-          atendenteFidelizado = await base44.asServiceRole.entities.User.get(contato[campo]);
-        } catch (e) {}
+        try { atendenteFidelizado = await base44.asServiceRole.entities.User.get(contato[campo]); } catch (e) {}
       }
 
       const threadUpdate = {
@@ -1226,13 +1392,13 @@ async function executarPreAtendimentoInline(base44, params) {
         pre_atendimento_state: 'COMPLETED'
       };
 
-      let mensagemConfirmacao = '';
+      let mensagemConfirmacao;
       if (atendenteFidelizado) {
         threadUpdate.assigned_user_id = atendenteFidelizado.id;
         threadUpdate.assigned_user_name = atendenteFidelizado.full_name;
-        mensagemConfirmacao = `✅ Perfeito! Você será atendido por *${atendenteFidelizado.full_name}* do setor de *${setorEscolhido}*. Aguarde um momento!`;
+        mensagemConfirmacao = `✅ Perfeito! *${atendenteFidelizado.full_name}* do setor de *${setorEscolhido}* irá atendê-lo. Aguarde!`;
       } else {
-        mensagemConfirmacao = `✅ Entendido! Sua conversa foi direcionada para o setor de *${setorEscolhido}*. Um atendente entrará em contato em breve.`;
+        mensagemConfirmacao = `✅ Entendido! Sua conversa foi direcionada para *${setorEscolhido}*. Um atendente entrará em contato em breve.`;
       }
 
       await base44.asServiceRole.entities.MessageThread.update(thread_id, threadUpdate);
@@ -1243,28 +1409,30 @@ async function executarPreAtendimentoInline(base44, params) {
       });
 
       await enviarMensagem(mensagemConfirmacao);
-      
-      console.log('[PRE-ATEND] ✅ Concluído | Setor:', setorEscolhido, '| Fidelizado:', atendenteFidelizado?.id || 'N/A');
+      console.log('[PRE-ATEND] ✅ Concluído | Setor:', setorEscolhido);
       return { success: true, setor_escolhido: setorEscolhido };
     }
 
     // ============================================================================
-    // 4. NÃO ENTENDEU - MENSAGEM AMIGÁVEL
+    // 5. NÃO ENTENDEU - ANÁLISE FINAL E FALLBACK INTELIGENTE
     // ============================================================================
     console.log('[PRE-ATEND] ❓ Resposta não identificada:', textoLower.substring(0, 50));
     
-    // Atualizar contador de tentativas
     const novasTentativas = tentativas + 1;
     await base44.asServiceRole.entities.FlowExecution.update(execucao.id, {
       variables: { ...execucao.variables, tentativas_nao_entendidas: novasTentativas }
     });
     
-    // Se já tentou 2 vezes, direciona para atendimento geral
+    // Após 2 tentativas, direciona automaticamente
     if (novasTentativas >= 2) {
-      console.log('[PRE-ATEND] 🔄 Máximo de tentativas atingido, direcionando para atendimento geral');
+      // Usar setor do histórico se disponível
+      let setorFallback = 'geral';
+      if (contextoHistorico.setoresMencionados.length > 0) {
+        setorFallback = contextoHistorico.setoresMencionados[0];
+      }
       
       await base44.asServiceRole.entities.MessageThread.update(thread_id, {
-        sector_id: 'geral',
+        sector_id: setorFallback,
         pre_atendimento_ativo: false,
         pre_atendimento_state: 'COMPLETED'
       });
@@ -1272,23 +1440,23 @@ async function executarPreAtendimentoInline(base44, params) {
       await base44.asServiceRole.entities.FlowExecution.update(execucao.id, {
         status: 'concluido',
         completed_at: new Date().toISOString(),
-        variables: { ...execucao.variables, setor_escolhido: 'geral', motivo: 'max_tentativas' }
+        variables: { ...execucao.variables, setor_escolhido: setorFallback, motivo: 'max_tentativas' }
       });
       
-      const msgEncaminhar = `👋 Sem problemas! Vou encaminhar você para um de nossos atendentes que poderá ajudá-lo melhor. Aguarde um momento!`;
-      await enviarMensagem(msgEncaminhar);
-      
-      return { success: true, setor_escolhido: 'geral', motivo: 'max_tentativas' };
+      await enviarMensagem(`👋 Sem problemas! Vou encaminhar você para um atendente. Aguarde um momento!`);
+      return { success: true, setor_escolhido: setorFallback, motivo: 'max_tentativas' };
     }
     
-    // Primeira tentativa - mensagem amigável com opções
-    let msgNaoEntendi = `😊 Desculpe, não consegui identificar sua solicitação.\n\n`;
-    msgNaoEntendi += `Como posso te ajudar hoje?\n\n`;
+    // Listar nomes de atendentes disponíveis para sugestão
+    const nomesDisponiveis = todosAtendentes.slice(0, 5).map(a => a.primeiroNome).filter((v, i, a) => a.indexOf(v) === i);
+    
+    let msgNaoEntendi = `🤔 Não consegui entender. Como posso ajudar?\n\n`;
     msgNaoEntendi += opcoesSetor.map((op, i) => `${i + 1}. ${op.label}`).join('\n');
-    msgNaoEntendi += `\n\n📌 *Dica:* Você também pode digitar o *nome do atendente* que deseja falar, ou escrever o que precisa (ex: "quero uma cotação").`;
+    msgNaoEntendi += `\n\n💡 *Você também pode:*\n`;
+    msgNaoEntendi += `• Digitar o nome do atendente (ex: ${nomesDisponiveis[0] || 'João'})\n`;
+    msgNaoEntendi += `• Descrever o que precisa (ex: "preciso de orçamento")`;
     
     await enviarMensagem(msgNaoEntendi);
-    
     return { success: true, understood: false, tentativas: novasTentativas };
   }
 
