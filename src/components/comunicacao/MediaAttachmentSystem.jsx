@@ -231,37 +231,89 @@ export default function MediaAttachmentSystem({
       return;
     }
 
+    const contatoTel = thread.contato?.telefone || thread.contato?.celular;
+    if (!contatoTel) {
+      toast.error('Contato sem telefone cadastrado.');
+      return;
+    }
+
+    const integrationIdParaUso = integrationIdOverride || thread.whatsapp_integration_id;
+    if (!integrationIdParaUso) {
+      toast.error('Thread sem integração WhatsApp configurada.');
+      return;
+    }
+
     setUploading(true);
 
-    try {
-      const results = [];
+    const results = [];
+    const mensagensCriadas = {};
 
-      for (let i = 0; i < selectedFiles.length; i++) {
-        const file = selectedFiles[i];
-        const caption = captions[file.name] || '';
-        const mediaType = getMediaTypeFromMime(file.type);
+    // 1. Criar TODAS as mensagens com status 'enviando' primeiro
+    for (const file of selectedFiles) {
+      const caption = captions[file.name] || '';
+      const mediaType = getMediaTypeFromMime(file.type);
+      const previewUrl = URL.createObjectURL(file);
 
-        setUploadProgress(prev => ({
-          ...prev,
-          [file.name]: 'uploading'
-        }));
+      try {
+        const novaMensagem = await base44.entities.Message.create({
+          thread_id: thread.id,
+          sender_id: usuario.id,
+          sender_type: 'user',
+          recipient_id: thread.contact_id,
+          recipient_type: 'contact',
+          content: caption || `[${mediaType}]`,
+          channel: 'whatsapp',
+          status: 'enviando',
+          sent_at: new Date().toISOString(),
+          media_url: previewUrl,
+          media_type: mediaType,
+          media_caption: caption || null,
+          reply_to_message_id: replyToMessage?.id || null,
+          metadata: {
+            whatsapp_integration_id: integrationIdParaUso,
+            file_name: file.name,
+            file_size: file.size,
+            mime_type: file.type
+          }
+        });
+        mensagensCriadas[file.name] = novaMensagem;
+        setUploadProgress(prev => ({ ...prev, [file.name]: 'created' }));
+      } catch (createErr) {
+        console.error(`[MEDIA] Erro ao criar mensagem para ${file.name}:`, createErr);
+        setUploadProgress(prev => ({ ...prev, [file.name]: 'error' }));
+      }
+    }
+
+    // Callback para atualizar UI
+    if (onSend) {
+      onSend();
+    }
+
+    // 2. Agora fazer upload e envio de cada arquivo
+    for (const file of selectedFiles) {
+      const novaMensagem = mensagensCriadas[file.name];
+      if (!novaMensagem) continue;
+
+      const caption = captions[file.name] || '';
+      const mediaType = getMediaTypeFromMime(file.type);
+
+      try {
+        setUploadProgress(prev => ({ ...prev, [file.name]: 'uploading' }));
 
         // Upload do arquivo
+        console.log(`[MEDIA] 📤 Upload: ${file.name}`);
         const uploadResponse = await base44.integrations.Core.UploadFile({ file });
         const fileUrl = uploadResponse.file_url;
+        console.log(`[MEDIA] ✅ Upload OK: ${fileUrl}`);
 
-        setUploadProgress(prev => ({
-          ...prev,
-          [file.name]: 'sending'
-        }));
+        setUploadProgress(prev => ({ ...prev, [file.name]: 'sending' }));
 
-        // Enviar via WhatsApp - usar integração selecionada ou da thread
-        const integrationIdParaUso = integrationIdOverride || thread.whatsapp_integration_id;
+        // Enviar via WhatsApp
         const dadosEnvio = {
           integration_id: integrationIdParaUso,
-          numero_destino: thread.contato?.telefone || thread.contato?.celular,
+          numero_destino: contatoTel,
           media_type: mediaType,
-          media_caption: caption
+          media_caption: caption || null
         };
 
         if (mediaType === 'audio') {
@@ -274,69 +326,76 @@ export default function MediaAttachmentSystem({
           dadosEnvio.reply_to_message_id = replyToMessage.whatsapp_message_id;
         }
 
+        console.log(`[MEDIA] 📦 Enviando ${mediaType}:`, JSON.stringify(dadosEnvio));
         const resultado = await base44.functions.invoke('enviarWhatsApp', dadosEnvio);
+        console.log(`[MEDIA] 📥 Resultado:`, JSON.stringify(resultado.data));
 
         if (resultado.data.success) {
-          // Salvar no banco
-          await base44.entities.Message.create({
-            thread_id: thread.id,
-            sender_id: usuario.id,
-            sender_type: "user",
-            recipient_id: thread.contact_id,
-            recipient_type: "contact",
-            content: caption || `[${mediaType}]`,
-            channel: "whatsapp",
-            status: "enviada",
+          // Atualizar mensagem para 'enviada'
+          await base44.entities.Message.update(novaMensagem.id, {
+            status: 'enviada',
             whatsapp_message_id: resultado.data.message_id,
-            sent_at: new Date().toISOString(),
             media_url: fileUrl,
-            media_type: mediaType,
-            media_caption: caption || null,
-            reply_to_message_id: replyToMessage?.id || null,
-            metadata: {
-              whatsapp_integration_id: integrationIdParaUso,
-              file_name: file.name,
-              file_size: file.size,
-              mime_type: file.type
-            }
+            sent_at: new Date().toISOString()
           });
 
-          setUploadProgress(prev => ({
-            ...prev,
-            [file.name]: 'success'
-          }));
-
+          setUploadProgress(prev => ({ ...prev, [file.name]: 'success' }));
           results.push({ file: file.name, success: true });
         } else {
-          throw new Error(resultado.data.error || 'Erro ao enviar');
+          // Marcar como falhou
+          await base44.entities.Message.update(novaMensagem.id, {
+            status: 'falhou',
+            erro_detalhes: resultado.data.error || 'Erro desconhecido'
+          });
+          setUploadProgress(prev => ({ ...prev, [file.name]: 'error' }));
+          console.error(`[MEDIA] ❌ Erro ao enviar ${file.name}:`, resultado.data.error);
         }
+      } catch (error) {
+        console.error(`[MEDIA] ❌ Erro ao processar ${file.name}:`, error);
+        
+        // Marcar como falhou
+        try {
+          await base44.entities.Message.update(novaMensagem.id, {
+            status: 'falhou',
+            erro_detalhes: error.message || 'Erro ao enviar'
+          });
+        } catch (updateErr) {
+          console.error('[MEDIA] Erro ao atualizar status:', updateErr);
+        }
+        
+        setUploadProgress(prev => ({ ...prev, [file.name]: 'error' }));
+      }
+    }
+
+    // 3. Atualizar thread
+    if (results.length > 0) {
+      try {
+        await base44.entities.MessageThread.update(thread.id, {
+          last_message_content: results.length === 1 
+            ? `[${getMediaTypeFromMime(selectedFiles[0].type)}]`
+            : `[${results.length} arquivos]`,
+          last_message_at: new Date().toISOString(),
+          last_message_sender: 'user',
+          last_media_type: getMediaTypeFromMime(selectedFiles[0].type)
+        });
+      } catch (threadErr) {
+        console.error('[MEDIA] Erro ao atualizar thread:', threadErr);
       }
 
-      // Atualizar thread
-      await base44.entities.MessageThread.update(thread.id, {
-        last_message_content: results.length === 1 
-          ? `[${getMediaTypeFromMime(selectedFiles[0].type)}]`
-          : `[${results.length} arquivos]`,
-        last_message_at: new Date().toISOString(),
-        last_message_sender: "user"
-      });
+      toast.success(`✅ ${results.length} arquivo(s) enviado(s)!`);
+    } else {
+      toast.error('❌ Nenhum arquivo foi enviado com sucesso.');
+    }
 
-      toast.success(`✅ ${results.length} arquivo(s) enviado(s) com sucesso!`);
+    // Limpar seleção
+    setSelectedFiles([]);
+    setCaptions({});
+    setUploadProgress({});
+    setUploading(false);
 
-      // Limpar seleção
-      setSelectedFiles([]);
-      setCaptions({});
-      setUploadProgress({});
-
-      if (onSend) {
-        onSend();
-      }
-
-    } catch (error) {
-      console.error('[MEDIA-ATTACHMENT] Erro:', error);
-      toast.error(`Erro ao enviar arquivo: ${error.message}`);
-    } finally {
-      setUploading(false);
+    // Atualizar mensagens no chat
+    if (onSend) {
+      setTimeout(() => onSend(), 500);
     }
   };
 

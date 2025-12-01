@@ -1175,91 +1175,138 @@ export default function ChatWindow({
       return;
     }
 
-    setUploadingPastedFile(true);
-    try {
-      const contatoTel = contatoCompleto?.telefone || contatoCompleto?.celular;
-      if (!contatoTel) {
-        throw new Error('Contato sem telefone');
-      }
+    const contatoTel = contatoCompleto?.telefone || contatoCompleto?.celular;
+    if (!contatoTel) {
+      toast.error('Contato sem telefone cadastrado.');
+      return;
+    }
 
-      // Upload da imagem
+    const integrationIdParaUso = canalSelecionado || thread.whatsapp_integration_id;
+    if (!integrationIdParaUso) {
+      toast.error('Thread sem integração WhatsApp configurada.');
+      return;
+    }
+
+    setUploadingPastedFile(true);
+    setErro(null);
+
+    // 1. Criar mensagem com status 'enviando' ANTES do upload
+    let novaMensagem;
+    const legendaImagem = mensagemTexto.trim() || null;
+
+    try {
+      novaMensagem = await base44.entities.Message.create({
+        thread_id: thread.id,
+        sender_id: usuario.id,
+        sender_type: 'user',
+        recipient_id: thread.contact_id,
+        recipient_type: 'contact',
+        content: legendaImagem || '[Imagem]',
+        channel: 'whatsapp',
+        status: 'enviando',
+        sent_at: new Date().toISOString(),
+        media_url: pastedImagePreview, // Preview temporário
+        media_type: 'image',
+        media_caption: legendaImagem,
+        reply_to_message_id: mensagemResposta?.id || null,
+        metadata: {
+          whatsapp_integration_id: integrationIdParaUso,
+          is_pasted_image: true
+        }
+      });
+
+      // Limpar UI e atualizar lista
+      cancelarImagemColada();
+      setMensagemTexto('');
+      setMensagemResposta(null);
+
+      if (onAtualizarMensagens) {
+        onAtualizarMensagens();
+      }
+    } catch (createError) {
+      console.error('[CHAT] Erro ao criar mensagem inicial:', createError);
+      toast.error('Erro ao preparar envio da imagem.');
+      setUploadingPastedFile(false);
+      return;
+    }
+
+    try {
+      // 2. Upload da imagem
+      console.log('[CHAT] 📤 Fazendo upload da imagem...');
       const timestamp = Date.now();
       const fileName = `print-${timestamp}.png`;
       const imageFile = new File([pastedImage], fileName, { type: pastedImage.type });
 
       const uploadResponse = await base44.integrations.Core.UploadFile({ file: imageFile });
       const imageUrl = uploadResponse.file_url;
+      console.log('[CHAT] ✅ Upload concluído:', imageUrl);
 
-      // Enviar via WhatsApp
-      const integrationId = canalSelecionado || thread.whatsapp_integration_id;
+      // 3. Enviar via WhatsApp
+      console.log('[CHAT] 📤 Enviando imagem via WhatsApp...');
       const dadosEnvio = {
-        integration_id: integrationId,
+        integration_id: integrationIdParaUso,
         numero_destino: contatoTel,
         media_url: imageUrl,
         media_type: 'image',
-        media_caption: mensagemTexto.trim() || null
+        media_caption: legendaImagem
       };
 
       if (mensagemResposta?.whatsapp_message_id) {
         dadosEnvio.reply_to_message_id = mensagemResposta.whatsapp_message_id;
       }
 
+      console.log('[CHAT] 📦 Dados envio:', JSON.stringify(dadosEnvio));
       const resultado = await base44.functions.invoke('enviarWhatsApp', dadosEnvio);
+      console.log('[CHAT] 📥 Resultado:', JSON.stringify(resultado.data));
 
       if (resultado.data.success) {
-        // Salvar mensagem no banco
-        await base44.entities.Message.create({
-          thread_id: thread.id,
-          sender_id: usuario.id,
-          sender_type: 'user',
-          recipient_id: thread.contact_id,
-          recipient_type: 'contact',
-          content: mensagemTexto.trim() || '[Imagem]',
-          channel: 'whatsapp',
+        // 4. Atualizar mensagem para 'enviada'
+        await base44.entities.Message.update(novaMensagem.id, {
           status: 'enviada',
           whatsapp_message_id: resultado.data.message_id,
-          sent_at: new Date().toISOString(),
           media_url: imageUrl,
-          media_type: 'image',
-          media_caption: mensagemTexto.trim() || null,
-          reply_to_message_id: mensagemResposta?.id || null,
-          metadata: {
-            whatsapp_integration_id: integrationId,
-            is_pasted_image: true
-          }
+          sent_at: new Date().toISOString()
         });
 
-        // Atualizar thread
         await base44.entities.MessageThread.update(thread.id, {
           last_message_content: '[Imagem]',
           last_message_at: new Date().toISOString(),
           last_message_sender: 'user',
-          whatsapp_integration_id: integrationId
+          last_media_type: 'image',
+          whatsapp_integration_id: integrationIdParaUso
         });
 
         toast.success('✅ Imagem enviada com sucesso!');
-        cancelarImagemColada();
-        setMensagemTexto('');
-        setMensagemResposta(null);
-
-        if (onAtualizarMensagens) {
-          setTimeout(async () => {
-            const novasMensagens = await base44.entities.Message.filter(
-              { thread_id: thread.id },
-              'created_date',
-              500
-            );
-            onAtualizarMensagens(novasMensagens);
-          }, 500);
-        }
       } else {
+        // 5. Marcar como falhou
+        await base44.entities.Message.update(novaMensagem.id, {
+          status: 'falhou',
+          erro_detalhes: resultado.data.error || 'Erro desconhecido'
+        });
         throw new Error(resultado.data.error || 'Erro ao enviar imagem');
       }
     } catch (error) {
-      console.error('[CHAT] Erro ao enviar imagem colada:', error);
-      toast.error(`Erro: ${error.message}`);
+      console.error('[CHAT] ❌ Erro ao enviar imagem:', error);
+      const errorMsg = error.message || 'Erro ao enviar imagem';
+      setErro(errorMsg);
+      toast.error(`Erro: ${errorMsg}`);
+
+      // Marcar mensagem como falhou
+      if (novaMensagem) {
+        try {
+          await base44.entities.Message.update(novaMensagem.id, {
+            status: 'falhou',
+            erro_detalhes: errorMsg
+          });
+        } catch (updateErr) {
+          console.error('[CHAT] Erro ao atualizar status:', updateErr);
+        }
+      }
     } finally {
       setUploadingPastedFile(false);
+      if (onAtualizarMensagens) {
+        setTimeout(() => onAtualizarMensagens(), 500);
+      }
     }
   };
 
