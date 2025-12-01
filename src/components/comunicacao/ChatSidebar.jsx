@@ -34,7 +34,7 @@ export default function ChatSidebar({ threads, threadAtiva, onSelecionarThread, 
   const { etiquetas: etiquetasDB, getConfig: getEtiquetaConfigDinamico } = useEtiquetasContato();
 
   // ═══════════════════════════════════════════════════════════════════════════════
-  // 🔐 FILTRO INTELIGENTE: Tipo Contato + Conexão WhatsApp + Hierarquia Usuário
+  // 🔐 FILTRO INTELIGENTE: Tipo Contato + Conexão WhatsApp + Hierarquia Usuário + Fidelização
   // ═══════════════════════════════════════════════════════════════════════════════
   const threadsFiltradas = useMemo(() => {
     if (!threads || threads.length === 0) return [];
@@ -62,31 +62,67 @@ export default function ChatSidebar({ threads, threadAtiva, onSelecionarThread, 
       // Se pode ver todos (gerente/coordenador/supervisor), passa
       if (podeVerTodos) return true;
 
-      // 5️⃣ NOVA REGRA: Conversas não atribuídas são visíveis para todos com acesso à conexão
-      //    - Usuário tem acesso à conexão (já verificado acima)
-      //    - Contato NÃO é fidelizado (fidelizado = tem atendente fixo)
+      // 5️⃣ FIDELIZAÇÃO: Clientes fidelizados só são visíveis para o atendente responsável
+      if (contato?.is_cliente_fidelizado) {
+        const setorThread = thread.sector_id || 'geral';
+        
+        // Mapear setor para o campo de atendente fidelizado correspondente
+        const campoAtendenteFidelizado = {
+          'vendas': 'atendente_fidelizado_vendas',
+          'assistencia': 'atendente_fidelizado_assistencia',
+          'financeiro': 'atendente_fidelizado_financeiro',
+          'fornecedor': 'atendente_fidelizado_fornecedor',
+          'geral': null // Geral não tem fidelização específica
+        }[setorThread];
+
+        // Se há um campo de fidelização para este setor
+        if (campoAtendenteFidelizado) {
+          const atendenteFidelizadoId = contato[campoAtendenteFidelizado];
+          
+          // Se tem atendente fidelizado definido para este setor
+          if (atendenteFidelizadoId) {
+            // Só mostra se for o atendente fidelizado
+            if (atendenteFidelizadoId !== usuarioAtual?.id) {
+              return false;
+            }
+          }
+        }
+        
+        // Se não tem atendente fidelizado específico para o setor, verifica atribuição direta
+        if (thread.assigned_user_id && thread.assigned_user_id !== usuarioAtual?.id) {
+          return false;
+        }
+      }
+
+      // 6️⃣ Conversas não atribuídas de contatos NÃO fidelizados são visíveis para todos com acesso
       const isNaoAtribuida = !thread.assigned_user_id;
       const isContatoNaoFidelizado = !contato?.is_cliente_fidelizado;
 
-      // Conversas não atribuídas E de contatos não fidelizados são visíveis para TODOS
-      // Ignora verificação de setor/tipo de contato para essas conversas
       if (isNaoAtribuida && isContatoNaoFidelizado) {
         return true;
       }
 
-      // 6️⃣ Verificar setor da conversa vs setor do atendente (apenas para conversas atribuídas ou fidelizadas)
+      // 7️⃣ Conversa atribuída diretamente ao usuário atual
+      if (thread.assigned_user_id === usuarioAtual?.id) {
+        return true;
+      }
+
+      // 8️⃣ Verificar setor da conversa vs setor do atendente
       const setorThread = thread.sector_id;
       if (setorThread && setorUsuario && setorThread !== setorUsuario && setorUsuario !== 'geral') {
         return false;
       }
 
-      // 7️⃣ Verificar tipo de contato vs setor do atendente
+      // 9️⃣ Verificar tipo de contato vs setor do atendente
       const tipoContato = contato?.tipo_contato || 'novo';
       const configSetor = SETORES_ATENDIMENTO.find((s) => s.value === setorUsuario);
       if (configSetor && !configSetor.tipos_contato_aceitos.includes(tipoContato)) {
-        if (thread.assigned_user_id !== usuarioAtual?.id) {
-          return false;
-        }
+        return false;
+      }
+
+      // 🔟 Conversas atribuídas a outros (não fidelizadas) - ocultar para atendentes comuns
+      if (thread.assigned_user_id && thread.assigned_user_id !== usuarioAtual?.id) {
+        return false;
       }
 
       return true;
