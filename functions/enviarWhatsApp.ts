@@ -225,12 +225,29 @@ Deno.serve(async (req) => {
           }
         }
       } else {
+        // Z-API: usar endpoint correto para cada tipo
         endpoint = `${baseUrl}/instances/${instanceId}/token/${token}/${config.endpoint}`;
-        body = {
-          phone: numero_destino,
-          [config.field]: media_url,
-          caption: media_caption || ''
-        };
+        
+        if (media_type === 'document') {
+          // Z-API documento: usar campo 'document' com URL
+          body = {
+            phone: numeroFormatado,
+            document: media_url
+          };
+          // Nome do arquivo para exibição
+          if (media_caption) {
+            body.fileName = media_caption;
+          }
+        } else {
+          // Imagem/Vídeo: usar campo correspondente
+          body = {
+            phone: numeroFormatado,
+            [config.field]: media_url
+          };
+          if (media_caption) {
+            body.caption = media_caption;
+          }
+        }
       }
       
       if (reply_to_message_id) {
@@ -238,6 +255,7 @@ Deno.serve(async (req) => {
       }
       
       console.log(`[ENVIAR-WHATSAPP-UNIFICADO] 📎 Enviando ${media_type} (${providerName}):`, media_url);
+      console.log(`[ENVIAR-WHATSAPP-UNIFICADO] 📎 Body documento:`, JSON.stringify(body));
     } 
     
     // ========== TEXTO ==========
