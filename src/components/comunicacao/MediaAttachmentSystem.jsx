@@ -328,14 +328,20 @@ export default function MediaAttachmentSystem({
         const dadosEnvio = {
           integration_id: integrationIdParaUso,
           numero_destino: contatoTel,
-          media_type: mediaType,
-          media_caption: caption || null
+          media_type: mediaType
         };
 
         if (mediaType === 'audio') {
           dadosEnvio.audio_url = fileUrl;
         } else {
           dadosEnvio.media_url = fileUrl;
+        }
+
+        // Caption para imagens/vídeos, fileName para documentos
+        if (mediaType === 'document') {
+          dadosEnvio.media_caption = file.name; // Nome do arquivo para documentos
+        } else if (caption) {
+          dadosEnvio.media_caption = caption;
         }
 
         if (replyToMessage?.whatsapp_message_id) {
