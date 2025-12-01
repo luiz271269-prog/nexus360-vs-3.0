@@ -892,11 +892,48 @@ async function executarPreAtendimentoInline(base44, params) {
     const listaOpcoes = opcoesSetor.map((op, i) => `${i + 1}. ${op.label}`).join('\n');
     const mensagemCompleta = `${mensagemTexto}\n\n${listaOpcoes}\n\n_Responda com o número ou nome da opção desejada._`;
 
-    // Enviar via Z-API
-    const integracao = await base44.asServiceRole.entities.WhatsAppIntegration.get(integration_id);
+    // Buscar integração - ACEITAR QUALQUER CONEXÃO DISPONÍVEL
+    let integracao = null;
+    
+    // 1. Tentar pela integration_id fornecida
+    if (integration_id) {
+      try {
+        integracao = await base44.asServiceRole.entities.WhatsAppIntegration.get(integration_id);
+      } catch (e) {
+        console.log('[PRE-ATEND] ⚠️ Integração específica não encontrada:', integration_id);
+      }
+    }
+    
+    // 2. Fallback: buscar pela thread.whatsapp_integration_id
+    if (!integracao && thread.whatsapp_integration_id) {
+      try {
+        integracao = await base44.asServiceRole.entities.WhatsAppIntegration.get(thread.whatsapp_integration_id);
+        console.log('[PRE-ATEND] 📱 Usando integração da thread:', thread.whatsapp_integration_id);
+      } catch (e) {
+        console.log('[PRE-ATEND] ⚠️ Integração da thread não encontrada');
+      }
+    }
+    
+    // 3. Fallback final: buscar QUALQUER integração conectada
     if (!integracao) {
-      console.error('[PRE-ATEND] ❌ Integração não encontrada:', integration_id);
-      return { success: false, error: 'integracao_nao_encontrada' };
+      try {
+        const integracoesDisponiveis = await base44.asServiceRole.entities.WhatsAppIntegration.filter(
+          { status: 'conectado' },
+          '-ultima_atividade',
+          1
+        );
+        if (integracoesDisponiveis.length > 0) {
+          integracao = integracoesDisponiveis[0];
+          console.log('[PRE-ATEND] 📱 Usando primeira integração conectada:', integracao.nome_instancia);
+        }
+      } catch (e) {
+        console.log('[PRE-ATEND] ⚠️ Erro ao buscar integrações disponíveis');
+      }
+    }
+    
+    if (!integracao) {
+      console.error('[PRE-ATEND] ❌ Nenhuma integração WhatsApp disponível');
+      return { success: false, error: 'nenhuma_integracao_disponivel' };
     }
 
     const zapiUrl = `${integracao.base_url_provider}/instances/${integracao.instance_id_provider}/token/${integracao.api_key_provider}/send-text`;
@@ -973,7 +1010,42 @@ async function executarPreAtendimentoInline(base44, params) {
     const setorEscolhido = mapearSetorDeResposta(resposta_usuario, opcoesSetor);
 
     const contato = await base44.asServiceRole.entities.Contact.get(contact_id);
-    const integracao = await base44.asServiceRole.entities.WhatsAppIntegration.get(integration_id);
+    
+    // Buscar integração - ACEITAR QUALQUER CONEXÃO DISPONÍVEL
+    let integracao = null;
+    
+    // 1. Tentar pela integration_id fornecida
+    if (integration_id) {
+      try {
+        integracao = await base44.asServiceRole.entities.WhatsAppIntegration.get(integration_id);
+      } catch (e) {}
+    }
+    
+    // 2. Fallback: usar a integração salva na execução do fluxo
+    if (!integracao && execucao.whatsapp_integration_id) {
+      try {
+        integracao = await base44.asServiceRole.entities.WhatsAppIntegration.get(execucao.whatsapp_integration_id);
+      } catch (e) {}
+    }
+    
+    // 3. Fallback final: buscar qualquer integração conectada
+    if (!integracao) {
+      try {
+        const integracoesDisponiveis = await base44.asServiceRole.entities.WhatsAppIntegration.filter(
+          { status: 'conectado' },
+          '-ultima_atividade',
+          1
+        );
+        if (integracoesDisponiveis.length > 0) {
+          integracao = integracoesDisponiveis[0];
+        }
+      } catch (e) {}
+    }
+    
+    if (!integracao) {
+      console.error('[PRE-ATEND] ❌ Nenhuma integração disponível para responder');
+      return { success: false, error: 'nenhuma_integracao_disponivel' };
+    }
 
     if (!setorEscolhido) {
       // Resposta não reconhecida
