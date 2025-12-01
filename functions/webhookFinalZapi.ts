@@ -1406,27 +1406,13 @@ async function executarPreAtendimentoInline(base44, params) {
     if (perguntouNexus) {
       console.log('[PRE-ATEND] 🤖 Pergunta sobre Nexus360 detectada!');
 
-      const mensagemNexus = `✨ *Olá! Que ótima pergunta!*
+      const mensagemNexus = `🤖 Sou a *Nexus360*, sua IA de atendimento!
 
-    Eu sou a *Nexus360*, a IA de atendimento inteligente! 🤖
+      Analiso sua necessidade e direciono ao especialista certo, de forma rápida e inteligente. ✨
 
-    Estou aqui para *facilitar e agilizar* seu pré-atendimento, analisando suas necessidades e criando o contexto perfeito para direcionar você ao especialista certo.
+      Para qual setor posso te ajudar?
 
-    🚀 *O que o Nexus360 faz:*
-    • Identifica automaticamente o melhor setor para sua demanda
-    • Reconhece seu histórico e preferências
-    • Conecta você ao atendente ideal
-    • Aprende e melhora a cada interação
-
-    💡 *Benefícios:*
-    • Atendimento mais rápido e eficiente
-    • Menos tempo de espera
-    • Respostas personalizadas
-    • Disponível 24/7
-
-    Agora me conta: *para qual setor você gostaria de falar?*
-
-    ${opcoesSetor.map((op, i) => `${i + 1}. ${op.label}`).join('\n')}`;
+      ${opcoesSetor.map((op, i) => `${i + 1}. ${op.label}`).join('\n')}`;
 
       await enviarMensagem(mensagemNexus);
 
