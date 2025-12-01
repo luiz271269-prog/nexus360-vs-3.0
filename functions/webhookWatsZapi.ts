@@ -674,24 +674,26 @@ async function handleMessage(dados, payloadBruto, base44) {
   });
 
   // ============================================================================
-  // ✅ PRÉ-ATENDIMENTO AUTOMÁTICO - ATIVA APENAS COM SAUDAÇÕES
+  // ✅ PRÉ-ATENDIMENTO AUTOMÁTICO - ATIVADO POR SAUDAÇÕES
   // ============================================================================
-  // Dispara quando: mensagem é uma saudação (oi, olá, bom dia, etc.)
+  // Dispara APENAS quando o cliente envia uma mensagem de saudação
+  // Se há execução ativa, processa a resposta do cliente
   // ============================================================================
   
-  // Detectar se a mensagem é uma saudação
+  // Lista de palavras que ativam o pré-atendimento
   const SAUDACOES = [
     'oi', 'olá', 'ola', 'oie', 'oii', 'oiii',
     'bom dia', 'boa tarde', 'boa noite',
+    'bomdia', 'boatarde', 'boanoite',
     'hey', 'hello', 'hi',
     'e aí', 'e ai', 'eai', 'eae',
-    'opa', 'fala', 'salve',
     'tudo bem', 'tudo bom', 'como vai',
-    'bdia', 'btarde', 'bnoite'
+    'opa', 'fala', 'salve'
   ];
   
+  // Verificar se a mensagem é uma saudação
   const mensagemLower = (dados.content || '').toLowerCase().trim();
-  const ehSaudacao = SAUDACOES.some(s => mensagemLower === s || mensagemLower.startsWith(s + ' ') || mensagemLower.startsWith(s + ',') || mensagemLower.startsWith(s + '!'));
+  const isSaudacao = SAUDACOES.some(s => mensagemLower === s || mensagemLower.startsWith(s + ' ') || mensagemLower.startsWith(s + ',') || mensagemLower.startsWith(s + '!'));
   
   // Verificar se há execução ativa (cliente respondendo ao pré-atendimento)
   const execucoesAtivas = await base44.asServiceRole.entities.FlowExecution.filter({
@@ -713,10 +715,10 @@ async function handleMessage(dados, payloadBruto, base44) {
     } catch (e) {
       console.error('[' + VERSION + '] ❌ Erro ao processar resposta pré-atendimento:', e.message);
     }
-  } else if (ehSaudacao) {
-    // Iniciar pré-atendimento APENAS se for saudação
+  } else if (isSaudacao) {
+    // Iniciar pré-atendimento apenas se for saudação
     try {
-      console.log('[' + VERSION + '] 🚀 Saudação detectada! Iniciando pré-atendimento | Thread:', thread.id, '| Msg:', mensagemLower);
+      console.log('[' + VERSION + '] 🚀 Saudação detectada! Iniciando pré-atendimento | Msg:', mensagemLower, '| Thread:', thread.id);
       await executarPreAtendimentoInline(base44, {
         action: 'iniciar',
         thread_id: thread.id,
@@ -728,7 +730,7 @@ async function handleMessage(dados, payloadBruto, base44) {
       console.error('[' + VERSION + '] ❌ Erro ao iniciar pré-atendimento:', e.message);
     }
   } else {
-    console.log('[' + VERSION + '] ℹ️ Mensagem não é saudação, pré-atendimento não ativado | Msg:', mensagemLower.substring(0, 50));
+    console.log('[' + VERSION + '] ℹ️ Mensagem não é saudação, pré-atendimento não ativado | Msg:', mensagemLower.substring(0, 30));
   }
 
   // ✅ Audit log em background (não bloqueia resposta)
