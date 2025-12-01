@@ -848,14 +848,20 @@ export default function MessageBubble({
                   <span className={cn("text-[10px]", isOwn ? "text-white/70" : "text-slate-500")}>
                     {formatarHorario(message.sent_at || message.created_date)}
                   </span>
-                  {isOwn && message.status === 'lida' &&
-                <CheckCheck className="w-3.5 h-3.5 text-blue-300" />
-                }
-                  {isOwn && message.status === 'entregue' &&
-                <CheckCheck className="w-3.5 h-3.5 text-white/70" />
+                  {isOwn && message.status === 'enviando' &&
+                <Clock className="w-3 h-3 text-white/50" />
                 }
                   {isOwn && message.status === 'enviada' &&
-                <Check className="w-3.5 h-3.5 text-white/70" />
+                <Check className="w-3.5 h-3.5 text-white/60" />
+                }
+                  {isOwn && message.status === 'entregue' &&
+                <CheckCheck className="w-3.5 h-3.5 text-white/60" />
+                }
+                  {isOwn && message.status === 'lida' &&
+                <CheckCheck className="w-3.5 h-3.5 text-[#53bdeb]" />
+                }
+                  {isOwn && message.status === 'falhou' &&
+                <AlertCircle className="w-3.5 h-3.5 text-red-400" />
                 }
                 </div>
               </div>
@@ -883,21 +889,27 @@ export default function MessageBubble({
                     <span className="text-[10px] text-white">
                       {formatarHorario(message?.sent_at || message?.created_date)}
                     </span>
-                    {isOwn && message?.status === 'lida' &&
-                  <CheckCheck className="w-3.5 h-3.5 text-blue-300" />
-                  }
-                    {isOwn && message?.status === 'entregue' &&
-                  <CheckCheck className="w-3.5 h-3.5 text-white/70" />
-                  }
+                    {isOwn && message?.status === 'enviando' &&
+                    <Clock className="w-3 h-3 text-white/50" />
+                    }
                     {isOwn && message?.status === 'enviada' &&
-                  <Check className="w-3.5 h-3.5 text-white/70" />
-                  }
-                  </div>
-                </div>
-              </div>
-            }
+                    <Check className="w-3.5 h-3.5 text-white/60" />
+                    }
+                    {isOwn && message?.status === 'entregue' &&
+                    <CheckCheck className="w-3.5 h-3.5 text-white/60" />
+                    }
+                    {isOwn && message?.status === 'lida' &&
+                    <CheckCheck className="w-3.5 h-3.5 text-[#53bdeb]" />
+                    }
+                    {isOwn && message?.status === 'falhou' &&
+                    <AlertCircle className="w-3.5 h-3.5 text-red-400" />
+                    }
+                    </div>
+                    </div>
+                    </div>
+                    }
 
-            {/* ✅ CONTATO COMPARTILHADO - VCARD */}
+                    {/* ✅ CONTATO COMPARTILHADO - VCARD */}
             {message?.media_type === 'contact' &&
             <div className={cn(
               "px-4 py-3 min-w-[250px]",
@@ -941,14 +953,20 @@ export default function MessageBubble({
                   <span className={cn("text-[10px]", isOwn ? "text-white/70" : "text-slate-500")}>
                     {formatarHorario(message.sent_at || message.created_date)}
                   </span>
-                  {isOwn && message.status === 'lida' &&
-                <CheckCheck className="w-3.5 h-3.5 text-blue-300" />
-                }
-                  {isOwn && message.status === 'entregue' &&
-                <CheckCheck className="w-3.5 h-3.5 text-white/70" />
+                  {isOwn && message.status === 'enviando' &&
+                <Clock className="w-3 h-3 text-white/50" />
                 }
                   {isOwn && message.status === 'enviada' &&
-                <Check className="w-3.5 h-3.5 text-white/70" />
+                <Check className="w-3.5 h-3.5 text-white/60" />
+                }
+                  {isOwn && message.status === 'entregue' &&
+                <CheckCheck className="w-3.5 h-3.5 text-white/60" />
+                }
+                  {isOwn && message.status === 'lida' &&
+                <CheckCheck className="w-3.5 h-3.5 text-[#53bdeb]" />
+                }
+                  {isOwn && message.status === 'falhou' &&
+                <AlertCircle className="w-3.5 h-3.5 text-red-400" />
                 }
                 </div>
               </div>
@@ -1005,14 +1023,20 @@ export default function MessageBubble({
                   <span className={cn("text-[10px]", isOwn ? "text-white/70" : "text-slate-500")}>
                     {formatarHorario(message?.sent_at || message?.created_date)}
                   </span>
-                  {isOwn && message?.status === 'lida' &&
-                <CheckCheck className="w-3.5 h-3.5 text-blue-300" />
-                }
-                  {isOwn && message?.status === 'entregue' &&
-                <CheckCheck className="w-3.5 h-3.5 text-white/70" />
+                  {isOwn && message?.status === 'enviando' &&
+                <Clock className="w-3 h-3 text-white/50" />
                 }
                   {isOwn && message?.status === 'enviada' &&
-                <Check className="w-3.5 h-3.5 text-white/70" />
+                <Check className="w-3.5 h-3.5 text-white/60" />
+                }
+                  {isOwn && message?.status === 'entregue' &&
+                <CheckCheck className="w-3.5 h-3.5 text-white/60" />
+                }
+                  {isOwn && message?.status === 'lida' &&
+                <CheckCheck className="w-3.5 h-3.5 text-[#53bdeb]" />
+                }
+                  {isOwn && message?.status === 'falhou' &&
+                <AlertCircle className="w-3.5 h-3.5 text-red-400" />
                 }
                 </div>
               </div>
@@ -1142,28 +1166,28 @@ export default function MessageBubble({
                   </span>
 
                   {isOwn &&
-                <>
+                  <>
                       {message.status === 'enviando' &&
-                  <Loader2 className="w-3 h-3 text-white/70 animate-spin" />
+                  <Clock className="w-3 h-3 text-white/50" />
                   }
 
                       {message.status === 'enviada' &&
-                  <Check className="w-3.5 h-3.5 text-white/70" />
+                  <Check className="w-3.5 h-3.5 text-white/60" />
                   }
 
                       {message.status === 'entregue' &&
-                  <CheckCheck className="w-3.5 h-3.5 text-white/70" />
+                  <CheckCheck className="w-3.5 h-3.5 text-white/60" />
                   }
 
                       {message.status === 'lida' &&
-                  <CheckCheck className="w-3.5 h-3.5 text-blue-300" />
+                  <CheckCheck className="w-3.5 h-3.5 text-[#53bdeb]" />
                   }
 
                       {message.status === 'falhou' &&
-                  <AlertCircle className="w-3.5 h-3.5 text-red-300" />
+                  <AlertCircle className="w-3.5 h-3.5 text-red-400" />
                   }
                     </>
-                }
+                  }
                 </div>
               </>
             }
