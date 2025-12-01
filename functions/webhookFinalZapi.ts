@@ -1136,19 +1136,65 @@ async function executarPreAtendimentoInline(base44, params) {
       mensagemEhContinuacao: false
     };
     
-    // Palavras-chave por categoria
+    // ============================================================================
+    // 🔧 FUNÇÃO: SIMILARIDADE DE STRINGS (Levenshtein simplificado)
+    // ============================================================================
+    function similaridade(s1, s2) {
+      if (!s1 || !s2) return 0;
+      if (s1 === s2) return 1;
+      if (s1.length < 2 || s2.length < 2) return 0;
+      
+      // Se um contém o outro
+      if (s1.includes(s2) || s2.includes(s1)) return 0.9;
+      
+      // Se começam igual (primeiros 3+ chars)
+      const minLen = Math.min(s1.length, s2.length);
+      let prefixMatch = 0;
+      for (let i = 0; i < minLen; i++) {
+        if (s1[i] === s2[i]) prefixMatch++;
+        else break;
+      }
+      if (prefixMatch >= 3) return 0.7 + (prefixMatch / minLen) * 0.2;
+      
+      // Contar caracteres em comum
+      let comum = 0;
+      const chars1 = s1.split('');
+      const chars2 = s2.split('');
+      for (const c of chars1) {
+        const idx = chars2.indexOf(c);
+        if (idx !== -1) {
+          comum++;
+          chars2.splice(idx, 1);
+        }
+      }
+      return comum / Math.max(s1.length, s2.length);
+    }
+
+    // Função para verificar se palavra corresponde a algum termo (com tolerância a erros)
+    function matchPalavra(palavra, termos) {
+      for (const termo of termos) {
+        if (palavra === termo) return true;
+        if (palavra.length >= 4 && termo.length >= 4) {
+          const sim = similaridade(palavra, termo);
+          if (sim >= 0.75) return true; // 75% de similaridade
+        }
+      }
+      return false;
+    }
+
+    // Palavras-chave por categoria (expandidas)
     const keywords = {
-      vendas: ['venda', 'compra', 'comprar', 'comercial', 'produto', 'catalogo', 'bicicleta', 'bike', 'preco', 'valor', 'desconto', 'promocao', 'estoque'],
-      assistencia: ['suporte', 'tecnico', 'assistencia', 'problema', 'defeito', 'garantia', 'conserto', 'reparo', 'manutencao', 'nao funciona', 'quebrou', 'trocar'],
-      financeiro: ['financeiro', 'boleto', 'pagamento', 'pagar', 'pix', 'nota', 'fiscal', 'nf', 'cobranca', 'parcela', 'fatura', 'baixou', 'compensou', 'pago', 'recibo', 'comprovante'],
-      fornecedor: ['fornecedor', 'parceiro', 'parceria', 'representante', 'distribuidor', 'atacado', 'revenda']
+      vendas: ['venda', 'vendas', 'compra', 'comprar', 'comprou', 'comprei', 'comercial', 'produto', 'produtos', 'catalogo', 'bicicleta', 'bicicletas', 'bike', 'bikes', 'preco', 'valor', 'desconto', 'promocao', 'estoque', 'disponivel', 'tem', 'quero', 'interessado', 'interesse'],
+      assistencia: ['suporte', 'tecnico', 'tecnica', 'assistencia', 'problema', 'problemas', 'defeito', 'defeitos', 'garantia', 'conserto', 'reparo', 'reparar', 'manutencao', 'nao funciona', 'quebrou', 'quebrado', 'trocar', 'troca', 'arrumar'],
+      financeiro: ['financeiro', 'boleto', 'boletos', 'pagamento', 'pagamentos', 'pagar', 'paguei', 'pix', 'nota', 'notas', 'fiscal', 'nf', 'nfe', 'cobranca', 'parcela', 'parcelas', 'fatura', 'faturas', 'baixou', 'baixar', 'compensou', 'compensar', 'pago', 'paga', 'recibo', 'comprovante', 'transferencia', 'deposito', 'depositei'],
+      fornecedor: ['fornecedor', 'fornecedores', 'parceiro', 'parceiros', 'parceria', 'representante', 'distribuidor', 'atacado', 'revenda', 'revendedor']
     };
     
     const intentKeywords = {
-      cotacao: ['cotacao', 'orcamento', 'quanto', 'preco', 'valor', 'proposta', 'orcar'],
-      suporte: ['ajuda', 'problema', 'erro', 'nao consigo', 'como faco', 'duvida'],
-      pagamento: ['pix', 'boleto', 'pagar', 'pagamento', 'baixou', 'compensou', 'pago', 'transferencia', 'deposito'],
-      informacao: ['informacao', 'saber', 'gostaria', 'poderia', 'sobre']
+      cotacao: ['cotacao', 'orcamento', 'quanto', 'preco', 'valor', 'proposta', 'orcar', 'orcando', 'cotando', 'cotar'],
+      suporte: ['ajuda', 'ajudar', 'problema', 'problemas', 'erro', 'erros', 'nao consigo', 'como faco', 'duvida', 'duvidas'],
+      pagamento: ['pix', 'boleto', 'pagar', 'paguei', 'pagamento', 'baixou', 'baixar', 'compensou', 'compensar', 'pago', 'paga', 'transferencia', 'deposito', 'depositei', 'transferi'],
+      informacao: ['informacao', 'saber', 'gostaria', 'poderia', 'sobre', 'informar']
     };
 
     // Analisar TODAS as mensagens do histórico
