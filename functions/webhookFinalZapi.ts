@@ -1200,38 +1200,39 @@ async function executarPreAtendimentoInline(base44, params) {
     // Analisar TODAS as mensagens do histórico
     for (const msg of historicoMensagens) {
       const conteudo = (msg.content || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+      const palavrasMsg = conteudo.split(/\s+/).filter(p => p.length >= 2);
       
-      // Contar menções de setores
-      for (const [setor, palavras] of Object.entries(keywords)) {
-        for (const palavra of palavras) {
-          if (conteudo.includes(palavra)) {
+      // Contar menções de setores (com tolerância a erros)
+      for (const [setor, termos] of Object.entries(keywords)) {
+        for (const palavra of palavrasMsg) {
+          if (matchPalavra(palavra, termos)) {
             contexto.setores[setor]++;
           }
         }
       }
       
-      // Contar intenções
-      for (const [intent, palavras] of Object.entries(intentKeywords)) {
-        for (const palavra of palavras) {
-          if (conteudo.includes(palavra)) {
+      // Contar intenções (com tolerância a erros)
+      for (const [intent, termos] of Object.entries(intentKeywords)) {
+        for (const palavra of palavrasMsg) {
+          if (matchPalavra(palavra, termos)) {
             contexto.intencoes[intent]++;
           }
         }
       }
     }
 
-    // Analisar a mensagem ATUAL também
-    for (const [setor, palavras] of Object.entries(keywords)) {
-      for (const palavra of palavras) {
-        if (textoLower.includes(palavra)) {
+    // Analisar a mensagem ATUAL (peso maior + tolerância a erros)
+    for (const palavra of palavrasTexto) {
+      for (const [setor, termos] of Object.entries(keywords)) {
+        if (matchPalavra(palavra, termos)) {
           contexto.setores[setor] += 5; // Peso maior para mensagem atual
+          console.log('[PRE-ATEND] 🎯 Match setor:', palavra, '->', setor);
         }
       }
-    }
-    for (const [intent, palavras] of Object.entries(intentKeywords)) {
-      for (const palavra of palavras) {
-        if (textoLower.includes(palavra)) {
+      for (const [intent, termos] of Object.entries(intentKeywords)) {
+        if (matchPalavra(palavra, termos)) {
           contexto.intencoes[intent] += 5;
+          console.log('[PRE-ATEND] 🎯 Match intenção:', palavra, '->', intent);
         }
       }
     }
