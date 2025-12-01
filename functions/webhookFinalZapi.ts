@@ -1428,17 +1428,20 @@ async function executarPreAtendimentoInline(base44, params) {
       }
     }
 
-    if (melhorMatch && melhorScore >= 60) {
-      console.log('[PRE-ATEND] 👤 Atendente encontrado:', melhorMatch.nome, '| Score:', melhorScore);
+    if (melhorMatch && melhorScore >= 50) {
+      console.log('[PRE-ATEND] 👤 Atendente encontrado:', melhorMatch.nome, '| Score:', melhorScore, '| Setor:', melhorMatch.setor);
       
       let userId = melhorMatch.id;
       let userNome = melhorMatch.nome;
+      let setorAtendente = melhorMatch.setor || 'geral';
+      
       if (melhorMatch.tipo === 'vendedor' && melhorMatch.email) {
         try {
           const userMatch = await base44.asServiceRole.entities.User.filter({ email: melhorMatch.email }, '-created_date', 1);
           if (userMatch.length > 0) {
             userId = userMatch[0].id;
             userNome = userMatch[0].full_name;
+            setorAtendente = userMatch[0].attendant_sector || melhorMatch.setor || 'geral';
           }
         } catch (e) {}
       }
@@ -1446,7 +1449,7 @@ async function executarPreAtendimentoInline(base44, params) {
       await base44.asServiceRole.entities.MessageThread.update(thread_id, {
         assigned_user_id: userId,
         assigned_user_name: userNome,
-        sector_id: melhorMatch.setor || 'vendas',
+        sector_id: setorAtendente,
         pre_atendimento_ativo: false,
         pre_atendimento_state: 'COMPLETED'
       });
@@ -1454,11 +1457,13 @@ async function executarPreAtendimentoInline(base44, params) {
       await base44.asServiceRole.entities.FlowExecution.update(execucao.id, {
         status: 'concluido',
         completed_at: new Date().toISOString(),
-        variables: { ...execucao.variables, atendente_escolhido: userNome, match_score: melhorScore }
+        variables: { ...execucao.variables, atendente_escolhido: userNome, match_score: melhorScore, setor: setorAtendente }
       });
 
-      await enviarMensagem(`✅ Perfeito! Vou direcionar você para *${userNome}*. Aguarde um momento!`);
-      return { success: true, atendente_escolhido: userId, score: melhorScore };
+      const setorLabel = { vendas: 'Vendas', assistencia: 'Suporte Técnico', financeiro: 'Financeiro', fornecedor: 'Fornecedores', geral: '' }[setorAtendente] || '';
+      const msgSetor = setorLabel ? ` do setor de *${setorLabel}*` : '';
+      await enviarMensagem(`✅ Perfeito! Vou direcionar você para *${userNome}*${msgSetor}. Aguarde um momento!`);
+      return { success: true, atendente_escolhido: userId, score: melhorScore, setor: setorAtendente };
     }
 
     // ============================================================================
