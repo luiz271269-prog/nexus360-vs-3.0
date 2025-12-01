@@ -1612,35 +1612,53 @@ async function executarPreAtendimentoInline(base44, params) {
     // 3A: Pagamento/Financeiro (pix, boleto, baixou, etc)
     if (contexto.intencoes.pagamento >= 3 || intencaoDominante[0] === 'pagamento') {
       console.log('[PRE-ATEND] 💰 Intenção: PAGAMENTO/FINANCEIRO');
-      
+
       let atendente = null;
+
+      // 1. Tentar atendente fidelizado
       if (contato.atendente_fidelizado_financeiro) {
         try { atendente = await base44.asServiceRole.entities.User.get(contato.atendente_fidelizado_financeiro); } catch (e) {}
       }
-      
+
+      // 2. Se não tem fidelizado, buscar atendente do setor financeiro
+      if (!atendente) {
+        try {
+          const atendentesSetor = await base44.asServiceRole.entities.User.filter({
+            attendant_sector: 'financeiro'
+          }, '-created_date', 10);
+          if (atendentesSetor.length > 0) {
+            // Pegar o primeiro disponível
+            atendente = atendentesSetor[0];
+            console.log('[PRE-ATEND] 👤 Atendente do setor encontrado:', atendente.full_name);
+          }
+        } catch (e) {
+          console.log('[PRE-ATEND] ⚠️ Erro ao buscar atendentes do setor:', e?.message);
+        }
+      }
+
       const threadUpdate = {
         sector_id: 'financeiro',
         pre_atendimento_ativo: false,
         pre_atendimento_state: 'COMPLETED',
         categorias: ['pagamento']
       };
-      
+
       let msg;
       if (atendente) {
         threadUpdate.assigned_user_id = atendente.id;
         threadUpdate.assigned_user_name = atendente.full_name;
-        msg = `💰 Entendido! *${atendente.full_name}* do Financeiro irá verificar isso para você. Aguarde um momento!`;
+        msg = `💰 Certo! Vou te conectar com *${atendente.full_name}* do Financeiro. Aguarde um instante! 😊`;
       } else {
-        msg = `💰 Entendido! Sua mensagem foi direcionada para o *Financeiro*. Um atendente irá verificar e retornará em breve!`;
+        msg = `💰 Certo! Estou direcionando você para o setor *Financeiro*. Em breve um especialista vai te atender! 😊`;
       }
-      
+
       await base44.asServiceRole.entities.MessageThread.update(thread_id, threadUpdate);
       await base44.asServiceRole.entities.FlowExecution.update(execucao.id, {
         status: 'concluido',
         completed_at: new Date().toISOString(),
         variables: { ...execucao.variables, intencao: 'pagamento', setor_escolhido: 'financeiro' }
       });
-      
+
       await enviarMensagem(msg);
       return { success: true, intencao: 'pagamento', setor_escolhido: 'financeiro' };
     }
