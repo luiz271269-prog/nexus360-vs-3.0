@@ -170,7 +170,8 @@ export default function MessageBubble({
   mensagens,
   integracoes = [],
   usuarioAtual = null,
-  contato = null
+  contato = null,
+  atendentes = [] // Lista de todos os atendentes para buscar nome do remetente
 }) {
   // ⚠️ SEGURANÇA: Não renderizar se mensagem for inválida
   if (!message || typeof message !== 'object') {
@@ -516,16 +517,41 @@ export default function MessageBubble({
           {/* Nome do Remetente + Setor */}
           <span className={cn(
             "text-[10px] font-semibold mb-0.5 px-1 flex items-center gap-1",
-            isOwn ? "text-slate-500 justify-end" : "text-slate-600 justify-start"
+            message.sender_type === 'user' ? "text-slate-500 justify-end" : "text-slate-600 justify-start"
           )}>
-            {isOwn 
-              ? (usuarioAtual?.full_name || 'Você')
-              : (contato?.nome || contato?.telefone || 'Cliente')}
-            {isOwn && usuarioAtual?.attendant_sector && usuarioAtual.attendant_sector !== 'geral' && (
-              <span className="px-1.5 py-0.5 text-[8px] bg-blue-500 text-white rounded-full font-bold uppercase">
-                {usuarioAtual.attendant_sector}
-              </span>
-            )}
+            {(() => {
+              // Se é mensagem de usuário (atendente)
+              if (message.sender_type === 'user') {
+                // Se sou eu que enviei (isOwn)
+                if (isOwn) {
+                  return usuarioAtual?.full_name || 'Você';
+                }
+                // Se foi outro atendente, buscar na lista
+                const atendenteRemetente = atendentes.find(a => a.id === message.sender_id);
+                return atendenteRemetente?.full_name || 'Atendente';
+              }
+              // Se é mensagem do cliente
+              return contato?.nome || contato?.telefone || 'Cliente';
+            })()}
+            {/* Badge do setor para mensagens de atendentes */}
+            {message.sender_type === 'user' && (() => {
+              // Buscar setor do atendente que enviou
+              let setorAtendente = null;
+              if (isOwn) {
+                setorAtendente = usuarioAtual?.attendant_sector;
+              } else {
+                const atendenteRemetente = atendentes.find(a => a.id === message.sender_id);
+                setorAtendente = atendenteRemetente?.attendant_sector;
+              }
+              if (setorAtendente && setorAtendente !== 'geral') {
+                return (
+                  <span className="px-1.5 py-0.5 text-[8px] bg-blue-500 text-white rounded-full font-bold uppercase">
+                    {setorAtendente}
+                  </span>
+                );
+              }
+              return null;
+            })()}
           </span>
 
           {mensagemOriginal &&
