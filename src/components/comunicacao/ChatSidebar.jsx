@@ -64,7 +64,7 @@ export default function ChatSidebar({ threads, threadAtiva, onSelecionarThread, 
 
       // 5️⃣ FIDELIZAÇÃO: Contatos com atendente fidelizado só são visíveis para o atendente responsável
       // Verificar TODOS os campos de fidelização do contato, independente da flag is_cliente_fidelizado
-      const setorUsuario = usuarioAtual?.attendant_sector || 'geral';
+      const setorUsuarioAtual = usuarioAtual?.attendant_sector || 'geral';
       
       // Mapear setor do usuário para o campo de atendente fidelizado correspondente
       const camposAtendenteFidelizado = {
@@ -75,7 +75,7 @@ export default function ChatSidebar({ threads, threadAtiva, onSelecionarThread, 
       };
       
       // Verificar se o contato tem atendente fidelizado para o setor do usuário atual
-      const campoFidelizacaoSetor = camposAtendenteFidelizado[setorUsuario];
+      const campoFidelizacaoSetor = camposAtendenteFidelizado[setorUsuarioAtual];
       if (campoFidelizacaoSetor && contato?.[campoFidelizacaoSetor]) {
         const atendenteFidelizado = contato[campoFidelizacaoSetor];
         
@@ -93,7 +93,7 @@ export default function ChatSidebar({ threads, threadAtiva, onSelecionarThread, 
       
       // Também verificar fidelização em OUTROS setores (para não vazar entre setores)
       for (const [setor, campo] of Object.entries(camposAtendenteFidelizado)) {
-        if (setor !== setorUsuario && contato?.[campo]) {
+        if (setor !== setorUsuarioAtual && contato?.[campo]) {
           // Se contato está fidelizado em outro setor e não é meu setor, verificar se sou eu
           const atendenteFidelizadoOutroSetor = contato[campo];
           const souEuEmOutroSetor = 
