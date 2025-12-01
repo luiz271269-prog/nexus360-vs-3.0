@@ -674,14 +674,12 @@ async function handleMessage(dados, payloadBruto, base44) {
   });
 
   // ============================================================================
-  // ✅ PRÉ-ATENDIMENTO AUTOMÁTICO
+  // ✅ PRÉ-ATENDIMENTO AUTOMÁTICO - PARA TODOS OS CONTATOS
   // ============================================================================
-  // Condições para iniciar pré-atendimento:
-  // 1. Thread não tem atendente atribuído (assigned_user_id é null)
-  // 2. Pré-atendimento não está ativo (pre_atendimento_ativo é false)
-  // 3. É uma nova thread OU thread existente sem setor definido
+  // Condição única: Pré-atendimento não está ativo na thread
+  // SEMPRE dispara para qualquer mensagem de contato (sem exceção)
   // ============================================================================
-  const deveIniciarPreAtendimento = !thread.assigned_user_id && !thread.pre_atendimento_ativo;
+  const deveIniciarPreAtendimento = !thread.pre_atendimento_ativo;
   
   if (deveIniciarPreAtendimento) {
     // Verificar se há pré-atendimento em andamento (resposta do contato)
@@ -704,8 +702,8 @@ async function handleMessage(dados, payloadBruto, base44) {
       } catch (e) {
         console.error('[' + VERSION + '] ❌ Erro ao processar resposta pré-atendimento:', e.message);
       }
-    } else if (isNovaThread || !thread.sector_id) {
-      // Iniciar novo pré-atendimento
+    } else {
+      // SEMPRE iniciar novo pré-atendimento (para todos os contatos)
       try {
         console.log('[' + VERSION + '] 🚀 Iniciando pré-atendimento | Thread:', thread.id, '| Contact:', contato.id);
         await executarPreAtendimentoInline(base44, {
