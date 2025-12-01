@@ -69,11 +69,11 @@ const formatFileSize = (bytes) => {
   return Math.round((bytes / Math.pow(k, i)) * 100) / 100 + ' ' + sizes[i];
 };
 
-const AttachmentPreview = ({ file, onRemove, caption, onCaptionChange }) => {
-  const [thumbnailUrl, setThumbnailUrl] = useState(null);
+function AttachmentPreview({ file, onRemove, caption, onCaptionChange }) {
+  const [thumbnailUrl, setThumbnailUrl] = React.useState(null);
   const mediaType = getMediaTypeFromMime(file.type);
 
-  useEffect(() => {
+  React.useEffect(() => {
     if (file && (mediaType === 'image' || mediaType === 'video')) {
       const url = URL.createObjectURL(file);
       setThumbnailUrl(url);
