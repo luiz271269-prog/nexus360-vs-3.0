@@ -1398,6 +1398,47 @@ async function executarPreAtendimentoInline(base44, params) {
     }
 
     // ============================================================================
+    // 🤖 PRIORIDADE 0: PERGUNTAS SOBRE O NEXUS360
+    // ============================================================================
+    const palavrasNexus = ['nexus360', 'nexus 360', 'nexus', 'o que e nexus', 'sobre o nexus', 'como funciona', 'quem e voce', 'quem é você', 'voce e quem', 'você é quem', 'e uma ia', 'é uma ia', 'robo', 'robô', 'bot', 'automatico', 'automático', 'inteligencia artificial', 'ia de atendimento'];
+    const perguntouNexus = palavrasNexus.some(p => textoLower.includes(p));
+
+    if (perguntouNexus) {
+      console.log('[PRE-ATEND] 🤖 Pergunta sobre Nexus360 detectada!');
+
+      const mensagemNexus = `✨ *Olá! Que ótima pergunta!*
+
+    Eu sou a *Nexus360*, a IA de atendimento inteligente! 🤖
+
+    Estou aqui para *facilitar e agilizar* seu pré-atendimento, analisando suas necessidades e criando o contexto perfeito para direcionar você ao especialista certo.
+
+    🚀 *O que o Nexus360 faz:*
+    • Identifica automaticamente o melhor setor para sua demanda
+    • Reconhece seu histórico e preferências
+    • Conecta você ao atendente ideal
+    • Aprende e melhora a cada interação
+
+    💡 *Benefícios:*
+    • Atendimento mais rápido e eficiente
+    • Menos tempo de espera
+    • Respostas personalizadas
+    • Disponível 24/7
+
+    Agora me conta: *para qual setor você gostaria de falar?*
+
+    ${opcoesSetor.map((op, i) => `${i + 1}. ${op.label}`).join('\n')}`;
+
+      await enviarMensagem(mensagemNexus);
+
+      // Manter pré-atendimento ativo para próxima resposta
+      await base44.asServiceRole.entities.FlowExecution.update(execucao.id, {
+        variables: { ...execucao.variables, perguntou_nexus: true }
+      });
+
+      return { success: true, nexus_info_sent: true };
+    }
+
+    // ============================================================================
     // 🚨 PRIORIDADE 1: PEDIDO DIRETO DE ATENDENTE HUMANO
     // ============================================================================
     const pedidosHumano = ['atendente', 'humano', 'pessoa', 'falar com alguem', 'quero falar', 'preciso falar', 'me ajuda', 'ajuda', 'atender', 'atendimento', 'falar com voce', 'voces'];
