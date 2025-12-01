@@ -1364,7 +1364,7 @@ async function executarPreAtendimentoInline(base44, params) {
     }
 
     // ============================================================================
-    // 🔍 PRIORIDADE 2: BUSCA POR NOME DE ATENDENTE
+    // 🔍 PRIORIDADE 2: BUSCA POR NOME DE ATENDENTE (com tolerância a erros)
     // ============================================================================
     let melhorMatch = null;
     let melhorScore = 0;
@@ -1372,34 +1372,43 @@ async function executarPreAtendimentoInline(base44, params) {
     for (const atend of todosAtendentes) {
       let score = 0;
       
-      // Match exato do primeiro nome
-      if (textoLower === atend.primeiroNome && atend.primeiroNome.length >= 3) {
-        score = 100;
-      }
-      // Primeira palavra do texto é o nome
-      else if (palavrasTexto[0] === atend.primeiroNome && atend.primeiroNome.length >= 3) {
-        score = 95;
-      }
-      // Texto contém nome completo
-      else if (atend.primeiroNome.length >= 3 && textoLower.includes(atend.primeiroNome)) {
-        score = 85;
-      }
-      // Busca parcial: "gab" encontra "gabriel"
-      else if (textoLower.length >= 3 && atend.primeiroNome.startsWith(textoLower)) {
-        score = 80;
-      }
-      // Busca reversa: "gabriel" contém "gab"
-      else if (palavrasTexto.some(p => p.length >= 3 && atend.primeiroNome.startsWith(p))) {
-        score = 75;
-      }
-      // Alguma parte do nome está no texto
-      else {
-        for (const parte of atend.partes) {
-          if (parte.length >= 4 && textoLower.includes(parte)) {
-            score = 60;
-            break;
+      // Verificar cada palavra do texto contra o nome do atendente
+      for (const palavra of palavrasTexto) {
+        if (palavra.length < 3) continue;
+        
+        // Match exato do primeiro nome
+        if (palavra === atend.primeiroNome) {
+          score = Math.max(score, 100);
+        }
+        // Similaridade alta com primeiro nome (tolera erros como "grabiel" -> "gabriel")
+        else if (similaridade(palavra, atend.primeiroNome) >= 0.8) {
+          score = Math.max(score, 95);
+          console.log('[PRE-ATEND] 👤 Similaridade nome:', palavra, '~', atend.primeiroNome, '=', similaridade(palavra, atend.primeiroNome).toFixed(2));
+        }
+        // Primeiro nome começa com a palavra (ex: "gab" -> "gabriel")
+        else if (atend.primeiroNome.startsWith(palavra) && palavra.length >= 3) {
+          score = Math.max(score, 85);
+        }
+        // Palavra começa com o primeiro nome (ex: "gabrielx" -> "gabriel")
+        else if (palavra.startsWith(atend.primeiroNome) && atend.primeiroNome.length >= 3) {
+          score = Math.max(score, 80);
+        }
+        // Similaridade média com qualquer parte do nome
+        else {
+          for (const parte of atend.partes) {
+            if (parte.length >= 3) {
+              const sim = similaridade(palavra, parte);
+              if (sim >= 0.75) {
+                score = Math.max(score, 70);
+              }
+            }
           }
         }
+      }
+      
+      // Também verificar se o texto completo contém o nome
+      if (score === 0 && atend.primeiroNome.length >= 3 && textoLower.includes(atend.primeiroNome)) {
+        score = 85;
       }
 
       // Bonus: nome mencionado no histórico
@@ -1415,6 +1424,7 @@ async function executarPreAtendimentoInline(base44, params) {
       if (score > melhorScore) {
         melhorScore = score;
         melhorMatch = atend;
+        console.log('[PRE-ATEND] 👤 Candidato:', atend.nome, '| Score:', score);
       }
     }
 
