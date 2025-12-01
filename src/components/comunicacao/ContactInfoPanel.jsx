@@ -450,7 +450,6 @@ export default function ContactInfoPanel({ contact, novoContatoTelefone, onClose
               <Select
                 value={formData.tipo_contato}
                 onValueChange={(value) => handleChange('tipo_contato', value)}
-                disabled={!podeEditarContatos}
               >
                 <SelectTrigger className="border-0 bg-transparent text-white h-6 p-0 focus:ring-0 flex-1">
                   <SelectValue />
