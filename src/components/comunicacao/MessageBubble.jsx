@@ -513,14 +513,19 @@ export default function MessageBubble({
           isOwn ? 'items-end' : 'items-start',
           "flex flex-col group relative"
         )}>
-          {/* Nome do Remetente */}
+          {/* Nome do Remetente + Setor */}
           <span className={cn(
-            "text-[10px] font-semibold mb-0.5 px-1",
-            isOwn ? "text-slate-500 text-right" : "text-slate-600 text-left"
+            "text-[10px] font-semibold mb-0.5 px-1 flex items-center gap-1",
+            isOwn ? "text-slate-500 justify-end" : "text-slate-600 justify-start"
           )}>
             {isOwn 
               ? (usuarioAtual?.full_name || 'Você')
               : (contato?.nome || contato?.telefone || 'Cliente')}
+            {isOwn && usuarioAtual?.attendant_sector && usuarioAtual.attendant_sector !== 'geral' && (
+              <span className="px-1.5 py-0.5 text-[8px] bg-blue-500 text-white rounded-full font-bold uppercase">
+                {usuarioAtual.attendant_sector}
+              </span>
+            )}
           </span>
 
           {mensagemOriginal &&
