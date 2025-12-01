@@ -88,7 +88,8 @@ export default function ContactInfoPanel({ contact, novoContatoTelefone, onClose
 
   const carregarAtendentes = async () => {
     try {
-      const atendentesData = await base44.entities.User.filter({ is_whatsapp_attendant: true }, 'full_name');
+      // Buscar TODOS os usuários do sistema, não apenas atendentes de WhatsApp
+      const atendentesData = await base44.entities.User.list('full_name');
       setAtendentes(atendentesData);
     } catch (error) {
       console.error('[ContactInfoPanel] Erro ao carregar atendentes:', error);
