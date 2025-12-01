@@ -179,8 +179,8 @@ export default function Comunicacao() {
       // Admin/Manager vê tudo
       return allThreads;
     },
-    refetchInterval: 30000,
-    staleTime: 10000,
+    refetchInterval: 10000,
+    staleTime: 5000,
     enabled: !!usuario,
     retry: 1
   });
@@ -194,8 +194,8 @@ export default function Comunicacao() {
       return Promise.resolve([]);
     },
     enabled: !!threadAtiva,
-    refetchInterval: 15000,
-    staleTime: 5000,
+    refetchInterval: 5000,
+    staleTime: 2000,
     retry: 1
   });
 
