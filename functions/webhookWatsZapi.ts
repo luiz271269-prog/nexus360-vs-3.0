@@ -299,6 +299,263 @@ async function handleMessageUpdate(dados, base44) {
   return Response.json({ success: true, processed: 'status_update' }, { headers: corsHeaders });
 }
 
+// ============================================================================
+// PRÉ-ATENDIMENTO INLINE (evita chamada externa)
+// ============================================================================
+async function executarPreAtendimentoInline(base44, params) {
+  const { action, thread_id, contact_id, integration_id, resposta_usuario } = params;
+
+  // Determinar saudação baseada no horário
+  function getSaudacao() {
+    const hora = new Date().getHours();
+    if (hora >= 5 && hora < 12) return 'Bom dia';
+    if (hora >= 12 && hora < 18) return 'Boa tarde';
+    return 'Boa noite';
+  }
+
+  // Mapear texto de resposta para setor
+  function mapearSetorDeResposta(resposta, opcoesSetor) {
+    if (!resposta || !opcoesSetor) return null;
+    const textoLower = resposta.toLowerCase().trim();
+    
+    for (const opcao of opcoesSetor) {
+      const labelLower = opcao.label.toLowerCase();
+      if (textoLower === labelLower || textoLower.includes(opcao.setor) || labelLower.includes(textoLower)) {
+        return opcao.setor;
+      }
+    }
+    
+    const mapeamento = {
+      'vendas': ['venda', 'comprar', 'compra', 'preço', 'orçamento', 'cotação', '1', 'comercial'],
+      'assistencia': ['suporte', 'assistencia', 'assistência', 'técnico', 'problema', 'ajuda', '2', 'reparo'],
+      'financeiro': ['financeiro', 'boleto', 'pagamento', 'nota', 'fiscal', '3', 'cobrança'],
+      'fornecedor': ['fornecedor', 'parceiro', 'fornecimento', '4'],
+      'geral': ['outro', 'outros', 'geral', '5', 'não sei']
+    };
+    
+    for (const [setor, palavras] of Object.entries(mapeamento)) {
+      if (palavras.some(p => textoLower.includes(p))) {
+        return setor;
+      }
+    }
+    return null;
+  }
+
+  // ========== AÇÃO: INICIAR ==========
+  if (action === 'iniciar') {
+    const templates = await base44.asServiceRole.entities.FlowTemplate.filter({
+      is_pre_atendimento_padrao: true,
+      ativo: true
+    }, '-created_date', 1);
+
+    if (templates.length === 0) {
+      console.log('[PRE-ATEND] ⚠️ Nenhum template de pré-atendimento configurado');
+      return { success: false, error: 'sem_template' };
+    }
+
+    const template = templates[0];
+    if (template.activation_mode === 'disabled') {
+      console.log('[PRE-ATEND] ⚠️ Pré-atendimento desativado');
+      return { success: false, skipped: true };
+    }
+
+    const thread = await base44.asServiceRole.entities.MessageThread.get(thread_id);
+    const contato = await base44.asServiceRole.entities.Contact.get(contact_id);
+
+    if (!thread || !contato) {
+      return { success: false, error: 'thread_ou_contato_nao_encontrado' };
+    }
+
+    const saudacao = getSaudacao();
+    let mensagemTexto = template.mensagem_saudacao || 'Olá! {saudacao}, para qual setor você gostaria de falar?';
+    mensagemTexto = mensagemTexto.replace('{saudacao}', saudacao);
+    
+    if (contato.nome && contato.nome !== contato.telefone) {
+      mensagemTexto = mensagemTexto.replace('Olá!', `Olá, ${contato.nome}!`);
+    }
+
+    const opcoesSetor = template.opcoes_setor || [
+      { label: '💼 Vendas', setor: 'vendas' },
+      { label: '🔧 Suporte', setor: 'assistencia' },
+      { label: '💰 Financeiro', setor: 'financeiro' }
+    ];
+
+    const listaOpcoes = opcoesSetor.map((op, i) => `${i + 1}. ${op.label}`).join('\n');
+    const mensagemCompleta = `${mensagemTexto}\n\n${listaOpcoes}\n\n_Responda com o número ou nome da opção desejada._`;
+
+    // Enviar via Z-API diretamente
+    const integracao = await base44.asServiceRole.entities.WhatsAppIntegration.get(integration_id);
+    if (!integracao) {
+      console.error('[PRE-ATEND] ❌ Integração não encontrada:', integration_id);
+      return { success: false, error: 'integracao_nao_encontrada' };
+    }
+
+    const zapiUrl = `${integracao.base_url_provider}/instances/${integracao.instance_id_provider}/token/${integracao.api_key_provider}/send-text`;
+    const zapiHeaders = { 'Content-Type': 'application/json' };
+    if (integracao.security_client_token_header) {
+      zapiHeaders['Client-Token'] = integracao.security_client_token_header;
+    }
+
+    console.log('[PRE-ATEND] 📤 Enviando saudação para:', contato.telefone);
+    
+    const envioResp = await fetch(zapiUrl, {
+      method: 'POST',
+      headers: zapiHeaders,
+      body: JSON.stringify({
+        phone: contato.telefone,
+        message: mensagemCompleta
+      })
+    });
+    
+    const envioData = await envioResp.json();
+    console.log('[PRE-ATEND] 📥 Resposta Z-API:', JSON.stringify(envioData));
+
+    if (!envioResp.ok || envioData.error) {
+      console.error('[PRE-ATEND] ❌ Erro ao enviar:', envioData);
+      return { success: false, error: envioData.error || 'erro_envio' };
+    }
+
+    const flowExecution = await base44.asServiceRole.entities.FlowExecution.create({
+      flow_template_id: template.id,
+      contact_id: contact_id,
+      thread_id: thread_id,
+      whatsapp_integration_id: integration_id,
+      status: 'ativo',
+      current_step: 0,
+      started_at: new Date().toISOString(),
+      variables: { saudacao, opcoes_setor: opcoesSetor }
+    });
+
+    await base44.asServiceRole.entities.MessageThread.update(thread_id, {
+      pre_atendimento_ativo: true,
+      pre_atendimento_state: 'WAITING_SECTOR_CHOICE',
+      pre_atendimento_started_at: new Date().toISOString()
+    });
+
+    await base44.asServiceRole.entities.Message.create({
+      thread_id: thread_id,
+      sender_id: 'system',
+      sender_type: 'user',
+      content: mensagemCompleta,
+      channel: 'whatsapp',
+      status: 'enviada',
+      whatsapp_message_id: envioData.messageId,
+      sent_at: new Date().toISOString(),
+      metadata: { whatsapp_integration_id: integration_id, pre_atendimento: true }
+    });
+
+    console.log('[PRE-ATEND] ✅ Pré-atendimento iniciado | FlowExec:', flowExecution.id);
+    return { success: true, flow_execution_id: flowExecution.id };
+  }
+
+  // ========== AÇÃO: PROCESSAR RESPOSTA ==========
+  if (action === 'processar_resposta') {
+    const execucoes = await base44.asServiceRole.entities.FlowExecution.filter({
+      thread_id: thread_id,
+      status: 'ativo'
+    }, '-created_date', 1);
+
+    if (execucoes.length === 0) {
+      return { success: false, error: 'sem_execucao_ativa' };
+    }
+
+    const execucao = execucoes[0];
+    const opcoesSetor = execucao.variables?.opcoes_setor || [];
+    const setorEscolhido = mapearSetorDeResposta(resposta_usuario, opcoesSetor);
+
+    const contato = await base44.asServiceRole.entities.Contact.get(contact_id);
+    const integracao = await base44.asServiceRole.entities.WhatsAppIntegration.get(integration_id);
+
+    if (!setorEscolhido) {
+      // Resposta não reconhecida
+      const zapiUrl = `${integracao.base_url_provider}/instances/${integracao.instance_id_provider}/token/${integracao.api_key_provider}/send-text`;
+      const zapiHeaders = { 'Content-Type': 'application/json' };
+      if (integracao.security_client_token_header) {
+        zapiHeaders['Client-Token'] = integracao.security_client_token_header;
+      }
+
+      await fetch(zapiUrl, {
+        method: 'POST',
+        headers: zapiHeaders,
+        body: JSON.stringify({
+          phone: contato.telefone,
+          message: '❓ Não entendi sua escolha. Por favor, responda com o número ou nome do setor:\n\n' + 
+                   opcoesSetor.map((op, i) => `${i + 1}. ${op.label}`).join('\n')
+        })
+      });
+
+      return { success: true, understood: false };
+    }
+
+    // Buscar atendente fidelizado
+    const campoFidelizado = {
+      'vendas': 'atendente_fidelizado_vendas',
+      'assistencia': 'atendente_fidelizado_assistencia',
+      'financeiro': 'atendente_fidelizado_financeiro',
+      'fornecedor': 'atendente_fidelizado_fornecedor'
+    };
+    
+    let atendenteFidelizado = null;
+    const campo = campoFidelizado[setorEscolhido];
+    if (campo && contato[campo]) {
+      try {
+        atendenteFidelizado = await base44.asServiceRole.entities.User.get(contato[campo]);
+      } catch (e) {}
+    }
+
+    const threadUpdate = {
+      sector_id: setorEscolhido,
+      pre_atendimento_ativo: false,
+      pre_atendimento_state: 'COMPLETED'
+    };
+
+    let mensagemConfirmacao = '';
+    if (atendenteFidelizado) {
+      threadUpdate.assigned_user_id = atendenteFidelizado.id;
+      threadUpdate.assigned_user_name = atendenteFidelizado.full_name;
+      mensagemConfirmacao = `✅ Perfeito! Você será atendido por *${atendenteFidelizado.full_name}* do setor de *${setorEscolhido}*. Aguarde um momento!`;
+    } else {
+      mensagemConfirmacao = `✅ Entendido! Sua conversa foi direcionada para o setor de *${setorEscolhido}*. Um atendente entrará em contato em breve.`;
+    }
+
+    await base44.asServiceRole.entities.MessageThread.update(thread_id, threadUpdate);
+    await base44.asServiceRole.entities.FlowExecution.update(execucao.id, {
+      status: 'concluido',
+      completed_at: new Date().toISOString(),
+      variables: { ...execucao.variables, setor_escolhido: setorEscolhido }
+    });
+
+    // Enviar confirmação
+    const zapiUrl = `${integracao.base_url_provider}/instances/${integracao.instance_id_provider}/token/${integracao.api_key_provider}/send-text`;
+    const zapiHeaders = { 'Content-Type': 'application/json' };
+    if (integracao.security_client_token_header) {
+      zapiHeaders['Client-Token'] = integracao.security_client_token_header;
+    }
+
+    await fetch(zapiUrl, {
+      method: 'POST',
+      headers: zapiHeaders,
+      body: JSON.stringify({ phone: contato.telefone, message: mensagemConfirmacao })
+    });
+
+    await base44.asServiceRole.entities.Message.create({
+      thread_id: thread_id,
+      sender_id: 'system',
+      sender_type: 'user',
+      content: mensagemConfirmacao,
+      channel: 'whatsapp',
+      status: 'enviada',
+      sent_at: new Date().toISOString(),
+      metadata: { whatsapp_integration_id: integration_id, pre_atendimento: true, setor_roteado: setorEscolhido }
+    });
+
+    console.log('[PRE-ATEND] ✅ Concluído | Setor:', setorEscolhido, '| Fidelizado:', atendenteFidelizado?.id || 'N/A');
+    return { success: true, setor_escolhido: setorEscolhido };
+  }
+
+  return { success: false, error: 'acao_invalida' };
+}
+
 async function handleMessage(dados, payloadBruto, base44) {
   const inicio = Date.now();
   
@@ -434,10 +691,10 @@ async function handleMessage(dados, payloadBruto, base44) {
     }, '-created_date', 1).catch(() => []);
 
     if (execucoesAtivas.length > 0) {
-      // Processar resposta do pré-atendimento (SÍNCRONO para garantir execução)
+      // Processar resposta do pré-atendimento
       try {
         console.log('[' + VERSION + '] 🔄 Processando resposta pré-atendimento | Thread:', thread.id);
-        await base44.asServiceRole.functions.invoke('executarPreAtendimento', {
+        await executarPreAtendimentoInline(base44, {
           action: 'processar_resposta',
           thread_id: thread.id,
           contact_id: contato.id,
@@ -448,10 +705,10 @@ async function handleMessage(dados, payloadBruto, base44) {
         console.error('[' + VERSION + '] ❌ Erro ao processar resposta pré-atendimento:', e.message);
       }
     } else if (isNovaThread || !thread.sector_id) {
-      // Iniciar novo pré-atendimento (SÍNCRONO para garantir execução)
+      // Iniciar novo pré-atendimento
       try {
         console.log('[' + VERSION + '] 🚀 Iniciando pré-atendimento | Thread:', thread.id, '| Contact:', contato.id);
-        await base44.asServiceRole.functions.invoke('executarPreAtendimento', {
+        await executarPreAtendimentoInline(base44, {
           action: 'iniciar',
           thread_id: thread.id,
           contact_id: contato.id,
