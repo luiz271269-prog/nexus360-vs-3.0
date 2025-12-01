@@ -853,6 +853,16 @@ export default function ChatWindow({
     return () => clearTimeout(timer);
   }, [thread?.id, mensagens.length, usuario?.id]);
 
+  // ✅ Foco automático no campo de mensagem ao abrir conversa
+  useEffect(() => {
+    if (thread?.id && !carregandoContato && inputRef.current) {
+      const timer = setTimeout(() => {
+        inputRef.current?.focus();
+      }, 100);
+      return () => clearTimeout(timer);
+    }
+  }, [thread?.id, carregandoContato]);
+
   useEffect(() => {
     if (!mensagens.length) return;
 
@@ -874,8 +884,12 @@ export default function ChatWindow({
           messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
         }
       } else {
+        // ✅ Scroll para última mensagem (mais recente)
         messagesEndRef.current?.scrollIntoView({ behavior: 'instant' });
       }
+      
+      // ✅ Foco no campo de digitação após scroll
+      inputRef.current?.focus();
     }, 300);
 
     return () => clearTimeout(timer);
