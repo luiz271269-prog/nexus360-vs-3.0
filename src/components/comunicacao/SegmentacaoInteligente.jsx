@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from "react";
+import React from "react";
+const { useState, useEffect } = React;
 import { base44 } from "@/api/base44Client";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
