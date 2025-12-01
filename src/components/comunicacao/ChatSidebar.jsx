@@ -62,35 +62,49 @@ export default function ChatSidebar({ threads, threadAtiva, onSelecionarThread, 
       // Se pode ver todos (gerente/coordenador/supervisor), passa
       if (podeVerTodos) return true;
 
-      // 5️⃣ FIDELIZAÇÃO: Clientes fidelizados só são visíveis para o atendente responsável
-      if (contato?.is_cliente_fidelizado) {
-        const setorThread = thread.sector_id || 'geral';
+      // 5️⃣ FIDELIZAÇÃO: Contatos com atendente fidelizado só são visíveis para o atendente responsável
+      // Verificar TODOS os campos de fidelização do contato, independente da flag is_cliente_fidelizado
+      const setorUsuario = usuarioAtual?.attendant_sector || 'geral';
+      
+      // Mapear setor do usuário para o campo de atendente fidelizado correspondente
+      const camposAtendenteFidelizado = {
+        'vendas': 'atendente_fidelizado_vendas',
+        'assistencia': 'atendente_fidelizado_assistencia',
+        'financeiro': 'atendente_fidelizado_financeiro',
+        'fornecedor': 'atendente_fidelizado_fornecedor'
+      };
+      
+      // Verificar se o contato tem atendente fidelizado para o setor do usuário atual
+      const campoFidelizacaoSetor = camposAtendenteFidelizado[setorUsuario];
+      if (campoFidelizacaoSetor && contato?.[campoFidelizacaoSetor]) {
+        const atendenteFidelizado = contato[campoFidelizacaoSetor];
         
-        // Mapear setor para o campo de atendente fidelizado correspondente
-        const campoAtendenteFidelizado = {
-          'vendas': 'atendente_fidelizado_vendas',
-          'assistencia': 'atendente_fidelizado_assistencia',
-          'financeiro': 'atendente_fidelizado_financeiro',
-          'fornecedor': 'atendente_fidelizado_fornecedor',
-          'geral': null // Geral não tem fidelização específica
-        }[setorThread];
-
-        // Se há um campo de fidelização para este setor
-        if (campoAtendenteFidelizado) {
-          const atendenteFidelizadoId = contato[campoAtendenteFidelizado];
-          
-          // Se tem atendente fidelizado definido para este setor
-          if (atendenteFidelizadoId) {
-            // Só mostra se for o atendente fidelizado
-            if (atendenteFidelizadoId !== usuarioAtual?.id) {
-              return false;
-            }
-          }
-        }
+        // Comparar por ID ou por nome (o campo pode conter ID ou nome do atendente)
+        const isMinhaFidelizacao = 
+          atendenteFidelizado === usuarioAtual?.id || 
+          atendenteFidelizado === usuarioAtual?.full_name ||
+          atendenteFidelizado === usuarioAtual?.email;
         
-        // Se não tem atendente fidelizado específico para o setor, verifica atribuição direta
-        if (thread.assigned_user_id && thread.assigned_user_id !== usuarioAtual?.id) {
+        if (!isMinhaFidelizacao) {
+          // Contato fidelizado a outro atendente do mesmo setor - NÃO mostrar
           return false;
+        }
+      }
+      
+      // Também verificar fidelização em OUTROS setores (para não vazar entre setores)
+      for (const [setor, campo] of Object.entries(camposAtendenteFidelizado)) {
+        if (setor !== setorUsuario && contato?.[campo]) {
+          // Se contato está fidelizado em outro setor e não é meu setor, verificar se sou eu
+          const atendenteFidelizadoOutroSetor = contato[campo];
+          const souEuEmOutroSetor = 
+            atendenteFidelizadoOutroSetor === usuarioAtual?.id || 
+            atendenteFidelizadoOutroSetor === usuarioAtual?.full_name;
+          
+          // Se não sou eu e o setor da thread é esse outro setor, não mostrar
+          const setorThread = thread.sector_id || 'geral';
+          if (!souEuEmOutroSetor && setorThread === setor) {
+            return false;
+          }
         }
       }
 
