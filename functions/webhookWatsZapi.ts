@@ -674,36 +674,45 @@ async function handleMessage(dados, payloadBruto, base44) {
   });
 
   // ============================================================================
-  // ✅ PRÉ-ATENDIMENTO AUTOMÁTICO - PARA TODOS OS CONTATOS
+  // ✅ PRÉ-ATENDIMENTO AUTOMÁTICO - PARA TODOS OS CONTATOS SEM EXCEÇÃO
   // ============================================================================
-  // Condição única: Pré-atendimento não está ativo na thread
-  // SEMPRE dispara para qualquer mensagem de contato (sem exceção)
+  // Condições para disparar:
+  // 1. pre_atendimento_ativo = false (não está em andamento)
+  // 2. pre_atendimento_state != 'COMPLETED' (não foi concluído antes)
+  // OU se há uma execução ativa, processar a resposta do cliente
   // ============================================================================
-  const deveIniciarPreAtendimento = !thread.pre_atendimento_ativo;
   
-  if (deveIniciarPreAtendimento) {
-    // Verificar se há pré-atendimento em andamento (resposta do contato)
-    const execucoesAtivas = await base44.asServiceRole.entities.FlowExecution.filter({
-      thread_id: thread.id,
-      status: 'ativo'
-    }, '-created_date', 1).catch(() => []);
+  // Primeiro: verificar se há execução ativa (cliente respondendo ao pré-atendimento)
+  const execucoesAtivas = await base44.asServiceRole.entities.FlowExecution.filter({
+    thread_id: thread.id,
+    status: 'ativo'
+  }, '-created_date', 1).catch(() => []);
 
-    if (execucoesAtivas.length > 0) {
-      // Processar resposta do pré-atendimento
-      try {
-        console.log('[' + VERSION + '] 🔄 Processando resposta pré-atendimento | Thread:', thread.id);
-        await executarPreAtendimentoInline(base44, {
-          action: 'processar_resposta',
-          thread_id: thread.id,
-          contact_id: contato.id,
-          integration_id: integracaoId,
-          resposta_usuario: dados.content
-        });
-      } catch (e) {
-        console.error('[' + VERSION + '] ❌ Erro ao processar resposta pré-atendimento:', e.message);
-      }
-    } else {
-      // SEMPRE iniciar novo pré-atendimento (para todos os contatos)
+  if (execucoesAtivas.length > 0) {
+    // Processar resposta do pré-atendimento em andamento
+    try {
+      console.log('[' + VERSION + '] 🔄 Processando resposta pré-atendimento | Thread:', thread.id);
+      await executarPreAtendimentoInline(base44, {
+        action: 'processar_resposta',
+        thread_id: thread.id,
+        contact_id: contato.id,
+        integration_id: integracaoId,
+        resposta_usuario: dados.content
+      });
+    } catch (e) {
+      console.error('[' + VERSION + '] ❌ Erro ao processar resposta pré-atendimento:', e.message);
+    }
+  } else {
+    // Verificar se deve iniciar novo pré-atendimento
+    // Dispara se: não está ativo E não foi completado antes
+    const preAtendimentoJaCompleto = thread.pre_atendimento_state === 'COMPLETED';
+    const preAtendimentoAtivo = thread.pre_atendimento_ativo === true;
+    
+    const deveIniciarPreAtendimento = !preAtendimentoAtivo && !preAtendimentoJaCompleto;
+    
+    console.log('[' + VERSION + '] 🔍 PRE-ATEND CHECK | ativo:', preAtendimentoAtivo, '| completo:', preAtendimentoJaCompleto, '| iniciar:', deveIniciarPreAtendimento);
+    
+    if (deveIniciarPreAtendimento) {
       try {
         console.log('[' + VERSION + '] 🚀 Iniciando pré-atendimento | Thread:', thread.id, '| Contact:', contato.id);
         await executarPreAtendimentoInline(base44, {
