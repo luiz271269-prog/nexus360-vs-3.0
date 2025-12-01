@@ -1033,144 +1033,288 @@ async function executarPreAtendimentoInline(base44, params) {
 
     const execucao = execucoes[0];
     const opcoesSetor = execucao.variables?.opcoes_setor || [];
-    const setorEscolhido = mapearSetorDeResposta(resposta_usuario, opcoesSetor);
+    const textoUsuario = (resposta_usuario || '').toLowerCase().trim();
+    const tentativasAtuais = execucao.variables?.tentativas || 0;
 
     const contato = await base44.asServiceRole.entities.Contact.get(contact_id);
     
     // Buscar integração - ACEITAR QUALQUER CONEXÃO DISPONÍVEL
     let integracao = null;
-    
-    // 1. Tentar pela integration_id fornecida
     if (integration_id) {
-      try {
-        integracao = await base44.asServiceRole.entities.WhatsAppIntegration.get(integration_id);
-      } catch (e) {}
+      try { integracao = await base44.asServiceRole.entities.WhatsAppIntegration.get(integration_id); } catch (e) {}
     }
-    
-    // 2. Fallback: usar a integração salva na execução do fluxo
     if (!integracao && execucao.whatsapp_integration_id) {
-      try {
-        integracao = await base44.asServiceRole.entities.WhatsAppIntegration.get(execucao.whatsapp_integration_id);
-      } catch (e) {}
+      try { integracao = await base44.asServiceRole.entities.WhatsAppIntegration.get(execucao.whatsapp_integration_id); } catch (e) {}
     }
-    
-    // 3. Fallback final: buscar qualquer integração conectada
     if (!integracao) {
       try {
-        const integracoesDisponiveis = await base44.asServiceRole.entities.WhatsAppIntegration.filter(
-          { status: 'conectado' },
-          '-ultima_atividade',
-          1
-        );
-        if (integracoesDisponiveis.length > 0) {
-          integracao = integracoesDisponiveis[0];
-        }
+        const integracoesDisponiveis = await base44.asServiceRole.entities.WhatsAppIntegration.filter({ status: 'conectado' }, '-ultima_atividade', 1);
+        if (integracoesDisponiveis.length > 0) integracao = integracoesDisponiveis[0];
       } catch (e) {}
     }
-    
     if (!integracao) {
       console.error('[PRE-ATEND] ❌ Nenhuma integração disponível para responder');
       return { success: false, error: 'nenhuma_integracao_disponivel' };
     }
 
-    if (!setorEscolhido) {
-      // Resposta não reconhecida - ENVIO UNIVERSAL
-      const provider = integracao.api_provider || 'z_api';
-      const telefoneNumerico = contato.telefone.replace(/\D/g, '');
-      const msgNaoEntendi = '❓ Não entendi sua escolha. Por favor, responda com o número ou nome do setor:\n\n' + 
-                            opcoesSetor.map((op, i) => `${i + 1}. ${op.label}`).join('\n');
+    // ============================================================================
+    // 🧠 ANÁLISE INTELIGENTE DA RESPOSTA
+    // ============================================================================
+    
+    // 1️⃣ VERIFICAR SE É NOME DE ATENDENTE
+    let atendenteEncontrado = null;
+    try {
+      // Buscar em Vendedor
+      const vendedores = await base44.asServiceRole.entities.Vendedor.filter({ status: 'ativo' }, '-created_date', 50);
+      for (const v of vendedores) {
+        const nomeVendedor = (v.nome || '').toLowerCase();
+        const primeiroNome = nomeVendedor.split(' ')[0];
+        if (textoUsuario === primeiroNome || textoUsuario === nomeVendedor || nomeVendedor.includes(textoUsuario)) {
+          atendenteEncontrado = { tipo: 'vendedor', id: v.id, nome: v.nome, email: v.email };
+          break;
+        }
+      }
       
-      if (provider === 'w_api') {
-        await fetch(`${integracao.base_url_provider || 'https://api.w-api.app/v1'}/${integracao.instance_id_provider}/messages/send-text`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${integracao.api_key_provider}` },
-          body: JSON.stringify({ phone: telefoneNumerico, message: msgNaoEntendi })
-        });
+      // Buscar em User (atendentes)
+      if (!atendenteEncontrado) {
+        const usuarios = await base44.asServiceRole.entities.User.filter({}, '-created_date', 50);
+        for (const u of usuarios) {
+          const nomeUser = (u.full_name || '').toLowerCase();
+          const primeiroNome = nomeUser.split(' ')[0];
+          if (textoUsuario === primeiroNome || textoUsuario === nomeUser || nomeUser.includes(textoUsuario)) {
+            atendenteEncontrado = { tipo: 'user', id: u.id, nome: u.full_name, email: u.email };
+            break;
+          }
+        }
+      }
+    } catch (e) {
+      console.log('[PRE-ATEND] ⚠️ Erro ao buscar atendentes:', e?.message);
+    }
+
+    // Se encontrou atendente por nome
+    if (atendenteEncontrado) {
+      console.log('[PRE-ATEND] 👤 Atendente identificado pelo nome:', atendenteEncontrado.nome);
+      
+      // Verificar se contato é fidelizado para este atendente
+      const isFidelizado = contato.is_cliente_fidelizado && (
+        contato.atendente_fidelizado_vendas === atendenteEncontrado.id ||
+        contato.atendente_fidelizado_assistencia === atendenteEncontrado.id ||
+        contato.atendente_fidelizado_financeiro === atendenteEncontrado.id ||
+        contato.atendente_fidelizado_fornecedor === atendenteEncontrado.id
+      );
+
+      const threadUpdate = {
+        assigned_user_id: atendenteEncontrado.id,
+        assigned_user_name: atendenteEncontrado.nome,
+        pre_atendimento_ativo: false,
+        pre_atendimento_state: 'COMPLETED'
+      };
+
+      let mensagemConfirmacao;
+      if (isFidelizado) {
+        mensagemConfirmacao = `✅ Perfeito! Você será atendido por *${atendenteEncontrado.nome}*, seu atendente de confiança. Aguarde um momento!`;
       } else {
-        const zapiHeaders = { 'Content-Type': 'application/json' };
-        if (integracao.security_client_token_header) zapiHeaders['Client-Token'] = integracao.security_client_token_header;
-        await fetch(`${integracao.base_url_provider}/instances/${integracao.instance_id_provider}/token/${integracao.api_key_provider}/send-text`, {
-          method: 'POST',
-          headers: zapiHeaders,
-          body: JSON.stringify({ phone: telefoneNumerico, message: msgNaoEntendi })
-        });
+        mensagemConfirmacao = `✅ Certo! Vou direcionar você para *${atendenteEncontrado.nome}*. Aguarde um momento!`;
       }
 
-      return { success: true, understood: false };
+      await base44.asServiceRole.entities.MessageThread.update(thread_id, threadUpdate);
+      await base44.asServiceRole.entities.FlowExecution.update(execucao.id, {
+        status: 'concluido',
+        completed_at: new Date().toISOString(),
+        variables: { ...execucao.variables, atendente_escolhido: atendenteEncontrado.nome }
+      });
+
+      await enviarMensagemUniversal(integracao, contato.telefone, mensagemConfirmacao);
+      await salvarMensagemSistema(base44, thread_id, integration_id, mensagemConfirmacao);
+
+      console.log('[PRE-ATEND] ✅ Concluído | Atendente:', atendenteEncontrado.nome);
+      return { success: true, atendente_escolhido: atendenteEncontrado.nome };
     }
 
-    // Buscar atendente fidelizado
-    const campoFidelizado = {
-      'vendas': 'atendente_fidelizado_vendas',
-      'assistencia': 'atendente_fidelizado_assistencia',
-      'financeiro': 'atendente_fidelizado_financeiro',
-      'fornecedor': 'atendente_fidelizado_fornecedor'
-    };
+    // 2️⃣ VERIFICAR INTENÇÕES ESPECÍFICAS (cotação, orçamento, preço)
+    const PALAVRAS_COTACAO = ['cotação', 'cotacao', 'orçamento', 'orcamento', 'preço', 'preco', 'quanto custa', 'valor', 'tabela'];
+    const querCotacao = PALAVRAS_COTACAO.some(p => textoUsuario.includes(p));
     
-    let atendenteFidelizado = null;
-    const campo = campoFidelizado[setorEscolhido];
-    if (campo && contato[campo]) {
-      try {
-        atendenteFidelizado = await base44.asServiceRole.entities.User.get(contato[campo]);
-      } catch (e) {}
+    if (querCotacao) {
+      console.log('[PRE-ATEND] 💰 Intenção de cotação detectada');
+      
+      // Verificar se tem atendente fidelizado de vendas
+      let atendenteVendas = null;
+      if (contato.atendente_fidelizado_vendas) {
+        try { atendenteVendas = await base44.asServiceRole.entities.User.get(contato.atendente_fidelizado_vendas); } catch (e) {}
+      }
+
+      const threadUpdate = {
+        sector_id: 'vendas',
+        pre_atendimento_ativo: false,
+        pre_atendimento_state: 'COMPLETED',
+        categorias: ['cotacao']
+      };
+
+      let mensagemConfirmacao;
+      if (atendenteVendas) {
+        threadUpdate.assigned_user_id = atendenteVendas.id;
+        threadUpdate.assigned_user_name = atendenteVendas.full_name;
+        mensagemConfirmacao = `💰 Entendido! *${atendenteVendas.full_name}* do setor de Vendas irá atendê-lo para sua cotação. Aguarde um momento!`;
+      } else {
+        mensagemConfirmacao = `💰 Perfeito! Vou direcionar você para o setor de *Vendas* para sua cotação. Um especialista entrará em contato em breve!`;
+      }
+
+      await base44.asServiceRole.entities.MessageThread.update(thread_id, threadUpdate);
+      await base44.asServiceRole.entities.FlowExecution.update(execucao.id, {
+        status: 'concluido',
+        completed_at: new Date().toISOString(),
+        variables: { ...execucao.variables, setor_escolhido: 'vendas', intencao: 'cotacao' }
+      });
+
+      await enviarMensagemUniversal(integracao, contato.telefone, mensagemConfirmacao);
+      await salvarMensagemSistema(base44, thread_id, integration_id, mensagemConfirmacao);
+
+      return { success: true, setor_escolhido: 'vendas', intencao: 'cotacao' };
     }
 
-    const threadUpdate = {
-      sector_id: setorEscolhido,
-      pre_atendimento_ativo: false,
-      pre_atendimento_state: 'COMPLETED'
-    };
+    // 3️⃣ VERIFICAR SE ESCOLHEU UM SETOR
+    const setorEscolhido = mapearSetorDeResposta(resposta_usuario, opcoesSetor);
+    
+    if (setorEscolhido) {
+      // Buscar atendente fidelizado para o setor
+      const campoFidelizado = {
+        'vendas': 'atendente_fidelizado_vendas',
+        'assistencia': 'atendente_fidelizado_assistencia',
+        'financeiro': 'atendente_fidelizado_financeiro',
+        'fornecedor': 'atendente_fidelizado_fornecedor'
+      };
+      
+      let atendenteFidelizado = null;
+      const campo = campoFidelizado[setorEscolhido];
+      if (campo && contato[campo]) {
+        try { atendenteFidelizado = await base44.asServiceRole.entities.User.get(contato[campo]); } catch (e) {}
+      }
 
-    let mensagemConfirmacao = '';
-    if (atendenteFidelizado) {
-      threadUpdate.assigned_user_id = atendenteFidelizado.id;
-      threadUpdate.assigned_user_name = atendenteFidelizado.full_name;
-      mensagemConfirmacao = `✅ Perfeito! Você será atendido por *${atendenteFidelizado.full_name}* do setor de *${setorEscolhido}*. Aguarde um momento!`;
-    } else {
-      mensagemConfirmacao = `✅ Entendido! Sua conversa foi direcionada para o setor de *${setorEscolhido}*. Um atendente entrará em contato em breve.`;
+      const threadUpdate = {
+        sector_id: setorEscolhido,
+        pre_atendimento_ativo: false,
+        pre_atendimento_state: 'COMPLETED'
+      };
+
+      let mensagemConfirmacao;
+      if (atendenteFidelizado) {
+        threadUpdate.assigned_user_id = atendenteFidelizado.id;
+        threadUpdate.assigned_user_name = atendenteFidelizado.full_name;
+        mensagemConfirmacao = `✅ Perfeito! Você será atendido por *${atendenteFidelizado.full_name}* do setor de *${setorEscolhido}*. Aguarde um momento!`;
+      } else {
+        mensagemConfirmacao = `✅ Entendido! Sua conversa foi direcionada para o setor de *${setorEscolhido}*. Um atendente entrará em contato em breve.`;
+      }
+
+      await base44.asServiceRole.entities.MessageThread.update(thread_id, threadUpdate);
+      await base44.asServiceRole.entities.FlowExecution.update(execucao.id, {
+        status: 'concluido',
+        completed_at: new Date().toISOString(),
+        variables: { ...execucao.variables, setor_escolhido: setorEscolhido }
+      });
+
+      await enviarMensagemUniversal(integracao, contato.telefone, mensagemConfirmacao);
+      await salvarMensagemSistema(base44, thread_id, integration_id, mensagemConfirmacao);
+
+      console.log('[PRE-ATEND] ✅ Concluído | Setor:', setorEscolhido, '| Fidelizado:', atendenteFidelizado?.id || 'N/A');
+      return { success: true, setor_escolhido: setorEscolhido };
     }
 
-    await base44.asServiceRole.entities.MessageThread.update(thread_id, threadUpdate);
+    // 4️⃣ NÃO ENTENDEU - MENSAGEM AMIGÁVEL COM OPÇÕES
+    console.log('[PRE-ATEND] ❓ Resposta não identificada:', textoUsuario);
+    
+    // Incrementar tentativas
+    const novasTentativas = tentativasAtuais + 1;
     await base44.asServiceRole.entities.FlowExecution.update(execucao.id, {
-      status: 'concluido',
-      completed_at: new Date().toISOString(),
-      variables: { ...execucao.variables, setor_escolhido: setorEscolhido }
+      variables: { ...execucao.variables, tentativas: novasTentativas }
     });
 
-    // Enviar confirmação - ENVIO UNIVERSAL
-    const provider = integracao.api_provider || 'z_api';
-    const telefoneNumerico = contato.telefone.replace(/\D/g, '');
-    
-    if (provider === 'w_api') {
-      await fetch(`${integracao.base_url_provider || 'https://api.w-api.app/v1'}/${integracao.instance_id_provider}/messages/send-text`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${integracao.api_key_provider}` },
-        body: JSON.stringify({ phone: telefoneNumerico, message: mensagemConfirmacao })
-      });
+    let msgAjuda;
+    if (novasTentativas >= 2) {
+      // Após 2 tentativas, oferecer falar com atendente direto
+      msgAjuda = `🤔 Ainda não consegui entender. Como posso te ajudar?\n\n` +
+                 `Você pode:\n` +
+                 `• Digitar o *número* ou *nome do setor*\n` +
+                 `• Digitar o *nome de um atendente* específico\n` +
+                 `• Ou simplesmente dizer o que precisa (ex: "quero uma cotação")\n\n` +
+                 opcoesSetor.map((op, i) => `${i + 1}. ${op.label}`).join('\n') +
+                 `\n\n_Se preferir, digite "atendente" para falar diretamente com alguém._`;
     } else {
-      const zapiHeaders = { 'Content-Type': 'application/json' };
-      if (integracao.security_client_token_header) zapiHeaders['Client-Token'] = integracao.security_client_token_header;
-      await fetch(`${integracao.base_url_provider}/instances/${integracao.instance_id_provider}/token/${integracao.api_key_provider}/send-text`, {
-        method: 'POST',
-        headers: zapiHeaders,
-        body: JSON.stringify({ phone: telefoneNumerico, message: mensagemConfirmacao })
-      });
+      msgAjuda = `🤔 Não consegui identificar sua escolha.\n\n` +
+                 `Como posso te ajudar? Você pode:\n` +
+                 `• Escolher um *setor* abaixo\n` +
+                 `• Digitar o *nome de um atendente*\n` +
+                 `• Ou me dizer o que você precisa\n\n` +
+                 opcoesSetor.map((op, i) => `${i + 1}. ${op.label}`).join('\n');
     }
 
-    await base44.asServiceRole.entities.Message.create({
-      thread_id: thread_id,
-      sender_id: 'system',
-      sender_type: 'user',
-      content: mensagemConfirmacao,
-      channel: 'whatsapp',
-      status: 'enviada',
-      sent_at: new Date().toISOString(),
-      metadata: { whatsapp_integration_id: integration_id, pre_atendimento: true, setor_roteado: setorEscolhido }
-    });
+    // Verificar se pediu para falar com atendente genérico
+    const querAtendente = ['atendente', 'humano', 'pessoa', 'alguem', 'alguém', 'falar com'].some(p => textoUsuario.includes(p));
+    if (querAtendente) {
+      // Direcionar para setor geral sem encerrar
+      const threadUpdate = {
+        sector_id: 'geral',
+        pre_atendimento_ativo: false,
+        pre_atendimento_state: 'COMPLETED'
+      };
 
-    console.log('[PRE-ATEND] ✅ Concluído | Setor:', setorEscolhido, '| Fidelizado:', atendenteFidelizado?.id || 'N/A');
-    return { success: true, setor_escolhido: setorEscolhido };
+      const mensagemConfirmacao = `✅ Sem problemas! Vou direcionar você para um atendente disponível. Aguarde um momento!`;
+
+      await base44.asServiceRole.entities.MessageThread.update(thread_id, threadUpdate);
+      await base44.asServiceRole.entities.FlowExecution.update(execucao.id, {
+        status: 'concluido',
+        completed_at: new Date().toISOString(),
+        variables: { ...execucao.variables, setor_escolhido: 'geral', pediu_atendente: true }
+      });
+
+      await enviarMensagemUniversal(integracao, contato.telefone, mensagemConfirmacao);
+      await salvarMensagemSistema(base44, thread_id, integration_id, mensagemConfirmacao);
+
+      return { success: true, setor_escolhido: 'geral', pediu_atendente: true };
+    }
+
+    await enviarMensagemUniversal(integracao, contato.telefone, msgAjuda);
+    await salvarMensagemSistema(base44, thread_id, integration_id, msgAjuda);
+
+    return { success: true, understood: false, tentativas: novasTentativas };
   }
 
   return { success: false, error: 'acao_invalida' };
+}
+
+// ============================================================================
+// FUNÇÕES AUXILIARES DO PRÉ-ATENDIMENTO
+// ============================================================================
+async function enviarMensagemUniversal(integracao, telefone, mensagem) {
+  const provider = integracao.api_provider || 'z_api';
+  const telefoneNumerico = telefone.replace(/\D/g, '');
+  
+  if (provider === 'w_api') {
+    await fetch(`${integracao.base_url_provider || 'https://api.w-api.app/v1'}/${integracao.instance_id_provider}/messages/send-text`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${integracao.api_key_provider}` },
+      body: JSON.stringify({ phone: telefoneNumerico, message: mensagem })
+    });
+  } else {
+    const zapiHeaders = { 'Content-Type': 'application/json' };
+    if (integracao.security_client_token_header) zapiHeaders['Client-Token'] = integracao.security_client_token_header;
+    await fetch(`${integracao.base_url_provider}/instances/${integracao.instance_id_provider}/token/${integracao.api_key_provider}/send-text`, {
+      method: 'POST',
+      headers: zapiHeaders,
+      body: JSON.stringify({ phone: telefoneNumerico, message: mensagem })
+    });
+  }
+}
+
+async function salvarMensagemSistema(base44, thread_id, integration_id, conteudo) {
+  await base44.asServiceRole.entities.Message.create({
+    thread_id: thread_id,
+    sender_id: 'system',
+    sender_type: 'user',
+    content: conteudo,
+    channel: 'whatsapp',
+    status: 'enviada',
+    sent_at: new Date().toISOString(),
+    metadata: { whatsapp_integration_id: integration_id, pre_atendimento: true }
+  });
 }
