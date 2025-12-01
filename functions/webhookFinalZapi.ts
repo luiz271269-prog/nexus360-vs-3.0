@@ -936,25 +936,51 @@ async function executarPreAtendimentoInline(base44, params) {
       return { success: false, error: 'nenhuma_integracao_disponivel' };
     }
 
-    const zapiUrl = `${integracao.base_url_provider}/instances/${integracao.instance_id_provider}/token/${integracao.api_key_provider}/send-text`;
-    const zapiHeaders = { 'Content-Type': 'application/json' };
-    if (integracao.security_client_token_header) {
-      zapiHeaders['Client-Token'] = integracao.security_client_token_header;
+    // ✅ ENVIO UNIVERSAL - Detectar provider (Z-API ou W-API)
+    const provider = integracao.api_provider || 'z_api';
+    console.log('[PRE-ATEND] 📤 Enviando saudação para:', contato.telefone, '| Provider:', provider);
+    
+    let envioResp, envioData;
+    const telefoneNumerico = contato.telefone.replace(/\D/g, '');
+    
+    if (provider === 'w_api') {
+      // ========== W-API ==========
+      const wapiUrl = `${integracao.base_url_provider || 'https://api.w-api.app/v1'}/${integracao.instance_id_provider}/messages/send-text`;
+      const wapiHeaders = {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${integracao.api_key_provider}`
+      };
+      
+      envioResp = await fetch(wapiUrl, {
+        method: 'POST',
+        headers: wapiHeaders,
+        body: JSON.stringify({
+          phone: telefoneNumerico,
+          message: mensagemCompleta
+        })
+      });
+      envioData = await envioResp.json();
+      console.log('[PRE-ATEND] 📥 Resposta W-API:', JSON.stringify(envioData));
+      
+    } else {
+      // ========== Z-API (padrão) ==========
+      const zapiUrl = `${integracao.base_url_provider}/instances/${integracao.instance_id_provider}/token/${integracao.api_key_provider}/send-text`;
+      const zapiHeaders = { 'Content-Type': 'application/json' };
+      if (integracao.security_client_token_header) {
+        zapiHeaders['Client-Token'] = integracao.security_client_token_header;
+      }
+      
+      envioResp = await fetch(zapiUrl, {
+        method: 'POST',
+        headers: zapiHeaders,
+        body: JSON.stringify({
+          phone: telefoneNumerico,
+          message: mensagemCompleta
+        })
+      });
+      envioData = await envioResp.json();
+      console.log('[PRE-ATEND] 📥 Resposta Z-API:', JSON.stringify(envioData));
     }
-
-    console.log('[PRE-ATEND] 📤 Enviando saudação para:', contato.telefone);
-    
-    const envioResp = await fetch(zapiUrl, {
-      method: 'POST',
-      headers: zapiHeaders,
-      body: JSON.stringify({
-        phone: contato.telefone.replace('+', ''),
-        message: mensagemCompleta
-      })
-    });
-    
-    const envioData = await envioResp.json();
-    console.log('[PRE-ATEND] 📥 Resposta Z-API:', JSON.stringify(envioData));
 
     if (!envioResp.ok || envioData.error) {
       console.error('[PRE-ATEND] ❌ Erro ao enviar:', envioData);
@@ -1048,22 +1074,27 @@ async function executarPreAtendimentoInline(base44, params) {
     }
 
     if (!setorEscolhido) {
-      // Resposta não reconhecida
-      const zapiUrl = `${integracao.base_url_provider}/instances/${integracao.instance_id_provider}/token/${integracao.api_key_provider}/send-text`;
-      const zapiHeaders = { 'Content-Type': 'application/json' };
-      if (integracao.security_client_token_header) {
-        zapiHeaders['Client-Token'] = integracao.security_client_token_header;
+      // Resposta não reconhecida - ENVIO UNIVERSAL
+      const provider = integracao.api_provider || 'z_api';
+      const telefoneNumerico = contato.telefone.replace(/\D/g, '');
+      const msgNaoEntendi = '❓ Não entendi sua escolha. Por favor, responda com o número ou nome do setor:\n\n' + 
+                            opcoesSetor.map((op, i) => `${i + 1}. ${op.label}`).join('\n');
+      
+      if (provider === 'w_api') {
+        await fetch(`${integracao.base_url_provider || 'https://api.w-api.app/v1'}/${integracao.instance_id_provider}/messages/send-text`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${integracao.api_key_provider}` },
+          body: JSON.stringify({ phone: telefoneNumerico, message: msgNaoEntendi })
+        });
+      } else {
+        const zapiHeaders = { 'Content-Type': 'application/json' };
+        if (integracao.security_client_token_header) zapiHeaders['Client-Token'] = integracao.security_client_token_header;
+        await fetch(`${integracao.base_url_provider}/instances/${integracao.instance_id_provider}/token/${integracao.api_key_provider}/send-text`, {
+          method: 'POST',
+          headers: zapiHeaders,
+          body: JSON.stringify({ phone: telefoneNumerico, message: msgNaoEntendi })
+        });
       }
-
-      await fetch(zapiUrl, {
-        method: 'POST',
-        headers: zapiHeaders,
-        body: JSON.stringify({
-          phone: contato.telefone.replace('+', ''),
-          message: '❓ Não entendi sua escolha. Por favor, responda com o número ou nome do setor:\n\n' + 
-                   opcoesSetor.map((op, i) => `${i + 1}. ${op.label}`).join('\n')
-        })
-      });
 
       return { success: true, understood: false };
     }
@@ -1106,18 +1137,25 @@ async function executarPreAtendimentoInline(base44, params) {
       variables: { ...execucao.variables, setor_escolhido: setorEscolhido }
     });
 
-    // Enviar confirmação
-    const zapiUrl = `${integracao.base_url_provider}/instances/${integracao.instance_id_provider}/token/${integracao.api_key_provider}/send-text`;
-    const zapiHeaders = { 'Content-Type': 'application/json' };
-    if (integracao.security_client_token_header) {
-      zapiHeaders['Client-Token'] = integracao.security_client_token_header;
+    // Enviar confirmação - ENVIO UNIVERSAL
+    const provider = integracao.api_provider || 'z_api';
+    const telefoneNumerico = contato.telefone.replace(/\D/g, '');
+    
+    if (provider === 'w_api') {
+      await fetch(`${integracao.base_url_provider || 'https://api.w-api.app/v1'}/${integracao.instance_id_provider}/messages/send-text`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${integracao.api_key_provider}` },
+        body: JSON.stringify({ phone: telefoneNumerico, message: mensagemConfirmacao })
+      });
+    } else {
+      const zapiHeaders = { 'Content-Type': 'application/json' };
+      if (integracao.security_client_token_header) zapiHeaders['Client-Token'] = integracao.security_client_token_header;
+      await fetch(`${integracao.base_url_provider}/instances/${integracao.instance_id_provider}/token/${integracao.api_key_provider}/send-text`, {
+        method: 'POST',
+        headers: zapiHeaders,
+        body: JSON.stringify({ phone: telefoneNumerico, message: mensagemConfirmacao })
+      });
     }
-
-    await fetch(zapiUrl, {
-      method: 'POST',
-      headers: zapiHeaders,
-      body: JSON.stringify({ phone: contato.telefone.replace('+', ''), message: mensagemConfirmacao })
-    });
 
     await base44.asServiceRole.entities.Message.create({
       thread_id: thread_id,
