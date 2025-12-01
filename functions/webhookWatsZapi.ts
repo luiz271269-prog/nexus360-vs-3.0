@@ -333,6 +333,7 @@ async function handleMessage(dados, payloadBruto, base44) {
 
   // Processar contato
   let contato;
+  let isNovoContato = false;
   if (contatos.length > 0) {
     contato = contatos[0];
     const update = { ultima_interacao: new Date().toISOString() };
@@ -346,6 +347,7 @@ async function handleMessage(dados, payloadBruto, base44) {
     // ✅ Update em background (não bloqueia)
     base44.asServiceRole.entities.Contact.update(contato.id, update).catch(() => {});
   } else {
+    isNovoContato = true;
     contato = await base44.asServiceRole.entities.Contact.create({
       nome: dados.pushName || dados.from,
       telefone: dados.from,
@@ -360,6 +362,7 @@ async function handleMessage(dados, payloadBruto, base44) {
   // Buscar thread do contato
   let thread = threadsExistentes.find(t => t.contact_id === contato.id);
   const now = new Date().toISOString();
+  let isNovaThread = false;
 
   if (thread) {
     const threadUpdate = {
@@ -376,6 +379,7 @@ async function handleMessage(dados, payloadBruto, base44) {
     // ✅ Update em background (não bloqueia)
     base44.asServiceRole.entities.MessageThread.update(thread.id, threadUpdate).catch(() => {});
   } else {
+    isNovaThread = true;
     thread = await base44.asServiceRole.entities.MessageThread.create({
       contact_id: contato.id,
       whatsapp_integration_id: integracaoId,
@@ -412,6 +416,43 @@ async function handleMessage(dados, payloadBruto, base44) {
     }
   });
 
+  // ============================================================================
+  // ✅ PRÉ-ATENDIMENTO AUTOMÁTICO
+  // ============================================================================
+  // Condições para iniciar pré-atendimento:
+  // 1. Thread não tem atendente atribuído (assigned_user_id é null)
+  // 2. Pré-atendimento não está ativo (pre_atendimento_ativo é false)
+  // 3. É uma nova thread OU thread existente sem setor definido
+  // ============================================================================
+  const deveIniciarPreAtendimento = !thread.assigned_user_id && !thread.pre_atendimento_ativo;
+  
+  if (deveIniciarPreAtendimento) {
+    // Verificar se há pré-atendimento em andamento (resposta do contato)
+    const execucoesAtivas = await base44.asServiceRole.entities.FlowExecution.filter({
+      thread_id: thread.id,
+      status: 'ativo'
+    }, '-created_date', 1).catch(() => []);
+
+    if (execucoesAtivas.length > 0) {
+      // Processar resposta do pré-atendimento (em background)
+      base44.functions.invoke('executarPreAtendimento', {
+        action: 'processar_resposta',
+        thread_id: thread.id,
+        contact_id: contato.id,
+        integration_id: integracaoId,
+        resposta_usuario: dados.content
+      }).catch(e => console.error('[' + VERSION + '] Erro ao processar resposta pré-atendimento:', e.message));
+    } else if (isNovaThread || !thread.sector_id) {
+      // Iniciar novo pré-atendimento (em background para não bloquear)
+      base44.functions.invoke('executarPreAtendimento', {
+        action: 'iniciar',
+        thread_id: thread.id,
+        contact_id: contato.id,
+        integration_id: integracaoId
+      }).catch(e => console.error('[' + VERSION + '] Erro ao iniciar pré-atendimento:', e.message));
+    }
+  }
+
   // ✅ Audit log em background (não bloqueia resposta)
   base44.asServiceRole.entities.ZapiPayloadNormalized.create({
     payload_bruto: payloadBruto,
@@ -431,6 +472,7 @@ async function handleMessage(dados, payloadBruto, base44) {
     contact_id: contato.id,
     thread_id: thread.id,
     integration_id: integracaoId,
-    duration_ms: duracao
+    duration_ms: duracao,
+    pre_atendimento_triggered: deveIniciarPreAtendimento
   }, { headers: corsHeaders });
 }
