@@ -1,4 +1,4 @@
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
@@ -64,7 +64,7 @@ const AttachmentPreview = ({ file, onRemove, caption, onCaptionChange }) => {
   const [thumbnailUrl, setThumbnailUrl] = useState(null);
   const mediaType = getMediaTypeFromMime(file.type);
 
-  React.useEffect(() => {
+  useEffect(() => {
     if (file && (mediaType === 'image' || mediaType === 'video')) {
       const url = URL.createObjectURL(file);
       setThumbnailUrl(url);
