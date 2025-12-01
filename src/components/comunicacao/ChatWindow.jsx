@@ -1192,22 +1192,22 @@ export default function ChatWindow({
       return;
     }
 
-    setUploadingPastedFile(true);
-    setErro(null);
-
     // Guardar referências antes de limpar UI
     const imagemParaEnviar = pastedImage;
     const legendaImagem = mensagemTexto.trim() || null;
     const respostaParaMensagem = mensagemResposta;
+    const previewUrl = pastedImagePreview; // Guardar preview local
 
-    // Limpar UI imediatamente para feedback visual
-    cancelarImagemColada();
+    // Limpar UI imediatamente
+    setPastedImage(null);
+    setPastedImagePreview(null);
     setMensagemTexto('');
     setMensagemResposta(null);
+    setUploadingPastedFile(true);
+    setErro(null);
 
-    // 1. Criar mensagem com status 'enviando' ANTES do upload
+    // 1. Criar mensagem com preview LOCAL para aparecer instantaneamente
     let novaMensagem;
-
     try {
       novaMensagem = await base44.entities.Message.create({
         thread_id: thread.id,
@@ -1219,127 +1219,94 @@ export default function ChatWindow({
         channel: 'whatsapp',
         status: 'enviando',
         sent_at: new Date().toISOString(),
-        media_url: null, // Será atualizado após upload
+        media_url: previewUrl, // Preview local para exibição imediata
         media_type: 'image',
         media_caption: legendaImagem,
         reply_to_message_id: respostaParaMensagem?.id || null,
         metadata: {
           whatsapp_integration_id: integrationIdParaUso,
-          is_pasted_image: true
+          is_pasted_image: true,
+          local_preview: true
         }
       });
 
+      // Atualizar UI imediatamente com a mensagem "enviando"
       if (onAtualizarMensagens) {
         onAtualizarMensagens();
       }
     } catch (createError) {
-      console.error('[CHAT] Erro ao criar mensagem inicial:', createError);
-      toast.error('Erro ao preparar envio da imagem.');
+      console.error('[CHAT] Erro ao criar mensagem:', createError);
+      toast.error('Erro ao preparar envio.');
       setUploadingPastedFile(false);
       return;
     }
 
-    try {
-      // 2. Upload da imagem - garantir tipo MIME correto
-      console.log('[CHAT] 📤 Fazendo upload da imagem colada...');
-      const timestamp = Date.now();
-      
-      // Determinar extensão e tipo MIME corretos
-      let mimeType = imagemParaEnviar.type || 'image/png';
-      let extension = 'png';
-      if (mimeType.includes('jpeg') || mimeType.includes('jpg')) {
-        extension = 'jpg';
-      } else if (mimeType.includes('webp')) {
-        extension = 'webp';
-      } else if (mimeType.includes('gif')) {
-        extension = 'gif';
-      }
-      
-      // Se o tipo MIME estiver vazio ou inválido, forçar PNG
-      if (!mimeType || !mimeType.startsWith('image/')) {
-        mimeType = 'image/png';
-        extension = 'png';
-      }
-      
-      const fileName = `print-${timestamp}.${extension}`;
-      console.log('[CHAT] 📋 Arquivo:', { fileName, mimeType, size: imagemParaEnviar.size });
-      
-      const imageFile = new File([imagemParaEnviar], fileName, { 
-        type: mimeType,
-        lastModified: timestamp
-      });
+    // 2. Upload e envio em background (não bloqueia UI)
+    (async () => {
+      try {
+        // Criar File com tipo correto
+        const timestamp = Date.now();
+        let mimeType = imagemParaEnviar.type || 'image/png';
+        if (!mimeType.startsWith('image/')) mimeType = 'image/png';
+        const ext = mimeType.includes('jpeg') ? 'jpg' : mimeType.includes('webp') ? 'webp' : 'png';
+        
+        const imageFile = new File([imagemParaEnviar], `print-${timestamp}.${ext}`, { 
+          type: mimeType,
+          lastModified: timestamp
+        });
 
-      const uploadResponse = await base44.integrations.Core.UploadFile({ file: imageFile });
-      const imageUrl = uploadResponse.file_url;
-      console.log('[CHAT] ✅ Upload concluído:', imageUrl);
+        // Upload
+        const uploadResponse = await base44.integrations.Core.UploadFile({ file: imageFile });
+        const imageUrl = uploadResponse.file_url;
 
-      // 3. Enviar via WhatsApp
-      console.log('[CHAT] 📤 Enviando imagem via WhatsApp...');
-      const dadosEnvio = {
-        integration_id: integrationIdParaUso,
-        numero_destino: contatoTel,
-        media_url: imageUrl,
-        media_type: 'image',
-        media_caption: legendaImagem
-      };
-
-      if (respostaParaMensagem?.whatsapp_message_id) {
-        dadosEnvio.reply_to_message_id = respostaParaMensagem.whatsapp_message_id;
-      }
-
-      console.log('[CHAT] 📦 Dados envio:', JSON.stringify(dadosEnvio));
-      const resultado = await base44.functions.invoke('enviarWhatsApp', dadosEnvio);
-      console.log('[CHAT] 📥 Resultado:', JSON.stringify(resultado.data));
-
-      if (resultado.data.success) {
-        // 4. Atualizar mensagem para 'enviada'
-        await base44.entities.Message.update(novaMensagem.id, {
-          status: 'enviada',
-          whatsapp_message_id: resultado.data.message_id,
+        // Enviar via WhatsApp
+        const dadosEnvio = {
+          integration_id: integrationIdParaUso,
+          numero_destino: contatoTel,
           media_url: imageUrl,
-          sent_at: new Date().toISOString()
-        });
+          media_type: 'image',
+          media_caption: legendaImagem
+        };
+        if (respostaParaMensagem?.whatsapp_message_id) {
+          dadosEnvio.reply_to_message_id = respostaParaMensagem.whatsapp_message_id;
+        }
 
-        await base44.entities.MessageThread.update(thread.id, {
-          last_message_content: '[Imagem]',
-          last_message_at: new Date().toISOString(),
-          last_message_sender: 'user',
-          last_media_type: 'image',
-          whatsapp_integration_id: integrationIdParaUso
-        });
+        const resultado = await base44.functions.invoke('enviarWhatsApp', dadosEnvio);
 
-        toast.success('✅ Imagem enviada com sucesso!');
-      } else {
-        // 5. Marcar como falhou
-        await base44.entities.Message.update(novaMensagem.id, {
-          status: 'falhou',
-          erro_detalhes: resultado.data.error || 'Erro desconhecido'
-        });
-        throw new Error(resultado.data.error || 'Erro ao enviar imagem');
-      }
-    } catch (error) {
-      console.error('[CHAT] ❌ Erro ao enviar imagem:', error);
-      const errorMsg = error.message || 'Erro ao enviar imagem';
-      setErro(errorMsg);
-      toast.error(`Erro: ${errorMsg}`);
+        if (resultado.data.success) {
+          await base44.entities.Message.update(novaMensagem.id, {
+            status: 'enviada',
+            whatsapp_message_id: resultado.data.message_id,
+            media_url: imageUrl
+          });
 
-      // Marcar mensagem como falhou
-      if (novaMensagem) {
-        try {
+          await base44.entities.MessageThread.update(thread.id, {
+            last_message_content: '[Imagem]',
+            last_message_at: new Date().toISOString(),
+            last_message_sender: 'user',
+            last_media_type: 'image'
+          });
+        } else {
           await base44.entities.Message.update(novaMensagem.id, {
             status: 'falhou',
-            erro_detalhes: errorMsg
+            erro_detalhes: resultado.data.error || 'Erro'
           });
-        } catch (updateErr) {
-          console.error('[CHAT] Erro ao atualizar status:', updateErr);
+          toast.error('Falha ao enviar imagem');
+        }
+      } catch (error) {
+        console.error('[CHAT] Erro envio print:', error);
+        await base44.entities.Message.update(novaMensagem.id, {
+          status: 'falhou',
+          erro_detalhes: error.message
+        });
+        toast.error('Erro ao enviar imagem');
+      } finally {
+        setUploadingPastedFile(false);
+        if (onAtualizarMensagens) {
+          setTimeout(() => onAtualizarMensagens(), 300);
         }
       }
-    } finally {
-      setUploadingPastedFile(false);
-      if (onAtualizarMensagens) {
-        setTimeout(() => onAtualizarMensagens(), 500);
-      }
-    }
+    })();
   };
 
   return (
