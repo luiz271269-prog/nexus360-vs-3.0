@@ -11,9 +11,9 @@ import { connectionManager } from './lib/connectionManager.js';
 // 5. CORRIGIDO: Normalização de telefone SEM + para evitar duplicatas
 // ============================================================================
 
-const VERSION = 'v8.1.0';
-const BUILD_DATE = '2025-11-28';
-const BUILD_TIMESTAMP = '20251128-150000';
+const VERSION = 'v8.2.0';
+const BUILD_DATE = '2025-12-01';
+const BUILD_TIMESTAMP = '20251201-PERF';
 
 const corsHeaders = {
   'Content-Type': 'application/json',
@@ -302,28 +302,22 @@ async function handleMessageUpdate(dados, base44) {
 async function handleMessage(dados, payloadBruto, base44) {
   const inicio = Date.now();
   
+  // ✅ OTIMIZAÇÃO 1: Buscar duplicata + integração em PARALELO
+  const [dupResult, intResult] = await Promise.all([
+    dados.messageId 
+      ? base44.asServiceRole.entities.Message.filter({ whatsapp_message_id: dados.messageId }, '-created_date', 1).catch(() => [])
+      : Promise.resolve([]),
+    dados.instanceId
+      ? base44.asServiceRole.entities.WhatsAppIntegration.filter({ instance_id_provider: dados.instanceId }, '-created_date', 1).catch(() => [])
+      : Promise.resolve([])
+  ]);
+
   // Verificar duplicata
-  if (dados.messageId) {
-    try {
-      const dup = await base44.asServiceRole.entities.Message.filter(
-        { whatsapp_message_id: dados.messageId }, '-created_date', 1
-      );
-      if (dup.length > 0) {
-        return Response.json({ success: true, ignored: true, reason: 'duplicata' }, { headers: corsHeaders });
-      }
-    } catch (e) {}
+  if (dupResult.length > 0) {
+    return Response.json({ success: true, ignored: true, reason: 'duplicata' }, { headers: corsHeaders });
   }
 
-  // Buscar integração
-  let integracaoId = null;
-  if (dados.instanceId) {
-    try {
-      const int = await base44.asServiceRole.entities.WhatsAppIntegration.filter(
-        { instance_id_provider: dados.instanceId }, '-created_date', 1
-      );
-      if (int.length > 0) integracaoId = int[0].id;
-    } catch (e) {}
-  }
+  const integracaoId = intResult.length > 0 ? intResult[0].id : null;
 
   // Extrair foto de perfil do payload Z-API
   const profilePicUrl = payloadBruto.photo
@@ -331,28 +325,26 @@ async function handleMessage(dados, payloadBruto, base44) {
     || payloadBruto.profilePicUrl
     || null;
 
-  if (profilePicUrl) {
-    console.log('[Z-API WEBHOOK] 📷 Foto de perfil encontrada:', profilePicUrl.substring(0, 60) + '...');
-  }
+  // ✅ OTIMIZAÇÃO 2: Buscar contato + thread em PARALELO
+  const [contatos, threadsExistentes] = await Promise.all([
+    base44.asServiceRole.entities.Contact.filter({ telefone: dados.from }, '-created_date', 1),
+    base44.asServiceRole.entities.MessageThread.filter({ contact_id: { $exists: true } }, '-last_message_at', 500)
+  ]);
 
-  // Buscar/criar contato
+  // Processar contato
   let contato;
-  const contatos = await base44.asServiceRole.entities.Contact.filter(
-    { telefone: dados.from }, '-created_date', 1
-  );
-
   if (contatos.length > 0) {
     contato = contatos[0];
     const update = { ultima_interacao: new Date().toISOString() };
     if (dados.pushName && (!contato.nome || contato.nome === dados.from)) {
       update.nome = dados.pushName;
     }
-    // Atualizar foto se disponível e diferente
     if (profilePicUrl && profilePicUrl !== 'null' && contato.foto_perfil_url !== profilePicUrl) {
       update.foto_perfil_url = profilePicUrl;
       update.foto_perfil_atualizada_em = new Date().toISOString();
     }
-    await base44.asServiceRole.entities.Contact.update(contato.id, update);
+    // ✅ Update em background (não bloqueia)
+    base44.asServiceRole.entities.Contact.update(contato.id, update).catch(() => {});
   } else {
     contato = await base44.asServiceRole.entities.Contact.create({
       nome: dados.pushName || dados.from,
@@ -365,16 +357,13 @@ async function handleMessage(dados, payloadBruto, base44) {
     });
   }
 
-  // Buscar/criar thread
-  let thread;
-  const threads = await base44.asServiceRole.entities.MessageThread.filter(
-    { contact_id: contato.id }, '-last_message_at', 1
-  );
+  // Buscar thread do contato
+  let thread = threadsExistentes.find(t => t.contact_id === contato.id);
+  const now = new Date().toISOString();
 
-  if (threads.length > 0) {
-    thread = threads[0];
+  if (thread) {
     const threadUpdate = {
-      last_message_at: new Date().toISOString(),
+      last_message_at: now,
       last_message_sender: 'contact',
       last_message_content: (dados.content || '').substring(0, 100),
       unread_count: (thread.unread_count || 0) + 1,
@@ -384,14 +373,15 @@ async function handleMessage(dados, payloadBruto, base44) {
     if (integracaoId && !thread.whatsapp_integration_id) {
       threadUpdate.whatsapp_integration_id = integracaoId;
     }
-    await base44.asServiceRole.entities.MessageThread.update(thread.id, threadUpdate);
+    // ✅ Update em background (não bloqueia)
+    base44.asServiceRole.entities.MessageThread.update(thread.id, threadUpdate).catch(() => {});
   } else {
     thread = await base44.asServiceRole.entities.MessageThread.create({
       contact_id: contato.id,
       whatsapp_integration_id: integracaoId,
       status: 'aberta',
-      primeira_mensagem_at: new Date().toISOString(),
-      last_message_at: new Date().toISOString(),
+      primeira_mensagem_at: now,
+      last_message_at: now,
       last_message_sender: 'contact',
       last_message_content: (dados.content || '').substring(0, 100),
       total_mensagens: 1,
@@ -399,7 +389,7 @@ async function handleMessage(dados, payloadBruto, base44) {
     });
   }
 
-  // Salvar mensagem
+  // ✅ OTIMIZAÇÃO 3: Salvar mensagem (crítico - aguarda)
   const mensagem = await base44.asServiceRole.entities.Message.create({
     thread_id: thread.id,
     sender_id: contato.id,
@@ -411,7 +401,7 @@ async function handleMessage(dados, payloadBruto, base44) {
     channel: 'whatsapp',
     status: 'recebida',
     whatsapp_message_id: dados.messageId,
-    sent_at: new Date().toISOString(),
+    sent_at: now,
     metadata: {
       whatsapp_integration_id: integracaoId,
       instance_id: dados.instanceId,
@@ -422,17 +412,15 @@ async function handleMessage(dados, payloadBruto, base44) {
     }
   });
 
-  // Audit log (apenas mensagens reais)
-  try {
-    await base44.asServiceRole.entities.ZapiPayloadNormalized.create({
-      payload_bruto: payloadBruto,
-      instance_identificado: dados.instanceId,
-      integration_id: integracaoId,
-      evento: 'ReceivedCallback',
-      timestamp_recebido: new Date().toISOString(),
-      sucesso_processamento: true
-    });
-  } catch (e) {}
+  // ✅ Audit log em background (não bloqueia resposta)
+  base44.asServiceRole.entities.ZapiPayloadNormalized.create({
+    payload_bruto: payloadBruto,
+    instance_identificado: dados.instanceId,
+    integration_id: integracaoId,
+    evento: 'ReceivedCallback',
+    timestamp_recebido: now,
+    sucesso_processamento: true
+  }).catch(() => {});
 
   const duracao = Date.now() - inicio;
   console.log('[' + VERSION + '] ✅ Msg:', mensagem.id, '| De:', dados.from, '| Int:', integracaoId, '| ' + duracao + 'ms');
