@@ -434,22 +434,33 @@ async function handleMessage(dados, payloadBruto, base44) {
     }, '-created_date', 1).catch(() => []);
 
     if (execucoesAtivas.length > 0) {
-      // Processar resposta do pré-atendimento (em background)
-      base44.functions.invoke('executarPreAtendimento', {
-        action: 'processar_resposta',
-        thread_id: thread.id,
-        contact_id: contato.id,
-        integration_id: integracaoId,
-        resposta_usuario: dados.content
-      }).catch(e => console.error('[' + VERSION + '] Erro ao processar resposta pré-atendimento:', e.message));
+      // Processar resposta do pré-atendimento (SÍNCRONO para garantir execução)
+      try {
+        console.log('[' + VERSION + '] 🔄 Processando resposta pré-atendimento | Thread:', thread.id);
+        await base44.asServiceRole.functions.invoke('executarPreAtendimento', {
+          action: 'processar_resposta',
+          thread_id: thread.id,
+          contact_id: contato.id,
+          integration_id: integracaoId,
+          resposta_usuario: dados.content
+        });
+      } catch (e) {
+        console.error('[' + VERSION + '] ❌ Erro ao processar resposta pré-atendimento:', e.message);
+      }
     } else if (isNovaThread || !thread.sector_id) {
-      // Iniciar novo pré-atendimento (em background para não bloquear)
-      base44.functions.invoke('executarPreAtendimento', {
-        action: 'iniciar',
-        thread_id: thread.id,
-        contact_id: contato.id,
-        integration_id: integracaoId
-      }).catch(e => console.error('[' + VERSION + '] Erro ao iniciar pré-atendimento:', e.message));
+      // Iniciar novo pré-atendimento (SÍNCRONO para garantir execução)
+      try {
+        console.log('[' + VERSION + '] 🚀 Iniciando pré-atendimento | Thread:', thread.id, '| Contact:', contato.id);
+        await base44.asServiceRole.functions.invoke('executarPreAtendimento', {
+          action: 'iniciar',
+          thread_id: thread.id,
+          contact_id: contato.id,
+          integration_id: integracaoId
+        });
+        console.log('[' + VERSION + '] ✅ Pré-atendimento iniciado com sucesso');
+      } catch (e) {
+        console.error('[' + VERSION + '] ❌ Erro ao iniciar pré-atendimento:', e.message);
+      }
     }
   }
 
