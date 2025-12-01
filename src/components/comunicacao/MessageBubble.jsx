@@ -1048,41 +1048,23 @@ export default function MessageBubble({
               </div>
             }
 
-            {/* 📱 CANAL WHATSAPP - Badge mostrando de qual conexão veio */}
-            {!isOwn && thread && (() => {
-              // Tentar várias formas de obter info do canal
-              const canalNumero = message?.metadata?.canal_numero || message?.metadata?.connected_phone;
-              const canalNome = message?.metadata?.canal_nome;
+            {/* 📱 CANAL WHATSAPP - Badge mostrando de qual conexão veio/enviou */}
+            {thread && integracoes.length > 0 && (() => {
               const integracaoId = message?.metadata?.whatsapp_integration_id || thread?.whatsapp_integration_id;
-
-              // Se temos o número diretamente
-              if (canalNumero) {
-                return (
-                  <div className={cn(
-                    "text-[9px] px-2 py-0.5 rounded-full mb-1 inline-flex items-center gap-1",
-                    "bg-green-50 text-green-600 border border-green-200"
-                  )}>
-                    📱 Via: {canalNome || canalNumero}
-                  </div>);
-
-              }
-
-              // Fallback: buscar na lista de integrações
-              if (integracaoId && integracoes.length > 0) {
-                const integracao = integracoes.find((i) => i.id === integracaoId);
-                if (integracao) {
-                  return (
-                    <div className={cn(
-                      "text-[9px] px-2 py-0.5 rounded-full mb-1 inline-flex items-center gap-1",
-                      "bg-green-50 text-green-600 border border-green-200"
-                    )}>
-                      📱 Via: {integracao.numero_telefone || integracao.nome_instancia}
-                    </div>);
-
-                }
-              }
-
-              return null;
+              if (!integracaoId) return null;
+              
+              const integracao = integracoes.find((i) => i.id === integracaoId);
+              if (!integracao) return null;
+              
+              const displayInfo = integracao.numero_telefone || integracao.nome_instancia;
+              return (
+                <div className={cn(
+                  "text-[9px] px-2 py-0.5 rounded-full mb-1 inline-flex items-center gap-1",
+                  isOwn ? "bg-white/20 text-white/90" : "bg-green-50 text-green-600 border border-green-200"
+                )}>
+                  📱 Via: {displayInfo}
+                </div>
+              );
             })()}
 
             {/* ✅ TEXTO - SEM MÍDIA */}
