@@ -1470,31 +1470,47 @@ async function executarPreAtendimentoInline(base44, params) {
       
       // Verificar cada palavra do texto contra o nome do atendente
       for (const palavra of palavrasTexto) {
-        if (palavra.length < 3) continue;
+        if (palavra.length < 2) continue;
         
         // Match exato do primeiro nome
         if (palavra === atend.primeiroNome) {
           score = Math.max(score, 100);
+          console.log('[PRE-ATEND] 👤 Match EXATO:', palavra, '=', atend.primeiroNome);
         }
-        // Similaridade alta com primeiro nome (tolera erros como "grabiel" -> "gabriel")
-        else if (similaridade(palavra, atend.primeiroNome) >= 0.8) {
+        // Match exato com apelido/variação
+        else if (atend.apelidos && atend.apelidos.includes(palavra)) {
+          score = Math.max(score, 98);
+          console.log('[PRE-ATEND] 👤 Match APELIDO:', palavra, '->', atend.primeiroNome);
+        }
+        // Similaridade alta com primeiro nome (tolera erros como "tais" -> "thais", "grabiel" -> "gabriel")
+        else if (similaridade(palavra, atend.primeiroNome) >= 0.75) {
           score = Math.max(score, 95);
           console.log('[PRE-ATEND] 👤 Similaridade nome:', palavra, '~', atend.primeiroNome, '=', similaridade(palavra, atend.primeiroNome).toFixed(2));
         }
-        // Primeiro nome começa com a palavra (ex: "gab" -> "gabriel")
-        else if (atend.primeiroNome.startsWith(palavra) && palavra.length >= 3) {
+        // Similaridade com apelidos
+        else if (atend.apelidos) {
+          for (const apelido of atend.apelidos) {
+            if (similaridade(palavra, apelido) >= 0.8) {
+              score = Math.max(score, 90);
+              console.log('[PRE-ATEND] 👤 Similaridade apelido:', palavra, '~', apelido);
+              break;
+            }
+          }
+        }
+        // Primeiro nome começa com a palavra (ex: "tha" -> "thais")
+        if (score < 85 && atend.primeiroNome.startsWith(palavra) && palavra.length >= 3) {
           score = Math.max(score, 85);
         }
-        // Palavra começa com o primeiro nome (ex: "gabrielx" -> "gabriel")
-        else if (palavra.startsWith(atend.primeiroNome) && atend.primeiroNome.length >= 3) {
+        // Palavra começa com o primeiro nome (ex: "thaisxxx" -> "thais")
+        else if (score < 80 && palavra.startsWith(atend.primeiroNome) && atend.primeiroNome.length >= 3) {
           score = Math.max(score, 80);
         }
         // Similaridade média com qualquer parte do nome
-        else {
+        else if (score < 70) {
           for (const parte of atend.partes) {
             if (parte.length >= 3) {
               const sim = similaridade(palavra, parte);
-              if (sim >= 0.75) {
+              if (sim >= 0.7) {
                 score = Math.max(score, 70);
               }
             }
