@@ -1533,7 +1533,7 @@ export default function ChatWindow({
 
                   <MessageBubble
                   message={mensagem}
-                  isOwn={mensagem.sender_type === 'user'}
+                  isOwn={mensagem.sender_id === usuario?.id}
                   thread={thread}
                   onResponder={handleResponderMensagem}
                   modoSelecao={modoSelecao}
@@ -1542,7 +1542,8 @@ export default function ChatWindow({
                   mensagens={mensagens}
                   integracoes={integracoes}
                   usuarioAtual={usuario}
-                  contato={contatoCompleto} />
+                  contato={contatoCompleto}
+                  atendentes={atendentesLista} />
 
                 </React.Fragment>);
 
