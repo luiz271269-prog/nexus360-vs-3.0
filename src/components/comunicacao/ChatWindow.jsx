@@ -1137,7 +1137,12 @@ export default function ChatWindow({
   const handleKeyDown = (e) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
-      handleEnviar();
+      // Se tem imagem colada, enviar imagem em vez de texto
+      if (pastedImage) {
+        enviarImagemColada();
+      } else {
+        handleEnviar();
+      }
     }
   };
 
@@ -1675,7 +1680,15 @@ export default function ChatWindow({
 
       }
 
-      <form onSubmit={handleEnviar} className="bg-[#d6dfe1] text-gray-950 px-3 rounded-lg border-t flex-shrink-0">
+      <form onSubmit={(e) => {
+        e.preventDefault();
+        // Se tem imagem colada, enviar imagem em vez de texto
+        if (pastedImage) {
+          enviarImagemColada();
+        } else {
+          handleEnviar();
+        }
+      }} className="bg-[#d6dfe1] text-gray-950 px-3 rounded-lg border-t flex-shrink-0">
         {/* Seletor de Canal WhatsApp */}
         {integracoes.length > 1 &&
         <div className="mb-2 flex items-center gap-2">
