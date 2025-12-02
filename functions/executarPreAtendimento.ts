@@ -472,13 +472,34 @@ async function finalizarPreAtendimento(base44, params) {
   const setorLabel = setorLabels[setor] || setor;
   let msg;
   
-  if (atendente) {
+  if (atendente && atendente.full_name) {
     threadUpdate.assigned_user_id = atendente.id;
     threadUpdate.assigned_user_name = atendente.full_name;
-    msg = `✅ Perfeito! Vou te conectar com *${atendente.full_name}* do setor de *${setorLabel}*. Aguarde um instante! 😊`;
+    
+    // Normalizar nomes para comparação (evitar redundância)
+    const nomeAtendente = atendente.full_name.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
+    const nomeSetor = setorLabel.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
+    const setorKey = setor.toLowerCase().trim();
+    
+    // Verificar se o nome do atendente é igual ou muito similar ao nome do setor
+    const ehNomeIgualSetor = nomeAtendente === nomeSetor || 
+                             nomeAtendente === setorKey ||
+                             nomeAtendente.includes(setorKey) ||
+                             setorKey.includes(nomeAtendente);
+    
+    if (ehNomeIgualSetor) {
+      // Nome igual ao setor - mostrar só o setor
+      msg = `✅ Perfeito! Estou direcionando você para o setor de *${setorLabel}*. Aguarde um instante! 😊`;
+    } else {
+      // Nome diferente - mostrar nome + setor
+      msg = `✅ Perfeito! Vou te conectar com *${atendente.full_name}* do setor de *${setorLabel}*. Aguarde um instante! 😊`;
+    }
   } else {
+    // Sem atendente específico
     msg = `✅ Certo! Estou direcionando você para o setor de *${setorLabel}*. Um atendente vai te atender em breve! 😊`;
   }
+  
+  console.log(`[PRE-ATEND] 📤 Finalizando: Setor=${setor} | Atendente=${atendente?.full_name || 'N/A'} | Motivo=${motivo}`);
   
   await base44.asServiceRole.entities.MessageThread.update(thread_id, threadUpdate);
   await base44.asServiceRole.entities.FlowExecution.update(execucao_id, {
