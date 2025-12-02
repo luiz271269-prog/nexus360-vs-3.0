@@ -492,67 +492,22 @@ export default function MessageBubble({
           </div>
         }
 
-        {!isOwn && !modoSelecao &&
-        <div className="h-8 w-8 rounded-full bg-slate-200 flex items-center justify-center mt-0.5 flex-shrink-0 overflow-hidden">
-            {contato?.foto_perfil_url ? (
-              <img 
-                src={contato.foto_perfil_url} 
-                alt={contato?.nome || 'Contato'} 
-                className="w-full h-full object-cover"
-                onError={(e) => { e.target.style.display = 'none'; }}
-              />
-            ) : (
-              <span className="text-xs font-bold text-slate-500">
-                {(contato?.nome || 'C').charAt(0).toUpperCase()}
-              </span>
-            )}
-          </div>
-        }
+        {/* Avatar removido para visual mais limpo estilo WhatsApp Web */}
 
         <div className={cn(
-          "max-w-[70%]",
+          "max-w-[65%]",
           isOwn ? 'items-end' : 'items-start',
           "flex flex-col group relative"
         )}>
-          {/* Nome do Remetente + Setor */}
-          <span className={cn(
-            "text-[10px] font-semibold mb-0.5 px-1 flex items-center gap-1",
-            message.sender_type === 'user' ? "text-slate-500 justify-end" : "text-slate-600 justify-start"
-          )}>
-            {(() => {
-              // Se é mensagem de usuário (atendente)
-              if (message.sender_type === 'user') {
-                // Se sou eu que enviei (isOwn)
-                if (isOwn) {
-                  return usuarioAtual?.full_name || 'Você';
-                }
-                // Se foi outro atendente, buscar na lista
+          {/* Nome do Remetente - Somente para mensagens de outros atendentes */}
+          {message.sender_type === 'user' && !isOwn && (
+            <span className="text-[11px] font-semibold mb-0.5 text-[#53bdeb]">
+              {(() => {
                 const atendenteRemetente = atendentes.find(a => a.id === message.sender_id);
                 return atendenteRemetente?.full_name || 'Atendente';
-              }
-              // Se é mensagem do cliente
-              return contato?.nome || contato?.telefone || 'Cliente';
-            })()}
-            {/* Badge do setor para mensagens de atendentes */}
-            {message.sender_type === 'user' && (() => {
-              // Buscar setor do atendente que enviou
-              let setorAtendente = null;
-              if (isOwn) {
-                setorAtendente = usuarioAtual?.attendant_sector;
-              } else {
-                const atendenteRemetente = atendentes.find(a => a.id === message.sender_id);
-                setorAtendente = atendenteRemetente?.attendant_sector;
-              }
-              if (setorAtendente && setorAtendente !== 'geral') {
-                return (
-                  <span className="px-1.5 py-0.5 text-[8px] bg-blue-500 text-white rounded-full font-bold uppercase">
-                    {setorAtendente}
-                  </span>
-                );
-              }
-              return null;
-            })()}
-          </span>
+              })()}
+            </span>
+          )}
 
           {mensagemOriginal &&
           <div className={cn(
@@ -569,28 +524,14 @@ export default function MessageBubble({
           }
 
           <div className={cn(
-            "rounded-2xl relative shadow-sm",
-            isOwn ? (() => {
-              // Buscar cor da integração
-              const integracaoId = message?.metadata?.whatsapp_integration_id || thread?.whatsapp_integration_id;
-              const integracao = integracoes?.find(i => i.id === integracaoId);
-              const cor = integracao?.cor_chat || 'blue';
-              const coresMap = {
-                blue: "bg-gradient-to-r from-blue-500 to-blue-600",
-                green: "bg-gradient-to-r from-green-500 to-green-600",
-                purple: "bg-gradient-to-r from-purple-500 to-purple-600",
-                orange: "bg-gradient-to-r from-orange-500 to-orange-600",
-                pink: "bg-gradient-to-r from-pink-500 to-pink-600",
-                teal: "bg-gradient-to-r from-teal-500 to-teal-600",
-                indigo: "bg-gradient-to-r from-indigo-500 to-indigo-600",
-                rose: "bg-gradient-to-r from-rose-500 to-rose-600"
-              };
-              return coresMap[cor] || coresMap.blue;
-            })() :
-            "bg-white border border-slate-200",
+            "rounded-lg relative shadow-sm",
+            isOwn ? "bg-[#d9fdd3]" : "bg-white",
             selecionada ? 'ring-2 ring-blue-500' : '',
-            message.media_url && message.media_type !== 'none' ? '' : 'px-4 py-2'
-          )}>
+            message.media_url && message.media_type !== 'none' ? '' : 'px-3 py-1.5'
+          )}
+          style={{
+            borderRadius: isOwn ? '8px 0 8px 8px' : '0 8px 8px 8px'
+          }}>
             {/* ✅ ÍCONES FLUTUANTES - APARECEM AO PASSAR O MOUSE */}
             {!modoSelecao && !isSystemMessage &&
             <TooltipProvider>
@@ -1070,13 +1011,9 @@ export default function MessageBubble({
             {/* ✅ TEXTO - SEM MÍDIA */}
             {(!message?.media_url || message?.media_type === 'none') && message?.content && String(message.content).trim() !== '' && message.content !== '[No content]' &&
             <>
-                <div className={cn(
-                "break-words whitespace-pre-wrap",
-                isOwn ? "text-white" : "text-slate-800"
-              )}>
-                  {isOwn ?
-                <p className="text-sm leading-relaxed">{String(message.content || '')}</p> :
-
+                <div className="break-words whitespace-pre-wrap text-[#111b21]">
+                  <p className="text-[14.2px] leading-[19px]">{String(message.content || '')}</p>
+                  {/* ReactMarkdown removido para visual mais limpo
                 <ReactMarkdown
                   className="text-sm prose prose-sm prose-slate max-w-none [&>*:first-child]:mt-0 [&>*:last-child]:mb-0"
                   components={{
@@ -1124,58 +1061,22 @@ export default function MessageBubble({
 
                      {String(message.content || '')}
                     </ReactMarkdown>
-                }
+                */}
                 </div>
 
-                <div className="flex items-center justify-end gap-1 mt-1 flex-wrap">
-                  {message?.categorias && message.categorias.length > 0 &&
-                <div className="flex gap-1 mr-1 flex-wrap">
-                      {message.categorias.slice(0, 3).map((cat) => {
-                    const config = getCategoriaConfig(cat, categoriasDB);
-                    return (
-                      <span
-                        key={cat}
-                        className={cn(
-                          "text-[9px] px-1.5 py-0.5 rounded flex items-center gap-1",
-                          isOwn ? "bg-white/20 text-white" : `${config.color} text-white`
-                        )}>
-
-                            {config.emoji} {config.label}
-                          </span>);
-
-                  })}
-                    </div>
-                }
-                  <span className={cn(
-                  "text-[10px]",
-                  isOwn ? "text-white/70" : "text-slate-500"
-                )}>
+                <div className="flex items-center justify-end gap-1 mt-0.5">
+                  <span className="text-[11px] text-[#667781]">
                     {formatarHorario(message.sent_at || message.created_date)}
                   </span>
-
-                  {isOwn &&
-                  <>
-                      {message.status === 'enviando' &&
-                  <Clock className="w-3 h-3 text-white/50" />
-                  }
-
-                      {message.status === 'enviada' &&
-                  <Check className="w-3.5 h-3.5 text-white/60" />
-                  }
-
-                      {message.status === 'entregue' &&
-                  <CheckCheck className="w-3.5 h-3.5 text-white/60" />
-                  }
-
-                      {message.status === 'lida' &&
-                  <CheckCheck className="w-3.5 h-3.5 text-[#53bdeb]" />
-                  }
-
-                      {message.status === 'falhou' &&
-                  <AlertCircle className="w-3.5 h-3.5 text-red-400" />
-                  }
+                  {isOwn && (
+                    <>
+                      {message.status === 'enviando' && <Clock className="w-[16px] h-[16px] text-[#667781]" />}
+                      {message.status === 'enviada' && <Check className="w-[16px] h-[16px] text-[#667781]" />}
+                      {message.status === 'entregue' && <CheckCheck className="w-[16px] h-[16px] text-[#667781]" />}
+                      {message.status === 'lida' && <CheckCheck className="w-[16px] h-[16px] text-[#53bdeb]" />}
+                      {message.status === 'falhou' && <AlertCircle className="w-[16px] h-[16px] text-red-500" />}
                     </>
-                  }
+                  )}
                 </div>
               </>
             }
