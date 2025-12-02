@@ -52,12 +52,9 @@ export default function AtribuidorAtendenteRapido({
   // Buscar TODOS os usuários (para permitir transferência para qualquer atendente)
   const { data: atendentes = [] } = useQuery({
     queryKey: ['atendentes-atribuidor'],
-    queryFn: async () => {
-      const usuarios = await base44.entities.User.list('full_name');
-      // Filtrar apenas usuários com nome válido
-      return usuarios.filter(u => u.full_name && u.full_name.trim() !== '');
-    },
-    staleTime: 5 * 60 * 1000
+    queryFn: () => base44.entities.User.list('full_name'),
+    staleTime: 5 * 60 * 1000,
+    select: (data) => data.filter(u => u.full_name && u.full_name.trim() !== '')
   });
 
   // Buscar vendedores
