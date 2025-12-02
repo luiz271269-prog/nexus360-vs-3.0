@@ -681,12 +681,12 @@ export default function MessageBubble({
 
             {/* ✅ IMAGEM - ESTILO WHATSAPP */}
             {message.media_type === 'image' && message.media_url &&
-            <div className="relative overflow-hidden rounded-2xl">
+            <div className="relative overflow-hidden rounded-lg">
                 {message.media_url ?
               <ImageWithFallback
                 src={message.media_url}
                 alt="Imagem"
-                className="max-w-full max-h-96 object-cover rounded-2xl cursor-pointer"
+                className="max-w-[280px] max-h-[280px] object-cover rounded-lg cursor-pointer"
                 onClick={() => window.open(message.media_url, '_blank')}
               /> :
 
@@ -746,15 +746,15 @@ export default function MessageBubble({
             {/* ✅ ÁUDIO - ESTILO WHATSAPP */}
             {message?.media_type === 'audio' && message?.media_url &&
             <div className={cn(
-              "px-3 py-2 min-w-[200px]",
+              "px-2 py-1.5 min-w-[160px] max-w-[240px]",
               isOwn ? "text-white" : "text-slate-800"
             )}>
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-2">
                   <div className={cn(
-                  "w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0",
+                  "w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0",
                   isOwn ? "bg-white/20" : "bg-green-500"
                 )}>
-                    <Play className={cn("w-5 h-5", isOwn ? "text-white" : "text-white")} />
+                    <Play className={cn("w-4 h-4", isOwn ? "text-white" : "text-white")} />
                   </div>
                   {message?.media_url?.includes('mmg.whatsapp.net') ? (
                     <div className={cn(
@@ -822,11 +822,11 @@ export default function MessageBubble({
 
             {/* ✅ VÍDEO - ESTILO WHATSAPP */}
             {message?.media_type === 'video' && message?.media_url &&
-            <div className="relative overflow-hidden rounded-2xl">
+            <div className="relative overflow-hidden rounded-lg">
                 <video
                 src={message?.media_url}
                 controls
-                className="max-w-full max-h-96 rounded-2xl"
+                className="max-w-[280px] max-h-[280px] rounded-lg"
                 preload="metadata" />
 
                 {message.media_caption &&
@@ -928,23 +928,23 @@ export default function MessageBubble({
             {/* ✅ DOCUMENTO - ESTILO WHATSAPP */}
             {message?.media_type === 'document' && message?.media_url &&
             <div className={cn(
-              "px-4 py-3 min-w-[250px]",
+              "px-3 py-2 min-w-[180px] max-w-[280px]",
               isOwn ? "text-white" : "text-slate-800"
             )}>
                 {message?.media_url?.includes('mmg.whatsapp.net') ? (
-                  <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-2">
                     <div className={cn(
-                      "w-12 h-12 rounded-lg flex items-center justify-center flex-shrink-0",
+                      "w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0",
                       isOwn ? "bg-white/20" : "bg-orange-50"
                     )}>
-                      <FileIcon className={cn("w-6 h-6", isOwn ? "text-white" : "text-orange-600")} />
+                      <FileIcon className={cn("w-5 h-5", isOwn ? "text-white" : "text-orange-600")} />
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className={cn("text-sm font-medium truncate", isOwn ? "text-white" : "text-slate-900")}>
-                        {String(message?.content || 'Documento').replace('[Documento: ', '').replace(']', '')}
+                      <p className={cn("text-xs font-medium truncate", isOwn ? "text-white" : "text-slate-900")}>
+                        {String(message?.content || 'Documento').replace('[Documento: ', '').replace(']', '').substring(0, 20)}
                       </p>
-                      <p className={cn("text-xs", isOwn ? "text-white/70" : "text-orange-600")}>
-                        ⚠️ Arquivo temporário (instância LITE)
+                      <p className={cn("text-[10px]", isOwn ? "text-white/70" : "text-orange-600")}>
+                        Arquivo temporário
                       </p>
                     </div>
                   </div>
@@ -953,23 +953,23 @@ export default function MessageBubble({
                 href={message?.media_url}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex items-center gap-3 hover:opacity-80 transition-opacity">
+                className="flex items-center gap-2 hover:opacity-80 transition-opacity">
 
                   <div className={cn(
-                  "w-12 h-12 rounded-lg flex items-center justify-center flex-shrink-0",
+                  "w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0",
                   isOwn ? "bg-white/20" : "bg-blue-50"
                 )}>
-                    <FileIcon className={cn("w-6 h-6", isOwn ? "text-white" : "text-blue-600")} />
+                    <FileIcon className={cn("w-5 h-5", isOwn ? "text-white" : "text-blue-600")} />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className={cn("text-sm font-medium truncate", isOwn ? "text-white" : "text-slate-900")}>
-                      {String(message?.content || 'Documento').replace('[Documento: ', '').replace(']', '')}
+                    <p className={cn("text-xs font-medium truncate", isOwn ? "text-white" : "text-slate-900")}>
+                      {String(message?.content || 'Documento').replace('[Documento: ', '').replace(']', '').substring(0, 20)}
                     </p>
-                    <p className={cn("text-xs", isOwn ? "text-white/70" : "text-slate-500")}>
+                    <p className={cn("text-[10px]", isOwn ? "text-white/70" : "text-slate-500")}>
                       Clique para baixar
                     </p>
                   </div>
-                  <Download className={cn("w-5 h-5 flex-shrink-0", isOwn ? "text-white/70" : "text-slate-400")} />
+                  <Download className={cn("w-4 h-4 flex-shrink-0", isOwn ? "text-white/70" : "text-slate-400")} />
                 </a>
                 )}
                 <div className="flex items-center justify-end gap-1 mt-2">
