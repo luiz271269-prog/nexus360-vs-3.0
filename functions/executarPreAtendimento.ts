@@ -778,7 +778,7 @@ Deno.serve(async (req) => {
       }
 
       // ============================================================================
-      // 🧠 PRIORIDADE 5: INFERIR PELO CONTEXTO DOMINANTE
+      // 🧠 PRIORIDADE 5: INFERIR PELO CONTEXTO DOMINANTE (SETOR COM MAIS KEYWORDS)
       // ============================================================================
       if (contexto.setorDominante[1] >= 3) {
         console.log('[PRE-ATEND] 🧠 Setor inferido do contexto:', contexto.setorDominante[0]);
