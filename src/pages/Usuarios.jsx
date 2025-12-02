@@ -72,22 +72,22 @@ export default function UsuariosPage() {
         console.log('[Usuarios] Usuário atualizado:', resultado);
       }
       
-      // Retornar o objeto atualizado no formato do componente
+      // Retornar o objeto atualizado mantendo os valores que foram enviados (não os do resultado)
+      // Isso evita sobrescrever com valores antigos do banco
       return {
-        ...usuario,
-        id: resultado.id,
-        nome: resultado.full_name,
-        email: resultado.email,
-        setor: resultado.attendant_sector,
-        funcao: resultado.attendant_role,
-        tipoAcesso: resultado.role,
-        ativo: resultado.is_active !== false,
-        is_whatsapp_attendant: resultado.is_whatsapp_attendant,
-        whatsapp_setores: resultado.whatsapp_setores,
-        whatsapp_permissions: resultado.whatsapp_permissions,
-        permissoes_comunicacao: resultado.permissoes_comunicacao,
-        paginas_acesso: resultado.paginas_acesso,
-        max_concurrent_conversations: resultado.max_concurrent_conversations,
+        id: resultado.id || usuario.id,
+        nome: usuario.nome, // Manter o valor editado
+        email: resultado.email || usuario.email,
+        setor: usuario.setor, // Manter o valor editado
+        funcao: usuario.funcao, // Manter o valor editado
+        tipoAcesso: usuario.tipoAcesso, // Manter o valor editado
+        ativo: usuario.ativo,
+        is_whatsapp_attendant: usuario.is_whatsapp_attendant,
+        whatsapp_setores: usuario.whatsapp_setores,
+        whatsapp_permissions: usuario.whatsapp_permissions,
+        permissoes_comunicacao: usuario.permissoes_comunicacao,
+        paginas_acesso: usuario.paginas_acesso,
+        max_concurrent_conversations: usuario.max_concurrent_conversations,
         isNovo: false,
       };
     } catch (error) {
