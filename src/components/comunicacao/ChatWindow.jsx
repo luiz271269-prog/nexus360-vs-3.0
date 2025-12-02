@@ -1863,10 +1863,10 @@ export default function ChatWindow({
                       <div className={`w-8 h-8 rounded-full flex items-center justify-center text-white font-bold text-sm ${
                         isAtual ? 'bg-green-500' : 'bg-gradient-to-br from-amber-400 to-orange-500'
                       }`}>
-                        {isAtual ? <CheckSquare className="w-4 h-4" /> : atendente.full_name?.charAt(0).toUpperCase() || '?'}
+                        {isAtual ? <CheckSquare className="w-4 h-4" /> : (atendente.full_name || atendente.email || '?').charAt(0).toUpperCase()}
                       </div>
                       <div className="flex-1 min-w-0">
-                        <p className="text-xs font-semibold truncate">{atendente.full_name?.split(' ')[0]}</p>
+                        <p className="text-xs font-semibold truncate">{(atendente.full_name || atendente.email || 'Usuário').split(' ')[0]}</p>
                         <p className="text-[10px] text-slate-400 truncate">{atendente.attendant_sector || 'Geral'}</p>
                       </div>
                     </button>
