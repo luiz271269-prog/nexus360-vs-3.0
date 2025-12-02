@@ -265,8 +265,16 @@ export default function ChatWindow({
   const carregarAtendentes = async () => {
     setCarregandoAtendentes(true);
     try {
-      // Buscar TODOS os usuários do sistema (sem filtro nenhum para transferência)
-      const users = await base44.entities.User.list();
+      // Tentar buscar todos os usuários - se falhar (usuário não-admin), usar lista já carregada
+      let users = [];
+      try {
+        users = await base44.entities.User.list();
+      } catch (listError) {
+        console.warn('[CHAT] Usuário não tem permissão para listar todos. Usando lista alternativa.');
+        // Fallback: usar atendentesLista já carregada no início do componente
+        users = atendentesLista || [];
+      }
+      
       console.log('[CHAT] Usuários carregados para transferência:', users.length, users.map(u => u.full_name || u.email));
       // Mostrar TODOS os usuários na tela de transferência, sem bloqueios
       setAtendentes(users);
