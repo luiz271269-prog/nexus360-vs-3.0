@@ -375,14 +375,18 @@ export default function Comunicacao() {
       }
     }
 
-    // Filtro de busca
+    // Filtro de busca - case insensitive e por parte do texto
     if (debouncedSearchTerm) {
-      const termo = debouncedSearchTerm.toLowerCase();
+      const termo = debouncedSearchTerm.toLowerCase().trim();
+      // Normalizar telefone removendo caracteres especiais para busca
+      const termoNumeros = termo.replace(/\D/g, '');
+      const telefoneNormalizado = (contato.telefone || '').replace(/\D/g, '');
+      
       const matchBusca = 
-        contato.nome?.toLowerCase().includes(termo) ||
-        contato.empresa?.toLowerCase().includes(termo) ||
-        contato.cargo?.toLowerCase().includes(termo) ||
-        contato.telefone?.includes(debouncedSearchTerm);
+        (contato.nome || '').toLowerCase().includes(termo) ||
+        (contato.empresa || '').toLowerCase().includes(termo) ||
+        (contato.cargo || '').toLowerCase().includes(termo) ||
+        (termoNumeros && telefoneNormalizado.includes(termoNumeros));
       if (!matchBusca) return false;
     }
 
@@ -452,15 +456,19 @@ export default function Comunicacao() {
         if (!tags.includes(selectedTagContato)) return false;
       }
 
-      // Filtro de busca
+      // Filtro de busca - case insensitive e por parte do texto
       if (debouncedSearchTerm) {
-        const termo = debouncedSearchTerm.toLowerCase();
+        const termo = debouncedSearchTerm.toLowerCase().trim();
+        // Normalizar telefone removendo caracteres especiais para busca
+        const termoNumeros = termo.replace(/\D/g, '');
+        const telefoneNormalizado = (contato.telefone || '').replace(/\D/g, '');
+        
         const matchBusca = 
-          contato.nome?.toLowerCase().includes(termo) ||
-          contato.empresa?.toLowerCase().includes(termo) ||
-          contato.cargo?.toLowerCase().includes(termo) ||
-          thread.last_message_content?.toLowerCase().includes(termo) ||
-          contato.telefone?.includes(debouncedSearchTerm);
+          (contato.nome || '').toLowerCase().includes(termo) ||
+          (contato.empresa || '').toLowerCase().includes(termo) ||
+          (contato.cargo || '').toLowerCase().includes(termo) ||
+          (thread.last_message_content || '').toLowerCase().includes(termo) ||
+          (termoNumeros && telefoneNormalizado.includes(termoNumeros));
         if (!matchBusca) return false;
       }
 
