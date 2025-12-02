@@ -775,50 +775,7 @@ export default function ChatWindow({
   // Removido - agora usa MediaAttachmentSystem
 
   const handlePrintChat = async () => {
-    if (!chatContainerRef.current) {
-      toast.error('Área de conversa não encontrada');
-      return;
-    }
-
-    setCapturandoTela(true);
-    toast.info('📸 Capturando conversa...', { duration: 2000 });
-
-    try {
-      const canvas = await html2canvas(chatContainerRef.current, {
-        backgroundColor: '#e5ddd5',
-        scale: 2,
-        logging: false,
-        useCORS: true,
-        allowTaint: true
-      });
-
-      canvas.toBlob((blob) => {
-        if (!blob) {
-          toast.error('Erro ao gerar imagem');
-          return;
-        }
-
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        const nomeContato = contatoCompleto?.nome || 'Conversa';
-        const timestamp = new Date().toISOString().split('T')[0];
-
-        link.href = url;
-        link.download = `VendaPro_Chat_${nomeContato}_${timestamp}.png`;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        URL.revokeObjectURL(url);
-
-        toast.success('✅ Conversa capturada com sucesso!');
-      }, 'image/png');
-
-    } catch (error) {
-      console.error('[CHAT] Erro ao capturar tela:', error);
-      toast.error('❌ Erro ao capturar conversa');
-    } finally {
-      setCapturandoTela(false);
-    }
+    toast.info('Funcionalidade temporariamente desativada');
   };
 
   useEffect(() => {
