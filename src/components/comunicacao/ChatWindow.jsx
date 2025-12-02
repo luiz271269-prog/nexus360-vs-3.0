@@ -125,7 +125,7 @@ export default function ChatWindow({
   const podeEnviarMidias = permissoes.pode_enviar_midias !== false && podeEnviarPorInstancia;
   const podeEnviarAudios = permissoes.pode_enviar_audios !== false && podeEnviarPorInstancia;
   const podeApagarMensagens = permissoes.pode_apagar_mensagens === true;
-  const podeTransferirConversas = permissoes.pode_transferir_conversas !== false;
+  const podeTransferirConversas = true; // Sempre permitido
 
   const navigate = useNavigate();
 
