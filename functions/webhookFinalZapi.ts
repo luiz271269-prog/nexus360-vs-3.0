@@ -1784,11 +1784,31 @@ async function executarPreAtendimentoInline(base44, params) {
         fornecedor: 'atendente_fidelizado_fornecedor'
       };
       
-      let atendenteFidelizado = null;
+      let atendente = null;
+      
+      // 1. Tentar atendente fidelizado
       const campo = campoFidelizado[setorEscolhido];
       if (campo && contato[campo]) {
-        try { atendenteFidelizado = await base44.asServiceRole.entities.User.get(contato[campo]); } catch (e) {}
+        try { atendente = await base44.asServiceRole.entities.User.get(contato[campo]); } catch (e) {}
       }
+      
+      // 2. Se não tem fidelizado, buscar atendente do setor
+      if (!atendente) {
+        try {
+          const atendentesSetor = await base44.asServiceRole.entities.User.filter({
+            attendant_sector: setorEscolhido
+          }, '-created_date', 10);
+          if (atendentesSetor.length > 0) {
+            atendente = atendentesSetor[0];
+            console.log('[PRE-ATEND] 👤 Atendente do setor encontrado:', atendente.full_name);
+          }
+        } catch (e) {
+          console.log('[PRE-ATEND] ⚠️ Erro ao buscar atendentes do setor:', e?.message);
+        }
+      }
+
+      const setorLabels = { vendas: 'Vendas', assistencia: 'Assistência Técnica', financeiro: 'Financeiro', fornecedor: 'Fornecedores', geral: 'Atendimento Geral' };
+      const setorLabel = setorLabels[setorEscolhido] || setorEscolhido;
 
       const threadUpdate = {
         sector_id: setorEscolhido,
@@ -1797,12 +1817,12 @@ async function executarPreAtendimentoInline(base44, params) {
       };
 
       let msg;
-      if (atendenteFidelizado) {
-        threadUpdate.assigned_user_id = atendenteFidelizado.id;
-        threadUpdate.assigned_user_name = atendenteFidelizado.full_name;
-        msg = `✅ Perfeito! *${atendenteFidelizado.full_name}* do setor de *${setorEscolhido}* irá atendê-lo. Aguarde!`;
+      if (atendente) {
+        threadUpdate.assigned_user_id = atendente.id;
+        threadUpdate.assigned_user_name = atendente.full_name;
+        msg = `✅ Perfeito! Vou te conectar com *${atendente.full_name}* do setor de *${setorLabel}*. Aguarde um instante! 😊`;
       } else {
-        msg = `✅ Entendido! Sua conversa foi direcionada para *${setorEscolhido}*. Um atendente entrará em contato em breve.`;
+        msg = `✅ Certo! Estou direcionando você para o setor de *${setorLabel}*. Um atendente vai te atender em breve! 😊`;
       }
 
       await base44.asServiceRole.entities.MessageThread.update(thread_id, threadUpdate);
