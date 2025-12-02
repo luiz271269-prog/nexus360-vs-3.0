@@ -279,11 +279,7 @@ export default function ChatWindow({
   };
 
   const handleAtribuirConversa = async (atendenteId) => {
-    if (!podeTransferirConversas) {
-      toast.error("❌ Você não tem permissão para transferir conversas");
-      return;
-    }
-
+    // Removida trava de permissão - qualquer usuário pode transferir
     if (!thread || !usuario) {
       toast.error("Dados da conversa não disponíveis");
       return;
