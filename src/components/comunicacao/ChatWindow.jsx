@@ -265,22 +265,18 @@ export default function ChatWindow({
   const carregarAtendentes = async () => {
     setCarregandoAtendentes(true);
     try {
-      // Tentar buscar todos os usuários - se falhar (usuário não-admin), usar lista já carregada
-      let users = [];
-      try {
-        users = await base44.entities.User.list();
-      } catch (listError) {
-        console.warn('[CHAT] Usuário não tem permissão para listar todos. Usando lista alternativa.');
-        // Fallback: usar atendentesLista já carregada no início do componente
-        users = atendentesLista || [];
-      }
-      
-      console.log('[CHAT] Usuários carregados para transferência:', users.length, users.map(u => u.full_name || u.email));
-      // Mostrar TODOS os usuários na tela de transferência, sem bloqueios
+      // Buscar atendentes WhatsApp ativos (permitido para todos os usuários)
+      const users = await base44.entities.User.filter({ is_whatsapp_attendant: true }, 'full_name');
+      console.log('[CHAT] Atendentes carregados para transferência:', users.length, users.map(u => u.full_name || u.email));
       setAtendentes(users);
     } catch (error) {
       console.error('[CHAT] Erro ao carregar atendentes:', error);
-      toast.error("Erro ao carregar lista de atendentes");
+      // Fallback: usar lista já carregada no início do componente
+      if (atendentesLista && atendentesLista.length > 0) {
+        setAtendentes(atendentesLista);
+      } else {
+        toast.error("Erro ao carregar lista de atendentes");
+      }
     } finally {
       setCarregandoAtendentes(false);
     }
