@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Checkbox } from "@/components/ui/checkbox";
 import { Search, Plus, Save, User, Shield, Settings, ChevronRight, Check, Loader2, Trash2 } from "lucide-react";
 import { toast } from "sonner";
-import debounce from "lodash/debounce";
+// Removido debounce do lodash - usando implementação nativa
 
 // ══════════════════════════════════════════════════════════════════════════════
 // CONFIGURAÇÃO DE RECURSOS DO SISTEMA
