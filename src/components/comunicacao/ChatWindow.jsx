@@ -1429,8 +1429,7 @@ export default function ChatWindow({
 
           {/* Ações */}
           <div className="flex items-center gap-2 flex-shrink-0">
-            {/* Botão Transferir */}
-            {canManageConversation && podeTransferirConversas &&
+            {/* Botão Transferir - Disponível para todos */}
             <button
               onClick={() => setMostrarModalAtribuicao(true)}
               className="bg-gradient-to-br from-amber-500 to-amber-600 text-white rounded-lg px-3 py-2 shadow-md flex items-center gap-2 hover:shadow-lg transition-all text-xs font-medium">
@@ -1438,7 +1437,6 @@ export default function ChatWindow({
                 <Users className="w-4 h-4" />
                 Transferir
               </button>
-            }
 
             {/* Botão Ver Detalhes */}
             <button
