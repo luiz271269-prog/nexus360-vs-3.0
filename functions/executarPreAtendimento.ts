@@ -720,11 +720,102 @@ Deno.serve(async (req) => {
       // ============================================================================
       // 📋 PRIORIDADE 3: SELEÇÃO EXPLÍCITA DE SETOR POR NÚMERO/NOME (TEM PRECEDÊNCIA!)
       // ============================================================================
+      
+      // Verificar se está aguardando escolha de ATENDENTE (já escolheu setor antes)
+      const estadoAtual = thread?.pre_atendimento_state;
+      const setorJaEscolhido = execucao.variables?.setor_escolhido;
+      const atendentesDisponiveis = execucao.variables?.atendentes_disponiveis || [];
+      
+      if (estadoAtual === 'WAITING_ATTENDANT_CHOICE' && setorJaEscolhido && atendentesDisponiveis.length > 0) {
+        console.log('[PRE-ATEND] 👤 Processando escolha de ATENDENTE...');
+        
+        // Tentar mapear resposta para atendente
+        let atendenteEscolhido = null;
+        const respostaNum = parseInt(textoLower);
+        
+        // Por número
+        if (!isNaN(respostaNum) && respostaNum >= 1 && respostaNum <= atendentesDisponiveis.length) {
+          atendenteEscolhido = atendentesDisponiveis[respostaNum - 1];
+        } else {
+          // Por nome
+          for (const atend of atendentesDisponiveis) {
+            const nomeNorm = atend.nome.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+            const primeiroNome = nomeNorm.split(' ')[0];
+            if (textoLower === primeiroNome || textoLower.includes(primeiroNome) || nomeNorm.includes(textoLower)) {
+              atendenteEscolhido = atend;
+              break;
+            }
+          }
+        }
+        
+        if (atendenteEscolhido) {
+          console.log('[PRE-ATEND] ✅ Atendente escolhido:', atendenteEscolhido.nome);
+          return Response.json(
+            await finalizarPreAtendimento(base44, {
+              thread_id, execucao_id: execucao.id, setor: setorJaEscolhido, 
+              atendente: { id: atendenteEscolhido.id, full_name: atendenteEscolhido.nome },
+              motivo: 'escolha_atendente', integracao, contato, variables: execucao.variables
+            }),
+            { headers: corsHeaders }
+          );
+        } else {
+          // Não entendeu - reenviar lista
+          const listaAtend = atendentesDisponiveis.map((a, i) => `${i + 1}. ${a.nome}`).join('\n');
+          const msgRetry = `🤔 Não identifiquei o atendente. Por favor, escolha:\n\n${listaAtend}\n\n_Digite o número ou nome._`;
+          await enviarMensagem(base44, integracao, contato.telefone, msgRetry, thread_id);
+          return Response.json({ success: true, retry_attendant: true }, { headers: corsHeaders });
+        }
+      }
+      
+      // Processar escolha de SETOR
       const setorEscolhido = mapearSetorDeResposta(resposta_usuario, opcoesSetor);
       
       if (setorEscolhido) {
-        console.log('[PRE-ATEND] 📋 Setor selecionado EXPLICITAMENTE pelo usuário:', setorEscolhido);
-        const atendente = await buscarAtendenteDoSetor(base44, contato, setorEscolhido);
+        console.log('[PRE-ATEND] 📋 Setor selecionado:', setorEscolhido);
+        
+        // Buscar atendentes do setor
+        let atendentesSetor = [];
+        try {
+          const usuarios = await base44.asServiceRole.entities.User.filter({
+            attendant_sector: setorEscolhido
+          }, '-created_date', 10);
+          atendentesSetor = usuarios.filter(u => u.full_name).map(u => ({ id: u.id, nome: u.full_name }));
+        } catch (e) {
+          console.log('[PRE-ATEND] ⚠️ Erro ao buscar atendentes:', e?.message);
+        }
+        
+        // Se tem mais de 1 atendente, listar para escolha
+        if (atendentesSetor.length > 1) {
+          console.log('[PRE-ATEND] 👥 Listando', atendentesSetor.length, 'atendentes do setor', setorEscolhido);
+          
+          const listaAtendentes = atendentesSetor.map((a, i) => `${i + 1}. ${a.nome}`).join('\n');
+          const setorLabel = setorLabels[setorEscolhido] || setorEscolhido;
+          const msgEscolha = `👥 *Atendentes disponíveis em ${setorLabel}:*\n\n${listaAtendentes}\n\n_Digite o número ou nome do atendente desejado._`;
+          
+          await enviarMensagem(base44, integracao, contato.telefone, msgEscolha, thread_id);
+          
+          // Atualizar estado para aguardar escolha de atendente
+          await base44.asServiceRole.entities.MessageThread.update(thread_id, {
+            pre_atendimento_state: 'WAITING_ATTENDANT_CHOICE',
+            sector_id: setorEscolhido
+          });
+          
+          await base44.asServiceRole.entities.FlowExecution.update(execucao.id, {
+            variables: { 
+              ...execucao.variables, 
+              setor_escolhido: setorEscolhido,
+              atendentes_disponiveis: atendentesSetor
+            }
+          });
+          
+          return Response.json({ success: true, awaiting_attendant_choice: true, setor: setorEscolhido }, { headers: corsHeaders });
+        }
+        
+        // Se tem 0 ou 1 atendente, transferir direto
+        const atendente = atendentesSetor.length === 1 
+          ? { id: atendentesSetor[0].id, full_name: atendentesSetor[0].nome }
+          : await buscarAtendenteDoSetor(base44, contato, setorEscolhido);
+          
         return Response.json(
           await finalizarPreAtendimento(base44, {
             thread_id, execucao_id: execucao.id, setor: setorEscolhido, atendente,
