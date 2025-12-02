@@ -328,14 +328,18 @@ export default function GerenciadorUsuariosUnificado({
   }, []);
 
   // Atualizar campo do usuário
-  const atualizarUsuario = (campo, valor) => {
-    if (!usuarioSelecionado) return;
-    console.log('[GerenciadorUsuarios] Atualizando campo:', campo, '=', valor);
-    const atualizado = { ...usuarioSelecionado, [campo]: valor };
-    setUsuarioSelecionado(atualizado);
-    setUsuarios(prev => prev.map(u => u.id === atualizado.id ? atualizado : u));
-    salvarAutomatico(atualizado);
-  };
+  const atualizarUsuario = useCallback((campo, valor) => {
+    setUsuarioSelecionado(prev => {
+      if (!prev) return prev;
+      console.log('[GerenciadorUsuarios] Atualizando campo:', campo, '=', valor);
+      const atualizado = { ...prev, [campo]: valor };
+      // Atualizar lista local imediatamente
+      setUsuarios(lista => lista.map(u => u.id === atualizado.id ? atualizado : u));
+      // Agendar salvamento
+      salvarAutomatico(atualizado);
+      return atualizado;
+    });
+  }, [salvarAutomatico]);
 
   // Toggle permissão
   const togglePermissao = (permId) => {
