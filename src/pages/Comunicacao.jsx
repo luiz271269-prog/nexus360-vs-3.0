@@ -467,15 +467,15 @@ export default function Comunicacao() {
 
     // ═══════════════════════════════════════════════════════════════════════════════
     // PARTE 2: Adicionar CONTATOS SEM THREAD que passam nos filtros
-    // (Apenas se houver algum filtro ativo de atendente, tipo ou tag)
+    // SEMPRE adiciona contatos quando há busca por texto OU filtros ativos
     // ═══════════════════════════════════════════════════════════════════════════════
-    const temFiltroAtivo = atendenteInfo || 
+    const temBuscaOuFiltro = debouncedSearchTerm || 
+      atendenteInfo || 
       (selectedTipoContato && selectedTipoContato !== 'all') || 
-      (selectedTagContato && selectedTagContato !== 'all') ||
-      debouncedSearchTerm;
+      (selectedTagContato && selectedTagContato !== 'all');
 
     const contatosSemThread = [];
-    if (temFiltroAtivo) {
+    if (temBuscaOuFiltro) {
       contatos.forEach(contato => {
         // Pular contatos que já têm thread
         if (threadsComContatoIds.has(contato.id)) return;
