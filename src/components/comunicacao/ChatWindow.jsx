@@ -253,10 +253,13 @@ export default function ChatWindow({
   }, [thread?.whatsapp_integration_id, integracoes]);
 
   useEffect(() => {
-    if (mostrarModalAtribuicao && atendentes.length === 0) {
+    if (mostrarModalAtribuicao) {
       carregarAtendentes();
+      // Mensagem padrão ao abrir
+      const nomeContato = contatoCompleto?.nome || 'Cliente';
+      setMensagemTransferencia(`Conversa com ${nomeContato} transferida.`);
     }
-  }, [mostrarModalAtribuicao]);
+  }, [mostrarModalAtribuicao, contatoCompleto?.nome]);
 
   const carregarAtendentes = async () => {
     setCarregandoAtendentes(true);
