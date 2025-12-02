@@ -401,14 +401,21 @@ export default function ChatSidebar({ threads, threadAtiva, onSelecionarThread, 
                   });
                 })()}
 
-                {/* ATENDENTE - Com atribuição rápida */}
-                <AtribuidorAtendenteRapido
-                  contato={contato}
-                  thread={thread}
-                  tipoContato={contato?.tipo_contato || 'novo'}
-                  setorAtual={thread?.sector_id || 'geral'}
-                  variant="mini"
-                />
+                {/* ATENDENTE RESPONSÁVEL - Exibe quem está atuando */}
+                {thread.assigned_user_name ? (
+                  <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-semibold text-white bg-indigo-500 shadow-sm" title={`Atendente: ${thread.assigned_user_name}`}>
+                    <UserCheck className="w-3 h-3" />
+                    {thread.assigned_user_name.split(' ')[0]}
+                  </span>
+                ) : (
+                  <AtribuidorAtendenteRapido
+                    contato={contato}
+                    thread={thread}
+                    tipoContato={contato?.tipo_contato || 'novo'}
+                    setorAtual={thread?.sector_id || 'geral'}
+                    variant="mini"
+                  />
+                )}
               </div>
             </div>
           </motion.div>);
