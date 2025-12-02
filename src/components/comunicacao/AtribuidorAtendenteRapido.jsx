@@ -49,13 +49,13 @@ export default function AtribuidorAtendenteRapido({
   const [menuAberto, setMenuAberto] = useState(false);
   const queryClient = useQueryClient();
 
-  // Buscar TODOS os usuários (sem filtro - mostra todos para atribuição)
+  // Buscar TODOS os usuários do sistema sem nenhum filtro para atribuição/transferência
   const { data: atendentes = [] } = useQuery({
     queryKey: ['todos-usuarios-atribuidor'],
     queryFn: async () => {
       const users = await base44.entities.User.list('full_name');
-      // Retorna TODOS os usuários com nome preenchido
-      return users.filter(u => u.full_name && u.full_name.trim() !== '');
+      // Retorna TODOS os usuários sem filtro de bloqueio
+      return users;
     },
     staleTime: 5 * 60 * 1000
   });
