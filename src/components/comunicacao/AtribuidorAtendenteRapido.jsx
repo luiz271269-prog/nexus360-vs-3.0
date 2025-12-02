@@ -85,9 +85,16 @@ export default function AtribuidorAtendenteRapido({
   };
 
   // Obter atendente atual
+  // Se thread foi passada, mostrar o atendente da conversa
+  // Se não, mostrar o atendente fidelizado do contato
   const getAtendenteAtual = () => {
-    if (!contato) return null;
+    // Para atribuição de conversa: usar assigned_user_name da thread
+    if (thread?.id) {
+      return thread.assigned_user_name || null;
+    }
     
+    // Para fidelização de contato: usar campos do contato
+    if (!contato) return null;
     const campo = getCampoFidelizacao();
     return contato[campo] || contato.vendedor_responsavel || null;
   };
