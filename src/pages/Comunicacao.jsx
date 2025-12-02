@@ -472,7 +472,6 @@ export default function Comunicacao() {
     // BUSCA POR TEXTO: Mostra TODOS os contatos que batem, independente de atendente
     // FILTROS: Aplica normalmente os filtros de atendente/tipo/tag
     // ═══════════════════════════════════════════════════════════════════════════════
-    const temBuscaPorTexto = !!debouncedSearchTerm;
     const temFiltroAtivo = atendenteInfo || 
       (selectedTipoContato && selectedTipoContato !== 'all') || 
       (selectedTagContato && selectedTagContato !== 'all');
