@@ -1,16 +1,17 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.4';
 
 // ============================================================================
-// WEBHOOK WHATSAPP W-API - v1.2.0 CORRIGIDO
+// WEBHOOK WHATSAPP W-API - v1.3.0 CORRIGIDO
 // ============================================================================
 // CORREÇÕES:
 // 1. Extração de mediaUrl CORRIGIDA - buscar em múltiplos campos
 // 2. Normalização de telefone SEM + para consistência
 // 3. Logs detalhados para debug de mídia
+// 4. Suporte para evento webhookConectado
 // ============================================================================
 
-const VERSION = 'v1.2.0-wapi';
-const BUILD_DATE = '2025-11-28';
+const VERSION = 'v1.3.0-wapi';
+const BUILD_DATE = '2025-12-02';
 
 const corsHeaders = {
   'Content-Type': 'application/json',
@@ -54,7 +55,8 @@ function deveIgnorar(payload) {
     return 'jid_sistema_ou_grupo';
   }
 
-  if (evento.includes('qrcode') || evento.includes('connection')) {
+  // ✅ RECONHECER webhookConectado, qrcode e connection
+  if (evento.includes('qrcode') || evento.includes('connection') || evento.includes('webhookconectado')) {
     return null;
   }
 
@@ -155,8 +157,8 @@ function normalizarPayload(payload) {
     };
   }
 
-  // Conexao
-  if (evento.includes('connection')) {
+  // Conexão (incluindo webhookConectado)
+  if (evento.includes('connection') || evento.includes('webhookconectado')) {
     const status = payload.connected === true ? 'conectado' : 'desconectado';
     return { type: 'connection', instanceId, status };
   }
@@ -344,6 +346,8 @@ async function handleQRCode(dados, base44) {
 }
 
 async function handleConnection(dados, base44) {
+  console.log('[W-API WEBHOOK] 🔌 Evento de conexão | Instance:', dados.instanceId, '| Status:', dados.status);
+  
   if (!dados.instanceId) return Response.json({ success: true }, { headers: corsHeaders });
   
   try {
@@ -355,8 +359,13 @@ async function handleConnection(dados, base44) {
         status: dados.status,
         ultima_atividade: new Date().toISOString()
       });
+      console.log('[W-API WEBHOOK] ✅ Status atualizado:', integracoes[0].nome_instancia, '->', dados.status);
+    } else {
+      console.log('[W-API WEBHOOK] ⚠️ Nenhuma integração encontrada para instance:', dados.instanceId);
     }
-  } catch (e) {}
+  } catch (e) {
+    console.error('[W-API WEBHOOK] ❌ Erro ao atualizar status:', e.message);
+  }
   
   return Response.json({ success: true, processed: 'connection', status: dados.status, provider: 'w_api' }, { headers: corsHeaders });
 }
