@@ -246,6 +246,16 @@ export default function ChatSidebar({ threads, threadAtiva, onSelecionarThread, 
     onSelecionarThread(thread);
   };
 
+  // Função para obter nome do atendente fidelizado do contato
+  const getAtendenteFidelizado = (contato) => {
+    if (!contato) return null;
+    return contato.vendedor_responsavel || 
+           contato.atendente_fidelizado_vendas || 
+           contato.atendente_fidelizado_assistencia ||
+           contato.atendente_fidelizado_financeiro ||
+           contato.atendente_fidelizado_fornecedor;
+  };
+
   return (
     <div>
       {threadsSorted.map((thread, index) => {
