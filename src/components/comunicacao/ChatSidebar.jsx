@@ -355,31 +355,37 @@ export default function ChatSidebar({ threads, threadAtiva, onSelecionarThread, 
               <p className={`text-xs truncate flex items-center gap-1 ${
                 hasUnread ? 'text-slate-800' : 'text-slate-500'}`
                 }>
-                {thread.last_message_sender === 'user' &&
-                  <CheckCheck className="w-3 h-3 text-blue-500 flex-shrink-0" />
-                }
-                {thread.last_media_type === 'image' && <Image className="w-3 h-3 text-blue-500 flex-shrink-0" />}
-                {thread.last_media_type === 'video' && <Video className="w-3 h-3 text-purple-500 flex-shrink-0" />}
-                {thread.last_media_type === 'audio' && <Mic className="w-3 h-3 text-green-500 flex-shrink-0" />}
-                {thread.last_media_type === 'document' && <FileText className="w-3 h-3 text-orange-500 flex-shrink-0" />}
-                {thread.last_media_type === 'location' && <MapPin className="w-3 h-3 text-red-500 flex-shrink-0" />}
-                {thread.last_media_type === 'contact' && <PhoneIcon className="w-3 h-3 text-cyan-500 flex-shrink-0" />}
-                <span className="truncate">
-                  {(() => {
-                    const content = thread.last_message_content;
-                    if (!content || content === '[No content]' || /^[\+\d]+@(lid|s\.whatsapp\.net|c\.us)/.test(content)) {
-                      if (thread.last_media_type === 'image') return "📷 Imagem";
-                      if (thread.last_media_type === 'video') return "🎥 Vídeo";
-                      if (thread.last_media_type === 'audio') return "🎤 Áudio";
-                      if (thread.last_media_type === 'document') return "📄 Documento";
-                      if (thread.last_media_type === 'location') return "📍 Localização";
-                      if (thread.last_media_type === 'contact') return "👤 Contato";
-                      if (thread.last_media_type === 'sticker') return "🎨 Sticker";
-                      return "📎 Mídia";
+                {thread.is_contact_only ? (
+                  <span className="text-slate-400 italic">📋 Sem conversa ativa</span>
+                ) : (
+                  <>
+                    {thread.last_message_sender === 'user' &&
+                      <CheckCheck className="w-3 h-3 text-blue-500 flex-shrink-0" />
                     }
-                    return content;
-                  })()}
-                </span>
+                    {thread.last_media_type === 'image' && <Image className="w-3 h-3 text-blue-500 flex-shrink-0" />}
+                    {thread.last_media_type === 'video' && <Video className="w-3 h-3 text-purple-500 flex-shrink-0" />}
+                    {thread.last_media_type === 'audio' && <Mic className="w-3 h-3 text-green-500 flex-shrink-0" />}
+                    {thread.last_media_type === 'document' && <FileText className="w-3 h-3 text-orange-500 flex-shrink-0" />}
+                    {thread.last_media_type === 'location' && <MapPin className="w-3 h-3 text-red-500 flex-shrink-0" />}
+                    {thread.last_media_type === 'contact' && <PhoneIcon className="w-3 h-3 text-cyan-500 flex-shrink-0" />}
+                    <span className="truncate">
+                      {(() => {
+                        const content = thread.last_message_content;
+                        if (!content || content === '[No content]' || /^[\+\d]+@(lid|s\.whatsapp\.net|c\.us)/.test(content)) {
+                          if (thread.last_media_type === 'image') return "📷 Imagem";
+                          if (thread.last_media_type === 'video') return "🎥 Vídeo";
+                          if (thread.last_media_type === 'audio') return "🎤 Áudio";
+                          if (thread.last_media_type === 'document') return "📄 Documento";
+                          if (thread.last_media_type === 'location') return "📍 Localização";
+                          if (thread.last_media_type === 'contact') return "👤 Contato";
+                          if (thread.last_media_type === 'sticker') return "🎨 Sticker";
+                          return "📎 Mídia";
+                        }
+                        return content;
+                      })()}
+                    </span>
+                  </>
+                )}
               </p>
 
               {/* Linha 3: TIPO + DESTAQUE + ATENDENTE (horizontal compacto com labels) */}
