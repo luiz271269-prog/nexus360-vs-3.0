@@ -265,7 +265,7 @@ export default function ChatWindow({
   const carregarAtendentes = async () => {
     setCarregandoAtendentes(true);
     try {
-      // Buscar TODOS os usuários (sem filtro) para poder atribuir a qualquer um
+      // Buscar TODOS os usuários do sistema (sem filtro de setor/permissão)
       const users = await base44.entities.User.list('full_name');
       // Filtrar apenas usuários com nome preenchido
       const usuariosValidos = users.filter(u => u.full_name && u.full_name.trim() !== '');
