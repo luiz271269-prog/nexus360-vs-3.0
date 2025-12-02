@@ -21,16 +21,15 @@ export default function UsuariosPage() {
 
   async function carregarUsuarios() {
     const users = await base44.entities.User.list();
+    console.log('[Usuarios] Usuários carregados do banco:', users);
     return users.map(u => ({
       id: u.id,
-      nome: u.full_name,
-      email: u.email,
-      setor: u.attendant_sector || "",
-      funcao: u.attendant_role || "",
-      tipoAcesso: u.role,
+      nome: u.full_name || '',
+      email: u.email || '',
+      setor: u.attendant_sector || 'geral',
+      funcao: u.attendant_role || 'pleno',
+      tipoAcesso: u.role || 'user',
       ativo: u.is_active !== false,
-      permissoes: u.permissoes || [],
-      perfilAcesso: u.perfilAcesso || "personalizado",
       // Campos adicionais para edição completa
       is_whatsapp_attendant: u.is_whatsapp_attendant || false,
       whatsapp_setores: u.whatsapp_setores || [],
