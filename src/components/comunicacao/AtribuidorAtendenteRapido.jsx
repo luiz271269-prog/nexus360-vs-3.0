@@ -49,10 +49,14 @@ export default function AtribuidorAtendenteRapido({
   const [menuAberto, setMenuAberto] = useState(false);
   const queryClient = useQueryClient();
 
-  // Buscar atendentes disponíveis
+  // Buscar TODOS os usuários (para permitir transferência para qualquer atendente)
   const { data: atendentes = [] } = useQuery({
     queryKey: ['atendentes-atribuidor'],
-    queryFn: () => base44.entities.User.filter({ is_whatsapp_attendant: true }, 'full_name'),
+    queryFn: async () => {
+      const usuarios = await base44.entities.User.list('full_name');
+      // Filtrar apenas usuários com nome válido
+      return usuarios.filter(u => u.full_name && u.full_name.trim() !== '');
+    },
     staleTime: 5 * 60 * 1000
   });
 
