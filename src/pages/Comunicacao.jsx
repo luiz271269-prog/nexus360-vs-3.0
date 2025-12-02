@@ -467,15 +467,16 @@ export default function Comunicacao() {
 
     // ═══════════════════════════════════════════════════════════════════════════════
     // PARTE 2: Adicionar CONTATOS SEM THREAD que passam nos filtros
-    // SEMPRE adiciona contatos quando há busca por texto OU filtros ativos
+    // BUSCA POR TEXTO: Mostra TODOS os contatos que batem, independente de atendente
+    // FILTROS: Aplica normalmente os filtros de atendente/tipo/tag
     // ═══════════════════════════════════════════════════════════════════════════════
-    const temBuscaOuFiltro = debouncedSearchTerm || 
-      atendenteInfo || 
+    const temBuscaPorTexto = !!debouncedSearchTerm;
+    const temFiltroAtivo = atendenteInfo || 
       (selectedTipoContato && selectedTipoContato !== 'all') || 
       (selectedTagContato && selectedTagContato !== 'all');
 
     const contatosSemThread = [];
-    if (temBuscaOuFiltro) {
+    if (temBuscaPorTexto || temFiltroAtivo) {
       contatos.forEach(contato => {
         // Pular contatos que já têm thread
         if (threadsComContatoIds.has(contato.id)) return;
@@ -483,8 +484,9 @@ export default function Comunicacao() {
         // Pular contatos bloqueados
         if (contato.bloqueado) return;
 
-        // Verificar se passa nos filtros
-        if (!contatoPassaNosFiltros(contato, atendenteInfo)) return;
+        // Se é busca por texto, IGNORA o filtro de atendente para mostrar TODOS os resultados
+        const ignorarFiltroAtendente = temBuscaPorTexto;
+        if (!contatoPassaNosFiltros(contato, atendenteInfo, ignorarFiltroAtendente)) return;
 
         // Criar "pseudo-thread" para exibição
         contatosSemThread.push({
