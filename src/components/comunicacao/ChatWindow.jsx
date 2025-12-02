@@ -1835,56 +1835,81 @@ export default function ChatWindow({
 
       {/* Modal removido - agora usa MediaAttachmentSystem */}
 
-      {/* MODAL DE ATRIBUIÇÃO */}
+      {/* MODAL DE ATRIBUIÇÃO/TRANSFERÊNCIA */}
       <Dialog open={mostrarModalAtribuicao} onOpenChange={setMostrarModalAtribuicao}>
-        <DialogContent>
+        <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle>
+            <DialogTitle className="flex items-center gap-2">
+              <Users className="w-5 h-5 text-orange-500" />
               {thread?.assigned_user_id ? 'Transferir Conversa' : 'Atribuir Conversa'}
             </DialogTitle>
-            <DialogDescription>
-              Selecione o atendente que será responsável por esta conversa
-            </DialogDescription>
           </DialogHeader>
 
-          <div className="space-y-4 py-4">
-            {carregandoAtendentes ?
-            <div className="flex items-center justify-center py-8">
-                <Loader2 className="w-8 h-8 animate-spin text-orange-500" />
-              </div> :
-            atendentes.length === 0 ?
-            <Alert>
+          <div className="space-y-3">
+            {/* Histórico compacto */}
+            {thread?.assigned_user_name && (
+              <div className="flex items-center gap-2 p-2 bg-slate-50 rounded-lg border">
+                <span className="text-xs text-slate-500">Atual:</span>
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-indigo-100 text-indigo-700">
+                  <UserCheck className="w-3 h-3" />
+                  {thread.assigned_user_name}
+                </span>
+              </div>
+            )}
+
+            {/* Campo de mensagem editável */}
+            <div>
+              <label className="text-xs font-medium text-slate-600 mb-1 block">Mensagem de transferência:</label>
+              <textarea
+                value={mensagemTransferencia}
+                onChange={(e) => setMensagemTransferencia(e.target.value)}
+                placeholder="Ex: Cliente aguardando retorno sobre orçamento..."
+                className="w-full p-2 border border-slate-200 rounded-lg text-sm resize-none focus:outline-none focus:ring-2 focus:ring-orange-500"
+                rows={2}
+              />
+            </div>
+
+            {/* Lista de atendentes compacta */}
+            {carregandoAtendentes ? (
+              <div className="flex items-center justify-center py-6">
+                <Loader2 className="w-6 h-6 animate-spin text-orange-500" />
+              </div>
+            ) : atendentes.length === 0 ? (
+              <Alert>
                 <AlertCircle className="h-4 w-4" />
                 <AlertDescription>
-                  Nenhum atendente disponível. Configure atendentes em Configurações.
+                  Nenhum atendente disponível.
                 </AlertDescription>
-              </Alert> :
-
-            <div className="grid gap-2">
-                {atendentes.map((atendente) =>
-              <Button
-                key={atendente.id}
-                onClick={() => handleAtribuirConversa(atendente.id)}
-                disabled={atribuindo || thread?.assigned_user_id === atendente.id}
-                variant="outline"
-                className="w-full justify-start h-auto py-3">
-
-                    <div className="flex items-center gap-3 flex-1">
-                      <div className="w-10 h-10 bg-gradient-to-br from-amber-400 to-orange-500 rounded-full flex items-center justify-center text-white font-bold">
-                        {atendente.full_name?.charAt(0).toUpperCase() || '?'}
+              </Alert>
+            ) : (
+              <div className="grid grid-cols-2 gap-2 max-h-[280px] overflow-y-auto">
+                {atendentes.map((atendente) => {
+                  const isAtual = thread?.assigned_user_id === atendente.id;
+                  return (
+                    <button
+                      key={atendente.id}
+                      onClick={() => handleAtribuirConversa(atendente.id)}
+                      disabled={atribuindo || isAtual}
+                      className={`flex items-center gap-2 p-2 rounded-lg border text-left transition-all ${
+                        isAtual 
+                          ? 'bg-green-50 border-green-300 cursor-not-allowed' 
+                          : 'hover:bg-orange-50 hover:border-orange-300 border-slate-200'
+                      }`}
+                    >
+                      <div className={`w-8 h-8 rounded-full flex items-center justify-center text-white font-bold text-sm ${
+                        isAtual ? 'bg-green-500' : 'bg-gradient-to-br from-amber-400 to-orange-500'
+                      }`}>
+                        {isAtual ? <CheckSquare className="w-4 h-4" /> : atendente.full_name?.charAt(0).toUpperCase() || '?'}
                       </div>
-                      <div className="text-left flex-1">
-                        <p className="font-semibold">{atendente.full_name}</p>
-                        <p className="text-xs text-slate-500">{atendente.email}</p>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-semibold truncate">{atendente.full_name?.split(' ')[0]}</p>
+                        <p className="text-[10px] text-slate-400 truncate">{atendente.attendant_sector || 'Geral'}</p>
                       </div>
-                      {thread?.assigned_user_id === atendente.id &&
-                  <CheckSquare className="w-5 h-5 text-green-600" />
-                  }
-                    </div>
-                  </Button>
-              )}
+                    </button>
+                  );
+                })}
               </div>
-            }
+            )}
           </div>
         </DialogContent>
       </Dialog>
