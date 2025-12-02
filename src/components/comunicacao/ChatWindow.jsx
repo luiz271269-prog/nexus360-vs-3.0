@@ -265,12 +265,11 @@ export default function ChatWindow({
   const carregarAtendentes = async () => {
     setCarregandoAtendentes(true);
     try {
-      // Buscar TODOS os usuários do sistema (sem filtro)
+      // Buscar TODOS os usuários do sistema (sem filtro nenhum para transferência)
       const users = await base44.entities.User.list();
       console.log('[CHAT] Usuários carregados para transferência:', users.length, users.map(u => u.full_name || u.email));
-      // Aceitar usuários com nome OU email (fallback)
-      const usuariosValidos = users.filter(u => (u.full_name && u.full_name.trim() !== '') || u.email);
-      setAtendentes(usuariosValidos);
+      // Mostrar TODOS os usuários na tela de transferência, sem bloqueios
+      setAtendentes(users);
     } catch (error) {
       console.error('[CHAT] Erro ao carregar atendentes:', error);
       toast.error("Erro ao carregar lista de atendentes");
