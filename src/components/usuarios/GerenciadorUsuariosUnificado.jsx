@@ -311,6 +311,7 @@ export default function GerenciadorUsuariosUnificado({
   // Atualizar campo do usuário
   const atualizarUsuario = (campo, valor) => {
     if (!usuarioSelecionado) return;
+    console.log('[GerenciadorUsuarios] Atualizando campo:', campo, '=', valor);
     const atualizado = { ...usuarioSelecionado, [campo]: valor };
     setUsuarioSelecionado(atualizado);
     setUsuarios(prev => prev.map(u => u.id === atualizado.id ? atualizado : u));
