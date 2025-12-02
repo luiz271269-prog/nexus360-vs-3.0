@@ -320,19 +320,26 @@ export default function ChatWindow({
         prioridade: 'normal'
       });
 
+      // Mensagem de sistema com texto personalizado
+      const textoMensagem = mensagemTransferencia?.trim() 
+        ? `🔔 ${mensagemTransferencia} (→ ${atendenteEscolhido.full_name})`
+        : `🔔 Conversa ${thread.assigned_user_id ? 'transferida' : 'atribuída'} para ${atendenteEscolhido.full_name} por ${usuario.full_name}`;
+
       await base44.entities.Message.create({
         thread_id: thread.id,
         sender_id: usuario.id,
         sender_type: 'user',
         recipient_id: thread.contact_id,
         recipient_type: 'contact',
-        content: `🔔 Conversa ${thread.assigned_user_id ? 'transferida' : 'atribuída'} para ${atendenteEscolhido.full_name} por ${usuario.full_name}`,
+        content: textoMensagem,
         channel: 'interno',
         status: 'enviada',
         sent_at: new Date().toISOString(),
         metadata: {
           is_system_message: true,
-          action_type: 'assignment'
+          action_type: 'assignment',
+          atendente_anterior: thread.assigned_user_name || null,
+          atendente_novo: atendenteEscolhido.full_name
         }
       });
 
