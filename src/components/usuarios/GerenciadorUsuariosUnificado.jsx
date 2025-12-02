@@ -363,11 +363,25 @@ export default function GerenciadorUsuariosUnificado({
     });
   };
 
-  // Aplicar perfil
+  // Aplicar perfil - atualiza AMBOS os campos para garantir sincronização
   const aplicarPerfil = (perfilKey) => {
     const perfil = PERFIS_RAPIDOS[perfilKey];
     if (!perfil || !usuarioSelecionado) return;
-    atualizarUsuario("permissoes", [...perfil.permissoes]);
+    
+    const novasPerms = [...perfil.permissoes];
+    
+    setUsuarioSelecionado(prev => {
+      if (!prev) return prev;
+      const atualizado = { 
+        ...prev, 
+        permissoes: novasPerms,
+        paginas_acesso: novasPerms  // Sincronizar ambos campos
+      };
+      setUsuarios(lista => lista.map(u => u.id === atualizado.id ? atualizado : u));
+      salvarAutomatico(atualizado);
+      return atualizado;
+    });
+    
     toast.success(`Perfil "${perfil.label}" aplicado`);
   };
 
