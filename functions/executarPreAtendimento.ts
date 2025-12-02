@@ -718,10 +718,27 @@ Deno.serve(async (req) => {
       }
 
       // ============================================================================
-      // 💰 PRIORIDADE 3: DETECTAR INTENÇÃO POR CONTEXTO
+      // 📋 PRIORIDADE 3: SELEÇÃO EXPLÍCITA DE SETOR POR NÚMERO/NOME (TEM PRECEDÊNCIA!)
+      // ============================================================================
+      const setorEscolhido = mapearSetorDeResposta(resposta_usuario, opcoesSetor);
+      
+      if (setorEscolhido) {
+        console.log('[PRE-ATEND] 📋 Setor selecionado EXPLICITAMENTE pelo usuário:', setorEscolhido);
+        const atendente = await buscarAtendenteDoSetor(base44, contato, setorEscolhido);
+        return Response.json(
+          await finalizarPreAtendimento(base44, {
+            thread_id, execucao_id: execucao.id, setor: setorEscolhido, atendente,
+            motivo: 'selecao_menu', integracao, contato, variables: execucao.variables
+          }),
+          { headers: corsHeaders }
+        );
+      }
+
+      // ============================================================================
+      // 💰 PRIORIDADE 4: DETECTAR INTENÇÃO POR CONTEXTO (APENAS SE NÃO ESCOLHEU SETOR)
       // ============================================================================
       
-      // 3A: Pagamento/Financeiro
+      // 4A: Pagamento/Financeiro
       if (contexto.intencoes.pagamento >= 3 || contexto.intencaoDominante[0] === 'pagamento') {
         console.log('[PRE-ATEND] 💰 Intenção: PAGAMENTO/FINANCEIRO');
         const atendente = await buscarAtendenteDoSetor(base44, contato, 'financeiro');
@@ -734,7 +751,7 @@ Deno.serve(async (req) => {
         );
       }
 
-      // 3B: Cotação/Vendas
+      // 4B: Cotação/Vendas
       if (contexto.intencoes.cotacao >= 3 || contexto.intencaoDominante[0] === 'cotacao' || contexto.setores.vendas > 5) {
         console.log('[PRE-ATEND] 🛒 Intenção: COTAÇÃO/VENDAS');
         const atendente = await buscarAtendenteDoSetor(base44, contato, 'vendas');
@@ -747,7 +764,7 @@ Deno.serve(async (req) => {
         );
       }
 
-      // 3C: Suporte/Assistência
+      // 4C: Suporte/Assistência
       if (contexto.intencoes.suporte >= 3 || contexto.setores.assistencia > 5) {
         console.log('[PRE-ATEND] 🔧 Intenção: SUPORTE/ASSISTÊNCIA');
         const atendente = await buscarAtendenteDoSetor(base44, contato, 'assistencia');
@@ -755,23 +772,6 @@ Deno.serve(async (req) => {
           await finalizarPreAtendimento(base44, {
             thread_id, execucao_id: execucao.id, setor: 'assistencia', atendente,
             motivo: 'intencao_suporte', integracao, contato, variables: execucao.variables
-          }),
-          { headers: corsHeaders }
-        );
-      }
-
-      // ============================================================================
-      // 📋 PRIORIDADE 4: SELEÇÃO DE SETOR POR NÚMERO/NOME
-      // ============================================================================
-      const setorEscolhido = mapearSetorDeResposta(resposta_usuario, opcoesSetor);
-      
-      if (setorEscolhido) {
-        console.log('[PRE-ATEND] 📋 Setor selecionado pelo menu:', setorEscolhido);
-        const atendente = await buscarAtendenteDoSetor(base44, contato, setorEscolhido);
-        return Response.json(
-          await finalizarPreAtendimento(base44, {
-            thread_id, execucao_id: execucao.id, setor: setorEscolhido, atendente,
-            motivo: 'selecao_menu', integracao, contato, variables: execucao.variables
           }),
           { headers: corsHeaders }
         );
