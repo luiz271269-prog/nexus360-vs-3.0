@@ -45,6 +45,10 @@ export default function UsuariosPage() {
   async function salvarUsuario(usuario) {
     console.log('[Usuarios] Salvando usuário:', usuario);
     
+    // IMPORTANTE: paginas_acesso armazena as permissões de páginas/recursos
+    // O campo "permissoes" do frontend é mapeado para "paginas_acesso" no banco
+    const permissoesParaSalvar = usuario.permissoes || usuario.paginas_acesso || [];
+    
     const payload = {
       full_name: usuario.nome,
       attendant_sector: usuario.setor || 'geral',
@@ -56,7 +60,8 @@ export default function UsuariosPage() {
       whatsapp_setores: usuario.whatsapp_setores || [],
       whatsapp_permissions: usuario.whatsapp_permissions || [],
       permissoes_comunicacao: usuario.permissoes_comunicacao || {},
-      paginas_acesso: usuario.paginas_acesso || [],
+      // IMPORTANTE: Salvar permissões de páginas/recursos aqui
+      paginas_acesso: permissoesParaSalvar,
       max_concurrent_conversations: usuario.max_concurrent_conversations || 5,
     };
     
@@ -69,27 +74,28 @@ export default function UsuariosPage() {
         resultado = await base44.entities.User.create({ ...payload, email: usuario.email });
         console.log('[Usuarios] Usuário criado:', resultado);
       } else {
-        // Usuário existente - atualizar
+        // Usuário existente - atualizar usando auth.updateMe não funciona para outros usuários
+        // Usar update normal da entidade
         resultado = await base44.entities.User.update(usuario.id, payload);
         console.log('[Usuarios] Usuário atualizado:', resultado);
       }
       
-      // Retornar o objeto atualizado mantendo os valores que foram enviados (não os do resultado)
-      // Isso evita sobrescrever com valores antigos do banco
+      // Retornar o objeto atualizado mantendo os valores que foram enviados
       return {
         id: resultado.id || usuario.id,
-        nome: usuario.nome, // Manter o valor editado
+        nome: usuario.nome,
         email: resultado.email || usuario.email,
-        setor: usuario.setor, // Manter o valor editado
-        funcao: usuario.funcao, // Manter o valor editado
-        tipoAcesso: usuario.tipoAcesso, // Manter o valor editado
+        setor: usuario.setor,
+        funcao: usuario.funcao,
+        tipoAcesso: usuario.tipoAcesso,
         ativo: usuario.ativo,
         is_whatsapp_attendant: usuario.is_whatsapp_attendant,
         whatsapp_setores: usuario.whatsapp_setores,
         whatsapp_permissions: usuario.whatsapp_permissions,
         permissoes_comunicacao: usuario.permissoes_comunicacao,
-        paginas_acesso: usuario.paginas_acesso,
+        paginas_acesso: permissoesParaSalvar,
         max_concurrent_conversations: usuario.max_concurrent_conversations,
+        permissoes: permissoesParaSalvar,
         isNovo: false,
       };
     } catch (error) {
