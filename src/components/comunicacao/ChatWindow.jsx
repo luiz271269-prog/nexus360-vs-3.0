@@ -76,6 +76,7 @@ export default function ChatWindow({
   const [carregandoAtendentes, setCarregandoAtendentes] = useState(false);
   const [atribuindo, setAtribuindo] = useState(false);
   const [capturandoTela, setCapturandoTela] = useState(false);
+  const [mensagemTransferencia, setMensagemTransferencia] = useState("");
 
   const [mensagemResposta, setMensagemResposta] = useState(null);
   const [modoSelecao, setModoSelecao] = useState(false);
