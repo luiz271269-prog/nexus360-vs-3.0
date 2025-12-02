@@ -478,34 +478,40 @@ export default function MessageBubble({
 
   return (
     <>
-      <div className={cn("flex gap-3", isOwn ? "justify-end" : "justify-start")}
-          onClick={() => modoSelecao && onToggleSelecao?.()}>
+      <div className={cn(
+          "flex w-full px-[5%]",
+          isOwn ? "justify-end" : "justify-start"
+        )}
+        onClick={() => modoSelecao && onToggleSelecao?.()}>
 
         {modoSelecao &&
-        <div className="flex items-center justify-center">
+        <div className="flex items-center justify-center mr-2">
             <div className={cn(
-            "w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all",
+            "w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all",
             selecionada ? "bg-blue-500 border-blue-500" : "border-slate-300"
           )}>
-              {selecionada && <Check className="w-4 h-4 text-white" />}
+              {selecionada && <Check className="w-3 h-3 text-white" />}
             </div>
           </div>
         }
 
-        {/* Avatar removido para visual mais limpo estilo WhatsApp Web */}
-
         <div className={cn(
           "max-w-[65%]",
-          isOwn ? 'items-end' : 'items-start',
           "flex flex-col group relative"
         )}>
-          {/* Nome do Remetente - Somente para mensagens de outros atendentes */}
-          {message.sender_type === 'user' && !isOwn && (
+          {/* Nome do Remetente - Somente para mensagens recebidas de outros atendentes */}
+          {!isOwn && message.sender_type === 'user' && (
             <span className="text-[11px] font-semibold mb-0.5 text-[#53bdeb]">
               {(() => {
                 const atendenteRemetente = atendentes.find(a => a.id === message.sender_id);
                 return atendenteRemetente?.full_name || 'Atendente';
               })()}
+            </span>
+          )}
+          {/* Nome do contato - para mensagens recebidas do cliente */}
+          {!isOwn && message.sender_type === 'contact' && contato?.nome && (
+            <span className="text-[11px] font-semibold mb-0.5 text-[#00a884]">
+              {contato.nome}
             </span>
           )}
 
