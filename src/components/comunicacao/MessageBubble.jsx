@@ -30,6 +30,15 @@ import {
 import ReactMarkdown from 'react-markdown';
 import { CATEGORIAS_FIXAS, getCategoriaConfig } from './CategorizadorRapido';
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { base44 } from "@/api/base44Client";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuCheckboxItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger } from
+"@/components/ui/dropdown-menu";
 
 // Componente de imagem com fallback seguro (sem manipulação de innerHTML)
 const ImageWithFallback = ({ src, alt, className, onClick }) => {
@@ -60,15 +69,6 @@ const ImageWithFallback = ({ src, alt, className, onClick }) => {
     />
   );
 };
-import { base44 } from "@/api/base44Client";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuCheckboxItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger } from
-"@/components/ui/dropdown-menu";
 
 const FunctionDisplay = ({ toolCall }) => {
   const [expanded, setExpanded] = useState(false);
