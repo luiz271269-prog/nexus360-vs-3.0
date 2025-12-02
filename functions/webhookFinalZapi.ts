@@ -724,7 +724,7 @@ async function handleMessage(dados, payloadBruto, base44) {
   }
 
   // ============================================================================
-  // ✅ PRÉ-ATENDIMENTO AUTOMÁTICO - ATIVADO POR SAUDAÇÕES
+  // ✅ PRÉ-ATENDIMENTO AUTOMÁTICO - CHAMADA PARA FUNÇÃO SEPARADA
   // ============================================================================
   const SAUDACOES = [
     'oi', 'olá', 'ola', 'oie', 'oii', 'oiii',
@@ -754,7 +754,7 @@ async function handleMessage(dados, payloadBruto, base44) {
     // Processar resposta do pré-atendimento em andamento
     console.log(`[${VERSION}] 🔄 Processando resposta pré-atendimento | Thread: ${thread.id}`);
     try {
-      await executarPreAtendimentoInline(base44, {
+      await base44.functions.invoke('executarPreAtendimento', {
         action: 'processar_resposta',
         thread_id: thread.id,
         contact_id: contato.id,
@@ -768,7 +768,7 @@ async function handleMessage(dados, payloadBruto, base44) {
     // Iniciar pré-atendimento apenas se for saudação
     console.log(`[${VERSION}] 🚀 Saudação detectada! Iniciando pré-atendimento | Msg: "${mensagemLower}" | Thread: ${thread.id}`);
     try {
-      await executarPreAtendimentoInline(base44, {
+      await base44.functions.invoke('executarPreAtendimento', {
         action: 'iniciar',
         thread_id: thread.id,
         contact_id: contato.id,
