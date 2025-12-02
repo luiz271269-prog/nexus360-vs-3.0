@@ -531,7 +531,7 @@ export default function MessageBubble({
 
           <div className={cn(
             "rounded-lg relative shadow-sm",
-            isOwn ? "bg-[#d9fdd3]" : "bg-white",
+            isOwn ? "bg-[#3b82f6]" : "bg-white",
             selecionada ? 'ring-2 ring-blue-500' : '',
             message.media_url && message.media_type !== 'none' ? '' : 'px-3 py-1.5'
           )}
@@ -1017,7 +1017,7 @@ export default function MessageBubble({
             {/* ✅ TEXTO - SEM MÍDIA */}
             {(!message?.media_url || message?.media_type === 'none') && message?.content && String(message.content).trim() !== '' && message.content !== '[No content]' &&
             <>
-                <div className="break-words whitespace-pre-wrap text-[#111b21]">
+                <div className={cn("break-words whitespace-pre-wrap", isOwn ? "text-white" : "text-[#111b21]")}>
                   <p className="text-[14.2px] leading-[19px]">{String(message.content || '')}</p>
                   {/* ReactMarkdown removido para visual mais limpo
                 <ReactMarkdown
@@ -1071,16 +1071,16 @@ export default function MessageBubble({
                 </div>
 
                 <div className="flex items-center justify-end gap-1 mt-0.5">
-                  <span className="text-[11px] text-[#667781]">
+                  <span className={cn("text-[11px]", isOwn ? "text-white/70" : "text-[#667781]")}>
                     {formatarHorario(message.sent_at || message.created_date)}
                   </span>
                   {isOwn && (
                     <>
-                      {message.status === 'enviando' && <Clock className="w-[16px] h-[16px] text-[#667781]" />}
-                      {message.status === 'enviada' && <Check className="w-[16px] h-[16px] text-[#667781]" />}
-                      {message.status === 'entregue' && <CheckCheck className="w-[16px] h-[16px] text-[#667781]" />}
-                      {message.status === 'lida' && <CheckCheck className="w-[16px] h-[16px] text-[#53bdeb]" />}
-                      {message.status === 'falhou' && <AlertCircle className="w-[16px] h-[16px] text-red-500" />}
+                      {message.status === 'enviando' && <Clock className="w-[16px] h-[16px] text-white/60" />}
+                      {message.status === 'enviada' && <Check className="w-[16px] h-[16px] text-white/70" />}
+                      {message.status === 'entregue' && <CheckCheck className="w-[16px] h-[16px] text-white/70" />}
+                      {message.status === 'lida' && <CheckCheck className="w-[16px] h-[16px] text-[#90EE90]" />}
+                      {message.status === 'falhou' && <AlertCircle className="w-[16px] h-[16px] text-red-300" />}
                     </>
                   )}
                 </div>
