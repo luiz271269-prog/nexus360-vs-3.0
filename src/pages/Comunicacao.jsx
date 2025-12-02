@@ -339,9 +339,40 @@ export default function Comunicacao() {
       ? new Map(usuario.whatsapp_permissions.map(p => [p.integration_id, p.can_view]))
       : null;
 
+    // 🔍 Criar map de atendentes para filtro por nome
+    const atendentesMap = new Map(atendentes.map(a => [a.id, a]));
+
     return threads.filter(thread => {
       const contato = contatosMap.get(thread.contact_id);
       if (!contato) return false;
+
+      // ✅ FILTRO POR ATENDENTE SELECIONADO (CORRIGIDO!)
+      if (selectedAttendantId && selectedAttendantId !== 'all') {
+        const atendenteInfo = atendentesMap.get(selectedAttendantId);
+        const nomeAtendente = atendenteInfo?.full_name;
+
+        // Verificar se a conversa OU o contato está atribuído ao atendente selecionado
+        const threadAtribuidaAoAtendente = thread.assigned_user_id === selectedAttendantId;
+        
+        // Verificar fidelização do contato
+        const contatoFidelizadoAoAtendente = 
+          contato.vendedor_responsavel === nomeAtendente ||
+          contato.vendedor_responsavel === selectedAttendantId ||
+          contato.atendente_fidelizado_vendas === nomeAtendente ||
+          contato.atendente_fidelizado_vendas === selectedAttendantId ||
+          contato.atendente_fidelizado_assistencia === nomeAtendente ||
+          contato.atendente_fidelizado_assistencia === selectedAttendantId ||
+          contato.atendente_fidelizado_financeiro === nomeAtendente ||
+          contato.atendente_fidelizado_financeiro === selectedAttendantId ||
+          contato.atendente_fidelizado_fornecedor === nomeAtendente ||
+          contato.atendente_fidelizado_fornecedor === selectedAttendantId;
+
+        // Mostrar APENAS se a conversa está atribuída ao atendente selecionado
+        // OU se o contato está fidelizado ao atendente selecionado
+        if (!threadAtribuidaAoAtendente && !contatoFidelizadoAoAtendente) {
+          return false;
+        }
+      }
 
       // Filtro de integração
       if (selectedIntegrationId !== 'all' && thread.whatsapp_integration_id !== selectedIntegrationId) {
@@ -383,7 +414,7 @@ export default function Comunicacao() {
 
       return true;
     });
-  }, [threads, contatos, usuario?.id, usuario?.role, selectedIntegrationId, selectedCategoria, selectedTipoContato, selectedTagContato, debouncedSearchTerm, mensagensComCategoria]);
+  }, [threads, contatos, atendentes, usuario?.id, usuario?.role, selectedAttendantId, selectedIntegrationId, selectedCategoria, selectedTipoContato, selectedTagContato, debouncedSearchTerm, mensagensComCategoria]);
 
   const threadsComContato = React.useMemo(() => {
     const contatosMap = new Map(contatos.map(c => [c.id, c]));
