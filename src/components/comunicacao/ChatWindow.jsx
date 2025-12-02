@@ -1386,6 +1386,31 @@ export default function ChatWindow({
                   </div>);
 
               })()}
+
+              {/* Atendente Fidelizado */}
+              {(() => {
+                const setorAtual = thread?.sector_id || usuarioAtual?.attendant_sector || 'vendas';
+                const camposFidelizacao = {
+                  'vendas': 'atendente_fidelizado_vendas',
+                  'assistencia': 'atendente_fidelizado_assistencia',
+                  'financeiro': 'atendente_fidelizado_financeiro',
+                  'fornecedor': 'atendente_fidelizado_fornecedor'
+                };
+                const campoFidelizado = camposFidelizacao[setorAtual] || 'vendedor_responsavel';
+                const atendenteFidelizado = contatoCompleto?.[campoFidelizado] || contatoCompleto?.vendedor_responsavel;
+
+                if (atendenteFidelizado) {
+                  return (
+                    <div className="flex items-center gap-1.5 px-2 py-1 bg-amber-100 border border-amber-300 rounded-full">
+                      <span className="text-amber-600 text-xs">⭐</span>
+                      <span className="text-[11px] font-semibold text-amber-700 truncate max-w-[100px]">
+                        {atendenteFidelizado.split(' ')[0]}
+                      </span>
+                    </div>
+                  );
+                }
+                return null;
+              })()}
             </div>
 
 
