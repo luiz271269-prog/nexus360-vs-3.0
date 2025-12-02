@@ -276,18 +276,35 @@ export default function GerenciadorUsuariosUnificado({
   // Auto-save com debounce
   const salvarAutomatico = useCallback(
     debounce(async (usuario) => {
-      if (!usuario || !salvarUsuario) return;
+      if (!usuario || !salvarUsuario) {
+        console.log('[GerenciadorUsuarios] Sem usuário ou função de salvar');
+        return;
+      }
+      
+      // Não salvar automaticamente usuários novos sem email
+      if (usuario.isNovo && !usuario.email) {
+        console.log('[GerenciadorUsuarios] Usuário novo sem email, aguardando...');
+        return;
+      }
+      
+      console.log('[GerenciadorUsuarios] Salvando automaticamente:', usuario);
       setSalvando(true);
       try {
         const atualizado = await salvarUsuario(usuario);
-        setUsuarios(prev => prev.map(u => u.id === atualizado.id ? atualizado : u));
-        toast.success("Salvo automaticamente", { duration: 1500 });
+        console.log('[GerenciadorUsuarios] Retorno do salvar:', atualizado);
+        if (atualizado) {
+          setUsuarios(prev => prev.map(u => u.id === usuario.id ? atualizado : u));
+          // Atualizar usuário selecionado se for o mesmo
+          setUsuarioSelecionado(prev => prev?.id === usuario.id ? atualizado : prev);
+        }
+        toast.success("✅ Salvo com sucesso!", { duration: 2000 });
       } catch (e) {
-        toast.error("Erro ao salvar");
+        console.error('[GerenciadorUsuarios] Erro ao salvar:', e);
+        toast.error("❌ Erro ao salvar: " + (e.message || 'Erro desconhecido'));
       } finally {
         setSalvando(false);
       }
-    }, 1000),
+    }, 1500),
     [salvarUsuario]
   );
 
