@@ -601,6 +601,7 @@ async function handleMessage(dados, payloadBruto, base44, req) {
     integration_id: integracaoId,
     duration_ms: duracao,
     provider: 'w_api',
-    version: VERSION
+    version: VERSION,
+    pre_atendimento_triggered: isSaudacao && execucoesAtivas.length === 0
   }, { headers: corsHeaders });
 }
