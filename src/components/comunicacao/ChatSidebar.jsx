@@ -34,10 +34,18 @@ export default function ChatSidebar({ threads, threadAtiva, onSelecionarThread, 
   const { etiquetas: etiquetasDB, getConfig: getEtiquetaConfigDinamico } = useEtiquetasContato();
 
   // ═══════════════════════════════════════════════════════════════════════════════
-  // 🔐 FILTRO INTELIGENTE: Tipo Contato + Conexão WhatsApp + Hierarquia Usuário + Fidelização
+  // 🔐 FILTRO SIMPLIFICADO: Meus Atendimentos + Sem Atendimento + Meus Fidelizados
   // ═══════════════════════════════════════════════════════════════════════════════
   const threadsFiltradas = useMemo(() => {
     if (!threads || threads.length === 0) return [];
+
+    // Campos de fidelização por setor
+    const camposAtendenteFidelizado = {
+      'vendas': 'atendente_fidelizado_vendas',
+      'assistencia': 'atendente_fidelizado_assistencia',
+      'financeiro': 'atendente_fidelizado_financeiro',
+      'fornecedor': 'atendente_fidelizado_fornecedor'
+    };
 
     return threads.filter((thread) => {
       const contato = thread.contato;
@@ -48,98 +56,69 @@ export default function ChatSidebar({ threads, threadAtiva, onSelecionarThread, 
       // 2️⃣ Admin vê tudo
       if (usuarioAtual?.role === 'admin') return true;
 
-      // 3️⃣ Verificar permissões de conexão WhatsApp
+      // Dados do usuário atual
+      const currentUserId = usuarioAtual?.id;
+      const currentUserFullName = usuarioAtual?.full_name;
+      const currentUserEmail = usuarioAtual?.email;
+      const currentUserSector = usuarioAtual?.attendant_sector || 'geral';
+      const podeVerTodos = verificarPermissaoUsuario(usuarioAtual, 'ver_todos');
+
+      // 3️⃣ Gerentes/Coordenadores/Supervisores veem tudo do setor
+      if (podeVerTodos) return true;
+
+      // ════════════════════════════════════════════════════════════════
+      // REGRA SIMPLIFICADA PARA ATENDENTES:
+      // Vê apenas: Meus Atendimentos + Conversas Sem Atendimento + Meus Fidelizados
+      // ════════════════════════════════════════════════════════════════
+
+      // A) MEUS ATENDIMENTOS: Conversa atribuída a mim
+      if (thread.assigned_user_id === currentUserId) {
+        return true;
+      }
+
+      // B) MEUS FIDELIZADOS: Contato fidelizado a mim em QUALQUER setor
+      let isFidelizadoAMim = false;
+      for (const campo of Object.values(camposAtendenteFidelizado)) {
+        const valorCampo = contato?.[campo];
+        if (valorCampo && (valorCampo === currentUserId || valorCampo === currentUserFullName || valorCampo === currentUserEmail)) {
+          isFidelizadoAMim = true;
+          break;
+        }
+      }
+      if (isFidelizadoAMim) {
+        return true;
+      }
+
+      // C) CONVERSAS SEM ATENDIMENTO: Não atribuída + não fidelizada a outro + mesmo setor
+      const isNaoAtribuida = !thread.assigned_user_id;
+      const setorThread = thread.sector_id || 'geral';
+      const meuSetor = currentUserSector === 'geral' || setorThread === currentUserSector || setorThread === 'geral';
+
+      if (isNaoAtribuida && meuSetor) {
+        // Verificar se está fidelizado a OUTRO atendente
+        let isFidelizadoAOutro = false;
+        for (const campo of Object.values(camposAtendenteFidelizado)) {
+          const valorCampo = contato?.[campo];
+          if (valorCampo && valorCampo !== currentUserId && valorCampo !== currentUserFullName && valorCampo !== currentUserEmail) {
+            isFidelizadoAOutro = true;
+            break;
+          }
+        }
+        // Se não está fidelizado a outro, mostrar
+        if (!isFidelizadoAOutro) {
+          return true;
+        }
+      }
+
+      // 4️⃣ Verificar permissões de conexão WhatsApp (filtro adicional)
       const whatsappPerms = usuarioAtual?.whatsapp_permissions || [];
       if (whatsappPerms.length > 0 && thread.whatsapp_integration_id) {
         const permissao = whatsappPerms.find((p) => p.integration_id === thread.whatsapp_integration_id);
         if (!permissao || !permissao.can_view) return false;
       }
 
-      // 4️⃣ Verificar hierarquia Setor → Função → Nível
-      const setorUsuario = usuarioAtual?.attendant_sector;
-      const podeVerTodos = verificarPermissaoUsuario(usuarioAtual, 'ver_todos');
-
-      // Se pode ver todos (gerente/coordenador/supervisor), passa
-      if (podeVerTodos) return true;
-
-      // 5️⃣ FIDELIZAÇÃO: Contatos com atendente fidelizado só são visíveis para o atendente responsável
-      // Verificar TODOS os campos de fidelização do contato, independente da flag is_cliente_fidelizado
-      const setorUsuarioAtual = usuarioAtual?.attendant_sector || 'geral';
-      
-      // Mapear setor do usuário para o campo de atendente fidelizado correspondente
-      const camposAtendenteFidelizado = {
-        'vendas': 'atendente_fidelizado_vendas',
-        'assistencia': 'atendente_fidelizado_assistencia',
-        'financeiro': 'atendente_fidelizado_financeiro',
-        'fornecedor': 'atendente_fidelizado_fornecedor'
-      };
-      
-      // Verificar se o contato tem atendente fidelizado para o setor do usuário atual
-      const campoFidelizacaoSetor = camposAtendenteFidelizado[setorUsuarioAtual];
-      if (campoFidelizacaoSetor && contato?.[campoFidelizacaoSetor]) {
-        const atendenteFidelizado = contato[campoFidelizacaoSetor];
-        
-        // Comparar por ID ou por nome (o campo pode conter ID ou nome do atendente)
-        const isMinhaFidelizacao = 
-          atendenteFidelizado === usuarioAtual?.id || 
-          atendenteFidelizado === usuarioAtual?.full_name ||
-          atendenteFidelizado === usuarioAtual?.email;
-        
-        if (!isMinhaFidelizacao) {
-          // Contato fidelizado a outro atendente do mesmo setor - NÃO mostrar
-          return false;
-        }
-      }
-      
-      // Também verificar fidelização em OUTROS setores (para não vazar entre setores)
-      for (const [setor, campo] of Object.entries(camposAtendenteFidelizado)) {
-        if (setor !== setorUsuarioAtual && contato?.[campo]) {
-          // Se contato está fidelizado em outro setor e não é meu setor, verificar se sou eu
-          const atendenteFidelizadoOutroSetor = contato[campo];
-          const souEuEmOutroSetor = 
-            atendenteFidelizadoOutroSetor === usuarioAtual?.id || 
-            atendenteFidelizadoOutroSetor === usuarioAtual?.full_name;
-          
-          // Se não sou eu e o setor da thread é esse outro setor, não mostrar
-          const setorThread = thread.sector_id || 'geral';
-          if (!souEuEmOutroSetor && setorThread === setor) {
-            return false;
-          }
-        }
-      }
-
-      // 6️⃣ Conversas não atribuídas de contatos NÃO fidelizados são visíveis para todos com acesso
-      const isNaoAtribuida = !thread.assigned_user_id;
-      const isContatoNaoFidelizado = !contato?.is_cliente_fidelizado;
-
-      if (isNaoAtribuida && isContatoNaoFidelizado) {
-        return true;
-      }
-
-      // 7️⃣ Conversa atribuída diretamente ao usuário atual
-      if (thread.assigned_user_id === usuarioAtual?.id) {
-        return true;
-      }
-
-      // 8️⃣ Verificar setor da conversa vs setor do atendente
-      const setorThread = thread.sector_id;
-      if (setorThread && setorUsuario && setorThread !== setorUsuario && setorUsuario !== 'geral') {
-        return false;
-      }
-
-      // 9️⃣ Verificar tipo de contato vs setor do atendente
-      const tipoContato = contato?.tipo_contato || 'novo';
-      const configSetor = SETORES_ATENDIMENTO.find((s) => s.value === setorUsuario);
-      if (configSetor && !configSetor.tipos_contato_aceitos.includes(tipoContato)) {
-        return false;
-      }
-
-      // 🔟 Conversas atribuídas a outros (não fidelizadas) - ocultar para atendentes comuns
-      if (thread.assigned_user_id && thread.assigned_user_id !== usuarioAtual?.id) {
-        return false;
-      }
-
-      return true;
+      // Default: não mostrar
+      return false;
     });
   }, [threads, usuarioAtual]);
 
