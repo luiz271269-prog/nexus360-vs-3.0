@@ -354,7 +354,7 @@ export default function Comunicacao() {
   // ═══════════════════════════════════════════════════════════════════════════════
   // 🔍 FUNÇÃO AUXILIAR: Verificar se contato passa nos filtros básicos
   // ═══════════════════════════════════════════════════════════════════════════════
-  const contatoPassaNosFiltros = React.useCallback((contato, atendenteInfo) => {
+  const contatoPassaNosFiltros = React.useCallback((contato, atendenteInfo, ignorarFiltroAtendente = false) => {
     if (!contato) return false;
     
     // Filtro de tipo de contato
@@ -368,8 +368,8 @@ export default function Comunicacao() {
       if (!tags.includes(selectedTagContato)) return false;
     }
 
-    // Filtro por atendente selecionado
-    if (atendenteInfo) {
+    // Filtro por atendente selecionado (IGNORADO quando há busca por texto)
+    if (atendenteInfo && !ignorarFiltroAtendente) {
       if (!verificarContatoPertenceAoAtendente(contato, atendenteInfo)) {
         return false;
       }
