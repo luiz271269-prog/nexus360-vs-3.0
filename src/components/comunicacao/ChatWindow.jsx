@@ -1841,13 +1841,16 @@ export default function ChatWindow({
               <Alert>
                 <AlertCircle className="h-4 w-4" />
                 <AlertDescription>
-                  Nenhum atendente disponível.
+                  Nenhum atendente disponível. Verifique se há usuários cadastrados no sistema.
                 </AlertDescription>
               </Alert>
             ) : (
               <div className="grid grid-cols-2 gap-2 max-h-[280px] overflow-y-auto">
-                {atendentes.map((atendente) => {
+                {atendentes
+                  .filter(atendente => atendente.id) // Apenas garantir que tem ID válido
+                  .map((atendente) => {
                   const isAtual = thread?.assigned_user_id === atendente.id;
+                  const nomeExibicao = atendente.full_name || atendente.email || 'Usuário';
                   return (
                     <button
                       key={atendente.id}
@@ -1862,10 +1865,10 @@ export default function ChatWindow({
                       <div className={`w-8 h-8 rounded-full flex items-center justify-center text-white font-bold text-sm ${
                         isAtual ? 'bg-green-500' : 'bg-gradient-to-br from-amber-400 to-orange-500'
                       }`}>
-                        {isAtual ? <CheckSquare className="w-4 h-4" /> : (atendente.full_name || atendente.email || '?').charAt(0).toUpperCase()}
+                        {isAtual ? <CheckSquare className="w-4 h-4" /> : nomeExibicao.charAt(0).toUpperCase()}
                       </div>
                       <div className="flex-1 min-w-0">
-                        <p className="text-xs font-semibold truncate">{(atendente.full_name || atendente.email || 'Usuário').split(' ')[0]}</p>
+                        <p className="text-xs font-semibold truncate">{nomeExibicao.split(' ')[0]}</p>
                         <p className="text-[10px] text-slate-400 truncate">{atendente.attendant_sector || 'Geral'}</p>
                       </div>
                     </button>
