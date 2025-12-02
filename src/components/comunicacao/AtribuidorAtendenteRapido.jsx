@@ -95,6 +95,8 @@ export default function AtribuidorAtendenteRapido({
   const atendenteAtual = getAtendenteAtual();
 
   // Handler para atribuir atendente
+  // IMPORTANTE: Se thread for passada, atualiza APENAS a conversa (não fideliza contato)
+  // Se thread NÃO for passada, atualiza o contato (fidelização)
   const handleAtribuir = async (nomeAtendente, e) => {
     if (e) {
       e.stopPropagation();
@@ -105,38 +107,42 @@ export default function AtribuidorAtendenteRapido({
     setSalvando(true);
 
     try {
-      const campo = getCampoFidelizacao();
-      const atualizacoes = {
-        [campo]: nomeAtendente || null
-      };
+      const atendente = nomeAtendente ? atendentes.find(a => a.full_name === nomeAtendente) : null;
 
-      // Se for lead/cliente, também atualizar vendedor_responsavel
-      if (['lead', 'cliente', 'novo'].includes(tipoContato)) {
-        atualizacoes.vendedor_responsavel = nomeAtendente || null;
+      // ═══════════════════════════════════════════════════════════════════════
+      // CASO 1: ATRIBUIÇÃO DE CONVERSA (thread passada)
+      // Atualiza APENAS a MessageThread, NÃO mexe no contato
+      // ═══════════════════════════════════════════════════════════════════════
+      if (thread?.id) {
+        await base44.entities.MessageThread.update(thread.id, {
+          assigned_user_id: atendente ? atendente.id : null,
+          assigned_user_name: atendente ? atendente.full_name : null
+        });
+        toast.success(`✅ Conversa ${nomeAtendente ? `atribuída a ${nomeAtendente}` : 'liberada'}`);
       }
+      // ═══════════════════════════════════════════════════════════════════════
+      // CASO 2: FIDELIZAÇÃO DE CONTATO (sem thread, apenas contato)
+      // Atualiza o Contact com campos de fidelização
+      // ═══════════════════════════════════════════════════════════════════════
+      else if (contato?.id) {
+        const campo = getCampoFidelizacao();
+        const atualizacoes = {
+          [campo]: nomeAtendente || null
+        };
 
-      // Se tiver fidelização, marcar como fidelizado
-      if (nomeAtendente && campo !== 'vendedor_responsavel') {
-        atualizacoes.is_cliente_fidelizado = true;
-      }
-
-      // Atualizar contato
-      if (contato?.id) {
-        await base44.entities.Contact.update(contato.id, atualizacoes);
-      }
-
-      // Atualizar thread se existir
-      if (thread?.id && nomeAtendente) {
-        const atendente = atendentes.find(a => a.full_name === nomeAtendente);
-        if (atendente) {
-          await base44.entities.MessageThread.update(thread.id, {
-            assigned_user_id: atendente.id,
-            assigned_user_name: atendente.full_name
-          });
+        if (['lead', 'cliente', 'novo'].includes(tipoContato)) {
+          atualizacoes.vendedor_responsavel = nomeAtendente || null;
         }
-      }
 
-      toast.success(`✅ ${nomeAtendente ? `Atribuído a ${nomeAtendente}` : 'Atribuição removida'}`);
+        if (nomeAtendente && campo !== 'vendedor_responsavel') {
+          atualizacoes.is_cliente_fidelizado = true;
+        } else if (!nomeAtendente) {
+          atualizacoes.is_cliente_fidelizado = false;
+        }
+
+        await base44.entities.Contact.update(contato.id, atualizacoes);
+        toast.success(`✅ Contato ${nomeAtendente ? `fidelizado a ${nomeAtendente}` : 'desfidelizado'}`);
+      }
 
       // Invalidar queries
       queryClient.invalidateQueries({ queryKey: ['contacts'] });
