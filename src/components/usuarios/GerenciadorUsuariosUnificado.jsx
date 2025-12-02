@@ -341,14 +341,26 @@ export default function GerenciadorUsuariosUnificado({
     });
   }, [salvarAutomatico]);
 
-  // Toggle permissão
+  // Toggle permissão - atualiza AMBOS os campos para garantir sincronização
   const togglePermissao = (permId) => {
     if (!usuarioSelecionado) return;
     const perms = usuarioSelecionado.permissoes || [];
     const novasPerms = perms.includes(permId)
       ? perms.filter(p => p !== permId)
       : [...perms, permId];
-    atualizarUsuario("permissoes", novasPerms);
+    
+    // Atualizar estado local imediatamente com ambos os campos
+    setUsuarioSelecionado(prev => {
+      if (!prev) return prev;
+      const atualizado = { 
+        ...prev, 
+        permissoes: novasPerms,
+        paginas_acesso: novasPerms  // Sincronizar ambos campos
+      };
+      setUsuarios(lista => lista.map(u => u.id === atualizado.id ? atualizado : u));
+      salvarAutomatico(atualizado);
+      return atualizado;
+    });
   };
 
   // Aplicar perfil
