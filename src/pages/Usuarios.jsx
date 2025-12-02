@@ -37,6 +37,8 @@ export default function UsuariosPage() {
       permissoes_comunicacao: u.permissoes_comunicacao || {},
       paginas_acesso: u.paginas_acesso || [],
       max_concurrent_conversations: u.max_concurrent_conversations || 5,
+      // IMPORTANTE: Campo de permissões de páginas/recursos
+      permissoes: u.paginas_acesso || [],
     }));
   }
 
