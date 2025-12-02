@@ -260,8 +260,11 @@ export default function ChatWindow({
   const carregarAtendentes = async () => {
     setCarregandoAtendentes(true);
     try {
-      const users = await base44.entities.User.filter({ is_whatsapp_attendant: true }, 'full_name');
-      setAtendentes(users);
+      // Buscar TODOS os usuários (sem filtro) para poder atribuir a qualquer um
+      const users = await base44.entities.User.list('full_name');
+      // Filtrar apenas usuários com nome preenchido
+      const usuariosValidos = users.filter(u => u.full_name && u.full_name.trim() !== '');
+      setAtendentes(usuariosValidos);
     } catch (error) {
       console.error('[CHAT] Erro ao carregar atendentes:', error);
       toast.error("Erro ao carregar lista de atendentes");
