@@ -401,9 +401,16 @@ export default function ChatSidebar({ threads, threadAtiva, onSelecionarThread, 
                   });
                 })()}
 
-                {/* ATENDENTE RESPONSÁVEL - Exibe quem está atuando */}
+                {/* FIDELIZADO - Mostra se contato tem atendente fidelizado */}
+                {contato?.is_cliente_fidelizado && (
+                  <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-semibold text-amber-700 bg-amber-100 shadow-sm" title="Cliente Fidelizado">
+                    ⭐
+                  </span>
+                )}
+                
+                {/* ATENDENTE ATUAL DA CONVERSA */}
                 {thread.assigned_user_name ? (
-                  <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-semibold text-white bg-indigo-500 shadow-sm" title={`Atendente: ${thread.assigned_user_name}`}>
+                  <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-semibold text-white bg-indigo-500 shadow-sm" title={`Atendendo: ${thread.assigned_user_name}`}>
                     <UserCheck className="w-3 h-3" />
                     {thread.assigned_user_name.split(' ')[0]}
                   </span>
