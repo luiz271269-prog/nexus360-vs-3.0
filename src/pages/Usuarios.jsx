@@ -42,27 +42,59 @@ export default function UsuariosPage() {
   }
 
   async function salvarUsuario(usuario) {
+    console.log('[Usuarios] Salvando usuário:', usuario);
+    
     const payload = {
       full_name: usuario.nome,
-      attendant_sector: usuario.setor,
-      attendant_role: usuario.funcao,
-      role: usuario.tipoAcesso,
-      is_active: usuario.ativo,
-      permissoes: usuario.permissoes,
-      perfilAcesso: usuario.perfilAcesso,
+      attendant_sector: usuario.setor || 'geral',
+      attendant_role: usuario.funcao || 'pleno',
+      role: usuario.tipoAcesso || 'user',
+      is_active: usuario.ativo !== false,
       // Campos de WhatsApp e comunicação
-      is_whatsapp_attendant: usuario.is_whatsapp_attendant,
-      whatsapp_setores: usuario.whatsapp_setores,
-      whatsapp_permissions: usuario.whatsapp_permissions,
-      permissoes_comunicacao: usuario.permissoes_comunicacao,
-      paginas_acesso: usuario.paginas_acesso,
-      max_concurrent_conversations: usuario.max_concurrent_conversations,
+      is_whatsapp_attendant: usuario.is_whatsapp_attendant || false,
+      whatsapp_setores: usuario.whatsapp_setores || [],
+      whatsapp_permissions: usuario.whatsapp_permissions || [],
+      permissoes_comunicacao: usuario.permissoes_comunicacao || {},
+      paginas_acesso: usuario.paginas_acesso || [],
+      max_concurrent_conversations: usuario.max_concurrent_conversations || 5,
     };
     
-    if (usuario.isNovo) {
-      return await base44.entities.User.create({ ...payload, email: usuario.email });
+    console.log('[Usuarios] Payload para salvar:', payload);
+    
+    try {
+      let resultado;
+      if (usuario.isNovo) {
+        // Usuário novo - criar
+        resultado = await base44.entities.User.create({ ...payload, email: usuario.email });
+        console.log('[Usuarios] Usuário criado:', resultado);
+      } else {
+        // Usuário existente - atualizar
+        resultado = await base44.entities.User.update(usuario.id, payload);
+        console.log('[Usuarios] Usuário atualizado:', resultado);
+      }
+      
+      // Retornar o objeto atualizado no formato do componente
+      return {
+        ...usuario,
+        id: resultado.id,
+        nome: resultado.full_name,
+        email: resultado.email,
+        setor: resultado.attendant_sector,
+        funcao: resultado.attendant_role,
+        tipoAcesso: resultado.role,
+        ativo: resultado.is_active !== false,
+        is_whatsapp_attendant: resultado.is_whatsapp_attendant,
+        whatsapp_setores: resultado.whatsapp_setores,
+        whatsapp_permissions: resultado.whatsapp_permissions,
+        permissoes_comunicacao: resultado.permissoes_comunicacao,
+        paginas_acesso: resultado.paginas_acesso,
+        max_concurrent_conversations: resultado.max_concurrent_conversations,
+        isNovo: false,
+      };
+    } catch (error) {
+      console.error('[Usuarios] Erro ao salvar:', error);
+      throw error;
     }
-    return await base44.entities.User.update(usuario.id, payload);
   }
 
   async function excluirUsuario(usuarioId) {
