@@ -303,7 +303,7 @@ export default function ChatSidebar({ threads, threadAtiva, onSelecionarThread, 
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: index * 0.05 }}
-            onClick={() => handleClick(thread)} className="px-2 py-2 flex items-center gap-3 cursor-pointer transition-all border-b border-slate-100 hover:bg-gradient-to-r hover:from-amber-50 hover:to-orange-50">
+            onClick={() => handleClick(thread)} className={`px-2 py-2 flex items-center gap-3 cursor-pointer transition-all border-b border-slate-100 hover:bg-gradient-to-r hover:from-amber-50 hover:to-orange-50 ${thread.is_contact_only ? 'bg-slate-50/50' : ''}`}>
 
 
 
