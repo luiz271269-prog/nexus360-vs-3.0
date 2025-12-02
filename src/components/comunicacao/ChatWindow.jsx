@@ -1389,7 +1389,7 @@ export default function ChatWindow({
 
               {/* Atendente Fidelizado */}
               {(() => {
-                const setorAtual = thread?.sector_id || usuarioAtual?.attendant_sector || 'vendas';
+                const setorAtual = thread?.sector_id || usuario?.attendant_sector || 'vendas';
                 const camposFidelizacao = {
                   'vendas': 'atendente_fidelizado_vendas',
                   'assistencia': 'atendente_fidelizado_assistencia',
