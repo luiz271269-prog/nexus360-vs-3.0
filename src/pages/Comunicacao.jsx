@@ -405,7 +405,9 @@ export default function Comunicacao() {
 
     // ═══════════════════════════════════════════════════════════════════════════════
     // PARTE 1: Filtrar THREADS existentes
+    // BUSCA POR TEXTO: Mostra TODOS os resultados, independente de atendente
     // ═══════════════════════════════════════════════════════════════════════════════
+    const temBuscaPorTexto = !!debouncedSearchTerm;
     const threadsComContatoIds = new Set();
     const threadsFiltrados = threads.filter(thread => {
       const contato = contatosMap.get(thread.contact_id);
@@ -413,8 +415,8 @@ export default function Comunicacao() {
 
       threadsComContatoIds.add(thread.contact_id);
 
-      // ✅ FILTRO POR ATENDENTE - ESTRITO!
-      if (atendenteInfo) {
+      // ✅ FILTRO POR ATENDENTE - IGNORADO quando há busca por texto!
+      if (atendenteInfo && !temBuscaPorTexto) {
         const threadAtribuidaAoAtendente = thread.assigned_user_id === atendenteInfo.id;
         const contatoFidelizadoAoAtendente = verificarContatoPertenceAoAtendente(contato, atendenteInfo);
         
