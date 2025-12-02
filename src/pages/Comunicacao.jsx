@@ -329,9 +329,67 @@ export default function Comunicacao() {
     await queryClient.invalidateQueries({ queryKey: ['threads'] });
   }, [threadAtiva, queryClient]);
 
-  const threadsFiltradas = React.useMemo(() => {
-    if (!threads.length || !contatos.length) return [];
+  // ═══════════════════════════════════════════════════════════════════════════════
+  // 🔍 FUNÇÃO AUXILIAR: Verificar se contato pertence ao atendente selecionado
+  // ═══════════════════════════════════════════════════════════════════════════════
+  const verificarContatoPertenceAoAtendente = React.useCallback((contato, atendenteInfo) => {
+    if (!atendenteInfo || !contato) return false;
+    
+    const { id, full_name, email } = atendenteInfo;
+    
+    // Verificar todos os campos de fidelização
+    const camposParaVerificar = [
+      contato.vendedor_responsavel,
+      contato.atendente_fidelizado_vendas,
+      contato.atendente_fidelizado_assistencia,
+      contato.atendente_fidelizado_financeiro,
+      contato.atendente_fidelizado_fornecedor
+    ];
+    
+    return camposParaVerificar.some(campo => 
+      campo && (campo === id || campo === full_name || campo === email)
+    );
+  }, []);
 
+  // ═══════════════════════════════════════════════════════════════════════════════
+  // 🔍 FUNÇÃO AUXILIAR: Verificar se contato passa nos filtros básicos
+  // ═══════════════════════════════════════════════════════════════════════════════
+  const contatoPassaNosFiltros = React.useCallback((contato, atendenteInfo) => {
+    if (!contato) return false;
+    
+    // Filtro de tipo de contato
+    if (selectedTipoContato && selectedTipoContato !== 'all') {
+      if (contato.tipo_contato !== selectedTipoContato) return false;
+    }
+
+    // Filtro de tag/destaque do contato
+    if (selectedTagContato && selectedTagContato !== 'all') {
+      const tags = contato.tags || [];
+      if (!tags.includes(selectedTagContato)) return false;
+    }
+
+    // Filtro por atendente selecionado
+    if (atendenteInfo) {
+      if (!verificarContatoPertenceAoAtendente(contato, atendenteInfo)) {
+        return false;
+      }
+    }
+
+    // Filtro de busca
+    if (debouncedSearchTerm) {
+      const termo = debouncedSearchTerm.toLowerCase();
+      const matchBusca = 
+        contato.nome?.toLowerCase().includes(termo) ||
+        contato.empresa?.toLowerCase().includes(termo) ||
+        contato.cargo?.toLowerCase().includes(termo) ||
+        contato.telefone?.includes(debouncedSearchTerm);
+      if (!matchBusca) return false;
+    }
+
+    return true;
+  }, [selectedTipoContato, selectedTagContato, debouncedSearchTerm, verificarContatoPertenceAoAtendente]);
+
+  const threadsFiltradas = React.useMemo(() => {
     // 🗺️ Criar maps para lookups O(1)
     const contatosMap = new Map(contatos.map(c => [c.id, c]));
     const categoriasSet = selectedCategoria !== 'all' ? new Set(mensagensComCategoria.map(m => m.thread_id)) : null;
@@ -339,36 +397,28 @@ export default function Comunicacao() {
       ? new Map(usuario.whatsapp_permissions.map(p => [p.integration_id, p.can_view]))
       : null;
 
-    // 🔍 Criar map de atendentes para filtro por nome
+    // 🔍 Buscar info do atendente selecionado
     const atendentesMap = new Map(atendentes.map(a => [a.id, a]));
+    const atendenteInfo = selectedAttendantId && selectedAttendantId !== 'all' 
+      ? atendentesMap.get(selectedAttendantId) 
+      : null;
 
-    return threads.filter(thread => {
+    // ═══════════════════════════════════════════════════════════════════════════════
+    // PARTE 1: Filtrar THREADS existentes
+    // ═══════════════════════════════════════════════════════════════════════════════
+    const threadsComContatoIds = new Set();
+    const threadsFiltrados = threads.filter(thread => {
       const contato = contatosMap.get(thread.contact_id);
       if (!contato) return false;
 
-      // ✅ FILTRO POR ATENDENTE SELECIONADO (CORRIGIDO!)
-      if (selectedAttendantId && selectedAttendantId !== 'all') {
-        const atendenteInfo = atendentesMap.get(selectedAttendantId);
-        const nomeAtendente = atendenteInfo?.full_name;
+      threadsComContatoIds.add(thread.contact_id);
 
-        // Verificar se a conversa OU o contato está atribuído ao atendente selecionado
-        const threadAtribuidaAoAtendente = thread.assigned_user_id === selectedAttendantId;
+      // ✅ FILTRO POR ATENDENTE - ESTRITO!
+      if (atendenteInfo) {
+        const threadAtribuidaAoAtendente = thread.assigned_user_id === atendenteInfo.id;
+        const contatoFidelizadoAoAtendente = verificarContatoPertenceAoAtendente(contato, atendenteInfo);
         
-        // Verificar fidelização do contato
-        const contatoFidelizadoAoAtendente = 
-          contato.vendedor_responsavel === nomeAtendente ||
-          contato.vendedor_responsavel === selectedAttendantId ||
-          contato.atendente_fidelizado_vendas === nomeAtendente ||
-          contato.atendente_fidelizado_vendas === selectedAttendantId ||
-          contato.atendente_fidelizado_assistencia === nomeAtendente ||
-          contato.atendente_fidelizado_assistencia === selectedAttendantId ||
-          contato.atendente_fidelizado_financeiro === nomeAtendente ||
-          contato.atendente_fidelizado_financeiro === selectedAttendantId ||
-          contato.atendente_fidelizado_fornecedor === nomeAtendente ||
-          contato.atendente_fidelizado_fornecedor === selectedAttendantId;
-
-        // Mostrar APENAS se a conversa está atribuída ao atendente selecionado
-        // OU se o contato está fidelizado ao atendente selecionado
+        // Mostrar APENAS se atribuída OU fidelizada ao atendente selecionado
         if (!threadAtribuidaAoAtendente && !contatoFidelizadoAoAtendente) {
           return false;
         }
@@ -403,18 +453,57 @@ export default function Comunicacao() {
       // Filtro de busca
       if (debouncedSearchTerm) {
         const termo = debouncedSearchTerm.toLowerCase();
-        return (
+        const matchBusca = 
           contato.nome?.toLowerCase().includes(termo) ||
           contato.empresa?.toLowerCase().includes(termo) ||
           contato.cargo?.toLowerCase().includes(termo) ||
           thread.last_message_content?.toLowerCase().includes(termo) ||
-          contato.telefone?.includes(debouncedSearchTerm)
-        );
+          contato.telefone?.includes(debouncedSearchTerm);
+        if (!matchBusca) return false;
       }
 
       return true;
     });
-  }, [threads, contatos, atendentes, usuario?.id, usuario?.role, selectedAttendantId, selectedIntegrationId, selectedCategoria, selectedTipoContato, selectedTagContato, debouncedSearchTerm, mensagensComCategoria]);
+
+    // ═══════════════════════════════════════════════════════════════════════════════
+    // PARTE 2: Adicionar CONTATOS SEM THREAD que passam nos filtros
+    // (Apenas se houver algum filtro ativo de atendente, tipo ou tag)
+    // ═══════════════════════════════════════════════════════════════════════════════
+    const temFiltroAtivo = atendenteInfo || 
+      (selectedTipoContato && selectedTipoContato !== 'all') || 
+      (selectedTagContato && selectedTagContato !== 'all') ||
+      debouncedSearchTerm;
+
+    const contatosSemThread = [];
+    if (temFiltroAtivo) {
+      contatos.forEach(contato => {
+        // Pular contatos que já têm thread
+        if (threadsComContatoIds.has(contato.id)) return;
+        
+        // Pular contatos bloqueados
+        if (contato.bloqueado) return;
+
+        // Verificar se passa nos filtros
+        if (!contatoPassaNosFiltros(contato, atendenteInfo)) return;
+
+        // Criar "pseudo-thread" para exibição
+        contatosSemThread.push({
+          id: `contato-sem-thread-${contato.id}`,
+          contact_id: contato.id,
+          is_contact_only: true, // Flag para identificar
+          last_message_at: contato.ultima_interacao || contato.created_date,
+          last_message_content: null,
+          unread_count: 0,
+          status: 'sem_conversa',
+          assigned_user_id: null,
+          assigned_user_name: null
+        });
+      });
+    }
+
+    // Combinar threads + contatos sem thread
+    return [...threadsFiltrados, ...contatosSemThread];
+  }, [threads, contatos, atendentes, usuario?.id, usuario?.role, selectedAttendantId, selectedIntegrationId, selectedCategoria, selectedTipoContato, selectedTagContato, debouncedSearchTerm, mensagensComCategoria, verificarContatoPertenceAoAtendente, contatoPassaNosFiltros]);
 
   const threadsComContato = React.useMemo(() => {
     const contatosMap = new Map(contatos.map(c => [c.id, c]));
