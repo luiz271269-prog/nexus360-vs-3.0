@@ -273,40 +273,59 @@ export default function GerenciadorUsuariosUnificado({
     return () => { ativo = false; };
   }, [carregarUsuarios]);
 
+  // Referência para o debounce
+  const debounceRef = React.useRef(null);
+  
+  // Função de salvar direta (sem debounce)
+  const executarSalvar = useCallback(async (usuario) => {
+    if (!usuario || !salvarUsuario) {
+      console.log('[GerenciadorUsuarios] Sem usuário ou função de salvar');
+      return;
+    }
+    
+    // Não salvar automaticamente usuários novos sem email
+    if (usuario.isNovo && !usuario.email) {
+      console.log('[GerenciadorUsuarios] Usuário novo sem email, aguardando...');
+      return;
+    }
+    
+    console.log('[GerenciadorUsuarios] Salvando:', usuario);
+    setSalvando(true);
+    try {
+      const atualizado = await salvarUsuario(usuario);
+      console.log('[GerenciadorUsuarios] Retorno do salvar:', atualizado);
+      if (atualizado) {
+        setUsuarios(prev => prev.map(u => u.id === usuario.id ? atualizado : u));
+      }
+      toast.success("✅ Salvo!", { duration: 1500 });
+    } catch (e) {
+      console.error('[GerenciadorUsuarios] Erro ao salvar:', e);
+      toast.error("❌ Erro ao salvar: " + (e.message || 'Erro desconhecido'));
+    } finally {
+      setSalvando(false);
+    }
+  }, [salvarUsuario]);
+
   // Auto-save com debounce
-  const salvarAutomatico = useCallback(
-    debounce(async (usuario) => {
-      if (!usuario || !salvarUsuario) {
-        console.log('[GerenciadorUsuarios] Sem usuário ou função de salvar');
-        return;
+  const salvarAutomatico = useCallback((usuario) => {
+    // Cancelar debounce anterior
+    if (debounceRef.current) {
+      clearTimeout(debounceRef.current);
+    }
+    // Criar novo debounce
+    debounceRef.current = setTimeout(() => {
+      executarSalvar(usuario);
+    }, 1200);
+  }, [executarSalvar]);
+  
+  // Limpar debounce ao desmontar
+  useEffect(() => {
+    return () => {
+      if (debounceRef.current) {
+        clearTimeout(debounceRef.current);
       }
-      
-      // Não salvar automaticamente usuários novos sem email
-      if (usuario.isNovo && !usuario.email) {
-        console.log('[GerenciadorUsuarios] Usuário novo sem email, aguardando...');
-        return;
-      }
-      
-      console.log('[GerenciadorUsuarios] Salvando automaticamente:', usuario);
-      setSalvando(true);
-      try {
-        const atualizado = await salvarUsuario(usuario);
-        console.log('[GerenciadorUsuarios] Retorno do salvar:', atualizado);
-        if (atualizado) {
-          setUsuarios(prev => prev.map(u => u.id === usuario.id ? atualizado : u));
-          // Atualizar usuário selecionado se for o mesmo
-          setUsuarioSelecionado(prev => prev?.id === usuario.id ? atualizado : prev);
-        }
-        toast.success("✅ Salvo com sucesso!", { duration: 2000 });
-      } catch (e) {
-        console.error('[GerenciadorUsuarios] Erro ao salvar:', e);
-        toast.error("❌ Erro ao salvar: " + (e.message || 'Erro desconhecido'));
-      } finally {
-        setSalvando(false);
-      }
-    }, 1500),
-    [salvarUsuario]
-  );
+    };
+  }, []);
 
   // Atualizar campo do usuário
   const atualizarUsuario = (campo, valor) => {
