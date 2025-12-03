@@ -135,10 +135,12 @@ export default function ChatWindow({
       try {
         const [vend, atend] = await Promise.all([
         base44.entities.Vendedor.list('nome'),
-        base44.entities.User.filter({}, 'full_name') // Todos os usuários, sem filtro
+        base44.entities.User.list() // Todos os usuários sem nenhum filtro
         ]);
-        setVendedores(vend);
-        setAtendentesLista(atend || []);
+        setVendedores(vend || []);
+        const usuariosValidos = (atend || []).filter(u => u && u.id);
+        console.log('[ChatWindow] Usuários carregados no init:', usuariosValidos.length);
+        setAtendentesLista(usuariosValidos);
       } catch (error) {
         console.error('[ChatWindow] Erro ao carregar dados:', error);
       }
@@ -265,21 +267,24 @@ export default function ChatWindow({
   const carregarAtendentes = async () => {
     setCarregandoAtendentes(true);
     try {
-      // Buscar TODOS os usuários do sistema (sem nenhum filtro)
-      const users = await base44.entities.User.filter({}, 'full_name');
-      console.log('[CHAT] Usuários carregados para transferência:', users.length, users.map(u => u.full_name || u.email));
+      // Buscar TODOS os usuários do sistema usando list() sem filtros
+      const users = await base44.entities.User.list();
+      console.log('[CHAT] Usuários carregados para transferência:', users?.length || 0);
       
-      // Filtrar apenas usuários com ID válido
+      // Usar todos os usuários válidos
       const usuariosValidos = (users || []).filter(u => u && u.id);
-      setAtendentes(usuariosValidos);
+      console.log('[CHAT] Usuários válidos:', usuariosValidos.length, usuariosValidos.map(u => u.full_name || u.email));
       
-      if (usuariosValidos.length === 0) {
-        console.warn('[CHAT] Nenhum usuário encontrado no sistema');
-      }
+      setAtendentes(usuariosValidos);
     } catch (error) {
       console.error('[CHAT] Erro ao carregar usuários:', error);
-      // Tentar fallback com lista vazia
-      setAtendentes([]);
+      // Fallback: usar lista carregada no início
+      if (atendentesLista && atendentesLista.length > 0) {
+        console.log('[CHAT] Usando fallback atendentesLista:', atendentesLista.length);
+        setAtendentes(atendentesLista);
+      } else {
+        setAtendentes([]);
+      }
     } finally {
       setCarregandoAtendentes(false);
     }
