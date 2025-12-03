@@ -376,131 +376,170 @@ export default function Comunicacao() {
 
 
   // ═══════════════════════════════════════════════════════════════════════════════
-  // 🎯 REGRAS DE VISUALIZAÇÃO:
-  // SEM BUSCA: Mostrar APENAS conversas WhatsApp ativas (threads com mensagens) - igual WhatsApp
+  // 🎯 REGRAS DE VISUALIZAÇÃO - PROCESSAMENTO LOCAL
+  // SEM BUSCA: Mostrar APENAS conversas WhatsApp ativas (threads) - igual WhatsApp
   // COM BUSCA: Mostrar busca unificada (threads + contatos + clientes)
   // ═══════════════════════════════════════════════════════════════════════════════
-  const topicsFiltrados = React.useMemo(() => {
-    if (!unifiedTopics || unifiedTopics.length === 0) return [];
 
+  // Função de busca estilo Google
+  const matchBuscaGoogle = React.useCallback((item, termo) => {
+    if (!termo || termo.length < 2) return true;
+    
+    const normalizarTexto = (t) => {
+      if (!t) return '';
+      return String(t).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
+    };
+    
+    const termoNorm = normalizarTexto(termo);
+    const termoNumeros = String(termo).replace(/\D/g, '');
+    const palavras = termoNorm.split(/\s+/).filter(p => p.length > 0);
+    
+    const camposTexto = [
+      item.nome, item.empresa, item.cargo, item.email, item.observacoes,
+      item.vendedor_responsavel, item.razao_social, item.nome_fantasia,
+      item.contato_principal_nome, item.segmento,
+      ...(Array.isArray(item.tags) ? item.tags : [])
+    ].filter(Boolean);
+    
+    const camposNumero = [item.telefone, item.cnpj].filter(Boolean);
+    
+    const textoCompleto = camposTexto.map(c => normalizarTexto(String(c))).join(' ');
+    const numerosCompletos = camposNumero.map(c => String(c).replace(/\D/g, '')).join(' ');
+    
+    const todasPalavrasEncontradas = palavras.every(p => textoCompleto.includes(p));
+    const numeroEncontrado = termoNumeros.length >= 3 && numerosCompletos.includes(termoNumeros);
+    
+    return todasPalavrasEncontradas || numeroEncontrado;
+  }, []);
+
+  const threadsFiltradas = React.useMemo(() => {
+    const contatosMap = new Map(contatos.map(c => [c.id, c]));
     const categoriasSet = selectedCategoria !== 'all' ? new Set(mensagensComCategoria.map(m => m.thread_id)) : null;
     const permMap = usuario?.role !== 'admin' && usuario?.whatsapp_permissions?.length > 0
       ? new Map(usuario.whatsapp_permissions.map(p => [p.integration_id, p.can_view]))
       : null;
-
     const atendentesMap = new Map(atendentes.map(a => [a.id, a]));
     const atendenteInfo = selectedAttendantId && selectedAttendantId !== 'all' 
       ? atendentesMap.get(selectedAttendantId) 
       : null;
 
     const temBuscaPorTexto = !!debouncedSearchTerm && debouncedSearchTerm.trim().length >= 2;
+    const threadsComContatoIds = new Set();
 
-    return unifiedTopics.filter(topic => {
-      // ═══════════════════════════════════════════════════════════════════════════════
-      // REGRA PRINCIPAL: SEM BUSCA = APENAS THREADS (conversas ativas)
-      // Comportamento igual ao WhatsApp: só mostra quem tem conversa
-      // ═══════════════════════════════════════════════════════════════════════════════
-      if (!temBuscaPorTexto) {
-        // Sem busca: mostrar APENAS threads (conversas ativas com mensagens)
-        if (topic.origin !== 'thread') {
-          return false;
-        }
-      }
-      // COM BUSCA: mostra tudo (threads + contatos_sem_thread + clientes_sem_contato)
+    // PARTE 1: Filtrar THREADS existentes
+    const threadsFiltrados = threads.filter(thread => {
+      const contato = contatosMap.get(thread.contact_id);
+      if (!contato) return false;
+      
+      threadsComContatoIds.add(thread.contact_id);
 
       // Filtro por atendente (ignorado quando há busca)
-      if (atendenteInfo && !temBuscaPorTexto && topic.origin === 'thread') {
-        const threadAtribuidaAoAtendente = topic.assigned_user_id === atendenteInfo.id;
+      if (atendenteInfo && !temBuscaPorTexto) {
+        const threadAtribuidaAoAtendente = thread.assigned_user_id === atendenteInfo.id;
         if (!threadAtribuidaAoAtendente) return false;
       }
 
-      // Filtro de integração (apenas para threads)
-      if (selectedIntegrationId !== 'all' && topic.whatsapp_integration_id && topic.whatsapp_integration_id !== selectedIntegrationId) {
+      // Filtro de integração
+      if (selectedIntegrationId !== 'all' && thread.whatsapp_integration_id !== selectedIntegrationId) {
         return false;
       }
 
-      // Filtro de categoria (apenas para threads)
-      if (categoriasSet && topic.thread_id && !categoriasSet.has(topic.thread_id)) {
+      // Filtro de categoria
+      if (categoriasSet && !categoriasSet.has(thread.id)) {
         return false;
       }
 
       // Filtro de permissões
-      if (permMap && topic.whatsapp_integration_id) {
-        if (!permMap.get(topic.whatsapp_integration_id)) return false;
+      if (permMap && thread.whatsapp_integration_id) {
+        if (!permMap.get(thread.whatsapp_integration_id)) return false;
       }
 
       // Filtro de tipo de contato
       if (selectedTipoContato && selectedTipoContato !== 'all') {
-        if (topic.tipo_contato !== selectedTipoContato) return false;
+        if (contato.tipo_contato !== selectedTipoContato) return false;
       }
 
-      // Filtro de tag/destaque do contato
+      // Filtro de tag
       if (selectedTagContato && selectedTagContato !== 'all') {
-        const tags = topic.tags || [];
+        const tags = contato.tags || [];
         if (!tags.includes(selectedTagContato)) return false;
+      }
+
+      // Busca por texto
+      if (temBuscaPorTexto) {
+        if (!matchBuscaGoogle(contato, debouncedSearchTerm)) return false;
       }
 
       return true;
     });
-  }, [unifiedTopics, atendentes, usuario?.role, selectedAttendantId, selectedIntegrationId, selectedCategoria, selectedTipoContato, selectedTagContato, debouncedSearchTerm, mensagensComCategoria]);
 
-  // Converter UnifiedTopics para formato compatível com ChatSidebar
+    // PARTE 2: COM BUSCA - Adicionar contatos sem thread e clientes sem contato
+    if (temBuscaPorTexto) {
+      // Contatos sem thread
+      contatos.forEach(contato => {
+        if (threadsComContatoIds.has(contato.id)) return;
+        if (contato.bloqueado) return;
+        if (!matchBuscaGoogle(contato, debouncedSearchTerm)) return;
+
+        threadsFiltrados.push({
+          id: `contato-sem-thread-${contato.id}`,
+          contact_id: contato.id,
+          is_contact_only: true,
+          last_message_at: contato.ultima_interacao || contato.created_date,
+          last_message_content: null,
+          unread_count: 0,
+          status: 'sem_conversa'
+        });
+      });
+
+      // Clientes sem contato
+      clientes.forEach(cliente => {
+        if (!matchBuscaGoogle(cliente, debouncedSearchTerm)) return;
+        
+        const telefoneCliente = (cliente.telefone || '').replace(/\D/g, '');
+        const jaTemContato = contatos.some(c => {
+          const tel = (c.telefone || '').replace(/\D/g, '');
+          return tel && telefoneCliente && tel === telefoneCliente;
+        });
+        if (jaTemContato) return;
+
+        threadsFiltrados.push({
+          id: `cliente-sem-contato-${cliente.id}`,
+          cliente_id: cliente.id,
+          is_cliente_only: true,
+          last_message_at: cliente.ultimo_contato || cliente.created_date,
+          last_message_content: null,
+          unread_count: 0,
+          status: 'sem_conversa',
+          contato: {
+            id: `cli-${cliente.id}`,
+            nome: cliente.razao_social || cliente.nome_fantasia || cliente.contato_principal_nome,
+            empresa: cliente.nome_fantasia || cliente.razao_social,
+            telefone: cliente.telefone,
+            email: cliente.email,
+            cargo: cliente.contato_principal_cargo,
+            tipo_contato: 'cliente',
+            tags: [],
+            is_from_cliente: true
+          }
+        });
+      });
+    }
+
+    return threadsFiltrados;
+  }, [threads, contatos, clientes, atendentes, usuario?.role, selectedAttendantId, selectedIntegrationId, selectedCategoria, selectedTipoContato, selectedTagContato, debouncedSearchTerm, mensagensComCategoria, matchBuscaGoogle]);
+
+  // Converter para formato compatível com ChatSidebar
   const threadsComContato = React.useMemo(() => {
     const contatosMap = new Map(contatos.map(c => [c.id, c]));
     const atendentesMap = new Map(atendentes.map(a => [a.id, a]));
 
-    return topicsFiltrados.map(topic => {
-      // Buscar contato real se existir
-      const contatoReal = topic.contato_id ? contatosMap.get(topic.contato_id) : null;
-
-      // Criar objeto de contato para exibição (do topic ou do banco)
-      const contato = contatoReal || {
-        id: topic.contato_id || `topic-${topic.id}`,
-        nome: topic.nome_exibicao,
-        empresa: topic.empresa,
-        telefone: topic.telefone,
-        email: topic.email,
-        cargo: topic.cargo,
-        tipo_contato: topic.tipo_contato,
-        tags: topic.tags || [],
-        vendedor_responsavel: topic.vendedor_responsavel,
-        ramo_atividade: topic.ramo_atividade,
-        is_from_cliente: topic.origin === 'cliente_sem_contato'
-      };
-
-      return {
-        // Dados do topic convertidos para formato de "thread"
-        id: topic.thread_id || topic.id,
-        contact_id: topic.contato_id,
-        cliente_id: topic.cliente_id,
-        
-        // Flags de origem
-        is_contact_only: topic.origin === 'contato_sem_thread',
-        is_cliente_only: topic.origin === 'cliente_sem_contato',
-        origin: topic.origin,
-        
-        // Dados da mensagem
-        last_message_at: topic.last_message_at,
-        last_message_content: topic.last_message_content,
-        last_message_sender: topic.last_message_sender,
-        last_media_type: topic.last_media_type,
-        unread_count: topic.unread_count,
-        status: topic.status,
-        
-        // Atribuição
-        assigned_user_id: topic.assigned_user_id,
-        assigned_user_name: topic.assigned_user_name,
-        whatsapp_integration_id: topic.whatsapp_integration_id,
-        
-        // Contato enriquecido
-        contato,
-        atendente_atribuido: atendentesMap.get(topic.assigned_user_id),
-
-        // Dados extras do UnifiedTopic (para handleSelectTopic)
-        _unifiedTopic: topic
-      };
-    });
-  }, [topicsFiltrados, contatos, atendentes]);
+    return threadsFiltradas.map(thread => ({
+      ...thread,
+      contato: thread.contato || contatosMap.get(thread.contact_id),
+      atendente_atribuido: atendentesMap.get(thread.assigned_user_id)
+    }));
+  }, [threadsFiltradas, contatos, atendentes]);
 
   const isManager = usuario?.role === 'admin' || usuario?.role === 'supervisor';
   const contatoAtivo = threadAtiva ? contatos.find((c) => c.id === threadAtiva.contact_id) : null;
