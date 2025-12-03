@@ -130,9 +130,10 @@ export default function Comunicacao() {
       return Promise.resolve([]);
     },
     enabled: !!threadAtiva,
-    refetchInterval: 5000,
-    staleTime: 2000,
-    retry: 1
+    refetchInterval: 15000, // Aumentado para 15s para evitar rate limit
+    staleTime: 10000,
+    retry: 1,
+    refetchOnWindowFocus: false
   });
 
   const { data: todasIntegracoes = [] } = useQuery({
