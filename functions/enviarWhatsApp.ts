@@ -11,24 +11,48 @@ const VERSION = 'v2.1.0';
 const WAPI_BASE_URL = 'https://api.w-api.app/v1';
 
 // Configuração de mídia por provedor
+// Z-API: campos diretos (image, video, audio, document)
+// W-API: campos específicos + extension obrigatório para documentos
 const MEDIA_CONFIG = {
-  image: { endpoint: 'send-image', field: 'image' },
-  video: { endpoint: 'send-video', field: 'video' },
-  document: { endpoint: 'send-document', field: 'document' },
-  audio: { endpoint: 'send-audio', field: 'audio' }
+  image: { endpoint: 'send-image', zapiField: 'image', wapiField: 'image' },
+  video: { endpoint: 'send-video', zapiField: 'video', wapiField: 'video' },
+  document: { endpoint: 'send-document', zapiField: 'document', wapiField: 'document' },
+  audio: { endpoint: 'send-audio', zapiField: 'audio', wapiField: 'url' } // W-API usa 'url' para áudio
 };
 
-// Extrair extensão de uma URL (usado para documentos W-API)
-function extrairExtensao(url) {
-  if (!url) return 'file';
+// Extrair extensão de uma URL ou nome de arquivo
+function extrairExtensao(urlOuNome) {
+  if (!urlOuNome) return 'file';
   try {
-    const path = new URL(url).pathname;
+    // Primeiro tentar extrair do nome do arquivo (mais confiável)
+    const nomeArquivo = urlOuNome.split('/').pop().split('?')[0];
+    if (nomeArquivo.includes('.')) {
+      const ext = nomeArquivo.split('.').pop().toLowerCase();
+      if (ext.length <= 5) return ext; // Extensões válidas geralmente têm até 5 chars
+    }
+    
+    // Fallback: tentar extrair do path da URL
+    const path = new URL(urlOuNome).pathname;
     const parts = path.split('.');
     if (parts.length > 1) {
       return parts[parts.length - 1].split('?')[0].toLowerCase();
     }
   } catch (e) {}
-  return 'file';
+  return 'pdf'; // Default para documentos
+}
+
+// Detectar tipo de mídia pela extensão/URL
+function detectarTipoMidia(url, tipoInformado) {
+  if (tipoInformado && tipoInformado !== 'none') return tipoInformado;
+  
+  const ext = extrairExtensao(url);
+  const mapExt = {
+    'jpg': 'image', 'jpeg': 'image', 'png': 'image', 'gif': 'image', 'webp': 'image',
+    'mp4': 'video', 'mov': 'video', 'avi': 'video', '3gp': 'video',
+    'mp3': 'audio', 'ogg': 'audio', 'opus': 'audio', 'wav': 'audio', 'm4a': 'audio', 'amr': 'audio',
+    'pdf': 'document', 'doc': 'document', 'docx': 'document', 'xls': 'document', 'xlsx': 'document', 'txt': 'document', 'zip': 'document'
+  };
+  return mapExt[ext] || 'document';
 }
 
 // Formatar número de telefone (apenas dígitos)
@@ -167,12 +191,12 @@ Deno.serve(async (req) => {
     // ========== ÁUDIO ==========
     else if (audio_url) {
       if (isWAPI) {
-        // W-API: usar send-audio (campo 'url' para a URL do áudio)
-        // Baseado no WAPIService que funciona
+        // W-API: usar send-audio com campo 'url' (não 'audio')
+        // Documentação W-API: https://docs.w-api.app/
         endpoint = `${baseUrl}/message/send-audio?instanceId=${instanceId}`;
         body = {
           phone: numeroFormatado,
-          url: audio_url,         // W-API usa 'url' não 'audio'
+          url: audio_url,         // ✅ W-API usa 'url' para áudio
           delayMessage: 1
         };
         
@@ -180,73 +204,95 @@ Deno.serve(async (req) => {
           body.messageId = reply_to_message_id;
         }
       } else {
-        // Z-API: usar send-audio (formato oficial da documentação)
-        // Endpoint: POST https://api.z-api.io/instances/{instanceId}/token/{token}/send-audio
-        // Docs: https://developer.z-api.io/en/message/send-message-audio
+        // Z-API: usar send-audio com campo 'audio'
+        // Documentação: https://developer.z-api.io/en/message/send-message-audio
         endpoint = `${baseUrl}/instances/${instanceId}/token/${token}/send-audio`;
         body = {
-          phone: numeroFormatado, // Apenas dígitos: 5511999999999
-          audio: audio_url,       // Z-API usa 'audio' para URL ou Base64
-          waveform: true          // Mostrar forma de onda (melhor UX)
+          phone: numeroFormatado,
+          audio: audio_url,       // ✅ Z-API usa 'audio' para URL
+          waveform: true          // Exibir forma de onda (PTT style)
         };
         
-        // Adicionar reply se existir
         if (reply_to_message_id) {
           body.messageId = reply_to_message_id;
         }
       }
       
-      console.log(`[ENVIAR-WHATSAPP-UNIFICADO] 🎵 Enviando áudio (${providerName}):`, audio_url);
-      console.log(`[ENVIAR-WHATSAPP-UNIFICADO] 🎵 Body áudio:`, JSON.stringify(body));
+      console.log(`[ENVIAR-WHATSAPP-UNIFICADO] 🎵 Enviando áudio (${providerName}):`, audio_url?.substring(0, 60));
+      console.log(`[ENVIAR-WHATSAPP-UNIFICADO] 🎵 Body:`, JSON.stringify(body));
     } 
     
     // ========== MÍDIAS (imagem, vídeo, documento) ==========
     else if (media_url && media_type) {
-      const config = MEDIA_CONFIG[media_type];
+      // Detectar tipo se não informado corretamente
+      const tipoMidiaReal = detectarTipoMidia(media_url, media_type);
+      const config = MEDIA_CONFIG[tipoMidiaReal];
+      
+      if (!config) {
+        throw new Error(`Tipo de mídia não suportado: ${tipoMidiaReal}`);
+      }
       
       if (isWAPI) {
+        // ========== W-API ==========
         endpoint = `${baseUrl}/message/${config.endpoint}?instanceId=${instanceId}`;
-        body = {
-          phone: numeroFormatado,
-          [config.field]: media_url,
-          delayMessage: 1
-        };
         
-        // Caption apenas para imagem e vídeo no W-API
-        if ((media_type === 'image' || media_type === 'video') && media_caption) {
-          body.caption = media_caption;
-        }
-        
-        // Documento W-API precisa de extension e fileName
-        if (media_type === 'document') {
-          body.extension = extrairExtensao(media_url);
+        if (tipoMidiaReal === 'document') {
+          // ✅ W-API DOCUMENTO: campos obrigatórios extension + document
+          const extensao = extrairExtensao(media_caption || media_url);
+          body = {
+            phone: numeroFormatado,
+            document: media_url,
+            extension: extensao,           // ✅ CRÍTICO: W-API exige extension
+            delayMessage: 1
+          };
+          // fileName opcional mas recomendado
           if (media_caption) {
             body.fileName = media_caption;
           }
+        } else if (tipoMidiaReal === 'image') {
+          // W-API IMAGEM
+          body = {
+            phone: numeroFormatado,
+            image: media_url,
+            delayMessage: 1
+          };
+          if (media_caption) body.caption = media_caption;
+        } else if (tipoMidiaReal === 'video') {
+          // W-API VÍDEO
+          body = {
+            phone: numeroFormatado,
+            video: media_url,
+            delayMessage: 1
+          };
+          if (media_caption) body.caption = media_caption;
         }
       } else {
-        // Z-API: usar endpoint correto para cada tipo
+        // ========== Z-API ==========
         endpoint = `${baseUrl}/instances/${instanceId}/token/${token}/${config.endpoint}`;
         
-        if (media_type === 'document') {
-          // Z-API documento: usar campo 'document' com URL
+        if (tipoMidiaReal === 'document') {
+          // Z-API DOCUMENTO: campo 'document' com URL
           body = {
             phone: numeroFormatado,
             document: media_url
           };
-          // Nome do arquivo para exibição
           if (media_caption) {
             body.fileName = media_caption;
           }
-        } else {
-          // Imagem/Vídeo: usar campo correspondente
+        } else if (tipoMidiaReal === 'image') {
+          // Z-API IMAGEM
           body = {
             phone: numeroFormatado,
-            [config.field]: media_url
+            image: media_url
           };
-          if (media_caption) {
-            body.caption = media_caption;
-          }
+          if (media_caption) body.caption = media_caption;
+        } else if (tipoMidiaReal === 'video') {
+          // Z-API VÍDEO
+          body = {
+            phone: numeroFormatado,
+            video: media_url
+          };
+          if (media_caption) body.caption = media_caption;
         }
       }
       
@@ -254,8 +300,8 @@ Deno.serve(async (req) => {
         body.messageId = reply_to_message_id;
       }
       
-      console.log(`[ENVIAR-WHATSAPP-UNIFICADO] 📎 Enviando ${media_type} (${providerName}):`, media_url);
-      console.log(`[ENVIAR-WHATSAPP-UNIFICADO] 📎 Body documento:`, JSON.stringify(body));
+      console.log(`[ENVIAR-WHATSAPP-UNIFICADO] 📎 Enviando ${tipoMidiaReal} (${providerName}):`, media_url?.substring(0, 60));
+      console.log(`[ENVIAR-WHATSAPP-UNIFICADO] 📎 Body:`, JSON.stringify(body));
     } 
     
     // ========== TEXTO ==========
