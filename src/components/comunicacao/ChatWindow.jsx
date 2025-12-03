@@ -2142,15 +2142,24 @@ export default function ChatWindow({
 
           <Button
             type="button"
-            onClick={(e) => {
-              e.preventDefault();
+            onClick={() => {
+              console.log('[CHAT] Botão enviar clicado');
               if (pastedImage) {
                 enviarImagemColada();
               } else {
-                handleEnviar(e);
+                handleEnviar();
               }
             }}
-            disabled={(modoSelecaoMultipla ? (!mensagemTexto.trim() && !pastedImage) : !mensagemTexto.trim()) || enviando || enviandoBroadcast || gravandoAudio || modoSelecao || uploadingPastedFile || !podeEnviarMensagens || (!modoSelecaoMultipla && carregandoContato)}
+            disabled={
+              enviando || 
+              enviandoBroadcast || 
+              gravandoAudio || 
+              modoSelecao || 
+              uploadingPastedFile || 
+              !podeEnviarMensagens || 
+              (!modoSelecaoMultipla && carregandoContato) ||
+              (!mensagemTexto.trim() && !pastedImage)
+            }
             className={`${modoSelecaoMultipla && contatosSelecionados.length > 0 ? 'bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600' : 'bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700'} text-white flex-shrink-0`}
             title={!podeEnviarMensagens ? "Sem permissão para enviar mensagens" : modoSelecaoMultipla ? `Enviar para ${contatosSelecionados.length} contato(s)` : "Enviar mensagem"}>
 
