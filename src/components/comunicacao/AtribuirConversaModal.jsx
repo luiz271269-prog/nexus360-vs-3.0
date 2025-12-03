@@ -36,24 +36,23 @@ export default function AtribuirConversaModal({
   const carregarTodosUsuarios = async () => {
     setCarregando(true);
     try {
-      // REGRA: Tela de transferência mostra TODOS os usuários sem filtro
-      // Usar filter vazio {} para buscar todos os registros
-      const todosUsuarios = await base44.entities.User.filter({});
+      // REGRA: Tela de transferência mostra TODOS os atendentes (is_whatsapp_attendant = true)
+      const atendentes = await base44.entities.User.filter({ is_whatsapp_attendant: true });
       
-      console.log('[AtribuirModal] Usuários carregados:', todosUsuarios?.length || 0);
+      console.log('[AtribuirModal] Atendentes carregados:', atendentes?.length || 0);
       
-      // Filtrar apenas usuários válidos (com id)
-      const usuariosValidos = (todosUsuarios || []).filter(u => u && u.id);
+      // Filtrar apenas atendentes válidos (com id)
+      const atendentesValidos = (atendentes || []).filter(u => u && u.id);
       
-      console.log('[AtribuirModal] Usuários válidos:', usuariosValidos.length);
-      setUsuarios(usuariosValidos);
+      console.log('[AtribuirModal] Atendentes válidos:', atendentesValidos.length);
+      setUsuarios(atendentesValidos);
       
-      if (usuariosValidos.length === 0) {
-        toast.warning("Nenhum usuário encontrado no sistema");
+      if (atendentesValidos.length === 0) {
+        toast.warning("Nenhum atendente encontrado no sistema");
       }
     } catch (error) {
       console.error('[AtribuirModal] Erro ao carregar:', error);
-      toast.error("Erro ao carregar usuários");
+      toast.error("Erro ao carregar atendentes");
       setUsuarios([]);
     } finally {
       setCarregando(false);
