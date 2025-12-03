@@ -32,6 +32,10 @@ import {
   usuarioCorresponde, 
   contatoFidelizadoAoUsuario 
 } from "../components/lib/userMatcher";
+import {
+  canUserSeeThreadWithFilters,
+  filtrarAtendentesVisiveis
+} from "../components/lib/threadVisibility";
 import BibliotecaAutomacoes from "../components/automacao/BibliotecaAutomacoes";
 import CentralControleOperacional from "../components/comunicacao/CentralControleOperacional";
 import DiagnosticoCirurgicoEmbed from "../components/comunicacao/DiagnosticoCirurgicoEmbed";
@@ -154,13 +158,18 @@ export default function Comunicacao() {
     return todasIntegracoes.filter(i => permMap.get(i.id));
   }, [todasIntegracoes, usuario?.id, usuario?.role]);
 
-  const { data: atendentes = [] } = useQuery({
+  const { data: atendentesRaw = [] } = useQuery({
     queryKey: ['atendentes'],
     queryFn: () => base44.entities.User.filter({ is_whatsapp_attendant: true }, 'full_name'),
-    enabled: usuario?.role === 'admin' || usuario?.role === 'supervisor',
+    enabled: !!usuario,
     staleTime: 5 * 60 * 1000,
     retry: 2
   });
+
+  // Filtrar atendentes visíveis com base nas permissões do usuário
+  const atendentes = React.useMemo(() => {
+    return filtrarAtendentesVisiveis(usuario, atendentesRaw);
+  }, [atendentesRaw, usuario]);
 
   // 🏷️ Buscar mensagens com categoria selecionada para filtrar threads na sidebar
   const { data: mensagensComCategoria = [] } = useQuery({
@@ -385,118 +394,42 @@ export default function Comunicacao() {
 
     const contatosMap = new Map(contatos.map(c => [c.id, c]));
     const categoriasSet = selectedCategoria !== 'all' ? new Set(mensagensComCategoria.map(m => m.thread_id)) : null;
-    
-    // Mapa de permissões por integração
-    const permMap = usuario.role !== 'admin' && usuario.whatsapp_permissions?.length > 0
-      ? new Map(usuario.whatsapp_permissions.map(p => [p.integration_id, p.can_view]))
-      : null;
-
-    // Verificar se usuário tem permissão para uma integração
-    const temPermissaoIntegracao = (integrationId) => {
-      if (usuario.role === 'admin') return true;
-      if (!permMap) return true; // Sem restrições definidas = acesso total
-      if (!integrationId) return true;
-      return permMap.get(integrationId) === true;
-    };
-
-    const atendentesMap = new Map(atendentes.map(a => [a.id, a]));
-    const atendenteInfo = selectedAttendantId && selectedAttendantId !== 'all' 
-      ? atendentesMap.get(selectedAttendantId) 
-      : null;
-
     const temBuscaPorTexto = !!debouncedSearchTerm && debouncedSearchTerm.trim().length >= 2;
     const threadsComContatoIds = new Set();
 
+    // Montar objeto de filtros para threadVisibility
+    const filtros = {
+      atendenteId: selectedAttendantId,
+      integracaoId: selectedIntegrationId,
+      scope: filterScope
+    };
+
     // ═══════════════════════════════════════════════════════════════════════════
     // PARTE 1: Filtrar THREADS existentes com REGRAS DE VISUALIZAÇÃO
+    // Usa canUserSeeThreadWithFilters do módulo threadVisibility.js
     // ═══════════════════════════════════════════════════════════════════════════
     const threadsFiltrados = threads.filter(thread => {
       const contato = contatosMap.get(thread.contact_id);
       if (!contato) return false;
-      
+
       threadsComContatoIds.add(thread.contact_id);
 
+      // Enriquecer thread com contato para a função de visibilidade
+      const threadComContato = { ...thread, contato };
+
       // ═══════════════════════════════════════════════════════════════════════
-      // REGRA 2.3: Permissões por Integração de WhatsApp (OBRIGATÓRIO)
-      // Se não tem permissão na integração, NÃO mostra
+      // REGRA CENTRAL: Usar módulo threadVisibility.js
+      // - Verifica integração, conexão, setor
+      // - Verifica atribuição, fidelização, S/atend
+      // - Aplica filtros de atendente e escopo
       // ═══════════════════════════════════════════════════════════════════════
-      if (!temPermissaoIntegracao(thread.whatsapp_integration_id)) {
+      if (!canUserSeeThreadWithFilters(usuario, threadComContato, filtros)) {
         return false;
       }
 
       // ═══════════════════════════════════════════════════════════════════════
-      // REGRAS 2.1, 2.2, 2.4: Quem pode ver a conversa?
+      // FILTROS ADICIONAIS (categoria, tipo contato, tag, busca)
       // ═══════════════════════════════════════════════════════════════════════
-      const isAdmin = usuario.role === 'admin';
-      const permVisualizacao = usuario.permissoes_visualizacao || {};
-      const podeVerTodas = permVisualizacao.pode_ver_todas_conversas === true;
-      const podeVerNaoAtribuidas = permVisualizacao.pode_ver_nao_atribuidas !== false; // default true
-      const setoresVisiveis = permVisualizacao.setores_visiveis || [];
-      const atendentesVisiveis = permVisualizacao.atendentes_visiveis || [];
-      
-      // Verificar atribuição - compara por ID, nome ou email
-      const isAtribuidoAoUsuario = thread.assigned_user_id === usuario.id || 
-        usuarioCorresponde(usuario, thread.assigned_user_id) ||
-        usuarioCorresponde(usuario, thread.assigned_user_name);
-      const isFidelizadoAoUsuario = contatoFidelizadoAoUsuario(contato, usuario);
-      const isNaoAtribuida = !thread.assigned_user_id && !thread.assigned_user_name;
-
-      // Verificar se pode ver por setor da conversa
-      const setorThread = thread.sector_id || 'geral';
-      const podeVerPorSetor = setoresVisiveis.length === 0 || setoresVisiveis.includes(setorThread);
-
-      // Verificar se pode ver por atendente atribuído
-      const podeVerPorAtendente = atendentesVisiveis.length === 0 || 
-        (thread.assigned_user_id && atendentesVisiveis.includes(thread.assigned_user_id));
-
-      // REGRAS DE VISUALIZAÇÃO RESTRITIVAS:
-      // Usuário NÃO-admin só pode ver:
-      // 1. Conversas atribuídas a ele (assigned_user_id ou assigned_user_name)
-      // 2. Contatos fidelizados a ele (vendedor_responsavel ou atendente_fidelizado_*)
-      // 
-      // NÃO DEVE VER:
-      // - Conversas atribuídas a outros
-      // - Contatos fidelizados a outros
-      // - Conversas "sem atendente" (desabilitado por padrão para evitar confusão)
-      // 
-      // Admin ou pode_ver_todas_conversas: vê tudo
-      let podeVerConversa = false;
-      
-      if (isAdmin || podeVerTodas) {
-        podeVerConversa = true;
-      } else if (isAtribuidoAoUsuario) {
-        // 2.1 - Conversa está atribuída diretamente ao usuário
-        podeVerConversa = true;
-      } else if (isFidelizadoAoUsuario) {
-        // 2.2 - Contato é fidelizado ao usuário (E não atribuído a outro)
-        // Só mostra se não está atribuído a OUTRO atendente
-        const atribuidoAOutro = thread.assigned_user_id && !isAtribuidoAoUsuario;
-        if (!atribuidoAOutro) {
-          podeVerConversa = true;
-        }
-      }
-      // DESABILITADO: Conversas não atribuídas - gera muita confusão
-      // else if (isNaoAtribuida && podeVerNaoAtribuidas && podeVerPorSetor) {
-      //   podeVerConversa = true;
-      // }
-      
-      if (!podeVerConversa) {
-        return false;
-      }
-
-      // ═══════════════════════════════════════════════════════════════════════
-      // FILTROS ADICIONAIS (aplicados após regras de visualização)
-      // ═══════════════════════════════════════════════════════════════════════
-
-      // Filtro por atendente selecionado (dropdown)
-      if (atendenteInfo && !temBuscaPorTexto) {
-        if (thread.assigned_user_id !== atendenteInfo.id) return false;
-      }
-
-      // Filtro de integração selecionada
-      if (selectedIntegrationId !== 'all' && thread.whatsapp_integration_id !== selectedIntegrationId) {
-        return false;
-      }
 
       // Filtro de categoria
       if (categoriasSet && !categoriasSet.has(thread.id)) {
