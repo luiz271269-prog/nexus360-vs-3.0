@@ -181,68 +181,57 @@ export default function Comunicacao() {
   });
 
   // ═══════════════════════════════════════════════════════════════════════════════
-  // 🎯 UNIFIED TOPIC HANDLER - Lógica centralizada de seleção
+  // 🎯 HANDLER DE SELEÇÃO DE THREAD/CONTATO/CLIENTE
   // ═══════════════════════════════════════════════════════════════════════════════
-  const handleSelectTopic = useCallback(async (topic) => {
-    console.log('🎯 [UnifiedTopic] Selecionando:', topic.origin, topic.id);
+  const handleSelecionarThread = useCallback(async (thread) => {
+    console.log('🖱️ [Comunicacao] Selecionando:', thread.id);
     setCriandoNovoContato(false);
     setNovoContatoTelefone("");
     setShowContactInfo(false);
     setContactInitialData(null);
 
-    // ═══════════════════════════════════════════════════════════════════════════════
-    // CASO 1: CLIENTE SEM CONTATO - Abrir painel de criação de contato pré-preenchido
-    // ═══════════════════════════════════════════════════════════════════════════════
-    if (topic.origin === 'cliente_sem_contato') {
-      console.log('💎 [UnifiedTopic] Cliente sem contato - abrindo criação pré-preenchida');
-      
-      // Pré-preencher com dados do cliente
-      setContactInitialData({
-        cliente_id: topic.cliente_id,
-        empresa: topic.empresa,
-        nome: topic.nome_exibicao,
-        telefone: topic.telefone,
-        vendedor_responsavel: topic.vendedor_responsavel,
-        ramo_atividade: topic.ramo_atividade,
-        tipo_contato: 'cliente',
-        cargo: topic.cargo || '',
-        email: topic.email || ''
-      });
-      setNovoContatoTelefone(topic.telefone || '');
-      setCriandoNovoContato(true);
-      setShowContactInfo(true);
-      setThreadAtiva(null);
-      toast.info('💎 Cliente sem contato. Preencha os dados para criar o contato.');
-      return;
+    // CASO 1: CLIENTE SEM CONTATO - Abrir criação pré-preenchida
+    if (thread.is_cliente_only && thread.cliente_id) {
+      const cliente = clientes.find(c => c.id === thread.cliente_id);
+      if (cliente) {
+        setContactInitialData({
+          cliente_id: cliente.id,
+          empresa: cliente.nome_fantasia || cliente.razao_social,
+          nome: cliente.contato_principal_nome || cliente.razao_social,
+          telefone: cliente.telefone,
+          vendedor_responsavel: cliente.vendedor_responsavel,
+          ramo_atividade: cliente.ramo_atividade,
+          tipo_contato: 'cliente',
+          cargo: cliente.contato_principal_cargo || '',
+          email: cliente.email || ''
+        });
+        setNovoContatoTelefone(cliente.telefone || '');
+        setCriandoNovoContato(true);
+        setShowContactInfo(true);
+        setThreadAtiva(null);
+        toast.info('💎 Cliente sem contato. Preencha para criar.');
+        return;
+      }
     }
 
-    // ═══════════════════════════════════════════════════════════════════════════════
-    // CASO 2: CONTATO SEM THREAD - Buscar/criar thread e abrir conversa
-    // ═══════════════════════════════════════════════════════════════════════════════
-    if (topic.origin === 'contato_sem_thread') {
-      console.log('📋 [UnifiedTopic] Contato sem thread - buscando/criando thread');
-      
+    // CASO 2: CONTATO SEM THREAD - Buscar/criar thread
+    if (thread.is_contact_only && thread.contact_id) {
       try {
-        // Buscar thread existente para este contato
-        const threadsExistentes = await base44.entities.MessageThread.filter({ contact_id: topic.contato_id });
+        const threadsExistentes = await base44.entities.MessageThread.filter({ contact_id: thread.contact_id });
         
         if (threadsExistentes && threadsExistentes.length > 0) {
-          console.log('✅ Thread existente encontrada:', threadsExistentes[0].id);
           setThreadAtiva(threadsExistentes[0]);
           return;
         }
 
-        // Criar nova thread
         const integracaoAtiva = integracoes.find((i) => i.status === 'conectado');
         if (!integracaoAtiva) {
           toast.error('❌ Nenhuma integração WhatsApp ativa');
-          // Abrir painel de contato para edição
-          setShowContactInfo(true);
           return;
         }
 
         const novaThread = await base44.entities.MessageThread.create({
-          contact_id: topic.contato_id,
+          contact_id: thread.contact_id,
           whatsapp_integration_id: integracaoAtiva.id,
           status: 'aberta',
           unread_count: 0,
@@ -251,49 +240,19 @@ export default function Comunicacao() {
         });
 
         await queryClient.invalidateQueries({ queryKey: ['threads'] });
-        await queryClient.invalidateQueries({ queryKey: ['unified-topics'] });
         setThreadAtiva(novaThread);
-        toast.info('📋 Conversa iniciada. Envie uma mensagem.');
+        toast.info('📋 Conversa iniciada.');
         return;
       } catch (error) {
-        console.error('[UnifiedTopic] Erro ao buscar/criar thread:', error);
+        console.error('[Comunicacao] Erro ao criar thread:', error);
         toast.error('Erro ao abrir conversa');
         return;
       }
     }
 
-    // ═══════════════════════════════════════════════════════════════════════════════
-    // CASO 3: THREAD EXISTENTE - Buscar thread real e abrir conversa
-    // ═══════════════════════════════════════════════════════════════════════════════
-    if (topic.origin === 'thread' && topic.thread_id) {
-      console.log('💬 [UnifiedTopic] Thread existente:', topic.thread_id);
-      
-      // Buscar thread real pelo ID
-      const threadReal = threads.find(t => t.id === topic.thread_id);
-      if (threadReal) {
-        setThreadAtiva(threadReal);
-      } else {
-        // Fallback: criar objeto thread mínimo com dados do topic
-        setThreadAtiva({
-          id: topic.thread_id,
-          contact_id: topic.contato_id,
-          last_message_at: topic.last_message_at,
-          last_message_content: topic.last_message_content,
-          unread_count: topic.unread_count,
-          status: topic.status,
-          assigned_user_id: topic.assigned_user_id,
-          assigned_user_name: topic.assigned_user_name,
-          whatsapp_integration_id: topic.whatsapp_integration_id
-        });
-      }
-      return;
-    }
-
-    console.warn('[UnifiedTopic] Tipo de tópico não reconhecido:', topic);
-  }, [integracoes, queryClient, threads]);
-
-  // Manter compatibilidade com código legado
-  const handleSelecionarThread = handleSelectTopic;
+    // CASO 3: THREAD NORMAL
+    setThreadAtiva(thread);
+  }, [integracoes, queryClient, clientes]);
 
   // RESTAURADO: Handler para criar novo contato
   const handleCriarNovoContato = useCallback(async (dadosContato) => {
