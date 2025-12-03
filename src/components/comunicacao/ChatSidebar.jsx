@@ -56,12 +56,53 @@ export default function ChatSidebar({
 
   // ═══════════════════════════════════════════════════════════════════════════════
   // 🔐 FILTRO DE VISIBILIDADE - REGRAS CLARAS (usando userMatcher centralizado):
-  // 1. Contatos FIDELIZADOS: sempre visíveis para o atendente fidelizado
-  // 2. Conversas ATRIBUÍDAS: visíveis apenas para o atendente atribuído
-  // 3. Conversas NÃO ATRIBUÍDAS: visíveis se contato escolheu meu setor OU não tem setor
+  // ⚠️ IMPORTANTE: Este filtro NÃO deve ser aplicado quando os dados já vêm 
+  //    filtrados do backend (página Comunicacao). Ele serve como camada extra
+  //    de segurança e para exibição visual.
   // ═══════════════════════════════════════════════════════════════════════════════
   const threadsFiltradas = useMemo(() => {
     if (!threads || threads.length === 0) return [];
+
+    // ════════════════════════════════════════════════════════════════
+    // ADMIN VÊ TUDO - SEM FILTROS
+    // ════════════════════════════════════════════════════════════════
+    if (usuarioAtual?.role === 'admin') {
+      return threads.filter((thread) => {
+        const contato = thread.contato;
+        // Apenas filtrar bloqueados
+        if (contato && contato.bloqueado) return false;
+        return true;
+      });
+    }
+
+    // ════════════════════════════════════════════════════════════════
+    // GERENTES/COORDENADORES/SUPERVISORES - VEEM TUDO DO SEU ESCOPO
+    // ════════════════════════════════════════════════════════════════
+    const podeVerTodos = verificarPermissaoUsuario(usuarioAtual, 'ver_todos');
+    const nivelAtendente = usuarioAtual?.attendant_role || 'pleno';
+    const ehGestor = ['gerente', 'coordenador', 'supervisor', 'senior'].includes(nivelAtendente);
+
+    if (podeVerTodos || ehGestor) {
+      return threads.filter((thread) => {
+        const contato = thread.contato;
+        if (contato && contato.bloqueado) return false;
+        
+        // Verificar permissões de conexão WhatsApp
+        const whatsappPerms = usuarioAtual?.whatsapp_permissions || [];
+        if (whatsappPerms.length > 0 && thread.whatsapp_integration_id) {
+          const permissao = whatsappPerms.find((p) => p.integration_id === thread.whatsapp_integration_id);
+          if (!permissao || !permissao.can_view) return false;
+        }
+        
+        return true;
+      });
+    }
+
+    // ════════════════════════════════════════════════════════════════
+    // ATENDENTES NORMAIS - FILTROS DE VISIBILIDADE
+    // ════════════════════════════════════════════════════════════════
+    const currentUserId = usuarioAtual?.id;
+    const currentUserSector = usuarioAtual?.attendant_sector || 'geral';
 
     return threads.filter((thread) => {
       const contato = thread.contato;
@@ -69,19 +110,8 @@ export default function ChatSidebar({
       // 0️⃣ Filtrar bloqueados
       if (contato && contato.bloqueado) return false;
 
-      // 1️⃣ Admin vê tudo
-      if (usuarioAtual?.role === 'admin') return true;
-
-      // Dados do usuário atual
-      const currentUserId = usuarioAtual?.id;
-      const currentUserSector = usuarioAtual?.attendant_sector || 'geral';
-      const podeVerTodos = verificarPermissaoUsuario(usuarioAtual, 'ver_todos');
-
-      // 2️⃣ Gerentes/Coordenadores/Supervisores veem tudo do setor
-      if (podeVerTodos) return true;
-
       // ════════════════════════════════════════════════════════════════
-      // REGRA 1: MEUS FIDELIZADOS - SEMPRE VISÍVEIS (usando userMatcher)
+      // REGRA 1: MEUS FIDELIZADOS - SEMPRE VISÍVEIS
       // ════════════════════════════════════════════════════════════════
       if (contatoFidelizadoAoUsuario(contato, usuarioAtual)) {
         return true;
@@ -95,36 +125,21 @@ export default function ChatSidebar({
       }
 
       // ════════════════════════════════════════════════════════════════
-      // REGRA 3: CONVERSA ATRIBUÍDA A OUTRO
-      // Gerentes/Coordenadores podem ver para poder transferir
-      // Atendentes normais não veem conversas de outros
+      // REGRA 3: CONVERSA ATRIBUÍDA A OUTRO = NÃO MOSTRAR
       // ════════════════════════════════════════════════════════════════
       if (thread.assigned_user_id && thread.assigned_user_id !== currentUserId) {
-        // Verificar se é gerente/coordenador do mesmo setor
-        const nivelAtendente = usuarioAtual?.attendant_role || 'pleno';
-        const podeVerParaTransferir = ['gerente', 'coordenador', 'supervisor', 'senior'].includes(nivelAtendente);
-        
-        if (!podeVerParaTransferir) {
-          return false;
-        }
-        // Se pode ver para transferir, continua a verificação
+        return false;
       }
 
       // ════════════════════════════════════════════════════════════════
-      // REGRA 4: CONTATO FIDELIZADO A OUTRO
-      // Gerentes/Coordenadores podem ver para poder transferir
+      // REGRA 4: CONTATO FIDELIZADO A OUTRO = NÃO MOSTRAR
       // ════════════════════════════════════════════════════════════════
       if (contatoFidelizadoAOutro(contato, usuarioAtual)) {
-        const nivelAtendente = usuarioAtual?.attendant_role || 'pleno';
-        const podeVerParaTransferir = ['gerente', 'coordenador', 'supervisor', 'senior'].includes(nivelAtendente);
-        
-        if (!podeVerParaTransferir) {
-          return false;
-        }
+        return false;
       }
 
       // ════════════════════════════════════════════════════════════════
-      // REGRA 5: CONTATO ESCOLHEU OUTRO SETOR
+      // REGRA 5: VERIFICAR SETOR
       // ════════════════════════════════════════════════════════════════
       const setorThread = thread.sector_id || 'geral';
       const meuSetor = currentUserSector || 'geral';
@@ -134,7 +149,7 @@ export default function ChatSidebar({
       }
 
       // ════════════════════════════════════════════════════════════════
-      // CONVERSA SEM ATRIBUIÇÃO + SEM FIDELIZAÇÃO + MEU SETOR = MOSTRAR
+      // REGRA 6: VERIFICAR PERMISSÕES WHATSAPP
       // ════════════════════════════════════════════════════════════════
       const whatsappPerms = usuarioAtual?.whatsapp_permissions || [];
       if (whatsappPerms.length > 0 && thread.whatsapp_integration_id) {
@@ -142,6 +157,7 @@ export default function ChatSidebar({
         if (!permissao || !permissao.can_view) return false;
       }
 
+      // CONVERSA SEM ATRIBUIÇÃO + SEM FIDELIZAÇÃO + MEU SETOR = MOSTRAR
       return true;
     });
   }, [threads, usuarioAtual]);
