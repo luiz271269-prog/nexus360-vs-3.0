@@ -75,11 +75,38 @@ export default function Comunicacao() {
     carregarUsuario();
   }, []);
 
-  const { data: contatos = [] } = useQuery({
-    queryKey: ['contacts'],
-    queryFn: () => base44.entities.Contact.list('-created_date', 100),
+  // ═══════════════════════════════════════════════════════════════════════════════
+  // 🔍 BUSCA INTELIGENTE NO BANCO - Estilo Google
+  // Busca em Contact E Cliente quando há termo de busca
+  // ═══════════════════════════════════════════════════════════════════════════════
+  const { data: contatos = [], isLoading: loadingContatos } = useQuery({
+    queryKey: ['contacts', debouncedSearchTerm],
+    queryFn: async () => {
+      // Se não há busca, retorna lista padrão
+      if (!debouncedSearchTerm || debouncedSearchTerm.trim().length < 2) {
+        return base44.entities.Contact.list('-created_date', 100);
+      }
+      
+      // Busca TODOS os contatos para filtrar localmente (busca estilo Google)
+      const todosContatos = await base44.entities.Contact.list('-created_date', 500);
+      return todosContatos;
+    },
     staleTime: 5 * 60 * 1000,
     cacheTime: 10 * 60 * 1000,
+    retry: 1
+  });
+
+  // Buscar também na entidade Cliente quando há termo de busca
+  const { data: clientes = [] } = useQuery({
+    queryKey: ['clientes-busca', debouncedSearchTerm],
+    queryFn: async () => {
+      if (!debouncedSearchTerm || debouncedSearchTerm.trim().length < 2) {
+        return [];
+      }
+      return base44.entities.Cliente.list('-created_date', 200);
+    },
+    enabled: !!debouncedSearchTerm && debouncedSearchTerm.trim().length >= 2,
+    staleTime: 5 * 60 * 1000,
     retry: 1
   });
 
@@ -334,6 +361,69 @@ export default function Comunicacao() {
   }, [threadAtiva, queryClient]);
 
   // ═══════════════════════════════════════════════════════════════════════════════
+  // 🔍 FUNÇÃO AUXILIAR: Busca estilo Google - normaliza e busca em qualquer parte
+  // ═══════════════════════════════════════════════════════════════════════════════
+  const normalizarParaBusca = React.useCallback((texto) => {
+    if (!texto) return '';
+    return texto
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '') // Remove acentos
+      .replace(/[^\w\s]/g, '') // Remove caracteres especiais
+      .trim();
+  }, []);
+
+  const extrairNumeros = React.useCallback((texto) => {
+    if (!texto) return '';
+    return texto.replace(/\D/g, '');
+  }, []);
+
+  // Função de busca estilo Google - busca em QUALQUER parte do texto
+  const matchBuscaGoogle = React.useCallback((item, termo) => {
+    if (!termo || termo.length < 2) return true;
+    
+    const termoNormalizado = normalizarParaBusca(termo);
+    const termoNumeros = extrairNumeros(termo);
+    const palavrasBusca = termoNormalizado.split(/\s+/).filter(p => p.length > 0);
+    
+    // Campos para buscar em Contact
+    const camposTexto = [
+      item.nome,
+      item.empresa,
+      item.cargo,
+      item.email,
+      item.observacoes,
+      // Campos de Cliente (se existirem)
+      item.razao_social,
+      item.nome_fantasia,
+      item.contato_principal_nome,
+      item.contato_principal_cargo
+    ].filter(Boolean);
+    
+    const camposNumero = [
+      item.telefone,
+      item.celular,
+      item.cnpj,
+      // Campos de Cliente
+      item.numero_telefone
+    ].filter(Boolean);
+    
+    // Concatenar todos os textos normalizados
+    const textoCompleto = camposTexto.map(c => normalizarParaBusca(c)).join(' ');
+    const numerosCompletos = camposNumero.map(c => extrairNumeros(c)).join('');
+    
+    // BUSCA ESTILO GOOGLE: Todas as palavras devem aparecer em algum lugar
+    const todasPalavrasEncontradas = palavrasBusca.every(palavra => 
+      textoCompleto.includes(palavra)
+    );
+    
+    // OU busca por número parcial
+    const numeroEncontrado = termoNumeros.length >= 3 && numerosCompletos.includes(termoNumeros);
+    
+    return todasPalavrasEncontradas || numeroEncontrado;
+  }, [normalizarParaBusca, extrairNumeros]);
+
+  // ═══════════════════════════════════════════════════════════════════════════════
   // 🔍 FUNÇÃO AUXILIAR: Verificar se contato pertence ao atendente selecionado
   // ═══════════════════════════════════════════════════════════════════════════════
   const verificarContatoPertenceAoAtendente = React.useCallback((contato, atendenteInfo) => {
@@ -379,23 +469,15 @@ export default function Comunicacao() {
       }
     }
 
-    // Filtro de busca - case insensitive e por parte do texto
-    if (debouncedSearchTerm) {
-      const termo = debouncedSearchTerm.toLowerCase().trim();
-      // Normalizar telefone removendo caracteres especiais para busca
-      const termoNumeros = termo.replace(/\D/g, '');
-      const telefoneNormalizado = (contato.telefone || '').replace(/\D/g, '');
-      
-      const matchBusca = 
-        (contato.nome || '').toLowerCase().includes(termo) ||
-        (contato.empresa || '').toLowerCase().includes(termo) ||
-        (contato.cargo || '').toLowerCase().includes(termo) ||
-        (termoNumeros && telefoneNormalizado.includes(termoNumeros));
-      if (!matchBusca) return false;
+    // 🔍 BUSCA ESTILO GOOGLE - busca em qualquer parte, qualquer formato
+    if (debouncedSearchTerm && debouncedSearchTerm.trim().length >= 2) {
+      if (!matchBuscaGoogle(contato, debouncedSearchTerm)) {
+        return false;
+      }
     }
 
     return true;
-  }, [selectedTipoContato, selectedTagContato, debouncedSearchTerm, verificarContatoPertenceAoAtendente]);
+  }, [selectedTipoContato, selectedTagContato, debouncedSearchTerm, verificarContatoPertenceAoAtendente, matchBuscaGoogle]);
 
   const threadsFiltradas = React.useMemo(() => {
     // 🗺️ Criar maps para lookups O(1)
@@ -460,20 +542,17 @@ export default function Comunicacao() {
         if (!tags.includes(selectedTagContato)) return false;
       }
 
-      // Filtro de busca - case insensitive e por parte do texto
-      if (debouncedSearchTerm) {
-        const termo = debouncedSearchTerm.toLowerCase().trim();
-        // Normalizar telefone removendo caracteres especiais para busca
-        const termoNumeros = termo.replace(/\D/g, '');
-        const telefoneNormalizado = (contato.telefone || '').replace(/\D/g, '');
+      // 🔍 BUSCA ESTILO GOOGLE - busca em qualquer parte, qualquer formato
+      if (debouncedSearchTerm && debouncedSearchTerm.trim().length >= 2) {
+        // Buscar no contato usando função Google
+        const matchContato = matchBuscaGoogle(contato, debouncedSearchTerm);
         
-        const matchBusca = 
-          (contato.nome || '').toLowerCase().includes(termo) ||
-          (contato.empresa || '').toLowerCase().includes(termo) ||
-          (contato.cargo || '').toLowerCase().includes(termo) ||
-          (thread.last_message_content || '').toLowerCase().includes(termo) ||
-          (termoNumeros && telefoneNormalizado.includes(termoNumeros));
-        if (!matchBusca) return false;
+        // Também buscar no conteúdo da última mensagem
+        const termoNorm = normalizarParaBusca(debouncedSearchTerm);
+        const msgNorm = normalizarParaBusca(thread.last_message_content || '');
+        const matchMensagem = msgNorm.includes(termoNorm);
+        
+        if (!matchContato && !matchMensagem) return false;
       }
 
       return true;
@@ -516,9 +595,56 @@ export default function Comunicacao() {
       });
     }
 
-    // Combinar threads + contatos sem thread
-    return [...threadsFiltrados, ...contatosSemThread];
-  }, [threads, contatos, atendentes, usuario?.id, usuario?.role, selectedAttendantId, selectedIntegrationId, selectedCategoria, selectedTipoContato, selectedTagContato, debouncedSearchTerm, mensagensComCategoria, verificarContatoPertenceAoAtendente, contatoPassaNosFiltros]);
+    // ═══════════════════════════════════════════════════════════════════════════════
+    // PARTE 3: Buscar também em CLIENTES e criar contatos se não existirem
+    // Quando há busca, procura na entidade Cliente também
+    // ═══════════════════════════════════════════════════════════════════════════════
+    const clientesComoContatos = [];
+    if (temBuscaPorTexto && clientes.length > 0) {
+      // IDs de telefones que já existem como contatos
+      const telefonesExistentes = new Set(
+        contatos.map(c => extrairNumeros(c.telefone)).filter(Boolean)
+      );
+      
+      clientes.forEach(cliente => {
+        // Verificar se o cliente passa na busca
+        if (!matchBuscaGoogle(cliente, debouncedSearchTerm)) return;
+        
+        // Verificar se já existe um contato com este telefone
+        const telCliente = extrairNumeros(cliente.telefone);
+        if (telCliente && telefonesExistentes.has(telCliente)) return;
+        
+        // Criar pseudo-contato baseado no cliente para exibição
+        clientesComoContatos.push({
+          id: `cliente-${cliente.id}`,
+          contact_id: null, // Não é um contato real ainda
+          cliente_id: cliente.id,
+          is_cliente_only: true, // Flag para identificar que veio da entidade Cliente
+          last_message_at: cliente.ultimo_contato || cliente.created_date,
+          last_message_content: null,
+          unread_count: 0,
+          status: 'sem_conversa',
+          assigned_user_id: null,
+          assigned_user_name: null,
+          // Dados do cliente para exibição
+          contato: {
+            id: `cliente-contato-${cliente.id}`,
+            nome: cliente.contato_principal_nome || cliente.razao_social || cliente.nome_fantasia,
+            empresa: cliente.razao_social || cliente.nome_fantasia,
+            cargo: cliente.contato_principal_cargo,
+            telefone: cliente.telefone,
+            email: cliente.email,
+            tipo_contato: 'cliente',
+            cliente_id: cliente.id,
+            _isFromCliente: true // Marcador interno
+          }
+        });
+      });
+    }
+
+    // Combinar threads + contatos sem thread + clientes sem contato
+    return [...threadsFiltrados, ...contatosSemThread, ...clientesComoContatos];
+  }, [threads, contatos, clientes, atendentes, usuario?.id, usuario?.role, selectedAttendantId, selectedIntegrationId, selectedCategoria, selectedTipoContato, selectedTagContato, debouncedSearchTerm, mensagensComCategoria, verificarContatoPertenceAoAtendente, contatoPassaNosFiltros, matchBuscaGoogle, extrairNumeros]);
 
   const threadsComContato = React.useMemo(() => {
     const contatosMap = new Map(contatos.map(c => [c.id, c]));
