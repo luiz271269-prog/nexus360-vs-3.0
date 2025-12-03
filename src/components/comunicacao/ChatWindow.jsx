@@ -125,7 +125,7 @@ export default function ChatWindow({
   const podeEnviarMidias = permissoes.pode_enviar_midias !== false && podeEnviarPorInstancia;
   const podeEnviarAudios = permissoes.pode_enviar_audios !== false && podeEnviarPorInstancia;
   const podeApagarMensagens = permissoes.pode_apagar_mensagens === true;
-  const podeTransferirConversas = permissoes.pode_transferir_conversas === true;
+  const podeTransferirConversas = true; // Qualquer usuário pode transferir
 
   const navigate = useNavigate();
 
@@ -265,18 +265,13 @@ export default function ChatWindow({
   const carregarAtendentes = async () => {
     setCarregandoAtendentes(true);
     try {
-      // Buscar atendentes WhatsApp ativos (permitido para todos os usuários)
-      const users = await base44.entities.User.filter({ is_whatsapp_attendant: true }, 'full_name');
-      console.log('[CHAT] Atendentes carregados para transferência:', users.length, users.map(u => u.full_name || u.email));
+      // Buscar TODOS os usuários ativos (sem filtro de is_whatsapp_attendant)
+      const users = await base44.entities.User.list('full_name');
+      console.log('[CHAT] Usuários carregados para transferência:', users.length, users.map(u => u.full_name || u.email));
       setAtendentes(users);
     } catch (error) {
-      console.error('[CHAT] Erro ao carregar atendentes:', error);
-      // Fallback: usar lista já carregada no início do componente
-      if (atendentesLista && atendentesLista.length > 0) {
-        setAtendentes(atendentesLista);
-      } else {
-        toast.error("Erro ao carregar lista de atendentes");
-      }
+      console.error('[CHAT] Erro ao carregar usuários:', error);
+      toast.error("Erro ao carregar lista de usuários");
     } finally {
       setCarregandoAtendentes(false);
     }
