@@ -83,35 +83,26 @@ export default function Comunicacao() {
   // 🔍 BUSCA INTELIGENTE NO BANCO - Estilo Google
   // Busca em Contact E Cliente quando há termo de busca
   // ═══════════════════════════════════════════════════════════════════════════════
+  // ═══════════════════════════════════════════════════════════════════════════════
+  // 🔍 OTIMIZADO: Busca única de contatos com cache longo para evitar rate limit
+  // ═══════════════════════════════════════════════════════════════════════════════
   const { data: contatos = [], isLoading: loadingContatos } = useQuery({
-    queryKey: ['contacts', debouncedSearchTerm],
-    queryFn: async () => {
-      // Se não há busca, retorna lista padrão
-      if (!debouncedSearchTerm || debouncedSearchTerm.trim().length < 2) {
-        return base44.entities.Contact.list('-created_date', 100);
-      }
-      
-      // Busca TODOS os contatos para filtrar localmente (busca estilo Google)
-      const todosContatos = await base44.entities.Contact.list('-created_date', 500);
-      return todosContatos;
-    },
-    staleTime: 5 * 60 * 1000,
-    cacheTime: 10 * 60 * 1000,
-    retry: 1
+    queryKey: ['contacts'],
+    queryFn: () => base44.entities.Contact.list('-created_date', 300),
+    staleTime: 10 * 60 * 1000, // 10 minutos
+    cacheTime: 15 * 60 * 1000,
+    retry: 1,
+    refetchOnWindowFocus: false
   });
 
-  // Buscar também na entidade Cliente quando há termo de busca
+  // Buscar Clientes com cache longo para evitar rate limit
   const { data: clientes = [] } = useQuery({
-    queryKey: ['clientes-busca', debouncedSearchTerm],
-    queryFn: async () => {
-      if (!debouncedSearchTerm || debouncedSearchTerm.trim().length < 2) {
-        return [];
-      }
-      return base44.entities.Cliente.list('-created_date', 200);
-    },
-    enabled: !!debouncedSearchTerm && debouncedSearchTerm.trim().length >= 2,
-    staleTime: 5 * 60 * 1000,
-    retry: 1
+    queryKey: ['clientes'],
+    queryFn: () => base44.entities.Cliente.list('-created_date', 200),
+    staleTime: 10 * 60 * 1000, // 10 minutos
+    cacheTime: 15 * 60 * 1000,
+    retry: 1,
+    refetchOnWindowFocus: false
   });
 
   const { data: threads = [], isLoading: loadingThreads } = useQuery({
