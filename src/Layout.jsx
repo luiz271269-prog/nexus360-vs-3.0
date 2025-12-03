@@ -191,6 +191,7 @@ export default function Layout({ children, currentPageName }) {
 
   // Definição completa de todos os itens do menu
   const todosMenuItems = [
+    { name: "🤖 Nexus AI", icon: BrainCircuit, page: "NexusCommandCenter", badge: "Online", badgeColor: "bg-green-500" },
     { name: "💬 Central de Comunicação", icon: MessageSquare, page: "Comunicacao" },
     { name: "Dashboard", icon: Home, page: "Dashboard" },
     { name: "📊 Metas de Vendas", icon: Users, page: "Vendedores" },
