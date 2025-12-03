@@ -615,7 +615,7 @@ export default function ChatWindow({
 
     for (const contato of contatosSelecionados) {
       const telefone = contato.telefone || contato.celular;
-      
+
       if (!telefone) {
         erros++;
         setProgressoBroadcast(prev => ({ ...prev, erros }));
@@ -625,7 +625,7 @@ export default function ChatWindow({
       try {
         // Preparar dados de envio
         const dadosEnvio = {
-          integration_id: integracaoAtiva.id,
+          integration_id: integracaoParaUsar.id,
           numero_destino: telefone
         };
 
@@ -661,7 +661,7 @@ export default function ChatWindow({
           if (!threadContato) {
             threadContato = await base44.entities.MessageThread.create({
               contact_id: contato.id,
-              whatsapp_integration_id: integracaoAtiva.id,
+              whatsapp_integration_id: integracaoParaUsar.id,
               status: 'aberta',
               last_message_content: contentPreview,
               last_message_at: new Date().toISOString(),
@@ -693,7 +693,7 @@ export default function ChatWindow({
             media_type: mediaType || 'none',
             media_caption: mediaCaption,
             metadata: {
-              whatsapp_integration_id: integracaoAtiva.id,
+              whatsapp_integration_id: integracaoParaUsar.id,
               broadcast: true
             }
           });
@@ -1319,7 +1319,7 @@ export default function ChatWindow({
   };
 
   const isManager = usuario?.role === 'admin' || usuario?.role === 'supervisor';
-  const canManageConversation = isManager || thread.assigned_user_id === usuario?.id || !thread.assigned_user_id;
+  const canManageConversation = isManager || thread?.assigned_user_id === usuario?.id || !thread?.assigned_user_id;
 
   const handleKeyDown = (e) => {
     if (e.key === 'Enter' && !e.shiftKey) {
