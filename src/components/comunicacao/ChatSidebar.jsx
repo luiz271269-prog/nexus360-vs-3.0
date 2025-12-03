@@ -95,10 +95,19 @@ export default function ChatSidebar({
       }
 
       // ════════════════════════════════════════════════════════════════
-      // REGRA 3: CONVERSA ATRIBUÍDA A OUTRO = NÃO MOSTRAR
+      // REGRA 3: CONVERSA ATRIBUÍDA A OUTRO
+      // Gerentes/Coordenadores podem ver para poder transferir
+      // Atendentes normais não veem conversas de outros
       // ════════════════════════════════════════════════════════════════
       if (thread.assigned_user_id && thread.assigned_user_id !== currentUserId) {
-        return false;
+        // Verificar se é gerente/coordenador do mesmo setor
+        const nivelAtendente = usuarioAtual?.attendant_role || 'pleno';
+        const podeVerParaTransferir = ['gerente', 'coordenador', 'supervisor', 'senior'].includes(nivelAtendente);
+        
+        if (!podeVerParaTransferir) {
+          return false;
+        }
+        // Se pode ver para transferir, continua a verificação
       }
 
       // ════════════════════════════════════════════════════════════════
