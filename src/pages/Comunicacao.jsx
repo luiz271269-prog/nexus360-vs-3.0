@@ -538,16 +538,44 @@ export default function Comunicacao() {
     return threadsFiltrados;
   }, [threads, contatos, clientes, atendentes, usuario, selectedAttendantId, selectedIntegrationId, selectedCategoria, selectedTipoContato, selectedTagContato, debouncedSearchTerm, mensagensComCategoria, matchBuscaGoogle]);
 
-  // Converter para formato compatível com ChatSidebar
+  // Converter para formato compatível com ChatSidebar + ORDENAÇÃO por PRIORIDADE (Regra 3)
   const threadsComContato = React.useMemo(() => {
     const contatosMap = new Map(contatos.map(c => [c.id, c]));
     const atendentesMap = new Map(atendentes.map(a => [a.id, a]));
 
-    return threadsFiltradas.map(thread => ({
+    // Enriquecer com contato e atendente
+    const enriched = threadsFiltradas.map(thread => ({
       ...thread,
       contato: thread.contato || contatosMap.get(thread.contact_id),
       atendente_atribuido: atendentesMap.get(thread.assigned_user_id)
     }));
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // ORDENAÇÃO (Regra 3):
+    // 1. 🟢 Threads ativas (conversas com mensagens) - prioridade 1
+    // 2. 🟡 Contatos sem thread - prioridade 2
+    // 3. 🔵 Clientes sem contato - prioridade 3
+    // Dentro de cada grupo: mais recente primeiro (last_message_at)
+    // ═══════════════════════════════════════════════════════════════════════════
+    return enriched.sort((a, b) => {
+      // Definir prioridade do tipo
+      const getPrioridade = (item) => {
+        if (item.is_cliente_only) return 3; // Clientes sem contato
+        if (item.is_contact_only) return 2; // Contatos sem thread
+        return 1; // Threads ativas
+      };
+
+      const prioA = getPrioridade(a);
+      const prioB = getPrioridade(b);
+
+      // Ordenar por prioridade primeiro
+      if (prioA !== prioB) return prioA - prioB;
+
+      // Dentro do mesmo grupo: mais recente primeiro
+      const dateA = new Date(a.last_message_at || 0);
+      const dateB = new Date(b.last_message_at || 0);
+      return dateB - dateA;
+    });
   }, [threadsFiltradas, contatos, atendentes]);
 
   const isManager = usuario?.role === 'admin' || usuario?.role === 'supervisor';
