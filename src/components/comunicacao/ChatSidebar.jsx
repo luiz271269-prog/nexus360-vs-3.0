@@ -347,6 +347,32 @@ export default function ChatSidebar({
         const isUnassigned = !thread.assigned_user_id;
 
         if (!contato) {
+          // Se é um cliente sem contato cadastrado, mostrar com indicador especial
+          if (thread.is_cliente_only) {
+            return (
+              <motion.div
+                key={thread.id}
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: index * 0.05 }}
+                onClick={() => handleClick(thread)}
+                className="flex items-center gap-3 p-4 cursor-pointer transition-all border-b border-slate-100 hover:bg-gradient-to-r hover:from-emerald-50 hover:to-green-50 bg-emerald-50/30">
+
+                <div className="w-12 h-12 rounded-full flex items-center justify-center text-white font-bold text-lg shadow-md bg-gradient-to-br from-emerald-400 to-green-500">
+                  💎
+                </div>
+                <div className="flex-1">
+                  <div className="flex items-center gap-2">
+                    <h3 className="font-semibold text-slate-700">Cliente sem Contato</h3>
+                    <span className="px-2 py-0.5 bg-emerald-100 text-emerald-700 text-[10px] font-semibold rounded-full">
+                      CRIAR CONTATO
+                    </span>
+                  </div>
+                  <p className="text-sm text-slate-600">Clique para cadastrar</p>
+                </div>
+              </motion.div>);
+          }
+          
           return (
             <motion.div
               key={thread.id}
