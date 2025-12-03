@@ -132,6 +132,23 @@ function SideBar({ isOpen, menuItems, contadoresLembretes, usuario }) {
         </div>
 
         <nav className="flex-1 px-2 py-4 space-y-2 overflow-y-auto">
+          {/* Botão Nexus AI no topo */}
+          <button
+            onClick={() => setNexusOpen(true)}
+            className="w-full flex items-center justify-center p-3 rounded-xl bg-gradient-to-br from-purple-600 via-indigo-600 to-blue-600 hover:from-purple-700 hover:via-indigo-700 hover:to-blue-700 shadow-lg shadow-purple-500/25 transition-all duration-300 hover:scale-105 group relative"
+            title="Nexus AI"
+          >
+            <Sparkles className="h-6 w-6 text-white" />
+            <div className="absolute inset-0 bg-gradient-to-br from-white/20 to-transparent rounded-xl" />
+            <Badge className="absolute -top-1 -right-1 h-5 min-w-5 flex items-center justify-center text-[9px] font-bold px-1 bg-green-500 text-white rounded-full shadow-lg animate-pulse">
+              ON
+            </Badge>
+            {/* Tooltip */}
+            <div className="absolute left-full ml-3 px-3 py-2 bg-slate-800 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-50 shadow-xl border border-slate-700">
+              🤖 Nexus AI <span className="text-green-400 ml-1">Online</span>
+            </div>
+          </button>
+
           {menuItems.map((item) => (
             <NavItem
               key={item.page}
@@ -191,7 +208,6 @@ export default function Layout({ children, currentPageName }) {
 
   // Definição completa de todos os itens do menu
   const todosMenuItems = [
-    { name: "🤖 Nexus AI", icon: BrainCircuit, page: "NexusCommandCenter", badge: "Online", badgeColor: "bg-green-500" },
     { name: "💬 Central de Comunicação", icon: MessageSquare, page: "Comunicacao" },
     { name: "Dashboard", icon: Home, page: "Dashboard" },
     { name: "📊 Metas de Vendas", icon: Users, page: "Vendedores" },
@@ -401,14 +417,7 @@ export default function Layout({ children, currentPageName }) {
         </div>
       </main>
 
-      <Button
-        onClick={() => setNexusOpen(true)}
-        className="fixed bottom-6 right-6 w-14 h-14 rounded-full bg-gradient-to-br from-purple-600 via-indigo-600 to-blue-600 hover:from-purple-700 hover:via-indigo-700 hover:to-blue-700 shadow-2xl shadow-purple-500/25 z-40 border-2 border-white/20 transition-all duration-300 hover:scale-110"
-        style={{ display: nexusOpen ? 'none' : 'flex' }}
-      >
-        <Sparkles className="w-6 h-6 text-white" />
-        <div className="absolute inset-0 bg-gradient-to-br from-white/20 to-transparent rounded-full" />
-      </Button>
+      {/* Botão flutuante removido - agora está no menu lateral */}
 
       <NexusChat
         isOpen={nexusOpen}
