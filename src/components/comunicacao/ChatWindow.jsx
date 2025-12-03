@@ -1852,13 +1852,7 @@ export default function ChatWindow({
             ) : (
               <div className="grid grid-cols-2 gap-2 max-h-[280px] overflow-y-auto">
                 {atendentes
-                  .filter(atendente =>
-                    atendente.id && // Apenas garantir que tem ID válido
-                    atendente.is_whatsapp_attendant && // Deve ser um atendente de WhatsApp
-                    atendente.whatsapp_permissions?.some(p =>
-                      p.integration_id === thread.whatsapp_integration_id && p.can_receive
-                    )
-                  )
+                  .filter(atendente => atendente.id)
                   .map((atendente) => {
                   const isAtual = thread?.assigned_user_id === atendente.id;
                   const nomeExibicao = atendente.full_name || atendente.email || 'Usuário';
