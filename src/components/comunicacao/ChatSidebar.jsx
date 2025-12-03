@@ -111,10 +111,16 @@ export default function ChatSidebar({
       }
 
       // ════════════════════════════════════════════════════════════════
-      // REGRA 4: CONTATO FIDELIZADO A OUTRO = NÃO MOSTRAR (usando userMatcher)
+      // REGRA 4: CONTATO FIDELIZADO A OUTRO
+      // Gerentes/Coordenadores podem ver para poder transferir
       // ════════════════════════════════════════════════════════════════
       if (contatoFidelizadoAOutro(contato, usuarioAtual)) {
-        return false;
+        const nivelAtendente = usuarioAtual?.attendant_role || 'pleno';
+        const podeVerParaTransferir = ['gerente', 'coordenador', 'supervisor', 'senior'].includes(nivelAtendente);
+        
+        if (!podeVerParaTransferir) {
+          return false;
+        }
       }
 
       // ════════════════════════════════════════════════════════════════
