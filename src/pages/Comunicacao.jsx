@@ -114,10 +114,11 @@ export default function Comunicacao() {
       const allThreads = await base44.entities.MessageThread.list('-last_message_at', 100);
       return allThreads;
     },
-    refetchInterval: 10000,
-    staleTime: 5000,
+    refetchInterval: 30000, // Aumentado para 30s para evitar rate limit
+    staleTime: 15000,
     enabled: !!usuario,
-    retry: 1
+    retry: 1,
+    refetchOnWindowFocus: false
   });
 
   const { data: mensagens = [] } = useQuery({
