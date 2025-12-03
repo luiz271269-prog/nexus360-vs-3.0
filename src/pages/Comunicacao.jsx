@@ -386,38 +386,58 @@ export default function Comunicacao() {
     const termoNumeros = extrairNumeros(termo);
     const palavrasBusca = termoNormalizado.split(/\s+/).filter(p => p.length > 0);
     
-    // Campos para buscar em Contact
+    // ═══════════════════════════════════════════════════════════════════════════════
+    // 🔍 CAMPOS DE BUSCA - Contact + Cliente (TODOS os campos importantes)
+    // ═══════════════════════════════════════════════════════════════════════════════
     const camposTexto = [
+      // Contact - campos principais
       item.nome,
       item.empresa,
       item.cargo,
       item.email,
       item.observacoes,
-      // Campos de Cliente (se existirem)
+      // Contact - campos extras
+      item.segmento_atual,
+      item.estagio_ciclo_vida,
+      item.vendedor_responsavel,
+      item.atendente_fidelizado_vendas,
+      item.atendente_fidelizado_assistencia,
+      item.atendente_fidelizado_financeiro,
+      item.atendente_fidelizado_fornecedor,
+      // Contact - tags (converter array para string)
+      ...(Array.isArray(item.tags) ? item.tags : []),
+      // Cliente - campos principais
       item.razao_social,
       item.nome_fantasia,
       item.contato_principal_nome,
-      item.contato_principal_cargo
+      item.contato_principal_cargo,
+      item.endereco,
+      item.classificacao,
+      item.segmento,
+      item.status,
+      // Cliente - campos extras
+      ...(Array.isArray(item.interesses_produtos) ? item.interesses_produtos : [])
     ].filter(Boolean);
     
     const camposNumero = [
+      // Contact
       item.telefone,
       item.celular,
+      // Cliente
       item.cnpj,
-      // Campos de Cliente
       item.numero_telefone
     ].filter(Boolean);
     
     // Concatenar todos os textos normalizados
-    const textoCompleto = camposTexto.map(c => normalizarParaBusca(c)).join(' ');
-    const numerosCompletos = camposNumero.map(c => extrairNumeros(c)).join('');
+    const textoCompleto = camposTexto.map(c => normalizarParaBusca(String(c))).join(' ');
+    const numerosCompletos = camposNumero.map(c => extrairNumeros(String(c))).join(' ');
     
     // BUSCA ESTILO GOOGLE: Todas as palavras devem aparecer em algum lugar
     const todasPalavrasEncontradas = palavrasBusca.every(palavra => 
       textoCompleto.includes(palavra)
     );
     
-    // OU busca por número parcial
+    // OU busca por número parcial (mínimo 3 dígitos)
     const numeroEncontrado = termoNumeros.length >= 3 && numerosCompletos.includes(termoNumeros);
     
     return todasPalavrasEncontradas || numeroEncontrado;
