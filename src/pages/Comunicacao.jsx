@@ -115,103 +115,12 @@ export default function Comunicacao() {
   });
 
   const { data: threads = [], isLoading: loadingThreads } = useQuery({
-    queryKey: ['threads', usuario?.id, filterScope, selectedAttendantId],
+    queryKey: ['threads', usuario?.id],
     queryFn: async () => {
       if (!usuario) return [];
-
-      const isManager = usuario.role === 'admin' || usuario.role === 'supervisor';
       
-      // ⚡ OTIMIZAÇÃO: Buscar apenas 50 threads mais recentes
-      const allThreads = await base44.entities.MessageThread.list('-last_message_at', 50);
-
-      // ============================================================================
-      // 🔐 LÓGICA DE VISIBILIDADE DE CONVERSAS (ATENDENTES)
-      // ============================================================================
-      // OBJETIVO: Garantir que NENHUMA conversa nova se perca
-      // 
-      // REGRAS DE VISIBILIDADE (em ordem de prioridade):
-      // 1. Conversa atribuída ao usuário → SEMPRE VISÍVEL
-      // 2. Permissão de Conexão WhatsApp → Verificar se usuário tem acesso
-      // 3. Permissão de Setor → Verificar compatibilidade de setor
-      // 4. Conversas NOVAS (sem atendente) → Visíveis para quem tem acesso à conexão E setor
-      // ============================================================================
-      
-      if (!isManager && usuario.is_whatsapp_attendant) {
-        // Configurações do usuário
-        const setorPrincipal = usuario.attendant_sector || 'geral';
-        const setoresPermitidos = usuario.whatsapp_setores || [setorPrincipal];
-        const funcao = usuario.attendant_role || 'junior';
-        const permissoesConexao = usuario.whatsapp_permissions || [];
-        
-        // Gestores podem ver todas as conversas do seu setor (mesmo de outros atendentes)
-        const ehGestor = ['gerente', 'coordenador', 'supervisor'].includes(funcao);
-        
-        return allThreads.filter((thread) => {
-          // ═══════════════════════════════════════════════════════════════════
-          // REGRA 1: MINHAS CONVERSAS - Sempre visíveis
-          // ═══════════════════════════════════════════════════════════════════
-          if (thread.assigned_user_id === usuario.id) {
-            return true;
-          }
-          
-          // ═══════════════════════════════════════════════════════════════════
-          // REGRA 2: VERIFICAR PERMISSÃO DE CONEXÃO WHATSAPP
-          // Se usuário tem permissões específicas, verificar acesso à conexão
-          // ═══════════════════════════════════════════════════════════════════
-          let temPermissaoConexao = true; // Default: sem restrições
-          
-          if (permissoesConexao.length > 0 && thread.whatsapp_integration_id) {
-            const perm = permissoesConexao.find(p => p.integration_id === thread.whatsapp_integration_id);
-            temPermissaoConexao = perm?.can_view === true;
-          }
-          
-          if (!temPermissaoConexao) {
-            return false; // Sem acesso à conexão = não vê
-          }
-          
-          // ═══════════════════════════════════════════════════════════════════
-          // REGRA 3: VERIFICAR PERMISSÃO DE SETOR
-          // Usuário deve ter acesso ao setor da conversa
-          // ═══════════════════════════════════════════════════════════════════
-          const setorConversa = thread.sector_id || 'geral';
-          
-          const temPermissaoSetor = 
-            setorPrincipal === 'geral' ||           // Usuário "geral" vê tudo
-            setorConversa === 'geral' ||             // Conversa sem setor = visível
-            setorConversa === setorPrincipal ||      // Mesmo setor
-            setoresPermitidos.includes(setorConversa); // Setor na lista de permitidos
-          
-          if (!temPermissaoSetor) {
-            return false; // Sem acesso ao setor = não vê
-          }
-          
-          // ═══════════════════════════════════════════════════════════════════
-          // REGRA 4: GESTORES - Veem todas do setor (mesmo de outros)
-          // ═══════════════════════════════════════════════════════════════════
-          if (ehGestor) {
-            return true; // Gestor com acesso à conexão e setor = vê tudo
-          }
-          
-          // ═══════════════════════════════════════════════════════════════════
-          // REGRA 5: CONVERSAS NOVAS (SEM ATENDENTE) - NÃO PODEM SE PERDER!
-          // Atendentes veem conversas não atribuídas se tiverem acesso
-          // ═══════════════════════════════════════════════════════════════════
-          if (!thread.assigned_user_id) {
-            return true; // Sem atendente + tem permissão conexão + tem permissão setor = VISÍVEL
-          }
-          
-          // ═══════════════════════════════════════════════════════════════════
-          // REGRA 6: Conversas de OUTROS atendentes - Não visíveis
-          // ═══════════════════════════════════════════════════════════════════
-          return false;
-        });
-        
-      } else if (!isManager && !usuario.is_whatsapp_attendant) {
-        // Usuário não é atendente de WhatsApp = não vê conversas
-        return [];
-      }
-
-      // Admin/Manager vê tudo
+      // ⚡ Buscar TODAS as threads sem restrições
+      const allThreads = await base44.entities.MessageThread.list('-last_message_at', 100);
       return allThreads;
     },
     refetchInterval: 10000,

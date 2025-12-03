@@ -55,112 +55,18 @@ export default function ChatSidebar({
   const { etiquetas: etiquetasDB, getConfig: getEtiquetaConfigDinamico } = useEtiquetasContato();
 
   // ═══════════════════════════════════════════════════════════════════════════════
-  // 🔐 FILTRO DE VISIBILIDADE - REGRAS CLARAS (usando userMatcher centralizado):
-  // ⚠️ IMPORTANTE: Este filtro NÃO deve ser aplicado quando os dados já vêm 
-  //    filtrados do backend (página Comunicacao). Ele serve como camada extra
-  //    de segurança e para exibição visual.
+  // SEM RESTRIÇÕES - MOSTRAR TODAS AS CONVERSAS
   // ═══════════════════════════════════════════════════════════════════════════════
   const threadsFiltradas = useMemo(() => {
     if (!threads || threads.length === 0) return [];
 
-    // ════════════════════════════════════════════════════════════════
-    // ADMIN VÊ TUDO - SEM FILTROS
-    // ════════════════════════════════════════════════════════════════
-    if (usuarioAtual?.role === 'admin') {
-      return threads.filter((thread) => {
-        const contato = thread.contato;
-        // Apenas filtrar bloqueados
-        if (contato && contato.bloqueado) return false;
-        return true;
-      });
-    }
-
-    // ════════════════════════════════════════════════════════════════
-    // GERENTES/COORDENADORES/SUPERVISORES - VEEM TUDO DO SEU ESCOPO
-    // ════════════════════════════════════════════════════════════════
-    const podeVerTodos = verificarPermissaoUsuario(usuarioAtual, 'ver_todos');
-    const nivelAtendente = usuarioAtual?.attendant_role || 'pleno';
-    const ehGestor = ['gerente', 'coordenador', 'supervisor', 'senior'].includes(nivelAtendente);
-
-    if (podeVerTodos || ehGestor) {
-      return threads.filter((thread) => {
-        const contato = thread.contato;
-        if (contato && contato.bloqueado) return false;
-        
-        // Verificar permissões de conexão WhatsApp
-        const whatsappPerms = usuarioAtual?.whatsapp_permissions || [];
-        if (whatsappPerms.length > 0 && thread.whatsapp_integration_id) {
-          const permissao = whatsappPerms.find((p) => p.integration_id === thread.whatsapp_integration_id);
-          if (!permissao || !permissao.can_view) return false;
-        }
-        
-        return true;
-      });
-    }
-
-    // ════════════════════════════════════════════════════════════════
-    // ATENDENTES NORMAIS - FILTROS DE VISIBILIDADE
-    // ════════════════════════════════════════════════════════════════
-    const currentUserId = usuarioAtual?.id;
-    const currentUserSector = usuarioAtual?.attendant_sector || 'geral';
-
+    // Apenas filtrar contatos bloqueados
     return threads.filter((thread) => {
       const contato = thread.contato;
-
-      // 0️⃣ Filtrar bloqueados
       if (contato && contato.bloqueado) return false;
-
-      // ════════════════════════════════════════════════════════════════
-      // REGRA 1: MEUS FIDELIZADOS - SEMPRE VISÍVEIS
-      // ════════════════════════════════════════════════════════════════
-      if (contatoFidelizadoAoUsuario(contato, usuarioAtual)) {
-        return true;
-      }
-
-      // ════════════════════════════════════════════════════════════════
-      // REGRA 2: CONVERSA ATRIBUÍDA A MIM
-      // ════════════════════════════════════════════════════════════════
-      if (thread.assigned_user_id === currentUserId) {
-        return true;
-      }
-
-      // ════════════════════════════════════════════════════════════════
-      // REGRA 3: CONVERSA ATRIBUÍDA A OUTRO = NÃO MOSTRAR
-      // ════════════════════════════════════════════════════════════════
-      if (thread.assigned_user_id && thread.assigned_user_id !== currentUserId) {
-        return false;
-      }
-
-      // ════════════════════════════════════════════════════════════════
-      // REGRA 4: CONTATO FIDELIZADO A OUTRO = NÃO MOSTRAR
-      // ════════════════════════════════════════════════════════════════
-      if (contatoFidelizadoAOutro(contato, usuarioAtual)) {
-        return false;
-      }
-
-      // ════════════════════════════════════════════════════════════════
-      // REGRA 5: VERIFICAR SETOR
-      // ════════════════════════════════════════════════════════════════
-      const setorThread = thread.sector_id || 'geral';
-      const meuSetor = currentUserSector || 'geral';
-
-      if (meuSetor !== 'geral' && setorThread !== 'geral' && setorThread !== meuSetor) {
-        return false;
-      }
-
-      // ════════════════════════════════════════════════════════════════
-      // REGRA 6: VERIFICAR PERMISSÕES WHATSAPP
-      // ════════════════════════════════════════════════════════════════
-      const whatsappPerms = usuarioAtual?.whatsapp_permissions || [];
-      if (whatsappPerms.length > 0 && thread.whatsapp_integration_id) {
-        const permissao = whatsappPerms.find((p) => p.integration_id === thread.whatsapp_integration_id);
-        if (!permissao || !permissao.can_view) return false;
-      }
-
-      // CONVERSA SEM ATRIBUIÇÃO + SEM FIDELIZAÇÃO + MEU SETOR = MOSTRAR
       return true;
     });
-  }, [threads, usuarioAtual]);
+  }, [threads]);
 
   const threadsSorted = useMemo(() => {
     return [...threadsFiltradas].sort((a, b) => {
