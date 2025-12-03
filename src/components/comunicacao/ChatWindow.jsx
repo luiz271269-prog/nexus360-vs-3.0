@@ -1582,6 +1582,7 @@ export default function ChatWindow({
 
 
       </div>
+        )}
 
             {mensagemResposta && !mostrarInterfaceBroadcast &&
             <div className="px-4 py-2 bg-blue-50 border-b border-blue-200 flex-shrink-0">
