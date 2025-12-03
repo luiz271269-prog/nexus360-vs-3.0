@@ -1,5 +1,5 @@
-import React, { useMemo } from "react";
-import { CheckCheck, Clock, User, Users, AlertCircle, Image, Video, Mic, FileText, MapPin, Phone as PhoneIcon, Tag, Building2, Target, Truck, Handshake, HelpCircle, UserCheck } from "lucide-react";
+import React, { useMemo, useState } from "react";
+import { CheckCheck, Clock, User, Users, AlertCircle, Image, Video, Mic, FileText, MapPin, Phone as PhoneIcon, Tag, Building2, Target, Truck, Handshake, HelpCircle, UserCheck, Send, X, CheckSquare, Square } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { motion } from "framer-motion";
 import { format } from "date-fns";
@@ -21,8 +21,15 @@ import {
   verificarPermissaoUsuario } from
 "./MotorRoteamentoAtendimento";
 import { useEtiquetasContato } from "./SeletorEtiquetasContato";
+import BroadcastMessageModal from "./BroadcastMessageModal";
+import { Button } from "@/components/ui/button";
 
 export default function ChatSidebar({ threads, threadAtiva, onSelecionarThread, loading, usuarioAtual, integracoes = [] }) {
+  // Estados para seleção múltipla
+  const [modoSelecao, setModoSelecao] = useState(false);
+  const [contatosSelecionados, setContatosSelecionados] = useState([]);
+  const [showBroadcastModal, setShowBroadcastModal] = useState(false);
+
   // Buscar categorias dinâmicas
   const { data: categoriasDB = [] } = useQuery({
     queryKey: ['categorias-mensagens'],
@@ -228,7 +235,14 @@ export default function ChatSidebar({ threads, threadAtiva, onSelecionarThread, 
 
   }
 
-  const handleClick = (thread) => {
+  const handleClick = (thread, e) => {
+    // Se está em modo seleção, toggle do contato
+    if (modoSelecao) {
+      e?.stopPropagation();
+      toggleSelecaoContato(thread.contato);
+      return;
+    }
+
     console.log('🖱️ [ChatSidebar] Click na thread:', thread.id, thread.contato?.nome);
 
     // Validação antes de chamar onSelecionarThread
@@ -246,6 +260,40 @@ export default function ChatSidebar({ threads, threadAtiva, onSelecionarThread, 
     onSelecionarThread(thread);
   };
 
+  // Toggle seleção de contato
+  const toggleSelecaoContato = (contato) => {
+    if (!contato) return;
+    
+    setContatosSelecionados(prev => {
+      const jaExiste = prev.find(c => c.id === contato.id);
+      if (jaExiste) {
+        return prev.filter(c => c.id !== contato.id);
+      } else {
+        return [...prev, contato];
+      }
+    });
+  };
+
+  // Cancelar modo seleção
+  const cancelarSelecao = () => {
+    setModoSelecao(false);
+    setContatosSelecionados([]);
+  };
+
+  // Selecionar todos visíveis
+  const selecionarTodos = () => {
+    const todosContatos = threadsSorted
+      .map(t => t.contato)
+      .filter(c => c && c.telefone);
+    setContatosSelecionados(todosContatos);
+  };
+
+  // Obter integração padrão
+  const getIntegracaoPadrao = () => {
+    if (integracoes.length === 0) return null;
+    return integracoes[0].id;
+  };
+
   // Função para obter nome do atendente fidelizado do contato
   const getAtendenteFidelizado = (contato) => {
     if (!contato) return null;
@@ -257,7 +305,57 @@ export default function ChatSidebar({ threads, threadAtiva, onSelecionarThread, 
   };
 
   return (
-    <div>
+    <div className="relative">
+      {/* Barra de Ações de Seleção Múltipla */}
+      {modoSelecao ? (
+        <div className="sticky top-0 z-10 bg-gradient-to-r from-orange-500 to-amber-500 p-2 flex items-center justify-between gap-2 shadow-md">
+          <div className="flex items-center gap-2">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={cancelarSelecao}
+              className="text-white hover:bg-white/20 h-8 px-2"
+            >
+              <X className="w-4 h-4" />
+            </Button>
+            <span className="text-white text-sm font-medium">
+              {contatosSelecionados.length} selecionado(s)
+            </span>
+          </div>
+          <div className="flex items-center gap-1">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={selecionarTodos}
+              className="text-white hover:bg-white/20 h-8 px-2 text-xs"
+            >
+              Todos
+            </Button>
+            <Button
+              size="sm"
+              onClick={() => setShowBroadcastModal(true)}
+              disabled={contatosSelecionados.length === 0}
+              className="bg-white text-orange-600 hover:bg-orange-50 h-8 px-3"
+            >
+              <Send className="w-4 h-4 mr-1" />
+              Enviar
+            </Button>
+          </div>
+        </div>
+      ) : (
+        <div className="sticky top-0 z-10 bg-slate-50 border-b border-slate-200 p-2 flex items-center justify-end">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setModoSelecao(true)}
+            className="h-8 px-3 text-xs border-orange-300 text-orange-600 hover:bg-orange-50"
+          >
+            <CheckSquare className="w-4 h-4 mr-1" />
+            Selecionar
+          </Button>
+        </div>
+      )}
+
       {threadsSorted.map((thread, index) => {
         const contato = thread.contato;
         const isAtiva = threadAtiva?.id === thread.id;
@@ -468,6 +566,19 @@ export default function ChatSidebar({ threads, threadAtiva, onSelecionarThread, 
           </motion.div>);
 
       })}
-    </div>);
+
+      {/* Modal de Broadcast */}
+      <BroadcastMessageModal
+        isOpen={showBroadcastModal}
+        onClose={() => {
+          setShowBroadcastModal(false);
+          cancelarSelecao();
+        }}
+        contatosSelecionados={contatosSelecionados}
+        integracaoId={getIntegracaoPadrao()}
+        usuario={usuarioAtual}
+      />
+    </div>
+  );
 
 }
