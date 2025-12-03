@@ -114,7 +114,7 @@ function NavItem({ href, icon: Icon, label, badge, badgeColor, lembretesCount })
 
 
 
-function SideBar({ isOpen, menuItems, contadoresLembretes, usuario }) {
+function SideBar({ isOpen, menuItems, contadoresLembretes, usuario, onOpenNexus }) {
   return (
     <TooltipProvider>
       <aside
@@ -134,7 +134,7 @@ function SideBar({ isOpen, menuItems, contadoresLembretes, usuario }) {
         <nav className="flex-1 px-2 py-4 space-y-2 overflow-y-auto">
           {/* Botão Nexus AI no topo */}
           <button
-            onClick={() => setNexusOpen(true)}
+            onClick={onOpenNexus}
             className="w-full flex items-center justify-center p-3 rounded-xl bg-gradient-to-br from-purple-600 via-indigo-600 to-blue-600 hover:from-purple-700 hover:via-indigo-700 hover:to-blue-700 shadow-lg shadow-purple-500/25 transition-all duration-300 hover:scale-105 group relative"
             title="Nexus AI"
           >
@@ -377,6 +377,7 @@ export default function Layout({ children, currentPageName }) {
         menuItems={menuItems}
         contadoresLembretes={contadoresLembretes}
         usuario={globalUsuario}
+        onOpenNexus={() => setNexusOpen(true)}
       />
 
       {sidebarOpen && (
