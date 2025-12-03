@@ -649,15 +649,8 @@ export default function Comunicacao() {
                     <ChatSidebar
                       threads={threadsComContato}
                       threadAtiva={threadAtiva}
-                      onSelecionarThread={(thread) => {
-                        // Se tem o UnifiedTopic original, usar ele
-                        if (thread._unifiedTopic) {
-                          handleSelectTopic(thread._unifiedTopic);
-                        } else {
-                          handleSelecionarThread(thread);
-                        }
-                      }}
-                      loading={loadingTopics || loadingThreads}
+                      onSelecionarThread={handleSelecionarThread}
+                      loading={loadingTopics}
                       usuarioAtual={usuario}
                       integracoes={integracoes}
                       modoSelecaoMultipla={modoSelecaoMultipla}
