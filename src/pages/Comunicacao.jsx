@@ -29,6 +29,10 @@ import ErrorBoundary from "../components/comunicacao/ErrorBoundary";
 import NotificationSystem from "../components/comunicacao/NotificationSystem";
 import { useDebounce } from "../components/lib/useDebounce";
 import { normalizarTelefone } from "../components/lib/phoneUtils";
+import { 
+  usuarioCorresponde, 
+  contatoFidelizadoAoUsuario 
+} from "../components/lib/userMatcher";
 import BibliotecaAutomacoes from "../components/automacao/BibliotecaAutomacoes";
 import CentralControleOperacional from "../components/comunicacao/CentralControleOperacional";
 import DiagnosticoCirurgicoEmbed from "../components/comunicacao/DiagnosticoCirurgicoEmbed";
@@ -445,24 +449,13 @@ export default function Comunicacao() {
 
   // ═══════════════════════════════════════════════════════════════════════════════
   // 🔍 FUNÇÃO AUXILIAR: Verificar se contato pertence ao atendente selecionado
+  // Usa userMatcher centralizado para comparação robusta (ID, nome ou email)
   // ═══════════════════════════════════════════════════════════════════════════════
   const verificarContatoPertenceAoAtendente = React.useCallback((contato, atendenteInfo) => {
     if (!atendenteInfo || !contato) return false;
     
-    const { id, full_name, email } = atendenteInfo;
-    
-    // Verificar todos os campos de fidelização
-    const camposParaVerificar = [
-      contato.vendedor_responsavel,
-      contato.atendente_fidelizado_vendas,
-      contato.atendente_fidelizado_assistencia,
-      contato.atendente_fidelizado_financeiro,
-      contato.atendente_fidelizado_fornecedor
-    ];
-    
-    return camposParaVerificar.some(campo => 
-      campo && (campo === id || campo === full_name || campo === email)
-    );
+    // Usar função centralizada que compara por ID, nome OU email
+    return contatoFidelizadoAoUsuario(contato, atendenteInfo);
   }, []);
 
   // ═══════════════════════════════════════════════════════════════════════════════
