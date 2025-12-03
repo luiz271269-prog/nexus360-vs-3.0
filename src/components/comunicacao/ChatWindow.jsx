@@ -66,7 +66,11 @@ export default function ChatWindow({
   onShowContactInfo,
   onAtualizarMensagens,
   integracoes = [],
-  selectedCategoria = 'all'
+  selectedCategoria = 'all',
+  // Props para seleção múltipla (broadcast)
+  modoSelecaoMultipla = false,
+  contatosSelecionados = [],
+  onCancelarSelecao
 }) {
   const [mensagemTexto, setMensagemTexto] = useState("");
   const [enviando, setEnviando] = useState(false);
@@ -100,6 +104,10 @@ export default function ChatWindow({
 
   const [vendedores, setVendedores] = useState([]);
   const [atendentesLista, setAtendentesLista] = useState([]);
+
+  // Estados para broadcast
+  const [enviandoBroadcast, setEnviandoBroadcast] = useState(false);
+  const [progressoBroadcast, setProgressoBroadcast] = useState({ enviados: 0, erros: 0, total: 0 });
 
   const messagesEndRef = useRef(null);
   const inputRef = useRef(null);
@@ -536,8 +544,136 @@ export default function ChatWindow({
     }
   };
 
+  // Função de envio em massa (broadcast)
+  const handleEnviarBroadcast = async () => {
+    if (!podeEnviarMensagens) {
+      toast.error("❌ Você não tem permissão para enviar mensagens");
+      return;
+    }
+
+    if (!mensagemTexto.trim()) {
+      toast.error("Digite uma mensagem");
+      return;
+    }
+
+    if (contatosSelecionados.length === 0) {
+      toast.error("Nenhum contato selecionado");
+      return;
+    }
+
+    const integracaoAtiva = integracoes.find(i => i.status === 'conectado');
+    if (!integracaoAtiva) {
+      toast.error("Nenhuma integração WhatsApp ativa");
+      return;
+    }
+
+    setEnviandoBroadcast(true);
+    setProgressoBroadcast({ enviados: 0, erros: 0, total: contatosSelecionados.length });
+
+    const mensagemParaEnviar = mensagemTexto.trim();
+    let enviados = 0;
+    let erros = 0;
+
+    for (const contato of contatosSelecionados) {
+      const telefone = contato.telefone || contato.celular;
+      
+      if (!telefone) {
+        erros++;
+        setProgressoBroadcast(prev => ({ ...prev, erros }));
+        continue;
+      }
+
+      try {
+        // Usar a mesma função enviarWhatsApp
+        const resultado = await base44.functions.invoke('enviarWhatsApp', {
+          integration_id: integracaoAtiva.id,
+          numero_destino: telefone,
+          mensagem: mensagemParaEnviar
+        });
+
+        if (resultado.data.success) {
+          enviados++;
+          
+          // Buscar ou criar thread para registrar a mensagem
+          let threads = await base44.entities.MessageThread.filter({ contact_id: contato.id });
+          let threadContato = threads && threads.length > 0 ? threads[0] : null;
+          
+          if (!threadContato) {
+            threadContato = await base44.entities.MessageThread.create({
+              contact_id: contato.id,
+              whatsapp_integration_id: integracaoAtiva.id,
+              status: 'aberta',
+              last_message_content: mensagemParaEnviar.substring(0, 100),
+              last_message_at: new Date().toISOString(),
+              last_message_sender: 'user'
+            });
+          } else {
+            await base44.entities.MessageThread.update(threadContato.id, {
+              last_message_content: mensagemParaEnviar.substring(0, 100),
+              last_message_at: new Date().toISOString(),
+              last_message_sender: 'user'
+            });
+          }
+
+          // Registrar a mensagem na thread
+          await base44.entities.Message.create({
+            thread_id: threadContato.id,
+            sender_id: usuario?.id || 'system',
+            sender_type: 'user',
+            recipient_id: contato.id,
+            recipient_type: 'contact',
+            content: mensagemParaEnviar,
+            channel: 'whatsapp',
+            status: 'enviada',
+            whatsapp_message_id: resultado.data.message_id,
+            sent_at: new Date().toISOString(),
+            metadata: {
+              whatsapp_integration_id: integracaoAtiva.id,
+              broadcast: true
+            }
+          });
+        } else {
+          erros++;
+        }
+      } catch (error) {
+        console.error(`[BROADCAST] Erro ao enviar para ${telefone}:`, error);
+        erros++;
+      }
+
+      setProgressoBroadcast({ enviados, erros, total: contatosSelecionados.length });
+      
+      // Pequeno delay entre envios para evitar rate limit
+      await new Promise(resolve => setTimeout(resolve, 500));
+    }
+
+    setEnviandoBroadcast(false);
+    setMensagemTexto("");
+    
+    if (enviados > 0) {
+      toast.success(`✅ ${enviados} mensagem(ns) enviada(s) com sucesso!`);
+    }
+    if (erros > 0) {
+      toast.error(`❌ ${erros} erro(s) no envio`);
+    }
+
+    // Cancelar modo seleção após envio
+    if (onCancelarSelecao) {
+      onCancelarSelecao();
+    }
+
+    if (onAtualizarMensagens) {
+      onAtualizarMensagens();
+    }
+  };
+
   const handleEnviar = async (e) => {
     e?.preventDefault();
+
+    // Se está em modo broadcast, usar função de broadcast
+    if (modoSelecaoMultipla && contatosSelecionados.length > 0) {
+      await handleEnviarBroadcast();
+      return;
+    }
 
     if (!podeEnviarMensagens) {
       toast.error("❌ Você não tem permissão para enviar mensagens");
