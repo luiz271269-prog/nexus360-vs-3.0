@@ -445,6 +445,42 @@ export default function ChatWindow({
       return;
     }
 
+    // ═══════════════════════════════════════════════════════════════════
+    // MODO BROADCAST: Enviar áudio para múltiplos contatos
+    // ═══════════════════════════════════════════════════════════════════
+    if (modoSelecaoMultipla && contatosSelecionados.length > 0) {
+      setEnviando(true);
+      try {
+        // Upload do áudio uma única vez
+        const timestamp = new Date().getTime();
+        const audioFile = new File([audioBlob], `audio-broadcast-${timestamp}.ogg`, {
+          type: 'audio/ogg; codecs=opus',
+          lastModified: timestamp
+        });
+
+        toast.info('📤 Fazendo upload do áudio...');
+        const uploadResponse = await base44.integrations.Core.UploadFile({ file: audioFile });
+        const audioUrl = uploadResponse.file_url;
+
+        // Enviar para todos os contatos selecionados
+        await handleEnviarBroadcast({
+          mediaUrl: audioUrl,
+          mediaType: 'audio',
+          isAudio: true
+        });
+
+      } catch (error) {
+        console.error('[BROADCAST] Erro ao enviar áudio:', error);
+        toast.error('Erro ao enviar áudio: ' + error.message);
+      } finally {
+        setEnviando(false);
+      }
+      return;
+    }
+
+    // ═══════════════════════════════════════════════════════════════════
+    // MODO INDIVIDUAL: Enviar para um único contato (lógica original)
+    // ═══════════════════════════════════════════════════════════════════
     if (!thread || !usuario || carregandoContato) {
       toast.error("Dados da conversa ou contato não disponíveis para enviar áudio.");
       return;
@@ -544,26 +580,15 @@ export default function ChatWindow({
     }
   };
 
-  // Função de envio em massa (broadcast) - SUPORTA TEXTO, IMAGENS, ÁUDIOS E MÍDIAS
-  const handleEnviarBroadcast = async (opcoes = {}) => {
-    const { 
-      mediaUrl = null, 
-      mediaType = null, 
-      mediaCaption = null,
-      isAudio = false 
-    } = opcoes;
-
+  // Função de envio em massa (broadcast)
+  const handleEnviarBroadcast = async () => {
     if (!podeEnviarMensagens) {
       toast.error("❌ Você não tem permissão para enviar mensagens");
       return;
     }
 
-    // Validar: precisa ter texto OU mídia
-    const temTexto = mensagemTexto.trim().length > 0;
-    const temMidia = !!mediaUrl;
-    
-    if (!temTexto && !temMidia) {
-      toast.error("Digite uma mensagem ou anexe uma mídia");
+    if (!mensagemTexto.trim()) {
+      toast.error("Digite uma mensagem");
       return;
     }
 
@@ -595,29 +620,12 @@ export default function ChatWindow({
       }
 
       try {
-        // Preparar dados de envio
-        const dadosEnvio = {
+        // Usar a mesma função enviarWhatsApp
+        const resultado = await base44.functions.invoke('enviarWhatsApp', {
           integration_id: integracaoAtiva.id,
-          numero_destino: telefone
-        };
-
-        // Adicionar mídia se houver
-        if (mediaUrl && mediaType) {
-          if (isAudio || mediaType === 'audio') {
-            dadosEnvio.audio_url = mediaUrl;
-            dadosEnvio.media_type = 'audio';
-          } else {
-            dadosEnvio.media_url = mediaUrl;
-            dadosEnvio.media_type = mediaType;
-            if (mediaCaption || mensagemParaEnviar) {
-              dadosEnvio.media_caption = mediaCaption || mensagemParaEnviar;
-            }
-          }
-        } else if (mensagemParaEnviar) {
-          dadosEnvio.mensagem = mensagemParaEnviar;
-        }
-
-        const resultado = await base44.functions.invoke('enviarWhatsApp', dadosEnvio);
+          numero_destino: telefone,
+          mensagem: mensagemParaEnviar
+        });
 
         if (resultado.data.success) {
           enviados++;
@@ -626,26 +634,20 @@ export default function ChatWindow({
           let threads = await base44.entities.MessageThread.filter({ contact_id: contato.id });
           let threadContato = threads && threads.length > 0 ? threads[0] : null;
           
-          const contentPreview = mediaUrl 
-            ? (mediaType === 'image' ? '[Imagem]' : mediaType === 'audio' ? '[Áudio]' : mediaType === 'video' ? '[Vídeo]' : '[Arquivo]')
-            : mensagemParaEnviar.substring(0, 100);
-
           if (!threadContato) {
             threadContato = await base44.entities.MessageThread.create({
               contact_id: contato.id,
               whatsapp_integration_id: integracaoAtiva.id,
               status: 'aberta',
-              last_message_content: contentPreview,
+              last_message_content: mensagemParaEnviar.substring(0, 100),
               last_message_at: new Date().toISOString(),
-              last_message_sender: 'user',
-              last_media_type: mediaType || 'none'
+              last_message_sender: 'user'
             });
           } else {
             await base44.entities.MessageThread.update(threadContato.id, {
-              last_message_content: contentPreview,
+              last_message_content: mensagemParaEnviar.substring(0, 100),
               last_message_at: new Date().toISOString(),
-              last_message_sender: 'user',
-              last_media_type: mediaType || 'none'
+              last_message_sender: 'user'
             });
           }
 
@@ -656,14 +658,11 @@ export default function ChatWindow({
             sender_type: 'user',
             recipient_id: contato.id,
             recipient_type: 'contact',
-            content: mediaCaption || mensagemParaEnviar || contentPreview,
+            content: mensagemParaEnviar,
             channel: 'whatsapp',
             status: 'enviada',
             whatsapp_message_id: resultado.data.message_id,
             sent_at: new Date().toISOString(),
-            media_url: mediaUrl || null,
-            media_type: mediaType || 'none',
-            media_caption: mediaCaption,
             metadata: {
               whatsapp_integration_id: integracaoAtiva.id,
               broadcast: true
@@ -685,8 +684,6 @@ export default function ChatWindow({
 
     setEnviandoBroadcast(false);
     setMensagemTexto("");
-    setPastedImage(null);
-    setPastedImagePreview(null);
     
     if (enviados > 0) {
       toast.success(`✅ ${enviados} mensagem(ns) enviada(s) com sucesso!`);
@@ -1334,7 +1331,54 @@ export default function ChatWindow({
   };
 
   const enviarImagemColada = async () => {
-    if (!pastedImage || !thread || !usuario || !podeEnviarMidias) {
+    if (!pastedImage || !podeEnviarMidias) {
+      toast.error('Não foi possível enviar a imagem');
+      return;
+    }
+
+    // ═══════════════════════════════════════════════════════════════════
+    // MODO BROADCAST: Enviar imagem para múltiplos contatos
+    // ═══════════════════════════════════════════════════════════════════
+    if (modoSelecaoMultipla && contatosSelecionados.length > 0) {
+      setUploadingPastedFile(true);
+      try {
+        // Upload da imagem uma única vez
+        const timestamp = Date.now();
+        let mimeType = pastedImage.type || 'image/png';
+        if (!mimeType.startsWith('image/')) mimeType = 'image/png';
+        const ext = mimeType.includes('jpeg') ? 'jpg' : mimeType.includes('webp') ? 'webp' : 'png';
+        
+        const imageFile = new File([pastedImage], `broadcast-${timestamp}.${ext}`, { 
+          type: mimeType,
+          lastModified: timestamp
+        });
+
+        toast.info('📤 Fazendo upload da imagem...');
+        const uploadResponse = await base44.integrations.Core.UploadFile({ file: imageFile });
+        const imageUrl = uploadResponse.file_url;
+
+        // Enviar para todos os contatos selecionados
+        await handleEnviarBroadcast({
+          mediaUrl: imageUrl,
+          mediaType: 'image',
+          mediaCaption: mensagemTexto.trim() || null
+        });
+
+      } catch (error) {
+        console.error('[BROADCAST] Erro ao enviar imagem:', error);
+        toast.error('Erro ao enviar imagem: ' + error.message);
+      } finally {
+        setUploadingPastedFile(false);
+        setPastedImage(null);
+        setPastedImagePreview(null);
+      }
+      return;
+    }
+
+    // ═══════════════════════════════════════════════════════════════════
+    // MODO INDIVIDUAL: Enviar para um único contato (lógica original)
+    // ═══════════════════════════════════════════════════════════════════
+    if (!thread || !usuario) {
       toast.error('Não foi possível enviar a imagem');
       return;
     }
