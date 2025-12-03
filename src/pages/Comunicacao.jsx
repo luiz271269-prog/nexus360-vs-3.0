@@ -284,7 +284,7 @@ export default function Comunicacao() {
     setNovoContatoTelefone("");
     setShowContactInfo(false);
 
-    // Se é um contato sem thread (pseudo-thread criada na busca), buscar ou criar a thread real
+    // Se é um contato sem thread (pseudo-thread criada na busca), buscar a thread real
     if (thread.is_contact_only && thread.contact_id) {
       try {
         // Buscar thread existente para este contato
@@ -292,11 +292,16 @@ export default function Comunicacao() {
         
         if (threadsExistentes && threadsExistentes.length > 0) {
           // Já existe thread, usar ela
+          console.log('✅ Thread existente encontrada:', threadsExistentes[0].id);
           setThreadAtiva(threadsExistentes[0]);
           return;
         }
 
-        // Não existe thread, criar uma nova
+        // Não existe thread - abrir painel de contato para iniciar conversa
+        console.log('⚠️ Contato sem thread, abrindo painel de detalhes');
+        toast.info('📋 Contato sem conversa ativa. Envie uma mensagem para iniciar.');
+        
+        // Criar thread temporária para permitir envio
         const integracaoAtiva = integracoes.find((i) => i.status === 'conectado');
         if (!integracaoAtiva) {
           toast.error('❌ Nenhuma integração WhatsApp ativa');
@@ -314,12 +319,44 @@ export default function Comunicacao() {
 
         await queryClient.invalidateQueries({ queryKey: ['threads'] });
         setThreadAtiva(novaThread);
-        toast.success('✅ Conversa iniciada!');
         return;
       } catch (error) {
         console.error('[Comunicacao] Erro ao buscar/criar thread:', error);
         toast.error('Erro ao abrir conversa');
         return;
+      }
+    }
+    
+    // Se a thread tem ID que começa com "contato-sem-thread-", é uma pseudo-thread
+    if (thread.id && String(thread.id).startsWith('contato-sem-thread-')) {
+      const realContactId = thread.contact_id;
+      if (realContactId) {
+        try {
+          const threadsExistentes = await base44.entities.MessageThread.filter({ contact_id: realContactId });
+          
+          if (threadsExistentes && threadsExistentes.length > 0) {
+            console.log('✅ Thread real encontrada para pseudo-thread:', threadsExistentes[0].id);
+            setThreadAtiva(threadsExistentes[0]);
+            return;
+          }
+          
+          // Criar thread nova
+          const integracaoAtiva = integracoes.find((i) => i.status === 'conectado');
+          if (integracaoAtiva) {
+            const novaThread = await base44.entities.MessageThread.create({
+              contact_id: realContactId,
+              whatsapp_integration_id: integracaoAtiva.id,
+              status: 'aberta',
+              unread_count: 0
+            });
+            await queryClient.invalidateQueries({ queryKey: ['threads'] });
+            setThreadAtiva(novaThread);
+            toast.info('📋 Conversa iniciada. Envie uma mensagem.');
+            return;
+          }
+        } catch (error) {
+          console.error('[Comunicacao] Erro ao resolver pseudo-thread:', error);
+        }
       }
     }
 
