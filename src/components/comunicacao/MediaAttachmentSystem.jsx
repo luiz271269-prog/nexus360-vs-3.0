@@ -165,7 +165,12 @@ export default function MediaAttachmentSystem({
   replyToMessage,
   thread,
   usuario,
-  integrationIdOverride = null // Permite usar canal selecionado
+  integrationIdOverride = null, // Permite usar canal selecionado
+  // Props para modo broadcast
+  modoSelecaoMultipla = false,
+  contatosSelecionados = [],
+  integracoes = [],
+  onCancelarSelecao
 }) {
   const [selectedFiles, setSelectedFiles] = useState([]);
   const [captions, setCaptions] = useState({});
@@ -243,7 +248,167 @@ export default function MediaAttachmentSystem({
   };
 
   const handleSend = async () => {
-    if (selectedFiles.length === 0 || !thread || !usuario) {
+    if (selectedFiles.length === 0 || !usuario) {
+      return;
+    }
+
+    // ═══════════════════════════════════════════════════════════════════
+    // MODO BROADCAST: Enviar arquivos para múltiplos contatos
+    // ═══════════════════════════════════════════════════════════════════
+    if (modoSelecaoMultipla && contatosSelecionados.length > 0) {
+      const integracaoAtiva = integracoes.find(i => i.status === 'conectado');
+      if (!integracaoAtiva) {
+        toast.error('Nenhuma integração WhatsApp ativa');
+        return;
+      }
+
+      setUploading(true);
+
+      try {
+        // 1. Upload de todos os arquivos primeiro
+        const arquivosUpados = [];
+        for (const file of selectedFiles) {
+          const caption = captions[file.name] || '';
+          const mediaType = getMediaTypeFromMime(file.type);
+          
+          setUploadProgress(prev => ({ ...prev, [file.name]: 'uploading' }));
+          
+          const uploadResponse = await base44.integrations.Core.UploadFile({ file });
+          arquivosUpados.push({
+            url: uploadResponse.file_url,
+            mediaType,
+            caption,
+            fileName: file.name
+          });
+          
+          setUploadProgress(prev => ({ ...prev, [file.name]: 'success' }));
+        }
+
+        // 2. Enviar para cada contato
+        let enviados = 0;
+        let erros = 0;
+        const total = contatosSelecionados.length;
+
+        for (const contato of contatosSelecionados) {
+          const telefone = contato.telefone || contato.celular;
+          if (!telefone) {
+            erros++;
+            continue;
+          }
+
+          try {
+            // Enviar cada arquivo
+            for (const arquivo of arquivosUpados) {
+              const dadosEnvio = {
+                integration_id: integracaoAtiva.id,
+                numero_destino: telefone,
+                media_type: arquivo.mediaType
+              };
+
+              if (arquivo.mediaType === 'audio') {
+                dadosEnvio.audio_url = arquivo.url;
+              } else {
+                dadosEnvio.media_url = arquivo.url;
+                if (arquivo.caption) {
+                  dadosEnvio.media_caption = arquivo.caption;
+                }
+              }
+
+              const resultado = await base44.functions.invoke('enviarWhatsApp', dadosEnvio);
+              
+              if (resultado.data.success) {
+                // Buscar ou criar thread para registrar
+                let threads = await base44.entities.MessageThread.filter({ contact_id: contato.id });
+                let threadContato = threads && threads.length > 0 ? threads[0] : null;
+
+                const contentPreview = arquivo.mediaType === 'image' ? '[Imagem]' 
+                  : arquivo.mediaType === 'audio' ? '[Áudio]' 
+                  : arquivo.mediaType === 'video' ? '[Vídeo]' 
+                  : '[Arquivo]';
+
+                if (!threadContato) {
+                  threadContato = await base44.entities.MessageThread.create({
+                    contact_id: contato.id,
+                    whatsapp_integration_id: integracaoAtiva.id,
+                    status: 'aberta',
+                    last_message_content: contentPreview,
+                    last_message_at: new Date().toISOString(),
+                    last_message_sender: 'user',
+                    last_media_type: arquivo.mediaType
+                  });
+                } else {
+                  await base44.entities.MessageThread.update(threadContato.id, {
+                    last_message_content: contentPreview,
+                    last_message_at: new Date().toISOString(),
+                    last_message_sender: 'user',
+                    last_media_type: arquivo.mediaType
+                  });
+                }
+
+                await base44.entities.Message.create({
+                  thread_id: threadContato.id,
+                  sender_id: usuario.id,
+                  sender_type: 'user',
+                  recipient_id: contato.id,
+                  recipient_type: 'contact',
+                  content: arquivo.caption || contentPreview,
+                  channel: 'whatsapp',
+                  status: 'enviada',
+                  whatsapp_message_id: resultado.data.message_id,
+                  sent_at: new Date().toISOString(),
+                  media_url: arquivo.url,
+                  media_type: arquivo.mediaType,
+                  media_caption: arquivo.caption || null,
+                  metadata: {
+                    whatsapp_integration_id: integracaoAtiva.id,
+                    broadcast: true
+                  }
+                });
+              }
+            }
+            enviados++;
+          } catch (error) {
+            console.error(`[BROADCAST MEDIA] Erro ao enviar para ${telefone}:`, error);
+            erros++;
+          }
+
+          // Delay entre contatos
+          await new Promise(resolve => setTimeout(resolve, 500));
+        }
+
+        if (enviados > 0) {
+          toast.success(`✅ Mídia enviada para ${enviados} contato(s)!`);
+        }
+        if (erros > 0) {
+          toast.error(`❌ ${erros} erro(s) no envio`);
+        }
+
+        // Limpar e fechar
+        setSelectedFiles([]);
+        setCaptions({});
+        setUploadProgress({});
+        
+        if (onCancelarSelecao) {
+          onCancelarSelecao();
+        }
+        if (onSend) {
+          onSend();
+        }
+
+      } catch (error) {
+        console.error('[BROADCAST MEDIA] Erro geral:', error);
+        toast.error('Erro ao enviar mídia: ' + error.message);
+      } finally {
+        setUploading(false);
+      }
+      return;
+    }
+
+    // ═══════════════════════════════════════════════════════════════════
+    // MODO INDIVIDUAL: Enviar para um único contato (lógica original)
+    // ═══════════════════════════════════════════════════════════════════
+    if (!thread) {
+      toast.error('Selecione uma conversa');
       return;
     }
 
