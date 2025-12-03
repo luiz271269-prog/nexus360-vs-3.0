@@ -2180,6 +2180,7 @@ export default function ChatWindow({
         thread={thread}
         usuario={usuario}
         contatoNome={contatoCompleto?.nome || 'Cliente'}
+        atendentesPreCarregados={atendentesLista}
         onSuccess={() => {
           if (onAtualizarMensagens) {
             setTimeout(async () => {
