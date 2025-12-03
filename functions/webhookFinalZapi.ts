@@ -687,6 +687,49 @@ async function handleMessage(dados, payloadBruto, base44) {
     return jsonServerError({ success: false, error: 'erro_thread' });
   }
 
+  // ============================================================================
+  // ✅ PERSISTIR MÍDIA - Baixar de URL temporária e salvar permanentemente
+  // ============================================================================
+  let mediaUrlFinal = dados.mediaUrl ?? null;
+  let midiaPersistida = false;
+  
+  if (dados.mediaUrl && dados.mediaType && dados.mediaType !== 'none') {
+    console.log(`[${VERSION}] 📎 Mídia detectada: ${dados.mediaType} | URL temp: ${dados.mediaUrl?.substring(0, 60)}...`);
+    
+    // Verificar se é URL temporária do WhatsApp (mmg.whatsapp.net ou z-api)
+    const isUrlTemporaria = dados.mediaUrl.includes('mmg.whatsapp.net') || 
+                            dados.mediaUrl.includes('z-api.io') ||
+                            dados.mediaUrl.includes('api.z-api.io');
+    
+    if (isUrlTemporaria) {
+      console.log(`[${VERSION}] 📥 Baixando mídia temporária para persistir...`);
+      
+      try {
+        // Chamar função de download e persistência
+        const resultadoPersistencia = await base44.functions.invoke('downloadMediaZAPI', {
+          media_url: dados.mediaUrl,
+          media_type: dados.mediaType,
+          integration_id: integracaoId,
+          filename: dados.content?.replace(/[\[\]]/g, '') || `${dados.mediaType}_${Date.now()}`
+        });
+        
+        if (resultadoPersistencia?.data?.url && !resultadoPersistencia?.data?.fallback) {
+          mediaUrlFinal = resultadoPersistencia.data.url;
+          midiaPersistida = true;
+          console.log(`[${VERSION}] ✅ Mídia persistida: ${mediaUrlFinal?.substring(0, 60)}...`);
+        } else {
+          console.log(`[${VERSION}] ⚠️ Fallback para URL temporária: ${resultadoPersistencia?.data?.error || 'desconhecido'}`);
+        }
+      } catch (e) {
+        console.error(`[${VERSION}] ❌ Erro ao persistir mídia:`, e?.message || e);
+        // Continuar com URL temporária
+      }
+    } else {
+      console.log(`[${VERSION}] ℹ️ URL já é permanente, não precisa persistir`);
+      midiaPersistida = true;
+    }
+  }
+
   // Salvar mensagem
   let mensagem;
   try {
@@ -695,7 +738,7 @@ async function handleMessage(dados, payloadBruto, base44) {
       sender_id: contato.id,
       sender_type: 'contact',
       content: dados.content,
-      media_url: dados.mediaUrl ?? null,
+      media_url: mediaUrlFinal,
       media_type: dados.mediaType,
       media_caption: dados.mediaCaption ?? null,
       channel: 'whatsapp',
@@ -704,7 +747,7 @@ async function handleMessage(dados, payloadBruto, base44) {
       sent_at: new Date().toISOString(),
       metadata: {
         analise_multimodal: null,
-        midia_persistida: null,
+        midia_persistida: midiaPersistida,
         deleted: null,
         whatsapp_integration_id: integracaoId,
         instance_id: dados.instanceId ?? null,
@@ -715,9 +758,10 @@ async function handleMessage(dados, payloadBruto, base44) {
         location: dados.location ?? null,
         quoted_message: dados.quotedMessage ?? null,
         processed_by: VERSION,
+        original_media_url: dados.mediaUrl ?? null,
       },
     });
-    console.log(`[${VERSION}] ✅ Mensagem salva: ${mensagem.id}`);
+    console.log(`[${VERSION}] ✅ Mensagem salva: ${mensagem.id} | Mídia persistida: ${midiaPersistida}`);
   } catch (e) {
     console.error(`[${VERSION}] ❌ Erro salvar mensagem:`, e?.message || e);
     return jsonServerError({ success: false, error: 'erro_salvar_mensagem' });
