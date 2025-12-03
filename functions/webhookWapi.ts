@@ -80,10 +80,11 @@ function deveIgnorar(payload) {
 }
 
 // ============================================================================
-// EXTRAIR URL DE MÍDIA - FUNÇÃO DEDICADA
+// EXTRAIR URL DE MÍDIA - FUNÇÃO DEDICADA (W-API)
+// W-API aninha mídias em msgContent.*Message (diferente da Z-API)
 // ============================================================================
 function extrairMediaUrl(payload, msgContent, tipoMidia) {
-  // Campos do payload raiz (W-API frequentemente coloca aqui)
+  // Campos do payload raiz (W-API às vezes coloca aqui)
   const camposRaiz = [
     payload.mediaUrl,
     payload.media?.url,
@@ -92,27 +93,31 @@ function extrairMediaUrl(payload, msgContent, tipoMidia) {
     payload.url
   ];
   
-  // Campos específicos por tipo de mídia no msgContent
+  // ✅ Campos específicos por tipo de mídia no msgContent (estrutura aninhada W-API)
   const camposMsgContent = {
     image: [
       msgContent?.imageMessage?.url,
       msgContent?.imageMessage?.directPath,
-      msgContent?.imageMessage?.mediaUrl
+      msgContent?.imageMessage?.mediaUrl,
+      msgContent?.imageMessage?.image?.url  // Estrutura alternativa
     ],
     video: [
       msgContent?.videoMessage?.url,
       msgContent?.videoMessage?.directPath,
-      msgContent?.videoMessage?.mediaUrl
+      msgContent?.videoMessage?.mediaUrl,
+      msgContent?.videoMessage?.video?.url
     ],
     audio: [
       msgContent?.audioMessage?.url,
       msgContent?.audioMessage?.directPath,
-      msgContent?.audioMessage?.mediaUrl
+      msgContent?.audioMessage?.mediaUrl,
+      msgContent?.audioMessage?.audio?.url
     ],
     document: [
       msgContent?.documentMessage?.url,
       msgContent?.documentMessage?.directPath,
-      msgContent?.documentMessage?.mediaUrl
+      msgContent?.documentMessage?.mediaUrl,
+      msgContent?.documentMessage?.document?.url
     ],
     sticker: [
       msgContent?.stickerMessage?.url,
@@ -137,8 +142,32 @@ function extrairMediaUrl(payload, msgContent, tipoMidia) {
     }
   }
   
-  console.log('[W-API WEBHOOK] ⚠️ Nenhuma URL de mídia encontrada');
+  console.log('[W-API WEBHOOK] ⚠️ Nenhuma URL de mídia encontrada para tipo:', tipoMidia);
   return null;
+}
+
+// ============================================================================
+// EXTRAIR METADADOS DE MÍDIA - W-API
+// ============================================================================
+function extrairMetadadosMidia(msgContent, tipoMidia) {
+  const tipoMap = {
+    image: 'imageMessage',
+    video: 'videoMessage',
+    audio: 'audioMessage',
+    document: 'documentMessage',
+    sticker: 'stickerMessage'
+  };
+  
+  const msgKey = tipoMap[tipoMidia];
+  const mediaMsg = msgContent?.[msgKey] || {};
+  
+  return {
+    caption: mediaMsg.caption || null,
+    fileName: mediaMsg.fileName || mediaMsg.title || null,
+    mimetype: mediaMsg.mimetype || null,
+    fileSize: mediaMsg.fileLength || mediaMsg.size || null,
+    isPTT: mediaMsg.ptt === true // Push to Talk (áudio de voz)
+  };
 }
 
 // ============================================================================
@@ -184,35 +213,54 @@ function normalizarPayload(payload) {
   let mediaUrl = null;
   let conteudo = '';
 
-  // Detectar tipo e extrair URL
+  // ✅ Detectar tipo e extrair URL + metadados (W-API estrutura aninhada)
+  let mediaMetadata = {};
+  
   if (msgContent.imageMessage) {
     mediaType = 'image';
     mediaUrl = extrairMediaUrl(payload, msgContent, 'image');
-    conteudo = msgContent.imageMessage.caption || '[Imagem]';
+    mediaMetadata = extrairMetadadosMidia(msgContent, 'image');
+    conteudo = mediaMetadata.caption || '[Imagem]';
+    console.log('[W-API WEBHOOK] 🖼️ Imagem detectada | URL:', mediaUrl ? 'SIM' : 'NÃO');
+    
   } else if (msgContent.videoMessage) {
     mediaType = 'video';
     mediaUrl = extrairMediaUrl(payload, msgContent, 'video');
-    conteudo = msgContent.videoMessage.caption || '[Video]';
+    mediaMetadata = extrairMetadadosMidia(msgContent, 'video');
+    conteudo = mediaMetadata.caption || '[Vídeo]';
+    console.log('[W-API WEBHOOK] 🎬 Vídeo detectado | URL:', mediaUrl ? 'SIM' : 'NÃO');
+    
   } else if (msgContent.audioMessage) {
     mediaType = 'audio';
     mediaUrl = extrairMediaUrl(payload, msgContent, 'audio');
-    conteudo = '[Audio]';
+    mediaMetadata = extrairMetadadosMidia(msgContent, 'audio');
+    conteudo = mediaMetadata.isPTT ? '[Áudio de voz]' : '[Áudio]';
+    console.log('[W-API WEBHOOK] 🎵 Áudio detectado (PTT:', mediaMetadata.isPTT, ') | URL:', mediaUrl ? 'SIM' : 'NÃO');
+    
   } else if (msgContent.documentMessage) {
     mediaType = 'document';
     mediaUrl = extrairMediaUrl(payload, msgContent, 'document');
-    conteudo = msgContent.documentMessage.fileName || '[Documento]';
+    mediaMetadata = extrairMetadadosMidia(msgContent, 'document');
+    conteudo = mediaMetadata.fileName ? `[Documento: ${mediaMetadata.fileName}]` : '[Documento]';
+    console.log('[W-API WEBHOOK] 📄 Documento detectado | Arquivo:', mediaMetadata.fileName || 'N/A', '| URL:', mediaUrl ? 'SIM' : 'NÃO');
+    
   } else if (msgContent.stickerMessage) {
     mediaType = 'sticker';
     mediaUrl = extrairMediaUrl(payload, msgContent, 'sticker');
+    mediaMetadata = extrairMetadadosMidia(msgContent, 'sticker');
     conteudo = '[Sticker]';
+    
   } else if (msgContent.contactMessage || msgContent.contactsArrayMessage) {
     mediaType = 'contact';
     conteudo = '📇 Contato compartilhado';
+    
   } else if (msgContent.locationMessage) {
     mediaType = 'location';
     conteudo = '📍 Localização';
+    
   } else if (msgContent.extendedTextMessage) {
     conteudo = msgContent.extendedTextMessage.text || '';
+    
   } else if (msgContent.conversation) {
     conteudo = msgContent.conversation;
   }
@@ -238,7 +286,9 @@ function normalizarPayload(payload) {
     content: conteudo,
     mediaType,
     mediaUrl,
-    mediaCaption: msgContent.imageMessage?.caption || msgContent.videoMessage?.caption,
+    mediaCaption: mediaMetadata.caption || msgContent.imageMessage?.caption || msgContent.videoMessage?.caption,
+    fileName: mediaMetadata.fileName,
+    mimetype: mediaMetadata.mimetype,
     pushName: payload.pushName || payload.senderName || payload.sender?.pushName,
     vcard: msgContent.contactMessage || msgContent.contactsArrayMessage,
     location: msgContent.locationMessage,
@@ -577,28 +627,37 @@ async function handleMessage(dados, payloadBruto, base44, req) {
   console.log('[W-API WEBHOOK] ✅ Msg:', mensagem.id, '| Tipo:', dados.mediaType, '| URL:', dados.mediaUrl ? 'SIM' : 'NÃO', '| ' + duracao + 'ms');
 
   // ✅ PERSISTIR MÍDIA AUTOMATICAMENTE (se tiver URL temporária)
-  if (dados.mediaUrl && dados.mediaUrl.includes('mmg.whatsapp.net')) {
-    try {
-      console.log('[W-API WEBHOOK] 📤 Iniciando persistência de mídia...');
+  // URLs temporárias do WhatsApp expiram rapidamente
+  if (dados.mediaUrl && dados.mediaType && dados.mediaType !== 'none') {
+    const isUrlTemporaria = dados.mediaUrl.includes('mmg.whatsapp.net') || 
+                            dados.mediaUrl.includes('w-api.app') ||
+                            dados.mediaUrl.includes('cdn.whatsapp') ||
+                            dados.mediaUrl.includes('enc.') ||
+                            dados.mediaUrl.includes('media-');
+    
+    if (isUrlTemporaria) {
+      console.log('[W-API WEBHOOK] 📤 URL temporária detectada - Iniciando persistência');
+      console.log('[W-API WEBHOOK] 📎 Tipo:', dados.mediaType, '| Arquivo:', dados.fileName || 'N/A');
 
-      // Chamar função de persistência de forma assíncrona (não bloqueia)
-      fetch(Deno.env.get('BASE44_FUNCTIONS_URL') + '/persistirMidiaWapi', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': req.headers.get('Authorization') || ''
-        },
-        body: JSON.stringify({
-          message_id: mensagem.id,
-          media_url: dados.mediaUrl,
-          media_type: dados.mediaType,
-          integration_id: integracaoId
-        })
-      }).catch(e => console.error('[W-API WEBHOOK] ⚠️ Erro ao chamar persistência:', e.message));
-
-    } catch (persistError) {
-      console.error('[W-API WEBHOOK] ⚠️ Erro ao iniciar persistência:', persistError.message);
-      // Não falha o webhook, apenas loga o erro
+      // Chamar função de persistência de forma assíncrona (não bloqueia resposta)
+      base44.functions.invoke('persistirMidiaWapi', {
+        message_id: mensagem.id,
+        media_url: dados.mediaUrl,
+        media_type: dados.mediaType,
+        integration_id: integracaoId,
+        filename: dados.fileName,
+        mimetype: dados.mimetype
+      }).then(result => {
+        if (result?.data?.success) {
+          console.log('[W-API WEBHOOK] ✅ Mídia persistida:', result.data.permanent_url?.substring(0, 60) || 'ok');
+        } else {
+          console.log('[W-API WEBHOOK] ⚠️ Persistência retornou fallback:', result?.data?.error || 'desconhecido');
+        }
+      }).catch(e => {
+        console.error('[W-API WEBHOOK] ❌ Erro ao persistir mídia:', e.message);
+      });
+    } else {
+      console.log('[W-API WEBHOOK] ℹ️ URL já é permanente, não precisa persistir');
     }
   }
 
