@@ -690,7 +690,7 @@ export default function Comunicacao() {
                 </div>
 
                 <div className="flex-1 flex overflow-hidden">
-                  {threadAtiva && !criandoNovoContato ?
+                  {(threadAtiva && !criandoNovoContato) || (modoSelecaoMultipla && contatosSelecionados.length > 0) ?
                   <>
                       <div className="flex-1 overflow-hidden">
                         <ChatWindow
