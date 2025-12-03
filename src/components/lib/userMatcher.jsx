@@ -16,6 +16,7 @@
 
 /**
  * Normaliza um valor para comparação (lowercase, trim, remove acentos)
+ * IMPORTANTE: Comparação ESTRITA - sem prefixos ou matches parciais
  */
 export const normalizarParaComparacao = (valor) => {
   if (!valor) return '';
@@ -72,10 +73,7 @@ export const usuarioCorresponde = (usuario, valorReferencia) => {
   // Comparar com nome (para entidade Vendedor)
   if (usuario.nome && normalizarParaComparacao(usuario.nome) === ref) return true;
   
-  // REMOVIDO: Comparações parciais que causavam falsos positivos
-  // - Prefixo de email (vendas5 vs vendas5@...)
-  // - Primeiro nome (Thiago vs Thiago Silva)
-  
+  // NÃO usar comparações parciais - causam falsos positivos
   return false;
 };
 
