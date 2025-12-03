@@ -50,6 +50,7 @@ import { useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import MediaAttachmentSystem from './MediaAttachmentSystem';
 import CategorizadorRapido from './CategorizadorRapido';
+import AtribuirConversaModal from './AtribuirConversaModal';
 import CentralInteligenciaContato, {
   calcularScoreContato,
   getNivelTemperatura,
@@ -1811,87 +1812,26 @@ export default function ChatWindow({
 
       {/* Modal removido - agora usa MediaAttachmentSystem */}
 
-      {/* MODAL DE ATRIBUIÇÃO/TRANSFERÊNCIA */}
-      <Dialog open={mostrarModalAtribuicao} onOpenChange={setMostrarModalAtribuicao}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Users className="w-5 h-5 text-orange-500" />
-              {thread?.assigned_user_id ? 'Transferir Conversa' : 'Atribuir Conversa'}
-            </DialogTitle>
-          </DialogHeader>
-
-          <div className="space-y-3">
-            {/* Histórico compacto */}
-            {thread?.assigned_user_name && (
-              <div className="flex items-center gap-2 p-2 bg-slate-50 rounded-lg border">
-                <span className="text-xs text-slate-500">Atual:</span>
-                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-indigo-100 text-indigo-700">
-                  <UserCheck className="w-3 h-3" />
-                  {thread.assigned_user_name}
-                </span>
-              </div>
-            )}
-
-            {/* Campo de mensagem editável */}
-            <div>
-              <label className="text-xs font-medium text-slate-600 mb-1 block">Mensagem de transferência:</label>
-              <textarea
-                value={mensagemTransferencia}
-                onChange={(e) => setMensagemTransferencia(e.target.value)}
-                placeholder="Ex: Cliente aguardando retorno sobre orçamento..."
-                className="w-full p-2 border border-slate-200 rounded-lg text-sm resize-none focus:outline-none focus:ring-2 focus:ring-orange-500"
-                rows={2}
-              />
-            </div>
-
-            {/* Lista de atendentes compacta */}
-            {carregandoAtendentes ? (
-              <div className="flex items-center justify-center py-6">
-                <Loader2 className="w-6 h-6 animate-spin text-orange-500" />
-              </div>
-            ) : atendentes.length === 0 ? (
-              <Alert>
-                <AlertCircle className="h-4 w-4" />
-                <AlertDescription>
-                  Nenhum atendente disponível. Verifique se há usuários cadastrados no sistema.
-                </AlertDescription>
-              </Alert>
-            ) : (
-              <div className="grid grid-cols-2 gap-2 max-h-[280px] overflow-y-auto">
-                {atendentes
-                  .filter(atendente => atendente.id)
-                  .map((atendente) => {
-                  const isAtual = thread?.assigned_user_id === atendente.id;
-                  const nomeExibicao = atendente.full_name || atendente.email || 'Usuário';
-                  return (
-                    <button
-                      key={atendente.id}
-                      onClick={() => handleAtribuirConversa(atendente.id)}
-                      disabled={atribuindo || isAtual}
-                      className={`flex items-center gap-2 p-2 rounded-lg border text-left transition-all ${
-                        isAtual 
-                          ? 'bg-green-50 border-green-300 cursor-not-allowed' 
-                          : 'hover:bg-orange-50 hover:border-orange-300 border-slate-200'
-                      }`}
-                    >
-                      <div className={`w-8 h-8 rounded-full flex items-center justify-center text-white font-bold text-sm ${
-                        isAtual ? 'bg-green-500' : 'bg-gradient-to-br from-amber-400 to-orange-500'
-                      }`}>
-                        {isAtual ? <CheckSquare className="w-4 h-4" /> : nomeExibicao.charAt(0).toUpperCase()}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-xs font-semibold truncate">{nomeExibicao.split(' ')[0]}</p>
-                        <p className="text-[10px] text-slate-400 truncate">{atendente.attendant_sector || 'Geral'}</p>
-                      </div>
-                    </button>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-        </DialogContent>
-      </Dialog>
+      {/* MODAL DE ATRIBUIÇÃO/TRANSFERÊNCIA - NOVO COMPONENTE */}
+      <AtribuirConversaModal
+        isOpen={mostrarModalAtribuicao}
+        onClose={() => setMostrarModalAtribuicao(false)}
+        thread={thread}
+        usuario={usuario}
+        contatoNome={contatoCompleto?.nome || 'Cliente'}
+        onSuccess={() => {
+          if (onAtualizarMensagens) {
+            setTimeout(async () => {
+              const novasMensagens = await base44.entities.Message.filter(
+                { thread_id: thread.id },
+                'created_date',
+                500
+              );
+              onAtualizarMensagens(novasMensagens);
+            }, 500);
+          }
+        }}
+      />
     </div>);
 
 }
