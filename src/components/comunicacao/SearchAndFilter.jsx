@@ -5,7 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import {
   Search, UserPlus, User, Users, AlertCircle, Phone, Tag, Check,
   Filter, X, ChevronDown, Building2, Target, Truck, Handshake, HelpCircle,
-  Sparkles, Crown, Zap, Star } from
+  Sparkles, Crown, Zap, Star, CheckSquare } from
 'lucide-react';
 import { normalizarTelefone } from '../lib/phoneUtils';
 import { CATEGORIAS_FIXAS } from './CategorizadorRapido';
