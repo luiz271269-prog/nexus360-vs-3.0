@@ -248,7 +248,172 @@ export default function MediaAttachmentSystem({
   };
 
   const handleSend = async () => {
-    if (selectedFiles.length === 0 || !thread || !usuario) {
+    if (selectedFiles.length === 0) {
+      return;
+    }
+
+    // ═══════════════════════════════════════════════════════════════════
+    // MODO BROADCAST: Enviar arquivos para múltiplos contatos
+    // ═══════════════════════════════════════════════════════════════════
+    if (modoSelecaoMultipla && contatosSelecionados.length > 0) {
+      const integracaoAtiva = integracoes.find(i => i.status === 'conectado');
+      if (!integracaoAtiva) {
+        toast.error("Nenhuma integração WhatsApp ativa");
+        return;
+      }
+
+      setUploading(true);
+      
+      // Primeiro, fazer upload de todos os arquivos
+      const uploadedFiles = [];
+      for (const file of selectedFiles) {
+        try {
+          setUploadProgress(prev => ({ ...prev, [file.name]: 'uploading' }));
+          const uploadResponse = await base44.integrations.Core.UploadFile({ file });
+          uploadedFiles.push({
+            file,
+            url: uploadResponse.file_url,
+            mediaType: getMediaTypeFromMime(file.type),
+            caption: captions[file.name] || ''
+          });
+          setUploadProgress(prev => ({ ...prev, [file.name]: 'success' }));
+        } catch (error) {
+          console.error(`[BROADCAST] Erro no upload de ${file.name}:`, error);
+          setUploadProgress(prev => ({ ...prev, [file.name]: 'error' }));
+          toast.error(`Erro no upload de ${file.name}`);
+        }
+      }
+
+      if (uploadedFiles.length === 0) {
+        toast.error('Nenhum arquivo foi carregado com sucesso');
+        setUploading(false);
+        return;
+      }
+
+      toast.info(`📤 Enviando ${uploadedFiles.length} arquivo(s) para ${contatosSelecionados.length} contato(s)...`);
+
+      let totalEnviados = 0;
+      let totalErros = 0;
+
+      // Enviar para cada contato
+      for (const contato of contatosSelecionados) {
+        const telefone = contato.telefone || contato.celular;
+        if (!telefone) {
+          totalErros++;
+          continue;
+        }
+
+        // Enviar cada arquivo
+        for (const uploadedFile of uploadedFiles) {
+          try {
+            const dadosEnvio = {
+              integration_id: integracaoAtiva.id,
+              numero_destino: telefone,
+              media_type: uploadedFile.mediaType
+            };
+
+            if (uploadedFile.mediaType === 'audio') {
+              dadosEnvio.audio_url = uploadedFile.url;
+            } else {
+              dadosEnvio.media_url = uploadedFile.url;
+              if (uploadedFile.caption) {
+                dadosEnvio.media_caption = uploadedFile.caption;
+              }
+            }
+
+            const resultado = await base44.functions.invoke('enviarWhatsApp', dadosEnvio);
+
+            if (resultado.data.success) {
+              // Buscar ou criar thread
+              let threads = await base44.entities.MessageThread.filter({ contact_id: contato.id });
+              let threadContato = threads && threads.length > 0 ? threads[0] : null;
+              
+              const contentPreview = uploadedFile.mediaType === 'image' ? '[Imagem]' 
+                : uploadedFile.mediaType === 'audio' ? '[Áudio]' 
+                : uploadedFile.mediaType === 'video' ? '[Vídeo]' 
+                : '[Arquivo]';
+
+              if (!threadContato) {
+                threadContato = await base44.entities.MessageThread.create({
+                  contact_id: contato.id,
+                  whatsapp_integration_id: integracaoAtiva.id,
+                  status: 'aberta',
+                  last_message_content: contentPreview,
+                  last_message_at: new Date().toISOString(),
+                  last_message_sender: 'user',
+                  last_media_type: uploadedFile.mediaType
+                });
+              } else {
+                await base44.entities.MessageThread.update(threadContato.id, {
+                  last_message_content: contentPreview,
+                  last_message_at: new Date().toISOString(),
+                  last_message_sender: 'user',
+                  last_media_type: uploadedFile.mediaType
+                });
+              }
+
+              // Registrar mensagem
+              await base44.entities.Message.create({
+                thread_id: threadContato.id,
+                sender_id: usuario?.id || 'system',
+                sender_type: 'user',
+                recipient_id: contato.id,
+                recipient_type: 'contact',
+                content: uploadedFile.caption || contentPreview,
+                channel: 'whatsapp',
+                status: 'enviada',
+                whatsapp_message_id: resultado.data.message_id,
+                sent_at: new Date().toISOString(),
+                media_url: uploadedFile.url,
+                media_type: uploadedFile.mediaType,
+                media_caption: uploadedFile.caption || null,
+                metadata: {
+                  whatsapp_integration_id: integracaoAtiva.id,
+                  broadcast: true,
+                  file_name: uploadedFile.file.name
+                }
+              });
+
+              totalEnviados++;
+            } else {
+              totalErros++;
+            }
+          } catch (error) {
+            console.error(`[BROADCAST] Erro ao enviar para ${telefone}:`, error);
+            totalErros++;
+          }
+        }
+
+        // Delay entre contatos
+        await new Promise(resolve => setTimeout(resolve, 500));
+      }
+
+      setUploading(false);
+      setSelectedFiles([]);
+      setCaptions({});
+      setUploadProgress({});
+
+      if (totalEnviados > 0) {
+        toast.success(`✅ ${totalEnviados} arquivo(s) enviado(s) com sucesso!`);
+      }
+      if (totalErros > 0) {
+        toast.error(`❌ ${totalErros} erro(s) no envio`);
+      }
+
+      if (onCancelarSelecao) {
+        onCancelarSelecao();
+      }
+      if (onSend) {
+        onSend();
+      }
+      return;
+    }
+
+    // ═══════════════════════════════════════════════════════════════════
+    // MODO INDIVIDUAL: Enviar para um contato específico
+    // ═══════════════════════════════════════════════════════════════════
+    if (!thread || !usuario) {
+      toast.error('Dados da conversa não disponíveis');
       return;
     }
 
