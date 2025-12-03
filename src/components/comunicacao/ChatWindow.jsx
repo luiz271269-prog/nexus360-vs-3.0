@@ -710,7 +710,7 @@ export default function ChatWindow({
 
     // Se está em modo broadcast, usar função de broadcast
     if (modoSelecaoMultipla && contatosSelecionados.length > 0) {
-      await handleEnviarBroadcast();
+      await handleEnviarBroadcast({});
       return;
     }
 
