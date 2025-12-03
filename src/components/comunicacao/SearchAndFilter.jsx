@@ -172,6 +172,21 @@ export default function SearchAndFilter({
           className="w-full pl-10 pr-12 py-2.5 bg-white border-slate-200 rounded-xl focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 transition-all" />
 
         
+        {/* Botão de Seleção Múltipla */}
+        {onModoSelecaoMultiplaChange && (
+          <button
+            onClick={() => onModoSelecaoMultiplaChange(!modoSelecaoMultipla)}
+            className={`absolute right-10 top-1/2 transform -translate-y-1/2 p-1.5 rounded-lg transition-all ${
+              modoSelecaoMultipla
+                ? 'bg-gradient-to-r from-orange-500 to-amber-500 text-white shadow-md'
+                : 'hover:bg-slate-100 text-slate-500'
+            }`}
+            title="Selecionar múltiplos contatos para envio em massa"
+          >
+            <CheckSquare className="w-4 h-4" />
+          </button>
+        )}
+
         {/* Botão de filtros */}
         <Popover open={showFilters} onOpenChange={setShowFilters}>
           <PopoverTrigger asChild>
