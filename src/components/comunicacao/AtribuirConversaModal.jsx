@@ -39,8 +39,23 @@ export default function AtribuirConversaModal({
   const carregarAtendentes = async () => {
     setCarregando(true);
     try {
-      const users = await base44.entities.User.list();
+      // Buscar todos os usuários - User.list() só funciona para admin
+      // Para não-admin, buscamos via filter vazio que retorna os usuários visíveis
+      let users = [];
+      try {
+        users = await base44.entities.User.list();
+      } catch (listError) {
+        console.warn('[AtribuirModal] User.list() falhou, tentando filter:', listError.message);
+        // Fallback: tentar filter que pode ter permissões diferentes
+        try {
+          users = await base44.entities.User.filter({});
+        } catch (filterError) {
+          console.error('[AtribuirModal] Ambos métodos falharam:', filterError.message);
+        }
+      }
+      
       const usuariosValidos = (users || []).filter(u => u && u.id);
+      console.log('[AtribuirModal] Usuários carregados:', usuariosValidos.length);
       setAtendentes(usuariosValidos);
     } catch (error) {
       console.error('[AtribuirModal] Erro ao carregar usuários:', error);
