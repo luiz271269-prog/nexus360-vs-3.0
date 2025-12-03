@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Badge } from "@/components/ui/badge";
 import {
   Dialog,
   DialogContent,
@@ -9,9 +10,10 @@ import {
   DialogTitle,
   DialogDescription
 } from "@/components/ui/dialog";
-import { Users, Search, Loader2, UserCheck } from "lucide-react";
+import { Users, Search, Loader2, UserCheck, Building2, Briefcase, Star } from "lucide-react";
 import { base44 } from "@/api/base44Client";
 import { toast } from "sonner";
+import { normalizarParaComparacao } from "../lib/userMatcher";
 
 export default function AtribuirConversaModal({
   isOpen,
@@ -125,14 +127,37 @@ export default function AtribuirConversaModal({
     }
   };
 
+  // Busca robusta usando normalizarParaComparacao (sem acentos, lowercase)
   const atendentesFiltrados = atendentes.filter(a => {
     if (!busca.trim()) return true;
-    const termo = busca.toLowerCase();
+    const termo = normalizarParaComparacao(busca);
     return (
-      (a.full_name || '').toLowerCase().includes(termo) ||
-      (a.email || '').toLowerCase().includes(termo)
+      normalizarParaComparacao(a.full_name || '').includes(termo) ||
+      normalizarParaComparacao(a.email || '').includes(termo) ||
+      normalizarParaComparacao(a.attendant_sector || '').includes(termo) ||
+      normalizarParaComparacao(a.attendant_role || '').includes(termo)
     );
   });
+
+  // Configuração de cores por setor
+  const setorConfig = {
+    'vendas': { cor: 'bg-emerald-500', label: 'Vendas', emoji: '💼' },
+    'assistencia': { cor: 'bg-blue-500', label: 'Assistência', emoji: '🔧' },
+    'financeiro': { cor: 'bg-purple-500', label: 'Financeiro', emoji: '💰' },
+    'fornecedor': { cor: 'bg-orange-500', label: 'Fornecedor', emoji: '🏭' },
+    'geral': { cor: 'bg-slate-500', label: 'Geral', emoji: '👥' }
+  };
+
+  // Configuração de cores por nível/role
+  const nivelConfig = {
+    'admin': { cor: 'bg-red-500', label: 'Admin' },
+    'gerente': { cor: 'bg-purple-600', label: 'Gerente' },
+    'coordenador': { cor: 'bg-indigo-500', label: 'Coordenador' },
+    'supervisor': { cor: 'bg-blue-600', label: 'Supervisor' },
+    'senior': { cor: 'bg-teal-500', label: 'Sênior' },
+    'pleno': { cor: 'bg-green-500', label: 'Pleno' },
+    'junior': { cor: 'bg-amber-500', label: 'Júnior' }
+  };
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -179,25 +204,53 @@ export default function AtribuirConversaModal({
             ) : atendentesFiltrados.length === 0 ? (
               <p className="text-center text-slate-500 py-4">Nenhum atendente encontrado</p>
             ) : (
-              atendentesFiltrados.map((atendente) => (
-                <button
-                  key={atendente.id}
-                  onClick={() => handleAtribuir(atendente.id)}
-                  disabled={atribuindo}
-                  className="w-full flex items-center gap-3 p-3 rounded-lg hover:bg-orange-50 transition-colors border border-slate-200 hover:border-orange-300"
-                >
-                  <div className="w-10 h-10 bg-gradient-to-br from-orange-400 to-amber-500 rounded-full flex items-center justify-center text-white font-bold">
-                    {(atendente.full_name || atendente.email || '?').charAt(0).toUpperCase()}
-                  </div>
-                  <div className="flex-1 text-left">
-                    <p className="font-medium text-slate-800">{atendente.full_name || atendente.email}</p>
-                    <p className="text-xs text-slate-500">{atendente.email}</p>
-                  </div>
-                  {thread && thread.assigned_user_id === atendente.id && (
-                    <UserCheck className="w-5 h-5 text-green-500" />
-                  )}
-                </button>
-              ))
+              atendentesFiltrados.map((atendente) => {
+                const setor = atendente.attendant_sector || 'geral';
+                const nivel = atendente.attendant_role || atendente.role || 'pleno';
+                const setorCfg = setorConfig[setor] || setorConfig['geral'];
+                const nivelCfg = nivelConfig[nivel] || nivelConfig['pleno'];
+                const isAtual = thread && thread.assigned_user_id === atendente.id;
+
+                return (
+                  <button
+                    key={atendente.id}
+                    onClick={() => handleAtribuir(atendente.id)}
+                    disabled={atribuindo || isAtual}
+                    className={`w-full flex items-center gap-3 p-3 rounded-lg transition-colors border ${
+                      isAtual 
+                        ? 'bg-green-50 border-green-300 cursor-not-allowed' 
+                        : 'hover:bg-orange-50 border-slate-200 hover:border-orange-300'
+                    }`}
+                  >
+                    <div className={`w-10 h-10 ${setorCfg.cor} rounded-full flex items-center justify-center text-white font-bold shadow-md`}>
+                      {(atendente.full_name || atendente.email || '?').charAt(0).toUpperCase()}
+                    </div>
+                    <div className="flex-1 text-left min-w-0">
+                      <div className="flex items-center gap-2">
+                        <p className="font-medium text-slate-800 truncate">{atendente.full_name || atendente.email}</p>
+                        {isAtual && <UserCheck className="w-4 h-4 text-green-500 flex-shrink-0" />}
+                      </div>
+                      <p className="text-xs text-slate-500 truncate">{atendente.email}</p>
+                      <div className="flex items-center gap-1 mt-1 flex-wrap">
+                        {/* Setor */}
+                        <span className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-semibold text-white ${setorCfg.cor}`}>
+                          {setorCfg.emoji} {setorCfg.label}
+                        </span>
+                        {/* Nível */}
+                        <span className={`inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-semibold text-white ${nivelCfg.cor}`}>
+                          {nivelCfg.label}
+                        </span>
+                        {/* Admin badge */}
+                        {atendente.role === 'admin' && (
+                          <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-semibold text-amber-700 bg-amber-100">
+                            <Star className="w-2.5 h-2.5" /> Admin
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </button>
+                );
+              })
             )}
           </div>
         </div>
