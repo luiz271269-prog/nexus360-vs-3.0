@@ -449,26 +449,28 @@ export default function Comunicacao() {
       const podeVerPorAtendente = atendentesVisiveis.length === 0 || 
         (thread.assigned_user_id && atendentesVisiveis.includes(thread.assigned_user_id));
 
-      // REGRAS DE VISUALIZAÇÃO:
-      // 1. Admin vê tudo
-      // 2. Usuário com pode_ver_todas_conversas vê tudo
-      // 3. Está atribuído ao usuário (2.1)
-      // 4. Usuário é fidelizado ao contato (2.2)
-      // 5. Conversa não atribuída E usuário pode ver não atribuídas (2.4)
-      // 6. Conversa está em setor visível OU atribuída a atendente visível
+      // REGRAS DE VISUALIZAÇÃO RESTRITIVAS:
+      // Usuário NÃO-admin só pode ver:
+      // 1. Conversas atribuídas a ele (assigned_user_id ou assigned_user_name)
+      // 2. Contatos fidelizados a ele (vendedor_responsavel ou atendente_fidelizado_*)
+      // 3. Conversas não atribuídas (se permitido E no setor dele)
+      // 
+      // Admin ou pode_ver_todas_conversas: vê tudo
       let podeVerConversa = false;
       
       if (isAdmin || podeVerTodas) {
         podeVerConversa = true;
       } else if (isAtribuidoAoUsuario) {
-        podeVerConversa = true; // 2.1 - Atribuído ao usuário
+        // 2.1 - Conversa está atribuída diretamente ao usuário
+        podeVerConversa = true;
       } else if (isFidelizadoAoUsuario) {
-        podeVerConversa = true; // 2.2 - Fidelizado ao usuário
-      } else if (isNaoAtribuida && podeVerNaoAtribuidas) {
-        podeVerConversa = podeVerPorSetor; // 2.4 - Não atribuída + permissão + setor
-      } else if (podeVerPorSetor && podeVerPorAtendente) {
-        podeVerConversa = true; // Pode ver por configuração de setor/atendente
+        // 2.2 - Contato é fidelizado ao usuário
+        podeVerConversa = true;
+      } else if (isNaoAtribuida && podeVerNaoAtribuidas && podeVerPorSetor) {
+        // 2.4 - Conversa não atribuída + permissão + setor compatível
+        podeVerConversa = true;
       }
+      // REMOVIDO: podeVerPorSetor && podeVerPorAtendente - não deve ver conversas de outros
       
       if (!podeVerConversa) {
         return false;
