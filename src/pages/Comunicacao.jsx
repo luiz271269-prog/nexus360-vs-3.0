@@ -83,32 +83,8 @@ export default function Comunicacao() {
   }, []);
 
   // ═══════════════════════════════════════════════════════════════════════════════
-  // 🔍 UNIFIED TOPIC - Busca unificada via função backend
+  // 🔍 BUSCA DE DADOS - Direto no frontend (sem função backend)
   // ═══════════════════════════════════════════════════════════════════════════════
-  const { data: unifiedTopicsData, isLoading: loadingTopics, refetch: refetchTopics } = useQuery({
-    queryKey: ['unified-topics', debouncedSearchTerm],
-    queryFn: async () => {
-      const params = new URLSearchParams();
-      if (debouncedSearchTerm) params.set('q', debouncedSearchTerm);
-      params.set('limit', '150');
-      
-      const response = await base44.functions.invoke('listarTopicosComunicacao', {
-        q: debouncedSearchTerm || '',
-        limit: 150
-      });
-      
-      return response?.data || { topics: [], total: 0 };
-    },
-    staleTime: 30000, // 30 segundos
-    cacheTime: 5 * 60 * 1000,
-    retry: 1,
-    refetchOnWindowFocus: false,
-    enabled: !!usuario
-  });
-
-  const unifiedTopics = unifiedTopicsData?.topics || [];
-
-  // Buscar contatos para lookup (necessário para ContactInfoPanel e outras funcionalidades)
   const { data: contatos = [], isLoading: loadingContatos } = useQuery({
     queryKey: ['contacts'],
     queryFn: () => base44.entities.Contact.list('-created_date', 300),
@@ -118,7 +94,6 @@ export default function Comunicacao() {
     refetchOnWindowFocus: false
   });
 
-  // Buscar Clientes para lookup
   const { data: clientes = [] } = useQuery({
     queryKey: ['clientes'],
     queryFn: () => base44.entities.Cliente.list('-created_date', 200),
@@ -128,7 +103,6 @@ export default function Comunicacao() {
     refetchOnWindowFocus: false
   });
 
-  // Buscar threads para funcionalidades que precisam do objeto thread real
   const { data: threads = [], isLoading: loadingThreads } = useQuery({
     queryKey: ['threads', usuario?.id],
     queryFn: async () => {
@@ -142,6 +116,8 @@ export default function Comunicacao() {
     retry: 1,
     refetchOnWindowFocus: false
   });
+
+  const loadingTopics = loadingThreads;
 
   const { data: mensagens = [] } = useQuery({
     queryKey: ['mensagens', threadAtiva?.id],
