@@ -337,19 +337,7 @@ export default function ChatSidebar({
             </Button>
           </div>
         </div>
-      ) : (
-        <div className="sticky top-0 z-10 bg-slate-50 border-b border-slate-200 p-2 flex items-center justify-end">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setModoSelecaoMultipla && setModoSelecaoMultipla(true)}
-            className="h-8 px-3 text-xs border-orange-300 text-orange-600 hover:bg-orange-50"
-          >
-            <CheckSquare className="w-4 h-4 mr-1" />
-            Selecionar
-          </Button>
-        </div>
-      )}
+      ) : null}
 
       {threadsSorted.map((thread, index) => {
         const contato = thread.contato;
