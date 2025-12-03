@@ -22,6 +22,11 @@ import {
 "./MotorRoteamentoAtendimento";
 import { useEtiquetasContato } from "./SeletorEtiquetasContato";
 import { Button } from "@/components/ui/button";
+import { 
+  contatoFidelizadoAoUsuario, 
+  contatoFidelizadoAOutro, 
+  getAtendenteFidelizadoNome 
+} from "../lib/userMatcher";
 
 export default function ChatSidebar({ 
   threads, 
@@ -50,21 +55,13 @@ export default function ChatSidebar({
   const { etiquetas: etiquetasDB, getConfig: getEtiquetaConfigDinamico } = useEtiquetasContato();
 
   // ═══════════════════════════════════════════════════════════════════════════════
-  // 🔐 FILTRO DE VISIBILIDADE - REGRAS CLARAS:
+  // 🔐 FILTRO DE VISIBILIDADE - REGRAS CLARAS (usando userMatcher centralizado):
   // 1. Contatos FIDELIZADOS: sempre visíveis para o atendente fidelizado
   // 2. Conversas ATRIBUÍDAS: visíveis apenas para o atendente atribuído
   // 3. Conversas NÃO ATRIBUÍDAS: visíveis se contato escolheu meu setor OU não tem setor
   // ═══════════════════════════════════════════════════════════════════════════════
   const threadsFiltradas = useMemo(() => {
     if (!threads || threads.length === 0) return [];
-
-    // Campos de fidelização por setor
-    const camposAtendenteFidelizado = {
-      'vendas': 'atendente_fidelizado_vendas',
-      'assistencia': 'atendente_fidelizado_assistencia',
-      'financeiro': 'atendente_fidelizado_financeiro',
-      'fornecedor': 'atendente_fidelizado_fornecedor'
-    };
 
     return threads.filter((thread) => {
       const contato = thread.contato;
@@ -77,8 +74,6 @@ export default function ChatSidebar({
 
       // Dados do usuário atual
       const currentUserId = usuarioAtual?.id;
-      const currentUserFullName = usuarioAtual?.full_name;
-      const currentUserEmail = usuarioAtual?.email;
       const currentUserSector = usuarioAtual?.attendant_sector || 'geral';
       const podeVerTodos = verificarPermissaoUsuario(usuarioAtual, 'ver_todos');
 
@@ -86,33 +81,14 @@ export default function ChatSidebar({
       if (podeVerTodos) return true;
 
       // ════════════════════════════════════════════════════════════════
-      // REGRA 1: MEUS FIDELIZADOS - SEMPRE VISÍVEIS
-      // Contato fidelizado a mim em QUALQUER setor = sempre aparece
+      // REGRA 1: MEUS FIDELIZADOS - SEMPRE VISÍVEIS (usando userMatcher)
       // ════════════════════════════════════════════════════════════════
-      let isFidelizadoAMim = false;
-      let setorFidelizado = null;
-      for (const [setor, campo] of Object.entries(camposAtendenteFidelizado)) {
-        const valorCampo = contato?.[campo];
-        if (valorCampo && (valorCampo === currentUserId || valorCampo === currentUserFullName || valorCampo === currentUserEmail)) {
-          isFidelizadoAMim = true;
-          setorFidelizado = setor;
-          break;
-        }
-      }
-      
-      // Também verificar vendedor_responsavel
-      const vendedorResp = contato?.vendedor_responsavel;
-      if (vendedorResp && (vendedorResp === currentUserId || vendedorResp === currentUserFullName || vendedorResp === currentUserEmail)) {
-        isFidelizadoAMim = true;
-      }
-
-      if (isFidelizadoAMim) {
-        return true; // REGRA 1: Sempre visível para meu atendente fidelizado
+      if (contatoFidelizadoAoUsuario(contato, usuarioAtual)) {
+        return true;
       }
 
       // ════════════════════════════════════════════════════════════════
       // REGRA 2: CONVERSA ATRIBUÍDA A MIM
-      // Se a conversa foi atribuída a mim, mostrar
       // ════════════════════════════════════════════════════════════════
       if (thread.assigned_user_id === currentUserId) {
         return true;
@@ -120,57 +96,37 @@ export default function ChatSidebar({
 
       // ════════════════════════════════════════════════════════════════
       // REGRA 3: CONVERSA ATRIBUÍDA A OUTRO = NÃO MOSTRAR
-      // Se já está atribuída a outro atendente, não mostrar
       // ════════════════════════════════════════════════════════════════
       if (thread.assigned_user_id && thread.assigned_user_id !== currentUserId) {
-        return false; // REGRA 2: Só aparece para outro se atribuída
+        return false;
       }
 
       // ════════════════════════════════════════════════════════════════
-      // REGRA: CONTATO FIDELIZADO A OUTRO = NÃO MOSTRAR
-      // Se está fidelizado a outro atendente, não mostrar
+      // REGRA 4: CONTATO FIDELIZADO A OUTRO = NÃO MOSTRAR (usando userMatcher)
       // ════════════════════════════════════════════════════════════════
-      let isFidelizadoAOutro = false;
-      for (const campo of Object.values(camposAtendenteFidelizado)) {
-        const valorCampo = contato?.[campo];
-        if (valorCampo && valorCampo !== currentUserId && valorCampo !== currentUserFullName && valorCampo !== currentUserEmail) {
-          isFidelizadoAOutro = true;
-          break;
-        }
-      }
-      // Verificar vendedor_responsavel também
-      if (vendedorResp && vendedorResp !== currentUserId && vendedorResp !== currentUserFullName && vendedorResp !== currentUserEmail) {
-        isFidelizadoAOutro = true;
-      }
-
-      if (isFidelizadoAOutro) {
-        return false; // Fidelizado a outro = não mostrar
+      if (contatoFidelizadoAOutro(contato, usuarioAtual)) {
+        return false;
       }
 
       // ════════════════════════════════════════════════════════════════
-      // REGRA 3: CONTATO ESCOLHEU OUTRO SETOR
-      // Se o contato escolheu um setor diferente do meu, não mostrar
+      // REGRA 5: CONTATO ESCOLHEU OUTRO SETOR
       // ════════════════════════════════════════════════════════════════
       const setorThread = thread.sector_id || 'geral';
       const meuSetor = currentUserSector || 'geral';
 
-      // Se tenho setor específico e a thread tem setor específico diferente
       if (meuSetor !== 'geral' && setorThread !== 'geral' && setorThread !== meuSetor) {
-        return false; // REGRA 3: Contato escolheu outro setor
+        return false;
       }
 
       // ════════════════════════════════════════════════════════════════
       // CONVERSA SEM ATRIBUIÇÃO + SEM FIDELIZAÇÃO + MEU SETOR = MOSTRAR
       // ════════════════════════════════════════════════════════════════
-      
-      // Verificar permissões de conexão WhatsApp
       const whatsappPerms = usuarioAtual?.whatsapp_permissions || [];
       if (whatsappPerms.length > 0 && thread.whatsapp_integration_id) {
         const permissao = whatsappPerms.find((p) => p.integration_id === thread.whatsapp_integration_id);
         if (!permissao || !permissao.can_view) return false;
       }
 
-      // Passou por todas as verificações = mostrar
       return true;
     });
   }, [threads, usuarioAtual]);
@@ -298,15 +254,8 @@ export default function ChatSidebar({
     setContatosSelecionados(todosContatos);
   };
 
-  // Função para obter nome do atendente fidelizado do contato
-  const getAtendenteFidelizado = (contato) => {
-    if (!contato) return null;
-    return contato.vendedor_responsavel || 
-           contato.atendente_fidelizado_vendas || 
-           contato.atendente_fidelizado_assistencia ||
-           contato.atendente_fidelizado_financeiro ||
-           contato.atendente_fidelizado_fornecedor;
-  };
+  // Função para obter nome do atendente fidelizado do contato (usando userMatcher)
+  const getAtendenteFidelizado = getAtendenteFidelizadoNome;
 
   return (
     <div className="relative">
