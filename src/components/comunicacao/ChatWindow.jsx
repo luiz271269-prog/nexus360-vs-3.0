@@ -135,10 +135,10 @@ export default function ChatWindow({
       try {
         const [vend, atend] = await Promise.all([
         base44.entities.Vendedor.list('nome'),
-        base44.entities.User.filter({ is_whatsapp_attendant: true }, 'full_name')]
-        );
+        base44.entities.User.filter({}, 'full_name') // Todos os usuários, sem filtro
+        ]);
         setVendedores(vend);
-        setAtendentesLista(atend);
+        setAtendentesLista(atend || []);
       } catch (error) {
         console.error('[ChatWindow] Erro ao carregar dados:', error);
       }
@@ -265,13 +265,21 @@ export default function ChatWindow({
   const carregarAtendentes = async () => {
     setCarregandoAtendentes(true);
     try {
-      // Buscar TODOS os usuários ativos (sem filtro de is_whatsapp_attendant)
-      const users = await base44.entities.User.list('full_name');
+      // Buscar TODOS os usuários do sistema (sem nenhum filtro)
+      const users = await base44.entities.User.filter({}, 'full_name');
       console.log('[CHAT] Usuários carregados para transferência:', users.length, users.map(u => u.full_name || u.email));
-      setAtendentes(users);
+      
+      // Filtrar apenas usuários com ID válido
+      const usuariosValidos = (users || []).filter(u => u && u.id);
+      setAtendentes(usuariosValidos);
+      
+      if (usuariosValidos.length === 0) {
+        console.warn('[CHAT] Nenhum usuário encontrado no sistema');
+      }
     } catch (error) {
       console.error('[CHAT] Erro ao carregar usuários:', error);
-      toast.error("Erro ao carregar lista de usuários");
+      // Tentar fallback com lista vazia
+      setAtendentes([]);
     } finally {
       setCarregandoAtendentes(false);
     }
