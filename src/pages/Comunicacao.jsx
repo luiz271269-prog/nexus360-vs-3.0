@@ -434,9 +434,12 @@ export default function Comunicacao() {
       const setoresVisiveis = permVisualizacao.setores_visiveis || [];
       const atendentesVisiveis = permVisualizacao.atendentes_visiveis || [];
       
-      const isAtribuidoAoUsuario = thread.assigned_user_id === usuario.id;
+      // Verificar atribuição - compara por ID, nome ou email
+      const isAtribuidoAoUsuario = thread.assigned_user_id === usuario.id || 
+        usuarioCorresponde(usuario, thread.assigned_user_id) ||
+        usuarioCorresponde(usuario, thread.assigned_user_name);
       const isFidelizadoAoUsuario = contatoFidelizadoAoUsuario(contato, usuario);
-      const isNaoAtribuida = !thread.assigned_user_id;
+      const isNaoAtribuida = !thread.assigned_user_id && !thread.assigned_user_name;
 
       // Verificar se pode ver por setor da conversa
       const setorThread = thread.sector_id || 'geral';
