@@ -21,7 +21,6 @@ import ChatWindow from "../components/comunicacao/ChatWindow";
 import ContactInfoPanel from "../components/comunicacao/ContactInfoPanel";
 import ConfiguracaoWhatsAppHub from "../components/comunicacao/ConfiguracaoWhatsAppHub";
 import DiagnosticoInbound from "../components/comunicacao/DiagnosticoInbound";
-import PlaybookManager from "../components/automacao/PlaybookManager"; // This import is now redundant but kept for safety if it's used elsewhere or if its removal is not explicit. The new component `BibliotecaAutomacoes` will be used instead in the UI.
 import SearchAndFilter from "../components/comunicacao/SearchAndFilter";
 import EmptyState from "../components/comunicacao/EmptyState";
 import WebhookInstructions from "../components/comunicacao/WebhookInstructions";
@@ -37,6 +36,7 @@ import BibliotecaAutomacoes from "../components/automacao/BibliotecaAutomacoes";
 import CentralControleOperacional from "../components/comunicacao/CentralControleOperacional";
 import DiagnosticoCirurgicoEmbed from "../components/comunicacao/DiagnosticoCirurgicoEmbed";
 import GerenciadorEtiquetasUnificado from "../components/comunicacao/GerenciadorEtiquetasUnificado";
+import { listarTopicosComunicacao } from "@/functions/listarTopicosComunicacao";
 
 export default function Comunicacao() {
   const [usuario, setUsuario] = useState(null);
@@ -62,6 +62,9 @@ export default function Comunicacao() {
   const [selectedTipoContato, setSelectedTipoContato] = useState('all');
   const [selectedTagContato, setSelectedTagContato] = useState('all');
 
+  // Estado para dados do cliente pré-preenchidos (quando clica em cliente_sem_contato)
+  const [contactInitialData, setContactInitialData] = useState(null);
+
   const queryClient = useQueryClient();
 
   useEffect(() => {
@@ -80,41 +83,60 @@ export default function Comunicacao() {
   }, []);
 
   // ═══════════════════════════════════════════════════════════════════════════════
-  // 🔍 BUSCA INTELIGENTE NO BANCO - Estilo Google
-  // Busca em Contact E Cliente quando há termo de busca
+  // 🔍 UNIFIED TOPIC - Busca unificada via função backend
   // ═══════════════════════════════════════════════════════════════════════════════
-  // ═══════════════════════════════════════════════════════════════════════════════
-  // 🔍 OTIMIZADO: Busca única de contatos com cache longo para evitar rate limit
-  // ═══════════════════════════════════════════════════════════════════════════════
+  const { data: unifiedTopicsData, isLoading: loadingTopics, refetch: refetchTopics } = useQuery({
+    queryKey: ['unified-topics', debouncedSearchTerm],
+    queryFn: async () => {
+      const params = new URLSearchParams();
+      if (debouncedSearchTerm) params.set('q', debouncedSearchTerm);
+      params.set('limit', '150');
+      
+      const response = await base44.functions.invoke('listarTopicosComunicacao', {
+        q: debouncedSearchTerm || '',
+        limit: 150
+      });
+      
+      return response?.data || { topics: [], total: 0 };
+    },
+    staleTime: 30000, // 30 segundos
+    cacheTime: 5 * 60 * 1000,
+    retry: 1,
+    refetchOnWindowFocus: false,
+    enabled: !!usuario
+  });
+
+  const unifiedTopics = unifiedTopicsData?.topics || [];
+
+  // Buscar contatos para lookup (necessário para ContactInfoPanel e outras funcionalidades)
   const { data: contatos = [], isLoading: loadingContatos } = useQuery({
     queryKey: ['contacts'],
     queryFn: () => base44.entities.Contact.list('-created_date', 300),
-    staleTime: 10 * 60 * 1000, // 10 minutos
+    staleTime: 10 * 60 * 1000,
     cacheTime: 15 * 60 * 1000,
     retry: 1,
     refetchOnWindowFocus: false
   });
 
-  // Buscar Clientes com cache longo para evitar rate limit
+  // Buscar Clientes para lookup
   const { data: clientes = [] } = useQuery({
     queryKey: ['clientes'],
     queryFn: () => base44.entities.Cliente.list('-created_date', 200),
-    staleTime: 10 * 60 * 1000, // 10 minutos
+    staleTime: 10 * 60 * 1000,
     cacheTime: 15 * 60 * 1000,
     retry: 1,
     refetchOnWindowFocus: false
   });
 
+  // Buscar threads para funcionalidades que precisam do objeto thread real
   const { data: threads = [], isLoading: loadingThreads } = useQuery({
     queryKey: ['threads', usuario?.id],
     queryFn: async () => {
       if (!usuario) return [];
-      
-      // ⚡ Buscar TODAS as threads sem restrições
       const allThreads = await base44.entities.MessageThread.list('-last_message_at', 100);
       return allThreads;
     },
-    refetchInterval: 30000, // Aumentado para 30s para evitar rate limit
+    refetchInterval: 30000,
     staleTime: 15000,
     enabled: !!usuario,
     retry: 1,
@@ -182,38 +204,69 @@ export default function Comunicacao() {
     refetchOnWindowFocus: false
   });
 
-  const handleSelecionarThread = useCallback(async (thread) => {
-    console.log('🔴 Selecionando thread:', thread.id, thread);
+  // ═══════════════════════════════════════════════════════════════════════════════
+  // 🎯 UNIFIED TOPIC HANDLER - Lógica centralizada de seleção
+  // ═══════════════════════════════════════════════════════════════════════════════
+  const handleSelectTopic = useCallback(async (topic) => {
+    console.log('🎯 [UnifiedTopic] Selecionando:', topic.origin, topic.id);
     setCriandoNovoContato(false);
     setNovoContatoTelefone("");
     setShowContactInfo(false);
+    setContactInitialData(null);
 
-    // Se é um contato sem thread (pseudo-thread criada na busca), buscar a thread real
-    if (thread.is_contact_only && thread.contact_id) {
+    // ═══════════════════════════════════════════════════════════════════════════════
+    // CASO 1: CLIENTE SEM CONTATO - Abrir painel de criação de contato pré-preenchido
+    // ═══════════════════════════════════════════════════════════════════════════════
+    if (topic.origin === 'cliente_sem_contato') {
+      console.log('💎 [UnifiedTopic] Cliente sem contato - abrindo criação pré-preenchida');
+      
+      // Pré-preencher com dados do cliente
+      setContactInitialData({
+        cliente_id: topic.cliente_id,
+        empresa: topic.empresa,
+        nome: topic.nome_exibicao,
+        telefone: topic.telefone,
+        vendedor_responsavel: topic.vendedor_responsavel,
+        ramo_atividade: topic.ramo_atividade,
+        tipo_contato: 'cliente',
+        cargo: topic.cargo || '',
+        email: topic.email || ''
+      });
+      setNovoContatoTelefone(topic.telefone || '');
+      setCriandoNovoContato(true);
+      setShowContactInfo(true);
+      setThreadAtiva(null);
+      toast.info('💎 Cliente sem contato. Preencha os dados para criar o contato.');
+      return;
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════════
+    // CASO 2: CONTATO SEM THREAD - Buscar/criar thread e abrir conversa
+    // ═══════════════════════════════════════════════════════════════════════════════
+    if (topic.origin === 'contato_sem_thread') {
+      console.log('📋 [UnifiedTopic] Contato sem thread - buscando/criando thread');
+      
       try {
         // Buscar thread existente para este contato
-        const threadsExistentes = await base44.entities.MessageThread.filter({ contact_id: thread.contact_id });
+        const threadsExistentes = await base44.entities.MessageThread.filter({ contact_id: topic.contato_id });
         
         if (threadsExistentes && threadsExistentes.length > 0) {
-          // Já existe thread, usar ela
           console.log('✅ Thread existente encontrada:', threadsExistentes[0].id);
           setThreadAtiva(threadsExistentes[0]);
           return;
         }
 
-        // Não existe thread - abrir painel de contato para iniciar conversa
-        console.log('⚠️ Contato sem thread, abrindo painel de detalhes');
-        toast.info('📋 Contato sem conversa ativa. Envie uma mensagem para iniciar.');
-        
-        // Criar thread temporária para permitir envio
+        // Criar nova thread
         const integracaoAtiva = integracoes.find((i) => i.status === 'conectado');
         if (!integracaoAtiva) {
           toast.error('❌ Nenhuma integração WhatsApp ativa');
+          // Abrir painel de contato para edição
+          setShowContactInfo(true);
           return;
         }
 
         const novaThread = await base44.entities.MessageThread.create({
-          contact_id: thread.contact_id,
+          contact_id: topic.contato_id,
           whatsapp_integration_id: integracaoAtiva.id,
           status: 'aberta',
           unread_count: 0,
@@ -222,51 +275,49 @@ export default function Comunicacao() {
         });
 
         await queryClient.invalidateQueries({ queryKey: ['threads'] });
+        await queryClient.invalidateQueries({ queryKey: ['unified-topics'] });
         setThreadAtiva(novaThread);
+        toast.info('📋 Conversa iniciada. Envie uma mensagem.');
         return;
       } catch (error) {
-        console.error('[Comunicacao] Erro ao buscar/criar thread:', error);
+        console.error('[UnifiedTopic] Erro ao buscar/criar thread:', error);
         toast.error('Erro ao abrir conversa');
         return;
       }
     }
-    
-    // Se a thread tem ID que começa com "contato-sem-thread-", é uma pseudo-thread
-    if (thread.id && String(thread.id).startsWith('contato-sem-thread-')) {
-      const realContactId = thread.contact_id;
-      if (realContactId) {
-        try {
-          const threadsExistentes = await base44.entities.MessageThread.filter({ contact_id: realContactId });
-          
-          if (threadsExistentes && threadsExistentes.length > 0) {
-            console.log('✅ Thread real encontrada para pseudo-thread:', threadsExistentes[0].id);
-            setThreadAtiva(threadsExistentes[0]);
-            return;
-          }
-          
-          // Criar thread nova
-          const integracaoAtiva = integracoes.find((i) => i.status === 'conectado');
-          if (integracaoAtiva) {
-            const novaThread = await base44.entities.MessageThread.create({
-              contact_id: realContactId,
-              whatsapp_integration_id: integracaoAtiva.id,
-              status: 'aberta',
-              unread_count: 0
-            });
-            await queryClient.invalidateQueries({ queryKey: ['threads'] });
-            setThreadAtiva(novaThread);
-            toast.info('📋 Conversa iniciada. Envie uma mensagem.');
-            return;
-          }
-        } catch (error) {
-          console.error('[Comunicacao] Erro ao resolver pseudo-thread:', error);
-        }
+
+    // ═══════════════════════════════════════════════════════════════════════════════
+    // CASO 3: THREAD EXISTENTE - Buscar thread real e abrir conversa
+    // ═══════════════════════════════════════════════════════════════════════════════
+    if (topic.origin === 'thread' && topic.thread_id) {
+      console.log('💬 [UnifiedTopic] Thread existente:', topic.thread_id);
+      
+      // Buscar thread real pelo ID
+      const threadReal = threads.find(t => t.id === topic.thread_id);
+      if (threadReal) {
+        setThreadAtiva(threadReal);
+      } else {
+        // Fallback: criar objeto thread mínimo com dados do topic
+        setThreadAtiva({
+          id: topic.thread_id,
+          contact_id: topic.contato_id,
+          last_message_at: topic.last_message_at,
+          last_message_content: topic.last_message_content,
+          unread_count: topic.unread_count,
+          status: topic.status,
+          assigned_user_id: topic.assigned_user_id,
+          assigned_user_name: topic.assigned_user_name,
+          whatsapp_integration_id: topic.whatsapp_integration_id
+        });
       }
+      return;
     }
 
-    // Thread normal
-    setThreadAtiva(thread);
-  }, [integracoes, queryClient]);
+    console.warn('[UnifiedTopic] Tipo de tópico não reconhecido:', topic);
+  }, [integracoes, queryClient, threads]);
+
+  // Manter compatibilidade com código legado
+  const handleSelecionarThread = handleSelectTopic;
 
   // RESTAURADO: Handler para criar novo contato
   const handleCriarNovoContato = useCallback(async (dadosContato) => {
@@ -474,182 +525,118 @@ export default function Comunicacao() {
     return true;
   }, [selectedTipoContato, selectedTagContato, debouncedSearchTerm, verificarContatoPertenceAoAtendente, matchBuscaGoogle]);
 
-  const threadsFiltradas = React.useMemo(() => {
-    // 🗺️ Criar maps para lookups O(1)
-    const contatosMap = new Map(contatos.map(c => [c.id, c]));
+  // ═══════════════════════════════════════════════════════════════════════════════
+  // 🎯 UNIFIED TOPICS FILTRADOS - Aplicar filtros locais sobre os dados unificados
+  // ═══════════════════════════════════════════════════════════════════════════════
+  const topicsFiltrados = React.useMemo(() => {
+    if (!unifiedTopics || unifiedTopics.length === 0) return [];
+
     const categoriasSet = selectedCategoria !== 'all' ? new Set(mensagensComCategoria.map(m => m.thread_id)) : null;
     const permMap = usuario?.role !== 'admin' && usuario?.whatsapp_permissions?.length > 0
       ? new Map(usuario.whatsapp_permissions.map(p => [p.integration_id, p.can_view]))
       : null;
 
-    // 🗺️ Criar map de Clientes por telefone/CNPJ para enriquecer busca
-    const clientesMap = new Map();
-    clientes.forEach(cli => {
-      if (cli.telefone) clientesMap.set(cli.telefone.replace(/\D/g, ''), cli);
-      if (cli.cnpj) clientesMap.set(cli.cnpj.replace(/\D/g, ''), cli);
-    });
-
-    // 🔍 Buscar info do atendente selecionado
     const atendentesMap = new Map(atendentes.map(a => [a.id, a]));
     const atendenteInfo = selectedAttendantId && selectedAttendantId !== 'all' 
       ? atendentesMap.get(selectedAttendantId) 
       : null;
 
-    // ═══════════════════════════════════════════════════════════════════════════════
-    // PARTE 1: Filtrar THREADS existentes
-    // BUSCA POR TEXTO: Mostra TODOS os resultados, independente de atendente
-    // ═══════════════════════════════════════════════════════════════════════════════
     const temBuscaPorTexto = !!debouncedSearchTerm;
-    const threadsComContatoIds = new Set();
-    const threadsFiltrados = threads.filter(thread => {
-      const contato = contatosMap.get(thread.contact_id);
-      if (!contato) return false;
 
-      threadsComContatoIds.add(thread.contact_id);
-
-      // ✅ FILTRO POR ATENDENTE - IGNORADO quando há busca por texto!
-      if (atendenteInfo && !temBuscaPorTexto) {
-        const threadAtribuidaAoAtendente = thread.assigned_user_id === atendenteInfo.id;
-        const contatoFidelizadoAoAtendente = verificarContatoPertenceAoAtendente(contato, atendenteInfo);
-        
-        // Mostrar APENAS se atribuída OU fidelizada ao atendente selecionado
-        if (!threadAtribuidaAoAtendente && !contatoFidelizadoAoAtendente) {
-          return false;
-        }
+    return unifiedTopics.filter(topic => {
+      // Filtro por atendente (ignorado quando há busca)
+      if (atendenteInfo && !temBuscaPorTexto && topic.origin === 'thread') {
+        const threadAtribuidaAoAtendente = topic.assigned_user_id === atendenteInfo.id;
+        if (!threadAtribuidaAoAtendente) return false;
       }
 
-      // Filtro de integração
-      if (selectedIntegrationId !== 'all' && thread.whatsapp_integration_id !== selectedIntegrationId) {
+      // Filtro de integração (apenas para threads)
+      if (selectedIntegrationId !== 'all' && topic.whatsapp_integration_id && topic.whatsapp_integration_id !== selectedIntegrationId) {
         return false;
       }
 
-      // Filtro de categoria
-      if (categoriasSet && !categoriasSet.has(thread.id)) {
+      // Filtro de categoria (apenas para threads)
+      if (categoriasSet && topic.thread_id && !categoriasSet.has(topic.thread_id)) {
         return false;
       }
 
       // Filtro de permissões
-      if (permMap && thread.whatsapp_integration_id) {
-        if (!permMap.get(thread.whatsapp_integration_id)) return false;
+      if (permMap && topic.whatsapp_integration_id) {
+        if (!permMap.get(topic.whatsapp_integration_id)) return false;
       }
 
       // Filtro de tipo de contato
       if (selectedTipoContato && selectedTipoContato !== 'all') {
-        if (contato.tipo_contato !== selectedTipoContato) return false;
+        if (topic.tipo_contato !== selectedTipoContato) return false;
       }
 
       // Filtro de tag/destaque do contato
       if (selectedTagContato && selectedTagContato !== 'all') {
-        const tags = contato.tags || [];
+        const tags = topic.tags || [];
         if (!tags.includes(selectedTagContato)) return false;
-      }
-
-      // 🔍 BUSCA ESTILO GOOGLE - busca em qualquer parte, qualquer formato
-      if (debouncedSearchTerm && debouncedSearchTerm.trim().length >= 2) {
-        // Buscar no contato usando função Google
-        const matchContato = matchBuscaGoogle(contato, debouncedSearchTerm);
-        
-        // Também buscar no conteúdo da última mensagem
-        const termoNorm = normalizarParaBusca(debouncedSearchTerm);
-        const msgNorm = normalizarParaBusca(thread.last_message_content || '');
-        const matchMensagem = msgNorm.includes(termoNorm);
-        
-        if (!matchContato && !matchMensagem) return false;
       }
 
       return true;
     });
+  }, [unifiedTopics, atendentes, usuario?.role, selectedAttendantId, selectedIntegrationId, selectedCategoria, selectedTipoContato, selectedTagContato, debouncedSearchTerm, mensagensComCategoria]);
 
-    // ═══════════════════════════════════════════════════════════════════════════════
-    // PARTE 2: Adicionar CONTATOS SEM THREAD quando há busca
-    // ═══════════════════════════════════════════════════════════════════════════════
-    const temBuscaAtiva = debouncedSearchTerm && debouncedSearchTerm.trim().length >= 2;
-    
-    if (temBuscaAtiva) {
-      const contatosSemThread = [];
-      
-      // 1. Buscar em Contatos
-      contatos.forEach(contato => {
-        // Pular contatos que já têm thread
-        if (threadsComContatoIds.has(contato.id)) return;
-        
-        // Pular contatos bloqueados
-        if (contato.bloqueado) return;
-
-        // Verificar se passa na busca
-        if (!matchBuscaGoogle(contato, debouncedSearchTerm)) return;
-
-        // Criar "pseudo-thread" para exibição
-        contatosSemThread.push({
-          id: `contato-sem-thread-${contato.id}`,
-          contact_id: contato.id,
-          is_contact_only: true,
-          last_message_at: contato.ultima_interacao || contato.created_date,
-          last_message_content: null,
-          unread_count: 0,
-          status: 'sem_conversa',
-          assigned_user_id: null,
-          assigned_user_name: null
-        });
-      });
-
-      // 2. Buscar em Clientes (entidade separada)
-      clientes.forEach(cliente => {
-        // Verificar se passa na busca
-        if (!matchBuscaGoogle(cliente, debouncedSearchTerm)) return;
-        
-        // Verificar se já existe um contato correspondente (pelo telefone)
-        const telefoneCliente = (cliente.telefone || '').replace(/\D/g, '');
-        const contatoExistente = contatos.find(c => {
-          const telContato = (c.telefone || '').replace(/\D/g, '');
-          return telContato && telefoneCliente && telContato === telefoneCliente;
-        });
-        
-        if (contatoExistente) return; // Já foi adicionado como contato
-        
-        // Criar "pseudo-thread" para cliente sem contato
-        contatosSemThread.push({
-          id: `cliente-sem-contato-${cliente.id}`,
-          contact_id: null,
-          cliente_id: cliente.id,
-          is_cliente_only: true,
-          last_message_at: cliente.ultimo_contato || cliente.created_date,
-          last_message_content: null,
-          unread_count: 0,
-          status: 'sem_conversa',
-          assigned_user_id: null,
-          assigned_user_name: null,
-          // Dados do cliente para exibição
-          contato: {
-            id: `cli-${cliente.id}`,
-            nome: cliente.razao_social || cliente.nome_fantasia || cliente.contato_principal_nome,
-            empresa: cliente.nome_fantasia || cliente.razao_social,
-            telefone: cliente.telefone,
-            email: cliente.email,
-            cargo: cliente.contato_principal_cargo,
-            tipo_contato: 'cliente',
-            tags: [],
-            is_from_cliente: true
-          }
-        });
-      });
-
-      return [...threadsFiltrados, ...contatosSemThread];
-    }
-
-    return threadsFiltrados;
-  }, [threads, contatos, clientes, atendentes, usuario?.id, usuario?.role, selectedAttendantId, selectedIntegrationId, selectedCategoria, selectedTipoContato, selectedTagContato, debouncedSearchTerm, mensagensComCategoria, verificarContatoPertenceAoAtendente, contatoPassaNosFiltros, matchBuscaGoogle, extrairNumeros]);
-
+  // Converter UnifiedTopics para formato compatível com ChatSidebar
   const threadsComContato = React.useMemo(() => {
     const contatosMap = new Map(contatos.map(c => [c.id, c]));
     const atendentesMap = new Map(atendentes.map(a => [a.id, a]));
 
-    return threadsFiltradas.map(thread => ({
-      ...thread,
-      contato: contatosMap.get(thread.contact_id),
-      atendente_atribuido: atendentesMap.get(thread.assigned_user_id)
-    }));
-  }, [threadsFiltradas, contatos, atendentes]);
+    return topicsFiltrados.map(topic => {
+      // Buscar contato real se existir
+      const contatoReal = topic.contato_id ? contatosMap.get(topic.contato_id) : null;
+
+      // Criar objeto de contato para exibição (do topic ou do banco)
+      const contato = contatoReal || {
+        id: topic.contato_id || `topic-${topic.id}`,
+        nome: topic.nome_exibicao,
+        empresa: topic.empresa,
+        telefone: topic.telefone,
+        email: topic.email,
+        cargo: topic.cargo,
+        tipo_contato: topic.tipo_contato,
+        tags: topic.tags || [],
+        vendedor_responsavel: topic.vendedor_responsavel,
+        ramo_atividade: topic.ramo_atividade,
+        is_from_cliente: topic.origin === 'cliente_sem_contato'
+      };
+
+      return {
+        // Dados do topic convertidos para formato de "thread"
+        id: topic.thread_id || topic.id,
+        contact_id: topic.contato_id,
+        cliente_id: topic.cliente_id,
+        
+        // Flags de origem
+        is_contact_only: topic.origin === 'contato_sem_thread',
+        is_cliente_only: topic.origin === 'cliente_sem_contato',
+        origin: topic.origin,
+        
+        // Dados da mensagem
+        last_message_at: topic.last_message_at,
+        last_message_content: topic.last_message_content,
+        last_message_sender: topic.last_message_sender,
+        last_media_type: topic.last_media_type,
+        unread_count: topic.unread_count,
+        status: topic.status,
+        
+        // Atribuição
+        assigned_user_id: topic.assigned_user_id,
+        assigned_user_name: topic.assigned_user_name,
+        whatsapp_integration_id: topic.whatsapp_integration_id,
+        
+        // Contato enriquecido
+        contato,
+        atendente_atribuido: atendentesMap.get(topic.assigned_user_id),
+
+        // Dados extras do UnifiedTopic (para handleSelectTopic)
+        _unifiedTopic: topic
+      };
+    });
+  }, [topicsFiltrados, contatos, atendentes]);
 
   const isManager = usuario?.role === 'admin' || usuario?.role === 'supervisor';
   const contatoAtivo = threadAtiva ? contatos.find((c) => c.id === threadAtiva.contact_id) : null;
@@ -699,20 +686,21 @@ export default function Comunicacao() {
               }
 
               <Button
-                variant="outline"
-                size="sm"
-                onClick={async () => {
-                  toast.info("Recarregando...");
-                  await Promise.all([
-                  queryClient.invalidateQueries({ queryKey: ['threads'] }),
-                  queryClient.invalidateQueries({ queryKey: ['contacts'] }),
-                  queryClient.invalidateQueries({ queryKey: ['integracoes'] }),
-                  queryClient.invalidateQueries({ queryKey: ['atendentes'] }),
-                  threadAtiva ? queryClient.invalidateQueries({ queryKey: ['mensagens', threadAtiva.id] }) : Promise.resolve()]
-                  );
-                  toast.success("Atualizado!");
-                }}
-                className="border-white/30 text-white hover:bg-white/20">
+              variant="outline"
+              size="sm"
+              onClick={async () => {
+                toast.info("Recarregando...");
+                await Promise.all([
+                queryClient.invalidateQueries({ queryKey: ['unified-topics'] }),
+                queryClient.invalidateQueries({ queryKey: ['threads'] }),
+                queryClient.invalidateQueries({ queryKey: ['contacts'] }),
+                queryClient.invalidateQueries({ queryKey: ['integracoes'] }),
+                queryClient.invalidateQueries({ queryKey: ['atendentes'] }),
+                threadAtiva ? queryClient.invalidateQueries({ queryKey: ['mensagens', threadAtiva.id] }) : Promise.resolve()]
+                );
+                toast.success("Atualizado!");
+              }}
+              className="border-white/30 text-white hover:bg-white/20">
 
                 <RefreshCw className="w-4 h-4 mr-2" />
                 Atualizar
@@ -799,8 +787,15 @@ export default function Comunicacao() {
                     <ChatSidebar
                       threads={threadsComContato}
                       threadAtiva={threadAtiva}
-                      onSelecionarThread={handleSelecionarThread}
-                      loading={loadingThreads}
+                      onSelecionarThread={(thread) => {
+                        // Se tem o UnifiedTopic original, usar ele
+                        if (thread._unifiedTopic) {
+                          handleSelectTopic(thread._unifiedTopic);
+                        } else {
+                          handleSelecionarThread(thread);
+                        }
+                      }}
+                      loading={loadingTopics || loadingThreads}
                       usuarioAtual={usuario}
                       integracoes={integracoes}
                       modoSelecaoMultipla={modoSelecaoMultipla}
@@ -845,17 +840,19 @@ export default function Comunicacao() {
                   criandoNovoContato ?
                   <>
                       <EmptyState
-                      message="Criar Novo Contato"
-                      subtitle="Preencha as informações ao lado" />
+                      message={contactInitialData ? "Criar Contato do Cliente" : "Criar Novo Contato"}
+                      subtitle={contactInitialData ? `Cliente: ${contactInitialData.empresa || contactInitialData.nome}` : "Preencha as informações ao lado"} />
 
                       
                       <ContactInfoPanel
                       contact={null}
                       novoContatoTelefone={novoContatoTelefone}
+                      defaultValues={contactInitialData}
                       onClose={() => {
                         setCriandoNovoContato(false);
                         setNovoContatoTelefone("");
                         setShowContactInfo(false);
+                        setContactInitialData(null);
                       }}
                       onUpdate={handleCriarNovoContato} />
 
