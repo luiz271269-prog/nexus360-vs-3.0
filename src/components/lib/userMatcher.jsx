@@ -45,7 +45,10 @@ export const valoresIguais = (valor1, valor2) => {
 
 /**
  * Verifica se um usuário corresponde a um valor de referência
- * O valor pode ser ID, nome completo, email, ou parte do email/nome
+ * O valor pode ser ID, nome completo ou email - COMPARAÇÃO ESTRITA
+ * 
+ * IMPORTANTE: NÃO usa comparações parciais (prefixo email, primeiro nome)
+ * para evitar falsos positivos como vendas5 vendo conversas de vendas1
  * 
  * @param {Object} usuario - Objeto do usuário com id, full_name, email
  * @param {string} valorReferencia - Valor a comparar (ID, nome ou email)
@@ -69,19 +72,9 @@ export const usuarioCorresponde = (usuario, valorReferencia) => {
   // Comparar com nome (para entidade Vendedor)
   if (usuario.nome && normalizarParaComparacao(usuario.nome) === ref) return true;
   
-  // Comparar prefixo do email (ex: "vendas5" com "vendas5@liesch.com.br")
-  if (usuario.email) {
-    const emailPrefix = normalizarParaComparacao(usuario.email.split('@')[0]);
-    if (emailPrefix === ref) return true;
-  }
-  
-  // Comparar se referência está contida no nome completo (ex: "Thiago" em "Thiago Silva")
-  if (usuario.full_name) {
-    const fullNameNorm = normalizarParaComparacao(usuario.full_name);
-    // Verifica se a referência é exatamente o primeiro nome
-    const primeiroNome = fullNameNorm.split(' ')[0];
-    if (primeiroNome === ref) return true;
-  }
+  // REMOVIDO: Comparações parciais que causavam falsos positivos
+  // - Prefixo de email (vendas5 vs vendas5@...)
+  // - Primeiro nome (Thiago vs Thiago Silva)
   
   return false;
 };
