@@ -47,6 +47,10 @@ export default function Comunicacao() {
   const [novoContatoTelefone, setNovoContatoTelefone] = useState("");
   const [criandoNovoContato, setCriandoNovoContato] = useState(false);
 
+  // Estados para seleção múltipla (broadcast)
+  const [modoSelecaoMultipla, setModoSelecaoMultipla] = useState(false);
+  const [contatosSelecionados, setContatosSelecionados] = useState([]);
+
   const [filterScope, setFilterScope] = useState('all');
   const [selectedAttendantId, setSelectedAttendantId] = useState(null);
   const [selectedIntegrationId, setSelectedIntegrationId] = useState('all');
@@ -676,7 +680,11 @@ export default function Comunicacao() {
                       onSelecionarThread={handleSelecionarThread}
                       loading={loadingThreads}
                       usuarioAtual={usuario}
-                      integracoes={integracoes} />
+                      integracoes={integracoes}
+                      modoSelecaoMultipla={modoSelecaoMultipla}
+                      setModoSelecaoMultipla={setModoSelecaoMultipla}
+                      contatosSelecionados={contatosSelecionados}
+                      setContatosSelecionados={setContatosSelecionados} />
 
                   </div>
                 </div>
@@ -693,7 +701,13 @@ export default function Comunicacao() {
                         onShowContactInfo={() => setShowContactInfo(!showContactInfo)}
                         onAtualizarMensagens={handleAtualizarMensagens}
                         integracoes={integracoes}
-                        selectedCategoria={selectedCategoria} />
+                        selectedCategoria={selectedCategoria}
+                        modoSelecaoMultipla={modoSelecaoMultipla}
+                        contatosSelecionados={contatosSelecionados}
+                        onCancelarSelecao={() => {
+                          setModoSelecaoMultipla(false);
+                          setContatosSelecionados([]);
+                        }} />
 
                       </div>
                       

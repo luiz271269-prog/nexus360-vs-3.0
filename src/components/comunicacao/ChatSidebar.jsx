@@ -21,14 +21,23 @@ import {
   verificarPermissaoUsuario } from
 "./MotorRoteamentoAtendimento";
 import { useEtiquetasContato } from "./SeletorEtiquetasContato";
-import BroadcastMessageModal from "./BroadcastMessageModal";
 import { Button } from "@/components/ui/button";
 
-export default function ChatSidebar({ threads, threadAtiva, onSelecionarThread, loading, usuarioAtual, integracoes = [] }) {
-  // Estados para seleção múltipla
-  const [modoSelecao, setModoSelecao] = useState(false);
-  const [contatosSelecionados, setContatosSelecionados] = useState([]);
-  const [showBroadcastModal, setShowBroadcastModal] = useState(false);
+export default function ChatSidebar({ 
+  threads, 
+  threadAtiva, 
+  onSelecionarThread, 
+  loading, 
+  usuarioAtual, 
+  integracoes = [],
+  // Props para seleção múltipla (controlados pelo pai)
+  modoSelecaoMultipla = false,
+  setModoSelecaoMultipla,
+  contatosSelecionados = [],
+  setContatosSelecionados
+}) {
+  // Estado local apenas para compatibilidade
+  const modoSelecao = modoSelecaoMultipla;
 
   // Buscar categorias dinâmicas
   const { data: categoriasDB = [] } = useQuery({
@@ -262,7 +271,7 @@ export default function ChatSidebar({ threads, threadAtiva, onSelecionarThread, 
 
   // Toggle seleção de contato
   const toggleSelecaoContato = (contato) => {
-    if (!contato) return;
+    if (!contato || !setContatosSelecionados) return;
     
     setContatosSelecionados(prev => {
       const jaExiste = prev.find(c => c.id === contato.id);
@@ -276,22 +285,17 @@ export default function ChatSidebar({ threads, threadAtiva, onSelecionarThread, 
 
   // Cancelar modo seleção
   const cancelarSelecao = () => {
-    setModoSelecao(false);
-    setContatosSelecionados([]);
+    if (setModoSelecaoMultipla) setModoSelecaoMultipla(false);
+    if (setContatosSelecionados) setContatosSelecionados([]);
   };
 
   // Selecionar todos visíveis
   const selecionarTodos = () => {
+    if (!setContatosSelecionados) return;
     const todosContatos = threadsSorted
       .map(t => t.contato)
       .filter(c => c && c.telefone);
     setContatosSelecionados(todosContatos);
-  };
-
-  // Obter integração padrão
-  const getIntegracaoPadrao = () => {
-    if (integracoes.length === 0) return null;
-    return integracoes[0].id;
   };
 
   // Função para obter nome do atendente fidelizado do contato
@@ -331,15 +335,6 @@ export default function ChatSidebar({ threads, threadAtiva, onSelecionarThread, 
             >
               Todos
             </Button>
-            <Button
-              size="sm"
-              onClick={() => setShowBroadcastModal(true)}
-              disabled={contatosSelecionados.length === 0}
-              className="bg-white text-orange-600 hover:bg-orange-50 h-8 px-3"
-            >
-              <Send className="w-4 h-4 mr-1" />
-              Enviar
-            </Button>
           </div>
         </div>
       ) : (
@@ -347,7 +342,7 @@ export default function ChatSidebar({ threads, threadAtiva, onSelecionarThread, 
           <Button
             variant="outline"
             size="sm"
-            onClick={() => setModoSelecao(true)}
+            onClick={() => setModoSelecaoMultipla && setModoSelecaoMultipla(true)}
             className="h-8 px-3 text-xs border-orange-300 text-orange-600 hover:bg-orange-50"
           >
             <CheckSquare className="w-4 h-4 mr-1" />
@@ -578,17 +573,6 @@ export default function ChatSidebar({ threads, threadAtiva, onSelecionarThread, 
 
       })}
 
-      {/* Modal de Broadcast */}
-      <BroadcastMessageModal
-        isOpen={showBroadcastModal}
-        onClose={() => {
-          setShowBroadcastModal(false);
-          cancelarSelecao();
-        }}
-        contatosSelecionados={contatosSelecionados}
-        integracaoId={getIntegracaoPadrao()}
-        usuario={usuarioAtual}
-      />
     </div>
   );
 
