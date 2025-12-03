@@ -36,19 +36,61 @@ export default function AtribuirConversaModal({
   const carregarTodosUsuarios = async () => {
     setCarregando(true);
     try {
-      // Usar list() sem nenhum parâmetro para buscar TODOS
-      const todosUsuarios = await base44.entities.User.list();
-      console.log('[AtribuirModal] Total de usuários encontrados:', todosUsuarios?.length || 0);
+      // Tentar múltiplas formas de buscar usuários
+      let todosUsuarios = [];
       
-      if (todosUsuarios && todosUsuarios.length > 0) {
-        setUsuarios(todosUsuarios);
-      } else {
-        console.warn('[AtribuirModal] Nenhum usuário retornado');
-        setUsuarios([]);
+      // Método 1: filter com is_active true ou false (pega todos)
+      try {
+        const ativos = await base44.entities.User.filter({ is_active: true });
+        const inativos = await base44.entities.User.filter({ is_active: false });
+        todosUsuarios = [...(ativos || []), ...(inativos || [])];
+        console.log('[AtribuirModal] Método filter is_active:', todosUsuarios.length);
+      } catch (e) {
+        console.log('[AtribuirModal] Método 1 falhou:', e.message);
+      }
+      
+      // Método 2: Se não encontrou, tentar list()
+      if (todosUsuarios.length === 0) {
+        try {
+          const lista = await base44.entities.User.list();
+          todosUsuarios = lista || [];
+          console.log('[AtribuirModal] Método list():', todosUsuarios.length);
+        } catch (e) {
+          console.log('[AtribuirModal] Método 2 falhou:', e.message);
+        }
+      }
+      
+      // Método 3: Se ainda não encontrou, buscar por roles
+      if (todosUsuarios.length === 0) {
+        try {
+          const admins = await base44.entities.User.filter({ role: 'admin' });
+          const users = await base44.entities.User.filter({ role: 'user' });
+          todosUsuarios = [...(admins || []), ...(users || [])];
+          console.log('[AtribuirModal] Método filter role:', todosUsuarios.length);
+        } catch (e) {
+          console.log('[AtribuirModal] Método 3 falhou:', e.message);
+        }
+      }
+      
+      // Remover duplicados por ID
+      const usuariosUnicos = [];
+      const idsVistos = new Set();
+      for (const u of todosUsuarios) {
+        if (u && u.id && !idsVistos.has(u.id)) {
+          idsVistos.add(u.id);
+          usuariosUnicos.push(u);
+        }
+      }
+      
+      console.log('[AtribuirModal] Total usuários únicos:', usuariosUnicos.length);
+      setUsuarios(usuariosUnicos);
+      
+      if (usuariosUnicos.length === 0) {
+        toast.warning("Nenhum usuário encontrado no sistema");
       }
     } catch (error) {
-      console.error('[AtribuirModal] Erro ao carregar usuários:', error);
-      toast.error("Erro ao carregar lista de usuários");
+      console.error('[AtribuirModal] Erro geral:', error);
+      toast.error("Erro ao carregar usuários");
       setUsuarios([]);
     } finally {
       setCarregando(false);
