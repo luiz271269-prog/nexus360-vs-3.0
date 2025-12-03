@@ -670,7 +670,9 @@ export default function Comunicacao() {
                     selectedTipoContato={selectedTipoContato}
                     onSelectedTipoContatoChange={setSelectedTipoContato}
                     selectedTagContato={selectedTagContato}
-                    onSelectedTagContatoChange={setSelectedTagContato} />
+                    onSelectedTagContatoChange={setSelectedTagContato}
+                    modoSelecaoMultipla={modoSelecaoMultipla}
+                    onModoSelecaoMultiplaChange={setModoSelecaoMultipla} />
 
 
                   <div className="flex-1 overflow-y-auto">
