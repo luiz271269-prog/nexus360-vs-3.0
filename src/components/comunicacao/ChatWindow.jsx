@@ -1797,12 +1797,52 @@ export default function ChatWindow({
           handleEnviar();
         }
       }} className="bg-[#d6dfe1] text-gray-950 px-3 rounded-lg border-t flex-shrink-0">
+
+        {/* Banner de Broadcast quando em modo seleção múltipla */}
+        {modoSelecaoMultipla && contatosSelecionados.length > 0 && (
+          <div className="mb-2 p-2 bg-gradient-to-r from-orange-500 to-amber-500 rounded-lg">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2 text-white">
+                <Users className="w-4 h-4" />
+                <span className="text-sm font-medium">
+                  Enviando para {contatosSelecionados.length} contato(s)
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={onCancelarSelecao}
+                className="text-white/80 hover:text-white text-xs underline"
+              >
+                Cancelar
+              </button>
+            </div>
+
+            {/* Barra de progresso durante envio */}
+            {enviandoBroadcast && (
+              <div className="mt-2">
+                <div className="flex items-center justify-between text-white text-xs mb-1">
+                  <span>Enviando...</span>
+                  <span>{progressoBroadcast.enviados + progressoBroadcast.erros} / {progressoBroadcast.total}</span>
+                </div>
+                <div className="w-full h-1.5 bg-white/30 rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-white transition-all duration-300"
+                    style={{
+                      width: `${((progressoBroadcast.enviados + progressoBroadcast.erros) / progressoBroadcast.total) * 100}%`
+                    }}
+                  />
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
         {/* Seletor de Canal WhatsApp */}
-        {integracoes.length > 1 &&
+        {integracoes.length > 1 && !modoSelecaoMultipla &&
         <div className="mb-2 flex items-center gap-2">
             <label className="text-gray-900 text-xs font-medium">Enviar por:</label>
             <select
-            value={canalSelecionado || thread.whatsapp_integration_id || ''}
+            value={canalSelecionado || thread?.whatsapp_integration_id || ''}
             onChange={(e) => setCanalSelecionado(e.target.value)} className="bg-[#778ca6] text-slate-50 px-2 py-1 text-xs rounded border border-slate-300">
 
 
@@ -1917,11 +1957,11 @@ export default function ChatWindow({
 
           <Button
             type="submit"
-            disabled={!mensagemTexto.trim() || enviando || carregandoContato || gravandoAudio || modoSelecao || uploadingPastedFile || !podeEnviarMensagens}
-            className="bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white flex-shrink-0"
-            title={!podeEnviarMensagens ? "Sem permissão para enviar mensagens" : "Enviar mensagem"}>
+            disabled={!mensagemTexto.trim() || enviando || enviandoBroadcast || carregandoContato || gravandoAudio || modoSelecao || uploadingPastedFile || !podeEnviarMensagens}
+            className={`${modoSelecaoMultipla && contatosSelecionados.length > 0 ? 'bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600' : 'bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700'} text-white flex-shrink-0`}
+            title={!podeEnviarMensagens ? "Sem permissão para enviar mensagens" : modoSelecaoMultipla ? `Enviar para ${contatosSelecionados.length} contato(s)` : "Enviar mensagem"}>
 
-              {enviando ?
+              {enviando || enviandoBroadcast ?
             <Loader2 className="w-5 h-5 animate-spin" /> :
 
             <Send className="w-5 h-5" />
