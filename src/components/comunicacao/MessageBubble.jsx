@@ -945,67 +945,99 @@ export default function MessageBubble({
             {/* ✅ DOCUMENTO - ESTILO WHATSAPP */}
             {message?.media_type === 'document' && (message?.media_url || message.content?.includes('[Documento]') || message.content?.includes('[Arquivo]')) &&
             <div className={cn(
-              "px-3 py-2 min-w-[180px] max-w-[280px]",
+              "px-3 py-2 min-w-[200px] max-w-[300px]",
               isOwn ? "text-white" : "text-slate-800"
             )}>
-                {!message?.media_url ? (
-                  <div className="flex items-center gap-2">
-                    <div className={cn(
-                      "w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0",
-                      isOwn ? "bg-white/20" : "bg-orange-50"
-                    )}>
-                      <FileIcon className={cn("w-5 h-5", isOwn ? "text-white" : "text-orange-600")} />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className={cn("text-xs font-medium truncate", isOwn ? "text-white" : "text-slate-900")}>
-                        {String(message?.content || 'Documento').replace('[Documento: ', '').replace('[Documento]', '').replace('[Arquivo]', '').replace(']', '').substring(0, 20) || 'Documento'}
-                      </p>
-                      <p className={cn("text-[10px]", isOwn ? "text-white/70" : "text-orange-600")}>
-                        Arquivo não disponível
-                      </p>
-                    </div>
-                  </div>
-                ) : message?.media_url?.includes('mmg.whatsapp.net') ? (
-                  <div className="flex items-center gap-2">
-                    <div className={cn(
-                      "w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0",
-                      isOwn ? "bg-white/20" : "bg-orange-50"
-                    )}>
-                      <FileIcon className={cn("w-5 h-5", isOwn ? "text-white" : "text-orange-600")} />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className={cn("text-xs font-medium truncate", isOwn ? "text-white" : "text-slate-900")}>
-                        {String(message?.content || 'Documento').replace('[Documento: ', '').replace(']', '').substring(0, 20)}
-                      </p>
-                      <p className={cn("text-[10px]", isOwn ? "text-white/70" : "text-orange-600")}>
-                        Arquivo temporário
-                      </p>
-                    </div>
-                  </div>
-                ) : (
-                <a
-                href={message?.media_url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center gap-2 hover:opacity-80 transition-opacity">
+                {(() => {
+                  // Extrair nome do arquivo do content
+                  const nomeArquivo = String(message?.content || 'Documento')
+                    .replace('[Documento: ', '')
+                    .replace('[Documento]', '')
+                    .replace('[Arquivo: ', '')
+                    .replace('[Arquivo]', '')
+                    .replace(']', '')
+                    .trim() || 'Documento';
 
-                  <div className={cn(
-                  "w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0",
-                  isOwn ? "bg-white/20" : "bg-blue-50"
-                )}>
-                    <FileIcon className={cn("w-5 h-5", isOwn ? "text-white" : "text-blue-600")} />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className={cn("text-xs font-medium truncate", isOwn ? "text-white" : "text-slate-900")}>
-                      {String(message?.content || 'Documento').replace('[Documento: ', '').replace(']', '').substring(0, 20)}
-                    </p>
-                    <p className={cn("text-[10px]", isOwn ? "text-white/70" : "text-slate-500")}>
-                      Clique para baixar
-                    </p>
-                  </div>
-                  <Download className={cn("w-4 h-4 flex-shrink-0", isOwn ? "text-white/70" : "text-slate-400")} />
-                </a>
-                )}
+                  // Verificar se URL é temporária (expira)
+                  const isUrlTemporaria = !message?.media_url || 
+                    message?.media_url?.includes('mmg.whatsapp.net') ||
+                    message?.media_url?.includes('z-api.io/instances') ||
+                    message?.media_url?.includes('w-api.app');
+
+                  // Verificar se mídia foi persistida
+                  const midiaPersistida = message?.metadata?.midia_persistida === true;
+
+                  // Determinar extensão do arquivo
+                  const extensao = nomeArquivo.includes('.') 
+                    ? nomeArquivo.split('.').pop()?.toUpperCase() 
+                    : 'PDF';
+
+                  // Cores por tipo de arquivo
+                  const coresExtensao = {
+                    'PDF': { bg: 'bg-red-500', icon: 'text-red-600', bgLight: 'bg-red-50' },
+                    'DOC': { bg: 'bg-blue-500', icon: 'text-blue-600', bgLight: 'bg-blue-50' },
+                    'DOCX': { bg: 'bg-blue-500', icon: 'text-blue-600', bgLight: 'bg-blue-50' },
+                    'XLS': { bg: 'bg-green-500', icon: 'text-green-600', bgLight: 'bg-green-50' },
+                    'XLSX': { bg: 'bg-green-500', icon: 'text-green-600', bgLight: 'bg-green-50' },
+                    'TXT': { bg: 'bg-slate-500', icon: 'text-slate-600', bgLight: 'bg-slate-50' },
+                    'ZIP': { bg: 'bg-amber-500', icon: 'text-amber-600', bgLight: 'bg-amber-50' },
+                  };
+                  const cores = coresExtensao[extensao] || { bg: 'bg-orange-500', icon: 'text-orange-600', bgLight: 'bg-orange-50' };
+
+                  // Se tem URL válida (persistida ou não temporária), mostrar como clicável
+                  if (message?.media_url && (midiaPersistida || !isUrlTemporaria)) {
+                    return (
+                      <a
+                        href={message.media_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center gap-3 hover:opacity-80 transition-opacity"
+                      >
+                        <div className={cn(
+                          "w-12 h-12 rounded-lg flex items-center justify-center flex-shrink-0",
+                          isOwn ? "bg-white/20" : cores.bgLight
+                        )}>
+                          <FileIcon className={cn("w-6 h-6", isOwn ? "text-white" : cores.icon)} />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className={cn("text-sm font-medium truncate", isOwn ? "text-white" : "text-slate-900")}>
+                            {nomeArquivo.length > 25 ? nomeArquivo.substring(0, 22) + '...' : nomeArquivo}
+                          </p>
+                          <p className={cn("text-[11px] flex items-center gap-1", isOwn ? "text-white/70" : "text-slate-500")}>
+                            <span className={cn("px-1.5 py-0.5 rounded text-[9px] font-bold text-white", cores.bg)}>
+                              {extensao}
+                            </span>
+                            <span>• Toque para abrir</span>
+                          </p>
+                        </div>
+                        <Download className={cn("w-5 h-5 flex-shrink-0", isOwn ? "text-white/70" : "text-slate-400")} />
+                      </a>
+                    );
+                  }
+
+                  // URL temporária ou sem URL - mostrar como não disponível mas com info
+                  return (
+                    <div className="flex items-center gap-3">
+                      <div className={cn(
+                        "w-12 h-12 rounded-lg flex items-center justify-center flex-shrink-0",
+                        isOwn ? "bg-white/20" : cores.bgLight
+                      )}>
+                        <FileIcon className={cn("w-6 h-6", isOwn ? "text-white" : cores.icon)} />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className={cn("text-sm font-medium truncate", isOwn ? "text-white" : "text-slate-900")}>
+                          {nomeArquivo.length > 25 ? nomeArquivo.substring(0, 22) + '...' : nomeArquivo}
+                        </p>
+                        <p className={cn("text-[11px] flex items-center gap-1", isOwn ? "text-white/70" : "text-slate-500")}>
+                          <span className={cn("px-1.5 py-0.5 rounded text-[9px] font-bold text-white", cores.bg)}>
+                            {extensao}
+                          </span>
+                          <span>• Arquivo recebido</span>
+                        </p>
+                      </div>
+                    </div>
+                  );
+                })()}
                 <div className="flex items-center justify-end gap-1 mt-2">
                   <span className={cn("text-[10px]", isOwn ? "text-white/70" : "text-slate-500")}>
                     {formatarHorario(message?.sent_at || message?.created_date)}
