@@ -568,6 +568,7 @@ export default function Comunicacao() {
     if (temBuscaAtiva) {
       const contatosSemThread = [];
       
+      // 1. Buscar em Contatos
       contatos.forEach(contato => {
         // Pular contatos que já têm thread
         if (threadsComContatoIds.has(contato.id)) return;
@@ -589,6 +590,47 @@ export default function Comunicacao() {
           status: 'sem_conversa',
           assigned_user_id: null,
           assigned_user_name: null
+        });
+      });
+
+      // 2. Buscar em Clientes (entidade separada)
+      clientes.forEach(cliente => {
+        // Verificar se passa na busca
+        if (!matchBuscaGoogle(cliente, debouncedSearchTerm)) return;
+        
+        // Verificar se já existe um contato correspondente (pelo telefone)
+        const telefoneCliente = (cliente.telefone || '').replace(/\D/g, '');
+        const contatoExistente = contatos.find(c => {
+          const telContato = (c.telefone || '').replace(/\D/g, '');
+          return telContato && telefoneCliente && telContato === telefoneCliente;
+        });
+        
+        if (contatoExistente) return; // Já foi adicionado como contato
+        
+        // Criar "pseudo-thread" para cliente sem contato
+        contatosSemThread.push({
+          id: `cliente-sem-contato-${cliente.id}`,
+          contact_id: null,
+          cliente_id: cliente.id,
+          is_cliente_only: true,
+          last_message_at: cliente.ultimo_contato || cliente.created_date,
+          last_message_content: null,
+          unread_count: 0,
+          status: 'sem_conversa',
+          assigned_user_id: null,
+          assigned_user_name: null,
+          // Dados do cliente para exibição
+          contato: {
+            id: `cli-${cliente.id}`,
+            nome: cliente.razao_social || cliente.nome_fantasia || cliente.contato_principal_nome,
+            empresa: cliente.nome_fantasia || cliente.razao_social,
+            telefone: cliente.telefone,
+            email: cliente.email,
+            cargo: cliente.contato_principal_cargo,
+            tipo_contato: 'cliente',
+            tags: [],
+            is_from_cliente: true
+          }
         });
       });
 
