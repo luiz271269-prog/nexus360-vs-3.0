@@ -193,7 +193,7 @@ export default function AtribuirConversaModal({
                     <p className="font-medium text-slate-800">{atendente.full_name || atendente.email}</p>
                     <p className="text-xs text-slate-500">{atendente.email}</p>
                   </div>
-                  {thread?.assigned_user_id === atendente.id && (
+                  {thread && thread.assigned_user_id === atendente.id && (
                     <UserCheck className="w-5 h-5 text-green-500" />
                   )}
                 </button>
