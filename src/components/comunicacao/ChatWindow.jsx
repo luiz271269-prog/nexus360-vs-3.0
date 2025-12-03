@@ -445,24 +445,9 @@ export default function ChatWindow({
       return;
     }
 
-    if (!thread || !usuario || carregandoContato) {
-      toast.error("Dados da conversa ou contato não disponíveis para enviar áudio.");
-      return;
-    }
-
-    if (!contatoCompleto) {
-      toast.error('Contato não carregado. Por favor, recarregue a página.');
-      return;
-    }
-
-    const telefone = contatoCompleto.telefone || contatoCompleto.celular;
-    if (!telefone) {
-      toast.error('Este contato não possui telefone cadastrado para enviar áudio.');
-      return;
-    }
-
     setEnviando(true);
     setErro(null);
+
     try {
       const timestamp = new Date().getTime();
       const audioFile = new File([audioBlob], `audio-${timestamp}.ogg`, {
@@ -470,11 +455,50 @@ export default function ChatWindow({
         lastModified: timestamp
       });
 
+      toast.info('📤 Fazendo upload do áudio...');
       const uploadResponse = await base44.integrations.Core.UploadFile({
         file: audioFile
       });
 
       const audioUrl = uploadResponse.file_url;
+
+      // ═══════════════════════════════════════════════════════════════════
+      // MODO BROADCAST: Enviar áudio para múltiplos contatos
+      // ═══════════════════════════════════════════════════════════════════
+      if (modoSelecaoMultipla && contatosSelecionados.length > 0) {
+        toast.info('📤 Enviando áudio para os contatos selecionados...');
+        
+        await handleEnviarBroadcast({
+          mediaUrl: audioUrl,
+          mediaType: 'audio',
+          isAudio: true
+        });
+
+        setEnviando(false);
+        return;
+      }
+
+      // ═══════════════════════════════════════════════════════════════════
+      // MODO INDIVIDUAL: Enviar para um contato específico
+      // ═══════════════════════════════════════════════════════════════════
+      if (!thread || !usuario || carregandoContato) {
+        toast.error("Dados da conversa ou contato não disponíveis para enviar áudio.");
+        setEnviando(false);
+        return;
+      }
+
+      if (!contatoCompleto) {
+        toast.error('Contato não carregado. Por favor, recarregue a página.');
+        setEnviando(false);
+        return;
+      }
+
+      const telefone = contatoCompleto.telefone || contatoCompleto.celular;
+      if (!telefone) {
+        toast.error('Este contato não possui telefone cadastrado para enviar áudio.');
+        setEnviando(false);
+        return;
+      }
 
       const integrationIdParaUso = canalSelecionado || thread.whatsapp_integration_id;
 
