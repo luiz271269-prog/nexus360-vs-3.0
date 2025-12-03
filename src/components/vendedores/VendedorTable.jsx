@@ -1,10 +1,10 @@
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { base44 } from '@/api/base44Client';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { MoreVertical, Edit, Trash2, User, Phone, Mail, CheckCircle, AlertCircle } from "lucide-react";
+import { MoreVertical, Edit, Trash2, User, Phone, Mail, DollarSign, Link as LinkIcon, CheckCircle, AlertCircle } from "lucide-react";
 
 // Função para formatar moeda
 const formatCurrency = (value) => {

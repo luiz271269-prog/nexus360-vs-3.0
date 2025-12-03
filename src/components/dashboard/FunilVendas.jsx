@@ -1,3 +1,4 @@
+import React from "react";
 import { Users, FileText, ShoppingCart } from "lucide-react";
 
 export default function FunilVendas({ orcamentos, vendas }) {

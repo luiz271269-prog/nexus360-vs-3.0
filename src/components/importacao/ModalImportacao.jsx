@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import UploadZone from './UploadZone';
 import GradeDadosEstruturados from './GradeDadosEstruturados';
 import { processarArquivo } from './MotorImportacao';

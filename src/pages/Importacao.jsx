@@ -1,11 +1,12 @@
 
-import { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import { base44 } from "@/api/base44Client";
 
 import { MotorIntegridade } from "../components/importacao/MotorIntegridade";
+import MotorInteligencia from "../components/agenda/MotorInteligencia";
 
 import { Button } from "@/components/ui/button";
-import { Upload, X } from "lucide-react";
+import { Brain, Upload, Settings, Database, X } from "lucide-react";
 import { toast } from 'react-hot-toast';
 
 import UploadZone from "../components/importacao/UploadZone";

@@ -1,5 +1,5 @@
 
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -8,10 +8,14 @@ import { Progress } from "@/components/ui/progress";
 import {
   Users,
   Plus,
+  TrendingUp,
+  Target,
   Award,
   Phone,
   MessageSquare,
   Mail,
+  Edit,
+  Trash2,
   Brain,
   Zap,
   AlertCircle,
@@ -24,6 +28,7 @@ import LembretesIAContextualizados from '../components/global/LembretesIAContext
 import AlertasInteligentesIA from '../components/global/AlertasInteligentesIA';
 import BotaoNexusFlutuante from '../components/global/BotaoNexusFlutuante';
 import { useNavigate } from 'react-router-dom';
+import { createPageUrl } from '@/utils';
 
 export default function Vendedores() {
   const navigate = useNavigate();

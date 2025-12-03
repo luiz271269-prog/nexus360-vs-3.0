@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { TipoDocumento } from "@/entities/TipoDocumento";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -7,7 +7,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { 
-  Plus, Edit, Trash2, Save, X, Settings, FileText, Code
+  Plus, Edit, Trash2, Save, X, Settings, FileText, 
+  Brain, Target, AlertTriangle, CheckCircle, Code, Layers
 } from "lucide-react";
 
 export default function EditorTipoDocumento({ tipos, onTiposChange }) {

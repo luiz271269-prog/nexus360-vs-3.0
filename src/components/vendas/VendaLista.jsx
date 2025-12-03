@@ -1,6 +1,7 @@
+import React from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { DollarSign, Calendar, User, ShoppingCart, CheckCircle, Clock, XCircle, Truck, Eye, Package } from "lucide-react";
+import { Edit, DollarSign, Calendar, User, ShoppingCart, CheckCircle, Clock, XCircle, Truck, Eye, Package } from "lucide-react";
 
 export default function VendaLista({ vendas, loading, onEditar }) {
   const getStatusInfo = (status) => {

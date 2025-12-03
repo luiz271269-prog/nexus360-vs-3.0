@@ -1,11 +1,14 @@
+import React from "react";
 import { InvokeLLM } from "@/integrations/Core";
 import { Cliente } from "@/entities/Cliente";
 import { ClienteScore } from "@/entities/ClienteScore";
 import { AutomationRule } from "@/entities/AutomationRule";
 import { AutomationExecution } from "@/entities/AutomationExecution";
+import { Vendedor } from "@/entities/Vendedor";
 import { Venda } from "@/entities/Venda";
 import { Orcamento } from "@/entities/Orcamento";
 import { Interacao } from "@/entities/Interacao";
+import { Message } from "@/entities/Message";
 
 export class MotorInteligencia {
   

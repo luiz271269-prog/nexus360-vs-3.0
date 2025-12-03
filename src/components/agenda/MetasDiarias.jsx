@@ -1,6 +1,7 @@
+import React from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
-import { Phone, Mail, MessageSquare } from 'lucide-react';
+import { Target, Phone, Mail, MessageSquare } from 'lucide-react';
 
 export default function MetasDiarias({ metas }) {
   const calcularProgresso = (feito, meta) => {

@@ -1,5 +1,7 @@
+import React from "react";
 import { Button } from "@/components/ui/button";
-import { X, Download } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { X, Download, Edit } from "lucide-react";
 
 export default function DetalhesModal({ 
   title, 

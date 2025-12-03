@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { Venda } from "@/entities/Venda";
 import { Orcamento } from "@/entities/Orcamento";
 import { InvokeLLM } from "@/integrations/Core";
@@ -7,6 +7,7 @@ import {
   TrendingUp, 
   Brain, 
   Target,
+  Calendar,
   DollarSign,
   Activity,
   AlertCircle

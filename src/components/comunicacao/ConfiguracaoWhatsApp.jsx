@@ -1,10 +1,10 @@
-import { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { WhatsAppIntegration } from "@/entities/WhatsAppIntegration";
-import { X, Smartphone, Zap, CheckCircle, AlertCircle, QrCode, Loader2, RefreshCw, WifiOff, Power, Settings, Trash2 } from "lucide-react";
+import { X, Smartphone, Zap, CheckCircle, AlertCircle, QrCode, Loader2, RefreshCw, Wifi, WifiOff, Power, Settings, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
 export default function ConfiguracaoWhatsApp({ onClose }) {

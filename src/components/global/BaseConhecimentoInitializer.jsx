@@ -1,5 +1,6 @@
-import { useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { base44 } from "@/api/base44Client";
+import { CheckCircle, BookOpen } from "lucide-react";
 
 /**
  * Componente silencioso que verifica se a Base de Conhecimento foi populada

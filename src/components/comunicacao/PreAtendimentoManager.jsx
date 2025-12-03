@@ -1,5 +1,5 @@
 
-import { useState } from "react";
+import React, { useState } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
@@ -11,19 +11,31 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
+  Plus,
   Edit,
   Trash2,
   Save,
   X,
   Shield,
+  Clock,
+  UserCheck,
+  Zap,
+  MessageSquare,
+  AlertCircle,
   CheckCircle,
   TrendingUp,
   Search,
-  Sparkles
+  Sparkles,
+  Loader2
 } from "lucide-react";
 import { toast } from "sonner";
-
-
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
 import ColetorIAUniversal from "../automacao/ColetorIAUniversal"; // Added import
 
 export default function PreAtendimentoManager({ categoriaFiltro = "all", searchTerm = "", onCategoriaChange, onSearchChange }) {

@@ -1,5 +1,7 @@
 
+import React from 'react';
 import { InvokeLLM } from "@/integrations/Core";
+import SistemaToolUse from "./SistemaToolUse";
 import RoteamentoInteligente from "./RoteamentoInteligente";
 import QualificadorLead from "./QualificadorLead";
 

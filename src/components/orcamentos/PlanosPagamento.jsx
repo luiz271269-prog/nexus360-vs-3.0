@@ -1,5 +1,5 @@
 
-import { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -11,9 +11,12 @@ import {
   Calculator, 
   CreditCard, 
   DollarSign, 
-  Banknote,
+  Banknote, 
+  Smartphone,
   Calendar,
   CheckCircle,
+  X,
+  Edit3,
   Loader2,
   Save
 } from 'lucide-react';

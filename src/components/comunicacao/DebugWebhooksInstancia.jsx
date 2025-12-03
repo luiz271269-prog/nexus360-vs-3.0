@@ -1,9 +1,10 @@
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { WebhookLog } from "@/entities/WebhookLog";
 import { RefreshCw, Bug, CheckCircle, AlertCircle, Clock, Database } from "lucide-react";
+import { toast } from "sonner";
 
 export default function DebugWebhooksInstancia({ integracao }) {
   const [logs, setLogs] = useState([]);

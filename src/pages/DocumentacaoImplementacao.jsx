@@ -1,8 +1,9 @@
 
+import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
-import { CheckCircle2, Clock, Rocket, Shield, FileSpreadsheet, Activity } from "lucide-react";
+import { CheckCircle2, Clock, AlertCircle, Rocket, Shield, FileSpreadsheet, Award, Activity } from "lucide-react";
 import AssistenteFase1 from "../components/comunicacao/AssistenteFase1";
 import AssistenteFase2 from "../components/comunicacao/AssistenteFase2";
 import AssistenteFase3 from "../components/comunicacao/AssistenteFase3";

@@ -1,5 +1,6 @@
-import { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { base44 } from '@/api/base44Client';
+import { toast } from 'sonner';
 
 // ✅ CACHE GLOBAL para evitar consultas repetidas
 const CACHE_NKDB = new Map();
