@@ -1,4 +1,3 @@
-
 import { createClient } from 'npm:@supabase/supabase-js@2.39.0';
 import { createHash } from 'node:crypto';
 
@@ -351,33 +350,114 @@ function sanitizeFilename(filename) {
     .substring(0, 150);
 }
 
-// Handler Deno Deploy
-Deno.serve((req) => { // Removed 'async' keyword as no await is performed here
-  // Exemplo de uso
-  const example = {
-    message: 'Download e persistência de mídia do WhatsApp',
-    version: '2.0-secure',
-    limits: {
-      max_file_size: `${MAX_FILE_SIZE / 1024 / 1024}MB`,
-      timeout: `${DOWNLOAD_TIMEOUT / 1000}s`
-    },
-    features: [
-      'Timeout automático',
-      'Validação de URL',
-      'Limite de tamanho',
-      'Detecção de duplicatas',
-      'Hash de conteúdo',
-      'Logs seguros'
-    ],
-    usage: {
-      function: 'downloadAndPersistMedia(tempUrl, metadata, integrationId)',
-      example: {
-        tempUrl: 'https://api.z-api.io/instances/ABC/media/XYZ.jpg',
-        metadata: { mimetype: 'image/jpeg', filename: 'foto.jpg' },
-        integrationId: 'whatsapp-integration-001'
-      }
-    }
+// Handler Deno Deploy - Endpoint para download de mídia
+Deno.serve(async (req) => {
+  const corsHeaders = {
+    'Content-Type': 'application/json',
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Methods': 'POST, GET, OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization',
   };
-  
-  return Response.json(example, { status: 200 });
+
+  // CORS preflight
+  if (req.method === 'OPTIONS') {
+    return new Response(null, { status: 204, headers: corsHeaders });
+  }
+
+  // GET - Retorna info sobre a função
+  if (req.method === 'GET') {
+    const example = {
+      message: 'Download e persistência de mídia do WhatsApp',
+      version: '2.0-secure',
+      limits: {
+        max_file_size: `${MAX_FILE_SIZE / 1024 / 1024}MB`,
+        timeout: `${DOWNLOAD_TIMEOUT / 1000}s`
+      },
+      features: [
+        'Timeout automático',
+        'Validação de URL',
+        'Limite de tamanho',
+        'Detecção de duplicatas',
+        'Hash de conteúdo',
+        'Logs seguros'
+      ],
+      usage: {
+        method: 'POST',
+        body: {
+          media_url: 'URL temporária da mídia',
+          media_type: 'image/video/audio/document',
+          integration_id: 'ID da integração WhatsApp',
+          filename: 'Nome do arquivo (opcional)'
+        }
+      }
+    };
+    return Response.json(example, { status: 200, headers: corsHeaders });
+  }
+
+  // POST - Processar download
+  if (req.method !== 'POST') {
+    return Response.json({ success: false, error: 'Método não suportado' }, { status: 405, headers: corsHeaders });
+  }
+
+  try {
+    let body;
+    try {
+      body = await req.json();
+    } catch {
+      return Response.json({ success: false, error: 'JSON inválido' }, { status: 400, headers: corsHeaders });
+    }
+
+    const { media_url, media_type, integration_id, filename, mimetype } = body;
+
+    if (!media_url) {
+      return Response.json({ success: false, error: 'media_url é obrigatório' }, { status: 400, headers: corsHeaders });
+    }
+
+    console.log(`[DownloadMedia] 📥 Iniciando download: ${media_url?.substring(0, 80)}...`);
+    console.log(`[DownloadMedia] 📎 Tipo: ${media_type} | Arquivo: ${filename || 'não informado'}`);
+
+    // Determinar mimetype com base no media_type se não fornecido
+    let mimeTypeFinal = mimetype;
+    if (!mimeTypeFinal && media_type) {
+      const mimeMap = {
+        'image': 'image/jpeg',
+        'video': 'video/mp4',
+        'audio': 'audio/ogg',
+        'document': 'application/pdf',
+        'sticker': 'image/webp'
+      };
+      mimeTypeFinal = mimeMap[media_type] || 'application/octet-stream';
+    }
+
+    // Chamar função de download
+    const result = await downloadAndPersistMedia(
+      media_url,
+      { 
+        mimetype: mimeTypeFinal, 
+        filename: filename || `${media_type || 'media'}_${Date.now()}`
+      },
+      integration_id || 'default'
+    );
+
+    console.log(`[DownloadMedia] ✅ Resultado: ${result.fallback ? 'FALLBACK' : 'SUCESSO'} | URL: ${result.url?.substring(0, 60)}...`);
+
+    return Response.json({
+      success: !result.fallback,
+      ...result
+    }, { 
+      status: 200, 
+      headers: corsHeaders 
+    });
+
+  } catch (error) {
+    console.error(`[DownloadMedia] ❌ Erro:`, error?.message || error);
+    return Response.json({
+      success: false,
+      error: error?.message || 'Erro interno',
+      fallback: true
+    }, { 
+      status: 500, 
+      headers: corsHeaders 
+    });
+  }
 });
