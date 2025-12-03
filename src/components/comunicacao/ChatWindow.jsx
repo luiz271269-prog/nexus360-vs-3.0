@@ -585,7 +585,7 @@ export default function ChatWindow({
     // Validar: precisa ter texto OU mídia
     const temTexto = mensagemTexto.trim().length > 0;
     const temMidia = !!mediaUrl;
-    
+
     if (!temTexto && !temMidia) {
       toast.error("Digite uma mensagem ou anexe uma mídia");
       return;
@@ -596,8 +596,12 @@ export default function ChatWindow({
       return;
     }
 
-    const integracaoAtiva = integracoes.find(i => i.status === 'conectado');
-    if (!integracaoAtiva) {
+    // Usar canal selecionado ou buscar integração ativa
+    const integracaoParaUsar = canalSelecionado 
+      ? integracoes.find(i => i.id === canalSelecionado && i.status === 'conectado')
+      : integracoes.find(i => i.status === 'conectado');
+
+    if (!integracaoParaUsar) {
       toast.error("Nenhuma integração WhatsApp ativa");
       return;
     }
