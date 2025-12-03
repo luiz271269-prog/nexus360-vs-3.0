@@ -482,6 +482,13 @@ export default function Comunicacao() {
       ? new Map(usuario.whatsapp_permissions.map(p => [p.integration_id, p.can_view]))
       : null;
 
+    // 🗺️ Criar map de Clientes por telefone/CNPJ para enriquecer busca
+    const clientesMap = new Map();
+    clientes.forEach(cli => {
+      if (cli.telefone) clientesMap.set(cli.telefone.replace(/\D/g, ''), cli);
+      if (cli.cnpj) clientesMap.set(cli.cnpj.replace(/\D/g, ''), cli);
+    });
+
     // 🔍 Buscar info do atendente selecionado
     const atendentesMap = new Map(atendentes.map(a => [a.id, a]));
     const atendenteInfo = selectedAttendantId && selectedAttendantId !== 'all' 
