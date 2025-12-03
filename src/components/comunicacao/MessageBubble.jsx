@@ -680,7 +680,7 @@ export default function MessageBubble({
             }
 
             {/* ✅ IMAGEM - ESTILO WHATSAPP */}
-            {message.media_type === 'image' && message.media_url &&
+            {message.media_type === 'image' && (message.media_url || message.content?.includes('[Imagem]')) &&
             <div className="relative overflow-hidden rounded-lg">
                 {message.media_url ?
               <ImageWithFallback
@@ -744,7 +744,7 @@ export default function MessageBubble({
             }
 
             {/* ✅ ÁUDIO - ESTILO WHATSAPP */}
-            {message?.media_type === 'audio' && message?.media_url &&
+            {message?.media_type === 'audio' && (message?.media_url || message.content?.includes('[Áudio]')) &&
             <div className={cn(
               "px-2 py-1.5 min-w-[160px] max-w-[240px]",
               isOwn ? "text-white" : "text-slate-800"
@@ -756,13 +756,21 @@ export default function MessageBubble({
                 )}>
                     <Play className={cn("w-4 h-4", isOwn ? "text-white" : "text-white")} />
                   </div>
-                  {message?.media_url?.includes('mmg.whatsapp.net') ? (
+                  {!message?.media_url ? (
                     <div className={cn(
                       "flex-1 flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs",
                       isOwn ? "bg-white/10 text-white/80" : "bg-slate-100 text-slate-600"
                     )}>
                       <Mic className="w-4 h-4 flex-shrink-0" />
-                      <span>Áudio recebido (arquivo temporário do WhatsApp)</span>
+                      <span>Áudio não disponível</span>
+                    </div>
+                  ) : message?.media_url?.includes('mmg.whatsapp.net') ? (
+                    <div className={cn(
+                      "flex-1 flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs",
+                      isOwn ? "bg-white/10 text-white/80" : "bg-slate-100 text-slate-600"
+                    )}>
+                      <Mic className="w-4 h-4 flex-shrink-0" />
+                      <span>Áudio recebido (arquivo temporário)</span>
                     </div>
                   ) : (
                     <audio
@@ -821,13 +829,22 @@ export default function MessageBubble({
             }
 
             {/* ✅ VÍDEO - ESTILO WHATSAPP */}
-            {message?.media_type === 'video' && message?.media_url &&
+            {message?.media_type === 'video' && (message?.media_url || message.content?.includes('[Vídeo]')) &&
             <div className="relative overflow-hidden rounded-lg">
+                {message?.media_url ? (
                 <video
                 src={message?.media_url}
                 controls
                 className="max-w-[280px] max-h-[280px] rounded-lg"
                 preload="metadata" />
+                ) : (
+                <div className="flex items-center justify-center bg-slate-100 rounded-2xl p-8 min-h-[120px]">
+                  <div className="text-center">
+                    <Play className="w-12 h-12 text-slate-400 mx-auto mb-2" />
+                    <p className="text-sm text-slate-500">Vídeo não disponível</p>
+                  </div>
+                </div>
+                )}
 
                 {message.media_caption &&
               <div className={cn(
@@ -926,12 +943,29 @@ export default function MessageBubble({
             }
 
             {/* ✅ DOCUMENTO - ESTILO WHATSAPP */}
-            {message?.media_type === 'document' && message?.media_url &&
+            {message?.media_type === 'document' && (message?.media_url || message.content?.includes('[Documento]') || message.content?.includes('[Arquivo]')) &&
             <div className={cn(
               "px-3 py-2 min-w-[180px] max-w-[280px]",
               isOwn ? "text-white" : "text-slate-800"
             )}>
-                {message?.media_url?.includes('mmg.whatsapp.net') ? (
+                {!message?.media_url ? (
+                  <div className="flex items-center gap-2">
+                    <div className={cn(
+                      "w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0",
+                      isOwn ? "bg-white/20" : "bg-orange-50"
+                    )}>
+                      <FileIcon className={cn("w-5 h-5", isOwn ? "text-white" : "text-orange-600")} />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className={cn("text-xs font-medium truncate", isOwn ? "text-white" : "text-slate-900")}>
+                        {String(message?.content || 'Documento').replace('[Documento: ', '').replace('[Documento]', '').replace('[Arquivo]', '').replace(']', '').substring(0, 20) || 'Documento'}
+                      </p>
+                      <p className={cn("text-[10px]", isOwn ? "text-white/70" : "text-orange-600")}>
+                        Arquivo não disponível
+                      </p>
+                    </div>
+                  </div>
+                ) : message?.media_url?.includes('mmg.whatsapp.net') ? (
                   <div className="flex items-center gap-2">
                     <div className={cn(
                       "w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0",
