@@ -22,24 +22,29 @@ import SegmentacaoInteligente from './SegmentacaoInteligente';
 import AtribuidorAtendenteRapido from './AtribuidorAtendenteRapido';
 import SeletorEtiquetasContato from './SeletorEtiquetasContato';
 
-export default function ContactInfoPanel({ contact, novoContatoTelefone, onClose, onUpdate, threadAtual }) {
+export default function ContactInfoPanel({ contact, novoContatoTelefone, onClose, onUpdate, threadAtual, defaultValues }) {
   const [vendedores, setVendedores] = useState([]);
   const [atendentes, setAtendentes] = useState([]);
   const [salvando, setSalvando] = useState(false);
   const [usuario, setUsuario] = useState(null);
 
-  const [formData, setFormData] = useState({
-    empresa: contact?.empresa || '',
-    cargo: contact?.cargo || '',
-    nome: contact?.nome || '',
-    tipo_contato: contact?.tipo_contato || 'lead',
-    vendedor_responsavel: contact?.vendedor_responsavel || '',
+  // Mesclar defaultValues (de cliente_sem_contato) com dados do contact
+  const initialData = {
+    empresa: defaultValues?.empresa || contact?.empresa || '',
+    cargo: defaultValues?.cargo || contact?.cargo || '',
+    nome: defaultValues?.nome || contact?.nome || '',
+    tipo_contato: defaultValues?.tipo_contato || contact?.tipo_contato || 'lead',
+    vendedor_responsavel: defaultValues?.vendedor_responsavel || contact?.vendedor_responsavel || '',
     atendente_fidelizado_vendas: contact?.atendente_fidelizado_vendas || '',
     atendente_fidelizado_fornecedor: contact?.atendente_fidelizado_fornecedor || '',
-    email: contact?.email || '',
-    telefone: novoContatoTelefone || contact?.telefone || '',
-    observacoes: contact?.observacoes || ''
-  });
+    email: defaultValues?.email || contact?.email || '',
+    telefone: novoContatoTelefone || defaultValues?.telefone || contact?.telefone || '',
+    observacoes: contact?.observacoes || '',
+    ramo_atividade: defaultValues?.ramo_atividade || contact?.ramo_atividade || '',
+    cliente_id: defaultValues?.cliente_id || contact?.cliente_id || null
+  };
+
+  const [formData, setFormData] = useState(initialData);
 
   useEffect(() => {
     const carregarUsuario = async () => {
@@ -73,10 +78,28 @@ export default function ContactInfoPanel({ contact, novoContatoTelefone, onClose
         atendente_fidelizado_fornecedor: contact.atendente_fidelizado_fornecedor || '',
         email: contact.email || '',
         telefone: contact.telefone || '',
-        observacoes: contact.observacoes || ''
+        observacoes: contact.observacoes || '',
+        ramo_atividade: contact.ramo_atividade || '',
+        cliente_id: contact.cliente_id || null
+      });
+    } else if (defaultValues) {
+      // Novo contato com dados pré-preenchidos (ex: cliente_sem_contato)
+      setFormData({
+        empresa: defaultValues.empresa || '',
+        cargo: defaultValues.cargo || '',
+        nome: defaultValues.nome || '',
+        tipo_contato: defaultValues.tipo_contato || 'lead',
+        vendedor_responsavel: defaultValues.vendedor_responsavel || '',
+        atendente_fidelizado_vendas: '',
+        atendente_fidelizado_fornecedor: '',
+        email: defaultValues.email || '',
+        telefone: novoContatoTelefone || defaultValues.telefone || '',
+        observacoes: '',
+        ramo_atividade: defaultValues.ramo_atividade || '',
+        cliente_id: defaultValues.cliente_id || null
       });
     }
-  }, [contact?.id, novoContatoTelefone]);
+  }, [contact?.id, novoContatoTelefone, defaultValues?.cliente_id]);
 
   const carregarVendedores = async () => {
     try {
@@ -129,7 +152,13 @@ export default function ContactInfoPanel({ contact, novoContatoTelefone, onClose
 
       const dadosParaSalvar = {
         ...formData,
-        telefone: telefoneNormalizado
+        telefone: telefoneNormalizado,
+        // Incluir cliente_id se veio de defaultValues (cliente_sem_contato)
+        ...(formData.cliente_id ? { cliente_id: formData.cliente_id } : {}),
+        ...(formData.ramo_atividade ? { 
+          ramo_atividade: formData.ramo_atividade,
+          ramo_atividade_origem: 'cliente' // Veio do cliente
+        } : {})
       };
 
       if (onUpdate) await onUpdate(dadosParaSalvar);
