@@ -336,8 +336,17 @@ export default function Comunicacao() {
 
   // ═══════════════════════════════════════════════════════════════════════════════
   // 🎯 REGRAS DE VISUALIZAÇÃO - PROCESSAMENTO LOCAL
-  // SEM BUSCA: Mostrar APENAS conversas WhatsApp ativas (threads) - igual WhatsApp
-  // COM BUSCA: Mostrar busca unificada (threads + contatos + clientes)
+  // ═══════════════════════════════════════════════════════════════════════════════
+  // 
+  // REGRA 2.1: Conversa atribuída ao usuário (assigned_user_id) → VISÍVEL
+  // REGRA 2.2: Contato fidelizado ao usuário → VISÍVEL (mesmo sem atribuição)
+  // REGRA 2.3: Permissões por integração WhatsApp → Obrigatório
+  // REGRA 2.4: Conversas não atribuídas → VISÍVEIS para usuários com permissão na integração
+  //
+  // PRIORIDADE (Regra 3):
+  // 1. 🟢 Threads ativas (conversas com mensagens)
+  // 2. 🟡 Contatos sem thread (apenas com busca)
+  // 3. 🔵 Clientes sem contato (apenas com busca)
   // ═══════════════════════════════════════════════════════════════════════════════
 
   // Função de busca estilo Google
@@ -372,11 +381,24 @@ export default function Comunicacao() {
   }, []);
 
   const threadsFiltradas = React.useMemo(() => {
+    if (!usuario) return [];
+
     const contatosMap = new Map(contatos.map(c => [c.id, c]));
     const categoriasSet = selectedCategoria !== 'all' ? new Set(mensagensComCategoria.map(m => m.thread_id)) : null;
-    const permMap = usuario?.role !== 'admin' && usuario?.whatsapp_permissions?.length > 0
+    
+    // Mapa de permissões por integração
+    const permMap = usuario.role !== 'admin' && usuario.whatsapp_permissions?.length > 0
       ? new Map(usuario.whatsapp_permissions.map(p => [p.integration_id, p.can_view]))
       : null;
+
+    // Verificar se usuário tem permissão para uma integração
+    const temPermissaoIntegracao = (integrationId) => {
+      if (usuario.role === 'admin') return true;
+      if (!permMap) return true; // Sem restrições definidas = acesso total
+      if (!integrationId) return true;
+      return permMap.get(integrationId) === true;
+    };
+
     const atendentesMap = new Map(atendentes.map(a => [a.id, a]));
     const atendenteInfo = selectedAttendantId && selectedAttendantId !== 'all' 
       ? atendentesMap.get(selectedAttendantId) 
@@ -385,20 +407,51 @@ export default function Comunicacao() {
     const temBuscaPorTexto = !!debouncedSearchTerm && debouncedSearchTerm.trim().length >= 2;
     const threadsComContatoIds = new Set();
 
-    // PARTE 1: Filtrar THREADS existentes
+    // ═══════════════════════════════════════════════════════════════════════════
+    // PARTE 1: Filtrar THREADS existentes com REGRAS DE VISUALIZAÇÃO
+    // ═══════════════════════════════════════════════════════════════════════════
     const threadsFiltrados = threads.filter(thread => {
       const contato = contatosMap.get(thread.contact_id);
       if (!contato) return false;
       
       threadsComContatoIds.add(thread.contact_id);
 
-      // Filtro por atendente (ignorado quando há busca)
-      if (atendenteInfo && !temBuscaPorTexto) {
-        const threadAtribuidaAoAtendente = thread.assigned_user_id === atendenteInfo.id;
-        if (!threadAtribuidaAoAtendente) return false;
+      // ═══════════════════════════════════════════════════════════════════════
+      // REGRA 2.3: Permissões por Integração de WhatsApp (OBRIGATÓRIO)
+      // Se não tem permissão na integração, NÃO mostra
+      // ═══════════════════════════════════════════════════════════════════════
+      if (!temPermissaoIntegracao(thread.whatsapp_integration_id)) {
+        return false;
       }
 
-      // Filtro de integração
+      // ═══════════════════════════════════════════════════════════════════════
+      // REGRAS 2.1, 2.2, 2.4: Quem pode ver a conversa?
+      // ═══════════════════════════════════════════════════════════════════════
+      const isAdmin = usuario.role === 'admin';
+      const isAtribuidoAoUsuario = thread.assigned_user_id === usuario.id;
+      const isFidelizadoAoUsuario = contatoFidelizadoAoUsuario(contato, usuario);
+      const isNaoAtribuida = !thread.assigned_user_id;
+
+      // Admin vê tudo
+      // OU está atribuído ao usuário (2.1)
+      // OU usuário é fidelizado ao contato (2.2)
+      // OU conversa não atribuída (2.4) - usuário pode "pegar"
+      const podeVerConversa = isAdmin || isAtribuidoAoUsuario || isFidelizadoAoUsuario || isNaoAtribuida;
+      
+      if (!podeVerConversa) {
+        return false;
+      }
+
+      // ═══════════════════════════════════════════════════════════════════════
+      // FILTROS ADICIONAIS (aplicados após regras de visualização)
+      // ═══════════════════════════════════════════════════════════════════════
+
+      // Filtro por atendente selecionado (dropdown)
+      if (atendenteInfo && !temBuscaPorTexto) {
+        if (thread.assigned_user_id !== atendenteInfo.id) return false;
+      }
+
+      // Filtro de integração selecionada
       if (selectedIntegrationId !== 'all' && thread.whatsapp_integration_id !== selectedIntegrationId) {
         return false;
       }
@@ -406,11 +459,6 @@ export default function Comunicacao() {
       // Filtro de categoria
       if (categoriasSet && !categoriasSet.has(thread.id)) {
         return false;
-      }
-
-      // Filtro de permissões
-      if (permMap && thread.whatsapp_integration_id) {
-        if (!permMap.get(thread.whatsapp_integration_id)) return false;
       }
 
       // Filtro de tipo de contato
@@ -432,7 +480,9 @@ export default function Comunicacao() {
       return true;
     });
 
+    // ═══════════════════════════════════════════════════════════════════════════
     // PARTE 2: COM BUSCA - Adicionar contatos sem thread e clientes sem contato
+    // ═══════════════════════════════════════════════════════════════════════════
     if (temBuscaPorTexto) {
       // Contatos sem thread
       contatos.forEach(contato => {
@@ -486,7 +536,7 @@ export default function Comunicacao() {
     }
 
     return threadsFiltrados;
-  }, [threads, contatos, clientes, atendentes, usuario?.role, selectedAttendantId, selectedIntegrationId, selectedCategoria, selectedTipoContato, selectedTagContato, debouncedSearchTerm, mensagensComCategoria, matchBuscaGoogle]);
+  }, [threads, contatos, clientes, atendentes, usuario, selectedAttendantId, selectedIntegrationId, selectedCategoria, selectedTipoContato, selectedTagContato, debouncedSearchTerm, mensagensComCategoria, matchBuscaGoogle]);
 
   // Converter para formato compatível com ChatSidebar
   const threadsComContato = React.useMemo(() => {
