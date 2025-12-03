@@ -1029,21 +1029,32 @@ export default function MessageBubble({
               </div>
             }
 
-            {/* 📱 CANAL WHATSAPP - Badge mostrando de qual conexão veio/enviou */}
-            {thread && integracoes.length > 0 && (() => {
+            {/* 📱 CANAL WHATSAPP + ATENDENTE - Apenas nas mensagens ENVIADAS */}
+            {isOwn && thread && integracoes.length > 0 && (() => {
               const integracaoId = message?.metadata?.whatsapp_integration_id || thread?.whatsapp_integration_id;
               if (!integracaoId) return null;
               
               const integracao = integracoes.find((i) => i.id === integracaoId);
               if (!integracao) return null;
               
-              const displayInfo = integracao.numero_telefone || integracao.nome_instancia;
+              const displayNumero = integracao.numero_telefone || integracao.nome_instancia;
+              
+              // Buscar nome do atendente que enviou a mensagem
+              const atendenteRemetente = atendentes.find(a => a.id === message.sender_id);
+              const nomeAtendente = atendenteRemetente?.full_name?.split(' ')[0] || thread?.assigned_user_name?.split(' ')[0];
+              
               return (
-                <div className={cn(
-                  "text-[9px] px-2 py-0.5 rounded-full mb-1 inline-flex items-center gap-1",
-                  isOwn ? "bg-white/20 text-white/90" : "bg-green-50 text-green-600 border border-green-200"
-                )}>
-                  📱 Via: {displayInfo}
+                <div className="text-[9px] px-2 py-0.5 rounded-full mb-1 inline-flex items-center gap-1.5 bg-white/20 text-white/90">
+                  <span>📱 Via: {displayNumero}</span>
+                  {nomeAtendente && (
+                    <>
+                      <span className="opacity-50">•</span>
+                      <span className="flex items-center gap-0.5">
+                        <UserCheck className="w-3 h-3" />
+                        {nomeAtendente}
+                      </span>
+                    </>
+                  )}
                 </div>
               );
             })()}
