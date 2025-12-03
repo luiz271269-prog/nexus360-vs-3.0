@@ -400,7 +400,9 @@ export default function Comunicacao() {
 
 
   // ═══════════════════════════════════════════════════════════════════════════════
-  // 🎯 UNIFIED TOPICS FILTRADOS - Aplicar filtros locais sobre os dados unificados
+  // 🎯 REGRAS DE VISUALIZAÇÃO:
+  // SEM BUSCA: Mostrar APENAS conversas WhatsApp ativas (threads com mensagens) - igual WhatsApp
+  // COM BUSCA: Mostrar busca unificada (threads + contatos + clientes)
   // ═══════════════════════════════════════════════════════════════════════════════
   const topicsFiltrados = React.useMemo(() => {
     if (!unifiedTopics || unifiedTopics.length === 0) return [];
@@ -415,9 +417,21 @@ export default function Comunicacao() {
       ? atendentesMap.get(selectedAttendantId) 
       : null;
 
-    const temBuscaPorTexto = !!debouncedSearchTerm;
+    const temBuscaPorTexto = !!debouncedSearchTerm && debouncedSearchTerm.trim().length >= 2;
 
     return unifiedTopics.filter(topic => {
+      // ═══════════════════════════════════════════════════════════════════════════════
+      // REGRA PRINCIPAL: SEM BUSCA = APENAS THREADS (conversas ativas)
+      // Comportamento igual ao WhatsApp: só mostra quem tem conversa
+      // ═══════════════════════════════════════════════════════════════════════════════
+      if (!temBuscaPorTexto) {
+        // Sem busca: mostrar APENAS threads (conversas ativas com mensagens)
+        if (topic.origin !== 'thread') {
+          return false;
+        }
+      }
+      // COM BUSCA: mostra tudo (threads + contatos_sem_thread + clientes_sem_contato)
+
       // Filtro por atendente (ignorado quando há busca)
       if (atendenteInfo && !temBuscaPorTexto && topic.origin === 'thread') {
         const threadAtribuidaAoAtendente = topic.assigned_user_id === atendenteInfo.id;
