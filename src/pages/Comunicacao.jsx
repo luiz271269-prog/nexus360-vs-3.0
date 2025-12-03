@@ -558,7 +558,41 @@ export default function Comunicacao() {
       return true;
     });
 
-    // Retornar APENAS threads reais (sem pseudo-threads de contatos sem conversa)
+    // ═══════════════════════════════════════════════════════════════════════════════
+    // PARTE 2: Adicionar CONTATOS SEM THREAD quando há busca
+    // ═══════════════════════════════════════════════════════════════════════════════
+    const temBuscaAtiva = debouncedSearchTerm && debouncedSearchTerm.trim().length >= 2;
+    
+    if (temBuscaAtiva) {
+      const contatosSemThread = [];
+      
+      contatos.forEach(contato => {
+        // Pular contatos que já têm thread
+        if (threadsComContatoIds.has(contato.id)) return;
+        
+        // Pular contatos bloqueados
+        if (contato.bloqueado) return;
+
+        // Verificar se passa na busca
+        if (!matchBuscaGoogle(contato, debouncedSearchTerm)) return;
+
+        // Criar "pseudo-thread" para exibição
+        contatosSemThread.push({
+          id: `contato-sem-thread-${contato.id}`,
+          contact_id: contato.id,
+          is_contact_only: true,
+          last_message_at: contato.ultima_interacao || contato.created_date,
+          last_message_content: null,
+          unread_count: 0,
+          status: 'sem_conversa',
+          assigned_user_id: null,
+          assigned_user_name: null
+        });
+      });
+
+      return [...threadsFiltrados, ...contatosSemThread];
+    }
+
     return threadsFiltrados;
   }, [threads, contatos, clientes, atendentes, usuario?.id, usuario?.role, selectedAttendantId, selectedIntegrationId, selectedCategoria, selectedTipoContato, selectedTagContato, debouncedSearchTerm, mensagensComCategoria, verificarContatoPertenceAoAtendente, contatoPassaNosFiltros, matchBuscaGoogle, extrairNumeros]);
 
