@@ -395,16 +395,27 @@ export default function ChatSidebar({ threads, threadAtiva, onSelecionarThread, 
           nomeExibicao = contato.telefone || "Sem Nome";
         }
 
+        const isSelected = contatosSelecionados.find(c => c.id === contato?.id);
+
         return (
           <motion.div
             key={thread.id}
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: index * 0.05 }}
-            onClick={() => handleClick(thread)} className={`px-2 py-2 flex items-center gap-3 cursor-pointer transition-all border-b border-slate-100 hover:bg-gradient-to-r hover:from-amber-50 hover:to-orange-50 ${thread.is_contact_only ? 'bg-slate-50/50' : ''}`}>
-
-
-
+            onClick={(e) => handleClick(thread, e)} 
+            className={`px-2 py-2 flex items-center gap-3 cursor-pointer transition-all border-b border-slate-100 hover:bg-gradient-to-r hover:from-amber-50 hover:to-orange-50 ${thread.is_contact_only ? 'bg-slate-50/50' : ''} ${isSelected ? 'bg-orange-100 border-l-4 border-l-orange-500' : ''}`}
+          >
+            {/* Checkbox em modo seleção */}
+            {modoSelecao && (
+              <div className="flex-shrink-0">
+                {isSelected ? (
+                  <CheckSquare className="w-5 h-5 text-orange-500" />
+                ) : (
+                  <Square className="w-5 h-5 text-slate-400" />
+                )}
+              </div>
+            )}
 
             {/* Avatar */}
             <div className="relative flex-shrink-0">
