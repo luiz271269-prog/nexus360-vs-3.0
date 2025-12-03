@@ -49,7 +49,10 @@ export default function SearchAndFilter({
   selectedTipoContato,
   onSelectedTipoContatoChange,
   selectedTagContato,
-  onSelectedTagContatoChange
+  onSelectedTagContatoChange,
+  // Props para seleção múltipla
+  modoSelecaoMultipla = false,
+  onModoSelecaoMultiplaChange
 }) {
   const [showFilters, setShowFilters] = useState(false);
 
