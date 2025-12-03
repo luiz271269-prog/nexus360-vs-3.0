@@ -453,7 +453,11 @@ export default function Comunicacao() {
       // Usuário NÃO-admin só pode ver:
       // 1. Conversas atribuídas a ele (assigned_user_id ou assigned_user_name)
       // 2. Contatos fidelizados a ele (vendedor_responsavel ou atendente_fidelizado_*)
-      // 3. Conversas não atribuídas (se permitido E no setor dele)
+      // 
+      // NÃO DEVE VER:
+      // - Conversas atribuídas a outros
+      // - Contatos fidelizados a outros
+      // - Conversas "sem atendente" (desabilitado por padrão para evitar confusão)
       // 
       // Admin ou pode_ver_todas_conversas: vê tudo
       let podeVerConversa = false;
@@ -464,13 +468,17 @@ export default function Comunicacao() {
         // 2.1 - Conversa está atribuída diretamente ao usuário
         podeVerConversa = true;
       } else if (isFidelizadoAoUsuario) {
-        // 2.2 - Contato é fidelizado ao usuário
-        podeVerConversa = true;
-      } else if (isNaoAtribuida && podeVerNaoAtribuidas && podeVerPorSetor) {
-        // 2.4 - Conversa não atribuída + permissão + setor compatível
-        podeVerConversa = true;
+        // 2.2 - Contato é fidelizado ao usuário (E não atribuído a outro)
+        // Só mostra se não está atribuído a OUTRO atendente
+        const atribuidoAOutro = thread.assigned_user_id && !isAtribuidoAoUsuario;
+        if (!atribuidoAOutro) {
+          podeVerConversa = true;
+        }
       }
-      // REMOVIDO: podeVerPorSetor && podeVerPorAtendente - não deve ver conversas de outros
+      // DESABILITADO: Conversas não atribuídas - gera muita confusão
+      // else if (isNaoAtribuida && podeVerNaoAtribuidas && podeVerPorSetor) {
+      //   podeVerConversa = true;
+      // }
       
       if (!podeVerConversa) {
         return false;
