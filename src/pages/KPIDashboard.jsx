@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import { useState } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -6,20 +6,18 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   TrendingUp,
-  TrendingDown,
   DollarSign,
   Users,
   MessageSquare,
   Zap,
   Target,
-  Clock,
   CheckCircle,
   Activity,
   BarChart3,
   ArrowUpRight,
   ArrowDownRight
 } from "lucide-react";
-import { AreaChart, Area, BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
+import { AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from "recharts";
 
 /**
  * ╔═══════════════════════════════════════════════════════════════╗

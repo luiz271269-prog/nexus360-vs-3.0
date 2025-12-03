@@ -1,4 +1,3 @@
-import React from 'react';
 import AssistenteFase2 from '../components/comunicacao/AssistenteFase2';
 
 export default function Fase2() {

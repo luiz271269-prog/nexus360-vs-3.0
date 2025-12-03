@@ -1,6 +1,5 @@
 import React from "react";
 import { Card, CardContent } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { CheckCircle, Circle, ArrowRight } from "lucide-react";
 
 export default function GuiaConfiguracao({ etapaAtual = 1 }) {

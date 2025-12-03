@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { Venda } from "@/entities/Venda";
 import { Cliente } from "@/entities/Cliente";
 import { Vendedor } from "@/entities/Vendedor";
@@ -31,7 +31,7 @@ import VendaForm from "../components/vendas/VendaForm";
 import VendaLista from "../components/vendas/VendaLista";
 import { toast } from "sonner";
 import { InvokeLLM } from "@/integrations/Core";
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from "recharts";
+import { Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from "recharts";
 import AlertasInteligentesIA from '../components/global/AlertasInteligentesIA';
 import BotaoNexusFlutuante from '../components/global/BotaoNexusFlutuante';
 

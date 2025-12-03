@@ -1,4 +1,3 @@
-import React from 'react';
 import { MessageSquare } from 'lucide-react';
 
 export default function EmptyState({ message = "Selecione uma conversa", subtitle = "ou digite um número para criar contato" }) {

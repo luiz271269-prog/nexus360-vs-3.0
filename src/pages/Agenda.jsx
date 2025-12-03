@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { base44 } from "@/api/base44Client";
 import { useSearchParams } from "react-router-dom";
 
@@ -13,16 +13,14 @@ import PainelInsightsIA from '../components/global/PainelInsightsIA';
 import {
   Calendar, // Changed from CalendarCheck for header icon
   CalendarCheck, // Still needed for stats cards
-  RefreshCw,
-  Brain, // Still needed for other uses
-  Loader2,
-  PlayCircle, // Still needed for other uses
+  RefreshCw, // Still needed for other uses
+  Loader2, // Still needed for other uses
   Sparkles, // Added import
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
 
 import { format, isToday, isPast, isSameDay } from "date-fns";

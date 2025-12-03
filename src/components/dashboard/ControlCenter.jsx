@@ -1,11 +1,9 @@
-import React, { useState, useEffect } from "react";
+import { useState } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Progress } from "@/components/ui/progress";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Activity,
   Zap,
@@ -13,21 +11,15 @@ import {
   CheckCircle,
   AlertTriangle,
   TrendingUp,
-  Users,
   MessageSquare,
   Target,
   Brain,
-  Shield,
   Sparkles,
   RefreshCw,
-  Play,
-  Pause,
-  Settings
+  Play
 } from "lucide-react";
 import { toast } from "sonner";
 import {
-  LineChart,
-  Line,
   AreaChart,
   Area,
   BarChart,

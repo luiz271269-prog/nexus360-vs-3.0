@@ -1,13 +1,12 @@
-import React, { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
-import { X, Save, Sparkles, AlertCircle, Info, Check, Loader2, Clock, MessageSquare } from "lucide-react";
+import { X, Save, Sparkles, AlertCircle, Check, Loader2, Clock, MessageSquare } from "lucide-react";
 import VoiceInput from "../ui/VoiceInput";
-import { listarVendedoresParaSelect } from '../lib/vendedorSync';
 import { REGRAS_VALIDACAO_POR_ETAPA } from './ClienteFormValidation';
 import { toast } from "sonner";
 import HistoricoQualificacaoCliente from './HistoricoQualificacaoCliente';

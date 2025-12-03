@@ -8,7 +8,6 @@
 import { Cliente } from "@/entities/Cliente";
 import { Produto } from "@/entities/Produto";
 import { Orcamento } from "@/entities/Orcamento";
-import { Vendedor } from "@/entities/Vendedor";
 
 export class ImportadorProjetoOrcamentos {
   

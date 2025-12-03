@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { base44 } from '@/api/base44Client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -16,7 +16,6 @@ import {
   PauseCircle,
   AlertTriangle,
   TrendingUp,
-  Filter,
   RefreshCw,
   Eye,
   BarChart3

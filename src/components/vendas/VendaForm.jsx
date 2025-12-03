@@ -1,5 +1,4 @@
-import React, { useState, useEffect } from "react";
-import { Venda } from "@/entities/Venda";
+import { useState, useEffect } from "react";
 import { Cliente } from "@/entities/Cliente";
 import { Vendedor } from "@/entities/Vendedor";
 import { Button } from "@/components/ui/button";
@@ -7,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Save, X, DollarSign, Loader2, Plus, Trash2, Package } from "lucide-react";
+import { Save, DollarSign, Loader2, Plus, Trash2, Package } from "lucide-react";
 import VoiceInput from "../ui/VoiceInput";
 
 export default function VendaForm({ venda, onSalvar, onCancelar }) {

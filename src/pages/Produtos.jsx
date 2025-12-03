@@ -1,7 +1,7 @@
 
-import React, { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { base44 } from "@/api/base44Client";
-import { Plus, Upload, ShoppingCart, Loader2, Calculator, DollarSign, X, CheckCircle, ListFilter, Columns, FileDown, Search } from "lucide-react";
+import { Plus, Upload, ShoppingCart, Loader2, DollarSign, X, CheckCircle, Columns } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { toast } from "sonner";
@@ -10,7 +10,6 @@ import { createPageUrl } from "@/utils";
 import { motion } from "framer-motion";
 import { Badge } from "@/components/ui/badge";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 
 import ProdutoFiltros from "../components/produtos/ProdutoFiltros";
@@ -19,7 +18,6 @@ import CarrinhoCotacoes from "../components/produtos/CarrinhoCotacoes";
 import ProdutoFormModal from "../components/produtos/ProdutoFormModal";
 import BotaoNexusFlutuante from '../components/global/BotaoNexusFlutuante';
 import LembretesIAContextualizados from '../components/global/LembretesIAContextualizados';
-import PainelAlertasQualidade from '../components/global/PainelAlertasQualidade';
 
 export default function Produtos() {
   const [produtos, setProdutos] = useState([]);

@@ -1,12 +1,10 @@
 
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { BookOpen, ArrowRight, Plus } from "lucide-react";
-import { base44 } from "@/api/base44Client";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import PermissionGuard, { PERMISSIONS } from "../components/security/PermissionGuard";
 
 /**

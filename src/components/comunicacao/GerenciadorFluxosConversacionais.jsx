@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { WhatsAppTemplate } from "@/entities/WhatsAppTemplate";
 import { FlowTemplate } from "@/entities/FlowTemplate";
 import { Button } from "@/components/ui/button";
@@ -7,7 +7,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Plus, Edit, Trash2, Play, CheckCircle, Clock, X, Zap, MessageSquare } from "lucide-react";
+import { Edit, Trash2, CheckCircle, Clock, X, Zap, MessageSquare } from "lucide-react";
 import { toast } from "sonner";
 
 export default function GerenciadorFluxosConversacionais({ integracoes = [], onRecarregar }) {

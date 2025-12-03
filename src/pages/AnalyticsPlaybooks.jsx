@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -6,18 +6,12 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
-  LineChart,
-  Line,
   BarChart,
   Bar,
-  PieChart,
-  Pie,
-  Cell,
   XAxis,
   YAxis,
   CartesianGrid,
   Tooltip,
-  Legend,
   ResponsiveContainer,
   AreaChart,
   Area
@@ -26,8 +20,6 @@ import {
   TrendingUp,
   TrendingDown,
   Zap,
-  Users,
-  MessageSquare,
   CheckCircle,
   AlertCircle,
   Clock,
@@ -37,7 +29,6 @@ import {
   BarChart3
 } from "lucide-react";
 import { format, subDays } from "date-fns";
-import { ptBR } from "date-fns/locale";
 
 /**
  * ANALYTICS AVANÇADO DE PLAYBOOKS

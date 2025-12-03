@@ -1,9 +1,9 @@
-import React, { useState } from "react";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { Table, Search, Filter, Download, Eye, Grid, List } from "lucide-react";
+import { Table, Search, Filter, Download, Grid, List } from "lucide-react";
 
 export default function TabelaDinamica({ documentos, tiposDocumento }) {
   const [busca, setBusca] = useState('');

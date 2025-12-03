@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
-import { Upload, Brain, Loader2, Image, File } from 'lucide-react';
+import { Upload, Brain, Loader2, File } from 'lucide-react';
 import { UploadFile } from "@/integrations/Core";
 import { toast } from 'sonner';
 

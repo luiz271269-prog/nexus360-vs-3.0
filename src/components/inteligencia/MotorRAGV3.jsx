@@ -1,4 +1,3 @@
-import { BaseConhecimento } from "@/entities/BaseConhecimento";
 import { VectorSearchEngine } from "./VectorSearchEngine";
 import { InvokeLLM } from "@/integrations/Core";
 

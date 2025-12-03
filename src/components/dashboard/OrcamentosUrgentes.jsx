@@ -1,4 +1,3 @@
-import React from "react";
 import { AlertTriangle, Clock, DollarSign } from "lucide-react";
 
 export default function OrcamentosUrgentes({ orcamentos }) {

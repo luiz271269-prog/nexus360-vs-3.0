@@ -6,7 +6,6 @@ import { Venda } from "@/entities/Venda";
 import { Vendedor } from "@/entities/Vendedor";
 import { Interacao } from "@/entities/Interacao";
 import { TarefaInteligente } from "@/entities/TarefaInteligente";
-import { InvokeLLM } from "@/integrations/Core";
 
 export class MotorAutomacao {
   

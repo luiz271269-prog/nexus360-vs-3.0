@@ -1,12 +1,10 @@
 
-import React, { useState } from 'react';
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { Plus, MoreHorizontal, Edit, Calendar, DollarSign, User, Filter, Brain, MessageSquare, Building2, Handshake, Zap, Flame } from 'lucide-react';
+import { MoreHorizontal, Edit, Calendar, DollarSign, User, Brain, MessageSquare, Building2, Handshake, Zap, Flame } from 'lucide-react';
 import { useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import { toast } from 'sonner';

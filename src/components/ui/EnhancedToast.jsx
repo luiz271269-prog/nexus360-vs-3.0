@@ -1,4 +1,3 @@
-import React from "react";
 import { toast as sonnerToast } from "sonner";
 import { CheckCircle, XCircle, AlertCircle, Info, Loader2 } from "lucide-react";
 

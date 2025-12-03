@@ -1,14 +1,11 @@
-import React, { useState } from "react";
+import { useState } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
-  BarChart,
-  Bar,
   LineChart,
   Line,
   XAxis,
@@ -27,7 +24,6 @@ import {
   AlertTriangle,
   Clock,
   MessageSquare,
-  Users,
   TrendingUp,
   Download,
   FileText,

@@ -1,4 +1,3 @@
-import React from 'react';
 import { Check, User, ShoppingCart, CreditCard, FileCheck } from 'lucide-react';
 
 const etapas = [

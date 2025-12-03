@@ -1,5 +1,4 @@
-import React from "react";
-import PermissionGuard, { PERMISSIONS } from "../components/security/PermissionGuard";
+import PermissionGuard from "../components/security/PermissionGuard";
 import SystemHealthDashboard from "../components/global/SystemHealthDashboard";
 
 export default function SystemHealth() {

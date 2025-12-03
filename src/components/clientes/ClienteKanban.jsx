@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React from 'react';
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
 import { Badge } from '@/components/ui/badge';
 import ClienteKanbanCard from './ClienteKanbanCard';
@@ -10,11 +10,9 @@ import {
   FileText,
   CheckCircle,
   Lightbulb,
-  TrendingUp,
   Target,
   XCircle,
   Flame,
-  Zap,
   Star } from
 'lucide-react';
 

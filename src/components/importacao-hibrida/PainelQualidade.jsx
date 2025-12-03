@@ -1,12 +1,10 @@
-import React from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { 
-  Brain, Target, AlertTriangle, CheckCircle, TrendingUp, BarChart3,
-  Clock, Award, Users, FileText, Zap, Activity
+  Brain, Target, TrendingUp, BarChart3, Award, Users, Zap, Activity
 } from "lucide-react";
-import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line, Area, AreaChart } from "recharts";
+import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Area, AreaChart } from "recharts";
 
 export default function PainelQualidade({ documentos, tiposDocumento }) {
   const metricas = calcularMetricasQualidade(documentos, tiposDocumento);

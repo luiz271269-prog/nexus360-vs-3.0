@@ -5,7 +5,6 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { X, Save, Camera, User, Link as LinkIcon, CheckCircle, AlertCircle } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
 
 const GlassInput = (props) => (
   <Input {...props} className="bg-black/20 border-white/20 text-white placeholder:text-gray-400" />

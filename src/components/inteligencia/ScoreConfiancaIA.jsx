@@ -1,4 +1,3 @@
-import React from "react";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { AlertTriangle, CheckCircle, AlertCircle, HelpCircle } from "lucide-react";

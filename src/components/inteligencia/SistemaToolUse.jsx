@@ -1,5 +1,4 @@
 
-import { base44 } from "@/api/base44Client";
 import { Orcamento } from "@/entities/Orcamento";
 import { Cliente } from "@/entities/Cliente";
 import { Produto } from "@/entities/Produto";

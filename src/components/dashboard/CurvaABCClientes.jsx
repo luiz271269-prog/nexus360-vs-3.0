@@ -1,4 +1,3 @@
-import React from "react";
 import { Button } from "@/components/ui/button";
 import { TrendingUp, Award, AlertTriangle, Eye } from "lucide-react";
 

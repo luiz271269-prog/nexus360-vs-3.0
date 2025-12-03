@@ -1,5 +1,4 @@
 import React from "react";
-import { Button } from "@/components/ui/button";
 import { Upload, Brain, FileText, Image, Table, Zap } from "lucide-react";
 
 export default function UploadZone({ onFileSelect, loading }) {

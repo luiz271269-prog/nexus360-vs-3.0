@@ -1,14 +1,13 @@
 
-import React, { useState, useEffect, useCallback } from "react";
-import { base44 } from "@/api/base44Client"; // Added per instructions
-import PermissionGuard, { PERMISSIONS } from "../components/security/PermissionGuard"; // Added per instructions
+import { useState, useEffect, useCallback } from "react";
+// Added per instructions
+import PermissionGuard from "../components/security/PermissionGuard"; // Added per instructions
 import { ClienteScore } from "@/entities/ClienteScore";
 import { TarefaInteligente } from "@/entities/TarefaInteligente";
 import { AprendizadoIA } from "@/entities/AprendizadoIA";
 import { EventoSistema } from "@/entities/EventoSistema";
 import { AutomationExecution } from "@/entities/AutomationExecution";
-import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
+import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import DashboardPerformanceIA from "../components/inteligencia/DashboardPerformanceIA";
@@ -16,13 +15,8 @@ import {
   Brain,
   TrendingUp,
   Zap,
-  Target,
   AlertTriangle,
-  CheckCircle2,
-  Clock,
-  Sparkles,
   RefreshCw,
-  BarChart3,
   Activity // New icon
 } from "lucide-react";
 import { toast } from "sonner";

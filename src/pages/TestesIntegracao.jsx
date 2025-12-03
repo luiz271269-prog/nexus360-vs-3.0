@@ -1,14 +1,12 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
+import { Card, CardContent } from '@/components/ui/card';
 import { base44 } from '@/api/base44Client';
 import { 
   Play,
   CheckCircle2,
   XCircle,
   Loader2,
-  AlertTriangle,
   Activity
 } from 'lucide-react';
 import { toast } from 'sonner';

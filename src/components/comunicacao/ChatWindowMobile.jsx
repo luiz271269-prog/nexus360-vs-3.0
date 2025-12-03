@@ -1,8 +1,6 @@
-import React, { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Button } from "@/components/ui/button";
-import { TouchInput, MobileCard } from "@/components/ui/MobileOptimized";
 import {
   Send,
   ArrowLeft,
@@ -10,7 +8,6 @@ import {
   Phone,
   Paperclip,
   Mic,
-  Image as ImageIcon,
   User
 } from "lucide-react";
 import { toast } from "sonner";

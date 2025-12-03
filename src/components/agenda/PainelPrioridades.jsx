@@ -1,8 +1,6 @@
-import React from 'react';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { ListTodo, Flame, Star, Zap, TrendingUp, Filter } from 'lucide-react';
+import { ListTodo, Flame, Star, Zap, TrendingUp } from 'lucide-react';
 
 export default function PainelPrioridades({ tarefas = [], tarefaSelecionada, onSelectTarefa, loading }) {
 

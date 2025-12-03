@@ -1,6 +1,5 @@
 
-import React, { useState, useEffect } from "react"; // Added useEffect
-import { base44 } from "@/api/base44Client";
+import { useState } from "react"; // Added useEffect
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -9,16 +8,12 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   Shield,
-  Search,
   Download,
   Filter,
   Eye,
   Edit,
   Trash2,
-  Lock,
   CheckCircle,
-  XCircle,
-  AlertTriangle,
   User,
   Clock,
   RefreshCw

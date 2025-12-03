@@ -1,6 +1,5 @@
-import React from "react";
 import { Button } from "@/components/ui/button";
-import { Edit, DollarSign, Calendar, User, ShoppingCart, CheckCircle, Clock, XCircle, Truck, Package } from "lucide-react";
+import { Edit, Calendar, User, ShoppingCart, CheckCircle, Clock, XCircle, Truck, Package } from "lucide-react";
 
 export default function VendaCard({ venda, onEditar }) {
   const getStatusInfo = (status) => {

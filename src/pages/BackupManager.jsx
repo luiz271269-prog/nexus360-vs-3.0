@@ -1,14 +1,12 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { base44 } from '@/api/base44Client';
 import { Button } from '@/components/ui/button';
-import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { 
-  Download, 
   Upload, 
   Trash2, 
   Plus,
-  Clock,
   HardDrive,
   CheckCircle2,
   AlertTriangle,

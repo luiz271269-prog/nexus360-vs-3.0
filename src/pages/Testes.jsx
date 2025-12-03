@@ -1,4 +1,3 @@
-import React, { useState } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import TestSuite from "../components/tests/TestSuite";
 import StressTest from "../components/tests/StressTest";

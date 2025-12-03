@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
@@ -20,12 +20,8 @@ import {
   Search,
   Copy,
   CheckCircle,
-  AlertCircle,
-  Zap,
   BarChart3,
-  Filter,
-  Save, // Added Save icon
-  X // Added X icon
+  Filter // Added X icon
 } from "lucide-react";
 import { toast } from "sonner";
 import {

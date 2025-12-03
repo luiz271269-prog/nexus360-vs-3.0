@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { AlertTriangle, CheckCircle, Info } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";

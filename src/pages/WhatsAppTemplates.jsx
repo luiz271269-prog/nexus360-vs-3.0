@@ -1,5 +1,5 @@
 
-import React, { useState } from "react"; // Added useState
+import { useState } from "react"; // Added useState
 import { MessageSquare, Plus } from "lucide-react"; // Replaced MessageCircle, ArrowRight with MessageSquare, Plus
 import { Button } from "@/components/ui/button"; // Assuming Button component path
 

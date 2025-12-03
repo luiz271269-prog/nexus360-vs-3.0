@@ -1,11 +1,10 @@
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { SubFlowTemplate } from "@/entities/SubFlowTemplate";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Package, Plus, Edit, Trash2, Play } from "lucide-react";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
+import { Package, Plus, Edit, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import FlowBuilderV2 from "./FlowBuilderV2";
 

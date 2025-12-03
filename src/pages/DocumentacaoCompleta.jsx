@@ -1,7 +1,6 @@
-import React, { useState } from "react";
+import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Label } from "@/components/ui/label";
 import {
@@ -14,13 +13,7 @@ import {
   Settings,
   MessageSquare,
   Users,
-  Code,
-  Shield,
-  TrendingUp,
-  Copy,
-  ExternalLink,
-  Download,
-  ChevronRight
+  Copy
 } from "lucide-react";
 import { toast } from "sonner";
 
