@@ -36,7 +36,7 @@ import BibliotecaAutomacoes from "../components/automacao/BibliotecaAutomacoes";
 import CentralControleOperacional from "../components/comunicacao/CentralControleOperacional";
 import DiagnosticoCirurgicoEmbed from "../components/comunicacao/DiagnosticoCirurgicoEmbed";
 import GerenciadorEtiquetasUnificado from "../components/comunicacao/GerenciadorEtiquetasUnificado";
-import { listarTopicosComunicacao } from "@/functions/listarTopicosComunicacao";
+
 
 export default function Comunicacao() {
   const [usuario, setUsuario] = useState(null);
