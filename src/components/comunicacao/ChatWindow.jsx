@@ -2003,20 +2003,35 @@ export default function ChatWindow({
           </div>
         )}
 
-        {/* Seletor de Canal WhatsApp */}
+        {/* Seletor de Canal WhatsApp - Modo Individual */}
         {integracoes.length > 1 && !modoSelecaoMultipla &&
         <div className="mb-2 flex items-center gap-2">
             <label className="text-gray-900 text-xs font-medium">Enviar por:</label>
             <select
             value={canalSelecionado || thread?.whatsapp_integration_id || ''}
             onChange={(e) => setCanalSelecionado(e.target.value)} className="bg-[#778ca6] text-slate-50 px-2 py-1 text-xs rounded border border-slate-300">
-
-
               {integracoes.map((int) =>
             <option key={int.id} value={int.id}>
                   📱 {int.nome_instancia} ({int.numero_telefone})
                 </option>
             )}
+            </select>
+          </div>
+        }
+
+        {/* Seletor de Canal WhatsApp - Modo Broadcast */}
+        {integracoes.length > 0 && modoSelecaoMultipla && contatosSelecionados.length > 0 &&
+        <div className="mb-2 flex items-center gap-2">
+            <label className="text-gray-900 text-xs font-medium">Enviar por:</label>
+            <select
+            value={canalSelecionado || integracoes.find(i => i.status === 'conectado')?.id || ''}
+            onChange={(e) => setCanalSelecionado(e.target.value)} 
+            className="bg-[#778ca6] text-slate-50 px-2 py-1 text-xs rounded border border-slate-300">
+              {integracoes.filter(i => i.status === 'conectado').map((int) =>
+                <option key={int.id} value={int.id}>
+                  📱 {int.nome_instancia} ({int.numero_telefone})
+                </option>
+              )}
             </select>
           </div>
         }
