@@ -544,15 +544,26 @@ export default function ChatWindow({
     }
   };
 
-  // Função de envio em massa (broadcast)
-  const handleEnviarBroadcast = async () => {
+  // Função de envio em massa (broadcast) - SUPORTA TEXTO, IMAGENS, ÁUDIOS E MÍDIAS
+  const handleEnviarBroadcast = async (opcoes = {}) => {
+    const { 
+      mediaUrl = null, 
+      mediaType = null, 
+      mediaCaption = null,
+      isAudio = false 
+    } = opcoes;
+
     if (!podeEnviarMensagens) {
       toast.error("❌ Você não tem permissão para enviar mensagens");
       return;
     }
 
-    if (!mensagemTexto.trim()) {
-      toast.error("Digite uma mensagem");
+    // Validar: precisa ter texto OU mídia
+    const temTexto = mensagemTexto.trim().length > 0;
+    const temMidia = !!mediaUrl;
+    
+    if (!temTexto && !temMidia) {
+      toast.error("Digite uma mensagem ou anexe uma mídia");
       return;
     }
 
@@ -584,12 +595,29 @@ export default function ChatWindow({
       }
 
       try {
-        // Usar a mesma função enviarWhatsApp
-        const resultado = await base44.functions.invoke('enviarWhatsApp', {
+        // Preparar dados de envio
+        const dadosEnvio = {
           integration_id: integracaoAtiva.id,
-          numero_destino: telefone,
-          mensagem: mensagemParaEnviar
-        });
+          numero_destino: telefone
+        };
+
+        // Adicionar mídia se houver
+        if (mediaUrl && mediaType) {
+          if (isAudio || mediaType === 'audio') {
+            dadosEnvio.audio_url = mediaUrl;
+            dadosEnvio.media_type = 'audio';
+          } else {
+            dadosEnvio.media_url = mediaUrl;
+            dadosEnvio.media_type = mediaType;
+            if (mediaCaption || mensagemParaEnviar) {
+              dadosEnvio.media_caption = mediaCaption || mensagemParaEnviar;
+            }
+          }
+        } else if (mensagemParaEnviar) {
+          dadosEnvio.mensagem = mensagemParaEnviar;
+        }
+
+        const resultado = await base44.functions.invoke('enviarWhatsApp', dadosEnvio);
 
         if (resultado.data.success) {
           enviados++;
@@ -598,20 +626,26 @@ export default function ChatWindow({
           let threads = await base44.entities.MessageThread.filter({ contact_id: contato.id });
           let threadContato = threads && threads.length > 0 ? threads[0] : null;
           
+          const contentPreview = mediaUrl 
+            ? (mediaType === 'image' ? '[Imagem]' : mediaType === 'audio' ? '[Áudio]' : mediaType === 'video' ? '[Vídeo]' : '[Arquivo]')
+            : mensagemParaEnviar.substring(0, 100);
+
           if (!threadContato) {
             threadContato = await base44.entities.MessageThread.create({
               contact_id: contato.id,
               whatsapp_integration_id: integracaoAtiva.id,
               status: 'aberta',
-              last_message_content: mensagemParaEnviar.substring(0, 100),
+              last_message_content: contentPreview,
               last_message_at: new Date().toISOString(),
-              last_message_sender: 'user'
+              last_message_sender: 'user',
+              last_media_type: mediaType || 'none'
             });
           } else {
             await base44.entities.MessageThread.update(threadContato.id, {
-              last_message_content: mensagemParaEnviar.substring(0, 100),
+              last_message_content: contentPreview,
               last_message_at: new Date().toISOString(),
-              last_message_sender: 'user'
+              last_message_sender: 'user',
+              last_media_type: mediaType || 'none'
             });
           }
 
@@ -622,11 +656,14 @@ export default function ChatWindow({
             sender_type: 'user',
             recipient_id: contato.id,
             recipient_type: 'contact',
-            content: mensagemParaEnviar,
+            content: mediaCaption || mensagemParaEnviar || contentPreview,
             channel: 'whatsapp',
             status: 'enviada',
             whatsapp_message_id: resultado.data.message_id,
             sent_at: new Date().toISOString(),
+            media_url: mediaUrl || null,
+            media_type: mediaType || 'none',
+            media_caption: mediaCaption,
             metadata: {
               whatsapp_integration_id: integracaoAtiva.id,
               broadcast: true
@@ -648,6 +685,8 @@ export default function ChatWindow({
 
     setEnviandoBroadcast(false);
     setMensagemTexto("");
+    setPastedImage(null);
+    setPastedImagePreview(null);
     
     if (enviados > 0) {
       toast.success(`✅ ${enviados} mensagem(ns) enviada(s) com sucesso!`);
