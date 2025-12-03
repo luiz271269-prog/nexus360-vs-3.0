@@ -278,13 +278,54 @@ export default function Comunicacao() {
     retry: 1
   });
 
-  const handleSelecionarThread = useCallback((thread) => {
-    console.log('🔴 Selecionando thread:', thread.id);
+  const handleSelecionarThread = useCallback(async (thread) => {
+    console.log('🔴 Selecionando thread:', thread.id, thread);
     setCriandoNovoContato(false);
     setNovoContatoTelefone("");
     setShowContactInfo(false);
+
+    // Se é um contato sem thread (pseudo-thread criada na busca), buscar ou criar a thread real
+    if (thread.is_contact_only && thread.contact_id) {
+      try {
+        // Buscar thread existente para este contato
+        const threadsExistentes = await base44.entities.MessageThread.filter({ contact_id: thread.contact_id });
+        
+        if (threadsExistentes && threadsExistentes.length > 0) {
+          // Já existe thread, usar ela
+          setThreadAtiva(threadsExistentes[0]);
+          return;
+        }
+
+        // Não existe thread, criar uma nova
+        const integracaoAtiva = integracoes.find((i) => i.status === 'conectado');
+        if (!integracaoAtiva) {
+          toast.error('❌ Nenhuma integração WhatsApp ativa');
+          return;
+        }
+
+        const novaThread = await base44.entities.MessageThread.create({
+          contact_id: thread.contact_id,
+          whatsapp_integration_id: integracaoAtiva.id,
+          status: 'aberta',
+          unread_count: 0,
+          janela_24h_expira_em: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+          can_send_without_template: true
+        });
+
+        await queryClient.invalidateQueries({ queryKey: ['threads'] });
+        setThreadAtiva(novaThread);
+        toast.success('✅ Conversa iniciada!');
+        return;
+      } catch (error) {
+        console.error('[Comunicacao] Erro ao buscar/criar thread:', error);
+        toast.error('Erro ao abrir conversa');
+        return;
+      }
+    }
+
+    // Thread normal
     setThreadAtiva(thread);
-  }, []);
+  }, [integracoes, queryClient]);
 
   // RESTAURADO: Handler para criar novo contato
   const handleCriarNovoContato = useCallback(async (dadosContato) => {
