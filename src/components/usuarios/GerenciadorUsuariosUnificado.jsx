@@ -709,6 +709,20 @@ export default function GerenciadorUsuariosUnificado({
                   />
                 </div>
 
+                {/* Permissão para Transferir Conversas */}
+                {usuarioSelecionado.is_whatsapp_attendant && (
+                  <div className="flex items-center justify-between p-3 bg-amber-50 rounded-lg border border-amber-200">
+                    <div>
+                      <p className="text-sm font-medium text-amber-800">🔄 Pode Transferir Conversas</p>
+                      <p className="text-xs text-amber-600">Permitir transferir conversas para outros atendentes</p>
+                    </div>
+                    <Switch
+                      checked={usuarioSelecionado.permissoes_comunicacao?.pode_transferir_conversas || false}
+                      onCheckedChange={(v) => atualizarUsuario("permissoes_comunicacao", { ...usuarioSelecionado.permissoes_comunicacao, pode_transferir_conversas: v })}
+                    />
+                  </div>
+                )}
+
                 {/* Conexões WhatsApp */}
                 {usuarioSelecionado.is_whatsapp_attendant && integracoesWhatsApp.length > 0 && (
                   <div className="p-3 bg-blue-50 rounded-lg border border-blue-200">
