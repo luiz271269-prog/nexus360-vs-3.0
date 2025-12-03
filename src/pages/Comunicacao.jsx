@@ -553,7 +553,6 @@ export default function Comunicacao() {
               onClick={async () => {
                 toast.info("Recarregando...");
                 await Promise.all([
-                queryClient.invalidateQueries({ queryKey: ['unified-topics'] }),
                 queryClient.invalidateQueries({ queryKey: ['threads'] }),
                 queryClient.invalidateQueries({ queryKey: ['contacts'] }),
                 queryClient.invalidateQueries({ queryKey: ['integracoes'] }),
