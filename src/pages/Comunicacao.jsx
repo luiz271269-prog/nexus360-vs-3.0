@@ -428,15 +428,44 @@ export default function Comunicacao() {
       // REGRAS 2.1, 2.2, 2.4: Quem pode ver a conversa?
       // ═══════════════════════════════════════════════════════════════════════
       const isAdmin = usuario.role === 'admin';
+      const permVisualizacao = usuario.permissoes_visualizacao || {};
+      const podeVerTodas = permVisualizacao.pode_ver_todas_conversas === true;
+      const podeVerNaoAtribuidas = permVisualizacao.pode_ver_nao_atribuidas !== false; // default true
+      const setoresVisiveis = permVisualizacao.setores_visiveis || [];
+      const atendentesVisiveis = permVisualizacao.atendentes_visiveis || [];
+      
       const isAtribuidoAoUsuario = thread.assigned_user_id === usuario.id;
       const isFidelizadoAoUsuario = contatoFidelizadoAoUsuario(contato, usuario);
       const isNaoAtribuida = !thread.assigned_user_id;
 
-      // Admin vê tudo
-      // OU está atribuído ao usuário (2.1)
-      // OU usuário é fidelizado ao contato (2.2)
-      // OU conversa não atribuída (2.4) - usuário pode "pegar"
-      const podeVerConversa = isAdmin || isAtribuidoAoUsuario || isFidelizadoAoUsuario || isNaoAtribuida;
+      // Verificar se pode ver por setor da conversa
+      const setorThread = thread.sector_id || 'geral';
+      const podeVerPorSetor = setoresVisiveis.length === 0 || setoresVisiveis.includes(setorThread);
+
+      // Verificar se pode ver por atendente atribuído
+      const podeVerPorAtendente = atendentesVisiveis.length === 0 || 
+        (thread.assigned_user_id && atendentesVisiveis.includes(thread.assigned_user_id));
+
+      // REGRAS DE VISUALIZAÇÃO:
+      // 1. Admin vê tudo
+      // 2. Usuário com pode_ver_todas_conversas vê tudo
+      // 3. Está atribuído ao usuário (2.1)
+      // 4. Usuário é fidelizado ao contato (2.2)
+      // 5. Conversa não atribuída E usuário pode ver não atribuídas (2.4)
+      // 6. Conversa está em setor visível OU atribuída a atendente visível
+      let podeVerConversa = false;
+      
+      if (isAdmin || podeVerTodas) {
+        podeVerConversa = true;
+      } else if (isAtribuidoAoUsuario) {
+        podeVerConversa = true; // 2.1 - Atribuído ao usuário
+      } else if (isFidelizadoAoUsuario) {
+        podeVerConversa = true; // 2.2 - Fidelizado ao usuário
+      } else if (isNaoAtribuida && podeVerNaoAtribuidas) {
+        podeVerConversa = podeVerPorSetor; // 2.4 - Não atribuída + permissão + setor
+      } else if (podeVerPorSetor && podeVerPorAtendente) {
+        podeVerConversa = true; // Pode ver por configuração de setor/atendente
+      }
       
       if (!podeVerConversa) {
         return false;
