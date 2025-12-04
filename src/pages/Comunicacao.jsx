@@ -417,16 +417,38 @@ export default function Comunicacao() {
       threads.forEach(thread => {
         const contato = contatosMap.get(thread.contact_id);
         if (!contato) return;
-        
+
         // Enriquecer thread com contato para verificação de permissão
         const threadComContato = { ...thread, contato };
-        
+
         // Verificar se é não atribuída E se usuário pode ver (permissões base)
         if (isNaoAtribuida(thread) && canUserSeeThreadBase(usuario, threadComContato)) {
           contatosComThreadsNaoAtribuidas.add(thread.contact_id);
         }
       });
     }
+
+    // PASSO 1.5: Agrupar threads por contact_id - mostrar apenas a mais recente de cada contato
+    const threadMaisRecentePorContato = new Map();
+    threads.forEach(thread => {
+      const contactId = thread.contact_id;
+      if (!contactId) return;
+
+      const existente = threadMaisRecentePorContato.get(contactId);
+      if (!existente) {
+        threadMaisRecentePorContato.set(contactId, thread);
+      } else {
+        // Manter a mais recente
+        const dataExistente = new Date(existente.last_message_at || existente.updated_date || 0);
+        const dataAtual = new Date(thread.last_message_at || thread.updated_date || 0);
+        if (dataAtual > dataExistente) {
+          threadMaisRecentePorContato.set(contactId, thread);
+        }
+      }
+    });
+
+    // Usar apenas threads únicas por contato
+    const threadsUnicas = Array.from(threadMaisRecentePorContato.values());
 
     // Montar objeto de filtros para threadVisibility
     // Quando filtro é "não atribuídas", não passar atendente específico
