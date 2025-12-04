@@ -26,9 +26,11 @@ Deno.serve(async (req) => {
     // 1) Buscar threads não atribuídas
     const todasThreads = await base44.asServiceRole.entities.MessageThread.list('-updated_date', limite);
     
-    // Filtrar: não atribuídas, não pendentes, não arquivadas/resolvidas
+    // Filtrar: não atribuídas (id, name E email), não pendentes, não arquivadas/resolvidas
     const threadsNaoAtribuidas = todasThreads.filter(t => 
       !t.assigned_user_id && 
+      !t.assigned_user_name &&
+      !t.assigned_user_email &&
       !t.assignment_review_pending &&
       !['arquivada', 'resolvida'].includes(t.status) &&
       new Date(t.updated_date) >= dataCorte
