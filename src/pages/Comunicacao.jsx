@@ -402,16 +402,22 @@ export default function Comunicacao() {
     const temBuscaPorTexto = !!debouncedSearchTerm && debouncedSearchTerm.trim().length >= 2;
     const threadsComContatoIds = new Set();
 
+    // ═══════════════════════════════════════════════════════════════════════════
+    // FILTRO ESPECIAL: "Não atribuídas" - Mostrar TODAS as threads sem atribuição
+    // Ignora filtro de atendente específico quando scope é 'unassigned'
+    // ═══════════════════════════════════════════════════════════════════════════
+    const isFilterUnassigned = filterScope === 'unassigned';
+
     // Montar objeto de filtros para threadVisibility
+    // Quando filtro é "não atribuídas", não passar atendente específico
     const filtros = {
-      atendenteId: selectedAttendantId,
+      atendenteId: isFilterUnassigned ? null : selectedAttendantId,
       integracaoId: selectedIntegrationId,
       scope: filterScope
     };
 
     // ═══════════════════════════════════════════════════════════════════════════
     // PARTE 1: Filtrar THREADS existentes com REGRAS DE VISUALIZAÇÃO
-    // Usa canUserSeeThreadWithFilters do módulo threadVisibility.js
     // ═══════════════════════════════════════════════════════════════════════════
     const threadsFiltrados = threads.filter(thread => {
       const contato = contatosMap.get(thread.contact_id);
@@ -423,13 +429,25 @@ export default function Comunicacao() {
       const threadComContato = { ...thread, contato };
 
       // ═══════════════════════════════════════════════════════════════════════
-      // REGRA CENTRAL: Usar módulo threadVisibility.js
-      // - Verifica integração, conexão, setor
-      // - Verifica atribuição, fidelização, S/atend
-      // - Aplica filtros de atendente e escopo
+      // FILTRO "NÃO ATRIBUÍDAS": Lógica simplificada e direta
+      // Mostra TODAS as threads que não têm assigned_user_id
       // ═══════════════════════════════════════════════════════════════════════
-      if (!canUserSeeThreadWithFilters(usuario, threadComContato, filtros)) {
-        return false;
+      if (isFilterUnassigned) {
+        // Thread deve não ter atribuição
+        const naoAtribuida = !thread.assigned_user_id && !thread.assigned_user_name && !thread.assigned_user_email;
+        if (!naoAtribuida) return false;
+        
+        // Ainda aplicar filtros de integração/conexão se selecionados
+        if (selectedIntegrationId && selectedIntegrationId !== 'all') {
+          if (thread.whatsapp_integration_id !== selectedIntegrationId) return false;
+        }
+      } else {
+        // ═══════════════════════════════════════════════════════════════════════
+        // REGRA CENTRAL: Usar módulo threadVisibility.js para outros escopos
+        // ═══════════════════════════════════════════════════════════════════════
+        if (!canUserSeeThreadWithFilters(usuario, threadComContato, filtros)) {
+          return false;
+        }
       }
 
       // ═══════════════════════════════════════════════════════════════════════
