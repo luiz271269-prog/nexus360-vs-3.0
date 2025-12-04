@@ -460,8 +460,9 @@ export default function Comunicacao() {
 
     // ═══════════════════════════════════════════════════════════════════════════
     // PARTE 1: Filtrar THREADS existentes com REGRAS DE VISUALIZAÇÃO
+    // (Usando threadsUnicas para evitar duplicatas por contato)
     // ═══════════════════════════════════════════════════════════════════════════
-    const threadsFiltrados = threads.filter(thread => {
+    const threadsFiltrados = threadsUnicas.filter(thread => {
       const contato = contatosMap.get(thread.contact_id);
       
       // Permitir threads sem contato_id se forem S/atend (para não perder threads soltas)
