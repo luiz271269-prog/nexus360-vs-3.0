@@ -825,46 +825,8 @@ export default function ChatWindow({
         throw new Error('Este contato não possui telefone cadastrado. Por favor, edite o contato e adicione um número de telefone.');
       }
 
-      // ═══════════════════════════════════════════════════════════════════════════
       // 🎯 AUTO-ATRIBUIÇÃO: Se thread sem dono, atribuir ao atendente que responde
-      // ═══════════════════════════════════════════════════════════════════════════
-      const isThreadOrfa = !thread.assigned_user_id && !thread.assigned_user_email;
-      
-      if (isThreadOrfa && usuario) {
-        console.log(`[CHAT] 🎯 Auto-atribuindo thread ${thread.id} para ${usuario.full_name || usuario.email}`);
-        
-        try {
-          await base44.entities.MessageThread.update(thread.id, {
-            assigned_user_id: usuario.id,
-            assigned_user_name: usuario.full_name || usuario.email,
-            assigned_user_email: usuario.email,
-            status: 'aberta'
-          });
-          
-          // Registrar log de atribuição automática
-          await base44.entities.AutomationLog.create({
-            acao: 'auto_atribuicao_resposta',
-            contato_id: thread.contact_id,
-            thread_id: thread.id,
-            usuario_id: usuario.id,
-            resultado: 'sucesso',
-            timestamp: new Date().toISOString(),
-            detalhes: {
-              mensagem: `Conversa auto-atribuída ao responder`,
-              atendente: usuario.full_name || usuario.email,
-              trigger: 'primeira_resposta'
-            },
-            origem: 'sistema',
-            prioridade: 'normal'
-          });
-          
-          console.log(`[CHAT] ✅ Thread ${thread.id} atribuída automaticamente a ${usuario.full_name}`);
-        } catch (autoAssignError) {
-          // Se falhar (ex: concorrência), apenas logar - não impede envio da mensagem
-          console.warn('[CHAT] ⚠️ Erro na auto-atribuição (pode já ter sido atribuída):', autoAssignError.message);
-        }
-      }
-      // ═══════════════════════════════════════════════════════════════════════════
+      await autoAtribuirThreadSeNecessario(thread);
 
       const mensagemParaEnviar = mensagemTexto.trim();
       const integrationIdParaUso = canalSelecionado || thread.whatsapp_integration_id;
