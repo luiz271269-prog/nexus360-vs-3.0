@@ -137,10 +137,15 @@ export const usuarioJaConversouComContato = (usuario, thread, mensagensThread = 
 /**
  * ✅ Conversas atribuídas ao próprio usuário
  * ✅ Conversas de contatos fidelizados (se não atribuídas a outro)
+ * ✅ Conversas não atribuídas (S/atend.) - SEMPRE VISÍVEIS PARA TODOS
  * ✅ Conversas não atribuídas onde o usuário JÁ CONVERSOU anteriormente
- * ✅ Conversas não atribuídas (S/atend.) - se pode_ver_nao_atribuidas = true
  * ❌ Conversas atribuídas a outro atendente
  * ❌ Conversas fidelizadas a outro atendente
+ * 
+ * REGRA PRINCIPAL: Todo usuário SEMPRE vê:
+ * - Suas conversas atribuídas
+ * - Contatos fidelizados a ele
+ * - TODAS as conversas não atribuídas (para poder atender)
  */
 export const canUserSeeThreadBase = (usuario, thread, mensagensThread = []) => {
   if (!usuario || !thread) return false;
@@ -160,8 +165,6 @@ export const canUserSeeThreadBase = (usuario, thread, mensagensThread = []) => {
   const atribuido = isAtribuidoAoUsuario(usuario, thread);
   const fidelizado = isFidelizadoAoUsuario(usuario, contato);
   const naoAtribuida = isNaoAtribuida(thread);
-  const podeVerNaoAtribuidas = perms.pode_ver_nao_atribuidas !== false; // default true
-  const jaConversou = usuarioJaConversouComContato(usuario, thread, mensagensThread);
 
   // 0) Admin / "ver todas"
   if (isAdminOrAll) {
@@ -181,13 +184,9 @@ export const canUserSeeThreadBase = (usuario, thread, mensagensThread = []) => {
     }
   }
 
-  // 3) Não atribuída MAS o usuário já conversou com este contato → PRIORIDADE
-  if (naoAtribuida && jaConversou) {
-    return true;
-  }
-
-  // 4) Não atribuída (S/atend.) – se permitido ver não atribuídas
-  if (naoAtribuida && podeVerNaoAtribuidas) {
+  // 3) Não atribuída (S/atend.) - SEMPRE VISÍVEL PARA TODOS OS USUÁRIOS
+  // Todos podem ver conversas não atribuídas para poder atendê-las
+  if (naoAtribuida) {
     return true;
   }
 
