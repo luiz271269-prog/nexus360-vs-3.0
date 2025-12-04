@@ -147,16 +147,21 @@ export default function Comunicacao() {
   });
 
   // Filtrar integrações baseado nas permissões do usuário
+  // ALINHADO com threadVisibility.js: usa permissoes_visualizacao.integracoes_visiveis
   const integracoes = React.useMemo(() => {
     if (!usuario || !todasIntegracoes.length) return [];
     if (usuario.role === 'admin') return todasIntegracoes;
 
-    const whatsappPerms = usuario.whatsapp_permissions || [];
-    if (whatsappPerms.length === 0) return todasIntegracoes;
+    const perms = usuario.permissoes_visualizacao || {};
+    const integracoesVisiveis = perms.integracoes_visiveis || [];
+    
+    // Array vazio = sem restrição (mesma regra do threadVisibility.js)
+    if (integracoesVisiveis.length === 0) return todasIntegracoes;
 
-    const permMap = new Map(whatsappPerms.map(p => [p.integration_id, p.can_view]));
-    return todasIntegracoes.filter(i => permMap.get(i.id));
-  }, [todasIntegracoes, usuario?.id, usuario?.role]);
+    const normalizar = (v) => (v ? String(v).trim().toLowerCase() : '');
+    const visiveisNorm = new Set(integracoesVisiveis.map(normalizar));
+    return todasIntegracoes.filter(i => visiveisNorm.has(normalizar(i.id)));
+  }, [todasIntegracoes, usuario?.id, usuario?.role, usuario?.permissoes_visualizacao]);
 
   const { data: atendentesRaw = [] } = useQuery({
     queryKey: ['atendentes'],
