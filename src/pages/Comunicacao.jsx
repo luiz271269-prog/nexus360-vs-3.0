@@ -544,10 +544,13 @@ export default function Comunicacao() {
 
     // ═══════════════════════════════════════════════════════════════════════════
     // PARTE 2: COM BUSCA - Adicionar contatos sem thread e clientes sem contato
+    // IMPORTANTE: Usar contatosComThreadExistente para evitar duplicatas
     // ═══════════════════════════════════════════════════════════════════════════
     if (temBuscaPorTexto) {
-      // Contatos sem thread
+      // Contatos sem thread - usar Set de contatos que já têm thread
       contatos.forEach(contato => {
+        // CRÍTICO: Verificar em AMBOS os sets para evitar duplicatas
+        if (contatosComThreadExistente.has(contato.id)) return;
         if (threadsComContatoIds.has(contato.id)) return;
         if (contato.bloqueado) return;
         if (!matchBuscaGoogle(contato, debouncedSearchTerm)) return;
@@ -563,16 +566,19 @@ export default function Comunicacao() {
         });
       });
 
-      // Clientes sem contato
+      // Clientes sem contato associado
       clientes.forEach(cliente => {
         if (!matchBuscaGoogle(cliente, debouncedSearchTerm)) return;
         
+        // Verificar se cliente já tem contato pelo telefone
         const telefoneCliente = (cliente.telefone || '').replace(/\D/g, '');
-        const jaTemContato = contatos.some(c => {
-          const tel = (c.telefone || '').replace(/\D/g, '');
-          return tel && telefoneCliente && tel === telefoneCliente;
-        });
-        if (jaTemContato) return;
+        if (telefoneCliente) {
+          const jaTemContato = contatos.some(c => {
+            const tel = (c.telefone || '').replace(/\D/g, '');
+            return tel && tel === telefoneCliente;
+          });
+          if (jaTemContato) return;
+        }
 
         threadsFiltrados.push({
           id: `cliente-sem-contato-${cliente.id}`,
