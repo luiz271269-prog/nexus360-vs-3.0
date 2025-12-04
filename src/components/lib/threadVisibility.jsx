@@ -195,10 +195,14 @@ export const canUserSeeThreadBase = (usuario, thread, mensagensThread = []) => {
 };
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// REGRA COM FILTROS: Ver conversas de outros atendentes
+// REGRA COM FILTROS: Funil de 5 Estágios
 // ═══════════════════════════════════════════════════════════════════════════════
 /**
- * Aplica filtros da tela (atendente, conexão, integração, escopo)
+ * 🟢 ESTÁGIO 1: BARREIRA DE SEGURANÇA (Hardware & Permissões)
+ * 🔵 ESTÁGIO 2: FILTRO DE ESCOPO (Abas: my, unassigned, all)
+ * 🟠 ESTÁGIO 3: FILTROS DE ATRIBUTOS (Conexão, Atendente, etc.)
+ * 🟣 ESTÁGIO 4: BUSCA TEXTUAL (aplicada em Comunicacao.jsx)
+ * 🔴 ESTÁGIO 5: DEDUPLICAÇÃO (aplicada em Comunicacao.jsx)
  * 
  * @param {Object} usuario - Usuário logado
  * @param {Object} thread - Thread a verificar
@@ -215,34 +219,90 @@ export const canUserSeeThreadWithFilters = (usuario, thread, filtros = {}) => {
   const isAdmin = usuario.role === 'admin';
   const isAdminOrAll = isAdmin || !!perms.pode_ver_todas_conversas;
 
-  // Verificar permissões básicas de integração/conexão/setor
+  // ═══════════════════════════════════════════════════════════════════════
+  // 🟢 ESTÁGIO 1: BARREIRA DE SEGURANÇA
+  // Antes de tudo, verificar se o usuário TEM PERMISSÃO para ver esta thread
+  // ═══════════════════════════════════════════════════════════════════════
+  
+  // 1.1 Filtro de Integração (user.whatsapp_permissions ou permissoes_visualizacao.integracoes_visiveis)
   const integracaoOk = temPermissaoIntegracao(usuario, thread.whatsapp_integration_id);
+  if (!integracaoOk) return false;
+
+  // 1.2 Filtro de Conexão/Número (user.permissoes_visualizacao.conexoes_visiveis)
   const conexaoOk = threadConexaoVisivel(usuario, thread.conexao_id);
+  if (!conexaoOk) return false;
+
+  // 1.3 Filtro de Setor (user.permissoes_visualizacao.setores_visiveis)
   const setorOk = threadSetorVisivel(usuario, thread.sector_id || thread.setor);
+  if (!setorOk) return false;
 
-  if (!integracaoOk || !conexaoOk || !setorOk) return false;
+  // ═══════════════════════════════════════════════════════════════════════
+  // 🔵 ESTÁGIO 2: FILTRO DE ESCOPO (Abas de Navegação)
+  // Aplicar UMA das regras dependendo da aba selecionada
+  // ═══════════════════════════════════════════════════════════════════════
+  
+  const contato = thread.contato;
+  const atribuido = isAtribuidoAoUsuario(usuario, thread);
+  const fidelizado = isFidelizadoAoUsuario(usuario, contato);
+  const naoAtribuida = isNaoAtribuida(thread);
 
-  // Filtro por integração selecionada
+  // A. Aba "Minhas Conversas" (scope = 'my')
+  if (filtros.scope === 'my') {
+    // Passa se atender PELO MENOS UM critério:
+    // 1. Atribuição Direta
+    if (atribuido) return true;
+    
+    // 2. Fidelização (Dono do Cliente) - e não atribuída a outro
+    if (fidelizado && !thread.assigned_user_id) return true;
+    
+    // 3. Contato fidelizado ao usuário (mesmo que thread não atribuída)
+    if (fidelizado) {
+      const atribuidaAOutro = thread.assigned_user_id && !atribuido;
+      if (!atribuidaAOutro) return true;
+    }
+    
+    // Não passou em nenhum critério
+    return false;
+  }
+
+  // B. Aba "Não Atribuídas" (scope = 'unassigned')
+  // NOTA: A lógica de contexto (mostrar todas threads do contato) é feita em Comunicacao.jsx
+  if (filtros.scope === 'unassigned') {
+    // Thread órfã = sem assigned_user_id e sem assigned_user_email
+    return naoAtribuida && (isAdminOrAll || perms.pode_ver_nao_atribuidas !== false);
+  }
+
+  // C. Aba "Todas" (scope = 'all') - Admin/Gerentes veem tudo que passou no Estágio 1
+  // Para usuários comuns, usar regra base (atribuído + fidelizado + não atribuídas)
+  if (filtros.scope === 'all') {
+    if (isAdminOrAll) return true;
+    return canUserSeeThreadBase(usuario, thread);
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════
+  // 🟠 ESTÁGIO 3: FILTROS DE ATRIBUTOS (Refinamento)
+  // Aplicar TODOS os filtros selecionados (Lógica AND)
+  // ═══════════════════════════════════════════════════════════════════════
+
+  // 3.1 Filtro por Conexão Específica selecionada no dropdown
   if (filtros.integracaoId && filtros.integracaoId !== 'all') {
     if (normalizar(filtros.integracaoId) !== normalizar(thread.whatsapp_integration_id)) {
       return false;
     }
   }
 
-  // Filtro por conexão selecionada
+  // 3.2 Filtro por conexão/número selecionada
   if (filtros.conexaoId && filtros.conexaoId !== 'all') {
     if (normalizar(filtros.conexaoId) !== normalizar(thread.conexao_id)) {
       return false;
     }
   }
 
-  // ═══════════════════════════════════════════════════════════════════════
-  // FILTRO POR ATENDENTE ESPECÍFICO
-  // ═══════════════════════════════════════════════════════════════════════
+  // 3.3 Filtro por Atendente Específico
   if (filtros.atendenteId && filtros.atendenteId !== 'all' && filtros.atendenteId !== usuario.id) {
     const alvoIdNorm = normalizar(filtros.atendenteId);
 
-    // Verificar se pode ver esse atendente
+    // Verificar se pode ver esse atendente (permissões)
     const atendentesVisiveis = perms.atendentes_visiveis || [];
     const podeVerAtendente = isAdminOrAll || atendentesVisiveis.map(normalizar).includes(alvoIdNorm);
 
@@ -255,20 +315,7 @@ export const canUserSeeThreadWithFilters = (usuario, thread, filtros = {}) => {
     return atribuidaAoAlvo;
   }
 
-  // ═══════════════════════════════════════════════════════════════════════
-  // FILTRO POR ESCOPO (my, unassigned, all)
-  // ═══════════════════════════════════════════════════════════════════════
-  if (filtros.scope === 'my') {
-    // Apenas minhas conversas
-    return isAtribuidoAoUsuario(usuario, thread);
-  }
-
-  if (filtros.scope === 'unassigned') {
-    // Apenas não atribuídas
-    return isNaoAtribuida(thread) && (isAdminOrAll || perms.pode_ver_nao_atribuidas !== false);
-  }
-
-  // scope === 'all' ou sem scope → usar regra base
+  // Sem escopo definido → usar regra base
   return canUserSeeThreadBase(usuario, thread);
 };
 
