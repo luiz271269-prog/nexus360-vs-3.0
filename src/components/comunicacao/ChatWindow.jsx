@@ -439,6 +439,52 @@ export default function ChatWindow({
     }
   };
 
+  // ═══════════════════════════════════════════════════════════════════════════
+  // 🎯 FUNÇÃO AUXILIAR: Auto-atribuir thread órfã ao usuário atual
+  // ═══════════════════════════════════════════════════════════════════════════
+  const autoAtribuirThreadSeNecessario = async (threadAtual) => {
+    if (!threadAtual || !usuario) return;
+    
+    const isThreadOrfa = !threadAtual.assigned_user_id && !threadAtual.assigned_user_email;
+    
+    if (isThreadOrfa) {
+      console.log(`[CHAT] 🎯 Auto-atribuindo thread ${threadAtual.id} para ${usuario.full_name || usuario.email}`);
+      
+      try {
+        await base44.entities.MessageThread.update(threadAtual.id, {
+          assigned_user_id: usuario.id,
+          assigned_user_name: usuario.full_name || usuario.email,
+          assigned_user_email: usuario.email,
+          status: 'aberta'
+        });
+        
+        // Registrar log de atribuição automática
+        await base44.entities.AutomationLog.create({
+          acao: 'auto_atribuicao_resposta',
+          contato_id: threadAtual.contact_id,
+          thread_id: threadAtual.id,
+          usuario_id: usuario.id,
+          resultado: 'sucesso',
+          timestamp: new Date().toISOString(),
+          detalhes: {
+            mensagem: `Conversa auto-atribuída ao responder`,
+            atendente: usuario.full_name || usuario.email,
+            trigger: 'primeira_resposta'
+          },
+          origem: 'sistema',
+          prioridade: 'normal'
+        });
+        
+        console.log(`[CHAT] ✅ Thread ${threadAtual.id} atribuída automaticamente a ${usuario.full_name}`);
+        return true;
+      } catch (autoAssignError) {
+        console.warn('[CHAT] ⚠️ Erro na auto-atribuição:', autoAssignError.message);
+        return false;
+      }
+    }
+    return false;
+  };
+
   const enviarAudio = async (audioBlob) => {
     if (!podeEnviarAudios) {
       toast.error("❌ Você não tem permissão para enviar áudios");
