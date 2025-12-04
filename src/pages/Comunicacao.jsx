@@ -429,6 +429,7 @@ export default function Comunicacao() {
     }
 
     // PASSO 1.5: Agrupar threads por contact_id - mostrar apenas a mais recente de cada contato
+    // CRÍTICO: Isso evita duplicatas quando um contato tem múltiplas threads
     const threadMaisRecentePorContato = new Map();
     threads.forEach(thread => {
       const contactId = thread.contact_id;
@@ -438,9 +439,9 @@ export default function Comunicacao() {
       if (!existente) {
         threadMaisRecentePorContato.set(contactId, thread);
       } else {
-        // Manter a mais recente
-        const dataExistente = new Date(existente.last_message_at || existente.updated_date || 0);
-        const dataAtual = new Date(thread.last_message_at || thread.updated_date || 0);
+        // Manter a mais recente baseado em last_message_at ou updated_date
+        const dataExistente = new Date(existente.last_message_at || existente.updated_date || existente.created_date || 0);
+        const dataAtual = new Date(thread.last_message_at || thread.updated_date || thread.created_date || 0);
         if (dataAtual > dataExistente) {
           threadMaisRecentePorContato.set(contactId, thread);
         }
@@ -449,6 +450,9 @@ export default function Comunicacao() {
 
     // Usar apenas threads únicas por contato
     const threadsUnicas = Array.from(threadMaisRecentePorContato.values());
+    
+    // Registrar IDs de contatos que já têm thread (para evitar duplicatas na busca)
+    const contatosComThreadExistente = new Set(threadsUnicas.map(t => t.contact_id).filter(Boolean));
 
     // Montar objeto de filtros para threadVisibility
     // Quando filtro é "não atribuídas", não passar atendente específico
