@@ -1,14 +1,20 @@
 /**
  * ═══════════════════════════════════════════════════════════════════════════════
- * 🔄 ATRIBUIÇÃO AUTOMÁTICA DE CONVERSAS NÃO ATRIBUÍDAS
+ * 🎯 ATRIBUIDOR DE CONVERSAS NÃO ATRIBUÍDAS
  * ═══════════════════════════════════════════════════════════════════════════════
  * 
- * Analisa conversas sem atendente e atribui ao último atendente que conversou
- * com o contato, seguindo a ordem de prioridade:
+ * Analisa todas as conversas (MessageThreads) sem atribuição e atribui ao 
+ * último atendente que respondeu na conversa.
  * 
- * 1. Último atendente que enviou mensagem nesta thread
- * 2. Atendente fidelizado do contato (vendedor_responsavel, atendente_fidelizado_*)
- * 3. Último atendente que conversou com este contato em qualquer thread
+ * LÓGICA:
+ * 1. Busca todas as threads sem assigned_user_id
+ * 2. Para cada thread, busca as mensagens
+ * 3. Identifica a última mensagem enviada por um "user" (atendente)
+ * 4. Atribui a thread ao atendente que enviou essa mensagem
+ * 
+ * MODOS:
+ * - dry_run=true: Apenas simula e retorna o que seria feito
+ * - dry_run=false: Executa as atribuições
  * 
  * ═══════════════════════════════════════════════════════════════════════════════
  */
@@ -22,207 +28,175 @@ Deno.serve(async (req) => {
     // Verificar autenticação
     const user = await base44.auth.me();
     if (!user) {
-      return Response.json({ error: 'Unauthorized' }, { status: 401 });
+      return Response.json({ error: 'Não autenticado' }, { status: 401 });
+    }
+    
+    // Apenas admins podem executar
+    if (user.role !== 'admin') {
+      return Response.json({ error: 'Apenas administradores podem executar esta função' }, { status: 403 });
     }
 
-    // Parâmetros opcionais
+    // Parâmetros
     const url = new URL(req.url);
-    const limitHoras = parseInt(url.searchParams.get('horas') || '48'); // Últimas 48h por padrão
-    const dryRun = url.searchParams.get('dry_run') === 'true'; // Só simular, não atribuir
+    const dryRun = url.searchParams.get('dry_run') !== 'false'; // Default: true (simulação)
+    const limite = parseInt(url.searchParams.get('limite') || '100');
+    const diasAtras = parseInt(url.searchParams.get('dias') || '30');
+
+    console.log(`[ATRIBUIDOR] Iniciando... dry_run=${dryRun}, limite=${limite}, dias=${diasAtras}`);
 
     // 1. Buscar threads não atribuídas
-    const todasThreads = await base44.asServiceRole.entities.MessageThread.list('-last_message_at', 500);
-    const threadsNaoAtribuidas = todasThreads.filter(t => 
-      !t.assigned_user_id && 
-      t.status !== 'arquivada' &&
-      t.status !== 'resolvida'
+    const dataLimite = new Date();
+    dataLimite.setDate(dataLimite.getDate() - diasAtras);
+
+    const todasThreads = await base44.asServiceRole.entities.MessageThread.filter(
+      {},
+      '-updated_date',
+      500
     );
 
-    if (threadsNaoAtribuidas.length === 0) {
+    // Filtrar threads órfãs (sem atribuição)
+    const threadsOrfas = todasThreads.filter(t => 
+      !t.assigned_user_id && 
+      !t.assigned_user_email &&
+      new Date(t.updated_date || t.created_date) >= dataLimite
+    ).slice(0, limite);
+
+    console.log(`[ATRIBUIDOR] Encontradas ${threadsOrfas.length} threads órfãs (de ${todasThreads.length} total)`);
+
+    if (threadsOrfas.length === 0) {
       return Response.json({
         success: true,
-        message: 'Nenhuma conversa não atribuída encontrada',
-        atribuidas: 0
+        message: 'Nenhuma thread órfã encontrada',
+        total_analisadas: todasThreads.length,
+        total_orfas: 0,
+        atribuicoes: []
       });
     }
 
-    // 2. Buscar todos os atendentes ativos
-    const atendentes = await base44.asServiceRole.entities.User.filter({ is_whatsapp_attendant: true });
-    const atendentesMap = new Map(atendentes.map(a => [a.id, a]));
-    const atendentesEmailMap = new Map(atendentes.map(a => [a.email?.toLowerCase(), a]));
-    const atendentesNomeMap = new Map(atendentes.map(a => [a.full_name?.toLowerCase(), a]));
+    // 2. Buscar todos os usuários para mapear IDs
+    const usuarios = await base44.asServiceRole.entities.User.list();
+    const usuariosMap = new Map();
+    usuarios.forEach(u => {
+      if (u.id) usuariosMap.set(u.id, u);
+      if (u.email) usuariosMap.set(u.email.toLowerCase(), u);
+    });
 
-    // 3. Buscar contatos
-    const contatos = await base44.asServiceRole.entities.Contact.list('-created_date', 500);
-    const contatosMap = new Map(contatos.map(c => [c.id, c]));
+    // 3. Processar cada thread órfã
+    const atribuicoes = [];
+    const erros = [];
 
-    // 4. Buscar mensagens recentes (para encontrar último atendente)
-    const dataLimite = new Date(Date.now() - limitHoras * 60 * 60 * 1000).toISOString();
-    const mensagensRecentes = await base44.asServiceRole.entities.Message.list('-sent_at', 2000);
+    for (const thread of threadsOrfas) {
+      try {
+        // Buscar mensagens da thread
+        const mensagens = await base44.asServiceRole.entities.Message.filter(
+          { thread_id: thread.id },
+          '-created_date',
+          100
+        );
 
-    // Agrupar mensagens por thread_id
-    const mensagensPorThread = new Map();
-    for (const msg of mensagensRecentes) {
-      if (!mensagensPorThread.has(msg.thread_id)) {
-        mensagensPorThread.set(msg.thread_id, []);
-      }
-      mensagensPorThread.get(msg.thread_id).push(msg);
-    }
-
-    // Função para encontrar atendente por ID, email ou nome
-    const encontrarAtendente = (identificador) => {
-      if (!identificador) return null;
-      const idNorm = String(identificador).toLowerCase().trim();
-      
-      return atendentesMap.get(identificador) || 
-             atendentesEmailMap.get(idNorm) ||
-             atendentesNomeMap.get(idNorm) ||
-             null;
-    };
-
-    // Função para encontrar último atendente que enviou mensagem na thread
-    const encontrarUltimoAtendenteNaThread = (threadId) => {
-      const mensagens = mensagensPorThread.get(threadId) || [];
-      
-      // Ordenar por data decrescente
-      const mensagensOrdenadas = mensagens
-        .filter(m => m.sender_type === 'user')
-        .sort((a, b) => new Date(b.sent_at || b.created_date) - new Date(a.sent_at || a.created_date));
-
-      for (const msg of mensagensOrdenadas) {
-        const atendente = encontrarAtendente(msg.sender_id);
-        if (atendente) {
-          return { atendente, fonte: 'mensagem_thread' };
+        if (!mensagens || mensagens.length === 0) {
+          console.log(`[ATRIBUIDOR] Thread ${thread.id}: Sem mensagens`);
+          continue;
         }
-      }
-      return null;
-    };
 
-    // Função para encontrar atendente fidelizado do contato
-    const encontrarAtendenteFidelizado = (contato) => {
-      if (!contato) return null;
+        // Encontrar última mensagem de um atendente (sender_type = 'user')
+        const ultimaMsgAtendente = mensagens.find(m => m.sender_type === 'user');
 
-      const camposFidelizacao = [
-        'vendedor_responsavel',
-        'atendente_fidelizado_vendas',
-        'atendente_fidelizado_assistencia',
-        'atendente_fidelizado_financeiro',
-        'atendente_fidelizado_fornecedor'
-      ];
-
-      for (const campo of camposFidelizacao) {
-        const valor = contato[campo];
-        if (valor) {
-          const atendente = encontrarAtendente(valor);
-          if (atendente) {
-            return { atendente, fonte: `fidelizado_${campo}` };
-          }
+        if (!ultimaMsgAtendente) {
+          console.log(`[ATRIBUIDOR] Thread ${thread.id}: Sem resposta de atendente`);
+          continue;
         }
-      }
-      return null;
-    };
 
-    // Função para encontrar último atendente que conversou com o contato em qualquer thread
-    const encontrarUltimoAtendenteDoContato = (contactId) => {
-      // Encontrar todas as threads deste contato
-      const threadsDoContato = todasThreads.filter(t => t.contact_id === contactId);
-      
-      let ultimoAtendente = null;
-      let ultimaData = null;
+        // Identificar o atendente
+        const senderId = ultimaMsgAtendente.sender_id;
+        let atendente = usuariosMap.get(senderId);
 
-      for (const thread of threadsDoContato) {
-        const mensagens = mensagensPorThread.get(thread.id) || [];
-        
-        for (const msg of mensagens) {
-          if (msg.sender_type === 'user') {
-            const dataMsg = new Date(msg.sent_at || msg.created_date);
-            if (!ultimaData || dataMsg > ultimaData) {
-              const atendente = encontrarAtendente(msg.sender_id);
-              if (atendente) {
-                ultimoAtendente = atendente;
-                ultimaData = dataMsg;
-              }
-            }
-          }
+        // Tentar encontrar por email se não achou por ID
+        if (!atendente && senderId && senderId.includes('@')) {
+          atendente = usuariosMap.get(senderId.toLowerCase());
         }
-      }
 
-      return ultimoAtendente ? { atendente: ultimoAtendente, fonte: 'historico_contato' } : null;
-    };
+        if (!atendente) {
+          console.log(`[ATRIBUIDOR] Thread ${thread.id}: Atendente ${senderId} não encontrado no sistema`);
+          continue;
+        }
 
-    // 5. Processar cada thread não atribuída
-    const resultados = [];
-    let atribuidas = 0;
-
-    for (const thread of threadsNaoAtribuidas) {
-      const contato = contatosMap.get(thread.contact_id);
-      
-      // Ordem de prioridade para encontrar atendente
-      let resultado = null;
-
-      // 1º - Último atendente que enviou mensagem nesta thread
-      resultado = encontrarUltimoAtendenteNaThread(thread.id);
-
-      // 2º - Atendente fidelizado do contato
-      if (!resultado) {
-        resultado = encontrarAtendenteFidelizado(contato);
-      }
-
-      // 3º - Último atendente que conversou com este contato
-      if (!resultado) {
-        resultado = encontrarUltimoAtendenteDoContato(thread.contact_id);
-      }
-
-      if (resultado) {
-        const { atendente, fonte } = resultado;
-
-        resultados.push({
+        // Preparar dados de atribuição
+        const dadosAtribuicao = {
           thread_id: thread.id,
           contact_id: thread.contact_id,
-          contato_nome: contato?.nome || 'Desconhecido',
           atendente_id: atendente.id,
-          atendente_nome: atendente.full_name,
-          fonte_atribuicao: fonte,
-          atribuido: !dryRun
-        });
+          atendente_nome: atendente.full_name || atendente.email,
+          atendente_email: atendente.email,
+          ultima_msg_data: ultimaMsgAtendente.created_date || ultimaMsgAtendente.sent_at,
+          ultima_msg_preview: (ultimaMsgAtendente.content || '').substring(0, 50)
+        };
 
+        atribuicoes.push(dadosAtribuicao);
+
+        // Se não for dry_run, executar atribuição
         if (!dryRun) {
-          // Atribuir a conversa
           await base44.asServiceRole.entities.MessageThread.update(thread.id, {
             assigned_user_id: atendente.id,
-            assigned_user_name: atendente.full_name
+            assigned_user_name: atendente.full_name || atendente.email,
+            assigned_user_email: atendente.email
           });
-          atribuidas++;
+
+          // Registrar log
+          await base44.asServiceRole.entities.AutomationLog.create({
+            acao: 'atribuicao_retroativa_lote',
+            contato_id: thread.contact_id,
+            thread_id: thread.id,
+            usuario_id: atendente.id,
+            resultado: 'sucesso',
+            timestamp: new Date().toISOString(),
+            detalhes: {
+              mensagem: `Atribuição retroativa baseada em última resposta`,
+              atendente: atendente.full_name || atendente.email,
+              trigger: 'atribuirConversasNaoAtribuidas',
+              executado_por: user.full_name || user.email
+            },
+            origem: 'sistema',
+            prioridade: 'baixa'
+          });
+
+          console.log(`[ATRIBUIDOR] ✅ Thread ${thread.id} atribuída a ${atendente.full_name}`);
+        } else {
+          console.log(`[ATRIBUIDOR] [DRY-RUN] Thread ${thread.id} seria atribuída a ${atendente.full_name}`);
         }
-      } else {
-        resultados.push({
+
+      } catch (threadError) {
+        console.error(`[ATRIBUIDOR] ❌ Erro na thread ${thread.id}:`, threadError.message);
+        erros.push({
           thread_id: thread.id,
-          contact_id: thread.contact_id,
-          contato_nome: contato?.nome || 'Desconhecido',
-          atendente_id: null,
-          atendente_nome: null,
-          fonte_atribuicao: 'nao_encontrado',
-          atribuido: false
+          erro: threadError.message
         });
       }
     }
 
+    // 4. Retornar resultado
     return Response.json({
       success: true,
-      message: dryRun 
-        ? `Simulação: ${resultados.filter(r => r.atendente_id).length} conversas seriam atribuídas`
-        : `${atribuidas} conversas atribuídas com sucesso`,
-      total_nao_atribuidas: threadsNaoAtribuidas.length,
-      atribuidas: dryRun ? 0 : atribuidas,
       dry_run: dryRun,
-      resultados
+      message: dryRun 
+        ? `Simulação concluída. ${atribuicoes.length} threads seriam atribuídas.`
+        : `Execução concluída. ${atribuicoes.length} threads foram atribuídas.`,
+      total_analisadas: todasThreads.length,
+      total_orfas: threadsOrfas.length,
+      total_atribuidas: atribuicoes.length,
+      total_erros: erros.length,
+      atribuicoes: atribuicoes.slice(0, 50), // Limitar resposta
+      erros: erros.slice(0, 20),
+      instrucoes: dryRun 
+        ? 'Para executar de fato, chame com ?dry_run=false'
+        : null
     });
 
   } catch (error) {
-    console.error('[atribuirConversasNaoAtribuidas] Erro:', error);
-    return Response.json({ 
-      error: error.message,
-      stack: error.stack 
+    console.error('[ATRIBUIDOR] Erro geral:', error);
+    return Response.json({
+      success: false,
+      error: error.message
     }, { status: 500 });
   }
 });
