@@ -1480,6 +1480,9 @@ export default function ChatWindow({
       return;
     }
 
+    // 🎯 AUTO-ATRIBUIÇÃO: Se thread sem dono, atribuir ao atendente
+    await autoAtribuirThreadSeNecessario(thread);
+
     // Guardar referências antes de limpar UI
     const imagemParaEnviar = pastedImage;
     const legendaImagem = mensagemTexto.trim() || null;
