@@ -607,6 +607,7 @@ export default function Comunicacao() {
   }, [threads, contatos, clientes, atendentes, usuario, selectedAttendantId, selectedIntegrationId, selectedCategoria, selectedTipoContato, selectedTagContato, debouncedSearchTerm, mensagensComCategoria, matchBuscaGoogle]);
 
   // Converter para formato compatível com ChatSidebar + ORDENAÇÃO por PRIORIDADE (Regra 3)
+  // DEDUPLICAÇÃO FINAL: Garantir que não há entradas duplicadas por contact_id
   const threadsComContato = React.useMemo(() => {
     const contatosMap = new Map(contatos.map(c => [c.id, c]));
     const atendentesMap = new Map(atendentes.map(a => [a.id, a]));
@@ -617,6 +618,37 @@ export default function Comunicacao() {
       contato: thread.contato || contatosMap.get(thread.contact_id),
       atendente_atribuido: atendentesMap.get(thread.assigned_user_id)
     }));
+    
+    // DEDUPLICAÇÃO FINAL: Remover duplicatas baseado em contact_id
+    // Priorizar threads reais sobre "contato-sem-thread" e "cliente-sem-contato"
+    const vistos = new Map();
+    const deduplicated = [];
+    
+    for (const thread of enriched) {
+      const contactId = thread.contact_id;
+      
+      // Se não tem contact_id (cliente sem contato), adicionar direto
+      if (!contactId) {
+        deduplicated.push(thread);
+        continue;
+      }
+      
+      const existente = vistos.get(contactId);
+      if (!existente) {
+        vistos.set(contactId, thread);
+        deduplicated.push(thread);
+      } else {
+        // Se o existente é "contato-sem-thread" e o atual é thread real, substituir
+        if (existente.is_contact_only && !thread.is_contact_only) {
+          const idx = deduplicated.indexOf(existente);
+          if (idx !== -1) {
+            deduplicated[idx] = thread;
+            vistos.set(contactId, thread);
+          }
+        }
+        // Caso contrário, manter o existente (já é a thread real ou mais recente)
+      }
+    }
 
     // ═══════════════════════════════════════════════════════════════════════════
     // ORDENAÇÃO (Regra 3):
