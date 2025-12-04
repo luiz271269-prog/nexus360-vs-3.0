@@ -222,12 +222,13 @@ export default function SearchAndFilter({
             </div>
             
             <div className="p-3 space-y-4 max-h-[60vh] overflow-y-auto">
-              {/* Escopo de conversas */}
+              {/* 🔵 ESTÁGIO 2: ESCOPO (Abas de Navegação) */}
               <div>
                 <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2 block">
-                  Escopo
+                  📋 Escopo
                 </label>
                 <div className="space-y-1">
+                  {/* A. Minhas Conversas: Atribuídas + Fidelizadas + Interação Recente */}
                   <FilterOption
                     selected={filterScope === 'my'}
                     onClick={() => onFilterScopeChange('my')}
@@ -235,23 +236,22 @@ export default function SearchAndFilter({
                     label="Minhas conversas"
                     color="bg-blue-500" />
 
-                  {isManager &&
-                  <>
-                      <FilterOption
-                      selected={filterScope === 'unassigned'}
-                      onClick={() => onFilterScopeChange('unassigned')}
-                      icon={AlertCircle}
-                      label="Não atribuídas"
-                      color="bg-orange-500" />
+                  {/* B. Não Atribuídas: assigned_user_id === NULL */}
+                  <FilterOption
+                    selected={filterScope === 'unassigned'}
+                    onClick={() => onFilterScopeChange('unassigned')}
+                    icon={AlertCircle}
+                    label="Não atribuídas"
+                    color="bg-orange-500" />
 
-                      <FilterOption
+                  {/* C. Todas: Tudo que passou no Estágio 1 (Segurança) */}
+                  {isManager &&
+                    <FilterOption
                       selected={filterScope === 'all'}
                       onClick={() => onFilterScopeChange('all')}
                       icon={Users}
                       label="Todas"
                       color="bg-emerald-500" />
-
-                    </>
                   }
                 </div>
               </div>
