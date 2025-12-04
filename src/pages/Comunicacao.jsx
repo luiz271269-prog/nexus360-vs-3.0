@@ -657,7 +657,7 @@ export default function Comunicacao() {
     // 3. 🔵 Clientes sem contato - prioridade 3
     // Dentro de cada grupo: mais recente primeiro (last_message_at)
     // ═══════════════════════════════════════════════════════════════════════════
-    return enriched.sort((a, b) => {
+    return deduplicated.sort((a, b) => {
       // Definir prioridade do tipo
       const getPrioridade = (item) => {
         if (item.is_cliente_only) return 3; // Clientes sem contato
