@@ -85,7 +85,8 @@ export const isAtribuidoAoUsuario = (usuario, thread) => {
   if (!usuario || !thread) return false;
   return (
     usuarioCorresponde(usuario, thread.assigned_user_id) ||
-    usuarioCorresponde(usuario, thread.assigned_user_name)
+    usuarioCorresponde(usuario, thread.assigned_user_name) ||
+    usuarioCorresponde(usuario, thread.assigned_user_email)
   );
 };
 
@@ -101,7 +102,7 @@ export const isFidelizadoAoUsuario = (usuario, contato) => {
  * Verifica se a thread não está atribuída a ninguém
  */
 export const isNaoAtribuida = (thread) => {
-  return !thread.assigned_user_id && !thread.assigned_user_name;
+  return !thread.assigned_user_id && !thread.assigned_user_name && !thread.assigned_user_email;
 };
 
 /**

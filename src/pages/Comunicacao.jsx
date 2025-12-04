@@ -34,6 +34,8 @@ import {
 } from "../components/lib/userMatcher";
 import {
   canUserSeeThreadWithFilters,
+  canUserSeeThreadBase,
+  isNaoAtribuida,
   filtrarAtendentesVisiveis
 } from "../components/lib/threadVisibility";
 import BibliotecaAutomacoes from "../components/automacao/BibliotecaAutomacoes";
@@ -404,9 +406,27 @@ export default function Comunicacao() {
 
     // ═══════════════════════════════════════════════════════════════════════════
     // FILTRO ESPECIAL: "Não atribuídas" - Mostrar TODAS as threads sem atribuição
-    // Ignora filtro de atendente específico quando scope é 'unassigned'
+    // Agrupa por contato: se um contato tem QUALQUER thread S/atend visível,
+    // mostra TODAS as threads desse contato
     // ═══════════════════════════════════════════════════════════════════════════
     const isFilterUnassigned = filterScope === 'unassigned';
+
+    // PASSO 1: Identificar contatos que têm pelo menos uma thread S/atend visível
+    const contatosComThreadsNaoAtribuidas = new Set();
+    if (isFilterUnassigned) {
+      threads.forEach(thread => {
+        const contato = contatosMap.get(thread.contact_id);
+        if (!contato) return;
+        
+        // Enriquecer thread com contato para verificação de permissão
+        const threadComContato = { ...thread, contato };
+        
+        // Verificar se é não atribuída E se usuário pode ver (permissões base)
+        if (isNaoAtribuida(thread) && canUserSeeThreadBase(usuario, threadComContato)) {
+          contatosComThreadsNaoAtribuidas.add(thread.contact_id);
+        }
+      });
+    }
 
     // Montar objeto de filtros para threadVisibility
     // Quando filtro é "não atribuídas", não passar atendente específico
@@ -421,23 +441,40 @@ export default function Comunicacao() {
     // ═══════════════════════════════════════════════════════════════════════════
     const threadsFiltrados = threads.filter(thread => {
       const contato = contatosMap.get(thread.contact_id);
-      if (!contato) return false;
+      
+      // Permitir threads sem contato_id se forem S/atend (para não perder threads soltas)
+      if (!contato && !isFilterUnassigned) return false;
 
-      threadsComContatoIds.add(thread.contact_id);
+      if (thread.contact_id) {
+        threadsComContatoIds.add(thread.contact_id);
+      }
 
       // Enriquecer thread com contato para a função de visibilidade
       const threadComContato = { ...thread, contato };
 
       // ═══════════════════════════════════════════════════════════════════════
-      // FILTRO "NÃO ATRIBUÍDAS": Lógica simplificada e direta
-      // Mostra TODAS as threads que não têm assigned_user_id
+      // FILTRO "NÃO ATRIBUÍDAS": Lógica por contato
+      // Se contato tem alguma S/atend visível → mostra TODAS as threads dele
+      // Também inclui threads S/atend "soltas" (sem contact_id)
       // ═══════════════════════════════════════════════════════════════════════
       if (isFilterUnassigned) {
-        // Thread deve não ter atribuição
-        const naoAtribuida = !thread.assigned_user_id && !thread.assigned_user_name && !thread.assigned_user_email;
-        if (!naoAtribuida) return false;
+        const contatoId = thread.contact_id;
+        const threadNaoAtribuida = isNaoAtribuida(thread);
         
-        // Ainda aplicar filtros de integração/conexão se selecionados
+        // Contato está marcado como tendo S/atend OU é uma thread solta S/atend
+        const contatoMarcado = contatoId && contatosComThreadsNaoAtribuidas.has(contatoId);
+        const threadSoltaNaoAtribuida = !contatoId && threadNaoAtribuida;
+        
+        if (!contatoMarcado && !threadSoltaNaoAtribuida) {
+          return false;
+        }
+        
+        // Verificar permissões base (integração/conexão/setor)
+        if (!canUserSeeThreadBase(usuario, threadComContato)) {
+          return false;
+        }
+        
+        // Aplicar filtro de integração se selecionado
         if (selectedIntegrationId && selectedIntegrationId !== 'all') {
           if (thread.whatsapp_integration_id !== selectedIntegrationId) return false;
         }
@@ -459,19 +496,19 @@ export default function Comunicacao() {
         return false;
       }
 
-      // Filtro de tipo de contato
-      if (selectedTipoContato && selectedTipoContato !== 'all') {
+      // Filtro de tipo de contato (só aplica se tiver contato)
+      if (selectedTipoContato && selectedTipoContato !== 'all' && contato) {
         if (contato.tipo_contato !== selectedTipoContato) return false;
       }
 
-      // Filtro de tag
-      if (selectedTagContato && selectedTagContato !== 'all') {
+      // Filtro de tag (só aplica se tiver contato)
+      if (selectedTagContato && selectedTagContato !== 'all' && contato) {
         const tags = contato.tags || [];
         if (!tags.includes(selectedTagContato)) return false;
       }
 
-      // Busca por texto
-      if (temBuscaPorTexto) {
+      // Busca por texto (só aplica se tiver contato)
+      if (temBuscaPorTexto && contato) {
         if (!matchBuscaGoogle(contato, debouncedSearchTerm)) return false;
       }
 
