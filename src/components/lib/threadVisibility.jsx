@@ -1,20 +1,33 @@
 /**
  * ═══════════════════════════════════════════════════════════════════════════════
- * 🔐 REGRAS DE VISIBILIDADE DE THREADS
+ * 🔐 REGRAS DE VISIBILIDADE DE THREADS - FUNIL DE 5 ESTÁGIOS
  * ═══════════════════════════════════════════════════════════════════════════════
  * 
- * Centraliza toda a lógica de quem pode ver qual conversa.
+ * 🟢 ESTÁGIO 1: BARREIRA DE SEGURANÇA (Hardware & Permissões)
+ *    - Filtro de Integração (user.whatsapp_permissions)
+ *    - Filtro de Setor (user.permissoes_visualizacao.setores_visiveis)
+ *    - Filtro de Conexão (user.permissoes_visualizacao.conexoes_visiveis)
+ *    - Exceção: Admin/pode_ver_todas_conversas ignora bloqueios
  * 
- * REGRAS:
- * 1. Lista padrão = só o que é do usuário (atribuído + fidelizado + S/atend se permitido)
- * 2. Ver conversas de outros = SOMENTE via filtro, respeitando permissões
- * 3. Busca = liberada para achar qualquer contato/cliente e iniciar conversa nova
+ * 🔵 ESTÁGIO 2: FILTRO DE ESCOPO (Abas de Navegação)
+ *    A. "Minhas Conversas" (my): Atribuição Direta OU Fidelização OU Interação Recente
+ *    B. "Não Atribuídas" (unassigned): assigned_user_id === NULL
+ *    C. "Todas" (all): Tudo que passou no Estágio 1 (para Gestores)
  * 
- * DIMENSÕES DE PERMISSÃO:
- * - Integração (Z-API, W-API)
- * - Conexão/Número (2076, 2078, 2079, 2800)
- * - Setor (VENDAS, COMPRAS, FINANCEIRO, MARKETING)
- * - Atendentes visíveis (para filtro)
+ * 🟠 ESTÁGIO 3: FILTROS DE ATRIBUTOS (Refinamento - Lógica AND)
+ *    - Conexão específica selecionada
+ *    - Tipo de contato (Lead, Cliente, etc.)
+ *    - Etiquetas do contato (Tags)
+ *    - Etiquetas de mensagem (Categorias)
+ * 
+ * 🟣 ESTÁGIO 4: BUSCA TEXTUAL (aplicada em Comunicacao.jsx)
+ *    - Nome, telefone, empresa
+ *    - Injeção de "Clientes sem Contato" se busca não encontrar threads
+ * 
+ * 🔴 ESTÁGIO 5: DEDUPLICAÇÃO & ORDENAÇÃO (aplicada em Comunicacao.jsx)
+ *    - Agrupar por contato (mostrar thread mais recente)
+ *    - Ordenar: 1º Não lidas, 2º Data mais recente
+ * 
  * ═══════════════════════════════════════════════════════════════════════════════
  */
 
