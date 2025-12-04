@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { Cliente } from "@/entities/Cliente";
 import { Orcamento } from "@/entities/Orcamento";
 import { Venda } from "@/entities/Venda";
@@ -14,7 +14,8 @@ import {
   Clock, 
   AlertTriangle,
   TrendingUp,
-  Brain
+  Brain,
+  Calendar
 } from "lucide-react";
 import RegistroInteracaoModal from "../interacoes/RegistroInteracaoModal";
 

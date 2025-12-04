@@ -1,3 +1,4 @@
+import React from 'react';
 import { Button } from '@/components/ui/button';
 import { AlertCircle, Copy } from 'lucide-react';
 import { toast } from 'sonner';

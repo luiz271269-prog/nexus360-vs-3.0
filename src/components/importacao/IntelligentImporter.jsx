@@ -1,9 +1,10 @@
-import { useState } from 'react';
+import React, { useState } from 'react';
 import { base44 } from '@/api/base44Client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
   Dialog,
   DialogContent,
@@ -11,7 +12,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { Upload, Loader2, FileText, Image as ImageIcon, CheckCircle, Trash2 } from 'lucide-react';
+import { Upload, Loader2, FileText, Image as ImageIcon, CheckCircle, AlertCircle, Edit3, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 
 /**

@@ -1,9 +1,10 @@
+import React from "react";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Filter } from "lucide-react";
+import { Calendar, Filter, Download } from "lucide-react";
 
 export default function FiltrosAvancados({ filtros, onFiltrosChange, vendedores, isGerente }) {
   const handleFiltroChange = (campo, valor) => {

@@ -1,10 +1,10 @@
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { MapeamentoImportacao } from "@/entities/MapeamentoImportacao";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { 
-  X, Trash2, Settings, Eye, Search, Filter
+  X, Edit, Trash2, Settings, Eye, BarChart3, TrendingUp, Search, Filter
 } from "lucide-react";
 
 export default function GerenciadorMapeamentos({ onClose }) {

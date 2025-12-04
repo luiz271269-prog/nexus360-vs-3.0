@@ -1,4 +1,5 @@
 
+import React from 'react';
 import { Badge } from '@/components/ui/badge';
 import {
   FileText,
@@ -9,7 +10,9 @@ import {
   MessageSquare,
   ThumbsUp,
   ThumbsDown,
-  Clock } from
+  Clock,
+  AlertTriangle,
+  Zap } from
 'lucide-react';
 
 // Configuração das etapas separadas por fluxo

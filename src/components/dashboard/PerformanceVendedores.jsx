@@ -1,9 +1,10 @@
 
+import React from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
-import { Award, TrendingUp, Target, DollarSign, Users, Phone, Calendar, Star, Trophy, User } from "lucide-react";
-import { XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Area, AreaChart } from "recharts";
+import { Award, TrendingUp, Target, DollarSign, Users, Phone, Calendar, Star, Trophy, User, FileText } from "lucide-react";
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line, Area, AreaChart } from "recharts";
 
 export default function PerformanceVendedores({ dados, filtros, isGerente, usuario }) {
   const metricas = calcularMetricasVendedores(dados, usuario);

@@ -1,3 +1,4 @@
+import React from 'react';
 import { Trophy, Award, Medal, DollarSign } from 'lucide-react';
 
 export default function RankingClientes({ clientes }) {

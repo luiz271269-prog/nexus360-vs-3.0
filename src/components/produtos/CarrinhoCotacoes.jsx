@@ -8,6 +8,7 @@ import {
   Trash2,
   Plus,
   Minus,
+  FileText,
   ArrowRight,
   Package,
   Sparkles

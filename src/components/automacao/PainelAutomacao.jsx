@@ -1,18 +1,20 @@
 
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-// Keep Progress for potential future use or if any other card uses it
+import { Progress } from "@/components/ui/progress"; // Keep Progress for potential future use or if any other card uses it
 import { 
   Bot, 
   Brain, 
   Zap, 
   Target, 
+  TrendingUp, 
   AlertCircle, 
   CheckCircle, 
   Clock,
   Activity,
+  Users,
   Play,
   AlertTriangle, // New import
   Settings,      // New import

@@ -1,5 +1,7 @@
 import { BaseConhecimento } from "@/entities/BaseConhecimento";
 import { Produto } from "@/entities/Produto";
+import { Cliente } from "@/entities/Cliente";
+import { Orcamento } from "@/entities/Orcamento";
 import { InvokeLLM } from "@/integrations/Core";
 
 /**

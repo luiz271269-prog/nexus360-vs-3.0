@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { GoogleSheetsConfig } from "@/entities/GoogleSheetsConfig";
 import { SyncHistorico } from "@/entities/SyncHistorico";
 import { Button } from "@/components/ui/button";
@@ -14,7 +14,8 @@ import {
   ExternalLink,
   Calendar,
   FileSpreadsheet,
-  Loader2
+  Loader2,
+  Settings
 } from "lucide-react";
 import { toast } from "sonner";
 import {

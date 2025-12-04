@@ -1,10 +1,10 @@
-import { useState } from 'react';
+import React, { useState } from 'react';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Check, Clipboard, Bot, User, Phone, Mail, DollarSign, MessageSquare, Sparkles, TrendingUp, AlertTriangle, Target } from 'lucide-react';
+import { Check, Clipboard, Bot, User, Phone, Mail, DollarSign, Calendar, MessageSquare, Info, Sparkles, TrendingUp, AlertTriangle, Target } from 'lucide-react';
 
 export default function PainelContexto({ tarefa, dados, onCompletarTarefa, loading }) {
   const [observacoes, setObservacoes] = useState('');

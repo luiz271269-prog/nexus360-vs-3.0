@@ -1,23 +1,28 @@
-import { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Progress } from "@/components/ui/progress";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { 
   Zap, 
   Activity, 
-  TrendingUp,
+  TrendingUp, 
+  TrendingDown,
   AlertTriangle,
   CheckCircle,
+  Users,
   Clock,
   Database,
   Server,
   Download
 } from "lucide-react";
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts";
+import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts";
 import { toast } from "sonner";
 import { Cliente } from "@/entities/Cliente";
+import { Vendedor } from "@/entities/Vendedor";
 import { Produto } from "@/entities/Produto";
 import { Orcamento } from "@/entities/Orcamento";
 import { Venda } from "@/entities/Venda";

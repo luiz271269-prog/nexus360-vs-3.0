@@ -1,8 +1,8 @@
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { FlowTemplate } from "@/entities/FlowTemplate";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { X, Bot, Zap, MessageSquare, Plus, Loader2 } from "lucide-react";
+import { X, Bot, Zap, MessageSquare, Clock, Target, Users, Plus, Loader2 } from "lucide-react";
 
 export default function FlowBuilder({ onClose }) {
   const [fluxosAtivos, setFluxosAtivos] = useState([]);

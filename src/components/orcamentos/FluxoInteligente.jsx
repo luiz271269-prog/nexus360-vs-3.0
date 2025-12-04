@@ -1,6 +1,7 @@
-import { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { AlertTriangle, Clock, Zap, CheckCircle, TrendingUp, ArrowRight } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 
 // Componente para monitoramento inteligente do fluxo
 export default function FluxoInteligente({ orcamentos, usuario, onAcaoIA }) {

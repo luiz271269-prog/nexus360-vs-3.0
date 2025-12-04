@@ -1,8 +1,9 @@
 
+import React from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Users, Target, TrendingUp, AlertTriangle, Award, DollarSign, User } from "lucide-react";
-import { PieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend } from "recharts";
+import { Users, Target, TrendingUp, AlertTriangle, Award, DollarSign, Calendar, User } from "lucide-react";
+import { PieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, LineChart, Line, Legend } from "recharts";
 
 export default function AnaliseClientes({ dados, filtros, isGerente }) {
   const analises = calcularAnaliseClientes(dados);

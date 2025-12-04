@@ -2,8 +2,10 @@ import { InvokeLLM } from "@/integrations/Core";
 import { Cliente } from "@/entities/Cliente";
 import { Vendedor } from "@/entities/Vendedor";
 import { Orcamento } from "@/entities/Orcamento";
+import { Venda } from "@/entities/Venda";
 import { Produto } from "@/entities/Produto";
 import { TarefaInteligente } from "@/entities/TarefaInteligente";
+import { Interacao } from "@/entities/Interacao";
 import { MotorRAGV3 } from "../inteligencia/MotorRAGV3";
 
 /**

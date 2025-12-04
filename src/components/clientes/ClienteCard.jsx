@@ -1,5 +1,6 @@
+import React from "react";
 import { Button } from "@/components/ui/button";
-import { Edit, User, Mail, Phone, TrendingUp, AlertCircle, Award, DollarSign } from "lucide-react";
+import { Edit, User, Building, Mail, Phone, Tag, TrendingUp, AlertCircle, Award, DollarSign } from "lucide-react";
 
 export default function ClienteCard({ cliente, onEditar }) {
   const getStatusInfo = (status) => {

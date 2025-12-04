@@ -9,6 +9,7 @@ import { MessageThread } from "@/entities/MessageThread";
 import { Message } from "@/entities/Message";
 import { SubFlowTemplate } from "@/entities/SubFlowTemplate";
 import { InvokeLLM } from "@/integrations/Core";
+import WhatsAppAdapter from "../../functions/adapters/WhatsAppAdapter";
 
 /**
  * ExecutorFluxos - Motor de Execução de Automações

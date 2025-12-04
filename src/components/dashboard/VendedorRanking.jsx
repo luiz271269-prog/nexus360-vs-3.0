@@ -1,3 +1,4 @@
+import React from "react";
 import { Trophy, Award, Medal, Target, Phone, MessageCircle, FileText, ShoppingCart } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
