@@ -548,6 +548,9 @@ export default function ChatWindow({
 
       const integrationIdParaUso = canalSelecionado || thread.whatsapp_integration_id;
 
+      // 🎯 AUTO-ATRIBUIÇÃO: Se thread sem dono, atribuir ao atendente
+      await autoAtribuirThreadSeNecessario(thread);
+
       const dadosEnvio = {
         integration_id: integrationIdParaUso,
         numero_destino: telefone,
