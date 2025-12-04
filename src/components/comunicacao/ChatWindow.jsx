@@ -1,4 +1,5 @@
-import React, { useState, useRef, useEffect } from "react";
+import React from "react";
+const { useState, useRef, useEffect } = React;
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
