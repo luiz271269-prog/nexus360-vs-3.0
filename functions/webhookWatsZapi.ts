@@ -659,13 +659,53 @@ async function handleMessage(dados, payloadBruto, base44) {
     });
   }
 
+  // ============================================================================
+  // ✅ PERSISTIR MÍDIA - Baixar de URL temporária e salvar permanentemente
+  // ============================================================================
+  let mediaUrlFinal = dados.mediaUrl || null;
+  let midiaPersistida = false;
+  
+  if (dados.mediaUrl && dados.mediaType && dados.mediaType !== 'none') {
+    console.log(`[${VERSION}] 📎 Mídia detectada: ${dados.mediaType} | URL temp: ${dados.mediaUrl?.substring(0, 60)}...`);
+    
+    const isUrlTemporaria = dados.mediaUrl.includes('mmg.whatsapp.net') || 
+                            dados.mediaUrl.includes('w-api.app') ||
+                            dados.mediaUrl.includes('api.w-api.app') ||
+                            dados.mediaUrl.includes('z-api.io');
+    
+    if (isUrlTemporaria) {
+      console.log(`[${VERSION}] 📥 Baixando mídia temporária para persistir...`);
+      try {
+        const resultadoPersistencia = await base44.functions.invoke('downloadMediaZAPI', {
+          media_url: dados.mediaUrl,
+          media_type: dados.mediaType,
+          integration_id: integracaoId,
+          filename: dados.content?.replace(/[\[\]]/g, '') || `${dados.mediaType}_${Date.now()}`
+        });
+        
+        if (resultadoPersistencia?.data?.url && !resultadoPersistencia?.data?.fallback) {
+          mediaUrlFinal = resultadoPersistencia.data.url;
+          midiaPersistida = true;
+          console.log(`[${VERSION}] ✅ Mídia persistida: ${mediaUrlFinal?.substring(0, 60)}...`);
+        } else {
+          console.log(`[${VERSION}] ⚠️ Fallback para URL temporária: ${resultadoPersistencia?.data?.error || 'desconhecido'}`);
+        }
+      } catch (e) {
+        console.error(`[${VERSION}] ❌ Erro ao persistir mídia:`, e?.message || e);
+      }
+    } else {
+      console.log(`[${VERSION}] ℹ️ URL já é permanente, não precisa persistir`);
+      midiaPersistida = true;
+    }
+  }
+
   // ✅ OTIMIZAÇÃO 3: Salvar mensagem (crítico - aguarda)
   const mensagem = await base44.asServiceRole.entities.Message.create({
     thread_id: thread.id,
     sender_id: contato.id,
     sender_type: 'contact',
     content: dados.content,
-    media_url: dados.mediaUrl || null,
+    media_url: mediaUrlFinal,
     media_type: dados.mediaType,
     media_caption: dados.mediaCaption,
     channel: 'whatsapp',
@@ -681,7 +721,8 @@ async function handleMessage(dados, payloadBruto, base44) {
       vcard: dados.vcard,
       location: dados.location,
       quoted_message: dados.quotedMessage,
-      processed_by: VERSION
+      processed_by: VERSION,
+      midia_persistida: midiaPersistida
     }
   });
 
