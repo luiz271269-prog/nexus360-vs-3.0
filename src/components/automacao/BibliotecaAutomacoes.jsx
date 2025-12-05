@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Zap, MessageSquare, Shield } from "lucide-react";
+import { Zap, MessageSquare } from "lucide-react";
 import PlaybookManager from "./PlaybookManager";
 import QuickRepliesManager from "../comunicacao/QuickRepliesManager";
 
@@ -9,7 +9,8 @@ import QuickRepliesManager from "../comunicacao/QuickRepliesManager";
  * Centraliza o gerenciamento de:
  * - Playbooks (FlowTemplate)
  * - Respostas Rápidas (QuickReply)
- * - Regras de Pré-Atendimento (PreAtendimentoRule)
+ * 
+ * Nota: Pré-Atendimento agora é gerenciado exclusivamente pelo Motor de Decisão
  */
 export default function BibliotecaAutomacoes() {
   const [activeTab, setActiveTab] = useState("playbooks");
@@ -22,7 +23,7 @@ export default function BibliotecaAutomacoes() {
       <div className="flex justify-between items-center">
         <div>
           <h2 className="text-3xl font-bold text-slate-800">Biblioteca de Automações</h2>
-          <p className="text-slate-600 mt-1">Gerencie Playbooks, Respostas Rápidas e Regras de Pré-Atendimento</p>
+          <p className="text-slate-600 mt-1">Gerencie Playbooks e Respostas Rápidas</p>
         </div>
       </div>
 
@@ -41,10 +42,6 @@ export default function BibliotecaAutomacoes() {
             <MessageSquare className="w-4 h-4" />
             Respostas Rápidas
           </TabsTrigger>
-          <TabsTrigger value="pre-atendimento" className="gap-2">
-            <Shield className="w-4 h-4" />
-            Pré-Atendimento
-          </TabsTrigger>
         </TabsList>
 
         {/* TAB: PLAYBOOKS */}
@@ -55,16 +52,6 @@ export default function BibliotecaAutomacoes() {
         {/* TAB: RESPOSTAS RÁPIDAS */}
         <TabsContent value="respostas" className="m-0">
           <QuickRepliesManager 
-            categoriaFiltro={categoriaFiltro}
-            searchTerm={searchTerm}
-            onCategoriaChange={setCategoriaFiltro}
-            onSearchChange={setSearchTerm}
-          />
-        </TabsContent>
-
-        {/* TAB: PRÉ-ATENDIMENTO */}
-        <TabsContent value="pre-atendimento" className="m-0">
-          <PreAtendimentoManager
             categoriaFiltro={categoriaFiltro}
             searchTerm={searchTerm}
             onCategoriaChange={setCategoriaFiltro}
