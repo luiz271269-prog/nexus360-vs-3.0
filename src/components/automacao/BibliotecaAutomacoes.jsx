@@ -3,7 +3,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Zap, MessageSquare, Shield } from "lucide-react";
 import PlaybookManager from "./PlaybookManager";
 import QuickRepliesManager from "../comunicacao/QuickRepliesManager";
-import PreAtendimentoManager from "../comunicacao/PreAtendimentoManager";
 
 /**
  * Biblioteca de Automações Unificada

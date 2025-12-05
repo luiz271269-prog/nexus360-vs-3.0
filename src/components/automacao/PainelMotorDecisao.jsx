@@ -177,10 +177,65 @@ export default function PainelMotorDecisao() {
            regra.conexoes_permitidas.includes(contextoSelecionado);
   });
 
+  // Gerar explicação da lógica atual
+  const gerarExplicacaoLogica = () => {
+    if (!configAtual) {
+      return "⚠️ Nenhuma configuração ativa. Configure o motor para começar.";
+    }
+
+    const explicacoes = [];
+
+    // Status do motor
+    if (!configAtual.ativo) {
+      explicacoes.push("🔴 **Motor Desativado** - Sistema usando comportamento padrão (fallback).");
+      return explicacoes.join("\n\n");
+    }
+
+    explicacoes.push("🟢 **Motor Ativo** - Decisão inteligente de 3 camadas operando.");
+
+    // Horário de Atendimento
+    const inicio = configAtual.horario_atendimento_inicio || '08:00';
+    const fim = configAtual.horario_atendimento_fim || '18:00';
+    const dias = configAtual.dias_atendimento_semana || [1, 2, 3, 4, 5];
+    const diasNomes = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
+    const diasTexto = dias.map(d => diasNomes[d]).join(', ');
+    
+    explicacoes.push(`⏰ **Horário de Atendimento:**\n${inicio} às ${fim} (${diasTexto})\n→ Fora deste horário: ${configAtual.playbook_fora_horario_id ? '✅ Executa playbook específico' : '❌ Sem playbook configurado'}`);
+
+    // Camada 1: Continuidade
+    const janela = configAtual.janela_continuidade_horas || 48;
+    explicacoes.push(`🔄 **Camada 1 - Continuidade:**\nSe o cliente conversou nas últimas ${janela}h:\n→ Retorna para o mesmo atendente\n→ **Ignora** bot e regras`);
+
+    // Camada 2: Intenção
+    let intencaoTexto = "🧠 **Camada 2 - Intenção:**\n";
+    if (configAtual.usar_intencao_palavras) {
+      const totalRegras = regrasFiltradas.length;
+      intencaoTexto += `✅ Palavras-chave ativas (${totalRegras} regras)\n`;
+    }
+    if (configAtual.usar_intencao_ia) {
+      intencaoTexto += `🤖 IA ativa (${Math.round((configAtual.threshold_confianca_ia || 0.75) * 100)}% confiança)\n`;
+    }
+    if (!configAtual.usar_intencao_palavras && !configAtual.usar_intencao_ia) {
+      intencaoTexto += "❌ Intenção desativada\n";
+    }
+    intencaoTexto += "→ Se detectar intenção: Roteia para setor/playbook";
+    explicacoes.push(intencaoTexto);
+
+    // Camada 3: Fidelização
+    explicacoes.push(`👤 **Camada 3 - Fidelização:**\n${configAtual.usar_fidelizacao ? '✅ Ativa - Roteia para vendedor responsável' : '❌ Desativada'}`);
+
+    // Fallback
+    explicacoes.push(`🔄 **Fallback:**\nSe nenhuma camada decidir:\n→ ${configAtual.fallback_playbook_id ? '✅ Executa playbook padrão (Menu)' : '❌ Sem playbook configurado'}`);
+
+    return explicacoes.join("\n\n");
+  };
+
   return (
-    <div className="space-y-6">
-      {/* Header com Seletor de Contexto */}
-      <div className="bg-gradient-to-r from-indigo-600 to-purple-600 rounded-xl p-6 text-white shadow-lg">
+    <div className="grid grid-cols-[1fr,400px] gap-6">
+      {/* Coluna Principal: Configurações */}
+      <div className="space-y-6">
+        {/* Header com Seletor de Contexto */}
+        <div className="bg-gradient-to-r from-indigo-600 to-purple-600 rounded-xl p-6 text-white shadow-lg">
         <div className="flex items-center justify-between mb-4">
           <div>
             <h1 className="text-2xl font-bold flex items-center gap-2">
@@ -878,6 +933,44 @@ export default function PainelMotorDecisao() {
           </Card>
         </TabsContent>
       </Tabs>
+      </div>
+
+      {/* Coluna Lateral: Explicação da Lógica */}
+      <div className="space-y-4">
+        <Card className="sticky top-4 bg-gradient-to-br from-slate-50 to-blue-50 border-2 border-blue-200">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-blue-900">
+              <Brain className="w-5 h-5" />
+              Lógica de Funcionamento
+            </CardTitle>
+            <CardDescription className="text-blue-700">
+              Fluxo de decisão atual (gerado automaticamente)
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="prose prose-sm max-w-none text-slate-700 whitespace-pre-line leading-relaxed">
+              {gerarExplicacaoLogica()}
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Exemplo de Simulação */}
+        <Card className="bg-amber-50 border-amber-200">
+          <CardHeader>
+            <CardTitle className="text-sm flex items-center gap-2 text-amber-900">
+              <Zap className="w-4 h-4" />
+              Exemplo de Execução
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="text-xs text-amber-800 space-y-2">
+            <p>📱 <strong>Cliente envia:</strong> "Oi, bom dia"</p>
+            <p>🕐 <strong>Horário:</strong> Dentro do expediente</p>
+            <p>🔄 <strong>Continuidade:</strong> Primeira conversa</p>
+            <p>🧠 <strong>Intenção:</strong> Gatilho detectado</p>
+            <p>➡️ <strong>Ação:</strong> {configAtual?.usar_intencao_palavras ? 'Executa playbook ou menu' : 'Vai para fallback'}</p>
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 }
