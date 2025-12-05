@@ -559,19 +559,20 @@ async function executarPreAtendimentoInline(base44, params) {
 async function handleMessage(dados, payloadBruto, base44) {
   const inicio = Date.now();
   
-  // ✅ OTIMIZAÇÃO 1: Buscar duplicata + integração em PARALELO
+  // ✅ IDEMPOTÊNCIA RIGOROSA: Verificar duplicatas por whatsapp_message_id
   const [dupResult, intResult] = await Promise.all([
     dados.messageId 
-      ? base44.asServiceRole.entities.Message.filter({ whatsapp_message_id: dados.messageId }, '-created_date', 1).catch(() => [])
+      ? base44.asServiceRole.entities.Message.filter({ whatsapp_message_id: dados.messageId }, '-created_date', 10).catch(() => [])
       : Promise.resolve([]),
     dados.instanceId
       ? base44.asServiceRole.entities.WhatsAppIntegration.filter({ instance_id_provider: dados.instanceId }, '-created_date', 1).catch(() => [])
       : Promise.resolve([])
   ]);
 
-  // Verificar duplicata
+  // Bloquear se duplicata detectada
   if (dupResult.length > 0) {
-    return Response.json({ success: true, ignored: true, reason: 'duplicata' }, { headers: corsHeaders });
+    console.log('[' + VERSION + '] ⏭️ DUPLICATA: ' + dados.messageId + ' - ' + dupResult.length + ' registro(s) já existem');
+    return Response.json({ success: true, ignored: true, reason: 'duplicata_whatsapp_id', existing_count: dupResult.length }, { headers: corsHeaders });
   }
 
   const integracaoId = intResult.length > 0 ? intResult[0].id : null;
