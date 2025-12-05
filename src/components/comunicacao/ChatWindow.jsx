@@ -142,14 +142,17 @@ export default function ChatWindow({
   useEffect(() => {
     const carregarDados = async () => {
       try {
-        const [vend, atend] = await Promise.all([
-        base44.entities.Vendedor.list('nome'),
-        base44.entities.User.list() // Todos os usuários sem nenhum filtro
+        // Carregar vendedores e usuários em paralelo
+        const [vend, usuariosResult] = await Promise.all([
+          base44.entities.Vendedor.list('nome'),
+          base44.functions.invoke('listarUsuariosParaAtribuicao', {})
         ]);
         setVendedores(vend || []);
-        const usuariosValidos = (atend || []).filter(u => u && u.id);
-        console.log('[ChatWindow] Usuários carregados no init:', usuariosValidos.length);
-        setAtendentesLista(usuariosValidos);
+        
+        if (usuariosResult?.data?.success && usuariosResult?.data?.usuarios) {
+          console.log('[ChatWindow] Usuários carregados via serviceRole:', usuariosResult.data.usuarios.length);
+          setAtendentesLista(usuariosResult.data.usuarios);
+        }
       } catch (error) {
         console.error('[ChatWindow] Erro ao carregar dados:', error);
       }
@@ -276,32 +279,24 @@ export default function ChatWindow({
   const carregarAtendentes = async () => {
     setCarregandoAtendentes(true);
     try {
-      // Buscar TODOS os usuários do sistema usando list() sem filtros
-      let users = [];
-      try {
-        users = await base44.entities.User.list();
-        console.log('[CHAT] User.list() retornou:', users?.length || 0);
-      } catch (listError) {
-        console.warn('[CHAT] User.list() falhou:', listError.message);
-        // Fallback: tentar filter
-        try {
-          users = await base44.entities.User.filter({});
-          console.log('[CHAT] User.filter() retornou:', users?.length || 0);
-        } catch (filterError) {
-          console.warn('[CHAT] User.filter() também falhou:', filterError.message);
+      // Usar função backend com serviceRole para buscar TODOS os usuários
+      const resultado = await base44.functions.invoke('listarUsuariosParaAtribuicao', {});
+      
+      if (resultado?.data?.success && resultado?.data?.usuarios) {
+        const usuarios = resultado.data.usuarios;
+        console.log('[CHAT] Usuários carregados via serviceRole:', usuarios.length);
+        setAtendentes(usuarios);
+      } else {
+        console.warn('[CHAT] Função retornou erro, usando fallback');
+        if (atendentesLista && atendentesLista.length > 0) {
+          setAtendentes(atendentesLista);
+        } else {
+          setAtendentes([]);
         }
       }
-      
-      // Usar todos os usuários válidos (apenas verifica id)
-      const usuariosValidos = (users || []).filter(u => u && u.id);
-      console.log('[CHAT] Usuários válidos para transferência:', usuariosValidos.length, usuariosValidos.map(u => u.full_name || u.email));
-      
-      setAtendentes(usuariosValidos);
     } catch (error) {
       console.error('[CHAT] Erro ao carregar usuários:', error);
-      // Fallback: usar lista carregada no início
       if (atendentesLista && atendentesLista.length > 0) {
-        console.log('[CHAT] Usando fallback atendentesLista:', atendentesLista.length);
         setAtendentes(atendentesLista);
       } else {
         setAtendentes([]);

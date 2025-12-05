@@ -49,26 +49,21 @@ export default function AtribuidorAtendenteRapido({
   const [menuAberto, setMenuAberto] = useState(false);
   const queryClient = useQueryClient();
 
-  // Buscar TODOS os usuários do sistema sem nenhum filtro para atribuição/transferência
+  // Buscar TODOS os usuários do sistema via serviceRole (bypass segurança User)
   const { data: atendentes = [] } = useQuery({
     queryKey: ['todos-usuarios-atribuidor'],
     queryFn: async () => {
       try {
-        // Tentar list() primeiro
-        const users = await base44.entities.User.list();
-        console.log('[AtribuidorRapido] Usuários carregados:', users?.length || 0);
-        // Retorna TODOS os usuários válidos (apenas verifica se tem id)
-        return (users || []).filter(u => u && u.id);
-      } catch (error) {
-        console.warn('[AtribuidorRapido] Erro ao carregar usuários:', error.message);
-        // Fallback: tentar filter
-        try {
-          const users = await base44.entities.User.filter({});
-          return (users || []).filter(u => u && u.id);
-        } catch (e) {
-          console.error('[AtribuidorRapido] Falha total ao carregar usuários');
-          return [];
+        const resultado = await base44.functions.invoke('listarUsuariosParaAtribuicao', {});
+        if (resultado?.data?.success && resultado?.data?.usuarios) {
+          console.log('[AtribuidorRapido] Usuários carregados via serviceRole:', resultado.data.usuarios.length);
+          return resultado.data.usuarios;
         }
+        console.warn('[AtribuidorRapido] Função retornou erro');
+        return [];
+      } catch (error) {
+        console.error('[AtribuidorRapido] Erro ao carregar usuários:', error.message);
+        return [];
       }
     },
     staleTime: 5 * 60 * 1000
