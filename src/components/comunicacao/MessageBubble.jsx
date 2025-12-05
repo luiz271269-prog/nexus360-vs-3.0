@@ -41,7 +41,7 @@ import {
 "@/components/ui/dropdown-menu";
 
 // Componente de imagem com fallback seguro (sem manipulação de innerHTML)
-const ImageWithFallback = ({ src, alt, className, onClick }) => {
+const ImageWithFallback = ({ src, alt, className, onClick, isPersisted }) => {
   const [hasError, setHasError] = useState(false);
 
   if (hasError || !src) {
@@ -49,7 +49,9 @@ const ImageWithFallback = ({ src, alt, className, onClick }) => {
       <div className="flex items-center justify-center bg-slate-100 rounded-2xl p-8 min-h-[200px]">
         <div className="text-center">
           <ImageIcon className="w-12 h-12 text-slate-400 mx-auto mb-2" />
-          <p className="text-sm text-slate-500">Imagem expirada ou indisponível</p>
+          <p className="text-sm text-slate-500">
+            {isPersisted === false && src ? "Link temporário expirado" : "Imagem expirada ou indisponível"}
+          </p>
         </div>
       </div>
     );
@@ -515,6 +517,16 @@ export default function MessageBubble({
             </span>
           )}
 
+          {/* 📱 CANAL WHATSAPP - Apenas nas mensagens RECEBIDAS do cliente */}
+          {!isOwn && message.sender_type === 'contact' && message.metadata?.canal_nome && (
+            <div className="text-[9px] px-2 py-0.5 rounded-full mb-0.5 inline-flex items-center gap-1.5 bg-green-500/20 text-green-700">
+              <span>📱 Via: {message.metadata.canal_nome}</span>
+              {message.metadata.canal_numero && (
+                <span className="opacity-70">({message.metadata.canal_numero})</span>
+              )}
+            </div>
+          )}
+
           {mensagemOriginal &&
           <div className={cn(
             "mb-1 px-3 py-2 rounded-lg border-l-4 text-xs bg-slate-100",
@@ -688,6 +700,7 @@ export default function MessageBubble({
                 alt="Imagem"
                 className="max-w-[280px] max-h-[280px] object-cover rounded-lg cursor-pointer"
                 onClick={() => window.open(message.media_url, '_blank')}
+                isPersisted={message.metadata?.midia_persistida}
               /> :
 
 

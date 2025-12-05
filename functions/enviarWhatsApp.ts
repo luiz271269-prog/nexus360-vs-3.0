@@ -21,24 +21,37 @@ const MEDIA_CONFIG = {
 };
 
 // Extrair extensão de uma URL ou nome de arquivo
-function extrairExtensao(urlOuNome) {
-  if (!urlOuNome) return 'file';
+function extrairExtensao(urlOuNome, tipoInformado) {
+  const mimeToExt = {
+    'image': 'jpg',
+    'video': 'mp4',
+    'audio': 'mp3',
+    'document': 'pdf',
+    'sticker': 'webp',
+  };
+
+  if (!urlOuNome) {
+    return mimeToExt[tipoInformado] || 'bin';
+  }
+
   try {
     // Primeiro tentar extrair do nome do arquivo (mais confiável)
     const nomeArquivo = urlOuNome.split('/').pop().split('?')[0];
     if (nomeArquivo.includes('.')) {
       const ext = nomeArquivo.split('.').pop().toLowerCase();
-      if (ext.length <= 5) return ext; // Extensões válidas geralmente têm até 5 chars
+      if (ext.length > 0 && ext.length <= 5) return ext;
     }
     
     // Fallback: tentar extrair do path da URL
     const path = new URL(urlOuNome).pathname;
     const parts = path.split('.');
     if (parts.length > 1) {
-      return parts[parts.length - 1].split('?')[0].toLowerCase();
+      const potentialExt = parts[parts.length - 1].split('?')[0].toLowerCase();
+      if (potentialExt.length > 0 && potentialExt.length <= 5) return potentialExt;
     }
   } catch (e) {}
-  return 'pdf'; // Default para documentos
+  
+  return mimeToExt[tipoInformado] || 'pdf'; // Default para documentos
 }
 
 // Detectar tipo de mídia pela extensão/URL
@@ -210,6 +223,7 @@ Deno.serve(async (req) => {
         body = {
           phone: numeroFormatado,
           audio: audio_url,       // ✅ Z-API usa 'audio' para URL
+          ptt: true,              // ✅ CRÍTICO: Para áudio aparecer como "Gravado na hora" (Z-API)
           waveform: true          // Exibir forma de onda (PTT style)
         };
         
@@ -227,6 +241,9 @@ Deno.serve(async (req) => {
       // Detectar tipo se não informado corretamente
       const tipoMidiaReal = detectarTipoMidia(media_url, media_type);
       const config = MEDIA_CONFIG[tipoMidiaReal];
+
+      // Para W-API, extrair a extensão do media_caption ou media_url
+      const extensaoArquivo = extrairExtensao(media_caption || media_url, tipoMidiaReal);
       
       if (!config) {
         throw new Error(`Tipo de mídia não suportado: ${tipoMidiaReal}`);
@@ -238,16 +255,17 @@ Deno.serve(async (req) => {
         
         if (tipoMidiaReal === 'document') {
           // ✅ W-API DOCUMENTO: campos obrigatórios extension + document
-          const extensao = extrairExtensao(media_caption || media_url);
           body = {
             phone: numeroFormatado,
             document: media_url,
-            extension: extensao,           // ✅ CRÍTICO: W-API exige extension
+            extension: extensaoArquivo,           // ✅ CRÍTICO: W-API exige extension
             delayMessage: 1
           };
           // fileName opcional mas recomendado
           if (media_caption) {
             body.fileName = media_caption;
+          } else {
+            body.fileName = `document.${extensaoArquivo}`;
           }
         } else if (tipoMidiaReal === 'image') {
           // W-API IMAGEM
@@ -276,8 +294,11 @@ Deno.serve(async (req) => {
             phone: numeroFormatado,
             document: media_url
           };
+          // Para Z-API, fileName é opcional, mas útil para o receptor
           if (media_caption) {
             body.fileName = media_caption;
+          } else {
+            body.fileName = `document.${extensaoArquivo}`;
           }
         } else if (tipoMidiaReal === 'image') {
           // Z-API IMAGEM
