@@ -665,7 +665,14 @@ export default function ChatWindow({
     setEnviandoBroadcast(true);
     setProgressoBroadcast({ enviados: 0, erros: 0, total: contatosSelecionados.length });
 
-    const mensagemParaEnviar = mensagemTexto.trim();
+    // 📝 ASSINATURA: Adicionar setor e nome do atendente ao final da mensagem
+    let mensagemParaEnviar = mensagemTexto.trim();
+    if (usuario?.full_name && usuario?.attendant_sector) {
+      const primeiroNome = usuario.full_name.split(' ')[0];
+      const setor = usuario.attendant_sector;
+      mensagemParaEnviar = `${mensagemParaEnviar}\n\n_~ ${primeiroNome} (${setor})_`;
+    }
+    
     let enviados = 0;
     let erros = 0;
 
@@ -835,7 +842,14 @@ export default function ChatWindow({
       // 🎯 AUTO-ATRIBUIÇÃO: Se thread sem dono, atribuir ao atendente que responde
       await autoAtribuirThreadSeNecessario(thread);
 
-      const mensagemParaEnviar = mensagemTexto.trim();
+      // 📝 ASSINATURA: Adicionar setor e nome do atendente ao final da mensagem
+      let mensagemParaEnviar = mensagemTexto.trim();
+      if (usuario?.full_name && usuario?.attendant_sector) {
+        const primeiroNome = usuario.full_name.split(' ')[0];
+        const setor = usuario.attendant_sector;
+        mensagemParaEnviar = `${mensagemParaEnviar}\n\n_~ ${primeiroNome} (${setor})_`;
+      }
+      
       const integrationIdParaUso = canalSelecionado || thread.whatsapp_integration_id;
 
       console.log('[CHAT] 📤 Enviando com integração:', {
