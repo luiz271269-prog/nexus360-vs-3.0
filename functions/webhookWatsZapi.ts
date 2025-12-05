@@ -574,7 +574,16 @@ async function handleMessage(dados, payloadBruto, base44) {
     return Response.json({ success: true, ignored: true, reason: 'duplicata' }, { headers: corsHeaders });
   }
 
-  const integracaoId = intResult.length > 0 ? intResult[0].id : null;
+  // Extrair informações da integração para metadata (canal/conexão)
+  let integracaoId = null;
+  let integracaoInfo = null;
+  if (intResult.length > 0) {
+    integracaoId = intResult[0].id;
+    integracaoInfo = { nome: intResult[0].nome_instancia, numero: intResult[0].numero_telefone };
+  }
+  
+  // Extrair connectedPhone do payload para identificar canal
+  const connectedPhone = payloadBruto.connectedPhone || payloadBruto.connected_phone || null;
 
   // Extrair foto de perfil do payload Z-API
   const profilePicUrl = payloadBruto.photo
@@ -756,6 +765,6 @@ async function handleMessage(dados, payloadBruto, base44) {
     thread_id: thread.id,
     integration_id: integracaoId,
     duration_ms: duracao,
-    pre_atendimento_triggered: deveIniciarPreAtendimento
+    pre_atendimento_triggered: isSaudacao && execucoesAtivas.length === 0
   }, { headers: corsHeaders });
 }
