@@ -277,12 +277,24 @@ export default function ChatWindow({
     setCarregandoAtendentes(true);
     try {
       // Buscar TODOS os usuários do sistema usando list() sem filtros
-      const users = await base44.entities.User.list();
-      console.log('[CHAT] Usuários carregados para transferência:', users?.length || 0);
+      let users = [];
+      try {
+        users = await base44.entities.User.list();
+        console.log('[CHAT] User.list() retornou:', users?.length || 0);
+      } catch (listError) {
+        console.warn('[CHAT] User.list() falhou:', listError.message);
+        // Fallback: tentar filter
+        try {
+          users = await base44.entities.User.filter({});
+          console.log('[CHAT] User.filter() retornou:', users?.length || 0);
+        } catch (filterError) {
+          console.warn('[CHAT] User.filter() também falhou:', filterError.message);
+        }
+      }
       
-      // Usar todos os usuários válidos
+      // Usar todos os usuários válidos (apenas verifica id)
       const usuariosValidos = (users || []).filter(u => u && u.id);
-      console.log('[CHAT] Usuários válidos:', usuariosValidos.length, usuariosValidos.map(u => u.full_name || u.email));
+      console.log('[CHAT] Usuários válidos para transferência:', usuariosValidos.length, usuariosValidos.map(u => u.full_name || u.email));
       
       setAtendentes(usuariosValidos);
     } catch (error) {
