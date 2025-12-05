@@ -513,21 +513,46 @@ async function handleMessage(dados, payloadBruto, base44) {
     const connectedPhone = payloadBruto.connectedPhone || payloadBruto.connected_phone || null;
     console.log(`[${VERSION}] 💬 Nova mensagem de: ${dados.from} | Via: ${connectedPhone || 'não informado'}`);
 
-  // ✅ IDEMPOTÊNCIA RIGOROSA - Verificar duplicatas por whatsapp_message_id
+  // ✅ IDEMPOTÊNCIA RIGOROSA - Verificar duplicatas por múltiplos critérios
   if (dados.messageId) {
     try {
       const dup = await base44.asServiceRole.entities.Message.filter(
         { whatsapp_message_id: dados.messageId },
         '-created_date',
-        10
+        10 // Buscar mais registros para detectar duplicatas
       );
       if (dup.length > 0) {
-        console.log(`[${VERSION}] ⏭️ DUPLICATA DETECTADA: ${dados.messageId} - ${dup.length} registro(s) já existem no banco`);
-        return jsonOk({ success: true, ignored: true, reason: 'duplicata_whatsapp_id', existing_count: dup.length });
+        console.log(`[${VERSION}] ⏭️ DUPLICATA DETECTADA: ${dados.messageId} (${dup.length} registros já existem)`);
+        return jsonOk({ success: true, ignored: true, reason: 'duplicata', existing_count: dup.length });
       }
     } catch (err) {
       console.warn(`[${VERSION}] ⚠️ Erro ao verificar duplicata:`, err.message);
+      // Continua processamento mesmo com erro na verificação
     }
+  }
+
+  // ✅ VERIFICAÇÃO ADICIONAL: Duplicata por timestamp + telefone (últimos 2 segundos)
+  try {
+    const doisSegundosAtras = new Date(Date.now() - 2000).toISOString();
+    const msgRecentes = await base44.asServiceRole.entities.Message.filter({
+      sender_type: 'contact',
+      created_date: { $gte: doisSegundosAtras }
+    }, '-created_date', 50);
+    
+    // Verificar se já existe mensagem MUITO similar (mesmo remetente, mesmo tipo, mesmo tempo)
+    const duplicadaPorConteudo = msgRecentes.find(m => 
+      m.sender_id === contact_id &&
+      m.media_type === dados.mediaType &&
+      m.content === dados.content &&
+      Math.abs(new Date(m.created_date) - Date.now()) < 2000
+    );
+    
+    if (duplicadaPorConteudo) {
+      console.log(`[${VERSION}] ⏭️ DUPLICATA POR CONTEÚDO: Mensagem similar encontrada ID ${duplicadaPorConteudo.id}`);
+      return jsonOk({ success: true, ignored: true, reason: 'duplicata_conteudo' });
+    }
+  } catch (err) {
+    console.warn(`[${VERSION}] ⚠️ Erro ao verificar duplicata por conteúdo:`, err.message);
   }
 
   // Buscar integração - PRIORIZAR connectedPhone para identificar canal exato
@@ -702,7 +727,7 @@ async function handleMessage(dados, payloadBruto, base44) {
                             dados.mediaUrl.includes('api.z-api.io');
     
     if (isUrlTemporaria) {
-      console.log(`[${VERSION}] 📥 Baixando mídia temporária para persistir...`);
+      console.log(`[${VERSION}] 📥 URL temporária detectada, tentando persistir...`);
       
       try {
         // Chamar função de download e persistência
@@ -713,20 +738,30 @@ async function handleMessage(dados, payloadBruto, base44) {
           filename: dados.content?.replace(/[\[\]]/g, '') || `${dados.mediaType}_${Date.now()}`
         });
         
+        console.log(`[${VERSION}] 📥 Resultado persistência:`, JSON.stringify(resultadoPersistencia?.data || {}).substring(0, 300));
+        
         if (resultadoPersistencia?.data?.url && !resultadoPersistencia?.data?.fallback) {
           mediaUrlFinal = resultadoPersistencia.data.url;
           midiaPersistida = true;
-          console.log(`[${VERSION}] ✅ Mídia persistida: ${mediaUrlFinal?.substring(0, 60)}...`);
+          console.log(`[${VERSION}] ✅ Mídia persistida com sucesso: ${mediaUrlFinal?.substring(0, 80)}...`);
         } else {
-          console.log(`[${VERSION}] ⚠️ Fallback para URL temporária: ${resultadoPersistencia?.data?.error || 'desconhecido'}`);
+          const erroDetalhe = resultadoPersistencia?.data?.error || 'resposta sem URL permanente';
+          console.warn(`[${VERSION}] ⚠️ Fallback para URL temporária: ${erroDetalhe}`);
+          // Manter a URL temporária mas marcar como não persistida
+          midiaPersistida = false;
         }
       } catch (e) {
         console.error(`[${VERSION}] ❌ Erro ao persistir mídia:`, e?.message || e);
+        console.error(`[${VERSION}] ❌ Stack:`, e?.stack);
         // Continuar com URL temporária
+        midiaPersistida = false;
       }
-    } else {
-      console.log(`[${VERSION}] ℹ️ URL já é permanente, não precisa persistir`);
+    } else if (dados.mediaUrl.includes('supabase.co') || dados.mediaUrl.includes('storage.googleapis.com')) {
+      console.log(`[${VERSION}] ℹ️ URL já é permanente (storage), não precisa persistir`);
       midiaPersistida = true;
+    } else {
+      console.log(`[${VERSION}] ℹ️ URL externa (${dados.mediaUrl?.substring(0, 40)}...), marcando como não temporária`);
+      midiaPersistida = true; // Assumir que URLs externas são permanentes
     }
   }
 
