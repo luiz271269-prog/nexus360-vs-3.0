@@ -547,6 +547,13 @@ export default function Comunicacao() {
     };
 
     // ═══════════════════════════════════════════════════════════════════════════
+    // MODO BUSCA: Se há termo de busca, relaxar filtros de visibilidade
+    // A busca serve para ENCONTRAR contatos e iniciar novas conversas
+    // O modal de permissão será exibido ao clicar se necessário
+    // ═══════════════════════════════════════════════════════════════════════════
+    const modoBusca = temBuscaPorTexto;
+
+    // ═══════════════════════════════════════════════════════════════════════════
     // PARTE 1: Filtrar THREADS existentes com REGRAS DE VISUALIZAÇÃO
     // (Usando threadsUnicas para evitar duplicatas por contato)
     // ═══════════════════════════════════════════════════════════════════════════
@@ -564,15 +571,34 @@ export default function Comunicacao() {
       const threadComContato = { ...thread, contato };
 
       // ═══════════════════════════════════════════════════════════════════════
-      // FILTRO "NÃO ATRIBUÍDAS": Lógica por contato
-      // Se contato tem alguma S/atend visível → mostra TODAS as threads dele
-      // Também inclui threads S/atend "soltas" (sem contact_id)
+      // MODO BUSCA: Mostrar contatos encontrados mesmo sem permissão de thread
+      // O modal de permissão será exibido ao clicar
       // ═══════════════════════════════════════════════════════════════════════
+      if (modoBusca) {
+        // Em modo busca, apenas verificar se o contato corresponde ao termo
+        if (!contato || !matchBuscaGoogle(contato, debouncedSearchTerm)) {
+          return false;
+        }
+        // Filtros adicionais opcionais em modo busca
+        if (selectedTipoContato && selectedTipoContato !== 'all' && contato.tipo_contato !== selectedTipoContato) {
+          return false;
+        }
+        if (selectedTagContato && selectedTagContato !== 'all') {
+          const tags = contato.tags || [];
+          if (!tags.includes(selectedTagContato)) return false;
+        }
+        return true; // Mostrar na busca - permissão será verificada ao clicar
+      }
+
+      // ═══════════════════════════════════════════════════════════════════════
+      // MODO NORMAL (sem busca): Aplicar regras estritas de visibilidade
+      // ═══════════════════════════════════════════════════════════════════════
+      
+      // FILTRO "NÃO ATRIBUÍDAS": Lógica por contato
       if (isFilterUnassigned) {
         const contatoId = thread.contact_id;
         const threadNaoAtribuida = isNaoAtribuida(thread);
         
-        // Contato está marcado como tendo S/atend OU é uma thread solta S/atend
         const contatoMarcado = contatoId && contatosComThreadsNaoAtribuidas.has(contatoId);
         const threadSoltaNaoAtribuida = !contatoId && threadNaoAtribuida;
         
@@ -580,47 +606,32 @@ export default function Comunicacao() {
           return false;
         }
         
-        // Verificar permissões base (integração/conexão/setor)
         if (!canUserSeeThreadBase(usuario, threadComContato)) {
           return false;
         }
         
-        // Aplicar filtro de integração se selecionado
         if (selectedIntegrationId && selectedIntegrationId !== 'all') {
           if (thread.whatsapp_integration_id !== selectedIntegrationId) return false;
         }
       } else {
-        // ═══════════════════════════════════════════════════════════════════════
         // REGRA CENTRAL: Usar módulo threadVisibility.js para outros escopos
-        // ═══════════════════════════════════════════════════════════════════════
         if (!canUserSeeThreadWithFilters(usuario, threadComContato, filtros)) {
           return false;
         }
       }
 
-      // ═══════════════════════════════════════════════════════════════════════
-      // FILTROS ADICIONAIS (categoria, tipo contato, tag, busca)
-      // ═══════════════════════════════════════════════════════════════════════
-
-      // Filtro de categoria
+      // FILTROS ADICIONAIS (categoria, tipo contato, tag)
       if (categoriasSet && !categoriasSet.has(thread.id)) {
         return false;
       }
 
-      // Filtro de tipo de contato (só aplica se tiver contato)
       if (selectedTipoContato && selectedTipoContato !== 'all' && contato) {
         if (contato.tipo_contato !== selectedTipoContato) return false;
       }
 
-      // Filtro de tag (só aplica se tiver contato)
       if (selectedTagContato && selectedTagContato !== 'all' && contato) {
         const tags = contato.tags || [];
         if (!tags.includes(selectedTagContato)) return false;
-      }
-
-      // Busca por texto (só aplica se tiver contato)
-      if (temBuscaPorTexto && contato) {
-        if (!matchBuscaGoogle(contato, debouncedSearchTerm)) return false;
       }
 
       return true;
