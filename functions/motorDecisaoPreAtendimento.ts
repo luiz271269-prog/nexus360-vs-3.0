@@ -84,6 +84,38 @@ Deno.serve(async (req) => {
       }
 
       // ════════════════════════════════════════════════════════════════════════
+      // 🕐 FASE 1.5: VERIFICAR HORÁRIO DE ATENDIMENTO
+      // ════════════════════════════════════════════════════════════════════════
+
+      const resultadoHorario = verificarHorarioAtendimento(config);
+      
+      if (!resultadoHorario.dentroHorario && config.playbook_fora_horario_id) {
+        console.log('[MOTOR] 🌙 Fora do horário de atendimento');
+        
+        // Atualizar métrica
+        const metricas = config.metricas || {};
+        await base44.asServiceRole.entities.MotorDecisaoConfig.update(config.id, {
+          metricas: {
+            ...metricas,
+            total_decisoes: (metricas.total_decisoes || 0) + 1,
+            fora_horario_hits: (metricas.fora_horario_hits || 0) + 1
+          }
+        });
+
+        return Response.json({
+          success: true,
+          action: 'fora_horario',
+          decisao: {
+            camada: 'horario',
+            decidiu: true,
+            ignorar_bot: false,
+            playbook_id: config.playbook_fora_horario_id,
+            motivo: resultadoHorario.motivo
+          }
+        });
+      }
+
+      // ════════════════════════════════════════════════════════════════════════
       // 🎯 FASE 2: MOTOR DE 3 CAMADAS
       // ════════════════════════════════════════════════════════════════════════
 
@@ -497,6 +529,46 @@ function verificarMatchRegra(textoNormalizado, regra) {
       // Qualquer palavra
       return termosNormalizados.some(termo => textoNormalizado.includes(termo));
   }
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// 🕐 VERIFICAR HORÁRIO DE ATENDIMENTO
+// ══════════════════════════════════════════════════════════════════════════════
+function verificarHorarioAtendimento(config) {
+  const agora = new Date();
+  const horaAtual = agora.getHours();
+  const minutoAtual = agora.getMinutes();
+  const diaSemana = agora.getDay(); // 0 = Domingo, 6 = Sábado
+
+  // Dias de atendimento (padrão: segunda a sexta)
+  const diasAtivos = config.dias_atendimento_semana || [1, 2, 3, 4, 5];
+  const diaUtil = diasAtivos.includes(diaSemana);
+
+  if (!diaUtil) {
+    return {
+      dentroHorario: false,
+      motivo: 'Fora dos dias de atendimento'
+    };
+  }
+
+  // Horário de atendimento
+  const [horaInicio, minInicio] = (config.horario_atendimento_inicio || '08:00').split(':').map(Number);
+  const [horaFim, minFim] = (config.horario_atendimento_fim || '18:00').split(':').map(Number);
+
+  const minutosAtual = horaAtual * 60 + minutoAtual;
+  const minutosInicio = horaInicio * 60 + minInicio;
+  const minutosFim = horaFim * 60 + minFim;
+
+  const dentroHorario = minutosAtual >= minutosInicio && minutosAtual < minutosFim;
+
+  if (!dentroHorario) {
+    return {
+      dentroHorario: false,
+      motivo: `Fora do horário de atendimento (${config.horario_atendimento_inicio} às ${config.horario_atendimento_fim})`
+    };
+  }
+
+  return { dentroHorario: true };
 }
 
 // ══════════════════════════════════════════════════════════════════════════════

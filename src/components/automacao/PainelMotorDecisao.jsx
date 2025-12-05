@@ -463,6 +463,106 @@ export default function PainelMotorDecisao() {
                 </CardContent>
               </Card>
 
+              {/* Horário de Atendimento */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Clock className="w-5 h-5 text-orange-600" />
+                    Horário de Atendimento
+                  </CardTitle>
+                  <CardDescription>
+                    Define quando o atendimento está disponível
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="text-sm font-medium mb-2 block">Horário de Início</label>
+                      <Input
+                        type="time"
+                        value={configSelecionada?.horario_atendimento_inicio || '08:00'}
+                        onChange={(e) => setConfigSelecionada({ 
+                          ...configSelecionada, 
+                          horario_atendimento_inicio: e.target.value 
+                        })}
+                      />
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium mb-2 block">Horário de Fim</label>
+                      <Input
+                        type="time"
+                        value={configSelecionada?.horario_atendimento_fim || '18:00'}
+                        onChange={(e) => setConfigSelecionada({ 
+                          ...configSelecionada, 
+                          horario_atendimento_fim: e.target.value 
+                        })}
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="text-sm font-medium mb-2 block">Dias de Atendimento</label>
+                    <div className="flex gap-2 flex-wrap">
+                      {[
+                        { value: 0, label: 'Dom' },
+                        { value: 1, label: 'Seg' },
+                        { value: 2, label: 'Ter' },
+                        { value: 3, label: 'Qua' },
+                        { value: 4, label: 'Qui' },
+                        { value: 5, label: 'Sex' },
+                        { value: 6, label: 'Sáb' }
+                      ].map(dia => {
+                        const diasAtivos = configSelecionada?.dias_atendimento_semana || [1, 2, 3, 4, 5];
+                        const isAtivo = diasAtivos.includes(dia.value);
+                        
+                        return (
+                          <Button
+                            key={dia.value}
+                            size="sm"
+                            variant={isAtivo ? "default" : "outline"}
+                            onClick={() => {
+                              const novos = isAtivo
+                                ? diasAtivos.filter(d => d !== dia.value)
+                                : [...diasAtivos, dia.value].sort();
+                              setConfigSelecionada({ 
+                                ...configSelecionada, 
+                                dias_atendimento_semana: novos 
+                              });
+                            }}
+                            className={isAtivo ? 'bg-green-600 hover:bg-green-700' : ''}
+                          >
+                            {dia.label}
+                          </Button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="text-sm font-medium mb-2 block">Playbook Fora de Horário</label>
+                    <Select 
+                      value={configSelecionada?.playbook_fora_horario_id || ''} 
+                      onValueChange={(v) => setConfigSelecionada({ 
+                        ...configSelecionada, 
+                        playbook_fora_horario_id: v 
+                      })}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Selecione o playbook para fora de horário" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {playbooks.map(p => (
+                          <SelectItem key={p.id} value={p.id}>{p.nome}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <p className="text-xs text-slate-500 mt-2">
+                      💡 Este playbook será executado automaticamente quando mensagens chegarem fora do horário
+                    </p>
+                  </div>
+                </CardContent>
+              </Card>
+
               {/* Fallback */}
               <Card>
                 <CardHeader>
