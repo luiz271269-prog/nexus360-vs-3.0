@@ -513,46 +513,21 @@ async function handleMessage(dados, payloadBruto, base44) {
     const connectedPhone = payloadBruto.connectedPhone || payloadBruto.connected_phone || null;
     console.log(`[${VERSION}] 💬 Nova mensagem de: ${dados.from} | Via: ${connectedPhone || 'não informado'}`);
 
-  // ✅ IDEMPOTÊNCIA RIGOROSA - Verificar duplicatas por múltiplos critérios
+  // ✅ IDEMPOTÊNCIA RIGOROSA - Verificar duplicatas por whatsapp_message_id
   if (dados.messageId) {
     try {
       const dup = await base44.asServiceRole.entities.Message.filter(
         { whatsapp_message_id: dados.messageId },
         '-created_date',
-        10 // Buscar mais registros para detectar duplicatas
+        10
       );
       if (dup.length > 0) {
-        console.log(`[${VERSION}] ⏭️ DUPLICATA DETECTADA: ${dados.messageId} (${dup.length} registros já existem)`);
-        return jsonOk({ success: true, ignored: true, reason: 'duplicata', existing_count: dup.length });
+        console.log(`[${VERSION}] ⏭️ DUPLICATA DETECTADA: ${dados.messageId} - ${dup.length} registro(s) já existem no banco`);
+        return jsonOk({ success: true, ignored: true, reason: 'duplicata_whatsapp_id', existing_count: dup.length });
       }
     } catch (err) {
       console.warn(`[${VERSION}] ⚠️ Erro ao verificar duplicata:`, err.message);
-      // Continua processamento mesmo com erro na verificação
     }
-  }
-
-  // ✅ VERIFICAÇÃO ADICIONAL: Duplicata por timestamp + telefone (últimos 2 segundos)
-  try {
-    const doisSegundosAtras = new Date(Date.now() - 2000).toISOString();
-    const msgRecentes = await base44.asServiceRole.entities.Message.filter({
-      sender_type: 'contact',
-      created_date: { $gte: doisSegundosAtras }
-    }, '-created_date', 50);
-    
-    // Verificar se já existe mensagem MUITO similar (mesmo remetente, mesmo tipo, mesmo tempo)
-    const duplicadaPorConteudo = msgRecentes.find(m => 
-      m.sender_id === contact_id &&
-      m.media_type === dados.mediaType &&
-      m.content === dados.content &&
-      Math.abs(new Date(m.created_date) - Date.now()) < 2000
-    );
-    
-    if (duplicadaPorConteudo) {
-      console.log(`[${VERSION}] ⏭️ DUPLICATA POR CONTEÚDO: Mensagem similar encontrada ID ${duplicadaPorConteudo.id}`);
-      return jsonOk({ success: true, ignored: true, reason: 'duplicata_conteudo' });
-    }
-  } catch (err) {
-    console.warn(`[${VERSION}] ⚠️ Erro ao verificar duplicata por conteúdo:`, err.message);
   }
 
   // Buscar integração - PRIORIZAR connectedPhone para identificar canal exato
