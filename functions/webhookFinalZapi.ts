@@ -721,10 +721,12 @@ async function handleMessage(dados, payloadBruto, base44) {
   if (dados.mediaUrl && dados.mediaType && dados.mediaType !== 'none') {
     console.log(`[${VERSION}] 📎 Mídia detectada: ${dados.mediaType} | URL temp: ${dados.mediaUrl?.substring(0, 60)}...`);
     
-    // Verificar se é URL temporária do WhatsApp (mmg.whatsapp.net ou z-api)
+    // Verificar se é URL temporária do WhatsApp (mmg.whatsapp.net, z-api, ou backblaze)
     const isUrlTemporaria = dados.mediaUrl.includes('mmg.whatsapp.net') || 
                             dados.mediaUrl.includes('z-api.io') ||
-                            dados.mediaUrl.includes('api.z-api.io');
+                            dados.mediaUrl.includes('api.z-api.io') ||
+                            dados.mediaUrl.includes('backblazeb2.com') ||
+                            dados.mediaUrl.includes('temp-file-download');
     
     if (isUrlTemporaria) {
       console.log(`[${VERSION}] 📥 URL temporária detectada, tentando persistir...`);
@@ -756,12 +758,16 @@ async function handleMessage(dados, payloadBruto, base44) {
         // Continuar com URL temporária
         midiaPersistida = false;
       }
-    } else if (dados.mediaUrl.includes('supabase.co') || dados.mediaUrl.includes('storage.googleapis.com')) {
+    } else if (dados.mediaUrl.includes('supabase.co') || dados.mediaUrl.includes('storage.googleapis.com') || dados.mediaUrl.includes('base44.app')) {
       console.log(`[${VERSION}] ℹ️ URL já é permanente (storage), não precisa persistir`);
       midiaPersistida = true;
+    } else if (dados.mediaUrl.includes('backblazeb2.com') || dados.mediaUrl.includes('temp-file-download')) {
+      // URLs do Backblaze B2 da Z-API são temporárias!
+      console.warn(`[${VERSION}] ⚠️ URL Backblaze B2 detectada (TEMPORÁRIA): ${dados.mediaUrl?.substring(0, 60)}...`);
+      midiaPersistida = false;
     } else {
-      console.log(`[${VERSION}] ℹ️ URL externa (${dados.mediaUrl?.substring(0, 40)}...), marcando como não temporária`);
-      midiaPersistida = true; // Assumir que URLs externas são permanentes
+      console.log(`[${VERSION}] ℹ️ URL externa (${dados.mediaUrl?.substring(0, 40)}...), assumindo permanente`);
+      midiaPersistida = true;
     }
   }
 
