@@ -361,6 +361,109 @@ export const filtrarAtendentesVisiveis = (usuario, todosAtendentes) => {
   );
 };
 
+// ═══════════════════════════════════════════════════════════════════════════════
+// VERIFICAR MOTIVO DE BLOQUEIO DE UMA THREAD
+// ═══════════════════════════════════════════════════════════════════════════════
+/**
+ * Retorna o motivo pelo qual o usuário não pode acessar a thread
+ * @returns {Object} { bloqueado: boolean, motivo: string, atendenteResponsavel: string|null }
+ */
+export const verificarBloqueioThread = (usuario, thread, contato = null) => {
+  if (!usuario || !thread) {
+    return { bloqueado: true, motivo: 'dados_invalidos', atendenteResponsavel: null };
+  }
+
+  const perms = usuario.permissoes_visualizacao || {};
+  const isAdmin = usuario.role === 'admin';
+  const isAdminOrAll = isAdmin || !!perms.pode_ver_todas_conversas;
+
+  // Admin pode tudo
+  if (isAdminOrAll) {
+    return { bloqueado: false, motivo: null, atendenteResponsavel: null };
+  }
+
+  // 1. Verificar permissão de integração
+  if (!temPermissaoIntegracao(usuario, thread.whatsapp_integration_id)) {
+    return { bloqueado: true, motivo: 'sem_permissao_integracao', atendenteResponsavel: null };
+  }
+
+  // 2. Verificar permissão de conexão
+  if (!threadConexaoVisivel(usuario, thread.conexao_id)) {
+    return { bloqueado: true, motivo: 'sem_permissao_conexao', atendenteResponsavel: null };
+  }
+
+  // 3. Verificar permissão de setor
+  if (!threadSetorVisivel(usuario, thread.sector_id || thread.setor)) {
+    return { bloqueado: true, motivo: 'outro_setor', atendenteResponsavel: null };
+  }
+
+  // 4. Verificar se está atribuída ao usuário
+  if (isAtribuidoAoUsuario(usuario, thread)) {
+    return { bloqueado: false, motivo: null, atendenteResponsavel: null };
+  }
+
+  // 5. Verificar se contato está fidelizado ao usuário
+  if (contato && isFidelizadoAoUsuario(usuario, contato)) {
+    // Fidelizado ao usuário, mas verificar se não está atribuída a outro
+    if (!thread.assigned_user_id) {
+      return { bloqueado: false, motivo: null, atendenteResponsavel: null };
+    }
+  }
+
+  // 6. Se não está atribuída (S/atend.) - TODOS podem ver
+  if (isNaoAtribuida(thread)) {
+    return { bloqueado: false, motivo: null, atendenteResponsavel: null };
+  }
+
+  // 7. Está atribuída a outro - BLOQUEADO
+  if (thread.assigned_user_id) {
+    return { 
+      bloqueado: true, 
+      motivo: 'atribuida_outro', 
+      atendenteResponsavel: thread.assigned_user_name || thread.assigned_user_email || 'outro atendente'
+    };
+  }
+
+  // 8. Contato fidelizado a outro
+  if (contato) {
+    const camposFidelizacao = [
+      'atendente_fidelizado_vendas',
+      'atendente_fidelizado_assistencia', 
+      'atendente_fidelizado_financeiro',
+      'atendente_fidelizado_fornecedor'
+    ];
+    
+    for (const campo of camposFidelizacao) {
+      if (contato[campo] && !usuarioCorresponde(usuario, contato[campo])) {
+        return { 
+          bloqueado: true, 
+          motivo: 'fidelizada_outro', 
+          atendenteResponsavel: contato[campo]
+        };
+      }
+    }
+  }
+
+  return { bloqueado: false, motivo: null, atendenteResponsavel: null };
+};
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// VERIFICAR SE PODE INTERAGIR (enviar mensagem) NA THREAD
+// ═══════════════════════════════════════════════════════════════════════════════
+/**
+ * Verifica se o usuário pode enviar mensagens nesta thread
+ * Regras:
+ * - Admin: sempre pode
+ * - Atribuída ao usuário: pode
+ * - Fidelizada ao usuário: pode
+ * - Não atribuída (S/atend.): pode (e auto-atribui ao responder)
+ * - Atribuída/fidelizada a outro: NÃO pode
+ */
+export const podeInteragirNaThread = (usuario, thread, contato = null) => {
+  const resultado = verificarBloqueioThread(usuario, thread, contato);
+  return !resultado.bloqueado;
+};
+
 export default {
   temPermissaoIntegracao,
   threadConexaoVisivel,
@@ -371,5 +474,7 @@ export default {
   usuarioJaConversouComContato,
   canUserSeeThreadBase,
   canUserSeeThreadWithFilters,
-  filtrarAtendentesVisiveis
+  filtrarAtendentesVisiveis,
+  verificarBloqueioThread,
+  podeInteragirNaThread
 };
