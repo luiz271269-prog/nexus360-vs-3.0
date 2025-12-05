@@ -1037,7 +1037,7 @@ export default function Comunicacao() {
           onIniciarNovaConversa={handleIniciarNovaConversaSemPermissao}
           podeIniciarNova={true}
         />
-      </div>
-    </ErrorBoundary>);
+      </ErrorBoundary>
+    );
 
 }
