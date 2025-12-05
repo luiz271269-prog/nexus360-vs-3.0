@@ -1178,19 +1178,25 @@ export default function MessageBubble({
                 */}
                 </div>
 
-                <div className="flex items-center justify-end gap-1 mt-0.5">
-                  <span className={cn("text-[11px]", isOwn ? "text-white/70" : "text-[#667781]")}>
-                    {formatarHorario(message.sent_at || message.created_date)}
+                <div className="flex items-center justify-end gap-1 mt-0.5 flex-wrap">
+                {/* Canal/Conexão - apenas para mensagens RECEBIDAS */}
+                {!isOwn && message.metadata?.canal_nome && (
+                  <span className={cn("text-[10px] px-1.5 py-0.5 rounded bg-green-100 text-green-700")}>
+                    📱 {message.metadata.canal_nome}
                   </span>
-                  {isOwn && (
-                    <>
-                      {message.status === 'enviando' && <Clock className="w-[16px] h-[16px] text-white/60" />}
-                      {message.status === 'enviada' && <Check className="w-[16px] h-[16px] text-white/70" />}
-                      {message.status === 'entregue' && <CheckCheck className="w-[16px] h-[16px] text-white/70" />}
-                      {message.status === 'lida' && <CheckCheck className="w-[16px] h-[16px] text-[#90EE90]" />}
-                      {message.status === 'falhou' && <AlertCircle className="w-[16px] h-[16px] text-red-300" />}
-                    </>
-                  )}
+                )}
+                <span className={cn("text-[11px]", isOwn ? "text-white/70" : "text-[#667781]")}>
+                  {formatarHorario(message.sent_at || message.created_date)}
+                </span>
+                {isOwn && (
+                  <>
+                    {message.status === 'enviando' && <Clock className="w-[16px] h-[16px] text-white/60" />}
+                    {message.status === 'enviada' && <Check className="w-[16px] h-[16px] text-white/70" />}
+                    {message.status === 'entregue' && <CheckCheck className="w-[16px] h-[16px] text-white/70" />}
+                    {message.status === 'lida' && <CheckCheck className="w-[16px] h-[16px] text-[#90EE90]" />}
+                    {message.status === 'falhou' && <AlertCircle className="w-[16px] h-[16px] text-red-300" />}
+                  </>
+                )}
                 </div>
               </>
             }
