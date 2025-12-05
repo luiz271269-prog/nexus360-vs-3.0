@@ -53,9 +53,23 @@ export default function AtribuidorAtendenteRapido({
   const { data: atendentes = [] } = useQuery({
     queryKey: ['todos-usuarios-atribuidor'],
     queryFn: async () => {
-      const users = await base44.entities.User.list('full_name');
-      // Retorna TODOS os usuários sem filtro de bloqueio
-      return users;
+      try {
+        // Tentar list() primeiro
+        const users = await base44.entities.User.list();
+        console.log('[AtribuidorRapido] Usuários carregados:', users?.length || 0);
+        // Retorna TODOS os usuários válidos (apenas verifica se tem id)
+        return (users || []).filter(u => u && u.id);
+      } catch (error) {
+        console.warn('[AtribuidorRapido] Erro ao carregar usuários:', error.message);
+        // Fallback: tentar filter
+        try {
+          const users = await base44.entities.User.filter({});
+          return (users || []).filter(u => u && u.id);
+        } catch (e) {
+          console.error('[AtribuidorRapido] Falha total ao carregar usuários');
+          return [];
+        }
+      }
     },
     staleTime: 5 * 60 * 1000
   });

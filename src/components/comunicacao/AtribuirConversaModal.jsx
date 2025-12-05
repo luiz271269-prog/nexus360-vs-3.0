@@ -40,21 +40,34 @@ export default function AtribuirConversaModal({
   const carregarAtendentes = async () => {
     setCarregando(true);
     try {
-      // Tentar buscar todos os usuários
+      // Tentar buscar todos os usuários - SEM NENHUM FILTRO
       let users = [];
       try {
+        // Primeiro: tentar list() sem ordenação
         users = await base44.entities.User.list();
+        console.log('[AtribuirModal] User.list() retornou:', users?.length || 0);
       } catch (listError) {
         console.warn('[AtribuirModal] User.list() falhou:', listError.message);
-        // Fallback 1: tentar filter
+        // Fallback 1: tentar filter vazio
         try {
           users = await base44.entities.User.filter({});
+          console.log('[AtribuirModal] User.filter() retornou:', users?.length || 0);
         } catch (filterError) {
           console.warn('[AtribuirModal] User.filter() também falhou:', filterError.message);
         }
       }
       
+      // Validar usuários - apenas verificar se tem id (sem filtros extras)
       let usuariosValidos = (users || []).filter(u => u && u.id);
+      
+      // Log detalhado para debug
+      console.log('[AtribuirModal] Usuários válidos encontrados:', usuariosValidos.map(u => ({
+        id: u.id,
+        nome: u.full_name,
+        email: u.email,
+        role: u.role,
+        setor: u.attendant_sector
+      })));
       
       // Fallback 2: usar lista pré-carregada se API falhou
       if (usuariosValidos.length === 0 && atendentesPreCarregados.length > 0) {
@@ -62,12 +75,13 @@ export default function AtribuirConversaModal({
         usuariosValidos = atendentesPreCarregados.filter(u => u && u.id);
       }
       
-      console.log('[AtribuirModal] Usuários disponíveis:', usuariosValidos.length);
+      console.log('[AtribuirModal] Total de usuários disponíveis para atribuição:', usuariosValidos.length);
       setAtendentes(usuariosValidos);
     } catch (error) {
       console.error('[AtribuirModal] Erro ao carregar usuários:', error);
       // Último fallback: usar lista pré-carregada
       if (atendentesPreCarregados.length > 0) {
+        console.log('[AtribuirModal] Usando fallback pré-carregado:', atendentesPreCarregados.length);
         setAtendentes(atendentesPreCarregados.filter(u => u && u.id));
       } else {
         setAtendentes([]);
