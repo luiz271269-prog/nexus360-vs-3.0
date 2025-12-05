@@ -535,15 +535,7 @@ export default function MessageBubble({
             </span>
           )}
 
-          {/* 📱 CANAL WHATSAPP - Apenas nas mensagens RECEBIDAS do cliente */}
-          {!isOwn && message.sender_type === 'contact' && message.metadata?.canal_nome && (
-            <div className="text-[9px] px-2 py-0.5 rounded-full mb-0.5 inline-flex items-center gap-1.5 bg-green-500/20 text-green-700">
-              <span>📱 Via: {message.metadata.canal_nome}</span>
-              {message.metadata.canal_numero && (
-                <span className="opacity-70">({message.metadata.canal_numero})</span>
-              )}
-            </div>
-          )}
+
 
           {mensagemOriginal &&
           <div className={cn(
