@@ -36,8 +36,11 @@ import {
   canUserSeeThreadWithFilters,
   canUserSeeThreadBase,
   isNaoAtribuida,
-  filtrarAtendentesVisiveis
+  filtrarAtendentesVisiveis,
+  verificarBloqueioThread,
+  podeInteragirNaThread
 } from "../components/lib/threadVisibility";
+import ModalSemPermissaoConversa from "../components/comunicacao/ModalSemPermissaoConversa";
 import BibliotecaAutomacoes from "../components/automacao/BibliotecaAutomacoes";
 import CentralControleOperacional from "../components/comunicacao/CentralControleOperacional";
 import DiagnosticoCirurgicoEmbed from "../components/comunicacao/DiagnosticoCirurgicoEmbed";
@@ -70,6 +73,15 @@ export default function Comunicacao() {
 
   // Estado para dados do cliente pré-preenchidos (quando clica em cliente_sem_contato)
   const [contactInitialData, setContactInitialData] = useState(null);
+
+  // Estado para modal de sem permissão
+  const [modalSemPermissao, setModalSemPermissao] = useState({
+    isOpen: false,
+    contato: null,
+    atendenteResponsavel: null,
+    motivoBloqueio: null,
+    threadOriginal: null
+  });
 
   const queryClient = useQueryClient();
 
@@ -236,6 +248,22 @@ export default function Comunicacao() {
         const threadsExistentes = await base44.entities.MessageThread.filter({ contact_id: thread.contact_id });
         
         if (threadsExistentes && threadsExistentes.length > 0) {
+          // Verificar permissão antes de abrir
+          const contatoObj = contatos.find(c => c.id === thread.contact_id);
+          const bloqueio = verificarBloqueioThread(usuario, threadsExistentes[0], contatoObj);
+          
+          if (bloqueio.bloqueado) {
+            // Mostrar modal explicando o bloqueio
+            setModalSemPermissao({
+              isOpen: true,
+              contato: contatoObj,
+              atendenteResponsavel: bloqueio.atendenteResponsavel,
+              motivoBloqueio: bloqueio.motivo,
+              threadOriginal: threadsExistentes[0]
+            });
+            return;
+          }
+          
           setThreadAtiva(threadsExistentes[0]);
           return;
         }
@@ -252,7 +280,10 @@ export default function Comunicacao() {
           status: 'aberta',
           unread_count: 0,
           janela_24h_expira_em: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
-          can_send_without_template: true
+          can_send_without_template: true,
+          assigned_user_id: usuario.id,
+          assigned_user_name: usuario.full_name,
+          assigned_user_email: usuario.email
         });
 
         await queryClient.invalidateQueries({ queryKey: ['threads'] });
@@ -266,9 +297,62 @@ export default function Comunicacao() {
       }
     }
 
-    // CASO 3: THREAD NORMAL
+    // CASO 3: THREAD NORMAL - Verificar permissão
+    const contatoObj = contatos.find(c => c.id === thread.contact_id);
+    const bloqueio = verificarBloqueioThread(usuario, thread, contatoObj);
+    
+    if (bloqueio.bloqueado) {
+      console.log('[Comunicacao] 🔒 Thread bloqueada:', bloqueio);
+      setModalSemPermissao({
+        isOpen: true,
+        contato: contatoObj,
+        atendenteResponsavel: bloqueio.atendenteResponsavel,
+        motivoBloqueio: bloqueio.motivo,
+        threadOriginal: thread
+      });
+      return;
+    }
+    
     setThreadAtiva(thread);
-  }, [integracoes, queryClient, clientes]);
+  }, [integracoes, queryClient, clientes, contatos, usuario]);
+
+  // Handler para iniciar nova conversa quando não tem permissão na existente
+  const handleIniciarNovaConversaSemPermissao = useCallback(async () => {
+    const { contato } = modalSemPermissao;
+    if (!contato) {
+      setModalSemPermissao({ isOpen: false, contato: null, atendenteResponsavel: null, motivoBloqueio: null, threadOriginal: null });
+      return;
+    }
+
+    try {
+      const integracaoAtiva = integracoes.find((i) => i.status === 'conectado');
+      if (!integracaoAtiva) {
+        toast.error('❌ Nenhuma integração WhatsApp ativa');
+        return;
+      }
+
+      // Criar nova thread atribuída ao usuário atual
+      const novaThread = await base44.entities.MessageThread.create({
+        contact_id: contato.id,
+        whatsapp_integration_id: integracaoAtiva.id,
+        status: 'aberta',
+        unread_count: 0,
+        janela_24h_expira_em: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+        can_send_without_template: true,
+        assigned_user_id: usuario.id,
+        assigned_user_name: usuario.full_name,
+        assigned_user_email: usuario.email
+      });
+
+      await queryClient.invalidateQueries({ queryKey: ['threads'] });
+      setThreadAtiva(novaThread);
+      setModalSemPermissao({ isOpen: false, contato: null, atendenteResponsavel: null, motivoBloqueio: null, threadOriginal: null });
+      toast.success('✅ Nova conversa iniciada!');
+    } catch (error) {
+      console.error('[Comunicacao] Erro ao criar nova thread:', error);
+      toast.error('Erro ao iniciar conversa');
+    }
+  }, [modalSemPermissao, integracoes, usuario, queryClient]);
 
   // RESTAURADO: Handler para criar novo contato
   const handleCriarNovoContato = useCallback(async (dadosContato) => {
@@ -942,6 +1026,17 @@ export default function Comunicacao() {
             </TabsContent>
           </div>
         </Tabs>
+      </div>
+        {/* Modal de Sem Permissão */}
+        <ModalSemPermissaoConversa
+          isOpen={modalSemPermissao.isOpen}
+          onClose={() => setModalSemPermissao({ isOpen: false, contato: null, atendenteResponsavel: null, motivoBloqueio: null, threadOriginal: null })}
+          contato={modalSemPermissao.contato}
+          atendenteResponsavel={modalSemPermissao.atendenteResponsavel}
+          motivoBloqueio={modalSemPermissao.motivoBloqueio}
+          onIniciarNovaConversa={handleIniciarNovaConversaSemPermissao}
+          podeIniciarNova={true}
+        />
       </div>
     </ErrorBoundary>);
 
