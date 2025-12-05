@@ -1,4 +1,3 @@
-
 import React, { useState } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -10,6 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Plus,
   Edit,
@@ -26,7 +26,9 @@ import {
   TrendingUp,
   Search,
   Sparkles,
-  Loader2
+  Loader2,
+  Brain,
+  Settings
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -36,12 +38,14 @@ import {
   DialogTitle,
   DialogDescription,
 } from "@/components/ui/dialog";
-import ColetorIAUniversal from "../automacao/ColetorIAUniversal"; // Added import
+import ColetorIAUniversal from "../automacao/ColetorIAUniversal";
+import PainelMotorDecisao from "../automacao/PainelMotorDecisao";
 
 export default function PreAtendimentoManager({ categoriaFiltro = "all", searchTerm = "", onCategoriaChange, onSearchChange }) {
   const [editandoRegra, setEditandoRegra] = useState(null);
   const [mostrarFormulario, setMostrarFormulario] = useState(false);
   const [mostrarColetorIA, setMostrarColetorIA] = useState(false);
+  const [subTab, setSubTab] = useState("motor");
 
   const queryClient = useQueryClient();
 
@@ -171,8 +175,36 @@ export default function PreAtendimentoManager({ categoriaFiltro = "all", searchT
 
   return (
     <div className="space-y-6">
-      {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+      {/* Header com Descrição */}
+      <div className="bg-gradient-to-r from-purple-600 to-indigo-600 rounded-xl p-6 text-white shadow-lg">
+        <h3 className="text-2xl font-bold mb-2">🎯 Motor de Decisão Pré-Atendimento</h3>
+        <p className="text-purple-100 text-sm">
+          Sistema inteligente de roteamento em 3 camadas: Continuidade → Intenção → Fidelização
+        </p>
+      </div>
+
+      {/* Sub-Tabs */}
+      <Tabs value={subTab} onValueChange={setSubTab} className="space-y-6">
+        <TabsList className="bg-white border shadow-sm">
+          <TabsTrigger value="motor" className="gap-2">
+            <Brain className="w-4 h-4" />
+            Motor de Decisão
+          </TabsTrigger>
+          <TabsTrigger value="regras" className="gap-2">
+            <Shield className="w-4 h-4" />
+            Regras Complementares
+          </TabsTrigger>
+        </TabsList>
+
+        {/* TAB: MOTOR DE DECISÃO */}
+        <TabsContent value="motor" className="m-0">
+          <PainelMotorDecisao />
+        </TabsContent>
+
+        {/* TAB: REGRAS COMPLEMENTARES */}
+        <TabsContent value="regras" className="m-0 space-y-6">
+          {/* Stats Cards */}
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <Card>
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
@@ -403,13 +435,15 @@ export default function PreAtendimentoManager({ categoriaFiltro = "all", searchT
         </div>
       </div>
 
-      {/* Modal Coletor IA - USANDO O UNIVERSAL */}
-      <ColetorIAUniversal
-        isOpen={mostrarColetorIA}
-        onClose={() => setMostrarColetorIA(false)}
-        tipoTemplate="pre_atendimento"
-        onSalvar={handleSalvarDaIA}
-      />
+          {/* Modal Coletor IA - USANDO O UNIVERSAL */}
+          <ColetorIAUniversal
+            isOpen={mostrarColetorIA}
+            onClose={() => setMostrarColetorIA(false)}
+            tipoTemplate="pre_atendimento"
+            onSalvar={handleSalvarDaIA}
+          />
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }
