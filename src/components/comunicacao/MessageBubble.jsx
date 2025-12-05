@@ -524,7 +524,10 @@ export default function MessageBubble({
             <span className="text-[11px] font-semibold mb-0.5 text-[#53bdeb]">
               {(() => {
                 const atendenteRemetente = atendentes.find(a => a.id === message.sender_id);
-                return atendenteRemetente?.full_name || 'Atendente';
+                // REGRA DO NOME: display_name (editável) > full_name (login)
+                const nomeAtendente = atendenteRemetente?.display_name || atendenteRemetente?.full_name || 'Atendente';
+                const setorAtendente = atendenteRemetente?.attendant_sector;
+                return setorAtendente ? `${nomeAtendente} (${setorAtendente})` : nomeAtendente;
               })()}
             </span>
           )}
@@ -1095,8 +1098,10 @@ export default function MessageBubble({
               const displayNumero = integracao.numero_telefone || integracao.nome_instancia;
               
               // Buscar nome do atendente que enviou a mensagem
+              // REGRA DO NOME: display_name (editável) > full_name (login)
               const atendenteRemetente = atendentes.find(a => a.id === message.sender_id);
-              const nomeAtendente = atendenteRemetente?.full_name?.split(' ')[0] || thread?.assigned_user_name?.split(' ')[0];
+              const nomeCompletoAtendente = atendenteRemetente?.display_name || atendenteRemetente?.full_name || thread?.assigned_user_name;
+              const nomeAtendente = nomeCompletoAtendente?.split(' ')[0];
               
               return (
                 <div className="text-[9px] px-2 py-0.5 rounded-full mb-1 inline-flex items-center gap-1.5 bg-white/20 text-white/90">

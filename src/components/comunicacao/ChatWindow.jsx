@@ -666,9 +666,11 @@ export default function ChatWindow({
     setProgressoBroadcast({ enviados: 0, erros: 0, total: contatosSelecionados.length });
 
     // 📝 ASSINATURA: Adicionar setor e nome do atendente ao final da mensagem
+    // Usa display_name (editável) > full_name (login) como fallback
     let mensagemParaEnviar = mensagemTexto.trim();
-    if (usuario?.full_name && usuario?.attendant_sector) {
-      const primeiroNome = usuario.full_name.split(' ')[0];
+    const nomeAtendente = usuario?.display_name || usuario?.full_name;
+    if (nomeAtendente && usuario?.attendant_sector) {
+      const primeiroNome = nomeAtendente.split(' ')[0];
       const setor = usuario.attendant_sector;
       mensagemParaEnviar = `${mensagemParaEnviar}\n\n_~ ${primeiroNome} (${setor})_`;
     }
@@ -843,9 +845,11 @@ export default function ChatWindow({
       await autoAtribuirThreadSeNecessario(thread);
 
       // 📝 ASSINATURA: Adicionar setor e nome do atendente ao final da mensagem
+      // Usa display_name (editável) > full_name (login) como fallback
       let mensagemParaEnviar = mensagemTexto.trim();
-      if (usuario?.full_name && usuario?.attendant_sector) {
-        const primeiroNome = usuario.full_name.split(' ')[0];
+      const nomeAtendenteEnvio = usuario?.display_name || usuario?.full_name;
+      if (nomeAtendenteEnvio && usuario?.attendant_sector) {
+        const primeiroNome = nomeAtendenteEnvio.split(' ')[0];
         const setor = usuario.attendant_sector;
         mensagemParaEnviar = `${mensagemParaEnviar}\n\n_~ ${primeiroNome} (${setor})_`;
       }

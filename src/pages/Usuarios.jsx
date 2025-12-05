@@ -24,7 +24,8 @@ export default function UsuariosPage() {
     console.log('[Usuarios] Usuários carregados do banco:', users);
     return users.map(u => ({
       id: u.id,
-      nome: u.full_name || '',
+      // REGRA DO NOME: display_name (editável) > full_name (login) > email
+      nome: u.display_name || u.full_name || '',
       email: u.email || '',
       setor: u.attendant_sector || 'geral',
       funcao: u.attendant_role || 'pleno',
@@ -50,7 +51,9 @@ export default function UsuariosPage() {
     const permissoesParaSalvar = usuario.permissoes || usuario.paginas_acesso || [];
     
     const payload = {
-      full_name: usuario.nome,
+      // IMPORTANTE: Salva no campo display_name (editável pelo sistema)
+      // NÃO tentamos alterar full_name pois é do provedor de login
+      display_name: usuario.nome,
       attendant_sector: usuario.setor || 'geral',
       attendant_role: usuario.funcao || 'pleno',
       role: usuario.tipoAcesso || 'user',
