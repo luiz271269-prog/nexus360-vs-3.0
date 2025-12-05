@@ -43,6 +43,14 @@ import {
 // Componente de imagem com fallback seguro (sem manipulação de innerHTML)
 const ImageWithFallback = ({ src, alt, className, onClick, isPersisted }) => {
   const [hasError, setHasError] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+
+  // Verificar se é URL permanente (base44, supabase, etc)
+  const isUrlPermanente = src && (
+    src.includes('base44.app') || 
+    src.includes('supabase.co') || 
+    src.includes('storage.googleapis.com')
+  );
 
   if (hasError || !src) {
     return (
@@ -50,25 +58,35 @@ const ImageWithFallback = ({ src, alt, className, onClick, isPersisted }) => {
         <div className="text-center">
           <ImageIcon className="w-12 h-12 text-slate-400 mx-auto mb-2" />
           <p className="text-sm text-slate-500">
-            {isPersisted === false && src ? "Link temporário expirado" : "Imagem expirada ou indisponível"}
+            {isPersisted === false && !isUrlPermanente ? "Link temporário expirado" : "Imagem indisponível"}
           </p>
+          {src && <p className="text-[10px] text-slate-400 mt-1 break-all max-w-[200px]">{src.substring(0, 50)}...</p>}
         </div>
       </div>
     );
   }
 
   return (
-    <img
-      src={src}
-      alt={alt}
-      className={className}
-      loading="lazy"
-      onClick={onClick}
-      onError={() => {
-        console.warn('[MSG] Erro ao carregar imagem:', src);
-        setHasError(true);
-      }}
-    />
+    <div className="relative">
+      {isLoading && (
+        <div className="absolute inset-0 flex items-center justify-center bg-slate-100 rounded-2xl">
+          <div className="w-8 h-8 border-2 border-slate-300 border-t-blue-500 rounded-full animate-spin" />
+        </div>
+      )}
+      <img
+        src={src}
+        alt={alt}
+        className={className}
+        loading="lazy"
+        onClick={onClick}
+        onLoad={() => setIsLoading(false)}
+        onError={() => {
+          console.warn('[MSG] Erro ao carregar imagem:', src);
+          setIsLoading(false);
+          setHasError(true);
+        }}
+      />
+    </div>
   );
 };
 
