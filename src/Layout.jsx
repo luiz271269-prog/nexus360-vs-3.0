@@ -317,13 +317,13 @@ export default function Layout({ children, currentPageName }) {
   useEffect(() => {
     carregarDadosGlobais();
     
-    const interval = setInterval(carregarDadosGlobais, 10 * 60 * 1000);
+    const interval = setInterval(carregarDadosGlobais, 15 * 60 * 1000); // Aumentado para 15min
     return () => clearInterval(interval);
   }, []);
 
   const carregarDadosGlobais = async () => {
     const agora = Date.now();
-    if (agora - ultimaAtualizacaoRef.current < 60000) {
+    if (agora - ultimaAtualizacaoRef.current < 120000) { // Aumentado para 2min
       console.log('[LAYOUT] ⏭️ Pulando atualização (muito recente)');
       return;
     }

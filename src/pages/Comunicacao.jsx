@@ -129,11 +129,11 @@ export default function Comunicacao() {
       const allThreads = await base44.entities.MessageThread.list('-last_message_at', 100);
       return allThreads;
     },
-    refetchInterval: 20000,
-    staleTime: 10000,
+    refetchInterval: 30000, // Aumentado para 30s
+    staleTime: 15000, // Aumentado para 15s
     enabled: !!usuario,
     retry: 1,
-    refetchOnWindowFocus: true
+    refetchOnWindowFocus: false // Desabilitado para evitar rate limit
   });
 
   const loadingTopics = loadingThreads;
@@ -147,10 +147,10 @@ export default function Comunicacao() {
       return Promise.resolve([]);
     },
     enabled: !!threadAtiva,
-    refetchInterval: 3000,
-    staleTime: 2000,
+    refetchInterval: 5000, // Aumentado para 5s
+    staleTime: 3000, // Aumentado para 3s
     retry: 1,
-    refetchOnWindowFocus: true
+    refetchOnWindowFocus: false // Desabilitado
   });
 
   const { data: todasIntegracoes = [] } = useQuery({
