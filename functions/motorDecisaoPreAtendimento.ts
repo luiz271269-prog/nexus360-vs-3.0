@@ -343,12 +343,13 @@ async function executarMotorDecisao(base44, params) {
   // ────────────────────────────────────────────────────────────────────────────
   // 📍 CAMADA 2: INTENÇÃO (Palavras-chave + IA)
   // ────────────────────────────────────────────────────────────────────────────
-  const resultadoCamada2 = await detectarIntencao(base44, textoCompleto, integration_id, config);
+  const resultadoCamada2 = await detectarIntencao(base44, textoCompleto, integration_id, config, metricas);
   
   if (resultadoCamada2.decidiu) {
     console.log('[MOTOR] ✅ CAMADA 2 (Intenção) decidiu:', resultadoCamada2);
     return {
       camada: 'intencao',
+      tempo_ia_ms: metricas.tempo_ia_ms,
       ...resultadoCamada2
     };
   }
