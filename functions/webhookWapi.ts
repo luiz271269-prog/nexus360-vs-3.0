@@ -565,97 +565,115 @@ async function handleMessage(dados, payloadBruto, base44, req) {
   });
 
   // ============================================================================
-  // ✅ PRÉ-ATENDIMENTO AUTOMÁTICO - MESMA LÓGICA DO Z-API
+  // ✅ PRÉ-ATENDIMENTO AUTOMÁTICO - VERSÃO CORRIGIDA
   // ============================================================================
-  const SAUDACOES = [
-    'oi', 'olá', 'ola', 'oie', 'oii', 'oiii',
-    'bom dia', 'boa tarde', 'boa noite',
-    'bomdia', 'boatarde', 'boanoite',
-    'hey', 'hello', 'hi',
-    'e aí', 'e ai', 'eai', 'eae',
-    'tudo bem', 'tudo bom', 'como vai',
-    'opa', 'fala', 'salve'
-  ];
+  // ⚠️ NÃO PROCESSAR PRÉ-ATENDIMENTO SE FOR MÍDIA (áudio, imagem, vídeo, documento)
+  // Motivo: Mídia não é uma resposta válida para o menu de setores/atendentes
+  // ============================================================================
   
-  const mensagemLower = (dados.content || '').toLowerCase().trim();
-  const isSaudacao = SAUDACOES.some(s => mensagemLower === s || mensagemLower.startsWith(s + ' ') || mensagemLower.startsWith(s + ',') || mensagemLower.startsWith(s + '!'));
+  const isMidia = dados.mediaType && dados.mediaType !== 'none' && 
+                  ['image', 'video', 'audio', 'document', 'sticker'].includes(dados.mediaType);
   
-  // Verificar se há execução ativa de pré-atendimento
-  let execucoesAtivas = [];
-  try {
-    execucoesAtivas = await base44.asServiceRole.entities.FlowExecution.filter({
-      thread_id: thread.id,
-      status: 'ativo'
-    }, '-created_date', 1);
-  } catch (e) {
-    console.log('[W-API WEBHOOK] ⚠️ Erro ao buscar execuções ativas:', e?.message);
-  }
-
-  if (execucoesAtivas.length > 0) {
-    // Processar resposta do pré-atendimento em andamento
-    console.log('[W-API WEBHOOK] 🔄 Processando resposta pré-atendimento | Thread:', thread.id);
-    try {
-      await base44.functions.invoke('executarPreAtendimento', {
-        action: 'processar_resposta',
-        thread_id: thread.id,
-        contact_id: contato.id,
-        integration_id: integracaoId,
-        resposta_usuario: dados.content
-      });
-    } catch (e) {
-      console.error('[W-API WEBHOOK] ❌ Erro ao processar resposta pré-atendimento:', e?.message);
-    }
-  } else if (isSaudacao) {
-    // Iniciar pré-atendimento apenas se for saudação
-    console.log('[W-API WEBHOOK] 🚀 Saudação detectada! Iniciando pré-atendimento | Msg:', mensagemLower, '| Thread:', thread.id);
-    try {
-      await base44.functions.invoke('executarPreAtendimento', {
-        action: 'iniciar',
-        thread_id: thread.id,
-        contact_id: contato.id,
-        integration_id: integracaoId
-      });
-      console.log('[W-API WEBHOOK] ✅ Pré-atendimento iniciado com sucesso');
-    } catch (e) {
-      console.error('[W-API WEBHOOK] ❌ Erro ao iniciar pré-atendimento:', e?.message);
-    }
+  if (isMidia) {
+    console.log('[W-API WEBHOOK] 📎 Mensagem de mídia detectada - NÃO ativar pré-atendimento | Tipo:', dados.mediaType);
   } else {
-    console.log('[W-API WEBHOOK] ℹ️ Mensagem não é saudação, pré-atendimento não ativado | Msg:', mensagemLower.substring(0, 30));
+    // Apenas processar pré-atendimento para mensagens de TEXTO
+    const SAUDACOES = [
+      'oi', 'olá', 'ola', 'oie', 'oii', 'oiii',
+      'bom dia', 'boa tarde', 'boa noite',
+      'bomdia', 'boatarde', 'boanoite',
+      'hey', 'hello', 'hi',
+      'e aí', 'e ai', 'eai', 'eae',
+      'tudo bem', 'tudo bom', 'como vai',
+      'opa', 'fala', 'salve'
+    ];
+    
+    const mensagemLower = (dados.content || '').toLowerCase().trim();
+    const isSaudacao = SAUDACOES.some(s => mensagemLower === s || mensagemLower.startsWith(s + ' ') || mensagemLower.startsWith(s + ',') || mensagemLower.startsWith(s + '!'));
+    
+    // Verificar se há execução ativa de pré-atendimento
+    let execucoesAtivas = [];
+    try {
+      execucoesAtivas = await base44.asServiceRole.entities.FlowExecution.filter({
+        thread_id: thread.id,
+        status: 'ativo'
+      }, '-created_date', 1);
+    } catch (e) {
+      console.log('[W-API WEBHOOK] ⚠️ Erro ao buscar execuções ativas:', e?.message);
+    }
+
+    if (execucoesAtivas.length > 0) {
+      // Processar resposta do pré-atendimento em andamento
+      console.log('[W-API WEBHOOK] 🔄 Processando resposta pré-atendimento | Thread:', thread.id);
+      try {
+        await base44.functions.invoke('executarPreAtendimento', {
+          action: 'processar_resposta',
+          thread_id: thread.id,
+          contact_id: contato.id,
+          integration_id: integracaoId,
+          resposta_usuario: dados.content
+        });
+      } catch (e) {
+        console.error('[W-API WEBHOOK] ❌ Erro ao processar resposta pré-atendimento:', e?.message);
+      }
+    } else if (isSaudacao) {
+      // Iniciar pré-atendimento apenas se for saudação
+      console.log('[W-API WEBHOOK] 🚀 Saudação detectada! Iniciando pré-atendimento | Msg:', mensagemLower, '| Thread:', thread.id);
+      try {
+        await base44.functions.invoke('executarPreAtendimento', {
+          action: 'iniciar',
+          thread_id: thread.id,
+          contact_id: contato.id,
+          integration_id: integracaoId
+        });
+        console.log('[W-API WEBHOOK] ✅ Pré-atendimento iniciado com sucesso');
+      } catch (e) {
+        console.error('[W-API WEBHOOK] ❌ Erro ao iniciar pré-atendimento:', e?.message);
+      }
+    } else {
+      console.log('[W-API WEBHOOK] ℹ️ Mensagem não é saudação, pré-atendimento não ativado | Msg:', mensagemLower.substring(0, 30));
+    }
   }
 
   const duracao = Date.now() - inicio;
   console.log('[W-API WEBHOOK] ✅ Msg:', mensagem.id, '| Tipo:', dados.mediaType, '| URL:', dados.mediaUrl ? 'SIM' : 'NÃO', '| ' + duracao + 'ms');
 
-  // ✅ PERSISTIR MÍDIA AUTOMATICAMENTE (se tiver URL temporária)
-  // URLs temporárias do WhatsApp expiram rapidamente
+  // ✅ PERSISTIR MÍDIA AUTOMATICAMENTE - VERSÃO SÍNCRONA (BLOCKING)
+  // URLs temporárias do WhatsApp expiram muito rapidamente (segundos)
+  // Por isso, AGUARDAMOS a persistência antes de retornar
   if (dados.mediaUrl && dados.mediaType && dados.mediaType !== 'none') {
     const isUrlTemporaria = dados.mediaUrl.includes('mmg.whatsapp.net') || 
                             dados.mediaUrl.includes('w-api.app') ||
                             dados.mediaUrl.includes('cdn.whatsapp') ||
                             dados.mediaUrl.includes('enc.') ||
-                            dados.mediaUrl.includes('media-');
+                            dados.mediaUrl.includes('media-') ||
+                            dados.mediaUrl.includes('.whatsapp') ||
+                            dados.mediaUrl.includes('/temp/');
     
     if (isUrlTemporaria) {
-      console.log('[W-API WEBHOOK] 📤 URL temporária detectada - Iniciando persistência');
+      console.log('[W-API WEBHOOK] 📤 URL temporária detectada - Persistindo AGORA (blocking)');
       console.log('[W-API WEBHOOK] 📎 Tipo:', dados.mediaType, '| Arquivo:', dados.fileName || 'N/A');
 
-      // Chamar função de persistência de forma assíncrona (não bloqueia resposta)
-      base44.functions.invoke('persistirMidiaWapi', {
-        message_id: mensagem.id,
-        media_url: dados.mediaUrl,
-        media_type: dados.mediaType,
-        integration_id: integracaoId,
-        filename: dados.fileName,
-        mimetype: dados.mimetype
-      }).then(result => {
-        if (result?.data?.success) {
-          console.log('[W-API WEBHOOK] ✅ Mídia persistida:', result.data.permanent_url?.substring(0, 60) || 'ok');
+      try {
+        // ⚠️ AWAIT: Bloqueia até completar o download e upload
+        const resultPersistir = await base44.functions.invoke('persistirMidiaWapi', {
+          message_id: mensagem.id,
+          media_url: dados.mediaUrl,
+          media_type: dados.mediaType,
+          integration_id: integracaoId,
+          filename: dados.fileName,
+          mimetype: dados.mimetype
+        });
+        
+        if (resultPersistir?.data?.success) {
+          console.log('[W-API WEBHOOK] ✅ Mídia persistida com sucesso:', resultPersistir.data.permanent_url?.substring(0, 60) || 'ok');
         } else {
-          console.log('[W-API WEBHOOK] ⚠️ Persistência retornou fallback:', result?.data?.error || 'desconhecido');
+          console.warn('[W-API WEBHOOK] ⚠️ Persistência retornou erro:', resultPersistir?.data?.error || 'desconhecido');
         }
-      }).catch(e => {
-        console.error('[W-API WEBHOOK] ❌ Erro ao persistir mídia:', e.message);
-      });
+      } catch (persistError) {
+        console.error('[W-API WEBHOOK] ❌ ERRO ao persistir mídia:', persistError.message);
+        // Não bloqueia o webhook, mas loga o erro
+      }
     } else {
       console.log('[W-API WEBHOOK] ℹ️ URL já é permanente, não precisa persistir');
     }
