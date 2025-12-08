@@ -272,11 +272,13 @@ export class FluxoController {
   static async processarWAITING_QUEUE_DECISION(base44, thread, contact, user_input, whatsappIntegrationId) {
     console.log('[FLUXO] Estado: WAITING_QUEUE_DECISION - Processando decisão de fila');
     
-    const textoParaVerificar = user_input.type === 'text' 
-      ? (user_input.content || '').trim() 
-      : (user_input.text || '').trim();
-    
-    const escolha = textoParaVerificar;
+    // Normalizar entrada: botão ou texto
+    let escolha;
+    if (user_input.type === 'button') {
+      escolha = user_input.id;
+    } else {
+      escolha = user_input.content?.trim();
+    }
     
     if (escolha === 'fila_entrar' || escolha === '1') {
       // Cliente optou por entrar na fila
