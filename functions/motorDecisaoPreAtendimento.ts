@@ -681,11 +681,102 @@ async function atualizarMetricas(base44, config, decisao) {
   const metricas = config.metricas || {};
   const camadaKey = `${decisao.camada}_hits`;
 
+  // Calcular tempo médio de decisão
+  const totalDecisoes = (metricas.total_decisoes || 0) + 1;
+  const tempoMedioAnterior = metricas.tempo_medio_decisao_ms || 0;
+  const novoTempoMedio = Math.round(
+    (tempoMedioAnterior * (totalDecisoes - 1) + (decisao.tempo_total_ms || 0)) / totalDecisoes
+  );
+
+  // Calcular tempo médio de IA
+  let novoTempoMedioIA = metricas.tempo_medio_ia_ms || 0;
+  if (decisao.tempo_ia_ms > 0) {
+    const totalIA = (metricas.camada2_hits || 0) + (decisao.camada === 'intencao' ? 1 : 0);
+    novoTempoMedioIA = Math.round(
+      ((metricas.tempo_medio_ia_ms || 0) * (totalIA - 1) + decisao.tempo_ia_ms) / totalIA
+    );
+  }
+
   await base44.asServiceRole.entities.MotorDecisaoConfig.update(config.id, {
     metricas: {
       ...metricas,
-      total_decisoes: (metricas.total_decisoes || 0) + 1,
-      [camadaKey]: (metricas[camadaKey] || 0) + 1
+      total_decisoes: totalDecisoes,
+      [camadaKey]: (metricas[camadaKey] || 0) + 1,
+      tempo_medio_decisao_ms: novoTempoMedio,
+      tempo_medio_ia_ms: novoTempoMedioIA
     }
   });
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// 🔄 ATUALIZAR THREAD COM DECISÃO (Atualização Atômica)
+// ══════════════════════════════════════════════════════════════════════════════
+async function atualizarThreadComDecisao(base44, thread_id, decisao) {
+  const updates = {
+    motor_decisao_origem: decisao.origem_detalhada || decisao.camada,
+    motor_decisao_motivo: decisao.motivo,
+    motor_decisao_timestamp: new Date().toISOString(),
+    motor_tempo_decisao_ms: decisao.tempo_total_ms,
+    motor_tempo_ia_ms: decisao.tempo_ia_ms || 0
+  };
+
+  // Atualizar campos de atribuição se definidos na decisão
+  if (decisao.assigned_user_id) {
+    updates.assigned_user_id = decisao.assigned_user_id;
+    if (decisao.assigned_user_email) updates.assigned_user_email = decisao.assigned_user_email;
+    if (decisao.assigned_user_name) updates.assigned_user_name = decisao.assigned_user_name;
+  }
+
+  if (decisao.setor) {
+    updates.sector_id = decisao.setor;
+  }
+
+  if (decisao.fila_id) {
+    updates.fila_atendimento_id = decisao.fila_id;
+    updates.entrou_na_fila_em = new Date().toISOString();
+  }
+
+  // Atualização atômica com todos os campos
+  await base44.asServiceRole.entities.MessageThread.update(thread_id, updates);
+  
+  console.log(`[MOTOR] 📝 Thread ${thread_id} atualizada com decisão:`, updates);
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// 🔍 BUSCAR MAPEAMENTO IA → AÇÃO
+// ══════════════════════════════════════════════════════════════════════════════
+async function buscarMapeamentoIA(base44, setorDetectado, confianciaIA, integration_id) {
+  try {
+    // Buscar mapeamentos ativos para este setor
+    const mapeamentos = await base44.asServiceRole.entities.MapeamentoIntencaoIA.filter({
+      setor_detectado_ia: setorDetectado,
+      ativo: true
+    }, 'prioridade');
+
+    if (!mapeamentos || mapeamentos.length === 0) {
+      return null;
+    }
+
+    // Filtrar por confiança mínima e conexão
+    for (const mapeamento of mapeamentos) {
+      // Verificar confiança mínima
+      if (confianciaIA < mapeamento.min_confianca) {
+        continue;
+      }
+
+      // Verificar se aplica a esta conexão
+      const conexoes = mapeamento.conexoes_permitidas || [];
+      if (conexoes.length > 0 && !conexoes.includes(integration_id)) {
+        continue;
+      }
+
+      // Mapeamento válido encontrado
+      return mapeamento;
+    }
+
+    return null;
+  } catch (error) {
+    console.error('[MOTOR] ⚠️ Erro ao buscar mapeamento IA:', error.message);
+    return null;
+  }
 }
