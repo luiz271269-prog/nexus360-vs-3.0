@@ -186,10 +186,14 @@ export class FluxoController {
       await this.enviarMensagemWhatsApp(base44, contact.telefone, mensagem, whatsappIntegrationId);
       
       // 🆕 OPÇÃO: Oferecer entrar na fila do setor
-      const mensagemFila = `\n📋 Você pode aguardar na fila do setor *${setor}* e o próximo atendente disponível irá atendê-lo.\n\n` +
-        `Responda:\n` +
-        `*1* - Entrar na fila\n` +
-        `*2* - Escolher outro atendente`;
+      const mensagemFila = {
+        type: 'interactive_buttons',
+        body: `📋 Você pode aguardar na fila do setor *${setor}* e o próximo atendente disponível irá atendê-lo.`,
+        buttons: [
+          { id: 'fila_entrar', text: '✅ Entrar na fila' },
+          { id: 'fila_outro', text: '🔄 Outro atendente' }
+        ]
+      };
       
       await this.enviarMensagemWhatsApp(base44, contact.telefone, mensagemFila, whatsappIntegrationId);
       
@@ -274,7 +278,7 @@ export class FluxoController {
     
     const escolha = textoParaVerificar;
     
-    if (escolha === '1') {
+    if (escolha === 'fila_entrar' || escolha === '1') {
       // Cliente optou por entrar na fila
       const setor = thread.sector_id || 'geral';
       
@@ -316,7 +320,7 @@ export class FluxoController {
         };
       }
       
-    } else if (escolha === '2') {
+    } else if (escolha === 'fila_outro' || escolha === '2') {
       // Cliente optou por escolher outro atendente
       const setor = thread.sector_id;
       const atendentes = await AtendenteSelector.buscarAtendentesDisponiveis(base44, setor);
@@ -335,7 +339,14 @@ export class FluxoController {
     }
     
     // Resposta inválida
-    const mensagemErro = `❌ Opção inválida.\n\nPor favor, responda:\n*1* - Entrar na fila\n*2* - Escolher outro atendente`;
+    const mensagemErro = {
+      type: 'interactive_buttons',
+      body: `❌ Opção inválida. Por favor, escolha uma opção:`,
+      buttons: [
+        { id: 'fila_entrar', text: '✅ Entrar na fila' },
+        { id: 'fila_outro', text: '🔄 Outro atendente' }
+      ]
+    };
     await this.enviarMensagemWhatsApp(base44, contact.telefone, mensagemErro, whatsappIntegrationId);
     
     return {

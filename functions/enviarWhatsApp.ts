@@ -187,8 +187,28 @@ Deno.serve(async (req) => {
       const buttons = interactive_buttons || [];
       const bodyText = mensagem || '';
       
-      if (isWAPI) {
-        // W-API: Botões interativos
+      // W-API: Verificar limite de 3 botões
+      if (isWAPI && buttons.length > 3) {
+        // Converter para List Message quando mais de 3 botões
+        console.log(`[ENVIAR-WHATSAPP-UNIFICADO] 📋 Convertendo ${buttons.length} botões para List Message (W-API)`);
+        endpoint = `${baseUrl}/message/send-list-message?instanceId=${instanceId}`;
+        body = {
+          phone: numeroFormatado,
+          title: 'Menu',
+          buttonText: 'Ver opções',
+          description: bodyText,
+          sections: [{
+            title: 'Opções',
+            rows: buttons.map(btn => ({
+              id: btn.id,
+              title: btn.text,
+              description: ''
+            }))
+          }],
+          delayMessage: 1
+        };
+      } else if (isWAPI) {
+        // W-API: Quick reply buttons (máx 3)
         endpoint = `${baseUrl}/message/send-buttons?instanceId=${instanceId}`;
         body = {
           phone: numeroFormatado,
@@ -214,7 +234,7 @@ Deno.serve(async (req) => {
         };
       }
       
-      console.log(`[ENVIAR-WHATSAPP-UNIFICADO] 🔘 Enviando botões interativos (${providerName})`);
+      console.log(`[ENVIAR-WHATSAPP-UNIFICADO] 🔘 Enviando botões/lista interativos (${providerName})`);
     }
     
     // ========== TEMPLATES ==========
