@@ -8,7 +8,8 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { MessageSquare, AlertCircle, RefreshCw } from "lucide-react";
+import { MessageSquare, AlertCircle, RefreshCw, TrendingUp, Phone } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
 
 /**
  * ═══════════════════════════════════════════════════════════════════════════════
@@ -21,6 +22,13 @@ import { MessageSquare, AlertCircle, RefreshCw } from "lucide-react";
  * - Cores de alerta baseadas na quantidade
  */
 export default function ContadorNaoAtribuidas({ onClickVerFila, className = "" }) {
+  // Buscar integrações para nomes amigáveis
+  const { data: integracoes = [] } = useQuery({
+    queryKey: ['integracoes-whatsapp-contador'],
+    queryFn: () => base44.entities.WhatsAppIntegration.list(),
+    staleTime: 5 * 60 * 1000
+  });
+
   const [dados, setDados] = useState({ total: 0, por_setor: [], por_integracao: [] });
   const [loading, setLoading] = useState(true);
   const [erro, setErro] = useState(null);
@@ -29,7 +37,10 @@ export default function ContadorNaoAtribuidas({ onClickVerFila, className = "" }
     try {
       setErro(null);
       const resultado = await base44.functions.invoke('contarNaoAtribuidasVisiveis', {});
-      setDados(resultado.data || { total: 0, por_setor: [], por_integracao: [] });
+      
+      // Acessar dados corretamente (resultado já vem com .data do SDK)
+      const dadosRecebidos = resultado?.data || resultado || { total: 0, por_setor: [], por_integracao: [] };
+      setDados(dadosRecebidos);
     } catch (error) {
       console.error('[CONTADOR] Erro ao buscar:', error);
       setErro(error.message);
@@ -47,26 +58,64 @@ export default function ContadorNaoAtribuidas({ onClickVerFila, className = "" }
     return () => clearInterval(interval);
   }, []);
 
-  // Determinar cor baseado na quantidade
-  const getColorClass = () => {
-    if (dados.total === 0) return 'bg-slate-100 text-slate-600 border-slate-200';
-    if (dados.total < 5) return 'bg-blue-100 text-blue-700 border-blue-300';
-    if (dados.total < 10) return 'bg-amber-100 text-amber-700 border-amber-300 animate-pulse';
-    return 'bg-red-100 text-red-700 border-red-300 animate-pulse';
+  // Obter nome amigável da integração
+  const getNomeIntegracao = (integrationId) => {
+    const integracao = integracoes.find(i => i.id === integrationId);
+    return integracao?.nome_instancia || integracao?.numero_telefone || integrationId;
   };
 
-  const getIconClass = () => {
-    if (dados.total === 0) return 'text-slate-400';
-    if (dados.total < 5) return 'text-blue-600';
-    if (dados.total < 10) return 'text-amber-600';
-    return 'text-red-600';
+  // Determinar estilo baseado na quantidade
+  const getEstilo = () => {
+    if (dados.total === 0) {
+      return {
+        bg: 'bg-gradient-to-r from-slate-50 to-slate-100',
+        border: 'border-slate-200',
+        text: 'text-slate-600',
+        icon: 'text-slate-400',
+        badge: 'bg-slate-200 text-slate-700',
+        glow: ''
+      };
+    }
+    if (dados.total < 5) {
+      return {
+        bg: 'bg-gradient-to-r from-blue-50 to-blue-100',
+        border: 'border-blue-300',
+        text: 'text-blue-700',
+        icon: 'text-blue-600',
+        badge: 'bg-blue-500 text-white',
+        glow: 'shadow-blue-200/50'
+      };
+    }
+    if (dados.total < 10) {
+      return {
+        bg: 'bg-gradient-to-r from-amber-50 to-amber-100',
+        border: 'border-amber-300',
+        text: 'text-amber-700',
+        icon: 'text-amber-600',
+        badge: 'bg-amber-500 text-white animate-pulse',
+        glow: 'shadow-amber-200/50 animate-pulse'
+      };
+    }
+    return {
+      bg: 'bg-gradient-to-r from-red-50 to-red-100',
+      border: 'border-red-400',
+      text: 'text-red-700',
+      icon: 'text-red-600',
+      badge: 'bg-red-600 text-white animate-pulse',
+      glow: 'shadow-red-300/60 animate-pulse'
+    };
   };
+
+  const estilo = getEstilo();
 
   if (loading) {
     return (
-      <div className={`flex items-center gap-2 px-3 py-2 rounded-lg bg-slate-100 ${className}`}>
-        <RefreshCw className="w-4 h-4 text-slate-400 animate-spin" />
-        <span className="text-sm text-slate-600">Carregando...</span>
+      <div className={`flex items-center gap-3 px-4 py-2.5 rounded-xl bg-gradient-to-r from-slate-50 to-slate-100 border border-slate-200 ${className}`}>
+        <RefreshCw className="w-5 h-5 text-slate-400 animate-spin" />
+        <div className="flex flex-col">
+          <span className="text-xs font-medium text-slate-500">Carregando</span>
+          <span className="text-sm font-semibold text-slate-600">Fila de atendimento</span>
+        </div>
       </div>
     );
   }
@@ -76,13 +125,16 @@ export default function ContadorNaoAtribuidas({ onClickVerFila, className = "" }
       <TooltipProvider>
         <Tooltip>
           <TooltipTrigger asChild>
-            <div className={`flex items-center gap-2 px-3 py-2 rounded-lg bg-red-50 border border-red-200 ${className}`}>
-              <AlertCircle className="w-4 h-4 text-red-600" />
-              <span className="text-sm text-red-700 font-medium">Erro</span>
+            <div className={`flex items-center gap-3 px-4 py-2.5 rounded-xl bg-gradient-to-r from-red-50 to-red-100 border border-red-300 ${className}`}>
+              <AlertCircle className="w-5 h-5 text-red-600" />
+              <div className="flex flex-col">
+                <span className="text-xs font-medium text-red-600">Erro ao carregar</span>
+                <span className="text-sm font-semibold text-red-700">Tente novamente</span>
+              </div>
             </div>
           </TooltipTrigger>
-          <TooltipContent side="bottom" className="max-w-xs">
-            <p className="text-xs">{erro}</p>
+          <TooltipContent side="bottom" className="max-w-xs bg-red-50 border-red-200">
+            <p className="text-xs text-red-700">{erro}</p>
           </TooltipContent>
         </Tooltip>
       </TooltipProvider>
@@ -92,14 +144,38 @@ export default function ContadorNaoAtribuidas({ onClickVerFila, className = "" }
   const content = (
     <Button
       variant="ghost"
-      className={`flex items-center gap-2 px-3 py-2 h-auto rounded-lg border transition-all hover:shadow-md ${getColorClass()} ${className}`}
+      className={`group relative flex items-center gap-3 px-4 py-2.5 h-auto rounded-xl border-2 transition-all hover:scale-105 hover:shadow-lg ${estilo.bg} ${estilo.border} ${estilo.glow} ${className}`}
       onClick={onClickVerFila}
     >
-      <MessageSquare className={`w-5 h-5 ${getIconClass()}`} />
-      <div className="flex flex-col items-start">
-        <span className="text-xs font-medium opacity-70">Não Atribuídas</span>
-        <span className="text-lg font-bold leading-none">{dados.total}</span>
+      {/* Ícone com animação */}
+      <div className="relative">
+        <MessageSquare className={`w-6 h-6 ${estilo.icon} transition-transform group-hover:scale-110`} />
+        {dados.total > 0 && (
+          <div className={`absolute -top-1 -right-1 w-3 h-3 ${estilo.badge} rounded-full`} />
+        )}
       </div>
+
+      {/* Informação */}
+      <div className="flex flex-col items-start">
+        <span className={`text-xs font-semibold ${estilo.text} opacity-80`}>
+          Não Atribuídas
+        </span>
+        <div className="flex items-baseline gap-2">
+          <span className={`text-2xl font-bold ${estilo.text} leading-none`}>
+            {dados.total}
+          </span>
+          {dados.total > 0 && (
+            <TrendingUp className={`w-4 h-4 ${estilo.icon} opacity-60`} />
+          )}
+        </div>
+      </div>
+
+      {/* Badge de contador absoluto */}
+      {dados.total > 0 && (
+        <div className={`absolute -top-2 -right-2 ${estilo.badge} px-2 py-0.5 rounded-full text-[10px] font-bold shadow-lg`}>
+          {dados.total}
+        </div>
+      )}
     </Button>
   );
 
@@ -115,44 +191,89 @@ export default function ContadorNaoAtribuidas({ onClickVerFila, className = "" }
         <TooltipTrigger asChild>
           {content}
         </TooltipTrigger>
-        <TooltipContent side="bottom" className="max-w-sm">
-          <div className="space-y-2">
-            <p className="text-xs font-semibold text-slate-700">Breakdown por Setor:</p>
-            <div className="space-y-1">
-              {dados.por_setor
-                .sort((a, b) => b.total - a.total)
-                .map((item, idx) => (
-                  <div key={idx} className="flex items-center justify-between gap-4 text-xs">
-                    <span className="text-slate-600 capitalize">
-                      {item.sector_id === 'sem_setor' ? '(Sem setor)' : item.sector_id}
-                    </span>
-                    <Badge variant="secondary" className="text-[10px] h-5">
-                      {item.total}
-                    </Badge>
-                  </div>
-                ))}
+        <TooltipContent side="bottom" className="max-w-md p-4 bg-white border-2 shadow-xl">
+          <div className="space-y-3">
+            {/* Header */}
+            <div className="flex items-center gap-2 pb-2 border-b">
+              <MessageSquare className="w-4 h-4 text-indigo-600" />
+              <p className="text-sm font-bold text-slate-800">
+                Distribuição de Mensagens Não Atribuídas
+              </p>
             </div>
-            {dados.por_integracao.length > 1 && (
+
+            {/* Breakdown por Setor */}
+            <div>
+              <p className="text-xs font-semibold text-slate-600 mb-2 flex items-center gap-1">
+                <span className="w-2 h-2 bg-indigo-500 rounded-full" />
+                Por Setor
+              </p>
+              <div className="space-y-2">
+                {dados.por_setor
+                  .sort((a, b) => b.total - a.total)
+                  .map((item, idx) => (
+                    <div 
+                      key={idx} 
+                      className="flex items-center justify-between gap-4 p-2 rounded-lg hover:bg-slate-50 transition-colors"
+                    >
+                      <span className="text-xs text-slate-700 font-medium capitalize flex items-center gap-2">
+                        <span className={`w-1.5 h-1.5 rounded-full ${
+                          idx === 0 ? 'bg-blue-500' : 
+                          idx === 1 ? 'bg-purple-500' : 
+                          'bg-slate-400'
+                        }`} />
+                        {item.sector_id === 'sem_setor' ? '(Sem setor definido)' : item.sector_id}
+                      </span>
+                      <Badge className="bg-indigo-100 text-indigo-700 hover:bg-indigo-200 text-xs font-bold px-2">
+                        {item.total}
+                      </Badge>
+                    </div>
+                  ))}
+              </div>
+            </div>
+
+            {/* Breakdown por Conexão */}
+            {dados.por_integracao.length > 0 && (
               <>
-                <div className="border-t border-slate-200 my-2" />
-                <p className="text-xs font-semibold text-slate-700">Por Conexão:</p>
-                <div className="space-y-1">
-                  {dados.por_integracao
-                    .sort((a, b) => b.total - a.total)
-                    .slice(0, 3)
-                    .map((item, idx) => (
-                      <div key={idx} className="flex items-center justify-between gap-4 text-xs">
-                        <span className="text-slate-600 truncate max-w-[150px]">
-                          {item.integration_id}
-                        </span>
-                        <Badge variant="outline" className="text-[10px] h-5">
-                          {item.total}
-                        </Badge>
-                      </div>
-                    ))}
+                <div className="border-t border-slate-200" />
+                <div>
+                  <p className="text-xs font-semibold text-slate-600 mb-2 flex items-center gap-1">
+                    <Phone className="w-3 h-3" />
+                    Por Conexão WhatsApp
+                  </p>
+                  <div className="space-y-2">
+                    {dados.por_integracao
+                      .sort((a, b) => b.total - a.total)
+                      .slice(0, 5)
+                      .map((item, idx) => (
+                        <div 
+                          key={idx} 
+                          className="flex items-center justify-between gap-4 p-2 rounded-lg hover:bg-slate-50 transition-colors"
+                        >
+                          <span className="text-xs text-slate-700 font-medium truncate max-w-[200px]">
+                            📱 {getNomeIntegracao(item.integration_id)}
+                          </span>
+                          <Badge variant="outline" className="text-xs font-bold border-slate-300 px-2">
+                            {item.total}
+                          </Badge>
+                        </div>
+                      ))}
+                  </div>
+                  {dados.por_integracao.length > 5 && (
+                    <p className="text-[10px] text-slate-500 mt-2 text-center">
+                      +{dados.por_integracao.length - 5} outras conexões
+                    </p>
+                  )}
                 </div>
               </>
             )}
+
+            {/* Footer com timestamp */}
+            <div className="border-t border-slate-200 pt-2">
+              <p className="text-[10px] text-slate-400 text-center flex items-center justify-center gap-1">
+                <RefreshCw className="w-3 h-3" />
+                Atualizado automaticamente a cada 15s
+              </p>
+            </div>
           </div>
         </TooltipContent>
       </Tooltip>
