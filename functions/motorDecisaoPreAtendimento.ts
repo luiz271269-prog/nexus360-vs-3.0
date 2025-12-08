@@ -378,7 +378,8 @@ async function executarMotorDecisao(base44, params) {
     decidiu: true,
     ignorar_bot: false,
     playbook_id: config.fallback_playbook_id,
-    motivo: 'Nenhuma regra específica aplicável'
+    motivo: 'Nenhuma regra específica aplicável',
+    tempo_ia_ms: metricas.tempo_ia_ms
   };
 }
 
