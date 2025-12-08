@@ -364,6 +364,8 @@ async function executarMotorDecisao(base44, params) {
       console.log('[MOTOR] ✅ CAMADA 3 (Fidelização) decidiu:', resultadoCamada3);
       return {
         camada: 'fidelizacao',
+        tempo_ia_ms: metricas.tempo_ia_ms,
+        origem_detalhada: 'fidelizacao',
         ...resultadoCamada3
       };
     }
