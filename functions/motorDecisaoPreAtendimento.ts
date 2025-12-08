@@ -430,7 +430,7 @@ async function verificarContinuidade(base44, thread_id, contact_id, config) {
 // ══════════════════════════════════════════════════════════════════════════════
 // 📍 CAMADA 2: INTENÇÃO (Palavras-chave + IA)
 // ══════════════════════════════════════════════════════════════════════════════
-async function detectarIntencao(base44, textoCompleto, integration_id, config) {
+async function detectarIntencao(base44, textoCompleto, integration_id, config, metricas) {
   if (!textoCompleto || textoCompleto.trim().length === 0) {
     return { decidiu: false };
   }
@@ -458,11 +458,11 @@ async function detectarIntencao(base44, textoCompleto, integration_id, config) {
         console.log(`[MOTOR] 🎯 Regra matched: "${regra.nome_regra}"`);
 
         // Incrementar métrica da regra
-        const metricas = regra.metricas || {};
+        const metricasRegra = regra.metricas || {};
         await base44.asServiceRole.entities.RegrasIntencao.update(regra.id, {
           metricas: {
-            ...metricas,
-            total_matches: (metricas.total_matches || 0) + 1,
+            ...metricasRegra,
+            total_matches: (metricasRegra.total_matches || 0) + 1,
             ultima_ativacao: new Date().toISOString()
           }
         });
@@ -475,7 +475,8 @@ async function detectarIntencao(base44, textoCompleto, integration_id, config) {
           assigned_user_id: regra.atendente_especifico_id,
           fila_id: regra.fila_destino_id,
           motivo: `Intenção detectada: ${regra.nome_regra}`,
-          regra_aplicada: regra.nome_regra
+          regra_aplicada: regra.nome_regra,
+          origem_detalhada: `intencao_regra:${regra.nome_regra}`
         };
       }
     }
@@ -485,6 +486,7 @@ async function detectarIntencao(base44, textoCompleto, integration_id, config) {
   // 🤖 ETAPA 2.2: IA (Opcional, mais lento)
   // ─────────────────────────────────────────────────────────────────────────
   if (config.usar_intencao_ia && config.prompt_ia_intencao) {
+    const iaInicio = Date.now();
     try {
       const resultadoIA = await base44.asServiceRole.integrations.Core.InvokeLLM({
         prompt: `${config.prompt_ia_intencao}\n\nMensagem do cliente:\n${textoCompleto}`,
@@ -501,18 +503,61 @@ async function detectarIntencao(base44, textoCompleto, integration_id, config) {
         }
       });
 
+      metricas.tempo_ia_ms = Date.now() - iaInicio;
+
       if (resultadoIA.setor_detectado !== 'nenhum' && resultadoIA.confianca >= config.threshold_confianca_ia) {
         console.log(`[MOTOR] 🤖 IA detectou: ${resultadoIA.setor_detectado} (${resultadoIA.confianca})`);
-        return {
-          decidiu: true,
-          ignorar_bot: true,
-          setor: resultadoIA.setor_detectado,
-          motivo: `IA: ${resultadoIA.motivo}`,
-          confianca_ia: resultadoIA.confianca
-        };
+        
+        // 🆕 BUSCAR MAPEAMENTO CONFIGURÁVEL IA → AÇÃO
+        const mapeamento = await buscarMapeamentoIA(base44, resultadoIA.setor_detectado, resultadoIA.confianca, integration_id);
+        
+        if (mapeamento) {
+          console.log(`[MOTOR] 📋 Mapeamento IA aplicado: ${mapeamento.nome_mapeamento}`);
+          
+          // Atualizar métrica do mapeamento
+          const metricasMap = mapeamento.metricas || {};
+          await base44.asServiceRole.entities.MapeamentoIntencaoIA.update(mapeamento.id, {
+            metricas: {
+              ...metricasMap,
+              total_ativacoes: (metricasMap.total_ativacoes || 0) + 1,
+              ultima_ativacao: new Date().toISOString()
+            }
+          });
+          
+          return {
+            decidiu: true,
+            ignorar_bot: true,
+            setor: resultadoIA.setor_detectado,
+            playbook_id: mapeamento.playbook_id,
+            assigned_user_id: mapeamento.atendente_id,
+            fila_id: mapeamento.fila_id,
+            motivo: `IA: ${resultadoIA.motivo} → ${mapeamento.nome_mapeamento}`,
+            confianca_ia: resultadoIA.confianca,
+            origem_detalhada: `intencao_ia:${resultadoIA.setor_detectado}(${Math.round(resultadoIA.confianca * 100)}%)`
+          };
+        } else {
+          // Sem mapeamento configurado - usar setor genérico
+          console.log(`[MOTOR] ⚠️ IA decidiu setor ${resultadoIA.setor_detectado}, mas sem mapeamento configurado`);
+          return {
+            decidiu: true,
+            ignorar_bot: true,
+            setor: resultadoIA.setor_detectado,
+            motivo: `IA: ${resultadoIA.motivo} (sem mapeamento configurado)`,
+            confianca_ia: resultadoIA.confianca,
+            origem_detalhada: `intencao_ia:${resultadoIA.setor_detectado}(${Math.round(resultadoIA.confianca * 100)}%):sem_mapeamento`
+          };
+        }
       }
     } catch (error) {
+      metricas.tempo_ia_ms = Date.now() - iaInicio;
       console.error('[MOTOR] ⚠️ Erro na IA:', error.message);
+      
+      // Log estruturado do erro
+      console.error('[MOTOR] 📝 Detalhes do erro IA:', {
+        mensagem: error.message,
+        stack: error.stack,
+        timestamp: new Date().toISOString()
+      });
     }
   }
 
