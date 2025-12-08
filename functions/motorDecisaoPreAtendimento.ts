@@ -336,6 +336,8 @@ async function executarMotorDecisao(base44, params) {
     console.log('[MOTOR] ✅ CAMADA 1 (Continuidade) decidiu:', resultadoCamada1);
     return {
       camada: 'continuidade',
+      tempo_ia_ms: metricas.tempo_ia_ms,
+      origem_detalhada: 'continuidade',
       ...resultadoCamada1
     };
   }
