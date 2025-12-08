@@ -110,12 +110,9 @@ export default function ContadorNaoAtribuidas({ onClickVerFila, className = "" }
 
   if (loading) {
     return (
-      <div className={`flex items-center gap-3 px-4 py-2.5 rounded-xl bg-gradient-to-r from-slate-50 to-slate-100 border border-slate-200 ${className}`}>
-        <RefreshCw className="w-5 h-5 text-slate-400 animate-spin" />
-        <div className="flex flex-col">
-          <span className="text-xs font-medium text-slate-500">Carregando</span>
-          <span className="text-sm font-semibold text-slate-600">Fila de atendimento</span>
-        </div>
+      <div className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-slate-100 border border-slate-200 ${className}`}>
+        <RefreshCw className="w-4 h-4 text-slate-400 animate-spin" />
+        <span className="text-xs text-slate-600">...</span>
       </div>
     );
   }
@@ -125,12 +122,9 @@ export default function ContadorNaoAtribuidas({ onClickVerFila, className = "" }
       <TooltipProvider>
         <Tooltip>
           <TooltipTrigger asChild>
-            <div className={`flex items-center gap-3 px-4 py-2.5 rounded-xl bg-gradient-to-r from-red-50 to-red-100 border border-red-300 ${className}`}>
-              <AlertCircle className="w-5 h-5 text-red-600" />
-              <div className="flex flex-col">
-                <span className="text-xs font-medium text-red-600">Erro ao carregar</span>
-                <span className="text-sm font-semibold text-red-700">Tente novamente</span>
-              </div>
+            <div className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-red-50 border border-red-300 ${className}`}>
+              <AlertCircle className="w-4 h-4 text-red-600" />
+              <span className="text-xs text-red-700 font-medium">Erro</span>
             </div>
           </TooltipTrigger>
           <TooltipContent side="bottom" className="max-w-xs bg-red-50 border-red-200">
@@ -144,35 +138,20 @@ export default function ContadorNaoAtribuidas({ onClickVerFila, className = "" }
   const content = (
     <Button
       variant="ghost"
-      className={`group relative flex items-center gap-3 px-4 py-2.5 h-auto rounded-xl border-2 transition-all hover:scale-105 hover:shadow-lg ${estilo.bg} ${estilo.border} ${estilo.glow} ${className}`}
+      className={`group relative flex items-center gap-1.5 px-2.5 py-1.5 h-auto rounded-lg border transition-all hover:shadow-md ${estilo.bg} ${estilo.border} ${estilo.glow} ${className}`}
       onClick={onClickVerFila}
     >
-      {/* Ícone com animação */}
-      <div className="relative">
-        <MessageSquare className={`w-6 h-6 ${estilo.icon} transition-transform group-hover:scale-110`} />
-        {dados.total > 0 && (
-          <div className={`absolute -top-1 -right-1 w-3 h-3 ${estilo.badge} rounded-full`} />
-        )}
-      </div>
+      {/* Ícone */}
+      <MessageSquare className={`w-4 h-4 ${estilo.icon}`} />
 
-      {/* Informação */}
-      <div className="flex flex-col items-start">
-        <span className={`text-xs font-semibold ${estilo.text} opacity-80`}>
-          Não Atribuídas
-        </span>
-        <div className="flex items-baseline gap-2">
-          <span className={`text-2xl font-bold ${estilo.text} leading-none`}>
-            {dados.total}
-          </span>
-          {dados.total > 0 && (
-            <TrendingUp className={`w-4 h-4 ${estilo.icon} opacity-60`} />
-          )}
-        </div>
-      </div>
+      {/* Contador */}
+      <span className={`text-base font-bold ${estilo.text} leading-none`}>
+        {dados.total}
+      </span>
 
-      {/* Badge de contador absoluto */}
+      {/* Badge de alerta */}
       {dados.total > 0 && (
-        <div className={`absolute -top-2 -right-2 ${estilo.badge} px-2 py-0.5 rounded-full text-[10px] font-bold shadow-lg`}>
+        <div className={`absolute -top-1 -right-1 ${estilo.badge} px-1 rounded-full text-[9px] font-bold`}>
           {dados.total}
         </div>
       )}
