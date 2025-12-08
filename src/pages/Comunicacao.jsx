@@ -107,10 +107,10 @@ export default function Comunicacao() {
   const { data: contatos = [], isLoading: loadingContatos } = useQuery({
     queryKey: ['contacts'],
     queryFn: () => base44.entities.Contact.list('-created_date', 300),
-    staleTime: 10 * 60 * 1000,
+    staleTime: 5 * 60 * 1000,
     cacheTime: 15 * 60 * 1000,
     retry: 1,
-    refetchOnWindowFocus: false
+    refetchOnWindowFocus: true
   });
 
   const { data: clientes = [] } = useQuery({
@@ -129,11 +129,11 @@ export default function Comunicacao() {
       const allThreads = await base44.entities.MessageThread.list('-last_message_at', 100);
       return allThreads;
     },
-    refetchInterval: 30000,
-    staleTime: 15000,
+    refetchInterval: 10000,
+    staleTime: 5000,
     enabled: !!usuario,
     retry: 1,
-    refetchOnWindowFocus: false
+    refetchOnWindowFocus: true
   });
 
   const loadingTopics = loadingThreads;
@@ -147,10 +147,10 @@ export default function Comunicacao() {
       return Promise.resolve([]);
     },
     enabled: !!threadAtiva,
-    refetchInterval: 15000, // Aumentado para 15s para evitar rate limit
-    staleTime: 10000,
+    refetchInterval: 3000,
+    staleTime: 2000,
     retry: 1,
-    refetchOnWindowFocus: false
+    refetchOnWindowFocus: true
   });
 
   const { data: todasIntegracoes = [] } = useQuery({
@@ -428,9 +428,9 @@ export default function Comunicacao() {
     if (novasMensagens) {
       queryClient.setQueryData(['mensagens', threadAtiva?.id], novasMensagens);
     } else {
-      await queryClient.invalidateQueries({ queryKey: ['mensagens', threadAtiva?.id] });
+      queryClient.invalidateQueries({ queryKey: ['mensagens', threadAtiva?.id] });
     }
-    await queryClient.invalidateQueries({ queryKey: ['threads'] });
+    queryClient.invalidateQueries({ queryKey: ['threads'] });
   }, [threadAtiva, queryClient]);
 
 
@@ -838,16 +838,15 @@ export default function Comunicacao() {
               <Button
               variant="outline"
               size="sm"
-              onClick={async () => {
-                toast.info("Recarregando...");
-                await Promise.all([
-                queryClient.invalidateQueries({ queryKey: ['threads'] }),
-                queryClient.invalidateQueries({ queryKey: ['contacts'] }),
-                queryClient.invalidateQueries({ queryKey: ['integracoes'] }),
-                queryClient.invalidateQueries({ queryKey: ['atendentes'] }),
-                threadAtiva ? queryClient.invalidateQueries({ queryKey: ['mensagens', threadAtiva.id] }) : Promise.resolve()]
-                );
-                toast.success("Atualizado!");
+              onClick={() => {
+                queryClient.invalidateQueries({ queryKey: ['threads'] });
+                queryClient.invalidateQueries({ queryKey: ['contacts'] });
+                queryClient.invalidateQueries({ queryKey: ['integracoes'] });
+                queryClient.invalidateQueries({ queryKey: ['atendentes'] });
+                if (threadAtiva) {
+                  queryClient.invalidateQueries({ queryKey: ['mensagens', threadAtiva.id] });
+                }
+                toast.info("🔄 Atualizando dados...");
               }}
               className="border-white/30 text-white hover:bg-white/20">
 
