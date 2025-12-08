@@ -26,6 +26,7 @@ import EmptyState from "../components/comunicacao/EmptyState";
 import WebhookInstructions from "../components/comunicacao/WebhookInstructions";
 import ErrorBoundary from "../components/comunicacao/ErrorBoundary";
 import NotificationSystem from "../components/comunicacao/NotificationSystem";
+import ContadorNaoAtribuidas from "../components/comunicacao/ContadorNaoAtribuidas";
 import { useDebounce } from "../components/lib/useDebounce";
 import { normalizarTelefone } from "../components/lib/phoneUtils";
 import { 
@@ -809,6 +810,15 @@ export default function Comunicacao() {
             </div>
 
             <div className="flex items-center gap-3">
+              {/* Contador de Não Atribuídas */}
+              <ContadorNaoAtribuidas 
+                onClickVerFila={() => {
+                  setFilterScope('unassigned');
+                  setActiveTab('conversas');
+                }}
+                className="shadow-lg"
+              />
+
               {integracoes.length === 0 &&
               <Button
                 onClick={() => setMostrarInstrucoesWebhook(true)}
