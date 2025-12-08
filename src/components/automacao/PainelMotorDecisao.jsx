@@ -409,6 +409,29 @@ export default function PainelMotorDecisao() {
                       🛡️ Anti-redundância: aguarda mensagens picadas antes de processar
                     </p>
                   </div>
+
+                  <div>
+                    <label className="text-sm font-medium mb-2 block">
+                      Timeout do Lock (minutos)
+                    </label>
+                    <div className="flex items-center gap-4">
+                      <Input
+                        type="number"
+                        min="1"
+                        max="30"
+                        value={configSelecionada?.lock_timeout_minutos || 5}
+                        onChange={(e) => setConfigSelecionada({ 
+                          ...configSelecionada, 
+                          lock_timeout_minutos: parseInt(e.target.value) || 5 
+                        })}
+                        className="w-24"
+                      />
+                      <span className="text-sm text-slate-600">minutos</span>
+                    </div>
+                    <p className="text-xs text-slate-500 mt-2">
+                      🔒 Segurança: libera locks travados após este tempo
+                    </p>
+                  </div>
                 </CardContent>
               </Card>
 
