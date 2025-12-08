@@ -163,11 +163,19 @@ Deno.serve(async (req) => {
         contact_id,
         integration_id,
         textoCompleto,
-        config
+        config,
+        tempoInicio
       });
+
+      // Calcular tempo total de decisão
+      const tempoTotal = Date.now() - tempoInicio;
+      decisao.tempo_total_ms = tempoTotal;
 
       // Atualizar métricas
       await atualizarMetricas(base44, config, decisao);
+
+      // Atualizar thread com informações da decisão (atualização atômica)
+      await atualizarThreadComDecisao(base44, thread_id, decisao);
 
       // Marcar buffer como processado
       if (bufferAtual.buffer_id) {
