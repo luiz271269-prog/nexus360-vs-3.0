@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
+import { useQuery } from "@tanstack/react-query";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -9,7 +10,6 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { MessageSquare, AlertCircle, RefreshCw, TrendingUp, Phone } from "lucide-react";
-import { useQuery } from "@tanstack/react-query";
 
 /**
  * ═══════════════════════════════════════════════════════════════════════════════
