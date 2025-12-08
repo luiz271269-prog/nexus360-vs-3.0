@@ -34,16 +34,55 @@ Deno.serve(async (req) => {
     // 🛡️ FASE 0: BLINDAGEM ANTI-REDUNDÂNCIA
     // ════════════════════════════════════════════════════════════════════════
 
+    // Marcar início para métricas de tempo
+    const tempoInicio = Date.now();
+
     // 🔒 LOCK: Verificar se thread está ocupada processando
     const thread = await base44.asServiceRole.entities.MessageThread.get(thread_id);
-    
+
+    // Carregar config primeiro para obter lock_timeout_minutos
+    const configPrevia = await carregarConfiguracao(base44, integration_id);
+    const lockTimeoutMinutos = configPrevia?.lock_timeout_minutos || 5;
+
     if (thread.metadata?.motor_processando) {
-      console.log(`[MOTOR] ⏸️ Thread ${thread_id} já está sendo processada. Aguardando...`);
-      return Response.json({ 
-        success: true, 
-        action: 'buffered', 
-        message: 'Thread em processamento, mensagem armazenada' 
-      });
+      // Verificar se o lock expirou
+      const lockAt = thread.metadata?.motor_lock_at;
+      if (lockAt) {
+        const tempoDecorrido = (Date.now() - new Date(lockAt).getTime()) / 1000 / 60; // em minutos
+
+        if (tempoDecorrido > lockTimeoutMinutos) {
+          console.log(`[MOTOR] ⚠️ Lock da thread ${thread_id} expirado (${Math.round(tempoDecorrido)}min). Forçando liberação.`);
+
+          // Liberar lock expirado e atualizar métrica
+          await base44.asServiceRole.entities.MessageThread.update(thread_id, {
+            metadata: { ...thread.metadata, motor_processando: false, motor_lock_at: null }
+          });
+
+          // Incrementar métrica de locks expirados
+          if (configPrevia?.id) {
+            const metricas = configPrevia.metricas || {};
+            await base44.asServiceRole.entities.MotorDecisaoConfig.update(configPrevia.id, {
+              metricas: {
+                ...metricas,
+                total_locks_expirados: (metricas.total_locks_expirados || 0) + 1
+              }
+            });
+          }
+        } else {
+          console.log(`[MOTOR] ⏸️ Thread ${thread_id} já está sendo processada. Aguardando...`);
+          return Response.json({ 
+            success: true, 
+            action: 'buffered', 
+            message: 'Thread em processamento, mensagem armazenada' 
+          });
+        }
+      } else {
+        // Lock sem timestamp - liberar por segurança
+        console.log(`[MOTOR] ⚠️ Lock sem timestamp na thread ${thread_id}. Liberando.`);
+        await base44.asServiceRole.entities.MessageThread.update(thread_id, {
+          metadata: { ...thread.metadata, motor_processando: false }
+        });
+      }
     }
 
     // Travar thread durante processamento
