@@ -816,6 +816,11 @@ export default function Comunicacao() {
                   setFilterScope('unassigned');
                   setActiveTab('conversas');
                 }}
+                onClickConexao={(integrationId) => {
+                  setFilterScope('unassigned');
+                  setSelectedIntegrationId(integrationId);
+                  setActiveTab('conversas');
+                }}
                 className="shadow-lg"
               />
 

@@ -21,7 +21,7 @@ import { useQuery } from "@tanstack/react-query";
  * - Mostra breakdown por setor no tooltip
  * - Cores de alerta baseadas na quantidade
  */
-export default function ContadorNaoAtribuidas({ onClickVerFila, className = "" }) {
+export default function ContadorNaoAtribuidas({ onClickVerFila, onClickConexao, className = "" }) {
   // Buscar integrações para nomes amigáveis
   const { data: integracoes = [] } = useQuery({
     queryKey: ['integracoes-whatsapp-contador'],
@@ -224,17 +224,18 @@ export default function ContadorNaoAtribuidas({ onClickVerFila, className = "" }
                       .sort((a, b) => b.total - a.total)
                       .slice(0, 5)
                       .map((item, idx) => (
-                        <div 
-                          key={idx} 
-                          className="flex items-center justify-between gap-4 p-2 rounded-lg hover:bg-slate-50 transition-colors"
+                        <button
+                          key={idx}
+                          onClick={() => onClickConexao?.(item.integration_id)}
+                          className="w-full flex items-center justify-between gap-4 p-2 rounded-lg hover:bg-indigo-50 hover:border-indigo-200 border border-transparent transition-all cursor-pointer"
                         >
                           <span className="text-xs text-slate-700 font-medium truncate max-w-[200px]">
                             📱 {getNomeIntegracao(item.integration_id)}
                           </span>
-                          <Badge variant="outline" className="text-xs font-bold border-slate-300 px-2">
+                          <Badge variant="outline" className="text-xs font-bold border-slate-300 px-2 group-hover:border-indigo-400">
                             {item.total}
                           </Badge>
-                        </div>
+                        </button>
                       ))}
                   </div>
                   {dados.por_integracao.length > 5 && (
