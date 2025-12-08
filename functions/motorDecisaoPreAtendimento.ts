@@ -320,9 +320,12 @@ async function carregarConfiguracao(base44, integration_id) {
 // 🎯 MOTOR DE 3 CAMADAS
 // ══════════════════════════════════════════════════════════════════════════════
 async function executarMotorDecisao(base44, params) {
-  const { thread_id, contact_id, integration_id, textoCompleto, config } = params;
+  const { thread_id, contact_id, integration_id, textoCompleto, config, tempoInicio } = params;
 
   console.log(`[MOTOR] 🚀 Iniciando decisão para thread ${thread_id}`);
+  
+  // Objeto para acumular métricas de tempo
+  const metricas = { tempo_ia_ms: 0 };
 
   // ────────────────────────────────────────────────────────────────────────────
   // 📍 CAMADA 1: CONTINUIDADE (Retorno Recente)
