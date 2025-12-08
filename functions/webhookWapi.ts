@@ -602,9 +602,14 @@ async function handleMessage(dados, payloadBruto, base44, req) {
       console.log('[W-API WEBHOOK] ⚠️ Erro ao buscar execuções ativas:', e?.message);
     }
 
-    if (execucoesAtivas.length > 0) {
+    // Verificar estado do pré-atendimento na thread
+    const threadAtualizada = await base44.asServiceRole.entities.MessageThread.get(thread.id);
+    const preAtendimentoAtivo = threadAtualizada.pre_atendimento_ativo === true;
+    const estadoPreAtend = threadAtualizada.pre_atendimento_state || 'INIT';
+    
+    if (preAtendimentoAtivo && execucoesAtivas.length > 0) {
       // Processar resposta do pré-atendimento em andamento
-      console.log('[W-API WEBHOOK] 🔄 Processando resposta pré-atendimento | Thread:', thread.id);
+      console.log('[W-API WEBHOOK] 🔄 Pré-atendimento ativo | Estado:', estadoPreAtend, '| Thread:', thread.id);
       try {
         await base44.functions.invoke('executarPreAtendimento', {
           action: 'processar_resposta',
@@ -616,7 +621,7 @@ async function handleMessage(dados, payloadBruto, base44, req) {
       } catch (e) {
         console.error('[W-API WEBHOOK] ❌ Erro ao processar resposta pré-atendimento:', e?.message);
       }
-    } else if (isSaudacao) {
+    } else if (isSaudacao && !preAtendimentoAtivo) {
       // Iniciar pré-atendimento apenas se for saudação
       console.log('[W-API WEBHOOK] 🚀 Saudação detectada! Iniciando pré-atendimento | Msg:', mensagemLower, '| Thread:', thread.id);
       try {
