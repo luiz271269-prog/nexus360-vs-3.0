@@ -85,4 +85,14 @@ export class ValidadorPreAtendimento {
     const comandos = ['ajuda', 'help', '?', 'menu'];
     return comandos.includes(inputLimpo);
   }
+  
+  static formatarNomeSetor(setor) {
+    const nomes = {
+      'vendas': '💼 Vendas',
+      'assistencia': '🔧 Suporte Técnico',
+      'financeiro': '💰 Financeiro',
+      'fornecedor': '📦 Fornecedores'
+    };
+    return nomes[setor] || setor;
+  }
 }

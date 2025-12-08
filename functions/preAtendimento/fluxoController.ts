@@ -7,6 +7,7 @@
 import { MenuBuilder } from './menuBuilder.js';
 import { ValidadorPreAtendimento } from './validadores.js';
 import { AtendenteSelector } from './atendenteSelector.js';
+import { sectorButtonMap, mapAttendantButtonToId } from './buttonMappings.js';
 
 export class FluxoController {
   
@@ -28,58 +29,105 @@ export class FluxoController {
     };
   }
   
-  static async processarWAITING_SECTOR_CHOICE(base44, thread, contact, mensagemUsuario, whatsappIntegrationId) {
+  static async processarWAITING_SECTOR_CHOICE(base44, thread, contact, user_input, whatsappIntegrationId) {
     console.log('[FLUXO] Estado: WAITING_SECTOR_CHOICE - Processando escolha de setor');
     
-    if (ValidadorPreAtendimento.verificarComandoCancelamento(mensagemUsuario)) {
+    let setorEscolhido = null;
+    let isValidInput = false;
+    
+    const textoParaVerificar = user_input.type === 'text' 
+      ? (user_input.content || '').trim() 
+      : (user_input.text || '').trim();
+    
+    // 1. Comandos de cancelamento/ajuda
+    if (ValidadorPreAtendimento.verificarComandoCancelamento(textoParaVerificar)) {
       return await this.processarCancelamento(base44, thread, contact, whatsappIntegrationId);
     }
     
-    if (ValidadorPreAtendimento.verificarComandoAjuda(mensagemUsuario)) {
+    if (ValidadorPreAtendimento.verificarComandoAjuda(textoParaVerificar)) {
       const mensagem = MenuBuilder.construirMensagemAjuda('WAITING_SECTOR_CHOICE');
       await this.enviarMensagemWhatsApp(base44, contact.telefone, mensagem, whatsappIntegrationId);
       return { success: true, aguardando_nova_resposta: true };
     }
     
-    const validacao = ValidadorPreAtendimento.validarEscolhaSetor(mensagemUsuario);
-    
-    if (!validacao.valido) {
-      const mensagemErro = MenuBuilder.construirMensagemErro(validacao.erro, 'setor');
-      await this.enviarMensagemWhatsApp(base44, contact.telefone, mensagemErro, whatsappIntegrationId);
-      return { success: false, erro: validacao.erro, aguardando_nova_resposta: true };
+    // 2. Input por botão
+    if (user_input.type === 'button') {
+      const mapped = sectorButtonMap[user_input.id];
+      if (mapped) {
+        setorEscolhido = mapped;
+        isValidInput = true;
+      }
     }
     
-    const setor = validacao.setor;
-    console.log('[FLUXO] Setor escolhido:', setor);
+    // 3. Input por texto (fallback)
+    if (!isValidInput && user_input.type === 'text') {
+      const validacao = ValidadorPreAtendimento.validarEscolhaSetor(user_input.content);
+      if (validacao.valido) {
+        setorEscolhido = validacao.setor;
+        isValidInput = true;
+      }
+    }
     
-    const atendentes = await AtendenteSelector.buscarAtendentesDisponiveis(base44, setor);
-    const mensagem = MenuBuilder.construirMenuAtendentes(atendentes, setor);
-    await this.enviarMensagemWhatsApp(base44, contact.telefone, mensagem, whatsappIntegrationId);
+    // 4. Input inválido
+    if (!isValidInput) {
+      const mensagemErro = MenuBuilder.construirMensagemErro(
+        'Opção inválida. Escolha um setor pelos botões ou digite o número correspondente.',
+        'setor'
+      );
+      await this.enviarMensagemWhatsApp(base44, contact.telefone, mensagemErro, whatsappIntegrationId);
+      
+      const menu = MenuBuilder.construirMenuBoasVindas(contact.nome);
+      await this.enviarMensagemWhatsApp(base44, contact.telefone, menu, whatsappIntegrationId);
+      
+      return { success: false, erro: 'escolha_invalida', aguardando_nova_resposta: true };
+    }
     
-    const proximoEstado = atendentes.length > 0 ? 'WAITING_ATTENDANT_CHOICE' : 'WAITING_FALLBACK';
+    // 5. Confirmação "limpa"
+    const textoOpcaoEscolhida = user_input.type === 'button' 
+      ? user_input.text 
+      : ValidadorPreAtendimento.formatarNomeSetor(setorEscolhido);
+    
+    const msgConfirmacao = `Você escolheu: *${textoOpcaoEscolhida}*\n\nEstou direcionando você para o setor...`;
+    await this.enviarMensagemWhatsApp(base44, contact.telefone, msgConfirmacao, whatsappIntegrationId);
+    
+    console.log('[FLUXO] Setor escolhido:', setorEscolhido);
+    
+    // 6. Buscar atendentes
+    const atendentes = await AtendenteSelector.buscarAtendentesDisponiveis(base44, setorEscolhido);
+    
+    let proximoEstado = 'WAITING_FALLBACK';
+    if (atendentes.length > 0) {
+      proximoEstado = 'WAITING_ATTENDANT_CHOICE';
+      const mensagem = MenuBuilder.construirMenuAtendentes(atendentes, setorEscolhido);
+      await this.enviarMensagemWhatsApp(base44, contact.telefone, mensagem, whatsappIntegrationId);
+    }
     
     await base44.asServiceRole.entities.MessageThread.update(thread.id, {
       pre_atendimento_state: proximoEstado,
-      sector_id: setor,
+      sector_id: setorEscolhido,
       pre_atendimento_timeout_at: new Date(Date.now() + 5 * 60 * 1000).toISOString()
     });
     
     return {
       success: true,
-      setor,
+      setor: setorEscolhido,
       atendentes_disponiveis: atendentes.length,
       proximo_estado: proximoEstado
     };
   }
   
-  static async processarWAITING_ATTENDANT_CHOICE(base44, thread, contact, mensagemUsuario, whatsappIntegrationId) {
+  static async processarWAITING_ATTENDANT_CHOICE(base44, thread, contact, user_input, whatsappIntegrationId) {
     console.log('[FLUXO] Estado: WAITING_ATTENDANT_CHOICE - Processando escolha de atendente');
     
-    if (ValidadorPreAtendimento.verificarComandoCancelamento(mensagemUsuario)) {
+    const textoParaVerificar = user_input.type === 'text' 
+      ? (user_input.content || '').trim() 
+      : (user_input.text || '').trim();
+    
+    if (ValidadorPreAtendimento.verificarComandoCancelamento(textoParaVerificar)) {
       return await this.processarCancelamento(base44, thread, contact, whatsappIntegrationId);
     }
     
-    if (mensagemUsuario?.trim().toLowerCase() === 'voltar') {
+    if (textoParaVerificar.toLowerCase() === 'voltar') {
       await base44.asServiceRole.entities.MessageThread.update(thread.id, {
         pre_atendimento_state: 'INIT',
         sector_id: null
@@ -100,15 +148,35 @@ export class FluxoController {
       };
     }
     
-    const validacao = ValidadorPreAtendimento.validarEscolhaAtendente(mensagemUsuario, atendentes.length);
+    let atendenteEscolhido = null;
+    let isValidInput = false;
     
-    if (!validacao.valido) {
-      const mensagemErro = MenuBuilder.construirMensagemErro(validacao.erro, 'atendente');
-      await this.enviarMensagemWhatsApp(base44, contact.telefone, mensagemErro, whatsappIntegrationId);
-      return { success: false, erro: validacao.erro, aguardando_nova_resposta: true };
+    // Input por botão
+    if (user_input.type === 'button') {
+      const attendantId = mapAttendantButtonToId(user_input.id);
+      if (attendantId) {
+        atendenteEscolhido = atendentes.find(a => a.id === attendantId);
+        if (atendenteEscolhido) {
+          isValidInput = true;
+        }
+      }
     }
     
-    const atendenteEscolhido = atendentes[validacao.indice];
+    // Input por texto (fallback)
+    if (!isValidInput && user_input.type === 'text') {
+      const validacao = ValidadorPreAtendimento.validarEscolhaAtendente(user_input.content, atendentes.length);
+      if (validacao.valido) {
+        atendenteEscolhido = atendentes[validacao.indice];
+        isValidInput = true;
+      }
+    }
+    
+    if (!isValidInput) {
+      const mensagemErro = MenuBuilder.construirMensagemErro('Opção inválida', 'atendente');
+      await this.enviarMensagemWhatsApp(base44, contact.telefone, mensagemErro, whatsappIntegrationId);
+      return { success: false, erro: 'escolha_invalida', aguardando_nova_resposta: true };
+    }
+    
     console.log('[FLUXO] Atendente escolhido:', atendenteEscolhido.full_name);
     
     const disponibilidade = await AtendenteSelector.validarDisponibilidade(base44, atendenteEscolhido.id);
@@ -197,10 +265,14 @@ export class FluxoController {
     }
   }
   
-  static async processarWAITING_QUEUE_DECISION(base44, thread, contact, mensagemUsuario, whatsappIntegrationId) {
+  static async processarWAITING_QUEUE_DECISION(base44, thread, contact, user_input, whatsappIntegrationId) {
     console.log('[FLUXO] Estado: WAITING_QUEUE_DECISION - Processando decisão de fila');
     
-    const escolha = mensagemUsuario?.trim();
+    const textoParaVerificar = user_input.type === 'text' 
+      ? (user_input.content || '').trim() 
+      : (user_input.text || '').trim();
+    
+    const escolha = textoParaVerificar;
     
     if (escolha === '1') {
       // Cliente optou por entrar na fila
@@ -293,11 +365,22 @@ export class FluxoController {
   
   static async enviarMensagemWhatsApp(base44, telefone, mensagem, whatsappIntegrationId) {
     try {
-      const response = await base44.asServiceRole.functions.invoke('enviarWhatsApp', {
+      let payload = {
         integration_id: whatsappIntegrationId,
-        phone: telefone,
-        message: mensagem
-      });
+        numero_destino: telefone
+      };
+      
+      // Se mensagem for objeto estruturado (botões)
+      if (typeof mensagem === 'object' && mensagem.type === 'interactive_buttons') {
+        payload.message_type = 'interactive_buttons';
+        payload.mensagem = mensagem.body;
+        payload.interactive_buttons = mensagem.buttons;
+      } else {
+        // Mensagem de texto simples
+        payload.mensagem = mensagem;
+      }
+      
+      const response = await base44.asServiceRole.functions.invoke('enviarWhatsApp', payload);
       
       console.log('[FLUXO] ✅ Mensagem enviada com sucesso');
       return response.data;

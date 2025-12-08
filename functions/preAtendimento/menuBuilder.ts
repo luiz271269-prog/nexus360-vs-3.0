@@ -11,18 +11,19 @@ export class MenuBuilder {
       ? nomeContato.split(' ')[0] 
       : '';
     
-    return `👋 Olá${nome ? ` ${nome}` : ''}! Bem-vindo(a)!
-
-Estou aqui para te conectar com a equipe certa. 
-
-🎯 *Qual setor você precisa?*
-
-1️⃣ *Vendas* - Orçamentos e novos pedidos
-2️⃣ *Assistência Técnica* - Suporte e dúvidas
-3️⃣ *Financeiro* - Pagamentos e boletos
-4️⃣ *Fornecedores* - Parcerias comerciais
-
-📝 Digite o *número* ou *nome* do setor:`;
+    const hora = new Date().getHours();
+    const saudacao = hora < 12 ? 'bom dia' : (hora < 18 ? 'boa tarde' : 'boa noite');
+    
+    return {
+      type: 'interactive_buttons',
+      body: `👋 Olá${nome ? ` ${nome}` : ''}! ${saudacao}!\n\nEstou aqui para te conectar com a equipe certa.\n\n🎯 *Para qual setor você gostaria de falar?*`,
+      buttons: [
+        { id: 'setor_vendas', text: '💼 Vendas' },
+        { id: 'setor_suporte', text: '🔧 Suporte Técnico' },
+        { id: 'setor_financeiro', text: '💰 Financeiro' },
+        { id: 'setor_fornecedores', text: '📦 Fornecedores' }
+      ]
+    };
   }
   
   static construirMenuAtendentes(atendentes, setor) {
@@ -33,6 +34,23 @@ Estou aqui para te conectar com a equipe certa.
     const emoji = this.getEmojiSetor(setor);
     const setorNome = this.getNomeSetor(setor);
     
+    // Se houver até 3 atendentes, usar botões interativos
+    if (atendentes.length <= 3) {
+      return {
+        type: 'interactive_buttons',
+        body: `${emoji} *${setorNome}*\n\n✨ Escolha quem vai te atender:`,
+        buttons: atendentes.map((atendente) => {
+          const nome = atendente.full_name || atendente.email.split('@')[0];
+          const status = atendente.availability_status === 'online' ? '🟢' : '🟡';
+          return {
+            id: `att_${atendente.id}`,
+            text: `${status} ${nome}`
+          };
+        })
+      };
+    }
+    
+    // Se houver mais de 3, usar texto (limitação de botões)
     let menu = `${emoji} *${setorNome}*\n\n`;
     menu += `✨ Escolha quem vai te atender:\n\n`;
     

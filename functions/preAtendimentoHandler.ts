@@ -31,11 +31,48 @@ Deno.serve(async (req) => {
     console.log('[PRE-ATENDIMENTO] 📥 Payload recebido:', payload);
 
     const { thread_id, contact_id, mensagem_cliente, whatsapp_integration_id } = payload;
-    const user_message = mensagem_cliente; // Alias para compatibilidade
 
     if (!thread_id || !contact_id) {
       throw new Error('thread_id e contact_id são obrigatórios');
     }
+    
+    // ═══════════════════════════════════════════════════════════
+    // NORMALIZAR INPUT DO USUÁRIO (BOTÃO OU TEXTO)
+    // ═══════════════════════════════════════════════════════════
+    
+    let user_input = { type: 'text', content: mensagem_cliente || '' };
+    
+    // Cloud API format
+    if (payload.messages && payload.messages.length > 0) {
+      const msg = payload.messages[0];
+      if (msg.type === 'interactive' && msg.interactive?.type === 'button_reply') {
+        user_input = {
+          type: 'button',
+          id: msg.interactive.button_reply.id,
+          text: msg.interactive.button_reply.title
+        };
+      } else if (msg.type === 'text') {
+        user_input = {
+          type: 'text',
+          content: msg.text.body
+        };
+      }
+    }
+    // Z-API / W-API format
+    else if (payload.button_reply?.id) {
+      user_input = {
+        type: 'button',
+        id: payload.button_reply.id,
+        text: payload.button_reply.text
+      };
+    } else if (payload.message?.text) {
+      user_input = {
+        type: 'text',
+        content: payload.message.text
+      };
+    }
+    
+    console.log('[PRE-ATENDIMENTO] 📝 User Input:', user_input);
 
     // ═══════════════════════════════════════════════════════════
     // BUSCAR THREAD E CONTACT
@@ -102,14 +139,11 @@ Deno.serve(async (req) => {
         break;
 
       case 'WAITING_SECTOR_CHOICE':
-        if (!user_message) {
-          throw new Error('user_message é obrigatório para WAITING_SECTOR_CHOICE');
-        }
         resultado = await FluxoController.processarWAITING_SECTOR_CHOICE(
           base44,
           thread,
           contact,
-          user_message,
+          user_input,
           whatsappIntegration.id
         );
         break;
@@ -194,7 +228,7 @@ Deno.serve(async (req) => {
           detalhes: {
             estado_inicial: estadoAtual,
             estado_final: resultado.proximo_estado || estadoAtual,
-            user_message,
+            user_input,
             resultado
           }
         });

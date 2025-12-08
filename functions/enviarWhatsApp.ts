@@ -100,7 +100,9 @@ Deno.serve(async (req) => {
       media_type,
       media_caption,
       audio_url,
-      reply_to_message_id
+      reply_to_message_id,
+      message_type,
+      interactive_buttons
     } = payload;
 
     // ✅ Validação de campos obrigatórios
@@ -120,11 +122,11 @@ Deno.serve(async (req) => {
     }
 
     // ✅ Validação de conteúdo
-    if (!mensagem && !template_name && !media_url && !audio_url) {
+    if (!mensagem && !template_name && !media_url && !audio_url && !interactive_buttons) {
       return new Response(
         JSON.stringify({ 
           success: false,
-          error: 'Nenhum conteúdo fornecido. Forneça: mensagem, template_name, media_url ou audio_url',
+          error: 'Nenhum conteúdo fornecido. Forneça: mensagem, template_name, media_url, audio_url ou interactive_buttons',
           version: VERSION
         }),
         { status: 400, headers }
@@ -180,8 +182,43 @@ Deno.serve(async (req) => {
     let endpoint;
     let body;
 
+    // ========== BOTÕES INTERATIVOS ==========
+    if (message_type === 'interactive_buttons' || interactive_buttons) {
+      const buttons = interactive_buttons || [];
+      const bodyText = mensagem || '';
+      
+      if (isWAPI) {
+        // W-API: Botões interativos
+        endpoint = `${baseUrl}/message/send-buttons?instanceId=${instanceId}`;
+        body = {
+          phone: numeroFormatado,
+          message: bodyText,
+          buttons: buttons.map(btn => ({
+            id: btn.id,
+            text: btn.text
+          })),
+          delayMessage: 1
+        };
+      } else {
+        // Z-API: Botões interativos
+        endpoint = `${baseUrl}/instances/${instanceId}/token/${token}/send-button-actions`;
+        body = {
+          phone: numeroFormatado,
+          message: bodyText,
+          buttonActions: {
+            buttons: buttons.map(btn => ({
+              id: btn.id,
+              label: btn.text
+            }))
+          }
+        };
+      }
+      
+      console.log(`[ENVIAR-WHATSAPP-UNIFICADO] 🔘 Enviando botões interativos (${providerName})`);
+    }
+    
     // ========== TEMPLATES ==========
-    if (template_name) {
+    else if (template_name) {
       if (isWAPI) {
         endpoint = `${baseUrl}/message/send-template?instanceId=${instanceId}`;
         body = {
