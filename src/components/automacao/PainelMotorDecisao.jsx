@@ -923,6 +923,26 @@ export default function PainelMotorDecisao() {
                       {configAtual.metricas.fallback_hits || 0}
                     </p>
                   </div>
+                  <div className="p-4 bg-cyan-50 rounded-lg">
+                    <p className="text-xs text-slate-600 mb-1">Tempo Médio</p>
+                    <p className="text-2xl font-bold text-cyan-600">
+                      {configAtual.metricas.tempo_medio_decisao_ms || 0}ms
+                    </p>
+                  </div>
+                  <div className="p-4 bg-indigo-50 rounded-lg">
+                    <p className="text-xs text-slate-600 mb-1">Tempo IA</p>
+                    <p className="text-2xl font-bold text-indigo-600">
+                      {configAtual.metricas.tempo_medio_ia_ms || 0}ms
+                    </p>
+                  </div>
+                  {configAtual.metricas.total_locks_expirados > 0 && (
+                    <div className="p-4 bg-red-50 rounded-lg">
+                      <p className="text-xs text-slate-600 mb-1">Locks Expirados</p>
+                      <p className="text-2xl font-bold text-red-600">
+                        {configAtual.metricas.total_locks_expirados}
+                      </p>
+                    </div>
+                  )}
                 </div>
               ) : (
                 <p className="text-center text-slate-500 py-8">
