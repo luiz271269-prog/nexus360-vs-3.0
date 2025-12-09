@@ -740,13 +740,16 @@ export default function MessageBubble({
                 className="max-w-[280px] max-h-[280px] object-cover rounded-lg cursor-pointer"
                 onClick={() => window.open(message.media_url, '_blank')}
                 isPersisted={message.metadata?.midia_persistida}
-              /> :
-
-
-              <div className="flex items-center justify-center bg-slate-100 rounded-2xl p-8 min-h-[200px]">
+              /> : message.metadata?.requiresDownload ?
+              <div className="flex flex-col items-center justify-center bg-slate-100 rounded-2xl p-8 min-h-[200px] max-w-[280px]">
+                <Loader2 className="w-8 h-8 animate-spin text-blue-500 mb-2" />
+                <span className="text-sm text-slate-600 font-medium">Processando imagem...</span>
+                <span className="text-xs text-slate-400 mt-1">Descriptografando e baixando</span>
+              </div> :
+              <div className="flex items-center justify-center bg-slate-100 rounded-2xl p-8 min-h-[200px] max-w-[280px]">
                     <div className="text-center">
                       <ImageIcon className="w-12 h-12 text-slate-400 mx-auto mb-2" />
-                      <p className="text-sm text-slate-500">Imagem não disponível</p>
+                      <p className="text-sm text-slate-500">Imagem indisponível</p>
                     </div>
                   </div>
               }
