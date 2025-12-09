@@ -252,8 +252,7 @@ function normalizarPayload(payload) {
     
     mediaUrl = extrairMediaUrl(payload, msgContent, 'video');
     if (!mediaUrl && mediaKey && directPath) {
-      mediaMetadata.mediaKey = mediaKey;
-      mediaMetadata.directPath = directPath;
+      mediaMetadata.messageStruct = msgContent.videoMessage;
       mediaMetadata.requiresDownload = true;
       console.log('[W-API WEBHOOK] 📦 Mídia requer download via API');
     }
@@ -270,8 +269,7 @@ function normalizarPayload(payload) {
     
     mediaUrl = extrairMediaUrl(payload, msgContent, 'audio');
     if (!mediaUrl && mediaKey && directPath) {
-      mediaMetadata.mediaKey = mediaKey;
-      mediaMetadata.directPath = directPath;
+      mediaMetadata.messageStruct = msgContent.audioMessage;
       mediaMetadata.requiresDownload = true;
     }
     
@@ -287,8 +285,7 @@ function normalizarPayload(payload) {
     
     mediaUrl = extrairMediaUrl(payload, msgContent, 'document');
     if (!mediaUrl && mediaKey && directPath) {
-      mediaMetadata.mediaKey = mediaKey;
-      mediaMetadata.directPath = directPath;
+      mediaMetadata.messageStruct = msgContent.documentMessage;
       mediaMetadata.requiresDownload = true;
     }
     

@@ -48,8 +48,14 @@ Deno.serve(async (req) => {
 
     const integracao = await base44.asServiceRole.entities.WhatsAppIntegration.get(integration_id);
     
-    console.log('[PERSISTIR-MIDIA-WAPI] 📞 Chamando W-API download-media...');
+    // Extrair campos da estrutura
+    const mediaKey = message_struct.mediaKey;
+    const directPath = message_struct.directPath;
+    const mimetype = message_struct.mimetype || mimetype || 'image/jpeg';
     
+    console.log('[PERSISTIR-MIDIA-WAPI] 📞 Chamando W-API download-media | mediaKey:', mediaKey?.substring(0, 20), '| directPath:', directPath?.substring(0, 30));
+    
+    // ✅ FORMATO PLANO - CONFORME DOCUMENTAÇÃO OFICIAL W-API
     const downloadResp = await fetch(
       `https://api.w-api.app/v1/message/download-media?instanceId=${integracao.instance_id_provider}`,
       {
@@ -59,7 +65,10 @@ Deno.serve(async (req) => {
           'Authorization': `Bearer ${integracao.api_key_provider}`
         },
         body: JSON.stringify({
-          message: message_struct
+          mediaKey: mediaKey,
+          directPath: directPath,
+          type: media_type,
+          mimetype: mimetype
         })
       }
     );
