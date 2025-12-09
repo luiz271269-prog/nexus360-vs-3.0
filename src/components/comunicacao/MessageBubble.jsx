@@ -507,7 +507,7 @@ export default function MessageBubble({
             <ArrowRight className="w-4 h-4 text-white" />
           </div>
           <div className="flex-1">
-            <p className="font-semibold leading-tight">{message.content}</p>
+            <p className="font-semibold leading-tight">{String(message.content || '')}</p>
             {message.metadata?.transferido_por && (
               <p className="text-[10px] text-amber-700 mt-0.5 opacity-80">
                 por {message.metadata.transferido_por}
@@ -1146,7 +1146,7 @@ export default function MessageBubble({
             })()}
 
             {/* ✅ TEXTO - SEM MÍDIA */}
-            {(!message?.media_url || message?.media_type === 'none') && message?.content && String(message.content).trim() !== '' && message.content !== '[No content]' &&
+            {(!message?.media_url || message?.media_type === 'none') && message?.content && String(message.content || '').trim() !== '' && String(message.content) !== '[No content]' &&
             <>
                 <div className={cn("break-words whitespace-pre-wrap", isOwn ? "text-white" : "text-[#111b21]")}>
                   <p className="text-[14.2px] leading-[19px]">{String(message.content || '')}</p>
