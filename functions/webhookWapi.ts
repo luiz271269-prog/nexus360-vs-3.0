@@ -224,31 +224,76 @@ function normalizarPayload(payload) {
   
   if (msgContent.imageMessage) {
     mediaType = 'image';
-    mediaUrl = extrairMediaUrl(payload, msgContent, 'image');
     mediaMetadata = extrairMetadadosMidia(msgContent, 'image');
     conteudo = mediaMetadata.caption || '[Imagem]';
-    console.log('[W-API WEBHOOK] 🖼️ Imagem detectada | URL:', mediaUrl ? 'SIM' : 'NÃO');
+    
+    // W-API: Extrair mediaKey e directPath para download posterior
+    const mediaKey = msgContent.imageMessage?.mediaKey;
+    const directPath = msgContent.imageMessage?.directPath;
+    
+    console.log('[W-API WEBHOOK] 🖼️ Imagem detectada | mediaKey:', mediaKey ? 'SIM' : 'NÃO', '| directPath:', directPath ? 'SIM' : 'NÃO');
+    
+    // Tentar extrair URL direta (fallback)
+    mediaUrl = extrairMediaUrl(payload, msgContent, 'image');
+    if (!mediaUrl && mediaKey && directPath) {
+      // Armazenar mediaKey/directPath para download posterior
+      mediaMetadata.mediaKey = mediaKey;
+      mediaMetadata.directPath = directPath;
+      mediaMetadata.requiresDownload = true;
+      console.log('[W-API WEBHOOK] 📦 Mídia requer download via API');
+    }
     
   } else if (msgContent.videoMessage) {
     mediaType = 'video';
-    mediaUrl = extrairMediaUrl(payload, msgContent, 'video');
     mediaMetadata = extrairMetadadosMidia(msgContent, 'video');
     conteudo = mediaMetadata.caption || '[Vídeo]';
-    console.log('[W-API WEBHOOK] 🎬 Vídeo detectado | URL:', mediaUrl ? 'SIM' : 'NÃO');
+    
+    const mediaKey = msgContent.videoMessage?.mediaKey;
+    const directPath = msgContent.videoMessage?.directPath;
+    
+    console.log('[W-API WEBHOOK] 🎬 Vídeo detectado | mediaKey:', mediaKey ? 'SIM' : 'NÃO', '| directPath:', directPath ? 'SIM' : 'NÃO');
+    
+    mediaUrl = extrairMediaUrl(payload, msgContent, 'video');
+    if (!mediaUrl && mediaKey && directPath) {
+      mediaMetadata.mediaKey = mediaKey;
+      mediaMetadata.directPath = directPath;
+      mediaMetadata.requiresDownload = true;
+      console.log('[W-API WEBHOOK] 📦 Mídia requer download via API');
+    }
     
   } else if (msgContent.audioMessage) {
     mediaType = 'audio';
-    mediaUrl = extrairMediaUrl(payload, msgContent, 'audio');
     mediaMetadata = extrairMetadadosMidia(msgContent, 'audio');
     conteudo = mediaMetadata.isPTT ? '[Áudio de voz]' : '[Áudio]';
-    console.log('[W-API WEBHOOK] 🎵 Áudio detectado (PTT:', mediaMetadata.isPTT, ') | URL:', mediaUrl ? 'SIM' : 'NÃO');
+    
+    const mediaKey = msgContent.audioMessage?.mediaKey;
+    const directPath = msgContent.audioMessage?.directPath;
+    
+    console.log('[W-API WEBHOOK] 🎵 Áudio detectado (PTT:', mediaMetadata.isPTT, ') | mediaKey:', mediaKey ? 'SIM' : 'NÃO', '| directPath:', directPath ? 'SIM' : 'NÃO');
+    
+    mediaUrl = extrairMediaUrl(payload, msgContent, 'audio');
+    if (!mediaUrl && mediaKey && directPath) {
+      mediaMetadata.mediaKey = mediaKey;
+      mediaMetadata.directPath = directPath;
+      mediaMetadata.requiresDownload = true;
+    }
     
   } else if (msgContent.documentMessage) {
     mediaType = 'document';
-    mediaUrl = extrairMediaUrl(payload, msgContent, 'document');
     mediaMetadata = extrairMetadadosMidia(msgContent, 'document');
     conteudo = mediaMetadata.fileName ? `[Documento: ${mediaMetadata.fileName}]` : '[Documento]';
-    console.log('[W-API WEBHOOK] 📄 Documento detectado | Arquivo:', mediaMetadata.fileName || 'N/A', '| URL:', mediaUrl ? 'SIM' : 'NÃO');
+    
+    const mediaKey = msgContent.documentMessage?.mediaKey;
+    const directPath = msgContent.documentMessage?.directPath;
+    
+    console.log('[W-API WEBHOOK] 📄 Documento detectado | Arquivo:', mediaMetadata.fileName || 'N/A', '| mediaKey:', mediaKey ? 'SIM' : 'NÃO');
+    
+    mediaUrl = extrairMediaUrl(payload, msgContent, 'document');
+    if (!mediaUrl && mediaKey && directPath) {
+      mediaMetadata.mediaKey = mediaKey;
+      mediaMetadata.directPath = directPath;
+      mediaMetadata.requiresDownload = true;
+    }
     
   } else if (msgContent.stickerMessage) {
     mediaType = 'sticker';
@@ -304,6 +349,9 @@ function normalizarPayload(payload) {
     mediaCaption: mediaMetadata.caption || msgContent.imageMessage?.caption || msgContent.videoMessage?.caption,
     fileName: mediaMetadata.fileName,
     mimetype: mediaMetadata.mimetype,
+    mediaKey: mediaMetadata.mediaKey,
+    directPath: mediaMetadata.directPath,
+    requiresDownload: mediaMetadata.requiresDownload || false,
     pushName: payload.pushName || payload.senderName || payload.sender?.pushName,
     vcard: msgContent.contactMessage || msgContent.contactsArrayMessage,
     location: msgContent.locationMessage,
@@ -581,7 +629,10 @@ async function handleMessage(dados, payloadBruto, base44, req) {
       location: dados.location,
       quoted_message: dados.quotedMessage,
       processed_by: VERSION,
-      provider: 'w_api'
+      provider: 'w_api',
+      mediaKey: dados.mediaKey,
+      directPath: dados.directPath,
+      requiresDownload: dados.requiresDownload
     }
   });
 
@@ -696,44 +747,84 @@ async function handleMessage(dados, payloadBruto, base44, req) {
   const duracao = Date.now() - inicio;
   console.log('[W-API WEBHOOK] ✅ Msg:', mensagem.id, '| Tipo:', dados.mediaType, '| URL:', dados.mediaUrl ? 'SIM' : 'NÃO', '| ' + duracao + 'ms');
 
-  // ✅ PERSISTIR MÍDIA AUTOMATICAMENTE - VERSÃO SÍNCRONA (BLOCKING)
-  // URLs temporárias do WhatsApp expiram muito rapidamente (segundos)
-  // Por isso, AGUARDAMOS a persistência antes de retornar
-  if (dados.mediaUrl && dados.mediaType && dados.mediaType !== 'none') {
-    const isUrlTemporaria = dados.mediaUrl.includes('mmg.whatsapp.net') || 
-                            dados.mediaUrl.includes('w-api.app') ||
-                            dados.mediaUrl.includes('cdn.whatsapp') ||
-                            dados.mediaUrl.includes('enc.') ||
-                            dados.mediaUrl.includes('media-') ||
-                            dados.mediaUrl.includes('.whatsapp') ||
-                            dados.mediaUrl.includes('/temp/');
-    
-    if (isUrlTemporaria) {
-      console.log('[W-API WEBHOOK] 📤 URL temporária detectada - Persistindo AGORA (blocking)');
-      console.log('[W-API WEBHOOK] 📎 Tipo:', dados.mediaType, '| Arquivo:', dados.fileName || 'N/A');
-
+  // ✅ BAIXAR E PERSISTIR MÍDIA - W-API REQUER DOWNLOAD VIA API
+  if (dados.mediaType && dados.mediaType !== 'none') {
+    // Se não tem URL direta, mas tem mediaKey/directPath, fazer download via API W-API
+    if (dados.requiresDownload && dados.mediaKey && dados.directPath && integracaoId) {
+      console.log('[W-API WEBHOOK] 📥 Baixando mídia via API W-API...');
+      
       try {
-        // ⚠️ AWAIT: Bloqueia até completar o download e upload
-        const resultPersistir = await base44.functions.invoke('persistirMidiaWapi', {
-          message_id: mensagem.id,
-          media_url: dados.mediaUrl,
-          media_type: dados.mediaType,
-          integration_id: integracaoId,
-          filename: dados.fileName,
-          mimetype: dados.mimetype
+        const integracao = await base44.asServiceRole.entities.WhatsAppIntegration.get(integracaoId);
+        
+        const downloadResp = await fetch(`https://api.w-api.app/v1/message/download-media?instanceId=${integracao.instance_id_provider}`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${integracao.api_key_provider}`
+          },
+          body: JSON.stringify({
+            mediaKey: dados.mediaKey,
+            directPath: dados.directPath,
+            type: dados.mediaType,
+            mimetype: dados.mimetype || 'image/jpeg'
+          })
         });
         
-        if (resultPersistir?.data?.success) {
-          console.log('[W-API WEBHOOK] ✅ Mídia persistida com sucesso:', resultPersistir.data.permanent_url?.substring(0, 60) || 'ok');
+        const downloadData = await downloadResp.json();
+        
+        if (downloadData.fileLink) {
+          console.log('[W-API WEBHOOK] ✅ Download bem-sucedido:', downloadData.fileLink);
+          
+          // Persistir a URL obtida
+          const resultPersistir = await base44.functions.invoke('persistirMidiaWapi', {
+            message_id: mensagem.id,
+            media_url: downloadData.fileLink,
+            media_type: dados.mediaType,
+            integration_id: integracaoId,
+            filename: dados.fileName,
+            mimetype: dados.mimetype
+          });
+          
+          if (resultPersistir?.data?.success) {
+            console.log('[W-API WEBHOOK] ✅ Mídia persistida:', resultPersistir.data.permanent_url?.substring(0, 60));
+          }
         } else {
-          console.warn('[W-API WEBHOOK] ⚠️ Persistência retornou erro:', resultPersistir?.data?.error || 'desconhecido');
+          console.error('[W-API WEBHOOK] ❌ Download falhou:', downloadData);
         }
-      } catch (persistError) {
-        console.error('[W-API WEBHOOK] ❌ ERRO ao persistir mídia:', persistError.message);
-        // Não bloqueia o webhook, mas loga o erro
+      } catch (downloadError) {
+        console.error('[W-API WEBHOOK] ❌ Erro ao baixar mídia:', downloadError.message);
       }
-    } else {
-      console.log('[W-API WEBHOOK] ℹ️ URL já é permanente, não precisa persistir');
+    } 
+    // Se tem URL direta e é temporária, persistir
+    else if (dados.mediaUrl) {
+      const isUrlTemporaria = dados.mediaUrl.includes('mmg.whatsapp.net') || 
+                              dados.mediaUrl.includes('w-api.app') ||
+                              dados.mediaUrl.includes('cdn.whatsapp') ||
+                              dados.mediaUrl.includes('enc.') ||
+                              dados.mediaUrl.includes('media-') ||
+                              dados.mediaUrl.includes('.whatsapp') ||
+                              dados.mediaUrl.includes('/temp/');
+      
+      if (isUrlTemporaria) {
+        console.log('[W-API WEBHOOK] 📤 URL temporária - Persistindo...');
+        
+        try {
+          const resultPersistir = await base44.functions.invoke('persistirMidiaWapi', {
+            message_id: mensagem.id,
+            media_url: dados.mediaUrl,
+            media_type: dados.mediaType,
+            integration_id: integracaoId,
+            filename: dados.fileName,
+            mimetype: dados.mimetype
+          });
+          
+          if (resultPersistir?.data?.success) {
+            console.log('[W-API WEBHOOK] ✅ Mídia persistida:', resultPersistir.data.permanent_url?.substring(0, 60));
+          }
+        } catch (persistError) {
+          console.error('[W-API WEBHOOK] ❌ Erro ao persistir:', persistError.message);
+        }
+      }
     }
   }
 
