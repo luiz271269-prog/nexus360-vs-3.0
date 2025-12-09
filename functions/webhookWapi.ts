@@ -607,6 +607,19 @@ async function handleMessage(dados, payloadBruto, base44, req) {
     const preAtendimentoAtivo = threadAtualizada.pre_atendimento_ativo === true;
     const estadoPreAtend = threadAtualizada.pre_atendimento_state || 'INIT';
     
+    // 🔧 CORREÇÃO: Se thread está marcada como ativa mas SEM execuções, resetar estado
+    if (preAtendimentoAtivo && execucoesAtivas.length === 0) {
+      console.log('[W-API WEBHOOK] ⚠️ Thread com pré-atendimento ativo mas sem execuções - RESETANDO');
+      try {
+        await base44.asServiceRole.entities.MessageThread.update(thread.id, {
+          pre_atendimento_ativo: false,
+          pre_atendimento_state: 'INIT'
+        });
+      } catch (e) {
+        console.error('[W-API WEBHOOK] ❌ Erro ao resetar estado:', e?.message);
+      }
+    }
+    
     if (preAtendimentoAtivo && execucoesAtivas.length > 0) {
       // Processar resposta do pré-atendimento em andamento
       console.log('[W-API WEBHOOK] 🔄 Pré-atendimento ativo | Estado:', estadoPreAtend, '| Thread:', thread.id);
@@ -621,8 +634,8 @@ async function handleMessage(dados, payloadBruto, base44, req) {
       } catch (e) {
         console.error('[W-API WEBHOOK] ❌ Erro ao processar resposta pré-atendimento:', e?.message);
       }
-    } else if (isSaudacao && !preAtendimentoAtivo) {
-      // Iniciar pré-atendimento apenas se for saudação
+    } else if (isSaudacao) {
+      // Iniciar pré-atendimento se for saudação (independente do estado anterior)
       console.log('[W-API WEBHOOK] 🚀 Saudação detectada! Iniciando pré-atendimento | Msg:', mensagemLower, '| Thread:', thread.id);
       try {
         await base44.functions.invoke('executarPreAtendimento', {
