@@ -501,7 +501,13 @@ async function finalizarPreAtendimento(base44, params) {
   
   console.log(`[PRE-ATEND] 📤 Finalizando: Setor=${setor} | Atendente=${atendente?.full_name || 'N/A'} | Motivo=${motivo}`);
   
-  await base44.asServiceRole.entities.MessageThread.update(thread_id, threadUpdate);
+  // Atualizar thread com unread_count forçado (Passagem de Bastão)
+  await base44.asServiceRole.entities.MessageThread.update(thread_id, {
+    ...threadUpdate,
+    unread_count: Math.max(1, threadUpdate.unread_count || 0),
+    updated_date: new Date().toISOString()
+  });
+  
   await base44.asServiceRole.entities.FlowExecution.update(execucao_id, {
     status: 'concluido',
     completed_at: new Date().toISOString(),
@@ -509,6 +515,24 @@ async function finalizarPreAtendimento(base44, params) {
   });
   
   await enviarMensagem(base44, integracao, contato.telefone, msg, thread_id);
+  
+  // Mensagem de sistema de transferência para destaque visual
+  await base44.asServiceRole.entities.Message.create({
+    thread_id: thread_id,
+    sender_id: 'system',
+    sender_type: 'system',
+    content: `🔔 Conversa direcionada para ${atendente?.full_name || setorLabels[setor] || setor}`,
+    channel: 'interno',
+    status: 'enviada',
+    sent_at: new Date().toISOString(),
+    metadata: {
+      is_system_message: true,
+      message_type: 'transfer',
+      setor_destino: setor,
+      atendente_destino: atendente?.full_name || null,
+      motivo_roteamento: motivo
+    }
+  });
   
   return { success: true, setor_escolhido: setor, atendente_id: atendente?.id, motivo };
 }

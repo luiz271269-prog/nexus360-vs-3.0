@@ -324,8 +324,11 @@ export default function ChatWindow({
       await base44.entities.MessageThread.update(thread.id, {
         assigned_user_id: atendenteEscolhido.id,
         assigned_user_name: atendenteEscolhido.full_name,
+        assigned_user_email: atendenteEscolhido.email,
         pre_atendimento_ativo: false,
-        pre_atendimento_state: 'COMPLETED'
+        pre_atendimento_state: 'COMPLETED',
+        unread_count: Math.max(1, thread.unread_count || 0),
+        updated_date: new Date().toISOString()
       });
 
       await base44.entities.AutomationLog.create({
@@ -352,8 +355,8 @@ export default function ChatWindow({
 
       await base44.entities.Message.create({
         thread_id: thread.id,
-        sender_id: usuario.id,
-        sender_type: 'user',
+        sender_id: 'system',
+        sender_type: 'system',
         recipient_id: thread.contact_id,
         recipient_type: 'contact',
         content: textoMensagem,
@@ -362,9 +365,11 @@ export default function ChatWindow({
         sent_at: new Date().toISOString(),
         metadata: {
           is_system_message: true,
+          message_type: 'transfer',
           action_type: 'assignment',
           atendente_anterior: thread.assigned_user_name || null,
-          atendente_novo: atendenteEscolhido.full_name
+          atendente_novo: atendenteEscolhido.full_name,
+          transferido_por: usuario.full_name
         }
       });
 
