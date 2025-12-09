@@ -24,13 +24,65 @@ Deno.serve(async (req) => {
     const base44 = createClientFromRequest(req);
     const payload = await req.json();
 
-    const { message_id, media_url, media_type, integration_id, filename, mimetype, is_base64 } = payload;
+    const { message_id, media_type, integration_id, message_struct, filename, mimetype } = payload;
 
-    if (!message_id || !media_url) {
+    if (!message_id || !media_type || !integration_id) {
       return Response.json({ 
         success: false, 
-        error: 'message_id e media_url são obrigatórios' 
+        error: 'message_id, media_type e integration_id são obrigatórios' 
       }, { status: 400, headers });
+    }
+
+    console.log('[PERSISTIR-MIDIA-WAPI] 🚀 INICIANDO | Tipo:', media_type, '| MessageStruct:', !!message_struct);
+
+    // ========================================================================
+    // PASSO 5: BAIXAR MÍDIA DESCRIPTOGRAFADA VIA API W-API (ESTUDO TÉCNICO)
+    // ========================================================================
+    
+    if (!message_struct) {
+      return Response.json({
+        success: false,
+        error: 'message_struct é obrigatório para download W-API'
+      }, { status: 400, headers });
+    }
+
+    const integracao = await base44.asServiceRole.entities.WhatsAppIntegration.get(integration_id);
+    
+    console.log('[PERSISTIR-MIDIA-WAPI] 📞 Chamando W-API download-media...');
+    
+    const downloadResp = await fetch(
+      `https://api.w-api.app/v1/message/download-media?instanceId=${integracao.instance_id_provider}`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${integracao.api_key_provider}`
+        },
+        body: JSON.stringify({
+          message: message_struct
+        })
+      }
+    );
+    
+    if (!downloadResp.ok) {
+      const errorText = await downloadResp.text();
+      console.error('[PERSISTIR-MIDIA-WAPI] ❌ W-API retornou erro:', downloadResp.status, errorText);
+      throw new Error(`W-API download failed: ${downloadResp.status} - ${errorText}`);
+    }
+    
+    const downloadData = await downloadResp.json();
+    console.log('[PERSISTIR-MIDIA-WAPI] 📦 W-API response:', {
+      hasFileLink: !!downloadData.fileLink,
+      hasBase64: !!downloadData.base64,
+      keys: Object.keys(downloadData)
+    });
+    
+    const media_url = downloadData.fileLink || downloadData.base64;
+    const is_base64 = !downloadData.fileLink;
+    
+    if (!media_url) {
+      console.error('[PERSISTIR-MIDIA-WAPI] ❌ W-API não retornou fileLink nem base64:', downloadData);
+      throw new Error('W-API não retornou mídia');
     }
 
     console.log('[PERSISTIR-MIDIA-WAPI] 📥 Iniciando processamento:', {

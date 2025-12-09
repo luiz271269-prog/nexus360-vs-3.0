@@ -742,87 +742,31 @@ async function handleMessage(dados, payloadBruto, base44, req) {
   const duracao = Date.now() - inicio;
   console.log('[W-API WEBHOOK] ✅ Msg:', mensagem.id, '| Tipo:', dados.mediaType, '| URL:', dados.mediaUrl ? 'SIM' : 'NÃO', '| ' + duracao + 'ms');
 
-  // ✅ BAIXAR E PERSISTIR MÍDIA - W-API REQUER DOWNLOAD VIA API
-  if (dados.mediaType && dados.mediaType !== 'none') {
-    // Se não tem URL direta, fazer download via API W-API usando estrutura completa
-    if (dados.requiresDownload && dados.messageStruct && integracaoId) {
-      console.log('[W-API WEBHOOK] 📥 Baixando mídia via API W-API...');
-      
-      try {
-        const integracao = await base44.asServiceRole.entities.WhatsAppIntegration.get(integracaoId);
-        
-        // Enviar estrutura completa da mensagem (conforme estudo técnico)
-        const downloadResp = await fetch(`https://api.w-api.app/v1/message/download-media?instanceId=${integracao.instance_id_provider}`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${integracao.api_key_provider}`
-          },
-          body: JSON.stringify({
-            message: dados.messageStruct
-          })
-        });
-        
-        const downloadData = await downloadResp.json();
-        
-        // W-API pode retornar fileLink (URL) ou base64
-        const mediaSource = downloadData.fileLink || downloadData.base64;
-        
-        if (mediaSource) {
-          console.log('[W-API WEBHOOK] ✅ Download bem-sucedido | Tipo:', downloadData.fileLink ? 'URL' : 'Base64');
-          
-          // Persistir (função suporta ambos)
-          const resultPersistir = await base44.functions.invoke('persistirMidiaWapi', {
-            message_id: mensagem.id,
-            media_url: mediaSource,
-            media_type: dados.mediaType,
-            integration_id: integracaoId,
-            filename: dados.fileName,
-            mimetype: dados.mimetype,
-            is_base64: !downloadData.fileLink
-          });
-          
-          if (resultPersistir?.data?.success) {
-            console.log('[W-API WEBHOOK] ✅ Mídia persistida:', resultPersistir.data.permanent_url?.substring(0, 60));
-          }
-        } else {
-          console.error('[W-API WEBHOOK] ❌ Download falhou:', downloadData);
-        }
-      } catch (downloadError) {
-        console.error('[W-API WEBHOOK] ❌ Erro ao baixar mídia:', downloadError.message);
+  // ✅ DOWNLOAD E PERSISTÊNCIA - ARQUITETURA ASYNC (ESTUDO TÉCNICO)
+  // Passo 5: Baixar mídia descriptografada via API W-API
+  // Passo 6-8: Persistir no Storage Base44
+  if (dados.mediaType && dados.mediaType !== 'none' && dados.messageStruct && integracaoId) {
+    console.log('[W-API WEBHOOK] 🚀 Iniciando processo de download assíncrono...');
+    
+    // ⚠️ PROCESSO ASSÍNCRONO - NÃO BLOQUEAR WEBHOOK
+    base44.functions.invoke('persistirMidiaWapi', {
+      message_id: mensagem.id,
+      media_type: dados.mediaType,
+      integration_id: integracaoId,
+      message_struct: dados.messageStruct, // Estrutura completa para W-API
+      filename: dados.fileName,
+      mimetype: dados.mimetype
+    }).then(result => {
+      if (result?.data?.success) {
+        console.log('[W-API WEBHOOK] ✅ Mídia persistida (async):', result.data.permanent_url?.substring(0, 60));
+      } else {
+        console.error('[W-API WEBHOOK] ❌ Persistência falhou:', result?.data?.error);
       }
-    } 
-    // Se tem URL direta e é temporária, persistir
-    else if (dados.mediaUrl) {
-      const isUrlTemporaria = dados.mediaUrl.includes('mmg.whatsapp.net') || 
-                              dados.mediaUrl.includes('w-api.app') ||
-                              dados.mediaUrl.includes('cdn.whatsapp') ||
-                              dados.mediaUrl.includes('enc.') ||
-                              dados.mediaUrl.includes('media-') ||
-                              dados.mediaUrl.includes('.whatsapp') ||
-                              dados.mediaUrl.includes('/temp/');
-      
-      if (isUrlTemporaria) {
-        console.log('[W-API WEBHOOK] 📤 URL temporária - Persistindo...');
-        
-        try {
-          const resultPersistir = await base44.functions.invoke('persistirMidiaWapi', {
-            message_id: mensagem.id,
-            media_url: dados.mediaUrl,
-            media_type: dados.mediaType,
-            integration_id: integracaoId,
-            filename: dados.fileName,
-            mimetype: dados.mimetype
-          });
-          
-          if (resultPersistir?.data?.success) {
-            console.log('[W-API WEBHOOK] ✅ Mídia persistida:', resultPersistir.data.permanent_url?.substring(0, 60));
-          }
-        } catch (persistError) {
-          console.error('[W-API WEBHOOK] ❌ Erro ao persistir:', persistError.message);
-        }
-      }
-    }
+    }).catch(err => {
+      console.error('[W-API WEBHOOK] ❌ Erro na persistência assíncrona:', err.message);
+    });
+    
+    console.log('[W-API WEBHOOK] ⏩ Webhook retornando (persistência em background)');
   }
 
   return Response.json({
