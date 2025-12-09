@@ -1,17 +1,16 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.4';
 
 // ============================================================================
-// MOTOR DE PRÉ-ATENDIMENTO - v2.1.0
+// MOTOR DE PRÉ-ATENDIMENTO - v2.0.0
 // ============================================================================
 // Responsável por:
-// 1. Verificar continuidade (clientes/fidelizados com conversa recente)
-// 2. Enviar saudação dinâmica com opções de setor
-// 3. Processar resposta do contato (setor, nome de atendente, intenção)
-// 4. Rotear para atendente fidelizado ou do setor
-// 5. Análise de contexto e intenção (pagamento, cotação, suporte)
+// 1. Enviar saudação dinâmica com opções de setor
+// 2. Processar resposta do contato (setor, nome de atendente, intenção)
+// 3. Rotear para atendente fidelizado ou do setor
+// 4. Análise de contexto e intenção (pagamento, cotação, suporte)
 // ============================================================================
 
-const VERSION = 'v2.1.0';
+const VERSION = 'v2.0.0';
 
 const corsHeaders = {
   'Content-Type': 'application/json',
@@ -565,9 +564,42 @@ Deno.serve(async (req) => {
 
   try {
     // ========================================================================
+    // AÇÃO: PERGUNTAR CONTINUIDADE
+    // ========================================================================
+    if (action === 'perguntar_continuidade') {
+      const { last_assigned_user_name } = payload;
+      
+      const thread = await base44.asServiceRole.entities.MessageThread.get(thread_id);
+      const contato = await base44.asServiceRole.entities.Contact.get(contact_id);
+      
+      if (!thread || !contato) {
+        return Response.json({ success: false, error: 'thread_ou_contato_nao_encontrado' }, { headers: corsHeaders });
+      }
+      
+      const integracao = await buscarIntegracao(base44, integration_id, thread);
+      if (!integracao) {
+        return Response.json({ success: false, error: 'nenhuma_integracao_disponivel' }, { headers: corsHeaders });
+      }
+      
+      const mensagem = `Você estava falando com *${last_assigned_user_name}*. O que você deseja fazer?\n\n1️⃣ Continuar com ${last_assigned_user_name}\n2️⃣ Iniciar um novo atendimento`;
+      
+      await enviarMensagem(base44, integracao, contato.telefone, mensagem, thread_id);
+      
+      console.log('[PRE-ATEND] ❓ Pergunta de continuidade enviada');
+      return Response.json({ success: true, pergunta_enviada: true }, { headers: corsHeaders });
+    }
+
+    // ========================================================================
     // AÇÃO: INICIAR PRÉ-ATENDIMENTO
     // ========================================================================
     if (action === 'iniciar') {
+      const { playbook_override_id } = payload;
+      
+      const filter = playbook_override_id 
+        ? { id: playbook_override_id }
+        : { is_pre_atendimento_padrao: true, ativo: true };
+      
+      const templates = await base44.asServiceRole.entities.FlowTemplate.filter(filter, '-created_date', 1);
       const templates = await base44.asServiceRole.entities.FlowTemplate.filter({
         is_pre_atendimento_padrao: true,
         ativo: true
@@ -596,68 +628,6 @@ Deno.serve(async (req) => {
         return Response.json({ success: false, error: 'nenhuma_integracao_disponivel' }, { headers: corsHeaders });
       }
 
-      // ============================================================================
-      // 🔄 VERIFICAÇÃO DE CONTINUIDADE (CLIENTES/FIDELIZADOS COM CONVERSA RECENTE)
-      // ============================================================================
-      const isFidelizado = contato.is_cliente_fidelizado === true;
-      const tipoContato = contato.tipo_contato || 'novo';
-      const isClienteOuFidelizado = isFidelizado || tipoContato === 'cliente';
-      
-      // Verificar se há atendente atribuído E conversa recente (< 2 horas)
-      if (isClienteOuFidelizado && thread.assigned_user_id && thread.last_message_at) {
-        const horasDiferenca = (Date.now() - new Date(thread.last_message_at).getTime()) / (1000 * 60 * 60);
-        
-        if (horasDiferenca < 2) {
-          console.log('[PRE-ATEND] 🔄 Conversa recente detectada! Perguntando continuidade...');
-          
-          // Buscar dados do atendente atribuído
-          let atendenteAnterior = null;
-          try {
-            atendenteAnterior = await base44.asServiceRole.entities.User.get(thread.assigned_user_id);
-          } catch (e) {
-            console.log('[PRE-ATEND] ⚠️ Erro ao buscar atendente anterior:', e?.message);
-          }
-          
-          const nomeAtendente = atendenteAnterior?.full_name || thread.assigned_user_name || 'seu atendente anterior';
-          
-          const mensagemContinuidade = `${getSaudacao()}! 👋\n\nVocê estava conversando com *${nomeAtendente}*.\n\nGostaria de:\n\n1️⃣ *Continuar* com ${nomeAtendente}\n2️⃣ Iniciar um *novo atendimento*\n\n_Digite 1 ou 2._`;
-          
-          const envio = await enviarMensagem(base44, integracao, contato.telefone, mensagemContinuidade, thread_id);
-          
-          if (!envio.success) {
-            return Response.json({ success: false, error: envio.error || 'erro_envio' }, { headers: corsHeaders });
-          }
-          
-          const flowExecution = await base44.asServiceRole.entities.FlowExecution.create({
-            flow_template_id: template.id,
-            contact_id: contact_id,
-            thread_id: thread_id,
-            whatsapp_integration_id: integracao.id,
-            status: 'ativo',
-            current_step: 0,
-            started_at: new Date().toISOString(),
-            variables: {
-              last_assigned_user_id: thread.assigned_user_id,
-              last_assigned_user_name: nomeAtendente,
-              continuity_mode: true,
-              opcoes_setor: template.opcoes_setor || []
-            }
-          });
-          
-          await base44.asServiceRole.entities.MessageThread.update(thread_id, {
-            pre_atendimento_ativo: true,
-            pre_atendimento_state: 'WAITING_CONTINUITY_CHOICE',
-            pre_atendimento_started_at: new Date().toISOString()
-          });
-          
-          console.log('[PRE-ATEND] ✅ Modo continuidade iniciado | FlowExec:', flowExecution.id);
-          return Response.json({ success: true, flow_execution_id: flowExecution.id, continuity_mode: true }, { headers: corsHeaders });
-        }
-      }
-
-      // ============================================================================
-      // 📋 FLUXO PADRÃO: SAUDAÇÃO COM OPÇÕES DE SETOR
-      // ============================================================================
       const saudacao = getSaudacao();
       let mensagemTexto = template.mensagem_saudacao || 'Olá! {saudacao}, para qual setor você gostaria de falar?';
       mensagemTexto = mensagemTexto.replace('{saudacao}', saudacao);
@@ -707,6 +677,67 @@ Deno.serve(async (req) => {
     // AÇÃO: PROCESSAR RESPOSTA
     // ========================================================================
     if (action === 'processar_resposta') {
+      const textoOriginal = (resposta_usuario || '').trim();
+      const textoLower = textoOriginal.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+      const palavrasTexto = textoLower.split(/\s+/).filter(p => p.length > 0);
+      
+      const contato = await base44.asServiceRole.entities.Contact.get(contact_id);
+      const thread = await base44.asServiceRole.entities.MessageThread.get(thread_id);
+      
+      const integracao = await buscarIntegracao(base44, integration_id, thread);
+      if (!integracao) {
+        return Response.json({ success: false, error: 'nenhuma_integracao_disponivel' }, { headers: corsHeaders });
+      }
+      
+      // ============================================================================
+      // PRIORIDADE 0: PERGUNTA DE CONTINUIDADE (antes de tudo)
+      // ============================================================================
+      if (thread.pre_atendimento_state === 'WAITING_CONTINUITY_CHOICE') {
+        console.log('[PRE-ATEND] ❓ Processando resposta de continuidade');
+        
+        const metadata = thread.continuity_metadata || {};
+        const lastUserId = metadata.last_assigned_user_id;
+        const lastUserName = metadata.last_assigned_user_name;
+        
+        // Opção 1: Continuar
+        if (['1', 'continuar', 'sim', 'mesmo atendente', 'continuar atendimento'].some(opt => textoLower.includes(opt))) {
+          console.log('[PRE-ATEND] ✅ Cliente escolheu CONTINUAR');
+          
+          await base44.asServiceRole.entities.MessageThread.update(thread_id, {
+            assigned_user_id: lastUserId,
+            assigned_user_name: lastUserName,
+            pre_atendimento_state: null,
+            pre_atendimento_ativo: false,
+            unread_count: Math.max(1, thread.unread_count || 0)
+          });
+          
+          const msgConfirm = `✅ Perfeito! Continuando seu atendimento com *${lastUserName}*. Ele será notificado! 😊`;
+          await enviarMensagem(base44, integracao, contato.telefone, msgConfirm, thread_id);
+          
+          return Response.json({ success: true, continuou: true }, { headers: corsHeaders });
+        }
+        
+        // Opção 2: Novo atendimento
+        if (['2', 'novo', 'novo atendimento', 'iniciar novo', 'outro'].some(opt => textoLower.includes(opt))) {
+          console.log('[PRE-ATEND] 🆕 Cliente escolheu NOVO ATENDIMENTO');
+          
+          await base44.asServiceRole.entities.MessageThread.update(thread_id, {
+            pre_atendimento_state: 'WAITING_SECTOR_CHOICE',
+            assigned_user_id: null
+          });
+          
+          // Continua para o fluxo de seleção de setor abaixo (não retorna aqui)
+        } else {
+          // Resposta inválida
+          const msgRetry = `🤔 Não entendi. Digite:\n\n1️⃣ para continuar com ${lastUserName}\n2️⃣ para novo atendimento`;
+          await enviarMensagem(base44, integracao, contato.telefone, msgRetry, thread_id);
+          return Response.json({ success: true, retry_continuity: true }, { headers: corsHeaders });
+        }
+      }
+      
+      // ============================================================================
+      // FLUXO NORMAL: PROCESSAR SELEÇÃO DE SETOR
+      // ============================================================================
       const execucoes = await base44.asServiceRole.entities.FlowExecution.filter({
         thread_id: thread_id,
         status: 'ativo'
@@ -719,22 +750,10 @@ Deno.serve(async (req) => {
       const execucao = execucoes[0];
       const opcoesSetor = execucao.variables?.opcoes_setor || [];
       const tentativas = execucao.variables?.tentativas_nao_entendidas || 0;
-      
-      const textoOriginal = (resposta_usuario || '').trim();
-      const textoLower = textoOriginal.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-      const palavrasTexto = textoLower.split(/\s+/).filter(p => p.length > 0);
-      
-      console.log('[PRE-ATEND] 🔍 Analisando:', textoOriginal);
-      
-      const contato = await base44.asServiceRole.entities.Contact.get(contact_id);
-      const thread = await base44.asServiceRole.entities.MessageThread.get(thread_id);
       const isFidelizado = contato.is_cliente_fidelizado === true;
       const tipoContato = contato.tipo_contato || 'novo';
       
-      const integracao = await buscarIntegracao(base44, integration_id, thread);
-      if (!integracao) {
-        return Response.json({ success: false, error: 'nenhuma_integracao_disponivel' }, { headers: corsHeaders });
-      }
+      console.log('[PRE-ATEND] 🔍 Analisando:', textoOriginal);
 
       // Analisar contexto
       const contexto = await analisarContexto(base44, thread_id, textoOriginal);
@@ -744,71 +763,7 @@ Deno.serve(async (req) => {
       console.log('[PRE-ATEND] 📊 Intenção dominante:', contexto.intencaoDominante[0], '(', contexto.intencaoDominante[1], ')');
 
       // ============================================================================
-      // 🔄 PRIORIDADE 0: PROCESSAR ESCOLHA DE CONTINUIDADE
-      // ============================================================================
-      if (estadoAtual === 'WAITING_CONTINUITY_CHOICE') {
-        console.log('[PRE-ATEND] 🔄 Processando escolha de continuidade...');
-        
-        const lastUserId = execucao.variables?.last_assigned_user_id;
-        const lastUserName = execucao.variables?.last_assigned_user_name;
-        
-        // Opção 1: Continuar com atendente anterior
-        if (textoLower === '1' || textoLower.includes('continuar') || textoLower.includes('sim')) {
-          console.log('[PRE-ATEND] ✅ Escolheu CONTINUAR com atendente anterior');
-          
-          let atendenteAnterior = null;
-          if (lastUserId) {
-            try {
-              atendenteAnterior = await base44.asServiceRole.entities.User.get(lastUserId);
-            } catch (e) {}
-          }
-          
-          const setor = atendenteAnterior?.attendant_sector || thread.sector_id || 'geral';
-          
-          return Response.json(
-            await finalizarPreAtendimento(base44, {
-              thread_id, execucao_id: execucao.id, setor,
-              atendente: atendenteAnterior ? { id: atendenteAnterior.id, full_name: atendenteAnterior.full_name } : null,
-              motivo: 'continuidade_conversa', integracao, contato, variables: execucao.variables
-            }),
-            { headers: corsHeaders }
-          );
-        }
-        
-        // Opção 2: Novo atendimento
-        if (textoLower === '2' || textoLower.includes('novo')) {
-          console.log('[PRE-ATEND] 🆕 Escolheu NOVO atendimento');
-          
-          // Resetar atribuição e iniciar fluxo padrão
-          await base44.asServiceRole.entities.MessageThread.update(thread_id, {
-            assigned_user_id: null,
-            assigned_user_name: null,
-            assigned_user_email: null,
-            pre_atendimento_state: 'WAITING_SECTOR_CHOICE'
-          });
-          
-          // Enviar menu de setores
-          const saudacao = getSaudacao();
-          let mensagemTexto = `${saudacao}! Para qual setor você gostaria de falar?\n\n`;
-          mensagemTexto += opcoesSetor.map((op, i) => `${i + 1}. ${op.label}`).join('\n');
-          mensagemTexto += `\n\n_Responda com o número ou nome da opção desejada._`;
-          
-          await enviarMensagem(base44, integracao, contato.telefone, mensagemTexto, thread_id);
-          await base44.asServiceRole.entities.FlowExecution.update(execucao.id, {
-            variables: { ...execucao.variables, continuity_mode: false }
-          });
-          
-          return Response.json({ success: true, new_flow_started: true }, { headers: corsHeaders });
-        }
-        
-        // Não entendeu - repetir pergunta
-        const msgRetry = `🤔 Não entendi. Por favor, escolha:\n\n1️⃣ *Continuar* com ${lastUserName}\n2️⃣ Iniciar um *novo atendimento*\n\n_Digite 1 ou 2._`;
-        await enviarMensagem(base44, integracao, contato.telefone, msgRetry, thread_id);
-        return Response.json({ success: true, retry_continuity: true }, { headers: corsHeaders });
-      }
-
-      // ============================================================================
-      // 🤖 PRIORIDADE 1: PERGUNTAS SOBRE O NEXUS360
+      // 🤖 PRIORIDADE 0: PERGUNTAS SOBRE O NEXUS360
       // ============================================================================
       const palavrasNexus = ['nexus360', 'nexus 360', 'nexus', 'o que e nexus', 'sobre o nexus', 'como funciona', 'quem e voce', 'quem é você', 'voce e quem', 'você é quem', 'e uma ia', 'é uma ia', 'robo', 'robô', 'bot', 'automatico', 'automático', 'inteligencia artificial', 'ia de atendimento'];
       if (palavrasNexus.some(p => textoLower.includes(p))) {
@@ -825,7 +780,7 @@ Deno.serve(async (req) => {
       }
 
       // ============================================================================
-      // 🚨 PRIORIDADE 2: PEDIDO DIRETO DE ATENDENTE HUMANO
+      // 🚨 PRIORIDADE 1: PEDIDO DIRETO DE ATENDENTE HUMANO
       // ============================================================================
       const pedidosHumano = ['atendente', 'humano', 'pessoa', 'falar com alguem', 'quero falar', 'preciso falar', 'me ajuda', 'ajuda', 'atender', 'atendimento', 'falar com voce', 'voces'];
       if (pedidosHumano.some(p => textoLower.includes(p))) {
@@ -844,7 +799,7 @@ Deno.serve(async (req) => {
       }
 
       // ============================================================================
-      // 🔍 PRIORIDADE 3: BUSCA POR NOME DE ATENDENTE
+      // 🔍 PRIORIDADE 2: BUSCA POR NOME DE ATENDENTE
       // ============================================================================
       const { melhorMatch, melhorScore } = buscarAtendentePorNome(textoLower, palavrasTexto, todosAtendentes, contexto.historicoMensagens, thread);
 
@@ -869,7 +824,7 @@ Deno.serve(async (req) => {
       }
 
       // ============================================================================
-      // 📋 PRIORIDADE 4: SELEÇÃO EXPLÍCITA DE SETOR POR NÚMERO/NOME
+      // 📋 PRIORIDADE 3: SELEÇÃO EXPLÍCITA DE SETOR POR NÚMERO/NOME (TEM PRECEDÊNCIA!)
       // ============================================================================
       
       // Verificar se está aguardando escolha de ATENDENTE (já escolheu setor antes)
@@ -977,7 +932,7 @@ Deno.serve(async (req) => {
       }
 
       // ============================================================================
-      // 💰 PRIORIDADE 5: DETECTAR INTENÇÃO POR CONTEXTO
+      // 💰 PRIORIDADE 4: DETECTAR INTENÇÃO POR CONTEXTO (APENAS SE NÃO ESCOLHEU SETOR)
       // ============================================================================
       
       // 4A: Pagamento/Financeiro
@@ -1020,7 +975,7 @@ Deno.serve(async (req) => {
       }
 
       // ============================================================================
-      // 🧠 PRIORIDADE 6: INFERIR PELO CONTEXTO DOMINANTE
+      // 🧠 PRIORIDADE 5: INFERIR PELO CONTEXTO DOMINANTE (SETOR COM MAIS KEYWORDS)
       // ============================================================================
       if (contexto.setorDominante[1] >= 3) {
         console.log('[PRE-ATEND] 🧠 Setor inferido do contexto:', contexto.setorDominante[0]);
@@ -1044,9 +999,9 @@ Deno.serve(async (req) => {
         variables: { ...execucao.variables, tentativas_nao_entendidas: novasTentativas, ultima_resposta: textoOriginal }
       });
       
-      // Após 2 tentativas, direciona automaticamente
-      if (novasTentativas >= 2) {
-        console.log('[PRE-ATEND] ⏩ Direcionando automaticamente após múltiplas tentativas');
+      // Após 2 tentativas OU cliente fidelizado, direciona direto
+      if (novasTentativas >= 2 || isFidelizado || tipoContato === 'cliente') {
+        console.log('[PRE-ATEND] ⏩ Direcionando automaticamente');
         const setorFallback = contexto.setorDominante[1] > 0 ? contexto.setorDominante[0] : (thread?.sector_id || 'geral');
         const atendente = await buscarAtendenteDoSetor(base44, contato, setorFallback);
         return Response.json(
