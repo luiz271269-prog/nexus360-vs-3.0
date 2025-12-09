@@ -1,17 +1,19 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.4';
 
 // ============================================================================
-// WEBHOOK WHATSAPP W-API - v1.3.0 CORRIGIDO
+// WEBHOOK WHATSAPP W-API - v1.4.0 CORRIGIDO
 // ============================================================================
 // CORREÇÕES:
 // 1. Extração de mediaUrl CORRIGIDA - buscar em múltiplos campos
 // 2. Normalização de telefone SEM + para consistência
 // 3. Logs detalhados para debug de mídia
 // 4. Suporte para evento webhookConectado
+// 5. Detecção de saudação robusta (normalização NFD) - v1.4.0
+// 6. Logs aprimorados para debug do pré-atendimento
 // ============================================================================
 
-const VERSION = 'v1.3.0-wapi';
-const BUILD_DATE = '2025-12-02';
+const VERSION = 'v1.4.0-wapi';
+const BUILD_DATE = '2025-12-09';
 
 const corsHeaders = {
   'Content-Type': 'application/json',
@@ -565,33 +567,45 @@ async function handleMessage(dados, payloadBruto, base44, req) {
   });
 
   // ============================================================================
-  // ✅ PRÉ-ATENDIMENTO AUTOMÁTICO - VERSÃO CORRIGIDA
+  // ✅ PRÉ-ATENDIMENTO AUTOMÁTICO - VERSÃO CORRIGIDA v1.4.0
   // ============================================================================
-  // ⚠️ NÃO PROCESSAR PRÉ-ATENDIMENTO SE FOR MÍDIA (áudio, imagem, vídeo, documento)
-  // Motivo: Mídia não é uma resposta válida para o menu de setores/atendentes
+  // ⚠️ NÃO PROCESSAR SE FOR MÍDIA (áudio, imagem, vídeo, documento)
   // ============================================================================
   
   const isMidia = dados.mediaType && dados.mediaType !== 'none' && 
                   ['image', 'video', 'audio', 'document', 'sticker'].includes(dados.mediaType);
   
   if (isMidia) {
-    console.log('[W-API WEBHOOK] 📎 Mensagem de mídia detectada - NÃO ativar pré-atendimento | Tipo:', dados.mediaType);
+    console.log('[W-API WEBHOOK] 📎 Mensagem de mídia - NÃO ativar pré-atendimento | Tipo:', dados.mediaType);
   } else {
-    // Apenas processar pré-atendimento para mensagens de TEXTO
+    // Processar pré-atendimento para mensagens de TEXTO
     const SAUDACOES = [
-      'oi', 'olá', 'ola', 'oie', 'oii', 'oiii',
+      'oi', 'ola', 'oie', 'oii', 'oiii',
       'bom dia', 'boa tarde', 'boa noite',
       'bomdia', 'boatarde', 'boanoite',
       'hey', 'hello', 'hi',
-      'e aí', 'e ai', 'eai', 'eae',
+      'e ai', 'eai', 'eae',
       'tudo bem', 'tudo bom', 'como vai',
       'opa', 'fala', 'salve'
     ];
     
-    const mensagemLower = (dados.content || '').toLowerCase().trim();
-    const isSaudacao = SAUDACOES.some(s => mensagemLower === s || mensagemLower.startsWith(s + ' ') || mensagemLower.startsWith(s + ',') || mensagemLower.startsWith(s + '!'));
+    // Normalizar mensagem (remover acentos e pontuação)
+    const mensagemNorm = (dados.content || '')
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .trim();
     
-    // Verificar se há execução ativa de pré-atendimento
+    const isSaudacao = SAUDACOES.some(s => 
+      mensagemNorm === s || 
+      mensagemNorm.startsWith(s + ' ') || 
+      mensagemNorm.startsWith(s + ',') || 
+      mensagemNorm.startsWith(s + '!')
+    );
+    
+    console.log('[W-API WEBHOOK] 🔍 Msg recebida:', dados.content, '| Normalizada:', mensagemNorm, '| É saudação?', isSaudacao);
+    
+    // Buscar execuções ativas
     let execucoesAtivas = [];
     try {
       execucoesAtivas = await base44.asServiceRole.entities.FlowExecution.filter({
@@ -602,27 +616,34 @@ async function handleMessage(dados, payloadBruto, base44, req) {
       console.log('[W-API WEBHOOK] ⚠️ Erro ao buscar execuções ativas:', e?.message);
     }
 
-    // Verificar estado do pré-atendimento na thread
+    // Verificar estado da thread
     const threadAtualizada = await base44.asServiceRole.entities.MessageThread.get(thread.id);
     const preAtendimentoAtivo = threadAtualizada.pre_atendimento_ativo === true;
     const estadoPreAtend = threadAtualizada.pre_atendimento_state || 'INIT';
     
-    // 🔧 CORREÇÃO: Se thread está marcada como ativa mas SEM execuções, resetar estado
+    console.log('[W-API WEBHOOK] 📊 Thread State:', {
+      pre_atendimento_ativo: preAtendimentoAtivo,
+      estado: estadoPreAtend,
+      execucoes_ativas: execucoesAtivas.length
+    });
+    
+    // Resetar se thread marcada como ativa mas sem execuções
     if (preAtendimentoAtivo && execucoesAtivas.length === 0) {
-      console.log('[W-API WEBHOOK] ⚠️ Thread com pré-atendimento ativo mas sem execuções - RESETANDO');
+      console.log('[W-API WEBHOOK] ⚠️ Thread com PA ativo mas sem execuções - RESETANDO');
       try {
         await base44.asServiceRole.entities.MessageThread.update(thread.id, {
           pre_atendimento_ativo: false,
           pre_atendimento_state: 'INIT'
         });
       } catch (e) {
-        console.error('[W-API WEBHOOK] ❌ Erro ao resetar estado:', e?.message);
+        console.error('[W-API WEBHOOK] ❌ Erro ao resetar:', e?.message);
       }
     }
     
+    // DECISÃO: Processar resposta OU iniciar novo
     if (preAtendimentoAtivo && execucoesAtivas.length > 0) {
-      // Processar resposta do pré-atendimento em andamento
-      console.log('[W-API WEBHOOK] 🔄 Pré-atendimento ativo | Estado:', estadoPreAtend, '| Thread:', thread.id);
+      // PA em andamento - processar resposta
+      console.log('[W-API WEBHOOK] 🔄 PA ativo | Processando resposta | Estado:', estadoPreAtend);
       try {
         await base44.functions.invoke('executarPreAtendimento', {
           action: 'processar_resposta',
@@ -632,24 +653,24 @@ async function handleMessage(dados, payloadBruto, base44, req) {
           resposta_usuario: dados.content
         });
       } catch (e) {
-        console.error('[W-API WEBHOOK] ❌ Erro ao processar resposta pré-atendimento:', e?.message);
+        console.error('[W-API WEBHOOK] ❌ Erro ao processar resposta PA:', e?.message);
       }
     } else if (isSaudacao) {
-      // Iniciar pré-atendimento se for saudação (independente do estado anterior)
-      console.log('[W-API WEBHOOK] 🚀 Saudação detectada! Iniciando pré-atendimento | Msg:', mensagemLower, '| Thread:', thread.id);
+      // Saudação detectada - INICIAR PA
+      console.log('[W-API WEBHOOK] 🚀 SAUDAÇÃO DETECTADA! Iniciando PA | Msg:', mensagemNorm);
       try {
-        await base44.functions.invoke('executarPreAtendimento', {
+        const resultPA = await base44.functions.invoke('executarPreAtendimento', {
           action: 'iniciar',
           thread_id: thread.id,
           contact_id: contato.id,
           integration_id: integracaoId
         });
-        console.log('[W-API WEBHOOK] ✅ Pré-atendimento iniciado com sucesso');
+        console.log('[W-API WEBHOOK] ✅ PA iniciado | Resultado:', resultPA?.data || 'ok');
       } catch (e) {
-        console.error('[W-API WEBHOOK] ❌ Erro ao iniciar pré-atendimento:', e?.message);
+        console.error('[W-API WEBHOOK] ❌ ERRO ao iniciar PA:', e?.message, '| Stack:', e?.stack);
       }
     } else {
-      console.log('[W-API WEBHOOK] ℹ️ Mensagem não é saudação, pré-atendimento não ativado | Msg:', mensagemLower.substring(0, 30));
+      console.log('[W-API WEBHOOK] ℹ️ Não é saudação, PA não ativado | Msg:', mensagemNorm.substring(0, 40));
     }
   }
 
