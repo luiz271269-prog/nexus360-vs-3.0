@@ -519,8 +519,8 @@ async function finalizarPreAtendimento(base44, params) {
   // Mensagem de sistema de transferência para destaque visual
   await base44.asServiceRole.entities.Message.create({
     thread_id: thread_id,
-    sender_id: 'system',
-    sender_type: 'system',
+    sender_id: atendente?.id || 'pre_atendimento_bot',
+    sender_type: 'user',
     content: `🔔 Conversa direcionada para ${atendente?.full_name || setorLabels[setor] || setor}`,
     channel: 'interno',
     status: 'enviada',

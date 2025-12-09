@@ -220,7 +220,6 @@ export default function MessageBubble({
 
   const todasCategorias = [...CATEGORIAS_FIXAS, ...categoriasDB];
 
-  const isSystemMessage = message?.sender_type === 'system';
   const isTransferMessage = message?.metadata?.is_system_message === true && message?.metadata?.message_type === 'transfer';
 
   useEffect(() => {
@@ -591,7 +590,7 @@ export default function MessageBubble({
             borderRadius: isOwn ? '8px 0 8px 8px' : '0 8px 8px 8px'
           }}>
             {/* ✅ ÍCONES FLUTUANTES - APARECEM AO PASSAR O MOUSE */}
-            {!modoSelecao && !isSystemMessage &&
+            {!modoSelecao && !isTransferMessage &&
             <TooltipProvider>
                 <div className="absolute -top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-all duration-200 z-20">
                   {onResponder &&

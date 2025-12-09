@@ -355,8 +355,8 @@ export default function ChatWindow({
 
       await base44.entities.Message.create({
         thread_id: thread.id,
-        sender_id: 'system',
-        sender_type: 'system',
+        sender_id: usuario.id,
+        sender_type: 'user',
         recipient_id: thread.contact_id,
         recipient_type: 'contact',
         content: textoMensagem,
