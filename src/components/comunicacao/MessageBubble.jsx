@@ -1146,7 +1146,7 @@ export default function MessageBubble({
             })()}
 
             {/* ✅ TEXTO - SEM MÍDIA */}
-            {(!message?.media_url || message?.media_type === 'none') && message?.content && String(message.content || '').trim() !== '' && String(message.content) !== '[No content]' &&
+            {(!message?.media_url || message?.media_type === 'none') && message?.content != null && String(message.content || '').trim() !== '' && String(message.content) !== '[No content]' &&
             <>
                 <div className={cn("break-words whitespace-pre-wrap", isOwn ? "text-white" : "text-[#111b21]")}>
                   <p className="text-[14.2px] leading-[19px]">{String(message.content || '')}</p>
