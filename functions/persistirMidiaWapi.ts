@@ -7,8 +7,14 @@ import { createClientFromRequest } from 'npm:@base44/sdk@0.8.4';
 // no storage do Base44
 // ============================================================================
 
-const VERSION = 'v1.0.0';
+const VERSION = 'v1.0.1';
 const WAPI_BASE_URL = 'https://api.w-api.app/v1';
+const MAX_RETRIES = 2;
+const RETRY_DELAY = 2000;
+
+async function sleep(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
 
 Deno.serve(async (req) => {
   const headers = {
@@ -51,27 +57,45 @@ Deno.serve(async (req) => {
     // Extrair campos da estrutura
     const mediaKey = message_struct.mediaKey;
     const directPath = message_struct.directPath;
-    const mimetype = message_struct.mimetype || mimetype || 'image/jpeg';
+    const mimeType = message_struct.mimetype || mimetype || 'image/jpeg';
     
     console.log('[PERSISTIR-MIDIA-WAPI] 📞 Chamando W-API download-media | mediaKey:', mediaKey?.substring(0, 20), '| directPath:', directPath?.substring(0, 30));
     
-    // ✅ FORMATO PLANO - CONFORME DOCUMENTAÇÃO OFICIAL W-API
-    const downloadResp = await fetch(
-      `https://api.w-api.app/v1/message/download-media?instanceId=${integracao.instance_id_provider}`,
-      {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${integracao.api_key_provider}`
-        },
-        body: JSON.stringify({
-          mediaKey: mediaKey,
-          directPath: directPath,
-          type: media_type,
-          mimetype: mimetype
-        })
+    // ✅ RETRY LOGIC - Evitar rate limit
+    let downloadResp;
+    let lastError;
+    
+    for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+      try {
+        if (attempt > 0) {
+          console.log(`[PERSISTIR-MIDIA-WAPI] 🔄 Tentativa ${attempt + 1}/${MAX_RETRIES + 1}`);
+          await sleep(RETRY_DELAY * attempt);
+        }
+        
+        downloadResp = await fetch(
+          `https://api.w-api.app/v1/message/download-media?instanceId=${integracao.instance_id_provider}`,
+          {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${integracao.api_key_provider}`
+            },
+            body: JSON.stringify({
+              mediaKey: mediaKey,
+              directPath: directPath,
+              type: media_type,
+              mimetype: mimeType
+            })
+          }
+        );
+        
+        if (downloadResp.ok || downloadResp.status !== 429) break;
+        lastError = `Rate limit (429) - attempt ${attempt + 1}`;
+      } catch (e) {
+        lastError = e.message;
+        if (attempt === MAX_RETRIES) throw e;
       }
-    );
+    }
     
     if (!downloadResp.ok) {
       const errorText = await downloadResp.text();

@@ -12,7 +12,7 @@ import { createClientFromRequest } from 'npm:@base44/sdk@0.8.4';
 // 6. Logs aprimorados para debug do pré-atendimento
 // ============================================================================
 
-const VERSION = 'v1.4.0-wapi';
+const VERSION = 'v1.4.1-wapi';
 const BUILD_DATE = '2025-12-09';
 
 const corsHeaders = {
@@ -21,6 +21,14 @@ const corsHeaders = {
   'Access-Control-Allow-Methods': 'POST, GET, OPTIONS',
   'Access-Control-Allow-Headers': 'Content-Type, Authorization',
 };
+
+// ============================================================================
+// RATE LIMITING & CACHE
+// ============================================================================
+const requestQueue = new Map(); // telefone -> timestamp
+const RATE_LIMIT_MS = 1000; // 1 segundo entre mensagens do mesmo número
+const integrationCache = new Map(); // instanceId -> {data, timestamp}
+const CACHE_TTL = 60000; // 1 minuto
 
 // ============================================================================
 // NORMALIZAÇÃO DE TELEFONE - VERSÃO UNIFICADA (SEM + para consistência)
@@ -508,6 +516,14 @@ async function handleMessageUpdate(dados, base44) {
 async function handleMessage(dados, payloadBruto, base44, req) {
   const inicio = Date.now();
   
+  // Rate limiting por telefone
+  const lastRequest = requestQueue.get(dados.from);
+  if (lastRequest && (Date.now() - lastRequest) < RATE_LIMIT_MS) {
+    console.log('[W-API WEBHOOK] ⏸️ Rate limit - aguardando:', dados.from);
+    await new Promise(resolve => setTimeout(resolve, RATE_LIMIT_MS));
+  }
+  requestQueue.set(dados.from, Date.now());
+  
   // Verificar duplicata
   if (dados.messageId) {
     try {
@@ -520,15 +536,23 @@ async function handleMessage(dados, payloadBruto, base44, req) {
     } catch (e) {}
   }
 
-  // Buscar integracao W-API
+  // Buscar integracao W-API (com cache)
   let integracaoId = null;
   if (dados.instanceId) {
-    try {
-      const int = await base44.asServiceRole.entities.WhatsAppIntegration.filter(
-        { instance_id_provider: dados.instanceId, api_provider: 'w_api' }, '-created_date', 1
-      );
-      if (int.length > 0) integracaoId = int[0].id;
-    } catch (e) {}
+    const cached = integrationCache.get(dados.instanceId);
+    if (cached && (Date.now() - cached.timestamp) < CACHE_TTL) {
+      integracaoId = cached.id;
+    } else {
+      try {
+        const int = await base44.asServiceRole.entities.WhatsAppIntegration.filter(
+          { instance_id_provider: dados.instanceId, api_provider: 'w_api' }, '-created_date', 1
+        );
+        if (int.length > 0) {
+          integracaoId = int[0].id;
+          integrationCache.set(dados.instanceId, { id: integracaoId, timestamp: Date.now() });
+        }
+      } catch (e) {}
+    }
   }
 
   // Extrair foto de perfil
