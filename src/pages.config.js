@@ -5,7 +5,6 @@ import Orcamentos from './pages/Orcamentos';
 import Importacao from './pages/Importacao';
 import Vendas from './pages/Vendas';
 import Usuarios from './pages/Usuarios';
-import Automacao from './pages/Automacao';
 import Produtos from './pages/Produtos';
 import OrcamentoDetalhes from './pages/OrcamentoDetalhes';
 import Precificacao from './pages/Precificacao';
@@ -68,7 +67,6 @@ export const PAGES = {
     "Importacao": Importacao,
     "Vendas": Vendas,
     "Usuarios": Usuarios,
-    "Automacao": Automacao,
     "Produtos": Produtos,
     "OrcamentoDetalhes": OrcamentoDetalhes,
     "Precificacao": Precificacao,
