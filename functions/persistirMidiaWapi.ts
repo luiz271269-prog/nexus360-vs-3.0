@@ -24,7 +24,7 @@ Deno.serve(async (req) => {
     const base44 = createClientFromRequest(req);
     const payload = await req.json();
 
-    const { message_id, media_url, media_type, integration_id, filename, mimetype } = payload;
+    const { message_id, media_url, media_type, integration_id, filename, mimetype, is_base64 } = payload;
 
     if (!message_id || !media_url) {
       return Response.json({ 
@@ -33,40 +33,69 @@ Deno.serve(async (req) => {
       }, { status: 400, headers });
     }
 
-    console.log('[PERSISTIR-MIDIA-WAPI] 📥 Iniciando download:', {
+    console.log('[PERSISTIR-MIDIA-WAPI] 📥 Iniciando processamento:', {
       message_id,
       media_type,
       filename: filename || 'N/A',
-      url_preview: media_url.substring(0, 80)
+      formato: is_base64 ? 'Base64' : 'URL',
+      preview: is_base64 ? media_url.substring(0, 50) + '...' : media_url.substring(0, 80)
     });
 
-    // Baixar o arquivo da URL temporária com timeout
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 30000); // 30s timeout
-    
-    let mediaResponse;
-    try {
-      mediaResponse = await fetch(media_url, { 
-        signal: controller.signal,
-        headers: {
-          'User-Agent': 'VendaPro-MediaDownloader/2.0'
-        }
-      });
-      clearTimeout(timeoutId);
-    } catch (fetchError) {
-      clearTimeout(timeoutId);
-      if (fetchError.name === 'AbortError') {
-        throw new Error('Download timeout após 30s');
-      }
-      throw fetchError;
-    }
-    
-    if (!mediaResponse.ok) {
-      throw new Error(`Falha ao baixar mídia: HTTP ${mediaResponse.status}`);
-    }
+    let blob;
+    let contentType = mimetype || 'application/octet-stream';
 
-    const contentType = mediaResponse.headers.get('content-type') || mimetype || 'application/octet-stream';
-    const blob = await mediaResponse.blob();
+    // Processar Base64 ou URL
+    if (is_base64) {
+      // Extrair mimetype do Data URI se presente
+      const base64Match = media_url.match(/^data:([^;]+);base64,(.+)$/);
+      if (base64Match) {
+        contentType = base64Match[1];
+        const base64Data = base64Match[2];
+        const binaryString = atob(base64Data);
+        const bytes = new Uint8Array(binaryString.length);
+        for (let i = 0; i < binaryString.length; i++) {
+          bytes[i] = binaryString.charCodeAt(i);
+        }
+        blob = new Blob([bytes], { type: contentType });
+      } else {
+        // Base64 puro sem Data URI
+        const binaryString = atob(media_url);
+        const bytes = new Uint8Array(binaryString.length);
+        for (let i = 0; i < binaryString.length; i++) {
+          bytes[i] = binaryString.charCodeAt(i);
+        }
+        blob = new Blob([bytes], { type: contentType });
+      }
+      console.log('[PERSISTIR-MIDIA-WAPI] 📦 Base64 convertido para blob');
+    } else {
+      // Baixar da URL com timeout aumentado para 60s (estudo recomenda)
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 60000); // 60s timeout
+      
+      let mediaResponse;
+      try {
+        mediaResponse = await fetch(media_url, { 
+          signal: controller.signal,
+          headers: {
+            'User-Agent': 'VendaPro-MediaDownloader/2.0'
+          }
+        });
+        clearTimeout(timeoutId);
+      } catch (fetchError) {
+        clearTimeout(timeoutId);
+        if (fetchError.name === 'AbortError') {
+          throw new Error('Download timeout após 60s');
+        }
+        throw fetchError;
+      }
+      
+      if (!mediaResponse.ok) {
+        throw new Error(`Falha ao baixar mídia: HTTP ${mediaResponse.status}`);
+      }
+
+      contentType = mediaResponse.headers.get('content-type') || contentType;
+      blob = await mediaResponse.blob();
+    }
 
     // Validar tamanho (máx 50MB)
     const MAX_SIZE = 50 * 1024 * 1024;

@@ -227,18 +227,15 @@ function normalizarPayload(payload) {
     mediaMetadata = extrairMetadadosMidia(msgContent, 'image');
     conteudo = mediaMetadata.caption || '[Imagem]';
     
-    // W-API: Extrair mediaKey e directPath para download posterior
     const mediaKey = msgContent.imageMessage?.mediaKey;
     const directPath = msgContent.imageMessage?.directPath;
     
     console.log('[W-API WEBHOOK] 🖼️ Imagem detectada | mediaKey:', mediaKey ? 'SIM' : 'NÃO', '| directPath:', directPath ? 'SIM' : 'NÃO');
     
-    // Tentar extrair URL direta (fallback)
     mediaUrl = extrairMediaUrl(payload, msgContent, 'image');
     if (!mediaUrl && mediaKey && directPath) {
-      // Armazenar mediaKey/directPath para download posterior
-      mediaMetadata.mediaKey = mediaKey;
-      mediaMetadata.directPath = directPath;
+      // Armazenar ESTRUTURA COMPLETA para descriptografia (não apenas mediaKey/directPath)
+      mediaMetadata.messageStruct = msgContent.imageMessage;
       mediaMetadata.requiresDownload = true;
       console.log('[W-API WEBHOOK] 📦 Mídia requer download via API');
     }
@@ -630,8 +627,7 @@ async function handleMessage(dados, payloadBruto, base44, req) {
       quoted_message: dados.quotedMessage,
       processed_by: VERSION,
       provider: 'w_api',
-      mediaKey: dados.mediaKey,
-      directPath: dados.directPath,
+      messageStruct: dados.messageStruct,
       requiresDownload: dados.requiresDownload
     }
   });
@@ -749,13 +745,14 @@ async function handleMessage(dados, payloadBruto, base44, req) {
 
   // ✅ BAIXAR E PERSISTIR MÍDIA - W-API REQUER DOWNLOAD VIA API
   if (dados.mediaType && dados.mediaType !== 'none') {
-    // Se não tem URL direta, mas tem mediaKey/directPath, fazer download via API W-API
-    if (dados.requiresDownload && dados.mediaKey && dados.directPath && integracaoId) {
+    // Se não tem URL direta, fazer download via API W-API usando estrutura completa
+    if (dados.requiresDownload && dados.messageStruct && integracaoId) {
       console.log('[W-API WEBHOOK] 📥 Baixando mídia via API W-API...');
       
       try {
         const integracao = await base44.asServiceRole.entities.WhatsAppIntegration.get(integracaoId);
         
+        // Enviar estrutura completa da mensagem (conforme estudo técnico)
         const downloadResp = await fetch(`https://api.w-api.app/v1/message/download-media?instanceId=${integracao.instance_id_provider}`, {
           method: 'POST',
           headers: {
@@ -763,26 +760,27 @@ async function handleMessage(dados, payloadBruto, base44, req) {
             'Authorization': `Bearer ${integracao.api_key_provider}`
           },
           body: JSON.stringify({
-            mediaKey: dados.mediaKey,
-            directPath: dados.directPath,
-            type: dados.mediaType,
-            mimetype: dados.mimetype || 'image/jpeg'
+            message: dados.messageStruct
           })
         });
         
         const downloadData = await downloadResp.json();
         
-        if (downloadData.fileLink) {
-          console.log('[W-API WEBHOOK] ✅ Download bem-sucedido:', downloadData.fileLink);
+        // W-API pode retornar fileLink (URL) ou base64
+        const mediaSource = downloadData.fileLink || downloadData.base64;
+        
+        if (mediaSource) {
+          console.log('[W-API WEBHOOK] ✅ Download bem-sucedido | Tipo:', downloadData.fileLink ? 'URL' : 'Base64');
           
-          // Persistir a URL obtida
+          // Persistir (função suporta ambos)
           const resultPersistir = await base44.functions.invoke('persistirMidiaWapi', {
             message_id: mensagem.id,
-            media_url: downloadData.fileLink,
+            media_url: mediaSource,
             media_type: dados.mediaType,
             integration_id: integracaoId,
             filename: dados.fileName,
-            mimetype: dados.mimetype
+            mimetype: dados.mimetype,
+            is_base64: !downloadData.fileLink
           });
           
           if (resultPersistir?.data?.success) {
