@@ -39,7 +39,10 @@ import {
   isNaoAtribuida,
   filtrarAtendentesVisiveis,
   verificarBloqueioThread,
-  podeInteragirNaThread
+  podeInteragirNaThread,
+  temPermissaoIntegracao,
+  threadConexaoVisivel,
+  threadSetorVisivel
 } from "../components/lib/threadVisibility";
 import ModalSemPermissaoConversa from "../components/comunicacao/ModalSemPermissaoConversa";
 import BibliotecaAutomacoes from "../components/automacao/BibliotecaAutomacoes";
