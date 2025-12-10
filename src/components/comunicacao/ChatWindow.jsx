@@ -776,6 +776,174 @@ export default function ChatWindow({
     }
   }, [mediaRecorder]);
 
+  // ═══════════════════════════════════════════════════════════════════════════
+  // 🖼️ ENVIAR IMAGEM COLADA - Declarada ANTES de handleEnviarFromInput
+  // ═══════════════════════════════════════════════════════════════════════════
+  const enviarImagemColada = useCallback(async (imagemFile, previewUrl, legendaTexto = '') => {
+    if (!imagemFile || !podeEnviarMidias) {
+      toast.error('Não foi possível enviar a imagem');
+      return;
+    }
+
+    if (modoSelecaoMultipla && contatosSelecionados.length > 0) {
+      setUploadingPastedFile(true);
+      try {
+        const timestamp = Date.now();
+        let mimeType = imagemFile.type || 'image/png';
+        if (!mimeType.startsWith('image/')) mimeType = 'image/png';
+        const ext = mimeType.includes('jpeg') ? 'jpg' : mimeType.includes('webp') ? 'webp' : 'png';
+        
+        const imageFile = new File([imagemFile], `broadcast-${timestamp}.${ext}`, { 
+          type: mimeType,
+          lastModified: timestamp
+        });
+
+        toast.info('📤 Fazendo upload da imagem...');
+        const uploadResponse = await base44.integrations.Core.UploadFile({ file: imageFile });
+        const imageUrl = uploadResponse.file_url;
+
+        toast.info('📤 Enviando para os contatos selecionados...');
+        
+        await handleEnviarBroadcast({
+          texto: legendaTexto,
+          mediaUrl: imageUrl,
+          mediaType: 'image',
+          mediaCaption: legendaTexto.trim() || null
+        });
+
+      } catch (error) {
+        console.error('[BROADCAST] Erro ao enviar imagem:', error);
+        toast.error('Erro ao enviar imagem: ' + error.message);
+      } finally {
+        setUploadingPastedFile(false);
+      }
+      return;
+    }
+
+    if (!thread || !usuario) {
+      toast.error('Dados da conversa não disponíveis');
+      return;
+    }
+
+    const contatoTel = contatoCompleto?.telefone || contatoCompleto?.celular;
+    if (!contatoTel) {
+      toast.error('Contato sem telefone cadastrado.');
+      return;
+    }
+
+    const integrationIdParaUso = canalSelecionado || thread.whatsapp_integration_id;
+    if (!integrationIdParaUso) {
+      toast.error('Thread sem integração WhatsApp configurada.');
+      return;
+    }
+
+    await autoAtribuirThreadSeNecessario(thread);
+
+    const imagemParaEnviar = imagemFile;
+    const legendaImagem = legendaTexto.trim() || null;
+    const respostaParaMensagem = mensagemResposta;
+
+    setMensagemResposta(null);
+    setUploadingPastedFile(true);
+    setErro(null);
+
+    let novaMensagem;
+    try {
+      novaMensagem = await base44.entities.Message.create({
+        thread_id: thread.id,
+        sender_id: usuario.id,
+        sender_type: 'user',
+        recipient_id: thread.contact_id,
+        recipient_type: 'contact',
+        content: legendaImagem || '[Imagem]',
+        channel: 'whatsapp',
+        status: 'enviando',
+        sent_at: new Date().toISOString(),
+        media_url: previewUrl,
+        media_type: 'image',
+        media_caption: legendaImagem,
+        reply_to_message_id: respostaParaMensagem?.id || null,
+        metadata: {
+          whatsapp_integration_id: integrationIdParaUso,
+          is_pasted_image: true,
+          local_preview: true
+        }
+      });
+
+      if (onAtualizarMensagens) {
+        onAtualizarMensagens();
+      }
+    } catch (createError) {
+      console.error('[CHAT] Erro ao criar mensagem:', createError);
+      toast.error('Erro ao preparar envio.');
+      setUploadingPastedFile(false);
+      return;
+    }
+
+    (async () => {
+      try {
+        const timestamp = Date.now();
+        let mimeType = imagemParaEnviar.type || 'image/png';
+        if (!mimeType.startsWith('image/')) mimeType = 'image/png';
+        const ext = mimeType.includes('jpeg') ? 'jpg' : mimeType.includes('webp') ? 'webp' : 'png';
+        
+        const imageFile = new File([imagemParaEnviar], `print-${timestamp}.${ext}`, { 
+          type: mimeType,
+          lastModified: timestamp
+        });
+
+        const uploadResponse = await base44.integrations.Core.UploadFile({ file: imageFile });
+        const imageUrl = uploadResponse.file_url;
+
+        const dadosEnvio = {
+          integration_id: integrationIdParaUso,
+          numero_destino: contatoTel,
+          media_url: imageUrl,
+          media_type: 'image',
+          media_caption: legendaImagem
+        };
+        if (respostaParaMensagem?.whatsapp_message_id) {
+          dadosEnvio.reply_to_message_id = respostaParaMensagem.whatsapp_message_id;
+        }
+
+        const resultado = await base44.functions.invoke('enviarWhatsApp', dadosEnvio);
+
+        if (resultado.data.success) {
+          await base44.entities.Message.update(novaMensagem.id, {
+            status: 'enviada',
+            whatsapp_message_id: resultado.data.message_id,
+            media_url: imageUrl
+          });
+
+          await base44.entities.MessageThread.update(thread.id, {
+            last_message_content: '[Imagem]',
+            last_message_at: new Date().toISOString(),
+            last_message_sender: 'user',
+            last_media_type: 'image'
+          });
+        } else {
+          await base44.entities.Message.update(novaMensagem.id, {
+            status: 'falhou',
+            erro_detalhes: resultado.data.error || 'Erro'
+          });
+          toast.error('Falha ao enviar imagem');
+        }
+      } catch (error) {
+        console.error('[CHAT] Erro envio print:', error);
+        await base44.entities.Message.update(novaMensagem.id, {
+          status: 'falhou',
+          erro_detalhes: error.message
+        });
+        toast.error('Erro ao enviar imagem');
+      } finally {
+        setUploadingPastedFile(false);
+        if (onAtualizarMensagens) {
+          setTimeout(() => onAtualizarMensagens(), 300);
+        }
+      }
+    })();
+  }, [podeEnviarMidias, modoSelecaoMultipla, contatosSelecionados, handleEnviarBroadcast, thread, usuario, contatoCompleto, canalSelecionado, mensagemResposta, onAtualizarMensagens, autoAtribuirThreadSeNecessario]);
+
   // 🚀 HANDLER DE ENVIO - Recebe dados do MessageInput
   const handleEnviarFromInput = useCallback(async ({ texto, pastedImage, pastedImagePreview }) => {
     // Se tem imagem colada, processar como imagem
