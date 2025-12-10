@@ -65,7 +65,6 @@ export default function ContactInfoPanel({ contact, novoContatoTelefone, onClose
 
   useEffect(() => {
     carregarVendedores();
-    carregarAtendentes();
     
     if (contact) {
       setFormData({
@@ -103,21 +102,18 @@ export default function ContactInfoPanel({ contact, novoContatoTelefone, onClose
 
   const carregarVendedores = async () => {
     try {
-      const vendedoresData = await base44.entities.Vendedor.list('nome');
-      setVendedores(vendedoresData);
+      // ✅ Buscar usuários via serviceRole para obter TODOS os Users
+      const resultado = await base44.functions.invoke('listarUsuariosParaAtribuicao', {});
+      if (resultado?.data?.success && resultado?.data?.usuarios) {
+        setAtendentes(resultado.data.usuarios);
+      }
     } catch (error) {
-      console.error('[ContactInfoPanel] Erro ao carregar vendedores:', error);
+      console.error('[ContactInfoPanel] Erro ao carregar usuários:', error);
     }
   };
 
   const carregarAtendentes = async () => {
-    try {
-      // Buscar TODOS os usuários do sistema, não apenas atendentes de WhatsApp
-      const atendentesData = await base44.entities.User.list('full_name');
-      setAtendentes(atendentesData);
-    } catch (error) {
-      console.error('[ContactInfoPanel] Erro ao carregar atendentes:', error);
-    }
+    // ✅ REMOVIDO - carregamento unificado em carregarVendedores
   };
 
   const handleChange = async (campo, valor) => {
@@ -317,11 +313,11 @@ export default function ContactInfoPanel({ contact, novoContatoTelefone, onClose
                 onValueChange={(value) => handleChange('vendedor_responsavel', value === "nao" ? "" : value)}
               >
                 <SelectTrigger className="border-0 bg-transparent text-white h-6 p-0 focus:ring-0 flex-1">
-                  <SelectValue placeholder="Vendedor" />
+                  <SelectValue placeholder="Responsável" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="nao">Não atribuído</SelectItem>
-                  {vendedores.map(v => <SelectItem key={v.id} value={v.nome}>{v.nome}</SelectItem>)}
+                  {atendentes.map(a => <SelectItem key={a.id} value={a.full_name}>{a.full_name}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>
@@ -537,11 +533,11 @@ export default function ContactInfoPanel({ contact, novoContatoTelefone, onClose
                 disabled={!podeEditarContatos}
               >
                 <SelectTrigger className="border-0 bg-transparent text-white h-6 p-0 focus:ring-0 flex-1">
-                  <SelectValue placeholder="Vendedor" />
+                  <SelectValue placeholder="Responsável" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="nao">Não atribuído</SelectItem>
-                  {vendedores.map(v => <SelectItem key={v.id} value={v.nome}>{v.nome}</SelectItem>)}
+                  {atendentes.map(a => <SelectItem key={a.id} value={a.full_name}>{a.full_name}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>

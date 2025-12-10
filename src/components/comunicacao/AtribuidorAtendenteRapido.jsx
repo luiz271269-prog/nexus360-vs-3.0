@@ -69,12 +69,7 @@ export default function AtribuidorAtendenteRapido({
     staleTime: 5 * 60 * 1000
   });
 
-  // Buscar vendedores
-  const { data: vendedores = [] } = useQuery({
-    queryKey: ['vendedores-atribuidor'],
-    queryFn: () => base44.entities.Vendedor.filter({ status: 'ativo' }, 'nome'),
-    staleTime: 5 * 60 * 1000
-  });
+  // ✅ REMOVIDO: Busca de vendedores - agora usa apenas User
 
   // Determinar qual campo de fidelização usar baseado no tipo de contato e setor
   const getCampoFidelizacao = () => {
@@ -96,13 +91,12 @@ export default function AtribuidorAtendenteRapido({
     }
   };
 
-  // Obter atendente atual
-  // Se thread foi passada, mostrar o atendente da conversa
-  // Se não, mostrar o atendente fidelizado do contato
+  // ✅ Obter atendente atual - BUSCAR NOME DO USER DINAMICAMENTE
   const getAtendenteAtual = () => {
-    // Para atribuição de conversa: usar assigned_user_name da thread
-    if (thread?.id) {
-      return thread.assigned_user_name || null;
+    // Para atribuição de conversa: buscar User pelo assigned_user_id
+    if (thread?.id && thread.assigned_user_id) {
+      const user = atendentes.find(a => a.id === thread.assigned_user_id);
+      return user?.full_name || null;
     }
     
     // Para fidelização de contato: usar campos do contato
@@ -134,8 +128,8 @@ export default function AtribuidorAtendenteRapido({
       // ═══════════════════════════════════════════════════════════════════════
       if (thread?.id) {
         await base44.entities.MessageThread.update(thread.id, {
-          assigned_user_id: atendente ? atendente.id : null,
-          assigned_user_name: atendente ? atendente.full_name : null
+          assigned_user_id: atendente ? atendente.id : null
+          // ✅ assigned_user_name REMOVIDO - buscado dinamicamente do User
         });
         toast.success(`✅ Conversa ${nomeAtendente ? `atribuída a ${nomeAtendente}` : 'liberada'}`);
       }
@@ -184,22 +178,18 @@ export default function AtribuidorAtendenteRapido({
     e.preventDefault();
   };
 
-  // Combinar atendentes e vendedores sem duplicatas
+  // ✅ Usar apenas Users (fonte única de verdade)
   const pessoasDisponiveis = React.useMemo(() => {
-    const mapa = new Map();
-    
-    atendentes.forEach(a => {
-      mapa.set(a.full_name, { nome: a.full_name, tipo: 'atendente', id: a.id });
-    });
-    
-    vendedores.forEach(v => {
-      if (!mapa.has(v.nome)) {
-        mapa.set(v.nome, { nome: v.nome, tipo: 'vendedor', id: v.id });
-      }
-    });
-    
-    return Array.from(mapa.values()).sort((a, b) => a.nome.localeCompare(b.nome));
-  }, [atendentes, vendedores]);
+    return atendentes
+      .filter(a => a.full_name)
+      .map(a => ({
+        nome: a.full_name,
+        id: a.id,
+        setor: a.attendant_sector || 'geral',
+        email: a.email
+      }))
+      .sort((a, b) => a.nome.localeCompare(b.nome));
+  }, [atendentes]);
 
   // ═══════════════════════════════════════════════════════════════════════════
   // VARIANT: MINI - Apenas ícone pequeno
@@ -255,12 +245,12 @@ export default function AtribuidorAtendenteRapido({
           
           {pessoasDisponiveis.length === 0 ? (
             <div className="px-2 py-3 text-center text-xs text-slate-500">
-              Nenhum atendente disponível
+              Nenhum usuário disponível
             </div>
           ) : (
             pessoasDisponiveis.map(pessoa => (
               <DropdownMenuItem
-                key={pessoa.nome}
+                key={pessoa.id}
                 onClick={(e) => handleAtribuir(pessoa.nome, e)}
                 className="cursor-pointer"
               >
@@ -268,8 +258,8 @@ export default function AtribuidorAtendenteRapido({
                   <span className="text-white text-xs font-bold">{pessoa.nome?.charAt(0)}</span>
                 </div>
                 <span className="flex-1">{pessoa.nome}</span>
-                {pessoa.tipo === 'vendedor' && (
-                  <Badge variant="outline" className="text-[9px] ml-1">Vendedor</Badge>
+                {pessoa.setor && (
+                  <Badge variant="outline" className="text-[9px] ml-1 capitalize">{pessoa.setor}</Badge>
                 )}
                 {atendenteAtual === pessoa.nome && (
                   <Star className="w-3 h-3 text-amber-500 ml-1" />
@@ -324,15 +314,18 @@ export default function AtribuidorAtendenteRapido({
           
           {pessoasDisponiveis.map(pessoa => (
             <DropdownMenuItem
-              key={pessoa.nome}
+              key={pessoa.id}
               onClick={(e) => handleAtribuir(pessoa.nome, e)}
               className="cursor-pointer"
             >
               <div className="w-6 h-6 rounded-full bg-blue-500 flex items-center justify-center mr-2">
                 <span className="text-white text-xs font-bold">{pessoa.nome?.charAt(0)}</span>
               </div>
-              {pessoa.nome}
-              {atendenteAtual === pessoa.nome && <Star className="w-3 h-3 text-amber-500 ml-auto" />}
+              <span className="flex-1">{pessoa.nome}</span>
+              {pessoa.setor && (
+                <Badge variant="outline" className="text-[9px] ml-1 capitalize">{pessoa.setor}</Badge>
+              )}
+              {atendenteAtual === pessoa.nome && <Star className="w-3 h-3 text-amber-500 ml-1" />}
             </DropdownMenuItem>
           ))}
         </DropdownMenuContent>
@@ -389,7 +382,7 @@ export default function AtribuidorAtendenteRapido({
           
           {pessoasDisponiveis.map(pessoa => (
             <DropdownMenuItem
-              key={pessoa.nome}
+              key={pessoa.id}
               onClick={(e) => handleAtribuir(pessoa.nome, e)}
               className="cursor-pointer"
             >
@@ -398,7 +391,9 @@ export default function AtribuidorAtendenteRapido({
               </div>
               <div className="flex-1">
                 <p className="font-medium">{pessoa.nome}</p>
-                <p className="text-xs text-slate-500 capitalize">{pessoa.tipo}</p>
+                {pessoa.setor && (
+                  <p className="text-xs text-slate-500 capitalize">{pessoa.setor}</p>
+                )}
               </div>
               {atendenteAtual === pessoa.nome && (
                 <Badge className="bg-amber-100 text-amber-700">Atual</Badge>
@@ -435,12 +430,15 @@ export default function AtribuidorAtendenteRapido({
         
         {pessoasDisponiveis.map(pessoa => (
           <DropdownMenuItem
-            key={pessoa.nome}
+            key={pessoa.id}
             onClick={(e) => handleAtribuir(pessoa.nome, e)}
             className="cursor-pointer"
           >
-            {pessoa.nome}
-            {atendenteAtual === pessoa.nome && <Star className="w-3 h-3 text-amber-500 ml-auto" />}
+            <span className="flex-1">{pessoa.nome}</span>
+            {pessoa.setor && (
+              <Badge variant="outline" className="text-[9px] ml-1 capitalize">{pessoa.setor}</Badge>
+            )}
+            {atendenteAtual === pessoa.nome && <Star className="w-3 h-3 text-amber-500 ml-1" />}
           </DropdownMenuItem>
         ))}
         
