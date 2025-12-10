@@ -382,14 +382,7 @@ export default function ChatWindow({
       setMostrarModalAtribuicao(false);
 
       if (onAtualizarMensagens) {
-        setTimeout(async () => {
-          const novasMensagens = await base44.entities.Message.filter(
-            { thread_id: thread.id },
-            'created_date',
-            500
-          );
-          onAtualizarMensagens(novasMensagens);
-        }, 500);
+        onAtualizarMensagens();
       }
 
     } catch (error) {
@@ -606,14 +599,7 @@ export default function ChatWindow({
         setMensagemResposta(null);
 
         if (onAtualizarMensagens) {
-          setTimeout(async () => {
-            const novasMensagens = await base44.entities.Message.filter(
-              { thread_id: thread.id },
-              '-created_date',
-              200
-            );
-            onAtualizarMensagens(novasMensagens.reverse());
-          }, 500);
+          onAtualizarMensagens();
         }
       } else {
         throw new Error(resultado.data.error || 'Erro desconhecido ao enviar áudio pelo WhatsApp');
@@ -913,14 +899,7 @@ export default function ChatWindow({
         setMostrarSugestor(false);
 
         if (onAtualizarMensagens) {
-          setTimeout(async () => {
-            const novasMensagens = await base44.entities.Message.filter(
-              { thread_id: thread.id },
-              '-created_date',
-              200
-            );
-            onAtualizarMensagens(novasMensagens.reverse());
-          }, 500);
+          onAtualizarMensagens();
         }
       } else {
         throw new Error(resultado.data.error || 'Erro desconhecido ao enviar');
@@ -1045,14 +1024,7 @@ export default function ChatWindow({
       setMensagensSelecionadas([]);
 
       if (onAtualizarMensagens) {
-        setTimeout(async () => {
-          const novasMensagens = await base44.entities.Message.filter(
-            { thread_id: thread.id },
-            'created_date',
-            500
-          );
-          onAtualizarMensagens(novasMensagens);
-        }, 500);
+        onAtualizarMensagens();
       }
     } catch (error) {
       console.error('[CHAT] ❌ Erro geral ao apagar mensagens:', error);
@@ -1100,14 +1072,7 @@ export default function ChatWindow({
         }
 
         if (onAtualizarMensagens) {
-          setTimeout(async () => {
-            const novasMensagens = await base44.entities.Message.filter(
-              { thread_id: thread.id },
-              '-created_date',
-              200
-            );
-            onAtualizarMensagens(novasMensagens.reverse());
-          }, 500);
+          onAtualizarMensagens();
         }
       } catch (error) {
         console.error('[CHAT] ❌ Erro ao marcar como lida:', error);
@@ -2016,18 +1981,7 @@ export default function ChatWindow({
         onSend={() => {
           setMostrarMediaSystem(false);
           if (onAtualizarMensagens) {
-            setTimeout(async () => {
-              if (thread?.id) {
-                const novasMensagens = await base44.entities.Message.filter(
-                  { thread_id: thread.id },
-                  'created_date',
-                  500
-                );
-                onAtualizarMensagens(novasMensagens);
-              } else {
-                onAtualizarMensagens();
-              }
-            }, 500);
+            onAtualizarMensagens();
           }
         }}
         disabled={enviando || carregandoContato || gravandoAudio || modoSelecao}
@@ -2284,14 +2238,7 @@ export default function ChatWindow({
         atendentesPreCarregados={atendentesLista}
         onSuccess={() => {
           if (onAtualizarMensagens) {
-            setTimeout(async () => {
-              const novasMensagens = await base44.entities.Message.filter(
-                { thread_id: thread.id },
-                'created_date',
-                500
-              );
-              onAtualizarMensagens(novasMensagens);
-            }, 500);
+            onAtualizarMensagens();
           }
         }}
       />
