@@ -323,8 +323,7 @@ export default function ChatWindow({
 
       await base44.entities.MessageThread.update(thread.id, {
         assigned_user_id: atendenteEscolhido.id,
-        assigned_user_name: atendenteEscolhido.full_name,
-        assigned_user_email: atendenteEscolhido.email,
+        // ✅ assigned_user_name/email REMOVIDOS - buscados dinamicamente do User
         pre_atendimento_ativo: false,
         pre_atendimento_state: 'COMPLETED',
         unread_count: Math.max(1, thread.unread_count || 0),
@@ -340,8 +339,8 @@ export default function ChatWindow({
         timestamp: new Date().toISOString(),
         detalhes: {
           mensagem: `Conversa ${thread.assigned_user_id ? 'transferida' : 'atribuída'} para ${atendenteEscolhido.full_name}`,
-          atendente_anterior: thread.assigned_user_name || 'Nenhum',
-          atendente_novo: atendenteEscolhido.full_name,
+          atendente_anterior_id: thread.assigned_user_id || null,
+          atendente_novo_id: atendenteEscolhido.id,
           atribuido_por: usuario.full_name
         },
         origem: 'manual',
@@ -367,8 +366,9 @@ export default function ChatWindow({
           is_system_message: true,
           message_type: 'transfer',
           action_type: 'assignment',
-          atendente_anterior: thread.assigned_user_name || null,
-          atendente_novo: atendenteEscolhido.full_name,
+          atendente_anterior_id: thread.assigned_user_id || null,
+          atendente_novo_id: atendenteEscolhido.id,
+          atendente_novo_nome: atendenteEscolhido.full_name,
           transferido_por: usuario.full_name
         }
       });
@@ -465,8 +465,7 @@ export default function ChatWindow({
       try {
         await base44.entities.MessageThread.update(threadAtual.id, {
           assigned_user_id: usuario.id,
-          assigned_user_name: usuario.full_name || usuario.email,
-          assigned_user_email: usuario.email,
+          // ✅ assigned_user_name/email REMOVIDOS - buscados dinamicamente do User
           status: 'aberta'
         });
         

@@ -526,13 +526,13 @@ async function finalizarPreAtendimento(base44, params) {
     pre_atendimento_ativo: false,
     pre_atendimento_state: 'COMPLETED'
   };
-  
+
   const setorLabel = setorLabels[setor] || setor;
   let msg;
-  
+
   if (atendente && atendente.full_name) {
     threadUpdate.assigned_user_id = atendente.id;
-    // assigned_user_name será buscado dinamicamente do User
+    // ✅ assigned_user_name REMOVIDO - será buscado dinamicamente do User
     
     // Normalizar nomes para comparação (evitar redundância)
     const nomeAtendente = atendente.full_name.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
