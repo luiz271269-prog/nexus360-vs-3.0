@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -1900,8 +1899,8 @@ export default function ChatWindow({
 
                 </React.Fragment>);
 
-          });
-        })()}
+                });
+                }, [mensagens, selectedCategoria, thread?.unread_count, modoSelecao, mensagensSelecionadas, integracoes, contatoCompleto, atendentesLista])()}
         <div ref={messagesEndRef} />
         </div>
         )}
