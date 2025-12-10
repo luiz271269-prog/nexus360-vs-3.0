@@ -944,6 +944,7 @@ export default function Comunicacao() {
                       loading={loadingTopics}
                       usuarioAtual={usuario}
                       integracoes={integracoes}
+                      atendentes={atendentes}
                       modoSelecaoMultipla={modoSelecaoMultipla}
                       setModoSelecaoMultipla={setModoSelecaoMultipla}
                       contatosSelecionados={contatosSelecionados}
