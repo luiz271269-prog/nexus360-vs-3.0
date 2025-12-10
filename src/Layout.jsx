@@ -53,6 +53,7 @@ import DeploymentBanner from "../components/global/DeploymentBanner";
 import CacheBuster from "../components/global/CacheBuster";
 import FeedbackAutomaticoCapturado from "../components/inteligencia/FeedbackAutomaticoCapturado";
 import { calcularLembretesGlobal } from "../components/global/MotorLembretesGlobal";
+import UserAuthWidget from "../components/global/UserAuthWidget";
 
 function NavItem({ href, icon: Icon, label, badge, badgeColor, lembretesCount }) {
   const location = useLocation();
@@ -163,52 +164,9 @@ function SideBar({ isOpen, menuItems, contadoresLembretes, usuario, onOpenNexus 
           ))}
         </nav>
 
-        {/* Rodapé com usuário e versão */}
-        <div className="p-2 border-t border-slate-700/50 space-y-2">
-          {/* Emoji Usuário Logado */}
-          {usuario && (
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <div className="flex items-center justify-center p-2 rounded-xl bg-slate-800/50 hover:bg-slate-700/50 cursor-pointer transition-all">
-                  <span className="text-2xl">👤</span>
-                </div>
-              </TooltipTrigger>
-              <TooltipContent side="right" className="bg-slate-800 border-slate-700 p-3 max-w-xs">
-                <div className="space-y-1">
-                  <p className="font-bold text-white">{usuario.full_name || 'Usuário'}</p>
-                  <p className="text-xs text-slate-400">{usuario.email}</p>
-                  <div className="flex items-center gap-1 mt-2">
-                    <Badge className="bg-amber-500 text-white text-[10px]">{usuario.role || 'user'}</Badge>
-                    {usuario.attendant_sector && (
-                      <Badge className="bg-blue-500 text-white text-[10px]">{usuario.attendant_sector}</Badge>
-                    )}
-                  </div>
-                  {usuario.attendant_role && (
-                    <p className="text-[10px] text-slate-500 mt-1">Nível: {usuario.attendant_role}</p>
-                  )}
-                </div>
-              </TooltipContent>
-            </Tooltip>
-          )}
-
-          {/* Botão de Logout */}
-          {usuario && (
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <button
-                  onClick={() => base44.auth.logout()}
-                  className="w-full flex items-center justify-center p-2 rounded-xl bg-slate-800/50 hover:bg-red-600/20 hover:border-red-500/50 border border-transparent transition-all group"
-                >
-                  <LogOut className="h-5 w-5 text-slate-400 group-hover:text-red-400" />
-                </button>
-              </TooltipTrigger>
-              <TooltipContent side="right" className="bg-slate-800 border-slate-700">
-                <p className="text-sm text-white">Sair</p>
-              </TooltipContent>
-            </Tooltip>
-          )}
-
-
+        {/* Rodapé com autenticação unificada */}
+        <div className="p-2 border-t border-slate-700/50">
+          <UserAuthWidget usuario={globalUsuario} />
         </div>
       </aside>
     </TooltipProvider>
