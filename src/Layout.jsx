@@ -116,7 +116,7 @@ function NavItem({ href, icon: Icon, label, badge, badgeColor, lembretesCount })
 
 
 
-function SideBar({ isOpen, menuItems, contadoresLembretes, usuario, onOpenNexus }) {
+function SideBar({ isOpen, menuItems, contadoresLembretes, usuario, loadingUsuario, onLogout, onOpenNexus }) {
   return (
     <TooltipProvider>
       <aside
@@ -166,7 +166,7 @@ function SideBar({ isOpen, menuItems, contadoresLembretes, usuario, onOpenNexus 
 
         {/* Rodapé com autenticação unificada */}
         <div className="p-2 border-t border-slate-700/50">
-          <UserAuthWidget usuario={usuario} />
+          <UserAuthWidget usuario={usuario} loadingUsuario={loadingUsuario} onLogout={onLogout} />
         </div>
       </aside>
     </TooltipProvider>
@@ -177,6 +177,7 @@ export default function Layout({ children, currentPageName }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [nexusOpen, setNexusOpen] = useState(false);
   const [globalUsuario, setGlobalUsuario] = useState(null);
+  const [loadingUsuario, setLoadingUsuario] = useState(true);
   const [badges, setBadges] = useState({});
   const [contadoresLembretes, setContadoresLembretes] = useState({});
   const navigate = useNavigate();
@@ -293,9 +294,28 @@ export default function Layout({ children, currentPageName }) {
   useEffect(() => {
     carregarDadosGlobais();
     
-    const interval = setInterval(carregarDadosGlobais, 15 * 60 * 1000); // Aumentado para 15min
+    const interval = setInterval(() => {
+      // Recarregar dados apenas se já passou pelo carregamento inicial
+      if (!loadingUsuario) {
+        carregarDadosGlobais();
+      }
+    }, 15 * 60 * 1000); // Aumentado para 15min
     return () => clearInterval(interval);
-  }, []);
+  }, [loadingUsuario]);
+
+  const handleLogout = async () => {
+    try {
+      await base44.auth.logout();
+    } catch (error) {
+      console.error('[LAYOUT] Erro ao fazer logout:', error);
+    } finally {
+      // Garante que o estado reflita desconexão
+      setGlobalUsuario(null);
+      setLoadingUsuario(false);
+      // Opcional: forçar reload
+      window.location.reload();
+    }
+  };
 
   const carregarDadosGlobais = async () => {
     const agora = Date.now();
@@ -325,11 +345,16 @@ export default function Layout({ children, currentPageName }) {
       setBadges({});
 
     } catch (error) {
-      console.error("Erro ao carregar dados globais:", error);
+      console.error("[LAYOUT] Erro ao carregar dados globais:", error);
+      
+      // Força estado deslogado em caso de erro de autenticação
+      setGlobalUsuario(null);
       
       if (error.message?.includes('Rate limit') || error.message?.includes('429')) {
         console.warn('[LAYOUT] ⚠️ Rate limit atingido nos dados globais.');
       }
+    } finally {
+      setLoadingUsuario(false);
     }
   };
 
@@ -353,6 +378,8 @@ export default function Layout({ children, currentPageName }) {
         menuItems={menuItems}
         contadoresLembretes={contadoresLembretes}
         usuario={globalUsuario}
+        loadingUsuario={loadingUsuario}
+        onLogout={handleLogout}
         onOpenNexus={() => setNexusOpen(true)}
       />
 

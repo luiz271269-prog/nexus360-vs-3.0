@@ -17,14 +17,19 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 
-export default function UserAuthWidget({ usuario }) {
-  const handleLogout = () => {
-    base44.auth.logout();
-  };
-
+export default function UserAuthWidget({ usuario, loadingUsuario, onLogout }) {
   const handleLogin = () => {
     base44.auth.redirectToLogin();
   };
+
+  // Estado de carregamento
+  if (loadingUsuario) {
+    return (
+      <div className="w-full flex items-center justify-center p-3 rounded-xl bg-slate-800/30">
+        <div className="w-10 h-10 rounded-full border-2 border-slate-600 border-t-amber-500 animate-spin" />
+      </div>
+    );
+  }
 
   // Se não há usuário logado
   if (!usuario) {
@@ -104,7 +109,7 @@ export default function UserAuthWidget({ usuario }) {
         <DropdownMenuSeparator className="bg-slate-700" />
         
         <DropdownMenuItem 
-          onClick={handleLogout}
+          onClick={onLogout}
           className="cursor-pointer text-red-400 hover:text-red-300 hover:bg-red-900/20 focus:text-red-300 focus:bg-red-900/20"
         >
           <LogOut className="mr-2 h-4 w-4" />
