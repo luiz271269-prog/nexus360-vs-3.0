@@ -143,9 +143,14 @@ export default function Comunicacao() {
 
   const { data: mensagens = [] } = useQuery({
     queryKey: ['mensagens', threadAtiva?.id],
-    queryFn: () => {
+    queryFn: async () => {
       if (threadAtiva) {
-        return base44.entities.Message.filter({ thread_id: threadAtiva.id }, 'created_date', 200);
+        const ultimasMensagens = await base44.entities.Message.filter(
+          { thread_id: threadAtiva.id }, 
+          '-created_date',
+          200
+        );
+        return ultimasMensagens.reverse();
       }
       return Promise.resolve([]);
     },
