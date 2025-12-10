@@ -705,20 +705,53 @@ Deno.serve(async (req) => {
         const promocoes = await base44.asServiceRole.entities.Promotion.filter(
           { active: true },
           '-priority',
-          3
+          5
         );
         
-        const promocoesValidas = promocoes.filter(p => !p.valid_until || p.valid_until >= hoje);
+        // Filtrar promoções válidas (data + conexão + setor)
+        const promocoesValidas = promocoes.filter(p => {
+          // Verificar validade de data
+          if (p.valid_until && p.valid_until < hoje) return false;
+          
+          // Filtrar por conexão (se configurado na promoção)
+          if (p.conexao_id && p.conexao_id !== integracao.id) return false;
+          
+          // Filtrar por setor do contato (se já tiver histórico)
+          if (p.setor_alvo && thread?.sector_id && p.setor_alvo !== thread.sector_id) return false;
+          
+          return true;
+        });
         
-        if (promocoesValidas.length > 0) {
-          console.log(`[PRE-ATEND] 🎁 ${promocoesValidas.length} promoção(ões) ativa(s) encontrada(s)`);
+        // Priorizar promoções por categoria do contato
+        const tipoContato = contato.tipo_contato || 'novo';
+        const setorPreferencial = thread?.sector_id || 
+                                  contato.atendente_fidelizado_vendas ? 'vendas' : 
+                                  contato.atendente_fidelizado_assistencia ? 'assistencia' : null;
+        
+        // Ordenar por relevância
+        promocoesValidas.sort((a, b) => {
+          // Prioridade 1: Promoções do setor do contato
+          if (setorPreferencial) {
+            if (a.categoria === setorPreferencial && b.categoria !== setorPreferencial) return -1;
+            if (b.categoria === setorPreferencial && a.categoria !== setorPreferencial) return 1;
+          }
+          
+          // Prioridade 2: Campo priority (menor = mais importante)
+          return (a.priority || 10) - (b.priority || 10);
+        });
+        
+        // Limitar a 3 promoções
+        const promocoesParaEnviar = promocoesValidas.slice(0, 3);
+        
+        if (promocoesParaEnviar.length > 0) {
+          console.log(`[PRE-ATEND] 🎁 ${promocoesParaEnviar.length} promoção(ões) ativa(s) | Conexão: ${integracao.nome_instancia} | Setor: ${setorPreferencial || 'N/A'}`);
           
           // Pegar primeira com imagem para enviar
-          promocaoComImagem = promocoesValidas.find(p => p.imagem_url);
+          promocaoComImagem = promocoesParaEnviar.find(p => p.imagem_url);
           
           // Formatar texto das promoções
           promocoesTexto = '\n\n🎁 *PROMOÇÕES EM DESTAQUE:*\n';
-          promocoesValidas.forEach((p, idx) => {
+          promocoesParaEnviar.forEach((p, idx) => {
             promocoesTexto += `\n⭐ *${p.title}*`;
             promocoesTexto += `\n   ${p.short_description}`;
             if (p.price_info) {
@@ -727,8 +760,13 @@ Deno.serve(async (req) => {
             if (p.codigo_campanha) {
               promocoesTexto += `\n   🎟️ Código: ${p.codigo_campanha}`;
             }
+            if (p.link_produto) {
+              promocoesTexto += `\n   🔗 ${p.link_produto}`;
+            }
             promocoesTexto += '\n';
           });
+        } else {
+          console.log('[PRE-ATEND] ℹ️ Nenhuma promoção ativa disponível para esta conexão/setor');
         }
       } catch (e) {
         console.log('[PRE-ATEND] ⚠️ Erro ao buscar promoções:', e?.message);
