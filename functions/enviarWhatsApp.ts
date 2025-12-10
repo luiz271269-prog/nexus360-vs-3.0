@@ -20,6 +20,44 @@ const MEDIA_CONFIG = {
   audio: { endpoint: 'send-audio', zapiField: 'audio', wapiField: 'url' } // W-API usa 'url' para áudio
 };
 
+// Mapeamento de extensões para MIME types (Z-API)
+const EXT_TO_MIMETYPE = {
+  // Documentos
+  'pdf': 'application/pdf',
+  'doc': 'application/msword',
+  'docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  'xls': 'application/vnd.ms-excel',
+  'xlsx': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  'ppt': 'application/vnd.ms-powerpoint',
+  'pptx': 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+  'txt': 'text/plain',
+  'csv': 'text/csv',
+  'zip': 'application/zip',
+  'rar': 'application/x-rar-compressed',
+  '7z': 'application/x-7z-compressed',
+  // Imagens
+  'jpg': 'image/jpeg',
+  'jpeg': 'image/jpeg',
+  'png': 'image/png',
+  'gif': 'image/gif',
+  'webp': 'image/webp',
+  'bmp': 'image/bmp',
+  'svg': 'image/svg+xml',
+  // Vídeos
+  'mp4': 'video/mp4',
+  'avi': 'video/x-msvideo',
+  'mov': 'video/quicktime',
+  '3gp': 'video/3gpp',
+  'mkv': 'video/x-matroska',
+  // Áudios
+  'mp3': 'audio/mpeg',
+  'ogg': 'audio/ogg',
+  'opus': 'audio/opus',
+  'wav': 'audio/wav',
+  'm4a': 'audio/mp4',
+  'amr': 'audio/amr'
+};
+
 // Extrair extensão de uma URL ou nome de arquivo
 function extrairExtensao(urlOuNome, tipoInformado) {
   const mimeToExt = {
@@ -52,6 +90,35 @@ function extrairExtensao(urlOuNome, tipoInformado) {
   } catch (e) {}
   
   return mimeToExt[tipoInformado] || 'pdf'; // Default para documentos
+}
+
+// Obter MIME type baseado na extensão
+function obterMimeType(extensao) {
+  return EXT_TO_MIMETYPE[extensao.toLowerCase()] || 'application/octet-stream';
+}
+
+// Sanitizar nome de arquivo (remover caracteres inválidos)
+function sanitizarFileName(nome, extensao) {
+  if (!nome) return `document.${extensao}`;
+  
+  // Remover caracteres perigosos e limitar tamanho
+  let nomeSeguro = nome
+    .trim()
+    .replace(/[\/:*?"<>|\\]/g, '_')
+    .slice(0, 100);
+  
+  // Garantir que tem a extensão correta
+  const extLower = `.${extensao.toLowerCase()}`;
+  if (!nomeSeguro.toLowerCase().endsWith(extLower)) {
+    // Remover extensão errada se existir
+    const lastDot = nomeSeguro.lastIndexOf('.');
+    if (lastDot > 0) {
+      nomeSeguro = nomeSeguro.substring(0, lastDot);
+    }
+    nomeSeguro = `${nomeSeguro}${extLower}`;
+  }
+  
+  return nomeSeguro;
 }
 
 // Detectar tipo de mídia pela extensão/URL
@@ -346,17 +413,18 @@ Deno.serve(async (req) => {
         endpoint = `${baseUrl}/instances/${instanceId}/token/${token}/${config.endpoint}`;
         
         if (tipoMidiaReal === 'document') {
-          // Z-API DOCUMENTO: campo 'document' com URL
+          // ✅ Z-API DOCUMENTO: campos obrigatórios document + mimetype
+          const mimeType = obterMimeType(extensaoArquivo);
+          const nomeArquivoSeguro = sanitizarFileName(media_caption, extensaoArquivo);
+          
           body = {
             phone: numeroFormatado,
-            document: media_url
+            document: media_url,
+            mimetype: mimeType,           // ✅ CRÍTICO: Z-API exige mimetype para documentos
+            fileName: nomeArquivoSeguro   // Nome sanitizado com extensão correta
           };
-          // Para Z-API, fileName é opcional, mas útil para o receptor
-          if (media_caption) {
-            body.fileName = media_caption;
-          } else {
-            body.fileName = `document.${extensaoArquivo}`;
-          }
+          
+          console.log(`[ENVIAR-WHATSAPP-UNIFICADO] 📄 Documento Z-API: ${nomeArquivoSeguro} (${mimeType})`);
         } else if (tipoMidiaReal === 'image') {
           // Z-API IMAGEM
           body = {
