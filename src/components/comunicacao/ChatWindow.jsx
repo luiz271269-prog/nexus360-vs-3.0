@@ -1407,6 +1407,19 @@ export default function ChatWindow({
     });
   }, [mensagens, selectedCategoria]);
 
+  // ✅ HANDLER ATUALIZAR CONTATO - Declarado ANTES dos early returns
+  const handleAtualizarContato = useCallback(async (campo, valor) => {
+    if (!contatoCompleto || !podeTransferirConversas) return;
+
+    try {
+      await base44.entities.Contact.update(contatoCompleto.id, { [campo]: valor });
+      setContatoCompleto((prev) => ({ ...prev, [campo]: valor }));
+    } catch (error) {
+      console.error('[ChatWindow] Erro ao atualizar contato:', error);
+      toast.error('Erro ao atualizar');
+    }
+  }, [contatoCompleto, podeTransferirConversas]);
+
   // Se está em modo broadcast com contatos selecionados, mostrar interface de envio
   const mostrarInterfaceBroadcast = modoSelecaoMultipla && contatosSelecionados.length > 0;
 
@@ -1432,18 +1445,6 @@ export default function ChatWindow({
       </div>);
 
   }
-
-  const handleAtualizarContato = useCallback(async (campo, valor) => {
-    if (!contatoCompleto || !podeTransferirConversas) return;
-
-    try {
-      await base44.entities.Contact.update(contatoCompleto.id, { [campo]: valor });
-      setContatoCompleto((prev) => ({ ...prev, [campo]: valor }));
-    } catch (error) {
-      console.error('[ChatWindow] Erro ao atualizar contato:', error);
-      toast.error('Erro ao atualizar');
-    }
-  }, [contatoCompleto, podeTransferirConversas]);
 
   // Nome formatado: Empresa + Cargo + Nome
   let nomeContato = "";
