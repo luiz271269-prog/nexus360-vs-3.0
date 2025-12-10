@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { base44 } from '@/api/base44Client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
@@ -10,12 +10,14 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
-import { Plus, Pencil, Trash2, Tag, Calendar, DollarSign, AlertCircle } from 'lucide-react';
+import { Plus, Pencil, Trash2, Tag, Calendar, DollarSign, AlertCircle, Image, X, Upload } from 'lucide-react';
 import { toast } from 'sonner';
 
 export default function GerenciadorPromocoes() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingPromo, setEditingPromo] = useState(null);
+  const [uploading, setUploading] = useState(false);
+  const fileInputRef = useRef(null);
   const [formData, setFormData] = useState({
     title: '',
     short_description: '',
@@ -25,7 +27,9 @@ export default function GerenciadorPromocoes() {
     priority: 10,
     link_produto: '',
     codigo_campanha: '',
-    categoria: 'geral'
+    categoria: 'geral',
+    imagem_url: '',
+    tipo_midia: 'imagem'
   });
 
   const queryClient = useQueryClient();
@@ -77,7 +81,9 @@ export default function GerenciadorPromocoes() {
       priority: 10,
       link_produto: '',
       codigo_campanha: '',
-      categoria: 'geral'
+      categoria: 'geral',
+      imagem_url: '',
+      tipo_midia: 'imagem'
     });
     setEditingPromo(null);
     setDialogOpen(false);
@@ -94,9 +100,42 @@ export default function GerenciadorPromocoes() {
       priority: promo.priority || 10,
       link_produto: promo.link_produto || '',
       codigo_campanha: promo.codigo_campanha || '',
-      categoria: promo.categoria || 'geral'
+      categoria: promo.categoria || 'geral',
+      imagem_url: promo.imagem_url || '',
+      tipo_midia: promo.tipo_midia || 'imagem'
     });
     setDialogOpen(true);
+  };
+
+  const handleFileSelect = async (file) => {
+    if (!file) return;
+    
+    setUploading(true);
+    try {
+      const result = await base44.integrations.Core.UploadFile({ file });
+      setFormData({ ...formData, imagem_url: result.file_url, tipo_midia: 'imagem' });
+      toast.success('Imagem anexada com sucesso!');
+    } catch (error) {
+      toast.error('Erro ao fazer upload: ' + error.message);
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const handlePaste = async (e) => {
+    const items = e.clipboardData?.items;
+    if (!items) return;
+
+    for (const item of items) {
+      if (item.type.startsWith('image/')) {
+        e.preventDefault();
+        const file = item.getAsFile();
+        if (file) {
+          await handleFileSelect(file);
+        }
+        break;
+      }
+    }
   };
 
   const handleSubmit = (e) => {
@@ -166,8 +205,54 @@ export default function GerenciadorPromocoes() {
               </DialogTitle>
             </DialogHeader>
             
-            <form onSubmit={handleSubmit} className="space-y-4">
+            <form onSubmit={handleSubmit} className="space-y-4" onPaste={handlePaste}>
               <div className="grid grid-cols-2 gap-4">
+                {/* Upload de Imagem */}
+                <div className="col-span-2">
+                  <Label>Imagem do Produto</Label>
+                  <div className="mt-2 space-y-3">
+                    {formData.imagem_url ? (
+                      <div className="relative">
+                        <img 
+                          src={formData.imagem_url} 
+                          alt="Preview" 
+                          className="w-full h-48 object-cover rounded-lg border-2 border-slate-200"
+                        />
+                        <Button
+                          type="button"
+                          size="icon"
+                          variant="destructive"
+                          className="absolute top-2 right-2"
+                          onClick={() => setFormData({ ...formData, imagem_url: '' })}
+                        >
+                          <X className="w-4 h-4" />
+                        </Button>
+                      </div>
+                    ) : (
+                      <div 
+                        className="border-2 border-dashed border-slate-300 rounded-lg p-8 text-center cursor-pointer hover:border-orange-500 hover:bg-orange-50 transition-all"
+                        onClick={() => fileInputRef.current?.click()}
+                      >
+                        <Upload className="w-12 h-12 mx-auto text-slate-400 mb-3" />
+                        <p className="text-sm text-slate-600 mb-1">
+                          {uploading ? 'Enviando...' : 'Clique para escolher ou Cole (Ctrl+V) uma imagem'}
+                        </p>
+                        <p className="text-xs text-slate-400">PNG, JPG até 10MB</p>
+                      </div>
+                    )}
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) handleFileSelect(file);
+                      }}
+                    />
+                  </div>
+                </div>
+
                 <div className="col-span-2">
                   <Label htmlFor="title">Título da Promoção *</Label>
                   <Input
@@ -332,7 +417,14 @@ export default function GerenciadorPromocoes() {
             {promocoesAtivas.map((promo) => (
               <Card key={promo.id} className="border-l-4 border-l-green-500">
                 <CardHeader>
-                  <div className="flex items-start justify-between">
+                  <div className="flex items-start justify-between gap-4">
+                    {promo.imagem_url && (
+                      <img 
+                        src={promo.imagem_url} 
+                        alt={promo.title}
+                        className="w-32 h-32 object-cover rounded-lg border-2 border-slate-200 flex-shrink-0"
+                      />
+                    )}
                     <div className="flex-1">
                       <CardTitle className="text-lg">{promo.title}</CardTitle>
                       <CardDescription className="mt-2">
@@ -402,7 +494,14 @@ export default function GerenciadorPromocoes() {
             {promocoesInativas.map((promo) => (
               <Card key={promo.id} className="border-l-4 border-l-slate-300 opacity-60">
                 <CardHeader>
-                  <div className="flex items-start justify-between">
+                  <div className="flex items-start justify-between gap-4">
+                    {promo.imagem_url && (
+                      <img 
+                        src={promo.imagem_url} 
+                        alt={promo.title}
+                        className="w-32 h-32 object-cover rounded-lg border-2 border-slate-200 flex-shrink-0 opacity-60"
+                      />
+                    )}
                     <div className="flex-1">
                       <CardTitle className="text-lg text-slate-600">{promo.title}</CardTitle>
                       <CardDescription className="mt-2">
