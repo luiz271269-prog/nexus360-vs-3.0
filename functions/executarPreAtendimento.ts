@@ -1,16 +1,17 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.4';
 
 // ============================================================================
-// MOTOR DE PRÉ-ATENDIMENTO - v2.0.0
+// MOTOR DE PRÉ-ATENDIMENTO - v2.1.0
 // ============================================================================
 // Responsável por:
 // 1. Enviar saudação dinâmica com opções de setor
-// 2. Processar resposta do contato (setor, nome de atendente, intenção)
-// 3. Rotear para atendente fidelizado ou do setor
-// 4. Análise de contexto e intenção (pagamento, cotação, suporte)
+// 2. ENVIAR PROMOÇÕES ATIVAS automaticamente
+// 3. Processar resposta do contato (setor, nome de atendente, intenção)
+// 4. Rotear para atendente fidelizado ou do setor
+// 5. Análise de contexto e intenção (pagamento, cotação, suporte)
 // ============================================================================
 
-const VERSION = 'v2.0.0';
+const VERSION = 'v2.1.0';
 
 const corsHeaders = {
   'Content-Type': 'application/json',
@@ -238,6 +239,63 @@ async function enviarMensagem(base44, integracao, telefone, mensagem, thread_id)
     return { success: true, messageId: envioData.messageId || envioData.id };
   } catch (e) {
     console.error('[PRE-ATEND] ❌ Erro ao enviar mensagem:', e?.message);
+    return { success: false, error: e?.message };
+  }
+}
+
+// ============================================================================
+// FUNÇÃO AUXILIAR: ENVIAR IMAGEM
+// ============================================================================
+async function enviarImagem(base44, integracao, telefone, imagemUrl, caption, thread_id) {
+  const provider = integracao.api_provider || 'z_api';
+  const telefoneNumerico = telefone.replace(/\D/g, '');
+  
+  try {
+    let envioResp;
+    if (provider === 'w_api') {
+      envioResp = await fetch(`${integracao.base_url_provider || 'https://api.w-api.app/v1'}/${integracao.instance_id_provider}/messages/send-image`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${integracao.api_key_provider}` },
+        body: JSON.stringify({ 
+          phone: telefoneNumerico, 
+          image: imagemUrl,
+          caption: caption || ''
+        })
+      });
+    } else {
+      const zapiHeaders = { 'Content-Type': 'application/json' };
+      if (integracao.security_client_token_header) zapiHeaders['Client-Token'] = integracao.security_client_token_header;
+      envioResp = await fetch(`${integracao.base_url_provider}/instances/${integracao.instance_id_provider}/token/${integracao.api_key_provider}/send-image`, {
+        method: 'POST',
+        headers: zapiHeaders,
+        body: JSON.stringify({ 
+          phone: telefoneNumerico, 
+          image: imagemUrl,
+          caption: caption || ''
+        })
+      });
+    }
+    
+    const envioData = await envioResp.json();
+    
+    // Salvar mensagem no banco
+    await base44.asServiceRole.entities.Message.create({
+      thread_id: thread_id,
+      sender_id: 'system',
+      sender_type: 'user',
+      content: caption || '[Imagem]',
+      media_url: imagemUrl,
+      media_type: 'image',
+      channel: 'whatsapp',
+      status: 'enviada',
+      whatsapp_message_id: envioData.messageId || envioData.id,
+      sent_at: new Date().toISOString(),
+      metadata: { whatsapp_integration_id: integracao.id, pre_atendimento: true }
+    });
+    
+    return { success: true, messageId: envioData.messageId || envioData.id };
+  } catch (e) {
+    console.error('[PRE-ATEND] ❌ Erro ao enviar imagem:', e?.message);
     return { success: false, error: e?.message };
   }
 }
@@ -636,6 +694,46 @@ Deno.serve(async (req) => {
         mensagemTexto = mensagemTexto.replace('Olá!', `Olá, ${contato.nome}!`);
       }
 
+      // ============================================================================
+      // BUSCAR E ENVIAR PROMOÇÕES ATIVAS AUTOMATICAMENTE
+      // ============================================================================
+      let promocoesTexto = '';
+      let promocaoComImagem = null;
+      
+      try {
+        const hoje = new Date().toISOString().split('T')[0];
+        const promocoes = await base44.asServiceRole.entities.Promotion.filter(
+          { active: true },
+          '-priority',
+          3
+        );
+        
+        const promocoesValidas = promocoes.filter(p => !p.valid_until || p.valid_until >= hoje);
+        
+        if (promocoesValidas.length > 0) {
+          console.log(`[PRE-ATEND] 🎁 ${promocoesValidas.length} promoção(ões) ativa(s) encontrada(s)`);
+          
+          // Pegar primeira com imagem para enviar
+          promocaoComImagem = promocoesValidas.find(p => p.imagem_url);
+          
+          // Formatar texto das promoções
+          promocoesTexto = '\n\n🎁 *PROMOÇÕES EM DESTAQUE:*\n';
+          promocoesValidas.forEach((p, idx) => {
+            promocoesTexto += `\n⭐ *${p.title}*`;
+            promocoesTexto += `\n   ${p.short_description}`;
+            if (p.price_info) {
+              promocoesTexto += `\n   💰 ${p.price_info}`;
+            }
+            if (p.codigo_campanha) {
+              promocoesTexto += `\n   🎟️ Código: ${p.codigo_campanha}`;
+            }
+            promocoesTexto += '\n';
+          });
+        }
+      } catch (e) {
+        console.log('[PRE-ATEND] ⚠️ Erro ao buscar promoções:', e?.message);
+      }
+
       const opcoesSetor = template.opcoes_setor || [
         { label: '💼 Vendas', setor: 'vendas' },
         { label: '🔧 Suporte', setor: 'assistencia' },
@@ -643,9 +741,18 @@ Deno.serve(async (req) => {
       ];
 
       const listaOpcoes = opcoesSetor.map((op, i) => `${i + 1}. ${op.label}`).join('\n');
-      const mensagemCompleta = `${mensagemTexto}\n\n${listaOpcoes}\n\n_Responda com o número ou nome da opção desejada._`;
+      const mensagemCompleta = `${mensagemTexto}${promocoesTexto}\n\n${listaOpcoes}\n\n_Responda com o número ou nome da opção desejada._`;
 
       console.log('[PRE-ATEND] 📤 Enviando saudação para:', contato.telefone);
+      
+      // Se tem promoção com imagem, enviar imagem primeiro
+      if (promocaoComImagem?.imagem_url) {
+        console.log('[PRE-ATEND] 📸 Enviando imagem da promoção:', promocaoComImagem.title);
+        await enviarImagem(base44, integracao, contato.telefone, promocaoComImagem.imagem_url, promocaoComImagem.title, thread_id);
+        // Pequeno delay para não misturar ordem das mensagens
+        await new Promise(resolve => setTimeout(resolve, 500));
+      }
+      
       const envio = await enviarMensagem(base44, integracao, contato.telefone, mensagemCompleta, thread_id);
       
       if (!envio.success) {
@@ -660,7 +767,11 @@ Deno.serve(async (req) => {
         status: 'ativo',
         current_step: 0,
         started_at: new Date().toISOString(),
-        variables: { saudacao, opcoes_setor: opcoesSetor }
+        variables: { 
+          saudacao, 
+          opcoes_setor: opcoesSetor,
+          promocao_enviada: promocaoComImagem?.title || null
+        }
       });
 
       await base44.asServiceRole.entities.MessageThread.update(thread_id, {
