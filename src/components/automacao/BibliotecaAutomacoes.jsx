@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Zap, MessageSquare, Tag } from "lucide-react";
+import { Workflow, Tag, MessageSquare } from "lucide-react";
 import PlaybookManager from "./PlaybookManager";
 import QuickRepliesManager from "../comunicacao/QuickRepliesManager";
 import GerenciadorPromocoes from "./GerenciadorPromocoes";
@@ -35,16 +35,25 @@ export default function BibliotecaAutomacoes() {
         setCategoriaFiltro("all");
         setSearchTerm("");
       }} className="space-y-6">
-        <TabsList className="bg-white border shadow-sm">
-          <TabsTrigger value="playbooks" className="gap-2">
-            <Zap className="w-4 h-4" />
+        <TabsList className="grid grid-cols-3 w-full bg-gradient-to-r from-slate-50 to-slate-100 border-b-2 border-slate-200">
+          <TabsTrigger 
+            value="playbooks" 
+            className="gap-2 data-[state=active]:bg-gradient-to-r data-[state=active]:from-indigo-500 data-[state=active]:to-purple-600 data-[state=active]:text-white data-[state=active]:shadow-lg"
+          >
+            <Workflow className="w-4 h-4" />
             Playbooks
           </TabsTrigger>
-          <TabsTrigger value="promocoes" className="gap-2">
+          <TabsTrigger 
+            value="promocoes" 
+            className="gap-2 data-[state=active]:bg-gradient-to-r data-[state=active]:from-orange-500 data-[state=active]:to-red-500 data-[state=active]:text-white data-[state=active]:shadow-lg"
+          >
             <Tag className="w-4 h-4" />
             Promoções & Ofertas
           </TabsTrigger>
-          <TabsTrigger value="respostas" className="gap-2">
+          <TabsTrigger 
+            value="respostas" 
+            className="gap-2 data-[state=active]:bg-gradient-to-r data-[state=active]:from-green-500 data-[state=active]:to-emerald-600 data-[state=active]:text-white data-[state=active]:shadow-lg"
+          >
             <MessageSquare className="w-4 h-4" />
             Respostas Rápidas
           </TabsTrigger>
