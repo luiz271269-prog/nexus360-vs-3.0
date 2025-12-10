@@ -1243,6 +1243,51 @@ export default function ChatWindow({
     };
   }, [contatoCompleto, usuario, navigate]);
 
+  // 🎯 MEMOIZAÇÃO: Processar mensagens ANTES de qualquer early return
+  const mensagensProcessadas = useMemo(() => {
+    if (mensagens.length === 0) return [];
+
+    let mensagensFiltradas = mensagens;
+
+    // Filtrar por categoria se necessário
+    if (selectedCategoria && selectedCategoria !== 'all') {
+      mensagensFiltradas = mensagens.filter((m) => {
+        const temCategoria = m.categorias && Array.isArray(m.categorias) && m.categorias.includes(selectedCategoria);
+        return temCategoria;
+      });
+    }
+
+    // Filtrar mensagens inválidas
+    return mensagensFiltradas.filter((m) => {
+      if (m.metadata?.deleted) return true;
+      if (m.metadata?.is_system_message) return true;
+      if (m.metadata?.optimistic) return true;
+
+      const content = (m.content || '').trim();
+
+      if (m.media_url && m.media_type && m.media_type !== 'none') return true;
+      if (!content && (!m.media_url || m.media_type === 'none' || !m.media_type)) return false;
+      if (/[\+\-\d\s]*status@broadcast/i.test(content)) return false;
+      if (/@(broadcast|lid|s\.whatsapp\.net|c\.us)/i.test(content)) return false;
+      if (/status@/i.test(content)) return false;
+      if (/^[\+\-\d\s]+@/i.test(content)) return false;
+      if (/^\+?\d+@/i.test(content)) return false;
+      if (/^(Adicionar|Referência|Mídia enviada|Media enviada)$/i.test(content)) return false;
+
+      const conteudoInvalido = ['Mídia enviada', 'Media enviada', 'Adicionar', 'Referência', '[No content]', '[Message content missing]', '[Recovered message]', ''];
+      if (conteudoInvalido.includes(content)) return false;
+      if (/^[\+\-\s\d@\.]+$/.test(content) && content.length < 50) return false;
+      if (content.startsWith('[Media type:')) return false;
+
+      const tiposEspeciais = ['contact', 'location'];
+      if (tiposEspeciais.includes(m.media_type) && content.length > 0) return true;
+      if (m.media_url && m.media_type && m.media_type !== 'none') return true;
+      if (content.length > 0) return true;
+
+      return false;
+    });
+  }, [mensagens, selectedCategoria]);
+
   // Se está em modo broadcast com contatos selecionados, mostrar interface de envio
   const mostrarInterfaceBroadcast = modoSelecaoMultipla && contatosSelecionados.length > 0;
 
@@ -1733,129 +1778,69 @@ export default function ChatWindow({
       </div>
     ) : (
     <div ref={chatContainerRef} className="flex-1 overflow-y-auto p-4 space-y-1 bg-[#efeae2]" style={{ backgroundImage: "url('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAADIAAAAyCAMAAAAp4XiDAAAAUVBMVEWFhYWDg4N3d3dtbW17e3t1dXWBgYGHh4d5eXlzc3Oeli7////l5eXm5ubU1NTg4ODk5OTh4eHf39/e3t7d3d3c3NzS0tLX19fZ2dnPz8/R0dHLKKyVAAAAG3RSTlNAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEAvEOwtAAABhklEQVRIx5WWW47DIAxFMTiYNwEC5NF9L/TPxFJpR5rMGRBfDhdn/XoXKMOGaVhmWQ/WwBEqLwKqrg6hcbKkSBAlR4qAIpNIYXAkI1IYFNEIMYJ4NAQKaAQQKKQRQKCYRgCBkhoAApU0AoiU1gAQKaMRQKSsRgCR8hoARCpoBBCpqBFApJJGAJEqGgBE6mgEEKmrAUCknkYAkfoaAEQaagQQaawRQKSJBgCR5hoBRFprBBBppxFApL1GAJEOGgBEOmoEEOmsEUCki0YAka4aAETaawQQGaIRQGSYRgCRkRoBRMZoBBCZoBFAZJJGAJGpGgFE5mkAEFmoEUBkqUYAkQ0aAUQ2agQQ2aQBQGSbRgCR7RoBRHZqBBDZpQFAZJ9GAJH9GgFEDmoEEDmkAUDkiEYAkaMaAUROaAQQOakBQOScRgCR8xoBRC5qBBC5pAFA5LpGAJEbGgFEbmoEELmjEUDkngYAkYcaAUSeaAQQeaoRQOSFBgCRtxoBRD5oBBD5pAFAhP4Bp4OMj0wjNOcAAAAASUVORK5CYII=')" }}>
-        {mensagens.length === 0 ?
-        <div className="flex items-center justify-center h-full">
+        {mensagens.length === 0 ? (
+          <div className="flex items-center justify-center h-full">
             <p className="text-slate-400">Nenhuma mensagem ainda. Inicie a conversa!</p>
-          </div> :
-        useMemo(() => {
-          // 🏷️ FILTRO POR CATEGORIA - Aplicado ANTES de todos os outros filtros
-          let mensagensFiltradas = mensagens;
+          </div>
+        ) : mensagensProcessadas.length === 0 && selectedCategoria !== 'all' ? (
+          <div className="flex items-center justify-center h-full">
+            <div className="text-center">
+              <Tag className="w-16 h-16 text-slate-300 mx-auto mb-4" />
+              <p className="text-slate-600 font-semibold">Nenhuma mensagem com esta etiqueta</p>
+              <p className="text-sm text-slate-400 mt-2">Remova o filtro para ver todas as mensagens</p>
+            </div>
+          </div>
+        ) : (
+        mensagensProcessadas.map((mensagem, index) => {
+  // 🎯 MEMOIZAÇÃO: Processar mensagens ANTES de qualquer early return
+  const mensagensProcessadas = useMemo(() => {
+    if (mensagens.length === 0) return [];
 
-          if (selectedCategoria && selectedCategoria !== 'all') {
-            mensagensFiltradas = mensagens.filter((m) => {
-              const temCategoria = m.categorias && Array.isArray(m.categorias) && m.categorias.includes(selectedCategoria);
-              return temCategoria;
-            });
-          }
+    let mensagensFiltradas = mensagens;
 
-          // Se não há mensagens após filtro de categoria, mostrar aviso
-          if (mensagensFiltradas.length === 0 && selectedCategoria && selectedCategoria !== 'all') {
-            return (
-              <div className="flex items-center justify-center h-full">
-                <div className="text-center">
-                  <Tag className="w-16 h-16 text-slate-300 mx-auto mb-4" />
-                  <p className="text-slate-600 font-semibold">Nenhuma mensagem com esta etiqueta</p>
-                  <p className="text-sm text-slate-400 mt-2">Remova o filtro para ver todas as mensagens</p>
-                </div>
-              </div>);
+    // Filtrar por categoria se necessário
+    if (selectedCategoria && selectedCategoria !== 'all') {
+      mensagensFiltradas = mensagens.filter((m) => {
+        const temCategoria = m.categorias && Array.isArray(m.categorias) && m.categorias.includes(selectedCategoria);
+        return temCategoria;
+      });
+    }
 
-          }
+    // Filtrar mensagens inválidas
+    return mensagensFiltradas.filter((m) => {
+      if (m.metadata?.deleted) return true;
+      if (m.metadata?.is_system_message) return true;
+      if (m.metadata?.optimistic) return true;
 
-          return mensagensFiltradas.
-          filter((m) => {
-            // ✅ SEMPRE MOSTRAR mensagens deletadas, de sistema legítimas e otimistas
-            if (m.metadata?.deleted) return true;
-            if (m.metadata?.is_system_message) return true;
-            if (m.metadata?.optimistic) return true; // ✅ MOSTRAR mensagens otimistas
+      const content = (m.content || '').trim();
 
-            const content = (m.content || '').trim();
+      if (m.media_url && m.media_type && m.media_type !== 'none') return true;
+      if (!content && (!m.media_url || m.media_type === 'none' || !m.media_type)) return false;
+      if (/[\+\-\d\s]*status@broadcast/i.test(content)) return false;
+      if (/@(broadcast|lid|s\.whatsapp\.net|c\.us)/i.test(content)) return false;
+      if (/status@/i.test(content)) return false;
+      if (/^[\+\-\d\s]+@/i.test(content)) return false;
+      if (/^\+?\d+@/i.test(content)) return false;
+      if (/^(Adicionar|Referência|Mídia enviada|Media enviada)$/i.test(content)) return false;
 
-            // ✅ SEMPRE MOSTRAR mensagens com mídia válida (imagem, vídeo, áudio, etc)
-            if (m.media_url && m.media_type && m.media_type !== 'none') {
-              return true;
-            }
+      const conteudoInvalido = ['Mídia enviada', 'Media enviada', 'Adicionar', 'Referência', '[No content]', '[Message content missing]', '[Recovered message]', ''];
+      if (conteudoInvalido.includes(content)) return false;
+      if (/^[\+\-\s\d@\.]+$/.test(content) && content.length < 50) return false;
+      if (content.startsWith('[Media type:')) return false;
 
-            // ❌ BLOQUEAR IMEDIATAMENTE: mensagens vazias sem mídia
-            if (!content && (!m.media_url || m.media_type === 'none' || !m.media_type)) {
-              return false;
-            }
+      const tiposEspeciais = ['contact', 'location'];
+      if (tiposEspeciais.includes(m.media_type) && content.length > 0) return true;
+      if (m.media_url && m.media_type && m.media_type !== 'none') return true;
+      if (content.length > 0) return true;
 
-            // ❌ BLOQUEAR: +status@broadcast e variações
-            if (/[\+\-\d\s]*status@broadcast/i.test(content)) {
-              return false;
-            }
+      return false;
+    });
+  }, [mensagens, selectedCategoria]);
 
-            // ❌ BLOQUEAR: qualquer JID do WhatsApp (@broadcast, @lid, @s.whatsapp.net, @c.us)
-            if (/@(broadcast|lid|s\.whatsapp\.net|c\.us)/i.test(content)) {
-              return false;
-            }
+  // Se está em modo broadcast com contatos selecionados, mostrar interface de envio
+  const mostrarInterfaceBroadcast = modoSelecaoMultipla && contatosSelecionados.length > 0;
 
-            // ❌ BLOQUEAR: status@ em qualquer posição
-            if (/status@/i.test(content)) {
-              return false;
-            }
-
-            // ❌ BLOQUEAR: JIDs iniciando com números/símbolos seguidos de @
-            if (/^[\+\-\d\s]+@/i.test(content)) {
-              return false;
-            }
-
-            // ❌ BLOQUEAR: apenas números e @ (telefones com @)
-            if (/^\+?\d+@/i.test(content)) {
-              return false;
-            }
-
-            // ❌ BLOQUEAR: palavras específicas isoladas
-            if (/^(Adicionar|Referência|Mídia enviada|Media enviada)$/i.test(content)) {
-              return false;
-            }
-
-            // ❌ BLOQUEAR: lista de conteúdos inválidos
-            const conteudoInvalido = [
-            'Mídia enviada',
-            'Media enviada',
-            'Adicionar',
-            'Referência',
-            '[No content]',
-            '[Message content missing]',
-            '[Recovered message]',
-            ''];
-
-
-            if (conteudoInvalido.includes(content)) {
-              return false;
-            }
-
-            // ❌ BLOQUEAR: apenas caracteres especiais e números (sem texto real)
-            if (/^[\+\-\s\d@\.]+$/.test(content) && content.length < 50) {
-              return false;
-            }
-
-            // ❌ BLOQUEAR: prefixos inválidos
-            if (content.startsWith('[Media type:')) {
-              return false;
-            }
-
-            // ✅ Tipos especiais de mensagem (contato, localização)
-            const tiposEspeciais = ['contact', 'location'];
-            if (tiposEspeciais.includes(m.media_type) && content.length > 0) {
-              return true;
-            }
-
-            // ✅ Mensagens com mídia válida
-            if (m.media_url && m.media_type && m.media_type !== 'none') {
-              return true;
-            }
-
-            // ✅ Mensagens com texto válido (mínimo 1 caractere real)
-            if (content.length > 0) {
-              return true;
-            }
-
-            // ❌ Bloquear tudo que não passou pelos filtros acima
-            return false;
-          }).
-          map((mensagem, index) => {
+  if (!thread && !mostrarInterfaceBroadcast) {
             const isFirstUnread =
             mensagem.sender_type === 'contact' &&
             mensagem.status !== 'lida' &&
@@ -1899,8 +1884,8 @@ export default function ChatWindow({
 
                 </React.Fragment>);
 
-                });
-        }, [mensagens, selectedCategoria, thread?.unread_count, modoSelecao, mensagensSelecionadas, integracoes, contatoCompleto, atendentesLista])}
+                })
+        )}
         <div ref={messagesEndRef} />
         </div>
         )}
