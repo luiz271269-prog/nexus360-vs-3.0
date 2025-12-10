@@ -56,6 +56,7 @@ import CentralInteligenciaContato, {
   getProximaAcaoSugerida,
   TIPOS_CONTATO } from
 './CentralInteligenciaContato';
+import MessageInput from './MessageInput';
 
 export default function ChatWindow({
   thread = null,
@@ -72,7 +73,9 @@ export default function ChatWindow({
   contatosSelecionados = [],
   onCancelarSelecao
 }) {
-  const [mensagemTexto, setMensagemTexto] = useState("");
+  // ✅ ESTADOS REMOVIDOS DO PAI - Agora no MessageInput
+  // mensagemTexto, pastedImage, pastedImagePreview, inputRef
+  
   const [enviando, setEnviando] = useState(false);
   const [erro, setErro] = useState(null);
   const [contatoCompleto, setContatoCompleto] = useState(null);
@@ -92,8 +95,6 @@ export default function ChatWindow({
   const [mediaRecorder, setMediaRecorder] = useState(null);
   const audioStreamRef = useRef(null);
   const [uploadingPastedFile, setUploadingPastedFile] = useState(false);
-  const [pastedImage, setPastedImage] = useState(null);
-  const [pastedImagePreview, setPastedImagePreview] = useState(null);
 
   const [mostrarSugestor, setMostrarSugestor] = useState(false);
   const [ultimaMensagemCliente, setUltimaMensagemCliente] = useState(null);
@@ -110,7 +111,6 @@ export default function ChatWindow({
   const [progressoBroadcast, setProgressoBroadcast] = useState({ enviados: 0, erros: 0, total: 0 });
 
   const messagesEndRef = useRef(null);
-  const inputRef = useRef(null);
   const chatContainerRef = useRef(null);
   const unreadSeparatorRef = useRef(null);
   const fotoJaBuscada = useRef(new Set());
@@ -431,6 +431,7 @@ export default function ChatWindow({
 
   const handleEnviarBroadcast = useCallback(async (opcoes = {}) => {
     const { 
+      texto = '',
       mediaUrl = null, 
       mediaType = null, 
       mediaCaption = null,
@@ -443,7 +444,7 @@ export default function ChatWindow({
     }
 
     // Validar: precisa ter texto OU mídia
-    const temTexto = mensagemTexto.trim().length > 0;
+    const temTexto = texto.trim().length > 0;
     const temMidia = !!mediaUrl;
 
     if (!temTexto && !temMidia) {
@@ -471,7 +472,7 @@ export default function ChatWindow({
 
     // 📝 ASSINATURA: Adicionar setor e nome do atendente ao final da mensagem
     // Usa display_name (editável) > full_name (login) como fallback
-    let mensagemParaEnviar = mensagemTexto.trim();
+    let mensagemParaEnviar = texto.trim();
     const nomeAtendente = usuario?.display_name || usuario?.full_name;
     if (nomeAtendente && usuario?.attendant_sector) {
       const primeiroNome = nomeAtendente.split(' ')[0];
@@ -581,9 +582,6 @@ export default function ChatWindow({
     }
 
     setEnviandoBroadcast(false);
-    setMensagemTexto("");
-    setPastedImage(null);
-    setPastedImagePreview(null);
     
     if (enviados > 0) {
       toast.success(`✅ ${enviados} mensagem(ns) enviada(s) com sucesso!`);
@@ -600,7 +598,7 @@ export default function ChatWindow({
     if (onAtualizarMensagens) {
       onAtualizarMensagens();
     }
-  }, [podeEnviarMensagens, mensagemTexto, contatosSelecionados, usuario, onCancelarSelecao, onAtualizarMensagens, integracoes, canalSelecionado]);
+  }, [podeEnviarMensagens, contatosSelecionados, usuario, onCancelarSelecao, onAtualizarMensagens, integracoes, canalSelecionado]);
 
   const enviarAudio = useCallback(async (audioBlob) => {
     if (!podeEnviarAudios) {
@@ -778,31 +776,18 @@ export default function ChatWindow({
     }
   }, [mediaRecorder]);
 
-  // 🚀 ENVIO OTIMISTA OU TRADICIONAL
-  const handleEnviar = useCallback(async (e) => {
-    e?.preventDefault(); // Previne o comportamento padrão do formulário
+  // 🚀 HANDLER DE ENVIO - Recebe dados do MessageInput
+  const handleEnviarFromInput = useCallback(async ({ texto, pastedImage, pastedImagePreview }) => {
+    // Se tem imagem colada, processar como imagem
+    if (pastedImage) {
+      await enviarImagemColada(pastedImage, pastedImagePreview, texto);
+      return;
+    }
 
     // Se estiver em modo broadcast, chamar o handler de broadcast
     if (modoSelecaoMultipla && contatosSelecionados.length > 0) {
-      await handleEnviarBroadcast({});
+      await handleEnviarBroadcast({ texto });
       return;
-    }
-
-    // Verificações de permissão e estado
-    if (!podeEnviarMensagens) {
-      toast.error("❌ Você não tem permissão para enviar mensagens");
-      return;
-    }
-    if (enviando || gravandoAudio || uploadingPastedFile) {
-      return;
-    }
-    if (carregandoContato) {
-      toast.warning('⏳ Aguarde o contato ser carregado antes de enviar mensagens.');
-      return;
-    }
-    if (!mensagemTexto.trim()) {
-      // Se não há texto, e não há imagem colada, não faz nada
-      if (!pastedImage) return;
     }
 
     // Validações de thread e contato
@@ -824,7 +809,7 @@ export default function ChatWindow({
     await autoAtribuirThreadSeNecessario(thread);
 
     // Adicionar assinatura à mensagem
-    let mensagemParaEnviar = mensagemTexto.trim();
+    let mensagemParaEnviar = texto.trim();
     const nomeAtendenteEnvio = usuario?.display_name || usuario?.full_name;
     if (nomeAtendenteEnvio && usuario?.attendant_sector) {
       const primeiroNome = nomeAtendenteEnvio.split(' ')[0];
@@ -833,10 +818,8 @@ export default function ChatWindow({
     }
 
     const integrationIdParaUso = canalSelecionado || thread.whatsapp_integration_id;
-    const replyToMessageId = mensagemResposta?.id || null;
 
-    // 🚀 LIMPAR UI INSTANTANEAMENTE (0ms lag)
-    setMensagemTexto("");
+    // Limpar resposta
     setMensagemResposta(null);
     setMostrarSugestor(false);
 
@@ -845,38 +828,30 @@ export default function ChatWindow({
       onSendMessageOptimistic({
         texto: mensagemParaEnviar,
         integrationId: integrationIdParaUso,
-        replyToMessage: mensagemResposta, // Passa o objeto completo da mensagem de resposta
+        replyToMessage: mensagemResposta,
         thread: thread,
         usuario: usuario,
         contatoCompleto: contatoCompleto
       });
-    } else if (onEnviarMensagem) { // Fallback para envio tradicional se não houver handler otimista
-      // onEnviarMensagem é esperado para ser a função que lida com o envio tradicional,
-      // atualizando o estado *após* a resposta da API.
+    } else if (onEnviarMensagem) {
       onEnviarMensagem({
         threadId: thread.id,
         contactId: thread.contact_id,
         senderId: usuario.id,
         content: mensagemParaEnviar,
         integrationId: integrationIdParaUso,
-        replyToMessageId: replyToMessageId
+        replyToMessageId: mensagemResposta?.id || null
       });
     } else {
       toast.error("Nenhum método de envio de mensagem configurado.");
     }
-  }, [modoSelecaoMultipla, contatosSelecionados, handleEnviarBroadcast, podeEnviarMensagens, enviando, gravandoAudio, uploadingPastedFile, carregandoContato, mensagemTexto, pastedImage, thread, contatoCompleto, autoAtribuirThreadSeNecessario, usuario, canalSelecionado, mensagemResposta, onSendMessageOptimistic, onEnviarMensagem]);
+  }, [modoSelecaoMultipla, contatosSelecionados, handleEnviarBroadcast, thread, contatoCompleto, autoAtribuirThreadSeNecessario, usuario, canalSelecionado, mensagemResposta, onSendMessageOptimistic, onEnviarMensagem, enviarImagemColada]);
 
   const handleResponderMensagem = useCallback((mensagem) => {
     setMensagemResposta(mensagem);
     setModoSelecao(false);
     setMensagensSelecionadas([]);
     setMostrarSugestor(false);
-
-    setTimeout(() => {
-      if (inputRef.current) {
-        inputRef.current.focus();
-      }
-    }, 100);
   }, []);
 
   const ativarModoSelecao = useCallback(() => {
@@ -1013,15 +988,7 @@ export default function ChatWindow({
     return () => clearTimeout(timer);
   }, [thread?.id, mensagens.length, usuario?.id, onAtualizarMensagens]);
 
-  // ✅ Foco automático no campo de mensagem ao abrir conversa
-  useEffect(() => {
-    if (thread?.id && !carregandoContato && inputRef.current) {
-      const timer = setTimeout(() => {
-        inputRef.current?.focus();
-      }, 100);
-      return () => clearTimeout(timer);
-    }
-  }, [thread?.id, carregandoContato]);
+  // ✅ Foco automático removido - agora é responsabilidade do MessageInput
 
   useEffect(() => {
     if (!mensagens.length) return;
@@ -1045,9 +1012,6 @@ export default function ChatWindow({
         // ✅ Scroll para última mensagem (mais recente)
         messagesEndRef.current?.scrollIntoView({ behavior: 'instant' });
       }
-      
-      // ✅ Foco no campo de digitação após scroll
-      inputRef.current?.focus();
     }, 300);
 
     return () => clearTimeout(timer);
@@ -1340,48 +1304,8 @@ export default function ChatWindow({
   const isManager = usuario?.role === 'admin' || usuario?.role === 'supervisor';
   const canManageConversation = isManager || thread?.assigned_user_id === usuario?.id || !thread?.assigned_user_id;
 
-  const handleKeyDown = useCallback((e) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      // Se tem imagem colada, enviar imagem em vez de texto
-      if (pastedImage) {
-        enviarImagemColada();
-      } else {
-        handleEnviar(e); // Passa o evento para handleEnviar
-      }
-    }
-  }, [pastedImage, handleEnviar]);
-
-  // Handler para colar imagem (Ctrl+V / Cmd+V)
-  const handlePaste = useCallback(async (e) => {
-    const items = e.clipboardData?.items;
-    if (!items) return;
-
-    for (const item of items) {
-      if (item.type.startsWith('image/')) {
-        e.preventDefault();
-        const file = item.getAsFile();
-        if (file) {
-          setPastedImage(file);
-          const previewUrl = URL.createObjectURL(file);
-          setPastedImagePreview(previewUrl);
-          toast.info('📷 Imagem colada! Clique em enviar para compartilhar.');
-        }
-        break;
-      }
-    }
-  }, []);
-
-  const cancelarImagemColada = useCallback(() => {
-    if (pastedImagePreview) {
-      URL.revokeObjectURL(pastedImagePreview);
-    }
-    setPastedImage(null);
-    setPastedImagePreview(null);
-  }, [pastedImagePreview]);
-
-  const enviarImagemColada = useCallback(async () => {
-    if (!pastedImage || !podeEnviarMidias) {
+  const enviarImagemColada = useCallback(async (imagemFile, previewUrl, legendaTexto = '') => {
+    if (!imagemFile || !podeEnviarMidias) {
       toast.error('Não foi possível enviar a imagem');
       return;
     }
@@ -1394,11 +1318,11 @@ export default function ChatWindow({
       try {
         // Upload da imagem primeiro
         const timestamp = Date.now();
-        let mimeType = pastedImage.type || 'image/png';
+        let mimeType = imagemFile.type || 'image/png';
         if (!mimeType.startsWith('image/')) mimeType = 'image/png';
         const ext = mimeType.includes('jpeg') ? 'jpg' : mimeType.includes('webp') ? 'webp' : 'png';
         
-        const imageFile = new File([pastedImage], `broadcast-${timestamp}.${ext}`, { 
+        const imageFile = new File([imagemFile], `broadcast-${timestamp}.${ext}`, { 
           type: mimeType,
           lastModified: timestamp
         });
@@ -1411,9 +1335,10 @@ export default function ChatWindow({
         
         // Usar handleEnviarBroadcast com a mídia
         await handleEnviarBroadcast({
+          texto: legendaTexto,
           mediaUrl: imageUrl,
           mediaType: 'image',
-          mediaCaption: mensagemTexto.trim() || null
+          mediaCaption: legendaTexto.trim() || null
         });
 
       } catch (error) {
@@ -1421,8 +1346,6 @@ export default function ChatWindow({
         toast.error('Erro ao enviar imagem: ' + error.message);
       } finally {
         setUploadingPastedFile(false);
-        setPastedImage(null);
-        setPastedImagePreview(null);
       }
       return;
     }
@@ -1450,16 +1373,12 @@ export default function ChatWindow({
     // 🎯 AUTO-ATRIBUIÇÃO: Se thread sem dono, atribuir ao atendente
     await autoAtribuirThreadSeNecessario(thread);
 
-    // Guardar referências antes de limpar UI
-    const imagemParaEnviar = pastedImage;
-    const legendaImagem = mensagemTexto.trim() || null;
+    // Usar parâmetros recebidos
+    const imagemParaEnviar = imagemFile;
+    const legendaImagem = legendaTexto.trim() || null;
     const respostaParaMensagem = mensagemResposta;
-    const previewUrl = pastedImagePreview; // Guardar preview local
 
-    // Limpar UI imediatamente
-    setPastedImage(null);
-    setPastedImagePreview(null);
-    setMensagemTexto('');
+    // Limpar resposta
     setMensagemResposta(null);
     setUploadingPastedFile(true);
     setErro(null);
@@ -1477,7 +1396,7 @@ export default function ChatWindow({
         channel: 'whatsapp',
         status: 'enviando',
         sent_at: new Date().toISOString(),
-        media_url: previewUrl, // Preview local para exibição imediata
+        media_url: previewUrl, // Preview local
         media_type: 'image',
         media_caption: legendaImagem,
         reply_to_message_id: respostaParaMensagem?.id || null,
@@ -1565,7 +1484,7 @@ export default function ChatWindow({
         }
       }
     })();
-  }, [pastedImage, podeEnviarMidias, modoSelecaoMultipla, contatosSelecionados, handleEnviarBroadcast, thread, usuario, contatoCompleto, canalSelecionado, mensagemTexto, mensagemResposta, onAtualizarMensagens, autoAtribuirThreadSeNecessario, pastedImagePreview]);
+  }, [podeEnviarMidias, modoSelecaoMultipla, contatosSelecionados, handleEnviarBroadcast, thread, usuario, contatoCompleto, canalSelecionado, mensagemResposta, onAtualizarMensagens, autoAtribuirThreadSeNecessario]);
 
   return (
     <div className="flex flex-col h-full bg-white">
@@ -1860,234 +1779,57 @@ export default function ChatWindow({
 
       }
 
-      <form onSubmit={(e) => {
-        e.preventDefault();
-        // Se tem imagem colada, enviar imagem em vez de texto
-        if (pastedImage) {
-          enviarImagemColada();
-        } else {
-          handleEnviar(e);
-        }
-      }} className="bg-[#d6dfe1] text-gray-950 px-3 rounded-lg border-t flex-shrink-0">
+      {/* ✅ COMPONENTE ISOLADO - Zero re-render no ChatWindow ao digitar */}
+      <MessageInput
+        onSendMessage={handleEnviarFromInput}
+        mensagemResposta={mensagemResposta}
+        onClearResposta={() => setMensagemResposta(null)}
+        nomeContato={nomeContato}
+        gravandoAudio={gravandoAudio}
+        onStartRecording={iniciarGravacaoAudio}
+        onStopRecording={pararGravacaoAudio}
+        mostrarMediaSystem={mostrarMediaSystem}
+        onToggleMediaSystem={() => setMostrarMediaSystem(!mostrarMediaSystem)}
+        ultimaMensagemCliente={ultimaMensagemCliente}
+        mostrarSugestor={mostrarSugestor}
+        onToggleSugestor={() => setMostrarSugestor(!mostrarSugestor)}
+        podeEnviarMensagens={podeEnviarMensagens}
+        podeEnviarMidias={podeEnviarMidias}
+        podeEnviarAudios={podeEnviarAudios}
+        enviando={enviando}
+        carregandoContato={carregandoContato}
+        uploadingPastedFile={uploadingPastedFile}
+        modoSelecao={modoSelecao}
+        integracoes={integracoes}
+        canalSelecionado={canalSelecionado}
+        onCanalChange={setCanalSelecionado}
+        thread={thread}
+        modoSelecaoMultipla={modoSelecaoMultipla}
+        contatosSelecionados={contatosSelecionados}
+        onCancelarSelecao={onCancelarSelecao}
+        enviandoBroadcast={enviandoBroadcast}
+        progressoBroadcast={progressoBroadcast}
+      />
 
-        {/* Banner de Broadcast quando em modo seleção múltipla */}
-        {modoSelecaoMultipla && contatosSelecionados.length > 0 && (
-          <div className="mb-2 p-2 bg-gradient-to-r from-orange-500 to-amber-500 rounded-lg">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2 text-white">
-                <Users className="w-4 h-4" />
-                <span className="text-sm font-medium">
-                  Enviando para {contatosSelecionados.length} contato(s)
-                </span>
-              </div>
-              <button
-                type="button"
-                onClick={onCancelarSelecao}
-                className="text-white/80 hover:text-white text-xs underline"
-              >
-                Cancelar
-              </button>
-            </div>
-
-            {/* Barra de progresso durante envio */}
-            {enviandoBroadcast && (
-              <div className="mt-2">
-                <div className="flex items-center justify-between text-white text-xs mb-1">
-                  <span>Enviando...</span>
-                  <span>{progressoBroadcast.enviados + progressoBroadcast.erros} / {progressoBroadcast.total}</span>
-                </div>
-                <div className="w-full h-1.5 bg-white/30 rounded-full overflow-hidden">
-                  <div
-                    className="h-full bg-white transition-all duration-300"
-                    style={{
-                      width: `${((progressoBroadcast.enviados + progressoBroadcast.erros) / progressoBroadcast.total) * 100}%`
-                    }}
-                  />
-                </div>
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* Seletor de Canal WhatsApp - Modo Individual */}
-        {integracoes.length > 1 && !modoSelecaoMultipla &&
-        <div className="mb-2 flex items-center gap-2">
-            <label className="text-gray-900 text-xs font-medium">Enviar por:</label>
-            <select
-            value={canalSelecionado || thread?.whatsapp_integration_id || ''}
-            onChange={(e) => setCanalSelecionado(e.target.value)} className="bg-[#778ca6] text-slate-50 px-2 py-1 text-xs rounded border border-slate-300">
-              {integracoes.map((int) =>
-            <option key={int.id} value={int.id}>
-                  📱 {int.nome_instancia} ({int.numero_telefone})
-                </option>
-            )}
-            </select>
-          </div>
-        }
-
-        {/* Seletor de Canal WhatsApp - Modo Broadcast */}
-        {integracoes.length > 0 && modoSelecaoMultipla && contatosSelecionados.length > 0 &&
-        <div className="mb-2 flex items-center gap-2">
-            <label className="text-gray-900 text-xs font-medium">Enviar por:</label>
-            <select
-            value={canalSelecionado || integracoes.find(i => i.status === 'conectado')?.id || ''}
-            onChange={(e) => setCanalSelecionado(e.target.value)} 
-            className="bg-[#778ca6] text-slate-50 px-2 py-1 text-xs rounded border border-slate-300">
-              {integracoes.filter(i => i.status === 'conectado').map((int) =>
-                <option key={int.id} value={int.id}>
-                  📱 {int.nome_instancia} ({int.numero_telefone})
-                </option>
-              )}
-            </select>
-          </div>
-        }
-        
-        <div className="flex items-end gap-2">
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon" className="bg-transparent text-slate-50 text-sm font-medium rounded-md inline-flex items-center justify-center gap-2 whitespace-nowrap transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 hover:bg-accent hover:text-accent-foreground h-9 w-9 flex-shrink-0"
-
-            disabled={enviando || carregandoContato || gravandoAudio || modoSelecao || !podeEnviarMidias}
-            onClick={() => setMostrarMediaSystem(!mostrarMediaSystem)}
-            title={!podeEnviarMidias ? "Sem permissão para enviar mídias" : "Anexar arquivo"}>
-
-            <Paperclip className="w-5 h-5 text-slate-600" />
-          </Button>
-
-          <Button
-            type="button"
-            variant={gravandoAudio ? "destructive" : "ghost"}
-            size="icon" className="text-zinc-950 text-sm font-medium rounded-md inline-flex items-center justify-center gap-2 whitespace-nowrap transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 hover:bg-accent hover:text-accent-foreground h-9 w-9 flex-shrink-0"
-
-            disabled={enviando || carregandoContato || modoSelecao || uploadingPastedFile || !podeEnviarAudios}
-            onClick={gravandoAudio ? pararGravacaoAudio : iniciarGravacaoAudio}
-            title={!podeEnviarAudios ? "Sem permissão para enviar áudios" : gravandoAudio ? "Parar gravação" : "Gravar áudio"}>
-
-            {gravandoAudio ?
-            <StopCircle className="w-5 h-5 animate-pulse" /> :
-
-            <Mic className="w-5 h-5 text-slate-600" />
-            }
-          </Button>
-
-          {ultimaMensagemCliente && podeEnviarMensagens && !mostrarSugestor &&
-          <Button
-            type="button"
-            onClick={() => setMostrarSugestor(true)}
-            variant="ghost"
-            size="icon" className="text-red-600 text-sm font-medium rounded-md inline-flex items-center justify-center gap-2 whitespace-nowrap transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 hover:text-accent-foreground h-9 w-9 flex-shrink-0 hover:bg-purple-50"
-
-            title="Sugestões de IA"
-            disabled={enviando || carregandoContato || gravandoAudio || modoSelecao || uploadingPastedFile}>
-
-              <Sparkles className="w-5 h-5" />
-            </Button>
-          }
-
-          <div className="flex-1">
-            {/* Preview da imagem colada */}
-            {pastedImagePreview &&
-            <div className="mb-2 p-2 bg-blue-50 border border-blue-200 rounded-lg">
-                <div className="flex items-start gap-3">
-                  <img
-                  src={pastedImagePreview}
-                  alt="Preview"
-                  className="w-20 h-20 object-cover rounded-lg border border-blue-300" />
-
-                  <div className="flex-1">
-                    <p className="text-sm font-medium text-blue-800 mb-1">📷 Imagem colada</p>
-                    <p className="text-xs text-blue-600">Digite uma legenda (opcional) e clique em enviar</p>
-                  </div>
-                  <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  onClick={cancelarImagemColada}
-                  className="h-6 w-6 text-blue-600 hover:text-blue-800 hover:bg-blue-100">
-
-                    <X className="w-4 h-4" />
-                  </Button>
-                </div>
-              </div>
-            }
-            
-            <textarea
-              ref={inputRef}
-              value={mensagemTexto}
-              onChange={(e) => setMensagemTexto(e.target.value)}
-              onKeyDown={handleKeyDown}
-              onPaste={handlePaste}
-              placeholder={pastedImagePreview ? "Digite uma legenda para a imagem..." : !podeEnviarMensagens ? "Sem permissão para enviar mensagens" : "Digite sua mensagem... (Ctrl+V para colar imagem)"}
-              rows={Math.max(1, Math.min(5, mensagemTexto.split('\n').length))}
-              className="w-full p-3 border border-slate-300 rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-orange-500"
-              disabled={enviando || carregandoContato || gravandoAudio || modoSelecao || uploadingPastedFile || !podeEnviarMensagens} />
-
-          </div>
-          
-          {pastedImagePreview ?
-          <Button
-            type="button"
-            onClick={enviarImagemColada}
-            disabled={enviando || carregandoContato || uploadingPastedFile || !podeEnviarMidias}
-            className="bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white flex-shrink-0"
-            title="Enviar imagem colada">
-              {uploadingPastedFile ?
-            <Loader2 className="w-5 h-5 animate-spin" /> :
-
-            <>
-                  <ImageIcon className="w-4 h-4 mr-1" />
-                  <Send className="w-4 h-4" />
-                </>
-            }
-            </Button> :
-
-          <Button
-            type="button"
-            onClick={() => {
-              if (pastedImage) {
-                enviarImagemColada();
-              } else {
-                handleEnviar();
-              }
-            }}
-            disabled={
-              enviando || 
-              enviandoBroadcast || 
-              gravandoAudio || 
-              modoSelecao || 
-              uploadingPastedFile || 
-              !podeEnviarMensagens || 
-              (!modoSelecaoMultipla && carregandoContato) ||
-              (!mensagemTexto.trim() && !pastedImage)
-            }
-            className={`${modoSelecaoMultipla && contatosSelecionados.length > 0 ? 'bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600' : 'bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700'} text-white flex-shrink-0`}
-            title={!podeEnviarMensagens ? "Sem permissão para enviar mensagens" : modoSelecaoMultipla ? `Enviar para ${contatosSelecionados.length} contato(s)` : "Enviar mensagem"}>
-
-              {enviando || enviandoBroadcast ?
-            <Loader2 className="w-5 h-5 animate-spin" /> :
-
-            <Send className="w-5 h-5" />
-            }
-            </Button>
-          }
-        </div>
-
-        {mostrarSugestor &&
-        <div className="mt-2 border border-purple-200 rounded-lg bg-purple-50/50 p-3">
+      {mostrarSugestor &&
+        <div className="px-3 pb-3">
+          <div className="border border-purple-200 rounded-lg bg-purple-50/50 p-3">
             <SugestorRespostasRapidas
-            mensagemCliente={ultimaMensagemCliente}
-            threadId={thread.id}
-            contactId={thread.contact_id}
-            onUseResposta={(conteudo) => {
-              setMensagemTexto(conteudo);
-              setMostrarSugestor(false);
-            }}
-            onClose={() => setMostrarSugestor(false)} />
-
+              mensagemCliente={ultimaMensagemCliente}
+              threadId={thread.id}
+              contactId={thread.contact_id}
+              onUseResposta={(conteudo) => {
+                // Não podemos mais setar mensagemTexto aqui diretamente
+                // Precisamos de uma forma de comunicar com MessageInput
+                setMostrarSugestor(false);
+                toast.info('💡 Sugestão copiada! Cole no campo de mensagem.');
+                navigator.clipboard.writeText(conteudo);
+              }}
+              onClose={() => setMostrarSugestor(false)}
+            />
           </div>
-        }
-      </form>
+        </div>
+      }
 
       {/* Modal removido - agora usa MediaAttachmentSystem */}
 
