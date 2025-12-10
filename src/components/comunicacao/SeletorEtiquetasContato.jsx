@@ -261,7 +261,7 @@ export default function SeletorEtiquetasContato({
           <Input
             placeholder="Buscar etiqueta..."
             value={busca}
-            onChange={(e) => setBusca(e.target.value)}
+            onChange={(e) => setBusca(e?.target?.value || '')}
             className="pl-8 h-8 text-sm"
           />
         </div>
@@ -376,7 +376,7 @@ function ConteudoPopover({
           <Input
             placeholder="Buscar..."
             value={busca}
-            onChange={(e) => setBusca(e.target.value)}
+            onChange={(e) => setBusca(e?.target?.value || '')}
             className="pl-8 h-8 text-sm"
           />
         </div>
@@ -398,7 +398,7 @@ function ConteudoPopover({
               <Input
                 placeholder="Nome da etiqueta..."
                 value={novaEtiqueta}
-                onChange={(e) => setNovaEtiqueta(e.target.value)}
+                onChange={(e) => setNovaEtiqueta(e?.target?.value || '')}
                 onKeyDown={(e) => {
                   if (e.key === 'Enter') criarNovaEtiqueta();
                   if (e.key === 'Escape') {
