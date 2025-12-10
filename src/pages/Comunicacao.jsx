@@ -286,6 +286,7 @@ export default function Comunicacao() {
           janela_24h_expira_em: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
           can_send_without_template: true,
           assigned_user_id: usuario.id
+          // ✅ assigned_user_name/email REMOVIDOS - buscados dinamicamente do User
         });
 
         await queryClient.invalidateQueries({ queryKey: ['threads'] });
@@ -383,7 +384,9 @@ export default function Comunicacao() {
         status: 'aberta',
         unread_count: 0,
         janela_24h_expira_em: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
-        can_send_without_template: true
+        can_send_without_template: true,
+        assigned_user_id: usuario.id
+        // ✅ assigned_user_name/email REMOVIDOS - buscados dinamicamente do User
       });
 
       toast.success('✅ Contato criado com sucesso!');
@@ -707,16 +710,14 @@ export default function Comunicacao() {
     const contatosMap = new Map(contatos.map(c => [c.id, c]));
     const atendentesMap = new Map(atendentes.map(a => [a.id, a]));
 
-    // Enriquecer com contato e atendente (buscando dados do User dinamicamente)
+    // ✅ Enriquecer com contato e atendente (buscando dados do User SEMPRE dinamicamente)
     const enriched = threadsFiltradas.map(thread => {
       const atendenteUser = atendentesMap.get(thread.assigned_user_id);
       return {
         ...thread,
         contato: thread.contato || contatosMap.get(thread.contact_id),
-        atendente_atribuido: atendenteUser,
-        // Dados buscados dinamicamente do User
-        assigned_user_name: atendenteUser?.full_name,
-        assigned_user_email: atendenteUser?.email
+        atendente_atribuido: atendenteUser
+        // ✅ assigned_user_name/email REMOVIDOS da thread - usar atendente_atribuido.full_name/email
       };
     });
     
