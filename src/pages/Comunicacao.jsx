@@ -285,9 +285,7 @@ export default function Comunicacao() {
           unread_count: 0,
           janela_24h_expira_em: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
           can_send_without_template: true,
-          assigned_user_id: usuario.id,
-          assigned_user_name: usuario.full_name,
-          assigned_user_email: usuario.email
+          assigned_user_id: usuario.id
         });
 
         await queryClient.invalidateQueries({ queryKey: ['threads'] });
@@ -343,9 +341,7 @@ export default function Comunicacao() {
         unread_count: 0,
         janela_24h_expira_em: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
         can_send_without_template: true,
-        assigned_user_id: usuario.id,
-        assigned_user_name: usuario.full_name,
-        assigned_user_email: usuario.email
+        assigned_user_id: usuario.id
       });
 
       await queryClient.invalidateQueries({ queryKey: ['threads'] });

@@ -532,7 +532,7 @@ async function finalizarPreAtendimento(base44, params) {
   
   if (atendente && atendente.full_name) {
     threadUpdate.assigned_user_id = atendente.id;
-    threadUpdate.assigned_user_name = atendente.full_name;
+    // assigned_user_name será buscado dinamicamente do User
     
     // Normalizar nomes para comparação (evitar redundância)
     const nomeAtendente = atendente.full_name.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
@@ -854,7 +854,6 @@ Deno.serve(async (req) => {
           
           await base44.asServiceRole.entities.MessageThread.update(thread_id, {
             assigned_user_id: lastUserId,
-            assigned_user_name: lastUserName,
             pre_atendimento_state: null,
             pre_atendimento_ativo: false,
             unread_count: Math.max(1, thread.unread_count || 0)
