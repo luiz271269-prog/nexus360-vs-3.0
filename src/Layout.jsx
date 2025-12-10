@@ -166,7 +166,7 @@ function SideBar({ isOpen, menuItems, contadoresLembretes, usuario, onOpenNexus 
 
         {/* Rodapé com autenticação unificada */}
         <div className="p-2 border-t border-slate-700/50">
-          <UserAuthWidget usuario={globalUsuario} />
+          <UserAuthWidget usuario={usuario} />
         </div>
       </aside>
     </TooltipProvider>
