@@ -33,7 +33,8 @@ import {
   Activity,
   BookOpen,
   Workflow,
-  Shield
+  Shield,
+  LogOut
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -186,6 +187,23 @@ function SideBar({ isOpen, menuItems, contadoresLembretes, usuario, onOpenNexus 
                     <p className="text-[10px] text-slate-500 mt-1">Nível: {usuario.attendant_role}</p>
                   )}
                 </div>
+              </TooltipContent>
+            </Tooltip>
+          )}
+
+          {/* Botão de Logout */}
+          {usuario && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  onClick={() => base44.auth.logout()}
+                  className="w-full flex items-center justify-center p-2 rounded-xl bg-slate-800/50 hover:bg-red-600/20 hover:border-red-500/50 border border-transparent transition-all group"
+                >
+                  <LogOut className="h-5 w-5 text-slate-400 group-hover:text-red-400" />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent side="right" className="bg-slate-800 border-slate-700">
+                <p className="text-sm text-white">Sair</p>
               </TooltipContent>
             </Tooltip>
           )}
