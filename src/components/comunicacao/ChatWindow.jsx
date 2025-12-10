@@ -275,7 +275,7 @@ export default function ChatWindow({
     }
   }, [mostrarModalAtribuicao, contatoCompleto?.nome]);
 
-  const carregarAtendentes = async () => {
+  const carregarAtendentes = useCallback(async () => {
     setCarregandoAtendentes(true);
     try {
       // Usar função backend com serviceRole para buscar TODOS os usuários
@@ -300,9 +300,9 @@ export default function ChatWindow({
     } finally {
       setCarregandoAtendentes(false);
     }
-  };
+  }, [atendentesLista]);
 
-  const handleAtribuirConversa = async (atendenteId) => {
+  const handleAtribuirConversa = useCallback(async (atendenteId) => {
     // Removida trava de permissão - qualquer usuário pode transferir
     if (!thread || !usuario) {
       toast.error("Dados da conversa não disponíveis");
@@ -387,63 +387,9 @@ export default function ChatWindow({
     } finally {
       setAtribuindo(false);
     }
-  };
+  }, [atendentes, usuario, thread, onAtualizarMensagens, mensagemTransferencia]);
 
-  const iniciarGravacaoAudio = async () => {
-    if (!podeEnviarAudios) {
-      toast.error("❌ Você não tem permissão para enviar áudios");
-      return;
-    }
-
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      audioStreamRef.current = stream;
-      const recorder = new MediaRecorder(stream);
-      const chunks = [];
-
-      recorder.ondataavailable = (e) => {
-        if (e.data.size > 0) {
-          chunks.push(e.data);
-        }
-      };
-
-      recorder.onstop = async () => {
-        const audioBlob = new Blob(chunks, { type: 'audio/ogg; codecs=opus' });
-
-        if (audioStreamRef.current) {
-          audioStreamRef.current.getTracks().forEach((track) => track.stop());
-          audioStreamRef.current = null;
-        }
-
-        if (audioBlob.size > 0) {
-          await enviarAudio(audioBlob);
-        } else {
-          toast.error("❌ Gravação de áudio vazia.");
-        }
-      };
-
-      recorder.start();
-      setMediaRecorder(recorder);
-      setGravandoAudio(true);
-      toast.info("🎤 Gravando áudio...", { duration: 999999 });
-    } catch (error) {
-      console.error('[CHAT] Erro ao acessar microfone:', error);
-      toast.error("❌ Erro ao acessar microfone. Verifique as permissões.");
-    }
-  };
-
-  const pararGravacaoAudio = () => {
-    if (mediaRecorder && mediaRecorder.state !== 'inactive') {
-      mediaRecorder.stop();
-      setGravandoAudio(false);
-      toast.dismiss();
-    }
-  };
-
-  // ═══════════════════════════════════════════════════════════════════════════
-  // 🎯 FUNÇÃO AUXILIAR: Auto-atribuir thread órfã ao usuário atual
-  // ═══════════════════════════════════════════════════════════════════════════
-  const autoAtribuirThreadSeNecessario = async (threadAtual) => {
+  const autoAtribuirThreadSeNecessario = useCallback(async (threadAtual) => {
     if (!threadAtual || !usuario) return;
     
     const isThreadOrfa = !threadAtual.assigned_user_id && !threadAtual.assigned_user_email;
@@ -481,135 +427,9 @@ export default function ChatWindow({
       }
     }
     return false;
-  };
+  }, [usuario]);
 
-  const enviarAudio = async (audioBlob) => {
-    if (!podeEnviarAudios) {
-      toast.error("❌ Você não tem permissão para enviar áudios");
-      return;
-    }
-
-    setEnviando(true);
-    setErro(null);
-
-    try {
-      const timestamp = new Date().getTime();
-      const audioFile = new File([audioBlob], `audio-${timestamp}.ogg`, {
-        type: 'audio/ogg; codecs=opus',
-        lastModified: timestamp
-      });
-
-      toast.info('📤 Fazendo upload do áudio...');
-      const uploadResponse = await base44.integrations.Core.UploadFile({
-        file: audioFile
-      });
-
-      const audioUrl = uploadResponse.file_url;
-
-      // ═══════════════════════════════════════════════════════════════════
-      // MODO BROADCAST: Enviar áudio para múltiplos contatos
-      // ═══════════════════════════════════════════════════════════════════
-      if (modoSelecaoMultipla && contatosSelecionados.length > 0) {
-        toast.info('📤 Enviando áudio para os contatos selecionados...');
-        
-        await handleEnviarBroadcast({
-          mediaUrl: audioUrl,
-          mediaType: 'audio',
-          isAudio: true
-        });
-
-        setEnviando(false);
-        return;
-      }
-
-      // ═══════════════════════════════════════════════════════════════════
-      // MODO INDIVIDUAL: Enviar para um contato específico
-      // ═══════════════════════════════════════════════════════════════════
-      if (!thread || !usuario || carregandoContato) {
-        toast.error("Dados da conversa ou contato não disponíveis para enviar áudio.");
-        setEnviando(false);
-        return;
-      }
-
-      if (!contatoCompleto) {
-        toast.error('Contato não carregado. Por favor, recarregue a página.');
-        setEnviando(false);
-        return;
-      }
-
-      const telefone = contatoCompleto.telefone || contatoCompleto.celular;
-      if (!telefone) {
-        toast.error('Este contato não possui telefone cadastrado para enviar áudio.');
-        setEnviando(false);
-        return;
-      }
-
-      const integrationIdParaUso = canalSelecionado || thread.whatsapp_integration_id;
-
-      // 🎯 AUTO-ATRIBUIÇÃO: Se thread sem dono, atribuir ao atendente
-      await autoAtribuirThreadSeNecessario(thread);
-
-      const dadosEnvio = {
-        integration_id: integrationIdParaUso,
-        numero_destino: telefone,
-        audio_url: audioUrl,
-        media_type: 'audio'
-      };
-
-      if (mensagemResposta?.whatsapp_message_id) {
-        dadosEnvio.reply_to_message_id = mensagemResposta.whatsapp_message_id;
-      }
-
-      const resultado = await base44.functions.invoke('enviarWhatsApp', dadosEnvio);
-
-      if (resultado.data.success) {
-        await base44.entities.Message.create({
-          thread_id: thread.id,
-          sender_id: usuario.id,
-          sender_type: "user",
-          recipient_id: thread.contact_id,
-          recipient_type: "contact",
-          content: "[Áudio]",
-          channel: "whatsapp",
-          status: "enviada",
-          whatsapp_message_id: resultado.data.message_id,
-          sent_at: new Date().toISOString(),
-          media_url: audioUrl,
-          media_type: 'audio',
-          reply_to_message_id: mensagemResposta?.id || null,
-          metadata: {
-            whatsapp_integration_id: integrationIdParaUso
-          }
-        });
-
-        await base44.entities.MessageThread.update(thread.id, {
-          last_message_content: "[Áudio]",
-          last_message_at: new Date().toISOString(),
-          last_message_sender: "user",
-          whatsapp_integration_id: integrationIdParaUso
-        });
-
-        toast.success("✅ Áudio enviado com sucesso!");
-        setMensagemResposta(null);
-
-        if (onAtualizarMensagens) {
-          onAtualizarMensagens();
-        }
-      } else {
-        throw new Error(resultado.data.error || 'Erro desconhecido ao enviar áudio pelo WhatsApp');
-      }
-    } catch (error) {
-      console.error('[CHAT] ❌ Erro ao enviar áudio:', error);
-      const mensagemErro = error.message || 'Erro ao enviar áudio';
-      setErro(mensagemErro);
-      toast.error(mensagemErro);
-    } finally {
-      setEnviando(false);
-    }
-  };
-
-  // Função de envio em massa (broadcast) - SUPORTA TEXTO, IMAGENS, ÁUDIOS E MÍDIAS
-  const handleEnviarBroadcast = async (opcoes = {}) => {
+  const handleEnviarBroadcast = useCallback(async (opcoes = {}) => {
     const { 
       mediaUrl = null, 
       mediaType = null, 
@@ -780,10 +600,186 @@ export default function ChatWindow({
     if (onAtualizarMensagens) {
       onAtualizarMensagens();
     }
-  };
+  }, [podeEnviarMensagens, mensagemTexto, contatosSelecionados, usuario, onCancelarSelecao, onAtualizarMensagens, integracoes, canalSelecionado]);
+
+  const enviarAudio = useCallback(async (audioBlob) => {
+    if (!podeEnviarAudios) {
+      toast.error("❌ Você não tem permissão para enviar áudios");
+      return;
+    }
+
+    setEnviando(true);
+    setErro(null);
+
+    try {
+      const timestamp = new Date().getTime();
+      const audioFile = new File([audioBlob], `audio-${timestamp}.ogg`, {
+        type: 'audio/ogg; codecs=opus',
+        lastModified: timestamp
+      });
+
+      toast.info('📤 Fazendo upload do áudio...');
+      const uploadResponse = await base44.integrations.Core.UploadFile({
+        file: audioFile
+      });
+
+      const audioUrl = uploadResponse.file_url;
+
+      // ═══════════════════════════════════════════════════════════════════
+      // MODO BROADCAST: Enviar áudio para múltiplos contatos
+      // ═══════════════════════════════════════════════════════════════════
+      if (modoSelecaoMultipla && contatosSelecionados.length > 0) {
+        toast.info('📤 Enviando áudio para os contatos selecionados...');
+        
+        await handleEnviarBroadcast({
+          mediaUrl: audioUrl,
+          mediaType: 'audio',
+          isAudio: true
+        });
+
+        setEnviando(false);
+        return;
+      }
+
+      // ═══════════════════════════════════════════════════════════════════
+      // MODO INDIVIDUAL: Enviar para um contato específico
+      // ═══════════════════════════════════════════════════════════════════
+      if (!thread || !usuario || carregandoContato) {
+        toast.error("Dados da conversa ou contato não disponíveis para enviar áudio.");
+        setEnviando(false);
+        return;
+      }
+
+      if (!contatoCompleto) {
+        toast.error('Contato não carregado. Por favor, recarregue a página.');
+        setEnviando(false);
+        return;
+      }
+
+      const telefone = contatoCompleto.telefone || contatoCompleto.celular;
+      if (!telefone) {
+        toast.error('Este contato não possui telefone cadastrado para enviar áudio.');
+        setEnviando(false);
+        return;
+      }
+
+      const integrationIdParaUso = canalSelecionado || thread.whatsapp_integration_id;
+
+      // 🎯 AUTO-ATRIBUIÇÃO: Se thread sem dono, atribuir ao atendente
+      await autoAtribuirThreadSeNecessario(thread);
+
+      const dadosEnvio = {
+        integration_id: integrationIdParaUso,
+        numero_destino: telefone,
+        audio_url: audioUrl,
+        media_type: 'audio'
+      };
+
+      if (mensagemResposta?.whatsapp_message_id) {
+        dadosEnvio.reply_to_message_id = mensagemResposta.whatsapp_message_id;
+      }
+
+      const resultado = await base44.functions.invoke('enviarWhatsApp', dadosEnvio);
+
+      if (resultado.data.success) {
+        await base44.entities.Message.create({
+          thread_id: thread.id,
+          sender_id: usuario.id,
+          sender_type: "user",
+          recipient_id: thread.contact_id,
+          recipient_type: "contact",
+          content: "[Áudio]",
+          channel: "whatsapp",
+          status: "enviada",
+          whatsapp_message_id: resultado.data.message_id,
+          sent_at: new Date().toISOString(),
+          media_url: audioUrl,
+          media_type: 'audio',
+          reply_to_message_id: mensagemResposta?.id || null,
+          metadata: {
+            whatsapp_integration_id: integrationIdParaUso
+          }
+        });
+
+        await base44.entities.MessageThread.update(thread.id, {
+          last_message_content: "[Áudio]",
+          last_message_at: new Date().toISOString(),
+          last_message_sender: "user",
+          whatsapp_integration_id: integrationIdParaUso
+        });
+
+        toast.success("✅ Áudio enviado com sucesso!");
+        setMensagemResposta(null);
+
+        if (onAtualizarMensagens) {
+          onAtualizarMensagens();
+        }
+      } else {
+        throw new Error(resultado.data.error || 'Erro desconhecido ao enviar áudio pelo WhatsApp');
+      }
+    } catch (error) {
+      console.error('[CHAT] ❌ Erro ao enviar áudio:', error);
+      const mensagemErro = error.message || 'Erro ao enviar áudio';
+      setErro(mensagemErro);
+      toast.error(mensagemErro);
+    } finally {
+      setEnviando(false);
+    }
+  }, [podeEnviarAudios, modoSelecaoMultipla, contatosSelecionados, handleEnviarBroadcast, thread, usuario, carregandoContato, contatoCompleto, canalSelecionado, mensagemResposta, onAtualizarMensagens, autoAtribuirThreadSeNecessario]);
+
+  const iniciarGravacaoAudio = useCallback(async () => {
+    if (!podeEnviarAudios) {
+      toast.error("❌ Você não tem permissão para enviar áudios");
+      return;
+    }
+
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      audioStreamRef.current = stream;
+      const recorder = new MediaRecorder(stream);
+      const chunks = [];
+
+      recorder.ondataavailable = (e) => {
+        if (e.data.size > 0) {
+          chunks.push(e.data);
+        }
+      };
+
+      recorder.onstop = async () => {
+        const audioBlob = new Blob(chunks, { type: 'audio/ogg; codecs=opus' });
+
+        if (audioStreamRef.current) {
+          audioStreamRef.current.getTracks().forEach((track) => track.stop());
+          audioStreamRef.current = null;
+        }
+
+        if (audioBlob.size > 0) {
+          await enviarAudio(audioBlob);
+        } else {
+          toast.error("❌ Gravação de áudio vazia.");
+        }
+      };
+
+      recorder.start();
+      setMediaRecorder(recorder);
+      setGravandoAudio(true);
+      toast.info("🎤 Gravando áudio...", { duration: 999999 });
+    } catch (error) {
+      console.error('[CHAT] Erro ao acessar microfone:', error);
+      toast.error("❌ Erro ao acessar microfone. Verifique as permissões.");
+    }
+  }, [podeEnviarAudios, enviarAudio]);
+
+  const pararGravacaoAudio = useCallback(() => {
+    if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+      mediaRecorder.stop();
+      setGravandoAudio(false);
+      toast.dismiss();
+    }
+  }, [mediaRecorder]);
 
   // 🚀 ENVIO OTIMISTA OU TRADICIONAL
-  const handleEnviar = async (e) => {
+  const handleEnviar = useCallback(async (e) => {
     e?.preventDefault(); // Previne o comportamento padrão do formulário
 
     // Se estiver em modo broadcast, chamar o handler de broadcast
@@ -868,9 +864,9 @@ export default function ChatWindow({
     } else {
       toast.error("Nenhum método de envio de mensagem configurado.");
     }
-  };
+  }, [modoSelecaoMultipla, contatosSelecionados, handleEnviarBroadcast, podeEnviarMensagens, enviando, gravandoAudio, uploadingPastedFile, carregandoContato, mensagemTexto, pastedImage, thread, contatoCompleto, autoAtribuirThreadSeNecessario, usuario, canalSelecionado, mensagemResposta, onSendMessageOptimistic, onEnviarMensagem]);
 
-  const handleResponderMensagem = (mensagem) => {
+  const handleResponderMensagem = useCallback((mensagem) => {
     setMensagemResposta(mensagem);
     setModoSelecao(false);
     setMensagensSelecionadas([]);
@@ -881,9 +877,9 @@ export default function ChatWindow({
         inputRef.current.focus();
       }
     }, 100);
-  };
+  }, []);
 
-  const ativarModoSelecao = () => {
+  const ativarModoSelecao = useCallback(() => {
     if (!podeApagarMensagens) {
       toast.error("❌ Você não tem permissão para apagar mensagens");
       return;
@@ -893,14 +889,14 @@ export default function ChatWindow({
     setMensagensSelecionadas([]);
     setMensagemResposta(null);
     setMostrarSugestor(false);
-  };
+  }, [podeApagarMensagens]);
 
-  const cancelarModoSelecao = () => {
+  const cancelarModoSelecao = useCallback(() => {
     setModoSelecao(false);
     setMensagensSelecionadas([]);
-  };
+  }, []);
 
-  const toggleSelecionarMensagem = (mensagemId) => {
+  const toggleSelecionarMensagem = useCallback((mensagemId) => {
     setMensagensSelecionadas((prev) => {
       if (prev.includes(mensagemId)) {
         return prev.filter((id) => id !== mensagemId);
@@ -908,9 +904,9 @@ export default function ChatWindow({
         return [...prev, mensagemId];
       }
     });
-  };
+  }, []);
 
-  const apagarMensagensSelecionadas = async () => {
+  const apagarMensagensSelecionadas = useCallback(async () => {
     if (!podeApagarMensagens) {
       toast.error("❌ Você não tem permissão para apagar mensagens");
       return;
@@ -975,20 +971,11 @@ export default function ChatWindow({
     } finally {
       setEnviando(false);
     }
-  };
+  }, [podeApagarMensagens, mensagensSelecionadas, mensagens, thread, onAtualizarMensagens]);
 
-  // Removido - agora usa MediaAttachmentSystem
-
-  // Removido - agora usa MediaAttachmentSystem
-
-  // Paste handling agora integrado no MediaAttachmentSystem
-
-
-  // Removido - agora usa MediaAttachmentSystem
-
-  const handlePrintChat = async () => {
+  const handlePrintChat = useCallback(async () => {
     toast.info('Funcionalidade temporariamente desativada');
-  };
+  }, []);
 
   useEffect(() => {
     if (!thread || !usuario || !mensagens.length) return;
@@ -1314,7 +1301,7 @@ export default function ChatWindow({
 
   }
 
-  const handleAtualizarContato = async (campo, valor) => {
+  const handleAtualizarContato = useCallback(async (campo, valor) => {
     if (!contatoCompleto || !podeTransferirConversas) return;
 
     try {
@@ -1324,7 +1311,7 @@ export default function ChatWindow({
       console.error('[ChatWindow] Erro ao atualizar contato:', error);
       toast.error('Erro ao atualizar');
     }
-  };
+  }, [contatoCompleto, podeTransferirConversas]);
 
   // Nome formatado: Empresa + Cargo + Nome
   let nomeContato = "";
@@ -1353,7 +1340,7 @@ export default function ChatWindow({
   const isManager = usuario?.role === 'admin' || usuario?.role === 'supervisor';
   const canManageConversation = isManager || thread?.assigned_user_id === usuario?.id || !thread?.assigned_user_id;
 
-  const handleKeyDown = (e) => {
+  const handleKeyDown = useCallback((e) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       // Se tem imagem colada, enviar imagem em vez de texto
@@ -1363,10 +1350,10 @@ export default function ChatWindow({
         handleEnviar(e); // Passa o evento para handleEnviar
       }
     }
-  };
+  }, [pastedImage, handleEnviar]);
 
   // Handler para colar imagem (Ctrl+V / Cmd+V)
-  const handlePaste = async (e) => {
+  const handlePaste = useCallback(async (e) => {
     const items = e.clipboardData?.items;
     if (!items) return;
 
@@ -1383,17 +1370,17 @@ export default function ChatWindow({
         break;
       }
     }
-  };
+  }, []);
 
-  const cancelarImagemColada = () => {
+  const cancelarImagemColada = useCallback(() => {
     if (pastedImagePreview) {
       URL.revokeObjectURL(pastedImagePreview);
     }
     setPastedImage(null);
     setPastedImagePreview(null);
-  };
+  }, [pastedImagePreview]);
 
-  const enviarImagemColada = async () => {
+  const enviarImagemColada = useCallback(async () => {
     if (!pastedImage || !podeEnviarMidias) {
       toast.error('Não foi possível enviar a imagem');
       return;
@@ -1578,7 +1565,7 @@ export default function ChatWindow({
         }
       }
     })();
-  };
+  }, [pastedImage, podeEnviarMidias, modoSelecaoMultipla, contatosSelecionados, handleEnviarBroadcast, thread, usuario, contatoCompleto, canalSelecionado, mensagemTexto, mensagemResposta, onAtualizarMensagens, autoAtribuirThreadSeNecessario, pastedImagePreview]);
 
   return (
     <div className="flex flex-col h-full bg-white">
@@ -1826,8 +1813,8 @@ export default function ChatWindow({
                   onResponder={handleResponderMensagem}
                   modoSelecao={modoSelecao}
                   selecionada={mensagensSelecionadas.includes(mensagem.id)}
-                  onToggleSelecao={() => toggleSelecionarMensagem(mensagem.id)}
-                  mensagens={mensagens}
+                  onToggleSelecao={toggleSelecionarMensagem}
+                  mensagens={mensagensProcessadas}
                   integracoes={integracoes}
                   usuarioAtual={usuario}
                   contato={contatoCompleto}
