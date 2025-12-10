@@ -430,7 +430,7 @@ export default function Comunicacao() {
     }
   }, [threadAtiva, queryClient]);
 
-  // RESTAURADO: Handler para atualizar mensagens após envio
+  // Handler para atualizar mensagens após envio
   const handleAtualizarMensagens = useCallback(async (novasMensagens) => {
     if (novasMensagens) {
       queryClient.setQueryData(['mensagens', threadAtiva?.id], novasMensagens);
@@ -439,6 +439,122 @@ export default function Comunicacao() {
     }
     queryClient.invalidateQueries({ queryKey: ['threads'] });
   }, [threadAtiva, queryClient]);
+
+  // 🚀 OPTIMISTIC UI: Envio instantâneo de mensagens
+  const handleEnviarMensagemOtimista = useCallback(async (dadosEnvio) => {
+    if (!threadAtiva || !usuario) return;
+
+    const { texto, integrationId, replyToMessage, mediaUrl, mediaType, mediaCaption, isAudio } = dadosEnvio;
+    
+    // 1. Criar mensagem temporária (aparece instantaneamente na tela)
+    const msgTemp = {
+      id: `temp-${Date.now()}`,
+      thread_id: threadAtiva.id,
+      sender_id: usuario.id,
+      sender_type: "user",
+      recipient_id: threadAtiva.contact_id,
+      recipient_type: "contact",
+      content: texto || (mediaType === 'image' ? '[Imagem]' : mediaType === 'audio' ? '[Áudio]' : '[Mídia]'),
+      channel: "whatsapp",
+      status: "enviando",
+      sent_at: new Date().toISOString(),
+      media_url: mediaUrl || null,
+      media_type: mediaType || 'none',
+      media_caption: mediaCaption || null,
+      reply_to_message_id: replyToMessage?.id || null,
+      metadata: {
+        whatsapp_integration_id: integrationId,
+        optimistic: true
+      }
+    };
+
+    // 2. Atualizar cache INSTANTANEAMENTE (0ms lag)
+    queryClient.setQueryData(['mensagens', threadAtiva.id], (antigas = []) => {
+      return [...antigas, msgTemp];
+    });
+
+    // 3. Enviar para servidor em background
+    try {
+      const contatoAtual = contatos.find(c => c.id === threadAtiva.contact_id);
+      const telefone = contatoAtual?.telefone || contatoAtual?.celular;
+
+      if (!telefone) {
+        throw new Error('Contato sem telefone');
+      }
+
+      const payload = {
+        integration_id: integrationId,
+        numero_destino: telefone
+      };
+
+      if (mediaUrl) {
+        if (isAudio || mediaType === 'audio') {
+          payload.audio_url = mediaUrl;
+          payload.media_type = 'audio';
+        } else {
+          payload.media_url = mediaUrl;
+          payload.media_type = mediaType;
+          if (mediaCaption || texto) {
+            payload.media_caption = mediaCaption || texto;
+          }
+        }
+      } else if (texto) {
+        payload.mensagem = texto;
+      }
+
+      if (replyToMessage?.whatsapp_message_id) {
+        payload.reply_to_message_id = replyToMessage.whatsapp_message_id;
+      }
+
+      const resultado = await base44.functions.invoke('enviarWhatsApp', payload);
+
+      if (resultado.data.success) {
+        // Registrar mensagem real no banco
+        await base44.entities.Message.create({
+          thread_id: threadAtiva.id,
+          sender_id: usuario.id,
+          sender_type: "user",
+          recipient_id: threadAtiva.contact_id,
+          recipient_type: "contact",
+          content: msgTemp.content,
+          channel: "whatsapp",
+          status: "enviada",
+          whatsapp_message_id: resultado.data.message_id,
+          sent_at: new Date().toISOString(),
+          media_url: mediaUrl || null,
+          media_type: mediaType || 'none',
+          media_caption: mediaCaption || null,
+          reply_to_message_id: replyToMessage?.id || null,
+          metadata: {
+            whatsapp_integration_id: integrationId
+          }
+        });
+
+        await base44.entities.MessageThread.update(threadAtiva.id, {
+          last_message_content: msgTemp.content.substring(0, 100),
+          last_message_at: new Date().toISOString(),
+          last_message_sender: "user",
+          last_media_type: mediaType || 'none',
+          whatsapp_integration_id: integrationId
+        });
+
+        // 4. Invalidar queries para substituir mensagem temporária pela real
+        queryClient.invalidateQueries({ queryKey: ['mensagens', threadAtiva.id] });
+        queryClient.invalidateQueries({ queryKey: ['threads'] });
+      } else {
+        throw new Error(resultado.data.error || 'Erro ao enviar');
+      }
+    } catch (error) {
+      console.error('[OPTIMISTIC] ❌ Erro:', error);
+      
+      // 5. ROLLBACK: Remover mensagem temporária do cache
+      queryClient.setQueryData(['mensagens', threadAtiva.id], (antigas = []) => {
+        return antigas.filter(m => m.id !== msgTemp.id);
+      });
+      
+      toast.error(`❌ Erro ao enviar: ${error.message}`);
+    }
+  }, [threadAtiva, usuario, queryClient, contatos]);
 
 
 
@@ -968,6 +1084,7 @@ export default function Comunicacao() {
                         mensagens={mensagens}
                         usuario={usuario}
                         onEnviarMensagem={async () => {}}
+                        onSendMessageOptimistic={handleEnviarMensagemOtimista}
                         onShowContactInfo={() => setShowContactInfo(!showContactInfo)}
                         onAtualizarMensagens={handleAtualizarMensagens}
                         integracoes={integracoes}

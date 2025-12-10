@@ -63,6 +63,7 @@ export default function ChatWindow({
   mensagens = [],
   usuario = null,
   onEnviarMensagem,
+  onSendMessageOptimistic,
   onShowContactInfo,
   onAtualizarMensagens,
   integracoes = [],
@@ -788,144 +789,132 @@ export default function ChatWindow({
     }
   };
 
-  const handleEnviar = async (e) => {
-    e?.preventDefault();
-
-    // Se está em modo broadcast, usar função de broadcast
-    if (modoSelecaoMultipla && contatosSelecionados.length > 0) {
-      await handleEnviarBroadcast({});
-      return;
+  // Handler para atualizar mensagens após envio
+  const handleAtualizarMensagens = useCallback(async (novasMensagens) => {
+    if (novasMensagens) {
+      queryClient.setQueryData(['mensagens', threadAtiva?.id], novasMensagens);
+    } else {
+      queryClient.invalidateQueries({ queryKey: ['mensagens', threadAtiva?.id] });
     }
+    queryClient.invalidateQueries({ queryKey: ['threads'] });
+  }, [threadAtiva, queryClient]);
 
-    if (!podeEnviarMensagens) {
-      toast.error("❌ Você não tem permissão para enviar mensagens");
-      return;
-    }
+  // 🚀 OPTIMISTIC UI: Envio instantâneo de mensagens (0ms lag percebido)
+  const handleEnviarMensagemOtimista = useCallback(async (dadosEnvio) => {
+    if (!threadAtiva || !usuario) return;
 
-    if (enviando || gravandoAudio || uploadingPastedFile) {
-      return;
-    }
+    const { texto, integrationId, replyToMessage, mediaUrl, mediaType, mediaCaption, isAudio } = dadosEnvio;
+    
+    // 1. Criar mensagem temporária (aparece instantaneamente - 0ms)
+    const msgTemp = {
+      id: `temp-${Date.now()}`,
+      thread_id: threadAtiva.id,
+      sender_id: usuario.id,
+      sender_type: "user",
+      recipient_id: threadAtiva.contact_id,
+      recipient_type: "contact",
+      content: texto || (mediaType === 'image' ? '[Imagem]' : mediaType === 'audio' ? '[Áudio]' : '[Mídia]'),
+      channel: "whatsapp",
+      status: "enviando",
+      sent_at: new Date().toISOString(),
+      created_date: new Date().toISOString(),
+      media_url: mediaUrl || null,
+      media_type: mediaType || 'none',
+      media_caption: mediaCaption || null,
+      reply_to_message_id: replyToMessage?.id || null,
+      metadata: {
+        whatsapp_integration_id: integrationId,
+        optimistic: true
+      }
+    };
 
-    if (carregandoContato) {
-      toast.warning('⏳ Aguarde o contato ser carregado antes de enviar mensagens.');
-      return;
-    }
+    // 2. Atualizar cache INSTANTANEAMENTE (0ms lag)
+    queryClient.setQueryData(['mensagens', threadAtiva.id], (antigas = []) => {
+      return [...antigas, msgTemp];
+    });
 
-    if (!mensagemTexto.trim()) return;
-
-    setEnviando(true);
-    setErro(null);
-
+    // 3. Enviar para servidor em background (não bloqueia UI)
     try {
-      if (!thread?.whatsapp_integration_id) {
-        throw new Error('Thread sem integração WhatsApp configurada');
-      }
-
-      if (!contatoCompleto) {
-        throw new Error('Contato não carregado. Por favor, recarregue a página.');
-      }
-
-      const telefone = contatoCompleto.telefone || contatoCompleto.celular;
+      const contatoAtual = contatos.find(c => c.id === threadAtiva.contact_id);
+      const telefone = contatoAtual?.telefone || contatoAtual?.celular;
 
       if (!telefone) {
-        throw new Error('Este contato não possui telefone cadastrado. Por favor, edite o contato e adicione um número de telefone.');
+        throw new Error('Contato sem telefone');
       }
 
-      // 🎯 AUTO-ATRIBUIÇÃO: Se thread sem dono, atribuir ao atendente que responde
-      await autoAtribuirThreadSeNecessario(thread);
-
-      // 📝 ASSINATURA: Adicionar setor e nome do atendente ao final da mensagem
-      // Usa display_name (editável) > full_name (login) como fallback
-      let mensagemParaEnviar = mensagemTexto.trim();
-      const nomeAtendenteEnvio = usuario?.display_name || usuario?.full_name;
-      if (nomeAtendenteEnvio && usuario?.attendant_sector) {
-        const primeiroNome = nomeAtendenteEnvio.split(' ')[0];
-        const setor = usuario.attendant_sector;
-        mensagemParaEnviar = `${mensagemParaEnviar}\n\n_~ ${primeiroNome} (${setor})_`;
-      }
-      
-      const integrationIdParaUso = canalSelecionado || thread.whatsapp_integration_id;
-
-      console.log('[CHAT] 📤 Enviando com integração:', {
-        thread_integration: thread.whatsapp_integration_id,
-        canal_selecionado: canalSelecionado,
-        integration_id_usado: integrationIdParaUso
-      });
-
-      const dadosEnvio = {
-        integration_id: integrationIdParaUso,
-        numero_destino: telefone,
-        mensagem: mensagemParaEnviar
+      const payload = {
+        integration_id: integrationId,
+        numero_destino: telefone
       };
 
-      if (mensagemResposta?.whatsapp_message_id) {
-        dadosEnvio.reply_to_message_id = mensagemResposta.whatsapp_message_id;
+      if (mediaUrl) {
+        if (isAudio || mediaType === 'audio') {
+          payload.audio_url = mediaUrl;
+          payload.media_type = 'audio';
+        } else {
+          payload.media_url = mediaUrl;
+          payload.media_type = mediaType;
+          if (mediaCaption || texto) {
+            payload.media_caption = mediaCaption || texto;
+          }
+        }
+      } else if (texto) {
+        payload.mensagem = texto;
       }
 
-      const resultado = await base44.functions.invoke('enviarWhatsApp', dadosEnvio);
+      if (replyToMessage?.whatsapp_message_id) {
+        payload.reply_to_message_id = replyToMessage.whatsapp_message_id;
+      }
+
+      const resultado = await base44.functions.invoke('enviarWhatsApp', payload);
 
       if (resultado.data.success) {
+        // Registrar mensagem real no banco
         await base44.entities.Message.create({
-          thread_id: thread.id,
+          thread_id: threadAtiva.id,
           sender_id: usuario.id,
           sender_type: "user",
-          recipient_id: thread.contact_id,
+          recipient_id: threadAtiva.contact_id,
           recipient_type: "contact",
-          content: mensagemParaEnviar,
+          content: msgTemp.content,
           channel: "whatsapp",
           status: "enviada",
           whatsapp_message_id: resultado.data.message_id,
           sent_at: new Date().toISOString(),
-          reply_to_message_id: mensagemResposta?.id || null,
+          media_url: mediaUrl || null,
+          media_type: mediaType || 'none',
+          media_caption: mediaCaption || null,
+          reply_to_message_id: replyToMessage?.id || null,
           metadata: {
-            whatsapp_integration_id: integrationIdParaUso
+            whatsapp_integration_id: integrationId
           }
         });
 
-        await base44.entities.MessageThread.update(thread.id, {
-          last_message_content: mensagemParaEnviar.substring(0, 100),
+        await base44.entities.MessageThread.update(threadAtiva.id, {
+          last_message_content: msgTemp.content.substring(0, 100),
           last_message_at: new Date().toISOString(),
           last_message_sender: "user",
-          whatsapp_integration_id: integrationIdParaUso
+          last_media_type: mediaType || 'none',
+          whatsapp_integration_id: integrationId
         });
 
-        toast.success('✅ Mensagem enviada com sucesso!', {
-          duration: 2000,
-          icon: '✅'
-        });
-
-        setMensagemTexto("");
-        setMensagemResposta(null);
-        setMostrarSugestor(false);
-
-        if (onAtualizarMensagens) {
-          onAtualizarMensagens();
-        }
+        // 4. Invalidar queries para substituir mensagem temporária pela real
+        queryClient.invalidateQueries({ queryKey: ['mensagens', threadAtiva.id] });
+        queryClient.invalidateQueries({ queryKey: ['threads'] });
       } else {
-        throw new Error(resultado.data.error || 'Erro desconhecido ao enviar');
+        throw new Error(resultado.data.error || 'Erro ao enviar');
       }
-
     } catch (error) {
-      console.error('[CHAT] ❌ Erro ao enviar:', error);
-
-      let mensagemErro = 'Erro ao enviar mensagem';
-
-      if (error.message?.includes('telefone') || error.message?.includes('contato')) {
-        mensagemErro = '❌ ' + error.message;
-      } else if (error.message?.includes('bloqueado')) {
-        mensagemErro = '❌ Número bloqueado pela Meta';
-      } else if (error.message?.includes('rate limit')) {
-        mensagemErro = '⚠️ Limite de mensagens atingido. Aguarde alguns minutos.';
-      } else {
-        mensagemErro = error.message || mensagemErro;
-      }
-
-      setErro(mensagemErro);
-      toast.error(mensagemErro);
-    } finally {
-      setEnviando(false);
+      console.error('[OPTIMISTIC] ❌ Erro ao enviar:', error);
+      
+      // 5. ROLLBACK: Remover mensagem temporária em caso de erro
+      queryClient.setQueryData(['mensagens', threadAtiva.id], (antigas = []) => {
+        return antigas.filter(m => m.id !== msgTemp.id);
+      });
+      
+      toast.error(`❌ Erro ao enviar: ${error.message}`);
     }
-  };
+  }, [threadAtiva, usuario, queryClient, contatos]);
 
   const handleResponderMensagem = (mensagem) => {
     setMensagemResposta(mensagem);
