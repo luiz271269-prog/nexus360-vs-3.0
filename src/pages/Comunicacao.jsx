@@ -707,12 +707,18 @@ export default function Comunicacao() {
     const contatosMap = new Map(contatos.map(c => [c.id, c]));
     const atendentesMap = new Map(atendentes.map(a => [a.id, a]));
 
-    // Enriquecer com contato e atendente
-    const enriched = threadsFiltradas.map(thread => ({
-      ...thread,
-      contato: thread.contato || contatosMap.get(thread.contact_id),
-      atendente_atribuido: atendentesMap.get(thread.assigned_user_id)
-    }));
+    // Enriquecer com contato e atendente (buscando dados do User dinamicamente)
+    const enriched = threadsFiltradas.map(thread => {
+      const atendenteUser = atendentesMap.get(thread.assigned_user_id);
+      return {
+        ...thread,
+        contato: thread.contato || contatosMap.get(thread.contact_id),
+        atendente_atribuido: atendenteUser,
+        // Dados buscados dinamicamente do User
+        assigned_user_name: atendenteUser?.full_name,
+        assigned_user_email: atendenteUser?.email
+      };
+    });
     
     // DEDUPLICAÇÃO FINAL: Remover duplicatas baseado em contact_id
     // Priorizar threads reais sobre "contato-sem-thread" e "cliente-sem-contato"

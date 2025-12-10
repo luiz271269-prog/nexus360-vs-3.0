@@ -859,7 +859,14 @@ Deno.serve(async (req) => {
             unread_count: Math.max(1, thread.unread_count || 0)
           });
           
-          const msgConfirm = `✅ Perfeito! Continuando seu atendimento com *${lastUserName}*. Ele será notificado! 😊`;
+          // Buscar nome atualizado do User
+          let nomeAtendente = lastUserName;
+          try {
+            const userAtual = await base44.asServiceRole.entities.User.get(lastUserId);
+            if (userAtual?.full_name) nomeAtendente = userAtual.full_name;
+          } catch (e) {}
+          
+          const msgConfirm = `✅ Perfeito! Continuando seu atendimento com *${nomeAtendente}*. Ele será notificado! 😊`;
           await enviarMensagem(base44, integracao, contato.telefone, msgConfirm, thread_id);
           
           return Response.json({ success: true, continuou: true }, { headers: corsHeaders });
