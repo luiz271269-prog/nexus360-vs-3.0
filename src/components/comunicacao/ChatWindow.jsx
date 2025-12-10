@@ -1304,7 +1304,9 @@ export default function ChatWindow({
   const isManager = usuario?.role === 'admin' || usuario?.role === 'supervisor';
   const canManageConversation = isManager || thread?.assigned_user_id === usuario?.id || !thread?.assigned_user_id;
 
-  const enviarImagemColada = useCallback(async (imagemFile, previewUrl, legendaTexto = '') => {
+  // ═══════════════════════════════════════════════════════════════════════════
+  // REMOVIDA DUPLICATA - enviarImagemColada já está declarada antes
+  // ═══════════════════════════════════════════════════════════════════════════
     if (!imagemFile || !podeEnviarMidias) {
       toast.error('Não foi possível enviar a imagem');
       return;
