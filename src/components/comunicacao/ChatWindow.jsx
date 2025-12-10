@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, useCallback } from "react";
+import React, { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -1737,7 +1737,7 @@ export default function ChatWindow({
         <div className="flex items-center justify-center h-full">
             <p className="text-slate-400">Nenhuma mensagem ainda. Inicie a conversa!</p>
           </div> :
-        (() => {
+        useMemo(() => {
           // 🏷️ FILTRO POR CATEGORIA - Aplicado ANTES de todos os outros filtros
           let mensagensFiltradas = mensagens;
 
@@ -1900,7 +1900,7 @@ export default function ChatWindow({
                 </React.Fragment>);
 
                 });
-                }, [mensagens, selectedCategoria, thread?.unread_count, modoSelecao, mensagensSelecionadas, integracoes, contatoCompleto, atendentesLista])()}
+        }, [mensagens, selectedCategoria, thread?.unread_count, modoSelecao, mensagensSelecionadas, integracoes, contatoCompleto, atendentesLista])}
         <div ref={messagesEndRef} />
         </div>
         )}
