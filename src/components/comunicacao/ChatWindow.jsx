@@ -1,4 +1,5 @@
-import React, { useState, useRef, useEffect } from "react";
+
+import React, { useState, useRef, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -29,7 +30,6 @@ import {
 import MessageBubble from "./MessageBubble";
 import { base44 } from "@/api/base44Client";
 import { toast } from "sonner";
-// import html2canvas from "html2canvas"; // Desativado temporariamente
 import {
   Dialog,
   DialogContent,
@@ -151,7 +151,6 @@ export default function ChatWindow({
         setVendedores(vend || []);
         
         if (usuariosResult?.data?.success && usuariosResult?.data?.usuarios) {
-          console.log('[ChatWindow] Usuários carregados via serviceRole:', usuariosResult.data.usuarios.length);
           setAtendentesLista(usuariosResult.data.usuarios);
         }
       } catch (error) {
@@ -284,11 +283,8 @@ export default function ChatWindow({
       const resultado = await base44.functions.invoke('listarUsuariosParaAtribuicao', {});
       
       if (resultado?.data?.success && resultado?.data?.usuarios) {
-        const usuarios = resultado.data.usuarios;
-        console.log('[CHAT] Usuários carregados via serviceRole:', usuarios.length);
-        setAtendentes(usuarios);
+        setAtendentes(resultado.data.usuarios);
       } else {
-        console.warn('[CHAT] Função retornou erro, usando fallback');
         if (atendentesLista && atendentesLista.length > 0) {
           setAtendentes(atendentesLista);
         } else {
@@ -454,7 +450,6 @@ export default function ChatWindow({
     const isThreadOrfa = !threadAtual.assigned_user_id && !threadAtual.assigned_user_email;
     
     if (isThreadOrfa) {
-      console.log(`[CHAT] 🎯 Auto-atribuindo thread ${threadAtual.id} para ${usuario.full_name || usuario.email}`);
       
       try {
         await base44.entities.MessageThread.update(threadAtual.id, {
@@ -480,7 +475,6 @@ export default function ChatWindow({
           prioridade: 'normal'
         });
         
-        console.log(`[CHAT] ✅ Thread ${threadAtual.id} atribuída automaticamente a ${usuario.full_name}`);
         return true;
       } catch (autoAssignError) {
         console.warn('[CHAT] ⚠️ Erro na auto-atribuição:', autoAssignError.message);
@@ -789,132 +783,93 @@ export default function ChatWindow({
     }
   };
 
-  // Handler para atualizar mensagens após envio
-  const handleAtualizarMensagens = useCallback(async (novasMensagens) => {
-    if (novasMensagens) {
-      queryClient.setQueryData(['mensagens', threadAtiva?.id], novasMensagens);
-    } else {
-      queryClient.invalidateQueries({ queryKey: ['mensagens', threadAtiva?.id] });
+  // 🚀 ENVIO OTIMISTA OU TRADICIONAL
+  const handleEnviar = async (e) => {
+    e?.preventDefault(); // Previne o comportamento padrão do formulário
+
+    // Se estiver em modo broadcast, chamar o handler de broadcast
+    if (modoSelecaoMultipla && contatosSelecionados.length > 0) {
+      await handleEnviarBroadcast({});
+      return;
     }
-    queryClient.invalidateQueries({ queryKey: ['threads'] });
-  }, [threadAtiva, queryClient]);
 
-  // 🚀 OPTIMISTIC UI: Envio instantâneo de mensagens (0ms lag percebido)
-  const handleEnviarMensagemOtimista = useCallback(async (dadosEnvio) => {
-    if (!threadAtiva || !usuario) return;
+    // Verificações de permissão e estado
+    if (!podeEnviarMensagens) {
+      toast.error("❌ Você não tem permissão para enviar mensagens");
+      return;
+    }
+    if (enviando || gravandoAudio || uploadingPastedFile) {
+      return;
+    }
+    if (carregandoContato) {
+      toast.warning('⏳ Aguarde o contato ser carregado antes de enviar mensagens.');
+      return;
+    }
+    if (!mensagemTexto.trim()) {
+      // Se não há texto, e não há imagem colada, não faz nada
+      if (!pastedImage) return;
+    }
 
-    const { texto, integrationId, replyToMessage, mediaUrl, mediaType, mediaCaption, isAudio } = dadosEnvio;
-    
-    // 1. Criar mensagem temporária (aparece instantaneamente - 0ms)
-    const msgTemp = {
-      id: `temp-${Date.now()}`,
-      thread_id: threadAtiva.id,
-      sender_id: usuario.id,
-      sender_type: "user",
-      recipient_id: threadAtiva.contact_id,
-      recipient_type: "contact",
-      content: texto || (mediaType === 'image' ? '[Imagem]' : mediaType === 'audio' ? '[Áudio]' : '[Mídia]'),
-      channel: "whatsapp",
-      status: "enviando",
-      sent_at: new Date().toISOString(),
-      created_date: new Date().toISOString(),
-      media_url: mediaUrl || null,
-      media_type: mediaType || 'none',
-      media_caption: mediaCaption || null,
-      reply_to_message_id: replyToMessage?.id || null,
-      metadata: {
-        whatsapp_integration_id: integrationId,
-        optimistic: true
-      }
-    };
+    // Validações de thread e contato
+    if (!thread?.whatsapp_integration_id) {
+      toast.error('Thread sem integração WhatsApp configurada');
+      return;
+    }
+    if (!contatoCompleto) {
+      toast.error('Contato não carregado. Por favor, recarregue a página.');
+      return;
+    }
+    const telefone = contatoCompleto.telefone || contatoCompleto.celular;
+    if (!telefone) {
+      toast.error('Este contato não possui telefone cadastrado.');
+      return;
+    }
 
-    // 2. Atualizar cache INSTANTANEAMENTE (0ms lag)
-    queryClient.setQueryData(['mensagens', threadAtiva.id], (antigas = []) => {
-      return [...antigas, msgTemp];
-    });
+    // Auto-atribuir thread se necessário
+    await autoAtribuirThreadSeNecessario(thread);
 
-    // 3. Enviar para servidor em background (não bloqueia UI)
-    try {
-      const contatoAtual = contatos.find(c => c.id === threadAtiva.contact_id);
-      const telefone = contatoAtual?.telefone || contatoAtual?.celular;
+    // Adicionar assinatura à mensagem
+    let mensagemParaEnviar = mensagemTexto.trim();
+    const nomeAtendenteEnvio = usuario?.display_name || usuario?.full_name;
+    if (nomeAtendenteEnvio && usuario?.attendant_sector) {
+      const primeiroNome = nomeAtendenteEnvio.split(' ')[0];
+      const setor = usuario.attendant_sector;
+      mensagemParaEnviar = `${mensagemParaEnviar}\n\n_~ ${primeiroNome} (${setor})_`;
+    }
 
-      if (!telefone) {
-        throw new Error('Contato sem telefone');
-      }
+    const integrationIdParaUso = canalSelecionado || thread.whatsapp_integration_id;
+    const replyToMessageId = mensagemResposta?.id || null;
 
-      const payload = {
-        integration_id: integrationId,
-        numero_destino: telefone
-      };
+    // 🚀 LIMPAR UI INSTANTANEAMENTE (0ms lag)
+    setMensagemTexto("");
+    setMensagemResposta(null);
+    setMostrarSugestor(false);
 
-      if (mediaUrl) {
-        if (isAudio || mediaType === 'audio') {
-          payload.audio_url = mediaUrl;
-          payload.media_type = 'audio';
-        } else {
-          payload.media_url = mediaUrl;
-          payload.media_type = mediaType;
-          if (mediaCaption || texto) {
-            payload.media_caption = mediaCaption || texto;
-          }
-        }
-      } else if (texto) {
-        payload.mensagem = texto;
-      }
-
-      if (replyToMessage?.whatsapp_message_id) {
-        payload.reply_to_message_id = replyToMessage.whatsapp_message_id;
-      }
-
-      const resultado = await base44.functions.invoke('enviarWhatsApp', payload);
-
-      if (resultado.data.success) {
-        // Registrar mensagem real no banco
-        await base44.entities.Message.create({
-          thread_id: threadAtiva.id,
-          sender_id: usuario.id,
-          sender_type: "user",
-          recipient_id: threadAtiva.contact_id,
-          recipient_type: "contact",
-          content: msgTemp.content,
-          channel: "whatsapp",
-          status: "enviada",
-          whatsapp_message_id: resultado.data.message_id,
-          sent_at: new Date().toISOString(),
-          media_url: mediaUrl || null,
-          media_type: mediaType || 'none',
-          media_caption: mediaCaption || null,
-          reply_to_message_id: replyToMessage?.id || null,
-          metadata: {
-            whatsapp_integration_id: integrationId
-          }
-        });
-
-        await base44.entities.MessageThread.update(threadAtiva.id, {
-          last_message_content: msgTemp.content.substring(0, 100),
-          last_message_at: new Date().toISOString(),
-          last_message_sender: "user",
-          last_media_type: mediaType || 'none',
-          whatsapp_integration_id: integrationId
-        });
-
-        // 4. Invalidar queries para substituir mensagem temporária pela real
-        queryClient.invalidateQueries({ queryKey: ['mensagens', threadAtiva.id] });
-        queryClient.invalidateQueries({ queryKey: ['threads'] });
-      } else {
-        throw new Error(resultado.data.error || 'Erro ao enviar');
-      }
-    } catch (error) {
-      console.error('[OPTIMISTIC] ❌ Erro ao enviar:', error);
-      
-      // 5. ROLLBACK: Remover mensagem temporária em caso de erro
-      queryClient.setQueryData(['mensagens', threadAtiva.id], (antigas = []) => {
-        return antigas.filter(m => m.id !== msgTemp.id);
+    // Tentar enviar otimista primeiro
+    if (onSendMessageOptimistic) {
+      onSendMessageOptimistic({
+        texto: mensagemParaEnviar,
+        integrationId: integrationIdParaUso,
+        replyToMessage: mensagemResposta, // Passa o objeto completo da mensagem de resposta
+        thread: thread,
+        usuario: usuario,
+        contatoCompleto: contatoCompleto
       });
-      
-      toast.error(`❌ Erro ao enviar: ${error.message}`);
+    } else if (onEnviarMensagem) { // Fallback para envio tradicional se não houver handler otimista
+      // onEnviarMensagem é esperado para ser a função que lida com o envio tradicional,
+      // atualizando o estado *após* a resposta da API.
+      onEnviarMensagem({
+        threadId: thread.id,
+        contactId: thread.contact_id,
+        senderId: usuario.id,
+        content: mensagemParaEnviar,
+        integrationId: integrationIdParaUso,
+        replyToMessageId: replyToMessageId
+      });
+    } else {
+      toast.error("Nenhum método de envio de mensagem configurado.");
     }
-  }, [threadAtiva, usuario, queryClient, contatos]);
+  };
 
   const handleResponderMensagem = (mensagem) => {
     setMensagemResposta(mensagem);
@@ -1070,7 +1025,7 @@ export default function ChatWindow({
 
     const timer = setTimeout(marcarComoLida, 1000);
     return () => clearTimeout(timer);
-  }, [thread?.id, mensagens.length, usuario?.id]);
+  }, [thread?.id, mensagens.length, usuario?.id, onAtualizarMensagens]);
 
   // ✅ Foco automático no campo de mensagem ao abrir conversa
   useEffect(() => {
@@ -1093,13 +1048,11 @@ export default function ChatWindow({
     const timer = setTimeout(() => {
       if (primeiraLidaIndex !== -1 && thread?.unread_count > 0) {
         if (unreadSeparatorRef.current) {
-          console.log('✅ Rolando para mensagens não lidas');
           unreadSeparatorRef.current.scrollIntoView({
             behavior: 'smooth',
             block: 'center'
           });
         } else {
-          console.warn('⚠️ Separador não encontrado');
           messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
         }
       } else {
@@ -1363,7 +1316,7 @@ export default function ChatWindow({
       if (pastedImage) {
         enviarImagemColada();
       } else {
-        handleEnviar();
+        handleEnviar(e); // Passa o evento para handleEnviar
       }
     }
   };
@@ -1618,7 +1571,6 @@ export default function ChatWindow({
                 alt={nomeContato}
                 className="w-full h-full object-cover"
                 onError={(e) => {
-                  console.warn('Erro ao carregar foto:', e);
                   e.target.style.display = 'none';
                 }} /> :
               <span>{getInitials(nomeContato)}</span>
@@ -1812,9 +1764,10 @@ export default function ChatWindow({
 
           return mensagensFiltradas.
           filter((m) => {
-            // ✅ SEMPRE MOSTRAR mensagens deletadas e de sistema legítimas
+            // ✅ SEMPRE MOSTRAR mensagens deletadas, de sistema legítimas e otimistas
             if (m.metadata?.deleted) return true;
             if (m.metadata?.is_system_message) return true;
+            if (m.metadata?.optimistic) return true; // ✅ MOSTRAR mensagens otimistas
 
             const content = (m.content || '').trim();
 
@@ -1991,7 +1944,7 @@ export default function ChatWindow({
         if (pastedImage) {
           enviarImagemColada();
         } else {
-          handleEnviar();
+          handleEnviar(e);
         }
       }} className="bg-[#d6dfe1] text-gray-950 px-3 rounded-lg border-t flex-shrink-0">
 
@@ -2170,7 +2123,6 @@ export default function ChatWindow({
           <Button
             type="button"
             onClick={() => {
-              console.log('[CHAT] Botão enviar clicado');
               if (pastedImage) {
                 enviarImagemColada();
               } else {
