@@ -135,6 +135,8 @@ export const contatoFidelizadoAOutro = (contato, usuarioAtual) => {
 
 /**
  * Obtém o nome do atendente fidelizado de um contato (primeiro encontrado)
+ * IMPORTANTE: Retorna o nome armazenado no contato, que pode estar desatualizado
+ * Para obter o nome atualizado, use getAtendenteFidelizadoAtualizado() com a lista de Users
  * 
  * @param {Object} contato - Objeto do contato
  * @returns {string|null}
@@ -148,6 +150,23 @@ export const getAtendenteFidelizadoNome = (contato) => {
          contato.atendente_fidelizado_financeiro ||
          contato.atendente_fidelizado_fornecedor ||
          null;
+};
+
+/**
+ * Obtém o objeto User atualizado do atendente fidelizado
+ * Busca na lista de usuários para obter dados atualizados
+ * 
+ * @param {Object} contato - Objeto do contato
+ * @param {Array} listaUsuarios - Lista de usuários (User entities)
+ * @returns {Object|null} - Objeto User completo ou null
+ */
+export const getAtendenteFidelizadoAtualizado = (contato, listaUsuarios) => {
+  if (!contato || !listaUsuarios) return null;
+  
+  const nomeFidelizado = getAtendenteFidelizadoNome(contato);
+  if (!nomeFidelizado) return null;
+  
+  return encontrarUsuario(listaUsuarios, nomeFidelizado);
 };
 
 /**
@@ -192,6 +211,7 @@ export default {
   contatoFidelizadoAoUsuario,
   contatoFidelizadoAOutro,
   getAtendenteFidelizadoNome,
+  getAtendenteFidelizadoAtualizado,
   encontrarUsuario,
   criarMapaUsuarios
 };

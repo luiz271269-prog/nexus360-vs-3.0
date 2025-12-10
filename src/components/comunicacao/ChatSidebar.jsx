@@ -25,7 +25,7 @@ import { Button } from "@/components/ui/button";
 import { 
   contatoFidelizadoAoUsuario, 
   contatoFidelizadoAOutro, 
-  getAtendenteFidelizadoNome 
+  getAtendenteFidelizadoAtualizado 
 } from "../lib/userMatcher";
 
 export default function ChatSidebar({ 
@@ -35,6 +35,7 @@ export default function ChatSidebar({
   loading, 
   usuarioAtual, 
   integracoes = [],
+  atendentes = [], // Lista de Users para buscar nomes atualizados
   // Props para seleção múltipla (controlados pelo pai)
   modoSelecaoMultipla = false,
   setModoSelecaoMultipla,
@@ -191,8 +192,10 @@ export default function ChatSidebar({
     setContatosSelecionados(todosContatos);
   };
 
-  // Função para obter nome do atendente fidelizado do contato (usando userMatcher)
-  const getAtendenteFidelizado = getAtendenteFidelizadoNome;
+  // Função para obter User atualizado do atendente fidelizado
+  const getAtendenteFidelizado = (contato) => {
+    return getAtendenteFidelizadoAtualizado(contato, atendentes);
+  };
 
   return (
     <div className="relative">
@@ -450,9 +453,9 @@ export default function ChatSidebar({
                     <UserCheck className="w-3 h-3" />
                     {thread.atendente_atribuido.full_name.split(' ')[0]}
                   </span>
-                ) : getAtendenteFidelizado(contato) ? (
-                  <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-semibold text-amber-700 bg-amber-100 shadow-sm" title={`Fidelizado: ${getAtendenteFidelizado(contato)}`}>
-                    ⭐ {String(getAtendenteFidelizado(contato)).split(' ')[0]}
+                ) : getAtendenteFidelizado(contato)?.full_name ? (
+                  <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-semibold text-amber-700 bg-amber-100 shadow-sm" title={`Fidelizado: ${getAtendenteFidelizado(contato).full_name}`}>
+                    ⭐ {getAtendenteFidelizado(contato).full_name.split(' ')[0]}
                   </span>
                 ) : thread.is_contact_only ? (
                   <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-semibold text-slate-500 bg-slate-100 shadow-sm">
