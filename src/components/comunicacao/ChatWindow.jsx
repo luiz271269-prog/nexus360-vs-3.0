@@ -609,10 +609,10 @@ export default function ChatWindow({
           setTimeout(async () => {
             const novasMensagens = await base44.entities.Message.filter(
               { thread_id: thread.id },
-              'created_date',
-              500
+              '-created_date',
+              200
             );
-            onAtualizarMensagens(novasMensagens);
+            onAtualizarMensagens(novasMensagens.reverse());
           }, 500);
         }
       } else {
@@ -916,10 +916,10 @@ export default function ChatWindow({
           setTimeout(async () => {
             const novasMensagens = await base44.entities.Message.filter(
               { thread_id: thread.id },
-              'created_date',
-              500
+              '-created_date',
+              200
             );
-            onAtualizarMensagens(novasMensagens);
+            onAtualizarMensagens(novasMensagens.reverse());
           }, 500);
         }
       } else {
@@ -1103,10 +1103,10 @@ export default function ChatWindow({
           setTimeout(async () => {
             const novasMensagens = await base44.entities.Message.filter(
               { thread_id: thread.id },
-              'created_date',
-              500
+              '-created_date',
+              200
             );
-            onAtualizarMensagens(novasMensagens);
+            onAtualizarMensagens(novasMensagens.reverse());
           }, 500);
         }
       } catch (error) {
