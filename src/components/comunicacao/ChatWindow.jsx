@@ -1792,66 +1792,17 @@ export default function ChatWindow({
           </div>
         ) : (
         mensagensProcessadas.map((mensagem, index) => {
-  // 🎯 MEMOIZAÇÃO: Processar mensagens ANTES de qualquer early return
-  const mensagensProcessadas = useMemo(() => {
-    if (mensagens.length === 0) return [];
-
-    let mensagensFiltradas = mensagens;
-
-    // Filtrar por categoria se necessário
-    if (selectedCategoria && selectedCategoria !== 'all') {
-      mensagensFiltradas = mensagens.filter((m) => {
-        const temCategoria = m.categorias && Array.isArray(m.categorias) && m.categorias.includes(selectedCategoria);
-        return temCategoria;
-      });
-    }
-
-    // Filtrar mensagens inválidas
-    return mensagensFiltradas.filter((m) => {
-      if (m.metadata?.deleted) return true;
-      if (m.metadata?.is_system_message) return true;
-      if (m.metadata?.optimistic) return true;
-
-      const content = (m.content || '').trim();
-
-      if (m.media_url && m.media_type && m.media_type !== 'none') return true;
-      if (!content && (!m.media_url || m.media_type === 'none' || !m.media_type)) return false;
-      if (/[\+\-\d\s]*status@broadcast/i.test(content)) return false;
-      if (/@(broadcast|lid|s\.whatsapp\.net|c\.us)/i.test(content)) return false;
-      if (/status@/i.test(content)) return false;
-      if (/^[\+\-\d\s]+@/i.test(content)) return false;
-      if (/^\+?\d+@/i.test(content)) return false;
-      if (/^(Adicionar|Referência|Mídia enviada|Media enviada)$/i.test(content)) return false;
-
-      const conteudoInvalido = ['Mídia enviada', 'Media enviada', 'Adicionar', 'Referência', '[No content]', '[Message content missing]', '[Recovered message]', ''];
-      if (conteudoInvalido.includes(content)) return false;
-      if (/^[\+\-\s\d@\.]+$/.test(content) && content.length < 50) return false;
-      if (content.startsWith('[Media type:')) return false;
-
-      const tiposEspeciais = ['contact', 'location'];
-      if (tiposEspeciais.includes(m.media_type) && content.length > 0) return true;
-      if (m.media_url && m.media_type && m.media_type !== 'none') return true;
-      if (content.length > 0) return true;
-
-      return false;
-    });
-  }, [mensagens, selectedCategoria]);
-
-  // Se está em modo broadcast com contatos selecionados, mostrar interface de envio
-  const mostrarInterfaceBroadcast = modoSelecaoMultipla && contatosSelecionados.length > 0;
-
-  if (!thread && !mostrarInterfaceBroadcast) {
+            const msgCompleta = mensagens.find(m => m.id === mensagem.id);
+            const indexOriginal = mensagens.indexOf(msgCompleta);
             const isFirstUnread =
             mensagem.sender_type === 'contact' &&
             mensagem.status !== 'lida' &&
             mensagem.status !== 'apagada' && (
-            index === 0 ||
-            mensagens[index - 1] && (
-            mensagens[index - 1].status === 'lida' ||
-            mensagens[index - 1].status === 'apagada' ||
-            mensagens[index - 1].sender_type === 'user'));
-
-
+            indexOriginal === 0 ||
+            mensagens[indexOriginal - 1] && (
+            mensagens[indexOriginal - 1].status === 'lida' ||
+            mensagens[indexOriginal - 1].status === 'apagada' ||
+            mensagens[indexOriginal - 1].sender_type === 'user'));
 
             return (
               <React.Fragment key={mensagem.id}>
