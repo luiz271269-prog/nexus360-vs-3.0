@@ -376,21 +376,52 @@ async function executarPreAtendimentoInline(base44, params) {
     }
 
     const saudacao = getSaudacao();
-    let mensagemTexto = template.mensagem_saudacao || 'Olá! {saudacao}, para qual setor você gostaria de falar?';
-    mensagemTexto = mensagemTexto.replace('{saudacao}', saudacao);
     
+    // 1. Saudação + apresentação
+    let mensagemSaudacao = `Olá! ${saudacao}`;
     if (contato.nome && contato.nome !== contato.telefone) {
-      mensagemTexto = mensagemTexto.replace('Olá!', `Olá, ${contato.nome}!`);
+      mensagemSaudacao = `Olá, ${contato.nome}! ${saudacao}`;
     }
+    mensagemSaudacao += ', eu sou o assistente virtual.';
 
     const opcoesSetor = template.opcoes_setor || [
       { label: '💼 Vendas', setor: 'vendas' },
-      { label: '🔧 Suporte', setor: 'assistencia' },
-      { label: '💰 Financeiro', setor: 'financeiro' }
+      { label: '🔧 Suporte Técnico', setor: 'assistencia' },
+      { label: '💰 Financeiro', setor: 'financeiro' },
+      { label: '📦 Fornecedores', setor: 'fornecedor' }
     ];
 
-    const listaOpcoes = opcoesSetor.map((op, i) => `${i + 1}. ${op.label}`).join('\n');
-    const mensagemCompleta = `${mensagemTexto}\n\n${listaOpcoes}\n\n_Responda com o número ou nome da opção desejada._`;
+    // 2. Quadro com pergunta + 3. Lista de setores + 4. Instrução
+    const listaOpcoes = opcoesSetor.map((op, i) => `*${i + 1}.* ${op.label}`).join('\n');
+    const blocoSetores = `┌─────────────────────────────────────┐
+│  Para qual setor você gostaria de   │
+│  falar?                              │
+└─────────────────────────────────────┘
+
+${listaOpcoes}
+
+_Responda com o *número* ou *nome* da opção desejada._`;
+
+    // 5. Buscar e formatar promoções (se houver)
+    let blocoPromocoes = '';
+    try {
+      const promocoesResponse = await base44.functions.invoke('buscarPromocoesAtivas', {
+        limite: 3,
+        integration_id: integration_id,
+        setor: thread.sector_id || 'geral'
+      });
+      
+      if (promocoesResponse?.data?.success && promocoesResponse?.data?.texto_formatado) {
+        blocoPromocoes = `\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🎁 *PROMOÇÕES EM DESTAQUE:*
+${promocoesResponse.data.texto_formatado}
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`;
+      }
+    } catch (e) {
+      console.log('[PRE-ATEND] ⚠️ Erro ao buscar promoções:', e.message);
+    }
+
+    const mensagemCompleta = `${mensagemSaudacao}\n\n${blocoSetores}${blocoPromocoes}`;
 
     // Enviar via Z-API diretamente
     const integracao = await base44.asServiceRole.entities.WhatsAppIntegration.get(integration_id);
