@@ -223,6 +223,7 @@ export const canUserSeeThreadBase = (usuario, thread, mensagensThread = []) => {
  * @param {string} filtros.atendenteId - ID do atendente selecionado no filtro
  * @param {string} filtros.integracaoId - ID da integração selecionada
  * @param {string} filtros.conexaoId - ID da conexão selecionada
+ * @param {string} filtros.sectorId - ID do setor selecionado no filtro
  * @param {string} filtros.scope - 'my' | 'unassigned' | 'all'
  */
 export const canUserSeeThreadWithFilters = (usuario, thread, filtros = {}) => {
@@ -302,7 +303,19 @@ export const canUserSeeThreadWithFilters = (usuario, thread, filtros = {}) => {
   // NOTA: A lógica de contexto (mostrar todas threads do contato) é feita em Comunicacao.jsx
   if (filtros.scope === 'unassigned') {
     // Thread órfã = sem assigned_user_id e sem assigned_user_email
-    return naoAtribuida && (isAdminOrAll || perms.pode_ver_nao_atribuidas !== false);
+    const baseCheck = naoAtribuida && (isAdminOrAll || perms.pode_ver_nao_atribuidas !== false);
+    
+    if (!baseCheck) return false;
+    
+    // Aplicar filtro de setor se selecionado
+    if (filtros.sectorId && filtros.sectorId !== 'all') {
+      const threadSetor = normalizar(thread.sector_id || thread.setor);
+      if (threadSetor !== normalizar(filtros.sectorId)) {
+        return false;
+      }
+    }
+    
+    return true;
   }
 
   // C. Aba "Todas" (scope = 'all') - Admin/Gerentes veem tudo que passou no Estágio 1
