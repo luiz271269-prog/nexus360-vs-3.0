@@ -12,9 +12,9 @@ import { connectionManager } from './lib/connectionManager.js';
 // 6. NOVO: Extrai fileId da Z-API para download via API do provedor
 // ============================================================================
 
-const VERSION = 'v8.3.0';
+const VERSION = 'v8.4.0-GUARDAS';
 const BUILD_DATE = '2025-12-11';
-const BUILD_TIMESTAMP = '20251211-ZAPI-CIRURGICO';
+const BUILD_TIMESTAMP = '20251211-GUARDAS-COMPLETAS';
 
 const corsHeaders = {
   'Content-Type': 'application/json',
