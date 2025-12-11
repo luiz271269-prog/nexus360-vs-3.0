@@ -27,6 +27,7 @@ import {
   contatoFidelizadoAOutro, 
   getAtendenteFidelizadoAtualizado 
 } from "../lib/userMatcher";
+import { getUserDisplayName } from "../lib/userHelpers";
 
 export default function ChatSidebar({ 
   threads, 
@@ -449,9 +450,9 @@ export default function ChatSidebar({
                 
                 {/* ✅ CORREÇÃO: ATENDENTE via getUserDisplayName */}
                 {thread.assigned_user_id ? (
-                  <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-semibold text-white bg-indigo-500 shadow-sm" title={`Atendendo: ${getUserDisplayName(thread.assigned_user_id, todosUsuarios)}`}>
+                  <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-semibold text-white bg-indigo-500 shadow-sm" title={`Atendendo: ${getUserDisplayName(thread.assigned_user_id, atendentes)}`}>
                     <UserCheck className="w-3 h-3" />
-                    {getUserDisplayName(thread.assigned_user_id, todosUsuarios).split(' ')[0]}
+                    {getUserDisplayName(thread.assigned_user_id, atendentes).split(' ')[0]}
                   </span>
                 ) : getAtendenteFidelizado(contato)?.full_name ? (
                   <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-semibold text-amber-700 bg-amber-100 shadow-sm" title={`Fidelizado: ${getAtendenteFidelizado(contato).full_name}`}>
