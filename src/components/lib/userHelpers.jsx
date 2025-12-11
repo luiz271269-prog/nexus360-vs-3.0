@@ -165,6 +165,9 @@ export const getUserDisplayName = (userId, listaUsuarios = [], options = {}) => 
   return nome;
 };
 
+// ✅ Export nomeado para uso direto
+export { getUserDisplayName as default };
+
 export default {
   getNomeAtendente,
   getPrimeiroNome,
