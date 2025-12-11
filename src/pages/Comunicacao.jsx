@@ -844,33 +844,43 @@ export default function Comunicacao() {
     
     // DEDUPLICAÇÃO FINAL: Remover duplicatas baseado em contact_id
     // Priorizar threads reais sobre "contato-sem-thread" e "cliente-sem-contato"
-    const vistos = new Map();
-    const deduplicated = [];
+    // EXCEÇÃO: Quando filterScope === 'unassigned', mostrar TODAS as threads sem deduzir
+    let deduplicated;
     
-    for (const thread of enriched) {
-      const contactId = thread.contact_id;
+    if (filterScope === 'unassigned') {
+      // Modo "Não Atribuídas": Mostrar TODAS as threads, sem deduplicação por contato
+      deduplicated = enriched;
+    } else {
+      // Modo normal: Deduzir para mostrar apenas uma thread por contato
+      const vistos = new Map();
+      const temp = [];
       
-      // Se não tem contact_id (cliente sem contato), adicionar direto
-      if (!contactId) {
-        deduplicated.push(thread);
-        continue;
-      }
-      
-      const existente = vistos.get(contactId);
-      if (!existente) {
-        vistos.set(contactId, thread);
-        deduplicated.push(thread);
-      } else {
-        // Se o existente é "contato-sem-thread" e o atual é thread real, substituir
-        if (existente.is_contact_only && !thread.is_contact_only) {
-          const idx = deduplicated.indexOf(existente);
-          if (idx !== -1) {
-            deduplicated[idx] = thread;
-            vistos.set(contactId, thread);
-          }
+      for (const thread of enriched) {
+        const contactId = thread.contact_id;
+        
+        // Se não tem contact_id (cliente sem contato), adicionar direto
+        if (!contactId) {
+          temp.push(thread);
+          continue;
         }
-        // Caso contrário, manter o existente (já é a thread real ou mais recente)
+        
+        const existente = vistos.get(contactId);
+        if (!existente) {
+          vistos.set(contactId, thread);
+          temp.push(thread);
+        } else {
+          // Se o existente é "contato-sem-thread" e o atual é thread real, substituir
+          if (existente.is_contact_only && !thread.is_contact_only) {
+            const idx = temp.indexOf(existente);
+            if (idx !== -1) {
+              temp[idx] = thread;
+              vistos.set(contactId, thread);
+            }
+          }
+          // Caso contrário, manter o existente (já é a thread real ou mais recente)
+        }
       }
+      deduplicated = temp;
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -899,7 +909,7 @@ export default function Comunicacao() {
       const dateB = new Date(b.last_message_at || 0);
       return dateB - dateA;
     });
-  }, [threadsFiltradas, contatos, atendentes]);
+  }, [threadsFiltradas, contatos, atendentes, filterScope]);
 
   const isManager = usuario?.role === 'admin' || usuario?.role === 'supervisor';
   const contatoAtivo = threadAtiva ? contatos.find((c) => c.id === threadAtiva.contact_id) : null;
