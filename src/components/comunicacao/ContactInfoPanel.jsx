@@ -313,16 +313,16 @@ export default function ContactInfoPanel({ contact, novoContatoTelefone, onClose
                   onValueChange={(value) => handleChange('atendente_fidelizado_vendas', value === "nao" ? "" : value)}
                 >
                   <SelectTrigger className="border-0 bg-transparent text-white h-6 p-0 focus:ring-0 flex-1">
-                    <SelectValue placeholder="Atendente">
+                    <SelectValue placeholder="Vendas">
                       {formData.atendente_fidelizado_vendas ? 
                         getUserDisplayName(formData.atendente_fidelizado_vendas, atendentes) : 
-                        "Atendente"
+                        "Vendas"
                       }
                     </SelectValue>
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="nao">Não atribuído</SelectItem>
-                    {atendentes.map(a => (
+                    {atendentes.filter(a => !a.attendant_sector || a.attendant_sector === 'vendas').map(a => (
                       <SelectItem key={a.id} value={a.id}>
                         <div className="flex flex-col">
                           <span className="font-medium">{getUserDisplayName(a.id, atendentes)}</span>
@@ -547,11 +547,11 @@ export default function ContactInfoPanel({ contact, novoContatoTelefone, onClose
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="nao">Não atribuído</SelectItem>
-                    {atendentes.map(a => (
+                    {atendentes.filter(a => !a.attendant_sector || a.attendant_sector === 'fornecedor').map(a => (
                       <SelectItem key={a.id} value={a.id}>
                         <div className="flex flex-col">
                           <span className="font-medium">{getUserDisplayName(a.id, atendentes)}</span>
-                          <span className="text-xs text-slate-500">{a.email}</span>
+                          {a.attendant_sector && <span className="text-xs text-slate-500 capitalize">🔹 {a.attendant_sector}</span>}
                         </div>
                       </SelectItem>
                     ))}
@@ -560,7 +560,7 @@ export default function ContactInfoPanel({ contact, novoContatoTelefone, onClose
               </div>
             )}
 
-            {formData.tipo_contato === 'cliente' && (
+            {(formData.tipo_contato === 'cliente' || formData.tipo_contato === 'lead') && (
               <div className="bg-purple-500 text-white rounded-lg px-3 shadow h-[1cm] flex items-center gap-2">
                 <User className="w-4 h-4 flex-shrink-0" />
                 <Select
@@ -578,11 +578,11 @@ export default function ContactInfoPanel({ contact, novoContatoTelefone, onClose
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="nao">Não atribuído</SelectItem>
-                    {atendentes.map(a => (
+                    {atendentes.filter(a => !a.attendant_sector || a.attendant_sector === 'vendas').map(a => (
                       <SelectItem key={a.id} value={a.id}>
                         <div className="flex flex-col">
                           <span className="font-medium">{getUserDisplayName(a.id, atendentes)}</span>
-                          <span className="text-xs text-slate-500">{a.email}</span>
+                          {a.attendant_sector && <span className="text-xs text-slate-500 capitalize">🔹 {a.attendant_sector}</span>}
                         </div>
                       </SelectItem>
                     ))}
