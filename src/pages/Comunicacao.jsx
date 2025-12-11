@@ -202,8 +202,12 @@ export default function Comunicacao() {
     retry: 2
   });
 
-  // Filtrar atendentes visíveis com base nas permissões do usuário
-  const atendentes = React.useMemo(() => {
+  // ✅ CORREÇÃO: Separar atendentes para EXIBIÇÃO de NOMES vs FILTRO
+  // atendentes = TODOS (para exibir nomes em threads/mensagens)
+  // atendentesParaFiltro = Apenas os que o usuário pode FILTRAR
+  const atendentes = atendentesRaw; // Lista completa para exibir nomes
+  
+  const atendentesParaFiltro = React.useMemo(() => {
     return filtrarAtendentesVisiveis(usuario, atendentesRaw);
   }, [atendentesRaw, usuario]);
 
@@ -1055,7 +1059,7 @@ export default function Comunicacao() {
                     onFilterScopeChange={setFilterScope}
                     selectedAttendantId={selectedAttendantId}
                     onSelectedAttendantChange={setSelectedAttendantId}
-                    atendentes={atendentes}
+                    atendentes={atendentesParaFiltro}
                     isManager={isManager}
                     novoContatoTelefone={novoContatoTelefone}
                     onNovoContatoTelefoneChange={setNovoContatoTelefone}
