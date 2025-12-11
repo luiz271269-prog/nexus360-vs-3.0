@@ -142,9 +142,13 @@ export const getUserDisplayName = (userId, listaUsuarios = [], options = {}) => 
   const { incluirSetor = false, incluirEmail = false } = options;
   
   if (!userId) return 'Sem atribuição';
+  
+  // ✅ CORREÇÃO: Se lista está vazia mas userId existe, retornar estado claro
   if (!listaUsuarios?.length) return 'Carregando...';
   
   const usuario = listaUsuarios.find(u => u.id === userId);
+  
+  // ✅ CORREÇÃO: Retornar estado que ChatSidebar pode detectar
   if (!usuario) return 'Usuário não encontrado';
   
   const nome = getNomeAtendente(usuario);

@@ -448,16 +448,47 @@ export default function ChatSidebar({
                   </span>
                 )}
                 
-                {/* ✅ CORREÇÃO: ATENDENTE via getUserDisplayName */}
+                {/* ✅ CORREÇÃO: ATENDENTE via getUserDisplayName com fallback claro */}
                 {thread.assigned_user_id ? (
-                  <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-semibold text-white bg-indigo-500 shadow-sm" title={`Atendendo: ${getUserDisplayName(thread.assigned_user_id, atendentes)}`}>
-                    <UserCheck className="w-3 h-3" />
-                    {getUserDisplayName(thread.assigned_user_id, atendentes).split(' ')[0]}
-                  </span>
-                ) : getAtendenteFidelizado(contato)?.full_name ? (
-                  <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-semibold text-amber-700 bg-amber-100 shadow-sm" title={`Fidelizado: ${getAtendenteFidelizado(contato).full_name}`}>
-                    ⭐ {getAtendenteFidelizado(contato).full_name.split(' ')[0]}
-                  </span>
+                  (() => {
+                    const nomeAtendente = getUserDisplayName(thread.assigned_user_id, atendentes);
+                    const isCarregando = nomeAtendente === 'Carregando...' || nomeAtendente === 'Usuário não encontrado';
+                    
+                    if (isCarregando) {
+                      return (
+                        <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-semibold text-slate-500 bg-slate-100 shadow-sm" title="Atendente não visível">
+                          <UserCheck className="w-3 h-3" />
+                          Restrito
+                        </span>
+                      );
+                    }
+                    
+                    return (
+                      <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-semibold text-white bg-indigo-500 shadow-sm" title={`Atendendo: ${nomeAtendente}`}>
+                        <UserCheck className="w-3 h-3" />
+                        {nomeAtendente.split(' ')[0]}
+                      </span>
+                    );
+                  })()
+                ) : getAtendenteFidelizado(contato)?.id ? (
+                  (() => {
+                    const nomeFidelizado = getUserDisplayName(getAtendenteFidelizado(contato).id, atendentes);
+                    const isCarregando = nomeFidelizado === 'Carregando...' || nomeFidelizado === 'Usuário não encontrado';
+                    
+                    if (isCarregando) {
+                      return (
+                        <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-semibold text-slate-500 bg-slate-100 shadow-sm" title="Atendente fidelizado não visível">
+                          ⭐ Restrito
+                        </span>
+                      );
+                    }
+                    
+                    return (
+                      <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-semibold text-amber-700 bg-amber-100 shadow-sm" title={`Fidelizado: ${nomeFidelizado}`}>
+                        ⭐ {nomeFidelizado.split(' ')[0]}
+                      </span>
+                    );
+                  })()
                 ) : thread.is_contact_only ? (
                   <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-semibold text-slate-500 bg-slate-100 shadow-sm">
                     S/atend.
