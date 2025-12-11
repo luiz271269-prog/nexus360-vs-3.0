@@ -761,8 +761,72 @@ async function handleMessage(dados, payloadBruto, base44) {
   });
 
   // ============================================================================
-  // ✅ PRÉ-ATENDIMENTO AUTOMÁTICO - ATIVADO POR SAUDAÇÕES
+  // ✅ LÓGICA ROBUSTA DE PRÉ-ATENDIMENTO (VERSÃO FINAL - SEM DUPLICAÇÕES)
   // ============================================================================
+  
+  // 🔥 PASSO 1: VERIFICAR FIDELIZAÇÃO (PRIORIDADE MÁXIMA)
+  if (contato.is_cliente_fidelizado === true) {
+    console.log('[' + VERSION + '] 🎯 Contato FIDELIZADO - Transferindo direto ao setor');
+    
+    try {
+      // Determinar setor fidelizado
+      const setorFidelizado = contato.atendente_fidelizado_vendas ? 'vendas' :
+                              contato.atendente_fidelizado_assistencia ? 'assistencia' :
+                              contato.atendente_fidelizado_financeiro ? 'financeiro' :
+                              contato.atendente_fidelizado_fornecedor ? 'fornecedor' : 'geral';
+      
+      // Buscar atendente fidelizado
+      const campoFidelizado = {
+        'vendas': 'atendente_fidelizado_vendas',
+        'assistencia': 'atendente_fidelizado_assistencia',
+        'financeiro': 'atendente_fidelizado_financeiro',
+        'fornecedor': 'atendente_fidelizado_fornecedor'
+      };
+      
+      let atendenteFidelizado = null;
+      const campo = campoFidelizado[setorFidelizado];
+      if (campo && contato[campo]) {
+        try {
+          atendenteFidelizado = await base44.asServiceRole.entities.User.get(contato[campo]);
+        } catch (e) {}
+      }
+      
+      // Atualizar thread (SEM pré-atendimento)
+      const threadUpdate = {
+        sector_id: setorFidelizado,
+        pre_atendimento_ativo: false,
+        pre_atendimento_state: 'NAO_INICIADO'
+      };
+      
+      if (atendenteFidelizado) {
+        threadUpdate.assigned_user_id = atendenteFidelizado.id;
+        threadUpdate.assigned_user_name = atendenteFidelizado.full_name;
+      }
+      
+      await base44.asServiceRole.entities.MessageThread.update(thread.id, threadUpdate);
+      
+      console.log('[' + VERSION + '] ✅ Fidelizado transferido | Setor:', setorFidelizado, '| Atendente:', atendenteFidelizado?.id || 'N/A');
+      
+      // 🔥 RETURN IMEDIATO - Nunca entra no pré-atendimento
+      return Response.json({
+        success: true,
+        message_id: mensagem.id,
+        contact_id: contato.id,
+        thread_id: thread.id,
+        integration_id: integracaoId,
+        fidelizado_transferido: true,
+        setor: setorFidelizado,
+        duration_ms: Date.now() - inicio
+      }, { headers: corsHeaders });
+      
+    } catch (e) {
+      console.error('[' + VERSION + '] ❌ Erro ao transferir fidelizado:', e.message);
+    }
+  }
+  
+  // 🔥 PASSO 2: LER ESTADO DO PRÉ-ATENDIMENTO (FONTE ÚNICA DE VERDADE)
+  const preAtivo = thread.pre_atendimento_ativo === true;
+  
   const SAUDACOES = [
     'oi', 'olá', 'ola', 'oie', 'oii', 'oiii',
     'bom dia', 'boa tarde', 'boa noite',
@@ -776,14 +840,11 @@ async function handleMessage(dados, payloadBruto, base44) {
   const mensagemLower = (dados.content || '').toLowerCase().trim();
   const isSaudacao = SAUDACOES.some(s => mensagemLower === s || mensagemLower.startsWith(s + ' ') || mensagemLower.startsWith(s + ',') || mensagemLower.startsWith(s + '!'));
   
-  const execucoesAtivas = await base44.asServiceRole.entities.FlowExecution.filter({
-    thread_id: thread.id,
-    status: 'ativo'
-  }, '-created_date', 1).catch(() => []);
-
-  if (execucoesAtivas.length > 0) {
+  // 🔥 PASSO 3: PRÉ-ATENDIMENTO ATIVO → PROCESSAR RESPOSTA
+  if (preAtivo) {
+    console.log('[' + VERSION + '] 🔄 Processando resposta pré-atendimento | Thread:', thread.id);
+    
     try {
-      console.log('[' + VERSION + '] 🔄 Processando resposta pré-atendimento | Thread:', thread.id);
       await executarPreAtendimentoInline(base44, {
         action: 'processar_resposta',
         thread_id: thread.id,
@@ -792,24 +853,51 @@ async function handleMessage(dados, payloadBruto, base44) {
         resposta_usuario: dados.content
       });
     } catch (e) {
-      console.error('[' + VERSION + '] ❌ Erro ao processar resposta pré-atendimento:', e.message);
+      console.error('[' + VERSION + '] ❌ Erro ao processar resposta:', e.message);
     }
-  } else if (isSaudacao) {
+    
+    // 🔥 RETURN IMEDIATO - Nunca continua para outras partes
+    return Response.json({
+      success: true,
+      message_id: mensagem.id,
+      contact_id: contato.id,
+      thread_id: thread.id,
+      integration_id: integracaoId,
+      pre_atendimento_resposta_processada: true,
+      duration_ms: Date.now() - inicio
+    }, { headers: corsHeaders });
+  }
+  
+  // 🔥 PASSO 4: SAUDAÇÃO → INICIAR PRÉ-ATENDIMENTO
+  if (!preAtivo && isSaudacao) {
+    console.log('[' + VERSION + '] 🚀 Saudação detectada! Iniciando pré-atendimento | Msg:', mensagemLower);
+    
     try {
-      console.log('[' + VERSION + '] 🚀 Saudação detectada! Iniciando pré-atendimento | Msg:', mensagemLower, '| Thread:', thread.id);
       await executarPreAtendimentoInline(base44, {
         action: 'iniciar',
         thread_id: thread.id,
         contact_id: contato.id,
         integration_id: integracaoId
       });
-      console.log('[' + VERSION + '] ✅ Pré-atendimento iniciado com sucesso');
+      console.log('[' + VERSION + '] ✅ Pré-atendimento iniciado');
     } catch (e) {
-      console.error('[' + VERSION + '] ❌ Erro ao iniciar pré-atendimento:', e.message);
+      console.error('[' + VERSION + '] ❌ Erro ao iniciar:', e.message);
     }
-  } else {
-    console.log('[' + VERSION + '] ℹ️ Mensagem não é saudação, pré-atendimento não ativado | Msg:', mensagemLower.substring(0, 30));
+    
+    // 🔥 RETURN IMEDIATO
+    return Response.json({
+      success: true,
+      message_id: mensagem.id,
+      contact_id: contato.id,
+      thread_id: thread.id,
+      integration_id: integracaoId,
+      pre_atendimento_iniciado: true,
+      duration_ms: Date.now() - inicio
+    }, { headers: corsHeaders });
   }
+  
+  // 🔥 PASSO 5: MENSAGEM NORMAL (sem pré-atendimento)
+  console.log('[' + VERSION + '] ℹ️ Mensagem normal - pré-atendimento não chamado');
 
   // ✅ Audit log em background (não bloqueia resposta)
   base44.asServiceRole.entities.ZapiPayloadNormalized.create({
