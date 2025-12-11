@@ -500,50 +500,45 @@ export default React.memo(function MessageBubble({
   // 🔔 MENSAGEM DE TRANSFERÊNCIA - COR DINÂMICA POR SETOR
   // ═══════════════════════════════════════════════════════════════════════════
   if (isTransferMessage) {
-    // Detectar setor da transferência (priorizar metadata, depois thread)
+    // Detectar setor da transferência
     const setorTransferido = message.metadata?.setor || thread?.sector_id || 'geral';
     
-    // Cores DISTINTAS para transferências (não confundir com mensagens normais)
+    // Cores ÚNICAS para transferências - NÃO usar azul (mensagens enviadas) nem branco (recebidas)
     const coresSetor = {
       vendas: {
-        bg: 'from-cyan-100 to-sky-100',
-        border: 'border-cyan-500',
-        text: 'text-cyan-950',
-        icon: 'from-cyan-600 to-sky-600',
-        timestamp: 'text-cyan-700',
-        subtitle: 'text-cyan-800'
+        bg: 'from-rose-100 to-pink-100',
+        border: 'border-rose-400',
+        text: 'text-rose-950',
+        icon: 'from-rose-500 to-pink-500',
+        timestamp: 'text-rose-700'
       },
       assistencia: {
-        bg: 'from-lime-100 to-green-100',
-        border: 'border-lime-500',
-        text: 'text-lime-950',
-        icon: 'from-lime-600 to-green-600',
-        timestamp: 'text-lime-700',
-        subtitle: 'text-lime-800'
+        bg: 'from-teal-100 to-cyan-100',
+        border: 'border-teal-400',
+        text: 'text-teal-950',
+        icon: 'from-teal-500 to-cyan-500',
+        timestamp: 'text-teal-700'
       },
       financeiro: {
-        bg: 'from-yellow-100 to-amber-100',
-        border: 'border-yellow-500',
-        text: 'text-yellow-950',
-        icon: 'from-yellow-600 to-amber-600',
-        timestamp: 'text-yellow-700',
-        subtitle: 'text-yellow-800'
+        bg: 'from-orange-100 to-amber-100',
+        border: 'border-orange-400',
+        text: 'text-orange-950',
+        icon: 'from-orange-500 to-amber-500',
+        timestamp: 'text-orange-700'
       },
       fornecedor: {
-        bg: 'from-fuchsia-100 to-purple-100',
-        border: 'border-fuchsia-500',
-        text: 'text-fuchsia-950',
-        icon: 'from-fuchsia-600 to-purple-600',
-        timestamp: 'text-fuchsia-700',
-        subtitle: 'text-fuchsia-800'
+        bg: 'from-violet-100 to-purple-100',
+        border: 'border-violet-400',
+        text: 'text-violet-950',
+        icon: 'from-violet-500 to-purple-500',
+        timestamp: 'text-violet-700'
       },
       geral: {
-        bg: 'from-stone-100 to-zinc-100',
-        border: 'border-stone-500',
-        text: 'text-stone-950',
-        icon: 'from-stone-600 to-zinc-600',
-        timestamp: 'text-stone-700',
-        subtitle: 'text-stone-800'
+        bg: 'from-gray-200 to-slate-200',
+        border: 'border-gray-400',
+        text: 'text-gray-950',
+        icon: 'from-gray-500 to-slate-500',
+        timestamp: 'text-gray-700'
       }
     };
 
@@ -551,15 +546,15 @@ export default React.memo(function MessageBubble({
 
     return (
       <div className="w-full flex justify-center my-3">
-        <div className={`bg-gradient-to-r ${cores.bg} border-2 ${cores.border} ${cores.text} text-xs px-4 py-2 rounded-xl flex items-center justify-center gap-2 shadow-lg shadow-black/20 max-w-[90%] flex-wrap`}>
-          <div className={`w-6 h-6 bg-gradient-to-br ${cores.icon} rounded-full flex items-center justify-center flex-shrink-0 shadow-sm`}>
-            <ArrowRight className="w-3.5 h-3.5 text-white" />
+        <div className={`bg-gradient-to-r ${cores.bg} border-2 ${cores.border} ${cores.text} text-sm px-5 py-2.5 rounded-full inline-flex items-center justify-center gap-2.5 shadow-lg max-w-[85%]`}>
+          <div className={`w-7 h-7 bg-gradient-to-br ${cores.icon} rounded-full flex items-center justify-center flex-shrink-0 shadow-md`}>
+            <ArrowRight className="w-4 h-4 text-white" />
           </div>
-          <span className="font-semibold text-center">
+          <span className="font-semibold leading-tight">
             {String(message.content || '')}
-            {message.metadata?.transferido_por && ` - por ${message.metadata.transferido_por}`}
+            {message.metadata?.transferido_por && ` · por ${message.metadata.transferido_por}`}
           </span>
-          <span className={`text-[10px] ${cores.timestamp} opacity-70`}>
+          <span className={`text-[11px] ${cores.timestamp} font-medium opacity-80`}>
             {formatarHorario(message.sent_at || message.created_date)}
           </span>
         </div>
