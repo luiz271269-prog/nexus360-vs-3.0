@@ -507,7 +507,7 @@ ${promocoesResponse.data.texto_formatado}
     const integracao = await base44.asServiceRole.entities.WhatsAppIntegration.get(integration_id);
 
     if (!setorEscolhido) {
-      // Resposta não reconhecida
+      // Resposta não reconhecida - APENAS envia erro, NÃO reenvía URA
       const zapiUrl = `${integracao.base_url_provider}/instances/${integracao.instance_id_provider}/token/${integracao.api_key_provider}/send-text`;
       const zapiHeaders = { 'Content-Type': 'application/json' };
       if (integracao.security_client_token_header) {
@@ -519,11 +519,12 @@ ${promocoesResponse.data.texto_formatado}
         headers: zapiHeaders,
         body: JSON.stringify({
           phone: contato.telefone,
-          message: '❓ Não entendi sua escolha. Por favor, responda com o número ou nome do setor:\n\n' + 
-                   opcoesSetor.map((op, i) => `${i + 1}. ${op.label}`).join('\n')
+          message: '❓ Opção inválida. Por favor, responda com o *número* da opção desejada (ex: 1, 2, 3).'
         })
       });
 
+      // 🔥 MANTER ESTADO ATIVO - NÃO reenviar URA completa
+      console.log('[PRE-ATEND] ⚠️ Resposta inválida - mantendo pré-atendimento ativo');
       return { success: true, understood: false };
     }
 
