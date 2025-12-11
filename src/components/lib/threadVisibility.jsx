@@ -278,23 +278,10 @@ export const canUserSeeThreadWithFilters = (usuario, thread, filtros = {}) => {
     return false;
   }
 
-  // B. Aba "Não Atribuídas" (scope = 'unassigned')
-  // NOTA: A lógica de contexto (mostrar todas threads do contato) é feita em Comunicacao.jsx
-  if (filtros.scope === 'unassigned') {
-    // Thread órfã = sem assigned_user_id e sem assigned_user_email
-    return naoAtribuida && (isAdminOrAll || perms.pode_ver_nao_atribuidas !== false);
-  }
-
-  // C. Aba "Todas" (scope = 'all') - Admin/Gerentes veem tudo que passou no Estágio 1
-  // Para usuários comuns, usar regra base (atribuído + fidelizado + não atribuídas)
-  if (filtros.scope === 'all') {
-    if (isAdminOrAll) return true;
-    return canUserSeeThreadBase(usuario, thread);
-  }
-
   // ═══════════════════════════════════════════════════════════════════════
   // 🟠 ESTÁGIO 3: FILTROS DE ATRIBUTOS (Refinamento)
   // Aplicar TODOS os filtros selecionados (Lógica AND)
+  // IMPORTANTE: Aplicar antes de verificar escopo para que filtros funcionem em todas abas
   // ═══════════════════════════════════════════════════════════════════════
 
   // 3.1 Filtro por Conexão Específica selecionada no dropdown
@@ -309,6 +296,20 @@ export const canUserSeeThreadWithFilters = (usuario, thread, filtros = {}) => {
     if (normalizar(filtros.conexaoId) !== normalizar(thread.conexao_id)) {
       return false;
     }
+  }
+
+  // B. Aba "Não Atribuídas" (scope = 'unassigned')
+  // NOTA: A lógica de contexto (mostrar todas threads do contato) é feita em Comunicacao.jsx
+  if (filtros.scope === 'unassigned') {
+    // Thread órfã = sem assigned_user_id e sem assigned_user_email
+    return naoAtribuida && (isAdminOrAll || perms.pode_ver_nao_atribuidas !== false);
+  }
+
+  // C. Aba "Todas" (scope = 'all') - Admin/Gerentes veem tudo que passou no Estágio 1
+  // Para usuários comuns, usar regra base (atribuído + fidelizado + não atribuídas)
+  if (filtros.scope === 'all') {
+    if (isAdminOrAll) return true;
+    return canUserSeeThreadBase(usuario, thread);
   }
 
   // 3.3 Filtro por Atendente Específico
