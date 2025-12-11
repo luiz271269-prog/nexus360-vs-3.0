@@ -497,24 +497,24 @@ export default React.memo(function MessageBubble({
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
-  // 🔔 MENSAGEM DE TRANSFERÊNCIA - DESTAQUE VISUAL AMARELO CENTRALIZADO
+  // 🔔 MENSAGEM DE TRANSFERÊNCIA - DESTAQUE VISUAL VERDE ESMERALDA
   // ═══════════════════════════════════════════════════════════════════════════
   if (isTransferMessage) {
     return (
       <div className="w-full flex justify-center my-3">
-        <div className="bg-gradient-to-r from-amber-50 to-yellow-50 border-2 border-amber-300 text-amber-900 text-xs px-4 py-2.5 rounded-xl flex items-center gap-2.5 shadow-md max-w-[90%]">
-          <div className="w-7 h-7 bg-gradient-to-br from-amber-400 to-yellow-500 rounded-full flex items-center justify-center flex-shrink-0 shadow-sm">
+        <div className="bg-gradient-to-r from-emerald-50 to-teal-50 border-2 border-emerald-400 text-emerald-900 text-xs px-4 py-2.5 rounded-xl flex items-center gap-2.5 shadow-md max-w-[90%]">
+          <div className="w-7 h-7 bg-gradient-to-br from-emerald-500 to-teal-500 rounded-full flex items-center justify-center flex-shrink-0 shadow-sm">
             <ArrowRight className="w-4 h-4 text-white" />
           </div>
           <div className="flex-1">
             <p className="font-semibold leading-tight">{String(message.content || '')}</p>
             {message.metadata?.transferido_por && (
-              <p className="text-[10px] text-amber-700 mt-0.5 opacity-80">
+              <p className="text-[10px] text-emerald-700 mt-0.5 opacity-80">
                 por {message.metadata.transferido_por}
               </p>
             )}
           </div>
-          <span className="text-[10px] text-amber-600 opacity-70 flex-shrink-0">
+          <span className="text-[10px] text-emerald-600 opacity-70 flex-shrink-0">
             {formatarHorario(message.sent_at || message.created_date)}
           </span>
         </div>
