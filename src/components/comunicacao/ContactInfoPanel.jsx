@@ -271,7 +271,7 @@ export default function ContactInfoPanel({ contact, novoContatoTelefone, onClose
               </Select>
             </div>
 
-            {/* ✅ CORREÇÃO: Exibir full_name do User */}
+            {/* ✅ CORREÇÃO: Usar user_id */}
             {formData.tipo_contato === 'fornecedor' && (
               <div className="bg-purple-500 text-white rounded-lg px-3 shadow h-[1cm] flex items-center gap-2">
                 <User className="w-4 h-4 flex-shrink-0" />
@@ -280,14 +280,21 @@ export default function ContactInfoPanel({ contact, novoContatoTelefone, onClose
                   onValueChange={(value) => handleChange('atendente_fidelizado_fornecedor', value === "nao" ? "" : value)}
                 >
                   <SelectTrigger className="border-0 bg-transparent text-white h-6 p-0 focus:ring-0 flex-1">
-                    <SelectValue placeholder="Atendente" />
+                    <SelectValue placeholder="Atendente">
+                      {formData.atendente_fidelizado_fornecedor ? 
+                        getUserDisplayName(formData.atendente_fidelizado_fornecedor, atendentes) : 
+                        "Atendente"
+                      }
+                    </SelectValue>
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="nao">Não atribuído</SelectItem>
                     {atendentes.map(a => (
-                      <SelectItem key={a.id} value={a.full_name}>
-                        {a.full_name}
-                        {a.email && <span className="text-xs text-slate-500 ml-2">{a.email}</span>}
+                      <SelectItem key={a.id} value={a.id}>
+                        <div className="flex flex-col">
+                          <span className="font-medium">{getUserDisplayName(a.id, atendentes)}</span>
+                          {a.email && <span className="text-xs text-slate-500">{a.email}</span>}
+                        </div>
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -303,14 +310,21 @@ export default function ContactInfoPanel({ contact, novoContatoTelefone, onClose
                   onValueChange={(value) => handleChange('atendente_fidelizado_vendas', value === "nao" ? "" : value)}
                 >
                   <SelectTrigger className="border-0 bg-transparent text-white h-6 p-0 focus:ring-0 flex-1">
-                    <SelectValue placeholder="Atendente" />
+                    <SelectValue placeholder="Atendente">
+                      {formData.atendente_fidelizado_vendas ? 
+                        getUserDisplayName(formData.atendente_fidelizado_vendas, atendentes) : 
+                        "Atendente"
+                      }
+                    </SelectValue>
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="nao">Não atribuído</SelectItem>
                     {atendentes.map(a => (
-                      <SelectItem key={a.id} value={a.full_name}>
-                        {a.full_name}
-                        {a.email && <span className="text-xs text-slate-500 ml-2">{a.email}</span>}
+                      <SelectItem key={a.id} value={a.id}>
+                        <div className="flex flex-col">
+                          <span className="font-medium">{getUserDisplayName(a.id, atendentes)}</span>
+                          {a.email && <span className="text-xs text-slate-500">{a.email}</span>}
+                        </div>
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -511,7 +525,7 @@ export default function ContactInfoPanel({ contact, novoContatoTelefone, onClose
               </Select>
             </div>
 
-            {/* ✅ CORREÇÃO: Exibir full_name + detalhes secundários */}
+            {/* ✅ CORREÇÃO: Usar user_id */}
             {formData.tipo_contato === 'fornecedor' && (
               <div className="bg-purple-500 text-white rounded-lg px-3 shadow h-[1cm] flex items-center gap-2">
                 <User className="w-4 h-4 flex-shrink-0" />
@@ -521,14 +535,19 @@ export default function ContactInfoPanel({ contact, novoContatoTelefone, onClose
                   disabled={!podeEditarContatos}
                 >
                   <SelectTrigger className="border-0 bg-transparent text-white h-6 p-0 focus:ring-0 flex-1">
-                    <SelectValue placeholder="Atendente" />
+                    <SelectValue placeholder="Atendente">
+                      {formData.atendente_fidelizado_fornecedor ? 
+                        getUserDisplayName(formData.atendente_fidelizado_fornecedor, atendentes) : 
+                        "Atendente"
+                      }
+                    </SelectValue>
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="nao">Não atribuído</SelectItem>
                     {atendentes.map(a => (
-                      <SelectItem key={a.id} value={a.full_name}>
+                      <SelectItem key={a.id} value={a.id}>
                         <div className="flex flex-col">
-                          <span className="font-medium">{a.full_name}</span>
+                          <span className="font-medium">{getUserDisplayName(a.id, atendentes)}</span>
                           <span className="text-xs text-slate-500">{a.email}</span>
                         </div>
                       </SelectItem>
@@ -547,14 +566,19 @@ export default function ContactInfoPanel({ contact, novoContatoTelefone, onClose
                   disabled={!podeEditarContatos}
                 >
                   <SelectTrigger className="border-0 bg-transparent text-white h-6 p-0 focus:ring-0 flex-1">
-                    <SelectValue placeholder="Atendente" />
+                    <SelectValue placeholder="Atendente">
+                      {formData.atendente_fidelizado_vendas ? 
+                        getUserDisplayName(formData.atendente_fidelizado_vendas, atendentes) : 
+                        "Atendente"
+                      }
+                    </SelectValue>
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="nao">Não atribuído</SelectItem>
                     {atendentes.map(a => (
-                      <SelectItem key={a.id} value={a.full_name}>
+                      <SelectItem key={a.id} value={a.id}>
                         <div className="flex flex-col">
-                          <span className="font-medium">{a.full_name}</span>
+                          <span className="font-medium">{getUserDisplayName(a.id, atendentes)}</span>
                           <span className="text-xs text-slate-500">{a.email}</span>
                         </div>
                       </SelectItem>
