@@ -2,18 +2,19 @@ import { createClientFromRequest } from 'npm:@base44/sdk@0.8.4';
 import { connectionManager } from './lib/connectionManager.js';
 
 // ============================================================================
-// WEBHOOK WHATSAPP Z-API - v8.1.0 CORRIGIDO
+// WEBHOOK WHATSAPP Z-API - v8.3.0 CIRÚRGICO
 // ============================================================================
 // 1. Filtrar ULTRA-CEDO antes de qualquer operação
 // 2. Logs MÍNIMOS - apenas mensagens reais salvas
 // 3. Ignorar: status@broadcast, @lid, grupos, fromMe, typing
 // 4. whatsapp_integration_id SEMPRE no metadata
 // 5. CORRIGIDO: Normalização de telefone SEM + para evitar duplicatas
+// 6. NOVO: Extrai fileId da Z-API para download via API do provedor
 // ============================================================================
 
-const VERSION = 'v8.2.0';
-const BUILD_DATE = '2025-12-01';
-const BUILD_TIMESTAMP = '20251201-PERF';
+const VERSION = 'v8.3.0';
+const BUILD_DATE = '2025-12-11';
+const BUILD_TIMESTAMP = '20251211-ZAPI-CIRURGICO';
 
 const corsHeaders = {
   'Content-Type': 'application/json',
@@ -98,7 +99,7 @@ function deveIgnorar(payload) {
 }
 
 // ============================================================================
-// NORMALIZAR PAYLOAD
+// NORMALIZAR PAYLOAD - COM EXTRAÇÃO DE fileId DA Z-API
 // ============================================================================
 function normalizarPayload(payload) {
   const tipo = String(payload.type || payload.event || '').toLowerCase();
@@ -128,26 +129,33 @@ function normalizarPayload(payload) {
 
   let mediaType = 'none';
   let mediaUrl = null;
+  let fileId = null; // ✅ NOVO: Extração do fileId da Z-API
   let conteudo = payload.text?.message || payload.body || '';
 
+  // ✅ EXTRAÇÃO CIRÚRGICA DE MÍDIA - Prioriza fileId sobre URL
   if (payload.image) {
     mediaType = 'image';
+    fileId = payload.image.fileId || payload.image.id || null;
     mediaUrl = payload.image.imageUrl || payload.image.url || payload.image.urlWithToken || payload.fileUrl || null;
     conteudo = conteudo || payload.image.caption || '[Imagem]';
   } else if (payload.video) {
     mediaType = 'video';
+    fileId = payload.video.fileId || payload.video.id || null;
     mediaUrl = payload.video.videoUrl || payload.video.url || payload.video.urlWithToken || payload.fileUrl || null;
     conteudo = conteudo || payload.video.caption || '[Vídeo]';
   } else if (payload.audio) {
     mediaType = 'audio';
+    fileId = payload.audio.fileId || payload.audio.id || null;
     mediaUrl = payload.audio.audioUrl || payload.audio.url || payload.audio.urlWithToken || payload.fileUrl || null;
     conteudo = '[Áudio]';
   } else if (payload.document) {
     mediaType = 'document';
+    fileId = payload.document.fileId || payload.document.id || null;
     mediaUrl = payload.document.documentUrl || payload.document.url || payload.document.urlWithToken || payload.fileUrl || null;
     conteudo = conteudo || '[Documento]';
   } else if (payload.sticker) {
     mediaType = 'sticker';
+    fileId = payload.sticker.fileId || payload.sticker.id || null;
     mediaUrl = payload.sticker.stickerUrl || payload.sticker.url || payload.fileUrl || null;
     conteudo = '[Sticker]';
   } else if (payload.contactMessage || payload.vcard) {
@@ -170,6 +178,7 @@ function normalizarPayload(payload) {
     content: conteudo,
     mediaType,
     mediaUrl,
+    fileId, // ✅ NOVO: Retorna fileId para uso no download via Z-API
     mediaCaption: payload.image?.caption || payload.video?.caption,
     pushName: payload.senderName || payload.chatName,
     vcard: payload.contactMessage || payload.vcard,
@@ -660,42 +669,35 @@ async function handleMessage(dados, payloadBruto, base44) {
   }
 
   // ============================================================================
-  // ✅ PERSISTIR MÍDIA - Baixar de URL temporária e salvar permanentemente
+  // ✅ PERSISTIR MÍDIA - CIRURGICAMENTE via API do provedor (Z-API)
   // ============================================================================
   let mediaUrlFinal = dados.mediaUrl || null;
   let midiaPersistida = false;
   
-  if (dados.mediaUrl && dados.mediaType && dados.mediaType !== 'none') {
-    console.log(`[${VERSION}] 📎 Mídia detectada: ${dados.mediaType} | URL temp: ${dados.mediaUrl?.substring(0, 60)}...`);
+  if (dados.mediaType && dados.mediaType !== 'none' && dados.fileId) {
+    console.log(`[${VERSION}] 📎 Mídia Z-API detectada: ${dados.mediaType} | fileId: ${dados.fileId}`);
     
-    const isUrlTemporaria = dados.mediaUrl.includes('mmg.whatsapp.net') || 
-                            dados.mediaUrl.includes('w-api.app') ||
-                            dados.mediaUrl.includes('api.w-api.app') ||
-                            dados.mediaUrl.includes('z-api.io');
-    
-    if (isUrlTemporaria) {
-      console.log(`[${VERSION}] 📥 Baixando mídia temporária para persistir...`);
-      try {
-        const resultadoPersistencia = await base44.functions.invoke('downloadMediaZAPI', {
-          media_url: dados.mediaUrl,
-          media_type: dados.mediaType,
-          integration_id: integracaoId,
-          filename: dados.content?.replace(/[\[\]]/g, '') || `${dados.mediaType}_${Date.now()}`
-        });
-        
-        if (resultadoPersistencia?.data?.url && !resultadoPersistencia?.data?.fallback) {
-          mediaUrlFinal = resultadoPersistencia.data.url;
-          midiaPersistida = true;
-          console.log(`[${VERSION}] ✅ Mídia persistida: ${mediaUrlFinal?.substring(0, 60)}...`);
-        } else {
-          console.log(`[${VERSION}] ⚠️ Fallback para URL temporária: ${resultadoPersistencia?.data?.error || 'desconhecido'}`);
-        }
-      } catch (e) {
-        console.error(`[${VERSION}] ❌ Erro ao persistir mídia:`, e?.message || e);
+    try {
+      const resultadoPersistencia = await base44.functions.invoke('persistirMidiaZapi', {
+        file_id: dados.fileId,
+        integration_id: integracaoId,
+        media_type: dados.mediaType,
+        filename: dados.content?.replace(/[\[\]]/g, '') || `${dados.mediaType}_${Date.now()}`
+      });
+      
+      if (resultadoPersistencia?.data?.success && resultadoPersistencia?.data?.url) {
+        mediaUrlFinal = resultadoPersistencia.data.url;
+        midiaPersistida = true;
+        console.log(`[${VERSION}] ✅ Mídia persistida via Z-API: ${mediaUrlFinal?.substring(0, 60)}...`);
+      } else {
+        console.log(`[${VERSION}] ⚠️ Falha ao persistir: ${resultadoPersistencia?.data?.error || 'desconhecido'}`);
+        mediaUrlFinal = null;
+        midiaPersistida = false;
       }
-    } else {
-      console.log(`[${VERSION}] ℹ️ URL já é permanente, não precisa persistir`);
-      midiaPersistida = true;
+    } catch (e) {
+      console.error(`[${VERSION}] ❌ Erro ao persistir mídia:`, e?.message || e);
+      mediaUrlFinal = null;
+      midiaPersistida = false;
     }
   }
 
@@ -722,18 +724,14 @@ async function handleMessage(dados, payloadBruto, base44) {
       location: dados.location,
       quoted_message: dados.quotedMessage,
       processed_by: VERSION,
-      midia_persistida: midiaPersistida
+      midia_persistida: midiaPersistida,
+      file_id: dados.fileId || null // ✅ Guardar fileId para auditoria
     }
   });
 
   // ============================================================================
   // ✅ PRÉ-ATENDIMENTO AUTOMÁTICO - ATIVADO POR SAUDAÇÕES
   // ============================================================================
-  // Dispara APENAS quando o cliente envia uma mensagem de saudação
-  // Se há execução ativa, processa a resposta do cliente
-  // ============================================================================
-  
-  // Lista de palavras que ativam o pré-atendimento
   const SAUDACOES = [
     'oi', 'olá', 'ola', 'oie', 'oii', 'oiii',
     'bom dia', 'boa tarde', 'boa noite',
@@ -744,18 +742,15 @@ async function handleMessage(dados, payloadBruto, base44) {
     'opa', 'fala', 'salve'
   ];
   
-  // Verificar se a mensagem é uma saudação
   const mensagemLower = (dados.content || '').toLowerCase().trim();
   const isSaudacao = SAUDACOES.some(s => mensagemLower === s || mensagemLower.startsWith(s + ' ') || mensagemLower.startsWith(s + ',') || mensagemLower.startsWith(s + '!'));
   
-  // Verificar se há execução ativa (cliente respondendo ao pré-atendimento)
   const execucoesAtivas = await base44.asServiceRole.entities.FlowExecution.filter({
     thread_id: thread.id,
     status: 'ativo'
   }, '-created_date', 1).catch(() => []);
 
   if (execucoesAtivas.length > 0) {
-    // Processar resposta do pré-atendimento em andamento
     try {
       console.log('[' + VERSION + '] 🔄 Processando resposta pré-atendimento | Thread:', thread.id);
       await executarPreAtendimentoInline(base44, {
@@ -769,7 +764,6 @@ async function handleMessage(dados, payloadBruto, base44) {
       console.error('[' + VERSION + '] ❌ Erro ao processar resposta pré-atendimento:', e.message);
     }
   } else if (isSaudacao) {
-    // Iniciar pré-atendimento apenas se for saudação
     try {
       console.log('[' + VERSION + '] 🚀 Saudação detectada! Iniciando pré-atendimento | Msg:', mensagemLower, '| Thread:', thread.id);
       await executarPreAtendimentoInline(base44, {
