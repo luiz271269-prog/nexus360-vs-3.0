@@ -220,7 +220,15 @@ export default React.memo(function MessageBubble({
 
   const todasCategorias = [...CATEGORIAS_FIXAS, ...categoriasDB];
 
-  const isTransferMessage = message?.metadata?.is_system_message === true && message?.metadata?.message_type === 'transfer';
+  // ✅ DETECÇÃO ROBUSTA - Verifica metadata E conteúdo como fallback
+  const isTransferMessage = 
+    (message?.metadata?.is_system_message === true && message?.metadata?.message_type === 'transfer') ||
+    (message?.metadata?.action_type === 'assignment') ||
+    (message?.channel === 'interno' && (
+      message?.content?.includes('transferida') || 
+      message?.content?.includes('atribuída') ||
+      message?.content?.includes('Conversa')
+    ));
 
   useEffect(() => {
     if (mostrarDialogEncaminhar && contatos.length === 0) {
