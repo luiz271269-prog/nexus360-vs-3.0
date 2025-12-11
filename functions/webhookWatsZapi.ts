@@ -970,7 +970,35 @@ async function handleMessage(dados, payloadBruto, base44) {
   const mensagemLower = (dados.content || '').toLowerCase().trim();
   const isSaudacao = SAUDACOES.some(s => mensagemLower === s || mensagemLower.startsWith(s + ' ') || mensagemLower.startsWith(s + ',') || mensagemLower.startsWith(s + '!'));
   
-  // 🔥 PASSO 3: PRÉ-ATENDIMENTO ATIVO → PROCESSAR RESPOSTA
+  // 🔥 GUARDA 3: PRÉ-ATENDIMENTO JÁ FOI CONCLUÍDO → nunca reiniciar
+  if (thread.pre_atendimento_state === 'COMPLETED' && thread.sector_id) {
+    console.log('[' + VERSION + '] ✅ Pré-atendimento já concluído - setor:', thread.sector_id);
+    
+    // ✅ Audit log em background
+    base44.asServiceRole.entities.ZapiPayloadNormalized.create({
+      payload_bruto: payloadBruto,
+      instance_identificado: dados.instanceId,
+      integration_id: integracaoId,
+      evento: 'ReceivedCallback',
+      timestamp_recebido: now,
+      sucesso_processamento: true
+    }).catch(() => {});
+    
+    const duracao = Date.now() - inicio;
+    console.log('[' + VERSION + '] ✅ Msg:', mensagem.id, '| Pré-atend concluído | ' + duracao + 'ms');
+    
+    return Response.json({
+      success: true,
+      message_id: mensagem.id,
+      contact_id: contato.id,
+      thread_id: thread.id,
+      integration_id: integracaoId,
+      duration_ms: duracao,
+      pre_atendimento_concluido: true
+    }, { headers: corsHeaders });
+  }
+  
+  // 🔥 PASSO 4: PRÉ-ATENDIMENTO ATIVO → PROCESSAR RESPOSTA
   if (preAtivo) {
     console.log('[' + VERSION + '] 🔄 Processando resposta pré-atendimento | Thread:', thread.id);
     
