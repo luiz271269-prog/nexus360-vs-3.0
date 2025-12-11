@@ -1059,7 +1059,7 @@ async function handleMessage(dados, payloadBruto, base44) {
     }
   }
   
-  // 🔥 PASSO 5: MENSAGEM NORMAL (sem pré-atendimento)
+  // 🔥 PASSO 6: MENSAGEM NORMAL (sem pré-atendimento)
   console.log('[' + VERSION + '] ℹ️ Mensagem normal - pré-atendimento não chamado');
 
   // ✅ Audit log em background (não bloqueia resposta)
@@ -1082,6 +1082,6 @@ async function handleMessage(dados, payloadBruto, base44) {
     thread_id: thread.id,
     integration_id: integracaoId,
     duration_ms: duracao,
-    pre_atendimento_triggered: isSaudacao && execucoesAtivas.length === 0
+    mensagem_normal: true
   }, { headers: corsHeaders });
 }
