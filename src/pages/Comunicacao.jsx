@@ -130,7 +130,9 @@ export default function Comunicacao() {
     queryKey: ['threads', usuario?.id],
     queryFn: async () => {
       if (!usuario) return [];
-      const allThreads = await base44.entities.MessageThread.list('-last_message_at', 100);
+      // 🔧 CORREÇÃO: Aumentado para 200 para garantir que todas as threads não atribuídas 
+      // sejam carregadas, alinhando com o limite do contador de backend.
+      const allThreads = await base44.entities.MessageThread.list('-last_message_at', 200);
       return allThreads;
     },
     refetchInterval: 30000, // Aumentado para 30s

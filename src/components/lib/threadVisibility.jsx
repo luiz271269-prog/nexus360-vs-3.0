@@ -41,14 +41,16 @@ const normalizar = (v) => (v ? String(v).trim().toLowerCase() : '');
 
 /**
  * Verifica se o usuário tem permissão para a integração WhatsApp
+ * CORREÇÃO: Threads sem integracaoId são BLOQUEADAS apenas se houver restrições
  */
 export const temPermissaoIntegracao = (usuario, integracaoId) => {
-  if (!integracaoId) return true;
   if (usuario?.role === 'admin') return true;
   
   // Primeiro checa whatsapp_permissions (estrutura atual)
   const whatsappPerms = usuario?.whatsapp_permissions || [];
   if (whatsappPerms.length > 0) {
+    // Se tem restrições de whatsapp_permissions
+    if (!integracaoId) return false; // Thread sem ID = bloqueada
     const perm = whatsappPerms.find(p => p.integration_id === integracaoId);
     return perm?.can_view === true;
   }
@@ -56,34 +58,48 @@ export const temPermissaoIntegracao = (usuario, integracaoId) => {
   // Fallback: integracoes_visiveis em permissoes_visualizacao
   const perms = usuario?.permissoes_visualizacao || {};
   const visiveis = perms.integracoes_visiveis;
-  if (!visiveis || !visiveis.length) return true; // Sem restrição
+  
+  if (!visiveis || !visiveis.length) return true; // Sem restrição = tudo visível
+  
+  // Se tem restrições mas thread sem ID = bloqueada
+  if (!integracaoId) return false;
+  
   return visiveis.map(normalizar).includes(normalizar(integracaoId));
 };
 
 /**
  * Verifica se o usuário tem permissão para a conexão/número específico
- * NOVO: Diferencia 2076/2078/2079/2800
+ * CORREÇÃO: Threads sem conexaoId são BLOQUEADAS apenas se houver restrições
  */
 export const threadConexaoVisivel = (usuario, conexaoId) => {
-  if (!conexaoId) return true; // Enquanto não migrar, passa
   if (usuario?.role === 'admin') return true;
   
   const perms = usuario?.permissoes_visualizacao || {};
   const visiveis = perms.conexoes_visiveis;
-  if (!visiveis || !visiveis.length) return true; // Sem restrição
+  
+  if (!visiveis || !visiveis.length) return true; // Sem restrição = tudo visível
+  
+  // Se tem restrições mas thread sem ID = bloqueada
+  if (!conexaoId) return false;
+  
   return visiveis.map(normalizar).includes(normalizar(conexaoId));
 };
 
 /**
  * Verifica se o setor da thread está visível para o usuário
+ * CORREÇÃO: Threads sem setor são BLOQUEADAS apenas se houver restrições
  */
 export const threadSetorVisivel = (usuario, setorThread) => {
-  if (!setorThread) return true;
   if (usuario?.role === 'admin') return true;
   
   const perms = usuario?.permissoes_visualizacao || {};
   const visiveis = perms.setores_visiveis;
-  if (!visiveis || !visiveis.length) return true; // Sem restrição
+  
+  if (!visiveis || !visiveis.length) return true; // Sem restrição = tudo visível
+  
+  // Se tem restrições mas thread sem setor = bloqueada
+  if (!setorThread) return false;
+  
   return visiveis.map(normalizar).includes(normalizar(setorThread));
 };
 
