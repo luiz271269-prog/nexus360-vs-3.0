@@ -1026,32 +1026,37 @@ async function handleMessage(dados, payloadBruto, base44) {
     }, { headers: corsHeaders });
   }
   
-  // 🔥 PASSO 4: SAUDAÇÃO → INICIAR PRÉ-ATENDIMENTO
+  // 🔥 PASSO 5: SAUDAÇÃO → DECIDIR SE PODE INICIAR PRÉ-ATENDIMENTO
   if (!preAtivo && isSaudacao) {
-    console.log('[' + VERSION + '] 🚀 Saudação detectada! Iniciando pré-atendimento | Msg:', mensagemLower);
-    
-    try {
-      await executarPreAtendimentoInline(base44, {
-        action: 'iniciar',
-        thread_id: thread.id,
+    // Usar função de decisão consolidada
+    if (deveIniciarPreAtendimento(contato, thread)) {
+      console.log('[' + VERSION + '] 🚀 Saudação detectada! Iniciando pré-atendimento | Msg:', mensagemLower);
+      
+      try {
+        await executarPreAtendimentoInline(base44, {
+          action: 'iniciar',
+          thread_id: thread.id,
+          contact_id: contato.id,
+          integration_id: integracaoId
+        });
+        console.log('[' + VERSION + '] ✅ Pré-atendimento iniciado');
+      } catch (e) {
+        console.error('[' + VERSION + '] ❌ Erro ao iniciar:', e.message);
+      }
+      
+      // 🔥 RETURN IMEDIATO
+      return Response.json({
+        success: true,
+        message_id: mensagem.id,
         contact_id: contato.id,
-        integration_id: integracaoId
-      });
-      console.log('[' + VERSION + '] ✅ Pré-atendimento iniciado');
-    } catch (e) {
-      console.error('[' + VERSION + '] ❌ Erro ao iniciar:', e.message);
+        thread_id: thread.id,
+        integration_id: integracaoId,
+        pre_atendimento_iniciado: true,
+        duration_ms: Date.now() - inicio
+      }, { headers: corsHeaders });
+    } else {
+      console.log('[' + VERSION + '] ⛔ Saudação detectada mas pré-atendimento bloqueado por guardas');
     }
-    
-    // 🔥 RETURN IMEDIATO
-    return Response.json({
-      success: true,
-      message_id: mensagem.id,
-      contact_id: contato.id,
-      thread_id: thread.id,
-      integration_id: integracaoId,
-      pre_atendimento_iniciado: true,
-      duration_ms: Date.now() - inicio
-    }, { headers: corsHeaders });
   }
   
   // 🔥 PASSO 5: MENSAGEM NORMAL (sem pré-atendimento)
