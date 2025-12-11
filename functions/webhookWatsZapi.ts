@@ -552,7 +552,8 @@ ${promocoesResponse.data.texto_formatado}
     const threadUpdate = {
       sector_id: setorEscolhido,
       pre_atendimento_ativo: false,
-      pre_atendimento_state: 'COMPLETED'
+      pre_atendimento_state: 'COMPLETED',
+      pre_atendimento_timeout_at: null
     };
 
     let mensagemConfirmacao = '';
