@@ -631,45 +631,49 @@ export default function Comunicacao() {
     // ═══════════════════════════════════════════════════════════════════════════
     const isFilterUnassigned = filterScope === 'unassigned';
 
-    // PASSO 1: Identificar contatos que têm pelo menos uma thread S/atend visível
-    const contatosComThreadsNaoAtribuidas = new Set();
+    // PASSO 1: Identificar threads não atribuídas visíveis (COM OU SEM CONTATO)
+    const threadsNaoAtribuidasVisiveis = new Set();
     if (isFilterUnassigned) {
       threads.forEach(thread => {
+        // ✅ PERMITIR threads SEM contato (podem existir threads órfãs)
         const contato = contatosMap.get(thread.contact_id);
-        if (!contato) return;
-
-        // Enriquecer thread com contato para verificação de permissão
         const threadComContato = { ...thread, contato };
 
         // Verificar se é não atribuída E se usuário pode ver (permissões base)
         if (isNaoAtribuida(thread) && canUserSeeThreadBase(usuario, threadComContato)) {
-          contatosComThreadsNaoAtribuidas.add(thread.contact_id);
+          threadsNaoAtribuidasVisiveis.add(thread.id);
         }
       });
     }
 
     // PASSO 1.5: Agrupar threads por contact_id - mostrar apenas a mais recente de cada contato
-    // CRÍTICO: Isso evita duplicatas quando um contato tem múltiplas threads
-    const threadMaisRecentePorContato = new Map();
-    threads.forEach(thread => {
-      const contactId = thread.contact_id;
-      if (!contactId) return;
+    // EXCEÇÃO: Modo "Não Atribuídas" NÃO agrupa, mostra TODAS as threads individualmente
+    let threadsUnicas;
+    
+    if (isFilterUnassigned) {
+      // Modo Não Atribuídas: Mostrar TODAS as threads sem agrupar
+      threadsUnicas = threads;
+    } else {
+      // Modos normais: Agrupar por contato
+      const threadMaisRecentePorContato = new Map();
+      threads.forEach(thread => {
+        const contactId = thread.contact_id;
+        if (!contactId) return;
 
-      const existente = threadMaisRecentePorContato.get(contactId);
-      if (!existente) {
-        threadMaisRecentePorContato.set(contactId, thread);
-      } else {
-        // Manter a mais recente baseado em last_message_at ou updated_date
-        const dataExistente = new Date(existente.last_message_at || existente.updated_date || existente.created_date || 0);
-        const dataAtual = new Date(thread.last_message_at || thread.updated_date || thread.created_date || 0);
-        if (dataAtual > dataExistente) {
+        const existente = threadMaisRecentePorContato.get(contactId);
+        if (!existente) {
           threadMaisRecentePorContato.set(contactId, thread);
+        } else {
+          // Manter a mais recente baseado em last_message_at ou updated_date
+          const dataExistente = new Date(existente.last_message_at || existente.updated_date || existente.created_date || 0);
+          const dataAtual = new Date(thread.last_message_at || thread.updated_date || thread.created_date || 0);
+          if (dataAtual > dataExistente) {
+            threadMaisRecentePorContato.set(contactId, thread);
+          }
         }
-      }
-    });
-
-    // Usar apenas threads únicas por contato
-    const threadsUnicas = Array.from(threadMaisRecentePorContato.values());
+      });
+      threadsUnicas = Array.from(threadMaisRecentePorContato.values());
+    }
     
     // Registrar IDs de contatos que já têm thread (para evitar duplicatas na busca)
     const contatosComThreadExistente = new Set(threadsUnicas.map(t => t.contact_id).filter(Boolean));
@@ -730,22 +734,14 @@ export default function Comunicacao() {
       // MODO NORMAL (sem busca): Aplicar regras estritas de visibilidade
       // ═══════════════════════════════════════════════════════════════════════
       
-      // FILTRO "NÃO ATRIBUÍDAS": Lógica por contato
+      // FILTRO "NÃO ATRIBUÍDAS": Verificar se thread está no Set de visíveis
       if (isFilterUnassigned) {
-        const contatoId = thread.contact_id;
-        const threadNaoAtribuida = isNaoAtribuida(thread);
-        
-        const contatoMarcado = contatoId && contatosComThreadsNaoAtribuidas.has(contatoId);
-        const threadSoltaNaoAtribuida = !contatoId && threadNaoAtribuida;
-        
-        if (!contatoMarcado && !threadSoltaNaoAtribuida) {
+        // ✅ Usar Set de IDs de threads (não de contatos)
+        if (!threadsNaoAtribuidasVisiveis.has(thread.id)) {
           return false;
         }
         
-        if (!canUserSeeThreadBase(usuario, threadComContato)) {
-          return false;
-        }
-        
+        // Aplicar filtro de integração específica se selecionado
         if (selectedIntegrationId && selectedIntegrationId !== 'all') {
           if (thread.whatsapp_integration_id !== selectedIntegrationId) return false;
         }
