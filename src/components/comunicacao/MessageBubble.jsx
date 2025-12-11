@@ -500,50 +500,50 @@ export default React.memo(function MessageBubble({
   // 🔔 MENSAGEM DE TRANSFERÊNCIA - COR DINÂMICA POR SETOR
   // ═══════════════════════════════════════════════════════════════════════════
   if (isTransferMessage) {
-    // Detectar setor da transferência
-    const setorTransferido = thread?.sector_id || message.metadata?.setor || 'geral';
+    // Detectar setor da transferência (priorizar metadata, depois thread)
+    const setorTransferido = message.metadata?.setor || thread?.sector_id || 'geral';
     
-    // Mapa de cores por setor
+    // Cores DISTINTAS para transferências (não confundir com mensagens normais)
     const coresSetor = {
       vendas: {
-        bg: 'from-blue-50 to-indigo-50',
-        border: 'border-blue-400',
-        text: 'text-blue-900',
-        icon: 'from-blue-500 to-indigo-500',
-        timestamp: 'text-blue-600',
-        subtitle: 'text-blue-700'
+        bg: 'from-cyan-100 to-sky-100',
+        border: 'border-cyan-500',
+        text: 'text-cyan-950',
+        icon: 'from-cyan-600 to-sky-600',
+        timestamp: 'text-cyan-700',
+        subtitle: 'text-cyan-800'
       },
       assistencia: {
-        bg: 'from-emerald-50 to-teal-50',
-        border: 'border-emerald-400',
-        text: 'text-emerald-900',
-        icon: 'from-emerald-500 to-teal-500',
-        timestamp: 'text-emerald-600',
-        subtitle: 'text-emerald-700'
+        bg: 'from-lime-100 to-green-100',
+        border: 'border-lime-500',
+        text: 'text-lime-950',
+        icon: 'from-lime-600 to-green-600',
+        timestamp: 'text-lime-700',
+        subtitle: 'text-lime-800'
       },
       financeiro: {
-        bg: 'from-amber-50 to-yellow-50',
-        border: 'border-amber-400',
-        text: 'text-amber-900',
-        icon: 'from-amber-500 to-yellow-500',
-        timestamp: 'text-amber-600',
-        subtitle: 'text-amber-700'
+        bg: 'from-yellow-100 to-amber-100',
+        border: 'border-yellow-500',
+        text: 'text-yellow-950',
+        icon: 'from-yellow-600 to-amber-600',
+        timestamp: 'text-yellow-700',
+        subtitle: 'text-yellow-800'
       },
       fornecedor: {
-        bg: 'from-purple-50 to-violet-50',
-        border: 'border-purple-400',
-        text: 'text-purple-900',
-        icon: 'from-purple-500 to-violet-500',
-        timestamp: 'text-purple-600',
-        subtitle: 'text-purple-700'
+        bg: 'from-fuchsia-100 to-purple-100',
+        border: 'border-fuchsia-500',
+        text: 'text-fuchsia-950',
+        icon: 'from-fuchsia-600 to-purple-600',
+        timestamp: 'text-fuchsia-700',
+        subtitle: 'text-fuchsia-800'
       },
       geral: {
-        bg: 'from-slate-50 to-gray-50',
-        border: 'border-slate-400',
-        text: 'text-slate-900',
-        icon: 'from-slate-500 to-gray-500',
-        timestamp: 'text-slate-600',
-        subtitle: 'text-slate-700'
+        bg: 'from-stone-100 to-zinc-100',
+        border: 'border-stone-500',
+        text: 'text-stone-950',
+        icon: 'from-stone-600 to-zinc-600',
+        timestamp: 'text-stone-700',
+        subtitle: 'text-stone-800'
       }
     };
 
@@ -551,7 +551,7 @@ export default React.memo(function MessageBubble({
 
     return (
       <div className="w-full flex justify-center my-3">
-        <div className={`bg-gradient-to-r ${cores.bg} border-2 ${cores.border} ${cores.text} text-xs px-4 py-2.5 rounded-xl flex items-center gap-2.5 shadow-md max-w-[90%]`}>
+        <div className={`bg-gradient-to-r ${cores.bg} border-2 ${cores.border} ${cores.text} text-xs px-4 py-2.5 rounded-xl flex items-center gap-2.5 shadow-lg shadow-black/20 max-w-[90%]`}>
           <div className={`w-7 h-7 bg-gradient-to-br ${cores.icon} rounded-full flex items-center justify-center flex-shrink-0 shadow-sm`}>
             <ArrowRight className="w-4 h-4 text-white" />
           </div>
