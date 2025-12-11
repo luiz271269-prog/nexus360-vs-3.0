@@ -2,7 +2,7 @@ import { createClientFromRequest } from 'npm:@base44/sdk@0.8.4';
 import { connectionManager } from './lib/connectionManager.js';
 
 // ============================================================================
-// WEBHOOK WHATSAPP Z-API - v8.3.0 CIRÚRGICO
+// WEBHOOK WHATSAPP Z-API - v8.4.0 GUARDAS COMPLETAS
 // ============================================================================
 // 1. Filtrar ULTRA-CEDO antes de qualquer operação
 // 2. Logs MÍNIMOS - apenas mensagens reais salvas
@@ -10,6 +10,8 @@ import { connectionManager } from './lib/connectionManager.js';
 // 4. whatsapp_integration_id SEMPRE no metadata
 // 5. CORRIGIDO: Normalização de telefone SEM + para evitar duplicatas
 // 6. NOVO: Extrai fileId da Z-API para download via API do provedor
+// 7. GUARDAS ROBUSTAS: Nunca dispara pré-atend em threads c/ atendente,
+//    fornecedores/compras, ou pré-atendimentos já concluídos
 // ============================================================================
 
 const VERSION = 'v8.4.0-GUARDAS';
