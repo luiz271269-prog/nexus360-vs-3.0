@@ -283,10 +283,10 @@ export default function ContactInfoPanel({ contact, novoContatoTelefone, onClose
                   onValueChange={(value) => handleChange('atendente_fidelizado_fornecedor', value === "nao" ? "" : value)}
                 >
                   <SelectTrigger className="border-0 bg-transparent text-white h-6 p-0 focus:ring-0 flex-1">
-                    <SelectValue placeholder="Atendente">
+                    <SelectValue placeholder="Fornecedor">
                       {formData.atendente_fidelizado_fornecedor ? 
                         getUserDisplayName(formData.atendente_fidelizado_fornecedor, atendentes) : 
-                        "Atendente"
+                        "Fornecedor"
                       }
                     </SelectValue>
                   </SelectTrigger>
@@ -538,10 +538,10 @@ export default function ContactInfoPanel({ contact, novoContatoTelefone, onClose
                   disabled={!podeEditarContatos}
                 >
                   <SelectTrigger className="border-0 bg-transparent text-white h-6 p-0 focus:ring-0 flex-1">
-                    <SelectValue placeholder="Atendente">
+                    <SelectValue placeholder="Fornecedor">
                       {formData.atendente_fidelizado_fornecedor ? 
                         getUserDisplayName(formData.atendente_fidelizado_fornecedor, atendentes) : 
-                        "Atendente"
+                        "Fornecedor"
                       }
                     </SelectValue>
                   </SelectTrigger>
