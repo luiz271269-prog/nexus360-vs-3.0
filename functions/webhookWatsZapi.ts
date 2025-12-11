@@ -603,6 +603,58 @@ ${promocoesResponse.data.texto_formatado}
   return { success: false, error: 'acao_invalida' };
 }
 
+// ============================================================================
+// FUNÇÕES AUXILIARES - GUARDAS DE PRÉ-ATENDIMENTO
+// ============================================================================
+
+/**
+ * Verifica se o contato/thread é de Fornecedor ou Compras
+ * Esses casos NUNCA devem passar pelo pré-atendimento
+ */
+function ehFornecedorOuCompras(contact, thread) {
+  // 1. Verificar tipo do contato
+  if (contact.tipo_contato === 'fornecedor') return true;
+  
+  // 2. Verificar tags do contato
+  if (contact.tags && Array.isArray(contact.tags)) {
+    if (contact.tags.includes('fornecedor') || contact.tags.includes('compras')) {
+      return true;
+    }
+  }
+  
+  // 3. Verificar setor da thread
+  const setoresExcluidos = ['fornecedor', 'compras', 'fornecedores'];
+  if (thread.sector_id && setoresExcluidos.includes(thread.sector_id.toLowerCase())) {
+    return true;
+  }
+  
+  return false;
+}
+
+/**
+ * Decide se deve iniciar o pré-atendimento
+ * Retorna true apenas se TODAS as condições forem atendidas
+ */
+function deveIniciarPreAtendimento(contact, thread) {
+  // 1. Se já tem setor escolhido e pré-atendimento foi completado → NÃO iniciar
+  if (thread.pre_atendimento_state === 'COMPLETED' && thread.sector_id) {
+    return false;
+  }
+  
+  // 2. Se o pré-atendimento já foi explicitamente escolhido → NÃO iniciar
+  if (thread.pre_atendimento_setor_explicitamente_escolhido === true) {
+    return false;
+  }
+  
+  // 3. Se é fornecedor/compras → NÃO iniciar
+  if (ehFornecedorOuCompras(contact, thread)) {
+    return false;
+  }
+  
+  // Se passou por todas as guardas, pode iniciar
+  return true;
+}
+
 async function handleMessage(dados, payloadBruto, base44) {
   const inicio = Date.now();
   
