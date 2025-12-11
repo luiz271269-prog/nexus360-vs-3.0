@@ -592,12 +592,24 @@ async function handleMessage(dados, payloadBruto, base44, req) {
 
   // Buscar/criar thread
   let thread;
+  let isNovaConversa = false;
+  let isReativacao = false;
+  
   const threads = await base44.asServiceRole.entities.MessageThread.filter(
     { contact_id: contato.id }, '-last_message_at', 1
   );
 
   if (threads.length > 0) {
     thread = threads[0];
+    
+    // Verificar se é reativação (última mensagem > 48 horas)
+    const ultimaMensagemAt = thread.last_message_at ? new Date(thread.last_message_at) : null;
+    if (ultimaMensagemAt) {
+      const horasInativo = (Date.now() - ultimaMensagemAt.getTime()) / (1000 * 60 * 60);
+      isReativacao = horasInativo >= 48;
+      console.log(`[W-API WEBHOOK] 🔄 Thread existente | Inatividade: ${horasInativo.toFixed(1)}h | Reativação: ${isReativacao}`);
+    }
+    
     const threadUpdate = {
       last_message_at: new Date().toISOString(),
       last_message_sender: 'contact',
@@ -612,6 +624,9 @@ async function handleMessage(dados, payloadBruto, base44, req) {
     }
     await base44.asServiceRole.entities.MessageThread.update(thread.id, threadUpdate);
   } else {
+    isNovaConversa = true;
+    console.log('[W-API WEBHOOK] ✨ NOVA CONVERSA detectada!');
+    
     thread = await base44.asServiceRole.entities.MessageThread.create({
       contact_id: contato.id,
       whatsapp_integration_id: integracaoId,
@@ -623,6 +638,26 @@ async function handleMessage(dados, payloadBruto, base44, req) {
       last_media_type: dados.mediaType,
       total_mensagens: 1,
       unread_count: 1
+    });
+  }
+
+  // ✅ ENVIO AUTOMÁTICO DE PROMOÇÃO - Nova conversa ou reativação
+  if ((isNovaConversa || isReativacao) && integracaoId) {
+    console.log(`[W-API WEBHOOK] 🎉 Disparando envio automático de promoção | Tipo: ${isNovaConversa ? 'NOVA' : 'REATIVAÇÃO'}`);
+    
+    // Não bloquear webhook - executar em background
+    base44.functions.invoke('enviarPromocaoAutomatica', {
+      thread_id: thread.id,
+      contact_id: contato.id,
+      integration_id: integracaoId
+    }).then(result => {
+      if (result?.data?.success && result?.data?.promocao_enviada) {
+        console.log('[W-API WEBHOOK] ✅ Promoção enviada:', result.data.promocao_titulo);
+      } else {
+        console.log('[W-API WEBHOOK] ℹ️ Nenhuma promoção enviada:', result?.data?.message);
+      }
+    }).catch(err => {
+      console.error('[W-API WEBHOOK] ❌ Erro ao enviar promoção:', err.message);
     });
   }
 
