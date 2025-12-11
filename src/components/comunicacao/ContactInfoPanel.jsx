@@ -21,6 +21,7 @@ import { normalizarTelefone } from '../lib/phoneUtils';
 import SegmentacaoInteligente from './SegmentacaoInteligente';
 import AtribuidorAtendenteRapido from './AtribuidorAtendenteRapido';
 import SeletorEtiquetasContato from './SeletorEtiquetasContato';
+import { getUserDisplayName } from '../lib/userHelpers';
 
 export default function ContactInfoPanel({ contact, novoContatoTelefone, onClose, onUpdate, threadAtual, defaultValues }) {
   const [vendedores, setVendedores] = useState([]);
@@ -270,6 +271,7 @@ export default function ContactInfoPanel({ contact, novoContatoTelefone, onClose
               </Select>
             </div>
 
+            {/* ✅ CORREÇÃO: Exibir full_name do User */}
             {formData.tipo_contato === 'fornecedor' && (
               <div className="bg-purple-500 text-white rounded-lg px-3 shadow h-[1cm] flex items-center gap-2">
                 <User className="w-4 h-4 flex-shrink-0" />
@@ -282,7 +284,12 @@ export default function ContactInfoPanel({ contact, novoContatoTelefone, onClose
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="nao">Não atribuído</SelectItem>
-                    {atendentes.map(a => <SelectItem key={a.id} value={a.full_name}>{a.full_name}</SelectItem>)}
+                    {atendentes.map(a => (
+                      <SelectItem key={a.id} value={a.full_name}>
+                        {a.full_name}
+                        {a.email && <span className="text-xs text-slate-500 ml-2">{a.email}</span>}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
@@ -300,7 +307,12 @@ export default function ContactInfoPanel({ contact, novoContatoTelefone, onClose
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="nao">Não atribuído</SelectItem>
-                    {atendentes.map(a => <SelectItem key={a.id} value={a.full_name}>{a.full_name}</SelectItem>)}
+                    {atendentes.map(a => (
+                      <SelectItem key={a.id} value={a.full_name}>
+                        {a.full_name}
+                        {a.email && <span className="text-xs text-slate-500 ml-2">{a.email}</span>}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
@@ -317,7 +329,12 @@ export default function ContactInfoPanel({ contact, novoContatoTelefone, onClose
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="nao">Não atribuído</SelectItem>
-                  {atendentes.map(a => <SelectItem key={a.id} value={a.full_name}>{a.full_name}</SelectItem>)}
+                  {atendentes.map(a => (
+                    <SelectItem key={a.id} value={a.full_name}>
+                      {a.full_name}
+                      {a.attendant_sector && <span className="text-xs text-slate-500 ml-2 capitalize">• {a.attendant_sector}</span>}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
@@ -487,6 +504,7 @@ export default function ContactInfoPanel({ contact, novoContatoTelefone, onClose
               </Select>
             </div>
 
+            {/* ✅ CORREÇÃO: Exibir full_name + detalhes secundários */}
             {formData.tipo_contato === 'fornecedor' && (
               <div className="bg-purple-500 text-white rounded-lg px-3 shadow h-[1cm] flex items-center gap-2">
                 <User className="w-4 h-4 flex-shrink-0" />
@@ -500,7 +518,14 @@ export default function ContactInfoPanel({ contact, novoContatoTelefone, onClose
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="nao">Não atribuído</SelectItem>
-                    {atendentes.map(a => <SelectItem key={a.id} value={a.full_name}>{a.full_name}</SelectItem>)}
+                    {atendentes.map(a => (
+                      <SelectItem key={a.id} value={a.full_name}>
+                        <div className="flex flex-col">
+                          <span className="font-medium">{a.full_name}</span>
+                          <span className="text-xs text-slate-500">{a.email}</span>
+                        </div>
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
@@ -519,7 +544,14 @@ export default function ContactInfoPanel({ contact, novoContatoTelefone, onClose
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="nao">Não atribuído</SelectItem>
-                    {atendentes.map(a => <SelectItem key={a.id} value={a.full_name}>{a.full_name}</SelectItem>)}
+                    {atendentes.map(a => (
+                      <SelectItem key={a.id} value={a.full_name}>
+                        <div className="flex flex-col">
+                          <span className="font-medium">{a.full_name}</span>
+                          <span className="text-xs text-slate-500">{a.email}</span>
+                        </div>
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
@@ -537,7 +569,14 @@ export default function ContactInfoPanel({ contact, novoContatoTelefone, onClose
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="nao">Não atribuído</SelectItem>
-                  {atendentes.map(a => <SelectItem key={a.id} value={a.full_name}>{a.full_name}</SelectItem>)}
+                  {atendentes.map(a => (
+                    <SelectItem key={a.id} value={a.full_name}>
+                      <div className="flex flex-col">
+                        <span className="font-medium">{a.full_name}</span>
+                        {a.attendant_sector && <span className="text-xs text-slate-500 capitalize">🔹 {a.attendant_sector}</span>}
+                      </div>
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
