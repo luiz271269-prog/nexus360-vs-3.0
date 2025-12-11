@@ -466,10 +466,15 @@ ${promocoesResponse.data.texto_formatado}
       variables: { saudacao, opcoes_setor: opcoesSetor }
     });
 
+    // Definir timeout de segurança (15 minutos)
+    const timeoutDate = new Date();
+    timeoutDate.setMinutes(timeoutDate.getMinutes() + 15);
+    
     await base44.asServiceRole.entities.MessageThread.update(thread_id, {
       pre_atendimento_ativo: true,
       pre_atendimento_state: 'WAITING_SECTOR_CHOICE',
-      pre_atendimento_started_at: new Date().toISOString()
+      pre_atendimento_started_at: new Date().toISOString(),
+      pre_atendimento_timeout_at: timeoutDate.toISOString()
     });
 
     await base44.asServiceRole.entities.Message.create({
