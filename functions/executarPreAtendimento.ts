@@ -1,7 +1,7 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.4';
 
 // ============================================================================
-// MOTOR DE PRÉ-ATENDIMENTO - v2.1.0
+// MOTOR DE PRÉ-ATENDIMENTO - v2.2.0
 // ============================================================================
 // Responsável por:
 // 1. Enviar saudação dinâmica com opções de setor
@@ -9,9 +9,11 @@ import { createClientFromRequest } from 'npm:@base44/sdk@0.8.4';
 // 3. Processar resposta do contato (setor, nome de atendente, intenção)
 // 4. Rotear para atendente fidelizado ou do setor
 // 5. Análise de contexto e intenção (pagamento, cotação, suporte)
+// 6. ✅ RESPEITAR escolha de setor feita pelo cliente
+// 7. ✅ TRANSFERIR para humano SOMENTE quando solicitado
 // ============================================================================
 
-const VERSION = 'v2.1.0';
+const VERSION = 'v2.2.0';
 
 const corsHeaders = {
   'Content-Type': 'application/json',
@@ -532,34 +534,27 @@ async function finalizarPreAtendimento(base44, params) {
 
   if (atendente && atendente.full_name) {
     threadUpdate.assigned_user_id = atendente.id;
-    // ✅ assigned_user_name REMOVIDO - será buscado dinamicamente do User
     
-    // Normalizar nomes para comparação (evitar redundância)
     const nomeAtendente = atendente.full_name.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
     const nomeSetor = setorLabel.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
     const setorKey = setor.toLowerCase().trim();
     
-    // Verificar se o nome do atendente é igual ou muito similar ao nome do setor
     const ehNomeIgualSetor = nomeAtendente === nomeSetor || 
                              nomeAtendente === setorKey ||
                              nomeAtendente.includes(setorKey) ||
                              setorKey.includes(nomeAtendente);
     
     if (ehNomeIgualSetor) {
-      // Nome igual ao setor - mostrar só o setor
       msg = `✅ Perfeito! Estou direcionando você para o setor de *${setorLabel}*. Aguarde um instante! 😊`;
     } else {
-      // Nome diferente - mostrar nome + setor
       msg = `✅ Perfeito! Vou te conectar com *${atendente.full_name}* do setor de *${setorLabel}*. Aguarde um instante! 😊`;
     }
   } else {
-    // Sem atendente específico
     msg = `✅ Certo! Estou direcionando você para o setor de *${setorLabel}*. Um atendente vai te atender em breve! 😊`;
   }
   
   console.log(`[PRE-ATEND] 📤 Finalizando: Setor=${setor} | Atendente=${atendente?.full_name || 'N/A'} | Motivo=${motivo}`);
   
-  // Atualizar thread com unread_count forçado (Passagem de Bastão)
   await base44.asServiceRole.entities.MessageThread.update(thread_id, {
     ...threadUpdate,
     unread_count: Math.max(1, threadUpdate.unread_count || 0),
@@ -574,7 +569,6 @@ async function finalizarPreAtendimento(base44, params) {
   
   await enviarMensagem(base44, integracao, contato.telefone, msg, thread_id);
   
-  // Mensagem de sistema de transferência para destaque visual
   await base44.asServiceRole.entities.Message.create({
     thread_id: thread_id,
     sender_id: atendente?.id || 'pre_atendimento_bot',
@@ -586,7 +580,7 @@ async function finalizarPreAtendimento(base44, params) {
     metadata: {
       is_system_message: true,
       message_type: 'transfer',
-      setor_destino: setor,
+      setor: setor,
       atendente_destino: atendente?.full_name || null,
       motivo_roteamento: motivo
     }
@@ -658,10 +652,6 @@ Deno.serve(async (req) => {
         : { is_pre_atendimento_padrao: true, ativo: true };
       
       const templates = await base44.asServiceRole.entities.FlowTemplate.filter(filter, '-created_date', 1);
-      const templates = await base44.asServiceRole.entities.FlowTemplate.filter({
-        is_pre_atendimento_padrao: true,
-        ativo: true
-      }, '-created_date', 1);
 
       if (templates.length === 0) {
         console.log('[PRE-ATEND] ⚠️ Nenhum template de pré-atendimento configurado');
@@ -708,65 +698,54 @@ Deno.serve(async (req) => {
           5
         );
         
-        // Filtrar promoções válidas (data + conexão + setor)
         const promocoesValidas = promocoes.filter(p => {
-          // Verificar validade de data
           if (p.valid_until && p.valid_until < hoje) return false;
-          
-          // Filtrar por conexão (se configurado na promoção)
           if (p.conexao_id && p.conexao_id !== integracao.id) return false;
-          
-          // Filtrar por setor do contato (se já tiver histórico)
           if (p.setor_alvo && thread?.sector_id && p.setor_alvo !== thread.sector_id) return false;
-          
           return true;
         });
         
-        // Priorizar promoções por categoria do contato
-        const tipoContato = contato.tipo_contato || 'novo';
         const setorPreferencial = thread?.sector_id || 
                                   contato.atendente_fidelizado_vendas ? 'vendas' : 
                                   contato.atendente_fidelizado_assistencia ? 'assistencia' : null;
         
-        // Ordenar por relevância
         promocoesValidas.sort((a, b) => {
-          // Prioridade 1: Promoções do setor do contato
-          if (setorPreferencial) {
+          if (thread.sector_id) {
+            if (a.categoria === thread.sector_id && b.categoria !== thread.sector_id) return -1;
+            if (b.categoria === thread.sector_id && a.categoria !== thread.sector_id) return 1;
+          }
+          if (setorPreferencial && !thread.sector_id) {
             if (a.categoria === setorPreferencial && b.categoria !== setorPreferencial) return -1;
             if (b.categoria === setorPreferencial && a.categoria !== setorPreferencial) return 1;
           }
-          
-          // Prioridade 2: Campo priority (menor = mais importante)
           return (a.priority || 10) - (b.priority || 10);
         });
         
-        // Limitar a 3 promoções
-        const promocoesParaEnviar = promocoesValidas.slice(0, 3);
+        let promocoesParaEnviar = promocoesValidas.slice(0, 3);
+        const promoComImagemPrincipal = promocoesValidas.find(p => p.imagem_url && !promocoesParaEnviar.includes(p));
+        if (promoComImagemPrincipal && promocoesParaEnviar.length === 3) {
+          const menorPrioridadeAtual = promocoesParaEnviar[promocoesParaEnviar.length - 1];
+          if (promoComImagemPrincipal.priority < menorPrioridadeAtual.priority) {
+            promocoesParaEnviar[promocoesParaEnviar.length - 1] = promoComImagemPrincipal;
+            promocoesParaEnviar.sort((a, b) => (a.priority || 10) - (b.priority || 10));
+          }
+        } else if (promoComImagemPrincipal && promocoesParaEnviar.length < 3) {
+          promocoesParaEnviar.push(promoComImagemPrincipal);
+          promocoesParaEnviar.sort((a, b) => (a.priority || 10) - (b.priority || 10));
+        }
+        promocoesParaEnviar = [...new Set(promocoesParaEnviar)].slice(0,3);
         
         if (promocoesParaEnviar.length > 0) {
-          console.log(`[PRE-ATEND] 🎁 ${promocoesParaEnviar.length} promoção(ões) ativa(s) | Conexão: ${integracao.nome_instancia} | Setor: ${setorPreferencial || 'N/A'}`);
-          
-          // Pegar primeira com imagem para enviar
+          console.log(`[PRE-ATEND] 🎁 ${promocoesParaEnviar.length} promoção(ões) ativa(s)`);
           promocaoComImagem = promocoesParaEnviar.find(p => p.imagem_url);
-          
-          // Formatar texto das promoções
           promocoesTexto = '\n\n🎁 *PROMOÇÕES EM DESTAQUE:*\n';
-          promocoesParaEnviar.forEach((p, idx) => {
-            promocoesTexto += `\n⭐ *${p.title}*`;
-            promocoesTexto += `\n   ${p.short_description}`;
-            if (p.price_info) {
-              promocoesTexto += `\n   💰 ${p.price_info}`;
-            }
-            if (p.codigo_campanha) {
-              promocoesTexto += `\n   🎟️ Código: ${p.codigo_campanha}`;
-            }
-            if (p.link_produto) {
-              promocoesTexto += `\n   🔗 ${p.link_produto}`;
-            }
+          promocoesParaEnviar.forEach((p) => {
+            promocoesTexto += `\n⭐ *${p.title}*\n   ${p.short_description}`;
+            if (p.price_info) promocoesTexto += `\n   💰 ${p.price_info}`;
+            if (p.codigo_campanha) promocoesTexto += `\n   🎟️ Código: ${p.codigo_campanha}`;
+            if (p.link_produto) promocoesTexto += `\n   🔗 ${p.link_produto}`;
             promocoesTexto += '\n';
           });
-        } else {
-          console.log('[PRE-ATEND] ℹ️ Nenhuma promoção ativa disponível para esta conexão/setor');
         }
       } catch (e) {
         console.log('[PRE-ATEND] ⚠️ Erro ao buscar promoções:', e?.message);
@@ -783,11 +762,9 @@ Deno.serve(async (req) => {
 
       console.log('[PRE-ATEND] 📤 Enviando saudação para:', contato.telefone);
       
-      // Se tem promoção com imagem, enviar imagem primeiro
       if (promocaoComImagem?.imagem_url) {
         console.log('[PRE-ATEND] 📸 Enviando imagem da promoção:', promocaoComImagem.title);
         await enviarImagem(base44, integracao, contato.telefone, promocaoComImagem.imagem_url, promocaoComImagem.title, thread_id);
-        // Pequeno delay para não misturar ordem das mensagens
         await new Promise(resolve => setTimeout(resolve, 500));
       }
       
@@ -839,7 +816,7 @@ Deno.serve(async (req) => {
       }
       
       // ============================================================================
-      // PRIORIDADE 0: PERGUNTA DE CONTINUIDADE (antes de tudo)
+      // PRIORIDADE 0: PERGUNTA DE CONTINUIDADE
       // ============================================================================
       if (thread.pre_atendimento_state === 'WAITING_CONTINUITY_CHOICE') {
         console.log('[PRE-ATEND] ❓ Processando resposta de continuidade');
@@ -848,7 +825,6 @@ Deno.serve(async (req) => {
         const lastUserId = metadata.last_assigned_user_id;
         const lastUserName = metadata.last_assigned_user_name;
         
-        // Opção 1: Continuar
         if (['1', 'continuar', 'sim', 'mesmo atendente', 'continuar atendimento'].some(opt => textoLower.includes(opt))) {
           console.log('[PRE-ATEND] ✅ Cliente escolheu CONTINUAR');
           
@@ -859,7 +835,6 @@ Deno.serve(async (req) => {
             unread_count: Math.max(1, thread.unread_count || 0)
           });
           
-          // Buscar nome atualizado do User
           let nomeAtendente = lastUserName;
           try {
             const userAtual = await base44.asServiceRole.entities.User.get(lastUserId);
@@ -872,21 +847,64 @@ Deno.serve(async (req) => {
           return Response.json({ success: true, continuou: true }, { headers: corsHeaders });
         }
         
-        // Opção 2: Novo atendimento
         if (['2', 'novo', 'novo atendimento', 'iniciar novo', 'outro'].some(opt => textoLower.includes(opt))) {
           console.log('[PRE-ATEND] 🆕 Cliente escolheu NOVO ATENDIMENTO');
-          
           await base44.asServiceRole.entities.MessageThread.update(thread_id, {
             pre_atendimento_state: 'WAITING_SECTOR_CHOICE',
             assigned_user_id: null
           });
-          
-          // Continua para o fluxo de seleção de setor abaixo (não retorna aqui)
         } else {
-          // Resposta inválida
-          const msgRetry = `🤔 Não entendi. Digite:\n\n1️⃣ para continuar com ${lastUserName}\n2️⃣ para novo atendimento`;
+          const msgRetry = `🤔 Não entendi. Digite:\n\n1️⃣ para continuar com *${lastUserName}*\n2️⃣ para *novo atendimento*`;
           await enviarMensagem(base44, integracao, contato.telefone, msgRetry, thread_id);
           return Response.json({ success: true, retry_continuity: true }, { headers: corsHeaders });
+        }
+      } else if (thread.pre_atendimento_state === 'WAITING_HUMAN_CONFIRMATION') {
+        // ============================================================================
+        // ✅ NOVO: CONFIRMAÇÃO DE ATENDENTE HUMANO
+        // ============================================================================
+        console.log('[PRE-ATEND] ❓ Processando confirmação de atendente humano');
+        
+        if (['sim', 's', 'quero', 'falar', 'humano', 'atendente', 'com certeza'].some(opt => textoLower.includes(opt))) {
+          console.log('[PRE-ATEND] ✅ Cliente confirmou atendente humano');
+          
+          const execucoes = await base44.asServiceRole.entities.FlowExecution.filter({
+            thread_id: thread_id,
+            status: 'ativo'
+          }, '-created_date', 1);
+          
+          const execucao = execucoes[0];
+          const contexto = await analisarContexto(base44, thread_id, textoOriginal);
+          const setorDestino = thread.sector_id || (contexto.setorDominante[1] > 0 ? contexto.setorDominante[0] : 'geral');
+          const atendente = await buscarAtendenteDoSetor(base44, contato, setorDestino);
+          
+          return Response.json(
+            await finalizarPreAtendimento(base44, {
+              thread_id, execucao_id: execucao.id, setor: setorDestino, atendente,
+              motivo: 'confirmacao_humano', integracao, contato, variables: execucao.variables || {}
+            }),
+            { headers: corsHeaders }
+          );
+        } else if (['nao', 'n', 'nao quero', 'nao precisa'].some(opt => textoLower.includes(opt))) {
+          console.log('[PRE-ATEND] ❌ Cliente não quer atendente humano - voltando ao menu');
+          
+          await base44.asServiceRole.entities.MessageThread.update(thread_id, {
+            pre_atendimento_state: 'WAITING_SECTOR_CHOICE'
+          });
+          
+          const opcoesSetor = template.opcoes_setor || [
+            { label: '💼 Vendas', setor: 'vendas' },
+            { label: '🔧 Suporte', setor: 'assistencia' },
+            { label: '💰 Financeiro', setor: 'financeiro' }
+          ];
+          const listaOpcoes = opcoesSetor.map((op, i) => `${i + 1}. ${op.label}`).join('\n');
+          const msgReiniciar = `Tudo bem! Então, para qual setor você gostaria de falar?\n\n${listaOpcoes}\n\n_Responda com o número ou nome da opção desejada._`;
+          
+          await enviarMensagem(base44, integracao, contato.telefone, msgReiniciar, thread_id);
+          return Response.json({ success: true, restarted_menu: true }, { headers: corsHeaders });
+        } else {
+          const msgRetry = `🤔 Não entendi sua resposta. Por favor, digite *"Sim"* para falar com um atendente ou *"Não"* para voltar ao menu principal.`;
+          await enviarMensagem(base44, integracao, contato.telefone, msgRetry, thread_id);
+          return Response.json({ success: true, retry_human_confirmation: true }, { headers: corsHeaders });
         }
       }
       
@@ -910,12 +928,10 @@ Deno.serve(async (req) => {
       
       console.log('[PRE-ATEND] 🔍 Analisando:', textoOriginal);
 
-      // Analisar contexto
       const contexto = await analisarContexto(base44, thread_id, textoOriginal);
       const todosAtendentes = await carregarAtendentes(base44);
       
       console.log('[PRE-ATEND] 📊 Setor dominante:', contexto.setorDominante[0], '(', contexto.setorDominante[1], ')');
-      console.log('[PRE-ATEND] 📊 Intenção dominante:', contexto.intencaoDominante[0], '(', contexto.intencaoDominante[1], ')');
 
       // ============================================================================
       // 🤖 PRIORIDADE 0: PERGUNTAS SOBRE O NEXUS360
@@ -923,15 +939,12 @@ Deno.serve(async (req) => {
       const palavrasNexus = ['nexus360', 'nexus 360', 'nexus', 'o que e nexus', 'sobre o nexus', 'como funciona', 'quem e voce', 'quem é você', 'voce e quem', 'você é quem', 'e uma ia', 'é uma ia', 'robo', 'robô', 'bot', 'automatico', 'automático', 'inteligencia artificial', 'ia de atendimento'];
       if (palavrasNexus.some(p => textoLower.includes(p))) {
         console.log('[PRE-ATEND] 🤖 Pergunta sobre Nexus360 detectada!');
-
         const mensagemNexus = `🤖 Sou a *Nexus360*, sua IA de atendimento!\n\nAnaliso sua necessidade e direciono ao especialista certo, de forma rápida e inteligente. ✨\n\nPara qual setor posso te ajudar?\n\n${opcoesSetor.map((op, i) => `${i + 1}. ${op.label}`).join('\n')}`;
-
         await enviarMensagem(base44, integracao, contato.telefone, mensagemNexus, thread_id);
         await base44.asServiceRole.entities.FlowExecution.update(execucao.id, {
-          variables: { ...execucao.variables, perguntou_nexus: true }
+          variables: { ...execucao.variables, perguntou_nexus: true, tentativas_nao_entendidas: tentativas + 1 }
         });
-
-        return Response.json({ success: true, nexus_info_sent: true }, { headers: corsHeaders });
+        return Response.json({ success: true, nexus_info_sent: true, understood: false, tentativas: tentativas + 1 }, { headers: corsHeaders });
       }
 
       // ============================================================================
@@ -940,10 +953,8 @@ Deno.serve(async (req) => {
       const pedidosHumano = ['atendente', 'humano', 'pessoa', 'falar com alguem', 'quero falar', 'preciso falar', 'me ajuda', 'ajuda', 'atender', 'atendimento', 'falar com voce', 'voces'];
       if (pedidosHumano.some(p => textoLower.includes(p))) {
         console.log('[PRE-ATEND] 🚨 Pedido de atendente humano');
-        
-        let setorDestino = contexto.setorDominante[1] > 0 ? contexto.setorDominante[0] : (thread?.sector_id || 'geral');
+        const setorDestino = thread.sector_id || (contexto.setorDominante[1] > 0 ? contexto.setorDominante[0] : 'geral');
         const atendente = await buscarAtendenteDoSetor(base44, contato, setorDestino);
-        
         return Response.json(
           await finalizarPreAtendimento(base44, {
             thread_id, execucao_id: execucao.id, setor: setorDestino, atendente,
@@ -965,13 +976,14 @@ Deno.serve(async (req) => {
         if (melhorMatch.tipo === 'vendedor' && melhorMatch.email) {
           try {
             const userMatch = await base44.asServiceRole.entities.User.filter({ email: melhorMatch.email }, '-created_date', 1);
-            if (userMatch.length > 0) atendente = { ...melhorMatch, id: userMatch[0].id, nome: userMatch[0].full_name };
+            if (userMatch.length > 0) atendente = { ...melhorMatch, id: userMatch[0].id, full_name: userMatch[0].full_name };
           } catch (e) {}
         }
-        
+
+        const setorFinal = atendente.setor || thread.sector_id || 'geral';
         return Response.json(
           await finalizarPreAtendimento(base44, {
-            thread_id, execucao_id: execucao.id, setor: atendente.setor || 'geral', atendente,
+            thread_id, execucao_id: execucao.id, setor: setorFinal, atendente,
             motivo: 'nome_atendente', integracao, contato, variables: { ...execucao.variables, match_score: melhorScore }
           }),
           { headers: corsHeaders }
@@ -979,10 +991,8 @@ Deno.serve(async (req) => {
       }
 
       // ============================================================================
-      // 📋 PRIORIDADE 3: SELEÇÃO EXPLÍCITA DE SETOR POR NÚMERO/NOME (TEM PRECEDÊNCIA!)
+      // 📋 PRIORIDADE 3: SELEÇÃO EXPLÍCITA DE SETOR (TEM PRECEDÊNCIA!)
       // ============================================================================
-      
-      // Verificar se está aguardando escolha de ATENDENTE (já escolheu setor antes)
       const estadoAtual = thread?.pre_atendimento_state;
       const setorJaEscolhido = execucao.variables?.setor_escolhido;
       const atendentesDisponiveis = execucao.variables?.atendentes_disponiveis || [];
@@ -990,15 +1000,12 @@ Deno.serve(async (req) => {
       if (estadoAtual === 'WAITING_ATTENDANT_CHOICE' && setorJaEscolhido && atendentesDisponiveis.length > 0) {
         console.log('[PRE-ATEND] 👤 Processando escolha de ATENDENTE...');
         
-        // Tentar mapear resposta para atendente
         let atendenteEscolhido = null;
         const respostaNum = parseInt(textoLower);
         
-        // Por número
         if (!isNaN(respostaNum) && respostaNum >= 1 && respostaNum <= atendentesDisponiveis.length) {
           atendenteEscolhido = atendentesDisponiveis[respostaNum - 1];
         } else {
-          // Por nome
           for (const atend of atendentesDisponiveis) {
             const nomeNorm = atend.nome.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
             const primeiroNome = nomeNorm.split(' ')[0];
@@ -1020,7 +1027,6 @@ Deno.serve(async (req) => {
             { headers: corsHeaders }
           );
         } else {
-          // Não entendeu - reenviar lista
           const listaAtend = atendentesDisponiveis.map((a, i) => `${i + 1}. ${a.nome}`).join('\n');
           const msgRetry = `🤔 Não identifiquei o atendente. Por favor, escolha:\n\n${listaAtend}\n\n_Digite o número ou nome._`;
           await enviarMensagem(base44, integracao, contato.telefone, msgRetry, thread_id);
@@ -1028,13 +1034,11 @@ Deno.serve(async (req) => {
         }
       }
       
-      // Processar escolha de SETOR
       const setorEscolhido = mapearSetorDeResposta(resposta_usuario, opcoesSetor);
       
       if (setorEscolhido) {
         console.log('[PRE-ATEND] 📋 Setor selecionado:', setorEscolhido);
         
-        // Buscar atendentes do setor
         let atendentesSetor = [];
         try {
           const usuarios = await base44.asServiceRole.entities.User.filter({
@@ -1045,22 +1049,17 @@ Deno.serve(async (req) => {
           console.log('[PRE-ATEND] ⚠️ Erro ao buscar atendentes:', e?.message);
         }
         
-        // Se tem mais de 1 atendente, listar para escolha
         if (atendentesSetor.length > 1) {
           console.log('[PRE-ATEND] 👥 Listando', atendentesSetor.length, 'atendentes do setor', setorEscolhido);
-          
           const listaAtendentes = atendentesSetor.map((a, i) => `${i + 1}. ${a.nome}`).join('\n');
           const setorLabel = setorLabels[setorEscolhido] || setorEscolhido;
           const msgEscolha = `👥 *Atendentes disponíveis em ${setorLabel}:*\n\n${listaAtendentes}\n\n_Digite o número ou nome do atendente desejado._`;
           
           await enviarMensagem(base44, integracao, contato.telefone, msgEscolha, thread_id);
-          
-          // Atualizar estado para aguardar escolha de atendente
           await base44.asServiceRole.entities.MessageThread.update(thread_id, {
             pre_atendimento_state: 'WAITING_ATTENDANT_CHOICE',
             sector_id: setorEscolhido
           });
-          
           await base44.asServiceRole.entities.FlowExecution.update(execucao.id, {
             variables: { 
               ...execucao.variables, 
@@ -1072,7 +1071,6 @@ Deno.serve(async (req) => {
           return Response.json({ success: true, awaiting_attendant_choice: true, setor: setorEscolhido }, { headers: corsHeaders });
         }
         
-        // Se tem 0 ou 1 atendente, transferir direto
         const atendente = atendentesSetor.length === 1 
           ? { id: atendentesSetor[0].id, full_name: atendentesSetor[0].nome }
           : await buscarAtendenteDoSetor(base44, contato, setorEscolhido);
@@ -1087,52 +1085,50 @@ Deno.serve(async (req) => {
       }
 
       // ============================================================================
-      // 💰 PRIORIDADE 4: DETECTAR INTENÇÃO POR CONTEXTO (APENAS SE NÃO ESCOLHEU SETOR)
+      // 💰 PRIORIDADE 4: DETECTAR INTENÇÃO (APENAS SE NÃO ESCOLHEU SETOR)
       // ============================================================================
-      
-      // 4A: Pagamento/Financeiro
-      if (contexto.intencoes.pagamento >= 3 || contexto.intencaoDominante[0] === 'pagamento') {
-        console.log('[PRE-ATEND] 💰 Intenção: PAGAMENTO/FINANCEIRO');
-        const atendente = await buscarAtendenteDoSetor(base44, contato, 'financeiro');
-        return Response.json(
-          await finalizarPreAtendimento(base44, {
-            thread_id, execucao_id: execucao.id, setor: 'financeiro', atendente,
-            motivo: 'intencao_pagamento', integracao, contato, variables: execucao.variables
-          }),
-          { headers: corsHeaders }
-        );
-      }
-
-      // 4B: Cotação/Vendas
-      if (contexto.intencoes.cotacao >= 3 || contexto.intencaoDominante[0] === 'cotacao' || contexto.setores.vendas > 5) {
-        console.log('[PRE-ATEND] 🛒 Intenção: COTAÇÃO/VENDAS');
-        const atendente = await buscarAtendenteDoSetor(base44, contato, 'vendas');
-        return Response.json(
-          await finalizarPreAtendimento(base44, {
-            thread_id, execucao_id: execucao.id, setor: 'vendas', atendente,
-            motivo: 'intencao_cotacao', integracao, contato, variables: execucao.variables
-          }),
-          { headers: corsHeaders }
-        );
-      }
-
-      // 4C: Suporte/Assistência
-      if (contexto.intencoes.suporte >= 3 || contexto.setores.assistencia > 5) {
-        console.log('[PRE-ATEND] 🔧 Intenção: SUPORTE/ASSISTÊNCIA');
-        const atendente = await buscarAtendenteDoSetor(base44, contato, 'assistencia');
-        return Response.json(
-          await finalizarPreAtendimento(base44, {
-            thread_id, execucao_id: execucao.id, setor: 'assistencia', atendente,
-            motivo: 'intencao_suporte', integracao, contato, variables: execucao.variables
-          }),
-          { headers: corsHeaders }
-        );
+      if (!setorEscolhido) {
+        if (contexto.intencoes.pagamento >= 3 || contexto.intencaoDominante[0] === 'pagamento') {
+          console.log('[PRE-ATEND] 💰 Intenção: PAGAMENTO/FINANCEIRO');
+          const atendente = await buscarAtendenteDoSetor(base44, contato, 'financeiro');
+          return Response.json(
+            await finalizarPreAtendimento(base44, {
+              thread_id, execucao_id: execucao.id, setor: 'financeiro', atendente,
+              motivo: 'intencao_pagamento', integracao, contato, variables: execucao.variables
+            }),
+            { headers: corsHeaders }
+          );
+        }
+        
+        if (contexto.intencoes.cotacao >= 3 || contexto.intencaoDominante[0] === 'cotacao' || contexto.setores.vendas > 5) {
+          console.log('[PRE-ATEND] 🛒 Intenção: COTAÇÃO/VENDAS');
+          const atendente = await buscarAtendenteDoSetor(base44, contato, 'vendas');
+          return Response.json(
+            await finalizarPreAtendimento(base44, {
+              thread_id, execucao_id: execucao.id, setor: 'vendas', atendente,
+              motivo: 'intencao_cotacao', integracao, contato, variables: execucao.variables
+            }),
+            { headers: corsHeaders }
+          );
+        }
+        
+        if (contexto.intencoes.suporte >= 3 || contexto.setores.assistencia > 5) {
+          console.log('[PRE-ATEND] 🔧 Intenção: SUPORTE/ASSISTÊNCIA');
+          const atendente = await buscarAtendenteDoSetor(base44, contato, 'assistencia');
+          return Response.json(
+            await finalizarPreAtendimento(base44, {
+              thread_id, execucao_id: execucao.id, setor: 'assistencia', atendente,
+              motivo: 'intencao_suporte', integracao, contato, variables: execucao.variables
+            }),
+            { headers: corsHeaders }
+          );
+        }
       }
 
       // ============================================================================
-      // 🧠 PRIORIDADE 5: INFERIR PELO CONTEXTO DOMINANTE (SETOR COM MAIS KEYWORDS)
+      // 🧠 PRIORIDADE 5: INFERIR PELO CONTEXTO (SOMENTE SE NADA FOI ESCOLHIDO)
       // ============================================================================
-      if (contexto.setorDominante[1] >= 3) {
+      if (!setorEscolhido && contexto.setorDominante[1] >= 3) {
         console.log('[PRE-ATEND] 🧠 Setor inferido do contexto:', contexto.setorDominante[0]);
         const atendente = await buscarAtendenteDoSetor(base44, contato, contexto.setorDominante[0]);
         return Response.json(
@@ -1154,23 +1150,22 @@ Deno.serve(async (req) => {
         variables: { ...execucao.variables, tentativas_nao_entendidas: novasTentativas, ultima_resposta: textoOriginal }
       });
       
-      // Após 2 tentativas OU cliente fidelizado, direciona direto
+      // ✅ Após 2 tentativas, PERGUNTAR se quer atendente humano (em vez de transferir direto)
       if (novasTentativas >= 2 || isFidelizado || tipoContato === 'cliente') {
-        console.log('[PRE-ATEND] ⏩ Direcionando automaticamente');
-        const setorFallback = contexto.setorDominante[1] > 0 ? contexto.setorDominante[0] : (thread?.sector_id || 'geral');
-        const atendente = await buscarAtendenteDoSetor(base44, contato, setorFallback);
-        return Response.json(
-          await finalizarPreAtendimento(base44, {
-            thread_id, execucao_id: execucao.id, setor: setorFallback, atendente,
-            motivo: 'fallback_automatico', integracao, contato, variables: execucao.variables
-          }),
-          { headers: corsHeaders }
-        );
+        console.log('[PRE-ATEND] ❓ Perguntando sobre atendente humano após tentativas');
+        
+        const msgPerguntarHumano = `Parece que não estou conseguindo entender sua solicitação. Gostaria de falar com um atendente humano? Digite *"Sim"* ou *"Não"*.`;
+        await enviarMensagem(base44, integracao, contato.telefone, msgPerguntarHumano, thread_id);
+        
+        await base44.asServiceRole.entities.MessageThread.update(thread_id, {
+          pre_atendimento_state: 'WAITING_HUMAN_CONFIRMATION'
+        });
+        
+        return Response.json({ success: true, awaiting_human_confirmation: true }, { headers: corsHeaders });
       }
       
       // Primeira tentativa - pedir novamente
       const nomesDisponiveis = todosAtendentes.slice(0, 3).map(a => a.primeiroNome.charAt(0).toUpperCase() + a.primeiroNome.slice(1));
-      
       let msgNaoEntendi = `🤔 Não consegui identificar sua solicitação.\n\n*Escolha uma opção:*\n`;
       msgNaoEntendi += opcoesSetor.map((op, i) => `${i + 1}. ${op.label}`).join('\n');
       msgNaoEntendi += `\n\n💡 Você também pode:\n• Digitar *"atendente"* para falar com alguém\n`;
