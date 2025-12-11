@@ -25,18 +25,23 @@ Deno.serve(async (req) => {
       return Response.json({ success: false, error: 'Não autenticado' }, { status: 401, headers: corsHeaders });
     }
 
-    // Usar serviceRole para buscar TODOS os usuários (bypass segurança)
-    const usuarios = await base44.asServiceRole.entities.User.list();
+    // Buscar APENAS atendentes válidos com nome para exibição (bypass segurança)
+    const usuarios = await base44.asServiceRole.entities.User.filter({ 
+      is_whatsapp_attendant: true 
+    });
     
-    // Retornar apenas campos necessários para atribuição
-    const usuariosSimplificados = (usuarios || []).map(u => ({
-      id: u.id,
-      full_name: u.full_name,
-      email: u.email,
-      role: u.role,
-      attendant_sector: u.attendant_sector,
-      attendant_role: u.attendant_role
-    }));
+    // Filtrar apenas os que têm nome válido e retornar campos necessários
+    const usuariosSimplificados = (usuarios || [])
+      .filter(u => u.full_name || u.display_name || u.email)
+      .map(u => ({
+        id: u.id,
+        full_name: u.full_name,
+        display_name: u.display_name,
+        email: u.email,
+        role: u.role,
+        attendant_sector: u.attendant_sector,
+        attendant_role: u.attendant_role
+      }));
 
     console.log('[listarUsuarios] Total de usuários:', usuariosSimplificados.length);
 

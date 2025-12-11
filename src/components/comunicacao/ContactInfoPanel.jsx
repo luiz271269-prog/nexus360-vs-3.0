@@ -37,6 +37,7 @@ export default function ContactInfoPanel({ contact, novoContatoTelefone, onClose
     tipo_contato: defaultValues?.tipo_contato || contact?.tipo_contato || 'lead',
     vendedor_responsavel: defaultValues?.vendedor_responsavel || contact?.vendedor_responsavel || '',
     atendente_fidelizado_vendas: contact?.atendente_fidelizado_vendas || '',
+    atendente_fidelizado_assistencia: contact?.atendente_fidelizado_assistencia || '',
     atendente_fidelizado_fornecedor: contact?.atendente_fidelizado_fornecedor || '',
     email: defaultValues?.email || contact?.email || '',
     telefone: novoContatoTelefone || defaultValues?.telefone || contact?.telefone || '',
@@ -75,6 +76,7 @@ export default function ContactInfoPanel({ contact, novoContatoTelefone, onClose
         tipo_contato: contact.tipo_contato || 'lead',
         vendedor_responsavel: contact.vendedor_responsavel || '',
         atendente_fidelizado_vendas: contact.atendente_fidelizado_vendas || '',
+        atendente_fidelizado_assistencia: contact.atendente_fidelizado_assistencia || '',
         atendente_fidelizado_fornecedor: contact.atendente_fidelizado_fornecedor || '',
         email: contact.email || '',
         telefone: contact.telefone || '',
@@ -91,6 +93,7 @@ export default function ContactInfoPanel({ contact, novoContatoTelefone, onClose
         tipo_contato: defaultValues.tipo_contato || 'lead',
         vendedor_responsavel: defaultValues.vendedor_responsavel || '',
         atendente_fidelizado_vendas: '',
+        atendente_fidelizado_assistencia: '',
         atendente_fidelizado_fornecedor: '',
         email: defaultValues.email || '',
         telefone: novoContatoTelefone || defaultValues.telefone || '',
@@ -293,7 +296,7 @@ export default function ContactInfoPanel({ contact, novoContatoTelefone, onClose
                       <SelectItem key={a.id} value={a.id}>
                         <div className="flex flex-col">
                           <span className="font-medium">{getUserDisplayName(a.id, atendentes)}</span>
-                          {a.email && <span className="text-xs text-slate-500">{a.email}</span>}
+                          {a.attendant_sector && <span className="text-xs text-slate-500 capitalize">🔹 {a.attendant_sector}</span>}
                         </div>
                       </SelectItem>
                     ))}
@@ -323,7 +326,7 @@ export default function ContactInfoPanel({ contact, novoContatoTelefone, onClose
                       <SelectItem key={a.id} value={a.id}>
                         <div className="flex flex-col">
                           <span className="font-medium">{getUserDisplayName(a.id, atendentes)}</span>
-                          {a.email && <span className="text-xs text-slate-500">{a.email}</span>}
+                          {a.attendant_sector && <span className="text-xs text-slate-500 capitalize">🔹 {a.attendant_sector}</span>}
                         </div>
                       </SelectItem>
                     ))}
