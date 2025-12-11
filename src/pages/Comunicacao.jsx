@@ -189,7 +189,14 @@ export default function Comunicacao() {
 
   const { data: atendentesRaw = [] } = useQuery({
     queryKey: ['atendentes'],
-    queryFn: () => base44.entities.User.filter({ is_whatsapp_attendant: true }, 'full_name'),
+    queryFn: async () => {
+      // ✅ Usar serviceRole via função backend para buscar TODOS os atendentes
+      const resultado = await base44.functions.invoke('listarUsuariosParaAtribuicao', {});
+      if (resultado?.data?.success && resultado?.data?.usuarios) {
+        return resultado.data.usuarios;
+      }
+      return [];
+    },
     enabled: !!usuario,
     staleTime: 5 * 60 * 1000,
     retry: 2
