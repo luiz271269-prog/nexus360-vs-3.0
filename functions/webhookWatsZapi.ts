@@ -823,7 +823,39 @@ async function handleMessage(dados, payloadBruto, base44) {
   // ✅ LÓGICA ROBUSTA DE PRÉ-ATENDIMENTO (VERSÃO FINAL - SEM DUPLICAÇÕES)
   // ============================================================================
   
-  // 🔥 PASSO 1: VERIFICAR FIDELIZAÇÃO (PRIORIDADE MÁXIMA)
+  // ============================================================================
+  // 🔥 FLUXO CONSOLIDADO DE DECISÃO PRÉ-ATENDIMENTO
+  // ============================================================================
+  
+  // 🔥 GUARDA 0: Se thread JÁ TEM ATENDENTE HUMANO → nunca roda pré-atendimento
+  if (thread.assigned_user_id) {
+    console.log('[' + VERSION + '] 👤 Thread já tem atendente humano:', thread.assigned_user_id);
+    
+    // ✅ Audit log em background (não bloqueia resposta)
+    base44.asServiceRole.entities.ZapiPayloadNormalized.create({
+      payload_bruto: payloadBruto,
+      instance_identificado: dados.instanceId,
+      integration_id: integracaoId,
+      evento: 'ReceivedCallback',
+      timestamp_recebido: now,
+      sucesso_processamento: true
+    }).catch(() => {});
+    
+    const duracao = Date.now() - inicio;
+    console.log('[' + VERSION + '] ✅ Msg:', mensagem.id, '| Thread c/ atendente | ' + duracao + 'ms');
+    
+    return Response.json({
+      success: true,
+      message_id: mensagem.id,
+      contact_id: contato.id,
+      thread_id: thread.id,
+      integration_id: integracaoId,
+      duration_ms: duracao,
+      atendente_existente: true
+    }, { headers: corsHeaders });
+  }
+  
+  // 🔥 GUARDA 1: VERIFICAR FIDELIZAÇÃO (PRIORIDADE MÁXIMA)
   if (contato.is_cliente_fidelizado === true) {
     console.log('[' + VERSION + '] 🎯 Contato FIDELIZADO - Transferindo direto ao setor');
     
