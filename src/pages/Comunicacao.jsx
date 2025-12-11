@@ -33,6 +33,7 @@ import {
   usuarioCorresponde, 
   contatoFidelizadoAoUsuario 
 } from "../components/lib/userMatcher";
+import { getUserDisplayName } from "../components/lib/userHelpers";
 import {
   canUserSeeThreadWithFilters,
   canUserSeeThreadBase,
@@ -829,16 +830,17 @@ export default function Comunicacao() {
   // DEDUPLICAÇÃO FINAL: Garantir que não há entradas duplicadas por contact_id
   const threadsComContato = React.useMemo(() => {
     const contatosMap = new Map(contatos.map(c => [c.id, c]));
-    const atendentesMap = new Map(atendentes.map(a => [a.id, a]));
+    const usuariosMap = new Map(atendentes.map(a => [a.id, a]));
 
-    // ✅ Enriquecer com contato e atendente (buscando dados do User SEMPRE dinamicamente)
+    // ✅ Enriquecer com contato e usuário (SEMPRE buscar User dinamicamente)
     const enriched = threadsFiltradas.map(thread => {
-      const atendenteUser = atendentesMap.get(thread.assigned_user_id);
+      const usuarioAtribuido = usuariosMap.get(thread.assigned_user_id);
       return {
         ...thread,
         contato: thread.contato || contatosMap.get(thread.contact_id),
-        atendente_atribuido: atendenteUser
-        // ✅ assigned_user_name/email REMOVIDOS da thread - usar atendente_atribuido.full_name/email
+        atendente_atribuido: usuarioAtribuido,
+        // ✅ Nome de exibição calculado dinamicamente via helper
+        assigned_user_display_name: usuarioAtribuido ? getUserDisplayName(usuarioAtribuido.id, atendentes) : null
       };
     });
     

@@ -84,9 +84,9 @@ export default function AtribuirConversaModal({
         throw new Error("Atendente não encontrado");
       }
 
+      // ✅ CORREÇÃO: Remover assigned_user_name - buscar dinamicamente via user_id
       await base44.entities.MessageThread.update(thread.id, {
         assigned_user_id: atendenteEscolhido.id,
-        assigned_user_name: atendenteEscolhido.full_name,
         pre_atendimento_ativo: false,
         pre_atendimento_state: 'COMPLETED'
       });

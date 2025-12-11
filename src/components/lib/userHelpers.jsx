@@ -115,18 +115,54 @@ export const getIniciaisAtendente = (usuario) => {
 /**
  * Busca um atendente pelo ID e retorna seu nome formatado
  * 
- * @param {string} atendenteId - ID do atendente
- * @param {Array} listaAtendentes - Lista de atendentes
+ * @param {string} userId - ID do usuário (user_id)
+ * @param {Array} listaAtendentes - Lista de atendentes/usuários
  * @param {boolean} incluirSetor - Se deve incluir o setor
  * @returns {string} Nome do atendente (com ou sem setor)
  */
-export const buscarNomeAtendente = (atendenteId, listaAtendentes = [], incluirSetor = false) => {
-  if (!atendenteId || !listaAtendentes?.length) return 'Atendente';
+export const buscarNomeAtendente = (userId, listaAtendentes = [], incluirSetor = false) => {
+  if (!userId || !listaAtendentes?.length) return 'Atendente';
   
-  const atendente = listaAtendentes.find(a => a.id === atendenteId);
+  const atendente = listaAtendentes.find(a => a.id === userId);
   if (!atendente) return 'Atendente';
   
   return incluirSetor ? getNomeComSetor(atendente) : getNomeAtendente(atendente);
+};
+
+/**
+ * Retorna o nome de exibição do usuário a partir do user_id
+ * FUNÇÃO PRINCIPAL - Usar sempre que precisar exibir nome de usuário/atendente
+ * 
+ * @param {string} userId - ID do usuário
+ * @param {Array} listaUsuarios - Lista de usuários disponíveis
+ * @param {Object} options - Opções: { incluirSetor: boolean, incluirEmail: boolean }
+ * @returns {string} Nome formatado do usuário
+ */
+export const getUserDisplayName = (userId, listaUsuarios = [], options = {}) => {
+  const { incluirSetor = false, incluirEmail = false } = options;
+  
+  if (!userId) return 'Sem atribuição';
+  if (!listaUsuarios?.length) return 'Carregando...';
+  
+  const usuario = listaUsuarios.find(u => u.id === userId);
+  if (!usuario) return 'Usuário não encontrado';
+  
+  const nome = getNomeAtendente(usuario);
+  
+  if (incluirSetor && incluirEmail) {
+    const setor = getSetorAtendente(usuario);
+    return `${nome} (${setor}) - ${usuario.email}`;
+  }
+  
+  if (incluirSetor) {
+    return getNomeComSetor(usuario);
+  }
+  
+  if (incluirEmail) {
+    return `${nome} - ${usuario.email}`;
+  }
+  
+  return nome;
 };
 
 export default {
@@ -136,5 +172,6 @@ export default {
   getAssinaturaAtendente,
   getNomeComSetor,
   getIniciaisAtendente,
-  buscarNomeAtendente
+  buscarNomeAtendente,
+  getUserDisplayName
 };
