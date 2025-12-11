@@ -915,7 +915,46 @@ async function handleMessage(dados, payloadBruto, base44) {
     }
   }
   
-  // 🔥 PASSO 2: LER ESTADO DO PRÉ-ATENDIMENTO (FONTE ÚNICA DE VERDADE)
+  // 🔥 GUARDA 2: FORNECEDOR / COMPRAS → NUNCA roda pré-atendimento
+  if (ehFornecedorOuCompras(contato, thread)) {
+    console.log('[' + VERSION + '] 📦 Fornecedor/Compras detectado - ignorando pré-atendimento');
+    
+    // Se já tem setor definido, apenas continuar
+    if (!thread.sector_id) {
+      // Definir setor automaticamente
+      const setorInferido = contato.tipo_contato === 'fornecedor' ? 'fornecedor' : 'compras';
+      await base44.asServiceRole.entities.MessageThread.update(thread.id, {
+        sector_id: setorInferido,
+        pre_atendimento_ativo: false,
+        pre_atendimento_state: 'NAO_INICIADO'
+      }).catch(() => {});
+    }
+    
+    // ✅ Audit log em background
+    base44.asServiceRole.entities.ZapiPayloadNormalized.create({
+      payload_bruto: payloadBruto,
+      instance_identificado: dados.instanceId,
+      integration_id: integracaoId,
+      evento: 'ReceivedCallback',
+      timestamp_recebido: now,
+      sucesso_processamento: true
+    }).catch(() => {});
+    
+    const duracao = Date.now() - inicio;
+    console.log('[' + VERSION + '] ✅ Msg:', mensagem.id, '| Fornecedor/Compras | ' + duracao + 'ms');
+    
+    return Response.json({
+      success: true,
+      message_id: mensagem.id,
+      contact_id: contato.id,
+      thread_id: thread.id,
+      integration_id: integracaoId,
+      duration_ms: duracao,
+      fornecedor_compras: true
+    }, { headers: corsHeaders });
+  }
+  
+  // 🔥 PASSO 3: LER ESTADO DO PRÉ-ATENDIMENTO (FONTE ÚNICA DE VERDADE)
   const preAtivo = thread.pre_atendimento_ativo === true;
   
   const SAUDACOES = [
