@@ -34,7 +34,7 @@ Deno.serve(async (req) => {
     payload = {};
   }
 
-  const { limite = 5, categoria = null } = payload;
+  const { limite = 5, categoria = null, integration_id = null, setor = null } = payload;
 
   try {
     const hoje = new Date().toISOString().split('T')[0];
@@ -56,10 +56,22 @@ Deno.serve(async (req) => {
       limite
     );
 
-    // Filtrar manualmente as que não expiraram
+    // Filtrar manualmente as que não expiraram + filtros de conexão e setor
     const promocoesValidas = promocoes.filter(promo => {
-      if (!promo.valid_until) return true;
-      return promo.valid_until >= hoje;
+      // Verificar expiração
+      if (promo.valid_until && promo.valid_until < hoje) return false;
+      
+      // Filtrar por conexão WhatsApp (se especificado)
+      if (integration_id && promo.conexoes_permitidas && promo.conexoes_permitidas.length > 0) {
+        if (!promo.conexoes_permitidas.includes(integration_id)) return false;
+      }
+      
+      // Filtrar por setor (se especificado)
+      if (setor && promo.setores_permitidos && promo.setores_permitidos.length > 0) {
+        if (!promo.setores_permitidos.includes(setor)) return false;
+      }
+      
+      return true;
     });
 
     if (promocoesValidas.length === 0) {
