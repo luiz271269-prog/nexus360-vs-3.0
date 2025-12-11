@@ -17,6 +17,7 @@ import {
   PopoverTrigger } from
 "@/components/ui/popover";
 import { motion, AnimatePresence } from "framer-motion";
+import { getUserDisplayName } from '../lib/userHelpers';
 
 // Configuração de tipos de contato
 const TIPOS_CONTATO = [
@@ -256,7 +257,7 @@ export default function SearchAndFilter({
                 </div>
               </div>
 
-              {/* Por atendente (se manager) */}
+              {/* ✅ CORREÇÃO: Por atendente usando getUserDisplayName */}
               {isManager && atendentes.length > 0 &&
               <div>
                   <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2 block">
@@ -272,7 +273,7 @@ export default function SearchAndFilter({
                       onSelectedAttendantChange(selectedAttendantId === att.id ? null : att.id);
                     }}
                     icon={User}
-                    label={att.full_name}
+                    label={getUserDisplayName(att.id, atendentes, { incluirSetor: true })}
                     color="bg-purple-500" />
 
                   )}

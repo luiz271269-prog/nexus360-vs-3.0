@@ -22,6 +22,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { FILAS_ATENDIMENTO } from "./CentralInteligenciaContato";
+import { getUserDisplayName } from "../lib/userHelpers";
 
 /**
  * AtribuidorAtendenteRapido - Componente reutilizável para atribuir atendentes a contatos
@@ -91,15 +92,14 @@ export default function AtribuidorAtendenteRapido({
     }
   };
 
-  // ✅ Obter atendente atual - BUSCAR NOME DO USER DINAMICAMENTE
+  // ✅ Obter atendente atual - USAR getUserDisplayName
   const getAtendenteAtual = () => {
     // Para atribuição de conversa: buscar User pelo assigned_user_id
     if (thread?.id && thread.assigned_user_id) {
-      const user = atendentes.find(a => a.id === thread.assigned_user_id);
-      return user?.full_name || null;
+      return getUserDisplayName(thread.assigned_user_id, atendentes);
     }
     
-    // Para fidelização de contato: usar campos do contato
+    // Para fidelização de contato: usar campos do contato (ainda em full_name)
     if (!contato) return null;
     const campo = getCampoFidelizacao();
     return contato[campo] || contato.vendedor_responsavel || null;
