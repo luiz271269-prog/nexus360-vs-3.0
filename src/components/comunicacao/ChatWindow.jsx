@@ -57,6 +57,7 @@ import CentralInteligenciaContato, {
   TIPOS_CONTATO } from
 './CentralInteligenciaContato';
 import MessageInput from './MessageInput';
+import AlertaPedidoTransferencia from './AlertaPedidoTransferencia';
 
 export default function ChatWindow({
   thread = null,
