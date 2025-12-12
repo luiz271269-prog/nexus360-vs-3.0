@@ -60,6 +60,14 @@ export default function MessageInput({
     
     if (!mensagemTexto.trim() && !pastedImage) return;
     
+    // ✅ Cancelar micro-URA se atendente responder
+    if (thread?.id) {
+      base44.functions.invoke('cancelarMicroURASeAtendenteResponder', {
+        thread_id: thread.id,
+        sender_id: 'user'
+      }).catch(() => {});
+    }
+    
     // Notificar o pai COM O TEXTO e limpar LOCALMENTE
     onSendMessage({
       texto: mensagemTexto.trim(),
@@ -71,7 +79,7 @@ export default function MessageInput({
     setMensagemTexto("");
     setPastedImage(null);
     setPastedImagePreview(null);
-  }, [mensagemTexto, pastedImage, pastedImagePreview, onSendMessage]);
+  }, [mensagemTexto, pastedImage, pastedImagePreview, onSendMessage, thread]);
 
   // Handler de teclado
   const handleKeyDown = useCallback((e) => {
