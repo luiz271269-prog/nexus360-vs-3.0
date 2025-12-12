@@ -25,10 +25,8 @@ Deno.serve(async (req) => {
       return Response.json({ success: false, error: 'Não autenticado' }, { status: 401, headers: corsHeaders });
     }
 
-    // Buscar APENAS atendentes válidos com nome para exibição (bypass segurança)
-    const usuarios = await base44.asServiceRole.entities.User.filter({ 
-      is_whatsapp_attendant: true 
-    });
+    // ✅ Buscar TODOS os usuários (sem filtro de is_whatsapp_attendant)
+    const usuarios = await base44.asServiceRole.entities.User.list();
     
     // Filtrar apenas os que têm nome válido e retornar campos necessários
     const usuariosSimplificados = (usuarios || [])
