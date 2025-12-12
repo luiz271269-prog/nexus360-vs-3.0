@@ -1593,6 +1593,42 @@ export default function ChatWindow({
       </div>
         )}
 
+        {/* Alerta de Pedido de Transferência - Micro-URA */}
+        {!mostrarInterfaceBroadcast && thread && (
+          <div className="px-4 pt-3">
+            <AlertaPedidoTransferencia
+              thread={thread}
+              atendentes={atendentes}
+              usuarioAtual={usuario}
+              onTransferirAgora={async () => {
+                const sector_id = thread.transfer_requested_sector_id;
+                const user_id = thread.transfer_requested_user_id;
+                
+                if (user_id) {
+                  await base44.entities.MessageThread.update(thread.id, {
+                    assigned_user_id: user_id,
+                    sector_id: sector_id || thread.sector_id,
+                    transfer_pending: false,
+                    transfer_confirmed: false
+                  });
+                } else if (sector_id) {
+                  await base44.entities.MessageThread.update(thread.id, {
+                    sector_id: sector_id,
+                    transfer_pending: false,
+                    transfer_confirmed: false
+                  });
+                }
+                
+                if (onAtualizarMensagens) onAtualizarMensagens();
+                toast.success('✅ Conversa transferida!');
+              }}
+              onCancelar={() => {
+                if (onAtualizarMensagens) onAtualizarMensagens();
+              }}
+            />
+          </div>
+        )}
+
         {mensagemResposta && !mostrarInterfaceBroadcast &&
         <div className="px-4 py-2 bg-blue-50 border-b border-blue-200 flex-shrink-0">
           <div className="flex items-start justify-between gap-2">
