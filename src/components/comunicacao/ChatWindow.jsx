@@ -82,8 +82,6 @@ export default function ChatWindow({
   const [contatoCompleto, setContatoCompleto] = useState(null);
   const [carregandoContato, setCarregandoContato] = useState(true);
   const [mostrarModalAtribuicao, setMostrarModalAtribuicao] = useState(false);
-  const [atendentes, setAtendentes] = useState([]);
-  const [carregandoAtendentes, setCarregandoAtendentes] = useState(false);
   const [atribuindo, setAtribuindo] = useState(false);
   const [capturandoTela, setCapturandoTela] = useState(false);
   const [mensagemTransferencia, setMensagemTransferencia] = useState("");
