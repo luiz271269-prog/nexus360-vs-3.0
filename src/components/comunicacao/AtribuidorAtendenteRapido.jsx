@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
@@ -22,7 +22,6 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { FILAS_ATENDIMENTO } from "./CentralInteligenciaContato";
-import { getUserDisplayName } from "../lib/userHelpers";
 
 /**
  * AtribuidorAtendenteRapido - Componente reutilizável para atribuir atendentes a contatos
@@ -52,8 +51,6 @@ export default function AtribuidorAtendenteRapido({
   const [menuAberto, setMenuAberto] = useState(false);
   const queryClient = useQueryClient();
 
-  // ✅ REMOVIDO: useQuery - agora usa prop atendentes
-
   // Determinar qual campo de fidelização usar baseado no tipo de contato e setor
   const getCampoFidelizacao = () => {
     const configSetor = FILAS_ATENDIMENTO.find(f => f.value === setorAtual);
@@ -74,14 +71,14 @@ export default function AtribuidorAtendenteRapido({
     }
   };
 
-  // ✅ Obter atendente atual - USAR getUserDisplayName
+  // ✅ Obter atendente atual - Retorna ID do atendente
   const getAtendenteAtual = () => {
     // Para atribuição de conversa: buscar User pelo assigned_user_id
     if (thread?.id && thread.assigned_user_id) {
-      return getUserDisplayName(thread.assigned_user_id, atendentes);
+      return thread.assigned_user_id;
     }
     
-    // Para fidelização de contato: usar campos do contato (ainda em full_name)
+    // Para fidelização de contato: usar campos do contato (ID do atendente)
     if (!contato) return null;
     const campo = getCampoFidelizacao();
     return contato[campo] || contato.vendedor_responsavel || null;
@@ -92,7 +89,7 @@ export default function AtribuidorAtendenteRapido({
   // Handler para atribuir atendente
   // IMPORTANTE: Se thread for passada, atualiza APENAS a conversa (não fideliza contato)
   // Se thread NÃO for passada, atualiza o contato (fidelização)
-  const handleAtribuir = async (nomeAtendente, e) => {
+  const handleAtribuir = async (atendenteId, e) => {
     if (e) {
       e.stopPropagation();
       e.preventDefault();
@@ -102,7 +99,7 @@ export default function AtribuidorAtendenteRapido({
     setSalvando(true);
 
     try {
-      const atendente = nomeAtendente ? atendentes.find(a => a.full_name === nomeAtendente) : null;
+      const atendente = atendenteId ? atendentes.find(a => a.id === atendenteId) : null;
 
       // ═══════════════════════════════════════════════════════════════════════
       // CASO 1: ATRIBUIÇÃO DE CONVERSA (thread passada)
@@ -111,9 +108,8 @@ export default function AtribuidorAtendenteRapido({
       if (thread?.id) {
         await base44.entities.MessageThread.update(thread.id, {
           assigned_user_id: atendente ? atendente.id : null
-          // ✅ assigned_user_name REMOVIDO - buscado dinamicamente do User
         });
-        toast.success(`✅ Conversa ${nomeAtendente ? `atribuída a ${nomeAtendente}` : 'liberada'}`);
+        toast.success(`✅ Conversa ${atendente ? `atribuída a ${atendente.full_name || atendente.email}` : 'liberada'}`);
       }
       // ═══════════════════════════════════════════════════════════════════════
       // CASO 2: FIDELIZAÇÃO DE CONTATO (sem thread, apenas contato)
@@ -122,21 +118,21 @@ export default function AtribuidorAtendenteRapido({
       else if (contato?.id) {
         const campo = getCampoFidelizacao();
         const atualizacoes = {
-          [campo]: nomeAtendente || null
+          [campo]: atendente ? atendente.id : null
         };
 
         if (['lead', 'cliente', 'novo'].includes(tipoContato)) {
-          atualizacoes.vendedor_responsavel = nomeAtendente || null;
+          atualizacoes.vendedor_responsavel = atendente ? atendente.id : null;
         }
 
-        if (nomeAtendente && campo !== 'vendedor_responsavel') {
+        if (atendente && campo !== 'vendedor_responsavel') {
           atualizacoes.is_cliente_fidelizado = true;
-        } else if (!nomeAtendente) {
+        } else if (!atendente) {
           atualizacoes.is_cliente_fidelizado = false;
         }
 
         await base44.entities.Contact.update(contato.id, atualizacoes);
-        toast.success(`✅ Contato ${nomeAtendente ? `fidelizado a ${nomeAtendente}` : 'desfidelizado'}`);
+        toast.success(`✅ Contato ${atendente ? `fidelizado a ${atendente.full_name || atendente.email}` : 'desfidelizado'}`);
       }
 
       // Invalidar queries
@@ -161,11 +157,11 @@ export default function AtribuidorAtendenteRapido({
   };
 
   // ✅ Usar apenas Users (fonte única de verdade)
-  const pessoasDisponiveis = React.useMemo(() => {
+  const pessoasDisponiveis = useMemo(() => {
     return atendentes
-      .filter(a => a.full_name)
+      .filter(a => a.full_name || a.email)
       .map(a => ({
-        nome: a.full_name,
+        nome: a.full_name || a.email,
         id: a.id,
         setor: a.attendant_sector || 'geral',
         email: a.email
@@ -177,6 +173,9 @@ export default function AtribuidorAtendenteRapido({
   // VARIANT: MINI - Apenas ícone pequeno
   // ═══════════════════════════════════════════════════════════════════════════
   if (variant === 'mini') {
+    const atendenteObj = atendentes.find(a => a.id === atendenteAtual);
+    const nomeExibicao = atendenteObj?.full_name || atendenteObj?.email;
+    
     return (
       <DropdownMenu open={menuAberto} onOpenChange={setMenuAberto}>
         <DropdownMenuTrigger asChild onClick={handleClick}>
@@ -187,14 +186,14 @@ export default function AtribuidorAtendenteRapido({
                 : 'bg-red-50 text-red-500 hover:bg-red-100 animate-pulse'
             }`}
             disabled={salvando || disabled}
-            title={atendenteAtual ? `Atribuído: ${atendenteAtual}` : 'Clique para atribuir'}
+            title={nomeExibicao ? `Atribuído: ${nomeExibicao}` : 'Clique para atribuir'}
           >
             {salvando ? (
               <Loader2 className="w-2.5 h-2.5 animate-spin" />
             ) : atendenteAtual ? (
               <>
                 <UserCheck className="w-2.5 h-2.5" />
-                <span className="truncate max-w-[50px]">{atendenteAtual.split(' ')[0]}</span>
+                <span className="truncate max-w-[50px]">{nomeExibicao?.split(' ')[0] || nomeExibicao?.split('@')[0]}</span>
               </>
             ) : (
               <>
@@ -233,17 +232,21 @@ export default function AtribuidorAtendenteRapido({
             pessoasDisponiveis.map(pessoa => (
               <DropdownMenuItem
                 key={pessoa.id}
-                onClick={(e) => handleAtribuir(pessoa.nome, e)}
+                onClick={(e) => handleAtribuir(pessoa.id, e)}
                 className="cursor-pointer"
               >
                 <div className="w-6 h-6 rounded-full bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center mr-2">
                   <span className="text-white text-xs font-bold">{pessoa.nome?.charAt(0)}</span>
                 </div>
-                <span className="flex-1">{pessoa.nome}</span>
-                {pessoa.setor && (
-                  <Badge variant="outline" className="text-[9px] ml-1 capitalize">{pessoa.setor}</Badge>
-                )}
-                {atendenteAtual === pessoa.nome && (
+                <div className="flex-1">
+                  <p className="font-medium text-sm">{pessoa.nome}</p>
+                  {pessoa.setor && (
+                    <p className="text-xs text-slate-500 capitalize flex items-center gap-1">
+                      <span className="text-blue-500">♦</span> {pessoa.setor}
+                    </p>
+                  )}
+                </div>
+                {atendenteAtual === pessoa.id && (
                   <Star className="w-3 h-3 text-amber-500 ml-1" />
                 )}
               </DropdownMenuItem>
@@ -258,6 +261,9 @@ export default function AtribuidorAtendenteRapido({
   // VARIANT: COMPACT - Badge compacto
   // ═══════════════════════════════════════════════════════════════════════════
   if (variant === 'compact') {
+    const atendenteObj = atendentes.find(a => a.id === atendenteAtual);
+    const nomeExibicao = atendenteObj?.full_name || atendenteObj?.email || 'Não atribuído';
+    
     return (
       <DropdownMenu open={menuAberto} onOpenChange={setMenuAberto}>
         <DropdownMenuTrigger asChild onClick={handleClick}>
@@ -275,7 +281,7 @@ export default function AtribuidorAtendenteRapido({
             ) : (
               <AlertCircle className="w-3 h-3 mr-1" />
             )}
-            {atendenteAtual || 'Não atribuído'}
+            {nomeExibicao}
             <ChevronDown className="w-3 h-3 ml-1" />
           </Badge>
         </DropdownMenuTrigger>
@@ -297,17 +303,21 @@ export default function AtribuidorAtendenteRapido({
           {pessoasDisponiveis.map(pessoa => (
             <DropdownMenuItem
               key={pessoa.id}
-              onClick={(e) => handleAtribuir(pessoa.nome, e)}
+              onClick={(e) => handleAtribuir(pessoa.id, e)}
               className="cursor-pointer"
             >
               <div className="w-6 h-6 rounded-full bg-blue-500 flex items-center justify-center mr-2">
                 <span className="text-white text-xs font-bold">{pessoa.nome?.charAt(0)}</span>
               </div>
-              <span className="flex-1">{pessoa.nome}</span>
-              {pessoa.setor && (
-                <Badge variant="outline" className="text-[9px] ml-1 capitalize">{pessoa.setor}</Badge>
-              )}
-              {atendenteAtual === pessoa.nome && <Star className="w-3 h-3 text-amber-500 ml-1" />}
+              <div className="flex-1">
+                <p className="font-medium text-sm">{pessoa.nome}</p>
+                {pessoa.setor && (
+                  <p className="text-xs text-slate-500 capitalize flex items-center gap-1">
+                    <span className="text-blue-500">♦</span> {pessoa.setor}
+                  </p>
+                )}
+              </div>
+              {atendenteAtual === pessoa.id && <Star className="w-3 h-3 text-amber-500 ml-1" />}
             </DropdownMenuItem>
           ))}
         </DropdownMenuContent>
@@ -319,6 +329,9 @@ export default function AtribuidorAtendenteRapido({
   // VARIANT: BUTTON - Botão completo
   // ═══════════════════════════════════════════════════════════════════════════
   if (variant === 'button') {
+    const atendenteObj = atendentes.find(a => a.id === atendenteAtual);
+    const nomeExibicao = atendenteObj?.full_name || atendenteObj?.email;
+    
     return (
       <DropdownMenu open={menuAberto} onOpenChange={setMenuAberto}>
         <DropdownMenuTrigger asChild onClick={handleClick}>
@@ -335,7 +348,7 @@ export default function AtribuidorAtendenteRapido({
             ) : (
               <AlertCircle className="w-4 h-4" />
             )}
-            {showLabel && (atendenteAtual || 'Atribuir')}
+            {showLabel && (nomeExibicao || 'Atribuir')}
             <ChevronDown className="w-3 h-3" />
           </Button>
         </DropdownMenuTrigger>
@@ -365,7 +378,7 @@ export default function AtribuidorAtendenteRapido({
           {pessoasDisponiveis.map(pessoa => (
             <DropdownMenuItem
               key={pessoa.id}
-              onClick={(e) => handleAtribuir(pessoa.nome, e)}
+              onClick={(e) => handleAtribuir(pessoa.id, e)}
               className="cursor-pointer"
             >
               <div className="w-7 h-7 rounded-full bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center mr-2">
@@ -374,10 +387,12 @@ export default function AtribuidorAtendenteRapido({
               <div className="flex-1">
                 <p className="font-medium">{pessoa.nome}</p>
                 {pessoa.setor && (
-                  <p className="text-xs text-slate-500 capitalize">{pessoa.setor}</p>
+                  <p className="text-xs text-slate-500 capitalize flex items-center gap-1">
+                    <span className="text-blue-500">♦</span> {pessoa.setor}
+                  </p>
                 )}
               </div>
-              {atendenteAtual === pessoa.nome && (
+              {atendenteAtual === pessoa.id && (
                 <Badge className="bg-amber-100 text-amber-700">Atual</Badge>
               )}
             </DropdownMenuItem>
@@ -390,6 +405,9 @@ export default function AtribuidorAtendenteRapido({
   // ═══════════════════════════════════════════════════════════════════════════
   // VARIANT: BADGE (default) - Badge padrão
   // ═══════════════════════════════════════════════════════════════════════════
+  const atendenteObj = atendentes.find(a => a.id === atendenteAtual);
+  const nomeExibicao = atendenteObj?.full_name || atendenteObj?.email || 'Não atribuído';
+  
   return (
     <DropdownMenu open={menuAberto} onOpenChange={setMenuAberto}>
       <DropdownMenuTrigger asChild onClick={handleClick}>
@@ -402,7 +420,7 @@ export default function AtribuidorAtendenteRapido({
           ) : (
             <Users className="w-3 h-3" />
           )}
-          {atendenteAtual || 'Não atribuído'}
+          {nomeExibicao}
         </Badge>
       </DropdownMenuTrigger>
       
@@ -413,14 +431,21 @@ export default function AtribuidorAtendenteRapido({
         {pessoasDisponiveis.map(pessoa => (
           <DropdownMenuItem
             key={pessoa.id}
-            onClick={(e) => handleAtribuir(pessoa.nome, e)}
+            onClick={(e) => handleAtribuir(pessoa.id, e)}
             className="cursor-pointer"
           >
-            <span className="flex-1">{pessoa.nome}</span>
-            {pessoa.setor && (
-              <Badge variant="outline" className="text-[9px] ml-1 capitalize">{pessoa.setor}</Badge>
-            )}
-            {atendenteAtual === pessoa.nome && <Star className="w-3 h-3 text-amber-500 ml-1" />}
+            <div className="w-6 h-6 rounded-full bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center mr-2">
+              <span className="text-white text-xs font-bold">{pessoa.nome?.charAt(0)}</span>
+            </div>
+            <div className="flex-1">
+              <p className="font-medium text-sm">{pessoa.nome}</p>
+              {pessoa.setor && (
+                <p className="text-xs text-slate-500 capitalize flex items-center gap-1">
+                  <span className="text-blue-500">♦</span> {pessoa.setor}
+                </p>
+              )}
+            </div>
+            {atendenteAtual === pessoa.id && <Star className="w-3 h-3 text-amber-500 ml-1" />}
           </DropdownMenuItem>
         ))}
         

@@ -21,7 +21,6 @@ import { normalizarTelefone } from '../lib/phoneUtils';
 import SegmentacaoInteligente from './SegmentacaoInteligente';
 import AtribuidorAtendenteRapido from './AtribuidorAtendenteRapido';
 import SeletorEtiquetasContato from './SeletorEtiquetasContato';
-import { getUserDisplayName } from '../lib/userHelpers';
 
 export default function ContactInfoPanel({ 
   contact, 
@@ -72,8 +71,6 @@ export default function ContactInfoPanel({
   const podeDeletarContatos = permissoes.pode_deletar_contatos === true;
 
   useEffect(() => {
-    // ✅ REMOVIDO: carregarVendedores() - agora usa prop atendentes
-    
     if (contact) {
       setFormData({
         empresa: contact.empresa || '',
@@ -214,6 +211,41 @@ export default function ContactInfoPanel({
   ];
   const tipoAtual = tiposContato.find(t => t.value === formData.tipo_contato);
 
+  // Renderizar seletor de atendente - formato nome + setor abaixo
+  const renderSeletorAtendente = (campo, placeholder, setorFiltro = null) => {
+    const atendentesFiltrados = setorFiltro
+      ? atendentes.filter(a => (a.full_name || a.email) && (!a.attendant_sector || a.attendant_sector === setorFiltro))
+      : atendentes.filter(a => a.full_name || a.email);
+
+    return (
+      <Select
+        value={formData[campo] || "nao"}
+        onValueChange={(value) => handleChange(campo, value === "nao" ? "" : value)}
+        disabled={!podeEditarContatos}
+      >
+        <SelectTrigger className="border-0 bg-transparent text-white h-6 p-0 focus:ring-0 flex-1">
+          <SelectValue placeholder={placeholder}>
+            {formData[campo] ? 
+              (atendentes.find(a => a.id === formData[campo])?.full_name || atendentes.find(a => a.id === formData[campo])?.email || placeholder) : 
+              placeholder
+            }
+          </SelectValue>
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="nao">Não atribuído</SelectItem>
+          {atendentesFiltrados.map(a => (
+            <SelectItem key={a.id} value={a.id}>
+              <div className="flex flex-col">
+                <span className="font-medium">{a.full_name || a.email}</span>
+                {a.attendant_sector && <span className="text-xs text-slate-500 capitalize flex items-center gap-1"><span className="text-blue-500">♦</span> {a.attendant_sector}</span>}
+              </div>
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+    );
+  };
+
   // ========================================
   // NOVO CONTATO
   // ========================================
@@ -264,34 +296,10 @@ export default function ContactInfoPanel({
               </Select>
             </div>
 
-            {/* ✅ CORREÇÃO: Usar user_id */}
             {formData.tipo_contato === 'fornecedor' && (
               <div className="bg-purple-500 text-white rounded-lg px-3 shadow h-[1cm] flex items-center gap-2">
                 <User className="w-4 h-4 flex-shrink-0" />
-                <Select
-                  value={formData.atendente_fidelizado_fornecedor || "nao"}
-                  onValueChange={(value) => handleChange('atendente_fidelizado_fornecedor', value === "nao" ? "" : value)}
-                >
-                  <SelectTrigger className="border-0 bg-transparent text-white h-6 p-0 focus:ring-0 flex-1">
-                    <SelectValue placeholder="Fornecedor">
-                      {formData.atendente_fidelizado_fornecedor ? 
-                        getUserDisplayName(formData.atendente_fidelizado_fornecedor, atendentes) : 
-                        "Fornecedor"
-                      }
-                    </SelectValue>
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="nao">Não atribuído</SelectItem>
-                    {atendentes.map(a => (
-                      <SelectItem key={a.id} value={a.id}>
-                        <div className="flex flex-col">
-                          <span className="font-medium">{getUserDisplayName(a.id, atendentes)}</span>
-                          {a.attendant_sector && <span className="text-xs text-slate-500 capitalize">🔹 {a.attendant_sector}</span>}
-                        </div>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                {renderSeletorAtendente('atendente_fidelizado_fornecedor', 'Fornecedor', 'fornecedor')}
               </div>
             )}
 
@@ -299,88 +307,19 @@ export default function ContactInfoPanel({
               <>
                 <div className="bg-purple-500 text-white rounded-lg px-3 shadow h-[1cm] flex items-center gap-2">
                   <User className="w-4 h-4 flex-shrink-0" />
-                  <Select
-                    value={formData.atendente_fidelizado_vendas || "nao"}
-                    onValueChange={(value) => handleChange('atendente_fidelizado_vendas', value === "nao" ? "" : value)}
-                  >
-                    <SelectTrigger className="border-0 bg-transparent text-white h-6 p-0 focus:ring-0 flex-1">
-                      <SelectValue placeholder="Vendas">
-                        {formData.atendente_fidelizado_vendas ? 
-                          getUserDisplayName(formData.atendente_fidelizado_vendas, atendentes) : 
-                          "Vendas"
-                        }
-                      </SelectValue>
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="nao">Não atribuído</SelectItem>
-                      {atendentes.filter(a => !a.attendant_sector || a.attendant_sector === 'vendas').map(a => (
-                        <SelectItem key={a.id} value={a.id}>
-                          <div className="flex flex-col">
-                            <span className="font-medium">{getUserDisplayName(a.id, atendentes)}</span>
-                            {a.attendant_sector && <span className="text-xs text-slate-500 capitalize">🔹 {a.attendant_sector}</span>}
-                          </div>
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  {renderSeletorAtendente('atendente_fidelizado_vendas', 'Vendas', 'vendas')}
                 </div>
 
                 <div className="bg-cyan-500 text-white rounded-lg px-3 shadow h-[1cm] flex items-center gap-2">
                   <User className="w-4 h-4 flex-shrink-0" />
-                  <Select
-                    value={formData.atendente_fidelizado_assistencia || "nao"}
-                    onValueChange={(value) => handleChange('atendente_fidelizado_assistencia', value === "nao" ? "" : value)}
-                  >
-                    <SelectTrigger className="border-0 bg-transparent text-white h-6 p-0 focus:ring-0 flex-1">
-                      <SelectValue placeholder="Assistência">
-                        {formData.atendente_fidelizado_assistencia ? 
-                          getUserDisplayName(formData.atendente_fidelizado_assistencia, atendentes) : 
-                          "Assistência"
-                        }
-                      </SelectValue>
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="nao">Não atribuído</SelectItem>
-                      {atendentes.filter(a => !a.attendant_sector || a.attendant_sector === 'assistencia').map(a => (
-                        <SelectItem key={a.id} value={a.id}>
-                          <div className="flex flex-col">
-                            <span className="font-medium">{getUserDisplayName(a.id, atendentes)}</span>
-                            {a.attendant_sector && <span className="text-xs text-slate-500 capitalize">🔹 {a.attendant_sector}</span>}
-                          </div>
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  {renderSeletorAtendente('atendente_fidelizado_assistencia', 'Assistência', 'assistencia')}
                 </div>
               </>
             )}
 
             <div className="bg-amber-500 text-white rounded-lg px-3 shadow h-[1cm] flex items-center gap-2">
               <User className="w-4 h-4 flex-shrink-0" />
-              <Select
-                value={formData.vendedor_responsavel || "nao"}
-                onValueChange={(value) => handleChange('vendedor_responsavel', value === "nao" ? "" : value)}
-              >
-                <SelectTrigger className="border-0 bg-transparent text-white h-6 p-0 focus:ring-0 flex-1">
-                  <SelectValue placeholder="Responsável">
-                    {formData.vendedor_responsavel ? 
-                      getUserDisplayName(formData.vendedor_responsavel, atendentes, { incluirSetor: true }) : 
-                      "Responsável"
-                    }
-                  </SelectValue>
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="nao">Não atribuído</SelectItem>
-                  {atendentes.map(a => (
-                    <SelectItem key={a.id} value={a.id}>
-                      <div className="flex flex-col">
-                        <span className="font-medium">{getUserDisplayName(a.id, atendentes)}</span>
-                        {a.attendant_sector && <span className="text-xs text-slate-500 capitalize">🔹 {a.attendant_sector}</span>}
-                      </div>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              {renderSeletorAtendente('vendedor_responsavel', 'Responsável')}
             </div>
           </div>
 
@@ -548,96 +487,23 @@ export default function ContactInfoPanel({
               </Select>
             </div>
 
-            {/* ✅ CORREÇÃO: Usar user_id */}
             {formData.tipo_contato === 'fornecedor' && (
               <div className="bg-purple-500 text-white rounded-lg px-3 shadow h-[1cm] flex items-center gap-2">
                 <User className="w-4 h-4 flex-shrink-0" />
-                <Select
-                  value={formData.atendente_fidelizado_fornecedor || "nao"}
-                  onValueChange={(value) => handleChange('atendente_fidelizado_fornecedor', value === "nao" ? "" : value)}
-                  disabled={!podeEditarContatos}
-                >
-                  <SelectTrigger className="border-0 bg-transparent text-white h-6 p-0 focus:ring-0 flex-1">
-                    <SelectValue placeholder="Fornecedor">
-                      {formData.atendente_fidelizado_fornecedor ? 
-                        getUserDisplayName(formData.atendente_fidelizado_fornecedor, atendentes) : 
-                        "Fornecedor"
-                      }
-                    </SelectValue>
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="nao">Não atribuído</SelectItem>
-                    {atendentes.filter(a => !a.attendant_sector || a.attendant_sector === 'fornecedor').map(a => (
-                      <SelectItem key={a.id} value={a.id}>
-                        <div className="flex flex-col">
-                          <span className="font-medium">{getUserDisplayName(a.id, atendentes)}</span>
-                          {a.attendant_sector && <span className="text-xs text-slate-500 capitalize">🔹 {a.attendant_sector}</span>}
-                        </div>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                {renderSeletorAtendente('atendente_fidelizado_fornecedor', 'Fornecedor', 'fornecedor')}
               </div>
             )}
 
             {(formData.tipo_contato === 'cliente' || formData.tipo_contato === 'lead') && (
               <div className="bg-purple-500 text-white rounded-lg px-3 shadow h-[1cm] flex items-center gap-2">
                 <User className="w-4 h-4 flex-shrink-0" />
-                <Select
-                  value={formData.atendente_fidelizado_vendas || "nao"}
-                  onValueChange={(value) => handleChange('atendente_fidelizado_vendas', value === "nao" ? "" : value)}
-                  disabled={!podeEditarContatos}
-                >
-                  <SelectTrigger className="border-0 bg-transparent text-white h-6 p-0 focus:ring-0 flex-1">
-                    <SelectValue placeholder="Atendente">
-                      {formData.atendente_fidelizado_vendas ? 
-                        getUserDisplayName(formData.atendente_fidelizado_vendas, atendentes) : 
-                        "Atendente"
-                      }
-                    </SelectValue>
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="nao">Não atribuído</SelectItem>
-                    {atendentes.filter(a => !a.attendant_sector || a.attendant_sector === 'vendas').map(a => (
-                      <SelectItem key={a.id} value={a.id}>
-                        <div className="flex flex-col">
-                          <span className="font-medium">{getUserDisplayName(a.id, atendentes)}</span>
-                          {a.attendant_sector && <span className="text-xs text-slate-500 capitalize">🔹 {a.attendant_sector}</span>}
-                        </div>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                {renderSeletorAtendente('atendente_fidelizado_vendas', 'Atendente', 'vendas')}
               </div>
             )}
 
             <div className="bg-amber-500 text-white rounded-lg px-3 shadow h-[1cm] flex items-center gap-2">
               <User className="w-4 h-4 flex-shrink-0" />
-              <Select
-                value={formData.vendedor_responsavel || "nao"}
-                onValueChange={(value) => handleChange('vendedor_responsavel', value === "nao" ? "" : value)}
-                disabled={!podeEditarContatos}
-              >
-                <SelectTrigger className="border-0 bg-transparent text-white h-6 p-0 focus:ring-0 flex-1">
-                  <SelectValue placeholder="Responsável">
-                    {formData.vendedor_responsavel ? 
-                      getUserDisplayName(formData.vendedor_responsavel, atendentes, { incluirSetor: true }) : 
-                      "Responsável"
-                    }
-                  </SelectValue>
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="nao">Não atribuído</SelectItem>
-                  {atendentes.map(a => (
-                    <SelectItem key={a.id} value={a.id}>
-                      <div className="flex flex-col">
-                        <span className="font-medium">{getUserDisplayName(a.id, atendentes)}</span>
-                        {a.attendant_sector && <span className="text-xs text-slate-500 capitalize">🔹 {a.attendant_sector}</span>}
-                      </div>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              {renderSeletorAtendente('vendedor_responsavel', 'Responsável')}
             </div>
           </div>
 
@@ -759,9 +625,9 @@ export default function ContactInfoPanel({
                 </div>
               </div>
             </div>
-            </div>
+          </div>
 
-            {/* Gerenciamento */}
+          {/* Gerenciamento */}
           <div className="mt-4 px-4 pb-4 border-t pt-4">
             {contact.bloqueado ? (
               <Alert className="bg-red-50 border-red-200 p-3">
