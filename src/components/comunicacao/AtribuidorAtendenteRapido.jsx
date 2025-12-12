@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { base44 } from "@/api/base44Client";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -35,6 +35,7 @@ import { getUserDisplayName } from "../lib/userHelpers";
  * - onUpdate: callback após atualização
  * - variant: 'mini' | 'compact' | 'button' | 'badge'
  * - showLabel: boolean para mostrar label
+ * - atendentes: lista de atendentes (OBRIGATÓRIO - vem do pai)
  */
 export default function AtribuidorAtendenteRapido({
   contato,
@@ -44,33 +45,14 @@ export default function AtribuidorAtendenteRapido({
   onUpdate,
   variant = 'mini',
   showLabel = false,
-  disabled = false
+  disabled = false,
+  atendentes = [] // ✅ PROP: Recebe lista de atendentes do pai
 }) {
   const [salvando, setSalvando] = useState(false);
   const [menuAberto, setMenuAberto] = useState(false);
   const queryClient = useQueryClient();
 
-  // Buscar TODOS os usuários do sistema via serviceRole (bypass segurança User)
-  const { data: atendentes = [] } = useQuery({
-    queryKey: ['todos-usuarios-atribuidor'],
-    queryFn: async () => {
-      try {
-        const resultado = await base44.functions.invoke('listarUsuariosParaAtribuicao', {});
-        if (resultado?.data?.success && resultado?.data?.usuarios) {
-          console.log('[AtribuidorRapido] Usuários carregados via serviceRole:', resultado.data.usuarios.length);
-          return resultado.data.usuarios;
-        }
-        console.warn('[AtribuidorRapido] Função retornou erro');
-        return [];
-      } catch (error) {
-        console.error('[AtribuidorRapido] Erro ao carregar usuários:', error.message);
-        return [];
-      }
-    },
-    staleTime: 5 * 60 * 1000
-  });
-
-  // ✅ REMOVIDO: Busca de vendedores - agora usa apenas User
+  // ✅ REMOVIDO: useQuery - agora usa prop atendentes
 
   // Determinar qual campo de fidelização usar baseado no tipo de contato e setor
   const getCampoFidelizacao = () => {

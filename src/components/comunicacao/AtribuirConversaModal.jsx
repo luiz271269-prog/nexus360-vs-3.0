@@ -22,53 +22,17 @@ export default function AtribuirConversaModal({
   usuario,
   contatoNome = 'Cliente',
   onSuccess,
-  atendentesPreCarregados = [] // Lista pré-carregada de atendentes (fallback)
+  atendentes = [] // ✅ PROP: Recebe lista de atendentes do pai (Comunicacao.jsx)
 }) {
-  const [atendentes, setAtendentes] = useState([]);
-  const [carregando, setCarregando] = useState(false);
   const [atribuindo, setAtribuindo] = useState(false);
   const [busca, setBusca] = useState("");
   const [mensagemTransferencia, setMensagemTransferencia] = useState("");
 
   useEffect(() => {
     if (isOpen) {
-      carregarAtendentes();
       setMensagemTransferencia(`Conversa com ${contatoNome} transferida.`);
     }
   }, [isOpen, contatoNome]);
-
-  const carregarAtendentes = async () => {
-    setCarregando(true);
-    try {
-      // Usar função backend com serviceRole para buscar TODOS os usuários
-      const resultado = await base44.functions.invoke('listarUsuariosParaAtribuicao', {});
-      
-      if (resultado?.data?.success && resultado?.data?.usuarios) {
-        const usuarios = resultado.data.usuarios;
-        console.log('[AtribuirModal] Usuários carregados via serviceRole:', usuarios.length);
-        setAtendentes(usuarios);
-      } else {
-        console.warn('[AtribuirModal] Função retornou erro:', resultado?.data?.error);
-        // Fallback: usar lista pré-carregada
-        if (atendentesPreCarregados.length > 0) {
-          console.log('[AtribuirModal] Usando fallback pré-carregado:', atendentesPreCarregados.length);
-          setAtendentes(atendentesPreCarregados.filter(u => u && u.id));
-        } else {
-          setAtendentes([]);
-        }
-      }
-    } catch (error) {
-      console.error('[AtribuirModal] Erro ao carregar usuários:', error);
-      // Fallback: usar lista pré-carregada
-      if (atendentesPreCarregados.length > 0) {
-        setAtendentes(atendentesPreCarregados.filter(u => u && u.id));
-      } else {
-        setAtendentes([]);
-      }
-    } finally {
-      setCarregando(false);
-    }
-  };
 
   const handleAtribuir = async (atendenteId) => {
     if (!thread?.id || !usuario) {
@@ -217,10 +181,8 @@ export default function AtribuirConversaModal({
 
           {/* Lista de atendentes */}
           <div className="max-h-64 overflow-y-auto space-y-1">
-            {carregando ? (
-              <div className="flex items-center justify-center py-8">
-                <Loader2 className="w-6 h-6 animate-spin text-orange-500" />
-              </div>
+            {atendentes.length === 0 ? (
+              <p className="text-center text-slate-500 py-4">Nenhum atendente disponível</p>
             ) : atendentesFiltrados.length === 0 ? (
               <p className="text-center text-slate-500 py-4">Nenhum atendente encontrado</p>
             ) : (

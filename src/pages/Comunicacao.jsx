@@ -189,12 +189,14 @@ export default function Comunicacao() {
     return todasIntegracoes.filter(i => visiveisNorm.has(normalizar(i.id)));
   }, [todasIntegracoes, usuario?.id, usuario?.role, usuario?.permissoes_visualizacao]);
 
+  // ✅ FONTE ÚNICA DE ATENDENTES - Carrega uma vez e passa para todos os componentes filhos
   const { data: atendentesRaw = [] } = useQuery({
     queryKey: ['atendentes'],
     queryFn: async () => {
       // ✅ Usar serviceRole via função backend para buscar TODOS os atendentes
       const resultado = await base44.functions.invoke('listarUsuariosParaAtribuicao', {});
       if (resultado?.data?.success && resultado?.data?.usuarios) {
+        console.log('[Comunicacao] ✅ Atendentes carregados (fonte única):', resultado.data.usuarios.length);
         return resultado.data.usuarios;
       }
       return [];
@@ -205,7 +207,7 @@ export default function Comunicacao() {
   });
 
   // ✅ CORREÇÃO: Separar atendentes para EXIBIÇÃO de NOMES vs FILTRO
-  // atendentes = TODOS (para exibir nomes em threads/mensagens)
+  // atendentes = TODOS (para exibir nomes em threads/mensagens E passar para componentes filhos)
   // atendentesParaFiltro = Apenas os que o usuário pode FILTRAR
   const atendentes = atendentesRaw; // Lista completa para exibir nomes
   
@@ -833,7 +835,7 @@ export default function Comunicacao() {
     }
 
     return threadsFiltrados;
-  }, [threads, contatos, clientes, atendentes, usuario, selectedAttendantId, selectedIntegrationId, selectedCategoria, selectedTipoContato, selectedTagContato, debouncedSearchTerm, mensagensComCategoria, matchBuscaGoogle]);
+  }, [threads, contatos, clientes, atendentes, usuario, selectedAttendantId, selectedIntegrationId, selectedCategoria, selectedTipoContato, selectedTagContato, debouncedSearchTerm, mensagensComCategoria, matchBuscaGoogle, filterScope]);
 
   // Converter para formato compatível com ChatSidebar + ORDENAÇÃO por PRIORIDADE (Regra 3)
   // DEDUPLICAÇÃO FINAL: Garantir que não há entradas duplicadas por contact_id
@@ -1115,7 +1117,8 @@ export default function Comunicacao() {
                         onCancelarSelecao={() => {
                           setModoSelecaoMultipla(false);
                           setContatosSelecionados([]);
-                        }} />
+                        }}
+                        atendentes={atendentes} />
 
                       </div>
                       
@@ -1124,7 +1127,8 @@ export default function Comunicacao() {
                       contact={contatoAtivo}
                       threadAtual={threadAtiva}
                       onClose={() => setShowContactInfo(false)}
-                      onUpdate={handleAtualizarContato} />
+                      onUpdate={handleAtualizarContato}
+                      atendentes={atendentes} />
 
                     }
                     </> :
@@ -1145,7 +1149,8 @@ export default function Comunicacao() {
                         setShowContactInfo(false);
                         setContactInitialData(null);
                       }}
-                      onUpdate={handleCriarNovoContato} />
+                      onUpdate={handleCriarNovoContato}
+                      atendentes={atendentes} />
 
                     </> :
 

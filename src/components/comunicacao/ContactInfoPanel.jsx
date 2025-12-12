@@ -23,9 +23,15 @@ import AtribuidorAtendenteRapido from './AtribuidorAtendenteRapido';
 import SeletorEtiquetasContato from './SeletorEtiquetasContato';
 import { getUserDisplayName } from '../lib/userHelpers';
 
-export default function ContactInfoPanel({ contact, novoContatoTelefone, onClose, onUpdate, threadAtual, defaultValues }) {
-  const [vendedores, setVendedores] = useState([]);
-  const [atendentes, setAtendentes] = useState([]);
+export default function ContactInfoPanel({ 
+  contact, 
+  novoContatoTelefone, 
+  onClose, 
+  onUpdate, 
+  threadAtual, 
+  defaultValues,
+  atendentes = [] // ✅ PROP: Recebe lista de atendentes do pai
+}) {
   const [salvando, setSalvando] = useState(false);
   const [usuario, setUsuario] = useState(null);
 
@@ -66,7 +72,7 @@ export default function ContactInfoPanel({ contact, novoContatoTelefone, onClose
   const podeDeletarContatos = permissoes.pode_deletar_contatos === true;
 
   useEffect(() => {
-    carregarVendedores();
+    // ✅ REMOVIDO: carregarVendedores() - agora usa prop atendentes
     
     if (contact) {
       setFormData({
@@ -103,22 +109,6 @@ export default function ContactInfoPanel({ contact, novoContatoTelefone, onClose
       });
     }
   }, [contact?.id, novoContatoTelefone, defaultValues?.cliente_id]);
-
-  const carregarVendedores = async () => {
-    try {
-      // ✅ Buscar usuários via serviceRole para obter TODOS os Users
-      const resultado = await base44.functions.invoke('listarUsuariosParaAtribuicao', {});
-      if (resultado?.data?.success && resultado?.data?.usuarios) {
-        setAtendentes(resultado.data.usuarios);
-      }
-    } catch (error) {
-      console.error('[ContactInfoPanel] Erro ao carregar usuários:', error);
-    }
-  };
-
-  const carregarAtendentes = async () => {
-    // ✅ REMOVIDO - carregamento unificado em carregarVendedores
-  };
 
   const handleChange = async (campo, valor) => {
     setFormData(prev => ({ ...prev, [campo]: valor }));
@@ -764,6 +754,7 @@ export default function ContactInfoPanel({ contact, novoContatoTelefone, onClose
                     tipoContato={formData.tipo_contato}
                     variant="default"
                     disabled={!podeEditarContatos}
+                    atendentes={atendentes}
                   />
                 </div>
               </div>
