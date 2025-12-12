@@ -14,6 +14,7 @@ import { Users, Search, Loader2, UserCheck, Building2, Briefcase, Star } from "l
 import { base44 } from "@/api/base44Client";
 import { toast } from "sonner";
 import { normalizarParaComparacao } from "../lib/userMatcher";
+import UsuarioDisplay from "./UsuarioDisplay";
 
 export default function AtribuirConversaModal({
   isOpen,
@@ -208,16 +209,11 @@ export default function AtribuirConversaModal({
                       {(atendente.full_name || atendente.email || '?').charAt(0).toUpperCase()}
                     </div>
                     <div className="flex-1 text-left min-w-0">
-                      <div className="flex items-center gap-2">
-                        <p className="font-medium text-slate-800 truncate">{atendente.full_name || atendente.email}</p>
+                      <div className="flex items-center gap-2 mb-1">
+                        <UsuarioDisplay usuario={atendente} className="flex-1 min-w-0" />
                         {isAtual && <UserCheck className="w-4 h-4 text-green-500 flex-shrink-0" />}
                       </div>
-                      <p className="text-xs text-slate-500 truncate">{atendente.email}</p>
-                      <div className="flex items-center gap-1 mt-1 flex-wrap">
-                        {/* Setor */}
-                        <span className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-semibold text-white ${setorCfg.cor}`}>
-                          {setorCfg.emoji} {setorCfg.label}
-                        </span>
+                      <div className="flex items-center gap-1 flex-wrap">
                         {/* Nível */}
                         <span className={`inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-semibold text-white ${nivelCfg.cor}`}>
                           {nivelCfg.label}

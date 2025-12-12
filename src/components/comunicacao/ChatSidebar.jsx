@@ -28,6 +28,7 @@ import {
   getAtendenteFidelizadoAtualizado 
 } from "../lib/userMatcher";
 import { getUserDisplayName } from "../lib/userHelpers";
+import UsuarioDisplay from "./UsuarioDisplay";
 
 export default function ChatSidebar({ 
   threads, 
@@ -448,9 +449,10 @@ export default function ChatSidebar({
                   </span>
                 )}
                 
-                {/* ✅ CORREÇÃO: ATENDENTE via getUserDisplayName com fallback claro */}
+                {/* ATENDENTE: Badge compacto com UsuarioDisplay no tooltip */}
                 {thread.assigned_user_id ? (
                   (() => {
+                    const atendenteAssignado = atendentes.find(a => a.id === thread.assigned_user_id);
                     const nomeAtendente = getUserDisplayName(thread.assigned_user_id, atendentes);
                     const isCarregando = nomeAtendente === 'Carregando...' || nomeAtendente === 'Usuário não encontrado';
                     
@@ -464,7 +466,7 @@ export default function ChatSidebar({
                     }
                     
                     return (
-                      <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-semibold text-white bg-indigo-500 shadow-sm" title={`Atendendo: ${nomeAtendente}`}>
+                      <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-semibold text-white bg-indigo-500 shadow-sm">
                         <UserCheck className="w-3 h-3" />
                         {nomeAtendente.split(' ')[0]}
                       </span>
@@ -472,7 +474,8 @@ export default function ChatSidebar({
                   })()
                 ) : getAtendenteFidelizado(contato)?.id ? (
                   (() => {
-                    const nomeFidelizado = getUserDisplayName(getAtendenteFidelizado(contato).id, atendentes);
+                    const atendenteFidelizado = getAtendenteFidelizado(contato);
+                    const nomeFidelizado = getUserDisplayName(atendenteFidelizado.id, atendentes);
                     const isCarregando = nomeFidelizado === 'Carregando...' || nomeFidelizado === 'Usuário não encontrado';
                     
                     if (isCarregando) {
@@ -484,7 +487,7 @@ export default function ChatSidebar({
                     }
                     
                     return (
-                      <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-semibold text-amber-700 bg-amber-100 shadow-sm" title={`Fidelizado: ${nomeFidelizado}`}>
+                      <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-semibold text-amber-700 bg-amber-100 shadow-sm">
                         ⭐ {nomeFidelizado.split(' ')[0]}
                       </span>
                     );

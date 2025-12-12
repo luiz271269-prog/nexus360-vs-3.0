@@ -21,6 +21,7 @@ import { normalizarTelefone } from '../lib/phoneUtils';
 import SegmentacaoInteligente from './SegmentacaoInteligente';
 import AtribuidorAtendenteRapido from './AtribuidorAtendenteRapido';
 import SeletorEtiquetasContato from './SeletorEtiquetasContato';
+import UsuarioDisplay from './UsuarioDisplay';
 
 export default function ContactInfoPanel({ 
   contact, 
@@ -211,11 +212,13 @@ export default function ContactInfoPanel({
   ];
   const tipoAtual = tiposContato.find(t => t.value === formData.tipo_contato);
 
-  // Renderizar seletor de atendente - formato nome + setor abaixo
+  // Renderizar seletor de atendente usando UsuarioDisplay
   const renderSeletorAtendente = (campo, placeholder, setorFiltro = null) => {
     const atendentesFiltrados = setorFiltro
       ? atendentes.filter(a => (a.full_name || a.email) && (!a.attendant_sector || a.attendant_sector === setorFiltro))
       : atendentes.filter(a => a.full_name || a.email);
+
+    const atendenteAtual = atendentes.find(a => a.id === formData[campo]);
 
     return (
       <Select
@@ -225,20 +228,14 @@ export default function ContactInfoPanel({
       >
         <SelectTrigger className="border-0 bg-transparent text-white h-6 p-0 focus:ring-0 flex-1">
           <SelectValue placeholder={placeholder}>
-            {formData[campo] ? 
-              (atendentes.find(a => a.id === formData[campo])?.full_name || atendentes.find(a => a.id === formData[campo])?.email || placeholder) : 
-              placeholder
-            }
+            {atendenteAtual ? <UsuarioDisplay usuario={atendenteAtual} variant="compact" className="text-white" /> : placeholder}
           </SelectValue>
         </SelectTrigger>
         <SelectContent>
           <SelectItem value="nao">Não atribuído</SelectItem>
           {atendentesFiltrados.map(a => (
             <SelectItem key={a.id} value={a.id}>
-              <div className="flex flex-col">
-                <span className="font-medium">{a.full_name || a.email}</span>
-                {a.attendant_sector && <span className="text-xs text-slate-500 capitalize flex items-center gap-1"><span className="text-blue-500">♦</span> {a.attendant_sector}</span>}
-              </div>
+              <UsuarioDisplay usuario={a} />
             </SelectItem>
           ))}
         </SelectContent>
