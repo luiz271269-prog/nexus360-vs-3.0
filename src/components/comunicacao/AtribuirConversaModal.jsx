@@ -112,16 +112,42 @@ export default function AtribuirConversaModal({
     }
   };
 
-  // Busca robusta usando normalizarParaComparacao (sem acentos, lowercase)
+  // ✅ REGRA B: Filtrar por sector_id usando setores_atendidos_ids
+  // Se thread tem sector_id, filtrar por ele; senão, mostrar todos
   const atendentesFiltrados = atendentes.filter(a => {
-    if (!busca.trim()) return true;
-    const termo = normalizarParaComparacao(busca);
-    return (
-      normalizarParaComparacao(a.full_name || '').includes(termo) ||
-      normalizarParaComparacao(a.email || '').includes(termo) ||
-      normalizarParaComparacao(a.attendant_sector || '').includes(termo) ||
-      normalizarParaComparacao(a.attendant_role || '').includes(termo)
-    );
+    // Filtro por busca
+    if (busca.trim()) {
+      const termo = normalizarParaComparacao(busca);
+      const match = (
+        normalizarParaComparacao(a.full_name || '').includes(termo) ||
+        normalizarParaComparacao(a.email || '').includes(termo) ||
+        normalizarParaComparacao(a.attendant_sector || '').includes(termo) ||
+        normalizarParaComparacao(a.attendant_role || '').includes(termo)
+      );
+      if (!match) return false;
+    }
+    
+    // Filtro por sector_id (se thread tem setor definido)
+    if (thread?.sector_id) {
+      const sectorIdMap = {
+        'vendas': 'sector_vendas',
+        'assistencia': 'sector_assistencia',
+        'financeiro': 'sector_financeiro',
+        'fornecedor': 'sector_fornecedor',
+        'geral': 'sector_geral'
+      };
+      const sector_id = sectorIdMap[thread.sector_id] || `sector_${thread.sector_id}`;
+      
+      // Se não tem setores_atendidos_ids, usar fallback attendant_sector
+      if (!a.setores_atendidos_ids || a.setores_atendidos_ids.length === 0) {
+        return a.attendant_sector === thread.sector_id;
+      }
+      
+      // Filtro correto por sector_id
+      return a.setores_atendidos_ids.includes(sector_id);
+    }
+    
+    return true;
   });
 
   // Configuração de cores por setor

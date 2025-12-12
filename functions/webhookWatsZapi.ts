@@ -851,12 +851,14 @@ async function handleMessage(dados, payloadBruto, base44) {
   // ============================================================================
   
   // ============================================================================
-  // 🔥 FLUXO CONSOLIDADO DE DECISÃO PRÉ-ATENDIMENTO
+  // 🔥 HARD-STOP OBRIGATÓRIO: HUMANO TRAVOU A CONVERSA
+  // ============================================================================
+  // REGRA A: Se existe assigned_user_id, NENHUMA automação pode alterar a thread
+  // Previne: sobrescrita de atendente, troca de setor, reinício de URA
   // ============================================================================
   
-  // 🔥 GUARDA 0: Se thread JÁ TEM ATENDENTE HUMANO → nunca roda pré-atendimento
   if (thread.assigned_user_id) {
-    console.log('[' + VERSION + '] 👤 Thread já tem atendente humano:', thread.assigned_user_id);
+    console.log('[' + VERSION + '] 🛡️ HARD-STOP: Thread com atendente humano:', thread.assigned_user_id, '- Automação bloqueada');
     
     // ✅ Audit log em background (não bloqueia resposta)
     base44.asServiceRole.entities.ZapiPayloadNormalized.create({

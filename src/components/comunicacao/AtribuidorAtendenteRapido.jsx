@@ -156,10 +156,30 @@ export default function AtribuidorAtendenteRapido({
     e.preventDefault();
   };
 
-  // ✅ Usar apenas Users (fonte única de verdade)
+  // ✅ REGRA B: Filtrar por sector_id usando setores_atendidos_ids (LISTA)
   const pessoasDisponiveis = useMemo(() => {
+    // Mapear setor atual para sector_id
+    const sectorIdMap = {
+      'vendas': 'sector_vendas',
+      'assistencia': 'sector_assistencia',
+      'financeiro': 'sector_financeiro',
+      'fornecedor': 'sector_fornecedor',
+      'geral': 'sector_geral'
+    };
+    const sector_id = sectorIdMap[setorAtual] || `sector_${setorAtual}`;
+    
     return atendentes
-      .filter(a => a.full_name || a.email)
+      .filter(a => {
+        if (!(a.full_name || a.email)) return false;
+        
+        // Se não tem setores_atendidos_ids, usar fallback attendant_sector (compatibilidade)
+        if (!a.setores_atendidos_ids || a.setores_atendidos_ids.length === 0) {
+          return a.attendant_sector === setorAtual;
+        }
+        
+        // Filtro correto: verificar se sector_id está na lista
+        return a.setores_atendidos_ids.includes(sector_id);
+      })
       .map(a => ({
         nome: a.full_name || a.email,
         id: a.id,
@@ -167,7 +187,7 @@ export default function AtribuidorAtendenteRapido({
         email: a.email
       }))
       .sort((a, b) => a.nome.localeCompare(b.nome));
-  }, [atendentes]);
+  }, [atendentes, setorAtual]);
 
   // ═══════════════════════════════════════════════════════════════════════════
   // VARIANT: MINI - Apenas ícone pequeno

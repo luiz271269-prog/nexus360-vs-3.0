@@ -303,7 +303,7 @@ async function enviarImagem(base44, integracao, telefone, imagemUrl, caption, th
 }
 
 // ============================================================================
-// FUNÇÃO AUXILIAR: BUSCAR ATENDENTE DO SETOR
+// FUNÇÃO AUXILIAR: BUSCAR ATENDENTE DO SETOR (REGRA B - FILTRO CORRETO)
 // ============================================================================
 async function buscarAtendenteDoSetor(base44, contato, setor) {
   let atendente = null;
@@ -314,18 +314,31 @@ async function buscarAtendenteDoSetor(base44, contato, setor) {
     try { atendente = await base44.asServiceRole.entities.User.get(contato[campo]); } catch (e) {}
   }
   
-  // 2. Se não tem fidelizado, buscar atendente do setor
+  // 2. Se não tem fidelizado, buscar por sector_id (REGRA B)
   if (!atendente) {
     try {
-      const atendentesSetor = await base44.asServiceRole.entities.User.filter({
-        attendant_sector: setor
-      }, '-created_date', 10);
+      const sectorIdMap = {
+        'vendas': 'sector_vendas',
+        'assistencia': 'sector_assistencia',
+        'financeiro': 'sector_financeiro',
+        'fornecedor': 'sector_fornecedor',
+        'geral': 'sector_geral'
+      };
+      const sector_id = sectorIdMap[setor] || `sector_${setor}`;
+      
+      const todosUsuarios = await base44.asServiceRole.entities.User.list('-created_date', 100);
+      const atendentesSetor = todosUsuarios.filter(u => 
+        u.full_name &&
+        u.is_whatsapp_attendant === true &&
+        u.setores_atendidos_ids?.includes(sector_id)
+      );
+      
       if (atendentesSetor.length > 0) {
         atendente = atendentesSetor[0];
-        console.log(`[PRE-ATEND] 👤 Atendente do setor ${setor} encontrado:`, atendente.full_name);
+        console.log(`[PRE-ATEND] 👤 Atendente filtrado por sector_id (${sector_id}):`, atendente.full_name);
       }
     } catch (e) {
-      console.log('[PRE-ATEND] ⚠️ Erro ao buscar atendentes do setor:', e?.message);
+      console.log('[PRE-ATEND] ⚠️ Erro ao buscar atendentes:', e?.message);
     }
   }
   
@@ -821,19 +834,23 @@ Deno.serve(async (req) => {
       const thread = await base44.asServiceRole.entities.MessageThread.get(thread_id);
       
       // ============================================================================
-      // 🛡️ GUARDS OBRIGATÓRIOS - PREVINEM LOOPS E REABERTURA INDEVIDA
+      // 🔥 HARD-STOP OBRIGATÓRIO: HUMANO TRAVOU A CONVERSA (REGRA A)
+      // ============================================================================
+      // PRIORIDADE MÁXIMA: Se existe assigned_user_id, NENHUMA automação processa
+      // ============================================================================
+      if (thread.assigned_user_id) {
+        console.log('[PRE-ATEND] 🛡️ HARD-STOP: Thread com atendente humano:', thread.assigned_user_id, '- Ignorando resposta');
+        return Response.json({ success: true, ignored: true, reason: 'ja_tem_atendente_humano' }, { headers: corsHeaders });
+      }
+      
+      // ============================================================================
+      // 🛡️ GUARDS SECUNDÁRIOS - PREVINEM LOOPS E REABERTURA INDEVIDA
       // ============================================================================
       
       // GUARD 1: Thread já concluída com setor explícito → NÃO PROCESSAR
       if (thread.sector_id && thread.pre_atendimento_state === 'COMPLETED' && !thread.pre_atendimento_ativo) {
         console.log('[PRE-ATEND] 🛡️ GUARD 1: Thread já finalizada com setor definido. Ignorando.');
         return Response.json({ success: true, ignored: true, reason: 'setor_ja_definido' }, { headers: corsHeaders });
-      }
-      
-      // GUARD 2: Thread com atendente humano atribuído → NÃO PROCESSAR
-      if (thread.assigned_user_id && thread.pre_atendimento_state === 'COMPLETED') {
-        console.log('[PRE-ATEND] 🛡️ GUARD 2: Thread já com atendente humano. Ignorando.');
-        return Response.json({ success: true, ignored: true, reason: 'ja_tem_atendente' }, { headers: corsHeaders });
       }
       
       const integracao = await buscarIntegracao(base44, integration_id, thread);
@@ -1151,14 +1168,55 @@ Deno.serve(async (req) => {
       if (setorEscolhido) {
         console.log('[PRE-ATEND] 📋 Setor selecionado:', setorEscolhido);
         
+        // ============================================================================
+        // 🔥 REGRA B: ORDEM CORRETA DE OPERAÇÕES
+        // ============================================================================
+        // 1. Mapear setor → sector_id
+        const sectorIdMap = {
+          'vendas': 'sector_vendas',
+          'assistencia': 'sector_assistencia',
+          'financeiro': 'sector_financeiro',
+          'fornecedor': 'sector_fornecedor',
+          'geral': 'sector_geral'
+        };
+        const sector_id = sectorIdMap[setorEscolhido] || `sector_${setorEscolhido}`;
+        
+        // 2. Persistir sector_id IMEDIATAMENTE
+        await base44.asServiceRole.entities.MessageThread.update(thread_id, {
+          sector_id: setorEscolhido,
+          pre_atendimento_setor_explicitamente_escolhido: true
+        });
+        
+        // 3. Filtrar usuários por setores_atendidos_ids (LISTA) contendo sector_id
         let atendentesSetor = [];
         try {
-          const usuarios = await base44.asServiceRole.entities.User.filter({
-            attendant_sector: setorEscolhido
-          }, '-created_date', 10);
-          atendentesSetor = usuarios.filter(u => u.full_name).map(u => ({ id: u.id, nome: u.full_name }));
+          const todosUsuarios = await base44.asServiceRole.entities.User.list('-created_date', 100);
+          atendentesSetor = todosUsuarios
+            .filter(u => 
+              u.full_name && 
+              u.is_whatsapp_attendant === true &&
+              u.setores_atendidos_ids?.includes(sector_id)
+            )
+            .map(u => ({ id: u.id, nome: u.full_name }));
+          
+          console.log('[PRE-ATEND] ✅ Filtro por sector_id:', sector_id, '| Encontrados:', atendentesSetor.length);
         } catch (e) {
           console.log('[PRE-ATEND] ⚠️ Erro ao buscar atendentes:', e?.message);
+        }
+        
+        // 4. Fallback explícito se lista vazia
+        if (atendentesSetor.length === 0) {
+          console.log('[PRE-ATEND] ⚠️ FALLBACK: Nenhum atendente no setor', setorEscolhido, '- tentando setor geral');
+          try {
+            const todosUsuarios = await base44.asServiceRole.entities.User.list('-created_date', 100);
+            atendentesSetor = todosUsuarios
+              .filter(u => 
+                u.full_name && 
+                u.is_whatsapp_attendant === true &&
+                u.setores_atendidos_ids?.includes('sector_geral')
+              )
+              .map(u => ({ id: u.id, nome: u.full_name }));
+          } catch (e) {}
         }
         
         if (atendentesSetor.length > 1) {
@@ -1184,16 +1242,12 @@ Deno.serve(async (req) => {
           return Response.json({ success: true, awaiting_attendant_choice: true, setor: setorEscolhido }, { headers: corsHeaders });
         }
         
+        // 5. Atribuir (se há apenas 1, atribuir direto; senão, permite escolha)
         const atendente = atendentesSetor.length === 1 
           ? { id: atendentesSetor[0].id, full_name: atendentesSetor[0].nome }
           : await buscarAtendenteDoSetor(base44, contato, setorEscolhido);
-        
-        // ✅ MARCA escolha explícita antes de finalizar
-        await base44.asServiceRole.entities.MessageThread.update(thread_id, {
-          sector_id: setorEscolhido,
-          pre_atendimento_setor_explicitamente_escolhido: true
-        });
           
+        // 6. Finalizar pré-atendimento
         return Response.json(
           await finalizarPreAtendimento(base44, {
             thread_id, execucao_id: execucao.id, setor: setorEscolhido, atendente,
