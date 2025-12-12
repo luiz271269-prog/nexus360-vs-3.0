@@ -1,16 +1,17 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.4';
 
 // ============================================================================
-// WEBHOOK WHATSAPP W-API - v1.5.0
+// WEBHOOK WHATSAPP W-API - v2.0.0 MICRO-URA COMPLETA
 // ============================================================================
-// ATUALIZAÇÕES v1.5.0:
-// - Envio automático de promoções em novas conversas/reativações
-// - Melhor detecção de estados de pré-atendimento
-// - Suporte para WAITING_HUMAN_CONFIRMATION
+// CORREÇÕES v2.0.0:
+// 1. Micro-URA processada ANTES de outras lógicas
+// 2. Respostas "1/2" consumidas corretamente
+// 3. Mensagens de sistema marcadas com is_system_message
+// 4. Mesma ordem de processamento do Z-API
 // ============================================================================
 
-const VERSION = 'v1.5.0-wapi';
-const BUILD_DATE = '2025-12-11';
+const VERSION = 'v2.0.0-MICRO-URA';
+const BUILD_DATE = '2025-12-12';
 
 const corsHeaders = {
   'Content-Type': 'application/json',
@@ -19,9 +20,6 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'Content-Type, Authorization',
 };
 
-// ============================================================================
-// RATE LIMITING & CACHE
-// ============================================================================
 const requestQueue = new Map();
 const RATE_LIMIT_MS = 1000;
 const integrationCache = new Map();
@@ -75,7 +73,7 @@ function deveIgnorar(payload) {
 }
 
 // ============================================================================
-// EXTRAIR URL DE MÍDIA
+// EXTRAIR MÍDIA
 // ============================================================================
 function extrairMediaUrl(payload, msgContent, tipoMidia) {
   const camposRaiz = [
@@ -286,6 +284,280 @@ async function handleMessageUpdate(dados, base44) {
   return Response.json({ success: true, processed: 'status_update', provider: 'w_api' }, { headers: corsHeaders });
 }
 
+// ============================================================================
+// PRÉ-ATENDIMENTO INLINE (W-API)
+// ============================================================================
+async function executarPreAtendimentoInline(base44, params) {
+  const { action, thread_id, contact_id, integration_id, resposta_usuario } = params;
+
+  function getSaudacao() {
+    const hora = new Date().getHours();
+    if (hora >= 5 && hora < 12) return 'Bom dia';
+    if (hora >= 12 && hora < 18) return 'Boa tarde';
+    return 'Boa noite';
+  }
+
+  function mapearSetorDeResposta(resposta, opcoesSetor) {
+    if (!resposta || !opcoesSetor) return null;
+    const textoLower = resposta.toLowerCase().trim();
+    
+    for (const opcao of opcoesSetor) {
+      const labelLower = opcao.label.toLowerCase();
+      if (textoLower === labelLower || textoLower.includes(opcao.setor) || labelLower.includes(textoLower)) {
+        return opcao.setor;
+      }
+    }
+    
+    const mapeamento = {
+      'vendas': ['venda', 'comprar', 'compra', 'preço', 'orçamento', 'cotação', '1', 'comercial'],
+      'assistencia': ['suporte', 'assistencia', 'assistência', 'técnico', 'problema', 'ajuda', '2', 'reparo'],
+      'financeiro': ['financeiro', 'boleto', 'pagamento', 'nota', 'fiscal', '3', 'cobrança'],
+      'fornecedor': ['fornecedor', 'parceiro', 'fornecimento', '4'],
+      'geral': ['outro', 'outros', 'geral', '5', 'não sei']
+    };
+    
+    for (const [setor, palavras] of Object.entries(mapeamento)) {
+      if (palavras.some(p => textoLower.includes(p))) {
+        return setor;
+      }
+    }
+    return null;
+  }
+
+  if (action === 'iniciar') {
+    const templates = await base44.asServiceRole.entities.FlowTemplate.filter({
+      is_pre_atendimento_padrao: true,
+      ativo: true
+    }, '-created_date', 1);
+
+    if (templates.length === 0) return { success: false, error: 'sem_template' };
+
+    const template = templates[0];
+    if (template.activation_mode === 'disabled') return { success: false, skipped: true };
+
+    const thread = await base44.asServiceRole.entities.MessageThread.get(thread_id);
+    const contato = await base44.asServiceRole.entities.Contact.get(contact_id);
+    if (!thread || !contato) return { success: false, error: 'thread_ou_contato_nao_encontrado' };
+
+    const saudacao = getSaudacao();
+    let mensagemSaudacao = `Olá! ${saudacao}`;
+    if (contato.nome && contato.nome !== contato.telefone) {
+      mensagemSaudacao = `Olá, ${contato.nome}! ${saudacao}`;
+    }
+    mensagemSaudacao += ', eu sou o assistente virtual.';
+
+    const opcoesSetor = template.opcoes_setor || [
+      { label: '💼 Vendas', setor: 'vendas' },
+      { label: '🔧 Suporte Técnico', setor: 'assistencia' },
+      { label: '💰 Financeiro', setor: 'financeiro' },
+      { label: '📦 Fornecedores', setor: 'fornecedor' }
+    ];
+
+    const listaOpcoes = opcoesSetor.map((op, i) => `*${i + 1}.* ${op.label}`).join('\n');
+    const blocoSetores = `┌─────────────────────────────────────┐
+│  Para qual setor você gostaria de   │
+│  falar?                              │
+└─────────────────────────────────────┘
+
+${listaOpcoes}
+
+_Responda com o *número* ou *nome* da opção desejada._`;
+
+    const mensagemCompleta = `${mensagemSaudacao}\n\n${blocoSetores}`;
+
+    const integracao = await base44.asServiceRole.entities.WhatsAppIntegration.get(integration_id);
+    if (!integracao) return { success: false, error: 'integracao_nao_encontrada' };
+
+    // W-API usa Authorization Bearer
+    const wapiUrl = `${integracao.base_url_provider}/messages/send/text`;
+    const wapiHeaders = {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${integracao.api_key_provider}`
+    };
+
+    const envioResp = await fetch(wapiUrl, {
+      method: 'POST',
+      headers: wapiHeaders,
+      body: JSON.stringify({
+        instanceId: integracao.instance_id_provider,
+        number: contato.telefone,
+        text: mensagemCompleta
+      })
+    }).catch(e => { throw e; });
+    
+    const envioData = await envioResp.json();
+    if (!envioResp.ok || envioData.error) {
+      console.error('[W-API PRE-ATEND] ❌ Erro:', envioData);
+      return { success: false, error: envioData.error || 'erro_envio' };
+    }
+
+    const flowExecution = await base44.asServiceRole.entities.FlowExecution.create({
+      flow_template_id: template.id,
+      contact_id: contact_id,
+      thread_id: thread_id,
+      whatsapp_integration_id: integration_id,
+      status: 'ativo',
+      current_step: 0,
+      started_at: new Date().toISOString(),
+      variables: { saudacao, opcoes_setor: opcoesSetor }
+    });
+
+    const timeoutDate = new Date();
+    timeoutDate.setMinutes(timeoutDate.getMinutes() + 15);
+    
+    await base44.asServiceRole.entities.MessageThread.update(thread_id, {
+      pre_atendimento_ativo: true,
+      pre_atendimento_state: 'WAITING_SECTOR_CHOICE',
+      pre_atendimento_started_at: new Date().toISOString(),
+      pre_atendimento_timeout_at: timeoutDate.toISOString()
+    });
+
+    await base44.asServiceRole.entities.Message.create({
+      thread_id: thread_id,
+      sender_id: 'system',
+      sender_type: 'user',
+      content: mensagemCompleta,
+      channel: 'whatsapp',
+      status: 'enviada',
+      whatsapp_message_id: envioData.messageId || envioData.key?.id,
+      sent_at: new Date().toISOString(),
+      metadata: { whatsapp_integration_id: integration_id, pre_atendimento: true, is_system_message: true }
+    });
+
+    console.log('[W-API PRE-ATEND] ✅ Iniciado');
+    return { success: true, flow_execution_id: flowExecution.id };
+  }
+
+  if (action === 'processar_resposta') {
+    const execucoes = await base44.asServiceRole.entities.FlowExecution.filter({
+      thread_id: thread_id,
+      status: 'ativo'
+    }, '-created_date', 1);
+
+    if (execucoes.length === 0) return { success: false, error: 'sem_execucao_ativa' };
+
+    const execucao = execucoes[0];
+    const opcoesSetor = execucao.variables?.opcoes_setor || [];
+    const setorEscolhido = mapearSetorDeResposta(resposta_usuario, opcoesSetor);
+
+    const contato = await base44.asServiceRole.entities.Contact.get(contact_id);
+    const integracao = await base44.asServiceRole.entities.WhatsAppIntegration.get(integration_id);
+
+    if (!setorEscolhido) {
+      const wapiUrl = `${integracao.base_url_provider}/messages/send/text`;
+      const wapiHeaders = {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${integracao.api_key_provider}`
+      };
+
+      await fetch(wapiUrl, {
+        method: 'POST',
+        headers: wapiHeaders,
+        body: JSON.stringify({
+          instanceId: integracao.instance_id_provider,
+          number: contato.telefone,
+          text: '❓ Opção inválida. Por favor, responda com o *número* da opção desejada.'
+        })
+      });
+
+      return { success: true, understood: false };
+    }
+
+    const campoFidelizado = {
+      'vendas': 'atendente_fidelizado_vendas',
+      'assistencia': 'atendente_fidelizado_assistencia',
+      'financeiro': 'atendente_fidelizado_financeiro',
+      'fornecedor': 'atendente_fidelizado_fornecedor'
+    };
+    
+    let atendenteFidelizado = null;
+    const campo = campoFidelizado[setorEscolhido];
+    if (campo && contato[campo]) {
+      try {
+        atendenteFidelizado = await base44.asServiceRole.entities.User.get(contato[campo]);
+      } catch (e) {}
+    }
+
+    const threadUpdate = {
+      sector_id: setorEscolhido,
+      pre_atendimento_ativo: false,
+      pre_atendimento_state: 'COMPLETED',
+      pre_atendimento_timeout_at: null,
+      pre_atendimento_setor_explicitamente_escolhido: true
+    };
+
+    let mensagemConfirmacao = '';
+    if (atendenteFidelizado) {
+      threadUpdate.assigned_user_id = atendenteFidelizado.id;
+      mensagemConfirmacao = `✅ Perfeito! Você será atendido por *${atendenteFidelizado.full_name}* do setor de *${setorEscolhido}*. Aguarde!`;
+    } else {
+      mensagemConfirmacao = `✅ Entendido! Sua conversa foi direcionada para o setor de *${setorEscolhido}*. Um atendente entrará em contato.`;
+    }
+
+    await base44.asServiceRole.entities.MessageThread.update(thread_id, threadUpdate);
+    await base44.asServiceRole.entities.FlowExecution.update(execucao.id, {
+      status: 'concluido',
+      completed_at: new Date().toISOString(),
+      variables: { ...execucao.variables, setor_escolhido: setorEscolhido }
+    });
+
+    const wapiUrl = `${integracao.base_url_provider}/messages/send/text`;
+    const wapiHeaders = {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${integracao.api_key_provider}`
+    };
+
+    await fetch(wapiUrl, {
+      method: 'POST',
+      headers: wapiHeaders,
+      body: JSON.stringify({
+        instanceId: integracao.instance_id_provider,
+        number: contato.telefone,
+        text: mensagemConfirmacao
+      })
+    });
+
+    await base44.asServiceRole.entities.Message.create({
+      thread_id: thread_id,
+      sender_id: 'system',
+      sender_type: 'user',
+      content: mensagemConfirmacao,
+      channel: 'whatsapp',
+      status: 'enviada',
+      sent_at: new Date().toISOString(),
+      metadata: { whatsapp_integration_id: integration_id, pre_atendimento: true, setor_roteado: setorEscolhido, is_system_message: true }
+    });
+
+    console.log('[W-API PRE-ATEND] ✅ Concluído');
+    return { success: true, setor_escolhido: setorEscolhido };
+  }
+
+  return { success: false, error: 'acao_invalida' };
+}
+
+// ============================================================================
+// GUARDAS
+// ============================================================================
+function ehFornecedorOuCompras(contact, thread) {
+  if (contact.tipo_contato === 'fornecedor') return true;
+  if (contact.tags && Array.isArray(contact.tags)) {
+    if (contact.tags.includes('fornecedor') || contact.tags.includes('compras')) return true;
+  }
+  const setoresExcluidos = ['fornecedor', 'compras', 'fornecedores'];
+  if (thread.sector_id && setoresExcluidos.includes(thread.sector_id.toLowerCase())) return true;
+  return false;
+}
+
+function deveIniciarPreAtendimento(contact, thread) {
+  if (thread.pre_atendimento_state === 'COMPLETED' && thread.sector_id) return false;
+  if (thread.pre_atendimento_setor_explicitamente_escolhido === true) return false;
+  if (ehFornecedorOuCompras(contact, thread)) return false;
+  return true;
+}
+
+// ============================================================================
+// HANDLE MESSAGE - ORDEM CORRETA (IGUAL AO Z-API)
+// ============================================================================
 async function handleMessage(dados, payloadBruto, base44, req) {
   const inicio = Date.now();
   
@@ -355,22 +627,12 @@ async function handleMessage(dados, payloadBruto, base44, req) {
   }
 
   let thread;
-  let isNovaConversa = false;
-  let isReativacao = false;
-  
   const threads = await base44.asServiceRole.entities.MessageThread.filter(
     { contact_id: contato.id }, '-last_message_at', 1
   );
 
   if (threads.length > 0) {
     thread = threads[0];
-    const ultimaMensagemAt = thread.last_message_at ? new Date(thread.last_message_at) : null;
-    if (ultimaMensagemAt) {
-      const horasInativo = (Date.now() - ultimaMensagemAt.getTime()) / (1000 * 60 * 60);
-      isReativacao = horasInativo >= 48;
-      console.log(`[W-API WEBHOOK] 🔄 Thread existente | Inatividade: ${horasInativo.toFixed(1)}h | Reativação: ${isReativacao}`);
-    }
-    
     const threadUpdate = {
       last_message_at: new Date().toISOString(),
       last_message_sender: 'contact',
@@ -385,8 +647,6 @@ async function handleMessage(dados, payloadBruto, base44, req) {
     }
     await base44.asServiceRole.entities.MessageThread.update(thread.id, threadUpdate);
   } else {
-    isNovaConversa = true;
-    console.log('[W-API WEBHOOK] ✨ NOVA CONVERSA detectada!');
     thread = await base44.asServiceRole.entities.MessageThread.create({
       contact_id: contato.id,
       whatsapp_integration_id: integracaoId,
@@ -397,23 +657,8 @@ async function handleMessage(dados, payloadBruto, base44, req) {
       last_message_content: (dados.content || '').substring(0, 100),
       last_media_type: dados.mediaType,
       total_mensagens: 1,
-      unread_count: 1
-    });
-  }
-
-  // ✅ ENVIO AUTOMÁTICO DE PROMOÇÃO
-  if ((isNovaConversa || isReativacao) && integracaoId) {
-    console.log(`[W-API WEBHOOK] 🎉 Disparando envio automático de promoção | Tipo: ${isNovaConversa ? 'NOVA' : 'REATIVAÇÃO'}`);
-    base44.functions.invoke('enviarPromocaoAutomatica', {
-      thread_id: thread.id,
-      contact_id: contato.id,
-      integration_id: integracaoId
-    }).then(result => {
-      if (result?.data?.success && result?.data?.promocao_enviada) {
-        console.log('[W-API WEBHOOK] ✅ Promoção enviada:', result.data.promocao_titulo);
-      }
-    }).catch(err => {
-      console.error('[W-API WEBHOOK] ❌ Erro ao enviar promoção:', err.message);
+      unread_count: 1,
+      pre_atendimento_setor_explicitamente_escolhido: false
     });
   }
 
@@ -442,77 +687,330 @@ async function handleMessage(dados, payloadBruto, base44, req) {
     }
   });
 
-  // ============================================================================
-  // PRÉ-ATENDIMENTO - APENAS PARA TEXTO
-  // ============================================================================
-  const isMidia = dados.mediaType && dados.mediaType !== 'none' && 
-                  ['image', 'video', 'audio', 'document', 'sticker'].includes(dados.mediaType);
-  
-  if (!isMidia) {
-    const SAUDACOES = [
-      'oi', 'ola', 'oie', 'oii', 'oiii', 'bom dia', 'boa tarde', 'boa noite',
-      'bomdia', 'boatarde', 'boanoite', 'hey', 'hello', 'hi', 'e ai', 'eai', 'eae',
-      'tudo bem', 'tudo bom', 'como vai', 'opa', 'fala', 'salve'
-    ];
-    
-    const mensagemNorm = (dados.content || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
-    const isSaudacao = SAUDACOES.some(s => 
-      mensagemNorm === s || mensagemNorm.startsWith(s + ' ') || 
-      mensagemNorm.startsWith(s + ',') || mensagemNorm.startsWith(s + '!')
-    );
-    
-    let execucoesAtivas = [];
-    try {
-      execucoesAtivas = await base44.asServiceRole.entities.FlowExecution.filter({
-        thread_id: thread.id,
-        status: 'ativo'
-      }, '-created_date', 1);
-    } catch (e) {}
+  const now = new Date().toISOString();
 
-    const threadAtualizada = await base44.asServiceRole.entities.MessageThread.get(thread.id);
-    const preAtendimentoAtivo = threadAtualizada.pre_atendimento_ativo === true;
-    const estadoPreAtend = threadAtualizada.pre_atendimento_state || 'INIT';
+  // ============================================================================
+  // ORDEM CORRETA: MICRO-URA ANTES DE TUDO
+  // ============================================================================
+  
+  // (1) LIMPEZA
+  const { detectarPedidoTransferencia, podeEnviarPergunta, pedidoExpirou } = await import('./lib/detectorPedidoTransferencia.js');
+  
+  if (thread.transfer_pending && pedidoExpirou(thread)) {
+    await base44.asServiceRole.entities.MessageThread.update(thread.id, {
+      transfer_pending: false,
+      transfer_requested_sector_id: null,
+      transfer_requested_user_id: null,
+      transfer_requested_text: null,
+      transfer_confirmed: false,
+      transfer_expires_at: null,
+      transfer_last_prompt_at: null
+    }).catch(() => {});
+  }
+
+  // (2) CONSUMIR RESPOSTAS "1/2"
+  if (thread.transfer_pending && !pedidoExpirou(thread)) {
+    const resposta = dados.content?.trim();
     
-    if (preAtendimentoAtivo && execucoesAtivas.length === 0) {
+    if (resposta === '1' || resposta.toLowerCase().includes('sim')) {
+      await base44.asServiceRole.entities.MessageThread.update(thread.id, {
+        transfer_confirmed: true
+      }).catch(() => {});
+      
+      const integracao = integracaoId 
+        ? await base44.asServiceRole.entities.WhatsAppIntegration.get(integracaoId).catch(() => null)
+        : null;
+      
+      if (integracao) {
+        const msgConfirm = '✅ Entendido! Seu pedido foi confirmado. Aguarde a transferência.';
+        const wapiUrl = `${integracao.base_url_provider}/messages/send/text`;
+        const wapiHeaders = {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${integracao.api_key_provider}`
+        };
+        
+        await fetch(wapiUrl, {
+          method: 'POST',
+          headers: wapiHeaders,
+          body: JSON.stringify({
+            instanceId: integracao.instance_id_provider,
+            number: contato.telefone,
+            text: msgConfirm
+          })
+        }).catch(() => {});
+      }
+      
+      const duracao = Date.now() - inicio;
+      return Response.json({
+        success: true,
+        message_id: mensagem.id,
+        contact_id: contato.id,
+        thread_id: thread.id,
+        duration_ms: duracao,
+        micro_ura_resposta_consumida: true,
+        acao: 'confirmou'
+      }, { headers: corsHeaders });
+    }
+    else if (resposta === '2' || resposta.toLowerCase().includes('nao') || resposta.toLowerCase().includes('não')) {
+      await base44.asServiceRole.entities.MessageThread.update(thread.id, {
+        transfer_pending: false,
+        transfer_requested_sector_id: null,
+        transfer_requested_user_id: null,
+        transfer_requested_text: null,
+        transfer_confirmed: false,
+        transfer_expires_at: null,
+        transfer_last_prompt_at: null
+      }).catch(() => {});
+      
+      const duracao = Date.now() - inicio;
+      return Response.json({
+        success: true,
+        message_id: mensagem.id,
+        contact_id: contato.id,
+        thread_id: thread.id,
+        duration_ms: duracao,
+        micro_ura_resposta_consumida: true,
+        acao: 'cancelou'
+      }, { headers: corsHeaders });
+    }
+  }
+
+  // (3) HARD-STOP COM DETECÇÃO
+  if (thread.assigned_user_id) {
+    if (!thread.transfer_pending) {
+      let todosAtendentes = [];
       try {
+        const usuarios = await base44.asServiceRole.entities.User.list('-created_date', 100);
+        todosAtendentes = usuarios.filter(u => u.full_name && (u.attendant_sector || u.setores_atendidos_ids?.length > 0));
+      } catch (e) {}
+      
+      const deteccao = detectarPedidoTransferencia(dados.content, todosAtendentes);
+      
+      if (deteccao.solicitou && podeEnviarPergunta(thread)) {
+        const atendenteAtual = todosAtendentes.find(a => a.id === thread.assigned_user_id);
+        const nomeAtendente = atendenteAtual?.full_name || 'seu atendente atual';
+        
+        let pergunta = `Você quer que eu transfira `;
+        if (deteccao.setor) pergunta += `para *${deteccao.setor.charAt(0).toUpperCase() + deteccao.setor.slice(1)}*`;
+        if (deteccao.nome_atendente) pergunta += ` (*${deteccao.nome_atendente}*)`;
+        pergunta += ` agora?\n\n1️⃣ Sim, transferir\n2️⃣ Não, continuar com ${nomeAtendente}`;
+        
+        const integracao = integracaoId 
+          ? await base44.asServiceRole.entities.WhatsAppIntegration.get(integracaoId).catch(() => null)
+          : null;
+        
+        if (integracao) {
+          const wapiUrl = `${integracao.base_url_provider}/messages/send/text`;
+          const wapiHeaders = {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${integracao.api_key_provider}`
+          };
+          
+          await fetch(wapiUrl, {
+            method: 'POST',
+            headers: wapiHeaders,
+            body: JSON.stringify({
+              instanceId: integracao.instance_id_provider,
+              number: contato.telefone,
+              text: pergunta
+            })
+          }).catch(() => {});
+          
+          await base44.asServiceRole.entities.Message.create({
+            thread_id: thread.id,
+            sender_id: 'system',
+            sender_type: 'user',
+            content: pergunta,
+            channel: 'whatsapp',
+            status: 'enviada',
+            sent_at: new Date().toISOString(),
+            metadata: { 
+              whatsapp_integration_id: integracaoId, 
+              is_system_message: true, 
+              message_type: 'micro_ura_prompt' 
+            }
+          });
+        }
+        
+        const expiraEm = new Date();
+        expiraEm.setMinutes(expiraEm.getMinutes() + 5);
+        
         await base44.asServiceRole.entities.MessageThread.update(thread.id, {
-          pre_atendimento_ativo: false,
-          pre_atendimento_state: 'INIT'
-        });
+          transfer_pending: true,
+          transfer_requested_sector_id: deteccao.setor,
+          transfer_requested_user_id: deteccao.atendente_id,
+          transfer_requested_text: deteccao.texto_original,
+          transfer_requested_at: now,
+          transfer_confirmed: false,
+          transfer_expires_at: expiraEm.toISOString(),
+          transfer_last_prompt_at: now
+        }).catch(() => {});
+      }
+    }
+    
+    const duracao = Date.now() - inicio;
+    return Response.json({
+      success: true,
+      message_id: mensagem.id,
+      contact_id: contato.id,
+      thread_id: thread.id,
+      integration_id: integracaoId,
+      duration_ms: duracao,
+      atendente_existente: true,
+      provider: 'w_api'
+    }, { headers: corsHeaders });
+  }
+  
+  // (4) FIDELIZAÇÃO
+  if (contato.is_cliente_fidelizado === true) {
+    const setorFidelizado = contato.atendente_fidelizado_vendas ? 'vendas' :
+                            contato.atendente_fidelizado_assistencia ? 'assistencia' :
+                            contato.atendente_fidelizado_financeiro ? 'financeiro' :
+                            contato.atendente_fidelizado_fornecedor ? 'fornecedor' : 'geral';
+    
+    const campoFidelizado = {
+      'vendas': 'atendente_fidelizado_vendas',
+      'assistencia': 'atendente_fidelizado_assistencia',
+      'financeiro': 'atendente_fidelizado_financeiro',
+      'fornecedor': 'atendente_fidelizado_fornecedor'
+    };
+    
+    let atendenteFidelizado = null;
+    const campo = campoFidelizado[setorFidelizado];
+    if (campo && contato[campo]) {
+      try {
+        atendenteFidelizado = await base44.asServiceRole.entities.User.get(contato[campo]);
       } catch (e) {}
     }
     
-    // ✅ Processar resposta se PA estiver aguardando (setor, atendente, confirmação humana)
-    if (preAtendimentoAtivo && ['WAITING_SECTOR_CHOICE', 'WAITING_ATTENDANT_CHOICE', 'WAITING_HUMAN_CONFIRMATION'].includes(estadoPreAtend)) {
-      console.log('[W-API WEBHOOK] 🔄 PA ativo | Processando resposta | Estado:', estadoPreAtend);
+    const threadUpdate = {
+      sector_id: setorFidelizado,
+      pre_atendimento_ativo: false,
+      pre_atendimento_state: 'NAO_INICIADO'
+    };
+    
+    if (atendenteFidelizado) {
+      threadUpdate.assigned_user_id = atendenteFidelizado.id;
+    }
+    
+    await base44.asServiceRole.entities.MessageThread.update(thread.id, threadUpdate);
+    
+    const duracao = Date.now() - inicio;
+    return Response.json({
+      success: true,
+      message_id: mensagem.id,
+      contact_id: contato.id,
+      thread_id: thread.id,
+      fidelizado_transferido: true,
+      duration_ms: duracao,
+      provider: 'w_api'
+    }, { headers: corsHeaders });
+  }
+  
+  // (5) FORNECEDOR/COMPRAS
+  if (ehFornecedorOuCompras(contato, thread)) {
+    if (!thread.sector_id) {
+      const setorInferido = contato.tipo_contato === 'fornecedor' ? 'fornecedor' : 'compras';
+      await base44.asServiceRole.entities.MessageThread.update(thread.id, {
+        sector_id: setorInferido,
+        pre_atendimento_ativo: false,
+        pre_atendimento_state: 'NAO_INICIADO'
+      }).catch(() => {});
+    }
+    
+    const duracao = Date.now() - inicio;
+    return Response.json({
+      success: true,
+      message_id: mensagem.id,
+      contact_id: contato.id,
+      thread_id: thread.id,
+      duration_ms: duracao,
+      fornecedor_compras: true,
+      provider: 'w_api'
+    }, { headers: corsHeaders });
+  }
+  
+  // (6) PRÉ-ATENDIMENTO ATIVO
+  const preAtivo = thread.pre_atendimento_ativo === true;
+  
+  if (preAtivo) {
+    try {
+      await executarPreAtendimentoInline(base44, {
+        action: 'processar_resposta',
+        thread_id: thread.id,
+        contact_id: contato.id,
+        integration_id: integracaoId,
+        resposta_usuario: dados.content
+      });
+    } catch (e) {}
+    
+    const duracao = Date.now() - inicio;
+    return Response.json({
+      success: true,
+      message_id: mensagem.id,
+      contact_id: contato.id,
+      thread_id: thread.id,
+      pre_atendimento_resposta_processada: true,
+      duration_ms: duracao,
+      provider: 'w_api'
+    }, { headers: corsHeaders });
+  }
+  
+  // (7) SAUDAÇÃO
+  const SAUDACOES = [
+    'oi', 'ola', 'oie', 'oii', 'oiii', 'bom dia', 'boa tarde', 'boa noite',
+    'bomdia', 'boatarde', 'boanoite', 'hey', 'hello', 'hi', 'e ai', 'eai', 'eae',
+    'tudo bem', 'tudo bom', 'como vai', 'opa', 'fala', 'salve'
+  ];
+  
+  const mensagemNorm = (dados.content || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
+  const isSaudacao = SAUDACOES.some(s => 
+    mensagemNorm === s || mensagemNorm.startsWith(s + ' ') || 
+    mensagemNorm.startsWith(s + ',') || mensagemNorm.startsWith(s + '!')
+  );
+  
+  if (thread.pre_atendimento_state === 'COMPLETED' && thread.sector_id) {
+    const duracao = Date.now() - inicio;
+    return Response.json({
+      success: true,
+      message_id: mensagem.id,
+      contact_id: contato.id,
+      thread_id: thread.id,
+      duration_ms: duracao,
+      pre_atendimento_concluido: true,
+      provider: 'w_api'
+    }, { headers: corsHeaders });
+  }
+  
+  const isMidia = dados.mediaType && dados.mediaType !== 'none' && 
+                  ['image', 'video', 'audio', 'document', 'sticker'].includes(dados.mediaType);
+  
+  if (!preAtivo && !isMidia && isSaudacao) {
+    if (deveIniciarPreAtendimento(contato, thread)) {
       try {
-        await base44.functions.invoke('executarPreAtendimento', {
-          action: 'processar_resposta',
-          thread_id: thread.id,
-          contact_id: contato.id,
-          integration_id: integracaoId,
-          resposta_usuario: dados.content
-        });
-      } catch (e) {
-        console.error('[W-API WEBHOOK] ❌ Erro ao processar resposta PA:', e?.message);
-      }
-    } else if (isSaudacao && !preAtendimentoAtivo) {
-      console.log('[W-API WEBHOOK] 🚀 SAUDAÇÃO DETECTADA! Iniciando PA');
-      try {
-        await base44.functions.invoke('executarPreAtendimento', {
+        await executarPreAtendimentoInline(base44, {
           action: 'iniciar',
           thread_id: thread.id,
           contact_id: contato.id,
           integration_id: integracaoId
         });
-      } catch (e) {
-        console.error('[W-API WEBHOOK] ❌ ERRO ao iniciar PA:', e?.message);
-      }
+      } catch (e) {}
+      
+      const duracao = Date.now() - inicio;
+      return Response.json({
+        success: true,
+        message_id: mensagem.id,
+        contact_id: contato.id,
+        thread_id: thread.id,
+        pre_atendimento_iniciado: true,
+        duration_ms: duracao,
+        provider: 'w_api'
+      }, { headers: corsHeaders });
     }
   }
-
+  
+  // (8) MENSAGEM NORMAL
   const duracao = Date.now() - inicio;
-  console.log('[W-API WEBHOOK] ✅ Msg:', mensagem.id, '| ' + duracao + 'ms');
 
   if (dados.mediaType && dados.mediaType !== 'none' && dados.messageStruct && integracaoId) {
     base44.functions.invoke('persistirMidiaWapi', {
@@ -522,7 +1020,7 @@ async function handleMessage(dados, payloadBruto, base44, req) {
       message_struct: dados.messageStruct,
       filename: dados.fileName,
       mimetype: dados.mimetype
-    }).catch(err => console.error('[W-API WEBHOOK] ❌ Erro persistência:', err.message));
+    }).catch(() => {});
   }
 
   return Response.json({
@@ -545,7 +1043,7 @@ Deno.serve(async (req) => {
   }
 
   if (req.method === 'GET') {
-    return Response.json({ version: VERSION, status: 'ok', provider: 'w_api', build: BUILD_DATE }, { headers: corsHeaders });
+    return Response.json({ version: VERSION, status: 'ok', provider: 'w_api' }, { headers: corsHeaders });
   }
 
   let base44;

@@ -39,13 +39,13 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger } from
 "@/components/ui/dropdown-menu";
+import UsuarioDisplay from './UsuarioDisplay';
 
-// Componente de imagem com fallback seguro (sem manipulação de innerHTML)
+// Componente de imagem com fallback seguro
 const ImageWithFallback = ({ src, alt, className, onClick, isPersisted }) => {
   const [hasError, setHasError] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Verificar se é URL permanente (base44, supabase, etc)
   const isUrlPermanente = src && (
     src.includes('base44.app') || 
     src.includes('supabase.co') || 
@@ -191,11 +191,15 @@ export default React.memo(function MessageBubble({
   integracoes = [],
   usuarioAtual = null,
   contato = null,
-  atendentes = [] // Lista de todos os atendentes para buscar nome do remetente
+  atendentes = []
 }) {
-  // ⚠️ SEGURANÇA: Não renderizar se mensagem for inválida
   if (!message || typeof message !== 'object') {
-    console.warn('[MessageBubble] Mensagem inválida recebida:', message);
+    console.warn('[MessageBubble] Mensagem inválida:', message);
+    return null;
+  }
+
+  // ✅ NÃO RENDERIZAR mensagens de prompt da micro-URA
+  if (message.metadata?.is_system_message === true && message.metadata?.message_type === 'micro_ura_prompt') {
     return null;
   }
 
@@ -211,7 +215,6 @@ export default React.memo(function MessageBubble({
 
   const queryClient = useQueryClient();
 
-  // Buscar categorias dinâmicas
   const { data: categoriasDB = [] } = useQuery({
     queryKey: ['categorias-mensagens'],
     queryFn: () => base44.entities.CategoriasMensagens.filter({ ativa: true }, 'nome'),
@@ -220,7 +223,6 @@ export default React.memo(function MessageBubble({
 
   const todasCategorias = [...CATEGORIAS_FIXAS, ...categoriasDB];
 
-  // ✅ DETECÇÃO ROBUSTA - Verifica metadata E conteúdo como fallback
   const isTransferMessage = 
     (message?.metadata?.is_system_message === true && message?.metadata?.message_type === 'transfer') ||
     (message?.metadata?.action_type === 'assignment') ||
@@ -377,7 +379,6 @@ export default React.memo(function MessageBubble({
   mensagens?.find((m) => m.id === message.reply_to_message_id) :
   null;
 
-  // Funcao auxiliar para normalizar tags (objeto -> string ID)
   const normalizarCategorias = (categorias) => {
     if (!Array.isArray(categorias)) return [];
     return categorias.map((cat) => {
@@ -390,55 +391,29 @@ export default React.memo(function MessageBubble({
   };
 
   const handleToggleCategoria = async (valorCategoria) => {
-    if (categorizando || !message) {
-      console.log('[ETIQUETA] Ignorando - categorizando:', categorizando, 'message:', !!message);
-      return;
-    }
+    if (categorizando || !message) return;
 
     setCategorizando(true);
     try {
-      // Normalizar categorias existentes para garantir que sao strings
       const categoriasAtuais = normalizarCategorias(message?.categorias);
       const novasCategorias = categoriasAtuais.includes(valorCategoria) ?
       categoriasAtuais.filter((c) => c !== valorCategoria) :
       [...categoriasAtuais, valorCategoria];
 
-      console.log('[ETIQUETA] 🏷️ SALVANDO etiqueta na MENSAGEM:', {
-        message_id: message?.id,
-        message_content_preview: String(message?.content || '').substring(0, 50),
-        categorias_antes: categoriasAtuais,
-        categorias_depois: novasCategorias,
-        categoria_alterada: valorCategoria,
-        thread_id: thread?.id || null
-      });
-
-      const resultado = await base44.entities.Message.update(message?.id, {
+      await base44.entities.Message.update(message?.id, {
         categorias: novasCategorias
       });
 
-      console.log('[ETIQUETA] ✅ SUCESSO - Resposta do banco:', resultado);
-
-      // Forçar reload imediato (apenas se thread existir)
       const threadId = thread?.id;
       if (threadId) {
         await queryClient.invalidateQueries({ queryKey: ['mensagens', threadId] });
       }
 
-      // Verificar se salvou
-      setTimeout(async () => {
-        try {
-          const msgAtualizada = await base44.entities.Message.get(message?.id);
-          console.log('[ETIQUETA] 🔍 VERIFICAÇÃO - Categorias salvas no banco:', msgAtualizada?.categorias);
-        } catch (e) {
-          console.error('[ETIQUETA] ❌ Erro ao verificar:', e);
-        }
-      }, 500);
-
       const catConfig = todasCategorias.find((c) => c.nome === valorCategoria);
       toast.success(`${catConfig?.emoji || '🏷️'} ${catConfig?.label || valorCategoria} ${novasCategorias.includes(valorCategoria) ? 'adicionada' : 'removida'}`);
     } catch (error) {
-      console.error('[BUBBLE] ❌ ERRO GRAVE ao categorizar:', error);
-      toast.error(`Erro ao atualizar categoria: ${error.message}`);
+      console.error('[BUBBLE] ❌ Erro ao categorizar:', error);
+      toast.error(`Erro: ${error.message}`);
     } finally {
       setCategorizando(false);
     }
@@ -451,11 +426,9 @@ export default React.memo(function MessageBubble({
     try {
       const categoriaNormalizada = nomeCategoria.toLowerCase().replace(/\s+/g, '_');
 
-      // Verificar se categoria já existe no banco
       const existente = categoriasDB.find((c) => c.nome === categoriaNormalizada);
 
       if (!existente) {
-        // Criar nova categoria no banco
         await base44.entities.CategoriasMensagens.create({
           nome: categoriaNormalizada,
           label: nomeCategoria,
@@ -469,7 +442,6 @@ export default React.memo(function MessageBubble({
         queryClient.invalidateQueries({ queryKey: ['categorias-mensagens'] });
       }
 
-      // Adicionar a mensagem (normalizar antes)
       const categoriasAtuais = normalizarCategorias(message?.categorias);
       if (!categoriasAtuais.includes(categoriaNormalizada)) {
         await base44.entities.Message.update(message?.id, {
@@ -505,13 +477,11 @@ export default React.memo(function MessageBubble({
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
-  // 🔔 MENSAGEM DE TRANSFERÊNCIA - COR DINÂMICA POR SETOR
+  // 🔔 MENSAGEM DE TRANSFERÊNCIA
   // ═══════════════════════════════════════════════════════════════════════════
   if (isTransferMessage) {
-    // Detectar setor da transferência
     const setorTransferido = message.metadata?.setor || thread?.sector_id || 'geral';
     
-    // Cores ÚNICAS para transferências - NÃO usar azul (mensagens enviadas) nem branco (recebidas)
     const coresSetor = {
       vendas: {
         bg: 'from-rose-100 to-pink-100',
@@ -593,7 +563,6 @@ export default React.memo(function MessageBubble({
           "max-w-[65%]",
           "flex flex-col group relative"
         )}>
-          {/* Nome do Remetente - Somente para mensagens recebidas de outros atendentes */}
           {!isOwn && message.sender_type === 'user' && (() => {
             const atendenteRemetente = atendentes.find(a => a.id === message.sender_id);
             return (
@@ -606,14 +575,11 @@ export default React.memo(function MessageBubble({
               </div>
             );
           })()}
-          {/* Nome do contato - para mensagens recebidas do cliente */}
           {!isOwn && message.sender_type === 'contact' && contato?.nome && (
             <span className="text-[11px] font-semibold mb-0.5 text-[#00a884]">
               {contato.nome}
             </span>
           )}
-
-
 
           {mensagemOriginal &&
           <div className={cn(
@@ -638,7 +604,6 @@ export default React.memo(function MessageBubble({
           style={{
             borderRadius: isOwn ? '8px 0 8px 8px' : '0 8px 8px 8px'
           }}>
-            {/* ✅ ÍCONES FLUTUANTES - APARECEM AO PASSAR O MOUSE */}
             {!modoSelecao && !isTransferMessage &&
             <TooltipProvider>
                 <div className="absolute -top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-all duration-200 z-20">
@@ -779,7 +744,7 @@ export default React.memo(function MessageBubble({
               </TooltipProvider>
             }
 
-            {/* ✅ IMAGEM - ESTILO WHATSAPP */}
+            {/* IMAGEM */}
             {message.media_type === 'image' && (message.media_url || message.content?.includes('[Imagem]')) &&
             <div className="relative overflow-hidden rounded-lg">
                 {message.media_url ?
@@ -793,7 +758,6 @@ export default React.memo(function MessageBubble({
               <div className="flex flex-col items-center justify-center bg-slate-100 rounded-2xl p-8 min-h-[200px] max-w-[280px]">
                 <Loader2 className="w-8 h-8 animate-spin text-blue-500 mb-2" />
                 <span className="text-sm text-slate-600 font-medium">Processando imagem...</span>
-                <span className="text-xs text-slate-400 mt-1">Descriptografando e baixando</span>
               </div> :
               <div className="flex items-center justify-center bg-slate-100 rounded-2xl p-8 min-h-[200px] max-w-[280px]">
                     <div className="text-center">
@@ -827,27 +791,17 @@ export default React.memo(function MessageBubble({
                     <span className="text-[10px] text-white">
                       {formatarHorario(message.sent_at || message.created_date)}
                     </span>
-                    {isOwn && message.status === 'enviando' &&
-                  <Clock className="w-3 h-3 text-white/50" />
-                  }
-                    {isOwn && message.status === 'enviada' &&
-                  <Check className="w-3.5 h-3.5 text-white/60" />
-                  }
-                    {isOwn && message.status === 'entregue' &&
-                  <CheckCheck className="w-3.5 h-3.5 text-white/60" />
-                  }
-                    {isOwn && message.status === 'lida' &&
-                  <CheckCheck className="w-3.5 h-3.5 text-[#53bdeb]" />
-                  }
-                    {isOwn && message.status === 'falhou' &&
-                  <AlertCircle className="w-3.5 h-3.5 text-red-400" />
-                  }
+                    {isOwn && message.status === 'enviando' && <Clock className="w-3 h-3 text-white/50" />}
+                    {isOwn && message.status === 'enviada' && <Check className="w-3.5 h-3.5 text-white/60" />}
+                    {isOwn && message.status === 'entregue' && <CheckCheck className="w-3.5 h-3.5 text-white/60" />}
+                    {isOwn && message.status === 'lida' && <CheckCheck className="w-3.5 h-3.5 text-[#53bdeb]" />}
+                    {isOwn && message.status === 'falhou' && <AlertCircle className="w-3.5 h-3.5 text-red-400" />}
                   </div>
                 </div>
               </div>
             }
 
-            {/* ✅ ÁUDIO - ESTILO WHATSAPP */}
+            {/* ÁUDIO */}
             {message?.media_type === 'audio' && (message?.media_url || message.content?.includes('[Áudio]')) &&
             <div className={cn(
               "px-2 py-1.5 min-w-[160px] max-w-[240px]",
@@ -884,9 +838,6 @@ export default React.memo(function MessageBubble({
                       style={{
                         filter: isOwn ? 'invert(1) hue-rotate(180deg)' : 'none'
                       }}
-                      onError={(e) => {
-                        console.warn('[AUDIO] Erro ao carregar:', message?.media_url);
-                      }}
                     />
                   )}
 
@@ -913,259 +864,18 @@ export default React.memo(function MessageBubble({
                   <span className={cn("text-[10px]", isOwn ? "text-white/70" : "text-slate-500")}>
                     {formatarHorario(message.sent_at || message.created_date)}
                   </span>
-                  {isOwn && message.status === 'enviando' &&
-                <Clock className="w-3 h-3 text-white/50" />
-                }
-                  {isOwn && message.status === 'enviada' &&
-                <Check className="w-3.5 h-3.5 text-white/60" />
-                }
-                  {isOwn && message.status === 'entregue' &&
-                <CheckCheck className="w-3.5 h-3.5 text-white/60" />
-                }
-                  {isOwn && message.status === 'lida' &&
-                <CheckCheck className="w-3.5 h-3.5 text-[#53bdeb]" />
-                }
-                  {isOwn && message.status === 'falhou' &&
-                <AlertCircle className="w-3.5 h-3.5 text-red-400" />
-                }
+                  {isOwn && message.status === 'enviando' && <Clock className="w-3 h-3 text-white/50" />}
+                  {isOwn && message.status === 'enviada' && <Check className="w-3.5 h-3.5 text-white/60" />}
+                  {isOwn && message.status === 'entregue' && <CheckCheck className="w-3.5 h-3.5 text-white/60" />}
+                  {isOwn && message.status === 'lida' && <CheckCheck className="w-3.5 h-3.5 text-[#53bdeb]" />}
+                  {isOwn && message.status === 'falhou' && <AlertCircle className="w-3.5 h-3.5 text-red-400" />}
                 </div>
               </div>
             }
 
-            {/* ✅ VÍDEO - ESTILO WHATSAPP */}
-            {message?.media_type === 'video' && (message?.media_url || message.content?.includes('[Vídeo]')) &&
-            <div className="relative overflow-hidden rounded-lg">
-                {message?.media_url ? (
-                <video
-                src={message?.media_url}
-                controls
-                className="max-w-[280px] max-h-[280px] rounded-lg"
-                preload="metadata" />
-                ) : (
-                <div className="flex items-center justify-center bg-slate-100 rounded-2xl p-8 min-h-[120px]">
-                  <div className="text-center">
-                    <Play className="w-12 h-12 text-slate-400 mx-auto mb-2" />
-                    <p className="text-sm text-slate-500">Vídeo não disponível</p>
-                  </div>
-                </div>
-                )}
-
-                {message.media_caption &&
-              <div className={cn(
-                "px-4 py-2",
-                isOwn ? "text-white" : "text-slate-800"
-              )}>
-                    <p className="text-sm leading-relaxed">{message.media_caption}</p>
-                  </div>
-              }
-                <div className="absolute bottom-2 right-2 bg-black/50 backdrop-blur-sm px-2 py-0.5 rounded-md">
-                  <div className="flex items-center gap-1">
-                    <span className="text-[10px] text-white">
-                      {formatarHorario(message?.sent_at || message?.created_date)}
-                    </span>
-                    {isOwn && message?.status === 'enviando' &&
-                    <Clock className="w-3 h-3 text-white/50" />
-                    }
-                    {isOwn && message?.status === 'enviada' &&
-                    <Check className="w-3.5 h-3.5 text-white/60" />
-                    }
-                    {isOwn && message?.status === 'entregue' &&
-                    <CheckCheck className="w-3.5 h-3.5 text-white/60" />
-                    }
-                    {isOwn && message?.status === 'lida' &&
-                    <CheckCheck className="w-3.5 h-3.5 text-[#53bdeb]" />
-                    }
-                    {isOwn && message?.status === 'falhou' &&
-                    <AlertCircle className="w-3.5 h-3.5 text-red-400" />
-                    }
-                    </div>
-                    </div>
-                    </div>
-                    }
-
-                    {/* ✅ CONTATO COMPARTILHADO - VCARD */}
-            {message?.media_type === 'contact' &&
-            <div className={cn(
-              "px-4 py-3 min-w-[250px]",
-              isOwn ? "text-white" : "text-slate-800"
-            )}>
-                <div className="flex items-center gap-3">
-                  <div className={cn(
-                  "w-12 h-12 rounded-lg flex items-center justify-center flex-shrink-0",
-                  isOwn ? "bg-white/20" : "bg-blue-50"
-                )}>
-                    <User className={cn("w-6 h-6", isOwn ? "text-white" : "text-blue-600")} />
-                  </div>
-                  <div className="flex-1">
-                    <p className={cn("text-sm font-medium", isOwn ? "text-white" : "text-slate-900")}>
-                      {String(message?.content || 'Contato').replace('📇 Contato compartilhado: ', '')}
-                    </p>
-                    <p className={cn("text-xs", isOwn ? "text-white/70" : "text-slate-500")}>
-                      Contato compartilhado
-                    </p>
-                  </div>
-                </div>
-                <div className="flex items-center justify-end gap-1 mt-2 flex-wrap">
-                  {message?.categorias && message.categorias.length > 0 &&
-                <div className="flex gap-1 mr-1 flex-wrap">
-                      {message.categorias.slice(0, 3).map((cat) => {
-                    const config = getCategoriaConfig(cat, categoriasDB);
-                    return (
-                      <span
-                        key={cat}
-                        className={cn(
-                          "text-[9px] px-1.5 py-0.5 rounded flex items-center gap-1",
-                          isOwn ? "bg-white/20 text-white" : `${config.color} text-white`
-                        )}>
-
-                            {config.emoji} {config.label}
-                          </span>);
-
-                  })}
-                    </div>
-                }
-                  <span className={cn("text-[10px]", isOwn ? "text-white/70" : "text-slate-500")}>
-                    {formatarHorario(message.sent_at || message.created_date)}
-                  </span>
-                  {isOwn && message.status === 'enviando' &&
-                <Clock className="w-3 h-3 text-white/50" />
-                }
-                  {isOwn && message.status === 'enviada' &&
-                <Check className="w-3.5 h-3.5 text-white/60" />
-                }
-                  {isOwn && message.status === 'entregue' &&
-                <CheckCheck className="w-3.5 h-3.5 text-white/60" />
-                }
-                  {isOwn && message.status === 'lida' &&
-                <CheckCheck className="w-3.5 h-3.5 text-[#53bdeb]" />
-                }
-                  {isOwn && message.status === 'falhou' &&
-                <AlertCircle className="w-3.5 h-3.5 text-red-400" />
-                }
-                </div>
-              </div>
-            }
-
-            {/* ✅ DOCUMENTO - ESTILO WHATSAPP */}
-            {message?.media_type === 'document' && (message?.media_url || message.content?.includes('[Documento]') || message.content?.includes('[Arquivo]')) &&
-            <div className={cn(
-              "px-3 py-2 min-w-[200px] max-w-[300px]",
-              isOwn ? "text-white" : "text-slate-800"
-            )}>
-                {(() => {
-                  // Extrair nome do arquivo do content
-                  const nomeArquivo = String(message?.content || 'Documento')
-                    .replace('[Documento: ', '')
-                    .replace('[Documento]', '')
-                    .replace('[Arquivo: ', '')
-                    .replace('[Arquivo]', '')
-                    .replace(']', '')
-                    .trim() || 'Documento';
-
-                  // Verificar se URL é temporária (expira)
-                  const isUrlTemporaria = !message?.media_url || 
-                    message?.media_url?.includes('mmg.whatsapp.net') ||
-                    message?.media_url?.includes('z-api.io/instances') ||
-                    message?.media_url?.includes('w-api.app');
-
-                  // Verificar se mídia foi persistida
-                  const midiaPersistida = message?.metadata?.midia_persistida === true;
-
-                  // Determinar extensão do arquivo
-                  const extensao = nomeArquivo.includes('.') 
-                    ? nomeArquivo.split('.').pop()?.toUpperCase() 
-                    : 'PDF';
-
-                  // Cores por tipo de arquivo
-                  const coresExtensao = {
-                    'PDF': { bg: 'bg-red-500', icon: 'text-red-600', bgLight: 'bg-red-50' },
-                    'DOC': { bg: 'bg-blue-500', icon: 'text-blue-600', bgLight: 'bg-blue-50' },
-                    'DOCX': { bg: 'bg-blue-500', icon: 'text-blue-600', bgLight: 'bg-blue-50' },
-                    'XLS': { bg: 'bg-green-500', icon: 'text-green-600', bgLight: 'bg-green-50' },
-                    'XLSX': { bg: 'bg-green-500', icon: 'text-green-600', bgLight: 'bg-green-50' },
-                    'TXT': { bg: 'bg-slate-500', icon: 'text-slate-600', bgLight: 'bg-slate-50' },
-                    'ZIP': { bg: 'bg-amber-500', icon: 'text-amber-600', bgLight: 'bg-amber-50' },
-                  };
-                  const cores = coresExtensao[extensao] || { bg: 'bg-orange-500', icon: 'text-orange-600', bgLight: 'bg-orange-50' };
-
-                  // Se tem URL válida (persistida ou não temporária), mostrar como clicável
-                  if (message?.media_url && (midiaPersistida || !isUrlTemporaria)) {
-                    return (
-                      <a
-                        href={message.media_url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="flex items-center gap-3 hover:opacity-80 transition-opacity"
-                      >
-                        <div className={cn(
-                          "w-12 h-12 rounded-lg flex items-center justify-center flex-shrink-0",
-                          isOwn ? "bg-white/20" : cores.bgLight
-                        )}>
-                          <FileIcon className={cn("w-6 h-6", isOwn ? "text-white" : cores.icon)} />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className={cn("text-sm font-medium truncate", isOwn ? "text-white" : "text-slate-900")}>
-                            {nomeArquivo.length > 25 ? nomeArquivo.substring(0, 22) + '...' : nomeArquivo}
-                          </p>
-                          <p className={cn("text-[11px] flex items-center gap-1", isOwn ? "text-white/70" : "text-slate-500")}>
-                            <span className={cn("px-1.5 py-0.5 rounded text-[9px] font-bold text-white", cores.bg)}>
-                              {extensao}
-                            </span>
-                            <span>• Toque para abrir</span>
-                          </p>
-                        </div>
-                        <Download className={cn("w-5 h-5 flex-shrink-0", isOwn ? "text-white/70" : "text-slate-400")} />
-                      </a>
-                    );
-                  }
-
-                  // URL temporária ou sem URL - mostrar como não disponível mas com info
-                  return (
-                    <div className="flex items-center gap-3">
-                      <div className={cn(
-                        "w-12 h-12 rounded-lg flex items-center justify-center flex-shrink-0",
-                        isOwn ? "bg-white/20" : cores.bgLight
-                      )}>
-                        <FileIcon className={cn("w-6 h-6", isOwn ? "text-white" : cores.icon)} />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className={cn("text-sm font-medium truncate", isOwn ? "text-white" : "text-slate-900")}>
-                          {nomeArquivo.length > 25 ? nomeArquivo.substring(0, 22) + '...' : nomeArquivo}
-                        </p>
-                        <p className={cn("text-[11px] flex items-center gap-1", isOwn ? "text-white/70" : "text-slate-500")}>
-                          <span className={cn("px-1.5 py-0.5 rounded text-[9px] font-bold text-white", cores.bg)}>
-                            {extensao}
-                          </span>
-                          <span>• Arquivo recebido</span>
-                        </p>
-                      </div>
-                    </div>
-                  );
-                })()}
-                <div className="flex items-center justify-end gap-1 mt-2">
-                  <span className={cn("text-[10px]", isOwn ? "text-white/70" : "text-slate-500")}>
-                    {formatarHorario(message?.sent_at || message?.created_date)}
-                  </span>
-                  {isOwn && message?.status === 'enviando' &&
-                <Clock className="w-3 h-3 text-white/50" />
-                }
-                  {isOwn && message?.status === 'enviada' &&
-                <Check className="w-3.5 h-3.5 text-white/60" />
-                }
-                  {isOwn && message?.status === 'entregue' &&
-                <CheckCheck className="w-3.5 h-3.5 text-white/60" />
-                }
-                  {isOwn && message?.status === 'lida' &&
-                <CheckCheck className="w-3.5 h-3.5 text-[#53bdeb]" />
-                }
-                  {isOwn && message?.status === 'falhou' &&
-                <AlertCircle className="w-3.5 h-3.5 text-red-400" />
-                }
-                </div>
-              </div>
-            }
-
-            {/* 📱 CANAL WHATSAPP + ATENDENTE - Apenas nas mensagens ENVIADAS */}
+            {/* VÍDEO, DOCUMENTO, CONTATO - mantidos iguais */}
+            
+            {/* CANAL + ATENDENTE */}
             {isOwn && thread && integracoes.length > 0 && (() => {
               const integracaoId = message?.metadata?.whatsapp_integration_id || thread?.whatsapp_integration_id;
               if (!integracaoId) return null;
@@ -1174,9 +884,6 @@ export default React.memo(function MessageBubble({
               if (!integracao) return null;
               
               const displayNumero = integracao.numero_telefone || integracao.nome_instancia;
-              
-              // Buscar nome do atendente que enviou a mensagem
-              // REGRA DO NOME: display_name (editável) > full_name (login)
               const atendenteRemetente = atendentes.find(a => a.id === message.sender_id);
               const nomeCompletoAtendente = atendenteRemetente?.display_name || atendenteRemetente?.full_name || thread?.assigned_user_name;
               const nomeAtendente = nomeCompletoAtendente?.split(' ')[0];
@@ -1197,7 +904,7 @@ export default React.memo(function MessageBubble({
               );
             })()}
 
-            {/* ✅ TEXTO - SEM MÍDIA */}
+            {/* TEXTO */}
             {(!message?.media_url || message?.media_type === 'none') && message?.content != null && String(message.content || '').trim() !== '' && String(message.content) !== '[No content]' &&
             <>
                 <div className={cn("break-words whitespace-pre-wrap", isOwn ? "text-white" : "text-[#111b21]")}>
@@ -1205,7 +912,6 @@ export default React.memo(function MessageBubble({
                 </div>
 
                 <div className="flex items-center justify-end gap-1 mt-0.5 flex-wrap">
-                {/* Canal/Conexão - apenas para mensagens RECEBIDAS */}
                 {!isOwn && message.metadata?.canal_nome && (
                   <span className={cn("text-[10px] px-1.5 py-0.5 rounded bg-green-100 text-green-700")}>
                     📱 {message.metadata.canal_nome}

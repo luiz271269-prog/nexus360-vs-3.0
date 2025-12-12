@@ -39,6 +39,7 @@ export default function MessageInput({
   canalSelecionado,
   onCanalChange,
   thread,
+  usuario,
   modoSelecaoMultipla,
   contatosSelecionados = [],
   onCancelarSelecao,
@@ -47,41 +48,36 @@ export default function MessageInput({
   pastedImageFromParent,
   onPastedImageChange
 }) {
-  // ✅ ESTADO LOCAL - Isolado do resto da aplicação
   const [mensagemTexto, setMensagemTexto] = useState("");
   const [pastedImage, setPastedImage] = useState(null);
   const [pastedImagePreview, setPastedImagePreview] = useState(null);
   
   const inputRef = useRef(null);
 
-  // Handler de envio
   const handleEnviar = useCallback((e) => {
     e?.preventDefault();
     
     if (!mensagemTexto.trim() && !pastedImage) return;
     
     // ✅ Cancelar micro-URA se atendente responder
-    if (thread?.id) {
+    if (thread?.id && usuario?.id) {
       base44.functions.invoke('cancelarMicroURASeAtendenteResponder', {
         thread_id: thread.id,
-        sender_id: 'user'
+        sender_id: usuario.id
       }).catch(() => {});
     }
     
-    // Notificar o pai COM O TEXTO e limpar LOCALMENTE
     onSendMessage({
       texto: mensagemTexto.trim(),
       pastedImage: pastedImage,
       pastedImagePreview: pastedImagePreview
     });
     
-    // Limpar estado local INSTANTANEAMENTE
     setMensagemTexto("");
     setPastedImage(null);
     setPastedImagePreview(null);
-  }, [mensagemTexto, pastedImage, pastedImagePreview, onSendMessage, thread]);
+  }, [mensagemTexto, pastedImage, pastedImagePreview, onSendMessage, thread, usuario]);
 
-  // Handler de teclado
   const handleKeyDown = useCallback((e) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
@@ -89,7 +85,6 @@ export default function MessageInput({
     }
   }, [handleEnviar]);
 
-  // Handler de colar imagem
   const handlePaste = useCallback(async (e) => {
     const items = e.clipboardData?.items;
     if (!items) return;
@@ -109,7 +104,6 @@ export default function MessageInput({
     }
   }, []);
 
-  // Cancelar imagem colada
   const cancelarImagemColada = useCallback(() => {
     if (pastedImagePreview) {
       URL.revokeObjectURL(pastedImagePreview);
@@ -122,7 +116,6 @@ export default function MessageInput({
 
   return (
     <form onSubmit={handleEnviar} className="bg-[#d6dfe1] text-gray-950 px-3 rounded-lg border-t flex-shrink-0">
-      {/* Banner de Broadcast quando em modo seleção múltipla */}
       {modoSelecaoMultipla && contatosSelecionados.length > 0 && (
         <div className="mb-2 p-2 bg-gradient-to-r from-orange-500 to-amber-500 rounded-lg">
           <div className="flex items-center justify-between">
@@ -141,7 +134,6 @@ export default function MessageInput({
             </button>
           </div>
 
-          {/* Barra de progresso durante envio */}
           {enviandoBroadcast && (
             <div className="mt-2">
               <div className="flex items-center justify-between text-white text-xs mb-1">
@@ -161,7 +153,6 @@ export default function MessageInput({
         </div>
       )}
 
-      {/* Seletor de Canal WhatsApp - Modo Individual */}
       {integracoes.length > 1 && !modoSelecaoMultipla && (
         <div className="mb-2 flex items-center gap-2">
           <label className="text-gray-900 text-xs font-medium">Enviar por:</label>
@@ -179,7 +170,6 @@ export default function MessageInput({
         </div>
       )}
 
-      {/* Seletor de Canal WhatsApp - Modo Broadcast */}
       {integracoes.length > 0 && modoSelecaoMultipla && contatosSelecionados.length > 0 && (
         <div className="mb-2 flex items-center gap-2">
           <label className="text-gray-900 text-xs font-medium">Enviar por:</label>
@@ -241,7 +231,6 @@ export default function MessageInput({
         )}
 
         <div className="flex-1">
-          {/* Preview da imagem colada */}
           {pastedImagePreview && (
             <div className="mb-2 p-2 bg-blue-50 border border-blue-200 rounded-lg">
               <div className="flex items-start gap-3">
