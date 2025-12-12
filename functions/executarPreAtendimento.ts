@@ -769,7 +769,15 @@ Deno.serve(async (req) => {
         await new Promise(resolve => setTimeout(resolve, 500));
       }
       
-      const envio = await enviarMensagem(base44, integracao, contato.telefone, mensagemCompleta, thread_id);
+      const envioPromise = enviarMensagem(base44, integracao, contato.telefone, mensagemCompleta, thread_id);
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Timeout ao enviar mensagem')), 10000)
+      );
+      
+      const envio = await Promise.race([envioPromise, timeoutPromise]).catch(error => {
+        console.error('[PRE-ATEND] Timeout ou erro no envio:', error);
+        return { success: false, error: error.message };
+      });
       
       if (!envio.success) {
         return Response.json({ success: false, error: envio.error || 'erro_envio' }, { headers: corsHeaders });

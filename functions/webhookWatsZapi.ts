@@ -440,13 +440,22 @@ ${promocoesResponse.data.texto_formatado}
 
     console.log('[PRE-ATEND] 📤 Enviando saudação para:', contato.telefone);
     
-    const envioResp = await fetch(zapiUrl, {
+    const envioPromise = fetch(zapiUrl, {
       method: 'POST',
       headers: zapiHeaders,
       body: JSON.stringify({
         phone: contato.telefone,
         message: mensagemCompleta
       })
+    });
+    
+    const timeoutPromise = new Promise((_, reject) => 
+      setTimeout(() => reject(new Error('Timeout Z-API')), 10000)
+    );
+    
+    const envioResp = await Promise.race([envioPromise, timeoutPromise]).catch(error => {
+      console.error('[PRE-ATEND] Timeout ao enviar:', error);
+      throw error;
     });
     
     const envioData = await envioResp.json();
@@ -660,15 +669,25 @@ function deveIniciarPreAtendimento(contact, thread) {
 async function handleMessage(dados, payloadBruto, base44) {
   const inicio = Date.now();
   
-  // ✅ OTIMIZAÇÃO 1: Buscar duplicata + integração em PARALELO
-  const [dupResult, intResult] = await Promise.all([
-    dados.messageId 
-      ? base44.asServiceRole.entities.Message.filter({ whatsapp_message_id: dados.messageId }, '-created_date', 1).catch(() => [])
-      : Promise.resolve([]),
-    dados.instanceId
-      ? base44.asServiceRole.entities.WhatsAppIntegration.filter({ instance_id_provider: dados.instanceId }, '-created_date', 1).catch(() => [])
-      : Promise.resolve([])
-  ]);
+  // ✅ OTIMIZAÇÃO 1: Buscar duplicata + integração em PARALELO com timeout
+  const timeoutPromise = new Promise((_, reject) => 
+    setTimeout(() => reject(new Error('Timeout')), 8000)
+  );
+  
+  const [dupResult, intResult] = await Promise.race([
+    Promise.all([
+      dados.messageId 
+        ? base44.asServiceRole.entities.Message.filter({ whatsapp_message_id: dados.messageId }, '-created_date', 1).catch(() => [])
+        : Promise.resolve([]),
+      dados.instanceId
+        ? base44.asServiceRole.entities.WhatsAppIntegration.filter({ instance_id_provider: dados.instanceId }, '-created_date', 1).catch(() => [])
+        : Promise.resolve([])
+    ]),
+    timeoutPromise
+  ]).catch(error => {
+    console.error('[WEBHOOK] Timeout na busca inicial:', error);
+    return [[], []];
+  });
 
   // Verificar duplicata
   if (dupResult.length > 0) {
@@ -692,11 +711,17 @@ async function handleMessage(dados, payloadBruto, base44) {
     || payloadBruto.profilePicUrl
     || null;
 
-  // ✅ OTIMIZAÇÃO 2: Buscar contato + thread em PARALELO
-  const [contatos, threadsExistentes] = await Promise.all([
-    base44.asServiceRole.entities.Contact.filter({ telefone: dados.from }, '-created_date', 1),
-    base44.asServiceRole.entities.MessageThread.filter({ contact_id: { $exists: true } }, '-last_message_at', 500)
-  ]);
+  // ✅ OTIMIZAÇÃO 2: Buscar contato + thread em PARALELO com timeout
+  const [contatos, threadsExistentes] = await Promise.race([
+    Promise.all([
+      base44.asServiceRole.entities.Contact.filter({ telefone: dados.from }, '-created_date', 1),
+      base44.asServiceRole.entities.MessageThread.filter({ contact_id: { $exists: true } }, '-last_message_at', 500)
+    ]),
+    new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 8000))
+  ]).catch(error => {
+    console.error('[WEBHOOK] Timeout na busca de contato/thread:', error);
+    return [[], []];
+  });
 
   // Processar contato
   let contato;

@@ -113,8 +113,13 @@ export default function Comunicacao() {
     queryFn: () => base44.entities.Contact.list('-created_date', 300),
     staleTime: 5 * 60 * 1000,
     cacheTime: 15 * 60 * 1000,
-    retry: 1,
-    refetchOnWindowFocus: true
+    retry: 2,
+    retryDelay: 1000,
+    refetchOnWindowFocus: true,
+    onError: (error) => {
+      console.error('[Comunicacao] Erro ao carregar contatos:', error);
+      toast.error('Erro ao carregar contatos. Tentando novamente...');
+    }
   });
 
   const { data: clientes = [] } = useQuery({
@@ -130,16 +135,18 @@ export default function Comunicacao() {
     queryKey: ['threads', usuario?.id],
     queryFn: async () => {
       if (!usuario) return [];
-      // 🔧 CORREÇÃO: Aumentado para 200 para garantir que todas as threads não atribuídas 
-      // sejam carregadas, alinhando com o limite do contador de backend.
       const allThreads = await base44.entities.MessageThread.list('-last_message_at', 200);
       return allThreads;
     },
-    refetchInterval: 30000, // Aumentado para 30s
-    staleTime: 15000, // Aumentado para 15s
+    refetchInterval: 30000,
+    staleTime: 15000,
     enabled: !!usuario,
-    retry: 1,
-    refetchOnWindowFocus: false // Desabilitado para evitar rate limit
+    retry: 2,
+    retryDelay: 1000,
+    refetchOnWindowFocus: false,
+    onError: (error) => {
+      console.error('[Comunicacao] Erro ao carregar conversas:', error);
+    }
   });
 
   const loadingTopics = loadingThreads;
@@ -158,10 +165,14 @@ export default function Comunicacao() {
       return Promise.resolve([]);
     },
     enabled: !!threadAtiva,
-    refetchInterval: 5000, // Aumentado para 5s
-    staleTime: 3000, // Aumentado para 3s
-    retry: 1,
-    refetchOnWindowFocus: false // Desabilitado
+    refetchInterval: 5000,
+    staleTime: 3000,
+    retry: 2,
+    retryDelay: 1000,
+    refetchOnWindowFocus: false,
+    onError: (error) => {
+      console.error('[Comunicacao] Erro ao carregar mensagens:', error);
+    }
   });
 
   const { data: todasIntegracoes = [] } = useQuery({
@@ -169,7 +180,11 @@ export default function Comunicacao() {
     queryFn: () => base44.entities.WhatsAppIntegration.list(),
     staleTime: 10 * 60 * 1000,
     cacheTime: 15 * 60 * 1000,
-    retry: 1
+    retry: 2,
+    retryDelay: 1000,
+    onError: (error) => {
+      console.error('[Comunicacao] Erro ao carregar integrações:', error);
+    }
   });
 
   // Filtrar integrações baseado nas permissões do usuário
@@ -189,11 +204,9 @@ export default function Comunicacao() {
     return todasIntegracoes.filter(i => visiveisNorm.has(normalizar(i.id)));
   }, [todasIntegracoes, usuario?.id, usuario?.role, usuario?.permissoes_visualizacao]);
 
-  // ✅ FONTE ÚNICA DE ATENDENTES - Carrega uma vez e passa para todos os componentes filhos
   const { data: atendentesRaw = [] } = useQuery({
     queryKey: ['atendentes'],
     queryFn: async () => {
-      // ✅ Usar serviceRole via função backend para buscar TODOS os atendentes
       const resultado = await base44.functions.invoke('listarUsuariosParaAtribuicao', {});
       if (resultado?.data?.success && resultado?.data?.usuarios) {
         console.log('[Comunicacao] ✅ Atendentes carregados (fonte única):', resultado.data.usuarios.length);
@@ -203,14 +216,18 @@ export default function Comunicacao() {
     },
     enabled: !!usuario,
     staleTime: 5 * 60 * 1000,
-    retry: 2
+    retry: 3,
+    retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 5000),
+    onError: (error) => {
+      console.error('[Comunicacao] Erro ao carregar atendentes:', error);
+      toast.error('Erro ao carregar lista de atendentes');
+    }
   });
 
   // ✅ FONTE ÚNICA: Sempre usar lista COMPLETA de atendentes, sem filtros de permissões
   // Todos os componentes recebem a mesma lista completa
   const atendentes = atendentesRaw;
 
-  // 🏷️ Buscar mensagens com categoria selecionada para filtrar threads na sidebar
   const { data: mensagensComCategoria = [] } = useQuery({
     queryKey: ['mensagens-com-categoria', selectedCategoria],
     queryFn: async () => {
@@ -222,10 +239,14 @@ export default function Comunicacao() {
       );
     },
     enabled: !!selectedCategoria && selectedCategoria !== 'all',
-    staleTime: 5 * 60 * 1000, // 5 minutos
+    staleTime: 5 * 60 * 1000,
     cacheTime: 10 * 60 * 1000,
-    retry: 1,
-    refetchOnWindowFocus: false
+    retry: 2,
+    retryDelay: 1000,
+    refetchOnWindowFocus: false,
+    onError: (error) => {
+      console.error('[Comunicacao] Erro ao filtrar por categoria:', error);
+    }
   });
 
   // ═══════════════════════════════════════════════════════════════════════════════
