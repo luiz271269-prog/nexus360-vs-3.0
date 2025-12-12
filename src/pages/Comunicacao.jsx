@@ -206,14 +206,9 @@ export default function Comunicacao() {
     retry: 2
   });
 
-  // ✅ CORREÇÃO: Separar atendentes para EXIBIÇÃO de NOMES vs FILTRO
-  // atendentes = TODOS (para exibir nomes em threads/mensagens E passar para componentes filhos)
-  // atendentesParaFiltro = Apenas os que o usuário pode FILTRAR
-  const atendentes = atendentesRaw; // Lista completa para exibir nomes
-  
-  const atendentesParaFiltro = React.useMemo(() => {
-    return filtrarAtendentesVisiveis(usuario, atendentesRaw);
-  }, [atendentesRaw, usuario]);
+  // ✅ FONTE ÚNICA: Sempre usar lista COMPLETA de atendentes, sem filtros de permissões
+  // Todos os componentes recebem a mesma lista completa
+  const atendentes = atendentesRaw;
 
   // 🏷️ Buscar mensagens com categoria selecionada para filtrar threads na sidebar
   const { data: mensagensComCategoria = [] } = useQuery({
@@ -1059,7 +1054,7 @@ export default function Comunicacao() {
                     onFilterScopeChange={setFilterScope}
                     selectedAttendantId={selectedAttendantId}
                     onSelectedAttendantChange={setSelectedAttendantId}
-                    atendentes={atendentesParaFiltro}
+                    atendentes={atendentes}
                     isManager={isManager}
                     novoContatoTelefone={novoContatoTelefone}
                     onNovoContatoTelefoneChange={setNovoContatoTelefone}
