@@ -103,7 +103,6 @@ export default function ChatWindow({
   const [mostrarMediaSystem, setMostrarMediaSystem] = useState(false);
 
   const [vendedores, setVendedores] = useState([]);
-  const [atendentesLista, setAtendentesLista] = useState([]);
 
   // Estados para broadcast
   const [enviandoBroadcast, setEnviandoBroadcast] = useState(false);
@@ -138,13 +137,6 @@ export default function ChatWindow({
   const navigate = useNavigate();
 
   // ✅ TODOS OS useEffect NO TOPO - ANTES DE QUALQUER RETURN
-  // ✅ CORREÇÃO: Sincronizar atendentesLista com prop atendentes (fonte única do pai)
-  useEffect(() => {
-    if (atendentes && atendentes.length > 0) {
-      setAtendentesLista(atendentes);
-    }
-  }, [atendentes]);
-
   useEffect(() => {
     const carregarDados = async () => {
       try {
@@ -284,7 +276,7 @@ export default function ChatWindow({
 
     setAtribuindo(true);
     try {
-      const atendenteEscolhido = atendentesLista.find((a) => a.id === atendenteId);
+      const atendenteEscolhido = atendentes.find((a) => a.id === atendenteId);
 
       if (!atendenteEscolhido) {
         throw new Error("Atendente não encontrado");
@@ -360,7 +352,7 @@ export default function ChatWindow({
     } finally {
       setAtribuindo(false);
     }
-  }, [atendentesLista, usuario, thread, onAtualizarMensagens, mensagemTransferencia]);
+  }, [atendentes, usuario, thread, onAtualizarMensagens, mensagemTransferencia]);
 
   const autoAtribuirThreadSeNecessario = useCallback(async (threadAtual) => {
     if (!threadAtual || !usuario) return;
@@ -1697,7 +1689,7 @@ export default function ChatWindow({
                   integracoes={integracoes}
                   usuarioAtual={usuario}
                   contato={contatoCompleto}
-                  atendentes={atendentesLista} />
+                  atendentes={atendentes} />
 
                 </React.Fragment>);
 
@@ -1800,7 +1792,7 @@ export default function ChatWindow({
         thread={thread}
         usuario={usuario}
         contatoNome={contatoCompleto?.nome || 'Cliente'}
-        atendentes={atendentesLista}
+        atendentes={atendentes}
         onSuccess={() => {
           if (onAtualizarMensagens) {
             onAtualizarMensagens();
