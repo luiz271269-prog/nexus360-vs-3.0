@@ -284,10 +284,12 @@ async function handleMessageUpdate(dados, base44) {
   return Response.json({ success: true, processed: 'status_update', provider: 'w_api' }, { headers: corsHeaders });
 }
 
+import { processarURA, ehFornecedorOuCompras, deveIniciarPreAtendimento, SAUDACOES } from './lib/uraProcessor.js';
+
 // ============================================================================
-// PRÉ-ATENDIMENTO INLINE (W-API)
+// PRÉ-ATENDIMENTO INLINE - DEPRECATED (usar uraProcessor.js)
 // ============================================================================
-async function executarPreAtendimentoInline(base44, params) {
+async function executarPreAtendimentoInline_DEPRECATED(base44, params) {
   const { action, thread_id, contact_id, integration_id, resposta_usuario } = params;
 
   function getSaudacao() {
@@ -658,7 +660,10 @@ async function handleMessage(dados, payloadBruto, base44, req) {
       last_media_type: dados.mediaType,
       total_mensagens: 1,
       unread_count: 1,
-      pre_atendimento_setor_explicitamente_escolhido: false
+      pre_atendimento_setor_explicitamente_escolhido: false,
+      pre_atendimento_ativo: false,
+      pre_atendimento_state: 'INIT',
+      transfer_pending: false
     });
   }
 
@@ -935,12 +940,14 @@ async function handleMessage(dados, payloadBruto, base44, req) {
   
   if (preAtivo) {
     try {
-      await executarPreAtendimentoInline(base44, {
+      await processarURA({
+        base44,
         action: 'processar_resposta',
         thread_id: thread.id,
         contact_id: contato.id,
         integration_id: integracaoId,
-        resposta_usuario: dados.content
+        resposta_usuario: dados.content,
+        provider: 'w_api'
       });
     } catch (e) {}
     
@@ -957,14 +964,10 @@ async function handleMessage(dados, payloadBruto, base44, req) {
   }
   
   // (7) SAUDAÇÃO
-  const SAUDACOES = [
-    'oi', 'ola', 'oie', 'oii', 'oiii', 'bom dia', 'boa tarde', 'boa noite',
-    'bomdia', 'boatarde', 'boanoite', 'hey', 'hello', 'hi', 'e ai', 'eai', 'eae',
-    'tudo bem', 'tudo bom', 'como vai', 'opa', 'fala', 'salve'
-  ];
+  const SAUDACOES_LOCAL = SAUDACOES;
   
   const mensagemNorm = (dados.content || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
-  const isSaudacao = SAUDACOES.some(s => 
+  const isSaudacao = SAUDACOES_LOCAL.some(s => 
     mensagemNorm === s || mensagemNorm.startsWith(s + ' ') || 
     mensagemNorm.startsWith(s + ',') || mensagemNorm.startsWith(s + '!')
   );
@@ -988,11 +991,13 @@ async function handleMessage(dados, payloadBruto, base44, req) {
   if (!preAtivo && !isMidia && isSaudacao) {
     if (deveIniciarPreAtendimento(contato, thread)) {
       try {
-        await executarPreAtendimentoInline(base44, {
+        await processarURA({
+          base44,
           action: 'iniciar',
           thread_id: thread.id,
           contact_id: contato.id,
-          integration_id: integracaoId
+          integration_id: integracaoId,
+          provider: 'w_api'
         });
       } catch (e) {}
       

@@ -360,7 +360,7 @@ export default function ChatSidebar({
                 </span>
               </div>
 
-              {/* Linha 2: Preview mensagem */}
+              {/* Linha 2: Preview mensagem - IGNORAR MENSAGENS DE SISTEMA */}
               <p className={`text-xs truncate flex items-center gap-1 ${
                 hasUnread ? 'text-slate-800' : 'text-slate-500'}`
                 }>
@@ -379,7 +379,20 @@ export default function ChatSidebar({
                     {thread.last_media_type === 'contact' && <PhoneIcon className="w-3 h-3 text-cyan-500 flex-shrink-0" />}
                     <span className="truncate">
                       {(() => {
-                        const content = thread.last_message_content;
+                        let content = thread.last_message_content;
+                        
+                        // ✅ IGNORAR prompts de URA/Micro-URA (mensagens de sistema)
+                        if (content && (
+                          content.includes('Para qual setor') ||
+                          content.includes('Você quer que eu transfira') ||
+                          content.includes('Opção inválida') ||
+                          content.includes('assistente virtual')
+                        )) {
+                          // Buscar última mensagem real (não-sistema)
+                          // Como não temos acesso ao histórico aqui, mostrar fallback
+                          content = "💬 Aguardando resposta...";
+                        }
+                        
                         if (!content || content === '[No content]' || /^[\+\d]+@(lid|s\.whatsapp\.net|c\.us)/.test(content)) {
                           if (thread.last_media_type === 'image') return "📷 Imagem";
                           if (thread.last_media_type === 'video') return "🎥 Vídeo";

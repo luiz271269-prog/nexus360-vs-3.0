@@ -211,10 +211,12 @@ async function handleMessageUpdate(dados, base44) {
   return Response.json({ success: true, processed: 'status_update' }, { headers: corsHeaders });
 }
 
+import { processarURA, ehFornecedorOuCompras, deveIniciarPreAtendimento, SAUDACOES } from './lib/uraProcessor.js';
+
 // ============================================================================
-// PRÉ-ATENDIMENTO INLINE
+// PRÉ-ATENDIMENTO INLINE - DEPRECATED (usar uraProcessor.js)
 // ============================================================================
-async function executarPreAtendimentoInline(base44, params) {
+async function executarPreAtendimentoInline_DEPRECATED(base44, params) {
   const { action, thread_id, contact_id, integration_id, resposta_usuario } = params;
 
   function getSaudacao() {
@@ -585,7 +587,10 @@ async function handleMessage(dados, payloadBruto, base44) {
       last_message_content: (dados.content || '').substring(0, 100),
       total_mensagens: 1,
       unread_count: 1,
-      pre_atendimento_setor_explicitamente_escolhido: false
+      pre_atendimento_setor_explicitamente_escolhido: false,
+      pre_atendimento_ativo: false,
+      pre_atendimento_state: 'INIT',
+      transfer_pending: false
     });
   }
 
@@ -894,12 +899,14 @@ async function handleMessage(dados, payloadBruto, base44) {
     console.log('[' + VERSION + '] 🔄 Processando resposta PA');
     
     try {
-      await executarPreAtendimentoInline(base44, {
+      await processarURA({
+        base44,
         action: 'processar_resposta',
         thread_id: thread.id,
         contact_id: contato.id,
         integration_id: integracaoId,
-        resposta_usuario: dados.content
+        resposta_usuario: dados.content,
+        provider: 'z_api'
       });
     } catch (e) {
       console.error('[' + VERSION + '] ❌ Erro ao processar:', e.message);
@@ -918,18 +925,10 @@ async function handleMessage(dados, payloadBruto, base44) {
   }
   
   // (7) SAUDAÇÃO - INICIAR PA
-  const SAUDACOES = [
-    'oi', 'olá', 'ola', 'oie', 'oii', 'oiii',
-    'bom dia', 'boa tarde', 'boa noite',
-    'bomdia', 'boatarde', 'boanoite',
-    'hey', 'hello', 'hi',
-    'e aí', 'e ai', 'eai', 'eae',
-    'tudo bem', 'tudo bom', 'como vai',
-    'opa', 'fala', 'salve'
-  ];
+  const SAUDACOES_LOCAL = SAUDACOES;
   
   const mensagemLower = (dados.content || '').toLowerCase().trim();
-  const isSaudacao = SAUDACOES.some(s => mensagemLower === s || mensagemLower.startsWith(s + ' ') || mensagemLower.startsWith(s + ',') || mensagemLower.startsWith(s + '!'));
+  const isSaudacao = SAUDACOES_LOCAL.some(s => mensagemLower === s || mensagemLower.startsWith(s + ' ') || mensagemLower.startsWith(s + ',') || mensagemLower.startsWith(s + '!'));
   
   // PRÉ-ATENDIMENTO JÁ CONCLUÍDO
   if (thread.pre_atendimento_state === 'COMPLETED' && thread.sector_id) {
@@ -952,11 +951,13 @@ async function handleMessage(dados, payloadBruto, base44) {
       console.log('[' + VERSION + '] 🚀 Saudação! Iniciando PA');
       
       try {
-        await executarPreAtendimentoInline(base44, {
+        await processarURA({
+          base44,
           action: 'iniciar',
           thread_id: thread.id,
           contact_id: contato.id,
-          integration_id: integracaoId
+          integration_id: integracaoId,
+          provider: 'z_api'
         });
       } catch (e) {
         console.error('[' + VERSION + '] ❌ Erro ao iniciar:', e.message);
