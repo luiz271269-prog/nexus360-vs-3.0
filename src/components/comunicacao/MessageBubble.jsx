@@ -594,17 +594,18 @@ export default React.memo(function MessageBubble({
           "flex flex-col group relative"
         )}>
           {/* Nome do Remetente - Somente para mensagens recebidas de outros atendentes */}
-          {!isOwn && message.sender_type === 'user' && (
-            <span className="text-[11px] font-semibold mb-0.5 text-[#53bdeb]">
-              {(() => {
-                const atendenteRemetente = atendentes.find(a => a.id === message.sender_id);
-                // REGRA DO NOME: display_name (editável) > full_name (login)
-                const nomeAtendente = atendenteRemetente?.display_name || atendenteRemetente?.full_name || 'Atendente';
-                const setorAtendente = atendenteRemetente?.attendant_sector;
-                return setorAtendente ? `${nomeAtendente} (${setorAtendente})` : nomeAtendente;
-              })()}
-            </span>
-          )}
+          {!isOwn && message.sender_type === 'user' && (() => {
+            const atendenteRemetente = atendentes.find(a => a.id === message.sender_id);
+            return (
+              <div className="mb-0.5">
+                <UsuarioDisplay 
+                  usuario={atendenteRemetente} 
+                  className="text-[11px] font-semibold text-[#53bdeb]"
+                  variant="compact"
+                />
+              </div>
+            );
+          })()}
           {/* Nome do contato - para mensagens recebidas do cliente */}
           {!isOwn && message.sender_type === 'contact' && contato?.nome && (
             <span className="text-[11px] font-semibold mb-0.5 text-[#00a884]">
