@@ -71,7 +71,8 @@ export default function ChatWindow({
   // Props para seleção múltipla (broadcast)
   modoSelecaoMultipla = false,
   contatosSelecionados = [],
-  onCancelarSelecao
+  onCancelarSelecao,
+  atendentes = [] // ✅ PROP: Recebe lista completa de atendentes do pai (Comunicacao.jsx)
 }) {
   // ✅ ESTADOS REMOVIDOS DO PAI - Agora no MessageInput
   // mensagemTexto, pastedImage, pastedImagePreview, inputRef
@@ -139,19 +140,19 @@ export default function ChatWindow({
   const navigate = useNavigate();
 
   // ✅ TODOS OS useEffect NO TOPO - ANTES DE QUALQUER RETURN
+  // ✅ CORREÇÃO: Sincronizar atendentesLista com prop atendentes (fonte única do pai)
+  useEffect(() => {
+    if (atendentes && atendentes.length > 0) {
+      setAtendentesLista(atendentes);
+    }
+  }, [atendentes]);
+
   useEffect(() => {
     const carregarDados = async () => {
       try {
-        // Carregar vendedores e usuários em paralelo
-        const [vend, usuariosResult] = await Promise.all([
-          base44.entities.Vendedor.list('nome'),
-          base44.functions.invoke('listarUsuariosParaAtribuicao', {})
-        ]);
+        // Carregar apenas vendedores (atendentes vem do pai via prop)
+        const vend = await base44.entities.Vendedor.list('nome');
         setVendedores(vend || []);
-        
-        if (usuariosResult?.data?.success && usuariosResult?.data?.usuarios) {
-          setAtendentesLista(usuariosResult.data.usuarios);
-        }
       } catch (error) {
         console.error('[ChatWindow] Erro ao carregar dados:', error);
       }
@@ -268,39 +269,13 @@ export default function ChatWindow({
 
   useEffect(() => {
     if (mostrarModalAtribuicao) {
-      carregarAtendentes();
       // Mensagem padrão ao abrir
       const nomeContato = contatoCompleto?.nome || 'Cliente';
       setMensagemTransferencia(`Conversa com ${nomeContato} transferida.`);
     }
   }, [mostrarModalAtribuicao, contatoCompleto?.nome]);
 
-  const carregarAtendentes = useCallback(async () => {
-    setCarregandoAtendentes(true);
-    try {
-      // Usar função backend com serviceRole para buscar TODOS os usuários
-      const resultado = await base44.functions.invoke('listarUsuariosParaAtribuicao', {});
-      
-      if (resultado?.data?.success && resultado?.data?.usuarios) {
-        setAtendentes(resultado.data.usuarios);
-      } else {
-        if (atendentesLista && atendentesLista.length > 0) {
-          setAtendentes(atendentesLista);
-        } else {
-          setAtendentes([]);
-        }
-      }
-    } catch (error) {
-      console.error('[CHAT] Erro ao carregar usuários:', error);
-      if (atendentesLista && atendentesLista.length > 0) {
-        setAtendentes(atendentesLista);
-      } else {
-        setAtendentes([]);
-      }
-    } finally {
-      setCarregandoAtendentes(false);
-    }
-  }, [atendentesLista]);
+  // ✅ REMOVIDO: carregarAtendentes - usa prop atendentes do pai
 
   const handleAtribuirConversa = useCallback(async (atendenteId) => {
     // Removida trava de permissão - qualquer usuário pode transferir
@@ -311,7 +286,7 @@ export default function ChatWindow({
 
     setAtribuindo(true);
     try {
-      const atendenteEscolhido = atendentes.find((a) => a.id === atendenteId);
+      const atendenteEscolhido = atendentesLista.find((a) => a.id === atendenteId);
 
       if (!atendenteEscolhido) {
         throw new Error("Atendente não encontrado");
@@ -387,7 +362,7 @@ export default function ChatWindow({
     } finally {
       setAtribuindo(false);
     }
-  }, [atendentes, usuario, thread, onAtualizarMensagens, mensagemTransferencia]);
+  }, [atendentesLista, usuario, thread, onAtualizarMensagens, mensagemTransferencia]);
 
   const autoAtribuirThreadSeNecessario = useCallback(async (threadAtual) => {
     if (!threadAtual || !usuario) return;
@@ -1827,7 +1802,7 @@ export default function ChatWindow({
         thread={thread}
         usuario={usuario}
         contatoNome={contatoCompleto?.nome || 'Cliente'}
-        atendentesPreCarregados={atendentesLista}
+        atendentes={atendentesLista}
         onSuccess={() => {
           if (onAtualizarMensagens) {
             onAtualizarMensagens();
