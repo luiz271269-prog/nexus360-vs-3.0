@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
-import { Link, useLocation, useNavigate } from "react-router-dom";
+import { Link } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import { base44 } from "@/api/base44Client";
 import {
@@ -56,8 +56,7 @@ import { calcularLembretesGlobal } from "../components/global/MotorLembretesGlob
 import UserAuthWidget from "../components/global/UserAuthWidget";
 
 function NavItem({ href, icon: Icon, label, badge, badgeColor, lembretesCount }) {
-  const location = useLocation();
-  const isActive = location.pathname === new URL(href, window.location.origin).pathname;
+  const isActive = window.location.pathname === new URL(href, window.location.origin).pathname;
 
   const getBadgeColor = (count) => {
     if (count >= 10) return 'bg-purple-600';
