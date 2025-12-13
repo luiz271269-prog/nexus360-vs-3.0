@@ -346,7 +346,9 @@ export function ehFornecedorOuCompras(contact, thread) {
 }
 
 export function deveIniciarPreAtendimento(contact, thread) {
-  if (thread.pre_atendimento_state === 'COMPLETED' && thread.sector_id) return false;
+  // Se a URA foi completada E ainda há um atendente atribuído, não reinicia
+  // Caso contrário, permite reiniciar (ex: cliente voltou mas não há atendente)
+  if (thread.pre_atendimento_state === 'COMPLETED' && thread.assigned_user_id) return false;
   if (thread.pre_atendimento_setor_explicitamente_escolhido === true) return false;
   if (ehFornecedorOuCompras(contact, thread)) return false;
   return true;
