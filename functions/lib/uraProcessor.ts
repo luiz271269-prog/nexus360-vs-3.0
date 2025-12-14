@@ -335,6 +335,7 @@ ${promocoesResponse.data.texto_formatado}
   return { success: false, error: 'acao_invalida' };
 }
 
+// DEPRECATED: Movido para roteadorCentral.js
 export function ehFornecedorOuCompras(contact, thread) {
   if (contact.tipo_contato === 'fornecedor') return true;
   if (contact.tags && Array.isArray(contact.tags)) {

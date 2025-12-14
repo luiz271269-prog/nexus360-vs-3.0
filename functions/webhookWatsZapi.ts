@@ -211,7 +211,15 @@ async function handleMessageUpdate(dados, base44) {
   return Response.json({ success: true, processed: 'status_update' }, { headers: corsHeaders });
 }
 
-import { processarURA, ehFornecedorOuCompras, deveIniciarPreAtendimento, assignedUserStale, aplicarStickySetor, SAUDACOES } from './lib/uraProcessor.js';
+import { processarURA, assignedUserStale, aplicarStickySetor, SAUDACOES } from './lib/uraProcessor.js';
+import { 
+  classificarContato, 
+  decidirReabertura, 
+  selecionarTemplate,
+  aplicarRoteamentoFidelizado,
+  aplicarRoteamentoFornecedor,
+  ehFornecedorOuCompras
+} from './lib/roteadorCentral.js';
 
 // ============================================================================
 // PRÉ-ATENDIMENTO INLINE - DEPRECATED (usar uraProcessor.js)
@@ -827,66 +835,19 @@ async function handleMessage(dados, payloadBruto, base44) {
     }
   }
   
-  // (4) GUARDA: FIDELIZAÇÃO
-  if (contato.is_cliente_fidelizado === true) {
-    console.log('[' + VERSION + '] 🎯 FIDELIZADO - Transferindo');
-    
-    const setorFidelizado = contato.atendente_fidelizado_vendas ? 'vendas' :
-                            contato.atendente_fidelizado_assistencia ? 'assistencia' :
-                            contato.atendente_fidelizado_financeiro ? 'financeiro' :
-                            contato.atendente_fidelizado_fornecedor ? 'fornecedor' : 'geral';
-    
-    const campoFidelizado = {
-      'vendas': 'atendente_fidelizado_vendas',
-      'assistencia': 'atendente_fidelizado_assistencia',
-      'financeiro': 'atendente_fidelizado_financeiro',
-      'fornecedor': 'atendente_fidelizado_fornecedor'
-    };
-    
-    let atendenteFidelizado = null;
-    const campo = campoFidelizado[setorFidelizado];
-    if (campo && contato[campo]) {
-      try {
-        atendenteFidelizado = await base44.asServiceRole.entities.User.get(contato[campo]);
-      } catch (e) {}
-    }
-    
-    const threadUpdate = {
-      sector_id: setorFidelizado,
-      pre_atendimento_ativo: false,
-      pre_atendimento_state: 'NAO_INICIADO'
-    };
-    
-    if (atendenteFidelizado) {
-      threadUpdate.assigned_user_id = atendenteFidelizado.id;
-    }
-    
-    await base44.asServiceRole.entities.MessageThread.update(thread.id, threadUpdate);
-    
-    const duracao = Date.now() - inicio;
-    return Response.json({
-      success: true,
-      message_id: mensagem.id,
-      contact_id: contato.id,
-      thread_id: thread.id,
-      integration_id: integracaoId,
-      fidelizado_transferido: true,
-      duration_ms: duracao
-    }, { headers: corsHeaders });
-  }
+  // ============================================================================
+  // ROTEADOR CENTRAL - ORDEM IMUTÁVEL
+  // ============================================================================
   
-  // (5) GUARDA: FORNECEDOR/COMPRAS
-  if (ehFornecedorOuCompras(contato, thread)) {
-    console.log('[' + VERSION + '] 📦 Fornecedor/Compras - ignorando PA');
+  // Classificar contato
+  const classificacao = classificarContato(contato);
+  console.log('[' + VERSION + '] 🔍 Classificação:', classificacao);
+  
+  // (4) GUARDA: FORNECEDOR/COMPRAS
+  if (classificacao.tipo === 'fornecedor' || ehFornecedorOuCompras(contato, thread)) {
+    console.log('[' + VERSION + '] 📦 Fornecedor/Compras');
     
-    if (!thread.sector_id) {
-      const setorInferido = contato.tipo_contato === 'fornecedor' ? 'fornecedor' : 'compras';
-      await base44.asServiceRole.entities.MessageThread.update(thread.id, {
-        sector_id: setorInferido,
-        pre_atendimento_ativo: false,
-        pre_atendimento_state: 'NAO_INICIADO'
-      }).catch(() => {});
-    }
+    const resultado = await aplicarRoteamentoFornecedor(base44, thread, contato);
     
     const duracao = Date.now() - inicio;
     return Response.json({
@@ -896,7 +857,28 @@ async function handleMessage(dados, payloadBruto, base44) {
       thread_id: thread.id,
       integration_id: integracaoId,
       duration_ms: duracao,
-      fornecedor_compras: true
+      roteamento: 'fornecedor',
+      setor: resultado.setor
+    }, { headers: corsHeaders });
+  }
+  
+  // (5) GUARDA: FIDELIZAÇÃO
+  if (classificacao.fidelizado) {
+    console.log('[' + VERSION + '] 🎯 FIDELIZADO');
+    
+    const resultado = await aplicarRoteamentoFidelizado(base44, thread, contato);
+    
+    const duracao = Date.now() - inicio;
+    return Response.json({
+      success: true,
+      message_id: mensagem.id,
+      contact_id: contato.id,
+      thread_id: thread.id,
+      integration_id: integracaoId,
+      duration_ms: duracao,
+      roteamento: 'fidelizado',
+      setor: resultado.setor,
+      atendente_id: resultado.atendente_id
     }, { headers: corsHeaders });
   }
   
@@ -932,35 +914,72 @@ async function handleMessage(dados, payloadBruto, base44) {
     }, { headers: corsHeaders });
   }
   
-  // (7) REABERTURA: STICKY SETOR ou INICIAR PA
+  // (6) REABERTURA: DECIDIR MODO (STICKY, MINI, FULL)
   const SAUDACOES_LOCAL = SAUDACOES;
-  
   const mensagemLower = (dados.content || '').toLowerCase().trim();
   const isSaudacao = SAUDACOES_LOCAL.some(s => mensagemLower === s || mensagemLower.startsWith(s + ' ') || mensagemLower.startsWith(s + ',') || mensagemLower.startsWith(s + '!'));
   
-  // PRÉ-ATENDIMENTO JÁ CONCLUÍDO COM SETOR - APLICAR STICKY SETOR
-  if (thread.pre_atendimento_state === 'COMPLETED' && thread.sector_id && isSaudacao) {
-    console.log('[' + VERSION + '] 🔄 PA concluído - aplicando Sticky Setor:', thread.sector_id);
-    
-    const aplicouSticky = await aplicarStickySetor(base44, thread, contato, integracaoId, 'z_api');
-    
-    const duracao = Date.now() - inicio;
-    return Response.json({
-      success: true,
-      message_id: mensagem.id,
-      contact_id: contato.id,
-      thread_id: thread.id,
-      integration_id: integracaoId,
-      duration_ms: duracao,
-      sticky_setor_aplicado: aplicouSticky
-    }, { headers: corsHeaders });
-  }
-  
   if (!preAtivo && isSaudacao) {
-    if (deveIniciarPreAtendimento(contato, thread)) {
-      console.log('[' + VERSION + '] 🚀 Saudação! Iniciando PA');
+    const decisaoReabertura = decidirReabertura(thread, new Date(), 12);
+    console.log('[' + VERSION + '] 🔄 Decisão reabertura:', decisaoReabertura);
+    
+    // STICKY SETOR (dentro da janela de 12h)
+    if (decisaoReabertura.modo === 'sticky') {
+      console.log('[' + VERSION + '] ✅ Aplicando Sticky Setor:', decisaoReabertura.setor);
+      const aplicouSticky = await aplicarStickySetor(base44, thread, contato, integracaoId, 'z_api');
+      
+      const duracao = Date.now() - inicio;
+      return Response.json({
+        success: true,
+        message_id: mensagem.id,
+        contact_id: contato.id,
+        thread_id: thread.id,
+        integration_id: integracaoId,
+        duration_ms: duracao,
+        roteamento: 'sticky_setor',
+        setor: decisaoReabertura.setor
+      }, { headers: corsHeaders });
+    }
+    
+    // MINI-URA (fora da janela, mas tem setor anterior)
+    if (decisaoReabertura.modo === 'mini') {
+      console.log('[' + VERSION + '] 🔄 Mini-URA (continuar ou mudar)');
+      // TODO: Implementar mini-URA na Fase 2
+      // Por enquanto, aplica sticky
+      const aplicouSticky = await aplicarStickySetor(base44, thread, contato, integracaoId, 'z_api');
+      
+      const duracao = Date.now() - inicio;
+      return Response.json({
+        success: true,
+        message_id: mensagem.id,
+        contact_id: contato.id,
+        thread_id: thread.id,
+        integration_id: integracaoId,
+        duration_ms: duracao,
+        roteamento: 'mini_ura_fallback_sticky'
+      }, { headers: corsHeaders });
+    }
+    
+    // FULL URA (sem setor ou nunca completou)
+    if (decisaoReabertura.modo === 'full') {
+      console.log('[' + VERSION + '] 🚀 Iniciando URA completa (tipo:', classificacao.tipo + ')');
       
       try {
+        const template = await selecionarTemplate(base44, classificacao);
+        if (!template) {
+          console.error('[' + VERSION + '] ❌ Nenhum template encontrado');
+          const duracao = Date.now() - inicio;
+          return Response.json({
+            success: true,
+            message_id: mensagem.id,
+            contact_id: contato.id,
+            thread_id: thread.id,
+            integration_id: integracaoId,
+            duration_ms: duracao,
+            error: 'sem_template'
+          }, { headers: corsHeaders });
+        }
+        
         await processarURA({
           base44,
           action: 'iniciar',
@@ -980,8 +999,9 @@ async function handleMessage(dados, payloadBruto, base44) {
         contact_id: contato.id,
         thread_id: thread.id,
         integration_id: integracaoId,
-        pre_atendimento_iniciado: true,
-        duration_ms: duracao
+        duration_ms: duracao,
+        roteamento: 'ura_completa',
+        tipo_contato: classificacao.tipo
       }, { headers: corsHeaders });
     }
   }
