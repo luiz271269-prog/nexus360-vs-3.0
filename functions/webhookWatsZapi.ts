@@ -652,45 +652,82 @@ async function handleMessage(dados, payloadBruto, base44) {
   });
 
   // ============================================================================
-  // PIPELINE UNIFICADO - ORDEM IMUTÁVEL
+  // PIPELINE ÚNICO IMUTÁVEL - v9.0.0
   // ============================================================================
 
-  // (0) PROMOÇÕES: Verificar "abertura de ciclo" ANTES de qualquer lógica de roteamento
-  try {
-    const { maybeSendPromotions } = await import('./lib/promotionEngine.js');
-    const promoResult = await maybeSendPromotions({
-      base44,
-      contact: contato,
-      thread: thread,
-      integration: integracaoId ? await base44.asServiceRole.entities.WhatsAppIntegration.get(integracaoId).catch(() => null) : null,
-      now: new Date(),
-      provider: 'z_api'
-    });
+  const integracao = integracaoId 
+    ? await base44.asServiceRole.entities.WhatsAppIntegration.get(integracaoId).catch(() => null)
+    : null;
 
-    if (promoResult.sent) {
-      console.log('[' + VERSION + '] 🎁 Promoção enviada:', promoResult);
-    }
-  } catch (e) {
-    console.error('[' + VERSION + '] ⚠️ Erro ao processar promoções:', e.message);
+  const { processInboundEvent } = await import('./lib/inboundCore.js');
+
+  const pipelineResult = await processInboundEvent({
+    base44,
+    contact: contato,
+    thread: thread,
+    message: mensagem,
+    integration: integracao,
+    provider: 'z_api',
+    messageContent: dados.content
+  });
+
+  console.log('[' + VERSION + '] Pipeline:', pipelineResult.pipeline);
+  console.log('[' + VERSION + '] Actions:', pipelineResult.actions);
+
+  // Se foi consumido (micro-URA 1/2), retornar imediatamente
+  if (pipelineResult.consumed) {
+    const duracao = Date.now() - inicio;
+    return Response.json({
+      success: true,
+      message_id: mensagem.id,
+      contact_id: contato.id,
+      thread_id: thread.id,
+      duration_ms: duracao,
+      pipeline: pipelineResult.pipeline,
+      consumed: true,
+      action: pipelineResult.action
+    }, { headers: corsHeaders });
   }
 
+  // Se teve hard-stop, retornar
+  if (pipelineResult.stop) {
+    const duracao = Date.now() - inicio;
+    return Response.json({
+      success: true,
+      message_id: mensagem.id,
+      contact_id: contato.id,
+      thread_id: thread.id,
+      duration_ms: duracao,
+      pipeline: pipelineResult.pipeline,
+      stop: true,
+      reason: pipelineResult.reason
+    }, { headers: corsHeaders });
+  }
+
+  // Retorno normal
+  const duracao = Date.now() - inicio;
+  return Response.json({
+    success: true,
+    message_id: mensagem.id,
+    contact_id: contato.id,
+    thread_id: thread.id,
+    integration_id: integracaoId,
+    duration_ms: duracao,
+    pipeline: pipelineResult.pipeline,
+    actions: pipelineResult.actions,
+    novo_ciclo: pipelineResult.novoCiclo
+  }, { headers: corsHeaders });
+  }
+
+  // ============================================================================
+  // CÓDIGO LEGADO REMOVIDO - PIPELINE AGORA É ÚNICO
+  // ============================================================================
+  /*
   // (1) LIMPEZA: Pedidos expirados
-  const { detectarPedidoTransferencia, podeEnviarPergunta, pedidoExpirou } = await import('./lib/detectorPedidoTransferencia.js');
-  
-  if (thread.transfer_pending && pedidoExpirou(thread)) {
-    console.log('[' + VERSION + '] ⏳ Micro-URA expirada, limpando');
-    await base44.asServiceRole.entities.MessageThread.update(thread.id, {
-      transfer_pending: false,
-      transfer_requested_sector_id: null,
-      transfer_requested_user_id: null,
-      transfer_requested_text: null,
-      transfer_confirmed: false,
-      transfer_expires_at: null,
-      transfer_last_prompt_at: null
-    }).catch(() => {});
-  }
+  /*
+    CÓDIGO LEGADO - AGORA NO inboundCore.js
 
-  // (2) CONSUMIR RESPOSTAS "1/2" PRIMEIRO (ANTES DE QUALQUER OUTRA LÓGICA)
+      const { detectarPedidoTransferencia, podeEnviarPergunta, pedidoExpirou } = await import('./lib/detectorPedidoTransferencia.js');
   if (thread.transfer_pending && !pedidoExpirou(thread)) {
     const resposta = dados.content?.trim();
     
@@ -1045,19 +1082,7 @@ async function handleMessage(dados, payloadBruto, base44) {
   }
   
   // (8) MENSAGEM NORMAL
-  console.log('[' + VERSION + '] ℹ️ Mensagem normal');
-
-  const duracao = Date.now() - inicio;
-  return Response.json({
-    success: true,
-    message_id: mensagem.id,
-    contact_id: contato.id,
-    thread_id: thread.id,
-    integration_id: integracaoId,
-    duration_ms: duracao,
-    mensagem_normal: true
-  }, { headers: corsHeaders });
-}
+  */
 
 // ============================================================================
 // HANDLER PRINCIPAL
