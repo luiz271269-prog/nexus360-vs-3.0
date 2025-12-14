@@ -345,10 +345,95 @@ export function ehFornecedorOuCompras(contact, thread) {
   return false;
 }
 
+/**
+ * Verifica se há atendente "stale" (sem atividade recente)
+ * @param {object} thread - Thread com assigned_user_id e last_message_at
+ * @param {number} horasInatividade - Horas de inatividade para considerar stale (padrão: 8h)
+ * @returns {boolean} - true se assigned_user_id está stale
+ */
+export function assignedUserStale(thread, horasInatividade = 8) {
+  if (!thread.assigned_user_id) return false;
+  if (!thread.last_message_at) return false;
+  
+  const lastMessageDate = new Date(thread.last_message_at);
+  const agora = new Date();
+  const diferencaHoras = (agora - lastMessageDate) / (1000 * 60 * 60);
+  
+  return diferencaHoras > horasInatividade;
+}
+
+/**
+ * Implementa "Sticky Setor" - Redireciona automaticamente para o setor anterior
+ * @param {object} base44 - SDK
+ * @param {object} thread - Thread com sector_id
+ * @param {object} contato - Contact
+ * @param {string} integracaoId - ID da integração
+ * @param {string} provider - 'z_api' ou 'w_api'
+ * @returns {Promise<boolean>} - true se aplicou sticky setor
+ */
+export async function aplicarStickySetor(base44, thread, contato, integracaoId, provider) {
+  if (!thread.sector_id) return false;
+  
+  const mensagem = `✅ Entendido! Vou te direcionar novamente para *${thread.sector_id.charAt(0).toUpperCase() + thread.sector_id.slice(1)}*. ⏳`;
+  
+  const integracao = await base44.asServiceRole.entities.WhatsAppIntegration.get(integracaoId);
+  if (!integracao) return false;
+  
+  // Enviar confirmação baseado no provedor
+  if (provider === 'z_api') {
+    const zapiUrl = `${integracao.base_url_provider}/instances/${integracao.instance_id_provider}/token/${integracao.api_key_provider}/send-text`;
+    const zapiHeaders = { 'Content-Type': 'application/json' };
+    if (integracao.security_client_token_header) {
+      zapiHeaders['Client-Token'] = integracao.security_client_token_header;
+    }
+    await fetch(zapiUrl, {
+      method: 'POST',
+      headers: zapiHeaders,
+      body: JSON.stringify({ phone: contato.telefone, message: mensagem })
+    }).catch(() => {});
+  } else if (provider === 'w_api') {
+    const wapiUrl = `${integracao.base_url_provider}/messages/send/text`;
+    const wapiHeaders = {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${integracao.api_key_provider}`
+    };
+    await fetch(wapiUrl, {
+      method: 'POST',
+      headers: wapiHeaders,
+      body: JSON.stringify({
+        instanceId: integracao.instance_id_provider,
+        number: contato.telefone,
+        text: mensagem
+      })
+    }).catch(() => {});
+  }
+  
+  // Registrar mensagem do sistema
+  await base44.asServiceRole.entities.Message.create({
+    thread_id: thread.id,
+    sender_id: 'system',
+    sender_type: 'user',
+    content: mensagem,
+    channel: 'whatsapp',
+    status: 'enviada',
+    sent_at: new Date().toISOString(),
+    metadata: { 
+      whatsapp_integration_id: integracaoId, 
+      is_system_message: true,
+      message_type: 'sticky_setor'
+    }
+  });
+  
+  console.log('[URA] ✅ Sticky Setor aplicado:', thread.sector_id);
+  return true;
+}
+
 export function deveIniciarPreAtendimento(contact, thread) {
-  // Se a URA foi completada E ainda há um atendente atribuído, não reinicia
-  // Caso contrário, permite reiniciar (ex: cliente voltou mas não há atendente)
-  if (thread.pre_atendimento_state === 'COMPLETED' && thread.assigned_user_id) return false;
+  // Se a URA foi completada E ainda há um atendente atribuído E não está stale, não reinicia
+  if (thread.pre_atendimento_state === 'COMPLETED' && thread.assigned_user_id && !assignedUserStale(thread)) {
+    return false;
+  }
+  
   if (thread.pre_atendimento_setor_explicitamente_escolhido === true) return false;
   if (ehFornecedorOuCompras(contact, thread)) return false;
   return true;

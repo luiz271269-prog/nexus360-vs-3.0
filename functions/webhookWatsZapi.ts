@@ -211,7 +211,7 @@ async function handleMessageUpdate(dados, base44) {
   return Response.json({ success: true, processed: 'status_update' }, { headers: corsHeaders });
 }
 
-import { processarURA, ehFornecedorOuCompras, deveIniciarPreAtendimento, SAUDACOES } from './lib/uraProcessor.js';
+import { processarURA, ehFornecedorOuCompras, deveIniciarPreAtendimento, assignedUserStale, aplicarStickySetor, SAUDACOES } from './lib/uraProcessor.js';
 
 // ============================================================================
 // PRÉ-ATENDIMENTO INLINE - DEPRECATED (usar uraProcessor.js)
@@ -730,12 +730,20 @@ async function handleMessage(dados, payloadBruto, base44) {
     }
   }
 
-  // (3) HARD-STOP COM MICRO-URA: Se tem atendente, detectar novo pedido
+  // (3) HARD-STOP COM MICRO-URA: Se tem atendente (mas verificar se está stale)
   if (thread.assigned_user_id) {
-    console.log('[' + VERSION + '] 🛡️ Thread com atendente:', thread.assigned_user_id);
-    
-    // Só detecta novo pedido se não houver um pendente
-    if (!thread.transfer_pending) {
+    // Verificar se atendente está "stale" (8h sem atividade)
+    if (assignedUserStale(thread, 8)) {
+      console.log('[' + VERSION + '] ⏰ Atendente STALE - limpando assigned_user_id');
+      await base44.asServiceRole.entities.MessageThread.update(thread.id, {
+        assigned_user_id: null
+      }).catch(() => {});
+      // Não retorna, continua processamento normal (sticky ou URA)
+    } else {
+      console.log('[' + VERSION + '] 🛡️ Thread com atendente ATIVO:', thread.assigned_user_id);
+      
+      // Só detecta novo pedido se não houver um pendente
+      if (!thread.transfer_pending) {
       let todosAtendentes = [];
       try {
         const usuarios = await base44.asServiceRole.entities.User.list('-created_date', 100);
@@ -805,18 +813,18 @@ async function handleMessage(dados, payloadBruto, base44) {
         
         console.log('[' + VERSION + '] ✅ Micro-URA enviada');
       }
+      
+      const duracao = Date.now() - inicio;
+      return Response.json({
+        success: true,
+        message_id: mensagem.id,
+        contact_id: contato.id,
+        thread_id: thread.id,
+        integration_id: integracaoId,
+        duration_ms: duracao,
+        atendente_existente: true
+      }, { headers: corsHeaders });
     }
-    
-    const duracao = Date.now() - inicio;
-    return Response.json({
-      success: true,
-      message_id: mensagem.id,
-      contact_id: contato.id,
-      thread_id: thread.id,
-      integration_id: integracaoId,
-      duration_ms: duracao,
-      atendente_existente: true
-    }, { headers: corsHeaders });
   }
   
   // (4) GUARDA: FIDELIZAÇÃO
@@ -924,15 +932,17 @@ async function handleMessage(dados, payloadBruto, base44) {
     }, { headers: corsHeaders });
   }
   
-  // (7) SAUDAÇÃO - INICIAR PA
+  // (7) REABERTURA: STICKY SETOR ou INICIAR PA
   const SAUDACOES_LOCAL = SAUDACOES;
   
   const mensagemLower = (dados.content || '').toLowerCase().trim();
   const isSaudacao = SAUDACOES_LOCAL.some(s => mensagemLower === s || mensagemLower.startsWith(s + ' ') || mensagemLower.startsWith(s + ',') || mensagemLower.startsWith(s + '!'));
   
-  // PRÉ-ATENDIMENTO JÁ CONCLUÍDO
-  if (thread.pre_atendimento_state === 'COMPLETED' && thread.sector_id) {
-    console.log('[' + VERSION + '] ✅ PA concluído - setor:', thread.sector_id);
+  // PRÉ-ATENDIMENTO JÁ CONCLUÍDO COM SETOR - APLICAR STICKY SETOR
+  if (thread.pre_atendimento_state === 'COMPLETED' && thread.sector_id && isSaudacao) {
+    console.log('[' + VERSION + '] 🔄 PA concluído - aplicando Sticky Setor:', thread.sector_id);
+    
+    const aplicouSticky = await aplicarStickySetor(base44, thread, contato, integracaoId, 'z_api');
     
     const duracao = Date.now() - inicio;
     return Response.json({
@@ -942,7 +952,7 @@ async function handleMessage(dados, payloadBruto, base44) {
       thread_id: thread.id,
       integration_id: integracaoId,
       duration_ms: duracao,
-      pre_atendimento_concluido: true
+      sticky_setor_aplicado: aplicouSticky
     }, { headers: corsHeaders });
   }
   
