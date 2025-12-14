@@ -652,9 +652,28 @@ async function handleMessage(dados, payloadBruto, base44) {
   });
 
   // ============================================================================
-  // ORDEM CORRETA: MICRO-URA ANTES DE TUDO
+  // PIPELINE UNIFICADO - ORDEM IMUTÁVEL
   // ============================================================================
-  
+
+  // (0) PROMOÇÕES: Verificar "abertura de ciclo" ANTES de qualquer lógica de roteamento
+  try {
+    const { maybeSendPromotions } = await import('./lib/promotionEngine.js');
+    const promoResult = await maybeSendPromotions({
+      base44,
+      contact: contato,
+      thread: thread,
+      integration: integracaoId ? await base44.asServiceRole.entities.WhatsAppIntegration.get(integracaoId).catch(() => null) : null,
+      now: new Date(),
+      provider: 'z_api'
+    });
+
+    if (promoResult.sent) {
+      console.log('[' + VERSION + '] 🎁 Promoção enviada:', promoResult);
+    }
+  } catch (e) {
+    console.error('[' + VERSION + '] ⚠️ Erro ao processar promoções:', e.message);
+  }
+
   // (1) LIMPEZA: Pedidos expirados
   const { detectarPedidoTransferencia, podeEnviarPergunta, pedidoExpirou } = await import('./lib/detectorPedidoTransferencia.js');
   
@@ -725,20 +744,39 @@ async function handleMessage(dados, payloadBruto, base44) {
       }).catch(() => {});
       
       // ✅ CONSUMIR resposta - não processar como mensagem normal
-      const duracao = Date.now() - inicio;
-      return Response.json({
-        success: true,
-        message_id: mensagem.id,
-        contact_id: contato.id,
-        thread_id: thread.id,
-        duration_ms: duracao,
-        micro_ura_resposta_consumida: true,
-        acao: 'cancelou'
-      }, { headers: corsHeaders });
-    }
-  }
+          const duracao = Date.now() - inicio;
+          return Response.json({
+            success: true,
+            message_id: mensagem.id,
+            contact_id: contato.id,
+            thread_id: thread.id,
+            duration_ms: duracao,
+            micro_ura_resposta_consumida: true,
+            acao: 'cancelou'
+          }, { headers: corsHeaders });
+        }
+      }
 
-  // (3) HARD-STOP COM MICRO-URA: Se tem atendente (mas verificar se está stale)
+      // (3) ATUALIZAR ENGAGEMENT STATE (pausar ciclos automáticos quando cliente responde)
+      try {
+        const existingStates = await base44.asServiceRole.entities.ContactEngagementState.filter({
+          contact_id: contato.id,
+          status: 'active'
+        }, '-created_date', 1);
+
+        if (existingStates.length > 0) {
+          await base44.asServiceRole.entities.ContactEngagementState.update(existingStates[0].id, {
+            status: 'paused',
+            last_inbound_at: now,
+            last_thread_id: thread.id
+          });
+          console.log('[' + VERSION + '] ⏸️ Ciclo pausado por inbound do cliente');
+        }
+      } catch (e) {
+        console.error('[' + VERSION + '] ⚠️ Erro ao atualizar engagement state:', e.message);
+      }
+
+      // (4) HARD-STOP COM MICRO-URA: Se tem atendente (mas verificar se está stale)
   if (thread.assigned_user_id) {
     // Verificar se atendente está "stale" (8h sem atividade)
     if (assignedUserStale(thread, 8)) {
