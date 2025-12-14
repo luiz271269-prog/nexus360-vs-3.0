@@ -695,9 +695,80 @@ async function handleMessage(dados, payloadBruto, base44, req) {
   const now = new Date().toISOString();
 
   // ============================================================================
-  // ORDEM CORRETA: MICRO-URA ANTES DE TUDO
+  // PIPELINE ÚNICO IMUTÁVEL - v9.0.0
   // ============================================================================
   
+  const integracao = integracaoId 
+    ? await base44.asServiceRole.entities.WhatsAppIntegration.get(integracaoId).catch(() => null)
+    : null;
+  
+  const { processInboundEvent } = await import('./lib/inboundCore.js');
+  
+  const pipelineResult = await processInboundEvent({
+    base44,
+    contact: contato,
+    thread: thread,
+    message: mensagem,
+    integration: integracao,
+    provider: 'w_api',
+    messageContent: dados.content
+  });
+  
+  console.log('[' + VERSION + '] Pipeline:', pipelineResult.pipeline);
+  console.log('[' + VERSION + '] Actions:', pipelineResult.actions);
+  
+  // Se foi consumido (micro-URA 1/2), retornar imediatamente
+  if (pipelineResult.consumed) {
+    const duracao = Date.now() - inicio;
+    return Response.json({
+      success: true,
+      message_id: mensagem.id,
+      contact_id: contato.id,
+      thread_id: thread.id,
+      duration_ms: duracao,
+      pipeline: pipelineResult.pipeline,
+      consumed: true,
+      action: pipelineResult.action,
+      provider: 'w_api'
+    }, { headers: corsHeaders });
+  }
+  
+  // Se teve hard-stop, retornar
+  if (pipelineResult.stop) {
+    const duracao = Date.now() - inicio;
+    return Response.json({
+      success: true,
+      message_id: mensagem.id,
+      contact_id: contato.id,
+      thread_id: thread.id,
+      duration_ms: duracao,
+      pipeline: pipelineResult.pipeline,
+      stop: true,
+      reason: pipelineResult.reason,
+      provider: 'w_api'
+    }, { headers: corsHeaders });
+  }
+  
+  // Retorno normal
+  const duracao = Date.now() - inicio;
+  return Response.json({
+    success: true,
+    message_id: mensagem.id,
+    contact_id: contato.id,
+    thread_id: thread.id,
+    integration_id: integracaoId,
+    duration_ms: duracao,
+    pipeline: pipelineResult.pipeline,
+    actions: pipelineResult.actions,
+    novo_ciclo: pipelineResult.novoCiclo,
+    provider: 'w_api'
+  }, { headers: corsHeaders });
+}
+
+// ============================================================================
+// CÓDIGO LEGADO REMOVIDO - PIPELINE AGORA É ÚNICO
+// ============================================================================
+/*
   // (1) LIMPEZA
   const { detectarPedidoTransferencia, podeEnviarPergunta, pedidoExpirou } = await import('./lib/detectorPedidoTransferencia.js');
   
@@ -1014,30 +1085,7 @@ async function handleMessage(dados, payloadBruto, base44, req) {
     }
   }
   
-  // (8) MENSAGEM NORMAL
-  const duracao = Date.now() - inicio;
-
-  if (dados.mediaType && dados.mediaType !== 'none' && dados.messageStruct && integracaoId) {
-    base44.functions.invoke('persistirMidiaWapi', {
-      message_id: mensagem.id,
-      media_type: dados.mediaType,
-      integration_id: integracaoId,
-      message_struct: dados.messageStruct,
-      filename: dados.fileName,
-      mimetype: dados.mimetype
-    }).catch(() => {});
-  }
-
-  return Response.json({
-    success: true,
-    message_id: mensagem.id,
-    contact_id: contato.id,
-    thread_id: thread.id,
-    duration_ms: duracao,
-    provider: 'w_api',
-    version: VERSION
-  }, { headers: corsHeaders });
-}
+*/
 
 // ============================================================================
 // HANDLER PRINCIPAL
