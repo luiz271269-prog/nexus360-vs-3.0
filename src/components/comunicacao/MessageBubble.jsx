@@ -768,10 +768,12 @@ export default React.memo(function MessageBubble({
               }
                 {message.media_caption &&
               <div className={cn(
-                "px-4 py-2",
+                "px-4 py-2 break-words whitespace-pre-wrap",
                 isOwn ? "text-white" : "text-slate-800"
-              )}>
-                    <p className="text-sm leading-relaxed">{message.media_caption}</p>
+              )} style={{ wordBreak: 'break-word', overflowWrap: 'anywhere' }}>
+                    <p className="text-sm leading-relaxed" style={{ fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Color Emoji", sans-serif' }}>
+                      {message.media_caption}
+                    </p>
                   </div>
               }
                 <div className="absolute bottom-2 right-2 bg-black/50 backdrop-blur-sm px-2 py-0.5 rounded-md">
@@ -904,11 +906,13 @@ export default React.memo(function MessageBubble({
               );
             })()}
 
-            {/* TEXTO */}
+            {/* TEXTO - ✅ RENDERIZAÇÃO SEGURA DE EMOJIS */}
             {(!message?.media_url || message?.media_type === 'none') && message?.content != null && String(message.content || '').trim() !== '' && String(message.content) !== '[No content]' &&
             <>
-                <div className={cn("break-words whitespace-pre-wrap", isOwn ? "text-white" : "text-[#111b21]")}>
-                  <p className="text-[14.2px] leading-[19px]">{String(message.content || '')}</p>
+                <div className={cn("break-words whitespace-pre-wrap", isOwn ? "text-white" : "text-[#111b21]")} style={{ wordBreak: 'break-word', overflowWrap: 'anywhere' }}>
+                  <p className="text-[14.2px] leading-[19px]" style={{ fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Color Emoji", sans-serif' }}>
+                    {String(message.content || '')}
+                  </p>
                 </div>
 
                 <div className="flex items-center justify-end gap-1 mt-0.5 flex-wrap">
