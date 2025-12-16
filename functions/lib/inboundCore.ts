@@ -173,29 +173,9 @@ export async function processInboundEvent(params) {
     result.actions.push('new_cycle_detected');
   }
   
-  // (5) PROMOÇÕES (INDEPENDENTE de ciclo/saudação - trigger INBOUND com janela 6h)
-  result.pipeline.push('promotions');
-  try {
-    const { maybeSendPromotionInbound } = await import('./promotionEngine.js');
-    const promoResult = await maybeSendPromotionInbound({
-      base44,
-      contact,
-      thread,
-      integration,
-      now,
-      provider,
-      trigger: 'inbound'
-    });
-    
-    if (promoResult.sent) {
-      result.actions.push('promotion_sent');
-      console.log('[CORE] ✅ Promoção enviada:', promoResult.promotion_id);
-    } else {
-      console.log('[CORE] ⏭️ Promoção não enviada:', promoResult.reason, promoResult.hours ? `(${promoResult.hours}h)` : '');
-    }
-  } catch (e) {
-    console.error('[CORE] Erro ao processar promoções:', e.message);
-  }
+  // (5) PROMOÇÕES - REMOVIDO (executadas via cron job runPromotionInboundTick.js)
+  // Pipeline não envia mais promoções no webhook inbound
+  // Trigger inbound agora é cron-based (6h depois da mensagem)
   
   // (6) GUARDAS DE ROTEAMENTO
   result.pipeline.push('routing_guards');
