@@ -19,17 +19,20 @@ export default function GerenciadorPromocoes() {
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef(null);
   const [formData, setFormData] = useState({
-    title: '',
-    short_description: '',
+    titulo: '',
+    descricao: '',
     price_info: '',
-    active: true,
-    valid_until: '',
+    ativo: true,
+    validade: '',
     priority: 10,
     link_produto: '',
-    codigo_campanha: '',
+    campaign_id: '',
     categoria: 'geral',
     imagem_url: '',
-    tipo_midia: 'imagem'
+    target_contact_types: ['lead', 'cliente'],
+    target_sectors: ['vendas', 'geral'],
+    formato: 'teaser',
+    cooldown_hours: 6
   });
 
   const queryClient = useQueryClient();
@@ -73,17 +76,20 @@ export default function GerenciadorPromocoes() {
 
   const resetForm = () => {
     setFormData({
-      title: '',
-      short_description: '',
+      titulo: '',
+      descricao: '',
       price_info: '',
-      active: true,
-      valid_until: '',
+      ativo: true,
+      validade: '',
       priority: 10,
       link_produto: '',
-      codigo_campanha: '',
+      campaign_id: '',
       categoria: 'geral',
       imagem_url: '',
-      tipo_midia: 'imagem'
+      target_contact_types: ['lead', 'cliente'],
+      target_sectors: ['vendas', 'geral'],
+      formato: 'teaser',
+      cooldown_hours: 6
     });
     setEditingPromo(null);
     setDialogOpen(false);
@@ -92,17 +98,20 @@ export default function GerenciadorPromocoes() {
   const handleEdit = (promo) => {
     setEditingPromo(promo);
     setFormData({
-      title: promo.title || '',
-      short_description: promo.short_description || '',
+      titulo: promo.titulo || '',
+      descricao: promo.descricao || '',
       price_info: promo.price_info || '',
-      active: promo.active !== false,
-      valid_until: promo.valid_until || '',
+      ativo: promo.ativo !== false,
+      validade: promo.validade || '',
       priority: promo.priority || 10,
       link_produto: promo.link_produto || '',
-      codigo_campanha: promo.codigo_campanha || '',
+      campaign_id: promo.campaign_id || '',
       categoria: promo.categoria || 'geral',
       imagem_url: promo.imagem_url || '',
-      tipo_midia: promo.tipo_midia || 'imagem'
+      target_contact_types: promo.target_contact_types || ['lead', 'cliente'],
+      target_sectors: promo.target_sectors || ['vendas', 'geral'],
+      formato: promo.formato || 'teaser',
+      cooldown_hours: promo.cooldown_hours || 6
     });
     setDialogOpen(true);
   };
@@ -141,8 +150,8 @@ export default function GerenciadorPromocoes() {
   const handleSubmit = (e) => {
     e.preventDefault();
     
-    if (!formData.title || !formData.short_description) {
-      toast.error('Preencha os campos obrigatórios');
+    if (!formData.titulo || !formData.descricao) {
+      toast.error('Preencha título e descrição');
       return;
     }
 
@@ -156,10 +165,10 @@ export default function GerenciadorPromocoes() {
   const toggleActive = async (promo) => {
     try {
       await base44.entities.Promotion.update(promo.id, {
-        active: !promo.active
+        ativo: !promo.ativo
       });
       queryClient.invalidateQueries({ queryKey: ['promocoes'] });
-      toast.success(promo.active ? 'Promoção desativada' : 'Promoção ativada');
+      toast.success(promo.ativo ? 'Promoção desativada' : 'Promoção ativada');
     } catch (error) {
       toast.error('Erro ao alterar status');
     }
@@ -173,8 +182,8 @@ export default function GerenciadorPromocoes() {
     geral: '📦 Geral'
   };
 
-  const promocoesAtivas = promocoes.filter(p => p.active);
-  const promocoesInativas = promocoes.filter(p => !p.active);
+  const promocoesAtivas = promocoes.filter(p => p.ativo);
+  const promocoesInativas = promocoes.filter(p => !p.ativo);
 
   return (
     <div className="space-y-6">
@@ -254,22 +263,22 @@ export default function GerenciadorPromocoes() {
                 </div>
 
                 <div className="col-span-2">
-                  <Label htmlFor="title">Título da Promoção *</Label>
+                  <Label htmlFor="titulo">Título da Promoção *</Label>
                   <Input
-                    id="title"
-                    value={formData.title}
-                    onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                    id="titulo"
+                    value={formData.titulo}
+                    onChange={(e) => setFormData({ ...formData, titulo: e.target.value })}
                     placeholder="Ex: Notebook Dell i5 Gamer"
                     required
                   />
                 </div>
 
                 <div className="col-span-2">
-                  <Label htmlFor="short_description">Descrição Curta (para WhatsApp) *</Label>
+                  <Label htmlFor="descricao">Descrição Completa *</Label>
                   <Textarea
-                    id="short_description"
-                    value={formData.short_description}
-                    onChange={(e) => setFormData({ ...formData, short_description: e.target.value })}
+                    id="descricao"
+                    value={formData.descricao}
+                    onChange={(e) => setFormData({ ...formData, descricao: e.target.value })}
                     placeholder="Ex: 8GB RAM, SSD 256GB, RTX 3050 - Apenas 5 unidades!"
                     rows={3}
                     required
@@ -316,21 +325,21 @@ export default function GerenciadorPromocoes() {
                 </div>
 
                 <div>
-                  <Label htmlFor="valid_until">Válido até</Label>
+                  <Label htmlFor="validade">Válido até</Label>
                   <Input
-                    id="valid_until"
+                    id="validade"
                     type="date"
-                    value={formData.valid_until}
-                    onChange={(e) => setFormData({ ...formData, valid_until: e.target.value })}
+                    value={formData.validade}
+                    onChange={(e) => setFormData({ ...formData, validade: e.target.value })}
                   />
                 </div>
 
                 <div>
-                  <Label htmlFor="codigo_campanha">Código/Cupom</Label>
+                  <Label htmlFor="campaign_id">Código/Cupom</Label>
                   <Input
-                    id="codigo_campanha"
-                    value={formData.codigo_campanha}
-                    onChange={(e) => setFormData({ ...formData, codigo_campanha: e.target.value })}
+                    id="campaign_id"
+                    value={formData.campaign_id}
+                    onChange={(e) => setFormData({ ...formData, campaign_id: e.target.value })}
                     placeholder="Ex: NATAL2025"
                   />
                 </div>
@@ -348,11 +357,11 @@ export default function GerenciadorPromocoes() {
                 <div className="col-span-2 flex items-center justify-between p-4 bg-slate-50 rounded-lg">
                   <div>
                     <Label>Promoção Ativa</Label>
-                    <p className="text-xs text-slate-500">Se desligada, não aparece no robô</p>
+                    <p className="text-xs text-slate-500">Se desligada, não será enviada automaticamente</p>
                   </div>
                   <Switch
-                    checked={formData.active}
-                    onCheckedChange={(checked) => setFormData({ ...formData, active: checked })}
+                    checked={formData.ativo}
+                    onCheckedChange={(checked) => setFormData({ ...formData, ativo: checked })}
                   />
                 </div>
               </div>
@@ -426,22 +435,22 @@ export default function GerenciadorPromocoes() {
                       />
                     )}
                     <div className="flex-1">
-                      <CardTitle className="text-lg">{promo.title}</CardTitle>
-                      <CardDescription className="mt-2">
-                        {promo.short_description}
-                      </CardDescription>
+                     <CardTitle className="text-lg">{promo.titulo}</CardTitle>
+                     <CardDescription className="mt-2">
+                       {promo.descricao}
+                     </CardDescription>
                       <div className="flex items-center gap-2 mt-3 flex-wrap">
                         <Badge variant="outline">{categoriaLabels[promo.categoria] || promo.categoria}</Badge>
                         {promo.price_info && (
                           <Badge className="bg-green-100 text-green-800">{promo.price_info}</Badge>
                         )}
-                        {promo.codigo_campanha && (
-                          <Badge className="bg-purple-100 text-purple-800">🎟️ {promo.codigo_campanha}</Badge>
+                        {promo.campaign_id && (
+                          <Badge className="bg-purple-100 text-purple-800">🎟️ {promo.campaign_id}</Badge>
                         )}
-                        {promo.valid_until && (
+                        {promo.validade && (
                           <Badge variant="outline" className="text-slate-600">
                             <Calendar className="w-3 h-3 mr-1" />
-                            Até {new Date(promo.valid_until).toLocaleDateString('pt-BR')}
+                            Até {new Date(promo.validade).toLocaleDateString('pt-BR')}
                           </Badge>
                         )}
                         <Badge variant="outline" className="text-slate-600">
@@ -498,14 +507,14 @@ export default function GerenciadorPromocoes() {
                     {promo.imagem_url && (
                       <img 
                         src={promo.imagem_url} 
-                        alt={promo.title}
+                        alt={promo.titulo}
                         className="w-32 h-32 object-cover rounded-lg border-2 border-slate-200 flex-shrink-0 opacity-60"
                       />
                     )}
                     <div className="flex-1">
-                      <CardTitle className="text-lg text-slate-600">{promo.title}</CardTitle>
+                      <CardTitle className="text-lg text-slate-600">{promo.titulo}</CardTitle>
                       <CardDescription className="mt-2">
-                        {promo.short_description}
+                        {promo.descricao}
                       </CardDescription>
                     </div>
                     <div className="flex items-center gap-2">
