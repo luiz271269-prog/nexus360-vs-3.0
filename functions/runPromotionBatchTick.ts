@@ -138,7 +138,12 @@ Deno.serve(async (req) => {
       }
       
       // Formatar mensagem (sempre direct para batch)
-      const message = formatPromotionMessage(promotion, contact, 'direct');
+      const rawMessage = formatPromotionMessage(promotion, contact, 'direct');
+      
+      // ✅ Processar mensagem com segurança de emoji
+      const { processTextWithEmojis, emojiDebug } = await import('./lib/emojiHelper.js');
+      const message = processTextWithEmojis(rawMessage);
+      emojiDebug('BATCH_PROMO_OUTBOUND', message);
       
       // Determinar provider
       const provider = integration.api_provider === 'w_api' ? 'w_api' : 'z_api';

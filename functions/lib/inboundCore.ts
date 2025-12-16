@@ -285,6 +285,8 @@ export async function processInboundEvent(params) {
   return result;
 }
 
+import { processTextWithEmojis, emojiDebug, getTextStats } from './emojiHelper.js';
+
 /**
  * Helper para enviar mensagens
  */
@@ -292,6 +294,10 @@ async function enviarMensagem(params) {
   const { base44, integration, contact, message, provider } = params;
   
   if (!integration) return;
+
+  // ✅ Processar texto com segurança de emoji
+  const processedMessage = processTextWithEmojis(message);
+  emojiDebug('OUTBOUND_MESSAGE', processedMessage);
   
   try {
     if (provider === 'z_api') {
@@ -304,7 +310,7 @@ async function enviarMensagem(params) {
       await fetch(zapiUrl, {
         method: 'POST',
         headers: zapiHeaders,
-        body: JSON.stringify({ phone: contact.telefone, message })
+        body: JSON.stringify({ phone: contact.telefone, message: processedMessage })
       });
       
     } else if (provider === 'w_api') {
@@ -320,7 +326,7 @@ async function enviarMensagem(params) {
         body: JSON.stringify({
           instanceId: integration.instance_id_provider,
           number: contact.telefone,
-          text: message
+          text: processedMessage
         })
       });
     }
@@ -330,7 +336,7 @@ async function enviarMensagem(params) {
       thread_id: params.thread?.id,
       sender_id: 'system',
       sender_type: 'user',
-      content: message,
+      content: processedMessage,
       channel: 'whatsapp',
       status: 'enviada',
       sent_at: new Date().toISOString(),

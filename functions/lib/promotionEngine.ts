@@ -5,6 +5,8 @@
 // Totalmente independente da URA
 // ============================================================================
 
+import { processTextWithEmojis, emojiDebug } from './emojiHelper.js';
+
 const PROMO_COOLDOWN_INBOUND_HOURS = 6;  // Janela para disparo inbound
 const PROMO_COOLDOWN_BATCH_HOURS = 24;   // Janela para batch/campanha
 const PROMO_COOLDOWN_HOURS_DEFAULT = 24;
@@ -238,7 +240,11 @@ export async function maybeSendPromotionInbound(params) {
   
   // Determinar formato (direct se não tem setor ainda)
   const format = (promotion.formato === 'direct' || !thread.sector_id) ? 'direct' : 'teaser';
-  const message = formatPromotionMessage(promotion, contact, format);
+  const rawMessage = formatPromotionMessage(promotion, contact, format);
+  
+  // ✅ Processar mensagem com segurança de emoji
+  const message = processTextWithEmojis(rawMessage);
+  emojiDebug('PROMO_OUTBOUND_MESSAGE', message);
   
   console.log('[PROMO-INBOUND] Enviando:', promotion.titulo, 'para', contact.nome);
   

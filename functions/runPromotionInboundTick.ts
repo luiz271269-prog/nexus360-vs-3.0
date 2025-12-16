@@ -204,7 +204,12 @@ Deno.serve(async (req) => {
       
       // Determinar formato (direct se não tem setor, teaser se tem)
       const format = thread.sector_id ? 'teaser' : 'direct';
-      const message = formatPromotionMessage(promotion, contact, format);
+      const rawMessage = formatPromotionMessage(promotion, contact, format);
+      
+      // ✅ Processar mensagem com segurança de emoji
+      const { processTextWithEmojis, emojiDebug } = await import('./lib/emojiHelper.js');
+      const message = processTextWithEmojis(rawMessage);
+      emojiDebug('INBOUND_TICK_PROMO', message);
       
       // Determinar provider
       const provider = integration.api_provider === 'w_api' ? 'w_api' : 'z_api';
