@@ -1,136 +1,142 @@
-import { createClientFromRequest } from 'npm:@base44/sdk@0.7.1';
+import { createClientFromRequest } from 'npm:@base44/sdk@0.8.4';
+import { normalizePhone, isSamePhone } from './lib/phoneNormalizer.js';
 
-/**
- * ✅ SCRIPT DE LIMPEZA DE CONTATOS DUPLICADOS
- * 
- * Este script:
- * 1. Encontra contatos com telefones duplicados (com e sem +)
- * 2. Mantém o contato mais antigo
- * 3. Atualiza threads e mensagens para referenciar o contato correto
- * 4. Remove os contatos duplicados
- */
+// ============================================================================
+// UTILITÁRIO DE LIMPEZA - CONSOLIDAR CONTATOS DUPLICADOS
+// ============================================================================
+// Executar UMA VEZ após correção do sistema
+// Agrupa contatos por telefone normalizado e consolida
+// ============================================================================
+
+const VERSION = 'v1.0.0';
 
 Deno.serve(async (req) => {
+  const base44 = createClientFromRequest(req);
+  
   try {
-    const base44 = createClientFromRequest(req);
-    
-    console.log('[LIMPEZA] 🧹 Iniciando limpeza de contatos duplicados...');
+    console.log(`[DEDUPE ${VERSION}] Iniciando limpeza de duplicatas...`);
     
     // Buscar todos os contatos
-    const todosContatos = await base44.asServiceRole.entities.Contact.list();
-    console.log(`[LIMPEZA] 📊 Total de contatos: ${todosContatos.length}`);
+    const allContacts = await base44.asServiceRole.entities.Contact.list('-created_date', 5000);
+    
+    console.log(`[DEDUPE] ${allContacts.length} contatos encontrados`);
     
     // Agrupar por telefone normalizado
-    const contatosPorTelefone = {};
+    const groups = new Map();
     
-    for (const contato of todosContatos) {
-      if (!contato.telefone) continue;
-      
-      // Normalizar: remover espaços, hífen, etc e garantir +
-      let telefoneNormalizado = contato.telefone.replace(/[\s\-()]/g, '');
-      if (!telefoneNormalizado.startsWith('+')) {
-        telefoneNormalizado = '+' + telefoneNormalizado.replace(/^\+/, '');
+    for (const contact of allContacts) {
+      const normalized = normalizePhone(contact.telefone);
+      if (!normalized) {
+        console.log(`[DEDUPE] ⚠️ Telefone inválido: ${contact.telefone} (ID: ${contact.id})`);
+        continue;
       }
       
-      if (!contatosPorTelefone[telefoneNormalizado]) {
-        contatosPorTelefone[telefoneNormalizado] = [];
+      if (!groups.has(normalized)) {
+        groups.set(normalized, []);
       }
-      
-      contatosPorTelefone[telefoneNormalizado].push(contato);
+      groups.get(normalized).push(contact);
     }
     
-    // Processar duplicatas
-    let totalDuplicatasRemovidas = 0;
-    const relatorio = [];
+    // Estatísticas
+    const stats = {
+      total_groups: groups.size,
+      duplicates_found: 0,
+      contacts_merged: 0,
+      threads_updated: 0,
+      messages_updated: 0,
+      errors: 0
+    };
     
-    for (const [telefone, contatos] of Object.entries(contatosPorTelefone)) {
-      if (contatos.length <= 1) continue;
+    // Processar grupos com duplicatas
+    for (const [phone, contacts] of groups) {
+      if (contacts.length === 1) continue; // Sem duplicata
       
-      console.log(`[LIMPEZA] 🔍 Encontrado ${contatos.length} contatos com telefone: ${telefone}`);
+      stats.duplicates_found++;
       
-      // Ordenar por data de criação (manter o mais antigo)
-      contatos.sort((a, b) => new Date(a.created_date) - new Date(b.created_date));
+      console.log(`[DEDUPE] 🔍 Duplicata: ${phone} (${contacts.length} registros)`);
       
-      const contatoPrincipal = contatos[0];
-      const duplicatas = contatos.slice(1);
-      
-      console.log(`[LIMPEZA] ✅ Mantendo contato: ${contatoPrincipal.id} (${contatoPrincipal.nome})`);
-      
-      // Atualizar telefone do contato principal para formato normalizado
-      if (contatoPrincipal.telefone !== telefone) {
-        await base44.asServiceRole.entities.Contact.update(contatoPrincipal.id, {
-          telefone: telefone
-        });
-        console.log(`[LIMPEZA] 🔄 Telefone atualizado para: ${telefone}`);
-      }
-      
-      for (const duplicata of duplicatas) {
-        console.log(`[LIMPEZA] 🗑️  Processando duplicata: ${duplicata.id}`);
+      // Escolher contato principal (critérios ordenados por prioridade)
+      const principal = contacts.reduce((best, current) => {
+        // 1. Preferir tipo_contato mais específico
+        const tipoOrder = { cliente: 4, lead: 3, parceiro: 2, fornecedor: 1, novo: 0 };
+        const bestTipo = tipoOrder[best.tipo_contato] || 0;
+        const currentTipo = tipoOrder[current.tipo_contato] || 0;
+        if (currentTipo > bestTipo) return current;
+        if (currentTipo < bestTipo) return best;
         
-        // Buscar threads associadas à duplicata
-        const threads = await base44.asServiceRole.entities.MessageThread.filter({
-          contact_id: duplicata.id
-        });
+        // 2. Preferir com cliente_id
+        if (current.cliente_id && !best.cliente_id) return current;
+        if (!current.cliente_id && best.cliente_id) return best;
         
-        // Atualizar threads para referenciar o contato principal
-        for (const thread of threads) {
-          await base44.asServiceRole.entities.MessageThread.update(thread.id, {
-            contact_id: contatoPrincipal.id
-          });
-          console.log(`[LIMPEZA]   📝 Thread ${thread.id} atualizada`);
-        }
+        // 3. Preferir com mais interações
+        const bestInteracoes = best.ultima_interacao ? 1 : 0;
+        const currentInteracoes = current.ultima_interacao ? 1 : 0;
+        if (currentInteracoes > bestInteracoes) return current;
+        if (currentInteracoes < bestInteracoes) return best;
         
-        // Buscar mensagens associadas à duplicata
-        const mensagens = await base44.asServiceRole.entities.Message.filter({
-          sender_id: duplicata.id,
-          sender_type: 'contact'
-        });
-        
-        // Atualizar mensagens para referenciar o contato principal
-        for (const mensagem of mensagens) {
-          await base44.asServiceRole.entities.Message.update(mensagem.id, {
-            sender_id: contatoPrincipal.id
-          });
-        }
-        
-        if (mensagens.length > 0) {
-          console.log(`[LIMPEZA]   💬 ${mensagens.length} mensagens atualizadas`);
-        }
-        
-        // Remover o contato duplicado
-        await base44.asServiceRole.entities.Contact.delete(duplicata.id);
-        console.log(`[LIMPEZA]   ✅ Contato duplicado removido: ${duplicata.id}`);
-        
-        totalDuplicatasRemovidas++;
-      }
-      
-      relatorio.push({
-        telefone,
-        contato_principal: {
-          id: contatoPrincipal.id,
-          nome: contatoPrincipal.nome
-        },
-        duplicatas_removidas: duplicatas.length,
-        threads_atualizadas: threads.length
+        // 4. Preferir mais antigo (primeiro criado)
+        return new Date(current.created_date) < new Date(best.created_date) ? current : best;
       });
+      
+      console.log(`[DEDUPE]   ✅ Principal: ${principal.id} (${principal.tipo_contato})`);
+      
+      // Processar duplicatas
+      for (const duplicate of contacts) {
+        if (duplicate.id === principal.id) continue;
+        
+        try {
+          // Reapontar threads
+          const threads = await base44.asServiceRole.entities.MessageThread.filter({
+            contact_id: duplicate.id
+          });
+          
+          for (const thread of threads) {
+            await base44.asServiceRole.entities.MessageThread.update(thread.id, {
+              contact_id: principal.id
+            });
+            stats.threads_updated++;
+          }
+          
+          // Reapontar mensagens diretas (se houver sender_id = contact)
+          const messages = await base44.asServiceRole.entities.Message.filter({
+            sender_id: duplicate.id,
+            sender_type: 'contact'
+          });
+          
+          for (const message of messages) {
+            await base44.asServiceRole.entities.Message.update(message.id, {
+              sender_id: principal.id
+            });
+            stats.messages_updated++;
+          }
+          
+          // Marcar duplicata como merged (não deletar para preservar histórico)
+          await base44.asServiceRole.entities.Contact.update(duplicate.id, {
+            tipo_contato: 'novo', // Desativar
+            tags: [...(duplicate.tags || []), 'merged', 'duplicata'],
+            observacoes: `[MERGED] Consolidado em ${principal.id} em ${new Date().toISOString()}\n\n${duplicate.observacoes || ''}`
+          });
+          
+          stats.contacts_merged++;
+          console.log(`[DEDUPE]   ♻️ Merged: ${duplicate.id}`);
+          
+        } catch (error) {
+          console.error(`[DEDUPE]   ❌ Erro ao processar ${duplicate.id}:`, error.message);
+          stats.errors++;
+        }
+      }
     }
     
-    console.log('[LIMPEZA] ✅ Limpeza concluída!');
-    console.log(`[LIMPEZA] 📊 Total de duplicatas removidas: ${totalDuplicatasRemovidas}`);
+    console.log('[DEDUPE] ✅ Concluído:', stats);
     
     return Response.json({
       success: true,
-      message: 'Limpeza de contatos duplicados concluída',
-      estatisticas: {
-        total_contatos_analisados: todosContatos.length,
-        grupos_duplicados_encontrados: relatorio.length,
-        total_duplicatas_removidas: totalDuplicatasRemovidas
-      },
-      detalhes: relatorio
+      stats: stats,
+      timestamp: new Date().toISOString()
     });
     
   } catch (error) {
-    console.error('[LIMPEZA] ❌ Erro:', error);
+    console.error('[DEDUPE] ERRO GERAL:', error.message);
     return Response.json({
       success: false,
       error: error.message

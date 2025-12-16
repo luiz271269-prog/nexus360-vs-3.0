@@ -21,20 +21,10 @@ const corsHeaders = {
 };
 
 // ============================================================================
-// NORMALIZAÇÃO DE TELEFONE
+// IMPORTS
 // ============================================================================
-function normalizarTelefoneUnificado(telefone) {
-  if (!telefone) return null;
-  let numeroLimpo = String(telefone).split('@')[0];
-  let apenasNumeros = numeroLimpo.replace(/\D/g, '');
-  if (!apenasNumeros || apenasNumeros.length < 10) return null;
-  if (!apenasNumeros.startsWith('55')) {
-    if (apenasNumeros.length === 10 || apenasNumeros.length === 11) {
-      apenasNumeros = '55' + apenasNumeros;
-    }
-  }
-  return apenasNumeros;
-}
+import { normalizePhone } from './lib/phoneNormalizer.js';
+import { getOrCreateContact, getOrCreateThread } from './lib/contactManager.js';
 
 // ============================================================================
 // FILTRO ULTRA-RÁPIDO
@@ -94,7 +84,7 @@ function normalizarPayload(payload) {
   }
 
   const telefone = payload.phone || '';
-  const numeroLimpo = normalizarTelefoneUnificado(telefone);
+  const numeroLimpo = normalizePhone(telefone);
   if (!numeroLimpo) return { type: 'unknown', error: 'telefone_invalido' };
 
   let mediaType = 'none';
@@ -238,68 +228,20 @@ async function handleMessage(dados, payloadBruto, base44) {
   const connectedPhone = payloadBruto.connectedPhone || payloadBruto.connected_phone || null;
   const profilePicUrl = payloadBruto.photo || payloadBruto.senderName?.profilePicUrl || payloadBruto.profilePicUrl || null;
 
-  const [contatos, threadsExistentes] = await Promise.all([
-    base44.asServiceRole.entities.Contact.filter({ telefone: dados.from }, '-created_date', 1),
-    base44.asServiceRole.entities.MessageThread.filter({ contact_id: { $exists: true } }, '-last_message_at', 500)
-  ]);
+  // ✅ USAR GERENCIADOR ÚNICO (evita duplicação)
+  const contato = await getOrCreateContact(base44, {
+    telefone: dados.from,
+    nome: dados.pushName || dados.from,
+    pushName: dados.pushName,
+    instance_id: dados.instanceId,
+    profilePicUrl: profilePicUrl
+  });
 
-  let contato;
-  if (contatos.length > 0) {
-    contato = contatos[0];
-    const update = { ultima_interacao: new Date().toISOString() };
-    if (dados.pushName && (!contato.nome || contato.nome === dados.from)) {
-      update.nome = dados.pushName;
-    }
-    if (profilePicUrl && profilePicUrl !== 'null' && contato.foto_perfil_url !== profilePicUrl) {
-      update.foto_perfil_url = profilePicUrl;
-      update.foto_perfil_atualizada_em = new Date().toISOString();
-    }
-    base44.asServiceRole.entities.Contact.update(contato.id, update).catch(() => {});
-  } else {
-    contato = await base44.asServiceRole.entities.Contact.create({
-      nome: dados.pushName || dados.from,
-      telefone: dados.from,
-      tipo_contato: 'lead',
-      whatsapp_status: 'verificado',
-      ultima_interacao: new Date().toISOString(),
-      foto_perfil_url: profilePicUrl && profilePicUrl !== 'null' ? profilePicUrl : null,
-      foto_perfil_atualizada_em: profilePicUrl ? new Date().toISOString() : null
-    });
-  }
-
-  let thread = threadsExistentes.find(t => t.contact_id === contato.id);
-  const now = new Date().toISOString();
-
-  if (thread) {
-    const threadUpdate = {
-      last_message_at: now,
-      last_message_sender: 'contact',
-      last_message_content: (dados.content || '').substring(0, 100),
-      unread_count: (thread.unread_count || 0) + 1,
-      total_mensagens: (thread.total_mensagens || 0) + 1,
-      status: 'aberta'
-    };
-    if (integracaoId && !thread.whatsapp_integration_id) {
-      threadUpdate.whatsapp_integration_id = integracaoId;
-    }
-    base44.asServiceRole.entities.MessageThread.update(thread.id, threadUpdate).catch(() => {});
-  } else {
-    thread = await base44.asServiceRole.entities.MessageThread.create({
-      contact_id: contato.id,
-      whatsapp_integration_id: integracaoId,
-      status: 'aberta',
-      primeira_mensagem_at: now,
-      last_message_at: now,
-      last_message_sender: 'contact',
-      last_message_content: (dados.content || '').substring(0, 100),
-      total_mensagens: 1,
-      unread_count: 1,
-      pre_atendimento_setor_explicitamente_escolhido: false,
-      pre_atendimento_ativo: false,
-      pre_atendimento_state: 'INIT',
-      transfer_pending: false
-    });
-  }
+  const thread = await getOrCreateThread(base44, {
+    contact_id: contato.id,
+    integration_id: integracaoId,
+    instance_id: dados.instanceId
+  });
 
   // ✅ PERSISTIR MÍDIA
   let mediaUrlFinal = dados.mediaUrl || null;
