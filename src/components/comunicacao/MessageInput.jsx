@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
+import EmojiPickerButton from './EmojiPickerButton';
 
 export default function MessageInput({
   onSendMessage,
@@ -111,6 +112,24 @@ export default function MessageInput({
     setPastedImage(null);
     setPastedImagePreview(null);
   }, [pastedImagePreview]);
+
+  const handleEmojiSelect = useCallback((emoji) => {
+    const textarea = inputRef.current;
+    if (!textarea) return;
+
+    const start = textarea.selectionStart;
+    const end = textarea.selectionEnd;
+    const text = mensagemTexto;
+    
+    const newText = text.substring(0, start) + emoji + text.substring(end);
+    setMensagemTexto(newText);
+
+    // Reposicionar cursor após o emoji
+    setTimeout(() => {
+      textarea.selectionStart = textarea.selectionEnd = start + emoji.length;
+      textarea.focus();
+    }, 0);
+  }, [mensagemTexto]);
 
   const mostrarInterfaceBroadcast = modoSelecaoMultipla && contatosSelecionados.length > 0;
 
@@ -215,6 +234,11 @@ export default function MessageInput({
             <Mic className="w-5 h-5 text-slate-600" />
           )}
         </Button>
+
+        <EmojiPickerButton
+          onEmojiSelect={handleEmojiSelect}
+          disabled={enviando || carregandoContato || gravandoAudio || modoSelecao || uploadingPastedFile || !podeEnviarMensagens}
+        />
 
         {ultimaMensagemCliente && podeEnviarMensagens && !mostrarSugestor && (
           <Button
