@@ -153,7 +153,7 @@ export default function MessageInput({
             </button>
           </div>
 
-          {enviandoBroadcast && (
+          {enviandoBroadcast && progressoBroadcast && (
             <div className="mt-2">
               <div className="flex items-center justify-between text-white text-xs mb-1">
                 <span>Enviando...</span>
