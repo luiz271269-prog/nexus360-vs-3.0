@@ -20,21 +20,17 @@ Deno.serve(async (req) => {
   try {
     console.log(`[PROMO-INBOUND-TICK ${VERSION}] Iniciando...`);
     
-    // Calcular janela de tempo (6-7h atrás)
-    const windowStart = new Date(now);
-    windowStart.setHours(windowStart.getHours() - TRIGGER_WINDOW_MAX_HOURS);
+    // Calcular janela: última promoção foi há 6+ horas
+    const sixHoursAgo = new Date(now);
+    sixHoursAgo.setHours(sixHoursAgo.getHours() - TRIGGER_WINDOW_MIN_HOURS);
     
-    const windowEnd = new Date(now);
-    windowEnd.setHours(windowEnd.getHours() - TRIGGER_WINDOW_MIN_HOURS);
-    
-    console.log(`[PROMO-INBOUND-TICK] Buscando threads entre ${windowStart.toISOString()} e ${windowEnd.toISOString()}`);
+    console.log(`[PROMO-INBOUND-TICK] Buscando contatos com última promo antes de ${sixHoursAgo.toISOString()}`);
     
     // Importar helpers do promotionEngine
     const { 
       isBlockedFromPromotions, 
       filterEligiblePromotions, 
       pickNextPromotion,
-      canSendPromoInbound,
       formatPromotionMessage
     } = await import('./lib/promotionEngine.js');
     
@@ -52,11 +48,40 @@ Deno.serve(async (req) => {
       });
     }
     
-    // Buscar threads na janela de tempo
-    // Filtrar apenas threads onde a última mensagem foi do CONTATO (não do sistema)
+    // Buscar contatos ativos (lead/cliente) que:
+    // 1. Nunca receberam promoção (last_promo_sent_at = null) OU
+    // 2. Última promoção foi há 6+ horas
+    // 3. Tiveram atividade recente (última mensagem < 7 dias)
+    const sevenDaysAgo = new Date(now);
+    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+    
+    const allContacts = await base44.asServiceRole.entities.Contact.filter({
+      tipo_contato: { $in: ['lead', 'cliente'] },
+      ultima_interacao: { $gte: sevenDaysAgo.toISOString() }
+    }, '-ultima_interacao', 500);
+    
+    // Filtrar contatos que passaram pelo cooldown de 6h
+    const eligibleContacts = allContacts.filter(c => {
+      if (!c.last_promo_sent_at) return true; // Nunca recebeu
+      const lastPromoDate = new Date(c.last_promo_sent_at);
+      return lastPromoDate < sixHoursAgo; // Última promo há 6+ horas
+    });
+    
+    console.log(`[PROMO-INBOUND-TICK] ${eligibleContacts.length} contatos elegíveis (cooldown 6h passou)`);
+    
+    if (eligibleContacts.length === 0) {
+      return Response.json({ 
+        success: true, 
+        processed: 0,
+        reason: 'no_contacts_past_cooldown',
+        cooldown_threshold: sixHoursAgo.toISOString()
+      });
+    }
+    
+    // Buscar threads desses contatos
+    const contactIds = eligibleContacts.map(c => c.id);
     const allThreads = await base44.asServiceRole.entities.MessageThread.filter({
-      last_message_at: { $gte: windowStart.toISOString(), $lte: windowEnd.toISOString() },
-      last_message_sender: 'contact',
+      contact_id: { $in: contactIds },
       status: 'aberta'
     }, '-last_message_at', 500);
     
@@ -150,11 +175,15 @@ Deno.serve(async (req) => {
         continue;
       }
       
-      // GUARDA 3: Verificar cooldown de 6h
-      const cooldownCheck = canSendPromoInbound(contact, thread, now, TRIGGER_WINDOW_MIN_HOURS);
-      if (!cooldownCheck.can) {
-        stats.cooldown++;
-        continue;
+      // GUARDA 3: Cooldown já foi verificado na query inicial (contatos elegíveis)
+      // Mas verificamos novamente por segurança
+      if (contact.last_promo_sent_at) {
+        const lastPromoDate = new Date(contact.last_promo_sent_at);
+        const hoursGap = (now - lastPromoDate) / (1000 * 60 * 60);
+        if (hoursGap < TRIGGER_WINDOW_MIN_HOURS) {
+          stats.cooldown++;
+          continue;
+        }
       }
       
       // Filtrar promoções elegíveis
