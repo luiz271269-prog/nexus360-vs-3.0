@@ -1,53 +1,88 @@
 // ============================================================================
 // PROMOTION ENGINE - Motor de Ofertas e Novidades Desacoplado da URA
 // ============================================================================
-// Gerencia o envio de promoções na "abertura de ciclo" de forma inteligente
+// Versão 2.0 - Triggers: Inbound (6h) + Batch (24h)
+// Totalmente independente da URA
 // ============================================================================
 
+const PROMO_COOLDOWN_INBOUND_HOURS = 6;  // Janela para disparo inbound
+const PROMO_COOLDOWN_BATCH_HOURS = 24;   // Janela para batch/campanha
 const PROMO_COOLDOWN_HOURS_DEFAULT = 24;
-const NEW_CYCLE_GAP_HOURS = 12;
 
 /**
- * Detecta se é um "novo ciclo de conversa" elegível para promoções
+ * Bloqueios Absolutos - FORNECEDOR, FINANCEIRO, COMPRAS nunca recebem promos
  */
-export function isNewCycle(thread, contact, now) {
-  if (!thread.last_message_at) return true; // Thread nova
+export function isBlockedFromPromotions(contact, thread, integration) {
+  // Bloqueio 1: Tipo de contato
+  if (contact.tipo_contato === 'fornecedor') {
+    return { blocked: true, reason: 'blocked_tipo_fornecedor' };
+  }
   
-  const lastMessageDate = new Date(thread.last_message_at);
-  const hoursSinceLastMessage = (now - lastMessageDate) / (1000 * 60 * 60);
+  // Bloqueio 2: Tags de fornecedor
+  if (contact.tags && Array.isArray(contact.tags)) {
+    if (contact.tags.includes('fornecedor') || contact.tags.includes('compras')) {
+      return { blocked: true, reason: 'blocked_tag_fornecedor' };
+    }
+  }
   
-  // Novo ciclo se passou mais de X horas desde última mensagem
-  if (hoursSinceLastMessage >= NEW_CYCLE_GAP_HOURS) return true;
+  // Bloqueio 3: Setor da thread
+  const setoresExcluidos = ['financeiro', 'cobranca', 'compras', 'fornecedor', 'fornecedores'];
+  if (thread.sector_id && setoresExcluidos.includes(thread.sector_id.toLowerCase())) {
+    return { blocked: true, reason: `blocked_setor_${thread.sector_id}` };
+  }
   
-  return false;
+  // Bloqueio 4: Integração/Canal
+  if (integration) {
+    if (integration.tipo_canal === 'financeiro' || integration.tipo_canal === 'cobranca') {
+      return { blocked: true, reason: 'blocked_integration_financeira' };
+    }
+    if (integration.permite_promocao === false) {
+      return { blocked: true, reason: 'blocked_integration_flag' };
+    }
+    const setoresCanalExcluidos = ['financeiro', 'cobranca', 'compras'];
+    if (integration.setor_principal && setoresCanalExcluidos.includes(integration.setor_principal.toLowerCase())) {
+      return { blocked: true, reason: `blocked_integration_setor_${integration.setor_principal}` };
+    }
+  }
+  
+  return { blocked: false };
 }
 
 /**
  * Verifica se pode enviar promoção respeitando cooldowns
  */
-export function canSendPromotion(contact, promotion, now) {
-  // Verificar cooldown global do contato
+export function canSendPromoInbound(contact, thread, now, minHours = PROMO_COOLDOWN_INBOUND_HOURS) {
+  // Cooldown por contato (última promo enviada)
   if (contact.last_promo_sent_at) {
     const lastPromoDate = new Date(contact.last_promo_sent_at);
     const hoursSinceLastPromo = (now - lastPromoDate) / (1000 * 60 * 60);
     
-    const cooldownHours = promotion.cooldown_hours || PROMO_COOLDOWN_HOURS_DEFAULT;
-    if (hoursSinceLastPromo < cooldownHours) {
-      return { can: false, reason: 'global_cooldown' };
+    if (hoursSinceLastPromo < minHours) {
+      return { can: false, reason: 'cooldown_contact', hours: hoursSinceLastPromo.toFixed(1) };
     }
   }
   
-  // Verificar cooldown por campanha específica
-  if (contact.last_campaign_sent_at && promotion.campaign_id) {
-    const campaignCooldown = contact.last_campaign_sent_at[promotion.campaign_id];
-    if (campaignCooldown) {
-      const lastCampaignDate = new Date(campaignCooldown);
-      const hoursSinceCampaign = (now - lastCampaignDate) / (1000 * 60 * 60);
-      
-      const campaignCooldownHours = promotion.cooldown_hours || PROMO_COOLDOWN_HOURS_DEFAULT;
-      if (hoursSinceCampaign < campaignCooldownHours) {
-        return { can: false, reason: 'campaign_cooldown' };
-      }
+  // Cooldown por thread (última promo nesta conversa)
+  if (thread.thread_last_promo_sent_at) {
+    const lastPromoDateThread = new Date(thread.thread_last_promo_sent_at);
+    const hoursSinceLastPromoThread = (now - lastPromoDateThread) / (1000 * 60 * 60);
+    
+    if (hoursSinceLastPromoThread < minHours) {
+      return { can: false, reason: 'cooldown_thread', hours: hoursSinceLastPromoThread.toFixed(1) };
+    }
+  }
+  
+  return { can: true };
+}
+
+export function canSendPromoBatch(contact, now, minHours = PROMO_COOLDOWN_BATCH_HOURS) {
+  // Para batch, só verifica cooldown do contato
+  if (contact.last_promo_sent_at) {
+    const lastPromoDate = new Date(contact.last_promo_sent_at);
+    const hoursSinceLastPromo = (now - lastPromoDate) / (1000 * 60 * 60);
+    
+    if (hoursSinceLastPromo < minHours) {
+      return { can: false, reason: 'cooldown_batch', hours: hoursSinceLastPromo.toFixed(1) };
     }
   }
   
@@ -58,9 +93,19 @@ export function canSendPromotion(contact, promotion, now) {
  * Filtra promoções elegíveis para um contato específico
  */
 export function filterEligiblePromotions(promotions, contact, thread) {
+  const now = new Date();
+  
   return promotions.filter(promo => {
     // Verificar se está ativa
-    if (!promo.active) return false;
+    if (promo.ativo !== true) return false;
+    
+    // Verificar validade
+    if (promo.validade) {
+      try {
+        const validadeDate = new Date(promo.validade);
+        if (now > validadeDate) return false;
+      } catch (e) {}
+    }
     
     // Segmentação por tipo de contato
     if (promo.target_contact_types && promo.target_contact_types.length > 0) {
@@ -77,7 +122,7 @@ export function filterEligiblePromotions(promotions, contact, thread) {
     }
     
     // Segmentação por setor (se thread já tem setor)
-    if (thread.sector_id && promo.target_sectors && promo.target_sectors.length > 0) {
+    if (thread && thread.sector_id && promo.target_sectors && promo.target_sectors.length > 0) {
       if (!promo.target_sectors.includes(thread.sector_id)) {
         return false;
       }
@@ -85,6 +130,25 @@ export function filterEligiblePromotions(promotions, contact, thread) {
     
     return true;
   });
+}
+
+/**
+ * Escolhe próxima promoção (rotaciona para não repetir a última)
+ */
+export function pickNextPromotion(eligiblePromotions, contact) {
+  if (eligiblePromotions.length === 0) return null;
+  
+  // Se só tem 1, retorna ela (mesmo que seja a última)
+  if (eligiblePromotions.length === 1) return eligiblePromotions[0];
+  
+  // Filtrar para não repetir a última enviada
+  const candidates = eligiblePromotions.filter(p => p.id !== contact.last_promo_id);
+  
+  // Se todas foram a última (improvável), pega qualquer uma
+  if (candidates.length === 0) return eligiblePromotions[0];
+  
+  // Pega a primeira candidata (ou poderia ser random)
+  return candidates[0];
 }
 
 /**
@@ -128,14 +192,23 @@ export function formatPromotionMessage(promotion, contact, format = 'teaser') {
 }
 
 /**
- * Função principal: tenta enviar promoções na abertura de ciclo
+ * Trigger Inbound: enviar promoção quando cliente manda mensagem (janela 6h)
  */
-export async function maybeSendPromotions(params) {
+export async function maybeSendPromotionInbound(params) {
   const { base44, contact, thread, integration, now, provider } = params;
   
-  // Verificar se é novo ciclo
-  if (!isNewCycle(thread, contact, now)) {
-    return { sent: false, reason: 'not_new_cycle' };
+  // Bloqueios absolutos PRIMEIRO
+  const blockCheck = isBlockedFromPromotions(contact, thread, integration);
+  if (blockCheck.blocked) {
+    console.log('[PROMO-INBOUND] Bloqueado:', blockCheck.reason);
+    return { sent: false, reason: blockCheck.reason };
+  }
+  
+  // Verificar cooldown de 6h
+  const cooldownCheck = canSendPromoInbound(contact, thread, now, PROMO_COOLDOWN_INBOUND_HOURS);
+  if (!cooldownCheck.can) {
+    console.log('[PROMO-INBOUND] Cooldown ativo:', cooldownCheck.reason, cooldownCheck.hours + 'h');
+    return { sent: false, reason: cooldownCheck.reason, hours: cooldownCheck.hours };
   }
   
   // Buscar promoções ativas
@@ -144,6 +217,7 @@ export async function maybeSendPromotions(params) {
   });
   
   if (allPromotions.length === 0) {
+    console.log('[PROMO-INBOUND] Nenhuma promoção ativa');
     return { sent: false, reason: 'no_active_promotions' };
   }
   
@@ -151,21 +225,22 @@ export async function maybeSendPromotions(params) {
   const eligible = filterEligiblePromotions(allPromotions, contact, thread);
   
   if (eligible.length === 0) {
+    console.log('[PROMO-INBOUND] Nenhuma promoção elegível');
     return { sent: false, reason: 'no_eligible_promotions' };
   }
   
-  // Pegar primeira elegível
-  const promotion = eligible[0];
+  // Rotacionar: não repetir a última
+  const promotion = pickNextPromotion(eligible, contact);
   
-  // Verificar cooldowns
-  const cooldownCheck = canSendPromotion(contact, promotion, now);
-  if (!cooldownCheck.can) {
-    return { sent: false, reason: cooldownCheck.reason };
+  if (!promotion) {
+    return { sent: false, reason: 'no_alternative_promo' };
   }
   
-  // Determinar formato (teaser ou direto)
-  const format = promotion.formato || 'teaser';
+  // Determinar formato (direct se não tem setor ainda)
+  const format = (promotion.formato === 'direct' || !thread.sector_id) ? 'direct' : 'teaser';
   const message = formatPromotionMessage(promotion, contact, format);
+  
+  console.log('[PROMO-INBOUND] Enviando:', promotion.titulo, 'para', contact.nome);
   
   // Enviar mensagem
   try {
@@ -217,7 +292,8 @@ export async function maybeSendPromotions(params) {
     
     // Atualizar timestamps no contato
     const contactUpdate = {
-      last_promo_sent_at: now.toISOString()
+      last_promo_sent_at: now.toISOString(),
+      last_promo_id: promotion.id
     };
     
     if (promotion.campaign_id) {
@@ -229,44 +305,52 @@ export async function maybeSendPromotions(params) {
     await base44.asServiceRole.entities.Contact.update(contact.id, contactUpdate);
     
     // Atualizar thread
-    await base44.asServiceRole.entities.MessageThread.update(thread.id, {
-      thread_last_promo_sent_at: now.toISOString()
-    });
+    if (thread) {
+      await base44.asServiceRole.entities.MessageThread.update(thread.id, {
+        thread_last_promo_sent_at: now.toISOString()
+      });
+    }
     
     // Registrar log
     await base44.asServiceRole.entities.EngagementLog.create({
       contact_id: contact.id,
-      thread_id: thread.id,
+      thread_id: thread?.id,
       type: 'offer',
       sent_at: now.toISOString(),
       status: 'sent',
-      dedupe_key: `${contact.id}_offer_${now.toISOString().split('T')[0]}`,
+      dedupe_key: `${contact.id}_offer_${now.toISOString().split('T')[0]}_${Date.now()}`,
       provider: provider,
       message_id: messageId,
       metadata: {
         promotion_id: promotion.id,
-        format: format
+        promotion_titulo: promotion.titulo,
+        format: format,
+        trigger: params.trigger || 'inbound'
       }
     });
     
     // Registrar mensagem no sistema
-    await base44.asServiceRole.entities.Message.create({
-      thread_id: thread.id,
-      sender_id: 'system',
-      sender_type: 'user',
-      content: message,
-      channel: 'whatsapp',
-      status: 'enviada',
-      whatsapp_message_id: messageId,
-      sent_at: now.toISOString(),
-      metadata: {
-        whatsapp_integration_id: integration.id,
-        is_system_message: true,
-        message_type: 'promotion',
-        promotion_id: promotion.id,
-        format: format
-      }
-    });
+    if (thread) {
+      await base44.asServiceRole.entities.Message.create({
+        thread_id: thread.id,
+        sender_id: 'system',
+        sender_type: 'user',
+        content: message,
+        channel: 'whatsapp',
+        status: 'enviada',
+        whatsapp_message_id: messageId,
+        sent_at: now.toISOString(),
+        metadata: {
+          whatsapp_integration_id: integration?.id,
+          is_system_message: true,
+          message_type: 'promotion',
+          promotion_id: promotion.id,
+          format: format
+        }
+      });
+    }
+    
+    console.log('[PROMO] ✅ Enviada:', promotion.titulo, 'para', contact.nome);
     
     return {
       sent: true,
@@ -281,11 +365,11 @@ export async function maybeSendPromotions(params) {
     // Registrar falha
     await base44.asServiceRole.entities.EngagementLog.create({
       contact_id: contact.id,
-      thread_id: thread.id,
+      thread_id: thread?.id,
       type: 'offer',
       status: 'failed',
       reason: error.message,
-      dedupe_key: `${contact.id}_offer_fail_${now.toISOString().split('T')[0]}`,
+      dedupe_key: `${contact.id}_offer_fail_${now.toISOString().split('T')[0]}_${Date.now()}`,
       provider: provider
     });
     
@@ -295,4 +379,12 @@ export async function maybeSendPromotions(params) {
       error: error.message
     };
   }
+}
+
+/**
+ * FUNÇÃO LEGADA - manter compatibilidade
+ */
+export async function maybeSendPromotions(params) {
+  // Redireciona para trigger inbound
+  return maybeSendPromotionInbound({ ...params, trigger: 'inbound' });
 }

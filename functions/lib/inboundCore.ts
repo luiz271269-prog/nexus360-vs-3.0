@@ -173,26 +173,28 @@ export async function processInboundEvent(params) {
     result.actions.push('new_cycle_detected');
   }
   
-  // (5) PROMOÇÕES (se novo ciclo, ANTES de sticky/URA)
+  // (5) PROMOÇÕES (INDEPENDENTE de ciclo/saudação - trigger INBOUND com janela 6h)
   result.pipeline.push('promotions');
-  if (novoCiclo) {
-    try {
-      const { maybeSendPromotions } = await import('./promotionEngine.js');
-      const promoResult = await maybeSendPromotions({
-        base44,
-        contact,
-        thread,
-        integration,
-        now,
-        provider
-      });
-      
-      if (promoResult.sent) {
-        result.actions.push('promotion_sent');
-      }
-    } catch (e) {
-      console.error('[CORE] Erro ao processar promoções:', e.message);
+  try {
+    const { maybeSendPromotionInbound } = await import('./promotionEngine.js');
+    const promoResult = await maybeSendPromotionInbound({
+      base44,
+      contact,
+      thread,
+      integration,
+      now,
+      provider,
+      trigger: 'inbound'
+    });
+    
+    if (promoResult.sent) {
+      result.actions.push('promotion_sent');
+      console.log('[CORE] ✅ Promoção enviada:', promoResult.promotion_id);
+    } else {
+      console.log('[CORE] ⏭️ Promoção não enviada:', promoResult.reason, promoResult.hours ? `(${promoResult.hours}h)` : '');
     }
+  } catch (e) {
+    console.error('[CORE] Erro ao processar promoções:', e.message);
   }
   
   // (6) GUARDAS DE ROTEAMENTO
