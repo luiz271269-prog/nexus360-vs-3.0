@@ -29,6 +29,7 @@ const CACHE_TTL = 60000;
 // ============================================================================
 import { normalizePhone } from './lib/phoneNormalizer.js';
 import { getOrCreateContact, getOrCreateThread } from './lib/contactManager.js';
+import { emojiDebug, processTextWithEmojis, getTextStats } from './lib/emojiHelper.js';
 
 // ============================================================================
 // FILTRO
@@ -136,13 +137,14 @@ function normalizarPayload(payload) {
   const msgContent = payload.msgContent || {};
   let mediaType = 'none';
   let mediaUrl = null;
-  let conteudo = '';
+  let conteudoRaw = '';
   let mediaMetadata = {};
   
+  // ✅ EXTRAÇÃO SEGURA DE TEXTO COM EMOJIS
   if (msgContent.imageMessage) {
     mediaType = 'image';
     mediaMetadata = extrairMetadadosMidia(msgContent, 'image');
-    conteudo = mediaMetadata.caption || '[Imagem]';
+    conteudoRaw = mediaMetadata.caption || '[Imagem]';
     mediaUrl = extrairMediaUrl(payload, msgContent, 'image');
     if (!mediaUrl && msgContent.imageMessage?.mediaKey) {
       mediaMetadata.messageStruct = msgContent.imageMessage;
@@ -151,7 +153,7 @@ function normalizarPayload(payload) {
   } else if (msgContent.videoMessage) {
     mediaType = 'video';
     mediaMetadata = extrairMetadadosMidia(msgContent, 'video');
-    conteudo = mediaMetadata.caption || '[Vídeo]';
+    conteudoRaw = mediaMetadata.caption || '[Vídeo]';
     mediaUrl = extrairMediaUrl(payload, msgContent, 'video');
     if (!mediaUrl && msgContent.videoMessage?.mediaKey) {
       mediaMetadata.messageStruct = msgContent.videoMessage;
@@ -160,7 +162,7 @@ function normalizarPayload(payload) {
   } else if (msgContent.audioMessage) {
     mediaType = 'audio';
     mediaMetadata = extrairMetadadosMidia(msgContent, 'audio');
-    conteudo = mediaMetadata.isPTT ? '[Áudio de voz]' : '[Áudio]';
+    conteudoRaw = mediaMetadata.isPTT ? '[Áudio de voz]' : '[Áudio]';
     mediaUrl = extrairMediaUrl(payload, msgContent, 'audio');
     if (!mediaUrl && msgContent.audioMessage?.mediaKey) {
       mediaMetadata.messageStruct = msgContent.audioMessage;
@@ -169,7 +171,7 @@ function normalizarPayload(payload) {
   } else if (msgContent.documentMessage) {
     mediaType = 'document';
     mediaMetadata = extrairMetadadosMidia(msgContent, 'document');
-    conteudo = mediaMetadata.fileName ? `[Documento: ${mediaMetadata.fileName}]` : '[Documento]';
+    conteudoRaw = mediaMetadata.fileName ? `[Documento: ${mediaMetadata.fileName}]` : '[Documento]';
     mediaUrl = extrairMediaUrl(payload, msgContent, 'document');
     if (!mediaUrl && msgContent.documentMessage?.mediaKey) {
       mediaMetadata.messageStruct = msgContent.documentMessage;
@@ -178,21 +180,34 @@ function normalizarPayload(payload) {
   } else if (msgContent.stickerMessage) {
     mediaType = 'sticker';
     mediaUrl = extrairMediaUrl(payload, msgContent, 'sticker');
-    conteudo = '[Sticker]';
+    conteudoRaw = '[Sticker]';
   } else if (msgContent.contactMessage || msgContent.contactsArrayMessage) {
     mediaType = 'contact';
-    conteudo = '📇 Contato compartilhado';
+    conteudoRaw = '📇 Contato compartilhado';
   } else if (msgContent.locationMessage) {
     mediaType = 'location';
-    conteudo = '📍 Localização';
+    conteudoRaw = '📍 Localização';
   } else if (msgContent.extendedTextMessage) {
-    conteudo = msgContent.extendedTextMessage.text || '';
+    conteudoRaw = msgContent.extendedTextMessage.text || '';
   } else if (msgContent.conversation) {
-    conteudo = msgContent.conversation;
+    conteudoRaw = msgContent.conversation;
   }
 
-  if (!conteudo && mediaType === 'none') {
-    conteudo = payload.body || payload.text || payload.message?.text || payload.content || '';
+  if (!conteudoRaw && mediaType === 'none') {
+    conteudoRaw = payload.body || payload.text || payload.message?.text || payload.content || '';
+  }
+  
+  // Debug texto bruto
+  emojiDebug('WAPI_RAW_TEXT', conteudoRaw);
+  
+  // Processar com segurança de emoji
+  const conteudo = processTextWithEmojis(conteudoRaw);
+  
+  // Debug após processamento
+  emojiDebug('WAPI_PROCESSED_TEXT', conteudo);
+  const stats = getTextStats(conteudo);
+  if (stats.hasEmojis) {
+    console.log('[WAPI] ✅ Mensagem com emojis:', stats);
   }
 
   if (!conteudo && mediaType === 'none') {

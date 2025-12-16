@@ -25,6 +25,7 @@ const corsHeaders = {
 // ============================================================================
 import { normalizePhone } from './lib/phoneNormalizer.js';
 import { getOrCreateContact, getOrCreateThread } from './lib/contactManager.js';
+import { emojiDebug, processTextWithEmojis, getTextStats } from './lib/emojiHelper.js';
 
 // ============================================================================
 // FILTRO ULTRA-RÁPIDO
@@ -90,18 +91,25 @@ function normalizarPayload(payload) {
   let mediaType = 'none';
   let mediaUrl = null;
   let fileId = null;
-  let conteudo = payload.text?.message || payload.body || '';
+  
+  // ✅ EXTRAÇÃO SEGURA DE TEXTO COM EMOJIS
+  let conteudoRaw = payload.text?.message || payload.body || '';
+  emojiDebug('ZAPI_RAW_TEXT', conteudoRaw);
 
+  let conteudo = '';
+  
   if (payload.image) {
     mediaType = 'image';
     fileId = payload.image.fileId || payload.image.id || null;
     mediaUrl = payload.image.imageUrl || payload.image.url || payload.image.urlWithToken || payload.fileUrl || null;
-    conteudo = conteudo || payload.image.caption || '[Imagem]';
+    const caption = payload.image.caption || '';
+    conteudo = processTextWithEmojis(conteudoRaw || caption || '[Imagem]');
   } else if (payload.video) {
     mediaType = 'video';
     fileId = payload.video.fileId || payload.video.id || null;
     mediaUrl = payload.video.videoUrl || payload.video.url || payload.video.urlWithToken || payload.fileUrl || null;
-    conteudo = conteudo || payload.video.caption || '[Vídeo]';
+    const caption = payload.video.caption || '';
+    conteudo = processTextWithEmojis(conteudoRaw || caption || '[Vídeo]');
   } else if (payload.audio) {
     mediaType = 'audio';
     fileId = payload.audio.fileId || payload.audio.id || null;
@@ -111,7 +119,7 @@ function normalizarPayload(payload) {
     mediaType = 'document';
     fileId = payload.document.fileId || payload.document.id || null;
     mediaUrl = payload.document.documentUrl || payload.document.url || payload.document.urlWithToken || payload.fileUrl || null;
-    conteudo = conteudo || '[Documento]';
+    conteudo = processTextWithEmojis(conteudoRaw || '[Documento]');
   } else if (payload.sticker) {
     mediaType = 'sticker';
     fileId = payload.sticker.fileId || payload.sticker.id || null;
@@ -123,6 +131,16 @@ function normalizarPayload(payload) {
   } else if (payload.location) {
     mediaType = 'location';
     conteudo = '📍 Localização';
+  } else {
+    // Texto puro
+    conteudo = processTextWithEmojis(conteudoRaw);
+  }
+  
+  // Debug após processamento
+  emojiDebug('ZAPI_PROCESSED_TEXT', conteudo);
+  const stats = getTextStats(conteudo);
+  if (stats.hasEmojis) {
+    console.log('[ZAPI] ✅ Mensagem com emojis:', stats);
   }
 
   if (!conteudo && mediaType === 'none') {
