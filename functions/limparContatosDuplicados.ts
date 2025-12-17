@@ -29,24 +29,33 @@ Deno.serve(async (req) => {
     }, { headers });
   }
 
+  console.log('[DEDUPE] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+  console.log('[DEDUPE] INICIANDO PROCESSO DE LIMPEZA');
+  
   let base44;
   try {
+    console.log('[DEDUPE] STEP 1 - Inicializando SDK...');
     base44 = createClientFromRequest(req);
+    console.log('[DEDUPE] STEP 1 - SDK OK');
   } catch (e) {
+    console.error('[DEDUPE] ❌ STEP 1 FALHOU:', e.message, e.stack);
     return Response.json({ 
       success: false, 
-      error: 'Erro ao inicializar SDK: ' + e.message 
+      error: 'Erro ao inicializar SDK: ' + e.message,
+      stack: e.stack
     }, { status: 500, headers });
   }
   
   try {
-    console.log(`[DEDUPE ${VERSION}] Iniciando limpeza de duplicatas...`);
+    console.log('[DEDUPE] STEP 2 - Buscando contatos (limite 2000)...');
     
-    // Buscar todos os contatos
+    // ✅ REDUZIR LIMITE: 5000 pode causar timeout/rate limit
     let allContacts;
     try {
-      allContacts = await base44.asServiceRole.entities.Contact.list('-created_date', 5000);
+      allContacts = await base44.asServiceRole.entities.Contact.list('-created_date', 2000);
+      console.log('[DEDUPE] STEP 2 - Contatos carregados:', allContacts.length);
     } catch (e) {
+      console.error('[DEDUPE] ❌ STEP 2 FALHOU:', e.message, e.stack);
       throw new Error(`Erro ao buscar contatos: ${e.message}`);
     }
     
@@ -58,20 +67,22 @@ Deno.serve(async (req) => {
       }, { headers });
     }
     
-    console.log(`[DEDUPE] ${allContacts.length} contatos encontrados`);
+    console.log('[DEDUPE] STEP 3 - Agrupando por telefone normalizado...');
     
     // Agrupar por telefone normalizado
     const groups = new Map();
+    let contatosSemTelefone = 0;
+    let telefonesInvalidos = 0;
     
     for (const contact of allContacts) {
       if (!contact.telefone) {
-        console.log(`[DEDUPE] ⚠️ Contato sem telefone (ID: ${contact.id})`);
+        contatosSemTelefone++;
         continue;
       }
       
       const normalized = normalizePhone(contact.telefone);
       if (!normalized) {
-        console.log(`[DEDUPE] ⚠️ Telefone inválido: ${contact.telefone} (ID: ${contact.id})`);
+        telefonesInvalidos++;
         continue;
       }
       
@@ -80,6 +91,14 @@ Deno.serve(async (req) => {
       }
       groups.get(normalized).push(contact);
     }
+    
+    console.log('[DEDUPE] STEP 3 - Agrupamento concluído:', {
+      total_grupos: groups.size,
+      sem_telefone: contatosSemTelefone,
+      telefones_invalidos: telefonesInvalidos
+    });
+    
+    console.log('[DEDUPE] STEP 4 - Iniciando processamento de duplicatas...');
     
     // Estatísticas
     const stats = {
@@ -92,13 +111,23 @@ Deno.serve(async (req) => {
       errors_details: []
     };
     
+    let gruposProcessados = 0;
+    const MAX_DUPLICATES = 50; // ✅ LIMITAR processamento para evitar timeout
+    
     // Processar grupos com duplicatas
     for (const [phone, contacts] of groups) {
       if (contacts.length === 1) continue; // Sem duplicata
       
       stats.duplicates_found++;
       
-      console.log(`[DEDUPE] 🔍 Duplicata: ${phone} (${contacts.length} registros)`);
+      // ✅ LIMITE: Processar no máximo 50 grupos duplicados por execução
+      if (gruposProcessados >= MAX_DUPLICATES) {
+        console.log(`[DEDUPE] ⚠️ Limite de ${MAX_DUPLICATES} grupos atingido, pausando...`);
+        break;
+      }
+      gruposProcessados++;
+      
+      console.log(`[DEDUPE] 🔍 [${gruposProcessados}/${Math.min(stats.duplicates_found, MAX_DUPLICATES)}] Duplicata: ${phone} (${contacts.length} registros)`);
       
       // Escolher contato principal (critérios ordenados por prioridade)
       const principal = contacts.reduce((best, current) => {
@@ -130,51 +159,73 @@ Deno.serve(async (req) => {
         if (duplicate.id === principal.id) continue;
         
         try {
-          // Reapontar threads
-          let threads = [];
+          // ✅ BATCH UPDATE: Usar update_entities para evitar rate limit
           try {
-            threads = await base44.asServiceRole.entities.MessageThread.filter({
+            // Reapontar threads EM LOTE
+            const threadCount = await base44.asServiceRole.entities.MessageThread.filter({
               contact_id: duplicate.id
-            }, '-created_date', 1000);
-          } catch (e) {
-            console.warn(`[DEDUPE] Aviso ao buscar threads: ${e.message}`);
-          }
-          
-          for (const thread of threads) {
-            try {
-              await base44.asServiceRole.entities.MessageThread.update(thread.id, {
-                contact_id: principal.id
-              });
-              stats.threads_updated++;
-            } catch (e) {
-              console.error(`[DEDUPE] Erro ao atualizar thread ${thread.id}:`, e.message);
-              stats.errors++;
-              stats.errors_details.push(`Thread ${thread.id}: ${e.message}`);
+            }, '-created_date', 1);
+            
+            if (threadCount && threadCount.length > 0) {
+              // Usar API direta de update múltiplo (mais eficiente)
+              const updateResult = await fetch(
+                `${Deno.env.get('BASE44_API_URL') || 'https://api.base44.com'}/entities/MessageThread/update-many`,
+                {
+                  method: 'POST',
+                  headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${Deno.env.get('BASE44_SERVICE_ROLE_KEY')}`
+                  },
+                  body: JSON.stringify({
+                    query: { contact_id: duplicate.id },
+                    data: { contact_id: principal.id }
+                  })
+                }
+              );
+              
+              if (updateResult.ok) {
+                const result = await updateResult.json();
+                stats.threads_updated += result.updated_count || 0;
+              }
             }
+          } catch (e) {
+            console.warn(`[DEDUPE] Erro ao reapontar threads:`, e.message);
+            stats.errors++;
+            stats.errors_details.push(`Threads do ${duplicate.id}: ${e.message}`);
           }
           
-          // Reapontar mensagens diretas (se houver sender_id = contact)
-          let messages = [];
+          // ✅ Reapontar mensagens EM LOTE
           try {
-            messages = await base44.asServiceRole.entities.Message.filter({
+            const msgCount = await base44.asServiceRole.entities.Message.filter({
               sender_id: duplicate.id,
               sender_type: 'contact'
-            }, '-created_date', 1000);
-          } catch (e) {
-            console.warn(`[DEDUPE] Aviso ao buscar mensagens: ${e.message}`);
-          }
-          
-          for (const message of messages) {
-            try {
-              await base44.asServiceRole.entities.Message.update(message.id, {
-                sender_id: principal.id
-              });
-              stats.messages_updated++;
-            } catch (e) {
-              console.error(`[DEDUPE] Erro ao atualizar mensagem ${message.id}:`, e.message);
-              stats.errors++;
-              stats.errors_details.push(`Message ${message.id}: ${e.message}`);
+            }, '-created_date', 1);
+            
+            if (msgCount && msgCount.length > 0) {
+              const updateResult = await fetch(
+                `${Deno.env.get('BASE44_API_URL') || 'https://api.base44.com'}/entities/Message/update-many`,
+                {
+                  method: 'POST',
+                  headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${Deno.env.get('BASE44_SERVICE_ROLE_KEY')}`
+                  },
+                  body: JSON.stringify({
+                    query: { sender_id: duplicate.id, sender_type: 'contact' },
+                    data: { sender_id: principal.id }
+                  })
+                }
+              );
+              
+              if (updateResult.ok) {
+                const result = await updateResult.json();
+                stats.messages_updated += result.updated_count || 0;
+              }
             }
+          } catch (e) {
+            console.warn(`[DEDUPE] Erro ao reapontar mensagens:`, e.message);
+            stats.errors++;
+            stats.errors_details.push(`Messages do ${duplicate.id}: ${e.message}`);
           }
           
           // Marcar duplicata como merged
@@ -201,17 +252,25 @@ Deno.serve(async (req) => {
       }
     }
     
-    console.log('[DEDUPE] ✅ Concluído:', stats);
+    console.log('[DEDUPE] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    console.log('[DEDUPE] ✅ CONCLUÍDO:', stats);
+    console.log('[DEDUPE] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
     
     return Response.json({
       success: true,
       stats: stats,
       timestamp: new Date().toISOString(),
-      version: VERSION
+      version: VERSION,
+      warning: stats.duplicates_found > MAX_DUPLICATES ? `Processados ${MAX_DUPLICATES} de ${stats.duplicates_found} duplicatas. Execute novamente para continuar.` : null
     }, { headers });
     
   } catch (error) {
-    console.error('[DEDUPE] ERRO GERAL:', error);
+    console.error('[DEDUPE] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    console.error('[DEDUPE] ❌ ERRO GERAL:', error.message);
+    console.error('[DEDUPE] ❌ Stack:', error.stack);
+    console.error('[DEDUPE] ❌ Full:', JSON.stringify(error, null, 2));
+    console.error('[DEDUPE] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    
     return Response.json({
       success: false,
       error: error.message,
