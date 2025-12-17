@@ -1,13 +1,14 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.4';
 
 // ============================================================================
-// PERSISTIR MÍDIA W-API - v1.0.0
+// PERSISTIR MÍDIA W-API - v1.0.2
 // ============================================================================
 // Esta função baixa mídias temporárias do WhatsApp e salva permanentemente
 // no storage do Base44
+// CORREÇÃO v1.0.2: Versão atualizada para consistência com webhookWapi v9.1.0
 // ============================================================================
 
-const VERSION = 'v1.0.1';
+const VERSION = 'v1.0.2';
 const WAPI_BASE_URL = 'https://api.w-api.app/v1';
 const MAX_RETRIES = 2;
 const RETRY_DELAY = 2000;

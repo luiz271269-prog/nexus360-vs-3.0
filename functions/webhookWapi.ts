@@ -1,16 +1,16 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.4';
 
 // ============================================================================
-// WEBHOOK WHATSAPP W-API - v9.0.0 PIPELINE UNIFICADO
+// WEBHOOK WHATSAPP W-API - v9.1.0 PIPELINE UNIFICADO + MÍDIA PERSISTENTE
 // ============================================================================
-// CORREÇÕES v9.0.0:
-// 1. Imports dinâmicos para evitar erro de deployment
-// 2. Pipeline unificado com inboundCore.js
-// 3. Micro-URA + Promoções + Roteamento integrados
+// CORREÇÕES v9.1.0:
+// 1. TODAS as mídias recebidas agora são marcadas para download obrigatório
+// 2. mediaUrl = 'pending_download' para imagem, vídeo, áudio, documento, sticker
+// 3. Consistência com Z-API: baixar e salvar permanentemente todas as mídias
 // ============================================================================
 
-const VERSION = 'v9.0.0-PIPELINE';
-const BUILD_DATE = '2025-12-16';
+const VERSION = 'v9.1.0-PERSISTENT-MEDIA';
+const BUILD_DATE = '2025-12-17';
 
 const corsHeaders = {
   'Content-Type': 'application/json',
@@ -63,32 +63,8 @@ function deveIgnorar(payload) {
 }
 
 // ============================================================================
-// EXTRAIR MÍDIA
+// EXTRAIR METADADOS MÍDIA
 // ============================================================================
-function extrairMediaUrl(payload, msgContent, tipoMidia) {
-  const camposRaiz = [
-    payload.mediaUrl, payload.media?.url, payload.downloadUrl,
-    payload.fileUrl, payload.url, payload.media?.downloadUrl, payload.urlMedia
-  ];
-  
-  const camposMsgContent = {
-    image: [msgContent?.imageMessage?.url, msgContent?.imageMessage?.directPath, msgContent?.imageMessage?.mediaUrl],
-    video: [msgContent?.videoMessage?.url, msgContent?.videoMessage?.directPath],
-    audio: [msgContent?.audioMessage?.url, msgContent?.audioMessage?.directPath],
-    document: [msgContent?.documentMessage?.url, msgContent?.documentMessage?.directPath],
-    sticker: [msgContent?.stickerMessage?.url, msgContent?.stickerMessage?.directPath]
-  };
-  
-  const camposDoTipo = camposMsgContent[tipoMidia] || [];
-  for (const campo of camposDoTipo) {
-    if (campo && typeof campo === 'string' && campo.startsWith('http')) return campo;
-  }
-  for (const campo of camposRaiz) {
-    if (campo && typeof campo === 'string' && campo.startsWith('http')) return campo;
-  }
-  return null;
-}
-
 function extrairMetadadosMidia(msgContent, tipoMidia) {
   const tipoMap = {
     image: 'imageMessage', video: 'videoMessage', audio: 'audioMessage',
@@ -141,46 +117,41 @@ function normalizarPayload(payload) {
   let mediaMetadata = {};
   
   // ✅ EXTRAÇÃO SEGURA DE TEXTO COM EMOJIS
+  // ✅ v9.1.0: TODAS as mídias marcadas como 'pending_download'
   if (msgContent.imageMessage) {
     mediaType = 'image';
     mediaMetadata = extrairMetadadosMidia(msgContent, 'image');
     conteudoRaw = mediaMetadata.caption || '[Imagem]';
-    mediaUrl = extrairMediaUrl(payload, msgContent, 'image');
-    if (!mediaUrl && msgContent.imageMessage?.mediaKey) {
-      mediaMetadata.messageStruct = msgContent.imageMessage;
-      mediaMetadata.requiresDownload = true;
-    }
+    mediaUrl = 'pending_download'; // ✅ Marca para download obrigatório
+    mediaMetadata.messageStruct = msgContent.imageMessage;
+    mediaMetadata.requiresDownload = true;
   } else if (msgContent.videoMessage) {
     mediaType = 'video';
     mediaMetadata = extrairMetadadosMidia(msgContent, 'video');
     conteudoRaw = mediaMetadata.caption || '[Vídeo]';
-    mediaUrl = extrairMediaUrl(payload, msgContent, 'video');
-    if (!mediaUrl && msgContent.videoMessage?.mediaKey) {
-      mediaMetadata.messageStruct = msgContent.videoMessage;
-      mediaMetadata.requiresDownload = true;
-    }
+    mediaUrl = 'pending_download'; // ✅ Marca para download obrigatório
+    mediaMetadata.messageStruct = msgContent.videoMessage;
+    mediaMetadata.requiresDownload = true;
   } else if (msgContent.audioMessage) {
     mediaType = 'audio';
     mediaMetadata = extrairMetadadosMidia(msgContent, 'audio');
     conteudoRaw = mediaMetadata.isPTT ? '[Áudio de voz]' : '[Áudio]';
-    mediaUrl = extrairMediaUrl(payload, msgContent, 'audio');
-    if (!mediaUrl && msgContent.audioMessage?.mediaKey) {
-      mediaMetadata.messageStruct = msgContent.audioMessage;
-      mediaMetadata.requiresDownload = true;
-    }
+    mediaUrl = 'pending_download'; // ✅ Marca para download obrigatório
+    mediaMetadata.messageStruct = msgContent.audioMessage;
+    mediaMetadata.requiresDownload = true;
   } else if (msgContent.documentMessage) {
     mediaType = 'document';
     mediaMetadata = extrairMetadadosMidia(msgContent, 'document');
     conteudoRaw = mediaMetadata.fileName ? `[Documento: ${mediaMetadata.fileName}]` : '[Documento]';
-    mediaUrl = extrairMediaUrl(payload, msgContent, 'document');
-    if (!mediaUrl && msgContent.documentMessage?.mediaKey) {
-      mediaMetadata.messageStruct = msgContent.documentMessage;
-      mediaMetadata.requiresDownload = true;
-    }
+    mediaUrl = 'pending_download'; // ✅ Marca para download obrigatório
+    mediaMetadata.messageStruct = msgContent.documentMessage;
+    mediaMetadata.requiresDownload = true;
   } else if (msgContent.stickerMessage) {
     mediaType = 'sticker';
-    mediaUrl = extrairMediaUrl(payload, msgContent, 'sticker');
     conteudoRaw = '[Sticker]';
+    mediaUrl = 'pending_download'; // ✅ Marca para download obrigatório
+    mediaMetadata.messageStruct = msgContent.stickerMessage;
+    mediaMetadata.requiresDownload = true;
   } else if (msgContent.contactMessage || msgContent.contactsArrayMessage) {
     mediaType = 'contact';
     conteudoRaw = '📇 Contato compartilhado';
