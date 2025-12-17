@@ -263,6 +263,10 @@ async function handleMessageUpdate(dados, base44) {
 // HANDLE MESSAGE - PIPELINE UNIFICADO
 // ============================================================================
 async function handleMessage(dados, payloadBruto, base44, req) {
+  console.log('[WAPI] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+  console.log('[WAPI] STEP 1 - INÍCIO handleMessage');
+  console.log('[WAPI] Tipo mídia:', dados.mediaType, '| RequiresDownload:', dados.requiresDownload);
+  
   const inicio = Date.now();
   
   const lastRequest = requestQueue.get(dados.from);
@@ -271,17 +275,24 @@ async function handleMessage(dados, payloadBruto, base44, req) {
   }
   requestQueue.set(dados.from, Date.now());
   
+  console.log('[WAPI] STEP 2 - Rate limit OK');
+  
   if (dados.messageId) {
     try {
       const dup = await base44.asServiceRole.entities.Message.filter(
         { whatsapp_message_id: dados.messageId }, '-created_date', 1
       );
       if (dup.length > 0) {
+        console.log('[WAPI] STEP 2.1 - Duplicata detectada, ignorando');
         return Response.json({ success: true, ignored: true, reason: 'duplicata' }, { headers: corsHeaders });
       }
     } catch (e) {}
   }
+  
+  console.log('[WAPI] STEP 3 - Dedup OK');
 
+  console.log('[WAPI] STEP 4 - Resolvendo integração...');
+  
   let integracaoId = null;
   if (dados.instanceId) {
     const cached = integrationCache.get(dados.instanceId);
@@ -299,9 +310,13 @@ async function handleMessage(dados, payloadBruto, base44, req) {
       } catch (e) {}
     }
   }
+  
+  console.log('[WAPI] STEP 5 - Integração resolvida:', integracaoId);
 
   const profilePicUrl = payloadBruto.sender?.profilePicture || payloadBruto.sender?.profilePicThumbObj?.eurl || null;
 
+  console.log('[WAPI] STEP 6 - Chamando getOrCreateContact...');
+  
   // ✅ USAR GERENCIADOR ÚNICO (evita duplicação)
   const contato = await getOrCreateContact(base44, {
     telefone: dados.from,
@@ -310,12 +325,17 @@ async function handleMessage(dados, payloadBruto, base44, req) {
     instance_id: dados.instanceId,
     profilePicUrl: profilePicUrl
   });
+  
+  console.log('[WAPI] STEP 7 - Contato OK:', contato.id);
+  console.log('[WAPI] STEP 8 - Chamando getOrCreateThread...');
 
   const thread = await getOrCreateThread(base44, {
     contact_id: contato.id,
     integration_id: integracaoId,
     instance_id: dados.instanceId
   });
+  
+  console.log('[WAPI] STEP 9 - Thread OK:', thread.id);
 
   const mensagem = await base44.asServiceRole.entities.Message.create({
     thread_id: thread.id,
@@ -400,14 +420,29 @@ async function handleMessage(dados, payloadBruto, base44, req) {
 
   const now = new Date().toISOString();
 
+  console.log('[WAPI] STEP 14 - Buscando integração completa...');
+  
   // ============================================================================
   // PIPELINE ÚNICO IMUTÁVEL - v9.0.0
   // ============================================================================
   const integracao = integracaoId 
     ? await base44.asServiceRole.entities.WhatsAppIntegration.get(integracaoId).catch(() => null)
     : null;
+  
+  console.log('[WAPI] STEP 15 - Importando inboundCore...');
 
-  const { processInboundEvent } = await import('./lib/inboundCore.js');
+  let processInboundEvent;
+  try {
+    const module = await import('./lib/inboundCore.js');
+    processInboundEvent = module.processInboundEvent;
+    console.log('[WAPI] STEP 16 - inboundCore importado OK');
+  } catch (e) {
+    console.error('[WAPI] ❌ STEP 16.ERROR - Falha ao importar inboundCore:', e?.message);
+    console.error('[WAPI] ❌ Stack:', e?.stack);
+    throw e;
+  }
+  
+  console.log('[WAPI] STEP 17 - Chamando processInboundEvent...');
   
   const pipelineResult = await processInboundEvent({
     base44,
@@ -419,11 +454,13 @@ async function handleMessage(dados, payloadBruto, base44, req) {
     messageContent: dados.content
   });
   
+  console.log('[WAPI] STEP 18 - Pipeline concluído');
   console.log('[' + VERSION + '] Pipeline:', pipelineResult.pipeline);
   console.log('[' + VERSION + '] Actions:', pipelineResult.actions);
   
   // Se foi consumido (micro-URA 1/2), retornar imediatamente
   if (pipelineResult.consumed) {
+    console.log('[WAPI] STEP 19 - Retornando (consumed)');
     const duracao = Date.now() - inicio;
     return Response.json({
       success: true,
@@ -440,6 +477,7 @@ async function handleMessage(dados, payloadBruto, base44, req) {
   
   // Se teve hard-stop, retornar
   if (pipelineResult.stop) {
+    console.log('[WAPI] STEP 19 - Retornando (stop)');
     const duracao = Date.now() - inicio;
     return Response.json({
       success: true,
@@ -455,7 +493,11 @@ async function handleMessage(dados, payloadBruto, base44, req) {
   }
   
   // Retorno normal
+  console.log('[WAPI] STEP 19 - Retornando (sucesso normal)');
   const duracao = Date.now() - inicio;
+  console.log('[WAPI] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+  console.log('[WAPI] ✅ CONCLUÍDO EM', duracao, 'ms');
+  
   return Response.json({
     success: true,
     message_id: mensagem.id,
