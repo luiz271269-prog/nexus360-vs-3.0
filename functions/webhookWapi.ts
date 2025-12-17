@@ -1,5 +1,4 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.4';
-import { processarMidiaWapi } from './wapiMediaHandler.js';
 
 // ============================================================================
 // WEBHOOK WHATSAPP W-API - v11.0.0 SOLUCAO DEFINITIVA
