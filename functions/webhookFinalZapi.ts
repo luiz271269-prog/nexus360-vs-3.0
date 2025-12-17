@@ -238,29 +238,33 @@ function normalizarPayload(payload) {
     const imgData = payload.image || forwardedImage;
     if (typeof imgData === 'object') {
       mediaUrl = imgData.imageUrl ?? imgData.url ?? imgData.link ?? imgData.mediaUrl ?? null;
-      if (!conteudo) conteudo = imgData.caption ?? '[Imagem]';
+      // ✅ FIX VISUAL: Garante texto
+      conteudo = imgData.caption || '📷 [Imagem recebida]';
     } else if (typeof imgData === 'string' && imgData.startsWith('http')) {
       mediaUrl = imgData;
-      if (!conteudo) conteudo = '[Imagem]';
+      conteudo = '📷 [Imagem recebida]';
     }
   } else if (payload.imageUrl) {
     // URL direta no root
     mediaType = 'image';
     mediaUrl = payload.imageUrl;
-    if (!conteudo) conteudo = payload.caption ?? '[Imagem]';
+    // ✅ FIX VISUAL
+    conteudo = payload.caption || '📷 [Imagem recebida]';
   } else if (payload.video) {
     mediaType = 'video';
     if (typeof payload.video === 'object') {
       mediaUrl = payload.video.videoUrl ?? payload.video.url ?? payload.video.link ?? payload.video.mediaUrl ?? null;
-      if (!conteudo) conteudo = payload.video.caption ?? '[Vídeo]';
+      // ✅ FIX VISUAL
+      conteudo = payload.video.caption || '🎥 [Vídeo recebido]';
     } else if (typeof payload.video === 'string' && payload.video.startsWith('http')) {
       mediaUrl = payload.video;
-      if (!conteudo) conteudo = '[Vídeo]';
+      conteudo = '🎥 [Vídeo recebido]';
     }
   } else if (payload.videoUrl) {
     mediaType = 'video';
     mediaUrl = payload.videoUrl;
-    if (!conteudo) conteudo = payload.caption ?? '[Vídeo]';
+    // ✅ FIX VISUAL
+    conteudo = payload.caption || '🎥 [Vídeo recebido]';
   } else if (payload.audio) {
     mediaType = 'audio';
     if (typeof payload.audio === 'object') {
@@ -268,24 +272,31 @@ function normalizarPayload(payload) {
     } else if (typeof payload.audio === 'string' && payload.audio.startsWith('http')) {
       mediaUrl = payload.audio;
     }
-    conteudo = conteudo || '[Áudio]';
+    // ✅ FIX VISUAL
+    conteudo = '🎤 [Áudio recebido]';
   } else if (payload.audioUrl) {
     mediaType = 'audio';
     mediaUrl = payload.audioUrl;
-    conteudo = conteudo || '[Áudio]';
+    // ✅ FIX VISUAL
+    conteudo = '🎤 [Áudio recebido]';
   } else if (payload.document) {
     mediaType = 'document';
     if (typeof payload.document === 'object') {
       mediaUrl = payload.document.documentUrl ?? payload.document.url ?? payload.document.link ?? payload.document.mediaUrl ?? null;
-      if (!conteudo) conteudo = payload.document.caption ?? payload.document.fileName ?? '[Documento]';
+      const fileName = payload.document.fileName || payload.fileName || 'arquivo';
+      // ✅ FIX VISUAL: Garante texto descritivo
+      conteudo = payload.document.caption ? `${payload.document.caption} (${fileName})` : `📄 [Documento: ${fileName}]`;
     } else if (typeof payload.document === 'string' && payload.document.startsWith('http')) {
       mediaUrl = payload.document;
-      if (!conteudo) conteudo = '[Documento]';
+      const fileName = payload.fileName || 'arquivo';
+      conteudo = `📄 [Documento: ${fileName}]`;
     }
   } else if (payload.documentUrl) {
     mediaType = 'document';
     mediaUrl = payload.documentUrl;
-    if (!conteudo) conteudo = payload.caption ?? '[Documento]';
+    const fileName = payload.fileName || 'arquivo';
+    // ✅ FIX VISUAL: Texto descritivo com nome
+    conteudo = payload.caption ? `${payload.caption} (${fileName})` : `📄 [Documento: ${fileName}]`;
   } else if (payload.sticker) {
     mediaType = 'sticker';
     if (typeof payload.sticker === 'object') {

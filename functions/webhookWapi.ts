@@ -110,7 +110,8 @@ function normalizarPayload(payload) {
     if (msgContent.imageMessage) {
       mediaType = 'image';
       const meta = getMediaMeta(msgContent.imageMessage);
-      conteudoRaw = meta.caption || '[Imagem]';
+      // ✅ FIX VISUAL: Garante texto para imagens
+      conteudoRaw = meta.caption || '📷 [Imagem recebida]';
       if (meta.mediaKey && meta.directPath) {
         downloadSpec = { ...meta, type: 'image', mimetype: meta.mimetype || 'image/jpeg' };
       }
@@ -118,7 +119,8 @@ function normalizarPayload(payload) {
     else if (msgContent.videoMessage) {
       mediaType = 'video';
       const meta = getMediaMeta(msgContent.videoMessage);
-      conteudoRaw = meta.caption || '[Vídeo]';
+      // ✅ FIX VISUAL: Garante texto para vídeos
+      conteudoRaw = meta.caption || '🎥 [Vídeo recebido]';
       if (meta.mediaKey && meta.directPath) {
         downloadSpec = { ...meta, type: 'video', mimetype: meta.mimetype || 'video/mp4' };
       }
@@ -126,7 +128,8 @@ function normalizarPayload(payload) {
     else if (msgContent.audioMessage) {
       mediaType = 'audio';
       const meta = getMediaMeta(msgContent.audioMessage);
-      conteudoRaw = msgContent.audioMessage.ptt ? '[Áudio Voz]' : '[Áudio]';
+      // ✅ FIX VISUAL: Garante texto para áudios
+      conteudoRaw = msgContent.audioMessage.ptt ? '🎤 [Áudio de voz]' : '🎵 [Áudio recebido]';
       if (meta.mediaKey && meta.directPath) {
         downloadSpec = { ...meta, type: 'audio', mimetype: meta.mimetype || 'audio/ogg' };
       }
@@ -134,7 +137,9 @@ function normalizarPayload(payload) {
     else if (msgContent.documentMessage) {
       mediaType = 'document';
       const meta = getMediaMeta(msgContent.documentMessage);
-      conteudoRaw = meta.caption || meta.fileName || '[Documento]';
+      const fileName = meta.fileName || 'arquivo';
+      // ✅ FIX VISUAL: Garante texto descritivo para documentos
+      conteudoRaw = meta.caption ? `${meta.caption} (${fileName})` : `📄 [Documento: ${fileName}]`;
       if (meta.mediaKey && meta.directPath) {
         downloadSpec = { ...meta, type: 'document', mimetype: meta.mimetype || 'application/pdf' };
       }
