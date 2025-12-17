@@ -392,12 +392,21 @@ Deno.serve(async (req) => {
             body.fileName = `document.${extensaoArquivo}`;
           }
         } else if (tipoMidiaReal === 'image') {
-          // W-API IMAGEM - IMPORTANTE: W-API precisa fazer download da URL
-          // Se a URL for do Supabase Storage, garantir que é pública
+          // W-API IMAGEM - URL precisa ser diretamente acessível
           let urlParaUsar = media_url;
           
-          if (media_url.includes('base44-prod/public/')) {
-            urlParaUsar = media_url.split('?')[0]; // Remove query params se houver
+          // Limpar URL: remover query params e garantir acesso público
+          if (media_url.includes('?')) {
+            urlParaUsar = media_url.split('?')[0];
+          }
+          
+          // Para Supabase Storage, garantir formato correto
+          if (media_url.includes('supabase.co/storage/v1/object/')) {
+            // Garantir que é uma URL pública sem autenticação
+            if (!media_url.includes('/public/')) {
+              console.warn(`[ENVIAR-WHATSAPP-UNIFICADO] ⚠️ URL não é pública:`, media_url);
+            }
+            urlParaUsar = media_url.split('?')[0]; // Remove tokens/params
           }
           
           body = {
@@ -407,7 +416,8 @@ Deno.serve(async (req) => {
           };
           if (media_caption) body.caption = media_caption;
           
-          console.log(`[ENVIAR-WHATSAPP-UNIFICADO] 📷 W-API Image URL:`, urlParaUsar);
+          console.log(`[ENVIAR-WHATSAPP-UNIFICADO] 📷 W-API Image - URL original:`, media_url);
+          console.log(`[ENVIAR-WHATSAPP-UNIFICADO] 📷 W-API Image - URL limpa:`, urlParaUsar);
         } else if (tipoMidiaReal === 'video') {
           // W-API VÍDEO
           body = {
