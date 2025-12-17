@@ -7,8 +7,8 @@ import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
+  TooltipTrigger } from
+"@/components/ui/tooltip";
 import { MessageSquare, AlertCircle, RefreshCw, TrendingUp, Phone } from "lucide-react";
 
 /**
@@ -37,7 +37,7 @@ export default function ContadorNaoAtribuidas({ onClickVerFila, onClickConexao, 
     try {
       setErro(null);
       const resultado = await base44.functions.invoke('contarNaoAtribuidasVisiveis', {});
-      
+
       // Acessar dados corretamente (resultado já vem com .data do SDK)
       const dadosRecebidos = resultado?.data || resultado || { total: 0, por_setor: [], por_integracao: [] };
       setDados(dadosRecebidos);
@@ -60,7 +60,7 @@ export default function ContadorNaoAtribuidas({ onClickVerFila, onClickConexao, 
 
   // Obter nome amigável da integração
   const getNomeIntegracao = (integrationId) => {
-    const integracao = integracoes.find(i => i.id === integrationId);
+    const integracao = integracoes.find((i) => i.id === integrationId);
     return integracao?.nome_instancia || integracao?.numero_telefone || integrationId;
   };
 
@@ -113,8 +113,8 @@ export default function ContadorNaoAtribuidas({ onClickVerFila, onClickConexao, 
       <div className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-slate-100 border border-slate-200 ${className}`}>
         <RefreshCw className="w-4 h-4 text-slate-400 animate-spin" />
         <span className="text-xs text-slate-600">...</span>
-      </div>
-    );
+      </div>);
+
   }
 
   if (erro) {
@@ -131,16 +131,16 @@ export default function ContadorNaoAtribuidas({ onClickVerFila, onClickConexao, 
             <p className="text-xs text-red-700">{erro}</p>
           </TooltipContent>
         </Tooltip>
-      </TooltipProvider>
-    );
+      </TooltipProvider>);
+
   }
 
-  const content = (
-    <Button
-      variant="ghost"
-      className={`group relative flex items-center gap-1.5 px-2.5 py-1.5 h-auto rounded-lg border transition-all hover:shadow-md ${estilo.bg} ${estilo.border} ${estilo.glow} ${className}`}
-      onClick={onClickVerFila}
-    >
+  const content =
+  <Button
+    variant="ghost" className="bg-orange-500 px-2.5 py-1.5 text-sm font-medium opacity-60 rounded-lg justify-center whitespace-nowrap focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 hover:bg-accent hover:text-accent-foreground group relative flex items-center gap-1.5 h-auto border transition-all hover:shadow-md from-blue-50 to-blue-100 border-blue-300 shadow-blue-200/50 shadow-lg"
+
+    onClick={onClickVerFila}>
+
       {/* Ícone */}
       <MessageSquare className={`w-4 h-4 ${estilo.icon}`} />
 
@@ -150,13 +150,13 @@ export default function ContadorNaoAtribuidas({ onClickVerFila, onClickConexao, 
       </span>
 
       {/* Badge de alerta */}
-      {dados.total > 0 && (
-        <div className={`absolute -top-1 -right-1 ${estilo.badge} px-1 rounded-full text-[9px] font-bold`}>
+      {dados.total > 0 &&
+    <div className={`absolute -top-1 -right-1 ${estilo.badge} px-1 rounded-full text-[9px] font-bold`}>
           {dados.total}
         </div>
-      )}
-    </Button>
-  );
+    }
+    </Button>;
+
 
   // Se não tiver breakdown, exibir simples
   if (dados.por_setor.length === 0) {
@@ -187,32 +187,32 @@ export default function ContadorNaoAtribuidas({ onClickVerFila, onClickConexao, 
                 Por Setor
               </p>
               <div className="space-y-2">
-                {dados.por_setor
-                  .sort((a, b) => b.total - a.total)
-                  .map((item, idx) => (
-                    <div 
-                      key={idx} 
-                      className="flex items-center justify-between gap-4 p-2 rounded-lg hover:bg-slate-50 transition-colors"
-                    >
+                {dados.por_setor.
+                sort((a, b) => b.total - a.total).
+                map((item, idx) =>
+                <div
+                  key={idx}
+                  className="flex items-center justify-between gap-4 p-2 rounded-lg hover:bg-slate-50 transition-colors">
+
                       <span className="text-xs text-slate-700 font-medium capitalize flex items-center gap-2">
                         <span className={`w-1.5 h-1.5 rounded-full ${
-                          idx === 0 ? 'bg-blue-500' : 
-                          idx === 1 ? 'bg-purple-500' : 
-                          'bg-slate-400'
-                        }`} />
+                    idx === 0 ? 'bg-blue-500' :
+                    idx === 1 ? 'bg-purple-500' :
+                    'bg-slate-400'}`
+                    } />
                         {item.sector_id === 'sem_setor' ? '(Sem setor definido)' : item.sector_id}
                       </span>
                       <Badge className="bg-indigo-100 text-indigo-700 hover:bg-indigo-200 text-xs font-bold px-2">
                         {item.total}
                       </Badge>
                     </div>
-                  ))}
+                )}
               </div>
             </div>
 
             {/* Breakdown por Conexão */}
-            {dados.por_integracao.length > 0 && (
-              <>
+            {dados.por_integracao.length > 0 &&
+            <>
                 <div className="border-t border-slate-200" />
                 <div>
                   <p className="text-xs font-semibold text-slate-600 mb-2 flex items-center gap-1">
@@ -220,15 +220,15 @@ export default function ContadorNaoAtribuidas({ onClickVerFila, onClickConexao, 
                     Por Conexão WhatsApp
                   </p>
                   <div className="space-y-2">
-                    {dados.por_integracao
-                      .sort((a, b) => b.total - a.total)
-                      .slice(0, 5)
-                      .map((item, idx) => (
-                        <button
-                          key={idx}
-                          onClick={() => onClickConexao?.(item.integration_id)}
-                          className="w-full flex items-center justify-between gap-4 p-2 rounded-lg hover:bg-indigo-50 hover:border-indigo-200 border border-transparent transition-all cursor-pointer"
-                        >
+                    {dados.por_integracao.
+                  sort((a, b) => b.total - a.total).
+                  slice(0, 5).
+                  map((item, idx) =>
+                  <button
+                    key={idx}
+                    onClick={() => onClickConexao?.(item.integration_id)}
+                    className="w-full flex items-center justify-between gap-4 p-2 rounded-lg hover:bg-indigo-50 hover:border-indigo-200 border border-transparent transition-all cursor-pointer">
+
                           <span className="text-xs text-slate-700 font-medium truncate max-w-[200px]">
                             📱 {getNomeIntegracao(item.integration_id)}
                           </span>
@@ -236,16 +236,16 @@ export default function ContadorNaoAtribuidas({ onClickVerFila, onClickConexao, 
                             {item.total}
                           </Badge>
                         </button>
-                      ))}
+                  )}
                   </div>
-                  {dados.por_integracao.length > 5 && (
-                    <p className="text-[10px] text-slate-500 mt-2 text-center">
+                  {dados.por_integracao.length > 5 &&
+                <p className="text-[10px] text-slate-500 mt-2 text-center">
                       +{dados.por_integracao.length - 5} outras conexões
                     </p>
-                  )}
+                }
                 </div>
               </>
-            )}
+            }
 
             {/* Footer com timestamp */}
             <div className="border-t border-slate-200 pt-2">
@@ -257,6 +257,6 @@ export default function ContadorNaoAtribuidas({ onClickVerFila, onClickConexao, 
           </div>
         </TooltipContent>
       </Tooltip>
-    </TooltipProvider>
-  );
+    </TooltipProvider>);
+
 }
