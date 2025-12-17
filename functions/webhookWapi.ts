@@ -337,14 +337,20 @@ async function handleMessage(dados, payloadBruto, base44, req) {
     });
   }
   
-  // Import dinamico do inboundCore para isolar falhas
+  // 🛡️ BLINDAGEM TOTAL - Captura erros de IMPORT e EXECUÇÃO
+  console.log('[WAPI] STEP 14 - Blindagem inboundCore...');
+  
   try {
+    // 1. IMPORT DINÂMICO com try/catch (captura OS Error 2 no módulo)
+    const inboundCore = await import('./lib/inboundCore.js');
+    const processInboundEvent = inboundCore.processInboundEvent;
+    
+    // 2. Buscar integração
     const integracao = integracaoId 
       ? await base44.asServiceRole.entities.WhatsAppIntegration.get(integracaoId).catch(() => null)
       : null;
     
-    const { processInboundEvent } = await import('./lib/inboundCore.js');
-    
+    // 3. EXECUÇÃO também blindada
     const pipelineResult = await processInboundEvent({
       base44,
       contact: contato,
@@ -402,10 +408,15 @@ async function handleMessage(dados, payloadBruto, base44, req) {
     }, { headers: corsHeaders });
     
   } catch (coreError) {
-    console.error('[WAPI] Erro no inboundCore (isolado):', coreError?.message);
-    console.error('[WAPI] Stack:', coreError?.stack);
+    // 🛡️ CAPTURA IMPORT + EXECUÇÃO
+    console.error('🔴 [BLINDAGEM] inboundCore FALHOU (webhook salvo):');
+    console.error('  Erro:', coreError.message);
+    if (coreError.message.includes('os error 2') || coreError.message.includes('No such file')) {
+      console.error('  👉 FIX: Substituir fs.readFileSync() por constantes embutidas no módulo');
+    }
+    console.error('  Stack:', coreError?.stack);
     
-    // Retorna sucesso mesmo com erro no core para nao reenviar mensagem
+    // ✅ SEMPRE retorna sucesso para evitar loop de reenvio da W-API
     const duracao = Date.now() - inicio;
     return Response.json({
       success: true,
