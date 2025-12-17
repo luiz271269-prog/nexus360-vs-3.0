@@ -25,11 +25,10 @@ const integrationCache = new Map();
 const CACHE_TTL = 60000;
 
 // ============================================================================
-// IMPORTS
+// IMPORTS - SIMPLIFICADOS
 // ============================================================================
 import { normalizePhone } from './lib/phoneNormalizer.js';
 import { getOrCreateContact, getOrCreateThread } from './lib/contactManager.js';
-import { emojiDebug, processTextWithEmojis, getTextStats } from './lib/emojiHelper.js';
 
 // ============================================================================
 // FILTRO
