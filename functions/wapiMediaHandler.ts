@@ -75,3 +75,37 @@ export async function processarMidiaWapi(messageContent, instanceId, token) {
         return null;
     }
 }
+
+/**
+ * Obtem link de download autenticado da W-API (conforme manual oficial)
+ * Retorna fileLink temporario que deve ser baixado imediatamente
+ */
+export async function obterLinkDownloadWapi(downloadSpec, instanceId, token) {
+  if (!downloadSpec.mediaKey || !downloadSpec.directPath) {
+    throw new Error("Dados insuficientes: mediaKey e directPath sao obrigatorios.");
+  }
+
+  const url = `https://api.w-api.app/v1/message/download-media?instanceId=${instanceId}`;
+  
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${token}`
+    },
+    body: JSON.stringify({
+      mediaKey: downloadSpec.mediaKey,
+      directPath: downloadSpec.directPath,
+      type: downloadSpec.type,
+      mimetype: downloadSpec.mimetype
+    })
+  });
+
+  const data = await response.json();
+
+  if (data.error || !data.fileLink) {
+    throw new Error(`W-API Error: ${JSON.stringify(data)}`);
+  }
+
+  return data.fileLink;
+}
