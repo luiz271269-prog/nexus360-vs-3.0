@@ -342,13 +342,31 @@ async function handleMessage(dados, payloadBruto, base44, req) {
     }
   });
 
+  console.log('[WAPI-WEBHOOK] ✅ Mensagem criada:', {
+    id: mensagem.id,
+    media_type: dados.mediaType,
+    media_url: dados.mediaUrl,
+    requiresDownload: dados.requiresDownload,
+    hasMessageStruct: !!dados.messageStruct
+  });
+
   // ✅ PERSISTIR MÍDIA EM BACKGROUND (crítico para W-API) - BLINDADO
   if (dados.requiresDownload && dados.messageStruct) {
-    console.log(`[WAPI-WEBHOOK] 📥 Iniciando download de mídia tipo ${dados.mediaType} para mensagem ${mensagem.id}`);
+    console.log(`[WAPI-WEBHOOK] 📥 TENTANDO INICIAR DOWNLOAD | Tipo: ${dados.mediaType} | Mensagem: ${mensagem.id}`);
+    console.log('[WAPI-WEBHOOK] 📦 Payload persistência:', {
+      message_id: mensagem.id,
+      media_type: dados.mediaType,
+      integration_id: integracaoId,
+      has_message_struct: !!dados.messageStruct,
+      filename: dados.fileName,
+      mimetype: dados.mimetype
+    });
     
     // Blindar invoke para NUNCA derrubar o webhook
     try {
-      const p = base44.asServiceRole.functions.invoke('persistirMidiaWapi', {
+      console.log('[WAPI-WEBHOOK] 🔄 Chamando base44.asServiceRole.functions.invoke...');
+      
+      const invokePromise = base44.asServiceRole.functions.invoke('persistirMidiaWapi', {
         message_id: mensagem.id,
         media_type: dados.mediaType,
         integration_id: integracaoId,
@@ -356,14 +374,28 @@ async function handleMessage(dados, payloadBruto, base44, req) {
         filename: dados.fileName,
         mimetype: dados.mimetype
       });
-      Promise.resolve(p).catch(err => {
+      
+      console.log('[WAPI-WEBHOOK] ✅ Invoke chamado com sucesso, aguardando execução em background');
+      
+      Promise.resolve(invokePromise).then(() => {
+        console.log('[WAPI-WEBHOOK] ✅ persistirMidiaWapi completou com sucesso');
+      }).catch(err => {
         console.error('[WAPI-WEBHOOK] ❌ Erro async ao persistir mídia:', err?.message);
         console.error('[WAPI-WEBHOOK] ❌ Stack:', err?.stack);
+        console.error('[WAPI-WEBHOOK] ❌ Full error:', JSON.stringify(err, null, 2));
       });
+      
     } catch (err) {
-      console.error('[WAPI-WEBHOOK] ❌ invoke persistirMidiaWapi falhou:', err?.message);
+      console.error('[WAPI-WEBHOOK] ❌ invoke persistirMidiaWapi falhou SINCRONAMENTE:', err?.message);
       console.error('[WAPI-WEBHOOK] ❌ Stack:', err?.stack);
+      console.error('[WAPI-WEBHOOK] ❌ Full error:', JSON.stringify(err, null, 2));
     }
+  } else {
+    console.log('[WAPI-WEBHOOK] ⏭️ Mídia NÃO requer download:', {
+      requiresDownload: dados.requiresDownload,
+      hasMessageStruct: !!dados.messageStruct,
+      mediaType: dados.mediaType
+    });
   }
 
   const now = new Date().toISOString();

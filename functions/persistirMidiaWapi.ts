@@ -27,9 +27,26 @@ Deno.serve(async (req) => {
     return new Response(null, { status: 204, headers });
   }
 
+  if (req.method === 'GET') {
+    return Response.json({ 
+      version: VERSION, 
+      status: 'ready',
+      description: 'Baixa e persiste mídias da W-API'
+    }, { headers });
+  }
+
+  console.log('[PERSISTIR-MIDIA-WAPI] 🚀 FUNÇÃO CHAMADA | Método:', req.method);
+
   try {
     const base44 = createClientFromRequest(req);
     const payload = await req.json();
+    
+    console.log('[PERSISTIR-MIDIA-WAPI] 📦 Payload recebido:', {
+      message_id: payload.message_id,
+      media_type: payload.media_type,
+      integration_id: payload.integration_id,
+      has_message_struct: !!payload.message_struct
+    });
 
     const { message_id, media_type, integration_id, message_struct, filename, mimetype } = payload;
 
