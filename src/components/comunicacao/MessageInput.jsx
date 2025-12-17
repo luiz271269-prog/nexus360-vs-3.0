@@ -69,18 +69,6 @@ export default function MessageInput({
   const attachMenuRef = useRef(null);
   const recordingIntervalRef = useRef(null);
 
-  const handleEnviar = useCallback((e) => {
-    e?.preventDefault();
-    handleEnviarComArquivo(e);
-  }, [handleEnviarComArquivo]);
-
-  const handleKeyDown = useCallback((e) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      handleEnviar(e);
-    }
-  }, [handleEnviar]);
-
   const handlePaste = useCallback(async (e) => {
     const items = e.clipboardData?.items;
     if (!items) return;
@@ -125,39 +113,6 @@ export default function MessageInput({
       textarea.focus();
     }, 0);
   }, [mensagemTexto]);
-
-  // Fechar menu de anexos ao clicar fora
-  useEffect(() => {
-    function handleClickOutside(event) {
-      if (attachMenuRef.current && !attachMenuRef.current.contains(event.target)) {
-        setShowAttachMenu(false);
-      }
-    }
-    if (showAttachMenu) {
-      document.addEventListener('mousedown', handleClickOutside);
-      return () => document.removeEventListener('mousedown', handleClickOutside);
-    }
-  }, [showAttachMenu]);
-
-  // Contador de tempo de gravação
-  useEffect(() => {
-    if (gravandoAudio) {
-      setRecordingTime(0);
-      recordingIntervalRef.current = setInterval(() => {
-        setRecordingTime(prev => prev + 1);
-      }, 1000);
-    } else {
-      if (recordingIntervalRef.current) {
-        clearInterval(recordingIntervalRef.current);
-      }
-      setRecordingTime(0);
-    }
-    return () => {
-      if (recordingIntervalRef.current) {
-        clearInterval(recordingIntervalRef.current);
-      }
-    };
-  }, [gravandoAudio]);
 
   const handleFileSelect = useCallback((file, type) => {
     if (!file) return;
@@ -218,11 +173,56 @@ export default function MessageInput({
     setPastedImagePreview(null);
   }, [mensagemTexto, pastedImage, pastedImagePreview, selectedFile, onSendMessage, thread, usuario, cancelarArquivo]);
 
+  const handleEnviar = useCallback((e) => {
+    e?.preventDefault();
+    handleEnviarComArquivo(e);
+  }, [handleEnviarComArquivo]);
+
+  const handleKeyDown = useCallback((e) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      handleEnviar(e);
+    }
+  }, [handleEnviar]);
+
   const formatTime = (seconds) => {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
+
+  // Fechar menu de anexos ao clicar fora
+  useEffect(() => {
+    function handleClickOutside(event) {
+      if (attachMenuRef.current && !attachMenuRef.current.contains(event.target)) {
+        setShowAttachMenu(false);
+      }
+    }
+    if (showAttachMenu) {
+      document.addEventListener('mousedown', handleClickOutside);
+      return () => document.removeEventListener('mousedown', handleClickOutside);
+    }
+  }, [showAttachMenu]);
+
+  // Contador de tempo de gravação
+  useEffect(() => {
+    if (gravandoAudio) {
+      setRecordingTime(0);
+      recordingIntervalRef.current = setInterval(() => {
+        setRecordingTime(prev => prev + 1);
+      }, 1000);
+    } else {
+      if (recordingIntervalRef.current) {
+        clearInterval(recordingIntervalRef.current);
+      }
+      setRecordingTime(0);
+    }
+    return () => {
+      if (recordingIntervalRef.current) {
+        clearInterval(recordingIntervalRef.current);
+      }
+    };
+  }, [gravandoAudio]);
 
   const mostrarInterfaceBroadcast = modoSelecaoMultipla && contatosSelecionados.length > 0;
 
