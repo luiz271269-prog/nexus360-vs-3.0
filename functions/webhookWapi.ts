@@ -66,7 +66,7 @@ function deveIgnorar(payload) {
 // ============================================================================
 // NORMALIZACAO DE PAYLOAD
 // ============================================================================
-async function normalizarPayload(payload, integration) {
+async function normalizarPayload(payload) {
   const evento = String(payload.event || '').toLowerCase();
   const instanceId = payload.instanceId || null;
 
@@ -94,9 +94,8 @@ async function normalizarPayload(payload, integration) {
 
   const msgContent = payload.msgContent || {};
   let mediaType = 'none';
-  let mediaUrl = null;
   let conteudoRaw = '';
-  let mediaInfo = null;
+  let downloadSpec = null;
   
   // Processar texto simples
   if (msgContent.conversation) {
@@ -104,24 +103,58 @@ async function normalizarPayload(payload, integration) {
   } else if (msgContent.extendedTextMessage) {
     conteudoRaw = msgContent.extendedTextMessage.text;
   }
-  // Processar midia usando handler dedicado
-  else {
-    mediaInfo = await processarMidiaWapi(msgContent, instanceId, integration.api_key_provider);
-    
-    if (mediaInfo) {
-      mediaType = mediaInfo.type;
-      mediaUrl = mediaInfo.url;
-      conteudoRaw = mediaInfo.caption;
-    } else {
-      // Fallback para tipos especiais
-      if (msgContent.contactMessage || msgContent.contactsArrayMessage) {
-        mediaType = 'contact';
-        conteudoRaw = 'Contato compartilhado';
-      } else if (msgContent.locationMessage) {
-        mediaType = 'location';
-        conteudoRaw = 'Localizacao';
-      }
-    }
+  // Extrair metadados de mídia (SEM chamar API)
+  else if (msgContent.imageMessage) {
+    mediaType = 'image';
+    conteudoRaw = msgContent.imageMessage.caption || '[Imagem]';
+    downloadSpec = {
+      mediaKey: msgContent.imageMessage.mediaKey,
+      directPath: msgContent.imageMessage.directPath,
+      mimetype: msgContent.imageMessage.mimetype,
+      type: 'image'
+    };
+  } else if (msgContent.videoMessage) {
+    mediaType = 'video';
+    conteudoRaw = msgContent.videoMessage.caption || '[Vídeo]';
+    downloadSpec = {
+      mediaKey: msgContent.videoMessage.mediaKey,
+      directPath: msgContent.videoMessage.directPath,
+      mimetype: msgContent.videoMessage.mimetype,
+      type: 'video'
+    };
+  } else if (msgContent.audioMessage) {
+    mediaType = 'audio';
+    conteudoRaw = '[Áudio]';
+    downloadSpec = {
+      mediaKey: msgContent.audioMessage.mediaKey,
+      directPath: msgContent.audioMessage.directPath,
+      mimetype: msgContent.audioMessage.mimetype,
+      type: 'audio'
+    };
+  } else if (msgContent.documentMessage) {
+    mediaType = 'document';
+    conteudoRaw = msgContent.documentMessage.caption || msgContent.documentMessage.fileName || '[Documento]';
+    downloadSpec = {
+      mediaKey: msgContent.documentMessage.mediaKey,
+      directPath: msgContent.documentMessage.directPath,
+      mimetype: msgContent.documentMessage.mimetype,
+      type: 'document'
+    };
+  } else if (msgContent.stickerMessage) {
+    mediaType = 'sticker';
+    conteudoRaw = '[Sticker]';
+    downloadSpec = {
+      mediaKey: msgContent.stickerMessage.mediaKey,
+      directPath: msgContent.stickerMessage.directPath,
+      mimetype: msgContent.stickerMessage.mimetype,
+      type: 'sticker'
+    };
+  } else if (msgContent.contactMessage || msgContent.contactsArrayMessage) {
+    mediaType = 'contact';
+    conteudoRaw = '📇 Contato compartilhado';
+  } else if (msgContent.locationMessage) {
+    mediaType = 'location';
+    conteudoRaw = '📍 Localização';
   }
 
   const conteudo = String(conteudoRaw || '').trim();
@@ -137,19 +170,13 @@ async function normalizarPayload(payload, integration) {
     from: numeroLimpo,
     content: conteudo,
     mediaType,
-    mediaUrl,
-    mediaCaption: mediaInfo?.caption,
+    mediaCaption: downloadSpec?.caption,
     pushName: payload.pushName || payload.senderName || payload.sender?.pushName,
     vcard: msgContent.contactMessage || msgContent.contactsArrayMessage,
     location: msgContent.locationMessage,
     quotedMessage: payload.quotedMsg || msgContent.extendedTextMessage?.contextInfo?.quotedMessage,
-    downloadSpec: mediaInfo ? {
-      mediaKey: (msgContent.imageMessage || msgContent.videoMessage || msgContent.audioMessage || msgContent.documentMessage || msgContent.stickerMessage)?.mediaKey,
-      directPath: (msgContent.imageMessage || msgContent.videoMessage || msgContent.audioMessage || msgContent.documentMessage || msgContent.stickerMessage)?.directPath,
-      mimetype: mediaInfo.mimetype,
-      type: mediaInfo.type
-    } : null,
-    fileName: mediaInfo?.caption || null
+    downloadSpec: downloadSpec,
+    fileName: conteudoRaw || null
   };
 }
 
@@ -274,7 +301,7 @@ async function handleMessage(dados, payloadBruto, base44, req) {
     sender_id: contato.id,
     sender_type: 'contact',
     content: dados.content,
-    media_url: dados.mediaUrl || null,
+    media_url: dados.downloadSpec ? 'pending_download' : null,
     media_type: dados.mediaType,
     media_caption: dados.mediaCaption,
     channel: 'whatsapp',
@@ -289,7 +316,8 @@ async function handleMessage(dados, payloadBruto, base44, req) {
       quoted_message: dados.quotedMessage,
       processed_by: VERSION,
       provider: 'w_api',
-      downloadSpec: dados.downloadSpec || null
+      downloadSpec: dados.downloadSpec || null,
+      midia_persistida: false
     }
   });
 
@@ -428,18 +456,7 @@ Deno.serve(async (req) => {
     return Response.json({ success: true, ignored: true, reason: motivoIgnorar }, { headers: corsHeaders });
   }
 
-  // Buscar integracao para passar ao normalizador
-  let integration = null;
-  try {
-    const integracoes = await base44.asServiceRole.entities.WhatsAppIntegration.filter(
-      { instance_id_provider: payload.instanceId, api_provider: 'w_api' }, '-created_date', 1
-    );
-    if (integracoes.length > 0) {
-      integration = integracoes[0];
-    }
-  } catch (e) {}
-
-  const dados = await normalizarPayload(payload, integration);
+  const dados = await normalizarPayload(payload);
   if (dados.type === 'unknown') {
     return Response.json({ success: true, ignored: true, reason: dados.error }, { headers: corsHeaders });
   }
