@@ -1069,44 +1069,6 @@ export default function ChatWindow({
     })();
   }, [podeEnviarMidias, modoSelecaoMultipla, contatosSelecionados, handleEnviarBroadcast, thread, usuario, contatoCompleto, canalSelecionado, mensagemResposta, onAtualizarMensagens, autoAtribuirThreadSeNecessario]);
 
-  const autoAtribuirThreadSeNecessario = useCallback(async (threadAtual) => {
-    if (!threadAtual || !usuario) return;
-    
-    const isThreadOrfa = !threadAtual.assigned_user_id && !threadAtual.assigned_user_email;
-    
-    if (isThreadOrfa) {
-      
-      try {
-        await base44.entities.MessageThread.update(threadAtual.id, {
-          assigned_user_id: usuario.id,
-          status: 'aberta'
-        });
-        
-        await base44.entities.AutomationLog.create({
-          acao: 'auto_atribuicao_resposta',
-          contato_id: threadAtual.contact_id,
-          thread_id: threadAtual.id,
-          usuario_id: usuario.id,
-          resultado: 'sucesso',
-          timestamp: new Date().toISOString(),
-          detalhes: {
-            mensagem: `Conversa auto-atribuída ao responder`,
-            atendente: usuario.full_name || usuario.email,
-            trigger: 'primeira_resposta'
-          },
-          origem: 'sistema',
-          prioridade: 'normal'
-        });
-        
-        return true;
-      } catch (autoAssignError) {
-        console.warn('[CHAT] ⚠️ Erro na auto-atribuição:', autoAssignError.message);
-        return false;
-      }
-    }
-    return false;
-  }, [usuario]);
-
   // 🚀 HANDLER DE ENVIO - Recebe dados do MessageInput
   const handleEnviarFromInput = useCallback(async ({ texto, pastedImage, pastedImagePreview, attachedFile, attachedFileType }) => {
     // Se tem arquivo anexado, processar upload e envio
