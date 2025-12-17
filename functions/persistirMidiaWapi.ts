@@ -71,12 +71,17 @@ Deno.serve(async (req) => {
     }
 
     const integracao = await base44.asServiceRole.entities.WhatsAppIntegration.get(integration_id);
-    
-    // Extrair campos da estrutura
+
+    // ✅ Extrair campos OBRIGATÓRIOS conforme manual W-API
     const mediaKey = message_struct.mediaKey;
     const directPath = message_struct.directPath;
     const mimeType = message_struct.mimetype || mimetype || 'image/jpeg';
-    
+
+    // ✅ Validação: campos obrigatórios do manual
+    if (!mediaKey || !directPath) {
+      throw new Error('mediaKey ou directPath ausentes no messageStruct');
+    }
+
     console.log('[PERSISTIR-MIDIA-WAPI] 📞 Chamando W-API download-media | mediaKey:', mediaKey?.substring(0, 20), '| directPath:', directPath?.substring(0, 30));
     
     // ✅ RETRY LOGIC - Evitar rate limit
@@ -144,6 +149,7 @@ Deno.serve(async (req) => {
       preview: is_base64 ? media_url.substring(0, 50) + '...' : media_url.substring(0, 80)
     });
 
+    // ✅ DOWNLOAD DIRETO SEM FILESYSTEM
     let blob;
     let contentType = mimetype || 'application/octet-stream';
 
@@ -171,19 +177,27 @@ Deno.serve(async (req) => {
       }
       console.log('[PERSISTIR-MIDIA-WAPI] 📦 Base64 convertido para blob');
     } else {
-      // Baixar da URL com timeout aumentado para 60s (estudo recomenda)
+      // ✅ Baixar da URL (sem salvar em disco)
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 60000); // 60s timeout
-      
-      let mediaResponse;
+      const timeoutId = setTimeout(() => controller.abort(), 60000);
+
       try {
-        mediaResponse = await fetch(media_url, { 
+        const mediaResponse = await fetch(media_url, { 
           signal: controller.signal,
-          headers: {
-            'User-Agent': 'VendaPro-MediaDownloader/2.0'
-          }
+          headers: { 'User-Agent': 'VendaPro-MediaDownloader/2.0' }
         });
         clearTimeout(timeoutId);
+
+        if (!mediaResponse.ok) {
+          throw new Error(`Falha ao baixar mídia: HTTP ${mediaResponse.status}`);
+        }
+
+        contentType = mediaResponse.headers.get('content-type') || contentType;
+
+        // ✅ Baixar direto para memória (ArrayBuffer → Blob)
+        const arrayBuffer = await mediaResponse.arrayBuffer();
+        blob = new Blob([arrayBuffer], { type: contentType });
+
       } catch (fetchError) {
         clearTimeout(timeoutId);
         if (fetchError.name === 'AbortError') {
@@ -191,13 +205,6 @@ Deno.serve(async (req) => {
         }
         throw fetchError;
       }
-      
-      if (!mediaResponse.ok) {
-        throw new Error(`Falha ao baixar mídia: HTTP ${mediaResponse.status}`);
-      }
-
-      contentType = mediaResponse.headers.get('content-type') || contentType;
-      blob = await mediaResponse.blob();
     }
 
     // Validar tamanho (máx 50MB)
