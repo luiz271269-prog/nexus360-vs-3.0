@@ -371,6 +371,23 @@ async function handleMessage(dados, payloadBruto, base44, req) {
     }
   });
 
+  // ✅ PERSISTIR MÍDIA EM BACKGROUND (crítico para W-API)
+  if (dados.requiresDownload && dados.messageStruct) {
+    console.log(`[WAPI-WEBHOOK] 📥 Iniciando download de mídia tipo ${dados.mediaType} para mensagem ${mensagem.id}`);
+    
+    // Invocar persistência em background (não bloqueia webhook)
+    base44.asServiceRole.functions.invoke('persistirMidiaWapi', {
+      message_id: mensagem.id,
+      media_type: dados.mediaType,
+      integration_id: integracaoId,
+      message_struct: dados.messageStruct,
+      filename: dados.fileName,
+      mimetype: dados.mimetype
+    }).catch(err => {
+      console.error(`[WAPI-WEBHOOK] ❌ Erro ao persistir mídia:`, err.message);
+    });
+  }
+
   const now = new Date().toISOString();
 
   // ============================================================================
