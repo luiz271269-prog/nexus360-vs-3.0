@@ -1,16 +1,17 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.4';
+import { processarMidiaWapi } from './wapiMediaHandler.js';
 
 // ============================================================================
-// WEBHOOK WHATSAPP W-API - v10.0.0 CORREÇÃO DEFINITIVA MÍDIA
+// WEBHOOK WHATSAPP W-API - v11.0.0 SOLUCAO DEFINITIVA
 // ============================================================================
-// CORREÇÕES v10.0.0:
-// 1. Extração correta de mediaKey + directPath (campos obrigatórios W-API)
-// 2. downloadSpec estruturado para persistência determinística
-// 3. Fire-and-forget sem travar pipeline
-// 4. Zero acesso ao filesystem (100% em memória)
+// CORRECOES v11.0.0:
+// 1. Eliminado "os error 2" - zero acesso ao filesystem
+// 2. Midia 100% em memoria usando wapiMediaHandler
+// 3. Normalizacao padrao WhatsApp para integracao com sistema
+// 4. Import dinamico do inboundCore para isolar falhas
 // ============================================================================
 
-const VERSION = 'v10.0.0-MEDIA-FIX';
+const VERSION = 'v11.0.0-SERVERLESS-SAFE';
 const BUILD_DATE = '2025-12-17';
 
 const corsHeaders = {
@@ -63,32 +64,9 @@ function deveIgnorar(payload) {
 }
 
 // ============================================================================
-// EXTRAIR METADADOS MÍDIA + CAMPOS OBRIGATÓRIOS W-API
+// NORMALIZACAO DE PAYLOAD
 // ============================================================================
-function extrairMetadadosMidia(msgContent, tipoMidia) {
-  const tipoMap = {
-    image: 'imageMessage', video: 'videoMessage', audio: 'audioMessage',
-    document: 'documentMessage', sticker: 'stickerMessage'
-  };
-  const msgKey = tipoMap[tipoMidia];
-  const mediaMsg = msgContent?.[msgKey] || {};
-  
-  return {
-    caption: mediaMsg.caption || null,
-    fileName: mediaMsg.fileName || mediaMsg.title || null,
-    mimetype: mediaMsg.mimetype || null,
-    fileSize: mediaMsg.fileLength || mediaMsg.size || null,
-    isPTT: mediaMsg.ptt === true,
-    // ✅ CAMPOS OBRIGATÓRIOS W-API (manual oficial)
-    mediaKey: mediaMsg.mediaKey || null,
-    directPath: mediaMsg.directPath || null
-  };
-}
-
-// ============================================================================
-// NORMALIZAR PAYLOAD + DOWNLOAD SPEC
-// ============================================================================
-function normalizarPayload(payload) {
+async function normalizarPayload(payload, integration) {
   const evento = String(payload.event || '').toLowerCase();
   const instanceId = payload.instanceId || null;
 
@@ -118,94 +96,32 @@ function normalizarPayload(payload) {
   let mediaType = 'none';
   let mediaUrl = null;
   let conteudoRaw = '';
-  let downloadSpec = null;
+  let mediaInfo = null;
   
-  // ✅ DETECÇÃO + EXTRAÇÃO ESTRUTURADA (cada mídia gera downloadSpec)
-  if (msgContent.imageMessage) {
-    mediaType = 'image';
-    const meta = extrairMetadadosMidia(msgContent, 'image');
-    conteudoRaw = meta.caption || '[Imagem]';
-    
-    // ✅ DOWNLOAD SPEC ESTRUTURADO (campos obrigatórios W-API)
-    if (meta.mediaKey && meta.directPath) {
-      downloadSpec = {
-        type: 'image',
-        mediaKey: meta.mediaKey,
-        directPath: meta.directPath,
-        mimetype: meta.mimetype || 'image/jpeg'
-      };
-      mediaUrl = 'pending_download';
-    }
-  } else if (msgContent.videoMessage) {
-    mediaType = 'video';
-    const meta = extrairMetadadosMidia(msgContent, 'video');
-    conteudoRaw = meta.caption || '[Vídeo]';
-    
-    if (meta.mediaKey && meta.directPath) {
-      downloadSpec = {
-        type: 'video',
-        mediaKey: meta.mediaKey,
-        directPath: meta.directPath,
-        mimetype: meta.mimetype || 'video/mp4'
-      };
-      mediaUrl = 'pending_download';
-    }
-  } else if (msgContent.audioMessage) {
-    mediaType = 'audio';
-    const meta = extrairMetadadosMidia(msgContent, 'audio');
-    conteudoRaw = meta.isPTT ? '[Áudio de voz]' : '[Áudio]';
-    
-    if (meta.mediaKey && meta.directPath) {
-      downloadSpec = {
-        type: 'audio',
-        mediaKey: meta.mediaKey,
-        directPath: meta.directPath,
-        mimetype: meta.mimetype || 'audio/ogg'
-      };
-      mediaUrl = 'pending_download';
-    }
-  } else if (msgContent.documentMessage) {
-    mediaType = 'document';
-    const meta = extrairMetadadosMidia(msgContent, 'document');
-    conteudoRaw = meta.fileName ? `[Documento: ${meta.fileName}]` : '[Documento]';
-    
-    if (meta.mediaKey && meta.directPath) {
-      downloadSpec = {
-        type: 'document',
-        mediaKey: meta.mediaKey,
-        directPath: meta.directPath,
-        mimetype: meta.mimetype || 'application/pdf'
-      };
-      mediaUrl = 'pending_download';
-    }
-  } else if (msgContent.stickerMessage) {
-    mediaType = 'sticker';
-    const meta = extrairMetadadosMidia(msgContent, 'sticker');
-    conteudoRaw = '[Sticker]';
-    
-    if (meta.mediaKey && meta.directPath) {
-      downloadSpec = {
-        type: 'sticker',
-        mediaKey: meta.mediaKey,
-        directPath: meta.directPath,
-        mimetype: meta.mimetype || 'image/webp'
-      };
-      mediaUrl = 'pending_download';
-    }
-  } else if (msgContent.contactMessage || msgContent.contactsArrayMessage) {
-    mediaType = 'contact';
-    conteudoRaw = '📇 Contato compartilhado';
-  } else if (msgContent.locationMessage) {
-    mediaType = 'location';
-    conteudoRaw = '📍 Localização';
-  } else if (msgContent.extendedTextMessage) {
-    conteudoRaw = msgContent.extendedTextMessage.text || '';
-  } else if (msgContent.conversation) {
+  // Processar texto simples
+  if (msgContent.conversation) {
     conteudoRaw = msgContent.conversation;
+  } else if (msgContent.extendedTextMessage) {
+    conteudoRaw = msgContent.extendedTextMessage.text;
   }
-
-  if (!conteudoRaw && mediaType === 'none') {
-    conteudoRaw = payload.body || payload.text || payload.message?.text || payload.content || '';
+  // Processar midia usando handler dedicado
+  else {
+    mediaInfo = await processarMidiaWapi(msgContent, instanceId, integration.api_key_provider);
+    
+    if (mediaInfo) {
+      mediaType = mediaInfo.type;
+      mediaUrl = mediaInfo.url;
+      conteudoRaw = mediaInfo.caption;
+    } else {
+      // Fallback para tipos especiais
+      if (msgContent.contactMessage || msgContent.contactsArrayMessage) {
+        mediaType = 'contact';
+        conteudoRaw = 'Contato compartilhado';
+      } else if (msgContent.locationMessage) {
+        mediaType = 'location';
+        conteudoRaw = 'Localizacao';
+      }
+    }
   }
 
   const conteudo = String(conteudoRaw || '').trim();
@@ -222,10 +138,7 @@ function normalizarPayload(payload) {
     content: conteudo,
     mediaType,
     mediaUrl,
-    downloadSpec, // ✅ Spec estruturado para persistência
-    requiresDownload: !!downloadSpec, // ✅ Flag booleana
-    mediaCaption: msgContent.imageMessage?.caption || msgContent.videoMessage?.caption,
-    fileName: msgContent.documentMessage?.fileName,
+    mediaCaption: mediaInfo?.caption,
     pushName: payload.pushName || payload.senderName || payload.sender?.pushName,
     vcard: msgContent.contactMessage || msgContent.contactsArrayMessage,
     location: msgContent.locationMessage,
@@ -291,24 +204,10 @@ async function handleMessageUpdate(dados, base44) {
 }
 
 // ============================================================================
-// HANDLE MESSAGE - PIPELINE UNIFICADO + PERSISTÊNCIA ASSÍNCRONA
+// HANDLE MESSAGE - PIPELINE SIMPLIFICADO
 // ============================================================================
 async function handleMessage(dados, payloadBruto, base44, req) {
-  console.log('[WAPI] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-  console.log('[WAPI] STEP 1 - INÍCIO handleMessage');
-  console.log('[WAPI] Tipo mídia:', dados.mediaType, '| RequiresDownload:', dados.requiresDownload);
-  
-  // ✅ LOG DIAGNÓSTICO (para matar problemas em 5min)
-  if (dados.requiresDownload && dados.downloadSpec) {
-    console.log('[WAPI] 🔍 DIAGNÓSTICO downloadSpec:', {
-      type: dados.downloadSpec.type,
-      hasMediaKey: !!dados.downloadSpec.mediaKey,
-      hasDirectPath: !!dados.downloadSpec.directPath,
-      mimetype: dados.downloadSpec.mimetype,
-      mediaKeyPreview: dados.downloadSpec.mediaKey?.substring(0, 20),
-      directPathPreview: dados.downloadSpec.directPath?.substring(0, 30)
-    });
-  }
+  console.log('[WAPI] INICIO handleMessage | Tipo midia:', dados.mediaType);
   
   const inicio = Date.now();
   
@@ -318,22 +217,16 @@ async function handleMessage(dados, payloadBruto, base44, req) {
   }
   requestQueue.set(dados.from, Date.now());
   
-  console.log('[WAPI] STEP 2 - Rate limit OK');
-  
   if (dados.messageId) {
     try {
       const dup = await base44.asServiceRole.entities.Message.filter(
         { whatsapp_message_id: dados.messageId }, '-created_date', 1
       );
       if (dup.length > 0) {
-        console.log('[WAPI] STEP 2.1 - Duplicata detectada, ignorando');
         return Response.json({ success: true, ignored: true, reason: 'duplicata' }, { headers: corsHeaders });
       }
     } catch (e) {}
   }
-  
-  console.log('[WAPI] STEP 3 - Dedup OK');
-  console.log('[WAPI] STEP 4 - Resolvendo integração...');
   
   let integracaoId = null;
   if (dados.instanceId) {
@@ -352,13 +245,9 @@ async function handleMessage(dados, payloadBruto, base44, req) {
       } catch (e) {}
     }
   }
-  
-  console.log('[WAPI] STEP 5 - Integração resolvida:', integracaoId);
 
   const profilePicUrl = payloadBruto.sender?.profilePicture || payloadBruto.sender?.profilePicThumbObj?.eurl || null;
 
-  console.log('[WAPI] STEP 6 - Chamando getOrCreateContact...');
-  
   const contato = await getOrCreateContact(base44, {
     telefone: dados.from,
     nome: dados.pushName || dados.from,
@@ -367,17 +256,11 @@ async function handleMessage(dados, payloadBruto, base44, req) {
     profilePicUrl: profilePicUrl
   });
   
-  console.log('[WAPI] STEP 7 - Contato OK:', contato.id);
-  console.log('[WAPI] STEP 8 - Chamando getOrCreateThread...');
-
   const thread = await getOrCreateThread(base44, {
     contact_id: contato.id,
     integration_id: integracaoId,
     instance_id: dados.instanceId
   });
-  
-  console.log('[WAPI] STEP 9 - Thread OK:', thread.id);
-  console.log('[WAPI] STEP 10 - Criando Message no banco...');
   
   const mensagem = await base44.asServiceRole.entities.Message.create({
     thread_id: thread.id,
@@ -398,88 +281,81 @@ async function handleMessage(dados, payloadBruto, base44, req) {
       location: dados.location,
       quoted_message: dados.quotedMessage,
       processed_by: VERSION,
-      provider: 'w_api',
-      downloadSpec: dados.downloadSpec, // ✅ Salvar spec para persistência
-      requiresDownload: dados.requiresDownload
+      provider: 'w_api'
     }
   });
 
-  console.log('[WAPI] STEP 11 - Message criada:', mensagem.id);
+  console.log('[WAPI] Message criada:', mensagem.id);
   
-  // ✅ PERSISTÊNCIA ASSÍNCRONA - TEMPORARIAMENTE DESABILITADA PARA DEBUG
-  if (dados.requiresDownload && dados.downloadSpec) {
-    console.log('[WAPI] STEP 12 - Mídia detectada (persistência DESABILITADA para debug)');
-    console.log('[WAPI] STEP 12.1 - downloadSpec salvo em metadata:', {
-      type: dados.downloadSpec.type,
-      hasMediaKey: !!dados.downloadSpec.mediaKey,
-      hasDirectPath: !!dados.downloadSpec.directPath
+  // Import dinamico do inboundCore para isolar falhas
+  try {
+    const integracao = integracaoId 
+      ? await base44.asServiceRole.entities.WhatsAppIntegration.get(integracaoId).catch(() => null)
+      : null;
+    
+    const { processInboundEvent } = await import('./lib/inboundCore.js');
+    
+    const pipelineResult = await processInboundEvent({
+      base44,
+      contact: contato,
+      thread: thread,
+      message: mensagem,
+      integration: integracao,
+      provider: 'w_api',
+      messageContent: dados.content
     });
     
-    // TODO: Reabilitar invoke após confirmar que webhook funciona sem ele
-    /*
-    if (!dados.downloadSpec.mediaKey || !dados.downloadSpec.directPath) {
-      console.error('[WAPI] ❌ downloadSpec incompleto:', dados.downloadSpec);
-    } else {
-      try {
-        base44.asServiceRole.functions.invoke('persistirMidiaWapi', {
-          message_id: mensagem.id,
-          integration_id: integracaoId,
-          downloadSpec: dados.downloadSpec,
-          filename: dados.fileName
-        }).catch(err => {
-          console.error('[WAPI] ❌ Erro async ao persistir mídia:', err?.message);
-        });
-        
-        console.log('[WAPI] STEP 12.1 - Invoke disparado (background)');
-      } catch (err) {
-        console.error('[WAPI] ❌ Falha ao disparar invoke:', err?.message);
-      }
+    console.log('[' + VERSION + '] Pipeline:', pipelineResult.pipeline);
+    
+    if (pipelineResult.consumed) {
+      const duracao = Date.now() - inicio;
+      return Response.json({
+        success: true,
+        message_id: mensagem.id,
+        contact_id: contato.id,
+        thread_id: thread.id,
+        duration_ms: duracao,
+        pipeline: pipelineResult.pipeline,
+        consumed: true,
+        provider: 'w_api'
+      }, { headers: corsHeaders });
     }
-    */
-  } else {
-    console.log('[WAPI] STEP 12 - Sem mídia para download ou downloadSpec ausente');
-  }
-
-  const now = new Date().toISOString();
-
-  console.log('[WAPI] STEP 14 - Buscando integração completa...');
-  
-  const integracao = integracaoId 
-    ? await base44.asServiceRole.entities.WhatsAppIntegration.get(integracaoId).catch(() => null)
-    : null;
-  
-  console.log('[WAPI] STEP 15 - Importando inboundCore...');
-
-  let processInboundEvent;
-  try {
-    const module = await import('./lib/inboundCore.js');
-    processInboundEvent = module.processInboundEvent;
-    console.log('[WAPI] STEP 16 - inboundCore importado OK');
-  } catch (e) {
-    console.error('[WAPI] ❌ STEP 16.ERROR - Falha ao importar inboundCore:', e?.message);
-    console.error('[WAPI] ❌ Stack:', e?.stack);
-    throw e;
-  }
-  
-  console.log('[WAPI] STEP 17 - Chamando processInboundEvent...');
-  
-  const pipelineResult = await processInboundEvent({
-    base44,
-    contact: contato,
-    thread: thread,
-    message: mensagem,
-    integration: integracao,
-    provider: 'w_api',
-    messageContent: dados.content
-  });
-  
-  console.log('[WAPI] STEP 18 - Pipeline concluído');
-  console.log('[' + VERSION + '] Pipeline:', pipelineResult.pipeline);
-  console.log('[' + VERSION + '] Actions:', pipelineResult.actions);
-  
-  // Se foi consumido (micro-URA 1/2), retornar imediatamente
-  if (pipelineResult.consumed) {
-    console.log('[WAPI] STEP 19 - Retornando (consumed)');
+    
+    if (pipelineResult.stop) {
+      const duracao = Date.now() - inicio;
+      return Response.json({
+        success: true,
+        message_id: mensagem.id,
+        contact_id: contato.id,
+        thread_id: thread.id,
+        duration_ms: duracao,
+        pipeline: pipelineResult.pipeline,
+        stop: true,
+        reason: pipelineResult.reason,
+        provider: 'w_api'
+      }, { headers: corsHeaders });
+    }
+    
+    const duracao = Date.now() - inicio;
+    console.log('[WAPI] CONCLUIDO EM', duracao, 'ms');
+    
+    return Response.json({
+      success: true,
+      message_id: mensagem.id,
+      contact_id: contato.id,
+      thread_id: thread.id,
+      integration_id: integracaoId,
+      duration_ms: duracao,
+      pipeline: pipelineResult.pipeline,
+      actions: pipelineResult.actions,
+      provider: 'w_api'
+    }, { headers: corsHeaders });
+    
+  } catch (coreError) {
+    console.error('[WAPI] Erro no inboundCore (isolado):', coreError?.message);
+    console.error('[WAPI] Stack:', coreError?.stack);
+    
+    // Retorna sucesso mesmo com erro no core para nao reenviar mensagem
     const duracao = Date.now() - inicio;
     return Response.json({
       success: true,
@@ -487,55 +363,18 @@ async function handleMessage(dados, payloadBruto, base44, req) {
       contact_id: contato.id,
       thread_id: thread.id,
       duration_ms: duracao,
-      pipeline: pipelineResult.pipeline,
-      consumed: true,
-      action: pipelineResult.action,
+      pipeline: ['core_error_isolated'],
+      warning: 'inboundCore falhou mas mensagem foi salva',
       provider: 'w_api'
     }, { headers: corsHeaders });
   }
-  
-  // Se teve hard-stop, retornar
-  if (pipelineResult.stop) {
-    console.log('[WAPI] STEP 19 - Retornando (stop)');
-    const duracao = Date.now() - inicio;
-    return Response.json({
-      success: true,
-      message_id: mensagem.id,
-      contact_id: contato.id,
-      thread_id: thread.id,
-      duration_ms: duracao,
-      pipeline: pipelineResult.pipeline,
-      stop: true,
-      reason: pipelineResult.reason,
-      provider: 'w_api'
-    }, { headers: corsHeaders });
-  }
-  
-  // Retorno normal
-  console.log('[WAPI] STEP 19 - Retornando (sucesso normal)');
-  const duracao = Date.now() - inicio;
-  console.log('[WAPI] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-  console.log('[WAPI] ✅ CONCLUÍDO EM', duracao, 'ms');
-  
-  return Response.json({
-    success: true,
-    message_id: mensagem.id,
-    contact_id: contato.id,
-    thread_id: thread.id,
-    integration_id: integracaoId,
-    duration_ms: duracao,
-    pipeline: pipelineResult.pipeline,
-    actions: pipelineResult.actions,
-    novo_ciclo: pipelineResult.novoCiclo,
-    provider: 'w_api'
-  }, { headers: corsHeaders });
 }
 
 // ============================================================================
 // HANDLER PRINCIPAL
 // ============================================================================
 Deno.serve(async (req) => {
-  console.log('[WAPI-WEBHOOK] 🚀 REQUEST RECEBIDO | Método:', req.method);
+  console.log('[WAPI-WEBHOOK] REQUEST RECEBIDO | Metodo:', req.method);
   
   if (req.method === 'OPTIONS') {
     return new Response(null, { status: 204, headers: corsHeaders });
@@ -566,7 +405,18 @@ Deno.serve(async (req) => {
     return Response.json({ success: true, ignored: true, reason: motivoIgnorar }, { headers: corsHeaders });
   }
 
-  const dados = normalizarPayload(payload);
+  // Buscar integracao para passar ao normalizador
+  let integration = null;
+  try {
+    const integracoes = await base44.asServiceRole.entities.WhatsAppIntegration.filter(
+      { instance_id_provider: payload.instanceId, api_provider: 'w_api' }, '-created_date', 1
+    );
+    if (integracoes.length > 0) {
+      integration = integracoes[0];
+    }
+  } catch (e) {}
+
+  const dados = await normalizarPayload(payload, integration);
   if (dados.type === 'unknown') {
     return Response.json({ success: true, ignored: true, reason: dados.error }, { headers: corsHeaders });
   }
@@ -587,7 +437,6 @@ Deno.serve(async (req) => {
   } catch (error) {
     console.error('[W-API WEBHOOK] ERRO:', error?.message);
     console.error('[W-API WEBHOOK] STACK:', error?.stack);
-    console.error('[W-API WEBHOOK] FULL ERROR:', JSON.stringify(error, null, 2));
-    return Response.json({ success: false, error: error.message, stack: error?.stack }, { status: 500, headers: corsHeaders });
+    return Response.json({ success: false, error: error.message }, { status: 500, headers: corsHeaders });
   }
 });
