@@ -394,27 +394,26 @@ async function handleMessage(dados, payloadBruto, base44, req) {
     }).catch(e => console.error('[WAPI] Erro trigger mídia:', e.message));
   }
 
-  // 8. TENTATIVA DE IMPORTAR O CORE (Com Rede de Segurança Máxima)
+  // 8. DISPARAR CORE VIA HTTP (Fire-and-Forget)
+  // Resolve problema de dynamic import + permite timeout maior para IA
   try {
-    const coreModule = await import('./lib/inboundCore.js');
-    if (coreModule && coreModule.processInboundEvent) {
-      const integracao = integracaoId 
-        ? await base44.asServiceRole.entities.WhatsAppIntegration.get(integracaoId).catch(() => null)
-        : null;
-      
-      await coreModule.processInboundEvent({
-        base44,
-        contact: contato,
-        thread: thread,
-        message: mensagem,
-        integration: integracao,
-        provider: 'w_api',
-        messageContent: dados.content
-      });
-    }
+    console.log('[WAPI] 🔄 Invocando Core (processInbound)...');
+
+    // Fire-and-Forget: não esperamos resposta para não bloquear o webhook
+    base44.asServiceRole.functions.invoke('processInbound', {
+      message: mensagem,
+      contact: contato,
+      thread: thread,
+      integration: integracaoId ? { id: integracaoId } : null,
+      provider: 'w_api',
+      messageContent: dados.content
+    }).catch(err => {
+      console.error('[WAPI] ⚠️ Falha no disparo do Core:', err.message);
+    });
+
+    console.log('[WAPI] 🚀 Core disparado com sucesso (async)');
   } catch (coreError) {
-    console.error('🔴 [BLINDAGEM] Core falhou (OS Error 2 isolado).');
-    console.error('   O webhook continuará para responder 200 OK.');
+    console.error('[WAPI] ❌ Erro ao preparar disparo do Core:', coreError.message);
   }
 
   // 9. RETORNO FINAL (Sempre Sucesso)
