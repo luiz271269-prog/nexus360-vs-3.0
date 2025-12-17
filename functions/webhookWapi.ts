@@ -166,19 +166,9 @@ function normalizarPayload(payload) {
   if (!conteudoRaw && mediaType === 'none') {
     conteudoRaw = payload.body || payload.text || payload.message?.text || payload.content || '';
   }
-  
-  // Debug texto bruto
-  emojiDebug('WAPI_RAW_TEXT', conteudoRaw);
-  
-  // Processar com segurança de emoji
-  const conteudo = processTextWithEmojis(conteudoRaw);
-  
-  // Debug após processamento
-  emojiDebug('WAPI_PROCESSED_TEXT', conteudo);
-  const stats = getTextStats(conteudo);
-  if (stats.hasEmojis) {
-    console.log('[WAPI] ✅ Mensagem com emojis:', stats);
-  }
+
+  // Processar texto (sanitização básica)
+  const conteudo = String(conteudoRaw || '').trim();
 
   if (!conteudo && mediaType === 'none') {
     return { type: 'unknown', error: 'mensagem_vazia' };
