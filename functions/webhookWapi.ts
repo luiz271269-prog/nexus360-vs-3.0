@@ -406,16 +406,21 @@ async function handleMessage(dados, payloadBruto, base44, req) {
 
   console.log('[WAPI] STEP 11 - Message criada:', mensagem.id);
   
-  // ✅ PERSISTÊNCIA ASSÍNCRONA (fire-and-forget, nunca trava pipeline)
+  // ✅ PERSISTÊNCIA ASSÍNCRONA - TEMPORARIAMENTE DESABILITADA PARA DEBUG
   if (dados.requiresDownload && dados.downloadSpec) {
-    console.log('[WAPI] STEP 12 - Mídia detectada, disparando persistirMidiaWapi...');
+    console.log('[WAPI] STEP 12 - Mídia detectada (persistência DESABILITADA para debug)');
+    console.log('[WAPI] STEP 12.1 - downloadSpec salvo em metadata:', {
+      type: dados.downloadSpec.type,
+      hasMediaKey: !!dados.downloadSpec.mediaKey,
+      hasDirectPath: !!dados.downloadSpec.directPath
+    });
     
-    // ✅ VALIDAÇÃO PRÉ-INVOKE (evitar invoke inútil)
+    // TODO: Reabilitar invoke após confirmar que webhook funciona sem ele
+    /*
     if (!dados.downloadSpec.mediaKey || !dados.downloadSpec.directPath) {
       console.error('[WAPI] ❌ downloadSpec incompleto:', dados.downloadSpec);
     } else {
       try {
-        // ✅ FIRE-AND-FORGET (Promise sem await)
         base44.asServiceRole.functions.invoke('persistirMidiaWapi', {
           message_id: mensagem.id,
           integration_id: integracaoId,
@@ -430,6 +435,7 @@ async function handleMessage(dados, payloadBruto, base44, req) {
         console.error('[WAPI] ❌ Falha ao disparar invoke:', err?.message);
       }
     }
+    */
   } else {
     console.log('[WAPI] STEP 12 - Sem mídia para download ou downloadSpec ausente');
   }
