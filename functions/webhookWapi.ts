@@ -142,7 +142,14 @@ async function normalizarPayload(payload, integration) {
     pushName: payload.pushName || payload.senderName || payload.sender?.pushName,
     vcard: msgContent.contactMessage || msgContent.contactsArrayMessage,
     location: msgContent.locationMessage,
-    quotedMessage: payload.quotedMsg || msgContent.extendedTextMessage?.contextInfo?.quotedMessage
+    quotedMessage: payload.quotedMsg || msgContent.extendedTextMessage?.contextInfo?.quotedMessage,
+    downloadSpec: mediaInfo ? {
+      mediaKey: (msgContent.imageMessage || msgContent.videoMessage || msgContent.audioMessage || msgContent.documentMessage || msgContent.stickerMessage)?.mediaKey,
+      directPath: (msgContent.imageMessage || msgContent.videoMessage || msgContent.audioMessage || msgContent.documentMessage || msgContent.stickerMessage)?.directPath,
+      mimetype: mediaInfo.mimetype,
+      type: mediaInfo.type
+    } : null,
+    fileName: mediaInfo?.caption || null
   };
 }
 
@@ -281,11 +288,27 @@ async function handleMessage(dados, payloadBruto, base44, req) {
       location: dados.location,
       quoted_message: dados.quotedMessage,
       processed_by: VERSION,
-      provider: 'w_api'
+      provider: 'w_api',
+      downloadSpec: dados.downloadSpec || null
     }
   });
 
   console.log('[WAPI] Message criada:', mensagem.id);
+
+  // 🚀 TRIGGER DE PERSISTÊNCIA (alinhado com Z-API)
+  if (dados.mediaType && dados.mediaType !== 'none' && dados.downloadSpec) {
+    console.log('[WAPI] Disparando persistência de mídia em background...');
+    
+    // Fire-and-forget (não espera terminar para não travar webhook)
+    base44.asServiceRole.functions.invoke('persistirMidiaWapi', {
+      message_id: mensagem.id,
+      integration_id: integracaoId,
+      downloadSpec: dados.downloadSpec,
+      filename: dados.content?.replace(/[\[\]]/g, '') || `${dados.mediaType}_${Date.now()}`
+    }).catch(err => {
+      console.error('[WAPI] Erro ao disparar persistência:', err?.message);
+    });
+  }
   
   // Import dinamico do inboundCore para isolar falhas
   try {
