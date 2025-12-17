@@ -576,9 +576,25 @@ export default React.memo(function MessageBubble({
             );
           })()}
           {!isOwn && message.sender_type === 'contact' && contato?.nome && (
-            <span className="text-[11px] font-semibold mb-0.5 text-[#00a884]">
-              {contato.nome}
-            </span>
+            <div className="flex items-center gap-2 mb-0.5">
+              <span className="text-[11px] font-semibold text-[#00a884]">
+                {contato.nome}
+              </span>
+              {(() => {
+                const integracaoId = message?.metadata?.whatsapp_integration_id || thread?.whatsapp_integration_id;
+                if (!integracaoId || integracoes.length <= 1) return null;
+                
+                const integracao = integracoes.find(i => i.id === integracaoId);
+                if (!integracao) return null;
+                
+                const displayNumero = integracao.numero_telefone || integracao.nome_instancia;
+                return (
+                  <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-green-100 text-green-700 font-medium">
+                    📱 {displayNumero}
+                  </span>
+                );
+              })()}
+            </div>
           )}
 
           {mensagemOriginal &&
