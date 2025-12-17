@@ -152,25 +152,31 @@ export default function MessageInput({
     }
     
     if (selectedFile) {
-      // Enviar arquivo anexado
+      // Enviar arquivo anexado (imagem, vídeo, documento)
       onSendMessage({
         texto: mensagemTexto.trim(),
         attachedFile: selectedFile.file,
         attachedFileType: selectedFile.type
       });
       cancelarArquivo();
-    } else {
-      // Enviar texto/imagem colada normal
+      setMensagemTexto("");
+    } else if (pastedImage) {
+      // Enviar imagem colada (print screen)
       onSendMessage({
         texto: mensagemTexto.trim(),
         pastedImage: pastedImage,
         pastedImagePreview: pastedImagePreview
       });
+      setMensagemTexto("");
+      setPastedImage(null);
+      setPastedImagePreview(null);
+    } else {
+      // Enviar apenas texto
+      onSendMessage({
+        texto: mensagemTexto.trim()
+      });
+      setMensagemTexto("");
     }
-    
-    setMensagemTexto("");
-    setPastedImage(null);
-    setPastedImagePreview(null);
   }, [mensagemTexto, pastedImage, pastedImagePreview, selectedFile, onSendMessage, thread, usuario, cancelarArquivo]);
 
   const handleEnviar = useCallback((e) => {
