@@ -337,6 +337,8 @@ async function handleMessage(dados, payloadBruto, base44, req) {
   
   console.log('[WAPI] STEP 9 - Thread OK:', thread.id);
 
+  console.log('[WAPI] STEP 10 - Criando Message no banco...');
+  
   const mensagem = await base44.asServiceRole.entities.Message.create({
     thread_id: thread.id,
     sender_id: contato.id,
@@ -362,30 +364,20 @@ async function handleMessage(dados, payloadBruto, base44, req) {
     }
   });
 
-  console.log('[WAPI-WEBHOOK] ✅ Mensagem criada:', {
-    id: mensagem.id,
-    media_type: dados.mediaType,
-    media_url: dados.mediaUrl,
-    requiresDownload: dados.requiresDownload,
-    hasMessageStruct: !!dados.messageStruct
-  });
+  console.log('[WAPI] STEP 11 - Message criada:', mensagem.id);
 
-  // ✅ PERSISTIR MÍDIA EM BACKGROUND (crítico para W-API) - BLINDADO
+  // ✅ PERSISTIR MÍDIA EM BACKGROUND - NÃO INVOCAR (causa os error 2)
+  // SOLUÇÃO ALTERNATIVA: Aguardar implementação via cron job ou queue
   if (dados.requiresDownload && dados.messageStruct) {
-    console.log(`[WAPI-WEBHOOK] 📥 TENTANDO INICIAR DOWNLOAD | Tipo: ${dados.mediaType} | Mensagem: ${mensagem.id}`);
-    console.log('[WAPI-WEBHOOK] 📦 Payload persistência:', {
-      message_id: mensagem.id,
-      media_type: dados.mediaType,
-      integration_id: integracaoId,
-      has_message_struct: !!dados.messageStruct,
-      filename: dados.fileName,
-      mimetype: dados.mimetype
-    });
+    console.log('[WAPI] STEP 12 - Mídia detectada, MAS INVOKE DESABILITADO (causa crash)');
+    console.log('[WAPI] STEP 12.1 - TODO: Implementar queue/cron para download assíncrono');
     
-    // Blindar invoke para NUNCA derrubar o webhook
+    // TEMPORARIAMENTE DESABILITADO PARA EVITAR CRASH
+    // O invoke está causando "No such file or directory (os error 2)"
+    // Causa raiz ainda não identificada (filesystem access em algum módulo)
+    
+    /*
     try {
-      console.log('[WAPI-WEBHOOK] 🔄 Chamando base44.asServiceRole.functions.invoke...');
-      
       const invokePromise = base44.asServiceRole.functions.invoke('persistirMidiaWapi', {
         message_id: mensagem.id,
         media_type: dados.mediaType,
@@ -395,28 +387,16 @@ async function handleMessage(dados, payloadBruto, base44, req) {
         mimetype: dados.mimetype
       });
       
-      console.log('[WAPI-WEBHOOK] ✅ Invoke chamado com sucesso, aguardando execução em background');
-      
-      Promise.resolve(invokePromise).then(() => {
-        console.log('[WAPI-WEBHOOK] ✅ persistirMidiaWapi completou com sucesso');
-      }).catch(err => {
-        console.error('[WAPI-WEBHOOK] ❌ Erro async ao persistir mídia:', err?.message);
-        console.error('[WAPI-WEBHOOK] ❌ Stack:', err?.stack);
-        console.error('[WAPI-WEBHOOK] ❌ Full error:', JSON.stringify(err, null, 2));
+      Promise.resolve(invokePromise).catch(err => {
+        console.error('[WAPI] ❌ Erro async ao persistir mídia:', err?.message, err?.stack);
       });
       
     } catch (err) {
-      console.error('[WAPI-WEBHOOK] ❌ invoke persistirMidiaWapi falhou SINCRONAMENTE:', err?.message);
-      console.error('[WAPI-WEBHOOK] ❌ Stack:', err?.stack);
-      console.error('[WAPI-WEBHOOK] ❌ Full error:', JSON.stringify(err, null, 2));
+      console.error('[WAPI] ❌ invoke falhou:', err?.message, err?.stack);
     }
+    */
   } else {
-    console.log('[WAPI-WEBHOOK] ⏭️ Mídia NÃO requer download:', {
-      requiresDownload: dados.requiresDownload,
-      hasMessageStruct: !!dados.messageStruct,
-      mediaType: dados.mediaType
-    });
-  }
+    console.log('[WAPI] STEP 12 - Sem mídia para download');
 
   const now = new Date().toISOString();
 
