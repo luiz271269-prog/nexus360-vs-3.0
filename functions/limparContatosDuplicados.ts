@@ -159,73 +159,65 @@ Deno.serve(async (req) => {
         if (duplicate.id === principal.id) continue;
         
         try {
-          // ✅ BATCH UPDATE: Usar update_entities para evitar rate limit
+          // ✅ Reapontar threads (limite 100 por duplicata)
+          let threads = [];
           try {
-            // Reapontar threads EM LOTE
-            const threadCount = await base44.asServiceRole.entities.MessageThread.filter({
+            threads = await base44.asServiceRole.entities.MessageThread.filter({
               contact_id: duplicate.id
-            }, '-created_date', 1);
-            
-            if (threadCount && threadCount.length > 0) {
-              // Usar API direta de update múltiplo (mais eficiente)
-              const updateResult = await fetch(
-                `${Deno.env.get('BASE44_API_URL') || 'https://api.base44.com'}/entities/MessageThread/update-many`,
-                {
-                  method: 'POST',
-                  headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${Deno.env.get('BASE44_SERVICE_ROLE_KEY')}`
-                  },
-                  body: JSON.stringify({
-                    query: { contact_id: duplicate.id },
-                    data: { contact_id: principal.id }
-                  })
-                }
-              );
-              
-              if (updateResult.ok) {
-                const result = await updateResult.json();
-                stats.threads_updated += result.updated_count || 0;
-              }
-            }
+            }, '-created_date', 100);
           } catch (e) {
-            console.warn(`[DEDUPE] Erro ao reapontar threads:`, e.message);
-            stats.errors++;
-            stats.errors_details.push(`Threads do ${duplicate.id}: ${e.message}`);
+            console.warn(`[DEDUPE] Erro ao buscar threads:`, e.message);
           }
           
-          // ✅ Reapontar mensagens EM LOTE
-          try {
-            const msgCount = await base44.asServiceRole.entities.Message.filter({
-              sender_id: duplicate.id,
-              sender_type: 'contact'
-            }, '-created_date', 1);
-            
-            if (msgCount && msgCount.length > 0) {
-              const updateResult = await fetch(
-                `${Deno.env.get('BASE44_API_URL') || 'https://api.base44.com'}/entities/Message/update-many`,
-                {
-                  method: 'POST',
-                  headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${Deno.env.get('BASE44_SERVICE_ROLE_KEY')}`
-                  },
-                  body: JSON.stringify({
-                    query: { sender_id: duplicate.id, sender_type: 'contact' },
-                    data: { sender_id: principal.id }
-                  })
-                }
-              );
+          for (const thread of threads) {
+            try {
+              await base44.asServiceRole.entities.MessageThread.update(thread.id, {
+                contact_id: principal.id
+              });
+              stats.threads_updated++;
               
-              if (updateResult.ok) {
-                const result = await updateResult.json();
-                stats.messages_updated += result.updated_count || 0;
+              // Delay pequeno para evitar rate limit
+              if (stats.threads_updated % 10 === 0) {
+                await new Promise(r => setTimeout(r, 100));
+              }
+            } catch (e) {
+              console.error(`[DEDUPE] Erro thread ${thread.id}:`, e.message);
+              stats.errors++;
+              if (stats.errors_details.length < 10) {
+                stats.errors_details.push(`Thread ${thread.id}: ${e.message}`);
               }
             }
+          }
+          
+          // ✅ Reapontar mensagens (limite 100 por duplicata)
+          let messages = [];
+          try {
+            messages = await base44.asServiceRole.entities.Message.filter({
+              sender_id: duplicate.id,
+              sender_type: 'contact'
+            }, '-created_date', 100);
           } catch (e) {
-            console.warn(`[DEDUPE] Erro ao reapontar mensagens:`, e.message);
-            stats.errors++;
-            stats.errors_details.push(`Messages do ${duplicate.id}: ${e.message}`);
+            console.warn(`[DEDUPE] Erro ao buscar mensagens:`, e.message);
+          }
+          
+          for (const message of messages) {
+            try {
+              await base44.asServiceRole.entities.Message.update(message.id, {
+                sender_id: principal.id
+              });
+              stats.messages_updated++;
+              
+              // Delay pequeno para evitar rate limit
+              if (stats.messages_updated % 10 === 0) {
+                await new Promise(r => setTimeout(r, 100));
+              }
+            } catch (e) {
+              console.error(`[DEDUPE] Erro msg ${message.id}:`, e.message);
+              stats.errors++;
+              if (stats.errors_details.length < 10) {
+                stats.errors_details.push(`Message ${message.id}: ${e.message}`);
+              }
+            }
           }
           
           // Marcar duplicata como merged
