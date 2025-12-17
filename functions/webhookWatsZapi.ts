@@ -30,6 +30,11 @@ function deveIgnorar(payload) {
   const tipo = String(payload.type || payload.event || '').toLowerCase();
   const phone = String(payload.phone || '').toLowerCase();
 
+  // 🔇 FILTRO ANTI-RUÍDO: Elimina callbacks de sistema imediatamente
+  if (['presencechatcallback', 'messagestatuscallback', 'deliverycallback'].includes(tipo)) {
+    return 'ruido_sistema';
+  }
+
   if (phone.includes('status@') || phone.includes('@broadcast') || 
       phone.includes('@lid') || phone.includes('@g.us')) {
     return 'jid_sistema';
@@ -37,7 +42,7 @@ function deveIgnorar(payload) {
 
   if (tipo.includes('qrcode') || tipo.includes('connection')) return null;
 
-  const eventosLixo = ['presencechatcallback', 'presence', 'typing', 'composing', 'chat-update', 'call'];
+  const eventosLixo = ['presence', 'typing', 'composing', 'chat-update', 'call'];
   if (eventosLixo.some(e => tipo.includes(e))) return 'evento_sistema';
 
   if (tipo.includes('messagestatuscallback')) {
@@ -108,11 +113,23 @@ function normalizarPayload(payload) {
       fileId = payload.audio.fileId || payload.audio.id || null;
       originalMediaUrl = payload.audio.audioUrl || payload.audio.url || payload.audio.urlWithToken || payload.fileUrl || null;
       conteudo = '[Áudio]';
-    } else if (payload.document) {
+    } else if (payload.document || payload.file || payload.documentUrl || payload.fileUrl) {
+      // 📎 DETECÇÃO ROBUSTA: Z-API tem variações document/file/documentUrl/fileUrl
+      const docField = payload.document || payload.file || {};
+      const docUrl = docField.documentUrl || docField.url || docField.link || 
+                     payload.documentUrl || payload.fileUrl || payload.mediaUrl;
+
       mediaType = 'document';
-      fileId = payload.document.fileId || payload.document.id || null;
-      originalMediaUrl = payload.document.documentUrl || payload.document.url || payload.document.urlWithToken || payload.fileUrl || null;
-      conteudo = conteudoRaw || '[Documento]';
+      fileId = docField.fileId || docField.id || payload.fileId || null;
+      originalMediaUrl = docUrl || null;
+      conteudo = conteudoRaw || docField.caption || docField.fileName || payload.caption || '[PDF/Documento]';
+
+      console.log(`[ZAPI] 📎 DOCUMENTO DETECTADO:`, {
+        fileId,
+        url: originalMediaUrl?.substring(0, 80),
+        fileName: docField.fileName || payload.fileName,
+        caption: conteudo
+      });
     } else if (payload.sticker) {
       mediaType = 'sticker';
       fileId = payload.sticker.fileId || payload.sticker.id || null;
@@ -399,6 +416,21 @@ Deno.serve(async (req) => {
   try {
     const body = await req.text();
     if (!body) return Response.json({ success: true, ignored: true }, { headers: corsHeaders });
+    
+    // 🚨 ESPIÃO PDF: Captura JSON exato quando detecta documento
+    if (body.includes('document') || body.includes('.pdf') || body.includes('file')) {
+      console.log(`🚨 [ESPIÃO Z-API] PDF DETECTADO | Raw (200 chars):`, body.substring(0, 200));
+      try {
+        const parsed = JSON.parse(body);
+        console.log(`🚨 [ESPIÃO Z-API] Campos documento:`, JSON.stringify({
+          has_document: !!parsed.document,
+          has_file: !!parsed.file,
+          document_keys: parsed.document ? Object.keys(parsed.document) : [],
+          file_keys: parsed.file ? Object.keys(parsed.file) : []
+        }));
+      } catch {}
+    }
+    
     payload = JSON.parse(body);
   } catch (e) {
     return Response.json({ success: false, error: 'JSON inválido' }, { status: 200, headers: corsHeaders });
