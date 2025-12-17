@@ -392,13 +392,22 @@ Deno.serve(async (req) => {
             body.fileName = `document.${extensaoArquivo}`;
           }
         } else if (tipoMidiaReal === 'image') {
-          // W-API IMAGEM
+          // W-API IMAGEM - IMPORTANTE: W-API precisa fazer download da URL
+          // Se a URL for do Supabase Storage, garantir que é pública
+          let urlParaUsar = media_url;
+          
+          if (media_url.includes('base44-prod/public/')) {
+            urlParaUsar = media_url.split('?')[0]; // Remove query params se houver
+          }
+          
           body = {
             phone: numeroFormatado,
-            image: media_url,
+            image: urlParaUsar,
             delayMessage: 1
           };
           if (media_caption) body.caption = media_caption;
+          
+          console.log(`[ENVIAR-WHATSAPP-UNIFICADO] 📷 W-API Image URL:`, urlParaUsar);
         } else if (tipoMidiaReal === 'video') {
           // W-API VÍDEO
           body = {
