@@ -29,10 +29,10 @@ import NotificationSystem from "../components/comunicacao/NotificationSystem";
 import ContadorNaoAtribuidas from "../components/comunicacao/ContadorNaoAtribuidas";
 import { useDebounce } from "../components/lib/useDebounce";
 import { normalizarTelefone } from "../components/lib/phoneUtils";
-import { 
-  usuarioCorresponde, 
-  contatoFidelizadoAoUsuario 
-} from "../components/lib/userMatcher";
+import {
+  usuarioCorresponde,
+  contatoFidelizadoAoUsuario } from
+"../components/lib/userMatcher";
 import { getUserDisplayName } from "../components/lib/userHelpers";
 import {
   canUserSeeThreadWithFilters,
@@ -43,8 +43,8 @@ import {
   podeInteragirNaThread,
   temPermissaoIntegracao,
   threadConexaoVisivel,
-  threadSetorVisivel
-} from "../components/lib/threadVisibility";
+  threadSetorVisivel } from
+"../components/lib/threadVisibility";
 import ModalSemPermissaoConversa from "../components/comunicacao/ModalSemPermissaoConversa";
 import BibliotecaAutomacoes from "../components/automacao/BibliotecaAutomacoes";
 import CentralControleOperacional from "../components/comunicacao/CentralControleOperacional";
@@ -156,7 +156,7 @@ export default function Comunicacao() {
     queryFn: async () => {
       if (threadAtiva) {
         const ultimasMensagens = await base44.entities.Message.filter(
-          { thread_id: threadAtiva.id }, 
+          { thread_id: threadAtiva.id },
           '-created_date',
           200
         );
@@ -195,13 +195,13 @@ export default function Comunicacao() {
 
     const perms = usuario.permissoes_visualizacao || {};
     const integracoesVisiveis = perms.integracoes_visiveis || [];
-    
+
     // Array vazio = sem restrição (mesma regra do threadVisibility.js)
     if (integracoesVisiveis.length === 0) return todasIntegracoes;
 
-    const normalizar = (v) => (v ? String(v).trim().toLowerCase() : '');
+    const normalizar = (v) => v ? String(v).trim().toLowerCase() : '';
     const visiveisNorm = new Set(integracoesVisiveis.map(normalizar));
-    return todasIntegracoes.filter(i => visiveisNorm.has(normalizar(i.id)));
+    return todasIntegracoes.filter((i) => visiveisNorm.has(normalizar(i.id)));
   }, [todasIntegracoes, usuario?.id, usuario?.role, usuario?.permissoes_visualizacao]);
 
   const { data: atendentesRaw = [] } = useQuery({
@@ -232,10 +232,10 @@ export default function Comunicacao() {
     queryKey: ['mensagens-com-categoria', selectedCategoria],
     queryFn: async () => {
       if (!selectedCategoria || selectedCategoria === 'all') return [];
-      
+
       const todasMensagens = await base44.entities.Message.list('-created_date', 200);
-      return todasMensagens.filter(m => 
-        Array.isArray(m.categorias) && m.categorias.includes(selectedCategoria)
+      return todasMensagens.filter((m) =>
+      Array.isArray(m.categorias) && m.categorias.includes(selectedCategoria)
       );
     },
     enabled: !!selectedCategoria && selectedCategoria !== 'all',
@@ -261,7 +261,7 @@ export default function Comunicacao() {
 
     // CASO 1: CLIENTE SEM CONTATO - Abrir criação pré-preenchida
     if (thread.is_cliente_only && thread.cliente_id) {
-      const cliente = clientes.find(c => c.id === thread.cliente_id);
+      const cliente = clientes.find((c) => c.id === thread.cliente_id);
       if (cliente) {
         setContactInitialData({
           cliente_id: cliente.id,
@@ -287,12 +287,12 @@ export default function Comunicacao() {
     if (thread.is_contact_only && thread.contact_id) {
       try {
         const threadsExistentes = await base44.entities.MessageThread.filter({ contact_id: thread.contact_id });
-        
+
         if (threadsExistentes && threadsExistentes.length > 0) {
           // Verificar permissão antes de abrir
-          const contatoObj = contatos.find(c => c.id === thread.contact_id);
+          const contatoObj = contatos.find((c) => c.id === thread.contact_id);
           const bloqueio = verificarBloqueioThread(usuario, threadsExistentes[0], contatoObj);
-          
+
           if (bloqueio.bloqueado) {
             // Mostrar modal explicando o bloqueio
             setModalSemPermissao({
@@ -304,7 +304,7 @@ export default function Comunicacao() {
             });
             return;
           }
-          
+
           setThreadAtiva(threadsExistentes[0]);
           return;
         }
@@ -338,9 +338,9 @@ export default function Comunicacao() {
     }
 
     // CASO 3: THREAD NORMAL - Verificar permissão
-    const contatoObj = contatos.find(c => c.id === thread.contact_id);
+    const contatoObj = contatos.find((c) => c.id === thread.contact_id);
     const bloqueio = verificarBloqueioThread(usuario, thread, contatoObj);
-    
+
     if (bloqueio.bloqueado) {
       console.log('[Comunicacao] 🔒 Thread bloqueada:', bloqueio);
       setModalSemPermissao({
@@ -352,7 +352,7 @@ export default function Comunicacao() {
       });
       return;
     }
-    
+
     setThreadAtiva(thread);
   }, [integracoes, queryClient, clientes, contatos, usuario]);
 
@@ -477,7 +477,7 @@ export default function Comunicacao() {
     if (!threadAtiva || !usuario) return;
 
     const { texto, integrationId, replyToMessage, mediaUrl, mediaType, mediaCaption, isAudio } = dadosEnvio;
-    
+
     // 1. Criar mensagem temporária (aparece instantaneamente na tela)
     const msgTemp = {
       id: `temp-${Date.now()}`,
@@ -507,7 +507,7 @@ export default function Comunicacao() {
 
     // 3. Enviar para servidor em background
     try {
-      const contatoAtual = contatos.find(c => c.id === threadAtiva.contact_id);
+      const contatoAtual = contatos.find((c) => c.id === threadAtiva.contact_id);
       const telefone = contatoAtual?.telefone || contatoAtual?.celular;
 
       if (!telefone) {
@@ -578,12 +578,12 @@ export default function Comunicacao() {
       }
     } catch (error) {
       console.error('[OPTIMISTIC] ❌ Erro:', error);
-      
+
       // 5. ROLLBACK: Remover mensagem temporária do cache
       queryClient.setQueryData(['mensagens', threadAtiva.id], (antigas = []) => {
-        return antigas.filter(m => m.id !== msgTemp.id);
+        return antigas.filter((m) => m.id !== msgTemp.id);
       });
-      
+
       toast.error(`❌ Erro ao enviar: ${error.message}`);
     }
   }, [threadAtiva, usuario, queryClient, contatos]);
@@ -608,39 +608,39 @@ export default function Comunicacao() {
   // Função de busca estilo Google
   const matchBuscaGoogle = React.useCallback((item, termo) => {
     if (!termo || termo.length < 2) return true;
-    
+
     const normalizarTexto = (t) => {
       if (!t) return '';
       return String(t).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
     };
-    
+
     const termoNorm = normalizarTexto(termo);
     const termoNumeros = String(termo).replace(/\D/g, '');
-    const palavras = termoNorm.split(/\s+/).filter(p => p.length > 0);
-    
+    const palavras = termoNorm.split(/\s+/).filter((p) => p.length > 0);
+
     const camposTexto = [
-      item.nome, item.empresa, item.cargo, item.email, item.observacoes,
-      item.vendedor_responsavel, item.razao_social, item.nome_fantasia,
-      item.contato_principal_nome, item.segmento,
-      ...(Array.isArray(item.tags) ? item.tags : [])
-    ].filter(Boolean);
-    
+    item.nome, item.empresa, item.cargo, item.email, item.observacoes,
+    item.vendedor_responsavel, item.razao_social, item.nome_fantasia,
+    item.contato_principal_nome, item.segmento,
+    ...(Array.isArray(item.tags) ? item.tags : [])].
+    filter(Boolean);
+
     const camposNumero = [item.telefone, item.cnpj].filter(Boolean);
-    
-    const textoCompleto = camposTexto.map(c => normalizarTexto(String(c))).join(' ');
-    const numerosCompletos = camposNumero.map(c => String(c).replace(/\D/g, '')).join(' ');
-    
-    const todasPalavrasEncontradas = palavras.every(p => textoCompleto.includes(p));
+
+    const textoCompleto = camposTexto.map((c) => normalizarTexto(String(c))).join(' ');
+    const numerosCompletos = camposNumero.map((c) => String(c).replace(/\D/g, '')).join(' ');
+
+    const todasPalavrasEncontradas = palavras.every((p) => textoCompleto.includes(p));
     const numeroEncontrado = termoNumeros.length >= 3 && numerosCompletos.includes(termoNumeros);
-    
+
     return todasPalavrasEncontradas || numeroEncontrado;
   }, []);
 
   const threadsFiltradas = React.useMemo(() => {
     if (!usuario) return [];
 
-    const contatosMap = new Map(contatos.map(c => [c.id, c]));
-    const categoriasSet = selectedCategoria !== 'all' ? new Set(mensagensComCategoria.map(m => m.thread_id)) : null;
+    const contatosMap = new Map(contatos.map((c) => [c.id, c]));
+    const categoriasSet = selectedCategoria !== 'all' ? new Set(mensagensComCategoria.map((m) => m.thread_id)) : null;
     const temBuscaPorTexto = !!debouncedSearchTerm && debouncedSearchTerm.trim().length >= 2;
     const threadsComContatoIds = new Set();
 
@@ -654,7 +654,7 @@ export default function Comunicacao() {
     // PASSO 1: Identificar threads não atribuídas visíveis (COM OU SEM CONTATO)
     const threadsNaoAtribuidasVisiveis = new Set();
     if (isFilterUnassigned) {
-      threads.forEach(thread => {
+      threads.forEach((thread) => {
         // ✅ PERMITIR threads SEM contato (podem existir threads órfãs)
         const contato = contatosMap.get(thread.contact_id);
         const threadComContato = { ...thread, contato };
@@ -670,7 +670,7 @@ export default function Comunicacao() {
     // Mostrar apenas a thread mais recente de cada contato
     // Isso resolve o problema de duplicação quando há múltiplas conexões (Z-API, W-API)
     const threadMaisRecentePorContato = new Map();
-    threads.forEach(thread => {
+    threads.forEach((thread) => {
       const contactId = thread.contact_id;
       if (!contactId) return;
 
@@ -687,9 +687,9 @@ export default function Comunicacao() {
       }
     });
     const threadsUnicas = Array.from(threadMaisRecentePorContato.values());
-    
+
     // Registrar IDs de contatos que já têm thread (para evitar duplicatas na busca)
-    const contatosComThreadExistente = new Set(threadsUnicas.map(t => t.contact_id).filter(Boolean));
+    const contatosComThreadExistente = new Set(threadsUnicas.map((t) => t.contact_id).filter(Boolean));
 
     // Montar objeto de filtros para threadVisibility
     // Quando filtro é "não atribuídas", não passar atendente específico
@@ -710,9 +710,9 @@ export default function Comunicacao() {
     // PARTE 1: Filtrar THREADS existentes com REGRAS DE VISUALIZAÇÃO
     // (Usando threadsUnicas para evitar duplicatas por contato)
     // ═══════════════════════════════════════════════════════════════════════════
-    const threadsFiltrados = threadsUnicas.filter(thread => {
+    const threadsFiltrados = threadsUnicas.filter((thread) => {
       const contato = contatosMap.get(thread.contact_id);
-      
+
       // Permitir threads sem contato_id se forem S/atend (para não perder threads soltas)
       if (!contato && !isFilterUnassigned) return false;
 
@@ -746,14 +746,14 @@ export default function Comunicacao() {
       // ═══════════════════════════════════════════════════════════════════════
       // MODO NORMAL (sem busca): Aplicar regras estritas de visibilidade
       // ═══════════════════════════════════════════════════════════════════════
-      
+
       // FILTRO "NÃO ATRIBUÍDAS": Verificar se thread está no Set de visíveis
       if (isFilterUnassigned) {
         // ✅ Usar Set de IDs de threads (não de contatos)
         if (!threadsNaoAtribuidasVisiveis.has(thread.id)) {
           return false;
         }
-        
+
         // Aplicar filtro de integração específica se selecionado
         if (selectedIntegrationId && selectedIntegrationId !== 'all') {
           if (thread.whatsapp_integration_id !== selectedIntegrationId) return false;
@@ -788,7 +788,7 @@ export default function Comunicacao() {
     // ═══════════════════════════════════════════════════════════════════════════
     if (temBuscaPorTexto) {
       // Contatos sem thread - usar Set de contatos que já têm thread
-      contatos.forEach(contato => {
+      contatos.forEach((contato) => {
         // CRÍTICO: Verificar em AMBOS os sets para evitar duplicatas
         if (contatosComThreadExistente.has(contato.id)) return;
         if (threadsComContatoIds.has(contato.id)) return;
@@ -807,13 +807,13 @@ export default function Comunicacao() {
       });
 
       // Clientes sem contato associado
-      clientes.forEach(cliente => {
+      clientes.forEach((cliente) => {
         if (!matchBuscaGoogle(cliente, debouncedSearchTerm)) return;
-        
+
         // Verificar se cliente já tem contato pelo telefone
         const telefoneCliente = (cliente.telefone || '').replace(/\D/g, '');
         if (telefoneCliente) {
-          const jaTemContato = contatos.some(c => {
+          const jaTemContato = contatos.some((c) => {
             const tel = (c.telefone || '').replace(/\D/g, '');
             return tel && tel === telefoneCliente;
           });
@@ -849,11 +849,11 @@ export default function Comunicacao() {
   // Converter para formato compatível com ChatSidebar + ORDENAÇÃO por PRIORIDADE (Regra 3)
   // DEDUPLICAÇÃO FINAL: Garantir que não há entradas duplicadas por contact_id
   const threadsComContato = React.useMemo(() => {
-    const contatosMap = new Map(contatos.map(c => [c.id, c]));
-    const usuariosMap = new Map(atendentes.map(a => [a.id, a]));
+    const contatosMap = new Map(contatos.map((c) => [c.id, c]));
+    const usuariosMap = new Map(atendentes.map((a) => [a.id, a]));
 
     // ✅ Enriquecer com contato e usuário (SEMPRE buscar User dinamicamente)
-    const enriched = threadsFiltradas.map(thread => {
+    const enriched = threadsFiltradas.map((thread) => {
       const usuarioAtribuido = usuariosMap.get(thread.assigned_user_id);
       return {
         ...thread,
@@ -863,21 +863,21 @@ export default function Comunicacao() {
         assigned_user_display_name: usuarioAtribuido ? getUserDisplayName(usuarioAtribuido.id, atendentes) : null
       };
     });
-    
+
     // ✅ DEDUPLICAÇÃO SIMPLIFICADA: threadsUnicas já está deduzida
     // Apenas remover duplicatas entre threads e contatos-sem-thread
     const vistos = new Map();
     const deduplicated = [];
-    
+
     for (const thread of enriched) {
       const contactId = thread.contact_id;
-      
+
       // Se não tem contact_id (cliente sem contato), adicionar direto
       if (!contactId) {
         deduplicated.push(thread);
         continue;
       }
-      
+
       const existente = vistos.get(contactId);
       if (!existente) {
         vistos.set(contactId, thread);
@@ -942,7 +942,7 @@ export default function Comunicacao() {
       <div className="h-screen flex flex-col bg-gradient-to-br from-amber-50 via-orange-50/30 to-red-50/20 overflow-hidden">
         <NotificationSystem usuario={usuario} />
 
-        <div className="bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 border-b border-slate-700/50 p-4 shadow-xl flex-shrink-0">
+        <div className="bg-gradient-to-r px-8 from-slate-900 via-slate-800 to-slate-900 border-b border-slate-700/50 shadow-xl flex-shrink-0">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
               <div className="w-12 h-12 bg-gradient-to-br from-amber-400 via-orange-500 to-red-500 rounded-xl flex items-center justify-center shadow-lg shadow-orange-500/30">
@@ -960,7 +960,7 @@ export default function Comunicacao() {
 
             <div className="flex items-center gap-3">
               {/* Contador de Não Atribuídas */}
-              <ContadorNaoAtribuidas 
+              <ContadorNaoAtribuidas
                 onClickVerFila={() => {
                   setFilterScope('unassigned');
                   setActiveTab('conversas');
@@ -970,8 +970,8 @@ export default function Comunicacao() {
                   setSelectedIntegrationId(integrationId);
                   setActiveTab('conversas');
                 }}
-                className="shadow-lg"
-              />
+                className="shadow-lg" />
+
 
               {integracoes.length === 0 &&
               <Button
@@ -985,19 +985,19 @@ export default function Comunicacao() {
               }
 
               <Button
-              variant="outline"
-              size="sm"
-              onClick={() => {
-                queryClient.invalidateQueries({ queryKey: ['threads'] });
-                queryClient.invalidateQueries({ queryKey: ['contacts'] });
-                queryClient.invalidateQueries({ queryKey: ['integracoes'] });
-                queryClient.invalidateQueries({ queryKey: ['atendentes'] });
-                if (threadAtiva) {
-                  queryClient.invalidateQueries({ queryKey: ['mensagens', threadAtiva.id] });
-                }
-                toast.info("🔄 Atualizando dados...");
-              }}
-              className="border-white/30 text-white hover:bg-white/20">
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  queryClient.invalidateQueries({ queryKey: ['threads'] });
+                  queryClient.invalidateQueries({ queryKey: ['contacts'] });
+                  queryClient.invalidateQueries({ queryKey: ['integracoes'] });
+                  queryClient.invalidateQueries({ queryKey: ['atendentes'] });
+                  if (threadAtiva) {
+                    queryClient.invalidateQueries({ queryKey: ['mensagens', threadAtiva.id] });
+                  }
+                  toast.info("🔄 Atualizando dados...");
+                }} className="bg-orange-500 text-white px-3 text-xs font-medium rounded-md inline-flex items-center justify-center gap-2 whitespace-nowrap transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 border shadow-sm hover:text-accent-foreground h-8 border-white/30 hover:bg-white/20">
+
 
                 <RefreshCw className="w-4 h-4 mr-2" />
                 Atualizar
@@ -1012,7 +1012,7 @@ export default function Comunicacao() {
 
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col overflow-hidden">
-          <div className="bg-gradient-to-r from-slate-800 via-slate-700 to-slate-800 px-6 border-b border-slate-600 flex-shrink-0">
+          <div className="bg-slate-500 px-6 from-slate-800 via-slate-700 to-slate-800 border-b border-slate-600 flex-shrink-0">
             <TabsList className="bg-transparent border-0">
               <TabsTrigger value="conversas" className="gap-2 data-[state=active]:bg-gradient-to-r data-[state=active]:from-amber-500 data-[state=active]:to-orange-600 data-[state=active]:text-white text-slate-300 hover:text-white transition-all">
                 <MessageCircle className="w-4 h-4" />
@@ -1098,7 +1098,7 @@ export default function Comunicacao() {
                 </div>
 
                 <div className="flex-1 flex overflow-hidden">
-                  {(threadAtiva && !criandoNovoContato) || (modoSelecaoMultipla && contatosSelecionados.length > 0) ?
+                  {threadAtiva && !criandoNovoContato || modoSelecaoMultipla && contatosSelecionados.length > 0 ?
                   <>
                       <div className="flex-1 overflow-hidden">
                         <ChatWindow
@@ -1208,15 +1208,15 @@ export default function Comunicacao() {
       </div>
         {/* Modal de Sem Permissão */}
         <ModalSemPermissaoConversa
-          isOpen={modalSemPermissao.isOpen}
-          onClose={() => setModalSemPermissao({ isOpen: false, contato: null, atendenteResponsavel: null, motivoBloqueio: null, threadOriginal: null })}
-          contato={modalSemPermissao.contato}
-          atendenteResponsavel={modalSemPermissao.atendenteResponsavel}
-          motivoBloqueio={modalSemPermissao.motivoBloqueio}
-          onIniciarNovaConversa={handleIniciarNovaConversaSemPermissao}
-          podeIniciarNova={true}
-        />
-      </ErrorBoundary>
-    );
+        isOpen={modalSemPermissao.isOpen}
+        onClose={() => setModalSemPermissao({ isOpen: false, contato: null, atendenteResponsavel: null, motivoBloqueio: null, threadOriginal: null })}
+        contato={modalSemPermissao.contato}
+        atendenteResponsavel={modalSemPermissao.atendenteResponsavel}
+        motivoBloqueio={modalSemPermissao.motivoBloqueio}
+        onIniciarNovaConversa={handleIniciarNovaConversaSemPermissao}
+        podeIniciarNova={true} />
+
+      </ErrorBoundary>);
+
 
 }
