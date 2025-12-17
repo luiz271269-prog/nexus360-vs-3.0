@@ -354,8 +354,6 @@ async function handleMessage(dados, payloadBruto, base44, req) {
   });
 
   console.log('[WAPI] STEP 11 - Message criada:', mensagem.id);
-
-  // ✅ PERSISTIR MÍDIA EM BACKGROUND - NÃO INVOCAR (causa os error 2)
   // SOLUÇÃO ALTERNATIVA: Aguardar implementação via cron job ou queue
   if (dados.requiresDownload && dados.messageStruct) {
     console.log('[WAPI] STEP 12 - Mídia detectada, MAS INVOKE DESABILITADO (causa crash)');
