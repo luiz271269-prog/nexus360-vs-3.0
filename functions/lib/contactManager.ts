@@ -81,7 +81,8 @@ export async function getOrCreateContact(base44, data) {
 }
 
 /**
- * Busca ou cria thread (UPSERT) - uma thread por contact + instância
+ * Busca ou cria thread (UPSERT) - UMA ÚNICA thread por contact (independente da integração)
+ * CORREÇÃO: Evita duplicação mesmo com múltiplas conexões WhatsApp
  * @param {object} base44 - SDK Base44
  * @param {object} data - Dados da thread
  * @returns {object} - MessageThread
@@ -89,8 +90,8 @@ export async function getOrCreateContact(base44, data) {
 export async function getOrCreateThread(base44, data) {
   const { contact_id, integration_id, instance_id } = data;
   
-  // Buscar thread existente (por contact_id)
-  // REGRA: Uma thread por contact (não criar múltiplas por setor)
+  // ✅ BUSCAR THREAD EXISTENTE - Apenas por contact_id (ignora integração)
+  // REGRA CRÍTICA: Um contato = uma thread única, mesmo com várias conexões
   const existing = await base44.asServiceRole.entities.MessageThread.filter({
     contact_id: contact_id
   }, '-last_message_at', 1);
@@ -109,9 +110,11 @@ export async function getOrCreateThread(base44, data) {
       status: 'aberta'
     };
     
-    // Atualizar integração se não tinha
-    if (integration_id && !thread.whatsapp_integration_id) {
+    // ✅ SEMPRE atualizar a integração para a mais recente
+    // Isso registra qual conexão foi usada na última mensagem
+    if (integration_id) {
       updateData.whatsapp_integration_id = integration_id;
+      updateData.conexao_id = integration_id; // Campo legado
     }
     
     await base44.asServiceRole.entities.MessageThread.update(thread.id, updateData);
@@ -123,6 +126,7 @@ export async function getOrCreateThread(base44, data) {
   const newThread = await base44.asServiceRole.entities.MessageThread.create({
     contact_id: contact_id,
     whatsapp_integration_id: integration_id,
+    conexao_id: integration_id,
     status: 'aberta',
     primeira_mensagem_at: now,
     last_message_at: now,

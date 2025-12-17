@@ -341,7 +341,7 @@ export default function ChatSidebar({
             </div>
 
             <div className="flex-1 min-w-0">
-              {/* Linha 1: Nome + Horário */}
+              {/* Linha 1: Nome + Número Conexão + Horário */}
               <div className="flex items-center justify-between mb-0.5">
                 <div className="flex items-center gap-1 min-w-0 flex-1">
                     <h3 className={`font-semibold truncate text-sm ${hasUnread ? 'text-slate-900' : 'text-slate-700'}`}>
@@ -352,6 +352,18 @@ export default function ChatSidebar({
                         {thread.unread_count}
                       </Badge>
                   }
+                  {(() => {
+                    const info = getIntegracaoInfo(thread);
+                    if (!info) return null;
+                    
+                    // Extrair apenas últimos 4 dígitos do número
+                    const ultimos4 = info.numero?.slice(-4) || '????';
+                    return (
+                      <span className="text-[9px] text-slate-400 ml-1 flex-shrink-0" title={`Canal: ${info.nome} (${info.numero})`}>
+                        •{ultimos4}
+                      </span>
+                    );
+                  })()}
                   </div>
                 <span className={`text-[10px] flex-shrink-0 ml-2 ${
                 hasUnread ? 'text-orange-600 font-medium' : 'text-slate-400'}`
