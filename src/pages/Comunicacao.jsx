@@ -666,34 +666,27 @@ export default function Comunicacao() {
       });
     }
 
-    // PASSO 1.5: Agrupar threads por contact_id - mostrar apenas a mais recente de cada contato
-    // EXCEÇÃO: Modo "Não Atribuídas" NÃO agrupa, mostra TODAS as threads individualmente
-    let threadsUnicas;
-    
-    if (isFilterUnassigned) {
-      // Modo Não Atribuídas: Mostrar TODAS as threads sem agrupar
-      threadsUnicas = threads;
-    } else {
-      // Modos normais: Agrupar por contato
-      const threadMaisRecentePorContato = new Map();
-      threads.forEach(thread => {
-        const contactId = thread.contact_id;
-        if (!contactId) return;
+    // ✅ PASSO 1.5: DEDUPLICAÇÃO GLOBAL - Agrupar threads por contact_id
+    // Mostrar apenas a thread mais recente de cada contato
+    // Isso resolve o problema de duplicação quando há múltiplas conexões (Z-API, W-API)
+    const threadMaisRecentePorContato = new Map();
+    threads.forEach(thread => {
+      const contactId = thread.contact_id;
+      if (!contactId) return;
 
-        const existente = threadMaisRecentePorContato.get(contactId);
-        if (!existente) {
+      const existente = threadMaisRecentePorContato.get(contactId);
+      if (!existente) {
+        threadMaisRecentePorContato.set(contactId, thread);
+      } else {
+        // Manter a mais recente baseado em last_message_at
+        const dataExistente = new Date(existente.last_message_at || existente.updated_date || existente.created_date || 0);
+        const dataAtual = new Date(thread.last_message_at || thread.updated_date || thread.created_date || 0);
+        if (dataAtual > dataExistente) {
           threadMaisRecentePorContato.set(contactId, thread);
-        } else {
-          // Manter a mais recente baseado em last_message_at ou updated_date
-          const dataExistente = new Date(existente.last_message_at || existente.updated_date || existente.created_date || 0);
-          const dataAtual = new Date(thread.last_message_at || thread.updated_date || thread.created_date || 0);
-          if (dataAtual > dataExistente) {
-            threadMaisRecentePorContato.set(contactId, thread);
-          }
         }
-      });
-      threadsUnicas = Array.from(threadMaisRecentePorContato.values());
-    }
+      }
+    });
+    const threadsUnicas = Array.from(threadMaisRecentePorContato.values());
     
     // Registrar IDs de contatos que já têm thread (para evitar duplicatas na busca)
     const contatosComThreadExistente = new Set(threadsUnicas.map(t => t.contact_id).filter(Boolean));
@@ -871,45 +864,35 @@ export default function Comunicacao() {
       };
     });
     
-    // DEDUPLICAÇÃO FINAL: Remover duplicatas baseado em contact_id
-    // Priorizar threads reais sobre "contato-sem-thread" e "cliente-sem-contato"
-    // EXCEÇÃO: Quando filterScope === 'unassigned', mostrar TODAS as threads sem deduzir
-    let deduplicated;
+    // ✅ DEDUPLICAÇÃO SIMPLIFICADA: threadsUnicas já está deduzida
+    // Apenas remover duplicatas entre threads e contatos-sem-thread
+    const vistos = new Map();
+    const deduplicated = [];
     
-    if (filterScope === 'unassigned') {
-      // Modo "Não Atribuídas": Mostrar TODAS as threads, sem deduplicação por contato
-      deduplicated = enriched;
-    } else {
-      // Modo normal: Deduzir para mostrar apenas uma thread por contato
-      const vistos = new Map();
-      const temp = [];
+    for (const thread of enriched) {
+      const contactId = thread.contact_id;
       
-      for (const thread of enriched) {
-        const contactId = thread.contact_id;
-        
-        // Se não tem contact_id (cliente sem contato), adicionar direto
-        if (!contactId) {
-          temp.push(thread);
-          continue;
-        }
-        
-        const existente = vistos.get(contactId);
-        if (!existente) {
-          vistos.set(contactId, thread);
-          temp.push(thread);
-        } else {
-          // Se o existente é "contato-sem-thread" e o atual é thread real, substituir
-          if (existente.is_contact_only && !thread.is_contact_only) {
-            const idx = temp.indexOf(existente);
-            if (idx !== -1) {
-              temp[idx] = thread;
-              vistos.set(contactId, thread);
-            }
-          }
-          // Caso contrário, manter o existente (já é a thread real ou mais recente)
-        }
+      // Se não tem contact_id (cliente sem contato), adicionar direto
+      if (!contactId) {
+        deduplicated.push(thread);
+        continue;
       }
-      deduplicated = temp;
+      
+      const existente = vistos.get(contactId);
+      if (!existente) {
+        vistos.set(contactId, thread);
+        deduplicated.push(thread);
+      } else {
+        // Se o existente é "contato-sem-thread" e o atual é thread real, substituir
+        if (existente.is_contact_only && !thread.is_contact_only) {
+          const idx = deduplicated.indexOf(existente);
+          if (idx !== -1) {
+            deduplicated[idx] = thread;
+            vistos.set(contactId, thread);
+          }
+        }
+        // Caso contrário, manter o existente (já é a thread real mais recente)
+      }
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
