@@ -426,12 +426,22 @@ Deno.serve(async (req) => {
           
           console.log(`[ENVIAR-WHATSAPP-UNIFICADO] 📄 Documento Z-API: ${nomeArquivoSeguro} (${mimeType})`);
         } else if (tipoMidiaReal === 'image') {
-          // Z-API IMAGEM
+          // Z-API IMAGEM - IMPORTANTE: Z-API precisa fazer download da URL
+          // Se a URL for do Supabase Storage, garantir que é pública
+          let urlParaUsar = media_url;
+          
+          // Se a URL contém 'base44-prod' mas não tem token, é do nosso storage público
+          if (media_url.includes('base44-prod/public/')) {
+            urlParaUsar = media_url.split('?')[0]; // Remove query params se houver
+          }
+          
           body = {
             phone: numeroFormatado,
-            image: media_url
+            image: urlParaUsar
           };
           if (media_caption) body.caption = media_caption;
+          
+          console.log(`[ENVIAR-WHATSAPP-UNIFICADO] 📷 Z-API Image URL:`, urlParaUsar);
         } else if (tipoMidiaReal === 'video') {
           // Z-API VÍDEO
           body = {
