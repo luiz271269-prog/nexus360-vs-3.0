@@ -57,123 +57,143 @@ function deveIgnorar(payload) {
 }
 
 // ============================================================================
-// NORMALIZACAO DE PAYLOAD
+// NORMALIZAR PAYLOAD (BLINDADA E AUTOSSUFICIENTE)
 // ============================================================================
-async function normalizarPayload(payload) {
-  const evento = String(payload.event || '').toLowerCase();
-  const instanceId = payload.instanceId || null;
+// ATENÇÃO: NÃO IMPORTAR FUNÇÕES EXTERNAS AQUI DENTRO
+// Esta função roda antes de tudo e não pode falhar.
 
-  if (evento.includes('qrcode') || payload.qrcode) {
-    return { type: 'qrcode', instanceId, qrCodeUrl: payload.qrcode || payload.qr || payload.base64 };
-  }
+function normalizarPayload(payload) {
+  try {
+    const evento = String(payload.event || '').toLowerCase();
+    const instanceId = payload.instanceId || null;
 
-  if (evento.includes('connection') || evento.includes('webhookconectado')) {
-    const status = payload.connected === true ? 'conectado' : 'desconectado';
-    return { type: 'connection', instanceId, status };
-  }
+    // 1. Tratamento de Eventos de Sistema
+    if (evento.includes('qrcode') || payload.qrcode) {
+      return { type: 'qrcode', instanceId, qrCodeUrl: payload.qrcode || payload.qr || payload.base64 };
+    }
 
-  if (evento === 'webhookdelivery' || evento.includes('delivery')) {
+    if (evento.includes('connection') || evento.includes('webhookconectado')) {
+      const status = payload.connected === true ? 'conectado' : 'desconectado';
+      return { type: 'connection', instanceId, status };
+    }
+
+    if (evento === 'webhookdelivery' || evento.includes('delivery')) {
+      return {
+        type: 'message_update',
+        instanceId,
+        messageId: payload.messageId || payload.key?.id,
+        status: payload.status || payload.ack
+      };
+    }
+
+    // 2. Extração de Remetente (Inline Regex - Sem dependência externa)
+    const senderId = payload.sender?.id || payload.chat?.id || '';
+    const numeroLimpo = (senderId || '').replace(/\D/g, ''); // ✅ Inline, sem 'os error 2'
+
+    if (!numeroLimpo) return { type: 'unknown', error: 'telefone_invalido' };
+
+    // 3. Extração de Conteúdo e Mídia
+    const msgContent = payload.msgContent || {};
+    let mediaType = 'none';
+    let conteudoRaw = '';
+    let downloadSpec = null;
+
+    // Função auxiliar interna para metadados (segura)
+    const getMediaMeta = (obj) => ({
+      caption: obj?.caption || null,
+      fileName: obj?.fileName || obj?.title || null,
+      mimetype: obj?.mimetype || null,
+      mediaKey: obj?.mediaKey || null,
+      directPath: obj?.directPath || null
+    });
+
+    if (msgContent.imageMessage) {
+      mediaType = 'image';
+      const meta = getMediaMeta(msgContent.imageMessage);
+      conteudoRaw = meta.caption || '[Imagem]';
+      if (meta.mediaKey && meta.directPath) {
+        downloadSpec = { ...meta, type: 'image', mimetype: meta.mimetype || 'image/jpeg' };
+      }
+    }
+    else if (msgContent.videoMessage) {
+      mediaType = 'video';
+      const meta = getMediaMeta(msgContent.videoMessage);
+      conteudoRaw = meta.caption || '[Vídeo]';
+      if (meta.mediaKey && meta.directPath) {
+        downloadSpec = { ...meta, type: 'video', mimetype: meta.mimetype || 'video/mp4' };
+      }
+    }
+    else if (msgContent.audioMessage) {
+      mediaType = 'audio';
+      const meta = getMediaMeta(msgContent.audioMessage);
+      conteudoRaw = msgContent.audioMessage.ptt ? '[Áudio Voz]' : '[Áudio]';
+      if (meta.mediaKey && meta.directPath) {
+        downloadSpec = { ...meta, type: 'audio', mimetype: meta.mimetype || 'audio/ogg' };
+      }
+    }
+    else if (msgContent.documentMessage) {
+      mediaType = 'document';
+      const meta = getMediaMeta(msgContent.documentMessage);
+      conteudoRaw = meta.caption || meta.fileName || '[Documento]';
+      if (meta.mediaKey && meta.directPath) {
+        downloadSpec = { ...meta, type: 'document', mimetype: meta.mimetype || 'application/pdf' };
+      }
+    }
+    else if (msgContent.stickerMessage) {
+      mediaType = 'sticker';
+      const meta = getMediaMeta(msgContent.stickerMessage);
+      conteudoRaw = '[Sticker]';
+      if (meta.mediaKey && meta.directPath) {
+        downloadSpec = { ...meta, type: 'sticker', mimetype: meta.mimetype || 'image/webp' };
+      }
+    }
+    else if (msgContent.contactMessage || msgContent.contactsArrayMessage) {
+      mediaType = 'contact';
+      conteudoRaw = '📇 Contato compartilhado';
+    }
+    else if (msgContent.locationMessage) {
+      mediaType = 'location';
+      conteudoRaw = '📍 Localização';
+    }
+    else if (msgContent.extendedTextMessage) {
+      conteudoRaw = msgContent.extendedTextMessage.text || '';
+    }
+    else if (msgContent.conversation) {
+      conteudoRaw = msgContent.conversation;
+    }
+
+    // Fallback de texto
+    if (!conteudoRaw && mediaType === 'none') {
+      conteudoRaw = payload.body || payload.text || '';
+    }
+
     return {
-      type: 'message_update',
+      type: 'message',
       instanceId,
       messageId: payload.messageId || payload.key?.id,
-      status: payload.status || payload.ack
+      from: numeroLimpo,
+      content: String(conteudoRaw || '').trim(),
+      mediaType,
+      mediaCaption: downloadSpec?.caption,
+      pushName: payload.pushName || payload.senderName || payload.sender?.pushName,
+      vcard: msgContent.contactMessage || msgContent.contactsArrayMessage,
+      location: msgContent.locationMessage,
+      quotedMessage: payload.quotedMsg || msgContent.extendedTextMessage?.contextInfo?.quotedMessage,
+      downloadSpec: downloadSpec,
+      fileName: conteudoRaw || null
+    };
+
+  } catch (err) {
+    // 🛡️ CATCH DE ÚLTIMA INSTÂNCIA DA NORMALIZAÇÃO
+    console.error('🔴 [CRITICAL] Erro dentro de normalizarPayload:', err.message);
+
+    // Retorna um objeto mínimo válido para não quebrar o webhook
+    return {
+      type: 'unknown',
+      error: 'normalization_failed',
+      raw_error: err.message
     };
   }
-
-  // Import dinâmico para evitar OS Error 2
-  const { normalizePhone } = await import('./lib/phoneNormalizer.js');
-  
-  const senderId = payload.sender?.id || payload.chat?.id || '';
-  const numeroLimpo = normalizePhone(senderId);
-  if (!numeroLimpo) return { type: 'unknown', error: 'telefone_invalido' };
-
-  const msgContent = payload.msgContent || {};
-  let mediaType = 'none';
-  let conteudoRaw = '';
-  let downloadSpec = null;
-  
-  // Processar texto simples
-  if (msgContent.conversation) {
-    conteudoRaw = msgContent.conversation;
-  } else if (msgContent.extendedTextMessage) {
-    conteudoRaw = msgContent.extendedTextMessage.text;
-  }
-  // Extrair metadados de mídia (SEM chamar API)
-  else if (msgContent.imageMessage) {
-    mediaType = 'image';
-    conteudoRaw = msgContent.imageMessage.caption || '[Imagem]';
-    downloadSpec = {
-      mediaKey: msgContent.imageMessage.mediaKey,
-      directPath: msgContent.imageMessage.directPath,
-      mimetype: msgContent.imageMessage.mimetype,
-      type: 'image'
-    };
-  } else if (msgContent.videoMessage) {
-    mediaType = 'video';
-    conteudoRaw = msgContent.videoMessage.caption || '[Vídeo]';
-    downloadSpec = {
-      mediaKey: msgContent.videoMessage.mediaKey,
-      directPath: msgContent.videoMessage.directPath,
-      mimetype: msgContent.videoMessage.mimetype,
-      type: 'video'
-    };
-  } else if (msgContent.audioMessage) {
-    mediaType = 'audio';
-    conteudoRaw = '[Áudio]';
-    downloadSpec = {
-      mediaKey: msgContent.audioMessage.mediaKey,
-      directPath: msgContent.audioMessage.directPath,
-      mimetype: msgContent.audioMessage.mimetype,
-      type: 'audio'
-    };
-  } else if (msgContent.documentMessage) {
-    mediaType = 'document';
-    conteudoRaw = msgContent.documentMessage.caption || msgContent.documentMessage.fileName || '[Documento]';
-    downloadSpec = {
-      mediaKey: msgContent.documentMessage.mediaKey,
-      directPath: msgContent.documentMessage.directPath,
-      mimetype: msgContent.documentMessage.mimetype,
-      type: 'document'
-    };
-  } else if (msgContent.stickerMessage) {
-    mediaType = 'sticker';
-    conteudoRaw = '[Sticker]';
-    downloadSpec = {
-      mediaKey: msgContent.stickerMessage.mediaKey,
-      directPath: msgContent.stickerMessage.directPath,
-      mimetype: msgContent.stickerMessage.mimetype,
-      type: 'sticker'
-    };
-  } else if (msgContent.contactMessage || msgContent.contactsArrayMessage) {
-    mediaType = 'contact';
-    conteudoRaw = '📇 Contato compartilhado';
-  } else if (msgContent.locationMessage) {
-    mediaType = 'location';
-    conteudoRaw = '📍 Localização';
-  }
-
-  const conteudo = String(conteudoRaw || '').trim();
-
-  if (!conteudo && mediaType === 'none') {
-    return { type: 'unknown', error: 'mensagem_vazia' };
-  }
-
-  return {
-    type: 'message',
-    instanceId,
-    messageId: payload.messageId || payload.key?.id,
-    from: numeroLimpo,
-    content: conteudo,
-    mediaType,
-    mediaCaption: downloadSpec?.caption,
-    pushName: payload.pushName || payload.senderName || payload.sender?.pushName,
-    vcard: msgContent.contactMessage || msgContent.contactsArrayMessage,
-    location: msgContent.locationMessage,
-    quotedMessage: payload.quotedMsg || msgContent.extendedTextMessage?.contextInfo?.quotedMessage,
-    downloadSpec: downloadSpec,
-    fileName: conteudoRaw || null
-  };
 }
 
 // ============================================================================
