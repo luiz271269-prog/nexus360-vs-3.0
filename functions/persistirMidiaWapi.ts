@@ -1,14 +1,18 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.4';
 
 // ============================================================================
-// PERSISTIR MÍDIA W-API - v1.0.2
+// PERSISTIR MÍDIA W-API - v2.0.0 CORREÇÃO DEFINITIVA
 // ============================================================================
-// Esta função baixa mídias temporárias do WhatsApp e salva permanentemente
-// no storage do Base44
-// CORREÇÃO v1.0.2: Versão atualizada para consistência com webhookWapi v9.1.0
+// FLUXO DETERMINÍSTICO (conforme manual W-API):
+// 1. Recebe message_id + integration_id + downloadSpec
+// 2. Chama /message/download-media com mediaKey + directPath + type + mimetype
+// 3. Recebe fileLink da W-API
+// 4. Faz fetch(fileLink) → arrayBuffer (100% em memória, ZERO filesystem)
+// 5. Faz upload direto pro storage Base44 (File/Blob)
+// 6. Atualiza Message.media_url com URL permanente
 // ============================================================================
 
-const VERSION = 'v1.0.2';
+const VERSION = 'v2.0.0-DETERMINISTIC';
 const WAPI_BASE_URL = 'https://api.w-api.app/v1';
 const MAX_RETRIES = 2;
 const RETRY_DELAY = 2000;
@@ -31,7 +35,7 @@ Deno.serve(async (req) => {
     return Response.json({ 
       version: VERSION, 
       status: 'ready',
-      description: 'Baixa e persiste mídias da W-API'
+      description: 'Baixa e persiste mídias da W-API (100% em memória, zero filesystem)'
     }, { headers });
   }
 
@@ -43,48 +47,42 @@ Deno.serve(async (req) => {
     
     console.log('[PERSISTIR-MIDIA-WAPI] 📦 Payload recebido:', {
       message_id: payload.message_id,
-      media_type: payload.media_type,
       integration_id: payload.integration_id,
-      has_message_struct: !!payload.message_struct
+      has_downloadSpec: !!payload.downloadSpec
     });
 
-    const { message_id, media_type, integration_id, message_struct, filename, mimetype } = payload;
+    const { message_id, integration_id, downloadSpec, filename } = payload;
 
-    if (!message_id || !media_type || !integration_id) {
+    // ✅ VALIDAÇÃO ENTRADA
+    if (!message_id || !integration_id || !downloadSpec) {
       return Response.json({ 
         success: false, 
-        error: 'message_id, media_type e integration_id são obrigatórios' 
+        error: 'message_id, integration_id e downloadSpec são obrigatórios' 
       }, { status: 400, headers });
     }
 
-    console.log('[PERSISTIR-MIDIA-WAPI] 🚀 INICIANDO | Tipo:', media_type, '| MessageStruct:', !!message_struct);
-
-    // ========================================================================
-    // PASSO 5: BAIXAR MÍDIA DESCRIPTOGRAFADA VIA API W-API (ESTUDO TÉCNICO)
-    // ========================================================================
-    
-    if (!message_struct) {
-      return Response.json({
-        success: false,
-        error: 'message_struct é obrigatório para download W-API'
-      }, { status: 400, headers });
-    }
+    console.log('[PERSISTIR-MIDIA-WAPI] 🚀 INICIANDO | downloadSpec:', {
+      type: downloadSpec.type,
+      hasMediaKey: !!downloadSpec.mediaKey,
+      hasDirectPath: !!downloadSpec.directPath,
+      mimetype: downloadSpec.mimetype
+    });
 
     const integracao = await base44.asServiceRole.entities.WhatsAppIntegration.get(integration_id);
 
-    // ✅ Extrair campos OBRIGATÓRIOS conforme manual W-API
-    const mediaKey = message_struct.mediaKey;
-    const directPath = message_struct.directPath;
-    const mimeType = message_struct.mimetype || mimetype || 'image/jpeg';
+    // ✅ VALIDAÇÃO CAMPOS OBRIGATÓRIOS (manual W-API)
+    const mediaKey = downloadSpec.mediaKey;
+    const directPath = downloadSpec.directPath;
+    const mimeType = downloadSpec.mimetype;
+    const mediaType = downloadSpec.type;
 
-    // ✅ Validação: campos obrigatórios do manual
     if (!mediaKey || !directPath) {
-      throw new Error('mediaKey ou directPath ausentes no messageStruct');
+      throw new Error('mediaKey ou directPath ausentes no downloadSpec');
     }
 
     console.log('[PERSISTIR-MIDIA-WAPI] 📞 Chamando W-API download-media | mediaKey:', mediaKey?.substring(0, 20), '| directPath:', directPath?.substring(0, 30));
     
-    // ✅ RETRY LOGIC - Evitar rate limit
+    // ✅ RETRY LOGIC (evitar rate limit)
     let downloadResp;
     let lastError;
     
@@ -95,8 +93,9 @@ Deno.serve(async (req) => {
           await sleep(RETRY_DELAY * attempt);
         }
         
+        // ✅ CHAMADA OFICIAL W-API (conforme manual)
         downloadResp = await fetch(
-          `https://api.w-api.app/v1/message/download-media?instanceId=${integracao.instance_id_provider}`,
+          `${WAPI_BASE_URL}/message/download-media?instanceId=${integracao.instance_id_provider}`,
           {
             method: 'POST',
             headers: {
@@ -106,7 +105,7 @@ Deno.serve(async (req) => {
             body: JSON.stringify({
               mediaKey: mediaKey,
               directPath: directPath,
-              type: media_type,
+              type: mediaType,
               mimetype: mimeType
             })
           }
@@ -143,19 +142,18 @@ Deno.serve(async (req) => {
 
     console.log('[PERSISTIR-MIDIA-WAPI] 📥 Iniciando processamento:', {
       message_id,
-      media_type,
+      media_type: mediaType,
       filename: filename || 'N/A',
       formato: is_base64 ? 'Base64' : 'URL',
       preview: is_base64 ? media_url.substring(0, 50) + '...' : media_url.substring(0, 80)
     });
 
-    // ✅ DOWNLOAD DIRETO SEM FILESYSTEM
+    // ✅ DOWNLOAD DIRETO EM MEMÓRIA (ZERO FILESYSTEM)
     let blob;
-    let contentType = mimetype || 'application/octet-stream';
+    let contentType = mimeType || 'application/octet-stream';
 
-    // Processar Base64 ou URL
     if (is_base64) {
-      // Extrair mimetype do Data URI se presente
+      // ✅ Base64 → Blob (em memória)
       const base64Match = media_url.match(/^data:([^;]+);base64,(.+)$/);
       if (base64Match) {
         contentType = base64Match[1];
@@ -177,7 +175,7 @@ Deno.serve(async (req) => {
       }
       console.log('[PERSISTIR-MIDIA-WAPI] 📦 Base64 convertido para blob');
     } else {
-      // ✅ Baixar da URL (sem salvar em disco)
+      // ✅ URL → ArrayBuffer → Blob (100% em memória)
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 60000);
 
@@ -194,7 +192,7 @@ Deno.serve(async (req) => {
 
         contentType = mediaResponse.headers.get('content-type') || contentType;
 
-        // ✅ Baixar direto para memória (ArrayBuffer → Blob)
+        // ✅ ArrayBuffer → Blob (direto em memória, sem tocar em disco)
         const arrayBuffer = await mediaResponse.arrayBuffer();
         blob = new Blob([arrayBuffer], { type: contentType });
 
@@ -207,7 +205,7 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Validar tamanho (máx 50MB)
+    // ✅ VALIDAÇÃO TAMANHO (máx 50MB)
     const MAX_SIZE = 50 * 1024 * 1024;
     if (blob.size > MAX_SIZE) {
       throw new Error(`Arquivo muito grande: ${(blob.size / 1024 / 1024).toFixed(2)}MB (máx: 50MB)`);
@@ -218,50 +216,37 @@ Deno.serve(async (req) => {
       type: contentType
     });
 
-    // Determinar extensão - priorizar filename > mimetype > media_type
+    // ✅ DETERMINAR EXTENSÃO (prioridade: filename > mimetype > mediaType)
     const extensaoMap = {
-      'image/jpeg': 'jpg',
-      'image/jpg': 'jpg',
-      'image/png': 'png',
-      'image/webp': 'webp',
-      'image/gif': 'gif',
-      'video/mp4': 'mp4',
-      'video/3gpp': '3gp',
-      'video/quicktime': 'mov',
-      'audio/ogg': 'ogg',
-      'audio/ogg; codecs=opus': 'ogg',
-      'audio/mpeg': 'mp3',
-      'audio/mp4': 'm4a',
-      'audio/amr': 'amr',
-      'audio/wav': 'wav',
-      'application/pdf': 'pdf',
-      'application/msword': 'doc',
+      'image/jpeg': 'jpg', 'image/jpg': 'jpg', 'image/png': 'png', 'image/webp': 'webp', 'image/gif': 'gif',
+      'video/mp4': 'mp4', 'video/3gpp': '3gp', 'video/quicktime': 'mov',
+      'audio/ogg': 'ogg', 'audio/ogg; codecs=opus': 'ogg', 'audio/mpeg': 'mp3', 'audio/mp4': 'm4a',
+      'audio/amr': 'amr', 'audio/wav': 'wav',
+      'application/pdf': 'pdf', 'application/msword': 'doc',
       'application/vnd.openxmlformats-officedocument.wordprocessingml.document': 'docx',
       'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': 'xlsx',
       'text/plain': 'txt'
     };
 
-    // Extrair extensão do filename se disponível
     let extensao = 'bin';
     if (filename && filename.includes('.')) {
       extensao = filename.split('.').pop().toLowerCase();
     } else if (extensaoMap[contentType]) {
       extensao = extensaoMap[contentType];
-    } else if (media_type) {
-      const mediaTypeMap = { 'image': 'jpg', 'video': 'mp4', 'audio': 'ogg', 'document': 'pdf' };
-      extensao = mediaTypeMap[media_type] || 'bin';
+    } else if (mediaType) {
+      const mediaTypeMap = { 'image': 'jpg', 'video': 'mp4', 'audio': 'ogg', 'document': 'pdf', 'sticker': 'webp' };
+      extensao = mediaTypeMap[mediaType] || 'bin';
     }
 
-    // Gerar nome de arquivo único
+    // ✅ GERAR NOME ARQUIVO ÚNICO
     const timestamp = Date.now();
-    const baseFilename = filename?.replace(/\.[^.]+$/, '') || `${media_type || 'media'}`;
+    const baseFilename = filename?.replace(/\.[^.]+$/, '') || `${mediaType || 'media'}`;
     const sanitizedBase = baseFilename.replace(/[^a-zA-Z0-9._-]/g, '_').substring(0, 50);
     const nomeArquivo = `wapi_${message_id.substring(0, 8)}_${timestamp}_${sanitizedBase}.${extensao}`;
 
-    // Converter blob para File
+    // ✅ UPLOAD DIRETO (Blob → Storage Base44)
     const file = new File([blob], nomeArquivo, { type: contentType });
 
-    // Upload para o storage Base44
     const uploadResult = await base44.asServiceRole.integrations.Core.UploadFile({
       file: file
     });
@@ -270,9 +255,9 @@ Deno.serve(async (req) => {
       throw new Error('Falha no upload - nenhuma URL retornada');
     }
 
-    console.log('[PERSISTIR-MIDIA] ✅ Upload concluído:', uploadResult.file_url);
+    console.log('[PERSISTIR-MIDIA-WAPI] ✅ Upload concluído:', uploadResult.file_url);
 
-    // Buscar mensagem atual para preservar metadata existente
+    // ✅ ATUALIZAR MESSAGE COM URL PERMANENTE
     let mensagemAtual;
     try {
       mensagemAtual = await base44.asServiceRole.entities.Message.get(message_id);
@@ -280,7 +265,6 @@ Deno.serve(async (req) => {
       console.warn('[PERSISTIR-MIDIA-WAPI] ⚠️ Não foi possível buscar mensagem atual:', e?.message);
     }
 
-    // Mesclar metadata existente com novos dados
     const metadataAtual = mensagemAtual?.metadata || {};
     const novaMetadata = {
       ...metadataAtual,
@@ -292,7 +276,6 @@ Deno.serve(async (req) => {
       filename_original: filename || null
     };
 
-    // Atualizar a mensagem com a URL permanente
     await base44.asServiceRole.entities.Message.update(message_id, {
       media_url: uploadResult.file_url,
       metadata: novaMetadata
@@ -311,11 +294,13 @@ Deno.serve(async (req) => {
     }, { headers });
 
   } catch (error) {
-    console.error('[PERSISTIR-MIDIA] ❌ ERRO:', error.message);
+    console.error('[PERSISTIR-MIDIA-WAPI] ❌ ERRO:', error.message);
+    console.error('[PERSISTIR-MIDIA-WAPI] ❌ Stack:', error.stack);
     
     return Response.json({
       success: false,
       error: error.message,
+      stack: error.stack,
       version: VERSION
     }, { status: 500, headers });
   }

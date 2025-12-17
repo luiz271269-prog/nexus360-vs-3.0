@@ -1,15 +1,16 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.4';
 
 // ============================================================================
-// WEBHOOK WHATSAPP W-API - v9.1.0 PIPELINE UNIFICADO + MÍDIA PERSISTENTE
+// WEBHOOK WHATSAPP W-API - v10.0.0 CORREÇÃO DEFINITIVA MÍDIA
 // ============================================================================
-// CORREÇÕES v9.1.0:
-// 1. TODAS as mídias recebidas agora são marcadas para download obrigatório
-// 2. mediaUrl = 'pending_download' para imagem, vídeo, áudio, documento, sticker
-// 3. Consistência com Z-API: baixar e salvar permanentemente todas as mídias
+// CORREÇÕES v10.0.0:
+// 1. Extração correta de mediaKey + directPath (campos obrigatórios W-API)
+// 2. downloadSpec estruturado para persistência determinística
+// 3. Fire-and-forget sem travar pipeline
+// 4. Zero acesso ao filesystem (100% em memória)
 // ============================================================================
 
-const VERSION = 'v9.1.0-PERSISTENT-MEDIA';
+const VERSION = 'v10.0.0-MEDIA-FIX';
 const BUILD_DATE = '2025-12-17';
 
 const corsHeaders = {
@@ -25,7 +26,7 @@ const integrationCache = new Map();
 const CACHE_TTL = 60000;
 
 // ============================================================================
-// IMPORTS - SIMPLIFICADOS
+// IMPORTS
 // ============================================================================
 import { normalizePhone } from './lib/phoneNormalizer.js';
 import { getOrCreateContact, getOrCreateThread } from './lib/contactManager.js';
@@ -62,7 +63,7 @@ function deveIgnorar(payload) {
 }
 
 // ============================================================================
-// EXTRAIR METADADOS MÍDIA
+// EXTRAIR METADADOS MÍDIA + CAMPOS OBRIGATÓRIOS W-API
 // ============================================================================
 function extrairMetadadosMidia(msgContent, tipoMidia) {
   const tipoMap = {
@@ -71,17 +72,21 @@ function extrairMetadadosMidia(msgContent, tipoMidia) {
   };
   const msgKey = tipoMap[tipoMidia];
   const mediaMsg = msgContent?.[msgKey] || {};
+  
   return {
     caption: mediaMsg.caption || null,
     fileName: mediaMsg.fileName || mediaMsg.title || null,
     mimetype: mediaMsg.mimetype || null,
     fileSize: mediaMsg.fileLength || mediaMsg.size || null,
-    isPTT: mediaMsg.ptt === true
+    isPTT: mediaMsg.ptt === true,
+    // ✅ CAMPOS OBRIGATÓRIOS W-API (manual oficial)
+    mediaKey: mediaMsg.mediaKey || null,
+    directPath: mediaMsg.directPath || null
   };
 }
 
 // ============================================================================
-// NORMALIZAR PAYLOAD
+// NORMALIZAR PAYLOAD + DOWNLOAD SPEC
 // ============================================================================
 function normalizarPayload(payload) {
   const evento = String(payload.event || '').toLowerCase();
@@ -113,44 +118,80 @@ function normalizarPayload(payload) {
   let mediaType = 'none';
   let mediaUrl = null;
   let conteudoRaw = '';
-  let mediaMetadata = {};
+  let downloadSpec = null;
   
-  // ✅ EXTRAÇÃO SEGURA DE TEXTO COM EMOJIS
-  // ✅ v9.1.0: TODAS as mídias marcadas como 'pending_download'
+  // ✅ DETECÇÃO + EXTRAÇÃO ESTRUTURADA (cada mídia gera downloadSpec)
   if (msgContent.imageMessage) {
     mediaType = 'image';
-    mediaMetadata = extrairMetadadosMidia(msgContent, 'image');
-    conteudoRaw = mediaMetadata.caption || '[Imagem]';
-    mediaUrl = 'pending_download'; // ✅ Marca para download obrigatório
-    mediaMetadata.messageStruct = msgContent.imageMessage;
-    mediaMetadata.requiresDownload = true;
+    const meta = extrairMetadadosMidia(msgContent, 'image');
+    conteudoRaw = meta.caption || '[Imagem]';
+    
+    // ✅ DOWNLOAD SPEC ESTRUTURADO (campos obrigatórios W-API)
+    if (meta.mediaKey && meta.directPath) {
+      downloadSpec = {
+        type: 'image',
+        mediaKey: meta.mediaKey,
+        directPath: meta.directPath,
+        mimetype: meta.mimetype || 'image/jpeg'
+      };
+      mediaUrl = 'pending_download';
+    }
   } else if (msgContent.videoMessage) {
     mediaType = 'video';
-    mediaMetadata = extrairMetadadosMidia(msgContent, 'video');
-    conteudoRaw = mediaMetadata.caption || '[Vídeo]';
-    mediaUrl = 'pending_download'; // ✅ Marca para download obrigatório
-    mediaMetadata.messageStruct = msgContent.videoMessage;
-    mediaMetadata.requiresDownload = true;
+    const meta = extrairMetadadosMidia(msgContent, 'video');
+    conteudoRaw = meta.caption || '[Vídeo]';
+    
+    if (meta.mediaKey && meta.directPath) {
+      downloadSpec = {
+        type: 'video',
+        mediaKey: meta.mediaKey,
+        directPath: meta.directPath,
+        mimetype: meta.mimetype || 'video/mp4'
+      };
+      mediaUrl = 'pending_download';
+    }
   } else if (msgContent.audioMessage) {
     mediaType = 'audio';
-    mediaMetadata = extrairMetadadosMidia(msgContent, 'audio');
-    conteudoRaw = mediaMetadata.isPTT ? '[Áudio de voz]' : '[Áudio]';
-    mediaUrl = 'pending_download'; // ✅ Marca para download obrigatório
-    mediaMetadata.messageStruct = msgContent.audioMessage;
-    mediaMetadata.requiresDownload = true;
+    const meta = extrairMetadadosMidia(msgContent, 'audio');
+    conteudoRaw = meta.isPTT ? '[Áudio de voz]' : '[Áudio]';
+    
+    if (meta.mediaKey && meta.directPath) {
+      downloadSpec = {
+        type: 'audio',
+        mediaKey: meta.mediaKey,
+        directPath: meta.directPath,
+        mimetype: meta.mimetype || 'audio/ogg'
+      };
+      mediaUrl = 'pending_download';
+    }
   } else if (msgContent.documentMessage) {
     mediaType = 'document';
-    mediaMetadata = extrairMetadadosMidia(msgContent, 'document');
-    conteudoRaw = mediaMetadata.fileName ? `[Documento: ${mediaMetadata.fileName}]` : '[Documento]';
-    mediaUrl = 'pending_download'; // ✅ Marca para download obrigatório
-    mediaMetadata.messageStruct = msgContent.documentMessage;
-    mediaMetadata.requiresDownload = true;
+    const meta = extrairMetadadosMidia(msgContent, 'document');
+    conteudoRaw = meta.fileName ? `[Documento: ${meta.fileName}]` : '[Documento]';
+    
+    if (meta.mediaKey && meta.directPath) {
+      downloadSpec = {
+        type: 'document',
+        mediaKey: meta.mediaKey,
+        directPath: meta.directPath,
+        mimetype: meta.mimetype || 'application/pdf'
+      };
+      mediaUrl = 'pending_download';
+    }
   } else if (msgContent.stickerMessage) {
     mediaType = 'sticker';
+    const meta = extrairMetadadosMidia(msgContent, 'sticker');
     conteudoRaw = '[Sticker]';
-    mediaUrl = 'pending_download'; // ✅ Marca para download obrigatório
-    mediaMetadata.messageStruct = msgContent.stickerMessage;
-    mediaMetadata.requiresDownload = true;
+    
+    if (meta.mediaKey && meta.directPath) {
+      downloadSpec = {
+        type: 'sticker',
+        mediaKey: meta.mediaKey,
+        directPath: meta.directPath,
+        mimetype: meta.mimetype || 'image/webp'
+      };
+      mediaUrl = 'pending_download';
+    }
   } else if (msgContent.contactMessage || msgContent.contactsArrayMessage) {
     mediaType = 'contact';
     conteudoRaw = '📇 Contato compartilhado';
@@ -167,7 +208,6 @@ function normalizarPayload(payload) {
     conteudoRaw = payload.body || payload.text || payload.message?.text || payload.content || '';
   }
 
-  // Processar texto (sanitização básica)
   const conteudo = String(conteudoRaw || '').trim();
 
   if (!conteudo && mediaType === 'none') {
@@ -175,15 +215,17 @@ function normalizarPayload(payload) {
   }
 
   return {
-    type: 'message', instanceId,
+    type: 'message',
+    instanceId,
     messageId: payload.messageId || payload.key?.id,
-    from: numeroLimpo, content: conteudo,
-    mediaType, mediaUrl,
-    mediaCaption: mediaMetadata.caption || msgContent.imageMessage?.caption || msgContent.videoMessage?.caption,
-    fileName: mediaMetadata.fileName,
-    mimetype: mediaMetadata.mimetype,
-    messageStruct: mediaMetadata.messageStruct,
-    requiresDownload: mediaMetadata.requiresDownload || false,
+    from: numeroLimpo,
+    content: conteudo,
+    mediaType,
+    mediaUrl,
+    downloadSpec, // ✅ Spec estruturado para persistência
+    requiresDownload: !!downloadSpec, // ✅ Flag booleana
+    mediaCaption: msgContent.imageMessage?.caption || msgContent.videoMessage?.caption,
+    fileName: msgContent.documentMessage?.fileName,
     pushName: payload.pushName || payload.senderName || payload.sender?.pushName,
     vcard: msgContent.contactMessage || msgContent.contactsArrayMessage,
     location: msgContent.locationMessage,
@@ -249,12 +291,24 @@ async function handleMessageUpdate(dados, base44) {
 }
 
 // ============================================================================
-// HANDLE MESSAGE - PIPELINE UNIFICADO
+// HANDLE MESSAGE - PIPELINE UNIFICADO + PERSISTÊNCIA ASSÍNCRONA
 // ============================================================================
 async function handleMessage(dados, payloadBruto, base44, req) {
   console.log('[WAPI] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
   console.log('[WAPI] STEP 1 - INÍCIO handleMessage');
   console.log('[WAPI] Tipo mídia:', dados.mediaType, '| RequiresDownload:', dados.requiresDownload);
+  
+  // ✅ LOG DIAGNÓSTICO (para matar problemas em 5min)
+  if (dados.requiresDownload && dados.downloadSpec) {
+    console.log('[WAPI] 🔍 DIAGNÓSTICO downloadSpec:', {
+      type: dados.downloadSpec.type,
+      hasMediaKey: !!dados.downloadSpec.mediaKey,
+      hasDirectPath: !!dados.downloadSpec.directPath,
+      mimetype: dados.downloadSpec.mimetype,
+      mediaKeyPreview: dados.downloadSpec.mediaKey?.substring(0, 20),
+      directPathPreview: dados.downloadSpec.directPath?.substring(0, 30)
+    });
+  }
   
   const inicio = Date.now();
   
@@ -279,7 +333,6 @@ async function handleMessage(dados, payloadBruto, base44, req) {
   }
   
   console.log('[WAPI] STEP 3 - Dedup OK');
-
   console.log('[WAPI] STEP 4 - Resolvendo integração...');
   
   let integracaoId = null;
@@ -306,7 +359,6 @@ async function handleMessage(dados, payloadBruto, base44, req) {
 
   console.log('[WAPI] STEP 6 - Chamando getOrCreateContact...');
   
-  // ✅ USAR GERENCIADOR ÚNICO (evita duplicação)
   const contato = await getOrCreateContact(base44, {
     telefone: dados.from,
     nome: dados.pushName || dados.from,
@@ -325,7 +377,6 @@ async function handleMessage(dados, payloadBruto, base44, req) {
   });
   
   console.log('[WAPI] STEP 9 - Thread OK:', thread.id);
-
   console.log('[WAPI] STEP 10 - Criando Message no banco...');
   
   const mensagem = await base44.asServiceRole.entities.Message.create({
@@ -348,50 +399,45 @@ async function handleMessage(dados, payloadBruto, base44, req) {
       quoted_message: dados.quotedMessage,
       processed_by: VERSION,
       provider: 'w_api',
-      messageStruct: dados.messageStruct,
+      downloadSpec: dados.downloadSpec, // ✅ Salvar spec para persistência
       requiresDownload: dados.requiresDownload
     }
   });
 
   console.log('[WAPI] STEP 11 - Message criada:', mensagem.id);
-  // SOLUÇÃO ALTERNATIVA: Aguardar implementação via cron job ou queue
-  if (dados.requiresDownload && dados.messageStruct) {
-    console.log('[WAPI] STEP 12 - Mídia detectada, MAS INVOKE DESABILITADO (causa crash)');
-    console.log('[WAPI] STEP 12.1 - TODO: Implementar queue/cron para download assíncrono');
+  
+  // ✅ PERSISTÊNCIA ASSÍNCRONA (fire-and-forget, nunca trava pipeline)
+  if (dados.requiresDownload && dados.downloadSpec) {
+    console.log('[WAPI] STEP 12 - Mídia detectada, disparando persistirMidiaWapi...');
     
-    // TEMPORARIAMENTE DESABILITADO PARA EVITAR CRASH
-    // O invoke está causando "No such file or directory (os error 2)"
-    // Causa raiz ainda não identificada (filesystem access em algum módulo)
-    
-    /*
-    try {
-      const invokePromise = base44.asServiceRole.functions.invoke('persistirMidiaWapi', {
-        message_id: mensagem.id,
-        media_type: dados.mediaType,
-        integration_id: integracaoId,
-        message_struct: dados.messageStruct,
-        filename: dados.fileName,
-        mimetype: dados.mimetype
-      });
-      
-      Promise.resolve(invokePromise).catch(err => {
-        console.error('[WAPI] ❌ Erro async ao persistir mídia:', err?.message, err?.stack);
-      });
-      
-    } catch (err) {
-      console.error('[WAPI] ❌ invoke falhou:', err?.message, err?.stack);
+    // ✅ VALIDAÇÃO PRÉ-INVOKE (evitar invoke inútil)
+    if (!dados.downloadSpec.mediaKey || !dados.downloadSpec.directPath) {
+      console.error('[WAPI] ❌ downloadSpec incompleto:', dados.downloadSpec);
+    } else {
+      try {
+        // ✅ FIRE-AND-FORGET (Promise sem await)
+        base44.asServiceRole.functions.invoke('persistirMidiaWapi', {
+          message_id: mensagem.id,
+          integration_id: integracaoId,
+          downloadSpec: dados.downloadSpec,
+          filename: dados.fileName
+        }).catch(err => {
+          console.error('[WAPI] ❌ Erro async ao persistir mídia:', err?.message);
+        });
+        
+        console.log('[WAPI] STEP 12.1 - Invoke disparado (background)');
+      } catch (err) {
+        console.error('[WAPI] ❌ Falha ao disparar invoke:', err?.message);
+      }
     }
-    */
   } else {
-    console.log('[WAPI] STEP 12 - Sem mídia para download');
+    console.log('[WAPI] STEP 12 - Sem mídia para download ou downloadSpec ausente');
+  }
 
   const now = new Date().toISOString();
 
   console.log('[WAPI] STEP 14 - Buscando integração completa...');
   
-  // ============================================================================
-  // PIPELINE ÚNICO IMUTÁVEL - v9.0.0
-  // ============================================================================
   const integracao = integracaoId 
     ? await base44.asServiceRole.entities.WhatsAppIntegration.get(integracaoId).catch(() => null)
     : null;
