@@ -342,21 +342,28 @@ async function handleMessage(dados, payloadBruto, base44, req) {
     }
   });
 
-  // ✅ PERSISTIR MÍDIA EM BACKGROUND (crítico para W-API)
+  // ✅ PERSISTIR MÍDIA EM BACKGROUND (crítico para W-API) - BLINDADO
   if (dados.requiresDownload && dados.messageStruct) {
     console.log(`[WAPI-WEBHOOK] 📥 Iniciando download de mídia tipo ${dados.mediaType} para mensagem ${mensagem.id}`);
     
-    // Invocar persistência em background (não bloqueia webhook)
-    base44.asServiceRole.functions.invoke('persistirMidiaWapi', {
-      message_id: mensagem.id,
-      media_type: dados.mediaType,
-      integration_id: integracaoId,
-      message_struct: dados.messageStruct,
-      filename: dados.fileName,
-      mimetype: dados.mimetype
-    }).catch(err => {
-      console.error(`[WAPI-WEBHOOK] ❌ Erro ao persistir mídia:`, err.message);
-    });
+    // Blindar invoke para NUNCA derrubar o webhook
+    try {
+      const p = base44.asServiceRole.functions.invoke('persistirMidiaWapi', {
+        message_id: mensagem.id,
+        media_type: dados.mediaType,
+        integration_id: integracaoId,
+        message_struct: dados.messageStruct,
+        filename: dados.fileName,
+        mimetype: dados.mimetype
+      });
+      Promise.resolve(p).catch(err => {
+        console.error('[WAPI-WEBHOOK] ❌ Erro async ao persistir mídia:', err?.message);
+        console.error('[WAPI-WEBHOOK] ❌ Stack:', err?.stack);
+      });
+    } catch (err) {
+      console.error('[WAPI-WEBHOOK] ❌ invoke persistirMidiaWapi falhou:', err?.message);
+      console.error('[WAPI-WEBHOOK] ❌ Stack:', err?.stack);
+    }
   }
 
   const now = new Date().toISOString();
@@ -483,7 +490,9 @@ Deno.serve(async (req) => {
         return Response.json({ success: true, ignored: true }, { headers: corsHeaders });
     }
   } catch (error) {
-    console.error('[W-API WEBHOOK] ERRO:', error.message);
-    return Response.json({ success: false, error: error.message }, { status: 500, headers: corsHeaders });
+    console.error('[W-API WEBHOOK] ERRO:', error?.message);
+    console.error('[W-API WEBHOOK] STACK:', error?.stack);
+    console.error('[W-API WEBHOOK] FULL ERROR:', JSON.stringify(error, null, 2));
+    return Response.json({ success: false, error: error.message, stack: error?.stack }, { status: 500, headers: corsHeaders });
   }
 });
