@@ -368,40 +368,40 @@ export default function MessageInput({
             <Paperclip className="w-5 h-5 text-slate-600" />
           </Button>
 
-          {/* Menu de Anexos */}
+          {/* Menu de Anexos - Estilo WhatsApp */}
           {showAttachMenu && (
-            <div className="absolute bottom-full mb-2 left-0 bg-white rounded-lg shadow-2xl border border-slate-200 z-50 p-2 min-w-[200px]">
+            <div className="absolute bottom-full mb-2 left-0 bg-white rounded-2xl shadow-2xl border border-slate-200 z-50 py-2 min-w-[180px]">
               <button
                 type="button"
                 onClick={() => imageInputRef.current?.click()}
-                className="w-full flex items-center gap-3 px-4 py-3 hover:bg-slate-100 rounded-lg transition-colors text-left"
+                className="w-full flex items-center gap-3 px-4 py-3 hover:bg-purple-50 transition-colors text-left"
               >
-                <div className="w-10 h-10 bg-purple-100 rounded-full flex items-center justify-center">
-                  <ImageIcon className="w-5 h-5 text-purple-600" />
+                <div className="w-11 h-11 bg-purple-500 rounded-full flex items-center justify-center shadow-sm">
+                  <ImageIcon className="w-5 h-5 text-white" />
                 </div>
-                <span className="text-sm font-medium text-slate-700">Imagem</span>
+                <span className="text-sm font-medium text-slate-800">Imagem</span>
               </button>
               
               <button
                 type="button"
                 onClick={() => videoInputRef.current?.click()}
-                className="w-full flex items-center gap-3 px-4 py-3 hover:bg-slate-100 rounded-lg transition-colors text-left"
+                className="w-full flex items-center gap-3 px-4 py-3 hover:bg-red-50 transition-colors text-left"
               >
-                <div className="w-10 h-10 bg-red-100 rounded-full flex items-center justify-center">
-                  <Video className="w-5 h-5 text-red-600" />
+                <div className="w-11 h-11 bg-red-500 rounded-full flex items-center justify-center shadow-sm">
+                  <Video className="w-5 h-5 text-white" />
                 </div>
-                <span className="text-sm font-medium text-slate-700">Vídeo</span>
+                <span className="text-sm font-medium text-slate-800">Vídeo</span>
               </button>
               
               <button
                 type="button"
                 onClick={() => documentInputRef.current?.click()}
-                className="w-full flex items-center gap-3 px-4 py-3 hover:bg-slate-100 rounded-lg transition-colors text-left"
+                className="w-full flex items-center gap-3 px-4 py-3 hover:bg-blue-50 transition-colors text-left"
               >
-                <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
-                  <FileText className="w-5 h-5 text-blue-600" />
+                <div className="w-11 h-11 bg-blue-500 rounded-full flex items-center justify-center shadow-sm">
+                  <FileText className="w-5 h-5 text-white" />
                 </div>
-                <span className="text-sm font-medium text-slate-700">Documento</span>
+                <span className="text-sm font-medium text-slate-800">Documento</span>
               </button>
             </div>
           )}
