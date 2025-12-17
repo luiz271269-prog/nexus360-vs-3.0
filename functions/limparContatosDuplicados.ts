@@ -67,9 +67,10 @@ Deno.serve(async (req) => {
       }, { headers });
     }
     
-    console.log('[DEDUPE] STEP 3 - Agrupando por telefone normalizado...');
+    console.log('[DEDUPE] STEP 3 - Agrupando por telefone normalizado + conexão...');
     
-    // Agrupar por telefone normalizado
+    // ✅ REGRA DE OURO: Agrupar por telefone_normalizado + conexao_origem
+    // Só consolidar dentro do mesmo subgrupo (telefone + conexão)
     const groups = new Map();
     let contatosSemTelefone = 0;
     let telefonesInvalidos = 0;
@@ -86,10 +87,13 @@ Deno.serve(async (req) => {
         continue;
       }
       
-      if (!groups.has(normalized)) {
-        groups.set(normalized, []);
+      // ✅ CHAVE: telefone + conexão (Z-API e W-API ficam separados)
+      const groupKey = `${normalized}|${contact.conexao_origem || 'GLOBAL'}`;
+      
+      if (!groups.has(groupKey)) {
+        groups.set(groupKey, []);
       }
-      groups.get(normalized).push(contact);
+      groups.get(groupKey).push(contact);
     }
     
     console.log('[DEDUPE] STEP 3 - Agrupamento concluído:', {
