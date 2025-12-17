@@ -26,12 +26,6 @@ const integrationCache = new Map();
 const CACHE_TTL = 60000;
 
 // ============================================================================
-// IMPORTS
-// ============================================================================
-import { normalizePhone } from './lib/phoneNormalizer.js';
-import { getOrCreateContact, getOrCreateThread } from './lib/contactManager.js';
-
-// ============================================================================
 // FILTRO
 // ============================================================================
 function deveIgnorar(payload) {
@@ -87,6 +81,9 @@ async function normalizarPayload(payload) {
     };
   }
 
+  // Import dinâmico para evitar OS Error 2
+  const { normalizePhone } = await import('./lib/phoneNormalizer.js');
+  
   const senderId = payload.sender?.id || payload.chat?.id || '';
   const numeroLimpo = normalizePhone(senderId);
   if (!numeroLimpo) return { type: 'unknown', error: 'telefone_invalido' };
@@ -278,6 +275,9 @@ async function handleMessage(dados, payloadBruto, base44, req) {
       } catch (e) {}
     }
   }
+
+  // Import dinâmico para evitar OS Error 2 em serverless
+  const { getOrCreateContact, getOrCreateThread } = await import('./lib/contactManager.js');
 
   const profilePicUrl = payloadBruto.sender?.profilePicture || payloadBruto.sender?.profilePicThumbObj?.eurl || null;
 
