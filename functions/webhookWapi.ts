@@ -25,11 +25,38 @@ const integrationCache = new Map();
 const CACHE_TTL = 60000;
 
 // ============================================================================
-// IMPORTS
+// IMPORTS - COM LOGS DE DIAGNÓSTICO
 // ============================================================================
-import { normalizePhone } from './lib/phoneNormalizer.js';
-import { getOrCreateContact, getOrCreateThread } from './lib/contactManager.js';
-import { emojiDebug, processTextWithEmojis, getTextStats } from './lib/emojiHelper.js';
+console.log('[WAPI-INIT] 📦 Carregando módulos...');
+
+try {
+  console.log('[WAPI-INIT] 1/3 Importando phoneNormalizer...');
+  var { normalizePhone } = await import('./lib/phoneNormalizer.js');
+  console.log('[WAPI-INIT] ✅ phoneNormalizer carregado');
+} catch (e) {
+  console.error('[WAPI-INIT] ❌ ERRO ao carregar phoneNormalizer:', e?.message, e?.stack);
+  throw e;
+}
+
+try {
+  console.log('[WAPI-INIT] 2/3 Importando contactManager...');
+  var { getOrCreateContact, getOrCreateThread } = await import('./lib/contactManager.js');
+  console.log('[WAPI-INIT] ✅ contactManager carregado');
+} catch (e) {
+  console.error('[WAPI-INIT] ❌ ERRO ao carregar contactManager:', e?.message, e?.stack);
+  throw e;
+}
+
+try {
+  console.log('[WAPI-INIT] 3/3 Importando emojiHelper...');
+  var { emojiDebug, processTextWithEmojis, getTextStats } = await import('./lib/emojiHelper.js');
+  console.log('[WAPI-INIT] ✅ emojiHelper carregado');
+} catch (e) {
+  console.error('[WAPI-INIT] ❌ ERRO ao carregar emojiHelper:', e?.message, e?.stack);
+  throw e;
+}
+
+console.log('[WAPI-INIT] ✅ Todos os módulos carregados com sucesso');
 
 // ============================================================================
 // FILTRO
@@ -407,7 +434,17 @@ async function handleMessage(dados, payloadBruto, base44, req) {
     ? await base44.asServiceRole.entities.WhatsAppIntegration.get(integracaoId).catch(() => null)
     : null;
 
-  const { processInboundEvent } = await import('./lib/inboundCore.js');
+  let processInboundEvent;
+  try {
+    console.log('[WAPI-WEBHOOK] 📦 Importando inboundCore...');
+    const module = await import('./lib/inboundCore.js');
+    processInboundEvent = module.processInboundEvent;
+    console.log('[WAPI-WEBHOOK] ✅ inboundCore importado com sucesso');
+  } catch (e) {
+    console.error('[WAPI-WEBHOOK] ❌ ERRO ao importar inboundCore:', e?.message);
+    console.error('[WAPI-WEBHOOK] ❌ Stack:', e?.stack);
+    throw new Error(`Falha ao importar inboundCore: ${e.message}`);
+  }
   
   const pipelineResult = await processInboundEvent({
     base44,
