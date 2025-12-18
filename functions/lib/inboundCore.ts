@@ -274,10 +274,11 @@ export async function processInboundEvent(params) {
   // ============================================================================
   // 6. DECISOR DE CICLO E INTELIGÊNCIA (O Cérebro)
   // ============================================================================
-  
+
   const isUraActive = thread.pre_atendimento_ativo === true;
+  const isHumanActive = humanoAtivo(thread, 2); // Humano falou nas últimas 2h?
   let intentContext = null;
-  
+
   // Se é novo ciclo, não é URA ativa, e é texto (não botão), usar IA
   if (novoCiclo && !isUraActive && userInput.type === 'text' && userInput.content.length > 2) {
     result.pipeline.push('analyzing_intent');
@@ -309,11 +310,16 @@ export async function processInboundEvent(params) {
   // ============================================================================
   
   result.pipeline.push('pre_atendimento_dispatch');
-  
-  // Regra: Chamamos o handler se URA ativa OU novo ciclo OU COMPLETED (handler trata TTL)
-  const shouldDispatch = isUraActive || novoCiclo || 
-    ['COMPLETED', 'CANCELLED', 'TIMEOUT'].includes(thread.pre_atendimento_state);
-  
+
+  // A URA deve acordar se:
+  // 1. Ela já está rodando (óbvio)
+  // 2. É um NOVO CICLO (passou a noite) e o humano não está falando agora (mesmo que assigned_user_id exista)
+  // 3. A thread está em estado final (COMPLETED/TIMEOUT) e o humano não está falando agora
+  const shouldDispatch = 
+      isUraActive || 
+      (novoCiclo && !isHumanActive) || 
+      (['COMPLETED', 'CANCELLED', 'TIMEOUT'].includes(thread.pre_atendimento_state) && !isHumanActive);
+
   if (shouldDispatch) {
     result.actions.push('dispatching_to_ura');
     

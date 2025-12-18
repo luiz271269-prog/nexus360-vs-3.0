@@ -68,8 +68,25 @@ export class FluxoController {
       await this.enviarMensagem(base44, contact, whatsappIntegrationId, `Combinado! Retornando para *${thread.sector_id}*...`);
       await this.atualizarEstado(base44, thread.id, 'WAITING_ATTENDANT_CHOICE', thread.sector_id);
       return await this.processarWAITING_ATTENDANT_CHOICE(base44, thread, contact, { type: 'system' }, whatsappIntegrationId);
-    } 
-    
+    }
+
+    // Se o cliente disser NÃO, ele quer trocar. Limpamos tudo (DIVÓRCIO VOLUNTÁRIO).
+    if (['sticky_nao', 'nao', 'não', '2', 'menu', 'outro'].some(x => entrada.includes(x))) {
+      console.log('[FLUXO] Cliente recusou sticky. Limpando vínculos.');
+
+      await base44.asServiceRole.entities.MessageThread.update(thread.id, {
+        sector_id: null,
+        assigned_user_id: null // Garante que solta do atendente anterior
+      });
+
+      // Recarregar thread para pegar estado limpo
+      thread = await base44.asServiceRole.entities.MessageThread.get(thread.id);
+
+      // Chama INIT limpo (que cairá no Menu Padrão)
+      return await this.processarEstadoINIT(base44, thread, contact, whatsappIntegrationId, null, null);
+    }
+
+    // Fallback: qualquer outra resposta também vai para o menu
     return await this.processarEstadoINIT(base44, thread, contact, whatsappIntegrationId, null, null);
   }
 
@@ -107,11 +124,13 @@ export class FluxoController {
 
     try {
         console.log(`[FLUXO] Tentando rotear para setor: ${setor}`);
-        
+
+        // Chama roteamento passando a integração para filtrar quem atende ESSE número
         const rota = await base44.asServiceRole.functions.invoke('roteamentoInteligente', {
             thread_id: thread.id,
             contact_id: contact.id,
             sector: setor,
+            whatsapp_integration_id: whatsappIntegrationId, // CRUCIAL: Respeita conexão
             check_only: false
         });
 
