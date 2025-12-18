@@ -72,6 +72,7 @@ export default function ChatWindow({
   // Props para seleção múltipla (broadcast)
   modoSelecaoMultipla = false,
   contatosSelecionados = [],
+  broadcastInterno = null, // { destinations: [...] } para broadcast interno
   onCancelarSelecao,
   atendentes = [] // ✅ PROP: Recebe lista completa de atendentes do pai (Comunicacao.jsx)
 }) {
@@ -418,6 +419,59 @@ export default function ChatWindow({
       return;
     }
 
+    // ═══════════════════════════════════════════════════════════════════════
+    // MODO BROADCAST INTERNO (team_internal)
+    // ═══════════════════════════════════════════════════════════════════════
+    if (broadcastInterno && broadcastInterno.destinations) {
+      setEnviandoBroadcast(true);
+      setProgressoBroadcast({ enviados: 0, erros: 0, total: broadcastInterno.destinations.length });
+
+      let enviados = 0;
+      let erros = 0;
+
+      for (const dest of broadcastInterno.destinations) {
+        try {
+          await base44.functions.invoke('sendInternalMessage', {
+            thread_id: dest.thread_id,
+            content: texto.trim() || (mediaUrl ? `[${mediaType}]` : ''),
+            media_type: mediaType || 'none',
+            media_url: mediaUrl,
+            media_caption: mediaCaption,
+            metadata: { broadcast: true, destination_type: dest.type }
+          });
+          enviados++;
+        } catch (err) {
+          console.error(`Erro ao enviar interno para ${dest.name}:`, err);
+          erros++;
+        }
+
+        setProgressoBroadcast({ enviados, erros, total: broadcastInterno.destinations.length });
+        await new Promise(r => setTimeout(r, 300));
+      }
+
+      setEnviandoBroadcast(false);
+
+      if (enviados > 0) {
+        toast.success(`✅ ${enviados} mensagem(ns) interna(s) enviada(s)!`);
+      }
+      if (erros > 0) {
+        toast.error(`❌ ${erros} erro(s) no envio interno`);
+      }
+
+      if (onCancelarSelecao) {
+        onCancelarSelecao();
+      }
+      
+      if (onAtualizarMensagens) {
+        onAtualizarMensagens();
+      }
+      
+      return;
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // MODO BROADCAST EXTERNO (WhatsApp)
+    // ═══════════════════════════════════════════════════════════════════════
     if (contatosSelecionados.length === 0) {
       toast.error("Nenhum contato selecionado");
       return;
@@ -1091,9 +1145,42 @@ export default function ChatWindow({
       return;
     }
 
-    // Se estiver em modo broadcast, chamar o handler de broadcast
-    if (modoSelecaoMultipla && contatosSelecionados.length > 0) {
+    // Se estiver em modo broadcast (externo ou interno), chamar o handler de broadcast
+    if (modoSelecaoMultipla && (contatosSelecionados.length > 0 || broadcastInterno)) {
       await handleEnviarBroadcast({ texto });
+      return;
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // THREAD INTERNA (team_internal ou sector_group)
+    // ═══════════════════════════════════════════════════════════════════════
+    if (thread?.thread_type === 'team_internal' || thread?.thread_type === 'sector_group') {
+      if (!texto.trim()) {
+        toast.error('Digite uma mensagem');
+        return;
+      }
+
+      setEnviando(true);
+      try {
+        await base44.functions.invoke('sendInternalMessage', {
+          thread_id: thread.id,
+          content: texto.trim(),
+          media_type: 'none',
+          reply_to_message_id: mensagemResposta?.id || null
+        });
+
+        setMensagemResposta(null);
+        toast.success('✅ Mensagem enviada!');
+
+        if (onAtualizarMensagens) {
+          onAtualizarMensagens();
+        }
+      } catch (error) {
+        console.error('[CHAT] Erro ao enviar mensagem interna:', error);
+        toast.error('Erro ao enviar: ' + error.message);
+      } finally {
+        setEnviando(false);
+      }
       return;
     }
 
@@ -1560,7 +1647,7 @@ export default function ChatWindow({
   }, [contatoCompleto, podeTransferirConversas]);
 
   // Se está em modo broadcast com contatos selecionados, mostrar interface de envio
-  const mostrarInterfaceBroadcast = modoSelecaoMultipla && contatosSelecionados.length > 0;
+  const mostrarInterfaceBroadcast = modoSelecaoMultipla && (contatosSelecionados.length > 0 || broadcastInterno);
 
   if (!thread && !mostrarInterfaceBroadcast) {
     return (
@@ -1616,15 +1703,26 @@ export default function ChatWindow({
     <div className="flex flex-col h-full bg-white">
         {/* Header - Modo Broadcast ou Central de Inteligência do Cliente */}
         {mostrarInterfaceBroadcast ? (
-          <div className="bg-gradient-to-r from-orange-500 to-amber-500 text-white px-4 py-3 border-b flex-shrink-0 shadow-sm">
+          <div className={`text-white px-4 py-3 border-b flex-shrink-0 shadow-sm ${
+            broadcastInterno 
+              ? 'bg-gradient-to-r from-purple-500 to-indigo-500' 
+              : 'bg-gradient-to-r from-orange-500 to-amber-500'
+          }`}>
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <div className="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center">
                   <Users className="w-6 h-6 text-white" />
                 </div>
                 <div>
-                  <h3 className="text-lg font-bold">Envio em Massa</h3>
-                  <p className="text-sm text-white/80">{contatosSelecionados.length} contato(s) selecionado(s)</p>
+                  <h3 className="text-lg font-bold">
+                    {broadcastInterno ? 'Envio Interno' : 'Envio em Massa'}
+                  </h3>
+                  <p className="text-sm text-white/80">
+                    {broadcastInterno 
+                      ? `${broadcastInterno.destinations.length} destinatário(s) interno(s)` 
+                      : `${contatosSelecionados.length} contato(s) selecionado(s)`
+                    }
+                  </p>
                 </div>
               </div>
               <button
@@ -1828,19 +1926,37 @@ export default function ChatWindow({
       {mostrarInterfaceBroadcast ? (
       <div className="flex-1 overflow-y-auto p-4 bg-gradient-to-br from-orange-50 to-amber-50">
         <div className="max-w-2xl mx-auto">
-          <h4 className="text-sm font-semibold text-slate-700 mb-3">Contatos selecionados:</h4>
+          <h4 className="text-sm font-semibold text-slate-700 mb-3">
+            {broadcastInterno ? 'Destinatários internos:' : 'Contatos selecionados:'}
+          </h4>
           <div className="grid grid-cols-2 md:grid-cols-3 gap-2 max-h-[400px] overflow-y-auto">
-            {contatosSelecionados.map((contato) => (
-              <div key={contato.id} className="bg-white rounded-lg p-2 border border-orange-200 flex items-center gap-2">
-                <div className="w-8 h-8 bg-gradient-to-br from-amber-400 to-orange-500 rounded-full flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
-                  {(contato.nome || contato.telefone || '?').charAt(0).toUpperCase()}
+            {broadcastInterno ? (
+              broadcastInterno.destinations.map((dest) => (
+                <div key={dest.thread_id} className="bg-white rounded-lg p-2 border border-purple-200 flex items-center gap-2">
+                  <div className="w-8 h-8 bg-gradient-to-br from-purple-400 to-indigo-500 rounded-full flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
+                    {dest.name.charAt(0).toUpperCase()}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-xs font-medium text-slate-800 truncate">{dest.name}</p>
+                    <p className="text-[10px] text-slate-500 truncate">
+                      {dest.type === 'user' ? '👤 1:1' : dest.type === 'sector' ? '🏢 Setor' : '👥 Grupo'}
+                    </p>
+                  </div>
                 </div>
-                <div className="min-w-0 flex-1">
-                  <p className="text-xs font-medium text-slate-800 truncate">{contato.nome || 'Sem nome'}</p>
-                  <p className="text-[10px] text-slate-500 truncate">{contato.telefone}</p>
+              ))
+            ) : (
+              contatosSelecionados.map((contato) => (
+                <div key={contato.id} className="bg-white rounded-lg p-2 border border-orange-200 flex items-center gap-2">
+                  <div className="w-8 h-8 bg-gradient-to-br from-amber-400 to-orange-500 rounded-full flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
+                    {(contato.nome || contato.telefone || '?').charAt(0).toUpperCase()}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-xs font-medium text-slate-800 truncate">{contato.nome || 'Sem nome'}</p>
+                    <p className="text-[10px] text-slate-500 truncate">{contato.telefone}</p>
+                  </div>
                 </div>
-              </div>
-            ))}
+              ))
+            )}
           </div>
         </div>
       </div>
