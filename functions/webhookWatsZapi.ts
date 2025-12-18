@@ -146,35 +146,24 @@ function normalizarPayload(payload) {
       mediaType = 'contact';
       conteudo = '📇 Contato compartilhado';
     } else if (payload.location) {
-      // ✅ Normalização cirúrgica de localização (Z-API)
-      const { normalizeLocation } = await import('./lib/normalizeLocation.js');
-      const locNormalized = normalizeLocation({ provider: 'zapi', raw: payload });
-
-      if (locNormalized) {
-        mediaType = locNormalized.media_type;
-        conteudo = locNormalized.content;
-        // Já inclui metadata.location no retorno, será usado abaixo
-        return {
-          ...dados,
-          type: 'message',
-          instanceId,
-          messageId: payload.messageId,
-          from: numeroLimpo,
-          content: conteudo,
-          mediaType,
-          locationMetadata: locNormalized.metadata // ✅ Passa para frente
-        };
-      } else {
-        // Fallback controlado
-        mediaType = 'text';
-        conteudo = '📍 Localização recebida (não foi possível extrair coordenadas)';
-      }
+      mediaType = 'location';
+      conteudo = '📍 Localização recebida';
     } else {
       conteudo = conteudoRaw;
     }
 
     if (!conteudo && mediaType === 'none') {
       return { type: 'unknown', error: 'mensagem_vazia' };
+    }
+
+    // ✅ NORMALIZAR LOCATION SE NECESSÁRIO
+    let locationMetadata = null;
+    if (mediaType === 'location' && payload.location) {
+      const { normalizeLocation } = await import('./lib/normalizeLocation.js');
+      const locNormalized = normalizeLocation({ provider: 'zapi', raw: payload });
+      if (locNormalized) {
+        locationMetadata = locNormalized.metadata;
+      }
     }
 
     return {
@@ -191,7 +180,7 @@ function normalizarPayload(payload) {
       vcard: payload.contactMessage || payload.vcard,
       location: payload.location,
       quotedMessage: payload.quotedMsg,
-      locationMetadata: null // ✅ Será preenchido se for localização normalizada
+      locationMetadata
     };
   } catch (err) {
     console.error('🔴 [CRITICAL] Erro em normalizarPayload:', err.message);

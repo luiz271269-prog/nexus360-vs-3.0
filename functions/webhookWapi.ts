@@ -177,38 +177,8 @@ function normalizarPayload(payload) {
       conteudoRaw = '📇 Contato compartilhado';
     }
     else if (msgContent.locationMessage || msgContent.liveLocationMessage) {
-      // ✅ NORMALIZAÇÃO CIRÚRGICA: importação inline
-      const { normalizeLocation } = await import('./lib/normalizeLocation.js');
-      const locNormalized = normalizeLocation({ 
-        provider: 'wapi', 
-        raw: { msgContent, ...payload } 
-      });
-
-      if (locNormalized) {
-        mediaType = locNormalized.media_type;
-        conteudoRaw = locNormalized.content;
-        // Retorno antecipado com metadata completo
-        return {
-          type: 'message',
-          instanceId,
-          messageId: payload.messageId || payload.key?.id,
-          from: numeroLimpo,
-          content: conteudoRaw,
-          mediaType,
-          mediaCaption: null,
-          pushName: payload.pushName || payload.senderName || payload.sender?.pushName,
-          vcard: null,
-          location: msgContent.locationMessage || msgContent.liveLocationMessage,
-          quotedMessage: payload.quotedMsg || msgContent.extendedTextMessage?.contextInfo?.quotedMessage,
-          downloadSpec: null,
-          fileName: null,
-          locationMetadata: locNormalized.metadata
-        };
-      } else {
-        // Fallback controlado
-        mediaType = 'text';
-        conteudoRaw = '📍 Localização recebida (coordenadas inválidas)';
-      }
+      mediaType = 'location';
+      conteudoRaw = '📍 Localização recebida';
     }
     else if (msgContent.extendedTextMessage) {
       conteudoRaw = msgContent.extendedTextMessage.text || '';
@@ -222,6 +192,19 @@ function normalizarPayload(payload) {
       conteudoRaw = payload.body || payload.text || '';
     }
 
+    // ✅ NORMALIZAR LOCATION SE NECESSÁRIO
+    let locationMetadata = null;
+    if (mediaType === 'location' && (msgContent.locationMessage || msgContent.liveLocationMessage)) {
+      const { normalizeLocation } = await import('./lib/normalizeLocation.js');
+      const locNormalized = normalizeLocation({ 
+        provider: 'wapi', 
+        raw: { msgContent, ...payload } 
+      });
+      if (locNormalized) {
+        locationMetadata = locNormalized.metadata;
+      }
+    }
+
     return {
       type: 'message',
       instanceId,
@@ -232,10 +215,11 @@ function normalizarPayload(payload) {
       mediaCaption: downloadSpec?.caption,
       pushName: payload.pushName || payload.senderName || payload.sender?.pushName,
       vcard: msgContent.contactMessage || msgContent.contactsArrayMessage,
-      location: msgContent.locationMessage,
+      location: msgContent.locationMessage || msgContent.liveLocationMessage,
       quotedMessage: payload.quotedMsg || msgContent.extendedTextMessage?.contextInfo?.quotedMessage,
       downloadSpec: downloadSpec,
-      fileName: conteudoRaw || null
+      fileName: conteudoRaw || null,
+      locationMetadata
     };
 
   } catch (err) {
