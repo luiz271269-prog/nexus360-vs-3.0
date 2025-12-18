@@ -465,6 +465,26 @@ export default function Comunicacao() {
     }
   }, [threadAtiva, queryClient]);
 
+  // Handler para seleção de destinatários internos
+  const handleInternalSelection = useCallback((selectionData) => {
+    console.log('🔵 [Comunicacao] Seleção interna:', selectionData);
+    
+    if (selectionData.mode === 'single') {
+      // Abrir thread única na ChatWindow
+      setThreadAtiva(selectionData.thread);
+      setBroadcastInterno(null);
+      setModoSelecaoMultipla(false);
+      setContatosSelecionados([]);
+      queryClient.invalidateQueries({ queryKey: ['threads'] });
+    } else if (selectionData.mode === 'broadcast') {
+      // Ativar modo broadcast interno
+      setBroadcastInterno(selectionData);
+      setModoSelecaoMultipla(true);
+      setThreadAtiva(null);
+      setContatosSelecionados([]);
+    }
+  }, [queryClient]);
+
   // Handler para atualizar mensagens após envio
   const handleAtualizarMensagens = useCallback(async (novasMensagens) => {
     if (novasMensagens) {
