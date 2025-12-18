@@ -33,6 +33,14 @@ function deveIgnorar(payload) {
     return 'ruido_sistema';
   }
 
+  // 🔍 LOG TEMPORÁRIO: Captura payload de LOCATION para análise
+  if (payload.location || String(payload.text?.message || '').includes('ocalização') || tipo.includes('location')) {
+    console.log('📍 [LOCATION CAPTURADO] Keys:', Object.keys(payload));
+    console.log('📍 [LOCATION CAPTURADO] Payload:', JSON.stringify(payload).substring(0, 500));
+    if (payload.message) console.log('📍 [LOCATION CAPTURADO] message.keys:', Object.keys(payload.message));
+    if (payload.data) console.log('📍 [LOCATION CAPTURADO] data.keys:', Object.keys(payload.data));
+  }
+
   if (phone.includes('status@') || phone.includes('@broadcast') || 
       phone.includes('@lid') || phone.includes('@g.us')) {
     return 'jid_sistema';
