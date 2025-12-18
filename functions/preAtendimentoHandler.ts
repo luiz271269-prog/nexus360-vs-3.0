@@ -71,30 +71,37 @@ Deno.serve(async (req) => {
     });
 
     // ═══════════════════════════════════════════════════════════
-    // 3. POLÍTICA DE REABERTURA (Correção do Buraco Negro COMPLETED)
+    // 3. POLÍTICA DE REABERTURA & DIVÓRCIO AUTOMÁTICO
     // ═══════════════════════════════════════════════════════════
-    if (thread.pre_atendimento_state === 'COMPLETED') {
+    if (['COMPLETED', 'CANCELLED'].includes(thread.pre_atendimento_state)) {
       const REABERTURA_TTL_HOURS = 24;
-      const lastMessageTime = thread.last_message_at ? new Date(thread.last_message_at).getTime() : 0;
-      const nowTime = new Date().getTime();
-      const hoursInactive = (nowTime - lastMessageTime) / (1000 * 60 * 60);
+      const lastInteraction = new Date(thread.last_message_at || thread.updated_at).getTime();
+      const hoursInactive = (Date.now() - lastInteraction) / (1000 * 60 * 60);
 
-      if (!thread.assigned_user_id && hoursInactive >= REABERTURA_TTL_HOURS) {
-        console.log(`[PRE-ATENDIMENTO] 🔄 Thread COMPLETED há ${hoursInactive.toFixed(1)}h sem humano. Reabrindo ciclo.`);
+      // Se passou do tempo limite, reinicia o ciclo e SOLTA O CONTATO
+      if (hoursInactive >= REABERTURA_TTL_HOURS) {
+        console.log(`[PRE-ATENDIMENTO] ♻️ Novo ciclo detectado (${hoursInactive.toFixed(1)}h inativo). Resetando para INIT.`);
+        
         await base44.asServiceRole.entities.MessageThread.update(thread.id, {
           pre_atendimento_state: 'INIT',
           pre_atendimento_ativo: true,
+          pre_atendimento_started_at: new Date().toISOString(),
           pre_atendimento_completed_at: null,
-          pre_atendimento_started_at: new Date().toISOString()
+          // 🔥 O PULO DO GATO: Limpa o atendente e setor para permitir novo roteamento
+          assigned_user_id: null, 
+          sector_id: null 
         });
+
+        // Recarrega a thread limpa para o FluxoController pegar o estado novo
         thread = await base44.asServiceRole.entities.MessageThread.get(thread_id);
-        console.log('[PRE-ATENDIMENTO] Thread reaberta para INIT');
-      } else if (thread.assigned_user_id) {
-        console.log('[PRE-ATENDIMENTO] Thread COMPLETED com atendente atribuído. Ignorando.');
+        console.log('[PRE-ATENDIMENTO] Thread reaberta para INIT e contato liberado');
+      } 
+      // Se tem humano atribuído e está dentro do tempo recente (<24h), aborta e deixa pro humano
+      else if (thread.assigned_user_id) {
+        console.log('[PRE-ATENDIMENTO] Humano ativo e dentro da janela de 24h. URA não interfere.');
         return Response.json({
-          success: false,
-          erro: 'Pré-atendimento já concluído e atendente ativo',
-          estado_atual: 'COMPLETED'
+          success: true,
+          message: 'Atendente humano ativo na conversa COMPLETED e dentro do TTL.'
         }, { status: 200, headers });
       }
     }
