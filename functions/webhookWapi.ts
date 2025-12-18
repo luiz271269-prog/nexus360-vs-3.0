@@ -396,8 +396,7 @@ async function handleMessage(dados, payloadBruto, base44, req) {
 
   // 8. DISPARAR CORE DIRETAMENTE (In-Process)
   try {
-    console.log('[WAPI] 🔄 Processando Inbound Core diretamente...');
-    const { processInboundEvent } = await import('./lib/inboundCore.js');
+    console.log('[WAPI] 🔄 Processando Inbound Core...');
 
     // Buscar objeto de integração completo
     let integracaoObj = null;
@@ -419,10 +418,10 @@ async function handleMessage(dados, payloadBruto, base44, req) {
       messageContent: dados.content,
       rawPayload: payloadBruto
     });
-    console.log('[WAPI] ✅ Inbound Core processado com sucesso (direto)');
+    console.log('[WAPI] ✅ Inbound Core processado com sucesso');
   } catch (coreError) {
-    console.error('[WAPI] 🔴 Falha no processamento do Inbound Core:', coreError.message);
-    console.error('[WAPI] Stack trace:', coreError.stack);
+    console.error('[WAPI] 🔴 Falha no Inbound Core:', coreError.message);
+    console.error('[WAPI] Stack:', coreError.stack);
   }
 
   // 9. RETORNO FINAL (Sempre Sucesso)
