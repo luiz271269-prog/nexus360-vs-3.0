@@ -137,8 +137,29 @@ function normalizarPayload(payload) {
       mediaType = 'contact';
       conteudo = '📇 Contato compartilhado';
     } else if (payload.location) {
-      mediaType = 'location';
-      conteudo = '📍 Localização';
+      // ✅ Normalização cirúrgica de localização (Z-API)
+      const { normalizeLocation } = await import('./lib/normalizeLocation.js');
+      const locNormalized = normalizeLocation({ provider: 'zapi', raw: payload });
+
+      if (locNormalized) {
+        mediaType = locNormalized.media_type;
+        conteudo = locNormalized.content;
+        // Já inclui metadata.location no retorno, será usado abaixo
+        return {
+          ...dados,
+          type: 'message',
+          instanceId,
+          messageId: payload.messageId,
+          from: numeroLimpo,
+          content: conteudo,
+          mediaType,
+          locationMetadata: locNormalized.metadata // ✅ Passa para frente
+        };
+      } else {
+        // Fallback controlado
+        mediaType = 'text';
+        conteudo = '📍 Localização recebida (não foi possível extrair coordenadas)';
+      }
     } else {
       conteudo = conteudoRaw;
     }
@@ -160,7 +181,8 @@ function normalizarPayload(payload) {
       pushName: payload.senderName || payload.chatName,
       vcard: payload.contactMessage || payload.vcard,
       location: payload.location,
-      quotedMessage: payload.quotedMsg
+      quotedMessage: payload.quotedMsg,
+      locationMetadata: null // ✅ Será preenchido se for localização normalizada
     };
   } catch (err) {
     console.error('🔴 [CRITICAL] Erro em normalizarPayload:', err.message);
@@ -295,35 +317,42 @@ async function handleMessage(dados, payloadBruto, base44) {
     thread = { id: 'fallback_thread_' + Date.now() };
   }
 
-  // CRIAR MENSAGEM (pending_download se tem mídia)
+  // CRIAR MENSAGEM (pending_download se tem mídia, exceto location)
   let mensagem = null;
   try {
+    const baseMetadata = {
+      whatsapp_integration_id: integracaoId,
+      instance_id: dados.instanceId,
+      connected_phone: connectedPhone,
+      canal_nome: integracaoInfo?.nome || null,
+      canal_numero: integracaoInfo?.numero || (connectedPhone ? '+' + connectedPhone : null),
+      vcard: dados.vcard,
+      location: dados.location,
+      quoted_message: dados.quotedMessage,
+      file_id: dados.fileId,
+      original_media_url: dados.originalMediaUrl,
+      processed_by: 'v10_inline',
+      provider: 'z_api'
+    };
+
+    // ✅ Se tem locationMetadata normalizado, mesclar
+    const finalMetadata = dados.locationMetadata 
+      ? { ...baseMetadata, ...dados.locationMetadata }
+      : baseMetadata;
+
     mensagem = await base44.asServiceRole.entities.Message.create({
       thread_id: thread.id,
       sender_id: contato.id,
       sender_type: 'contact',
       content: dados.content,
-      media_url: dados.mediaType !== 'none' ? 'pending_download' : null,
+      media_url: dados.mediaType !== 'none' && dados.mediaType !== 'location' ? 'pending_download' : null,
       media_type: dados.mediaType,
       media_caption: dados.mediaCaption,
       channel: 'whatsapp',
       status: 'recebida',
       whatsapp_message_id: dados.messageId,
       sent_at: new Date().toISOString(),
-      metadata: {
-        whatsapp_integration_id: integracaoId,
-        instance_id: dados.instanceId,
-        connected_phone: connectedPhone,
-        canal_nome: integracaoInfo?.nome || null,
-        canal_numero: integracaoInfo?.numero || (connectedPhone ? '+' + connectedPhone : null),
-        vcard: dados.vcard,
-        location: dados.location,
-        quoted_message: dados.quotedMessage,
-        file_id: dados.fileId,
-        original_media_url: dados.originalMediaUrl,
-        processed_by: 'v10_inline',
-        provider: 'z_api'
-      }
+      metadata: finalMetadata
     });
     console.log('[ZAPI] Message salva DB:', mensagem.id);
   } catch (err) {
@@ -346,8 +375,8 @@ async function handleMessage(dados, payloadBruto, base44) {
     console.error('[ZAPI] ⚠️ Erro ao atualizar thread:', updateError.message);
   }
 
-  // TRIGGER PERSISTÊNCIA DE MÍDIA (Fire-and-Forget)
-  if (dados.mediaType !== 'none' && dados.fileId) {
+  // TRIGGER PERSISTÊNCIA DE MÍDIA (Fire-and-Forget) - exceto location
+  if (dados.mediaType !== 'none' && dados.mediaType !== 'location' && dados.fileId) {
     console.log('[ZAPI] 🚀 Disparando worker de mídia...');
     base44.asServiceRole.functions.invoke('persistirMidiaZapi', {
       message_id: mensagem.id,
