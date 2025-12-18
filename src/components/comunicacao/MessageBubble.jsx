@@ -203,6 +203,69 @@ export default React.memo(function MessageBubble({
     return null;
   }
 
+  // ✅ RENDERIZAÇÃO DE LOCALIZAÇÃO (Z-API e W-API)
+  if (message.media_type === 'location' && message.metadata?.location) {
+    const loc = message.metadata.location;
+    
+    // Guard: se não houver coordenadas válidas, fallback para texto
+    if (!loc.lat || !loc.lng || !loc.url) {
+      return (
+        <div className={cn("flex gap-3", isOwn ? "justify-end" : "justify-start")}>
+          {!isOwn && <div className="h-7 w-7 rounded-lg bg-slate-100 flex items-center justify-center mt-0.5">
+            <div className="h-1.5 w-1.5 rounded-full bg-slate-400" />
+          </div>}
+          <div className={cn("max-w-[85%] rounded-2xl px-4 py-2.5", 
+            isOwn ? "bg-slate-800 text-white" : "bg-white border border-slate-200")}>
+            <p className="text-sm">{message.content || '📍 Localização recebida'}</p>
+          </div>
+        </div>
+      );
+    }
+    
+    return (
+      <div className={cn("flex gap-3", isOwn ? "justify-end" : "justify-start")}>
+        {!isOwn && <div className="h-7 w-7 rounded-lg bg-slate-100 flex items-center justify-center mt-0.5">
+          <div className="h-1.5 w-1.5 rounded-full bg-slate-400" />
+        </div>}
+        <div className={cn("max-w-[85%]", isOwn && "flex flex-col items-end")}>
+          <div className={cn("rounded-2xl px-4 py-3 border", 
+            isOwn ? "bg-slate-800 text-white border-slate-700" : "bg-white border-slate-200")}>
+            <div className="flex items-start gap-2 mb-2">
+              <svg className="w-5 h-5 text-red-500 mt-0.5" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/>
+              </svg>
+              <div className="flex-1">
+                <div className={cn("font-semibold text-sm mb-1", isOwn ? "text-white" : "text-slate-900")}>
+                  {loc.name || 'Localização compartilhada'}
+                </div>
+                {loc.address && (
+                  <div className={cn("text-xs mb-1", isOwn ? "text-slate-300" : "text-slate-600")}>
+                    {loc.address}
+                  </div>
+                )}
+                <div className={cn("text-xs", isOwn ? "text-slate-400" : "text-slate-500")}>
+                  {loc.lat.toFixed(6)}, {loc.lng.toFixed(6)}
+                </div>
+              </div>
+            </div>
+            <a
+              href={loc.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className={cn("inline-flex items-center gap-1 text-xs font-medium hover:underline",
+                isOwn ? "text-blue-300" : "text-blue-600")}
+            >
+              Abrir no Google Maps
+              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+              </svg>
+            </a>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   const [mostrarDialogEncaminhar, setMostrarDialogEncaminhar] = useState(false);
   const [encaminhando, setEncaminhando] = useState(false);
   const [apagando, setApagando] = useState(false);
