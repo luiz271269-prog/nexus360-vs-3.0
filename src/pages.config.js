@@ -43,6 +43,7 @@ import PlanoImplementacao from './pages/PlanoImplementacao';
 import PlaybooksAutomacao from './pages/PlaybooksAutomacao';
 import Precificacao from './pages/Precificacao';
 import Produtos from './pages/Produtos';
+import Promocoes from './pages/Promocoes';
 import RoteamentoInteligente from './pages/RoteamentoInteligente';
 import SetupWizard from './pages/SetupWizard';
 import SystemHealth from './pages/SystemHealth';
@@ -58,7 +59,6 @@ import Usuarios from './pages/Usuarios';
 import Vendas from './pages/Vendas';
 import Vendedores from './pages/Vendedores';
 import WhatsAppTemplates from './pages/WhatsAppTemplates';
-import Promocoes from './pages/Promocoes';
 import __Layout from './Layout.jsx';
 
 
@@ -108,6 +108,7 @@ export const PAGES = {
     "PlaybooksAutomacao": PlaybooksAutomacao,
     "Precificacao": Precificacao,
     "Produtos": Produtos,
+    "Promocoes": Promocoes,
     "RoteamentoInteligente": RoteamentoInteligente,
     "SetupWizard": SetupWizard,
     "SystemHealth": SystemHealth,
@@ -123,7 +124,6 @@ export const PAGES = {
     "Vendas": Vendas,
     "Vendedores": Vendedores,
     "WhatsAppTemplates": WhatsAppTemplates,
-    "Promocoes": Promocoes,
 }
 
 export const pagesConfig = {

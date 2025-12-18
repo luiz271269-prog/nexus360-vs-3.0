@@ -724,15 +724,18 @@ export default function Comunicacao() {
       const threadComContato = { ...thread, contato };
 
       // ═══════════════════════════════════════════════════════════════════════
-      // MODO BUSCA: Mostrar contatos encontrados mesmo sem permissão de thread
-      // O modal de permissão será exibido ao clicar
+      // MODO BUSCA: Aplicar permissões rigorosas mesmo durante a busca
       // ═══════════════════════════════════════════════════════════════════════
       if (modoBusca) {
-        // Em modo busca, apenas verificar se o contato corresponde ao termo
+        // Verificar permissões base mesmo em modo busca
+        if (!canUserSeeThreadBase(usuario, threadComContato)) {
+          return false;
+        }
+        
         if (!contato || !matchBuscaGoogle(contato, debouncedSearchTerm)) {
           return false;
         }
-        // Filtros adicionais opcionais em modo busca
+        
         if (selectedTipoContato && selectedTipoContato !== 'all' && contato.tipo_contato !== selectedTipoContato) {
           return false;
         }
@@ -740,7 +743,7 @@ export default function Comunicacao() {
           const tags = contato.tags || [];
           if (!tags.includes(selectedTagContato)) return false;
         }
-        return true; // Mostrar na busca - permissão será verificada ao clicar
+        return true;
       }
 
       // ═══════════════════════════════════════════════════════════════════════
