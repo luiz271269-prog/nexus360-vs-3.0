@@ -156,8 +156,24 @@ function normalizarPayload(payload) {
       conteudoRaw = '📇 Contato compartilhado';
     }
     else if (msgContent.locationMessage) {
-      mediaType = 'location';
-      conteudoRaw = '📍 Localização';
+      // ✅ Normalização cirúrgica de localização
+      const { normalizeLocation } = await import('./lib/normalizeLocation.js');
+      const locNormalized = normalizeLocation({ 
+        provider: 'wapi', 
+        raw: { msgContent, ...payloadBruto } 
+      });
+
+      if (locNormalized) {
+        mediaType = locNormalized.media_type;
+        conteudoRaw = locNormalized.content;
+        // Mesclar metadata de localização
+        if (!dados.metadata) dados.metadata = {};
+        dados.metadata = { ...dados.metadata, ...locNormalized.metadata };
+      } else {
+        // Fallback controlado
+        mediaType = 'text';
+        conteudoRaw = '📍 Localização recebida (não foi possível extrair coordenadas)';
+      }
     }
     else if (msgContent.extendedTextMessage) {
       conteudoRaw = msgContent.extendedTextMessage.text || '';
