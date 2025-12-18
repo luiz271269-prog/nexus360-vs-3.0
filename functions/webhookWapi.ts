@@ -1,15 +1,15 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.4';
 
 // ============================================================================
-// WEBHOOK WHATSAPP W-API - v11.2.0 INLINE CORE
+// WEBHOOK WHATSAPP W-API - v12.0.0 INGESTÃO PURA
 // ============================================================================
-// CORRECOES v11.2.0:
-// 1. InboundCore inline (elimina "os error 2" completamente)
-// 2. Midia 100% em memoria usando wapiMediaHandler
-// 3. Zero dependências de arquivo filesystem
+// ARQUITETURA LIMPA:
+// 1. Este webhook é BURRO: só recebe, valida, salva e responde 200
+// 2. Inteligência isolada em processInbound (URA/Pré-atendimento/Promoções)
+// 3. Zero imports de lib/ - elimina "os error 2" definitivamente
 // ============================================================================
 
-const VERSION = 'v11.2.0-INLINE-CORE';
+const VERSION = 'v12.0.0-PURE-INGESTION';
 const BUILD_DATE = '2025-12-18';
 
 const corsHeaders = {
@@ -393,44 +393,48 @@ async function handleMessage(dados, payloadBruto, base44, req) {
     }).catch(e => console.error('[WAPI] Erro trigger mídia:', e.message));
   }
 
-  // 8. ATUALIZAR THREAD STATUS
+  // 8. ATUALIZAR THREAD STATUS (Básico)
   try {
     await base44.asServiceRole.entities.MessageThread.update(thread.id, {
       last_message_content: dados.content.substring(0, 200),
       last_message_at: new Date().toISOString(),
       last_message_sender: 'contact',
+      last_media_type: dados.mediaType,
       unread_count: (thread.unread_count || 0) + 1,
       status: 'aberta'
     });
     console.log('[WAPI] ✅ Thread atualizada');
   } catch (updateError) {
-    console.error('[WAPI] Erro ao atualizar thread:', updateError.message);
+    console.error('[WAPI] ⚠️ Erro ao atualizar thread:', updateError.message);
   }
 
-  // 9. DISPARAR CORE (Async Fire-and-Forget)
+  // 9. DISPARAR CÉREBRO (Async Fire-and-Forget)
   try {
-    console.log('[WAPI] 🚀 Disparando processamento Core...');
+    console.log('[WAPI] 🚀 Disparando processInbound (Cérebro separado)...');
     
     let integracaoObj = null;
     if (integracaoId) {
       try {
         integracaoObj = await base44.asServiceRole.entities.WhatsAppIntegration.get(integracaoId);
       } catch (e) {
-        console.error('[WAPI] Erro ao buscar integração:', e.message);
+        console.warn('[WAPI] ⚠️ Integração não encontrada, enviando ID:', e.message);
+        integracaoObj = { id: integracaoId };
       }
     }
 
+    // Fire-and-Forget: Se falhar, não trava o 200 OK do webhook
     base44.asServiceRole.functions.invoke('processInbound', {
-      contact_id: contato.id,
-      thread_id: thread.id,
-      message_id: mensagem.id,
-      integration_id: integracaoId,
-      provider: 'w_api'
-    }).catch(e => console.error('[WAPI] Erro no Core assíncrono:', e.message));
+      message: mensagem,
+      contact: contato,
+      thread: thread,
+      integration: integracaoObj,
+      provider: 'w_api',
+      messageContent: dados.content
+    }).catch(e => console.error('[WAPI] ⚠️ Erro no processInbound (não afeta ingestão):', e.message));
     
-    console.log('[WAPI] ✅ Core disparado (assíncrono)');
+    console.log('[WAPI] ✅ Cérebro disparado (isolado)');
   } catch (err) {
-    console.error('[WAPI] Erro ao disparar Core:', err.message);
+    console.error('[WAPI] ⚠️ Erro ao disparar Cérebro:', err.message);
   }
 
   // 9. RETORNO FINAL (Sempre Sucesso)
