@@ -70,9 +70,28 @@ export function filterEligiblePromotions(allPromotions, contact, thread) {
       }
     }
     
-    // Filtro 5: Limite de envios totais
-    if (promo.limite_envios_total && promo.contador_envios >= promo.limite_envios_total) {
-      return false;
+    // Filtro 5: Limite de envios totais (HARD STOP - Estoque Esgotado)
+    if (promo.limite_envios_total && promo.limite_envios_total > 0) {
+      const enviados = promo.contador_envios || 0;
+      if (enviados >= promo.limite_envios_total) {
+        return false; // Promoção esgotada
+      }
+    }
+    
+    // Filtro 6: Limite de envios por contato (HARD STOP - Anti-Chatice)
+    // Usa o mapa 'promocoes_recebidas' no Contact para verificar quantas vezes este contato recebeu esta promoção
+    if (promo.limite_envios_por_contato && promo.limite_envios_por_contato > 0) {
+      const promocoesRecebidas = contact.promocoes_recebidas || {};
+      const enviosParaEsteContato = promocoesRecebidas[promo.id] || 0;
+      if (enviosParaEsteContato >= promo.limite_envios_por_contato) {
+        return false; // Contato já recebeu esta promoção o número máximo de vezes
+      }
+    }
+    
+    // Filtro 7: Evitar repetir EXATAMENTE a última promoção enviada (Rotação de Ofertas)
+    // Força diversidade, a menos que seja a única opção
+    if (contact.last_promo_id === promo.id) {
+      return false; // Já foi a última enviada, dar chance a outras
     }
     
     return true;

@@ -202,9 +202,16 @@ Deno.serve(async (req) => {
         // ═══════════════════════════════════════════════════════════════════
         
         // Atualizar Contato
+        const promocoesRecebidas = contact.promocoes_recebidas || {};
+        const contagemAtual = promocoesRecebidas[promotion.id] || 0;
+        
         await base44.asServiceRole.entities.Contact.update(contact.id, {
           last_promo_sent_at: now.toISOString(),
-          last_promo_id: promotion.id
+          last_promo_id: promotion.id,
+          promocoes_recebidas: {
+            ...promocoesRecebidas,
+            [promotion.id]: contagemAtual + 1
+          }
         });
         
         // Atualizar Thread
