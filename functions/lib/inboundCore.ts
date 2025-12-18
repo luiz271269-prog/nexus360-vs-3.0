@@ -1,19 +1,42 @@
 // ============================================================================
-// NÚCLEO ÚNICO DE PROCESSAMENTO INBOUND - v9.0.0
+// NÚCLEO ÚNICO DE PROCESSAMENTO INBOUND - v10.0.0 LINHA IMUTÁVEL
 // ============================================================================
-// Pipeline imutável usado por Z-API e W-API
+// Pipeline imutável: Webhook → Core → (Guardas) → PreAtendimentoHandler
 // ============================================================================
 
+const VERSION = 'v10.0.0-IMMUTABLE-LINE';
+
+// =================================================================
+// 🛡️ HELPERS DE DECISÃO
+// =================================================================
+
 /**
- * Detecta se é um novo ciclo de conversa (abertura de ciclo)
- * Critério único: gap >= 12h desde última inbound
+ * Normaliza a entrada de qualquer provedor para um contrato único
+ */
+function normalizarEntrada(payload, messageContent) {
+  let input = { type: 'text', content: messageContent || '', id: null };
+
+  // Detectar botões (Cloud API, Z-API, W-API)
+  if (payload.type === 'button_reply' || (payload.message && payload.message.type === 'button')) {
+    input.type = 'button';
+    input.id = payload.button_id || payload.selectedId || payload.button_reply?.id;
+    input.content = payload.button_reply?.title || payload.button_reply?.text || input.content;
+  } else if (payload.list_reply) {
+    input.type = 'list';
+    input.id = payload.list_reply.id;
+    input.content = payload.list_reply.title;
+  }
+  
+  return input;
+}
+
+/**
+ * Detecta se é um novo ciclo de conversa (Gap >= 12h desde última inbound)
  */
 export function detectNovoCiclo(lastInboundAt, now) {
-  if (!lastInboundAt) return true; // Primeira mensagem sempre é novo ciclo
-  
+  if (!lastInboundAt) return true;
   const lastDate = new Date(lastInboundAt);
   const hoursGap = (now - lastDate) / (1000 * 60 * 60);
-  
   return hoursGap >= 12;
 }
 
@@ -22,7 +45,7 @@ export function detectNovoCiclo(lastInboundAt, now) {
  */
 export function humanoAtivo(thread, horasStale = 8) {
   if (!thread.assigned_user_id) return false;
-  if (!thread.last_message_at) return false;
+  if (thread.pre_atendimento_ativo) return false; // URA ativa = humano não está no controle
   
   const lastMessageDate = new Date(thread.last_message_at);
   const now = new Date();
@@ -31,9 +54,10 @@ export function humanoAtivo(thread, horasStale = 8) {
   return hoursGap < horasStale;
 }
 
-/**
- * Pipeline único e imutável de processamento inbound
- */
+// =================================================================
+// 🚀 PIPELINE IMUTÁVEL DE PROCESSAMENTO (THE CORE)
+// =================================================================
+
 export async function processInboundEvent(params) {
   const { 
     base44, 
@@ -42,7 +66,8 @@ export async function processInboundEvent(params) {
     message, 
     integration,
     provider,
-    messageContent 
+    messageContent,
+    rawPayload
   } = params;
   
   const now = new Date();
@@ -51,16 +76,16 @@ export async function processInboundEvent(params) {
     actions: []
   };
   
+  // 1. NORMALIZAÇÃO DE INPUT (Contrato Único)
+  const userInput = normalizarEntrada(rawPayload || {}, messageContent);
+  result.pipeline.push('input_normalized');
+  
   // ============================================================================
   // 🛑 KILL SWITCH - RESET DO FUNIL DE PROMOÇÕES (PRIORIDADE MÁXIMA)
   // ============================================================================
-  // Se a mensagem veio de um CONTATO (não do sistema), resetar autoboost_stage
-  // Isso garante que o funil de 6h/12h/24h pare imediatamente quando o cliente responder
-  
   if (message.sender_type === 'contact') {
     result.pipeline.push('promotion_reset');
     
-    // Resetar estados de boost na thread
     if (thread.autoboost_stage || thread.last_boost_at || thread.promo_cooldown_expires_at) {
       await base44.asServiceRole.entities.MessageThread.update(thread.id, {
         autoboost_stage: null,
@@ -70,7 +95,7 @@ export async function processInboundEvent(params) {
       result.actions.push('reset_promotion_funnel');
     }
     
-    // Opcional: Contabilizar resposta na Promoção (se cliente respondeu após receber uma)
+    // Contabilizar resposta na Promoção
     if (contact.last_promo_id) {
       try {
         const promo = await base44.asServiceRole.entities.Promotion.get(contact.last_promo_id);
@@ -87,15 +112,14 @@ export async function processInboundEvent(params) {
   }
   
   // ============================================================================
-  // ORDEM IMUTÁVEL DO PIPELINE
+  // 2. SAFETY CHECKS & MICRO-URA (Bloqueios Prioritários)
   // ============================================================================
   
-  // (1) MICRO-URA: Processar ou cancelar automaticamente
   result.pipeline.push('micro_ura_check');
   if (thread.transfer_pending) {
     const { pedidoExpirou } = await import('./detectorPedidoTransferencia.js');
     
-    // Se expirou, limpar completamente
+    // Se o pedido de transferência expirou, limpar estado
     if (pedidoExpirou(thread)) {
       await base44.asServiceRole.entities.MessageThread.update(thread.id, {
         transfer_pending: false,
@@ -106,13 +130,12 @@ export async function processInboundEvent(params) {
         transfer_last_prompt_at: null
       });
       result.actions.push('micro_ura_expired');
-    } 
-    // Se mensagem do CONTATO e micro-URA pendente, cancelar automaticamente
-    else if (message.sender_type === 'contact') {
-      const resposta = messageContent?.trim();
+    } else if (message.sender_type === 'contact') {
+      // Nova mensagem do contato com micro-URA pendente
+      const resposta = userInput.content?.trim().toLowerCase() || '';
       
-      // Processa resposta 1/2 se for clara
-      if (resposta === '1' || resposta.toLowerCase().includes('sim')) {
+      // Processar respostas claras
+      if (resposta === '1' || resposta.includes('sim') || resposta.includes('quero')) {
         await base44.asServiceRole.entities.MessageThread.update(thread.id, {
           transfer_confirmed: true
         });
@@ -120,7 +143,7 @@ export async function processInboundEvent(params) {
         return { ...result, consumed: true, action: 'micro_ura_confirmed' };
       }
       
-      if (resposta === '2' || resposta.toLowerCase().includes('nao') || resposta.toLowerCase().includes('não')) {
+      if (resposta === '2' || resposta.includes('nao') || resposta.includes('não') || resposta.includes('cancelar')) {
         await base44.asServiceRole.entities.MessageThread.update(thread.id, {
           transfer_pending: false,
           transfer_requested_sector_id: null,
@@ -130,19 +153,19 @@ export async function processInboundEvent(params) {
           transfer_last_prompt_at: null
         });
         result.actions.push('micro_ura_cancelled');
-        return { ...result, consumed: true, action: 'micro_ura_cancelled' };
+        // NÃO retorna - deixa processar como mensagem normal
+      } else if (resposta.length > 3) {
+        // Qualquer outra mensagem relevante cancela micro-URA
+        await base44.asServiceRole.entities.MessageThread.update(thread.id, {
+          transfer_pending: false,
+          transfer_requested_sector_id: null,
+          transfer_requested_user_id: null,
+          transfer_confirmed: false,
+          transfer_expires_at: null,
+          transfer_last_prompt_at: null
+        });
+        result.actions.push('micro_ura_auto_cancelled');
       }
-      
-      // Qualquer outra mensagem cancela micro-URA pendente
-      await base44.asServiceRole.entities.MessageThread.update(thread.id, {
-        transfer_pending: false,
-        transfer_requested_sector_id: null,
-        transfer_requested_user_id: null,
-        transfer_confirmed: false,
-        transfer_expires_at: null,
-        transfer_last_prompt_at: null
-      });
-      result.actions.push('micro_ura_auto_cancelled');
     }
   }
   
@@ -195,7 +218,7 @@ export async function processInboundEvent(params) {
         pergunta += ` agora?\n\n1️⃣ Sim, transferir\n2️⃣ Não, continuar com ${nomeAtendente}`;
         
         // Enviar micro-URA
-        await enviarMensagem({ base44, integration, contact, message: pergunta, provider });
+        await enviarMensagem({ base44, integration, contact, message: pergunta, provider, thread });
         
         const expiraEm = new Date();
         expiraEm.setMinutes(expiraEm.getMinutes() + 5);
@@ -225,14 +248,10 @@ export async function processInboundEvent(params) {
     result.actions.push('new_cycle_detected');
   }
   
-  // (5) PROMOÇÕES - REMOVIDO (executadas via cron job runPromotionInboundTick.js)
-  // Pipeline não envia mais promoções no webhook inbound
-  // Trigger inbound agora é cron-based (6h depois da mensagem)
-  
-  // (6) GUARDAS DE ROTEAMENTO
+  // (5) GUARDAS DE ROTEAMENTO
   result.pipeline.push('routing_guards');
   
-  // 6.1 Fornecedor/Compras
+  // 5.1 Fornecedor/Compras
   const { ehFornecedorOuCompras } = await import('./roteadorCentral.js');
   if (ehFornecedorOuCompras(contact, thread)) {
     result.actions.push('routing_fornecedor');
@@ -241,7 +260,7 @@ export async function processInboundEvent(params) {
     return { ...result, routed: true, to: 'fornecedor' };
   }
   
-  // 6.2 Fidelizado
+  // 5.2 Fidelizado
   const { classificarContato } = await import('./roteadorCentral.js');
   const classificacao = classificarContato(contact);
   
@@ -252,102 +271,91 @@ export async function processInboundEvent(params) {
     return { ...result, routed: true, to: 'fidelizado' };
   }
   
-  // (7) URA ATIVA: Processar resposta
-  result.pipeline.push('ura_active_check');
-  if (thread.pre_atendimento_ativo === true) {
-    result.actions.push('ura_processing_response');
+  // ============================================================================
+  // 6. DECISOR DE CICLO E INTELIGÊNCIA (O Cérebro)
+  // ============================================================================
+  
+  const isUraActive = thread.pre_atendimento_ativo === true;
+  let intentContext = null;
+  
+  // Se é novo ciclo, não é URA ativa, e é texto (não botão), usar IA
+  if (novoCiclo && !isUraActive && userInput.type === 'text' && userInput.content.length > 2) {
+    result.pipeline.push('analyzing_intent');
     
-    const { processarURA } = await import('./uraProcessor.js');
-    await processarURA({
-      base44,
-      action: 'processar_resposta',
+    try {
+      const aiPayload = {
+        mensagem: userInput.content,
+        contexto: {
+          historico_anterior: thread.sector_id,
+          contact_id: contact.id,
+          thread_id: thread.id
+        }
+      };
+      
+      const aiResponse = await base44.asServiceRole.functions.invoke('analisarIntencao', aiPayload);
+      
+      if (aiResponse?.data?.success && aiResponse.data.analise) {
+        intentContext = aiResponse.data.analise;
+        result.actions.push('intent_analyzed');
+      }
+    } catch (e) {
+      console.warn('[CORE] Falha na IA de intenção, seguindo sem contexto:', e.message);
+      result.actions.push('intent_analysis_failed');
+    }
+  }
+  
+  // ============================================================================
+  // 7. EXECUÇÃO DO PRÉ-ATENDIMENTO (O Motor Único)
+  // ============================================================================
+  
+  result.pipeline.push('pre_atendimento_dispatch');
+  
+  // Regra: Chamamos o handler se URA ativa OU novo ciclo OU COMPLETED (handler trata TTL)
+  const shouldDispatch = isUraActive || novoCiclo || 
+    ['COMPLETED', 'CANCELLED', 'TIMEOUT'].includes(thread.pre_atendimento_state);
+  
+  if (shouldDispatch) {
+    result.actions.push('dispatching_to_ura');
+    
+    // Contrato Unificado para o Handler
+    const payloadUnificado = {
       thread_id: thread.id,
       contact_id: contact.id,
-      integration_id: integration?.id,
-      resposta_usuario: messageContent,
-      provider
-    });
+      whatsapp_integration_id: integration?.id,
+      user_input: userInput,
+      intent_context: intentContext,
+      is_new_cycle: novoCiclo,
+      provider: provider
+    };
     
-    return { ...result, ura_processed: true };
+    try {
+      await base44.asServiceRole.functions.invoke('preAtendimentoHandler', payloadUnificado);
+      result.actions.push('ura_dispatched');
+    } catch (e) {
+      console.error('[CORE] Erro ao disparar preAtendimentoHandler:', e.message);
+      result.actions.push('ura_dispatch_failed');
+    }
+    
+    return { ...result, handled_by_ura: true };
   }
   
-  // (8) REABERTURA: Decidir modo (sticky, mini, full)
-  result.pipeline.push('reopening_decision');
-  
-  const SAUDACOES = [
-    'oi', 'olá', 'ola', 'oie', 'oii', 'oiii',
-    'bom dia', 'boa tarde', 'boa noite',
-    'bomdia', 'boatarde', 'boanoite',
-    'hey', 'hello', 'hi',
-    'e aí', 'e ai', 'eai', 'eae',
-    'tudo bem', 'tudo bom', 'como vai',
-    'opa', 'fala', 'salve'
-  ];
-  
-  const mensagemLower = (messageContent || '').toLowerCase().trim();
-  const isSaudacao = SAUDACOES.some(s => 
-    mensagemLower === s || 
-    mensagemLower.startsWith(s + ' ') || 
-    mensagemLower.startsWith(s + ',') || 
-    mensagemLower.startsWith(s + '!')
-  );
-  
-  if (novoCiclo && isSaudacao) {
-    const { decidirReabertura } = await import('./roteadorCentral.js');
-    const decisao = decidirReabertura(thread, now, 12);
-    result.actions.push(`reopening_${decisao.modo}`);
-    
-    // STICKY SETOR
-    if (decisao.modo === 'sticky' && thread.sector_id) {
-      const { aplicarStickySetor } = await import('./uraProcessor.js');
-      await aplicarStickySetor(base44, thread, contact, integration?.id, provider);
-      return { ...result, reopened: true, mode: 'sticky' };
-    }
-    
-    // MINI-URA (TODO: Fase 2)
-    if (decisao.modo === 'mini') {
-      // Por enquanto, fallback para sticky
-      if (thread.sector_id) {
-        const { aplicarStickySetor } = await import('./uraProcessor.js');
-        await aplicarStickySetor(base44, thread, contact, integration?.id, provider);
-        return { ...result, reopened: true, mode: 'mini_fallback_sticky' };
-      }
-    }
-    
-    // FULL URA
-    if (decisao.modo === 'full') {
-      result.actions.push('starting_full_ura');
-      const { processarURA } = await import('./uraProcessor.js');
-      await processarURA({
-        base44,
-        action: 'iniciar',
-        thread_id: thread.id,
-        contact_id: contact.id,
-        integration_id: integration?.id,
-        provider
-      });
-      return { ...result, ura_started: true };
-    }
-  }
-  
-  // (9) MENSAGEM NORMAL
+  // Se chegou aqui, é mensagem solta em ciclo vigente sem URA ativa
   result.pipeline.push('normal_message');
-  result.actions.push('message_normal');
-  
+  result.actions.push('message_in_cycle_no_ura');
   return result;
 }
 
-import { processTextWithEmojis, emojiDebug, getTextStats } from './emojiHelper.js';
+// =================================================================
+// 📤 HELPER DE ENVIO
+// =================================================================
 
-/**
- * Helper para enviar mensagens
- */
+import { processTextWithEmojis, emojiDebug } from './emojiHelper.js';
+
 async function enviarMensagem(params) {
-  const { base44, integration, contact, message, provider } = params;
+  const { base44, integration, contact, message, provider, thread } = params;
   
   if (!integration) return;
-
-  // ✅ Processar texto com segurança de emoji
+  
   const processedMessage = processTextWithEmojis(message);
   emojiDebug('OUTBOUND_MESSAGE', processedMessage);
   
@@ -385,7 +393,7 @@ async function enviarMensagem(params) {
     
     // Registrar mensagem
     await base44.asServiceRole.entities.Message.create({
-      thread_id: params.thread?.id,
+      thread_id: thread?.id,
       sender_id: 'system',
       sender_type: 'user',
       content: processedMessage,

@@ -11,9 +11,34 @@ import { sectorButtonMap, mapAttendantButtonToId } from './buttonMappings.js';
 
 export class FluxoController {
   
-  static async processarEstadoINIT(base44, thread, contact, whatsappIntegrationId) {
-    console.log('[FLUXO] Estado: INIT - Enviando menu de setores');
+  static async processarEstadoINIT(base44, thread, contact, whatsappIntegrationId, user_input = null, intent_context = null) {
+    console.log('[FLUXO] Estado: INIT - Processando entrada inicial');
+    console.log('[FLUXO] user_input:', user_input, 'intent_context:', intent_context);
     
+    // Se IA detectou setor com alta confiança, pular menu e ir direto
+    if (intent_context?.sector_slug && intent_context.confidence >= 70) {
+      console.log('[FLUXO] ✨ IA detectou setor com alta confiança:', intent_context.sector_slug);
+      
+      const mensagemConfirmacao = `✅ Entendido! Vou te direcionar para *${intent_context.sector_slug}*. ⏳`;
+      await this.enviarMensagemWhatsApp(base44, contact.telefone, mensagemConfirmacao, whatsappIntegrationId);
+      
+      await base44.asServiceRole.entities.MessageThread.update(thread.id, {
+        pre_atendimento_state: 'COMPLETED',
+        pre_atendimento_ativo: false,
+        sector_id: intent_context.sector_slug,
+        pre_atendimento_setor_explicitamente_escolhido: true,
+        pre_atendimento_completed_at: new Date().toISOString()
+      });
+      
+      return {
+        success: true,
+        proximo_estado: 'COMPLETED',
+        setor_detectado_ia: intent_context.sector_slug,
+        skipped_menu: true
+      };
+    }
+    
+    // Se não, enviar menu padrão
     const mensagem = MenuBuilder.construirMenuBoasVindas(contact.nome);
     await this.enviarMensagemWhatsApp(base44, contact.telefone, mensagem, whatsappIntegrationId);
     
