@@ -49,8 +49,7 @@ export const temPermissaoIntegracao = (usuario, integracaoId) => {
   // Primeiro checa whatsapp_permissions (estrutura atual)
   const whatsappPerms = usuario?.whatsapp_permissions || [];
   if (whatsappPerms.length > 0) {
-    // Se tem restrições de whatsapp_permissions
-    if (!integracaoId) return false; // Thread sem ID = bloqueada
+    if (!integracaoId) return false;
     const perm = whatsappPerms.find(p => p.integration_id === integracaoId);
     return perm?.can_view === true;
   }
@@ -59,9 +58,8 @@ export const temPermissaoIntegracao = (usuario, integracaoId) => {
   const perms = usuario?.permissoes_visualizacao || {};
   const visiveis = perms.integracoes_visiveis;
   
-  if (!visiveis || !visiveis.length) return true; // Sem restrição = tudo visível
-  
-  // Se tem restrições mas thread sem ID = bloqueada
+  // Array vazio para não-admin = sem acesso (bloqueado)
+  if (!visiveis || visiveis.length === 0) return false;
   if (!integracaoId) return false;
   
   return visiveis.map(normalizar).includes(normalizar(integracaoId));
@@ -77,9 +75,8 @@ export const threadConexaoVisivel = (usuario, conexaoId) => {
   const perms = usuario?.permissoes_visualizacao || {};
   const visiveis = perms.conexoes_visiveis;
   
-  if (!visiveis || !visiveis.length) return true; // Sem restrição = tudo visível
-  
-  // Se tem restrições mas thread sem ID = bloqueada
+  // Array vazio para não-admin = sem acesso (bloqueado)
+  if (!visiveis || visiveis.length === 0) return false;
   if (!conexaoId) return false;
   
   return visiveis.map(normalizar).includes(normalizar(conexaoId));
@@ -95,9 +92,8 @@ export const threadSetorVisivel = (usuario, setorThread) => {
   const perms = usuario?.permissoes_visualizacao || {};
   const visiveis = perms.setores_visiveis;
   
-  if (!visiveis || !visiveis.length) return true; // Sem restrição = tudo visível
-  
-  // Se tem restrições mas thread sem setor = bloqueada
+  // Array vazio para não-admin = sem acesso (bloqueado)
+  if (!visiveis || visiveis.length === 0) return false;
   if (!setorThread) return false;
   
   return visiveis.map(normalizar).includes(normalizar(setorThread));

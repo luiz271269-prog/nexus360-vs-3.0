@@ -394,26 +394,24 @@ async function handleMessage(dados, payloadBruto, base44, req) {
     }).catch(e => console.error('[WAPI] Erro trigger mídia:', e.message));
   }
 
-  // 8. DISPARAR CORE VIA HTTP (Fire-and-Forget)
-  // Resolve problema de dynamic import + permite timeout maior para IA
+  // 8. DISPARAR CORE DIRETAMENTE (In-Process)
   try {
-    console.log('[WAPI] 🔄 Invocando Core (processInbound)...');
+    console.log('[WAPI] 🔄 Processando Inbound Core diretamente...');
+    const { processInboundEvent } = await import('./lib/inboundCore.js');
 
-    // Fire-and-Forget: não esperamos resposta para não bloquear o webhook
-    base44.asServiceRole.functions.invoke('processInbound', {
-      message: mensagem,
+    await processInboundEvent({
+      base44: base44,
       contact: contato,
       thread: thread,
+      message: mensagem,
       integration: integracaoId ? { id: integracaoId } : null,
       provider: 'w_api',
-      messageContent: dados.content
-    }).catch(err => {
-      console.error('[WAPI] ⚠️ Falha no disparo do Core:', err.message);
+      messageContent: dados.content,
+      rawPayload: payloadBruto
     });
-
-    console.log('[WAPI] 🚀 Core disparado com sucesso (async)');
+    console.log('[WAPI] ✅ Inbound Core processado com sucesso (direto)');
   } catch (coreError) {
-    console.error('[WAPI] ❌ Erro ao preparar disparo do Core:', coreError.message);
+    console.error('[WAPI] 🔴 Falha no processamento do Inbound Core:', coreError.message);
   }
 
   // 9. RETORNO FINAL (Sempre Sucesso)
