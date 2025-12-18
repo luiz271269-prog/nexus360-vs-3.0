@@ -27,9 +27,41 @@ const CACHE_TTL = 60000;
 // ============================================================================
 // FILTRO
 // ============================================================================
-function deveIgnorar(payload) {
-  if (!payload || typeof payload !== 'object') return 'payload_invalido';
+// ============================================================================
+// GATE 0: CLASSIFICADOR CIRÚRGICO DE EVENTOS W-API
+// ============================================================================
+/**
+ * Classifica o tipo de evento recebido da W-API/Baileys ANTES de normalizar
+ * Retorna: 'system-status' | 'user-message' | 'ignore'
+ */
+function classifyWapiEvent(payload) {
+  if (!payload || typeof payload !== 'object') return 'ignore';
+
   const evento = String(payload.event || '').toLowerCase();
+
+  // 1️⃣ STATUS/ACK: webhookdelivery
+  if (evento === 'webhookdelivery' || evento.includes('delivery')) {
+    return 'system-status';
+  }
+
+  // 2️⃣ MENSAGEM DE USUÁRIO: webhookreceived com msgContent
+  if ((evento === 'webhookreceived' || payload.msgContent) && payload.msgContent) {
+    const msg = payload.msgContent;
+    if (msg.conversation || msg.extendedTextMessage || msg.imageMessage || 
+        msg.audioMessage || msg.locationMessage || msg.liveLocationMessage ||
+        msg.videoMessage || msg.documentMessage) {
+      return 'user-message';
+    }
+  }
+
+  // 3️⃣ OUTROS: QRCode, Connection, etc
+  return 'ignore';
+}
+
+function deveIgnorar(payload, classification) {
+  if (classification === 'ignore') return 'evento_desconhecido';
+  if (classification === 'system-status') return 'ruido_sistema';
+
   const senderId = payload.sender?.id || payload.chat?.id || '';
   const phone = senderId.replace(/@.*$/, '').toLowerCase();
 
@@ -37,22 +69,11 @@ function deveIgnorar(payload) {
     return 'jid_sistema_ou_grupo';
   }
 
-  if (evento.includes('qrcode') || evento.includes('connection') || evento.includes('webhookconectado')) {
-    return null;
-  }
+  if (payload.isGroup === true) return 'grupo';
+  if (payload.fromMe === true) return 'from_me';
+  if (!senderId) return 'sem_telefone';
 
-  const eventosLixo = ['presence', 'typing', 'composing', 'chat-update', 'call'];
-  if (eventosLixo.some(e => evento.includes(e))) return 'evento_sistema';
-
-  if (evento === 'webhookreceived' || payload.msgContent) {
-    if (payload.isGroup === true) return 'grupo';
-    if (payload.fromMe === true) return 'from_me';
-    if (!senderId) return 'sem_telefone';
-    return null;
-  }
-
-  if (evento === 'webhookdelivery' || evento.includes('delivery')) return null;
-  return 'evento_desconhecido';
+  return null; // ✅ Passa para normalização
 }
 
 // ============================================================================
@@ -155,24 +176,38 @@ function normalizarPayload(payload) {
       mediaType = 'contact';
       conteudoRaw = '📇 Contato compartilhado';
     }
-    else if (msgContent.locationMessage) {
-      // ✅ Normalização cirúrgica de localização
+    else if (msgContent.locationMessage || msgContent.liveLocationMessage) {
+      // ✅ NORMALIZAÇÃO CIRÚRGICA: importação inline
       const { normalizeLocation } = await import('./lib/normalizeLocation.js');
       const locNormalized = normalizeLocation({ 
         provider: 'wapi', 
-        raw: { msgContent, ...payloadBruto } 
+        raw: { msgContent, ...payload } 
       });
 
       if (locNormalized) {
         mediaType = locNormalized.media_type;
         conteudoRaw = locNormalized.content;
-        // Mesclar metadata de localização
-        if (!dados.metadata) dados.metadata = {};
-        dados.metadata = { ...dados.metadata, ...locNormalized.metadata };
+        // Retorno antecipado com metadata completo
+        return {
+          type: 'message',
+          instanceId,
+          messageId: payload.messageId || payload.key?.id,
+          from: numeroLimpo,
+          content: conteudoRaw,
+          mediaType,
+          mediaCaption: null,
+          pushName: payload.pushName || payload.senderName || payload.sender?.pushName,
+          vcard: null,
+          location: msgContent.locationMessage || msgContent.liveLocationMessage,
+          quotedMessage: payload.quotedMsg || msgContent.extendedTextMessage?.contextInfo?.quotedMessage,
+          downloadSpec: null,
+          fileName: null,
+          locationMetadata: locNormalized.metadata
+        };
       } else {
         // Fallback controlado
         mediaType = 'text';
-        conteudoRaw = '📍 Localização recebida (não foi possível extrair coordenadas)';
+        conteudoRaw = '📍 Localização recebida (coordenadas inválidas)';
       }
     }
     else if (msgContent.extendedTextMessage) {
@@ -366,31 +401,38 @@ async function handleMessage(dados, payloadBruto, base44, req) {
     thread = { id: 'fallback_thread_' + Date.now() };
   }
 
-  // 6. CRIAR MENSAGEM
+  // 6. CRIAR MENSAGEM (pending_download se tem mídia, exceto location)
   let mensagem = null;
   try {
+    const baseMetadata = {
+      whatsapp_integration_id: integracaoId,
+      instance_id: dados.instanceId,
+      vcard: dados.vcard,
+      location: dados.location,
+      quoted_message: dados.quotedMessage,
+      downloadSpec: dados.downloadSpec,
+      processed_by: 'v12_inline',
+      provider: 'w_api'
+    };
+
+    // ✅ Se tem locationMetadata normalizado, mesclar
+    const finalMetadata = dados.locationMetadata 
+      ? { ...baseMetadata, ...dados.locationMetadata }
+      : baseMetadata;
+
     mensagem = await base44.asServiceRole.entities.Message.create({
       thread_id: thread.id,
       sender_id: contato.id,
       sender_type: 'contact',
       content: dados.content,
-      media_url: dados.downloadSpec ? 'pending_download' : null,
+      media_url: dados.downloadSpec && dados.mediaType !== 'location' ? 'pending_download' : null,
       media_type: dados.mediaType,
       media_caption: dados.mediaCaption,
       channel: 'whatsapp',
       status: 'recebida',
       whatsapp_message_id: dados.messageId,
       sent_at: new Date().toISOString(),
-      metadata: {
-        whatsapp_integration_id: integracaoId,
-        instance_id: dados.instanceId,
-        vcard: dados.vcard,
-        location: dados.location,
-        quoted_message: dados.quotedMessage,
-        downloadSpec: dados.downloadSpec,
-        processed_by: 'v11_inline',
-        provider: 'w_api'
-      }
+      metadata: finalMetadata
     });
     console.log('[WAPI] Message salva DB:', mensagem.id);
   } catch (err) {
@@ -398,8 +440,8 @@ async function handleMessage(dados, payloadBruto, base44, req) {
     return Response.json({ success: false, error: 'db_save_error' }, { headers: corsHeaders });
   }
 
-  // 7. TRIGGER PERSISTÊNCIA (Async Fire-and-Forget)
-  if (dados.downloadSpec) {
+  // 7. TRIGGER PERSISTÊNCIA (Async Fire-and-Forget) - exceto location
+  if (dados.downloadSpec && dados.mediaType !== 'location') {
     console.log('[WAPI] 🚀 Disparando worker de mídia...');
     base44.asServiceRole.functions.invoke('persistirMidiaWapi', {
       message_id: mensagem.id,
@@ -495,7 +537,10 @@ Deno.serve(async (req) => {
     return Response.json({ success: false, error: 'JSON invalido' }, { status: 200, headers: corsHeaders });
   }
 
-  const motivoIgnorar = deveIgnorar(payload);
+  // ✅ GATE 0: Classificar evento ANTES de qualquer normalização
+  const classification = classifyWapiEvent(payload);
+  
+  const motivoIgnorar = deveIgnorar(payload, classification);
   if (motivoIgnorar) {
     return Response.json({ success: true, ignored: true, reason: motivoIgnorar }, { headers: corsHeaders });
   }

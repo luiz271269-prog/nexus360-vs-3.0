@@ -210,7 +210,7 @@ export default React.memo(function MessageBubble({
     // Guard: se não houver coordenadas válidas, fallback para texto
     if (!loc.lat || !loc.lng || !loc.url) {
       return (
-        <div className={cn("flex gap-3 px-[5%]", isOwn ? "justify-end" : "justify-start")}>
+        <div className={cn("flex gap-3", isOwn ? "justify-end" : "justify-start")}>
           {!isOwn && <div className="h-7 w-7 rounded-lg bg-slate-100 flex items-center justify-center mt-0.5">
             <div className="h-1.5 w-1.5 rounded-full bg-slate-400" />
           </div>}
@@ -223,7 +223,7 @@ export default React.memo(function MessageBubble({
     }
     
     return (
-      <div className={cn("flex gap-3 px-[5%] group", isOwn ? "justify-end" : "justify-start")}>
+      <div className={cn("flex gap-3 group", isOwn ? "justify-end" : "justify-start")}>
         {!isOwn && <div className="h-7 w-7 rounded-lg bg-slate-100 flex items-center justify-center mt-0.5">
           <div className="h-1.5 w-1.5 rounded-full bg-slate-400" />
         </div>}
@@ -244,11 +244,11 @@ export default React.memo(function MessageBubble({
               </div>
               <div className="flex-1 min-w-0">
                 <div className="font-medium text-sm text-slate-900 truncate">
-                  Localização
+                  {loc.name || 'Localização'}
                 </div>
-                {loc.name && (
+                {loc.address && (
                   <div className="text-xs text-slate-600 truncate">
-                    {loc.name}
+                    {loc.address}
                   </div>
                 )}
               </div>

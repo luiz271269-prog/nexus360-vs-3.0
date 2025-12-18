@@ -21,49 +21,50 @@ const corsHeaders = {
 // Imports dinâmicos movidos para dentro das funções para evitar OS Error 2
 
 // ============================================================================
-// FILTRO ULTRA-RÁPIDO
+// GATE 0: CLASSIFICADOR CIRÚRGICO DE EVENTOS Z-API
 // ============================================================================
-function deveIgnorar(payload) {
-  if (!payload || typeof payload !== 'object') return 'payload_invalido';
-  const tipo = String(payload.type || payload.event || '').toLowerCase();
+/**
+ * Classifica o tipo de evento recebido da Z-API ANTES de normalizar
+ * Retorna: 'system-status' | 'user-message' | 'ignore'
+ */
+function classifyZapiEvent(payload) {
+  if (!payload || typeof payload !== 'object') return 'ignore';
+
+  const tipo = String(payload.type || '').toLowerCase();
+
+  // 1️⃣ STATUS/ACK: MessageStatusCallback (READ, DELIVERED, etc)
+  if (tipo === 'messagestatuscallback' || (payload.status && Array.isArray(payload.ids))) {
+    return 'system-status';
+  }
+
+  // 2️⃣ MENSAGEM DE USUÁRIO: ReceivedCallback
+  if (tipo === 'receivedcallback') {
+    return 'user-message';
+  }
+
+  // 3️⃣ OUTROS: QRCode, Connection, etc
+  return 'ignore';
+}
+
+// ============================================================================
+// FILTRO ULTRA-RÁPIDO (Pós-Classificação)
+// ============================================================================
+function deveIgnorar(payload, classification) {
+  if (classification === 'ignore') return 'evento_desconhecido';
+  if (classification === 'system-status') return 'ruido_sistema';
+
   const phone = String(payload.phone || '').toLowerCase();
-
-  // 🔇 FILTRO ANTI-RUÍDO: Elimina callbacks de sistema imediatamente
-  if (['presencechatcallback', 'messagestatuscallback', 'deliverycallback'].includes(tipo)) {
-    return 'ruido_sistema';
-  }
-
-  // 🔍 LOG TEMPORÁRIO: Captura payload de LOCATION para análise
-  if (payload.location || String(payload.text?.message || '').includes('ocalização') || tipo.includes('location')) {
-    console.log('📍 [LOCATION CAPTURADO] Keys:', Object.keys(payload));
-    console.log('📍 [LOCATION CAPTURADO] Payload:', JSON.stringify(payload).substring(0, 500));
-    if (payload.message) console.log('📍 [LOCATION CAPTURADO] message.keys:', Object.keys(payload.message));
-    if (payload.data) console.log('📍 [LOCATION CAPTURADO] data.keys:', Object.keys(payload.data));
-  }
 
   if (phone.includes('status@') || phone.includes('@broadcast') || 
       phone.includes('@lid') || phone.includes('@g.us')) {
     return 'jid_sistema';
   }
 
-  if (tipo.includes('qrcode') || tipo.includes('connection')) return null;
+  if (payload.isGroup === true) return 'grupo';
+  if (payload.fromMe === true) return 'from_me';
+  if (!payload.phone) return 'sem_telefone';
 
-  const eventosLixo = ['presence', 'typing', 'composing', 'chat-update', 'call'];
-  if (eventosLixo.some(e => tipo.includes(e))) return 'evento_sistema';
-
-  if (tipo.includes('messagestatuscallback')) {
-    if (phone.includes('status@') || phone.includes('@broadcast')) return 'status_broadcast';
-    return null;
-  }
-
-  if (tipo === 'receivedcallback' || (payload.phone && payload.messageId)) {
-    if (payload.isGroup === true) return 'grupo';
-    if (payload.fromMe === true) return 'from_me';
-    if (!payload.phone) return 'sem_telefone';
-    return null;
-  }
-
-  return 'evento_desconhecido';
+  return null; // ✅ Passa para normalização
 }
 
 // ============================================================================
@@ -480,7 +481,10 @@ Deno.serve(async (req) => {
     return Response.json({ success: false, error: 'JSON inválido' }, { status: 200, headers: corsHeaders });
   }
 
-  const motivoIgnorar = deveIgnorar(payload);
+  // ✅ GATE 0: Classificar evento ANTES de qualquer normalização
+  const classification = classifyZapiEvent(payload);
+  
+  const motivoIgnorar = deveIgnorar(payload, classification);
   if (motivoIgnorar) {
     return Response.json({ success: true, ignored: true, reason: motivoIgnorar }, { headers: corsHeaders });
   }
