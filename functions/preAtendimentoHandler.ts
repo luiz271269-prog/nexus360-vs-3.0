@@ -193,13 +193,15 @@ Deno.serve(async (req) => {
 
     switch (estadoAtual) {
       case 'INIT':
-        // CRÍTICO: Passa user_input para INIT poder decidir com base na mensagem
+        // CRÍTICO: Passa user_input E intent_context para INIT poder decidir
+        const intentContext = payload.intent_context || null;
         resultado = await FluxoController.processarEstadoINIT(
           base44,
           thread,
           contact,
           whatsappIntegration.id,
-          user_input
+          user_input,
+          intentContext
         );
         break;
 
@@ -213,8 +215,17 @@ Deno.serve(async (req) => {
         );
         break;
 
+      case 'WAITING_STICKY_DECISION':
+        resultado = await FluxoController.processarWAITING_STICKY_DECISION(
+          base44,
+          thread,
+          contact,
+          user_input,
+          whatsappIntegration.id
+        );
+        break;
+
       case 'WAITING_ATTENDANT_CHOICE':
-        // FIX: Corrigido user_message → user_input
         resultado = await FluxoController.processarWAITING_ATTENDANT_CHOICE(
           base44,
           thread,
@@ -225,7 +236,6 @@ Deno.serve(async (req) => {
         break;
 
       case 'WAITING_QUEUE_DECISION':
-        // FIX: Corrigido user_message → user_input
         resultado = await FluxoController.processarWAITING_QUEUE_DECISION(
           base44,
           thread,
