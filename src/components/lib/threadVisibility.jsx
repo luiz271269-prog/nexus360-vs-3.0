@@ -58,9 +58,9 @@ export const temPermissaoIntegracao = (usuario, integracaoId) => {
   const perms = usuario?.permissoes_visualizacao || {};
   const visiveis = perms.integracoes_visiveis;
   
-  // Array vazio para não-admin = sem acesso (bloqueado)
-  if (!visiveis || visiveis.length === 0) return false;
-  if (!integracaoId) return false;
+  // ✅ FIX: Sem restrições configuradas = acesso liberado
+  if (!visiveis || visiveis.length === 0) return true;
+  if (!integracaoId) return true; // Thread sem integração = visível
   
   return visiveis.map(normalizar).includes(normalizar(integracaoId));
 };
@@ -75,9 +75,9 @@ export const threadConexaoVisivel = (usuario, conexaoId) => {
   const perms = usuario?.permissoes_visualizacao || {};
   const visiveis = perms.conexoes_visiveis;
   
-  // Array vazio para não-admin = sem acesso (bloqueado)
-  if (!visiveis || visiveis.length === 0) return false;
-  if (!conexaoId) return false;
+  // ✅ FIX: Sem restrições configuradas = acesso liberado
+  if (!visiveis || visiveis.length === 0) return true;
+  if (!conexaoId) return true; // Thread sem conexão = visível
   
   return visiveis.map(normalizar).includes(normalizar(conexaoId));
 };
@@ -92,9 +92,9 @@ export const threadSetorVisivel = (usuario, setorThread) => {
   const perms = usuario?.permissoes_visualizacao || {};
   const visiveis = perms.setores_visiveis;
   
-  // Array vazio para não-admin = sem acesso (bloqueado)
-  if (!visiveis || visiveis.length === 0) return false;
-  if (!setorThread) return false;
+  // ✅ FIX: Sem restrições configuradas = acesso liberado
+  if (!visiveis || visiveis.length === 0) return true;
+  if (!setorThread) return true; // Thread sem setor = visível
   
   return visiveis.map(normalizar).includes(normalizar(setorThread));
 };
