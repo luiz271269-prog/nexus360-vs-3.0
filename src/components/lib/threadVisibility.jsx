@@ -181,13 +181,6 @@ export const canUserSeeThreadBase = (usuario, thread, mensagensThread = []) => {
   const isAdmin = usuario.role === 'admin';
   const isAdminOrAll = isAdmin || !!perms.pode_ver_todas_conversas;
 
-  // Verificar permissões de integração/conexão/setor
-  const integracaoOk = temPermissaoIntegracao(usuario, thread.whatsapp_integration_id);
-  const conexaoOk = threadConexaoVisivel(usuario, thread.conexao_id);
-  const setorOk = threadSetorVisivel(usuario, thread.sector_id || thread.setor);
-
-  if (!integracaoOk || !conexaoOk || !setorOk) return false;
-
   const contato = thread.contato;
   const atribuido = isAtribuidoAoUsuario(usuario, thread);
   const fidelizado = isFidelizadoAoUsuario(usuario, contato);
@@ -198,12 +191,19 @@ export const canUserSeeThreadBase = (usuario, thread, mensagensThread = []) => {
     return true;
   }
 
-  // 1) Atribuída ao usuário
+  // ✅ 1) ATRIBUÍDA AO USUÁRIO = SEMPRE VÊ (ignora restrições de integração/conexão)
   if (atribuido) {
     return true;
   }
 
-  // 2) Fidelizado ao usuário (e não atribuído a outro)
+  // ✅ 2) Verificar permissões de integração/conexão/setor APENAS para não-atribuídas
+  const integracaoOk = temPermissaoIntegracao(usuario, thread.whatsapp_integration_id);
+  const conexaoOk = threadConexaoVisivel(usuario, thread.conexao_id);
+  const setorOk = threadSetorVisivel(usuario, thread.sector_id || thread.setor);
+
+  if (!integracaoOk || !conexaoOk || !setorOk) return false;
+
+  // 3) Fidelizado ao usuário (e não atribuído a outro)
   if (fidelizado) {
     const atribuidaAOutro = thread.assigned_user_id && !atribuido;
     if (!atribuidaAOutro) {
@@ -211,8 +211,7 @@ export const canUserSeeThreadBase = (usuario, thread, mensagensThread = []) => {
     }
   }
 
-  // 3) Não atribuída (S/atend.) - SEMPRE VISÍVEL PARA TODOS OS USUÁRIOS
-  // Todos podem ver conversas não atribuídas para poder atendê-las
+  // 4) Não atribuída (S/atend.) - SEMPRE VISÍVEL PARA TODOS OS USUÁRIOS
   if (naoAtribuida) {
     return true;
   }
@@ -246,49 +245,47 @@ export const canUserSeeThreadWithFilters = (usuario, thread, filtros = {}) => {
   const isAdmin = usuario.role === 'admin';
   const isAdminOrAll = isAdmin || !!perms.pode_ver_todas_conversas;
 
+  const contato = thread.contato;
+  const atribuido = isAtribuidoAoUsuario(usuario, thread);
+
+  // ✅ PRIORIDADE MÁXIMA: Se está atribuída ao usuário, SEMPRE VÊ (ignora todas as restrições)
+  if (atribuido) {
+    return true;
+  }
+
   // ═══════════════════════════════════════════════════════════════════════
-  // 🟢 ESTÁGIO 1: BARREIRA DE SEGURANÇA
-  // Antes de tudo, verificar se o usuário TEM PERMISSÃO para ver esta thread
+  // 🟢 ESTÁGIO 1: BARREIRA DE SEGURANÇA (apenas para não-atribuídas)
   // ═══════════════════════════════════════════════════════════════════════
   
-  // 1.1 Filtro de Integração (user.whatsapp_permissions ou permissoes_visualizacao.integracoes_visiveis)
   const integracaoOk = temPermissaoIntegracao(usuario, thread.whatsapp_integration_id);
   if (!integracaoOk) return false;
 
-  // 1.2 Filtro de Conexão/Número (user.permissoes_visualizacao.conexoes_visiveis)
   const conexaoOk = threadConexaoVisivel(usuario, thread.conexao_id);
   if (!conexaoOk) return false;
 
-  // 1.3 Filtro de Setor (user.permissoes_visualizacao.setores_visiveis)
   const setorOk = threadSetorVisivel(usuario, thread.sector_id || thread.setor);
   if (!setorOk) return false;
 
   // ═══════════════════════════════════════════════════════════════════════
   // 🔵 ESTÁGIO 2: FILTRO DE ESCOPO (Abas de Navegação)
-  // Aplicar UMA das regras dependendo da aba selecionada
   // ═══════════════════════════════════════════════════════════════════════
   
-  const contato = thread.contato;
-  const atribuido = isAtribuidoAoUsuario(usuario, thread);
   const fidelizado = isFidelizadoAoUsuario(usuario, contato);
   const naoAtribuida = isNaoAtribuida(thread);
 
   // A. Aba "Minhas Conversas" (scope = 'my')
   if (filtros.scope === 'my') {
-    // Passa se atender PELO MENOS UM critério:
-    // 1. Atribuição Direta
-    if (atribuido) return true;
+    // Atribuição já foi checada no topo (priority check)
     
-    // 2. Fidelização (Dono do Cliente) - e não atribuída a outro
+    // Fidelização (Dono do Cliente) - e não atribuída a outro
     if (fidelizado && !thread.assigned_user_id) return true;
     
-    // 3. Contato fidelizado ao usuário (mesmo que thread não atribuída)
+    // Contato fidelizado ao usuário (mesmo que thread não atribuída)
     if (fidelizado) {
-      const atribuidaAOutro = thread.assigned_user_id && !atribuido;
+      const atribuidaAOutro = thread.assigned_user_id;
       if (!atribuidaAOutro) return true;
     }
     
-    // Não passou em nenhum critério
     return false;
   }
 
