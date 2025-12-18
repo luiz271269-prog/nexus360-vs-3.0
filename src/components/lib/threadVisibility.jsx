@@ -49,7 +49,8 @@ export const temPermissaoIntegracao = (usuario, integracaoId) => {
   // Primeiro checa whatsapp_permissions (estrutura atual)
   const whatsappPerms = usuario?.whatsapp_permissions || [];
   if (whatsappPerms.length > 0) {
-    if (!integracaoId) return false;
+    // ✅ FIX: Thread sem integração = liberar (não bloquear)
+    if (!integracaoId) return true;
     const perm = whatsappPerms.find(p => p.integration_id === integracaoId);
     return perm?.can_view === true;
   }
