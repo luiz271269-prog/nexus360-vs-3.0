@@ -1,17 +1,15 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.4';
-import { connectionManager } from './lib/connectionManager.js';
 
 // ============================================================================
-// WEBHOOK WHATSAPP Z-API - v9.0.0 PIPELINE UNIFICADO
+// WEBHOOK WHATSAPP Z-API - v10.0.0 INGESTÃO PURA (CÉREBRO ISOLADO)
 // ============================================================================
-// CORREÇÕES v9.0.0:
-// 1. Imports dinâmicos para evitar erro de deployment
-// 2. Pipeline unificado com inboundCore.js
-// 3. Micro-URA + Promoções + Roteamento integrados
+// 1. Webhook BURRO: só recebe, valida, salva e responde 200.
+// 2. Inteligência isolada em processInbound (URA/Promoções/Roteamento).
+// 3. Zero imports de lib/ - elimina "os error 2" definitivamente.
 // ============================================================================
 
-const VERSION = 'v9.0.0-PIPELINE';
-const BUILD_DATE = '2025-12-16';
+const VERSION = 'v10.0.0-PURE-INGESTION';
+const BUILD_DATE = '2025-12-18';
 
 const corsHeaders = {
   'Content-Type': 'application/json',
@@ -333,7 +331,22 @@ async function handleMessage(dados, payloadBruto, base44) {
     return Response.json({ success: false, error: 'db_save_error' }, { headers: corsHeaders });
   }
 
-  // TRIGGER PERSISTÊNCIA ASYNC (Fire-and-forget)
+  // ATUALIZAR THREAD STATUS (Básico)
+  try {
+    await base44.asServiceRole.entities.MessageThread.update(thread.id, {
+      last_message_content: dados.content.substring(0, 200),
+      last_message_at: new Date().toISOString(),
+      last_message_sender: 'contact',
+      last_media_type: dados.mediaType,
+      unread_count: (thread.unread_count || 0) + 1,
+      status: 'aberta'
+    });
+    console.log('[ZAPI] ✅ Thread atualizada');
+  } catch (updateError) {
+    console.error('[ZAPI] ⚠️ Erro ao atualizar thread:', updateError.message);
+  }
+
+  // TRIGGER PERSISTÊNCIA DE MÍDIA (Fire-and-Forget)
   if (dados.mediaType !== 'none' && dados.fileId) {
     console.log('[ZAPI] 🚀 Disparando worker de mídia...');
     base44.asServiceRole.functions.invoke('persistirMidiaZapi', {
@@ -345,42 +358,36 @@ async function handleMessage(dados, payloadBruto, base44) {
     }).catch(e => console.error('[ZAPI] Erro trigger mídia:', e.message));
   }
 
-  // PIPELINE (Blindado)
+  // DISPARAR CÉREBRO (Async Fire-and-Forget)
   try {
-    const integracao = integracaoId 
-      ? await base44.asServiceRole.entities.WhatsAppIntegration.get(integracaoId).catch(() => null)
-      : null;
+    console.log('[ZAPI] 🚀 Disparando processInbound (Cérebro separado)...');
+    
+    let integracaoObj = null;
+    if (integracaoId) {
+      try {
+        integracaoObj = await base44.asServiceRole.entities.WhatsAppIntegration.get(integracaoId);
+      } catch (e) {
+        console.warn('[ZAPI] ⚠️ Integração não encontrada, enviando ID:', e.message);
+        integracaoObj = { id: integracaoId };
+      }
+    }
 
-    const { processInboundEvent } = await import('./lib/inboundCore.js');
-    const pipelineResult = await processInboundEvent({
-      base44,
+    // Fire-and-Forget: Se falhar, não trava o 200 OK do webhook
+    base44.asServiceRole.functions.invoke('processInbound', {
+      message: mensagem,
       contact: contato,
       thread: thread,
-      message: mensagem,
-      integration: integracao,
+      integration: integracaoObj,
       provider: 'z_api',
       messageContent: dados.content
-    });
-
-    console.log('[' + VERSION + '] Pipeline:', pipelineResult.pipeline);
-
-    if (pipelineResult.consumed || pipelineResult.stop) {
-      const duracao = Date.now() - inicio;
-      return Response.json({
-        success: true,
-        message_id: mensagem.id,
-        contact_id: contato.id,
-        thread_id: thread.id,
-        duration_ms: duracao,
-        pipeline: pipelineResult.pipeline,
-        consumed: pipelineResult.consumed,
-        stop: pipelineResult.stop
-      }, { headers: corsHeaders });
-    }
-  } catch (coreError) {
-    console.error('🔴 [BLINDAGEM] Core falhou (Z-API):', coreError.message);
+    }).catch(e => console.error('[ZAPI] ⚠️ Erro no processInbound (não afeta ingestão):', e.message));
+    
+    console.log('[ZAPI] ✅ Cérebro disparado (isolado)');
+  } catch (err) {
+    console.error('[ZAPI] ⚠️ Erro ao disparar Cérebro:', err.message);
   }
 
+  // RETORNO FINAL (Sempre Sucesso)
   const duracao = Date.now() - inicio;
   return Response.json({
     success: true,
@@ -444,10 +451,6 @@ Deno.serve(async (req) => {
   const dados = normalizarPayload(payload);
   if (dados.type === 'unknown') {
     return Response.json({ success: true, ignored: true, reason: dados.error }, { headers: corsHeaders });
-  }
-
-  if (dados.instanceId) {
-    connectionManager.register(dados.instanceId, { provider: 'z_api' });
   }
 
   try {
