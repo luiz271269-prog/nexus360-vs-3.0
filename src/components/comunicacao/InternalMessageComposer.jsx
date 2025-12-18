@@ -27,7 +27,7 @@ export default function InternalMessageComposer({ open, onClose, currentUser }) 
   // Buscar todos os usuários
   const { data: usuarios = [], isLoading: loadingUsers } = useQuery({
     queryKey: ['usuarios-internos'],
-    queryFn: () => base44.asServiceRole.entities.User.list(),
+    queryFn: () => base44.entities.User.list(),
     enabled: open,
     staleTime: 2 * 60 * 1000
   });
