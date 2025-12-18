@@ -1,431 +1,257 @@
 /**
  * ╔══════════════════════════════════════════════════════════════╗
- * ║  FLUXO CONTROLLER - Gerencia transições de estado           ║
+ * ║  CONTROLADOR FLUXO - v10.0.0 (O Executor Inteligente)      ║
+ * ║  Absorveu: Validador, Sticky Logic e Queue Logic           ║
  * ╚══════════════════════════════════════════════════════════════╝
  */
 
 import { MenuBuilder } from './menuBuilder.js';
-import { ValidadorPreAtendimento } from './validadores.js';
-import { AtendenteSelector } from './atendenteSelector.js';
-import { sectorButtonMap, mapAttendantButtonToId } from './buttonMappings.js';
+import { processTextWithEmojis } from '../lib/emojiHelper.js';
 
 export class FluxoController {
   
+  // ===============================================================
+  // 1. ESTADO INIT: O Porteiro (IA + Memória + Menu)
+  // ===============================================================
+  
   static async processarEstadoINIT(base44, thread, contact, whatsappIntegrationId, user_input = null, intent_context = null) {
-    console.log('[FLUXO] Estado: INIT - Processando entrada inicial');
-    console.log('[FLUXO] user_input:', user_input, 'intent_context:', intent_context);
+    console.log('[FLUXO] INIT | Entrada:', user_input?.content, '| IA:', intent_context ? 'Sim' : 'Não');
     
-    // Se IA detectou setor com alta confiança, pular menu e ir direto
+    // A. FAST-TRACK VIA IA (Prioridade Máxima)
     if (intent_context?.sector_slug && intent_context.confidence >= 70) {
-      console.log('[FLUXO] ✨ IA detectou setor com alta confiança:', intent_context.sector_slug);
+      console.log(`[FLUXO] 🚀 Fast-track IA para: ${intent_context.sector_slug}`);
       
-      const mensagemConfirmacao = `✅ Entendido! Vou te direcionar para *${intent_context.sector_slug}*. ⏳`;
-      await this.enviarMensagemWhatsApp(base44, contact.telefone, mensagemConfirmacao, whatsappIntegrationId);
+      const msg = `✅ Entendi! Vou te direcionar para *${intent_context.sector_slug.toUpperCase()}*.`;
+      await this.enviarMensagem(base44, contact, whatsappIntegrationId, msg);
+      
+      // Avança direto para escolha de atendente ou fila
+      await this.atualizarEstado(base44, thread.id, 'WAITING_ATTENDANT_CHOICE', intent_context.sector_slug);
+      
+      // Simula entrada de sistema para disparar listagem de atendentes
+      return await this.processarWAITING_ATTENDANT_CHOICE(
+        base44, 
+        thread, 
+        contact, 
+        { type: 'system', content: '' }, 
+        whatsappIntegrationId
+      );
+    }
+    
+    // B. STICKY SETOR (Memória de Elefante) - Trazido do antigo uraProcessor.js
+    if (thread.sector_id) {
+      console.log(`[FLUXO] 📎 Sticky Setor detectado: ${thread.sector_id}`);
+      
+      const msgSticky = `Olá novamente, ${contact.nome}! 👋\n\nVi que seu último atendimento foi em *${thread.sector_id.toUpperCase()}*. Deseja continuar por lá?`;
+      const botoes = [
+        { id: 'sticky_sim', text: '✅ Sim, continuar' },
+        { id: 'sticky_nao', text: '🔙 Menu Principal' }
+      ];
+      
+      await this.enviarMensagem(base44, contact, whatsappIntegrationId, msgSticky, botoes);
+      await this.atualizarEstado(base44, thread.id, 'WAITING_STICKY_DECISION');
+      
+      return { success: true, mode: 'sticky' };
+    }
+    
+    // C. FALLBACK: MENU PADRÃO
+    const menu = MenuBuilder.construirMenuBoasVindas(contact.nome);
+    await this.enviarMensagem(base44, contact, whatsappIntegrationId, menu);
+    await this.atualizarEstado(base44, thread.id, 'WAITING_SECTOR_CHOICE');
+    
+    return { success: true, mode: 'menu' };
+  }
+  
+  // ===============================================================
+  // 2. DECISÃO DE STICKY (Novo Estado)
+  // ===============================================================
+  
+  static async processarWAITING_STICKY_DECISION(base44, thread, contact, user_input, whatsappIntegrationId) {
+    const entrada = (user_input.content || user_input.id || '').toLowerCase();
+    
+    if (['sticky_sim', 'sim', '1', 'quero'].some(x => entrada.includes(x))) {
+      // Aceitou voltar para o setor anterior
+      await this.enviarMensagem(base44, contact, whatsappIntegrationId, 
+        `Combinado! Retornando para *${thread.sector_id}*...`);
+      
+      await this.atualizarEstado(base44, thread.id, 'WAITING_ATTENDANT_CHOICE', thread.sector_id);
+      
+      return await this.processarWAITING_ATTENDANT_CHOICE(
+        base44, 
+        thread, 
+        contact, 
+        { type: 'system' }, 
+        whatsappIntegrationId
+      );
+    }
+    
+    // Se negou, vai para o menu principal
+    return await this.processarEstadoINIT(base44, thread, contact, whatsappIntegrationId, null, null);
+  }
+  
+  // ===============================================================
+  // 3. ESCOLHA DE SETOR
+  // ===============================================================
+  
+  static async processarWAITING_SECTOR_CHOICE(base44, thread, contact, user_input, whatsappIntegrationId) {
+    const entrada = (user_input.content || user_input.id || '').toLowerCase().trim();
+    let setor = null;
+    
+    // Mapa simples e direto (Internalizando ValidadorPreAtendimento)
+    if (['1', 'vendas', 'comercial'].some(k => entrada.includes(k))) setor = 'vendas';
+    else if (['2', 'financeiro', 'fat', 'boleto'].some(k => entrada.includes(k))) setor = 'financeiro';
+    else if (['3', 'suporte', 'tecnico', 'técnico', 'ajuda'].some(k => entrada.includes(k))) setor = 'assistencia';
+    else if (['4', 'fornecedor', 'compras'].some(k => entrada.includes(k))) setor = 'fornecedor';
+    
+    if (setor) {
+      await this.enviarMensagem(base44, contact, whatsappIntegrationId, 
+        `Você escolheu: *${setor.toUpperCase()}*.\nBuscando atendentes...`);
+      
+      await this.atualizarEstado(base44, thread.id, 'WAITING_ATTENDANT_CHOICE', setor);
+      
+      // Executa automaticamente o próximo passo
+      return await this.processarWAITING_ATTENDANT_CHOICE(
+        base44, 
+        thread, 
+        contact, 
+        { type: 'system' }, 
+        whatsappIntegrationId
+      );
+    }
+    
+    // Entrada inválida
+    await this.enviarMensagem(base44, contact, whatsappIntegrationId, 
+      "❌ Opção inválida. Digite o número ou nome do setor.");
+    
+    const menu = MenuBuilder.construirMenuBoasVindas(contact.nome);
+    await this.enviarMensagem(base44, contact, whatsappIntegrationId, menu);
+    
+    return { success: false };
+  }
+  
+  // ===============================================================
+  // 4. ESCOLHA DE ATENDENTE E VERIFICAÇÃO DE FILA
+  // ===============================================================
+  
+  static async processarWAITING_ATTENDANT_CHOICE(base44, thread, contact, user_input, whatsappIntegrationId) {
+    const setor = thread.sector_id;
+    
+    try {
+      console.log(`[FLUXO] Tentando roteamento para o setor: ${setor}`);
+      
+      // Chama função de roteamento (Microserviço ou Lógica Interna)
+      const rota = await base44.asServiceRole.functions.invoke('roteamentoInteligente', {
+        thread_id: thread.id,
+        contact_id: contact.id,
+        sector: setor,
+        check_only: false
+      });
+      
+      if (rota.data && rota.data.success && rota.data.atendente_id) {
+        // SUCESSO: Atendente encontrado
+        const atendenteNome = rota.data.atendente_nome || 'um atendente';
+        await this.enviarMensagem(base44, contact, whatsappIntegrationId, 
+          `🥳 Encontrei o atendente *${atendenteNome}* para você! Transferindo...`);
+        
+        await base44.asServiceRole.entities.MessageThread.update(thread.id, {
+          pre_atendimento_state: 'COMPLETED',
+          pre_atendimento_ativo: false,
+          pre_atendimento_completed_at: new Date().toISOString()
+          // assigned_user_id já foi definido pelo roteamentoInteligente
+        });
+        
+        return { success: true, allocated: true };
+      }
+      
+      // FALHA: Ninguém livre -> OFERECER FILA
+      console.log('[FLUXO] Sem atendentes livres. Oferecendo fila.');
+      
+      const msgFila = `No momento, todos os atendentes do *${setor}* estão ocupados. 😕\n\nDeseja aguardar na fila?\n\n1. ✅ Sim, entrar na fila\n2. 🔄 Escolher outro setor`;
+      const btnFila = [
+        { id: 'fila_entrar', text: '✅ Entrar na fila' },
+        { id: 'fila_sair', text: '🔄 Outro setor' }
+      ];
+      
+      await this.enviarMensagem(base44, contact, whatsappIntegrationId, msgFila, btnFila);
+      await this.atualizarEstado(base44, thread.id, 'WAITING_QUEUE_DECISION');
+      
+      return { success: true, queue_offered: true };
+      
+    } catch (e) {
+      console.error('[FLUXO] Erro no roteamento:', e);
+      await this.enviarMensagem(base44, contact, whatsappIntegrationId, 
+        "Houve um erro técnico. Vamos tentar encaminhar para um atendente geral.");
+      
+      // Fallback para setor geral
+      await this.atualizarEstado(base44, thread.id, 'COMPLETED', 'geral');
+      return { success: false, error: 'routing_failed' };
+    }
+  }
+  
+  // ===============================================================
+  // 5. DECISÃO DE FILA
+  // ===============================================================
+  
+  static async processarWAITING_QUEUE_DECISION(base44, thread, contact, user_input, whatsappIntegrationId) {
+    const entrada = (user_input.content || user_input.id || '').toLowerCase();
+    
+    if (['fila_entrar', 'sim', '1'].some(x => entrada.includes(x))) {
+      // ENTRAR NA FILA
+      await base44.asServiceRole.functions.invoke('gerenciarFila', {
+        action: 'enqueue',
+        thread_id: thread.id,
+        setor: thread.sector_id,
+        metadata: { nome: contact.nome }
+      });
+      
+      await this.enviarMensagem(base44, contact, whatsappIntegrationId, 
+        `✅ Você está na fila! Posição: *Final da fila*.\nAssim que alguém liberar, você será chamado.`);
       
       await base44.asServiceRole.entities.MessageThread.update(thread.id, {
         pre_atendimento_state: 'COMPLETED',
         pre_atendimento_ativo: false,
-        sector_id: intent_context.sector_slug,
-        pre_atendimento_setor_explicitamente_escolhido: true,
         pre_atendimento_completed_at: new Date().toISOString()
       });
       
-      return {
-        success: true,
-        proximo_estado: 'COMPLETED',
-        setor_detectado_ia: intent_context.sector_slug,
-        skipped_menu: true
-      };
-    }
-    
-    // Se não, enviar menu padrão
-    const mensagem = MenuBuilder.construirMenuBoasVindas(contact.nome);
-    await this.enviarMensagemWhatsApp(base44, contact.telefone, mensagem, whatsappIntegrationId);
-    
-    await base44.asServiceRole.entities.MessageThread.update(thread.id, {
-      pre_atendimento_state: 'WAITING_SECTOR_CHOICE',
-      pre_atendimento_timeout_at: new Date(Date.now() + 5 * 60 * 1000).toISOString()
-    });
-    
-    return {
-      success: true,
-      proximo_estado: 'WAITING_SECTOR_CHOICE',
-      mensagem_enviada: true
-    };
-  }
-  
-  static async processarWAITING_SECTOR_CHOICE(base44, thread, contact, user_input, whatsappIntegrationId) {
-    console.log('[FLUXO] Estado: WAITING_SECTOR_CHOICE - Processando escolha de setor');
-    
-    let setorEscolhido = null;
-    let isValidInput = false;
-    
-    const textoParaVerificar = user_input.type === 'text' 
-      ? (user_input.content || '').trim() 
-      : (user_input.text || '').trim();
-    
-    // 1. Comandos de cancelamento/ajuda
-    if (ValidadorPreAtendimento.verificarComandoCancelamento(textoParaVerificar)) {
-      return await this.processarCancelamento(base44, thread, contact, whatsappIntegrationId);
-    }
-    
-    if (ValidadorPreAtendimento.verificarComandoAjuda(textoParaVerificar)) {
-      const mensagem = MenuBuilder.construirMensagemAjuda('WAITING_SECTOR_CHOICE');
-      await this.enviarMensagemWhatsApp(base44, contact.telefone, mensagem, whatsappIntegrationId);
-      return { success: true, aguardando_nova_resposta: true };
-    }
-    
-    // 2. Input por botão
-    if (user_input.type === 'button') {
-      const mapped = sectorButtonMap[user_input.id];
-      if (mapped) {
-        setorEscolhido = mapped;
-        isValidInput = true;
-      }
-    }
-    
-    // 3. Input por texto (fallback)
-    if (!isValidInput && user_input.type === 'text') {
-      const validacao = ValidadorPreAtendimento.validarEscolhaSetor(user_input.content);
-      if (validacao.valido) {
-        setorEscolhido = validacao.setor;
-        isValidInput = true;
-      }
-    }
-    
-    // 4. Input inválido
-    if (!isValidInput) {
-      const mensagemErro = MenuBuilder.construirMensagemErro(
-        'Opção inválida. Escolha um setor pelos botões ou digite o número correspondente.',
-        'setor'
-      );
-      await this.enviarMensagemWhatsApp(base44, contact.telefone, mensagemErro, whatsappIntegrationId);
+      return { success: true, enqueued: true };
       
-      const menu = MenuBuilder.construirMenuBoasVindas(contact.nome);
-      await this.enviarMensagemWhatsApp(base44, contact.telefone, menu, whatsappIntegrationId);
-      
-      return { success: false, erro: 'escolha_invalida', aguardando_nova_resposta: true };
-    }
-    
-    // 5. Confirmação "limpa"
-    const textoOpcaoEscolhida = user_input.type === 'button' 
-      ? user_input.text 
-      : ValidadorPreAtendimento.formatarNomeSetor(setorEscolhido);
-    
-    const msgConfirmacao = `Você escolheu: *${textoOpcaoEscolhida}*\n\nEstou direcionando você para o setor...`;
-    await this.enviarMensagemWhatsApp(base44, contact.telefone, msgConfirmacao, whatsappIntegrationId);
-    
-    console.log('[FLUXO] Setor escolhido:', setorEscolhido);
-    
-    // 6. Buscar atendentes
-    const atendentes = await AtendenteSelector.buscarAtendentesDisponiveis(base44, setorEscolhido);
-    
-    let proximoEstado = 'WAITING_FALLBACK';
-    if (atendentes.length > 0) {
-      proximoEstado = 'WAITING_ATTENDANT_CHOICE';
-      const mensagem = MenuBuilder.construirMenuAtendentes(atendentes, setorEscolhido);
-      await this.enviarMensagemWhatsApp(base44, contact.telefone, mensagem, whatsappIntegrationId);
-    }
-    
-    await base44.asServiceRole.entities.MessageThread.update(thread.id, {
-      pre_atendimento_state: proximoEstado,
-      sector_id: setorEscolhido,
-      pre_atendimento_timeout_at: new Date(Date.now() + 5 * 60 * 1000).toISOString()
-    });
-    
-    return {
-      success: true,
-      setor: setorEscolhido,
-      atendentes_disponiveis: atendentes.length,
-      proximo_estado: proximoEstado
-    };
-  }
-  
-  static async processarWAITING_ATTENDANT_CHOICE(base44, thread, contact, user_input, whatsappIntegrationId) {
-    console.log('[FLUXO] Estado: WAITING_ATTENDANT_CHOICE - Processando escolha de atendente');
-    
-    const textoParaVerificar = user_input.type === 'text' 
-      ? (user_input.content || '').trim() 
-      : (user_input.text || '').trim();
-    
-    if (ValidadorPreAtendimento.verificarComandoCancelamento(textoParaVerificar)) {
-      return await this.processarCancelamento(base44, thread, contact, whatsappIntegrationId);
-    }
-    
-    if (textoParaVerificar.toLowerCase() === 'voltar') {
-      await base44.asServiceRole.entities.MessageThread.update(thread.id, {
-        pre_atendimento_state: 'INIT',
-        sector_id: null
-      });
-      return await this.processarEstadoINIT(base44, thread, contact, whatsappIntegrationId);
-    }
-    
-    const setor = thread.sector_id;
-    const atendentes = await AtendenteSelector.buscarAtendentesDisponiveis(base44, setor);
-    
-    if (atendentes.length === 0) {
-      const mensagem = MenuBuilder.construirMensagemNenhumAtendente(setor);
-      await this.enviarMensagemWhatsApp(base44, contact.telefone, mensagem, whatsappIntegrationId);
-      return {
-        success: false,
-        erro: 'nenhum_atendente_disponivel',
-        aguardando_callback: true
-      };
-    }
-    
-    let atendenteEscolhido = null;
-    let isValidInput = false;
-    
-    // Input por botão
-    if (user_input.type === 'button') {
-      const attendantId = mapAttendantButtonToId(user_input.id);
-      if (attendantId) {
-        atendenteEscolhido = atendentes.find(a => a.id === attendantId);
-        if (atendenteEscolhido) {
-          isValidInput = true;
-        }
-      }
-    }
-    
-    // Input por texto (fallback)
-    if (!isValidInput && user_input.type === 'text') {
-      const validacao = ValidadorPreAtendimento.validarEscolhaAtendente(user_input.content, atendentes.length);
-      if (validacao.valido) {
-        atendenteEscolhido = atendentes[validacao.indice];
-        isValidInput = true;
-      }
-    }
-    
-    if (!isValidInput) {
-      const mensagemErro = MenuBuilder.construirMensagemErro('Opção inválida', 'atendente');
-      await this.enviarMensagemWhatsApp(base44, contact.telefone, mensagemErro, whatsappIntegrationId);
-      return { success: false, erro: 'escolha_invalida', aguardando_nova_resposta: true };
-    }
-    
-    console.log('[FLUXO] Atendente escolhido:', atendenteEscolhido.full_name);
-    
-    const disponibilidade = await AtendenteSelector.validarDisponibilidade(base44, atendenteEscolhido.id);
-    
-    if (!disponibilidade.disponivel) {
-      const mensagem = MenuBuilder.construirMensagemAtendenteOcupado(atendenteEscolhido.full_name);
-      await this.enviarMensagemWhatsApp(base44, contact.telefone, mensagem, whatsappIntegrationId);
-      
-      // 🆕 OPÇÃO: Oferecer entrar na fila do setor
-      const mensagemFila = {
-        type: 'interactive_buttons',
-        body: `📋 Você pode aguardar na fila do setor *${setor}* e o próximo atendente disponível irá atendê-lo.`,
-        buttons: [
-          { id: 'fila_entrar', text: '✅ Entrar na fila' },
-          { id: 'fila_outro', text: '🔄 Outro atendente' }
-        ]
-      };
-      
-      await this.enviarMensagemWhatsApp(base44, contact.telefone, mensagemFila, whatsappIntegrationId);
-      
-      await base44.asServiceRole.entities.MessageThread.update(thread.id, {
-        pre_atendimento_state: 'WAITING_QUEUE_DECISION',
-        pre_atendimento_timeout_at: new Date(Date.now() + 5 * 60 * 1000).toISOString()
-      });
-      
-      return {
-        success: true,
-        proximo_estado: 'WAITING_QUEUE_DECISION',
-        aguardando_decisao_fila: true
-      };
-    }
-    
-    const mensagemConectando = MenuBuilder.construirMensagemConectando(atendenteEscolhido.full_name, setor);
-    await this.enviarMensagemWhatsApp(base44, contact.telefone, mensagemConectando, whatsappIntegrationId);
-    
-    await base44.asServiceRole.entities.MessageThread.update(thread.id, {
-      pre_atendimento_state: 'TRANSFERRING'
-    });
-    
-    try {
-      const responseRoteamento = await base44.asServiceRole.functions.invoke('roteamentoInteligente', {
-        thread_id: thread.id,
-        contact_id: contact.id,
-        sector: setor,
-        force_attendant_id: atendenteEscolhido.id
-      });
-      
-      console.log('[FLUXO] ✅ Roteamento realizado:', responseRoteamento.data);
-      
-      const mensagemSucesso = MenuBuilder.construirMensagemSucesso(atendenteEscolhido.full_name);
-      await this.enviarMensagemWhatsApp(base44, contact.telefone, mensagemSucesso, whatsappIntegrationId);
-      
-      await base44.asServiceRole.entities.MessageThread.update(thread.id, {
-        pre_atendimento_state: 'COMPLETED',
-        pre_atendimento_ativo: false
-      });
-      
-      // 🆕 INTEGRAÇÃO COM FILA: Remover da fila se estava enfileirada
-      try {
-        if (thread.fila_atendimento_id) {
-          await base44.asServiceRole.functions.invoke('gerenciarFila', {
-            action: 'remover',
-            thread_id: thread.id,
-            motivo: 'atribuido'
-          });
-          console.log('[FLUXO] ✅ Thread removida da fila após pré-atendimento');
-        }
-      } catch (filaError) {
-        console.warn('[FLUXO] ⚠️ Erro ao remover da fila (não crítico):', filaError);
-      }
-      
-      return {
-        success: true,
-        proximo_estado: 'COMPLETED',
-        atendente: atendenteEscolhido.full_name,
-        roteamento: responseRoteamento.data
-      };
-      
-    } catch (error) {
-      console.error('[FLUXO] ❌ Erro no roteamento:', error);
-      
-      const mensagemErro = `😔 Desculpe, houve um erro ao conectar você com o atendente.\n\nPor favor, aguarde que entraremos em contato em breve.`;
-      await this.enviarMensagemWhatsApp(base44, contact.telefone, mensagemErro, whatsappIntegrationId);
-      
-      return {
-        success: false,
-        erro: 'erro_roteamento',
-        detalhes: error.message
-      };
-    }
-  }
-  
-  static async processarWAITING_QUEUE_DECISION(base44, thread, contact, user_input, whatsappIntegrationId) {
-    console.log('[FLUXO] Estado: WAITING_QUEUE_DECISION - Processando decisão de fila');
-    
-    // Normalizar entrada: botão ou texto
-    let escolha;
-    if (user_input.type === 'button') {
-      escolha = user_input.id;
     } else {
-      escolha = user_input.content?.trim();
+      // VOLTAR PARA O MENU
+      return await this.processarEstadoINIT(base44, thread, contact, whatsappIntegrationId, null, null);
     }
-    
-    if (escolha === 'fila_entrar' || escolha === '1') {
-      // Cliente optou por entrar na fila
-      const setor = thread.sector_id || 'geral';
-      
-      console.log('[FLUXO] 📥 Cliente optou por entrar na fila do setor:', setor);
-      
-      // Enfileirar via gerenciarFila
-      const resultadoFila = await base44.asServiceRole.functions.invoke('gerenciarFila', {
-        action: 'enqueue',
-        thread_id: thread.id,
-        whatsapp_integration_id: thread.whatsapp_integration_id,
-        setor: setor,
-        prioridade: 'normal',
-        metadata: {
-          cliente_nome: contact.nome,
-          cliente_telefone: contact.telefone,
-          origem: 'pre_atendimento'
-        }
-      });
-      
-      if (resultadoFila.data.success) {
-        const posicao = resultadoFila.data.posicao || '...';
-        const mensagem = `✅ Você entrou na fila do setor *${setor}*!\n\n` +
-          `📊 Posição atual: *${posicao}*\n` +
-          `⏰ Aguarde que em breve um atendente irá respondê-lo.\n\n` +
-          `Você receberá uma notificação quando for sua vez! 🔔`;
-        
-        await this.enviarMensagemWhatsApp(base44, contact.telefone, mensagem, whatsappIntegrationId);
-        
-        await base44.asServiceRole.entities.MessageThread.update(thread.id, {
-          pre_atendimento_state: 'COMPLETED',
-          pre_atendimento_ativo: false
-        });
-        
-        return {
-          success: true,
-          proximo_estado: 'COMPLETED',
-          enfileirado: true,
-          posicao: posicao
-        };
-      }
-      
-    } else if (escolha === 'fila_outro' || escolha === '2') {
-      // Cliente optou por escolher outro atendente
-      const setor = thread.sector_id;
-      const atendentes = await AtendenteSelector.buscarAtendentesDisponiveis(base44, setor);
-      const mensagem = MenuBuilder.construirMenuAtendentes(atendentes, setor);
-      
-      await this.enviarMensagemWhatsApp(base44, contact.telefone, mensagem, whatsappIntegrationId);
-      
-      await base44.asServiceRole.entities.MessageThread.update(thread.id, {
-        pre_atendimento_state: 'WAITING_ATTENDANT_CHOICE'
-      });
-      
-      return {
-        success: true,
-        proximo_estado: 'WAITING_ATTENDANT_CHOICE'
-      };
-    }
-    
-    // Resposta inválida
-    const mensagemErro = {
-      type: 'interactive_buttons',
-      body: `❌ Opção inválida. Por favor, escolha uma opção:`,
-      buttons: [
-        { id: 'fila_entrar', text: '✅ Entrar na fila' },
-        { id: 'fila_outro', text: '🔄 Outro atendente' }
-      ]
-    };
-    await this.enviarMensagemWhatsApp(base44, contact.telefone, mensagemErro, whatsappIntegrationId);
-    
-    return {
-      success: false,
-      erro: 'opcao_invalida',
-      aguardando_nova_resposta: true
-    };
   }
   
-  static async processarCancelamento(base44, thread, contact, whatsappIntegrationId) {
-    console.log('[FLUXO] Processando cancelamento');
-    
-    const mensagem = MenuBuilder.construirMensagemCancelamento();
-    await this.enviarMensagemWhatsApp(base44, contact.telefone, mensagem, whatsappIntegrationId);
-    
-    await base44.asServiceRole.entities.MessageThread.update(thread.id, {
-      pre_atendimento_state: 'CANCELLED',
-      pre_atendimento_ativo: false,
-      status: 'arquivada'
-    });
-    
-    return {
-      success: true,
-      cancelado: true
-    };
-  }
+  // ===============================================================
+  // 🛠️ HELPERS INTERNOS (Para não depender de arquivos externos)
+  // ===============================================================
   
-  static async enviarMensagemWhatsApp(base44, telefone, mensagem, whatsappIntegrationId) {
+  static async enviarMensagem(base44, contact, integrationId, texto, botoes = null) {
     try {
       let payload = {
-        integration_id: whatsappIntegrationId,
-        numero_destino: telefone
+        integration_id: integrationId,
+        numero_destino: contact.telefone,
+        mensagem: processTextWithEmojis(texto)
       };
       
-      // Se mensagem for objeto estruturado (botões)
-      if (typeof mensagem === 'object' && mensagem.type === 'interactive_buttons') {
+      if (botoes) {
         payload.message_type = 'interactive_buttons';
-        payload.mensagem = mensagem.body;
-        payload.interactive_buttons = mensagem.buttons;
-      } else {
-        // Mensagem de texto simples
-        payload.mensagem = mensagem;
+        payload.interactive_buttons = botoes;
       }
       
-      const response = await base44.asServiceRole.functions.invoke('enviarWhatsApp', payload);
-      
-      console.log('[FLUXO] ✅ Mensagem enviada com sucesso');
-      return response.data;
-      
-    } catch (error) {
-      console.error('[FLUXO] ❌ Erro ao enviar mensagem:', error);
-      throw error;
+      await base44.asServiceRole.functions.invoke('enviarWhatsApp', payload);
+    } catch (e) {
+      console.error('[FLUXO] Falha ao enviar msg:', e.message);
     }
+  }
+  
+  static async atualizarEstado(base44, threadId, novoEstado, setorId = undefined) {
+    const updateData = {
+      pre_atendimento_state: novoEstado,
+      pre_atendimento_last_interaction: new Date().toISOString(),
+      pre_atendimento_timeout_at: new Date(Date.now() + 10 * 60 * 1000).toISOString()
+    };
+    
+    if (setorId !== undefined) updateData.sector_id = setorId;
+    
+    await base44.asServiceRole.entities.MessageThread.update(threadId, updateData);
   }
 }
