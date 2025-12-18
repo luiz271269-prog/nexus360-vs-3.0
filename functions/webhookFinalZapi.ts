@@ -34,10 +34,12 @@ function normalizarTelefone(telefone) {
 }
 
 // ============================================================================
-// WEBHOOK WHATSAPP Z-API - v9.1.0 FINAL
+// WEBHOOK WHATSAPP Z-API - v10.0.0 INGESTÃO PURA + CÉREBRO ISOLADO
 // ============================================================================
-const VERSION = 'v9.1.0-FINAL';
-const BUILD_DATE = '2025-11-25';
+// SIMETRIA COM W-API: Webhook burro, inteligência em processInbound
+// ============================================================================
+const VERSION = 'v10.0.0-PURE-INGESTION';
+const BUILD_DATE = '2025-12-18';
 
 const corsHeaders = {
   'Content-Type': 'application/json',
@@ -820,62 +822,35 @@ async function handleMessage(dados, payloadBruto, base44) {
   }
 
   // ============================================================================
-  // ✅ PRÉ-ATENDIMENTO AUTOMÁTICO - CHAMADA PARA FUNÇÃO SEPARADA
+  // ✅ DISPARAR CÉREBRO (Async Fire-and-Forget) - SIMETRIA COM W-API
   // ============================================================================
-  const SAUDACOES = [
-    'oi', 'olá', 'ola', 'oie', 'oii', 'oiii',
-    'bom dia', 'boa tarde', 'boa noite',
-    'bomdia', 'boatarde', 'boanoite',
-    'hey', 'hello', 'hi',
-    'e aí', 'e ai', 'eai', 'eae',
-    'tudo bem', 'tudo bom', 'como vai',
-    'opa', 'fala', 'salve'
-  ];
-  
-  const mensagemLower = (dados.content || '').toLowerCase().trim();
-  const isSaudacao = SAUDACOES.some(s => mensagemLower === s || mensagemLower.startsWith(s + ' ') || mensagemLower.startsWith(s + ',') || mensagemLower.startsWith(s + '!'));
-  
-  // Verificar se há execução ativa de pré-atendimento
-  let execucoesAtivas = [];
   try {
-    execucoesAtivas = await base44.asServiceRole.entities.FlowExecution.filter({
-      thread_id: thread.id,
-      status: 'ativo'
-    }, '-created_date', 1);
-  } catch (e) {
-    console.log(`[${VERSION}] ⚠️ Erro ao buscar execuções ativas:`, e?.message);
-  }
+    console.log(`[${VERSION}] 🚀 Disparando processInbound (Cérebro separado)...`);
+    
+    let integracaoObj = null;
+    if (integracaoId) {
+      try {
+        integracaoObj = await base44.asServiceRole.entities.WhatsAppIntegration.get(integracaoId);
+      } catch (e) {
+        console.warn(`[${VERSION}] ⚠️ Integração não encontrada, enviando ID:`, e?.message);
+        integracaoObj = { id: integracaoId };
+      }
+    }
 
-  if (execucoesAtivas.length > 0) {
-    // Processar resposta do pré-atendimento em andamento
-    console.log(`[${VERSION}] 🔄 Processando resposta pré-atendimento | Thread: ${thread.id}`);
-    try {
-      await base44.functions.invoke('executarPreAtendimento', {
-        action: 'processar_resposta',
-        thread_id: thread.id,
-        contact_id: contato.id,
-        integration_id: integracaoId,
-        resposta_usuario: dados.content
-      });
-    } catch (e) {
-      console.error(`[${VERSION}] ❌ Erro ao processar resposta pré-atendimento:`, e?.message);
-    }
-  } else if (isSaudacao) {
-    // Iniciar pré-atendimento apenas se for saudação
-    console.log(`[${VERSION}] 🚀 Saudação detectada! Iniciando pré-atendimento | Msg: "${mensagemLower}" | Thread: ${thread.id}`);
-    try {
-      await base44.functions.invoke('executarPreAtendimento', {
-        action: 'iniciar',
-        thread_id: thread.id,
-        contact_id: contato.id,
-        integration_id: integracaoId
-      });
-      console.log(`[${VERSION}] ✅ Pré-atendimento iniciado com sucesso`);
-    } catch (e) {
-      console.error(`[${VERSION}] ❌ Erro ao iniciar pré-atendimento:`, e?.message);
-    }
-  } else {
-    console.log(`[${VERSION}] ℹ️ Mensagem não é saudação, pré-atendimento não ativado | Msg: "${mensagemLower.substring(0, 30)}"`);
+    // Fire-and-Forget: Se falhar, não trava o 200 OK do webhook
+    base44.asServiceRole.functions.invoke('processInbound', {
+      message: mensagem,
+      contact: contato,
+      thread: thread,
+      integration: integracaoObj,
+      provider: 'z_api',
+      messageContent: dados.content,
+      rawPayload: payloadBruto
+    }).catch(e => console.error(`[${VERSION}] ⚠️ Erro no processInbound (não afeta ingestão):`, e?.message));
+    
+    console.log(`[${VERSION}] ✅ Cérebro disparado (isolado)`);
+  } catch (err) {
+    console.error(`[${VERSION}] ⚠️ Erro ao disparar Cérebro:`, err?.message);
   }
 
   // Audit log
@@ -902,6 +877,6 @@ async function handleMessage(dados, payloadBruto, base44) {
     thread_id: thread.id,
     integration_id: integracaoId,
     duration_ms: duracao,
-    pre_atendimento_triggered: isSaudacao && execucoesAtivas.length === 0
+    status: 'processed_inline'
   });
 }
