@@ -72,9 +72,10 @@ export class FluxoController {
 
     // Se o cliente disser NÃO, ele quer trocar. Limpamos tudo (DIVÓRCIO VOLUNTÁRIO).
     if (['sticky_nao', 'nao', 'não', '2', 'menu', 'outro'].some(x => entrada.includes(x))) {
-      console.log('[FLUXO] Cliente recusou sticky. Limpando vínculos.');
+      console.log('[FLUXO] 💔 Divórcio voluntário. Cliente recusou sticky. Limpando vínculos e resetando para INIT.');
 
       await base44.asServiceRole.entities.MessageThread.update(thread.id, {
+        pre_atendimento_state: 'INIT',
         sector_id: null,
         assigned_user_id: null // Garante que solta do atendente anterior
       });
@@ -123,7 +124,7 @@ export class FluxoController {
     const setor = thread.sector_id;
 
     try {
-        console.log(`[FLUXO] Tentando rotear para setor: ${setor}`);
+        console.log(`[FLUXO] Tentando rotear para setor: ${setor}, conexão: ${whatsappIntegrationId}`);
 
         // Chama roteamento passando a integração para filtrar quem atende ESSE número
         const rota = await base44.asServiceRole.functions.invoke('roteamentoInteligente', {

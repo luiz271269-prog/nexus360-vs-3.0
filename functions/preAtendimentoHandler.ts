@@ -78,31 +78,47 @@ Deno.serve(async (req) => {
       const lastInteraction = new Date(thread.last_message_at || thread.updated_at).getTime();
       const hoursInactive = (Date.now() - lastInteraction) / (1000 * 60 * 60);
 
-      // Se passou do tempo limite, reinicia o ciclo e SOLTA O CONTATO
-      if (hoursInactive >= REABERTURA_TTL_HOURS) {
-        console.log(`[PRE-ATENDIMENTO] ♻️ Novo ciclo detectado (${hoursInactive.toFixed(1)}h inativo). Resetando para INIT.`);
-        
+      // COMPLETED SEM assigned_user_id: Reabrir se passou do TTL
+      if (!thread.assigned_user_id && hoursInactive >= REABERTURA_TTL_HOURS) {
+        console.log(`[PRE-ATENDIMENTO] ♻️ Novo ciclo (sem humano) detectado (${hoursInactive.toFixed(1)}h inativo). Resetando para INIT.`);
+
         await base44.asServiceRole.entities.MessageThread.update(thread.id, {
           pre_atendimento_state: 'INIT',
           pre_atendimento_ativo: true,
           pre_atendimento_started_at: new Date().toISOString(),
           pre_atendimento_completed_at: null,
-          // 🔥 O PULO DO GATO: Limpa o atendente e setor para permitir novo roteamento
-          assigned_user_id: null, 
-          sector_id: null 
+          sector_id: null
         });
 
-        // Recarrega a thread limpa para o FluxoController pegar o estado novo
         thread = await base44.asServiceRole.entities.MessageThread.get(thread_id);
-        console.log('[PRE-ATENDIMENTO] Thread reaberta para INIT e contato liberado');
-      } 
-      // Se tem humano atribuído e está dentro do tempo recente (<24h), aborta e deixa pro humano
+        console.log('[PRE-ATENDIMENTO] Thread reaberta para INIT');
+      }
+      // COMPLETED COM assigned_user_id
       else if (thread.assigned_user_id) {
-        console.log('[PRE-ATENDIMENTO] Humano ativo e dentro da janela de 24h. URA não interfere.');
-        return Response.json({
-          success: true,
-          message: 'Atendente humano ativo na conversa COMPLETED e dentro do TTL.'
-        }, { status: 200, headers });
+        // Dentro do TTL: respeita o humano
+        if (hoursInactive < REABERTURA_TTL_HOURS) {
+          console.log('[PRE-ATENDIMENTO] Humano ativo e dentro da janela de 24h. URA não interfere.');
+          return Response.json({
+            success: true,
+            message: 'Atendente humano ativo na conversa COMPLETED e dentro do TTL.'
+          }, { status: 200, headers });
+        }
+        // Fora do TTL: humano obsoleto, divórcio automático
+        else {
+          console.log(`[PRE-ATENDIMENTO] 💔 Divórcio automático (${hoursInactive.toFixed(1)}h inativo). Resetando para INIT e limpando atendente.`);
+
+          await base44.asServiceRole.entities.MessageThread.update(thread.id, {
+            pre_atendimento_state: 'INIT',
+            pre_atendimento_ativo: true,
+            pre_atendimento_started_at: new Date().toISOString(),
+            pre_atendimento_completed_at: null,
+            assigned_user_id: null,
+            sector_id: null
+          });
+
+          thread = await base44.asServiceRole.entities.MessageThread.get(thread_id);
+          console.log('[PRE-ATENDIMENTO] Thread reaberta para INIT e contato liberado (divórcio automático)');
+        }
       }
     }
 

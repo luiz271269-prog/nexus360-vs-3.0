@@ -43,9 +43,12 @@ export function detectNovoCiclo(lastInboundAt, now) {
 /**
  * Verifica se humano está ativo (não stale)
  */
-export function humanoAtivo(thread, horasStale = 8) {
+export function humanoAtivo(thread, horasStale = 2) {
   if (!thread.assigned_user_id) return false;
   if (thread.pre_atendimento_ativo) return false; // URA ativa = humano não está no controle
+  
+  // Se a última mensagem foi do cliente, humano NÃO está ativo
+  if (thread.last_message_sender === 'contact') return false;
   
   const lastMessageDate = new Date(thread.last_message_at);
   const now = new Date();
@@ -308,17 +311,19 @@ export async function processInboundEvent(params) {
   // ============================================================================
   // 7. EXECUÇÃO DO PRÉ-ATENDIMENTO (O Motor Único)
   // ============================================================================
-  
+
   result.pipeline.push('pre_atendimento_dispatch');
 
   // A URA deve acordar se:
   // 1. Ela já está rodando (óbvio)
-  // 2. É um NOVO CICLO (passou a noite) e o humano não está falando agora (mesmo que assigned_user_id exista)
-  // 3. A thread está em estado final (COMPLETED/TIMEOUT) e o humano não está falando agora
+  // 2. É um NOVO CICLO e o humano não está ativo
+  // 3. A thread está em estado final (COMPLETED/CANCELLED/TIMEOUT) e o humano não está ativo
+  // 4. Gap de inatividade (URA e humano ambos inativos) e não é novo ciclo nem estado final
   const shouldDispatch = 
       isUraActive || 
       (novoCiclo && !isHumanActive) || 
-      (['COMPLETED', 'CANCELLED', 'TIMEOUT'].includes(thread.pre_atendimento_state) && !isHumanActive);
+      (['COMPLETED', 'CANCELLED', 'TIMEOUT'].includes(thread.pre_atendimento_state) && !isHumanActive) ||
+      (!isUraActive && !isHumanActive && !novoCiclo && !['COMPLETED', 'CANCELLED', 'TIMEOUT'].includes(thread.pre_atendimento_state));
 
   if (shouldDispatch) {
     result.actions.push('dispatching_to_ura');
