@@ -839,7 +839,7 @@ export default function ChatWindow({
         }
       }
     })();
-  }, [podeEnviarMidias, modoSelecaoMultipla, contatosSelecionados, handleEnviarBroadcast, thread, usuario, contatoCompleto, canalSelecionado, mensagemResposta, onAtualizarMensagens, autoAtribuirThreadSeNecessario]);
+  }, [podeEnviarMidias, modoSelecaoMultipla, contatosSelecionados, broadcastInterno, handleEnviarBroadcast, thread, usuario, contatoCompleto, canalSelecionado, mensagemResposta, onAtualizarMensagens, autoAtribuirThreadSeNecessario]);
 
   // 📎 ENVIAR ARQUIVO ANEXADO (imagem, vídeo, documento)
   const enviarArquivoAnexado = useCallback(async (file, fileType, legendaTexto = '') => {
@@ -1000,7 +1000,7 @@ export default function ChatWindow({
         }
       }
     })();
-  }, [podeEnviarMidias, modoSelecaoMultipla, contatosSelecionados, handleEnviarBroadcast, thread, usuario, contatoCompleto, canalSelecionado, mensagemResposta, onAtualizarMensagens, autoAtribuirThreadSeNecessario]);
+  }, [podeEnviarMidias, modoSelecaoMultipla, contatosSelecionados, broadcastInterno, handleEnviarBroadcast, thread, usuario, contatoCompleto, canalSelecionado, mensagemResposta, onAtualizarMensagens, autoAtribuirThreadSeNecessario]);
 
   // 🚀 HANDLER DE ENVIO - Recebe dados do MessageInput
   const handleEnviarFromInput = useCallback(async ({ texto, pastedImage, pastedImagePreview, attachedFile, attachedFileType }) => {
