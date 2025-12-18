@@ -86,56 +86,73 @@ Mensagem: "Meu produto veio quebrado"
 
 Agora analise a mensagem do cliente e retorne apenas o JSON.`;
 
-    // 🤖 Chamar LLM
-    const resultado = await base44.asServiceRole.integrations.Core.InvokeLLM({
-      prompt: prompt,
-      response_json_schema: {
-        type: "object",
-        properties: {
-          setor: {
-            type: "string",
-            enum: ["vendas", "assistencia", "financeiro", "fornecedor", "geral", "solicitacao_atendente"]
+    // 🤖 Chamar LLM com tratamento robusto de erro
+    let resultado;
+    try {
+      const llmResponse = await base44.asServiceRole.integrations.Core.InvokeLLM({
+        prompt: prompt,
+        response_json_schema: {
+          type: "object",
+          properties: {
+            setor: {
+              type: "string",
+              enum: ["vendas", "assistencia", "financeiro", "fornecedor", "geral", "solicitacao_atendente"]
+            },
+            confianca: {
+              type: "number",
+              minimum: 0,
+              maximum: 100
+            },
+            urgencia: {
+              type: "string",
+              enum: ["baixa", "media", "alta", "critica"]
+            },
+            sentimento: {
+              type: "string",
+              enum: ["positivo", "neutro", "negativo", "frustrado"]
+            },
+            explicacao: {
+              type: "string"
+            },
+            nome_atendente_solicitado: {
+              type: ["string", "null"]
+            },
+            solicita_qualquer_atendente: {
+              type: "boolean"
+            }
           },
-          confianca: {
-            type: "number",
-            minimum: 0,
-            maximum: 100
-          },
-          urgencia: {
-            type: "string",
-            enum: ["baixa", "media", "alta", "critica"]
-          },
-          sentimento: {
-            type: "string",
-            enum: ["positivo", "neutro", "negativo", "frustrado"]
-          },
-          explicacao: {
-            type: "string"
-          },
-          nome_atendente_solicitado: {
-            type: ["string", "null"]
-          },
-          solicita_qualquer_atendente: {
-            type: "boolean"
-          }
-        },
-        required: ["setor", "confianca", "urgencia", "sentimento", "explicacao", "solicita_qualquer_atendente"]
+          required: ["setor", "confianca", "urgencia", "sentimento", "explicacao", "solicita_qualquer_atendente"]
+        }
+      });
+
+      // Normalizar resposta (pode vir em wrapper diferente)
+      if (typeof llmResponse === 'string') {
+        resultado = JSON.parse(llmResponse);
+      } else if (llmResponse.output) {
+        resultado = typeof llmResponse.output === 'string' ? JSON.parse(llmResponse.output) : llmResponse.output;
+      } else {
+        resultado = llmResponse;
       }
-    });
 
-    console.log('[analisarIntencao] ✅ Resultado da IA:', resultado);
+      console.log('[analisarIntencao] ✅ Resultado da IA normalizado:', resultado);
+    } catch (parseError) {
+      console.error('[analisarIntencao] ❌ Erro ao parsear resposta da IA:', parseError);
+      resultado = null;
+    }
 
-    if (!resultado || !resultado.setor) {
-      console.warn('[analisarIntencao] ⚠️ IA retornou resultado inválido');
+    // Validação robusta com fallback inteligente (nunca bloqueia URA)
+    if (!resultado || !resultado.setor || typeof resultado.confianca !== 'number') {
+      console.warn('[analisarIntencao] ⚠️ IA retornou resultado inválido ou incompleto. Usando fallback.');
       return Response.json({
         setor: 'geral',
-        confianca: 20,
+        confianca: 25,
         urgencia: 'media',
         sentimento: 'neutro',
-        explicacao: 'Não foi possível classificar com certeza',
+        explicacao: 'Classificação IA falhou. Usando URA padrão.',
         nome_atendente_solicitado: null,
         solicita_qualquer_atendente: false,
-        fallback: true
+        fallback: true,
+        deve_iniciar_ura: true
       }, { headers });
     }
 
@@ -181,7 +198,7 @@ Agora analise a mensagem do cliente e retorne apenas o JSON.`;
       }
     }
 
-    // ✅ Retornar análise completa
+    // ✅ Retornar análise completa com hint de URA
     const analiseCompleta = {
       setor: resultado.setor,
       confianca: confiancaFinal,
@@ -191,6 +208,8 @@ Agora analise a mensagem do cliente e retorne apenas o JSON.`;
       nome_atendente_solicitado: resultado.nome_atendente_solicitado || null,
       solicita_qualquer_atendente: resultado.solicita_qualquer_atendente,
       deve_transferir_automaticamente: resultado.setor === 'solicitacao_atendente' && confiancaFinal >= 80,
+      deve_iniciar_ura: true, // IA nunca bloqueia URA, sempre sugere iniciar
+      setor_sugerido: confiancaFinal >= 70 ? resultado.setor : null, // Pré-seleção se alta confiança
       timestamp: new Date().toISOString()
     };
 

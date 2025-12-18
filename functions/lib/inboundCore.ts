@@ -90,23 +90,28 @@ export async function processInboundEvent(params) {
   // ORDEM IMUTÁVEL DO PIPELINE
   // ============================================================================
   
-  // (1) MICRO-URA: Processar resposta 1/2 se pendente
+  // (1) MICRO-URA: Processar ou cancelar automaticamente
   result.pipeline.push('micro_ura_check');
   if (thread.transfer_pending) {
     const { pedidoExpirou } = await import('./detectorPedidoTransferencia.js');
     
+    // Se expirou, limpar completamente
     if (pedidoExpirou(thread)) {
       await base44.asServiceRole.entities.MessageThread.update(thread.id, {
         transfer_pending: false,
         transfer_requested_sector_id: null,
         transfer_requested_user_id: null,
         transfer_confirmed: false,
-        transfer_expires_at: null
+        transfer_expires_at: null,
+        transfer_last_prompt_at: null
       });
       result.actions.push('micro_ura_expired');
-    } else {
+    } 
+    // Se mensagem do CONTATO e micro-URA pendente, cancelar automaticamente
+    else if (message.sender_type === 'contact') {
       const resposta = messageContent?.trim();
       
+      // Processa resposta 1/2 se for clara
       if (resposta === '1' || resposta.toLowerCase().includes('sim')) {
         await base44.asServiceRole.entities.MessageThread.update(thread.id, {
           transfer_confirmed: true
@@ -121,11 +126,23 @@ export async function processInboundEvent(params) {
           transfer_requested_sector_id: null,
           transfer_requested_user_id: null,
           transfer_confirmed: false,
-          transfer_expires_at: null
+          transfer_expires_at: null,
+          transfer_last_prompt_at: null
         });
         result.actions.push('micro_ura_cancelled');
         return { ...result, consumed: true, action: 'micro_ura_cancelled' };
       }
+      
+      // Qualquer outra mensagem cancela micro-URA pendente
+      await base44.asServiceRole.entities.MessageThread.update(thread.id, {
+        transfer_pending: false,
+        transfer_requested_sector_id: null,
+        transfer_requested_user_id: null,
+        transfer_confirmed: false,
+        transfer_expires_at: null,
+        transfer_last_prompt_at: null
+      });
+      result.actions.push('micro_ura_auto_cancelled');
     }
   }
   

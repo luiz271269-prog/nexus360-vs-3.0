@@ -30,20 +30,24 @@ Deno.serve(async (req) => {
 
     console.log('[PRE-ATENDIMENTO] 📥 Payload recebido:', payload);
 
-    const { thread_id, contact_id, mensagem_cliente, whatsapp_integration_id } = payload;
-
+    // ═══════════════════════════════════════════════════════════
+    // 1. NORMALIZAÇÃO DE ENTRADA (Contrato Único)
+    // ═══════════════════════════════════════════════════════════
+    const { thread_id, contact_id, whatsapp_integration_id } = payload;
+    
     if (!thread_id || !contact_id) {
       throw new Error('thread_id e contact_id são obrigatórios');
     }
     
-    // ═══════════════════════════════════════════════════════════
-    // NORMALIZAR INPUT DO USUÁRIO (BOTÃO OU TEXTO)
-    // ═══════════════════════════════════════════════════════════
+    // Normalizar user_input de forma robusta
+    let user_input = { type: 'text', content: '' };
     
-    let user_input = { type: 'text', content: mensagem_cliente || '' };
-    
+    // Prioridade 1: user_input já normalizado
+    if (payload.user_input) {
+      user_input = payload.user_input;
+    }
     // Cloud API format
-    if (payload.messages && payload.messages.length > 0) {
+    else if (payload.messages && payload.messages.length > 0) {
       const msg = payload.messages[0];
       if (msg.type === 'interactive' && msg.interactive?.type === 'button_reply') {
         user_input = {
@@ -70,15 +74,23 @@ Deno.serve(async (req) => {
         type: 'text',
         content: payload.message.text
       };
+    } else if (payload.mensagem_cliente) {
+      user_input = {
+        type: 'text',
+        content: payload.mensagem_cliente
+      };
     }
     
-    console.log('[PRE-ATENDIMENTO] 📝 User Input:', user_input);
+    console.log('[PRE-ATENDIMENTO] 📝 User Input normalizado:', user_input);
 
     // ═══════════════════════════════════════════════════════════
     // BUSCAR THREAD E CONTACT
     // ═══════════════════════════════════════════════════════════
     
-    const [thread, contact] = await RetryHandler.executeWithRetry(
+    // ═══════════════════════════════════════════════════════════
+    // 2. BUSCAR THREAD E CONTACT
+    // ═══════════════════════════════════════════════════════════
+    let [thread, contact] = await RetryHandler.executeWithRetry(
       async () => {
         const t = await base44.asServiceRole.entities.MessageThread.get(thread_id);
         const c = await base44.asServiceRole.entities.Contact.get(contact_id);
@@ -90,11 +102,62 @@ Deno.serve(async (req) => {
       }
     );
 
-    console.log('[PRE-ATENDIMENTO] Thread:', {
+    console.log('[PRE-ATENDIMENTO] Thread carregada:', {
       id: thread.id,
       estado: thread.pre_atendimento_state,
       ativo: thread.pre_atendimento_ativo
     });
+
+    // ═══════════════════════════════════════════════════════════
+    // 3. POLÍTICA DE REABERTURA (Correção do Buraco Negro COMPLETED)
+    // ═══════════════════════════════════════════════════════════
+    if (thread.pre_atendimento_state === 'COMPLETED') {
+      const REABERTURA_TTL_HOURS = 24;
+      const lastMessageTime = thread.last_message_at ? new Date(thread.last_message_at).getTime() : 0;
+      const nowTime = new Date().getTime();
+      const hoursInactive = (nowTime - lastMessageTime) / (1000 * 60 * 60);
+
+      if (!thread.assigned_user_id && hoursInactive >= REABERTURA_TTL_HOURS) {
+        console.log(`[PRE-ATENDIMENTO] 🔄 Thread COMPLETED há ${hoursInactive.toFixed(1)}h sem humano. Reabrindo ciclo.`);
+        await base44.asServiceRole.entities.MessageThread.update(thread.id, {
+          pre_atendimento_state: 'INIT',
+          pre_atendimento_ativo: true,
+          pre_atendimento_completed_at: null,
+          pre_atendimento_started_at: new Date().toISOString()
+        });
+        // CRÍTICO: Recarregar thread para garantir estado atualizado
+        thread = await base44.asServiceRole.entities.MessageThread.get(thread_id);
+        console.log('[PRE-ATENDIMENTO] Thread reaberta para INIT');
+      } else {
+        console.log('[PRE-ATENDIMENTO] Thread COMPLETED mas dentro da janela ou com humano ativo. Ignorando.');
+        return Response.json({
+          success: false,
+          erro: 'Pré-atendimento já concluído e ativo',
+          estado_atual: 'COMPLETED'
+        }, { status: 200, headers });
+      }
+    }
+
+    // ═══════════════════════════════════════════════════════════
+    // 4. VERIFICAÇÃO DE TIMEOUT E CORREÇÃO DE MEMÓRIA
+    // ═══════════════════════════════════════════════════════════
+    if (thread.pre_atendimento_timeout_at) {
+      const timeoutDate = new Date(thread.pre_atendimento_timeout_at);
+      const now = new Date();
+      
+      if (now >= timeoutDate && thread.pre_atendimento_state !== 'INIT') {
+        console.log('[PRE-ATENDIMENTO] ⏰ Timeout detectado. Resetando para INIT.');
+        await base44.asServiceRole.entities.MessageThread.update(thread.id, {
+          pre_atendimento_state: 'INIT',
+          pre_atendimento_ativo: true,
+          pre_atendimento_timeout_at: null,
+          pre_atendimento_started_at: new Date().toISOString()
+        });
+        // CRÍTICO: Recarregar thread após reset de estado
+        thread = await base44.asServiceRole.entities.MessageThread.get(thread_id);
+        console.log('[PRE-ATENDIMENTO] Estado resetado na memória após timeout');
+      }
+    }
 
     // ═══════════════════════════════════════════════════════════
     // BUSCAR INTEGRAÇÃO WHATSAPP
@@ -130,11 +193,13 @@ Deno.serve(async (req) => {
 
     switch (estadoAtual) {
       case 'INIT':
+        // CRÍTICO: Passa user_input para INIT poder decidir com base na mensagem
         resultado = await FluxoController.processarEstadoINIT(
           base44,
           thread,
           contact,
-          whatsappIntegration.id
+          whatsappIntegration.id,
+          user_input
         );
         break;
 
@@ -149,27 +214,23 @@ Deno.serve(async (req) => {
         break;
 
       case 'WAITING_ATTENDANT_CHOICE':
-        if (!user_message) {
-          throw new Error('user_message é obrigatório para WAITING_ATTENDANT_CHOICE');
-        }
+        // FIX: Corrigido user_message → user_input
         resultado = await FluxoController.processarWAITING_ATTENDANT_CHOICE(
           base44,
           thread,
           contact,
-          user_message,
+          user_input,
           whatsappIntegration.id
         );
         break;
 
       case 'WAITING_QUEUE_DECISION':
-        if (!user_message) {
-          throw new Error('user_message é obrigatório para WAITING_QUEUE_DECISION');
-        }
+        // FIX: Corrigido user_message → user_input
         resultado = await FluxoController.processarWAITING_QUEUE_DECISION(
           base44,
           thread,
           contact,
-          user_message,
+          user_input,
           whatsappIntegration.id
         );
         break;
@@ -182,9 +243,12 @@ Deno.serve(async (req) => {
         break;
 
       case 'COMPLETED':
+        // COMPLETED já foi tratado antes do switch com política de reabertura
+        console.log('[PRE-ATENDIMENTO] Estado COMPLETED no switch (deveria ter sido tratado antes)');
         resultado = {
           success: false,
-          erro: 'Pré-atendimento já foi concluído'
+          erro: 'Pré-atendimento concluído e ainda ativo',
+          proximo_estado: 'COMPLETED'
         };
         break;
 
@@ -196,16 +260,21 @@ Deno.serve(async (req) => {
         break;
 
       case 'TIMEOUT':
-        // Reiniciar fluxo
+        // TIMEOUT já foi tratado antes do switch, não deveria chegar aqui
+        console.log('[PRE-ATENDIMENTO] Estado TIMEOUT detectado no switch (deveria ter sido resetado antes)');
         await base44.asServiceRole.entities.MessageThread.update(thread.id, {
           pre_atendimento_state: 'INIT',
-          pre_atendimento_ativo: true
+          pre_atendimento_ativo: true,
+          pre_atendimento_timeout_at: null
         });
+        // Recarregar thread após atualização
+        thread = await base44.asServiceRole.entities.MessageThread.get(thread.id);
         resultado = await FluxoController.processarEstadoINIT(
           base44,
           thread,
           contact,
-          whatsappIntegration.id
+          whatsappIntegration.id,
+          user_input
         );
         break;
 
