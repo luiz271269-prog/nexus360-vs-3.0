@@ -325,7 +325,8 @@ export async function processInboundEvent(params) {
       user_input: userInput,
       intent_context: intentContext,
       is_new_cycle: novoCiclo,
-      provider: provider
+      provider: provider,
+      whatsappIntegration: integration
     };
     
     try {

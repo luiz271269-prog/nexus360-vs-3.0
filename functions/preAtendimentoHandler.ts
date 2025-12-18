@@ -39,49 +39,11 @@ Deno.serve(async (req) => {
       throw new Error('thread_id e contact_id são obrigatórios');
     }
     
-    // Normalizar user_input de forma robusta
-    let user_input = { type: 'text', content: '' };
+    // user_input já deve vir normalizado do inboundCore
+    const user_input = payload.user_input || { type: 'text', content: '' };
+    const intent_context = payload.intent_context || null;
     
-    // Prioridade 1: user_input já normalizado
-    if (payload.user_input) {
-      user_input = payload.user_input;
-    }
-    // Cloud API format
-    else if (payload.messages && payload.messages.length > 0) {
-      const msg = payload.messages[0];
-      if (msg.type === 'interactive' && msg.interactive?.type === 'button_reply') {
-        user_input = {
-          type: 'button',
-          id: msg.interactive.button_reply.id,
-          text: msg.interactive.button_reply.title
-        };
-      } else if (msg.type === 'text') {
-        user_input = {
-          type: 'text',
-          content: msg.text.body
-        };
-      }
-    }
-    // Z-API / W-API format
-    else if (payload.button_reply?.id) {
-      user_input = {
-        type: 'button',
-        id: payload.button_reply.id,
-        text: payload.button_reply.text
-      };
-    } else if (payload.message?.text) {
-      user_input = {
-        type: 'text',
-        content: payload.message.text
-      };
-    } else if (payload.mensagem_cliente) {
-      user_input = {
-        type: 'text',
-        content: payload.mensagem_cliente
-      };
-    }
-    
-    console.log('[PRE-ATENDIMENTO] 📝 User Input normalizado:', user_input);
+    console.log('[PRE-ATENDIMENTO] 📝 User Input recebido:', user_input);
 
     // ═══════════════════════════════════════════════════════════
     // BUSCAR THREAD E CONTACT
@@ -125,14 +87,13 @@ Deno.serve(async (req) => {
           pre_atendimento_completed_at: null,
           pre_atendimento_started_at: new Date().toISOString()
         });
-        // CRÍTICO: Recarregar thread para garantir estado atualizado
         thread = await base44.asServiceRole.entities.MessageThread.get(thread_id);
         console.log('[PRE-ATENDIMENTO] Thread reaberta para INIT');
-      } else {
-        console.log('[PRE-ATENDIMENTO] Thread COMPLETED mas dentro da janela ou com humano ativo. Ignorando.');
+      } else if (thread.assigned_user_id) {
+        console.log('[PRE-ATENDIMENTO] Thread COMPLETED com atendente atribuído. Ignorando.');
         return Response.json({
           success: false,
-          erro: 'Pré-atendimento já concluído e ativo',
+          erro: 'Pré-atendimento já concluído e atendente ativo',
           estado_atual: 'COMPLETED'
         }, { status: 200, headers });
       }
@@ -163,16 +124,16 @@ Deno.serve(async (req) => {
     // BUSCAR INTEGRAÇÃO WHATSAPP
     // ═══════════════════════════════════════════════════════════
     
-    let whatsappIntegration = null;
+    let whatsappIntegration = payload.whatsappIntegration || null;
     
-    if (whatsapp_integration_id) {
+    if (!whatsappIntegration && whatsapp_integration_id) {
       whatsappIntegration = await base44.asServiceRole.entities.WhatsAppIntegration.get(whatsapp_integration_id);
-    } else {
-      // Buscar primeira integração ativa
+    }
+    
+    if (!whatsappIntegration) {
       const integracoes = await base44.asServiceRole.entities.WhatsAppIntegration.filter({
         status: 'conectado'
       });
-      
       if (integracoes.length > 0) {
         whatsappIntegration = integracoes[0];
       } else {
@@ -193,15 +154,13 @@ Deno.serve(async (req) => {
 
     switch (estadoAtual) {
       case 'INIT':
-        // CRÍTICO: Passa user_input E intent_context para INIT poder decidir
-        const intentContext = payload.intent_context || null;
         resultado = await FluxoController.processarEstadoINIT(
           base44,
           thread,
           contact,
           whatsappIntegration.id,
           user_input,
-          intentContext
+          intent_context
         );
         break;
 
