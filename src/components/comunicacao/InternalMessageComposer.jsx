@@ -258,15 +258,15 @@ export default function InternalMessageComposer({ open, onClose, currentUser }) 
                 <TabsList className="grid w-full grid-cols-3">
                   <TabsTrigger value="usuarios">
                     <Users className="w-4 h-4 mr-2" />
-                    Usuários ({selectedUsers.length})
+                    Usuários ({usuariosDisponiveis.length})
                   </TabsTrigger>
                   <TabsTrigger value="setores">
                     <Building2 className="w-4 h-4 mr-2" />
-                    Setores ({selectedSectors.length})
+                    Setores ({setores.length})
                   </TabsTrigger>
                   <TabsTrigger value="grupos">
                     <Users className="w-4 h-4 mr-2" />
-                    Grupos ({selectedGroups.length})
+                    Grupos ({grupos.length})
                   </TabsTrigger>
                 </TabsList>
 
