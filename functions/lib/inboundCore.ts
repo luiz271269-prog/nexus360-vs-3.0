@@ -52,6 +52,41 @@ export async function processInboundEvent(params) {
   };
   
   // ============================================================================
+  // 🛑 KILL SWITCH - RESET DO FUNIL DE PROMOÇÕES (PRIORIDADE MÁXIMA)
+  // ============================================================================
+  // Se a mensagem veio de um CONTATO (não do sistema), resetar autoboost_stage
+  // Isso garante que o funil de 6h/12h/24h pare imediatamente quando o cliente responder
+  
+  if (message.sender_type === 'contact') {
+    result.pipeline.push('promotion_reset');
+    
+    // Resetar estados de boost na thread
+    if (thread.autoboost_stage || thread.last_boost_at || thread.promo_cooldown_expires_at) {
+      await base44.asServiceRole.entities.MessageThread.update(thread.id, {
+        autoboost_stage: null,
+        last_boost_at: null,
+        promo_cooldown_expires_at: null
+      });
+      result.actions.push('reset_promotion_funnel');
+    }
+    
+    // Opcional: Contabilizar resposta na Promoção (se cliente respondeu após receber uma)
+    if (contact.last_promo_id) {
+      try {
+        const promo = await base44.asServiceRole.entities.Promotion.get(contact.last_promo_id);
+        if (promo) {
+          await base44.asServiceRole.entities.Promotion.update(promo.id, {
+            contador_respostas: (promo.contador_respostas || 0) + 1
+          });
+          result.actions.push('counted_promo_response');
+        }
+      } catch (e) {
+        console.warn('[CORE] ⚠️ Erro ao contabilizar resposta da promoção:', e.message);
+      }
+    }
+  }
+  
+  // ============================================================================
   // ORDEM IMUTÁVEL DO PIPELINE
   // ============================================================================
   
