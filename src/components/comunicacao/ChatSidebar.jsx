@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from "react";
-import { CheckCheck, Clock, User, Users, AlertCircle, Image, Video, Mic, FileText, MapPin, Phone as PhoneIcon, Tag, Building2, Target, Truck, Handshake, HelpCircle, UserCheck, Send, X, CheckSquare, Square } from "lucide-react";
+import { CheckCheck, Clock, User, Users, AlertCircle, Image, Video, Mic, FileText, MapPin, Phone as PhoneIcon, Tag, Building2, Target, Truck, Handshake, HelpCircle, UserCheck, Send, X, CheckSquare, Square, MessagesSquare } from "lucide-react";
+import InternalContactPicker from "./InternalContactPicker";
 import { Badge } from "@/components/ui/badge";
 import { motion } from "framer-motion";
 import { format } from "date-fns";
@@ -46,6 +47,9 @@ export default function ChatSidebar({
 }) {
   // Estado local apenas para compatibilidade
   const modoSelecao = modoSelecaoMultipla;
+
+  // Estado para o picker de contatos internos
+  const [internalPickerOpen, setInternalPickerOpen] = useState(false);
 
   // Buscar categorias dinâmicas
   const { data: categoriasDB = [] } = useQuery({
@@ -199,6 +203,36 @@ export default function ChatSidebar({
     return getAtendenteFidelizadoAtualizado(contato, atendentes);
   };
 
+  // Handler para selecionar usuário interno (1:1)
+  const handleSelectUser = async (userId) => {
+    try {
+      const result = await base44.functions.invoke('getOrCreateInternalThread', {
+        target_user_id: userId
+      });
+      
+      if (result?.thread) {
+        onSelecionarThread(result.thread);
+      }
+    } catch (err) {
+      console.error('Erro ao criar thread 1:1:', err);
+    }
+  };
+
+  // Handler para selecionar setor (grupo)
+  const handleSelectSector = async (sectorName) => {
+    try {
+      const result = await base44.functions.invoke('getOrCreateSectorThread', {
+        sector_name: sectorName
+      });
+      
+      if (result?.thread) {
+        onSelecionarThread(result.thread);
+      }
+    } catch (err) {
+      console.error('Erro ao criar thread de setor:', err);
+    }
+  };
+
   return (
     <div className="relative">
       {/* Barra de Ações de Seleção Múltipla */}
@@ -230,6 +264,42 @@ export default function ChatSidebar({
         </div>
       ) : null}
 
+      {/* ═══════════════════════════════════════════════════════════════════ */}
+      {/* SUPER CONTATO FIXO - EQUIPE INTERNA / SETOR */}
+      {/* ═══════════════════════════════════════════════════════════════════ */}
+      {!modoSelecao && (
+        <button
+          onClick={() => setInternalPickerOpen(true)}
+          className="w-full flex items-center gap-3 px-2 py-3 transition-all border-b-2 border-purple-200 hover:bg-gradient-to-r hover:from-purple-50 hover:to-indigo-50 bg-purple-50/50"
+        >
+          <div className="relative flex-shrink-0">
+            <div className="w-12 h-12 rounded-full flex items-center justify-center text-white font-bold shadow-md bg-gradient-to-br from-purple-500 to-indigo-600">
+              <MessagesSquare className="w-6 h-6" />
+            </div>
+          </div>
+
+          <div className="flex-1 min-w-0 text-left">
+            <h3 className="font-semibold text-slate-900 text-sm truncate">
+              🏢 Equipe interna / Setor
+            </h3>
+            <p className="text-xs text-slate-600 truncate">
+              Conversas internas • 1:1 / Grupos
+            </p>
+          </div>
+        </button>
+      )}
+
+      {/* Modal de Seleção */}
+      <InternalContactPicker
+        open={internalPickerOpen}
+        onClose={() => setInternalPickerOpen(false)}
+        onSelectUser={handleSelectUser}
+        onSelectSector={handleSelectSector}
+      />
+
+      {/* ═══════════════════════════════════════════════════════════════════ */}
+      {/* LISTA NORMAL DE THREADS */}
+      {/* ═══════════════════════════════════════════════════════════════════ */}
       {threadsSorted.map((thread, index) => {
         const contato = thread.contato;
         const isAtiva = threadAtiva?.id === thread.id;
