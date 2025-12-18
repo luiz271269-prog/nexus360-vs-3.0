@@ -1,17 +1,17 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.4';
+import { processInboundEvent } from './lib/inboundCore.js';
 
 // ============================================================================
-// WEBHOOK WHATSAPP W-API - v11.0.0 SOLUCAO DEFINITIVA
+// WEBHOOK WHATSAPP W-API - v11.1.0 IMPORT ESTÁTICO CORRIGIDO
 // ============================================================================
-// CORRECOES v11.0.0:
-// 1. Eliminado "os error 2" - zero acesso ao filesystem
+// CORRECOES v11.1.0:
+// 1. Import estático do inboundCore (resolve "os error 2")
 // 2. Midia 100% em memoria usando wapiMediaHandler
 // 3. Normalizacao padrao WhatsApp para integracao com sistema
-// 4. Import dinamico do inboundCore para isolar falhas
 // ============================================================================
 
-const VERSION = 'v11.0.0-SERVERLESS-SAFE';
-const BUILD_DATE = '2025-12-17';
+const VERSION = 'v11.1.0-STATIC-IMPORT';
+const BUILD_DATE = '2025-12-18';
 
 const corsHeaders = {
   'Content-Type': 'application/json',
