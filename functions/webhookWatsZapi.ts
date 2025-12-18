@@ -146,8 +146,20 @@ function normalizarPayload(payload) {
       mediaType = 'contact';
       conteudo = '📇 Contato compartilhado';
     } else if (payload.location) {
+      // 📍 DETECÇÃO ROBUSTA DE LOCALIZAÇÃO
+      const loc = payload.location;
+      
       mediaType = 'location';
       conteudo = '📍 Localização recebida';
+      
+      console.log(`[ZAPI] 📍 LOCALIZAÇÃO DETECTADA:`, {
+        lat: loc.latitude,
+        lng: loc.longitude,
+        name: loc.name,
+        address: loc.address,
+        url: loc.url,
+        rawKeys: Object.keys(loc)
+      });
     } else {
       conteudo = conteudoRaw;
     }

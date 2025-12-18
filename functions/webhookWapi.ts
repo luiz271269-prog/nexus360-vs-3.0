@@ -177,8 +177,20 @@ function normalizarPayload(payload) {
       conteudoRaw = '📇 Contato compartilhado';
     }
     else if (msgContent.locationMessage || msgContent.liveLocationMessage) {
+      // 📍 DETECÇÃO ROBUSTA DE LOCALIZAÇÃO
+      const loc = msgContent.locationMessage || msgContent.liveLocationMessage;
+      
       mediaType = 'location';
       conteudoRaw = '📍 Localização recebida';
+      
+      console.log(`[WAPI] 📍 LOCALIZAÇÃO DETECTADA:`, {
+        lat: loc.degreesLatitude ?? loc.latitude,
+        lng: loc.degreesLongitude ?? loc.longitude,
+        name: loc.name,
+        address: loc.address,
+        accuracy: loc.accuracy,
+        rawKeys: Object.keys(loc)
+      });
     }
     else if (msgContent.extendedTextMessage) {
       conteudoRaw = msgContent.extendedTextMessage.text || '';
