@@ -393,34 +393,44 @@ async function handleMessage(dados, payloadBruto, base44, req) {
     }).catch(e => console.error('[WAPI] Erro trigger mídia:', e.message));
   }
 
-  // 8. DISPARAR CORE DIRETAMENTE (In-Process)
+  // 8. ATUALIZAR THREAD STATUS
   try {
-    console.log('[WAPI] 🔄 Processando Inbound Core...');
+    await base44.asServiceRole.entities.MessageThread.update(thread.id, {
+      last_message_content: dados.content.substring(0, 200),
+      last_message_at: new Date().toISOString(),
+      last_message_sender: 'contact',
+      unread_count: (thread.unread_count || 0) + 1,
+      status: 'aberta'
+    });
+    console.log('[WAPI] ✅ Thread atualizada');
+  } catch (updateError) {
+    console.error('[WAPI] Erro ao atualizar thread:', updateError.message);
+  }
 
-    // Buscar objeto de integração completo
+  // 9. DISPARAR CORE (Async Fire-and-Forget)
+  try {
+    console.log('[WAPI] 🚀 Disparando processamento Core...');
+    
     let integracaoObj = null;
     if (integracaoId) {
       try {
         integracaoObj = await base44.asServiceRole.entities.WhatsAppIntegration.get(integracaoId);
       } catch (e) {
-        console.error('[WAPI] Erro ao buscar integração completa:', e.message);
+        console.error('[WAPI] Erro ao buscar integração:', e.message);
       }
     }
 
-    await processInboundEvent({
-      base44: base44,
-      contact: contato,
-      thread: thread,
-      message: mensagem,
-      integration: integracaoObj,
-      provider: 'w_api',
-      messageContent: dados.content,
-      rawPayload: payloadBruto
-    });
-    console.log('[WAPI] ✅ Inbound Core processado com sucesso');
-  } catch (coreError) {
-    console.error('[WAPI] 🔴 Falha no Inbound Core:', coreError.message);
-    console.error('[WAPI] Stack:', coreError.stack);
+    base44.asServiceRole.functions.invoke('processInbound', {
+      contact_id: contato.id,
+      thread_id: thread.id,
+      message_id: mensagem.id,
+      integration_id: integracaoId,
+      provider: 'w_api'
+    }).catch(e => console.error('[WAPI] Erro no Core assíncrono:', e.message));
+    
+    console.log('[WAPI] ✅ Core disparado (assíncrono)');
+  } catch (err) {
+    console.error('[WAPI] Erro ao disparar Core:', err.message);
   }
 
   // 9. RETORNO FINAL (Sempre Sucesso)
