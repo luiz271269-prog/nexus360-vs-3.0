@@ -23,7 +23,6 @@ Deno.serve(async (req) => {
       isBlockedFromPromotions, 
       filterEligiblePromotions, 
       pickNextPromotion,
-      canSendPromoBatch,
       formatPromotionMessage
     } = await import('./lib/promotionEngine.js');
     
@@ -115,10 +114,13 @@ Deno.serve(async (req) => {
       }
       
       // Verificar cooldown de 24h
-      const cooldownCheck = canSendPromoBatch(contact, now, COOLDOWN_HOURS);
-      if (!cooldownCheck.can) {
-        stats.cooldown++;
-        continue;
+      if (contact.last_promo_sent_at) {
+        const lastPromoDate = new Date(contact.last_promo_sent_at);
+        const hoursGap = (now - lastPromoDate) / (1000 * 60 * 60);
+        if (hoursGap < COOLDOWN_HOURS) {
+          stats.cooldown++;
+          continue;
+        }
       }
       
       // Filtrar promoções elegíveis
@@ -196,10 +198,17 @@ Deno.serve(async (req) => {
           }
         }
         
-        // Atualizar contato
+        // Atualizar contato com histórico de envios
+        const promocoesRecebidas = contact.promocoes_recebidas || {};
+        const contagemAtual = promocoesRecebidas[promotion.id] || 0;
+        
         await base44.asServiceRole.entities.Contact.update(contact.id, {
           last_promo_sent_at: now.toISOString(),
-          last_promo_id: promotion.id
+          last_promo_id: promotion.id,
+          promocoes_recebidas: {
+            ...promocoesRecebidas,
+            [promotion.id]: contagemAtual + 1
+          }
         });
         
         // Atualizar thread se existir

@@ -9,15 +9,32 @@
  */
 export function isBlockedFromPromotions(contact, thread, integration) {
   // BLOQUEIO ABSOLUTO: Setores sensíveis
-  const blockedSectors = ['financeiro', 'fornecedor'];
-  if (thread?.sector_id && blockedSectors.includes(thread.sector_id)) {
-    return { blocked: true, reason: 'setor_bloqueado' };
+  const blockedSectors = ['financeiro', 'fornecedor', 'compras', 'cobranca', 'fornecedores'];
+  if (thread?.sector_id && blockedSectors.some(s => thread.sector_id.toLowerCase().includes(s))) {
+    return { blocked: true, reason: `setor_bloqueado: ${thread.sector_id}` };
   }
   
   // BLOQUEIO: Tipos de contato
   const blockedTypes = ['fornecedor'];
-  if (contact?.tipo_contato && blockedTypes.includes(contact.tipo_contato)) {
-    return { blocked: true, reason: 'tipo_bloqueado' };
+  if (contact?.tipo_contato && blockedTypes.includes(contact.tipo_contato.toLowerCase())) {
+    return { blocked: true, reason: `tipo_bloqueado: ${contact.tipo_contato}` };
+  }
+  
+  // BLOQUEIO: Tags do contato
+  const blockedTags = ['fornecedor', 'compras', 'colaborador', 'interno'];
+  if (contact?.tags && Array.isArray(contact.tags)) {
+    const hasBlockedTag = contact.tags.some(t => blockedTags.includes(t.toLowerCase()));
+    if (hasBlockedTag) {
+      return { blocked: true, reason: 'tag_bloqueada' };
+    }
+  }
+  
+  // BLOQUEIO: Canal/Integração financeira
+  if (integration) {
+    const setorPrincipal = (integration.setor_principal || '').toLowerCase();
+    if (blockedSectors.includes(setorPrincipal)) {
+      return { blocked: true, reason: `canal_bloqueado: ${setorPrincipal}` };
+    }
   }
   
   // BLOQUEIO: Contato explicitamente bloqueado

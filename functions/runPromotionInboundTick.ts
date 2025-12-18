@@ -91,8 +91,7 @@ Deno.serve(async (req) => {
       return Response.json({ 
         success: true, 
         processed: 0,
-        reason: 'no_threads_in_window',
-        window: { start: windowStart.toISOString(), end: windowEnd.toISOString() }
+        reason: 'no_threads_in_window'
       });
     }
     
@@ -263,9 +262,16 @@ Deno.serve(async (req) => {
         }
         
         // ✅ ATUALIZAR CONTATO (SEM ALTERAR ESTADOS DE URA)
+        const promocoesRecebidas = contact.promocoes_recebidas || {};
+        const contagemAtual = promocoesRecebidas[promotion.id] || 0;
+        
         await base44.asServiceRole.entities.Contact.update(contact.id, {
           last_promo_sent_at: now.toISOString(),
-          last_promo_id: promotion.id
+          last_promo_id: promotion.id,
+          promocoes_recebidas: {
+            ...promocoesRecebidas,
+            [promotion.id]: contagemAtual + 1
+          }
         });
         
         // ✅ ATUALIZAR THREAD (SEM ALTERAR ESTADOS DE URA)
@@ -339,10 +345,6 @@ Deno.serve(async (req) => {
     return Response.json({
       success: true,
       stats: stats,
-      window: {
-        start: windowStart.toISOString(),
-        end: windowEnd.toISOString()
-      },
       timestamp: now.toISOString()
     });
     
