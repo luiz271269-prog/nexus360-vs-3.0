@@ -364,6 +364,15 @@ async function handleMessage(dados, payloadBruto, base44) {
       metadata: finalMetadata
     });
     console.log('[ZAPI] Message salva DB:', mensagem.id);
+    
+    // ✅ LOG DE VALIDAÇÃO LOCATION
+    if (dados.mediaType === 'location') {
+      console.log('📍 [SAVED LOCATION ZAPI]', {
+        mediaType: dados.mediaType,
+        content: dados.content,
+        location: finalMetadata?.location || finalMetadata?.location?.location
+      });
+    }
   } catch (err) {
     console.error('[ZAPI] Erro salvar mensagem:', err.message);
     return Response.json({ success: false, error: 'db_save_error' }, { headers: corsHeaders });

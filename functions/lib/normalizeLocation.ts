@@ -37,8 +37,12 @@ export function normalizeLocation({ provider, raw }) {
     lat = toNumber(loc.degreesLatitude ?? loc.latitude);
     lng = toNumber(loc.degreesLongitude ?? loc.longitude);
 
-    name = loc.name ?? null;
-    address = loc.address ?? null;
+    // ✅ FALLBACKS OBRIGATÓRIOS: name/address sempre preenchidos
+    const hasName = loc.name && String(loc.name).trim().length > 0;
+    const hasAddr = loc.address && String(loc.address).trim().length > 0;
+
+    name = hasName ? String(loc.name) : 'Localização compartilhada';
+    address = hasAddr ? String(loc.address) : null;
     accuracy = toNumber(loc.accuracy) ?? null;
   }
 
@@ -53,8 +57,15 @@ export function normalizeLocation({ provider, raw }) {
     lat = toNumber(loc.latitude ?? loc.lat);
     lng = toNumber(loc.longitude ?? loc.lng);
 
-    name = loc.title ?? loc.name ?? null;
-    address = loc.address ?? loc.description ?? null;
+    // ✅ FALLBACKS OBRIGATÓRIOS: name/address/url sempre preenchidos
+    const hasName = loc.name && String(loc.name).trim().length > 0;
+    const hasTitle = loc.title && String(loc.title).trim().length > 0;
+    const hasAddr = loc.address && String(loc.address).trim().length > 0;
+    const hasDesc = loc.description && String(loc.description).trim().length > 0;
+    const hasUrl = loc.url && String(loc.url).trim().length > 0;
+
+    name = hasTitle ? String(loc.title) : hasName ? String(loc.name) : 'Localização compartilhada';
+    address = hasAddr ? String(loc.address) : hasDesc ? String(loc.description) : null;
     accuracy = toNumber(loc.accuracy) ?? null;
   }
 
@@ -63,6 +74,11 @@ export function normalizeLocation({ provider, raw }) {
     console.warn(`[normalizeLocation] ${provider}: lat/lng inválidos ou ausentes`);
     return null;
   }
+
+  // ✅ URL SEMPRE GERADA (Z-API retorna url="")
+  const urlFinal = (provider === 'wapi' || (raw?.location?.url && String(raw.location.url).trim().length > 0))
+    ? buildMapsUrl(lat, lng)
+    : buildMapsUrl(lat, lng);
 
   return {
     media_type: 'location',
@@ -73,11 +89,11 @@ export function normalizeLocation({ provider, raw }) {
         lng,
         name,
         address,
-        url: buildMapsUrl(lat, lng),
+        url: urlFinal,
         provider,
         raw_type,
         accuracy,
-        timestamp: raw?.timestamp ? String(raw.timestamp) : null,
+        timestamp: raw?.momment ? String(raw.momment) : (raw?.timestamp ? String(raw.timestamp) : null),
       }
     }
   };

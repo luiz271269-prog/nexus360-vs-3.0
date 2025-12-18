@@ -435,6 +435,15 @@ async function handleMessage(dados, payloadBruto, base44, req) {
       metadata: finalMetadata
     });
     console.log('[WAPI] Message salva DB:', mensagem.id);
+    
+    // ✅ LOG DE VALIDAÇÃO LOCATION
+    if (dados.mediaType === 'location') {
+      console.log('📍 [SAVED LOCATION WAPI]', {
+        mediaType: dados.mediaType,
+        content: dados.content,
+        location: finalMetadata?.location || finalMetadata?.location?.location
+      });
+    }
   } catch (err) {
     console.error('[WAPI] Erro ao salvar mensagem:', err.message);
     return Response.json({ success: false, error: 'db_save_error' }, { headers: corsHeaders });
