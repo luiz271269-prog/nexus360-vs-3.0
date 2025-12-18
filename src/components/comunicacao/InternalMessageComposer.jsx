@@ -1,27 +1,18 @@
 import React, { useState, useMemo } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Textarea } from '@/components/ui/textarea';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Users, Building2, Loader2, X, Send, Paperclip, CheckSquare, Square, FileText, Plus } from 'lucide-react';
+import { Users, Building2, Loader2, CheckSquare, Square, Plus } from 'lucide-react';
 import { base44 } from '@/api/base44Client';
 import { useQuery } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import CriarGrupoModal from './CriarGrupoModal';
 
-export default function InternalMessageComposer({ open, onClose, currentUser }) {
+export default function InternalMessageComposer({ open, onClose, currentUser, onSelectDestinations }) {
   const [selectedUsers, setSelectedUsers] = useState([]);
   const [selectedSectors, setSelectedSectors] = useState([]);
   const [selectedGroups, setSelectedGroups] = useState([]);
-  const [messageText, setMessageText] = useState('');
-  const [sending, setSending] = useState(false);
-  const [progress, setProgress] = useState({ sent: 0, errors: 0, total: 0 });
-
-  const [attachedFile, setAttachedFile] = useState(null);
-  const [attachedFileType, setAttachedFileType] = useState(null);
-  const [attachedFilePreview, setAttachedFilePreview] = useState(null);
-
+  const [resolving, setResolving] = useState(false);
   const [criarGrupoOpen, setCriarGrupoOpen] = useState(false);
 
   // Buscar todos os usuários
@@ -78,164 +69,120 @@ export default function InternalMessageComposer({ open, onClose, currentUser }) 
     );
   };
 
-  const handleFileSelect = (e) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    // Determinar tipo
-    let type = 'document';
-    if (file.type.startsWith('image/')) type = 'image';
-    else if (file.type.startsWith('video/')) type = 'video';
-    else if (file.type.startsWith('audio/')) type = 'audio';
-
-    setAttachedFile(file);
-    setAttachedFileType(type);
-
-    // Preview para imagem
-    if (type === 'image') {
-      const reader = new FileReader();
-      reader.onload = (e) => setAttachedFilePreview(e.target.result);
-      reader.readAsDataURL(file);
-    } else {
-      setAttachedFilePreview(null);
-    }
-  };
-
-  const clearAttachment = () => {
-    setAttachedFile(null);
-    setAttachedFileType(null);
-    setAttachedFilePreview(null);
-  };
-
-  const handleSend = async () => {
-    // Validar
-    const hasText = messageText.trim().length > 0;
-    const hasMedia = !!attachedFile;
-
-    if (!hasText && !hasMedia) {
-      toast.error('Digite uma mensagem ou anexe um arquivo');
-      return;
-    }
-
+  const handleConfirm = async () => {
     const totalDestinos = selectedUsers.length + selectedSectors.length + selectedGroups.length;
     if (totalDestinos === 0) {
       toast.error('Selecione pelo menos um destinatário');
       return;
     }
 
-    setSending(true);
-    setProgress({ sent: 0, errors: 0, total: totalDestinos });
+    setResolving(true);
 
-    let mediaUrl = null;
-    
-    // Upload de mídia se houver
-    if (attachedFile) {
-      try {
-        toast.info('📤 Fazendo upload...');
-        const uploadResponse = await base44.integrations.Core.UploadFile({ file: attachedFile });
-        mediaUrl = uploadResponse.file_url;
-      } catch (err) {
-        toast.error('Erro ao fazer upload: ' + err.message);
-        setSending(false);
-        return;
-      }
-    }
+    try {
+      // Se for seleção única, abrir thread diretamente
+      if (totalDestinos === 1) {
+        let thread = null;
 
-    let sent = 0;
-    let errors = 0;
-
-    // 1. Enviar para usuários selecionados (1:1)
-    for (const userId of selectedUsers) {
-      try {
-        const result = await base44.functions.invoke('getOrCreateInternalThread', {
-          target_user_id: userId
-        });
-
-        if (result?.thread) {
-          await base44.functions.invoke('sendInternalMessage', {
-            thread_id: result.thread.id,
-            content: messageText.trim() || (attachedFile ? `[${attachedFileType}]` : ''),
-            media_type: attachedFileType || 'none',
-            media_url: mediaUrl,
-            metadata: { broadcast: true, destination_type: 'user' }
+        if (selectedUsers.length === 1) {
+          const result = await base44.functions.invoke('getOrCreateInternalThread', {
+            target_user_id: selectedUsers[0]
           });
-          sent++;
-        } else {
-          errors++;
-        }
-      } catch (err) {
-        console.error(`Erro ao enviar para usuário ${userId}:`, err);
-        errors++;
-      }
-
-      setProgress({ sent, errors, total: totalDestinos });
-      await new Promise(r => setTimeout(r, 300)); // Delay entre envios
-    }
-
-    // 2. Enviar para setores selecionados (grupos de setor)
-    for (const sectorName of selectedSectors) {
-      try {
-        const result = await base44.functions.invoke('getOrCreateSectorThread', {
-          sector_name: sectorName
-        });
-
-        if (result?.thread) {
-          await base44.functions.invoke('sendInternalMessage', {
-            thread_id: result.thread.id,
-            content: messageText.trim() || (attachedFile ? `[${attachedFileType}]` : ''),
-            media_type: attachedFileType || 'none',
-            media_url: mediaUrl,
-            metadata: { broadcast: true, destination_type: 'sector', sector_name: sectorName }
+          thread = result?.data?.thread || result?.thread;
+        } else if (selectedSectors.length === 1) {
+          const result = await base44.functions.invoke('getOrCreateSectorThread', {
+            sector_name: selectedSectors[0]
           });
-          sent++;
-        } else {
-          errors++;
+          thread = result?.data?.thread || result?.thread;
+        } else if (selectedGroups.length === 1) {
+          const threads = await base44.entities.MessageThread.filter({ id: selectedGroups[0] });
+          thread = threads?.[0];
         }
-      } catch (err) {
-        console.error(`Erro ao enviar para setor ${sectorName}:`, err);
-        errors++;
+
+        if (thread) {
+          onSelectDestinations({
+            mode: 'single',
+            thread: thread
+          });
+          
+          // Limpar seleção
+          setSelectedUsers([]);
+          setSelectedSectors([]);
+          setSelectedGroups([]);
+          onClose();
+        } else {
+          toast.error('Erro ao abrir conversa');
+        }
+      } else {
+        // Múltiplos destinatários - preparar lista para broadcast
+        const destinations = [];
+
+        // Resolver usuários
+        for (const userId of selectedUsers) {
+          const result = await base44.functions.invoke('getOrCreateInternalThread', {
+            target_user_id: userId
+          });
+          const thread = result?.data?.thread || result?.thread;
+          if (thread) {
+            const user = usuarios.find(u => u.id === userId);
+            destinations.push({
+              type: 'user',
+              thread_id: thread.id,
+              user_id: userId,
+              name: user?.full_name || 'Usuário'
+            });
+          }
+        }
+
+        // Resolver setores
+        for (const sectorName of selectedSectors) {
+          const result = await base44.functions.invoke('getOrCreateSectorThread', {
+            sector_name: sectorName
+          });
+          const thread = result?.data?.thread || result?.thread;
+          if (thread) {
+            destinations.push({
+              type: 'sector',
+              thread_id: thread.id,
+              sector_name: sectorName,
+              name: `Setor ${sectorName}`
+            });
+          }
+        }
+
+        // Resolver grupos
+        for (const groupId of selectedGroups) {
+          const threads = await base44.entities.MessageThread.filter({ id: groupId });
+          const thread = threads?.[0];
+          if (thread) {
+            destinations.push({
+              type: 'group',
+              thread_id: groupId,
+              name: thread.group_name || 'Grupo'
+            });
+          }
+        }
+
+        if (destinations.length > 0) {
+          onSelectDestinations({
+            mode: 'broadcast',
+            destinations: destinations
+          });
+          
+          // Limpar seleção
+          setSelectedUsers([]);
+          setSelectedSectors([]);
+          setSelectedGroups([]);
+          onClose();
+        } else {
+          toast.error('Erro ao resolver destinatários');
+        }
       }
-
-      setProgress({ sent, errors, total: totalDestinos });
-      await new Promise(r => setTimeout(r, 300));
+    } catch (err) {
+      console.error('Erro ao confirmar seleção:', err);
+      toast.error('Erro ao processar seleção');
+    } finally {
+      setResolving(false);
     }
-
-    // 3. Enviar para grupos customizados (já têm thread_id)
-    for (const groupId of selectedGroups) {
-      try {
-        await base44.functions.invoke('sendInternalMessage', {
-          thread_id: groupId,
-          content: messageText.trim() || (attachedFile ? `[${attachedFileType}]` : ''),
-          media_type: attachedFileType || 'none',
-          media_url: mediaUrl,
-          metadata: { broadcast: true, destination_type: 'group' }
-        });
-        sent++;
-      } catch (err) {
-        console.error(`Erro ao enviar para grupo ${groupId}:`, err);
-        errors++;
-      }
-
-      setProgress({ sent, errors, total: totalDestinos });
-      await new Promise(r => setTimeout(r, 300));
-    }
-
-    setSending(false);
-
-    if (sent > 0) {
-      toast.success(`✅ ${sent} mensagem(ns) enviada(s)!`);
-    }
-    if (errors > 0) {
-      toast.error(`❌ ${errors} erro(s) no envio`);
-    }
-
-    // Limpar e fechar
-    setMessageText('');
-    clearAttachment();
-    setSelectedUsers([]);
-    setSelectedSectors([]);
-    setSelectedGroups([]);
-    onClose();
   };
 
   const totalSelecionados = selectedUsers.length + selectedSectors.length + selectedGroups.length;
@@ -427,144 +374,116 @@ export default function InternalMessageComposer({ open, onClose, currentUser }) 
               </Tabs>
             </div>
 
-            {/* Painel Direito - Composer de Mensagem */}
-            <div className="w-1/2 flex flex-col">
-              {/* Destinatários Selecionados */}
-              <div className="mb-3">
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-xs font-semibold text-slate-600">
-                    Destinatários ({totalSelecionados})
-                  </span>
-                  {totalSelecionados > 0 && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => {
-                        setSelectedUsers([]);
-                        setSelectedSectors([]);
-                        setSelectedGroups([]);
-                      }}
-                      className="h-6 text-xs text-slate-500"
-                    >
-                      Limpar
-                    </Button>
-                  )}
+            {/* Painel Direito - Resumo e Confirmação */}
+            <div className="w-1/2 flex flex-col justify-between">
+              <div>
+                <div className="mb-4">
+                  <h3 className="text-lg font-semibold text-slate-800 mb-2">Selecionados</h3>
+                  <p className="text-sm text-slate-500">
+                    {totalSelecionados === 0 
+                      ? 'Nenhum destinatário selecionado' 
+                      : totalSelecionados === 1
+                        ? 'Abrirá conversa com 1 destinatário'
+                        : `Enviará mensagem para ${totalSelecionados} destinatários`
+                    }
+                  </p>
                 </div>
                 
-                <div className="max-h-32 overflow-y-auto space-y-1 border border-slate-200 rounded-lg p-2 bg-slate-50">
-                  {totalSelecionados === 0 ? (
-                    <p className="text-xs text-slate-400 text-center py-4">
-                      Nenhum destinatário selecionado
-                    </p>
-                  ) : (
-                    <>
-                      {selectedUsers.map(userId => {
-                        const usuario = usuarios.find(u => u.id === userId);
-                        return (
-                          <div key={userId} className="flex items-center gap-2 bg-white rounded px-2 py-1 border border-purple-200">
-                            <Users className="w-3 h-3 text-purple-600" />
-                            <span className="text-xs text-slate-700 flex-1 truncate">
-                              {usuario?.full_name || 'Usuário'}
-                            </span>
-                            <button onClick={() => toggleUser(userId)} className="text-slate-400 hover:text-red-500">
-                              <X className="w-3 h-3" />
-                            </button>
-                          </div>
-                        );
-                      })}
-                      {selectedSectors.map(setor => (
-                        <div key={setor} className="flex items-center gap-2 bg-white rounded px-2 py-1 border border-indigo-200">
-                          <Building2 className="w-3 h-3 text-indigo-600" />
-                          <span className="text-xs text-slate-700 flex-1 truncate">
-                            Setor {setor}
-                          </span>
-                          <button onClick={() => toggleSector(setor)} className="text-slate-400 hover:text-red-500">
-                            <X className="w-3 h-3" />
-                          </button>
+                <div className="max-h-96 overflow-y-auto space-y-2">
+                  {selectedUsers.map(userId => {
+                    const usuario = usuarios.find(u => u.id === userId);
+                    return (
+                      <div key={userId} className="flex items-center gap-3 p-3 bg-purple-50 rounded-lg border border-purple-200">
+                        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-purple-400 to-indigo-500 flex items-center justify-center text-white font-semibold shadow-md">
+                          {usuario?.full_name?.charAt(0).toUpperCase() || '?'}
                         </div>
-                      ))}
-                      {selectedGroups.map(groupId => {
-                        const grupo = grupos.find(g => g.id === groupId);
-                        return (
-                          <div key={groupId} className="flex items-center gap-2 bg-white rounded px-2 py-1 border border-emerald-200">
-                            <Users className="w-3 h-3 text-emerald-600" />
-                            <span className="text-xs text-slate-700 flex-1 truncate">
-                              {grupo?.group_name || 'Grupo'}
-                            </span>
-                            <button onClick={() => toggleGroup(groupId)} className="text-slate-400 hover:text-red-500">
-                              <X className="w-3 h-3" />
-                            </button>
-                          </div>
-                        );
-                      })}
-                    </>
-                  )}
+                        <div className="flex-1">
+                          <p className="text-sm font-medium text-slate-800">{usuario?.full_name || 'Usuário'}</p>
+                          {usuario?.attendant_sector && (
+                            <p className="text-xs text-slate-500">{usuario.attendant_sector}</p>
+                          )}
+                        </div>
+                        <button 
+                          onClick={() => toggleUser(userId)} 
+                          className="text-slate-400 hover:text-red-500 p-1"
+                        >
+                          <Users className="w-4 h-4" />
+                        </button>
+                      </div>
+                    );
+                  })}
+                  
+                  {selectedSectors.map(setor => {
+                    const usuariosDoSetor = usuarios.filter(u => u.attendant_sector === setor);
+                    return (
+                      <div key={setor} className="flex items-center gap-3 p-3 bg-indigo-50 rounded-lg border border-indigo-200">
+                        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-indigo-400 to-blue-500 flex items-center justify-center text-white shadow-md">
+                          <Building2 className="w-5 h-5" />
+                        </div>
+                        <div className="flex-1">
+                          <p className="text-sm font-medium text-slate-800">Setor {setor}</p>
+                          <p className="text-xs text-slate-500">
+                            {usuariosDoSetor.length} {usuariosDoSetor.length === 1 ? 'membro' : 'membros'}
+                          </p>
+                        </div>
+                        <button 
+                          onClick={() => toggleSector(setor)} 
+                          className="text-slate-400 hover:text-red-500 p-1"
+                        >
+                          <Building2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    );
+                  })}
+                  
+                  {selectedGroups.map(groupId => {
+                    const grupo = grupos.find(g => g.id === groupId);
+                    return (
+                      <div key={groupId} className="flex items-center gap-3 p-3 bg-emerald-50 rounded-lg border border-emerald-200">
+                        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-emerald-400 to-teal-500 flex items-center justify-center text-white shadow-md">
+                          <Users className="w-5 h-5" />
+                        </div>
+                        <div className="flex-1">
+                          <p className="text-sm font-medium text-slate-800">{grupo?.group_name || 'Grupo'}</p>
+                          <p className="text-xs text-slate-500">
+                            {grupo?.participants?.length || 0} {grupo?.participants?.length === 1 ? 'membro' : 'membros'}
+                          </p>
+                        </div>
+                        <button 
+                          onClick={() => toggleGroup(groupId)} 
+                          className="text-slate-400 hover:text-red-500 p-1"
+                        >
+                          <Users className="w-4 h-4" />
+                        </button>
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
 
-              {/* Preview de Arquivo */}
-              {attachedFile && (
-                <div className="mb-3 border border-slate-200 rounded-lg p-2 bg-slate-50">
-                  <div className="flex items-center gap-2">
-                    {attachedFileType === 'image' && attachedFilePreview ? (
-                      <img src={attachedFilePreview} alt="Preview" className="w-16 h-16 object-cover rounded" />
-                    ) : (
-                      <div className="w-16 h-16 bg-slate-200 rounded flex items-center justify-center">
-                        <FileText className="w-8 h-8 text-slate-400" />
-                      </div>
-                    )}
-                    <div className="flex-1 min-w-0">
-                      <p className="text-xs font-medium text-slate-700 truncate">{attachedFile.name}</p>
-                      <p className="text-xs text-slate-500">{(attachedFile.size / 1024).toFixed(1)} KB</p>
-                    </div>
-                    <button onClick={clearAttachment} className="text-slate-400 hover:text-red-500">
-                      <X className="w-4 h-4" />
-                    </button>
-                  </div>
-                </div>
-              )}
-
-              {/* Campo de Mensagem */}
-              <Textarea
-                placeholder="Digite sua mensagem..."
-                value={messageText}
-                onChange={(e) => setMessageText(e.target.value)}
-                className="flex-1 resize-none mb-3"
-                disabled={sending}
-              />
-
-              {/* Barra de Ações */}
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <label className="cursor-pointer">
-                    <input
-                      type="file"
-                      accept="image/*,video/*,audio/*,.pdf,.doc,.docx"
-                      onChange={handleFileSelect}
-                      className="hidden"
-                      disabled={sending}
-                    />
-                    <div className="p-2 hover:bg-slate-100 rounded-lg transition-colors">
-                      <Paperclip className="w-5 h-5 text-slate-600" />
-                    </div>
-                  </label>
-                </div>
-
+              <div className="mt-6 flex gap-3">
                 <Button
-                  onClick={handleSend}
-                  disabled={sending || totalSelecionados === 0 || (!messageText.trim() && !attachedFile)}
-                  className="bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700"
+                  variant="outline"
+                  onClick={onClose}
+                  disabled={resolving}
+                  className="flex-1"
                 >
-                  {sending ? (
+                  Cancelar
+                </Button>
+                <Button
+                  onClick={handleConfirm}
+                  disabled={resolving || totalSelecionados === 0}
+                  className="flex-1 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700"
+                >
+                  {resolving ? (
                     <>
                       <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                      Enviando {progress.sent}/{progress.total}
+                      Abrindo...
                     </>
+                  ) : totalSelecionados === 1 ? (
+                    'Abrir Conversa'
                   ) : (
-                    <>
-                      <Send className="w-4 h-4 mr-2" />
-                      Enviar ({totalSelecionados})
-                    </>
+                    `Enviar para ${totalSelecionados}`
                   )}
                 </Button>
               </div>

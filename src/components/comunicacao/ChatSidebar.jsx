@@ -43,7 +43,8 @@ export default function ChatSidebar({
   modoSelecaoMultipla = false,
   setModoSelecaoMultipla,
   contatosSelecionados = [],
-  setContatosSelecionados
+  setContatosSelecionados,
+  onSelectInternalDestinations // Callback para seleção interna
 }) {
   // Estado local apenas para compatibilidade
   const modoSelecao = modoSelecaoMultipla;
@@ -259,11 +260,17 @@ export default function ChatSidebar({
         </button>
       )}
 
-      {/* Composer de Mensagens Internas */}
+      {/* Seletor de Destinatários Internos */}
       <InternalMessageComposer
         open={internalComposerOpen}
         onClose={() => setInternalComposerOpen(false)}
         currentUser={usuarioAtual}
+        onSelectDestinations={(selection) => {
+          setInternalComposerOpen(false);
+          if (onSelectInternalDestinations) {
+            onSelectInternalDestinations(selection);
+          }
+        }}
       />
 
       {/* ═══════════════════════════════════════════════════════════════════ */}

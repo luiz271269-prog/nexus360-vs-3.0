@@ -68,6 +68,9 @@ export default function Comunicacao() {
   // Estados para seleção múltipla (broadcast)
   const [modoSelecaoMultipla, setModoSelecaoMultipla] = useState(false);
   const [contatosSelecionados, setContatosSelecionados] = useState([]);
+  
+  // Estados para broadcast interno
+  const [broadcastInterno, setBroadcastInterno] = useState(null); // { destinations: [...] }
 
   const [filterScope, setFilterScope] = useState('all');
   const [selectedAttendantId, setSelectedAttendantId] = useState(null);
@@ -1097,13 +1100,14 @@ export default function Comunicacao() {
                       modoSelecaoMultipla={modoSelecaoMultipla}
                       setModoSelecaoMultipla={setModoSelecaoMultipla}
                       contatosSelecionados={contatosSelecionados}
-                      setContatosSelecionados={setContatosSelecionados} />
+                      setContatosSelecionados={setContatosSelecionados}
+                      onSelectInternalDestinations={handleInternalSelection} />
 
                   </div>
                 </div>
 
                 <div className="flex-1 flex overflow-hidden">
-                  {threadAtiva && !criandoNovoContato || modoSelecaoMultipla && contatosSelecionados.length > 0 ?
+                  {threadAtiva && !criandoNovoContato || modoSelecaoMultipla && (contatosSelecionados.length > 0 || broadcastInterno) ?
                   <>
                       <div className="flex-1 overflow-hidden">
                         <ChatWindow
@@ -1118,9 +1122,11 @@ export default function Comunicacao() {
                         selectedCategoria={selectedCategoria}
                         modoSelecaoMultipla={modoSelecaoMultipla}
                         contatosSelecionados={contatosSelecionados}
+                        broadcastInterno={broadcastInterno}
                         onCancelarSelecao={() => {
                           setModoSelecaoMultipla(false);
                           setContatosSelecionados([]);
+                          setBroadcastInterno(null);
                         }}
                         atendentes={atendentes} />
 
