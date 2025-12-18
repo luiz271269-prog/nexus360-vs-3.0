@@ -23,27 +23,12 @@ import {
   Briefcase,
   Flame,
   TrendingUp,
-  CheckSquare,
-  UserCheck } from
+  CheckSquare } from
 "lucide-react";
 import MessageBubble from "./MessageBubble";
 import { base44 } from "@/api/base44Client";
 import { toast } from "sonner";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription } from
-"@/components/ui/dialog";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger } from
-"@/components/ui/dropdown-menu";
+
 import SugestorRespostasRapidas from './SugestorRespostasRapidas';
 import { useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
@@ -84,9 +69,6 @@ export default function ChatWindow({
   const [contatoCompleto, setContatoCompleto] = useState(null);
   const [carregandoContato, setCarregandoContato] = useState(true);
   const [mostrarModalAtribuicao, setMostrarModalAtribuicao] = useState(false);
-  const [atribuindo, setAtribuindo] = useState(false);
-  const [capturandoTela, setCapturandoTela] = useState(false);
-  const [mensagemTransferencia, setMensagemTransferencia] = useState("");
 
   const [mensagemResposta, setMensagemResposta] = useState(null);
   const [modoSelecao, setModoSelecao] = useState(false);
@@ -104,8 +86,6 @@ export default function ChatWindow({
 
   const [mostrarMediaSystem, setMostrarMediaSystem] = useState(false);
 
-  const [vendedores, setVendedores] = useState([]);
-
   // Estados para broadcast
   const [enviandoBroadcast, setEnviandoBroadcast] = useState(false);
   const [progressoBroadcast, setProgressoBroadcast] = useState({ enviados: 0, erros: 0, total: 0 });
@@ -119,11 +99,11 @@ export default function ChatWindow({
 
   // ✅ VERIFICAR PERMISSÕES ESPECÍFICAS DA INSTÂNCIA
   const getPermissaoInstancia = (permissionKey) => {
-    if (!thread?.whatsapp_integration_id || !usuario) return true; // Sem restrições se não tiver thread
-    if (usuario.role === 'admin') return true; // Admin sempre pode tudo
+    if (!thread?.whatsapp_integration_id || !usuario) return true;
+    if (usuario.role === 'admin') return true;
 
     const whatsappPerms = usuario.whatsapp_permissions || [];
-    if (whatsappPerms.length === 0) return true; // Sem restrições configuradas
+    if (whatsappPerms.length === 0) return true;
 
     const perm = whatsappPerms.find((p) => p.integration_id === thread.whatsapp_integration_id);
     return perm ? perm[permissionKey] : false;
@@ -134,23 +114,9 @@ export default function ChatWindow({
   const podeEnviarMidias = permissoes.pode_enviar_midias !== false && podeEnviarPorInstancia;
   const podeEnviarAudios = permissoes.pode_enviar_audios !== false && podeEnviarPorInstancia;
   const podeApagarMensagens = permissoes.pode_apagar_mensagens === true;
-  const podeTransferirConversas = true; // Qualquer usuário pode transferir
+  const podeTransferirConversas = true;
 
   const navigate = useNavigate();
-
-  // ✅ TODOS OS useEffect NO TOPO - ANTES DE QUALQUER RETURN
-  useEffect(() => {
-    const carregarDados = async () => {
-      try {
-        // Carregar apenas vendedores (atendentes vem do pai via prop)
-        const vend = await base44.entities.Vendedor.list('nome');
-        setVendedores(vend || []);
-      } catch (error) {
-        console.error('[ChatWindow] Erro ao carregar dados:', error);
-      }
-    };
-    carregarDados();
-  }, []);
 
   useEffect(() => {
     let isMounted = true;
@@ -259,102 +225,7 @@ export default function ChatWindow({
     }
   }, [thread?.whatsapp_integration_id, integracoes]);
 
-  useEffect(() => {
-    if (mostrarModalAtribuicao) {
-      // Mensagem padrão ao abrir
-      const nomeContato = contatoCompleto?.nome || 'Cliente';
-      setMensagemTransferencia(`Conversa com ${nomeContato} transferida.`);
-    }
-  }, [mostrarModalAtribuicao, contatoCompleto?.nome]);
-
-  // ✅ REMOVIDO: carregarAtendentes - usa prop atendentes do pai
-
-  const handleAtribuirConversa = useCallback(async (atendenteId) => {
-    // Removida trava de permissão - qualquer usuário pode transferir
-    if (!thread || !usuario) {
-      toast.error("Dados da conversa não disponíveis");
-      return;
-    }
-
-    setAtribuindo(true);
-    try {
-      const atendenteEscolhido = atendentes.find((a) => a.id === atendenteId);
-
-      if (!atendenteEscolhido) {
-        throw new Error("Atendente não encontrado");
-      }
-
-      await base44.entities.MessageThread.update(thread.id, {
-        assigned_user_id: atendenteEscolhido.id,
-        // ✅ assigned_user_name/email REMOVIDOS - buscados dinamicamente do User
-        pre_atendimento_ativo: false,
-        pre_atendimento_state: 'COMPLETED',
-        unread_count: Math.max(1, thread.unread_count || 0),
-        updated_date: new Date().toISOString()
-      });
-
-      await base44.entities.AutomationLog.create({
-        acao: thread.assigned_user_id ? 'reatribuicao_manual' : 'atribuicao_manual',
-        contato_id: thread.contact_id,
-        thread_id: thread.id,
-        usuario_id: usuario.id,
-        resultado: 'sucesso',
-        timestamp: new Date().toISOString(),
-        detalhes: {
-          mensagem: `Conversa ${thread.assigned_user_id ? 'transferida' : 'atribuída'} para ${atendenteEscolhido.full_name}`,
-          atendente_anterior_id: thread.assigned_user_id || null,
-          atendente_novo_id: atendenteEscolhido.id,
-          atribuido_por: usuario.full_name
-        },
-        origem: 'manual',
-        prioridade: 'normal'
-      });
-
-      // Mensagem de sistema com texto personalizado
-      const textoMensagem = mensagemTransferencia?.trim() 
-        ? `🔔 ${mensagemTransferencia} (→ ${atendenteEscolhido.full_name})`
-        : `🔔 Conversa ${thread.assigned_user_id ? 'transferida' : 'atribuída'} para ${atendenteEscolhido.full_name} por ${usuario.full_name}`;
-
-      await base44.entities.Message.create({
-        thread_id: thread.id,
-        sender_id: usuario.id,
-        sender_type: 'user',
-        recipient_id: thread.contact_id,
-        recipient_type: 'contact',
-        content: textoMensagem,
-        channel: 'interno',
-        status: 'enviada',
-        sent_at: new Date().toISOString(),
-        metadata: {
-          is_system_message: true,
-          message_type: 'transfer',
-          action_type: 'assignment',
-          atendente_anterior_id: thread.assigned_user_id || null,
-          atendente_novo_id: atendenteEscolhido.id,
-          atendente_novo_nome: atendenteEscolhido.full_name,
-          transferido_por: usuario.full_name
-        }
-      });
-
-      toast.success(
-        thread.assigned_user_id ?
-        `✅ Conversa transferida para ${atendenteEscolhido.full_name}` :
-        `✅ Conversa atribuída a ${atendenteEscolhido.full_name}`
-      );
-
-      setMostrarModalAtribuicao(false);
-
-      if (onAtualizarMensagens) {
-        onAtualizarMensagens();
-      }
-
-    } catch (error) {
-      console.error('[CHAT] Erro ao atribuir conversa:', error);
-      toast.error(`Erro ao ${thread.assigned_user_id ? 'transferir' : 'atribuir'} conversa: ${error.message}`);
-    } finally {
-      setAtribuindo(false);
-    }
-  }, [atendentes, usuario, thread, onAtualizarMensagens, mensagemTransferencia]);
+  // ✅ REMOVIDO: handleAtribuirConversa - usa AtribuirConversaModal
 
   const autoAtribuirThreadSeNecessario = useCallback(async (threadAtual) => {
     if (!threadAtual || !usuario) return;
@@ -620,7 +491,7 @@ export default function ChatWindow({
     if (onAtualizarMensagens) {
       onAtualizarMensagens();
     }
-  }, [podeEnviarMensagens, contatosSelecionados, usuario, onCancelarSelecao, onAtualizarMensagens, integracoes, canalSelecionado]);
+  }, [podeEnviarMensagens, contatosSelecionados, broadcastInterno, usuario, onCancelarSelecao, onAtualizarMensagens, integracoes, canalSelecionado]);
 
   const enviarAudio = useCallback(async (audioBlob) => {
     if (!podeEnviarAudios) {
@@ -747,7 +618,7 @@ export default function ChatWindow({
     } finally {
       setEnviando(false);
     }
-  }, [podeEnviarAudios, modoSelecaoMultipla, contatosSelecionados, handleEnviarBroadcast, thread, usuario, carregandoContato, contatoCompleto, canalSelecionado, mensagemResposta, onAtualizarMensagens, autoAtribuirThreadSeNecessario]);
+  }, [podeEnviarAudios, modoSelecaoMultipla, contatosSelecionados, broadcastInterno, handleEnviarBroadcast, thread, usuario, carregandoContato, contatoCompleto, canalSelecionado, mensagemResposta, onAtualizarMensagens, autoAtribuirThreadSeNecessario]);
 
   const iniciarGravacaoAudio = useCallback(async () => {
     if (!podeEnviarAudios) {
@@ -1152,7 +1023,7 @@ export default function ChatWindow({
     }
 
     // ═══════════════════════════════════════════════════════════════════════
-    // THREAD INTERNA (team_internal ou sector_group)
+    // THREAD INTERNA (team_internal ou sector_group) - ENVIO INDIVIDUAL
     // ═══════════════════════════════════════════════════════════════════════
     if (thread?.thread_type === 'team_internal' || thread?.thread_type === 'sector_group') {
       if (!texto.trim()) {
@@ -1162,18 +1033,22 @@ export default function ChatWindow({
 
       setEnviando(true);
       try {
-        await base44.functions.invoke('sendInternalMessage', {
+        const result = await base44.functions.invoke('sendInternalMessage', {
           thread_id: thread.id,
           content: texto.trim(),
           media_type: 'none',
           reply_to_message_id: mensagemResposta?.id || null
         });
 
-        setMensagemResposta(null);
-        toast.success('✅ Mensagem enviada!');
+        if (result?.data?.success || result?.success) {
+          setMensagemResposta(null);
+          toast.success('✅ Mensagem enviada!');
 
-        if (onAtualizarMensagens) {
-          onAtualizarMensagens();
+          if (onAtualizarMensagens) {
+            onAtualizarMensagens();
+          }
+        } else {
+          throw new Error(result?.data?.error || 'Erro ao enviar mensagem interna');
         }
       } catch (error) {
         console.error('[CHAT] Erro ao enviar mensagem interna:', error);
@@ -1184,7 +1059,9 @@ export default function ChatWindow({
       return;
     }
 
-    // Validações de thread e contato
+    // ═══════════════════════════════════════════════════════════════════════
+    // THREAD EXTERNA (WhatsApp) - Validações de thread e contato
+    // ═══════════════════════════════════════════════════════════════════════
     if (!thread?.whatsapp_integration_id) {
       toast.error('Thread sem integração WhatsApp configurada');
       return;
@@ -1239,7 +1116,7 @@ export default function ChatWindow({
     } else {
       toast.error("Nenhum método de envio de mensagem configurado.");
     }
-  }, [modoSelecaoMultipla, contatosSelecionados, handleEnviarBroadcast, thread, contatoCompleto, autoAtribuirThreadSeNecessario, usuario, canalSelecionado, mensagemResposta, onSendMessageOptimistic, onEnviarMensagem, enviarImagemColada, enviarArquivoAnexado]);
+  }, [modoSelecaoMultipla, contatosSelecionados, broadcastInterno, handleEnviarBroadcast, thread, contatoCompleto, autoAtribuirThreadSeNecessario, usuario, canalSelecionado, mensagemResposta, onSendMessageOptimistic, onEnviarMensagem, enviarImagemColada, enviarArquivoAnexado]);
 
   const handleResponderMensagem = useCallback((mensagem) => {
     setMensagemResposta(mensagem);
@@ -1342,9 +1219,7 @@ export default function ChatWindow({
     }
   }, [podeApagarMensagens, mensagensSelecionadas, mensagens, thread, onAtualizarMensagens]);
 
-  const handlePrintChat = useCallback(async () => {
-    toast.info('Funcionalidade temporariamente desativada');
-  }, []);
+
 
   useEffect(() => {
     if (!thread || !usuario || !mensagens.length) return;

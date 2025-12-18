@@ -1,12 +1,15 @@
 import React, { useState, useMemo } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Users, Building2, Loader2, CheckSquare, Square, Plus } from 'lucide-react';
+import { Users, Building2, Loader2, CheckSquare, Square, Plus, Search, Star, UserCheck } from 'lucide-react';
 import { base44 } from '@/api/base44Client';
 import { useQuery } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import CriarGrupoModal from './CriarGrupoModal';
+import UsuarioDisplay from './UsuarioDisplay';
+import { normalizarParaComparacao } from '../lib/userMatcher';
 
 export default function InternalMessageComposer({ open, onClose, currentUser, onSelectDestinations }) {
   const [selectedUsers, setSelectedUsers] = useState([]);
@@ -14,11 +17,18 @@ export default function InternalMessageComposer({ open, onClose, currentUser, on
   const [selectedGroups, setSelectedGroups] = useState([]);
   const [resolving, setResolving] = useState(false);
   const [criarGrupoOpen, setCriarGrupoOpen] = useState(false);
+  const [busca, setBusca] = useState('');
 
-  // Buscar todos os usuários
+  // Buscar todos os usuários via função (igual ao AtribuirConversaModal)
   const { data: usuarios = [], isLoading: loadingUsers } = useQuery({
     queryKey: ['usuarios-internos'],
-    queryFn: () => base44.entities.User.list(),
+    queryFn: async () => {
+      const resultado = await base44.functions.invoke('listarUsuariosParaAtribuicao', {});
+      if (resultado?.data?.success && resultado?.data?.usuarios) {
+        return resultado.data.usuarios;
+      }
+      return [];
+    },
     enabled: open,
     staleTime: 2 * 60 * 1000
   });
@@ -46,10 +56,45 @@ export default function InternalMessageComposer({ open, onClose, currentUser, on
     return Array.from(setoresUnicos).sort();
   }, [usuarios]);
 
-  // Usuários (excluindo o atual)
+  // Usuários (excluindo o atual) + Filtro de busca (igual ao AtribuirConversaModal)
   const usuariosDisponiveis = useMemo(() => {
-    return usuarios.filter(u => u.id !== currentUser?.id);
-  }, [usuarios, currentUser?.id]);
+    let filtered = usuarios.filter(u => u.id !== currentUser?.id);
+    
+    // Aplicar busca
+    if (busca.trim()) {
+      const termo = normalizarParaComparacao(busca);
+      filtered = filtered.filter(a => {
+        return (
+          normalizarParaComparacao(a.full_name || '').includes(termo) ||
+          normalizarParaComparacao(a.email || '').includes(termo) ||
+          normalizarParaComparacao(a.attendant_sector || '').includes(termo) ||
+          normalizarParaComparacao(a.attendant_role || '').includes(termo)
+        );
+      });
+    }
+    
+    return filtered;
+  }, [usuarios, currentUser?.id, busca]);
+  
+  // Configuração de cores por setor (igual ao AtribuirConversaModal)
+  const setorConfig = {
+    'vendas': { cor: 'bg-emerald-500', label: 'Vendas', emoji: '💼' },
+    'assistencia': { cor: 'bg-blue-500', label: 'Assistência', emoji: '🔧' },
+    'financeiro': { cor: 'bg-purple-500', label: 'Financeiro', emoji: '💰' },
+    'fornecedor': { cor: 'bg-orange-500', label: 'Fornecedor', emoji: '🏭' },
+    'geral': { cor: 'bg-slate-500', label: 'Geral', emoji: '👥' }
+  };
+
+  // Configuração de cores por nível (igual ao AtribuirConversaModal)
+  const nivelConfig = {
+    'admin': { cor: 'bg-red-500', label: 'Admin' },
+    'gerente': { cor: 'bg-purple-600', label: 'Gerente' },
+    'coordenador': { cor: 'bg-indigo-500', label: 'Coordenador' },
+    'supervisor': { cor: 'bg-blue-600', label: 'Supervisor' },
+    'senior': { cor: 'bg-teal-500', label: 'Sênior' },
+    'pleno': { cor: 'bg-green-500', label: 'Pleno' },
+    'junior': { cor: 'bg-amber-500', label: 'Júnior' }
+  };
 
   const toggleUser = (userId) => {
     setSelectedUsers(prev => 
@@ -187,6 +232,13 @@ export default function InternalMessageComposer({ open, onClose, currentUser, on
 
   const totalSelecionados = selectedUsers.length + selectedSectors.length + selectedGroups.length;
 
+  // Resetar busca ao fechar
+  React.useEffect(() => {
+    if (!open) {
+      setBusca('');
+    }
+  }, [open]);
+
   return (
     <>
       <Dialog open={open} onOpenChange={onClose}>
@@ -201,7 +253,7 @@ export default function InternalMessageComposer({ open, onClose, currentUser, on
           <div className="flex-1 flex gap-4 min-h-0">
             {/* Painel Esquerdo - Seleção de Destinatários */}
             <div className="w-1/2 flex flex-col border-r border-slate-200 pr-4">
-              <Tabs defaultValue="usuarios" className="flex-1 flex flex-col min-h-0">
+              <Tabs defaultValue="usuarios" className="flex-1 flex flex-col min-h-0" onValueChange={() => setBusca('')}>
                 <TabsList className="grid w-full grid-cols-3">
                   <TabsTrigger value="usuarios">
                     <Users className="w-4 h-4 mr-2" />
@@ -218,54 +270,75 @@ export default function InternalMessageComposer({ open, onClose, currentUser, on
                 </TabsList>
 
                 {/* Aba Usuários */}
-                <TabsContent value="usuarios" className="flex-1 overflow-y-auto mt-3 space-y-1">
-                  {loadingUsers ? (
-                    <div className="flex items-center justify-center py-12">
-                      <Loader2 className="w-6 h-6 animate-spin text-purple-600" />
-                    </div>
-                  ) : usuariosDisponiveis.length === 0 ? (
-                    <div className="text-center py-12 text-slate-500 text-sm">
-                      Nenhum usuário disponível
-                    </div>
-                  ) : (
-                    usuariosDisponiveis.map(usuario => {
-                      const isSelected = selectedUsers.includes(usuario.id);
-                      return (
-                        <button
-                          key={usuario.id}
-                          onClick={() => toggleUser(usuario.id)}
-                          className={`w-full flex items-center gap-3 p-2 rounded-lg transition-all text-left ${
-                            isSelected 
-                              ? 'bg-purple-100 border-2 border-purple-400' 
-                              : 'hover:bg-purple-50 border-2 border-transparent'
-                          }`}
-                        >
-                          <div className="flex-shrink-0">
-                            {isSelected ? (
-                              <CheckSquare className="w-5 h-5 text-purple-600" />
-                            ) : (
-                              <Square className="w-5 h-5 text-slate-400" />
-                            )}
-                          </div>
-                          <div className="w-8 h-8 rounded-full bg-gradient-to-br from-purple-400 to-indigo-500 flex items-center justify-center text-white font-semibold text-sm shadow-md">
-                            {usuario.full_name?.charAt(0).toUpperCase() || '?'}
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <div className="font-medium text-slate-800 truncate text-sm">
-                              {usuario.full_name || 'Sem nome'}
+                <TabsContent value="usuarios" className="flex-1 flex flex-col overflow-hidden mt-3">
+                  {/* Busca (igual ao AtribuirConversaModal) */}
+                  <div className="relative mb-2 px-1">
+                    <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                    <Input
+                      value={busca}
+                      onChange={(e) => setBusca(e.target.value)}
+                      placeholder="Buscar atendente..."
+                      className="pl-10"
+                    />
+                  </div>
+
+                  <div className="flex-1 overflow-y-auto space-y-1">
+                    {loadingUsers ? (
+                      <div className="flex items-center justify-center py-12">
+                        <Loader2 className="w-6 h-6 animate-spin text-purple-600" />
+                      </div>
+                    ) : usuariosDisponiveis.length === 0 ? (
+                      <div className="text-center py-12 text-slate-500 text-sm">
+                        {busca.trim() ? 'Nenhum atendente encontrado' : 'Nenhum usuário disponível'}
+                      </div>
+                    ) : (
+                      usuariosDisponiveis.map(usuario => {
+                        const isSelected = selectedUsers.includes(usuario.id);
+                        const setor = usuario.attendant_sector || 'geral';
+                        const nivel = usuario.attendant_role || usuario.role || 'pleno';
+                        const setorCfg = setorConfig[setor] || setorConfig['geral'];
+                        const nivelCfg = nivelConfig[nivel] || nivelConfig['pleno'];
+
+                        return (
+                          <button
+                            key={usuario.id}
+                            onClick={() => toggleUser(usuario.id)}
+                            className={`w-full flex items-center gap-3 p-2 rounded-lg transition-all text-left border ${
+                              isSelected 
+                                ? 'bg-purple-100 border-purple-400' 
+                                : 'hover:bg-purple-50 border-transparent'
+                            }`}
+                          >
+                            <div className="flex-shrink-0">
+                              {isSelected ? (
+                                <CheckSquare className="w-5 h-5 text-purple-600" />
+                              ) : (
+                                <Square className="w-5 h-5 text-slate-400" />
+                              )}
                             </div>
-                            {usuario.attendant_sector && (
-                              <div className="text-xs text-slate-500 truncate">
-                                <span className="px-1.5 py-0.5 bg-slate-100 rounded-full">
-                                  {usuario.attendant_sector}
-                                </span>
+                            <div className={`w-10 h-10 ${setorCfg.cor} rounded-full flex items-center justify-center text-white font-bold shadow-md`}>
+                              {(usuario.full_name || usuario.email || '?').charAt(0).toUpperCase()}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2 mb-1">
+                                <UsuarioDisplay usuario={usuario} className="flex-1 min-w-0 text-sm" />
                               </div>
-                            )}
-                          </div>
-                        </button>
-                      );
-                    })
-                  )}
+                              <div className="flex items-center gap-1 flex-wrap">
+                                <span className={`inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-semibold text-white ${nivelCfg.cor}`}>
+                                  {nivelCfg.label}
+                                </span>
+                                {usuario.role === 'admin' && (
+                                  <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-semibold text-amber-700 bg-amber-100">
+                                    <Star className="w-2.5 h-2.5" /> Admin
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          </button>
+                        );
+                      })
+                    )}
+                  </div>
                 </TabsContent>
 
                 {/* Aba Setores */}

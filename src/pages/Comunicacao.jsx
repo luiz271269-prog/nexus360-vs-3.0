@@ -207,12 +207,12 @@ export default function Comunicacao() {
     return todasIntegracoes.filter((i) => visiveisNorm.has(normalizar(i.id)));
   }, [todasIntegracoes, usuario?.id, usuario?.role, usuario?.permissoes_visualizacao]);
 
-  const { data: atendentesRaw = [] } = useQuery({
+  // ✅ FONTE ÚNICA: Buscar atendentes via função (igual em TODAS as telas)
+  const { data: atendentes = [] } = useQuery({
     queryKey: ['atendentes'],
     queryFn: async () => {
       const resultado = await base44.functions.invoke('listarUsuariosParaAtribuicao', {});
       if (resultado?.data?.success && resultado?.data?.usuarios) {
-        console.log('[Comunicacao] ✅ Atendentes carregados (fonte única):', resultado.data.usuarios.length);
         return resultado.data.usuarios;
       }
       return [];
@@ -220,16 +220,8 @@ export default function Comunicacao() {
     enabled: !!usuario,
     staleTime: 5 * 60 * 1000,
     retry: 3,
-    retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 5000),
-    onError: (error) => {
-      console.error('[Comunicacao] Erro ao carregar atendentes:', error);
-      toast.error('Erro ao carregar lista de atendentes');
-    }
+    retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 5000)
   });
-
-  // ✅ FONTE ÚNICA: Sempre usar lista COMPLETA de atendentes, sem filtros de permissões
-  // Todos os componentes recebem a mesma lista completa
-  const atendentes = atendentesRaw;
 
   const { data: mensagensComCategoria = [] } = useQuery({
     queryKey: ['mensagens-com-categoria', selectedCategoria],
