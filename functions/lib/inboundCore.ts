@@ -42,18 +42,23 @@ export function detectNovoCiclo(lastInboundAt, now) {
 
 /**
  * Verifica se humano está ativo (não stale)
+ * FONTE DE VERDADE: last_human_message_at (ignora mensagens automáticas e do cliente)
  */
 export function humanoAtivo(thread, horasStale = 2) {
+  // Se não tem ninguém atribuído, não há humano ativo
   if (!thread.assigned_user_id) return false;
-  if (thread.pre_atendimento_ativo) return false; // URA ativa = humano não está no controle
   
-  // Se a última mensagem foi do cliente, humano NÃO está ativo
-  if (thread.last_message_sender === 'contact') return false;
+  // URA explicitamente ativa bloqueia a percepção de "humano no controle"
+  if (thread.pre_atendimento_ativo) return false;
   
-  const lastMessageDate = new Date(thread.last_message_at);
+  // Se nunca houve uma mensagem humana nesta thread
+  if (!thread.last_human_message_at) return false;
+  
+  const lastHumanDate = new Date(thread.last_human_message_at);
   const now = new Date();
-  const hoursGap = (now - lastMessageDate) / (1000 * 60 * 60);
+  const hoursGap = (now - lastHumanDate) / (1000 * 60 * 60);
   
+  // Humano ativo apenas se falou nas últimas 2h (ou janela configurada)
   return hoursGap < horasStale;
 }
 

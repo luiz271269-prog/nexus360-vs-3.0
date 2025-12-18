@@ -45,8 +45,18 @@ export function classificarContato(contact) {
  * @returns {object} - { modo: 'sticky'|'mini'|'full'|'none', setor?: string }
  */
 export function decidirReabertura(thread, now, horasJanela = 12) {
+  // Importar função de checagem (inline para evitar circular)
+  const humanoAtivo = (t) => {
+    if (!t.assigned_user_id) return false;
+    if (t.pre_atendimento_ativo) return false;
+    if (!t.last_human_message_at) return false;
+    const lastHumanDate = new Date(t.last_human_message_at);
+    const hoursGap = (now - lastHumanDate) / (1000 * 60 * 60);
+    return hoursGap < 2; // Humano ativo se falou nas últimas 2h
+  };
+  
   // Se tem humano ativo (não stale) → none
-  if (thread.assigned_user_id) {
+  if (humanoAtivo(thread)) {
     return { modo: 'none' };
   }
   

@@ -509,7 +509,9 @@ export default function ChatWindow({
               last_message_content: contentPreview,
               last_message_at: new Date().toISOString(),
               last_message_sender: 'user',
-              last_media_type: mediaType || 'none'
+              last_human_message_at: new Date().toISOString(),
+              last_media_type: mediaType || 'none',
+              pre_atendimento_ativo: false
             });
           }
 
@@ -669,7 +671,9 @@ export default function ChatWindow({
           last_message_content: "[Áudio]",
           last_message_at: new Date().toISOString(),
           last_message_sender: "user",
-          whatsapp_integration_id: integrationIdParaUso
+          last_human_message_at: new Date().toISOString(),
+          whatsapp_integration_id: integrationIdParaUso,
+          pre_atendimento_ativo: false
         });
 
         toast.success("✅ Áudio enviado com sucesso!");
@@ -885,7 +889,9 @@ export default function ChatWindow({
             last_message_content: '[Imagem]',
             last_message_at: new Date().toISOString(),
             last_message_sender: 'user',
-            last_media_type: 'image'
+            last_human_message_at: new Date().toISOString(),
+            last_media_type: 'image',
+            pre_atendimento_ativo: false
           });
         } else {
           await base44.entities.Message.update(novaMensagem.id, {
@@ -1044,7 +1050,9 @@ export default function ChatWindow({
             last_message_content: contentPreview,
             last_message_at: new Date().toISOString(),
             last_message_sender: 'user',
-            last_media_type: fileType
+            last_human_message_at: new Date().toISOString(),
+            last_media_type: fileType,
+            pre_atendimento_ativo: false
           });
         } else {
           await base44.entities.Message.update(novaMensagem.id, {

@@ -566,8 +566,10 @@ export default function Comunicacao() {
           last_message_content: msgTemp.content.substring(0, 100),
           last_message_at: new Date().toISOString(),
           last_message_sender: "user",
+          last_human_message_at: new Date().toISOString(),
           last_media_type: mediaType || 'none',
-          whatsapp_integration_id: integrationId
+          whatsapp_integration_id: integrationId,
+          pre_atendimento_ativo: false
         });
 
         // 4. Invalidar queries para substituir mensagem temporária pela real
