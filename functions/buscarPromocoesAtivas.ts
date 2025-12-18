@@ -1,12 +1,12 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.4';
 
 // ============================================================================
-// BUSCAR PROMOÇÕES ATIVAS - v1.0.0
+// BUSCAR PROMOÇÕES ATIVAS - v2.0.0 (Alinhado com Promotion Engine)
 // ============================================================================
-// Função que busca e formata promoções ativas para uso em Playbooks
+// Busca promoções para uso em Playbooks/URA, respeitando bloqueios de setor
 // ============================================================================
 
-const VERSION = 'v1.0.0';
+const VERSION = 'v2.0.0';
 
 const corsHeaders = {
   'Content-Type': 'application/json',
@@ -14,6 +14,9 @@ const corsHeaders = {
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
   'Access-Control-Allow-Headers': 'Content-Type',
 };
+
+// Setores/Contextos que NUNCA devem ver promoções
+const BLOCKED_CONTEXTS = ['financeiro', 'cobranca', 'compras', 'fornecedor', 'fornecedores'];
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -34,14 +37,29 @@ Deno.serve(async (req) => {
     payload = {};
   }
 
-  const { limite = 5, categoria = null, integration_id = null, setor = null } = payload;
+  const { limite = 5, categoria = null, integration_id = null, setor_atual = null } = payload;
 
   try {
+    // 1. Bloqueio Imediato por Contexto
+    if (setor_atual) {
+      const setorKey = String(setor_atual).toLowerCase();
+      if (BLOCKED_CONTEXTS.some(b => setorKey.includes(b))) {
+        console.log(`[BUSCAR-PROMOCOES] 🚫 Bloqueado por contexto: ${setorKey}`);
+        return Response.json({
+          success: true,
+          texto_formatado: '',
+          promocoes: [],
+          count: 0,
+          status: 'blocked_context'
+        }, { headers: corsHeaders });
+      }
+    }
+
     const hoje = new Date().toISOString().split('T')[0];
 
-    // Filtros base
+    // 2. Filtros base (Nomenclatura PT-BR conforme Promotion.json)
     const filtros = {
-      active: true
+      ativo: true
     };
 
     // Adicionar filtro de categoria se fornecido
@@ -49,64 +67,82 @@ Deno.serve(async (req) => {
       filtros.categoria = categoria;
     }
 
-    // Buscar promoções ativas
+    // 3. Buscar promoções ativas (buscar mais para filtrar em memória)
     const promocoes = await base44.asServiceRole.entities.Promotion.filter(
       filtros,
       '-priority',
-      limite
+      20
     );
 
-    // Filtrar manualmente as que não expiraram + filtros de conexão e setor
+    // 4. Filtragem Fina (Lógica de Negócio)
     const promocoesValidas = promocoes.filter(promo => {
-      // Verificar expiração
-      if (promo.valid_until && promo.valid_until < hoje) return false;
+      // A. Validade
+      if (promo.validade && promo.validade < hoje) return false;
       
-      // Filtrar por conexão WhatsApp (se especificado)
-      if (integration_id && promo.conexoes_permitidas && promo.conexoes_permitidas.length > 0) {
+      // B. Filtro por Integração/Canal (se especificado)
+      if (integration_id && promo.conexoes_permitidas && Array.isArray(promo.conexoes_permitidas) && promo.conexoes_permitidas.length > 0) {
         if (!promo.conexoes_permitidas.includes(integration_id)) return false;
       }
       
-      // Filtrar por setor (se especificado)
-      if (setor && promo.setores_permitidos && promo.setores_permitidos.length > 0) {
-        if (!promo.setores_permitidos.includes(setor)) return false;
+      // C. Filtro por Setor Alvo
+      if (setor_atual && promo.target_sectors && Array.isArray(promo.target_sectors) && promo.target_sectors.length > 0) {
+        const setorNormalizado = String(setor_atual).toLowerCase();
+        const alvoEncontrado = promo.target_sectors.some(s => setorNormalizado.includes(s.toLowerCase()));
+        if (!alvoEncontrado) return false;
       }
       
       return true;
     });
 
-    if (promocoesValidas.length === 0) {
+    // Limitar quantidade final
+    const resultadoFinal = promocoesValidas.slice(0, limite);
+
+    if (resultadoFinal.length === 0) {
       return Response.json({
         success: true,
-        texto_formatado: '',
+        texto_formatado: 'No momento não temos promoções ativas para este perfil.',
         promocoes: [],
         count: 0
       }, { headers: corsHeaders });
     }
 
-    // Formatar para WhatsApp
+    // 5. Formatação para WhatsApp (Estilo Lista)
     let textoFinal = '';
-    promocoesValidas.forEach((oferta, index) => {
-      textoFinal += `\n⭐ *${oferta.title}*`;
-      textoFinal += `\n   ${oferta.short_description}`;
+    
+    resultadoFinal.forEach((oferta, index) => {
+      textoFinal += `\n━━━━━━━━━━━━━━━━\n`;
+      textoFinal += `📢 *${oferta.titulo}*`;
+      
+      // Usa descrição curta se existir, senão a normal
+      const desc = oferta.descricao_curta || oferta.descricao;
+      if (desc) textoFinal += `\n${desc}`;
       
       if (oferta.price_info) {
-        textoFinal += `\n   💰 ${oferta.price_info}`;
+        textoFinal += `\n💰 ${oferta.price_info}`;
       }
       
-      if (oferta.codigo_campanha) {
-        textoFinal += `\n   🎟️ Código: ${oferta.codigo_campanha}`;
+      if (oferta.campaign_id) {
+        textoFinal += `\n🎟️ Código: ${oferta.campaign_id}`;
       }
       
-      textoFinal += '\n';
+      if (oferta.link_produto) {
+        textoFinal += `\n🔗 ${oferta.link_produto}`;
+      }
     });
+    
+    textoFinal += `\n━━━━━━━━━━━━━━━━`;
 
-    console.log(`[BUSCAR-PROMOCOES] ✅ Encontradas ${promocoesValidas.length} promoções ativas`);
+    console.log(`[BUSCAR-PROMOCOES] ✅ Retornadas ${resultadoFinal.length} ofertas (Contexto: ${setor_atual || 'Geral'})`);
 
     return Response.json({
       success: true,
       texto_formatado: textoFinal.trim(),
-      promocoes: promocoesValidas,
-      count: promocoesValidas.length,
+      promocoes: resultadoFinal.map(p => ({
+        id: p.id,
+        titulo: p.titulo,
+        imagem: p.imagem_url || null
+      })),
+      count: resultadoFinal.length,
       version: VERSION
     }, { headers: corsHeaders });
 
