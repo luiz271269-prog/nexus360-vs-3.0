@@ -399,12 +399,22 @@ async function handleMessage(dados, payloadBruto, base44, req) {
     console.log('[WAPI] 🔄 Processando Inbound Core diretamente...');
     const { processInboundEvent } = await import('./lib/inboundCore.js');
 
+    // Buscar objeto de integração completo
+    let integracaoObj = null;
+    if (integracaoId) {
+      try {
+        integracaoObj = await base44.asServiceRole.entities.WhatsAppIntegration.get(integracaoId);
+      } catch (e) {
+        console.error('[WAPI] Erro ao buscar integração completa:', e.message);
+      }
+    }
+
     await processInboundEvent({
       base44: base44,
       contact: contato,
       thread: thread,
       message: mensagem,
-      integration: integracaoId ? { id: integracaoId } : null,
+      integration: integracaoObj,
       provider: 'w_api',
       messageContent: dados.content,
       rawPayload: payloadBruto
@@ -412,6 +422,7 @@ async function handleMessage(dados, payloadBruto, base44, req) {
     console.log('[WAPI] ✅ Inbound Core processado com sucesso (direto)');
   } catch (coreError) {
     console.error('[WAPI] 🔴 Falha no processamento do Inbound Core:', coreError.message);
+    console.error('[WAPI] Stack trace:', coreError.stack);
   }
 
   // 9. RETORNO FINAL (Sempre Sucesso)
