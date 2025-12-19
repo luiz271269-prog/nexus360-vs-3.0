@@ -366,12 +366,6 @@ export default function ChatSidebar({
         // ✅ RESOLVER UI (externo ou interno)
         const threadUI = resolveThreadUI(thread, usuarioAtual, atendentes);
 
-        // ✅ THREADS INTERNAS não devem aparecer em "Não atribuídas"
-        // Verificar isso ANTES de renderizar
-        if (filtros?.scope === 'unassigned' && threadUI.isInternal) {
-          return null;
-        }
-
         // ✅ THREADS INTERNAS - Renderizar com UI resolvida
         if (threadUI.isInternal) {
           const isSelected = contatosSelecionados.find(c => c.id === thread.id);
