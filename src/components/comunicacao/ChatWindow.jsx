@@ -1225,13 +1225,26 @@ export default function ChatWindow({
     if (!thread || !usuario || !mensagens.length) return;
 
     const marcarComoLida = async () => {
-      const mensagensNaoLidas = mensagens.filter(
-        (m) => m.sender_type === 'contact' && m.status !== 'lida' && m.status !== 'apagada'
-      );
-
-      if (mensagensNaoLidas.length === 0) return;
-
       try {
+        // ✅ THREAD INTERNA - usar markThreadAsRead
+        if (thread.thread_type === 'team_internal' || thread.thread_type === 'sector_group') {
+          await base44.functions.invoke('markThreadAsRead', {
+            thread_id: thread.id
+          });
+
+          if (onAtualizarMensagens) {
+            onAtualizarMensagens();
+          }
+          return;
+        }
+
+        // ✅ THREAD EXTERNA - lógica existente (não mexer)
+        const mensagensNaoLidas = mensagens.filter(
+          (m) => m.sender_type === 'contact' && m.status !== 'lida' && m.status !== 'apagada'
+        );
+
+        if (mensagensNaoLidas.length === 0) return;
+
         for (const msg of mensagensNaoLidas) {
           await base44.entities.Message.update(msg.id, {
             status: 'lida',

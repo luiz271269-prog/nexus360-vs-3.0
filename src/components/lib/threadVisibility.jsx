@@ -181,6 +181,22 @@ export const canUserSeeThreadBase = (usuario, thread, mensagensThread = []) => {
   const isAdmin = usuario.role === 'admin';
   const isAdminOrAll = isAdmin || !!perms.pode_ver_todas_conversas;
 
+  // ✅ THREADS INTERNAS - visibilidade baseada em participação
+  if (thread.thread_type === 'team_internal' || thread.thread_type === 'sector_group') {
+    // Se usuário é participante da thread interna, pode ver
+    if (thread.participants && thread.participants.includes(usuario.id)) {
+      return true;
+    }
+    
+    // Admin/gerente pode ver todas threads internas
+    if (isAdminOrAll) {
+      return true;
+    }
+    
+    return false;
+  }
+
+  // ✅ THREADS EXTERNAS - lógica existente
   const contato = thread.contato;
   const atribuido = isAtribuidoAoUsuario(usuario, thread);
   const fidelizado = isFidelizadoAoUsuario(usuario, contato);

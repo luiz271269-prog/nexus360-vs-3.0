@@ -68,8 +68,13 @@ export default function ChatSidebar({
   const threadsFiltradas = useMemo(() => {
     if (!threads || threads.length === 0) return [];
 
-    // Apenas filtrar contatos bloqueados
     return threads.filter((thread) => {
+      // ✅ THREADS INTERNAS - sempre visíveis (permissões já aplicadas no backend)
+      if (thread.thread_type === 'team_internal' || thread.thread_type === 'sector_group') {
+        return true;
+      }
+      
+      // ✅ THREADS EXTERNAS - filtrar contatos bloqueados
       const contato = thread.contato;
       if (contato && contato.bloqueado) return false;
       return true;
@@ -279,11 +284,90 @@ export default function ChatSidebar({
       {threadsSorted.map((thread, index) => {
         const contato = thread.contato;
         const isAtiva = threadAtiva?.id === thread.id;
-        const hasUnread = thread.unread_count > 0;
+        const hasUnread = getUnreadCount(thread, usuarioAtual?.id) > 0;
         const isAssignedToMe = thread.assigned_user_id === usuarioAtual?.id;
         const isUnassigned = !thread.assigned_user_id;
 
-        if (!contato) {
+        // ✅ RESOLVER UI (externo ou interno)
+        const threadUI = resolveThreadUI(thread, usuarioAtual, atendentes);
+
+        // ✅ THREADS INTERNAS - Renderizar com UI resolvida
+        if (threadUI.isInternal) {
+          const isSelected = contatosSelecionados.find(c => c.id === thread.id);
+          const setorConfig = {
+            'vendas': { cor: 'bg-emerald-500' },
+            'assistencia': { cor: 'bg-blue-500' },
+            'financeiro': { cor: 'bg-purple-500' },
+            'fornecedor': { cor: 'bg-orange-500' },
+            'geral': { cor: 'bg-slate-500' }
+          };
+          const corAvatar = setorConfig[threadUI.setorCor || 'geral']?.cor || 'bg-indigo-500';
+
+          return (
+            <motion.div
+              key={thread.id}
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: index * 0.05 }}
+              onClick={(e) => handleClick(thread, e)} 
+              className={`px-2 py-2 flex items-center gap-3 cursor-pointer transition-all border-b border-purple-100 hover:bg-gradient-to-r hover:from-purple-50 hover:to-indigo-50 ${isAtiva ? 'bg-purple-100' : ''} ${isSelected ? 'bg-purple-100 border-l-4 border-l-purple-500' : ''}`}
+            >
+              {modoSelecao && (
+                <div className="flex-shrink-0">
+                  {isSelected ? (
+                    <CheckSquare className="w-5 h-5 text-purple-500" />
+                  ) : (
+                    <Square className="w-5 h-5 text-slate-400" />
+                  )}
+                </div>
+              )}
+
+              <div className="relative flex-shrink-0">
+                <div className={`relative w-12 h-12 rounded-full flex items-center justify-center text-white font-bold text-lg shadow-md ${corAvatar}`}>
+                  {threadUI.avatar}
+                </div>
+              </div>
+
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center justify-between mb-0.5">
+                  <div className="flex items-center gap-1 min-w-0 flex-1">
+                    <h3 className={`font-semibold truncate text-sm ${hasUnread ? 'text-slate-900' : 'text-slate-700'}`}>
+                      {threadUI.badge} {threadUI.title}
+                    </h3>
+                    {hasUnread && (
+                      <Badge className="rounded-full min-w-[18px] h-4 flex items-center justify-center p-0 px-1 bg-gradient-to-r from-purple-400 via-indigo-500 to-blue-500 text-white text-[10px] font-bold border-0 shadow-lg">
+                        {getUnreadCount(thread, usuarioAtual?.id)}
+                      </Badge>
+                    )}
+                  </div>
+                  <span className={`text-[10px] flex-shrink-0 ml-2 ${hasUnread ? 'text-purple-600 font-medium' : 'text-slate-400'}`}>
+                    {formatarHorario(thread.last_message_at)}
+                  </span>
+                </div>
+
+                <p className={`text-xs truncate flex items-center gap-1 ${hasUnread ? 'text-slate-800' : 'text-slate-500'}`}>
+                  {thread.last_message_sender === 'user' && <CheckCheck className="w-3 h-3 text-blue-500 flex-shrink-0" />}
+                  {thread.last_media_type === 'image' && <Image className="w-3 h-3 text-blue-500 flex-shrink-0" />}
+                  {thread.last_media_type === 'video' && <Video className="w-3 h-3 text-purple-500 flex-shrink-0" />}
+                  {thread.last_media_type === 'audio' && <Mic className="w-3 h-3 text-green-500 flex-shrink-0" />}
+                  {thread.last_media_type === 'document' && <FileText className="w-3 h-3 text-orange-500 flex-shrink-0" />}
+                  <span className="truncate">
+                    {thread.last_message_content || "💬 Aguardando mensagem..."}
+                  </span>
+                </p>
+
+                <div className="flex items-center gap-1 mt-1 overflow-hidden">
+                  <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-semibold text-white bg-indigo-500 shadow-sm">
+                    {threadUI.subtitle}
+                  </span>
+                </div>
+              </div>
+            </motion.div>
+          );
+        }
+
+        // ✅ THREADS EXTERNAS SEM CONTATO - Casos especiais
+        if (!contato && !threadUI.isInternal) {
           // Se é um cliente sem contato cadastrado, mostrar com indicador especial
           if (thread.is_cliente_only) {
             return (
@@ -394,10 +478,10 @@ export default function ChatSidebar({
                       {nomeExibicao}
                     </h3>
                     {hasUnread &&
-                  <Badge className="rounded-full min-w-[18px] h-4 flex items-center justify-center p-0 px-1 bg-gradient-to-r from-amber-400 via-orange-500 to-red-500 text-white text-[10px] font-bold border-0 shadow-lg">
-                        {thread.unread_count}
+                    <Badge className="rounded-full min-w-[18px] h-4 flex items-center justify-center p-0 px-1 bg-gradient-to-r from-amber-400 via-orange-500 to-red-500 text-white text-[10px] font-bold border-0 shadow-lg">
+                        {getUnreadCount(thread, usuarioAtual?.id)}
                       </Badge>
-                  }
+                    }
                   {(() => {
                     const info = getIntegracaoInfo(thread);
                     if (!info) return null;
