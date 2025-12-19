@@ -499,7 +499,116 @@ export default function Comunicacao() {
     queryClient.invalidateQueries({ queryKey: ['threads'] });
   }, [threadAtiva, queryClient]);
 
-  // 🚀 OPTIMISTIC UI: Envio instantâneo de mensagens
+  // 🚀 OPTIMISTIC UI: Envio instantâneo de mensagens INTERNAS
+  const handleEnviarMensagemInternaOtimista = useCallback(async (dadosEnvio) => {
+    if (!threadAtiva || !usuario) return;
+
+    const { texto, pastedImage, attachedFile, attachedFileType, replyToMessage } = dadosEnvio;
+
+    // ✅ UPLOAD DE MÍDIA ANTES (igual WhatsApp externo)
+    let mediaUrlFinal = null;
+    let mediaTypeFinal = 'none';
+    let mediaCaptionFinal = null;
+
+    try {
+      // Upload de imagem colada
+      if (pastedImage) {
+        const timestamp = Date.now();
+        let mimeType = pastedImage.type || 'image/png';
+        if (!mimeType.startsWith('image/')) mimeType = 'image/png';
+        const ext = mimeType.includes('jpeg') ? 'jpg' : mimeType.includes('webp') ? 'webp' : 'png';
+
+        const imageFile = new File([pastedImage], `internal-${timestamp}.${ext}`, { 
+          type: mimeType,
+          lastModified: timestamp
+        });
+
+        const uploadResponse = await base44.integrations.Core.UploadFile({ file: imageFile });
+        mediaUrlFinal = uploadResponse.file_url;
+        mediaTypeFinal = 'image';
+        mediaCaptionFinal = texto.trim() || null;
+      }
+      // Upload de arquivo anexado
+      else if (attachedFile) {
+        const timestamp = Date.now();
+        const ext = attachedFile.name.split('.').pop() || 'file';
+        const uploadFile = new File([attachedFile], `internal-${timestamp}.${ext}`, { 
+          type: attachedFile.type,
+          lastModified: timestamp
+        });
+
+        const uploadResponse = await base44.integrations.Core.UploadFile({ file: uploadFile });
+        mediaUrlFinal = uploadResponse.file_url;
+        mediaTypeFinal = attachedFileType;
+        mediaCaptionFinal = texto.trim() || null;
+      }
+
+      // Validação
+      if (!texto.trim() && !mediaUrlFinal) {
+        toast.error('Digite uma mensagem ou anexe uma mídia');
+        return;
+      }
+
+      const contentFinal = texto.trim() || (mediaUrlFinal ? `[${mediaTypeFinal}]` : '');
+
+      // 1. Criar mensagem temporária (aparece INSTANTANEAMENTE)
+      const msgTemp = {
+        id: `temp-${Date.now()}`,
+        thread_id: threadAtiva.id,
+        sender_id: usuario.id,
+        sender_type: "user",
+        content: contentFinal,
+        channel: "interno",
+        status: "enviando",
+        sent_at: new Date().toISOString(),
+        media_url: mediaUrlFinal,
+        media_type: mediaTypeFinal,
+        media_caption: mediaCaptionFinal,
+        reply_to_message_id: replyToMessage?.id || null,
+        metadata: {
+          optimistic: true,
+          user_name: usuario.full_name
+        }
+      };
+
+      // 2. Atualizar cache INSTANTANEAMENTE
+      queryClient.setQueryData(['mensagens', threadAtiva.id], (antigas = []) => {
+        return [...antigas, msgTemp];
+      });
+
+      // 3. Enviar para servidor em background
+      const payload = {
+        thread_id: threadAtiva.id,
+        content: contentFinal,
+        media_type: mediaTypeFinal,
+        media_url: mediaUrlFinal,
+        media_caption: mediaCaptionFinal,
+        reply_to_message_id: replyToMessage?.id || null
+      };
+
+      const resultado = await base44.functions.invoke('sendInternalMessage', payload);
+
+      if (resultado.data.success) {
+        // 4. Substituir mensagem temporária pela real
+        queryClient.invalidateQueries({ queryKey: ['mensagens', threadAtiva.id] });
+        queryClient.invalidateQueries({ queryKey: ['threads'] });
+        toast.success('✅ Mensagem enviada!');
+      } else {
+        throw new Error(resultado.data.error || 'Erro ao enviar');
+      }
+    } catch (error) {
+      console.error('[OPTIMISTIC INTERNO] Erro:', error);
+
+      // 5. ROLLBACK: Remover mensagem temporária
+      queryClient.setQueryData(['mensagens', threadAtiva.id], (antigas = []) => {
+        return antigas.filter((m) => m.id !== `temp-${Date.now()}`);
+      });
+
+      toast.error(`Erro ao enviar: ${error.message}`);
+    }
+  }, [threadAtiva, usuario, queryClient]);
+
+  // 🚀 OPTIMISTIC UI: Envio instantâneo de mensagens EXTERNAS (WhatsApp)
   const handleEnviarMensagemOtimista = useCallback(async (dadosEnvio) => {
     if (!threadAtiva || !usuario) return;
 
@@ -1165,6 +1274,7 @@ export default function Comunicacao() {
                         usuario={usuario}
                         onEnviarMensagem={async () => {}}
                         onSendMessageOptimistic={handleEnviarMensagemOtimista}
+                        onSendInternalMessageOptimistic={handleEnviarMensagemInternaOtimista}
                         onShowContactInfo={() => setShowContactInfo(!showContactInfo)}
                         onAtualizarMensagens={handleAtualizarMensagens}
                         integracoes={integracoes}

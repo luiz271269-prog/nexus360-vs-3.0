@@ -67,6 +67,7 @@ export default function ChatWindow({
   usuario = null,
   onEnviarMensagem,
   onSendMessageOptimistic,
+  onSendInternalMessageOptimistic, // ✅ NOVO: Handler otimista para mensagens internas
   onShowContactInfo,
   onAtualizarMensagens,
   integracoes = [],
@@ -1047,128 +1048,25 @@ export default function ChatWindow({
     }
 
     // ═══════════════════════════════════════════════════════════════════════
-    // THREAD INTERNA (team_internal ou sector_group) - ENVIO INDIVIDUAL
+    // THREAD INTERNA (team_internal ou sector_group) - ENVIO INDIVIDUAL OTIMISTA
     // ═══════════════════════════════════════════════════════════════════════
     if (thread?.thread_type === 'team_internal' || thread?.thread_type === 'sector_group') {
-      console.log('[CHAT] 💬 Enviando mensagem INTERNA | Tipo thread:', thread.thread_type);
-      console.log('[CHAT] 📦 Dados recebidos:', { 
-        texto: texto?.substring(0, 30), 
-        pastedImage: !!pastedImage, 
-        attachedFile: !!attachedFile,
-        attachedFileType 
-      });
-      setEnviando(true);
-
-      try {
-        // ✅ LÓGICA CIRÚRGICA: Upload de mídia ANTES de enviar (igual Z-API)
-        let mediaUrlFinal = null;
-        let mediaTypeFinal = 'none';
-        let mediaCaptionFinal = null;
-
-        // Se tem imagem colada
-        if (pastedImage) {
-          console.log('[CHAT] 📷 Upload imagem colada - iniciando...', {
-            type: pastedImage.type,
-            size: pastedImage.size
-          });
-          toast.info('📤 Fazendo upload da imagem...');
-          const timestamp = Date.now();
-          let mimeType = pastedImage.type || 'image/png';
-          if (!mimeType.startsWith('image/')) mimeType = 'image/png';
-          const ext = mimeType.includes('jpeg') ? 'jpg' : mimeType.includes('webp') ? 'webp' : 'png';
-
-          const imageFile = new File([pastedImage], `internal-${timestamp}.${ext}`, { 
-            type: mimeType,
-            lastModified: timestamp
-          });
-
-          console.log('[CHAT] 📷 Upload - arquivo preparado:', imageFile.name, imageFile.type, imageFile.size);
-
-          const uploadResponse = await base44.integrations.Core.UploadFile({ file: imageFile });
-          mediaUrlFinal = uploadResponse.file_url;
-          mediaTypeFinal = 'image';
-          mediaCaptionFinal = texto.trim() || null;
-
-          console.log('[CHAT] ✅ Upload concluído! URL:', mediaUrlFinal);
-        }
-        // Se tem arquivo anexado
-        else if (attachedFile) {
-          console.log('[CHAT] 📎 Upload arquivo anexado - iniciando...', {
-            name: attachedFile.name,
-            type: attachedFile.type,
-            size: attachedFile.size
-          });
-          toast.info('📤 Fazendo upload do arquivo...');
-          const timestamp = Date.now();
-          const ext = attachedFile.name.split('.').pop() || 'file';
-          const uploadFile = new File([attachedFile], `internal-${timestamp}.${ext}`, { 
-            type: attachedFile.type,
-            lastModified: timestamp
-          });
-
-          console.log('[CHAT] 📎 Upload - arquivo preparado:', uploadFile.name, uploadFile.type, uploadFile.size);
-
-          const uploadResponse = await base44.integrations.Core.UploadFile({ file: uploadFile });
-          mediaUrlFinal = uploadResponse.file_url;
-          mediaTypeFinal = attachedFileType;
-          mediaCaptionFinal = texto.trim() || null;
-
-          console.log('[CHAT] ✅ Upload concluído! URL:', mediaUrlFinal);
-        }
-
-        // Validação: precisa texto OU mídia
-        if (!texto.trim() && !mediaUrlFinal) {
-          console.error('[CHAT] ❌ Nenhum conteúdo fornecido');
-          toast.error('Digite uma mensagem ou anexe uma mídia');
-          setEnviando(false);
-          return;
-        }
-
-        const payloadParaEnviar = {
-          thread_id: thread.id,
-          content: texto.trim() || (mediaUrlFinal ? `[${mediaTypeFinal}]` : ''),
-          media_type: mediaTypeFinal,
-          media_url: mediaUrlFinal,
-          media_caption: mediaCaptionFinal,
-          reply_to_message_id: mensagemResposta?.id || null
-        };
-
-        console.log('[CHAT] 📤 Invocando sendInternalMessage com:', JSON.stringify(payloadParaEnviar, null, 2));
-
-        const result = await base44.functions.invoke('sendInternalMessage', payloadParaEnviar);
-
-        console.log('[CHAT] 📥 Resposta sendInternalMessage:', JSON.stringify(result, null, 2));
-
-        if (result?.data?.success || result?.success) {
-          setMensagemResposta(null);
-          toast.success('✅ Mensagem enviada!');
-          console.log('[CHAT] ✅ Mensagem interna enviada com sucesso!');
-
-          if (onAtualizarMensagens) {
-            onAtualizarMensagens();
-          }
-        } else {
-          const errorMsg = result?.data?.error || result?.error || 'Erro ao enviar mensagem interna';
-          console.error('[CHAT] ❌ Falha no envio:', errorMsg);
-          throw new Error(errorMsg);
-        }
-      } catch (error) {
-        console.error('[CHAT] ❌ Erro ao enviar mensagem interna:', error);
-        console.error('[CHAT] ❌ Stack:', error.stack);
-        console.error('[CHAT] ❌ Dados do erro:', {
-          message: error.message,
-          thread_id: thread?.id,
-          thread_type: thread?.thread_type,
-          media_type: mediaTypeFinal,
-          has_media_url: !!mediaUrlFinal,
-          participants: thread?.participants
+      // ✅ USAR OPTIMISTIC UI (igual WhatsApp externo)
+      if (onSendInternalMessageOptimistic) {
+        onSendInternalMessageOptimistic({
+          texto,
+          pastedImage,
+          pastedImagePreview,
+          attachedFile,
+          attachedFileType,
+          replyToMessage: mensagemResposta
         });
-        toast.error('Erro ao enviar: ' + error.message);
-      } finally {
-        setEnviando(false);
+        setMensagemResposta(null);
+      } else {
+        toast.error("Handler de envio interno não configurado");
       }
       return;
-      }
+    }
 
     // ═══════════════════════════════════════════════════════════════════════
     // THREAD EXTERNA (WhatsApp) - Validações de thread e contato
