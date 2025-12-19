@@ -30,6 +30,7 @@ import {
 } from "../lib/userMatcher";
 import { getUserDisplayName } from "../lib/userHelpers";
 import UsuarioDisplay from "./UsuarioDisplay";
+import UsuarioDisplay from "./UsuarioDisplay";
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // 🎯 GETTER UNIFICADO: Badge de não lidas (externo + interno)
@@ -366,6 +367,12 @@ export default function ChatSidebar({
         // ✅ RESOLVER UI (externo ou interno)
         const threadUI = resolveThreadUI(thread, usuarioAtual, atendentes);
 
+        // ✅ THREADS INTERNAS não devem aparecer em "Não atribuídas"
+        // Verificar isso ANTES de renderizar
+        if (filtros?.scope === 'unassigned' && threadUI.isInternal) {
+          return null;
+        }
+
         // ✅ THREADS INTERNAS - Renderizar com UI resolvida
         if (threadUI.isInternal) {
           const isSelected = contatosSelecionados.find(c => c.id === thread.id);
@@ -378,6 +385,12 @@ export default function ChatSidebar({
             'geral': { cor: 'bg-slate-500' }
           };
           const corAvatar = setorConfig[threadUI.setorCor || 'geral']?.cor || 'bg-indigo-500';
+          
+          // ✅ Usar getUserDisplayName para exibir nome do outro participante
+          const outroUserId = thread.participants?.find(id => id !== usuarioAtual?.id);
+          const nomeExibicao = outroUserId 
+            ? getUserDisplayName(outroUserId, atendentes) 
+            : threadUI.title;
 
           return (
             <motion.div
@@ -417,7 +430,7 @@ export default function ChatSidebar({
                 <div className="flex items-center justify-between mb-0.5">
                   <div className="flex items-center gap-1 min-w-0 flex-1">
                     <h3 className={`font-semibold truncate text-sm ${hasUnread ? 'text-slate-900' : 'text-slate-700'}`}>
-                      {threadUI.badge} {threadUI.title}
+                      {threadUI.badge} {thread.thread_type === 'team_internal' && !thread.is_group_chat ? nomeExibicao : threadUI.title}
                     </h3>
                     {hasUnread && (
                       <Badge className="rounded-full min-w-[18px] h-4 flex items-center justify-center p-0 px-1 bg-gradient-to-r from-purple-400 via-indigo-500 to-blue-500 text-white text-[10px] font-bold border-0 shadow-lg">

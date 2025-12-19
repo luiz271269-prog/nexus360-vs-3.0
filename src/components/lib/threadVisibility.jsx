@@ -126,8 +126,14 @@ export const isFidelizadoAoUsuario = (usuario, contato) => {
 
 /**
  * Verifica se a thread não está atribuída a ninguém
+ * ✅ THREADS INTERNAS NUNCA SÃO "NÃO ATRIBUÍDAS" (já têm participants)
  */
 export const isNaoAtribuida = (thread) => {
+  // Threads internas não usam assigned_user_id (usam participants)
+  if (thread?.thread_type === 'team_internal' || thread?.thread_type === 'sector_group') {
+    return false;
+  }
+  
   return !thread.assigned_user_id && !thread.assigned_user_name && !thread.assigned_user_email;
 };
 
