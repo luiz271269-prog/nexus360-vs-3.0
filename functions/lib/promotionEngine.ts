@@ -99,7 +99,9 @@ export function filterEligiblePromotions(promos, contact, thread) {
   return promos.filter(promo => {
     // Filtro: target_contact_types
     if (promo.target_contact_types && promo.target_contact_types.length > 0) {
-      if (!contact.tipo_contato || !promo.target_contact_types.includes(contact.tipo_contato)) {
+      const tipoNorm = String(contact.tipo_contato || '').toLowerCase();
+      const targetNorm = promo.target_contact_types.map(t => String(t).toLowerCase());
+      if (!targetNorm.includes(tipoNorm)) {
         return false;
       }
     }

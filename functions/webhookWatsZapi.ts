@@ -381,15 +381,18 @@ async function handleMessage(dados, payloadBruto, base44) {
 
   // ATUALIZAR THREAD STATUS (Básico)
   try {
-    await base44.asServiceRole.entities.MessageThread.update(thread.id, {
+    const threadUpdates = {
       last_message_content: dados.content.substring(0, 200),
       last_message_at: new Date().toISOString(),
+      last_inbound_at: new Date().toISOString(), // ✅ CRÍTICO: Timestamp separado para mensagens RECEBIDAS
       last_message_sender: 'contact',
       last_media_type: dados.mediaType,
       unread_count: (thread.unread_count || 0) + 1,
       status: 'aberta'
-    });
-    console.log('[ZAPI] ✅ Thread atualizada');
+    };
+    
+    await base44.asServiceRole.entities.MessageThread.update(thread.id, threadUpdates);
+    console.log('[ZAPI] ✅ Thread atualizada (last_inbound_at registrado)');
   } catch (updateError) {
     console.error('[ZAPI] ⚠️ Erro ao atualizar thread:', updateError.message);
   }
