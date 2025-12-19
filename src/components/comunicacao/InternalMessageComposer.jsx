@@ -247,62 +247,61 @@ export default function InternalMessageComposer({ open, onClose, currentUser, on
 
                 {/* Aba Usuários */}
                 <TabsContent value="usuarios" className="flex-1 overflow-y-auto mt-3 space-y-1">
-                    {loadingUsers ? (
-                      <div className="flex items-center justify-center py-12">
-                        <Loader2 className="w-6 h-6 animate-spin text-purple-600" />
-                      </div>
-                    ) : usuariosDisponiveis.length === 0 ? (
-                      <div className="text-center py-12 text-slate-500 text-sm">
-                        Nenhum usuário disponível
-                      </div>
-                    ) : (
-                      usuariosDisponiveis.map(usuario => {
-                        const isSelected = selectedUsers.includes(usuario.id);
-                        const setor = usuario.attendant_sector || 'geral';
-                        const nivel = usuario.attendant_role || usuario.role || 'pleno';
-                        const setorCfg = setorConfig[setor] || setorConfig['geral'];
-                        const nivelCfg = nivelConfig[nivel] || nivelConfig['pleno'];
+                  {loadingUsers ? (
+                    <div className="flex items-center justify-center py-12">
+                      <Loader2 className="w-6 h-6 animate-spin text-purple-600" />
+                    </div>
+                  ) : usuariosDisponiveis.length === 0 ? (
+                    <div className="text-center py-12 text-slate-500 text-sm">
+                      Nenhum usuário disponível
+                    </div>
+                  ) : (
+                    usuariosDisponiveis.map(usuario => {
+                      const isSelected = selectedUsers.includes(usuario.id);
+                      const setor = usuario.attendant_sector || 'geral';
+                      const nivel = usuario.attendant_role || usuario.role || 'pleno';
+                      const setorCfg = setorConfig[setor] || setorConfig['geral'];
+                      const nivelCfg = nivelConfig[nivel] || nivelConfig['pleno'];
 
-                        return (
-                          <button
-                            key={usuario.id}
-                            onClick={() => toggleUser(usuario.id)}
-                            className={`w-full flex items-center gap-3 p-2 rounded-lg transition-all text-left border ${
-                              isSelected 
-                                ? 'bg-purple-100 border-purple-400' 
-                                : 'hover:bg-purple-50 border-transparent'
-                            }`}
-                          >
-                            <div className="flex-shrink-0">
-                              {isSelected ? (
-                                <CheckSquare className="w-5 h-5 text-purple-600" />
-                              ) : (
-                                <Square className="w-5 h-5 text-slate-400" />
+                      return (
+                        <button
+                          key={usuario.id}
+                          onClick={() => toggleUser(usuario.id)}
+                          className={`w-full flex items-center gap-3 p-2 rounded-lg transition-all text-left border ${
+                            isSelected 
+                              ? 'bg-purple-100 border-purple-400' 
+                              : 'hover:bg-purple-50 border-transparent'
+                          }`}
+                        >
+                          <div className="flex-shrink-0">
+                            {isSelected ? (
+                              <CheckSquare className="w-5 h-5 text-purple-600" />
+                            ) : (
+                              <Square className="w-5 h-5 text-slate-400" />
+                            )}
+                          </div>
+                          <div className={`w-10 h-10 ${setorCfg.cor} rounded-full flex items-center justify-center text-white font-bold shadow-md`}>
+                            {(usuario.full_name || usuario.email || '?').charAt(0).toUpperCase()}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 mb-1">
+                              <UsuarioDisplay usuario={usuario} className="flex-1 min-w-0 text-sm" />
+                            </div>
+                            <div className="flex items-center gap-1 flex-wrap">
+                              <span className={`inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-semibold text-white ${nivelCfg.cor}`}>
+                                {nivelCfg.label}
+                              </span>
+                              {usuario.role === 'admin' && (
+                                <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-semibold text-amber-700 bg-amber-100">
+                                  <Star className="w-2.5 h-2.5" /> Admin
+                                </span>
                               )}
                             </div>
-                            <div className={`w-10 h-10 ${setorCfg.cor} rounded-full flex items-center justify-center text-white font-bold shadow-md`}>
-                              {(usuario.full_name || usuario.email || '?').charAt(0).toUpperCase()}
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <div className="flex items-center gap-2 mb-1">
-                                <UsuarioDisplay usuario={usuario} className="flex-1 min-w-0 text-sm" />
-                              </div>
-                              <div className="flex items-center gap-1 flex-wrap">
-                                <span className={`inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-semibold text-white ${nivelCfg.cor}`}>
-                                  {nivelCfg.label}
-                                </span>
-                                {usuario.role === 'admin' && (
-                                  <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-semibold text-amber-700 bg-amber-100">
-                                    <Star className="w-2.5 h-2.5" /> Admin
-                                  </span>
-                                )}
-                              </div>
-                            </div>
-                          </button>
-                        );
-                      })
-                    )}
-                  </div>
+                          </div>
+                        </button>
+                      );
+                    })
+                  )}
                 </TabsContent>
 
                 {/* Aba Setores */}
