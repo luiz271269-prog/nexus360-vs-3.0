@@ -1051,6 +1051,12 @@ export default function ChatWindow({
     // ═══════════════════════════════════════════════════════════════════════
     if (thread?.thread_type === 'team_internal' || thread?.thread_type === 'sector_group') {
       console.log('[CHAT] 💬 Enviando mensagem INTERNA | Tipo thread:', thread.thread_type);
+      console.log('[CHAT] 📦 Dados recebidos:', { 
+        texto: texto?.substring(0, 30), 
+        pastedImage: !!pastedImage, 
+        attachedFile: !!attachedFile,
+        attachedFileType 
+      });
       setEnviando(true);
 
       try {
@@ -1061,7 +1067,10 @@ export default function ChatWindow({
 
         // Se tem imagem colada
         if (pastedImage) {
-          console.log('[CHAT] 📷 Upload imagem colada - iniciando...');
+          console.log('[CHAT] 📷 Upload imagem colada - iniciando...', {
+            type: pastedImage.type,
+            size: pastedImage.size
+          });
           toast.info('📤 Fazendo upload da imagem...');
           const timestamp = Date.now();
           let mimeType = pastedImage.type || 'image/png';
@@ -1084,7 +1093,11 @@ export default function ChatWindow({
         }
         // Se tem arquivo anexado
         else if (attachedFile) {
-          console.log('[CHAT] 📎 Upload arquivo anexado - iniciando...', attachedFile.name);
+          console.log('[CHAT] 📎 Upload arquivo anexado - iniciando...', {
+            name: attachedFile.name,
+            type: attachedFile.type,
+            size: attachedFile.size
+          });
           toast.info('📤 Fazendo upload do arquivo...');
           const timestamp = Date.now();
           const ext = attachedFile.name.split('.').pop() || 'file';
@@ -1105,28 +1118,24 @@ export default function ChatWindow({
 
         // Validação: precisa texto OU mídia
         if (!texto.trim() && !mediaUrlFinal) {
+          console.error('[CHAT] ❌ Nenhum conteúdo fornecido');
           toast.error('Digite uma mensagem ou anexe uma mídia');
           setEnviando(false);
           return;
         }
 
-        console.log('[CHAT] 📤 Invocando sendInternalMessage com:', {
-          thread_id: thread.id,
-          content: texto.trim() || `[${mediaTypeFinal}]`,
-          media_type: mediaTypeFinal,
-          media_url: mediaUrlFinal,
-          media_caption: mediaCaptionFinal,
-          has_reply: !!mensagemResposta
-        });
-
-        const result = await base44.functions.invoke('sendInternalMessage', {
+        const payloadParaEnviar = {
           thread_id: thread.id,
           content: texto.trim() || (mediaUrlFinal ? `[${mediaTypeFinal}]` : ''),
           media_type: mediaTypeFinal,
           media_url: mediaUrlFinal,
           media_caption: mediaCaptionFinal,
           reply_to_message_id: mensagemResposta?.id || null
-        });
+        };
+
+        console.log('[CHAT] 📤 Invocando sendInternalMessage com:', JSON.stringify(payloadParaEnviar, null, 2));
+
+        const result = await base44.functions.invoke('sendInternalMessage', payloadParaEnviar);
 
         console.log('[CHAT] 📥 Resposta sendInternalMessage:', JSON.stringify(result, null, 2));
 
