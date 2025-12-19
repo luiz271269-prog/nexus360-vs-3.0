@@ -31,6 +31,76 @@ import {
 import { getUserDisplayName } from "../lib/userHelpers";
 import UsuarioDisplay from "./UsuarioDisplay";
 
+// ═══════════════════════════════════════════════════════════════════════════════
+// 🎯 GETTER UNIFICADO: Badge de não lidas (externo + interno)
+// ═══════════════════════════════════════════════════════════════════════════════
+const getUnreadCount = (thread, currentUserId) => {
+  if (!thread) return 0;
+  
+  // INTERNO: usar unread_by[userId]
+  if (thread.thread_type === 'team_internal' || thread.thread_type === 'sector_group') {
+    return thread.unread_by?.[currentUserId] || 0;
+  }
+  
+  // EXTERNO: usar unread_count
+  return thread.unread_count || 0;
+};
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// 🎨 RESOLVER UI: Título/Avatar/Badge para threads (externo + interno)
+// ═══════════════════════════════════════════════════════════════════════════════
+const resolveThreadUI = (thread, currentUser, atendentes = []) => {
+  // ✅ THREADS INTERNAS
+  if (thread.thread_type === 'team_internal' || thread.thread_type === 'sector_group') {
+    // 1:1 interno: buscar o outro participante
+    if (thread.thread_type === 'team_internal' && !thread.is_group_chat) {
+      const outroUserId = thread.participants?.find(id => id !== currentUser?.id);
+      if (outroUserId) {
+        const outroUser = atendentes.find(a => a.id === outroUserId);
+        const nome = outroUser?.full_name || outroUser?.email || 'Usuário';
+        return {
+          isInternal: true,
+          title: nome,
+          badge: '💬',
+          avatar: nome.charAt(0).toUpperCase(),
+          subtitle: '1:1 interno',
+          setorCor: outroUser?.attendant_sector || 'geral'
+        };
+      }
+    }
+    
+    // Grupo de setor
+    if (thread.thread_type === 'sector_group') {
+      const setor = thread.sector_key?.replace('sector:', '') || 'geral';
+      return {
+        isInternal: true,
+        title: `Setor ${setor}`,
+        badge: '🏢',
+        avatar: <Building2 className="w-6 h-6" />,
+        subtitle: `Grupo • ${thread.participants?.length || 0} membros`,
+        setorCor: setor
+      };
+    }
+    
+    // Grupo customizado
+    if (thread.is_group_chat) {
+      return {
+        isInternal: true,
+        title: thread.group_name || 'Grupo',
+        badge: '👥',
+        avatar: <Users className="w-6 h-6" />,
+        subtitle: `${thread.participants?.length || 0} membros`,
+        setorCor: 'geral'
+      };
+    }
+  }
+  
+  // ✅ THREADS EXTERNAS (manter compatibilidade)
+  return {
+    isInternal: false
+  };
+};
+
 export default function ChatSidebar({ 
   threads, 
   threadAtiva, 
