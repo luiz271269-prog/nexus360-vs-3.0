@@ -198,6 +198,9 @@ export default React.memo(function MessageBubble({
     return null;
   }
 
+  // ✅ CORREÇÃO: Determinar isOwn baseado em sender_type (mensagens internas não têm role)
+  const isOwnMessage = message.sender_type === 'user' || message.role === 'user' || isOwn;
+
   // ✅ NÃO RENDERIZAR mensagens de prompt da micro-URA
   if (message.metadata?.is_system_message === true && message.metadata?.message_type === 'micro_ura_prompt') {
     return null;
@@ -628,7 +631,7 @@ export default React.memo(function MessageBubble({
     <>
       <div className={cn(
           "flex w-full px-[5%]",
-          isOwn ? "justify-end" : "justify-start"
+          isOwnMessage ? "justify-end" : "justify-start"
         )}
         onClick={() => modoSelecao && onToggleSelecao?.(message.id)}>
 
@@ -647,7 +650,7 @@ export default React.memo(function MessageBubble({
           "max-w-[65%]",
           "flex flex-col group relative"
         )}>
-          {!isOwn && (thread?.thread_type === 'team_internal' || thread?.thread_type === 'sector_group' || message.channel === 'interno') && (() => {
+          {!isOwnMessage && (thread?.thread_type === 'team_internal' || thread?.thread_type === 'sector_group' || message.channel === 'interno') && (() => {
             const atendenteRemetente = atendentes.find(a => a.id === message.sender_id);
             if (!atendenteRemetente) return null;
             return (
@@ -660,7 +663,7 @@ export default React.memo(function MessageBubble({
               </div>
             );
           })()}
-          {!isOwn && message.sender_type === 'contact' && contato?.nome && (
+          {!isOwnMessage && message.sender_type === 'contact' && contato?.nome && (
             <div className="flex items-center gap-2 mb-0.5">
               <span className="text-[11px] font-semibold text-[#00a884]">
                 {contato.nome}
@@ -685,7 +688,7 @@ export default React.memo(function MessageBubble({
           {mensagemOriginal &&
           <div className={cn(
             "mb-1 px-3 py-2 rounded-lg border-l-4 text-xs bg-slate-100",
-            isOwn ? "border-blue-500" : "border-green-500"
+            isOwnMessage ? "border-blue-500" : "border-green-500"
           )}>
               <p className="font-semibold text-slate-600 mb-0.5">
                 {mensagemOriginal?.sender_type === 'user' ? 'Você' : 'Cliente'}
@@ -700,8 +703,8 @@ export default React.memo(function MessageBubble({
             "rounded-lg relative shadow-sm",
             // ✅ CORES PROFISSIONAIS: Internas (azul claro/cinza) vs Externas (blue/white)
             thread?.thread_type === 'team_internal' || thread?.thread_type === 'sector_group' || message.channel === 'interno'
-              ? (isOwn ? "bg-gradient-to-br from-cyan-500 to-blue-500" : "bg-slate-50 border border-slate-200")
-              : (isOwn ? "bg-[#3b82f6]" : "bg-white"),
+              ? (isOwnMessage ? "bg-gradient-to-br from-cyan-500 to-blue-500" : "bg-slate-50 border border-slate-200")
+              : (isOwnMessage ? "bg-[#3b82f6]" : "bg-white"),
             selecionada ? 'ring-2 ring-blue-500' : '',
             message.media_url && message.media_type !== 'none' ? '' : 'px-3 py-1.5'
           )}
@@ -752,7 +755,7 @@ export default React.memo(function MessageBubble({
                       <TooltipContent side="top">Encaminhar</TooltipContent>
                       </Tooltip>
 
-                      {isOwn &&
+                      {isOwnMessage &&
                 <Tooltip>
                       <TooltipTrigger asChild>
                         <Button
@@ -873,12 +876,12 @@ export default React.memo(function MessageBubble({
                 {message.media_caption &&
               <div className={cn(
                 "px-4 py-2 break-words whitespace-pre-wrap",
-                isOwn ? "text-white" : "text-slate-800"
+                isOwnMessage ? "text-white" : "text-slate-800"
               )} style={{ wordBreak: 'break-word', overflowWrap: 'anywhere' }}>
-                    <p className="text-sm leading-relaxed" style={{ fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Color Emoji", sans-serif' }}>
-                      {message.media_caption}
-                    </p>
-                  </div>
+                  <p className="text-sm leading-relaxed" style={{ fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Color Emoji", sans-serif' }}>
+                    {message.media_caption}
+                  </p>
+                </div>
               }
                 <div className="absolute bottom-2 right-2 bg-black/50 backdrop-blur-sm px-2 py-0.5 rounded-md">
                   <div className="flex items-center gap-1 flex-wrap">
@@ -913,13 +916,13 @@ export default React.memo(function MessageBubble({
                       })()}
 
                       <span className="text-[10px] text-white">
-                        {format(new Date(message.sent_at || message.created_date), 'dd/MM HH:mm')}
+                       {format(new Date(message.sent_at || message.created_date), 'dd/MM HH:mm')}
                       </span>
-                    {isOwn && message.status === 'enviando' && <Clock className="w-3 h-3 text-white/50" />}
-                    {isOwn && message.status === 'enviada' && <Check className="w-3.5 h-3.5 text-white/60" />}
-                    {isOwn && message.status === 'entregue' && <CheckCheck className="w-3.5 h-3.5 text-white/60" />}
-                    {isOwn && message.status === 'lida' && <CheckCheck className="w-3.5 h-3.5 text-[#53bdeb]" />}
-                    {isOwn && message.status === 'falhou' && <AlertCircle className="w-3.5 h-3.5 text-red-400" />}
+                      {isOwnMessage && message.status === 'enviando' && <Clock className="w-3 h-3 text-white/50" />}
+                      {isOwnMessage && message.status === 'enviada' && <Check className="w-3.5 h-3.5 text-white/60" />}
+                      {isOwnMessage && message.status === 'entregue' && <CheckCheck className="w-3.5 h-3.5 text-white/60" />}
+                      {isOwnMessage && message.status === 'lida' && <CheckCheck className="w-3.5 h-3.5 text-[#53bdeb]" />}
+                      {isOwnMessage && message.status === 'falhou' && <AlertCircle className="w-3.5 h-3.5 text-red-400" />}
                   </div>
                 </div>
               </div>
@@ -931,20 +934,20 @@ export default React.memo(function MessageBubble({
               "px-2 py-1.5 min-w-[160px] max-w-[240px]",
               // ✅ COR DO TEXTO ÁUDIO: Internas vs Externas
               thread?.thread_type === 'team_internal' || thread?.thread_type === 'sector_group' || message.channel === 'interno'
-                ? (isOwn ? "text-white" : "text-slate-700")
-                : (isOwn ? "text-white" : "text-slate-800")
+                ? (isOwnMessage ? "text-white" : "text-slate-700")
+                : (isOwnMessage ? "text-white" : "text-slate-800")
             )}>
                 <div className="flex items-center gap-2">
                   <div className={cn(
                   "w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0",
-                  isOwn ? "bg-white/20" : "bg-green-500"
+                  isOwnMessage ? "bg-white/20" : "bg-green-500"
                 )}>
-                    <Play className={cn("w-4 h-4", isOwn ? "text-white" : "text-white")} />
+                    <Play className={cn("w-4 h-4", isOwnMessage ? "text-white" : "text-white")} />
                   </div>
                   {!message?.media_url ? (
                     <div className={cn(
                       "flex-1 flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs",
-                      isOwn ? "bg-white/10 text-white/80" : "bg-slate-100 text-slate-600"
+                      isOwnMessage ? "bg-white/10 text-white/80" : "bg-slate-100 text-slate-600"
                     )}>
                       <Mic className="w-4 h-4 flex-shrink-0" />
                       <span>Áudio não disponível</span>
@@ -952,7 +955,7 @@ export default React.memo(function MessageBubble({
                   ) : message?.media_url?.includes('mmg.whatsapp.net') ? (
                     <div className={cn(
                       "flex-1 flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs",
-                      isOwn ? "bg-white/10 text-white/80" : "bg-slate-100 text-slate-600"
+                      isOwnMessage ? "bg-white/10 text-white/80" : "bg-slate-100 text-slate-600"
                     )}>
                       <Mic className="w-4 h-4 flex-shrink-0" />
                       <span>Áudio recebido (arquivo temporário)</span>
@@ -963,7 +966,7 @@ export default React.memo(function MessageBubble({
                       controls
                       className="flex-1 h-8"
                       style={{
-                        filter: isOwn ? 'invert(1) hue-rotate(180deg)' : 'none'
+                        filter: isOwnMessage ? 'invert(1) hue-rotate(180deg)' : 'none'
                       }}
                     />
                   )}
@@ -997,7 +1000,7 @@ export default React.memo(function MessageBubble({
                       const setorAtendente = atendenteMsg.attendant_sector;
                       if (nomeAtendente || setorAtendente) {
                         return (
-                          <span className={cn("text-[9px] px-1.5 py-0.5 rounded", isOwn ? "bg-white/20 text-white/90" : "bg-slate-200 text-slate-600")}>
+                          <span className={cn("text-[9px] px-1.5 py-0.5 rounded", isOwnMessage ? "bg-white/20 text-white/90" : "bg-slate-200 text-slate-600")}>
                             {nomeAtendente}{setorAtendente ? ` (${setorAtendente})` : ''}
                           </span>
                         );
@@ -1009,16 +1012,16 @@ export default React.memo(function MessageBubble({
                   <span className={cn(
                     "text-[10px]", 
                     thread?.thread_type === 'team_internal' || thread?.thread_type === 'sector_group' || message.channel === 'interno'
-                      ? (isOwn ? "text-white/70" : "text-slate-500")
-                      : (isOwn ? "text-white/70" : "text-slate-500")
+                      ? (isOwnMessage ? "text-white/70" : "text-slate-500")
+                      : (isOwnMessage ? "text-white/70" : "text-slate-500")
                   )}>
                     {format(new Date(message.sent_at || message.created_date), 'dd/MM HH:mm')}
                   </span>
-                  {isOwn && message.status === 'enviando' && <Clock className="w-3 h-3 text-white/50" />}
-                  {isOwn && message.status === 'enviada' && <Check className="w-3.5 h-3.5 text-white/60" />}
-                  {isOwn && message.status === 'entregue' && <CheckCheck className="w-3.5 h-3.5 text-white/60" />}
-                  {isOwn && message.status === 'lida' && <CheckCheck className="w-3.5 h-3.5 text-[#53bdeb]" />}
-                  {isOwn && message.status === 'falhou' && <AlertCircle className="w-3.5 h-3.5 text-red-400" />}
+                  {isOwnMessage && message.status === 'enviando' && <Clock className="w-3 h-3 text-white/50" />}
+                  {isOwnMessage && message.status === 'enviada' && <Check className="w-3.5 h-3.5 text-white/60" />}
+                  {isOwnMessage && message.status === 'entregue' && <CheckCheck className="w-3.5 h-3.5 text-white/60" />}
+                  {isOwnMessage && message.status === 'lida' && <CheckCheck className="w-3.5 h-3.5 text-[#53bdeb]" />}
+                  {isOwnMessage && message.status === 'falhou' && <AlertCircle className="w-3.5 h-3.5 text-red-400" />}
                 </div>
               </div>
             }
@@ -1026,7 +1029,7 @@ export default React.memo(function MessageBubble({
             {/* VÍDEO, DOCUMENTO, CONTATO - mantidos iguais */}
             
             {/* CANAL + ATENDENTE */}
-            {isOwn && thread && integracoes.length > 0 && (() => {
+            {isOwnMessage && thread && integracoes.length > 0 && (() => {
               const integracaoId = message?.metadata?.whatsapp_integration_id || thread?.whatsapp_integration_id;
               if (!integracaoId) return null;
               
@@ -1061,8 +1064,8 @@ export default React.memo(function MessageBubble({
                   "break-words whitespace-pre-wrap", 
                   // ✅ COR DO TEXTO: Internas vs Externas
                   thread?.thread_type === 'team_internal' || thread?.thread_type === 'sector_group' || message.channel === 'interno'
-                    ? (isOwn ? "text-white" : "text-slate-700")
-                    : (isOwn ? "text-white" : "text-[#111b21]")
+                    ? (isOwnMessage ? "text-white" : "text-slate-700")
+                    : (isOwnMessage ? "text-white" : "text-[#111b21]")
                 )} style={{ wordBreak: 'break-word', overflowWrap: 'anywhere' }}>
                   <p className="text-[14.2px] leading-[19px]" style={{ fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Color Emoji", sans-serif' }}>
                     {String(message.content || '')}
@@ -1070,7 +1073,7 @@ export default React.memo(function MessageBubble({
                 </div>
 
                 <div className="flex items-center justify-end gap-1 mt-0.5 flex-wrap">
-                {!isOwn && message.metadata?.canal_nome && (
+                {!isOwnMessage && message.metadata?.canal_nome && (
                   <span className={cn("text-[10px] px-1.5 py-0.5 rounded bg-green-100 text-green-700")}>
                     📱 {message.metadata.canal_nome}
                   </span>
@@ -1084,7 +1087,7 @@ export default React.memo(function MessageBubble({
                     const setorAtendente = atendenteMsg.attendant_sector;
                     if (nomeAtendente || setorAtendente) {
                       return (
-                        <span className={cn("text-[10px] px-1.5 py-0.5 rounded", isOwn ? "bg-white/20 text-white/90" : "bg-slate-200 text-slate-600")}>
+                        <span className={cn("text-[10px] px-1.5 py-0.5 rounded", isOwnMessage ? "bg-white/20 text-white/90" : "bg-slate-200 text-slate-600")}>
                           {nomeAtendente}{setorAtendente ? ` (${setorAtendente})` : ''}
                         </span>
                       );
@@ -1096,18 +1099,30 @@ export default React.memo(function MessageBubble({
                 <span className={cn(
                   "text-[11px]", 
                   thread?.thread_type === 'team_internal' || thread?.thread_type === 'sector_group' || message.channel === 'interno'
-                    ? (isOwn ? "text-white/70" : "text-slate-500")
-                    : (isOwn ? "text-white/70" : "text-[#667781]")
+                    ? (isOwnMessage ? "text-white/70" : "text-slate-500")
+                    : (isOwnMessage ? "text-white/70" : "text-[#667781]")
                 )}>
                   {format(new Date(message.sent_at || message.created_date), 'dd/MM HH:mm')}
                 </span>
-                {isOwn && (
+                {isOwnMessage && (
                   <>
                     {message.status === 'enviando' && <Clock className="w-[16px] h-[16px] text-white/60" />}
                     {message.status === 'enviada' && <Check className="w-[16px] h-[16px] text-white/70" />}
                     {message.status === 'entregue' && <CheckCheck className="w-[16px] h-[16px] text-white/70" />}
                     {message.status === 'lida' && <CheckCheck className="w-[16px] h-[16px] text-[#90EE90]" />}
-                    {message.status === 'falhou' && <AlertCircle className="w-[16px] h-[16px] text-red-300" />}
+                    {message.status === 'falhou' && (
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <AlertCircle className="w-[16px] h-[16px] text-red-300 cursor-help" />
+                        </TooltipTrigger>
+                        <TooltipContent side="top" className="max-w-[250px]">
+                          <p className="text-xs">❌ Falha no envio</p>
+                          {message.metadata?.error && (
+                            <p className="text-[10px] text-slate-400 mt-1">{message.metadata.error}</p>
+                          )}
+                        </TooltipContent>
+                      </Tooltip>
+                    )}
                   </>
                 )}
                 </div>
