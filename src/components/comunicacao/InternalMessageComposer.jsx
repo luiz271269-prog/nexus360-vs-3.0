@@ -3,13 +3,12 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Users, Building2, Loader2, CheckSquare, Square, Plus, Search, Star, UserCheck } from 'lucide-react';
+import { Users, Building2, Loader2, CheckSquare, Square, Plus, Star, UserCheck } from 'lucide-react';
 import { base44 } from '@/api/base44Client';
 import { useQuery } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import CriarGrupoModal from './CriarGrupoModal';
 import UsuarioDisplay from './UsuarioDisplay';
-import { normalizarParaComparacao } from '../lib/userMatcher';
 
 export default function InternalMessageComposer({ open, onClose, currentUser, onSelectDestinations }) {
   const [selectedUsers, setSelectedUsers] = useState([]);
@@ -17,7 +16,6 @@ export default function InternalMessageComposer({ open, onClose, currentUser, on
   const [selectedGroups, setSelectedGroups] = useState([]);
   const [resolving, setResolving] = useState(false);
   const [criarGrupoOpen, setCriarGrupoOpen] = useState(false);
-  const [busca, setBusca] = useState('');
 
   // Buscar todos os usuários via função (igual ao AtribuirConversaModal)
   const { data: usuarios = [], isLoading: loadingUsers } = useQuery({
@@ -56,25 +54,10 @@ export default function InternalMessageComposer({ open, onClose, currentUser, on
     return Array.from(setoresUnicos).sort();
   }, [usuarios]);
 
-  // Usuários (excluindo o atual) + Filtro de busca (igual ao AtribuirConversaModal)
+  // Usuários (excluindo o atual) - SEM busca, sempre todos
   const usuariosDisponiveis = useMemo(() => {
-    let filtered = usuarios.filter(u => u.id !== currentUser?.id);
-    
-    // Aplicar busca
-    if (busca.trim()) {
-      const termo = normalizarParaComparacao(busca);
-      filtered = filtered.filter(a => {
-        return (
-          normalizarParaComparacao(a.full_name || '').includes(termo) ||
-          normalizarParaComparacao(a.email || '').includes(termo) ||
-          normalizarParaComparacao(a.attendant_sector || '').includes(termo) ||
-          normalizarParaComparacao(a.attendant_role || '').includes(termo)
-        );
-      });
-    }
-    
-    return filtered;
-  }, [usuarios, currentUser?.id, busca]);
+    return usuarios.filter(u => u.id !== currentUser?.id);
+  }, [usuarios, currentUser?.id]);
   
   // Configuração de cores por setor (igual ao AtribuirConversaModal)
   const setorConfig = {
@@ -232,13 +215,6 @@ export default function InternalMessageComposer({ open, onClose, currentUser, on
 
   const totalSelecionados = selectedUsers.length + selectedSectors.length + selectedGroups.length;
 
-  // Resetar busca ao fechar
-  React.useEffect(() => {
-    if (!open) {
-      setBusca('');
-    }
-  }, [open]);
-
   return (
     <>
       <Dialog open={open} onOpenChange={onClose}>
@@ -253,7 +229,7 @@ export default function InternalMessageComposer({ open, onClose, currentUser, on
           <div className="flex-1 flex gap-4 min-h-0">
             {/* Painel Esquerdo - Seleção de Destinatários */}
             <div className="w-1/2 flex flex-col border-r border-slate-200 pr-4">
-              <Tabs defaultValue="usuarios" className="flex-1 flex flex-col min-h-0" onValueChange={() => setBusca('')}>
+              <Tabs defaultValue="usuarios" className="flex-1 flex flex-col min-h-0">
                 <TabsList className="grid w-full grid-cols-3">
                   <TabsTrigger value="usuarios">
                     <Users className="w-4 h-4 mr-2" />
@@ -270,26 +246,14 @@ export default function InternalMessageComposer({ open, onClose, currentUser, on
                 </TabsList>
 
                 {/* Aba Usuários */}
-                <TabsContent value="usuarios" className="flex-1 flex flex-col overflow-hidden mt-3">
-                  {/* Busca (igual ao AtribuirConversaModal) */}
-                  <div className="relative mb-2 px-1">
-                    <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                    <Input
-                      value={busca}
-                      onChange={(e) => setBusca(e.target.value)}
-                      placeholder="Buscar atendente..."
-                      className="pl-10"
-                    />
-                  </div>
-
-                  <div className="flex-1 overflow-y-auto space-y-1">
+                <TabsContent value="usuarios" className="flex-1 overflow-y-auto mt-3 space-y-1">
                     {loadingUsers ? (
                       <div className="flex items-center justify-center py-12">
                         <Loader2 className="w-6 h-6 animate-spin text-purple-600" />
                       </div>
                     ) : usuariosDisponiveis.length === 0 ? (
                       <div className="text-center py-12 text-slate-500 text-sm">
-                        {busca.trim() ? 'Nenhum atendente encontrado' : 'Nenhum usuário disponível'}
+                        Nenhum usuário disponível
                       </div>
                     ) : (
                       usuariosDisponiveis.map(usuario => {
