@@ -181,19 +181,13 @@ export const canUserSeeThreadBase = (usuario, thread, mensagensThread = []) => {
   const isAdmin = usuario.role === 'admin';
   const isAdminOrAll = isAdmin || !!perms.pode_ver_todas_conversas;
 
-  // ✅ THREADS INTERNAS - visibilidade baseada em participação
+  // ✅ THREADS INTERNAS - visibilidade baseada APENAS em participação/admin
+  // ZERO regras de WhatsApp/integração/conexão/setor aplicadas
   if (thread.thread_type === 'team_internal' || thread.thread_type === 'sector_group') {
-    // Se usuário é participante da thread interna, pode ver
-    if (thread.participants && thread.participants.includes(usuario.id)) {
-      return true;
-    }
+    const isParticipant = thread.participants?.includes(usuario.id);
     
-    // Admin/gerente pode ver todas threads internas
-    if (isAdminOrAll) {
-      return true;
-    }
-    
-    return false;
+    // Participante OU admin/gerente pode ver
+    return Boolean(isParticipant || isAdminOrAll);
   }
 
   // ✅ THREADS EXTERNAS - lógica existente
@@ -261,9 +255,10 @@ export const canUserSeeThreadWithFilters = (usuario, thread, filtros = {}) => {
   const isAdmin = usuario.role === 'admin';
   const isAdminOrAll = isAdmin || !!perms.pode_ver_todas_conversas;
 
-  // ✅ THREADS INTERNAS - delegar para canUserSeeThreadBase (já tem lógica de participantes)
+  // ✅ THREADS INTERNAS - visibilidade baseada APENAS em participação (ignora TODOS os filtros)
   if (thread.thread_type === 'team_internal' || thread.thread_type === 'sector_group') {
-    return canUserSeeThreadBase(usuario, thread);
+    const isParticipant = thread.participants?.includes(usuario.id);
+    return Boolean(isParticipant || isAdminOrAll);
   }
 
   const contato = thread.contato;

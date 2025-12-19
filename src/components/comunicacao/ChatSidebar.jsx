@@ -59,12 +59,16 @@ const resolveThreadUI = (thread, currentUser, atendentes = []) => {
         const outroUser = atendentes.find(a => a.id === outroUserId);
         const nome = outroUser?.full_name || outroUser?.email || 'Usuário';
         const avatar = outroUser?.full_name?.charAt(0)?.toUpperCase() || outroUser?.email?.charAt(0)?.toUpperCase() || 'U';
+        
+        // ✅ CORREÇÃO: Usar foto_perfil_url do User quando disponível
+        const avatarUrl = outroUser?.foto_perfil_url || null;
+        
         return {
           isInternal: true,
           title: nome,
           badge: '💬',
           avatar: avatar,
-          avatarUrl: outroUser?.foto_perfil_url || null,
+          avatarUrl: avatarUrl,
           subtitle: '1:1 interno',
           setorCor: outroUser?.attendant_sector || 'geral'
         };

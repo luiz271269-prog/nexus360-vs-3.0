@@ -670,16 +670,17 @@ export default function Comunicacao() {
 
     // ═══════════════════════════════════════════════════════════════════════════
     // FILTRO ESPECIAL: "Não atribuídas" - Mostrar TODAS as threads sem atribuição
-    // Agrupa por contato: se um contato tem QUALQUER thread S/atend visível,
-    // mostra TODAS as threads desse contato
+    // ⚠️ IMPORTANTE: Só aplicável a threads EXTERNAS (não faz sentido para internas)
     // ═══════════════════════════════════════════════════════════════════════════
     const isFilterUnassigned = filterScope === 'unassigned';
 
-    // PASSO 1: Identificar threads não atribuídas visíveis (COM OU SEM CONTATO)
+    // PASSO 1: Identificar threads não atribuídas visíveis (APENAS EXTERNAS)
     const threadsNaoAtribuidasVisiveis = new Set();
     if (isFilterUnassigned) {
       threads.forEach((thread) => {
-        // ✅ PERMITIR threads SEM contato (podem existir threads órfãs)
+        // ✅ Threads internas não entram na lógica de "não atribuídas" (sempre visíveis por participação)
+        if (thread.thread_type === 'team_internal' || thread.thread_type === 'sector_group') return;
+        
         const contato = contatosMap.get(thread.contact_id);
         const threadComContato = { ...thread, contato };
 
@@ -690,20 +691,25 @@ export default function Comunicacao() {
       });
     }
 
-    // ✅ PASSO 1.5: DEDUPLICAÇÃO GLOBAL - Agrupar threads por contact_id
-    // Mostrar apenas a thread mais recente de cada contato
+    // ✅ PASSO 1.5: DEDUPLICAÇÃO GLOBAL - Agrupar threads por contact_id (APENAS EXTERNAS)
+    // Mostrar apenas a thread mais recente de cada contato externo
     // Isso resolve o problema de duplicação quando há múltiplas conexões (Z-API, W-API)
-    // ⚠️ EXCETO threads internas (não têm contact_id, devem aparecer sempre)
+    // ⚠️ CRÍTICO: Threads internas (team_internal/sector_group) SEMPRE aparecem sem deduplicação
     const threadMaisRecentePorContato = new Map();
     threads.forEach((thread) => {
-      // ✅ Threads internas não passam por deduplicação de contato
+      // ✅ Threads internas SEMPRE adicionadas diretamente (chave única por thread.id)
       if (thread.thread_type === 'team_internal' || thread.thread_type === 'sector_group') {
         threadMaisRecentePorContato.set(`internal-${thread.id}`, thread);
         return;
       }
       
+      // ✅ Threads externas: deduplicar por contact_id
       const contactId = thread.contact_id;
-      if (!contactId) return;
+      if (!contactId) {
+        // Thread órfã sem contato - adicionar com chave única
+        threadMaisRecentePorContato.set(`orphan-${thread.id}`, thread);
+        return;
+      }
 
       const existente = threadMaisRecentePorContato.get(contactId);
       if (!existente) {
@@ -742,18 +748,21 @@ export default function Comunicacao() {
     // (Usando threadsUnicas para evitar duplicatas por contato)
     // ═══════════════════════════════════════════════════════════════════════════
     const threadsFiltrados = threadsUnicas.filter((thread) => {
-      // ✅ THREADS INTERNAS - visíveis apenas para participantes (ou admin)
-      // NÃO APLICAR filtros de contato/integração/setor WhatsApp
+      // ✅ THREADS INTERNAS - visibilidade baseada APENAS em participação
+      // ZERO filtros de contato/integração/setor WhatsApp aplicados
       if (thread.thread_type === 'team_internal' || thread.thread_type === 'sector_group') {
         const isParticipant = thread.participants?.includes(usuario?.id);
         const isAdmin = usuario?.role === 'admin';
-        return Boolean(isParticipant || isAdmin);
+        const podeVer = Boolean(isParticipant || isAdmin);
+        
+        // Threads internas passam direto se usuário tem permissão
+        return podeVer;
       }
       
-      // ⬇️ Daqui pra baixo: SOMENTE externas
+      // ⬇️ Daqui pra baixo: SOMENTE threads EXTERNAS (contact_external)
       const contato = contatosMap.get(thread.contact_id);
 
-      // Permitir threads sem contato_id se forem S/atend (para não perder threads soltas)
+      // Threads órfãs sem contato: manter apenas se filtro "não atribuídas" ativo
       if (!contato && !isFilterUnassigned) return false;
 
       if (thread.contact_id) {
@@ -907,16 +916,16 @@ export default function Comunicacao() {
       };
     });
 
-    // ✅ DEDUPLICAÇÃO SIMPLIFICADA: threadsUnicas já está deduzida
-    // Apenas remover duplicatas entre threads e contatos-sem-thread
+    // ✅ DEDUPLICAÇÃO FINAL: Apenas para threads EXTERNAS
+    // Threads internas NUNCA entram na deduplicação (já têm chave única)
     const vistos = new Map();
     const deduplicated = [];
 
     for (const thread of enriched) {
       const contactId = thread.contact_id;
 
-      // Se não tem contact_id (cliente sem contato), adicionar direto
-      if (!contactId) {
+      // ✅ Threads internas ou sem contact_id (cliente sem contato) - adicionar direto
+      if (!contactId || thread.thread_type === 'team_internal' || thread.thread_type === 'sector_group') {
         deduplicated.push(thread);
         continue;
       }
