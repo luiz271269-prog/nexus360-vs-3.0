@@ -58,11 +58,13 @@ const resolveThreadUI = (thread, currentUser, atendentes = []) => {
       if (outroUserId) {
         const outroUser = atendentes.find(a => a.id === outroUserId);
         const nome = outroUser?.full_name || outroUser?.email || 'Usuário';
+        const avatar = outroUser?.full_name?.charAt(0)?.toUpperCase() || outroUser?.email?.charAt(0)?.toUpperCase() || 'U';
         return {
           isInternal: true,
           title: nome,
           badge: '💬',
-          avatar: nome.charAt(0).toUpperCase(),
+          avatar: avatar,
+          avatarUrl: outroUser?.foto_perfil_url || null,
           subtitle: '1:1 interno',
           setorCor: outroUser?.attendant_sector || 'geral'
         };
@@ -393,8 +395,17 @@ export default function ChatSidebar({
               )}
 
               <div className="relative flex-shrink-0">
-                <div className={`relative w-12 h-12 rounded-full flex items-center justify-center text-white font-bold text-lg shadow-md ${corAvatar}`}>
-                  {threadUI.avatar}
+                <div className={`relative w-12 h-12 rounded-full flex items-center justify-center text-white font-bold text-lg shadow-md overflow-hidden ${corAvatar}`}>
+                  {threadUI.avatarUrl ? (
+                    <img 
+                      src={threadUI.avatarUrl} 
+                      alt={threadUI.title} 
+                      className="w-full h-full object-cover"
+                      onError={(e) => { e.target.style.display = 'none'; }}
+                    />
+                  ) : (
+                    threadUI.avatar
+                  )}
                 </div>
               </div>
 
