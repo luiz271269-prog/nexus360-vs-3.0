@@ -2,6 +2,7 @@ import React, { useEffect, useState, useMemo } from "react";
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Checkbox } from '@/components/ui/checkbox';
 import {
   Search, UserPlus, User, Users, AlertCircle, Phone, Tag, Check,
   Filter, X, ChevronDown, Building2, Target, Truck, Handshake, HelpCircle,
@@ -16,6 +17,12 @@ import {
   PopoverContent,
   PopoverTrigger } from
 "@/components/ui/popover";
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
 import { motion, AnimatePresence } from "framer-motion";
 import { getUserDisplayName } from '../lib/userHelpers';
 
@@ -56,6 +63,12 @@ export default function SearchAndFilter({
   onModoSelecaoMultiplaChange
 }) {
   const [showFilters, setShowFilters] = useState(false);
+  
+  // Estados locais para seleções múltiplas
+  const [selectedIntegrations, setSelectedIntegrations] = useState([]);
+  const [selectedAttendants, setSelectedAttendants] = useState([]);
+  const [selectedTiposContato, setSelectedTiposContato] = useState([]);
+  const [selectedTags, setSelectedTags] = useState([]);
 
   // Buscar categorias dinâmicas
   const { data: categoriasDB = [] } = useQuery({
@@ -110,23 +123,58 @@ export default function SearchAndFilter({
     }
   }, [searchTerm, novoContatoTelefone, onNovoContatoTelefoneChange]);
 
-  // Contar filtros ativos
+  // Contar filtros ativos (incluindo múltiplas seleções)
   const filtrosAtivos = [
-  filterScope !== 'all' && filterScope !== 'my',
-  selectedIntegrationId && selectedIntegrationId !== 'all',
-  selectedCategoria && selectedCategoria !== 'all',
-  selectedTipoContato && selectedTipoContato !== 'all',
-  selectedTagContato && selectedTagContato !== 'all'].
-  filter(Boolean).length;
+    filterScope !== 'all' && filterScope !== 'my',
+    selectedIntegrations.length > 0,
+    selectedAttendants.length > 0,
+    selectedCategoria && selectedCategoria !== 'all',
+    selectedTiposContato.length > 0,
+    selectedTags.length > 0
+  ].filter(Boolean).length;
 
   const limparFiltros = () => {
     onFilterScopeChange('all');
-    onSelectedIntegrationChange('all');
+    setSelectedIntegrations([]);
+    setSelectedAttendants([]);
     onSelectedCategoriaChange('all');
-    if (onSelectedTipoContatoChange) onSelectedTipoContatoChange('all');
-    if (onSelectedTagContatoChange) onSelectedTagContatoChange('all');
+    setSelectedTiposContato([]);
+    setSelectedTags([]);
     setShowFilters(false);
   };
+  
+  // Sincronizar arrays com props legados (compatibilidade)
+  useEffect(() => {
+    if (selectedIntegrations.length === 1) {
+      onSelectedIntegrationChange(selectedIntegrations[0]);
+    } else if (selectedIntegrations.length === 0) {
+      onSelectedIntegrationChange('all');
+    }
+  }, [selectedIntegrations]);
+  
+  useEffect(() => {
+    if (selectedAttendants.length === 1) {
+      onSelectedAttendantChange(selectedAttendants[0]);
+    } else if (selectedAttendants.length === 0) {
+      onSelectedAttendantChange(null);
+    }
+  }, [selectedAttendants]);
+  
+  useEffect(() => {
+    if (selectedTiposContato.length === 1 && onSelectedTipoContatoChange) {
+      onSelectedTipoContatoChange(selectedTiposContato[0]);
+    } else if (selectedTiposContato.length === 0 && onSelectedTipoContatoChange) {
+      onSelectedTipoContatoChange('all');
+    }
+  }, [selectedTiposContato]);
+  
+  useEffect(() => {
+    if (selectedTags.length === 1 && onSelectedTagContatoChange) {
+      onSelectedTagContatoChange(selectedTags[0]);
+    } else if (selectedTags.length === 0 && onSelectedTagContatoChange) {
+      onSelectedTagContatoChange('all');
+    }
+  }, [selectedTags]);
 
   // Chip de filtro ativo
   const FilterChip = ({ label, emoji, color, onRemove }) =>
@@ -143,21 +191,62 @@ export default function SearchAndFilter({
     </motion.span>;
 
 
-  // Botão de opção no popover
-  const FilterOption = ({ selected, onClick, icon: Icon, emoji, label, color }) =>
-  <button
-    onClick={onClick}
-    className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-left text-sm transition-all ${
-    selected ?
-    `${color} text-white shadow-md` :
-    'hover:bg-slate-100 text-slate-700'}`
-    }>
+  // Botão com checkbox para seleção múltipla
+  const MultiSelectOption = ({ checked, onChange, icon: Icon, emoji, label, color }) => (
+    <label className="w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-left text-sm transition-all hover:bg-slate-50 cursor-pointer">
+      <Checkbox 
+        checked={checked}
+        onCheckedChange={onChange}
+        className="flex-shrink-0"
+      />
+      {emoji && <span className="flex-shrink-0">{emoji}</span>}
+      {Icon && !emoji && <Icon className="w-3.5 h-3.5 flex-shrink-0" />}
+      <span className="flex-1 truncate text-xs">{label}</span>
+      {checked && <Check className="w-3.5 h-3.5 text-green-600 flex-shrink-0" />}
+    </label>
+  );
 
-      {emoji && <span>{emoji}</span>}
-      {Icon && !emoji && <Icon className="w-4 h-4" />}
-      <span className="flex-1">{label}</span>
-      {selected && <Check className="w-4 h-4" />}
-    </button>;
+  // Botão de opção simples (single select)
+  const FilterOption = ({ selected, onClick, icon: Icon, emoji, label, color }) => (
+    <button
+      onClick={onClick}
+      className={`w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-left text-xs transition-all ${
+        selected
+          ? `${color} text-white shadow-md`
+          : 'hover:bg-slate-100 text-slate-700'
+      }`}
+    >
+      {emoji && <span className="flex-shrink-0">{emoji}</span>}
+      {Icon && !emoji && <Icon className="w-3.5 h-3.5 flex-shrink-0" />}
+      <span className="flex-1 truncate">{label}</span>
+      {selected && <Check className="w-3.5 h-3.5" />}
+    </button>
+  );
+  
+  // Handlers para seleções múltiplas
+  const toggleIntegration = (id) => {
+    setSelectedIntegrations(prev => 
+      prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]
+    );
+  };
+  
+  const toggleAttendant = (id) => {
+    setSelectedAttendants(prev => 
+      prev.includes(id) ? prev.filter(a => a !== id) : [...prev, id]
+    );
+  };
+  
+  const toggleTipoContato = (tipo) => {
+    setSelectedTiposContato(prev => 
+      prev.includes(tipo) ? prev.filter(t => t !== tipo) : [...prev, tipo]
+    );
+  };
+  
+  const toggleTag = (tag) => {
+    setSelectedTags(prev => 
+      prev.includes(tag) ? prev.filter(t => t !== tag) : [...prev, tag]
+    );
+  };
 
 
   return (
@@ -206,183 +295,179 @@ export default function SearchAndFilter({
           </PopoverTrigger>
           
           <PopoverContent className="w-80 p-0" align="end">
-            <div className="p-3 border-b bg-gradient-to-r from-slate-800 to-slate-700 rounded-t-lg">
+            <div className="p-2 border-b bg-gradient-to-r from-slate-800 to-slate-700 rounded-t-lg">
               <div className="flex items-center justify-between">
-                <h3 className="font-semibold text-white flex items-center gap-2">
+                <h3 className="font-semibold text-white flex items-center gap-2 text-sm">
                   <Filter className="w-4 h-4" /> Filtros
                 </h3>
-                {filtrosAtivos > 0 &&
-                <button
-                  onClick={limparFiltros}
-                  className="text-xs text-orange-300 hover:text-white transition-colors">
-
-                    Limpar todos
+                {filtrosAtivos > 0 && (
+                  <button
+                    onClick={limparFiltros}
+                    className="text-xs text-orange-300 hover:text-white transition-colors"
+                  >
+                    Limpar ({filtrosAtivos})
                   </button>
-                }
+                )}
               </div>
             </div>
             
-            <div className="p-3 space-y-4 max-h-[60vh] overflow-y-auto">
-              {/* 🔵 ESTÁGIO 2: ESCOPO (Abas de Navegação) */}
-              <div>
-                <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2 block">
-                  📋 Escopo
-                </label>
-                <div className="space-y-1">
-                  {/* A. Minhas Conversas: Atribuídas + Fidelizadas + Interação Recente */}
+            <div className="max-h-[65vh] overflow-y-auto">
+              <Accordion type="multiple" defaultValue={["escopo"]} className="w-full">
+              <AccordionItem value="escopo" className="border-b-0">
+                <AccordionTrigger className="px-3 py-2 text-xs font-semibold text-slate-500 hover:no-underline hover:bg-slate-50">
+                  📋 ESCOPO
+                </AccordionTrigger>
+                <AccordionContent className="px-3 pb-2 space-y-1">
                   <FilterOption
                     selected={filterScope === 'my'}
                     onClick={() => onFilterScopeChange('my')}
                     icon={User}
                     label="Minhas conversas"
-                    color="bg-blue-500" />
-
-                  {/* B. Não Atribuídas: assigned_user_id === NULL */}
+                    color="bg-blue-500"
+                  />
                   <FilterOption
                     selected={filterScope === 'unassigned'}
                     onClick={() => onFilterScopeChange('unassigned')}
                     icon={AlertCircle}
                     label="Não atribuídas"
-                    color="bg-orange-500" />
-
-                  {/* C. Todas: Tudo que passou no Estágio 1 (Segurança) */}
-                  {isManager &&
+                    color="bg-orange-500"
+                  />
+                  {isManager && (
                     <FilterOption
                       selected={filterScope === 'all'}
                       onClick={() => onFilterScopeChange('all')}
                       icon={Users}
                       label="Todas"
-                      color="bg-emerald-500" />
-                  }
-                </div>
-              </div>
-
-              {/* ✅ CORREÇÃO: Por atendente usando getUserDisplayName */}
-              {isManager && atendentes.length > 0 &&
-              <div>
-                  <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2 block">
-                    Por Atendente
-                  </label>
-                  <div className="space-y-1 max-h-32 overflow-y-auto">
-                    {atendentes.map((att) =>
-                  <FilterOption
-                    key={att.id}
-                    selected={selectedAttendantId === att.id}
-                    onClick={() => {
-                      onFilterScopeChange('specific_user');
-                      onSelectedAttendantChange(selectedAttendantId === att.id ? null : att.id);
-                    }}
-                    icon={User}
-                    label={getUserDisplayName(att.id, atendentes, { incluirSetor: true })}
-                    color="bg-purple-500" />
-
+                      color="bg-emerald-500"
+                    />
                   )}
-                  </div>
-                </div>
-              }
+                </AccordionContent>
+              </AccordionItem>
 
-              {/* Por conexão WhatsApp */}
-              {integracoes.length > 1 &&
-              <div>
-                  <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2 block">
-                    Conexão WhatsApp
-                  </label>
-                  <div className="space-y-1">
-                    <FilterOption
-                    selected={!selectedIntegrationId || selectedIntegrationId === 'all'}
-                    onClick={() => onSelectedIntegrationChange('all')}
-                    icon={Phone}
-                    label="Todas conexões"
-                    color="bg-green-500" />
+              {isManager && atendentes.length > 0 && (
+                <AccordionItem value="atendentes" className="border-b-0">
+                  <AccordionTrigger className="px-3 py-2 text-xs font-semibold text-slate-500 hover:no-underline hover:bg-slate-50">
+                    👥 ATENDENTES {selectedAttendants.length > 0 && (
+                      <Badge className="ml-2 h-4 px-1.5 bg-purple-500 text-white text-[10px]">
+                        {selectedAttendants.length}
+                      </Badge>
+                    )}
+                  </AccordionTrigger>
+                  <AccordionContent className="px-3 pb-2 space-y-0.5 max-h-48 overflow-y-auto">
+                    {atendentes.map((att) => (
+                      <MultiSelectOption
+                        key={att.id}
+                        checked={selectedAttendants.includes(att.id)}
+                        onChange={() => toggleAttendant(att.id)}
+                        icon={User}
+                        label={getUserDisplayName(att.id, atendentes, { incluirSetor: true })}
+                        color="bg-purple-500"
+                      />
+                    ))}
+                  </AccordionContent>
+                </AccordionItem>
+              )}
 
-                    {integracoes.map((int) =>
-                  <FilterOption
-                    key={int.id}
-                    selected={selectedIntegrationId === int.id}
-                    onClick={() => onSelectedIntegrationChange(int.id)}
-                    emoji={int.status === 'conectado' ? '🟢' : '🔴'}
-                    label={int.nome_instancia}
-                    color="bg-green-600" />
+              {integracoes.length > 0 && (
+                <AccordionItem value="conexoes" className="border-b-0">
+                  <AccordionTrigger className="px-3 py-2 text-xs font-semibold text-slate-500 hover:no-underline hover:bg-slate-50">
+                    📱 CONEXÕES {selectedIntegrations.length > 0 && (
+                      <Badge className="ml-2 h-4 px-1.5 bg-green-500 text-white text-[10px]">
+                        {selectedIntegrations.length}
+                      </Badge>
+                    )}
+                  </AccordionTrigger>
+                  <AccordionContent className="px-3 pb-2 space-y-0.5">
+                    {integracoes.map((int) => (
+                      <MultiSelectOption
+                        key={int.id}
+                        checked={selectedIntegrations.includes(int.id)}
+                        onChange={() => toggleIntegration(int.id)}
+                        emoji={int.status === 'conectado' ? '🟢' : '🔴'}
+                        label={int.nome_instancia}
+                        color="bg-green-600"
+                      />
+                    ))}
+                  </AccordionContent>
+                </AccordionItem>
+              )}
 
+              {onSelectedTipoContatoChange && (
+                <AccordionItem value="tipos" className="border-b-0">
+                  <AccordionTrigger className="px-3 py-2 text-xs font-semibold text-slate-500 hover:no-underline hover:bg-slate-50">
+                    🏷️ TIPO {selectedTiposContato.length > 0 && (
+                      <Badge className="ml-2 h-4 px-1.5 bg-amber-500 text-white text-[10px]">
+                        {selectedTiposContato.length}
+                      </Badge>
+                    )}
+                  </AccordionTrigger>
+                  <AccordionContent className="px-3 pb-2 grid grid-cols-2 gap-1">
+                    {TIPOS_CONTATO.filter(t => t.value !== 'all').map((tipo) => (
+                      <MultiSelectOption
+                        key={tipo.value}
+                        checked={selectedTiposContato.includes(tipo.value)}
+                        onChange={() => toggleTipoContato(tipo.value)}
+                        emoji={tipo.emoji}
+                        label={tipo.label}
+                        color={tipo.color}
+                      />
+                    ))}
+                  </AccordionContent>
+                </AccordionItem>
+              )}
+
+              {onSelectedTagContatoChange && etiquetasDestaque.length > 0 && (
+                <AccordionItem value="etiquetas" className="border-b-0">
+                  <AccordionTrigger className="px-3 py-2 text-xs font-semibold text-slate-500 hover:no-underline hover:bg-slate-50">
+                    ⭐ ETIQUETAS {selectedTags.length > 0 && (
+                      <Badge className="ml-2 h-4 px-1.5 bg-indigo-500 text-white text-[10px]">
+                        {selectedTags.length}
+                      </Badge>
+                    )}
+                  </AccordionTrigger>
+                  <AccordionContent className="px-3 pb-2 grid grid-cols-2 gap-1">
+                    {etiquetasDestaque.map((tag) => (
+                      <MultiSelectOption
+                        key={tag.value}
+                        checked={selectedTags.includes(tag.value)}
+                        onChange={() => toggleTag(tag.value)}
+                        emoji={tag.emoji}
+                        label={tag.label}
+                        color={tag.color}
+                      />
+                    ))}
+                  </AccordionContent>
+                </AccordionItem>
+              )}
+
+              <AccordionItem value="categorias" className="border-b-0">
+                <AccordionTrigger className="px-3 py-2 text-xs font-semibold text-slate-500 hover:no-underline hover:bg-slate-50">
+                  🎯 CATEGORIAS {selectedCategoria && selectedCategoria !== 'all' && (
+                    <Badge className="ml-2 h-4 px-1.5 bg-purple-500 text-white text-[10px]">1</Badge>
                   )}
-                  </div>
-                </div>
-              }
-
-              {/* Por tipo de contato */}
-              {onSelectedTipoContatoChange &&
-              <div>
-                  <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2 block">
-                    Tipo de Contato
-                  </label>
-                  <div className="grid grid-cols-2 gap-1">
-                    {TIPOS_CONTATO.map((tipo) =>
-                  <FilterOption
-                    key={tipo.value}
-                    selected={selectedTipoContato === tipo.value}
-                    onClick={() => onSelectedTipoContatoChange(tipo.value)}
-                    emoji={tipo.emoji}
-                    label={tipo.label}
-                    color={tipo.color} />
-
-                  )}
-                  </div>
-                </div>
-              }
-
-              {/* Por etiqueta/destaque - DINÂMICO */}
-              {onSelectedTagContatoChange &&
-              <div>
-                  <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2 block">
-                    Destaque
-                  </label>
-                  <div className="grid grid-cols-2 gap-1">
-                    <FilterOption
-                    selected={!selectedTagContato || selectedTagContato === 'all'}
-                    onClick={() => onSelectedTagContatoChange('all')}
-                    icon={Tag}
-                    label="Todos"
-                    color="bg-slate-500" />
-
-                    {etiquetasDestaque.map((tag) =>
-                  <FilterOption
-                    key={tag.value}
-                    selected={selectedTagContato === tag.value}
-                    onClick={() => onSelectedTagContatoChange(tag.value)}
-                    emoji={tag.emoji}
-                    label={tag.label}
-                    color={tag.color} />
-
-                  )}
-                  </div>
-                </div>
-              }
-
-              {/* Por categoria de mensagem */}
-              <div>
-                <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2 block">
-                  Categoria de Mensagem
-                </label>
-                <div className="space-y-1 max-h-32 overflow-y-auto">
+                </AccordionTrigger>
+                <AccordionContent className="px-3 pb-2 space-y-0.5 max-h-40 overflow-y-auto">
                   <FilterOption
                     selected={!selectedCategoria || selectedCategoria === 'all'}
                     onClick={() => onSelectedCategoriaChange('all')}
                     icon={Tag}
-                    label="Todas categorias"
-                    color="bg-slate-500" />
-
-                  {todasCategorias.map((cat) =>
-                  <FilterOption
-                    key={cat.value}
-                    selected={selectedCategoria === cat.value}
-                    onClick={() => onSelectedCategoriaChange(cat.value)}
-                    emoji={cat.emoji}
-                    label={cat.label}
-                    color={cat.color || 'bg-purple-500'} />
-
-                  )}
-                </div>
-              </div>
+                    label="Todas"
+                    color="bg-slate-500"
+                  />
+                  {todasCategorias.map((cat) => (
+                    <FilterOption
+                      key={cat.value}
+                      selected={selectedCategoria === cat.value}
+                      onClick={() => onSelectedCategoriaChange(cat.value)}
+                      emoji={cat.emoji}
+                      label={cat.label}
+                      color={cat.color || 'bg-purple-500'}
+                    />
+                  ))}
+                </AccordionContent>
+              </AccordionItem>
+              
+              </Accordion>
             </div>
           </PopoverContent>
         </Popover>
@@ -390,59 +475,84 @@ export default function SearchAndFilter({
 
       {/* Chips de filtros ativos */}
       <AnimatePresence>
-        {filtrosAtivos > 0 &&
-        <motion.div
-          initial={{ height: 0, opacity: 0 }}
-          animate={{ height: 'auto', opacity: 1 }}
-          exit={{ height: 0, opacity: 0 }}
-          className="flex flex-wrap gap-1.5 overflow-hidden">
-
-            {filterScope !== 'all' && filterScope !== 'my' &&
-          <FilterChip
-            label={filterScope === 'unassigned' ? 'Não atribuídas' : 'Por atendente'}
-            emoji={filterScope === 'unassigned' ? '⚠️' : '👤'}
-            color="bg-blue-500"
-            onRemove={() => onFilterScopeChange('all')} />
-
-          }
+        {filtrosAtivos > 0 && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: 'auto', opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            className="flex flex-wrap gap-1 overflow-hidden"
+          >
+            {filterScope !== 'all' && filterScope !== 'my' && (
+              <FilterChip
+                label={filterScope === 'unassigned' ? 'Não atribuídas' : 'Por atendente'}
+                emoji={filterScope === 'unassigned' ? '⚠️' : '👤'}
+                color="bg-blue-500"
+                onRemove={() => onFilterScopeChange('all')}
+              />
+            )}
             
-            {selectedIntegrationId && selectedIntegrationId !== 'all' &&
-          <FilterChip
-            label={integracoes.find((i) => i.id === selectedIntegrationId)?.nome_instancia || 'Conexão'}
-            emoji="📱"
-            color="bg-green-500"
-            onRemove={() => onSelectedIntegrationChange('all')} />
-
-          }
+            {selectedIntegrations.map(id => {
+              const int = integracoes.find(i => i.id === id);
+              return int ? (
+                <FilterChip
+                  key={id}
+                  label={int.nome_instancia}
+                  emoji="📱"
+                  color="bg-green-500"
+                  onRemove={() => toggleIntegration(id)}
+                />
+              ) : null;
+            })}
             
-            {selectedTipoContato && selectedTipoContato !== 'all' &&
-          <FilterChip
-            label={TIPOS_CONTATO.find((t) => t.value === selectedTipoContato)?.label || selectedTipoContato}
-            emoji={TIPOS_CONTATO.find((t) => t.value === selectedTipoContato)?.emoji || '👥'}
-            color={TIPOS_CONTATO.find((t) => t.value === selectedTipoContato)?.color || 'bg-slate-500'}
-            onRemove={() => onSelectedTipoContatoChange && onSelectedTipoContatoChange('all')} />
-
-          }
+            {selectedAttendants.map(id => {
+              const nome = getUserDisplayName(id, atendentes);
+              return (
+                <FilterChip
+                  key={id}
+                  label={nome.split(' ')[0]}
+                  emoji="👤"
+                  color="bg-purple-500"
+                  onRemove={() => toggleAttendant(id)}
+                />
+              );
+            })}
             
-            {selectedTagContato && selectedTagContato !== 'all' &&
-          <FilterChip
-            label={etiquetasDestaque.find((t) => t.value === selectedTagContato)?.label || selectedTagContato}
-            emoji={etiquetasDestaque.find((t) => t.value === selectedTagContato)?.emoji || '🏷️'}
-            color={etiquetasDestaque.find((t) => t.value === selectedTagContato)?.color || 'bg-purple-500'}
-            onRemove={() => onSelectedTagContatoChange && onSelectedTagContatoChange('all')} />
-
-          }
+            {selectedTiposContato.map(tipo => {
+              const cfg = TIPOS_CONTATO.find(t => t.value === tipo);
+              return cfg ? (
+                <FilterChip
+                  key={tipo}
+                  label={cfg.label}
+                  emoji={cfg.emoji}
+                  color={cfg.color}
+                  onRemove={() => toggleTipoContato(tipo)}
+                />
+              ) : null;
+            })}
             
-            {selectedCategoria && selectedCategoria !== 'all' &&
-          <FilterChip
-            label={todasCategorias.find((c) => c.value === selectedCategoria)?.label || selectedCategoria}
-            emoji={todasCategorias.find((c) => c.value === selectedCategoria)?.emoji || '🏷️'}
-            color="bg-purple-500"
-            onRemove={() => onSelectedCategoriaChange('all')} />
-
-          }
+            {selectedTags.map(tag => {
+              const cfg = etiquetasDestaque.find(t => t.value === tag);
+              return cfg ? (
+                <FilterChip
+                  key={tag}
+                  label={cfg.label}
+                  emoji={cfg.emoji}
+                  color={cfg.color}
+                  onRemove={() => toggleTag(tag)}
+                />
+              ) : null;
+            })}
+            
+            {selectedCategoria && selectedCategoria !== 'all' && (
+              <FilterChip
+                label={todasCategorias.find(c => c.value === selectedCategoria)?.label || selectedCategoria}
+                emoji={todasCategorias.find(c => c.value === selectedCategoria)?.emoji || '🏷️'}
+                color="bg-purple-500"
+                onRemove={() => onSelectedCategoriaChange('all')}
+              />
+            )}
           </motion.div>
-        }
+        )}
       </AnimatePresence>
 
       {/* Botão criar contato */}
