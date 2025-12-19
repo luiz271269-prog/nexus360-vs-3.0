@@ -1108,6 +1108,8 @@ export default function ChatWindow({
           reply_to_message_id: mensagemResposta?.id || null
         });
 
+        console.log('[CHAT] ✅ Resposta sendInternalMessage:', result);
+
         if (result?.data?.success || result?.success) {
           setMensagemResposta(null);
           toast.success('✅ Mensagem enviada!');

@@ -95,6 +95,8 @@ Deno.serve(async (req) => {
             thread_id: thread.id,
             sender_id: user.id,
             sender_type: 'user',
+            recipient_id: null, // Interno não tem destinatário único
+            recipient_type: null,
             content: contentFinal,
             media_type: media_type,
             media_url: media_url || null,
@@ -105,7 +107,9 @@ Deno.serve(async (req) => {
             status: 'enviada', // Mensagens internas são "enviadas" instantaneamente
             sent_at: new Date().toISOString(),
             metadata: {
-                user_name: user.full_name
+                user_name: user.full_name,
+                whatsapp_integration_id: null,
+                read_by: [user.id] // Remetente já leu
             }
         };
 
