@@ -880,20 +880,38 @@ export default React.memo(function MessageBubble({
                 <div className="absolute bottom-2 right-2 bg-black/50 backdrop-blur-sm px-2 py-0.5 rounded-md">
                   <div className="flex items-center gap-1 flex-wrap">
                     {message?.categorias && message.categorias.length > 0 &&
-                  <div className="flex gap-1 mr-1 flex-wrap">
-                        {message.categorias.slice(0, 3).map((cat) => {
-                      const config = getCategoriaConfig(cat, categoriasDB);
-                      return (
-                        <span key={cat} className="text-[9px] px-1.5 py-0.5 bg-white/20 rounded flex items-center gap-1">
-                              {config.emoji} {config.label}
-                            </span>);
+                    <div className="flex gap-1 mr-1 flex-wrap">
+                          {message.categorias.slice(0, 3).map((cat) => {
+                        const config = getCategoriaConfig(cat, categoriasDB);
+                        return (
+                          <span key={cat} className="text-[9px] px-1.5 py-0.5 bg-white/20 rounded flex items-center gap-1">
+                                {config.emoji} {config.label}
+                              </span>);
 
-                    })}
-                      </div>
-                  }
-                    <span className="text-[10px] text-white">
-                      {formatarHorario(message.sent_at || message.created_date)}
-                    </span>
+                      })}
+                        </div>
+                    }
+
+                      {/* ✅ ATENDENTE + SETOR */}
+                      {(() => {
+                        const atendenteMsg = atendentes.find(a => a.id === message.sender_id);
+                        if (atendenteMsg && (thread?.thread_type === 'team_internal' || thread?.thread_type === 'sector_group' || message.channel === 'interno')) {
+                          const nomeAtendente = (atendenteMsg.display_name || atendenteMsg.full_name || '').split(' ')[0];
+                          const setorAtendente = atendenteMsg.attendant_sector;
+                          if (nomeAtendente || setorAtendente) {
+                            return (
+                              <span className="text-[9px] px-1.5 py-0.5 rounded bg-white/20 text-white/90 mr-1">
+                                {nomeAtendente}{setorAtendente ? ` (${setorAtendente})` : ''}
+                              </span>
+                            );
+                          }
+                        }
+                        return null;
+                      })()}
+
+                      <span className="text-[10px] text-white">
+                        {format(new Date(message.sent_at || message.created_date), 'dd/MM HH:mm')}
+                      </span>
                     {isOwn && message.status === 'enviando' && <Clock className="w-3 h-3 text-white/50" />}
                     {isOwn && message.status === 'enviada' && <Check className="w-3.5 h-3.5 text-white/60" />}
                     {isOwn && message.status === 'entregue' && <CheckCheck className="w-3.5 h-3.5 text-white/60" />}
@@ -964,8 +982,26 @@ export default React.memo(function MessageBubble({
                   })}
                     </div>
                 }
+
+                  {/* ✅ ATENDENTE + SETOR */}
+                  {(() => {
+                    const atendenteMsg = atendentes.find(a => a.id === message.sender_id);
+                    if (atendenteMsg && (thread?.thread_type === 'team_internal' || thread?.thread_type === 'sector_group' || message.channel === 'interno')) {
+                      const nomeAtendente = (atendenteMsg.display_name || atendenteMsg.full_name || '').split(' ')[0];
+                      const setorAtendente = atendenteMsg.attendant_sector;
+                      if (nomeAtendente || setorAtendente) {
+                        return (
+                          <span className={cn("text-[9px] px-1.5 py-0.5 rounded", isOwn ? "bg-white/20 text-white/90" : "bg-slate-100 text-slate-600")}>
+                            {nomeAtendente}{setorAtendente ? ` (${setorAtendente})` : ''}
+                          </span>
+                        );
+                      }
+                    }
+                    return null;
+                  })()}
+
                   <span className={cn("text-[10px]", isOwn ? "text-white/70" : "text-slate-500")}>
-                    {formatarHorario(message.sent_at || message.created_date)}
+                    {format(new Date(message.sent_at || message.created_date), 'dd/MM HH:mm')}
                   </span>
                   {isOwn && message.status === 'enviando' && <Clock className="w-3 h-3 text-white/50" />}
                   {isOwn && message.status === 'enviada' && <Check className="w-3.5 h-3.5 text-white/60" />}
@@ -1022,8 +1058,26 @@ export default React.memo(function MessageBubble({
                     📱 {message.metadata.canal_nome}
                   </span>
                 )}
+
+                {/* ✅ MOSTRAR ATENDENTE + SETOR */}
+                {(() => {
+                  const atendenteMsg = atendentes.find(a => a.id === message.sender_id);
+                  if (atendenteMsg && (thread?.thread_type === 'team_internal' || thread?.thread_type === 'sector_group' || message.channel === 'interno')) {
+                    const nomeAtendente = (atendenteMsg.display_name || atendenteMsg.full_name || '').split(' ')[0];
+                    const setorAtendente = atendenteMsg.attendant_sector;
+                    if (nomeAtendente || setorAtendente) {
+                      return (
+                        <span className={cn("text-[10px] px-1.5 py-0.5 rounded", isOwn ? "bg-white/20 text-white/90" : "bg-slate-100 text-slate-600")}>
+                          {nomeAtendente}{setorAtendente ? ` (${setorAtendente})` : ''}
+                        </span>
+                      );
+                    }
+                  }
+                  return null;
+                })()}
+
                 <span className={cn("text-[11px]", isOwn ? "text-white/70" : "text-[#667781]")}>
-                  {formatarHorario(message.sent_at || message.created_date)}
+                  {format(new Date(message.sent_at || message.created_date), 'dd/MM HH:mm')}
                 </span>
                 {isOwn && (
                   <>
