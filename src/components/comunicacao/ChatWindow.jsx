@@ -1029,6 +1029,93 @@ export default function ChatWindow({
 
   // 🚀 HANDLER DE ENVIO - Recebe dados do MessageInput
   const handleEnviarFromInput = useCallback(async ({ texto, pastedImage, pastedImagePreview, attachedFile, attachedFileType }) => {
+    // ═══════════════════════════════════════════════════════════════════════
+    // THREAD INTERNA (team_internal ou sector_group) - Processar mídia ANTES
+    // ═══════════════════════════════════════════════════════════════════════
+    if (thread?.thread_type === 'team_internal' || thread?.thread_type === 'sector_group') {
+      // ✅ Se tem mídia, fazer upload PRIMEIRO (igual WhatsApp)
+      if (pastedImage || attachedFile) {
+        if (!podeEnviarMidias) {
+          toast.error("❌ Você não tem permissão para enviar mídias");
+          return;
+        }
+
+        // Broadcast interno com mídia
+        if (modoSelecaoMultipla && broadcastInterno) {
+          setUploadingPastedFile(true);
+          try {
+            const timestamp = Date.now();
+            let fileToUpload;
+            let finalFileType;
+
+            if (pastedImage) {
+              let mimeType = pastedImage.type || 'image/png';
+              if (!mimeType.startsWith('image/')) mimeType = 'image/png';
+              const ext = mimeType.includes('jpeg') ? 'jpg' : mimeType.includes('webp') ? 'webp' : 'png';
+              fileToUpload = new File([pastedImage], `internal-${timestamp}.${ext}`, { type: mimeType, lastModified: timestamp });
+              finalFileType = 'image';
+            } else if (attachedFile) {
+              const ext = attachedFile.name.split('.').pop() || 'file';
+              fileToUpload = new File([attachedFile], `internal-${timestamp}.${ext}`, { type: attachedFile.type, lastModified: timestamp });
+              finalFileType = attachedFileType;
+            }
+
+            const uploadResponse = await base44.integrations.Core.UploadFile({ file: fileToUpload });
+            const mediaUrl = uploadResponse.file_url;
+
+            await handleEnviarBroadcast({
+              texto,
+              mediaUrl,
+              mediaType: finalFileType,
+              mediaCaption: texto.trim() || null
+            });
+          } catch (error) {
+            console.error('[INTERNO] Erro no upload de mídia broadcast:', error);
+            toast.error('Erro ao enviar mídia: ' + error.message);
+          } finally {
+            setUploadingPastedFile(false);
+          }
+          return;
+        }
+
+        // Envio individual interno com mídia - passar dados para handler otimista
+        if (onSendInternalMessageOptimistic) {
+          onSendInternalMessageOptimistic({
+            texto,
+            pastedImage,
+            pastedImagePreview,
+            attachedFile,
+            attachedFileType,
+            replyToMessage: mensagemResposta
+          });
+          setMensagemResposta(null);
+        } else {
+          toast.error("Handler de envio interno não configurado");
+        }
+        return;
+      }
+
+      // ✅ Texto puro interno (sem mídia)
+      if (onSendInternalMessageOptimistic) {
+        onSendInternalMessageOptimistic({
+          texto,
+          pastedImage: null,
+          pastedImagePreview: null,
+          attachedFile: null,
+          attachedFileType: null,
+          replyToMessage: mensagemResposta
+        });
+        setMensagemResposta(null);
+      } else {
+        toast.error("Handler de envio interno não configurado");
+      }
+      return;
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // THREADS EXTERNAS (WhatsApp) - Lógica existente
+    // ═══════════════════════════════════════════════════════════════════════
+    
     // Se tem arquivo anexado, processar upload e envio
     if (attachedFile) {
       await enviarArquivoAnexado(attachedFile, attachedFileType, texto);
@@ -1041,30 +1128,9 @@ export default function ChatWindow({
       return;
     }
 
-    // Se estiver em modo broadcast (externo ou interno), chamar o handler de broadcast
-    if (modoSelecaoMultipla && (contatosSelecionados.length > 0 || broadcastInterno)) {
+    // Se estiver em modo broadcast externo, chamar o handler de broadcast
+    if (modoSelecaoMultipla && contatosSelecionados.length > 0) {
       await handleEnviarBroadcast({ texto });
-      return;
-    }
-
-    // ═══════════════════════════════════════════════════════════════════════
-    // THREAD INTERNA (team_internal ou sector_group) - ENVIO INDIVIDUAL OTIMISTA
-    // ═══════════════════════════════════════════════════════════════════════
-    if (thread?.thread_type === 'team_internal' || thread?.thread_type === 'sector_group') {
-      // ✅ USAR OPTIMISTIC UI (igual WhatsApp externo)
-      if (onSendInternalMessageOptimistic) {
-        onSendInternalMessageOptimistic({
-          texto,
-          pastedImage,
-          pastedImagePreview,
-          attachedFile,
-          attachedFileType,
-          replyToMessage: mensagemResposta
-        });
-        setMensagemResposta(null);
-      } else {
-        toast.error("Handler de envio interno não configurado");
-      }
       return;
     }
 
