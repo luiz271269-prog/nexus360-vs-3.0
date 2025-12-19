@@ -158,7 +158,7 @@ export default function ChatSidebar({
       return;
     }
 
-    console.log('🖱️ [ChatSidebar] Click na thread:', thread.id, thread.contato?.nome);
+    console.log('🖱️ [ChatSidebar] Click na thread:', thread.id, thread.thread_type);
 
     // Validação antes de chamar onSelecionarThread
     if (!thread || !thread.id) {
@@ -166,8 +166,9 @@ export default function ChatSidebar({
       return;
     }
 
-    if (!thread.contact_id) {
-      console.error('❌ [ChatSidebar] Thread sem contact_id:', thread);
+    // ✅ Threads internas não precisam de contact_id
+    if (!thread.contact_id && thread.thread_type !== 'team_internal' && thread.thread_type !== 'sector_group') {
+      console.error('❌ [ChatSidebar] Thread externa sem contact_id:', thread);
       return;
     }
 
@@ -290,6 +291,7 @@ export default function ChatSidebar({
         // ✅ THREADS INTERNAS - Renderizar com UI resolvida
         if (threadUI.isInternal) {
           const isSelected = contatosSelecionados.find(c => c.id === thread.id);
+          const hasUnread = getUnreadCount(thread, usuarioAtual?.id) > 0;
           const setorConfig = {
             'vendas': { cor: 'bg-emerald-500' },
             'assistencia': { cor: 'bg-blue-500' },
@@ -666,7 +668,9 @@ export default function ChatSidebar({
               </div>
             </div>
           </motion.div>);
+        }
 
+        return null; // Fallback para casos não tratados
       })}
 
     </div>
