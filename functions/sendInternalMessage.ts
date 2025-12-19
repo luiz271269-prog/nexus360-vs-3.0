@@ -59,14 +59,19 @@ Deno.serve(async (req) => {
             }, { status: 404, headers: corsHeaders });
         }
 
-        if (thread.thread_type !== 'team_internal') {
+        // ✅ Aceitar tanto team_internal quanto sector_group
+        if (thread.thread_type !== 'team_internal' && thread.thread_type !== 'sector_group') {
+            console.error(`[SEND-INTERNAL-MSG] ❌ Thread type inválido: ${thread.thread_type}`);
             return Response.json({ 
-                error: 'Esta thread não é interna. Use o fluxo apropriado.' 
+                error: `Esta thread não é interna. Tipo: ${thread.thread_type}` 
             }, { status: 400, headers: corsHeaders });
         }
 
+        console.log(`[SEND-INTERNAL-MSG] 🧵 Thread tipo: ${thread.thread_type} | Participantes: ${thread.participants?.length || 0}`);
+
         // 3. Validar participação
         if (!thread.participants || !thread.participants.includes(user.id)) {
+            console.error(`[SEND-INTERNAL-MSG] ❌ Usuário ${user.id} não é participante. Participantes:`, thread.participants);
             return Response.json({ 
                 error: 'Você não é participante desta conversa' 
             }, { status: 403, headers: corsHeaders });
@@ -119,7 +124,7 @@ Deno.serve(async (req) => {
 
         const savedMessage = await base44.asServiceRole.entities.Message.create(messageData);
 
-        console.log(`[SEND-INTERNAL-MSG] ✅ Mensagem criada: ${savedMessage.id} | Tipo: ${media_type}`);
+        console.log(`[SEND-INTERNAL-MSG] ✅ Mensagem criada: ${savedMessage.id} | Tipo: ${media_type} | Content: ${contentFinal.substring(0, 50)}`);
 
         // 5. Atualizar unread_by (Lógica Isolada por Usuário)
         // Recuperar o objeto unread_by atual da thread
@@ -152,7 +157,7 @@ Deno.serve(async (req) => {
             previewContent = previewMap[media_type] || '📎 Mídia';
         }
         
-        await base44.asServiceRole.entities.MessageThread.update(thread.id, {
+        const threadUpdate = {
             last_message_at: savedMessage.sent_at,
             last_message_content: previewContent,
             last_message_sender: 'user',
@@ -160,9 +165,13 @@ Deno.serve(async (req) => {
             last_media_type: media_type,
             unread_by: currentUnreads,
             total_mensagens: (thread.total_mensagens || 0) + 1
-        });
+        };
 
-        console.log(`[SEND-INTERNAL-MSG] ✅ Thread atualizada | Preview: ${previewContent} | Unreads:`, currentUnreads);
+        console.log(`[SEND-INTERNAL-MSG] 🔄 Atualizando thread com:`, JSON.stringify(threadUpdate, null, 2));
+
+        await base44.asServiceRole.entities.MessageThread.update(thread.id, threadUpdate);
+
+        console.log(`[SEND-INTERNAL-MSG] ✅ Thread atualizada | Preview: ${previewContent} | Unreads:`, JSON.stringify(currentUnreads));
 
         // Base44 dispara evento realtime automaticamente para os participantes
 
