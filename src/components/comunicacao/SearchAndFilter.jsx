@@ -102,7 +102,7 @@ export default function SearchAndFilter({
   }));
 
   // Detectar telefone automaticamente
-  useEffect(() => {
+  React.useEffect(() => {
     if (!searchTerm || searchTerm.trim() === '') {
       if (novoContatoTelefone) {
         onNovoContatoTelefoneChange('');
@@ -144,37 +144,37 @@ export default function SearchAndFilter({
   };
   
   // Sincronizar arrays com props legados (compatibilidade)
-  useEffect(() => {
+  React.useEffect(() => {
     if (selectedIntegrations.length === 1) {
       onSelectedIntegrationChange(selectedIntegrations[0]);
     } else if (selectedIntegrations.length === 0) {
       onSelectedIntegrationChange('all');
     }
-  }, [selectedIntegrations]);
+  }, [selectedIntegrations, onSelectedIntegrationChange]);
   
-  useEffect(() => {
+  React.useEffect(() => {
     if (selectedAttendants.length === 1) {
       onSelectedAttendantChange(selectedAttendants[0]);
     } else if (selectedAttendants.length === 0) {
       onSelectedAttendantChange(null);
     }
-  }, [selectedAttendants]);
+  }, [selectedAttendants, onSelectedAttendantChange]);
   
-  useEffect(() => {
+  React.useEffect(() => {
     if (selectedTiposContato.length === 1 && onSelectedTipoContatoChange) {
       onSelectedTipoContatoChange(selectedTiposContato[0]);
     } else if (selectedTiposContato.length === 0 && onSelectedTipoContatoChange) {
       onSelectedTipoContatoChange('all');
     }
-  }, [selectedTiposContato]);
+  }, [selectedTiposContato, onSelectedTipoContatoChange]);
   
-  useEffect(() => {
+  React.useEffect(() => {
     if (selectedTags.length === 1 && onSelectedTagContatoChange) {
       onSelectedTagContatoChange(selectedTags[0]);
     } else if (selectedTags.length === 0 && onSelectedTagContatoChange) {
       onSelectedTagContatoChange('all');
     }
-  }, [selectedTags]);
+  }, [selectedTags, onSelectedTagContatoChange]);
 
   // Chip de filtro ativo
   const FilterChip = ({ label, emoji, color, onRemove }) =>
