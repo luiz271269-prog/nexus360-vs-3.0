@@ -139,6 +139,13 @@ export default function ChatWindow({
     let isMounted = true;
 
     const carregarContato = async () => {
+      // ✅ Threads internas não têm contact_id - marcar como carregado direto
+      if (thread?.thread_type === 'team_internal' || thread?.thread_type === 'sector_group') {
+        setContatoCompleto(null);
+        setCarregandoContato(false);
+        return;
+      }
+      
       if (!thread?.contact_id) {
         setContatoCompleto(null);
         setCarregandoContato(false);
@@ -1507,7 +1514,26 @@ export default function ChatWindow({
       });
     }
 
-    // Filtrar mensagens inválidas
+    // ✅ Para threads internas: mostrar TODAS as mensagens, sem filtros de WhatsApp
+    const isThreadInterna = thread?.thread_type === 'team_internal' || thread?.thread_type === 'sector_group';
+    
+    if (isThreadInterna) {
+      return mensagensFiltradas.filter((m) => {
+        // Apenas filtros essenciais para internas
+        if (m.metadata?.deleted) return true;
+        if (m.metadata?.is_system_message) return true;
+        if (m.metadata?.optimistic) return true;
+        
+        // Mensagens com conteúdo ou mídia válida
+        const content = (m.content || '').trim();
+        if (content.length > 0) return true;
+        if (m.media_url && m.media_type && m.media_type !== 'none') return true;
+        
+        return false;
+      });
+    }
+
+    // ✅ Para threads externas (WhatsApp): aplicar filtros de limpeza existentes
     return mensagensFiltradas.filter((m) => {
       if (m.metadata?.deleted) return true;
       if (m.metadata?.is_system_message) return true;
@@ -1536,7 +1562,7 @@ export default function ChatWindow({
 
       return false;
     });
-  }, [mensagens, selectedCategoria]);
+  }, [mensagens, selectedCategoria, thread?.thread_type]);
 
   // ✅ HANDLER ATUALIZAR CONTATO - Declarado ANTES dos early returns
   const handleAtualizarContato = useCallback(async (campo, valor) => {

@@ -422,7 +422,16 @@ export const verificarBloqueioThread = (usuario, thread, contato = null) => {
   const isAdmin = usuario.role === 'admin';
   const isAdminOrAll = isAdmin || !!perms.pode_ver_todas_conversas;
 
-  // Admin pode tudo
+  // ✅ THREADS INTERNAS - visibilidade baseada em participação apenas
+  if (thread.thread_type === 'team_internal' || thread.thread_type === 'sector_group') {
+    const isParticipant = thread.participants?.includes(usuario.id);
+    if (isParticipant || isAdminOrAll) {
+      return { bloqueado: false, motivo: null, atendenteResponsavel: null };
+    }
+    return { bloqueado: true, motivo: 'nao_participante', atendenteResponsavel: null };
+  }
+
+  // Admin pode tudo (apenas threads externas a partir daqui)
   if (isAdminOrAll) {
     return { bloqueado: false, motivo: null, atendenteResponsavel: null };
   }

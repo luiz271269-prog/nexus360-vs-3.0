@@ -254,6 +254,12 @@ export default function Comunicacao() {
     setShowContactInfo(false);
     setContactInitialData(null);
 
+    // ✅ CASO 0: THREAD INTERNA - Abrir direto sem validações de WhatsApp
+    if (thread.thread_type === 'team_internal' || thread.thread_type === 'sector_group') {
+      setThreadAtiva(thread);
+      return;
+    }
+
     // CASO 1: CLIENTE SEM CONTATO - Abrir criação pré-preenchida
     if (thread.is_cliente_only && thread.cliente_id) {
       const cliente = clientes.find((c) => c.id === thread.cliente_id);
@@ -686,8 +692,15 @@ export default function Comunicacao() {
     // ✅ PASSO 1.5: DEDUPLICAÇÃO GLOBAL - Agrupar threads por contact_id
     // Mostrar apenas a thread mais recente de cada contato
     // Isso resolve o problema de duplicação quando há múltiplas conexões (Z-API, W-API)
+    // ⚠️ EXCETO threads internas (não têm contact_id, devem aparecer sempre)
     const threadMaisRecentePorContato = new Map();
     threads.forEach((thread) => {
+      // ✅ Threads internas não passam por deduplicação de contato
+      if (thread.thread_type === 'team_internal' || thread.thread_type === 'sector_group') {
+        threadMaisRecentePorContato.set(`internal-${thread.id}`, thread);
+        return;
+      }
+      
       const contactId = thread.contact_id;
       if (!contactId) return;
 
@@ -729,9 +742,11 @@ export default function Comunicacao() {
     // ═══════════════════════════════════════════════════════════════════════════
     const threadsFiltrados = threadsUnicas.filter((thread) => {
       // ✅ THREADS INTERNAS - visíveis apenas para participantes (ou admin)
+      // NÃO APLICAR filtros de contato/integração/setor WhatsApp
       if (thread.thread_type === 'team_internal' || thread.thread_type === 'sector_group') {
-        const threadComContato = { ...thread, contato: null };
-        return canUserSeeThreadBase(usuario, threadComContato);
+        const isParticipant = thread.participants?.includes(usuario?.id);
+        const isAdmin = usuario?.role === 'admin';
+        return Boolean(isParticipant || isAdmin);
       }
       
       // ⬇️ Daqui pra baixo: SOMENTE externas

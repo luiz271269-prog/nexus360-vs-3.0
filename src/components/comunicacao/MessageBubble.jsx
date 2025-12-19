@@ -647,7 +647,7 @@ export default React.memo(function MessageBubble({
           "max-w-[65%]",
           "flex flex-col group relative"
         )}>
-          {!isOwn && (message.sender_type === 'user' || message.channel === 'interno') && (() => {
+          {!isOwn && (thread?.thread_type === 'team_internal' || thread?.thread_type === 'sector_group' || message.channel === 'interno') && (() => {
             const atendenteRemetente = atendentes.find(a => a.id === message.sender_id);
             if (!atendenteRemetente) return null;
             return (
