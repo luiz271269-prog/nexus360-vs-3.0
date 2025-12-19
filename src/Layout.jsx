@@ -117,7 +117,6 @@ function NavItem({ href, icon: Icon, label, badge, badgeColor, lembretesCount })
 
 function SideBar({ isOpen, menuItems, contadoresLembretes, usuario, loadingUsuario, onLogout, onOpenNexus }) {
   return (
-    <TooltipProvider>
       <aside
         className={`fixed inset-y-0 left-0 z-50 w-20 bg-gradient-to-b from-slate-900 via-slate-800 to-slate-900 text-white transform ${
           isOpen ? 'translate-x-0' : '-translate-x-full'
@@ -166,11 +165,10 @@ function SideBar({ isOpen, menuItems, contadoresLembretes, usuario, loadingUsuar
         {/* Rodapé com autenticação unificada */}
         <div className="p-2 border-t border-slate-700/50">
           <UserAuthWidget usuario={usuario} loadingUsuario={loadingUsuario} onLogout={onLogout} />
-        </div>
-      </aside>
-    </TooltipProvider>
-  );
-}
+          </div>
+          </aside>
+          );
+          }
 
 export default function Layout({ children, currentPageName }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -364,23 +362,24 @@ export default function Layout({ children, currentPageName }) {
   }));
 
   return (
-    <div className="flex h-screen bg-gradient-to-br from-amber-50 via-orange-50/30 to-red-50/20">
-      <InitializadorSistema />
-      <FeedbackAutomaticoCapturado />
-      <CacheBuster />
-      <DeploymentBanner />
+    <TooltipProvider>
+      <div className="flex h-screen bg-gradient-to-br from-amber-50 via-orange-50/30 to-red-50/20">
+        <InitializadorSistema />
+        <FeedbackAutomaticoCapturado />
+        <CacheBuster />
+        <DeploymentBanner />
 
-      {globalUsuario && <NotificationSystem usuario={globalUsuario} />}
+        {globalUsuario && <NotificationSystem usuario={globalUsuario} />}
 
-      <SideBar
-        isOpen={sidebarOpen}
-        menuItems={menuItems}
-        contadoresLembretes={contadoresLembretes}
-        usuario={globalUsuario}
-        loadingUsuario={loadingUsuario}
-        onLogout={handleLogout}
-        onOpenNexus={() => setNexusOpen(true)}
-      />
+        <SideBar
+          isOpen={sidebarOpen}
+          menuItems={menuItems}
+          contadoresLembretes={contadoresLembretes}
+          usuario={globalUsuario}
+          loadingUsuario={loadingUsuario}
+          onLogout={handleLogout}
+          onOpenNexus={() => setNexusOpen(true)}
+        />
 
       {sidebarOpen && (
         <div
@@ -432,6 +431,7 @@ export default function Layout({ children, currentPageName }) {
         usuario={globalUsuario}
         onAcaoIA={() => {}}
       />
-    </div>
+      </div>
+    </TooltipProvider>
   );
 }
