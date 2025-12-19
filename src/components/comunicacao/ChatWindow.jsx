@@ -44,6 +44,23 @@ import CentralInteligenciaContato, {
 import MessageInput from './MessageInput';
 import AlertaPedidoTransferencia from './AlertaPedidoTransferencia';
 
+// ═══════════════════════════════════════════════════════════════════════════════
+// 🎯 GETTER UNIFICADO: Contagem de não lidas (externo + interno)
+// ═══════════════════════════════════════════════════════════════════════════════
+const getUnreadCount = (thread, userId) => {
+  if (!thread) return 0;
+
+  if (thread.thread_type === 'contact_external') {
+    return thread.unread_count || 0;
+  }
+
+  if (thread.thread_type === 'team_internal' || thread.thread_type === 'sector_group') {
+    return thread.unread_by?.[userId] || 0;
+  }
+
+  return 0;
+};
+
 export default function ChatWindow({
   thread = null,
   mensagens = [],
@@ -1878,14 +1895,14 @@ export default function ChatWindow({
 
             return (
               <React.Fragment key={mensagem.id}>
-                  {isFirstUnread && thread.unread_count > 0 &&
+                  {isFirstUnread && getUnreadCount(thread, usuario?.id) > 0 &&
                 <div
                   ref={unreadSeparatorRef}
                   className="flex items-center justify-center my-4">
 
                       <div className="flex-1 h-px bg-gradient-to-r from-transparent via-red-300 to-transparent"></div>
                       <span className="px-4 py-1 text-xs font-semibold text-red-600 bg-red-50 rounded-full border border-red-200 shadow-sm">
-                        {thread.unread_count} {thread.unread_count === 1 ? 'mensagem não lida' : 'mensagens não lidas'}
+                        {getUnreadCount(thread, usuario?.id)} {getUnreadCount(thread, usuario?.id) === 1 ? 'mensagem não lida' : 'mensagens não lidas'}
                       </span>
                       <div className="flex-1 h-px bg-gradient-to-r from-transparent via-red-300 to-transparent"></div>
                     </div>

@@ -139,9 +139,11 @@ export default function ChatSidebar({
     if (!threads || threads.length === 0) return [];
 
     return threads.filter((thread) => {
-      // ✅ THREADS INTERNAS - sempre visíveis (permissões já aplicadas no backend)
+      // ✅ THREADS INTERNAS - visíveis apenas para participantes (ou admin)
       if (thread.thread_type === 'team_internal' || thread.thread_type === 'sector_group') {
-        return true;
+        const isParticipant = thread.participants?.includes(usuarioAtual?.id);
+        const isAdmin = usuarioAtual?.role === 'admin';
+        return Boolean(isParticipant || isAdmin);
       }
       
       // ✅ THREADS EXTERNAS - filtrar contatos bloqueados
