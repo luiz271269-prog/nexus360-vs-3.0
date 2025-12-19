@@ -728,6 +728,13 @@ export default function Comunicacao() {
     // (Usando threadsUnicas para evitar duplicatas por contato)
     // ═══════════════════════════════════════════════════════════════════════════
     const threadsFiltrados = threadsUnicas.filter((thread) => {
+      // ✅ THREADS INTERNAS - sempre visíveis para participantes (já filtrado por canUserSeeThreadBase)
+      if (thread.thread_type === 'team_internal' || thread.thread_type === 'sector_group') {
+        const threadComContato = { ...thread, contato: null };
+        return canUserSeeThreadBase(usuario, threadComContato);
+      }
+      
+      // ✅ THREADS EXTERNAS - lógica existente
       const contato = contatosMap.get(thread.contact_id);
 
       // Permitir threads sem contato_id se forem S/atend (para não perder threads soltas)

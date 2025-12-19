@@ -261,6 +261,11 @@ export const canUserSeeThreadWithFilters = (usuario, thread, filtros = {}) => {
   const isAdmin = usuario.role === 'admin';
   const isAdminOrAll = isAdmin || !!perms.pode_ver_todas_conversas;
 
+  // ✅ THREADS INTERNAS - delegar para canUserSeeThreadBase (já tem lógica de participantes)
+  if (thread.thread_type === 'team_internal' || thread.thread_type === 'sector_group') {
+    return canUserSeeThreadBase(usuario, thread);
+  }
+
   const contato = thread.contato;
   const atribuido = isAtribuidoAoUsuario(usuario, thread);
 

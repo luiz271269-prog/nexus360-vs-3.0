@@ -282,11 +282,7 @@ export default function ChatSidebar({
       {/* LISTA NORMAL DE THREADS */}
       {/* ═══════════════════════════════════════════════════════════════════ */}
       {threadsSorted.map((thread, index) => {
-        const contato = thread.contato;
         const isAtiva = threadAtiva?.id === thread.id;
-        const hasUnread = getUnreadCount(thread, usuarioAtual?.id) > 0;
-        const isAssignedToMe = thread.assigned_user_id === usuarioAtual?.id;
-        const isUnassigned = !thread.assigned_user_id;
 
         // ✅ RESOLVER UI (externo ou interno)
         const threadUI = resolveThreadUI(thread, usuarioAtual, atendentes);
@@ -366,8 +362,11 @@ export default function ChatSidebar({
           );
         }
 
-        // ✅ THREADS EXTERNAS SEM CONTATO - Casos especiais
-        if (!contato && !threadUI.isInternal) {
+        // ✅ THREADS EXTERNAS - Lógica existente (não mexer)
+        if (!threadUI.isInternal) {
+          const contato = thread.contato;
+
+          if (!contato) {
           // Se é um cliente sem contato cadastrado, mostrar com indicador especial
           if (thread.is_cliente_only) {
             return (
@@ -393,7 +392,11 @@ export default function ChatSidebar({
                 </div>
               </motion.div>);
           }
-          
+
+          const hasUnread = getUnreadCount(thread, usuarioAtual?.id) > 0;
+          const isAssignedToMe = thread.assigned_user_id === usuarioAtual?.id;
+          const isUnassigned = !thread.assigned_user_id;
+
           return (
             <motion.div
               key={thread.id}
