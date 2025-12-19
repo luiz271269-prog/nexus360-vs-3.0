@@ -218,38 +218,50 @@ export default function InternalMessageComposer({ open, onClose, currentUser, on
   return (
     <>
       <Dialog open={open} onOpenChange={onClose}>
-        <DialogContent className="max-w-4xl max-h-[90vh] flex flex-col">
+        <DialogContent className="max-w-2xl max-h-[90vh] flex flex-col">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Users className="w-5 h-5 text-purple-600" />
-              Envio Interno - Equipe / Setor
+            <DialogTitle className="flex items-center gap-3 text-slate-800">
+              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-cyan-500 to-blue-600 flex items-center justify-center shadow-md">
+                <Users className="w-5 h-5 text-white" />
+              </div>
+              <div>
+                <div className="font-semibold">Envio Interno - Equipe</div>
+                <div className="text-xs font-normal text-slate-500">
+                  {totalSelecionados === 0 
+                    ? 'Selecione destinatários' 
+                    : totalSelecionados === 1
+                      ? '1 destinatário selecionado'
+                      : `${totalSelecionados} destinatários selecionados`
+                  }
+                </div>
+              </div>
             </DialogTitle>
           </DialogHeader>
 
-          <div className="flex-1 flex gap-4 min-h-0">
-            {/* Painel Esquerdo - Seleção de Destinatários */}
-            <div className="w-1/2 flex flex-col border-r border-slate-200 pr-4">
+          <div className="flex-1 flex flex-col min-h-0">
+            {/* Painel Único - Seleção de Destinatários */}
+            <div className="flex-1 flex flex-col">
               <Tabs defaultValue="usuarios" className="flex-1 flex flex-col min-h-0">
-                <TabsList className="grid w-full grid-cols-3">
-                  <TabsTrigger value="usuarios">
+                <TabsList className="grid w-full grid-cols-3 bg-slate-100">
+                  <TabsTrigger value="usuarios" className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-cyan-500 data-[state=active]:to-blue-600 data-[state=active]:text-white">
                     <Users className="w-4 h-4 mr-2" />
                     Usuários ({usuariosDisponiveis.length})
                   </TabsTrigger>
-                  <TabsTrigger value="setores">
+                  <TabsTrigger value="setores" className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-cyan-500 data-[state=active]:to-blue-600 data-[state=active]:text-white">
                     <Building2 className="w-4 h-4 mr-2" />
                     Setores ({setores.length})
                   </TabsTrigger>
-                  <TabsTrigger value="grupos">
+                  <TabsTrigger value="grupos" className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-cyan-500 data-[state=active]:to-blue-600 data-[state=active]:text-white">
                     <Users className="w-4 h-4 mr-2" />
                     Grupos ({grupos.length})
                   </TabsTrigger>
                 </TabsList>
 
                 {/* Aba Usuários */}
-                <TabsContent value="usuarios" className="flex-1 overflow-y-auto mt-3 space-y-1">
+                <TabsContent value="usuarios" className="flex-1 overflow-y-auto mt-3 space-y-0.5">
                   {loadingUsers ? (
                     <div className="flex items-center justify-center py-12">
-                      <Loader2 className="w-6 h-6 animate-spin text-purple-600" />
+                      <Loader2 className="w-6 h-6 animate-spin text-cyan-600" />
                     </div>
                   ) : usuariosDisponiveis.length === 0 ? (
                     <div className="text-center py-12 text-slate-500 text-sm">
@@ -267,35 +279,33 @@ export default function InternalMessageComposer({ open, onClose, currentUser, on
                         <button
                           key={usuario.id}
                           onClick={() => toggleUser(usuario.id)}
-                          className={`w-full flex items-center gap-3 p-2 rounded-lg transition-all text-left border ${
+                          className={`w-full flex items-center gap-2 px-2 py-1.5 rounded-lg transition-all text-left border ${
                             isSelected 
-                              ? 'bg-purple-100 border-purple-400' 
-                              : 'hover:bg-purple-50 border-transparent'
+                              ? 'bg-gradient-to-r from-cyan-50 to-blue-50 border-cyan-300 shadow-sm' 
+                              : 'hover:bg-slate-50 border-transparent'
                           }`}
                         >
                           <div className="flex-shrink-0">
                             {isSelected ? (
-                              <CheckSquare className="w-5 h-5 text-purple-600" />
+                              <CheckSquare className="w-4 h-4 text-cyan-600" />
                             ) : (
-                              <Square className="w-5 h-5 text-slate-400" />
+                              <Square className="w-4 h-4 text-slate-300" />
                             )}
                           </div>
-                          <div className={`w-10 h-10 ${setorCfg.cor} rounded-full flex items-center justify-center text-white font-bold shadow-md`}>
+                          <div className={`w-8 h-8 ${setorCfg.cor} rounded-full flex items-center justify-center text-white font-bold text-sm shadow-sm`}>
                             {(usuario.full_name || usuario.email || '?').charAt(0).toUpperCase()}
                           </div>
                           <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2 mb-1">
-                              <UsuarioDisplay usuario={usuario} className="flex-1 min-w-0 text-sm" />
+                            <div className="text-sm font-medium text-slate-700 truncate">
+                              {usuario.full_name || usuario.email}
                             </div>
-                            <div className="flex items-center gap-1 flex-wrap">
-                              <span className={`inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-semibold text-white ${nivelCfg.cor}`}>
+                            <div className="flex items-center gap-1 flex-wrap mt-0.5">
+                              <span className={`inline-flex items-center px-1.5 py-0.5 rounded-full text-[9px] font-medium text-white ${setorCfg.cor}`}>
+                                {setorCfg.emoji} {setorCfg.label}
+                              </span>
+                              <span className={`inline-flex items-center px-1.5 py-0.5 rounded-full text-[9px] font-medium text-slate-600 bg-slate-100`}>
                                 {nivelCfg.label}
                               </span>
-                              {usuario.role === 'admin' && (
-                                <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-semibold text-amber-700 bg-amber-100">
-                                  <Star className="w-2.5 h-2.5" /> Admin
-                                </span>
-                              )}
                             </div>
                           </div>
                         </button>
@@ -305,7 +315,7 @@ export default function InternalMessageComposer({ open, onClose, currentUser, on
                 </TabsContent>
 
                 {/* Aba Setores */}
-                <TabsContent value="setores" className="flex-1 overflow-y-auto mt-3 space-y-1">
+                <TabsContent value="setores" className="flex-1 overflow-y-auto mt-3 space-y-0.5">
                   {setores.length === 0 ? (
                     <div className="text-center py-12 text-slate-500 text-sm">
                       Nenhum setor encontrado
@@ -314,30 +324,31 @@ export default function InternalMessageComposer({ open, onClose, currentUser, on
                     setores.map(setor => {
                       const isSelected = selectedSectors.includes(setor);
                       const usuariosDoSetor = usuarios.filter(u => u.attendant_sector === setor);
+                      const setorCfg = setorConfig[setor] || setorConfig['geral'];
                       
                       return (
                         <button
                           key={setor}
                           onClick={() => toggleSector(setor)}
-                          className={`w-full flex items-center gap-3 p-2 rounded-lg transition-all text-left ${
+                          className={`w-full flex items-center gap-2 px-2 py-1.5 rounded-lg transition-all text-left border ${
                             isSelected 
-                              ? 'bg-indigo-100 border-2 border-indigo-400' 
-                              : 'hover:bg-indigo-50 border-2 border-transparent'
+                              ? 'bg-gradient-to-r from-cyan-50 to-blue-50 border-cyan-300 shadow-sm' 
+                              : 'hover:bg-slate-50 border-transparent'
                           }`}
                         >
                           <div className="flex-shrink-0">
                             {isSelected ? (
-                              <CheckSquare className="w-5 h-5 text-indigo-600" />
+                              <CheckSquare className="w-4 h-4 text-cyan-600" />
                             ) : (
-                              <Square className="w-5 h-5 text-slate-400" />
+                              <Square className="w-4 h-4 text-slate-300" />
                             )}
                           </div>
-                          <div className="w-8 h-8 rounded-full bg-gradient-to-br from-indigo-400 to-blue-500 flex items-center justify-center text-white shadow-md">
+                          <div className={`w-8 h-8 rounded-full ${setorCfg.cor} flex items-center justify-center text-white shadow-sm`}>
                             <Building2 className="w-4 h-4" />
                           </div>
                           <div className="flex-1 min-w-0">
-                            <div className="font-medium text-slate-800 truncate text-sm">
-                              Setor {setor}
+                            <div className="font-medium text-slate-700 truncate text-sm">
+                              {setorCfg.emoji} Setor {setor}
                             </div>
                             <div className="text-xs text-slate-500">
                               {usuariosDoSetor.length} {usuariosDoSetor.length === 1 ? 'membro' : 'membros'}
@@ -355,16 +366,16 @@ export default function InternalMessageComposer({ open, onClose, currentUser, on
                     onClick={() => setCriarGrupoOpen(true)}
                     variant="outline"
                     size="sm"
-                    className="mb-3 w-full"
+                    className="mb-3 w-full border-cyan-200 hover:bg-cyan-50 hover:border-cyan-300"
                   >
                     <Plus className="w-4 h-4 mr-2" />
                     Criar Novo Grupo
                   </Button>
 
-                  <div className="flex-1 overflow-y-auto space-y-1">
+                  <div className="flex-1 overflow-y-auto space-y-0.5">
                     {loadingGroups ? (
                       <div className="flex items-center justify-center py-12">
-                        <Loader2 className="w-6 h-6 animate-spin text-purple-600" />
+                        <Loader2 className="w-6 h-6 animate-spin text-cyan-600" />
                       </div>
                     ) : grupos.length === 0 ? (
                       <div className="text-center py-12 text-slate-500 text-sm">
@@ -377,24 +388,24 @@ export default function InternalMessageComposer({ open, onClose, currentUser, on
                           <button
                             key={grupo.id}
                             onClick={() => toggleGroup(grupo.id)}
-                            className={`w-full flex items-center gap-3 p-2 rounded-lg transition-all text-left ${
+                            className={`w-full flex items-center gap-2 px-2 py-1.5 rounded-lg transition-all text-left border ${
                               isSelected 
-                                ? 'bg-emerald-100 border-2 border-emerald-400' 
-                                : 'hover:bg-emerald-50 border-2 border-transparent'
+                                ? 'bg-gradient-to-r from-cyan-50 to-blue-50 border-cyan-300 shadow-sm' 
+                                : 'hover:bg-slate-50 border-transparent'
                             }`}
                           >
                             <div className="flex-shrink-0">
                               {isSelected ? (
-                                <CheckSquare className="w-5 h-5 text-emerald-600" />
+                                <CheckSquare className="w-4 h-4 text-cyan-600" />
                               ) : (
-                                <Square className="w-5 h-5 text-slate-400" />
+                                <Square className="w-4 h-4 text-slate-300" />
                               )}
                             </div>
-                            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-emerald-400 to-teal-500 flex items-center justify-center text-white shadow-md">
+                            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-slate-400 to-slate-500 flex items-center justify-center text-white shadow-sm">
                               <Users className="w-4 h-4" />
                             </div>
                             <div className="flex-1 min-w-0">
-                              <div className="font-medium text-slate-800 truncate text-sm">
+                              <div className="font-medium text-slate-700 truncate text-sm">
                                 {grupo.group_name || 'Grupo sem nome'}
                               </div>
                               <div className="text-xs text-slate-500">
@@ -408,108 +419,21 @@ export default function InternalMessageComposer({ open, onClose, currentUser, on
                   </div>
                 </TabsContent>
               </Tabs>
-            </div>
 
-            {/* Painel Direito - Resumo e Confirmação */}
-            <div className="w-1/2 flex flex-col justify-between">
-              <div>
-                <div className="mb-4">
-                  <h3 className="text-lg font-semibold text-slate-800 mb-2">Selecionados</h3>
-                  <p className="text-sm text-slate-500">
-                    {totalSelecionados === 0 
-                      ? 'Nenhum destinatário selecionado' 
-                      : totalSelecionados === 1
-                        ? 'Abrirá conversa com 1 destinatário'
-                        : `Enviará mensagem para ${totalSelecionados} destinatários`
-                    }
-                  </p>
-                </div>
-                
-                <div className="max-h-96 overflow-y-auto space-y-2">
-                  {selectedUsers.map(userId => {
-                    const usuario = usuarios.find(u => u.id === userId);
-                    return (
-                      <div key={userId} className="flex items-center gap-3 p-3 bg-purple-50 rounded-lg border border-purple-200">
-                        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-purple-400 to-indigo-500 flex items-center justify-center text-white font-semibold shadow-md">
-                          {usuario?.full_name?.charAt(0).toUpperCase() || '?'}
-                        </div>
-                        <div className="flex-1">
-                          <p className="text-sm font-medium text-slate-800">{usuario?.full_name || 'Usuário'}</p>
-                          {usuario?.attendant_sector && (
-                            <p className="text-xs text-slate-500">{usuario.attendant_sector}</p>
-                          )}
-                        </div>
-                        <button 
-                          onClick={() => toggleUser(userId)} 
-                          className="text-slate-400 hover:text-red-500 p-1"
-                        >
-                          <Users className="w-4 h-4" />
-                        </button>
-                      </div>
-                    );
-                  })}
-                  
-                  {selectedSectors.map(setor => {
-                    const usuariosDoSetor = usuarios.filter(u => u.attendant_sector === setor);
-                    return (
-                      <div key={setor} className="flex items-center gap-3 p-3 bg-indigo-50 rounded-lg border border-indigo-200">
-                        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-indigo-400 to-blue-500 flex items-center justify-center text-white shadow-md">
-                          <Building2 className="w-5 h-5" />
-                        </div>
-                        <div className="flex-1">
-                          <p className="text-sm font-medium text-slate-800">Setor {setor}</p>
-                          <p className="text-xs text-slate-500">
-                            {usuariosDoSetor.length} {usuariosDoSetor.length === 1 ? 'membro' : 'membros'}
-                          </p>
-                        </div>
-                        <button 
-                          onClick={() => toggleSector(setor)} 
-                          className="text-slate-400 hover:text-red-500 p-1"
-                        >
-                          <Building2 className="w-4 h-4" />
-                        </button>
-                      </div>
-                    );
-                  })}
-                  
-                  {selectedGroups.map(groupId => {
-                    const grupo = grupos.find(g => g.id === groupId);
-                    return (
-                      <div key={groupId} className="flex items-center gap-3 p-3 bg-emerald-50 rounded-lg border border-emerald-200">
-                        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-emerald-400 to-teal-500 flex items-center justify-center text-white shadow-md">
-                          <Users className="w-5 h-5" />
-                        </div>
-                        <div className="flex-1">
-                          <p className="text-sm font-medium text-slate-800">{grupo?.group_name || 'Grupo'}</p>
-                          <p className="text-xs text-slate-500">
-                            {grupo?.participants?.length || 0} {grupo?.participants?.length === 1 ? 'membro' : 'membros'}
-                          </p>
-                        </div>
-                        <button 
-                          onClick={() => toggleGroup(groupId)} 
-                          className="text-slate-400 hover:text-red-500 p-1"
-                        >
-                          <Users className="w-4 h-4" />
-                        </button>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-
-              <div className="mt-6 flex gap-3">
+              {/* Botões de Ação */}
+              <div className="mt-4 pt-4 border-t border-slate-200 flex gap-3">
                 <Button
                   variant="outline"
                   onClick={onClose}
                   disabled={resolving}
-                  className="flex-1"
+                  className="flex-1 border-slate-300 hover:bg-slate-50"
                 >
                   Cancelar
                 </Button>
                 <Button
                   onClick={handleConfirm}
                   disabled={resolving || totalSelecionados === 0}
-                  className="flex-1 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700"
+                  className="flex-1 bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-600 hover:to-blue-700 text-white shadow-md"
                 >
                   {resolving ? (
                     <>
