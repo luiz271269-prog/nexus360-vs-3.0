@@ -30,7 +30,6 @@ import {
 } from "../lib/userMatcher";
 import { getUserDisplayName } from "../lib/userHelpers";
 import UsuarioDisplay from "./UsuarioDisplay";
-import UsuarioDisplay from "./UsuarioDisplay";
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // 🎯 GETTER UNIFICADO: Badge de não lidas (externo + interno)
