@@ -115,8 +115,19 @@ export default function ChatWindow({
 
   const permissoes = usuario?.permissoes_comunicacao || {};
 
+  // ═══════════════════════════════════════════════════════════════════════════════
+  // 🔐 LÓGICA DE PERMISSÕES CIRÚRGICA - Threads Internas vs Externas
+  // ═══════════════════════════════════════════════════════════════════════════════
+  const isThreadInterna = thread?.thread_type === 'team_internal' || thread?.thread_type === 'sector_group';
+
   // ✅ VERIFICAR PERMISSÕES ESPECÍFICAS DA INSTÂNCIA
   const getPermissaoInstancia = (permissionKey) => {
+    // 🎯 THREADS INTERNAS: Permissão baseada em participação, não em WhatsApp
+    if (isThreadInterna) {
+      return thread?.participants?.includes(usuario?.id) || false;
+    }
+
+    // 🎯 THREADS EXTERNAS: Lógica de permissão por instância WhatsApp
     if (!thread?.whatsapp_integration_id || !usuario) return true;
     if (usuario.role === 'admin') return true;
 
@@ -127,10 +138,13 @@ export default function ChatWindow({
     return perm ? perm[permissionKey] : false;
   };
 
+  // 🔑 REGRA CIRÚRGICA: Thread atribuída ao usuário = SEMPRE tem permissão de envio
+  const threadAtribuidaAoUsuario = thread?.assigned_user_id === usuario?.id;
+
   const podeEnviarPorInstancia = getPermissaoInstancia('can_send');
-  const podeEnviarMensagens = permissoes.pode_enviar_mensagens !== false && podeEnviarPorInstancia;
-  const podeEnviarMidias = permissoes.pode_enviar_midias !== false && podeEnviarPorInstancia;
-  const podeEnviarAudios = permissoes.pode_enviar_audios !== false && podeEnviarPorInstancia;
+  const podeEnviarMensagens = threadAtribuidaAoUsuario || (permissoes.pode_enviar_mensagens !== false && podeEnviarPorInstancia);
+  const podeEnviarMidias = threadAtribuidaAoUsuario || (permissoes.pode_enviar_midias !== false && podeEnviarPorInstancia);
+  const podeEnviarAudios = threadAtribuidaAoUsuario || (permissoes.pode_enviar_audios !== false && podeEnviarPorInstancia);
   const podeApagarMensagens = permissoes.pode_apagar_mensagens === true;
   const podeTransferirConversas = true;
 
