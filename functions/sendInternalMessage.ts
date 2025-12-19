@@ -10,24 +10,32 @@ import { createClientFromRequest } from 'npm:@base44/sdk@0.8.4';
 const VERSION = 'v1.0.0';
 
 Deno.serve(async (req) => {
+    console.log('[SEND-INTERNAL-MSG] 🚀 Função iniciada');
+    
     const corsHeaders = {
         'Content-Type': 'application/json',
         'Access-Control-Allow-Origin': '*'
     };
 
     if (req.method === 'OPTIONS') {
+        console.log('[SEND-INTERNAL-MSG] ⚙️ CORS preflight');
         return new Response(null, { status: 204, headers: corsHeaders });
     }
 
     try {
+        console.log('[SEND-INTERNAL-MSG] 🔐 Criando client Base44...');
         const base44 = createClientFromRequest(req);
         
         // 1. Autenticação
+        console.log('[SEND-INTERNAL-MSG] 👤 Verificando autenticação...');
         const user = await base44.auth.me();
         if (!user) {
+            console.error('[SEND-INTERNAL-MSG] ❌ Unauthorized');
             return Response.json({ error: 'Unauthorized' }, { status: 401, headers: corsHeaders });
         }
+        console.log('[SEND-INTERNAL-MSG] ✅ Usuário autenticado:', user.id, user.email);
 
+        console.log('[SEND-INTERNAL-MSG] 📖 Lendo payload...');
         const payload = await req.json();
         console.log('[SEND-INTERNAL-MSG] 📥 Payload completo:', JSON.stringify(payload, null, 2));
 
