@@ -249,7 +249,7 @@ export async function processInboundEvent(params) {
   
   // (4) DETECTOR DE CICLO (independente de URA/saudação)
   result.pipeline.push('cycle_detection');
-  const novoCiclo = detectNovoCiclo(thread.last_message_at, now);
+  const novoCiclo = detectNovoCiclo(thread.last_inbound_at, now); // ✅ USAR last_inbound_at ao invés de last_message_at
   result.novoCiclo = novoCiclo;
   
   if (novoCiclo) {
