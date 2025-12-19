@@ -1050,17 +1050,61 @@ export default function ChatWindow({
     // THREAD INTERNA (team_internal ou sector_group) - ENVIO INDIVIDUAL
     // ═══════════════════════════════════════════════════════════════════════
     if (thread?.thread_type === 'team_internal' || thread?.thread_type === 'sector_group') {
-      if (!texto.trim()) {
-        toast.error('Digite uma mensagem');
-        return;
-      }
-
       setEnviando(true);
+
       try {
+        // ✅ LÓGICA CIRÚRGICA: Upload de mídia ANTES de enviar (igual Z-API)
+        let mediaUrlFinal = null;
+        let mediaTypeFinal = 'none';
+        let mediaCaptionFinal = null;
+
+        // Se tem imagem colada
+        if (pastedImage) {
+          toast.info('📤 Fazendo upload da imagem...');
+          const timestamp = Date.now();
+          let mimeType = pastedImage.type || 'image/png';
+          if (!mimeType.startsWith('image/')) mimeType = 'image/png';
+          const ext = mimeType.includes('jpeg') ? 'jpg' : mimeType.includes('webp') ? 'webp' : 'png';
+
+          const imageFile = new File([pastedImage], `internal-${timestamp}.${ext}`, { 
+            type: mimeType,
+            lastModified: timestamp
+          });
+
+          const uploadResponse = await base44.integrations.Core.UploadFile({ file: imageFile });
+          mediaUrlFinal = uploadResponse.file_url;
+          mediaTypeFinal = 'image';
+          mediaCaptionFinal = texto.trim() || null;
+        }
+        // Se tem arquivo anexado
+        else if (attachedFile) {
+          toast.info('📤 Fazendo upload do arquivo...');
+          const timestamp = Date.now();
+          const ext = attachedFile.name.split('.').pop() || 'file';
+          const uploadFile = new File([attachedFile], `internal-${timestamp}.${ext}`, { 
+            type: attachedFile.type,
+            lastModified: timestamp
+          });
+
+          const uploadResponse = await base44.integrations.Core.UploadFile({ file: uploadFile });
+          mediaUrlFinal = uploadResponse.file_url;
+          mediaTypeFinal = attachedFileType;
+          mediaCaptionFinal = texto.trim() || null;
+        }
+
+        // Validação: precisa texto OU mídia
+        if (!texto.trim() && !mediaUrlFinal) {
+          toast.error('Digite uma mensagem ou anexe uma mídia');
+          setEnviando(false);
+          return;
+        }
+
         const result = await base44.functions.invoke('sendInternalMessage', {
           thread_id: thread.id,
-          content: texto.trim(),
-          media_type: 'none',
+          content: texto.trim() || (mediaUrlFinal ? `[${mediaTypeFinal}]` : ''),
+          media_type: mediaTypeFinal,
+          media_url: mediaUrlFinal,
+          media_caption: mediaCaptionFinal,
           reply_to_message_id: mensagemResposta?.id || null
         });
 

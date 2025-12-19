@@ -37,10 +37,16 @@ Deno.serve(async (req) => {
             reply_to_message_id
         } = await req.json();
 
-        // Validações
-        if (!thread_id || !content) {
+        // Validações - content OU media_url devem existir
+        if (!thread_id) {
             return Response.json({ 
-                error: 'thread_id e content são obrigatórios' 
+                error: 'thread_id é obrigatório' 
+            }, { status: 400, headers: corsHeaders });
+        }
+        
+        if (!content && !media_url) {
+            return Response.json({ 
+                error: 'content ou media_url são obrigatórios' 
             }, { status: 400, headers: corsHeaders });
         }
 
@@ -69,11 +75,27 @@ Deno.serve(async (req) => {
         console.log(`[SEND-INTERNAL-MSG] 💬 Enviando mensagem na thread ${thread_id} por ${user.full_name}`);
 
         // 4. Criar mensagem
+        // ✅ LÓGICA CIRÚRGICA: Conteúdo padrão baseado em mídia (igual Z-API)
+        let contentFinal = content || '';
+        
+        if (!contentFinal && media_type !== 'none') {
+            const tipoMap = {
+                'image': '[Imagem]',
+                'video': '[Vídeo]',
+                'audio': '[Áudio]',
+                'document': '[Documento]',
+                'sticker': '[Sticker]',
+                'location': '[Localização]',
+                'contact': '[Contato]'
+            };
+            contentFinal = tipoMap[media_type] || '[Mídia]';
+        }
+        
         const messageData = {
             thread_id: thread.id,
             sender_id: user.id,
             sender_type: 'user',
-            content: content,
+            content: contentFinal,
             media_type: media_type,
             media_url: media_url || null,
             media_caption: media_caption || null,
@@ -93,7 +115,7 @@ Deno.serve(async (req) => {
 
         const savedMessage = await base44.asServiceRole.entities.Message.create(messageData);
 
-        console.log(`[SEND-INTERNAL-MSG] ✅ Mensagem criada: ${savedMessage.id}`);
+        console.log(`[SEND-INTERNAL-MSG] ✅ Mensagem criada: ${savedMessage.id} | Tipo: ${media_type}`);
 
         // 5. Atualizar unread_by (Lógica Isolada por Usuário)
         // Recuperar o objeto unread_by atual da thread
@@ -110,9 +132,25 @@ Deno.serve(async (req) => {
         });
 
         // 6. Atualização Atômica da Thread
+        // ✅ LÓGICA CIRÚRGICA: Preview de conteúdo baseado em mídia (igual Z-API)
+        let previewContent = content ? content.substring(0, 200) : '';
+        
+        if (!previewContent && media_type !== 'none') {
+            const previewMap = {
+                'image': '📷 Imagem',
+                'video': '🎥 Vídeo',
+                'audio': '🎤 Áudio',
+                'document': '📄 Documento',
+                'sticker': '🎨 Sticker',
+                'location': '📍 Localização',
+                'contact': '👤 Contato'
+            };
+            previewContent = previewMap[media_type] || '📎 Mídia';
+        }
+        
         await base44.asServiceRole.entities.MessageThread.update(thread.id, {
             last_message_at: savedMessage.sent_at,
-            last_message_content: content.substring(0, 200),
+            last_message_content: previewContent,
             last_message_sender: 'user',
             last_message_sender_name: user.full_name,
             last_media_type: media_type,
@@ -120,7 +158,7 @@ Deno.serve(async (req) => {
             total_mensagens: (thread.total_mensagens || 0) + 1
         });
 
-        console.log(`[SEND-INTERNAL-MSG] ✅ Thread atualizada com unreads:`, currentUnreads);
+        console.log(`[SEND-INTERNAL-MSG] ✅ Thread atualizada | Preview: ${previewContent} | Unreads:`, currentUnreads);
 
         // Base44 dispara evento realtime automaticamente para os participantes
 
