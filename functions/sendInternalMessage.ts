@@ -103,6 +103,9 @@ Deno.serve(async (req) => {
             contentFinal = tipoMap[media_type] || '[Mídia]';
         }
         
+        // ✅ GARANTIR sent_at preenchido (CRÍTICO para ordenação)
+        const agora = new Date().toISOString();
+
         const messageData = {
             thread_id: thread.id,
             sender_id: user.id,
@@ -117,7 +120,7 @@ Deno.serve(async (req) => {
             provider: 'internal_system',
             visibility: 'internal_only',
             status: 'enviada', // Mensagens internas são "enviadas" instantaneamente
-            sent_at: new Date().toISOString(),
+            sent_at: agora, // ✅ CRÍTICO: timestamp para ordenação
             metadata: {
                 user_name: user.full_name,
                 whatsapp_integration_id: null,
@@ -134,6 +137,13 @@ Deno.serve(async (req) => {
         const savedMessage = await base44.asServiceRole.entities.Message.create(messageData);
 
         console.log(`[SEND-INTERNAL-MSG] ✅ Mensagem criada: ${savedMessage.id} | Tipo: ${media_type} | Content: ${contentFinal.substring(0, 50)} | Media URL: ${media_url?.substring(0, 60)}`);
+
+        // ✅ LOG: Validar participants completo
+        if (!thread.participants || thread.participants.length === 0) {
+            console.warn('[SEND-INTERNAL-MSG] ⚠️ Thread sem participants! Thread:', thread.id);
+        } else {
+            console.log(`[SEND-INTERNAL-MSG] 👥 Participants (${thread.participants.length}):`, thread.participants);
+        }
 
         // 5. Atualizar unread_by (Lógica Isolada por Usuário)
         // Recuperar o objeto unread_by atual da thread

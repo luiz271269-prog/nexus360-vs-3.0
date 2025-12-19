@@ -848,7 +848,7 @@ export default React.memo(function MessageBubble({
               </TooltipProvider>
             }
 
-            {/* IMAGEM */}
+            {/* IMAGEM - ✅ AGNÓSTICO: Funciona para WhatsApp E Interno */}
             {message.media_type === 'image' && (message.media_url || message.content?.includes('[Imagem]')) &&
             <div className="relative overflow-hidden rounded-lg">
                 {message.media_url ?
@@ -925,7 +925,7 @@ export default React.memo(function MessageBubble({
               </div>
             }
 
-            {/* ÁUDIO */}
+            {/* ÁUDIO - ✅ AGNÓSTICO: Funciona para WhatsApp E Interno */}
             {message?.media_type === 'audio' && (message?.media_url || message.content?.includes('[Áudio]')) &&
             <div className={cn(
               "px-2 py-1.5 min-w-[160px] max-w-[240px]",

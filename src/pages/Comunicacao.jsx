@@ -159,11 +159,16 @@ export default function Comunicacao() {
     queryKey: ['mensagens', threadAtiva?.id],
     queryFn: async () => {
       if (threadAtiva) {
+        // ✅ QUERY LIMPA: Apenas thread_id, SEM filtros de channel/visibility/sender_type
+        // Todas as mensagens (internas E externas) devem aparecer
         const ultimasMensagens = await base44.entities.Message.filter(
           { thread_id: threadAtiva.id },
-          '-created_date',
+          '-sent_at', // ✅ Ordenar por sent_at (não created_date)
           200
         );
+        console.log(`[COMUNICACAO] 📩 Mensagens carregadas: ${ultimasMensagens.length} | Thread: ${threadAtiva.id}`);
+        console.log(`[COMUNICACAO] 📊 Tipos de canal:`, [...new Set(ultimasMensagens.map(m => m.channel))]);
+        console.log(`[COMUNICACAO] 📊 Tipos de mídia:`, [...new Set(ultimasMensagens.map(m => m.media_type))]);
         return ultimasMensagens.reverse();
       }
       return Promise.resolve([]);

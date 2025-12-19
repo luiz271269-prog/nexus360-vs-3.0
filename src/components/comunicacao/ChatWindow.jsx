@@ -1155,12 +1155,20 @@ export default function ChatWindow({
       } catch (error) {
         console.error('[CHAT] ❌ Erro ao enviar mensagem interna:', error);
         console.error('[CHAT] ❌ Stack:', error.stack);
+        console.error('[CHAT] ❌ Dados do erro:', {
+          message: error.message,
+          thread_id: thread?.id,
+          thread_type: thread?.thread_type,
+          media_type: mediaTypeFinal,
+          has_media_url: !!mediaUrlFinal,
+          participants: thread?.participants
+        });
         toast.error('Erro ao enviar: ' + error.message);
       } finally {
         setEnviando(false);
       }
       return;
-    }
+      }
 
     // ═══════════════════════════════════════════════════════════════════════
     // THREAD EXTERNA (WhatsApp) - Validações de thread e contato
