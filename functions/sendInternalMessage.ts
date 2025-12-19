@@ -91,8 +91,15 @@ Deno.serve(async (req) => {
       media_url: media_url || null,
       media_caption: media_caption || null,
       channel: 'interno',
+      provider: 'internal_system',
       status: 'enviada',
-      sent_at: agora
+      sent_at: agora,
+      delivered_at: agora,
+      read_at: null,
+      metadata: {
+        user_name: user.full_name || user.email,
+        ...(payload.metadata || {})
+      }
     };
 
     if (reply_to_message_id) {

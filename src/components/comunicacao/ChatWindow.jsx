@@ -1501,20 +1501,21 @@ export default function ChatWindow({
 
     // ✅ THREADS INTERNAS: mostrar TODAS as mensagens, sem filtros de WhatsApp
     const isThreadInterna = thread?.thread_type === 'team_internal' || thread?.thread_type === 'sector_group';
-    
+
     if (isThreadInterna) {
       return mensagensFiltradas.filter((m) => {
         // Mensagens apagadas: mostrar placeholder
         if (m.metadata?.deleted) return true;
         // Mensagens de sistema (transferências, etc.)
         if (m.metadata?.is_system_message) return true;
-        // Mensagens otimistas (enviando)
+        // Mensagens otimistas (enviando/falhou)
         if (m.metadata?.optimistic) return true;
-        
-        // ✅ FILTRO SIMPLIFICADO: conteúdo OU mídia válida
+
+        // ✅ ACEITAR: Qualquer mensagem com conteúdo OU mídia
         const content = (m.content || '').trim();
         const hasMidia = m.media_url && m.media_type && m.media_type !== 'none';
-        
+
+        // ✅ CORREÇÃO: Aceitar conteúdo vazio se houver mídia (ex: áudio puro)
         return content.length > 0 || hasMidia;
       });
     }
