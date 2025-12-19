@@ -1050,6 +1050,7 @@ export default function ChatWindow({
     // THREAD INTERNA (team_internal ou sector_group) - ENVIO INDIVIDUAL
     // ═══════════════════════════════════════════════════════════════════════
     if (thread?.thread_type === 'team_internal' || thread?.thread_type === 'sector_group') {
+      console.log('[CHAT] 💬 Enviando mensagem INTERNA | Tipo thread:', thread.thread_type);
       setEnviando(true);
 
       try {
@@ -1060,6 +1061,7 @@ export default function ChatWindow({
 
         // Se tem imagem colada
         if (pastedImage) {
+          console.log('[CHAT] 📷 Upload imagem colada - iniciando...');
           toast.info('📤 Fazendo upload da imagem...');
           const timestamp = Date.now();
           let mimeType = pastedImage.type || 'image/png';
@@ -1071,13 +1073,18 @@ export default function ChatWindow({
             lastModified: timestamp
           });
 
+          console.log('[CHAT] 📷 Upload - arquivo preparado:', imageFile.name, imageFile.type, imageFile.size);
+
           const uploadResponse = await base44.integrations.Core.UploadFile({ file: imageFile });
           mediaUrlFinal = uploadResponse.file_url;
           mediaTypeFinal = 'image';
           mediaCaptionFinal = texto.trim() || null;
+
+          console.log('[CHAT] ✅ Upload concluído! URL:', mediaUrlFinal);
         }
         // Se tem arquivo anexado
         else if (attachedFile) {
+          console.log('[CHAT] 📎 Upload arquivo anexado - iniciando...', attachedFile.name);
           toast.info('📤 Fazendo upload do arquivo...');
           const timestamp = Date.now();
           const ext = attachedFile.name.split('.').pop() || 'file';
@@ -1086,10 +1093,14 @@ export default function ChatWindow({
             lastModified: timestamp
           });
 
+          console.log('[CHAT] 📎 Upload - arquivo preparado:', uploadFile.name, uploadFile.type, uploadFile.size);
+
           const uploadResponse = await base44.integrations.Core.UploadFile({ file: uploadFile });
           mediaUrlFinal = uploadResponse.file_url;
           mediaTypeFinal = attachedFileType;
           mediaCaptionFinal = texto.trim() || null;
+
+          console.log('[CHAT] ✅ Upload concluído! URL:', mediaUrlFinal);
         }
 
         // Validação: precisa texto OU mídia
@@ -1098,6 +1109,15 @@ export default function ChatWindow({
           setEnviando(false);
           return;
         }
+
+        console.log('[CHAT] 📤 Invocando sendInternalMessage com:', {
+          thread_id: thread.id,
+          content: texto.trim() || `[${mediaTypeFinal}]`,
+          media_type: mediaTypeFinal,
+          media_url: mediaUrlFinal,
+          media_caption: mediaCaptionFinal,
+          has_reply: !!mensagemResposta
+        });
 
         const result = await base44.functions.invoke('sendInternalMessage', {
           thread_id: thread.id,
@@ -1108,20 +1128,24 @@ export default function ChatWindow({
           reply_to_message_id: mensagemResposta?.id || null
         });
 
-        console.log('[CHAT] ✅ Resposta sendInternalMessage:', result);
+        console.log('[CHAT] 📥 Resposta sendInternalMessage:', JSON.stringify(result, null, 2));
 
         if (result?.data?.success || result?.success) {
           setMensagemResposta(null);
           toast.success('✅ Mensagem enviada!');
+          console.log('[CHAT] ✅ Mensagem interna enviada com sucesso!');
 
           if (onAtualizarMensagens) {
             onAtualizarMensagens();
           }
         } else {
-          throw new Error(result?.data?.error || 'Erro ao enviar mensagem interna');
+          const errorMsg = result?.data?.error || result?.error || 'Erro ao enviar mensagem interna';
+          console.error('[CHAT] ❌ Falha no envio:', errorMsg);
+          throw new Error(errorMsg);
         }
       } catch (error) {
-        console.error('[CHAT] Erro ao enviar mensagem interna:', error);
+        console.error('[CHAT] ❌ Erro ao enviar mensagem interna:', error);
+        console.error('[CHAT] ❌ Stack:', error.stack);
         toast.error('Erro ao enviar: ' + error.message);
       } finally {
         setEnviando(false);

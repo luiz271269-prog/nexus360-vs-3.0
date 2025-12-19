@@ -28,6 +28,9 @@ Deno.serve(async (req) => {
             return Response.json({ error: 'Unauthorized' }, { status: 401, headers: corsHeaders });
         }
 
+        const payload = await req.json();
+        console.log('[SEND-INTERNAL-MSG] 📥 Payload completo:', JSON.stringify(payload, null, 2));
+
         const { 
             thread_id, 
             content,
@@ -35,20 +38,24 @@ Deno.serve(async (req) => {
             media_url,
             media_caption,
             reply_to_message_id
-        } = await req.json();
+        } = payload;
 
         // Validações - content OU media_url devem existir
         if (!thread_id) {
+            console.error('[SEND-INTERNAL-MSG] ❌ thread_id ausente');
             return Response.json({ 
                 error: 'thread_id é obrigatório' 
             }, { status: 400, headers: corsHeaders });
         }
         
         if (!content && !media_url) {
+            console.error('[SEND-INTERNAL-MSG] ❌ Nem content nem media_url fornecidos');
             return Response.json({ 
                 error: 'content ou media_url são obrigatórios' 
             }, { status: 400, headers: corsHeaders });
         }
+
+        console.log(`[SEND-INTERNAL-MSG] ✅ Validações OK | Content: ${!!content} | Media: ${!!media_url} | Type: ${media_type}`);
 
         // 2. Buscar e validar thread
         const thread = await base44.asServiceRole.entities.MessageThread.get(thread_id);
@@ -122,9 +129,11 @@ Deno.serve(async (req) => {
             messageData.reply_to_message_id = reply_to_message_id;
         }
 
+        console.log('[SEND-INTERNAL-MSG] 📝 Criando mensagem com dados:', JSON.stringify(messageData, null, 2));
+
         const savedMessage = await base44.asServiceRole.entities.Message.create(messageData);
 
-        console.log(`[SEND-INTERNAL-MSG] ✅ Mensagem criada: ${savedMessage.id} | Tipo: ${media_type} | Content: ${contentFinal.substring(0, 50)}`);
+        console.log(`[SEND-INTERNAL-MSG] ✅ Mensagem criada: ${savedMessage.id} | Tipo: ${media_type} | Content: ${contentFinal.substring(0, 50)} | Media URL: ${media_url?.substring(0, 60)}`);
 
         // 5. Atualizar unread_by (Lógica Isolada por Usuário)
         // Recuperar o objeto unread_by atual da thread
