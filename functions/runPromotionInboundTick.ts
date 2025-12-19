@@ -1,355 +1,207 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.4';
+import {
+  isBlocked, 
+  getActivePromotions, 
+  pickPromotion,
+  canSendInbound6h,
+  isHumanActive,
+  sendPromotion
+} from './lib/promotionEngine.js';
 
 // ============================================================================
-// CRON JOB - TRIGGER INBOUND DE PROMOÇÕES (6h)
+// CRON JOB - PROMOÇÕES INBOUND (6h após mensagem do cliente)
 // ============================================================================
-// Executar a cada 1 hora via cron
-// Busca threads onde última mensagem foi há 6-7h e envia promoção
+// Executar a cada 30 min via cron
+// Busca threads onde last_inbound_at foi há 6+ horas
 // Completamente independente da URA
 // ============================================================================
 
-const VERSION = 'v1.0.0-INBOUND-6H';
-const TRIGGER_WINDOW_MIN_HOURS = 6;
-const TRIGGER_WINDOW_MAX_HOURS = 7;
-const BATCH_LIMIT = 30; // Máximo de envios por execução
+const VERSION = 'v3.0.0-DETERMINISTIC';
+const SIX_HOURS_AGO = (now) => new Date(now.getTime() - 6 * 60 * 60 * 1000);
+const BATCH_LIMIT = 30;
 
 Deno.serve(async (req) => {
   const base44 = createClientFromRequest(req);
   const now = new Date();
   
   try {
-    console.log(`[PROMO-INBOUND-TICK ${VERSION}] Iniciando...`);
+    console.log(`[PROMO-INBOUND ${VERSION}] Iniciando...`);
     
-    // Calcular janela: última promoção foi há 6+ horas
-    const sixHoursAgo = new Date(now);
-    sixHoursAgo.setHours(sixHoursAgo.getHours() - TRIGGER_WINDOW_MIN_HOURS);
-    
-    console.log(`[PROMO-INBOUND-TICK] Buscando contatos com última promo antes de ${sixHoursAgo.toISOString()}`);
-    
-    // Importar helpers do promotionEngine
-    const { 
-      isBlockedFromPromotions, 
-      filterEligiblePromotions, 
-      pickNextPromotion,
-      formatPromotionMessage
-    } = await import('./lib/promotionEngine.js');
-    
-    // Buscar todas as promoções ativas
-    const allPromotions = await base44.asServiceRole.entities.Promotion.filter({
-      ativo: true
-    });
-    
-    if (allPromotions.length === 0) {
-      console.log('[PROMO-INBOUND-TICK] Nenhuma promoção ativa');
-      return Response.json({ 
-        success: true, 
-        processed: 0, 
-        reason: 'no_active_promotions' 
-      });
+    // Buscar promoções ativas
+    const promos = await getActivePromotions(base44, now);
+    if (!promos.length) {
+      return Response.json({ success: true, sent: 0, reason: 'no_active_promos' });
     }
+
+    // Buscar threads "devidas" (last_inbound_at <= now-6h)
+    const dueAt = SIX_HOURS_AGO(now).toISOString();
+    const limitWindow = new Date(now.getTime() - 48 * 60 * 60 * 1000).toISOString(); // Limitar a 48h atrás
     
-    // Buscar contatos ativos (lead/cliente) que:
-    // 1. Nunca receberam promoção (last_promo_sent_at = null) OU
-    // 2. Última promoção foi há 6+ horas
-    // 3. Tiveram atividade recente (última mensagem < 7 dias)
-    const sevenDaysAgo = new Date(now);
-    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-    
-    const allContacts = await base44.asServiceRole.entities.Contact.filter({
-      tipo_contato: { $in: ['lead', 'cliente'] },
-      ultima_interacao: { $gte: sevenDaysAgo.toISOString() }
-    }, '-ultima_interacao', 500);
-    
-    // Filtrar contatos que passaram pelo cooldown de 6h
-    const eligibleContacts = allContacts.filter(c => {
-      if (!c.last_promo_sent_at) return true; // Nunca recebeu
-      const lastPromoDate = new Date(c.last_promo_sent_at);
-      return lastPromoDate < sixHoursAgo; // Última promo há 6+ horas
-    });
-    
-    console.log(`[PROMO-INBOUND-TICK] ${eligibleContacts.length} contatos elegíveis (cooldown 6h passou)`);
-    
-    if (eligibleContacts.length === 0) {
-      return Response.json({ 
-        success: true, 
-        processed: 0,
-        reason: 'no_contacts_past_cooldown',
-        cooldown_threshold: sixHoursAgo.toISOString()
-      });
-    }
-    
-    // Buscar threads desses contatos
-    const contactIds = eligibleContacts.map(c => c.id);
-    const allThreads = await base44.asServiceRole.entities.MessageThread.filter({
-      contact_id: { $in: contactIds },
+    const threads = await base44.asServiceRole.entities.MessageThread.filter({
+      last_inbound_at: { 
+        $gte: limitWindow,
+        $lte: dueAt 
+      },
       status: 'aberta'
-    }, '-last_message_at', 500);
-    
-    console.log(`[PROMO-INBOUND-TICK] ${allThreads.length} threads encontradas na janela`);
-    
-    if (allThreads.length === 0) {
-      return Response.json({ 
-        success: true, 
-        processed: 0,
-        reason: 'no_threads_in_window'
-      });
+    }, '-last_inbound_at', 200);
+
+    console.log(`[PROMO-INBOUND] ${threads.length} threads na janela 6h`);
+
+    if (!threads.length) {
+      return Response.json({ success: true, sent: 0, reason: 'no_threads_in_window' });
     }
-    
+
     // Buscar integrações ativas
-    const integrations = await base44.asServiceRole.entities.WhatsAppIntegration.filter({
+    const integracoes = await base44.asServiceRole.entities.WhatsAppIntegration.filter({
       status: 'conectado'
     });
-    
-    if (integrations.length === 0) {
-      console.log('[PROMO-INBOUND-TICK] Nenhuma integração conectada');
-      return Response.json({ 
-        success: true, 
-        processed: 0, 
-        reason: 'no_active_integrations' 
-      });
+
+    if (!integracoes.length) {
+      return Response.json({ success: true, sent: 0, reason: 'no_active_integrations' });
     }
-    
-    // Buscar contatos associados às threads
-    const contactIds = [...new Set(allThreads.map(t => t.contact_id))];
-    const contacts = await base44.asServiceRole.entities.Contact.filter({
-      id: { $in: contactIds }
-    });
-    
-    const contactMap = new Map(contacts.map(c => [c.id, c]));
-    
-    // Estatísticas
-    const stats = {
-      processed: 0,
-      sent: 0,
-      blocked: 0,
-      cooldown: 0,
-      no_integration: 0,
-      no_eligible_promo: 0,
-      human_active: 0,
-      errors: 0
-    };
-    
-    // Processar threads
-    for (const thread of allThreads) {
-      // Limite de envios
-      if (stats.sent >= BATCH_LIMIT) {
-        console.log(`[PROMO-INBOUND-TICK] Limite de ${BATCH_LIMIT} envios atingido`);
-        break;
-      }
-      
-      stats.processed++;
-      
-      const contact = contactMap.get(thread.contact_id);
-      if (!contact) continue;
-      
-      // GUARDA 1: Verificar se humano está ativo (não enviar se atendente respondeu recentemente)
-      if (thread.assigned_user_id && thread.last_message_sender === 'user') {
-        const lastMessageDate = new Date(thread.last_message_at);
-        const hoursGap = (now - lastMessageDate) / (1000 * 60 * 60);
-        
-        if (hoursGap < 8) {
-          stats.human_active++;
-          continue;
-        }
-      }
-      
-      // Determinar integração
-      let integration = null;
-      if (thread.whatsapp_integration_id) {
-        integration = integrations.find(i => i.id === thread.whatsapp_integration_id);
-      }
-      if (!integration) {
-        integration = integrations[0];
-      }
-      
-      if (!integration) {
-        stats.no_integration++;
-        continue;
-      }
-      
-      // GUARDA 2: Bloqueios absolutos (FORNECEDOR, FINANCEIRO, COMPRAS)
-      const blockCheck = isBlockedFromPromotions(contact, thread, integration);
-      if (blockCheck.blocked) {
-        stats.blocked++;
-        continue;
-      }
-      
-      // GUARDA 3: Cooldown já foi verificado na query inicial (contatos elegíveis)
-      // Mas verificamos novamente por segurança
-      if (contact.last_promo_sent_at) {
-        const lastPromoDate = new Date(contact.last_promo_sent_at);
-        const hoursGap = (now - lastPromoDate) / (1000 * 60 * 60);
-        if (hoursGap < TRIGGER_WINDOW_MIN_HOURS) {
-          stats.cooldown++;
-          continue;
-        }
-      }
-      
-      // Filtrar promoções elegíveis
-      const eligible = filterEligiblePromotions(allPromotions, contact, thread);
-      
-      if (eligible.length === 0) {
-        stats.no_eligible_promo++;
-        continue;
-      }
-      
-      // Rotacionar promoções (não repetir a última)
-      const promotion = pickNextPromotion(eligible, contact);
-      
-      if (!promotion) {
-        stats.no_eligible_promo++;
-        continue;
-      }
-      
-      // Determinar formato (direct se não tem setor, teaser se tem)
-      const format = thread.sector_id ? 'teaser' : 'direct';
-      const rawMessage = formatPromotionMessage(promotion, contact, format);
-      
-      // ✅ Processar mensagem com segurança de emoji
-      const { processTextWithEmojis, emojiDebug } = await import('./lib/emojiHelper.js');
-      const message = processTextWithEmojis(rawMessage);
-      emojiDebug('INBOUND_TICK_PROMO', message);
-      
-      // Determinar provider
-      const provider = integration.api_provider === 'w_api' ? 'w_api' : 'z_api';
-      
-      // Enviar
+
+    const integracoesMap = new Map(integracoes.map(i => [i.id, i]));
+
+    let sent = 0;
+    let skipped = 0;
+    const reasons = {};
+
+    for (const thread of threads) {
+      if (sent >= BATCH_LIMIT) break;
+
       try {
-        let messageId = null;
+        // GUARDA 1: Já enviou promo inbound depois do último inbound?
+        const lastInbound = thread.last_inbound_at ? new Date(thread.last_inbound_at) : null;
+        const lastPromoInbound = thread.thread_last_promo_inbound_at ? new Date(thread.thread_last_promo_inbound_at) : null;
         
-        if (provider === 'z_api') {
-          const zapiUrl = `${integration.base_url_provider}/instances/${integration.instance_id_provider}/token/${integration.api_key_provider}/send-text`;
-          const zapiHeaders = { 'Content-Type': 'application/json' };
-          if (integration.security_client_token_header) {
-            zapiHeaders['Client-Token'] = integration.security_client_token_header;
-          }
-          
-          const response = await fetch(zapiUrl, {
-            method: 'POST',
-            headers: zapiHeaders,
-            body: JSON.stringify({ phone: contact.telefone, message })
-          });
-          
-          const data = await response.json();
-          if (response.ok && !data.error) {
-            messageId = data.messageId;
-          } else {
-            throw new Error(data.error || 'Erro no envio Z-API');
-          }
-        } else if (provider === 'w_api') {
-          const wapiUrl = `${integration.base_url_provider}/messages/send/text`;
-          const wapiHeaders = {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${integration.api_key_provider}`
-          };
-          
-          const response = await fetch(wapiUrl, {
-            method: 'POST',
-            headers: wapiHeaders,
-            body: JSON.stringify({
-              instanceId: integration.instance_id_provider,
-              number: contact.telefone,
-              text: message
-            })
-          });
-          
-          const data = await response.json();
-          if (response.ok && data.key?.id) {
-            messageId = data.key.id;
-          } else {
-            throw new Error(data.error || 'Erro no envio W-API');
-          }
+        if (!lastInbound) {
+          skipped++;
+          reasons['no_last_inbound'] = (reasons['no_last_inbound'] || 0) + 1;
+          continue;
         }
         
-        // ✅ ATUALIZAR CONTATO (SEM ALTERAR ESTADOS DE URA)
-        const promocoesRecebidas = contact.promocoes_recebidas || {};
-        const contagemAtual = promocoesRecebidas[promotion.id] || 0;
+        if (lastPromoInbound && lastPromoInbound >= lastInbound) {
+          skipped++;
+          reasons['already_sent_after_inbound'] = (reasons['already_sent_after_inbound'] || 0) + 1;
+          continue;
+        }
+
+        // GUARDA 2: Humano ativo? (atendente conversando recentemente)
+        if (isHumanActive({ thread, now, stalenessHours: 8 })) {
+          skipped++;
+          reasons['human_active'] = (reasons['human_active'] || 0) + 1;
+          continue;
+        }
+
+        // Buscar contato
+        const contact = await base44.asServiceRole.entities.Contact.get(thread.contact_id);
+        if (!contact?.telefone) {
+          skipped++;
+          reasons['no_contact'] = (reasons['no_contact'] || 0) + 1;
+          continue;
+        }
+
+        // Buscar integração
+        const integration = integracoesMap.get(thread.whatsapp_integration_id) || integracoes[0];
+        if (!integration) {
+          skipped++;
+          reasons['no_integration'] = (reasons['no_integration'] || 0) + 1;
+          continue;
+        }
+
+        // GUARDA 3: Bloqueios absolutos
+        const setorTipo = null;
+        const block = isBlocked({ contact, thread, integration, setorTipo });
+        if (block.blocked) {
+          skipped++;
+          reasons[block.reason] = (reasons[block.reason] || 0) + 1;
+          continue;
+        }
+
+        // GUARDA 4: Cooldown inbound 6h
+        const cd = canSendInbound6h({ contact, now });
+        if (!cd.ok) {
+          skipped++;
+          reasons[cd.reason] = (reasons[cd.reason] || 0) + 1;
+          continue;
+        }
+
+        // Filtrar e selecionar promoção
+        const eligible = filterEligiblePromotions(promos, contact, thread);
+        const promo = pickPromotion(eligible, contact);
         
+        if (!promo) {
+          skipped++;
+          reasons['no_eligible_promo'] = (reasons['no_eligible_promo'] || 0) + 1;
+          continue;
+        }
+
+        // ENVIAR
+        await sendPromotion(base44, { 
+          contact, 
+          thread, 
+          integration_id: integration.id, 
+          promo, 
+          trigger: 'inbound_6h' 
+        });
+
+        // Atualizar controles
+        const lastIds = readLastPromoIds(contact);
+        const nextIds = writeLastPromoIds(lastIds, promo.id);
+
         await base44.asServiceRole.entities.Contact.update(contact.id, {
-          last_promo_sent_at: now.toISOString(),
-          last_promo_id: promotion.id,
+          last_promo_inbound_at: now.toISOString(),
+          last_promo_ids: nextIds,
           promocoes_recebidas: {
-            ...promocoesRecebidas,
-            [promotion.id]: contagemAtual + 1
+            ...(contact.promocoes_recebidas || {}),
+            [promo.id]: ((contact.promocoes_recebidas || {})[promo.id] || 0) + 1
           }
         });
-        
-        // ✅ ATUALIZAR THREAD (SEM ALTERAR ESTADOS DE URA)
+
         await base44.asServiceRole.entities.MessageThread.update(thread.id, {
-          thread_last_promo_sent_at: now.toISOString()
+          thread_last_promo_inbound_at: now.toISOString(),
+          thread_last_promo_inbound_id: promo.id
         });
-        
-        // Registrar log
+
+        // Log de engajamento
         await base44.asServiceRole.entities.EngagementLog.create({
           contact_id: contact.id,
           thread_id: thread.id,
           type: 'offer',
           sent_at: now.toISOString(),
           status: 'sent',
-          provider: provider,
-          message_id: messageId,
           metadata: {
-            promotion_id: promotion.id,
-            promotion_titulo: promotion.titulo,
-            format: format,
+            promotion_id: promo.id,
             trigger: 'inbound_6h',
-            hours_since_last_message: ((now - new Date(thread.last_message_at)) / (1000 * 60 * 60)).toFixed(1)
+            hours_since_inbound: ((now - lastInbound) / (1000 * 60 * 60)).toFixed(1)
           }
         });
-        
-        // Registrar mensagem no sistema
-        await base44.asServiceRole.entities.Message.create({
-          thread_id: thread.id,
-          sender_id: 'system',
-          sender_type: 'user',
-          content: message,
-          channel: 'whatsapp',
-          status: 'enviada',
-          whatsapp_message_id: messageId,
-          sent_at: now.toISOString(),
-          metadata: {
-            whatsapp_integration_id: integration.id,
-            is_system_message: true,
-            message_type: 'promotion',
-            promotion_id: promotion.id,
-            format: format,
-            trigger: 'inbound_6h'
-          }
-        });
-        
-        stats.sent++;
-        console.log(`[PROMO-INBOUND-TICK] ✅ Enviado para ${contact.nome}: ${promotion.titulo}`);
-        
-        // Delay anti-rate-limit
+
+        sent++;
+        console.log(`[PROMO-INBOUND] ✅ ${contact.nome}: ${promo.titulo}`);
+
+        // Anti-rate-limit
         await new Promise(resolve => setTimeout(resolve, 500));
-        
+
       } catch (error) {
-        console.error(`[PROMO-INBOUND-TICK] ❌ Erro ao enviar para ${contact.nome}:`, error.message);
-        stats.errors++;
-        
-        // Registrar falha
-        await base44.asServiceRole.entities.EngagementLog.create({
-          contact_id: contact.id,
-          thread_id: thread.id,
-          type: 'offer',
-          status: 'failed',
-          reason: error.message,
-          provider: provider,
-          metadata: { trigger: 'inbound_6h' }
-        });
+        skipped++;
+        reasons['error'] = (reasons['error'] || 0) + 1;
+        console.error('[PROMO-INBOUND] ❌', error.message);
       }
     }
-    
-    console.log('[PROMO-INBOUND-TICK] Concluído:', stats);
-    
+
+    console.log('[PROMO-INBOUND] Concluído:', { sent, skipped, reasons });
+
     return Response.json({
       success: true,
-      stats: stats,
+      sent,
+      skipped,
+      reasons,
       timestamp: now.toISOString()
     });
-    
+
   } catch (error) {
-    console.error('[PROMO-INBOUND-TICK] ERRO GERAL:', error.message);
+    console.error('[PROMO-INBOUND] ERRO GERAL:', error.message);
     return Response.json({
       success: false,
       error: error.message

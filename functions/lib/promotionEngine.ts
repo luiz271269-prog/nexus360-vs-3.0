@@ -1,76 +1,118 @@
 // ============================================================================
-// PROMOTION ENGINE - Motor de Seleção e Envio de Promoções
+// PROMOTION ENGINE V3.0 - Motor Unificado de Promoções
 // ============================================================================
-// Funções puras e reutilizáveis para lógica de promoções
+// Baseado em estudo de eficiência e independência da URA
+// Funções puras e determinísticas para decisão de envio
+// ============================================================================
+
+const SIX_HOURS_MS = 6 * 60 * 60 * 1000;
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+// ============================================================================
+// BLOQUEIOS ABSOLUTOS
 // ============================================================================
 
 /**
- * Verifica se um contato está bloqueado para receber promoções
+ * Verifica se contato está bloqueado para receber promoções
+ * @returns {blocked: boolean, reason: string}
  */
-export function isBlockedFromPromotions(contact, thread, integration) {
-  // BLOQUEIO ABSOLUTO: Setores sensíveis
-  const blockedSectors = ['financeiro', 'fornecedor', 'compras', 'cobranca', 'fornecedores'];
-  if (thread?.sector_id && blockedSectors.some(s => thread.sector_id.toLowerCase().includes(s))) {
-    return { blocked: true, reason: `setor_bloqueado: ${thread.sector_id}` };
+export function isBlocked({ contact, thread, integration, setorTipo }) {
+  // BLOQUEIO 1: Tipo de contato
+  const tipoContato = String(contact?.tipo_contato || '').toLowerCase();
+  if (tipoContato === 'fornecedor') {
+    return { blocked: true, reason: 'blocked_supplier_type' };
   }
-  
-  // BLOQUEIO: Tipos de contato
-  const blockedTypes = ['fornecedor'];
-  if (contact?.tipo_contato && blockedTypes.includes(contact.tipo_contato.toLowerCase())) {
-    return { blocked: true, reason: `tipo_bloqueado: ${contact.tipo_contato}` };
-  }
-  
-  // BLOQUEIO: Tags do contato
+
+  // BLOQUEIO 2: Tags do contato
+  const tags = (contact?.tags || []).map(t => String(t).toLowerCase());
   const blockedTags = ['fornecedor', 'compras', 'colaborador', 'interno'];
-  if (contact?.tags && Array.isArray(contact.tags)) {
-    const hasBlockedTag = contact.tags.some(t => blockedTags.includes(t.toLowerCase()));
-    if (hasBlockedTag) {
-      return { blocked: true, reason: 'tag_bloqueada' };
-    }
+  const hasBlockedTag = tags.some(t => blockedTags.includes(t));
+  if (hasBlockedTag) {
+    return { blocked: true, reason: 'blocked_tag' };
   }
-  
-  // BLOQUEIO: Canal/Integração financeira
-  if (integration) {
-    const setorPrincipal = (integration.setor_principal || '').toLowerCase();
-    if (blockedSectors.includes(setorPrincipal)) {
-      return { blocked: true, reason: `canal_bloqueado: ${setorPrincipal}` };
-    }
+
+  // BLOQUEIO 3: Integração/Canal financeiro
+  const tipoCanal = String(integration?.setor_principal || '').toLowerCase();
+  const blockedChannels = ['financeiro', 'cobranca'];
+  if (blockedChannels.includes(tipoCanal)) {
+    return { blocked: true, reason: 'blocked_integration_financial' };
   }
-  
-  // BLOQUEIO: Contato explicitamente bloqueado
+
+  if (integration?.permite_promocao === false) {
+    return { blocked: true, reason: 'blocked_integration_flag' };
+  }
+
+  // BLOQUEIO 4: Setor da thread
+  const setorThread = String(thread?.sector_id || setorTipo || '').toLowerCase();
+  const blockedSectors = ['financeiro', 'cobranca', 'compras', 'fornecedores', 'fornecedor'];
+  if (blockedSectors.some(s => setorThread.includes(s))) {
+    return { blocked: true, reason: 'blocked_sector' };
+  }
+
+  // BLOQUEIO 5: Contato bloqueado manualmente
   if (contact?.bloqueado === true) {
-    return { blocked: true, reason: 'contato_bloqueado' };
+    return { blocked: true, reason: 'contact_blocked' };
   }
-  
-  // BLOQUEIO: Opt-out de promoções
+
+  // BLOQUEIO 6: Opt-out explícito
   if (contact?.whatsapp_optin === false) {
     return { blocked: true, reason: 'opt_out' };
   }
-  
+
   return { blocked: false };
 }
 
+// ============================================================================
+// PROMOÇÕES ATIVAS E ELEGÍVEIS
+// ============================================================================
+
 /**
- * Filtra promoções elegíveis baseado em gatilhos (contact_type, setor, tags)
+ * Busca promoções ativas e válidas
  */
-export function filterEligiblePromotions(allPromotions, contact, thread) {
-  return allPromotions.filter(promo => {
-    // Filtro 1: Tipo de contato
+export async function getActivePromotions(base44, now) {
+  const all = await base44.asServiceRole.entities.Promotion.filter({ ativo: true });
+  const valid = (all || []).filter(p => {
+    // Validar data de validade
+    if (p.validade) {
+      const dataValidade = new Date(p.validade);
+      if (dataValidade < now) return false;
+    }
+    
+    // Validar limite total de envios
+    if (p.limite_envios_total && p.limite_envios_total > 0) {
+      const enviados = p.contador_envios || 0;
+      if (enviados >= p.limite_envios_total) return false;
+    }
+    
+    return true;
+  });
+
+  // Ordenar por prioridade (menor = maior prioridade)
+  valid.sort((a, b) => (a.priority || 10) - (b.priority || 10));
+  return valid;
+}
+
+/**
+ * Filtra promoções elegíveis para contato/thread específico
+ */
+export function filterEligiblePromotions(promos, contact, thread) {
+  return promos.filter(promo => {
+    // Filtro: target_contact_types
     if (promo.target_contact_types && promo.target_contact_types.length > 0) {
       if (!contact.tipo_contato || !promo.target_contact_types.includes(contact.tipo_contato)) {
         return false;
       }
     }
-    
-    // Filtro 2: Setor
+
+    // Filtro: target_sectors
     if (promo.target_sectors && promo.target_sectors.length > 0) {
       const threadSetor = thread?.sector_id || 'geral';
       if (!promo.target_sectors.includes(threadSetor)) {
         return false;
       }
     }
-    
-    // Filtro 3: Tags (se a promoção especificar tags, o contato precisa ter pelo menos uma)
+
+    // Filtro: target_tags
     if (promo.target_tags && promo.target_tags.length > 0) {
       const contactTags = contact.tags || [];
       const hasMatchingTag = promo.target_tags.some(tag => contactTags.includes(tag));
@@ -78,209 +120,191 @@ export function filterEligiblePromotions(allPromotions, contact, thread) {
         return false;
       }
     }
-    
-    // Filtro 4: Validade
-    if (promo.validade) {
-      const dataValidade = new Date(promo.validade);
-      if (dataValidade < new Date()) {
-        return false;
-      }
-    }
-    
-    // Filtro 5: Limite de envios totais (HARD STOP - Estoque Esgotado)
-    if (promo.limite_envios_total && promo.limite_envios_total > 0) {
-      const enviados = promo.contador_envios || 0;
-      if (enviados >= promo.limite_envios_total) {
-        return false; // Promoção esgotada
-      }
-    }
-    
-    // Filtro 6: Limite de envios por contato (HARD STOP - Anti-Chatice)
-    // Usa o mapa 'promocoes_recebidas' no Contact para verificar quantas vezes este contato recebeu esta promoção
+
+    // Filtro: limite por contato
     if (promo.limite_envios_por_contato && promo.limite_envios_por_contato > 0) {
       const promocoesRecebidas = contact.promocoes_recebidas || {};
       const enviosParaEsteContato = promocoesRecebidas[promo.id] || 0;
       if (enviosParaEsteContato >= promo.limite_envios_por_contato) {
-        return false; // Contato já recebeu esta promoção o número máximo de vezes
+        return false;
       }
     }
-    
-    // Filtro 7: Evitar repetir EXATAMENTE a última promoção enviada (Rotação de Ofertas)
-    // Força diversidade, a menos que seja a única opção
-    if (contact.last_promo_id === promo.id) {
-      return false; // Já foi a última enviada, dar chance a outras
-    }
-    
+
     return true;
   });
 }
 
-/**
- * Escolhe a próxima promoção (evita repetir a última enviada)
- */
-export function pickNextPromotion(eligiblePromotions, contact) {
-  if (eligiblePromotions.length === 0) return null;
-  
-  // Ordenar por prioridade
-  const sorted = [...eligiblePromotions].sort((a, b) => {
-    const prioA = a.priority ?? 10;
-    const prioB = b.priority ?? 10;
-    return prioA - prioB;
-  });
-  
-  // Se contato tem histórico de última promo, evitar repetir
-  if (contact.last_promo_id && sorted.length > 1) {
-    const diferente = sorted.find(p => p.id !== contact.last_promo_id);
-    if (diferente) return diferente;
+// ============================================================================
+// ROTAÇÃO INTELIGENTE (Anti-Repetição com Histórico de 3)
+// ============================================================================
+
+function readLastPromoIds(contact) {
+  const v = contact?.last_promo_ids;
+  if (!v) return [];
+  if (Array.isArray(v)) return v.filter(Boolean);
+  // Fallback: se for string CSV
+  if (typeof v === 'string') {
+    return String(v).split(',').map(s => s.trim()).filter(Boolean);
   }
-  
-  return sorted[0];
+  return [];
+}
+
+function writeLastPromoIds(lastIds, newId) {
+  const next = [newId, ...lastIds.filter(id => id !== newId)].slice(0, 3);
+  return next;
 }
 
 /**
- * Formata a mensagem da promoção (substitui placeholders)
+ * Escolhe a próxima promoção evitando as últimas 3 enviadas
  */
-export function formatPromotionMessage(promotion, contact, format = 'teaser') {
-  let mensagem = '';
+export function pickPromotion(promos, contact) {
+  if (!promos?.length) return null;
+
+  const lastIds = readLastPromoIds(contact);
+
+  // Tentar evitar as últimas 3
+  let candidates = promos.filter(p => !lastIds.includes(p.id));
+  if (!candidates.length) candidates = promos; // Se todas já foram enviadas, permite reenvio
+
+  // Pegar a(s) de maior prioridade e randomizar dentro do mesmo nível
+  const topPrio = candidates[0].priority || 10;
+  const pool = candidates.filter(p => (p.priority || 10) === topPrio);
   
-  // Formato TEASER (curto, com opção 1/2)
-  if (format === 'teaser') {
-    const descricao = promotion.descricao_curta || promotion.descricao.substring(0, 120);
-    mensagem = `🎁 *Oferta Especial para Você!*\n\n${descricao}`;
-    
-    if (promotion.price_info) {
-      mensagem += `\n\n💰 ${promotion.price_info}`;
-    }
-    
-    mensagem += `\n\n_Digite 1 para saber mais ou 2 para falar com atendente_`;
-  } 
-  // Formato DIRECT (mensagem completa)
-  else {
-    mensagem = `🎉 *${promotion.titulo}*\n\n${promotion.descricao}`;
-    
-    if (promotion.price_info) {
-      mensagem += `\n\n💰 ${promotion.price_info}`;
-    }
-    
-    if (promotion.validade) {
-      const dataValidade = new Date(promotion.validade);
-      const dataFormatada = dataValidade.toLocaleDateString('pt-BR');
-      mensagem += `\n\n⏰ Válido até: ${dataFormatada}`;
-    }
-    
-    if (promotion.link_produto) {
-      mensagem += `\n\n🔗 Saiba mais: ${promotion.link_produto}`;
-    }
-    
-    mensagem += `\n\n_Entre em contato para aproveitar esta oferta!_`;
-  }
+  return pool[Math.floor(Math.random() * pool.length)];
+}
+
+// ============================================================================
+// COOLDOWN E FREQUÊNCIA
+// ============================================================================
+
+/**
+ * Verifica cooldown para trigger INBOUND (6h)
+ */
+export function canSendInbound6h({ contact, now }) {
+  const last = contact?.last_promo_inbound_at ? new Date(contact.last_promo_inbound_at) : null;
+  if (!last) return { ok: true };
   
-  // Substituir placeholders
-  mensagem = mensagem.replace(/\{\{nome\}\}/g, contact.nome || 'Cliente');
-  mensagem = mensagem.replace(/\{\{empresa\}\}/g, contact.empresa || '');
+  const gap = now - last;
+  if (gap >= SIX_HOURS_MS) return { ok: true };
   
-  return mensagem;
+  const hoursRemaining = ((SIX_HOURS_MS - gap) / (1000 * 60 * 60)).toFixed(1);
+  return { ok: false, reason: 'cooldown_inbound_6h', hours_remaining: hoursRemaining };
 }
 
 /**
- * Calcula o próximo estágio baseado no tempo decorrido
+ * Verifica cooldown para trigger BATCH (24h)
  */
-export function calculateNextStage(thread, now) {
-  if (!thread.last_message_at) return null;
+export function canSendBatch24h({ contact, now }) {
+  const last = contact?.last_promo_batch_at ? new Date(contact.last_promo_batch_at) : null;
+  if (!last) return { ok: true };
   
-  const lastMessageDate = new Date(thread.last_message_at);
-  const hoursGap = (now - lastMessageDate) / (1000 * 60 * 60);
+  const gap = now - last;
+  if (gap >= DAY_MS) return { ok: true };
   
-  const currentStage = thread.autoboost_stage;
-  
-  // 6h → 12h → 24h (progressão sequencial)
-  if (hoursGap >= 6 && hoursGap < 12 && !currentStage) {
-    return '6h';
-  }
-  
-  if (hoursGap >= 12 && hoursGap < 24 && currentStage === '6h_sent') {
-    return '12h';
-  }
-  
-  if (hoursGap >= 24 && currentStage === '12h_sent') {
-    return '24h';
-  }
-  
-  return null;
+  const hoursRemaining = ((DAY_MS - gap) / (1000 * 60 * 60)).toFixed(1);
+  return { ok: false, reason: 'cooldown_batch_24h', hours_remaining: hoursRemaining };
 }
 
 /**
- * Verifica se o cooldown de promoção passou
+ * Verifica se humano está ativo na thread (evitar promoção se atendente está conversando)
  */
-export function isCooldownExpired(thread, contact, cooldownHours = 6) {
-  const now = new Date();
+export function isHumanActive({ thread, now, stalenessHours = 8 }) {
+  if (!thread?.assigned_user_id) return false;
   
-  // Verificar cooldown na thread
-  if (thread.thread_last_promo_sent_at) {
-    const lastPromoThread = new Date(thread.thread_last_promo_sent_at);
-    const hoursGap = (now - lastPromoThread) / (1000 * 60 * 60);
-    if (hoursGap < cooldownHours) {
-      return { expired: false, reason: 'thread_cooldown', hours_remaining: cooldownHours - hoursGap };
-    }
-  }
+  const lastHuman = thread.last_human_message_at ? new Date(thread.last_human_message_at) : null;
+  if (!lastHuman) return false;
   
-  // Verificar cooldown no contato
-  if (contact.last_promo_sent_at) {
-    const lastPromoContact = new Date(contact.last_promo_sent_at);
-    const hoursGap = (now - lastPromoContact) / (1000 * 60 * 60);
-    if (hoursGap < cooldownHours) {
-      return { expired: false, reason: 'contact_cooldown', hours_remaining: cooldownHours - hoursGap };
-    }
-  }
+  const gap = now - lastHuman;
+  const hours = gap / (1000 * 60 * 60);
   
-  return { expired: true };
+  return hours < stalenessHours;
 }
 
-/**
- * Verifica se humano está ativamente gerenciando a conversa
- */
-export function isHumanActive(thread, stalenessHours = 8) {
-  if (!thread.assigned_user_id) return false;
-  if (thread.last_message_sender !== 'user') return false;
+// ============================================================================
+// FORMATAÇÃO DE MENSAGEM (SEM NÚMEROS - Evitar colisão com URA)
+// ============================================================================
+
+export function formatPromotionMessage(promo) {
+  let msg = `━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n🎁 *${promo.titulo || 'Oferta Especial'}*\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n`;
   
-  const lastMessageDate = new Date(thread.last_message_at);
-  const now = new Date();
-  const hoursGap = (now - lastMessageDate) / (1000 * 60 * 60);
+  if (promo.descricao_curta || promo.descricao) {
+    msg += `${promo.descricao_curta || promo.descricao}\n\n`;
+  }
   
-  return hoursGap < stalenessHours;
+  if (promo.price_info) {
+    msg += `💰 *${promo.price_info}*\n\n`;
+  }
+  
+  if (promo.validade) {
+    const d = new Date(promo.validade).toLocaleDateString('pt-BR');
+    msg += `⏰ *Válido até:* ${d}\n\n`;
+  }
+  
+  if (promo.link_produto) {
+    msg += `🔗 ${promo.link_produto}\n\n`;
+  }
+  
+  // ✅ SEM NÚMEROS (evita colisão com URA 1-4)
+  msg += `_Quer aproveitar? Me diga o que você precisa que eu te ajudo!_ ✨`;
+  
+  return msg;
 }
 
+// ============================================================================
+// ENVIO UNIFICADO
+// ============================================================================
+
 /**
- * Monta o payload de envio baseado no provider e estágio
+ * Envia promoção e registra no banco
+ * @param trigger - 'inbound_6h' ou 'batch_24h'
  */
-export function buildSendPayload(promotion, contact, thread, integration, stage) {
-  const format = promotion.formato || 'teaser';
-  const message = formatPromotionMessage(promotion, contact, format);
-  
+export async function sendPromotion(base44, { contact, thread, integration_id, promo, trigger }) {
+  const msg = formatPromotionMessage(promo);
+
+  // Invocar função de envio WhatsApp
   const payload = {
-    integration_id: integration.id,
+    integration_id,
     numero_destino: contact.telefone
   };
-  
-  // Se for 24h, DEVE usar template aprovado
-  if (stage === '24h') {
-    if (!promotion.whatsapp_template_name) {
-      throw new Error('Promoção 24h requer whatsapp_template_name configurado');
-    }
-    
-    payload.template_name = promotion.whatsapp_template_name;
-    payload.template_vars = promotion.whatsapp_template_vars || [contact.nome || 'Cliente'];
-  } 
-  // Antes de 24h (6h/12h) - envio livre
-  else {
-    if (promotion.imagem_url && promotion.tipo_midia === 'image') {
-      payload.media_url = promotion.imagem_url;
-      payload.media_type = 'image';
-      payload.media_caption = message;
-    } else {
-      payload.mensagem = message;
-    }
+
+  // Suporte a mídia
+  if (promo.imagem_url && promo.tipo_midia === 'image') {
+    payload.media_url = promo.imagem_url;
+    payload.media_type = 'image';
+    payload.media_caption = msg;
+  } else {
+    payload.mensagem = msg;
   }
+
+  const resp = await base44.asServiceRole.functions.invoke('enviarWhatsApp', payload);
   
-  return { payload, message };
+  if (!resp?.data?.success) {
+    throw new Error(resp?.data?.error || 'erro_envio_promocao');
+  }
+
+  // Registrar mensagem no banco
+  await base44.asServiceRole.entities.Message.create({
+    thread_id: thread.id,
+    sender_id: 'system',
+    sender_type: 'user',
+    recipient_id: contact.id,
+    recipient_type: 'contact',
+    content: msg,
+    channel: 'whatsapp',
+    status: 'enviada',
+    whatsapp_message_id: resp.data.message_id,
+    sent_at: new Date().toISOString(),
+    media_url: promo.imagem_url || null,
+    media_type: promo.imagem_url ? 'image' : 'none',
+    media_caption: promo.imagem_url ? msg : null,
+    metadata: {
+      whatsapp_integration_id: integration_id,
+      is_system_message: true,
+      message_type: 'promotion',
+      promotion_id: promo.id,
+      trigger
+    }
+  });
+
+  return { message_id: resp.data.message_id, text: msg };
 }
