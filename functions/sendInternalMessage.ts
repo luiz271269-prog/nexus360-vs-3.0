@@ -11,8 +11,10 @@ Deno.serve(async (req) => {
   }
 
   try {
+    console.log('[sendInternalMessage] 🔵 CHAMADA RECEBIDA');
     const base44 = createClientFromRequest(req);
     const payload = await req.json();
+    console.log('[sendInternalMessage] 📦 Payload:', { thread_id: payload.thread_id, has_content: !!payload.content, has_media: !!payload.media_url, media_type: payload.media_type });
 
     const {
       thread_id,
@@ -107,6 +109,7 @@ Deno.serve(async (req) => {
     }
 
     const savedMessage = await base44.asServiceRole.entities.Message.create(messageData);
+    console.log('[sendInternalMessage] ✅ Mensagem criada:', savedMessage.id);
 
     let currentUnreads = thread.unread_by || {};
     currentUnreads[user.id] = 0;
@@ -136,6 +139,7 @@ Deno.serve(async (req) => {
       last_media_type: media_type,
       unread_by: currentUnreads
     });
+    console.log('[sendInternalMessage] ✅ Thread atualizada. Sucesso!');
 
     return new Response(
       JSON.stringify({
