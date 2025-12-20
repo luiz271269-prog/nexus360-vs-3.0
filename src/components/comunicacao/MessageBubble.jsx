@@ -1024,7 +1024,19 @@ export default React.memo(function MessageBubble({
             }
 
             {/* DOCUMENTO/PDF - ✅ AGNÓSTICO: Funciona para WhatsApp E Interno */}
-            {(message?.media_type === 'document' || (message?.media_url && (message?.content === 'pdf' || message?.content?.toLowerCase() === '[documento]'))) && message?.media_url &&
+            {(
+              message?.media_type === 'document' || 
+              message?.content?.toLowerCase().includes('[documento]') ||
+              message?.content?.toLowerCase().includes('pdf') ||
+              (message?.media_url && (
+                message?.media_url.toLowerCase().endsWith('.pdf') ||
+                message?.media_url.toLowerCase().includes('.pdf') ||
+                message?.media_url.toLowerCase().endsWith('.doc') ||
+                message?.media_url.toLowerCase().endsWith('.docx') ||
+                message?.media_url.toLowerCase().endsWith('.xls') ||
+                message?.media_url.toLowerCase().endsWith('.xlsx')
+              ))
+            ) && message?.media_url &&
             <div className={cn(
               "px-3 py-2 min-w-[200px] max-w-[280px]",
               thread?.thread_type === 'team_internal' || thread?.thread_type === 'sector_group' || message.channel === 'interno'
@@ -1033,12 +1045,7 @@ export default React.memo(function MessageBubble({
             )}>
                 <button
                   onClick={() => {
-                    const url = message.media_url;
-                    if (url.toLowerCase().endsWith('.pdf')) {
-                      window.open(url, '_blank', 'noopener,noreferrer');
-                    } else {
-                      window.open(url, '_blank', 'noopener,noreferrer');
-                    }
+                    window.open(message.media_url, '_blank', 'noopener,noreferrer');
                   }}
                   className="flex items-center gap-3 hover:opacity-80 transition-opacity w-full text-left"
                 >
@@ -1050,14 +1057,14 @@ export default React.memo(function MessageBubble({
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium truncate">
-                      {message.media_caption || 'Documento'}
+                      {message.media_caption || message.content?.replace(/[\[\]]/g, '') || 'Documento'}
                     </p>
                     <div className="flex items-center gap-2">
                       <p className={cn(
                         "text-xs",
                         isOwn ? "text-white/70" : "text-slate-500"
                       )}>
-                        {message.media_url?.split('.').pop()?.toUpperCase() || 'FILE'}
+                        {message.media_url?.split('.').pop()?.toUpperCase().split('?')[0] || 'PDF'}
                       </p>
                       <Download className={cn("w-3 h-3", isOwn ? "text-white/70" : "text-blue-500")} />
                     </div>
