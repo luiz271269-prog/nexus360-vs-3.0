@@ -1029,6 +1029,30 @@ export default function ChatWindow({
 
   // 🚀 HANDLER DE ENVIO - Recebe dados do MessageInput
   const handleEnviarFromInput = useCallback(async ({ texto, pastedImage, pastedImagePreview, attachedFile, attachedFileType }) => {
+    // ═══════════════════════════════════════════════════════════════════════
+    // THREAD INTERNA (team_internal ou sector_group) - Sempre usar handler otimista
+    // ═══════════════════════════════════════════════════════════════════════
+    if (thread?.thread_type === 'team_internal' || thread?.thread_type === 'sector_group') {
+      if (onSendInternalMessageOptimistic) {
+        onSendInternalMessageOptimistic({
+          texto,
+          pastedImage,
+          pastedImagePreview,
+          attachedFile,
+          attachedFileType,
+          replyToMessage: mensagemResposta
+        });
+        setMensagemResposta(null);
+      } else {
+        toast.error("Handler de envio interno não configurado");
+      }
+      return;
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // THREADS EXTERNAS (WhatsApp) - Lógica existente
+    // ═══════════════════════════════════════════════════════════════════════
+    
     // Se tem arquivo anexado, processar upload e envio
     if (attachedFile) {
       await enviarArquivoAnexado(attachedFile, attachedFileType, texto);
@@ -1044,27 +1068,6 @@ export default function ChatWindow({
     // Se estiver em modo broadcast (externo ou interno), chamar o handler de broadcast
     if (modoSelecaoMultipla && (contatosSelecionados.length > 0 || broadcastInterno)) {
       await handleEnviarBroadcast({ texto });
-      return;
-    }
-
-    // ═══════════════════════════════════════════════════════════════════════
-    // THREAD INTERNA (team_internal ou sector_group) - ENVIO INDIVIDUAL OTIMISTA
-    // ═══════════════════════════════════════════════════════════════════════
-    if (thread?.thread_type === 'team_internal' || thread?.thread_type === 'sector_group') {
-      // ✅ USAR OPTIMISTIC UI (igual WhatsApp externo)
-      if (onSendInternalMessageOptimistic) {
-        onSendInternalMessageOptimistic({
-          texto,
-          pastedImage,
-          pastedImagePreview,
-          attachedFile,
-          attachedFileType,
-          replyToMessage: mensagemResposta
-        });
-        setMensagemResposta(null);
-      } else {
-        toast.error("Handler de envio interno não configurado");
-      }
       return;
     }
 
