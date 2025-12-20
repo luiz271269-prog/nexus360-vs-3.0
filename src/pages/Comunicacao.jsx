@@ -505,14 +505,14 @@ export default function Comunicacao() {
 
     const { texto, pastedImage, attachedFile, attachedFileType, replyToMessage, audioBlob } = dadosEnvio;
 
-    // ✅ UPLOAD DE MÍDIA ANTES (igual WhatsApp externo)
     let mediaUrlFinal = null;
     let mediaTypeFinal = 'none';
     let mediaCaptionFinal = null;
 
     try {
-      // Upload de áudio gravado
+      // ✅ UPLOAD DE MÍDIA ANTES (igual WhatsApp externo)
       if (audioBlob) {
+        toast.info('📤 Fazendo upload do áudio...');
         const timestamp = Date.now();
         const audioFile = new File([audioBlob], `audio-internal-${timestamp}.ogg`, {
           type: 'audio/ogg; codecs=opus',
@@ -523,8 +523,8 @@ export default function Comunicacao() {
         mediaUrlFinal = uploadResponse.file_url;
         mediaTypeFinal = 'audio';
       }
-      // Upload de imagem colada
       else if (pastedImage) {
+        toast.info('📤 Fazendo upload da imagem...');
         const timestamp = Date.now();
         let mimeType = pastedImage.type || 'image/png';
         if (!mimeType.startsWith('image/')) mimeType = 'image/png';
@@ -538,10 +538,10 @@ export default function Comunicacao() {
         const uploadResponse = await base44.integrations.Core.UploadFile({ file: imageFile });
         mediaUrlFinal = uploadResponse.file_url;
         mediaTypeFinal = 'image';
-        mediaCaptionFinal = texto.trim() || null;
+        mediaCaptionFinal = texto?.trim() || null;
       }
-      // Upload de arquivo anexado
       else if (attachedFile) {
+        toast.info('📤 Fazendo upload do arquivo...');
         const timestamp = Date.now();
         const ext = attachedFile.name.split('.').pop() || 'file';
         const uploadFile = new File([attachedFile], `internal-${timestamp}.${ext}`, { 
@@ -552,16 +552,16 @@ export default function Comunicacao() {
         const uploadResponse = await base44.integrations.Core.UploadFile({ file: uploadFile });
         mediaUrlFinal = uploadResponse.file_url;
         mediaTypeFinal = attachedFileType;
-        mediaCaptionFinal = texto.trim() || null;
+        mediaCaptionFinal = texto?.trim() || null;
       }
 
       // Validação
-      if (!texto.trim() && !mediaUrlFinal) {
+      if (!texto?.trim() && !mediaUrlFinal) {
         toast.error('Digite uma mensagem ou anexe uma mídia');
         return;
       }
 
-      const contentFinal = texto.trim() || (mediaUrlFinal ? `[${mediaTypeFinal}]` : '');
+      const contentFinal = texto?.trim() || (mediaUrlFinal ? `[${mediaTypeFinal}]` : '');
 
       // 1. Criar mensagem temporária (aparece INSTANTANEAMENTE)
       const msgTemp = {
