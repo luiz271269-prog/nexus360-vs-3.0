@@ -1031,11 +1031,16 @@ export default React.memo(function MessageBubble({
                 ? (isOwn ? "text-white" : "text-slate-700")
                 : (isOwn ? "text-white" : "text-slate-800")
             )}>
-                <a
-                  href={message.media_url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex items-center gap-3 hover:opacity-80 transition-opacity"
+                <button
+                  onClick={() => {
+                    const url = message.media_url;
+                    if (url.toLowerCase().endsWith('.pdf')) {
+                      window.open(url, '_blank', 'noopener,noreferrer');
+                    } else {
+                      window.open(url, '_blank', 'noopener,noreferrer');
+                    }
+                  }}
+                  className="flex items-center gap-3 hover:opacity-80 transition-opacity w-full text-left"
                 >
                   <div className={cn(
                     "w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0",
@@ -1057,7 +1062,7 @@ export default React.memo(function MessageBubble({
                       <Download className={cn("w-3 h-3", isOwn ? "text-white/70" : "text-blue-500")} />
                     </div>
                   </div>
-                </a>
+                </button>
                 <div className="flex items-center justify-end gap-1 mt-1.5 flex-wrap">
                   {message?.categorias && message.categorias.length > 0 &&
                   <div className="flex gap-1 mr-1 flex-wrap">
