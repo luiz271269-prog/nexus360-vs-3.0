@@ -1023,52 +1023,76 @@ export default React.memo(function MessageBubble({
               </div>
             }
 
+            {/* VÍDEO - ✅ AGNÓSTICO */}
+            {message?.media_type === 'video' && message?.media_url &&
+            <div className="px-3 py-2">
+                <video
+                  src={message.media_url}
+                  controls
+                  className="max-w-[280px] max-h-[280px] rounded-lg"
+                />
+                {message.media_caption &&
+                <div className={cn("px-2 py-1 mt-1", isOwn ? "text-white" : "text-slate-800")}>
+                    <p className="text-sm">{message.media_caption}</p>
+                  </div>
+                }
+                <div className="flex items-center justify-end gap-1 mt-1">
+                  <span className={cn("text-[11px]", isOwn ? "text-white/70" : "text-slate-500")}>
+                    {format(new Date(message.sent_at || message.created_date), 'dd/MM HH:mm')}
+                  </span>
+                  {isOwn && message.status === 'enviando' && <Clock className="w-3 h-3 text-white/50" />}
+                  {isOwn && message.status === 'enviada' && <Check className="w-3.5 h-3.5 text-white/60" />}
+                  {isOwn && message.status === 'entregue' && <CheckCheck className="w-3.5 h-3.5 text-white/60" />}
+                  {isOwn && message.status === 'lida' && <CheckCheck className="w-3.5 h-3.5 text-[#53bdeb]" />}
+                </div>
+              </div>
+            }
+
             {/* DOCUMENTO/PDF - ✅ AGNÓSTICO: Funciona para WhatsApp E Interno */}
             {(
               message?.media_type === 'document' || 
-              message?.content?.toLowerCase().includes('[documento]') ||
-              message?.content?.toLowerCase().includes('pdf') ||
+              message?.content === 'pdf' ||
+              message?.content?.toLowerCase() === '[documento]' ||
               (message?.media_url && (
-                message?.media_url.toLowerCase().endsWith('.pdf') ||
                 message?.media_url.toLowerCase().includes('.pdf') ||
-                message?.media_url.toLowerCase().endsWith('.doc') ||
-                message?.media_url.toLowerCase().endsWith('.docx') ||
-                message?.media_url.toLowerCase().endsWith('.xls') ||
-                message?.media_url.toLowerCase().endsWith('.xlsx')
+                message?.media_url.toLowerCase().includes('.doc') ||
+                message?.media_url.toLowerCase().includes('.xls')
               ))
             ) && message?.media_url &&
-            <div className={cn(
-              "px-3 py-2 min-w-[200px] max-w-[280px]",
-              thread?.thread_type === 'team_internal' || thread?.thread_type === 'sector_group' || message.channel === 'interno'
-                ? (isOwn ? "text-white" : "text-slate-700")
-                : (isOwn ? "text-white" : "text-slate-800")
-            )}>
+            <div className="p-0 overflow-hidden">
                 <button
-                  onClick={() => {
-                    window.open(message.media_url, '_blank', 'noopener,noreferrer');
-                  }}
-                  className="flex items-center gap-3 hover:opacity-80 transition-opacity w-full text-left"
+                  onClick={() => window.open(message.media_url, '_blank', 'noopener,noreferrer')}
+                  className="flex items-center gap-3 hover:bg-black/5 active:bg-black/10 transition-colors w-full text-left p-3"
                 >
                   <div className={cn(
-                    "w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0",
-                    isOwn ? "bg-white/20" : "bg-blue-500"
+                    "w-12 h-12 rounded-lg flex items-center justify-center flex-shrink-0 shadow-sm",
+                    isOwn ? "bg-white/25" : "bg-blue-500"
                   )}>
-                    <FileIcon className={cn("w-5 h-5", isOwn ? "text-white" : "text-white")} />
+                    <FileIcon className="w-6 h-6 text-white" />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium truncate">
-                      {message.media_caption || message.content?.replace(/[\[\]]/g, '') || 'Documento'}
+                    <p className={cn(
+                      "text-sm font-medium truncate mb-0.5",
+                      isOwn ? "text-white" : "text-slate-900"
+                    )}>
+                      {message.media_caption || message.content?.replace(/[\[\]]/g, '').trim() || 'Documento'}
                     </p>
                     <div className="flex items-center gap-2">
                       <p className={cn(
-                        "text-xs",
-                        isOwn ? "text-white/70" : "text-slate-500"
+                        "text-xs uppercase font-semibold",
+                        isOwn ? "text-white/80" : "text-blue-600"
                       )}>
-                        {message.media_url?.split('.').pop()?.toUpperCase().split('?')[0] || 'PDF'}
+                        {(() => {
+                          const ext = message.media_url?.split('.').pop()?.split('?')[0]?.toLowerCase();
+                          return ext || 'PDF';
+                        })()}
                       </p>
-                      <Download className={cn("w-3 h-3", isOwn ? "text-white/70" : "text-blue-500")} />
+                      <span className={cn("text-xs", isOwn ? "text-white/70" : "text-slate-500")}>
+                        • Toque para abrir
+                      </span>
                     </div>
                   </div>
+                  <Download className={cn("w-5 h-5 flex-shrink-0", isOwn ? "text-white/70" : "text-blue-500")} />
                 </button>
                 <div className="flex items-center justify-end gap-1 mt-1.5 flex-wrap">
                   {message?.categorias && message.categorias.length > 0 &&
