@@ -15,6 +15,8 @@ import CentralInteligenciaContato, {
   TIPOS_CONTATO,
   FILAS_ATENDIMENTO } from
 "./CentralInteligenciaContato";
+import CriarGrupoModal from './CriarGrupoModal';
+import { toast } from 'sonner';
 import AtribuidorAtendenteRapido from "./AtribuidorAtendenteRapido";
 import {
   SETORES_ATENDIMENTO,
