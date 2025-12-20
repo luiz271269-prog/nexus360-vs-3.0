@@ -327,24 +327,22 @@ export default function ChatSidebar({
       {/* SUPER CONTATO FIXO - EQUIPE INTERNA / SETOR */}
       {/* ═══════════════════════════════════════════════════════════════════ */}
       {!modoSelecao && (
-        <div className="sticky top-0 z-10 bg-purple-50/80 backdrop-blur-sm border-b-2 border-purple-200 p-2">
-          <div className="flex items-center gap-3 mb-2 px-2">
-            <div className="relative flex-shrink-0">
-              <div className="w-10 h-10 rounded-full flex items-center justify-center text-white font-bold shadow-md bg-gradient-to-br from-purple-500 to-indigo-600">
-                <MessagesSquare className="w-5 h-5" />
-              </div>
+        <div className="sticky top-0 z-10 bg-purple-50/80 backdrop-blur-sm border-b border-purple-200 px-2 py-1.5">
+          <div className="flex items-center gap-2 mb-1.5">
+            <div className="w-8 h-8 rounded-full flex items-center justify-center text-white shadow-sm bg-gradient-to-br from-purple-500 to-indigo-600">
+              <MessagesSquare className="w-4 h-4" />
             </div>
-            <div className="flex-1 min-w-0 text-left">
-              <h3 className="font-semibold text-slate-900 text-sm truncate">
+            <div className="flex-1 min-w-0">
+              <h3 className="font-semibold text-slate-900 text-xs truncate">
                 🏢 Equipe interna
               </h3>
-              <p className="text-xs text-slate-600 truncate">
+              <p className="text-[10px] text-slate-600 truncate">
                 Envio • 1:1 / Setores / Grupos
               </p>
             </div>
           </div>
           
-          <div className="flex gap-1.5">
+          <div className="flex gap-1">
             <Button
               onClick={() => {
                 setDelegateMode(false);
@@ -352,9 +350,9 @@ export default function ChatSidebar({
               }}
               variant="outline"
               size="sm"
-              className="flex-1 bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-600 hover:to-blue-700 text-white border-0 h-8 text-xs"
+              className="flex-1 bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-600 hover:to-blue-700 text-white border-0 h-7 text-[10px] px-2"
             >
-              <Send className="w-3 h-3 mr-1" />
+              <Send className="w-3 h-3 mr-0.5" />
               Enviar
             </Button>
             <Button
@@ -364,18 +362,18 @@ export default function ChatSidebar({
               }}
               variant="outline"
               size="sm"
-              className="flex-1 bg-gradient-to-r from-orange-500 to-amber-600 hover:from-orange-600 hover:to-amber-700 text-white border-0 h-8 text-xs"
+              className="flex-1 bg-gradient-to-r from-orange-500 to-amber-600 hover:from-orange-600 hover:to-amber-700 text-white border-0 h-7 text-[10px] px-2"
             >
-              <ArrowRightLeft className="w-3 h-3 mr-1" />
+              <ArrowRightLeft className="w-3 h-3 mr-0.5" />
               Transferir
             </Button>
             <Button
               onClick={() => setCriarGrupoOpen(true)}
               variant="outline"
               size="sm"
-              className="flex-1 bg-gradient-to-r from-slate-500 to-slate-600 hover:from-slate-600 hover:to-slate-700 text-white border-0 h-8 text-xs"
+              className="flex-1 bg-gradient-to-r from-slate-500 to-slate-600 hover:from-slate-600 hover:to-slate-700 text-white border-0 h-7 text-[10px] px-2"
             >
-              <Plus className="w-3 h-3 mr-1" />
+              <Plus className="w-3 h-3 mr-0.5" />
               Grupo
             </Button>
           </div>
