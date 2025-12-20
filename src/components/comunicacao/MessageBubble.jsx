@@ -1094,7 +1094,10 @@ export default React.memo(function MessageBubble({
                   </div>
                   <Download className={cn("w-5 h-5 flex-shrink-0", isOwn ? "text-white/70" : "text-blue-500")} />
                 </button>
-                <div className="flex items-center justify-end gap-1 mt-1.5 flex-wrap">
+                
+                <div className={cn("flex items-center justify-end gap-1 px-3 pb-2 pt-1 flex-wrap", isOwn ? "text-white/70" : "text-slate-500")}>
+                  {message?.categorias && message.categorias.length > 0 &&
+                  <div className="flex gap-1 mr-1 flex-wrap">
                   {message?.categorias && message.categorias.length > 0 &&
                   <div className="flex gap-1 mr-1 flex-wrap">
                       {message.categorias.slice(0, 3).map((cat) => {
