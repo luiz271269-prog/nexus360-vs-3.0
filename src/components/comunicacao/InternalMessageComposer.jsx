@@ -381,25 +381,51 @@ export default function InternalMessageComposer({ open, onClose, currentUser, on
           </DialogHeader>
 
           {mode === 'delegate' && (
-            <div className="px-6 pb-4">
-              <label className="text-sm font-medium text-slate-700 mb-2 block">
+            <div className="px-6 pb-3">
+              <label className="text-xs font-medium text-slate-600 mb-1.5 block">
                 Usuário que terá suas responsabilidades transferidas:
               </label>
-              <Select value={selectedOriginUser} onValueChange={setSelectedOriginUser}>
-                <SelectTrigger className="w-full">
-                  <SelectValue placeholder="Selecione o usuário de origem" />
-                </SelectTrigger>
-                <SelectContent>
-                  {usuarios.filter(u => u.id !== currentUser?.id).map(usuario => (
-                    <SelectItem key={usuario.id} value={usuario.id}>
-                      {usuario.full_name || usuario.email}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <div className="grid grid-cols-2 gap-2 max-h-32 overflow-y-auto p-2 bg-slate-50 rounded-lg border border-slate-200">
+                {usuarios.filter(u => u.id !== currentUser?.id).map(usuario => {
+                  const isSelected = selectedOriginUser === usuario.id;
+                  const setor = usuario.attendant_sector || 'geral';
+                  const setorConfig = {
+                    'vendas': { cor: 'bg-emerald-500' },
+                    'assistencia': { cor: 'bg-blue-500' },
+                    'financeiro': { cor: 'bg-purple-500' },
+                    'fornecedor': { cor: 'bg-orange-500' },
+                    'geral': { cor: 'bg-slate-500' }
+                  };
+                  const corAvatar = setorConfig[setor]?.cor || 'bg-slate-500';
+
+                  return (
+                    <button
+                      key={usuario.id}
+                      onClick={() => setSelectedOriginUser(usuario.id)}
+                      className={`flex items-center gap-2 px-2 py-1.5 rounded-lg border transition-all text-left ${
+                        isSelected 
+                          ? 'bg-orange-50 border-orange-400 shadow-sm' 
+                          : 'bg-white border-slate-200 hover:border-orange-300 hover:bg-orange-50/50'
+                      }`}
+                    >
+                      <div className={`w-7 h-7 ${corAvatar} rounded-full flex items-center justify-center text-white font-bold text-xs flex-shrink-0`}>
+                        {(usuario.full_name || usuario.email || '?').charAt(0).toUpperCase()}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="text-xs font-medium text-slate-800 truncate">
+                          {usuario.full_name || usuario.email}
+                        </div>
+                        <div className="text-[10px] text-slate-500 truncate">
+                          {setor}
+                        </div>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
               {delegacoesAtivas.length > 0 && (
-                <div className="mt-2 p-2 bg-amber-50 border border-amber-200 rounded-lg text-xs text-amber-800">
-                  ⚠️ Este usuário já possui {delegacoesAtivas.length} delegação(ões) ativa(s)
+                <div className="mt-2 p-1.5 bg-amber-50 border border-amber-200 rounded text-[10px] text-amber-700">
+                  ⚠️ {delegacoesAtivas.length} delegação(ões) ativa(s)
                 </div>
               )}
             </div>
