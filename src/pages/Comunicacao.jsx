@@ -599,17 +599,12 @@ export default function Comunicacao() {
     } catch (error) {
       console.error('[OPTIMISTIC INTERNO] Erro:', error);
 
-      // 5. ROLLBACK: Marcar mensagem como falhou (NÃO remove, mostra erro como WhatsApp)
+      // 5. ROLLBACK: Remover mensagem temporária
       queryClient.setQueryData(['mensagens', threadAtiva.id], (antigas = []) => {
-        return antigas.map((m) => {
-          if (m.metadata?.optimistic && m.sender_id === usuario.id) {
-            return { ...m, status: 'falhou', metadata: { ...m.metadata, error: error.message } };
-          }
-          return m;
-        });
+        return antigas.filter((m) => m.id !== `temp-${Date.now()}`);
       });
 
-      toast.error(`❌ Erro ao enviar mensagem interna: ${error.message}`);
+      toast.error(`Erro ao enviar: ${error.message}`);
     }
   }, [threadAtiva, usuario, queryClient]);
 

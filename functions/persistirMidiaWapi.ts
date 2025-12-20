@@ -44,14 +44,6 @@ Deno.serve(async (req) => {
     const base44 = createClientFromRequest(req);
     const payload = await req.json();
     
-    // 🔍 DIAGNÓSTICO: Verificar se Base44 tem acesso ao storage
-    console.log('[PERSISTIR-MIDIA-WAPI] 🔍 DIAGNÓSTICO:', {
-      hasBase44: !!base44,
-      hasServiceRole: !!base44.asServiceRole,
-      hasIntegrations: !!base44.asServiceRole?.integrations,
-      timestamp: new Date().toISOString()
-    });
-    
     console.log('[PERSISTIR-MIDIA-WAPI] 📦 Payload recebido:', {
       message_id: payload.message_id,
       integration_id: payload.integration_id,
@@ -114,11 +106,6 @@ Deno.serve(async (req) => {
     let blob;
     let contentType = mimeType || 'application/octet-stream';
 
-    console.log('[PERSISTIR-MIDIA-WAPI] 📥 Iniciando download:', {
-      formato: is_base64 ? 'base64' : 'URL',
-      urlPreview: is_base64 ? 'base64...' : media_url?.substring(0, 100)
-    });
-
     if (is_base64) {
       // ✅ Base64 → Blob (em memória)
       const base64Match = media_url.match(/^data:([^;]+);base64,(.+)$/);
@@ -172,20 +159,14 @@ Deno.serve(async (req) => {
       }
     }
 
-    // ✅ VALIDAÇÃO TAMANHO CRÍTICA
+    // ✅ VALIDAÇÃO TAMANHO (máx 50MB)
     const MAX_SIZE = 50 * 1024 * 1024;
-    
-    if (blob.size === 0) {
-      throw new Error('Download resultou em arquivo vazio (0 bytes)');
-    }
-    
     if (blob.size > MAX_SIZE) {
       throw new Error(`Arquivo muito grande: ${(blob.size / 1024 / 1024).toFixed(2)}MB (máx: 50MB)`);
     }
 
-    console.log('[PERSISTIR-MIDIA-WAPI] 📦 Arquivo baixado e validado:', {
+    console.log('[PERSISTIR-MIDIA-WAPI] 📦 Arquivo baixado:', {
       size: `${(blob.size / 1024).toFixed(2)}KB`,
-      sizeBytes: blob.size,
       type: contentType
     });
 
@@ -219,25 +200,16 @@ Deno.serve(async (req) => {
 
     // ✅ UPLOAD DIRETO (Blob → Storage Base44)
     const file = new File([blob], nomeArquivo, { type: contentType });
-    
-    console.log('[PERSISTIR-MIDIA-WAPI] 📤 Iniciando upload:', {
-      fileName: nomeArquivo,
-      fileSize: file.size,
-      fileType: file.type
-    });
 
     const uploadResult = await base44.asServiceRole.integrations.Core.UploadFile({
       file: file
     });
 
     if (!uploadResult?.file_url) {
-      throw new Error('Falha no upload - nenhuma URL retornada pelo Base44 Storage');
+      throw new Error('Falha no upload - nenhuma URL retornada');
     }
 
-    console.log('[PERSISTIR-MIDIA-WAPI] ✅ Upload concluído:', {
-      url: uploadResult.file_url,
-      urlPreview: uploadResult.file_url?.substring(0, 80)
-    });
+    console.log('[PERSISTIR-MIDIA-WAPI] ✅ Upload concluído:', uploadResult.file_url);
 
     // ✅ ATUALIZAR MESSAGE COM URL PERMANENTE
     let mensagemAtual;

@@ -115,19 +115,8 @@ export default function ChatWindow({
 
   const permissoes = usuario?.permissoes_comunicacao || {};
 
-  // ═══════════════════════════════════════════════════════════════════════════════
-  // 🔐 LÓGICA DE PERMISSÕES CIRÚRGICA - Threads Internas vs Externas
-  // ═══════════════════════════════════════════════════════════════════════════════
-  const isThreadInterna = thread?.thread_type === 'team_internal' || thread?.thread_type === 'sector_group';
-
   // ✅ VERIFICAR PERMISSÕES ESPECÍFICAS DA INSTÂNCIA
   const getPermissaoInstancia = (permissionKey) => {
-    // 🎯 THREADS INTERNAS: Permissão baseada em participação, não em WhatsApp
-    if (isThreadInterna) {
-      return thread?.participants?.includes(usuario?.id) || false;
-    }
-
-    // 🎯 THREADS EXTERNAS: Lógica de permissão por instância WhatsApp
     if (!thread?.whatsapp_integration_id || !usuario) return true;
     if (usuario.role === 'admin') return true;
 
@@ -138,29 +127,10 @@ export default function ChatWindow({
     return perm ? perm[permissionKey] : false;
   };
 
-  // 🔑 REGRA CIRÚRGICA: Thread atribuída ao usuário = SEMPRE tem permissão de envio
-  const threadAtribuidaAoUsuario = thread?.assigned_user_id === usuario?.id;
-
-  // 🔑 GUARD RAILS: Blindagem contra undefined/null
-  const userId = usuario?.id || null;
-  const participants = Array.isArray(thread?.participants) ? thread.participants : [];
-  const isParticipant = !!(isThreadInterna && userId && participants.includes(userId));
-  
   const podeEnviarPorInstancia = getPermissaoInstancia('can_send');
-  
-  // ✅ THREADS INTERNAS: Se é participante, pode enviar (não depende de WhatsApp)
-  // ✅ THREADS EXTERNAS: Usa lógica de permissões existente (WhatsApp)
-  const podeEnviarMensagens = isThreadInterna 
-    ? (isParticipant && (permissoes?.pode_enviar_mensagens !== false))
-    : (threadAtribuidaAoUsuario || ((permissoes?.pode_enviar_mensagens !== false) && podeEnviarPorInstancia));
-    
-  const podeEnviarMidias = isThreadInterna
-    ? (isParticipant && (permissoes?.pode_enviar_midias !== false))
-    : (threadAtribuidaAoUsuario || ((permissoes?.pode_enviar_midias !== false) && podeEnviarPorInstancia));
-    
-  const podeEnviarAudios = isThreadInterna
-    ? (isParticipant && (permissoes?.pode_enviar_audios !== false))
-    : (threadAtribuidaAoUsuario || ((permissoes?.pode_enviar_audios !== false) && podeEnviarPorInstancia));
+  const podeEnviarMensagens = permissoes.pode_enviar_mensagens !== false && podeEnviarPorInstancia;
+  const podeEnviarMidias = permissoes.pode_enviar_midias !== false && podeEnviarPorInstancia;
+  const podeEnviarAudios = permissoes.pode_enviar_audios !== false && podeEnviarPorInstancia;
   const podeApagarMensagens = permissoes.pode_apagar_mensagens === true;
   const podeTransferirConversas = true;
 
@@ -1059,93 +1029,6 @@ export default function ChatWindow({
 
   // 🚀 HANDLER DE ENVIO - Recebe dados do MessageInput
   const handleEnviarFromInput = useCallback(async ({ texto, pastedImage, pastedImagePreview, attachedFile, attachedFileType }) => {
-    // ═══════════════════════════════════════════════════════════════════════
-    // THREAD INTERNA (team_internal ou sector_group) - Processar mídia ANTES
-    // ═══════════════════════════════════════════════════════════════════════
-    if (thread?.thread_type === 'team_internal' || thread?.thread_type === 'sector_group') {
-      // ✅ Se tem mídia, fazer upload PRIMEIRO (igual WhatsApp)
-      if (pastedImage || attachedFile) {
-        if (!podeEnviarMidias) {
-          toast.error("❌ Você não tem permissão para enviar mídias");
-          return;
-        }
-
-        // Broadcast interno com mídia
-        if (modoSelecaoMultipla && broadcastInterno) {
-          setUploadingPastedFile(true);
-          try {
-            const timestamp = Date.now();
-            let fileToUpload;
-            let finalFileType;
-
-            if (pastedImage) {
-              let mimeType = pastedImage.type || 'image/png';
-              if (!mimeType.startsWith('image/')) mimeType = 'image/png';
-              const ext = mimeType.includes('jpeg') ? 'jpg' : mimeType.includes('webp') ? 'webp' : 'png';
-              fileToUpload = new File([pastedImage], `internal-${timestamp}.${ext}`, { type: mimeType, lastModified: timestamp });
-              finalFileType = 'image';
-            } else if (attachedFile) {
-              const ext = attachedFile.name.split('.').pop() || 'file';
-              fileToUpload = new File([attachedFile], `internal-${timestamp}.${ext}`, { type: attachedFile.type, lastModified: timestamp });
-              finalFileType = attachedFileType;
-            }
-
-            const uploadResponse = await base44.integrations.Core.UploadFile({ file: fileToUpload });
-            const mediaUrl = uploadResponse.file_url;
-
-            await handleEnviarBroadcast({
-              texto,
-              mediaUrl,
-              mediaType: finalFileType,
-              mediaCaption: texto.trim() || null
-            });
-          } catch (error) {
-            console.error('[INTERNO] Erro no upload de mídia broadcast:', error);
-            toast.error('Erro ao enviar mídia: ' + error.message);
-          } finally {
-            setUploadingPastedFile(false);
-          }
-          return;
-        }
-
-        // Envio individual interno com mídia - passar dados para handler otimista
-        if (onSendInternalMessageOptimistic) {
-          onSendInternalMessageOptimistic({
-            texto,
-            pastedImage,
-            pastedImagePreview,
-            attachedFile,
-            attachedFileType,
-            replyToMessage: mensagemResposta
-          });
-          setMensagemResposta(null);
-        } else {
-          toast.error("Handler de envio interno não configurado");
-        }
-        return;
-      }
-
-      // ✅ Texto puro interno (sem mídia)
-      if (onSendInternalMessageOptimistic) {
-        onSendInternalMessageOptimistic({
-          texto,
-          pastedImage: null,
-          pastedImagePreview: null,
-          attachedFile: null,
-          attachedFileType: null,
-          replyToMessage: mensagemResposta
-        });
-        setMensagemResposta(null);
-      } else {
-        toast.error("Handler de envio interno não configurado");
-      }
-      return;
-    }
-
-    // ═══════════════════════════════════════════════════════════════════════
-    // THREADS EXTERNAS (WhatsApp) - Lógica existente
-    // ═══════════════════════════════════════════════════════════════════════
-    
     // Se tem arquivo anexado, processar upload e envio
     if (attachedFile) {
       await enviarArquivoAnexado(attachedFile, attachedFileType, texto);
@@ -1158,9 +1041,30 @@ export default function ChatWindow({
       return;
     }
 
-    // Se estiver em modo broadcast externo, chamar o handler de broadcast
-    if (modoSelecaoMultipla && contatosSelecionados.length > 0) {
+    // Se estiver em modo broadcast (externo ou interno), chamar o handler de broadcast
+    if (modoSelecaoMultipla && (contatosSelecionados.length > 0 || broadcastInterno)) {
       await handleEnviarBroadcast({ texto });
+      return;
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // THREAD INTERNA (team_internal ou sector_group) - ENVIO INDIVIDUAL OTIMISTA
+    // ═══════════════════════════════════════════════════════════════════════
+    if (thread?.thread_type === 'team_internal' || thread?.thread_type === 'sector_group') {
+      // ✅ USAR OPTIMISTIC UI (igual WhatsApp externo)
+      if (onSendInternalMessageOptimistic) {
+        onSendInternalMessageOptimistic({
+          texto,
+          pastedImage,
+          pastedImagePreview,
+          attachedFile,
+          attachedFileType,
+          replyToMessage: mensagemResposta
+        });
+        setMensagemResposta(null);
+      } else {
+        toast.error("Handler de envio interno não configurado");
+      }
       return;
     }
 
@@ -1597,21 +1501,20 @@ export default function ChatWindow({
 
     // ✅ THREADS INTERNAS: mostrar TODAS as mensagens, sem filtros de WhatsApp
     const isThreadInterna = thread?.thread_type === 'team_internal' || thread?.thread_type === 'sector_group';
-
+    
     if (isThreadInterna) {
       return mensagensFiltradas.filter((m) => {
         // Mensagens apagadas: mostrar placeholder
         if (m.metadata?.deleted) return true;
         // Mensagens de sistema (transferências, etc.)
         if (m.metadata?.is_system_message) return true;
-        // Mensagens otimistas (enviando/falhou)
+        // Mensagens otimistas (enviando)
         if (m.metadata?.optimistic) return true;
-
-        // ✅ ACEITAR: Qualquer mensagem com conteúdo OU mídia
+        
+        // ✅ FILTRO SIMPLIFICADO: conteúdo OU mídia válida
         const content = (m.content || '').trim();
         const hasMidia = m.media_url && m.media_type && m.media_type !== 'none';
-
-        // ✅ CORREÇÃO: Aceitar conteúdo vazio se houver mídia (ex: áudio puro)
+        
         return content.length > 0 || hasMidia;
       });
     }
@@ -2019,7 +1922,7 @@ export default function ChatWindow({
 
                   <MessageBubble
                   message={mensagem}
-                  isOwn={mensagem.sender_id === usuario?.id}
+                  isOwn={mensagem.sender_type === 'user'}
                   thread={thread}
                   onResponder={handleResponderMensagem}
                   modoSelecao={modoSelecao}

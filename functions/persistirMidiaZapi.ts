@@ -147,42 +147,23 @@ Deno.serve(async (req) => {
 
     const blob = await downloadResponse.blob();
 
-    // VALIDAÇÃO CRÍTICA: tamanho > 0
-    if (blob.size === 0) {
-      throw new Error('Download resultou em arquivo vazio (0 bytes)');
-    }
-
     if (blob.size > MAX_FILE_SIZE) {
       throw new Error(`Arquivo muito grande: ${(blob.size / 1024 / 1024).toFixed(2)}MB (máx: 50MB)`);
     }
 
-    console.log(`[${VERSION}] ✅ Baixado: ${(blob.size / 1024).toFixed(2)}KB, tipo: ${blob.type}`);
+    console.log(`[${VERSION}] ✅ Baixado: ${(blob.size / 1024).toFixed(2)}KB`);
 
-    // 4. VERIFICAR CREDENCIAIS COM DIAGNÓSTICO
+    // 4. PREPARAR UPLOAD PARA SUPABASE
     const supabaseUrl = Deno.env.get('SUPABASE_URL');
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
 
-    console.log(`[${VERSION}] 🔍 DIAGNÓSTICO ENV:`, {
-      hasSupabaseUrl: !!supabaseUrl,
-      hasServiceKey: !!supabaseServiceKey,
-      urlLength: supabaseUrl?.length || 0,
-      keyLength: supabaseServiceKey?.length || 0,
-      runtime: 'persistirMidiaZapi'
-    });
-
     if (!supabaseUrl || !supabaseServiceKey) {
-      console.error(`[${VERSION}] ❌ CREDENCIAIS FALTANDO:`, {
-        SUPABASE_URL: !!supabaseUrl,
-        SUPABASE_SERVICE_ROLE_KEY: !!supabaseServiceKey
-      });
-      throw new Error('SUPABASE_URL ou SUPABASE_SERVICE_ROLE_KEY não configuradas no runtime');
+      throw new Error('Credenciais Supabase não configuradas');
     }
 
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
     const arrayBuffer = await blob.arrayBuffer();
     const buffer = new Uint8Array(arrayBuffer);
-
-    console.log(`[${VERSION}] 📦 Buffer validado: ${buffer.length} bytes`);
 
     // 5. GERAR HASH E NOME ÚNICO
     const contentHash = generateContentHash(buffer);
@@ -200,11 +181,7 @@ Deno.serve(async (req) => {
     const day = String(date.getDate()).padStart(2, '0');
     const storagePath = `${integration_id}/${year}/${month}/${day}/${uniqueFilename}`;
 
-    console.log(`[${VERSION}] 📤 Iniciando upload:`, {
-      path: storagePath,
-      size: `${(buffer.length / 1024).toFixed(2)}KB`,
-      type: blob.type || 'application/octet-stream'
-    });
+    console.log(`[${VERSION}] 📤 Upload Supabase: ${storagePath}`);
 
     // 7. UPLOAD PARA SUPABASE
     const { data: uploadData, error: uploadError } = await supabase.storage
@@ -226,11 +203,6 @@ Deno.serve(async (req) => {
       throw new Error(`Upload falhou: ${uploadError.message}`);
     }
 
-    console.log(`[${VERSION}] ✅ Upload concluído:`, {
-      path: uploadData.path,
-      bucket: 'whatsapp-media'
-    });
-
     // 8. OBTER URL PÚBLICA
     const { data: publicUrlData } = supabase.storage
       .from('whatsapp-media')
@@ -239,10 +211,7 @@ Deno.serve(async (req) => {
     const permanentUrl = publicUrlData.publicUrl;
     const processingTime = Date.now() - startTime;
 
-    console.log(`[${VERSION}] ✅ Sucesso em ${processingTime}ms:`, {
-      url: permanentUrl,
-      urlPreview: permanentUrl?.substring(0, 80)
-    });
+    console.log(`[${VERSION}] ✅ Sucesso em ${processingTime}ms: ${permanentUrl}`);
 
     return Response.json({
       success: true,

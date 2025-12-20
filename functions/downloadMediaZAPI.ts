@@ -144,20 +144,20 @@ export async function downloadAndPersistMedia(tempUrl, metadata = {}, integratio
   const supabaseUrl = Deno.env.get('SUPABASE_URL');
   const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
 
-  // Verificar credenciais COM LOGS DIAGNÓSTICOS
-  console.log('[DownloadMedia] 🔍 DIAGNÓSTICO ENV:', {
-    hasSupabaseUrl: !!supabaseUrl,
-    hasServiceKey: !!supabaseServiceKey,
-    urlLength: supabaseUrl?.length || 0,
-    keyLength: supabaseServiceKey?.length || 0
-  });
-
+  // Verificar credenciais
   if (!supabaseUrl || !supabaseServiceKey) {
-    console.error('[DownloadMedia] ❌ CREDENCIAIS FALTANDO:', {
-      SUPABASE_URL: !!supabaseUrl,
-      SUPABASE_SERVICE_ROLE_KEY: !!supabaseServiceKey
-    });
-    throw new Error('SUPABASE_URL ou SUPABASE_SERVICE_ROLE_KEY não configuradas no runtime');
+    console.error('[DownloadMedia] ❌ Credenciais Supabase não configuradas');
+    return {
+      url: tempUrl,
+      storage_path: null,
+      mimetype: metadata.mimetype || 'application/octet-stream',
+      file_size: 0,
+      filename: metadata.filename || 'unknown',
+      original_url: tempUrl,
+      downloaded_at: new Date().toISOString(),
+      error: 'Credenciais não configuradas',
+      fallback: true
+    };
   }
 
   try {
@@ -190,10 +190,6 @@ export async function downloadAndPersistMedia(tempUrl, metadata = {}, integratio
     const blob = await downloadResponse.blob();
     
     // VERIFICAR TAMANHO REAL
-    if (blob.size === 0) {
-      throw new Error('Download resultou em arquivo vazio (0 bytes)');
-    }
-    
     if (blob.size > MAX_FILE_SIZE) {
       throw new Error(`Arquivo excede ${MAX_FILE_SIZE / 1024 / 1024}MB: ${(blob.size / 1024 / 1024).toFixed(2)}MB`);
     }
@@ -202,8 +198,6 @@ export async function downloadAndPersistMedia(tempUrl, metadata = {}, integratio
 
     const arrayBuffer = await blob.arrayBuffer();
     const buffer = new Uint8Array(arrayBuffer);
-    
-    console.log(`[DownloadMedia] 📦 Buffer validado: ${buffer.length} bytes`);
 
     // 2. GERAR HASH PARA DETECTAR DUPLICATAS
     const contentHash = generateContentHash(buffer);
