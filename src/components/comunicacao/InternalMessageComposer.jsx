@@ -239,32 +239,21 @@ export default function InternalMessageComposer({ open, onClose, currentUser, on
           </DialogHeader>
 
           <div className="flex-1 flex flex-col min-h-0">
-            {/* Painel Único - Seleção de Destinatários */}
-            <div className="flex-1 flex flex-col">
-              <Tabs defaultValue="usuarios" className="flex-1 flex flex-col min-h-0">
-                <TabsList className="grid w-full grid-cols-3 bg-slate-100">
-                  <TabsTrigger value="usuarios" className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-cyan-500 data-[state=active]:to-blue-600 data-[state=active]:text-white">
-                    <Users className="w-4 h-4 mr-2" />
-                    Usuários ({usuariosDisponiveis.length})
-                  </TabsTrigger>
-                  <TabsTrigger value="setores" className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-cyan-500 data-[state=active]:to-blue-600 data-[state=active]:text-white">
-                    <Building2 className="w-4 h-4 mr-2" />
-                    Setores ({setores.length})
-                  </TabsTrigger>
-                  <TabsTrigger value="grupos" className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-cyan-500 data-[state=active]:to-blue-600 data-[state=active]:text-white">
-                    <Users className="w-4 h-4 mr-2" />
-                    Grupos ({grupos.length})
-                  </TabsTrigger>
-                </TabsList>
-
-                {/* Aba Usuários */}
-                <TabsContent value="usuarios" className="flex-1 overflow-y-auto mt-3 space-y-0.5">
+            {/* 3 Colunas Visíveis - Layout WhatsApp */}
+            <div className="flex-1 flex gap-3 min-h-0">
+              {/* Coluna 1: Usuários */}
+              <div className="flex-1 flex flex-col border-r border-slate-200 pr-3">
+                <div className="flex items-center gap-2 mb-2 pb-2 border-b border-slate-200">
+                  <Users className="w-4 h-4 text-cyan-600" />
+                  <h3 className="font-semibold text-sm text-slate-700">Usuários ({usuariosDisponiveis.length})</h3>
+                </div>
+                <div className="flex-1 overflow-y-auto space-y-0.5">
                   {loadingUsers ? (
                     <div className="flex items-center justify-center py-12">
                       <Loader2 className="w-6 h-6 animate-spin text-cyan-600" />
                     </div>
                   ) : usuariosDisponiveis.length === 0 ? (
-                    <div className="text-center py-12 text-slate-500 text-sm">
+                    <div className="text-center py-12 text-slate-500 text-xs">
                       Nenhum usuário disponível
                     </div>
                   ) : (
@@ -292,18 +281,18 @@ export default function InternalMessageComposer({ open, onClose, currentUser, on
                               <Square className="w-4 h-4 text-slate-300" />
                             )}
                           </div>
-                          <div className={`w-8 h-8 ${setorCfg.cor} rounded-full flex items-center justify-center text-white font-bold text-sm shadow-sm`}>
+                          <div className={`w-8 h-8 ${setorCfg.cor} rounded-full flex items-center justify-center text-white font-bold text-xs shadow-sm`}>
                             {(usuario.full_name || usuario.email || '?').charAt(0).toUpperCase()}
                           </div>
                           <div className="flex-1 min-w-0">
-                            <div className="text-sm font-medium text-slate-700 truncate">
+                            <div className="text-xs font-medium text-slate-700 truncate">
                               {usuario.full_name || usuario.email}
                             </div>
                             <div className="flex items-center gap-1 flex-wrap mt-0.5">
-                              <span className={`inline-flex items-center px-1.5 py-0.5 rounded-full text-[9px] font-medium text-white ${setorCfg.cor}`}>
-                                {setorCfg.emoji} {setorCfg.label}
+                              <span className={`inline-flex items-center px-1 py-0.5 rounded-full text-[8px] font-medium text-white ${setorCfg.cor}`}>
+                                {setorCfg.emoji}
                               </span>
-                              <span className={`inline-flex items-center px-1.5 py-0.5 rounded-full text-[9px] font-medium text-slate-600 bg-slate-100`}>
+                              <span className={`inline-flex items-center px-1 py-0.5 rounded-full text-[8px] font-medium text-slate-600 bg-slate-100`}>
                                 {nivelCfg.label}
                               </span>
                             </div>
@@ -312,12 +301,18 @@ export default function InternalMessageComposer({ open, onClose, currentUser, on
                       );
                     })
                   )}
-                </TabsContent>
+                </div>
+              </div>
 
-                {/* Aba Setores */}
-                <TabsContent value="setores" className="flex-1 overflow-y-auto mt-3 space-y-0.5">
+              {/* Coluna 2: Setores */}
+              <div className="flex-1 flex flex-col border-r border-slate-200 pr-3">
+                <div className="flex items-center gap-2 mb-2 pb-2 border-b border-slate-200">
+                  <Building2 className="w-4 h-4 text-cyan-600" />
+                  <h3 className="font-semibold text-sm text-slate-700">Setores ({setores.length})</h3>
+                </div>
+                <div className="flex-1 overflow-y-auto space-y-0.5">
                   {setores.length === 0 ? (
-                    <div className="text-center py-12 text-slate-500 text-sm">
+                    <div className="text-center py-12 text-slate-500 text-xs">
                       Nenhum setor encontrado
                     </div>
                   ) : (
@@ -347,10 +342,10 @@ export default function InternalMessageComposer({ open, onClose, currentUser, on
                             <Building2 className="w-4 h-4" />
                           </div>
                           <div className="flex-1 min-w-0">
-                            <div className="font-medium text-slate-700 truncate text-sm">
-                              {setorCfg.emoji} Setor {setor}
+                            <div className="font-medium text-slate-700 truncate text-xs">
+                              {setorCfg.emoji} {setorCfg.label}
                             </div>
-                            <div className="text-xs text-slate-500">
+                            <div className="text-[10px] text-slate-500">
                               {usuariosDoSetor.length} {usuariosDoSetor.length === 1 ? 'membro' : 'membros'}
                             </div>
                           </div>
@@ -358,67 +353,71 @@ export default function InternalMessageComposer({ open, onClose, currentUser, on
                       );
                     })
                   )}
-                </TabsContent>
+                </div>
+              </div>
 
-                {/* Aba Grupos Customizados */}
-                <TabsContent value="grupos" className="flex-1 flex flex-col mt-3">
-                  <Button
-                    onClick={() => setCriarGrupoOpen(true)}
-                    variant="outline"
-                    size="sm"
-                    className="mb-3 w-full border-cyan-200 hover:bg-cyan-50 hover:border-cyan-300"
-                  >
-                    <Plus className="w-4 h-4 mr-2" />
-                    Criar Novo Grupo
-                  </Button>
-
-                  <div className="flex-1 overflow-y-auto space-y-0.5">
-                    {loadingGroups ? (
-                      <div className="flex items-center justify-center py-12">
-                        <Loader2 className="w-6 h-6 animate-spin text-cyan-600" />
-                      </div>
-                    ) : grupos.length === 0 ? (
-                      <div className="text-center py-12 text-slate-500 text-sm">
-                        Nenhum grupo criado
-                      </div>
-                    ) : (
-                      grupos.map(grupo => {
-                        const isSelected = selectedGroups.includes(grupo.id);
-                        return (
-                          <button
-                            key={grupo.id}
-                            onClick={() => toggleGroup(grupo.id)}
-                            className={`w-full flex items-center gap-2 px-2 py-1.5 rounded-lg transition-all text-left border ${
-                              isSelected 
-                                ? 'bg-gradient-to-r from-cyan-50 to-blue-50 border-cyan-300 shadow-sm' 
-                                : 'hover:bg-slate-50 border-transparent'
-                            }`}
-                          >
-                            <div className="flex-shrink-0">
-                              {isSelected ? (
-                                <CheckSquare className="w-4 h-4 text-cyan-600" />
-                              ) : (
-                                <Square className="w-4 h-4 text-slate-300" />
-                              )}
+              {/* Coluna 3: Grupos */}
+              <div className="flex-1 flex flex-col">
+                <div className="flex items-center gap-2 mb-2 pb-2 border-b border-slate-200">
+                  <Users className="w-4 h-4 text-cyan-600" />
+                  <h3 className="font-semibold text-sm text-slate-700">Grupos ({grupos.length})</h3>
+                </div>
+                <Button
+                  onClick={() => setCriarGrupoOpen(true)}
+                  variant="outline"
+                  size="sm"
+                  className="mb-2 w-full border-cyan-200 hover:bg-cyan-50 hover:border-cyan-300 text-xs h-8"
+                >
+                  <Plus className="w-3 h-3 mr-1" />
+                  Criar Grupo
+                </Button>
+                <div className="flex-1 overflow-y-auto space-y-0.5">
+                  {loadingGroups ? (
+                    <div className="flex items-center justify-center py-12">
+                      <Loader2 className="w-6 h-6 animate-spin text-cyan-600" />
+                    </div>
+                  ) : grupos.length === 0 ? (
+                    <div className="text-center py-12 text-slate-500 text-xs">
+                      Nenhum grupo criado
+                    </div>
+                  ) : (
+                    grupos.map(grupo => {
+                      const isSelected = selectedGroups.includes(grupo.id);
+                      return (
+                        <button
+                          key={grupo.id}
+                          onClick={() => toggleGroup(grupo.id)}
+                          className={`w-full flex items-center gap-2 px-2 py-1.5 rounded-lg transition-all text-left border ${
+                            isSelected 
+                              ? 'bg-gradient-to-r from-cyan-50 to-blue-50 border-cyan-300 shadow-sm' 
+                              : 'hover:bg-slate-50 border-transparent'
+                          }`}
+                        >
+                          <div className="flex-shrink-0">
+                            {isSelected ? (
+                              <CheckSquare className="w-4 h-4 text-cyan-600" />
+                            ) : (
+                              <Square className="w-4 h-4 text-slate-300" />
+                            )}
+                          </div>
+                          <div className="w-8 h-8 rounded-full bg-gradient-to-br from-slate-400 to-slate-500 flex items-center justify-center text-white shadow-sm">
+                            <Users className="w-4 h-4" />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="font-medium text-slate-700 truncate text-xs">
+                              {grupo.group_name || 'Grupo sem nome'}
                             </div>
-                            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-slate-400 to-slate-500 flex items-center justify-center text-white shadow-sm">
-                              <Users className="w-4 h-4" />
+                            <div className="text-[10px] text-slate-500">
+                              {grupo.participants?.length || 0} {grupo.participants?.length === 1 ? 'membro' : 'membros'}
                             </div>
-                            <div className="flex-1 min-w-0">
-                              <div className="font-medium text-slate-700 truncate text-sm">
-                                {grupo.group_name || 'Grupo sem nome'}
-                              </div>
-                              <div className="text-xs text-slate-500">
-                                {grupo.participants?.length || 0} {grupo.participants?.length === 1 ? 'membro' : 'membros'}
-                              </div>
-                            </div>
-                          </button>
-                        );
-                      })
-                    )}
-                  </div>
-                </TabsContent>
-              </Tabs>
+                          </div>
+                        </button>
+                      );
+                    })
+                  )}
+                </div>
+              </div>
+            </div>
 
               {/* Botões de Ação */}
               <div className="mt-4 pt-4 border-t border-slate-200 flex gap-3">
