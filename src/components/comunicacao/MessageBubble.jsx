@@ -1024,21 +1024,19 @@ export default React.memo(function MessageBubble({
             }
 
             {/* DOCUMENTO/PDF - ✅ AGNÓSTICO: Funciona para WhatsApp E Interno */}
-            {(() => {
-              const isDocument = message?.media_type === 'document' || 
-                message?.content?.toLowerCase().includes('[documento]') ||
-                message?.content?.toLowerCase() === 'pdf' ||
-                message?.content?.toLowerCase().includes('.pdf') ||
-                (message?.media_url && (
-                  message?.media_url.toLowerCase().includes('.pdf') ||
-                  message?.media_url.toLowerCase().endsWith('.doc') ||
-                  message?.media_url.toLowerCase().endsWith('.docx') ||
-                  message?.media_url.toLowerCase().endsWith('.xls') ||
-                  message?.media_url.toLowerCase().endsWith('.xlsx')
-                ));
-              
-              return isDocument && message?.media_url;
-            })() &&
+            {(
+              message?.media_type === 'document' || 
+              message?.content?.toLowerCase().includes('[documento]') ||
+              message?.content?.toLowerCase().includes('pdf') ||
+              (message?.media_url && (
+                message?.media_url.toLowerCase().endsWith('.pdf') ||
+                message?.media_url.toLowerCase().includes('.pdf') ||
+                message?.media_url.toLowerCase().endsWith('.doc') ||
+                message?.media_url.toLowerCase().endsWith('.docx') ||
+                message?.media_url.toLowerCase().endsWith('.xls') ||
+                message?.media_url.toLowerCase().endsWith('.xlsx')
+              ))
+            ) && message?.media_url &&
             <div className={cn(
               "px-3 py-2 min-w-[200px] max-w-[280px]",
               thread?.thread_type === 'team_internal' || thread?.thread_type === 'sector_group' || message.channel === 'interno'
@@ -1155,21 +1153,7 @@ export default React.memo(function MessageBubble({
             })()}
 
             {/* TEXTO - ✅ RENDERIZAÇÃO SEGURA DE EMOJIS */}
-            {(() => {
-              // NÃO renderizar texto se for documento
-              const isDocument = message?.media_type === 'document' || 
-                message?.content?.toLowerCase().includes('[documento]') ||
-                message?.content?.toLowerCase() === 'pdf' ||
-                message?.content?.toLowerCase().includes('.pdf');
-              
-              const shouldRenderText = (!message?.media_url || message?.media_type === 'none') && 
-                message?.content != null && 
-                String(message.content || '').trim() !== '' && 
-                String(message.content) !== '[No content]' &&
-                !isDocument;
-              
-              return shouldRenderText;
-            })() &&
+            {(!message?.media_url || message?.media_type === 'none') && message?.content != null && String(message.content || '').trim() !== '' && String(message.content) !== '[No content]' &&
             <>
                 <div className={cn(
                   "break-words whitespace-pre-wrap", 
