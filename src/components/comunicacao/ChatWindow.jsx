@@ -528,6 +528,28 @@ export default function ChatWindow({
     setErro(null);
 
     try {
+      // ═══════════════════════════════════════════════════════════════════
+      // THREAD INTERNA: Usar handler otimista (igual texto/imagem)
+      // ═══════════════════════════════════════════════════════════════════
+      if (thread?.thread_type === 'team_internal' || thread?.thread_type === 'sector_group') {
+        if (onSendInternalMessageOptimistic) {
+          onSendInternalMessageOptimistic({
+            audioBlob,
+            replyToMessage: mensagemResposta
+          });
+          setMensagemResposta(null);
+          setEnviando(false);
+        } else {
+          toast.error("Handler de envio interno não configurado");
+          setEnviando(false);
+        }
+        return;
+      }
+
+      // ═══════════════════════════════════════════════════════════════════
+      // THREADS EXTERNAS (WhatsApp) - Lógica original
+      // ═══════════════════════════════════════════════════════════════════
+      
       const timestamp = new Date().getTime();
       const audioFile = new File([audioBlob], `audio-${timestamp}.ogg`, {
         type: 'audio/ogg; codecs=opus',

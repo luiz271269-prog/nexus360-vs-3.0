@@ -503,7 +503,7 @@ export default function Comunicacao() {
   const handleEnviarMensagemInternaOtimista = useCallback(async (dadosEnvio) => {
     if (!threadAtiva || !usuario) return;
 
-    const { texto, pastedImage, attachedFile, attachedFileType, replyToMessage } = dadosEnvio;
+    const { texto, pastedImage, attachedFile, attachedFileType, replyToMessage, audioBlob } = dadosEnvio;
 
     // ✅ UPLOAD DE MÍDIA ANTES (igual WhatsApp externo)
     let mediaUrlFinal = null;
@@ -511,8 +511,20 @@ export default function Comunicacao() {
     let mediaCaptionFinal = null;
 
     try {
+      // Upload de áudio gravado
+      if (audioBlob) {
+        const timestamp = Date.now();
+        const audioFile = new File([audioBlob], `audio-internal-${timestamp}.ogg`, {
+          type: 'audio/ogg; codecs=opus',
+          lastModified: timestamp
+        });
+
+        const uploadResponse = await base44.integrations.Core.UploadFile({ file: audioFile });
+        mediaUrlFinal = uploadResponse.file_url;
+        mediaTypeFinal = 'audio';
+      }
       // Upload de imagem colada
-      if (pastedImage) {
+      else if (pastedImage) {
         const timestamp = Date.now();
         let mimeType = pastedImage.type || 'image/png';
         if (!mimeType.startsWith('image/')) mimeType = 'image/png';
