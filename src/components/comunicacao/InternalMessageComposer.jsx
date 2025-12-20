@@ -447,36 +447,6 @@ export default function InternalMessageComposer({ open, onClose, currentUser, on
               </Button>
             </div>
           </div>
-
-              {/* Botões de Ação */}
-              <div className="mt-4 pt-4 border-t border-slate-200 flex gap-3">
-                <Button
-                  variant="outline"
-                  onClick={onClose}
-                  disabled={resolving}
-                  className="flex-1 border-slate-300 hover:bg-slate-50"
-                >
-                  Cancelar
-                </Button>
-                <Button
-                  onClick={handleConfirm}
-                  disabled={resolving || totalSelecionados === 0}
-                  className="flex-1 bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-600 hover:to-blue-700 text-white shadow-md"
-                >
-                  {resolving ? (
-                    <>
-                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                      Abrindo...
-                    </>
-                  ) : totalSelecionados === 1 ? (
-                    'Abrir Conversa'
-                  ) : (
-                    `Enviar para ${totalSelecionados}`
-                  )}
-                </Button>
-              </div>
-            </div>
-          </div>
         </DialogContent>
       </Dialog>
 
