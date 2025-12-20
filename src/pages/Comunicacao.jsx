@@ -512,7 +512,6 @@ export default function Comunicacao() {
     try {
       // ✅ UPLOAD DE MÍDIA ANTES (igual WhatsApp externo)
       if (audioBlob) {
-        toast.info('📤 Fazendo upload do áudio...');
         const timestamp = Date.now();
         const audioFile = new File([audioBlob], `audio-internal-${timestamp}.ogg`, {
           type: 'audio/ogg; codecs=opus',
@@ -524,7 +523,6 @@ export default function Comunicacao() {
         mediaTypeFinal = 'audio';
       }
       else if (pastedImage) {
-        toast.info('📤 Fazendo upload da imagem...');
         const timestamp = Date.now();
         let mimeType = pastedImage.type || 'image/png';
         if (!mimeType.startsWith('image/')) mimeType = 'image/png';
@@ -541,7 +539,6 @@ export default function Comunicacao() {
         mediaCaptionFinal = texto?.trim() || null;
       }
       else if (attachedFile) {
-        toast.info('📤 Fazendo upload do arquivo...');
         const timestamp = Date.now();
         const ext = attachedFile.name.split('.').pop() || 'file';
         const uploadFile = new File([attachedFile], `internal-${timestamp}.${ext}`, { 
