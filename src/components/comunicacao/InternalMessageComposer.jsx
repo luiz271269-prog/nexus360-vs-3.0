@@ -220,21 +220,39 @@ export default function InternalMessageComposer({ open, onClose, currentUser, on
       <Dialog open={open} onOpenChange={onClose}>
         <DialogContent className="max-w-4xl max-h-[90vh] flex flex-col">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-3 text-slate-800">
-              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-cyan-500 to-blue-600 flex items-center justify-center shadow-md">
-                <Users className="w-5 h-5 text-white" />
-              </div>
-              <div>
-                <div className="font-semibold">Envio Interno - Equipe</div>
-                <div className="text-xs font-normal text-slate-500">
-                  {totalSelecionados === 0 
-                    ? 'Selecione destinatários' 
-                    : totalSelecionados === 1
-                      ? '1 destinatário selecionado'
-                      : `${totalSelecionados} destinatários selecionados`
-                  }
+            <DialogTitle className="flex items-center justify-between text-slate-800">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-cyan-500 to-blue-600 flex items-center justify-center shadow-md">
+                  <Users className="w-5 h-5 text-white" />
+                </div>
+                <div>
+                  <div className="font-semibold">Envio Interno - Equipe</div>
+                  <div className="text-xs font-normal text-slate-500">
+                    {totalSelecionados === 0 
+                      ? 'Selecione destinatários' 
+                      : totalSelecionados === 1
+                        ? '1 destinatário selecionado'
+                        : `${totalSelecionados} destinatários selecionados`
+                    }
+                  </div>
                 </div>
               </div>
+              <Button
+                onClick={handleConfirm}
+                disabled={resolving || totalSelecionados === 0}
+                className="bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-600 hover:to-blue-700 text-white shadow-md"
+              >
+                {resolving ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Abrindo...
+                  </>
+                ) : totalSelecionados === 1 ? (
+                  'Abrir Conversa'
+                ) : (
+                  `Enviar para ${totalSelecionados}`
+                )}
+              </Button>
             </DialogTitle>
           </DialogHeader>
 
@@ -417,34 +435,6 @@ export default function InternalMessageComposer({ open, onClose, currentUser, on
                   )}
                 </div>
               </div>
-            </div>
-
-            {/* Botões de Ação */}
-            <div className="mt-4 pt-4 border-t border-slate-200 flex gap-3">
-              <Button
-                variant="outline"
-                onClick={onClose}
-                disabled={resolving}
-                className="flex-1 border-slate-300 hover:bg-slate-50"
-              >
-                Cancelar
-              </Button>
-              <Button
-                onClick={handleConfirm}
-                disabled={resolving || totalSelecionados === 0}
-                className="flex-1 bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-600 hover:to-blue-700 text-white shadow-md"
-              >
-                {resolving ? (
-                  <>
-                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                    Abrindo...
-                  </>
-                ) : totalSelecionados === 1 ? (
-                  'Abrir Conversa'
-                ) : (
-                  `Enviar para ${totalSelecionados}`
-                )}
-              </Button>
             </div>
           </div>
         </DialogContent>
