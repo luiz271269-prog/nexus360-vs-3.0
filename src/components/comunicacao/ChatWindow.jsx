@@ -141,24 +141,26 @@ export default function ChatWindow({
   // 🔑 REGRA CIRÚRGICA: Thread atribuída ao usuário = SEMPRE tem permissão de envio
   const threadAtribuidaAoUsuario = thread?.assigned_user_id === usuario?.id;
 
-  // 🔑 PERMISSÕES CIRÚRGICAS: Separar lógica interna vs externa
-  const isParticipant = isThreadInterna && thread?.participants?.includes(usuario?.id);
+  // 🔑 GUARD RAILS: Blindagem contra undefined/null
+  const userId = usuario?.id || null;
+  const participants = Array.isArray(thread?.participants) ? thread.participants : [];
+  const isParticipant = !!(isThreadInterna && userId && participants.includes(userId));
   
   const podeEnviarPorInstancia = getPermissaoInstancia('can_send');
   
   // ✅ THREADS INTERNAS: Se é participante, pode enviar (não depende de WhatsApp)
   // ✅ THREADS EXTERNAS: Usa lógica de permissões existente (WhatsApp)
   const podeEnviarMensagens = isThreadInterna 
-    ? (isParticipant && permissoes.pode_enviar_mensagens !== false)
-    : (threadAtribuidaAoUsuario || (permissoes.pode_enviar_mensagens !== false && podeEnviarPorInstancia));
+    ? (isParticipant && (permissoes?.pode_enviar_mensagens !== false))
+    : (threadAtribuidaAoUsuario || ((permissoes?.pode_enviar_mensagens !== false) && podeEnviarPorInstancia));
     
   const podeEnviarMidias = isThreadInterna
-    ? (isParticipant && permissoes.pode_enviar_midias !== false)
-    : (threadAtribuidaAoUsuario || (permissoes.pode_enviar_midias !== false && podeEnviarPorInstancia));
+    ? (isParticipant && (permissoes?.pode_enviar_midias !== false))
+    : (threadAtribuidaAoUsuario || ((permissoes?.pode_enviar_midias !== false) && podeEnviarPorInstancia));
     
   const podeEnviarAudios = isThreadInterna
-    ? (isParticipant && permissoes.pode_enviar_audios !== false)
-    : (threadAtribuidaAoUsuario || (permissoes.pode_enviar_audios !== false && podeEnviarPorInstancia));
+    ? (isParticipant && (permissoes?.pode_enviar_audios !== false))
+    : (threadAtribuidaAoUsuario || ((permissoes?.pode_enviar_audios !== false) && podeEnviarPorInstancia));
   const podeApagarMensagens = permissoes.pode_apagar_mensagens === true;
   const podeTransferirConversas = true;
 
