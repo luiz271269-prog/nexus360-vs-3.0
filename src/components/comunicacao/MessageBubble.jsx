@@ -1048,7 +1048,7 @@ export default React.memo(function MessageBubble({
               </div>
             }
 
-            {/* DOCUMENTO/PDF - ✅ AGNÓSTICO: Funciona para WhatsApp E Interno */}
+            {/* DOCUMENTO/PDF - ✅ AGNÓSTICO: Estilo WhatsApp */}
             {(
               message?.media_type === 'document' || 
               message?.content === 'pdf' ||
@@ -1059,7 +1059,7 @@ export default React.memo(function MessageBubble({
                 message?.media_url.toLowerCase().includes('.xls')
               ))
             ) && message?.media_url &&
-            <div className="p-0 overflow-hidden">
+            <div className="overflow-hidden">
                 <button
                   onClick={() => window.open(message.media_url, '_blank', 'noopener,noreferrer')}
                   className="flex items-center gap-3 hover:bg-black/5 active:bg-black/10 transition-colors w-full text-left p-3"
@@ -1095,9 +1095,7 @@ export default React.memo(function MessageBubble({
                   <Download className={cn("w-5 h-5 flex-shrink-0", isOwn ? "text-white/70" : "text-blue-500")} />
                 </button>
                 
-                <div className={cn("flex items-center justify-end gap-1 px-3 pb-2 pt-1 flex-wrap", isOwn ? "text-white/70" : "text-slate-500")}>
-                  {message?.categorias && message.categorias.length > 0 &&
-                  <div className="flex gap-1 mr-1 flex-wrap">
+                <div className={cn("flex items-center justify-end gap-1 px-3 pb-2 pt-1 flex-wrap")}>
                   {message?.categorias && message.categorias.length > 0 &&
                   <div className="flex gap-1 mr-1 flex-wrap">
                       {message.categorias.slice(0, 3).map((cat) => {
@@ -1135,9 +1133,7 @@ export default React.memo(function MessageBubble({
 
                   <span className={cn(
                     "text-[10px]", 
-                    thread?.thread_type === 'team_internal' || thread?.thread_type === 'sector_group' || message.channel === 'interno'
-                      ? (isOwn ? "text-white/70" : "text-slate-500")
-                      : (isOwn ? "text-white/70" : "text-slate-500")
+                    isOwn ? "text-white/70" : "text-slate-500"
                   )}>
                     {format(new Date(message.sent_at || message.created_date), 'dd/MM HH:mm')}
                   </span>
