@@ -3,19 +3,21 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Users, Building2, Loader2, CheckSquare, Square, Plus, Star, UserCheck } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Users, Building2, Loader2, CheckSquare, Square, Plus, Star, UserCheck, ArrowRightLeft, X } from 'lucide-react';
 import { base44 } from '@/api/base44Client';
 import { useQuery } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import CriarGrupoModal from './CriarGrupoModal';
 import UsuarioDisplay from './UsuarioDisplay';
 
-export default function InternalMessageComposer({ open, onClose, currentUser, onSelectDestinations }) {
+export default function InternalMessageComposer({ open, onClose, currentUser, onSelectDestinations, mode = 'compose', originUserId = null }) {
   const [selectedUsers, setSelectedUsers] = useState([]);
   const [selectedSectors, setSelectedSectors] = useState([]);
   const [selectedGroups, setSelectedGroups] = useState([]);
   const [resolving, setResolving] = useState(false);
   const [criarGrupoOpen, setCriarGrupoOpen] = useState(false);
+  const [selectedOriginUser, setSelectedOriginUser] = useState(originUserId || '');
 
   // Buscar todos os usuários via função (igual ao AtribuirConversaModal)
   const { data: usuarios = [], isLoading: loadingUsers } = useQuery({
@@ -104,6 +106,68 @@ export default function InternalMessageComposer({ open, onClose, currentUser, on
       return;
     }
 
+    // Modo delegação
+    if (mode === 'delegate') {
+      if (!selectedOriginUser) {
+        toast.error('Selecione o usuário de origem');
+        return;
+      }
+
+      setResolving(true);
+      try {
+        const destinos = [];
+
+        // Resolver destinos
+        for (const userId of selectedUsers) {
+          const user = usuarios.find(u => u.id === userId);
+          destinos.push({
+            type: 'user',
+            user_id: userId,
+            name: user?.full_name || 'Usuário'
+          });
+        }
+
+        for (const sectorName of selectedSectors) {
+          destinos.push({
+            type: 'sector',
+            sector_name: sectorName,
+            name: `Setor ${sectorName}`
+          });
+        }
+
+        for (const groupId of selectedGroups) {
+          const grupo = grupos.find(g => g.id === groupId);
+          destinos.push({
+            type: 'group',
+            thread_id: groupId,
+            name: grupo?.group_name || 'Grupo'
+          });
+        }
+
+        const resultado = await base44.functions.invoke('delegarResponsabilidades', {
+          origem_user_id: selectedOriginUser,
+          destinos
+        });
+
+        if (resultado?.data?.success) {
+          toast.success(resultado.data.message);
+          setSelectedUsers([]);
+          setSelectedSectors([]);
+          setSelectedGroups([]);
+          onClose();
+        } else {
+          toast.error('Erro ao criar delegação');
+        }
+      } catch (error) {
+        console.error('[DELEGATE] Erro:', error);
+        toast.error(`Erro: ${error.message}`);
+      } finally {
+        setResolving(false);
+      }
+      return;
+    }
+
+    // Modo compose (enviar mensagens)
     setResolving(true);
 
     try {
@@ -215,6 +279,40 @@ export default function InternalMessageComposer({ open, onClose, currentUser, on
 
   const totalSelecionados = selectedUsers.length + selectedSectors.length + selectedGroups.length;
 
+  // Buscar delegações ativas
+  const { data: delegacoesAtivas = [] } = useQuery({
+    queryKey: ['delegacoes-ativas', selectedOriginUser],
+    queryFn: async () => {
+      if (!selectedOriginUser || mode !== 'delegate') return [];
+      const delegacoes = await base44.entities.DelegacaoAcesso.filter({
+        origem_user_id: selectedOriginUser,
+        status: 'ativa'
+      });
+      return delegacoes || [];
+    },
+    enabled: open && mode === 'delegate' && !!selectedOriginUser,
+    staleTime: 30 * 1000
+  });
+
+  const handleRemoverDelegacao = async () => {
+    if (!selectedOriginUser) return;
+
+    try {
+      const resultado = await base44.functions.invoke('removerDelegacao', {
+        origem_user_id: selectedOriginUser
+      });
+
+      if (resultado?.data?.success) {
+        toast.success(resultado.data.message);
+      } else {
+        toast.error('Erro ao remover delegação');
+      }
+    } catch (error) {
+      console.error('[REMOVER_DELEGACAO] Erro:', error);
+      toast.error(`Erro: ${error.message}`);
+    }
+  };
+
   return (
     <>
       <Dialog open={open} onOpenChange={onClose}>
@@ -222,39 +320,90 @@ export default function InternalMessageComposer({ open, onClose, currentUser, on
           <DialogHeader>
             <DialogTitle className="flex items-center justify-between text-slate-800">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-cyan-500 to-blue-600 flex items-center justify-center shadow-md">
-                  <Users className="w-5 h-5 text-white" />
+                <div className={`w-10 h-10 rounded-xl flex items-center justify-center shadow-md ${
+                  mode === 'delegate' 
+                    ? 'bg-gradient-to-br from-orange-500 to-amber-600' 
+                    : 'bg-gradient-to-br from-cyan-500 to-blue-600'
+                }`}>
+                  {mode === 'delegate' ? (
+                    <ArrowRightLeft className="w-5 h-5 text-white" />
+                  ) : (
+                    <Users className="w-5 h-5 text-white" />
+                  )}
                 </div>
                 <div>
-                  <div className="font-semibold">Envio Interno - Equipe</div>
+                  <div className="font-semibold">
+                    {mode === 'delegate' ? 'Transferir Responsabilidades' : 'Envio Interno - Equipe'}
+                  </div>
                   <div className="text-xs font-normal text-slate-500">
-                    {totalSelecionados === 0 
-                      ? 'Selecione destinatários' 
-                      : totalSelecionados === 1
-                        ? '1 destinatário selecionado'
-                        : `${totalSelecionados} destinatários selecionados`
+                    {mode === 'delegate' 
+                      ? (totalSelecionados === 0 ? 'Selecione para quem transferir' : `${totalSelecionados} selecionado(s)`)
+                      : (totalSelecionados === 0 ? 'Selecione destinatários' : totalSelecionados === 1 ? '1 destinatário selecionado' : `${totalSelecionados} destinatários selecionados`)
                     }
                   </div>
                 </div>
               </div>
-              <Button
-                onClick={handleConfirm}
-                disabled={resolving || totalSelecionados === 0}
-                className="bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-600 hover:to-blue-700 text-white shadow-md"
-              >
-                {resolving ? (
-                  <>
-                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                    Abrindo...
-                  </>
-                ) : totalSelecionados === 1 ? (
-                  'Abrir Conversa'
-                ) : (
-                  `Enviar para ${totalSelecionados}`
+              <div className="flex items-center gap-2">
+                {mode === 'delegate' && delegacoesAtivas.length > 0 && (
+                  <Button
+                    onClick={handleRemoverDelegacao}
+                    variant="outline"
+                    className="border-red-300 text-red-600 hover:bg-red-50"
+                  >
+                    <X className="w-4 h-4 mr-2" />
+                    Remover Delegação
+                  </Button>
                 )}
-              </Button>
+                <Button
+                  onClick={handleConfirm}
+                  disabled={resolving || totalSelecionados === 0 || (mode === 'delegate' && !selectedOriginUser)}
+                  className={`shadow-md text-white ${
+                    mode === 'delegate'
+                      ? 'bg-gradient-to-r from-orange-500 to-amber-600 hover:from-orange-600 hover:to-amber-700'
+                      : 'bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-600 hover:to-blue-700'
+                  }`}
+                >
+                  {resolving ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      {mode === 'delegate' ? 'Transferindo...' : 'Abrindo...'}
+                    </>
+                  ) : mode === 'delegate' ? (
+                    'Transferir'
+                  ) : totalSelecionados === 1 ? (
+                    'Abrir Conversa'
+                  ) : (
+                    `Enviar para ${totalSelecionados}`
+                  )}
+                </Button>
+              </div>
             </DialogTitle>
           </DialogHeader>
+
+          {mode === 'delegate' && (
+            <div className="px-6 pb-4">
+              <label className="text-sm font-medium text-slate-700 mb-2 block">
+                Usuário que terá suas responsabilidades transferidas:
+              </label>
+              <Select value={selectedOriginUser} onValueChange={setSelectedOriginUser}>
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Selecione o usuário de origem" />
+                </SelectTrigger>
+                <SelectContent>
+                  {usuarios.filter(u => u.id !== currentUser?.id).map(usuario => (
+                    <SelectItem key={usuario.id} value={usuario.id}>
+                      {usuario.full_name || usuario.email}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {delegacoesAtivas.length > 0 && (
+                <div className="mt-2 p-2 bg-amber-50 border border-amber-200 rounded-lg text-xs text-amber-800">
+                  ⚠️ Este usuário já possui {delegacoesAtivas.length} delegação(ões) ativa(s)
+                </div>
+              )}
+            </div>
+          )}
 
           <div className="flex-1 flex flex-col min-h-0">
             {/* 3 Colunas Visíveis - Layout WhatsApp */}
