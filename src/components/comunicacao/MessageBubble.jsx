@@ -1024,7 +1024,7 @@ export default React.memo(function MessageBubble({
             }
 
             {/* DOCUMENTO/PDF - ✅ AGNÓSTICO: Funciona para WhatsApp E Interno */}
-            {message?.media_type === 'document' && message?.media_url &&
+            {(message?.media_type === 'document' || (message?.media_url && (message?.content === 'pdf' || message?.content?.toLowerCase() === '[documento]'))) && message?.media_url &&
             <div className={cn(
               "px-3 py-2 min-w-[200px] max-w-[280px]",
               thread?.thread_type === 'team_internal' || thread?.thread_type === 'sector_group' || message.channel === 'interno'
