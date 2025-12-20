@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from "react";
-import { CheckCheck, Clock, User, Users, AlertCircle, Image, Video, Mic, FileText, MapPin, Phone as PhoneIcon, Tag, Building2, Target, Truck, Handshake, HelpCircle, UserCheck, Send, X, CheckSquare, Square, MessagesSquare } from "lucide-react";
+import { CheckCheck, Clock, User, Users, AlertCircle, Image, Video, Mic, FileText, MapPin, Phone as PhoneIcon, Tag, Building2, Target, Truck, Handshake, HelpCircle, UserCheck, Send, X, CheckSquare, Square, MessagesSquare, ArrowRightLeft, Plus } from "lucide-react";
 import InternalMessageComposer from "./InternalMessageComposer";
 import { Badge } from "@/components/ui/badge";
 import { motion } from "framer-motion";
@@ -127,6 +127,8 @@ export default function ChatSidebar({
 
   // Estado para o composer de mensagens internas
   const [internalComposerOpen, setInternalComposerOpen] = useState(false);
+  const [delegateMode, setDelegateMode] = useState(false);
+  const [criarGrupoOpen, setCriarGrupoOpen] = useState(false);
 
   // Buscar categorias dinâmicas
   const { data: categoriasDB = [] } = useQuery({
@@ -323,37 +325,88 @@ export default function ChatSidebar({
       {/* SUPER CONTATO FIXO - EQUIPE INTERNA / SETOR */}
       {/* ═══════════════════════════════════════════════════════════════════ */}
       {!modoSelecao && (
-        <button
-          onClick={() => setInternalComposerOpen(true)}
-          className="w-full flex items-center gap-3 px-2 py-3 transition-all border-b-2 border-purple-200 hover:bg-gradient-to-r hover:from-purple-50 hover:to-indigo-50 bg-purple-50/50"
-        >
-          <div className="relative flex-shrink-0">
-            <div className="w-12 h-12 rounded-full flex items-center justify-center text-white font-bold shadow-md bg-gradient-to-br from-purple-500 to-indigo-600">
-              <MessagesSquare className="w-6 h-6" />
+        <div className="sticky top-0 z-10 bg-purple-50/80 backdrop-blur-sm border-b-2 border-purple-200 p-2">
+          <div className="flex items-center gap-3 mb-2 px-2">
+            <div className="relative flex-shrink-0">
+              <div className="w-10 h-10 rounded-full flex items-center justify-center text-white font-bold shadow-md bg-gradient-to-br from-purple-500 to-indigo-600">
+                <MessagesSquare className="w-5 h-5" />
+              </div>
+            </div>
+            <div className="flex-1 min-w-0 text-left">
+              <h3 className="font-semibold text-slate-900 text-sm truncate">
+                🏢 Equipe interna
+              </h3>
+              <p className="text-xs text-slate-600 truncate">
+                Envio • 1:1 / Setores / Grupos
+              </p>
             </div>
           </div>
-
-          <div className="flex-1 min-w-0 text-left">
-            <h3 className="font-semibold text-slate-900 text-sm truncate">
-              🏢 Equipe interna / Usuários
-            </h3>
-            <p className="text-xs text-slate-600 truncate">
-              Envio interno • 1:1 / Setores
-            </p>
+          
+          <div className="flex gap-1.5">
+            <Button
+              onClick={() => {
+                setDelegateMode(false);
+                setInternalComposerOpen(true);
+              }}
+              variant="outline"
+              size="sm"
+              className="flex-1 bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-600 hover:to-blue-700 text-white border-0 h-8 text-xs"
+            >
+              <Send className="w-3 h-3 mr-1" />
+              Enviar
+            </Button>
+            <Button
+              onClick={() => {
+                setDelegateMode(true);
+                setInternalComposerOpen(true);
+              }}
+              variant="outline"
+              size="sm"
+              className="flex-1 bg-gradient-to-r from-orange-500 to-amber-600 hover:from-orange-600 hover:to-amber-700 text-white border-0 h-8 text-xs"
+            >
+              <ArrowRightLeft className="w-3 h-3 mr-1" />
+              Transferir
+            </Button>
+            <Button
+              onClick={() => setCriarGrupoOpen(true)}
+              variant="outline"
+              size="sm"
+              className="flex-1 bg-gradient-to-r from-slate-500 to-slate-600 hover:from-slate-600 hover:to-slate-700 text-white border-0 h-8 text-xs"
+            >
+              <Plus className="w-3 h-3 mr-1" />
+              Grupo
+            </Button>
           </div>
-        </button>
+        </div>
       )}
 
       {/* Seletor de Destinatários Internos */}
       <InternalMessageComposer
         open={internalComposerOpen}
-        onClose={() => setInternalComposerOpen(false)}
+        onClose={() => {
+          setInternalComposerOpen(false);
+          setDelegateMode(false);
+        }}
         currentUser={usuarioAtual}
+        mode={delegateMode ? 'delegate' : 'compose'}
         onSelectDestinations={(selection) => {
           setInternalComposerOpen(false);
+          setDelegateMode(false);
           if (onSelectInternalDestinations) {
             onSelectInternalDestinations(selection);
           }
+        }}
+      />
+
+      {/* Modal de Criar Grupo */}
+      <CriarGrupoModal
+        open={criarGrupoOpen}
+        onClose={() => setCriarGrupoOpen(false)}
+        usuarios={atendentes}
+        currentUser={usuarioAtual}
+        onSuccess={() => {
+          setCriarGrupoOpen(false);
+          toast.success('✅ Grupo criado!');
         }}
       />
 
