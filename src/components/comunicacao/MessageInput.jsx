@@ -328,30 +328,7 @@ export default function MessageInput({
         </div>
       )}
 
-      {/* UI de Gravação de Áudio */}
-      {gravandoAudio && (
-        <div className="mb-2 p-3 bg-red-50 border border-red-200 rounded-lg">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="w-3 h-3 bg-red-500 rounded-full animate-pulse" />
-              <span className="text-sm font-medium text-red-700">Gravando áudio...</span>
-              <span className="text-sm text-red-600 font-mono">{formatTime(recordingTime)}</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                onClick={onStopRecording}
-                className="text-red-600 hover:text-red-800 hover:bg-red-100"
-              >
-                <StopCircle className="w-4 h-4 mr-1" />
-                Parar
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
+
 
       <div className="flex items-end gap-2 relative">
         {/* Botão Anexar com Menu */}
@@ -407,20 +384,27 @@ export default function MessageInput({
           )}
         </div>
 
-        {/* Botão Microfone */}
-        {!gravandoAudio && (
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon"
-            className="text-zinc-950 text-sm font-medium rounded-md inline-flex items-center justify-center gap-2 whitespace-nowrap transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 hover:bg-accent hover:text-accent-foreground h-9 w-9 flex-shrink-0"
-            disabled={enviando || carregandoContato || modoSelecao || uploadingPastedFile || !podeEnviarAudios}
-            onClick={onStartRecording}
-            title={!podeEnviarAudios ? "Sem permissão para enviar áudios" : "Gravar áudio"}
-          >
+        {/* Botão Microfone - Muda para StopCircle quando gravando */}
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          className={cn(
+            "text-sm font-medium rounded-md inline-flex items-center justify-center gap-2 whitespace-nowrap transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 h-9 w-9 flex-shrink-0",
+            gravandoAudio 
+              ? "bg-red-500 hover:bg-red-600 text-white" 
+              : "text-zinc-950 hover:bg-accent hover:text-accent-foreground"
+          )}
+          disabled={enviando || carregandoContato || modoSelecao || uploadingPastedFile || !podeEnviarAudios}
+          onClick={gravandoAudio ? onStopRecording : onStartRecording}
+          title={gravandoAudio ? `Parar gravação (${formatTime(recordingTime)})` : (!podeEnviarAudios ? "Sem permissão para enviar áudios" : "Gravar áudio")}
+        >
+          {gravandoAudio ? (
+            <StopCircle className="w-5 h-5" />
+          ) : (
             <Mic className="w-5 h-5 text-slate-600" />
-          </Button>
-        )}
+          )}
+        </Button>
 
         <EmojiPickerButton
           onEmojiSelect={handleEmojiSelect}
