@@ -503,7 +503,7 @@ export default function ConfiguracaoCanaisComunicacao({ integracoes, onRecarrega
         onRecarregar={onRecarregar}
       />
 
-      {/* WhatsApp */}
+      {/* WhatsApp (Z-API e W-API) */}
       <Card className="bg-gradient-to-r from-green-50 to-emerald-50 border-green-200">
         <CardContent className="pt-6">
           <div className="flex items-start justify-between">
@@ -892,24 +892,6 @@ export default function ConfiguracaoCanaisComunicacao({ integracoes, onRecarrega
         </div>
       </div>
 
-      {/* Instagram */}
-      <InstagramConnectionSetup 
-        integracoes={[]} 
-        onRecarregar={onRecarregar}
-      />
-
-      {/* Facebook */}
-      <FacebookConnectionSetup 
-        integracoes={[]} 
-        onRecarregar={onRecarregar}
-      />
-
-      {/* GoTo */}
-      <GoToConnectionSetup 
-        integracoes={[]} 
-        onRecarregar={onRecarregar}
-      />
-
-      </div>
-      );
-      }
+    </div>
+  );
+}
