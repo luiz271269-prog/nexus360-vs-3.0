@@ -101,33 +101,41 @@ Deno.serve(async (req) => {
 
     const savedMessage = await base44.asServiceRole.entities.Message.create(messageData);
 
+    // ✅ CORREÇÃO: Garantir que unread_by seja atualizado corretamente para TODOS os participantes
     let currentUnreads = thread.unread_by || {};
+    
+    // Zerar para o remetente
     currentUnreads[user.id] = 0;
 
+    // ✅ Incrementar para TODOS os outros participantes (garantir que existam no objeto)
     thread.participants.forEach(participantId => {
       if (participantId !== user.id) {
         currentUnreads[participantId] = (currentUnreads[participantId] || 0) + 1;
       }
     });
 
+    // ✅ Preview de conteúdo mais robusto
     let previewContent = content ? content.substring(0, 200) : '';
 
     if (!previewContent && media_type !== 'none') {
       const previewMap = {
-        'image': 'Imagem',
-        'video': 'Video',
-        'audio': 'Audio',
-        'document': 'Documento'
+        'image': '📷 Imagem',
+        'video': '🎥 Vídeo',
+        'audio': '🎤 Áudio',
+        'document': '📄 Documento'
       };
-      previewContent = previewMap[media_type] || 'Midia';
+      previewContent = previewMap[media_type] || '📎 Mídia';
     }
 
+    // ✅ Atualizar thread com dados completos
     await base44.asServiceRole.entities.MessageThread.update(thread.id, {
       last_message_at: savedMessage.sent_at,
       last_message_content: previewContent,
       last_message_sender: 'user',
+      last_message_sender_name: user.full_name || user.email,
       last_media_type: media_type,
-      unread_by: currentUnreads
+      unread_by: currentUnreads,
+      total_mensagens: (thread.total_mensagens || 0) + 1
     });
 
     return new Response(
