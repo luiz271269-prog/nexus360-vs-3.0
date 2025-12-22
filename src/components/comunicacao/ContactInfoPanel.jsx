@@ -21,6 +21,7 @@ import SegmentacaoInteligente from './SegmentacaoInteligente';
 import AtribuidorAtendenteRapido from './AtribuidorAtendenteRapido';
 import SeletorEtiquetasContato from './SeletorEtiquetasContato';
 import UsuarioDisplay from './UsuarioDisplay';
+import CallHistoryPanel from './CallHistoryPanel';
 
 export default function ContactInfoPanel({ 
   contact, 
@@ -458,9 +459,10 @@ export default function ContactInfoPanel({
       </div>
 
       <Tabs defaultValue="dados" className="flex-1 flex flex-col overflow-hidden">
-        <TabsList className="grid w-full grid-cols-2 mx-4 mt-2">
+        <TabsList className="grid w-full grid-cols-3 mx-4 mt-2">
           <TabsTrigger value="dados"><User className="w-4 h-4 mr-2" />Dados</TabsTrigger>
           <TabsTrigger value="ia"><Brain className="w-4 h-4 mr-2" />IA</TabsTrigger>
+          <TabsTrigger value="chamadas"><Phone className="w-4 h-4 mr-2" />Chamadas</TabsTrigger>
         </TabsList>
 
         <TabsContent value="dados" className="flex-1 overflow-y-auto m-0">
@@ -658,6 +660,10 @@ export default function ContactInfoPanel({
 
         <TabsContent value="ia" className="flex-1 overflow-y-auto p-4 m-0">
           <SegmentacaoInteligente contactId={contact.id} />
+        </TabsContent>
+
+        <TabsContent value="chamadas" className="flex-1 overflow-y-auto m-0">
+          <CallHistoryPanel contactId={contact.id} />
         </TabsContent>
       </Tabs>
     </motion.div>
