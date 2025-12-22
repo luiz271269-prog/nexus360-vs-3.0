@@ -27,8 +27,6 @@ export default function FacebookConnectionSetup({ integracoes = [], onRecarregar
   const [registeringWebhook, setRegisteringWebhook] = useState(null);
   const [editingNameId, setEditingNameId] = useState(null);
   const [editingName, setEditingName] = useState('');
-  const [editingNameId, setEditingNameId] = useState(null);
-  const [editingName, setEditingName] = useState('');
 
   const handleConnect = async () => {
     setConnecting(true);
@@ -81,31 +79,6 @@ export default function FacebookConnectionSetup({ integracoes = [], onRecarregar
       console.error('[FACEBOOK DELETE] Erro:', error);
       toast.error('Erro ao excluir');
     }
-  };
-
-  const handleUpdateName = async (integrationId) => {
-    if (!editingName.trim()) {
-      toast.error('Nome não pode estar vazio');
-      return;
-    }
-
-    try {
-      await base44.entities.FacebookIntegration.update(integrationId, { 
-        nome_instancia: editingName.trim() 
-      });
-      toast.success('✅ Nome atualizado!');
-      setEditingNameId(null);
-      setEditingName('');
-      if (onRecarregar) await onRecarregar();
-    } catch (error) {
-      console.error('[FACEBOOK UPDATE] Erro:', error);
-      toast.error('Erro ao atualizar nome');
-    }
-  };
-
-  const startEditingName = (integration) => {
-    setEditingNameId(integration.id);
-    setEditingName(integration.nome_instancia || '');
   };
 
   const handleUpdateName = async (integrationId) => {
