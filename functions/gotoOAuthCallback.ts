@@ -23,10 +23,15 @@ Deno.serve(async (req) => {
       return Response.json({ error: 'Missing authorization code' }, { status: 400 });
     }
 
-    // Credenciais OAuth do GoTo (armazenar como secrets)
+    // Credenciais OAuth do GoTo (secrets configurados)
     const clientId = Deno.env.get('GOTO_CLIENT_ID');
     const clientSecret = Deno.env.get('GOTO_CLIENT_SECRET');
+    
+    // CRÍTICO: Redirect URI deve ser EXATAMENTE igual ao cadastrado no cliente OAuth da GoTo
     const redirectUri = `${url.origin}/functions/gotoOAuthCallback`;
+
+    console.log('[GOTO OAUTH CALLBACK] Redirect URI:', redirectUri);
+    console.log('[GOTO OAUTH CALLBACK] Code recebido:', code ? 'SIM' : 'NÃO');
 
     if (!clientId || !clientSecret) {
       return Response.json({ 
@@ -35,7 +40,8 @@ Deno.serve(async (req) => {
       }, { status: 500 });
     }
 
-    // Trocar código por tokens
+    // Trocar código por tokens (token exchange)
+    // CRÍTICO: redirect_uri aqui deve ser idêntico ao usado no authorize e ao cadastrado
     const tokenResponse = await fetch('https://authentication.logmeininc.com/oauth/token', {
       method: 'POST',
       headers: {
@@ -49,6 +55,8 @@ Deno.serve(async (req) => {
       })
     });
 
+    console.log('[GOTO OAUTH CALLBACK] Token response status:', tokenResponse.status);
+
     const tokenData = await tokenResponse.json();
 
     if (!tokenResponse.ok) {
@@ -61,7 +69,10 @@ Deno.serve(async (req) => {
 
     const { access_token, refresh_token, expires_in, account_key } = tokenData;
 
-    // Buscar informações da conta
+    console.log('[GOTO OAUTH CALLBACK] Tokens obtidos com sucesso');
+    console.log('[GOTO OAUTH CALLBACK] Expira em (segundos):', expires_in);
+
+    // Buscar informações da conta usando o access_token (Bearer token)
     const accountResponse = await fetch('https://api.goto.com/admin/rest/v1/accounts/me', {
       headers: {
         'Authorization': `Bearer ${access_token}`
@@ -69,6 +80,8 @@ Deno.serve(async (req) => {
     });
 
     const accountData = await accountResponse.json();
+    
+    console.log('[GOTO OAUTH CALLBACK] Account data:', accountData.accountName || 'N/A');
 
     // Criar ou atualizar GoToIntegration
     const expiresAt = new Date(Date.now() + (expires_in * 1000)).toISOString();

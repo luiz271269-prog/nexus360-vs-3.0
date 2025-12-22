@@ -36,7 +36,10 @@ Deno.serve(async (req) => {
       }, { status: 500 });
     }
 
+    console.log('[GOTO REFRESH] Renovando token para integration:', integration_id);
+
     // Renovar token usando refresh_token
+    // grant_type=refresh_token conforme especificação OAuth2
     const tokenResponse = await fetch('https://authentication.logmeininc.com/oauth/token', {
       method: 'POST',
       headers: {
@@ -48,6 +51,8 @@ Deno.serve(async (req) => {
         refresh_token: integration.refresh_token
       })
     });
+
+    console.log('[GOTO REFRESH] Response status:', tokenResponse.status);
 
     const tokenData = await tokenResponse.json();
 
@@ -68,7 +73,10 @@ Deno.serve(async (req) => {
     const { access_token, refresh_token, expires_in } = tokenData;
     const expiresAt = new Date(Date.now() + (expires_in * 1000)).toISOString();
 
+    console.log('[GOTO REFRESH] Token renovado - expira em:', expires_in, 'segundos');
+
     // Atualizar integração com novos tokens
+    // Nota: refresh_token pode ou não vir na resposta (alguns provedores só enviam na primeira vez)
     await base44.entities.GoToIntegration.update(integration_id, {
       access_token: access_token,
       refresh_token: refresh_token || integration.refresh_token,

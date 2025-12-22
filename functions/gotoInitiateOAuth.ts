@@ -28,7 +28,10 @@ Deno.serve(async (req) => {
     const url = new URL(req.url);
     const redirectUri = `${url.origin}/functions/gotoOAuthCallback`;
 
-    // Scopes granulares necessários para SMS e eventos de chamada
+    console.log('[GOTO OAUTH INIT] Redirect URI:', redirectUri);
+
+    // Scopes completos para SMS, eventos de chamada, webhooks e leitura
+    // CRÍTICO: Estes scopes devem corresponder aos configurados no cadastro do cliente OAuth
     const scopes = [
       'messaging.v1.send',
       'messaging.v1.read',
