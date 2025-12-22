@@ -892,6 +892,24 @@ export default function ConfiguracaoCanaisComunicacao({ integracoes, onRecarrega
         </div>
       </div>
 
-    </div>
-  );
-}
+      {/* Instagram */}
+      <InstagramConnectionSetup 
+        integracoes={[]} 
+        onRecarregar={onRecarregar}
+      />
+
+      {/* Facebook */}
+      <FacebookConnectionSetup 
+        integracoes={[]} 
+        onRecarregar={onRecarregar}
+      />
+
+      {/* GoTo */}
+      <GoToConnectionSetup 
+        integracoes={[]} 
+        onRecarregar={onRecarregar}
+      />
+
+      </div>
+      );
+      }
