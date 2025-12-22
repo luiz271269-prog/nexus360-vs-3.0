@@ -20,7 +20,8 @@ import {
   Key,
   Settings,
   QrCode,
-  Smartphone
+  Smartphone,
+  MessageCircle
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -47,7 +48,9 @@ const PROVIDERS = {
     baseUrl: "https://api.z-api.io",
     requerClientToken: true,
     webhookFn: "webhookWatsZapi",
-    testarFn: "testarConexaoWhatsApp"
+    testarFn: "testarConexaoWhatsApp",
+    icon: MessageCircle,
+    tipo: "whatsapp"
   },
   w_api: {
     nome: "W-API",
@@ -55,11 +58,33 @@ const PROVIDERS = {
     baseUrl: "https://api.w-api.app/v1",
     requerClientToken: false,
     webhookFn: "webhookWapi",
-    testarFn: "testarConexaoWapi"
+    testarFn: "testarConexaoWapi",
+    icon: MessageCircle,
+    tipo: "whatsapp"
+  },
+  instagram_api: {
+    nome: "Instagram",
+    cor: "pink",
+    baseUrl: "https://graph.facebook.com/v21.0",
+    requerClientToken: false,
+    webhookFn: "instagramWebhook",
+    testarFn: null,
+    icon: MessageCircle,
+    tipo: "instagram"
+  },
+  facebook_graph_api: {
+    nome: "Facebook",
+    cor: "indigo",
+    baseUrl: "https://graph.facebook.com/v21.0",
+    requerClientToken: false,
+    webhookFn: "facebookWebhook",
+    testarFn: null,
+    icon: MessageCircle,
+    tipo: "facebook"
   }
 };
 
-export default function ConfiguracaoWhatsAppHub({ integracoes, onRecarregar, usuarioAtual }) {
+export default function ConfiguracaoCanaisComunicacao({ integracoes, onRecarregar, usuarioAtual }) {
   const [loading, setLoading] = useState(false);
   const [showTokenInstancia, setShowTokenInstancia] = useState(false);
   const [showTokenConta, setShowTokenConta] = useState(false);
@@ -399,6 +424,22 @@ export default function ConfiguracaoWhatsAppHub({ integracoes, onRecarregar, usu
     }
   };
 
+  // Helper para obter badge de tipo de canal
+  const getChannelBadge = (provider) => {
+    const config = PROVIDERS[provider] || PROVIDERS.z_api;
+    const colors = {
+      whatsapp: "bg-green-100 text-green-700 border-green-300",
+      instagram: "bg-pink-100 text-pink-700 border-pink-300",
+      facebook: "bg-blue-100 text-blue-700 border-blue-300"
+    };
+    
+    return (
+      <Badge className={`${colors[config.tipo]} text-[10px] px-2 py-0.5`}>
+        {config.nome}
+      </Badge>
+    );
+  };
+
   return (
     <div className="space-y-6">
       <Card className="bg-gradient-to-r from-green-50 to-emerald-50 border-green-200">
@@ -409,9 +450,9 @@ export default function ConfiguracaoWhatsAppHub({ integracoes, onRecarregar, usu
                 <Zap className="w-6 h-6 text-white" />
               </div>
               <div>
-                <h2 className="text-2xl font-bold text-green-900">Gerenciar Conexões WhatsApp</h2>
+                <h2 className="text-2xl font-bold text-green-900">Canais de Comunicação</h2>
                 <p className="text-green-700 mt-1">
-                  Z-API - Configure multiplas instancias
+                  WhatsApp, Instagram e Facebook - Configure suas conexões
                 </p>
                 <div className="flex gap-2 mt-3">
                   <Badge className="bg-green-100 text-green-800">
@@ -428,7 +469,7 @@ export default function ConfiguracaoWhatsAppHub({ integracoes, onRecarregar, usu
                 onClick={iniciarNovaIntegracao}
                 className="bg-gradient-to-r from-green-500 to-emerald-600">
                 <Plus className="w-4 h-4 mr-2" />
-                Nova Instância
+                Nova Conexão
               </Button>
             )}
           </div>
@@ -437,7 +478,7 @@ export default function ConfiguracaoWhatsAppHub({ integracoes, onRecarregar, usu
 
       {/* Layout 2 Colunas: Lista Compacta | Edição + Diagnóstico */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* COLUNA 1: Lista Compacta de Conexões */}
+        {/* COLUNA 1: Lista Compacta de Conexões com Etiquetas */}
         <div className="space-y-2">
           <h3 className="text-sm font-bold text-slate-600 flex items-center gap-2 mb-3">
             <Zap className="w-4 h-4 text-green-600" />
@@ -468,17 +509,18 @@ export default function ConfiguracaoWhatsAppHub({ integracoes, onRecarregar, usu
                     : 'border-slate-200 bg-white hover:border-green-300'
                 }`}
               >
-                <div className="flex items-center justify-between">
+                <div className="flex items-start justify-between gap-2">
                   <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-1">
+                      {getChannelBadge(integracao.api_provider)}
+                      {integracao.status === 'conectado' ? (
+                        <CheckCircle className="w-4 h-4 text-green-500 flex-shrink-0" />
+                      ) : (
+                        <AlertCircle className="w-4 h-4 text-orange-500 flex-shrink-0" />
+                      )}
+                    </div>
                     <p className="font-semibold text-sm text-slate-800 truncate">{integracao.nome_instancia}</p>
                     <p className="text-xs text-slate-500 truncate">{integracao.numero_telefone}</p>
-                  </div>
-                  <div className="flex-shrink-0 ml-2">
-                    {integracao.status === 'conectado' ? (
-                      <CheckCircle className="w-4 h-4 text-green-500" />
-                    ) : (
-                      <AlertCircle className="w-4 h-4 text-orange-500" />
-                    )}
                   </div>
                 </div>
               </div>
@@ -504,7 +546,7 @@ export default function ConfiguracaoWhatsAppHub({ integracoes, onRecarregar, usu
                   <div className="flex items-center justify-between">
                     <CardTitle className="text-lg flex items-center gap-2">
                       <Edit className="w-5 h-5 text-blue-600" />
-                      {modoEdicao ? (integracaoSelecionada ? 'Editar Instância' : 'Nova Instância') : 'Configurações'}
+                      {modoEdicao ? (integracaoSelecionada ? 'Editar Conexão' : 'Nova Conexão') : 'Configurações'}
                     </CardTitle>
                     <div className="flex gap-2">
                       {!modoEdicao && podeEditar && (
@@ -538,14 +580,30 @@ export default function ConfiguracaoWhatsAppHub({ integracoes, onRecarregar, usu
                           <SelectContent>
                             <SelectItem value="z_api">
                               <span className="flex items-center gap-2">
+                                <Badge className="bg-green-100 text-green-700 text-[10px]">WhatsApp</Badge>
                                 <Badge className="bg-blue-100 text-blue-700 text-[10px]">Z-API</Badge>
                                 API estável e robusta
                               </span>
                             </SelectItem>
                             <SelectItem value="w_api">
                               <span className="flex items-center gap-2">
+                                <Badge className="bg-green-100 text-green-700 text-[10px]">WhatsApp</Badge>
                                 <Badge className="bg-purple-100 text-purple-700 text-[10px]">W-API</Badge>
                                 QR Code e Pairing Code
+                              </span>
+                            </SelectItem>
+                            <SelectItem value="instagram_api">
+                              <span className="flex items-center gap-2">
+                                <Badge className="bg-pink-100 text-pink-700 text-[10px]">Instagram</Badge>
+                                <Badge className="bg-slate-100 text-slate-700 text-[10px]">Meta API</Badge>
+                                Direct Messages
+                              </span>
+                            </SelectItem>
+                            <SelectItem value="facebook_graph_api">
+                              <span className="flex items-center gap-2">
+                                <Badge className="bg-blue-100 text-blue-700 text-[10px]">Facebook</Badge>
+                                <Badge className="bg-slate-100 text-slate-700 text-[10px]">Graph API</Badge>
+                                Messenger
                               </span>
                             </SelectItem>
                           </SelectContent>
@@ -673,10 +731,10 @@ export default function ConfiguracaoWhatsAppHub({ integracoes, onRecarregar, usu
                           <div className="mt-1">{statusBadge(integracaoSelecionada?.status)}</div>
                         </div>
                         <div>
-                          <span className="text-slate-500">Provedor:</span>
-                          <Badge variant="outline" className={`mt-1 ${integracaoSelecionada?.api_provider === 'w_api' ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700'}`}>
-                            {PROVIDERS[integracaoSelecionada?.api_provider]?.nome || 'Z-API'}
-                          </Badge>
+                          <span className="text-slate-500">Canal:</span>
+                          <div className="mt-1">
+                            {getChannelBadge(integracaoSelecionada?.api_provider)}
+                          </div>
                         </div>
                       </div>
                       

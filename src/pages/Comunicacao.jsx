@@ -20,7 +20,7 @@ import { toast } from "sonner";
 import ChatSidebar from "../components/comunicacao/ChatSidebar";
 import ChatWindow from "../components/comunicacao/ChatWindow";
 import ContactInfoPanel from "../components/comunicacao/ContactInfoPanel";
-import ConfiguracaoWhatsAppHub from "../components/comunicacao/ConfiguracaoWhatsAppHub";
+import ConfiguracaoCanaisComunicacao from "../components/comunicacao/ConfiguracaoCanaisComunicacao";
 import DiagnosticoInbound from "../components/comunicacao/DiagnosticoInbound";
 import SearchAndFilter from "../components/comunicacao/SearchAndFilter";
 import EmptyState from "../components/comunicacao/EmptyState";
@@ -1375,7 +1375,7 @@ export default function Comunicacao() {
 
             <TabsContent value="configuracoes" className="h-full m-0 overflow-hidden">
               <div className="h-full overflow-y-auto p-6">
-                <ConfiguracaoWhatsAppHub
+                <ConfiguracaoCanaisComunicacao
                   integracoes={integracoes}
                   usuarioAtual={usuario}
                   onRecarregar={() => queryClient.invalidateQueries({ queryKey: ['integracoes'] })} />
