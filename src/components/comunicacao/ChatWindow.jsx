@@ -1528,17 +1528,19 @@ export default function ChatWindow({
     const isThreadInterna = thread?.thread_type === 'team_internal' || thread?.thread_type === 'sector_group';
     
     if (isThreadInterna) {
+      // ✅ THREADS INTERNAS: mostrar TODAS as mensagens válidas sem filtros rigorosos
       return mensagensFiltradas.filter((m) => {
-        // Mensagens apagadas: mostrar placeholder
+        // Sempre mostrar mensagens especiais
         if (m.metadata?.deleted) return true;
-        // Mensagens de sistema (transferências, etc.)
         if (m.metadata?.is_system_message) return true;
-        // Mensagens otimistas (enviando)
         if (m.metadata?.optimistic) return true;
         
-        // ✅ FILTRO SIMPLIFICADO: conteúdo OU mídia válida
+        // ✅ Aceitar qualquer mensagem com conteúdo ou mídia
         const content = (m.content || '').trim();
-        const hasMidia = m.media_url && m.media_type && m.media_type !== 'none';
+        const hasMidia = m.media_url || (m.media_type && m.media_type !== 'none');
+        
+        // ✅ SEMPRE mostrar se tem channel=interno (sem validações restritivas)
+        if (m.channel === 'interno') return true;
         
         return content.length > 0 || hasMidia;
       });
