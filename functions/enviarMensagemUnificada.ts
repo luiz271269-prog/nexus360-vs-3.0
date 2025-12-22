@@ -58,6 +58,15 @@ Deno.serve(async (req) => {
       }
     }
 
+    // Tentar GoTo
+    if (!connection) {
+      const gotoConns = await base44.entities.GoToIntegration.filter({ id: connectionId });
+      if (gotoConns.length > 0) {
+        connection = gotoConns[0];
+        connectionType = 'goto';
+      }
+    }
+
     if (!connection) {
       return Response.json({ 
         error: 'Conexão não encontrada ou inativa',
@@ -82,6 +91,8 @@ Deno.serve(async (req) => {
       destinationId = contact.instagram_id || contact.metadata?.social_ids?.instagram;
     } else if (connectionType === 'facebook') {
       destinationId = contact.facebook_id || contact.metadata?.social_ids?.facebook;
+    } else if (connectionType === 'goto') {
+      destinationId = contact.telefone; // E.164 phone number
     }
 
     if (!destinationId) {
@@ -102,9 +113,10 @@ Deno.serve(async (req) => {
       content: content || '',
       media_type: mediaType || 'none',
       media_url: mediaUrl || null,
-      channel: connectionType,
+      channel: connectionType === 'goto' ? 'phone' : connectionType,
       provider: connectionType === 'whatsapp' ? connection.api_provider : 
-                connectionType === 'instagram' ? 'instagram_api' : 'facebook_graph_api',
+                connectionType === 'instagram' ? 'instagram_api' : 
+                connectionType === 'facebook' ? 'facebook_graph_api' : 'goto_phone',
       status: 'enviando',
       reply_to_message_id: replyToMessageId || null,
       metadata: {
@@ -163,9 +175,25 @@ Deno.serve(async (req) => {
           break;
         }
 
+        // ═══ GOTO (telefonia SMS) ═══
+        case 'goto': {
+          // Restrição: Apenas texto (SMS)
+          if (mediaType && mediaType !== 'text' && mediaType !== 'none') {
+            throw new Error('GoTo/SMS: apenas texto suportado no momento');
+          }
+
+          result = await base44.functions.invoke('sendGoToSms', {
+            recipientPhone: destinationId,
+            content: content,
+            accessToken: connection.access_token,
+            smsFromNumberId: connection.sms_from_number_id
+          });
+          break;
+        }
+
         default:
           throw new Error(`Canal não suportado: ${connectionType}`);
-      }
+        }
 
       // 6) Atualizar Message com sucesso
       await base44.entities.Message.update(newMessage.id, {

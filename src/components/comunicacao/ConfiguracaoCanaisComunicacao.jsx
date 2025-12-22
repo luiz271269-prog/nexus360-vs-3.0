@@ -81,6 +81,16 @@ const PROVIDERS = {
     testarFn: null,
     icon: MessageCircle,
     tipo: "facebook"
+  },
+  goto_phone: {
+    nome: "GoTo (Telefonia)",
+    cor: "teal",
+    baseUrl: "https://api.goto.com",
+    requerClientToken: false,
+    webhookFn: "gotoWebhook",
+    testarFn: null,
+    icon: MessageCircle,
+    tipo: "phone"
   }
 };
 
@@ -430,7 +440,8 @@ export default function ConfiguracaoCanaisComunicacao({ integracoes, onRecarrega
     const colors = {
       whatsapp: "bg-green-100 text-green-700 border-green-300",
       instagram: "bg-pink-100 text-pink-700 border-pink-300",
-      facebook: "bg-blue-100 text-blue-700 border-blue-300"
+      facebook: "bg-blue-100 text-blue-700 border-blue-300",
+      phone: "bg-teal-100 text-teal-700 border-teal-300"
     };
     
     return (
@@ -604,6 +615,13 @@ export default function ConfiguracaoCanaisComunicacao({ integracoes, onRecarrega
                                 <Badge className="bg-blue-100 text-blue-700 text-[10px]">Facebook</Badge>
                                 <Badge className="bg-slate-100 text-slate-700 text-[10px]">Graph API</Badge>
                                 Messenger
+                              </span>
+                            </SelectItem>
+                            <SelectItem value="goto_phone">
+                              <span className="flex items-center gap-2">
+                                <Badge className="bg-teal-100 text-teal-700 text-[10px]">Telefonia</Badge>
+                                <Badge className="bg-slate-100 text-slate-700 text-[10px]">GoTo</Badge>
+                                SMS + Chamadas
                               </span>
                             </SelectItem>
                           </SelectContent>
