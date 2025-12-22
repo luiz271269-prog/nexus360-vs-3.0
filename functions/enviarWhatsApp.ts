@@ -17,7 +17,7 @@ const MEDIA_CONFIG = {
   image: { endpoint: 'send-image', zapiField: 'image', wapiField: 'image' },
   video: { endpoint: 'send-video', zapiField: 'video', wapiField: 'video' },
   document: { endpoint: 'send-document', zapiField: 'document', wapiField: 'document' },
-  audio: { endpoint: 'send-audio', zapiField: 'audio', wapiField: 'url' } // W-API usa 'url' para áudio
+  audio: { endpoint: 'send-audio', zapiField: 'audio', wapiField: 'audio' } // W-API usa 'audio' para áudio
 };
 
 // Mapeamento de extensões para MIME types (Z-API)
@@ -328,12 +328,11 @@ Deno.serve(async (req) => {
     // ========== ÁUDIO ==========
     else if (audio_url) {
       if (isWAPI) {
-        // W-API: usar send-audio com campo 'url' (não 'audio')
-        // Documentação W-API: https://docs.w-api.app/
+        // W-API: usar send-audio com campo 'audio' (corrigido)
         endpoint = `${baseUrl}/message/send-audio?instanceId=${instanceId}`;
         body = {
           phone: numeroFormatado,
-          url: audio_url,         // ✅ W-API usa 'url' para áudio
+          audio: audio_url,       // ✅ CORRIGIDO: W-API usa 'audio' para áudio
           delayMessage: 1
         };
         
