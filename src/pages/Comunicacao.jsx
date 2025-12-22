@@ -51,6 +51,7 @@ import BibliotecaAutomacoes from "../components/automacao/BibliotecaAutomacoes";
 import CentralControleOperacional from "../components/comunicacao/CentralControleOperacional";
 import DiagnosticoCirurgicoEmbed from "../components/comunicacao/DiagnosticoCirurgicoEmbed";
 import GerenciadorEtiquetasUnificado from "../components/comunicacao/GerenciadorEtiquetasUnificado";
+import GoToConnectionSetup from "../components/comunicacao/GoToConnectionSetup";
 
 
 export default function Comunicacao() {
@@ -193,6 +194,18 @@ export default function Comunicacao() {
     retryDelay: 1000,
     onError: (error) => {
       console.error('[Comunicacao] Erro ao carregar integrações:', error);
+    }
+  });
+
+  const { data: gotoIntegracoes = [] } = useQuery({
+    queryKey: ['goto-integrations'],
+    queryFn: () => base44.entities.GoToIntegration.list(),
+    staleTime: 10 * 60 * 1000,
+    cacheTime: 15 * 60 * 1000,
+    retry: 2,
+    retryDelay: 1000,
+    onError: (error) => {
+      console.error('[Comunicacao] Erro ao carregar GoTo:', error);
     }
   });
 
@@ -1374,12 +1387,15 @@ export default function Comunicacao() {
             </TabsContent>
 
             <TabsContent value="configuracoes" className="h-full m-0 overflow-hidden">
-              <div className="h-full overflow-y-auto p-6">
+              <div className="h-full overflow-y-auto p-6 space-y-6">
                 <ConfiguracaoCanaisComunicacao
                   integracoes={integracoes}
                   usuarioAtual={usuario}
                   onRecarregar={() => queryClient.invalidateQueries({ queryKey: ['integracoes'] })} />
 
+                <GoToConnectionSetup
+                  integracoes={gotoIntegracoes}
+                  onRecarregar={() => queryClient.invalidateQueries({ queryKey: ['goto-integrations'] })} />
               </div>
             </TabsContent>
           </div>
