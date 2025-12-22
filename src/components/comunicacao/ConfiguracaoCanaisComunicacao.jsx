@@ -65,6 +65,9 @@ import {
 
 import DiagnosticoZAPICentralizado from "./DiagnosticoZAPICentralizado";
 import { getWebhookUrlProducao, getWebhookUrlAmbienteAtual } from "../lib/webhookUtils";
+import InstagramConnectionSetup from "./InstagramConnectionSetup";
+import FacebookConnectionSetup from "./FacebookConnectionSetup";
+import GoToConnectionSetup from "./GoToConnectionSetup";
 
 // Configuração dos provedores
 const PROVIDERS = {
@@ -481,7 +484,26 @@ export default function ConfiguracaoCanaisComunicacao({ integracoes, onRecarrega
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
+      {/* Instagram */}
+      <InstagramConnectionSetup 
+        integracoes={[]} 
+        onRecarregar={onRecarregar}
+      />
+
+      {/* Facebook */}
+      <FacebookConnectionSetup 
+        integracoes={[]} 
+        onRecarregar={onRecarregar}
+      />
+
+      {/* GoTo */}
+      <GoToConnectionSetup 
+        integracoes={[]} 
+        onRecarregar={onRecarregar}
+      />
+
+      {/* WhatsApp */}
       <Card className="bg-gradient-to-r from-green-50 to-emerald-50 border-green-200">
         <CardContent className="pt-6">
           <div className="flex items-start justify-between">
