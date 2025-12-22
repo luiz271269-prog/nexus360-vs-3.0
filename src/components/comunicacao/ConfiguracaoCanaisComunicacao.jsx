@@ -620,37 +620,37 @@ export default function ConfiguracaoCanaisComunicacao({ integracoes, onRecarrega
                           <SelectContent>
                             <SelectItem value="z_api">
                               <span className="flex items-center gap-2">
-                                <Badge className="bg-green-100 text-green-700 text-[10px]">WhatsApp</Badge>
+                                <div className="w-4 h-4 text-green-600"><WhatsAppLogo /></div>
                                 <Badge className="bg-blue-100 text-blue-700 text-[10px]">Z-API</Badge>
-                                API estável e robusta
+                                <span className="text-xs text-slate-600">API estável e robusta</span>
                               </span>
                             </SelectItem>
                             <SelectItem value="w_api">
                               <span className="flex items-center gap-2">
-                                <Badge className="bg-green-100 text-green-700 text-[10px]">WhatsApp</Badge>
+                                <div className="w-4 h-4 text-green-600"><WhatsAppLogo /></div>
                                 <Badge className="bg-purple-100 text-purple-700 text-[10px]">W-API</Badge>
-                                QR Code e Pairing Code
+                                <span className="text-xs text-slate-600">QR Code e Pairing</span>
                               </span>
                             </SelectItem>
                             <SelectItem value="instagram_api">
                               <span className="flex items-center gap-2">
-                                <Badge className="bg-pink-100 text-pink-700 text-[10px]">Instagram</Badge>
+                                <div className="w-4 h-4 text-pink-600"><InstagramLogo /></div>
                                 <Badge className="bg-slate-100 text-slate-700 text-[10px]">Meta API</Badge>
-                                Direct Messages
+                                <span className="text-xs text-slate-600">Direct Messages</span>
                               </span>
                             </SelectItem>
                             <SelectItem value="facebook_graph_api">
                               <span className="flex items-center gap-2">
-                                <Badge className="bg-blue-100 text-blue-700 text-[10px]">Facebook</Badge>
+                                <div className="w-4 h-4 text-blue-600"><FacebookLogo /></div>
                                 <Badge className="bg-slate-100 text-slate-700 text-[10px]">Graph API</Badge>
-                                Messenger
+                                <span className="text-xs text-slate-600">Messenger</span>
                               </span>
                             </SelectItem>
                             <SelectItem value="goto_phone">
                               <span className="flex items-center gap-2">
-                                <Badge className="bg-teal-100 text-teal-700 text-[10px]">Telefonia</Badge>
-                                <Badge className="bg-slate-100 text-slate-700 text-[10px]">GoTo</Badge>
-                                SMS + Chamadas
+                                <div className="w-5 h-4"><GoToLogo /></div>
+                                <Badge className="bg-slate-100 text-slate-700 text-[10px]">Connect</Badge>
+                                <span className="text-xs text-slate-600">SMS + Chamadas</span>
                               </span>
                             </SelectItem>
                           </SelectContent>
