@@ -26,14 +26,17 @@ Deno.serve(async (req) => {
     }
 
     const url = new URL(req.url);
-    const redirectUri = `${url.origin}/api/functions/gotoOAuthCallback`;
+    const redirectUri = `${url.origin}/functions/gotoOAuthCallback`;
 
-    // Scopes necessários para SMS e eventos de chamada
+    // Scopes granulares necessários para SMS e eventos de chamada
     const scopes = [
-      'messaging',           // Enviar/receber SMS
-      'call-events:read',    // Receber eventos de chamadas
-      'contacts:read',       // Ler contatos (opcional)
-      'users:read'           // Informações da conta
+      'messaging.v1.send',
+      'messaging.v1.read',
+      'messaging.v1.notifications.manage',
+      'call-events.v1.events.read',
+      'call-events.v1.notifications.manage',
+      'users.v1.read',
+      'users.v1.lines.read'
     ].join(' ');
 
     // State pode conter integration_id para atualizar existente

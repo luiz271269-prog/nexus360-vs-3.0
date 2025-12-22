@@ -26,7 +26,7 @@ Deno.serve(async (req) => {
     // Credenciais OAuth do GoTo (armazenar como secrets)
     const clientId = Deno.env.get('GOTO_CLIENT_ID');
     const clientSecret = Deno.env.get('GOTO_CLIENT_SECRET');
-    const redirectUri = `${url.origin}/api/functions/gotoOAuthCallback`;
+    const redirectUri = `${url.origin}/functions/gotoOAuthCallback`;
 
     if (!clientId || !clientSecret) {
       return Response.json({ 

@@ -49,7 +49,7 @@ Deno.serve(async (req) => {
     }
 
     const url = new URL(req.url);
-    const webhookUrl = `${url.origin}/api/functions/gotoWebhook`;
+    const webhookUrl = `${url.origin}/functions/gotoWebhook`;
 
     // Criar notification channel
     const channelResponse = await fetch('https://api.goto.com/messaging/v1/notification-channels', {
