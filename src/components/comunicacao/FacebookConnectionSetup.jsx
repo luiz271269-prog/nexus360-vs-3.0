@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { base44 } from '@/api/base44Client';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -9,14 +10,14 @@ import {
   AlertCircle, 
   Loader2, 
   ExternalLink,
-  RefreshCw,
   Trash2,
-  Webhook
+  Webhook,
+  Edit2
 } from 'lucide-react';
 import { toast } from 'sonner';
 
 const FacebookLogo = () => (
-  <svg viewBox="0 0 24 24" className="w-6 h-6" fill="currentColor">
+  <svg viewBox="0 0 24 24" className="w-5 h-5" fill="currentColor">
     <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
   </svg>
 );
@@ -24,6 +25,8 @@ const FacebookLogo = () => (
 export default function FacebookConnectionSetup({ integracoes = [], onRecarregar }) {
   const [connecting, setConnecting] = useState(false);
   const [registeringWebhook, setRegisteringWebhook] = useState(null);
+  const [editingNameId, setEditingNameId] = useState(null);
+  const [editingName, setEditingName] = useState('');
 
   const handleConnect = async () => {
     setConnecting(true);
@@ -78,6 +81,31 @@ export default function FacebookConnectionSetup({ integracoes = [], onRecarregar
     }
   };
 
+  const handleUpdateName = async (integrationId) => {
+    if (!editingName.trim()) {
+      toast.error('Nome não pode estar vazio');
+      return;
+    }
+
+    try {
+      await base44.entities.FacebookIntegration.update(integrationId, { 
+        nome_instancia: editingName.trim() 
+      });
+      toast.success('✅ Nome atualizado!');
+      setEditingNameId(null);
+      setEditingName('');
+      if (onRecarregar) await onRecarregar();
+    } catch (error) {
+      console.error('[FACEBOOK UPDATE] Erro:', error);
+      toast.error('Erro ao atualizar nome');
+    }
+  };
+
+  const startEditingName = (integration) => {
+    setEditingNameId(integration.id);
+    setEditingName(integration.nome_instancia || '');
+  };
+
   return (
     <div className="space-y-6">
       <Card className="bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-200">
@@ -130,16 +158,73 @@ export default function FacebookConnectionSetup({ integracoes = [], onRecarregar
         </AlertDescription>
       </Alert>
 
-      {integracoes.length > 0 && (
+      {integracoes.length === 0 ? (
+        <Card className="border-dashed">
+          <CardContent className="py-12 text-center">
+            <div className="flex justify-center mb-3">
+              <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center">
+                <FacebookLogo />
+              </div>
+            </div>
+            <p className="text-sm text-slate-600 font-medium">Nenhuma conexão Facebook</p>
+            <p className="text-xs text-slate-400 mt-1">Clique em "Conectar Facebook" acima para iniciar</p>
+          </CardContent>
+        </Card>
+      ) : (
         <div className="grid gap-4">
           {integracoes.map((integracao) => (
             <Card key={integracao.id} className="border-blue-200">
               <CardHeader className="pb-3">
                 <div className="flex items-center justify-between">
-                  <CardTitle className="text-base flex items-center gap-2">
-                    <FacebookLogo />
-                    {integracao.nome_instancia}
-                  </CardTitle>
+                  {editingNameId === integracao.id ? (
+                    <div className="flex items-center gap-2 flex-1">
+                      <Input
+                        value={editingName}
+                        onChange={(e) => setEditingName(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') handleUpdateName(integracao.id);
+                          if (e.key === 'Escape') {
+                            setEditingNameId(null);
+                            setEditingName('');
+                          }
+                        }}
+                        className="text-sm h-8"
+                        placeholder="Nome da conexão"
+                        autoFocus
+                      />
+                      <Button
+                        size="sm"
+                        onClick={() => handleUpdateName(integracao.id)}
+                        className="h-8"
+                      >
+                        Salvar
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => {
+                          setEditingNameId(null);
+                          setEditingName('');
+                        }}
+                        className="h-8"
+                      >
+                        Cancelar
+                      </Button>
+                    </div>
+                  ) : (
+                    <CardTitle className="text-base flex items-center gap-2 flex-1">
+                      <FacebookLogo />
+                      <span>{integracao.nome_instancia || 'Sem Nome'}</span>
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        onClick={() => startEditingName(integracao)}
+                        className="h-6 w-6 ml-1"
+                      >
+                        <Edit2 className="w-3 h-3 text-slate-400" />
+                      </Button>
+                    </CardTitle>
+                  )}
                   <div className="flex items-center gap-2">
                     {integracao.status === 'conectado' ? (
                       <Badge className="bg-green-100 text-green-700">

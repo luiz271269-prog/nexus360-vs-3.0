@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { base44 } from '@/api/base44Client';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -9,14 +10,14 @@ import {
   AlertCircle, 
   Loader2, 
   ExternalLink,
-  RefreshCw,
   Trash2,
-  Webhook
+  Webhook,
+  Edit2
 } from 'lucide-react';
 import { toast } from 'sonner';
 
 const InstagramLogo = () => (
-  <svg viewBox="0 0 24 24" className="w-6 h-6" fill="currentColor">
+  <svg viewBox="0 0 24 24" className="w-5 h-5" fill="currentColor">
     <path d="M12 0C8.74 0 8.333.015 7.053.072 5.775.132 4.905.333 4.14.63c-.789.306-1.459.717-2.126 1.384S.935 3.35.63 4.14C.333 4.905.131 5.775.072 7.053.012 8.333 0 8.74 0 12s.015 3.667.072 4.947c.06 1.277.261 2.148.558 2.913.306.788.717 1.459 1.384 2.126.667.666 1.336 1.079 2.126 1.384.766.296 1.636.499 2.913.558C8.333 23.988 8.74 24 12 24s3.667-.015 4.947-.072c1.277-.06 2.148-.262 2.913-.558.788-.306 1.459-.718 2.126-1.384.666-.667 1.079-1.335 1.384-2.126.296-.765.499-1.636.558-2.913.06-1.28.072-1.687.072-4.947s-.015-3.667-.072-4.947c-.06-1.277-.262-2.149-.558-2.913-.306-.789-.718-1.459-1.384-2.126C21.319 1.347 20.651.935 19.86.63c-.765-.297-1.636-.499-2.913-.558C15.667.012 15.26 0 12 0zm0 2.16c3.203 0 3.585.016 4.85.071 1.17.055 1.805.249 2.227.415.562.217.96.477 1.382.896.419.42.679.819.896 1.381.164.422.36 1.057.413 2.227.057 1.266.07 1.646.07 4.85s-.015 3.585-.074 4.85c-.061 1.17-.256 1.805-.421 2.227-.224.562-.479.96-.899 1.382-.419.419-.824.679-1.38.896-.42.164-1.065.36-2.235.413-1.274.057-1.649.07-4.859.07-3.211 0-3.586-.015-4.859-.074-1.171-.061-1.816-.256-2.236-.421-.569-.224-.96-.479-1.379-.899-.421-.419-.69-.824-.9-1.38-.165-.42-.359-1.065-.42-2.235-.045-1.26-.061-1.649-.061-4.844 0-3.196.016-3.586.061-4.861.061-1.17.255-1.814.42-2.234.21-.57.479-.96.9-1.381.419-.419.81-.689 1.379-.898.42-.166 1.051-.361 2.221-.421 1.275-.045 1.65-.06 4.859-.06l.045.03zm0 3.678c-3.405 0-6.162 2.76-6.162 6.162 0 3.405 2.76 6.162 6.162 6.162 3.405 0 6.162-2.76 6.162-6.162 0-3.405-2.76-6.162-6.162-6.162zM12 16c-2.21 0-4-1.79-4-4s1.79-4 4-4 4 1.79 4 4-1.79 4-4 4zm7.846-10.405c0 .795-.646 1.44-1.44 1.44-.795 0-1.44-.646-1.44-1.44 0-.794.646-1.439 1.44-1.439.793-.001 1.44.645 1.44 1.439z"/>
   </svg>
 );
@@ -24,6 +25,8 @@ const InstagramLogo = () => (
 export default function InstagramConnectionSetup({ integracoes = [], onRecarregar }) {
   const [connecting, setConnecting] = useState(false);
   const [registeringWebhook, setRegisteringWebhook] = useState(null);
+  const [editingNameId, setEditingNameId] = useState(null);
+  const [editingName, setEditingName] = useState('');
 
   const handleConnect = async () => {
     setConnecting(true);
@@ -78,6 +81,31 @@ export default function InstagramConnectionSetup({ integracoes = [], onRecarrega
     }
   };
 
+  const handleUpdateName = async (integrationId) => {
+    if (!editingName.trim()) {
+      toast.error('Nome não pode estar vazio');
+      return;
+    }
+
+    try {
+      await base44.entities.InstagramIntegration.update(integrationId, { 
+        nome_instancia: editingName.trim() 
+      });
+      toast.success('✅ Nome atualizado!');
+      setEditingNameId(null);
+      setEditingName('');
+      if (onRecarregar) await onRecarregar();
+    } catch (error) {
+      console.error('[INSTAGRAM UPDATE] Erro:', error);
+      toast.error('Erro ao atualizar nome');
+    }
+  };
+
+  const startEditingName = (integration) => {
+    setEditingNameId(integration.id);
+    setEditingName(integration.nome_instancia || '');
+  };
+
   return (
     <div className="space-y-6">
       <Card className="bg-gradient-to-r from-pink-50 to-purple-50 border-pink-200">
@@ -130,16 +158,73 @@ export default function InstagramConnectionSetup({ integracoes = [], onRecarrega
         </AlertDescription>
       </Alert>
 
-      {integracoes.length > 0 && (
+      {integracoes.length === 0 ? (
+        <Card className="border-dashed">
+          <CardContent className="py-12 text-center">
+            <div className="flex justify-center mb-3">
+              <div className="w-16 h-16 bg-pink-100 rounded-full flex items-center justify-center">
+                <InstagramLogo />
+              </div>
+            </div>
+            <p className="text-sm text-slate-600 font-medium">Nenhuma conexão Instagram</p>
+            <p className="text-xs text-slate-400 mt-1">Clique em "Conectar Instagram" acima para iniciar</p>
+          </CardContent>
+        </Card>
+      ) : (
         <div className="grid gap-4">
           {integracoes.map((integracao) => (
             <Card key={integracao.id} className="border-pink-200">
               <CardHeader className="pb-3">
                 <div className="flex items-center justify-between">
-                  <CardTitle className="text-base flex items-center gap-2">
-                    <InstagramLogo />
-                    {integracao.nome_instancia}
-                  </CardTitle>
+                  {editingNameId === integracao.id ? (
+                    <div className="flex items-center gap-2 flex-1">
+                      <Input
+                        value={editingName}
+                        onChange={(e) => setEditingName(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') handleUpdateName(integracao.id);
+                          if (e.key === 'Escape') {
+                            setEditingNameId(null);
+                            setEditingName('');
+                          }
+                        }}
+                        className="text-sm h-8"
+                        placeholder="Nome da conexão"
+                        autoFocus
+                      />
+                      <Button
+                        size="sm"
+                        onClick={() => handleUpdateName(integracao.id)}
+                        className="h-8"
+                      >
+                        Salvar
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => {
+                          setEditingNameId(null);
+                          setEditingName('');
+                        }}
+                        className="h-8"
+                      >
+                        Cancelar
+                      </Button>
+                    </div>
+                  ) : (
+                    <CardTitle className="text-base flex items-center gap-2 flex-1">
+                      <InstagramLogo />
+                      <span>{integracao.nome_instancia || 'Sem Nome'}</span>
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        onClick={() => startEditingName(integracao)}
+                        className="h-6 w-6 ml-1"
+                      >
+                        <Edit2 className="w-3 h-3 text-slate-400" />
+                      </Button>
+                    </CardTitle>
+                  )}
                   <div className="flex items-center gap-2">
                     {integracao.status === 'conectado' ? (
                       <Badge className="bg-green-100 text-green-700">
