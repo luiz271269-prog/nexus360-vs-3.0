@@ -412,9 +412,14 @@ export default function InternalMessageComposer({ open, onClose, currentUser, on
                         {(usuario.full_name || usuario.email || '?').charAt(0).toUpperCase()}
                       </div>
                       <div className="flex-1 min-w-0">
-                        <div className="text-xs font-medium text-slate-800 truncate">
-                          {usuario.full_name || usuario.email}
-                        </div>
+                        <UsuarioDisplay 
+                          usuario={usuario}
+                          showRole={false}
+                          showSector={false}
+                          showAvatar={false}
+                          variant="name-only"
+                          className="text-xs font-medium text-slate-800 truncate"
+                        />
                         <div className="text-[10px] text-slate-500 truncate">
                           {setor}
                         </div>
@@ -478,12 +483,17 @@ export default function InternalMessageComposer({ open, onClose, currentUser, on
                             {(usuario.full_name || usuario.email || '?').charAt(0).toUpperCase()}
                           </div>
                           <div className="flex-1 min-w-0">
-                            <div className="text-xs font-medium text-slate-700 truncate">
-                              {usuario.full_name || usuario.email}
-                            </div>
+                            <UsuarioDisplay 
+                              usuario={usuario}
+                              showRole={false}
+                              showSector={false}
+                              showAvatar={false}
+                              variant="name-only"
+                              className="text-xs font-medium text-slate-700 truncate"
+                            />
                             <div className="flex items-center gap-1 flex-wrap mt-0.5">
                               <span className={`inline-flex items-center px-1 py-0.5 rounded-full text-[8px] font-medium text-white ${setorCfg.cor}`}>
-                                {setorCfg.emoji}
+                                {setorCfg.emoji} {setorCfg.label}
                               </span>
                               <span className={`inline-flex items-center px-1 py-0.5 rounded-full text-[8px] font-medium text-slate-600 bg-slate-100`}>
                                 {nivelCfg.label}
