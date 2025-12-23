@@ -892,23 +892,6 @@ export default React.memo(function MessageBubble({
                         </div>
                     }
 
-                      {/* ✅ ATENDENTE + SETOR */}
-                      {(() => {
-                        const atendenteMsg = atendentes.find(a => a.id === message.sender_id);
-                        if (atendenteMsg && (thread?.thread_type === 'team_internal' || thread?.thread_type === 'sector_group' || message.channel === 'interno')) {
-                          const nomeAtendente = (atendenteMsg.display_name || atendenteMsg.full_name || '').split(' ')[0];
-                          const setorAtendente = atendenteMsg.attendant_sector;
-                          if (nomeAtendente || setorAtendente) {
-                            return (
-                              <span className="text-[9px] px-1.5 py-0.5 rounded bg-slate-200 text-slate-700 mr-1">
-                                {nomeAtendente}{setorAtendente ? ` (${setorAtendente})` : ''}
-                              </span>
-                            );
-                          }
-                        }
-                        return null;
-                      })()}
-
                       <span className="text-[10px] text-slate-500">
                         {format(new Date(message.sent_at || message.created_date), 'dd/MM HH:mm')}
                       </span>
@@ -959,42 +942,6 @@ export default React.memo(function MessageBubble({
 
                 </div>
                 <div className="flex items-center justify-end gap-1 mt-1 flex-wrap">
-                  {message?.categorias && message.categorias.length > 0 &&
-                <div className="flex gap-1 mr-1 flex-wrap">
-                      {message.categorias.slice(0, 3).map((cat) => {
-                    const config = getCategoriaConfig(cat, categoriasDB);
-                    return (
-                      <span
-                        key={cat}
-                        className={cn(
-                          "text-[9px] px-1.5 py-0.5 rounded flex items-center gap-1",
-                          `${config.color} text-white`
-                        )}>
-
-                            {config.emoji} {config.label}
-                          </span>);
-
-                  })}
-                    </div>
-                }
-
-                  {/* ✅ ATENDENTE + SETOR */}
-                  {(() => {
-                    const atendenteMsg = atendentes.find(a => a.id === message.sender_id);
-                    if (atendenteMsg && (thread?.thread_type === 'team_internal' || thread?.thread_type === 'sector_group' || message.channel === 'interno')) {
-                      const nomeAtendente = (atendenteMsg.display_name || atendenteMsg.full_name || '').split(' ')[0];
-                      const setorAtendente = atendenteMsg.attendant_sector;
-                      if (nomeAtendente || setorAtendente) {
-                        return (
-                          <span className="text-[9px] px-1.5 py-0.5 rounded bg-slate-200 text-slate-700">
-                            {nomeAtendente}{setorAtendente ? ` (${setorAtendente})` : ''}
-                          </span>
-                        );
-                      }
-                    }
-                    return null;
-                  })()}
-
                   <span className="text-[10px] text-slate-500">
                     {format(new Date(message.sent_at || message.created_date), 'dd/MM HH:mm')}
                   </span>
@@ -1071,49 +1018,14 @@ export default React.memo(function MessageBubble({
                 </button>
                 
                 <div className={cn("flex items-center justify-end gap-1 px-3 pb-2 pt-1 flex-wrap")}>
-                  {message?.categorias && message.categorias.length > 0 &&
-                  <div className="flex gap-1 mr-1 flex-wrap">
-                      {message.categorias.slice(0, 3).map((cat) => {
-                        const config = getCategoriaConfig(cat, categoriasDB);
-                        return (
-                          <span
-                            key={cat}
-                            className={cn(
-                              "text-[9px] px-1.5 py-0.5 rounded flex items-center gap-1",
-                              `${config.color} text-white`
-                            )}
-                          >
-                            {config.emoji} {config.label}
-                          </span>
-                        );
-                      })}
-                    </div>
-                  }
-
-                  {(() => {
-                    const atendenteMsg = atendentes.find(a => a.id === message.sender_id);
-                    if (atendenteMsg && (thread?.thread_type === 'team_internal' || thread?.thread_type === 'sector_group' || message.channel === 'interno')) {
-                      const nomeAtendente = (atendenteMsg.display_name || atendenteMsg.full_name || '').split(' ')[0];
-                      const setorAtendente = atendenteMsg.attendant_sector;
-                      if (nomeAtendente || setorAtendente) {
-                        return (
-                          <span className="text-[9px] px-1.5 py-0.5 rounded bg-slate-200 text-slate-700">
-                            {nomeAtendente}{setorAtendente ? ` (${setorAtendente})` : ''}
-                          </span>
-                        );
-                      }
-                    }
-                    return null;
-                  })()}
-
                   <span className="text-[10px] text-slate-500">
                     {format(new Date(message.sent_at || message.created_date), 'dd/MM HH:mm')}
                   </span>
-                  {isOwn && message.status === 'enviando' && <Clock className="w-3 h-3 text-white/50" />}
-                  {isOwn && message.status === 'enviada' && <Check className="w-3.5 h-3.5 text-white/60" />}
-                  {isOwn && message.status === 'entregue' && <CheckCheck className="w-3.5 h-3.5 text-white/60" />}
-                  {isOwn && message.status === 'lida' && <CheckCheck className="w-3.5 h-3.5 text-[#53bdeb]" />}
-                  {isOwn && message.status === 'falhou' && <AlertCircle className="w-3.5 h-3.5 text-red-400" />}
+                  {isOwn && message.status === 'enviando' && <Clock className="w-3 h-3 text-slate-400" />}
+                  {isOwn && message.status === 'enviada' && <Check className="w-3.5 h-3.5 text-slate-500" />}
+                  {isOwn && message.status === 'entregue' && <CheckCheck className="w-3.5 h-3.5 text-slate-600" />}
+                  {isOwn && message.status === 'lida' && <CheckCheck className="w-3.5 h-3.5 text-blue-500" />}
+                  {isOwn && message.status === 'falhou' && <AlertCircle className="w-3.5 h-3.5 text-red-500" />}
                 </div>
               </div>
             }
@@ -1163,29 +1075,6 @@ export default React.memo(function MessageBubble({
                 </div>
 
                 <div className="flex items-center justify-end gap-1 mt-0.5 flex-wrap">
-                {!isOwn && message.metadata?.canal_nome && (
-                  <span className={cn("text-[10px] px-1.5 py-0.5 rounded bg-green-100 text-green-700")}>
-                    📱 {message.metadata.canal_nome}
-                  </span>
-                )}
-
-                {/* ✅ MOSTRAR ATENDENTE + SETOR */}
-                {(() => {
-                  const atendenteMsg = atendentes.find(a => a.id === message.sender_id);
-                  if (atendenteMsg && (thread?.thread_type === 'team_internal' || thread?.thread_type === 'sector_group' || message.channel === 'interno')) {
-                    const nomeAtendente = (atendenteMsg.display_name || atendenteMsg.full_name || '').split(' ')[0];
-                    const setorAtendente = atendenteMsg.attendant_sector;
-                    if (nomeAtendente || setorAtendente) {
-                      return (
-                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-200 text-slate-700">
-                          {nomeAtendente}{setorAtendente ? ` (${setorAtendente})` : ''}
-                        </span>
-                      );
-                    }
-                  }
-                  return null;
-                })()}
-
                 <span className="text-[11px] text-slate-500">
                   {format(new Date(message.sent_at || message.created_date), 'dd/MM HH:mm')}
                 </span>
