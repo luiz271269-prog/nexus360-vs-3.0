@@ -701,15 +701,15 @@ export default React.memo(function MessageBubble({
             </div>
           }
 
-          <div className={cn(
-            "rounded-lg relative shadow-sm",
-            // 🎨 CORES TIPO WHATSAPP: Internas (azul claro suave) vs Externas (verde claro)
-            thread?.thread_type === 'team_internal' || thread?.thread_type === 'sector_group' || message.channel === 'interno' ?
-            isOwn ? "bg-[#cfe9ff] border border-blue-200" : "bg-white border border-slate-200" :
-            isOwn ? "bg-[#d9fdd3] border border-green-200" : "bg-white border border-slate-200",
-            selecionada ? 'ring-2 ring-blue-500' : '',
-            message.media_url && message.media_type !== 'none' ? '' : 'px-3 py-1.5'
-          )}
+          <div className="bg-white px-1 rounded-lg relative shadow-sm border border-slate-200"
+
+
+
+
+
+
+
+
           style={{
             borderRadius: isOwn ? '8px 0 8px 8px' : '0 8px 8px 8px'
           }}>
