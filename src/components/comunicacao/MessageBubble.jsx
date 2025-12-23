@@ -698,10 +698,10 @@ export default React.memo(function MessageBubble({
 
           <div className={cn(
             "rounded-lg relative shadow-sm",
-            // ✅ CORES PROFISSIONAIS: Internas (azul claro/cinza) vs Externas (gradiente discreto e claro)
+            // 🎨 CORES TIPO WHATSAPP: Internas (azul claro suave) vs Externas (verde claro)
             thread?.thread_type === 'team_internal' || thread?.thread_type === 'sector_group' || message.channel === 'interno'
-              ? (isOwn ? "bg-gradient-to-br from-cyan-500 to-blue-500" : "bg-slate-50 border border-slate-200")
-              : (isOwn ? "bg-gradient-to-br from-sky-100 via-blue-50 to-blue-100 border border-blue-200" : "bg-white"),
+              ? (isOwn ? "bg-[#cfe9ff] border border-blue-200" : "bg-white border border-slate-200")
+              : (isOwn ? "bg-[#d9fdd3] border border-green-200" : "bg-white border border-slate-200"),
             selecionada ? 'ring-2 ring-blue-500' : '',
             message.media_url && message.media_type !== 'none' ? '' : 'px-3 py-1.5'
           )}
@@ -871,10 +871,7 @@ export default React.memo(function MessageBubble({
                   </div>
               }
                 {message.media_caption &&
-              <div className={cn(
-                "px-4 py-2 break-words whitespace-pre-wrap",
-                isOwn ? "text-slate-800" : "text-slate-800"
-              )} style={{ wordBreak: 'break-word', overflowWrap: 'anywhere' }}>
+              <div className="px-4 py-2 break-words whitespace-pre-wrap text-slate-800" style={{ wordBreak: 'break-word', overflowWrap: 'anywhere' }}>
                     <p className="text-sm leading-relaxed" style={{ fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Color Emoji", sans-serif' }}>
                       {message.media_caption}
                     </p>
@@ -929,31 +926,23 @@ export default React.memo(function MessageBubble({
             {message?.media_type === 'audio' && (message?.media_url || message.content?.includes('[Áudio]')) &&
             <div className={cn(
               "px-2 py-1.5 min-w-[160px] max-w-[240px]",
-              // ✅ COR DO TEXTO ÁUDIO: Internas vs Externas
-              thread?.thread_type === 'team_internal' || thread?.thread_type === 'sector_group' || message.channel === 'interno'
-                ? (isOwn ? "text-white" : "text-slate-700")
-                : (isOwn ? "text-white" : "text-slate-800")
+              // 🎨 Texto escuro em fundos claros
+              "text-slate-800"
             )}>
                 <div className="flex items-center gap-2">
                   <div className={cn(
                   "w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0",
-                  isOwn ? "bg-white/20" : "bg-green-500"
+                  "bg-green-500"
                 )}>
-                    <Play className={cn("w-4 h-4", isOwn ? "text-white" : "text-white")} />
+                    <Play className="w-4 h-4 text-white" />
                   </div>
                   {!message?.media_url ? (
-                    <div className={cn(
-                      "flex-1 flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs",
-                      isOwn ? "bg-white/10 text-white/80" : "bg-slate-100 text-slate-600"
-                    )}>
+                    <div className="flex-1 flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs bg-slate-100 text-slate-600">
                       <Mic className="w-4 h-4 flex-shrink-0" />
                       <span>Áudio não disponível</span>
                     </div>
                   ) : message?.media_url?.includes('mmg.whatsapp.net') ? (
-                    <div className={cn(
-                      "flex-1 flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs",
-                      isOwn ? "bg-white/10 text-white/80" : "bg-slate-100 text-slate-600"
-                    )}>
+                    <div className="flex-1 flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs bg-slate-100 text-slate-600">
                       <Mic className="w-4 h-4 flex-shrink-0" />
                       <span>Áudio recebido (arquivo temporário)</span>
                     </div>
@@ -1006,12 +995,7 @@ export default React.memo(function MessageBubble({
                     return null;
                   })()}
 
-                  <span className={cn(
-                    "text-[10px]", 
-                    thread?.thread_type === 'team_internal' || thread?.thread_type === 'sector_group' || message.channel === 'interno'
-                      ? (isOwn ? "text-white/70" : "text-slate-500")
-                      : (isOwn ? "text-white/70" : "text-slate-500")
-                  )}>
+                  <span className="text-[10px] text-slate-500">
                     {format(new Date(message.sent_at || message.created_date), 'dd/MM HH:mm')}
                   </span>
                   {isOwn && message.status === 'enviando' && <Clock className="w-3 h-3 text-white/50" />}
@@ -1064,35 +1048,26 @@ export default React.memo(function MessageBubble({
                   onClick={() => window.open(message.media_url, '_blank', 'noopener,noreferrer')}
                   className="flex items-center gap-3 hover:bg-black/5 active:bg-black/10 transition-colors w-full text-left p-3 cursor-pointer"
                 >
-                  <div className={cn(
-                    "w-12 h-12 rounded-lg flex items-center justify-center flex-shrink-0 shadow-sm",
-                    isOwn ? "bg-white/25" : "bg-blue-500"
-                  )}>
+                  <div className="w-12 h-12 rounded-lg flex items-center justify-center flex-shrink-0 shadow-sm bg-blue-500">
                     <FileIcon className="w-6 h-6 text-white" />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className={cn(
-                      "text-sm font-medium truncate mb-0.5",
-                      isOwn ? "text-white" : "text-slate-900"
-                    )}>
+                    <p className="text-sm font-medium truncate mb-0.5 text-slate-900">
                       {message.media_caption || message.content?.replace(/[\[\]]/g, '').trim() || 'Documento'}
                     </p>
                     <div className="flex items-center gap-2">
-                      <p className={cn(
-                        "text-xs uppercase font-semibold",
-                        isOwn ? "text-white/80" : "text-blue-600"
-                      )}>
+                      <p className="text-xs uppercase font-semibold text-blue-600">
                         {(() => {
                           const ext = message.media_url?.split('.').pop()?.split('?')[0]?.toLowerCase();
                           return ext || 'PDF';
                         })()}
                       </p>
-                      <span className={cn("text-xs", isOwn ? "text-white/70" : "text-slate-500")}>
+                      <span className="text-xs text-slate-500">
                         • Toque para abrir
                       </span>
                     </div>
                   </div>
-                  <Download className={cn("w-5 h-5 flex-shrink-0", isOwn ? "text-white/70" : "text-blue-500")} />
+                  <Download className="w-5 h-5 flex-shrink-0 text-blue-500" />
                 </button>
                 
                 <div className={cn("flex items-center justify-end gap-1 px-3 pb-2 pt-1 flex-wrap")}>
@@ -1105,7 +1080,7 @@ export default React.memo(function MessageBubble({
                             key={cat}
                             className={cn(
                               "text-[9px] px-1.5 py-0.5 rounded flex items-center gap-1",
-                              isOwn ? "bg-white/20 text-white" : `${config.color} text-white`
+                              `${config.color} text-white`
                             )}
                           >
                             {config.emoji} {config.label}
@@ -1180,10 +1155,8 @@ export default React.memo(function MessageBubble({
             <>
                 <div className={cn(
                   "break-words whitespace-pre-wrap", 
-                  // ✅ COR DO TEXTO: Internas vs Externas (texto escuro para mensagens claras)
-                  thread?.thread_type === 'team_internal' || thread?.thread_type === 'sector_group' || message.channel === 'interno'
-                    ? (isOwn ? "text-white" : "text-slate-700")
-                    : (isOwn ? "text-slate-800" : "text-[#111b21]")
+                  // 🎨 TEXTO ESCURO HARMONIOSO em fundos claros
+                  "text-[#111b21]"
                 )} style={{ wordBreak: 'break-word', overflowWrap: 'anywhere' }}>
                   <p className="text-[14.2px] leading-[19px]" style={{ fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Color Emoji", sans-serif' }}>
                     {String(message.content || '')}
@@ -1205,7 +1178,7 @@ export default React.memo(function MessageBubble({
                     const setorAtendente = atendenteMsg.attendant_sector;
                     if (nomeAtendente || setorAtendente) {
                       return (
-                        <span className={cn("text-[10px] px-1.5 py-0.5 rounded", isOwn ? "bg-white/20 text-white/90" : "bg-slate-200 text-slate-600")}>
+                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-200 text-slate-700">
                           {nomeAtendente}{setorAtendente ? ` (${setorAtendente})` : ''}
                         </span>
                       );
@@ -1214,12 +1187,7 @@ export default React.memo(function MessageBubble({
                   return null;
                 })()}
 
-                <span className={cn(
-                  "text-[11px]", 
-                  thread?.thread_type === 'team_internal' || thread?.thread_type === 'sector_group' || message.channel === 'interno'
-                    ? (isOwn ? "text-white/70" : "text-slate-500")
-                    : (isOwn ? "text-slate-500" : "text-[#667781]")
-                )}>
+                <span className="text-[11px] text-slate-500">
                   {format(new Date(message.sent_at || message.created_date), 'dd/MM HH:mm')}
                 </span>
                 {isOwn && (
