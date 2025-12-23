@@ -6,7 +6,7 @@ import {
   pickPromotion,
   readLastPromoIds,
   writeLastPromoIds,
-  canSendInbound6h,
+  canSendUniversalPromo,
   isHumanActive,
   sendPromotion
 } from './lib/promotionEngine.js';
@@ -121,8 +121,8 @@ Deno.serve(async (req) => {
           continue;
         }
 
-        // GUARDA 4: Cooldown inbound 6h
-        const cd = canSendInbound6h({ contact, now });
+        // GUARDA 4: Cooldown universal 12h (entre qualquer promoção)
+        const cd = canSendUniversalPromo({ contact, now });
         if (!cd.ok) {
           skipped++;
           reasons[cd.reason] = (reasons[cd.reason] || 0) + 1;

@@ -183,32 +183,22 @@ export function pickPromotion(promos, contact) {
 // COOLDOWN E FREQUÊNCIA
 // ============================================================================
 
-/**
- * Verifica cooldown para trigger INBOUND (6h)
- */
-export function canSendInbound6h({ contact, now }) {
-  const last = contact?.last_promo_inbound_at ? new Date(contact.last_promo_inbound_at) : null;
-  if (!last) return { ok: true };
-  
-  const gap = now - last;
-  if (gap >= SIX_HOURS_MS) return { ok: true };
-  
-  const hoursRemaining = ((SIX_HOURS_MS - gap) / (1000 * 60 * 60)).toFixed(1);
-  return { ok: false, reason: 'cooldown_inbound_6h', hours_remaining: hoursRemaining };
-}
+const TWELVE_HOURS_MS = 12 * 60 * 60 * 1000;
+const THIRTY_SIX_HOURS_MS = 36 * 60 * 60 * 1000;
 
 /**
- * Verifica cooldown para trigger BATCH (24h)
+ * Verifica cooldown UNIVERSAL (12h entre qualquer promoção)
+ * Esta é a principal guarda - nenhuma promoção pode ser enviada se não passaram 12h desde a última
  */
-export function canSendBatch24h({ contact, now }) {
-  const last = contact?.last_promo_batch_at ? new Date(contact.last_promo_batch_at) : null;
+export function canSendUniversalPromo({ contact, now }) {
+  const last = contact?.last_any_promo_sent_at ? new Date(contact.last_any_promo_sent_at) : null;
   if (!last) return { ok: true };
   
   const gap = now - last;
-  if (gap >= DAY_MS) return { ok: true };
+  if (gap >= TWELVE_HOURS_MS) return { ok: true };
   
-  const hoursRemaining = ((DAY_MS - gap) / (1000 * 60 * 60)).toFixed(1);
-  return { ok: false, reason: 'cooldown_batch_24h', hours_remaining: hoursRemaining };
+  const hoursRemaining = ((TWELVE_HOURS_MS - gap) / (1000 * 60 * 60)).toFixed(1);
+  return { ok: false, reason: 'cooldown_universal_12h', hours_remaining: hoursRemaining };
 }
 
 /**
@@ -262,10 +252,11 @@ export function formatPromotionMessage(promo) {
 
 /**
  * Envia promoção e registra no banco
- * @param trigger - 'inbound_6h' ou 'batch_24h'
+ * @param trigger - 'inbound_6h' ou 'batch_36h'
  */
 export async function sendPromotion(base44, { contact, thread, integration_id, promo, trigger }) {
   const msg = formatPromotionMessage(promo);
+  const now = new Date();
 
   // Invocar função de envio WhatsApp
   const payload = {
@@ -299,7 +290,7 @@ export async function sendPromotion(base44, { contact, thread, integration_id, p
     channel: 'whatsapp',
     status: 'enviada',
     whatsapp_message_id: resp.data.message_id,
-    sent_at: new Date().toISOString(),
+    sent_at: now.toISOString(),
     media_url: promo.imagem_url || null,
     media_type: promo.imagem_url ? 'image' : 'none',
     media_caption: promo.imagem_url ? msg : null,
@@ -310,6 +301,12 @@ export async function sendPromotion(base44, { contact, thread, integration_id, p
       promotion_id: promo.id,
       trigger
     }
+  });
+
+  // ATUALIZAR CONTROLE UNIVERSAL (CRÍTICO)
+  // Sempre atualizar last_any_promo_sent_at independente do tipo de promoção
+  await base44.asServiceRole.entities.Contact.update(contact.id, {
+    last_any_promo_sent_at: now.toISOString()
   });
 
   return { message_id: resp.data.message_id, text: msg };

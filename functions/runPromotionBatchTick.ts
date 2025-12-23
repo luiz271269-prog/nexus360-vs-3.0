@@ -6,19 +6,20 @@ import {
   pickPromotion,
   readLastPromoIds,
   writeLastPromoIds,
-  canSendBatch24h,
+  canSendUniversalPromo,
   sendPromotion
 } from './lib/promotionEngine.js';
 
 // ============================================================================
-// CRON JOB - PROMOÇÕES BATCH (24h base ativa)
+// CRON JOB - PROMOÇÕES BATCH (36h inatividade completa)
 // ============================================================================
 // Executar diariamente ou a cada 6h via cron
-// Envia promoções para contatos lead/cliente que não receberam batch há 24h
+// Envia promoções para threads sem NENHUMA comunicação (enviada ou recebida) há 36h
 // ============================================================================
 
-const VERSION = 'v3.0.0-DETERMINISTIC';
+const VERSION = 'v4.0.0-INACTIVITY-36H';
 const BATCH_LIMIT = 50;
+const THIRTY_SIX_HOURS_AGO = (now) => new Date(now.getTime() - 36 * 60 * 60 * 1000);
 
 Deno.serve(async (req) => {
   const base44 = createClientFromRequest(req);
@@ -27,21 +28,23 @@ Deno.serve(async (req) => {
   try {
     console.log(`[PROMO-BATCH ${VERSION}] Iniciando...`);
     
-    // Buscar promoções ativas - FILTRANDO POR STAGE='24h' (Correção #4)
-    const promos = await getActivePromotions(base44, now, '24h');
+    // Buscar promoções ativas - FILTRANDO POR STAGE='36h'
+    const promos = await getActivePromotions(base44, now, '36h');
     if (!promos.length) {
-      return Response.json({ success: true, sent: 0, reason: 'no_active_24h_promos' });
+      return Response.json({ success: true, sent: 0, reason: 'no_active_36h_promos' });
     }
 
-    // Buscar contatos elegíveis (lead/cliente ativos)
-    const contacts = await base44.asServiceRole.entities.Contact.filter({
-      tipo_contato: { $in: ['lead', 'cliente', 'LEAD', 'CLIENTE'] }
-    }, '-updated_date', 300);
+    // Buscar threads INATIVAS há 36h+ (last_message_at considera qualquer mensagem)
+    const inactiveSince = THIRTY_SIX_HOURS_AGO(now).toISOString();
+    const threads = await base44.asServiceRole.entities.MessageThread.filter({
+      last_message_at: { $lte: inactiveSince },
+      thread_type: 'contact_external'
+    }, '-last_message_at', 200);
 
-    console.log(`[PROMO-BATCH] ${contacts.length} contatos lead/cliente`);
+    console.log(`[PROMO-BATCH] ${threads.length} threads inativas há 36h+`);
 
-    if (!contacts.length) {
-      return Response.json({ success: true, sent: 0, reason: 'no_eligible_contacts' });
+    if (!threads.length) {
+      return Response.json({ success: true, sent: 0, reason: 'no_inactive_threads' });
     }
 
     // Buscar integrações ativas
@@ -53,43 +56,34 @@ Deno.serve(async (req) => {
       return Response.json({ success: true, sent: 0, reason: 'no_active_integrations' });
     }
 
+    const integracoesMap = new Map(integracoes.map(i => [i.id, i]));
+
     let sent = 0;
     let skipped = 0;
     const reasons = {};
 
-    for (const contact of contacts) {
+    for (const thread of threads) {
       if (sent >= BATCH_LIMIT) break;
 
       try {
+        // Buscar contato
+        const contact = await base44.asServiceRole.entities.Contact.get(thread.contact_id);
         if (!contact?.telefone) {
           skipped++;
-          reasons['no_phone'] = (reasons['no_phone'] || 0) + 1;
+          reasons['no_contact_or_phone'] = (reasons['no_contact_or_phone'] || 0) + 1;
           continue;
         }
 
-        // GUARDA 1: Cooldown batch 24h
-        const cd = canSendBatch24h({ contact, now });
+        // GUARDA 1: Cooldown universal 12h (entre qualquer promoção)
+        const cd = canSendUniversalPromo({ contact, now });
         if (!cd.ok) {
           skipped++;
           reasons[cd.reason] = (reasons[cd.reason] || 0) + 1;
           continue;
         }
 
-        // Buscar thread principal do contato
-        const threads = await base44.asServiceRole.entities.MessageThread.filter({
-          contact_id: contact.id
-        }, '-updated_date', 1);
-
-        if (!threads?.length) {
-          skipped++;
-          reasons['no_thread'] = (reasons['no_thread'] || 0) + 1;
-          continue;
-        }
-
-        const thread = threads[0];
-        
-        // Determinar integração (priorizar a da thread)
-        const integration = integracoes.find(i => i.id === thread.whatsapp_integration_id) || integracoes[0];
+        // Determinar integração
+        const integration = integracoesMap.get(thread.whatsapp_integration_id) || integracoes[0];
         
         if (!integration) {
           skipped++;
@@ -116,16 +110,16 @@ Deno.serve(async (req) => {
           continue;
         }
 
-        // ENVIAR
+        // ENVIAR (sendPromotion já atualiza last_any_promo_sent_at)
         await sendPromotion(base44, { 
           contact, 
           thread, 
           integration_id: integration.id, 
           promo, 
-          trigger: 'batch_24h' 
+          trigger: 'batch_36h' 
         });
 
-        // Atualizar controles (usando helpers exportados do engine)
+        // Atualizar controles específicos do batch
         const lastIds = readLastPromoIds(contact);
         const nextIds = writeLastPromoIds(lastIds, promo.id);
 
@@ -147,7 +141,8 @@ Deno.serve(async (req) => {
           status: 'sent',
           metadata: {
             promotion_id: promo.id,
-            trigger: 'batch_24h'
+            trigger: 'batch_36h',
+            hours_inactive: ((now - new Date(thread.last_message_at)) / (1000 * 60 * 60)).toFixed(1)
           }
         });
 
