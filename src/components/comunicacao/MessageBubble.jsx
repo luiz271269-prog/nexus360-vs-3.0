@@ -701,11 +701,7 @@ export default React.memo(function MessageBubble({
             </div>
           }
 
-          <div className={cn(
-            "rounded-lg relative shadow-sm border border-slate-200",
-            isThreadInterna && isOwn ? "bg-[#cfe9ff]" : "bg-white",
-            message.media_url && message.media_type !== 'none' ? 'px-1' : 'px-3 py-1.5'
-          )}
+          <div className="bg-white px-1 rounded-lg relative shadow-sm border border-slate-200"
 
 
 
