@@ -1097,7 +1097,7 @@ export default React.memo(function MessageBubble({
                       const setorAtendente = atendenteMsg.attendant_sector;
                       if (nomeAtendente || setorAtendente) {
                         return (
-                          <span className={cn("text-[9px] px-1.5 py-0.5 rounded", isOwn ? "bg-white/20 text-white/90" : "bg-slate-200 text-slate-600")}>
+                          <span className="text-[9px] px-1.5 py-0.5 rounded bg-slate-200 text-slate-700">
                             {nomeAtendente}{setorAtendente ? ` (${setorAtendente})` : ''}
                           </span>
                         );
@@ -1106,10 +1106,7 @@ export default React.memo(function MessageBubble({
                     return null;
                   })()}
 
-                  <span className={cn(
-                    "text-[10px]", 
-                    isOwn ? "text-white/70" : "text-slate-500"
-                  )}>
+                  <span className="text-[10px] text-slate-500">
                     {format(new Date(message.sent_at || message.created_date), 'dd/MM HH:mm')}
                   </span>
                   {isOwn && message.status === 'enviando' && <Clock className="w-3 h-3 text-white/50" />}
