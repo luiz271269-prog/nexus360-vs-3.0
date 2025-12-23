@@ -36,14 +36,15 @@ export class FluxoController {
       return await this.processarWAITING_ATTENDANT_CHOICE(base44, thread, contact, { type: 'system', content: '' }, whatsappIntegrationId);
     }
     
-    // C. STICKY SETOR (Memória de Elefante)
-    if (thread.sector_id) {
-      console.log(`[FLUXO] 📎 Sticky Setor detectado: ${thread.sector_id}`);
+    // C. STICKY SETOR INTELIGENTE
+    // Só oferece sticky se tiver setor ANTERIOR e NÃO for Fast-Track de IA
+    if (thread.sector_id && !intent_context) {
+      console.log(`[FLUXO] 📎 Oferecendo retorno ao setor: ${thread.sector_id}`);
       
       const msgSticky = `Olá novamente, ${contact.nome}! 👋\n\nVi que seu último atendimento foi em *${thread.sector_id.toUpperCase()}*. Deseja continuar por lá?`;
       const botoes = [
         { id: 'sticky_sim', text: '✅ Sim, continuar' },
-        { id: 'sticky_nao', text: '🔙 Menu Principal' }
+        { id: 'sticky_nao', text: '🔄 Não, outro assunto' }  // Botão de fuga explícito
       ];
 
       await this.enviarMensagem(base44, contact, whatsappIntegrationId, msgSticky, botoes);
@@ -72,12 +73,12 @@ export class FluxoController {
 
     // Se o cliente disser NÃO, ele quer trocar. Limpamos tudo (DIVÓRCIO VOLUNTÁRIO).
     if (['sticky_nao', 'nao', 'não', '2', 'menu', 'outro'].some(x => entrada.includes(x))) {
-      console.log('[FLUXO] 💔 Divórcio voluntário. Cliente recusou sticky. Limpando vínculos e resetando para INIT.');
-
+      console.log('[FLUXO] 🚫 Cliente recusou sticky. Limpando vínculos.');
+      
       await base44.asServiceRole.entities.MessageThread.update(thread.id, {
         pre_atendimento_state: 'INIT',
         sector_id: null,
-        assigned_user_id: null // Garante que solta do atendente anterior
+        assigned_user_id: null  // <--- Garante liberdade total
       });
 
       // Recarregar thread para pegar estado limpo
