@@ -12,7 +12,7 @@ import { Textarea } from "@/components/ui/textarea";
 
 export default function ContatosParados() {
   const [selectedItem, setSelectedItem] = useState(null);
-  const [notes, setNotes] = useState('');
+  const [notesMap, setNotesMap] = useState({});
   const queryClient = useQueryClient();
 
   const { data: queueItems = [], isLoading } = useQuery({
@@ -32,12 +32,12 @@ export default function ContatosParados() {
       const contactIds = [...new Set(queueItems.map(item => item.contact_id))];
       if (contactIds.length === 0) return {};
       
-      const contacts = await Promise.all(
-        contactIds.map(id => base44.entities.Contact.get(id).catch(() => null))
-      );
+      const contacts = await base44.entities.Contact.filter({
+        id: { $in: contactIds }
+      });
       
       return contacts.reduce((acc, contact) => {
-        if (contact) acc[contact.id] = contact;
+        acc[contact.id] = contact;
         return acc;
       }, {});
     },
@@ -50,12 +50,12 @@ export default function ContatosParados() {
       const threadIds = [...new Set(queueItems.map(item => item.thread_id).filter(Boolean))];
       if (threadIds.length === 0) return {};
       
-      const threads = await Promise.all(
-        threadIds.map(id => base44.entities.MessageThread.get(id).catch(() => null))
-      );
+      const threads = await base44.entities.MessageThread.filter({
+        id: { $in: threadIds }
+      });
       
       return threads.reduce((acc, thread) => {
-        if (thread) acc[thread.id] = thread;
+        acc[thread.id] = thread;
         return acc;
       }, {});
     },
@@ -67,13 +67,17 @@ export default function ContatosParados() {
       return base44.entities.WorkQueueItem.update(itemId, {
         status: 'dismissed',
         dismissed_reason: reason,
-        notes: notes
+        notes: notesMap[itemId] || ''
       });
     },
-    onSuccess: () => {
+    onSuccess: (_, variables) => {
       queryClient.invalidateQueries(['workQueue']);
       setSelectedItem(null);
-      setNotes('');
+      setNotesMap(prev => {
+        const newMap = { ...prev };
+        delete newMap[variables.itemId];
+        return newMap;
+      });
       toast.success('Item dispensado');
     }
   });
@@ -82,13 +86,17 @@ export default function ContatosParados() {
     mutationFn: async ({ itemId }) => {
       return base44.entities.WorkQueueItem.update(itemId, {
         status: 'done',
-        notes: notes
+        notes: notesMap[itemId] || ''
       });
     },
-    onSuccess: () => {
+    onSuccess: (_, variables) => {
       queryClient.invalidateQueries(['workQueue']);
       setSelectedItem(null);
-      setNotes('');
+      setNotesMap(prev => {
+        const newMap = { ...prev };
+        delete newMap[variables.itemId];
+        return newMap;
+      });
       toast.success('Item concluído');
     }
   });
@@ -227,8 +235,8 @@ export default function ContatosParados() {
                       <div className="mt-4 pt-4 border-t space-y-3">
                         <Textarea
                           placeholder="Notas sobre este contato..."
-                          value={notes}
-                          onChange={(e) => setNotes(e.target.value)}
+                          value={notesMap[item.id] || ''}
+                          onChange={(e) => setNotesMap(prev => ({ ...prev, [item.id]: e.target.value }))}
                           className="min-h-[80px]"
                         />
                         <div className="flex gap-2">
