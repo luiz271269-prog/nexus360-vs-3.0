@@ -47,10 +47,10 @@ const ImageWithFallback = ({ src, alt, className, onClick, isPersisted }) => {
   const [isLoading, setIsLoading] = useState(true);
 
   const isUrlPermanente = src && (
-  src.includes('base44.app') ||
-  src.includes('supabase.co') ||
-  src.includes('storage.googleapis.com'));
-
+    src.includes('base44.app') || 
+    src.includes('supabase.co') || 
+    src.includes('storage.googleapis.com')
+  );
 
   if (hasError || !src) {
     return (
@@ -62,17 +62,17 @@ const ImageWithFallback = ({ src, alt, className, onClick, isPersisted }) => {
           </p>
           {src && <p className="text-[10px] text-slate-400 mt-1 break-all max-w-[200px]">{src.substring(0, 50)}...</p>}
         </div>
-      </div>);
-
+      </div>
+    );
   }
 
   return (
     <div className="relative">
-      {isLoading &&
-      <div className="absolute inset-0 flex items-center justify-center bg-slate-100 rounded-2xl">
+      {isLoading && (
+        <div className="absolute inset-0 flex items-center justify-center bg-slate-100 rounded-2xl">
           <div className="w-8 h-8 border-2 border-slate-300 border-t-blue-500 rounded-full animate-spin" />
         </div>
-      }
+      )}
       <img
         src={src}
         alt={alt}
@@ -84,10 +84,10 @@ const ImageWithFallback = ({ src, alt, className, onClick, isPersisted }) => {
           console.warn('[MSG] Erro ao carregar imagem:', src);
           setIsLoading(false);
           setHasError(true);
-        }} />
-
-    </div>);
-
+        }}
+      />
+    </div>
+  );
 };
 
 const FunctionDisplay = ({ toolCall }) => {
@@ -198,11 +198,6 @@ export default React.memo(function MessageBubble({
     return null;
   }
 
-  // Detectar se é thread interna
-  const isThreadInterna = thread?.thread_type === 'team_internal' ||
-  thread?.thread_type === 'sector_group' ||
-  message.channel === 'interno';
-
   // ✅ NÃO RENDERIZAR mensagens de prompt da micro-URA
   if (message.metadata?.is_system_message === true && message.metadata?.message_type === 'micro_ura_prompt') {
     return null;
@@ -211,7 +206,7 @@ export default React.memo(function MessageBubble({
   // ✅ RENDERIZAÇÃO DE LOCALIZAÇÃO (padrão WhatsApp)
   if (message.media_type === 'location' && message.metadata?.location) {
     const loc = message.metadata.location;
-
+    
     // Guard: se não houver coordenadas válidas, fallback para texto
     if (!loc.lat || !loc.lng || !loc.url) {
       return (
@@ -219,14 +214,14 @@ export default React.memo(function MessageBubble({
           {!isOwn && <div className="h-7 w-7 rounded-lg bg-slate-100 flex items-center justify-center mt-0.5">
             <div className="h-1.5 w-1.5 rounded-full bg-slate-400" />
           </div>}
-          <div className={cn("max-w-[65%] rounded-2xl px-4 py-2.5",
-          isOwn ? "bg-[#d9fdd3]" : "bg-white border border-slate-200")}>
+          <div className={cn("max-w-[65%] rounded-2xl px-4 py-2.5", 
+            isOwn ? "bg-[#d9fdd3]" : "bg-white border border-slate-200")}>
             <p className="text-sm text-slate-800">{message.content || '📍 Localização'}</p>
           </div>
-        </div>);
-
+        </div>
+      );
     }
-
+    
     return (
       <div className={cn("flex gap-3 group", isOwn ? "justify-end" : "justify-start")}>
         {!isOwn && <div className="h-7 w-7 rounded-lg bg-slate-100 flex items-center justify-center mt-0.5">
@@ -244,18 +239,18 @@ export default React.memo(function MessageBubble({
             <div className="bg-slate-100 p-3 flex items-center gap-3">
               <div className="w-10 h-10 rounded-full bg-red-500 flex items-center justify-center flex-shrink-0">
                 <svg className="w-6 h-6 text-white" fill="currentColor" viewBox="0 0 24 24">
-                  <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z" />
+                  <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/>
                 </svg>
               </div>
               <div className="flex-1 min-w-0">
                 <div className="font-medium text-sm text-slate-900 truncate">
                   {loc.name || 'Localização'}
                 </div>
-                {loc.address &&
-                <div className="text-xs text-slate-600 truncate">
+                {loc.address && (
+                  <div className="text-xs text-slate-600 truncate">
                     {loc.address}
                   </div>
-                }
+                )}
               </div>
             </div>
             
@@ -264,8 +259,8 @@ export default React.memo(function MessageBubble({
               href={loc.url}
               target="_blank"
               rel="noopener noreferrer"
-              className="block p-3 hover:bg-slate-50 transition-colors border-t border-slate-200">
-
+              className="block p-3 hover:bg-slate-50 transition-colors border-t border-slate-200"
+            >
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2 text-sm text-blue-600 font-medium">
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -288,8 +283,8 @@ export default React.memo(function MessageBubble({
             </div>
           </div>
         </div>
-      </div>);
-
+      </div>
+    );
   }
 
   const [mostrarDialogEncaminhar, setMostrarDialogEncaminhar] = useState(false);
@@ -312,14 +307,14 @@ export default React.memo(function MessageBubble({
 
   const todasCategorias = [...CATEGORIAS_FIXAS, ...categoriasDB];
 
-  const isTransferMessage =
-  message?.metadata?.is_system_message === true && message?.metadata?.message_type === 'transfer' ||
-  message?.metadata?.action_type === 'assignment' ||
-  message?.channel === 'interno' && (
-  message?.content?.includes('transferida') ||
-  message?.content?.includes('atribuída') ||
-  message?.content?.includes('Conversa'));
-
+  const isTransferMessage = 
+    (message?.metadata?.is_system_message === true && message?.metadata?.message_type === 'transfer') ||
+    (message?.metadata?.action_type === 'assignment') ||
+    (message?.channel === 'interno' && (
+      message?.content?.includes('transferida') || 
+      message?.content?.includes('atribuída') ||
+      message?.content?.includes('Conversa')
+    ));
 
   useEffect(() => {
     if (mostrarDialogEncaminhar && contatos.length === 0) {
@@ -570,7 +565,7 @@ export default React.memo(function MessageBubble({
   // ═══════════════════════════════════════════════════════════════════════════
   if (isTransferMessage) {
     const setorTransferido = message.metadata?.setor || thread?.sector_id || 'geral';
-
+    
     const coresSetor = {
       vendas: {
         bg: 'from-rose-100 to-pink-100',
@@ -625,17 +620,17 @@ export default React.memo(function MessageBubble({
             {formatarHorario(message.sent_at || message.created_date)}
           </span>
         </div>
-      </div>);
-
+      </div>
+    );
   }
 
   return (
     <>
       <div className={cn(
-        "flex w-full px-[5%]",
-        isOwn ? "justify-end" : "justify-start"
-      )}
-      onClick={() => modoSelecao && onToggleSelecao?.(message.id)}>
+          "flex w-full px-[5%]",
+          isOwn ? "justify-end" : "justify-start"
+        )}
+        onClick={() => modoSelecao && onToggleSelecao?.(message.id)}>
 
         {modoSelecao &&
         <div className="flex items-center justify-center mr-2">
@@ -653,39 +648,39 @@ export default React.memo(function MessageBubble({
           "flex flex-col group relative"
         )}>
           {!isOwn && (thread?.thread_type === 'team_internal' || thread?.thread_type === 'sector_group' || message.channel === 'interno') && (() => {
-            const atendenteRemetente = atendentes.find((a) => a.id === message.sender_id);
+            const atendenteRemetente = atendentes.find(a => a.id === message.sender_id);
             if (!atendenteRemetente) return null;
             return (
               <div className="mb-0.5">
-                <UsuarioDisplay
-                  usuario={atendenteRemetente}
+                <UsuarioDisplay 
+                  usuario={atendenteRemetente} 
                   className="text-[11px] font-semibold text-cyan-600"
-                  variant="compact" />
-
-              </div>);
-
+                  variant="compact"
+                />
+              </div>
+            );
           })()}
-          {!isOwn && message.sender_type === 'contact' && contato?.nome &&
-          <div className="bg-transparent text-slate-800 mb-0.5 flex items-center gap-2">
-              <span className="text-cyan-900 font-semibold">
+          {!isOwn && message.sender_type === 'contact' && contato?.nome && (
+            <div className="flex items-center gap-2 mb-0.5">
+              <span className="text-[11px] font-semibold text-[#00a884]">
                 {contato.nome}
               </span>
               {(() => {
-              const integracaoId = message?.metadata?.whatsapp_integration_id || thread?.whatsapp_integration_id;
-              if (!integracaoId || integracoes.length <= 1) return null;
-
-              const integracao = integracoes.find((i) => i.id === integracaoId);
-              if (!integracao) return null;
-
-              const displayNumero = integracao.numero_telefone || integracao.nome_instancia;
-              return (
-                <span className="bg-transparent text-cyan-900 px-1.2 py-0.5 font-medium rounded-full">
+                const integracaoId = message?.metadata?.whatsapp_integration_id || thread?.whatsapp_integration_id;
+                if (!integracaoId || integracoes.length <= 1) return null;
+                
+                const integracao = integracoes.find(i => i.id === integracaoId);
+                if (!integracao) return null;
+                
+                const displayNumero = integracao.numero_telefone || integracao.nome_instancia;
+                return (
+                  <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-green-100 text-green-700 font-medium">
                     📱 {displayNumero}
-                  </span>);
-
-            })()}
+                  </span>
+                );
+              })()}
             </div>
-          }
+          )}
 
           {mensagemOriginal &&
           <div className={cn(
@@ -703,17 +698,13 @@ export default React.memo(function MessageBubble({
 
           <div className={cn(
             "rounded-lg relative shadow-sm",
-            // 🎨 CORES TIPO WHATSAPP: Externas enviadas em azul claro
+            // 🎨 CORES TIPO WHATSAPP: Internas (azul claro suave) vs Externas (verde claro)
             thread?.thread_type === 'team_internal' || thread?.thread_type === 'sector_group' || message.channel === 'interno'
-              ? (isOwn ? "bg-[#d9fdd3] border border-green-200" : "bg-white border border-slate-200")
-              : (isOwn ? "bg-[#cfe9ff] border border-blue-200" : "bg-white border border-slate-200"),
+              ? (isOwn ? "bg-[#cfe9ff] border border-blue-200" : "bg-white border border-slate-200")
+              : (isOwn ? "bg-[#d9fdd3] border border-green-200" : "bg-white border border-slate-200"),
             selecionada ? 'ring-2 ring-blue-500' : '',
             message.media_url && message.media_type !== 'none' ? '' : 'px-3 py-1.5'
           )}
-
-
-
-
           style={{
             borderRadius: isOwn ? '8px 0 8px 8px' : '0 8px 8px 8px'
           }}>
@@ -866,8 +857,8 @@ export default React.memo(function MessageBubble({
                 alt="Imagem"
                 className="max-w-[280px] max-h-[280px] object-cover rounded-lg cursor-pointer"
                 onClick={() => window.open(message.media_url, '_blank')}
-                isPersisted={message.metadata?.midia_persistida} /> :
-              message.metadata?.requiresDownload ?
+                isPersisted={message.metadata?.midia_persistida}
+              /> : message.metadata?.requiresDownload ?
               <div className="flex flex-col items-center justify-center bg-slate-100 rounded-2xl p-8 min-h-[200px] max-w-[280px]">
                 <Loader2 className="w-8 h-8 animate-spin text-blue-500 mb-2" />
                 <span className="text-sm text-slate-600 font-medium">Processando imagem...</span>
@@ -889,17 +880,17 @@ export default React.memo(function MessageBubble({
                 <div className="absolute bottom-2 right-2 bg-black/50 backdrop-blur-sm px-2 py-0.5 rounded-md">
                   <div className="flex items-center gap-1 flex-wrap">
                     {message?.categorias && message.categorias.length > 0 &&
-                  <div className="flex gap-1 mr-1 flex-wrap">
+                    <div className="flex gap-1 mr-1 flex-wrap">
                           {message.categorias.slice(0, 3).map((cat) => {
-                      const config = getCategoriaConfig(cat, categoriasDB);
-                      return (
-                        <span key={cat} className="text-[9px] px-1.5 py-0.5 bg-white/20 rounded flex items-center gap-1">
+                        const config = getCategoriaConfig(cat, categoriasDB);
+                        return (
+                          <span key={cat} className="text-[9px] px-1.5 py-0.5 bg-white/20 rounded flex items-center gap-1">
                                 {config.emoji} {config.label}
                               </span>);
 
-                    })}
+                      })}
                         </div>
-                  }
+                    }
 
                       <span className="text-[10px] text-slate-500">
                         {format(new Date(message.sent_at || message.created_date), 'dd/MM HH:mm')}
@@ -928,26 +919,26 @@ export default React.memo(function MessageBubble({
                 )}>
                     <Play className="w-4 h-4 text-white" />
                   </div>
-                  {!message?.media_url ?
-                <div className="flex-1 flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs bg-slate-100 text-slate-600">
+                  {!message?.media_url ? (
+                    <div className="flex-1 flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs bg-slate-100 text-slate-600">
                       <Mic className="w-4 h-4 flex-shrink-0" />
                       <span>Áudio não disponível</span>
-                    </div> :
-                message?.media_url?.includes('mmg.whatsapp.net') ?
-                <div className="flex-1 flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs bg-slate-100 text-slate-600">
+                    </div>
+                  ) : message?.media_url?.includes('mmg.whatsapp.net') ? (
+                    <div className="flex-1 flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs bg-slate-100 text-slate-600">
                       <Mic className="w-4 h-4 flex-shrink-0" />
                       <span>Áudio recebido (arquivo temporário)</span>
-                    </div> :
-
-                <audio
-                  src={message?.media_url}
-                  controls
-                  className="flex-1 h-8"
-                  style={{
-                    filter: isOwn ? 'invert(1) hue-rotate(180deg)' : 'none'
-                  }} />
-
-                }
+                    </div>
+                  ) : (
+                    <audio
+                      src={message?.media_url}
+                      controls
+                      className="flex-1 h-8"
+                      style={{
+                        filter: isOwn ? 'invert(1) hue-rotate(180deg)' : 'none'
+                      }}
+                    />
+                  )}
 
                 </div>
                 <div className="flex items-center justify-end gap-1 mt-1 flex-wrap">
@@ -967,15 +958,15 @@ export default React.memo(function MessageBubble({
             {message?.media_type === 'video' && message?.media_url &&
             <div className="px-3 py-2">
                 <video
-                src={message.media_url}
-                controls
-                className="max-w-[280px] max-h-[280px] rounded-lg" />
-
+                  src={message.media_url}
+                  controls
+                  className="max-w-[280px] max-h-[280px] rounded-lg"
+                />
                 {message.media_caption &&
-              <div className="px-2 py-1 mt-1 text-slate-800">
+                <div className="px-2 py-1 mt-1 text-slate-800">
                     <p className="text-sm">{message.media_caption}</p>
                   </div>
-              }
+                }
                 <div className="flex items-center justify-end gap-1 mt-1">
                   <span className="text-[11px] text-slate-500">
                     {format(new Date(message.sent_at || message.created_date), 'dd/MM HH:mm')}
@@ -990,20 +981,20 @@ export default React.memo(function MessageBubble({
 
             {/* DOCUMENTO/PDF - Abre direto sem forçar download */}
             {(
-            message?.media_type === 'document' ||
-            message?.content === 'pdf' ||
-            message?.content?.toLowerCase() === '[documento]' ||
-            message?.media_url && (
-            message?.media_url.toLowerCase().includes('.pdf') ||
-            message?.media_url.toLowerCase().includes('.doc') ||
-            message?.media_url.toLowerCase().includes('.xls'))) &&
-
-            message?.media_url &&
+              message?.media_type === 'document' || 
+              message?.content === 'pdf' ||
+              message?.content?.toLowerCase() === '[documento]' ||
+              (message?.media_url && (
+                message?.media_url.toLowerCase().includes('.pdf') ||
+                message?.media_url.toLowerCase().includes('.doc') ||
+                message?.media_url.toLowerCase().includes('.xls')
+              ))
+            ) && message?.media_url &&
             <div className="overflow-hidden">
                 <button
-                onClick={() => window.open(message.media_url, '_blank', 'noopener,noreferrer')}
-                className="flex items-center gap-3 hover:bg-black/5 active:bg-black/10 transition-colors w-full text-left p-3 cursor-pointer">
-
+                  onClick={() => window.open(message.media_url, '_blank', 'noopener,noreferrer')}
+                  className="flex items-center gap-3 hover:bg-black/5 active:bg-black/10 transition-colors w-full text-left p-3 cursor-pointer"
+                >
                   <div className="w-12 h-12 rounded-lg flex items-center justify-center flex-shrink-0 shadow-sm bg-blue-500">
                     <FileIcon className="w-6 h-6 text-white" />
                   </div>
@@ -1014,9 +1005,9 @@ export default React.memo(function MessageBubble({
                     <div className="flex items-center gap-2">
                       <p className="text-xs uppercase font-semibold text-blue-600">
                         {(() => {
-                        const ext = message.media_url?.split('.').pop()?.split('?')[0]?.toLowerCase();
-                        return ext || 'PDF';
-                      })()}
+                          const ext = message.media_url?.split('.').pop()?.split('?')[0]?.toLowerCase();
+                          return ext || 'PDF';
+                        })()}
                       </p>
                       <span className="text-xs text-slate-500">
                         • Toque para abrir
@@ -1048,36 +1039,36 @@ export default React.memo(function MessageBubble({
               if (!integracao) return null;
 
               const displayNumero = integracao.numero_telefone || integracao.nome_instancia;
-              const atendenteRemetente = atendentes.find((a) => a.id === message.sender_id);
+              const atendenteRemetente = atendentes.find(a => a.id === message.sender_id);
               const nomeCompletoAtendente = atendenteRemetente?.display_name || atendenteRemetente?.full_name;
               const nomeAtendente = nomeCompletoAtendente?.split(' ')[0];
               const setorAtendente = atendenteRemetente?.attendant_sector;
 
               return (
-                <div className="bg-transparent text-blue-950 mb-1 px-2 py-1 rounded-[10023px] inline-flex items-center gap-1.5">
-                  {nomeAtendente &&
-                  <>
-                      <span className="flex items-center gap-0.7">
+                <div className="text-[9px] px-2 py-0.5 rounded-full mb-1 inline-flex items-center gap-1.5 bg-green-100/60 text-slate-700">
+                  {nomeAtendente && (
+                    <>
+                      <span className="flex items-center gap-0.5">
                         <UserCheck className="w-3 h-3" />
                         {nomeAtendente}
                       </span>
                       {setorAtendente && <span>({setorAtendente})</span>}
                       <span className="opacity-50">•</span>
                     </>
-                  }
+                  )}
                   <span>📱 {displayNumero}</span>
-                </div>);
-
+                </div>
+              );
             })()}
 
             {/* TEXTO - ✅ RENDERIZAÇÃO SEGURA DE EMOJIS */}
             {(!message?.media_url || message?.media_type === 'none') && message?.content != null && String(message.content || '').trim() !== '' && String(message.content) !== '[No content]' &&
             <>
                 <div className={cn(
-                "break-words whitespace-pre-wrap",
-                // 🎨 TEXTO ESCURO HARMONIOSO em fundos claros
-                "text-[#111b21]"
-              )} style={{ wordBreak: 'break-word', overflowWrap: 'anywhere' }}>
+                  "break-words whitespace-pre-wrap", 
+                  // 🎨 TEXTO ESCURO HARMONIOSO em fundos claros
+                  "text-[#111b21]"
+                )} style={{ wordBreak: 'break-word', overflowWrap: 'anywhere' }}>
                   <p className="text-[14.2px] leading-[19px]" style={{ fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Color Emoji", sans-serif' }}>
                     {String(message.content || '')}
                   </p>
@@ -1087,15 +1078,15 @@ export default React.memo(function MessageBubble({
                 <span className="text-[11px] text-slate-500">
                   {format(new Date(message.sent_at || message.created_date), 'dd/MM HH:mm')}
                 </span>
-                {isOwn &&
-                <>
+                {isOwn && (
+                  <>
                     {message.status === 'enviando' && <Clock className="w-[16px] h-[16px] text-slate-400" />}
                     {message.status === 'enviada' && <Check className="w-[16px] h-[16px] text-slate-500" />}
                     {message.status === 'entregue' && <CheckCheck className="w-[16px] h-[16px] text-slate-600" />}
                     {message.status === 'lida' && <CheckCheck className="w-[16px] h-[16px] text-blue-500" />}
                     {message.status === 'falhou' && <AlertCircle className="w-[16px] h-[16px] text-red-500" />}
                   </>
-                }
+                )}
                 </div>
               </>
             }
