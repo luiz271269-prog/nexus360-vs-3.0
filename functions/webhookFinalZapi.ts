@@ -822,10 +822,10 @@ async function handleMessage(dados, payloadBruto, base44) {
   }
 
   // ============================================================================
-  // ✅ DISPARAR CÉREBRO (Async Fire-and-Forget) - SIMETRIA COM W-API
+  // ✅ DISPARAR CÉREBRO (Direto, sem HTTP) - LINHA IMUTÁVEL v10
   // ============================================================================
   try {
-    console.log(`[${VERSION}] 🚀 Disparando processInbound (Cérebro separado)...`);
+    console.log(`[${VERSION}] 🚀 Processando Inbound Core diretamente...`);
     
     let integracaoObj = null;
     if (integracaoId) {
@@ -837,20 +837,24 @@ async function handleMessage(dados, payloadBruto, base44) {
       }
     }
 
-    // Fire-and-Forget: Se falhar, não trava o 200 OK do webhook
-    base44.asServiceRole.functions.invoke('processInbound', {
-      message: mensagem,
+    // ✅ IMPORT DIRETO - Elimina erro 404 e acelera processamento
+    const { processInboundEvent } = await import('./lib/inboundCore.js');
+    
+    await processInboundEvent({
+      base44,
       contact: contato,
       thread: thread,
+      message: mensagem,
       integration: integracaoObj,
       provider: 'z_api',
       messageContent: dados.content,
       rawPayload: payloadBruto
-    }).catch(e => console.error(`[${VERSION}] ⚠️ Erro no processInbound (não afeta ingestão):`, e?.message));
+    });
     
-    console.log(`[${VERSION}] ✅ Cérebro disparado (isolado)`);
+    console.log(`[${VERSION}] ✅ Inbound Core processado com sucesso (direto)`);
   } catch (err) {
-    console.error(`[${VERSION}] ⚠️ Erro ao disparar Cérebro:`, err?.message);
+    console.error(`[${VERSION}] 🔴 Falha CRÍTICA no processamento do Inbound Core:`, err?.message);
+    console.error(`[${VERSION}] 🔴 Stack:`, err?.stack);
   }
 
   // Audit log
