@@ -528,141 +528,111 @@ export default function ConfiguracaoCanaisComunicacao({ integracoes, onRecarrega
 
   return (
     <div className="space-y-6">
-      {/* Header Geral */}
-      <Card className="bg-gradient-to-r from-indigo-50 via-purple-50 to-pink-50 border-indigo-200">
-        <CardContent className="pt-6">
-          <div className="flex items-start justify-between">
-            <div className="flex items-start gap-4">
-              <div className="w-14 h-14 bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500 rounded-xl flex items-center justify-center shadow-lg">
-                <MessageCircle className="w-7 h-7 text-white" />
-              </div>
-              <div>
-                <h1 className="text-3xl font-bold text-slate-900">Central de Canais de Comunicação</h1>
-                <p className="text-slate-600 mt-1">
-                  Gerencie todas as suas conexões: WhatsApp, Instagram, Facebook e GoTo Connect
-                </p>
-                <div className="flex gap-2 mt-3">
-                  <Badge className="bg-green-100 text-green-800">
-                    <CheckCircle className="w-3 h-3 mr-1" />
-                    {totalConectadas} Conectadas
-                  </Badge>
-                  <Badge className="bg-blue-100 text-blue-800">
-                    {totalConexoes} Total
-                  </Badge>
-                </div>
-              </div>
-            </div>
+      {/* Header Compacto */}
+      <div className="flex items-center justify-between pb-4 border-b">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 bg-gradient-to-br from-indigo-500 to-purple-500 rounded-lg flex items-center justify-center">
+            <MessageCircle className="w-5 h-5 text-white" />
           </div>
-        </CardContent>
-      </Card>
+          <div>
+            <h1 className="text-xl font-bold text-slate-900">Central de Canais</h1>
+            <p className="text-xs text-slate-500">WhatsApp, Instagram, Facebook e GoTo</p>
+          </div>
+        </div>
+        <div className="flex gap-2">
+          <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200 text-xs">
+            <CheckCircle className="w-3 h-3 mr-1" />
+            {totalConectadas} on
+          </Badge>
+          <Badge variant="outline" className="text-xs">{totalConexoes} total</Badge>
+        </div>
+      </div>
 
       {/* Tabs por Canal */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="grid w-full grid-cols-4 h-auto p-1">
-          <TabsTrigger value="whatsapp" className="flex items-center gap-2 py-3">
+        <TabsList className="grid w-full grid-cols-4 bg-slate-100 p-0.5 h-auto">
+          <TabsTrigger value="whatsapp" className="flex items-center gap-1.5 py-2 data-[state=active]:bg-white text-xs">
             <WhatsAppLogo />
-            <span>WhatsApp</span>
-            <Badge className="ml-1 bg-green-100 text-green-700 text-xs">{integracoes.length}</Badge>
+            <span className="font-medium">WhatsApp</span>
+            <Badge className="ml-auto bg-green-100 text-green-700 text-[10px] h-4 px-1.5">{integracoes.length}</Badge>
           </TabsTrigger>
-          <TabsTrigger value="instagram" className="flex items-center gap-2 py-3">
+          <TabsTrigger value="instagram" className="flex items-center gap-1.5 py-2 data-[state=active]:bg-white text-xs">
             <InstagramLogo />
-            <span>Instagram</span>
-            <Badge className="ml-1 bg-pink-100 text-pink-700 text-xs">{instagramIntegracoes.length}</Badge>
+            <span className="font-medium">Instagram</span>
+            <Badge className="ml-auto bg-pink-100 text-pink-700 text-[10px] h-4 px-1.5">{instagramIntegracoes.length}</Badge>
           </TabsTrigger>
-          <TabsTrigger value="facebook" className="flex items-center gap-2 py-3">
+          <TabsTrigger value="facebook" className="flex items-center gap-1.5 py-2 data-[state=active]:bg-white text-xs">
             <FacebookLogo />
-            <span>Facebook</span>
-            <Badge className="ml-1 bg-blue-100 text-blue-700 text-xs">{facebookIntegracoes.length}</Badge>
+            <span className="font-medium">Facebook</span>
+            <Badge className="ml-auto bg-blue-100 text-blue-700 text-[10px] h-4 px-1.5">{facebookIntegracoes.length}</Badge>
           </TabsTrigger>
-          <TabsTrigger value="goto" className="flex items-center gap-2 py-3">
+          <TabsTrigger value="goto" className="flex items-center gap-1.5 py-2 data-[state=active]:bg-white text-xs">
             <GoToLogo />
-            <span>GoTo</span>
-            <Badge className="ml-1 bg-yellow-100 text-yellow-700 text-xs">{gotoIntegracoes.length}</Badge>
+            <span className="font-medium">GoTo</span>
+            <Badge className="ml-auto bg-yellow-100 text-yellow-700 text-[10px] h-4 px-1.5">{gotoIntegracoes.length}</Badge>
           </TabsTrigger>
         </TabsList>
 
         {/* WhatsApp Tab */}
-        <TabsContent value="whatsapp" className="mt-6">
-          <Card className="bg-gradient-to-r from-green-50 to-emerald-50 border-green-200 mb-6">
-            <CardContent className="pt-6">
-              <div className="flex items-start justify-between">
-                <div className="flex items-start gap-4">
-                  <div className="w-12 h-12 bg-gradient-to-br from-green-500 to-emerald-600 rounded-xl flex items-center justify-center shadow-lg">
-                    <WhatsAppLogo />
-                  </div>
-                  <div>
-                    <h2 className="text-2xl font-bold text-green-900">WhatsApp (Z-API / W-API)</h2>
-                    <p className="text-green-700 mt-1">
-                      Configure suas instâncias de WhatsApp para enviar e receber mensagens
-                    </p>
-                    <div className="flex gap-2 mt-3">
-                      <Badge className="bg-green-100 text-green-800">
-                        {integracoes.filter((i) => i.status === 'conectado').length} Conectadas
-                      </Badge>
-                      <Badge className="bg-blue-100 text-blue-800">
-                        {integracoes.length} Total
-                      </Badge>
-                    </div>
-                  </div>
-                </div>
-                {podeAdicionar && (
-                  <Button
-                    onClick={iniciarNovaIntegracao}
-                    className="bg-gradient-to-r from-green-500 to-emerald-600">
-                    <Plus className="w-4 h-4 mr-2" />
-                    Nova Conexão WhatsApp
-                  </Button>
-                )}
+        <TabsContent value="whatsapp" className="mt-4">
+          <div className="flex items-center justify-between mb-4 pb-3 border-b">
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 bg-green-500 rounded-lg flex items-center justify-center">
+                <WhatsAppLogo />
               </div>
-            </CardContent>
-          </Card>
+              <div>
+                <h2 className="text-sm font-bold text-slate-900">WhatsApp</h2>
+                <p className="text-[11px] text-slate-500">Z-API / W-API</p>
+              </div>
+              <Badge variant="outline" className="ml-2 text-[10px] h-5">
+                {integracoes.filter((i) => i.status === 'conectado').length}/{integracoes.length}
+              </Badge>
+            </div>
+            {podeAdicionar && (
+              <Button size="sm" onClick={iniciarNovaIntegracao} className="h-8 text-xs bg-green-600 hover:bg-green-700">
+                <Plus className="w-3 h-3 mr-1" />
+                Nova
+              </Button>
+            )}
+          </div>
 
           {/* Layout 2 Colunas: Lista Compacta | Edição + Diagnóstico */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            {/* COLUNA 1: Lista Compacta de Conexões WhatsApp */}
-            <div className="space-y-2">
-              <h3 className="text-sm font-bold text-slate-600 flex items-center gap-2 mb-3">
-                <WhatsAppLogo />
-                <span>Instâncias WhatsApp ({integracoes.length})</span>
-              </h3>
-              
+            {/* COLUNA 1: Lista Compacta */}
+            <div className="space-y-1.5">
               {integracoes.length === 0 ? (
-                <Card className="border-dashed">
-                  <CardContent className="py-6 text-center">
-                    <WhatsAppLogo />
-                    <p className="text-sm text-slate-500 mt-2">Nenhuma conexão WhatsApp</p>
-                    {podeAdicionar && (
-                      <Button onClick={iniciarNovaIntegracao} size="sm" className="mt-2 bg-green-600">
-                        <Plus className="w-3 h-3 mr-1" />
-                        Criar
-                      </Button>
-                    )}
-                  </CardContent>
-                </Card>
+                <div className="p-6 text-center border border-dashed rounded-lg bg-slate-50">
+                  <WhatsAppLogo />
+                  <p className="text-xs text-slate-500 mt-2">Nenhuma conexão</p>
+                  {podeAdicionar && (
+                    <Button onClick={iniciarNovaIntegracao} size="sm" className="mt-3 h-7 text-xs bg-green-600">
+                      <Plus className="w-3 h-3 mr-1" />
+                      Criar
+                    </Button>
+                  )}
+                </div>
               ) : (
                 integracoes.map((integracao) => (
                   <div
                     key={`integracao-${integracao.id}`}
                     onClick={() => selecionarIntegracao(integracao)}
-                    className={`p-3 rounded-lg border cursor-pointer transition-all hover:shadow-md ${
+                    className={`p-2.5 rounded-lg border cursor-pointer transition-all ${
                       integracaoSelecionada?.id === integracao.id 
-                        ? 'border-green-500 bg-green-50 shadow-md' 
-                        : 'border-slate-200 bg-white hover:border-green-300'
+                        ? 'border-green-400 bg-green-50/80 shadow-sm' 
+                        : 'border-slate-200 bg-white hover:border-green-200 hover:shadow-sm'
                     }`}
                   >
-                    <div className="flex items-start justify-between gap-2">
+                    <div className="flex items-center gap-2">
+                      {integracao.status === 'conectado' ? (
+                        <div className="w-2 h-2 bg-green-500 rounded-full flex-shrink-0 animate-pulse" />
+                      ) : (
+                        <div className="w-2 h-2 bg-orange-400 rounded-full flex-shrink-0" />
+                      )}
                       <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 mb-1">
-                          {getChannelBadge(integracao.api_provider)}
-                          {integracao.status === 'conectado' ? (
-                            <CheckCircle className="w-4 h-4 text-green-500 flex-shrink-0" />
-                          ) : (
-                            <AlertCircle className="w-4 h-4 text-orange-500 flex-shrink-0" />
-                          )}
-                        </div>
-                        <p className="font-semibold text-sm text-slate-800 truncate">{integracao.nome_instancia}</p>
-                        <p className="text-xs text-slate-500 truncate">{integracao.numero_telefone || integracao.phone_number}</p>
+                        <p className="font-medium text-xs text-slate-800 truncate">{integracao.nome_instancia}</p>
+                        <p className="text-[10px] text-slate-500 truncate">{integracao.numero_telefone}</p>
                       </div>
+                      {getChannelBadge(integracao.api_provider)}
                     </div>
                   </div>
                 ))
@@ -672,32 +642,29 @@ export default function ConfiguracaoCanaisComunicacao({ integracoes, onRecarrega
             {/* COLUNA 2: Edição + Diagnóstico (2 colunas de largura) */}
             <div className="lg:col-span-2 space-y-4">
               {!integracaoSelecionada && !modoEdicao ? (
-                <Card>
-                  <CardContent className="py-12 text-center">
-                    <Settings className="w-12 h-12 text-slate-300 mx-auto mb-4" />
-                    <p className="text-slate-600 font-semibold">Selecione uma instância WhatsApp</p>
-                    <p className="text-sm text-slate-400 mt-1">Clique em uma instância à esquerda para ver detalhes e diagnóstico</p>
-                  </CardContent>
-                </Card>
+                <div className="p-8 text-center border border-dashed rounded-lg bg-slate-50">
+                  <Settings className="w-8 h-8 text-slate-300 mx-auto mb-2" />
+                  <p className="text-xs text-slate-500">Selecione uma instância à esquerda</p>
+                </div>
               ) : (
             <>
-              {/* Card de Edição */}
-              <Card className="border-blue-200 bg-blue-50/30">
-                <CardHeader className="pb-2">
+              {/* Card de Edição Compacto */}
+              <Card className="border-blue-200">
+                <CardHeader className="pb-3 pt-3">
                   <div className="flex items-center justify-between">
-                    <CardTitle className="text-lg flex items-center gap-2">
-                      <Edit className="w-5 h-5 text-blue-600" />
-                      {modoEdicao ? (integracaoSelecionada ? 'Editar Conexão' : 'Nova Conexão') : 'Configurações'}
+                    <CardTitle className="text-sm flex items-center gap-2">
+                      <Edit className="w-4 h-4 text-blue-600" />
+                      {modoEdicao ? (integracaoSelecionada ? 'Editar' : 'Nova Conexão') : 'Configurações'}
                     </CardTitle>
-                    <div className="flex gap-2">
+                    <div className="flex gap-1.5">
                       {!modoEdicao && podeEditar && (
-                        <Button size="sm" variant="outline" onClick={handleEditarIntegracao}>
+                        <Button size="sm" variant="outline" onClick={handleEditarIntegracao} className="h-7 text-xs">
                           <Edit className="w-3 h-3 mr-1" />
                           Editar
                         </Button>
                       )}
                       {!modoEdicao && podeExcluir && integracaoSelecionada && (
-                        <Button size="sm" variant="outline" className="text-red-600 border-red-200" onClick={() => handleExcluir(integracaoSelecionada)}>
+                        <Button size="sm" variant="outline" className="h-7 text-xs text-red-600 border-red-200" onClick={() => handleExcluir(integracaoSelecionada)}>
                           <Trash2 className="w-3 h-3 mr-1" />
                           Excluir
                         </Button>
@@ -705,17 +672,17 @@ export default function ConfiguracaoCanaisComunicacao({ integracoes, onRecarrega
                     </div>
                   </div>
                 </CardHeader>
-                <CardContent>
+                <CardContent className="pt-0">
                   {modoEdicao ? (
-                    <div className="space-y-4">
+                    <div className="space-y-3">
                       {/* Seletor de Provedor */}
                       <div>
-                        <Label className="text-xs font-bold">Provedor da API *</Label>
+                        <Label className="text-[11px] font-semibold text-slate-600">Provedor *</Label>
                         <Select
                           value={novaIntegracao.api_provider}
                           onValueChange={(v) => setNovaIntegracao({...novaIntegracao, api_provider: v, client_token_conta: ""})}
                         >
-                          <SelectTrigger className="mt-1 h-9">
+                          <SelectTrigger className="mt-1 h-8 text-xs">
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
@@ -758,42 +725,42 @@ export default function ConfiguracaoCanaisComunicacao({ integracoes, onRecarrega
                         </Select>
                       </div>
 
-                      <div className="grid grid-cols-2 gap-4">
+                      <div className="grid grid-cols-2 gap-3">
                         <div>
-                          <Label className="text-xs">Nome da Instância *</Label>
+                          <Label className="text-[11px] font-semibold text-slate-600">Nome *</Label>
                           <Input
                             value={novaIntegracao.nome_instancia}
                             onChange={(e) => setNovaIntegracao({...novaIntegracao, nome_instancia: e.target.value})}
                             placeholder="vendas-principal"
-                            className="mt-1 h-9"
+                            className="mt-1 h-8 text-xs"
                           />
                         </div>
                         <div>
-                          <Label className="text-xs">Número WhatsApp *</Label>
+                          <Label className="text-[11px] font-semibold text-slate-600">Número *</Label>
                           <Input
                             value={novaIntegracao.numero_telefone}
                             onChange={(e) => setNovaIntegracao({...novaIntegracao, numero_telefone: e.target.value})}
                             placeholder="+55 48 99999-9999"
-                            className="mt-1 h-9"
+                            className="mt-1 h-8 text-xs"
                           />
                         </div>
                       </div>
 
                       <div>
-                        <Label className="text-xs">Instance ID *</Label>
+                        <Label className="text-[11px] font-semibold text-slate-600">Instance ID *</Label>
                         <Input
                           value={novaIntegracao.instance_id}
                           onChange={(e) => setNovaIntegracao({...novaIntegracao, instance_id: e.target.value.trim()})}
-                          placeholder={novaIntegracao.api_provider === 'w_api' ? "T34398-VYR3QD..." : "3E5D2BD1BF421127B24ECEF0269361A3"}
-                          className="mt-1 h-9 font-mono text-xs"
+                          placeholder={novaIntegracao.api_provider === 'w_api' ? "T34398-VYR3QD..." : "3E5D2BD1..."}
+                          className="mt-1 h-8 font-mono text-[11px]"
                         />
                       </div>
 
-                      <div className="grid grid-cols-2 gap-4">
+                      <div className="grid grid-cols-2 gap-3">
                         <div>
-                          <Label className="text-xs flex items-center gap-1">
-                            <Key className="w-3 h-3 text-blue-600" />
-                            {novaIntegracao.api_provider === 'w_api' ? 'Token (Bearer) *' : 'Token da Instância *'}
+                          <Label className="text-[11px] font-semibold text-slate-600 flex items-center gap-1">
+                            <Key className="w-3 h-3" />
+                            {novaIntegracao.api_provider === 'w_api' ? 'Token *' : 'Token *'}
                           </Label>
                           <div className="relative mt-1">
                             <Input
@@ -801,25 +768,24 @@ export default function ConfiguracaoCanaisComunicacao({ integracoes, onRecarrega
                               value={novaIntegracao.token_instancia}
                               onChange={(e) => setNovaIntegracao({...novaIntegracao, token_instancia: e.target.value.trim()})}
                               placeholder="Token..."
-                              className="h-9 pr-8 font-mono text-xs"
+                              className="h-8 pr-8 font-mono text-[11px]"
                             />
                             <Button
                               type="button"
                               variant="ghost"
                               size="icon"
-                              className="absolute right-0 top-0 h-9 w-8"
+                              className="absolute right-0 top-0 h-8 w-7"
                               onClick={() => setShowTokenInstancia(!showTokenInstancia)}>
                               {showTokenInstancia ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}
                             </Button>
                           </div>
                         </div>
                         
-                        {/* Client-Token apenas para Z-API */}
                         {novaIntegracao.api_provider === 'z_api' && (
                           <div>
-                            <Label className="text-xs flex items-center gap-1">
-                              <Shield className="w-3 h-3 text-purple-600" />
-                              Client-Token Segurança *
+                            <Label className="text-[11px] font-semibold text-slate-600 flex items-center gap-1">
+                              <Shield className="w-3 h-3" />
+                              Client-Token *
                             </Label>
                             <div className="relative mt-1">
                               <Input
@@ -827,13 +793,13 @@ export default function ConfiguracaoCanaisComunicacao({ integracoes, onRecarrega
                                 value={novaIntegracao.client_token_conta}
                                 onChange={(e) => setNovaIntegracao({...novaIntegracao, client_token_conta: e.target.value.trim()})}
                                 placeholder="Token..."
-                                className="h-9 pr-8 font-mono text-xs"
+                                className="h-8 pr-8 font-mono text-[11px]"
                               />
                               <Button
                                 type="button"
                                 variant="ghost"
                                 size="icon"
-                                className="absolute right-0 top-0 h-9 w-8"
+                                className="absolute right-0 top-0 h-8 w-7"
                                 onClick={() => setShowTokenConta(!showTokenConta)}>
                                 {showTokenConta ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}
                               </Button>
@@ -843,7 +809,7 @@ export default function ConfiguracaoCanaisComunicacao({ integracoes, onRecarrega
                       </div>
 
                       <div className="flex justify-end gap-2 pt-2 border-t">
-                        <Button variant="outline" size="sm" onClick={() => {
+                        <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => {
                           if (integracaoSelecionada) {
                             selecionarIntegracao(integracaoSelecionada);
                           } else {
@@ -857,45 +823,45 @@ export default function ConfiguracaoCanaisComunicacao({ integracoes, onRecarrega
                           size="sm"
                           onClick={handleCriarInstancia}
                           disabled={loading}
-                          className="bg-gradient-to-r from-green-500 to-emerald-600">
+                          className="h-7 text-xs bg-green-600 hover:bg-green-700">
                           {loading ? <Loader2 className="w-3 h-3 mr-1 animate-spin" /> : <CheckCircle className="w-3 h-3 mr-1" />}
                           {integracaoSelecionada ? 'Salvar' : 'Criar'}
                         </Button>
                       </div>
                     </div>
                   ) : (
-                    <div className="space-y-3">
-                      <div className="grid grid-cols-2 gap-4 text-sm">
+                    <div className="space-y-2.5">
+                      <div className="grid grid-cols-2 gap-3 text-xs">
                         <div>
-                          <span className="text-slate-500">Nome:</span>
-                          <p className="font-semibold">{integracaoSelecionada?.nome_instancia}</p>
+                          <span className="text-slate-500 text-[10px]">Nome:</span>
+                          <p className="font-semibold text-slate-800">{integracaoSelecionada?.nome_instancia}</p>
                         </div>
                         <div>
-                          <span className="text-slate-500">Telefone:</span>
-                          <p className="font-semibold">{integracaoSelecionada?.numero_telefone}</p>
+                          <span className="text-slate-500 text-[10px]">Telefone:</span>
+                          <p className="font-semibold text-slate-800">{integracaoSelecionada?.numero_telefone}</p>
                         </div>
                         <div>
-                          <span className="text-slate-500">Status:</span>
-                          <div className="mt-1">{statusBadge(integracaoSelecionada?.status)}</div>
+                          <span className="text-slate-500 text-[10px]">Status:</span>
+                          <div className="mt-0.5">{statusBadge(integracaoSelecionada?.status)}</div>
                         </div>
                         <div>
-                          <span className="text-slate-500">Canal:</span>
-                          <div className="mt-1">
+                          <span className="text-slate-500 text-[10px]">Canal:</span>
+                          <div className="mt-0.5">
                             {getChannelBadge(integracaoSelecionada?.api_provider)}
                           </div>
                         </div>
                       </div>
                       
-                      {/* Botões de QR Code / Pairing Code para W-API */}
                       {integracaoSelecionada?.api_provider === 'w_api' && integracaoSelecionada?.status !== 'conectado' && (
-                        <div className="border-t pt-3">
-                          <p className="text-xs text-slate-500 mb-2">Conectar WhatsApp:</p>
-                          <div className="flex gap-2">
+                        <div className="border-t pt-2.5">
+                          <p className="text-[10px] text-slate-500 mb-1.5">Conectar WhatsApp:</p>
+                          <div className="flex gap-1.5">
                             <Button
                               size="sm"
                               variant="outline"
                               onClick={() => gerarQRCode(integracaoSelecionada, false)}
                               disabled={gerandoQR === integracaoSelecionada.id}
+                              className="h-7 text-xs"
                             >
                               {gerandoQR === integracaoSelecionada.id ? <Loader2 className="w-3 h-3 animate-spin mr-1" /> : <QrCode className="w-3 h-3 mr-1" />}
                               QR Code
@@ -905,9 +871,10 @@ export default function ConfiguracaoCanaisComunicacao({ integracoes, onRecarrega
                               variant="outline"
                               onClick={() => gerarQRCode(integracaoSelecionada, true)}
                               disabled={gerandoQR === integracaoSelecionada.id}
+                              className="h-7 text-xs"
                             >
                               <Smartphone className="w-3 h-3 mr-1" />
-                              Código Pareamento
+                              Pareamento
                             </Button>
                           </div>
                           
@@ -937,16 +904,16 @@ export default function ConfiguracaoCanaisComunicacao({ integracoes, onRecarrega
                       )}
                       
                       {integracaoSelecionada?.estatisticas && (
-                        <div className="grid grid-cols-2 gap-3 pt-2 border-t">
-                          <div className="bg-green-50 rounded-lg p-2 text-center">
-                            <div className="text-xs text-slate-500">Enviadas</div>
-                            <div className="font-bold text-green-600">
+                        <div className="grid grid-cols-2 gap-2 pt-2 border-t">
+                          <div className="bg-green-50 rounded-md p-1.5 text-center">
+                            <div className="text-[10px] text-slate-500">Enviadas</div>
+                            <div className="font-bold text-sm text-green-600">
                               {integracaoSelecionada.estatisticas.total_mensagens_enviadas || 0}
                             </div>
                           </div>
-                          <div className="bg-blue-50 rounded-lg p-2 text-center">
-                            <div className="text-xs text-slate-500">Recebidas</div>
-                            <div className="font-bold text-blue-600">
+                          <div className="bg-blue-50 rounded-md p-1.5 text-center">
+                            <div className="text-[10px] text-slate-500">Recebidas</div>
+                            <div className="font-bold text-sm text-blue-600">
                               {integracaoSelecionada.estatisticas.total_mensagens_recebidas || 0}
                             </div>
                           </div>
