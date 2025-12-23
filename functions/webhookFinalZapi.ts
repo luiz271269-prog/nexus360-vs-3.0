@@ -822,38 +822,35 @@ async function handleMessage(dados, payloadBruto, base44) {
   }
 
   // ============================================================================
-  // ✅ PROCESSAR INBOUND CORE DIRETAMENTE (SEM HTTP 404)
+  // ✅ DISPARAR CÉREBRO (Async Fire-and-Forget) - SIMETRIA COM W-API
   // ============================================================================
   try {
-    console.log(`[${VERSION}] 🧠 Processando Inbound Core diretamente...`);
+    console.log(`[${VERSION}] 🚀 Disparando processInbound (Cérebro separado)...`);
     
     let integracaoObj = null;
     if (integracaoId) {
       try {
         integracaoObj = await base44.asServiceRole.entities.WhatsAppIntegration.get(integracaoId);
       } catch (e) {
-        console.warn(`[${VERSION}] ⚠️ Integração não encontrada:`, e?.message);
+        console.warn(`[${VERSION}] ⚠️ Integração não encontrada, enviando ID:`, e?.message);
         integracaoObj = { id: integracaoId };
       }
     }
 
-    // ✅ IMPORT DIRETO - Elimina 404 de functions.invoke
-    const { processInboundEvent } = await import('./lib/inboundCore.js');
-    
-    await processInboundEvent({
-      base44,
+    // Fire-and-Forget: Se falhar, não trava o 200 OK do webhook
+    base44.asServiceRole.functions.invoke('processInbound', {
+      message: mensagem,
       contact: contato,
       thread: thread,
-      message: mensagem,
       integration: integracaoObj,
       provider: 'z_api',
       messageContent: dados.content,
       rawPayload: payloadBruto
-    });
+    }).catch(e => console.error(`[${VERSION}] ⚠️ Erro no processInbound (não afeta ingestão):`, e?.message));
     
-    console.log(`[${VERSION}] ✅ Inbound Core processado (direto)`);
+    console.log(`[${VERSION}] ✅ Cérebro disparado (isolado)`);
   } catch (err) {
-    console.error(`[${VERSION}] 🔴 Erro CRÍTICO no Inbound Core:`, err?.message);
+    console.error(`[${VERSION}] ⚠️ Erro ao disparar Cérebro:`, err?.message);
   }
 
   // Audit log
