@@ -36,7 +36,31 @@ export class FluxoController {
       return await this.processarWAITING_ATTENDANT_CHOICE(base44, thread, contact, { type: 'system', content: '' }, whatsappIntegrationId);
     }
     
-    // C. STICKY SETOR INTELIGENTE
+    // C. INTERVENÇÃO DE RESGATE (Guardião) - Humano dormiu, cliente precisa de ajuda
+    if (thread.assigned_user_id && !thread.sector_id && !intent_context) {
+      console.log('[FLUXO] 🛟 Modo Guardião: Humano ausente, oferecendo resgate.');
+      
+      // Buscar nome do atendente
+      let nomeAtendente = 'seu atendente';
+      try {
+        const atendente = await base44.asServiceRole.entities.User.get(thread.assigned_user_id);
+        nomeAtendente = atendente.full_name?.split(' ')[0] || 'seu atendente';
+      } catch (e) {
+        console.warn('[FLUXO] Não conseguiu buscar nome do atendente');
+      }
+      
+      const msg = `Olá, ${contact.nome}! 👋\n\n${nomeAtendente} não respondeu ainda. Para não te deixar esperando:\n\n🔹 Quer que eu te ajude agora?\n🔹 Ou prefere aguardar?`;
+      const botoes = [
+        { id: 'guardian_help', text: '✅ Me ajude agora' },
+        { id: 'guardian_wait', text: '⏳ Vou aguardar' }
+      ];
+      
+      await this.enviarMensagem(base44, contact, whatsappIntegrationId, msg, botoes);
+      await this.atualizarEstado(base44, thread.id, 'WAITING_STICKY_DECISION');
+      return { success: true, mode: 'guardian' };
+    }
+    
+    // D. STICKY SETOR INTELIGENTE
     // Só oferece sticky se tiver setor ANTERIOR e NÃO for Fast-Track de IA
     if (thread.sector_id && !intent_context) {
       console.log(`[FLUXO] 📎 Oferecendo retorno ao setor: ${thread.sector_id}`);
@@ -44,7 +68,7 @@ export class FluxoController {
       const msgSticky = `Olá novamente, ${contact.nome}! 👋\n\nVi que seu último atendimento foi em *${thread.sector_id.toUpperCase()}*. Deseja continuar por lá?`;
       const botoes = [
         { id: 'sticky_sim', text: '✅ Sim, continuar' },
-        { id: 'sticky_nao', text: '🔄 Não, outro assunto' }  // Botão de fuga explícito
+        { id: 'sticky_nao', text: '🔄 Não, outro assunto' }
       ];
 
       await this.enviarMensagem(base44, contact, whatsappIntegrationId, msgSticky, botoes);
@@ -52,7 +76,7 @@ export class FluxoController {
       return { success: true, mode: 'sticky' };
     }
     
-    // D. FALLBACK: MENU PADRÃO
+    // E. FALLBACK: MENU PADRÃO
     const menu = MenuBuilder.construirMenuBoasVindas(contact.nome);
     await this.enviarMensagem(base44, contact, whatsappIntegrationId, menu);
     await this.atualizarEstado(base44, thread.id, 'WAITING_SECTOR_CHOICE');
@@ -65,26 +89,52 @@ export class FluxoController {
   static async processarWAITING_STICKY_DECISION(base44, thread, contact, user_input, whatsappIntegrationId) {
     const entrada = (user_input.content || user_input.id || '').toLowerCase();
 
+    // === STICKY: Continuar no setor anterior ===
     if (['sticky_sim', 'sim', '1', 'quero'].some(x => entrada.includes(x))) {
       await this.enviarMensagem(base44, contact, whatsappIntegrationId, `Combinado! Retornando para *${thread.sector_id}*...`);
       await this.atualizarEstado(base44, thread.id, 'WAITING_ATTENDANT_CHOICE', thread.sector_id);
       return await this.processarWAITING_ATTENDANT_CHOICE(base44, thread, contact, { type: 'system' }, whatsappIntegrationId);
     }
 
-    // Se o cliente disser NÃO, ele quer trocar. Limpamos tudo (DIVÓRCIO VOLUNTÁRIO).
+    // === GUARDIAN: Cliente quer ajuda agora (humano dormindo) ===
+    if (['guardian_help', 'ajude', 'me ajude'].some(x => entrada.includes(x))) {
+      console.log('[FLUXO] 🛟 Guardião ativado: Cliente pediu ajuda. Limpando vínculos e iniciando menu.');
+      
+      await base44.asServiceRole.entities.MessageThread.update(thread.id, {
+        pre_atendimento_state: 'INIT',
+        sector_id: null,
+        assigned_user_id: null  // Liberta do atendente ausente
+      });
+
+      thread = await base44.asServiceRole.entities.MessageThread.get(thread.id);
+      return await this.processarEstadoINIT(base44, thread, contact, whatsappIntegrationId, null, null);
+    }
+
+    // === GUARDIAN: Cliente prefere aguardar ===
+    if (['guardian_wait', 'aguardar', 'esperar', 'aguardo'].some(x => entrada.includes(x))) {
+      console.log('[FLUXO] ⏳ Guardião: Cliente optou por aguardar o atendente.');
+      
+      await this.enviarMensagem(base44, contact, whatsappIntegrationId, `Perfeito! Vou manter sua conversa com o atendente. Ele verá sua mensagem quando retornar. 👍`);
+      
+      await base44.asServiceRole.entities.MessageThread.update(thread.id, {
+        pre_atendimento_state: 'COMPLETED',
+        pre_atendimento_ativo: false
+      });
+      
+      return { success: true, mode: 'guardian_wait' };
+    }
+
+    // === DIVÓRCIO VOLUNTÁRIO: Cliente quer trocar de setor ===
     if (['sticky_nao', 'nao', 'não', '2', 'menu', 'outro'].some(x => entrada.includes(x))) {
       console.log('[FLUXO] 🚫 Cliente recusou sticky. Limpando vínculos.');
       
       await base44.asServiceRole.entities.MessageThread.update(thread.id, {
         pre_atendimento_state: 'INIT',
         sector_id: null,
-        assigned_user_id: null  // <--- Garante liberdade total
+        assigned_user_id: null
       });
 
-      // Recarregar thread para pegar estado limpo
       thread = await base44.asServiceRole.entities.MessageThread.get(thread.id);
-
-      // Chama INIT limpo (que cairá no Menu Padrão)
       return await this.processarEstadoINIT(base44, thread, contact, whatsappIntegrationId, null, null);
     }
 

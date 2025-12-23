@@ -314,24 +314,44 @@ export async function processInboundEvent(params) {
   }
   
   // =================================================================
-  // 7. EXECUÇÃO DO PRÉ-ATENDIMENTO (O Motor Único) - MODO AGRESSIVO v10
+  // 7. EXECUÇÃO DO PRÉ-ATENDIMENTO (GUARDIÃO INTELIGENTE v11)
   // =================================================================
-
-  result.pipeline.push('pre_atendimento_dispatch');
-
-  // 1. O robô já está falando?
-  const isUraActive = thread.pre_atendimento_ativo === true;
   
-  // 2. O humano falou recentemente? (Janela de 2 horas)
-  // Se a última msg foi do sistema ou contato, NÃO conta como humano ativo.
-  // Só conta se sender_type = 'user' (atendente real)
-  const isHumanActive = humanoAtivo(thread, 2);
+  result.pipeline.push('pre_atendimento_dispatch');
+  
+  const isUraActive = thread.pre_atendimento_ativo === true;
+  const isHumanActive = humanoAtivo(thread, 2); // Janela estrita de 2h
+  const isHumanDormant = thread.assigned_user_id && !isHumanActive; // Humano existe, mas dormiu
+  
+  let shouldDispatch = false;
 
-  // 3. REGRA DE OURO: O Robô roda se...
-  // - Ele já estava rodando;
-  // - OU É um novo ciclo (passou tempo demais);
-  // - OU O humano está dormindo (não falou recentemente), mesmo que a thread esteja "COMPLETED".
-  const shouldDispatch = isUraActive || novoCiclo || !isHumanActive;
+  // 1. Se URA já manda, continua mandando.
+  if (isUraActive) {
+      shouldDispatch = true;
+  }
+  // 2. Se é Novo Ciclo (passou a noite), reseta tudo e chama URA.
+  else if (novoCiclo) {
+      shouldDispatch = true;
+  }
+  // 3. O CASO CRÍTICO: Humano existe mas está em silêncio (>2h)
+  else if (isHumanDormant) {
+      console.log('[CORE] 🧠 Humano ausente. Analisando se devo intervir...');
+      
+      // Heurística rápida: Mensagens curtas sem pergunta ("ok", "tá", "valeu")
+      // geralmente não exigem que o robô acorde.
+      if (userInput.content.length < 5 && !userInput.content.includes('?')) {
+           console.log('[CORE] 🤫 Mensagem curta/passiva. Mantendo silêncio.');
+           shouldDispatch = false;
+      } else {
+           // Mensagem complexa: O cliente quer atenção. Robô assume.
+           console.log('[CORE] 🔔 Cliente demandando atenção com humano ausente. URA assume.');
+           shouldDispatch = true; 
+      }
+  }
+  // 4. Sem humano e sem URA (limbo) -> Chama URA
+  else if (!thread.assigned_user_id) {
+      shouldDispatch = true;
+  }
 
   if (shouldDispatch) {
     result.actions.push('dispatching_to_ura');
