@@ -313,22 +313,25 @@ export async function processInboundEvent(params) {
     }
   }
   
-  // ============================================================================
-  // 7. EXECUÇÃO DO PRÉ-ATENDIMENTO (O Motor Único)
-  // ============================================================================
+  // =================================================================
+  // 7. EXECUÇÃO DO PRÉ-ATENDIMENTO (O Motor Único) - MODO AGRESSIVO v10
+  // =================================================================
 
   result.pipeline.push('pre_atendimento_dispatch');
 
-  // A URA deve acordar se:
-  // 1. Ela já está rodando (óbvio)
-  // 2. É um NOVO CICLO e o humano não está ativo
-  // 3. A thread está em estado final (COMPLETED/CANCELLED/TIMEOUT) e o humano não está ativo
-  // 4. Gap de inatividade (URA e humano ambos inativos) e não é novo ciclo nem estado final
-  const shouldDispatch = 
-      isUraActive || 
-      (novoCiclo && !isHumanActive) || 
-      (['COMPLETED', 'CANCELLED', 'TIMEOUT'].includes(thread.pre_atendimento_state) && !isHumanActive) ||
-      (!isUraActive && !isHumanActive && !novoCiclo && !['COMPLETED', 'CANCELLED', 'TIMEOUT'].includes(thread.pre_atendimento_state));
+  // 1. O robô já está falando?
+  const isUraActive = thread.pre_atendimento_ativo === true;
+  
+  // 2. O humano falou recentemente? (Janela de 2 horas)
+  // Se a última msg foi do sistema ou contato, NÃO conta como humano ativo.
+  // Só conta se sender_type = 'user' (atendente real)
+  const isHumanActive = humanoAtivo(thread, 2);
+
+  // 3. REGRA DE OURO: O Robô roda se...
+  // - Ele já estava rodando;
+  // - OU É um novo ciclo (passou tempo demais);
+  // - OU O humano está dormindo (não falou recentemente), mesmo que a thread esteja "COMPLETED".
+  const shouldDispatch = isUraActive || novoCiclo || !isHumanActive;
 
   if (shouldDispatch) {
     result.actions.push('dispatching_to_ura');
