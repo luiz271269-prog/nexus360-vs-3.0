@@ -198,11 +198,6 @@ export default React.memo(function MessageBubble({
     return null;
   }
 
-  // Detectar se é thread interna
-  const isThreadInterna = thread?.thread_type === 'team_internal' || 
-                          thread?.thread_type === 'sector_group' || 
-                          message.channel === 'interno';
-
   // ✅ NÃO RENDERIZAR mensagens de prompt da micro-URA
   if (message.metadata?.is_system_message === true && message.metadata?.message_type === 'micro_ura_prompt') {
     return null;
@@ -652,14 +647,14 @@ export default React.memo(function MessageBubble({
           "max-w-[65%]",
           "flex flex-col group relative"
         )}>
-          {!isOwn && isThreadInterna && (() => {
+          {!isOwn && (thread?.thread_type === 'team_internal' || thread?.thread_type === 'sector_group' || message.channel === 'interno') && (() => {
             const atendenteRemetente = atendentes.find(a => a.id === message.sender_id);
             if (!atendenteRemetente) return null;
             return (
               <div className="mb-0.5">
                 <UsuarioDisplay 
                   usuario={atendenteRemetente} 
-                  className="text-[11px] font-semibold text-blue-600"
+                  className="text-[11px] font-semibold text-cyan-600"
                   variant="compact"
                 />
               </div>
@@ -703,8 +698,8 @@ export default React.memo(function MessageBubble({
 
           <div className={cn(
             "rounded-lg relative shadow-sm",
-            // 🎨 CORES TIPO WHATSAPP: Internas (azul claro) vs Externas (verde claro)
-            isThreadInterna
+            // 🎨 CORES TIPO WHATSAPP: Internas (azul claro suave) vs Externas (verde claro)
+            thread?.thread_type === 'team_internal' || thread?.thread_type === 'sector_group' || message.channel === 'interno'
               ? (isOwn ? "bg-[#cfe9ff] border border-blue-200" : "bg-white border border-slate-200")
               : (isOwn ? "bg-[#d9fdd3] border border-green-200" : "bg-white border border-slate-200"),
             selecionada ? 'ring-2 ring-blue-500' : '',
@@ -900,7 +895,7 @@ export default React.memo(function MessageBubble({
                       {/* ✅ ATENDENTE + SETOR */}
                       {(() => {
                         const atendenteMsg = atendentes.find(a => a.id === message.sender_id);
-                        if (atendenteMsg && isThreadInterna) {
+                        if (atendenteMsg && (thread?.thread_type === 'team_internal' || thread?.thread_type === 'sector_group' || message.channel === 'interno')) {
                           const nomeAtendente = (atendenteMsg.display_name || atendenteMsg.full_name || '').split(' ')[0];
                           const setorAtendente = atendenteMsg.attendant_sector;
                           if (nomeAtendente || setorAtendente) {
@@ -1175,7 +1170,7 @@ export default React.memo(function MessageBubble({
                 {/* ✅ MOSTRAR ATENDENTE + SETOR */}
                 {(() => {
                   const atendenteMsg = atendentes.find(a => a.id === message.sender_id);
-                  if (atendenteMsg && isThreadInterna) {
+                  if (atendenteMsg && (thread?.thread_type === 'team_internal' || thread?.thread_type === 'sector_group' || message.channel === 'interno')) {
                     const nomeAtendente = (atendenteMsg.display_name || atendenteMsg.full_name || '').split(' ')[0];
                     const setorAtendente = atendenteMsg.attendant_sector;
                     if (nomeAtendente || setorAtendente) {
