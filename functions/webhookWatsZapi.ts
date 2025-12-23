@@ -409,33 +409,39 @@ async function handleMessage(dados, payloadBruto, base44) {
     }).catch(e => console.error('[ZAPI] Erro trigger mídia:', e.message));
   }
 
-  // DISPARAR CÉREBRO (Async Fire-and-Forget)
+  // ============================================================================
+  // ✅ PROCESSAR INBOUND CORE DIRETAMENTE (SEM HTTP 404)
+  // ============================================================================
   try {
-    console.log('[ZAPI] 🚀 Disparando processInbound (Cérebro separado)...');
+    console.log('[ZAPI] 🧠 Processando Inbound Core diretamente...');
     
     let integracaoObj = null;
     if (integracaoId) {
       try {
         integracaoObj = await base44.asServiceRole.entities.WhatsAppIntegration.get(integracaoId);
       } catch (e) {
-        console.warn('[ZAPI] ⚠️ Integração não encontrada, enviando ID:', e.message);
+        console.warn('[ZAPI] ⚠️ Integração não encontrada:', e.message);
         integracaoObj = { id: integracaoId };
       }
     }
 
-    // Fire-and-Forget: Se falhar, não trava o 200 OK do webhook
-    base44.asServiceRole.functions.invoke('processInbound', {
-      message: mensagem,
+    // ✅ IMPORT DIRETO - Elimina 404 de functions.invoke
+    const { processInboundEvent } = await import('./lib/inboundCore.js');
+    
+    await processInboundEvent({
+      base44,
       contact: contato,
       thread: thread,
+      message: mensagem,
       integration: integracaoObj,
       provider: 'z_api',
-      messageContent: dados.content
-    }).catch(e => console.error('[ZAPI] ⚠️ Erro no processInbound (não afeta ingestão):', e.message));
+      messageContent: dados.content,
+      rawPayload: payloadBruto
+    });
     
-    console.log('[ZAPI] ✅ Cérebro disparado (isolado)');
+    console.log('[ZAPI] ✅ Inbound Core processado (direto)');
   } catch (err) {
-    console.error('[ZAPI] ⚠️ Erro ao disparar Cérebro:', err.message);
+    console.error('[ZAPI] 🔴 Erro CRÍTICO no Inbound Core:', err.message);
   }
 
   // RETORNO FINAL (Sempre Sucesso)
