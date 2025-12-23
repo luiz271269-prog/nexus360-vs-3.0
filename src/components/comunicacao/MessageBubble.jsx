@@ -900,7 +900,7 @@ export default React.memo(function MessageBubble({
                           const setorAtendente = atendenteMsg.attendant_sector;
                           if (nomeAtendente || setorAtendente) {
                             return (
-                              <span className="text-[9px] px-1.5 py-0.5 rounded bg-white/20 text-white/90 mr-1">
+                              <span className="text-[9px] px-1.5 py-0.5 rounded bg-slate-200 text-slate-700 mr-1">
                                 {nomeAtendente}{setorAtendente ? ` (${setorAtendente})` : ''}
                               </span>
                             );
@@ -909,14 +909,14 @@ export default React.memo(function MessageBubble({
                         return null;
                       })()}
 
-                      <span className="text-[10px] text-white">
+                      <span className="text-[10px] text-slate-500">
                         {format(new Date(message.sent_at || message.created_date), 'dd/MM HH:mm')}
                       </span>
-                    {isOwn && message.status === 'enviando' && <Clock className="w-3 h-3 text-white/50" />}
-                    {isOwn && message.status === 'enviada' && <Check className="w-3.5 h-3.5 text-white/60" />}
-                    {isOwn && message.status === 'entregue' && <CheckCheck className="w-3.5 h-3.5 text-white/60" />}
-                    {isOwn && message.status === 'lida' && <CheckCheck className="w-3.5 h-3.5 text-[#53bdeb]" />}
-                    {isOwn && message.status === 'falhou' && <AlertCircle className="w-3.5 h-3.5 text-red-400" />}
+                    {isOwn && message.status === 'enviando' && <Clock className="w-3 h-3 text-slate-400" />}
+                    {isOwn && message.status === 'enviada' && <Check className="w-3.5 h-3.5 text-slate-500" />}
+                    {isOwn && message.status === 'entregue' && <CheckCheck className="w-3.5 h-3.5 text-slate-600" />}
+                    {isOwn && message.status === 'lida' && <CheckCheck className="w-3.5 h-3.5 text-blue-500" />}
+                    {isOwn && message.status === 'falhou' && <AlertCircle className="w-3.5 h-3.5 text-red-500" />}
                   </div>
                 </div>
               </div>
@@ -968,7 +968,7 @@ export default React.memo(function MessageBubble({
                         key={cat}
                         className={cn(
                           "text-[9px] px-1.5 py-0.5 rounded flex items-center gap-1",
-                          isOwn ? "bg-white/20 text-white" : `${config.color} text-white`
+                          `${config.color} text-white`
                         )}>
 
                             {config.emoji} {config.label}
@@ -986,7 +986,7 @@ export default React.memo(function MessageBubble({
                       const setorAtendente = atendenteMsg.attendant_sector;
                       if (nomeAtendente || setorAtendente) {
                         return (
-                          <span className={cn("text-[9px] px-1.5 py-0.5 rounded", isOwn ? "bg-white/20 text-white/90" : "bg-slate-200 text-slate-600")}>
+                          <span className="text-[9px] px-1.5 py-0.5 rounded bg-slate-200 text-slate-700">
                             {nomeAtendente}{setorAtendente ? ` (${setorAtendente})` : ''}
                           </span>
                         );
@@ -998,11 +998,11 @@ export default React.memo(function MessageBubble({
                   <span className="text-[10px] text-slate-500">
                     {format(new Date(message.sent_at || message.created_date), 'dd/MM HH:mm')}
                   </span>
-                  {isOwn && message.status === 'enviando' && <Clock className="w-3 h-3 text-white/50" />}
-                  {isOwn && message.status === 'enviada' && <Check className="w-3.5 h-3.5 text-white/60" />}
-                  {isOwn && message.status === 'entregue' && <CheckCheck className="w-3.5 h-3.5 text-white/60" />}
-                  {isOwn && message.status === 'lida' && <CheckCheck className="w-3.5 h-3.5 text-[#53bdeb]" />}
-                  {isOwn && message.status === 'falhou' && <AlertCircle className="w-3.5 h-3.5 text-red-400" />}
+                  {isOwn && message.status === 'enviando' && <Clock className="w-3 h-3 text-slate-400" />}
+                  {isOwn && message.status === 'enviada' && <Check className="w-3.5 h-3.5 text-slate-500" />}
+                  {isOwn && message.status === 'entregue' && <CheckCheck className="w-3.5 h-3.5 text-slate-600" />}
+                  {isOwn && message.status === 'lida' && <CheckCheck className="w-3.5 h-3.5 text-blue-500" />}
+                  {isOwn && message.status === 'falhou' && <AlertCircle className="w-3.5 h-3.5 text-red-500" />}
                 </div>
               </div>
             }
@@ -1016,18 +1016,18 @@ export default React.memo(function MessageBubble({
                   className="max-w-[280px] max-h-[280px] rounded-lg"
                 />
                 {message.media_caption &&
-                <div className={cn("px-2 py-1 mt-1", isOwn ? "text-white" : "text-slate-800")}>
+                <div className="px-2 py-1 mt-1 text-slate-800">
                     <p className="text-sm">{message.media_caption}</p>
                   </div>
                 }
                 <div className="flex items-center justify-end gap-1 mt-1">
-                  <span className={cn("text-[11px]", isOwn ? "text-white/70" : "text-slate-500")}>
+                  <span className="text-[11px] text-slate-500">
                     {format(new Date(message.sent_at || message.created_date), 'dd/MM HH:mm')}
                   </span>
-                  {isOwn && message.status === 'enviando' && <Clock className="w-3 h-3 text-white/50" />}
-                  {isOwn && message.status === 'enviada' && <Check className="w-3.5 h-3.5 text-white/60" />}
-                  {isOwn && message.status === 'entregue' && <CheckCheck className="w-3.5 h-3.5 text-white/60" />}
-                  {isOwn && message.status === 'lida' && <CheckCheck className="w-3.5 h-3.5 text-[#53bdeb]" />}
+                  {isOwn && message.status === 'enviando' && <Clock className="w-3 h-3 text-slate-400" />}
+                  {isOwn && message.status === 'enviada' && <Check className="w-3.5 h-3.5 text-slate-500" />}
+                  {isOwn && message.status === 'entregue' && <CheckCheck className="w-3.5 h-3.5 text-slate-600" />}
+                  {isOwn && message.status === 'lida' && <CheckCheck className="w-3.5 h-3.5 text-blue-500" />}
                 </div>
               </div>
             }
