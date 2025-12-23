@@ -1118,31 +1118,33 @@ export default React.memo(function MessageBubble({
               </div>
             }
             
-            {/* CANAL + ATENDENTE */}
-            {isOwn && thread && integracoes.length > 0 && (() => {
+            {/* CANAL + ATENDENTE - apenas para threads EXTERNAS */}
+            {isOwn && !isThreadInterna && thread && integracoes.length > 0 && (() => {
               const integracaoId = message?.metadata?.whatsapp_integration_id || thread?.whatsapp_integration_id;
               if (!integracaoId) return null;
-              
+
               const integracao = integracoes.find((i) => i.id === integracaoId);
               if (!integracao) return null;
-              
+
               const displayNumero = integracao.numero_telefone || integracao.nome_instancia;
               const atendenteRemetente = atendentes.find(a => a.id === message.sender_id);
-              const nomeCompletoAtendente = atendenteRemetente?.display_name || atendenteRemetente?.full_name || thread?.assigned_user_name;
+              const nomeCompletoAtendente = atendenteRemetente?.display_name || atendenteRemetente?.full_name;
               const nomeAtendente = nomeCompletoAtendente?.split(' ')[0];
-              
+              const setorAtendente = atendenteRemetente?.attendant_sector;
+
               return (
-                <div className="text-[9px] px-2 py-0.5 rounded-full mb-1 inline-flex items-center gap-1.5 bg-blue-200/40 text-slate-700">
-                  <span>📱 Via: {displayNumero}</span>
+                <div className="text-[9px] px-2 py-0.5 rounded-full mb-1 inline-flex items-center gap-1.5 bg-green-100/60 text-slate-700">
                   {nomeAtendente && (
                     <>
-                      <span className="opacity-50">•</span>
                       <span className="flex items-center gap-0.5">
                         <UserCheck className="w-3 h-3" />
                         {nomeAtendente}
                       </span>
+                      {setorAtendente && <span>({setorAtendente})</span>}
+                      <span className="opacity-50">•</span>
                     </>
                   )}
+                  <span>📱 {displayNumero}</span>
                 </div>
               );
             })()}
