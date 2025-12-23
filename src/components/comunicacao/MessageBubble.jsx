@@ -679,7 +679,7 @@ export default React.memo(function MessageBubble({
 
               const displayNumero = integracao.numero_telefone || integracao.nome_instancia;
               return (
-                <span className="bg-transparent text-cyan-900 px-1.5 py-0.5 font-medium rounded-full">
+                <span className="bg-transparent text-cyan-900 px-1.2 py-0.5 font-medium rounded-full">
                     📱 {displayNumero}
                   </span>);
 
