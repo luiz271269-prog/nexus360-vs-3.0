@@ -698,10 +698,10 @@ export default React.memo(function MessageBubble({
 
           <div className={cn(
             "rounded-lg relative shadow-sm",
-            // ✅ CORES PROFISSIONAIS: Internas (azul claro/cinza) vs Externas (blue/white)
+            // ✅ CORES PROFISSIONAIS: Internas (azul claro/cinza) vs Externas (gradiente discreto e claro)
             thread?.thread_type === 'team_internal' || thread?.thread_type === 'sector_group' || message.channel === 'interno'
               ? (isOwn ? "bg-gradient-to-br from-cyan-500 to-blue-500" : "bg-slate-50 border border-slate-200")
-              : (isOwn ? "bg-[#3b82f6]" : "bg-white"),
+              : (isOwn ? "bg-gradient-to-br from-sky-100 via-blue-50 to-blue-100 border border-blue-200" : "bg-white"),
             selecionada ? 'ring-2 ring-blue-500' : '',
             message.media_url && message.media_type !== 'none' ? '' : 'px-3 py-1.5'
           )}
@@ -873,7 +873,7 @@ export default React.memo(function MessageBubble({
                 {message.media_caption &&
               <div className={cn(
                 "px-4 py-2 break-words whitespace-pre-wrap",
-                isOwn ? "text-white" : "text-slate-800"
+                isOwn ? "text-slate-800" : "text-slate-800"
               )} style={{ wordBreak: 'break-word', overflowWrap: 'anywhere' }}>
                     <p className="text-sm leading-relaxed" style={{ fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Color Emoji", sans-serif' }}>
                       {message.media_caption}
@@ -1162,7 +1162,7 @@ export default React.memo(function MessageBubble({
               const nomeAtendente = nomeCompletoAtendente?.split(' ')[0];
               
               return (
-                <div className="text-[9px] px-2 py-0.5 rounded-full mb-1 inline-flex items-center gap-1.5 bg-white/20 text-white/90">
+                <div className="text-[9px] px-2 py-0.5 rounded-full mb-1 inline-flex items-center gap-1.5 bg-blue-200/40 text-slate-700">
                   <span>📱 Via: {displayNumero}</span>
                   {nomeAtendente && (
                     <>
@@ -1182,10 +1182,10 @@ export default React.memo(function MessageBubble({
             <>
                 <div className={cn(
                   "break-words whitespace-pre-wrap", 
-                  // ✅ COR DO TEXTO: Internas vs Externas
+                  // ✅ COR DO TEXTO: Internas vs Externas (texto escuro para mensagens claras)
                   thread?.thread_type === 'team_internal' || thread?.thread_type === 'sector_group' || message.channel === 'interno'
                     ? (isOwn ? "text-white" : "text-slate-700")
-                    : (isOwn ? "text-white" : "text-[#111b21]")
+                    : (isOwn ? "text-slate-800" : "text-[#111b21]")
                 )} style={{ wordBreak: 'break-word', overflowWrap: 'anywhere' }}>
                   <p className="text-[14.2px] leading-[19px]" style={{ fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Color Emoji", sans-serif' }}>
                     {String(message.content || '')}
@@ -1220,17 +1220,17 @@ export default React.memo(function MessageBubble({
                   "text-[11px]", 
                   thread?.thread_type === 'team_internal' || thread?.thread_type === 'sector_group' || message.channel === 'interno'
                     ? (isOwn ? "text-white/70" : "text-slate-500")
-                    : (isOwn ? "text-white/70" : "text-[#667781]")
+                    : (isOwn ? "text-slate-500" : "text-[#667781]")
                 )}>
                   {format(new Date(message.sent_at || message.created_date), 'dd/MM HH:mm')}
                 </span>
                 {isOwn && (
                   <>
-                    {message.status === 'enviando' && <Clock className="w-[16px] h-[16px] text-white/60" />}
-                    {message.status === 'enviada' && <Check className="w-[16px] h-[16px] text-white/70" />}
-                    {message.status === 'entregue' && <CheckCheck className="w-[16px] h-[16px] text-white/70" />}
-                    {message.status === 'lida' && <CheckCheck className="w-[16px] h-[16px] text-[#90EE90]" />}
-                    {message.status === 'falhou' && <AlertCircle className="w-[16px] h-[16px] text-red-300" />}
+                    {message.status === 'enviando' && <Clock className="w-[16px] h-[16px] text-slate-400" />}
+                    {message.status === 'enviada' && <Check className="w-[16px] h-[16px] text-slate-500" />}
+                    {message.status === 'entregue' && <CheckCheck className="w-[16px] h-[16px] text-slate-600" />}
+                    {message.status === 'lida' && <CheckCheck className="w-[16px] h-[16px] text-blue-500" />}
+                    {message.status === 'falhou' && <AlertCircle className="w-[16px] h-[16px] text-red-500" />}
                   </>
                 )}
                 </div>
