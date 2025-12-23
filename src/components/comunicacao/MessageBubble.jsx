@@ -1048,7 +1048,7 @@ export default React.memo(function MessageBubble({
               </div>
             }
 
-            {/* DOCUMENTO/PDF - ✅ CORREÇÃO: Link nativo para abrir direto sem baixar */}
+            {/* DOCUMENTO/PDF - Abre direto sem forçar download */}
             {(
               message?.media_type === 'document' || 
               message?.content === 'pdf' ||
@@ -1060,11 +1060,9 @@ export default React.memo(function MessageBubble({
               ))
             ) && message?.media_url &&
             <div className="overflow-hidden">
-                <a
-                  href={message.media_url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex items-center gap-3 hover:bg-black/5 active:bg-black/10 transition-colors w-full text-left p-3 no-underline"
+                <button
+                  onClick={() => window.open(message.media_url, '_blank', 'noopener,noreferrer')}
+                  className="flex items-center gap-3 hover:bg-black/5 active:bg-black/10 transition-colors w-full text-left p-3 cursor-pointer"
                 >
                   <div className={cn(
                     "w-12 h-12 rounded-lg flex items-center justify-center flex-shrink-0 shadow-sm",
@@ -1095,7 +1093,7 @@ export default React.memo(function MessageBubble({
                     </div>
                   </div>
                   <Download className={cn("w-5 h-5 flex-shrink-0", isOwn ? "text-white/70" : "text-blue-500")} />
-                </a>
+                </button>
                 
                 <div className={cn("flex items-center justify-end gap-1 px-3 pb-2 pt-1 flex-wrap")}>
                   {message?.categorias && message.categorias.length > 0 &&
