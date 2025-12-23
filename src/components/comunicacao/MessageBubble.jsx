@@ -1053,7 +1053,7 @@ export default React.memo(function MessageBubble({
                 <div className="text-[10px] px-2 py-0.5 rounded-full mb-1 inline-flex items-center gap-1.5 bg-green-100/60 text-slate-700">
                   {nomeAtendente && (
                     <>
-                      <span className="flex items-center gap-0.5">
+                      <span className="flex items-center gap-0.7">
                         <UserCheck className="w-3 h-3" />
                         {nomeAtendente}
                       </span>
