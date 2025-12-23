@@ -2,7 +2,10 @@ import { createClientFromRequest } from 'npm:@base44/sdk@0.8.4';
 import {
   isBlocked, 
   getActivePromotions, 
+  filterEligiblePromotions,
   pickPromotion,
+  readLastPromoIds,
+  writeLastPromoIds,
   canSendInbound6h,
   isHumanActive,
   sendPromotion
@@ -27,10 +30,10 @@ Deno.serve(async (req) => {
   try {
     console.log(`[PROMO-INBOUND ${VERSION}] Iniciando...`);
     
-    // Buscar promoções ativas
-    const promos = await getActivePromotions(base44, now);
+    // Buscar promoções ativas - FILTRANDO POR STAGE='6h' (Correção #4)
+    const promos = await getActivePromotions(base44, now, '6h');
     if (!promos.length) {
-      return Response.json({ success: true, sent: 0, reason: 'no_active_promos' });
+      return Response.json({ success: true, sent: 0, reason: 'no_active_6h_promos' });
     }
 
     // Buscar threads "devidas" (last_inbound_at <= now-6h)

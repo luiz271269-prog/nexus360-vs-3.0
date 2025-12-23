@@ -2,7 +2,10 @@ import { createClientFromRequest } from 'npm:@base44/sdk@0.8.4';
 import {
   isBlocked, 
   getActivePromotions, 
+  filterEligiblePromotions,
   pickPromotion,
+  readLastPromoIds,
+  writeLastPromoIds,
   canSendBatch24h,
   sendPromotion
 } from './lib/promotionEngine.js';
@@ -24,10 +27,10 @@ Deno.serve(async (req) => {
   try {
     console.log(`[PROMO-BATCH ${VERSION}] Iniciando...`);
     
-    // Buscar promoções ativas
-    const promos = await getActivePromotions(base44, now);
+    // Buscar promoções ativas - FILTRANDO POR STAGE='24h' (Correção #4)
+    const promos = await getActivePromotions(base44, now, '24h');
     if (!promos.length) {
-      return Response.json({ success: true, sent: 0, reason: 'no_active_promos' });
+      return Response.json({ success: true, sent: 0, reason: 'no_active_24h_promos' });
     }
 
     // Buscar contatos elegíveis (lead/cliente ativos)
@@ -122,9 +125,9 @@ Deno.serve(async (req) => {
           trigger: 'batch_24h' 
         });
 
-        // Atualizar controles (importar helpers do engine)
-        const lastIds = contact.last_promo_ids || [];
-        const nextIds = [promo.id, ...lastIds.filter(id => id !== promo.id)].slice(0, 3);
+        // Atualizar controles (usando helpers exportados do engine)
+        const lastIds = readLastPromoIds(contact);
+        const nextIds = writeLastPromoIds(lastIds, promo.id);
 
         await base44.asServiceRole.entities.Contact.update(contact.id, {
           last_promo_batch_at: now.toISOString(),

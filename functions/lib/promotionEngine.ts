@@ -67,10 +67,14 @@ export function isBlocked({ contact, thread, integration, setorTipo }) {
 // ============================================================================
 
 /**
- * Busca promoções ativas e válidas
+ * Busca promoções ativas e válidas (com filtro opcional de stage)
  */
-export async function getActivePromotions(base44, now) {
-  const all = await base44.asServiceRole.entities.Promotion.filter({ ativo: true });
+export async function getActivePromotions(base44, now, stage = null) {
+  // Filtro base: ativo + stage opcional
+  const filter = { ativo: true };
+  if (stage) filter.stage = stage;
+  
+  const all = await base44.asServiceRole.entities.Promotion.filter(filter);
   const valid = (all || []).filter(p => {
     // Validar data de validade
     if (p.validade) {
@@ -140,7 +144,7 @@ export function filterEligiblePromotions(promos, contact, thread) {
 // ROTAÇÃO INTELIGENTE (Anti-Repetição com Histórico de 3)
 // ============================================================================
 
-function readLastPromoIds(contact) {
+export function readLastPromoIds(contact) {
   const v = contact?.last_promo_ids;
   if (!v) return [];
   if (Array.isArray(v)) return v.filter(Boolean);
@@ -151,7 +155,7 @@ function readLastPromoIds(contact) {
   return [];
 }
 
-function writeLastPromoIds(lastIds, newId) {
+export function writeLastPromoIds(lastIds, newId) {
   const next = [newId, ...lastIds.filter(id => id !== newId)].slice(0, 3);
   return next;
 }
