@@ -666,8 +666,8 @@ export default React.memo(function MessageBubble({
 
           })()}
           {!isOwn && message.sender_type === 'contact' && contato?.nome &&
-          <div className="flex items-center gap-2 mb-0.7">
-              <span className="text-[13px] font-semibold text-[#00a884]">
+          <div className="bg-transparent text-slate-800 mb-0.5 flex items-center gap-2">
+              <span className="text-cyan-900 font-semibold">
                 {contato.nome}
               </span>
               {(() => {
@@ -679,7 +679,7 @@ export default React.memo(function MessageBubble({
 
               const displayNumero = integracao.numero_telefone || integracao.nome_instancia;
               return (
-                <span className="text-[11px] px-1.5 py-0.5 rounded-full bg-green-100 text-green-700 font-medium">
+                <span className="bg-transparent text-cyan-900 px-1.5 py-0.5 font-medium rounded-full">
                     📱 {displayNumero}
                   </span>);
 
