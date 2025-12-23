@@ -544,7 +544,29 @@ async function handleMessage(dados, payloadBruto, base44) {
     }
   }
 
-
+  // ✅ VERIFICAÇÃO ADICIONAL: Duplicata por timestamp + telefone (últimos 2 segundos)
+  try {
+    const doisSegundosAtras = new Date(Date.now() - 2000).toISOString();
+    const msgRecentes = await base44.asServiceRole.entities.Message.filter({
+      sender_type: 'contact',
+      created_date: { $gte: doisSegundosAtras }
+    }, '-created_date', 50);
+    
+    // Verificar se já existe mensagem MUITO similar (mesmo remetente, mesmo tipo, mesmo tempo)
+    const duplicadaPorConteudo = msgRecentes.find(m => 
+      m.sender_id === contact_id &&
+      m.media_type === dados.mediaType &&
+      m.content === dados.content &&
+      Math.abs(new Date(m.created_date) - Date.now()) < 2000
+    );
+    
+    if (duplicadaPorConteudo) {
+      console.log(`[${VERSION}] ⏭️ DUPLICATA POR CONTEÚDO: Mensagem similar encontrada ID ${duplicadaPorConteudo.id}`);
+      return jsonOk({ success: true, ignored: true, reason: 'duplicata_conteudo' });
+    }
+  } catch (err) {
+    console.warn(`[${VERSION}] ⚠️ Erro ao verificar duplicata por conteúdo:`, err.message);
+  }
 
   // Buscar integração - PRIORIZAR connectedPhone para identificar canal exato
   let integracaoId = null;
@@ -671,7 +693,6 @@ async function handleMessage(dados, payloadBruto, base44) {
       thread = threads[0];
       const threadUpdate = {
         last_message_at: new Date().toISOString(),
-        last_inbound_at: new Date().toISOString(),
         last_message_sender: 'contact',
         last_message_content: String(dados.content || '').substring(0, 100),
         last_media_type: dados.mediaType || 'none',
@@ -691,7 +712,6 @@ async function handleMessage(dados, payloadBruto, base44) {
         status: 'aberta',
         primeira_mensagem_at: new Date().toISOString(),
         last_message_at: new Date().toISOString(),
-        last_inbound_at: new Date().toISOString(),
         last_message_sender: 'contact',
         last_message_content: String(dados.content || '').substring(0, 100),
         last_media_type: dados.mediaType || 'none',
