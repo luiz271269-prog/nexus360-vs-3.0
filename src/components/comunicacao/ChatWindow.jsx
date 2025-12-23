@@ -1996,7 +1996,11 @@ export default function ChatWindow({
 
                   <MessageBubble
                   message={mensagem}
-                  isOwn={mensagem.sender_id === usuario?.id}
+                  isOwn={
+                    thread?.thread_type === 'team_internal' || thread?.thread_type === 'sector_group'
+                      ? mensagem.sender_id === usuario?.id
+                      : mensagem.sender_type === 'user'
+                  }
                   thread={thread}
                   onResponder={handleResponderMensagem}
                   modoSelecao={modoSelecao}
