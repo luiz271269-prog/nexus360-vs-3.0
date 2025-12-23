@@ -198,6 +198,11 @@ export default React.memo(function MessageBubble({
     return null;
   }
 
+  // Detectar se é thread interna
+  const isThreadInterna = thread?.thread_type === 'team_internal' || 
+                          thread?.thread_type === 'sector_group' || 
+                          message.channel === 'interno';
+
   // ✅ NÃO RENDERIZAR mensagens de prompt da micro-URA
   if (message.metadata?.is_system_message === true && message.metadata?.message_type === 'micro_ura_prompt') {
     return null;
