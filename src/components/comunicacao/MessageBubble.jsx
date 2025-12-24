@@ -947,6 +947,31 @@ export default React.memo(function MessageBubble({
 
                 </div>
                 <div className="flex items-center justify-end gap-1 mt-1 flex-wrap">
+                  {/* THREADS INTERNAS: Atendente + Setor */}
+                  {isThreadInterna && (() => {
+                    const atendenteMsg = atendentes.find(a => a.id === message.sender_id);
+                    if (!atendenteMsg) return null;
+                    
+                    const nomeAtendente = (atendenteMsg.display_name || atendenteMsg.full_name || '').split(' ')[0];
+                    const setorAtendente = atendenteMsg.attendant_sector;
+                    
+                    if (!nomeAtendente) return null;
+                    
+                    return (
+                      <>
+                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-cyan-100 text-cyan-700 flex items-center gap-0.5">
+                          <UserCheck className="w-3 h-3" />
+                          {nomeAtendente}
+                        </span>
+                        {setorAtendente && (
+                          <span className="text-[10px] px-1.5 py-0.5 rounded bg-indigo-100 text-indigo-700">
+                            {setorAtendente}
+                          </span>
+                        )}
+                      </>
+                    );
+                  })()}
+                  
                   <span className="text-[10px] text-slate-500">
                     {format(new Date(message.sent_at || message.created_date), 'dd/MM HH:mm')}
                   </span>
