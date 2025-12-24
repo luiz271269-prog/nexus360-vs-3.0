@@ -1035,36 +1035,7 @@ export default React.memo(function MessageBubble({
               </div>
             }
             
-            {/* CANAL + ATENDENTE - apenas para threads EXTERNAS */}
-            {isOwn && !isThreadInterna && thread && integracoes.length > 0 && (() => {
-              const integracaoId = message?.metadata?.whatsapp_integration_id || thread?.whatsapp_integration_id;
-              if (!integracaoId) return null;
 
-              const integracao = integracoes.find((i) => i.id === integracaoId);
-              if (!integracao) return null;
-
-              const displayNumero = integracao.numero_telefone || integracao.nome_instancia;
-              const atendenteRemetente = atendentes.find(a => a.id === message.sender_id);
-              const nomeCompletoAtendente = atendenteRemetente?.display_name || atendenteRemetente?.full_name;
-              const nomeAtendente = nomeCompletoAtendente?.split(' ')[0];
-              const setorAtendente = atendenteRemetente?.attendant_sector;
-
-              return (
-                <div className="text-[9px] px-2 py-0.5 rounded-full mb-1 inline-flex items-center gap-1.5 bg-green-100/60 text-slate-700">
-                  {nomeAtendente && (
-                    <>
-                      <span className="flex items-center gap-0.5">
-                        <UserCheck className="w-3 h-3" />
-                        {nomeAtendente}
-                      </span>
-                      {setorAtendente && <span>({setorAtendente})</span>}
-                      <span className="opacity-50">•</span>
-                    </>
-                  )}
-                  <span>📱 {displayNumero}</span>
-                </div>
-              );
-            })()}
 
             {/* TEXTO - ✅ RENDERIZAÇÃO SEGURA DE EMOJIS */}
             {(!message?.media_url || message?.media_type === 'none') && message?.content != null && String(message.content || '').trim() !== '' && String(message.content) !== '[No content]' &&
@@ -1080,6 +1051,42 @@ export default React.memo(function MessageBubble({
                 </div>
 
                 <div className="flex items-center justify-end gap-1 mt-0.5 flex-wrap">
+                {/* ATENDENTE + SETOR + CONEXÃO - apenas para threads EXTERNAS enviadas */}
+                {isOwn && !isThreadInterna && thread && integracoes.length > 0 && (() => {
+                  const integracaoId = message?.metadata?.whatsapp_integration_id || thread?.whatsapp_integration_id;
+                  if (!integracaoId) return null;
+
+                  const integracao = integracoes.find((i) => i.id === integracaoId);
+                  if (!integracao) return null;
+
+                  const displayNumero = integracao.numero_telefone || integracao.nome_instancia;
+                  const atendenteRemetente = atendentes.find(a => a.id === message.sender_id);
+                  const nomeCompletoAtendente = atendenteRemetente?.display_name || atendenteRemetente?.full_name;
+                  const nomeAtendente = nomeCompletoAtendente?.split(' ')[0];
+                  const setorAtendente = atendenteRemetente?.attendant_sector;
+
+                  return (
+                    <>
+                      {nomeAtendente && (
+                        <>
+                          <span className="text-[10px] px-1.5 py-0.5 rounded bg-green-100 text-green-700 flex items-center gap-0.5">
+                            <UserCheck className="w-3 h-3" />
+                            {nomeAtendente}
+                          </span>
+                          {setorAtendente && (
+                            <span className="text-[10px] px-1.5 py-0.5 rounded bg-blue-100 text-blue-700">
+                              {setorAtendente}
+                            </span>
+                          )}
+                        </>
+                      )}
+                      <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-100 text-slate-700">
+                        📱 {displayNumero}
+                      </span>
+                    </>
+                  );
+                })()}
+                
                 <span className="text-[11px] text-slate-500">
                   {format(new Date(message.sent_at || message.created_date), 'dd/MM HH:mm')}
                 </span>
