@@ -307,6 +307,11 @@ export default React.memo(function MessageBubble({
 
   const todasCategorias = [...CATEGORIAS_FIXAS, ...categoriasDB];
 
+  // Detectar se é thread interna
+  const isThreadInterna = thread?.thread_type === 'team_internal' || 
+                          thread?.thread_type === 'sector_group' || 
+                          message.channel === 'interno';
+
   const isTransferMessage = 
     (message?.metadata?.is_system_message === true && message?.metadata?.message_type === 'transfer') ||
     (message?.metadata?.action_type === 'assignment') ||
