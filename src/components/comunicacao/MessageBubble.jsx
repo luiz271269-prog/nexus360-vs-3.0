@@ -1076,7 +1076,32 @@ export default React.memo(function MessageBubble({
                 </div>
 
                 <div className="flex items-center justify-end gap-1 mt-0.5 flex-wrap">
-                {/* ATENDENTE + SETOR + CONEXÃO - apenas para threads EXTERNAS enviadas */}
+                {/* THREADS INTERNAS: Atendente + Setor (apenas mensagens enviadas) */}
+                {isOwn && isThreadInterna && (() => {
+                  const atendenteMsg = atendentes.find(a => a.id === message.sender_id);
+                  if (!atendenteMsg) return null;
+                  
+                  const nomeAtendente = (atendenteMsg.display_name || atendenteMsg.full_name || '').split(' ')[0];
+                  const setorAtendente = atendenteMsg.attendant_sector;
+                  
+                  if (!nomeAtendente) return null;
+                  
+                  return (
+                    <>
+                      <span className="text-[10px] px-1.5 py-0.5 rounded bg-cyan-100 text-cyan-700 flex items-center gap-0.5">
+                        <UserCheck className="w-3 h-3" />
+                        {nomeAtendente}
+                      </span>
+                      {setorAtendente && (
+                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-indigo-100 text-indigo-700">
+                          {setorAtendente}
+                        </span>
+                      )}
+                    </>
+                  );
+                })()}
+                
+                {/* THREADS EXTERNAS: Atendente + Setor + Conexão (apenas mensagens enviadas) */}
                 {isOwn && !isThreadInterna && thread && integracoes.length > 0 && (() => {
                   const integracaoId = message?.metadata?.whatsapp_integration_id || thread?.whatsapp_integration_id;
                   if (!integracaoId) return null;
