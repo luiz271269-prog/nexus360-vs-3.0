@@ -652,19 +652,7 @@ export default React.memo(function MessageBubble({
           "max-w-[65%]",
           "flex flex-col group relative"
         )}>
-          {!isOwn && (thread?.thread_type === 'team_internal' || thread?.thread_type === 'sector_group' || message.channel === 'interno') && (() => {
-            const atendenteRemetente = atendentes.find(a => a.id === message.sender_id);
-            if (!atendenteRemetente) return null;
-            return (
-              <div className="mb-0.5">
-                <UsuarioDisplay 
-                  usuario={atendenteRemetente} 
-                  className="text-[11px] font-semibold text-cyan-600"
-                  variant="compact"
-                />
-              </div>
-            );
-          })()}
+
           {!isOwn && message.sender_type === 'contact' && contato?.nome && (
             <div className="flex items-center gap-2 mb-0.5">
               <span className="text-[11px] font-semibold text-[#00a884]">
@@ -1051,8 +1039,8 @@ export default React.memo(function MessageBubble({
                 </div>
 
                 <div className="flex items-center justify-end gap-1 mt-0.5 flex-wrap">
-                {/* ATENDENTE + SETOR + CONEXÃO - apenas para threads EXTERNAS enviadas */}
-                {isOwn && !isThreadInterna && thread && integracoes.length > 0 && (() => {
+                {/* THREADS EXTERNAS: Atendente + Setor + Conexão */}
+                {!isThreadInterna && thread && integracoes.length > 0 && (() => {
                   const integracaoId = message?.metadata?.whatsapp_integration_id || thread?.whatsapp_integration_id;
                   if (!integracaoId) return null;
 
@@ -1067,7 +1055,7 @@ export default React.memo(function MessageBubble({
 
                   return (
                     <>
-                      {nomeAtendente && (
+                      {isOwn && nomeAtendente && (
                         <>
                           <span className="text-[10px] px-1.5 py-0.5 rounded bg-green-100 text-green-700 flex items-center gap-0.5">
                             <UserCheck className="w-3 h-3" />
@@ -1080,10 +1068,30 @@ export default React.memo(function MessageBubble({
                           )}
                         </>
                       )}
-                      <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-100 text-slate-700">
-                        📱 {displayNumero}
-                      </span>
+                      {isOwn && (
+                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-100 text-slate-700">
+                          📱 {displayNumero}
+                        </span>
+                      )}
                     </>
+                  );
+                })()}
+                
+                {/* THREADS INTERNAS: Atendente */}
+                {isThreadInterna && (() => {
+                  const atendenteMsg = atendentes.find(a => a.id === message.sender_id);
+                  if (!atendenteMsg) return null;
+                  
+                  const nomeAtendente = (atendenteMsg.display_name || atendenteMsg.full_name || '').split(' ')[0];
+                  const setorAtendente = atendenteMsg.attendant_sector;
+                  
+                  if (!nomeAtendente) return null;
+                  
+                  return (
+                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-cyan-100 text-cyan-700 flex items-center gap-0.5">
+                      <UserCheck className="w-3 h-3" />
+                      {nomeAtendente}{setorAtendente ? ` (${setorAtendente})` : ''}
+                    </span>
                   );
                 })()}
                 
