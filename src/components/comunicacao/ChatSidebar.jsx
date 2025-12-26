@@ -674,18 +674,7 @@ export default function ChatSidebar({
                         {(() => {
                           let content = thread.last_message_content;
                           
-                          // ✅ IGNORAR prompts de URA/Micro-URA (mensagens de sistema)
-                          if (content && (
-                            content.includes('Para qual setor') ||
-                            content.includes('Você quer que eu transfira') ||
-                            content.includes('Opção inválida') ||
-                            content.includes('assistente virtual')
-                          )) {
-                            // Buscar última mensagem real (não-sistema)
-                            // Como não temos acesso ao histórico aqui, mostrar fallback
-                            content = "💬 Aguardando resposta...";
-                          }
-                          
+                          // ✅ Se não há conteúdo válido, usar ícone de mídia
                           if (!content || content === '[No content]' || /^[\+\d]+@(lid|s\.whatsapp\.net|c\.us)/.test(content)) {
                             if (thread.last_media_type === 'image') return "📷 Imagem";
                             if (thread.last_media_type === 'video') return "🎥 Vídeo";
@@ -694,8 +683,9 @@ export default function ChatSidebar({
                             if (thread.last_media_type === 'location') return "📍 Localização";
                             if (thread.last_media_type === 'contact') return "👤 Contato";
                             if (thread.last_media_type === 'sticker') return "🎨 Sticker";
-                            return "📎 Mídia";
+                            return "💬 Nova mensagem";
                           }
+                          
                           return content;
                         })()}
                       </span>
