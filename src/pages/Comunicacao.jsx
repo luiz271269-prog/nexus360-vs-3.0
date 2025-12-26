@@ -143,12 +143,12 @@ export default function Comunicacao() {
       const allThreads = await base44.entities.MessageThread.list('-last_message_at', 200);
       return allThreads;
     },
-    refetchInterval: 30000,
-    staleTime: 15000,
+    refetchInterval: 5000, // ✅ WHATSAPP PATTERN: Atualizar a cada 5 segundos (tempo real)
+    staleTime: 3000, // ✅ Dados considerados frescos por apenas 3s
     enabled: !!usuario,
     retry: 2,
     retryDelay: 1000,
-    refetchOnWindowFocus: false,
+    refetchOnWindowFocus: true, // ✅ Atualizar ao voltar para a aba
     onError: (error) => {
       console.error('[Comunicacao] Erro ao carregar conversas:', error);
     }
@@ -175,11 +175,11 @@ export default function Comunicacao() {
       return Promise.resolve([]);
     },
     enabled: !!threadAtiva,
-    refetchInterval: 5000,
-    staleTime: 3000,
+    refetchInterval: 3000, // ✅ WHATSAPP PATTERN: Atualizar a cada 3 segundos
+    staleTime: 2000,
     retry: 2,
     retryDelay: 1000,
-    refetchOnWindowFocus: false,
+    refetchOnWindowFocus: true, // ✅ Atualizar ao voltar para a aba
     onError: (error) => {
       console.error('[Comunicacao] Erro ao carregar mensagens:', error);
     }
