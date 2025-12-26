@@ -283,8 +283,6 @@ export async function processInboundEvent(params) {
   // 6. DECISOR DE CICLO E INTELIGÊNCIA (O Cérebro)
   // ============================================================================
 
-  const isUraActive = thread.pre_atendimento_ativo === true;
-  const isHumanActive = humanoAtivo(thread, 2); // Humano falou nas últimas 2h?
   let intentContext = null;
 
   // Se é novo ciclo, não é URA ativa, e é texto (não botão), usar IA

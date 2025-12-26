@@ -544,30 +544,6 @@ async function handleMessage(dados, payloadBruto, base44) {
     }
   }
 
-  // ✅ VERIFICAÇÃO ADICIONAL: Duplicata por timestamp + telefone (últimos 2 segundos)
-  try {
-    const doisSegundosAtras = new Date(Date.now() - 2000).toISOString();
-    const msgRecentes = await base44.asServiceRole.entities.Message.filter({
-      sender_type: 'contact',
-      created_date: { $gte: doisSegundosAtras }
-    }, '-created_date', 50);
-    
-    // Verificar se já existe mensagem MUITO similar (mesmo remetente, mesmo tipo, mesmo tempo)
-    const duplicadaPorConteudo = msgRecentes.find(m => 
-      m.sender_id === contact_id &&
-      m.media_type === dados.mediaType &&
-      m.content === dados.content &&
-      Math.abs(new Date(m.created_date) - Date.now()) < 2000
-    );
-    
-    if (duplicadaPorConteudo) {
-      console.log(`[${VERSION}] ⏭️ DUPLICATA POR CONTEÚDO: Mensagem similar encontrada ID ${duplicadaPorConteudo.id}`);
-      return jsonOk({ success: true, ignored: true, reason: 'duplicata_conteudo' });
-    }
-  } catch (err) {
-    console.warn(`[${VERSION}] ⚠️ Erro ao verificar duplicata por conteúdo:`, err.message);
-  }
-
   // Buscar integração - PRIORIZAR connectedPhone para identificar canal exato
   let integracaoId = null;
   let integracaoInfo = null;
@@ -680,6 +656,9 @@ async function handleMessage(dados, payloadBruto, base44) {
     return jsonServerError({ success: false, error: 'erro_contato' });
   }
 
+  // ✅ VERIFICAÇÃO ADICIONAL: Duplicata por timestamp + telefone (últimos 2 segundos)
+  // MOVIDO PARA DEPOIS da criação do contato para ter contato.id disponível
+  
   // Buscar/criar thread
   let thread;
   try {
@@ -727,6 +706,29 @@ async function handleMessage(dados, payloadBruto, base44) {
   } catch (e) {
     console.error(`[${VERSION}] ❌ Erro thread:`, e?.message || e);
     return jsonServerError({ success: false, error: 'erro_thread' });
+  }
+  
+  // ✅ VERIFICAÇÃO DE DUPLICATA POR CONTEÚDO - Agora com contato.id disponível
+  try {
+    const doisSegundosAtras = new Date(Date.now() - 2000).toISOString();
+    const msgRecentes = await base44.asServiceRole.entities.Message.filter({
+      thread_id: thread.id,
+      sender_type: 'contact',
+      created_date: { $gte: doisSegundosAtras }
+    }, '-created_date', 10);
+    
+    const duplicadaPorConteudo = msgRecentes.find(m => 
+      m.media_type === dados.mediaType &&
+      m.content === dados.content &&
+      Math.abs(new Date(m.created_date) - Date.now()) < 2000
+    );
+    
+    if (duplicadaPorConteudo) {
+      console.log(`[${VERSION}] ⏭️ DUPLICATA POR CONTEÚDO: Mensagem similar ID ${duplicadaPorConteudo.id}`);
+      return jsonOk({ success: true, ignored: true, reason: 'duplicata_conteudo' });
+    }
+  } catch (err) {
+    console.warn(`[${VERSION}] ⚠️ Erro ao verificar duplicata por conteúdo:`, err.message);
   }
 
   // ============================================================================
