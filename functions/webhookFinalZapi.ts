@@ -691,8 +691,10 @@ async function handleMessage(dados, payloadBruto, base44) {
 
     if (threads.length > 0) {
       thread = threads[0];
+      const agora = new Date().toISOString();
       const threadUpdate = {
-        last_message_at: new Date().toISOString(),
+        last_message_at: agora,
+        last_inbound_at: agora, // ✅ CRÍTICO: Timestamp separado para mensagens RECEBIDAS
         last_message_sender: 'contact',
         last_message_content: String(dados.content || '').substring(0, 100),
         last_media_type: dados.mediaType || 'none',
@@ -704,14 +706,16 @@ async function handleMessage(dados, payloadBruto, base44) {
         threadUpdate.whatsapp_integration_id = integracaoId;
       }
       await base44.asServiceRole.entities.MessageThread.update(thread.id, threadUpdate);
-      console.log(`[${VERSION}] 💭 Thread existente: ${thread.id}`);
+      console.log(`[${VERSION}] 💭 Thread atualizada: ${thread.id} | Não lidas: ${threadUpdate.unread_count}`);
     } else {
+      const agora = new Date().toISOString();
       thread = await base44.asServiceRole.entities.MessageThread.create({
         contact_id: contato.id,
         whatsapp_integration_id: integracaoId,
         status: 'aberta',
-        primeira_mensagem_at: new Date().toISOString(),
-        last_message_at: new Date().toISOString(),
+        primeira_mensagem_at: agora,
+        last_message_at: agora,
+        last_inbound_at: agora, // ✅ CRÍTICO: Registrar timestamp de recebimento
         last_message_sender: 'contact',
         last_message_content: String(dados.content || '').substring(0, 100),
         last_media_type: dados.mediaType || 'none',
@@ -837,21 +841,22 @@ async function handleMessage(dados, payloadBruto, base44) {
       }
     }
 
-    // ✅ IMPORT DIRETO - Elimina erro 404 e acelera processamento
-    const { processInboundEvent } = await import('./lib/inboundCore.js');
-    
-    await processInboundEvent({
-      base44,
-      contact: contato,
-      thread: thread,
-      message: mensagem,
-      integration: integracaoObj,
+    // ✅ CHAMADA VIA SDK - Resolve erro de import e garante processamento
+    const resultadoCerebro = await base44.asServiceRole.functions.invoke('processInbound', {
+      contact_id: contato.id,
+      thread_id: thread.id,
+      message_id: mensagem.id,
+      integration_id: integracaoId,
       provider: 'z_api',
-      messageContent: dados.content,
-      rawPayload: payloadBruto
+      message_content: dados.content,
+      raw_payload: payloadBruto
     });
     
-    console.log(`[${VERSION}] ✅ Inbound Core processado com sucesso (direto)`);
+    if (resultadoCerebro?.data?.success) {
+      console.log(`[${VERSION}] ✅ Inbound Core processado:`, resultadoCerebro.data.actions?.join(', ') || 'sem ações');
+    } else {
+      console.warn(`[${VERSION}] ⚠️ Inbound Core retornou sem sucesso:`, resultadoCerebro?.data?.error || 'erro desconhecido');
+    }
   } catch (err) {
     console.error(`[${VERSION}] 🔴 Falha CRÍTICA no processamento do Inbound Core:`, err?.message);
     console.error(`[${VERSION}] 🔴 Stack:`, err?.stack);
