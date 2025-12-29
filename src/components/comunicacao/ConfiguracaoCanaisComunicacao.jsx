@@ -362,7 +362,6 @@ export default function ConfiguracaoCanaisComunicacao({ integracoes, onRecarrega
         return;
       }
       
-      const provider = PROVIDERS[novaIntegracao.api_provider];
       const instanceId = novaIntegracao.instance_id.trim();
       const tokenInstancia = novaIntegracao.token_instancia.trim();
       const tokenConta = novaIntegracao.client_token_conta.trim();
