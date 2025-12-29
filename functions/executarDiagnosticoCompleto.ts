@@ -108,28 +108,42 @@ async function executarEtapa1(integracao) {
     sugestao_correcao: !temApiKey ? 'Configure a API Key na aba Configurações' : null
   });
 
-  // Teste 3: Security Token
+  // Teste 3: Security Token (apenas para Z-API)
   const t3Inicio = Date.now();
   const temToken = !!integracao.security_client_token_header;
+  const isZAPI = integracao.api_provider === 'z_api';
+  const modoIntegrador = integracao.modo === 'integrator';
+  
   testes.push({
     nome: 'Security Token configurado',
-    critico: true,
-    status: temToken ? 'sucesso' : 'erro',
+    critico: isZAPI, // Crítico apenas para Z-API
+    status: isZAPI ? (temToken ? 'sucesso' : 'erro') : 'sucesso',
     tempo_ms: Date.now() - t3Inicio,
-    detalhes: { configurado: temToken },
-    sugestao_correcao: !temToken ? 'Configure o Security Token na aba Configurações' : null
+    detalhes: { 
+      configurado: temToken,
+      provider: integracao.api_provider || 'z_api',
+      requer_token: isZAPI
+    },
+    sugestao_correcao: isZAPI && !temToken ? 'Configure o Client-Token de Segurança da Conta na aba Configurações (obrigatório para Z-API)' : 
+                       !isZAPI && !temToken ? `Não aplicável para ${modoIntegrador ? 'W-API Integrador' : 'W-API'} (usa apenas Bearer Token)` : null
   });
 
   // Teste 4: Número de telefone
   const t4Inicio = Date.now();
   const temTelefone = !!integracao.numero_telefone && integracao.numero_telefone.startsWith('+');
+  const modoIntegrador = integracao.modo === 'integrator';
+  
   testes.push({
     nome: 'Número de telefone válido',
     critico: false,
-    status: temTelefone ? 'sucesso' : 'aviso',
+    status: temTelefone ? 'sucesso' : (modoIntegrador ? 'aviso' : 'aviso'),
     tempo_ms: Date.now() - t4Inicio,
-    detalhes: { numero: integracao.numero_telefone },
-    sugestao_correcao: !temTelefone ? 'Use formato internacional (+5511...)' : null
+    detalhes: { 
+      numero: integracao.numero_telefone,
+      modo: modoIntegrador ? 'integrator' : 'manual'
+    },
+    sugestao_correcao: !temTelefone && !modoIntegrador ? 'Use formato internacional (+5511...)' : 
+                       !temTelefone && modoIntegrador ? 'Número será associado após conectar via QR Code ou Pairing Code' : null
   });
 
   // Teste 5: Webhook URL
