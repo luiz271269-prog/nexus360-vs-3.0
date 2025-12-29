@@ -35,6 +35,14 @@ const PROVIDERS = {
     testarFn: "testarConexaoWapi",
     requerClientToken: false,
     baseUrl: "https://api.w-api.app/v1"
+  },
+  w_api_integrator: {
+    nome: "W-API Integrador",
+    cor: "indigo",
+    webhookFn: "webhookWapi",
+    testarFn: "testarConexaoWapi",
+    requerClientToken: false,
+    baseUrl: "https://api.w-api.app/v1"
   }
 };
 
@@ -127,7 +135,7 @@ export default function DiagnosticoZAPICentralizado({ integracao, onRecarregar, 
         resultado.testes.push({
           nome: 'Security Token',
           status: 'sucesso',
-          mensagem: 'Não aplicável para W-API (usa Bearer Token)'
+          mensagem: `Não aplicável para ${provider.nome} (usa Bearer Token)`
         });
       }
 
