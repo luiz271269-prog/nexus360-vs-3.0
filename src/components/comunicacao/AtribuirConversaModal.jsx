@@ -13,6 +13,7 @@ import {
 import { Users, Search, Loader2, UserCheck, Building2, Briefcase, Star } from "lucide-react";
 import { base44 } from "@/api/base44Client";
 import { toast } from "sonner";
+import { useQueryClient } from "@tanstack/react-query";
 import { normalizarParaComparacao } from "../lib/userMatcher";
 import UsuarioDisplay from "./UsuarioDisplay";
 
@@ -25,6 +26,7 @@ export default function AtribuirConversaModal({
   onSuccess,
   atendentes = [] // ✅ PROP: Recebe lista de atendentes do pai (Comunicacao.jsx)
 }) {
+  const queryClient = useQueryClient(); // ✅ Hook do React Query
   const [atribuindo, setAtribuindo] = useState(false);
   const [busca, setBusca] = useState("");
   const [mensagemTransferencia, setMensagemTransferencia] = useState("");
@@ -94,6 +96,10 @@ export default function AtribuirConversaModal({
           atendente_novo: atendenteEscolhido.full_name
         }
       });
+
+      // ✅ INVALIDAÇÃO CRÍTICA: Força atualização imediata da barra lateral
+      await queryClient.invalidateQueries({ queryKey: ['threads'] });
+      await queryClient.invalidateQueries({ queryKey: ['mensagens', thread.id] });
 
       toast.success(
         thread.assigned_user_id
