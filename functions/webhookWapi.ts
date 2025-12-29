@@ -204,17 +204,17 @@ function normalizarPayload(payload) {
       conteudoRaw = payload.body || payload.text || '';
     }
 
-    // ✅ NORMALIZAR LOCATION SE NECESSÁRIO
+    // ✅ NORMALIZAR LOCATION SE NECESSÁRIO (INLINE - Sem import externo)
     let locationMetadata = null;
     if (mediaType === 'location' && (msgContent.locationMessage || msgContent.liveLocationMessage)) {
-      const { normalizeLocation } = await import('./lib/normalizeLocation.js');
-      const locNormalized = normalizeLocation({ 
-        provider: 'wapi', 
-        raw: { msgContent, ...payload } 
-      });
-      if (locNormalized) {
-        locationMetadata = locNormalized.metadata;
-      }
+      const loc = msgContent.locationMessage || msgContent.liveLocationMessage;
+      locationMetadata = {
+        latitude: loc.degreesLatitude ?? loc.latitude,
+        longitude: loc.degreesLongitude ?? loc.longitude,
+        name: loc.name || null,
+        address: loc.address || null,
+        accuracy: loc.accuracyInMeters ?? loc.accuracy,
+      };
     }
 
     return {
@@ -472,33 +472,38 @@ async function handleMessage(dados, payloadBruto, base44, req) {
     console.error('[WAPI] ⚠️ Erro ao atualizar thread:', updateError.message);
   }
 
-  // 9. DISPARAR CÉREBRO (Async Fire-and-Forget)
+  // 9. DISPARAR CÉREBRO (IMPORTAÇÃO DIRETA - SEM HTTP 404)
   try {
-    console.log('[WAPI] 🚀 Disparando processInbound (Cérebro separado)...');
+    console.log('[WAPI] 🚀 Processando Inbound Core (import direto)...');
     
     let integracaoObj = null;
     if (integracaoId) {
       try {
         integracaoObj = await base44.asServiceRole.entities.WhatsAppIntegration.get(integracaoId);
       } catch (e) {
-        console.warn('[WAPI] ⚠️ Integração não encontrada, enviando ID:', e.message);
+        console.warn('[WAPI] ⚠️ Integração não encontrada, usando ID:', e.message);
         integracaoObj = { id: integracaoId };
       }
     }
 
-    // Fire-and-Forget: Se falhar, não trava o 200 OK do webhook
-    base44.asServiceRole.functions.invoke('processInbound', {
-      message: mensagem,
+    // ✅ IMPORTAÇÃO INLINE (Sem Axios, Sem HTTP, Sem 404)
+    const { processInboundEvent } = await import('./lib/inboundCore.js');
+    
+    const resultado = await processInboundEvent({
+      base44,
       contact: contato,
       thread: thread,
+      message: mensagem,
       integration: integracaoObj,
       provider: 'w_api',
-      messageContent: dados.content
-    }).catch(e => console.error('[WAPI] ⚠️ Erro no processInbound (não afeta ingestão):', e.message));
+      messageContent: dados.content,
+      rawPayload: payloadBruto
+    });
     
-    console.log('[WAPI] ✅ Cérebro disparado (isolado)');
+    console.log('[WAPI] ✅ Inbound Core executado:', resultado?.actions?.join(', ') || 'processado');
   } catch (err) {
-    console.error('[WAPI] ⚠️ Erro ao disparar Cérebro:', err.message);
+    console.error('[WAPI] 🔴 Erro no Inbound Core:', err?.message);
+    console.error('[WAPI] 🔴 Stack:', err?.stack);
   }
 
   // 9. RETORNO FINAL (Sempre Sucesso)
