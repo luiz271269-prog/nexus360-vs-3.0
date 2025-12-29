@@ -98,8 +98,13 @@ export default function AtribuirConversaModal({
       });
 
       // ✅ INVALIDAÇÃO CRÍTICA: Força atualização imediata da barra lateral
-      await queryClient.invalidateQueries({ queryKey: ['threads'] });
-      await queryClient.invalidateQueries({ queryKey: ['mensagens', thread.id] });
+      // IMPORTANTE: Invalidar TODAS as queries relacionadas a threads
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['threads'] }),
+        queryClient.invalidateQueries({ queryKey: ['threads-controle'] }),
+        queryClient.invalidateQueries({ queryKey: ['mensagens', thread.id] }),
+        queryClient.invalidateQueries({ queryKey: ['contacts'] })
+      ]);
 
       toast.success(
         thread.assigned_user_id
@@ -108,7 +113,7 @@ export default function AtribuirConversaModal({
       );
 
       onClose();
-      if (onSuccess) onSuccess();
+      if (onSuccess) await onSuccess(); // ✅ Aguardar callback do pai
 
     } catch (error) {
       console.error('[AtribuirModal] Erro ao atribuir conversa:', error);

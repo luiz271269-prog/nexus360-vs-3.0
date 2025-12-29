@@ -54,6 +54,7 @@ const GoToLogo = () => (
 import MessageBubble from "./MessageBubble";
 import { base44 } from "@/api/base44Client";
 import { toast } from "sonner";
+import { useQueryClient } from "@tanstack/react-query";
 
 import SugestorRespostasRapidas from './SugestorRespostasRapidas';
 import { useNavigate } from "react-router-dom";
@@ -105,6 +106,8 @@ export default function ChatWindow({
   onCancelarSelecao,
   atendentes = [] // ✅ PROP: Recebe lista completa de atendentes do pai (Comunicacao.jsx)
 }) {
+  const queryClient = useQueryClient(); // ✅ CRÍTICO: Hook do React Query
+  
   // ✅ ESTADOS REMOVIDOS DO PAI - Agora no MessageInput
   // mensagemTexto, pastedImage, pastedImagePreview, inputRef
   
@@ -2114,7 +2117,11 @@ export default function ChatWindow({
         usuario={usuario}
         contatoNome={contatoCompleto?.nome || 'Cliente'}
         atendentes={atendentes}
-        onSuccess={() => {
+        onSuccess={async () => {
+          // ✅ INVALIDAÇÃO LOCAL: ChatWindow também força atualização
+          await queryClient.invalidateQueries({ queryKey: ['threads'] });
+          await queryClient.invalidateQueries({ queryKey: ['mensagens', thread?.id] });
+          
           if (onAtualizarMensagens) {
             onAtualizarMensagens();
           }

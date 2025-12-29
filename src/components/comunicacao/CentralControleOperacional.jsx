@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { base44 } from '@/api/base44Client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -36,6 +36,7 @@ import SeletorEstrategia from './SeletorEstrategia';
  * Consolida: Filas + Saúde + Métricas em tempo real
  */
 export default function CentralControleOperacional({ onSelecionarThread, usuarioAtual }) {
+  const queryClient = useQueryClient(); // ✅ CRÍTICO: Hook do React Query
   const [estrategia, setEstrategia] = useState('prioridade');
   const [atribuindo, setAtribuindo] = useState(null);
 
@@ -243,6 +244,10 @@ export default function CentralControleOperacional({ onSelecionarThread, usuario
 
       if (result.data.success && result.data.thread_id) {
         toast.success(`✅ Conversa atribuída! Tempo de espera: ${result.data.tempo_espera_segundos}s`);
+        
+        // ✅ INVALIDAÇÃO CRÍTICA: Força atualização imediata
+        await queryClient.invalidateQueries({ queryKey: ['threads'] });
+        await queryClient.invalidateQueries({ queryKey: ['threads-controle'] });
         
         const thread = await base44.entities.MessageThread.get(result.data.thread_id);
         if (onSelecionarThread) {
