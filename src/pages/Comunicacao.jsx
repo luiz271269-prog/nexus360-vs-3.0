@@ -141,6 +141,10 @@ export default function Comunicacao() {
     queryFn: async () => {
       if (!usuario) return [];
       const allThreads = await base44.entities.MessageThread.list('-last_message_at', 200);
+      console.log('[COMUNICACAO] 📊 Threads carregadas:', allThreads.length);
+      // ✅ LOG: Contadores de não lidas para debug
+      const comNaoLidas = allThreads.filter(t => (t.unread_count || 0) > 0 || Object.values(t.unread_by || {}).some(v => v > 0));
+      console.log('[COMUNICACAO] 📬 Threads com não lidas:', comNaoLidas.length);
       return allThreads;
     },
     refetchInterval: 5000, // ✅ WHATSAPP PATTERN: Atualizar a cada 5 segundos (tempo real)
@@ -149,6 +153,7 @@ export default function Comunicacao() {
     retry: 2,
     retryDelay: 1000,
     refetchOnWindowFocus: true, // ✅ Atualizar ao voltar para a aba
+    refetchOnMount: 'always', // ✅ Sempre recarregar ao montar
     onError: (error) => {
       console.error('[Comunicacao] Erro ao carregar conversas:', error);
     }

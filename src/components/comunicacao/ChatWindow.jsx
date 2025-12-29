@@ -1295,6 +1295,9 @@ export default function ChatWindow({
             thread_id: thread.id
           });
 
+          // ✅ INVALIDAÇÃO: Força atualização do contador na sidebar
+          await queryClient.invalidateQueries({ queryKey: ['threads'] });
+
           if (onAtualizarMensagens) {
             onAtualizarMensagens();
           }
@@ -1321,6 +1324,9 @@ export default function ChatWindow({
           });
         }
 
+        // ✅ INVALIDAÇÃO: Força atualização do contador na sidebar
+        await queryClient.invalidateQueries({ queryKey: ['threads'] });
+
         if (onAtualizarMensagens) {
           onAtualizarMensagens();
         }
@@ -1331,7 +1337,7 @@ export default function ChatWindow({
 
     const timer = setTimeout(marcarComoLida, 1000);
     return () => clearTimeout(timer);
-  }, [thread?.id, mensagens.length, usuario?.id, onAtualizarMensagens]);
+  }, [thread?.id, mensagens.length, usuario?.id, onAtualizarMensagens, queryClient]);
 
   // ✅ Foco automático removido - agora é responsabilidade do MessageInput
 

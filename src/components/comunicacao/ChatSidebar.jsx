@@ -514,6 +514,11 @@ export default function ChatSidebar({
         if (!threadUI.isInternal) {
           const contato = thread.contato;
 
+          // ✅ DEBUG: Log de contadores para esta thread
+          if (thread.id && (thread.unread_count || 0) > 0) {
+            console.log(`[SIDEBAR] 📬 Thread ${thread.id.substring(0, 8)}... tem ${thread.unread_count} não lidas`);
+          }
+
           if (!contato) {
             // Se é um cliente sem contato cadastrado, mostrar com indicador especial
             if (thread.is_cliente_only) {
