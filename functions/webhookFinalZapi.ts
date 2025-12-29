@@ -828,39 +828,38 @@ async function handleMessage(dados, payloadBruto, base44) {
   }
 
   // ============================================================================
-  // ✅ DISPARAR CÉREBRO (Direto, sem HTTP) - LINHA IMUTÁVEL v10
+  // ✅ DISPARAR CÉREBRO (IMPORTAÇÃO DIRETA - SEM HTTP 404)
   // ============================================================================
   try {
-    console.log(`[${VERSION}] 🚀 Processando Inbound Core diretamente...`);
+    console.log(`[${VERSION}] 🚀 Processando Inbound Core (import direto)...`);
     
     let integracaoObj = null;
     if (integracaoId) {
       try {
         integracaoObj = await base44.asServiceRole.entities.WhatsAppIntegration.get(integracaoId);
       } catch (e) {
-        console.warn(`[${VERSION}] ⚠️ Integração não encontrada, enviando ID:`, e?.message);
+        console.warn(`[${VERSION}] ⚠️ Integração não encontrada, usando ID:`, e?.message);
         integracaoObj = { id: integracaoId };
       }
     }
 
-    // ✅ CHAMADA VIA SDK - Resolve erro de import e garante processamento
-    const resultadoCerebro = await base44.asServiceRole.functions.invoke('processInbound', {
-      contact_id: contato.id,
-      thread_id: thread.id,
-      message_id: mensagem.id,
-      integration_id: integracaoId,
+    // ✅ IMPORTAÇÃO INLINE (Sem Axios, Sem HTTP, Sem 404)
+    const { processInboundEvent } = await import('./lib/inboundCore.js');
+    
+    const resultado = await processInboundEvent({
+      base44,
+      contact: contato,
+      thread: thread,
+      message: mensagem,
+      integration: integracaoObj,
       provider: 'z_api',
-      message_content: dados.content,
-      raw_payload: payloadBruto
+      messageContent: dados.content,
+      rawPayload: payloadBruto
     });
     
-    if (resultadoCerebro?.data?.success) {
-      console.log(`[${VERSION}] ✅ Inbound Core processado:`, resultadoCerebro.data.actions?.join(', ') || 'sem ações');
-    } else {
-      console.warn(`[${VERSION}] ⚠️ Inbound Core retornou sem sucesso:`, resultadoCerebro?.data?.error || 'erro desconhecido');
-    }
+    console.log(`[${VERSION}] ✅ Inbound Core executado:`, resultado?.actions?.join(', ') || 'processado');
   } catch (err) {
-    console.error(`[${VERSION}] 🔴 Falha CRÍTICA no processamento do Inbound Core:`, err?.message);
+    console.error(`[${VERSION}] 🔴 Erro no Inbound Core:`, err?.message);
     console.error(`[${VERSION}] 🔴 Stack:`, err?.stack);
   }
 
