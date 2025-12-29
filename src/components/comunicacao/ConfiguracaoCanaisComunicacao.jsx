@@ -85,7 +85,8 @@ const PROVIDERS = {
     webhookFn: "webhookWatsZapi",
     testarFn: "testarConexaoWhatsApp",
     icon: WhatsAppLogo,
-    tipo: "whatsapp"
+    tipo: "whatsapp",
+    modo: "manual"
   },
   w_api: {
     nome: "W-API",
@@ -95,7 +96,19 @@ const PROVIDERS = {
     webhookFn: "webhookWapi",
     testarFn: "testarConexaoWapi",
     icon: WhatsAppLogo,
-    tipo: "whatsapp"
+    tipo: "whatsapp",
+    modo: "manual"
+  },
+  w_api_integrator: {
+    nome: "W-API Integrador",
+    cor: "indigo",
+    baseUrl: "https://api.w-api.app/v1",
+    requerClientToken: false,
+    webhookFn: "webhookWapi",
+    testarFn: "testarConexaoWapi",
+    icon: WhatsAppLogo,
+    tipo: "whatsapp",
+    modo: "integrator"
   },
   instagram_api: {
     nome: "Instagram",
@@ -105,7 +118,8 @@ const PROVIDERS = {
     webhookFn: "instagramWebhook",
     testarFn: null,
     icon: InstagramLogo,
-    tipo: "instagram"
+    tipo: "instagram",
+    modo: "manual"
   },
   facebook_graph_api: {
     nome: "Facebook",
@@ -115,7 +129,8 @@ const PROVIDERS = {
     webhookFn: "facebookWebhook",
     testarFn: null,
     icon: FacebookLogo,
-    tipo: "facebook"
+    tipo: "facebook",
+    modo: "manual"
   },
   goto_phone: {
     nome: "GoTo (Telefonia)",
@@ -125,7 +140,8 @@ const PROVIDERS = {
     webhookFn: "gotoWebhook",
     testarFn: null,
     icon: GoToLogo,
-    tipo: "phone"
+    tipo: "phone",
+    modo: "manual"
   }
 };
 
@@ -184,6 +200,7 @@ export default function ConfiguracaoCanaisComunicacao({ integracoes, onRecarrega
   const [novaIntegracao, setNovaIntegracao] = useState(initialNovaIntegracaoState);
   const [qrCodeData, setQrCodeData] = useState({});
   const [gerandoQR, setGerandoQR] = useState(null);
+  const [criandoInstanciaIntegrador, setCriandoInstanciaIntegrador] = useState(false);
 
   const resetForm = () => {
     setNovaIntegracao(initialNovaIntegracaoState);
@@ -271,6 +288,69 @@ export default function ConfiguracaoCanaisComunicacao({ integracoes, onRecarrega
   const handleCriarInstancia = async () => {
     try {
       setLoading(true);
+
+      const provider = PROVIDERS[novaIntegracao.api_provider];
+
+      // Lógica para W-API Integrador
+      if (provider.modo === 'integrator') {
+        if (!novaIntegracao.nome_instancia?.trim()) {
+          toast.error("Nome da instância é obrigatório");
+          setLoading(false);
+          return;
+        }
+
+        setCriandoInstanciaIntegrador(true);
+        try {
+          toast.info("Criando instância na W-API Integrador...");
+
+          const response = await base44.functions.invoke('wapiIntegratorManager', {
+            action: 'createInstance',
+            instanceName: novaIntegracao.nome_instancia.trim()
+          });
+          
+          if (!response.data.success) {
+            throw new Error(response.data.error || 'Erro ao criar instância via integrador');
+          }
+
+          const { instanceId, token, webhookUrl } = response.data;
+
+          await base44.entities.WhatsAppIntegration.create({
+            nome_instancia: novaIntegracao.nome_instancia.trim(),
+            numero_telefone: "",
+            status: "pendente_qrcode",
+            tipo_conexao: "webhook",
+            api_provider: "w_api",
+            modo: "integrator",
+            instance_id_provider: instanceId,
+            api_key_provider: token,
+            base_url_provider: provider.baseUrl,
+            webhook_url: webhookUrl,
+            configuracoes_avancadas: {
+              auto_resposta_fora_horario: false,
+              rate_limit_mensagens_hora: 100
+            },
+            estatisticas: {
+              total_mensagens_enviadas: 0,
+              total_mensagens_recebidas: 0,
+              taxa_resposta_24h: 0,
+              tempo_medio_resposta_minutos: 0
+            },
+            ultima_atividade: new Date().toISOString()
+          });
+
+          toast.success("✅ Instância W-API Integrador criada! Conecte-a agora com QR Code ou Pairing.");
+          resetForm();
+          if (onRecarregar) await onRecarregar();
+
+        } catch (error) {
+          console.error("[CONFIG] ❌ Erro ao criar instância Integrador:", error);
+          toast.error("Erro ao criar instância Integrador: " + error.message);
+        } finally {
+          setCriandoInstanciaIntegrador(false);
+          setLoading(false);
+        }
+        return;
+      }
 
       const erros = validarCampos();
       if (erros.length > 0) {
@@ -700,6 +780,13 @@ export default function ConfiguracaoCanaisComunicacao({ integracoes, onRecarrega
                                 <span className="text-xs text-slate-600">QR Code e Pairing</span>
                               </span>
                             </SelectItem>
+                            <SelectItem value="w_api_integrator">
+                              <span className="flex items-center gap-2">
+                                <div className="w-4 h-4 text-green-600"><WhatsAppLogo /></div>
+                                <Badge className="bg-indigo-100 text-indigo-700 text-[10px]">W-API Integrador</Badge>
+                                <span className="text-xs text-slate-600">Cria via API (Custom)</span>
+                              </span>
+                            </SelectItem>
                             <SelectItem value="instagram_api">
                               <span className="flex items-center gap-2">
                                 <div className="w-4 h-4 text-pink-600"><InstagramLogo /></div>
@@ -725,6 +812,21 @@ export default function ConfiguracaoCanaisComunicacao({ integracoes, onRecarrega
                         </Select>
                       </div>
 
+                      {/* Alerta Integrador */}
+                      {PROVIDERS[novaIntegracao.api_provider]?.modo === 'integrator' && (
+                        <div className="p-3 bg-indigo-50 border-2 border-indigo-200 rounded-lg">
+                          <div className="flex items-start gap-2">
+                            <Zap className="w-4 h-4 text-indigo-600 flex-shrink-0 mt-0.5" />
+                            <div>
+                              <h4 className="font-semibold text-indigo-900 mb-0.5 text-xs">Modo Integrador</h4>
+                              <p className="text-[11px] text-indigo-700">
+                                A instância será criada automaticamente via API. Instance ID e Token serão gerados.
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
                       <div className="grid grid-cols-2 gap-3">
                         <div>
                           <Label className="text-[11px] font-semibold text-slate-600">Nome *</Label>
@@ -742,6 +844,7 @@ export default function ConfiguracaoCanaisComunicacao({ integracoes, onRecarrega
                             onChange={(e) => setNovaIntegracao({...novaIntegracao, numero_telefone: e.target.value})}
                             placeholder="+55 48 99999-9999"
                             className="mt-1 h-8 text-xs"
+                            disabled={PROVIDERS[novaIntegracao.api_provider]?.modo === 'integrator'}
                           />
                         </div>
                       </div>
@@ -753,6 +856,7 @@ export default function ConfiguracaoCanaisComunicacao({ integracoes, onRecarrega
                           onChange={(e) => setNovaIntegracao({...novaIntegracao, instance_id: e.target.value.trim()})}
                           placeholder={novaIntegracao.api_provider === 'w_api' ? "T34398-VYR3QD..." : "3E5D2BD1..."}
                           className="mt-1 h-8 font-mono text-[11px]"
+                          disabled={PROVIDERS[novaIntegracao.api_provider]?.modo === 'integrator'}
                         />
                       </div>
 
@@ -769,6 +873,7 @@ export default function ConfiguracaoCanaisComunicacao({ integracoes, onRecarrega
                               onChange={(e) => setNovaIntegracao({...novaIntegracao, token_instancia: e.target.value.trim()})}
                               placeholder="Token..."
                               className="h-8 pr-8 font-mono text-[11px]"
+                              disabled={PROVIDERS[novaIntegracao.api_provider]?.modo === 'integrator'}
                             />
                             <Button
                               type="button"
@@ -808,6 +913,8 @@ export default function ConfiguracaoCanaisComunicacao({ integracoes, onRecarrega
                         )}
                       </div>
 
+      const erros = validarCampos();
+
                       <div className="flex justify-end gap-2 pt-2 border-t">
                         <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => {
                           if (integracaoSelecionada) {
@@ -822,10 +929,10 @@ export default function ConfiguracaoCanaisComunicacao({ integracoes, onRecarrega
                         <Button
                           size="sm"
                           onClick={handleCriarInstancia}
-                          disabled={loading}
+                          disabled={loading || criandoInstanciaIntegrador}
                           className="h-7 text-xs bg-green-600 hover:bg-green-700">
-                          {loading ? <Loader2 className="w-3 h-3 mr-1 animate-spin" /> : <CheckCircle className="w-3 h-3 mr-1" />}
-                          {integracaoSelecionada ? 'Salvar' : 'Criar'}
+                          {(loading || criandoInstanciaIntegrador) ? <Loader2 className="w-3 h-3 mr-1 animate-spin" /> : <CheckCircle className="w-3 h-3 mr-1" />}
+                          {PROVIDERS[novaIntegracao.api_provider]?.modo === 'integrator' ? 'Criar Instância' : integracaoSelecionada ? 'Salvar' : 'Criar'}
                         </Button>
                       </div>
                     </div>
