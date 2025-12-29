@@ -605,19 +605,19 @@ export default function ChatSidebar({
                 'bg-gradient-to-br from-amber-400 via-orange-500 to-red-500' :
                 'bg-gradient-to-br from-slate-400 to-slate-500'}`
                 }>
-                  {contato.foto_perfil_url && contato.foto_perfil_url !== 'null' && contato.foto_perfil_url !== 'undefined' ?
-                  <>
-                      <img
+                  {contato.foto_perfil_url && contato.foto_perfil_url !== 'null' && contato.foto_perfil_url !== 'undefined' ? (
+                    <img
                       src={contato.foto_perfil_url}
                       alt={nomeExibicao}
-                      className="w-full h-full object-cover absolute inset-0"
-                      onError={(e) => {e.target.style.display = 'none';}} />
-
-                      <span className="relative z-10">{nomeExibicao.charAt(0).toUpperCase()}</span>
-                    </> :
-
-                  nomeExibicao.charAt(0).toUpperCase()
-                  }
+                      className="w-full h-full object-cover"
+                      onError={(e) => {
+                        e.target.style.display = 'none';
+                        e.target.parentElement.textContent = nomeExibicao.charAt(0).toUpperCase();
+                      }}
+                    />
+                  ) : (
+                    nomeExibicao.charAt(0).toUpperCase()
+                  )}
                 </div>
               </div>
 
