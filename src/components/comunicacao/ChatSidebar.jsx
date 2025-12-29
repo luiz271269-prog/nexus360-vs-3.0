@@ -569,9 +569,9 @@ export default function ChatSidebar({
 
           if (contato.empresa) nomeExibicao += contato.empresa;
           if (contato.cargo) nomeExibicao += (nomeExibicao ? " - " : "") + contato.cargo;
-          if (contato.nome && contato.nome !== contato.telefone) nomeExibicao += (nomeExibicao ? " - " : "") + contato.nome;
+          if (contato.nome && contato.nome !== contato.telefone && contato.nome.length > 1) nomeExibicao += (nomeExibicao ? " - " : "") + contato.nome;
 
-          if (!nomeExibicao || nomeExibicao.trim() === '') {
+          if (!nomeExibicao || nomeExibicao.trim() === '' || nomeExibicao.length <= 2) {
             nomeExibicao = contato.telefone || "Sem Nome";
           }
 
@@ -605,7 +605,7 @@ export default function ChatSidebar({
                 'bg-gradient-to-br from-amber-400 via-orange-500 to-red-500' :
                 'bg-gradient-to-br from-slate-400 to-slate-500'}`
                 }>
-                  {contato.foto_perfil_url ?
+                  {contato.foto_perfil_url && contato.foto_perfil_url !== 'null' && contato.foto_perfil_url !== 'undefined' ?
                   <>
                       <img
                       src={contato.foto_perfil_url}
