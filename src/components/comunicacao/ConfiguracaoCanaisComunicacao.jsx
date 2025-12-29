@@ -511,7 +511,7 @@ export default function ConfiguracaoCanaisComunicacao({ integracoes, onRecarrega
     try {
       const provider = PROVIDERS[integracao.api_provider];
       
-      if (integracao.api_provider !== 'w_api' && integracao.modo !== 'integrator') {
+      if (integracao.api_provider !== 'w_api') {
         toast.info("QR Code é gerenciado diretamente no painel da Z-API");
         setGerandoQR(null);
         return;
@@ -956,7 +956,7 @@ export default function ConfiguracaoCanaisComunicacao({ integracoes, onRecarrega
                         </div>
                       </div>
                       
-                      {(integracaoSelecionada?.api_provider === 'w_api' || integracaoSelecionada?.modo === 'integrator') && integracaoSelecionada?.status !== 'conectado' && (
+                      {integracaoSelecionada?.api_provider === 'w_api' && integracaoSelecionada?.status !== 'conectado' && (
                         <div className="border-t pt-2.5">
                           <p className="text-[10px] text-slate-500 mb-1.5">Conectar WhatsApp:</p>
                           <div className="flex gap-1.5">
