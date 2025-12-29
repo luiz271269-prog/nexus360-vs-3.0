@@ -18,14 +18,24 @@ const PROVIDERS = {
     cor: "blue",
     baseUrl: "https://api.z-api.io",
     campos: ["instance_id_provider", "api_key_provider", "security_client_token_header"],
-    descricao: "API estável e robusta para WhatsApp Business"
+    descricao: "API estável e robusta para WhatsApp Business",
+    modo: "manual"
   },
   w_api: {
     nome: "W-API",
     cor: "purple",
     baseUrl: "https://api.w-api.app/v1",
     campos: ["instance_id_provider", "api_key_provider"],
-    descricao: "API moderna com suporte a QR Code e Pairing Code"
+    descricao: "API moderna com suporte a QR Code e Pairing Code",
+    modo: "manual"
+  },
+  w_api_integrator: {
+    nome: "W-API Integrador",
+    cor: "indigo",
+    baseUrl: "https://api.w-api.app/v1",
+    campos: ["nome_instancia"],
+    descricao: "Cria instâncias automaticamente via API (plano customizado)",
+    modo: "integrator"
   }
 };
 
@@ -39,6 +49,7 @@ export default function ConfiguracaoWhatsAppUnificado({ onClose }) {
     api_key_provider: "",
     security_client_token_header: ""
   });
+  const [criandoInstancia, setCriandoInstancia] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [qrCodeData, setQrCodeData] = useState({});
@@ -236,8 +247,71 @@ export default function ConfiguracaoWhatsAppUnificado({ onClose }) {
     }
   };
 
+  const criarInstanciaIntegrador = async () => {
+    const { nome_instancia } = novaIntegracao;
+    
+    if (!nome_instancia) {
+      toast.error("Nome da instância é obrigatório");
+      return;
+    }
+    
+    setCriandoInstancia(true);
+    try {
+      toast.info("Criando instância na W-API...");
+      
+      const response = await base44.functions.invoke('wapiIntegratorManager', {
+        action: 'createInstance',
+        instanceName: nome_instancia
+      });
+      
+      if (!response.data.success) {
+        throw new Error(response.data.error || 'Erro ao criar instância');
+      }
+      
+      const { instanceId, token, webhookUrl } = response.data;
+      
+      // Salvar no banco com modo = integrator
+      await base44.entities.WhatsAppIntegration.create({
+        nome_instancia: nome_instancia.toLowerCase().replace(/[^a-z0-9-]/g, '-'),
+        numero_telefone: "",
+        api_provider: "w_api",
+        modo: "integrator",
+        instance_id_provider: instanceId,
+        api_key_provider: token,
+        base_url_provider: "https://api.w-api.app/v1",
+        status: "desconectado",
+        tipo_conexao: "webhook",
+        webhook_url: webhookUrl
+      });
+      
+      toast.success("✅ Instância criada com sucesso! Configure o número agora.");
+      
+      setNovaIntegracao({
+        nome_instancia: "",
+        numero_telefone: "",
+        api_provider: "z_api",
+        instance_id_provider: "",
+        api_key_provider: "",
+        security_client_token_header: ""
+      });
+      
+      await carregarIntegracoes();
+      
+    } catch (error) {
+      console.error("Erro ao criar instância integrador:", error);
+      toast.error(error.message || "Erro ao criar instância");
+    } finally {
+      setCriandoInstancia(false);
+    }
+  };
+
   const salvarIntegracao = async () => {
     const { nome_instancia, numero_telefone, api_provider, instance_id_provider, api_key_provider, security_client_token_header } = novaIntegracao;
+    
+    // Se for integrador, chama função específica
+    if (api_provider === 'w_api_integrator') {
+      return criarInstanciaIntegrador();
+    }
     
     if (!nome_instancia || !numero_telefone || !instance_id_provider || !api_key_provider) {
       toast.error("Preencha todos os campos obrigatórios");
@@ -256,7 +330,8 @@ export default function ConfiguracaoWhatsAppUnificado({ onClose }) {
       await base44.entities.WhatsAppIntegration.create({
         nome_instancia: nome_instancia.toLowerCase().replace(/[^a-z0-9-]/g, '-'),
         numero_telefone,
-        api_provider,
+        api_provider: api_provider === 'w_api_integrator' ? 'w_api' : api_provider,
+        modo: provider.modo || 'manual',
         instance_id_provider,
         api_key_provider,
         security_client_token_header: api_provider === 'z_api' ? security_client_token_header : null,
@@ -551,7 +626,8 @@ export default function ConfiguracaoWhatsAppUnificado({ onClose }) {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="z_api">Z-API</SelectItem>
-                  <SelectItem value="w_api">W-API</SelectItem>
+                  <SelectItem value="w_api">W-API (QR Code e Pairing)</SelectItem>
+                  <SelectItem value="w_api_integrator">W-API Integrador (Custom)</SelectItem>
                 </SelectContent>
               </Select>
               <p className="text-xs text-slate-500 mt-1">{PROVIDERS[novaIntegracao.api_provider]?.descricao}</p>
@@ -568,39 +644,45 @@ export default function ConfiguracaoWhatsAppUnificado({ onClose }) {
               />
             </div>
             
-            {/* Telefone */}
-            <div>
-              <Label>Número de WhatsApp</Label>
-              <Input
-                placeholder="5548999999999"
-                value={novaIntegracao.numero_telefone}
-                onChange={(e) => setNovaIntegracao({...novaIntegracao, numero_telefone: e.target.value.replace(/\D/g, '')})}
-                className="mt-1"
-              />
-            </div>
+            {/* Telefone - ocultar para integrador */}
+            {novaIntegracao.api_provider !== 'w_api_integrator' && (
+              <div>
+                <Label>Número de WhatsApp</Label>
+                <Input
+                  placeholder="5548999999999"
+                  value={novaIntegracao.numero_telefone}
+                  onChange={(e) => setNovaIntegracao({...novaIntegracao, numero_telefone: e.target.value.replace(/\D/g, '')})}
+                  className="mt-1"
+                />
+              </div>
+            )}
             
-            {/* Instance ID */}
-            <div>
-              <Label>Instance ID</Label>
-              <Input
-                placeholder={novaIntegracao.api_provider === 'w_api' ? "Ex: T34398-VYR3QD..." : "Ex: 3E5D2BD1BF421127B24ECEF0269361A3"}
-                value={novaIntegracao.instance_id_provider}
-                onChange={(e) => setNovaIntegracao({...novaIntegracao, instance_id_provider: e.target.value})}
-                className="mt-1"
-              />
-            </div>
+            {/* Instance ID - ocultar para integrador */}
+            {novaIntegracao.api_provider !== 'w_api_integrator' && (
+              <div>
+                <Label>Instance ID</Label>
+                <Input
+                  placeholder={novaIntegracao.api_provider === 'w_api' ? "Ex: T34398-VYR3QD..." : "Ex: 3E5D2BD1BF421127B24ECEF0269361A3"}
+                  value={novaIntegracao.instance_id_provider}
+                  onChange={(e) => setNovaIntegracao({...novaIntegracao, instance_id_provider: e.target.value})}
+                  className="mt-1"
+                />
+              </div>
+            )}
             
-            {/* Token */}
-            <div>
-              <Label>{novaIntegracao.api_provider === 'w_api' ? "Token (Bearer)" : "Token da Instância"}</Label>
-              <Input
-                placeholder="Cole o token aqui"
-                value={novaIntegracao.api_key_provider}
-                onChange={(e) => setNovaIntegracao({...novaIntegracao, api_key_provider: e.target.value})}
-                className="mt-1"
-                type="password"
-              />
-            </div>
+            {/* Token - ocultar para integrador */}
+            {novaIntegracao.api_provider !== 'w_api_integrator' && (
+              <div>
+                <Label>{novaIntegracao.api_provider === 'w_api' ? "Token (Bearer)" : "Token da Instância"}</Label>
+                <Input
+                  placeholder="Cole o token aqui"
+                  value={novaIntegracao.api_key_provider}
+                  onChange={(e) => setNovaIntegracao({...novaIntegracao, api_key_provider: e.target.value})}
+                  className="mt-1"
+                  type="password"
+                />
+              </div>
+            )}
             
             {/* Client-Token (apenas Z-API) */}
             {novaIntegracao.api_provider === 'z_api' && (
@@ -617,15 +699,31 @@ export default function ConfiguracaoWhatsAppUnificado({ onClose }) {
             )}
           </div>
 
+          {/* Alerta Integrador */}
+          {novaIntegracao.api_provider === 'w_api_integrator' && (
+            <div className="mb-4 p-4 bg-indigo-50 border-2 border-indigo-200 rounded-lg">
+              <div className="flex items-start gap-3">
+                <Zap className="w-5 h-5 text-indigo-600 flex-shrink-0 mt-0.5" />
+                <div>
+                  <h4 className="font-semibold text-indigo-900 mb-1">Modo Integrador Ativado</h4>
+                  <p className="text-sm text-indigo-700">
+                    A instância será criada automaticamente via API. Você receberá o <strong>Instance ID</strong> e <strong>Token</strong> após a criação.
+                    Configure o número de telefone depois usando QR Code ou Pairing Code.
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+
           <div className="flex justify-end gap-3">
             <Button onClick={onClose} variant="outline">Fechar</Button>
             <Button 
               onClick={salvarIntegracao} 
-              disabled={saving}
+              disabled={saving || criandoInstancia}
               className="bg-green-600 hover:bg-green-700"
             >
-              {saving ? <Loader2 className="w-4 h-4 mr-2 animate-spin"/> : <Zap className="w-4 h-4 mr-2" />}
-              {saving ? "Salvando..." : "Adicionar Conexão"}
+              {(saving || criandoInstancia) ? <Loader2 className="w-4 h-4 mr-2 animate-spin"/> : <Zap className="w-4 h-4 mr-2" />}
+              {criandoInstancia ? "Criando Instância..." : saving ? "Salvando..." : novaIntegracao.api_provider === 'w_api_integrator' ? "Criar Instância W-API" : "Adicionar Conexão"}
             </Button>
           </div>
         </div>
