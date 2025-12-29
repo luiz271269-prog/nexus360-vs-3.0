@@ -913,8 +913,6 @@ export default function ConfiguracaoCanaisComunicacao({ integracoes, onRecarrega
                         )}
                       </div>
 
-      const erros = validarCampos();
-
                       <div className="flex justify-end gap-2 pt-2 border-t">
                         <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => {
                           if (integracaoSelecionada) {
