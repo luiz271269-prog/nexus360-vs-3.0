@@ -234,6 +234,12 @@ export default function ConfiguracaoCanaisComunicacao({ integracoes, onRecarrega
       erros.push("Nome da instância é obrigatório");
     }
 
+    // Modo integrador: apenas nome é obrigatório
+    if (provider.modo === 'integrator') {
+      return erros;
+    }
+
+    // Modo manual: validações completas
     if (!novaIntegracao.numero_telefone?.trim()) {
       erros.push("Número de telefone é obrigatório");
     }
@@ -511,7 +517,8 @@ export default function ConfiguracaoCanaisComunicacao({ integracoes, onRecarrega
     try {
       const provider = PROVIDERS[integracao.api_provider];
       
-      if (integracao.api_provider !== 'w_api') {
+      // Aceita W-API normal ou integrador (modo === 'integrator')
+      if (integracao.api_provider !== 'w_api' && integracao.modo !== 'integrator') {
         toast.info("QR Code é gerenciado diretamente no painel da Z-API");
         setGerandoQR(null);
         return;
@@ -848,54 +855,30 @@ export default function ConfiguracaoCanaisComunicacao({ integracoes, onRecarrega
                         </div>
                       </div>
 
-                      <div>
-                        <Label className="text-[11px] font-semibold text-slate-600">Instance ID *</Label>
-                        <Input
-                          value={novaIntegracao.instance_id}
-                          onChange={(e) => setNovaIntegracao({...novaIntegracao, instance_id: e.target.value.trim()})}
-                          placeholder={novaIntegracao.api_provider === 'w_api' ? "T34398-VYR3QD..." : "3E5D2BD1..."}
-                          className="mt-1 h-8 font-mono text-[11px]"
-                          disabled={PROVIDERS[novaIntegracao.api_provider]?.modo === 'integrator'}
-                        />
-                      </div>
-
-                      <div className="grid grid-cols-2 gap-3">
+                      {PROVIDERS[novaIntegracao.api_provider]?.modo !== 'integrator' && (
                         <div>
-                          <Label className="text-[11px] font-semibold text-slate-600 flex items-center gap-1">
-                            <Key className="w-3 h-3" />
-                            {novaIntegracao.api_provider === 'w_api' ? 'Token *' : 'Token *'}
-                          </Label>
-                          <div className="relative mt-1">
-                            <Input
-                              type={showTokenInstancia ? "text" : "password"}
-                              value={novaIntegracao.token_instancia}
-                              onChange={(e) => setNovaIntegracao({...novaIntegracao, token_instancia: e.target.value.trim()})}
-                              placeholder="Token..."
-                              className="h-8 pr-8 font-mono text-[11px]"
-                              disabled={PROVIDERS[novaIntegracao.api_provider]?.modo === 'integrator'}
-                            />
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="icon"
-                              className="absolute right-0 top-0 h-8 w-7"
-                              onClick={() => setShowTokenInstancia(!showTokenInstancia)}>
-                              {showTokenInstancia ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}
-                            </Button>
-                          </div>
+                          <Label className="text-[11px] font-semibold text-slate-600">Instance ID *</Label>
+                          <Input
+                            value={novaIntegracao.instance_id}
+                            onChange={(e) => setNovaIntegracao({...novaIntegracao, instance_id: e.target.value.trim()})}
+                            placeholder={novaIntegracao.api_provider === 'w_api' ? "T34398-VYR3QD..." : "3E5D2BD1..."}
+                            className="mt-1 h-8 font-mono text-[11px]"
+                          />
                         </div>
-                        
-                        {novaIntegracao.api_provider === 'z_api' && (
+                      )}
+
+                      {PROVIDERS[novaIntegracao.api_provider]?.modo !== 'integrator' && (
+                        <div className="grid grid-cols-2 gap-3">
                           <div>
                             <Label className="text-[11px] font-semibold text-slate-600 flex items-center gap-1">
-                              <Shield className="w-3 h-3" />
-                              Client-Token *
+                              <Key className="w-3 h-3" />
+                              {novaIntegracao.api_provider === 'w_api' ? 'Token *' : 'Token *'}
                             </Label>
                             <div className="relative mt-1">
                               <Input
-                                type={showTokenConta ? "text" : "password"}
-                                value={novaIntegracao.client_token_conta}
-                                onChange={(e) => setNovaIntegracao({...novaIntegracao, client_token_conta: e.target.value.trim()})}
+                                type={showTokenInstancia ? "text" : "password"}
+                                value={novaIntegracao.token_instancia}
+                                onChange={(e) => setNovaIntegracao({...novaIntegracao, token_instancia: e.target.value.trim()})}
                                 placeholder="Token..."
                                 className="h-8 pr-8 font-mono text-[11px]"
                               />
@@ -904,13 +887,39 @@ export default function ConfiguracaoCanaisComunicacao({ integracoes, onRecarrega
                                 variant="ghost"
                                 size="icon"
                                 className="absolute right-0 top-0 h-8 w-7"
-                                onClick={() => setShowTokenConta(!showTokenConta)}>
-                                {showTokenConta ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}
+                                onClick={() => setShowTokenInstancia(!showTokenInstancia)}>
+                                {showTokenInstancia ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}
                               </Button>
                             </div>
                           </div>
-                        )}
-                      </div>
+                          
+                          {novaIntegracao.api_provider === 'z_api' && (
+                            <div>
+                              <Label className="text-[11px] font-semibold text-slate-600 flex items-center gap-1">
+                                <Shield className="w-3 h-3" />
+                                Client-Token *
+                              </Label>
+                              <div className="relative mt-1">
+                                <Input
+                                  type={showTokenConta ? "text" : "password"}
+                                  value={novaIntegracao.client_token_conta}
+                                  onChange={(e) => setNovaIntegracao({...novaIntegracao, client_token_conta: e.target.value.trim()})}
+                                  placeholder="Token..."
+                                  className="h-8 pr-8 font-mono text-[11px]"
+                                />
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="icon"
+                                  className="absolute right-0 top-0 h-8 w-7"
+                                  onClick={() => setShowTokenConta(!showTokenConta)}>
+                                  {showTokenConta ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}
+                                </Button>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      )}
 
                       <div className="flex justify-end gap-2 pt-2 border-t">
                         <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => {
@@ -956,7 +965,7 @@ export default function ConfiguracaoCanaisComunicacao({ integracoes, onRecarrega
                         </div>
                       </div>
                       
-                      {integracaoSelecionada?.api_provider === 'w_api' && integracaoSelecionada?.status !== 'conectado' && (
+                      {(integracaoSelecionada?.api_provider === 'w_api' || integracaoSelecionada?.modo === 'integrator') && integracaoSelecionada?.status !== 'conectado' && (
                         <div className="border-t pt-2.5">
                           <p className="text-[10px] text-slate-500 mb-1.5">Conectar WhatsApp:</p>
                           <div className="flex gap-1.5">
