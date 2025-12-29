@@ -1284,60 +1284,54 @@ export default function ChatWindow({
 
 
 
+  const marcarComoLidaMutation = useMutation({
+    mutationFn: async () => {
+      // ✅ THREAD INTERNA - usar markThreadAsRead
+      if (thread.thread_type === 'team_internal' || thread.thread_type === 'sector_group') {
+        await base44.functions.invoke('markThreadAsRead', {
+          thread_id: thread.id
+        });
+        return;
+      }
+
+      // ✅ THREAD EXTERNA - lógica existente
+      const mensagensNaoLidas = mensagens.filter(
+        (m) => m.sender_type === 'contact' && m.status !== 'lida' && m.status !== 'apagada'
+      );
+
+      if (mensagensNaoLidas.length === 0) return;
+
+      for (const msg of mensagensNaoLidas) {
+        await base44.entities.Message.update(msg.id, {
+          status: 'lida',
+          read_at: new Date().toISOString()
+        });
+      }
+
+      if (thread.unread_count > 0) {
+        await base44.entities.MessageThread.update(thread.id, {
+          unread_count: 0
+        });
+      }
+    },
+    onSuccess: async () => {
+      // ✅ DETERMINÍSTICO: Invalida apenas quando backend confirma
+      await queryClient.invalidateQueries({ queryKey: ['threads'] });
+      if (onAtualizarMensagens) {
+        onAtualizarMensagens();
+      }
+    },
+    onError: (error) => {
+      console.error('[CHAT] ❌ Erro ao marcar como lida:', error);
+    }
+  });
+
   useEffect(() => {
     if (!thread || !usuario || !mensagens.length) return;
-
-    const marcarComoLida = async () => {
-      try {
-        // ✅ THREAD INTERNA - usar markThreadAsRead
-        if (thread.thread_type === 'team_internal' || thread.thread_type === 'sector_group') {
-          await base44.functions.invoke('markThreadAsRead', {
-            thread_id: thread.id
-          });
-
-          // ✅ INVALIDAÇÃO: Força atualização do contador na sidebar
-          await queryClient.invalidateQueries({ queryKey: ['threads'] });
-
-          if (onAtualizarMensagens) {
-            onAtualizarMensagens();
-          }
-          return;
-        }
-
-        // ✅ THREAD EXTERNA - lógica existente (não mexer)
-        const mensagensNaoLidas = mensagens.filter(
-          (m) => m.sender_type === 'contact' && m.status !== 'lida' && m.status !== 'apagada'
-        );
-
-        if (mensagensNaoLidas.length === 0) return;
-
-        for (const msg of mensagensNaoLidas) {
-          await base44.entities.Message.update(msg.id, {
-            status: 'lida',
-            read_at: new Date().toISOString()
-          });
-        }
-
-        if (thread.unread_count > 0) {
-          await base44.entities.MessageThread.update(thread.id, {
-            unread_count: 0
-          });
-        }
-
-        // ✅ INVALIDAÇÃO: Força atualização do contador na sidebar
-        await queryClient.invalidateQueries({ queryKey: ['threads'] });
-
-        if (onAtualizarMensagens) {
-          onAtualizarMensagens();
-        }
-      } catch (error) {
-        console.error('[CHAT] ❌ Erro ao marcar como lida:', error);
-      }
-    };
-
-    const timer = setTimeout(marcarComoLida, 1000);
-    return () => clearTimeout(timer);
-  }, [thread?.id, mensagens.length, usuario?.id, onAtualizarMensagens, queryClient]);
+    if (marcarComoLidaMutation.isPending) return; // Evita chamadas duplicadas
+    
+    marcarComoLidaMutation.mutate();
+  }, [thread?.id, mensagens.length, usuario?.id]);
 
   // ✅ Foco automático removido - agora é responsabilidade do MessageInput
 
