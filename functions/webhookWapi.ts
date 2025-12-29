@@ -475,7 +475,7 @@ async function handleMessage(dados, payloadBruto, base44, req) {
   // 9. DISPARAR CÉREBRO (IMPORTAÇÃO DIRETA - SEM HTTP 404)
   try {
     console.log('[WAPI] 🚀 Processando Inbound Core (import direto)...');
-    
+
     let integracaoObj = null;
     if (integracaoId) {
       try {
@@ -486,21 +486,21 @@ async function handleMessage(dados, payloadBruto, base44, req) {
       }
     }
 
-    // ✅ IMPORTAÇÃO INLINE (Sem Axios, Sem HTTP, Sem 404)
+    // ✅ IMPORT DIRETO – SEM HTTP, SEM 404
     const { processInboundEvent } = await import('./lib/inboundCore.js');
-    
-    const resultado = await processInboundEvent({
+
+    await processInboundEvent({
       base44,
       contact: contato,
-      thread: thread,
+      thread,
       message: mensagem,
       integration: integracaoObj,
       provider: 'w_api',
       messageContent: dados.content,
       rawPayload: payloadBruto
     });
-    
-    console.log('[WAPI] ✅ Inbound Core executado:', resultado?.actions?.join(', ') || 'processado');
+
+    console.log('[WAPI] ✅ Inbound Core processado com sucesso (direto)');
   } catch (err) {
     console.error('[WAPI] 🔴 Erro no Inbound Core:', err?.message);
     console.error('[WAPI] 🔴 Stack:', err?.stack);

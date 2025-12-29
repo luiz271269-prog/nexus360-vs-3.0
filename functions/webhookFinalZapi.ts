@@ -832,7 +832,7 @@ async function handleMessage(dados, payloadBruto, base44) {
   // ============================================================================
   try {
     console.log(`[${VERSION}] 🚀 Processando Inbound Core (import direto)...`);
-    
+
     let integracaoObj = null;
     if (integracaoId) {
       try {
@@ -843,21 +843,21 @@ async function handleMessage(dados, payloadBruto, base44) {
       }
     }
 
-    // ✅ IMPORTAÇÃO INLINE (Sem Axios, Sem HTTP, Sem 404)
+    // ✅ IMPORT DIRETO – SEM HTTP, SEM 404
     const { processInboundEvent } = await import('./lib/inboundCore.js');
-    
-    const resultado = await processInboundEvent({
+
+    await processInboundEvent({
       base44,
       contact: contato,
-      thread: thread,
+      thread,
       message: mensagem,
       integration: integracaoObj,
       provider: 'z_api',
       messageContent: dados.content,
       rawPayload: payloadBruto
     });
-    
-    console.log(`[${VERSION}] ✅ Inbound Core executado:`, resultado?.actions?.join(', ') || 'processado');
+
+    console.log(`[${VERSION}] ✅ Inbound Core processado com sucesso (direto)`);
   } catch (err) {
     console.error(`[${VERSION}] 🔴 Erro no Inbound Core:`, err?.message);
     console.error(`[${VERSION}] 🔴 Stack:`, err?.stack);
