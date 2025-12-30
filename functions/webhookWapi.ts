@@ -92,8 +92,8 @@ function normalizarPayload(payload) {
       return { type: 'qrcode', instanceId, qrCodeUrl: payload.qrcode || payload.qr || payload.base64 };
     }
 
-    if (evento.includes('connection') || evento.includes('webhookconectado')) {
-      const status = payload.connected === true ? 'conectado' : 'desconectado';
+    if (evento.includes('connection') || evento.includes('webhookconectado') || evento.includes('webhookconnected')) {
+      const status = payload.connected === true || payload.status === 'connected' ? 'conectado' : 'desconectado';
       return { type: 'connection', instanceId, status };
     }
 
@@ -267,19 +267,37 @@ async function handleQRCode(dados, base44) {
   return Response.json({ success: true, processed: 'qrcode', provider: 'w_api' }, { headers: corsHeaders });
 }
 
-async function handleConnection(dados, base44) {
+async function handleConnection(dados, base44, payloadBruto) {
   if (!dados.instanceId) return Response.json({ success: true }, { headers: corsHeaders });
   try {
     const integracoes = await base44.asServiceRole.entities.WhatsAppIntegration.filter(
       { instance_id_provider: dados.instanceId, api_provider: 'w_api' }, '-created_date', 1
     );
     if (integracoes.length > 0) {
-      await base44.asServiceRole.entities.WhatsAppIntegration.update(integracoes[0].id, {
+      // Extrair número de telefone conectado do payload bruto
+      const connectedPhone = payloadBruto.connectedPhone || 
+                            payloadBruto.phone || 
+                            payloadBruto.phoneNumber ||
+                            payloadBruto.sender?.id?.replace(/@.*$/, '');
+      
+      const updateData = {
         status: dados.status,
-        ultima_atividade: new Date().toISOString()
-      });
+        ultima_atividade: new Date().toISOString(),
+        token_status: dados.status === 'conectado' ? 'valido' : 'nao_verificado'
+      };
+      
+      // Se tiver número de telefone e estiver conectado, atualizar
+      if (connectedPhone && dados.status === 'conectado') {
+        updateData.numero_telefone = connectedPhone;
+        console.log('[WAPI] ✅ Número de telefone associado:', connectedPhone);
+      }
+      
+      await base44.asServiceRole.entities.WhatsAppIntegration.update(integracoes[0].id, updateData);
+      console.log('[WAPI] ✅ Status de conexão atualizado:', dados.status);
     }
-  } catch (e) {}
+  } catch (e) {
+    console.error('[WAPI] ❌ Erro ao atualizar conexão:', e.message);
+  }
   return Response.json({ success: true, processed: 'connection', status: dados.status, provider: 'w_api' }, { headers: corsHeaders });
 }
 
@@ -566,7 +584,7 @@ Deno.serve(async (req) => {
       case 'qrcode':
         return await handleQRCode(dados, base44);
       case 'connection':
-        return await handleConnection(dados, base44);
+        return await handleConnection(dados, base44, payload);
       case 'message_update':
         return await handleMessageUpdate(dados, base44);
       case 'message':
