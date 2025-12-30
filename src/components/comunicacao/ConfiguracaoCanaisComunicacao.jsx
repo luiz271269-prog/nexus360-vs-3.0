@@ -611,7 +611,7 @@ export default function ConfiguracaoCanaisComunicacao({ integracoes, onRecarrega
   };
 
   // Helper para obter badge de tipo de canal
-  const getChannelBadge = (provider) => {
+  const getChannelBadge = (provider, modo) => {
     const config = PROVIDERS[provider] || PROVIDERS.z_api;
     const colors = {
       whatsapp: "bg-green-100 text-green-700 border-green-300",
@@ -619,13 +619,17 @@ export default function ConfiguracaoCanaisComunicacao({ integracoes, onRecarrega
       facebook: "bg-blue-100 text-blue-700 border-blue-300",
       phone: "bg-yellow-100 text-yellow-700 border-yellow-300"
     };
-    
+
     const Logo = config.icon;
-    
+
+    // Se for modo integrator, mostrar badge especial
+    const displayName = modo === 'integrator' ? 'W-API Integrador' : config.nome;
+    const badgeColor = modo === 'integrator' ? 'bg-indigo-100 text-indigo-700 border-indigo-300' : colors[config.tipo];
+
     return (
-      <Badge className={`${colors[config.tipo]} text-[10px] px-2 py-0.5 flex items-center gap-1`}>
+      <Badge className={`${badgeColor} text-[10px] px-2 py-0.5 flex items-center gap-1`}>
         <Logo />
-        {config.nome}
+        {displayName}
       </Badge>
     );
   };
@@ -698,18 +702,49 @@ export default function ConfiguracaoCanaisComunicacao({ integracoes, onRecarrega
               </div>
               <div>
                 <h2 className="text-sm font-bold text-slate-900">WhatsApp</h2>
-                <p className="text-[11px] text-slate-500">Z-API / W-API</p>
+                <p className="text-[11px] text-slate-500">Z-API / W-API / Integrador</p>
               </div>
               <Badge variant="outline" className="ml-2 text-[10px] h-5">
                 {integracoes.filter((i) => i.status === 'conectado').length}/{integracoes.length}
               </Badge>
             </div>
-            {podeAdicionar && (
-              <Button size="sm" onClick={iniciarNovaIntegracao} className="h-8 text-xs bg-green-600 hover:bg-green-700">
-                <Plus className="w-3 h-3 mr-1" />
-                Nova
-              </Button>
-            )}
+            <div className="flex gap-2">
+              {podeAdicionar && (
+                <>
+                  <Button 
+                    size="sm" 
+                    variant="outline"
+                    onClick={async () => {
+                      try {
+                        setLoading(true);
+                        toast.info('Sincronizando instâncias W-API Integrador...');
+                        const response = await base44.functions.invoke('sincronizarInstanciasWapiIntegrador');
+                        if (response.data.success) {
+                          const r = response.data.resultados;
+                          toast.success(`✅ Sincronização concluída!\n${r.criadas} criadas, ${r.atualizadas} atualizadas`);
+                          if (onRecarregar) await onRecarregar();
+                        } else {
+                          toast.error('Erro na sincronização');
+                        }
+                      } catch (error) {
+                        toast.error('Erro ao sincronizar: ' + error.message);
+                      } finally {
+                        setLoading(false);
+                      }
+                    }}
+                    className="h-8 text-xs"
+                    disabled={loading}
+                  >
+                    {loading ? <Loader2 className="w-3 h-3 mr-1 animate-spin" /> : <Zap className="w-3 h-3 mr-1" />}
+                    Sincronizar W-API
+                  </Button>
+                  <Button size="sm" onClick={iniciarNovaIntegracao} className="h-8 text-xs bg-green-600 hover:bg-green-700">
+                    <Plus className="w-3 h-3 mr-1" />
+                    Nova
+                  </Button>
+                </>
+              )}
+            </div>
           </div>
 
           {/* Layout 2 Colunas: Lista Compacta | Edição + Diagnóstico */}
@@ -748,7 +783,7 @@ export default function ConfiguracaoCanaisComunicacao({ integracoes, onRecarrega
                         <p className="font-medium text-xs text-slate-800 truncate">{integracao.nome_instancia}</p>
                         <p className="text-[10px] text-slate-500 truncate">{integracao.numero_telefone}</p>
                       </div>
-                      {getChannelBadge(integracao.api_provider)}
+                      {getChannelBadge(integracao.api_provider, integracao.modo)}
                     </div>
                   </div>
                 ))
@@ -990,7 +1025,7 @@ export default function ConfiguracaoCanaisComunicacao({ integracoes, onRecarrega
                         <div>
                           <span className="text-slate-500 text-[10px]">Canal:</span>
                           <div className="mt-0.5">
-                            {getChannelBadge(integracaoSelecionada?.api_provider)}
+                            {getChannelBadge(integracaoSelecionada?.api_provider, integracaoSelecionada?.modo)}
                           </div>
                         </div>
                       </div>
