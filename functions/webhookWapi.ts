@@ -569,15 +569,20 @@ Deno.serve(async (req) => {
     const body = await req.text();
     if (!body) return Response.json({ success: true, ignored: true }, { headers: corsHeaders });
     payload = JSON.parse(body);
+
+    // 🔍 DEBUG TEMPORÁRIO - Ver payload bruto
+    console.log('[WAPI-WEBHOOK] 📦 PAYLOAD BRUTO:', JSON.stringify(payload, null, 2));
   } catch (e) {
     return Response.json({ success: false, error: 'JSON invalido' }, { status: 200, headers: corsHeaders });
   }
 
   // ✅ GATE 0: Classificar evento ANTES de qualquer normalização
   const classification = classifyWapiEvent(payload);
-  
+  console.log('[WAPI-WEBHOOK] 🏷️ Classificação:', classification);
+
   const motivoIgnorar = deveIgnorar(payload, classification);
   if (motivoIgnorar) {
+    console.log('[WAPI-WEBHOOK] ⏭️ Ignorando:', motivoIgnorar);
     return Response.json({ success: true, ignored: true, reason: motivoIgnorar }, { headers: corsHeaders });
   }
 
