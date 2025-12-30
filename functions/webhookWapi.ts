@@ -1,16 +1,16 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.4';
 
 // ============================================================================
-// WEBHOOK WHATSAPP W-API - v12.0.0 INGESTÃO PURA
+// WEBHOOK WHATSAPP W-API - INGESTÃO UNIVERSAL
 // ============================================================================
-// ARQUITETURA LIMPA:
-// 1. Este webhook é BURRO: só recebe, valida, salva e responde 200
-// 2. Inteligência isolada em processInbound (URA/Pré-atendimento/Promoções)
-// 3. Zero imports de lib/ - elimina "os error 2" definitivamente
+// PRINCÍPIO FUNDAMENTAL (DIA 25):
+// 1. Agnóstico ao modo de criação (manual ou integrador)
+// 2. Busca integração apenas por instance_id_provider
+// 3. Processamento unificado: mesmo fluxo para todas as instâncias W-API
 // ============================================================================
 
-const VERSION = 'v12.0.0-PURE-INGESTION';
-const BUILD_DATE = '2025-12-18';
+const VERSION = 'v13.0.0-UNIVERSAL';
+const BUILD_DATE = '2025-12-30';
 
 const corsHeaders = {
   'Content-Type': 'application/json',
@@ -44,13 +44,13 @@ function classifyWapiEvent(payload) {
     return 'system-status';
   }
 
-  // 2️⃣ MENSAGEM DE USUÁRIO: Formato real da W-API
+  // 2️⃣ MENSAGEM DE USUÁRIO: Formato W-API (integrador ou manual)
   if (payload.type === 'ReceivedCallback' && payload.text?.message) {
     return 'user-message';
   }
 
-  // 2️⃣ MENSAGEM DE USUÁRIO: webhookreceived com msgContent (formato legado)
-  if ((evento === 'webhookreceived' || payload.msgContent) && payload.msgContent) {
+  // 2️⃣ FORMATO BAILEYS LEGADO: msgContent estruturado
+  if (payload.msgContent) {
     const msg = payload.msgContent;
     if (msg.conversation || msg.extendedTextMessage || msg.imageMessage || 
         msg.audioMessage || msg.locationMessage || msg.liveLocationMessage ||
@@ -117,7 +117,7 @@ function normalizarPayload(payload) {
 
     if (!numeroLimpo) return { type: 'unknown', error: 'telefone_invalido' };
 
-    // 3. Extração de Conteúdo e Mídia - Mapear formato W-API real
+    // 3. CONSTRUÇÃO VIRTUAL: W-API → Baileys (unifica processamento)
     const msgContent = payload.msgContent || (
       payload.text ? { conversation: payload.text.message } : {}
     );

@@ -1,12 +1,12 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.6';
 
 /**
- * Sincroniza Instâncias W-API Integrador com WhatsAppIntegration
+ * SINCRONIZAÇÃO W-API INTEGRADOR
  * 
- * Lista todas as instâncias do token de integrador e cria/atualiza
- * registros em WhatsAppIntegration para cada uma.
+ * Lista instâncias do integrador e espelha no WhatsAppIntegration.
+ * Após criadas, funcionam igual a instâncias manuais (mesma instanceId + token).
  * 
- * Uso: Executar manualmente ou via cron para manter sincronizado
+ * Uso: Executar manualmente quando adicionar/remover instâncias no painel W-API
  */
 
 const WAPI_INTEGRATOR_BASE_URL = 'https://api.w-api.app/v1/integrator';
@@ -70,44 +70,12 @@ Deno.serve(async (req) => {
       try {
         console.log(`[SYNC] Processando: ${inst.instanceName} (${inst.instanceId})`);
 
-        // ✅ BUSCA AGNÓSTICA UNIVERSAL: apenas por instance_id_provider
-        let existentes = await base44.asServiceRole.entities.WhatsAppIntegration.filter({
+        // ✅ BUSCA AGNÓSTICA: apenas por instance_id_provider
+        const existentes = await base44.asServiceRole.entities.WhatsAppIntegration.filter({
           instance_id_provider: inst.instanceId
-        });
+        }, '-created_date', 1);
 
-        console.log(`[SYNC] 🔍 Busca por instanceId (${inst.instanceId}): ${existentes.length} encontrada(s)`);
-
-        // ✅ FALLBACK: Se não encontrou, buscar por nome
-        if (existentes.length === 0) {
-          const porNome = await base44.asServiceRole.entities.WhatsAppIntegration.filter({
-            nome_instancia: inst.instanceName
-          });
-
-          console.log(`[SYNC] 🔍 Fallback busca por nome (${inst.instanceName}): ${porNome.length} encontrada(s)`);
-
-          if (porNome.length > 0) {
-            existentes = porNome;
-            console.log(`[SYNC] ⚠️ Encontrada instância existente - será atualizada para sincronizar com integrador`);
-          }
-        }
-        
-        // ✅ PREVENIR DUPLICATAS: Se encontrou múltiplas, usar a primeira e marcar as outras
-        if (existentes.length > 1) {
-          console.log(`[SYNC] ⚠️ DUPLICATAS DETECTADAS: ${existentes.length} instâncias com mesmo ID/nome`);
-          // Manter a primeira (mais antiga), marcar as outras como duplicadas
-          for (let i = 1; i < existentes.length; i++) {
-            try {
-              await base44.asServiceRole.entities.WhatsAppIntegration.update(existentes[i].id, {
-                nome_instancia: `[DUPLICATA] ${existentes[i].nome_instancia}`,
-                status: 'desconectado'
-              });
-              console.log(`[SYNC] ⚠️ Marcada como duplicata: ${existentes[i].id}`);
-            } catch (err) {
-              console.error(`[SYNC] Erro ao marcar duplicata:`, err);
-            }
-          }
-          existentes = [existentes[0]]; // Usar apenas a primeira
-        }
+        console.log(`[SYNC] 🔍 Busca: ${existentes.length} encontrada(s) para ${inst.instanceId}`);
 
         const dadosIntegracao = {
           nome_instancia: inst.instanceName,
@@ -136,49 +104,25 @@ Deno.serve(async (req) => {
         };
 
         if (existentes.length > 0) {
-          // ✅ ATUALIZAR EXISTENTE
-          console.log(`[SYNC] 🔄 Atualizando instância existente ID: ${existentes[0].id}`);
-          console.log(`[SYNC] 📝 Dados anteriores:`, {
-            nome: existentes[0].nome_instancia,
-            instanceId: existentes[0].instance_id_provider,
-            token: existentes[0].api_key_provider?.substring(0, 10) + '...',
-            status: existentes[0].status
-          });
-          
-          await base44.asServiceRole.entities.WhatsAppIntegration.update(
-            existentes[0].id,
-            dadosIntegracao
-          );
-          
+          await base44.asServiceRole.entities.WhatsAppIntegration.update(existentes[0].id, dadosIntegracao);
           resultados.atualizadas++;
           resultados.detalhes.push({
             id_integration: existentes[0].id,
             instancia: inst.instanceName,
             instanceId: inst.instanceId,
-            acao: 'atualizada',
-            status: inst.connected ? 'conectado' : 'desconectado'
+            acao: 'atualizada'
           });
-          console.log(`[SYNC] ✅ ATUALIZADA: ${inst.instanceName} (ID: ${existentes[0].id})`);
+          console.log(`[SYNC] ✅ Atualizada: ${inst.instanceName}`);
         } else {
-          // ✅ CRIAR NOVA INSTÂNCIA
-          console.log(`[SYNC] ➕ Criando NOVA instância: ${inst.instanceName}`);
-          console.log(`[SYNC] 📝 Dados:`, {
-            instanceId: inst.instanceId,
-            nome: inst.instanceName,
-            token: inst.token?.substring(0, 10) + '...'
-          });
-          
-          const novaIntegracao = await base44.asServiceRole.entities.WhatsAppIntegration.create(dadosIntegracao);
-          
+          const nova = await base44.asServiceRole.entities.WhatsAppIntegration.create(dadosIntegracao);
           resultados.criadas++;
           resultados.detalhes.push({
-            id_integration: novaIntegracao.id,
+            id_integration: nova.id,
             instancia: inst.instanceName,
             instanceId: inst.instanceId,
-            acao: 'criada',
-            status: inst.connected ? 'conectado' : 'desconectado'
+            acao: 'criada'
           });
-          console.log(`[SYNC] ✅ CRIADA: ${inst.instanceName} (ID: ${novaIntegracao.id})`);
+          console.log(`[SYNC] ✅ Criada: ${inst.instanceName}`);
         }
 
       } catch (error) {
