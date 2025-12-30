@@ -59,9 +59,11 @@ Deno.serve(async (req) => {
       detalhes: []
     };
 
-    // Obter URL base do app para webhooks
-    const appUrl = Deno.env.get('BASE44_APP_URL') || 'https://app.base44.com';
+    // ✅ CRÍTICO: Obter URL base do app para webhooks (produção vs preview)
+    const appUrl = Deno.env.get('BASE44_APP_URL') || req.headers.get('origin') || 'https://app.base44.com';
     const webhookUrl = `${appUrl}/api/functions/webhookWapi`;
+    
+    console.log('[SYNC] 🌐 Webhook URL que será usado:', webhookUrl);
 
     // Processar cada instância
     for (const inst of instancias) {

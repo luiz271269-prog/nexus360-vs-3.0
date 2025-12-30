@@ -131,7 +131,6 @@ async function executarEtapa1(integracao) {
   // Teste 4: Número de telefone
   const t4Inicio = Date.now();
   const temTelefone = !!integracao.numero_telefone && integracao.numero_telefone.startsWith('+');
-  const modoIntegrador = integracao.modo === 'integrator';
   
   testes.push({
     nome: 'Número de telefone válido',
@@ -175,7 +174,12 @@ async function executarEtapa1(integracao) {
 async function executarEtapa2(integracao) {
   const inicio = Date.now();
   const testes = [];
-  const webhookUrl = integracao.webhook_url || 'https://nexus360-pro.base44.app/api/functions/webhookWatsZapi';
+  
+  // ✅ CORREÇÃO: Usar webhook_url da integração ou derivar dinamicamente
+  const webhookUrl = integracao.webhook_url || (() => {
+    const appUrl = Deno.env.get('BASE44_APP_URL') || 'https://app.base44.com';
+    return `${appUrl}/api/functions/webhookWapi`;
+  })();
 
   // Teste 1: GET Health Check
   const t1Inicio = Date.now();
@@ -349,7 +353,12 @@ async function executarEtapa2(integracao) {
 async function executarEtapa3(base44, integracao) {
   const inicio = Date.now();
   const testes = [];
-  const webhookUrl = integracao.webhook_url || 'https://nexus360-pro.base44.app/api/functions/webhookWatsZapi';
+  
+  // ✅ CORREÇÃO: Usar webhook_url da integração ou derivar dinamicamente
+  const webhookUrl = integracao.webhook_url || (() => {
+    const appUrl = Deno.env.get('BASE44_APP_URL') || 'https://app.base44.com';
+    return `${appUrl}/api/functions/webhookWapi`;
+  })();
   
   // IDs únicos para rastreamento
   const timestampBase = Date.now();
