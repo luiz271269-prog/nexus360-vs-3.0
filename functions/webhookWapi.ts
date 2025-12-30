@@ -261,7 +261,7 @@ async function handleQRCode(dados, base44) {
   if (!dados.instanceId) return Response.json({ success: true }, { headers: corsHeaders });
   try {
     const integracoes = await base44.asServiceRole.entities.WhatsAppIntegration.filter(
-      { instance_id_provider: dados.instanceId, api_provider: 'w_api' }, '-created_date', 1
+      { instance_id_provider: dados.instanceId }, '-created_date', 1
     );
     if (integracoes.length > 0) {
       await base44.asServiceRole.entities.WhatsAppIntegration.update(integracoes[0].id, {
@@ -278,7 +278,7 @@ async function handleConnection(dados, base44, payloadBruto) {
   if (!dados.instanceId) return Response.json({ success: true }, { headers: corsHeaders });
   try {
     const integracoes = await base44.asServiceRole.entities.WhatsAppIntegration.filter(
-      { instance_id_provider: dados.instanceId, api_provider: 'w_api' }, '-created_date', 1
+      { instance_id_provider: dados.instanceId }, '-created_date', 1
     );
     if (integracoes.length > 0) {
       // Extrair número de telefone conectado do payload bruto
@@ -357,20 +357,25 @@ async function handleMessage(dados, payloadBruto, base44, req) {
     } catch (e) {}
   }
 
-  // 3. RESOLVER INTEGRAÇÃO
+  // 3. RESOLVER INTEGRAÇÃO (AGNÓSTICO - busca apenas por instance_id_provider)
   let integracaoId = null;
   if (dados.instanceId) {
     try {
       const cached = integrationCache.get(dados.instanceId);
       if (cached && (Date.now() - cached.timestamp) < CACHE_TTL) {
         integracaoId = cached.id;
+        console.log('[WAPI] ✅ Integração do cache:', integracaoId);
       } else {
+        // ✅ BUSCA AGNÓSTICA: apenas por instance_id_provider, sem filtro de api_provider
         const int = await base44.asServiceRole.entities.WhatsAppIntegration.filter(
-          { instance_id_provider: dados.instanceId, api_provider: 'w_api' }, '-created_date', 1
+          { instance_id_provider: dados.instanceId }, '-created_date', 1
         );
         if (int.length > 0) {
           integracaoId = int[0].id;
           integrationCache.set(dados.instanceId, { id: integracaoId, timestamp: Date.now() });
+          console.log('[WAPI] ✅ Integração encontrada:', integracaoId, '| Modo:', int[0].modo || 'manual');
+        } else {
+          console.log('[WAPI] ⚠️ Nenhuma integração encontrada para instanceId:', dados.instanceId);
         }
       }
     } catch (e) { console.error('[WAPI] Erro ao resolver integração:', e.message); }

@@ -70,26 +70,24 @@ Deno.serve(async (req) => {
       try {
         console.log(`[SYNC] Processando: ${inst.instanceName} (${inst.instanceId})`);
 
-        // ✅ BUSCA ROBUSTA: Tentar por instanceId primeiro, fallback por nome
+        // ✅ BUSCA AGNÓSTICA UNIVERSAL: apenas por instance_id_provider
         let existentes = await base44.asServiceRole.entities.WhatsAppIntegration.filter({
-          instance_id_provider: inst.instanceId,
-          api_provider: 'w_api'
+          instance_id_provider: inst.instanceId
         });
-        
+
         console.log(`[SYNC] 🔍 Busca por instanceId (${inst.instanceId}): ${existentes.length} encontrada(s)`);
-        
-        // ✅ FALLBACK: Se não encontrou, buscar por nome (caso tenha sido criada manualmente)
+
+        // ✅ FALLBACK: Se não encontrou, buscar por nome
         if (existentes.length === 0) {
           const porNome = await base44.asServiceRole.entities.WhatsAppIntegration.filter({
-            nome_instancia: inst.instanceName,
-            api_provider: 'w_api'
+            nome_instancia: inst.instanceName
           });
-          
+
           console.log(`[SYNC] 🔍 Fallback busca por nome (${inst.instanceName}): ${porNome.length} encontrada(s)`);
-          
+
           if (porNome.length > 0) {
             existentes = porNome;
-            console.log(`[SYNC] ⚠️ Encontrada instância manual - será migrada para modo integrator`);
+            console.log(`[SYNC] ⚠️ Encontrada instância existente - será atualizada para sincronizar com integrador`);
           }
         }
         
