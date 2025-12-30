@@ -44,7 +44,12 @@ function classifyWapiEvent(payload) {
     return 'system-status';
   }
 
-  // 2️⃣ MENSAGEM DE USUÁRIO: webhookreceived com msgContent
+  // 2️⃣ MENSAGEM DE USUÁRIO: Formato real da W-API
+  if (payload.type === 'ReceivedCallback' && payload.text?.message) {
+    return 'user-message';
+  }
+
+  // 2️⃣ MENSAGEM DE USUÁRIO: webhookreceived com msgContent (formato legado)
   if ((evento === 'webhookreceived' || payload.msgContent) && payload.msgContent) {
     const msg = payload.msgContent;
     if (msg.conversation || msg.extendedTextMessage || msg.imageMessage || 
@@ -107,13 +112,15 @@ function normalizarPayload(payload) {
     }
 
     // 2. Extração de Remetente (Inline Regex - Sem dependência externa)
-    const senderId = payload.sender?.id || payload.chat?.id || '';
+    const senderId = payload.sender?.id || payload.chat?.id || payload.phone || '';
     const numeroLimpo = (senderId || '').replace(/\D/g, ''); // ✅ Inline, sem 'os error 2'
 
     if (!numeroLimpo) return { type: 'unknown', error: 'telefone_invalido' };
 
-    // 3. Extração de Conteúdo e Mídia
-    const msgContent = payload.msgContent || {};
+    // 3. Extração de Conteúdo e Mídia - Mapear formato W-API real
+    const msgContent = payload.msgContent || (
+      payload.text ? { conversation: payload.text.message } : {}
+    );
     let mediaType = 'none';
     let conteudoRaw = '';
     let downloadSpec = null;
@@ -225,7 +232,7 @@ function normalizarPayload(payload) {
       content: String(conteudoRaw || '').trim(),
       mediaType,
       mediaCaption: downloadSpec?.caption,
-      pushName: payload.pushName || payload.senderName || payload.sender?.pushName,
+      pushName: payload.pushName || payload.senderName || payload.sender?.pushName || payload.text?.senderName,
       vcard: msgContent.contactMessage || msgContent.contactsArrayMessage,
       location: msgContent.locationMessage || msgContent.liveLocationMessage,
       quotedMessage: payload.quotedMsg || msgContent.extendedTextMessage?.contextInfo?.quotedMessage,
