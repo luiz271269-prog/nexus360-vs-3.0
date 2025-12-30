@@ -199,6 +199,25 @@ export default function ConfiguracaoCanaisComunicacao({ integracoes, onRecarrega
 
   const [novaIntegracao, setNovaIntegracao] = useState(initialNovaIntegracaoState);
   const [qrCodeData, setQrCodeData] = useState({});
+
+  // Carregar QR Code/Pairing Code persistidos quando selecionar integração
+  useEffect(() => {
+    if (integracaoSelecionada) {
+      const dados = {};
+      if (integracaoSelecionada.qr_code_url) {
+        dados.qrCodeUrl = integracaoSelecionada.qr_code_url;
+      }
+      if (integracaoSelecionada.pairing_code) {
+        dados.pairingCode = integracaoSelecionada.pairing_code;
+      }
+      if (Object.keys(dados).length > 0) {
+        setQrCodeData(prev => ({
+          ...prev,
+          [integracaoSelecionada.id]: dados
+        }));
+      }
+    }
+  }, [integracaoSelecionada]);
   const [gerandoQR, setGerandoQR] = useState(null);
   const [criandoInstanciaIntegrador, setCriandoInstanciaIntegrador] = useState(false);
 
@@ -541,24 +560,35 @@ export default function ConfiguracaoCanaisComunicacao({ integracoes, onRecarrega
       });
 
       const data = await response.json();
-      
+
       if (usarPairingCode) {
         setQrCodeData(prev => ({
           ...prev,
           [integracao.id]: { pairingCode: data.pairingCode || data.code, qrCodeUrl: null }
         }));
         toast.success("Código de pareamento gerado!");
+
+        // Persistir código de pareamento no banco
+        await base44.entities.WhatsAppIntegration.update(integracao.id, {
+          status: "pendente_qrcode",
+          pairing_code: data.pairingCode || data.code,
+          pairing_code_gerado_em: new Date().toISOString()
+        });
       } else {
         setQrCodeData(prev => ({
           ...prev,
           [integracao.id]: { qrCodeUrl: data.qrcode || data.base64 || data.image, pairingCode: null }
         }));
         toast.success("QR Code gerado!");
+
+        // Persistir QR Code no banco
+        await base44.entities.WhatsAppIntegration.update(integracao.id, {
+          status: "pendente_qrcode",
+          qr_code_url: data.qrcode || data.base64 || data.image,
+          qr_code_gerado_em: new Date().toISOString()
+        });
       }
 
-      await base44.entities.WhatsAppIntegration.update(integracao.id, {
-        status: "pendente_qrcode"
-      });
       if (onRecarregar) await onRecarregar();
 
     } catch (error) {
