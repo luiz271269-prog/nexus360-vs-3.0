@@ -175,7 +175,7 @@ async function executarEtapa1(integracao) {
 async function executarEtapa2(integracao) {
   const inicio = Date.now();
   const testes = [];
-  const webhookUrl = 'https://nexus360-pro.base44.app/api/functions/webhookWatsZapi';
+  const webhookUrl = integracao.webhook_url || 'https://nexus360-pro.base44.app/api/functions/webhookWatsZapi';
 
   // Teste 1: GET Health Check
   const t1Inicio = Date.now();
@@ -349,7 +349,7 @@ async function executarEtapa2(integracao) {
 async function executarEtapa3(base44, integracao) {
   const inicio = Date.now();
   const testes = [];
-  const webhookUrl = 'https://nexus360-pro.base44.app/api/functions/webhookWatsZapi';
+  const webhookUrl = integracao.webhook_url || 'https://nexus360-pro.base44.app/api/functions/webhookWatsZapi';
   
   // IDs únicos para rastreamento
   const timestampBase = Date.now();
