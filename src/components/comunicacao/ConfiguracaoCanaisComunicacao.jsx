@@ -711,39 +711,10 @@ export default function ConfiguracaoCanaisComunicacao({ integracoes, onRecarrega
             </div>
             <div className="flex gap-2">
               {podeAdicionar && (
-                <>
-                  <Button 
-                    size="sm" 
-                    variant="outline"
-                    onClick={async () => {
-                      try {
-                        setLoading(true);
-                        toast.info('Sincronizando instâncias W-API Integrador...');
-                        const response = await base44.functions.invoke('sincronizarInstanciasWapiIntegrador');
-                        if (response.data.success) {
-                          const r = response.data.resultados;
-                          toast.success(`✅ Sincronização concluída!\n${r.criadas} criadas, ${r.atualizadas} atualizadas`);
-                          if (onRecarregar) await onRecarregar();
-                        } else {
-                          toast.error('Erro na sincronização');
-                        }
-                      } catch (error) {
-                        toast.error('Erro ao sincronizar: ' + error.message);
-                      } finally {
-                        setLoading(false);
-                      }
-                    }}
-                    className="h-8 text-xs"
-                    disabled={loading}
-                  >
-                    {loading ? <Loader2 className="w-3 h-3 mr-1 animate-spin" /> : <Zap className="w-3 h-3 mr-1" />}
-                    Sincronizar W-API
-                  </Button>
-                  <Button size="sm" onClick={iniciarNovaIntegracao} className="h-8 text-xs bg-green-600 hover:bg-green-700">
-                    <Plus className="w-3 h-3 mr-1" />
-                    Nova
-                  </Button>
-                </>
+                <Button size="sm" onClick={iniciarNovaIntegracao} className="h-8 text-xs bg-green-600 hover:bg-green-700">
+                  <Plus className="w-3 h-3 mr-1" />
+                  Nova
+                </Button>
               )}
             </div>
           </div>
@@ -884,18 +855,74 @@ export default function ConfiguracaoCanaisComunicacao({ integracoes, onRecarrega
                         </Select>
                       </div>
 
-                      {/* Alerta Integrador */}
+                      {/* Alerta Integrador com Botão de Sincronização */}
                       {PROVIDERS[novaIntegracao.api_provider]?.modo === 'integrator' && (
-                        <div className="p-3 bg-indigo-50 border-2 border-indigo-200 rounded-lg">
+                        <div className="p-3 bg-indigo-50 border-2 border-indigo-200 rounded-lg space-y-2">
                           <div className="flex items-start gap-2">
                             <Zap className="w-4 h-4 text-indigo-600 flex-shrink-0 mt-0.5" />
                             <div>
                               <h4 className="font-semibold text-indigo-900 mb-0.5 text-xs">Modo Integrador</h4>
                               <p className="text-[11px] text-indigo-700">
-                                A instância será criada automaticamente via API. Instance ID e Token serão gerados.
+                                {integracaoSelecionada ? 
+                                  'Esta instância foi criada via W-API Integrador. Não edite manualmente Instance ID ou Token.' :
+                                  'A instância será criada automaticamente via API. Instance ID e Token serão gerados.'
+                                }
                               </p>
                             </div>
                           </div>
+                          
+                          {/* Botão de Sincronização - Apenas para usuários admin */}
+                          {!integracaoSelecionada && podeAdicionar && (
+                            <div className="border-t border-indigo-200 pt-2">
+                              <p className="text-[10px] text-indigo-600 mb-2">
+                                💡 Já tem instâncias no painel W-API? Importe-as:
+                              </p>
+                              <Button 
+                                size="sm" 
+                                variant="outline"
+                                onClick={async () => {
+                                  try {
+                                    setLoading(true);
+                                    toast.info('🔄 Importando instâncias da W-API...');
+                                    const response = await base44.functions.invoke('sincronizarInstanciasWapiIntegrador');
+                                    if (response.data.success) {
+                                      const r = response.data.resultados;
+                                      
+                                      // Feedback detalhado
+                                      if (r.criadas > 0 || r.atualizadas > 0) {
+                                        toast.success(
+                                          <div className="space-y-1">
+                                            <p className="font-bold">✅ Sincronização concluída!</p>
+                                            {r.criadas > 0 && <p className="text-xs">➕ {r.criadas} nova(s) importada(s)</p>}
+                                            {r.atualizadas > 0 && <p className="text-xs">🔄 {r.atualizadas} atualizada(s)</p>}
+                                            {r.erros > 0 && <p className="text-xs text-red-600">❌ {r.erros} erro(s)</p>}
+                                          </div>,
+                                          { duration: 5000 }
+                                        );
+                                      } else {
+                                        toast.info('✅ Todas as instâncias já estão sincronizadas');
+                                      }
+                                      
+                                      if (onRecarregar) await onRecarregar();
+                                      setModoEdicao(false);
+                                    } else {
+                                      toast.error('Erro na sincronização: ' + (response.data.error || 'Desconhecido'));
+                                    }
+                                  } catch (error) {
+                                    console.error('[SYNC] Erro:', error);
+                                    toast.error('Erro ao sincronizar: ' + error.message);
+                                  } finally {
+                                    setLoading(false);
+                                  }
+                                }}
+                                className="h-7 text-xs w-full border-indigo-300 text-indigo-700 hover:bg-indigo-100"
+                                disabled={loading}
+                              >
+                                {loading ? <Loader2 className="w-3 h-3 mr-1 animate-spin" /> : <Zap className="w-3 h-3 mr-1" />}
+                                Importar Instâncias do Painel W-API
+                              </Button>
+                            </div>
+                          )}
                         </div>
                       )}
 
