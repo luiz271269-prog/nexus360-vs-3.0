@@ -19,66 +19,89 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'Content-Type, Authorization',
 };
 
-const requestQueue = new Map();
-const RATE_LIMIT_MS = 1000;
 const integrationCache = new Map();
 const CACHE_TTL = 60000;
 
 // ============================================================================
-// FILTRO
+// FUNÇÕES UTILITÁRIAS INLINE (evitar imports externos)
 // ============================================================================
-// ============================================================================
-// GATE 0: CLASSIFICADOR CIRÚRGICO DE EVENTOS W-API
-// ============================================================================
-/**
- * Classifica o tipo de evento recebido da W-API/Baileys ANTES de normalizar
- * Retorna: 'system-status' | 'user-message' | 'ignore'
- */
-function classifyWapiEvent(payload) {
-  if (!payload || typeof payload !== 'object') return 'ignore';
 
-  const evento = String(payload.event || '').toLowerCase();
-
-  // 1️⃣ STATUS/ACK: webhookdelivery
-  if (evento === 'webhookdelivery' || evento.includes('delivery')) {
-    return 'system-status';
-  }
-
-  // 2️⃣ MENSAGEM DE USUÁRIO: Formato W-API (integrador ou manual)
-  if (payload.type === 'ReceivedCallback' && payload.text?.message) {
-    return 'user-message';
-  }
-
-  // 2️⃣ FORMATO BAILEYS LEGADO: msgContent estruturado
-  if (payload.msgContent) {
-    const msg = payload.msgContent;
-    if (msg.conversation || msg.extendedTextMessage || msg.imageMessage || 
-        msg.audioMessage || msg.locationMessage || msg.liveLocationMessage ||
-        msg.videoMessage || msg.documentMessage) {
-      return 'user-message';
+function normalizarTelefone(telefone) {
+  if (!telefone) return null;
+  let numeroLimpo = String(telefone).split('@')[0];
+  let apenasNumeros = numeroLimpo.replace(/\D/g, '');
+  if (!apenasNumeros || apenasNumeros.length < 10) return null;
+  
+  if (!apenasNumeros.startsWith('55')) {
+    if (apenasNumeros.length === 10 || apenasNumeros.length === 11) {
+      apenasNumeros = '55' + apenasNumeros;
     }
   }
-
-  // 3️⃣ OUTROS: QRCode, Connection, etc
-  return 'ignore';
+  
+  if (apenasNumeros.startsWith('55') && apenasNumeros.length === 12) {
+    const ddd = apenasNumeros.substring(2, 4);
+    const numero = apenasNumeros.substring(4);
+    if (!numero.startsWith('9')) {
+      apenasNumeros = '55' + ddd + '9' + numero;
+    }
+  }
+  
+  return '+' + apenasNumeros;
 }
 
-function deveIgnorar(payload, classification) {
-  if (classification === 'ignore') return 'evento_desconhecido';
-  if (classification === 'system-status') return 'ruido_sistema';
+// ============================================================================
+// FILTRO ULTRA-RÁPIDO - Retorna motivo se IGNORAR, null se processar
+// ============================================================================
+function deveIgnorar(payload) {
+  if (!payload || typeof payload !== 'object') return 'payload_invalido';
 
-  const senderId = payload.sender?.id || payload.chat?.id || '';
-  const phone = senderId.replace(/@.*$/, '').toLowerCase();
+  const tipo = String(payload.type ?? payload.event ?? '').toLowerCase();
+  const phone = String(payload.phone ?? payload.from ?? payload.chat?.id ?? '').toLowerCase();
+  const isGroup = payload.isGroup === true || String(payload.chat?.id ?? '').includes('@g.us');
 
-  if (phone.includes('status') || senderId.includes('@broadcast') || senderId.includes('@g.us')) {
-    return 'jid_sistema_ou_grupo';
+  if (
+    phone.includes('status@') ||
+    phone.includes('@broadcast') ||
+    phone.includes('@lid') ||
+    phone.includes('@g.us') ||
+    isGroup
+  ) {
+    return 'jid_sistema';
   }
 
-  if (payload.isGroup === true) return 'grupo';
-  if (payload.fromMe === true) return 'from_me';
-  if (!senderId) return 'sem_telefone';
+  if (tipo.includes('qrcode') || tipo.includes('connection')) {
+    return null;
+  }
 
-  return null; // ✅ Passa para normalização
+  const eventosLixo = ['presence', 'typing', 'composing', 'chat-update', 'call'];
+  const temMessageId = payload.messageId || payload.id;
+  if (!temMessageId && eventosLixo.some((e) => tipo.includes(e))) {
+    return 'evento_sistema';
+  }
+
+  if (tipo.includes('messagestatuscallback') || tipo.includes('message-status') || tipo.includes('webhookdelivery')) {
+    if (phone.includes('status@') || phone.includes('@broadcast')) {
+      return 'status_broadcast';
+    }
+    return null;
+  }
+
+  const hasMsgId = payload.messageId || payload.id;
+  const hasPhone = payload.phone || payload.from;
+  const hasContent = payload.text || payload.body || payload.message || payload.msgContent;
+
+  if (hasMsgId && hasPhone && (hasContent || payload.momment)) {
+    if (payload.fromMe === true) return 'from_me';
+    return null;
+  }
+
+  if (tipo.includes('receivedcallback')) {
+    if (payload.fromMe === true) return 'from_me';
+    if (!payload.phone && !payload.from) return 'sem_telefone';
+    return null;
+  }
+
+  return 'evento_desconhecido';
 }
 
 // ============================================================================
@@ -89,156 +112,95 @@ function deveIgnorar(payload, classification) {
 
 function normalizarPayload(payload) {
   try {
-    const evento = String(payload.event || '').toLowerCase();
-    const instanceId = payload.instanceId || null;
+    const tipo = String(payload.type || payload.event || '').toLowerCase();
+    const instanceId = payload.instanceId || payload.instance || null;
 
-    // 1. Tratamento de Eventos de Sistema
-    if (evento.includes('qrcode') || payload.qrcode) {
-      return { type: 'qrcode', instanceId, qrCodeUrl: payload.qrcode || payload.qr || payload.base64 };
+    if (tipo.includes('qrcode')) {
+      return { type: 'qrcode', instanceId, qrCodeUrl: payload.qrcode || payload.qr };
     }
 
-    if (evento.includes('connection') || evento.includes('webhookconectado') || evento.includes('webhookconnected')) {
-      const status = payload.connected === true || payload.status === 'connected' ? 'conectado' : 'desconectado';
-      return { type: 'connection', instanceId, status };
+    if (tipo.includes('connection')) {
+      return { type: 'connection', instanceId, status: payload.connected ? 'conectado' : 'desconectado' };
     }
 
-    if (evento === 'webhookdelivery' || evento.includes('delivery')) {
+    if (tipo.includes('messagestatuscallback') || tipo.includes('webhookdelivery')) {
       return {
         type: 'message_update',
         instanceId,
-        messageId: payload.messageId || payload.key?.id,
-        status: payload.status || payload.ack
+        messageId: payload.ids?.[0] || payload.messageId || null,
+        status: payload.status
       };
     }
 
-    // 2. Extração de Remetente (Inline Regex - Sem dependência externa)
-    const senderId = payload.sender?.id || payload.chat?.id || payload.phone || '';
-    const numeroLimpo = (senderId || '').replace(/\D/g, ''); // ✅ Inline, sem 'os error 2'
-
+    const telefone = payload.phone || payload.sender?.id || payload.chat?.id || '';
+    const numeroLimpo = normalizarTelefone(telefone);
+    
     if (!numeroLimpo) return { type: 'unknown', error: 'telefone_invalido' };
 
-    // 3. CONSTRUÇÃO VIRTUAL: W-API → Baileys (unifica processamento)
-    const msgContent = payload.msgContent || (
-      payload.text ? { conversation: payload.text.message } : {}
-    );
     let mediaType = 'none';
-    let conteudoRaw = '';
-    let downloadSpec = null;
+    let fileId = null;
+    let originalMediaUrl = null;
+    
+    let conteudoRaw = payload.text?.message || payload.body || '';
+    let conteudo = '';
 
-    // Função auxiliar interna para metadados (segura)
-    const getMediaMeta = (obj) => ({
-      caption: obj?.caption || null,
-      fileName: obj?.fileName || obj?.title || null,
-      mimetype: obj?.mimetype || null,
-      mediaKey: obj?.mediaKey || null,
-      directPath: obj?.directPath || null
-    });
-
-    if (msgContent.imageMessage) {
+    if (payload.image) {
       mediaType = 'image';
-      const meta = getMediaMeta(msgContent.imageMessage);
-      // ✅ FIX VISUAL: Garante texto para imagens
-      conteudoRaw = meta.caption || '📷 [Imagem recebida]';
-      if (meta.mediaKey && meta.directPath) {
-        downloadSpec = { ...meta, type: 'image', mimetype: meta.mimetype || 'image/jpeg' };
-      }
-    }
-    else if (msgContent.videoMessage) {
+      fileId = payload.image.fileId || payload.image.id || null;
+      originalMediaUrl = payload.image.imageUrl || payload.image.url || payload.image.urlWithToken || payload.fileUrl || null;
+      conteudo = conteudoRaw || payload.image.caption || '[Imagem]';
+    } else if (payload.video) {
       mediaType = 'video';
-      const meta = getMediaMeta(msgContent.videoMessage);
-      // ✅ FIX VISUAL: Garante texto para vídeos
-      conteudoRaw = meta.caption || '🎥 [Vídeo recebido]';
-      if (meta.mediaKey && meta.directPath) {
-        downloadSpec = { ...meta, type: 'video', mimetype: meta.mimetype || 'video/mp4' };
-      }
-    }
-    else if (msgContent.audioMessage) {
+      fileId = payload.video.fileId || payload.video.id || null;
+      originalMediaUrl = payload.video.videoUrl || payload.video.url || payload.video.urlWithToken || payload.fileUrl || null;
+      conteudo = conteudoRaw || payload.video.caption || '[Vídeo]';
+    } else if (payload.audio) {
       mediaType = 'audio';
-      const meta = getMediaMeta(msgContent.audioMessage);
-      // ✅ FIX VISUAL: Garante texto para áudios
-      conteudoRaw = msgContent.audioMessage.ptt ? '🎤 [Áudio de voz]' : '🎵 [Áudio recebido]';
-      if (meta.mediaKey && meta.directPath) {
-        downloadSpec = { ...meta, type: 'audio', mimetype: meta.mimetype || 'audio/ogg' };
-      }
-    }
-    else if (msgContent.documentMessage) {
+      fileId = payload.audio.fileId || payload.audio.id || null;
+      originalMediaUrl = payload.audio.audioUrl || payload.audio.url || payload.audio.urlWithToken || payload.fileUrl || null;
+      conteudo = '[Áudio]';
+    } else if (payload.document || payload.file || payload.documentUrl || payload.fileUrl) {
+      const docField = payload.document || payload.file || {};
+      const docUrl = docField.documentUrl || docField.url || docField.link || 
+                     payload.documentUrl || payload.fileUrl || payload.mediaUrl;
+
       mediaType = 'document';
-      const meta = getMediaMeta(msgContent.documentMessage);
-      const fileName = meta.fileName || 'arquivo';
-      // ✅ FIX VISUAL: Garante texto descritivo para documentos
-      conteudoRaw = meta.caption ? `${meta.caption} (${fileName})` : `📄 [Documento: ${fileName}]`;
-      if (meta.mediaKey && meta.directPath) {
-        downloadSpec = { ...meta, type: 'document', mimetype: meta.mimetype || 'application/pdf' };
-      }
-    }
-    else if (msgContent.stickerMessage) {
+      fileId = docField.fileId || docField.id || payload.fileId || null;
+      originalMediaUrl = docUrl || null;
+      conteudo = conteudoRaw || docField.caption || docField.fileName || payload.caption || '[PDF/Documento]';
+    } else if (payload.sticker) {
       mediaType = 'sticker';
-      const meta = getMediaMeta(msgContent.stickerMessage);
-      conteudoRaw = '[Sticker]';
-      if (meta.mediaKey && meta.directPath) {
-        downloadSpec = { ...meta, type: 'sticker', mimetype: meta.mimetype || 'image/webp' };
-      }
-    }
-    else if (msgContent.contactMessage || msgContent.contactsArrayMessage) {
+      fileId = payload.sticker.fileId || payload.sticker.id || null;
+      originalMediaUrl = payload.sticker.stickerUrl || payload.sticker.url || payload.fileUrl || null;
+      conteudo = '[Sticker]';
+    } else if (payload.contactMessage || payload.vcard) {
       mediaType = 'contact';
-      conteudoRaw = '📇 Contato compartilhado';
-    }
-    else if (msgContent.locationMessage || msgContent.liveLocationMessage) {
-      // 📍 DETECÇÃO ROBUSTA DE LOCALIZAÇÃO
-      const loc = msgContent.locationMessage || msgContent.liveLocationMessage;
-      
+      conteudo = '📇 Contato compartilhado';
+    } else if (payload.location) {
       mediaType = 'location';
-      conteudoRaw = '📍 Localização recebida';
-      
-      console.log(`[WAPI] 📍 LOCALIZAÇÃO DETECTADA:`, {
-        lat: loc.degreesLatitude ?? loc.latitude,
-        lng: loc.degreesLongitude ?? loc.longitude,
-        name: loc.name,
-        address: loc.address,
-        accuracy: loc.accuracy,
-        rawKeys: Object.keys(loc)
-      });
-    }
-    else if (msgContent.extendedTextMessage) {
-      conteudoRaw = msgContent.extendedTextMessage.text || '';
-    }
-    else if (msgContent.conversation) {
-      conteudoRaw = msgContent.conversation;
+      conteudo = '📍 Localização';
+    } else {
+      conteudo = conteudoRaw;
     }
 
-    // Fallback de texto
-    if (!conteudoRaw && mediaType === 'none') {
-      conteudoRaw = payload.body || payload.text || '';
-    }
-
-    // ✅ NORMALIZAR LOCATION SE NECESSÁRIO (INLINE - Sem import externo)
-    let locationMetadata = null;
-    if (mediaType === 'location' && (msgContent.locationMessage || msgContent.liveLocationMessage)) {
-      const loc = msgContent.locationMessage || msgContent.liveLocationMessage;
-      locationMetadata = {
-        latitude: loc.degreesLatitude ?? loc.latitude,
-        longitude: loc.degreesLongitude ?? loc.longitude,
-        name: loc.name || null,
-        address: loc.address || null,
-        accuracy: loc.accuracyInMeters ?? loc.accuracy,
-      };
+    if (!conteudo && mediaType === 'none') {
+      return { type: 'unknown', error: 'mensagem_vazia' };
     }
 
     return {
       type: 'message',
       instanceId,
-      messageId: payload.messageId || payload.key?.id,
+      messageId: payload.messageId,
       from: numeroLimpo,
-      content: String(conteudoRaw || '').trim(),
+      content: String(conteudo || '').trim(),
       mediaType,
-      mediaCaption: downloadSpec?.caption,
-      pushName: payload.pushName || payload.senderName || payload.sender?.pushName || payload.text?.senderName,
-      vcard: msgContent.contactMessage || msgContent.contactsArrayMessage,
-      location: msgContent.locationMessage || msgContent.liveLocationMessage,
-      quotedMessage: payload.quotedMsg || msgContent.extendedTextMessage?.contextInfo?.quotedMessage,
-      downloadSpec: downloadSpec,
-      fileName: conteudoRaw || null,
-      locationMetadata
+      originalMediaUrl,
+      fileId,
+      mediaCaption: payload.image?.caption || payload.video?.caption,
+      pushName: payload.senderName || payload.chatName,
+      vcard: payload.contactMessage || payload.vcard,
+      location: payload.location,
+      quotedMessage: payload.quotedMsg
     };
 
   } catch (err) {
@@ -332,227 +294,309 @@ async function handleMessageUpdate(dados, base44) {
 // ============================================================================
 // HANDLE MESSAGE - 100% INLINE (ZERO DEPENDÊNCIAS EXTERNAS)
 // ============================================================================
-async function handleMessage(dados, payloadBruto, base44, req) {
+async function handleMessage(dados, payloadBruto, base44) {
   console.log('[WAPI] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-  console.log('[WAPI] INICIO handleMessage (Inline) | Tipo:', dados.mediaType);
+  console.log('[WAPI] INICIO handleMessage | De:', dados.from, '| Tipo:', dados.mediaType);
 
   const inicio = Date.now();
 
-  // 1. RATE LIMIT (Em memória)
-  const lastRequest = requestQueue.get(dados.from);
-  if (lastRequest && (Date.now() - lastRequest) < RATE_LIMIT_MS) {
-    await new Promise(r => setTimeout(r, RATE_LIMIT_MS));
-  }
-  requestQueue.set(dados.from, Date.now());
-
-  // 2. DEDUPLICAÇÃO
+  // DEDUPLICAÇÃO RIGOROSA
   if (dados.messageId) {
     try {
       const dup = await base44.asServiceRole.entities.Message.filter(
-        { whatsapp_message_id: dados.messageId }, '-created_date', 1
+        { whatsapp_message_id: dados.messageId }, '-created_date', 10
       );
       if (dup.length > 0) {
+        console.log(`[WAPI] ⏭️ DUPLICATA: ${dados.messageId}`);
         return Response.json({ success: true, ignored: true, reason: 'duplicata' }, { headers: corsHeaders });
       }
     } catch (e) {}
   }
 
-  // 3. RESOLVER INTEGRAÇÃO (AGNÓSTICO - busca apenas por instance_id_provider)
+  // BUSCAR INTEGRAÇÃO - PRIORIZAR connectedPhone
+  const connectedPhone = payloadBruto.connectedPhone || payloadBruto.connected_phone || null;
   let integracaoId = null;
-  if (dados.instanceId) {
+  let integracaoInfo = null;
+
+  if (connectedPhone) {
     try {
-      const cached = integrationCache.get(dados.instanceId);
-      if (cached && (Date.now() - cached.timestamp) < CACHE_TTL) {
-        integracaoId = cached.id;
-        console.log('[WAPI] ✅ Integração do cache:', integracaoId);
-      } else {
-        // ✅ BUSCA AGNÓSTICA: apenas por instance_id_provider, sem filtro de api_provider
+      const phoneVariacoes = [
+        '+' + connectedPhone,
+        connectedPhone,
+        '+55' + connectedPhone.replace(/^55/, '')
+      ];
+
+      for (const tel of phoneVariacoes) {
+        if (integracaoId) break;
         const int = await base44.asServiceRole.entities.WhatsAppIntegration.filter(
-          { instance_id_provider: dados.instanceId }, '-created_date', 1
+          { numero_telefone: tel },
+          '-created_date',
+          1
         );
         if (int.length > 0) {
           integracaoId = int[0].id;
-          integrationCache.set(dados.instanceId, { id: integracaoId, timestamp: Date.now() });
-          console.log('[WAPI] ✅ Integração encontrada:', integracaoId, '| Modo:', int[0].modo || 'manual');
-        } else {
-          console.log('[WAPI] ⚠️ Nenhuma integração encontrada para instanceId:', dados.instanceId);
+          integracaoInfo = { nome: int[0].nome_instancia, numero: int[0].numero_telefone };
         }
       }
-    } catch (e) { console.error('[WAPI] Erro ao resolver integração:', e.message); }
+    } catch {}
   }
 
-  // 4. GET OR CREATE CONTACT (Inline)
-  const profilePicUrl = payloadBruto.sender?.profilePicture || payloadBruto.sender?.profilePicThumbObj?.eurl || null;
-  let contato = null;
-
-  try {
-    const existingContacts = await base44.asServiceRole.entities.Contact.filter(
-      { telefone: dados.from }, '-created_date', 1
-    );
-
-    if (existingContacts.length > 0) {
-      contato = existingContacts[0];
-      if (profilePicUrl && contato.foto_perfil_url !== profilePicUrl) {
-        await base44.asServiceRole.entities.Contact.update(contato.id, { foto_perfil_url: profilePicUrl });
+  if (!integracaoId && dados.instanceId) {
+    try {
+      const int = await base44.asServiceRole.entities.WhatsAppIntegration.filter(
+        { instance_id_provider: dados.instanceId },
+        '-created_date',
+        1
+      );
+      if (int.length > 0) {
+        integracaoId = int[0].id;
+        integracaoInfo = { nome: int[0].nome_instancia, numero: int[0].numero_telefone };
       }
+    } catch {}
+  }
+
+  console.log(`[WAPI] 🔗 Integração: ${integracaoId || 'não encontrada'} | Canal: ${integracaoInfo?.numero || connectedPhone || 'N/A'}`);
+
+  // BUSCAR/CRIAR CONTATO - Múltiplas variações
+  const profilePicUrl = payloadBruto.sender?.profilePicture || payloadBruto.sender?.profilePicThumbObj?.eurl || null;
+  let contato;
+  try {
+    const telefoneBase = dados.from.replace(/\D/g, '');
+    const variacoes = [
+      dados.from,
+      dados.from.replace('+', ''),
+      '+55' + telefoneBase.substring(2),
+    ];
+    
+    if (telefoneBase.length === 13 && telefoneBase.startsWith('55')) {
+      const semNono = telefoneBase.substring(0, 4) + telefoneBase.substring(5);
+      variacoes.push('+' + semNono);
+      variacoes.push(semNono);
+    }
+    
+    if (telefoneBase.length === 12 && telefoneBase.startsWith('55')) {
+      const comNono = telefoneBase.substring(0, 4) + '9' + telefoneBase.substring(4);
+      variacoes.push('+' + comNono);
+      variacoes.push(comNono);
+    }
+    
+    let contatos = [];
+    for (const tel of variacoes) {
+      if (contatos.length > 0) break;
+      try {
+        contatos = await base44.asServiceRole.entities.Contact.filter(
+          { telefone: tel },
+          '-created_date',
+          1
+        );
+      } catch {}
+    }
+
+    if (contatos.length > 0) {
+      contato = contatos[0];
+      const update = { ultima_interacao: new Date().toISOString() };
+      if (dados.pushName && (!contato.nome || contato.nome === dados.from)) {
+        update.nome = dados.pushName;
+      }
+      if (profilePicUrl && contato.foto_perfil_url !== profilePicUrl) {
+        update.foto_perfil_url = profilePicUrl;
+      }
+      await base44.asServiceRole.entities.Contact.update(contato.id, update);
+      console.log(`[WAPI] 👤 Contato existente: ${contato.nome}`);
     } else {
       contato = await base44.asServiceRole.entities.Contact.create({
-        telefone: dados.from,
         nome: dados.pushName || dados.from,
+        telefone: dados.from,
+        tipo_contato: 'lead',
+        whatsapp_status: 'verificado',
+        ultima_interacao: new Date().toISOString(),
         foto_perfil_url: profilePicUrl
       });
+      console.log(`[WAPI] 👤 Novo contato: ${contato.nome}`);
     }
-  } catch (err) {
-    console.error('[WAPI] Erro crítico Contact:', err.message);
-    contato = { id: 'fallback_' + dados.from.replace(/\D/g, '') };
+  } catch (e) {
+    console.error(`[WAPI] ❌ Erro contato:`, e?.message);
+    return Response.json({ success: false, error: 'erro_contato' }, { status: 500, headers: corsHeaders });
   }
 
-  // 5. GET OR CREATE THREAD (Inline)
-  let thread = null;
+  // BUSCAR/CRIAR THREAD
+  let thread;
   try {
-    const existingThreads = await base44.asServiceRole.entities.MessageThread.filter(
-      { contact_id: contato.id }, '-created_date', 1
+    const threads = await base44.asServiceRole.entities.MessageThread.filter(
+      { contact_id: contato.id },
+      '-last_message_at',
+      1
     );
 
-    if (existingThreads.length > 0) {
-      thread = existingThreads[0];
+    if (threads.length > 0) {
+      thread = threads[0];
+      console.log(`[WAPI] 💭 Thread existente: ${thread.id}`);
     } else {
+      const agora = new Date().toISOString();
       thread = await base44.asServiceRole.entities.MessageThread.create({
         contact_id: contato.id,
-        whatsapp_integration_id: integracaoId
+        whatsapp_integration_id: integracaoId,
+        status: 'aberta',
+        primeira_mensagem_at: agora,
+        last_message_at: agora,
+        last_inbound_at: agora,
+        last_message_sender: 'contact',
+        last_message_content: String(dados.content || '').substring(0, 100),
+        last_media_type: dados.mediaType || 'none',
+        total_mensagens: 1,
+        unread_count: 1,
       });
+      console.log(`[WAPI] 💭 Nova thread: ${thread.id}`);
+    }
+  } catch (e) {
+    console.error(`[WAPI] ❌ Erro thread:`, e?.message);
+    return Response.json({ success: false, error: 'erro_thread' }, { status: 500, headers: corsHeaders });
+  }
+  
+  // VERIFICAÇÃO DE DUPLICATA POR CONTEÚDO
+  try {
+    const doisSegundosAtras = new Date(Date.now() - 2000).toISOString();
+    const msgRecentes = await base44.asServiceRole.entities.Message.filter({
+      thread_id: thread.id,
+      sender_type: 'contact',
+      created_date: { $gte: doisSegundosAtras }
+    }, '-created_date', 10);
+    
+    const duplicadaPorConteudo = msgRecentes.find(m => 
+      m.media_type === dados.mediaType &&
+      m.content === dados.content &&
+      Math.abs(new Date(m.created_date) - Date.now()) < 2000
+    );
+    
+    if (duplicadaPorConteudo) {
+      console.log(`[WAPI] ⏭️ DUPLICATA POR CONTEÚDO: ${duplicadaPorConteudo.id}`);
+      return Response.json({ success: true, ignored: true, reason: 'duplicata_conteudo' }, { headers: corsHeaders });
     }
   } catch (err) {
-    console.error('[WAPI] Erro crítico Thread:', err.message);
-    thread = { id: 'fallback_thread_' + Date.now() };
+    console.warn(`[WAPI] ⚠️ Erro ao verificar duplicata:`, err.message);
   }
 
-  // 6. CRIAR MENSAGEM (pending_download se tem mídia, exceto location)
-  let mensagem = null;
+  // SALVAR MENSAGEM
+  let mensagem;
   try {
-    const baseMetadata = {
-      whatsapp_integration_id: integracaoId,
-      instance_id: dados.instanceId,
-      vcard: dados.vcard,
-      location: dados.location,
-      quoted_message: dados.quotedMessage,
-      downloadSpec: dados.downloadSpec,
-      processed_by: 'v13_unread_by',
-      provider: 'w_api'
-    };
-
-    // ✅ Se tem locationMetadata normalizado, mesclar
-    const finalMetadata = dados.locationMetadata 
-      ? { ...baseMetadata, ...dados.locationMetadata }
-      : baseMetadata;
-
     mensagem = await base44.asServiceRole.entities.Message.create({
       thread_id: thread.id,
       sender_id: contato.id,
       sender_type: 'contact',
       content: dados.content,
-      media_url: dados.downloadSpec && dados.mediaType !== 'location' ? 'pending_download' : null,
+      media_url: dados.mediaType !== 'none' && dados.mediaType !== 'location' ? 'pending_download' : null,
       media_type: dados.mediaType,
-      media_caption: dados.mediaCaption,
+      media_caption: dados.mediaCaption ?? null,
       channel: 'whatsapp',
       status: 'recebida',
-      whatsapp_message_id: dados.messageId,
+      whatsapp_message_id: dados.messageId ?? null,
       sent_at: new Date().toISOString(),
-      metadata: finalMetadata
+      metadata: {
+        whatsapp_integration_id: integracaoId,
+        instance_id: dados.instanceId ?? null,
+        connected_phone: connectedPhone ?? null,
+        canal_nome: integracaoInfo?.nome ?? null,
+        canal_numero: integracaoInfo?.numero ?? (connectedPhone ? '+' + connectedPhone : null),
+        vcard: dados.vcard ?? null,
+        location: dados.location ?? null,
+        quoted_message: dados.quotedMessage ?? null,
+        file_id: dados.fileId,
+        original_media_url: dados.originalMediaUrl,
+        processed_by: VERSION,
+        provider: 'w_api'
+      },
     });
-    console.log('[WAPI] Message salva DB:', mensagem.id);
-    
-    // ✅ LOG DE VALIDAÇÃO LOCATION
-    if (dados.mediaType === 'location') {
-      console.log('📍 [SAVED LOCATION WAPI]', {
-        mediaType: dados.mediaType,
-        content: dados.content,
-        location: finalMetadata?.location || finalMetadata?.location?.location
-      });
-    }
-  } catch (err) {
-    console.error('[WAPI] Erro ao salvar mensagem:', err.message);
-    return Response.json({ success: false, error: 'db_save_error' }, { headers: corsHeaders });
+    console.log(`[WAPI] ✅ Mensagem salva: ${mensagem.id}`);
+  } catch (e) {
+    console.error(`[WAPI] ❌ Erro salvar mensagem:`, e?.message);
+    return Response.json({ success: false, error: 'erro_salvar_mensagem' }, { status: 500, headers: corsHeaders });
   }
 
-  // 7. TRIGGER PERSISTÊNCIA (Async Fire-and-Forget) - exceto location
-  if (dados.downloadSpec && dados.mediaType !== 'location') {
+  // ATUALIZAR THREAD
+  try {
+    const agora = new Date().toISOString();
+    const threadUpdate = {
+      last_message_at: agora,
+      last_inbound_at: agora,
+      last_message_sender: 'contact',
+      last_message_content: String(dados.content || '').substring(0, 100),
+      last_media_type: dados.mediaType || 'none',
+      unread_count: (thread.unread_count || 0) + 1,
+      total_mensagens: (thread.total_mensagens || 0) + 1,
+      status: 'aberta',
+    };
+    if (integracaoId && !thread.whatsapp_integration_id) {
+      threadUpdate.whatsapp_integration_id = integracaoId;
+    }
+    await base44.asServiceRole.entities.MessageThread.update(thread.id, threadUpdate);
+    console.log(`[WAPI] 💭 Thread atualizada | Não lidas: ${threadUpdate.unread_count}`);
+  } catch (updateError) {
+    console.error(`[WAPI] ⚠️ Erro ao atualizar thread:`, updateError.message);
+  }
+
+  // TRIGGER PERSISTÊNCIA (Fire-and-Forget)
+  if (dados.mediaType !== 'none' && dados.mediaType !== 'location' && dados.fileId) {
     console.log('[WAPI] 🚀 Disparando worker de mídia...');
     base44.asServiceRole.functions.invoke('persistirMidiaWapi', {
       message_id: mensagem.id,
+      file_id: dados.fileId,
       integration_id: integracaoId,
-      downloadSpec: dados.downloadSpec,
-      filename: dados.fileName || dados.content?.replace(/[\[\]]/g, '') || `${dados.mediaType}_${Date.now()}`
+      media_type: dados.mediaType,
+      filename: dados.content?.replace(/[\[\]]/g, '') || `${dados.mediaType}_${Date.now()}`
     }).catch(e => console.error('[WAPI] Erro trigger mídia:', e.message));
   }
 
-  // 8. ATUALIZAR THREAD STATUS (Com unread_by por usuário)
+  // DISPARAR CÉREBRO (Fire-and-Forget)
   try {
-    const updatedUnreadBy = thread.unread_by ? { ...thread.unread_by } : {};
+    console.log(`[WAPI] 🚀 Disparando processInbound (Cérebro separado)...`);
     
-    // Incrementar contador para o usuário atribuído
-    if (thread.assigned_user_id) {
-      updatedUnreadBy[thread.assigned_user_id] = (updatedUnreadBy[thread.assigned_user_id] || 0) + 1;
-      console.log('[WAPI] ✅ Incrementado unread_by para user:', thread.assigned_user_id);
-    }
-    
-    await base44.asServiceRole.entities.MessageThread.update(thread.id, {
-      last_message_content: dados.content.substring(0, 200),
-      last_message_at: new Date().toISOString(),
-      last_inbound_at: new Date().toISOString(),
-      last_message_sender: 'contact',
-      last_media_type: dados.mediaType,
-      unread_by: updatedUnreadBy,
-      status: 'aberta'
-    });
-    console.log('[WAPI] ✅ Thread atualizada com unread_by');
-  } catch (updateError) {
-    console.error('[WAPI] ⚠️ Erro ao atualizar thread:', updateError.message);
-  }
-
-  // 9. DISPARAR CÉREBRO (IMPORTAÇÃO DIRETA - SEM HTTP 404)
-  try {
-    console.log('[WAPI] 🚀 Processando Inbound Core (import direto)...');
-
     let integracaoObj = null;
     if (integracaoId) {
       try {
         integracaoObj = await base44.asServiceRole.entities.WhatsAppIntegration.get(integracaoId);
       } catch (e) {
-        console.warn('[WAPI] ⚠️ Integração não encontrada, usando ID:', e.message);
+        console.warn('[WAPI] ⚠️ Integração não encontrada, enviando ID:', e.message);
         integracaoObj = { id: integracaoId };
       }
     }
 
-    // ✅ IMPORT DIRETO – SEM HTTP, SEM 404
-    const { processInboundEvent } = await import('./lib/inboundCore.js');
-
-    await processInboundEvent({
-      base44,
-      contact: contato,
-      thread,
+    base44.asServiceRole.functions.invoke('processInbound', {
       message: mensagem,
+      contact: contato,
+      thread: thread,
       integration: integracaoObj,
       provider: 'w_api',
-      messageContent: dados.content,
-      rawPayload: payloadBruto
-    });
-
-    console.log('[WAPI] ✅ Inbound Core processado com sucesso (direto)');
+      messageContent: dados.content
+    }).catch(e => console.error('[WAPI] ⚠️ Erro no processInbound:', e.message));
+    
+    console.log('[WAPI] ✅ Cérebro disparado (isolado)');
   } catch (err) {
-    console.error('[WAPI] 🔴 Erro no Inbound Core:', err?.message);
-    console.error('[WAPI] 🔴 Stack:', err?.stack);
+    console.error('[WAPI] ⚠️ Erro ao disparar Cérebro:', err.message);
   }
 
-  // 9. RETORNO FINAL (Sempre Sucesso)
+  // Audit log
+  try {
+    await base44.asServiceRole.entities.ZapiPayloadNormalized.create({
+      payload_bruto: payloadBruto,
+      instance_identificado: dados.instanceId ?? null,
+      integration_id: integracaoId,
+      evento: 'ReceivedCallback',
+      timestamp_recebido: new Date().toISOString(),
+      sucesso_processamento: true,
+    });
+  } catch {}
+
   const duracao = Date.now() - inicio;
+  console.log(`[WAPI] ✅ SUCESSO! Msg: ${mensagem.id} | De: ${dados.from} | ${duracao}ms`);
+
   return Response.json({
     success: true,
-    message_id: mensagem ? mensagem.id : 'error',
+    message_id: mensagem.id,
     contact_id: contato.id,
     thread_id: thread.id,
-    status: 'processed_inline',
-    duration_ms: duracao
+    integration_id: integracaoId,
+    duration_ms: duracao,
+    status: 'processed_inline'
   }, { headers: corsHeaders });
 }
 
@@ -583,26 +627,25 @@ Deno.serve(async (req) => {
     if (!body) return Response.json({ success: true, ignored: true }, { headers: corsHeaders });
     payload = JSON.parse(body);
 
-    // 🔍 DEBUG TEMPORÁRIO - Ver payload bruto
-    console.log('[WAPI-WEBHOOK] 📦 PAYLOAD BRUTO:', JSON.stringify(payload, null, 2));
+    console.log('[WAPI] 📥 Payload (1/2):', JSON.stringify(payload).substring(0, 1000));
+    console.log('[WAPI] 📥 Payload (2/2):', JSON.stringify(payload).substring(1000, 2000));
   } catch (e) {
     return Response.json({ success: false, error: 'JSON invalido' }, { status: 200, headers: corsHeaders });
   }
 
-  // ✅ GATE 0: Classificar evento ANTES de qualquer normalização
-  const classification = classifyWapiEvent(payload);
-  console.log('[WAPI-WEBHOOK] 🏷️ Classificação:', classification);
-
-  const motivoIgnorar = deveIgnorar(payload, classification);
+  const motivoIgnorar = deveIgnorar(payload);
   if (motivoIgnorar) {
-    console.log('[WAPI-WEBHOOK] ⏭️ Ignorando:', motivoIgnorar);
+    console.log('[WAPI] ⏭️ Ignorado:', motivoIgnorar);
     return Response.json({ success: true, ignored: true, reason: motivoIgnorar }, { headers: corsHeaders });
   }
 
-  const dados = await normalizarPayload(payload);
+  const dados = normalizarPayload(payload);
   if (dados.type === 'unknown') {
+    console.log(`[WAPI] ⏭️ Unknown: ${dados.error}`);
     return Response.json({ success: true, ignored: true, reason: dados.error }, { headers: corsHeaders });
   }
+
+  console.log(`[WAPI] 🔄 Processando: ${dados.type}`);
 
   try {
     switch (dados.type) {
@@ -613,13 +656,12 @@ Deno.serve(async (req) => {
       case 'message_update':
         return await handleMessageUpdate(dados, base44);
       case 'message':
-        return await handleMessage(dados, payload, base44, req);
+        return await handleMessage(dados, payload, base44);
       default:
-        return Response.json({ success: true, ignored: true }, { headers: corsHeaders });
+        return Response.json({ success: true, ignored: true, reason: 'tipo_desconhecido' }, { headers: corsHeaders });
     }
   } catch (error) {
-    console.error('[W-API WEBHOOK] ERRO:', error?.message);
-    console.error('[W-API WEBHOOK] STACK:', error?.stack);
-    return Response.json({ success: false, error: error.message }, { status: 500, headers: corsHeaders });
+    console.error('[WAPI] ❌ ERRO não tratado:', error?.message);
+    return Response.json({ success: false, error: 'erro_interno' }, { status: 500, headers: corsHeaders });
   }
 });
