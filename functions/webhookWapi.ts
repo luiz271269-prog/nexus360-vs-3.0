@@ -113,72 +113,62 @@ function deveIgnorar(payload) {
 function normalizarPayload(payload) {
   try {
     const tipo = String(payload.type || payload.event || '').toLowerCase();
-    const instanceId = payload.instanceId || payload.instance || null;
+    const instanceId = payload.instanceId || payload.instance || payload.instance_id || null;
 
     if (tipo.includes('qrcode')) {
-      return { type: 'qrcode', instanceId, qrCodeUrl: payload.qrcode || payload.qr };
+      return { type: 'qrcode', instanceId, qrCodeUrl: payload.qrcode || payload.qr || payload.base64 };
     }
 
     if (tipo.includes('connection')) {
       return { type: 'connection', instanceId, status: payload.connected ? 'conectado' : 'desconectado' };
     }
 
-    if (tipo.includes('messagestatuscallback') || tipo.includes('webhookdelivery')) {
+    if (tipo.includes('messagestatuscallback') || tipo.includes('webhookdelivery') || tipo.includes('delivery')) {
       return {
         type: 'message_update',
         instanceId,
-        messageId: payload.ids?.[0] || payload.messageId || null,
-        status: payload.status
+        messageId: payload.ids?.[0] || payload.messageId || payload.key?.id || null,
+        status: payload.status || payload.ack
       };
     }
 
     const telefone = payload.phone || payload.sender?.id || payload.chat?.id || '';
     const numeroLimpo = normalizarTelefone(telefone);
-    
+
     if (!numeroLimpo) return { type: 'unknown', error: 'telefone_invalido' };
 
+    const msgContent = payload.msgContent || {};
     let mediaType = 'none';
     let fileId = null;
     let originalMediaUrl = null;
-    
     let conteudoRaw = payload.text?.message || payload.body || '';
     let conteudo = '';
 
-    if (payload.image) {
+    if (msgContent.imageMessage) {
       mediaType = 'image';
-      fileId = payload.image.fileId || payload.image.id || null;
-      originalMediaUrl = payload.image.imageUrl || payload.image.url || payload.image.urlWithToken || payload.fileUrl || null;
-      conteudo = conteudoRaw || payload.image.caption || '[Imagem]';
-    } else if (payload.video) {
+      conteudo = msgContent.imageMessage.caption || '📷 [Imagem]';
+    } else if (msgContent.videoMessage) {
       mediaType = 'video';
-      fileId = payload.video.fileId || payload.video.id || null;
-      originalMediaUrl = payload.video.videoUrl || payload.video.url || payload.video.urlWithToken || payload.fileUrl || null;
-      conteudo = conteudoRaw || payload.video.caption || '[Vídeo]';
-    } else if (payload.audio) {
+      conteudo = msgContent.videoMessage.caption || '🎥 [Vídeo]';
+    } else if (msgContent.audioMessage) {
       mediaType = 'audio';
-      fileId = payload.audio.fileId || payload.audio.id || null;
-      originalMediaUrl = payload.audio.audioUrl || payload.audio.url || payload.audio.urlWithToken || payload.fileUrl || null;
-      conteudo = '[Áudio]';
-    } else if (payload.document || payload.file || payload.documentUrl || payload.fileUrl) {
-      const docField = payload.document || payload.file || {};
-      const docUrl = docField.documentUrl || docField.url || docField.link || 
-                     payload.documentUrl || payload.fileUrl || payload.mediaUrl;
-
+      conteudo = msgContent.audioMessage.ptt ? '🎤 [Áudio de voz]' : '🎵 [Áudio]';
+    } else if (msgContent.documentMessage) {
       mediaType = 'document';
-      fileId = docField.fileId || docField.id || payload.fileId || null;
-      originalMediaUrl = docUrl || null;
-      conteudo = conteudoRaw || docField.caption || docField.fileName || payload.caption || '[PDF/Documento]';
-    } else if (payload.sticker) {
+      conteudo = msgContent.documentMessage.caption || msgContent.documentMessage.fileName || '[Documento]';
+    } else if (msgContent.stickerMessage) {
       mediaType = 'sticker';
-      fileId = payload.sticker.fileId || payload.sticker.id || null;
-      originalMediaUrl = payload.sticker.stickerUrl || payload.sticker.url || payload.fileUrl || null;
       conteudo = '[Sticker]';
-    } else if (payload.contactMessage || payload.vcard) {
+    } else if (msgContent.contactMessage || msgContent.contactsArrayMessage) {
       mediaType = 'contact';
-      conteudo = '📇 Contato compartilhado';
-    } else if (payload.location) {
+      conteudo = '📇 Contato';
+    } else if (msgContent.locationMessage || msgContent.liveLocationMessage) {
       mediaType = 'location';
       conteudo = '📍 Localização';
+    } else if (msgContent.extendedTextMessage) {
+      conteudo = msgContent.extendedTextMessage.text || '';
+    } else if (msgContent.conversation) {
+      conteudo = msgContent.conversation;
     } else {
       conteudo = conteudoRaw;
     }
@@ -190,17 +180,17 @@ function normalizarPayload(payload) {
     return {
       type: 'message',
       instanceId,
-      messageId: payload.messageId,
+      messageId: payload.messageId || payload.key?.id,
       from: numeroLimpo,
       content: String(conteudo || '').trim(),
       mediaType,
       originalMediaUrl,
       fileId,
-      mediaCaption: payload.image?.caption || payload.video?.caption,
-      pushName: payload.senderName || payload.chatName,
-      vcard: payload.contactMessage || payload.vcard,
-      location: payload.location,
-      quotedMessage: payload.quotedMsg
+      mediaCaption: msgContent.imageMessage?.caption || msgContent.videoMessage?.caption,
+      pushName: payload.pushName || payload.senderName || payload.sender?.pushName || payload.text?.senderName,
+      vcard: msgContent.contactMessage || msgContent.contactsArrayMessage,
+      location: msgContent.locationMessage || msgContent.liveLocationMessage,
+      quotedMessage: payload.quotedMsg || msgContent.extendedTextMessage?.contextInfo?.quotedMessage
     };
 
   } catch (err) {
