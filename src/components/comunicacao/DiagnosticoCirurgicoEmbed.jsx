@@ -87,22 +87,21 @@ export default function DiagnosticoCirurgicoEmbed() {
       // Payload adaptado ao provedor (Z-API vs W-API)
       let payloadTeste;
       if (isWAPI) {
-        // Formato W-API
+        // Formato W-API correto (estrutura esperada pelo webhookWapi)
         payloadTeste = {
           instanceId: integracao.instance_id_provider,
-          event: 'message',
-          data: {
-            key: {
-              remoteJid: '5548999000111@s.whatsapp.net',
-              fromMe: false,
-              id: messageIdTeste
-            },
-            message: {
-              conversation: 'TESTE CIRURGICO W-API'
-            },
-            messageTimestamp: Math.floor(Date.now() / 1000),
-            pushName: 'Teste Diagnóstico'
-          }
+          type: 'ReceivedCallback',
+          event: 'ReceivedCallback',
+          messageId: messageIdTeste,
+          phone: '5548999000111',
+          from: '5548999000111',
+          text: { message: 'TESTE CIRURGICO W-API' },
+          msgContent: {
+            conversation: 'TESTE CIRURGICO W-API'
+          },
+          pushName: 'Teste Diagnóstico',
+          fromMe: false,
+          momment: Date.now()
         };
       } else {
         // Formato Z-API (mantido igual)
