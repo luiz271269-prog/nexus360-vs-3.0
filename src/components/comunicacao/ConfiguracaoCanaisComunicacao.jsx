@@ -199,6 +199,24 @@ export default function ConfiguracaoCanaisComunicacao({ integracoes, onRecarrega
     setor_principal: "geral"
   };
 
+  // Helper para registrar webhooks automaticamente na W-API
+  const registrarWebhooksWAPI = async (integrationId) => {
+    try {
+      const response = await base44.functions.invoke('wapiRegisterWebhooks', {
+        integration_id: integrationId
+      });
+      if (response.data.success) {
+        console.log('[CONFIG] ✅ Webhooks W-API registrados automaticamente');
+        toast.success('✅ Webhooks W-API configurados automaticamente!');
+      } else {
+        console.warn('[CONFIG] ⚠️ Falha ao registrar webhooks:', response.data.message);
+        toast.warning('⚠️ Webhooks não registrados. Configure manualmente no painel W-API.');
+      }
+    } catch (error) {
+      console.error('[CONFIG] ❌ Erro ao registrar webhooks:', error);
+    }
+  };
+
   const [novaIntegracao, setNovaIntegracao] = useState(initialNovaIntegracaoState);
   const [qrCodeData, setQrCodeData] = useState({});
 
@@ -352,7 +370,7 @@ export default function ConfiguracaoCanaisComunicacao({ integracoes, onRecarrega
 
           const { instanceId, token, webhookUrl } = response.data;
 
-          await base44.entities.WhatsAppIntegration.create({
+          const novaIntegracaoCriada = await base44.entities.WhatsAppIntegration.create({
             nome_instancia: novaIntegracao.nome_instancia.trim(),
             numero_telefone: "",
             status: "pendente_qrcode",
@@ -375,6 +393,9 @@ export default function ConfiguracaoCanaisComunicacao({ integracoes, onRecarrega
             },
             ultima_atividade: new Date().toISOString()
           });
+
+          // Registrar webhooks automaticamente na W-API
+          await registrarWebhooksWAPI(novaIntegracaoCriada.id);
 
           toast.success("✅ Instância W-API Integrador criada! Conecte-a agora com QR Code ou Pairing.");
           resetForm();
@@ -450,12 +471,16 @@ export default function ConfiguracaoCanaisComunicacao({ integracoes, onRecarrega
         ultima_atividade: new Date().toISOString()
       };
 
+      let integrationId;
+
       if (integracaoSelecionada) {
         await base44.entities.WhatsAppIntegration.update(integracaoSelecionada.id, dadosIntegracao);
         toast.success("Configurações salvas!");
+        integrationId = integracaoSelecionada.id;
         setModoEdicao(false);
       } else {
-        await base44.entities.WhatsAppIntegration.create(dadosIntegracao);
+        const novaIntegracaoCriada = await base44.entities.WhatsAppIntegration.create(dadosIntegracao);
+        integrationId = novaIntegracaoCriada.id;
         toast.success(`Instância ${provider.nome} criada!`);
         
         // Mostrar URL do webhook salva
@@ -469,9 +494,14 @@ export default function ConfiguracaoCanaisComunicacao({ integracoes, onRecarrega
         );
       }
 
+      // Registrar webhooks automaticamente para W-API
+      if (novaIntegracao.api_provider === 'w_api') {
+        await registrarWebhooksWAPI(integrationId);
+      }
+
       resetForm();
       if (onRecarregar) await onRecarregar();
-      
+
       // Reselecionar a integração atualizada
       if (integracaoSelecionada) {
         const atualizada = integracoes.find(i => i.id === integracaoSelecionada.id);
