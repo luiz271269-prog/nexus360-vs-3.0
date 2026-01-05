@@ -55,6 +55,8 @@ export default function ConfiguracaoWhatsAppUnificado({ onClose }) {
   const [qrCodeData, setQrCodeData] = useState({});
   const [conectando, setConectando] = useState({});
   const [verificandoStatus, setVerificandoStatus] = useState({});
+  const [editandoWebhook, setEditandoWebhook] = useState({});
+  const [webhookTemporario, setWebhookTemporario] = useState({});
 
   // Carregar integrações
   const carregarIntegracoes = useCallback(async () => {
