@@ -556,8 +556,9 @@ async function handleMessage(dados, payloadBruto, base44) {
       thread: thread,
       integration: integracaoObj,
       provider: 'w_api',
-      messageContent: dados.content
-    }).catch(e => console.error('[WAPI] ⚠️ Erro no processInbound:', e.message));
+      messageContent: dados.content,
+      rawPayload: payloadBruto
+    }).catch(e => console.error('[WAPI] ⚠️ Erro no processInbound (não afeta ingestão):', e.message));
     
     console.log('[WAPI] ✅ Cérebro disparado (isolado)');
   } catch (err) {
