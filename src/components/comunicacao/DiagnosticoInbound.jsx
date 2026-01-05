@@ -59,7 +59,8 @@ export default function DiagnosticoInbound({ integracoes }) {
   };
 
   const copiarWebhookUrl = (integracao) => {
-    const webhookUrl = getWebhookUrlIntegracao(integracao);
+    // ✅ USAR WEBHOOK_URL SALVO NO BANCO (fonte primária)
+    const webhookUrl = integracao.webhook_url || getWebhookUrlIntegracao(integracao);
     navigator.clipboard.writeText(webhookUrl);
     toast.success("URL do webhook copiada!");
   };
@@ -67,8 +68,8 @@ export default function DiagnosticoInbound({ integracoes }) {
   const enviarMensagemTeste = async (integracao) => {
     setEnviandoTeste(integracao.id);
     try {
-      // ✅ BUSCAR URL DO WEBHOOK DA INTEGRAÇÃO
-      const webhookUrl = getWebhookUrlIntegracao(integracao);
+      // ✅ USAR WEBHOOK_URL SALVO NO BANCO (fonte primária)
+      const webhookUrl = integracao.webhook_url || getWebhookUrlIntegracao(integracao);
 
       // ✅ PAYLOAD NO FORMATO REAL DO Z-API
       const payloadTeste = {

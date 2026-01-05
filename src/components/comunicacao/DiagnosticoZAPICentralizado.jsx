@@ -136,13 +136,15 @@ export default function DiagnosticoZAPICentralizado({ integracao, onRecarregar, 
         });
       }
 
-      // Teste 4: Verificar webhook (usar URL salva no banco)
-      const webhookUrlSalva = integracao.webhook_url || `https://app.base44.com/api/functions/${provider.webhookFn}`;
-      
+      // Teste 4: Verificar webhook (SEMPRE usar URL salva no banco)
+      const webhookUrlSalva = integracao.webhook_url;
+
       resultado.testes.push({
         nome: 'Webhook',
-        status: 'sucesso',
-        mensagem: `URL configurada e pronta para uso na ${provider.nome}`,
+        status: webhookUrlSalva ? 'sucesso' : 'erro',
+        mensagem: webhookUrlSalva 
+          ? `URL configurada e pronta para uso na ${provider.nome}` 
+          : `❌ URL do webhook não configurada no banco de dados`,
         webhookUrl: webhookUrlSalva
       });
 
