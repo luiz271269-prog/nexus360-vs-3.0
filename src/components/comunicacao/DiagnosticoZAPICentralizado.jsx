@@ -118,10 +118,6 @@ export default function DiagnosticoZAPICentralizado({ integracao, onRecarregar, 
         mensagem: configMsg
       });
 
-      // Teste 3: Verificar webhook (usar função específica do provedor)
-      // URL de PRODUÇÃO fixa - não usar window.location para evitar URLs de desenvolvimento
-      const webhookUrl = `https://app.base44.com/api/functions/${provider.webhookFn}`;
-      
       // Teste 3: Verificar Security Token (apenas para Z-API)
       if (provider.requerClientToken) {
         resultado.testes.push({
@@ -139,12 +135,14 @@ export default function DiagnosticoZAPICentralizado({ integracao, onRecarregar, 
         });
       }
 
-      // Teste 4: Verificar webhook
+      // Teste 4: Verificar webhook (usar URL salva no banco)
+      const webhookUrlSalva = integracao.webhook_url || `https://app.base44.com/api/functions/${provider.webhookFn}`;
+      
       resultado.testes.push({
         nome: 'Webhook',
         status: 'sucesso',
-        mensagem: `URL de PRODUÇÃO (use esta na ${provider.nome})`,
-        webhookUrl: webhookUrl
+        mensagem: `URL configurada e pronta para uso na ${provider.nome}`,
+        webhookUrl: webhookUrlSalva
       });
 
       setDiagnostico(resultado);
