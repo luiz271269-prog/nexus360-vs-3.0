@@ -1,155 +1,128 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.6';
 
 /**
- * SINCRONIZAÇÃO W-API INTEGRADOR
- * 
- * Lista instâncias do integrador e espelha no WhatsAppIntegration.
- * Após criadas, funcionam igual a instâncias manuais (mesma instanceId + token).
- * 
- * Uso: Executar manualmente quando adicionar/remover instâncias no painel W-API
+ * Sincroniza instâncias do painel W-API Integrador com o banco de dados local
+ * Importa automaticamente todas as instâncias criadas via painel
  */
-
-const WAPI_INTEGRATOR_BASE_URL = 'https://api.w-api.app/v1/integrator';
-
 Deno.serve(async (req) => {
   try {
     const base44 = createClientFromRequest(req);
     const user = await base44.auth.me();
 
     if (!user || user.role !== 'admin') {
-      return Response.json({ error: 'Unauthorized: admin access required' }, { status: 403 });
+      return Response.json({ error: 'Apenas admins podem sincronizar' }, { status: 403 });
     }
 
-    console.log('[SYNC] Iniciando sincronização de instâncias W-API Integrador...');
-
-    const integratorToken = Deno.env.get('WAPI_INTEGRATOR_TOKEN');
-    if (!integratorToken) {
+    const INTEGRATOR_TOKEN = Deno.env.get('WAPI_INTEGRATOR_TOKEN');
+    if (!INTEGRATOR_TOKEN) {
       return Response.json({ 
-        error: 'WAPI_INTEGRATOR_TOKEN não configurado. Configure o secret no painel.' 
+        error: 'WAPI_INTEGRATOR_TOKEN não configurado' 
       }, { status: 500 });
     }
 
-    // Listar todas as instâncias do integrador
-    const response = await fetch(`${WAPI_INTEGRATOR_BASE_URL}/instances?pageSize=100&page=1`, {
+    const WEBHOOK_BASE = 'https://nexus360-pro.base44.app/api/apps/68a7d067890527304dbe8477/functions/webhookWapi';
+
+    console.log('[SYNC] 🔄 Iniciando sincronização com W-API Integrador...');
+
+    // Buscar todas as instâncias do painel W-API
+    const response = await fetch('https://api.w-api.app/v1/integrator/instances?pageSize=100&page=1', {
       method: 'GET',
       headers: {
-        'Accept': 'application/json',
-        'Authorization': `Bearer ${integratorToken}`
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${INTEGRATOR_TOKEN}`
       }
     });
 
-    if (!response.ok) {
-      const errorData = await response.json();
-      return Response.json({ 
-        error: 'Erro ao listar instâncias do integrador',
-        details: errorData 
-      }, { status: response.status });
+    const data = await response.json();
+
+    if (data.error !== false || !data.data) {
+      return Response.json({
+        success: false,
+        error: 'Erro ao buscar instâncias da W-API'
+      }, { status: 400 });
     }
 
-    const data = await response.json();
-    const instancias = data.data || [];
+    const instanciasWAPI = data.data;
+    console.log(`[SYNC] 📊 Encontradas ${instanciasWAPI.length} instâncias no painel W-API`);
 
-    console.log(`[SYNC] Encontradas ${instancias.length} instâncias no integrador`);
+    // Buscar instâncias locais (modo integrator)
+    const integracoesLocais = await base44.asServiceRole.entities.WhatsAppIntegration.filter({
+      modo: 'integrator'
+    });
 
-    const resultados = {
-      total: instancias.length,
-      criadas: 0,
-      atualizadas: 0,
-      erros: 0,
-      detalhes: []
-    };
+    const mapeamentoLocal = new Map(
+      integracoesLocais.map(i => [i.instance_id_provider, i])
+    );
 
-    // ✅ CRÍTICO: Obter URL base do app para webhooks (produção vs preview)
-    const appUrl = Deno.env.get('BASE44_APP_URL') || req.headers.get('origin') || 'https://app.base44.com';
-    const webhookUrl = `${appUrl}/api/functions/webhookWapi`;
-    
-    console.log('[SYNC] 🌐 Webhook URL que será usado:', webhookUrl);
+    let criadas = 0;
+    let atualizadas = 0;
+    let erros = 0;
 
-    // Processar cada instância
-    for (const inst of instancias) {
+    for (const inst of instanciasWAPI) {
       try {
-        console.log(`[SYNC] Processando: ${inst.instanceName} (${inst.instanceId})`);
-
-        // ✅ BUSCA AGNÓSTICA: apenas por instance_id_provider
-        const existentes = await base44.asServiceRole.entities.WhatsAppIntegration.filter({
-          instance_id_provider: inst.instanceId
-        }, '-created_date', 1);
-
-        console.log(`[SYNC] 🔍 Busca: ${existentes.length} encontrada(s) para ${inst.instanceId}`);
+        const integracaoExistente = mapeamentoLocal.get(inst.instanceId);
 
         const dadosIntegracao = {
           nome_instancia: inst.instanceName,
-          numero_telefone: inst.connectedPhone || '',
+          numero_telefone: inst.connectedPhone || "",
           status: inst.connected ? 'conectado' : 'desconectado',
-          tipo_conexao: 'webhook',
-          api_provider: 'w_api',
-          modo: 'integrator',
+          tipo_conexao: "webhook",
+          api_provider: "w_api",
+          modo: "integrator",
           instance_id_provider: inst.instanceId,
           api_key_provider: inst.token,
-          base_url_provider: 'https://api.w-api.app/v1',
-          webhook_url: webhookUrl,
-          token_status: inst.connected ? 'valido' : 'nao_verificado',
-          token_ultima_verificacao: new Date().toISOString(),
+          base_url_provider: "https://api.w-api.app/v1",
+          webhook_url: WEBHOOK_BASE,
           ultima_atividade: new Date().toISOString(),
           configuracoes_avancadas: {
             auto_resposta_fora_horario: false,
             rate_limit_mensagens_hora: 100
           },
           estatisticas: {
-            total_mensagens_enviadas: inst.messagesSent || 0,
-            total_mensagens_recebidas: inst.messagesReceived || 0,
+            total_mensagens_enviadas: 0,
+            total_mensagens_recebidas: 0,
             taxa_resposta_24h: 0,
             tempo_medio_resposta_minutos: 0
           }
         };
 
-        if (existentes.length > 0) {
-          await base44.asServiceRole.entities.WhatsAppIntegration.update(existentes[0].id, dadosIntegracao);
-          resultados.atualizadas++;
-          resultados.detalhes.push({
-            id_integration: existentes[0].id,
-            instancia: inst.instanceName,
-            instanceId: inst.instanceId,
-            acao: 'atualizada'
-          });
-          console.log(`[SYNC] ✅ Atualizada: ${inst.instanceName}`);
+        if (integracaoExistente) {
+          // Atualizar existente
+          await base44.asServiceRole.entities.WhatsAppIntegration.update(
+            integracaoExistente.id,
+            dadosIntegracao
+          );
+          console.log(`[SYNC] 🔄 Atualizada: ${inst.instanceName}`);
+          atualizadas++;
         } else {
-          const nova = await base44.asServiceRole.entities.WhatsAppIntegration.create(dadosIntegracao);
-          resultados.criadas++;
-          resultados.detalhes.push({
-            id_integration: nova.id,
-            instancia: inst.instanceName,
-            instanceId: inst.instanceId,
-            acao: 'criada'
-          });
-          console.log(`[SYNC] ✅ Criada: ${inst.instanceName}`);
+          // Criar nova
+          await base44.asServiceRole.entities.WhatsAppIntegration.create(dadosIntegracao);
+          console.log(`[SYNC] ➕ Criada: ${inst.instanceName}`);
+          criadas++;
         }
-
       } catch (error) {
         console.error(`[SYNC] ❌ Erro ao processar ${inst.instanceName}:`, error);
-        resultados.erros++;
-        resultados.detalhes.push({
-          instancia: inst.instanceName,
-          instanceId: inst.instanceId,
-          acao: 'erro',
-          mensagem: error.message
-        });
+        erros++;
       }
     }
 
-    console.log('[SYNC] Sincronização concluída:', resultados);
+    console.log(`[SYNC] ✅ Sincronização concluída | Criadas: ${criadas} | Atualizadas: ${atualizadas} | Erros: ${erros}`);
 
     return Response.json({
       success: true,
-      timestamp: new Date().toISOString(),
-      resultados
+      resultados: {
+        criadas,
+        atualizadas,
+        erros,
+        total: instanciasWAPI.length
+      }
     });
 
   } catch (error) {
-    console.error('[SYNC] Erro fatal:', error);
+    console.error('[SYNC] ❌ Erro geral:', error);
     return Response.json({ 
-      error: error.message,
-      stack: error.stack
+      success: false,
+      error: error.message 
     }, { status: 500 });
   }
 });
