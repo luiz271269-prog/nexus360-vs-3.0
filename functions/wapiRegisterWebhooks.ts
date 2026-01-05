@@ -46,6 +46,7 @@ Deno.serve(async (req) => {
 
     console.log(`[WAPI-REGISTER] 📝 Registrando webhooks para instância: ${instanceId}`);
     console.log(`[WAPI-REGISTER] 🔗 Webhook URL: ${webhookUrl}`);
+    console.log(`[WAPI-REGISTER] 🔑 Token: ${token.substring(0, 10)}...`);
 
     // Registrar os 3 webhooks na W-API
     const eventos = [
@@ -60,20 +61,32 @@ Deno.serve(async (req) => {
       try {
         const url = `https://api.w-api.app/v1/instance/webhook?instanceId=${instanceId}`;
         
+        const body = {
+          event: evento.name,
+          url: webhookUrl,
+          enabled: true
+        };
+        
+        console.log(`[WAPI-REGISTER] 📤 Enviando ${evento.name}:`, JSON.stringify(body));
+        
         const response = await fetch(url, {
           method: 'PUT',
           headers: {
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${token}`
           },
-          body: JSON.stringify({
-            event: evento.name,
-            url: webhookUrl,
-            enabled: true
-          })
+          body: JSON.stringify(body)
         });
 
-        const data = await response.json();
+        const responseText = await response.text();
+        console.log(`[WAPI-REGISTER] 📥 Resposta ${evento.name} (status ${response.status}):`, responseText);
+        
+        let data;
+        try {
+          data = JSON.parse(responseText);
+        } catch {
+          data = { raw: responseText };
+        }
 
         if (response.ok) {
           console.log(`[WAPI-REGISTER] ✅ ${evento.description} registrado com sucesso`);
@@ -89,7 +102,8 @@ Deno.serve(async (req) => {
             evento: evento.name,
             descricao: evento.description,
             sucesso: false,
-            erro: data.error || data.message || 'Erro desconhecido'
+            erro: data.error || data.message || data.raw || 'Erro desconhecido',
+            status_code: response.status
           });
         }
       } catch (error) {
