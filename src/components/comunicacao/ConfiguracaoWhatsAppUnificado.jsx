@@ -846,18 +846,26 @@ export default function ConfiguracaoWhatsAppUnificado({ onClose }) {
                 </div>
 
                 <div className="p-4 bg-purple-50 border-2 border-purple-200 rounded-lg">
-                  <Label className="text-sm text-purple-700 font-semibold mb-2 block">🔗 URL do Webhook</Label>
+                  <Label className="text-sm text-purple-700 font-semibold mb-2 block flex items-center justify-between">
+                    <span>🔗 URL do Webhook</span>
+                    <Badge className="bg-purple-600 text-white text-xs">Obrigatório</Badge>
+                  </Label>
                   <Input
                     value={integracaoEditando.webhook_url}
                     onChange={(e) => setIntegracaoEditando({...integracaoEditando, webhook_url: e.target.value})}
-                    placeholder="https://seu-app.base44.app/api/functions/webhookWapi"
+                    placeholder="https://nexus360-pro.base44.app/api/apps/68a7d067890527304dbe8477/functions/webhookWapi"
                     className="font-mono text-xs bg-white"
                   />
-                  <p className="text-xs text-purple-600 mt-2">
-                    {integracaoEditando.api_provider === 'w_api' 
-                      ? "💡 Configure esta URL nos campos 'Ao receber mensagem', 'Ao enviar mensagem' e 'Ao desconectar' na W-API"
-                      : "💡 Configure esta URL no painel da Z-API para receber webhooks"}
-                  </p>
+                  <div className="mt-2 space-y-1">
+                    <p className="text-xs text-purple-700 font-medium">
+                      💡 {integracaoEditando.api_provider === 'w_api' || integracaoEditando.modo === 'integrator'
+                        ? "Configure esta URL nos campos 'Ao receber mensagem', 'Ao enviar mensagem' e 'Ao desconectar' na W-API"
+                        : "Configure esta URL no painel da Z-API para receber webhooks"}
+                    </p>
+                    <p className="text-xs text-purple-600">
+                      ✅ Cole exatamente esta URL no painel do provedor para receber mensagens corretamente
+                    </p>
+                  </div>
                 </div>
               </div>
 
