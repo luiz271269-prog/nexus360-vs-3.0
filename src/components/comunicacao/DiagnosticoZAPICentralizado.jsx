@@ -153,8 +153,24 @@ export default function DiagnosticoZAPICentralizado({ integracao, onRecarregar, 
       const sucessos = resultado.testes.filter(t => t.status === 'sucesso').length;
       const total = resultado.testes.length;
       
+      // ✅ ATUALIZAR STATUS: Se todos os testes passaram, marcar como conectado
       if (sucessos === total) {
-        toast.success(`Diagnóstico ${provider.nome}: ${sucessos}/${total} testes OK`);
+        try {
+          await base44.entities.WhatsAppIntegration.update(integracao.id, {
+            status: 'conectado',
+            ultima_atividade: new Date().toISOString(),
+            token_status: 'valido',
+            token_ultima_verificacao: new Date().toISOString()
+          });
+          console.log('[DIAGNOSTICO] ✅ Status atualizado para CONECTADO');
+          toast.success(`✅ Diagnóstico ${provider.nome}: ${sucessos}/${total} testes OK - Status: Conectado`);
+          
+          // Recarregar lista de integrações
+          if (onRecarregar) await onRecarregar();
+        } catch (error) {
+          console.error('[DIAGNOSTICO] Erro ao atualizar status:', error);
+          toast.success(`Diagnóstico ${provider.nome}: ${sucessos}/${total} testes OK`);
+        }
       } else {
         toast.warning(`Diagnóstico ${provider.nome}: ${sucessos}/${total} testes OK`);
       }
