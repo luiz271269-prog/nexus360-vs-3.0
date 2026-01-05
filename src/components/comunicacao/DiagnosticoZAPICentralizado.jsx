@@ -208,24 +208,51 @@ export default function DiagnosticoZAPICentralizado({ integracao, onRecarregar, 
             <Activity className="w-5 h-5" />
             Diagnóstico Completo
           </span>
-          <Button
-            onClick={executarDiagnostico}
-            disabled={executando || isTesting}
-            size="sm"
-            className="bg-indigo-600 hover:bg-indigo-700"
-          >
-            {executando || isTesting ? (
-              <>
-                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                Testando...
-              </>
-            ) : (
-              <>
-                <RefreshCw className="w-4 h-4 mr-2" />
-                Executar Diagnóstico
-              </>
+          <div className="flex gap-2">
+            {integracao?.api_provider === 'w_api' && (
+              <Button
+                onClick={async () => {
+                  try {
+                    const response = await base44.functions.invoke('wapiRegisterWebhooks', {
+                      integration_id: integracao.id
+                    });
+                    if (response.data.success) {
+                      toast.success('✅ Webhooks registrados na W-API!');
+                      if (onRecarregar) await onRecarregar();
+                    } else {
+                      toast.error('Erro ao registrar webhooks: ' + (response.data.message || 'Desconhecido'));
+                    }
+                  } catch (error) {
+                    toast.error('Erro: ' + error.message);
+                  }
+                }}
+                size="sm"
+                variant="outline"
+                className="border-purple-300 text-purple-700 hover:bg-purple-50"
+              >
+                <Settings className="w-4 h-4 mr-2" />
+                Registrar Webhooks W-API
+              </Button>
             )}
-          </Button>
+            <Button
+              onClick={executarDiagnostico}
+              disabled={executando || isTesting}
+              size="sm"
+              className="bg-indigo-600 hover:bg-indigo-700"
+            >
+              {executando || isTesting ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Testando...
+                </>
+              ) : (
+                <>
+                  <RefreshCw className="w-4 h-4 mr-2" />
+                  Executar Diagnóstico
+                </>
+              )}
+            </Button>
+          </div>
         </CardTitle>
       </CardHeader>
 
