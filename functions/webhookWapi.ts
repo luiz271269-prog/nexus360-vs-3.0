@@ -9,8 +9,8 @@ import { createClientFromRequest } from 'npm:@base44/sdk@0.8.4';
 // 3. Processamento unificado: mesmo fluxo para todas as instâncias W-API
 // ============================================================================
 
-const VERSION = 'v13.0.0-UNIVERSAL';
-const BUILD_DATE = '2025-12-30';
+const VERSION = 'v13.0.1-UNREAD_BY';
+const BUILD_DATE = '2026-01-05';
 
 const corsHeaders = {
   'Content-Type': 'application/json',
@@ -437,7 +437,7 @@ async function handleMessage(dados, payloadBruto, base44, req) {
       location: dados.location,
       quoted_message: dados.quotedMessage,
       downloadSpec: dados.downloadSpec,
-      processed_by: 'v12_inline',
+      processed_by: 'v13_unread_by',
       provider: 'w_api'
     };
 
@@ -486,18 +486,26 @@ async function handleMessage(dados, payloadBruto, base44, req) {
     }).catch(e => console.error('[WAPI] Erro trigger mídia:', e.message));
   }
 
-  // 8. ATUALIZAR THREAD STATUS (Básico)
+  // 8. ATUALIZAR THREAD STATUS (Com unread_by por usuário)
   try {
+    const updatedUnreadBy = thread.unread_by ? { ...thread.unread_by } : {};
+    
+    // Incrementar contador para o usuário atribuído
+    if (thread.assigned_user_id) {
+      updatedUnreadBy[thread.assigned_user_id] = (updatedUnreadBy[thread.assigned_user_id] || 0) + 1;
+      console.log('[WAPI] ✅ Incrementado unread_by para user:', thread.assigned_user_id);
+    }
+    
     await base44.asServiceRole.entities.MessageThread.update(thread.id, {
       last_message_content: dados.content.substring(0, 200),
       last_message_at: new Date().toISOString(),
-      last_inbound_at: new Date().toISOString(), // ✅ CRÍTICO: Timestamp separado para mensagens RECEBIDAS
+      last_inbound_at: new Date().toISOString(),
       last_message_sender: 'contact',
       last_media_type: dados.mediaType,
-      unread_count: (thread.unread_count || 0) + 1,
+      unread_by: updatedUnreadBy,
       status: 'aberta'
     });
-    console.log('[WAPI] ✅ Thread atualizada (last_inbound_at registrado)');
+    console.log('[WAPI] ✅ Thread atualizada com unread_by');
   } catch (updateError) {
     console.error('[WAPI] ⚠️ Erro ao atualizar thread:', updateError.message);
   }

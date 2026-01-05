@@ -108,11 +108,11 @@ export async function calcularLembretesGlobal(usuario) {
     });
     contadores.Agenda += tarefasHoje.length;
 
-    // COMUNICAÇÃO (Threads não lidas)
+    // COMUNICAÇÃO (Threads não lidas pelo usuário atual)
     const threadsNaoLidas = threads.filter(t => 
-      t.unread_count > 0 && t.last_message_sender === 'contact'
+      t.last_message_sender === 'contact' && t.unread_by && t.unread_by[usuario.id] > 0
     );
-    contadores.Comunicacao = threadsNaoLidas.reduce((sum, t) => sum + (t.unread_count || 0), 0);
+    contadores.Comunicacao = threadsNaoLidas.reduce((sum, t) => sum + (t.unread_by[usuario.id] || 0), 0);
 
     // DASHBOARD (Resumo)
     contadores.Dashboard = Math.min(
