@@ -1182,6 +1182,11 @@ export default function Comunicacao() {
     // 3. 🔵 Clientes sem contato - prioridade 3
     // Dentro de cada grupo: mais recente primeiro (last_message_at)
     // ═══════════════════════════════════════════════════════════════════════════
+    
+    // ✅ LOG: Thread de teste após deduplicação final
+    const threadTesteAposDedup = deduplicated.find(t => t.id === '6927a16db587db4e93842639');
+    console.log('[COMUNICACAO] 🎬 Thread de teste na lista FINAL (pré-ordenação):', threadTesteAposDedup ? 'PRESENTE ✅' : 'REMOVIDA ❌');
+    
     return deduplicated.sort((a, b) => {
       // Definir prioridade do tipo
       const getPrioridade = (item) => {
