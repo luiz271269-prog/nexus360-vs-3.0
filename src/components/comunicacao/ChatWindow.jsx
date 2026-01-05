@@ -1286,6 +1286,8 @@ export default function ChatWindow({
 
   const marcarComoLidaMutation = useMutation({
     mutationFn: async () => {
+      if (!thread) return;
+      
       // ✅ THREAD INTERNA - usar markThreadAsRead
       if (thread.thread_type === 'team_internal' || thread.thread_type === 'sector_group') {
         await base44.functions.invoke('markThreadAsRead', {
