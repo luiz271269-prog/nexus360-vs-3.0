@@ -847,6 +847,18 @@ export default function Comunicacao() {
     // ⚠️ CRÍTICO: Threads internas (team_internal/sector_group) SEMPRE aparecem sem deduplicação
     const threadMaisRecentePorContato = new Map();
     threads.forEach((thread) => {
+      // ✅ LOG: Thread de teste
+      if (thread.id === '6927a16db587db4e93842639') {
+        console.log('[COMUNICACAO] 🔍 Thread de teste W-API encontrada:', {
+          id: thread.id,
+          contact_id: thread.contact_id,
+          integration_id: thread.whatsapp_integration_id,
+          last_message_at: thread.last_message_at,
+          unread_count: thread.unread_count,
+          thread_type: thread.thread_type
+        });
+      }
+      
       // ✅ Threads internas SEMPRE adicionadas diretamente (chave única por thread.id)
       if (thread.thread_type === 'team_internal' || thread.thread_type === 'sector_group') {
         threadMaisRecentePorContato.set(`internal-${thread.id}`, thread);
@@ -864,16 +876,44 @@ export default function Comunicacao() {
       const existente = threadMaisRecentePorContato.get(contactId);
       if (!existente) {
         threadMaisRecentePorContato.set(contactId, thread);
+        
+        // ✅ LOG: Thread de teste sendo adicionada pela primeira vez
+        if (thread.id === '6927a16db587db4e93842639') {
+          console.log('[COMUNICACAO] ✅ Thread de teste adicionada ao Map (primeira vez)');
+        }
       } else {
         // Manter a mais recente baseado em last_message_at
         const dataExistente = new Date(existente.last_message_at || existente.updated_date || existente.created_date || 0);
         const dataAtual = new Date(thread.last_message_at || thread.updated_date || thread.created_date || 0);
         if (dataAtual > dataExistente) {
+          // ✅ LOG: Thread de teste sendo substituída
+          if (thread.id === '6927a16db587db4e93842639') {
+            console.log('[COMUNICACAO] 🔄 Thread de teste substituindo existente:', {
+              thread_teste: thread.id,
+              thread_existente: existente.id,
+              data_teste: dataAtual,
+              data_existente: dataExistente
+            });
+          }
           threadMaisRecentePorContato.set(contactId, thread);
+        } else {
+          // ✅ LOG: Thread de teste sendo descartada
+          if (thread.id === '6927a16db587db4e93842639') {
+            console.log('[COMUNICACAO] ⏭️ Thread de teste DESCARTADA (existente é mais recente):', {
+              thread_teste: thread.id,
+              thread_mantida: existente.id,
+              data_teste: dataAtual,
+              data_existente: dataExistente
+            });
+          }
         }
       }
     });
     const threadsUnicas = Array.from(threadMaisRecentePorContato.values());
+    
+    // ✅ LOG: Verificar se thread de teste está nas únicas
+    const threadTesteNasUnicas = threadsUnicas.find(t => t.id === '6927a16db587db4e93842639');
+    console.log('[COMUNICACAO] 🎯 Thread de teste após deduplicação:', threadTesteNasUnicas ? 'PRESENTE ✅' : 'REMOVIDA ❌');
 
     // Registrar IDs de contatos que já têm thread (para evitar duplicatas na busca)
     const contatosComThreadExistente = new Set(threadsUnicas.map((t) => t.contact_id).filter(Boolean));
@@ -898,6 +938,15 @@ export default function Comunicacao() {
     // (Usando threadsUnicas para evitar duplicatas por contato)
     // ═══════════════════════════════════════════════════════════════════════════
     const threadsFiltrados = threadsUnicas.filter((thread) => {
+      // ✅ LOG: Verificar se thread de teste passa pelos filtros
+      const isThreadTeste = thread.id === '6927a16db587db4e93842639';
+      if (isThreadTeste) {
+        console.log('[COMUNICACAO] 🔍 Filtrando thread de teste:', {
+          thread_type: thread.thread_type,
+          contact_id: thread.contact_id,
+          integration_id: thread.whatsapp_integration_id
+        });
+      }
       // ✅ THREADS INTERNAS - visibilidade baseada APENAS em participação
       // ZERO filtros de contato/integração/setor WhatsApp aplicados
       if (thread.thread_type === 'team_internal' || thread.thread_type === 'sector_group') {
@@ -912,8 +961,19 @@ export default function Comunicacao() {
       // ⬇️ Daqui pra baixo: SOMENTE threads EXTERNAS (contact_external)
       const contato = contatosMap.get(thread.contact_id);
 
+      // ✅ LOG: Thread de teste sem contato
+      if (isThreadTeste && !contato) {
+        console.log('[COMUNICACAO] ❌ Thread de teste BLOQUEADA: contato não encontrado no Map', {
+          contact_id: thread.contact_id,
+          total_contatos: contatosMap.size
+        });
+      }
+
       // Threads órfãs sem contato: manter apenas se filtro "não atribuídas" ativo
-      if (!contato && !isFilterUnassigned) return false;
+      if (!contato && !isFilterUnassigned) {
+        if (isThreadTeste) console.log('[COMUNICACAO] ❌ Thread de teste removida: sem contato');
+        return false;
+      }
 
       if (thread.contact_id) {
         threadsComContatoIds.add(thread.contact_id);
@@ -953,16 +1013,22 @@ export default function Comunicacao() {
       if (isFilterUnassigned) {
         // ✅ Usar Set de IDs de threads (não de contatos)
         if (!threadsNaoAtribuidasVisiveis.has(thread.id)) {
+          if (isThreadTeste) console.log('[COMUNICACAO] ❌ Thread de teste removida: não está em threadsNaoAtribuidasVisiveis');
           return false;
         }
 
         // Aplicar filtro de integração específica se selecionado
         if (selectedIntegrationId && selectedIntegrationId !== 'all') {
-          if (thread.whatsapp_integration_id !== selectedIntegrationId) return false;
+          if (thread.whatsapp_integration_id !== selectedIntegrationId) {
+            if (isThreadTeste) console.log('[COMUNICACAO] ❌ Thread de teste removida: integração não corresponde ao filtro');
+            return false;
+          }
         }
       } else {
         // REGRA CENTRAL: Usar módulo threadVisibility.js para outros escopos
-        if (!canUserSeeThreadWithFilters(usuario, threadComContato, filtros)) {
+        const podeVer = canUserSeeThreadWithFilters(usuario, threadComContato, filtros);
+        if (!podeVer) {
+          if (isThreadTeste) console.log('[COMUNICACAO] ❌ Thread de teste removida: canUserSeeThreadWithFilters retornou false', filtros);
           return false;
         }
       }
@@ -978,11 +1044,23 @@ export default function Comunicacao() {
 
       if (selectedTagContato && selectedTagContato !== 'all' && contato) {
         const tags = contato.tags || [];
-        if (!tags.includes(selectedTagContato)) return false;
+        if (!tags.includes(selectedTagContato)) {
+          if (isThreadTeste) console.log('[COMUNICACAO] ❌ Thread de teste removida: tag não corresponde');
+          return false;
+        }
+      }
+
+      if (isThreadTeste) {
+        console.log('[COMUNICACAO] ✅ Thread de teste PASSOU em todos os filtros!');
       }
 
       return true;
     });
+    
+    // ✅ LOG FINAL: Threads após todos os filtros
+    const threadTesteFiltrada = threadsFiltrados.find(t => t.id === '6927a16db587db4e93842639');
+    console.log('[COMUNICACAO] 📋 Thread de teste após TODOS os filtros:', threadTesteFiltrada ? 'PRESENTE ✅' : 'REMOVIDA ❌');
+    console.log('[COMUNICACAO] 📊 Total de threads filtradas:', threadsFiltrados.length);
 
     // ═══════════════════════════════════════════════════════════════════════════
     // PARTE 2: COM BUSCA - Adicionar contatos sem thread e clientes sem contato
