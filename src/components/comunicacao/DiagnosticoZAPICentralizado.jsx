@@ -228,21 +228,47 @@ export default function DiagnosticoZAPICentralizado({ integracao, onRecarregar, 
             Diagnóstico Completo
           </span>
           <div className="flex gap-2">
-            {integracao?.api_provider === 'w_api' && (
+{(integracao?.api_provider === 'w_api' || integracao?.modo === 'integrator') && (
               <Button
                 onClick={async () => {
                   try {
-                    const response = await base44.functions.invoke('wapiRegisterWebhooks', {
+                    console.log('[DIAGNOSTICO] 🔧 Iniciando registro de webhooks para:', integracao.id);
+                    toast.info('🔄 Registrando webhooks na W-API...');
+                    
+                    const response = await base44.functions.invoke('wapiGerenciarWebhooks', {
+                      action: 'register',
                       integration_id: integracao.id
                     });
+                    
+                    console.log('[DIAGNOSTICO] 📥 Resposta:', response.data);
+                    
                     if (response.data.success) {
-                      toast.success('✅ Webhooks registrados na W-API!');
+                      toast.success(
+                        <div className="space-y-1">
+                          <p className="font-bold">✅ Webhooks registrados!</p>
+                          {response.data.resultados?.map((r, i) => (
+                            <p key={i} className="text-xs">
+                              {r.sucesso ? '✅' : '❌'} {r.descricao}
+                            </p>
+                          ))}
+                        </div>,
+                        { duration: 6000 }
+                      );
                       if (onRecarregar) await onRecarregar();
                     } else {
-                      toast.error('Erro ao registrar webhooks: ' + (response.data.message || 'Desconhecido'));
+                      toast.error(
+                        <div className="space-y-1">
+                          <p className="font-bold">⚠️ {response.data.message}</p>
+                          {response.data.resultados?.filter(r => !r.sucesso).map((r, i) => (
+                            <p key={i} className="text-xs">{r.descricao}: {r.erro}</p>
+                          ))}
+                        </div>,
+                        { duration: 10000 }
+                      );
                     }
                   } catch (error) {
-                    toast.error('Erro: ' + error.message);
+                    console.error('[DIAGNOSTICO] ❌ Erro ao registrar webhooks:', error);
+                    toast.error('Erro ao executar: ' + error.message);
                   }
                 }}
                 size="sm"
