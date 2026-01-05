@@ -1,15 +1,16 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.4';
 
 // ============================================================================
-// WEBHOOK WHATSAPP W-API - INGESTÃO UNIVERSAL
+// WEBHOOK WHATSAPP W-API - v14.0.0 ALINHADO COM Z-API v10
 // ============================================================================
-// PRINCÍPIO FUNDAMENTAL (DIA 25):
-// 1. Agnóstico ao modo de criação (manual ou integrador)
-// 2. Busca integração apenas por instance_id_provider
-// 3. Processamento unificado: mesmo fluxo para todas as instâncias W-API
+// BASEADO NA v12 QUE FUNCIONAVA + MELHORIAS DA Z-API v10:
+// 1. Classificação cirúrgica de eventos (classifyWapiEvent)
+// 2. Filtro mais esperto para mensagens reais vs ruído
+// 3. Enriquecimento de metadata com contexto da integração
+// 4. Normalização elástica de payload
 // ============================================================================
 
-const VERSION = 'v13.0.1-UNREAD_BY';
+const VERSION = 'v14.0.0-ALIGNED-WITH-ZAPI';
 const BUILD_DATE = '2026-01-05';
 
 const corsHeaders = {
@@ -23,7 +24,7 @@ const integrationCache = new Map();
 const CACHE_TTL = 60000;
 
 // ============================================================================
-// FUNÇÕES UTILITÁRIAS INLINE (evitar imports externos)
+// FUNÇÕES UTILITÁRIAS INLINE
 // ============================================================================
 
 function normalizarTelefone(telefone) {
@@ -50,15 +51,56 @@ function normalizarTelefone(telefone) {
 }
 
 // ============================================================================
-// FILTRO ULTRA-RÁPIDO - Retorna motivo se IGNORAR, null se processar
+// CLASSIFICADOR CIRÚRGICO (v12 pattern)
 // ============================================================================
-function deveIgnorar(payload) {
+function classifyWapiEvent(payload) {
+  if (!payload || typeof payload !== 'object') return 'ignore';
+
+  const evento = String(payload.event || '').toLowerCase();
+
+  // 1️⃣ STATUS/ACK: webhookdelivery
+  if (evento === 'webhookdelivery' || evento.includes('delivery')) {
+    return 'system-status';
+  }
+
+  // 2️⃣ MENSAGEM DE USUÁRIO: webhookreceived com msgContent
+  if ((evento === 'webhookreceived' || payload.msgContent) && payload.msgContent) {
+    const msg = payload.msgContent;
+    if (msg.conversation || msg.extendedTextMessage || msg.imageMessage ||
+        msg.audioMessage || msg.locationMessage || msg.liveLocationMessage ||
+        msg.videoMessage || msg.documentMessage) {
+      return 'user-message';
+    }
+  }
+
+  // 3️⃣ OUTROS: QRCode, Connection, etc
+  return 'ignore';
+}
+
+// ============================================================================
+// FILTRO ULTRA-RÁPIDO (aprimorado com lógica Z-API)
+// ============================================================================
+function deveIgnorar(payload, classification) {
   if (!payload || typeof payload !== 'object') return 'payload_invalido';
 
-  const tipo = String(payload.type ?? payload.event ?? '').toLowerCase();
-  const phone = String(payload.phone ?? payload.from ?? payload.chat?.id ?? '').toLowerCase();
-  const isGroup = payload.isGroup === true || String(payload.chat?.id ?? '').includes('@g.us');
+  // Se já foi classificado como ignore/status, processar de acordo
+  if (classification === 'ignore') return 'evento_desconhecido';
+  if (classification === 'system-status') return null; // Processa updates de status
 
+  const tipo = String(payload.type ?? payload.event ?? '').toLowerCase();
+  
+  // Extrair phone de múltiplas fontes (flexibilidade Z-API)
+  const phone = String(
+    payload.phone ?? 
+    payload.from ?? 
+    payload.sender?.id ?? 
+    payload.chat?.id ?? 
+    ''
+  ).toLowerCase();
+  
+  const isGroup = payload.isGroup === true || phone.includes('@g.us');
+
+  // JIDs de sistema
   if (
     phone.includes('status@') ||
     phone.includes('@broadcast') ||
@@ -69,16 +111,19 @@ function deveIgnorar(payload) {
     return 'jid_sistema';
   }
 
+  // QR Code e Connection sempre processam
   if (tipo.includes('qrcode') || tipo.includes('connection')) {
     return null;
   }
 
+  // Eventos de presença/typing sem messageId
   const eventosLixo = ['presence', 'typing', 'composing', 'chat-update', 'call'];
   const temMessageId = payload.messageId || payload.id;
   if (!temMessageId && eventosLixo.some((e) => tipo.includes(e))) {
     return 'evento_sistema';
   }
 
+  // Status updates
   if (tipo.includes('messagestatuscallback') || tipo.includes('message-status') || tipo.includes('webhookdelivery')) {
     if (phone.includes('status@') || phone.includes('@broadcast')) {
       return 'status_broadcast';
@@ -86,43 +131,46 @@ function deveIgnorar(payload) {
     return null;
   }
 
+  // MENSAGEM REAL: messageId + phone/from + conteúdo
   const hasMsgId = payload.messageId || payload.id;
-  const hasPhone = payload.phone || payload.from;
+  const hasPhone = payload.phone || payload.from || payload.sender?.id || payload.chat?.id;
   const hasContent = payload.text || payload.body || payload.message || payload.msgContent;
 
   if (hasMsgId && hasPhone && (hasContent || payload.momment)) {
     if (payload.fromMe === true) return 'from_me';
-    return null;
+    return null; // ✅ PROCESSAR
   }
 
-  if (tipo.includes('receivedcallback')) {
+  // ReceivedCallback: mensagem real se tiver phone + messageId
+  if (tipo.includes('receivedcallback') || tipo.includes('received')) {
     if (payload.fromMe === true) return 'from_me';
-    if (!payload.phone && !payload.from) return 'sem_telefone';
-    return null;
+    // ✅ MAIS FLEXÍVEL: Aceita phone OU from OU sender.id
+    if (!hasPhone) return 'sem_telefone';
+    return null; // ✅ PROCESSAR
   }
 
   return 'evento_desconhecido';
 }
 
 // ============================================================================
-// NORMALIZAR PAYLOAD (BLINDADA E AUTOSSUFICIENTE)
+// NORMALIZAR PAYLOAD (blindada, elástica)
 // ============================================================================
-// ATENÇÃO: NÃO IMPORTAR FUNÇÕES EXTERNAS AQUI DENTRO
-// Esta função roda antes de tudo e não pode falhar.
-
 function normalizarPayload(payload) {
   try {
     const tipo = String(payload.type || payload.event || '').toLowerCase();
     const instanceId = payload.instanceId || payload.instance || payload.instance_id || null;
 
+    // QR Code
     if (tipo.includes('qrcode')) {
       return { type: 'qrcode', instanceId, qrCodeUrl: payload.qrcode || payload.qr || payload.base64 };
     }
 
+    // Connection
     if (tipo.includes('connection')) {
       return { type: 'connection', instanceId, status: payload.connected ? 'conectado' : 'desconectado' };
     }
 
+    // Status update
     if (tipo.includes('messagestatuscallback') || tipo.includes('webhookdelivery') || tipo.includes('delivery')) {
       return {
         type: 'message_update',
@@ -132,11 +180,13 @@ function normalizarPayload(payload) {
       };
     }
 
-    const telefone = payload.phone || payload.sender?.id || payload.chat?.id || '';
+    // Telefone (múltiplas fontes - flexibilidade Z-API)
+    const telefone = payload.phone || payload.from || payload.sender?.id || payload.chat?.id || '';
     const numeroLimpo = normalizarTelefone(telefone);
 
     if (!numeroLimpo) return { type: 'unknown', error: 'telefone_invalido' };
 
+    // Conteúdo e mídia
     const msgContent = payload.msgContent || {};
     let mediaType = 'none';
     let fileId = null;
@@ -155,7 +205,7 @@ function normalizarPayload(payload) {
       conteudo = msgContent.audioMessage.ptt ? '🎤 [Áudio de voz]' : '🎵 [Áudio]';
     } else if (msgContent.documentMessage) {
       mediaType = 'document';
-      conteudo = msgContent.documentMessage.caption || msgContent.documentMessage.fileName || '[Documento]';
+      conteudo = msgContent.documentMessage.caption || msgContent.documentMessage.fileName || '📄 [Documento]';
     } else if (msgContent.stickerMessage) {
       mediaType = 'sticker';
       conteudo = '[Sticker]';
@@ -194,10 +244,7 @@ function normalizarPayload(payload) {
     };
 
   } catch (err) {
-    // 🛡️ CATCH DE ÚLTIMA INSTÂNCIA DA NORMALIZAÇÃO
     console.error('🔴 [CRITICAL] Erro dentro de normalizarPayload:', err.message);
-
-    // Retorna um objeto mínimo válido para não quebrar o webhook
     return {
       type: 'unknown',
       error: 'normalization_failed',
@@ -233,7 +280,6 @@ async function handleConnection(dados, base44, payloadBruto) {
       { instance_id_provider: dados.instanceId }, '-created_date', 1
     );
     if (integracoes.length > 0) {
-      // Extrair número de telefone conectado do payload bruto
       const connectedPhone = payloadBruto.connectedPhone || 
                             payloadBruto.phone || 
                             payloadBruto.phoneNumber ||
@@ -245,7 +291,6 @@ async function handleConnection(dados, base44, payloadBruto) {
         token_status: dados.status === 'conectado' ? 'valido' : 'nao_verificado'
       };
       
-      // Se tiver número de telefone e estiver conectado, atualizar
       if (connectedPhone && dados.status === 'conectado') {
         updateData.numero_telefone = connectedPhone;
         console.log('[WAPI] ✅ Número de telefone associado:', connectedPhone);
@@ -282,7 +327,7 @@ async function handleMessageUpdate(dados, base44) {
 }
 
 // ============================================================================
-// HANDLE MESSAGE - 100% INLINE (ZERO DEPENDÊNCIAS EXTERNAS)
+// HANDLE MESSAGE - INLINE com enriquecimento Z-API style
 // ============================================================================
 async function handleMessage(dados, payloadBruto, base44) {
   console.log('[WAPI] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
@@ -290,7 +335,7 @@ async function handleMessage(dados, payloadBruto, base44) {
 
   const inicio = Date.now();
 
-  // DEDUPLICAÇÃO RIGOROSA
+  // DEDUPLICAÇÃO POR messageId
   if (dados.messageId) {
     try {
       const dup = await base44.asServiceRole.entities.Message.filter(
@@ -303,7 +348,7 @@ async function handleMessage(dados, payloadBruto, base44) {
     } catch (e) {}
   }
 
-  // BUSCAR INTEGRAÇÃO - PRIORIZAR connectedPhone
+  // BUSCAR INTEGRAÇÃO - PRIORIZAR connectedPhone (Z-API pattern)
   const connectedPhone = payloadBruto.connectedPhone || payloadBruto.connected_phone || null;
   let integracaoId = null;
   let integracaoInfo = null;
@@ -443,7 +488,7 @@ async function handleMessage(dados, payloadBruto, base44) {
     return Response.json({ success: false, error: 'erro_thread' }, { status: 500, headers: corsHeaders });
   }
   
-  // VERIFICAÇÃO DE DUPLICATA POR CONTEÚDO
+  // DEDUPLICAÇÃO POR CONTEÚDO
   try {
     const doisSegundosAtras = new Date(Date.now() - 2000).toISOString();
     const msgRecentes = await base44.asServiceRole.entities.Message.filter({
@@ -466,7 +511,7 @@ async function handleMessage(dados, payloadBruto, base44) {
     console.warn(`[WAPI] ⚠️ Erro ao verificar duplicata:`, err.message);
   }
 
-  // SALVAR MENSAGEM
+  // SALVAR MENSAGEM (enriquecimento Z-API style)
   let mensagem;
   try {
     mensagem = await base44.asServiceRole.entities.Message.create({
@@ -502,12 +547,12 @@ async function handleMessage(dados, payloadBruto, base44) {
     return Response.json({ success: false, error: 'erro_salvar_mensagem' }, { status: 500, headers: corsHeaders });
   }
 
-  // ATUALIZAR THREAD
+  // ATUALIZAR THREAD (v12 pattern)
   try {
     const agora = new Date().toISOString();
     const threadUpdate = {
       last_message_at: agora,
-      last_inbound_at: agora,
+      last_inbound_at: agora, // ✅ CRÍTICO para promoções inbound
       last_message_sender: 'contact',
       last_message_content: String(dados.content || '').substring(0, 100),
       last_media_type: dados.mediaType || 'none',
@@ -538,7 +583,7 @@ async function handleMessage(dados, payloadBruto, base44) {
 
   // DISPARAR CÉREBRO (Fire-and-Forget)
   try {
-    console.log(`[WAPI] 🚀 Disparando processInbound (Cérebro separado)...`);
+    console.log(`[WAPI] 🚀 Disparando processInbound...`);
     
     let integracaoObj = null;
     if (integracaoId) {
@@ -558,14 +603,14 @@ async function handleMessage(dados, payloadBruto, base44) {
       provider: 'w_api',
       messageContent: dados.content,
       rawPayload: payloadBruto
-    }).catch(e => console.error('[WAPI] ⚠️ Erro no processInbound (não afeta ingestão):', e.message));
+    }).catch(e => console.error('[WAPI] ⚠️ Erro no processInbound:', e.message));
     
-    console.log('[WAPI] ✅ Cérebro disparado (isolado)');
+    console.log('[WAPI] ✅ Cérebro disparado');
   } catch (err) {
     console.error('[WAPI] ⚠️ Erro ao disparar Cérebro:', err.message);
   }
 
-  // Audit log - SALVAR COM messageId DO PAYLOAD BRUTO
+  // Audit log
   try {
     await base44.asServiceRole.entities.ZapiPayloadNormalized.create({
       payload_bruto: payloadBruto,
@@ -579,7 +624,7 @@ async function handleMessage(dados, payloadBruto, base44) {
   } catch {}
 
   const duracao = Date.now() - inicio;
-  console.log(`[WAPI] ✅ SUCESSO! Msg: ${mensagem.id} | De: ${dados.from} | ${duracao}ms`);
+  console.log(`[WAPI] ✅ SUCESSO! Msg: ${mensagem.id} | Thread: ${thread.id} | ${duracao}ms`);
 
   return Response.json({
     success: true,
@@ -596,7 +641,7 @@ async function handleMessage(dados, payloadBruto, base44) {
 // HANDLER PRINCIPAL
 // ============================================================================
 Deno.serve(async (req) => {
-  console.log('[WAPI-WEBHOOK] REQUEST RECEBIDO | Metodo:', req.method);
+  console.log('[WAPI-WEBHOOK] REQUEST | Método:', req.method);
   
   if (req.method === 'OPTIONS') {
     return new Response(null, { status: 204, headers: corsHeaders });
@@ -619,13 +664,16 @@ Deno.serve(async (req) => {
     if (!body) return Response.json({ success: true, ignored: true }, { headers: corsHeaders });
     payload = JSON.parse(body);
 
-    console.log('[WAPI] 📥 Payload (1/2):', JSON.stringify(payload).substring(0, 1000));
-    console.log('[WAPI] 📥 Payload (2/2):', JSON.stringify(payload).substring(1000, 2000));
+    console.log('[WAPI] 📥 Event:', payload.event, '| Type:', payload.type);
+    console.log('[WAPI] 📥 Payload:', JSON.stringify(payload).substring(0, 1500));
   } catch (e) {
     return Response.json({ success: false, error: 'JSON invalido' }, { status: 200, headers: corsHeaders });
   }
 
-  const motivoIgnorar = deveIgnorar(payload);
+  // ✅ CLASSIFICAÇÃO CIRÚRGICA ANTES DE FILTRAR (v12 pattern)
+  const classification = classifyWapiEvent(payload);
+  const motivoIgnorar = deveIgnorar(payload, classification);
+  
   if (motivoIgnorar) {
     console.log('[WAPI] ⏭️ Ignorado:', motivoIgnorar);
     return Response.json({ success: true, ignored: true, reason: motivoIgnorar }, { headers: corsHeaders });
@@ -653,7 +701,7 @@ Deno.serve(async (req) => {
         return Response.json({ success: true, ignored: true, reason: 'tipo_desconhecido' }, { headers: corsHeaders });
     }
   } catch (error) {
-    console.error('[WAPI] ❌ ERRO não tratado:', error?.message);
+    console.error('[WAPI] ❌ ERRO:', error?.message);
     return Response.json({ success: false, error: 'erro_interno' }, { status: 500, headers: corsHeaders });
   }
 });

@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -199,18 +200,19 @@ export default function ConfiguracaoCanaisComunicacao({ integracoes, onRecarrega
     setor_principal: "geral"
   };
 
-  // Helper para registrar webhooks automaticamente na W-API
+  // ✅ ATUALIZADO: Helper para registrar webhooks usando nova função
   const registrarWebhooksWAPI = async (integrationId) => {
     try {
-      const response = await base44.functions.invoke('wapiRegisterWebhooks', {
+      const response = await base44.functions.invoke('wapiGerenciarWebhooks', {
+        action: 'register',
         integration_id: integrationId
       });
       if (response.data.success) {
         console.log('[CONFIG] ✅ Webhooks W-API registrados automaticamente');
-        toast.success('✅ Webhooks W-API configurados automaticamente!');
+        toast.success('✅ Webhooks W-API configurados!');
       } else {
         console.warn('[CONFIG] ⚠️ Falha ao registrar webhooks:', response.data.message);
-        toast.warning('⚠️ Webhooks não registrados. Configure manualmente no painel W-API.');
+        toast.warning('⚠️ Webhooks não registrados. Configure manualmente.');
       }
     } catch (error) {
       console.error('[CONFIG] ❌ Erro ao registrar webhooks:', error);
