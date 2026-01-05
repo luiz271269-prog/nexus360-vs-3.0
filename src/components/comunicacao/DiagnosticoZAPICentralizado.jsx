@@ -14,7 +14,8 @@ import {
   Wifi,
   Server,
   Activity,
-  Copy
+  Copy,
+  Settings
 } from "lucide-react";
 import { toast } from "sonner";
 
