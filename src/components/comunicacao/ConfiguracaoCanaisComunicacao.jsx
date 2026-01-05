@@ -245,6 +245,16 @@ export default function ConfiguracaoCanaisComunicacao({ integracoes, onRecarrega
   const iniciarNovaIntegracao = () => {
     setIntegracaoSelecionada(null);
     resetForm();
+    
+    // Pré-preencher com webhook padrão apenas para NOVA integração
+    const provider = PROVIDERS[initialNovaIntegracaoState.api_provider];
+    const baseAppUrl = window.location.origin.replace('preview.', '').replace(':3000', '');
+    const webhookUrl = `${baseAppUrl}/api/functions/${provider.webhookFn}`;
+    
+    setNovaIntegracao({
+      ...initialNovaIntegracaoState,
+      webhook_url: webhookUrl
+    });
     setModoEdicao(true);
   };
 
@@ -394,19 +404,27 @@ export default function ConfiguracaoCanaisComunicacao({ integracoes, onRecarrega
       const tokenInstancia = novaIntegracao.token_instancia.trim();
       const tokenConta = novaIntegracao.client_token_conta.trim();
 
-      // DETECTAR AMBIENTE E GERAR URL CORRETA (com função de webhook específica)
-      const { ambiente, isProduction, alertMessage } = detectarAmbiente();
-      const baseAppUrl = window.location.origin.replace('preview.', '').replace(':3000', '');
-      const webhookUrl = `${baseAppUrl}/api/functions/${provider.webhookFn}`;
-
-      console.log('[CONFIG] 🌐 Ambiente detectado:', ambiente);
-      console.log('[CONFIG] 🔗 URL do Webhook:', webhookUrl);
-      console.log('[CONFIG] 📦 Provedor:', provider.nome);
-
-      // Alertar se não for produção
-      if (alertMessage) {
-        toast.warning(alertMessage, { duration: 10000 });
+      // USAR O WEBHOOK URL DO FORMULÁRIO (editável pelo usuário)
+      // Se não preenchido, gerar URL padrão baseada no ambiente
+      let webhookUrlFinal = novaIntegracao.webhook_url?.trim();
+      
+      if (!webhookUrlFinal) {
+        const { ambiente, isProduction, alertMessage } = detectarAmbiente();
+        const baseAppUrl = window.location.origin.replace('preview.', '').replace(':3000', '');
+        webhookUrlFinal = `${baseAppUrl}/api/functions/${provider.webhookFn}`;
+        
+        console.log('[CONFIG] 🌐 Ambiente detectado:', ambiente);
+        console.log('[CONFIG] 🔗 URL do Webhook gerada:', webhookUrlFinal);
+        
+        // Alertar se não for produção
+        if (alertMessage) {
+          toast.warning(alertMessage, { duration: 10000 });
+        }
+      } else {
+        console.log('[CONFIG] 🔗 Usando webhook URL personalizada:', webhookUrlFinal);
       }
+      
+      console.log('[CONFIG] 📦 Provedor:', provider.nome);
 
       const dadosIntegracao = {
         nome_instancia: novaIntegracao.nome_instancia.trim(),
@@ -418,7 +436,7 @@ export default function ConfiguracaoCanaisComunicacao({ integracoes, onRecarrega
         api_key_provider: tokenInstancia,
         security_client_token_header: provider.requerClientToken ? tokenConta : null,
         base_url_provider: provider.baseUrl,
-        webhook_url: novaIntegracao.webhook_url?.trim() || webhookUrl,
+        webhook_url: webhookUrlFinal,
         configuracoes_avancadas: {
           auto_resposta_fora_horario: false,
           rate_limit_mensagens_hora: 100
@@ -438,15 +456,14 @@ export default function ConfiguracaoCanaisComunicacao({ integracoes, onRecarrega
         setModoEdicao(false);
       } else {
         await base44.entities.WhatsAppIntegration.create(dadosIntegracao);
-        toast.success(`Instância ${provider.nome} criada! Configure o webhook.`);
+        toast.success(`Instância ${provider.nome} criada!`);
         
-        // Mostrar URL do webhook com indicador de ambiente e provedor
-        const ambienteLabel = isProduction ? 'PRODUÇÃO' : 'TESTE';
+        // Mostrar URL do webhook salva
         toast.info(
           <div className="space-y-1">
-            <p className="font-bold">{ambienteLabel} - {provider.nome}</p>
-            <p className="text-sm">URL do Webhook:</p>
-            <code className="text-xs bg-slate-100 px-2 py-1 rounded block">{webhookUrl}</code>
+            <p className="font-bold">{provider.nome}</p>
+            <p className="text-sm">URL do Webhook salva:</p>
+            <code className="text-xs bg-slate-100 px-2 py-1 rounded block">{webhookUrlFinal}</code>
           </div>, 
           { duration: 15000 }
         );
