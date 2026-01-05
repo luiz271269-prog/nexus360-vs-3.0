@@ -194,6 +194,7 @@ export default function ConfiguracaoCanaisComunicacao({ integracoes, onRecarrega
     instance_id: "",
     token_instancia: "",
     client_token_conta: "",
+    webhook_url: "",
     setores_atendidos: ["geral"],
     setor_principal: "geral"
   };
@@ -235,7 +236,8 @@ export default function ConfiguracaoCanaisComunicacao({ integracoes, onRecarrega
       api_provider: integracao.api_provider || "z_api",
       instance_id: integracao.instance_id_provider || "",
       token_instancia: integracao.api_key_provider || "",
-      client_token_conta: integracao.security_client_token_header || ""
+      client_token_conta: integracao.security_client_token_header || "",
+      webhook_url: integracao.webhook_url || ""
     });
     setModoEdicao(false);
   };
@@ -416,7 +418,7 @@ export default function ConfiguracaoCanaisComunicacao({ integracoes, onRecarrega
         api_key_provider: tokenInstancia,
         security_client_token_header: provider.requerClientToken ? tokenConta : null,
         base_url_provider: provider.baseUrl,
-        webhook_url: webhookUrl,
+        webhook_url: novaIntegracao.webhook_url?.trim() || webhookUrl,
         configuracoes_avancadas: {
           auto_resposta_fora_horario: false,
           rate_limit_mensagens_hora: 100
@@ -1013,6 +1015,30 @@ export default function ConfiguracaoCanaisComunicacao({ integracoes, onRecarrega
                           )}
                         </div>
                       )}
+
+                      {/* Campo de Webhook URL - Editável */}
+                      <div className="p-3 bg-purple-50 border-2 border-purple-200 rounded-lg">
+                        <Label className="text-[11px] font-semibold text-purple-700 mb-1.5 flex items-center gap-2">
+                          🔗 URL do Webhook
+                          <Badge className="bg-purple-600 text-white text-[9px] h-4 px-1.5">Configure no provedor</Badge>
+                        </Label>
+                        <Input
+                          value={novaIntegracao.webhook_url}
+                          onChange={(e) => setNovaIntegracao({...novaIntegracao, webhook_url: e.target.value})}
+                          placeholder="https://nexus360-pro.base44.app/api/apps/68a7d067890527304dbe8477/functions/webhookWapi"
+                          className="font-mono text-[10px] bg-white h-8"
+                        />
+                        <div className="mt-1.5 space-y-0.5">
+                          <p className="text-[10px] text-purple-600">
+                            {novaIntegracao.api_provider === 'w_api' || PROVIDERS[novaIntegracao.api_provider]?.modo === 'integrator'
+                              ? "💡 Configure esta URL nos campos 'Ao receber mensagem', 'Ao enviar mensagem' e 'Ao desconectar' na W-API"
+                              : "💡 Configure esta URL no painel da Z-API para receber webhooks"}
+                          </p>
+                          <p className="text-[10px] text-purple-700 font-medium">
+                            ✅ Cole exatamente esta URL no painel do provedor para receber mensagens
+                          </p>
+                        </div>
+                      </div>
 
                       <div className="flex justify-end gap-2 pt-2 border-t">
                         <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => {
