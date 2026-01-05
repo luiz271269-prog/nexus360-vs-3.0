@@ -218,6 +218,7 @@ export default function ConfiguracaoCanaisComunicacao({ integracoes, onRecarrega
   };
 
   const [novaIntegracao, setNovaIntegracao] = useState(initialNovaIntegracaoState);
+  const [corrigindoWebhooks, setCorrigindoWebhooks] = useState(false);
   const [qrCodeData, setQrCodeData] = useState({});
 
   // Carregar QR Code/Pairing Code persistidos quando selecionar integração
@@ -263,17 +264,45 @@ export default function ConfiguracaoCanaisComunicacao({ integracoes, onRecarrega
   const iniciarNovaIntegracao = () => {
     setIntegracaoSelecionada(null);
     resetForm();
-    
-    // Pré-preencher com webhook padrão apenas para NOVA integração
+
+    // ✅ Pré-preencher com URL de produção correta
     const provider = PROVIDERS[initialNovaIntegracaoState.api_provider];
-    const baseAppUrl = window.location.origin.replace('preview.', '').replace(':3000', '');
-    const webhookUrl = `${baseAppUrl}/api/functions/${provider.webhookFn}`;
-    
+    const WEBHOOK_BASE = 'https://nexus360-pro.base44.app/api/apps/68a7d067890527304dbe8477/functions';
+    const webhookUrl = `${WEBHOOK_BASE}/${provider.webhookFn}`;
+
     setNovaIntegracao({
       ...initialNovaIntegracaoState,
       webhook_url: webhookUrl
     });
     setModoEdicao(true);
+  };
+
+  const corrigirWebhooksEmMassa = async () => {
+    if (!confirm('⚠️ Esta ação irá corrigir as URLs de webhook de TODAS as integrações. Continuar?')) return;
+
+    setCorrigindoWebhooks(true);
+    try {
+      const response = await base44.functions.invoke('corrigirWebhooksIntegracoes');
+
+      if (response.data.success) {
+        toast.success(
+          <div className="space-y-1">
+            <p className="font-bold">✅ Webhooks corrigidos!</p>
+            <p className="text-xs">Atualizadas: {response.data.total_atualizadas}</p>
+            <p className="text-xs">Verificadas: {response.data.total_verificadas}</p>
+          </div>,
+          { duration: 5000 }
+        );
+
+        if (onRecarregar) await onRecarregar();
+      } else {
+        toast.error('Erro ao corrigir webhooks: ' + response.data.error);
+      }
+    } catch (error) {
+      toast.error('Erro ao executar correção: ' + error.message);
+    } finally {
+      setCorrigindoWebhooks(false);
+    }
   };
 
   const validarCampos = () => {
@@ -425,24 +454,15 @@ export default function ConfiguracaoCanaisComunicacao({ integracoes, onRecarrega
       const tokenInstancia = novaIntegracao.token_instancia.trim();
       const tokenConta = novaIntegracao.client_token_conta.trim();
 
-      // USAR O WEBHOOK URL DO FORMULÁRIO (editável pelo usuário)
-      // Se não preenchido, gerar URL padrão baseada no ambiente
-      let webhookUrlFinal = novaIntegracao.webhook_url?.trim();
-      
-      if (!webhookUrlFinal) {
-        const { ambiente, isProduction, alertMessage } = detectarAmbiente();
-        const baseAppUrl = window.location.origin.replace('preview.', '').replace(':3000', '');
-        webhookUrlFinal = `${baseAppUrl}/api/functions/${provider.webhookFn}`;
-        
-        console.log('[CONFIG] 🌐 Ambiente detectado:', ambiente);
-        console.log('[CONFIG] 🔗 URL do Webhook gerada:', webhookUrlFinal);
-        
-        // Alertar se não for produção
-        if (alertMessage) {
-          toast.warning(alertMessage, { duration: 10000 });
-        }
-      } else {
-        console.log('[CONFIG] 🔗 Usando webhook URL personalizada:', webhookUrlFinal);
+      // ✅ SEMPRE USAR URL DE PRODUÇÃO CORRETA (source of truth)
+      const WEBHOOK_BASE = 'https://nexus360-pro.base44.app/api/apps/68a7d067890527304dbe8477/functions';
+      const webhookUrlFinal = `${WEBHOOK_BASE}/${provider.webhookFn}`;
+
+      console.log('[CONFIG] 🔗 URL do Webhook (PRODUÇÃO):', webhookUrlFinal);
+
+      // Se usuário tentou usar URL personalizada diferente, avisar
+      if (novaIntegracao.webhook_url?.trim() && novaIntegracao.webhook_url !== webhookUrlFinal) {
+        toast.warning('⚠️ URL personalizada substituída pela URL de produção correta', { duration: 5000 });
       }
       
       console.log('[CONFIG] 📦 Provedor:', provider.nome);
@@ -760,10 +780,22 @@ export default function ConfiguracaoCanaisComunicacao({ integracoes, onRecarrega
             </div>
             <div className="flex gap-2">
               {podeAdicionar && (
-                <Button size="sm" onClick={iniciarNovaIntegracao} className="h-8 text-xs bg-green-600 hover:bg-green-700">
-                  <Plus className="w-3 h-3 mr-1" />
-                  Nova
-                </Button>
+                <>
+                  <Button 
+                    size="sm" 
+                    onClick={corrigirWebhooksEmMassa} 
+                    disabled={corrigindoWebhooks}
+                    variant="outline"
+                    className="h-8 text-xs border-orange-300 text-orange-700 hover:bg-orange-50"
+                  >
+                    {corrigindoWebhooks ? <Loader2 className="w-3 h-3 mr-1 animate-spin" /> : <Zap className="w-3 h-3 mr-1" />}
+                    Corrigir URLs
+                  </Button>
+                  <Button size="sm" onClick={iniciarNovaIntegracao} className="h-8 text-xs bg-green-600 hover:bg-green-700">
+                    <Plus className="w-3 h-3 mr-1" />
+                    Nova
+                  </Button>
+                </>
               )}
             </div>
           </div>
