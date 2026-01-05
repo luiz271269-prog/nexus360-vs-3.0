@@ -389,9 +389,44 @@ export default function ConfiguracaoWhatsAppUnificado({ onClose }) {
   };
 
   const copiarWebhookUrl = (integracao) => {
-    const url = getWebhookUrl(integracao);
+    const url = integracao.webhook_url || getWebhookUrl(integracao);
     navigator.clipboard.writeText(url);
     toast.success("URL do webhook copiada!");
+  };
+
+  const salvarWebhookUrl = async (integracaoId) => {
+    const novoUrl = webhookTemporario[integracaoId];
+    if (!novoUrl || !novoUrl.trim()) {
+      toast.error("URL do webhook não pode estar vazia");
+      return;
+    }
+
+    try {
+      await base44.entities.WhatsAppIntegration.update(integracaoId, {
+        webhook_url: novoUrl.trim()
+      });
+      
+      setEditandoWebhook(prev => ({ ...prev, [integracaoId]: false }));
+      setWebhookTemporario(prev => { const n = {...prev}; delete n[integracaoId]; return n; });
+      await carregarIntegracoes();
+      toast.success("✅ URL do webhook atualizada com sucesso!");
+    } catch (error) {
+      console.error("Erro ao atualizar webhook:", error);
+      toast.error("Erro ao salvar URL do webhook");
+    }
+  };
+
+  const cancelarEdicaoWebhook = (integracaoId) => {
+    setEditandoWebhook(prev => ({ ...prev, [integracaoId]: false }));
+    setWebhookTemporario(prev => { const n = {...prev}; delete n[integracaoId]; return n; });
+  };
+
+  const iniciarEdicaoWebhook = (integracao) => {
+    setEditandoWebhook(prev => ({ ...prev, [integracao.id]: true }));
+    setWebhookTemporario(prev => ({ 
+      ...prev, 
+      [integracao.id]: integracao.webhook_url || getWebhookUrl(integracao) 
+    }));
   };
 
   const getStatusBadge = (status) => {
