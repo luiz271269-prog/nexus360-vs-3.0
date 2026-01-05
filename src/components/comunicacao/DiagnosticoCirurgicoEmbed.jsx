@@ -237,22 +237,37 @@ export default function DiagnosticoCirurgicoEmbed() {
         });
       }
 
-      // ========== TESTE 7: VERIFICAR CONTACT ==========
+      // ========== TESTE 7: VERIFICAR CONTACT (múltiplas variações) ==========
       console.log('[DIAG] Verificando Contact...');
       try {
-        const contacts = await base44.entities.Contact.filter(
-          { telefone: '5548999000111' },
-          '-created_date',
-          1
-        );
+        // Testar múltiplas variações do telefone (igual ao webhookWapi)
+        const telefoneVariacoes = [
+          '5548999000111',
+          '+5548999000111',
+          '+55489999000111',  // com 9 adicional
+          '55489999000111'
+        ];
+        
+        let contactEncontrado = null;
+        for (const tel of telefoneVariacoes) {
+          const contacts = await base44.entities.Contact.filter(
+            { telefone: tel },
+            '-created_date',
+            1
+          );
+          if (contacts.length > 0) {
+            contactEncontrado = contacts[0];
+            break;
+          }
+        }
 
         diagnostico.testes.push({
           nome: '6. Contact Criado',
-          status: contacts.length > 0 ? 'sucesso' : 'erro',
+          status: contactEncontrado ? 'sucesso' : 'erro',
           detalhes: {
-            encontrado: contacts.length > 0,
-            telefone_buscado: '5548999000111',
-            contact: contacts[0]
+            encontrado: !!contactEncontrado,
+            variacoes_testadas: telefoneVariacoes,
+            contact: contactEncontrado
           }
         });
       } catch (error) {
