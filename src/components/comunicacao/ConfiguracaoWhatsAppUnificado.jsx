@@ -292,13 +292,15 @@ export default function ConfiguracaoWhatsAppUnificado({ onClose }) {
       
       toast.success("✅ Instância criada com sucesso! Configure o número agora.");
       
+      const defaultWebhook = getWebhookUrl({ api_provider: "z_api" });
       setNovaIntegracao({
         nome_instancia: "",
         numero_telefone: "",
         api_provider: "z_api",
         instance_id_provider: "",
         api_key_provider: "",
-        security_client_token_header: ""
+        security_client_token_header: "",
+        webhook_url: defaultWebhook
       });
       
       await carregarIntegracoes();
@@ -349,13 +351,15 @@ export default function ConfiguracaoWhatsAppUnificado({ onClose }) {
       
       toast.success("Integração criada com sucesso!");
       
+      const defaultWebhook = getWebhookUrl({ api_provider: "z_api" });
       setNovaIntegracao({
         nome_instancia: "",
         numero_telefone: "",
         api_provider: "z_api",
         instance_id_provider: "",
         api_key_provider: "",
-        security_client_token_header: ""
+        security_client_token_header: "",
+        webhook_url: defaultWebhook
       });
       
       await carregarIntegracoes();
