@@ -17,12 +17,12 @@ const PROVIDERS = {
 };
 
 /**
- * Retorna a URL de produção do webhook principal (Z-API - padrão)
- * Esta URL deve ser configurada na Z-API
+ * Retorna a URL de produção do webhook principal
+ * ⚠️ IMPORTANTE: Esta é a URL CORRETA para produção (Base44 Apps)
  */
 export function getWebhookUrlProducao(provider = 'z_api') {
   const providerConfig = PROVIDERS[provider] || PROVIDERS.z_api;
-  return `https://nexus360-pro.base44.app/api/functions/${providerConfig.webhookFn}`;
+  return `https://nexus360-pro.base44.app/api/apps/68a7d067890527304dbe8477/functions/${providerConfig.webhookFn}`;
 }
 
 /**
@@ -37,27 +37,21 @@ export function getWebhookUrlAmbienteAtual(provider = 'z_api') {
 
 /**
  * Retorna a URL do webhook de uma integração
- * Prioriza: webhook_url salvo > URL do ambiente > URL de produção
- * Detecta automaticamente o provedor da integração
+ * SEMPRE prioriza: webhook_url salvo no banco (fonte única de verdade)
+ * Fallback apenas para compatibilidade com instâncias antigas
  */
 export function getWebhookUrlIntegracao(integracao) {
-  // Se já tem webhook_url configurado, usa ele
+  // ✅ FONTE ÚNICA: webhook_url salvo no banco
   if (integracao?.webhook_url) {
     return integracao.webhook_url;
   }
   
-  // Detectar provedor
+  // ⚠️ FALLBACK (apenas para instâncias antigas sem webhook_url)
+  console.warn('[WEBHOOK] Integração sem webhook_url configurado, usando fallback:', integracao?.nome_instancia);
+  
+  // URL de produção como fallback
   const provider = integracao?.api_provider || 'z_api';
-  const providerConfig = PROVIDERS[provider] || PROVIDERS.z_api;
-  
-  // Se estiver em produção, retorna URL de produção
-  const hostname = typeof window !== 'undefined' ? window.location.hostname : '';
-  if (hostname === 'nexus360-pro.base44.app') {
-    return getWebhookUrlProducao(provider);
-  }
-  
-  // Caso contrário, retorna URL do ambiente atual
-  return getWebhookUrlAmbienteAtual(provider);
+  return getWebhookUrlProducao(provider);
 }
 
 /**

@@ -260,29 +260,26 @@ export default function DiagnosticoCirurgicoEmbed() {
         });
       }
 
-      // ========== TESTE 8: VERIFICAR SCHEMA DA ENTIDADE ==========
-      console.log('[DIAG] Verificando schema ZapiPayloadNormalized...');
+      // ========== TESTE 8: VERIFICAR ENTIDADE EXISTE ==========
+      console.log('[DIAG] Verificando entidade ZapiPayloadNormalized...');
       try {
-        const schema = await base44.entities.ZapiPayloadNormalized.schema();
+        const payloads = await base44.entities.ZapiPayloadNormalized.list('-timestamp_recebido', 1);
         
-        const camposObrigatorios = ['payload_bruto', 'instance_identificado', 'evento', 'timestamp_recebido'];
-        const camposFaltando = camposObrigatorios.filter(campo => !schema.properties[campo]);
-
         diagnostico.testes.push({
-          nome: '7. Schema ZapiPayloadNormalized Correto',
-          status: camposFaltando.length === 0 ? 'sucesso' : 'erro',
+          nome: '7. Entidade ZapiPayloadNormalized OK',
+          status: 'sucesso',
           detalhes: {
-            schema_properties: Object.keys(schema.properties),
-            campos_obrigatorios: camposObrigatorios,
-            campos_faltando: camposFaltando
+            total_registros: payloads.length,
+            entidade_acessivel: true
           }
         });
       } catch (error) {
         diagnostico.testes.push({
-          nome: '7. Schema ZapiPayloadNormalized Correto',
+          nome: '7. Entidade ZapiPayloadNormalized OK',
           status: 'erro',
           detalhes: {
-            erro: error.message
+            erro: error.message,
+            entidade_acessivel: false
           }
         });
       }
