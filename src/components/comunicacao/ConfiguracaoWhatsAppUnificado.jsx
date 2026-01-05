@@ -50,6 +50,7 @@ export default function ConfiguracaoWhatsAppUnificado({ onClose }) {
     security_client_token_header: "",
     webhook_url: ""
   });
+  const [integracaoEditando, setIntegracaoEditando] = useState(null);
   const [criandoInstancia, setCriandoInstancia] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -313,6 +314,59 @@ export default function ConfiguracaoWhatsAppUnificado({ onClose }) {
     }
   };
 
+  const iniciarEdicao = (integracao) => {
+    setIntegracaoEditando({
+      id: integracao.id,
+      nome_instancia: integracao.nome_instancia,
+      numero_telefone: integracao.numero_telefone,
+      api_provider: integracao.api_provider,
+      instance_id_provider: integracao.instance_id_provider,
+      api_key_provider: integracao.api_key_provider,
+      security_client_token_header: integracao.security_client_token_header || "",
+      webhook_url: integracao.webhook_url || getWebhookUrl(integracao)
+    });
+  };
+
+  const cancelarEdicao = () => {
+    setIntegracaoEditando(null);
+  };
+
+  const salvarEdicao = async () => {
+    const { id, nome_instancia, numero_telefone, instance_id_provider, api_key_provider, security_client_token_header, api_provider, webhook_url } = integracaoEditando;
+    
+    if (!nome_instancia || !numero_telefone || !instance_id_provider || !api_key_provider) {
+      toast.error("Preencha todos os campos obrigatórios");
+      return;
+    }
+    
+    if (api_provider === 'z_api' && !security_client_token_header) {
+      toast.error("Z-API requer o Client-Token de Segurança");
+      return;
+    }
+    
+    setSaving(true);
+    try {
+      await base44.entities.WhatsAppIntegration.update(id, {
+        nome_instancia: nome_instancia.toLowerCase().replace(/[^a-z0-9-]/g, '-'),
+        numero_telefone,
+        instance_id_provider,
+        api_key_provider,
+        security_client_token_header: api_provider === 'z_api' ? security_client_token_header : null,
+        webhook_url: webhook_url || getWebhookUrl({ api_provider })
+      });
+      
+      toast.success("✅ Integração atualizada com sucesso!");
+      setIntegracaoEditando(null);
+      await carregarIntegracoes();
+      
+    } catch (error) {
+      console.error("Erro ao atualizar integração:", error);
+      toast.error(error.message || "Erro ao atualizar integração");
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const salvarIntegracao = async () => {
     const { nome_instancia, numero_telefone, api_provider, instance_id_provider, api_key_provider, security_client_token_header } = novaIntegracao;
     
@@ -529,14 +583,26 @@ export default function ConfiguracaoWhatsAppUnificado({ onClose }) {
                       <p className="text-sm text-slate-600 mb-2">📱 {integracao.numero_telefone}</p>
                       {getStatusBadge(integracao.status)}
                     </div>
-                    <Button
-                      onClick={() => deletarIntegracao(integracao.id)}
-                      size="icon"
-                      variant="ghost"
-                      className="text-red-500 hover:bg-red-50"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </Button>
+                    <div className="flex gap-2">
+                      <Button
+                        onClick={() => iniciarEdicao(integracao)}
+                        size="icon"
+                        variant="ghost"
+                        className="text-blue-600 hover:bg-blue-50"
+                        title="Editar"
+                      >
+                        <Settings className="w-4 h-4" />
+                      </Button>
+                      <Button
+                        onClick={() => deletarIntegracao(integracao.id)}
+                        size="icon"
+                        variant="ghost"
+                        className="text-red-500 hover:bg-red-50"
+                        title="Deletar"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
+                    </div>
                   </div>
                   
                   {/* QR Code / Pairing Code */}
@@ -706,6 +772,111 @@ export default function ConfiguracaoWhatsAppUnificado({ onClose }) {
             </div>
           )}
         </div>
+
+        {/* Modal de Edição */}
+        {integracaoEditando && (
+          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+            <div className="bg-white rounded-2xl p-6 max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+              <div className="flex justify-between items-center mb-6">
+                <h3 className="text-xl font-bold text-slate-800 flex items-center gap-2">
+                  <Settings className="w-6 h-6 text-blue-600" />
+                  Editar Conexão
+                </h3>
+                <Button onClick={cancelarEdicao} size="icon" variant="ghost">
+                  <X className="w-5 h-5" />
+                </Button>
+              </div>
+
+              <div className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <Label>Provedor da API</Label>
+                    <Input value={PROVIDERS[integracaoEditando.api_provider]?.nome || integracaoEditando.api_provider} disabled className="mt-1 bg-slate-100" />
+                    <p className="text-xs text-slate-500 mt-1">Provedor não pode ser alterado</p>
+                  </div>
+
+                  <div>
+                    <Label>Nome da Instância</Label>
+                    <Input
+                      value={integracaoEditando.nome_instancia}
+                      onChange={(e) => setIntegracaoEditando({...integracaoEditando, nome_instancia: e.target.value})}
+                      className="mt-1"
+                    />
+                  </div>
+
+                  <div>
+                    <Label>Número de WhatsApp</Label>
+                    <Input
+                      value={integracaoEditando.numero_telefone}
+                      onChange={(e) => setIntegracaoEditando({...integracaoEditando, numero_telefone: e.target.value.replace(/\D/g, '')})}
+                      className="mt-1"
+                    />
+                  </div>
+
+                  <div>
+                    <Label>Instance ID</Label>
+                    <Input
+                      value={integracaoEditando.instance_id_provider}
+                      onChange={(e) => setIntegracaoEditando({...integracaoEditando, instance_id_provider: e.target.value})}
+                      className="mt-1"
+                    />
+                  </div>
+
+                  <div>
+                    <Label>Token</Label>
+                    <Input
+                      value={integracaoEditando.api_key_provider}
+                      onChange={(e) => setIntegracaoEditando({...integracaoEditando, api_key_provider: e.target.value})}
+                      className="mt-1"
+                      type="password"
+                    />
+                  </div>
+
+                  {integracaoEditando.api_provider === 'z_api' && (
+                    <div>
+                      <Label>Client-Token de Segurança</Label>
+                      <Input
+                        value={integracaoEditando.security_client_token_header}
+                        onChange={(e) => setIntegracaoEditando({...integracaoEditando, security_client_token_header: e.target.value})}
+                        className="mt-1"
+                        type="password"
+                      />
+                    </div>
+                  )}
+                </div>
+
+                <div className="p-4 bg-purple-50 border-2 border-purple-200 rounded-lg">
+                  <Label className="text-sm text-purple-700 font-semibold mb-2 block">🔗 URL do Webhook</Label>
+                  <Input
+                    value={integracaoEditando.webhook_url}
+                    onChange={(e) => setIntegracaoEditando({...integracaoEditando, webhook_url: e.target.value})}
+                    placeholder="https://seu-app.base44.app/api/functions/webhookWapi"
+                    className="font-mono text-xs bg-white"
+                  />
+                  <p className="text-xs text-purple-600 mt-2">
+                    {integracaoEditando.api_provider === 'w_api' 
+                      ? "💡 Configure esta URL nos campos 'Ao receber mensagem', 'Ao enviar mensagem' e 'Ao desconectar' na W-API"
+                      : "💡 Configure esta URL no painel da Z-API para receber webhooks"}
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-3 mt-6">
+                <Button onClick={cancelarEdicao} variant="outline">
+                  Cancelar
+                </Button>
+                <Button 
+                  onClick={salvarEdicao} 
+                  disabled={saving}
+                  className="bg-blue-600 hover:bg-blue-700"
+                >
+                  {saving ? <Loader2 className="w-4 h-4 mr-2 animate-spin"/> : <CheckCircle className="w-4 h-4 mr-2" />}
+                  Salvar Alterações
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Formulário Nova Conexão */}
         <div className="border-t pt-6">
