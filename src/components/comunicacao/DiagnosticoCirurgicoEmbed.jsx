@@ -55,7 +55,8 @@ export default function DiagnosticoCirurgicoEmbed() {
 
       // ========== TESTE 2: TESTAR CONEXÃO HTTP ==========
       console.log('[DIAG] Testando conexao HTTP com webhook...');
-      const webhookUrlBase = getWebhookUrlIntegracao(integracao);
+      // ✅ USAR WEBHOOK_URL SALVO NO BANCO (não construir dinamicamente)
+      const webhookUrlBase = integracao.webhook_url || getWebhookUrlIntegracao(integracao);
       const webhookUrl = webhookUrlBase.includes('?') ? `${webhookUrlBase}&debug=true` : `${webhookUrlBase}?debug=true`;
       
       try {
