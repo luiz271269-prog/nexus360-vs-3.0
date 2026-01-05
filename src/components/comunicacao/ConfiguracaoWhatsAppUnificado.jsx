@@ -47,7 +47,8 @@ export default function ConfiguracaoWhatsAppUnificado({ onClose }) {
     api_provider: "z_api",
     instance_id_provider: "",
     api_key_provider: "",
-    security_client_token_header: ""
+    security_client_token_header: "",
+    webhook_url: ""
   });
   const [criandoInstancia, setCriandoInstancia] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -73,6 +74,9 @@ export default function ConfiguracaoWhatsAppUnificado({ onClose }) {
 
   useEffect(() => {
     carregarIntegracoes();
+    // Inicializar webhook URL no formulário
+    const defaultWebhook = getWebhookUrl({ api_provider: "z_api" });
+    setNovaIntegracao(prev => ({ ...prev, webhook_url: defaultWebhook }));
   }, [carregarIntegracoes]);
 
   // ============================================================================
@@ -339,7 +343,8 @@ export default function ConfiguracaoWhatsAppUnificado({ onClose }) {
         security_client_token_header: api_provider === 'z_api' ? security_client_token_header : null,
         base_url_provider: provider.baseUrl,
         status: "desconectado",
-        tipo_conexao: "webhook"
+        tipo_conexao: "webhook",
+        webhook_url: novaIntegracao.webhook_url || getWebhookUrl({ api_provider })
       });
       
       toast.success("Integração criada com sucesso!");
@@ -378,14 +383,24 @@ export default function ConfiguracaoWhatsAppUnificado({ onClose }) {
 
   // Gera a URL correta do webhook baseada no provedor
   const getWebhookUrl = (integracao) => {
+    const baseUrl = window.location.origin;
+    
     if (integracao.api_provider === 'w_api') {
-      // W-API: Usa a URL pública oficial do Base44 (funciona para receber mensagens)
-      return `https://app.base44.com/api/functions/webhookWapi`;
+      return `${baseUrl}/api/functions/webhookWapi`;
     } else {
-      // Z-API: Usa a URL dinâmica do ambiente
-      const baseUrl = window.location.origin.replace('preview.', '').replace(':3000', '');
       return `${baseUrl}/api/functions/webhookWatsZapi`;
     }
+  };
+
+  // Atualiza webhook URL automaticamente quando muda o provedor
+  const handleProviderChange = (provider) => {
+    const webhookUrl = getWebhookUrl({ api_provider: provider });
+    setNovaIntegracao({
+      ...novaIntegracao, 
+      api_provider: provider, 
+      security_client_token_header: "",
+      webhook_url: webhookUrl
+    });
   };
 
   const copiarWebhookUrl = (integracao) => {
@@ -701,7 +716,7 @@ export default function ConfiguracaoWhatsAppUnificado({ onClose }) {
               <Label>Provedor da API</Label>
               <Select
                 value={novaIntegracao.api_provider}
-                onValueChange={(v) => setNovaIntegracao({...novaIntegracao, api_provider: v, security_client_token_header: ""})}
+                onValueChange={handleProviderChange}
               >
                 <SelectTrigger className="mt-1">
                   <SelectValue />
@@ -779,6 +794,33 @@ export default function ConfiguracaoWhatsAppUnificado({ onClose }) {
                 />
               </div>
             )}
+          </div>
+
+          {/* URL do Webhook - Editável para todos os provedores */}
+          <div className="mb-4 p-4 bg-purple-50 border-2 border-purple-200 rounded-lg">
+            <Label className="text-sm text-purple-700 font-semibold mb-2 block flex items-center gap-2">
+              🔗 URL do Webhook
+              <Badge className="bg-purple-600 text-white text-xs">Configure no provedor</Badge>
+            </Label>
+            <Input
+              value={novaIntegracao.webhook_url}
+              onChange={(e) => setNovaIntegracao({...novaIntegracao, webhook_url: e.target.value})}
+              placeholder="https://seu-app.base44.app/api/functions/webhookWapi"
+              className="font-mono text-xs bg-white"
+            />
+            <div className="mt-2 space-y-1">
+              <p className="text-xs text-purple-600">
+                ✅ URL sugerida automaticamente baseada no provedor selecionado
+              </p>
+              <p className="text-xs text-purple-600">
+                📝 Configure esta URL no painel {novaIntegracao.api_provider === 'w_api' ? 'da W-API' : 'da Z-API'} para receber mensagens
+              </p>
+              {novaIntegracao.api_provider === 'w_api' && (
+                <p className="text-xs text-purple-700 font-medium">
+                  💡 W-API: Cole esta URL nos campos "Ao receber mensagem", "Ao enviar mensagem" e "Ao desconectar"
+                </p>
+              )}
+            </div>
           </div>
 
           {/* Alerta Integrador */}
