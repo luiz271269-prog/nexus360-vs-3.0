@@ -551,13 +551,55 @@ export default function ConfiguracaoWhatsAppUnificado({ onClose }) {
                     </div>
                   )}
                   
-                  {/* URL do Webhook - Exibe a URL correta para configurar na W-API ou Z-API */}
-                  {integracao.api_provider === 'w_api' && (
-                    <div className="mb-4 p-3 bg-purple-50 border border-purple-200 rounded-lg">
-                      <Label className="text-xs text-purple-700 font-semibold mb-1 block">🔗 URL do Webhook (configure na W-API)</Label>
+                  {/* URL do Webhook - Editável */}
+                  <div className="mb-4 p-3 bg-purple-50 border border-purple-200 rounded-lg">
+                    <div className="flex items-center justify-between mb-2">
+                      <Label className="text-xs text-purple-700 font-semibold">🔗 URL do Webhook</Label>
+                      {!editandoWebhook[integracao.id] && (
+                        <Button
+                          onClick={() => iniciarEdicaoWebhook(integracao)}
+                          size="sm"
+                          variant="ghost"
+                          className="h-6 text-xs text-purple-600 hover:text-purple-700"
+                        >
+                          <Settings className="w-3 h-3 mr-1" />
+                          Editar
+                        </Button>
+                      )}
+                    </div>
+                    
+                    {editandoWebhook[integracao.id] ? (
+                      <div className="space-y-2">
+                        <Input 
+                          value={webhookTemporario[integracao.id] || ''}
+                          onChange={(e) => setWebhookTemporario(prev => ({ ...prev, [integracao.id]: e.target.value }))}
+                          className="text-xs bg-white font-mono"
+                          placeholder="https://seu-app.base44.app/api/functions/webhookWapi"
+                        />
+                        <div className="flex gap-2">
+                          <Button
+                            onClick={() => salvarWebhookUrl(integracao.id)}
+                            size="sm"
+                            className="flex-1 bg-purple-600 hover:bg-purple-700 h-7 text-xs"
+                          >
+                            <CheckCircle className="w-3 h-3 mr-1" />
+                            Salvar
+                          </Button>
+                          <Button
+                            onClick={() => cancelarEdicaoWebhook(integracao.id)}
+                            size="sm"
+                            variant="outline"
+                            className="flex-1 h-7 text-xs"
+                          >
+                            <X className="w-3 h-3 mr-1" />
+                            Cancelar
+                          </Button>
+                        </div>
+                      </div>
+                    ) : (
                       <div className="flex items-center gap-2">
                         <Input 
-                          value={getWebhookUrl(integracao)}
+                          value={integracao.webhook_url || getWebhookUrl(integracao)}
                           readOnly
                           className="text-xs bg-white font-mono"
                         />
@@ -570,11 +612,14 @@ export default function ConfiguracaoWhatsAppUnificado({ onClose }) {
                           <Copy className="w-4 h-4" />
                         </Button>
                       </div>
-                      <p className="text-[10px] text-purple-600 mt-1">
-                        Configure esta URL nos campos "Ao receber mensagem", "Ao enviar mensagem" e "Ao desconectar" na W-API
-                      </p>
-                    </div>
-                  )}
+                    )}
+                    
+                    <p className="text-[10px] text-purple-600 mt-1">
+                      {integracao.api_provider === 'w_api' 
+                        ? "Configure esta URL nos campos 'Ao receber mensagem', 'Ao enviar mensagem' e 'Ao desconectar' na W-API"
+                        : "Configure esta URL no painel do provedor para receber webhooks"}
+                    </p>
+                  </div>
 
                   {/* Botões de Ação */}
                   <div className="flex flex-wrap gap-2">
