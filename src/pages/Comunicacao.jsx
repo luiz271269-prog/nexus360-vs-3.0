@@ -140,11 +140,20 @@ export default function Comunicacao() {
     queryKey: ['threads', usuario?.id],
     queryFn: async () => {
       if (!usuario) return [];
-      const allThreads = await base44.entities.MessageThread.list('-last_message_at', 200);
+      const allThreads = await base44.entities.MessageThread.list('-last_message_at', 500);
       console.log('[COMUNICACAO] 📊 Threads carregadas:', allThreads.length);
       // ✅ LOG: Contadores de não lidas para debug
       const comNaoLidas = allThreads.filter(t => (t.unread_count || 0) > 0 || Object.values(t.unread_by || {}).some(v => v > 0));
       console.log('[COMUNICACAO] 📬 Threads com não lidas:', comNaoLidas.length);
+      
+      // ✅ LOG: Verificar se a thread de teste existe
+      const threadTeste = allThreads.find(t => t.id === '6927a16db587db4e93842639');
+      if (threadTeste) {
+        console.log('[COMUNICACAO] ✅ Thread de teste encontrada:', threadTeste.last_message_at, 'Não lidas:', threadTeste.unread_count);
+      } else {
+        console.log('[COMUNICACAO] ❌ Thread de teste NÃO está no top 500');
+      }
+      
       return allThreads;
     },
     refetchInterval: 5000, // ✅ WHATSAPP PATTERN: Atualizar a cada 5 segundos (tempo real)
