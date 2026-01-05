@@ -564,7 +564,7 @@ async function handleMessage(dados, payloadBruto, base44) {
     console.error('[WAPI] ⚠️ Erro ao disparar Cérebro:', err.message);
   }
 
-  // Audit log
+  // Audit log - SALVAR COM messageId DO PAYLOAD BRUTO
   try {
     await base44.asServiceRole.entities.ZapiPayloadNormalized.create({
       payload_bruto: payloadBruto,
@@ -573,6 +573,7 @@ async function handleMessage(dados, payloadBruto, base44) {
       evento: 'ReceivedCallback',
       timestamp_recebido: new Date().toISOString(),
       sucesso_processamento: true,
+      message_id: payloadBruto.messageId || payloadBruto.data?.key?.id || dados.messageId,
     });
   } catch {}
 

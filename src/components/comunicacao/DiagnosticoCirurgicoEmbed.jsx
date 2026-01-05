@@ -170,12 +170,15 @@ export default function DiagnosticoCirurgicoEmbed() {
           10
         );
 
-        // Buscar payload - adaptar busca ao formato do provedor
+        // Buscar payload - verificar em múltiplos campos
         const payloadEncontrado = payloads.find(p => {
           if (isWAPI) {
-            return p.payload_bruto?.data?.key?.id === messageIdTeste;
+            return p.payload_bruto?.messageId === messageIdTeste ||
+                   p.payload_bruto?.data?.key?.id === messageIdTeste ||
+                   p.message_id === messageIdTeste;
           }
-          return p.payload_bruto?.messageId === messageIdTeste;
+          return p.payload_bruto?.messageId === messageIdTeste ||
+                 p.message_id === messageIdTeste;
         });
 
         diagnostico.testes.push({
@@ -186,7 +189,11 @@ export default function DiagnosticoCirurgicoEmbed() {
             total_recentes: payloads.length,
             encontrado: !!payloadEncontrado,
             messageId_buscado: messageIdTeste,
-            payload: payloadEncontrado
+            payload: payloadEncontrado,
+            message_ids_encontrados: payloads.map(p => ({
+              payload_bruto_messageId: p.payload_bruto?.messageId,
+              message_id_campo: p.message_id
+            }))
           }
         });
       } catch (error) {
