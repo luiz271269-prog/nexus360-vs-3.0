@@ -143,23 +143,30 @@ export default function ChatSidebar({
   const { etiquetas: etiquetasDB, getConfig: getEtiquetaConfigDinamico } = useEtiquetasContato();
 
   // ═══════════════════════════════════════════════════════════════════════════════
-  // 🛡️ FILTRO BLINDADO - Aceita thread_type null (Z-API/W-API antiga)
+  // 🛡️ FILTRO BLINDADO V4.2 - Permissivo para usuários internos que ENVIAM mensagens
   // ═══════════════════════════════════════════════════════════════════════════════
   const threadsFiltradas = useMemo(() => {
     if (!threads || threads.length === 0) return [];
 
     return threads.filter((thread) => {
-      // 1️⃣ INTERNOS: Restritivo - Precisa ser participante ou admin
+      // 0. REGRA MESTRA: Admin vê TUDO (sem exceções)
+      if (usuarioAtual?.role === 'admin') return true;
+
+      // 1. LÓGICA INTERNA - Sem URA, sem bloqueios, livre e direto
       if (thread.thread_type === 'team_internal' || thread.thread_type === 'sector_group') {
-        const isParticipant = thread.participants?.includes(usuarioAtual?.id);
-        const isAdmin = usuarioAtual?.role === 'admin';
-        return Boolean(isParticipant || isAdmin);
+        // Se a lista de participantes estiver vazia (bug de backend), mostramos por segurança
+        if (!thread.participants || thread.participants.length === 0) return true;
+        
+        const isParticipant = thread.participants.includes(usuarioAtual?.id);
+        return isParticipant;
       }
       
-      // 2️⃣ EXTERNOS (ou thread_type ausente): Permissivo - Mostra tudo exceto bloqueados
-      // ✅ Aceita Z-API/W-API que não preenchem thread_type
+      // 2. LÓGICA EXTERNA (WhatsApp Z-API/W-API)
+      // Se não tem thread_type ou é contact_external, cai aqui.
       const contato = thread.contato;
       if (contato && contato.bloqueado) return false;
+      
+      // Permissivo: mostra tudo que não está bloqueado
       return true;
     });
   }, [threads, usuarioAtual]);
