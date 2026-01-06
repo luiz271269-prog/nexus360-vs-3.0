@@ -844,7 +844,7 @@ async function handleMessage(dados, payloadBruto, base44) {
     }
 
     // ✅ IMPORT DIRETO – SEM HTTP, SEM 404
-    const { processInboundEvent } = await import('@/functions/lib/inboundCore.js');
+    const { processInboundEvent } = await import('./lib/inboundCore.js');
 
     await processInboundEvent({
       base44,
