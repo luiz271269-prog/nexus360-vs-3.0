@@ -64,28 +64,14 @@ export default function DiagnosticoWebhookWAPICompleto() {
 
   const registrarWebhook = async (integracao) => {
     try {
-      const baseUrl = integracao.base_url_provider || 'https://api.w-api.app/v1';
-      const instanceId = integracao.instance_id_provider;
-      const token = integracao.api_key_provider;
+      const { data, error } = await base44.functions.invoke('wapiRegistrarWebhookRapido', {
+        integration_id: integracao.id
+      });
 
-      const response = await fetch(
-        `${baseUrl}/instance/webhook?instanceId=${instanceId}`,
-        {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({
-            webhook: WEBHOOK_URL
-          })
-        }
-      );
-
-      const data = await response.json();
+      if (error) throw new Error(error);
       
       return {
-        sucesso: response.ok,
+        sucesso: data.success,
         mensagem: data.message || 'Webhook registrado',
         detalhes: data
       };
