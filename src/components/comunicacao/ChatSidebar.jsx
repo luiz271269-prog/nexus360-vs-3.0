@@ -791,7 +791,7 @@ export default function ChatSidebar({
                       if (isCarregando) {
                         return (
                           <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-semibold text-slate-500 bg-slate-100 shadow-sm" title="Atendente fidelizado não visível">
-                            ⭐ Restrito
+                            ★ Restrito
                           </span>
                         );
                       }
