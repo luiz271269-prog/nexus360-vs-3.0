@@ -143,25 +143,26 @@ export default function ChatSidebar({
   const { etiquetas: etiquetasDB, getConfig: getEtiquetaConfigDinamico } = useEtiquetasContato();
 
   // ═══════════════════════════════════════════════════════════════════════════════
-  // SEM RESTRIÇÕES - MOSTRAR TODAS AS CONVERSAS
+  // 🛡️ FILTRO BLINDADO - Aceita thread_type null (Z-API/W-API antiga)
   // ═══════════════════════════════════════════════════════════════════════════════
   const threadsFiltradas = useMemo(() => {
     if (!threads || threads.length === 0) return [];
 
     return threads.filter((thread) => {
-      // ✅ THREADS INTERNAS - visíveis apenas para participantes (ou admin)
+      // 1️⃣ INTERNOS: Restritivo - Precisa ser participante ou admin
       if (thread.thread_type === 'team_internal' || thread.thread_type === 'sector_group') {
         const isParticipant = thread.participants?.includes(usuarioAtual?.id);
         const isAdmin = usuarioAtual?.role === 'admin';
         return Boolean(isParticipant || isAdmin);
       }
       
-      // ✅ THREADS EXTERNAS - filtrar contatos bloqueados
+      // 2️⃣ EXTERNOS (ou thread_type ausente): Permissivo - Mostra tudo exceto bloqueados
+      // ✅ Aceita Z-API/W-API que não preenchem thread_type
       const contato = thread.contato;
       if (contato && contato.bloqueado) return false;
       return true;
     });
-  }, [threads]);
+  }, [threads, usuarioAtual]);
 
   const threadsSorted = useMemo(() => {
     return [...threadsFiltradas].sort((a, b) => {
@@ -423,7 +424,8 @@ export default function ChatSidebar({
         if (isThreadInterna) {
           const threadUI = resolveThreadUI(thread, usuarioAtual, atendentes);
           const isSelected = contatosSelecionados.find(c => c.id === thread.id);
-          const hasUnread = getUnreadCount(thread, usuarioAtual?.id) > 0;
+          const unreadInterno = getUnreadCount(thread, usuarioAtual?.id);
+          const hasUnread = unreadInterno > 0;
           const setorConfig = {
             'vendas': { cor: 'bg-emerald-500' },
             'assistencia': { cor: 'bg-blue-500' },
@@ -481,7 +483,7 @@ export default function ChatSidebar({
                     </h3>
                     {hasUnread && (
                       <Badge className="rounded-full min-w-[18px] h-4 flex items-center justify-center p-0 px-1 bg-gradient-to-r from-purple-400 via-indigo-500 to-blue-500 text-white text-[10px] font-bold border-0 shadow-lg">
-                        {getUnreadCount(thread, usuarioAtual?.id)}
+                        {unreadInterno}
                       </Badge>
                     )}
                   </div>
@@ -583,7 +585,8 @@ export default function ChatSidebar({
           }
 
           const isSelected = contatosSelecionados.find(c => c.id === contato?.id);
-          const hasUnread = getUnreadCount(thread, usuarioAtual?.id) > 0;
+          const unreadExterno = getUnreadCount(thread, usuarioAtual?.id);
+          const hasUnread = unreadExterno > 0;
 
           return (
             <motion.div
@@ -592,7 +595,7 @@ export default function ChatSidebar({
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: index * 0.05 }}
               onClick={(e) => handleClick(thread, e)} 
-              className={`px-2 py-2 flex items-center gap-3 cursor-pointer transition-all border-b border-slate-100 hover:bg-gradient-to-r hover:from-amber-50 hover:to-orange-50 ${thread.is_contact_only ? 'bg-slate-50/50' : ''} ${isSelected ? 'bg-orange-100 border-l-4 border-l-orange-500' : ''}`}
+              className={`px-2 py-2 flex items-center gap-3 cursor-pointer transition-all border-b border-slate-100 hover:bg-gradient-to-r hover:from-amber-50 hover:to-orange-50 ${thread.is_contact_only ? 'bg-slate-50/50' : ''} ${isAtiva ? 'bg-blue-50' : ''} ${isSelected ? 'bg-orange-100 border-l-4 border-l-orange-500' : ''}`}
             >
               {/* Checkbox em modo seleção */}
               {modoSelecao && (
@@ -637,7 +640,7 @@ export default function ChatSidebar({
                       </h3>
                       {hasUnread &&
                       <Badge className="rounded-full min-w-[18px] h-4 flex items-center justify-center p-0 px-1 bg-gradient-to-r from-amber-400 via-orange-500 to-red-500 text-white text-[10px] font-bold border-0 shadow-lg">
-                          {getUnreadCount(thread, usuarioAtual?.id)}
+                          {unreadExterno}
                         </Badge>
                       }
                     {(() => {
