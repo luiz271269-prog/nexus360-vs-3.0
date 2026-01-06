@@ -1,4 +1,4 @@
-import { createClientFromRequest } from 'npm:@base44/sdk@0.8.6';
+import { createClient } from 'jsr:@supabase/supabase-js@2';
 
 // ✅ Import será feito dinamicamente quando necessário
 
@@ -762,14 +762,21 @@ Deno.serve(async (req) => {
     return jsonOk({ version: VERSION, status: 'ok', provider: 'w_api' });
   }
 
-  // ✅ AUTH FIX Base44: Usar SDK oficial (sem necessidade de env vars)
+  // ✅ AUTH FIX: Service Role direto (webhooks externos)
   let base44;
   try {
-    base44 = createClientFromRequest(req);
-    console.log('[WAPI-AUTH] ✅ Cliente Base44 criado (usando SDK oficial)');
+    const url = Deno.env.get('SUPABASE_URL');
+    const key = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+    
+    if (!url || !key) {
+      throw new Error('SUPABASE_URL ou SUPABASE_SERVICE_ROLE_KEY ausentes');
+    }
+    
+    base44 = createClient(url, key);
+    console.log('[WAPI-AUTH] ✅ Cliente Supabase criado com Service Role');
   } catch (e) {
-    console.error('[WAPI] 🔴 FATAL: Erro ao criar cliente Base44:', e.message);
-    return jsonErr('sdk_error', 500);
+    console.error('[WAPI] 🔴 FATAL:', e.message);
+    return jsonErr('config_error', 500);
   }
 
   let payload;
