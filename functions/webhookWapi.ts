@@ -765,10 +765,15 @@ Deno.serve(async (req) => {
   // ✅ AUTH FIX: createClient com env vars (aceita chamadas externas da W-API)
   let base44;
   try {
-    const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? '';
-    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
+    const supabaseUrl = Deno.env.get('SUPABASE_URL');
+    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+
+    console.log(`[WAPI-AUTH] 🔍 SUPABASE_URL: ${supabaseUrl ? 'OK (presente)' : '❌ AUSENTE'}`);
+    console.log(`[WAPI-AUTH] 🔍 SUPABASE_SERVICE_ROLE_KEY: ${supabaseKey ? 'OK (presente)' : '❌ AUSENTE'}`);
+
     if (!supabaseUrl || !supabaseKey) throw new Error('Env vars ausentes');
     base44 = createClient(supabaseUrl, supabaseKey);
+    console.log('[WAPI-AUTH] ✅ Cliente Supabase criado com sucesso');
   } catch (e) {
     console.error('[WAPI] 🔴 FATAL: Erro Client:', e.message);
     return jsonErr('sdk_error', 500);
