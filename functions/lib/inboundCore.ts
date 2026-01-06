@@ -284,6 +284,9 @@ export async function processInboundEvent(params) {
   // ============================================================================
 
   let intentContext = null;
+  
+  // ✅ CORREÇÃO: Declarar isUraActive ANTES de usar
+  const isUraActive = thread.pre_atendimento_ativo === true;
 
   // Se é novo ciclo, não é URA ativa, e é texto (não botão), usar IA
   if (novoCiclo && !isUraActive && userInput.type === 'text' && userInput.content.length > 2) {
@@ -317,7 +320,7 @@ export async function processInboundEvent(params) {
   
   result.pipeline.push('pre_atendimento_dispatch');
   
-  const isUraActive = thread.pre_atendimento_ativo === true;
+  // ✅ isUraActive já foi declarado acima (linha ~275)
   const isHumanActive = humanoAtivo(thread, 2); // Janela estrita de 2h
   const isHumanDormant = thread.assigned_user_id && !isHumanActive; // Humano existe, mas dormiu
   
