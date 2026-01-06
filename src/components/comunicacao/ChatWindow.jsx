@@ -1819,7 +1819,7 @@ export default function ChatWindow({
                 if (atendenteFidelizado) {
                   return (
                     <div className="flex items-center gap-1.5 px-2 py-1 bg-amber-100 border border-amber-300 rounded-full">
-                      <span className="text-amber-600 text-xs">⭐</span>
+                      <span className="text-amber-600 text-xs">★</span>
                       <span className="text-[11px] font-semibold text-amber-700 truncate max-w-[100px]">
                         {atendenteFidelizado.split(' ')[0]}
                       </span>
