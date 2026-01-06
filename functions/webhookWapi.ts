@@ -1,18 +1,6 @@
 import { createClient } from 'jsr:@supabase/supabase-js@2';
 
-// ✅ IMPORT DINÂMICO (detecta ambiente automaticamente)
-let processInboundEvent;
-try {
-  const module = await import('./lib/inboundCore.js');
-  processInboundEvent = module.processInboundEvent;
-} catch (e1) {
-  try {
-    const module = await import('../functions/lib/inboundCore.js');
-    processInboundEvent = module.processInboundEvent;
-  } catch (e2) {
-    console.error('[WAPI] ❌ Falha ao importar inboundCore:', e2.message);
-  }
-}
+// ✅ Import será feito dinamicamente quando necessário
 
 // ============================================================================
 // WEBHOOK WHATSAPP W-API - v18.0.0 ULTIMATE MIRROR
