@@ -756,7 +756,7 @@ export default function ChatSidebar({
                   {/* FIDELIZADO - Mostra se contato tem atendente fidelizado */}
                   {contato?.is_cliente_fidelizado && (
                     <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-semibold text-amber-700 bg-amber-100 shadow-sm" title="Cliente Fidelizado">
-                      ⭐
+                      ★
                     </span>
                   )}
                   
