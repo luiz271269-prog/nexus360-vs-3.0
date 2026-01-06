@@ -40,6 +40,7 @@ import {
   DropdownMenuTrigger } from
 "@/components/ui/dropdown-menu";
 import UsuarioDisplay from './UsuarioDisplay';
+import { sanitizeEmojis } from '../lib/emojiSanitizer';
 
 // Componente de imagem com fallback seguro
 const ImageWithFallback = ({ src, alt, className, onClick, isPersisted }) => {
@@ -464,9 +465,11 @@ export default React.memo(function MessageBubble({
     }
   };
 
-  const mensagemOriginal = message?.reply_to_message_id ?
-  mensagens?.find((m) => m.id === message.reply_to_message_id) :
-  null;
+  // ✅ BUSCAR MENSAGEM ORIGINAL para quote/resposta (IGUAL WhatsApp)
+  const mensagemOriginal = useMemo(() => {
+    if (!message?.reply_to_message_id || !mensagens) return null;
+    return mensagens.find((m) => m.id === message.reply_to_message_id);
+  }, [message?.reply_to_message_id, mensagens]);
 
   const normalizarCategorias = (categorias) => {
     if (!Array.isArray(categorias)) return [];
@@ -618,8 +621,8 @@ export default React.memo(function MessageBubble({
             <ArrowRight className="w-4 h-4 text-white" />
           </div>
           <span className="font-semibold leading-tight">
-            {String(message.content || '')}
-            {message.metadata?.transferido_por && ` · por ${message.metadata.transferido_por}`}
+            {sanitizeEmojis(String(message.content || ''))}
+            {message.metadata?.transferido_por && ` · por ${sanitizeEmojis(message.metadata.transferido_por)}`}
           </span>
           <span className={`text-[11px] ${cores.timestamp} font-medium opacity-80`}>
             {formatarHorario(message.sent_at || message.created_date)}
@@ -687,19 +690,52 @@ export default React.memo(function MessageBubble({
             </div>
           )}
 
-          {mensagemOriginal &&
-          <div className={cn(
-            "mb-1 px-3 py-2 rounded-lg border-l-4 text-xs bg-slate-100",
-            isOwn ? "border-blue-500" : "border-green-500"
-          )}>
-              <p className="font-semibold text-slate-600 mb-0.5">
-                {mensagemOriginal?.sender_type === 'user' ? 'Você' : 'Cliente'}
+          {/* ✅ QUOTE/RESPOSTA - Estilo WhatsApp */}
+          {mensagemOriginal && (
+            <div className={cn(
+              "mb-1.5 mx-2 mt-2 px-2 py-1.5 rounded-md border-l-[3px]",
+              isThreadInterna 
+                ? (isOwn ? "bg-blue-50/50 border-blue-400" : "bg-slate-50 border-slate-400")
+                : (isOwn ? "bg-emerald-50/50 border-emerald-500" : "bg-slate-50 border-slate-400")
+            )}>
+              {/* Nome do remetente original */}
+              <p className={cn(
+                "text-[11px] font-semibold mb-0.5",
+                isThreadInterna 
+                  ? (isOwn ? "text-blue-600" : "text-slate-600")
+                  : (isOwn ? "text-emerald-600" : "text-slate-600")
+              )}>
+                {(() => {
+                  if (mensagemOriginal.sender_type === 'user') {
+                    // Mensagem de atendente
+                    const atendenteOriginal = atendentes.find(a => a.id === mensagemOriginal.sender_id);
+                    if (mensagemOriginal.sender_id === usuarioAtual?.id) return 'Você';
+                    return atendenteOriginal?.display_name || atendenteOriginal?.full_name || 'Atendente';
+                  } else {
+                    // Mensagem do cliente/contato
+                    return contato?.nome || 'Cliente';
+                  }
+                })()}
               </p>
-              <p className="text-slate-500 line-clamp-2">
-                {String(mensagemOriginal?.content || "[Mídia/Conteúdo sem texto]")}
+              
+              {/* Preview do conteúdo */}
+              <p className="text-[12px] text-slate-600 line-clamp-2 break-words">
+                {(() => {
+                  // Mostrar mídia com ícone
+                  if (mensagemOriginal.media_type === 'image') return '📷 Imagem';
+                  if (mensagemOriginal.media_type === 'video') return '🎥 Vídeo';
+                  if (mensagemOriginal.media_type === 'audio') return '🎤 Áudio';
+                  if (mensagemOriginal.media_type === 'document') return '📄 Documento';
+                  if (mensagemOriginal.media_type === 'sticker') return '🎨 Sticker';
+                  if (mensagemOriginal.media_type === 'location') return '📍 Localização';
+                  
+                  // Sanitizar emojis do texto
+                  const texto = sanitizeEmojis(String(mensagemOriginal.content || ''));
+                  return texto || '[Conteúdo não disponível]';
+                })()}
               </p>
             </div>
-          }
+          )}
 
           <div className={cn(
             "rounded-lg relative shadow-sm",
@@ -1071,7 +1107,7 @@ export default React.memo(function MessageBubble({
                   "text-[#111b21]"
                 )} style={{ wordBreak: 'break-word', overflowWrap: 'anywhere' }}>
                   <p className="text-[14.2px] leading-[19px]" style={{ fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Color Emoji", sans-serif' }}>
-                    {String(message.content || '')}
+                    {sanitizeEmojis(String(message.content || ''))}
                   </p>
                 </div>
 
