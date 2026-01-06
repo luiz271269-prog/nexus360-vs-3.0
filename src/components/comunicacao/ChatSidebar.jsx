@@ -798,7 +798,7 @@ export default function ChatSidebar({
                       
                       return (
                         <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-semibold text-amber-700 bg-amber-100 shadow-sm">
-                          ⭐ {nomeFidelizado.split(' ')[0]}
+                          ★ {nomeFidelizado.split(' ')[0]}
                         </span>
                       );
                     })()
