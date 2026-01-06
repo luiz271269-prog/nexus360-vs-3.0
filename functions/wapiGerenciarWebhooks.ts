@@ -10,27 +10,43 @@ import { createClientFromRequest } from 'npm:@base44/sdk@0.8.6';
  * https://www.postman.com/w-api/w-api-api-do-whatsapp/documentation/
  */
 Deno.serve(async (req) => {
+  console.log('[WAPI-WEBHOOKS] ========================================');
+  console.log('[WAPI-WEBHOOKS] REQUEST:', req.method);
+  
   try {
     const base44 = createClientFromRequest(req);
     const user = await base44.auth.me();
 
+    console.log('[WAPI-WEBHOOKS] User:', user?.email, '| Role:', user?.role);
+
     if (!user) {
+      console.log('[WAPI-WEBHOOKS] ❌ Não autenticado');
       return Response.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { action, integration_id } = await req.json();
+    const body = await req.json();
+    console.log('[WAPI-WEBHOOKS] 📥 Body:', JSON.stringify(body));
+    
+    const { action, integration_id } = body;
+
+    console.log('[WAPI-WEBHOOKS] Action:', action, '| Integration:', integration_id);
 
     if (!integration_id) {
+      console.log('[WAPI-WEBHOOKS] ❌ integration_id ausente');
       return Response.json({ error: 'integration_id é obrigatório' }, { status: 400 });
     }
 
     // Buscar integração
+    console.log('[WAPI-WEBHOOKS] 🔍 Buscando integração...');
     const integracoes = await base44.entities.WhatsAppIntegration.filter({ id: integration_id });
+    
     if (!integracoes || integracoes.length === 0) {
+      console.log('[WAPI-WEBHOOKS] ❌ Integração não encontrada');
       return Response.json({ error: 'Integração não encontrada' }, { status: 404 });
     }
 
     const integracao = integracoes[0];
+    console.log('[WAPI-WEBHOOKS] ✅ Integração:', integracao.nome_instancia, '| Provider:', integracao.api_provider);
 
     // Validar que é W-API
     if (integracao.api_provider !== 'w_api') {
@@ -55,6 +71,7 @@ Deno.serve(async (req) => {
     // AÇÃO: LISTAR WEBHOOKS ATIVOS
     // ========================================================================
     if (action === 'list') {
+      console.log('[WAPI-WEBHOOKS] 📋 Executando LIST');
       try {
         const url = `https://api.w-api.app/v1/instance/webhook?instanceId=${instanceId}`;
         
@@ -82,13 +99,16 @@ Deno.serve(async (req) => {
     // AÇÃO: REGISTRAR/ATUALIZAR WEBHOOKS
     // ========================================================================
     if (action === 'register') {
+      console.log('[WAPI-WEBHOOKS] 📝 Executando REGISTER');
+      
       if (!webhookUrl) {
+        console.log('[WAPI-WEBHOOKS] ❌ webhook_url não configurado');
         return Response.json({ 
           error: 'webhook_url não configurado na integração' 
         }, { status: 400 });
       }
 
-      console.log(`[WAPI-WEBHOOKS] 🔗 Registrando: ${webhookUrl}`);
+      console.log(`[WAPI-WEBHOOKS] 🔗 URL a registrar: ${webhookUrl}`);
 
       // Webhooks essenciais para funcionamento
       const eventos = [
