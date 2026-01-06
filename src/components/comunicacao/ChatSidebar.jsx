@@ -636,11 +636,11 @@ export default function ChatSidebar({
                       <h3 className={`font-semibold truncate text-sm ${hasUnread ? 'text-slate-900' : 'text-slate-700'}`}>
                         {nomeExibicao}
                       </h3>
-                      {hasUnread &&
-                      <Badge className="rounded-full min-w-[18px] h-4 flex items-center justify-center p-0 px-1 bg-gradient-to-r from-amber-400 via-orange-500 to-red-500 text-white text-[10px] font-bold border-0 shadow-lg">
+                      {hasUnread && (
+                        <Badge className="rounded-full min-w-[18px] h-4 flex items-center justify-center p-0 px-1 bg-gradient-to-r from-amber-400 via-orange-500 to-red-500 text-white text-[10px] font-bold border-0 shadow-lg">
                           {getUnreadCount(thread, usuarioAtual?.id)}
                         </Badge>
-                      }
+                      )}
                     {(() => {
                       const info = getIntegracaoInfo(thread);
                       if (!info) return null;
