@@ -612,10 +612,20 @@ async function handleMessage(dados, payloadBruto, base44) {
   // DISPARAR CÉREBRO (Import Direto - SIMETRIA Z-API)
   try {
     console.log('[WAPI] 🧠 Carregando Inbound Core (Direct Import)...');
-    
+    console.log('[WAPI] 📂 Import path:', import.meta.url);
+
     // ✅ IMPORT DIRETO - Elimina erros HTTP 404 e timeout
-    const { processInboundEvent } = await import('./lib/inboundCore.js');
-    
+    let processInboundEvent;
+    try {
+      const module = await import('./lib/inboundCore.js');
+      processInboundEvent = module.processInboundEvent;
+      console.log('[WAPI] ✅ Módulo inboundCore carregado');
+    } catch (importErr) {
+      console.error('[WAPI] ❌ Erro ao importar inboundCore:', importErr.message);
+      console.error('[WAPI] ❌ Stack:', importErr.stack);
+      throw importErr;
+    }
+
     let integracaoObj = null;
     if (integracaoId) {
       try {
@@ -636,10 +646,11 @@ async function handleMessage(dados, payloadBruto, base44) {
       messageContent: dados.content,
       rawPayload: payloadBruto
     });
-    
+
     console.log('[WAPI] ✅ Cérebro executado (Direct Import)');
   } catch (err) {
     console.error('[WAPI] 🔴 Erro no Cérebro:', err.message);
+    console.error('[WAPI] 🔴 Stack completo:', err.stack);
   }
 
   // Audit log
