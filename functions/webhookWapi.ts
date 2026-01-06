@@ -1,7 +1,7 @@
 import { createClient } from 'jsr:@supabase/supabase-js@2';
 
-// ✅ IMPORT ESTÁTICO (W-API específico - evita "OS Error 2")
-import { processInboundEvent } from './lib/inboundCore.js';
+// ✅ IMPORT ABSOLUTO (corrige "OS Error 2" no Deno Deploy)
+import { processInboundEvent } from '../functions/lib/inboundCore.js';
 
 // ============================================================================
 // WEBHOOK WHATSAPP W-API - v18.0.0 ULTIMATE MIRROR
