@@ -10,8 +10,8 @@ import { createClientFromRequest } from 'npm:@base44/sdk@0.8.4';
 // 4. Normalização elástica de payload
 // ============================================================================
 
-const VERSION = 'v14.0.0-ALIGNED-WITH-ZAPI';
-const BUILD_DATE = '2026-01-05';
+const VERSION = 'v16.0.0-SYMMETRY';
+const BUILD_DATE = '2026-01-06';
 
 const corsHeaders = {
   'Content-Type': 'application/json',
@@ -56,19 +56,22 @@ function normalizarTelefone(telefone) {
 function classifyWapiEvent(payload) {
   if (!payload || typeof payload !== 'object') return 'ignore';
 
-  const evento = String(payload.event || '').toLowerCase();
+  const evento = String(payload.event || payload.type || '').toLowerCase();
 
   // 1️⃣ STATUS/ACK: webhookdelivery
-  if (evento === 'webhookdelivery' || evento.includes('delivery')) {
+  if (evento.includes('delivery') || evento.includes('ack') || evento.includes('status')) {
     return 'system-status';
   }
 
-  // 2️⃣ MENSAGEM DE USUÁRIO: webhookreceived com msgContent
-  if ((evento === 'webhookreceived' || payload.msgContent) && payload.msgContent) {
-    const msg = payload.msgContent;
-    if (msg.conversation || msg.extendedTextMessage || msg.imageMessage ||
-        msg.audioMessage || msg.locationMessage || msg.liveLocationMessage ||
-        msg.videoMessage || msg.documentMessage) {
+  // 2️⃣ MENSAGEM DE USUÁRIO: Aceita msgContent OU text/body OU ReceivedCallback
+  // ✅ CORREÇÃO CRÍTICA: Não exigir msgContent para aceitar mensagens de texto simples
+  if (payload.msgContent) {
+    return 'user-message';
+  }
+  
+  // ✅ Aceitar ReceivedCallback com text/body mesmo sem msgContent
+  if (evento === 'webhookreceived' || evento === 'receivedcallback' || evento.includes('received')) {
+    if (payload.text?.message || payload.body || payload.message || payload.messageId) {
       return 'user-message';
     }
   }
@@ -193,10 +196,11 @@ function normalizarPayload(payload) {
     let originalMediaUrl = null;
     let conteudoRaw = payload.text?.message || payload.body || '';
     let conteudo = '';
+    let downloadSpec = null; // ✅ CORREÇÃO: Declarar antes de usar
 
     if (msgContent.imageMessage) {
       mediaType = 'image';
-      conteudo = msgContent.imageMessage.caption || '📷 [Imagem]';
+      conteudo = msgContent.imageMessage.caption || '[Imagem]';
       downloadSpec = {
         type: 'image',
         mediaKey: msgContent.imageMessage.mediaKey,
@@ -205,7 +209,7 @@ function normalizarPayload(payload) {
       };
     } else if (msgContent.videoMessage) {
       mediaType = 'video';
-      conteudo = msgContent.videoMessage.caption || '🎥 [Vídeo]';
+      conteudo = msgContent.videoMessage.caption || '[Video]';
       downloadSpec = {
         type: 'video',
         mediaKey: msgContent.videoMessage.mediaKey,
@@ -214,7 +218,7 @@ function normalizarPayload(payload) {
       };
     } else if (msgContent.audioMessage) {
       mediaType = 'audio';
-      conteudo = msgContent.audioMessage.ptt ? '🎤 [Áudio de voz]' : '🎵 [Áudio]';
+      conteudo = msgContent.audioMessage.ptt ? '[Audio de voz]' : '[Audio]';
       downloadSpec = {
         type: 'audio',
         mediaKey: msgContent.audioMessage.mediaKey,
@@ -223,7 +227,7 @@ function normalizarPayload(payload) {
       };
     } else if (msgContent.documentMessage) {
       mediaType = 'document';
-      conteudo = msgContent.documentMessage.caption || msgContent.documentMessage.fileName || '📄 [Documento]';
+      conteudo = msgContent.documentMessage.caption || msgContent.documentMessage.fileName || '[Documento]';
       downloadSpec = {
         type: 'document',
         mediaKey: msgContent.documentMessage.mediaKey,
@@ -235,10 +239,10 @@ function normalizarPayload(payload) {
       conteudo = '[Sticker]';
     } else if (msgContent.contactMessage || msgContent.contactsArrayMessage) {
       mediaType = 'contact';
-      conteudo = '📇 Contato';
+      conteudo = '[Contato]';
     } else if (msgContent.locationMessage || msgContent.liveLocationMessage) {
       mediaType = 'location';
-      conteudo = '📍 Localização';
+      conteudo = '[Localizacao]';
     } else if (msgContent.extendedTextMessage) {
       conteudo = msgContent.extendedTextMessage.text || '';
     } else if (msgContent.conversation) {
@@ -260,6 +264,7 @@ function normalizarPayload(payload) {
       mediaType,
       originalMediaUrl,
       fileId,
+      downloadSpec, // ✅ ADICIONAR ao retorno para uso no handleMessage
       mediaCaption: msgContent.imageMessage?.caption || msgContent.videoMessage?.caption,
       pushName: payload.pushName || payload.senderName || payload.sender?.pushName || payload.text?.senderName,
       vcard: msgContent.contactMessage || msgContent.contactsArrayMessage,
@@ -543,7 +548,7 @@ async function handleMessage(dados, payloadBruto, base44) {
       sender_id: contato.id,
       sender_type: 'contact',
       content: dados.content,
-      media_url: dados.mediaType !== 'none' && dados.mediaType !== 'location' ? 'pending_download' : null,
+      media_url: dados.downloadSpec ? 'pending_download' : null,
       media_type: dados.mediaType,
       media_caption: dados.mediaCaption ?? null,
       channel: 'whatsapp',
@@ -559,8 +564,7 @@ async function handleMessage(dados, payloadBruto, base44) {
         vcard: dados.vcard ?? null,
         location: dados.location ?? null,
         quoted_message: dados.quotedMessage ?? null,
-        file_id: dados.fileId,
-        original_media_url: dados.originalMediaUrl,
+        downloadSpec: dados.downloadSpec ?? null, // ✅ Guardar para o worker
         processed_by: VERSION,
         provider: 'w_api'
       },
@@ -593,45 +597,49 @@ async function handleMessage(dados, payloadBruto, base44) {
     console.error(`[WAPI] ⚠️ Erro ao atualizar thread:`, updateError.message);
   }
 
-  // TRIGGER PERSISTÊNCIA (Fire-and-Forget)
-  if (dados.mediaType !== 'none' && dados.mediaType !== 'location' && dados.fileId) {
+  // TRIGGER PERSISTÊNCIA (Fire-and-Forget) - ✅ USAR downloadSpec
+  if (dados.downloadSpec) {
     console.log('[WAPI] 🚀 Disparando worker de mídia...');
     base44.asServiceRole.functions.invoke('persistirMidiaWapi', {
       message_id: mensagem.id,
-      file_id: dados.fileId,
       integration_id: integracaoId,
+      downloadSpec: dados.downloadSpec,
       media_type: dados.mediaType,
       filename: dados.content?.replace(/[\[\]]/g, '') || `${dados.mediaType}_${Date.now()}`
     }).catch(e => console.error('[WAPI] Erro trigger mídia:', e.message));
   }
 
-  // DISPARAR CÉREBRO (Fire-and-Forget)
+  // DISPARAR CÉREBRO (Import Direto - SIMETRIA Z-API)
   try {
-    console.log(`[WAPI] 🚀 Disparando processInbound...`);
+    console.log('[WAPI] 🧠 Carregando Inbound Core (Direct Import)...');
+    
+    // ✅ IMPORT DIRETO - Elimina erros HTTP 404 e timeout
+    const { processInboundEvent } = await import('./lib/inboundCore.js');
     
     let integracaoObj = null;
     if (integracaoId) {
       try {
         integracaoObj = await base44.asServiceRole.entities.WhatsAppIntegration.get(integracaoId);
       } catch (e) {
-        console.warn('[WAPI] ⚠️ Integração não encontrada, enviando ID:', e.message);
+        console.warn('[WAPI] ⚠️ Integração não encontrada, usando ID:', e.message);
         integracaoObj = { id: integracaoId };
       }
     }
 
-    base44.asServiceRole.functions.invoke('processInbound', {
-      message: mensagem,
+    await processInboundEvent({
+      base44,
       contact: contato,
       thread: thread,
-      integration: integracaoObj,
+      message: mensagem,
+      integration: integracaoObj || { id: 'unknown_wapi' },
       provider: 'w_api',
       messageContent: dados.content,
       rawPayload: payloadBruto
-    }).catch(e => console.error('[WAPI] ⚠️ Erro no processInbound:', e.message));
+    });
     
-    console.log('[WAPI] ✅ Cérebro disparado');
+    console.log('[WAPI] ✅ Cérebro executado (Direct Import)');
   } catch (err) {
-    console.error('[WAPI] ⚠️ Erro ao disparar Cérebro:', err.message);
+    console.error('[WAPI] 🔴 Erro no Cérebro:', err.message);
   }
 
   // Audit log
