@@ -68,7 +68,7 @@ const resolveThreadUI = (thread, currentUser, atendentes = []) => {
         return {
           isInternal: true,
           title: nome,
-          badge: '💬',
+          badge: '',
           avatar: avatar,
           avatarUrl: avatarUrl,
           subtitle: '1:1 interno',
@@ -83,7 +83,7 @@ const resolveThreadUI = (thread, currentUser, atendentes = []) => {
       return {
         isInternal: true,
         title: `Setor ${setor}`,
-        badge: '🏢',
+        badge: '',
         avatar: <Building2 className="w-6 h-6" />,
         subtitle: `Grupo • ${thread.participants?.length || 0} membros`,
         setorCor: setor
@@ -95,7 +95,7 @@ const resolveThreadUI = (thread, currentUser, atendentes = []) => {
       return {
         isInternal: true,
         title: thread.group_name || 'Grupo',
-        badge: '👥',
+        badge: '',
         avatar: <Users className="w-6 h-6" />,
         subtitle: `${thread.participants?.length || 0} membros`,
         setorCor: 'geral'
@@ -342,10 +342,10 @@ export default function ChatSidebar({
             </div>
             <div className="flex-1 min-w-0">
               <h3 className="font-semibold text-slate-900 text-xs truncate">
-                🏢 Equipe interna
+                Equipe interna
               </h3>
               <p className="text-[10px] text-slate-600 truncate">
-                Envio • 1:1 / Setores / Grupos
+                Envio 1:1 / Setores / Grupos
               </p>
             </div>
           </div>
@@ -542,7 +542,7 @@ export default function ChatSidebar({
                   className="flex items-center gap-3 p-4 cursor-pointer transition-all border-b border-slate-100 hover:bg-gradient-to-r hover:from-emerald-50 hover:to-green-50 bg-emerald-50/30">
 
                   <div className="w-12 h-12 rounded-full flex items-center justify-center text-white font-bold text-lg shadow-md bg-gradient-to-br from-emerald-400 to-green-500">
-                    💎
+                    C
                   </div>
                   <div className="flex-1">
                     <div className="flex items-center gap-2">
@@ -651,12 +651,11 @@ export default function ChatSidebar({
                     {(() => {
                       const info = getIntegracaoInfo(thread);
                       if (!info) return null;
-                      
-                      // Extrair apenas últimos 4 dígitos do número
-                      const ultimos4 = info.numero?.slice(-4) || '????';
+
+                      const ultimos4 = info.numero?.slice(-4) || '0000';
                       return (
                         <span className="text-[9px] text-slate-400 ml-1 flex-shrink-0" title={`Canal: ${info.nome} (${info.numero})`}>
-                          •{ultimos4}
+                          #{ultimos4}
                         </span>
                       );
                     })()}
@@ -673,12 +672,12 @@ export default function ChatSidebar({
                   hasUnread ? 'text-slate-800' : 'text-slate-500'}`
                   }>
                   {thread.is_contact_only ? (
-                    <span className="text-slate-400 italic">📋 Sem conversa ativa</span>
+                    <span className="text-slate-400 italic">Sem conversa ativa</span>
                   ) : (
                     <>
-                      {thread.last_message_sender === 'user' &&
+                      {thread.last_message_sender === 'user' && (
                         <CheckCheck className="w-3 h-3 text-blue-500 flex-shrink-0" />
-                      }
+                      )}
                       {thread.last_media_type === 'image' && <Image className="w-3 h-3 text-blue-500 flex-shrink-0" />}
                       {thread.last_media_type === 'video' && <Video className="w-3 h-3 text-purple-500 flex-shrink-0" />}
                       {thread.last_media_type === 'audio' && <Mic className="w-3 h-3 text-green-500 flex-shrink-0" />}
@@ -689,16 +688,15 @@ export default function ChatSidebar({
                         {(() => {
                           let content = thread.last_message_content;
                           
-                          // ✅ Se não há conteúdo válido, usar ícone de mídia
                           if (!content || content === '[No content]' || /^[\+\d]+@(lid|s\.whatsapp\.net|c\.us)/.test(content)) {
-                            if (thread.last_media_type === 'image') return "📷 Imagem";
-                            if (thread.last_media_type === 'video') return "🎥 Vídeo";
-                            if (thread.last_media_type === 'audio') return "🎤 Áudio";
-                            if (thread.last_media_type === 'document') return "📄 Documento";
-                            if (thread.last_media_type === 'location') return "📍 Localização";
-                            if (thread.last_media_type === 'contact') return "👤 Contato";
-                            if (thread.last_media_type === 'sticker') return "🎨 Sticker";
-                            return "💬 Nova mensagem";
+                            if (thread.last_media_type === 'image') return "[Imagem]";
+                            if (thread.last_media_type === 'video') return "[Video]";
+                            if (thread.last_media_type === 'audio') return "[Audio]";
+                            if (thread.last_media_type === 'document') return "[Documento]";
+                            if (thread.last_media_type === 'location') return "[Localizacao]";
+                            if (thread.last_media_type === 'contact') return "[Contato]";
+                            if (thread.last_media_type === 'sticker') return "[Sticker]";
+                            return "Nova mensagem";
                           }
                           
                           return content;
@@ -714,11 +712,11 @@ export default function ChatSidebar({
                   {(() => {
                     const tipoContato = contato?.tipo_contato || 'novo';
                     const tiposConfig = {
-                      'novo': { emoji: '❓', label: 'Novo', bg: 'bg-slate-400' },
-                      'lead': { emoji: '🎯', label: 'Lead', bg: 'bg-amber-500' },
-                      'cliente': { emoji: '💎', label: 'Cliente', bg: 'bg-emerald-500' },
-                      'fornecedor': { emoji: '🏭', label: 'Fornec.', bg: 'bg-blue-500' },
-                      'parceiro': { emoji: '🤝', label: 'Parceiro', bg: 'bg-purple-500' }
+                      'novo': { emoji: '?', label: 'Novo', bg: 'bg-slate-400' },
+                      'lead': { emoji: 'L', label: 'Lead', bg: 'bg-amber-500' },
+                      'cliente': { emoji: 'C', label: 'Cliente', bg: 'bg-emerald-500' },
+                      'fornecedor': { emoji: 'F', label: 'Fornec.', bg: 'bg-blue-500' },
+                      'parceiro': { emoji: 'P', label: 'Parceiro', bg: 'bg-purple-500' }
                     };
                     const cfg = tiposConfig[tipoContato] || tiposConfig['novo'];
                     return (
@@ -756,7 +754,7 @@ export default function ChatSidebar({
                   {/* FIDELIZADO - Mostra se contato tem atendente fidelizado */}
                   {contato?.is_cliente_fidelizado && (
                     <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-semibold text-amber-700 bg-amber-100 shadow-sm" title="Cliente Fidelizado">
-                      ★
+                      VIP
                     </span>
                   )}
                   
@@ -791,14 +789,14 @@ export default function ChatSidebar({
                       if (isCarregando) {
                         return (
                           <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-semibold text-slate-500 bg-slate-100 shadow-sm" title="Atendente fidelizado não visível">
-                            ★ Restrito
+                            VIP Restrito
                           </span>
                         );
                       }
                       
                       return (
                         <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-semibold text-amber-700 bg-amber-100 shadow-sm">
-                          ★ {nomeFidelizado.split(' ')[0]}
+                          VIP {nomeFidelizado.split(' ')[0]}
                         </span>
                       );
                     })()

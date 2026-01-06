@@ -184,11 +184,11 @@ export default function Layout({ children, currentPageName }) {
 
   // Definição completa de todos os itens do menu
   const todosMenuItems = [
-    { name: "💬 Central de Comunicação", icon: MessageSquare, page: "Comunicacao" },
+    { name: "Central de Comunicacao", icon: MessageSquare, page: "Comunicacao" },
     { name: "Dashboard", icon: Home, page: "Dashboard" },
-    { name: "📊 Metas de Vendas", icon: Users, page: "Vendedores" },
-    { name: "🎯 Leads & Qualificação", icon: Target, page: "LeadsQualificados" },
-    { name: "👥 Clientes", icon: Building2, page: "Clientes" },
+    { name: "Metas de Vendas", icon: Users, page: "Vendedores" },
+    { name: "Leads & Qualificacao", icon: Target, page: "LeadsQualificados" },
+    { name: "Clientes", icon: Building2, page: "Clientes" },
     { name: "Produtos", icon: Package, page: "Produtos" },
     { name: "Agenda Inteligente", icon: Calendar, page: "Agenda" },
     { name: "Importação", icon: Upload, page: "Importacao" },
