@@ -1,4 +1,4 @@
-import { createClient } from 'jsr:@supabase/supabase-js@2';
+import { createClientFromRequest } from 'npm:@base44/sdk@0.8.6';
 
 // ✅ Import será feito dinamicamente quando necessário
 
@@ -343,7 +343,7 @@ async function handleConnection(dados, base44, payloadBruto) {
 async function handleMessageUpdate(dados, base44) {
   if (!dados.messageId) return jsonOk({});
   try {
-    const { data: mensagens } = await base44
+    const { data: mensagens } = await base44.asServiceRole
       .from('messages')
       .select('id')
       .eq('whatsapp_message_id', dados.messageId)
@@ -358,7 +358,7 @@ async function handleMessageUpdate(dados, base44) {
       };
       const novoStatus = statusMap[dados.status] || statusMap[String(dados.status)];
       if (novoStatus) {
-        await base44
+        await base44.asServiceRole
           .from('messages')
           .update({ status: novoStatus })
           .eq('id', mensagens[0].id);
@@ -380,7 +380,7 @@ async function handleMessage(dados, payloadBruto, base44) {
   // DEDUPLICAÇÃO POR messageId
   if (dados.messageId) {
     try {
-      const { data: dup } = await base44
+      const { data: dup } = await base44.asServiceRole
         .from('messages')
         .select('id')
         .eq('whatsapp_message_id', dados.messageId)
@@ -409,7 +409,7 @@ async function handleMessage(dados, payloadBruto, base44) {
 
       for (const tel of phoneVariacoes) {
         if (integracaoId) break;
-        const { data: int } = await base44
+        const { data: int } = await base44.asServiceRole
           .from('whatsapp_integrations')
           .select('id, nome_instancia, numero_telefone')
           .eq('numero_telefone', tel)
@@ -426,7 +426,7 @@ async function handleMessage(dados, payloadBruto, base44) {
 
   if (!integracaoId && dados.instanceId) {
     try {
-      const { data: int } = await base44
+      const { data: int } = await base44.asServiceRole
         .from('whatsapp_integrations')
         .select('id, nome_instancia, numero_telefone')
         .eq('instance_id_provider', dados.instanceId)
@@ -469,7 +469,7 @@ async function handleMessage(dados, payloadBruto, base44) {
     for (const tel of variacoes) {
       if (contatos.length > 0) break;
       try {
-        const { data } = await base44
+        const { data } = await base44.asServiceRole
           .from('contacts')
           .select('*')
           .eq('telefone', tel)
@@ -489,13 +489,13 @@ async function handleMessage(dados, payloadBruto, base44) {
       if (profilePicUrl && contato.foto_perfil_url !== profilePicUrl) {
         update.foto_perfil_url = profilePicUrl;
       }
-      await base44
+      await base44.asServiceRole
         .from('contacts')
         .update(update)
         .eq('id', contato.id);
       console.log(`[WAPI] 👤 Contato existente: ${contato.nome}`);
     } else {
-      const { data: novoContato } = await base44
+      const { data: novoContato } = await base44.asServiceRole
         .from('contacts')
         .insert({
           nome: dados.pushName || dados.from,
@@ -519,7 +519,7 @@ async function handleMessage(dados, payloadBruto, base44) {
   // BUSCAR/CRIAR THREAD
   let thread;
   try {
-    const { data: threads } = await base44
+    const { data: threads } = await base44.asServiceRole
       .from('message_threads')
       .select('*')
       .eq('contact_id', contato.id)
@@ -531,7 +531,7 @@ async function handleMessage(dados, payloadBruto, base44) {
       console.log(`[WAPI] 💭 Thread existente: ${thread.id}`);
     } else {
       const agora = new Date().toISOString();
-      const { data: novaThread } = await base44
+      const { data: novaThread } = await base44.asServiceRole
         .from('message_threads')
         .insert({
           contact_id: contato.id,
@@ -560,7 +560,7 @@ async function handleMessage(dados, payloadBruto, base44) {
   // DEDUPLICAÇÃO POR CONTEÚDO
   try {
     const doisSegundosAtras = new Date(Date.now() - 2000).toISOString();
-    const { data: msgRecentes } = await base44
+    const { data: msgRecentes } = await base44.asServiceRole
       .from('messages')
       .select('*')
       .eq('thread_id', thread.id)
@@ -588,7 +588,7 @@ async function handleMessage(dados, payloadBruto, base44) {
   // SALVAR MENSAGEM
   let mensagem;
   try {
-    const { data, error: msgError } = await base44
+    const { data, error: msgError } = await base44.asServiceRole
       .from('messages')
       .insert({
         thread_id: thread.id,
@@ -643,7 +643,7 @@ async function handleMessage(dados, payloadBruto, base44) {
     if (integracaoId && !thread.whatsapp_integration_id) {
       threadUpdate.whatsapp_integration_id = integracaoId;
     }
-    await base44
+    await base44.asServiceRole
       .from('message_threads')
       .update(threadUpdate)
       .eq('id', thread.id);
@@ -690,7 +690,7 @@ async function handleMessage(dados, payloadBruto, base44) {
     let integracaoObj = null;
     if (integracaoId) {
       try {
-        const { data } = await base44
+        const { data } = await base44.asServiceRole
           .from('whatsapp_integrations')
           .select('*')
           .eq('id', integracaoId)
@@ -722,7 +722,7 @@ async function handleMessage(dados, payloadBruto, base44) {
 
   // Audit log
   try {
-    await base44
+    await base44.asServiceRole
       .from('zapi_payload_normalized')
       .insert({
         payload_bruto: payloadBruto,
@@ -762,20 +762,13 @@ Deno.serve(async (req) => {
     return jsonOk({ version: VERSION, status: 'ok', provider: 'w_api' });
   }
 
-  // ✅ AUTH FIX: createClient com env vars (aceita chamadas externas da W-API)
+  // ✅ AUTH FIX Base44: Usar SDK oficial (sem necessidade de env vars)
   let base44;
   try {
-    const supabaseUrl = Deno.env.get('SUPABASE_URL');
-    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
-
-    console.log(`[WAPI-AUTH] 🔍 SUPABASE_URL: ${supabaseUrl ? 'OK (presente)' : '❌ AUSENTE'}`);
-    console.log(`[WAPI-AUTH] 🔍 SUPABASE_SERVICE_ROLE_KEY: ${supabaseKey ? 'OK (presente)' : '❌ AUSENTE'}`);
-
-    if (!supabaseUrl || !supabaseKey) throw new Error('Env vars ausentes');
-    base44 = createClient(supabaseUrl, supabaseKey);
-    console.log('[WAPI-AUTH] ✅ Cliente Supabase criado com sucesso');
+    base44 = createClientFromRequest(req);
+    console.log('[WAPI-AUTH] ✅ Cliente Base44 criado (usando SDK oficial)');
   } catch (e) {
-    console.error('[WAPI] 🔴 FATAL: Erro Client:', e.message);
+    console.error('[WAPI] 🔴 FATAL: Erro ao criar cliente Base44:', e.message);
     return jsonErr('sdk_error', 500);
   }
 
