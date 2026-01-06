@@ -5,6 +5,8 @@
 // mesmo quando já existe um atendente humano na conversa
 // ============================================================================
 
+import { createClientFromRequest } from 'npm:@base44/sdk@0.8.4';
+
 const setorKeywords = {
   vendas: ['venda', 'vendas', 'comercial', '1'],
   assistencia: ['assistencia', 'assistência', 'suporte', 'tecnico', 'técnico', '2'],

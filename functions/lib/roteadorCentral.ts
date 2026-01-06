@@ -4,6 +4,8 @@
 // Substitui "ifs espalhados" por ordem imutável de prioridade
 // ============================================================================
 
+import { createClientFromRequest } from 'npm:@base44/sdk@0.8.4';
+
 /**
  * Classifica o tipo de contato e se é fidelizado
  * @param {object} contact - Contact entity
