@@ -197,15 +197,39 @@ function normalizarPayload(payload) {
     if (msgContent.imageMessage) {
       mediaType = 'image';
       conteudo = msgContent.imageMessage.caption || '📷 [Imagem]';
+      downloadSpec = {
+        type: 'image',
+        mediaKey: msgContent.imageMessage.mediaKey,
+        directPath: msgContent.imageMessage.directPath,
+        mimetype: msgContent.imageMessage.mimetype
+      };
     } else if (msgContent.videoMessage) {
       mediaType = 'video';
       conteudo = msgContent.videoMessage.caption || '🎥 [Vídeo]';
+      downloadSpec = {
+        type: 'video',
+        mediaKey: msgContent.videoMessage.mediaKey,
+        directPath: msgContent.videoMessage.directPath,
+        mimetype: msgContent.videoMessage.mimetype
+      };
     } else if (msgContent.audioMessage) {
       mediaType = 'audio';
       conteudo = msgContent.audioMessage.ptt ? '🎤 [Áudio de voz]' : '🎵 [Áudio]';
+      downloadSpec = {
+        type: 'audio',
+        mediaKey: msgContent.audioMessage.mediaKey,
+        directPath: msgContent.audioMessage.directPath,
+        mimetype: msgContent.audioMessage.mimetype
+      };
     } else if (msgContent.documentMessage) {
       mediaType = 'document';
       conteudo = msgContent.documentMessage.caption || msgContent.documentMessage.fileName || '📄 [Documento]';
+      downloadSpec = {
+        type: 'document',
+        mediaKey: msgContent.documentMessage.mediaKey,
+        directPath: msgContent.documentMessage.directPath,
+        mimetype: msgContent.documentMessage.mimetype
+      };
     } else if (msgContent.stickerMessage) {
       mediaType = 'sticker';
       conteudo = '[Sticker]';

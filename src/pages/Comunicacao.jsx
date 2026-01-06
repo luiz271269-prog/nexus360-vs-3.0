@@ -142,6 +142,29 @@ export default function Comunicacao() {
       if (!usuario) return [];
       const allThreads = await base44.entities.MessageThread.list('-last_message_at', 500);
       console.log('[COMUNICACAO] 📊 Threads carregadas:', allThreads.length);
+      
+      // 👻 DIAGNÓSTICO: Thread fantasma da Z-API
+      const threadFantasmaID = '692650cd2597bbc3faadb99d';
+      const threadFantasma = allThreads.find(t => t.id === threadFantasmaID);
+      
+      console.group('👻 CAÇA-FANTASMAS DE THREAD Z-API');
+      console.log('Total Threads recebidas da API:', allThreads.length);
+      
+      if (threadFantasma) {
+        console.log('✅ A Thread existe na lista bruta!');
+        console.log('Detalhes:', {
+          id: threadFantasma.id,
+          integration_id: threadFantasma.whatsapp_integration_id,
+          contact_id: threadFantasma.contact_id,
+          status: threadFantasma.status,
+          unread: threadFantasma.unread_count,
+          last_message: threadFantasma.last_message_content
+        });
+      } else {
+        console.error('❌ A Thread NÃO veio da API. Problema na query ou RLS.');
+      }
+      console.groupEnd();
+      
       // ✅ LOG: Contadores de não lidas para debug
       const comNaoLidas = allThreads.filter(t => (t.unread_count || 0) > 0 || Object.values(t.unread_by || {}).some(v => v > 0));
       console.log('[COMUNICACAO] 📬 Threads com não lidas:', comNaoLidas.length);
