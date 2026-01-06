@@ -424,8 +424,7 @@ export default function ChatSidebar({
         if (isThreadInterna) {
           const threadUI = resolveThreadUI(thread, usuarioAtual, atendentes);
           const isSelected = contatosSelecionados.find(c => c.id === thread.id);
-          const unreadInterno = getUnreadCount(thread, usuarioAtual?.id);
-          const hasUnread = unreadInterno > 0;
+          const hasUnread = getUnreadCount(thread, usuarioAtual?.id) > 0;
           const setorConfig = {
             'vendas': { cor: 'bg-emerald-500' },
             'assistencia': { cor: 'bg-blue-500' },
@@ -483,7 +482,7 @@ export default function ChatSidebar({
                     </h3>
                     {hasUnread && (
                       <Badge className="rounded-full min-w-[18px] h-4 flex items-center justify-center p-0 px-1 bg-gradient-to-r from-purple-400 via-indigo-500 to-blue-500 text-white text-[10px] font-bold border-0 shadow-lg">
-                        {unreadInterno}
+                        {getUnreadCount(thread, usuarioAtual?.id)}
                       </Badge>
                     )}
                   </div>
@@ -585,8 +584,7 @@ export default function ChatSidebar({
           }
 
           const isSelected = contatosSelecionados.find(c => c.id === contato?.id);
-          const unreadExterno = getUnreadCount(thread, usuarioAtual?.id);
-          const hasUnread = unreadExterno > 0;
+          const hasUnread = getUnreadCount(thread, usuarioAtual?.id) > 0;
 
           return (
             <motion.div
@@ -640,7 +638,7 @@ export default function ChatSidebar({
                       </h3>
                       {hasUnread &&
                       <Badge className="rounded-full min-w-[18px] h-4 flex items-center justify-center p-0 px-1 bg-gradient-to-r from-amber-400 via-orange-500 to-red-500 text-white text-[10px] font-bold border-0 shadow-lg">
-                          {unreadExterno}
+                          {getUnreadCount(thread, usuarioAtual?.id)}
                         </Badge>
                       }
                     {(() => {
