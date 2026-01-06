@@ -343,7 +343,7 @@ async function handleConnection(dados, base44, payloadBruto) {
 async function handleMessageUpdate(dados, base44) {
   if (!dados.messageId) return jsonOk({});
   try {
-    const { data: mensagens } = await base44.asServiceRole
+    const { data: mensagens } = await base44
       .from('messages')
       .select('id')
       .eq('whatsapp_message_id', dados.messageId)
@@ -358,7 +358,7 @@ async function handleMessageUpdate(dados, base44) {
       };
       const novoStatus = statusMap[dados.status] || statusMap[String(dados.status)];
       if (novoStatus) {
-        await base44.asServiceRole
+        await base44
           .from('messages')
           .update({ status: novoStatus })
           .eq('id', mensagens[0].id);
@@ -380,7 +380,7 @@ async function handleMessage(dados, payloadBruto, base44) {
   // DEDUPLICAÇÃO POR messageId
   if (dados.messageId) {
     try {
-      const { data: dup } = await base44.asServiceRole
+      const { data: dup } = await base44
         .from('messages')
         .select('id')
         .eq('whatsapp_message_id', dados.messageId)
@@ -409,7 +409,7 @@ async function handleMessage(dados, payloadBruto, base44) {
 
       for (const tel of phoneVariacoes) {
         if (integracaoId) break;
-        const { data: int } = await base44.asServiceRole
+        const { data: int } = await base44
           .from('whatsapp_integrations')
           .select('id, nome_instancia, numero_telefone')
           .eq('numero_telefone', tel)
@@ -426,7 +426,7 @@ async function handleMessage(dados, payloadBruto, base44) {
 
   if (!integracaoId && dados.instanceId) {
     try {
-      const { data: int } = await base44.asServiceRole
+      const { data: int } = await base44
         .from('whatsapp_integrations')
         .select('id, nome_instancia, numero_telefone')
         .eq('instance_id_provider', dados.instanceId)
@@ -469,7 +469,7 @@ async function handleMessage(dados, payloadBruto, base44) {
     for (const tel of variacoes) {
       if (contatos.length > 0) break;
       try {
-        const { data } = await base44.asServiceRole
+        const { data } = await base44
           .from('contacts')
           .select('*')
           .eq('telefone', tel)
@@ -489,13 +489,13 @@ async function handleMessage(dados, payloadBruto, base44) {
       if (profilePicUrl && contato.foto_perfil_url !== profilePicUrl) {
         update.foto_perfil_url = profilePicUrl;
       }
-      await base44.asServiceRole
+      await base44
         .from('contacts')
         .update(update)
         .eq('id', contato.id);
       console.log(`[WAPI] 👤 Contato existente: ${contato.nome}`);
     } else {
-      const { data: novoContato } = await base44.asServiceRole
+      const { data: novoContato } = await base44
         .from('contacts')
         .insert({
           nome: dados.pushName || dados.from,
@@ -519,7 +519,7 @@ async function handleMessage(dados, payloadBruto, base44) {
   // BUSCAR/CRIAR THREAD
   let thread;
   try {
-    const { data: threads } = await base44.asServiceRole
+    const { data: threads } = await base44
       .from('message_threads')
       .select('*')
       .eq('contact_id', contato.id)
@@ -531,7 +531,7 @@ async function handleMessage(dados, payloadBruto, base44) {
       console.log(`[WAPI] 💭 Thread existente: ${thread.id}`);
     } else {
       const agora = new Date().toISOString();
-      const { data: novaThread } = await base44.asServiceRole
+      const { data: novaThread } = await base44
         .from('message_threads')
         .insert({
           contact_id: contato.id,
@@ -560,7 +560,7 @@ async function handleMessage(dados, payloadBruto, base44) {
   // DEDUPLICAÇÃO POR CONTEÚDO
   try {
     const doisSegundosAtras = new Date(Date.now() - 2000).toISOString();
-    const { data: msgRecentes } = await base44.asServiceRole
+    const { data: msgRecentes } = await base44
       .from('messages')
       .select('*')
       .eq('thread_id', thread.id)
@@ -588,7 +588,7 @@ async function handleMessage(dados, payloadBruto, base44) {
   // SALVAR MENSAGEM
   let mensagem;
   try {
-    const { data, error: msgError } = await base44.asServiceRole
+    const { data, error: msgError } = await base44
       .from('messages')
       .insert({
         thread_id: thread.id,
@@ -643,7 +643,7 @@ async function handleMessage(dados, payloadBruto, base44) {
     if (integracaoId && !thread.whatsapp_integration_id) {
       threadUpdate.whatsapp_integration_id = integracaoId;
     }
-    await base44.asServiceRole
+    await base44
       .from('message_threads')
       .update(threadUpdate)
       .eq('id', thread.id);
@@ -690,7 +690,7 @@ async function handleMessage(dados, payloadBruto, base44) {
     let integracaoObj = null;
     if (integracaoId) {
       try {
-        const { data } = await base44.asServiceRole
+        const { data } = await base44
           .from('whatsapp_integrations')
           .select('*')
           .eq('id', integracaoId)
@@ -722,7 +722,7 @@ async function handleMessage(dados, payloadBruto, base44) {
 
   // Audit log
   try {
-    await base44.asServiceRole
+    await base44
       .from('zapi_payload_normalized')
       .insert({
         payload_bruto: payloadBruto,
