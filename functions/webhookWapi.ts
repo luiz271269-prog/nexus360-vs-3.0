@@ -2,16 +2,24 @@ import { createClientFromRequest } from 'npm:@base44/sdk@0.8.6';
 import { processInboundEvent } from './lib/inboundCore.js';
 
 // ============================================================================
-// WEBHOOK WHATSAPP W-API - v21.0.0 SDK SYNTAX FIX
+// WEBHOOK WHATSAPP W-API - v22.0.0-FORCE-REDEPLOY
 // ============================================================================
 // CORREÇÕES DEFINITIVAS:
 // 1. Auth: createClientFromRequest (SDK Base44 oficial)
 // 2. Sintaxe: base44.asServiceRole.entities.X.filter() (não .from())
 // 3. Import: Estático no topo (resolve OS Error 2)
+// 4. FORCE REDEPLOY - Timestamp: 2026-01-06 19:22:00
 // ============================================================================
 
-const VERSION = 'v21.0.0-SDK-SYNTAX-FIX';
-const BUILD_DATE = '2026-01-06';
+const VERSION = 'v22.0.0-FORCE-REDEPLOY';
+const BUILD_DATE = '2026-01-06T19:22:00';
+
+// LOG IMEDIATO PARA CONFIRMAR VERSÃO ATIVA
+console.log('═══════════════════════════════════════════════════════════');
+console.log(`[WAPI-INIT] 🚀 VERSÃO ATIVA: ${VERSION}`);
+console.log(`[WAPI-INIT] 📅 BUILD: ${BUILD_DATE}`);
+console.log(`[WAPI-INIT] ✅ AUTH: createClientFromRequest (SDK Base44)`);
+console.log('═══════════════════════════════════════════════════════════');
 
 const corsHeaders = {
   'Content-Type': 'application/json',
@@ -687,7 +695,13 @@ Deno.serve(async (req) => {
   }
 
   if (req.method === 'GET') {
-    return jsonOk({ version: VERSION, status: 'ok', provider: 'w_api' });
+    return jsonOk({ 
+      version: VERSION, 
+      build_date: BUILD_DATE,
+      status: 'ok', 
+      provider: 'w_api',
+      auth_method: 'createClientFromRequest'
+    });
   }
 
   // ✅ AUTH: SDK Base44 oficial
