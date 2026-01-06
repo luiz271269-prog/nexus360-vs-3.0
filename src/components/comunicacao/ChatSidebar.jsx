@@ -416,11 +416,12 @@ export default function ChatSidebar({
       {threadsSorted.map((thread, index) => {
         const isAtiva = threadAtiva?.id === thread.id;
 
-        // ✅ RESOLVER UI (externo ou interno)
-        const threadUI = resolveThreadUI(thread, usuarioAtual, atendentes);
+        // 🔍 PRIORIDADE: Verificar PRIMEIRO se é thread interna EXPLÍCITA
+        const isThreadInterna = thread.thread_type === 'team_internal' || thread.thread_type === 'sector_group';
 
         // ✅ THREADS INTERNAS - Renderizar com UI resolvida
-        if (threadUI.isInternal) {
+        if (isThreadInterna) {
+          const threadUI = resolveThreadUI(thread, usuarioAtual, atendentes);
           const isSelected = contatosSelecionados.find(c => c.id === thread.id);
           const hasUnread = getUnreadCount(thread, usuarioAtual?.id) > 0;
           const setorConfig = {
@@ -510,8 +511,9 @@ export default function ChatSidebar({
           );
         }
 
-        // ✅ THREADS EXTERNAS - Lógica existente (não mexer)
-        if (!threadUI.isInternal) {
+        // ✅ THREADS EXTERNAS (WhatsApp Z-API, W-API, etc.) - PADRÃO
+        // Se não é interna explícita, é EXTERNA
+        if (!isThreadInterna) {
           const contato = thread.contato;
 
           // ✅ DEBUG: Log de contadores para esta thread
@@ -574,9 +576,9 @@ export default function ChatSidebar({
 
           if (contato.empresa) nomeExibicao += contato.empresa;
           if (contato.cargo) nomeExibicao += (nomeExibicao ? " - " : "") + contato.cargo;
-          if (contato.nome && contato.nome !== contato.telefone && contato.nome.length > 1) nomeExibicao += (nomeExibicao ? " - " : "") + contato.nome;
+          if (contato.nome && contato.nome !== contato.telefone) nomeExibicao += (nomeExibicao ? " - " : "") + contato.nome;
 
-          if (!nomeExibicao || nomeExibicao.trim() === '' || nomeExibicao.length <= 2) {
+          if (!nomeExibicao || nomeExibicao.trim() === '') {
             nomeExibicao = contato.telefone || "Sem Nome";
           }
 
