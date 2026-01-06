@@ -1,16 +1,18 @@
-import { createClientFromRequest } from 'npm:@base44/sdk@0.8.4';
+import { createClient } from 'jsr:@supabase/supabase-js@2';
+
+// ✅ IMPORT ESTÁTICO (W-API específico - evita "OS Error 2")
+import { processInboundEvent } from './lib/inboundCore.js';
 
 // ============================================================================
-// WEBHOOK WHATSAPP W-API - v14.0.0 ALINHADO COM Z-API v10
+// WEBHOOK WHATSAPP W-API - v18.0.0 ULTIMATE MIRROR
 // ============================================================================
-// BASEADO NA v12 QUE FUNCIONAVA + MELHORIAS DA Z-API v10:
-// 1. Classificação cirúrgica de eventos (classifyWapiEvent)
-// 2. Filtro mais esperto para mensagens reais vs ruído
-// 3. Enriquecimento de metadata com contexto da integração
-// 4. Normalização elástica de payload
+// SIMETRIA TOTAL COM Z-API v10, DIFERENÇAS APENAS:
+// 1. Auth: createClient(URL, KEY) - aceita chamadas externas sem header
+// 2. Import: Estático no topo - resolve "arquivo não encontrado"
+// 3. Mídia: downloadSpec + Worker - W-API exige decriptação pesada
 // ============================================================================
 
-const VERSION = 'v16.0.0-SYMMETRY';
+const VERSION = 'v18.0.0-ULTIMATE-MIRROR';
 const BUILD_DATE = '2026-01-06';
 
 const corsHeaders = {
@@ -20,12 +22,18 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'Content-Type, Authorization',
 };
 
-const integrationCache = new Map();
-const CACHE_TTL = 60000;
+// ============================================================================
+// HELPERS (IDÊNTICOS À Z-API)
+// ============================================================================
+const jsonOk = (data, extra = {}) => 
+  Response.json({ success: true, ...data, ...extra }, { headers: corsHeaders });
 
-// ============================================================================
-// FUNÇÕES UTILITÁRIAS INLINE
-// ============================================================================
+const jsonErr = (error, status = 500) => 
+  Response.json({ success: false, error }, { status, headers: corsHeaders });
+
+function coerceString(val) {
+  return val == null ? '' : String(val);
+}
 
 function normalizarTelefone(telefone) {
   if (!telefone) return null;
@@ -51,48 +59,44 @@ function normalizarTelefone(telefone) {
 }
 
 // ============================================================================
-// CLASSIFICADOR CIRÚRGICO (v12 pattern)
+// CLASSIFICADOR CIRÚRGICO (IDÊNTICO À Z-API)
 // ============================================================================
 function classifyWapiEvent(payload) {
   if (!payload || typeof payload !== 'object') return 'ignore';
 
   const evento = String(payload.event || payload.type || '').toLowerCase();
 
-  // 1️⃣ STATUS/ACK: webhookdelivery
+  // 1️⃣ STATUS/ACK
   if (evento.includes('delivery') || evento.includes('ack') || evento.includes('status')) {
     return 'system-status';
   }
 
-  // 2️⃣ MENSAGEM DE USUÁRIO: Aceita msgContent OU text/body OU ReceivedCallback
-  // ✅ CORREÇÃO CRÍTICA: Não exigir msgContent para aceitar mensagens de texto simples
+  // 2️⃣ MENSAGEM DE USUÁRIO
   if (payload.msgContent) {
     return 'user-message';
   }
   
-  // ✅ Aceitar ReceivedCallback com text/body mesmo sem msgContent
   if (evento === 'webhookreceived' || evento === 'receivedcallback' || evento.includes('received')) {
     if (payload.text?.message || payload.body || payload.message || payload.messageId) {
       return 'user-message';
     }
   }
 
-  // 3️⃣ OUTROS: QRCode, Connection, etc
+  // 3️⃣ OUTROS
   return 'ignore';
 }
 
 // ============================================================================
-// FILTRO ULTRA-RÁPIDO (aprimorado com lógica Z-API)
+// FILTRO ULTRA-RÁPIDO (IDÊNTICO À Z-API)
 // ============================================================================
 function deveIgnorar(payload, classification) {
   if (!payload || typeof payload !== 'object') return 'payload_invalido';
 
-  // Se já foi classificado como ignore/status, processar de acordo
   if (classification === 'ignore') return 'evento_desconhecido';
-  if (classification === 'system-status') return null; // Processa updates de status
+  if (classification === 'system-status') return null;
 
   const tipo = String(payload.type ?? payload.event ?? '').toLowerCase();
   
-  // Extrair phone de múltiplas fontes (flexibilidade Z-API)
   const phone = String(
     payload.phone ?? 
     payload.from ?? 
@@ -103,7 +107,6 @@ function deveIgnorar(payload, classification) {
   
   const isGroup = payload.isGroup === true || phone.includes('@g.us');
 
-  // JIDs de sistema
   if (
     phone.includes('status@') ||
     phone.includes('@broadcast') ||
@@ -114,19 +117,16 @@ function deveIgnorar(payload, classification) {
     return 'jid_sistema';
   }
 
-  // QR Code e Connection sempre processam
   if (tipo.includes('qrcode') || tipo.includes('connection')) {
     return null;
   }
 
-  // Eventos de presença/typing sem messageId
   const eventosLixo = ['presence', 'typing', 'composing', 'chat-update', 'call'];
   const temMessageId = payload.messageId || payload.id;
   if (!temMessageId && eventosLixo.some((e) => tipo.includes(e))) {
     return 'evento_sistema';
   }
 
-  // Status updates
   if (tipo.includes('messagestatuscallback') || tipo.includes('message-status') || tipo.includes('webhookdelivery')) {
     if (phone.includes('status@') || phone.includes('@broadcast')) {
       return 'status_broadcast';
@@ -134,46 +134,40 @@ function deveIgnorar(payload, classification) {
     return null;
   }
 
-  // MENSAGEM REAL: messageId + phone/from + conteúdo
   const hasMsgId = payload.messageId || payload.id;
   const hasPhone = payload.phone || payload.from || payload.sender?.id || payload.chat?.id;
   const hasContent = payload.text || payload.body || payload.message || payload.msgContent;
 
   if (hasMsgId && hasPhone && (hasContent || payload.momment)) {
     if (payload.fromMe === true) return 'from_me';
-    return null; // ✅ PROCESSAR
+    return null;
   }
 
-  // ReceivedCallback: mensagem real se tiver phone + messageId
   if (tipo.includes('receivedcallback') || tipo.includes('received')) {
     if (payload.fromMe === true) return 'from_me';
-    // ✅ MAIS FLEXÍVEL: Aceita phone OU from OU sender.id
     if (!hasPhone) return 'sem_telefone';
-    return null; // ✅ PROCESSAR
+    return null;
   }
 
   return 'evento_desconhecido';
 }
 
 // ============================================================================
-// NORMALIZAR PAYLOAD (blindada, elástica)
+// NORMALIZAR PAYLOAD (IDÊNTICO À Z-API, COM downloadSpec)
 // ============================================================================
 function normalizarPayload(payload) {
   try {
     const tipo = String(payload.type || payload.event || '').toLowerCase();
     const instanceId = payload.instanceId || payload.instance || payload.instance_id || null;
 
-    // QR Code
     if (tipo.includes('qrcode')) {
       return { type: 'qrcode', instanceId, qrCodeUrl: payload.qrcode || payload.qr || payload.base64 };
     }
 
-    // Connection
     if (tipo.includes('connection')) {
       return { type: 'connection', instanceId, status: payload.connected ? 'conectado' : 'desconectado' };
     }
 
-    // Status update
     if (tipo.includes('messagestatuscallback') || tipo.includes('webhookdelivery') || tipo.includes('delivery')) {
       return {
         type: 'message_update',
@@ -183,20 +177,18 @@ function normalizarPayload(payload) {
       };
     }
 
-    // Telefone (múltiplas fontes - flexibilidade Z-API)
     const telefone = payload.phone || payload.from || payload.sender?.id || payload.chat?.id || '';
     const numeroLimpo = normalizarTelefone(telefone);
 
     if (!numeroLimpo) return { type: 'unknown', error: 'telefone_invalido' };
 
-    // Conteúdo e mídia
     const msgContent = payload.msgContent || {};
     let mediaType = 'none';
     let fileId = null;
     let originalMediaUrl = null;
     let conteudoRaw = payload.text?.message || payload.body || '';
     let conteudo = '';
-    let downloadSpec = null; // ✅ CORREÇÃO: Declarar antes de usar
+    let downloadSpec = null;
 
     if (msgContent.imageMessage) {
       mediaType = 'image';
@@ -264,7 +256,7 @@ function normalizarPayload(payload) {
       mediaType,
       originalMediaUrl,
       fileId,
-      downloadSpec, // ✅ ADICIONAR ao retorno para uso no handleMessage
+      downloadSpec,
       mediaCaption: msgContent.imageMessage?.caption || msgContent.videoMessage?.caption,
       pushName: payload.pushName || payload.senderName || payload.sender?.pushName || payload.text?.senderName,
       vcard: msgContent.contactMessage || msgContent.contactsArrayMessage,
@@ -283,32 +275,43 @@ function normalizarPayload(payload) {
 }
 
 // ============================================================================
-// HANDLERS
+// HANDLERS (IDÊNTICOS À Z-API)
 // ============================================================================
 async function handleQRCode(dados, base44) {
-  if (!dados.instanceId) return Response.json({ success: true }, { headers: corsHeaders });
+  if (!dados.instanceId) return jsonOk({});
   try {
-    const integracoes = await base44.asServiceRole.entities.WhatsAppIntegration.filter(
-      { instance_id_provider: dados.instanceId }, '-created_date', 1
-    );
-    if (integracoes.length > 0) {
-      await base44.asServiceRole.entities.WhatsAppIntegration.update(integracoes[0].id, {
-        qr_code_url: dados.qrCodeUrl,
-        status: 'pendente_qrcode',
-        ultima_atividade: new Date().toISOString()
-      });
+    const { data: integracoes } = await base44
+      .from('whatsapp_integrations')
+      .select('id')
+      .eq('instance_id_provider', dados.instanceId)
+      .order('created_date', { ascending: false })
+      .limit(1);
+    
+    if (integracoes && integracoes.length > 0) {
+      await base44
+        .from('whatsapp_integrations')
+        .update({
+          qr_code_url: dados.qrCodeUrl,
+          status: 'pendente_qrcode',
+          ultima_atividade: new Date().toISOString()
+        })
+        .eq('id', integracoes[0].id);
     }
   } catch (e) {}
-  return Response.json({ success: true, processed: 'qrcode', provider: 'w_api' }, { headers: corsHeaders });
+  return jsonOk({ processed: 'qrcode', provider: 'w_api' });
 }
 
 async function handleConnection(dados, base44, payloadBruto) {
-  if (!dados.instanceId) return Response.json({ success: true }, { headers: corsHeaders });
+  if (!dados.instanceId) return jsonOk({});
   try {
-    const integracoes = await base44.asServiceRole.entities.WhatsAppIntegration.filter(
-      { instance_id_provider: dados.instanceId }, '-created_date', 1
-    );
-    if (integracoes.length > 0) {
+    const { data: integracoes } = await base44
+      .from('whatsapp_integrations')
+      .select('id')
+      .eq('instance_id_provider', dados.instanceId)
+      .order('created_date', { ascending: false })
+      .limit(1);
+    
+    if (integracoes && integracoes.length > 0) {
       const connectedPhone = payloadBruto.connectedPhone || 
                             payloadBruto.phone || 
                             payloadBruto.phoneNumber ||
@@ -325,22 +328,30 @@ async function handleConnection(dados, base44, payloadBruto) {
         console.log('[WAPI] ✅ Número de telefone associado:', connectedPhone);
       }
       
-      await base44.asServiceRole.entities.WhatsAppIntegration.update(integracoes[0].id, updateData);
+      await base44
+        .from('whatsapp_integrations')
+        .update(updateData)
+        .eq('id', integracoes[0].id);
+      
       console.log('[WAPI] ✅ Status de conexão atualizado:', dados.status);
     }
   } catch (e) {
     console.error('[WAPI] ❌ Erro ao atualizar conexão:', e.message);
   }
-  return Response.json({ success: true, processed: 'connection', status: dados.status, provider: 'w_api' }, { headers: corsHeaders });
+  return jsonOk({ processed: 'connection', status: dados.status, provider: 'w_api' });
 }
 
 async function handleMessageUpdate(dados, base44) {
-  if (!dados.messageId) return Response.json({ success: true }, { headers: corsHeaders });
+  if (!dados.messageId) return jsonOk({});
   try {
-    const mensagens = await base44.asServiceRole.entities.Message.filter(
-      { whatsapp_message_id: dados.messageId }, '-created_date', 1
-    );
-    if (mensagens.length > 0) {
+    const { data: mensagens } = await base44
+      .from('messages')
+      .select('id')
+      .eq('whatsapp_message_id', dados.messageId)
+      .order('created_date', { ascending: false })
+      .limit(1);
+    
+    if (mensagens && mensagens.length > 0) {
       const statusMap = { 
         'READ': 'lida', 'read': 'lida', '3': 'lida',
         'DELIVERED': 'entregue', 'delivered': 'entregue', '2': 'entregue',
@@ -348,15 +359,18 @@ async function handleMessageUpdate(dados, base44) {
       };
       const novoStatus = statusMap[dados.status] || statusMap[String(dados.status)];
       if (novoStatus) {
-        await base44.asServiceRole.entities.Message.update(mensagens[0].id, { status: novoStatus });
+        await base44
+          .from('messages')
+          .update({ status: novoStatus })
+          .eq('id', mensagens[0].id);
       }
     }
   } catch (e) {}
-  return Response.json({ success: true, processed: 'status_update', provider: 'w_api' }, { headers: corsHeaders });
+  return jsonOk({ processed: 'status_update', provider: 'w_api' });
 }
 
 // ============================================================================
-// HANDLE MESSAGE - INLINE com enriquecimento Z-API style
+// HANDLE MESSAGE (IDÊNTICO À Z-API, COM downloadSpec + Worker)
 // ============================================================================
 async function handleMessage(dados, payloadBruto, base44) {
   console.log('[WAPI] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
@@ -367,17 +381,21 @@ async function handleMessage(dados, payloadBruto, base44) {
   // DEDUPLICAÇÃO POR messageId
   if (dados.messageId) {
     try {
-      const dup = await base44.asServiceRole.entities.Message.filter(
-        { whatsapp_message_id: dados.messageId }, '-created_date', 10
-      );
-      if (dup.length > 0) {
+      const { data: dup } = await base44
+        .from('messages')
+        .select('id')
+        .eq('whatsapp_message_id', dados.messageId)
+        .order('created_date', { ascending: false })
+        .limit(10);
+      
+      if (dup && dup.length > 0) {
         console.log(`[WAPI] ⏭️ DUPLICATA: ${dados.messageId}`);
-        return Response.json({ success: true, ignored: true, reason: 'duplicata' }, { headers: corsHeaders });
+        return jsonOk({ ignored: true, reason: 'duplicata' });
       }
     } catch (e) {}
   }
 
-  // BUSCAR INTEGRAÇÃO - PRIORIZAR connectedPhone (Z-API pattern)
+  // BUSCAR INTEGRAÇÃO
   const connectedPhone = payloadBruto.connectedPhone || payloadBruto.connected_phone || null;
   let integracaoId = null;
   let integracaoInfo = null;
@@ -392,12 +410,14 @@ async function handleMessage(dados, payloadBruto, base44) {
 
       for (const tel of phoneVariacoes) {
         if (integracaoId) break;
-        const int = await base44.asServiceRole.entities.WhatsAppIntegration.filter(
-          { numero_telefone: tel },
-          '-created_date',
-          1
-        );
-        if (int.length > 0) {
+        const { data: int } = await base44
+          .from('whatsapp_integrations')
+          .select('id, nome_instancia, numero_telefone')
+          .eq('numero_telefone', tel)
+          .order('created_date', { ascending: false })
+          .limit(1);
+        
+        if (int && int.length > 0) {
           integracaoId = int[0].id;
           integracaoInfo = { nome: int[0].nome_instancia, numero: int[0].numero_telefone };
         }
@@ -407,12 +427,14 @@ async function handleMessage(dados, payloadBruto, base44) {
 
   if (!integracaoId && dados.instanceId) {
     try {
-      const int = await base44.asServiceRole.entities.WhatsAppIntegration.filter(
-        { instance_id_provider: dados.instanceId },
-        '-created_date',
-        1
-      );
-      if (int.length > 0) {
+      const { data: int } = await base44
+        .from('whatsapp_integrations')
+        .select('id, nome_instancia, numero_telefone')
+        .eq('instance_id_provider', dados.instanceId)
+        .order('created_date', { ascending: false })
+        .limit(1);
+      
+      if (int && int.length > 0) {
         integracaoId = int[0].id;
         integracaoInfo = { nome: int[0].nome_instancia, numero: int[0].numero_telefone };
       }
@@ -421,7 +443,7 @@ async function handleMessage(dados, payloadBruto, base44) {
 
   console.log(`[WAPI] 🔗 Integração: ${integracaoId || 'não encontrada'} | Canal: ${integracaoInfo?.numero || connectedPhone || 'N/A'}`);
 
-  // BUSCAR/CRIAR CONTATO - Múltiplas variações
+  // BUSCAR/CRIAR CONTATO
   const profilePicUrl = payloadBruto.sender?.profilePicture || payloadBruto.sender?.profilePicThumbObj?.eurl || null;
   let contato;
   try {
@@ -448,11 +470,14 @@ async function handleMessage(dados, payloadBruto, base44) {
     for (const tel of variacoes) {
       if (contatos.length > 0) break;
       try {
-        contatos = await base44.asServiceRole.entities.Contact.filter(
-          { telefone: tel },
-          '-created_date',
-          1
-        );
+        const { data } = await base44
+          .from('contacts')
+          .select('*')
+          .eq('telefone', tel)
+          .order('created_date', { ascending: false })
+          .limit(1);
+        
+        if (data) contatos = data;
       } catch {}
     }
 
@@ -465,122 +490,150 @@ async function handleMessage(dados, payloadBruto, base44) {
       if (profilePicUrl && contato.foto_perfil_url !== profilePicUrl) {
         update.foto_perfil_url = profilePicUrl;
       }
-      await base44.asServiceRole.entities.Contact.update(contato.id, update);
+      await base44
+        .from('contacts')
+        .update(update)
+        .eq('id', contato.id);
       console.log(`[WAPI] 👤 Contato existente: ${contato.nome}`);
     } else {
-      contato = await base44.asServiceRole.entities.Contact.create({
-        nome: dados.pushName || dados.from,
-        telefone: dados.from,
-        tipo_contato: 'lead',
-        whatsapp_status: 'verificado',
-        ultima_interacao: new Date().toISOString(),
-        foto_perfil_url: profilePicUrl
-      });
+      const { data: novoContato } = await base44
+        .from('contacts')
+        .insert({
+          nome: dados.pushName || dados.from,
+          telefone: dados.from,
+          tipo_contato: 'lead',
+          whatsapp_status: 'verificado',
+          ultima_interacao: new Date().toISOString(),
+          foto_perfil_url: profilePicUrl
+        })
+        .select()
+        .single();
+      
+      contato = novoContato;
       console.log(`[WAPI] 👤 Novo contato: ${contato.nome}`);
     }
   } catch (e) {
     console.error(`[WAPI] ❌ Erro contato:`, e?.message);
-    return Response.json({ success: false, error: 'erro_contato' }, { status: 500, headers: corsHeaders });
+    return jsonErr('erro_contato', 500);
   }
 
   // BUSCAR/CRIAR THREAD
   let thread;
   try {
-    const threads = await base44.asServiceRole.entities.MessageThread.filter(
-      { contact_id: contato.id },
-      '-last_message_at',
-      1
-    );
+    const { data: threads } = await base44
+      .from('message_threads')
+      .select('*')
+      .eq('contact_id', contato.id)
+      .order('last_message_at', { ascending: false })
+      .limit(1);
 
-    if (threads.length > 0) {
+    if (threads && threads.length > 0) {
       thread = threads[0];
       console.log(`[WAPI] 💭 Thread existente: ${thread.id}`);
     } else {
       const agora = new Date().toISOString();
-      thread = await base44.asServiceRole.entities.MessageThread.create({
-        contact_id: contato.id,
-        whatsapp_integration_id: integracaoId,
-        status: 'aberta',
-        primeira_mensagem_at: agora,
-        last_message_at: agora,
-        last_inbound_at: agora,
-        last_message_sender: 'contact',
-        last_message_content: String(dados.content || '').substring(0, 100),
-        last_media_type: dados.mediaType || 'none',
-        total_mensagens: 1,
-        unread_count: 1,
-      });
+      const { data: novaThread } = await base44
+        .from('message_threads')
+        .insert({
+          contact_id: contato.id,
+          whatsapp_integration_id: integracaoId,
+          status: 'aberta',
+          primeira_mensagem_at: agora,
+          last_message_at: agora,
+          last_inbound_at: agora,
+          last_message_sender: 'contact',
+          last_message_content: String(dados.content || '').substring(0, 100),
+          last_media_type: dados.mediaType || 'none',
+          total_mensagens: 1,
+          unread_count: 1,
+        })
+        .select()
+        .single();
+      
+      thread = novaThread;
       console.log(`[WAPI] 💭 Nova thread: ${thread.id}`);
     }
   } catch (e) {
     console.error(`[WAPI] ❌ Erro thread:`, e?.message);
-    return Response.json({ success: false, error: 'erro_thread' }, { status: 500, headers: corsHeaders });
+    return jsonErr('erro_thread', 500);
   }
   
   // DEDUPLICAÇÃO POR CONTEÚDO
   try {
     const doisSegundosAtras = new Date(Date.now() - 2000).toISOString();
-    const msgRecentes = await base44.asServiceRole.entities.Message.filter({
-      thread_id: thread.id,
-      sender_type: 'contact',
-      created_date: { $gte: doisSegundosAtras }
-    }, '-created_date', 10);
+    const { data: msgRecentes } = await base44
+      .from('messages')
+      .select('*')
+      .eq('thread_id', thread.id)
+      .eq('sender_type', 'contact')
+      .gte('created_date', doisSegundosAtras)
+      .order('created_date', { ascending: false })
+      .limit(10);
     
-    const duplicadaPorConteudo = msgRecentes.find(m => 
-      m.media_type === dados.mediaType &&
-      m.content === dados.content &&
-      Math.abs(new Date(m.created_date) - Date.now()) < 2000
-    );
-    
-    if (duplicadaPorConteudo) {
-      console.log(`[WAPI] ⏭️ DUPLICATA POR CONTEÚDO: ${duplicadaPorConteudo.id}`);
-      return Response.json({ success: true, ignored: true, reason: 'duplicata_conteudo' }, { headers: corsHeaders });
+    if (msgRecentes) {
+      const duplicadaPorConteudo = msgRecentes.find(m => 
+        m.media_type === dados.mediaType &&
+        m.content === dados.content &&
+        Math.abs(new Date(m.created_date) - Date.now()) < 2000
+      );
+      
+      if (duplicadaPorConteudo) {
+        console.log(`[WAPI] ⏭️ DUPLICATA POR CONTEÚDO: ${duplicadaPorConteudo.id}`);
+        return jsonOk({ ignored: true, reason: 'duplicata_conteudo' });
+      }
     }
   } catch (err) {
     console.warn(`[WAPI] ⚠️ Erro ao verificar duplicata:`, err.message);
   }
 
-  // SALVAR MENSAGEM (enriquecimento Z-API style)
+  // SALVAR MENSAGEM
   let mensagem;
   try {
-    mensagem = await base44.asServiceRole.entities.Message.create({
-      thread_id: thread.id,
-      sender_id: contato.id,
-      sender_type: 'contact',
-      content: dados.content,
-      media_url: dados.downloadSpec ? 'pending_download' : null,
-      media_type: dados.mediaType,
-      media_caption: dados.mediaCaption ?? null,
-      channel: 'whatsapp',
-      status: 'recebida',
-      whatsapp_message_id: dados.messageId ?? null,
-      sent_at: new Date().toISOString(),
-      metadata: {
-        whatsapp_integration_id: integracaoId,
-        instance_id: dados.instanceId ?? null,
-        connected_phone: connectedPhone ?? null,
-        canal_nome: integracaoInfo?.nome ?? null,
-        canal_numero: integracaoInfo?.numero ?? (connectedPhone ? '+' + connectedPhone : null),
-        vcard: dados.vcard ?? null,
-        location: dados.location ?? null,
-        quoted_message: dados.quotedMessage ?? null,
-        downloadSpec: dados.downloadSpec ?? null, // ✅ Guardar para o worker
-        processed_by: VERSION,
-        provider: 'w_api'
-      },
-    });
+    const { data, error: msgError } = await base44
+      .from('messages')
+      .insert({
+        thread_id: thread.id,
+        sender_id: contato.id,
+        sender_type: 'contact',
+        content: dados.content,
+        media_url: dados.downloadSpec ? 'pending_download' : null,
+        media_type: dados.mediaType,
+        media_caption: dados.mediaCaption ?? null,
+        channel: 'whatsapp',
+        status: 'recebida',
+        whatsapp_message_id: dados.messageId ?? null,
+        sent_at: new Date().toISOString(),
+        metadata: {
+          whatsapp_integration_id: integracaoId,
+          instance_id: dados.instanceId ?? null,
+          connected_phone: connectedPhone ?? null,
+          canal_nome: integracaoInfo?.nome ?? null,
+          canal_numero: integracaoInfo?.numero ?? (connectedPhone ? '+' + connectedPhone : null),
+          vcard: dados.vcard ?? null,
+          location: dados.location ?? null,
+          quoted_message: dados.quotedMessage ?? null,
+          downloadSpec: dados.downloadSpec ?? null,
+          processed_by: VERSION,
+          provider: 'w_api'
+        },
+      })
+      .select()
+      .single();
+    
+    if (msgError) throw msgError;
+    mensagem = data;
     console.log(`[WAPI] ✅ Mensagem salva: ${mensagem.id}`);
   } catch (e) {
     console.error(`[WAPI] ❌ Erro salvar mensagem:`, e?.message);
-    return Response.json({ success: false, error: 'erro_salvar_mensagem' }, { status: 500, headers: corsHeaders });
+    return jsonErr('erro_salvar_mensagem', 500);
   }
 
-  // ATUALIZAR THREAD (v12 pattern)
+  // ATUALIZAR THREAD
   try {
     const agora = new Date().toISOString();
     const threadUpdate = {
       last_message_at: agora,
-      last_inbound_at: agora, // ✅ CRÍTICO para promoções inbound
+      last_inbound_at: agora,
       last_message_sender: 'contact',
       last_message_content: String(dados.content || '').substring(0, 100),
       last_media_type: dados.mediaType || 'none',
@@ -591,45 +644,43 @@ async function handleMessage(dados, payloadBruto, base44) {
     if (integracaoId && !thread.whatsapp_integration_id) {
       threadUpdate.whatsapp_integration_id = integracaoId;
     }
-    await base44.asServiceRole.entities.MessageThread.update(thread.id, threadUpdate);
+    await base44
+      .from('message_threads')
+      .update(threadUpdate)
+      .eq('id', thread.id);
     console.log(`[WAPI] 💭 Thread atualizada | Não lidas: ${threadUpdate.unread_count}`);
   } catch (updateError) {
     console.error(`[WAPI] ⚠️ Erro ao atualizar thread:`, updateError.message);
   }
 
-  // TRIGGER PERSISTÊNCIA (Fire-and-Forget) - ✅ USAR downloadSpec
+  // TRIGGER PERSISTÊNCIA (Fire-and-Forget)
   if (dados.downloadSpec) {
     console.log('[WAPI] 🚀 Disparando worker de mídia...');
-    base44.asServiceRole.functions.invoke('persistirMidiaWapi', {
-      message_id: mensagem.id,
-      integration_id: integracaoId,
-      downloadSpec: dados.downloadSpec,
-      media_type: dados.mediaType,
-      filename: dados.content?.replace(/[\[\]]/g, '') || `${dados.mediaType}_${Date.now()}`
+    base44.functions.invoke('persistirMidiaWapi', {
+      body: {
+        message_id: mensagem.id,
+        integration_id: integracaoId,
+        downloadSpec: dados.downloadSpec,
+        media_type: dados.mediaType,
+        filename: dados.content?.replace(/[\[\]]/g, '') || `${dados.mediaType}_${Date.now()}`
+      }
     }).catch(e => console.error('[WAPI] Erro trigger mídia:', e.message));
   }
 
-  // DISPARAR CÉREBRO (Import Direto - SIMETRIA Z-API)
+  // DISPARAR CÉREBRO (Import Estático - SIMETRIA Z-API)
   try {
-    console.log('[WAPI] 🧠 Carregando Inbound Core (Direct Import)...');
-    console.log('[WAPI] 📂 Import path:', import.meta.url);
-
-    // ✅ IMPORT DIRETO - Elimina erros HTTP 404 e timeout
-    let processInboundEvent;
-    try {
-      const module = await import('./lib/inboundCore.js');
-      processInboundEvent = module.processInboundEvent;
-      console.log('[WAPI] ✅ Módulo inboundCore carregado');
-    } catch (importErr) {
-      console.error('[WAPI] ❌ Erro ao importar inboundCore:', importErr.message);
-      console.error('[WAPI] ❌ Stack:', importErr.stack);
-      throw importErr;
-    }
-
+    console.log('[WAPI] 🧠 Executando Inbound Core...');
+    
     let integracaoObj = null;
     if (integracaoId) {
       try {
-        integracaoObj = await base44.asServiceRole.entities.WhatsAppIntegration.get(integracaoId);
+        const { data } = await base44
+          .from('whatsapp_integrations')
+          .select('*')
+          .eq('id', integracaoId)
+          .single();
+        
+        integracaoObj = data;
       } catch (e) {
         console.warn('[WAPI] ⚠️ Integração não encontrada, usando ID:', e.message);
         integracaoObj = { id: integracaoId };
@@ -647,7 +698,7 @@ async function handleMessage(dados, payloadBruto, base44) {
       rawPayload: payloadBruto
     });
 
-    console.log('[WAPI] ✅ Cérebro executado (Direct Import)');
+    console.log('[WAPI] ✅ Cérebro executado (Static Import)');
   } catch (err) {
     console.error('[WAPI] 🔴 Erro no Cérebro:', err.message);
     console.error('[WAPI] 🔴 Stack completo:', err.stack);
@@ -655,33 +706,34 @@ async function handleMessage(dados, payloadBruto, base44) {
 
   // Audit log
   try {
-    await base44.asServiceRole.entities.ZapiPayloadNormalized.create({
-      payload_bruto: payloadBruto,
-      instance_identificado: dados.instanceId ?? null,
-      integration_id: integracaoId,
-      evento: 'ReceivedCallback',
-      timestamp_recebido: new Date().toISOString(),
-      sucesso_processamento: true,
-      message_id: payloadBruto.messageId || payloadBruto.data?.key?.id || dados.messageId,
-    });
+    await base44
+      .from('zapi_payload_normalized')
+      .insert({
+        payload_bruto: payloadBruto,
+        instance_identificado: dados.instanceId ?? null,
+        integration_id: integracaoId,
+        evento: 'ReceivedCallback',
+        timestamp_recebido: new Date().toISOString(),
+        sucesso_processamento: true,
+        message_id: payloadBruto.messageId || payloadBruto.data?.key?.id || dados.messageId,
+      });
   } catch {}
 
   const duracao = Date.now() - inicio;
   console.log(`[WAPI] ✅ SUCESSO! Msg: ${mensagem.id} | Thread: ${thread.id} | ${duracao}ms`);
 
-  return Response.json({
-    success: true,
+  return jsonOk({
     message_id: mensagem.id,
     contact_id: contato.id,
     thread_id: thread.id,
     integration_id: integracaoId,
     duration_ms: duracao,
     status: 'processed_inline'
-  }, { headers: corsHeaders });
+  });
 }
 
 // ============================================================================
-// HANDLER PRINCIPAL
+// HANDLER PRINCIPAL (AUTH FIX W-API ESPECÍFICO)
 // ============================================================================
 Deno.serve(async (req) => {
   console.log('[WAPI-WEBHOOK] REQUEST | Método:', req.method);
@@ -691,41 +743,45 @@ Deno.serve(async (req) => {
   }
 
   if (req.method === 'GET') {
-    return Response.json({ version: VERSION, status: 'ok', provider: 'w_api' }, { headers: corsHeaders });
+    return jsonOk({ version: VERSION, status: 'ok', provider: 'w_api' });
   }
 
+  // ✅ AUTH FIX: createClient com env vars (aceita chamadas externas da W-API)
   let base44;
   try {
-    base44 = createClientFromRequest(req.clone());
+    const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? '';
+    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
+    if (!supabaseUrl || !supabaseKey) throw new Error('Env vars ausentes');
+    base44 = createClient(supabaseUrl, supabaseKey);
   } catch (e) {
-    return Response.json({ success: false, error: 'SDK error' }, { status: 500, headers: corsHeaders });
+    console.error('[WAPI] 🔴 FATAL: Erro Client:', e.message);
+    return jsonErr('sdk_error', 500);
   }
 
   let payload;
   try {
     const body = await req.text();
-    if (!body) return Response.json({ success: true, ignored: true }, { headers: corsHeaders });
+    if (!body) return jsonOk({ ignored: true });
     payload = JSON.parse(body);
 
     console.log('[WAPI] 📥 Event:', payload.event, '| Type:', payload.type);
     console.log('[WAPI] 📥 Payload:', JSON.stringify(payload).substring(0, 1500));
   } catch (e) {
-    return Response.json({ success: false, error: 'JSON invalido' }, { status: 200, headers: corsHeaders });
+    return jsonErr('JSON invalido', 200);
   }
 
-  // ✅ CLASSIFICAÇÃO CIRÚRGICA ANTES DE FILTRAR (v12 pattern)
   const classification = classifyWapiEvent(payload);
   const motivoIgnorar = deveIgnorar(payload, classification);
   
   if (motivoIgnorar) {
     console.log('[WAPI] ⏭️ Ignorado:', motivoIgnorar);
-    return Response.json({ success: true, ignored: true, reason: motivoIgnorar }, { headers: corsHeaders });
+    return jsonOk({ ignored: true, reason: motivoIgnorar });
   }
 
   const dados = normalizarPayload(payload);
   if (dados.type === 'unknown') {
     console.log(`[WAPI] ⏭️ Unknown: ${dados.error}`);
-    return Response.json({ success: true, ignored: true, reason: dados.error }, { headers: corsHeaders });
+    return jsonOk({ ignored: true, reason: dados.error });
   }
 
   console.log(`[WAPI] 🔄 Processando: ${dados.type}`);
@@ -741,10 +797,10 @@ Deno.serve(async (req) => {
       case 'message':
         return await handleMessage(dados, payload, base44);
       default:
-        return Response.json({ success: true, ignored: true, reason: 'tipo_desconhecido' }, { headers: corsHeaders });
+        return jsonOk({ ignored: true, reason: 'tipo_desconhecido' });
     }
   } catch (error) {
     console.error('[WAPI] ❌ ERRO:', error?.message);
-    return Response.json({ success: false, error: 'erro_interno' }, { status: 500, headers: corsHeaders });
+    return jsonErr('erro_interno', 500);
   }
 });
