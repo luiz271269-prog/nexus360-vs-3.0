@@ -1,17 +1,16 @@
-import { createClient } from 'jsr:@supabase/supabase-js@2';
-
-// ✅ Import será feito dinamicamente quando necessário
+import { createClientFromRequest } from 'npm:@base44/sdk@0.8.6';
+import { processInboundEvent } from './lib/inboundCore.js';
 
 // ============================================================================
-// WEBHOOK WHATSAPP W-API - v18.0.0 ULTIMATE MIRROR
+// WEBHOOK WHATSAPP W-API - v21.0.0 SDK SYNTAX FIX
 // ============================================================================
-// SIMETRIA TOTAL COM Z-API v10, DIFERENÇAS APENAS:
-// 1. Auth: createClient(URL, KEY) - aceita chamadas externas sem header
-// 2. Import: Estático no topo - resolve "arquivo não encontrado"
-// 3. Mídia: downloadSpec + Worker - W-API exige decriptação pesada
+// CORREÇÕES DEFINITIVAS:
+// 1. Auth: createClientFromRequest (SDK Base44 oficial)
+// 2. Sintaxe: base44.asServiceRole.entities.X.filter() (não .from())
+// 3. Import: Estático no topo (resolve OS Error 2)
 // ============================================================================
 
-const VERSION = 'v18.0.0-ULTIMATE-MIRROR';
+const VERSION = 'v21.0.0-SDK-SYNTAX-FIX';
 const BUILD_DATE = '2026-01-06';
 
 const corsHeaders = {
@@ -22,17 +21,13 @@ const corsHeaders = {
 };
 
 // ============================================================================
-// HELPERS (IDÊNTICOS À Z-API)
+// HELPERS
 // ============================================================================
 const jsonOk = (data, extra = {}) => 
   Response.json({ success: true, ...data, ...extra }, { headers: corsHeaders });
 
 const jsonErr = (error, status = 500) => 
   Response.json({ success: false, error }, { status, headers: corsHeaders });
-
-function coerceString(val) {
-  return val == null ? '' : String(val);
-}
 
 function normalizarTelefone(telefone) {
   if (!telefone) return null;
@@ -58,19 +53,17 @@ function normalizarTelefone(telefone) {
 }
 
 // ============================================================================
-// CLASSIFICADOR CIRÚRGICO (IDÊNTICO À Z-API)
+// CLASSIFICADOR
 // ============================================================================
 function classifyWapiEvent(payload) {
   if (!payload || typeof payload !== 'object') return 'ignore';
 
   const evento = String(payload.event || payload.type || '').toLowerCase();
 
-  // 1️⃣ STATUS/ACK
   if (evento.includes('delivery') || evento.includes('ack') || evento.includes('status')) {
     return 'system-status';
   }
 
-  // 2️⃣ MENSAGEM DE USUÁRIO
   if (payload.msgContent) {
     return 'user-message';
   }
@@ -81,12 +74,11 @@ function classifyWapiEvent(payload) {
     }
   }
 
-  // 3️⃣ OUTROS
   return 'ignore';
 }
 
 // ============================================================================
-// FILTRO ULTRA-RÁPIDO (IDÊNTICO À Z-API)
+// FILTRO
 // ============================================================================
 function deveIgnorar(payload, classification) {
   if (!payload || typeof payload !== 'object') return 'payload_invalido';
@@ -152,7 +144,7 @@ function deveIgnorar(payload, classification) {
 }
 
 // ============================================================================
-// NORMALIZAR PAYLOAD (IDÊNTICO À Z-API, COM downloadSpec)
+// NORMALIZAR PAYLOAD
 // ============================================================================
 function normalizarPayload(payload) {
   try {
@@ -183,8 +175,6 @@ function normalizarPayload(payload) {
 
     const msgContent = payload.msgContent || {};
     let mediaType = 'none';
-    let fileId = null;
-    let originalMediaUrl = null;
     let conteudoRaw = payload.text?.message || payload.body || '';
     let conteudo = '';
     let downloadSpec = null;
@@ -253,8 +243,6 @@ function normalizarPayload(payload) {
       from: numeroLimpo,
       content: String(conteudo || '').trim(),
       mediaType,
-      originalMediaUrl,
-      fileId,
       downloadSpec,
       mediaCaption: msgContent.imageMessage?.caption || msgContent.videoMessage?.caption,
       pushName: payload.pushName || payload.senderName || payload.sender?.pushName || payload.text?.senderName,
@@ -274,27 +262,23 @@ function normalizarPayload(payload) {
 }
 
 // ============================================================================
-// HANDLERS (IDÊNTICOS À Z-API)
+// HANDLERS (SINTAXE SDK BASE44)
 // ============================================================================
 async function handleQRCode(dados, base44) {
   if (!dados.instanceId) return jsonOk({});
   try {
-    const { data: integracoes } = await base44
-      .from('whatsapp_integrations')
-      .select('id')
-      .eq('instance_id_provider', dados.instanceId)
-      .order('created_date', { ascending: false })
-      .limit(1);
+    const integracoes = await base44.asServiceRole.entities.WhatsAppIntegration.filter(
+      { instance_id_provider: dados.instanceId },
+      '-created_date',
+      1
+    );
     
     if (integracoes && integracoes.length > 0) {
-      await base44
-        .from('whatsapp_integrations')
-        .update({
-          qr_code_url: dados.qrCodeUrl,
-          status: 'pendente_qrcode',
-          ultima_atividade: new Date().toISOString()
-        })
-        .eq('id', integracoes[0].id);
+      await base44.asServiceRole.entities.WhatsAppIntegration.update(integracoes[0].id, {
+        qr_code_url: dados.qrCodeUrl,
+        status: 'pendente_qrcode',
+        ultima_atividade: new Date().toISOString()
+      });
     }
   } catch (e) {}
   return jsonOk({ processed: 'qrcode', provider: 'w_api' });
@@ -303,12 +287,11 @@ async function handleQRCode(dados, base44) {
 async function handleConnection(dados, base44, payloadBruto) {
   if (!dados.instanceId) return jsonOk({});
   try {
-    const { data: integracoes } = await base44
-      .from('whatsapp_integrations')
-      .select('id')
-      .eq('instance_id_provider', dados.instanceId)
-      .order('created_date', { ascending: false })
-      .limit(1);
+    const integracoes = await base44.asServiceRole.entities.WhatsAppIntegration.filter(
+      { instance_id_provider: dados.instanceId },
+      '-created_date',
+      1
+    );
     
     if (integracoes && integracoes.length > 0) {
       const connectedPhone = payloadBruto.connectedPhone || 
@@ -327,10 +310,7 @@ async function handleConnection(dados, base44, payloadBruto) {
         console.log('[WAPI] ✅ Número de telefone associado:', connectedPhone);
       }
       
-      await base44
-        .from('whatsapp_integrations')
-        .update(updateData)
-        .eq('id', integracoes[0].id);
+      await base44.asServiceRole.entities.WhatsAppIntegration.update(integracoes[0].id, updateData);
       
       console.log('[WAPI] ✅ Status de conexão atualizado:', dados.status);
     }
@@ -343,12 +323,11 @@ async function handleConnection(dados, base44, payloadBruto) {
 async function handleMessageUpdate(dados, base44) {
   if (!dados.messageId) return jsonOk({});
   try {
-    const { data: mensagens } = await base44
-      .from('messages')
-      .select('id')
-      .eq('whatsapp_message_id', dados.messageId)
-      .order('created_date', { ascending: false })
-      .limit(1);
+    const mensagens = await base44.asServiceRole.entities.Message.filter(
+      { whatsapp_message_id: dados.messageId },
+      '-created_date',
+      1
+    );
     
     if (mensagens && mensagens.length > 0) {
       const statusMap = { 
@@ -358,10 +337,7 @@ async function handleMessageUpdate(dados, base44) {
       };
       const novoStatus = statusMap[dados.status] || statusMap[String(dados.status)];
       if (novoStatus) {
-        await base44
-          .from('messages')
-          .update({ status: novoStatus })
-          .eq('id', mensagens[0].id);
+        await base44.asServiceRole.entities.Message.update(mensagens[0].id, { status: novoStatus });
       }
     }
   } catch (e) {}
@@ -369,7 +345,7 @@ async function handleMessageUpdate(dados, base44) {
 }
 
 // ============================================================================
-// HANDLE MESSAGE (IDÊNTICO À Z-API, COM downloadSpec + Worker)
+// HANDLE MESSAGE
 // ============================================================================
 async function handleMessage(dados, payloadBruto, base44) {
   console.log('[WAPI] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
@@ -380,12 +356,11 @@ async function handleMessage(dados, payloadBruto, base44) {
   // DEDUPLICAÇÃO POR messageId
   if (dados.messageId) {
     try {
-      const { data: dup } = await base44
-        .from('messages')
-        .select('id')
-        .eq('whatsapp_message_id', dados.messageId)
-        .order('created_date', { ascending: false })
-        .limit(10);
+      const dup = await base44.asServiceRole.entities.Message.filter(
+        { whatsapp_message_id: dados.messageId },
+        '-created_date',
+        10
+      );
       
       if (dup && dup.length > 0) {
         console.log(`[WAPI] ⏭️ DUPLICATA: ${dados.messageId}`);
@@ -409,12 +384,11 @@ async function handleMessage(dados, payloadBruto, base44) {
 
       for (const tel of phoneVariacoes) {
         if (integracaoId) break;
-        const { data: int } = await base44
-          .from('whatsapp_integrations')
-          .select('id, nome_instancia, numero_telefone')
-          .eq('numero_telefone', tel)
-          .order('created_date', { ascending: false })
-          .limit(1);
+        const int = await base44.asServiceRole.entities.WhatsAppIntegration.filter(
+          { numero_telefone: tel },
+          '-created_date',
+          1
+        );
         
         if (int && int.length > 0) {
           integracaoId = int[0].id;
@@ -426,12 +400,11 @@ async function handleMessage(dados, payloadBruto, base44) {
 
   if (!integracaoId && dados.instanceId) {
     try {
-      const { data: int } = await base44
-        .from('whatsapp_integrations')
-        .select('id, nome_instancia, numero_telefone')
-        .eq('instance_id_provider', dados.instanceId)
-        .order('created_date', { ascending: false })
-        .limit(1);
+      const int = await base44.asServiceRole.entities.WhatsAppIntegration.filter(
+        { instance_id_provider: dados.instanceId },
+        '-created_date',
+        1
+      );
       
       if (int && int.length > 0) {
         integracaoId = int[0].id;
@@ -469,14 +442,13 @@ async function handleMessage(dados, payloadBruto, base44) {
     for (const tel of variacoes) {
       if (contatos.length > 0) break;
       try {
-        const { data } = await base44
-          .from('contacts')
-          .select('*')
-          .eq('telefone', tel)
-          .order('created_date', { ascending: false })
-          .limit(1);
+        const resultado = await base44.asServiceRole.entities.Contact.filter(
+          { telefone: tel },
+          '-created_date',
+          1
+        );
         
-        if (data) contatos = data;
+        if (resultado) contatos = resultado;
       } catch {}
     }
 
@@ -489,26 +461,18 @@ async function handleMessage(dados, payloadBruto, base44) {
       if (profilePicUrl && contato.foto_perfil_url !== profilePicUrl) {
         update.foto_perfil_url = profilePicUrl;
       }
-      await base44
-        .from('contacts')
-        .update(update)
-        .eq('id', contato.id);
+      await base44.asServiceRole.entities.Contact.update(contato.id, update);
       console.log(`[WAPI] 👤 Contato existente: ${contato.nome}`);
     } else {
-      const { data: novoContato } = await base44
-        .from('contacts')
-        .insert({
-          nome: dados.pushName || dados.from,
-          telefone: dados.from,
-          tipo_contato: 'lead',
-          whatsapp_status: 'verificado',
-          ultima_interacao: new Date().toISOString(),
-          foto_perfil_url: profilePicUrl
-        })
-        .select()
-        .single();
+      contato = await base44.asServiceRole.entities.Contact.create({
+        nome: dados.pushName || dados.from,
+        telefone: dados.from,
+        tipo_contato: 'lead',
+        whatsapp_status: 'verificado',
+        ultima_interacao: new Date().toISOString(),
+        foto_perfil_url: profilePicUrl
+      });
       
-      contato = novoContato;
       console.log(`[WAPI] 👤 Novo contato: ${contato.nome}`);
     }
   } catch (e) {
@@ -519,37 +483,31 @@ async function handleMessage(dados, payloadBruto, base44) {
   // BUSCAR/CRIAR THREAD
   let thread;
   try {
-    const { data: threads } = await base44
-      .from('message_threads')
-      .select('*')
-      .eq('contact_id', contato.id)
-      .order('last_message_at', { ascending: false })
-      .limit(1);
+    const threads = await base44.asServiceRole.entities.MessageThread.filter(
+      { contact_id: contato.id },
+      '-last_message_at',
+      1
+    );
 
     if (threads && threads.length > 0) {
       thread = threads[0];
       console.log(`[WAPI] 💭 Thread existente: ${thread.id}`);
     } else {
       const agora = new Date().toISOString();
-      const { data: novaThread } = await base44
-        .from('message_threads')
-        .insert({
-          contact_id: contato.id,
-          whatsapp_integration_id: integracaoId,
-          status: 'aberta',
-          primeira_mensagem_at: agora,
-          last_message_at: agora,
-          last_inbound_at: agora,
-          last_message_sender: 'contact',
-          last_message_content: String(dados.content || '').substring(0, 100),
-          last_media_type: dados.mediaType || 'none',
-          total_mensagens: 1,
-          unread_count: 1,
-        })
-        .select()
-        .single();
+      thread = await base44.asServiceRole.entities.MessageThread.create({
+        contact_id: contato.id,
+        whatsapp_integration_id: integracaoId,
+        status: 'aberta',
+        primeira_mensagem_at: agora,
+        last_message_at: agora,
+        last_inbound_at: agora,
+        last_message_sender: 'contact',
+        last_message_content: String(dados.content || '').substring(0, 100),
+        last_media_type: dados.mediaType || 'none',
+        total_mensagens: 1,
+        unread_count: 1,
+      });
       
-      thread = novaThread;
       console.log(`[WAPI] 💭 Nova thread: ${thread.id}`);
     }
   } catch (e) {
@@ -560,14 +518,14 @@ async function handleMessage(dados, payloadBruto, base44) {
   // DEDUPLICAÇÃO POR CONTEÚDO
   try {
     const doisSegundosAtras = new Date(Date.now() - 2000).toISOString();
-    const { data: msgRecentes } = await base44
-      .from('messages')
-      .select('*')
-      .eq('thread_id', thread.id)
-      .eq('sender_type', 'contact')
-      .gte('created_date', doisSegundosAtras)
-      .order('created_date', { ascending: false })
-      .limit(10);
+    const msgRecentes = await base44.asServiceRole.entities.Message.filter(
+      { 
+        thread_id: thread.id, 
+        sender_type: 'contact'
+      },
+      '-created_date',
+      10
+    );
     
     if (msgRecentes) {
       const duplicadaPorConteudo = msgRecentes.find(m => 
@@ -588,39 +546,33 @@ async function handleMessage(dados, payloadBruto, base44) {
   // SALVAR MENSAGEM
   let mensagem;
   try {
-    const { data, error: msgError } = await base44
-      .from('messages')
-      .insert({
-        thread_id: thread.id,
-        sender_id: contato.id,
-        sender_type: 'contact',
-        content: dados.content,
-        media_url: dados.downloadSpec ? 'pending_download' : null,
-        media_type: dados.mediaType,
-        media_caption: dados.mediaCaption ?? null,
-        channel: 'whatsapp',
-        status: 'recebida',
-        whatsapp_message_id: dados.messageId ?? null,
-        sent_at: new Date().toISOString(),
-        metadata: {
-          whatsapp_integration_id: integracaoId,
-          instance_id: dados.instanceId ?? null,
-          connected_phone: connectedPhone ?? null,
-          canal_nome: integracaoInfo?.nome ?? null,
-          canal_numero: integracaoInfo?.numero ?? (connectedPhone ? '+' + connectedPhone : null),
-          vcard: dados.vcard ?? null,
-          location: dados.location ?? null,
-          quoted_message: dados.quotedMessage ?? null,
-          downloadSpec: dados.downloadSpec ?? null,
-          processed_by: VERSION,
-          provider: 'w_api'
-        },
-      })
-      .select()
-      .single();
+    mensagem = await base44.asServiceRole.entities.Message.create({
+      thread_id: thread.id,
+      sender_id: contato.id,
+      sender_type: 'contact',
+      content: dados.content,
+      media_url: dados.downloadSpec ? 'pending_download' : null,
+      media_type: dados.mediaType,
+      media_caption: dados.mediaCaption ?? null,
+      channel: 'whatsapp',
+      status: 'recebida',
+      whatsapp_message_id: dados.messageId ?? null,
+      sent_at: new Date().toISOString(),
+      metadata: {
+        whatsapp_integration_id: integracaoId,
+        instance_id: dados.instanceId ?? null,
+        connected_phone: connectedPhone ?? null,
+        canal_nome: integracaoInfo?.nome ?? null,
+        canal_numero: integracaoInfo?.numero ?? (connectedPhone ? '+' + connectedPhone : null),
+        vcard: dados.vcard ?? null,
+        location: dados.location ?? null,
+        quoted_message: dados.quotedMessage ?? null,
+        downloadSpec: dados.downloadSpec ?? null,
+        processed_by: VERSION,
+        provider: 'w_api'
+      },
+    });
     
-    if (msgError) throw msgError;
-    mensagem = data;
     console.log(`[WAPI] ✅ Mensagem salva: ${mensagem.id}`);
   } catch (e) {
     console.error(`[WAPI] ❌ Erro salvar mensagem:`, e?.message);
@@ -643,10 +595,7 @@ async function handleMessage(dados, payloadBruto, base44) {
     if (integracaoId && !thread.whatsapp_integration_id) {
       threadUpdate.whatsapp_integration_id = integracaoId;
     }
-    await base44
-      .from('message_threads')
-      .update(threadUpdate)
-      .eq('id', thread.id);
+    await base44.asServiceRole.entities.MessageThread.update(thread.id, threadUpdate);
     console.log(`[WAPI] 💭 Thread atualizada | Não lidas: ${threadUpdate.unread_count}`);
   } catch (updateError) {
     console.error(`[WAPI] ⚠️ Erro ao atualizar thread:`, updateError.message);
@@ -655,50 +604,31 @@ async function handleMessage(dados, payloadBruto, base44) {
   // TRIGGER PERSISTÊNCIA (Fire-and-Forget)
   if (dados.downloadSpec) {
     console.log('[WAPI] 🚀 Disparando worker de mídia...');
-    base44.functions.invoke('persistirMidiaWapi', {
-      body: {
-        message_id: mensagem.id,
-        integration_id: integracaoId,
-        downloadSpec: dados.downloadSpec,
-        media_type: dados.mediaType,
-        filename: dados.content?.replace(/[\[\]]/g, '') || `${dados.mediaType}_${Date.now()}`
-      }
+    base44.asServiceRole.functions.invoke('persistirMidiaWapi', {
+      message_id: mensagem.id,
+      integration_id: integracaoId,
+      downloadSpec: dados.downloadSpec,
+      media_type: dados.mediaType,
+      filename: dados.content?.replace(/[\[\]]/g, '') || `${dados.mediaType}_${Date.now()}`
     }).catch(e => console.error('[WAPI] Erro trigger mídia:', e.message));
   }
 
-  // DISPARAR CÉREBRO (Import Dinâmico - corrige OS Error 2)
+  // DISPARAR CÉREBRO (Import Estático)
   try {
-    console.log('[WAPI] 🧠 Carregando Inbound Core (Import Dinâmico)...');
-    
-    let processInboundEvent;
-    try {
-      const module = await import('./lib/inboundCore.js');
-      processInboundEvent = module.processInboundEvent;
-      console.log('[WAPI] ✅ Inbound Core carregado (caminho relativo)');
-    } catch (e1) {
-      console.warn('[WAPI] ⚠️ Tentativa 1 falhou:', e1.message);
-      try {
-        const module = await import('../functions/lib/inboundCore.js');
-        processInboundEvent = module.processInboundEvent;
-        console.log('[WAPI] ✅ Inbound Core carregado (caminho absoluto)');
-      } catch (e2) {
-        console.error('[WAPI] ❌ Tentativa 2 falhou:', e2.message);
-        throw new Error('Não foi possível importar inboundCore');
-      }
-    }
+    console.log('[WAPI] 🧠 Executando Inbound Core...');
     
     let integracaoObj = null;
     if (integracaoId) {
       try {
-        const { data } = await base44
-          .from('whatsapp_integrations')
-          .select('*')
-          .eq('id', integracaoId)
-          .single();
+        const ints = await base44.asServiceRole.entities.WhatsAppIntegration.filter(
+          { id: integracaoId },
+          '-created_date',
+          1
+        );
         
-        integracaoObj = data;
+        integracaoObj = ints?.[0] || null;
       } catch (e) {
-        console.warn('[WAPI] ⚠️ Integração não encontrada, usando ID:', e.message);
+        console.warn('[WAPI] ⚠️ Integração não encontrada:', e.message);
         integracaoObj = { id: integracaoId };
       }
     }
@@ -722,17 +652,15 @@ async function handleMessage(dados, payloadBruto, base44) {
 
   // Audit log
   try {
-    await base44
-      .from('zapi_payload_normalized')
-      .insert({
-        payload_bruto: payloadBruto,
-        instance_identificado: dados.instanceId ?? null,
-        integration_id: integracaoId,
-        evento: 'ReceivedCallback',
-        timestamp_recebido: new Date().toISOString(),
-        sucesso_processamento: true,
-        message_id: payloadBruto.messageId || payloadBruto.data?.key?.id || dados.messageId,
-      });
+    await base44.asServiceRole.entities.ZapiPayloadNormalized.create({
+      payload_bruto: payloadBruto,
+      instance_identificado: dados.instanceId ?? null,
+      integration_id: integracaoId,
+      evento: 'ReceivedCallback',
+      timestamp_recebido: new Date().toISOString(),
+      sucesso_processamento: true,
+      message_id: payloadBruto.messageId || payloadBruto.data?.key?.id || dados.messageId,
+    });
   } catch {}
 
   const duracao = Date.now() - inicio;
@@ -749,7 +677,7 @@ async function handleMessage(dados, payloadBruto, base44) {
 }
 
 // ============================================================================
-// HANDLER PRINCIPAL (AUTH FIX W-API ESPECÍFICO)
+// HANDLER PRINCIPAL
 // ============================================================================
 Deno.serve(async (req) => {
   console.log('[WAPI-WEBHOOK] REQUEST | Método:', req.method);
@@ -762,21 +690,14 @@ Deno.serve(async (req) => {
     return jsonOk({ version: VERSION, status: 'ok', provider: 'w_api' });
   }
 
-  // ✅ AUTH FIX: Service Role direto (webhooks externos)
+  // ✅ AUTH: SDK Base44 oficial
   let base44;
   try {
-    const url = Deno.env.get('SUPABASE_URL');
-    const key = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
-    
-    if (!url || !key) {
-      throw new Error('SUPABASE_URL ou SUPABASE_SERVICE_ROLE_KEY ausentes');
-    }
-    
-    base44 = createClient(url, key);
-    console.log('[WAPI-AUTH] ✅ Cliente Supabase criado com Service Role');
+    base44 = createClientFromRequest(req);
+    console.log('[WAPI-AUTH] ✅ Cliente Base44 criado');
   } catch (e) {
     console.error('[WAPI] 🔴 FATAL:', e.message);
-    return jsonErr('config_error', 500);
+    return jsonErr('auth_error', 500);
   }
 
   let payload;
