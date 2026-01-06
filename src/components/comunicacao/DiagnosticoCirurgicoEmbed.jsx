@@ -87,21 +87,29 @@ export default function DiagnosticoCirurgicoEmbed() {
       // Payload adaptado ao provedor (Z-API vs W-API)
       let payloadTeste;
       if (isWAPI) {
-        // Formato W-API correto (estrutura esperada pelo webhookWapi)
+        // Formato W-API correto completo (estrutura esperada pelo webhookWapi)
         payloadTeste = {
           instanceId: integracao.instance_id_provider,
+          connectedPhone: integracao.numero_telefone?.replace(/\D/g, ''),
           type: 'ReceivedCallback',
           event: 'ReceivedCallback',
           messageId: messageIdTeste,
           phone: '5548999000111',
           from: '5548999000111',
           text: { message: 'TESTE CIRURGICO W-API' },
+          body: 'TESTE CIRURGICO W-API',
           msgContent: {
             conversation: 'TESTE CIRURGICO W-API'
           },
           pushName: 'Teste Diagnóstico',
+          senderName: 'Teste Diagnóstico',
           fromMe: false,
-          momment: Date.now()
+          momment: Date.now(),
+          isGroup: false,
+          sender: {
+            id: '5548999000111@c.us',
+            pushName: 'Teste Diagnóstico'
+          }
         };
       } else {
         // Formato Z-API (mantido igual)
@@ -128,22 +136,37 @@ export default function DiagnosticoCirurgicoEmbed() {
       }
 
       let webhookResponse = null;
+      let webhookStatus = null;
       try {
         const response = await fetch(webhookUrl, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payloadTeste)
         });
+        webhookStatus = response.status;
         webhookResponse = await response.json();
+        
+        // Identificar erro específico do W-API
+        const temErroConfig = webhookResponse?.error === 'config_error' || 
+                             webhookResponse?.error === 'auth_error';
         
         diagnostico.testes.push({
           nome: `3. Webhook ${providerNome} Aceita POST`,
-          status: response.ok ? 'sucesso' : 'erro',
+          status: response.ok && !temErroConfig ? 'sucesso' : 'erro',
           detalhes: {
             provider: providerNome,
-            status: response.status,
+            status: webhookStatus,
             response: webhookResponse,
-            debug: webhookResponse?.debug || null
+            payload_enviado: payloadTeste,
+            integracao: {
+              id: integracao.id,
+              nome: integracao.nome_instancia,
+              instance_id: integracao.instance_id_provider,
+              numero: integracao.numero_telefone,
+              api_provider: integracao.api_provider
+            },
+            erro_especifico: temErroConfig ? 
+              'Webhook retornou config_error ou auth_error - verificar auth do SDK Base44' : null
           }
         });
       } catch (error) {
@@ -152,7 +175,9 @@ export default function DiagnosticoCirurgicoEmbed() {
           status: 'erro',
           detalhes: {
             provider: providerNome,
-            erro: error.message
+            erro: error.message,
+            stack: error.stack,
+            payload_enviado: payloadTeste
           }
         });
       }
@@ -456,6 +481,18 @@ export default function DiagnosticoCirurgicoEmbed() {
                     <div className="mt-2 p-2 bg-yellow-50 rounded text-xs">
                       <strong>Solução:</strong> O fluxo está sendo interrompido antes de criar a Message.
                       Se ZapiPayloadNormalized foi criado mas Message não, o erro está no processamento após normalização.
+                    </div>
+                  )}
+                  
+                  {teste.nome.includes('Webhook') && teste.nome.includes('POST') && teste.detalhes.erro_especifico && (
+                    <div className="mt-2 p-2 bg-yellow-50 rounded text-xs">
+                      <strong>Solução para config_error/auth_error:</strong>
+                      <ul className="list-disc ml-6 mt-1">
+                        <li>Verificar se o SDK Base44 está correto: <code>createClientFromRequest(req)</code></li>
+                        <li>Confirmar que a função usa <code>base44.asServiceRole</code> para operações</li>
+                        <li>Verificar logs da função para erros de autenticação</li>
+                        <li>Garantir que não há imports dinâmicos causando OS Error 2</li>
+                      </ul>
                     </div>
                   )}
                 </AlertDescription>
