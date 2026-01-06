@@ -666,9 +666,26 @@ async function handleMessage(dados, payloadBruto, base44) {
     }).catch(e => console.error('[WAPI] Erro trigger mídia:', e.message));
   }
 
-  // DISPARAR CÉREBRO (Import Estático - SIMETRIA Z-API)
+  // DISPARAR CÉREBRO (Import Dinâmico - corrige OS Error 2)
   try {
-    console.log('[WAPI] 🧠 Executando Inbound Core...');
+    console.log('[WAPI] 🧠 Carregando Inbound Core (Import Dinâmico)...');
+    
+    let processInboundEvent;
+    try {
+      const module = await import('./lib/inboundCore.js');
+      processInboundEvent = module.processInboundEvent;
+      console.log('[WAPI] ✅ Inbound Core carregado (caminho relativo)');
+    } catch (e1) {
+      console.warn('[WAPI] ⚠️ Tentativa 1 falhou:', e1.message);
+      try {
+        const module = await import('../functions/lib/inboundCore.js');
+        processInboundEvent = module.processInboundEvent;
+        console.log('[WAPI] ✅ Inbound Core carregado (caminho absoluto)');
+      } catch (e2) {
+        console.error('[WAPI] ❌ Tentativa 2 falhou:', e2.message);
+        throw new Error('Não foi possível importar inboundCore');
+      }
+    }
     
     let integracaoObj = null;
     if (integracaoId) {
@@ -697,7 +714,7 @@ async function handleMessage(dados, payloadBruto, base44) {
       rawPayload: payloadBruto
     });
 
-    console.log('[WAPI] ✅ Cérebro executado (Static Import)');
+    console.log('[WAPI] ✅ Cérebro executado com sucesso');
   } catch (err) {
     console.error('[WAPI] 🔴 Erro no Cérebro:', err.message);
     console.error('[WAPI] 🔴 Stack completo:', err.stack);
