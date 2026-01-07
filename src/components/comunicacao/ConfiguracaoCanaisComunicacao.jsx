@@ -252,6 +252,8 @@ export default function ConfiguracaoCanaisComunicacao({ integracoes, onRecarrega
   const [sincronizando, setSincronizando] = useState(false);
   const [deletandoProvedor, setDeletandoProvedor] = useState(null);
   const [importandoProvedor, setImportandoProvedor] = useState(null);
+  const [verificandoWebhooks, setVerificandoWebhooks] = useState({});
+  const [registrandoWebhooks, setRegistrandoWebhooks] = useState({});
 
   const resetForm = () => {
     setNovaIntegracao(initialNovaIntegracaoState);
@@ -914,6 +916,68 @@ export default function ConfiguracaoCanaisComunicacao({ integracoes, onRecarrega
     }
   };
 
+  const verificarWebhooksWAPI = async (integracao) => {
+    setVerificandoWebhooks(prev => ({ ...prev, [integracao.id]: true }));
+    try {
+      const response = await base44.functions.invoke('wapiVerificarWebhooks', {
+        integration_id: integracao.id
+      });
+      
+      if (response.data.success) {
+        const webhooks = response.data.webhooks || {};
+        const todosOk = webhooks.message && webhooks.message_ack && webhooks.connection_update;
+        
+        toast.success(
+          <div className="space-y-1">
+            <p className="font-bold">{todosOk ? '✅ Webhooks OK!' : '⚠️ Webhooks Incompletos'}</p>
+            <p className="text-xs">Mensagem: {webhooks.message ? '✅' : '❌'}</p>
+            <p className="text-xs">Status Envio: {webhooks.message_ack ? '✅' : '❌'}</p>
+            <p className="text-xs">Conexão: {webhooks.connection_update ? '✅' : '❌'}</p>
+          </div>,
+          { duration: 8000 }
+        );
+        
+        return response.data;
+      } else {
+        toast.error('Erro ao verificar webhooks: ' + response.data.error);
+      }
+    } catch (error) {
+      console.error('[WEBHOOK] Erro:', error);
+      toast.error('Erro ao verificar: ' + error.message);
+    } finally {
+      setVerificandoWebhooks(prev => ({ ...prev, [integracao.id]: false }));
+    }
+  };
+
+  const registrarWebhooksWAPI = async (integracao) => {
+    setRegistrandoWebhooks(prev => ({ ...prev, [integracao.id]: true }));
+    try {
+      toast.info("🔧 Registrando webhooks na W-API...");
+      
+      const response = await base44.functions.invoke('wapiGerenciarWebhooks', {
+        action: 'register',
+        integration_id: integracao.id
+      });
+      
+      if (response.data.success) {
+        toast.success(
+          <div className="space-y-1">
+            <p className="font-bold">✅ Webhooks registrados!</p>
+            <p className="text-xs">Agora você receberá mensagens normalmente</p>
+          </div>,
+          { duration: 5000 }
+        );
+      } else {
+        toast.error('Erro: ' + response.data.message);
+      }
+    } catch (error) {
+      console.error('[WEBHOOK] Erro ao registrar:', error);
+      toast.error('Erro: ' + error.message);
+    } finally {
+      setRegistrandoWebhooks(prev => ({ ...prev, [integracao.id]: false }));
+    }
+  };
+
   const totalConexoes = integracoes.length + instagramIntegracoes.length + facebookIntegracoes.length + gotoIntegracoes.length;
   const totalConectadas = 
     integracoes.filter(i => i.status === 'conectado').length +
@@ -1553,6 +1617,51 @@ export default function ConfiguracaoCanaisComunicacao({ integracoes, onRecarrega
                                     </>
                                   )}
                                 </div>
+
+                                {/* Diagnóstico de Webhooks para W-API */}
+                                {integracao.api_provider === 'w_api' && (
+                                  <div className="mt-3 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                                    <div className="flex items-center justify-between mb-2">
+                                      <p className="text-xs font-semibold text-blue-900">🔗 Status Webhooks W-API</p>
+                                      <div className="flex gap-1">
+                                        <Button
+                                          size="sm"
+                                          variant="outline"
+                                          onClick={() => verificarWebhooksWAPI(integracao)}
+                                          disabled={verificandoWebhooks[integracao.id]}
+                                          className="h-6 text-[10px] border-blue-300"
+                                        >
+                                          {verificandoWebhooks[integracao.id] ? (
+                                            <Loader2 className="w-3 h-3 animate-spin" />
+                                          ) : (
+                                            <>
+                                              <Eye className="w-3 h-3 mr-1" />
+                                              Verificar
+                                            </>
+                                          )}
+                                        </Button>
+                                        <Button
+                                          size="sm"
+                                          onClick={() => registrarWebhooksWAPI(integracao)}
+                                          disabled={registrandoWebhooks[integracao.id]}
+                                          className="h-6 text-[10px] bg-green-600 hover:bg-green-700"
+                                        >
+                                          {registrandoWebhooks[integracao.id] ? (
+                                            <Loader2 className="w-3 h-3 animate-spin" />
+                                          ) : (
+                                            <>
+                                              <Zap className="w-3 h-3 mr-1" />
+                                              Registrar
+                                            </>
+                                          )}
+                                        </Button>
+                                      </div>
+                                    </div>
+                                    <p className="text-[10px] text-blue-700">
+                                      💡 Se não está recebendo mensagens, clique em "Registrar" para configurar os webhooks automaticamente
+                                    </p>
+                                  </div>
+                                )}
                                 
                                 {comparacao.divergencias.length > 0 && (
                                   <div className="mt-2 p-2 bg-white rounded border border-yellow-300">
