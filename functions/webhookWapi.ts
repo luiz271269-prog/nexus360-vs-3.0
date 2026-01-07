@@ -689,6 +689,14 @@ async function handleMessage(dados, payloadBruto, base44) {
   // ═══════════════════════════════════════════════════════════════════
   try {
     console.log('[WAPI] 🏛️ GERENTE: Iniciando processamento com Core...');
+    console.log('[WAPI] 📊 Diagnóstico Thread:', {
+      thread_id: thread.id,
+      assigned_user_id: thread.assigned_user_id,
+      pre_atendimento_ativo: thread.pre_atendimento_ativo,
+      last_human_message_at: thread.last_human_message_at,
+      last_inbound_at: thread.last_inbound_at,
+      unread_count: thread.unread_count
+    });
 
     let integracaoObj = null;
     if (integracaoId) {
@@ -707,10 +715,40 @@ async function handleMessage(dados, payloadBruto, base44) {
       }
     }
 
-    // ✅ IMPORT DINÂMICO (evita erro de módulo não encontrado no boot)
-    const { processInboundEvent } = await import('./lib/inboundCore.js');
+    // ✅ DIAGNÓSTICO: Caminho atual e tentativa de import
+    console.log('[WAPI] 🔍 CWD:', Deno.cwd?.() || 'N/A');
+    console.log('[WAPI] 🔍 Tentando importar inboundCore...');
+    
+    let processInboundEvent;
+    try {
+      const imported = await import('./lib/inboundCore.js');
+      processInboundEvent = imported.processInboundEvent;
+      console.log('[WAPI] ✅ Import bem-sucedido (caminho relativo)');
+    } catch (importErr) {
+      console.error('[WAPI] ❌ Erro no import relativo:', importErr.message);
+      console.error('[WAPI] ❌ Stack import:', importErr.stack);
+      
+      // FALLBACK: Tentar caminho absoluto
+      try {
+        console.log('[WAPI] 🔄 Tentando caminho absoluto...');
+        const imported = await import('/var/task/functions/lib/inboundCore.js');
+        processInboundEvent = imported.processInboundEvent;
+        console.log('[WAPI] ✅ Import bem-sucedido (caminho absoluto)');
+      } catch (absErr) {
+        console.error('[WAPI] ❌ Caminho absoluto também falhou:', absErr.message);
+        throw new Error(`Import falhou: ${importErr.message}`);
+      }
+    }
 
-    await processInboundEvent({
+    console.log('[WAPI] 🚀 Chamando processInboundEvent com:', {
+      contact_id: contato.id,
+      thread_id: thread.id,
+      message_id: mensagem.id,
+      provider: 'w_api',
+      has_integration: !!integracaoObj
+    });
+
+    const resultado = await processInboundEvent({
       base44,
       contact: contato,
       thread: thread,
@@ -721,10 +759,18 @@ async function handleMessage(dados, payloadBruto, base44) {
       rawPayload: payloadBruto
     });
 
-    console.log('[WAPI] ✅ GERENTE: Processamento concluído com sucesso');
+    console.log('[WAPI] ✅ GERENTE: Processamento concluído');
+    console.log('[WAPI] 📊 Resultado Core:', {
+      pipeline: resultado?.pipeline || [],
+      actions: resultado?.actions || [],
+      stop: resultado?.stop,
+      handled_by_ura: resultado?.handled_by_ura,
+      routed: resultado?.routed
+    });
   } catch (err) {
     console.error('[WAPI] 🔴 GERENTE: Erro no processamento:', err.message);
     console.error('[WAPI] 🔴 Stack completo:', err.stack);
+    console.error('[WAPI] 🔴 Tipo de erro:', err.constructor.name);
   }
 
   // Audit log
