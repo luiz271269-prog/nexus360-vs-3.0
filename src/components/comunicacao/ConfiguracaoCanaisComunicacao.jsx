@@ -1573,38 +1573,23 @@ export default function ConfiguracaoCanaisComunicacao({ integracoes, onRecarrega
                   <p className="text-sm text-slate-600">Compare instâncias da W-API com o banco local</p>
                 </div>
                 {isAdmin && (
-                  <div className="flex gap-2">
-                    <Button
-                      onClick={() => sincronizarComProvedor(false)}
-                      disabled={sincronizando}
-                      variant="outline"
-                      className="gap-2"
-                    >
-                      {sincronizando ? (
-                        <>
-                          <Loader2 className="w-4 h-4 animate-spin" />
-                          Sincronizando...
-                        </>
-                      ) : (
-                        <>
-                          <RefreshCw className="w-4 h-4" />
-                          Sincronizar
-                        </>
-                      )}
-                    </Button>
-                    <Button
-                      onClick={() => sincronizarComProvedor(true)}
-                      disabled={sincronizando}
-                      className="bg-green-600 hover:bg-green-700 gap-2"
-                    >
-                      {sincronizando ? (
+                  <Button
+                    onClick={sincronizarECorrigirTudo}
+                    disabled={sincronizando}
+                    className="bg-green-600 hover:bg-green-700 gap-2"
+                  >
+                    {sincronizando ? (
+                      <>
                         <Loader2 className="w-4 h-4 animate-spin" />
-                      ) : (
+                        Processando...
+                      </>
+                    ) : (
+                      <>
                         <Zap className="w-4 h-4" />
-                      )}
-                      Sincronizar e Corrigir
-                    </Button>
-                  </div>
+                        Sincronizar e Corrigir Tudo
+                      </>
+                    )}
+                  </Button>
                 )}
               </div>
 
