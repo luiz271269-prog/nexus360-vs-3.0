@@ -1,10 +1,22 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.6';
 
+const corsHeaders = {
+  'Content-Type': 'application/json',
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'POST, GET, OPTIONS',
+  'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+};
+
 // ============================================================================
-// W-API - VERIFICAR WEBHOOKS CONFIGURADOS
+// W-API - VERIFICAR WEBHOOKS CONFIGURADOS (v2.0 Robusta)
 // ============================================================================
 
 Deno.serve(async (req) => {
+  // CORS Preflight
+  if (req.method === 'OPTIONS') {
+    return new Response(null, { status: 204, headers: corsHeaders });
+  }
+
   try {
     const base44 = createClientFromRequest(req);
     const user = await base44.auth.me();
@@ -13,7 +25,7 @@ Deno.serve(async (req) => {
       return Response.json({ 
         success: false, 
         error: 'Acesso negado - apenas administradores' 
-      }, { status: 403 });
+      }, { status: 403, headers: corsHeaders });
     }
 
     const { integration_id } = await req.json();
@@ -22,7 +34,7 @@ Deno.serve(async (req) => {
       return Response.json({ 
         success: false, 
         error: 'integration_id é obrigatório' 
-      }, { status: 400 });
+      }, { status: 400, headers: corsHeaders });
     }
 
     const integration = await base44.asServiceRole.entities.WhatsAppIntegration.get(integration_id);
@@ -31,10 +43,11 @@ Deno.serve(async (req) => {
       return Response.json({ 
         success: false, 
         error: 'Integração W-API não encontrada' 
-      }, { status: 404 });
+      }, { status: 404, headers: corsHeaders });
     }
 
-    const webhookUrl = `https://nexus360-pro.base44.app/api/apps/68a7d067890527304dbe8477/functions/webhookWapi`;
+    const expectedWebhookUrl = integration.webhook_url || 
+      `https://nexus360-pro.base44.app/api/apps/68a7d067890527304dbe8477/functions/webhookWapi`;
     
     const headers = {
       'Content-Type': 'application/json',
@@ -43,51 +56,82 @@ Deno.serve(async (req) => {
 
     const baseUrl = integration.base_url_provider || 'https://api.w-api.app/v1';
 
-    // Listar webhooks configurados
-    const webhooksReq = await fetch(`${baseUrl}/instance/${integration.instance_id_provider}/webhooks`, {
+    console.log(`[WAPI-VERIFY] Consultando info da instância: ${integration.instance_id_provider}`);
+
+    // ✅ USAR /instance/info (retorna TODA configuração, incluindo webhooks)
+    const infoReq = await fetch(`${baseUrl}/instance/info?instanceId=${integration.instance_id_provider}`, {
       method: 'GET',
       headers
     });
     
-    if (!webhooksReq.ok) {
-      const errorText = await webhooksReq.text();
-      console.error('[WAPI-VERIFY] Erro ao listar webhooks:', webhooksReq.status, errorText);
-      throw new Error(`Erro ao listar webhooks: ${webhooksReq.status} - ${errorText}`);
+    if (!infoReq.ok) {
+      const errorText = await infoReq.text();
+      console.error('[WAPI-VERIFY] Erro ao buscar info:', infoReq.status, errorText);
+      return Response.json({
+        success: false,
+        error: `Erro ao buscar info da instância: ${infoReq.status}`,
+        raw_error: errorText
+      }, { status: 500, headers: corsHeaders });
     }
     
-    const webhooksRes = await webhooksReq.json();
+    const infoData = await infoReq.json();
+    console.log('[WAPI-VERIFY] Dados recebidos:', JSON.stringify(infoData).substring(0, 300));
     
-    // W-API retorna um objeto com os tipos de webhook configurados
-    const webhooksConfig = webhooksRes?.webhooks || webhooksRes || {};
+    const config = infoData.instance || infoData || {};
     
-    // Verificar cada tipo de webhook
-    const messageWebhook = webhooksConfig.message || webhooksConfig.received_message;
-    const messageAckWebhook = webhooksConfig.message_ack || webhooksConfig.message_status;
-    const connectionWebhook = webhooksConfig.connection_update || webhooksConfig.status_instance;
+    // ✅ MAPEAMENTO ROBUSTO (camelCase + snake_case + variações)
+    const normalize = (url) => (url || '').replace(/\/+$/, '').trim();
+    const expected = normalize(expectedWebhookUrl);
+    
+    const webhookRecebimento = normalize(
+      config.webhookReceivedUrl || config.webhook_received_url || 
+      config.webhookReceived || config.received_url || ''
+    );
+    
+    const webhookEntrega = normalize(
+      config.webhookDeliveryUrl || config.webhook_delivery_url || 
+      config.webhookDelivered || config.delivery_url || 
+      config.webhookAckUrl || config.webhook_ack_url || ''
+    );
+    
+    const webhookConexao = normalize(
+      config.webhookStatusUrl || config.webhook_status_url || 
+      config.webhookDisconnectedUrl || config.webhook_disconnected_url ||
+      config.webhookConnectionUpdate || config.connection_update_url || ''
+    );
     
     const webhooks = {
-      message: messageWebhook === webhookUrl || messageWebhook?.includes('webhookWapi'),
-      message_ack: messageAckWebhook === webhookUrl || messageAckWebhook?.includes('webhookWapi'),
-      connection_update: connectionWebhook === webhookUrl || connectionWebhook?.includes('webhookWapi')
+      message: webhookRecebimento === expected || webhookRecebimento.includes('webhookWapi'),
+      message_ack: webhookEntrega === expected || webhookEntrega.includes('webhookWapi'),
+      connection_update: webhookConexao === expected || webhookConexao.includes('webhookWapi')
     };
+
+    const todosOk = webhooks.message && webhooks.message_ack && webhooks.connection_update;
 
     return Response.json({
       success: true,
       webhooks,
+      todosOk,
       integration: {
         id: integration.id,
         nome: integration.nome_instancia,
         instance_id: integration.instance_id_provider
       },
-      raw_response: webhooksConfig,
-      webhook_esperado: webhookUrl
-    });
+      urls_encontradas: {
+        message: webhookRecebimento,
+        message_ack: webhookEntrega,
+        connection_update: webhookConexao
+      },
+      webhook_esperado: expected,
+      raw_config: config
+    }, { headers: corsHeaders });
 
   } catch (error) {
-    console.error('[WAPI-VERIFY] Erro:', error.message);
+    console.error('[WAPI-VERIFY] Erro fatal:', error);
     return Response.json({
       success: false,
-      error: error.message
-    }, { status: 500 });
+      error: error.message,
+      stack: error.stack
+    }, { status: 500, headers: corsHeaders });
   }
 });
