@@ -1707,6 +1707,28 @@ export default function ConfiguracaoCanaisComunicacao({ integracoes, onRecarrega
                                        💡 Clique em "Verificar" para diagnosticar webhooks W-API
                                      </p>
                                     )}
+
+                                    {/* Alerta de Divergência de URL */}
+                                    {resultadosWebhook[integracao.id]?.success && !resultadosWebhook[integracao.id]?.todosOk && (
+                                      <div className="mt-3 p-3 bg-orange-50 border-2 border-orange-300 rounded-lg">
+                                        <p className="text-xs font-bold text-orange-900 mb-2">⚠️ DIVERGÊNCIA DE AMBIENTE DETECTADA</p>
+                                        <div className="space-y-1 text-[10px]">
+                                          <p className="text-orange-800">
+                                            <strong>URL no Banco (DB):</strong><br/>
+                                            <code className="bg-green-100 px-1 rounded">{integracao.webhook_url}</code>
+                                          </p>
+                                          <p className="text-orange-800">
+                                            <strong>URL na W-API (atual):</strong><br/>
+                                            <code className="bg-red-100 px-1 rounded">
+                                              {resultadosWebhook[integracao.id].detalhes?.urls_encontradas?.message || 'N/A'}
+                                            </code>
+                                          </p>
+                                          <p className="text-orange-900 font-semibold mt-2">
+                                            ➡️ Clique em "Registrar" para atualizar a W-API com a URL correta do banco
+                                          </p>
+                                        </div>
+                                      </div>
+                                    )}
                                     </div>
                                     )}
 
