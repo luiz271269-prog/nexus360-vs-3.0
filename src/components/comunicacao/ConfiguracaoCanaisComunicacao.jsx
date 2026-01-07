@@ -824,26 +824,36 @@ export default function ConfiguracaoCanaisComunicacao({ integracoes, onRecarrega
 
   const compararComProvedor = (integracao) => {
     const instW = instanciasProvedor.find(i => i.instanceId === integracao.instance_id_provider);
-    
+
     if (!instW) {
       return { status: 'nao_encontrada', divergencias: ['Não existe na W-API'] };
     }
-    
+
     const divergencias = [];
     const statusW = instW.connected ? 'conectado' : 'desconectado';
-    
+
     if (integracao.status !== statusW) {
       divergencias.push(`Status: DB=${integracao.status} vs W-API=${statusW}`);
     }
-    
+
     if (instW.connectedPhone && integracao.numero_telefone !== instW.connectedPhone) {
       divergencias.push(`Telefone: DB=${integracao.numero_telefone} vs W-API=${instW.connectedPhone}`);
     }
-    
+
+    // ✅ COMPARAR URL DO WEBHOOK
+    const webhookDB = integracao.webhook_url;
+    const webhookWAPI = instW.webhookReceivedUrl || instW.webhookDeliveryUrl || instW.webhookDisconnectedUrl;
+
+    if (webhookDB && webhookWAPI && webhookDB !== webhookWAPI) {
+      divergencias.push(`Webhook: DB=${webhookDB} vs W-API=${webhookWAPI}`);
+    }
+
     return {
       status: divergencias.length > 0 ? 'divergente' : 'sincronizado',
       divergencias,
-      instanciaWAPI: instW
+      instanciaWAPI: instW,
+      webhookDB,
+      webhookWAPI
     };
   };
 
