@@ -108,6 +108,7 @@ Deno.serve(async (req) => {
       if (usarIntegrator) {
         // UPDATE via Integrador: um único PUT com todos os webhooks
         console.log(`[WAPI-WEBHOOK] 📤 PUT ${endpoint}`);
+        console.log(`[WAPI-WEBHOOK] 📋 Headers:`, JSON.stringify(headers, null, 2));
         console.log(`[WAPI-WEBHOOK] 📋 Body:`, JSON.stringify(body, null, 2));
 
         const response = await fetch(endpoint, {
@@ -116,19 +117,38 @@ Deno.serve(async (req) => {
           body: JSON.stringify(body)
         });
 
+        console.log(`[WAPI-WEBHOOK] 📥 Status HTTP: ${response.status}`);
+        console.log(`[WAPI-WEBHOOK] 📥 Headers Resposta:`, JSON.stringify(Object.fromEntries(response.headers.entries()), null, 2));
+
         if (!response.ok) {
           const errorText = await response.text();
           console.error(`[WAPI-WEBHOOK] ❌ HTTP ${response.status}:`, errorText);
           return Response.json({
             success: false,
             error: `HTTP ${response.status}: ${errorText}`,
+            endpoint_usado: endpoint,
+            body_enviado: body,
             modo: 'integrator'
           }, { status: response.status, headers: corsHeaders });
         }
 
-        const data = await response.json();
-        console.log(`[WAPI-WEBHOOK] 📥 Status HTTP: ${response.status}`);
-        console.log(`[WAPI-WEBHOOK] 📥 Resposta:`, JSON.stringify(data, null, 2));
+        const responseText = await response.text();
+        console.log(`[WAPI-WEBHOOK] 📥 Resposta Raw:`, responseText);
+        
+        let data;
+        try {
+          data = JSON.parse(responseText);
+        } catch (e) {
+          console.error(`[WAPI-WEBHOOK] ❌ Erro ao parsear JSON:`, e.message);
+          return Response.json({
+            success: false,
+            error: 'Resposta da W-API não é JSON válido',
+            resposta_raw: responseText,
+            modo: 'integrator'
+          }, { status: 500, headers: corsHeaders });
+        }
+        
+        console.log(`[WAPI-WEBHOOK] 📥 Resposta Parseada:`, JSON.stringify(data, null, 2));
 
         if (data.error === false || data.success === true || response.ok) {
           console.log('[WAPI-WEBHOOK] ✅ Webhooks registrados com sucesso no provedor');
