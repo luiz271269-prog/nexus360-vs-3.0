@@ -949,7 +949,7 @@ export default function ConfiguracaoCanaisComunicacao({ integracoes, onRecarrega
     }
   };
 
-  const registrarWebhooksWAPI = async (integracao) => {
+  const registrarWebhooksWAPIDireto = async (integracao) => {
     setRegistrandoWebhooks(prev => ({ ...prev, [integracao.id]: true }));
     try {
       toast.info("🔧 Registrando webhooks na W-API...");
@@ -1642,7 +1642,7 @@ export default function ConfiguracaoCanaisComunicacao({ integracoes, onRecarrega
                                         </Button>
                                         <Button
                                           size="sm"
-                                          onClick={() => registrarWebhooksWAPI(integracao)}
+                                          onClick={() => registrarWebhooksWAPIDireto(integracao)}
                                           disabled={registrandoWebhooks[integracao.id]}
                                           className="h-6 text-[10px] bg-green-600 hover:bg-green-700"
                                         >
