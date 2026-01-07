@@ -4,8 +4,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { base44 } from "@/api/base44Client";
-import { X, Smartphone, Zap, CheckCircle, AlertCircle, QrCode, Loader2, RefreshCw, WifiOff, Power, Settings, Trash2, Copy, ExternalLink } from "lucide-react";
+import { X, Smartphone, Zap, CheckCircle, AlertCircle, QrCode, Loader2, RefreshCw, WifiOff, Power, Settings, Trash2, Copy, ExternalLink, Wifi, Database, Cloud } from "lucide-react";
 import { toast } from "sonner";
 
 // ============================================================================
@@ -60,6 +61,9 @@ export default function ConfiguracaoWhatsAppUnificado({ onClose }) {
   const [editandoWebhook, setEditandoWebhook] = useState({});
   const [webhookTemporario, setWebhookTemporario] = useState({});
   const [deletandoId, setDeletandoId] = useState(null);
+  const [instanciasProvedor, setInstanciasProvedor] = useState([]);
+  const [sincronizando, setSincronizando] = useState(false);
+  const [abaAtiva, setAbaAtiva] = useState("conexoes");
 
   // Carregar integrações
   const carregarIntegracoes = useCallback(async () => {
@@ -545,6 +549,99 @@ export default function ConfiguracaoWhatsAppUnificado({ onClose }) {
     setWebhookTemporario(prev => { const n = {...prev}; delete n[integracaoId]; return n; });
   };
 
+  // ============================================================================
+  // SINCRONIZAÇÃO COM PROVEDOR W-API
+  // ============================================================================
+  const sincronizarComProvedor = async () => {
+    setSincronizando(true);
+    try {
+      toast.info("📡 Buscando instâncias da W-API...");
+      
+      const response = await base44.functions.invoke('wapiIntegratorManager', {
+        action: 'listInstances',
+        pageSize: 50,
+        page: 1
+      });
+      
+      if (!response.data.success) {
+        throw new Error(response.data.error || 'Erro ao listar instâncias');
+      }
+      
+      setInstanciasProvedor(response.data.instances || []);
+      toast.success(`✅ ${response.data.instances?.length || 0} instâncias encontradas na W-API`);
+      
+      // Auto-sincronizar status
+      await atualizarStatusAutomatico(response.data.instances || []);
+      
+    } catch (error) {
+      console.error("Erro ao sincronizar:", error);
+      toast.error(error.message || "Erro ao sincronizar com W-API");
+    } finally {
+      setSincronizando(false);
+    }
+  };
+
+  const atualizarStatusAutomatico = async (instanciasW) => {
+    let atualizados = 0;
+    
+    for (const instW of instanciasW) {
+      const intLocal = integracoes.find(i => 
+        i.instance_id_provider === instW.instanceId && 
+        i.api_provider === 'w_api'
+      );
+      
+      if (intLocal) {
+        const statusW = instW.connected ? 'conectado' : 'desconectado';
+        const numeroW = instW.connectedPhone || '';
+        
+        // Atualizar se houver divergência
+        if (intLocal.status !== statusW || 
+            (numeroW && intLocal.numero_telefone !== numeroW)) {
+          try {
+            await base44.entities.WhatsAppIntegration.update(intLocal.id, {
+              status: statusW,
+              numero_telefone: numeroW || intLocal.numero_telefone,
+              ultima_atividade: new Date().toISOString()
+            });
+            atualizados++;
+          } catch (error) {
+            console.error(`Erro ao atualizar ${intLocal.id}:`, error);
+          }
+        }
+      }
+    }
+    
+    if (atualizados > 0) {
+      toast.success(`✅ ${atualizados} integração(ões) sincronizada(s)`);
+      await carregarIntegracoes();
+    }
+  };
+
+  const compararComProvedor = (integracao) => {
+    const instW = instanciasProvedor.find(i => i.instanceId === integracao.instance_id_provider);
+    
+    if (!instW) {
+      return { status: 'nao_encontrada', divergencias: ['Não existe na W-API'] };
+    }
+    
+    const divergencias = [];
+    const statusW = instW.connected ? 'conectado' : 'desconectado';
+    
+    if (integracao.status !== statusW) {
+      divergencias.push(`Status: DB=${integracao.status} vs W-API=${statusW}`);
+    }
+    
+    if (instW.connectedPhone && integracao.numero_telefone !== instW.connectedPhone) {
+      divergencias.push(`Telefone: DB=${integracao.numero_telefone} vs W-API=${instW.connectedPhone}`);
+    }
+    
+    return {
+      status: divergencias.length > 0 ? 'divergente' : 'sincronizado',
+      divergencias,
+      instanciaWAPI: instW
+    };
+  };
+
   const iniciarEdicaoWebhook = (integracao) => {
     setEditandoWebhook(prev => ({ ...prev, [integracao.id]: true }));
     setWebhookTemporario(prev => ({ 
@@ -603,12 +700,25 @@ export default function ConfiguracaoWhatsAppUnificado({ onClose }) {
           </Button>
         </div>
 
-        {/* Lista de Conexões */}
-        <div className="space-y-6 mb-8">
-          <div className="flex items-center justify-between">
-            <h3 className="text-lg font-semibold text-slate-800">Conexões Ativas</h3>
-            <Badge className="bg-slate-100 text-slate-700">{integracoes.length} conexões</Badge>
-          </div>
+        {/* Tabs */}
+        <Tabs value={abaAtiva} onValueChange={setAbaAtiva} className="w-full">
+          <TabsList className="grid w-full grid-cols-3 mb-6">
+            <TabsTrigger value="conexoes" className="gap-2">
+              <Wifi className="w-4 h-4" />
+              Conexões ({integracoes.length})
+            </TabsTrigger>
+            <TabsTrigger value="sincronizacao" className="gap-2">
+              <RefreshCw className="w-4 h-4" />
+              Sincronização
+            </TabsTrigger>
+            <TabsTrigger value="nova" className="gap-2">
+              <Zap className="w-4 h-4" />
+              Nova Conexão
+            </TabsTrigger>
+          </TabsList>
+
+          {/* ABA 1: CONEXÕES ATIVAS */}
+          <TabsContent value="conexoes" className="space-y-6">
           
           {loading ? (
             <div className="text-center py-8">
@@ -942,12 +1052,10 @@ export default function ConfiguracaoWhatsAppUnificado({ onClose }) {
           </div>
         )}
 
-        {/* Formulário Nova Conexão */}
-        <div className="border-t pt-6">
-          <h3 className="text-lg font-semibold text-slate-800 mb-4 flex items-center gap-2">
-            <Settings className="w-5 h-5 text-green-600" />
-            Adicionar Nova Conexão
-          </h3>
+        <h3 className="text-lg font-semibold text-slate-800 mb-4 flex items-center gap-2">
+          <Settings className="w-5 h-5 text-green-600" />
+          Adicionar Nova Conexão
+        </h3>
           
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
             {/* Provedor */}
@@ -1091,9 +1199,10 @@ export default function ConfiguracaoWhatsAppUnificado({ onClose }) {
               {(saving || criandoInstancia) ? <Loader2 className="w-4 h-4 mr-2 animate-spin"/> : <Zap className="w-4 h-4 mr-2" />}
               {criandoInstancia ? "Criando Instância..." : saving ? "Salvando..." : novaIntegracao.api_provider === 'w_api_integrator' ? "Criar Instância W-API" : "Adicionar Conexão"}
             </Button>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
+            </div>
+            </TabsContent>
+            </Tabs>
+            </div>
+            </div>
+            );
 }
