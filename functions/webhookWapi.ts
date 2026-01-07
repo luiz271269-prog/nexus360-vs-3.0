@@ -410,27 +410,45 @@ async function handleMessage(dados, payloadBruto, base44) {
   // PRIORIDADE 1: Buscar por connectedPhone (mais confiável)
   if (connectedPhone) {
     try {
+      // ✅ BUSCAR POR INSTANCE_ID usando connectedPhone como hint
+      // Primeiro tentar buscar todas as integrações W-API
+      const todasWAPI = await base44.asServiceRole.entities.WhatsAppIntegration.filter(
+        { api_provider: 'w_api' },
+        '-created_date',
+        50
+      );
+      
+      console.log(`[WAPI] 🔍 PORTEIRO: ${todasWAPI?.length || 0} integrações W-API no banco`);
+      
+      // Procurar pela que tem o connectedPhone
       const phoneVariacoes = [
-        '+' + connectedPhone,
         connectedPhone,
-        '+55' + connectedPhone.replace(/^55/, '')
+        '+' + connectedPhone,
+        connectedPhone.replace(/^\+/, ''),
+        '+55' + connectedPhone.replace(/^55/, ''),
+        '55' + connectedPhone.replace(/^55/, '')
       ];
-
-      for (const tel of phoneVariacoes) {
+      
+      console.log('[WAPI] 🔍 PORTEIRO: Variações de telefone:', phoneVariacoes);
+      
+      for (const int of (todasWAPI || [])) {
         if (integracaoId) break;
-        const int = await base44.asServiceRole.entities.WhatsAppIntegration.filter(
-          { numero_telefone: tel },
-          '-created_date',
-          1
-        );
-
-        if (int && int.length > 0) {
-          integracaoId = int[0].id;
-          integracaoInfo = { nome: int[0].nome_instancia, numero: int[0].numero_telefone };
-          console.log(`[WAPI] 🔑 PORTEIRO: Integração identificada por connectedPhone: ${tel}`);
+        
+        const numeroInt = (int.numero_telefone || '').replace(/\D/g, '');
+        const phoneLimpo = connectedPhone.replace(/\D/g, '');
+        
+        console.log(`[WAPI] 🔍 Comparando: DB="${numeroInt}" vs Payload="${phoneLimpo}"`);
+        
+        if (numeroInt && phoneLimpo && numeroInt === phoneLimpo) {
+          integracaoId = int.id;
+          integracaoInfo = { nome: int.nome_instancia, numero: int.numero_telefone };
+          console.log(`[WAPI] 🔑 PORTEIRO: ✅ Integração encontrada! ID: ${int.id} | Nome: ${int.nome_instancia}`);
+          break;
         }
       }
-    } catch {}
+    } catch (err) {
+      console.error('[WAPI] ❌ Erro ao buscar por connectedPhone:', err.message);
+    }
   }
 
   // FALLBACK: Buscar por instanceId
