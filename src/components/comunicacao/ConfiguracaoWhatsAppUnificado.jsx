@@ -80,7 +80,6 @@ export default function ConfiguracaoWhatsAppUnificado({ onClose }) {
 
   useEffect(() => {
     carregarIntegracoes();
-    // Inicializar webhook URL no formulário
     const defaultWebhook = getWebhookUrl({ api_provider: "z_api" });
     setNovaIntegracao(prev => ({ ...prev, webhook_url: defaultWebhook }));
   }, [carregarIntegracoes]);
@@ -145,11 +144,9 @@ export default function ConfiguracaoWhatsAppUnificado({ onClose }) {
     let url;
     
     if (usarPairingCode) {
-      // Pairing Code (código numérico)
       const telefone = integracao.numero_telefone.replace(/\D/g, '');
       url = `https://api.w-api.app/v1/instance/pairing-code?instanceId=${integracao.instance_id_provider}&phoneNumber=${telefone}`;
     } else {
-      // QR Code (imagem)
       url = `https://api.w-api.app/v1/instance/qr-code?instanceId=${integracao.instance_id_provider}&image=enable`;
     }
     
@@ -177,7 +174,7 @@ export default function ConfiguracaoWhatsAppUnificado({ onClose }) {
   };
 
   // ============================================================================
-  // FUNÇÕES GENÉRICAS (roteiam para Z-API ou W-API)
+  // FUNÇÕES GENÉRICAS
   // ============================================================================
   const verificarStatus = async (integracao, silencioso = false) => {
     try {
@@ -259,6 +256,35 @@ export default function ConfiguracaoWhatsAppUnificado({ onClose }) {
     }
   };
 
+  const getWebhookUrl = (integracao) => {
+    const baseUrl = window.location.origin;
+    
+    if (integracao.api_provider === 'w_api') {
+      return `${baseUrl}/api/functions/webhookWapi`;
+    } else {
+      return `${baseUrl}/api/functions/webhookWatsZapi`;
+    }
+  };
+
+  const handleProviderChange = (provider) => {
+    const webhookUrl = getWebhookUrl({ api_provider: provider });
+    setNovaIntegracao({
+      ...novaIntegracao, 
+      api_provider: provider, 
+      security_client_token_header: "",
+      webhook_url: webhookUrl
+    });
+  };
+
+  const copiarWebhookUrl = (integracao) => {
+    const url = integracao.webhook_url || getWebhookUrl(integracao);
+    navigator.clipboard.writeText(url);
+    toast.success("URL do webhook copiada!");
+  };
+
+  // ============================================================================
+  // CRUD
+  // ============================================================================
   const criarInstanciaIntegrador = async () => {
     const { nome_instancia } = novaIntegracao;
     
@@ -282,7 +308,6 @@ export default function ConfiguracaoWhatsAppUnificado({ onClose }) {
       
       const { instanceId, token, webhookUrl } = response.data;
       
-      // Salvar no banco com modo = integrator
       await base44.entities.WhatsAppIntegration.create({
         nome_instancia: nome_instancia.toLowerCase().replace(/[^a-z0-9-]/g, '-'),
         numero_telefone: "",
@@ -309,6 +334,7 @@ export default function ConfiguracaoWhatsAppUnificado({ onClose }) {
         webhook_url: defaultWebhook
       });
       
+      setAbaAtiva("conexoes");
       await carregarIntegracoes();
       
     } catch (error) {
@@ -316,6 +342,65 @@ export default function ConfiguracaoWhatsAppUnificado({ onClose }) {
       toast.error(error.message || "Erro ao criar instância");
     } finally {
       setCriandoInstancia(false);
+    }
+  };
+
+  const salvarIntegracao = async () => {
+    const { nome_instancia, numero_telefone, api_provider, instance_id_provider, api_key_provider, security_client_token_header } = novaIntegracao;
+    
+    if (api_provider === 'w_api_integrator') {
+      return criarInstanciaIntegrador();
+    }
+    
+    if (!nome_instancia || !numero_telefone || !instance_id_provider || !api_key_provider) {
+      toast.error("Preencha todos os campos obrigatórios");
+      return;
+    }
+    
+    if (api_provider === 'z_api' && !security_client_token_header) {
+      toast.error("Z-API requer o Client-Token de Segurança");
+      return;
+    }
+    
+    setSaving(true);
+    try {
+      const provider = PROVIDERS[api_provider];
+      
+      await base44.entities.WhatsAppIntegration.create({
+        nome_instancia: nome_instancia.toLowerCase().replace(/[^a-z0-9-]/g, '-'),
+        numero_telefone,
+        api_provider: api_provider === 'w_api_integrator' ? 'w_api' : api_provider,
+        modo: provider.modo || 'manual',
+        instance_id_provider,
+        api_key_provider,
+        security_client_token_header: api_provider === 'z_api' ? security_client_token_header : null,
+        base_url_provider: provider.baseUrl,
+        status: "desconectado",
+        tipo_conexao: "webhook",
+        webhook_url: novaIntegracao.webhook_url || getWebhookUrl({ api_provider })
+      });
+      
+      toast.success("Integração criada com sucesso!");
+      
+      const defaultWebhook = getWebhookUrl({ api_provider: "z_api" });
+      setNovaIntegracao({
+        nome_instancia: "",
+        numero_telefone: "",
+        api_provider: "z_api",
+        instance_id_provider: "",
+        api_key_provider: "",
+        security_client_token_header: "",
+        webhook_url: defaultWebhook
+      });
+      
+      setAbaAtiva("conexoes");
+      await carregarIntegracoes();
+      
+    } catch (error) {
+      console.error("Erro ao criar integração:", error);
+      toast.error(error.message || "Erro ao criar integração");
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -372,78 +457,11 @@ export default function ConfiguracaoWhatsAppUnificado({ onClose }) {
     }
   };
 
-  const salvarIntegracao = async () => {
-    const { nome_instancia, numero_telefone, api_provider, instance_id_provider, api_key_provider, security_client_token_header } = novaIntegracao;
-    
-    // Se for integrador, chama função específica
-    if (api_provider === 'w_api_integrator') {
-      return criarInstanciaIntegrador();
-    }
-    
-    if (!nome_instancia || !numero_telefone || !instance_id_provider || !api_key_provider) {
-      toast.error("Preencha todos os campos obrigatórios");
-      return;
-    }
-    
-    if (api_provider === 'z_api' && !security_client_token_header) {
-      toast.error("Z-API requer o Client-Token de Segurança");
-      return;
-    }
-    
-    setSaving(true);
-    try {
-      const provider = PROVIDERS[api_provider];
-      
-      await base44.entities.WhatsAppIntegration.create({
-        nome_instancia: nome_instancia.toLowerCase().replace(/[^a-z0-9-]/g, '-'),
-        numero_telefone,
-        api_provider: api_provider === 'w_api_integrator' ? 'w_api' : api_provider,
-        modo: provider.modo || 'manual',
-        instance_id_provider,
-        api_key_provider,
-        security_client_token_header: api_provider === 'z_api' ? security_client_token_header : null,
-        base_url_provider: provider.baseUrl,
-        status: "desconectado",
-        tipo_conexao: "webhook",
-        webhook_url: novaIntegracao.webhook_url || getWebhookUrl({ api_provider })
-      });
-      
-      toast.success("Integração criada com sucesso!");
-      
-      const defaultWebhook = getWebhookUrl({ api_provider: "z_api" });
-      setNovaIntegracao({
-        nome_instancia: "",
-        numero_telefone: "",
-        api_provider: "z_api",
-        instance_id_provider: "",
-        api_key_provider: "",
-        security_client_token_header: "",
-        webhook_url: defaultWebhook
-      });
-      
-      await carregarIntegracoes();
-      
-    } catch (error) {
-      console.error("Erro ao criar integração:", error);
-      toast.error(error.message || "Erro ao criar integração");
-    } finally {
-      setSaving(false);
-    }
-  };
-
   const deletarIntegracao = async (integracaoId) => {
     if (!confirm("⚠️ Tem certeza que deseja DELETAR esta integração?")) return;
     
     setDeletandoId(integracaoId);
     try {
-      // ═══════════════════════════════════════════════════════════════════
-      // 🏛️ ARQUITETURA "PORTEIRO CEGO" - DELEÇÃO DUPLA
-      // ═══════════════════════════════════════════════════════════════════
-      // 1. Buscar integração do banco ANTES de deletar
-      // 2. SE modo="integrator": deletar do provedor W-API PRIMEIRO
-      // 3. SÓ DEPOIS deletar do banco Base44
-      // ═══════════════════════════════════════════════════════════════════
-      
       const integracoesData = await base44.entities.WhatsAppIntegration.filter({ id: integracaoId });
       const integracao = integracoesData[0];
       
@@ -452,7 +470,6 @@ export default function ConfiguracaoWhatsAppUnificado({ onClose }) {
         return;
       }
       
-      // Se for modo integrador W-API, deletar do provedor PRIMEIRO
       if (integracao.modo === 'integrator' && integracao.api_provider === 'w_api') {
         toast.info("🗑️ Removendo instância da W-API...");
         
@@ -470,7 +487,6 @@ export default function ConfiguracaoWhatsAppUnificado({ onClose }) {
         } catch (providerError) {
           console.error("Erro ao deletar do provedor:", providerError);
           
-          // Perguntar se quer deletar do banco mesmo assim
           if (!confirm("⚠️ Não foi possível deletar da W-API. Deseja deletar do banco mesmo assim?\n\n(A instância continuará existindo na W-API)")) {
             setDeletandoId(null);
             return;
@@ -480,7 +496,6 @@ export default function ConfiguracaoWhatsAppUnificado({ onClose }) {
         }
       }
       
-      // Agora deletar do banco Base44
       await base44.entities.WhatsAppIntegration.delete(integracaoId);
       setQrCodeData(prev => { const n = {...prev}; delete n[integracaoId]; return n; });
       await carregarIntegracoes();
@@ -494,63 +509,8 @@ export default function ConfiguracaoWhatsAppUnificado({ onClose }) {
     }
   };
 
-  // Gera a URL correta do webhook baseada no provedor
-  const getWebhookUrl = (integracao) => {
-    const baseUrl = window.location.origin;
-    
-    if (integracao.api_provider === 'w_api') {
-      return `${baseUrl}/api/functions/webhookWapi`;
-    } else {
-      return `${baseUrl}/api/functions/webhookWatsZapi`;
-    }
-  };
-
-  // Atualiza webhook URL automaticamente quando muda o provedor
-  const handleProviderChange = (provider) => {
-    const webhookUrl = getWebhookUrl({ api_provider: provider });
-    setNovaIntegracao({
-      ...novaIntegracao, 
-      api_provider: provider, 
-      security_client_token_header: "",
-      webhook_url: webhookUrl
-    });
-  };
-
-  const copiarWebhookUrl = (integracao) => {
-    const url = integracao.webhook_url || getWebhookUrl(integracao);
-    navigator.clipboard.writeText(url);
-    toast.success("URL do webhook copiada!");
-  };
-
-  const salvarWebhookUrl = async (integracaoId) => {
-    const novoUrl = webhookTemporario[integracaoId];
-    if (!novoUrl || !novoUrl.trim()) {
-      toast.error("URL do webhook não pode estar vazia");
-      return;
-    }
-
-    try {
-      await base44.entities.WhatsAppIntegration.update(integracaoId, {
-        webhook_url: novoUrl.trim()
-      });
-      
-      setEditandoWebhook(prev => ({ ...prev, [integracaoId]: false }));
-      setWebhookTemporario(prev => { const n = {...prev}; delete n[integracaoId]; return n; });
-      await carregarIntegracoes();
-      toast.success("✅ URL do webhook atualizada com sucesso!");
-    } catch (error) {
-      console.error("Erro ao atualizar webhook:", error);
-      toast.error("Erro ao salvar URL do webhook");
-    }
-  };
-
-  const cancelarEdicaoWebhook = (integracaoId) => {
-    setEditandoWebhook(prev => ({ ...prev, [integracaoId]: false }));
-    setWebhookTemporario(prev => { const n = {...prev}; delete n[integracaoId]; return n; });
-  };
-
   // ============================================================================
-  // SINCRONIZAÇÃO COM PROVEDOR W-API
+  // SINCRONIZAÇÃO W-API
   // ============================================================================
   const sincronizarComProvedor = async () => {
     setSincronizando(true);
@@ -570,7 +530,6 @@ export default function ConfiguracaoWhatsAppUnificado({ onClose }) {
       setInstanciasProvedor(response.data.instances || []);
       toast.success(`✅ ${response.data.instances?.length || 0} instâncias encontradas na W-API`);
       
-      // Auto-sincronizar status
       await atualizarStatusAutomatico(response.data.instances || []);
       
     } catch (error) {
@@ -594,7 +553,6 @@ export default function ConfiguracaoWhatsAppUnificado({ onClose }) {
         const statusW = instW.connected ? 'conectado' : 'desconectado';
         const numeroW = instW.connectedPhone || '';
         
-        // Atualizar se houver divergência
         if (intLocal.status !== statusW || 
             (numeroW && intLocal.numero_telefone !== numeroW)) {
           try {
@@ -642,6 +600,9 @@ export default function ConfiguracaoWhatsAppUnificado({ onClose }) {
     };
   };
 
+  // ============================================================================
+  // WEBHOOK
+  // ============================================================================
   const iniciarEdicaoWebhook = (integracao) => {
     setEditandoWebhook(prev => ({ ...prev, [integracao.id]: true }));
     setWebhookTemporario(prev => ({ 
@@ -650,6 +611,36 @@ export default function ConfiguracaoWhatsAppUnificado({ onClose }) {
     }));
   };
 
+  const salvarWebhookUrl = async (integracaoId) => {
+    const novoUrl = webhookTemporario[integracaoId];
+    if (!novoUrl || !novoUrl.trim()) {
+      toast.error("URL do webhook não pode estar vazia");
+      return;
+    }
+
+    try {
+      await base44.entities.WhatsAppIntegration.update(integracaoId, {
+        webhook_url: novoUrl.trim()
+      });
+      
+      setEditandoWebhook(prev => ({ ...prev, [integracaoId]: false }));
+      setWebhookTemporario(prev => { const n = {...prev}; delete n[integracaoId]; return n; });
+      await carregarIntegracoes();
+      toast.success("✅ URL do webhook atualizada com sucesso!");
+    } catch (error) {
+      console.error("Erro ao atualizar webhook:", error);
+      toast.error("Erro ao salvar URL do webhook");
+    }
+  };
+
+  const cancelarEdicaoWebhook = (integracaoId) => {
+    setEditandoWebhook(prev => ({ ...prev, [integracaoId]: false }));
+    setWebhookTemporario(prev => { const n = {...prev}; delete n[integracaoId]; return n; });
+  };
+
+  // ============================================================================
+  // UI HELPERS
+  // ============================================================================
   const getStatusBadge = (status) => {
     switch(status) {
       case "conectado":
@@ -692,7 +683,7 @@ export default function ConfiguracaoWhatsAppUnificado({ onClose }) {
             </div>
             <div>
               <h2 className="text-2xl font-bold text-slate-800">Configuração WhatsApp</h2>
-              <p className="text-sm text-slate-600">Suporta Z-API e W-API</p>
+              <p className="text-sm text-slate-600">Z-API e W-API com Arquitetura Porteiro Cego</p>
             </div>
           </div>
           <Button onClick={onClose} size="icon" variant="ghost">
@@ -717,229 +708,220 @@ export default function ConfiguracaoWhatsAppUnificado({ onClose }) {
             </TabsTrigger>
           </TabsList>
 
+          {/* ================================================================== */}
           {/* ABA 1: CONEXÕES ATIVAS */}
-          <TabsContent value="conexoes" className="space-y-6">
-          
-          {loading ? (
-            <div className="text-center py-8">
-              <Loader2 className="w-8 h-8 mx-auto animate-spin text-green-600"/>
-              <p className="text-slate-600 mt-2">Carregando...</p>
-            </div>
-          ) : integracoes.length === 0 ? (
-            <div className="text-center py-12 bg-slate-50 rounded-lg border-2 border-dashed">
-              <Smartphone className="w-12 h-12 text-slate-400 mx-auto mb-3" />
-              <p className="text-slate-600 font-medium">Nenhuma conexão configurada</p>
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {integracoes.map((integracao) => (
-                <div key={integracao.id} className="border rounded-xl p-5 bg-gradient-to-br from-white to-slate-50 hover:shadow-md transition-shadow">
-                  {/* Info da Conexão */}
-                  <div className="flex justify-between items-start mb-4">
-                    <div>
-                      <div className="flex items-center gap-2 mb-2">
-                        <h4 className="font-semibold text-slate-900">{integracao.nome_instancia}</h4>
-                        {getProviderBadge(integracao.api_provider)}
+          {/* ================================================================== */}
+          <TabsContent value="conexoes" className="space-y-4">
+            {loading ? (
+              <div className="text-center py-8">
+                <Loader2 className="w-8 h-8 mx-auto animate-spin text-green-600"/>
+                <p className="text-slate-600 mt-2">Carregando...</p>
+              </div>
+            ) : integracoes.length === 0 ? (
+              <div className="text-center py-12 bg-slate-50 rounded-lg border-2 border-dashed">
+                <Smartphone className="w-12 h-12 text-slate-400 mx-auto mb-3" />
+                <p className="text-slate-600 font-medium">Nenhuma conexão configurada</p>
+                <p className="text-sm text-slate-500 mt-2">Vá para a aba "Nova Conexão" para começar</p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {integracoes.map((integracao) => (
+                  <div key={integracao.id} className="border rounded-xl p-5 bg-gradient-to-br from-white to-slate-50 hover:shadow-md transition-shadow">
+                    <div className="flex justify-between items-start mb-4">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 mb-2">
+                          <h4 className="font-semibold text-slate-900">{integracao.nome_instancia}</h4>
+                          {getProviderBadge(integracao.api_provider)}
+                          {integracao.modo === 'integrator' && (
+                            <Badge className="bg-indigo-100 text-indigo-700 text-xs">Integrador</Badge>
+                          )}
+                        </div>
+                        <p className="text-sm text-slate-600 mb-2">📱 {integracao.numero_telefone || 'Não configurado'}</p>
+                        {getStatusBadge(integracao.status)}
                       </div>
-                      <p className="text-sm text-slate-600 mb-2">📱 {integracao.numero_telefone}</p>
-                      {getStatusBadge(integracao.status)}
+                      <div className="flex gap-2">
+                        <Button
+                          onClick={() => iniciarEdicao(integracao)}
+                          size="icon"
+                          variant="ghost"
+                          className="text-blue-600 hover:bg-blue-50"
+                          title="Editar"
+                        >
+                          <Settings className="w-4 h-4" />
+                        </Button>
+                        <Button
+                          onClick={() => deletarIntegracao(integracao.id)}
+                          size="icon"
+                          variant="ghost"
+                          className="text-red-500 hover:bg-red-50"
+                          title="Deletar"
+                          disabled={deletandoId === integracao.id}
+                        >
+                          {deletandoId === integracao.id ? (
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                          ) : (
+                            <Trash2 className="w-4 h-4" />
+                          )}
+                        </Button>
+                      </div>
                     </div>
-                    <div className="flex gap-2">
-                      <Button
-                        onClick={() => iniciarEdicao(integracao)}
-                        size="icon"
-                        variant="ghost"
-                        className="text-blue-600 hover:bg-blue-50"
-                        title="Editar"
-                      >
-                        <Settings className="w-4 h-4" />
-                      </Button>
-                      <Button
-                        onClick={() => deletarIntegracao(integracao.id)}
-                        size="icon"
-                        variant="ghost"
-                        className="text-red-500 hover:bg-red-50"
-                        title="Deletar"
-                        disabled={deletandoId === integracao.id}
-                      >
-                        {deletandoId === integracao.id ? (
-                          <Loader2 className="w-4 h-4 animate-spin" />
-                        ) : (
-                          <Trash2 className="w-4 h-4" />
+                    
+                    {/* QR Code / Pairing Code */}
+                    {qrCodeData[integracao.id] && integracao.status === "pendente_qrcode" && (
+                      <div className="bg-white rounded-lg p-4 mb-4 border-2 border-green-200">
+                        {qrCodeData[integracao.id].pairingCode && (
+                          <div className="mb-4">
+                            <h5 className="font-semibold text-center mb-2">Código de Pareamento</h5>
+                            <div className="bg-slate-50 rounded-lg p-4 border-2 border-slate-300">
+                              <p className="text-3xl font-mono font-bold text-center tracking-widest">
+                                {formatarPairingCode(qrCodeData[integracao.id].pairingCode)}
+                              </p>
+                            </div>
+                          </div>
                         )}
-                      </Button>
-                    </div>
-                  </div>
-                  
-                  {/* QR Code / Pairing Code */}
-                  {qrCodeData[integracao.id] && integracao.status === "pendente_qrcode" && (
-                    <div className="bg-white rounded-lg p-4 mb-4 border-2 border-green-200">
-                      {qrCodeData[integracao.id].pairingCode && (
-                        <div className="mb-4">
-                          <h5 className="font-semibold text-center mb-2">Código de Pareamento</h5>
-                          <div className="bg-slate-50 rounded-lg p-4 border-2 border-slate-300">
-                            <p className="text-3xl font-mono font-bold text-center tracking-widest">
-                              {formatarPairingCode(qrCodeData[integracao.id].pairingCode)}
-                            </p>
+                        
+                        {qrCodeData[integracao.id].qrCodeUrl && (
+                          <div className="flex justify-center">
+                            <img 
+                              src={qrCodeData[integracao.id].qrCodeUrl} 
+                              alt="QR Code" 
+                              className="w-48 h-48 border-4 border-green-500 rounded-lg"
+                            />
+                          </div>
+                        )}
+                        
+                        <div className="mt-3 flex items-center justify-center gap-2 text-xs text-slate-500">
+                          <div className="animate-pulse w-2 h-2 bg-green-500 rounded-full"></div>
+                          <span>Aguardando conexão...</span>
+                        </div>
+                      </div>
+                    )}
+                    
+                    {/* URL do Webhook */}
+                    <div className="mb-4 p-3 bg-purple-50 border border-purple-200 rounded-lg">
+                      <div className="flex items-center justify-between mb-2">
+                        <Label className="text-xs text-purple-700 font-semibold">🔗 Webhook</Label>
+                        {!editandoWebhook[integracao.id] && (
+                          <Button
+                            onClick={() => iniciarEdicaoWebhook(integracao)}
+                            size="sm"
+                            variant="ghost"
+                            className="h-6 text-xs text-purple-600"
+                          >
+                            <Settings className="w-3 h-3 mr-1" />
+                            Editar
+                          </Button>
+                        )}
+                      </div>
+                      
+                      {editandoWebhook[integracao.id] ? (
+                        <div className="space-y-2">
+                          <Input 
+                            value={webhookTemporario[integracao.id] || ''}
+                            onChange={(e) => setWebhookTemporario(prev => ({ ...prev, [integracao.id]: e.target.value }))}
+                            className="text-xs bg-white font-mono"
+                          />
+                          <div className="flex gap-2">
+                            <Button
+                              onClick={() => salvarWebhookUrl(integracao.id)}
+                              size="sm"
+                              className="flex-1 bg-purple-600 hover:bg-purple-700 h-7 text-xs"
+                            >
+                              <CheckCircle className="w-3 h-3 mr-1" />
+                              Salvar
+                            </Button>
+                            <Button
+                              onClick={() => cancelarEdicaoWebhook(integracao.id)}
+                              size="sm"
+                              variant="outline"
+                              className="flex-1 h-7 text-xs"
+                            >
+                              <X className="w-3 h-3 mr-1" />
+                              Cancelar
+                            </Button>
                           </div>
                         </div>
-                      )}
-                      
-                      {qrCodeData[integracao.id].qrCodeUrl && (
-                        <div className="flex justify-center">
-                          <img 
-                            src={qrCodeData[integracao.id].qrCodeUrl} 
-                            alt="QR Code" 
-                            className="w-48 h-48 border-4 border-green-500 rounded-lg"
+                      ) : (
+                        <div className="flex items-center gap-2">
+                          <Input 
+                            value={integracao.webhook_url || getWebhookUrl(integracao)}
+                            readOnly
+                            className="text-xs bg-white font-mono"
                           />
-                        </div>
-                      )}
-                      
-                      <div className="mt-3 flex items-center justify-center gap-2 text-xs text-slate-500">
-                        <div className="animate-pulse w-2 h-2 bg-green-500 rounded-full"></div>
-                        <span>Aguardando conexão...</span>
-                      </div>
-                    </div>
-                  )}
-                  
-                  {/* URL do Webhook - Editável */}
-                  <div className="mb-4 p-3 bg-purple-50 border border-purple-200 rounded-lg">
-                    <div className="flex items-center justify-between mb-2">
-                      <Label className="text-xs text-purple-700 font-semibold">🔗 URL do Webhook</Label>
-                      {!editandoWebhook[integracao.id] && (
-                        <Button
-                          onClick={() => iniciarEdicaoWebhook(integracao)}
-                          size="sm"
-                          variant="ghost"
-                          className="h-6 text-xs text-purple-600 hover:text-purple-700"
-                        >
-                          <Settings className="w-3 h-3 mr-1" />
-                          Editar
-                        </Button>
-                      )}
-                    </div>
-                    
-                    {editandoWebhook[integracao.id] ? (
-                      <div className="space-y-2">
-                        <Input 
-                          value={webhookTemporario[integracao.id] || ''}
-                          onChange={(e) => setWebhookTemporario(prev => ({ ...prev, [integracao.id]: e.target.value }))}
-                          className="text-xs bg-white font-mono"
-                          placeholder="https://seu-app.base44.app/api/functions/webhookWapi"
-                        />
-                        <div className="flex gap-2">
                           <Button
-                            onClick={() => salvarWebhookUrl(integracao.id)}
-                            size="sm"
-                            className="flex-1 bg-purple-600 hover:bg-purple-700 h-7 text-xs"
-                          >
-                            <CheckCircle className="w-3 h-3 mr-1" />
-                            Salvar
-                          </Button>
-                          <Button
-                            onClick={() => cancelarEdicaoWebhook(integracao.id)}
+                            onClick={() => copiarWebhookUrl(integracao)}
                             size="sm"
                             variant="outline"
-                            className="flex-1 h-7 text-xs"
+                            className="flex-shrink-0"
                           >
-                            <X className="w-3 h-3 mr-1" />
-                            Cancelar
+                            <Copy className="w-4 h-4" />
                           </Button>
                         </div>
-                      </div>
-                    ) : (
-                      <div className="flex items-center gap-2">
-                        <Input 
-                          value={integracao.webhook_url || getWebhookUrl(integracao)}
-                          readOnly
-                          className="text-xs bg-white font-mono"
-                        />
-                        <Button
-                          onClick={() => copiarWebhookUrl(integracao)}
-                          size="sm"
-                          variant="outline"
-                          className="flex-shrink-0"
-                        >
-                          <Copy className="w-4 h-4" />
-                        </Button>
-                      </div>
-                    )}
-                    
-                    <p className="text-[10px] text-purple-600 mt-1">
-                      {integracao.api_provider === 'w_api' 
-                        ? "Configure esta URL nos campos 'Ao receber mensagem', 'Ao enviar mensagem' e 'Ao desconectar' na W-API"
-                        : "Configure esta URL no painel do provedor para receber webhooks"}
-                    </p>
-                  </div>
+                      )}
+                    </div>
 
-                  {/* Botões de Ação */}
-                  <div className="flex flex-wrap gap-2">
-                    {integracao.status === "desconectado" && (
-                      <>
-                        <Button
-                          onClick={() => gerarQRCode(integracao, false)}
-                          disabled={conectando[integracao.id]}
-                          size="sm"
-                          className="flex-1 bg-green-600 hover:bg-green-700"
-                        >
-                          {conectando[integracao.id] ? <Loader2 className="w-4 h-4 animate-spin" /> : <QrCode className="w-4 h-4 mr-1" />}
-                          QR Code
-                        </Button>
-                        {integracao.api_provider === 'w_api' && (
+                    {/* Botões de Ação */}
+                    <div className="flex flex-wrap gap-2">
+                      {integracao.status === "desconectado" && (
+                        <>
                           <Button
-                            onClick={() => gerarQRCode(integracao, true)}
+                            onClick={() => gerarQRCode(integracao, false)}
                             disabled={conectando[integracao.id]}
                             size="sm"
-                            variant="outline"
-                            className="flex-1"
+                            className="flex-1 bg-green-600 hover:bg-green-700"
                           >
-                            <Smartphone className="w-4 h-4 mr-1" />
-                            Código
+                            {conectando[integracao.id] ? <Loader2 className="w-4 h-4 animate-spin" /> : <QrCode className="w-4 h-4 mr-1" />}
+                            QR Code
                           </Button>
-                        )}
-                      </>
-                    )}
-                    
-                    {integracao.status === "conectado" && (
-                      <Button
-                        onClick={() => verificarStatus(integracao)}
-                        size="sm"
-                        variant="outline"
-                        disabled={verificandoStatus[integracao.id]}
-                      >
-                        {verificandoStatus[integracao.id] ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4 mr-1" />}
-                        Verificar
-                      </Button>
-                    )}
-                    
-                    {integracao.status === "pendente_qrcode" && (
-                      <Button
-                        onClick={() => gerarQRCode(integracao, false)}
-                        size="sm"
-                        variant="outline"
-                        disabled={conectando[integracao.id]}
-                      >
-                        <RefreshCw className="w-4 h-4 mr-1" />
-                        Novo Código
-                      </Button>
-                    )}
-                    
-                    <Button
-                      onClick={() => copiarWebhookUrl(integracao)}
-                      size="sm"
-                      variant="ghost"
-                      title="Copiar URL do Webhook"
-                    >
-                      <Copy className="w-4 h-4" />
-                    </Button>
+                          {integracao.api_provider === 'w_api' && (
+                            <Button
+                              onClick={() => gerarQRCode(integracao, true)}
+                              disabled={conectando[integracao.id]}
+                              size="sm"
+                              variant="outline"
+                              className="flex-1"
+                            >
+                              <Smartphone className="w-4 h-4 mr-1" />
+                              Código
+                            </Button>
+                          )}
+                        </>
+                      )}
+                      
+                      {integracao.status === "conectado" && (
+                        <Button
+                          onClick={() => verificarStatus(integracao)}
+                          size="sm"
+                          variant="outline"
+                          disabled={verificandoStatus[integracao.id]}
+                          className="flex-1"
+                        >
+                          {verificandoStatus[integracao.id] ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4 mr-1" />}
+                          Verificar
+                        </Button>
+                      )}
+                      
+                      {integracao.status === "pendente_qrcode" && (
+                        <Button
+                          onClick={() => gerarQRCode(integracao, false)}
+                          size="sm"
+                          variant="outline"
+                          disabled={conectando[integracao.id]}
+                        >
+                          <RefreshCw className="w-4 h-4 mr-1" />
+                          Novo Código
+                        </Button>
+                      )}
+                    </div>
                   </div>
-                </div>
-              ))}
-            </div>
-          )}
+                ))}
+              </div>
+            )}
           </TabsContent>
 
+          {/* ================================================================== */}
           {/* ABA 2: SINCRONIZAÇÃO */}
+          {/* ================================================================== */}
           <TabsContent value="sincronizacao" className="space-y-6">
             <div className="flex items-center justify-between mb-4">
               <div>
@@ -977,7 +959,7 @@ export default function ConfiguracaoWhatsAppUnificado({ onClose }) {
                 <div>
                   <h4 className="font-semibold text-slate-800 mb-3 flex items-center gap-2">
                     <Database className="w-5 h-5 text-blue-600" />
-                    Instâncias no Banco Local
+                    Instâncias no Banco Local ({integracoes.filter(i => i.api_provider === 'w_api').length})
                   </h4>
                   <div className="grid gap-3">
                     {integracoes.filter(i => i.api_provider === 'w_api').map((integracao) => {
@@ -1000,7 +982,7 @@ export default function ConfiguracaoWhatsAppUnificado({ onClose }) {
                                   <Badge className="bg-yellow-600 text-white text-xs">⚠ Divergente</Badge>
                                 )}
                                 {comparacao.status === 'nao_encontrada' && (
-                                  <Badge className="bg-red-600 text-white text-xs">✗ Órfã</Badge>
+                                  <Badge className="bg-red-600 text-white text-xs">✗ Órfã no Banco</Badge>
                                 )}
                               </div>
                               
@@ -1019,7 +1001,7 @@ export default function ConfiguracaoWhatsAppUnificado({ onClose }) {
                               
                               {comparacao.divergencias.length > 0 && (
                                 <div className="mt-2 p-2 bg-white rounded border border-yellow-300">
-                                  <p className="text-xs font-semibold text-yellow-800 mb-1">Divergências:</p>
+                                  <p className="text-xs font-semibold text-yellow-800 mb-1">Divergências Detectadas:</p>
                                   <ul className="text-xs text-yellow-700 list-disc ml-4">
                                     {comparacao.divergencias.map((div, idx) => (
                                       <li key={idx}>{div}</li>
@@ -1042,8 +1024,11 @@ export default function ConfiguracaoWhatsAppUnificado({ onClose }) {
                   <div>
                     <h4 className="font-semibold text-slate-800 mb-3 flex items-center gap-2">
                       <Cloud className="w-5 h-5 text-purple-600" />
-                      Instâncias Apenas na W-API (Não Cadastradas)
+                      Instâncias Apenas na W-API ({instanciasProvedor.filter(instW => 
+                        !integracoes.some(intLocal => intLocal.instance_id_provider === instW.instanceId)
+                      ).length})
                     </h4>
+                    <p className="text-sm text-slate-600 mb-3">Estas instâncias existem na W-API mas não estão cadastradas no sistema</p>
                     <div className="grid gap-3">
                       {instanciasProvedor.filter(instW => 
                         !integracoes.some(intLocal => intLocal.instance_id_provider === instW.instanceId)
@@ -1055,10 +1040,10 @@ export default function ConfiguracaoWhatsAppUnificado({ onClose }) {
                               <div className="space-y-1 text-sm">
                                 <p><strong>Instance ID:</strong> {instW.instanceId}</p>
                                 <p><strong>Telefone:</strong> {instW.connectedPhone || 'Não conectado'}</p>
-                                <p><strong>Status:</strong> {instW.connected ? 'Conectado' : 'Desconectado'}</p>
+                                <p><strong>Status:</strong> {instW.connected ? 'Conectado ✅' : 'Desconectado'}</p>
                               </div>
                             </div>
-                            <Badge className="bg-purple-600 text-white">Importável</Badge>
+                            <Badge className="bg-purple-600 text-white">Órfã no Provedor</Badge>
                           </div>
                         </div>
                       ))}
@@ -1069,12 +1054,145 @@ export default function ConfiguracaoWhatsAppUnificado({ onClose }) {
             )}
           </TabsContent>
 
+          {/* ================================================================== */}
           {/* ABA 3: NOVA CONEXÃO */}
-          <TabsContent value="nova" className="space-y-6">
-        </TabsContent>
+          {/* ================================================================== */}
+          <TabsContent value="nova" className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <Label>Provedor da API</Label>
+                <Select
+                  value={novaIntegracao.api_provider}
+                  onValueChange={handleProviderChange}
+                >
+                  <SelectTrigger className="mt-1">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="z_api">Z-API</SelectItem>
+                    <SelectItem value="w_api">W-API (Manual)</SelectItem>
+                    <SelectItem value="w_api_integrator">W-API Integrador</SelectItem>
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-slate-500 mt-1">{PROVIDERS[novaIntegracao.api_provider]?.descricao}</p>
+              </div>
+              
+              <div>
+                <Label>Nome da Instância</Label>
+                <Input
+                  placeholder="Ex: vendas-principal"
+                  value={novaIntegracao.nome_instancia}
+                  onChange={(e) => setNovaIntegracao({...novaIntegracao, nome_instancia: e.target.value})}
+                  className="mt-1"
+                />
+              </div>
+              
+              {novaIntegracao.api_provider !== 'w_api_integrator' && (
+                <>
+                  <div>
+                    <Label>Número de WhatsApp</Label>
+                    <Input
+                      placeholder="5548999999999"
+                      value={novaIntegracao.numero_telefone}
+                      onChange={(e) => setNovaIntegracao({...novaIntegracao, numero_telefone: e.target.value.replace(/\D/g, '')})}
+                      className="mt-1"
+                    />
+                  </div>
+                  
+                  <div>
+                    <Label>Instance ID</Label>
+                    <Input
+                      placeholder={novaIntegracao.api_provider === 'w_api' ? "Ex: T34398-VYR3QD..." : "Ex: 3E5D2BD1BF421127B24ECEF0269361A3"}
+                      value={novaIntegracao.instance_id_provider}
+                      onChange={(e) => setNovaIntegracao({...novaIntegracao, instance_id_provider: e.target.value})}
+                      className="mt-1"
+                    />
+                  </div>
+                  
+                  <div>
+                    <Label>{novaIntegracao.api_provider === 'w_api' ? "Token (Bearer)" : "Token da Instância"}</Label>
+                    <Input
+                      placeholder="Cole o token aqui"
+                      value={novaIntegracao.api_key_provider}
+                      onChange={(e) => setNovaIntegracao({...novaIntegracao, api_key_provider: e.target.value})}
+                      className="mt-1"
+                      type="password"
+                    />
+                  </div>
+                  
+                  {novaIntegracao.api_provider === 'z_api' && (
+                    <div>
+                      <Label>Client-Token de Segurança</Label>
+                      <Input
+                        placeholder="Token de segurança da conta Z-API"
+                        value={novaIntegracao.security_client_token_header}
+                        onChange={(e) => setNovaIntegracao({...novaIntegracao, security_client_token_header: e.target.value})}
+                        className="mt-1"
+                        type="password"
+                      />
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+
+            {/* URL do Webhook */}
+            <div className="p-4 bg-purple-50 border-2 border-purple-200 rounded-lg">
+              <Label className="text-sm text-purple-700 font-semibold mb-2 block flex items-center gap-2">
+                🔗 URL do Webhook
+                <Badge className="bg-purple-600 text-white text-xs">Configure no provedor</Badge>
+              </Label>
+              <Input
+                value={novaIntegracao.webhook_url}
+                onChange={(e) => setNovaIntegracao({...novaIntegracao, webhook_url: e.target.value})}
+                placeholder="https://seu-app.base44.app/api/functions/webhookWapi"
+                className="font-mono text-xs bg-white"
+              />
+              <div className="mt-2 space-y-1">
+                <p className="text-xs text-purple-600">
+                  ✅ URL sugerida automaticamente baseada no provedor selecionado
+                </p>
+                {novaIntegracao.api_provider === 'w_api' && (
+                  <p className="text-xs text-purple-700 font-medium">
+                    💡 W-API: Cole esta URL nos campos "Ao receber mensagem", "Ao enviar mensagem" e "Ao desconectar"
+                  </p>
+                )}
+              </div>
+            </div>
+
+            {/* Alerta Integrador */}
+            {novaIntegracao.api_provider === 'w_api_integrator' && (
+              <div className="p-4 bg-indigo-50 border-2 border-indigo-200 rounded-lg">
+                <div className="flex items-start gap-3">
+                  <Zap className="w-5 h-5 text-indigo-600 flex-shrink-0 mt-0.5" />
+                  <div>
+                    <h4 className="font-semibold text-indigo-900 mb-1">🏛️ Modo Integrador - Arquitetura "Porteiro Cego"</h4>
+                    <ul className="text-sm text-indigo-700 space-y-1 list-disc ml-5">
+                      <li>Instância criada automaticamente com webhooks já configurados</li>
+                      <li>Você receberá <strong>Instance ID</strong> e <strong>Token</strong> automaticamente</li>
+                      <li>Conecte depois usando QR Code ou Pairing Code</li>
+                      <li>O número será salvo automaticamente após conexão</li>
+                      <li><strong>Deleção Dupla:</strong> Remove da W-API E do banco local</li>
+                    </ul>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            <div className="flex justify-end gap-3">
+              <Button 
+                onClick={salvarIntegracao} 
+                disabled={saving || criandoInstancia}
+                className="bg-green-600 hover:bg-green-700"
+              >
+                {(saving || criandoInstancia) ? <Loader2 className="w-4 h-4 mr-2 animate-spin"/> : <Zap className="w-4 h-4 mr-2" />}
+                {criandoInstancia ? "Criando..." : saving ? "Salvando..." : novaIntegracao.api_provider === 'w_api_integrator' ? "Criar Instância W-API" : "Adicionar Conexão"}
+              </Button>
+            </div>
+          </TabsContent>
         </Tabs>
 
-      {/* Modal de Edição */}
+        {/* Modal de Edição */}
         {integracaoEditando && (
           <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
             <div className="bg-white rounded-2xl p-6 max-w-2xl w-full max-h-[90vh] overflow-y-auto">
@@ -1154,19 +1272,14 @@ export default function ConfiguracaoWhatsAppUnificado({ onClose }) {
                   <Input
                     value={integracaoEditando.webhook_url}
                     onChange={(e) => setIntegracaoEditando({...integracaoEditando, webhook_url: e.target.value})}
-                    placeholder="https://nexus360-pro.base44.app/api/apps/68a7d067890527304dbe8477/functions/webhookWapi"
+                    placeholder="https://seu-app.base44.app/api/functions/webhookWapi"
                     className="font-mono text-xs bg-white"
                   />
-                  <div className="mt-2 space-y-1">
-                    <p className="text-xs text-purple-700 font-medium">
-                      💡 {integracaoEditando.api_provider === 'w_api' || integracaoEditando.modo === 'integrator'
-                        ? "Configure esta URL nos campos 'Ao receber mensagem', 'Ao enviar mensagem' e 'Ao desconectar' na W-API"
-                        : "Configure esta URL no painel da Z-API para receber webhooks"}
-                    </p>
-                    <p className="text-xs text-purple-600">
-                      ✅ Cole exatamente esta URL no painel do provedor para receber mensagens corretamente
-                    </p>
-                  </div>
+                  <p className="text-xs text-purple-700 font-medium mt-2">
+                    💡 {integracaoEditando.api_provider === 'w_api' 
+                      ? "Configure esta URL nos campos 'Ao receber mensagem', 'Ao enviar mensagem' e 'Ao desconectar' na W-API"
+                      : "Configure esta URL no painel da Z-API"}
+                  </p>
                 </div>
               </div>
 
@@ -1186,158 +1299,7 @@ export default function ConfiguracaoWhatsAppUnificado({ onClose }) {
             </div>
           </div>
         )}
-
-        <h3 className="text-lg font-semibold text-slate-800 mb-4 flex items-center gap-2">
-          <Settings className="w-5 h-5 text-green-600" />
-          Adicionar Nova Conexão
-        </h3>
-          
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-            {/* Provedor */}
-            <div>
-              <Label>Provedor da API</Label>
-              <Select
-                value={novaIntegracao.api_provider}
-                onValueChange={handleProviderChange}
-              >
-                <SelectTrigger className="mt-1">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="z_api">Z-API</SelectItem>
-                  <SelectItem value="w_api">W-API (QR Code e Pairing)</SelectItem>
-                  <SelectItem value="w_api_integrator">W-API Integrador (Custom)</SelectItem>
-                </SelectContent>
-              </Select>
-              <p className="text-xs text-slate-500 mt-1">{PROVIDERS[novaIntegracao.api_provider]?.descricao}</p>
-            </div>
-            
-            {/* Nome */}
-            <div>
-              <Label>Nome da Instância</Label>
-              <Input
-                placeholder="Ex: vendas-principal"
-                value={novaIntegracao.nome_instancia}
-                onChange={(e) => setNovaIntegracao({...novaIntegracao, nome_instancia: e.target.value})}
-                className="mt-1"
-              />
-            </div>
-            
-            {/* Telefone - ocultar para integrador */}
-            {novaIntegracao.api_provider !== 'w_api_integrator' && (
-              <div>
-                <Label>Número de WhatsApp</Label>
-                <Input
-                  placeholder="5548999999999"
-                  value={novaIntegracao.numero_telefone}
-                  onChange={(e) => setNovaIntegracao({...novaIntegracao, numero_telefone: e.target.value.replace(/\D/g, '')})}
-                  className="mt-1"
-                />
-              </div>
-            )}
-            
-            {/* Instance ID - ocultar para integrador */}
-            {novaIntegracao.api_provider !== 'w_api_integrator' && (
-              <div>
-                <Label>Instance ID</Label>
-                <Input
-                  placeholder={novaIntegracao.api_provider === 'w_api' ? "Ex: T34398-VYR3QD..." : "Ex: 3E5D2BD1BF421127B24ECEF0269361A3"}
-                  value={novaIntegracao.instance_id_provider}
-                  onChange={(e) => setNovaIntegracao({...novaIntegracao, instance_id_provider: e.target.value})}
-                  className="mt-1"
-                />
-              </div>
-            )}
-            
-            {/* Token - ocultar para integrador */}
-            {novaIntegracao.api_provider !== 'w_api_integrator' && (
-              <div>
-                <Label>{novaIntegracao.api_provider === 'w_api' ? "Token (Bearer)" : "Token da Instância"}</Label>
-                <Input
-                  placeholder="Cole o token aqui"
-                  value={novaIntegracao.api_key_provider}
-                  onChange={(e) => setNovaIntegracao({...novaIntegracao, api_key_provider: e.target.value})}
-                  className="mt-1"
-                  type="password"
-                />
-              </div>
-            )}
-            
-            {/* Client-Token (apenas Z-API) */}
-            {novaIntegracao.api_provider === 'z_api' && (
-              <div>
-                <Label>Client-Token de Segurança</Label>
-                <Input
-                  placeholder="Token de segurança da conta Z-API"
-                  value={novaIntegracao.security_client_token_header}
-                  onChange={(e) => setNovaIntegracao({...novaIntegracao, security_client_token_header: e.target.value})}
-                  className="mt-1"
-                  type="password"
-                />
-              </div>
-            )}
-          </div>
-
-          {/* URL do Webhook - Editável para todos os provedores */}
-          <div className="mb-4 p-4 bg-purple-50 border-2 border-purple-200 rounded-lg">
-            <Label className="text-sm text-purple-700 font-semibold mb-2 block flex items-center gap-2">
-              🔗 URL do Webhook
-              <Badge className="bg-purple-600 text-white text-xs">Configure no provedor</Badge>
-            </Label>
-            <Input
-              value={novaIntegracao.webhook_url}
-              onChange={(e) => setNovaIntegracao({...novaIntegracao, webhook_url: e.target.value})}
-              placeholder="https://seu-app.base44.app/api/functions/webhookWapi"
-              className="font-mono text-xs bg-white"
-            />
-            <div className="mt-2 space-y-1">
-              <p className="text-xs text-purple-600">
-                ✅ URL sugerida automaticamente baseada no provedor selecionado
-              </p>
-              <p className="text-xs text-purple-600">
-                📝 Configure esta URL no painel {novaIntegracao.api_provider === 'w_api' ? 'da W-API' : 'da Z-API'} para receber mensagens
-              </p>
-              {novaIntegracao.api_provider === 'w_api' && (
-                <p className="text-xs text-purple-700 font-medium">
-                  💡 W-API: Cole esta URL nos campos "Ao receber mensagem", "Ao enviar mensagem" e "Ao desconectar"
-                </p>
-              )}
-            </div>
-          </div>
-
-          {/* Alerta Integrador */}
-          {novaIntegracao.api_provider === 'w_api_integrator' && (
-            <div className="mb-4 p-4 bg-indigo-50 border-2 border-indigo-200 rounded-lg">
-              <div className="flex items-start gap-3">
-                <Zap className="w-5 h-5 text-indigo-600 flex-shrink-0 mt-0.5" />
-                <div>
-                  <h4 className="font-semibold text-indigo-900 mb-1">🏛️ Modo Integrador - Arquitetura "Porteiro Cego"</h4>
-                  <ul className="text-sm text-indigo-700 space-y-1 list-disc ml-5">
-                    <li>Instância criada automaticamente com webhooks já configurados</li>
-                    <li>Você receberá <strong>Instance ID</strong> e <strong>Token</strong> automaticamente</li>
-                    <li>Conecte depois usando QR Code ou Pairing Code</li>
-                    <li>O número será salvo automaticamente após conexão</li>
-                    <li><strong>Deleção Dupla:</strong> Remove da W-API E do banco local</li>
-                  </ul>
-                </div>
-              </div>
-            </div>
-          )}
-
-          <div className="flex justify-end gap-3">
-            <Button onClick={onClose} variant="outline">Fechar</Button>
-            <Button 
-              onClick={salvarIntegracao} 
-              disabled={saving || criandoInstancia}
-              className="bg-green-600 hover:bg-green-700"
-            >
-              {(saving || criandoInstancia) ? <Loader2 className="w-4 h-4 mr-2 animate-spin"/> : <Zap className="w-4 h-4 mr-2" />}
-              {criandoInstancia ? "Criando Instância..." : saving ? "Salvando..." : novaIntegracao.api_provider === 'w_api_integrator' ? "Criar Instância W-API" : "Adicionar Conexão"}
-            </Button>
-            </div>
-            </TabsContent>
-            </Tabs>
-            </div>
-            </div>
-            );
+      </div>
+    </div>
+  );
 }
