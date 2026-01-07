@@ -20,7 +20,8 @@ Deno.serve(async (req) => {
       }, { status: 500 });
     }
 
-    const WEBHOOK_BASE = 'https://nexus360-pro.base44.app/api/apps/68a7d067890527304dbe8477/functions/webhookWapi';
+    // ✅ URL padrão apenas para novas instâncias (sem cadastro prévio no banco)
+    const DEFAULT_WEBHOOK_URL = 'https://nexus360-pro.base44.app/api/apps/68a7d067890527304dbe8477/functions/webhookWapi';
 
     console.log('[SYNC] 🔄 Iniciando sincronização com W-API Integrador...');
 
@@ -62,6 +63,9 @@ Deno.serve(async (req) => {
       try {
         const integracaoExistente = mapeamentoLocal.get(inst.instanceId);
 
+        // ✅ Preservar webhook_url existente ou usar padrão para novas
+        const webhookUrl = integracaoExistente?.webhook_url || DEFAULT_WEBHOOK_URL;
+
         const dadosIntegracao = {
           nome_instancia: inst.instanceName,
           numero_telefone: inst.connectedPhone || "",
@@ -72,7 +76,7 @@ Deno.serve(async (req) => {
           instance_id_provider: inst.instanceId,
           api_key_provider: inst.token,
           base_url_provider: "https://api.w-api.app/v1",
-          webhook_url: WEBHOOK_BASE,
+          webhook_url: webhookUrl,
           ultima_atividade: new Date().toISOString(),
           configuracoes_avancadas: {
             auto_resposta_fora_horario: false,

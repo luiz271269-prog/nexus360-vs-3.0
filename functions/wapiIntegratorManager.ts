@@ -27,7 +27,9 @@ Deno.serve(async (req) => {
       }, { status: 500 });
     }
 
-    const WEBHOOK_BASE = 'https://nexus360-pro.base44.app/api/apps/68a7d067890527304dbe8477/functions/webhookWapi';
+    // ✅ BUSCAR URL DO BANCO: Para integrações existentes, usar a URL cadastrada
+    // Para novas, usar a URL padrão do ambiente
+    const DEFAULT_WEBHOOK_URL = 'https://nexus360-pro.base44.app/api/apps/68a7d067890527304dbe8477/functions/webhookWapi';
 
     // ========================================================================
     // AÇÃO: CRIAR INSTÂNCIA
@@ -53,9 +55,9 @@ Deno.serve(async (req) => {
             rejectCalls: true,
             callMessage: "Não estamos disponíveis para chamadas no momento.",
             // ✅ CONFIGURAR WEBHOOKS NA CRIAÇÃO (evita passo extra)
-            webhookReceivedUrl: WEBHOOK_BASE,
-            webhookDeliveryUrl: WEBHOOK_BASE,
-            webhookDisconnectedUrl: WEBHOOK_BASE
+            webhookReceivedUrl: DEFAULT_WEBHOOK_URL,
+            webhookDeliveryUrl: DEFAULT_WEBHOOK_URL,
+            webhookDisconnectedUrl: DEFAULT_WEBHOOK_URL
           })
         });
 
@@ -68,7 +70,7 @@ Deno.serve(async (req) => {
             success: true,
             instanceId: data.instanceId,
             token: data.token,
-            webhookUrl: WEBHOOK_BASE,
+            webhookUrl: DEFAULT_WEBHOOK_URL,
             message: 'Instância criada com webhooks já configurados!'
           });
         } else {
