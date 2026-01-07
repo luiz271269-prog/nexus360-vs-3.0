@@ -49,59 +49,80 @@ Deno.serve(async (req) => {
 
     const expectedWebhookUrl = integration.webhook_url || 
       `https://nexus360-pro.base44.app/api/apps/68a7d067890527304dbe8477/functions/webhookWapi`;
-    
-    const headers = {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${integration.api_key_provider}`
-    };
 
-    const baseUrl = integration.base_url_provider || 'https://api.w-api.app/v1';
+    // ✅ USAR INTEGRATOR TOKEN se for modo integrator
+    const INTEGRATOR_TOKEN = Deno.env.get('WAPI_INTEGRATOR_TOKEN');
 
-    console.log(`[WAPI-VERIFY] Consultando info da instância: ${integration.instance_id_provider}`);
-    console.log(`[WAPI-VERIFY] Base URL: ${baseUrl}`);
-    console.log(`[WAPI-VERIFY] Headers:`, { ...headers, Authorization: 'Bearer ***' });
+    let headers;
+    let endpoint;
 
-    // ✅ TESTAR MÚLTIPLOS ENDPOINTS (W-API pode variar)
-    const possiveisEndpoints = [
-      `${baseUrl}/instance/${integration.instance_id_provider}`,
-      `${baseUrl}/instance/info?instanceId=${integration.instance_id_provider}`,
-      `${baseUrl}/instances/${integration.instance_id_provider}`,
-      `${baseUrl}/instance/status?instanceId=${integration.instance_id_provider}`
-    ];
-
-    let infoReq = null;
-    let endpointUsado = null;
-
-    for (const endpoint of possiveisEndpoints) {
-      console.log(`[WAPI-VERIFY] Tentando endpoint: ${endpoint}`);
-      try {
-        const resp = await fetch(endpoint, { method: 'GET', headers });
-        if (resp.ok) {
-          infoReq = resp;
-          endpointUsado = endpoint;
-          console.log(`[WAPI-VERIFY] ✅ Endpoint funcionou: ${endpoint}`);
-          break;
-        } else {
-          console.log(`[WAPI-VERIFY] ❌ ${endpoint} retornou ${resp.status}`);
-        }
-      } catch (e) {
-        console.log(`[WAPI-VERIFY] ❌ ${endpoint} falhou:`, e.message);
-      }
+    if (integration.modo === 'integrator' && INTEGRATOR_TOKEN) {
+      // Modo Integrador: usar token do integrador e endpoint /integrator/instances
+      headers = {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${INTEGRATOR_TOKEN}`
+      };
+      endpoint = `https://api.w-api.app/v1/integrator/instances?pageSize=100&page=1`;
+      console.log('[WAPI-VERIFY] Usando endpoint INTEGRADOR (token global)');
+    } else {
+      // Modo manual: usar token individual da instância
+      headers = {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${integration.api_key_provider}`
+      };
+      const baseUrl = integration.base_url_provider || 'https://api.w-api.app/v1';
+      endpoint = `${baseUrl}/instance/info?instanceId=${integration.instance_id_provider}`;
+      console.log('[WAPI-VERIFY] Usando endpoint MANUAL (token individual)');
     }
 
-    if (!infoReq) {
-      console.error('[WAPI-VERIFY] ❌ Nenhum endpoint funcionou');
+    console.log(`[WAPI-VERIFY] Instance ID: ${integration.instance_id_provider}`);
+    console.log(`[WAPI-VERIFY] Endpoint: ${endpoint}`);
+
+    let infoData;
+    try {
+      const response = await fetch(endpoint, { method: 'GET', headers });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error(`[WAPI-VERIFY] ❌ API retornou ${response.status}:`, errorText.substring(0, 200));
+        return Response.json({
+          success: false,
+          error: `W-API retornou ${response.status}. Verifique credenciais e se a instância existe.`,
+          status_code: response.status
+        }, { status: 200, headers: corsHeaders });
+      }
+
+      infoData = await response.json();
+      console.log('[WAPI-VERIFY] ✅ Dados recebidos da W-API');
+    } catch (fetchError) {
+      console.error('[WAPI-VERIFY] ❌ Erro na requisição:', fetchError.message);
       return Response.json({
         success: false,
-        error: 'Nenhum endpoint W-API respondeu. Verifique se Instance ID e Token estão corretos.',
-        tentativas: possiveisEndpoints
+        error: `Falha ao conectar com W-API: ${fetchError.message}`
       }, { status: 200, headers: corsHeaders });
     }
-    const infoData = await infoReq.json();
-    console.log('[WAPI-VERIFY] ✅ Dados recebidos do endpoint:', endpointUsado);
     console.log('[WAPI-VERIFY] Dados recebidos:', JSON.stringify(infoData).substring(0, 300));
-    
-    const config = infoData.instance || infoData || {};
+
+    // ✅ MODO INTEGRADOR: buscar instância específica na lista
+    let config;
+    if (integration.modo === 'integrator' && infoData.data && Array.isArray(infoData.data)) {
+      const instanciaEncontrada = infoData.data.find(inst => 
+        inst.instanceId === integration.instance_id_provider
+      );
+
+      if (!instanciaEncontrada) {
+        return Response.json({
+          success: false,
+          error: `Instância ${integration.instance_id_provider} não encontrada na lista do integrador`
+        }, { status: 200, headers: corsHeaders });
+      }
+
+      config = instanciaEncontrada;
+      console.log('[WAPI-VERIFY] ✅ Instância encontrada na lista do integrador');
+    } else {
+      // Modo manual: resposta direta
+      config = infoData.instance || infoData || {};
+    }
     
     // ✅ MAPEAMENTO ROBUSTO (camelCase + snake_case + variações)
     const normalize = (url) => (url || '').replace(/\/+$/, '').trim();
