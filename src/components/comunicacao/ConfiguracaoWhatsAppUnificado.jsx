@@ -937,9 +937,144 @@ export default function ConfiguracaoWhatsAppUnificado({ onClose }) {
               ))}
             </div>
           )}
-        </div>
+          </TabsContent>
 
-        {/* Modal de Edição */}
+          {/* ABA 2: SINCRONIZAÇÃO */}
+          <TabsContent value="sincronizacao" className="space-y-6">
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <h3 className="text-lg font-semibold text-slate-800">Sincronização W-API</h3>
+                <p className="text-sm text-slate-600">Compare instâncias da W-API com o banco local</p>
+              </div>
+              <Button
+                onClick={sincronizarComProvedor}
+                disabled={sincronizando}
+                className="bg-indigo-600 hover:bg-indigo-700 gap-2"
+              >
+                {sincronizando ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Sincronizando...
+                  </>
+                ) : (
+                  <>
+                    <RefreshCw className="w-4 h-4" />
+                    Sincronizar Agora
+                  </>
+                )}
+              </Button>
+            </div>
+
+            {instanciasProvedor.length === 0 ? (
+              <div className="text-center py-12 bg-slate-50 rounded-lg border-2 border-dashed">
+                <Cloud className="w-12 h-12 text-slate-400 mx-auto mb-3" />
+                <p className="text-slate-600 font-medium">Nenhuma sincronização realizada</p>
+                <p className="text-sm text-slate-500 mt-1">Clique em "Sincronizar Agora" para buscar instâncias da W-API</p>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {/* Instâncias no Banco */}
+                <div>
+                  <h4 className="font-semibold text-slate-800 mb-3 flex items-center gap-2">
+                    <Database className="w-5 h-5 text-blue-600" />
+                    Instâncias no Banco Local
+                  </h4>
+                  <div className="grid gap-3">
+                    {integracoes.filter(i => i.api_provider === 'w_api').map((integracao) => {
+                      const comparacao = compararComProvedor(integracao);
+                      
+                      return (
+                        <div key={integracao.id} className={`p-4 rounded-lg border-2 ${
+                          comparacao.status === 'sincronizado' ? 'bg-green-50 border-green-200' :
+                          comparacao.status === 'divergente' ? 'bg-yellow-50 border-yellow-200' :
+                          'bg-red-50 border-red-200'
+                        }`}>
+                          <div className="flex items-start justify-between">
+                            <div className="flex-1">
+                              <div className="flex items-center gap-2 mb-2">
+                                <h5 className="font-semibold text-slate-900">{integracao.nome_instancia}</h5>
+                                {comparacao.status === 'sincronizado' && (
+                                  <Badge className="bg-green-600 text-white text-xs">✓ Sincronizado</Badge>
+                                )}
+                                {comparacao.status === 'divergente' && (
+                                  <Badge className="bg-yellow-600 text-white text-xs">⚠ Divergente</Badge>
+                                )}
+                                {comparacao.status === 'nao_encontrada' && (
+                                  <Badge className="bg-red-600 text-white text-xs">✗ Órfã</Badge>
+                                )}
+                              </div>
+                              
+                              <div className="space-y-1 text-sm">
+                                <p><strong>Instance ID:</strong> {integracao.instance_id_provider}</p>
+                                <p><strong>Telefone (DB):</strong> {integracao.numero_telefone || 'Não configurado'}</p>
+                                <p><strong>Status (DB):</strong> {integracao.status}</p>
+                                
+                                {comparacao.instanciaWAPI && (
+                                  <>
+                                    <p className="text-indigo-700"><strong>Telefone (W-API):</strong> {comparacao.instanciaWAPI.connectedPhone || 'Não conectado'}</p>
+                                    <p className="text-indigo-700"><strong>Status (W-API):</strong> {comparacao.instanciaWAPI.connected ? 'conectado' : 'desconectado'}</p>
+                                  </>
+                                )}
+                              </div>
+                              
+                              {comparacao.divergencias.length > 0 && (
+                                <div className="mt-2 p-2 bg-white rounded border border-yellow-300">
+                                  <p className="text-xs font-semibold text-yellow-800 mb-1">Divergências:</p>
+                                  <ul className="text-xs text-yellow-700 list-disc ml-4">
+                                    {comparacao.divergencias.map((div, idx) => (
+                                      <li key={idx}>{div}</li>
+                                    ))}
+                                  </ul>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Instâncias só na W-API */}
+                {instanciasProvedor.filter(instW => 
+                  !integracoes.some(intLocal => intLocal.instance_id_provider === instW.instanceId)
+                ).length > 0 && (
+                  <div>
+                    <h4 className="font-semibold text-slate-800 mb-3 flex items-center gap-2">
+                      <Cloud className="w-5 h-5 text-purple-600" />
+                      Instâncias Apenas na W-API (Não Cadastradas)
+                    </h4>
+                    <div className="grid gap-3">
+                      {instanciasProvedor.filter(instW => 
+                        !integracoes.some(intLocal => intLocal.instance_id_provider === instW.instanceId)
+                      ).map((instW) => (
+                        <div key={instW.instanceId} className="p-4 rounded-lg border-2 bg-purple-50 border-purple-200">
+                          <div className="flex items-start justify-between">
+                            <div>
+                              <h5 className="font-semibold text-slate-900 mb-2">{instW.instanceName || instW.instanceId}</h5>
+                              <div className="space-y-1 text-sm">
+                                <p><strong>Instance ID:</strong> {instW.instanceId}</p>
+                                <p><strong>Telefone:</strong> {instW.connectedPhone || 'Não conectado'}</p>
+                                <p><strong>Status:</strong> {instW.connected ? 'Conectado' : 'Desconectado'}</p>
+                              </div>
+                            </div>
+                            <Badge className="bg-purple-600 text-white">Importável</Badge>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+          </TabsContent>
+
+          {/* ABA 3: NOVA CONEXÃO */}
+          <TabsContent value="nova" className="space-y-6">
+        </TabsContent>
+        </Tabs>
+
+      {/* Modal de Edição */}
         {integracaoEditando && (
           <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
             <div className="bg-white rounded-2xl p-6 max-w-2xl w-full max-h-[90vh] overflow-y-auto">
