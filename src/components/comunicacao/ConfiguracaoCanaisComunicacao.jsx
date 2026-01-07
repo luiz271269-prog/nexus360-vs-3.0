@@ -1607,6 +1607,7 @@ export default function ConfiguracaoCanaisComunicacao({ integracoes, onRecarrega
                                   <p><strong>Instance ID:</strong> {integracao.instance_id_provider}</p>
                                   <p><strong>Telefone (DB):</strong> {integracao.numero_telefone || 'Não configurado'}</p>
                                   <p><strong>Status (DB):</strong> {integracao.status}</p>
+                                  <p className="text-purple-700 break-all"><strong>Webhook URL (DB):</strong> {integracao.webhook_url || 'Não configurado'}</p>
                                   
                                   {comparacao.instanciaWAPI && (
                                     <>
