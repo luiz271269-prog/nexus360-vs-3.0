@@ -106,7 +106,7 @@ Deno.serve(async (req) => {
 
     try {
       if (usarIntegrator) {
-        // Uma única chamada PUT para atualizar todos os webhooks
+        // UPDATE via Integrador: um único PUT com todos os webhooks
         console.log(`[WAPI-WEBHOOK] 📤 PUT ${endpoint}`);
         console.log(`[WAPI-WEBHOOK] 📋 Body:`, JSON.stringify(body, null, 2));
 
@@ -116,19 +116,58 @@ Deno.serve(async (req) => {
           body: JSON.stringify(body)
         });
 
+        if (!response.ok) {
+          const errorText = await response.text();
+          console.error(`[WAPI-WEBHOOK] ❌ HTTP ${response.status}:`, errorText);
+          return Response.json({
+            success: false,
+            error: `HTTP ${response.status}: ${errorText}`,
+            modo: 'integrator'
+          }, { status: response.status, headers: corsHeaders });
+        }
+
         const data = await response.json();
         console.log(`[WAPI-WEBHOOK] 📥 Status HTTP: ${response.status}`);
         console.log(`[WAPI-WEBHOOK] 📥 Resposta:`, JSON.stringify(data, null, 2));
 
-        if (data.error === false || response.ok) {
+        if (data.error === false || data.success === true || response.ok) {
           console.log('[WAPI-WEBHOOK] ✅ Webhooks registrados com sucesso no provedor');
-          return Response.json({
-            success: true,
-            message: 'Todos os webhooks configurados via Integrador!',
-            webhook_url: webhookUrl,
-            detalhes: data,
-            modo: 'integrator'
-          }, { headers: corsHeaders });
+          
+          // Verificar após 2 segundos se foi aplicado
+          await new Promise(resolve => setTimeout(resolve, 2000));
+          
+          try {
+            const verifyResponse = await fetch(`${baseUrl}/integrator/instance?instanceId=${instanceId}`, {
+              headers: { 'Authorization': `Bearer ${INTEGRATOR_TOKEN}` }
+            });
+            const verifyData = await verifyResponse.json();
+            
+            console.log('[WAPI-WEBHOOK] 🔍 Verificação pós-registro:', JSON.stringify(verifyData, null, 2));
+            
+            const webhooksAplicados = 
+              verifyData.webhookReceivedUrl === webhookUrl &&
+              verifyData.webhookDeliveryUrl === webhookUrl &&
+              verifyData.webhookDisconnectedUrl === webhookUrl;
+            
+            return Response.json({
+              success: true,
+              message: webhooksAplicados ? 
+                '✅ Webhooks configurados e verificados!' : 
+                '⚠️ Webhooks configurados, mas verificação indica divergência',
+              webhook_url: webhookUrl,
+              webhooks_aplicados: webhooksAplicados,
+              verificacao: verifyData,
+              modo: 'integrator'
+            }, { headers: corsHeaders });
+          } catch (verifyError) {
+            console.warn('[WAPI-WEBHOOK] ⚠️ Não foi possível verificar:', verifyError.message);
+            return Response.json({
+              success: true,
+              message: 'Webhooks configurados (verificação não disponível)',
+              webhook_url: webhookUrl,
+              modo: 'integrator'
+            }, { headers: corsHeaders });
+          }
         } else {
           console.error('[WAPI-WEBHOOK] ❌ Falha ao registrar webhooks:', data.message || data.error);
           return Response.json({
