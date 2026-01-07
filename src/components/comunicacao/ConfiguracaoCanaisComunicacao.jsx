@@ -1543,7 +1543,7 @@ export default function ConfiguracaoCanaisComunicacao({ integracoes, onRecarrega
               <div className="flex items-center justify-between mb-4">
                 <div>
                   <h3 className="text-lg font-semibold text-slate-800">Sincronização W-API</h3>
-                  <p className="text-sm text-slate-600">Compare instâncias da W-API com o banco local</p>
+                  <p className="text-sm text-slate-600">Sincroniza, registra e corrige tudo automaticamente</p>
                 </div>
                 {isAdmin && (
                   <Button
@@ -1570,7 +1570,7 @@ export default function ConfiguracaoCanaisComunicacao({ integracoes, onRecarrega
                 <div className="text-center py-12 bg-slate-50 rounded-lg border-2 border-dashed">
                   <Cloud className="w-12 h-12 text-slate-400 mx-auto mb-3" />
                   <p className="text-slate-600 font-medium">Nenhuma sincronização realizada</p>
-                  <p className="text-sm text-slate-500 mt-1">Clique em "Sincronizar Agora" para buscar instâncias da W-API</p>
+                  <p className="text-sm text-slate-500 mt-1">Clique em "Sincronizar e Corrigir Tudo"</p>
                 </div>
               ) : (
                 <div className="space-y-4">
@@ -1583,6 +1583,7 @@ export default function ConfiguracaoCanaisComunicacao({ integracoes, onRecarrega
                     <div className="grid gap-3">
                       {integracoes.filter(i => i.api_provider === 'w_api').map((integracao) => {
                         const comparacao = compararComProvedor(integracao);
+                        const resultado = resultadosWebhook[integracao.id];
                         
                         return (
                           <div key={integracao.id} className={`p-4 rounded-lg border-2 ${
@@ -1622,106 +1623,29 @@ export default function ConfiguracaoCanaisComunicacao({ integracoes, onRecarrega
                                   )}
                                 </div>
 
-                                {/* Diagnóstico de Webhooks para W-API */}
-                                {integracao.api_provider === 'w_api' && (
+                                {/* Resultado da última sincronização */}
+                                {resultado?.detalhes && (
                                   <div className="mt-3 p-3 bg-blue-50 border border-blue-200 rounded-lg">
-                                    <div className="flex items-center justify-between mb-2">
-                                      <p className="text-xs font-semibold text-blue-900">🔗 Status Webhooks W-API</p>
-                                      <Button
-                                        size="sm"
-                                        variant="outline"
-                                        onClick={() => verificarWebhooksWAPI(integracao)}
-                                        disabled={verificandoWebhooks[integracao.id]}
-                                        className="h-6 text-[10px] border-blue-300"
-                                      >
-                                        {verificandoWebhooks[integracao.id] ? (
-                                          <Loader2 className="w-3 h-3 animate-spin" />
-                                        ) : (
-                                          <>
-                                            <Eye className="w-3 h-3 mr-1" />
-                                            Verificar
-                                          </>
-                                        )}
-                                      </Button>
-                                    </div>
-                                    
-                                    {/* Resultados Detalhados */}
-                                    {resultadosWebhook[integracao.id] && (
-                                      <div className="mt-3 space-y-2">
-                                        {resultadosWebhook[integracao.id].success ? (
-                                          <>
-                                            <div className="grid grid-cols-3 gap-2">
-                                              <div className={`p-2 rounded text-center ${resultadosWebhook[integracao.id].webhooks.message ? 'bg-green-100 border border-green-300' : 'bg-red-100 border border-red-300'}`}>
-                                                <p className="text-[10px] font-semibold">{resultadosWebhook[integracao.id].webhooks.message ? '✅' : '❌'} Mensagem</p>
-                                                <p className="text-[9px] text-slate-600">Receber msgs</p>
-                                              </div>
-                                              <div className={`p-2 rounded text-center ${resultadosWebhook[integracao.id].webhooks.message_ack ? 'bg-green-100 border border-green-300' : 'bg-red-100 border border-red-300'}`}>
-                                                <p className="text-[10px] font-semibold">{resultadosWebhook[integracao.id].webhooks.message_ack ? '✅' : '❌'} Status Envio</p>
-                                                <p className="text-[9px] text-slate-600">Entregue/Lida</p>
-                                              </div>
-                                              <div className={`p-2 rounded text-center ${resultadosWebhook[integracao.id].webhooks.connection_update ? 'bg-green-100 border border-green-300' : 'bg-red-100 border border-red-300'}`}>
-                                                <p className="text-[10px] font-semibold">{resultadosWebhook[integracao.id].webhooks.connection_update ? '✅' : '❌'} Conexão</p>
-                                                <p className="text-[9px] text-slate-600">Conectar/Desconectar</p>
-                                              </div>
-                                            </div>
-                                            
-                                            {!resultadosWebhook[integracao.id].todosOk && (
-                                              <div className="p-2 bg-yellow-50 border border-yellow-300 rounded">
-                                                <p className="text-[10px] text-yellow-800 font-semibold">⚠️ Ação Necessária:</p>
-                                                <p className="text-[9px] text-yellow-700 mt-1">Clique em "Registrar" para configurar os webhooks ausentes</p>
-                                              </div>
-                                            )}
-                                          </>
-                                        ) : (
-                                          <div className="p-2 bg-red-50 border border-red-300 rounded">
-                                            <p className="text-[10px] text-red-800 font-semibold">❌ Erro:</p>
-                                            <p className="text-[9px] text-red-700 mt-1">{resultadosWebhook[integracao.id].error}</p>
-                                          </div>
-                                        )}
-                                        
-                                        <details className="mt-2">
-                                          <summary className="text-[9px] text-blue-600 cursor-pointer hover:underline">
-                                            Ver resposta completa da API
-                                          </summary>
-                                          <pre className="mt-1 text-[8px] bg-slate-900 text-slate-100 p-2 rounded overflow-x-auto max-h-32">
-                                            {JSON.stringify(resultadosWebhook[integracao.id].detalhes, null, 2)}
-                                          </pre>
-                                        </details>
+                                    <p className="text-xs font-semibold text-blue-900 mb-2">📊 Última Sincronização</p>
+                                    <div className="grid grid-cols-3 gap-2">
+                                      <div className={`p-2 rounded text-center ${resultado.webhooks?.message ? 'bg-green-100 border border-green-300' : 'bg-red-100 border border-red-300'}`}>
+                                        <p className="text-[10px] font-semibold">{resultado.webhooks?.message ? '✅' : '❌'} Mensagem</p>
                                       </div>
-                                    )}
-                                    
-                                    {!resultadosWebhook[integracao.id] && (
-                                     <p className="text-[10px] text-blue-700 mt-2">
-                                       💡 Clique em "Verificar" para diagnosticar webhooks W-API
-                                     </p>
-                                    )}
-
-                                    {/* Alerta de Divergência de URL */}
-                                    {resultadosWebhook[integracao.id]?.success && !resultadosWebhook[integracao.id]?.todosOk && (
-                                      <div className="mt-3 p-3 bg-orange-50 border-2 border-orange-300 rounded-lg">
-                                        <p className="text-xs font-bold text-orange-900 mb-2">⚠️ DIVERGÊNCIA DE AMBIENTE DETECTADA</p>
-                                        <div className="space-y-1 text-[10px]">
-                                          <p className="text-orange-800">
-                                            <strong>URL no Banco (DB):</strong><br/>
-                                            <code className="bg-green-100 px-1 rounded">{integracao.webhook_url}</code>
-                                          </p>
-                                          <p className="text-orange-800">
-                                            <strong>URL na W-API (atual):</strong><br/>
-                                            <code className="bg-red-100 px-1 rounded">
-                                              {resultadosWebhook[integracao.id].detalhes?.urls_encontradas?.message || 'N/A'}
-                                            </code>
-                                          </p>
-                                          <p className="text-orange-900 font-semibold mt-2">
-                                            ➡️ Clique em "Registrar" para atualizar a W-API com a URL correta do banco
-                                          </p>
-                                        </div>
+                                      <div className={`p-2 rounded text-center ${resultado.webhooks?.message_ack ? 'bg-green-100 border border-green-300' : 'bg-red-100 border border-red-300'}`}>
+                                        <p className="text-[10px] font-semibold">{resultado.webhooks?.message_ack ? '✅' : '❌'} Status</p>
                                       </div>
-                                    )}
+                                      <div className={`p-2 rounded text-center ${resultado.webhooks?.connection_update ? 'bg-green-100 border border-green-300' : 'bg-red-100 border border-red-300'}`}>
+                                        <p className="text-[10px] font-semibold">{resultado.webhooks?.connection_update ? '✅' : '❌'} Conexão</p>
+                                      </div>
                                     </div>
+                                    {resultado.detalhes.webhook_wapi_depois && (
+                                      <p className="text-[9px] text-slate-600 mt-2 break-all">
+                                        URL aplicada: <code className={resultado.detalhes.webhook_wapi_depois === integracao.webhook_url ? 'text-green-700' : 'text-red-700'}>{resultado.detalhes.webhook_wapi_depois}</code>
+                                      </p>
                                     )}
+                                  </div>
+                                )}
 
-                                    {/* ⛔ NÃO RENDERIZAR GOTO AQUI - Apenas WhatsApp nesta seção */}
-                                
                                 {comparacao.divergencias.length > 0 && (
                                   <div className="mt-2 p-2 bg-white rounded border border-yellow-300">
                                     <p className="text-xs font-semibold text-yellow-800 mb-1">Divergências Detectadas:</p>
@@ -1733,7 +1657,6 @@ export default function ConfiguracaoCanaisComunicacao({ integracoes, onRecarrega
                                   </div>
                                 )}
 
-                                {/* Botão de ação para instâncias órfãs */}
                                 {comparacao.status === 'nao_encontrada' && isAdmin && (
                                   <div className="mt-3">
                                     <Button
@@ -1743,11 +1666,11 @@ export default function ConfiguracaoCanaisComunicacao({ integracoes, onRecarrega
                                         if (!confirm(`Deletar "${integracao.nome_instancia}" do banco local?\n\n(Não existe na W-API)`)) return;
                                         try {
                                           await base44.entities.WhatsAppIntegration.delete(integracao.id);
-                                          toast.success("✅ Instância órfã removida do banco local");
+                                          toast.success("✅ Instância órfã removida");
                                           if (onRecarregar) await onRecarregar();
                                           await sincronizarECorrigirTudo();
                                         } catch (error) {
-                                          toast.error("Erro ao deletar: " + error.message);
+                                          toast.error("Erro: " + error.message);
                                         }
                                       }}
                                       className="h-7 text-xs text-red-600 border-red-300"
@@ -1802,7 +1725,7 @@ export default function ConfiguracaoCanaisComunicacao({ integracoes, onRecarrega
                                    ) : (
                                      <Plus className="w-3 h-3 mr-1" />
                                    )}
-                                   Importar para Sistema
+                                   Importar
                                  </Button>
                                  {isAdmin && (
                                    <Button
@@ -1810,27 +1733,25 @@ export default function ConfiguracaoCanaisComunicacao({ integracoes, onRecarrega
                                      variant="outline"
                                      onClick={() => deletarDaWAPI(instW.instanceId)}
                                      disabled={deletandoProvedor === instW.instanceId}
-                                     className="h-7 text-xs text-red-600 border-red-300 hover:bg-red-50"
+                                     className="h-7 text-xs text-red-600 border-red-300"
                                    >
                                      {deletandoProvedor === instW.instanceId ? (
                                        <Loader2 className="w-3 h-3 animate-spin mr-1" />
                                      ) : (
                                        <Trash2 className="w-3 h-3 mr-1" />
                                      )}
-                                     Deletar da W-API
+                                     Deletar
                                    </Button>
                                  )}
                                </div>
                              </div>
-                             <Badge className="bg-purple-600 text-white">Órfã no Provedor</Badge>
+                             <Badge className="bg-purple-600 text-white">Órfã</Badge>
                            </div>
                          </div>
                        ))}
                      </div>
                    </div>
                   )}
-
-                  {/* ⛔ IMPORTANTE: GoTo NÃO deve aparecer nesta aba - tem aba própria */}
                   </div>
                   )}
                   </TabsContent>
