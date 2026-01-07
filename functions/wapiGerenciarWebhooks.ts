@@ -70,6 +70,9 @@ Deno.serve(async (req) => {
     const INTEGRATOR_TOKEN = Deno.env.get('WAPI_INTEGRATOR_TOKEN');
     const usarIntegrator = integration.modo === 'integrator' && INTEGRATOR_TOKEN;
 
+    console.log(`[WAPI-WEBHOOK] 🔑 INTEGRATOR_TOKEN presente: ${!!INTEGRATOR_TOKEN}`);
+    console.log(`[WAPI-WEBHOOK] 🎯 Usar Integrador: ${usarIntegrator}`);
+
     let headers;
     let endpoint;
     let body;
@@ -91,6 +94,7 @@ Deno.serve(async (req) => {
         webhookConnectedUrl: webhookUrl
       };
       console.log('[WAPI-WEBHOOK] 🔧 Modo INTEGRADOR detectado');
+      console.log(`[WAPI-WEBHOOK] 🎯 Endpoint: ${endpoint}`);
     } else {
       // Modo Manual: endpoints individuais (deprecated, mas mantido como fallback)
       headers = {
