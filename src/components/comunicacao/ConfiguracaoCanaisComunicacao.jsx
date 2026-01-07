@@ -254,6 +254,7 @@ export default function ConfiguracaoCanaisComunicacao({ integracoes, onRecarrega
   const [importandoProvedor, setImportandoProvedor] = useState(null);
   const [verificandoWebhooks, setVerificandoWebhooks] = useState({});
   const [registrandoWebhooks, setRegistrandoWebhooks] = useState({});
+  const [resultadosWebhook, setResultadosWebhook] = useState({});
 
   const resetForm = () => {
     setNovaIntegracao(initialNovaIntegracaoState);
@@ -918,6 +919,8 @@ export default function ConfiguracaoCanaisComunicacao({ integracoes, onRecarrega
 
   const verificarWebhooksWAPI = async (integracao) => {
     setVerificandoWebhooks(prev => ({ ...prev, [integracao.id]: true }));
+    setResultadosWebhook(prev => ({ ...prev, [integracao.id]: null }));
+    
     try {
       const response = await base44.functions.invoke('wapiVerificarWebhooks', {
         integration_id: integracao.id
@@ -927,22 +930,36 @@ export default function ConfiguracaoCanaisComunicacao({ integracoes, onRecarrega
         const webhooks = response.data.webhooks || {};
         const todosOk = webhooks.message && webhooks.message_ack && webhooks.connection_update;
         
-        toast.success(
-          <div className="space-y-1">
-            <p className="font-bold">{todosOk ? '✅ Webhooks OK!' : '⚠️ Webhooks Incompletos'}</p>
-            <p className="text-xs">Mensagem: {webhooks.message ? '✅' : '❌'}</p>
-            <p className="text-xs">Status Envio: {webhooks.message_ack ? '✅' : '❌'}</p>
-            <p className="text-xs">Conexão: {webhooks.connection_update ? '✅' : '❌'}</p>
-          </div>,
-          { duration: 8000 }
-        );
+        const resultado = {
+          success: true,
+          todosOk,
+          webhooks,
+          detalhes: response.data
+        };
+        
+        setResultadosWebhook(prev => ({ ...prev, [integracao.id]: resultado }));
+        
+        toast.success(todosOk ? '✅ Todos webhooks OK!' : '⚠️ Webhooks incompletos - veja detalhes');
         
         return response.data;
       } else {
+        const resultado = {
+          success: false,
+          error: response.data.error,
+          detalhes: response.data
+        };
+        
+        setResultadosWebhook(prev => ({ ...prev, [integracao.id]: resultado }));
         toast.error('Erro ao verificar webhooks: ' + response.data.error);
       }
     } catch (error) {
       console.error('[WEBHOOK] Erro:', error);
+      const resultado = {
+        success: false,
+        error: error.message,
+        detalhes: { stack: error.stack }
+      };
+      setResultadosWebhook(prev => ({ ...prev, [integracao.id]: resultado }));
       toast.error('Erro ao verificar: ' + error.message);
     } finally {
       setVerificandoWebhooks(prev => ({ ...prev, [integracao.id]: false }));
@@ -1657,9 +1674,57 @@ export default function ConfiguracaoCanaisComunicacao({ integracoes, onRecarrega
                                         </Button>
                                       </div>
                                     </div>
-                                    <p className="text-[10px] text-blue-700">
-                                      💡 Se não está recebendo mensagens, clique em "Registrar" para configurar os webhooks automaticamente
-                                    </p>
+                                    
+                                    {/* Resultados Detalhados */}
+                                    {resultadosWebhook[integracao.id] && (
+                                      <div className="mt-3 space-y-2">
+                                        {resultadosWebhook[integracao.id].success ? (
+                                          <>
+                                            <div className="grid grid-cols-3 gap-2">
+                                              <div className={`p-2 rounded text-center ${resultadosWebhook[integracao.id].webhooks.message ? 'bg-green-100 border border-green-300' : 'bg-red-100 border border-red-300'}`}>
+                                                <p className="text-[10px] font-semibold">{resultadosWebhook[integracao.id].webhooks.message ? '✅' : '❌'} Mensagem</p>
+                                                <p className="text-[9px] text-slate-600">Receber msgs</p>
+                                              </div>
+                                              <div className={`p-2 rounded text-center ${resultadosWebhook[integracao.id].webhooks.message_ack ? 'bg-green-100 border border-green-300' : 'bg-red-100 border border-red-300'}`}>
+                                                <p className="text-[10px] font-semibold">{resultadosWebhook[integracao.id].webhooks.message_ack ? '✅' : '❌'} Status Envio</p>
+                                                <p className="text-[9px] text-slate-600">Entregue/Lida</p>
+                                              </div>
+                                              <div className={`p-2 rounded text-center ${resultadosWebhook[integracao.id].webhooks.connection_update ? 'bg-green-100 border border-green-300' : 'bg-red-100 border border-red-300'}`}>
+                                                <p className="text-[10px] font-semibold">{resultadosWebhook[integracao.id].webhooks.connection_update ? '✅' : '❌'} Conexão</p>
+                                                <p className="text-[9px] text-slate-600">Conectar/Desconectar</p>
+                                              </div>
+                                            </div>
+                                            
+                                            {!resultadosWebhook[integracao.id].todosOk && (
+                                              <div className="p-2 bg-yellow-50 border border-yellow-300 rounded">
+                                                <p className="text-[10px] text-yellow-800 font-semibold">⚠️ Ação Necessária:</p>
+                                                <p className="text-[9px] text-yellow-700 mt-1">Clique em "Registrar" para configurar os webhooks ausentes</p>
+                                              </div>
+                                            )}
+                                          </>
+                                        ) : (
+                                          <div className="p-2 bg-red-50 border border-red-300 rounded">
+                                            <p className="text-[10px] text-red-800 font-semibold">❌ Erro:</p>
+                                            <p className="text-[9px] text-red-700 mt-1">{resultadosWebhook[integracao.id].error}</p>
+                                          </div>
+                                        )}
+                                        
+                                        <details className="mt-2">
+                                          <summary className="text-[9px] text-blue-600 cursor-pointer hover:underline">
+                                            Ver resposta completa da API
+                                          </summary>
+                                          <pre className="mt-1 text-[8px] bg-slate-900 text-slate-100 p-2 rounded overflow-x-auto max-h-32">
+                                            {JSON.stringify(resultadosWebhook[integracao.id].detalhes, null, 2)}
+                                          </pre>
+                                        </details>
+                                      </div>
+                                    )}
+                                    
+                                    {!resultadosWebhook[integracao.id] && (
+                                      <p className="text-[10px] text-blue-700 mt-2">
+                                        💡 Se não está recebendo mensagens, clique em "Verificar" para diagnóstico detalhado
+                                      </p>
+                                    )}
                                   </div>
                                 )}
                                 
