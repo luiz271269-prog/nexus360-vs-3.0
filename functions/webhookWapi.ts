@@ -1,25 +1,26 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.6';
 import { processInboundEvent } from './lib/inboundCore.js';
 
-// ============================================================================
-// WEBHOOK WHATSAPP W-API - v22.0.0-FORCE-REDEPLOY
-// ============================================================================
-// CORREÇÕES DEFINITIVAS:
-// 1. Auth: createClientFromRequest (SDK Base44 oficial)
-// 2. Sintaxe: base44.asServiceRole.entities.X.filter() (não .from())
-// 3. Import: Estático no topo (resolve OS Error 2)
-// 4. FORCE REDEPLOY - Timestamp: 2026-01-06 19:22:00
-// ============================================================================
+// ╔════════════════════════════════════════════════════════════════════════╗
+// ║  WEBHOOK WHATSAPP W-API - v23.0.0-AGGRESSIVE-REDEPLOY                 ║
+// ║  TIMESTAMP: 2026-01-07T07:30:00 - FORÇAR INVALIDAÇÃO CACHE DENO      ║
+// ╚════════════════════════════════════════════════════════════════════════╝
 
-const VERSION = 'v22.0.0-FORCE-REDEPLOY';
-const BUILD_DATE = '2026-01-06T19:22:00';
+const VERSION = 'v23.0.0-AGGRESSIVE-REDEPLOY';
+const BUILD_DATE = '2026-01-07T07:30:00';
+const DEPLOYMENT_ID = 'WAPI_2026_01_07_0730';
 
-// LOG IMEDIATO PARA CONFIRMAR VERSÃO ATIVA
-console.log('═══════════════════════════════════════════════════════════');
-console.log(`[WAPI-INIT] 🚀 VERSÃO ATIVA: ${VERSION}`);
-console.log(`[WAPI-INIT] 📅 BUILD: ${BUILD_DATE}`);
-console.log(`[WAPI-INIT] ✅ AUTH: createClientFromRequest (SDK Base44)`);
-console.log('═══════════════════════════════════════════════════════════');
+// ╔════════════════════════════════════════════════════════════════════════╗
+// ║  LOG BOOT - CONFIRMA VERSÃO ATIVA                                      ║
+// ╚════════════════════════════════════════════════════════════════════════╝
+console.log('╔════════════════════════════════════════════════════════════╗');
+console.log('║  🚀 W-API WEBHOOK v23 - AGGRESSIVE REDEPLOY               ║');
+console.log('╠════════════════════════════════════════════════════════════╣');
+console.log(`║  📅 BUILD: ${BUILD_DATE}                         ║`);
+console.log(`║  🆔 DEPLOY: ${DEPLOYMENT_ID}              ║`);
+console.log('║  ✅ AUTH: createClientFromRequest (Base44 SDK)            ║');
+console.log('║  ⚠️  SEM SUPABASE_URL - USA SDK OFICIAL                   ║');
+console.log('╚════════════════════════════════════════════════════════════╝');
 
 const corsHeaders = {
   'Content-Type': 'application/json',
@@ -698,9 +699,12 @@ Deno.serve(async (req) => {
     return jsonOk({ 
       version: VERSION, 
       build_date: BUILD_DATE,
+      deployment_id: DEPLOYMENT_ID,
       status: 'ok', 
       provider: 'w_api',
-      auth_method: 'createClientFromRequest'
+      auth_method: 'createClientFromRequest (Base44 SDK)',
+      no_supabase_vars: true,
+      cache_bust: Date.now()
     });
   }
 

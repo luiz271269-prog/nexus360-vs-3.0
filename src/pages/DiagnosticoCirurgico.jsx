@@ -305,12 +305,12 @@ export default function DiagnosticoCirurgico() {
         version: getResult.version || 'VERSÃO NÃO IDENTIFICADA',
         build_date: getResult.build_date || 'N/A',
         auth_method: getResult.auth_method || 'N/A',
-        versao_esperada: 'v22.0.0-FORCE-REDEPLOY',
-        versao_match: getResult.version === 'v22.0.0-FORCE-REDEPLOY'
+        versao_esperada: 'v23.0.0-AGGRESSIVE-REDEPLOY',
+        versao_match: getResult.version === 'v23.0.0-AGGRESSIVE-REDEPLOY'
       });
 
-      if (getResult.version === 'v22.0.0-FORCE-REDEPLOY') {
-        toast.success('✅ Versão v22 está ATIVA!');
+      if (getResult.version === 'v23.0.0-AGGRESSIVE-REDEPLOY') {
+        toast.success('✅ Versão v23 está ATIVA!');
       } else {
         toast.error(`❌ Versão antiga: ${getResult.version || 'desconhecida'}`);
       }
