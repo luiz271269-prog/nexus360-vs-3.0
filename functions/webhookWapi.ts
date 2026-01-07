@@ -1,4 +1,4 @@
-import { createClient } from 'npm:@base44/sdk@0.8.6';
+import { createClientFromRequest } from 'npm:@base44/sdk@0.8.4';
 
 // ╔════════════════════════════════════════════════════════════════════════╗
 // ║  WEBHOOK WHATSAPP W-API - v24.0.0-PORTEIRO-CEGO                       ║
@@ -27,7 +27,7 @@ console.log(`║  🆔 DEPLOY: ${DEPLOYMENT_ID}   ║`);
 console.log('║  🏛️  ARQUITETURA: PORTEIRO CEGO vs GERENTE                ║');
 console.log('║  🔒 TOKEN: Nunca usado no webhook (apenas no Core)        ║');
 console.log('║  🎯 LOOKUP: instanceId ou connectedPhone -> Banco         ║');
-console.log('║  ✅ AUTH: createClient com BASE44_APP_ID                  ║');
+console.log('║  ✅ AUTH: createClientFromRequest (asServiceRole auto)    ║');
 console.log('║  ⚠️  SEM SUPABASE_URL - USA SDK OFICIAL                   ║');
 console.log('╚════════════════════════════════════════════════════════════╝');
 
@@ -675,7 +675,7 @@ async function handleMessage(dados, payloadBruto, base44) {
     let integracaoObj = null;
     if (integracaoId) {
       try {
-        const ints = await base44.entities.WhatsAppIntegration.filter(
+        const ints = await base44.asServiceRole.entities.WhatsAppIntegration.filter(
           { id: integracaoId },
           '-created_date',
           1
@@ -753,7 +753,7 @@ Deno.serve(async (req) => {
       architecture: ARCHITECTURE,
       status: 'ok', 
       provider: 'w_api',
-      auth_method: 'createClient com BASE44_APP_ID (webhooks externos)',
+      auth_method: 'createClientFromRequest com asServiceRole (webhooks externos)',
       strategy: {
         webhook_role: 'PORTEIRO_CEGO - Identifica pela instanceId/connectedPhone',
         token_usage: 'GERENTE - Core e Workers buscam token no banco',
@@ -765,16 +765,11 @@ Deno.serve(async (req) => {
     });
   }
 
-  // ✅ AUTH: SDK Base44 (webhooks usam asServiceRole para todas as operações)
+  // ✅ AUTH: SDK Base44 (webhooks usam asServiceRole automaticamente)
   let base44;
   try {
-    const appId = Deno.env.get('BASE44_APP_ID');
-    if (!appId) {
-      console.error('[WAPI] 🔴 BASE44_APP_ID não configurado');
-      return jsonErr('config_error: BASE44_APP_ID não encontrado', 500);
-    }
-    base44 = createClient(appId);
-    console.log('[WAPI-AUTH] ✅ Cliente Base44 inicializado com APP_ID:', appId);
+    base44 = createClientFromRequest(req);
+    console.log('[WAPI-AUTH] ✅ Cliente Base44 criado (asServiceRole habilitado)');
   } catch (e) {
     console.error('[WAPI] 🔴 FATAL AUTH ERROR:', e.message);
     console.error('[WAPI] 🔴 Stack:', e.stack);
