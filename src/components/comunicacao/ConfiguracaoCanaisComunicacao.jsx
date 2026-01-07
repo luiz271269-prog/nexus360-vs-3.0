@@ -759,26 +759,31 @@ export default function ConfiguracaoCanaisComunicacao({ integracoes, onRecarrega
   };
 
   // Sincronização W-API
-  const sincronizarComProvedor = async () => {
+  const sincronizarComProvedor = async (autoCorrigir = false) => {
     setSincronizando(true);
     try {
       toast.info("📡 Buscando instâncias da W-API...");
-      
+
       const response = await base44.functions.invoke('wapiIntegratorManager', {
         action: 'listInstances',
         pageSize: 50,
         page: 1
       });
-      
+
       if (!response.data.success) {
         throw new Error(response.data.error || 'Erro ao listar instâncias');
       }
-      
+
       setInstanciasProvedor(response.data.instances || []);
       toast.success(`✅ ${response.data.instances?.length || 0} instâncias encontradas na W-API`);
-      
+
       await atualizarStatusAutomatico(response.data.instances || []);
-      
+
+      // Auto-corrigir divergências se solicitado
+      if (autoCorrigir) {
+        await corrigirDivergenciasAutomatico(response.data.instances || []);
+      }
+
     } catch (error) {
       console.error("Erro ao sincronizar:", error);
       toast.error(error.message || "Erro ao sincronizar com W-API");
@@ -976,37 +981,46 @@ export default function ConfiguracaoCanaisComunicacao({ integracoes, onRecarrega
     }
   };
 
-  const registrarWebhooksWAPIDireto = async (integracao) => {
-    setRegistrandoWebhooks(prev => ({ ...prev, [integracao.id]: true }));
-    try {
-      toast.info("🔧 Atualizando webhooks na W-API com URL do banco...");
+  const corrigirDivergenciasAutomatico = async (instanciasW) => {
+    const integracoesWAPI = integracoes.filter(i => i.api_provider === 'w_api');
+    let corrigidas = 0;
 
-      const response = await base44.functions.invoke('wapiGerenciarWebhooks', {
-        action: 'register',
-        integration_id: integracao.id
-      });
+    for (const intLocal of integracoesWAPI) {
+      const instW = instanciasW.find(i => i.instanceId === intLocal.instance_id_provider);
+      if (!instW) continue;
 
-      if (response.data.success) {
-        const verificado = response.data.webhooks_aplicados;
-        toast.success(
-          <div className="space-y-1">
-            <p className="font-bold">{verificado ? '✅ Webhooks corrigidos e verificados!' : '⚠️ Webhooks atualizados'}</p>
-            <p className="text-xs">URL: {response.data.webhook_url}</p>
-          </div>,
-          { duration: 5000 }
-        );
+      const webhookDB = intLocal.webhook_url;
+      const webhookWAPI = instW.webhookReceivedUrl;
 
-        // Recarregar dados após sucesso
-        await sincronizarComProvedor();
-        if (onRecarregar) await onRecarregar();
-      } else {
-        toast.error('Erro: ' + (response.data.error || response.data.message));
+      if (webhookDB && webhookWAPI && webhookDB !== webhookWAPI) {
+        try {
+          const response = await base44.functions.invoke('wapiGerenciarWebhooks', {
+            action: 'register',
+            integration_id: intLocal.id
+          });
+
+          if (response.data.success) {
+            corrigidas++;
+          }
+        } catch (error) {
+          console.error(`Erro ao corrigir ${intLocal.nome_instancia}:`, error);
+        }
       }
-    } catch (error) {
-      console.error('[WEBHOOK] Erro ao registrar:', error);
-      toast.error('Erro: ' + error.message);
-    } finally {
-      setRegistrandoWebhooks(prev => ({ ...prev, [integracao.id]: false }));
+    }
+
+    if (corrigidas > 0) {
+      toast.success(`✅ ${corrigidas} divergência(s) corrigida(s)`);
+      if (onRecarregar) await onRecarregar();
+      // Recarregar novamente para mostrar resultado
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      const response = await base44.functions.invoke('wapiIntegratorManager', {
+        action: 'listInstances',
+        pageSize: 50,
+        page: 1
+      });
+      if (response.data.success) {
+        setInstanciasProvedor(response.data.instances || []);
+      }
     }
   };
 
@@ -1559,23 +1573,38 @@ export default function ConfiguracaoCanaisComunicacao({ integracoes, onRecarrega
                   <p className="text-sm text-slate-600">Compare instâncias da W-API com o banco local</p>
                 </div>
                 {isAdmin && (
-                  <Button
-                    onClick={sincronizarComProvedor}
-                    disabled={sincronizando}
-                    className="bg-indigo-600 hover:bg-indigo-700 gap-2"
-                  >
-                    {sincronizando ? (
-                      <>
+                  <div className="flex gap-2">
+                    <Button
+                      onClick={() => sincronizarComProvedor(false)}
+                      disabled={sincronizando}
+                      variant="outline"
+                      className="gap-2"
+                    >
+                      {sincronizando ? (
+                        <>
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                          Sincronizando...
+                        </>
+                      ) : (
+                        <>
+                          <RefreshCw className="w-4 h-4" />
+                          Sincronizar
+                        </>
+                      )}
+                    </Button>
+                    <Button
+                      onClick={() => sincronizarComProvedor(true)}
+                      disabled={sincronizando}
+                      className="bg-green-600 hover:bg-green-700 gap-2"
+                    >
+                      {sincronizando ? (
                         <Loader2 className="w-4 h-4 animate-spin" />
-                        Sincronizando...
-                      </>
-                    ) : (
-                      <>
-                        <RefreshCw className="w-4 h-4" />
-                        Sincronizar Agora
-                      </>
-                    )}
-                  </Button>
+                      ) : (
+                        <Zap className="w-4 h-4" />
+                      )}
+                      Sincronizar e Corrigir
+                    </Button>
+                  </div>
                 )}
               </div>
 
@@ -1640,39 +1669,22 @@ export default function ConfiguracaoCanaisComunicacao({ integracoes, onRecarrega
                                   <div className="mt-3 p-3 bg-blue-50 border border-blue-200 rounded-lg">
                                     <div className="flex items-center justify-between mb-2">
                                       <p className="text-xs font-semibold text-blue-900">🔗 Status Webhooks W-API</p>
-                                      <div className="flex gap-1">
-                                        <Button
-                                          size="sm"
-                                          variant="outline"
-                                          onClick={() => verificarWebhooksWAPI(integracao)}
-                                          disabled={verificandoWebhooks[integracao.id]}
-                                          className="h-6 text-[10px] border-blue-300"
-                                        >
-                                          {verificandoWebhooks[integracao.id] ? (
-                                            <Loader2 className="w-3 h-3 animate-spin" />
-                                          ) : (
-                                            <>
-                                              <Eye className="w-3 h-3 mr-1" />
-                                              Verificar
-                                            </>
-                                          )}
-                                        </Button>
-                                        <Button
-                                          size="sm"
-                                          onClick={() => registrarWebhooksWAPIDireto(integracao)}
-                                          disabled={registrandoWebhooks[integracao.id]}
-                                          className="h-6 text-[10px] bg-green-600 hover:bg-green-700"
-                                        >
-                                          {registrandoWebhooks[integracao.id] ? (
-                                            <Loader2 className="w-3 h-3 animate-spin" />
-                                          ) : (
-                                            <>
-                                              <Zap className="w-3 h-3 mr-1" />
-                                              Registrar
-                                            </>
-                                          )}
-                                        </Button>
-                                      </div>
+                                      <Button
+                                        size="sm"
+                                        variant="outline"
+                                        onClick={() => verificarWebhooksWAPI(integracao)}
+                                        disabled={verificandoWebhooks[integracao.id]}
+                                        className="h-6 text-[10px] border-blue-300"
+                                      >
+                                        {verificandoWebhooks[integracao.id] ? (
+                                          <Loader2 className="w-3 h-3 animate-spin" />
+                                        ) : (
+                                          <>
+                                            <Eye className="w-3 h-3 mr-1" />
+                                            Verificar
+                                          </>
+                                        )}
+                                      </Button>
                                     </div>
                                     
                                     {/* Resultados Detalhados */}
@@ -1763,53 +1775,28 @@ export default function ConfiguracaoCanaisComunicacao({ integracoes, onRecarrega
                                   </div>
                                 )}
 
-                                {/* Botões de ação para instâncias com divergência ou órfãs */}
-                                {(comparacao.status === 'nao_encontrada' || comparacao.status === 'divergente') && isAdmin && (
-                                  <div className="mt-3 flex gap-2">
-                                    {comparacao.status === 'nao_encontrada' && (
-                                      <Button
-                                        size="sm"
-                                        variant="outline"
-                                        onClick={async () => {
-                                          if (!confirm(`Deletar "${integracao.nome_instancia}" do banco local?\n\n(Não existe na W-API)`)) return;
-                                          try {
-                                            await base44.entities.WhatsAppIntegration.delete(integracao.id);
-                                            toast.success("✅ Instância órfã removida do banco local");
-                                            if (onRecarregar) await onRecarregar();
-                                            await sincronizarComProvedor();
-                                          } catch (error) {
-                                            toast.error("Erro ao deletar: " + error.message);
-                                          }
-                                        }}
-                                        className="h-7 text-xs text-red-600 border-red-300"
-                                      >
-                                        <Trash2 className="w-3 h-3 mr-1" />
-                                        Remover do Banco
-                                      </Button>
-                                    )}
-                                    {comparacao.status === 'divergente' && (
-                                      <Button
-                                        size="sm"
-                                        onClick={async () => {
-                                          try {
-                                            await base44.entities.WhatsAppIntegration.update(integracao.id, {
-                                              status: comparacao.instanciaWAPI.connected ? 'conectado' : 'desconectado',
-                                              numero_telefone: comparacao.instanciaWAPI.connectedPhone || integracao.numero_telefone,
-                                              ultima_atividade: new Date().toISOString()
-                                            });
-                                            toast.success("✅ Sincronizado com W-API");
-                                            if (onRecarregar) await onRecarregar();
-                                            await sincronizarComProvedor();
-                                          } catch (error) {
-                                            toast.error("Erro: " + error.message);
-                                          }
-                                        }}
-                                        className="h-7 text-xs bg-indigo-600 hover:bg-indigo-700"
-                                      >
-                                        <RefreshCw className="w-3 h-3 mr-1" />
-                                        Corrigir Divergências
-                                      </Button>
-                                    )}
+                                {/* Botão de ação para instâncias órfãs */}
+                                {comparacao.status === 'nao_encontrada' && isAdmin && (
+                                  <div className="mt-3">
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      onClick={async () => {
+                                        if (!confirm(`Deletar "${integracao.nome_instancia}" do banco local?\n\n(Não existe na W-API)`)) return;
+                                        try {
+                                          await base44.entities.WhatsAppIntegration.delete(integracao.id);
+                                          toast.success("✅ Instância órfã removida do banco local");
+                                          if (onRecarregar) await onRecarregar();
+                                          await sincronizarComProvedor();
+                                        } catch (error) {
+                                          toast.error("Erro ao deletar: " + error.message);
+                                        }
+                                      }}
+                                      className="h-7 text-xs text-red-600 border-red-300"
+                                    >
+                                      <Trash2 className="w-3 h-3 mr-1" />
+                                      Remover do Banco
+                                    </Button>
                                   </div>
                                 )}
                               </div>
