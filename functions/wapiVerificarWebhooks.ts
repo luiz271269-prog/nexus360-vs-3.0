@@ -47,8 +47,8 @@ Deno.serve(async (req) => {
       }, { status: 404, headers: corsHeaders });
     }
 
-    const expectedWebhookUrl = integration.webhook_url || 
-      `https://nexus360-pro.base44.app/api/apps/68a7d067890527304dbe8477/functions/webhookWapi`;
+    // ✅ URL FIXA POR PROVEDOR (compartilhada por todas instâncias W-API)
+    const expectedWebhookUrl = `https://nexus360-pro.base44.app/api/apps/68a7d067890527304dbe8477/functions/webhookWapi`;
 
     // ✅ USAR INTEGRATOR TOKEN se for modo integrator
     const INTEGRATOR_TOKEN = Deno.env.get('WAPI_INTEGRATOR_TOKEN');
