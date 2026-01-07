@@ -28,7 +28,7 @@ console.log('║  🏛️  ARQUITETURA: PORTEIRO CEGO vs GERENTE                
 console.log('║  🔒 TOKEN: Nunca usado no webhook (apenas no Core)        ║');
 console.log('║  🎯 LOOKUP: instanceId ou connectedPhone -> Banco         ║');
 console.log('║  ✅ AUTH: createClientFromRequest (asServiceRole auto)    ║');
-console.log('║  ⚠️  SEM SUPABASE_URL - USA SDK OFICIAL                   ║');
+console.log('║  ⚠️  SDK 0.8.4 - WEBHOOK PATTERN (igual Z-API)            ║');
 console.log('╚════════════════════════════════════════════════════════════╝');
 
 const corsHeaders = {
