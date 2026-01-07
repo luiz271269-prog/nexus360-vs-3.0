@@ -758,72 +758,109 @@ export default function ConfiguracaoCanaisComunicacao({ integracoes, onRecarrega
     if (onRecarregar) await onRecarregar();
   };
 
-  // Sincronização W-API
-  const sincronizarComProvedor = async (autoCorrigir = false) => {
+  // ✅ FUNÇÃO ÚNICA: Sincronizar + Registrar + Corrigir + Atualizar Tela
+  const sincronizarECorrigirTudo = async () => {
     setSincronizando(true);
     try {
-      toast.info("📡 Buscando instâncias da W-API...");
-
+      toast.info("🔄 Sincronizando com W-API...");
+      
+      // 1️⃣ Buscar instâncias da W-API
       const response = await base44.functions.invoke('wapiIntegratorManager', {
         action: 'listInstances',
         pageSize: 50,
         page: 1
       });
-
+      
       if (!response.data.success) {
         throw new Error(response.data.error || 'Erro ao listar instâncias');
       }
-
-      setInstanciasProvedor(response.data.instances || []);
-      toast.success(`✅ ${response.data.instances?.length || 0} instâncias encontradas na W-API`);
-
-      await atualizarStatusAutomatico(response.data.instances || []);
-
-      // Auto-corrigir divergências se solicitado
-      if (autoCorrigir) {
-        await corrigirDivergenciasAutomatico(response.data.instances || []);
-      }
-
-    } catch (error) {
-      console.error("Erro ao sincronizar:", error);
-      toast.error(error.message || "Erro ao sincronizar com W-API");
-    } finally {
-      setSincronizando(false);
-    }
-  };
-
-  const atualizarStatusAutomatico = async (instanciasW) => {
-    let atualizados = 0;
-    
-    for (const instW of instanciasW) {
-      const intLocal = integracoes.find(i => 
-        i.instance_id_provider === instW.instanceId && 
-        i.api_provider === 'w_api'
-      );
       
-      if (intLocal) {
-        const statusW = instW.connected ? 'conectado' : 'desconectado';
-        const numeroW = instW.connectedPhone || '';
+      const instanciasW = response.data.instances || [];
+      setInstanciasProvedor(instanciasW);
+      
+      // 2️⃣ Atualizar status/telefone no banco
+      let atualizados = 0;
+      for (const instW of instanciasW) {
+        const intLocal = integracoes.find(i => 
+          i.instance_id_provider === instW.instanceId && 
+          i.api_provider === 'w_api'
+        );
         
-        if (intLocal.status !== statusW || 
-            (numeroW && intLocal.numero_telefone !== numeroW)) {
-          try {
-            await base44.entities.WhatsAppIntegration.update(intLocal.id, {
-              status: statusW,
-              numero_telefone: numeroW || intLocal.numero_telefone,
-              ultima_atividade: new Date().toISOString()
-            });
-            atualizados++;
-          } catch (error) {
-            console.error(`Erro ao atualizar ${intLocal.id}:`, error);
+        if (intLocal) {
+          const statusW = instW.connected ? 'conectado' : 'desconectado';
+          const numeroW = instW.connectedPhone || '';
+          
+          if (intLocal.status !== statusW || (numeroW && intLocal.numero_telefone !== numeroW)) {
+            try {
+              await base44.entities.WhatsAppIntegration.update(intLocal.id, {
+                status: statusW,
+                numero_telefone: numeroW || intLocal.numero_telefone,
+                ultima_atividade: new Date().toISOString()
+              });
+              atualizados++;
+            } catch (error) {
+              console.error(`Erro ao atualizar ${intLocal.id}:`, error);
+            }
           }
         }
       }
-    }
-    
-    if (atualizados > 0) {
-      toast.success(`✅ ${atualizados} integração(ões) sincronizada(s)`);
+      
+      // 3️⃣ Corrigir divergências de webhooks na W-API
+      const integracoesWAPI = integracoes.filter(i => i.api_provider === 'w_api');
+      let corrigidas = 0;
+      
+      for (const intLocal of integracoesWAPI) {
+        const instW = instanciasW.find(i => i.instanceId === intLocal.instance_id_provider);
+        if (!instW) continue;
+        
+        const webhookDB = intLocal.webhook_url;
+        const webhookWAPI = instW.webhookReceivedUrl;
+        
+        if (webhookDB && webhookWAPI && webhookDB !== webhookWAPI) {
+          toast.info(`🔧 Corrigindo ${intLocal.nome_instancia}...`);
+          try {
+            const regResponse = await base44.functions.invoke('wapiGerenciarWebhooks', {
+              action: 'register',
+              integration_id: intLocal.id
+            });
+            
+            if (regResponse.data.success) {
+              corrigidas++;
+            }
+          } catch (error) {
+            console.error(`Erro ao corrigir ${intLocal.nome_instancia}:`, error);
+          }
+        }
+      }
+      
+      // 4️⃣ Recarregar dados do banco
       if (onRecarregar) await onRecarregar();
+      
+      // 5️⃣ Buscar novamente da W-API para verificar resultado
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      const finalResponse = await base44.functions.invoke('wapiIntegratorManager', {
+        action: 'listInstances',
+        pageSize: 50,
+        page: 1
+      });
+      
+      if (finalResponse.data.success) {
+        setInstanciasProvedor(finalResponse.data.instances || []);
+      }
+      
+      // 6️⃣ Feedback final
+      const partes = [];
+      if (instanciasW.length > 0) partes.push(`${instanciasW.length} instâncias`);
+      if (atualizados > 0) partes.push(`${atualizados} atualizadas`);
+      if (corrigidas > 0) partes.push(`${corrigidas} webhooks corrigidos`);
+      
+      toast.success(partes.length > 0 ? `✅ ${partes.join(', ')}` : '✅ Tudo sincronizado', { duration: 5000 });
+      
+    } catch (error) {
+      console.error("Erro:", error);
+      toast.error(error.message || "Erro ao sincronizar");
+    } finally {
+      setSincronizando(false);
     }
   };
 
@@ -879,7 +916,7 @@ export default function ConfiguracaoCanaisComunicacao({ integracoes, onRecarrega
       }
       
       toast.success("✅ Instância deletada da W-API com sucesso!");
-      await sincronizarComProvedor();
+      await sincronizarECorrigirTudo();
       
     } catch (error) {
       console.error("Erro ao deletar da W-API:", error);
@@ -922,7 +959,7 @@ export default function ConfiguracaoCanaisComunicacao({ integracoes, onRecarrega
       
       toast.success("✅ Instância importada com sucesso!");
       if (onRecarregar) await onRecarregar();
-      await sincronizarComProvedor();
+      await sincronizarECorrigirTudo();
       
     } catch (error) {
       console.error("Erro ao importar:", error);
@@ -978,49 +1015,6 @@ export default function ConfiguracaoCanaisComunicacao({ integracoes, onRecarrega
       toast.error('Erro ao verificar: ' + error.message);
     } finally {
       setVerificandoWebhooks(prev => ({ ...prev, [integracao.id]: false }));
-    }
-  };
-
-  const corrigirDivergenciasAutomatico = async (instanciasW) => {
-    const integracoesWAPI = integracoes.filter(i => i.api_provider === 'w_api');
-    let corrigidas = 0;
-
-    for (const intLocal of integracoesWAPI) {
-      const instW = instanciasW.find(i => i.instanceId === intLocal.instance_id_provider);
-      if (!instW) continue;
-
-      const webhookDB = intLocal.webhook_url;
-      const webhookWAPI = instW.webhookReceivedUrl;
-
-      if (webhookDB && webhookWAPI && webhookDB !== webhookWAPI) {
-        try {
-          const response = await base44.functions.invoke('wapiGerenciarWebhooks', {
-            action: 'register',
-            integration_id: intLocal.id
-          });
-
-          if (response.data.success) {
-            corrigidas++;
-          }
-        } catch (error) {
-          console.error(`Erro ao corrigir ${intLocal.nome_instancia}:`, error);
-        }
-      }
-    }
-
-    if (corrigidas > 0) {
-      toast.success(`✅ ${corrigidas} divergência(s) corrigida(s)`);
-      if (onRecarregar) await onRecarregar();
-      // Recarregar novamente para mostrar resultado
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      const response = await base44.functions.invoke('wapiIntegratorManager', {
-        action: 'listInstances',
-        pageSize: 50,
-        page: 1
-      });
-      if (response.data.success) {
-        setInstanciasProvedor(response.data.instances || []);
-      }
     }
   };
 
@@ -1772,7 +1766,7 @@ export default function ConfiguracaoCanaisComunicacao({ integracoes, onRecarrega
                                           await base44.entities.WhatsAppIntegration.delete(integracao.id);
                                           toast.success("✅ Instância órfã removida do banco local");
                                           if (onRecarregar) await onRecarregar();
-                                          await sincronizarComProvedor();
+                                          await sincronizarECorrigirTudo();
                                         } catch (error) {
                                           toast.error("Erro ao deletar: " + error.message);
                                         }
