@@ -2,22 +2,32 @@ import { createClientFromRequest } from 'npm:@base44/sdk@0.8.6';
 import { processInboundEvent } from './lib/inboundCore.js';
 
 // ╔════════════════════════════════════════════════════════════════════════╗
-// ║  WEBHOOK WHATSAPP W-API - v23.0.0-AGGRESSIVE-REDEPLOY                 ║
-// ║  TIMESTAMP: 2026-01-07T07:30:00 - FORÇAR INVALIDAÇÃO CACHE DENO      ║
+// ║  WEBHOOK WHATSAPP W-API - v24.0.0-PORTEIRO-CEGO                       ║
+// ║  TIMESTAMP: 2026-01-07T12:00:00 - ALINHAMENTO ESTRATÉGICO DEFINITIVO ║
+// ║                                                                        ║
+// ║  ARQUITETURA: "PORTEIRO CEGO" vs "GERENTE"                            ║
+// ║  • Webhook (Porteiro): Só confere crachá (instanceId/connectedPhone) ║
+// ║  • Core/Workers (Gerente): Usa token do banco para ações             ║
+// ║  • Token NUNCA trafega no webhook de entrada                          ║
+// ║  • Simetria total com Z-API (webhookFinalZapi)                        ║
 // ╚════════════════════════════════════════════════════════════════════════╝
 
-const VERSION = 'v23.0.0-AGGRESSIVE-REDEPLOY';
-const BUILD_DATE = '2026-01-07T07:30:00';
-const DEPLOYMENT_ID = 'WAPI_2026_01_07_0730';
+const VERSION = 'v24.0.0-PORTEIRO-CEGO';
+const BUILD_DATE = '2026-01-07T12:00:00';
+const DEPLOYMENT_ID = 'WAPI_ESTRATEGIA_ALINHADA_2026_01_07';
+const ARCHITECTURE = 'PORTEIRO-CEGO';
 
 // ╔════════════════════════════════════════════════════════════════════════╗
 // ║  LOG BOOT - CONFIRMA VERSÃO ATIVA                                      ║
 // ╚════════════════════════════════════════════════════════════════════════╝
-console.log('╔════════════════════════════════════════════════════════════╗');
-console.log('║  🚀 W-API WEBHOOK v23 - AGGRESSIVE REDEPLOY               ║');
+console.log('╔════════════════════════════════════════════════════════════════╗');
+console.log('║  🚀 W-API WEBHOOK v24 - ESTRATÉGIA PORTEIRO CEGO          ║');
 console.log('╠════════════════════════════════════════════════════════════╣');
-console.log(`║  📅 BUILD: ${BUILD_DATE}                         ║`);
-console.log(`║  🆔 DEPLOY: ${DEPLOYMENT_ID}              ║`);
+console.log(`║  📅 BUILD: ${BUILD_DATE}                       ║`);
+console.log(`║  🆔 DEPLOY: ${DEPLOYMENT_ID}   ║`);
+console.log('║  🏛️  ARQUITETURA: PORTEIRO CEGO vs GERENTE                ║');
+console.log('║  🔒 TOKEN: Nunca usado no webhook (apenas no Core)        ║');
+console.log('║  🎯 LOOKUP: instanceId ou connectedPhone -> Banco         ║');
 console.log('║  ✅ AUTH: createClientFromRequest (Base44 SDK)            ║');
 console.log('║  ⚠️  SEM SUPABASE_URL - USA SDK OFICIAL                   ║');
 console.log('╚════════════════════════════════════════════════════════════╝');
@@ -378,11 +388,27 @@ async function handleMessage(dados, payloadBruto, base44) {
     } catch (e) {}
   }
 
-  // BUSCAR INTEGRAÇÃO
+  // ═══════════════════════════════════════════════════════════════════
+  // 🏛️ ARQUITETURA "PORTEIRO CEGO" - ETAPA 1: IDENTIFICAÇÃO
+  // ═══════════════════════════════════════════════════════════════════
+  // O Webhook é o "Porteiro Cego": ele NUNCA usa o Token.
+  // Ele apenas confere o "crachá" (instanceId ou connectedPhone) e busca
+  // a integração no banco de dados usando APENAS essas chaves públicas.
+  //
+  // ESTRATÉGIA DE LOOKUP (prioridades):
+  // 1. connectedPhone → filter({numero_telefone}) [PRIORIDADE 1]
+  // 2. instanceId → filter({instance_id_provider}) [FALLBACK]
+  //
+  // O Token (api_key_provider) fica SEGURO no banco e será lido apenas
+  // pelo "Gerente" (processInboundEvent, persistirMidiaWapi) quando
+  // precisar realizar ações (enviar mensagens, baixar mídia).
+  // ═══════════════════════════════════════════════════════════════════
+
   const connectedPhone = payloadBruto.connectedPhone || payloadBruto.connected_phone || null;
   let integracaoId = null;
   let integracaoInfo = null;
 
+  // PRIORIDADE 1: Buscar por connectedPhone (mais confiável)
   if (connectedPhone) {
     try {
       const phoneVariacoes = [
@@ -398,15 +424,17 @@ async function handleMessage(dados, payloadBruto, base44) {
           '-created_date',
           1
         );
-        
+
         if (int && int.length > 0) {
           integracaoId = int[0].id;
           integracaoInfo = { nome: int[0].nome_instancia, numero: int[0].numero_telefone };
+          console.log(`[WAPI] 🔑 PORTEIRO: Integração identificada por connectedPhone: ${tel}`);
         }
       }
     } catch {}
   }
 
+  // FALLBACK: Buscar por instanceId
   if (!integracaoId && dados.instanceId) {
     try {
       const int = await base44.asServiceRole.entities.WhatsAppIntegration.filter(
@@ -414,15 +442,16 @@ async function handleMessage(dados, payloadBruto, base44) {
         '-created_date',
         1
       );
-      
+
       if (int && int.length > 0) {
         integracaoId = int[0].id;
         integracaoInfo = { nome: int[0].nome_instancia, numero: int[0].numero_telefone };
+        console.log(`[WAPI] 🔑 PORTEIRO: Integração identificada por instanceId: ${dados.instanceId}`);
       }
     } catch {}
   }
 
-  console.log(`[WAPI] 🔗 Integração: ${integracaoId || 'não encontrada'} | Canal: ${integracaoInfo?.numero || connectedPhone || 'N/A'}`);
+  console.log(`[WAPI] 🏛️ PORTEIRO RESULTADO: ${integracaoId ? '✅ Integração encontrada' : '❌ Não encontrada'} | Canal: ${integracaoInfo?.numero || connectedPhone || 'N/A'}`);
 
   // BUSCAR/CRIAR CONTATO
   const profilePicUrl = payloadBruto.sender?.profilePicture || payloadBruto.sender?.profilePicThumbObj?.eurl || null;
@@ -610,9 +639,15 @@ async function handleMessage(dados, payloadBruto, base44) {
     console.error(`[WAPI] ⚠️ Erro ao atualizar thread:`, updateError.message);
   }
 
-  // TRIGGER PERSISTÊNCIA (Fire-and-Forget)
+  // ═══════════════════════════════════════════════════════════════════
+  // 🏛️ ARQUITETURA "GERENTE" - WORKER DE MÍDIA
+  // ═══════════════════════════════════════════════════════════════════
+  // O Worker persistirMidiaWapi é outro "Gerente".
+  // Ele recebe o integration_id do Webhook e, internamente,
+  // busca o Token do banco para baixar a mídia do provedor W-API.
+  // ═══════════════════════════════════════════════════════════════════
   if (dados.downloadSpec) {
-    console.log('[WAPI] 🚀 Disparando worker de mídia...');
+    console.log('[WAPI] 🏛️ GERENTE: Disparando worker de mídia (buscará token do banco)...');
     base44.asServiceRole.functions.invoke('persistirMidiaWapi', {
       message_id: mensagem.id,
       integration_id: integracaoId,
@@ -622,10 +657,22 @@ async function handleMessage(dados, payloadBruto, base44) {
     }).catch(e => console.error('[WAPI] Erro trigger mídia:', e.message));
   }
 
-  // DISPARAR CÉREBRO (Import Estático)
+  // ═══════════════════════════════════════════════════════════════════
+  // 🏛️ ARQUITETURA "GERENTE" - ETAPA 2: PROCESSAMENTO COM TOKEN
+  // ═══════════════════════════════════════════════════════════════════
+  // Agora o "Gerente" (processInboundEvent) entra em ação.
+  // Ele recebe o integracaoId do "Porteiro" e, internamente,
+  // busca o Token (api_key_provider) do banco quando precisar
+  // realizar ações como:
+  // - Enviar mensagens de resposta
+  // - Baixar mídias
+  // - Atualizar status
+  //
+  // O Webhook NÃO passa o token. Passa apenas o ID da integração.
+  // ═══════════════════════════════════════════════════════════════════
   try {
-    console.log('[WAPI] 🧠 Executando Inbound Core...');
-    
+    console.log('[WAPI] 🏛️ GERENTE: Iniciando processamento com Core...');
+
     let integracaoObj = null;
     if (integracaoId) {
       try {
@@ -634,8 +681,9 @@ async function handleMessage(dados, payloadBruto, base44) {
           '-created_date',
           1
         );
-        
+
         integracaoObj = ints?.[0] || null;
+        console.log('[WAPI] 🔐 GERENTE: Integração carregada (Token seguro no banco)');
       } catch (e) {
         console.warn('[WAPI] ⚠️ Integração não encontrada:', e.message);
         integracaoObj = { id: integracaoId };
@@ -653,9 +701,9 @@ async function handleMessage(dados, payloadBruto, base44) {
       rawPayload: payloadBruto
     });
 
-    console.log('[WAPI] ✅ Cérebro executado com sucesso');
+    console.log('[WAPI] ✅ GERENTE: Processamento concluído com sucesso');
   } catch (err) {
-    console.error('[WAPI] 🔴 Erro no Cérebro:', err.message);
+    console.error('[WAPI] 🔴 GERENTE: Erro no processamento:', err.message);
     console.error('[WAPI] 🔴 Stack completo:', err.stack);
   }
 
@@ -700,9 +748,16 @@ Deno.serve(async (req) => {
       version: VERSION, 
       build_date: BUILD_DATE,
       deployment_id: DEPLOYMENT_ID,
+      architecture: ARCHITECTURE,
       status: 'ok', 
       provider: 'w_api',
       auth_method: 'createClientFromRequest (Base44 SDK)',
+      strategy: {
+        webhook_role: 'PORTEIRO_CEGO - Identifica pela instanceId/connectedPhone',
+        token_usage: 'GERENTE - Core e Workers buscam token no banco',
+        security: 'Token nunca trafega no webhook de entrada',
+        symmetry: 'Total com Z-API (webhookFinalZapi)'
+      },
       no_supabase_vars: true,
       cache_bust: Date.now()
     });
