@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { base44 } from '@/api/base44Client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -19,8 +19,37 @@ import { getWebhookUrlIntegracao, getProviderNome } from '../lib/webhookUtils';
 export default function DiagnosticoCirurgicoEmbed() {
   const [testando, setTestando] = useState(false);
   const [resultado, setResultado] = useState(null);
+  const [integracoes, setIntegracoes] = useState([]);
+  const [integracaoSelecionada, setIntegracaoSelecionada] = useState(null);
+
+  // Carregar integrações ao montar
+  React.useEffect(() => {
+    carregarIntegracoes();
+  }, []);
+
+  const carregarIntegracoes = async () => {
+    try {
+      const lista = await base44.entities.WhatsAppIntegration.list();
+      setIntegracoes(lista);
+      
+      // Selecionar automaticamente a primeira com número preenchido
+      const comNumero = lista.find(i => i.numero_telefone && i.numero_telefone.trim() !== '');
+      if (comNumero) {
+        setIntegracaoSelecionada(comNumero.id);
+      } else if (lista.length > 0) {
+        setIntegracaoSelecionada(lista[0].id);
+      }
+    } catch (error) {
+      console.error('[DIAG] Erro ao carregar integrações:', error);
+    }
+  };
 
   const executarDiagnosticoCirurgico = async () => {
+    if (!integracaoSelecionada) {
+      toast.error('Selecione uma integração para testar');
+      return;
+    }
+
     setTestando(true);
     setResultado(null);
 
@@ -30,26 +59,32 @@ export default function DiagnosticoCirurgicoEmbed() {
     };
 
     try {
-      // ========== TESTE 1: BUSCAR INTEGRAÇÃO ==========
-      console.log('[DIAG] Buscando integracao...');
-      const integracoes = await base44.entities.WhatsAppIntegration.list();
+      // ========== TESTE 1: BUSCAR INTEGRAÇÃO SELECIONADA ==========
+      console.log('[DIAG] Buscando integracao selecionada...');
+      const integracao = integracoes.find(i => i.id === integracaoSelecionada);
       
-      diagnostico.testes.push({
-        nome: '1. Integração WhatsApp Existe',
-        status: integracoes.length > 0 ? 'sucesso' : 'erro',
-        detalhes: {
-          total: integracoes.length,
-          primeira: integracoes[0]
-        }
-      });
-
-      if (integracoes.length === 0) {
+      if (!integracao) {
+        diagnostico.testes.push({
+          nome: '1. Integração Selecionada',
+          status: 'erro',
+          detalhes: { erro: 'Integração não encontrada' }
+        });
         setResultado(diagnostico);
         setTestando(false);
         return;
       }
 
-      const integracao = integracoes[0];
+      diagnostico.testes.push({
+        nome: '1. Integração Selecionada',
+        status: 'sucesso',
+        detalhes: {
+          id: integracao.id,
+          nome: integracao.nome_instancia,
+          numero: integracao.numero_telefone,
+          instance_id: integracao.instance_id_provider,
+          provider: integracao.api_provider
+        }
+      });
       const providerNome = getProviderNome(integracao);
       const isWAPI = integracao.api_provider === 'w_api';
 
@@ -388,7 +423,7 @@ export default function DiagnosticoCirurgicoEmbed() {
         
         <Button 
           onClick={executarDiagnosticoCirurgico}
-          disabled={testando}
+          disabled={testando || !integracaoSelecionada}
           className="bg-red-600 hover:bg-red-700 gap-2"
           size="lg"
         >
@@ -405,6 +440,37 @@ export default function DiagnosticoCirurgicoEmbed() {
           )}
         </Button>
       </div>
+
+      {/* Seletor de Integração */}
+      {integracoes.length > 0 && (
+        <Card className="bg-blue-50 border-blue-200">
+          <CardContent className="pt-6">
+            <label className="block text-sm font-semibold text-slate-900 mb-2">
+              Selecione a integração para testar:
+            </label>
+            <select
+              value={integracaoSelecionada || ''}
+              onChange={(e) => setIntegracaoSelecionada(e.target.value)}
+              className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            >
+              {integracoes.map((int) => (
+                <option key={int.id} value={int.id}>
+                  {int.nome_instancia} ({int.numero_telefone || 'sem número'}) - {int.instance_id_provider}
+                </option>
+              ))}
+            </select>
+            {integracoes.find(i => i.id === integracaoSelecionada)?.numero_telefone ? (
+              <p className="text-xs text-green-700 mt-2">
+                ✅ Integração com número configurado: {integracoes.find(i => i.id === integracaoSelecionada)?.numero_telefone}
+              </p>
+            ) : (
+              <p className="text-xs text-red-700 mt-2">
+                ⚠️ Esta integração não tem número configurado - o teste pode falhar
+              </p>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       {/* Alertas de Orientação */}
       <Alert className="bg-blue-50 border-blue-300">
