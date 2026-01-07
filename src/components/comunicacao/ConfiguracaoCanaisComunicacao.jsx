@@ -1319,13 +1319,12 @@ export default function ConfiguracaoCanaisComunicacao({ integracoes, onRecarrega
                           />
                         </div>
                         <div>
-                          <Label className="text-[11px] font-semibold text-slate-600">Número *</Label>
+                          <Label className="text-[11px] font-semibold text-slate-600">Número</Label>
                           <Input
                             value={novaIntegracao.numero_telefone}
                             onChange={(e) => setNovaIntegracao({...novaIntegracao, numero_telefone: e.target.value})}
                             placeholder="+55 48 99999-9999"
                             className="mt-1 h-8 text-xs"
-                            disabled={PROVIDERS[novaIntegracao.api_provider]?.modo === 'integrator'}
                           />
                         </div>
                       </div>
