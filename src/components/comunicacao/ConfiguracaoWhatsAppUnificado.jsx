@@ -59,6 +59,7 @@ export default function ConfiguracaoWhatsAppUnificado({ onClose }) {
   const [verificandoStatus, setVerificandoStatus] = useState({});
   const [editandoWebhook, setEditandoWebhook] = useState({});
   const [webhookTemporario, setWebhookTemporario] = useState({});
+  const [deletandoId, setDeletandoId] = useState(null);
 
   // Carregar integrações
   const carregarIntegracoes = useCallback(async () => {
@@ -427,8 +428,9 @@ export default function ConfiguracaoWhatsAppUnificado({ onClose }) {
   };
 
   const deletarIntegracao = async (integracaoId) => {
-    if (!confirm("Tem certeza que deseja DELETAR esta integração?")) return;
+    if (!confirm("⚠️ Tem certeza que deseja DELETAR esta integração?")) return;
     
+    setDeletandoId(integracaoId);
     try {
       // ═══════════════════════════════════════════════════════════════════
       // 🏛️ ARQUITETURA "PORTEIRO CEGO" - DELEÇÃO DUPLA
@@ -438,8 +440,8 @@ export default function ConfiguracaoWhatsAppUnificado({ onClose }) {
       // 3. SÓ DEPOIS deletar do banco Base44
       // ═══════════════════════════════════════════════════════════════════
       
-      const integracoes = await base44.entities.WhatsAppIntegration.filter({ id: integracaoId });
-      const integracao = integracoes[0];
+      const integracoesData = await base44.entities.WhatsAppIntegration.filter({ id: integracaoId });
+      const integracao = integracoesData[0];
       
       if (!integracao) {
         toast.error("Integração não encontrada");
@@ -466,8 +468,11 @@ export default function ConfiguracaoWhatsAppUnificado({ onClose }) {
           
           // Perguntar se quer deletar do banco mesmo assim
           if (!confirm("⚠️ Não foi possível deletar da W-API. Deseja deletar do banco mesmo assim?\n\n(A instância continuará existindo na W-API)")) {
-            throw providerError;
+            setDeletandoId(null);
+            return;
           }
+          
+          toast.warning("⚠️ Removendo apenas do banco local");
         }
       }
       
@@ -480,6 +485,8 @@ export default function ConfiguracaoWhatsAppUnificado({ onClose }) {
     } catch (error) {
       console.error("Erro ao deletar integração:", error);
       toast.error(error.message || "Erro ao deletar integração");
+    } finally {
+      setDeletandoId(null);
     }
   };
 
@@ -643,8 +650,13 @@ export default function ConfiguracaoWhatsAppUnificado({ onClose }) {
                         variant="ghost"
                         className="text-red-500 hover:bg-red-50"
                         title="Deletar"
+                        disabled={deletandoId === integracao.id}
                       >
-                        <Trash2 className="w-4 h-4" />
+                        {deletandoId === integracao.id ? (
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                        ) : (
+                          <Trash2 className="w-4 h-4" />
+                        )}
                       </Button>
                     </div>
                   </div>
@@ -1056,11 +1068,14 @@ export default function ConfiguracaoWhatsAppUnificado({ onClose }) {
               <div className="flex items-start gap-3">
                 <Zap className="w-5 h-5 text-indigo-600 flex-shrink-0 mt-0.5" />
                 <div>
-                  <h4 className="font-semibold text-indigo-900 mb-1">Modo Integrador Ativado</h4>
-                  <p className="text-sm text-indigo-700">
-                    A instância será criada automaticamente via API. Você receberá o <strong>Instance ID</strong> e <strong>Token</strong> após a criação.
-                    Configure o número de telefone depois usando QR Code ou Pairing Code.
-                  </p>
+                  <h4 className="font-semibold text-indigo-900 mb-1">🏛️ Modo Integrador - Arquitetura "Porteiro Cego"</h4>
+                  <ul className="text-sm text-indigo-700 space-y-1 list-disc ml-5">
+                    <li>Instância criada automaticamente com webhooks já configurados</li>
+                    <li>Você receberá <strong>Instance ID</strong> e <strong>Token</strong> automaticamente</li>
+                    <li>Conecte depois usando QR Code ou Pairing Code</li>
+                    <li>O número será salvo automaticamente após conexão</li>
+                    <li><strong>Deleção Dupla:</strong> Remove da W-API E do banco local</li>
+                  </ul>
                 </div>
               </div>
             </div>
