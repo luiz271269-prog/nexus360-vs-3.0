@@ -115,27 +115,61 @@ export default function DiagnosticoCirurgicoEmbed() {
         });
       }
 
-      // ========== TESTE 2.5: VALIDAR INTEGRAÇÃO ANTES DE TESTAR ==========
-      if (isWAPI && !integracao.numero_telefone) {
+      // ========== TESTE 2.5: VALIDAR ARQUITETURA "PORTEIRO CEGO" ==========
+      if (isWAPI) {
+        const validacaoPorteiro = {
+          numero_telefone_presente: !!integracao.numero_telefone,
+          instance_id_presente: !!integracao.instance_id_provider,
+          webhook_url_presente: !!integracao.webhook_url,
+          token_presente: !!integracao.api_key_provider
+        };
+
+        const problemas = [];
+        if (!validacaoPorteiro.numero_telefone_presente) {
+          problemas.push('❌ numero_telefone ausente - Prioridade 1 de lookup falhará');
+        }
+        if (!validacaoPorteiro.instance_id_presente) {
+          problemas.push('❌ instance_id_provider ausente - Fallback falhará');
+        }
+        if (!validacaoPorteiro.token_presente) {
+          problemas.push('⚠️ token ausente - Gerente não poderá agir (envio/mídia)');
+        }
+
+        const statusGeral = problemas.length === 0 ? 'sucesso' : 
+                           (validacaoPorteiro.numero_telefone_presente || validacaoPorteiro.instance_id_presente) ? 'aviso' : 'erro';
+
         diagnostico.testes.push({
-          nome: `2.5. Validação Integração W-API`,
-          status: 'erro',
+          nome: '2.5. Validação Arquitetura "PORTEIRO CEGO"',
+          status: statusGeral,
           detalhes: {
-            problema: 'numero_telefone vazio',
+            arquitetura: 'W-API deve seguir padrão Z-API (Porteiro Cego)',
             integracao: {
               id: integracao.id,
               nome: integracao.nome_instancia,
-              numero: integracao.numero_telefone,
-              instance_id: integracao.instance_id_provider
+              numero_telefone: integracao.numero_telefone || 'NÃO CONFIGURADO',
+              instance_id_provider: integracao.instance_id_provider || 'NÃO CONFIGURADO',
+              token_presente: validacaoPorteiro.token_presente
             },
-            solucao: 'Configure o número de telefone da integração na aba Configuração WhatsApp'
+            validacao_porteiro: validacaoPorteiro,
+            problemas_encontrados: problemas.length > 0 ? problemas : ['✅ Integração configurada corretamente'],
+            estrategia_lookup: {
+              prioridade_1: `connectedPhone → filter({numero_telefone}) ${validacaoPorteiro.numero_telefone_presente ? '✅' : '❌'}`,
+              fallback: `instanceId → filter({instance_id_provider}) ${validacaoPorteiro.instance_id_presente ? '✅' : '❌'}`
+            }
           }
         });
-        
-        toast.error('⚠️ Integração W-API sem número de telefone configurado');
-        setResultado(diagnostico);
-        setTestando(false);
-        return;
+
+        // Bloquear apenas se AMBAS as rotas estiverem quebradas
+        if (!validacaoPorteiro.numero_telefone_presente && !validacaoPorteiro.instance_id_presente) {
+          toast.error('❌ Integração W-API sem numero_telefone E sem instance_id - Porteiro não conseguirá identificar!');
+          setResultado(diagnostico);
+          setTestando(false);
+          return;
+        }
+
+        if (problemas.length > 0) {
+          toast.warning('⚠️ Problemas detectados na configuração (veja detalhes)');
+        }
       }
 
       // ========== TESTE 3: ENVIAR PAYLOAD TESTE ==========
@@ -145,29 +179,45 @@ export default function DiagnosticoCirurgicoEmbed() {
       // Payload adaptado ao provedor (Z-API vs W-API)
       let payloadTeste;
       if (isWAPI) {
-        // Formato W-API correto completo (estrutura esperada pelo webhookWapi)
+        // ═══════════════════════════════════════════════════════════════════
+        // 🏛️ PAYLOAD W-API - ARQUITETURA "PORTEIRO CEGO"
+        // ═══════════════════════════════════════════════════════════════════
+        // O payload precisa conter os "crachás" que o Porteiro verifica:
+        // 1. connectedPhone - Para lookup prioritário por numero_telefone
+        // 2. instanceId - Para lookup fallback por instance_id_provider
+        //
+        // Ambos devem bater com os valores salvos no banco (WhatsAppIntegration)
+        // ═══════════════════════════════════════════════════════════════════
         const numeroTelefone = integracao.numero_telefone?.replace(/\D/g, '') || '';
         payloadTeste = {
-          instanceId: integracao.instance_id_provider,
+          // CHAVE 1 (Prioridade): connectedPhone
           connectedPhone: numeroTelefone,
+          connected_phone: numeroTelefone,
+
+          // CHAVE 2 (Fallback): instanceId
+          instanceId: integracao.instance_id_provider,
+          instance: integracao.instance_id_provider,
+          instance_id: integracao.instance_id_provider,
+
+          // Dados da mensagem
           type: 'ReceivedCallback',
           event: 'ReceivedCallback',
           messageId: messageIdTeste,
           phone: '5548999000111',
           from: '5548999000111',
-          text: { message: 'TESTE CIRURGICO W-API' },
-          body: 'TESTE CIRURGICO W-API',
+          text: { message: 'TESTE CIRURGICO W-API v24 PORTEIRO' },
+          body: 'TESTE CIRURGICO W-API v24 PORTEIRO',
           msgContent: {
-            conversation: 'TESTE CIRURGICO W-API'
+            conversation: 'TESTE CIRURGICO W-API v24 PORTEIRO'
           },
-          pushName: 'Teste Diagnóstico',
-          senderName: 'Teste Diagnóstico',
+          pushName: 'Teste Diagnóstico Porteiro',
+          senderName: 'Teste Diagnóstico Porteiro',
           fromMe: false,
           momment: Date.now(),
           isGroup: false,
           sender: {
             id: '5548999000111@c.us',
-            pushName: 'Teste Diagnóstico'
+            pushName: 'Teste Diagnóstico Porteiro'
           }
         };
       } else {
@@ -214,15 +264,28 @@ export default function DiagnosticoCirurgicoEmbed() {
           status: response.ok && !temErroConfig ? 'sucesso' : 'erro',
           detalhes: {
             provider: providerNome,
+            arquitetura: 'PORTEIRO CEGO - Webhook identifica por connectedPhone/instanceId',
             status: webhookStatus,
             response: webhookResponse,
             payload_enviado: payloadTeste,
-            integracao: {
+            chaves_enviadas: {
+              connectedPhone: payloadTeste.connectedPhone || payloadTeste.connected_phone,
+              instanceId: payloadTeste.instanceId || payloadTeste.instance
+            },
+            integracao_banco: {
               id: integracao.id,
               nome: integracao.nome_instancia,
-              instance_id: integracao.instance_id_provider,
-              numero: integracao.numero_telefone,
+              numero_telefone: integracao.numero_telefone,
+              instance_id_provider: integracao.instance_id_provider,
               api_provider: integracao.api_provider
+            },
+            lookup_esperado: {
+              prioridade_1: `connectedPhone (${payloadTeste.connectedPhone}) → numero_telefone (${integracao.numero_telefone})`,
+              fallback: `instanceId (${payloadTeste.instanceId}) → instance_id_provider (${integracao.instance_id_provider})`,
+              match_prioridade_1: payloadTeste.connectedPhone && integracao.numero_telefone && 
+                                 (integracao.numero_telefone.includes(payloadTeste.connectedPhone) || 
+                                  payloadTeste.connectedPhone.includes(integracao.numero_telefone.replace(/\D/g, ''))),
+              match_fallback: payloadTeste.instanceId === integracao.instance_id_provider
             },
             erro_especifico: temErroConfig ? 
               'Webhook retornou config_error ou auth_error - verificar auth do SDK Base44' : null
@@ -476,16 +539,20 @@ export default function DiagnosticoCirurgicoEmbed() {
       <Alert className="bg-blue-50 border-blue-300">
         <Database className="h-4 w-4 text-blue-700" />
         <AlertDescription className="text-blue-800">
-          <strong>O que este diagnóstico faz:</strong>
+          <strong>🏛️ Arquitetura "PORTEIRO CEGO" - O que este diagnóstico testa:</strong>
           <ol className="list-decimal ml-6 mt-2 space-y-1">
-            <li>Verifica se a integração WhatsApp está configurada</li>
-            <li>Testa se o webhook responde (GET e POST)</li>
-            <li>Envia uma mensagem de teste real</li>
-            <li>Verifica se ZapiPayloadNormalized foi criado</li>
-            <li>Verifica se Message foi criada</li>
-            <li>Verifica se Contact foi criado</li>
-            <li>Valida o schema das entidades</li>
+            <li><strong>Porteiro:</strong> Verifica se a integração tem as "chaves" corretas (numero_telefone, instance_id_provider)</li>
+            <li><strong>Porteiro:</strong> Testa se o webhook consegue identificar a integração por connectedPhone (Prioridade 1)</li>
+            <li><strong>Porteiro:</strong> Testa se o webhook consegue identificar por instanceId (Fallback)</li>
+            <li><strong>Porteiro:</strong> Valida se o payload foi recebido e normalizado (ZapiPayloadNormalized)</li>
+            <li><strong>Gerente:</strong> Verifica se a Message foi criada (processamento inbound)</li>
+            <li><strong>Gerente:</strong> Verifica se o Contact foi criado/atualizado</li>
+            <li><strong>Simetria:</strong> Compara com padrão Z-API (deve ser idêntico)</li>
           </ol>
+          <div className="mt-3 p-2 bg-white rounded border border-blue-200">
+            <strong>📚 Conceito:</strong> O Webhook é o "Porteiro Cego" - ele só confere o crachá (instanceId/connectedPhone) e deixa o pacote (dados) na portaria (banco). 
+            O "Gerente" (Core/Workers) é quem tem a chave do cofre (Token) para abrir o pacote e responder.
+          </div>
         </AlertDescription>
       </Alert>
 
@@ -574,15 +641,37 @@ export default function DiagnosticoCirurgicoEmbed() {
                     </div>
                   )}
                   
-                  {teste.nome.includes('Webhook') && teste.nome.includes('POST') && teste.detalhes.erro_especifico && (
-                    <div className="mt-2 p-2 bg-yellow-50 rounded text-xs">
-                      <strong>Solução para config_error/auth_error:</strong>
-                      <ul className="list-disc ml-6 mt-1">
-                        <li>Verificar se o SDK Base44 está correto: <code>createClientFromRequest(req)</code></li>
-                        <li>Confirmar que a função usa <code>base44.asServiceRole</code> para operações</li>
-                        <li>Verificar logs da função para erros de autenticação</li>
-                        <li>Garantir que não há imports dinâmicos causando OS Error 2</li>
-                      </ul>
+                  {teste.nome.includes('Webhook') && teste.nome.includes('POST') && (
+                    <div className="mt-2 p-2 bg-blue-50 rounded text-xs border border-blue-200">
+                      <strong>📊 Análise do Lookup "Porteiro Cego":</strong>
+                      {teste.detalhes.lookup_esperado && (
+                        <div className="mt-2 space-y-1">
+                          <div className={`flex items-start gap-2 ${teste.detalhes.lookup_esperado.match_prioridade_1 ? 'text-green-700' : 'text-orange-700'}`}>
+                            {teste.detalhes.lookup_esperado.match_prioridade_1 ? '✅' : '⚠️'}
+                            <span>
+                              <strong>Prioridade 1:</strong> {teste.detalhes.lookup_esperado.prioridade_1}
+                              {!teste.detalhes.lookup_esperado.match_prioridade_1 && ' (FALHA - Porteiro usará fallback)'}
+                            </span>
+                          </div>
+                          <div className={`flex items-start gap-2 ${teste.detalhes.lookup_esperado.match_fallback ? 'text-green-700' : 'text-red-700'}`}>
+                            {teste.detalhes.lookup_esperado.match_fallback ? '✅' : '❌'}
+                            <span>
+                              <strong>Fallback:</strong> {teste.detalhes.lookup_esperado.fallback}
+                              {!teste.detalhes.lookup_esperado.match_fallback && ' (FALHA - Porteiro não identificará)'}
+                            </span>
+                          </div>
+                        </div>
+                      )}
+                      {teste.detalhes.erro_especifico && (
+                        <div className="mt-2 p-2 bg-yellow-50 border border-yellow-300 rounded">
+                          <strong>⚠️ Erro Detectado:</strong> {teste.detalhes.erro_especifico}
+                          <ul className="list-disc ml-6 mt-1">
+                            <li>Verificar SDK Base44: <code>createClientFromRequest(req)</code></li>
+                            <li>Confirmar uso de <code>base44.asServiceRole</code></li>
+                            <li>Verificar logs da função webhookWapi</li>
+                          </ul>
+                        </div>
+                      )}
                     </div>
                   )}
                 </AlertDescription>
