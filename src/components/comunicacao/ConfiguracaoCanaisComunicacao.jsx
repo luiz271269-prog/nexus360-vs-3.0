@@ -1105,7 +1105,7 @@ export default function ConfiguracaoCanaisComunicacao({ integracoes, onRecarrega
                 </div>
               </div>
               
-              {/* REMOVER QUALQUER COMPONENTE GOTO DAQUI */}
+
 
           {/* Layout 2 Colunas: Lista Compacta | Edição + Diagnóstico */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
