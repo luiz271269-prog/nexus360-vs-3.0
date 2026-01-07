@@ -250,6 +250,8 @@ export default function ConfiguracaoCanaisComunicacao({ integracoes, onRecarrega
   const [whatsappSubTab, setWhatsappSubTab] = useState("conexoes");
   const [instanciasProvedor, setInstanciasProvedor] = useState([]);
   const [sincronizando, setSincronizando] = useState(false);
+  const [deletandoProvedor, setDeletandoProvedor] = useState(null);
+  const [importandoProvedor, setImportandoProvedor] = useState(null);
 
   const resetForm = () => {
     setNovaIntegracao(initialNovaIntegracaoState);
@@ -840,6 +842,76 @@ export default function ConfiguracaoCanaisComunicacao({ integracoes, onRecarrega
       divergencias,
       instanciaWAPI: instW
     };
+  };
+
+  const deletarDaWAPI = async (instanceId) => {
+    if (!confirm(`⚠️ Deletar permanentemente a instância ${instanceId} da W-API?\n\nEsta ação NÃO pode ser desfeita!`)) return;
+
+    setDeletandoProvedor(instanceId);
+    try {
+      toast.info("🗑️ Deletando instância da W-API...");
+      
+      const response = await base44.functions.invoke('wapiIntegratorManager', {
+        action: 'deleteInstance',
+        instanceId: instanceId
+      });
+      
+      if (!response.data.success) {
+        throw new Error(response.data.error || 'Erro ao deletar instância');
+      }
+      
+      toast.success("✅ Instância deletada da W-API com sucesso!");
+      await sincronizarComProvedor();
+      
+    } catch (error) {
+      console.error("Erro ao deletar da W-API:", error);
+      toast.error("Erro ao deletar: " + error.message);
+    } finally {
+      setDeletandoProvedor(null);
+    }
+  };
+
+  const importarDaWAPI = async (instW) => {
+    if (!confirm(`Importar instância "${instW.instanceName || instW.instanceId}" para o sistema?`)) return;
+
+    setImportandoProvedor(instW.instanceId);
+    try {
+      toast.info("📥 Importando instância...");
+      
+      await base44.entities.WhatsAppIntegration.create({
+        nome_instancia: (instW.instanceName || `importada-${Date.now()}`).toLowerCase().replace(/[^a-z0-9-]/g, '-'),
+        numero_telefone: instW.connectedPhone || "",
+        api_provider: "w_api",
+        modo: "integrator",
+        instance_id_provider: instW.instanceId,
+        api_key_provider: instW.token || "",
+        base_url_provider: "https://api.w-api.app/v1",
+        status: instW.connected ? "conectado" : "desconectado",
+        tipo_conexao: "webhook",
+        webhook_url: `https://nexus360-pro.base44.app/api/apps/68a7d067890527304dbe8477/functions/webhookWapi`,
+        configuracoes_avancadas: {
+          auto_resposta_fora_horario: false,
+          rate_limit_mensagens_hora: 100
+        },
+        estatisticas: {
+          total_mensagens_enviadas: 0,
+          total_mensagens_recebidas: 0,
+          taxa_resposta_24h: 0,
+          tempo_medio_resposta_minutos: 0
+        },
+        ultima_atividade: new Date().toISOString()
+      });
+      
+      toast.success("✅ Instância importada com sucesso!");
+      if (onRecarregar) await onRecarregar();
+      await sincronizarComProvedor();
+      
+    } catch (error) {
+      console.error("Erro ao importar:", error);
+      toast.error("Erro ao importar: " + error.message);
+    } finally {
+      setImportandoProvedor(null);
+    }
   };
 
   const totalConexoes = integracoes.length + instagramIntegracoes.length + facebookIntegracoes.length + gotoIntegracoes.length;
@@ -1492,6 +1564,56 @@ export default function ConfiguracaoCanaisComunicacao({ integracoes, onRecarrega
                                     </ul>
                                   </div>
                                 )}
+
+                                {/* Botões de ação para instâncias com divergência ou órfãs */}
+                                {(comparacao.status === 'nao_encontrada' || comparacao.status === 'divergente') && isAdmin && (
+                                  <div className="mt-3 flex gap-2">
+                                    {comparacao.status === 'nao_encontrada' && (
+                                      <Button
+                                        size="sm"
+                                        variant="outline"
+                                        onClick={async () => {
+                                          if (!confirm(`Deletar "${integracao.nome_instancia}" do banco local?\n\n(Não existe na W-API)`)) return;
+                                          try {
+                                            await base44.entities.WhatsAppIntegration.delete(integracao.id);
+                                            toast.success("✅ Instância órfã removida do banco local");
+                                            if (onRecarregar) await onRecarregar();
+                                            await sincronizarComProvedor();
+                                          } catch (error) {
+                                            toast.error("Erro ao deletar: " + error.message);
+                                          }
+                                        }}
+                                        className="h-7 text-xs text-red-600 border-red-300"
+                                      >
+                                        <Trash2 className="w-3 h-3 mr-1" />
+                                        Remover do Banco
+                                      </Button>
+                                    )}
+                                    {comparacao.status === 'divergente' && (
+                                      <Button
+                                        size="sm"
+                                        onClick={async () => {
+                                          try {
+                                            await base44.entities.WhatsAppIntegration.update(integracao.id, {
+                                              status: comparacao.instanciaWAPI.connected ? 'conectado' : 'desconectado',
+                                              numero_telefone: comparacao.instanciaWAPI.connectedPhone || integracao.numero_telefone,
+                                              ultima_atividade: new Date().toISOString()
+                                            });
+                                            toast.success("✅ Sincronizado com W-API");
+                                            if (onRecarregar) await onRecarregar();
+                                            await sincronizarComProvedor();
+                                          } catch (error) {
+                                            toast.error("Erro: " + error.message);
+                                          }
+                                        }}
+                                        className="h-7 text-xs bg-indigo-600 hover:bg-indigo-700"
+                                      >
+                                        <RefreshCw className="w-3 h-3 mr-1" />
+                                        Corrigir Divergências
+                                      </Button>
+                                    )}
+                                  </div>
+                                )}
                               </div>
                             </div>
                           </div>
@@ -1518,12 +1640,43 @@ export default function ConfiguracaoCanaisComunicacao({ integracoes, onRecarrega
                         ).map((instW) => (
                           <div key={instW.instanceId} className="p-4 rounded-lg border-2 bg-purple-50 border-purple-200">
                             <div className="flex items-start justify-between">
-                              <div>
+                              <div className="flex-1">
                                 <h5 className="font-semibold text-slate-900 mb-2">{instW.instanceName || instW.instanceId}</h5>
                                 <div className="space-y-1 text-sm">
                                   <p><strong>Instance ID:</strong> {instW.instanceId}</p>
                                   <p><strong>Telefone:</strong> {instW.connectedPhone || 'Não conectado'}</p>
                                   <p><strong>Status:</strong> {instW.connected ? 'Conectado ✅' : 'Desconectado'}</p>
+                                </div>
+                                <div className="flex gap-2 mt-3">
+                                  <Button
+                                    size="sm"
+                                    onClick={() => importarDaWAPI(instW)}
+                                    disabled={importandoProvedor === instW.instanceId}
+                                    className="h-7 text-xs bg-purple-600 hover:bg-purple-700"
+                                  >
+                                    {importandoProvedor === instW.instanceId ? (
+                                      <Loader2 className="w-3 h-3 animate-spin mr-1" />
+                                    ) : (
+                                      <Plus className="w-3 h-3 mr-1" />
+                                    )}
+                                    Importar para Sistema
+                                  </Button>
+                                  {isAdmin && (
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      onClick={() => deletarDaWAPI(instW.instanceId)}
+                                      disabled={deletandoProvedor === instW.instanceId}
+                                      className="h-7 text-xs text-red-600 border-red-300 hover:bg-red-50"
+                                    >
+                                      {deletandoProvedor === instW.instanceId ? (
+                                        <Loader2 className="w-3 h-3 animate-spin mr-1" />
+                                      ) : (
+                                        <Trash2 className="w-3 h-3 mr-1" />
+                                      )}
+                                      Deletar da W-API
+                                    </Button>
+                                  )}
                                 </div>
                               </div>
                               <Badge className="bg-purple-600 text-white">Órfã no Provedor</Badge>
