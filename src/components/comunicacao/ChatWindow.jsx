@@ -1328,12 +1328,12 @@ export default function ChatWindow({
     }
   });
 
-  useEffect(() => {
-    if (!thread || !usuario || !mensagens.length) return;
-    if (marcarComoLidaMutation.isPending) return; // Evita chamadas duplicadas
-    
-    marcarComoLidaMutation.mutate();
-  }, [thread?.id, mensagens.length, usuario?.id]);
+  // ✅ REMOVIDO: Marcação automática como lida (deixar manual via botão)
+  // useEffect(() => {
+  //   if (!thread || !usuario || !mensagens.length) return;
+  //   if (marcarComoLidaMutation.isPending) return;
+  //   marcarComoLidaMutation.mutate();
+  // }, [thread?.id, mensagens.length, usuario?.id]);
 
   // ✅ Foco automático removido - agora é responsabilidade do MessageInput
 
@@ -1842,6 +1842,19 @@ export default function ChatWindow({
                 className="bg-gradient-to-br from-amber-500 to-amber-600 text-white rounded-lg px-3 py-2 shadow-md flex items-center gap-2 hover:shadow-lg transition-all text-xs font-medium">
                   <Users className="w-4 h-4" />
                   Transferir
+              </button>
+            )}
+
+            {/* Botão Marcar como Lida */}
+            {getUnreadCount(thread, usuario?.id) > 0 && (
+              <button
+                onClick={() => marcarComoLidaMutation.mutate()}
+                disabled={marcarComoLidaMutation.isPending}
+                className="bg-gradient-to-br from-green-500 to-green-600 text-white rounded-lg px-3 py-2 shadow-md flex items-center gap-2 hover:from-green-600 hover:to-green-700 hover:shadow-lg transition-all disabled:opacity-50">
+                <CheckSquare className="w-4 h-4" />
+                <span className="text-xs font-medium">
+                  {marcarComoLidaMutation.isPending ? 'Marcando...' : `Marcar lida (${getUnreadCount(thread, usuario?.id)})`}
+                </span>
               </button>
             )}
 
