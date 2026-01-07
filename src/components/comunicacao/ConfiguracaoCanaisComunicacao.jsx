@@ -758,49 +758,103 @@ export default function ConfiguracaoCanaisComunicacao({ integracoes, onRecarrega
     if (onRecarregar) await onRecarregar();
   };
 
-  // ✅ FUNÇÃO ÚNICA: Chama orquestrador backend
+  // ✅ FUNÇÃO ÚNICA: Sincronizar + Registrar + Corrigir + Atualizar Tela
   const sincronizarECorrigirTudo = async () => {
     setSincronizando(true);
     try {
-      toast.info("🔄 Sincronizando e corrigindo tudo...");
+      toast.info("🔄 Sincronizando com W-API...");
       
-      const response = await base44.functions.invoke('wapiSincronizarECorrigirTudo');
+      // 1️⃣ Buscar instâncias da W-API
+      const response = await base44.functions.invoke('wapiIntegratorManager', {
+        action: 'listInstances',
+        pageSize: 50,
+        page: 1
+      });
       
       if (!response.data.success) {
-        throw new Error(response.data.error || 'Erro na sincronização');
+        throw new Error(response.data.error || 'Erro ao listar instâncias');
       }
       
-      const { resumo, instancias, correcoes } = response.data;
+      const instanciasW = response.data.instances || [];
+      setInstanciasProvedor(instanciasW);
       
-      // Atualizar lista de instâncias
-      setInstanciasProvedor(instancias || []);
+      // 2️⃣ Atualizar status/telefone no banco
+      let atualizados = 0;
+      for (const instW of instanciasW) {
+        const intLocal = integracoes.find(i => 
+          i.instance_id_provider === instW.instanceId && 
+          i.api_provider === 'w_api'
+        );
+        
+        if (intLocal) {
+          const statusW = instW.connected ? 'conectado' : 'desconectado';
+          const numeroW = instW.connectedPhone || '';
+          
+          if (intLocal.status !== statusW || (numeroW && intLocal.numero_telefone !== numeroW)) {
+            try {
+              await base44.entities.WhatsAppIntegration.update(intLocal.id, {
+                status: statusW,
+                numero_telefone: numeroW || intLocal.numero_telefone,
+                ultima_atividade: new Date().toISOString()
+              });
+              atualizados++;
+            } catch (error) {
+              console.error(`Erro ao atualizar ${intLocal.id}:`, error);
+            }
+          }
+        }
+      }
       
-      // Recarregar integracoes do banco
+      // 3️⃣ Corrigir divergências de webhooks na W-API
+      const integracoesWAPI = integracoes.filter(i => i.api_provider === 'w_api');
+      let corrigidas = 0;
+      
+      for (const intLocal of integracoesWAPI) {
+        const instW = instanciasW.find(i => i.instanceId === intLocal.instance_id_provider);
+        if (!instW) continue;
+        
+        const webhookDB = intLocal.webhook_url;
+        const webhookWAPI = instW.webhookReceivedUrl;
+        
+        if (webhookDB && webhookWAPI && webhookDB !== webhookWAPI) {
+          toast.info(`🔧 Corrigindo ${intLocal.nome_instancia}...`);
+          try {
+            const regResponse = await base44.functions.invoke('wapiGerenciarWebhooks', {
+              action: 'register',
+              integration_id: intLocal.id
+            });
+            
+            if (regResponse.data.success) {
+              corrigidas++;
+            }
+          } catch (error) {
+            console.error(`Erro ao corrigir ${intLocal.nome_instancia}:`, error);
+          }
+        }
+      }
+      
+      // 4️⃣ Recarregar dados do banco
       if (onRecarregar) await onRecarregar();
       
-      // Feedback detalhado
+      // 5️⃣ Buscar novamente da W-API para verificar resultado
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      const finalResponse = await base44.functions.invoke('wapiIntegratorManager', {
+        action: 'listInstances',
+        pageSize: 50,
+        page: 1
+      });
+      
+      if (finalResponse.data.success) {
+        setInstanciasProvedor(finalResponse.data.instances || []);
+      }
+      
+      // 6️⃣ Feedback final
       const partes = [];
-      if (resumo.instancias_wapi > 0) partes.push(`${resumo.instancias_wapi} instâncias`);
-      if (resumo.status_atualizados > 0) partes.push(`${resumo.status_atualizados} atualizadas`);
-      if (resumo.webhooks_corrigidos > 0) partes.push(`${resumo.webhooks_corrigidos} webhooks OK`);
-      if (resumo.falhas > 0) partes.push(`${resumo.falhas} falhas`);
+      if (instanciasW.length > 0) partes.push(`${instanciasW.length} instâncias`);
+      if (atualizados > 0) partes.push(`${atualizados} atualizadas`);
+      if (corrigidas > 0) partes.push(`${corrigidas} webhooks corrigidos`);
       
-      if (resumo.falhas > 0) {
-        toast.warning(
-          <div className="space-y-1">
-            <p className="font-bold">⚠️ Sincronização parcial</p>
-            <p className="text-xs">{partes.join(', ')}</p>
-          </div>,
-          { duration: 8000 }
-        );
-      } else {
-        toast.success(`✅ ${partes.join(', ')}`, { duration: 5000 });
-      }
-      
-      // Log de correções
-      if (correcoes?.length > 0) {
-        console.log('[SYNC] Correções aplicadas:', correcoes);
-      }
+      toast.success(partes.length > 0 ? `✅ ${partes.join(', ')}` : '✅ Tudo sincronizado', { duration: 5000 });
       
     } catch (error) {
       console.error("Erro:", error);
