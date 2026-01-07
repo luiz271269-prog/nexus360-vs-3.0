@@ -80,6 +80,29 @@ export default function DiagnosticoCirurgicoEmbed() {
         });
       }
 
+      // ========== TESTE 2.5: VALIDAR INTEGRAÇÃO ANTES DE TESTAR ==========
+      if (isWAPI && !integracao.numero_telefone) {
+        diagnostico.testes.push({
+          nome: `2.5. Validação Integração W-API`,
+          status: 'erro',
+          detalhes: {
+            problema: 'numero_telefone vazio',
+            integracao: {
+              id: integracao.id,
+              nome: integracao.nome_instancia,
+              numero: integracao.numero_telefone,
+              instance_id: integracao.instance_id_provider
+            },
+            solucao: 'Configure o número de telefone da integração na aba Configuração WhatsApp'
+          }
+        });
+        
+        toast.error('⚠️ Integração W-API sem número de telefone configurado');
+        setResultado(diagnostico);
+        setTestando(false);
+        return;
+      }
+
       // ========== TESTE 3: ENVIAR PAYLOAD TESTE ==========
       console.log('[DIAG] Enviando payload de teste para', providerNome);
       const messageIdTeste = `DIAG_TEST_${Date.now()}`;
@@ -88,9 +111,10 @@ export default function DiagnosticoCirurgicoEmbed() {
       let payloadTeste;
       if (isWAPI) {
         // Formato W-API correto completo (estrutura esperada pelo webhookWapi)
+        const numeroTelefone = integracao.numero_telefone?.replace(/\D/g, '') || '';
         payloadTeste = {
           instanceId: integracao.instance_id_provider,
-          connectedPhone: integracao.numero_telefone?.replace(/\D/g, ''),
+          connectedPhone: numeroTelefone,
           type: 'ReceivedCallback',
           event: 'ReceivedCallback',
           messageId: messageIdTeste,
