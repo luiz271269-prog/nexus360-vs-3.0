@@ -60,6 +60,7 @@ import Usuarios from './pages/Usuarios';
 import Vendas from './pages/Vendas';
 import Vendedores from './pages/Vendedores';
 import WhatsAppTemplates from './pages/WhatsAppTemplates';
+import TesteForcaCacheWAPI from './pages/TesteForcaCacheWAPI';
 import __Layout from './Layout.jsx';
 
 
@@ -126,6 +127,7 @@ export const PAGES = {
     "Vendas": Vendas,
     "Vendedores": Vendedores,
     "WhatsAppTemplates": WhatsAppTemplates,
+    "TesteForcaCacheWAPI": TesteForcaCacheWAPI,
 }
 
 export const pagesConfig = {
