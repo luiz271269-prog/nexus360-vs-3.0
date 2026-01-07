@@ -1049,10 +1049,10 @@ export default function ConfiguracaoCanaisComunicacao({ integracoes, onRecarrega
           </TabsTrigger>
         </TabsList>
 
-        {/* WhatsApp Tab */}
+        {/* WhatsApp Tab - APENAS WhatsApp, sem GoTo */}
         <TabsContent value="whatsapp" className="mt-4">
-          {/* Sub-Tabs para WhatsApp */}
-          <Tabs value={whatsappSubTab} onValueChange={setWhatsappSubTab} className="w-full">
+        {/* Sub-Tabs para WhatsApp */}
+        <Tabs value={whatsappSubTab} onValueChange={setWhatsappSubTab} className="w-full">
             <TabsList className="grid w-full grid-cols-3 mb-6">
               <TabsTrigger value="conexoes" className="gap-2">
                 <Wifi className="w-4 h-4" />
