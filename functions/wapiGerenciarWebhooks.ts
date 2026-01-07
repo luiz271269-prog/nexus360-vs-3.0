@@ -117,20 +117,25 @@ Deno.serve(async (req) => {
         });
 
         const data = await response.json();
+        console.log(`[WAPI-WEBHOOK] 📥 Status HTTP: ${response.status}`);
         console.log(`[WAPI-WEBHOOK] 📥 Resposta:`, JSON.stringify(data, null, 2));
 
         if (data.error === false || response.ok) {
+          console.log('[WAPI-WEBHOOK] ✅ Webhooks registrados com sucesso no provedor');
           return Response.json({
             success: true,
             message: 'Todos os webhooks configurados via Integrador!',
             webhook_url: webhookUrl,
-            detalhes: data
+            detalhes: data,
+            modo: 'integrator'
           }, { headers: corsHeaders });
         } else {
+          console.error('[WAPI-WEBHOOK] ❌ Falha ao registrar webhooks:', data.message || data.error);
           return Response.json({
             success: false,
-            error: data.message || 'Erro ao configurar webhooks via Integrador',
-            detalhes: data
+            error: data.message || data.error || 'Erro ao configurar webhooks via Integrador',
+            detalhes: data,
+            modo: 'integrator'
           }, { status: 400, headers: corsHeaders });
         }
       } else {
