@@ -979,23 +979,28 @@ export default function ConfiguracaoCanaisComunicacao({ integracoes, onRecarrega
   const registrarWebhooksWAPIDireto = async (integracao) => {
     setRegistrandoWebhooks(prev => ({ ...prev, [integracao.id]: true }));
     try {
-      toast.info("🔧 Registrando webhooks na W-API...");
-      
+      toast.info("🔧 Atualizando webhooks na W-API com URL do banco...");
+
       const response = await base44.functions.invoke('wapiGerenciarWebhooks', {
         action: 'register',
         integration_id: integracao.id
       });
-      
+
       if (response.data.success) {
+        const verificado = response.data.webhooks_aplicados;
         toast.success(
           <div className="space-y-1">
-            <p className="font-bold">✅ Webhooks registrados!</p>
-            <p className="text-xs">Agora você receberá mensagens normalmente</p>
+            <p className="font-bold">{verificado ? '✅ Webhooks corrigidos e verificados!' : '⚠️ Webhooks atualizados'}</p>
+            <p className="text-xs">URL: {response.data.webhook_url}</p>
           </div>,
           { duration: 5000 }
         );
+
+        // Recarregar dados após sucesso
+        await sincronizarComProvedor();
+        if (onRecarregar) await onRecarregar();
       } else {
-        toast.error('Erro: ' + response.data.message);
+        toast.error('Erro: ' + (response.data.error || response.data.message));
       }
     } catch (error) {
       console.error('[WEBHOOK] Erro ao registrar:', error);
