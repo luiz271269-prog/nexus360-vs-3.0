@@ -219,16 +219,21 @@ export default function DiagnosticoZAPICentralizado({ integracao, onRecarregar, 
     }
   };
 
+  // Filtrar - NÃO renderizar se for provedor GoTo (isso é responsabilidade da aba GoTo)
+  if (integracao?.api_provider === 'goto_phone') {
+    return null;
+  }
+
   return (
     <Card className="border-2 border-indigo-200 bg-gradient-to-br from-indigo-50 to-purple-50">
       <CardHeader>
         <CardTitle className="flex items-center justify-between">
           <span className="flex items-center gap-2 text-indigo-900">
             <Activity className="w-5 h-5" />
-            Diagnóstico Completo
+            Diagnóstico WhatsApp
           </span>
           <div className="flex gap-2">
-{(integracao?.api_provider === 'w_api' || integracao?.modo === 'integrator') && (
+            {(integracao?.api_provider === 'w_api' || integracao?.modo === 'integrator') && (
               <Button
                 onClick={async () => {
                   try {
