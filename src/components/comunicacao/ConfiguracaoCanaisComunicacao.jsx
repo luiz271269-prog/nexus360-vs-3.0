@@ -1682,36 +1682,26 @@ export default function ConfiguracaoCanaisComunicacao({ integracoes, onRecarrega
                                       <div className="mt-3 space-y-2">
                                         {resultadosWebhook[integracao.id].success ? (
                                           <>
-                                            {resultadosWebhook[integracao.id].verificacao_disponivel === false ? (
-                                              <div className="p-3 bg-blue-50 border border-blue-300 rounded">
-                                                <p className="text-[10px] text-blue-800 font-semibold">ℹ️ Verificação não disponível</p>
-                                                <p className="text-[9px] text-blue-700 mt-1">{resultadosWebhook[integracao.id].mensagem}</p>
-                                                <p className="text-[9px] text-blue-800 mt-2 font-medium">💡 Clique em "Registrar" para configurar webhooks automaticamente</p>
+                                            <div className="grid grid-cols-3 gap-2">
+                                              <div className={`p-2 rounded text-center ${resultadosWebhook[integracao.id].webhooks.message ? 'bg-green-100 border border-green-300' : 'bg-red-100 border border-red-300'}`}>
+                                                <p className="text-[10px] font-semibold">{resultadosWebhook[integracao.id].webhooks.message ? '✅' : '❌'} Mensagem</p>
+                                                <p className="text-[9px] text-slate-600">Receber msgs</p>
                                               </div>
-                                            ) : (
-                                              <>
-                                                <div className="grid grid-cols-3 gap-2">
-                                                  <div className={`p-2 rounded text-center ${resultadosWebhook[integracao.id].webhooks.message ? 'bg-green-100 border border-green-300' : 'bg-red-100 border border-red-300'}`}>
-                                                    <p className="text-[10px] font-semibold">{resultadosWebhook[integracao.id].webhooks.message ? '✅' : '❌'} Mensagem</p>
-                                                    <p className="text-[9px] text-slate-600">Receber msgs</p>
-                                                  </div>
-                                                  <div className={`p-2 rounded text-center ${resultadosWebhook[integracao.id].webhooks.message_ack ? 'bg-green-100 border border-green-300' : 'bg-red-100 border border-red-300'}`}>
-                                                    <p className="text-[10px] font-semibold">{resultadosWebhook[integracao.id].webhooks.message_ack ? '✅' : '❌'} Status Envio</p>
-                                                    <p className="text-[9px] text-slate-600">Entregue/Lida</p>
-                                                  </div>
-                                                  <div className={`p-2 rounded text-center ${resultadosWebhook[integracao.id].webhooks.connection_update ? 'bg-green-100 border border-green-300' : 'bg-red-100 border border-red-300'}`}>
-                                                    <p className="text-[10px] font-semibold">{resultadosWebhook[integracao.id].webhooks.connection_update ? '✅' : '❌'} Conexão</p>
-                                                    <p className="text-[9px] text-slate-600">Conectar/Desconectar</p>
-                                                  </div>
-                                                </div>
-                                                
-                                                {!resultadosWebhook[integracao.id].todosOk && (
-                                                  <div className="p-2 bg-yellow-50 border border-yellow-300 rounded">
-                                                    <p className="text-[10px] text-yellow-800 font-semibold">⚠️ Ação Necessária:</p>
-                                                    <p className="text-[9px] text-yellow-700 mt-1">Clique em "Registrar" para configurar os webhooks ausentes</p>
-                                                  </div>
-                                                )}
-                                              </>
+                                              <div className={`p-2 rounded text-center ${resultadosWebhook[integracao.id].webhooks.message_ack ? 'bg-green-100 border border-green-300' : 'bg-red-100 border border-red-300'}`}>
+                                                <p className="text-[10px] font-semibold">{resultadosWebhook[integracao.id].webhooks.message_ack ? '✅' : '❌'} Status Envio</p>
+                                                <p className="text-[9px] text-slate-600">Entregue/Lida</p>
+                                              </div>
+                                              <div className={`p-2 rounded text-center ${resultadosWebhook[integracao.id].webhooks.connection_update ? 'bg-green-100 border border-green-300' : 'bg-red-100 border border-red-300'}`}>
+                                                <p className="text-[10px] font-semibold">{resultadosWebhook[integracao.id].webhooks.connection_update ? '✅' : '❌'} Conexão</p>
+                                                <p className="text-[9px] text-slate-600">Conectar/Desconectar</p>
+                                              </div>
+                                            </div>
+                                            
+                                            {!resultadosWebhook[integracao.id].todosOk && (
+                                              <div className="p-2 bg-yellow-50 border border-yellow-300 rounded">
+                                                <p className="text-[10px] text-yellow-800 font-semibold">⚠️ Ação Necessária:</p>
+                                                <p className="text-[9px] text-yellow-700 mt-1">Clique em "Registrar" para configurar os webhooks ausentes</p>
+                                              </div>
                                             )}
                                           </>
                                         ) : (
