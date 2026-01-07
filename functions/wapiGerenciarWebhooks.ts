@@ -46,8 +46,17 @@ Deno.serve(async (req) => {
       }, { status: 404, headers: corsHeaders });
     }
 
-    const webhookUrl = integration.webhook_url || 
-      `https://nexus360-pro.base44.app/api/apps/68a7d067890527304dbe8477/functions/webhookWapi`;
+    // ✅ SEMPRE USAR URL DO BANCO (source of truth)
+    const webhookUrl = integration.webhook_url;
+
+    if (!webhookUrl) {
+      return Response.json({ 
+        success: false, 
+        error: 'webhook_url não configurada no banco de dados para esta integração' 
+      }, { status: 400, headers: corsHeaders });
+    }
+
+    console.log(`[WAPI-WEBHOOK] 📋 URL do banco (DB): ${webhookUrl}`);
     
     const headers = {
       'Content-Type': 'application/json',
