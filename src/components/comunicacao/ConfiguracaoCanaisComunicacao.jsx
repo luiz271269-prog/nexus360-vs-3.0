@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -23,7 +22,12 @@ import {
   Settings,
   QrCode,
   Smartphone,
-  MessageCircle
+  MessageCircle,
+  Wifi,
+  RefreshCw,
+  WifiOff,
+  Database,
+  Cloud
 } from "lucide-react";
 
 // Logos SVG inline para cada provedor
@@ -243,6 +247,9 @@ export default function ConfiguracaoCanaisComunicacao({ integracoes, onRecarrega
   }, [integracaoSelecionada]);
   const [gerandoQR, setGerandoQR] = useState(null);
   const [criandoInstanciaIntegrador, setCriandoInstanciaIntegrador] = useState(false);
+  const [whatsappSubTab, setWhatsappSubTab] = useState("conexoes");
+  const [instanciasProvedor, setInstanciasProvedor] = useState([]);
+  const [sincronizando, setSincronizando] = useState(false);
 
   const resetForm = () => {
     setNovaIntegracao(initialNovaIntegracaoState);
@@ -546,12 +553,47 @@ export default function ConfiguracaoCanaisComunicacao({ integracoes, onRecarrega
   };
 
   const handleExcluir = async (integracao) => {
-    if (!confirm(`Excluir instância ${integracao.nome_instancia}?`)) return;
+    if (!confirm(`⚠️ Tem certeza que deseja DELETAR esta integração?`)) return;
 
     try {
+      const integracoesData = await base44.entities.WhatsAppIntegration.filter({ id: integracao.id });
+      const integracaoAtual = integracoesData[0];
+      
+      if (!integracaoAtual) {
+        toast.error("Integração não encontrada");
+        return;
+      }
+      
+      if (integracaoAtual.modo === 'integrator' && integracaoAtual.api_provider === 'w_api') {
+        toast.info("🗑️ Removendo instância da W-API...");
+        
+        try {
+          const response = await base44.functions.invoke('wapiIntegratorManager', {
+            action: 'deleteInstance',
+            instanceId: integracaoAtual.instance_id_provider
+          });
+          
+          if (!response.data.success) {
+            throw new Error(response.data.error || 'Erro ao deletar instância do provedor');
+          }
+          
+          toast.success("✅ Instância removida da W-API");
+        } catch (providerError) {
+          console.error("Erro ao deletar do provedor:", providerError);
+          
+          if (!confirm("⚠️ Não foi possível deletar da W-API. Deseja deletar do banco mesmo assim?\n\n(A instância continuará existindo na W-API)")) {
+            return;
+          }
+          
+          toast.warning("⚠️ Removendo apenas do banco local");
+        }
+      }
+      
       await base44.entities.WhatsAppIntegration.delete(integracao.id);
-      toast.success("Instância excluída!");
+      setQrCodeData(prev => { const n = {...prev}; delete n[integracao.id]; return n; });
+      toast.success("✅ Integração removida do sistema!");
       if (onRecarregar) await onRecarregar();
+      setIntegracaoSelecionada(null);
     } catch (error) {
       console.error("[CONFIG] ❌ Erro ao excluir:", error);
       toast.error("Erro ao excluir instância");
@@ -711,6 +753,95 @@ export default function ConfiguracaoCanaisComunicacao({ integracoes, onRecarrega
     if (onRecarregar) await onRecarregar();
   };
 
+  // Sincronização W-API
+  const sincronizarComProvedor = async () => {
+    setSincronizando(true);
+    try {
+      toast.info("📡 Buscando instâncias da W-API...");
+      
+      const response = await base44.functions.invoke('wapiIntegratorManager', {
+        action: 'listInstances',
+        pageSize: 50,
+        page: 1
+      });
+      
+      if (!response.data.success) {
+        throw new Error(response.data.error || 'Erro ao listar instâncias');
+      }
+      
+      setInstanciasProvedor(response.data.instances || []);
+      toast.success(`✅ ${response.data.instances?.length || 0} instâncias encontradas na W-API`);
+      
+      await atualizarStatusAutomatico(response.data.instances || []);
+      
+    } catch (error) {
+      console.error("Erro ao sincronizar:", error);
+      toast.error(error.message || "Erro ao sincronizar com W-API");
+    } finally {
+      setSincronizando(false);
+    }
+  };
+
+  const atualizarStatusAutomatico = async (instanciasW) => {
+    let atualizados = 0;
+    
+    for (const instW of instanciasW) {
+      const intLocal = integracoes.find(i => 
+        i.instance_id_provider === instW.instanceId && 
+        i.api_provider === 'w_api'
+      );
+      
+      if (intLocal) {
+        const statusW = instW.connected ? 'conectado' : 'desconectado';
+        const numeroW = instW.connectedPhone || '';
+        
+        if (intLocal.status !== statusW || 
+            (numeroW && intLocal.numero_telefone !== numeroW)) {
+          try {
+            await base44.entities.WhatsAppIntegration.update(intLocal.id, {
+              status: statusW,
+              numero_telefone: numeroW || intLocal.numero_telefone,
+              ultima_atividade: new Date().toISOString()
+            });
+            atualizados++;
+          } catch (error) {
+            console.error(`Erro ao atualizar ${intLocal.id}:`, error);
+          }
+        }
+      }
+    }
+    
+    if (atualizados > 0) {
+      toast.success(`✅ ${atualizados} integração(ões) sincronizada(s)`);
+      if (onRecarregar) await onRecarregar();
+    }
+  };
+
+  const compararComProvedor = (integracao) => {
+    const instW = instanciasProvedor.find(i => i.instanceId === integracao.instance_id_provider);
+    
+    if (!instW) {
+      return { status: 'nao_encontrada', divergencias: ['Não existe na W-API'] };
+    }
+    
+    const divergencias = [];
+    const statusW = instW.connected ? 'conectado' : 'desconectado';
+    
+    if (integracao.status !== statusW) {
+      divergencias.push(`Status: DB=${integracao.status} vs W-API=${statusW}`);
+    }
+    
+    if (instW.connectedPhone && integracao.numero_telefone !== instW.connectedPhone) {
+      divergencias.push(`Telefone: DB=${integracao.numero_telefone} vs W-API=${instW.connectedPhone}`);
+    }
+    
+    return {
+      status: divergencias.length > 0 ? 'divergente' : 'sincronizado',
+      divergencias,
+      instanciaWAPI: instW
+    };
+  };
+
   const totalConexoes = integracoes.length + instagramIntegracoes.length + facebookIntegracoes.length + gotoIntegracoes.length;
   const totalConectadas = 
     integracoes.filter(i => i.status === 'conectado').length +
@@ -767,40 +898,59 @@ export default function ConfiguracaoCanaisComunicacao({ integracoes, onRecarrega
 
         {/* WhatsApp Tab */}
         <TabsContent value="whatsapp" className="mt-4">
-          <div className="flex items-center justify-between mb-4 pb-3 border-b">
-            <div className="flex items-center gap-2">
-              <div className="w-8 h-8 bg-green-500 rounded-lg flex items-center justify-center">
-                <WhatsAppLogo />
+          {/* Sub-Tabs para WhatsApp */}
+          <Tabs value={whatsappSubTab} onValueChange={setWhatsappSubTab} className="w-full">
+            <TabsList className="grid w-full grid-cols-3 mb-6">
+              <TabsTrigger value="conexoes" className="gap-2">
+                <Wifi className="w-4 h-4" />
+                Conexões ({integracoes.length})
+              </TabsTrigger>
+              <TabsTrigger value="sincronizacao" className="gap-2">
+                <RefreshCw className="w-4 h-4" />
+                Sincronização
+              </TabsTrigger>
+              <TabsTrigger value="nova" className="gap-2">
+                <Zap className="w-4 h-4" />
+                Nova Conexão
+              </TabsTrigger>
+            </TabsList>
+
+            {/* Sub-Tab: Conexões */}
+            <TabsContent value="conexoes" className="space-y-4">
+              <div className="flex items-center justify-between mb-4 pb-3 border-b">
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 bg-green-500 rounded-lg flex items-center justify-center">
+                    <WhatsAppLogo />
+                  </div>
+                  <div>
+                    <h2 className="text-sm font-bold text-slate-900">WhatsApp</h2>
+                    <p className="text-[11px] text-slate-500">Z-API / W-API / Integrador</p>
+                  </div>
+                  <Badge variant="outline" className="ml-2 text-[10px] h-5">
+                    {integracoes.filter((i) => i.status === 'conectado').length}/{integracoes.length}
+                  </Badge>
+                </div>
+                <div className="flex gap-2">
+                  {podeAdicionar && (
+                    <>
+                      <Button 
+                        size="sm" 
+                        onClick={corrigirWebhooksEmMassa} 
+                        disabled={corrigindoWebhooks}
+                        variant="outline"
+                        className="h-8 text-xs border-orange-300 text-orange-700 hover:bg-orange-50"
+                      >
+                        {corrigindoWebhooks ? <Loader2 className="w-3 h-3 mr-1 animate-spin" /> : <Zap className="w-3 h-3 mr-1" />}
+                        Corrigir URLs
+                      </Button>
+                      <Button size="sm" onClick={() => { iniciarNovaIntegracao(); setWhatsappSubTab("nova"); }} className="h-8 text-xs bg-green-600 hover:bg-green-700">
+                        <Plus className="w-3 h-3 mr-1" />
+                        Nova
+                      </Button>
+                    </>
+                  )}
+                </div>
               </div>
-              <div>
-                <h2 className="text-sm font-bold text-slate-900">WhatsApp</h2>
-                <p className="text-[11px] text-slate-500">Z-API / W-API / Integrador</p>
-              </div>
-              <Badge variant="outline" className="ml-2 text-[10px] h-5">
-                {integracoes.filter((i) => i.status === 'conectado').length}/{integracoes.length}
-              </Badge>
-            </div>
-            <div className="flex gap-2">
-              {podeAdicionar && (
-                <>
-                  <Button 
-                    size="sm" 
-                    onClick={corrigirWebhooksEmMassa} 
-                    disabled={corrigindoWebhooks}
-                    variant="outline"
-                    className="h-8 text-xs border-orange-300 text-orange-700 hover:bg-orange-50"
-                  >
-                    {corrigindoWebhooks ? <Loader2 className="w-3 h-3 mr-1 animate-spin" /> : <Zap className="w-3 h-3 mr-1" />}
-                    Corrigir URLs
-                  </Button>
-                  <Button size="sm" onClick={iniciarNovaIntegracao} className="h-8 text-xs bg-green-600 hover:bg-green-700">
-                    <Plus className="w-3 h-3 mr-1" />
-                    Nova
-                  </Button>
-                </>
-              )}
-            </div>
-          </div>
 
           {/* Layout 2 Colunas: Lista Compacta | Edição + Diagnóstico */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -1250,6 +1400,316 @@ export default function ConfiguracaoCanaisComunicacao({ integracoes, onRecarrega
               )}
             </div>
           </div>
+            </TabsContent>
+
+            {/* Sub-Tab: Sincronização */}
+            <TabsContent value="sincronizacao" className="space-y-6">
+              <div className="flex items-center justify-between mb-4">
+                <div>
+                  <h3 className="text-lg font-semibold text-slate-800">Sincronização W-API</h3>
+                  <p className="text-sm text-slate-600">Compare instâncias da W-API com o banco local</p>
+                </div>
+                {isAdmin && (
+                  <Button
+                    onClick={sincronizarComProvedor}
+                    disabled={sincronizando}
+                    className="bg-indigo-600 hover:bg-indigo-700 gap-2"
+                  >
+                    {sincronizando ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        Sincronizando...
+                      </>
+                    ) : (
+                      <>
+                        <RefreshCw className="w-4 h-4" />
+                        Sincronizar Agora
+                      </>
+                    )}
+                  </Button>
+                )}
+              </div>
+
+              {instanciasProvedor.length === 0 ? (
+                <div className="text-center py-12 bg-slate-50 rounded-lg border-2 border-dashed">
+                  <Cloud className="w-12 h-12 text-slate-400 mx-auto mb-3" />
+                  <p className="text-slate-600 font-medium">Nenhuma sincronização realizada</p>
+                  <p className="text-sm text-slate-500 mt-1">Clique em "Sincronizar Agora" para buscar instâncias da W-API</p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {/* Instâncias no Banco */}
+                  <div>
+                    <h4 className="font-semibold text-slate-800 mb-3 flex items-center gap-2">
+                      <Database className="w-5 h-5 text-blue-600" />
+                      Instâncias no Banco Local ({integracoes.filter(i => i.api_provider === 'w_api').length})
+                    </h4>
+                    <div className="grid gap-3">
+                      {integracoes.filter(i => i.api_provider === 'w_api').map((integracao) => {
+                        const comparacao = compararComProvedor(integracao);
+                        
+                        return (
+                          <div key={integracao.id} className={`p-4 rounded-lg border-2 ${
+                            comparacao.status === 'sincronizado' ? 'bg-green-50 border-green-200' :
+                            comparacao.status === 'divergente' ? 'bg-yellow-50 border-yellow-200' :
+                            'bg-red-50 border-red-200'
+                          }`}>
+                            <div className="flex items-start justify-between">
+                              <div className="flex-1">
+                                <div className="flex items-center gap-2 mb-2">
+                                  <h5 className="font-semibold text-slate-900">{integracao.nome_instancia}</h5>
+                                  {comparacao.status === 'sincronizado' && (
+                                    <Badge className="bg-green-600 text-white text-xs">✓ Sincronizado</Badge>
+                                  )}
+                                  {comparacao.status === 'divergente' && (
+                                    <Badge className="bg-yellow-600 text-white text-xs">⚠ Divergente</Badge>
+                                  )}
+                                  {comparacao.status === 'nao_encontrada' && (
+                                    <Badge className="bg-red-600 text-white text-xs">✗ Órfã no Banco</Badge>
+                                  )}
+                                </div>
+                                
+                                <div className="space-y-1 text-sm">
+                                  <p><strong>Instance ID:</strong> {integracao.instance_id_provider}</p>
+                                  <p><strong>Telefone (DB):</strong> {integracao.numero_telefone || 'Não configurado'}</p>
+                                  <p><strong>Status (DB):</strong> {integracao.status}</p>
+                                  
+                                  {comparacao.instanciaWAPI && (
+                                    <>
+                                      <p className="text-indigo-700"><strong>Telefone (W-API):</strong> {comparacao.instanciaWAPI.connectedPhone || 'Não conectado'}</p>
+                                      <p className="text-indigo-700"><strong>Status (W-API):</strong> {comparacao.instanciaWAPI.connected ? 'conectado' : 'desconectado'}</p>
+                                    </>
+                                  )}
+                                </div>
+                                
+                                {comparacao.divergencias.length > 0 && (
+                                  <div className="mt-2 p-2 bg-white rounded border border-yellow-300">
+                                    <p className="text-xs font-semibold text-yellow-800 mb-1">Divergências Detectadas:</p>
+                                    <ul className="text-xs text-yellow-700 list-disc ml-4">
+                                      {comparacao.divergencias.map((div, idx) => (
+                                        <li key={idx}>{div}</li>
+                                      ))}
+                                    </ul>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* Instâncias só na W-API */}
+                  {instanciasProvedor.filter(instW => 
+                    !integracoes.some(intLocal => intLocal.instance_id_provider === instW.instanceId)
+                  ).length > 0 && (
+                    <div>
+                      <h4 className="font-semibold text-slate-800 mb-3 flex items-center gap-2">
+                        <Cloud className="w-5 h-5 text-purple-600" />
+                        Instâncias Apenas na W-API ({instanciasProvedor.filter(instW => 
+                          !integracoes.some(intLocal => intLocal.instance_id_provider === instW.instanceId)
+                        ).length})
+                      </h4>
+                      <p className="text-sm text-slate-600 mb-3">Estas instâncias existem na W-API mas não estão cadastradas no sistema</p>
+                      <div className="grid gap-3">
+                        {instanciasProvedor.filter(instW => 
+                          !integracoes.some(intLocal => intLocal.instance_id_provider === instW.instanceId)
+                        ).map((instW) => (
+                          <div key={instW.instanceId} className="p-4 rounded-lg border-2 bg-purple-50 border-purple-200">
+                            <div className="flex items-start justify-between">
+                              <div>
+                                <h5 className="font-semibold text-slate-900 mb-2">{instW.instanceName || instW.instanceId}</h5>
+                                <div className="space-y-1 text-sm">
+                                  <p><strong>Instance ID:</strong> {instW.instanceId}</p>
+                                  <p><strong>Telefone:</strong> {instW.connectedPhone || 'Não conectado'}</p>
+                                  <p><strong>Status:</strong> {instW.connected ? 'Conectado ✅' : 'Desconectado'}</p>
+                                </div>
+                              </div>
+                              <Badge className="bg-purple-600 text-white">Órfã no Provedor</Badge>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </TabsContent>
+
+            {/* Sub-Tab: Nova Conexão */}
+            <TabsContent value="nova" className="space-y-4">
+              {modoEdicao && (
+                <>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <Label>Provedor da API</Label>
+                      <Select
+                        value={novaIntegracao.api_provider}
+                        onValueChange={(v) => setNovaIntegracao({...novaIntegracao, api_provider: v, client_token_conta: ""})}
+                      >
+                        <SelectTrigger className="mt-1">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="z_api">Z-API</SelectItem>
+                          <SelectItem value="w_api">W-API (Manual)</SelectItem>
+                          <SelectItem value="w_api_integrator">W-API Integrador</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <p className="text-xs text-slate-500 mt-1">{PROVIDERS[novaIntegracao.api_provider]?.descricao}</p>
+                    </div>
+                    
+                    <div>
+                      <Label>Nome da Instância</Label>
+                      <Input
+                        placeholder="Ex: vendas-principal"
+                        value={novaIntegracao.nome_instancia}
+                        onChange={(e) => setNovaIntegracao({...novaIntegracao, nome_instancia: e.target.value})}
+                        className="mt-1"
+                      />
+                    </div>
+                    
+                    {novaIntegracao.api_provider !== 'w_api_integrator' && (
+                      <>
+                        <div>
+                          <Label>Número de WhatsApp</Label>
+                          <Input
+                            placeholder="5548999999999"
+                            value={novaIntegracao.numero_telefone}
+                            onChange={(e) => setNovaIntegracao({...novaIntegracao, numero_telefone: e.target.value.replace(/\D/g, '')})}
+                            className="mt-1"
+                          />
+                        </div>
+                        
+                        <div>
+                          <Label>Instance ID</Label>
+                          <Input
+                            placeholder={novaIntegracao.api_provider === 'w_api' ? "Ex: T34398-VYR3QD..." : "Ex: 3E5D2BD1BF421127B24ECEF0269361A3"}
+                            value={novaIntegracao.instance_id}
+                            onChange={(e) => setNovaIntegracao({...novaIntegracao, instance_id: e.target.value})}
+                            className="mt-1"
+                          />
+                        </div>
+                        
+                        <div>
+                          <Label>{novaIntegracao.api_provider === 'w_api' ? "Token (Bearer)" : "Token da Instância"}</Label>
+                          <div className="relative mt-1">
+                            <Input
+                              placeholder="Cole o token aqui"
+                              value={novaIntegracao.token_instancia}
+                              onChange={(e) => setNovaIntegracao({...novaIntegracao, token_instancia: e.target.value})}
+                              type={showTokenInstancia ? "text" : "password"}
+                              className="pr-10"
+                            />
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              className="absolute right-0 top-0 h-full"
+                              onClick={() => setShowTokenInstancia(!showTokenInstancia)}
+                            >
+                              {showTokenInstancia ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                            </Button>
+                          </div>
+                        </div>
+                        
+                        {novaIntegracao.api_provider === 'z_api' && (
+                          <div>
+                            <Label>Client-Token de Segurança</Label>
+                            <div className="relative mt-1">
+                              <Input
+                                placeholder="Token de segurança da conta Z-API"
+                                value={novaIntegracao.client_token_conta}
+                                onChange={(e) => setNovaIntegracao({...novaIntegracao, client_token_conta: e.target.value})}
+                                type={showTokenConta ? "text" : "password"}
+                                className="pr-10"
+                              />
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon"
+                                className="absolute right-0 top-0 h-full"
+                                onClick={() => setShowTokenConta(!showTokenConta)}
+                              >
+                                {showTokenConta ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                              </Button>
+                            </div>
+                          </div>
+                        )}
+                      </>
+                    )}
+                  </div>
+
+                  {/* URL do Webhook */}
+                  <div className="p-4 bg-purple-50 border-2 border-purple-200 rounded-lg">
+                    <Label className="text-sm text-purple-700 font-semibold mb-2 block flex items-center gap-2">
+                      🔗 URL do Webhook
+                      <Badge className="bg-purple-600 text-white text-xs">Configure no provedor</Badge>
+                    </Label>
+                    <Input
+                      value={novaIntegracao.webhook_url}
+                      onChange={(e) => setNovaIntegracao({...novaIntegracao, webhook_url: e.target.value})}
+                      placeholder="https://seu-app.base44.app/api/functions/webhookWapi"
+                      className="font-mono text-xs bg-white"
+                    />
+                    <div className="mt-2 space-y-1">
+                      <p className="text-xs text-purple-600">
+                        ✅ URL sugerida automaticamente baseada no provedor selecionado
+                      </p>
+                      {novaIntegracao.api_provider === 'w_api' && (
+                        <p className="text-xs text-purple-700 font-medium">
+                          💡 W-API: Cole esta URL nos campos "Ao receber mensagem", "Ao enviar mensagem" e "Ao desconectar"
+                        </p>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Alerta Integrador */}
+                  {novaIntegracao.api_provider === 'w_api_integrator' && (
+                    <div className="p-4 bg-indigo-50 border-2 border-indigo-200 rounded-lg">
+                      <div className="flex items-start gap-3">
+                        <Zap className="w-5 h-5 text-indigo-600 flex-shrink-0 mt-0.5" />
+                        <div>
+                          <h4 className="font-semibold text-indigo-900 mb-1">🏛️ Modo Integrador - Arquitetura "Porteiro Cego"</h4>
+                          <ul className="text-sm text-indigo-700 space-y-1 list-disc ml-5">
+                            <li>Instância criada automaticamente com webhooks já configurados</li>
+                            <li>Você receberá <strong>Instance ID</strong> e <strong>Token</strong> automaticamente</li>
+                            <li>Conecte depois usando QR Code ou Pairing Code</li>
+                            <li>O número será salvo automaticamente após conexão</li>
+                            <li><strong>Deleção Dupla:</strong> Remove da W-API E do banco local</li>
+                          </ul>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="flex justify-end gap-3">
+                    <Button 
+                      onClick={() => { resetForm(); setWhatsappSubTab("conexoes"); }}
+                      variant="outline"
+                    >
+                      Cancelar
+                    </Button>
+                    <Button 
+                      onClick={handleCriarInstancia} 
+                      disabled={loading || criandoInstanciaIntegrador}
+                      className="bg-green-600 hover:bg-green-700"
+                    >
+                      {(loading || criandoInstanciaIntegrador) ? <Loader2 className="w-4 h-4 mr-2 animate-spin"/> : <Zap className="w-4 h-4 mr-2" />}
+                      {criandoInstanciaIntegrador ? "Criando..." : loading ? "Salvando..." : novaIntegracao.api_provider === 'w_api_integrator' ? "Criar Instância W-API" : "Adicionar Conexão"}
+                    </Button>
+                  </div>
+                </>
+              )}
+              {!modoEdicao && (
+                <div className="text-center py-12 bg-slate-50 rounded-lg border-2 border-dashed">
+                  <Zap className="w-12 h-12 text-slate-400 mx-auto mb-3" />
+                  <p className="text-slate-600 font-medium">Clique em "Nova" para adicionar uma conexão</p>
+                </div>
+              )}
+            </TabsContent>
+          </Tabs>
         </TabsContent>
 
         {/* Instagram Tab */}
