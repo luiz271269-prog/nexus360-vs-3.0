@@ -68,11 +68,14 @@ Deno.serve(async (req) => {
     if (!infoReq.ok) {
       const errorText = await infoReq.text();
       console.error('[WAPI-VERIFY] Erro ao buscar info:', infoReq.status, errorText);
+
+      // ✅ NÃO retornar 500 (erro de servidor), mas 200 com success:false
       return Response.json({
         success: false,
-        error: `Erro ao buscar info da instância: ${infoReq.status}`,
-        raw_error: errorText
-      }, { status: 500, headers: corsHeaders });
+        error: `W-API retornou erro ${infoReq.status}: ${errorText.substring(0, 200)}`,
+        raw_error: errorText,
+        status_code: infoReq.status
+      }, { status: 200, headers: corsHeaders });
     }
     
     const infoData = await infoReq.json();

@@ -1723,12 +1723,14 @@ export default function ConfiguracaoCanaisComunicacao({ integracoes, onRecarrega
                                     )}
                                     
                                     {!resultadosWebhook[integracao.id] && (
-                                      <p className="text-[10px] text-blue-700 mt-2">
-                                        💡 Se não está recebendo mensagens, clique em "Verificar" para diagnóstico detalhado
-                                      </p>
+                                     <p className="text-[10px] text-blue-700 mt-2">
+                                       💡 Clique em "Verificar" para diagnosticar webhooks W-API
+                                     </p>
                                     )}
-                                  </div>
-                                )}
+                                    </div>
+                                    )}
+
+                                    {/* ⛔ NÃO RENDERIZAR GOTO AQUI - Apenas WhatsApp nesta seção */}
                                 
                                 {comparacao.divergencias.length > 0 && (
                                   <div className="mt-2 p-2 bg-white rounded border border-yellow-300">
