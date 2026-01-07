@@ -1802,71 +1802,73 @@ export default function ConfiguracaoCanaisComunicacao({ integracoes, onRecarrega
 
                   {/* Instâncias só na W-API */}
                   {instanciasProvedor.filter(instW => 
-                    !integracoes.some(intLocal => intLocal.instance_id_provider === instW.instanceId)
+                   !integracoes.some(intLocal => intLocal.instance_id_provider === instW.instanceId)
                   ).length > 0 && (
-                    <div>
-                      <h4 className="font-semibold text-slate-800 mb-3 flex items-center gap-2">
-                        <Cloud className="w-5 h-5 text-purple-600" />
-                        Instâncias Apenas na W-API ({instanciasProvedor.filter(instW => 
-                          !integracoes.some(intLocal => intLocal.instance_id_provider === instW.instanceId)
-                        ).length})
-                      </h4>
-                      <p className="text-sm text-slate-600 mb-3">Estas instâncias existem na W-API mas não estão cadastradas no sistema</p>
-                      <div className="grid gap-3">
-                        {instanciasProvedor.filter(instW => 
-                          !integracoes.some(intLocal => intLocal.instance_id_provider === instW.instanceId)
-                        ).map((instW) => (
-                          <div key={instW.instanceId} className="p-4 rounded-lg border-2 bg-purple-50 border-purple-200">
-                            <div className="flex items-start justify-between">
-                              <div className="flex-1">
-                                <h5 className="font-semibold text-slate-900 mb-2">{instW.instanceName || instW.instanceId}</h5>
-                                <div className="space-y-1 text-sm">
-                                  <p><strong>Instance ID:</strong> {instW.instanceId}</p>
-                                  <p><strong>Telefone:</strong> {instW.connectedPhone || 'Não conectado'}</p>
-                                  <p><strong>Status:</strong> {instW.connected ? 'Conectado ✅' : 'Desconectado'}</p>
-                                </div>
-                                <div className="flex gap-2 mt-3">
-                                  <Button
-                                    size="sm"
-                                    onClick={() => importarDaWAPI(instW)}
-                                    disabled={importandoProvedor === instW.instanceId}
-                                    className="h-7 text-xs bg-purple-600 hover:bg-purple-700"
-                                  >
-                                    {importandoProvedor === instW.instanceId ? (
-                                      <Loader2 className="w-3 h-3 animate-spin mr-1" />
-                                    ) : (
-                                      <Plus className="w-3 h-3 mr-1" />
-                                    )}
-                                    Importar para Sistema
-                                  </Button>
-                                  {isAdmin && (
-                                    <Button
-                                      size="sm"
-                                      variant="outline"
-                                      onClick={() => deletarDaWAPI(instW.instanceId)}
-                                      disabled={deletandoProvedor === instW.instanceId}
-                                      className="h-7 text-xs text-red-600 border-red-300 hover:bg-red-50"
-                                    >
-                                      {deletandoProvedor === instW.instanceId ? (
-                                        <Loader2 className="w-3 h-3 animate-spin mr-1" />
-                                      ) : (
-                                        <Trash2 className="w-3 h-3 mr-1" />
-                                      )}
-                                      Deletar da W-API
-                                    </Button>
-                                  )}
-                                </div>
-                              </div>
-                              <Badge className="bg-purple-600 text-white">Órfã no Provedor</Badge>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
+                   <div>
+                     <h4 className="font-semibold text-slate-800 mb-3 flex items-center gap-2">
+                       <Cloud className="w-5 h-5 text-purple-600" />
+                       Instâncias Apenas na W-API ({instanciasProvedor.filter(instW => 
+                         !integracoes.some(intLocal => intLocal.instance_id_provider === instW.instanceId)
+                       ).length})
+                     </h4>
+                     <p className="text-sm text-slate-600 mb-3">Estas instâncias existem na W-API mas não estão cadastradas no sistema</p>
+                     <div className="grid gap-3">
+                       {instanciasProvedor.filter(instW => 
+                         !integracoes.some(intLocal => intLocal.instance_id_provider === instW.instanceId)
+                       ).map((instW) => (
+                         <div key={instW.instanceId} className="p-4 rounded-lg border-2 bg-purple-50 border-purple-200">
+                           <div className="flex items-start justify-between">
+                             <div className="flex-1">
+                               <h5 className="font-semibold text-slate-900 mb-2">{instW.instanceName || instW.instanceId}</h5>
+                               <div className="space-y-1 text-sm">
+                                 <p><strong>Instance ID:</strong> {instW.instanceId}</p>
+                                 <p><strong>Telefone:</strong> {instW.connectedPhone || 'Não conectado'}</p>
+                                 <p><strong>Status:</strong> {instW.connected ? 'Conectado ✅' : 'Desconectado'}</p>
+                               </div>
+                               <div className="flex gap-2 mt-3">
+                                 <Button
+                                   size="sm"
+                                   onClick={() => importarDaWAPI(instW)}
+                                   disabled={importandoProvedor === instW.instanceId}
+                                   className="h-7 text-xs bg-purple-600 hover:bg-purple-700"
+                                 >
+                                   {importandoProvedor === instW.instanceId ? (
+                                     <Loader2 className="w-3 h-3 animate-spin mr-1" />
+                                   ) : (
+                                     <Plus className="w-3 h-3 mr-1" />
+                                   )}
+                                   Importar para Sistema
+                                 </Button>
+                                 {isAdmin && (
+                                   <Button
+                                     size="sm"
+                                     variant="outline"
+                                     onClick={() => deletarDaWAPI(instW.instanceId)}
+                                     disabled={deletandoProvedor === instW.instanceId}
+                                     className="h-7 text-xs text-red-600 border-red-300 hover:bg-red-50"
+                                   >
+                                     {deletandoProvedor === instW.instanceId ? (
+                                       <Loader2 className="w-3 h-3 animate-spin mr-1" />
+                                     ) : (
+                                       <Trash2 className="w-3 h-3 mr-1" />
+                                     )}
+                                     Deletar da W-API
+                                   </Button>
+                                 )}
+                               </div>
+                             </div>
+                             <Badge className="bg-purple-600 text-white">Órfã no Provedor</Badge>
+                           </div>
+                         </div>
+                       ))}
+                     </div>
+                   </div>
                   )}
-                </div>
-              )}
-            </TabsContent>
+
+                  {/* ⛔ IMPORTANTE: GoTo NÃO deve aparecer nesta aba - tem aba própria */}
+                  </div>
+                  )}
+                  </TabsContent>
 
             {/* Sub-Tab: Nova Conexão */}
             <TabsContent value="nova" className="space-y-4">

@@ -763,14 +763,15 @@ Deno.serve(async (req) => {
     });
   }
 
-  // ✅ AUTH: SDK Base44 oficial
+  // ✅ AUTH: SDK Base44 oficial (NÃO precisa de SUPABASE_URL/SERVICE_ROLE_KEY)
   let base44;
   try {
     base44 = createClientFromRequest(req);
-    console.log('[WAPI-AUTH] ✅ Cliente Base44 criado');
+    console.log('[WAPI-AUTH] ✅ Cliente Base44 criado via SDK (sem env vars Supabase)');
   } catch (e) {
-    console.error('[WAPI] 🔴 FATAL:', e.message);
-    return jsonErr('auth_error', 500);
+    console.error('[WAPI] 🔴 FATAL AUTH ERROR:', e.message);
+    console.error('[WAPI] 🔴 Stack:', e.stack);
+    return jsonErr(`auth_error: ${e.message}`, 500);
   }
 
   let payload;
