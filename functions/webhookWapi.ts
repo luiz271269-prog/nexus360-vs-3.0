@@ -1,4 +1,4 @@
-import { createClientFromRequest } from 'npm:@base44/sdk@0.8.6';
+import { createClient } from 'npm:@base44/sdk@0.8.6';
 import { processInboundEvent } from './lib/inboundCore.js';
 
 // ╔════════════════════════════════════════════════════════════════════════╗
@@ -751,7 +751,7 @@ Deno.serve(async (req) => {
       architecture: ARCHITECTURE,
       status: 'ok', 
       provider: 'w_api',
-      auth_method: 'createClientFromRequest (Base44 SDK)',
+      auth_method: 'createClient with BASE44_APP_ID (webhooks externos)',
       strategy: {
         webhook_role: 'PORTEIRO_CEGO - Identifica pela instanceId/connectedPhone',
         token_usage: 'GERENTE - Core e Workers buscam token no banco',
@@ -763,11 +763,16 @@ Deno.serve(async (req) => {
     });
   }
 
-  // ✅ AUTH: SDK Base44 oficial (NÃO precisa de SUPABASE_URL/SERVICE_ROLE_KEY)
+  // ✅ AUTH: SDK Base44 com credenciais da aplicação (webhooks externos não trazem headers)
   let base44;
   try {
-    base44 = createClientFromRequest(req);
-    console.log('[WAPI-AUTH] ✅ Cliente Base44 criado via SDK (sem env vars Supabase)');
+    const appId = Deno.env.get('BASE44_APP_ID');
+    if (!appId) {
+      console.error('[WAPI] 🔴 BASE44_APP_ID não configurado');
+      return jsonErr('config_error: BASE44_APP_ID não encontrado', 500);
+    }
+    base44 = createClient(appId);
+    console.log('[WAPI-AUTH] ✅ Cliente Base44 inicializado com APP_ID:', appId);
   } catch (e) {
     console.error('[WAPI] 🔴 FATAL AUTH ERROR:', e.message);
     console.error('[WAPI] 🔴 Stack:', e.stack);
