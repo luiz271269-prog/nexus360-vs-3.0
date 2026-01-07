@@ -97,21 +97,8 @@ Deno.serve(async (req) => {
         tentativas: possiveisEndpoints
       }, { status: 200, headers: corsHeaders });
     }
-    
-    if (!infoReq.ok) {
-      const errorText = await infoReq.text();
-      console.error('[WAPI-VERIFY] Erro ao buscar info:', infoReq.status, errorText);
-
-      // ✅ NÃO retornar 500 (erro de servidor), mas 200 com success:false
-      return Response.json({
-        success: false,
-        error: `W-API retornou erro ${infoReq.status}: ${errorText.substring(0, 200)}`,
-        raw_error: errorText,
-        status_code: infoReq.status
-      }, { status: 200, headers: corsHeaders });
-    }
-    
     const infoData = await infoReq.json();
+    console.log('[WAPI-VERIFY] ✅ Dados recebidos do endpoint:', endpointUsado);
     console.log('[WAPI-VERIFY] Dados recebidos:', JSON.stringify(infoData).substring(0, 300));
     
     const config = infoData.instance || infoData || {};
