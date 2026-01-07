@@ -430,12 +430,56 @@ export default function ConfiguracaoWhatsAppUnificado({ onClose }) {
     if (!confirm("Tem certeza que deseja DELETAR esta integração?")) return;
     
     try {
+      // ═══════════════════════════════════════════════════════════════════
+      // 🏛️ ARQUITETURA "PORTEIRO CEGO" - DELEÇÃO DUPLA
+      // ═══════════════════════════════════════════════════════════════════
+      // 1. Buscar integração do banco ANTES de deletar
+      // 2. SE modo="integrator": deletar do provedor W-API PRIMEIRO
+      // 3. SÓ DEPOIS deletar do banco Base44
+      // ═══════════════════════════════════════════════════════════════════
+      
+      const integracoes = await base44.entities.WhatsAppIntegration.filter({ id: integracaoId });
+      const integracao = integracoes[0];
+      
+      if (!integracao) {
+        toast.error("Integração não encontrada");
+        return;
+      }
+      
+      // Se for modo integrador W-API, deletar do provedor PRIMEIRO
+      if (integracao.modo === 'integrator' && integracao.api_provider === 'w_api') {
+        toast.info("🗑️ Removendo instância da W-API...");
+        
+        try {
+          const response = await base44.functions.invoke('wapiIntegratorManager', {
+            action: 'deleteInstance',
+            instanceId: integracao.instance_id_provider
+          });
+          
+          if (!response.data.success) {
+            throw new Error(response.data.error || 'Erro ao deletar instância do provedor');
+          }
+          
+          toast.success("✅ Instância removida da W-API");
+        } catch (providerError) {
+          console.error("Erro ao deletar do provedor:", providerError);
+          
+          // Perguntar se quer deletar do banco mesmo assim
+          if (!confirm("⚠️ Não foi possível deletar da W-API. Deseja deletar do banco mesmo assim?\n\n(A instância continuará existindo na W-API)")) {
+            throw providerError;
+          }
+        }
+      }
+      
+      // Agora deletar do banco Base44
       await base44.entities.WhatsAppIntegration.delete(integracaoId);
       setQrCodeData(prev => { const n = {...prev}; delete n[integracaoId]; return n; });
       await carregarIntegracoes();
-      toast.success("Integração deletada!");
+      toast.success("✅ Integração removida do sistema!");
+      
     } catch (error) {
-      toast.error("Erro ao deletar integração");
+      console.error("Erro ao deletar integração:", error);
+      toast.error(error.message || "Erro ao deletar integração");
     }
   };
 
