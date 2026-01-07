@@ -57,6 +57,8 @@ Deno.serve(async (req) => {
     }
 
     console.log(`[WAPI-WEBHOOK] 📋 URL do banco (DB): ${webhookUrl}`);
+    console.log(`[WAPI-WEBHOOK] 🔍 Integração modo: ${integration.modo || 'manual'}`);
+    console.log(`[WAPI-WEBHOOK] 🔍 API Provider: ${integration.api_provider}`);
     
     const baseUrl = integration.base_url_provider || 'https://api.w-api.app/v1';
     const instanceId = integration.instance_id_provider;
