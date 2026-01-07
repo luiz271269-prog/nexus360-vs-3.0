@@ -1,33 +1,33 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.4';
 
 // ╔════════════════════════════════════════════════════════════════════════╗
-// ║  WEBHOOK WHATSAPP W-API - v24.0.0-PORTEIRO-CEGO                       ║
-// ║  TIMESTAMP: 2026-01-07T12:00:00 - ALINHAMENTO ESTRATÉGICO DEFINITIVO ║
+// ║  WEBHOOK WHATSAPP W-API - v25.0.0-CLONE-FIX                           ║
+// ║  TIMESTAMP: 2026-01-07T14:30:00 - CORREÇÃO CRÍTICA req.clone()       ║
 // ║                                                                        ║
 // ║  ARQUITETURA: "PORTEIRO CEGO" vs "GERENTE"                            ║
 // ║  • Webhook (Porteiro): Só confere crachá (instanceId/connectedPhone) ║
 // ║  • Core/Workers (Gerente): Usa token do banco para ações             ║
 // ║  • Token NUNCA trafega no webhook de entrada                          ║
-// ║  • Simetria total com Z-API (webhookFinalZapi)                        ║
+// ║  • req.clone() OBRIGATÓRIO para asServiceRole funcionar              ║
 // ╚════════════════════════════════════════════════════════════════════════╝
 
-const VERSION = 'v24.0.0-PORTEIRO-CEGO';
-const BUILD_DATE = '2026-01-07T12:00:00';
-const DEPLOYMENT_ID = 'WAPI_ESTRATEGIA_ALINHADA_2026_01_07';
+const VERSION = 'v25.0.0-CLONE-FIX';
+const BUILD_DATE = '2026-01-07T14:30:00';
+const DEPLOYMENT_ID = 'WAPI_CLONE_FIX_2026_01_07';
 const ARCHITECTURE = 'PORTEIRO-CEGO';
 
 // ╔════════════════════════════════════════════════════════════════════════╗
 // ║  LOG BOOT - CONFIRMA VERSÃO ATIVA                                      ║
 // ╚════════════════════════════════════════════════════════════════════════╝
 console.log('╔════════════════════════════════════════════════════════════════╗');
-console.log('║  🚀 W-API WEBHOOK v24 - ESTRATÉGIA PORTEIRO CEGO          ║');
+console.log('║  🚀 W-API WEBHOOK v25 - req.clone() FIX                   ║');
 console.log('╠════════════════════════════════════════════════════════════╣');
-console.log(`║  📅 BUILD: ${BUILD_DATE}                       ║`);
-console.log(`║  🆔 DEPLOY: ${DEPLOYMENT_ID}   ║`);
+console.log(`║  📅 BUILD: ${BUILD_DATE}                     ║`);
+console.log(`║  🆔 DEPLOY: ${DEPLOYMENT_ID}         ║`);
 console.log('║  🏛️  ARQUITETURA: PORTEIRO CEGO vs GERENTE                ║');
 console.log('║  🔒 TOKEN: Nunca usado no webhook (apenas no Core)        ║');
 console.log('║  🎯 LOOKUP: instanceId ou connectedPhone -> Banco         ║');
-console.log('║  ✅ AUTH: createClientFromRequest (asServiceRole auto)    ║');
+console.log('║  ✅ AUTH: req.clone() OBRIGATÓRIO                         ║');
 console.log('║  ⚠️  SDK 0.8.4 - WEBHOOK PATTERN (igual Z-API)            ║');
 console.log('╚════════════════════════════════════════════════════════════╝');
 
@@ -771,23 +771,25 @@ Deno.serve(async (req) => {
       architecture: ARCHITECTURE,
       status: 'ok', 
       provider: 'w_api',
-      auth_method: 'createClientFromRequest com asServiceRole (webhooks externos)',
+      auth_method: 'createClientFromRequest(req.clone()) - req.clone() OBRIGATÓRIO',
       strategy: {
         webhook_role: 'PORTEIRO_CEGO - Identifica pela instanceId/connectedPhone',
         token_usage: 'GERENTE - Core e Workers buscam token no banco',
         security: 'Token nunca trafega no webhook de entrada',
-        symmetry: 'Total com Z-API (webhookFinalZapi)'
+        symmetry: 'Total com Z-API (webhookFinalZapi)',
+        critical_fix: 'req.clone() previne erro de asServiceRole'
       },
       no_supabase_vars: true,
       cache_bust: Date.now()
     });
   }
 
-  // ✅ AUTH: SDK Base44 (webhooks usam asServiceRole automaticamente)
+  // ✅ AUTH: SDK Base44 com req.clone() OBRIGATÓRIO
+  // SEM .clone(), o asServiceRole FALHA com erro de token
   let base44;
   try {
-    base44 = createClientFromRequest(req);
-    console.log('[WAPI-AUTH] ✅ Cliente Base44 criado (asServiceRole habilitado)');
+    base44 = createClientFromRequest(req.clone());
+    console.log('[WAPI-AUTH] ✅ Cliente Base44 criado com req.clone() (asServiceRole habilitado)');
   } catch (e) {
     console.error('[WAPI] 🔴 FATAL AUTH ERROR:', e.message);
     console.error('[WAPI] 🔴 Stack:', e.stack);
