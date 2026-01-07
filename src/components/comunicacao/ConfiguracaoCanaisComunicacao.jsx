@@ -1218,27 +1218,6 @@ export default function ConfiguracaoCanaisComunicacao({ integracoes, onRecarrega
                                 <span className="text-xs text-slate-600">Cria via API (Custom)</span>
                               </span>
                             </SelectItem>
-                            <SelectItem value="instagram_api">
-                              <span className="flex items-center gap-2">
-                                <div className="w-4 h-4 text-pink-600"><InstagramLogo /></div>
-                                <Badge className="bg-slate-100 text-slate-700 text-[10px]">Meta API</Badge>
-                                <span className="text-xs text-slate-600">Direct Messages</span>
-                              </span>
-                            </SelectItem>
-                            <SelectItem value="facebook_graph_api">
-                              <span className="flex items-center gap-2">
-                                <div className="w-4 h-4 text-blue-600"><FacebookLogo /></div>
-                                <Badge className="bg-slate-100 text-slate-700 text-[10px]">Graph API</Badge>
-                                <span className="text-xs text-slate-600">Messenger</span>
-                              </span>
-                            </SelectItem>
-                            <SelectItem value="goto_phone">
-                              <span className="flex items-center gap-2">
-                                <div className="w-5 h-4"><GoToLogo /></div>
-                                <Badge className="bg-slate-100 text-slate-700 text-[10px]">Connect</Badge>
-                                <span className="text-xs text-slate-600">SMS + Chamadas</span>
-                              </span>
-                            </SelectItem>
                           </SelectContent>
                         </Select>
                       </div>
