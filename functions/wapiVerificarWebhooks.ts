@@ -37,7 +37,8 @@ Deno.serve(async (req) => {
       }, { status: 400, headers: corsHeaders });
     }
 
-    const integration = await base44.asServiceRole.entities.WhatsAppIntegration.get(integration_id);
+    const integrations = await base44.asServiceRole.entities.WhatsAppIntegration.filter({ id: integration_id });
+    const integration = integrations[0];
 
     if (!integration || integration.api_provider !== 'w_api') {
       return Response.json({ 
