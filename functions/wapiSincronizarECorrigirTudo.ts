@@ -1,16 +1,16 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.6';
 
 /**
- * ✅ FUNÇÃO ORQUESTRADORA ÚNICA - W-API
- * Sincroniza + Registra + Corrige + Verifica
+ * ✅ FUNÇÃO ORQUESTRADORA ÚNICA - W-API Integrador
+ * Sincroniza + Registra + Corrige + Verifica em uma única chamada
  * 
- * Fluxo:
- * 1. Lista instâncias da W-API
- * 2. Atualiza status/telefone no banco
- * 3. Detecta divergências de webhook
- * 4. Registra webhooks corretos na W-API
- * 5. Verifica aplicação
- * 6. Retorna resultado consolidado
+ * Fluxo completo:
+ * 1. Lista instâncias da W-API (GET /integrator/instances)
+ * 2. Sincroniza com banco (criar/atualizar status/telefone)
+ * 3. Detecta divergências de webhook (DB vs W-API)
+ * 4. Registra webhooks corretos (PUT /integrator/instance/webhooks)
+ * 5. Revalida cada instância (GET /integrator/instance)
+ * 6. Retorna resultado detalhado por instância
  */
 Deno.serve(async (req) => {
   try {
@@ -32,11 +32,13 @@ Deno.serve(async (req) => {
       }, { status: 500 });
     }
 
-    console.log('[SYNC-FIX] 🚀 Iniciando orquestração completa...');
+    console.log('[SYNC-FIX] 🚀 Iniciando orquestração completa W-API...');
 
     // ========================================================================
-    // 1️⃣ LISTAR INSTÂNCIAS DA W-API
+    // PASSO 1: LISTAR INSTÂNCIAS DA W-API (Integrador)
     // ========================================================================
+    console.log('[SYNC-FIX] 📡 Listando instâncias da W-API...');
+    
     const listResponse = await fetch('https://api.w-api.app/v1/integrator/instances?pageSize=100&page=1', {
       method: 'GET',
       headers: {
@@ -54,77 +56,91 @@ Deno.serve(async (req) => {
       }, { status: 400 });
     }
 
-    const instanciasWAPI = listData.data;
-    console.log(`[SYNC-FIX] 📊 ${instanciasWAPI.length} instâncias na W-API`);
+    const instancesW = listData.data;
+    console.log(`[SYNC-FIX] 📊 ${instancesW.length} instâncias encontradas na W-API`);
 
     // ========================================================================
-    // 2️⃣ BUSCAR INTEGRAÇÕES LOCAIS W-API
+    // PASSO 2: SINCRONIZAR COM O BANCO
     // ========================================================================
+    console.log('[SYNC-FIX] 💾 Sincronizando com banco de dados...');
+    
     const integracoesLocais = await base44.asServiceRole.entities.WhatsAppIntegration.filter({
       api_provider: 'w_api'
     });
 
-    console.log(`[SYNC-FIX] 💾 ${integracoesLocais.length} integrações no banco`);
-
-    const mapeamentoLocal = new Map(
+    const mapLocalByInstanceId = new Map(
       integracoesLocais.map(i => [i.instance_id_provider, i])
     );
 
-    // ========================================================================
-    // 3️⃣ SINCRONIZAR STATUS/TELEFONE + DETECTAR DIVERGÊNCIAS
-    // ========================================================================
     let atualizados = 0;
-    const divergenciasWebhook = [];
 
-    for (const instW of instanciasWAPI) {
-      const intLocal = mapeamentoLocal.get(instW.instanceId);
-      if (!intLocal) continue;
+    for (const instW of instancesW) {
+      const intLocal = mapLocalByInstanceId.get(instW.instanceId);
+      
+      if (intLocal) {
+        // Atualizar status/telefone se divergente
+        const statusW = instW.connected ? 'conectado' : 'desconectado';
+        const numeroW = instW.connectedPhone || '';
 
-      const statusW = instW.connected ? 'conectado' : 'desconectado';
-      const numeroW = instW.connectedPhone || '';
-
-      // Atualizar status/telefone se divergente
-      if (intLocal.status !== statusW || (numeroW && intLocal.numero_telefone !== numeroW)) {
-        try {
-          await base44.asServiceRole.entities.WhatsAppIntegration.update(intLocal.id, {
-            status: statusW,
-            numero_telefone: numeroW || intLocal.numero_telefone,
-            ultima_atividade: new Date().toISOString()
-          });
-          atualizados++;
-          console.log(`[SYNC-FIX] ✅ Atualizado: ${intLocal.nome_instancia} (status/telefone)`);
-        } catch (error) {
-          console.error(`[SYNC-FIX] ❌ Erro ao atualizar ${intLocal.id}:`, error);
+        if (intLocal.status !== statusW || (numeroW && intLocal.numero_telefone !== numeroW)) {
+          try {
+            await base44.asServiceRole.entities.WhatsAppIntegration.update(intLocal.id, {
+              status: statusW,
+              numero_telefone: numeroW || intLocal.numero_telefone,
+              ultima_atividade: new Date().toISOString()
+            });
+            atualizados++;
+            console.log(`[SYNC-FIX] ✅ Atualizado: ${intLocal.nome_instancia} (status=${statusW}, tel=${numeroW})`);
+          } catch (error) {
+            console.error(`[SYNC-FIX] ❌ Erro ao atualizar ${intLocal.id}:`, error);
+          }
         }
-      }
-
-      // Detectar divergência de webhook
-      const webhookDB = intLocal.webhook_url;
-      const webhookWAPI = instW.webhookReceivedUrl;
-
-      if (webhookDB && webhookWAPI && webhookDB !== webhookWAPI) {
-        divergenciasWebhook.push({
-          integration: intLocal,
-          webhookDB,
-          webhookWAPI,
-          instanceId: instW.instanceId
-        });
-        console.log(`[SYNC-FIX] ⚠️ Divergência: ${intLocal.nome_instancia} | DB=${webhookDB} | W-API=${webhookWAPI}`);
       }
     }
 
-    console.log(`[SYNC-FIX] 📈 Status: ${atualizados} atualizados | ${divergenciasWebhook.length} webhooks divergentes`);
+    console.log(`[SYNC-FIX] 📈 ${atualizados} integrações atualizadas (status/telefone)`);
 
     // ========================================================================
-    // 4️⃣ CORRIGIR DIVERGÊNCIAS DE WEBHOOK (PUT na W-API)
+    // PASSO 3: COMPARAR URLs DE WEBHOOK (DB vs W-API)
     // ========================================================================
-    const correcoes = [];
+    console.log('[SYNC-FIX] 🔍 Comparando webhooks DB vs W-API...');
+    
+    const pendentesDeCorrecao = [];
 
-    for (const div of divergenciasWebhook) {
-      const { integration, webhookDB, instanceId } = div;
+    for (const instW of instancesW) {
+      const intLocal = mapLocalByInstanceId.get(instW.instanceId);
+      if (!intLocal) continue;
 
-      console.log(`[SYNC-FIX] 🔧 Corrigindo webhook: ${integration.nome_instancia}`);
-      console.log(`[SYNC-FIX] 📋 URL correta (DB): ${webhookDB}`);
+      const webhookDB = intLocal.webhook_url;
+      const webhookWAPI = instW.webhookReceivedUrl;
+
+      const divergente = webhookDB && webhookWAPI && webhookDB !== webhookWAPI;
+
+      if (divergente) {
+        pendentesDeCorrecao.push({
+          integration: intLocal,
+          instW,
+          webhookDB,
+          webhookWAPI
+        });
+        console.log(`[SYNC-FIX] ⚠️ Divergência: ${intLocal.nome_instancia}`);
+        console.log(`[SYNC-FIX]    DB: ${webhookDB}`);
+        console.log(`[SYNC-FIX]    W-API: ${webhookWAPI}`);
+      }
+    }
+
+    console.log(`[SYNC-FIX] 📋 ${pendentesDeCorrecao.length} instâncias precisam correção de webhook`);
+
+    // ========================================================================
+    // PASSO 4: REGISTRAR/CORRIGIR WEBHOOKS NA W-API
+    // ========================================================================
+    const resultadosPorInstancia = [];
+
+    for (const item of pendentesDeCorrecao) {
+      const { integration, instW, webhookDB, webhookWAPI } = item;
+      const instanceId = integration.instance_id_provider;
+
+      console.log(`[SYNC-FIX] 🔧 Corrigindo ${integration.nome_instancia} (${instanceId})...`);
 
       try {
         const putResponse = await fetch('https://api.w-api.app/v1/integrator/instance/webhooks', {
@@ -145,69 +161,96 @@ Deno.serve(async (req) => {
         });
 
         const putData = await putResponse.json();
-        console.log(`[SYNC-FIX] 📥 PUT Response:`, JSON.stringify(putData, null, 2));
+        console.log(`[SYNC-FIX] 📤 PUT HTTP ${putResponse.status}:`, JSON.stringify(putData, null, 2));
 
-        if (putResponse.ok && (putData.error === false || putData.success === true)) {
-          // Esperar 2s e verificar se foi aplicado
-          await new Promise(resolve => setTimeout(resolve, 2000));
-
-          const verifyResponse = await fetch(`https://api.w-api.app/v1/integrator/instance?instanceId=${instanceId}`, {
-            headers: { 'Authorization': `Bearer ${INTEGRATOR_TOKEN}` }
-          });
-
-          const verifyData = await verifyResponse.json();
-          const webhookAplicado = verifyData.webhookReceivedUrl === webhookDB;
-
-          correcoes.push({
+        if (!putResponse.ok || (putData.error !== false && putData.success !== true)) {
+          resultadosPorInstancia.push({
+            integration_id: integration.id,
+            instance_id: instanceId,
             nome: integration.nome_instancia,
-            instanceId,
-            sucesso: webhookAplicado,
-            webhookDB,
-            webhookWAPI_antes: div.webhookWAPI,
-            webhookWAPI_depois: verifyData.webhookReceivedUrl
+            telefone_db: integration.numero_telefone,
+            telefone_wapi: instW.connectedPhone,
+            webhook_db: webhookDB,
+            webhook_wapi_antes: webhookWAPI,
+            webhook_wapi_depois: webhookWAPI,
+            aplicado: false,
+            erro: putData.message || putData.error || `HTTP ${putResponse.status}`
           });
-
-          console.log(`[SYNC-FIX] ${webhookAplicado ? '✅' : '⚠️'} ${integration.nome_instancia}: ${webhookAplicado ? 'Corrigido' : 'Ainda divergente'}`);
-        } else {
-          correcoes.push({
-            nome: integration.nome_instancia,
-            instanceId,
-            sucesso: false,
-            erro: putData.message || putData.error || 'PUT falhou'
-          });
-          console.error(`[SYNC-FIX] ❌ Falha no PUT: ${integration.nome_instancia}`);
+          continue;
         }
-      } catch (error) {
-        correcoes.push({
+
+        // ========================================================================
+        // PASSO 5: REVALIDAR (GET + Comparação)
+        // ========================================================================
+        console.log(`[SYNC-FIX] 🔍 Revalidando ${integration.nome_instancia}...`);
+        
+        await new Promise(resolve => setTimeout(resolve, 2000));
+
+        const checkResponse = await fetch(`https://api.w-api.app/v1/integrator/instance?instanceId=${instanceId}`, {
+          headers: { 'Authorization': `Bearer ${INTEGRATOR_TOKEN}` }
+        });
+
+        const checkData = await checkResponse.json();
+        const webhookWAPI2 = checkData.webhookReceivedUrl;
+        const aplicado = webhookWAPI2 === webhookDB;
+
+        resultadosPorInstancia.push({
+          integration_id: integration.id,
+          instance_id: instanceId,
           nome: integration.nome_instancia,
-          instanceId,
-          sucesso: false,
+          telefone_db: integration.numero_telefone,
+          telefone_wapi: checkData.connectedPhone,
+          webhook_db: webhookDB,
+          webhook_wapi_antes: webhookWAPI,
+          webhook_wapi_depois: webhookWAPI2,
+          aplicado,
+          erro: aplicado ? null : 'W-API não aplicou a URL (verificar manualmente)'
+        });
+
+        console.log(`[SYNC-FIX] ${aplicado ? '✅ SUCESSO' : '❌ FALHOU'}: ${integration.nome_instancia}`);
+        console.log(`[SYNC-FIX]    Antes: ${webhookWAPI}`);
+        console.log(`[SYNC-FIX]    Depois: ${webhookWAPI2}`);
+        console.log(`[SYNC-FIX]    Esperado: ${webhookDB}`);
+
+      } catch (error) {
+        resultadosPorInstancia.push({
+          integration_id: integration.id,
+          instance_id: instanceId,
+          nome: integration.nome_instancia,
+          aplicado: false,
           erro: error.message
         });
-        console.error(`[SYNC-FIX] ❌ Erro: ${integration.nome_instancia}`, error);
+        console.error(`[SYNC-FIX] ❌ Exceção: ${integration.nome_instancia}`, error);
       }
     }
 
     // ========================================================================
-    // 5️⃣ RETORNAR RESULTADO CONSOLIDADO
+    // PASSO 6: RESPOSTA CONSOLIDADA
     // ========================================================================
-    const corrigidos = correcoes.filter(c => c.sucesso).length;
-    const falhas = correcoes.filter(c => !c.sucesso).length;
+    const corrigidos = resultadosPorInstancia.filter(r => r.aplicado).length;
+    const falhas = resultadosPorInstancia.filter(r => !r.aplicado).length;
 
-    console.log(`[SYNC-FIX] 🏁 Finalizado | Atualizados: ${atualizados} | Webhooks corrigidos: ${corrigidos}/${divergenciasWebhook.length}`);
+    console.log('[SYNC-FIX] 🏁 FINALIZADO');
+    console.log(`[SYNC-FIX]    Total W-API: ${instancesW.length}`);
+    console.log(`[SYNC-FIX]    Total Banco: ${integracoesLocais.length}`);
+    console.log(`[SYNC-FIX]    Status Atualizados: ${atualizados}`);
+    console.log(`[SYNC-FIX]    Divergências Detectadas: ${pendentesDeCorrecao.length}`);
+    console.log(`[SYNC-FIX]    Webhooks Corrigidos: ${corrigidos}`);
+    console.log(`[SYNC-FIX]    Falhas: ${falhas}`);
 
     return Response.json({
       success: true,
+      provider: 'wapi',
       resumo: {
-        instancias_wapi: instanciasWAPI.length,
-        integracoes_banco: integracoesLocais.length,
+        total_instancias_provedor: instancesW.length,
+        total_integracoes_local: integracoesLocais.length,
         status_atualizados: atualizados,
-        divergencias_detectadas: divergenciasWebhook.length,
+        divergencias_detectadas: pendentesDeCorrecao.length,
         webhooks_corrigidos: corrigidos,
         falhas
       },
-      instancias: instanciasWAPI,
-      correcoes,
+      instancias: instancesW,
+      resultados: resultadosPorInstancia,
       timestamp: new Date().toISOString()
     });
 

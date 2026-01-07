@@ -770,36 +770,69 @@ export default function ConfiguracaoCanaisComunicacao({ integracoes, onRecarrega
         throw new Error(response.data.error || 'Erro na sincronização');
       }
       
-      const { resumo, instancias, correcoes } = response.data;
+      const { resumo, instancias, resultados } = response.data;
       
-      // Atualizar lista de instâncias
+      // Atualizar lista de instâncias da W-API
       setInstanciasProvedor(instancias || []);
       
       // Recarregar integracoes do banco
       if (onRecarregar) await onRecarregar();
       
+      // Atualizar resultados de webhook para cada integração
+      if (resultados?.length > 0) {
+        const novosResultados = {};
+        resultados.forEach(r => {
+          novosResultados[r.integration_id] = {
+            success: r.aplicado,
+            todosOk: r.aplicado,
+            webhooks: {
+              message: r.aplicado,
+              message_ack: r.aplicado,
+              connection_update: r.aplicado
+            },
+            detalhes: {
+              webhook_db: r.webhook_db,
+              webhook_wapi_antes: r.webhook_wapi_antes,
+              webhook_wapi_depois: r.webhook_wapi_depois,
+              urls_encontradas: {
+                message: r.webhook_wapi_depois
+              }
+            }
+          };
+        });
+        setResultadosWebhook(novosResultados);
+      }
+      
       // Feedback detalhado
       const partes = [];
-      if (resumo.instancias_wapi > 0) partes.push(`${resumo.instancias_wapi} instâncias`);
-      if (resumo.status_atualizados > 0) partes.push(`${resumo.status_atualizados} atualizadas`);
-      if (resumo.webhooks_corrigidos > 0) partes.push(`${resumo.webhooks_corrigidos} webhooks OK`);
-      if (resumo.falhas > 0) partes.push(`${resumo.falhas} falhas`);
+      if (resumo.total_instancias_provedor > 0) partes.push(`${resumo.total_instancias_provedor} instâncias W-API`);
+      if (resumo.status_atualizados > 0) partes.push(`${resumo.status_atualizados} status atualizados`);
+      if (resumo.webhooks_corrigidos > 0) partes.push(`${resumo.webhooks_corrigidos} webhooks corrigidos ✅`);
+      if (resumo.falhas > 0) partes.push(`${resumo.falhas} falhas ⚠️`);
       
       if (resumo.falhas > 0) {
         toast.warning(
           <div className="space-y-1">
             <p className="font-bold">⚠️ Sincronização parcial</p>
-            <p className="text-xs">{partes.join(', ')}</p>
+            <p className="text-xs">{partes.join(' | ')}</p>
+            {resultados?.filter(r => !r.aplicado).map(r => (
+              <p key={r.instance_id} className="text-[10px] text-red-600">
+                ❌ {r.nome}: {r.erro}
+              </p>
+            ))}
           </div>,
-          { duration: 8000 }
+          { duration: 10000 }
+        );
+      } else if (resumo.divergencias_detectadas > 0) {
+        toast.success(
+          <div className="space-y-1">
+            <p className="font-bold">✅ Tudo sincronizado e corrigido!</p>
+            <p className="text-xs">{partes.join(' | ')}</p>
+          </div>,
+          { duration: 5000 }
         );
       } else {
-        toast.success(`✅ ${partes.join(', ')}`, { duration: 5000 });
-      }
-      
-      // Log de correções
-      if (correcoes?.length > 0) {
-        console.log('[SYNC] Correções aplicadas:', correcoes);
+        toast.success(`✅ ${partes.join(' | ')}`, { duration: 5000 });
       }
       
     } catch (error) {
