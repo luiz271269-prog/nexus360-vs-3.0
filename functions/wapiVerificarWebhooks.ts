@@ -58,12 +58,45 @@ Deno.serve(async (req) => {
     const baseUrl = integration.base_url_provider || 'https://api.w-api.app/v1';
 
     console.log(`[WAPI-VERIFY] Consultando info da instância: ${integration.instance_id_provider}`);
+    console.log(`[WAPI-VERIFY] Base URL: ${baseUrl}`);
+    console.log(`[WAPI-VERIFY] Headers:`, { ...headers, Authorization: 'Bearer ***' });
 
-    // ✅ USAR /instance/info (retorna TODA configuração, incluindo webhooks)
-    const infoReq = await fetch(`${baseUrl}/instance/info?instanceId=${integration.instance_id_provider}`, {
-      method: 'GET',
-      headers
-    });
+    // ✅ TESTAR MÚLTIPLOS ENDPOINTS (W-API pode variar)
+    const possiveisEndpoints = [
+      `${baseUrl}/instance/${integration.instance_id_provider}`,
+      `${baseUrl}/instance/info?instanceId=${integration.instance_id_provider}`,
+      `${baseUrl}/instances/${integration.instance_id_provider}`,
+      `${baseUrl}/instance/status?instanceId=${integration.instance_id_provider}`
+    ];
+
+    let infoReq = null;
+    let endpointUsado = null;
+
+    for (const endpoint of possiveisEndpoints) {
+      console.log(`[WAPI-VERIFY] Tentando endpoint: ${endpoint}`);
+      try {
+        const resp = await fetch(endpoint, { method: 'GET', headers });
+        if (resp.ok) {
+          infoReq = resp;
+          endpointUsado = endpoint;
+          console.log(`[WAPI-VERIFY] ✅ Endpoint funcionou: ${endpoint}`);
+          break;
+        } else {
+          console.log(`[WAPI-VERIFY] ❌ ${endpoint} retornou ${resp.status}`);
+        }
+      } catch (e) {
+        console.log(`[WAPI-VERIFY] ❌ ${endpoint} falhou:`, e.message);
+      }
+    }
+
+    if (!infoReq) {
+      console.error('[WAPI-VERIFY] ❌ Nenhum endpoint funcionou');
+      return Response.json({
+        success: false,
+        error: 'Nenhum endpoint W-API respondeu. Verifique se Instance ID e Token estão corretos.',
+        tentativas: possiveisEndpoints
+      }, { status: 200, headers: corsHeaders });
+    }
     
     if (!infoReq.ok) {
       const errorText = await infoReq.text();
