@@ -44,30 +44,43 @@ Deno.serve(async (req) => {
     const baseUrl = integration.base_url_provider || 'https://api.w-api.app/v1';
 
     // Listar webhooks configurados
-    const webhooksReq = await fetch(`${baseUrl}/instances/${integration.instance_id_provider}/webhooks`, {
+    const webhooksReq = await fetch(`${baseUrl}/instance/${integration.instance_id_provider}/webhooks`, {
       method: 'GET',
       headers
     });
     
-    const webhooksRes = await webhooksReq.json();
-    const webhooksAtuais = webhooksRes?.webhooks || [];
+    if (!webhooksReq.ok) {
+      const errorText = await webhooksReq.text();
+      console.error('[WAPI-VERIFY] Erro ao listar webhooks:', webhooksReq.status, errorText);
+      throw new Error(`Erro ao listar webhooks: ${webhooksReq.status} - ${errorText}`);
+    }
     
-    const nossoWebhook = webhooksAtuais.find(w => 
-      w.url === webhookUrl || w.url?.includes('webhookWapi')
-    );
+    const webhooksRes = await webhooksReq.json();
+    
+    // W-API retorna um objeto com os tipos de webhook configurados
+    const webhooksConfig = webhooksRes?.webhooks || webhooksRes || {};
+    
+    // Verificar cada tipo de webhook
+    const messageWebhook = webhooksConfig.message || webhooksConfig.received_message;
+    const messageAckWebhook = webhooksConfig.message_ack || webhooksConfig.message_status;
+    const connectionWebhook = webhooksConfig.connection_update || webhooksConfig.status_instance;
+    
+    const webhooks = {
+      message: messageWebhook === webhookUrl || messageWebhook?.includes('webhookWapi'),
+      message_ack: messageAckWebhook === webhookUrl || messageAckWebhook?.includes('webhookWapi'),
+      connection_update: connectionWebhook === webhookUrl || connectionWebhook?.includes('webhookWapi')
+    };
 
     return Response.json({
       success: true,
+      webhooks,
       integration: {
         id: integration.id,
         nome: integration.nome_instancia,
         instance_id: integration.instance_id_provider
       },
-      webhooks_configurados: webhooksAtuais,
-      nosso_webhook_encontrado: !!nossoWebhook,
-      webhook_esperado: webhookUrl,
-      webhook_atual: nossoWebhook || null,
-      precisa_configurar: !nossoWebhook
+      raw_response: webhooksConfig,
+      webhook_esperado: webhookUrl
     });
 
   } catch (error) {
