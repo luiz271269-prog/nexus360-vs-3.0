@@ -1618,11 +1618,14 @@ export default function ConfiguracaoCanaisComunicacao({ integracoes, onRecarrega
                                   <p><strong>Telefone (DB):</strong> {integracao.numero_telefone || 'Não configurado'}</p>
                                   <p><strong>Status (DB):</strong> {integracao.status}</p>
                                   <p className="text-purple-700 break-all"><strong>Webhook URL (DB):</strong> {integracao.webhook_url || 'Não configurado'}</p>
-                                  
+
                                   {comparacao.instanciaWAPI && (
                                     <>
                                       <p className="text-indigo-700"><strong>Telefone (W-API):</strong> {comparacao.instanciaWAPI.connectedPhone || 'Não conectado'}</p>
                                       <p className="text-indigo-700"><strong>Status (W-API):</strong> {comparacao.instanciaWAPI.connected ? 'conectado' : 'desconectado'}</p>
+                                      <p className={`break-all ${comparacao.webhookDB !== comparacao.webhookWAPI ? 'text-red-700 font-semibold' : 'text-indigo-700'}`}>
+                                        <strong>Webhook URL (W-API):</strong> {comparacao.webhookWAPI || 'Não configurado'}
+                                      </p>
                                     </>
                                   )}
                                 </div>
