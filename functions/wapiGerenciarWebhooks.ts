@@ -58,73 +58,131 @@ Deno.serve(async (req) => {
 
     console.log(`[WAPI-WEBHOOK] 📋 URL do banco (DB): ${webhookUrl}`);
     
-    const headers = {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${integration.api_key_provider}`
-    };
-
     const baseUrl = integration.base_url_provider || 'https://api.w-api.app/v1';
     const instanceId = integration.instance_id_provider;
 
     console.log(`[WAPI-WEBHOOK] 🔧 Registrando webhooks para: ${instanceId}`);
     console.log(`[WAPI-WEBHOOK] 🔗 URL: ${webhookUrl}`);
 
-    // ✅ REGISTRAR OS 3 WEBHOOKS PRINCIPAIS NA W-API
-    const webhookEndpoints = [
-      { tipo: 'Recebimento', url: `${baseUrl}/instance/webhook-received`, body: { instanceId, url: webhookUrl, enabled: true } },
-      { tipo: 'Entrega/Lida', url: `${baseUrl}/instance/webhook-delivery`, body: { instanceId, url: webhookUrl, enabled: true } },
-      { tipo: 'Status/Conexão', url: `${baseUrl}/instance/webhook-status`, body: { instanceId, url: webhookUrl, enabled: true } }
-    ];
+    // ✅ USAR INTEGRATOR TOKEN para modo integrador, token individual caso contrário
+    const INTEGRATOR_TOKEN = Deno.env.get('WAPI_INTEGRATOR_TOKEN');
+    const usarIntegrator = integration.modo === 'integrator' && INTEGRATOR_TOKEN;
 
-    const resultados = [];
-    const erros = [];
+    let headers;
+    let endpoint;
+    let body;
 
-    for (const endpoint of webhookEndpoints) {
-      try {
-        console.log(`[WAPI-WEBHOOK] Configurando: ${endpoint.tipo}`);
-        
-        const response = await fetch(endpoint.url, {
-          method: 'POST',
+    if (usarIntegrator) {
+      // Modo Integrador: um único PUT com todos os webhooks
+      headers = {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${INTEGRATOR_TOKEN}`
+      };
+      endpoint = `${baseUrl}/integrator/instance/webhooks`;
+      body = {
+        instanceId,
+        webhookReceivedUrl: webhookUrl,
+        webhookDeliveryUrl: webhookUrl,
+        webhookDisconnectedUrl: webhookUrl,
+        webhookStatusUrl: webhookUrl,
+        webhookPresenceUrl: webhookUrl,
+        webhookConnectedUrl: webhookUrl
+      };
+      console.log('[WAPI-WEBHOOK] 🔧 Modo INTEGRADOR detectado');
+    } else {
+      // Modo Manual: endpoints individuais (deprecated, mas mantido como fallback)
+      headers = {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${integration.api_key_provider}`
+      };
+      console.log('[WAPI-WEBHOOK] 🔧 Modo MANUAL detectado');
+    }
+
+    try {
+      if (usarIntegrator) {
+        // Uma única chamada PUT para atualizar todos os webhooks
+        console.log(`[WAPI-WEBHOOK] 📤 PUT ${endpoint}`);
+        console.log(`[WAPI-WEBHOOK] 📋 Body:`, JSON.stringify(body, null, 2));
+
+        const response = await fetch(endpoint, {
+          method: 'PUT',
           headers,
-          body: JSON.stringify(endpoint.body)
+          body: JSON.stringify(body)
         });
 
         const data = await response.json();
+        console.log(`[WAPI-WEBHOOK] 📥 Resposta:`, JSON.stringify(data, null, 2));
 
         if (data.error === false || response.ok) {
-          resultados.push({ tipo: endpoint.tipo, status: 'ok' });
-          console.log(`[WAPI-WEBHOOK] ✅ ${endpoint.tipo} configurado`);
+          return Response.json({
+            success: true,
+            message: 'Todos os webhooks configurados via Integrador!',
+            webhook_url: webhookUrl,
+            detalhes: data
+          }, { headers: corsHeaders });
         } else {
-          const erro = data.message || 'Erro desconhecido';
-          erros.push({ tipo: endpoint.tipo, erro });
-          console.error(`[WAPI-WEBHOOK] ❌ ${endpoint.tipo}: ${erro}`);
+          return Response.json({
+            success: false,
+            error: data.message || 'Erro ao configurar webhooks via Integrador',
+            detalhes: data
+          }, { status: 400, headers: corsHeaders });
         }
-      } catch (error) {
-        erros.push({ tipo: endpoint.tipo, erro: error.message });
-        console.error(`[WAPI-WEBHOOK] ❌ ${endpoint.tipo}: ${error.message}`);
+      } else {
+        // Modo manual: múltiplas chamadas POST (fallback)
+        const webhookEndpoints = [
+          { tipo: 'Recebimento', url: `${baseUrl}/instance/webhook-received`, body: { instanceId, url: webhookUrl, enabled: true } },
+          { tipo: 'Entrega/Lida', url: `${baseUrl}/instance/webhook-delivery`, body: { instanceId, url: webhookUrl, enabled: true } },
+          { tipo: 'Status/Conexão', url: `${baseUrl}/instance/webhook-status`, body: { instanceId, url: webhookUrl, enabled: true } }
+        ];
+
+        const resultados = [];
+        const erros = [];
+
+        for (const ep of webhookEndpoints) {
+          try {
+            console.log(`[WAPI-WEBHOOK] Configurando: ${ep.tipo}`);
+            const response = await fetch(ep.url, { method: 'POST', headers, body: JSON.stringify(ep.body) });
+            const data = await response.json();
+
+            if (data.error === false || response.ok) {
+              resultados.push({ tipo: ep.tipo, status: 'ok' });
+              console.log(`[WAPI-WEBHOOK] ✅ ${ep.tipo} configurado`);
+            } else {
+              erros.push({ tipo: ep.tipo, erro: data.message || 'Erro desconhecido' });
+              console.error(`[WAPI-WEBHOOK] ❌ ${ep.tipo}:`, data.message);
+            }
+          } catch (error) {
+            erros.push({ tipo: ep.tipo, erro: error.message });
+            console.error(`[WAPI-WEBHOOK] ❌ ${ep.tipo}:`, error.message);
+          }
+        }
+
+        const webhookMensagemOk = resultados.some(r => r.tipo === 'Recebimento');
+
+        if (webhookMensagemOk) {
+          return Response.json({
+            success: true,
+            message: erros.length === 0 ? 'Todos os webhooks configurados!' : 'Webhooks parcialmente configurados',
+            resultados,
+            erros: erros.length > 0 ? erros : undefined,
+            webhook_url: webhookUrl
+          }, { headers: corsHeaders });
+        } else {
+          return Response.json({
+            success: false,
+            error: 'Não foi possível configurar o webhook de recebimento (crítico)',
+            resultados,
+            erros
+          }, { status: 400, headers: corsHeaders });
+        }
       }
-    }
-
-    // Sucesso se pelo menos o webhook de mensagem foi configurado
-    const webhookMensagemOk = resultados.some(r => r.tipo === 'Recebimento');
-
-    if (webhookMensagemOk) {
-      return Response.json({
-        success: true,
-        message: erros.length === 0 ? 
-          'Todos os webhooks configurados com sucesso!' : 
-          'Webhooks parcialmente configurados (veja detalhes)',
-        resultados,
-        erros: erros.length > 0 ? erros : undefined,
-        webhook_url: webhookUrl
-      }, { headers: corsHeaders });
-    } else {
+    } catch (error) {
+      console.error('[WAPI-WEBHOOK] ❌ Erro na requisição:', error);
       return Response.json({
         success: false,
-        error: 'Não foi possível configurar o webhook de recebimento (crítico)',
-        resultados,
-        erros
-      }, { status: 400, headers: corsHeaders });
+        error: error.message,
+        stack: error.stack
+      }, { status: 500, headers: corsHeaders });
     }
 
   } catch (error) {
