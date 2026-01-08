@@ -67,7 +67,8 @@ function normalizarTelefone(telefone) {
     }
   }
   
-  return '+' + apenasNumeros;
+  // ✅ CRÍTICO: Retornar SEM + para consistência com frontend e evitar duplicatas
+  return apenasNumeros;
 }
 
 // ============================================================================
