@@ -923,43 +923,39 @@ export default function Comunicacao() {
 
     // ═══════════════════════════════════════════════════════════════════════════
     // PARTE 1: Filtrar THREADS existentes com REGRAS DE VISUALIZAÇÃO
-    // (Usando threadsUnicas para evitar duplicatas por contato)
+    // (Usando threadsUnicas - permite múltiplos canais por contato)
     // ═══════════════════════════════════════════════════════════════════════════
     const threadsFiltrados = threadsUnicas.filter((thread) => {
-      // ✅ LOG: Verificar se thread de teste passa pelos filtros
-      const isThreadTeste = thread.id === '6927a16db587db4e93842639';
-      if (isThreadTeste) {
-        console.log('[COMUNICACAO] 🔍 Filtrando thread de teste:', {
-          thread_type: thread.thread_type,
-          contact_id: thread.contact_id,
-          integration_id: thread.whatsapp_integration_id
-        });
-      }
       // ✅ THREADS INTERNAS - visibilidade baseada APENAS em participação
-      // ZERO filtros de contato/integração/setor WhatsApp aplicados
       if (thread.thread_type === 'team_internal' || thread.thread_type === 'sector_group') {
         const isParticipant = thread.participants?.includes(usuario?.id);
         const isAdmin = usuario?.role === 'admin';
-        const podeVer = Boolean(isParticipant || isAdmin);
-        
-        // Threads internas passam direto se usuário tem permissão
-        return podeVer;
+        return Boolean(isParticipant || isAdmin);
       }
       
       // ⬇️ Daqui pra baixo: SOMENTE threads EXTERNAS (contact_external)
-      const contato = contatosMap.get(thread.contact_id);
-
-      // ✅ LOG: Thread de teste sem contato
-      if (isThreadTeste && !contato) {
-        console.log('[COMUNICACAO] ❌ Thread de teste BLOQUEADA: contato não encontrado no Map', {
-          contact_id: thread.contact_id,
-          total_contatos: contatosMap.size
-        });
+      
+      // ✅ FILTRO DE PERMISSÃO DE INTEGRAÇÃO - CRÍTICO
+      // Usuário só pode ver threads de integrações que ele tem permissão
+      if (usuario?.role !== 'admin' && thread.whatsapp_integration_id) {
+        const whatsappPerms = usuario?.whatsapp_permissions || [];
+        
+        // Se usuário tem permissões configuradas, verificar se pode ver esta integração
+        if (whatsappPerms.length > 0) {
+          const temPermissaoNaIntegracao = whatsappPerms.some(p => 
+            p.integration_id === thread.whatsapp_integration_id && p.can_view === true
+          );
+          
+          if (!temPermissaoNaIntegracao) {
+            return false; // Filtrar thread de integração não permitida
+          }
+        }
       }
+      
+      const contato = contatosMap.get(thread.contact_id);
 
       // Threads órfãs sem contato: manter apenas se filtro "não atribuídas" ativo
       if (!contato && !isFilterUnassigned) {
-        if (isThreadTeste) console.log('[COMUNICACAO] ❌ Thread de teste removida: sem contato');
         return false;
       }
 
