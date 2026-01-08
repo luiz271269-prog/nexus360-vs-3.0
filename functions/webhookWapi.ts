@@ -715,11 +715,21 @@ async function handleMessage(dados, payloadBruto, base44) {
       }
     }
 
-    // ✅ URA DESATIVADA: Pular processamento do Core (apenas salvar mensagem)
+    // ✅ GERENTE: Core processa com Token do banco
     console.log('[WAPI] 🔐 GERENTE: Integração compartilhada (Token seguro no banco)');
-    console.log('[WAPI] ⏭️ URA desativada - mensagem já salva, sem processamento adicional');
+    console.log('[WAPI] 🎯 Disparando Core para Playbooks/URA...');
 
-    // Core processing desativado temporariamente para teste
+    const { processInboundEvent } = await import('./lib/inboundCore.js');
+    await processInboundEvent({
+      base44,
+      contact,
+      thread,
+      message: mensagem,
+      integration: integracaoObj,
+      provider: 'w_api',
+      messageContent: dados.content,
+      rawPayload: payload
+    });
   } catch (err) {
     console.error('[WAPI] 🔴 GERENTE: Erro no processamento:', err.message);
   }
