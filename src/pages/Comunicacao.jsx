@@ -864,79 +864,44 @@ export default function Comunicacao() {
       });
     }
 
-    // ✅ PASSO 1.5: DEDUPLICAÇÃO GLOBAL - Agrupar threads por contact_id (APENAS EXTERNAS)
-    // Mostrar apenas a thread mais recente de cada contato externo
-    // Isso resolve o problema de duplicação quando há múltiplas conexões (Z-API, W-API)
-    // ⚠️ CRÍTICO: Threads internas (team_internal/sector_group) SEMPRE aparecem sem deduplicação
-    const threadMaisRecentePorContato = new Map();
+    // ✅ DEDUPLICAÇÃO POR CANAL: Permitir múltiplas threads do mesmo contato se forem de INTEGRAÇÕES DIFERENTES
+    // Chave: `${contact_id}-${whatsapp_integration_id}` para threads externas
+    // Isso permite que Tifhany tenha thread Z-API E thread W-API visíveis simultaneamente
+    const threadMaisRecentePorContactoCanal = new Map();
     threads.forEach((thread) => {
-      // ✅ LOG: Thread de teste
-      if (thread.id === '6927a16db587db4e93842639') {
-        console.log('[COMUNICACAO] 🔍 Thread de teste W-API encontrada:', {
-          id: thread.id,
-          contact_id: thread.contact_id,
-          integration_id: thread.whatsapp_integration_id,
-          last_message_at: thread.last_message_at,
-          unread_count: thread.unread_count,
-          thread_type: thread.thread_type
-        });
-      }
-      
       // ✅ Threads internas SEMPRE adicionadas diretamente (chave única por thread.id)
       if (thread.thread_type === 'team_internal' || thread.thread_type === 'sector_group') {
-        threadMaisRecentePorContato.set(`internal-${thread.id}`, thread);
+        threadMaisRecentePorContactoCanal.set(`internal-${thread.id}`, thread);
         return;
       }
       
-      // ✅ Threads externas: deduplicar por contact_id
+      // ✅ Threads externas: deduplicar por contact_id + integration_id (permite múltiplos canais)
       const contactId = thread.contact_id;
       if (!contactId) {
         // Thread órfã sem contato - adicionar com chave única
-        threadMaisRecentePorContato.set(`orphan-${thread.id}`, thread);
+        threadMaisRecentePorContactoCanal.set(`orphan-${thread.id}`, thread);
         return;
       }
 
-      const existente = threadMaisRecentePorContato.get(contactId);
+      // ✅ CHAVE COMPOSTA: contact_id + integration_id (permite Z-API e W-API simultâneas)
+      const integrationId = thread.whatsapp_integration_id || 'sem-integracao';
+      const chaveComposta = `${contactId}-${integrationId}`;
+      
+      const existente = threadMaisRecentePorContactoCanal.get(chaveComposta);
       if (!existente) {
-        threadMaisRecentePorContato.set(contactId, thread);
-        
-        // ✅ LOG: Thread de teste sendo adicionada pela primeira vez
-        if (thread.id === '6927a16db587db4e93842639') {
-          console.log('[COMUNICACAO] ✅ Thread de teste adicionada ao Map (primeira vez)');
-        }
+        threadMaisRecentePorContactoCanal.set(chaveComposta, thread);
       } else {
-        // Manter a mais recente baseado em last_message_at
+        // Se há múltiplas threads do mesmo contato na mesma integração, manter a mais recente
         const dataExistente = new Date(existente.last_message_at || existente.updated_date || existente.created_date || 0);
         const dataAtual = new Date(thread.last_message_at || thread.updated_date || thread.created_date || 0);
         if (dataAtual > dataExistente) {
-          // ✅ LOG: Thread de teste sendo substituída
-          if (thread.id === '6927a16db587db4e93842639') {
-            console.log('[COMUNICACAO] 🔄 Thread de teste substituindo existente:', {
-              thread_teste: thread.id,
-              thread_existente: existente.id,
-              data_teste: dataAtual,
-              data_existente: dataExistente
-            });
-          }
-          threadMaisRecentePorContato.set(contactId, thread);
-        } else {
-          // ✅ LOG: Thread de teste sendo descartada
-          if (thread.id === '6927a16db587db4e93842639') {
-            console.log('[COMUNICACAO] ⏭️ Thread de teste DESCARTADA (existente é mais recente):', {
-              thread_teste: thread.id,
-              thread_mantida: existente.id,
-              data_teste: dataAtual,
-              data_existente: dataExistente
-            });
-          }
+          threadMaisRecentePorContactoCanal.set(chaveComposta, thread);
         }
       }
     });
-    const threadsUnicas = Array.from(threadMaisRecentePorContato.values());
+    const threadsUnicas = Array.from(threadMaisRecentePorContactoCanal.values());
     
-    // ✅ LOG: Verificar se thread de teste está nas únicas
-    const threadTesteNasUnicas = threadsUnicas.find(t => t.id === '6927a16db587db4e93842639');
-    console.log('[COMUNICACAO] 🎯 Thread de teste após deduplicação:', threadTesteNasUnicas ? 'PRESENTE ✅' : 'REMOVIDA ❌');
+    console.log('[COMUNICACAO] 🎯 Threads únicas (agrupadas por contato + canal):', threadsUnicas.length);
 
     // Registrar IDs de contatos que já têm thread (para evitar duplicatas na busca)
     const contatosComThreadExistente = new Set(threadsUnicas.map((t) => t.contact_id).filter(Boolean));
