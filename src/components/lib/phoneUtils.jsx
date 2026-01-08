@@ -34,6 +34,18 @@ export function normalizarTelefone(telefone) {
     }
   }
   
+  // ✅ NORMALIZAR CELULARES BRASILEIROS: adicionar 9 se faltar
+  // Formato esperado: 55 + DDD(2) + 9 + número(8) = 13 dígitos
+  // Se veio 55 + DDD(2) + número(8) = 12 dígitos, adiciona o 9
+  if (apenasNumeros.startsWith('55') && apenasNumeros.length === 12) {
+    const ddd = apenasNumeros.substring(2, 4);
+    const numero = apenasNumeros.substring(4);
+    // Se não começa com 9, adicionar (celulares brasileiros)
+    if (!numero.startsWith('9')) {
+      apenasNumeros = '55' + ddd + '9' + numero;
+    }
+  }
+  
   // IMPORTANTE: Retornar SEM + para garantir consistência entre provedores
   return apenasNumeros;
 }
