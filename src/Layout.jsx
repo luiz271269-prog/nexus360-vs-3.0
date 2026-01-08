@@ -51,7 +51,7 @@ import { toast } from "sonner";
 import InitializadorSistema from "../components/global/InitializadorSistema";
 import DeploymentBanner from "../components/global/DeploymentBanner";
 import CacheBuster from "../components/global/CacheBuster";
-import FeedbackAutomaticoCapturado from "../components/inteligencia/FeedbackAutomaticoCapturado";
+// import FeedbackAutomaticoCapturado from "../components/inteligencia/FeedbackAutomaticoCapturado";
 import { calcularLembretesGlobal } from "../components/global/MotorLembretesGlobal";
 import UserAuthWidget from "../components/global/UserAuthWidget";
 
@@ -366,7 +366,6 @@ export default function Layout({ children, currentPageName }) {
   return (
     <div className="flex h-screen bg-gradient-to-br from-amber-50 via-orange-50/30 to-red-50/20">
       <InitializadorSistema />
-      <FeedbackAutomaticoCapturado />
       <CacheBuster />
       <DeploymentBanner />
 
