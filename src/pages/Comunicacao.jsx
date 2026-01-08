@@ -926,9 +926,17 @@ export default function Comunicacao() {
     // (Usando threadsUnicas - permite múltiplos canais por contato)
     // ═══════════════════════════════════════════════════════════════════════════
     const threadsFiltrados = threadsUnicas.filter((thread) => {
-      // 🔍 CORREÇÃO CIRÚRGICA: Garantir unread_count numérico (nunca undefined)
-      if (thread.unread_count === undefined || thread.unread_count === null) {
-        thread.unread_count = 0;
+      // 🔍 DEBUG: Log para thread específica do Luiz
+      const isLuizThread = thread.id === '693306f0ffbdced31cc623e3';
+      if (isLuizThread) {
+        console.log('[COMUNICACAO] 🔍 DIAGNÓSTICO LUIZ - Thread encontrada:', {
+          thread_id: thread.id,
+          contact_id: thread.contact_id,
+          integration_id: thread.whatsapp_integration_id,
+          unread_count: thread.unread_count,
+          last_message_at: thread.last_message_at,
+          thread_type: thread.thread_type
+        });
       }
       
       // ✅ THREADS INTERNAS - visibilidade baseada APENAS em participação
@@ -940,34 +948,53 @@ export default function Comunicacao() {
       
       // ⬇️ Daqui pra baixo: SOMENTE threads EXTERNAS (contact_external)
       
-      // ✅ CORREÇÃO CIRÚRGICA: Admin vê TUDO, sem restrições
-      if (usuario?.role === 'admin') {
-        return true;
-      }
-      
-      // ✅ FILTRO DE PERMISSÃO DE INTEGRAÇÃO - Usuários não-admin
-      if (thread.whatsapp_integration_id) {
+      // ✅ FILTRO DE PERMISSÃO DE INTEGRAÇÃO - CRÍTICO
+      // Usuário só pode ver threads de integrações que ele tem permissão
+      if (usuario?.role !== 'admin' && thread.whatsapp_integration_id) {
         const whatsappPerms = usuario?.whatsapp_permissions || [];
         
-        // Se não tem permissões configuradas, pode ver TUDO (padrão permissivo)
-        if (whatsappPerms.length === 0) {
-          // Continue para próximos filtros
-        } else {
-          // Tem permissões configuradas - verificar se pode ver esta integração
+        if (isLuizThread) {
+          console.log('[COMUNICACAO] 🔍 DIAGNÓSTICO LUIZ - Permissões:', {
+            role: usuario?.role,
+            whatsapp_permissions: whatsappPerms,
+            integration_buscada: thread.whatsapp_integration_id
+          });
+        }
+        
+        // Se usuário tem permissões configuradas, verificar se pode ver esta integração
+        if (whatsappPerms.length > 0) {
           const temPermissaoNaIntegracao = whatsappPerms.some(p => 
             p.integration_id === thread.whatsapp_integration_id && p.can_view === true
           );
           
+          if (isLuizThread) {
+            console.log('[COMUNICACAO] 🔍 DIAGNÓSTICO LUIZ - Tem permissão?', temPermissaoNaIntegracao);
+          }
+          
           if (!temPermissaoNaIntegracao) {
-            return false; // Bloquear thread de integração não permitida
+            if (isLuizThread) {
+              console.log('[COMUNICACAO] ❌ DIAGNÓSTICO LUIZ - BLOQUEADO por falta de permissão can_view na integração');
+            }
+            return false; // Filtrar thread de integração não permitida
+          }
+        } else {
+          if (isLuizThread) {
+            console.log('[COMUNICACAO] ✅ DIAGNÓSTICO LUIZ - Sem permissões configuradas, mostrando tudo');
           }
         }
       }
       
       const contato = contatosMap.get(thread.contact_id);
+      
+      if (isLuizThread) {
+        console.log('[COMUNICACAO] 🔍 DIAGNÓSTICO LUIZ - Contato:', contato ? 'ENCONTRADO' : 'NÃO ENCONTRADO');
+      }
 
       // Threads órfãs sem contato: manter apenas se filtro "não atribuídas" ativo
       if (!contato && !isFilterUnassigned) {
+        if (isLuizThread) {
+          console.log('[COMUNICACAO] ❌ DIAGNÓSTICO LUIZ - BLOQUEADO por falta de contato');
+        }
         return false;
       }
 
@@ -1028,17 +1055,26 @@ export default function Comunicacao() {
         // REGRA CENTRAL: Usar módulo threadVisibility.js para outros escopos
         const podeVer = canUserSeeThreadWithFilters(usuario, threadComContato, filtros);
         if (!podeVer) {
+          if (isLuizThread) {
+            console.log('[COMUNICACAO] ❌ DIAGNÓSTICO LUIZ - BLOQUEADO por canUserSeeThreadWithFilters', filtros);
+          }
           return false;
         }
       }
 
       // FILTROS ADICIONAIS (categoria, tipo contato, tag)
       if (categoriasSet && !categoriasSet.has(thread.id)) {
+        if (isLuizThread) {
+          console.log('[COMUNICACAO] ❌ DIAGNÓSTICO LUIZ - BLOQUEADO por filtro de categoria');
+        }
         return false;
       }
 
       if (selectedTipoContato && selectedTipoContato !== 'all' && contato) {
         if (contato.tipo_contato !== selectedTipoContato) {
+          if (isLuizThread) {
+            console.log('[COMUNICACAO] ❌ DIAGNÓSTICO LUIZ - BLOQUEADO por filtro de tipo de contato');
+          }
           return false;
         }
       }
@@ -1046,8 +1082,15 @@ export default function Comunicacao() {
       if (selectedTagContato && selectedTagContato !== 'all' && contato) {
         const tags = contato.tags || [];
         if (!tags.includes(selectedTagContato)) {
+          if (isLuizThread) {
+            console.log('[COMUNICACAO] ❌ DIAGNÓSTICO LUIZ - BLOQUEADO por filtro de tag');
+          }
           return false;
         }
+      }
+
+      if (isLuizThread) {
+        console.log('[COMUNICACAO] ✅ DIAGNÓSTICO LUIZ - PASSOU em todos os filtros!');
       }
 
       return true;

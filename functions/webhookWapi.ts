@@ -67,8 +67,7 @@ function normalizarTelefone(telefone) {
     }
   }
   
-  // ✅ CRÍTICO: Retornar SEM + para consistência com frontend e evitar duplicatas
-  return apenasNumeros;
+  return '+' + apenasNumeros;
 }
 
 // ============================================================================
@@ -675,8 +674,55 @@ async function handleMessage(dados, payloadBruto, base44) {
     }).catch(e => console.error('[WAPI] Erro trigger mídia:', e.message));
   }
 
-  // ✅ URA DESATIVADA: Pular processamento do Core (apenas salvar mensagem)
-  console.log('[WAPI] ⏭️ URA desativada - mensagem já salva, sem processamento adicional');
+  // ═══════════════════════════════════════════════════════════════════
+  // 🏛️ ARQUITETURA "GERENTE" - ETAPA 2: PROCESSAMENTO COM TOKEN
+  // ═══════════════════════════════════════════════════════════════════
+  // Agora o "Gerente" (processInboundEvent) entra em ação.
+  // Ele recebe o integracaoId do "Porteiro" e, internamente,
+  // busca o Token (api_key_provider) do banco quando precisar
+  // realizar ações como:
+  // - Enviar mensagens de resposta
+  // - Baixar mídias
+  // - Atualizar status
+  //
+  // O Webhook NÃO passa o token. Passa apenas o ID da integração.
+  // ═══════════════════════════════════════════════════════════════════
+  try {
+    console.log('[WAPI] 🏛️ GERENTE: Iniciando processamento com Core...');
+    console.log('[WAPI] 📊 Diagnóstico Thread:', {
+      thread_id: thread.id,
+      assigned_user_id: thread.assigned_user_id,
+      pre_atendimento_ativo: thread.pre_atendimento_ativo,
+      last_human_message_at: thread.last_human_message_at,
+      last_inbound_at: thread.last_inbound_at,
+      unread_count: thread.unread_count
+    });
+
+    let integracaoObj = null;
+    if (integracaoId) {
+      try {
+        const ints = await base44.asServiceRole.entities.WhatsAppIntegration.filter(
+          { id: integracaoId },
+          '-created_date',
+          1
+        );
+
+        integracaoObj = ints?.[0] || null;
+        console.log('[WAPI] 🔐 GERENTE: Integração carregada (Token seguro no banco)');
+      } catch (e) {
+        console.warn('[WAPI] ⚠️ Integração não encontrada:', e.message);
+        integracaoObj = { id: integracaoId };
+      }
+    }
+
+    // ✅ URA DESATIVADA: Pular processamento do Core (apenas salvar mensagem)
+    console.log('[WAPI] 🔐 GERENTE: Integração compartilhada (Token seguro no banco)');
+    console.log('[WAPI] ⏭️ URA desativada - mensagem já salva, sem processamento adicional');
+
+    // Core processing desativado temporariamente para teste
+  } catch (err) {
+    console.error('[WAPI] 🔴 GERENTE: Erro no processamento:', err.message);
+  }
 
   // Audit log
   try {
