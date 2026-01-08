@@ -355,6 +355,30 @@ export async function processInboundEvent(params) {
   }
 
   if (shouldDispatch) {
+    // ✅ BLOQUEIO CRÍTICO: Verificar se existe playbook de pré-atendimento ATIVO
+    console.log('[CORE] 🎯 Verificando se playbooks de pré-atendimento estão ativos...');
+    
+    try {
+      const playbooksPreAtendimento = await base44.asServiceRole.entities.FlowTemplate.filter({
+        is_pre_atendimento_padrao: true,
+        ativo: true
+      }, '-created_date', 1);
+      
+      if (!playbooksPreAtendimento || playbooksPreAtendimento.length === 0) {
+        console.log('[CORE] 🚫 Nenhum playbook de pré-atendimento ATIVO encontrado - BLOQUEANDO URA');
+        result.actions.push('ura_blocked_no_active_playbook');
+        return { ...result, stop: true, reason: 'pre_atendimento_desativado' };
+      }
+      
+      console.log('[CORE] ✅ Playbook ativo encontrado:', playbooksPreAtendimento[0].nome);
+      result.actions.push('ura_allowed_active_playbook');
+      
+    } catch (checkError) {
+      console.error('[CORE] ⚠️ Erro ao verificar playbooks ativos:', checkError.message);
+      result.actions.push('ura_check_failed');
+      return { ...result, stop: true, reason: 'ura_check_error' };
+    }
+    
     result.actions.push('dispatching_to_ura');
     
     // Contrato Unificado para o Handler
