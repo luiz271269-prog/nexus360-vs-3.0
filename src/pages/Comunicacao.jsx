@@ -997,14 +997,12 @@ export default function Comunicacao() {
       if (isFilterUnassigned) {
         // ✅ Usar Set de IDs de threads (não de contatos)
         if (!threadsNaoAtribuidasVisiveis.has(thread.id)) {
-          if (isThreadTeste) console.log('[COMUNICACAO] ❌ Thread de teste removida: não está em threadsNaoAtribuidasVisiveis');
           return false;
         }
 
         // Aplicar filtro de integração específica se selecionado
         if (selectedIntegrationId && selectedIntegrationId !== 'all') {
           if (thread.whatsapp_integration_id !== selectedIntegrationId) {
-            if (isThreadTeste) console.log('[COMUNICACAO] ❌ Thread de teste removida: integração não corresponde ao filtro');
             return false;
           }
         }
@@ -1012,7 +1010,6 @@ export default function Comunicacao() {
         // REGRA CENTRAL: Usar módulo threadVisibility.js para outros escopos
         const podeVer = canUserSeeThreadWithFilters(usuario, threadComContato, filtros);
         if (!podeVer) {
-          if (isThreadTeste) console.log('[COMUNICACAO] ❌ Thread de teste removida: canUserSeeThreadWithFilters retornou false', filtros);
           return false;
         }
       }
@@ -1029,21 +1026,13 @@ export default function Comunicacao() {
       if (selectedTagContato && selectedTagContato !== 'all' && contato) {
         const tags = contato.tags || [];
         if (!tags.includes(selectedTagContato)) {
-          if (isThreadTeste) console.log('[COMUNICACAO] ❌ Thread de teste removida: tag não corresponde');
           return false;
         }
-      }
-
-      if (isThreadTeste) {
-        console.log('[COMUNICACAO] ✅ Thread de teste PASSOU em todos os filtros!');
       }
 
       return true;
     });
     
-    // ✅ LOG FINAL: Threads após todos os filtros
-    const threadTesteFiltrada = threadsFiltrados.find(t => t.id === '6927a16db587db4e93842639');
-    console.log('[COMUNICACAO] 📋 Thread de teste após TODOS os filtros:', threadTesteFiltrada ? 'PRESENTE ✅' : 'REMOVIDA ❌');
     console.log('[COMUNICACAO] 📊 Total de threads filtradas:', threadsFiltrados.length);
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -1128,36 +1117,9 @@ export default function Comunicacao() {
       };
     });
 
-    // ✅ DEDUPLICAÇÃO FINAL: Apenas para threads EXTERNAS
-    // Threads internas NUNCA entram na deduplicação (já têm chave única)
-    const vistos = new Map();
-    const deduplicated = [];
-
-    for (const thread of enriched) {
-      const contactId = thread.contact_id;
-
-      // ✅ Threads internas ou sem contact_id (cliente sem contato) - adicionar direto
-      if (!contactId || thread.thread_type === 'team_internal' || thread.thread_type === 'sector_group') {
-        deduplicated.push(thread);
-        continue;
-      }
-
-      const existente = vistos.get(contactId);
-      if (!existente) {
-        vistos.set(contactId, thread);
-        deduplicated.push(thread);
-      } else {
-        // Se o existente é "contato-sem-thread" e o atual é thread real, substituir
-        if (existente.is_contact_only && !thread.is_contact_only) {
-          const idx = deduplicated.indexOf(existente);
-          if (idx !== -1) {
-            deduplicated[idx] = thread;
-            vistos.set(contactId, thread);
-          }
-        }
-        // Caso contrário, manter o existente (já é a thread real mais recente)
-      }
-    }
+    // ✅ SEM DEDUPLICAÇÃO ADICIONAL - Cada thread já é única por canal (contact_id + integration_id)
+    // Threads internas, contatos sem thread e clientes sem contato já foram enriquecidos
+    const deduplicated = enriched;
 
     // ═══════════════════════════════════════════════════════════════════════════
     // ORDENAÇÃO (Regra 3):
@@ -1166,10 +1128,6 @@ export default function Comunicacao() {
     // 3. 🔵 Clientes sem contato - prioridade 3
     // Dentro de cada grupo: mais recente primeiro (last_message_at)
     // ═══════════════════════════════════════════════════════════════════════════
-    
-    // ✅ LOG: Thread de teste após deduplicação final
-    const threadTesteAposDedup = deduplicated.find(t => t.id === '6927a16db587db4e93842639');
-    console.log('[COMUNICACAO] 🎬 Thread de teste na lista FINAL (pré-ordenação):', threadTesteAposDedup ? 'PRESENTE ✅' : 'REMOVIDA ❌');
     
     return deduplicated.sort((a, b) => {
       // Definir prioridade do tipo
