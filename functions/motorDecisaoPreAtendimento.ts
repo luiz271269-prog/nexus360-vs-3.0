@@ -324,19 +324,29 @@ Deno.serve(async (req) => {
     // ========================================================================
     // FALLBACK - PRÉ-ATENDIMENTO ÚNICO COM BOTÕES
     // ========================================================================
-    console.log('[MOTOR] 📋 FALLBACK: Iniciando pré-atendimento com botões');
+    console.log('[MOTOR] 📋 FALLBACK: Verificando playbooks de pré-atendimento ativos...');
     
-    const playbookId = config.playbook_pre_atendimento_id || config.fallback_playbook_id;
-    
-    if (!playbookId) {
-      console.log('[MOTOR] ⚠️ Nenhum playbook configurado');
-      return Response.json({
-        success: false,
-        error: 'sem_playbook_configurado'
-      }, { headers: corsHeaders });
-    }
-    
+    // ✅ VERIFICAR SE EXISTE PLAYBOOK ATIVO ANTES DE QUALQUER AÇÃO
     try {
+      const playbooksAtivos = await base44.asServiceRole.entities.FlowTemplate.filter({
+        is_pre_atendimento_padrao: true,
+        ativo: true
+      }, '-created_date', 1);
+      
+      if (!playbooksAtivos || playbooksAtivos.length === 0) {
+        console.log('[MOTOR] 🚫 Nenhum playbook de pré-atendimento ATIVO - sistema bloqueado');
+        return Response.json({
+          success: true,
+          decisao: 'pre_atendimento_desativado',
+          motivo: 'nenhum_playbook_ativo',
+          duracao_ms: Date.now() - inicio
+        }, { headers: corsHeaders });
+      }
+      
+      console.log('[MOTOR] ✅ Playbook ativo encontrado:', playbooksAtivos[0].nome);
+      
+      const playbookId = playbooksAtivos[0].id;
+      
       await base44.functions.invoke('executarPreAtendimento', {
         action: 'iniciar',
         thread_id: thread_id,
@@ -351,8 +361,9 @@ Deno.serve(async (req) => {
         playbook_id: playbookId,
         duracao_ms: Date.now() - inicio
       }, { headers: corsHeaders });
+      
     } catch (e) {
-      console.error('[MOTOR] ❌ Erro ao iniciar pré-atendimento:', e?.message);
+      console.error('[MOTOR] ❌ Erro no fallback de pré-atendimento:', e?.message);
       return Response.json({
         success: false,
         error: e.message
