@@ -1,11 +1,10 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { base44 } from "@/api/base44Client";
 import { useSearchParams } from "react-router-dom";
-
 import PainelPrioridades from "../components/agenda/PainelPrioridades";
 import PainelContexto from "../components/agenda/PainelContexto";
 import MotorInteligencia from "../components/agenda/MotorInteligencia";
-import AlertasInteligentesIA from '../components/global/AlertasInteligentesIA'; // Added import
+import AlertasInteligentesIA from '../components/global/AlertasInteligentesIA';
 import BotaoNexusFlutuante from '../components/global/BotaoNexusFlutuante';
 import PainelInsightsIA from '../components/global/PainelInsightsIA';
 import LimpezaDuplicatas from '../components/comunicacao/LimpezaDuplicatas';
