@@ -566,14 +566,32 @@ export default function ChatSidebar({
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: index * 0.05 }}
                 onClick={() => handleClick(thread)}
-                className="flex items-center gap-3 p-4 cursor-pointer transition-all border-b border-slate-100 hover:bg-slate-50">
-
-                <div className="w-12 h-12 rounded-full flex items-center justify-center text-white font-bold text-lg shadow-md bg-gradient-to-br from-slate-400 to-slate-500">
-                  ?
+                className={`px-3 py-3 flex items-center gap-3 cursor-pointer transition-colors border-b border-slate-100 hover:bg-slate-50 ${isAtiva ? 'bg-slate-100' : 'bg-white'}`}
+              >
+                <div className="relative flex-shrink-0">
+                  <div className="w-12 h-12 rounded-full flex items-center justify-center text-white font-semibold shadow-sm bg-slate-400">
+                    ?
+                  </div>
                 </div>
-                <div className="flex-1">
-                  <h3 className="font-semibold text-slate-700">Contato Desconhecido</h3>
-                  <p className="text-sm text-slate-600">ID: {thread.contact_id}</p>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center justify-between mb-0.5">
+                    <h3 className="font-medium truncate text-slate-600">Contato Desconhecido</h3>
+                    <div className="flex items-center gap-1.5 flex-shrink-0 ml-2">
+                      <span className="text-xs text-slate-400">
+                        {formatarHorario(thread.last_message_at)}
+                      </span>
+                      {hasUnread && (
+                        <div className="w-5 h-5 rounded-full bg-teal-500 flex items-center justify-center">
+                          <span className="text-white text-[10px] font-bold">
+                            {getUnreadCount(thread, usuarioAtual?.id) > 9 ? '9+' : getUnreadCount(thread, usuarioAtual?.id)}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                  <p className="text-sm truncate text-slate-500">
+                    {thread.last_message_content || "Nova mensagem"}
+                  </p>
                 </div>
               </motion.div>
             );
