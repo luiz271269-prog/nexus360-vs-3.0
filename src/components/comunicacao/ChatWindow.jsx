@@ -144,6 +144,23 @@ export default function ChatWindow({
 
   const permissoes = usuario?.permissoes_comunicacao || {};
 
+  // ✅ FILTRAR INTEGRAÇÕES BASEADO NAS PERMISSÕES DO USUÁRIO
+  const integracoesPermitidas = useMemo(() => {
+    if (!usuario) return integracoes;
+    if (usuario.role === 'admin') return integracoes;
+
+    const whatsappPerms = usuario.whatsapp_permissions || [];
+    
+    // Se não tem permissões configuradas, mostrar todas
+    if (whatsappPerms.length === 0) return integracoes;
+
+    // Filtrar apenas integrações com permissão de enviar
+    return integracoes.filter((int) => {
+      const perm = whatsappPerms.find((p) => p.integration_id === int.id);
+      return perm && perm.can_send === true;
+    });
+  }, [integracoes, usuario]);
+
   // ✅ VERIFICAR PERMISSÕES ESPECÍFICAS DA INSTÂNCIA
   const getPermissaoInstancia = (permissionKey) => {
     if (!thread?.whatsapp_integration_id || !usuario) return true;
@@ -2091,10 +2108,11 @@ export default function ChatWindow({
         carregandoContato={carregandoContato}
         uploadingPastedFile={uploadingPastedFile}
         modoSelecao={modoSelecao}
-        integracoes={integracoes}
+        integracoes={integracoesPermitidas}
         canalSelecionado={canalSelecionado}
         onCanalChange={setCanalSelecionado}
         thread={thread}
+        usuario={usuario}
         modoSelecaoMultipla={modoSelecaoMultipla}
         contatosSelecionados={contatosSelecionados}
         onCancelarSelecao={onCancelarSelecao}
