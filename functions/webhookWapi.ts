@@ -715,21 +715,9 @@ async function handleMessage(dados, payloadBruto, base44) {
       }
     }
 
-    // ✅ GERENTE: Core processa com Token do banco
+    // ✅ Core desativado temporariamente (problema de import em Deno Edge)
     console.log('[WAPI] 🔐 GERENTE: Integração compartilhada (Token seguro no banco)');
-    console.log('[WAPI] 🎯 Disparando Core para Playbooks/URA...');
-
-    const { processInboundEvent } = await import('./lib/inboundCore.js');
-    await processInboundEvent({
-      base44,
-      contact,
-      thread,
-      message: mensagem,
-      integration: integracaoObj,
-      provider: 'w_api',
-      messageContent: dados.content,
-      rawPayload: payload
-    });
+    console.log('[WAPI] 💾 Mensagem salva - Core desativado temporariamente');
   } catch (err) {
     console.error('[WAPI] 🔴 GERENTE: Erro no processamento:', err.message);
   }
