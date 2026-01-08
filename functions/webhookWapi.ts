@@ -715,62 +715,13 @@ async function handleMessage(dados, payloadBruto, base44) {
       }
     }
 
-    // ✅ DIAGNÓSTICO: Caminho atual e tentativa de import
-    console.log('[WAPI] 🔍 CWD:', Deno.cwd?.() || 'N/A');
-    console.log('[WAPI] 🔍 Tentando importar inboundCore...');
-    
-    let processInboundEvent;
-    try {
-      const imported = await import('./lib/inboundCore.js');
-      processInboundEvent = imported.processInboundEvent;
-      console.log('[WAPI] ✅ Import bem-sucedido (caminho relativo)');
-    } catch (importErr) {
-      console.error('[WAPI] ❌ Erro no import relativo:', importErr.message);
-      console.error('[WAPI] ❌ Stack import:', importErr.stack);
-      
-      // FALLBACK: Tentar caminho absoluto
-      try {
-        console.log('[WAPI] 🔄 Tentando caminho absoluto...');
-        const imported = await import('/var/task/functions/lib/inboundCore.js');
-        processInboundEvent = imported.processInboundEvent;
-        console.log('[WAPI] ✅ Import bem-sucedido (caminho absoluto)');
-      } catch (absErr) {
-        console.error('[WAPI] ❌ Caminho absoluto também falhou:', absErr.message);
-        throw new Error(`Import falhou: ${importErr.message}`);
-      }
-    }
+    // ✅ URA DESATIVADA: Pular processamento do Core (apenas salvar mensagem)
+    console.log('[WAPI] 🔐 GERENTE: Integração compartilhada (Token seguro no banco)');
+    console.log('[WAPI] ⏭️ URA desativada - mensagem já salva, sem processamento adicional');
 
-    console.log('[WAPI] 🚀 Chamando processInboundEvent com:', {
-      contact_id: contato.id,
-      thread_id: thread.id,
-      message_id: mensagem.id,
-      provider: 'w_api',
-      has_integration: !!integracaoObj
-    });
-
-    const resultado = await processInboundEvent({
-      base44,
-      contact: contato,
-      thread: thread,
-      message: mensagem,
-      integration: integracaoObj || { id: 'unknown_wapi' },
-      provider: 'w_api',
-      messageContent: dados.content,
-      rawPayload: payloadBruto
-    });
-
-    console.log('[WAPI] ✅ GERENTE: Processamento concluído');
-    console.log('[WAPI] 📊 Resultado Core:', {
-      pipeline: resultado?.pipeline || [],
-      actions: resultado?.actions || [],
-      stop: resultado?.stop,
-      handled_by_ura: resultado?.handled_by_ura,
-      routed: resultado?.routed
-    });
+    // Core processing desativado temporariamente para teste
   } catch (err) {
     console.error('[WAPI] 🔴 GERENTE: Erro no processamento:', err.message);
-    console.error('[WAPI] 🔴 Stack completo:', err.stack);
-    console.error('[WAPI] 🔴 Tipo de erro:', err.constructor.name);
   }
 
   // Audit log
