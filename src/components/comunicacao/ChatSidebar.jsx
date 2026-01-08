@@ -615,66 +615,6 @@ export default function ChatSidebar({
 
               {/* Avatar */}
               <div className="relative flex-shrink-0">
-                <div className={`relative w-12 h-12 rounded-full flex items-center justify-center text-white font-bold text-lg shadow-md overflow-hidden ${
-                hasUnread ?
-                'bg-gradient-to-br from-amber-400 via-orange-500 to-red-500' :
-                'bg-gradient-to-br from-slate-400 to-slate-500'}`
-                }>
-                  {contato.foto_perfil_url && contato.foto_perfil_url !== 'null' && contato.foto_perfil_url !== 'undefined' ? (
-                    <img
-                      src={contato.foto_perfil_url}
-                      alt={nomeExibicao}
-                      className="w-full h-full object-cover"
-                      onError={(e) => {
-                        e.target.style.display = 'none';
-                        e.target.parentElement.textContent = nomeExibicao.charAt(0).toUpperCase();
-                      }}
-                    />
-                  ) : (
-                    nomeExibicao.charAt(0).toUpperCase()
-                  )}
-                </div>
-              </div>
-
-              <div className="flex-1 min-w-0">
-                {/* Linha 1: Nome + Horário */}
-                <div className="flex items-center justify-between mb-1">
-                  <h3 className={`font-medium truncate ${hasUnread ? 'text-slate-900' : 'text-slate-600'}`}>
-                    {nomeExibicao}
-                  </h3>
-                  <span className={`text-xs flex-shrink-0 ml-2 ${
-                    hasUnread ? 'text-teal-600 font-medium' : 'text-slate-400'
-                  }`}>
-                    {formatarHorario(thread.last_message_at)}
-                  </span>
-                </div>
-
-          return (
-            <motion.div
-              key={thread.id}
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: index * 0.05 }}
-              onClick={(e) => handleClick(thread, e)} 
-              className={`px-3 py-3 flex items-center gap-3 cursor-pointer transition-colors border-b border-slate-100 hover:bg-slate-50 ${
-                thread.is_contact_only ? 'bg-slate-50/50' : 
-                isAtiva ? 'bg-slate-100' : 
-                hasUnread ? 'bg-white' : 'bg-white'
-              } ${isSelected ? 'bg-orange-100 border-l-4 border-l-orange-500' : ''}`}
-            >
-              {/* Checkbox em modo seleção */}
-              {modoSelecao && (
-                <div className="flex-shrink-0">
-                  {isSelected ? (
-                    <CheckSquare className="w-5 h-5 text-orange-500" />
-                  ) : (
-                    <Square className="w-5 h-5 text-slate-400" />
-                  )}
-                </div>
-              )}
-
-              {/* Avatar */}
-              <div className="relative flex-shrink-0">
                 <div className={`relative w-12 h-12 rounded-full flex items-center justify-center text-white font-semibold shadow-sm overflow-hidden bg-slate-400`}>
                   {contato.foto_perfil_url && contato.foto_perfil_url !== 'null' && contato.foto_perfil_url !== 'undefined' ? (
                     <img
