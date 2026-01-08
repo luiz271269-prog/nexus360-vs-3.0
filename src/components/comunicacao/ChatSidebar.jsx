@@ -758,7 +758,7 @@ export default function ChatSidebar({
           );
         }
 
-        return null; // Fallback para casos não tratados
+        return null;
       })}
 
     </div>
