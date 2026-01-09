@@ -123,10 +123,10 @@ export default function AtribuirConversaModal({
     }
   };
 
-  // ✅ REGRA B: Filtrar por sector_id usando setores_atendidos_ids
-  // Se thread tem sector_id, filtrar por ele; senão, mostrar todos
+  // ✅ TRANSFERÊNCIA SEM RESTRIÇÕES: Mostrar TODOS os atendentes
+  // Apenas filtrar por busca, não aplicar filtros de setor
   const atendentesFiltrados = atendentes.filter(a => {
-    // Filtro por busca
+    // Filtro APENAS por busca (sem restrições de setor)
     if (busca.trim()) {
       const termo = normalizarParaComparacao(busca);
       const match = (
@@ -138,26 +138,7 @@ export default function AtribuirConversaModal({
       if (!match) return false;
     }
     
-    // Filtro por sector_id (se thread tem setor definido)
-    if (thread?.sector_id) {
-      const sectorIdMap = {
-        'vendas': 'sector_vendas',
-        'assistencia': 'sector_assistencia',
-        'financeiro': 'sector_financeiro',
-        'fornecedor': 'sector_fornecedor',
-        'geral': 'sector_geral'
-      };
-      const sector_id = sectorIdMap[thread.sector_id] || `sector_${thread.sector_id}`;
-      
-      // Se não tem setores_atendidos_ids, usar fallback attendant_sector
-      if (!a.setores_atendidos_ids || a.setores_atendidos_ids.length === 0) {
-        return a.attendant_sector === thread.sector_id;
-      }
-      
-      // Filtro correto por sector_id
-      return a.setores_atendidos_ids.includes(sector_id);
-    }
-    
+    // ✅ SEM FILTRO DE SETOR - permite transferir para QUALQUER atendente
     return true;
   });
 
