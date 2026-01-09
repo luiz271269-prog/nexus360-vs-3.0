@@ -371,20 +371,23 @@ async function handleMessage(dados, payloadBruto, base44) {
 
   const inicio = Date.now();
 
-  // DEDUPLICAÇÃO POR messageId
+  // ✅ DEDUPLICAÇÃO INTELIGENTE - Atualiza thread mesmo se duplicata
+  let mensagemExistente = null;
   if (dados.messageId) {
     try {
       const dup = await base44.asServiceRole.entities.Message.filter(
         { whatsapp_message_id: dados.messageId },
         '-created_date',
-        10
+        1
       );
       
       if (dup && dup.length > 0) {
-        console.log(`[WAPI] ⏭️ DUPLICATA: ${dados.messageId}`);
-        return jsonOk({ ignored: true, reason: 'duplicata' });
+        mensagemExistente = dup[0];
+        console.log(`[WAPI] 🔄 Mensagem já existe: ${dados.messageId} - mas vou atualizar thread`);
       }
-    } catch (e) {}
+    } catch (e) {
+      console.warn(`[WAPI] ⚠️ Erro ao verificar duplicata:`, e.message);
+    }
   }
 
   // ═══════════════════════════════════════════════════════════════════
