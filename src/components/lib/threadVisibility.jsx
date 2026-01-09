@@ -101,21 +101,64 @@ export const threadConexaoVisivel = (usuario, conexaoId) => {
  * Verifica se o setor da thread está visível para o usuário
  * CORREÇÃO: Threads sem setor são BLOQUEADAS apenas se houver restrições
  */
-export const threadSetorVisivel = (usuario, setorThread) => {
+// ════════════════════════════════════════════════════════════════════════════
+// 🎯 SETOR: Suporta URA (sector_id) e ETIQUETAS (tags do contato)
+// ════════════════════════════════════════════════════════════════════════════
+
+/**
+ * Obtém o setor de uma thread com fallback para etiquetas do contato
+ * Modo 1: URA define thread.sector_id → prioridade
+ * Modo 2: Etiqueta do contato (Fornecedor, Cliente, etc.) → fallback
+ */
+export const getSectorFromThreadOrTags = (thread) => {
+  // PRIORIDADE 1: Setor explícito da URA
+  if (thread?.sector_id) return normalizar(thread.sector_id);
+  if (thread?.setor) return normalizar(thread.setor);
+  
+  // PRIORIDADE 2: Etiquetas setoriais do contato
+  const tags = thread?.contato?.tags || thread?.categorias || [];
+  const tagsNormalizadas = tags.map(normalizar);
+  
+  // Mapeamento: etiqueta → setor
+  const SETORES = ['vendas', 'assistencia', 'financeiro', 'fornecedor', 'geral'];
+  
+  for (const setor of SETORES) {
+    if (tagsNormalizadas.includes(setor)) {
+      return setor;
+    }
+  }
+  
+  return null; // Sem setor definido
+};
+
+/**
+ * Verifica se usuário pode ver thread baseado no setor (URA ou etiqueta)
+ */
+export const threadSetorVisivel = (usuario, thread) => {
   if (usuario?.role === 'admin') return true;
   
   const perms = usuario?.permissoes_visualizacao || {};
-  const visiveis = perms.setores_visiveis;
+  const setoresUser = perms.setores_visiveis;
   
-  // ✅ FIX: Sem restrições configuradas = acesso liberado
-  if (!visiveis || visiveis.length === 0) return true;
-  if (!setorThread) return true; // Thread sem setor = visível
+  // ✅ CORREÇÃO CRÍTICA: Sem configuração = BLOQUEADO (requer explícito)
+  if (!setoresUser || setoresUser.length === 0) {
+    console.log(`[VISIBILIDADE] ⚠️ Usuário ${usuario?.email} sem setores configurados - bloqueando por segurança`);
+    return false;
+  }
   
-  const temPermissao = visiveis.map(normalizar).includes(normalizar(setorThread));
+  // Obter setor da thread (URA ou etiqueta)
+  const setorThread = getSectorFromThreadOrTags(thread);
+  
+  // Thread sem setor definido = visível para todos
+  if (!setorThread) return true;
+  
+  // Verificar se usuário tem permissão para este setor
+  const setoresUserNormalizados = setoresUser.map(normalizar);
+  const temPermissao = setoresUserNormalizados.includes(setorThread);
   
   // 🔍 DEBUG: Log quando bloquear
   if (!temPermissao) {
-    console.log(`[VISIBILIDADE] ❌ Bloqueado por setor: "${setorThread}" não está em setores_visiveis:`, visiveis);
+    console.log(`[VISIBILIDADE] ❌ Bloqueado por setor: Thread setor="${setorThread}" (URA/tag) | User setores=[${setoresUser.join(', ')}]`);
   }
   
   return temPermissao;
@@ -237,7 +280,7 @@ export const canUserSeeThreadBase = (usuario, thread, mensagensThread = []) => {
   // ✅ 2) Verificar permissões de integração/conexão/setor APENAS para não-atribuídas
   const integracaoOk = temPermissaoIntegracao(usuario, thread.whatsapp_integration_id);
   const conexaoOk = threadConexaoVisivel(usuario, thread.conexao_id);
-  const setorOk = threadSetorVisivel(usuario, thread.sector_id || thread.setor);
+  const setorOk = threadSetorVisivel(usuario, thread); // ✅ Passa thread inteira (URA + tags)
 
   if (!integracaoOk || !conexaoOk || !setorOk) {
     console.log(`[VISIBILIDADE] ❌ Thread ${thread.id?.substring(0, 8)} bloqueada - Integração: ${integracaoOk}, Conexão: ${conexaoOk}, Setor: ${setorOk}`);
