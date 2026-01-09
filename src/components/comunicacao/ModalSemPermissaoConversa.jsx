@@ -45,7 +45,7 @@ export default function ModalSemPermissaoConversa({
       case 'outro_setor':
         return {
           titulo: "Conversa de Outro Setor",
-          descricao: "Esta conversa pertence a um setor diferente do seu. Você não tem acesso a conversas deste setor.",
+          descricao: `Esta conversa pertence a um setor diferente do seu. Você não tem acesso a conversas deste setor.`,
           icone: AlertTriangle
         };
       case 'sem_permissao_integracao':

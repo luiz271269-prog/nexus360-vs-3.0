@@ -346,8 +346,17 @@ export default function Comunicacao() {
         const threadsExistentes = await base44.entities.MessageThread.filter({ contact_id: thread.contact_id });
 
         if (threadsExistentes && threadsExistentes.length > 0) {
-          // Verificar permissão antes de abrir
+          // Verificar permissão antes de abrir (EXCETO fidelizados)
           const contatoObj = contatos.find((c) => c.id === thread.contact_id);
+          
+          // ✅ FIDELIZADO: SEMPRE pode abrir (ignora TODAS as restrições)
+          const isFidelizadoAoUsuario = contatoFidelizadoAoUsuario(contatoObj, usuario);
+          if (isFidelizadoAoUsuario) {
+            console.log('[Comunicacao] ✅ Contato fidelizado - abrindo direto');
+            setThreadAtiva(threadsExistentes[0]);
+            return;
+          }
+          
           const bloqueio = verificarBloqueioThread(usuario, threadsExistentes[0], contatoObj);
 
           if (bloqueio.bloqueado) {
@@ -394,8 +403,17 @@ export default function Comunicacao() {
       }
     }
 
-    // CASO 3: THREAD NORMAL - Verificar permissão
+    // CASO 3: THREAD NORMAL - Verificar permissão (EXCETO fidelizados)
     const contatoObj = contatos.find((c) => c.id === thread.contact_id);
+    
+    // ✅ FIDELIZADO: SEMPRE pode abrir (ignora TODAS as restrições de setor/integração)
+    const isFidelizadoAoUsuario = contatoFidelizadoAoUsuario(contatoObj, usuario);
+    if (isFidelizadoAoUsuario) {
+      console.log('[Comunicacao] ✅ Contato fidelizado - abrindo direto');
+      setThreadAtiva(thread);
+      return;
+    }
+    
     const bloqueio = verificarBloqueioThread(usuario, thread, contatoObj);
 
     if (bloqueio.bloqueado) {
