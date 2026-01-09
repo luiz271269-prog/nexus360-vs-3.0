@@ -103,24 +103,11 @@ export default function AtribuidorAtendenteRapido({
 
       // ═══════════════════════════════════════════════════════════════════════
       // CASO 1: ATRIBUIÇÃO DE CONVERSA (thread passada)
-      // ✅ SEM RESTRIÇÕES - qualquer usuário pode atribuir/transferir conversas
       // ═══════════════════════════════════════════════════════════════════════
       if (thread?.id) {
-        await base44.entities.MessageThread.update(thread.id, {
-          assigned_user_id: atendente ? atendente.id : null
-        });
-        toast.success(`✅ Conversa ${atendente ? `atribuída a ${atendente.full_name || atendente.email}` : 'liberada'}`);
-      }
-      // ═══════════════════════════════════════════════════════════════════════
-      // CASO 2: FIDELIZAÇÃO DE CONTATO (sem thread, apenas contato)
-      // ✅ VERIFICAR FIDELIZAÇÃO: Gerentes/Supervisores/Admin podem fidelizar qualquer contato
-      // ═══════════════════════════════════════════════════════════════════════
-      else if (contato?.id) {
+        // ✅ FIDELIZADO: Apenas atendente fidelizado ou admin pode atribuir
         const usuarioAtual = await base44.auth.me();
-        const isGerente = ['gerente', 'coordenador', 'supervisor'].includes(usuarioAtual?.attendant_role);
-        const isAdmin = usuarioAtual?.role === 'admin';
-        
-        if (contato.is_cliente_fidelizado && atendenteId && !isGerente && !isAdmin) {
+        if (contato?.is_cliente_fidelizado && usuarioAtual?.role !== 'admin') {
           const camposFidelizacao = [
             'atendente_fidelizado_vendas',
             'atendente_fidelizado_assistencia',
@@ -134,7 +121,39 @@ export default function AtribuidorAtendenteRapido({
             .filter(Boolean);
           
           if (atendentesFidelizados.length > 0 && !atendentesFidelizados.includes(atendenteId)) {
-            toast.error("❌ Este contato está fidelizado a outro atendente. Apenas gerentes podem transferir.");
+            toast.error("❌ Contato fidelizado - só pode atribuir ao atendente responsável");
+            setSalvando(false);
+            return;
+          }
+        }
+
+        await base44.entities.MessageThread.update(thread.id, {
+          assigned_user_id: atendente ? atendente.id : null
+        });
+        toast.success(`✅ Conversa ${atendente ? `atribuída a ${atendente.full_name || atendente.email}` : 'liberada'}`);
+      }
+      // ═══════════════════════════════════════════════════════════════════════
+      // CASO 2: FIDELIZAÇÃO DE CONTATO (sem thread, apenas contato)
+      // ═══════════════════════════════════════════════════════════════════════
+      else if (contato?.id) {
+        const usuarioAtual = await base44.auth.me();
+        
+        // ✅ FIDELIZADO: Apenas atendente fidelizado ou admin pode alterar
+        if (contato.is_cliente_fidelizado && atendenteId && usuarioAtual?.role !== 'admin') {
+          const camposFidelizacao = [
+            'atendente_fidelizado_vendas',
+            'atendente_fidelizado_assistencia',
+            'atendente_fidelizado_financeiro',
+            'atendente_fidelizado_fornecedor',
+            'vendedor_responsavel'
+          ];
+          
+          const atendentesFidelizados = camposFidelizacao
+            .map(campo => contato[campo])
+            .filter(Boolean);
+          
+          if (atendentesFidelizados.length > 0 && !atendentesFidelizados.includes(atendenteId)) {
+            toast.error("❌ Contato fidelizado - só o atendente responsável pode alterar");
             setSalvando(false);
             return;
           }

@@ -40,8 +40,8 @@ const normalizar = (v) => (v ? String(v).trim().toLowerCase() : '');
 // ═══════════════════════════════════════════════════════════════════════════════
 
 /**
- * Verifica se o usuário tem permissão para a integração WhatsApp
- * CORREÇÃO: Threads sem integracaoId são BLOQUEADAS apenas se houver restrições
+ * Verifica se o usuário tem permissão para a integração (qualquer provedor)
+ * ✅ VALE PARA: WhatsApp (Z-API, W-API), Instagram, Facebook, GoTo
  */
 export const temPermissaoIntegracao = (usuario, integracaoId) => {
   if (usuario?.role === 'admin') return true;
@@ -260,74 +260,65 @@ export const canUserSeeThreadBase = (usuario, thread, mensagensThread = []) => {
     return Boolean(isParticipant || isAdminOrAll);
   }
 
-  // ✅ REGRA ESPECIAL: Gerentes/Supervisores veem threads sem resposta há 30+ minutos
-  const isGerente = ['gerente', 'coordenador', 'supervisor'].includes(usuario.attendant_role);
-  if (isGerente && thread.last_inbound_at) {
-    const tempoSemResposta = Date.now() - new Date(thread.last_inbound_at).getTime();
-    const minutos30 = 30 * 60 * 1000;
-    
-    // Se passou 30min sem resposta de atendente, gerente pode ver
-    if (tempoSemResposta > minutos30) {
-      const ultimaMsgFoiDoContato = thread.last_message_sender === 'contact';
-      if (ultimaMsgFoiDoContato) {
-        console.log(`[VISIBILIDADE] ✅ Thread ${thread.id?.substring(0, 8)} - Gerente vê (30min sem resposta)`);
-        return true;
-      }
-    }
-  }
-
-  // ✅ THREADS EXTERNAS - lógica existente
+  // ═══════════════════════════════════════════════════════════════════════════════
+  // LÓGICA SIMPLES E CLARA DE FIDELIZAÇÃO
+  // ═══════════════════════════════════════════════════════════════════════════════
   const contato = thread.contato;
   const atribuido = isAtribuidoAoUsuario(usuario, thread);
   const fidelizado = isFidelizadoAoUsuario(usuario, contato);
   const naoAtribuida = isNaoAtribuida(thread);
+  const isGerente = ['gerente', 'coordenador', 'supervisor'].includes(usuario.attendant_role);
 
-  // 0) Admin / "ver todas"
+  // 0) Admin / "ver todas" - SEMPRE VÊ TUDO
   if (isAdminOrAll) {
     return true;
   }
 
-  // ✅ 1) ATRIBUÍDA AO USUÁRIO = SEMPRE VÊ (ignora restrições de integração/conexão)
+  // 1) FIDELIZADO = SÓ O DONO VÊ (prioridade máxima, bloqueia todos os outros)
+  if (contato?.is_cliente_fidelizado) {
+    if (fidelizado) {
+      console.log(`[VISIBILIDADE] ✅ Thread ${thread.id?.substring(0, 8)} - FIDELIZADA ao usuário ${usuario.email}`);
+      return true;
+    } else {
+      console.log(`[VISIBILIDADE] ❌ Thread ${thread.id?.substring(0, 8)} - Fidelizado a outro`);
+      return false;
+    }
+  }
+
+  // 2) ATRIBUÍDA AO USUÁRIO = SEMPRE VÊ (apenas para não-fidelizados)
   if (atribuido) {
     console.log(`[VISIBILIDADE] ✅ Thread ${thread.id?.substring(0, 8)} - ATRIBUÍDA ao usuário ${usuario.email}`);
     return true;
   }
 
-  // ✅ 2) FIDELIZAÇÃO: Gerentes/Supervisores SEMPRE veem, outros apenas se fidelizados ao usuário
-  if (contato?.is_cliente_fidelizado) {
-    // Gerentes/Supervisores podem ver TODOS os contatos fidelizados
-    if (isGerente) {
-      console.log(`[VISIBILIDADE] ✅ Thread ${thread.id?.substring(0, 8)} - Gerente vê contato fidelizado`);
-      return true;
-    }
+  // 3) GERENTES veem threads SEM RESPOSTA há 30+ minutos (apenas não-fidelizados)
+  if (isGerente && thread.last_inbound_at) {
+    const tempoSemResposta = Date.now() - new Date(thread.last_inbound_at).getTime();
+    const minutos30 = 30 * 60 * 1000;
     
-    // Outros usuários só veem se fidelizados a eles
-    if (fidelizado) {
-      console.log(`[VISIBILIDADE] ✅ Thread ${thread.id?.substring(0, 8)} - FIDELIZADA ao usuário ${usuario.email}`);
+    if (tempoSemResposta > minutos30 && thread.last_message_sender === 'contact') {
+      console.log(`[VISIBILIDADE] ✅ Thread ${thread.id?.substring(0, 8)} - Gerente vê (30min sem resposta)`);
       return true;
-    } else {
-      console.log(`[VISIBILIDADE] ❌ Thread ${thread.id?.substring(0, 8)} bloqueada - Contato fidelizado a outro atendente`);
-      return false;
     }
   }
 
-  // ✅ 3) Verificar permissões de integração/conexão/setor APENAS para não-atribuídas
+  // 4) Verificar permissões de integração/conexão/setor (apenas não-fidelizados)
   const integracaoOk = temPermissaoIntegracao(usuario, thread.whatsapp_integration_id);
   const conexaoOk = threadConexaoVisivel(usuario, thread.conexao_id);
-  const setorOk = threadSetorVisivel(usuario, thread); // ✅ Passa thread inteira (URA + tags)
+  const setorOk = threadSetorVisivel(usuario, thread);
 
   if (!integracaoOk || !conexaoOk || !setorOk) {
     console.log(`[VISIBILIDADE] ❌ Thread ${thread.id?.substring(0, 8)} bloqueada - Integração: ${integracaoOk}, Conexão: ${conexaoOk}, Setor: ${setorOk}`);
     return false;
   }
 
-  // 4) Não atribuída (S/atend.) - SEMPRE VISÍVEL PARA TODOS OS USUÁRIOS
+  // 5) Não atribuída (S/atend.) - VISÍVEL PARA TODOS
   if (naoAtribuida) {
     console.log(`[VISIBILIDADE] ✅ Thread ${thread.id?.substring(0, 8)} - NÃO ATRIBUÍDA (S/atend.) - visível para todos`);
     return true;
   }
 
-  console.log(`[VISIBILIDADE] ❌ Thread ${thread.id?.substring(0, 8)} bloqueada - Atribuída a outro ou sem match`);
+  console.log(`[VISIBILIDADE] ❌ Thread ${thread.id?.substring(0, 8)} bloqueada - Atribuída a outro`);
   return false;
 };
 
