@@ -46,38 +46,20 @@ const normalizar = (v) => (v ? String(v).trim().toLowerCase() : '');
 export const temPermissaoIntegracao = (usuario, integracaoId) => {
   if (usuario?.role === 'admin') return true;
   
-  // Primeiro checa whatsapp_permissions (estrutura atual)
+  // Thread sem integração = liberar (não aplicar filtro)
+  if (!integracaoId) return true;
+  
+  // Checa whatsapp_permissions (estrutura atual: array de {integration_id, can_view})
   const whatsappPerms = usuario?.whatsapp_permissions || [];
+  
+  // Se o usuário TEM permissões configuradas, precisa ter can_view=true para esta integração
   if (whatsappPerms.length > 0) {
-    // ✅ Thread sem integração = liberar (não bloquear)
-    if (!integracaoId) return true;
     const perm = whatsappPerms.find(p => p.integration_id === integracaoId);
-    const temPermissao = perm?.can_view === true;
-    
-    // 🔍 DEBUG: Log quando bloquear por falta de permissão
-    if (!temPermissao) {
-      console.log(`[VISIBILIDADE] ❌ Bloqueado por integração: User ${usuario.email} não tem can_view para ${integracaoId}`);
-    }
-    
-    return temPermissao;
+    return perm?.can_view === true;
   }
   
-  // Fallback: integracoes_visiveis em permissoes_visualizacao
-  const perms = usuario?.permissoes_visualizacao || {};
-  const visiveis = perms.integracoes_visiveis;
-  
-  // ✅ FIX: Sem restrições configuradas = acesso liberado
-  if (!visiveis || visiveis.length === 0) return true;
-  if (!integracaoId) return true; // Thread sem integração = visível
-  
-  const temPermissao = visiveis.map(normalizar).includes(normalizar(integracaoId));
-  
-  // 🔍 DEBUG: Log quando bloquear
-  if (!temPermissao) {
-    console.log(`[VISIBILIDADE] ❌ Bloqueado por integração: ${integracaoId} não está em integracoes_visiveis`);
-  }
-  
-  return temPermissao;
+  // Se não tem whatsapp_permissions configurado, BLOQUEIA por padrão (requer configuração)
+  return false;
 };
 
 /**
@@ -104,21 +86,19 @@ export const threadConexaoVisivel = (usuario, conexaoId) => {
 export const threadSetorVisivel = (usuario, setorThread) => {
   if (usuario?.role === 'admin') return true;
   
+  // Thread sem setor = liberar (não aplicar filtro)
+  if (!setorThread) return true;
+  
   const perms = usuario?.permissoes_visualizacao || {};
   const visiveis = perms.setores_visiveis;
   
-  // ✅ FIX: Sem restrições configuradas = acesso liberado
-  if (!visiveis || visiveis.length === 0) return true;
-  if (!setorThread) return true; // Thread sem setor = visível
-  
-  const temPermissao = visiveis.map(normalizar).includes(normalizar(setorThread));
-  
-  // 🔍 DEBUG: Log quando bloquear
-  if (!temPermissao) {
-    console.log(`[VISIBILIDADE] ❌ Bloqueado por setor: "${setorThread}" não está em setores_visiveis:`, visiveis);
+  // Se o usuário TEM setores configurados, precisa estar na lista
+  if (visiveis && visiveis.length > 0) {
+    return visiveis.map(normalizar).includes(normalizar(setorThread));
   }
   
-  return temPermissao;
+  // Se não tem setores configurados, BLOQUEIA por padrão (requer configuração)
+  return false;
 };
 
 // ═══════════════════════════════════════════════════════════════════════════════
