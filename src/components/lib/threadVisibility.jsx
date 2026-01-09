@@ -49,10 +49,17 @@ export const temPermissaoIntegracao = (usuario, integracaoId) => {
   // Primeiro checa whatsapp_permissions (estrutura atual)
   const whatsappPerms = usuario?.whatsapp_permissions || [];
   if (whatsappPerms.length > 0) {
-    // ✅ FIX: Thread sem integração = liberar (não bloquear)
+    // ✅ Thread sem integração = liberar (não bloquear)
     if (!integracaoId) return true;
     const perm = whatsappPerms.find(p => p.integration_id === integracaoId);
-    return perm?.can_view === true;
+    const temPermissao = perm?.can_view === true;
+    
+    // 🔍 DEBUG: Log quando bloquear por falta de permissão
+    if (!temPermissao) {
+      console.log(`[VISIBILIDADE] ❌ Bloqueado por integração: User ${usuario.email} não tem can_view para ${integracaoId}`);
+    }
+    
+    return temPermissao;
   }
   
   // Fallback: integracoes_visiveis em permissoes_visualizacao
@@ -63,7 +70,14 @@ export const temPermissaoIntegracao = (usuario, integracaoId) => {
   if (!visiveis || visiveis.length === 0) return true;
   if (!integracaoId) return true; // Thread sem integração = visível
   
-  return visiveis.map(normalizar).includes(normalizar(integracaoId));
+  const temPermissao = visiveis.map(normalizar).includes(normalizar(integracaoId));
+  
+  // 🔍 DEBUG: Log quando bloquear
+  if (!temPermissao) {
+    console.log(`[VISIBILIDADE] ❌ Bloqueado por integração: ${integracaoId} não está em integracoes_visiveis`);
+  }
+  
+  return temPermissao;
 };
 
 /**
@@ -97,7 +111,14 @@ export const threadSetorVisivel = (usuario, setorThread) => {
   if (!visiveis || visiveis.length === 0) return true;
   if (!setorThread) return true; // Thread sem setor = visível
   
-  return visiveis.map(normalizar).includes(normalizar(setorThread));
+  const temPermissao = visiveis.map(normalizar).includes(normalizar(setorThread));
+  
+  // 🔍 DEBUG: Log quando bloquear
+  if (!temPermissao) {
+    console.log(`[VISIBILIDADE] ❌ Bloqueado por setor: "${setorThread}" não está em setores_visiveis:`, visiveis);
+  }
+  
+  return temPermissao;
 };
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -209,6 +230,7 @@ export const canUserSeeThreadBase = (usuario, thread, mensagensThread = []) => {
 
   // ✅ 1) ATRIBUÍDA AO USUÁRIO = SEMPRE VÊ (ignora restrições de integração/conexão)
   if (atribuido) {
+    console.log(`[VISIBILIDADE] ✅ Thread ${thread.id?.substring(0, 8)} - ATRIBUÍDA ao usuário ${usuario.email}`);
     return true;
   }
 
@@ -217,21 +239,27 @@ export const canUserSeeThreadBase = (usuario, thread, mensagensThread = []) => {
   const conexaoOk = threadConexaoVisivel(usuario, thread.conexao_id);
   const setorOk = threadSetorVisivel(usuario, thread.sector_id || thread.setor);
 
-  if (!integracaoOk || !conexaoOk || !setorOk) return false;
+  if (!integracaoOk || !conexaoOk || !setorOk) {
+    console.log(`[VISIBILIDADE] ❌ Thread ${thread.id?.substring(0, 8)} bloqueada - Integração: ${integracaoOk}, Conexão: ${conexaoOk}, Setor: ${setorOk}`);
+    return false;
+  }
 
   // 3) Fidelizado ao usuário (e não atribuído a outro)
   if (fidelizado) {
     const atribuidaAOutro = thread.assigned_user_id && !atribuido;
     if (!atribuidaAOutro) {
+      console.log(`[VISIBILIDADE] ✅ Thread ${thread.id?.substring(0, 8)} - FIDELIZADA ao usuário ${usuario.email}`);
       return true;
     }
   }
 
   // 4) Não atribuída (S/atend.) - SEMPRE VISÍVEL PARA TODOS OS USUÁRIOS
   if (naoAtribuida) {
+    console.log(`[VISIBILIDADE] ✅ Thread ${thread.id?.substring(0, 8)} - NÃO ATRIBUÍDA (S/atend.) - visível para todos`);
     return true;
   }
 
+  console.log(`[VISIBILIDADE] ❌ Thread ${thread.id?.substring(0, 8)} bloqueada - Atribuída a outro ou sem match`);
   return false;
 };
 
