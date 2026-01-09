@@ -51,6 +51,28 @@ export default function AtribuirConversaModal({
         throw new Error("Atendente não encontrado");
       }
 
+      // ✅ VERIFICAR FIDELIZAÇÃO: Contato fidelizado só pode ir para o atendente fidelizado
+      const contato = thread.contato;
+      if (contato?.is_cliente_fidelizado) {
+        const camposFidelizacao = [
+          'atendente_fidelizado_vendas',
+          'atendente_fidelizado_assistencia',
+          'atendente_fidelizado_financeiro',
+          'atendente_fidelizado_fornecedor',
+          'vendedor_responsavel'
+        ];
+        
+        const atendentesFidelizados = camposFidelizacao
+          .map(campo => contato[campo])
+          .filter(Boolean);
+        
+        if (atendentesFidelizados.length > 0 && !atendentesFidelizados.includes(atendenteEscolhido.id)) {
+          toast.error("❌ Este contato está fidelizado a outro atendente");
+          setAtribuindo(false);
+          return;
+        }
+      }
+
       // ✅ CORREÇÃO: Remover assigned_user_name - buscar dinamicamente via user_id
       await base44.entities.MessageThread.update(thread.id, {
         assigned_user_id: atendenteEscolhido.id,

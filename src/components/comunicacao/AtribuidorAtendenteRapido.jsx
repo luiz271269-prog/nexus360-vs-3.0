@@ -101,6 +101,27 @@ export default function AtribuidorAtendenteRapido({
     try {
       const atendente = atendenteId ? atendentes.find(a => a.id === atendenteId) : null;
 
+      // ✅ VERIFICAR FIDELIZAÇÃO: Contato fidelizado só pode ir para o atendente fidelizado
+      if (contato?.is_cliente_fidelizado && atendenteId) {
+        const camposFidelizacao = [
+          'atendente_fidelizado_vendas',
+          'atendente_fidelizado_assistencia',
+          'atendente_fidelizado_financeiro',
+          'atendente_fidelizado_fornecedor',
+          'vendedor_responsavel'
+        ];
+        
+        const atendentesFidelizados = camposFidelizacao
+          .map(campo => contato[campo])
+          .filter(Boolean);
+        
+        if (atendentesFidelizados.length > 0 && !atendentesFidelizados.includes(atendenteId)) {
+          toast.error("❌ Este contato está fidelizado a outro atendente");
+          setSalvando(false);
+          return;
+        }
+      }
+
       // ═══════════════════════════════════════════════════════════════════════
       // CASO 1: ATRIBUIÇÃO DE CONVERSA (thread passada)
       // Atualiza APENAS a MessageThread, NÃO mexe no contato

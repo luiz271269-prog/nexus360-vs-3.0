@@ -293,7 +293,18 @@ export const canUserSeeThreadBase = (usuario, thread, mensagensThread = []) => {
     return true;
   }
 
-  // ✅ 2) Verificar permissões de integração/conexão/setor APENAS para não-atribuídas
+  // ✅ 2) FIDELIZAÇÃO TEM PRIORIDADE: Se contato está fidelizado, APENAS o atendente fidelizado pode ver
+  if (contato?.is_cliente_fidelizado) {
+    if (fidelizado) {
+      console.log(`[VISIBILIDADE] ✅ Thread ${thread.id?.substring(0, 8)} - FIDELIZADA ao usuário ${usuario.email}`);
+      return true;
+    } else {
+      console.log(`[VISIBILIDADE] ❌ Thread ${thread.id?.substring(0, 8)} bloqueada - Contato fidelizado a outro atendente`);
+      return false;
+    }
+  }
+
+  // ✅ 3) Verificar permissões de integração/conexão/setor APENAS para não-atribuídas
   const integracaoOk = temPermissaoIntegracao(usuario, thread.whatsapp_integration_id);
   const conexaoOk = threadConexaoVisivel(usuario, thread.conexao_id);
   const setorOk = threadSetorVisivel(usuario, thread); // ✅ Passa thread inteira (URA + tags)
@@ -301,15 +312,6 @@ export const canUserSeeThreadBase = (usuario, thread, mensagensThread = []) => {
   if (!integracaoOk || !conexaoOk || !setorOk) {
     console.log(`[VISIBILIDADE] ❌ Thread ${thread.id?.substring(0, 8)} bloqueada - Integração: ${integracaoOk}, Conexão: ${conexaoOk}, Setor: ${setorOk}`);
     return false;
-  }
-
-  // 3) Fidelizado ao usuário (e não atribuído a outro)
-  if (fidelizado) {
-    const atribuidaAOutro = thread.assigned_user_id && !atribuido;
-    if (!atribuidaAOutro) {
-      console.log(`[VISIBILIDADE] ✅ Thread ${thread.id?.substring(0, 8)} - FIDELIZADA ao usuário ${usuario.email}`);
-      return true;
-    }
   }
 
   // 4) Não atribuída (S/atend.) - SEMPRE VISÍVEL PARA TODOS OS USUÁRIOS
