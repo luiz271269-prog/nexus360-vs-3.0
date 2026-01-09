@@ -371,23 +371,20 @@ async function handleMessage(dados, payloadBruto, base44) {
 
   const inicio = Date.now();
 
-  // ✅ DEDUPLICAÇÃO INTELIGENTE - Atualiza thread mesmo se duplicata
-  let mensagemExistente = null;
+  // DEDUPLICAÇÃO POR messageId
   if (dados.messageId) {
     try {
       const dup = await base44.asServiceRole.entities.Message.filter(
         { whatsapp_message_id: dados.messageId },
         '-created_date',
-        1
+        10
       );
       
       if (dup && dup.length > 0) {
-        mensagemExistente = dup[0];
-        console.log(`[WAPI] 🔄 Mensagem já existe: ${dados.messageId} - mas vou atualizar thread`);
+        console.log(`[WAPI] ⏭️ DUPLICATA: ${dados.messageId}`);
+        return jsonOk({ ignored: true, reason: 'duplicata' });
       }
-    } catch (e) {
-      console.warn(`[WAPI] ⚠️ Erro ao verificar duplicata:`, e.message);
-    }
+    } catch (e) {}
   }
 
   // ═══════════════════════════════════════════════════════════════════
@@ -637,41 +634,7 @@ async function handleMessage(dados, payloadBruto, base44) {
     return jsonErr('erro_salvar_mensagem', 500);
   }
 
-  // ✅ SE DUPLICATA: Apenas atualiza timestamps (não salva mensagem novamente)
-  if (mensagemExistente) {
-    try {
-      const agora = new Date().toISOString();
-      const threadUpdate = {
-        last_message_at: agora,
-        last_inbound_at: agora,
-        last_message_sender: 'contact',
-        last_message_content: String(dados.content || '').substring(0, 100),
-        last_media_type: dados.mediaType || 'none',
-        status: 'aberta',
-        // NÃO incrementa unread_count nem total_mensagens (já foi contado)
-      };
-      if (integracaoId && !thread.whatsapp_integration_id) {
-        threadUpdate.whatsapp_integration_id = integracaoId;
-      }
-      await base44.asServiceRole.entities.MessageThread.update(thread.id, threadUpdate);
-      
-      const duracao = Date.now() - inicio;
-      console.log(`[WAPI] ✅ DUPLICATA PROCESSADA! Thread atualizada: ${thread.id} | Msg existente: ${mensagemExistente.id} | ${duracao}ms`);
-      
-      return jsonOk({
-        message_id: mensagemExistente.id,
-        contact_id: contato.id,
-        thread_id: thread.id,
-        integration_id: integracaoId,
-        duration_ms: duracao,
-        status: 'duplicate_thread_updated'
-      });
-    } catch (e) {
-      console.error(`[WAPI] ❌ Erro ao atualizar thread duplicata:`, e.message);
-    }
-  }
-
-  // ATUALIZAR THREAD (para mensagem NOVA)
+  // ATUALIZAR THREAD
   try {
     const agora = new Date().toISOString();
     const threadUpdate = {
@@ -752,9 +715,11 @@ async function handleMessage(dados, payloadBruto, base44) {
       }
     }
 
-    // ✅ Core desativado temporariamente (problema de import em Deno Edge)
+    // ✅ URA DESATIVADA: Pular processamento do Core (apenas salvar mensagem)
     console.log('[WAPI] 🔐 GERENTE: Integração compartilhada (Token seguro no banco)');
-    console.log('[WAPI] 💾 Mensagem salva - Core desativado temporariamente');
+    console.log('[WAPI] ⏭️ URA desativada - mensagem já salva, sem processamento adicional');
+
+    // Core processing desativado temporariamente para teste
   } catch (err) {
     console.error('[WAPI] 🔴 GERENTE: Erro no processamento:', err.message);
   }
