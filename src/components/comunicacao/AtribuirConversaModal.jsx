@@ -51,32 +51,10 @@ export default function AtribuirConversaModal({
         throw new Error("Atendente não encontrado");
       }
 
-      // ✅ VERIFICAR FIDELIZAÇÃO: Gerentes/Supervisores podem transferir, outros não
-      const contato = thread.contato;
-      const isGerente = ['gerente', 'coordenador', 'supervisor'].includes(usuario.attendant_role);
-      const isAdmin = usuario.role === 'admin';
-      
-      if (contato?.is_cliente_fidelizado && !isGerente && !isAdmin) {
-        const camposFidelizacao = [
-          'atendente_fidelizado_vendas',
-          'atendente_fidelizado_assistencia',
-          'atendente_fidelizado_financeiro',
-          'atendente_fidelizado_fornecedor',
-          'vendedor_responsavel'
-        ];
-        
-        const atendentesFidelizados = camposFidelizacao
-          .map(campo => contato[campo])
-          .filter(Boolean);
-        
-        if (atendentesFidelizados.length > 0 && !atendentesFidelizados.includes(atendenteEscolhido.id)) {
-          toast.error("❌ Este contato está fidelizado a outro atendente. Apenas gerentes podem transferir.");
-          setAtribuindo(false);
-          return;
-        }
-      }
+      // ✅ ATRIBUIÇÃO DE THREAD: SEM RESTRIÇÕES - qualquer usuário pode transferir
+      // Fidelização do contato é separado e não bloqueia transferências de conversa
 
-      // ✅ CORREÇÃO: Remover assigned_user_name - buscar dinamicamente via user_id
+      // ✅ Atualizar thread sem restrições
       await base44.entities.MessageThread.update(thread.id, {
         assigned_user_id: atendenteEscolhido.id,
         pre_atendimento_ativo: false,

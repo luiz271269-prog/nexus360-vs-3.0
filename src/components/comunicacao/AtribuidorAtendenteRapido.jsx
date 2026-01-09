@@ -101,34 +101,9 @@ export default function AtribuidorAtendenteRapido({
     try {
       const atendente = atendenteId ? atendentes.find(a => a.id === atendenteId) : null;
 
-      // ✅ VERIFICAR FIDELIZAÇÃO: Gerentes/Supervisores/Admin podem transferir qualquer contato
-      const usuarioAtual = await base44.auth.me();
-      const isGerente = ['gerente', 'coordenador', 'supervisor'].includes(usuarioAtual?.attendant_role);
-      const isAdmin = usuarioAtual?.role === 'admin';
-      
-      if (contato?.is_cliente_fidelizado && atendenteId && !isGerente && !isAdmin) {
-        const camposFidelizacao = [
-          'atendente_fidelizado_vendas',
-          'atendente_fidelizado_assistencia',
-          'atendente_fidelizado_financeiro',
-          'atendente_fidelizado_fornecedor',
-          'vendedor_responsavel'
-        ];
-        
-        const atendentesFidelizados = camposFidelizacao
-          .map(campo => contato[campo])
-          .filter(Boolean);
-        
-        if (atendentesFidelizados.length > 0 && !atendentesFidelizados.includes(atendenteId)) {
-          toast.error("❌ Este contato está fidelizado a outro atendente. Apenas gerentes podem transferir.");
-          setSalvando(false);
-          return;
-        }
-      }
-
       // ═══════════════════════════════════════════════════════════════════════
       // CASO 1: ATRIBUIÇÃO DE CONVERSA (thread passada)
-      // Atualiza APENAS a MessageThread, NÃO mexe no contato
+      // ✅ SEM RESTRIÇÕES - qualquer usuário pode atribuir/transferir conversas
       // ═══════════════════════════════════════════════════════════════════════
       if (thread?.id) {
         await base44.entities.MessageThread.update(thread.id, {
@@ -138,9 +113,32 @@ export default function AtribuidorAtendenteRapido({
       }
       // ═══════════════════════════════════════════════════════════════════════
       // CASO 2: FIDELIZAÇÃO DE CONTATO (sem thread, apenas contato)
-      // Atualiza o Contact com campos de fidelização
+      // ✅ VERIFICAR FIDELIZAÇÃO: Gerentes/Supervisores/Admin podem fidelizar qualquer contato
       // ═══════════════════════════════════════════════════════════════════════
       else if (contato?.id) {
+        const usuarioAtual = await base44.auth.me();
+        const isGerente = ['gerente', 'coordenador', 'supervisor'].includes(usuarioAtual?.attendant_role);
+        const isAdmin = usuarioAtual?.role === 'admin';
+        
+        if (contato.is_cliente_fidelizado && atendenteId && !isGerente && !isAdmin) {
+          const camposFidelizacao = [
+            'atendente_fidelizado_vendas',
+            'atendente_fidelizado_assistencia',
+            'atendente_fidelizado_financeiro',
+            'atendente_fidelizado_fornecedor',
+            'vendedor_responsavel'
+          ];
+          
+          const atendentesFidelizados = camposFidelizacao
+            .map(campo => contato[campo])
+            .filter(Boolean);
+          
+          if (atendentesFidelizados.length > 0 && !atendentesFidelizados.includes(atendenteId)) {
+            toast.error("❌ Este contato está fidelizado a outro atendente. Apenas gerentes podem transferir.");
+            setSalvando(false);
+            return;
+          }
+        }
         const campo = getCampoFidelizacao();
         const atualizacoes = {
           [campo]: atendente ? atendente.id : null
