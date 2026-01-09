@@ -32,6 +32,7 @@ import {
 } from "../lib/userMatcher";
 import { getUserDisplayName } from "../lib/userHelpers";
 import UsuarioDisplay from "./UsuarioDisplay";
+import { canUserSeeThreadBase } from "../lib/threadVisibility";
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // 🎯 GETTER UNIFICADO: Badge de não lidas (externo + interno)
@@ -143,7 +144,7 @@ export default function ChatSidebar({
   const { etiquetas: etiquetasDB, getConfig: getEtiquetaConfigDinamico } = useEtiquetasContato();
 
   // ═══════════════════════════════════════════════════════════════════════════════
-  // 🛡️ FILTRO BLINDADO V4.2 - Permissivo para usuários internos que ENVIAM mensagens
+  // 🛡️ FILTRO DE VISIBILIDADE - Aplica permissões de Conexões e Setores
   // ═══════════════════════════════════════════════════════════════════════════════
   const threadsFiltradas = useMemo(() => {
     if (!threads || threads.length === 0) return [];
@@ -152,22 +153,19 @@ export default function ChatSidebar({
       // 0. REGRA MESTRA: Admin vê TUDO (sem exceções)
       if (usuarioAtual?.role === 'admin') return true;
 
-      // 1. LÓGICA INTERNA - Sem URA, sem bloqueios, livre e direto
+      // 1. LÓGICA INTERNA - Baseada em participação
       if (thread.thread_type === 'team_internal' || thread.thread_type === 'sector_group') {
-        // Se a lista de participantes estiver vazia (bug de backend), mostramos por segurança
         if (!thread.participants || thread.participants.length === 0) return true;
-        
         const isParticipant = thread.participants.includes(usuarioAtual?.id);
         return isParticipant;
       }
       
-      // 2. LÓGICA EXTERNA (WhatsApp Z-API/W-API)
-      // Se não tem thread_type ou é contact_external, cai aqui.
+      // 2. LÓGICA EXTERNA (WhatsApp Z-API/W-API) - Aplicar regras de permissão
       const contato = thread.contato;
       if (contato && contato.bloqueado) return false;
       
-      // Permissivo: mostra tudo que não está bloqueado
-      return true;
+      // ✅ APLICAR REGRAS DE VISIBILIDADE (Conexões WhatsApp + Setores)
+      return canUserSeeThreadBase(usuarioAtual, thread);
     });
   }, [threads, usuarioAtual]);
 
