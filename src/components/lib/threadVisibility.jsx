@@ -52,13 +52,21 @@ export const temPermissaoIntegracao = (usuario, integracaoId) => {
   // Checa whatsapp_permissions (estrutura atual: array de {integration_id, can_view})
   const whatsappPerms = usuario?.whatsapp_permissions || [];
   
+  console.log(`[INTEGRAÇÃO] 🔍 Verificando integração "${integracaoId?.substring(0, 8)}" para usuário ${usuario.email}:`, {
+    whatsapp_permissions_count: whatsappPerms.length,
+    tem_configuracao: whatsappPerms.length > 0
+  });
+  
   // Se o usuário TEM permissões configuradas, precisa ter can_view=true para esta integração
   if (whatsappPerms.length > 0) {
     const perm = whatsappPerms.find(p => p.integration_id === integracaoId);
-    return perm?.can_view === true;
+    const permite = perm?.can_view === true;
+    console.log(`[INTEGRAÇÃO] ${permite ? '✅' : '❌'} Integração ${permite ? 'tem' : 'NÃO tem'} can_view=true`);
+    return permite;
   }
   
   // Se não tem whatsapp_permissions configurado, BLOQUEIA por padrão (requer configuração)
+  console.log(`[INTEGRAÇÃO] ❌ BLOQUEADO - Usuário não tem whatsapp_permissions configurado`);
   return false;
 };
 
@@ -92,12 +100,20 @@ export const threadSetorVisivel = (usuario, setorThread) => {
   const perms = usuario?.permissoes_visualizacao || {};
   const visiveis = perms.setores_visiveis;
   
+  console.log(`[SETOR] 🔍 Verificando setor "${setorThread}" para usuário ${usuario.email}:`, {
+    setores_visiveis: visiveis,
+    tem_configuracao: visiveis && visiveis.length > 0
+  });
+  
   // Se o usuário TEM setores configurados, precisa estar na lista
   if (visiveis && visiveis.length > 0) {
-    return visiveis.map(normalizar).includes(normalizar(setorThread));
+    const permite = visiveis.map(normalizar).includes(normalizar(setorThread));
+    console.log(`[SETOR] ${permite ? '✅' : '❌'} Setor "${setorThread}" ${permite ? 'está' : 'NÃO está'} em setores_visiveis`);
+    return permite;
   }
   
   // Se não tem setores configurados, BLOQUEIA por padrão (requer configuração)
+  console.log(`[SETOR] ❌ BLOQUEADO - Usuário não tem setores_visiveis configurado`);
   return false;
 };
 
