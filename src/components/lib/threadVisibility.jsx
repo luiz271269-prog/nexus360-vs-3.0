@@ -208,12 +208,19 @@ export const canUserSeeThreadBase = (usuario, thread, mensagensThread = []) => {
   const isAdmin = usuario.role === 'admin';
   const isAdminOrAll = isAdmin || !!perms.pode_ver_todas_conversas;
 
+  console.log(`[VISIBILIDADE] 🔍 Avaliando Thread ${thread.id?.substring(0, 8)}:`, {
+    usuario_id: usuario.id,
+    usuario_email: usuario.email,
+    role: usuario.role,
+    thread_assigned: thread.assigned_user_id,
+    integration_id: thread.whatsapp_integration_id,
+    sector_id: thread.sector_id || thread.setor,
+    whatsapp_permissions_count: usuario.whatsapp_permissions?.length || 0
+  });
+
   // ✅ THREADS INTERNAS - visibilidade baseada APENAS em participação/admin
-  // ZERO regras de WhatsApp/integração/conexão/setor aplicadas
   if (thread.thread_type === 'team_internal' || thread.thread_type === 'sector_group') {
     const isParticipant = thread.participants?.includes(usuario.id);
-    
-    // Participante OU admin/gerente pode ver
     return Boolean(isParticipant || isAdminOrAll);
   }
 
@@ -223,24 +230,40 @@ export const canUserSeeThreadBase = (usuario, thread, mensagensThread = []) => {
   const fidelizado = isFidelizadoAoUsuario(usuario, contato);
   const naoAtribuida = isNaoAtribuida(thread);
 
+  console.log(`[VISIBILIDADE] 📊 Status Thread ${thread.id?.substring(0, 8)}:`, {
+    isAdmin,
+    atribuido,
+    naoAtribuida,
+    fidelizado,
+    assigned_user_id: thread.assigned_user_id
+  });
+
   // 0) Admin / "ver todas"
   if (isAdminOrAll) {
+    console.log(`[VISIBILIDADE] ✅ Admin/VerTodas - ACESSO TOTAL`);
     return true;
   }
 
-  // ✅ 1) ATRIBUÍDA AO USUÁRIO = SEMPRE VÊ (ignora restrições de integração/conexão)
+  // ✅ 1) ATRIBUÍDA AO USUÁRIO = SEMPRE VÊ (ignora restrições)
   if (atribuido) {
-    console.log(`[VISIBILIDADE] ✅ Thread ${thread.id?.substring(0, 8)} - ATRIBUÍDA ao usuário ${usuario.email}`);
+    console.log(`[VISIBILIDADE] ✅ ATRIBUÍDA AO USUÁRIO - ignora permissões`);
     return true;
   }
 
-  // ✅ 2) Verificar permissões de integração/conexão/setor APENAS para não-atribuídas
+  // ✅ 2) Verificar permissões de integração/conexão/setor APENAS para não-atribuídas OU atribuídas a OUTROS
   const integracaoOk = temPermissaoIntegracao(usuario, thread.whatsapp_integration_id);
   const conexaoOk = threadConexaoVisivel(usuario, thread.conexao_id);
   const setorOk = threadSetorVisivel(usuario, thread.sector_id || thread.setor);
 
+  console.log(`[VISIBILIDADE] 🔐 Permissões:`, {
+    integracaoOk,
+    conexaoOk,
+    setorOk,
+    integration_id: thread.whatsapp_integration_id
+  });
+
   if (!integracaoOk || !conexaoOk || !setorOk) {
-    console.log(`[VISIBILIDADE] ❌ Thread ${thread.id?.substring(0, 8)} bloqueada - Integração: ${integracaoOk}, Conexão: ${conexaoOk}, Setor: ${setorOk}`);
+    console.log(`[VISIBILIDADE] ❌ BLOQUEADO por falta de permissão`);
     return false;
   }
 
@@ -248,18 +271,18 @@ export const canUserSeeThreadBase = (usuario, thread, mensagensThread = []) => {
   if (fidelizado) {
     const atribuidaAOutro = thread.assigned_user_id && !atribuido;
     if (!atribuidaAOutro) {
-      console.log(`[VISIBILIDADE] ✅ Thread ${thread.id?.substring(0, 8)} - FIDELIZADA ao usuário ${usuario.email}`);
+      console.log(`[VISIBILIDADE] ✅ FIDELIZADA ao usuário`);
       return true;
     }
   }
 
-  // 4) Não atribuída (S/atend.) - SEMPRE VISÍVEL PARA TODOS OS USUÁRIOS
+  // 4) Não atribuída (S/atend.) - VISÍVEL se passou pelas permissões
   if (naoAtribuida) {
-    console.log(`[VISIBILIDADE] ✅ Thread ${thread.id?.substring(0, 8)} - NÃO ATRIBUÍDA (S/atend.) - visível para todos`);
+    console.log(`[VISIBILIDADE] ✅ NÃO ATRIBUÍDA (S/atend.) - visível`);
     return true;
   }
 
-  console.log(`[VISIBILIDADE] ❌ Thread ${thread.id?.substring(0, 8)} bloqueada - Atribuída a outro ou sem match`);
+  console.log(`[VISIBILIDADE] ❌ BLOQUEADO - Atribuída a outro usuário`);
   return false;
 };
 
