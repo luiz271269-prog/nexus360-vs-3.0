@@ -371,7 +371,8 @@ async function handleMessage(dados, payloadBruto, base44) {
 
   const inicio = Date.now();
 
-  // DEDUPLICAÇÃO POR messageId
+  // DEDUPLICAÇÃO INTELIGENTE POR messageId
+  // ✅ Se detectar duplicata, AINDA atualiza thread para que apareça na UI
   if (dados.messageId) {
     try {
       const dup = await base44.asServiceRole.entities.Message.filter(
@@ -381,8 +382,29 @@ async function handleMessage(dados, payloadBruto, base44) {
       );
       
       if (dup && dup.length > 0) {
-        console.log(`[WAPI] ⏭️ DUPLICATA: ${dados.messageId}`);
-        return jsonOk({ ignored: true, reason: 'duplicata' });
+        console.log(`[WAPI] ⏭️ DUPLICATA detectada: ${dados.messageId}`);
+        console.log(`[WAPI] 🔄 Atualizando thread para que apareça na UI...`);
+        
+        // ✅ CRÍTICO: Atualizar timestamps da thread mesmo sendo duplicata
+        // Isso garante que a conversa "acorda" na listagem
+        try {
+          const msgDup = dup[0];
+          if (msgDup.thread_id) {
+            const agora = new Date().toISOString();
+            await base44.asServiceRole.entities.MessageThread.update(msgDup.thread_id, {
+              last_message_at: agora,
+              last_inbound_at: agora,
+              last_message_sender: 'contact',
+              last_message_content: String(dados.content || msgDup.content || '').substring(0, 100),
+              last_media_type: dados.mediaType || msgDup.media_type || 'none',
+            });
+            console.log(`[WAPI] ✅ Thread ${msgDup.thread_id} atualizada (duplicata inteligente)`);
+          }
+        } catch (updateErr) {
+          console.warn(`[WAPI] ⚠️ Falha ao atualizar thread na duplicata:`, updateErr.message);
+        }
+        
+        return jsonOk({ ignored: true, reason: 'duplicata', thread_updated: true });
       }
     } catch (e) {}
   }
