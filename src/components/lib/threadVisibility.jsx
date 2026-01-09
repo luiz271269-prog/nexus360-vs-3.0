@@ -260,6 +260,22 @@ export const canUserSeeThreadBase = (usuario, thread, mensagensThread = []) => {
     return Boolean(isParticipant || isAdminOrAll);
   }
 
+  // ✅ REGRA ESPECIAL: Gerentes/Supervisores veem threads sem resposta há 30+ minutos
+  const isGerente = ['gerente', 'coordenador', 'supervisor'].includes(usuario.attendant_role);
+  if (isGerente && thread.last_inbound_at) {
+    const tempoSemResposta = Date.now() - new Date(thread.last_inbound_at).getTime();
+    const minutos30 = 30 * 60 * 1000;
+    
+    // Se passou 30min sem resposta de atendente, gerente pode ver
+    if (tempoSemResposta > minutos30) {
+      const ultimaMsgFoiDoContato = thread.last_message_sender === 'contact';
+      if (ultimaMsgFoiDoContato) {
+        console.log(`[VISIBILIDADE] ✅ Thread ${thread.id?.substring(0, 8)} - Gerente vê (30min sem resposta)`);
+        return true;
+      }
+    }
+  }
+
   // ✅ THREADS EXTERNAS - lógica existente
   const contato = thread.contato;
   const atribuido = isAtribuidoAoUsuario(usuario, thread);
