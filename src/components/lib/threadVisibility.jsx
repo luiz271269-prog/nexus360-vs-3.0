@@ -261,7 +261,7 @@ export const canUserSeeThreadBase = (usuario, thread, mensagensThread = []) => {
   }
 
   // ═══════════════════════════════════════════════════════════════════════════════
-  // LÓGICA SIMPLES E CLARA DE FIDELIZAÇÃO
+  // ORDEM DE PRIORIDADE - VISIBILIDADE BASE (AGNÓSTICA DE PROVEDOR)
   // ═══════════════════════════════════════════════════════════════════════════════
   const contato = thread.contato;
   const atribuido = isAtribuidoAoUsuario(usuario, thread);
@@ -269,12 +269,18 @@ export const canUserSeeThreadBase = (usuario, thread, mensagensThread = []) => {
   const naoAtribuida = isNaoAtribuida(thread);
   const isGerente = ['gerente', 'coordenador', 'supervisor'].includes(usuario.attendant_role);
 
-  // 0) Admin / "ver todas" - SEMPRE VÊ TUDO
+  // 0) Admin / "ver todas" - VÊ TUDO (todas as threads, todos os provedores)
   if (isAdminOrAll) {
     return true;
   }
 
-  // 1) FIDELIZADO = SÓ O DONO VÊ (prioridade máxima, bloqueia todos os outros)
+  // 1) Thread ATRIBUÍDA ao usuário → SEMPRE VÊ (ignora integração/setor/conexão)
+  if (atribuido) {
+    console.log(`[VISIBILIDADE] ✅ Thread ${thread.id?.substring(0, 8)} - ATRIBUÍDA ao usuário ${usuario.email}`);
+    return true;
+  }
+
+  // 2) Contato FIDELIZADO → só o dono vê (bloqueia todos outros)
   if (contato?.is_cliente_fidelizado) {
     if (fidelizado) {
       console.log(`[VISIBILIDADE] ✅ Thread ${thread.id?.substring(0, 8)} - FIDELIZADA ao usuário ${usuario.email}`);
@@ -285,13 +291,7 @@ export const canUserSeeThreadBase = (usuario, thread, mensagensThread = []) => {
     }
   }
 
-  // 2) ATRIBUÍDA AO USUÁRIO = SEMPRE VÊ (apenas para não-fidelizados)
-  if (atribuido) {
-    console.log(`[VISIBILIDADE] ✅ Thread ${thread.id?.substring(0, 8)} - ATRIBUÍDA ao usuário ${usuario.email}`);
-    return true;
-  }
-
-  // 3) GERENTES veem threads SEM RESPOSTA há 30+ minutos (apenas não-fidelizados)
+  // 3) GERENTES veem threads SEM RESPOSTA há 30+ minutos
   if (isGerente && thread.last_inbound_at) {
     const tempoSemResposta = Date.now() - new Date(thread.last_inbound_at).getTime();
     const minutos30 = 30 * 60 * 1000;
@@ -302,22 +302,33 @@ export const canUserSeeThreadBase = (usuario, thread, mensagensThread = []) => {
     }
   }
 
-  // 4) Verificar permissões de integração/conexão/setor (apenas não-fidelizados)
+  // 4) SEM ATRIBUIÇÃO → aplica permissões (integração/conexão/setor)
   const integracaoOk = temPermissaoIntegracao(usuario, thread.whatsapp_integration_id);
-  const conexaoOk = threadConexaoVisivel(usuario, thread.conexao_id);
-  const setorOk = threadSetorVisivel(usuario, thread);
-
-  if (!integracaoOk || !conexaoOk || !setorOk) {
-    console.log(`[VISIBILIDADE] ❌ Thread ${thread.id?.substring(0, 8)} bloqueada - Integração: ${integracaoOk}, Conexão: ${conexaoOk}, Setor: ${setorOk}`);
+  if (!integracaoOk) {
+    console.log(`[VISIBILIDADE] ❌ Bloqueado por integração: ${thread.whatsapp_integration_id}`);
     return false;
   }
 
-  // 5) Não atribuída (S/atend.) - VISÍVEL PARA TODOS
+  const conexaoOk = threadConexaoVisivel(usuario, thread.conexao_id);
+  if (!conexaoOk) {
+    console.log(`[VISIBILIDADE] ❌ Bloqueado por conexão: ${thread.conexao_id}`);
+    return false;
+  }
+
+  const setorOk = threadSetorVisivel(usuario, thread);
+  if (!setorOk) {
+    const setor = thread.sector_id || thread.setor || 'N/A';
+    console.log(`[VISIBILIDADE] ❌ Bloqueado por setor: ${setor}`);
+    return false;
+  }
+
+  // 5) Thread NÃO ATRIBUÍDA (S/atend.) - todos podem ver
   if (naoAtribuida) {
-    console.log(`[VISIBILIDADE] ✅ Thread ${thread.id?.substring(0, 8)} - NÃO ATRIBUÍDA (S/atend.) - visível para todos`);
+    console.log(`[VISIBILIDADE] ✅ Thread ${thread.id?.substring(0, 8)} - NÃO ATRIBUÍDA (S/atend.) - visível`);
     return true;
   }
 
+  // 6) Atribuída a outro usuário - bloqueado
   console.log(`[VISIBILIDADE] ❌ Thread ${thread.id?.substring(0, 8)} bloqueada - Atribuída a outro`);
   return false;
 };
