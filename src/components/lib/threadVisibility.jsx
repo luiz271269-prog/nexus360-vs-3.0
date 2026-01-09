@@ -46,20 +46,38 @@ const normalizar = (v) => (v ? String(v).trim().toLowerCase() : '');
 export const temPermissaoIntegracao = (usuario, integracaoId) => {
   if (usuario?.role === 'admin') return true;
   
-  // Thread sem integração = liberar (não aplicar filtro)
-  if (!integracaoId) return true;
-  
-  // Checa whatsapp_permissions (estrutura atual: array de {integration_id, can_view})
+  // Primeiro checa whatsapp_permissions (estrutura atual)
   const whatsappPerms = usuario?.whatsapp_permissions || [];
-  
-  // Se o usuário TEM permissões configuradas, precisa ter can_view=true para esta integração
   if (whatsappPerms.length > 0) {
+    // ✅ Thread sem integração = liberar (não bloquear)
+    if (!integracaoId) return true;
     const perm = whatsappPerms.find(p => p.integration_id === integracaoId);
-    return perm?.can_view === true;
+    const temPermissao = perm?.can_view === true;
+    
+    // 🔍 DEBUG: Log quando bloquear por falta de permissão
+    if (!temPermissao) {
+      console.log(`[VISIBILIDADE] ❌ Bloqueado por integração: User ${usuario.email} não tem can_view para ${integracaoId}`);
+    }
+    
+    return temPermissao;
   }
   
-  // Se não tem whatsapp_permissions configurado, BLOQUEIA por padrão (requer configuração)
-  return false;
+  // Fallback: integracoes_visiveis em permissoes_visualizacao
+  const perms = usuario?.permissoes_visualizacao || {};
+  const visiveis = perms.integracoes_visiveis;
+  
+  // ✅ FIX: Sem restrições configuradas = acesso liberado
+  if (!visiveis || visiveis.length === 0) return true;
+  if (!integracaoId) return true; // Thread sem integração = visível
+  
+  const temPermissao = visiveis.map(normalizar).includes(normalizar(integracaoId));
+  
+  // 🔍 DEBUG: Log quando bloquear
+  if (!temPermissao) {
+    console.log(`[VISIBILIDADE] ❌ Bloqueado por integração: ${integracaoId} não está em integracoes_visiveis`);
+  }
+  
+  return temPermissao;
 };
 
 /**
@@ -86,19 +104,21 @@ export const threadConexaoVisivel = (usuario, conexaoId) => {
 export const threadSetorVisivel = (usuario, setorThread) => {
   if (usuario?.role === 'admin') return true;
   
-  // Thread sem setor = liberar (não aplicar filtro)
-  if (!setorThread) return true;
-  
   const perms = usuario?.permissoes_visualizacao || {};
   const visiveis = perms.setores_visiveis;
   
-  // Se o usuário TEM setores configurados, precisa estar na lista
-  if (visiveis && visiveis.length > 0) {
-    return visiveis.map(normalizar).includes(normalizar(setorThread));
+  // ✅ FIX: Sem restrições configuradas = acesso liberado
+  if (!visiveis || visiveis.length === 0) return true;
+  if (!setorThread) return true; // Thread sem setor = visível
+  
+  const temPermissao = visiveis.map(normalizar).includes(normalizar(setorThread));
+  
+  // 🔍 DEBUG: Log quando bloquear
+  if (!temPermissao) {
+    console.log(`[VISIBILIDADE] ❌ Bloqueado por setor: "${setorThread}" não está em setores_visiveis:`, visiveis);
   }
   
-  // Se não tem setores configurados, BLOQUEIA por padrão (requer configuração)
-  return false;
+  return temPermissao;
 };
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -181,50 +201,66 @@ export const usuarioJaConversouComContato = (usuario, thread, mensagensThread = 
  * - Contatos fidelizados a ele
  * - TODAS as conversas não atribuídas (para poder atender)
  */
-// ═══════════════════════════════════════════════════════════════════════
-// 🎯 REGRA DE VISIBILIDADE SIMPLIFICADA - PRIORIDADE ABSOLUTA
-// ═══════════════════════════════════════════════════════════════════════
-// 1. Admin → vê tudo sempre
-// 2. Tópico atribuído ao usuário → IGNORA permissões (vê sempre)
-// 3. Tópico interno → já filtrado no ChatSidebar por participação
-// 4. Sem atribuição → aplicar permissões (Conexões WhatsApp + Setores)
-// ═══════════════════════════════════════════════════════════════════════
 export const canUserSeeThreadBase = (usuario, thread, mensagensThread = []) => {
   if (!usuario || !thread) return false;
 
-  // 1️⃣ ADMIN → VÊ TUDO SEMPRE
-  if (usuario.role === 'admin') {
-    console.log(`[VISIBILIDADE] ✅ Thread ${thread.id?.substring(0, 8)} - ADMIN vê tudo`);
-    return true;
-  }
+  const perms = usuario.permissoes_visualizacao || {};
+  const isAdmin = usuario.role === 'admin';
+  const isAdminOrAll = isAdmin || !!perms.pode_ver_todas_conversas;
 
-  // 2️⃣ TÓPICO ATRIBUÍDO AO USUÁRIO → IGNORA PERMISSÕES (vê sempre)
-  if (thread.assigned_user_id === usuario.id) {
-    console.log(`[VISIBILIDADE] ✅ Thread ${thread.id?.substring(0, 8)} - ATRIBUÍDA ao usuário (ignora permissões)`);
-    return true;
-  }
-
-  // 3️⃣ TÓPICO INTERNO → já filtrado no ChatSidebar (não chega aqui)
+  // ✅ THREADS INTERNAS - visibilidade baseada APENAS em participação/admin
+  // ZERO regras de WhatsApp/integração/conexão/setor aplicadas
   if (thread.thread_type === 'team_internal' || thread.thread_type === 'sector_group') {
+    const isParticipant = thread.participants?.includes(usuario.id);
+    
+    // Participante OU admin/gerente pode ver
+    return Boolean(isParticipant || isAdminOrAll);
+  }
+
+  // ✅ THREADS EXTERNAS - lógica existente
+  const contato = thread.contato;
+  const atribuido = isAtribuidoAoUsuario(usuario, thread);
+  const fidelizado = isFidelizadoAoUsuario(usuario, contato);
+  const naoAtribuida = isNaoAtribuida(thread);
+
+  // 0) Admin / "ver todas"
+  if (isAdminOrAll) {
     return true;
   }
 
-  // 4️⃣ SEM ATRIBUIÇÃO ou ATRIBUÍDO A OUTRO → APLICAR PERMISSÕES
-  // Verifica se usuário tem permissão para a Conexão WhatsApp (instância)
-  const podeVerIntegracao = temPermissaoIntegracao(usuario, thread.whatsapp_integration_id);
-  
-  // Verifica se usuário tem permissão para o Setor (Vendas/Assistência/Financeiro/etc)
-  const podeVerSetor = threadSetorVisivel(usuario, thread.sector_id || thread.setor);
+  // ✅ 1) ATRIBUÍDA AO USUÁRIO = SEMPRE VÊ (ignora restrições de integração/conexão)
+  if (atribuido) {
+    console.log(`[VISIBILIDADE] ✅ Thread ${thread.id?.substring(0, 8)} - ATRIBUÍDA ao usuário ${usuario.email}`);
+    return true;
+  }
 
-  console.log(`[VISIBILIDADE] ${podeVerIntegracao && podeVerSetor ? '✅' : '❌'} Thread ${thread.id?.substring(0, 8)} - Permissões:`, {
-    integration: thread.whatsapp_integration_id?.substring(0, 8),
-    setor: thread.sector_id || thread.setor,
-    podeVerIntegracao,
-    podeVerSetor,
-    assigned_user: thread.assigned_user_id?.substring(0, 8)
-  });
+  // ✅ 2) Verificar permissões de integração/conexão/setor APENAS para não-atribuídas
+  const integracaoOk = temPermissaoIntegracao(usuario, thread.whatsapp_integration_id);
+  const conexaoOk = threadConexaoVisivel(usuario, thread.conexao_id);
+  const setorOk = threadSetorVisivel(usuario, thread.sector_id || thread.setor);
 
-  return podeVerIntegracao && podeVerSetor;
+  if (!integracaoOk || !conexaoOk || !setorOk) {
+    console.log(`[VISIBILIDADE] ❌ Thread ${thread.id?.substring(0, 8)} bloqueada - Integração: ${integracaoOk}, Conexão: ${conexaoOk}, Setor: ${setorOk}`);
+    return false;
+  }
+
+  // 3) Fidelizado ao usuário (e não atribuído a outro)
+  if (fidelizado) {
+    const atribuidaAOutro = thread.assigned_user_id && !atribuido;
+    if (!atribuidaAOutro) {
+      console.log(`[VISIBILIDADE] ✅ Thread ${thread.id?.substring(0, 8)} - FIDELIZADA ao usuário ${usuario.email}`);
+      return true;
+    }
+  }
+
+  // 4) Não atribuída (S/atend.) - SEMPRE VISÍVEL PARA TODOS OS USUÁRIOS
+  if (naoAtribuida) {
+    console.log(`[VISIBILIDADE] ✅ Thread ${thread.id?.substring(0, 8)} - NÃO ATRIBUÍDA (S/atend.) - visível para todos`);
+    return true;
+  }
+
+  console.log(`[VISIBILIDADE] ❌ Thread ${thread.id?.substring(0, 8)} bloqueada - Atribuída a outro ou sem match`);
+  return false;
 };
 
 // ═══════════════════════════════════════════════════════════════════════════════
