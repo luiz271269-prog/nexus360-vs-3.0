@@ -505,11 +505,9 @@ export const filtrarAtendentesVisiveis = (usuario, todosAtendentes) => {
   );
 };
 
-// ═══════════════════════════════════════════════════════════════════════════════
-// VERIFICAR MOTIVO DE BLOQUEIO DE UMA THREAD
-// ═══════════════════════════════════════════════════════════════════════════════
 /**
  * Retorna o motivo pelo qual o usuário não pode acessar a thread
+ * ORDEM DE PRIORIDADE (verificações em cascata):
  * @returns {Object} { bloqueado: boolean, motivo: string, atendenteResponsavel: string|null }
  */
 export const verificarBloqueioThread = (usuario, thread, contato = null) => {
@@ -530,45 +528,48 @@ export const verificarBloqueioThread = (usuario, thread, contato = null) => {
     return { bloqueado: true, motivo: 'nao_participante', atendenteResponsavel: null };
   }
 
-  // Admin pode tudo (apenas threads externas a partir daqui)
+  // Admin pode tudo
   if (isAdminOrAll) {
     return { bloqueado: false, motivo: null, atendenteResponsavel: null };
   }
 
-  // 1. Verificar permissão de integração
-  if (!temPermissaoIntegracao(usuario, thread.whatsapp_integration_id)) {
-    return { bloqueado: true, motivo: 'sem_permissao_integracao', atendenteResponsavel: null };
-  }
-
-  // 2. Verificar permissão de conexão
-  if (!threadConexaoVisivel(usuario, thread.conexao_id)) {
-    return { bloqueado: true, motivo: 'sem_permissao_conexao', atendenteResponsavel: null };
-  }
-
-  // 3. Verificar permissão de setor
-  if (!threadSetorVisivel(usuario, thread.sector_id || thread.setor)) {
-    return { bloqueado: true, motivo: 'outro_setor', atendenteResponsavel: null };
-  }
-
-  // 4. Verificar se está atribuída ao usuário
+  // ═══════════════════════════════════════════════════════════════════════════════
+  // PRIORIDADE 1: Thread ATRIBUÍDA ao usuário → NUNCA bloqueia (ignora TUDO)
+  // ═══════════════════════════════════════════════════════════════════════════════
   if (isAtribuidoAoUsuario(usuario, thread)) {
     return { bloqueado: false, motivo: null, atendenteResponsavel: null };
   }
 
-  // 5. Verificar se contato está fidelizado ao usuário
+  // ═══════════════════════════════════════════════════════════════════════════════
+  // PRIORIDADE 2: Contato FIDELIZADO ao usuário → NUNCA bloqueia (ignora TUDO)
+  // ═══════════════════════════════════════════════════════════════════════════════
   if (contato && isFidelizadoAoUsuario(usuario, contato)) {
-    // Fidelizado ao usuário, mas verificar se não está atribuída a outro
-    if (!thread.assigned_user_id) {
-      return { bloqueado: false, motivo: null, atendenteResponsavel: null };
-    }
-  }
-
-  // 6. Se não está atribuída (S/atend.) - TODOS podem ver
-  if (isNaoAtribuida(thread)) {
     return { bloqueado: false, motivo: null, atendenteResponsavel: null };
   }
 
-  // 7. Está atribuída a outro - BLOQUEADO
+  // ═══════════════════════════════════════════════════════════════════════════════
+  // PRIORIDADE 3: Thread NÃO ATRIBUÍDA → verificar permissões de integração/setor
+  // ═══════════════════════════════════════════════════════════════════════════════
+  if (isNaoAtribuida(thread)) {
+    // Verificar permissões básicas antes de permitir
+    if (!temPermissaoIntegracao(usuario, thread.whatsapp_integration_id)) {
+      return { bloqueado: true, motivo: 'sem_permissao_integracao', atendenteResponsavel: null };
+    }
+    if (!threadConexaoVisivel(usuario, thread.conexao_id)) {
+      return { bloqueado: true, motivo: 'sem_permissao_conexao', atendenteResponsavel: null };
+    }
+    if (!threadSetorVisivel(usuario, thread.sector_id || thread.setor)) {
+      return { bloqueado: true, motivo: 'outro_setor', atendenteResponsavel: null };
+    }
+    
+    return { bloqueado: false, motivo: null, atendenteResponsavel: null };
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════════
+  // PRIORIDADE 4: Thread atribuída/fidelizada a OUTRO → BLOQUEADO
+  // ═══════════════════════════════════════════════════════════════════════════════
+  
+  // Thread atribuída a outro
   if (thread.assigned_user_id) {
     return { 
       bloqueado: true, 
@@ -577,13 +578,14 @@ export const verificarBloqueioThread = (usuario, thread, contato = null) => {
     };
   }
 
-  // 8. Contato fidelizado a outro
+  // Contato fidelizado a outro
   if (contato) {
     const camposFidelizacao = [
       'atendente_fidelizado_vendas',
       'atendente_fidelizado_assistencia', 
       'atendente_fidelizado_financeiro',
-      'atendente_fidelizado_fornecedor'
+      'atendente_fidelizado_fornecedor',
+      'vendedor_responsavel'
     ];
     
     for (const campo of camposFidelizacao) {
@@ -605,16 +607,36 @@ export const verificarBloqueioThread = (usuario, thread, contato = null) => {
 // ═══════════════════════════════════════════════════════════════════════════════
 /**
  * Verifica se o usuário pode enviar mensagens nesta thread
- * Regras:
+ * REGRA SIMPLES:
  * - Admin: sempre pode
- * - Atribuída ao usuário: pode
- * - Fidelizada ao usuário: pode
- * - Não atribuída (S/atend.): pode (e auto-atribui ao responder)
- * - Atribuída/fidelizada a outro: NÃO pode
+ * - Thread ATRIBUÍDA ao usuário: sempre pode (ignora tudo)
+ * - Contato FIDELIZADO ao usuário: sempre pode (ignora tudo)
+ * - Thread NÃO ATRIBUÍDA: pode (auto-atribui ao enviar)
+ * - Outros casos: bloqueado
  */
 export const podeInteragirNaThread = (usuario, thread, contato = null) => {
-  const resultado = verificarBloqueioThread(usuario, thread, contato);
-  return !resultado.bloqueado;
+  if (!usuario || !thread) return false;
+  
+  // Admin sempre pode
+  if (usuario.role === 'admin') return true;
+  
+  // PRIORIDADE 1: Thread ATRIBUÍDA ao usuário → SEMPRE PODE (ignora setor/integração)
+  if (isAtribuidoAoUsuario(usuario, thread)) {
+    return true;
+  }
+  
+  // PRIORIDADE 2: Contato FIDELIZADO ao usuário → SEMPRE PODE (ignora setor/integração)
+  if (contato && isFidelizadoAoUsuario(usuario, contato)) {
+    return true;
+  }
+  
+  // PRIORIDADE 3: Thread NÃO ATRIBUÍDA → pode interagir (auto-atribui)
+  if (isNaoAtribuida(thread)) {
+    return true;
+  }
+  
+  // Todos outros casos: bloqueado (atribuída/fidelizada a outro)
+  return false;
 };
 
 export default {

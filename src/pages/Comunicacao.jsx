@@ -470,7 +470,7 @@ export default function Comunicacao() {
   // RESTAURADO: Handler para criar novo contato
   const handleCriarNovoContato = useCallback(async (dadosContato) => {
     try {
-      console.log('[Comunicacao] Criando novo contato:', dadosContato);
+      console.log('[Comunicacao] 🆕 Criando novo contato:', dadosContato);
 
       const telefoneNormalizado = normalizarTelefone(dadosContato.telefone);
       if (!telefoneNormalizado) {
@@ -478,44 +478,60 @@ export default function Comunicacao() {
         return;
       }
 
+      // ✅ Criar contato SEM fidelização automática (usuário decide depois)
       const novoContato = await base44.entities.Contact.create({
         ...dadosContato,
         telefone: telefoneNormalizado,
-        whatsapp_status: 'nao_verificado'
+        whatsapp_status: 'nao_verificado',
+        tipo_contato: dadosContato.tipo_contato || 'novo'
       });
+
+      console.log('[Comunicacao] ✅ Contato criado:', novoContato.id);
 
       const integracaoAtiva = integracoes.find((i) => i.status === 'conectado');
       if (!integracaoAtiva) {
         toast.error('❌ Nenhuma integração WhatsApp ativa encontrada');
+        await queryClient.invalidateQueries({ queryKey: ['contacts'] });
         return;
       }
 
+      // ✅ Thread SEMPRE atribuída ao criador (garante acesso total)
       const novaThread = await base44.entities.MessageThread.create({
         contact_id: novoContato.id,
         whatsapp_integration_id: integracaoAtiva.id,
         status: 'aberta',
         unread_count: 0,
+        total_mensagens: 0,
         janela_24h_expira_em: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
         can_send_without_template: true,
-        assigned_user_id: usuario.id
-        // ✅ assigned_user_name/email REMOVIDOS - buscados dinamicamente do User
+        assigned_user_id: usuario.id, // ✅ CRIADOR é o dono
+        primeira_mensagem_at: new Date().toISOString(),
+        last_message_at: new Date().toISOString()
       });
 
-      toast.success('✅ Contato criado com sucesso!');
+      console.log('[Comunicacao] ✅ Thread criada e atribuída ao criador:', novaThread.id);
+
+      toast.success('✅ Contato criado! Já pode conversar.');
 
       await queryClient.invalidateQueries({ queryKey: ['contacts'] });
       await queryClient.invalidateQueries({ queryKey: ['threads'] });
 
+      // ✅ Fechar painel e abrir thread diretamente
       setCriandoNovoContato(false);
       setNovoContatoTelefone("");
       setShowContactInfo(false);
-      setThreadAtiva(novaThread);
+      setContactInitialData(null);
+      
+      // ✅ AGUARDAR queries atualizarem antes de abrir
+      setTimeout(() => {
+        setThreadAtiva(novaThread);
+      }, 500);
 
     } catch (error) {
       console.error('[Comunicacao] Erro ao criar contato:', error);
       toast.error(`Erro ao criar contato: ${error.message}`);
     }
-  }, [integracoes, queryClient]);
+  }, [integracoes, queryClient, usuario]);
 
   // RESTAURADO: Handler para atualizar informações do contato
   const handleAtualizarContato = useCallback(async (dadosAtualizados) => {
