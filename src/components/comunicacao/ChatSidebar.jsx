@@ -149,24 +149,47 @@ export default function ChatSidebar({
   const threadsFiltradas = useMemo(() => {
     if (!threads || threads.length === 0) return [];
 
-    return threads.filter((thread) => {
+    console.log(`[ChatSidebar] 🔍 Filtrando ${threads.length} threads para usuário:`, {
+      email: usuarioAtual?.email,
+      id: usuarioAtual?.id,
+      role: usuarioAtual?.role,
+      whatsapp_permissions: usuarioAtual?.whatsapp_permissions?.length || 0
+    });
+
+    const filtered = threads.filter((thread) => {
       // 0. REGRA MESTRA: Admin vê TUDO (sem exceções)
-      if (usuarioAtual?.role === 'admin') return true;
+      if (usuarioAtual?.role === 'admin') {
+        console.log(`[ChatSidebar] ✅ Thread ${thread.id?.substring(0, 8)} - ADMIN vê tudo`);
+        return true;
+      }
 
       // 1. LÓGICA INTERNA - Baseada em participação
       if (thread.thread_type === 'team_internal' || thread.thread_type === 'sector_group') {
         if (!thread.participants || thread.participants.length === 0) return true;
         const isParticipant = thread.participants.includes(usuarioAtual?.id);
+        console.log(`[ChatSidebar] ${isParticipant ? '✅' : '❌'} Thread ${thread.id?.substring(0, 8)} - INTERNA (participante: ${isParticipant})`);
         return isParticipant;
       }
       
       // 2. LÓGICA EXTERNA (WhatsApp Z-API/W-API) - Aplicar regras de permissão
       const contato = thread.contato;
-      if (contato && contato.bloqueado) return false;
+      if (contato && contato.bloqueado) {
+        console.log(`[ChatSidebar] ❌ Thread ${thread.id?.substring(0, 8)} - Contato BLOQUEADO`);
+        return false;
+      }
       
       // ✅ APLICAR REGRAS DE VISIBILIDADE (Conexões WhatsApp + Setores)
-      return canUserSeeThreadBase(usuarioAtual, thread);
+      const resultado = canUserSeeThreadBase(usuarioAtual, thread);
+      console.log(`[ChatSidebar] ${resultado ? '✅' : '❌'} Thread ${thread.id?.substring(0, 8)} - canUserSeeThreadBase: ${resultado}`, {
+        assigned: thread.assigned_user_id,
+        integration: thread.whatsapp_integration_id,
+        setor: thread.sector_id
+      });
+      return resultado;
     });
+
+    console.log(`[ChatSidebar] 📊 RESULTADO: ${filtered.length}/${threads.length} threads visíveis`);
+    return filtered;
   }, [threads, usuarioAtual]);
 
   const threadsSorted = useMemo(() => {
