@@ -637,7 +637,41 @@ async function handleMessage(dados, payloadBruto, base44) {
     return jsonErr('erro_salvar_mensagem', 500);
   }
 
-  // ATUALIZAR THREAD
+  // ✅ SE DUPLICATA: Apenas atualiza timestamps (não salva mensagem novamente)
+  if (mensagemExistente) {
+    try {
+      const agora = new Date().toISOString();
+      const threadUpdate = {
+        last_message_at: agora,
+        last_inbound_at: agora,
+        last_message_sender: 'contact',
+        last_message_content: String(dados.content || '').substring(0, 100),
+        last_media_type: dados.mediaType || 'none',
+        status: 'aberta',
+        // NÃO incrementa unread_count nem total_mensagens (já foi contado)
+      };
+      if (integracaoId && !thread.whatsapp_integration_id) {
+        threadUpdate.whatsapp_integration_id = integracaoId;
+      }
+      await base44.asServiceRole.entities.MessageThread.update(thread.id, threadUpdate);
+      
+      const duracao = Date.now() - inicio;
+      console.log(`[WAPI] ✅ DUPLICATA PROCESSADA! Thread atualizada: ${thread.id} | Msg existente: ${mensagemExistente.id} | ${duracao}ms`);
+      
+      return jsonOk({
+        message_id: mensagemExistente.id,
+        contact_id: contato.id,
+        thread_id: thread.id,
+        integration_id: integracaoId,
+        duration_ms: duracao,
+        status: 'duplicate_thread_updated'
+      });
+    } catch (e) {
+      console.error(`[WAPI] ❌ Erro ao atualizar thread duplicata:`, e.message);
+    }
+  }
+
+  // ATUALIZAR THREAD (para mensagem NOVA)
   try {
     const agora = new Date().toISOString();
     const threadUpdate = {
