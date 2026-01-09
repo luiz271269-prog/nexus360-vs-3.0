@@ -371,42 +371,23 @@ async function handleMessage(dados, payloadBruto, base44) {
 
   const inicio = Date.now();
 
-  // DEDUPLICAÇÃO INTELIGENTE POR messageId
-  // ✅ Se detectar duplicata, AINDA atualiza thread para que apareça na UI
+  // ✅ DEDUPLICAÇÃO INTELIGENTE - Atualiza thread mesmo se duplicata
+  let mensagemExistente = null;
   if (dados.messageId) {
     try {
       const dup = await base44.asServiceRole.entities.Message.filter(
         { whatsapp_message_id: dados.messageId },
         '-created_date',
-        10
+        1
       );
       
       if (dup && dup.length > 0) {
-        console.log(`[WAPI] ⏭️ DUPLICATA detectada: ${dados.messageId}`);
-        console.log(`[WAPI] 🔄 Atualizando thread para que apareça na UI...`);
-        
-        // ✅ CRÍTICO: Atualizar timestamps da thread mesmo sendo duplicata
-        // Isso garante que a conversa "acorda" na listagem
-        try {
-          const msgDup = dup[0];
-          if (msgDup.thread_id) {
-            const agora = new Date().toISOString();
-            await base44.asServiceRole.entities.MessageThread.update(msgDup.thread_id, {
-              last_message_at: agora,
-              last_inbound_at: agora,
-              last_message_sender: 'contact',
-              last_message_content: String(dados.content || msgDup.content || '').substring(0, 100),
-              last_media_type: dados.mediaType || msgDup.media_type || 'none',
-            });
-            console.log(`[WAPI] ✅ Thread ${msgDup.thread_id} atualizada (duplicata inteligente)`);
-          }
-        } catch (updateErr) {
-          console.warn(`[WAPI] ⚠️ Falha ao atualizar thread na duplicata:`, updateErr.message);
-        }
-        
-        return jsonOk({ ignored: true, reason: 'duplicata', thread_updated: true });
+        mensagemExistente = dup[0];
+        console.log(`[WAPI] 🔄 Mensagem já existe: ${dados.messageId} - mas vou atualizar thread`);
       }
-    } catch (e) {}
+    } catch (e) {
+      console.warn(`[WAPI] ⚠️ Erro ao verificar duplicata:`, e.message);
+    }
   }
 
   // ═══════════════════════════════════════════════════════════════════
@@ -656,7 +637,41 @@ async function handleMessage(dados, payloadBruto, base44) {
     return jsonErr('erro_salvar_mensagem', 500);
   }
 
-  // ATUALIZAR THREAD
+  // ✅ SE DUPLICATA: Apenas atualiza timestamps (não salva mensagem novamente)
+  if (mensagemExistente) {
+    try {
+      const agora = new Date().toISOString();
+      const threadUpdate = {
+        last_message_at: agora,
+        last_inbound_at: agora,
+        last_message_sender: 'contact',
+        last_message_content: String(dados.content || '').substring(0, 100),
+        last_media_type: dados.mediaType || 'none',
+        status: 'aberta',
+        // NÃO incrementa unread_count nem total_mensagens (já foi contado)
+      };
+      if (integracaoId && !thread.whatsapp_integration_id) {
+        threadUpdate.whatsapp_integration_id = integracaoId;
+      }
+      await base44.asServiceRole.entities.MessageThread.update(thread.id, threadUpdate);
+      
+      const duracao = Date.now() - inicio;
+      console.log(`[WAPI] ✅ DUPLICATA PROCESSADA! Thread atualizada: ${thread.id} | Msg existente: ${mensagemExistente.id} | ${duracao}ms`);
+      
+      return jsonOk({
+        message_id: mensagemExistente.id,
+        contact_id: contato.id,
+        thread_id: thread.id,
+        integration_id: integracaoId,
+        duration_ms: duracao,
+        status: 'duplicate_thread_updated'
+      });
+    } catch (e) {
+      console.error(`[WAPI] ❌ Erro ao atualizar thread duplicata:`, e.message);
+    }
+  }
+
+  // ATUALIZAR THREAD (para mensagem NOVA)
   try {
     const agora = new Date().toISOString();
     const threadUpdate = {
@@ -737,11 +752,9 @@ async function handleMessage(dados, payloadBruto, base44) {
       }
     }
 
-    // ✅ URA DESATIVADA: Pular processamento do Core (apenas salvar mensagem)
+    // ✅ Core desativado temporariamente (problema de import em Deno Edge)
     console.log('[WAPI] 🔐 GERENTE: Integração compartilhada (Token seguro no banco)');
-    console.log('[WAPI] ⏭️ URA desativada - mensagem já salva, sem processamento adicional');
-
-    // Core processing desativado temporariamente para teste
+    console.log('[WAPI] 💾 Mensagem salva - Core desativado temporariamente');
   } catch (err) {
     console.error('[WAPI] 🔴 GERENTE: Erro no processamento:', err.message);
   }
