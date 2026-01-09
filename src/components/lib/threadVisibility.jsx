@@ -293,8 +293,15 @@ export const canUserSeeThreadBase = (usuario, thread, mensagensThread = []) => {
     return true;
   }
 
-  // ✅ 2) FIDELIZAÇÃO TEM PRIORIDADE: Se contato está fidelizado, APENAS o atendente fidelizado pode ver
+  // ✅ 2) FIDELIZAÇÃO: Gerentes/Supervisores SEMPRE veem, outros apenas se fidelizados ao usuário
   if (contato?.is_cliente_fidelizado) {
+    // Gerentes/Supervisores podem ver TODOS os contatos fidelizados
+    if (isGerente) {
+      console.log(`[VISIBILIDADE] ✅ Thread ${thread.id?.substring(0, 8)} - Gerente vê contato fidelizado`);
+      return true;
+    }
+    
+    // Outros usuários só veem se fidelizados a eles
     if (fidelizado) {
       console.log(`[VISIBILIDADE] ✅ Thread ${thread.id?.substring(0, 8)} - FIDELIZADA ao usuário ${usuario.email}`);
       return true;

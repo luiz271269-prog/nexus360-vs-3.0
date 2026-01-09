@@ -101,8 +101,12 @@ export default function AtribuidorAtendenteRapido({
     try {
       const atendente = atendenteId ? atendentes.find(a => a.id === atendenteId) : null;
 
-      // ✅ VERIFICAR FIDELIZAÇÃO: Contato fidelizado só pode ir para o atendente fidelizado
-      if (contato?.is_cliente_fidelizado && atendenteId) {
+      // ✅ VERIFICAR FIDELIZAÇÃO: Gerentes/Supervisores/Admin podem transferir qualquer contato
+      const usuarioAtual = await base44.auth.me();
+      const isGerente = ['gerente', 'coordenador', 'supervisor'].includes(usuarioAtual?.attendant_role);
+      const isAdmin = usuarioAtual?.role === 'admin';
+      
+      if (contato?.is_cliente_fidelizado && atendenteId && !isGerente && !isAdmin) {
         const camposFidelizacao = [
           'atendente_fidelizado_vendas',
           'atendente_fidelizado_assistencia',
@@ -116,7 +120,7 @@ export default function AtribuidorAtendenteRapido({
           .filter(Boolean);
         
         if (atendentesFidelizados.length > 0 && !atendentesFidelizados.includes(atendenteId)) {
-          toast.error("❌ Este contato está fidelizado a outro atendente");
+          toast.error("❌ Este contato está fidelizado a outro atendente. Apenas gerentes podem transferir.");
           setSalvando(false);
           return;
         }

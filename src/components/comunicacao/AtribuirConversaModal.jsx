@@ -51,9 +51,12 @@ export default function AtribuirConversaModal({
         throw new Error("Atendente não encontrado");
       }
 
-      // ✅ VERIFICAR FIDELIZAÇÃO: Contato fidelizado só pode ir para o atendente fidelizado
+      // ✅ VERIFICAR FIDELIZAÇÃO: Gerentes/Supervisores podem transferir, outros não
       const contato = thread.contato;
-      if (contato?.is_cliente_fidelizado) {
+      const isGerente = ['gerente', 'coordenador', 'supervisor'].includes(usuario.attendant_role);
+      const isAdmin = usuario.role === 'admin';
+      
+      if (contato?.is_cliente_fidelizado && !isGerente && !isAdmin) {
         const camposFidelizacao = [
           'atendente_fidelizado_vendas',
           'atendente_fidelizado_assistencia',
@@ -67,7 +70,7 @@ export default function AtribuirConversaModal({
           .filter(Boolean);
         
         if (atendentesFidelizados.length > 0 && !atendentesFidelizados.includes(atendenteEscolhido.id)) {
-          toast.error("❌ Este contato está fidelizado a outro atendente");
+          toast.error("❌ Este contato está fidelizado a outro atendente. Apenas gerentes podem transferir.");
           setAtribuindo(false);
           return;
         }
