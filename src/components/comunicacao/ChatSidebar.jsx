@@ -149,7 +149,11 @@ export default function ChatSidebar({
   const threadsFiltradas = useMemo(() => {
     if (!threads || threads.length === 0) return [];
 
-    return threads.filter((thread) => {
+    console.log(`[SIDEBAR] 🔍 Filtrando ${threads.length} threads para usuário: ${usuarioAtual?.email} (role: ${usuarioAtual?.role})`);
+    console.log(`[SIDEBAR] 🔍 Permissões WhatsApp:`, usuarioAtual?.whatsapp_permissions);
+    console.log(`[SIDEBAR] 🔍 Permissões Visualização:`, usuarioAtual?.permissoes_visualizacao);
+
+    const filtradas = threads.filter((thread, idx) => {
       // 0. REGRA MESTRA: Admin vê TUDO (sem exceções)
       if (usuarioAtual?.role === 'admin') return true;
 
@@ -162,11 +166,34 @@ export default function ChatSidebar({
       
       // 2. LÓGICA EXTERNA (WhatsApp Z-API/W-API) - Aplicar regras de permissão
       const contato = thread.contato;
-      if (contato && contato.bloqueado) return false;
+      if (contato && contato.bloqueado) {
+        console.log(`[SIDEBAR] ❌ Thread ${thread.id?.substring(0, 8)} - Contato bloqueado`);
+        return false;
+      }
+      
+      // 🔍 LOG: Informações da thread antes de aplicar visibilidade
+      if (idx < 3) { // Log apenas das 3 primeiras para não poluir
+        console.log(`[SIDEBAR] 🔍 Thread ${thread.id?.substring(0, 8)}:`, {
+          assigned_user_id: thread.assigned_user_id,
+          whatsapp_integration_id: thread.whatsapp_integration_id,
+          sector_id: thread.sector_id,
+          unread_count: thread.unread_count,
+          last_message_at: thread.last_message_at
+        });
+      }
       
       // ✅ APLICAR REGRAS DE VISIBILIDADE (Conexões WhatsApp + Setores)
-      return canUserSeeThreadBase(usuarioAtual, thread);
+      const visivel = canUserSeeThreadBase(usuarioAtual, thread);
+      
+      if (!visivel && idx < 3) {
+        console.log(`[SIDEBAR] ❌ Thread ${thread.id?.substring(0, 8)} BLOQUEADA pelas regras de visibilidade`);
+      }
+      
+      return visivel;
     });
+
+    console.log(`[SIDEBAR] ✅ ${filtradas.length}/${threads.length} threads visíveis após filtro`);
+    return filtradas;
   }, [threads, usuarioAtual]);
 
   const threadsSorted = useMemo(() => {
