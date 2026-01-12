@@ -53,6 +53,8 @@ import DiagnosticoCirurgicoEmbed from "../components/comunicacao/DiagnosticoCiru
 import GerenciadorEtiquetasUnificado from "../components/comunicacao/GerenciadorEtiquetasUnificado";
 import GerenciadorDuplicatas from "../components/comunicacao/GerenciadorDuplicatas";
 import GoToConnectionSetup from "../components/comunicacao/GoToConnectionSetup";
+import { useNavigate } from "react-router-dom";
+import { createPageUrl } from "@/utils";
 
 
 export default function Comunicacao() {
@@ -95,6 +97,7 @@ export default function Comunicacao() {
     threadOriginal: null
   });
 
+  const navigate = useNavigate();
   const queryClient = useQueryClient();
 
   useEffect(() => {
@@ -1369,33 +1372,35 @@ export default function Comunicacao() {
               <div className="flex h-full">
                 <div className="w-80 border-r border-slate-200 bg-white flex flex-col overflow-hidden">
                   {/* RESTAURADO: SearchAndFilter com TODOS os props */}
-                  <SearchAndFilter
-                    searchTerm={searchTerm}
-                    onSearchChange={setSearchTerm}
-                    filterScope={filterScope}
-                    onFilterScopeChange={setFilterScope}
-                    selectedAttendantId={selectedAttendantId}
-                    onSelectedAttendantChange={setSelectedAttendantId}
-                    atendentes={atendentes}
-                    isManager={isManager}
-                    novoContatoTelefone={novoContatoTelefone}
-                    onNovoContatoTelefoneChange={setNovoContatoTelefone}
-                    onCreateContact={() => {
-                      setCriandoNovoContato(true);
-                      setThreadAtiva(null);
-                      setShowContactInfo(true);
-                    }}
-                    integracoes={integracoes}
-                    selectedIntegrationId={selectedIntegrationId}
-                    onSelectedIntegrationChange={setSelectedIntegrationId}
-                    selectedCategoria={selectedCategoria}
-                    onSelectedCategoriaChange={setSelectedCategoria}
-                    selectedTipoContato={selectedTipoContato}
-                    onSelectedTipoContatoChange={setSelectedTipoContato}
-                    selectedTagContato={selectedTagContato}
-                    onSelectedTagContatoChange={setSelectedTagContato}
-                    modoSelecaoMultipla={modoSelecaoMultipla}
-                    onModoSelecaoMultiplaChange={setModoSelecaoMultipla} />
+                   <SearchAndFilter
+                     searchTerm={searchTerm}
+                     onSearchChange={setSearchTerm}
+                     filterScope={filterScope}
+                     onFilterScopeChange={setFilterScope}
+                     selectedAttendantId={selectedAttendantId}
+                     onSelectedAttendantChange={setSelectedAttendantId}
+                     atendentes={atendentes}
+                     isManager={isManager}
+                     novoContatoTelefone={novoContatoTelefone}
+                     onNovoContatoTelefoneChange={setNovoContatoTelefone}
+                     onCreateContact={() => {
+                       setCriandoNovoContato(true);
+                       setThreadAtiva(null);
+                       setShowContactInfo(true);
+                     }}
+                     integracoes={integracoes}
+                     selectedIntegrationId={selectedIntegrationId}
+                     onSelectedIntegrationChange={setSelectedIntegrationId}
+                     selectedCategoria={selectedCategoria}
+                     onSelectedCategoriaChange={setSelectedCategoria}
+                     selectedTipoContato={selectedTipoContato}
+                     onSelectedTipoContatoChange={setSelectedTipoContato}
+                     selectedTagContato={selectedTagContato}
+                     onSelectedTagContatoChange={setSelectedTagContato}
+                     modoSelecaoMultipla={modoSelecaoMultipla}
+                     onModoSelecaoMultiplaChange={setModoSelecaoMultipla}
+                     isAdmin={usuario?.role === 'admin'}
+                     onAbrirDiagnostico={(telefone) => navigate(createPageUrl('DiagnosticoContato') + `?telefone=${telefone}`)} />
 
 
                   <div className="flex-1 overflow-y-auto">
