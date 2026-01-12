@@ -985,42 +985,6 @@ export default function Comunicacao() {
       
       // ⬇️ Daqui pra baixo: SOMENTE threads EXTERNAS (contact_external)
       
-      // ✅ FILTRO DE PERMISSÃO DE INTEGRAÇÃO - CRÍTICO
-      // Usuário só pode ver threads de integrações que ele tem permissão
-      if (usuario?.role !== 'admin' && thread.whatsapp_integration_id) {
-        const whatsappPerms = usuario?.whatsapp_permissions || [];
-        
-        if (isLuizThread) {
-          console.log('[COMUNICACAO] 🔍 DIAGNÓSTICO LUIZ - Permissões:', {
-            role: usuario?.role,
-            whatsapp_permissions: whatsappPerms,
-            integration_buscada: thread.whatsapp_integration_id
-          });
-        }
-        
-        // Se usuário tem permissões configuradas, verificar se pode ver esta integração
-        if (whatsappPerms.length > 0) {
-          const temPermissaoNaIntegracao = whatsappPerms.some(p => 
-            p.integration_id === thread.whatsapp_integration_id && p.can_view === true
-          );
-          
-          if (isLuizThread) {
-            console.log('[COMUNICACAO] 🔍 DIAGNÓSTICO LUIZ - Tem permissão?', temPermissaoNaIntegracao);
-          }
-          
-          if (!temPermissaoNaIntegracao) {
-            if (isLuizThread) {
-              console.log('[COMUNICACAO] ❌ DIAGNÓSTICO LUIZ - BLOQUEADO por falta de permissão can_view na integração');
-            }
-            return false; // Filtrar thread de integração não permitida
-          }
-        } else {
-          if (isLuizThread) {
-            console.log('[COMUNICACAO] ✅ DIAGNÓSTICO LUIZ - Sem permissões configuradas, mostrando tudo');
-          }
-        }
-      }
-      
       const contato = contatosMap.get(thread.contact_id);
       
       if (isLuizThread) {

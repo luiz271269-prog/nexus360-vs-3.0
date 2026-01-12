@@ -140,10 +140,11 @@ export const threadSetorVisivel = (usuario, thread) => {
   const perms = usuario?.permissoes_visualizacao || {};
   const setoresUser = perms.setores_visiveis;
   
-  // ✅ CORREÇÃO CRÍTICA: Sem configuração = BLOQUEADO (requer explícito)
+  // ✅ REGRA SUAVIZADA: Sem configuração = LIBERA (não bloqueia por padrão)
+  // Só bloqueia se houver configuração explícita e não estiver na lista
   if (!setoresUser || setoresUser.length === 0) {
-    console.log(`[VISIBILIDADE] ⚠️ Usuário ${usuario?.email} sem setores configurados - bloqueando por segurança`);
-    return false;
+    console.log(`[VISIBILIDADE] ✅ Usuário ${usuario?.email} sem setores configurados - liberando (sem restrição)`);
+    return true;
   }
   
   // Obter setor da thread (URA ou etiqueta)
