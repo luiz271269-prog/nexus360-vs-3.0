@@ -180,6 +180,7 @@ export default function ChatWindow({
     // PRIORIDADE 2: Contato fidelizado ao usuário → SEMPRE LIBERA (zero bloqueios)
     // ✅ Crítico: Verifica TODOS os campos de fidelização em TODOS os setores
     // Independentemente de qual setor a thread está, se o contato está fidelizado em QUALQUER setor, libera
+    let fidelizadoAoUsuario = false;
     if (contatoCompleto) {
       const camposFidelizacao = [
         'atendente_fidelizado_vendas',
@@ -192,16 +193,22 @@ export default function ChatWindow({
       // Verificar QUALQUER campo de fidelização
       for (const campo of camposFidelizacao) {
         const atendenteFidelizado = contatoCompleto?.[campo];
-        if (atendenteFidelizado) {
-          const fidelizadoAoUsuario = 
-            norm(atendenteFidelizado) === norm(usuario.id) ||
-            norm(atendenteFidelizado) === norm(usuario.email) ||
-            norm(atendenteFidelizado) === norm(usuario.full_name);
-          
-          if (fidelizadoAoUsuario) {
-            console.log(`[VISIBILIDADE] ✅ Contato fidelizado a ${usuario.full_name} em campo ${campo} - LIBERADO`);
-            return true;
-          }
+        const isFidelizado = atendenteFidelizado &&
+          (norm(atendenteFidelizado) === norm(usuario.id) ||
+           norm(atendenteFidelizado) === norm(usuario.email) ||
+           norm(atendenteFidelizado) === norm(usuario.full_name));
+        
+        debugLog(`PRIORIDADE 2 (Fidelização ${campo})`, isFidelizado, {
+          'contato.campo': contatoCompleto?.[campo],
+          'usuario.id': usuario.id,
+          'usuario.email': usuario.email,
+          'usuario.full_name': usuario.full_name,
+          'setor_thread': thread?.sector_id,
+          'setor_usuario': usuario?.attendant_sector
+        });
+        
+        if (isFidelizado) {
+          return true;
         }
       }
     }
