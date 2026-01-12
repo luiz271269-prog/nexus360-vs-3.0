@@ -90,21 +90,39 @@ export default function DiagnosticoContato() {
             created_date: c.created_date
           }))
         },
-        mensagensHoje: {
-          total: mensagensHoje.length,
-          mensagens: mensagensHoje.map(m => ({
-            id: m.id,
-            conteudo: m.content?.substring(0, 100) || '(sem texto)',
-            tipo: m.media_type,
-            horario: new Date(m.sent_at || m.created_date).toLocaleTimeString('pt-BR'),
-            status: m.status
-          }))
-        },
-        threads: threadsDoPrimeiro.map(t => ({
-          id: t.id,
-          ultima_mensagem: new Date(t.last_message_at).toLocaleTimeString('pt-BR'),
-          nao_lidas: t.unread_count,
-          atribuida: t.assigned_user_id ? 'Sim' : 'Não'
+        analiseDetalhadaPorContato: contatosAnalise.map(analise => ({
+          contato: {
+            id: analise.contato.id,
+            nome: analise.contato.nome,
+            tipo: analise.contato.tipo_contato
+          },
+          threads: analise.threads.map(t => ({
+            id: t.id,
+            ultima_mensagem: t.last_message_at ? new Date(t.last_message_at).toLocaleTimeString('pt-BR') : 'N/A',
+            nao_lidas: t.unread_count,
+            atribuida: t.assigned_user_id ? 'Sim' : 'Não',
+            status: t.status
+          })),
+          mensagensRecebidashoje: {
+            total: analise.msgsRecebidashoje.length,
+            lista: analise.msgsRecebidashoje.slice(0, 20).map(m => ({
+              id: m.id,
+              conteudo: m.content?.substring(0, 80) || '(sem texto)',
+              tipo: m.media_type,
+              horario: new Date(m.sent_at || m.created_date).toLocaleTimeString('pt-BR'),
+              status: m.status
+            }))
+          },
+          mensagensEnviadasHoje: {
+            total: analise.msgsEnviadasHoje.length,
+            lista: analise.msgsEnviadasHoje.slice(0, 20).map(m => ({
+              id: m.id,
+              conteudo: m.content?.substring(0, 80) || '(sem texto)',
+              tipo: m.media_type,
+              horario: new Date(m.sent_at || m.created_date).toLocaleTimeString('pt-BR'),
+              status: m.status
+            }))
+          }
         }))
       });
 
