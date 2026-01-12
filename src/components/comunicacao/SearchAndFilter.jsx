@@ -519,36 +519,50 @@ export default function SearchAndFilter({
             </div>
           )}
 
-          {/* BOTÃO CRIAR - Desabilitado PERMANENTEMENTE se houver duplicata */}
-          {!duplicataEncontrada ? (
-            <Button
-              onClick={onCreateContact}
-              disabled={verificandoDuplicatas}
-              className="w-full shadow-lg bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 shadow-green-500/25"
-              size="sm">
+          <div className="flex gap-2">
+            {/* BOTÃO CRIAR - Desabilitado PERMANENTEMENTE se houver duplicata */}
+            {!duplicataEncontrada ? (
+              <Button
+                onClick={onCreateContact}
+                disabled={verificandoDuplicatas}
+                className="flex-1 shadow-lg bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 shadow-green-500/25"
+                size="sm">
 
-              {verificandoDuplicatas ? (
-                <>
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  Verificando...
-                </>
-              ) : (
-                <>
-                  <UserPlus className="w-4 h-4 mr-2" />
-                  Criar Contato: {novoContatoTelefone}
-                </>
-              )}
-            </Button>
-          ) : (
-            <div className="bg-slate-100 border border-slate-300 rounded-lg p-3 text-center">
-              <p className="text-xs text-slate-600 font-medium">
-                ✅ Use o contato existente acima
-              </p>
-              <p className="text-[10px] text-slate-500 mt-1">
-                Para evitar duplicação, não é permitido criar novo contato
-              </p>
-            </div>
-          )}
+                {verificandoDuplicatas ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Verificando...
+                  </>
+                ) : (
+                  <>
+                    <UserPlus className="w-4 h-4 mr-2" />
+                    Criar Contato: {novoContatoTelefone}
+                  </>
+                )}
+              </Button>
+            ) : (
+              <div className="flex-1 bg-slate-100 border border-slate-300 rounded-lg p-3 text-center">
+                <p className="text-xs text-slate-600 font-medium">
+                  ✅ Use o contato existente acima
+                </p>
+                <p className="text-[10px] text-slate-500 mt-1">
+                  Para evitar duplicação, não é permitido criar novo contato
+                </p>
+              </div>
+            )}
+
+            {/* BOTÃO DIAGNÓSTICO (ADMIN) */}
+            {isAdmin && duplicataEncontrada && (
+              <Button
+                onClick={() => onAbrirDiagnostico && onAbrirDiagnostico(duplicataEncontrada.principal.telefone)}
+                className="bg-indigo-600 hover:bg-indigo-700 shadow-lg shadow-indigo-500/25"
+                size="sm"
+                title="Análise completa de contatos duplicados"
+              >
+                <Microscope className="w-4 h-4" />
+              </Button>
+            )}
+          </div>
         </motion.div>
       }
     </div>);
