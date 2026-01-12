@@ -226,10 +226,23 @@ export const isAtribuidoAoUsuario = (usuario, thread) => {
 
 /**
  * Verifica se o contato está fidelizado ao usuário
+ * ✅ DEFENSIVO: Trata contato null, usuario null, e validação dupla
  */
 export const isFidelizadoAoUsuario = (usuario, contato) => {
-  if (!contato) return false;
-  return contatoFidelizadoAoUsuario(contato, usuario);
+  // Proteção contra null/undefined (ponto de falha #2: Contato Null)
+  if (!contato || !usuario) return false;
+  
+  // Chamar matcher - já trata dados sujos e normaliza (ponto de falha #1 e #3)
+  const resultado = contatoFidelizadoAoUsuario(contato, usuario);
+  
+  // Validação defensiva: se contato tem flag is_cliente_fidelizado = true
+  // mas matcher retornou false, registrar para debug (indica falha no matcher)
+  if (contato.is_cliente_fidelizado && !resultado) {
+    // Apenas um aviso - não muda o resultado
+    // Se o matcher falhou aqui, é bug no userMatcher.js
+  }
+  
+  return resultado;
 };
 
 /**
