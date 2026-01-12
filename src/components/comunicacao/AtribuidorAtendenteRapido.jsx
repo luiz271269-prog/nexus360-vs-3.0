@@ -26,6 +26,10 @@ import { FILAS_ATENDIMENTO } from "./CentralInteligenciaContato";
 /**
  * AtribuidorAtendenteRapido - Componente reutilizável para atribuir atendentes a contatos
  * 
+ * ⚠️ IMPORTANTE: Este componente DEPENDE de receber a lista de atendentes via props.
+ * NÃO busca atendentes diretamente porque User tem regras de segurança especiais (403).
+ * O componente pai DEVE buscar atendentes via listarUsuariosParaAtribuicao e passar.
+ * 
  * Props:
  * - contato: objeto Contact com campos de fidelização
  * - thread: objeto MessageThread (opcional) para atribuição de conversa
@@ -34,7 +38,7 @@ import { FILAS_ATENDIMENTO } from "./CentralInteligenciaContato";
  * - onUpdate: callback após atualização
  * - variant: 'mini' | 'compact' | 'button' | 'badge'
  * - showLabel: boolean para mostrar label
- * - atendentes: lista de atendentes (OBRIGATÓRIO - vem do pai)
+ * - atendentes: lista de atendentes (OBRIGATÓRIO - vem do pai via listarUsuariosParaAtribuicao)
  */
 export default function AtribuidorAtendenteRapido({
   contato,
