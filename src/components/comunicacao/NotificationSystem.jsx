@@ -5,55 +5,46 @@ import { MessageCircle, Bell } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'sonner';
 
-export default function NotificationSystem({ usuario }) {
+export default function NotificationSystem({ usuario, threads = [] }) {
   const [totalNaoLidas, setTotalNaoLidas] = useState(0);
   const [novasMensagens, setNovasMensagens] = useState([]);
   const ultimoTotalRef = useRef(0);
 
+  // 🚫 REMOVIDO: Usar threads passadas pelo pai em vez de buscar aqui
   useEffect(() => {
-    if (!usuario) return;
+    if (!usuario || !threads.length) return;
 
-    const verificarMensagens = async () => {
-      try {
-        // Buscar threads com mensagens não lidas
-        const threads = await base44.entities.MessageThread.list('-last_message_at', 100);
+    try {
+      // ✅ CALCULAR LOCALMENTE a partir de threads do pai
+      const total = threads.reduce((acc, thread) => acc + (thread.unread_count || 0), 0);
+      
+      // Se aumentou o número de não lidas = novas mensagens
+      if (total > ultimoTotalRef.current) {
+        const diferenca = total - ultimoTotalRef.current;
         
-        // Calcular total de não lidas
-        const total = threads.reduce((acc, thread) => acc + (thread.unread_count || 0), 0);
-        
-        // Se aumentou o número de não lidas = novas mensagens
-        if (total > ultimoTotalRef.current) {
-          const diferenca = total - ultimoTotalRef.current;
-          
-          // Vibrar
-          if (navigator.vibrate) {
-            navigator.vibrate([200, 100, 200]);
-          }
-          
-          // Notificação visual
-          setNovasMensagens(prev => [...prev, { id: Date.now(), count: diferenca }]);
-          
-          // Tocar som (opcional)
-          try {
-            const audio = new Audio('data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmwhBCR9y/DajEYMF2S46Om4YRsDOpHW8M16LQUu');
-            audio.volume = 0.3;
-            audio.play().catch(() => {});
-          } catch {}
+        // Vibrar
+        if (navigator.vibrate) {
+          navigator.vibrate([200, 100, 200]);
         }
         
-        ultimoTotalRef.current = total;
-        setTotalNaoLidas(total);
+        // Notificação visual
+        setNovasMensagens(prev => [...prev, { id: Date.now(), count: diferenca }]);
         
-      } catch (error) {
-        console.error('[NotificationSystem] Erro:', error);
+        // Tocar som (opcional)
+        try {
+          const audio = new Audio('data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmwhBCR9y/DajEYMF2S46Om4YRsDOpHW8M16LQUu');
+          audio.volume = 0.3;
+          audio.play().catch(() => {});
+        } catch {}
       }
-    };
-
-    verificarMensagens();
-    const interval = setInterval(verificarMensagens, 5000);
-    
-    return () => clearInterval(interval);
-  }, [usuario]);
+      
+      ultimoTotalRef.current = total;
+      setTotalNaoLidas(total);
+      
+    } catch (error) {
+      console.error('[NotificationSystem] Erro:', error);
+    }
+  }, [usuario, threads]);
 
   // Remover notificações antigas
   useEffect(() => {
