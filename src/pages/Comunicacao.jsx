@@ -141,8 +141,9 @@ export default function Comunicacao() {
   const { data: threads = [], isLoading: loadingThreads } = useQuery({
     queryKey: ['threads', usuario?.id],
     queryFn: async () => {
-      if (!usuario) return [];
-      const allThreads = await base44.entities.MessageThread.list('-last_message_at', 500);
+      if (!usuario || isRateLimited) return []; // 🚫 Pausar se rate limited
+      try {
+        const allThreads = await base44.entities.MessageThread.list('-last_message_at', 500);
       console.log('[COMUNICACAO] 📊 Threads carregadas:', allThreads.length);
       
       // 👻 DIAGNÓSTICO: Thread fantasma da Z-API
