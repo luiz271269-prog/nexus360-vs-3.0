@@ -5,7 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import {
   Search, UserPlus, User, Users, AlertCircle, Phone, Tag, Check,
   Filter, X, ChevronDown, Building2, Target, Truck, Handshake, HelpCircle,
-  Sparkles, Crown, Zap, Star, CheckSquare } from
+  Sparkles, Crown, Zap, Star, CheckSquare, Loader2 } from
 'lucide-react';
 import { normalizarTelefone } from '../lib/phoneUtils';
 import { CATEGORIAS_FIXAS } from './CategorizadorRapido';
@@ -56,6 +56,8 @@ export default function SearchAndFilter({
   onModoSelecaoMultiplaChange
 }) {
   const [showFilters, setShowFilters] = useState(false);
+  const [verificandoDuplicatas, setVerificandoDuplicatas] = useState(false);
+  const [duplicataEncontrada, setDuplicataEncontrada] = useState(null);
 
   // Buscar categorias dinâmicas
   const { data: categoriasDB = [] } = useQuery({
@@ -88,12 +90,15 @@ export default function SearchAndFilter({
     emoji: cat.emoji || '🏷️'
   }));
 
-  // Detectar telefone automaticamente
+  // ═══════════════════════════════════════════════════════════════════════════════
+  // 🛡️ PREVENÇÃO DE DUPLICATAS - VERIFICAÇÃO EM TEMPO REAL
+  // ═══════════════════════════════════════════════════════════════════════════════
   useEffect(() => {
     if (!searchTerm || searchTerm.trim() === '') {
       if (novoContatoTelefone) {
         onNovoContatoTelefoneChange('');
       }
+      setDuplicataEncontrada(null);
       return;
     }
 
@@ -103,10 +108,47 @@ export default function SearchAndFilter({
       if (telefoneNormalizado !== novoContatoTelefone) {
         onNovoContatoTelefoneChange(telefoneNormalizado);
       }
+
+      // ✅ VERIFICAR DUPLICATAS EM TEMPO REAL
+      const verificarDuplicata = async () => {
+        setVerificandoDuplicatas(true);
+        try {
+          const contatosExistentes = await base44.entities.Contact.filter({
+            telefone: telefoneNormalizado
+          });
+
+          if (contatosExistentes && contatosExistentes.length > 0) {
+            // Ordenar por tipo_contato e data
+            const principal = contatosExistentes.sort((a, b) => {
+              const tipoOrder = { cliente: 4, lead: 3, parceiro: 2, fornecedor: 1, novo: 0 };
+              const tipoA = tipoOrder[a.tipo_contato] || 0;
+              const tipoB = tipoOrder[b.tipo_contato] || 0;
+              if (tipoB !== tipoA) return tipoB - tipoA;
+              return new Date(a.created_date) - new Date(b.created_date);
+            })[0];
+
+            setDuplicataEncontrada({
+              quantidade: contatosExistentes.length,
+              principal: principal
+            });
+          } else {
+            setDuplicataEncontrada(null);
+          }
+        } catch (error) {
+          console.error('[SearchAndFilter] Erro ao verificar duplicatas:', error);
+        } finally {
+          setVerificandoDuplicatas(false);
+        }
+      };
+
+      // Debounce de 500ms para não sobrecarregar
+      const timer = setTimeout(verificarDuplicata, 500);
+      return () => clearTimeout(timer);
     } else {
       if (novoContatoTelefone) {
         onNovoContatoTelefoneChange('');
       }
+      setDuplicataEncontrada(null);
     }
   }, [searchTerm, novoContatoTelefone, onNovoContatoTelefoneChange]);
 
@@ -445,19 +487,73 @@ export default function SearchAndFilter({
         }
       </AnimatePresence>
 
-      {/* Botão criar contato */}
+      {/* Botão criar contato + Alerta de duplicata */}
       {novoContatoTelefone &&
       <motion.div
         initial={{ opacity: 0, y: -10 }}
-        animate={{ opacity: 1, y: 0 }}>
+        animate={{ opacity: 1, y: 0 }}
+        className="space-y-2">
 
+          {/* ⚠️ ALERTA DE DUPLICATA */}
+          {duplicataEncontrada && (
+            <div className="bg-orange-50 border border-orange-200 rounded-lg p-3">
+              <div className="flex items-start gap-2">
+                <AlertCircle className="w-4 h-4 text-orange-600 mt-0.5 flex-shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs font-semibold text-orange-900">
+                    ⚠️ {duplicataEncontrada.quantidade} contato{duplicataEncontrada.quantidade > 1 ? 's encontrados' : ' encontrado'}
+                  </p>
+                  <p className="text-xs text-orange-700 mt-1 truncate">
+                    <strong>{duplicataEncontrada.principal.nome}</strong>
+                    {duplicataEncontrada.principal.empresa && ` • ${duplicataEncontrada.principal.empresa}`}
+                  </p>
+                  <p className="text-[10px] text-orange-600 mt-1">
+                    Tipo: {duplicataEncontrada.principal.tipo_contato}
+                  </p>
+                  {duplicataEncontrada.quantidade > 1 && (
+                    <p className="text-[10px] text-orange-600 mt-1 font-semibold">
+                      + {duplicataEncontrada.quantidade - 1} duplicata{duplicataEncontrada.quantidade - 1 > 1 ? 's' : ''}
+                    </p>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* BOTÃO CRIAR - Bloqueado se houver duplicata */}
           <Button
-          onClick={onCreateContact}
-          className="w-full bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 shadow-lg shadow-green-500/25"
-          size="sm">
+            onClick={() => {
+              if (duplicataEncontrada) {
+                if (!confirm(`⚠️ JÁ EXISTE ${duplicataEncontrada.quantidade} CONTATO(S) COM ESTE TELEFONE:\n\n${duplicataEncontrada.principal.nome}\nEmpresa: ${duplicataEncontrada.principal.empresa || 'Não informada'}\n\n❌ CRIAR DUPLICATA NÃO É RECOMENDADO.\n\nDeseja continuar mesmo assim?`)) {
+                  return;
+                }
+              }
+              onCreateContact();
+            }}
+            disabled={verificandoDuplicatas}
+            className={`w-full shadow-lg ${
+              duplicataEncontrada 
+                ? 'bg-gradient-to-r from-orange-500 to-red-600 hover:from-orange-600 hover:to-red-700 shadow-orange-500/25' 
+                : 'bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 shadow-green-500/25'
+            }`}
+            size="sm">
 
-            <UserPlus className="w-4 h-4 mr-2" />
-            Criar Contato: {novoContatoTelefone}
+            {verificandoDuplicatas ? (
+              <>
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                Verificando...
+              </>
+            ) : duplicataEncontrada ? (
+              <>
+                <AlertCircle className="w-4 h-4 mr-2" />
+                ⚠️ Criar Duplicata
+              </>
+            ) : (
+              <>
+                <UserPlus className="w-4 h-4 mr-2" />
+                Criar Contato: {novoContatoTelefone}
+              </>
+            )}
           </Button>
         </motion.div>
       }
