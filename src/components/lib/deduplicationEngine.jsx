@@ -67,9 +67,11 @@ export async function buscarContatosPorTelefone(base44, telefone) {
 
 /**
  * Escolhe o contato PRINCIPAL de uma lista de duplicatas
- * Critérios (em ordem de prioridade):
+ * Critérios (em ordem de prioridade - DINÂMICO):
  * 1. tipo_contato: cliente > lead > parceiro > fornecedor > novo
- * 2. Mais antigo (menor created_date)
+ * 2. Último atualizado (mais recente) - para capturar dados atualizados
+ * 3. Última interação recente - atividade
+ * 4. Mais antigo (como fallback)
  */
 export function escolherContatoPrincipal(contatos) {
   if (!contatos || contatos.length === 0) return null;
@@ -83,15 +85,24 @@ export function escolherContatoPrincipal(contatos) {
     'novo': 1
   };
   
-  // Ordenar por prioridade de tipo e depois por data de criação
+  // Ordenar por múltiplos critérios para evitar seleção "fixa"
   const ordenados = [...contatos].sort((a, b) => {
+    // 1️⃣ PRIORIDADE: tipo_contato
     const prioA = prioridades[a.tipo_contato] || 0;
     const prioB = prioridades[b.tipo_contato] || 0;
-    
-    // Maior prioridade primeiro
     if (prioB !== prioA) return prioB - prioA;
     
-    // Se mesma prioridade, mais antigo primeiro
+    // 2️⃣ DINÂMICO: Mais recentemente ATUALIZADO (dados frescos)
+    const updateA = new Date(a.updated_date || a.created_date).getTime();
+    const updateB = new Date(b.updated_date || b.created_date).getTime();
+    if (updateA !== updateB) return updateB - updateA; // Mais recente primeiro
+    
+    // 3️⃣ DINÂMICO: Última interação (atividade recente)
+    const interacaoA = a.ultima_interacao ? new Date(a.ultima_interacao).getTime() : 0;
+    const interacaoB = b.ultima_interacao ? new Date(b.ultima_interacao).getTime() : 0;
+    if (interacaoA !== interacaoB) return interacaoB - interacaoA; // Mais ativo primeiro
+    
+    // 4️⃣ FALLBACK: Mais antigo
     const dataA = new Date(a.created_date).getTime();
     const dataB = new Date(b.created_date).getTime();
     return dataA - dataB;
