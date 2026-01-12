@@ -507,24 +507,51 @@ export default function Comunicacao() {
         return;
       }
 
+      toast.info('🔄 Criando contato...');
+
       // ✅ Criar contato SEM fidelização automática (usuário decide depois)
-      // ✅ SEM conexao_origem - Contact é independente de provedor/integração
       const novoContato = await base44.entities.Contact.create({
         ...dadosContato,
         telefone: telefoneNormalizado,
         whatsapp_status: 'nao_verificado',
         tipo_contato: dadosContato.tipo_contato || 'novo',
-        conexao_origem: null // ✅ Contato não pertence a nenhuma conexão específica
+        conexao_origem: null
       });
 
       console.log('[Comunicacao] ✅ Contato criado:', novoContato.id);
 
-      const integracaoAtiva = integracoes.find((i) => i.status === 'conectado');
+      // ✅ FIX: Buscar integração onde USUÁRIO TEM can_send
+      const integracaoAtiva = integracoes.find((i) => {
+        if (i.status !== 'conectado') return false;
+        
+        // Admin pode usar qualquer integração ativa
+        if (usuario.role === 'admin') return true;
+        
+        // Verificar se usuário tem permissão can_send nesta integração
+        const whatsappPerms = usuario.whatsapp_permissions || [];
+        
+        // Sem restrições configuradas = libera
+        if (whatsappPerms.length === 0) return true;
+        
+        // Buscar permissão específica para esta integração
+        const perm = whatsappPerms.find(p => p.integration_id === i.id);
+        return perm?.can_send === true;
+      });
+
       if (!integracaoAtiva) {
-        toast.error('❌ Nenhuma integração WhatsApp ativa encontrada');
+        // Contato foi criado mas não há integração permitida
+        toast.warning('⚠️ Contato criado, mas você não tem acesso a nenhuma integração WhatsApp ativa');
+        toast.info('💡 Peça a um colega para iniciar a conversa');
+        
         await queryClient.invalidateQueries({ queryKey: ['contacts'] });
+        setCriandoNovoContato(false);
+        setNovoContatoTelefone("");
+        setShowContactInfo(false);
+        setContactInitialData(null);
         return;
       }
+
+      toast.info('🔄 Criando conversa...');
 
       // ✅ Thread SEMPRE atribuída ao criador (garante acesso total)
       const novaThread = await base44.entities.MessageThread.create({
@@ -542,21 +569,23 @@ export default function Comunicacao() {
 
       console.log('[Comunicacao] ✅ Thread criada e atribuída ao criador:', novaThread.id);
 
-      toast.success('✅ Contato criado! Já pode conversar.');
+      // ✅ Aguardar ambas as queries atualizarem antes de abrir
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['contacts'] }),
+        queryClient.invalidateQueries({ queryKey: ['threads'] })
+      ]);
 
-      await queryClient.invalidateQueries({ queryKey: ['contacts'] });
-      await queryClient.invalidateQueries({ queryKey: ['threads'] });
+      // ✅ Aguardar queries serem reexecutadas antes de abrir thread
+      await new Promise(r => setTimeout(r, 500));
 
       // ✅ Fechar painel e abrir thread diretamente
       setCriandoNovoContato(false);
       setNovoContatoTelefone("");
       setShowContactInfo(false);
       setContactInitialData(null);
-      
-      // ✅ AGUARDAR queries atualizarem antes de abrir
-      setTimeout(() => {
-        setThreadAtiva(novaThread);
-      }, 500);
+      setThreadAtiva(novaThread);
+
+      toast.success('✅ Contato criado! Já pode conversar.');
 
     } catch (error) {
       console.error('[Comunicacao] Erro ao criar contato:', error);
