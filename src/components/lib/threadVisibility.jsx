@@ -64,8 +64,10 @@ const normalizar = (v) => (v ? String(v).trim().toLowerCase() : '');
  * - Ao criar integração crítica real (CEO/Diretoria/Financeiro Sensível)
  * - Implementar onboarding automático que configure permissões
  */
-export const temPermissaoIntegracao = (usuario, integracaoId) => {
+export const temPermissaoIntegracao = (usuario, integracaoId, threadId = null) => {
   if (usuario?.role === 'admin') return true;
+  
+  const debugPrefix = threadId ? `[Thread ${threadId.substring(0, 8)}]` : '[INTEGRACAO]';
   
   // Primeiro checa whatsapp_permissions (estrutura atual)
   const whatsappPerms = usuario?.whatsapp_permissions || [];
@@ -77,7 +79,7 @@ export const temPermissaoIntegracao = (usuario, integracaoId) => {
     
     // 🔍 DEBUG: Log quando bloquear por falta de permissão
     if (!temPermissao) {
-      console.log(`[VISIBILIDADE] ❌ Bloqueado por integração: User ${usuario.email} não tem can_view para ${integracaoId}`);
+      console.log(`${debugPrefix} [VISIBILIDADE] ❌ Bloqueado por integração: User ${usuario.email} não tem can_view para ${integracaoId}`);
     }
     
     return temPermissao;
@@ -97,7 +99,7 @@ export const temPermissaoIntegracao = (usuario, integracaoId) => {
   
   // 🔍 DEBUG: Log quando bloquear
   if (!temPermissao) {
-    console.log(`[VISIBILIDADE] ❌ Bloqueado por integração: ${integracaoId} não está em integracoes_visiveis`);
+    console.log(`${debugPrefix} [VISIBILIDADE] ❌ Bloqueado por integração: ${integracaoId} não está em integracoes_visiveis=[${visiveis.join(', ')}]`);
   }
   
   return temPermissao;
