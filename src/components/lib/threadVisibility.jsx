@@ -274,16 +274,22 @@ export const canUserSeeThreadBase = (usuario, thread, mensagensThread = []) => {
     return true;
   }
 
+  // ═══════════════════════════════════════════════════════════════════════════════
+  // ✅ PRIORIDADES ABSOLUTAS (IGNORAM TODAS AS RESTRIÇÕES)
+  // ═══════════════════════════════════════════════════════════════════════════════
+  const atribuido = isAtribuidoAoUsuario(usuario, thread);
+  const fidelizado = isFidelizadoAoUsuario(usuario, contato);
+  
   // 1) Thread ATRIBUÍDA ao usuário → SEMPRE VÊ (ignora integração/setor/conexão)
-  // CRÍTICO: Busca não pode ter dependências de permissões para threads atribuídas
   if (atribuido) {
     console.log(`[VISIBILIDADE] ✅ Thread ${thread.id?.substring(0, 8)} - ATRIBUÍDA ao usuário ${usuario.email}`);
     return true;
   }
 
-  // 2) Contato FIDELIZADO ao usuário → SEMPRE VÊ (ignora integração/setor/conexão)
+  // 2) Contato FIDELIZADO ao usuário → SEMPRE VÊ (ignora integração/setor/conexão/tipo_contato)
+  // ✅ CRÍTICO: Fidelização tem prioridade absoluta sobre QUALQUER restrição
   if (fidelizado) {
-    console.log(`[VISIBILIDADE] ✅ Thread ${thread.id?.substring(0, 8)} - FIDELIZADA ao usuário ${usuario.email}`);
+    console.log(`[VISIBILIDADE] ✅ Thread ${thread.id?.substring(0, 8)} - FIDELIZADA ao usuário ${usuario.email} (ignora todas restrições)`);
     return true;
   }
 
@@ -378,14 +384,26 @@ export const canUserSeeThreadWithFilters = (usuario, thread, filtros = {}) => {
 
   const contato = thread.contato;
   const atribuido = isAtribuidoAoUsuario(usuario, thread);
+  const fidelizado = isFidelizadoAoUsuario(usuario, contato);
 
-  // ✅ PRIORIDADE MÁXIMA: Se está atribuída ao usuário, SEMPRE VÊ (ignora todas as restrições)
+  // ═══════════════════════════════════════════════════════════════════════
+  // ✅ PRIORIDADES ABSOLUTAS (IGNORAM TODAS AS RESTRIÇÕES)
+  // ═══════════════════════════════════════════════════════════════════════
+  
+  // PRIORIDADE 1: Thread ATRIBUÍDA ao usuário → SEMPRE VÊ
   if (atribuido) {
     return true;
   }
 
+  // PRIORIDADE 2: Contato FIDELIZADO ao usuário → SEMPRE VÊ
+  // ✅ CRÍTICO: Fidelização ignora integração, setor, conexão
+  if (fidelizado) {
+    console.log(`[VISIBILIDADE] ✅ Thread ${thread.id?.substring(0, 8)} - FIDELIZADA ao usuário ${usuario.email} (ignora restrições)`);
+    return true;
+  }
+
   // ═══════════════════════════════════════════════════════════════════════
-  // 🟢 ESTÁGIO 1: BARREIRA DE SEGURANÇA (apenas para não-atribuídas)
+  // 🟢 ESTÁGIO 1: BARREIRA DE SEGURANÇA (apenas para não-atribuídas/não-fidelizadas)
   // ═══════════════════════════════════════════════════════════════════════
   
   const integracaoOk = temPermissaoIntegracao(usuario, thread.whatsapp_integration_id);
@@ -394,29 +412,19 @@ export const canUserSeeThreadWithFilters = (usuario, thread, filtros = {}) => {
   const conexaoOk = threadConexaoVisivel(usuario, thread.conexao_id);
   if (!conexaoOk) return false;
 
-  const setorOk = threadSetorVisivel(usuario, thread.sector_id || thread.setor);
+  const setorOk = threadSetorVisivel(usuario, thread);
   if (!setorOk) return false;
 
   // ═══════════════════════════════════════════════════════════════════════
   // 🔵 ESTÁGIO 2: FILTRO DE ESCOPO (Abas de Navegação)
   // ═══════════════════════════════════════════════════════════════════════
   
-  const fidelizado = isFidelizadoAoUsuario(usuario, contato);
   const naoAtribuida = isNaoAtribuida(thread);
 
   // A. Aba "Minhas Conversas" (scope = 'my')
   if (filtros.scope === 'my') {
-    // Atribuição já foi checada no topo (priority check)
-    
-    // Fidelização (Dono do Cliente) - e não atribuída a outro
-    if (fidelizado && !thread.assigned_user_id) return true;
-    
-    // Contato fidelizado ao usuário (mesmo que thread não atribuída)
-    if (fidelizado) {
-      const atribuidaAOutro = thread.assigned_user_id;
-      if (!atribuidaAOutro) return true;
-    }
-    
+    // Atribuição e fidelização já foram checadas no topo (PRIORIDADES ABSOLUTAS)
+    // Se chegou aqui, não é atribuída nem fidelizada ao usuário
     return false;
   }
 
