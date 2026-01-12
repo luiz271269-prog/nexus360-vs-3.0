@@ -13,12 +13,17 @@ import { MessageSquare, AlertCircle, RefreshCw, TrendingUp, Phone } from "lucide
 
 /**
  * ═══════════════════════════════════════════════════════════════════════════════
- * 🔔 CONTADOR DE MENSAGENS NÃO ATRIBUÍDAS
+ * 🔔 CONTADOR INTELIGENTE - NÃO ATRIBUÍDAS + TRAVADAS
  * ═══════════════════════════════════════════════════════════════════════════════
  * 
- * Exibe contador visual de threads não atribuídas visíveis ao usuário.
+ * Exibe contador de conversas que requerem atenção:
+ * 1️⃣ Não atribuídas (sem assigned_user_id)
+ * 2️⃣ Travadas/em risco (sem resposta 30min, URA timeout, abandonadas 2h)
+ * 
+ * ✅ OBJETIVO: Não perder conversas - garantir que nada fique esquecido
+ * 
  * - Atualiza a cada 15 segundos
- * - Mostra breakdown por setor no tooltip
+ * - Mostra breakdown detalhado por setor no tooltip
  * - Cores de alerta baseadas na quantidade
  */
 export default function ContadorNaoAtribuidas({ onClickVerFila, onClickConexao, className = "" }) {
@@ -29,7 +34,13 @@ export default function ContadorNaoAtribuidas({ onClickVerFila, onClickConexao, 
     staleTime: 5 * 60 * 1000
   });
 
-  const [dados, setDados] = useState({ total: 0, por_setor: [], por_integracao: [] });
+  const [dados, setDados] = useState({ 
+    total: 0, 
+    nao_atribuidas: 0, 
+    travadas: 0, 
+    por_setor: [], 
+    por_integracao: [] 
+  });
   const [loading, setLoading] = useState(true);
   const [erro, setErro] = useState(null);
 
@@ -39,7 +50,13 @@ export default function ContadorNaoAtribuidas({ onClickVerFila, onClickConexao, 
       const resultado = await base44.functions.invoke('contarNaoAtribuidasVisiveis', {});
 
       // Acessar dados corretamente (resultado já vem com .data do SDK)
-      const dadosRecebidos = resultado?.data || resultado || { total: 0, por_setor: [], por_integracao: [] };
+      const dadosRecebidos = resultado?.data || resultado || { 
+        total: 0, 
+        nao_atribuidas: 0, 
+        travadas: 0, 
+        por_setor: [], 
+        por_integracao: [] 
+      };
       setDados(dadosRecebidos);
     } catch (error) {
       console.error('[CONTADOR] Erro ao buscar:', error);
@@ -173,11 +190,33 @@ export default function ContadorNaoAtribuidas({ onClickVerFila, onClickConexao, 
         <TooltipContent side="bottom" className="max-w-md p-4 bg-white border-2 shadow-xl">
           <div className="space-y-3">
             {/* Header */}
-            <div className="flex items-center gap-2 pb-2 border-b">
-              <MessageSquare className="w-4 h-4 text-indigo-600" />
-              <p className="text-sm font-bold text-slate-800">
-                Distribuição de Mensagens Não Atribuídas
-              </p>
+            <div className="pb-2 border-b space-y-2">
+              <div className="flex items-center gap-2">
+                <MessageSquare className="w-4 h-4 text-indigo-600" />
+                <p className="text-sm font-bold text-slate-800">
+                  Conversas Requerendo Atenção
+                </p>
+              </div>
+              
+              {/* Breakdown de tipos */}
+              {(dados.nao_atribuidas > 0 || dados.travadas > 0) && (
+                <div className="flex gap-2 text-xs">
+                  {dados.nao_atribuidas > 0 && (
+                    <div className="flex items-center gap-1 bg-blue-50 px-2 py-1 rounded">
+                      <span className="w-1.5 h-1.5 bg-blue-500 rounded-full" />
+                      <span className="text-slate-600">Não atribuídas:</span>
+                      <span className="font-bold text-blue-700">{dados.nao_atribuidas}</span>
+                    </div>
+                  )}
+                  {dados.travadas > 0 && (
+                    <div className="flex items-center gap-1 bg-amber-50 px-2 py-1 rounded">
+                      <span className="w-1.5 h-1.5 bg-amber-500 rounded-full" />
+                      <span className="text-slate-600">Travadas:</span>
+                      <span className="font-bold text-amber-700">{dados.travadas}</span>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
 
             {/* Breakdown por Setor */}
@@ -194,14 +233,26 @@ export default function ContadorNaoAtribuidas({ onClickVerFila, onClickConexao, 
                   key={idx}
                   className="flex items-center justify-between gap-4 p-2 rounded-lg hover:bg-slate-50 transition-colors">
 
-                      <span className="text-xs text-slate-700 font-medium capitalize flex items-center gap-2">
-                        <span className={`w-1.5 h-1.5 rounded-full ${
-                    idx === 0 ? 'bg-blue-500' :
-                    idx === 1 ? 'bg-purple-500' :
-                    'bg-slate-400'}`
-                    } />
-                        {item.sector_id === 'sem_setor' ? '(Sem setor definido)' : item.sector_id}
-                      </span>
+                      <div className="flex flex-col gap-1 flex-1">
+                        <span className="text-xs text-slate-700 font-medium capitalize flex items-center gap-2">
+                          <span className={`w-1.5 h-1.5 rounded-full ${
+                      idx === 0 ? 'bg-blue-500' :
+                      idx === 1 ? 'bg-purple-500' :
+                      'bg-slate-400'}`
+                      } />
+                          {item.sector_id === 'sem_setor' ? '(Sem setor definido)' : item.sector_id}
+                        </span>
+                        
+                        {/* Detalhamento tipo */}
+                        {(item.nao_atribuidas > 0 || item.travadas > 0) && (
+                          <span className="text-[10px] text-slate-500 ml-4">
+                            {item.nao_atribuidas > 0 && `${item.nao_atribuidas} nova${item.nao_atribuidas > 1 ? 's' : ''}`}
+                            {item.nao_atribuidas > 0 && item.travadas > 0 && ' • '}
+                            {item.travadas > 0 && `${item.travadas} travada${item.travadas > 1 ? 's' : ''}`}
+                          </span>
+                        )}
+                      </div>
+                      
                       <Badge className="bg-indigo-100 text-indigo-700 hover:bg-indigo-200 text-xs font-bold px-2">
                         {item.total}
                       </Badge>
