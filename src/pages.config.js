@@ -61,6 +61,7 @@ import Vendas from './pages/Vendas';
 import Vendedores from './pages/Vendedores';
 import WhatsAppTemplates from './pages/WhatsAppTemplates';
 import TesteVisibilidadeThread from './pages/TesteVisibilidadeThread';
+import TesteOndeEstaaThread from './pages/TesteOndeEstaaThread';
 import __Layout from './Layout.jsx';
 
 
@@ -128,6 +129,7 @@ export const PAGES = {
     "Vendedores": Vendedores,
     "WhatsAppTemplates": WhatsAppTemplates,
     "TesteVisibilidadeThread": TesteVisibilidadeThread,
+    "TesteOndeEstaaThread": TesteOndeEstaaThread,
 }
 
 export const pagesConfig = {
