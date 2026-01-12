@@ -9,6 +9,7 @@ import { normalizePhone } from './phoneNormalizer.js';
 
 /**
  * Busca ou cria contato (UPSERT) - fonte única da verdade
+ * ✅ REGRA CRÍTICA: Contato é ÚNICO por telefone (independente de provedor/conexão)
  * @param {object} base44 - SDK Base44
  * @param {object} data - Dados do contato
  * @returns {object} - Contact
@@ -22,7 +23,7 @@ export async function getOrCreateContact(base44, data) {
     throw new Error(`Telefone inválido: ${telefone}`);
   }
   
-  // Buscar contato existente (por telefone canônico)
+  // ✅ BUSCA ÚNICA: Apenas por telefone normalizado (ignora conexão/provedor)
   const existing = await base44.asServiceRole.entities.Contact.filter({
     telefone: phoneE164
   }, '-created_date', 1);
@@ -53,10 +54,8 @@ export async function getOrCreateContact(base44, data) {
       updateData.foto_perfil_atualizada_em = now;
     }
     
-    // Atualizar conexão de origem (se não tinha)
-    if (instance_id && !contact.conexao_origem) {
-      updateData.conexao_origem = instance_id;
-    }
+    // ✅ REMOVIDO: Não atualizar conexao_origem
+    // Contact é independente de provedor/instância
     
     // Aplicar update
     await base44.asServiceRole.entities.Contact.update(contact.id, updateData);
@@ -65,7 +64,8 @@ export async function getOrCreateContact(base44, data) {
     return { ...contact, ...updateData };
   }
   
-  // CRIAR novo contato
+  // ✅ CRIAR novo contato SEM conexao_origem
+  // Contact não pertence a nenhuma conexão específica
   const newContact = await base44.asServiceRole.entities.Contact.create({
     nome: pushName || nome || phoneE164,
     telefone: phoneE164,
@@ -74,15 +74,15 @@ export async function getOrCreateContact(base44, data) {
     ultima_interacao: now,
     foto_perfil_url: profilePicUrl && profilePicUrl !== 'null' ? profilePicUrl : null,
     foto_perfil_atualizada_em: profilePicUrl ? now : null,
-    conexao_origem: instance_id || null
+    conexao_origem: null // ✅ Sempre null - independente de provedor
   });
   
   return newContact;
 }
 
 /**
- * Busca ou cria thread (UPSERT) - UMA ÚNICA thread por contact (independente da integração)
- * CORREÇÃO: Evita duplicação mesmo com múltiplas conexões WhatsApp
+ * Busca ou cria thread (UPSERT) - MÚLTIPLAS threads por contact (uma por integração)
+ * ✅ CORRIGIDO: Permite threads separadas para Z-API, W-API, Instagram, etc.
  * @param {object} base44 - SDK Base44
  * @param {object} data - Dados da thread
  * @returns {object} - MessageThread
@@ -90,16 +90,18 @@ export async function getOrCreateContact(base44, data) {
 export async function getOrCreateThread(base44, data) {
   const { contact_id, integration_id, instance_id } = data;
   
-  // ✅ BUSCAR THREAD EXISTENTE - Apenas por contact_id (ignora integração)
-  // REGRA CRÍTICA: Um contato = uma thread única, mesmo com várias conexões
+  // ✅ BUSCAR THREAD EXISTENTE - Por contact_id + integration_id
+  // REGRA: Um contato pode ter múltiplas threads (uma por canal/integração)
+  // Exemplo: Contato X tem thread Z-API + thread W-API + thread Instagram
   const existing = await base44.asServiceRole.entities.MessageThread.filter({
-    contact_id: contact_id
+    contact_id: contact_id,
+    whatsapp_integration_id: integration_id
   }, '-last_message_at', 1);
   
   const now = new Date().toISOString();
   
   if (existing.length > 0) {
-    // REUTILIZAR thread existente
+    // REUTILIZAR thread existente DESTA integração
     const thread = existing[0];
     
     const updateData = {
@@ -110,19 +112,14 @@ export async function getOrCreateThread(base44, data) {
       status: 'aberta'
     };
     
-    // ✅ SEMPRE atualizar a integração para a mais recente
-    // Isso registra qual conexão foi usada na última mensagem
-    if (integration_id) {
-      updateData.whatsapp_integration_id = integration_id;
-      updateData.conexao_id = integration_id; // Campo legado
-    }
-    
+    // Manter integração (não precisa atualizar, já está na busca)
     await base44.asServiceRole.entities.MessageThread.update(thread.id, updateData);
     
     return { ...thread, ...updateData };
   }
   
-  // CRIAR nova thread
+  // ✅ CRIAR nova thread PARA ESTA integração
+  // Contact único pode ter N threads (uma por canal)
   const newThread = await base44.asServiceRole.entities.MessageThread.create({
     contact_id: contact_id,
     whatsapp_integration_id: integration_id,
