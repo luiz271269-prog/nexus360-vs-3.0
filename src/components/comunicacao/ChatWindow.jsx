@@ -241,6 +241,12 @@ export default function ChatWindow({
     if (isNaoAtribuida) return true;
     
     // Todos outros casos: bloqueado (atribuída a outro, fidelizada a outro)
+    debugLog('FALLBACK (Bloqueado)', false, {
+      'razão': 'Não passou em nenhuma prioridade',
+      'isAtribuidoAoUsuario': isAtribuidoAoUsuario,
+      'isGerente': isGerente,
+      'isNaoAtribuida': isNaoAtribuida
+    });
     return false;
   }, [usuario, thread, contatoCompleto]);
 
