@@ -138,6 +138,26 @@ export default function ContactInfoPanel({
         return;
       }
 
+      // ✅ PREVENÇÃO DE DUPLICATAS: Verificar se já existe contato com este telefone
+      try {
+        const contatosExistentes = await base44.entities.Contact.filter({
+          telefone: telefoneNormalizado
+        });
+
+        if (contatosExistentes && contatosExistentes.length > 0) {
+          const existente = contatosExistentes[0];
+          
+          if (!confirm(`⚠️ Já existe um contato com este telefone:\n\n${existente.nome}\nEmpresa: ${existente.empresa || 'Não informada'}\n\nDeseja criar outro registro duplicado?`)) {
+            setSalvando(false);
+            toast.info('Criação cancelada');
+            return;
+          }
+        }
+      } catch (error) {
+        console.warn('[ContactInfoPanel] Erro ao verificar duplicatas:', error);
+        // Continuar mesmo com erro na verificação
+      }
+
       const dadosParaSalvar = {
         ...formData,
         telefone: telefoneNormalizado,

@@ -51,6 +51,7 @@ import BibliotecaAutomacoes from "../components/automacao/BibliotecaAutomacoes";
 import CentralControleOperacional from "../components/comunicacao/CentralControleOperacional";
 import DiagnosticoCirurgicoEmbed from "../components/comunicacao/DiagnosticoCirurgicoEmbed";
 import GerenciadorEtiquetasUnificado from "../components/comunicacao/GerenciadorEtiquetasUnificado";
+import GerenciadorDuplicatas from "../components/comunicacao/GerenciadorDuplicatas";
 import GoToConnectionSetup from "../components/comunicacao/GoToConnectionSetup";
 
 
