@@ -119,33 +119,6 @@ export default function ContadorNaoAtribuidas({ threads = [], integracoes = [], 
 
   const estilo = getEstilo();
 
-  if (loading) {
-    return (
-      <div className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-slate-100 border border-slate-200 ${className}`}>
-        <RefreshCw className="w-4 h-4 text-slate-400 animate-spin" />
-        <span className="text-xs text-slate-600">...</span>
-      </div>);
-
-  }
-
-  if (erro) {
-    return (
-      <TooltipProvider>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <div className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-red-50 border border-red-300 ${className}`}>
-              <AlertCircle className="w-4 h-4 text-red-600" />
-              <span className="text-xs text-red-700 font-medium">Erro</span>
-            </div>
-          </TooltipTrigger>
-          <TooltipContent side="bottom" className="max-w-xs bg-red-50 border-red-200">
-            <p className="text-xs text-red-700">{erro}</p>
-          </TooltipContent>
-        </Tooltip>
-      </TooltipProvider>);
-
-  }
-
   const content =
   <Button
     variant="ghost" className="bg-orange-500 px-2.5 py-1.5 text-sm font-medium opacity-60 rounded-lg justify-center whitespace-nowrap focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 hover:bg-accent hover:text-accent-foreground group relative flex items-center gap-1.5 h-auto border transition-all hover:shadow-md from-blue-50 to-blue-100 border-blue-300 shadow-blue-200/50 shadow-lg"
