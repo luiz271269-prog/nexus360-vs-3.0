@@ -345,6 +345,26 @@ export default function Comunicacao() {
       return;
     }
 
+    // 🔧 AUTO-REDIRECIONAR: Se thread é merged, buscar canônica
+    if (thread.status === 'merged' && thread.merged_into) {
+      console.log(`[Comunicacao] 🔀 Auto-redirecionar: ${thread.id} → ${thread.merged_into}`);
+      const threadCanonica = threads.find(t => t.id === thread.merged_into);
+      if (threadCanonica) {
+        console.log('[Comunicacao] ✅ Canônica encontrada, abrindo...');
+        return handleSelecionarThread(threadCanonica);
+      } else {
+        console.warn('[Comunicacao] ⚠️ Canônica não encontrada no array, tentando buscar...');
+        try {
+          const res = await base44.entities.MessageThread.filter({ id: thread.merged_into }, '-created_date', 1);
+          if (res?.length > 0) {
+            return handleSelecionarThread(res[0]);
+          }
+        } catch (e) {
+          console.error('[Comunicacao] ❌ Erro ao buscar canônica:', e?.message);
+        }
+      }
+    }
+
     // CASO 1: CLIENTE SEM CONTATO - Abrir criação pré-preenchida
     if (thread.is_cliente_only && thread.cliente_id) {
       const cliente = clientes.find((c) => c.id === thread.cliente_id);
