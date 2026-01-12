@@ -49,7 +49,9 @@ import RoteamentoInteligente from './pages/RoteamentoInteligente';
 import SetupWizard from './pages/SetupWizard';
 import SystemHealth from './pages/SystemHealth';
 import TesteFluxoControlado from './pages/TesteFluxoControlado';
+import TesteOndeEstaaThread from './pages/TesteOndeEstaaThread';
 import TestePersistenciaDireta from './pages/TestePersistenciaDireta';
+import TesteVisibilidadeThread from './pages/TesteVisibilidadeThread';
 import TesteWebhookDireto from './pages/TesteWebhookDireto';
 import Testes from './pages/Testes';
 import TestesAutomatizados from './pages/TestesAutomatizados';
@@ -60,8 +62,7 @@ import Usuarios from './pages/Usuarios';
 import Vendas from './pages/Vendas';
 import Vendedores from './pages/Vendedores';
 import WhatsAppTemplates from './pages/WhatsAppTemplates';
-import TesteVisibilidadeThread from './pages/TesteVisibilidadeThread';
-import TesteOndeEstaaThread from './pages/TesteOndeEstaaThread';
+import DiagnosticoContato from './pages/DiagnosticoContato';
 import __Layout from './Layout.jsx';
 
 
@@ -117,7 +118,9 @@ export const PAGES = {
     "SetupWizard": SetupWizard,
     "SystemHealth": SystemHealth,
     "TesteFluxoControlado": TesteFluxoControlado,
+    "TesteOndeEstaaThread": TesteOndeEstaaThread,
     "TestePersistenciaDireta": TestePersistenciaDireta,
+    "TesteVisibilidadeThread": TesteVisibilidadeThread,
     "TesteWebhookDireto": TesteWebhookDireto,
     "Testes": Testes,
     "TestesAutomatizados": TestesAutomatizados,
@@ -128,8 +131,7 @@ export const PAGES = {
     "Vendas": Vendas,
     "Vendedores": Vendedores,
     "WhatsAppTemplates": WhatsAppTemplates,
-    "TesteVisibilidadeThread": TesteVisibilidadeThread,
-    "TesteOndeEstaaThread": TesteOndeEstaaThread,
+    "DiagnosticoContato": DiagnosticoContato,
 }
 
 export const pagesConfig = {
