@@ -152,17 +152,20 @@ export default function ChatWindow({
     // Admin sempre pode
     if (usuario.role === 'admin') return true;
     
+    // ✅ NORMALIZAR: maiúsculas, espaços, acentos
+    const norm = (v) => String(v || '').toLowerCase().trim();
+    
     // PRIORIDADE 1: Thread atribuída ao usuário → sempre pode
     const isAtribuidoAoUsuario = 
-      thread.assigned_user_id === usuario.id ||
-      thread.assigned_user_email === usuario.email ||
-      thread.assigned_user_name === usuario.full_name;
+      norm(thread.assigned_user_id) === norm(usuario.id) ||
+      norm(thread.assigned_user_email) === norm(usuario.email) ||
+      norm(thread.assigned_user_name) === norm(usuario.full_name);
     
     if (isAtribuidoAoUsuario) return true;
     
     // PRIORIDADE 2: Contato fidelizado ao usuário → sempre pode
     if (contatoCompleto) {
-      const setorAtual = thread?.sector_id || usuario?.attendant_sector || 'vendas';
+      const setorAtual = norm(thread?.sector_id) || norm(usuario?.attendant_sector) || 'vendas';
       const camposFidelizacao = {
         'vendas': 'atendente_fidelizado_vendas',
         'assistencia': 'atendente_fidelizado_assistencia',
@@ -174,9 +177,9 @@ export default function ChatWindow({
       
       if (atendenteFidelizado) {
         const fidelizadoAoUsuario = 
-          atendenteFidelizado === usuario.id ||
-          atendenteFidelizado === usuario.email ||
-          atendenteFidelizado === usuario.full_name;
+          norm(atendenteFidelizado) === norm(usuario.id) ||
+          norm(atendenteFidelizado) === norm(usuario.email) ||
+          norm(atendenteFidelizado) === norm(usuario.full_name);
         
         if (fidelizadoAoUsuario) return true;
       }
