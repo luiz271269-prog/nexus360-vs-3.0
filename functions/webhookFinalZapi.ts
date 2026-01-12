@@ -659,6 +659,34 @@ async function handleMessage(dados, payloadBruto, base44) {
   // ✅ VERIFICAÇÃO ADICIONAL: Duplicata por timestamp + telefone (últimos 2 segundos)
   // MOVIDO PARA DEPOIS da criação do contato para ter contato.id disponível
   
+  // 🔧 AUTO-MERGE: Se N > 1 threads, marcar antigas como merged
+  try {
+    const todasThreadsContato = await base44.asServiceRole.entities.MessageThread.filter(
+      { contact_id: contato.id, whatsapp_integration_id: integracaoId },
+      '-last_message_at',
+      10
+    );
+
+    if (todasThreadsContato && todasThreadsContato.length > 1) {
+      console.log(`[${VERSION}] 🔀 AUTO-MERGE: ${todasThreadsContato.length} threads encontradas. Canônica: ${todasThreadsContato[0].id}`);
+
+      // Marcar todas as antigas como merged_into (sem mover mensagens)
+      for (let i = 1; i < todasThreadsContato.length; i++) {
+        const threadAntiga = todasThreadsContato[i];
+        try {
+          await base44.asServiceRole.entities.MessageThread.update(threadAntiga.id, {
+            status: 'merged',
+            merged_into: todasThreadsContato[0].id,
+            is_canonical: false
+          });
+          console.log(`[${VERSION}] ✅ Thread antiga marcada como merged: ${threadAntiga.id}`);
+        } catch {}
+      }
+    }
+  } catch (err) {
+    console.warn(`[${VERSION}] ⚠️ Erro ao fazer auto-merge:`, err.message);
+  }
+
   // ✅ BUSCAR/CRIAR THREAD - LÓGICA ATÔMICA (CANONICAL THREAD)
   let thread;
   try {
