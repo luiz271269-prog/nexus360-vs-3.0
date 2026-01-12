@@ -659,66 +659,55 @@ async function handleMessage(dados, payloadBruto, base44) {
   // ✅ VERIFICAÇÃO ADICIONAL: Duplicata por timestamp + telefone (últimos 2 segundos)
   // MOVIDO PARA DEPOIS da criação do contato para ter contato.id disponível
   
-  // ✅ BUSCAR/CRIAR THREAD - CORRIGIDO: Buscar por CONTATO + INTEGRAÇÃO (não só contato)
+  // ✅ BUSCAR/CRIAR THREAD - LÓGICA ATÔMICA (CANONICAL THREAD)
   let thread;
   try {
-    // 🔑 CHAVE COMPOSTA: contact_id + whatsapp_integration_id
-    // Garante que webhook e frontend sempre usam o MESMO thread para cada contato+instância
-    const threads = await base44.asServiceRole.entities.MessageThread.filter(
-      { 
-        contact_id: contato.id,
-        whatsapp_integration_id: integracaoId || null // buscar por integração específica
-      },
-      '-last_message_at',
-      5 // buscar múltiplos, ordena por recente
-    );
+      console.log(`[${VERSION}] 🔍 Buscando thread canônica para { contact_id: "${contato.id}", integration_id: "${integracaoId}" }`);
+      const threads = await base44.asServiceRole.entities.MessageThread.filter(
+          { 
+              contact_id: contato.id,
+              whatsapp_integration_id: integracaoId || null
+          },
+          '-last_message_at', // A mais recente é a canônica
+          1 // Otimização: buscar apenas a mais recente
+      );
 
-    if (threads.length > 0) {
-      // ✅ GARANTIA: Reutiliza o thread mais recente para essa integração
-      thread = threads[0];
-      
-      // Se thread estava fechado, reabrir
-      if (thread.status === 'fechada' || thread.status === 'encerrada') {
-        await base44.asServiceRole.entities.MessageThread.update(thread.id, {
-          status: 'aberta',
-          ultima_reabertura: new Date().toISOString()
-        });
+      if (threads && threads.length > 0) {
+          thread = threads[0];
+          console.log(`[${VERSION}]  canonical-thread-found: ${thread.id} (last_message_at: ${thread.last_message_at})`);
+
+          const agora = new Date().toISOString();
+          const threadUpdate = {
+              last_message_at: agora,
+              last_inbound_at: agora,
+              last_message_sender: 'contact',
+              last_message_content: String(dados.content || '').substring(0, 100),
+              last_media_type: dados.mediaType || 'none',
+              unread_count: (thread.unread_count || 0) + 1,
+              total_mensagens: (thread.total_mensagens || 0) + 1,
+              status: 'aberta', // Garante reabertura
+          };
+          await base44.asServiceRole.entities.MessageThread.update(thread.id, threadUpdate);
+          console.log(`[${VERSION}] canonical-thread-updated | unread: ${threadUpdate.unread_count}`);
+
+      } else {
+          console.log(`[${VERSION}] canonical-thread-not-found: Criando nova thread.`);
+          const agora = new Date().toISOString();
+          thread = await base44.asServiceRole.entities.MessageThread.create({
+              contact_id: contato.id,
+              whatsapp_integration_id: integracaoId,
+              status: 'aberta',
+              primeira_mensagem_at: agora,
+              last_message_at: agora,
+              last_inbound_at: agora,
+              last_message_sender: 'contact',
+              last_message_content: String(dados.content || '').substring(0, 100),
+              last_media_type: dados.mediaType || 'none',
+              total_mensagens: 1,
+              unread_count: 1,
+          });
+          console.log(`[${VERSION}] new-canonical-thread-created: ${thread.id}`);
       }
-      
-      const agora = new Date().toISOString();
-      const threadUpdate = {
-        last_message_at: agora,
-        last_inbound_at: agora, // ✅ CRÍTICO: Timestamp separado para mensagens RECEBIDAS
-        last_message_sender: 'contact',
-        last_message_content: String(dados.content || '').substring(0, 100),
-        last_media_type: dados.mediaType || 'none',
-        unread_count: (thread.unread_count || 0) + 1,
-        total_mensagens: (thread.total_mensagens || 0) + 1,
-        status: 'aberta',
-      };
-      if (integracaoId && !thread.whatsapp_integration_id) {
-        threadUpdate.whatsapp_integration_id = integracaoId;
-      }
-      await base44.asServiceRole.entities.MessageThread.update(thread.id, threadUpdate);
-      console.log(`[${VERSION}] 💭 Thread EXISTENTE reutilizado (contato+integração): ${thread.id} | Integração: ${integracaoId} | Não lidas: ${threadUpdate.unread_count}`);
-    } else {
-      // Só cria se REALMENTE não houver thread para essa combinação
-      const agora = new Date().toISOString();
-      thread = await base44.asServiceRole.entities.MessageThread.create({
-        contact_id: contato.id,
-        whatsapp_integration_id: integracaoId,
-        status: 'aberta',
-        primeira_mensagem_at: agora,
-        last_message_at: agora,
-        last_inbound_at: agora, // ✅ CRÍTICO: Registrar timestamp de recebimento
-        last_message_sender: 'contact',
-        last_message_content: String(dados.content || '').substring(0, 100),
-        last_media_type: dados.mediaType || 'none',
-        total_mensagens: 1,
-        unread_count: 1,
-      });
-      console.log(`[${VERSION}] 💭 NOVA thread criada (contato+integração): ${thread.id} | Integração: ${integracaoId}`);
-    }
   } catch (e) {
     console.error(`[${VERSION}] ❌ Erro thread:`, e?.message || e);
     return jsonServerError({ success: false, error: 'erro_thread' });

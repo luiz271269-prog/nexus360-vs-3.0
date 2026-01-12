@@ -445,55 +445,11 @@ async function handleMessage(dados, payloadBruto, base44) {
   let integracaoId = null;
   let integracaoInfo = null;
 
-  // PRIORIDADE 1: Buscar por connectedPhone (mais confiável)
-  if (connectedPhone) {
-    try {
-      // ✅ BUSCAR POR INSTANCE_ID usando connectedPhone como hint
-      // Primeiro tentar buscar todas as integrações W-API
-      const todasWAPI = await base44.asServiceRole.entities.WhatsAppIntegration.filter(
-        { api_provider: 'w_api' },
-        '-created_date',
-        50
-      );
-      
-      console.log(`[WAPI] 🔍 PORTEIRO: ${todasWAPI?.length || 0} integrações W-API no banco`);
-      
-      // Procurar pela que tem o connectedPhone
-      const phoneVariacoes = [
-        connectedPhone,
-        '+' + connectedPhone,
-        connectedPhone.replace(/^\+/, ''),
-        '+55' + connectedPhone.replace(/^55/, ''),
-        '55' + connectedPhone.replace(/^55/, '')
-      ];
-      
-      console.log('[WAPI] 🔍 PORTEIRO: Variações de telefone:', phoneVariacoes);
-      
-      for (const int of (todasWAPI || [])) {
-        if (integracaoId) break;
-        
-        const numeroInt = (int.numero_telefone || '').replace(/\D/g, '');
-        const phoneLimpo = connectedPhone.replace(/\D/g, '');
-        
-        console.log(`[WAPI] 🔍 Comparando: DB="${numeroInt}" vs Payload="${phoneLimpo}"`);
-        
-        if (numeroInt && phoneLimpo && numeroInt === phoneLimpo) {
-          integracaoId = int.id;
-          integracaoInfo = { nome: int.nome_instancia, numero: int.numero_telefone };
-          console.log(`[WAPI] 🔑 PORTEIRO: ✅ Integração encontrada! ID: ${int.id} | Nome: ${int.nome_instancia}`);
-          break;
-        }
-      }
-    } catch (err) {
-      console.error('[WAPI] ❌ Erro ao buscar por connectedPhone:', err.message);
-    }
-  }
-
-  // FALLBACK: Buscar por instanceId
-  if (!integracaoId && dados.instanceId) {
+  // PRIORIDADE 1: Buscar por instanceId (Mais direto para W-API)
+  if (dados.instanceId) {
     try {
       const int = await base44.asServiceRole.entities.WhatsAppIntegration.filter(
-        { instance_id_provider: dados.instanceId },
+        { instance_id_provider: dados.instanceId, api_provider: 'w_api' },
         '-created_date',
         1
       );
@@ -501,9 +457,36 @@ async function handleMessage(dados, payloadBruto, base44) {
       if (int && int.length > 0) {
         integracaoId = int[0].id;
         integracaoInfo = { nome: int[0].nome_instancia, numero: int[0].numero_telefone };
-        console.log(`[WAPI] 🔑 PORTEIRO: Integração identificada por instanceId: ${dados.instanceId}`);
+        console.log(`[WAPI] 🔑 PORTEIRO: Integração encontrada por instanceId: ${dados.instanceId}`);
       }
-    } catch {}
+    } catch (err) {
+        console.error('[WAPI] ❌ Erro ao buscar por instanceId:', err.message);
+    }
+  }
+
+  // FALLBACK: Buscar por connectedPhone (se instanceId falhar ou não existir)
+  if (!integracaoId && connectedPhone) {
+    try {
+      const todasWAPI = await base44.asServiceRole.entities.WhatsAppIntegration.filter(
+        { api_provider: 'w_api' },
+        '-created_date',
+        50
+      );
+      
+      const phoneLimpo = connectedPhone.replace(/\D/g, '');
+
+      for (const int of (todasWAPI || [])) {
+        const numeroInt = (int.numero_telefone || '').replace(/\D/g, '');
+        if (numeroInt && phoneLimpo && numeroInt === phoneLimpo) {
+          integracaoId = int.id;
+          integracaoInfo = { nome: int[0].nome_instancia, numero: int[0].numero_telefone };
+          console.log(`[WAPI] 🔑 PORTEIRO FALLBACK: Integração encontrada por connectedPhone. ID: ${int.id}`);
+          break;
+        }
+      }
+    } catch (err) {
+      console.error('[WAPI] ❌ Erro no fallback por connectedPhone:', err.message);
+    }
   }
 
   console.log(`[WAPI] 🏛️ PORTEIRO RESULTADO: ${integracaoId ? '✅ Integração encontrada' : '❌ Não encontrada'} | Canal: ${integracaoInfo?.numero || connectedPhone || 'N/A'}`);
@@ -573,51 +556,39 @@ async function handleMessage(dados, payloadBruto, base44) {
     return jsonErr('erro_contato', 500);
   }
 
-  // BUSCAR/CRIAR THREAD - ✅ CORRIGIDO: Buscar por CONTATO + INTEGRAÇÃO (não só contato)
+  // ✅ BUSCAR/CRIAR THREAD - LÓGICA ATÔMICA (CANONICAL THREAD)
   let thread;
   try {
-    // 🔑 CHAVE COMPOSTA: contact_id + whatsapp_integration_id
-    // Isso garante que webhook e frontend usam o MESMO thread para cada contato+instância
+    console.log(`[WAPI] 🔍 Buscando thread canônica para { contact_id: "${contato.id}", integration_id: "${integracaoId}" }`);
     const threads = await base44.asServiceRole.entities.MessageThread.filter(
-      { 
-        contact_id: contato.id,
-        whatsapp_integration_id: integracaoId || null // buscar por integração específica
-      },
-      '-last_message_at',
-      5 // buscar múltiplos, ordena por recente
+        { 
+            contact_id: contato.id,
+            whatsapp_integration_id: integracaoId || null
+        },
+        '-last_message_at', // A mais recente é a canônica
+        1 // Otimização: buscar apenas a mais recente
     );
 
     if (threads && threads.length > 0) {
-      // ✅ GARANTIA: Reutiliza o thread mais recente para essa integração
-      thread = threads[0];
-      
-      // Se thread estava fechado, reabrir
-      if (thread.status === 'fechada' || thread.status === 'encerrada') {
-        await base44.asServiceRole.entities.MessageThread.update(thread.id, {
-          status: 'aberta',
-          ultima_reabertura: new Date().toISOString()
-        });
-      }
-      
-      console.log(`[WAPI] 💭 Thread EXISTENTE reutilizado (contato+integração): ${thread.id} | Integração: ${integracaoId}`);
+        thread = threads[0];
+        console.log(`[WAPI]  canonical-thread-found: ${thread.id} (last_message_at: ${thread.last_message_at})`);
     } else {
-      // Só cria se REALMENTE não houver thread para essa combinação
-      const agora = new Date().toISOString();
-      thread = await base44.asServiceRole.entities.MessageThread.create({
-        contact_id: contato.id,
-        whatsapp_integration_id: integracaoId,
-        status: 'aberta',
-        primeira_mensagem_at: agora,
-        last_message_at: agora,
-        last_inbound_at: agora,
-        last_message_sender: 'contact',
-        last_message_content: String(dados.content || '').substring(0, 100),
-        last_media_type: dados.mediaType || 'none',
-        total_mensagens: 1,
-        unread_count: 1,
-      });
-      
-      console.log(`[WAPI] 💭 NOVA thread criada (contato+integração): ${thread.id} | Integração: ${integracaoId}`);
+        console.log(`[WAPI] canonical-thread-not-found: Criando nova thread.`);
+        const agora = new Date().toISOString();
+        thread = await base44.asServiceRole.entities.MessageThread.create({
+            contact_id: contato.id,
+            whatsapp_integration_id: integracaoId,
+            status: 'aberta',
+            primeira_mensagem_at: agora,
+            last_message_at: agora,
+            last_inbound_at: agora,
+            last_message_sender: 'contact',
+            last_message_content: String(dados.content || '').substring(0, 100),
+            last_media_type: dados.mediaType || 'none',
+            total_mensagens: 0, // Inicia com 0, será incrementado depois
+            unread_count: 0,   // Inicia com 0, será incrementado depois
+        });
+        console.log(`[WAPI] new-canonical-thread-created: ${thread.id}`);
     }
   } catch (e) {
     console.error(`[WAPI] ❌ Erro thread:`, e?.message);
