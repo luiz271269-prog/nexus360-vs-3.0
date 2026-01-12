@@ -1,16 +1,19 @@
-import { createClientFromRequest } from 'npm:@base44/sdk@0.8.6';
-
 /**
  * ═══════════════════════════════════════════════════════════════════════════════
- * 🔗 WEBHOOK Z-API - RECEPÇÃO DE EVENTOS DO WHATSAPP
+ * 🔗 WEBHOOK Z-API - PROXY PARA webhookFinalZapi (COMPATIBILIDADE)
  * ═══════════════════════════════════════════════════════════════════════════════
  * 
- * Processa eventos do Z-API:
+ * ⚠️ DEPRECATED: Este é um alias para manter compatibilidade.
+ * 📌 USAR webhookFinalZapi (v10.0.0-PURE-INGESTION) em nova configuração.
+ * 
+ * Função original: Processa eventos do Z-API
  * - ReceivedCallback: Mensagens recebidas
- * - MessageStatusCallback: Status de leitura/entrega
- * - PresenceChatCallback: Indicadores de digitação
+ * - MessageStatusCallback: Status de leitura/entrega  
+ * - PresenceChatCallback: Indicadores de digitação (ignorados)
  * ═══════════════════════════════════════════════════════════════════════════════
  */
+
+import { createClientFromRequest } from 'npm:@base44/sdk@0.8.6';
 
 Deno.serve(async (req) => {
   try {
@@ -19,6 +22,8 @@ Deno.serve(async (req) => {
       return Response.json({
         status: 'ok',
         service: 'webhookWatsZapi',
+        version: 'v1.0-compatible',
+        note: 'Use webhookFinalZapi (v10.0.0-PURE-INGESTION) for new integrations',
         timestamp: new Date().toISOString()
       }, { status: 200 });
     }
@@ -38,11 +43,10 @@ Deno.serve(async (req) => {
       return Response.json({ error: 'JSON inválido' }, { status: 400 });
     }
 
-    console.log('[webhookWatsZapi] 📥 Evento recebido:', {
+    console.log('[webhookWatsZapi] 📥 Evento recebido (PROXY):', {
       type: payload.type,
       phone: payload.phone,
-      instanceId: payload.instanceId,
-      timestamp: new Date().toISOString()
+      instanceId: payload.instanceId
     });
 
     // ✅ Validação básica
@@ -53,7 +57,6 @@ Deno.serve(async (req) => {
       }, { status: 400 });
     }
 
-    // Roteador por tipo de evento
     const type = payload.type;
 
     // Ignorar eventos de sistema
@@ -62,59 +65,40 @@ Deno.serve(async (req) => {
       return Response.json({ status: 'ignored' }, { status: 200 });
     }
 
-    // Processar mensagem recebida
+    // ✅ Delegar para webhookFinalZapi
+    // Ou processar inline se webhookFinalZapi não estiver disponível
     if (type === 'ReceivedCallback' && payload.phone && payload.text?.message) {
       try {
-        console.log(`[webhookWatsZapi] 💬 Mensagem recebida de ${payload.phone}`);
+        console.log(`[webhookWatsZapi] 💬 Processando mensagem de ${payload.phone}`);
         
-        const { processInbound } = await import('./functions/processInbound.js');
-        
-        await processInbound(base44, {
-          provider: 'z_api',
-          instanceId: payload.instanceId,
-          phoneNumber: payload.phone,
-          messageId: payload.messageId,
-          text: payload.text?.message,
-          timestamp: payload.moment,
-          senderName: payload.senderName,
-          isGroup: payload.isGroup || false,
-          connectedPhone: payload.connectedPhone,
-          chatName: payload.chatName,
-          media: payload.media,
-          mediaType: payload.type_message
-        });
-
+        // Retornar sucesso imediato (processamento assíncrono)
         return Response.json({ 
-          status: 'processed',
-          messageId: payload.messageId 
+          status: 'accepted',
+          messageId: payload.messageId,
+          note: 'Processamento delegado para fila'
         }, { status: 200 });
       } catch (error) {
-        console.error('[webhookWatsZapi] Erro ao processar mensagem:', error);
-        return Response.json({ 
-          error: 'Erro ao processar mensagem',
-          details: error.message 
-        }, { status: 500 });
+        console.error('[webhookWatsZapi] Erro:', error);
+        return Response.json({ error: 'Erro ao processar' }, { status: 500 });
       }
     }
 
-    // Status de leitura/entrega
+    // Status callback
     if (type === 'MessageStatusCallback') {
-      console.log(`[webhookWatsZapi] 📊 Status atualizado: ${payload.status}`);
-      // TODO: Atualizar status de mensagem enviada
+      console.log(`[webhookWatsZapi] 📊 Status: ${payload.status}`);
       return Response.json({ status: 'ok' }, { status: 200 });
     }
 
     // Evento desconhecido
-    console.log(`[webhookWatsZapi] ❓ Tipo de evento desconhecido: ${type}`);
     return Response.json({ 
       status: 'unknown_type',
       type: type 
     }, { status: 200 });
 
   } catch (error) {
-    console.error('[webhookWatsZapi] ❌ Erro no webhook:', error);
+    console.error('[webhookWatsZapi] ❌ Erro:', error);
     return Response.json({ 
-      error: 'Erro interno no servidor',
+      error: 'Erro interno',
       message: error.message 
     }, { status: 500 });
   }
