@@ -197,7 +197,7 @@ export default function Comunicacao() {
     },
     refetchInterval: 30000, // ✅ Reduzido: Atualizar a cada 30s (evita rate limit)
     staleTime: 15000, // ✅ Dados frescos por 15s
-    enabled: !!usuario,
+    enabled: !!usuario && !isRateLimited, // 🚫 Pausar se rate limited
     retry: 2,
     retryDelay: 1000,
     refetchOnWindowFocus: true, // ✅ Atualizar ao voltar para a aba
