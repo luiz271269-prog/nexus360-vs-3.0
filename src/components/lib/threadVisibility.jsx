@@ -308,16 +308,8 @@ export const canUserSeeThreadBase = (usuario, thread, mensagensThread = []) => {
   // ORDEM DE PRIORIDADE - VISIBILIDADE BASE (AGNÓSTICA DE PROVEDOR)
   // ═══════════════════════════════════════════════════════════════════════════════
   const contato = thread.contato;
-  const atribuido = isAtribuidoAoUsuario(usuario, thread);
   const fidelizado = isFidelizadoAoUsuario(usuario, contato);
-  
-  // 🔑 CHAVE MESTRA ABSOLUTA: Contato FIDELIZADO ao usuário
-  // → SEMPRE VÊ (ignora integração/setor/conexão/permissão)
-  // Aplicado ANTES de qualquer verificação técnica
-  if (fidelizado) {
-    console.log(`[VISIBILIDADE] ✅ Thread ${thread.id?.substring(0, 8)} - FIDELIZADA ao usuário ${usuario.email} (CHAVE MESTRA - ignora TUDO)`);
-    return true;
-  }
+  const atribuido = isAtribuidoAoUsuario(usuario, thread);
   const naoAtribuida = isNaoAtribuida(thread);
   const isGerente = ['gerente', 'coordenador', 'supervisor'].includes(usuario.attendant_role);
 
@@ -327,30 +319,25 @@ export const canUserSeeThreadBase = (usuario, thread, mensagensThread = []) => {
   }
 
   // ═══════════════════════════════════════════════════════════════════════════════
-  // ✅ PRIORIDADES ABSOLUTAS - CHAVES MESTRAS (IGNORAM INTEGRAÇÃO/SETOR/CONEXÃO)
+  // 🔑 CHAVE MESTRA ABSOLUTA: "Se é o dono, nunca bloqueia"
   // ═══════════════════════════════════════════════════════════════════════════════
-  // 
-  // 🔑 FUNDAMENTO (baseado no estudo):
-  // "Atribuição e Fidelização agem como chaves mestras que furam os filtros técnicos"
-  // "Negócio (Quem deve atender) > Tecnologia (Por onde entra a mensagem)"
-  // 
-  // RESULTADO PRÁTICO:
-  // - Thais recebe transferência → VÊ mesmo sem permissão na integração Z-API
-  // - Renan fidelizado à vendedora → ELA VÊ mesmo se mensagem vem de chip restrito
-  // - Gerente transfere do Setor A para Setor B → destinatário VÊ sem bloqueio
-  // ═══════════════════════════════════════════════════════════════════════════════
+  // Verificada PRIMEIRO, antes de qualquer filtro técnico
   
-  // 1️⃣ CHAVE MESTRA #1: Thread ATRIBUÍDA ao usuário
-  // → SEMPRE VÊ (ignora integração/setor/conexão)
-  if (atribuido) {
-    console.log(`[VISIBILIDADE] ✅ Thread ${thread.id?.substring(0, 8)} - ATRIBUÍDA ao usuário ${usuario.email}`);
+  // 🔑 PRIORIDADE #1: Contato FIDELIZADO ao usuário
+  // → SEMPRE VÊ (ignora integração/setor/conexão/permissão/filtros)
+  if (fidelizado) {
     return true;
   }
 
-  // 3️⃣ BLOQUEIO ABSOLUTO: Contato fidelizado a OUTRO usuário
+  // 🔑 PRIORIDADE #2: Thread ATRIBUÍDA ao usuário
+  // → SEMPRE VÊ (ignora integração/setor/conexão/permissão/filtros)
+  if (atribuido) {
+    return true;
+  }
+
+  // 🛑 BLOQUEIO ABSOLUTO: Contato fidelizado a OUTRO usuário
   // → Só o dono vê (bloqueia todos outros - inclui admin/gerente)
   if (contato?.is_cliente_fidelizado) {
-    console.log(`[VISIBILIDADE] ❌ Thread ${thread.id?.substring(0, 8)} - Fidelizado a outro (bloqueio absoluto)`);
     return false;
   }
 
