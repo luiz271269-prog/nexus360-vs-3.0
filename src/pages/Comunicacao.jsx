@@ -1523,6 +1523,12 @@ export default function Comunicacao() {
               </div>
             </TabsContent>
 
+            <TabsContent value="duplicatas" className="h-full m-0 overflow-hidden">
+              <div className="h-full overflow-y-auto">
+                <GerenciadorDuplicatas />
+              </div>
+            </TabsContent>
+
             <TabsContent value="configuracoes" className="h-full m-0 overflow-hidden">
               <div className="h-full overflow-y-auto p-6 space-y-6">
                 <ConfiguracaoCanaisComunicacao
