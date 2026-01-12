@@ -53,7 +53,10 @@ export default function SearchAndFilter({
   onSelectedTagContatoChange,
   // Props para seleção múltipla
   modoSelecaoMultipla = false,
-  onModoSelecaoMultiplaChange
+  onModoSelecaoMultiplaChange,
+  // Para diagnóstico
+  isAdmin = false,
+  onAbrirDiagnostico
 }) {
   const [showFilters, setShowFilters] = useState(false);
   const [verificandoDuplicatas, setVerificandoDuplicatas] = useState(false);
