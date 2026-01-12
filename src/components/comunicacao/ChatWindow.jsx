@@ -146,6 +146,10 @@ export default function ChatWindow({
 
   // ✅ LÓGICA CIRÚRGICA: Verificar se usuário pode interagir nesta thread
   // Aplica hierarquia: Admin > Atribuição > Fidelização > Gerente > Não Atribuída
+  // 
+  // ⚠️ IMPORTANTE: Esta verificação DEVE retornar TRUE enquanto contatoCompleto
+  // ainda não carregou, para evitar bloqueio falso. A verificação final é feita
+  // quando contatoCompleto está disponível.
   const podeInteragirNaThread = React.useMemo(() => {
     if (!usuario || !thread) return false;
     
@@ -160,7 +164,9 @@ export default function ChatWindow({
       console.log(`[VISIBILIDADE-${usuario.email}] ${etapa}: ${resultado ? '✅' : '❌'}`, detalhes);
     };
     
-    // PRIORIDADE 1: Thread atribuída ao usuário → sempre pode
+    // ═══════════════════════════════════════════════════════════════════════════
+    // PRIORIDADE 1: Thread ATRIBUÍDA ao usuário → SEMPRE PODE (chave mestra)
+    // ═══════════════════════════════════════════════════════════════════════════
     const isAtribuidoAoUsuario = 
       norm(thread.assigned_user_id) === norm(usuario.id) ||
       norm(thread.assigned_user_email) === norm(usuario.email) ||
@@ -177,10 +183,12 @@ export default function ChatWindow({
     
     if (isAtribuidoAoUsuario) return true;
     
-    // PRIORIDADE 2: Contato fidelizado ao usuário → SEMPRE LIBERA (zero bloqueios)
-    // ✅ Crítico: Verifica TODOS os campos de fidelização em TODOS os setores
-    // Independentemente de qual setor a thread está, se o contato está fidelizado em QUALQUER setor, libera
-    let fidelizadoAoUsuario = false;
+    // ═══════════════════════════════════════════════════════════════════════════
+    // PRIORIDADE 2: Contato FIDELIZADO ao usuário → SEMPRE PODE (chave mestra)
+    // ✅ CRÍTICO: Verifica TODOS os campos de fidelização em TODOS os setores
+    // ✅ FIX: Se contatoCompleto ainda não carregou E thread está atribuída ao usuário
+    //         (já verificado acima), libera. Se não está atribuída, aguarda carregar.
+    // ═══════════════════════════════════════════════════════════════════════════
     if (contatoCompleto) {
       const camposFidelizacao = [
         'atendente_fidelizado_vendas',
@@ -208,12 +216,24 @@ export default function ChatWindow({
         });
         
         if (isFidelizado) {
+          console.log(`[VISIBILIDADE] ✅ LIBERADO por FIDELIZAÇÃO (${campo}) - Usuário: ${usuario.email}`);
           return true;
         }
       }
+    } else if (carregandoContato) {
+      // ✅ FIX CRÍTICO: Se contato ainda está carregando, NÃO BLOQUEAR prematuramente
+      // Libera temporariamente para evitar "Sem permissão" enquanto carrega
+      debugLog('AGUARDANDO CONTATO', true, {
+        'carregandoContato': carregandoContato,
+        'contatoCompleto': 'null (ainda carregando)'
+      });
+      console.log(`[VISIBILIDADE] ⏳ Contato ainda carregando - liberando temporariamente`);
+      return true;
     }
     
-    // PRIORIDADE 3: Gerente/Coordenador → pode enviar (exceto se atribuída a outro claramente)
+    // ═══════════════════════════════════════════════════════════════════════════
+    // PRIORIDADE 3: Gerente/Coordenador → pode enviar (exceto se atribuída a outro)
+    // ═══════════════════════════════════════════════════════════════════════════
     const isGerente = ['gerente', 'coordenador', 'supervisor'].includes(usuario.attendant_role);
     debugLog('PRIORIDADE 3 (Gerente)', isGerente, {
       'usuario.attendant_role': usuario?.attendant_role
@@ -230,7 +250,9 @@ export default function ChatWindow({
       return true;
     }
     
-    // PRIORIDADE 4: Thread não atribuída → qualquer usuário pode enviar (auto-atribui)
+    // ═══════════════════════════════════════════════════════════════════════════
+    // PRIORIDADE 4: Thread NÃO ATRIBUÍDA → qualquer usuário pode (auto-atribui)
+    // ═══════════════════════════════════════════════════════════════════════════
     const isNaoAtribuida = !thread.assigned_user_id && !thread.assigned_user_name && !thread.assigned_user_email;
     debugLog('PRIORIDADE 4 (Não atribuída)', isNaoAtribuida, {
       'assigned_user_id': thread.assigned_user_id,
@@ -240,15 +262,18 @@ export default function ChatWindow({
     
     if (isNaoAtribuida) return true;
     
-    // Todos outros casos: bloqueado (atribuída a outro, fidelizada a outro)
+    // ═══════════════════════════════════════════════════════════════════════════
+    // FALLBACK: Bloqueado (atribuída a outro, fidelizada a outro)
+    // ═══════════════════════════════════════════════════════════════════════════
     debugLog('FALLBACK (Bloqueado)', false, {
       'razão': 'Não passou em nenhuma prioridade',
       'isAtribuidoAoUsuario': isAtribuidoAoUsuario,
       'isGerente': isGerente,
-      'isNaoAtribuida': isNaoAtribuida
+      'isNaoAtribuida': isNaoAtribuida,
+      'contatoCompleto': !!contatoCompleto
     });
     return false;
-  }, [usuario, thread, contatoCompleto]);
+  }, [usuario, thread, contatoCompleto, carregandoContato]);
 
   // ✅ FILTRAR INTEGRAÇÕES BASEADO NAS PERMISSÕES DO USUÁRIO
   const integracoesPermitidas = useMemo(() => {
