@@ -155,11 +155,25 @@ export default function ChatWindow({
     // ✅ NORMALIZAR: maiúsculas, espaços, acentos
     const norm = (v) => String(v || '').toLowerCase().trim();
     
+    // 🔍 DEBUG: Mostrar identidades sendo comparadas
+    const debugLog = (etapa, resultado, detalhes) => {
+      console.log(`[VISIBILIDADE-${usuario.email}] ${etapa}: ${resultado ? '✅' : '❌'}`, detalhes);
+    };
+    
     // PRIORIDADE 1: Thread atribuída ao usuário → sempre pode
     const isAtribuidoAoUsuario = 
       norm(thread.assigned_user_id) === norm(usuario.id) ||
       norm(thread.assigned_user_email) === norm(usuario.email) ||
       norm(thread.assigned_user_name) === norm(usuario.full_name);
+    
+    debugLog('PRIORIDADE 1 (Atribuição)', isAtribuidoAoUsuario, {
+      'thread.assigned_user_id': thread.assigned_user_id,
+      'usuario.id': usuario.id,
+      'thread.assigned_user_email': thread.assigned_user_email,
+      'usuario.email': usuario.email,
+      'thread.assigned_user_name': thread.assigned_user_name,
+      'usuario.full_name': usuario.full_name
+    });
     
     if (isAtribuidoAoUsuario) return true;
     
