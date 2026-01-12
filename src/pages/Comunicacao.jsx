@@ -1246,7 +1246,7 @@ export default function Comunicacao() {
   return (
     <ErrorBoundary>
       <div className="h-screen flex flex-col bg-gradient-to-br from-amber-50 via-orange-50/30 to-red-50/20 overflow-hidden">
-        <NotificationSystem usuario={usuario} />
+        <NotificationSystem usuario={usuario} threads={threads} />
 
         <div className="bg-gradient-to-r px-8 from-slate-900 via-slate-800 to-slate-900 border-b border-slate-700/50 shadow-xl flex-shrink-0">
           <div className="flex items-center justify-between">
