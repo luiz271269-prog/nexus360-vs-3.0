@@ -310,6 +310,14 @@ export const canUserSeeThreadBase = (usuario, thread, mensagensThread = []) => {
   const contato = thread.contato;
   const atribuido = isAtribuidoAoUsuario(usuario, thread);
   const fidelizado = isFidelizadoAoUsuario(usuario, contato);
+  
+  // 🔑 CHAVE MESTRA ABSOLUTA: Contato FIDELIZADO ao usuário
+  // → SEMPRE VÊ (ignora integração/setor/conexão/permissão)
+  // Aplicado ANTES de qualquer verificação técnica
+  if (fidelizado) {
+    console.log(`[VISIBILIDADE] ✅ Thread ${thread.id?.substring(0, 8)} - FIDELIZADA ao usuário ${usuario.email} (CHAVE MESTRA - ignora TUDO)`);
+    return true;
+  }
   const naoAtribuida = isNaoAtribuida(thread);
   const isGerente = ['gerente', 'coordenador', 'supervisor'].includes(usuario.attendant_role);
 
