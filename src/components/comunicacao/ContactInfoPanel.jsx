@@ -138,16 +138,19 @@ export default function ContactInfoPanel({
         return;
       }
 
-      // ✅ PREVENÇÃO DE DUPLICATAS: Verificar se já existe contato com este telefone
+      // ✅ PREVENÇÃO DE DUPLICATAS: Verificar TODAS as variações do telefone
       try {
-        const contatosExistentes = await base44.entities.Contact.filter({
-          telefone: telefoneNormalizado
-        });
+        const { buscarContatosPorTelefone } = await import('../lib/deduplicationEngine');
+        const contatosExistentes = await buscarContatosPorTelefone(base44, telefoneNormalizado);
 
         if (contatosExistentes && contatosExistentes.length > 0) {
           const existente = contatosExistentes[0];
           
-          if (!confirm(`⚠️ Já existe um contato com este telefone:\n\n${existente.nome}\nEmpresa: ${existente.empresa || 'Não informada'}\n\nDeseja criar outro registro duplicado?`)) {
+          const mensagem = contatosExistentes.length === 1
+            ? `⚠️ Já existe um contato com este telefone:\n\n${existente.nome}\nEmpresa: ${existente.empresa || 'Não informada'}\n\nDeseja criar outro registro duplicado?`
+            : `⚠️ Já existem ${contatosExistentes.length} contatos com este telefone:\n\n${existente.nome}\nEmpresa: ${existente.empresa || 'Não informada'}\n\n+ ${contatosExistentes.length - 1} outros\n\n❌ CRIAR DUPLICATA NÃO É RECOMENDADO.\n\nDeseja continuar mesmo assim?`;
+          
+          if (!confirm(mensagem)) {
             setSalvando(false);
             toast.info('Criação cancelada');
             return;

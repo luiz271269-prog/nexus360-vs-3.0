@@ -91,7 +91,7 @@ export default function SearchAndFilter({
   }));
 
   // ═══════════════════════════════════════════════════════════════════════════════
-  // 🛡️ PREVENÇÃO DE DUPLICATAS - VERIFICAÇÃO EM TEMPO REAL
+  // 🛡️ PREVENÇÃO DE DUPLICATAS - VERIFICAÇÃO EM TEMPO REAL COM VARIAÇÕES
   // ═══════════════════════════════════════════════════════════════════════════════
   useEffect(() => {
     if (!searchTerm || searchTerm.trim() === '') {
@@ -109,23 +109,19 @@ export default function SearchAndFilter({
         onNovoContatoTelefoneChange(telefoneNormalizado);
       }
 
-      // ✅ VERIFICAR DUPLICATAS EM TEMPO REAL
+      // ✅ VERIFICAR DUPLICATAS COM TODAS AS VARIAÇÕES
       const verificarDuplicata = async () => {
         setVerificandoDuplicatas(true);
         try {
-          const contatosExistentes = await base44.entities.Contact.filter({
-            telefone: telefoneNormalizado
-          });
+          // Importar o motor de desduplicação
+          const { buscarContatosPorTelefone, escolherContatoPrincipal } = 
+            await import('../lib/deduplicationEngine');
+          
+          // Buscar TODAS as variações do telefone
+          const contatosExistentes = await buscarContatosPorTelefone(base44, telefoneNormalizado);
 
           if (contatosExistentes && contatosExistentes.length > 0) {
-            // Ordenar por tipo_contato e data
-            const principal = contatosExistentes.sort((a, b) => {
-              const tipoOrder = { cliente: 4, lead: 3, parceiro: 2, fornecedor: 1, novo: 0 };
-              const tipoA = tipoOrder[a.tipo_contato] || 0;
-              const tipoB = tipoOrder[b.tipo_contato] || 0;
-              if (tipoB !== tipoA) return tipoB - tipoA;
-              return new Date(a.created_date) - new Date(b.created_date);
-            })[0];
+            const principal = escolherContatoPrincipal(contatosExistentes);
 
             setDuplicataEncontrada({
               quantidade: contatosExistentes.length,
