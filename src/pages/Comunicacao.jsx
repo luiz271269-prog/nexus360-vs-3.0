@@ -213,8 +213,8 @@ export default function Comunicacao() {
       return Promise.resolve([]);
     },
     enabled: !!threadAtiva,
-    refetchInterval: 3000, // ✅ WHATSAPP PATTERN: Atualizar a cada 3 segundos
-    staleTime: 2000,
+    refetchInterval: 20000, // ✅ Reduzido: Atualizar a cada 20s
+    staleTime: 10000,
     retry: 2,
     retryDelay: 1000,
     refetchOnWindowFocus: true, // ✅ Atualizar ao voltar para a aba
