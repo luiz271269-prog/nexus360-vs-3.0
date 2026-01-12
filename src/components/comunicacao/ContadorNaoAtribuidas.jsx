@@ -7,7 +7,7 @@ import {
   TooltipProvider,
   TooltipTrigger } from
 "@/components/ui/tooltip";
-import { MessageSquare, AlertCircle, TrendingUp, Phone } from "lucide-react";
+import { MessageSquare, AlertCircle, TrendingUp, Phone, RefreshCw } from "lucide-react";
 import { isNaoAtribuida } from "../lib/threadVisibility";
 
 /**
