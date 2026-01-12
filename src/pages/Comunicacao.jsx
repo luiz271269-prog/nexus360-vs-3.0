@@ -1267,6 +1267,9 @@ export default function Comunicacao() {
             <div className="flex items-center gap-3">
               {/* Contador de Não Atribuídas */}
               <ContadorNaoAtribuidas
+                threads={threads}
+                integracoes={integracoes}
+                usuario={usuario}
                 onClickVerFila={() => {
                   setFilterScope('unassigned');
                   setActiveTab('conversas');
