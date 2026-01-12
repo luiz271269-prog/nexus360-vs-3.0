@@ -144,6 +144,62 @@ export default function ChatWindow({
 
   const permissoes = usuario?.permissoes_comunicacao || {};
 
+  // ✅ LÓGICA CIRÚRGICA: Verificar se usuário pode interagir nesta thread
+  // Aplica hierarquia: Admin > Atribuição > Fidelização > Gerente > Não Atribuída
+  const podeInteragirNaThread = React.useMemo(() => {
+    if (!usuario || !thread) return false;
+    
+    // Admin sempre pode
+    if (usuario.role === 'admin') return true;
+    
+    // PRIORIDADE 1: Thread atribuída ao usuário → sempre pode
+    const isAtribuidoAoUsuario = 
+      thread.assigned_user_id === usuario.id ||
+      thread.assigned_user_email === usuario.email ||
+      thread.assigned_user_name === usuario.full_name;
+    
+    if (isAtribuidoAoUsuario) return true;
+    
+    // PRIORIDADE 2: Contato fidelizado ao usuário → sempre pode
+    if (contatoCompleto) {
+      const setorAtual = thread?.sector_id || usuario?.attendant_sector || 'vendas';
+      const camposFidelizacao = {
+        'vendas': 'atendente_fidelizado_vendas',
+        'assistencia': 'atendente_fidelizado_assistencia',
+        'financeiro': 'atendente_fidelizado_financeiro',
+        'fornecedor': 'atendente_fidelizado_fornecedor'
+      };
+      const campoFidelizado = camposFidelizacao[setorAtual] || 'vendedor_responsavel';
+      const atendenteFidelizado = contatoCompleto?.[campoFidelizado];
+      
+      if (atendenteFidelizado) {
+        const fidelizadoAoUsuario = 
+          atendenteFidelizado === usuario.id ||
+          atendenteFidelizado === usuario.email ||
+          atendenteFidelizado === usuario.full_name;
+        
+        if (fidelizadoAoUsuario) return true;
+      }
+    }
+    
+    // PRIORIDADE 3: Gerente/Coordenador → pode enviar (exceto se atribuída a outro claramente)
+    const isGerente = ['gerente', 'coordenador', 'supervisor'].includes(usuario.attendant_role);
+    if (isGerente) {
+      // Se a thread está atribuída a outro, bloquear (respeitar atribuição)
+      if (thread.assigned_user_id && !isAtribuidoAoUsuario) {
+        return false;
+      }
+      return true;
+    }
+    
+    // PRIORIDADE 4: Thread não atribuída → qualquer usuário pode enviar (auto-atribui)
+    const isNaoAtribuida = !thread.assigned_user_id && !thread.assigned_user_name && !thread.assigned_user_email;
+    if (isNaoAtribuida) return true;
+    
+    // Todos outros casos: bloqueado (atribuída a outro, fidelizada a outro)
+    return false;
+  }, [usuario, thread, contatoCompleto]);
+
   // ✅ FILTRAR INTEGRAÇÕES BASEADO NAS PERMISSÕES DO USUÁRIO
   const integracoesPermitidas = useMemo(() => {
     if (!usuario) return integracoes;
@@ -174,9 +230,9 @@ export default function ChatWindow({
   };
 
   const podeEnviarPorInstancia = getPermissaoInstancia('can_send');
-  const podeEnviarMensagens = permissoes.pode_enviar_mensagens !== false && podeEnviarPorInstancia;
-  const podeEnviarMidias = permissoes.pode_enviar_midias !== false && podeEnviarPorInstancia;
-  const podeEnviarAudios = permissoes.pode_enviar_audios !== false && podeEnviarPorInstancia;
+  const podeEnviarMensagens = podeInteragirNaThread && permissoes.pode_enviar_mensagens !== false && podeEnviarPorInstancia;
+  const podeEnviarMidias = podeInteragirNaThread && permissoes.pode_enviar_midias !== false && podeEnviarPorInstancia;
+  const podeEnviarAudios = podeInteragirNaThread && permissoes.pode_enviar_audios !== false && podeEnviarPorInstancia;
   const podeApagarMensagens = permissoes.pode_apagar_mensagens === true;
   const podeTransferirConversas = true;
 
