@@ -67,10 +67,11 @@ Deno.serve(async (req) => {
       }, { headers });
     }
     
-    console.log('[DEDUPE] STEP 3 - Agrupando por telefone normalizado + conexão...');
+    console.log('[DEDUPE] STEP 3 - Agrupando APENAS por telefone normalizado (SEM conexão)...');
     
-    // ✅ REGRA DE OURO: Agrupar por telefone_normalizado + conexao_origem
-    // Só consolidar dentro do mesmo subgrupo (telefone + conexão)
+    // ✅ REGRA DE OURO CORRIGIDA: Contato é ÚNICO por telefone
+    // Independente de provedor (Z-API, W-API, GoTo) ou conexão
+    // Threads sim podem ser múltiplas (uma por integração), mas Contact é único
     const groups = new Map();
     let contatosSemTelefone = 0;
     let telefonesInvalidos = 0;
@@ -87,8 +88,9 @@ Deno.serve(async (req) => {
         continue;
       }
       
-      // ✅ CHAVE: telefone + conexão (Z-API e W-API ficam separados)
-      const groupKey = `${normalized}|${contact.conexao_origem || 'GLOBAL'}`;
+      // ✅ CHAVE: APENAS telefone normalizado (sem conexão)
+      // Um telefone = Um contato único no sistema
+      const groupKey = normalized;
       
       if (!groups.has(groupKey)) {
         groups.set(groupKey, []);

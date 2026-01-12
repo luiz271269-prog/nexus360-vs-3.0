@@ -480,11 +480,13 @@ export default function Comunicacao() {
       }
 
       // ✅ Criar contato SEM fidelização automática (usuário decide depois)
+      // ✅ SEM conexao_origem - Contact é independente de provedor/integração
       const novoContato = await base44.entities.Contact.create({
         ...dadosContato,
         telefone: telefoneNormalizado,
         whatsapp_status: 'nao_verificado',
-        tipo_contato: dadosContato.tipo_contato || 'novo'
+        tipo_contato: dadosContato.tipo_contato || 'novo',
+        conexao_origem: null // ✅ Contato não pertence a nenhuma conexão específica
       });
 
       console.log('[Comunicacao] ✅ Contato criado:', novoContato.id);
