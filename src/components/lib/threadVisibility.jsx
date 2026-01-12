@@ -205,6 +205,7 @@ export const isAtribuidoAoUsuario = (usuario, thread) => {
   const userId = normalizar(usuario.id);
   const userEmail = normalizar(usuario.email);
   
+  // ✅ PROTEÇÃO CONTRA DADOS SUJOS (espaços, maiúsculas)
   // 1. Checagem Direta de ID (O mais confiável)
   if (thread.assigned_user_id && normalizar(thread.assigned_user_id) === userId) {
     return true;
@@ -215,9 +216,10 @@ export const isAtribuidoAoUsuario = (usuario, thread) => {
     return true;
   }
 
-  // 3. Checagem via helper externo (para manter compatibilidade)
+  // 3. Checagem via helper externo + nome (para entidades inconsistentes)
   if (usuarioCorresponde(usuario, thread.assigned_user_id) || 
-      usuarioCorresponde(usuario, thread.assigned_user_name)) {
+      usuarioCorresponde(usuario, thread.assigned_user_name) ||
+      usuarioCorresponde(usuario, thread.assigned_user_email)) {
     return true;
   }
 
