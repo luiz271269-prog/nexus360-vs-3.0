@@ -715,21 +715,21 @@ export const podeInteragirNaThread = (usuario, thread, contato = null) => {
   // Admin sempre pode
   if (usuario.role === 'admin') return true;
   
-  // 🔑 PRIORIDADE ABSOLUTA: Contato FIDELIZADO ao usuário → SEMPRE PODE
-  // Verificado ANTES de atribuição/setor/integração
+  // 🔑 PRIORIDADE ABSOLUTA #1: Thread ATRIBUÍDA ao usuário → SEMPRE PODE (ignora tudo)
+  // ✅ FIX: Verifica ANTES de qualquer outra condição
+  if (isAtribuidoAoUsuario(usuario, thread)) {
+    console.log(`[INTERACAO] ✅ Usuário ${usuario.email} pode enviar (thread ATRIBUÍDO ao criador - ignora permissões)`);
+    return true;
+  }
+  
+  // 🔑 PRIORIDADE ABSOLUTA #2: Contato FIDELIZADO ao usuário → SEMPRE PODE
+  // Verifica ANTES de integração/setor
   if (contato && isFidelizadoAoUsuario(usuario, contato)) {
     console.log(`[INTERACAO] ✅ Usuário ${usuario.email} pode enviar (contato fidelizado)`);
     return true;
   }
   
-  // PRIORIDADE 1: Thread ATRIBUÍDA ao usuário → SEMPRE PODE (ignora setor/integração)
-  if (isAtribuidoAoUsuario(usuario, thread)) {
-    return true;
-  }
-  
   // PRIORIDADE 3: Gerente/Supervisor → pode enviar (se não atribuída a outro)
-  // Gerentes têm "quase admin": podem interagir com qualquer thread, 
-  // EXCETO se já estiver atribuída a outro atendente
   const isGerente = ['gerente', 'coordenador', 'supervisor'].includes(usuario.attendant_role);
   if (isGerente) {
     // Se a thread está atribuída a outro, bloquear (respeitar atribuição)
