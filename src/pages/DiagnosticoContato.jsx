@@ -29,32 +29,54 @@ export default function DiagnosticoContato() {
         telefone: telefonNormalizado 
       });
 
-      // 2️⃣ Buscar mensagens de hoje
+      // 2️⃣ Determinar range de hoje
       const hoje = new Date();
       hoje.setHours(0, 0, 0, 0);
+      const hojeISO = hoje.toISOString();
+      
       const amanha = new Date(hoje);
       amanha.setDate(amanha.getDate() + 1);
+      amanha.setHours(0, 0, 0, 0);
+      const amanhaISO = amanha.toISOString();
 
-      // Buscar todas as mensagens do dia
-      const todasMensagensHoje = await base44.entities.Message.filter({});
-      
-      const mensagensHoje = todasMensagensHoje.filter(msg => {
-        const dataMgs = new Date(msg.sent_at || msg.created_date);
-        return dataMgs >= hoje && dataMgs < amanha;
-      }).filter(msg => {
-        // Verificar se é do contato ou da thread
-        if (contatosComTelefone.length > 0) {
-          return contatosComTelefone.some(c => c.id === msg.sender_id);
-        }
-        return false;
-      });
+      // 3️⃣ Para cada contato: buscar threads e mensagens separadamente
+      const contatosAnalise = await Promise.all(
+        contatosComTelefone.map(async (contato) => {
+          // Threads do contato
+          const threads = await base44.entities.MessageThread.filter({ 
+            contact_id: contato.id 
+          });
 
-      // 3️⃣ Buscar threads do contato
-      const threadsDoPrimeiro = contatosComTelefone.length > 0 
-        ? await base44.entities.MessageThread.filter({ 
-            contact_id: contatosComTelefone[0].id 
-          })
-        : [];
+          // Mensagens RECEBIDAS (sender_type: 'contact') - SEM filtro de data no servidor, faz em memória
+          const msgsRecebidas = await base44.entities.Message.filter(
+            { sender_id: contato.id, sender_type: 'contact' },
+            '-sent_at',
+            200
+          );
+          const msgsRecebidashoje = msgsRecebidas.filter(msg => {
+            const data = new Date(msg.sent_at || msg.created_date);
+            return data >= hoje && data < amanha;
+          });
+
+          // Mensagens ENVIADAS (sender_type: 'agent') - por conta_id
+          const msgsEnviadas = await base44.entities.Message.filter(
+            { recipient_id: contato.id, sender_type: 'agent' },
+            '-sent_at',
+            200
+          );
+          const msgsEnviadasHoje = msgsEnviadas.filter(msg => {
+            const data = new Date(msg.sent_at || msg.created_date);
+            return data >= hoje && data < amanha;
+          });
+
+          return {
+            contato,
+            threads,
+            msgsRecebidashoje,
+            msgsEnviadasHoje
+          };
+        })
+      );
 
       setResultado({
         telefone: telefonNormalizado,
