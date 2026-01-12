@@ -275,23 +275,25 @@ export const canUserSeeThreadBase = (usuario, thread, mensagensThread = []) => {
   }
 
   // 1) Thread ATRIBUÍDA ao usuário → SEMPRE VÊ (ignora integração/setor/conexão)
+  // CRÍTICO: Busca não pode ter dependências de permissões para threads atribuídas
   if (atribuido) {
     console.log(`[VISIBILIDADE] ✅ Thread ${thread.id?.substring(0, 8)} - ATRIBUÍDA ao usuário ${usuario.email}`);
     return true;
   }
 
-  // 2) Contato FIDELIZADO → só o dono vê (bloqueia todos outros)
-  if (contato?.is_cliente_fidelizado) {
-    if (fidelizado) {
-      console.log(`[VISIBILIDADE] ✅ Thread ${thread.id?.substring(0, 8)} - FIDELIZADA ao usuário ${usuario.email}`);
-      return true;
-    } else {
-      console.log(`[VISIBILIDADE] ❌ Thread ${thread.id?.substring(0, 8)} - Fidelizado a outro`);
-      return false;
-    }
+  // 2) Contato FIDELIZADO ao usuário → SEMPRE VÊ (ignora integração/setor/conexão)
+  if (fidelizado) {
+    console.log(`[VISIBILIDADE] ✅ Thread ${thread.id?.substring(0, 8)} - FIDELIZADA ao usuário ${usuario.email}`);
+    return true;
   }
 
-  // 3) GERENTES veem threads SEM RESPOSTA há 30+ minutos
+  // 3) Contato FIDELIZADO a outro → só o dono vê (bloqueia todos outros)
+  if (contato?.is_cliente_fidelizado) {
+    console.log(`[VISIBILIDADE] ❌ Thread ${thread.id?.substring(0, 8)} - Fidelizado a outro`);
+    return false;
+  }
+
+  // 4) GERENTES veem threads SEM RESPOSTA há 30+ minutos
   if (isGerente && thread.last_inbound_at) {
     const tempoSemResposta = Date.now() - new Date(thread.last_inbound_at).getTime();
     const minutos30 = 30 * 60 * 1000;
@@ -302,7 +304,16 @@ export const canUserSeeThreadBase = (usuario, thread, mensagensThread = []) => {
     }
   }
 
-  // 4) SEM ATRIBUIÇÃO → aplica permissões (integração/conexão/setor)
+  // 5) GERENTES podem ver qualquer thread do sistema (exceto fidelizadas a outro)
+  if (isGerente) {
+    // Se a thread está atribuída a outro, gerente ainda pode visualizar
+    if (thread.assigned_user_id) {
+      console.log(`[VISIBILIDADE] ✅ Thread ${thread.id?.substring(0, 8)} - Gerente pode visualizar (atribuída a outro)`);
+      return true;
+    }
+  }
+
+  // 6) SEM ATRIBUIÇÃO → aplica permissões (integração/conexão/setor)
   const integracaoOk = temPermissaoIntegracao(usuario, thread.whatsapp_integration_id);
   if (!integracaoOk) {
     console.log(`[VISIBILIDADE] ❌ Bloqueado por integração: ${thread.whatsapp_integration_id}`);
@@ -322,13 +333,13 @@ export const canUserSeeThreadBase = (usuario, thread, mensagensThread = []) => {
     return false;
   }
 
-  // 5) Thread NÃO ATRIBUÍDA (S/atend.) - todos podem ver
+  // 7) Thread NÃO ATRIBUÍDA (S/atend.) - todos podem ver
   if (naoAtribuida) {
     console.log(`[VISIBILIDADE] ✅ Thread ${thread.id?.substring(0, 8)} - NÃO ATRIBUÍDA (S/atend.) - visível`);
     return true;
   }
 
-  // 6) Atribuída a outro usuário - bloqueado
+  // 8) Atribuída a outro usuário - bloqueado (apenas para atendentes comuns)
   console.log(`[VISIBILIDADE] ❌ Thread ${thread.id?.substring(0, 8)} bloqueada - Atribuída a outro`);
   return false;
 };
