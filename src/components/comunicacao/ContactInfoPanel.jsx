@@ -32,6 +32,7 @@ export default function ContactInfoPanel({
   defaultValues,
   atendentes = [] // ✅ PROP: Recebe lista de atendentes do pai
 }) {
+  const navigate = useNavigate();
   const [salvando, setSalvando] = useState(false);
   const [usuario, setUsuario] = useState(null);
 
@@ -648,9 +649,23 @@ export default function ContactInfoPanel({
             </div>
           </div>
 
+          {/* Botão de Diagnóstico para Admin */}
+          {usuario?.role === 'admin' && (
+            <div className="mt-4 px-4 pb-2 border-t pt-3">
+              <Button
+                onClick={() => navigate(createPageUrl('DiagnosticoContato') + `?telefone=${contact.telefone}`)}
+                variant="outline"
+                size="sm"
+                className="w-full text-indigo-600 hover:bg-indigo-50"
+              >
+                🔬 Diagnóstico deste contato
+              </Button>
+            </div>
+          )}
+
           {/* Gerenciamento */}
           <div className="mt-4 px-4 pb-4 border-t pt-4">
-            {contact.bloqueado ? (
+           {contact.bloqueado ? (
               <Alert className="bg-red-50 border-red-200 p-3">
                 <AlertCircle className="h-4 w-4 text-red-600" />
                 <div className="ml-2">
