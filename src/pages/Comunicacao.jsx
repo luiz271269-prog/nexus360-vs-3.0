@@ -291,10 +291,10 @@ export default function Comunicacao() {
       );
     },
     enabled: !!selectedCategoria && selectedCategoria !== 'all',
-    staleTime: 5 * 60 * 1000,
-    cacheTime: 10 * 60 * 1000,
-    retry: 2,
-    retryDelay: 1000,
+    staleTime: 10 * 60 * 1000,
+    cacheTime: 15 * 60 * 1000,
+    retry: 1,
+    retryDelay: 2000,
     refetchOnWindowFocus: false,
     onError: (error) => {
       console.error('[Comunicacao] Erro ao filtrar por categoria:', error);
