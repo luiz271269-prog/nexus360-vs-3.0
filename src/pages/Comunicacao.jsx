@@ -1425,7 +1425,7 @@ export default function Comunicacao() {
                 <div className="flex-1 flex overflow-hidden">
                   {threadAtiva && !criandoNovoContato || modoSelecaoMultipla && (contatosSelecionados.length > 0 || broadcastInterno) ?
                   <>
-                      <div className="flex-1 overflow-hidden">
+                      <div className="flex-1 overflow-hidden relative">
                         <ChatWindow
                         thread={threadAtiva}
                         mensagens={mensagens}
@@ -1447,6 +1447,16 @@ export default function Comunicacao() {
                         }}
                         atendentes={atendentes} />
 
+                        {/* Diagnóstico Visual Realtime (canto inferior direito) */}
+                        <DiagnosticoVisibilidadeRealtime
+                          threadId={threadAtiva?.id}
+                          ultimaMensagemRecebida={mensagens[mensagens.length - 1]}
+                          filtros={{
+                            scope: filterScope,
+                            integracaoId: selectedIntegrationId,
+                            atendente: selectedAttendantId
+                          }}
+                          realTimeActive={true} />
                       </div>
                       
                       {showContactInfo && contatoAtivo &&
