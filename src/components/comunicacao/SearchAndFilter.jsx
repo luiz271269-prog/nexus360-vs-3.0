@@ -551,13 +551,13 @@ export default function SearchAndFilter({
               </div>
             )}
 
-            {/* BOTÃO DIAGNÓSTICO (ADMIN) */}
-            {isAdmin && duplicataEncontrada && (
+            {/* BOTÃO ANÁLISE COMPLETA - Sempre mostra, mas admin pode corrigir */}
+            {duplicataEncontrada && (
               <Button
                 onClick={() => onAbrirDiagnostico && onAbrirDiagnostico(duplicataEncontrada.principal.telefone)}
-                className="bg-indigo-600 hover:bg-indigo-700 shadow-lg shadow-indigo-500/25"
+                className={`shadow-lg ${isAdmin ? 'bg-green-600 hover:bg-green-700 shadow-green-500/25' : 'bg-indigo-600 hover:bg-indigo-700 shadow-indigo-500/25'}`}
                 size="sm"
-                title="Análise completa de contatos duplicados"
+                title={isAdmin ? "Analisar e corrigir duplicatas" : "Análise de duplicatas"}
               >
                 <Microscope className="w-4 h-4" />
               </Button>
