@@ -573,19 +573,35 @@ async function handleMessage(dados, payloadBruto, base44) {
     return jsonErr('erro_contato', 500);
   }
 
-  // BUSCAR/CRIAR THREAD
+  // BUSCAR/CRIAR THREAD - ✅ CORRIGIDO: Buscar por CONTATO + INTEGRAÇÃO (não só contato)
   let thread;
   try {
+    // 🔑 CHAVE COMPOSTA: contact_id + whatsapp_integration_id
+    // Isso garante que webhook e frontend usam o MESMO thread para cada contato+instância
     const threads = await base44.asServiceRole.entities.MessageThread.filter(
-      { contact_id: contato.id },
+      { 
+        contact_id: contato.id,
+        whatsapp_integration_id: integracaoId || null // buscar por integração específica
+      },
       '-last_message_at',
-      1
+      5 // buscar múltiplos, ordena por recente
     );
 
     if (threads && threads.length > 0) {
+      // ✅ GARANTIA: Reutiliza o thread mais recente para essa integração
       thread = threads[0];
-      console.log(`[WAPI] 💭 Thread existente: ${thread.id}`);
+      
+      // Se thread estava fechado, reabrir
+      if (thread.status === 'fechada' || thread.status === 'encerrada') {
+        await base44.asServiceRole.entities.MessageThread.update(thread.id, {
+          status: 'aberta',
+          ultima_reabertura: new Date().toISOString()
+        });
+      }
+      
+      console.log(`[WAPI] 💭 Thread EXISTENTE reutilizado (contato+integração): ${thread.id} | Integração: ${integracaoId}`);
     } else {
+      // Só cria se REALMENTE não houver thread para essa combinação
       const agora = new Date().toISOString();
       thread = await base44.asServiceRole.entities.MessageThread.create({
         contact_id: contato.id,
@@ -601,7 +617,7 @@ async function handleMessage(dados, payloadBruto, base44) {
         unread_count: 1,
       });
       
-      console.log(`[WAPI] 💭 Nova thread: ${thread.id}`);
+      console.log(`[WAPI] 💭 NOVA thread criada (contato+integração): ${thread.id} | Integração: ${integracaoId}`);
     }
   } catch (e) {
     console.error(`[WAPI] ❌ Erro thread:`, e?.message);
