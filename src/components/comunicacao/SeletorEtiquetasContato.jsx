@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Tag, X, Loader2, Plus, Check, Search } from "lucide-react";
 import { toast } from "sonner";
+import UsuarioDisplay from "./UsuarioDisplay";
 import {
   Popover,
   PopoverContent,
@@ -29,7 +30,9 @@ export default function SeletorEtiquetasContato({
   selectedTags = [],
   onTagsChange,
   // Para criar novas
-  permitirCriar = true
+  permitirCriar = true,
+  // Para exibição de usuários
+  atendentes = []
 }) {
   const [aberto, setAberto] = useState(false);
   const [busca, setBusca] = useState('');
@@ -184,6 +187,13 @@ export default function SeletorEtiquetasContato({
       emoji: '🏷️',
       cor: 'bg-slate-400'
     };
+  };
+
+  // Helper para exibir atendente com nome completo
+  const getAtendenteName = (atendenteId) => {
+    if (!atendenteId) return null;
+    const atendente = atendentes.find(a => a.id === atendenteId);
+    return atendente?.full_name || atendente?.email || atendenteId;
   };
 
   // ═══════════════════════════════════════════════════════════════════
