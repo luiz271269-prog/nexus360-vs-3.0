@@ -180,8 +180,8 @@ export default function Comunicacao() {
       
       return allThreads;
     },
-    refetchInterval: 5000, // ✅ WHATSAPP PATTERN: Atualizar a cada 5 segundos (tempo real)
-    staleTime: 3000, // ✅ Dados considerados frescos por apenas 3s
+    refetchInterval: 30000, // ✅ Reduzido: Atualizar a cada 30s (evita rate limit)
+    staleTime: 15000, // ✅ Dados frescos por 15s
     enabled: !!usuario,
     retry: 2,
     retryDelay: 1000,
