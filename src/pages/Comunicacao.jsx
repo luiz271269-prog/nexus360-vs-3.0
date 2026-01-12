@@ -212,7 +212,10 @@ export default function Comunicacao() {
   const { data: mensagens = [] } = useQuery({
     queryKey: ['mensagens', threadAtiva?.id],
     queryFn: async () => {
-      if (threadAtiva && !isRateLimited) { // 🚫 Pausar se rate limited
+      // 🚫 Dupla verificação: queryFn + enabled (defesa em profundidade)
+      if (!threadAtiva || isRateLimited) return [];
+      
+      try {
         // ✅ QUERY LIMPA: Apenas thread_id, SEM filtros de channel/visibility/sender_type
         // Todas as mensagens (internas E externas) devem aparecer
         const ultimasMensagens = await base44.entities.Message.filter(
@@ -221,14 +224,20 @@ export default function Comunicacao() {
           200
         );
         console.log(`[COMUNICACAO] 📩 Mensagens carregadas: ${ultimasMensagens.length} | Thread: ${threadAtiva.id}`);
-        console.log(`[COMUNICACAO] 📊 Tipos de canal:`, [...new Set(ultimasMensagens.map(m => m.channel))]);
-        console.log(`[COMUNICACAO] 📊 Tipos de mídia:`, [...new Set(ultimasMensagens.map(m => m.media_type))]);
         return ultimasMensagens.reverse();
+      } catch (error) {
+        // 🚫 DETECTAR 429 E ATIVAR COOL-DOWN
+        if (error?.message?.includes('429') || error?.response?.status === 429) {
+          console.warn('[COMUNICACAO] ⚠️ 429 em mensagens! Ativando cool-down...');
+          setIsRateLimited(true);
+          setTimeout(() => setIsRateLimited(false), 10000);
+          return [];
+        }
+        throw error;
       }
-      return Promise.resolve([]);
     },
     enabled: !!threadAtiva && !isRateLimited, // 🚫 Pausar se rate limited
-    refetchInterval: 20000, // ✅ Reduzido: Atualizar a cada 20s
+    refetchInterval: 20000, // ✅ Atualizar a cada 20s
     staleTime: 10000,
     retry: 2,
     retryDelay: 1000,
