@@ -134,7 +134,7 @@ export default function AnalisadorContatosDuplicados({ telefone: telefoneProp, i
     return score;
   };
 
-  // ✅ MESCLAR CONTATOS (ADMIN ONLY)
+  // ✅ FUSÃO CIRÚRGICA (ADMIN ONLY) - Protocolo de Unificação Definitivo
   const mesclarContatos = async () => {
     if (!isAdmin || !resultado?.principal || resultado?.duplicatasParaMesclar?.length === 0) {
       toast.error('Ação não permitida ou sem duplicatas para mesclar');
@@ -142,68 +142,117 @@ export default function AnalisadorContatosDuplicados({ telefone: telefoneProp, i
     }
 
     setCorrigindo(true);
+    const loadingToast = toast.loading('🔄 Iniciando fusão cirúrgica...');
+
     try {
-      const principal = resultado.principal;
+      const mestre = resultado.principal;
       const duplicatas = resultado.duplicatasParaMesclar;
+      let movedMessagesCount = 0;
+      let movedThreadsCount = 0;
 
-      toast.loading('🔄 Mesclando contatos...');
-
-      // 1. Mesclar informações do contato principal
-      const updateData = { ...principal };
+      // ═══════════════════════════════════════════════════════════════════════
+      // PROTOCOLO: Para cada duplicata em ordem de recência
+      // ═══════════════════════════════════════════════════════════════════════
       
-      // Tentar manter melhor nome (não vazio, não repetido com telefone)
-      for (const dup of duplicatas) {
-        if (dup.contato.nome && dup.contato.nome !== principal.telefone && !updateData.nome?.includes(dup.contato.nome)) {
-          updateData.nome = `${updateData.nome} / ${dup.contato.nome}`;
+      for (const dupAnalise of duplicatas) {
+        const duplicata = dupAnalise.contato;
+        console.log(`[FUSÃO] Processando duplicata: ${duplicata.id} -> Mestre: ${mestre.id}`);
+
+        // 1️⃣ FUSÃO DE DADOS (Enriquecimento Inteligente)
+        // ─────────────────────────────────────────────
+        const updateMestre = {};
+
+        // Herdar campos vazios do duplicado
+        if (!mestre.email && duplicata.email) updateMestre.email = duplicata.email;
+        if (!mestre.cargo && duplicata.cargo) updateMestre.cargo = duplicata.cargo;
+        if (!mestre.empresa && duplicata.empresa) updateMestre.empresa = duplicata.empresa;
+
+        // Merge inteligente de tags (soma sem repetir)
+        const tagsSet = new Set(mestre.tags || []);
+        (duplicata.tags || []).forEach(tag => tagsSet.add(tag));
+        if ((duplicata.tags || []).length > 0) {
+          updateMestre.tags = Array.from(tagsSet);
         }
-        // Herdar campos vazios
-        if (!updateData.empresa && dup.contato.empresa) updateData.empresa = dup.contato.empresa;
-        if (!updateData.cargo && dup.contato.cargo) updateData.cargo = dup.contato.cargo;
-        if (!updateData.email && dup.contato.email) updateData.email = dup.contato.email;
-      }
 
-      await base44.entities.Contact.update(principal.id, updateData);
+        // Aplicar atualizações no mestre
+        if (Object.keys(updateMestre).length > 0) {
+          await base44.entities.Contact.update(mestre.id, updateMestre);
+        }
 
-      // 2. Redirecionar threads das duplicatas para principal
-      for (const dup of duplicatas) {
-        const threadsDup = await base44.entities.MessageThread.filter({ contact_id: dup.contato.id });
-        for (const thread of threadsDup) {
-          // Verificar se já existe thread para contato principal nessa integração
-          const threadPrincipal = resultado.contatosDuplicados[0].threadsCom.find(
-            t => t.whatsapp_integration_id === thread.whatsapp_integration_id
+        // 2️⃣ FUSÃO DE THREADS (O Pulo do Gato)
+        // ─────────────────────────────────────
+        const threadsDuplicata = await base44.entities.MessageThread.filter({ contact_id: duplicata.id });
+        const threadsMestre = await base44.entities.MessageThread.filter({ contact_id: mestre.id });
+
+        for (const threadDup of threadsDuplicata) {
+          // Verificar se mestre JÁ TEM thread nessa integração (CONFLITO)
+          const threadMestreConflito = threadsMestre.find(
+            tm => tm.whatsapp_integration_id === threadDup.whatsapp_integration_id
           );
 
-          if (threadPrincipal) {
-            // Redirecionar mensagens da duplicata para thread principal
-            const mensagens = await base44.entities.Message.filter({ thread_id: thread.id });
-            for (const msg of mensagens) {
-              await base44.entities.Message.update(msg.id, { thread_id: threadPrincipal.id });
+          if (threadMestreConflito) {
+            // CENÁRIO 1: CONFLITO - Mesclar mensagens + Apagar thread vazia
+            console.log(`[FUSÃO] Conflito detectado: Fundindo threads da mesma integração`);
+            
+            // Buscar TODAS as mensagens da thread duplicada
+            const mensagensDP = await base44.entities.Message.filter(
+              { thread_id: threadDup.id },
+              '-sent_at',
+              500
+            );
+
+            // Mover cada mensagem para a thread do mestre
+            for (const msg of mensagensDP) {
+              await base44.entities.Message.update(msg.id, {
+                thread_id: threadMestreConflito.id,
+                recipient_id: mestre.id // Se era um recipient
+              });
+              movedMessagesCount++;
             }
-            // Deletar thread duplicata
-            await base44.entities.MessageThread.delete(thread.id);
+
+            // Atualizar timestamps da thread mestre (última mensagem, etc)
+            if (mensagensDP.length > 0) {
+              const lastMsg = mensagensDP[0]; // Já está ordenada -sent_at
+              await base44.entities.MessageThread.update(threadMestreConflito.id, {
+                last_message_at: lastMsg.sent_at || lastMsg.created_date,
+                total_mensagens: (threadMestreConflito.total_mensagens || 0) + mensagensDP.length
+              });
+            }
+
+            // APAGAR a thread vazia do duplicado
+            await base44.entities.MessageThread.delete(threadDup.id);
+
           } else {
-            // Atualizar thread para apontar ao contato principal
-            await base44.entities.MessageThread.update(thread.id, { contact_id: principal.id });
+            // CENÁRIO 2: SEM CONFLITO - Reatribuir thread inteira ao mestre
+            console.log(`[FUSÃO] Sem conflito: Reatribuindo thread inteira ao mestre`);
+            await base44.entities.MessageThread.update(threadDup.id, { contact_id: mestre.id });
+            movedThreadsCount++;
           }
         }
 
-        // 3. Redirecionar interações
-        const interacoes = await base44.entities.Interacao.filter({ contact_id: dup.contato.id });
-        for (const int of interacoes) {
-          await base44.entities.Interacao.update(int.id, { contact_id: principal.id });
+        // 3️⃣ REDIRECIONAR INTERAÇÕES
+        // ──────────────────────────
+        const interacoesDuplicata = await base44.entities.Interacao.filter({ contact_id: duplicata.id });
+        for (const int of interacoesDuplicata) {
+          await base44.entities.Interacao.update(int.id, { contact_id: mestre.id });
         }
 
-        // 4. Deletar contato duplicata
-        await base44.entities.Contact.delete(dup.contato.id);
+        // 4️⃣ DELETAR CONTATO DUPLICADO
+        // ────────────────────────────
+        await base44.entities.Contact.delete(duplicata.id);
       }
 
-      toast.success(`✅ ${duplicatas.length} contatos mesclados com sucesso!`);
-      
+      toast.dismiss(loadingToast);
+      toast.success('✅ Fusão Cirúrgica Concluída!', {
+        description: `${movedThreadsCount} conversas movidas | ${movedMessagesCount} mensagens migradas | ${duplicatas.length} contatos deletados`
+      });
+
       // Recarregar análise
       await analisar(telefone);
     } catch (error) {
-      console.error('[AnalisadorContatosDuplicados] Erro ao mesclar:', error);
-      toast.error(`Erro ao mesclar: ${error.message}`);
+      console.error('[FUSÃO CIRÚRGICA] Erro:', error);
+      toast.dismiss(loadingToast);
+      toast.error(`Erro na fusão: ${error.message}`);
     } finally {
       setCorrigindo(false);
     }
