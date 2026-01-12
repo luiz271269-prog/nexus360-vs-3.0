@@ -595,32 +595,41 @@ export const verificarBloqueioThread = (usuario, thread, contato = null) => {
   // ═══════════════════════════════════════════════════════════════════════════════
   // PRIORIDADE 1: Thread ATRIBUÍDA ao usuário → NUNCA bloqueia (ignora TUDO)
   // ═══════════════════════════════════════════════════════════════════════════════
-  if (isAtribuidoAoUsuario(usuario, thread)) {
+  const isAtribuido = isAtribuidoAoUsuario(usuario, thread);
+  if (isAtribuido) {
+    console.log(`[BLOQUEIO] ✅ LIBERADO - Thread ATRIBUÍDA ao usuário: ${usuario.email}`);
     return { bloqueado: false, motivo: null, atendenteResponsavel: null };
   }
 
   // ═══════════════════════════════════════════════════════════════════════════════
   // PRIORIDADE 2: Contato FIDELIZADO ao usuário → NUNCA bloqueia (ignora TUDO)
   // ═══════════════════════════════════════════════════════════════════════════════
-  if (contato && isFidelizadoAoUsuario(usuario, contato)) {
+  const isFidelizado = contato && isFidelizadoAoUsuario(usuario, contato);
+  if (isFidelizado) {
+    console.log(`[BLOQUEIO] ✅ LIBERADO - Contato FIDELIZADO ao usuário: ${usuario.email}`);
     return { bloqueado: false, motivo: null, atendenteResponsavel: null };
   }
 
   // ═══════════════════════════════════════════════════════════════════════════════
   // PRIORIDADE 3: Thread NÃO ATRIBUÍDA → verificar permissões de integração/setor
   // ═══════════════════════════════════════════════════════════════════════════════
-  if (isNaoAtribuida(thread)) {
+  const naoAtribuida = isNaoAtribuida(thread);
+  if (naoAtribuida) {
     // Verificar permissões básicas antes de permitir
     if (!temPermissaoIntegracao(usuario, thread.whatsapp_integration_id)) {
+      console.log(`[BLOQUEIO] ❌ BLOQUEADO - Sem permissão em integração: ${thread.whatsapp_integration_id}`);
       return { bloqueado: true, motivo: 'sem_permissao_integracao', atendenteResponsavel: null };
     }
     if (!threadConexaoVisivel(usuario, thread.conexao_id)) {
+      console.log(`[BLOQUEIO] ❌ BLOQUEADO - Sem permissão em conexão: ${thread.conexao_id}`);
       return { bloqueado: true, motivo: 'sem_permissao_conexao', atendenteResponsavel: null };
     }
     if (!threadSetorVisivel(usuario, thread.sector_id || thread.setor)) {
+      console.log(`[BLOQUEIO] ❌ BLOQUEADO - Sem permissão em setor: ${thread.sector_id}`);
       return { bloqueado: true, motivo: 'outro_setor', atendenteResponsavel: null };
     }
     
+    console.log(`[BLOQUEIO] ✅ LIBERADO - Thread não atribuída, usuário tem permissões`);
     return { bloqueado: false, motivo: null, atendenteResponsavel: null };
   }
 
@@ -630,6 +639,7 @@ export const verificarBloqueioThread = (usuario, thread, contato = null) => {
   
   // Thread atribuída a outro
   if (thread.assigned_user_id) {
+    console.log(`[BLOQUEIO] ❌ BLOQUEADO - Thread atribuída a outro: ${thread.assigned_user_id}`);
     return { 
       bloqueado: true, 
       motivo: 'atribuida_outro', 
@@ -648,16 +658,19 @@ export const verificarBloqueioThread = (usuario, thread, contato = null) => {
     ];
     
     for (const campo of camposFidelizacao) {
-      if (contato[campo] && !usuarioCorresponde(usuario, contato[campo])) {
+      const valor = contato[campo];
+      if (valor && !usuarioCorresponde(usuario, valor)) {
+        console.log(`[BLOQUEIO] ❌ BLOQUEADO - Contato fidelizado a outro em ${campo}: ${valor}`);
         return { 
           bloqueado: true, 
           motivo: 'fidelizada_outro', 
-          atendenteResponsavel: contato[campo]
+          atendenteResponsavel: valor
         };
       }
     }
   }
 
+  console.log(`[BLOQUEIO] ✅ LIBERADO - Passou em todas as prioridades (fallback)`);
   return { bloqueado: false, motivo: null, atendenteResponsavel: null };
 };
 
