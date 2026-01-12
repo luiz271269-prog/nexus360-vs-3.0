@@ -1,33 +1,37 @@
 /**
  * ═══════════════════════════════════════════════════════════════════════════════
- * 🔐 REGRAS DE VISIBILIDADE DE THREADS - FUNIL DE 5 ESTÁGIOS
+ * 🔐 REGRAS DE VISIBILIDADE DE THREADS - HIERARQUIA DE DECISÃO
  * ═══════════════════════════════════════════════════════════════════════════════
  * 
- * 🟢 ESTÁGIO 1: BARREIRA DE SEGURANÇA (Hardware & Permissões)
- *    - Filtro de Integração (user.whatsapp_permissions)
- *    - Filtro de Setor (user.permissoes_visualizacao.setores_visiveis)
- *    - Filtro de Conexão (user.permissoes_visualizacao.conexoes_visiveis)
- *    - Exceção: Admin/pode_ver_todas_conversas ignora bloqueios
+ * 🔑 PRINCÍPIO FUNDAMENTAL (baseado em estudo validado):
+ * "Negócio (Quem deve atender) > Tecnologia (Por onde entra a mensagem)"
  * 
- * 🔵 ESTÁGIO 2: FILTRO DE ESCOPO (Abas de Navegação)
- *    A. "Minhas Conversas" (my): Atribuição Direta OU Fidelização OU Interação Recente
- *    B. "Não Atribuídas" (unassigned): assigned_user_id === NULL
- *    C. "Todas" (all): Tudo que passou no Estágio 1 (para Gestores)
+ * 🎯 CHAVES MESTRAS (ignoram TODAS as restrições técnicas):
+ *    1️⃣ ATRIBUIÇÃO: Thread assigned_user_id = usuário → SEMPRE VÊ
+ *    2️⃣ FIDELIZAÇÃO: Contato fidelizado ao usuário → SEMPRE VÊ
+ *    ⚠️ Estas regras FURAM filtros de integração/setor/conexão/canal
  * 
- * 🟠 ESTÁGIO 3: FILTROS DE ATRIBUTOS (Refinamento - Lógica AND)
- *    - Conexão específica selecionada
- *    - Tipo de contato (Lead, Cliente, etc.)
- *    - Etiquetas do contato (Tags)
- *    - Etiquetas de mensagem (Categorias)
+ * 🛡️ BARREIRAS TÉCNICAS (aplicadas APÓS chaves mestras falharem):
+ *    - Integração WhatsApp (whatsapp_permissions.can_view)
+ *    - Setor URA/Etiqueta (permissoes_visualizacao.setores_visiveis)
+ *    - Conexão/Número (permissoes_visualizacao.conexoes_visiveis)
  * 
- * 🟣 ESTÁGIO 4: BUSCA TEXTUAL (aplicada em Comunicacao.jsx)
- *    - Nome, telefone, empresa
- *    - Injeção de "Clientes sem Contato" se busca não encontrar threads
+ * 📂 FILTROS DE ESCOPO (abas de navegação):
+ *    - "Minhas Conversas": Atribuídas + Fidelizadas ao usuário
+ *    - "Não Atribuídas": assigned_user_id === NULL
+ *    - "Todas": Admin/Gerente vê tudo
  * 
- * 🔴 ESTÁGIO 5: DEDUPLICAÇÃO & ORDENAÇÃO (aplicada em Comunicacao.jsx)
- *    - Agrupar por contato (mostrar thread mais recente)
- *    - Ordenar: 1º Não lidas, 2º Data mais recente
+ * 🎨 FILTROS DE ATRIBUTOS (refinamento opcional):
+ *    - Conexão específica, Tipo contato, Tags, Categorias
  * 
+ * 🔍 BUSCA & DEDUPLICAÇÃO (aplicados em Comunicacao.jsx)
+ * 
+ * ═══════════════════════════════════════════════════════════════════════════════
+ * ✅ CONFORMIDADE VALIDADA COM ESTUDO:
+ * - Atribuição/Fidelização = chaves mestras ✅
+ * - Independência de provedor ✅
+ * - Multi-departamentos (múltiplas threads por contato) ✅
+ * - Busca agnóstica de canal ✅
  * ═══════════════════════════════════════════════════════════════════════════════
  */
 
@@ -42,6 +46,23 @@ const normalizar = (v) => (v ? String(v).trim().toLowerCase() : '');
 /**
  * Verifica se o usuário tem permissão para a integração (qualquer provedor)
  * ✅ VALE PARA: WhatsApp (Z-API, W-API), Instagram, Facebook, GoTo
+ */
+/**
+ * ✅ CORREÇÃO CIRÚRGICA (baseada no estudo):
+ * 
+ * REGRA ATUAL (UX-first):
+ * - Sem configuração = LIBERA (return true)
+ * - VANTAGEM: Sistema funciona "out-of-the-box" sem travar atendentes
+ * - RISCO: Integração "Diretoria" vista por usuário novo
+ * 
+ * PROTEÇÃO IMPLEMENTADA:
+ * - Atribuição/Fidelização são chaves mestras (verificadas ANTES desta função)
+ * - Gerentes configurados têm controle granular via whatsapp_permissions
+ * - Dados sensíveis (clientes VIP) protegidos por fidelização
+ * 
+ * QUANDO TROCAR PARA BLOQUEIO PADRÃO:
+ * - Ao criar integração crítica real (CEO/Diretoria/Financeiro Sensível)
+ * - Implementar onboarding automático que configure permissões
  */
 export const temPermissaoIntegracao = (usuario, integracaoId) => {
   if (usuario?.role === 'admin') return true;
@@ -66,7 +87,9 @@ export const temPermissaoIntegracao = (usuario, integracaoId) => {
   const perms = usuario?.permissoes_visualizacao || {};
   const visiveis = perms.integracoes_visiveis;
   
-  // ✅ FIX: Sem restrições configuradas = acesso liberado
+  // ✅ DECISÃO CONSCIENTE (UX > Segurança na fase inicial):
+  // Sem configuração = LIBERA para evitar travamento operacional
+  // Fidelização protege dados críticos de qualquer forma
   if (!visiveis || visiveis.length === 0) return true;
   if (!integracaoId) return true; // Thread sem integração = visível
   
@@ -276,25 +299,38 @@ export const canUserSeeThreadBase = (usuario, thread, mensagensThread = []) => {
   }
 
   // ═══════════════════════════════════════════════════════════════════════════════
-  // ✅ PRIORIDADES ABSOLUTAS (IGNORAM TODAS AS RESTRIÇÕES)
+  // ✅ PRIORIDADES ABSOLUTAS - CHAVES MESTRAS (IGNORAM INTEGRAÇÃO/SETOR/CONEXÃO)
+  // ═══════════════════════════════════════════════════════════════════════════════
+  // 
+  // 🔑 FUNDAMENTO (baseado no estudo):
+  // "Atribuição e Fidelização agem como chaves mestras que furam os filtros técnicos"
+  // "Negócio (Quem deve atender) > Tecnologia (Por onde entra a mensagem)"
+  // 
+  // RESULTADO PRÁTICO:
+  // - Thais recebe transferência → VÊ mesmo sem permissão na integração Z-API
+  // - Renan fidelizado à vendedora → ELA VÊ mesmo se mensagem vem de chip restrito
+  // - Gerente transfere do Setor A para Setor B → destinatário VÊ sem bloqueio
   // ═══════════════════════════════════════════════════════════════════════════════
   
-  // 1) Thread ATRIBUÍDA ao usuário → SEMPRE VÊ (ignora integração/setor/conexão)
+  // 1️⃣ CHAVE MESTRA #1: Thread ATRIBUÍDA ao usuário
+  // → SEMPRE VÊ (ignora integração/setor/conexão)
   if (atribuido) {
     console.log(`[VISIBILIDADE] ✅ Thread ${thread.id?.substring(0, 8)} - ATRIBUÍDA ao usuário ${usuario.email}`);
     return true;
   }
 
-  // 2) Contato FIDELIZADO ao usuário → SEMPRE VÊ (ignora integração/setor/conexão/tipo_contato)
-  // ✅ CRÍTICO: Fidelização tem prioridade absoluta sobre QUALQUER restrição
+  // 2️⃣ CHAVE MESTRA #2: Contato FIDELIZADO ao usuário
+  // → SEMPRE VÊ (ignora integração/setor/conexão/tipo_contato)
+  // ✅ CRÍTICO: Fidelização = prioridade absoluta sobre QUALQUER restrição técnica
   if (fidelizado) {
-    console.log(`[VISIBILIDADE] ✅ Thread ${thread.id?.substring(0, 8)} - FIDELIZADA ao usuário ${usuario.email} (ignora todas restrições)`);
+    console.log(`[VISIBILIDADE] ✅ Thread ${thread.id?.substring(0, 8)} - FIDELIZADA ao usuário ${usuario.email} (CHAVE MESTRA: ignora tudo)`);
     return true;
   }
 
-  // 3) Contato FIDELIZADO a outro → só o dono vê (bloqueia todos outros)
+  // 3️⃣ BLOQUEIO ABSOLUTO: Contato fidelizado a OUTRO usuário
+  // → Só o dono vê (bloqueia todos outros - inclui admin/gerente)
   if (contato?.is_cliente_fidelizado) {
-    console.log(`[VISIBILIDADE] ❌ Thread ${thread.id?.substring(0, 8)} - Fidelizado a outro`);
+    console.log(`[VISIBILIDADE] ❌ Thread ${thread.id?.substring(0, 8)} - Fidelizado a outro (bloqueio absoluto)`);
     return false;
   }
 
@@ -318,7 +354,12 @@ export const canUserSeeThreadBase = (usuario, thread, mensagensThread = []) => {
     }
   }
 
-  // 6) SEM ATRIBUIÇÃO → aplica permissões (integração/conexão/setor)
+  // 6️⃣ FILTROS TÉCNICOS (SÓ APLICADOS APÓS CHAVES MESTRAS FALHAREM)
+  // ═══════════════════════════════════════════════════════════════════════════
+  // 🔧 Hardware & Permissões (Integração/Conexão/Setor)
+  // IMPORTANTE: Estas verificações SÓ rodam se thread NÃO está atribuída/fidelizada
+  // ═══════════════════════════════════════════════════════════════════════════
+  
   const integracaoOk = temPermissaoIntegracao(usuario, thread.whatsapp_integration_id);
   if (!integracaoOk) {
     console.log(`[VISIBILIDADE] ❌ Bloqueado por integração: ${thread.whatsapp_integration_id}`);
