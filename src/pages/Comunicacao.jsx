@@ -417,12 +417,6 @@ export default function Comunicacao() {
           return;
         }
 
-        const integracaoAtiva = integracoes.find((i) => i.status === 'conectado');
-        if (!integracaoAtiva) {
-          toast.error('❌ Nenhuma integração WhatsApp ativa');
-          return;
-        }
-
         const novaThread = await base44.entities.MessageThread.create({
           contact_id: thread.contact_id,
           whatsapp_integration_id: integracaoAtiva.id,
