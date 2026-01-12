@@ -347,14 +347,6 @@ export const canUserSeeThreadBase = (usuario, thread, mensagensThread = []) => {
     return true;
   }
 
-  // 2️⃣ CHAVE MESTRA #2: Contato FIDELIZADO ao usuário
-  // → SEMPRE VÊ (ignora integração/setor/conexão/tipo_contato)
-  // ✅ CRÍTICO: Fidelização = prioridade absoluta sobre QUALQUER restrição técnica
-  if (fidelizado) {
-    console.log(`[VISIBILIDADE] ✅ Thread ${thread.id?.substring(0, 8)} - FIDELIZADA ao usuário ${usuario.email} (CHAVE MESTRA: ignora tudo)`);
-    return true;
-  }
-
   // 3️⃣ BLOQUEIO ABSOLUTO: Contato fidelizado a OUTRO usuário
   // → Só o dono vê (bloqueia todos outros - inclui admin/gerente)
   if (contato?.is_cliente_fidelizado) {
