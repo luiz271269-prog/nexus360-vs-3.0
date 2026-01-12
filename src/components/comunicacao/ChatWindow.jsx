@@ -163,25 +163,32 @@ export default function ChatWindow({
     
     if (isAtribuidoAoUsuario) return true;
     
-    // PRIORIDADE 2: Contato fidelizado ao usuário → sempre pode
+    // PRIORIDADE 2: Contato fidelizado ao usuário → SEMPRE LIBERA (zero bloqueios)
+    // ✅ Crítico: Verifica TODOS os campos de fidelização em TODOS os setores
+    // Independentemente de qual setor a thread está, se o contato está fidelizado em QUALQUER setor, libera
     if (contatoCompleto) {
-      const setorAtual = norm(thread?.sector_id) || norm(usuario?.attendant_sector) || 'vendas';
-      const camposFidelizacao = {
-        'vendas': 'atendente_fidelizado_vendas',
-        'assistencia': 'atendente_fidelizado_assistencia',
-        'financeiro': 'atendente_fidelizado_financeiro',
-        'fornecedor': 'atendente_fidelizado_fornecedor'
-      };
-      const campoFidelizado = camposFidelizacao[setorAtual] || 'vendedor_responsavel';
-      const atendenteFidelizado = contatoCompleto?.[campoFidelizado];
+      const camposFidelizacao = [
+        'atendente_fidelizado_vendas',
+        'atendente_fidelizado_assistencia',
+        'atendente_fidelizado_financeiro',
+        'atendente_fidelizado_fornecedor',
+        'vendedor_responsavel'
+      ];
       
-      if (atendenteFidelizado) {
-        const fidelizadoAoUsuario = 
-          norm(atendenteFidelizado) === norm(usuario.id) ||
-          norm(atendenteFidelizado) === norm(usuario.email) ||
-          norm(atendenteFidelizado) === norm(usuario.full_name);
-        
-        if (fidelizadoAoUsuario) return true;
+      // Verificar QUALQUER campo de fidelização
+      for (const campo of camposFidelizacao) {
+        const atendenteFidelizado = contatoCompleto?.[campo];
+        if (atendenteFidelizado) {
+          const fidelizadoAoUsuario = 
+            norm(atendenteFidelizado) === norm(usuario.id) ||
+            norm(atendenteFidelizado) === norm(usuario.email) ||
+            norm(atendenteFidelizado) === norm(usuario.full_name);
+          
+          if (fidelizadoAoUsuario) {
+            console.log(`[VISIBILIDADE] ✅ Contato fidelizado a ${usuario.full_name} em campo ${campo} - LIBERADO`);
+            return true;
+          }
+        }
       }
     }
     
