@@ -15,6 +15,7 @@ import Dashboard from './pages/Dashboard';
 import DashboardExecutivo from './pages/DashboardExecutivo';
 import DebugWebhooks from './pages/DebugWebhooks';
 import DiagnosticoCirurgico from './pages/DiagnosticoCirurgico';
+import DiagnosticoContato from './pages/DiagnosticoContato';
 import DiagnosticoDetalhado from './pages/DiagnosticoDetalhado';
 import DiagnosticoInbound from './pages/DiagnosticoInbound';
 import DiagnosticoPreAtendimento from './pages/DiagnosticoPreAtendimento';
@@ -62,7 +63,6 @@ import Usuarios from './pages/Usuarios';
 import Vendas from './pages/Vendas';
 import Vendedores from './pages/Vendedores';
 import WhatsAppTemplates from './pages/WhatsAppTemplates';
-import DiagnosticoContato from './pages/DiagnosticoContato';
 import __Layout from './Layout.jsx';
 
 
@@ -84,6 +84,7 @@ export const PAGES = {
     "DashboardExecutivo": DashboardExecutivo,
     "DebugWebhooks": DebugWebhooks,
     "DiagnosticoCirurgico": DiagnosticoCirurgico,
+    "DiagnosticoContato": DiagnosticoContato,
     "DiagnosticoDetalhado": DiagnosticoDetalhado,
     "DiagnosticoInbound": DiagnosticoInbound,
     "DiagnosticoPreAtendimento": DiagnosticoPreAtendimento,
@@ -131,7 +132,6 @@ export const PAGES = {
     "Vendas": Vendas,
     "Vendedores": Vendedores,
     "WhatsAppTemplates": WhatsAppTemplates,
-    "DiagnosticoContato": DiagnosticoContato,
 }
 
 export const pagesConfig = {

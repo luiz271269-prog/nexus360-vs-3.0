@@ -64,10 +64,8 @@ const normalizar = (v) => (v ? String(v).trim().toLowerCase() : '');
  * - Ao criar integração crítica real (CEO/Diretoria/Financeiro Sensível)
  * - Implementar onboarding automático que configure permissões
  */
-export const temPermissaoIntegracao = (usuario, integracaoId, threadId = null) => {
+export const temPermissaoIntegracao = (usuario, integracaoId) => {
   if (usuario?.role === 'admin') return true;
-  
-  const debugPrefix = threadId ? `[Thread ${threadId.substring(0, 8)}]` : '[INTEGRACAO]';
   
   // Primeiro checa whatsapp_permissions (estrutura atual)
   const whatsappPerms = usuario?.whatsapp_permissions || [];
@@ -79,7 +77,7 @@ export const temPermissaoIntegracao = (usuario, integracaoId, threadId = null) =
     
     // 🔍 DEBUG: Log quando bloquear por falta de permissão
     if (!temPermissao) {
-      console.log(`${debugPrefix} [VISIBILIDADE] ❌ Bloqueado por integração: User ${usuario.email} não tem can_view para ${integracaoId}`);
+      console.log(`[VISIBILIDADE] ❌ Bloqueado por integração: User ${usuario.email} não tem can_view para ${integracaoId}`);
     }
     
     return temPermissao;
@@ -99,7 +97,7 @@ export const temPermissaoIntegracao = (usuario, integracaoId, threadId = null) =
   
   // 🔍 DEBUG: Log quando bloquear
   if (!temPermissao) {
-    console.log(`${debugPrefix} [VISIBILIDADE] ❌ Bloqueado por integração: ${integracaoId} não está em integracoes_visiveis=[${visiveis.join(', ')}]`);
+    console.log(`[VISIBILIDADE] ❌ Bloqueado por integração: ${integracaoId} não está em integracoes_visiveis`);
   }
   
   return temPermissao;
@@ -310,14 +308,6 @@ export const canUserSeeThreadBase = (usuario, thread, mensagensThread = []) => {
   const contato = thread.contato;
   const atribuido = isAtribuidoAoUsuario(usuario, thread);
   const fidelizado = isFidelizadoAoUsuario(usuario, contato);
-  
-  // 🔑 CHAVE MESTRA ABSOLUTA: Contato FIDELIZADO ao usuário
-  // → SEMPRE VÊ (ignora integração/setor/conexão/permissão)
-  // Aplicado ANTES de qualquer verificação técnica
-  if (fidelizado) {
-    console.log(`[VISIBILIDADE] ✅ Thread ${thread.id?.substring(0, 8)} - FIDELIZADA ao usuário ${usuario.email} (CHAVE MESTRA - ignora TUDO)`);
-    return true;
-  }
   const naoAtribuida = isNaoAtribuida(thread);
   const isGerente = ['gerente', 'coordenador', 'supervisor'].includes(usuario.attendant_role);
 
@@ -344,6 +334,14 @@ export const canUserSeeThreadBase = (usuario, thread, mensagensThread = []) => {
   // → SEMPRE VÊ (ignora integração/setor/conexão)
   if (atribuido) {
     console.log(`[VISIBILIDADE] ✅ Thread ${thread.id?.substring(0, 8)} - ATRIBUÍDA ao usuário ${usuario.email}`);
+    return true;
+  }
+
+  // 2️⃣ CHAVE MESTRA #2: Contato FIDELIZADO ao usuário
+  // → SEMPRE VÊ (ignora integração/setor/conexão/tipo_contato)
+  // ✅ CRÍTICO: Fidelização = prioridade absoluta sobre QUALQUER restrição técnica
+  if (fidelizado) {
+    console.log(`[VISIBILIDADE] ✅ Thread ${thread.id?.substring(0, 8)} - FIDELIZADA ao usuário ${usuario.email} (CHAVE MESTRA: ignora tudo)`);
     return true;
   }
 

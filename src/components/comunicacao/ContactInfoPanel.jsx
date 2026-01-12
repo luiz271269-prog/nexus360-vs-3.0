@@ -651,9 +651,9 @@ export default function ContactInfoPanel({
             </div>
           </div>
 
-          {/* Botão de Diagnóstico para Admin */}
+          {/* Botões de Diagnóstico para Admin */}
           {usuario?.role === 'admin' && (
-            <div className="mt-4 px-4 pb-2 border-t pt-3">
+            <div className="mt-4 px-4 pb-2 border-t pt-3 space-y-2">
               <Button
                 onClick={() => navigate(createPageUrl('DiagnosticoContato') + `?telefone=${contact.telefone}`)}
                 variant="outline"
@@ -661,6 +661,14 @@ export default function ContactInfoPanel({
                 className="w-full text-indigo-600 hover:bg-indigo-50"
               >
                 🔬 Diagnóstico deste contato
+              </Button>
+              <Button
+                onClick={() => navigate(createPageUrl('DiagnosticoBloqueios') + `?telefone=${contact.telefone}`)}
+                variant="outline"
+                size="sm"
+                className="w-full text-red-600 hover:bg-red-50"
+              >
+                🔓 Remover bloqueios
               </Button>
             </div>
           )}
