@@ -1,5 +1,4 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.6';
-import { processInbound } from './lib/inboundCore';
 
 /**
  * ═══════════════════════════════════════════════════════════════════════════════
@@ -67,6 +66,8 @@ Deno.serve(async (req) => {
     if (type === 'ReceivedCallback' && payload.phone && payload.text?.message) {
       try {
         console.log(`[webhookWatsZapi] 💬 Mensagem recebida de ${payload.phone}`);
+        
+        const { processInbound } = await import('./functions/processInbound.js');
         
         await processInbound(base44, {
           provider: 'z_api',
