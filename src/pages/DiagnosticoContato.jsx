@@ -193,68 +193,72 @@ export default function DiagnosticoContato() {
             </div>
           </Card>
 
-          {/* MENSAGENS HOJE */}
-          <Card className="p-4 bg-amber-50 border-amber-200">
-            <div className="flex items-start gap-3 mb-3">
-              <MessageCircle className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
-              <div>
-                <h2 className="font-bold text-amber-900">
-                  📨 {resultado.mensagensHoje.total} mensagens recebidas HOJE
-                </h2>
-              </div>
+          {/* ANÁLISE DETALHADA POR CONTATO */}
+          {resultado.analiseDetalhadaPorContato.map((analise, idx) => (
+            <div key={analise.contato.id} className="space-y-2 border-l-4 border-indigo-300 pl-4">
+              <h3 className="font-bold text-indigo-900">📊 Contato {idx + 1}: {analise.contato.nome}</h3>
+
+              {/* THREADS */}
+              <Card className="p-3 bg-violet-50 border-violet-200">
+                <p className="text-xs font-bold text-violet-900 mb-2">🧵 {analise.threads.length} threads</p>
+                {analise.threads.length === 0 ? (
+                  <p className="text-xs text-violet-700">Nenhuma thread</p>
+                ) : (
+                  <div className="space-y-1">
+                    {analise.threads.map(t => (
+                      <div key={t.id} className="bg-white p-2 rounded border text-xs">
+                        <div className="flex justify-between">
+                          <span className="font-mono">{t.id.substring(0, 8)}...</span>
+                          <span className="text-red-600 font-bold">{t.nao_lidas} 🔴</span>
+                        </div>
+                        <p className="text-slate-600">Última: {t.ultima_mensagem} | Atribuída: {t.atribuida}</p>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </Card>
+
+              {/* MENSAGENS RECEBIDAS */}
+              <Card className="p-3 bg-green-50 border-green-200">
+                <p className="text-xs font-bold text-green-900 mb-2">📥 {analise.mensagensRecebidashoje.total} mensagens RECEBIDAS hoje</p>
+                {analise.mensagensRecebidashoje.total === 0 ? (
+                  <p className="text-xs text-green-700">Nenhuma</p>
+                ) : (
+                  <div className="space-y-1 max-h-32 overflow-y-auto">
+                    {analise.mensagensRecebidashoje.lista.map(m => (
+                      <div key={m.id} className="bg-white p-2 rounded border text-xs">
+                        <div className="flex justify-between">
+                          <strong>{m.horario}</strong>
+                          <span className="text-green-600">{m.status}</span>
+                        </div>
+                        <p className="text-slate-700 truncate">{m.conteudo}</p>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </Card>
+
+              {/* MENSAGENS ENVIADAS */}
+              <Card className="p-3 bg-blue-50 border-blue-200">
+                <p className="text-xs font-bold text-blue-900 mb-2">📤 {analise.mensagensEnviadasHoje.total} mensagens ENVIADAS hoje</p>
+                {analise.mensagensEnviadasHoje.total === 0 ? (
+                  <p className="text-xs text-blue-700">Nenhuma</p>
+                ) : (
+                  <div className="space-y-1 max-h-32 overflow-y-auto">
+                    {analise.mensagensEnviadasHoje.lista.map(m => (
+                      <div key={m.id} className="bg-white p-2 rounded border text-xs">
+                        <div className="flex justify-between">
+                          <strong>{m.horario}</strong>
+                          <span className="text-blue-600">{m.status}</span>
+                        </div>
+                        <p className="text-slate-700 truncate">{m.conteudo}</p>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </Card>
             </div>
-
-            {resultado.mensagensHoje.total === 0 ? (
-              <p className="text-sm text-amber-700">Nenhuma mensagem recebida hoje</p>
-            ) : (
-              <div className="space-y-2">
-                {resultado.mensagensHoje.mensagens.map(m => (
-                  <div key={m.id} className="bg-white p-3 rounded border text-sm">
-                    <div className="flex justify-between items-start mb-1">
-                      <strong>{m.horario}</strong>
-                      <span className={`text-xs px-2 py-0.5 rounded ${
-                        m.status === 'recebida' ? 'bg-green-100 text-green-700' :
-                        m.status === 'entregue' ? 'bg-blue-100 text-blue-700' :
-                        'bg-slate-100 text-slate-700'
-                      }`}>
-                        {m.status}
-                      </span>
-                    </div>
-                    <p className="text-slate-700">{m.conteudo}</p>
-                    {m.tipo !== 'none' && (
-                      <p className="text-xs text-slate-500 mt-1">📎 {m.tipo}</p>
-                    )}
-                  </div>
-                ))}
-              </div>
-            )}
-          </Card>
-
-          {/* THREADS */}
-          <Card className="p-4 bg-violet-50 border-violet-200">
-            <h2 className="font-bold text-violet-900 mb-3">🧵 {resultado.threads.length} threads ativas</h2>
-            
-            {resultado.threads.length === 0 ? (
-              <p className="text-sm text-violet-700">Nenhuma thread encontrada</p>
-            ) : (
-              <div className="space-y-2">
-                {resultado.threads.map(t => (
-                  <div key={t.id} className="bg-white p-3 rounded border text-sm">
-                    <div className="flex justify-between items-start">
-                      <div>
-                        <p className="font-mono text-xs text-slate-600">{t.id.substring(0, 12)}...</p>
-                        <p className="text-xs text-slate-600 mt-1">Última msg: <strong>{t.ultima_mensagem}</strong></p>
-                      </div>
-                      <div className="text-right">
-                        <p className="text-sm font-semibold text-red-600">{t.nao_lidas} 🔴</p>
-                        <p className="text-xs text-slate-600">Atribuída: {t.atribuida}</p>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </Card>
+          ))}
         </div>
       )}
     </div>
