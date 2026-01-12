@@ -94,7 +94,7 @@ export default function SearchAndFilter({
   }));
 
   // ═══════════════════════════════════════════════════════════════════════════════
-  // 🛡️ PREVENÇÃO DE DUPLICATAS - VERIFICAÇÃO EM TEMPO REAL COM VARIAÇÕES
+  // 🛡️ PREVENÇÃO DE DUPLICATAS - VERIFICAÇÃO POR TELEFONE OU NOME
   // ═══════════════════════════════════════════════════════════════════════════════
   useEffect(() => {
     if (!searchTerm || searchTerm.trim() === '') {
@@ -106,49 +106,64 @@ export default function SearchAndFilter({
     }
 
     const telefoneNormalizado = normalizarTelefone(searchTerm);
+    const ehBuscaPorNome = !telefoneNormalizado && searchTerm.trim().length >= 2;
 
-    if (telefoneNormalizado) {
-      if (telefoneNormalizado !== novoContatoTelefone) {
-        onNovoContatoTelefoneChange(telefoneNormalizado);
-      }
+    // ✅ VERIFICAR DUPLICATAS POR TELEFONE OU NOME
+    const verificarDuplicata = async () => {
+      setVerificandoDuplicatas(true);
+      try {
+        const { buscarContatosPorTelefone, escolherContatoPrincipal } = 
+          await import('../lib/deduplicationEngine');
+        
+        let contatosExistentes = [];
 
-      // ✅ VERIFICAR DUPLICATAS COM TODAS AS VARIAÇÕES
-      const verificarDuplicata = async () => {
-        setVerificandoDuplicatas(true);
-        try {
-          // Importar o motor de desduplicação
-          const { buscarContatosPorTelefone, escolherContatoPrincipal } = 
-            await import('../lib/deduplicationEngine');
-          
-          // Buscar TODAS as variações do telefone
-          const contatosExistentes = await buscarContatosPorTelefone(base44, telefoneNormalizado);
-
-          if (contatosExistentes && contatosExistentes.length > 0) {
-            const principal = escolherContatoPrincipal(contatosExistentes);
-
-            setDuplicataEncontrada({
-              quantidade: contatosExistentes.length,
-              principal: principal
-            });
-          } else {
-            setDuplicataEncontrada(null);
+        if (telefoneNormalizado) {
+          // 1️⃣ BUSCA POR TELEFONE - Todas as variações
+          if (telefoneNormalizado !== novoContatoTelefone) {
+            onNovoContatoTelefoneChange(telefoneNormalizado);
           }
-        } catch (error) {
-          console.error('[SearchAndFilter] Erro ao verificar duplicatas:', error);
-        } finally {
-          setVerificandoDuplicatas(false);
+          contatosExistentes = await buscarContatosPorTelefone(base44, telefoneNormalizado);
+        } else if (ehBuscaPorNome) {
+          // 2️⃣ BUSCA POR NOME - Query dinâmica
+          console.log(`[SearchAndFilter] 🔍 Buscando contatos por nome: "${searchTerm}"`);
+          try {
+            const termoBusca = searchTerm.trim().toLowerCase();
+            const todosContatos = await base44.entities.Contact.list('-created_date', 500);
+            
+            // Filtrar por nome ou empresa com case-insensitive
+            contatosExistentes = todosContatos.filter(c => 
+              (c.nome && c.nome.toLowerCase().includes(termoBusca)) ||
+              (c.empresa && c.empresa.toLowerCase().includes(termoBusca))
+            );
+            
+            console.log(`[SearchAndFilter] ✅ ${contatosExistentes.length} contatos encontrados para "${searchTerm}"`);
+          } catch (err) {
+            console.error('[SearchAndFilter] ❌ Erro na busca por nome:', err);
+          }
         }
-      };
 
-      // Debounce de 500ms para não sobrecarregar
-      const timer = setTimeout(verificarDuplicata, 500);
-      return () => clearTimeout(timer);
-    } else {
-      if (novoContatoTelefone) {
-        onNovoContatoTelefoneChange('');
+        // 3️⃣ EXIBIR RESULTADO
+        if (contatosExistentes && contatosExistentes.length > 0) {
+          const principal = escolherContatoPrincipal(contatosExistentes);
+          setDuplicataEncontrada({
+            quantidade: contatosExistentes.length,
+            principal: principal,
+            tipo: telefoneNormalizado ? 'telefone' : 'nome'
+          });
+        } else {
+          setDuplicataEncontrada(null);
+        }
+      } catch (error) {
+        console.error('[SearchAndFilter] Erro ao verificar duplicatas:', error);
+        setDuplicataEncontrada(null);
+      } finally {
+        setVerificandoDuplicatas(false);
       }
-      setDuplicataEncontrada(null);
-    }
+    };
+
+    // Debounce de 500ms
+    const timer = setTimeout(verificarDuplicata, 500);
+    return () => clearTimeout(timer);
   }, [searchTerm, novoContatoTelefone, onNovoContatoTelefoneChange]);
 
   // Contar filtros ativos
