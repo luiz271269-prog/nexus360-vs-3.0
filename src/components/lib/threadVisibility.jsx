@@ -46,12 +46,6 @@ const normalizar = (v) => (v ? String(v).trim().toLowerCase() : '');
 export const temPermissaoIntegracao = (usuario, integracaoId) => {
   if (usuario?.role === 'admin') return true;
   
-  const perms = usuario?.permissoes_visualizacao || {};
-  
-  // ✅ GERENTES/SUPERVISORES sempre veem tudo (ignora configuração de integrações)
-  const isGerente = ['gerente', 'coordenador', 'supervisor'].includes(usuario?.attendant_role);
-  if (isGerente || perms.pode_ver_todas_conversas) return true;
-  
   // Primeiro checa whatsapp_permissions (estrutura atual)
   const whatsappPerms = usuario?.whatsapp_permissions || [];
   if (whatsappPerms.length > 0) {
@@ -69,6 +63,7 @@ export const temPermissaoIntegracao = (usuario, integracaoId) => {
   }
   
   // Fallback: integracoes_visiveis em permissoes_visualizacao
+  const perms = usuario?.permissoes_visualizacao || {};
   const visiveis = perms.integracoes_visiveis;
   
   // ✅ FIX: Sem restrições configuradas = acesso liberado
@@ -93,11 +88,6 @@ export const threadConexaoVisivel = (usuario, conexaoId) => {
   if (usuario?.role === 'admin') return true;
   
   const perms = usuario?.permissoes_visualizacao || {};
-  
-  // ✅ GERENTES/SUPERVISORES sempre veem tudo (ignora configuração de conexões)
-  const isGerente = ['gerente', 'coordenador', 'supervisor'].includes(usuario?.attendant_role);
-  if (isGerente || perms.pode_ver_todas_conversas) return true;
-  
   const visiveis = perms.conexoes_visiveis;
   
   // ✅ FIX: Sem restrições configuradas = acesso liberado
@@ -148,11 +138,6 @@ export const threadSetorVisivel = (usuario, thread) => {
   if (usuario?.role === 'admin') return true;
   
   const perms = usuario?.permissoes_visualizacao || {};
-  
-  // ✅ GERENTES/SUPERVISORES sempre veem tudo (ignora configuração de setores)
-  const isGerente = ['gerente', 'coordenador', 'supervisor'].includes(usuario?.attendant_role);
-  if (isGerente || perms.pode_ver_todas_conversas) return true;
-  
   const setoresUser = perms.setores_visiveis;
   
   // ✅ CORREÇÃO CRÍTICA: Sem configuração = BLOQUEADO (requer explícito)
