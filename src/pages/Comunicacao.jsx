@@ -212,7 +212,7 @@ export default function Comunicacao() {
   const { data: mensagens = [] } = useQuery({
     queryKey: ['mensagens', threadAtiva?.id],
     queryFn: async () => {
-      if (threadAtiva) {
+      if (threadAtiva && !isRateLimited) { // 🚫 Pausar se rate limited
         // ✅ QUERY LIMPA: Apenas thread_id, SEM filtros de channel/visibility/sender_type
         // Todas as mensagens (internas E externas) devem aparecer
         const ultimasMensagens = await base44.entities.Message.filter(
@@ -227,7 +227,7 @@ export default function Comunicacao() {
       }
       return Promise.resolve([]);
     },
-    enabled: !!threadAtiva,
+    enabled: !!threadAtiva && !isRateLimited, // 🚫 Pausar se rate limited
     refetchInterval: 20000, // ✅ Reduzido: Atualizar a cada 20s
     staleTime: 10000,
     retry: 2,
