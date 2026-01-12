@@ -508,7 +508,7 @@ export default function SearchAndFilter({
         animate={{ opacity: 1, y: 0 }}
         className="space-y-2">
 
-          {/* ⚠️ ALERTA DE DUPLICATA */}
+          {/* ⚠️ ALERTA DE DUPLICATA - Dinâmico por telefone OU nome */}
           {duplicataEncontrada && (
             <div className="bg-orange-50 border border-orange-200 rounded-lg p-3">
               <div className="flex items-start gap-2">
@@ -516,13 +516,14 @@ export default function SearchAndFilter({
                 <div className="flex-1 min-w-0">
                   <p className="text-xs font-semibold text-orange-900">
                     ✅ {duplicataEncontrada.quantidade} contato{duplicataEncontrada.quantidade > 1 ? 's encontrado(s)' : ' encontrado'}
+                    {duplicataEncontrada.tipo === 'nome' && ' (busca por nome)'}
                   </p>
                   <p className="text-xs text-orange-700 mt-1 truncate">
                     <strong>{duplicataEncontrada.principal.nome}</strong>
                     {duplicataEncontrada.principal.empresa && ` • ${duplicataEncontrada.principal.empresa}`}
                   </p>
                   <p className="text-[10px] text-orange-600 mt-1">
-                    Tipo: {duplicataEncontrada.principal.tipo_contato}
+                    📱 {duplicataEncontrada.principal.telefone || 'Sem telefone'} • Tipo: {duplicataEncontrada.principal.tipo_contato}
                   </p>
                   {duplicataEncontrada.quantidade > 1 && (
                     <p className="text-[10px] text-orange-600 mt-1 font-semibold">
