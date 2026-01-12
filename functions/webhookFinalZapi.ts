@@ -659,17 +659,32 @@ async function handleMessage(dados, payloadBruto, base44) {
   // ✅ VERIFICAÇÃO ADICIONAL: Duplicata por timestamp + telefone (últimos 2 segundos)
   // MOVIDO PARA DEPOIS da criação do contato para ter contato.id disponível
   
-  // Buscar/criar thread
+  // ✅ BUSCAR/CRIAR THREAD - CORRIGIDO: Buscar por CONTATO + INTEGRAÇÃO (não só contato)
   let thread;
   try {
+    // 🔑 CHAVE COMPOSTA: contact_id + whatsapp_integration_id
+    // Garante que webhook e frontend sempre usam o MESMO thread para cada contato+instância
     const threads = await base44.asServiceRole.entities.MessageThread.filter(
-      { contact_id: contato.id },
+      { 
+        contact_id: contato.id,
+        whatsapp_integration_id: integracaoId || null // buscar por integração específica
+      },
       '-last_message_at',
-      1
+      5 // buscar múltiplos, ordena por recente
     );
 
     if (threads.length > 0) {
+      // ✅ GARANTIA: Reutiliza o thread mais recente para essa integração
       thread = threads[0];
+      
+      // Se thread estava fechado, reabrir
+      if (thread.status === 'fechada' || thread.status === 'encerrada') {
+        await base44.asServiceRole.entities.MessageThread.update(thread.id, {
+          status: 'aberta',
+          ultima_reabertura: new Date().toISOString()
+        });
+      }
+      
       const agora = new Date().toISOString();
       const threadUpdate = {
         last_message_at: agora,
@@ -685,8 +700,9 @@ async function handleMessage(dados, payloadBruto, base44) {
         threadUpdate.whatsapp_integration_id = integracaoId;
       }
       await base44.asServiceRole.entities.MessageThread.update(thread.id, threadUpdate);
-      console.log(`[${VERSION}] 💭 Thread atualizada: ${thread.id} | Não lidas: ${threadUpdate.unread_count}`);
+      console.log(`[${VERSION}] 💭 Thread EXISTENTE reutilizado (contato+integração): ${thread.id} | Integração: ${integracaoId} | Não lidas: ${threadUpdate.unread_count}`);
     } else {
+      // Só cria se REALMENTE não houver thread para essa combinação
       const agora = new Date().toISOString();
       thread = await base44.asServiceRole.entities.MessageThread.create({
         contact_id: contato.id,
@@ -701,7 +717,7 @@ async function handleMessage(dados, payloadBruto, base44) {
         total_mensagens: 1,
         unread_count: 1,
       });
-      console.log(`[${VERSION}] 💭 Nova thread criada: ${thread.id}`);
+      console.log(`[${VERSION}] 💭 NOVA thread criada (contato+integração): ${thread.id} | Integração: ${integracaoId}`);
     }
   } catch (e) {
     console.error(`[${VERSION}] ❌ Erro thread:`, e?.message || e);
