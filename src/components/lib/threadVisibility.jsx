@@ -611,6 +611,7 @@ export const verificarBloqueioThread = (usuario, thread, contato = null) => {
  * - Admin: sempre pode
  * - Thread ATRIBUÍDA ao usuário: sempre pode (ignora tudo)
  * - Contato FIDELIZADO ao usuário: sempre pode (ignora tudo)
+ * - Gerente/Supervisor do SETOR: pode enviar (se não atribuída a outro)
  * - Thread NÃO ATRIBUÍDA: pode (auto-atribui ao enviar)
  * - Outros casos: bloqueado
  */
@@ -630,7 +631,24 @@ export const podeInteragirNaThread = (usuario, thread, contato = null) => {
     return true;
   }
   
-  // PRIORIDADE 3: Thread NÃO ATRIBUÍDA → pode interagir (auto-atribui)
+  // PRIORIDADE 3: Gerente/Supervisor do SETOR → pode enviar (se não atribuída a outro)
+  const isGerente = ['gerente', 'coordenador', 'supervisor'].includes(usuario.attendant_role);
+  if (isGerente) {
+    const setorThread = getSectorFromThreadOrTags(thread);
+    const setoresUsuario = usuario.whatsapp_setores || [];
+    
+    // Verificar se o setor da thread pertence aos setores do gerente
+    if (setorThread && setoresUsuario.map(normalizar).includes(normalizar(setorThread))) {
+      // Se a thread está atribuída a outro, bloquear (respeitar atribuição)
+      if (thread.assigned_user_id && !isAtribuidoAoUsuario(usuario, thread)) {
+        return false;
+      }
+      // Gerente do setor pode enviar (thread não atribuída ou atribuída a ele)
+      return true;
+    }
+  }
+  
+  // PRIORIDADE 4: Thread NÃO ATRIBUÍDA → pode interagir (auto-atribui)
   if (isNaoAtribuida(thread)) {
     return true;
   }
