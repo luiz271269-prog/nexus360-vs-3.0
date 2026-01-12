@@ -74,6 +74,7 @@ export default function Comunicacao() {
   
   // Estados para broadcast interno
   const [broadcastInterno, setBroadcastInterno] = useState(null); // { destinations: [...] }
+  const [isRateLimited, setIsRateLimited] = useState(false); // 🚫 Cool-down para 429
 
   const [filterScope, setFilterScope] = useState('all');
   const [selectedAttendantId, setSelectedAttendantId] = useState(null);
