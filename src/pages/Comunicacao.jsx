@@ -369,10 +369,24 @@ export default function Comunicacao() {
       }
     }
 
-    // CASO 2: CONTATO SEM THREAD - Buscar/criar thread
+    // CASO 2: CONTATO SEM THREAD - Buscar thread CANÔNICA
     if (thread.is_contact_only && thread.contact_id) {
       try {
-        const threadsExistentes = await base44.entities.MessageThread.filter({ contact_id: thread.contact_id });
+        // ✅ BUSCAR THREAD CANÔNICA: contact_id + integração ativa
+        const integracaoAtiva = integracoes.find((i) => i.status === 'conectado');
+        if (!integracaoAtiva) {
+          toast.error('❌ Nenhuma integração WhatsApp ativa');
+          return;
+        }
+
+        const threadsExistentes = await base44.entities.MessageThread.filter(
+          { 
+            contact_id: thread.contact_id,
+            whatsapp_integration_id: integracaoAtiva.id
+          },
+          '-last_message_at',
+          1
+        );
 
         if (threadsExistentes && threadsExistentes.length > 0) {
           // Verificar permissão antes de abrir (EXCETO fidelizados)
@@ -381,7 +395,7 @@ export default function Comunicacao() {
           // ✅ FIDELIZADO: SEMPRE pode abrir (ignora TODAS as restrições)
           const isFidelizadoAoUsuario = contatoFidelizadoAoUsuario(contatoObj, usuario);
           if (isFidelizadoAoUsuario) {
-            console.log('[Comunicacao] ✅ Contato fidelizado - abrindo direto');
+            console.log('[Comunicacao] ✅ Contato fidelizado - abrindo thread canônica');
             setThreadAtiva(threadsExistentes[0]);
             return;
           }
@@ -389,7 +403,6 @@ export default function Comunicacao() {
           const bloqueio = verificarBloqueioThread(usuario, threadsExistentes[0], contatoObj);
 
           if (bloqueio.bloqueado) {
-            // Mostrar modal explicando o bloqueio
             setModalSemPermissao({
               isOpen: true,
               contato: contatoObj,
@@ -432,7 +445,7 @@ export default function Comunicacao() {
       }
     }
 
-    // CASO 3: THREAD NORMAL - Verificar permissão (EXCETO fidelizados)
+    // CASO 3: THREAD NORMAL - Redirecionar para canônica se houver mais antigas
     const contatoObj = contatos.find((c) => c.id === thread.contact_id);
     
     // ✅ FIDELIZADO: SEMPRE pode abrir (ignora TODAS as restrições de setor/integração)
@@ -441,6 +454,16 @@ export default function Comunicacao() {
       console.log('[Comunicacao] ✅ Contato fidelizado - abrindo direto');
       setThreadAtiva(thread);
       return;
+    }
+    
+    // 🔧 AUTO-REDIRECIONAR para thread canônica se a atual for não-canônica
+    if (thread.status === 'merged' && thread.merged_into) {
+      console.log(`[Comunicacao] 🔀 Auto-redirecionando thread merged ${thread.id} → ${thread.merged_into}`);
+      const threadCanonica = threads.find(t => t.id === thread.merged_into);
+      if (threadCanonica) {
+        setThreadAtiva(threadCanonica);
+        return;
+      }
     }
     
     const bloqueio = verificarBloqueioThread(usuario, thread, contatoObj);

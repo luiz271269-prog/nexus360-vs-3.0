@@ -479,7 +479,7 @@ async function handleMessage(dados, payloadBruto, base44) {
         const numeroInt = (int.numero_telefone || '').replace(/\D/g, '');
         if (numeroInt && phoneLimpo && numeroInt === phoneLimpo) {
           integracaoId = int.id;
-          integracaoInfo = { nome: int[0].nome_instancia, numero: int[0].numero_telefone };
+          integracaoInfo = { nome: int.nome_instancia, numero: int.numero_telefone };
           console.log(`[WAPI] 🔑 PORTEIRO FALLBACK: Integração encontrada por connectedPhone. ID: ${int.id}`);
           break;
         }
@@ -595,6 +595,36 @@ async function handleMessage(dados, payloadBruto, base44) {
     return jsonErr('erro_thread', 500);
   }
   
+  // 🔧 AUTO-MERGE: Se N > 1 threads, marcar antigas como merged
+  try {
+    const todasThreadsContato = await base44.asServiceRole.entities.MessageThread.filter(
+      { contact_id: contato.id, whatsapp_integration_id: integracaoId },
+      '-last_message_at',
+      10
+    );
+    
+    if (todasThreadsContato && todasThreadsContato.length > 1) {
+      console.log(`[WAPI] 🔀 AUTO-MERGE: ${todasThreadsContato.length} threads encontradas. Canônica: ${thread.id}`);
+      
+      // Marcar todas as antigas como merged_into (sem mover mensagens)
+      for (let i = 1; i < todasThreadsContato.length; i++) {
+        const threadAntiga = todasThreadsContato[i];
+        if (threadAntiga.id !== thread.id) {
+          try {
+            await base44.asServiceRole.entities.MessageThread.update(threadAntiga.id, {
+              status: 'merged',
+              merged_into: thread.id,
+              is_canonical: false
+            });
+            console.log(`[WAPI] ✅ Thread antiga marcada como merged: ${threadAntiga.id}`);
+          } catch {}
+        }
+      }
+    }
+  } catch (err) {
+    console.warn(`[WAPI] ⚠️ Erro ao fazer auto-merge:`, err.message);
+  }
+
   // DEDUPLICAÇÃO POR CONTEÚDO
   try {
     const doisSegundosAtras = new Date(Date.now() - 2000).toISOString();
@@ -617,16 +647,12 @@ async function handleMessage(dados, payloadBruto, base44) {
       if (duplicadaPorConteudo) {
         console.log(`[WAPI] ⏭️ DUPLICATA POR CONTEÚDO: ${duplicadaPorConteudo.id}`);
         
-        // ✅ Atualizar thread mesmo quando duplicata por conteúdo
-        try {
-          const agora = new Date().toISOString();
-          await base44.asServiceRole.entities.MessageThread.update(thread.id, {
-            last_message_at: agora,
-            last_inbound_at: agora,
-            status: 'aberta',
-          });
-          console.log(`[WAPI] ✅ Thread ${thread.id} atualizada (duplicata por conteúdo)`);
-        } catch {}
+        const agora = new Date().toISOString();
+        await base44.asServiceRole.entities.MessageThread.update(thread.id, {
+          last_message_at: agora,
+          last_inbound_at: agora,
+          status: 'aberta',
+        });
         
         return jsonOk({ 
           ignored: true, 
