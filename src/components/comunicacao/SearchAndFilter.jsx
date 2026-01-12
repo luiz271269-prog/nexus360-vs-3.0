@@ -124,21 +124,47 @@ export default function SearchAndFilter({
           }
           contatosExistentes = await buscarContatosPorTelefone(base44, telefoneNormalizado);
         } else if (ehBuscaPorNome) {
-          // 2️⃣ BUSCA POR NOME - Query dinâmica
-          console.log(`[SearchAndFilter] 🔍 Buscando contatos por nome: "${searchTerm}"`);
+          // 2️⃣ BUSCA POR NOME - Apenas CONTATOS (não threads internas/usuários)
+          console.log(`[SearchAndFilter] 🔍 Buscando CONTATOS por nome: "${searchTerm}"`);
           try {
             const termoBusca = searchTerm.trim().toLowerCase();
-            const todosContatos = await base44.entities.Contact.list('-created_date', 500);
+            
+            // ✅ Buscar contatos por nome/empresa (APENAS contatos, não usuários)
+            const contatosNome = await base44.entities.Contact.filter(
+              { 
+                bloqueado: false // Excluir bloqueados
+              },
+              'nome',
+              100 // Limite para performance
+            );
             
             // Filtrar por nome ou empresa com case-insensitive
-            contatosExistentes = todosContatos.filter(c => 
+            contatosExistentes = contatosNome.filter(c => 
               (c.nome && c.nome.toLowerCase().includes(termoBusca)) ||
               (c.empresa && c.empresa.toLowerCase().includes(termoBusca))
             );
             
+            // Ordenar por relevância: nome matching > empresa matching > data
+            contatosExistentes.sort((a, b) => {
+              const nomeA = (a.nome || '').toLowerCase();
+              const nomeB = (b.nome || '').toLowerCase();
+              const empresaA = (a.empresa || '').toLowerCase();
+              const empresaB = (b.empresa || '').toLowerCase();
+              
+              // Pontuação: match exato no nome = 10, contains = 5
+              const scoreA = nomeA === termoBusca ? 10 : (nomeA.includes(termoBusca) ? 5 : (empresaA.includes(termoBusca) ? 3 : 0));
+              const scoreB = nomeB === termoBusca ? 10 : (nomeB.includes(termoBusca) ? 5 : (empresaB.includes(termoBusca) ? 3 : 0));
+              
+              if (scoreB !== scoreA) return scoreB - scoreA;
+              
+              // Mesmo score: mais recente primeiro
+              return new Date(b.updated_date || b.created_date) - new Date(a.updated_date || a.created_date);
+            });
+            
             console.log(`[SearchAndFilter] ✅ ${contatosExistentes.length} contatos encontrados para "${searchTerm}"`);
           } catch (err) {
             console.error('[SearchAndFilter] ❌ Erro na busca por nome:', err);
+            contatosExistentes = [];
           }
         }
 
