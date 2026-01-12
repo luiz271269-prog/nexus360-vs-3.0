@@ -215,9 +215,16 @@ export default function ChatWindow({
     
     // PRIORIDADE 3: Gerente/Coordenador → pode enviar (exceto se atribuída a outro claramente)
     const isGerente = ['gerente', 'coordenador', 'supervisor'].includes(usuario.attendant_role);
+    debugLog('PRIORIDADE 3 (Gerente)', isGerente, {
+      'usuario.attendant_role': usuario?.attendant_role
+    });
+    
     if (isGerente) {
       // Se a thread está atribuída a outro, bloquear (respeitar atribuição)
       if (thread.assigned_user_id && !isAtribuidoAoUsuario) {
+        debugLog('PRIORIDADE 3 (Gerente bloqueado)', false, {
+          'razão': 'Thread atribuída a outro'
+        });
         return false;
       }
       return true;
@@ -225,6 +232,12 @@ export default function ChatWindow({
     
     // PRIORIDADE 4: Thread não atribuída → qualquer usuário pode enviar (auto-atribui)
     const isNaoAtribuida = !thread.assigned_user_id && !thread.assigned_user_name && !thread.assigned_user_email;
+    debugLog('PRIORIDADE 4 (Não atribuída)', isNaoAtribuida, {
+      'assigned_user_id': thread.assigned_user_id,
+      'assigned_user_name': thread.assigned_user_name,
+      'assigned_user_email': thread.assigned_user_email
+    });
+    
     if (isNaoAtribuida) return true;
     
     // Todos outros casos: bloqueado (atribuída a outro, fidelizada a outro)
