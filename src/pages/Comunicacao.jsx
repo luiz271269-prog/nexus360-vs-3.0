@@ -53,6 +53,7 @@ import DiagnosticoCirurgicoEmbed from "../components/comunicacao/DiagnosticoCiru
 import GerenciadorEtiquetasUnificado from "../components/comunicacao/GerenciadorEtiquetasUnificado";
 import GerenciadorDuplicatas from "../components/comunicacao/GerenciadorDuplicatas";
 import GoToConnectionSetup from "../components/comunicacao/GoToConnectionSetup";
+import DiagnosticoVisibilidadeRealtime from "../components/comunicacao/DiagnosticoVisibilidadeRealtime";
 import { useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 
