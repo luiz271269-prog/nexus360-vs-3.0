@@ -1,6 +1,4 @@
-import React, { useState, useEffect } from "react";
-import { base44 } from "@/api/base44Client";
-import { useQuery } from "@tanstack/react-query";
+import React, { useMemo } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -9,71 +7,67 @@ import {
   TooltipProvider,
   TooltipTrigger } from
 "@/components/ui/tooltip";
-import { MessageSquare, AlertCircle, RefreshCw, TrendingUp, Phone } from "lucide-react";
+import { MessageSquare, AlertCircle, TrendingUp, Phone } from "lucide-react";
+import { isNaoAtribuida } from "../lib/threadVisibility";
 
 /**
  * ═══════════════════════════════════════════════════════════════════════════════
- * 🔔 CONTADOR INTELIGENTE - NÃO ATRIBUÍDAS + TRAVADAS
+ * 🔔 CONTADOR INTELIGENTE - NÃO ATRIBUÍDAS (CALCULADO LOCALMENTE)
  * ═══════════════════════════════════════════════════════════════════════════════
  * 
- * Exibe contador de conversas que requerem atenção:
- * 1️⃣ Não atribuídas (sem assigned_user_id)
- * 2️⃣ Travadas/em risco (sem resposta 30min, URA timeout, abandonadas 2h)
+ * ✅ AGORA: Calcula localmente a partir de threads do pai
+ * ❌ ANTES: Chamava backend a cada 15s (causava rate limit)
  * 
- * ✅ OBJETIVO: Não perder conversas - garantir que nada fique esquecido
- * 
- * - Atualiza a cada 15 segundos
- * - Mostra breakdown detalhado por setor no tooltip
- * - Cores de alerta baseadas na quantidade
+ * Recebe threads do pai (Comunicacao.jsx) já filtradas e calcula:
+ * 1️⃣ Threads não atribuídas
+ * 2️⃣ Breakdown por setor
+ * 3️⃣ Breakdown por integração
  */
-export default function ContadorNaoAtribuidas({ onClickVerFila, onClickConexao, className = "" }) {
-  // Buscar integrações para nomes amigáveis
-  const { data: integracoes = [] } = useQuery({
-    queryKey: ['integracoes-whatsapp-contador'],
-    queryFn: () => base44.entities.WhatsAppIntegration.list(),
-    staleTime: 5 * 60 * 1000
-  });
-
-  const [dados, setDados] = useState({ 
-    total: 0, 
-    nao_atribuidas: 0, 
-    travadas: 0, 
-    por_setor: [], 
-    por_integracao: [] 
-  });
-  const [loading, setLoading] = useState(true);
-  const [erro, setErro] = useState(null);
-
-  const carregarContador = async () => {
-    try {
-      setErro(null);
-      const resultado = await base44.functions.invoke('contarNaoAtribuidasVisiveis', {});
-
-      // Acessar dados corretamente (resultado já vem com .data do SDK)
-      const dadosRecebidos = resultado?.data || resultado || { 
+export default function ContadorNaoAtribuidas({ threads = [], integracoes = [], usuario = null, onClickVerFila, onClickConexao, className = "" }) {
+  // ✅ CALCULAR LOCALMENTE a partir de threads do pai
+  const dados = useMemo(() => {
+    if (!threads.length || !usuario) {
+      return { 
         total: 0, 
         nao_atribuidas: 0, 
         travadas: 0, 
         por_setor: [], 
         por_integracao: [] 
       };
-      setDados(dadosRecebidos);
-    } catch (error) {
-      console.error('[CONTADOR] Erro ao buscar:', error);
-      setErro(error.message);
-    } finally {
-      setLoading(false);
     }
-  };
 
-  useEffect(() => {
-    carregarContador();
+    // Filtrar threads não atribuídas E visíveis
+    const naoAtribuidas = threads.filter(t => isNaoAtribuida(t));
 
-    // Atualizar a cada 15 segundos
-    const interval = setInterval(carregarContador, 15000);
+    // Breakdown por setor
+    const porSetorMap = {};
+    naoAtribuidas.forEach(t => {
+      const setor = t.sector_id || 'sem_setor';
+      if (!porSetorMap[setor]) {
+        porSetorMap[setor] = { sector_id: setor, total: 0, nao_atribuidas: 0, travadas: 0 };
+      }
+      porSetorMap[setor].total++;
+      porSetorMap[setor].nao_atribuidas++;
+    });
 
-    return () => clearInterval(interval);
-  }, []);
+    // Breakdown por integração
+    const porIntegracaoMap = {};
+    naoAtribuidas.forEach(t => {
+      const intId = t.whatsapp_integration_id || 'sem_integracao';
+      if (!porIntegracaoMap[intId]) {
+        porIntegracaoMap[intId] = { integration_id: intId, total: 0 };
+      }
+      porIntegracaoMap[intId].total++;
+    });
+
+    return {
+      total: naoAtribuidas.length,
+      nao_atribuidas: naoAtribuidas.length,
+      travadas: 0,
+      por_setor: Object.values(porSetorMap),
+      por_integracao: Object.values(porIntegracaoMap)
+    };
+  }, [threads, usuario]);
 
   // Obter nome amigável da integração
   const getNomeIntegracao = (integrationId) => {
