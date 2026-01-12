@@ -497,7 +497,7 @@ export default function SearchAndFilter({
                 <AlertCircle className="w-4 h-4 text-orange-600 mt-0.5 flex-shrink-0" />
                 <div className="flex-1 min-w-0">
                   <p className="text-xs font-semibold text-orange-900">
-                    ⚠️ {duplicataEncontrada.quantidade} contato{duplicataEncontrada.quantidade > 1 ? 's encontrados' : ' encontrado'}
+                    ✅ {duplicataEncontrada.quantidade} contato{duplicataEncontrada.quantidade > 1 ? 's encontrado(s)' : ' encontrado'}
                   </p>
                   <p className="text-xs text-orange-700 mt-1 truncate">
                     <strong>{duplicataEncontrada.principal.nome}</strong>
@@ -508,7 +508,7 @@ export default function SearchAndFilter({
                   </p>
                   {duplicataEncontrada.quantidade > 1 && (
                     <p className="text-[10px] text-orange-600 mt-1 font-semibold">
-                      + {duplicataEncontrada.quantidade - 1} duplicata{duplicataEncontrada.quantidade - 1 > 1 ? 's' : ''}
+                      + {duplicataEncontrada.quantidade - 1} outro(s) contato(s)
                     </p>
                   )}
                 </div>
@@ -516,41 +516,36 @@ export default function SearchAndFilter({
             </div>
           )}
 
-          {/* BOTÃO CRIAR - Bloqueado se houver duplicata */}
-          <Button
-            onClick={() => {
-              if (duplicataEncontrada) {
-                if (!confirm(`⚠️ JÁ EXISTE ${duplicataEncontrada.quantidade} CONTATO(S) COM ESTE TELEFONE:\n\n${duplicataEncontrada.principal.nome}\nEmpresa: ${duplicataEncontrada.principal.empresa || 'Não informada'}\n\n❌ CRIAR DUPLICATA NÃO É RECOMENDADO.\n\nDeseja continuar mesmo assim?`)) {
-                  return;
-                }
-              }
-              onCreateContact();
-            }}
-            disabled={verificandoDuplicatas}
-            className={`w-full shadow-lg ${
-              duplicataEncontrada 
-                ? 'bg-gradient-to-r from-orange-500 to-red-600 hover:from-orange-600 hover:to-red-700 shadow-orange-500/25' 
-                : 'bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 shadow-green-500/25'
-            }`}
-            size="sm">
+          {/* BOTÃO CRIAR - Desabilitado PERMANENTEMENTE se houver duplicata */}
+          {!duplicataEncontrada ? (
+            <Button
+              onClick={onCreateContact}
+              disabled={verificandoDuplicatas}
+              className="w-full shadow-lg bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 shadow-green-500/25"
+              size="sm">
 
-            {verificandoDuplicatas ? (
-              <>
-                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                Verificando...
-              </>
-            ) : duplicataEncontrada ? (
-              <>
-                <AlertCircle className="w-4 h-4 mr-2" />
-                ⚠️ Criar Duplicata
-              </>
-            ) : (
-              <>
-                <UserPlus className="w-4 h-4 mr-2" />
-                Criar Contato: {novoContatoTelefone}
-              </>
-            )}
-          </Button>
+              {verificandoDuplicatas ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Verificando...
+                </>
+              ) : (
+                <>
+                  <UserPlus className="w-4 h-4 mr-2" />
+                  Criar Contato: {novoContatoTelefone}
+                </>
+              )}
+            </Button>
+          ) : (
+            <div className="bg-slate-100 border border-slate-300 rounded-lg p-3 text-center">
+              <p className="text-xs text-slate-600 font-medium">
+                ✅ Use o contato existente acima
+              </p>
+              <p className="text-[10px] text-slate-500 mt-1">
+                Para evitar duplicação, não é permitido criar novo contato
+              </p>
+            </div>
+          )}
         </motion.div>
       }
     </div>);
