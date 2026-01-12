@@ -260,8 +260,18 @@ export default function ChatSidebar({
       return;
     }
 
-    // Chamar callback
-    onSelecionarThread(thread);
+    // 🔧 AUTO-REDIRECIONAR para thread canônica se a atual for não-canônica
+    let threadParaAbrir = thread;
+    if (thread.status === 'merged' && thread.merged_into) {
+      console.log(`[ChatSidebar] 🔀 Auto-redirecionando thread merged ${thread.id} → ${thread.merged_into}`);
+      const threadCanonica = threads.find(t => t.id === thread.merged_into);
+      if (threadCanonica) {
+        threadParaAbrir = threadCanonica;
+      }
+    }
+
+    // Chamar callback com a thread correta
+    onSelecionarThread(threadParaAbrir);
   };
 
   // Toggle seleção de contato
