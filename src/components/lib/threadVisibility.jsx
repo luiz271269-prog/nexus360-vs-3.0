@@ -277,8 +277,6 @@ export const canUserSeeThreadBase = (usuario, thread, mensagensThread = []) => {
   // ═══════════════════════════════════════════════════════════════════════════════
   // ✅ PRIORIDADES ABSOLUTAS (IGNORAM TODAS AS RESTRIÇÕES)
   // ═══════════════════════════════════════════════════════════════════════════════
-  const atribuido = isAtribuidoAoUsuario(usuario, thread);
-  const fidelizado = isFidelizadoAoUsuario(usuario, contato);
   
   // 1) Thread ATRIBUÍDA ao usuário → SEMPRE VÊ (ignora integração/setor/conexão)
   if (atribuido) {
