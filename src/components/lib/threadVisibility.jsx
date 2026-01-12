@@ -193,15 +193,33 @@ export const threadSetorVisivel = (usuario, thread) => {
 // ═══════════════════════════════════════════════════════════════════════════════
 
 /**
- * Verifica se a thread está atribuída ao usuário (ESTRITO)
+ * Verifica se a thread está atribuída ao usuário (ESTRITO E SEGURO)
+ * Compara ID, Email e Nome com normalização para evitar falsos negativos
+ * por espaços, maiúsculas ou tipo de dados inconsistentes no banco
  */
 export const isAtribuidoAoUsuario = (usuario, thread) => {
   if (!usuario || !thread) return false;
-  return (
-    usuarioCorresponde(usuario, thread.assigned_user_id) ||
-    usuarioCorresponde(usuario, thread.assigned_user_name) ||
-    usuarioCorresponde(usuario, thread.assigned_user_email)
-  );
+  
+  const userId = normalizar(usuario.id);
+  const userEmail = normalizar(usuario.email);
+  
+  // 1. Checagem Direta de ID (O mais confiável)
+  if (thread.assigned_user_id && normalizar(thread.assigned_user_id) === userId) {
+    return true;
+  }
+
+  // 2. Checagem de Email (Fallback comum)
+  if (thread.assigned_user_email && normalizar(thread.assigned_user_email) === userEmail) {
+    return true;
+  }
+
+  // 3. Checagem via helper externo (para manter compatibilidade)
+  if (usuarioCorresponde(usuario, thread.assigned_user_id) || 
+      usuarioCorresponde(usuario, thread.assigned_user_name)) {
+    return true;
+  }
+
+  return false;
 };
 
 /**
