@@ -181,6 +181,19 @@ export default function Comunicacao() {
       }
       
       return allThreads;
+      } catch (error) {
+        // 🚫 DETECTAR 429 E ATIVAR COOL-DOWN
+        if (error?.message?.includes('429') || error?.response?.status === 429) {
+          console.warn('[COMUNICACAO] ⚠️ 429 Rate Limited! Ativando cool-down de 10s...');
+          setIsRateLimited(true);
+          setTimeout(() => {
+            setIsRateLimited(false);
+            console.log('[COMUNICACAO] ✅ Cool-down finalizado, retentando...');
+          }, 10000);
+          return [];
+        }
+        throw error;
+      }
     },
     refetchInterval: 30000, // ✅ Reduzido: Atualizar a cada 30s (evita rate limit)
     staleTime: 15000, // ✅ Dados frescos por 15s
