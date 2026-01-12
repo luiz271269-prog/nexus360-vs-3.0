@@ -151,10 +151,18 @@ export default function ChatWindow({
   // ainda não carregou, para evitar bloqueio falso. A verificação final é feita
   // quando contatoCompleto está disponível.
   const podeInteragirNaThread = React.useMemo(() => {
-    if (!usuario || !thread) return false;
+    if (!usuario || !thread) {
+      console.log('[PODE_INTERAGIR] ❌ Falta usuário ou thread');
+      return false;
+    }
     
     // Admin sempre pode
-    if (usuario.role === 'admin') return true;
+    if (usuario.role === 'admin') {
+      console.log('[PODE_INTERAGIR] ✅ Admin - LIBERADO');
+      return true;
+    }
+    
+    console.log(`[PODE_INTERAGIR] 🔍 Verificando usuário: ${usuario.email}, Thread: ${thread.id?.substring(0, 8)}, Carregando contato: ${carregandoContato}`);
     
     // ✅ NORMALIZAR: maiúsculas, espaços, acentos
     const norm = (v) => String(v || '').toLowerCase().trim();
