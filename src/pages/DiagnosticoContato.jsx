@@ -17,6 +17,9 @@ export default function DiagnosticoContato() {
     setResultado(null);
 
     try {
+      // ✅ BUSCAR POR TODAS AS VARIAÇÕES (agnóstico de provedor)
+      const { buscarContatosPorTelefone } = await import('../components/lib/deduplicationEngine');
+      
       const telefonNormalizado = normalizarTelefone(telefone);
       if (!telefonNormalizado) {
         setResultado({ erro: 'Telefone inválido' });
@@ -24,10 +27,8 @@ export default function DiagnosticoContato() {
         return;
       }
 
-      // 1️⃣ Buscar TODOS os contatos com este telefone
-      const contatosComTelefone = await base44.entities.Contact.filter({ 
-        telefone: telefonNormalizado 
-      });
+      // 1️⃣ Buscar TODOS os contatos com TODAS as variações do telefone
+      const contatosComTelefone = await buscarContatosPorTelefone(base44, telefonNormalizado);
 
       // 2️⃣ Determinar range de hoje
       const hoje = new Date();
