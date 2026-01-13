@@ -1090,47 +1090,45 @@ export default function Comunicacao() {
       console.log(`[COMUNICACAO] ✅ Threads filtradas: ${threadsAProcessar.length} (apenas contato principal)`);
     }
     
-    // ✅ DEDUPLICAÇÃO POR CANAL: Permitir múltiplas threads do mesmo contato se forem de INTEGRAÇÕES DIFERENTES
-    // ⚠️ MODO ADMIN + BUSCA: Desativar deduplicação para ver TODAS as threads/duplicatas
-    const threadMaisRecentePorContactoCanal = new Map();
-    threadsAProcessar.forEach((thread) => {
-      // ✅ Threads internas SEMPRE adicionadas diretamente (chave única por thread.id)
-      if (thread.thread_type === 'team_internal' || thread.thread_type === 'sector_group') {
-        threadMaisRecentePorContactoCanal.set(`internal-${thread.id}`, thread);
-        return;
-      }
-      
-      // 🔍 MODO DIAGNÓSTICO ADMIN: Se admin está buscando, mostrar TODAS as threads (incluindo duplicatas)
-      if (isAdmin && temBuscaPorTexto && !duplicataEncontrada) {
-        threadMaisRecentePorContactoCanal.set(`admin-all-${thread.id}`, thread);
-        return;
-      }
-      
-      // ✅ Threads externas: deduplicar por contact_id + integration_id (permite múltiplos canais)
-      const contactId = thread.contact_id;
-      if (!contactId) {
-        // Thread órfã sem contato - adicionar com chave única
-        threadMaisRecentePorContactoCanal.set(`orphan-${thread.id}`, thread);
-        return;
-      }
+    // ✅ DEDUPLICAÇÃO INTELIGENTE: Em modo normal, mostrar APENAS 1 thread por contato (mais recente)
+              // ⚠️ MODO ADMIN + BUSCA: Desativar deduplicação para ver TODAS as threads/duplicatas
+              const threadMaisRecentePorContacto = new Map();
+              threadsAProcessar.forEach((thread) => {
+                // ✅ Threads internas SEMPRE adicionadas diretamente (chave única por thread.id)
+                if (thread.thread_type === 'team_internal' || thread.thread_type === 'sector_group') {
+                  threadMaisRecentePorContacto.set(`internal-${thread.id}`, thread);
+                  return;
+                }
 
-      // ✅ CHAVE COMPOSTA: contact_id + integration_id (permite Z-API e W-API simultâneas)
-      const integrationId = thread.whatsapp_integration_id || 'sem-integracao';
-      const chaveComposta = `${contactId}-${integrationId}`;
-      
-      const existente = threadMaisRecentePorContactoCanal.get(chaveComposta);
-      if (!existente) {
-        threadMaisRecentePorContactoCanal.set(chaveComposta, thread);
-      } else {
-        // Se há múltiplas threads do mesmo contato na mesma integração, manter a mais recente
-        const dataExistente = new Date(existente.last_message_at || existente.updated_date || existente.created_date || 0);
-        const dataAtual = new Date(thread.last_message_at || thread.updated_date || thread.created_date || 0);
-        if (dataAtual > dataExistente) {
-          threadMaisRecentePorContactoCanal.set(chaveComposta, thread);
-        }
-      }
-    });
-    const threadsUnicas = Array.from(threadMaisRecentePorContactoCanal.values());
+                // 🔍 MODO DIAGNÓSTICO ADMIN: Se admin está buscando, mostrar TODAS as threads (incluindo duplicatas)
+                if (isAdmin && temBuscaPorTexto && !duplicataEncontrada) {
+                  threadMaisRecentePorContacto.set(`admin-all-${thread.id}`, thread);
+                  return;
+                }
+
+                // ✅ Threads externas: deduplicar APENAS por contact_id (não por integração)
+                // Objetivo: Mostrar contato 1x, com thread mais recente
+                const contactId = thread.contact_id;
+                if (!contactId) {
+                  // Thread órfã sem contato - adicionar com chave única
+                  threadMaisRecentePorContacto.set(`orphan-${thread.id}`, thread);
+                  return;
+                }
+
+                // 🎯 CHAVE SIMPLES: APENAS contact_id (deduplica todas as integrações)
+                const existente = threadMaisRecentePorContacto.get(contactId);
+                if (!existente) {
+                  threadMaisRecentePorContacto.set(contactId, thread);
+                } else {
+                  // Se há múltiplas threads do mesmo contato (em integrações diferentes), manter a mais recente
+                  const dataExistente = new Date(existente.last_message_at || existente.updated_date || existente.created_date || 0);
+                  const dataAtual = new Date(thread.last_message_at || thread.updated_date || thread.created_date || 0);
+                  if (dataAtual > dataExistente) {
+                    threadMaisRecentePorContacto.set(contactId, thread);
+                  }
+                }
+              });
+              const threadsUnicas = Array.from(threadMaisRecentePorContacto.values());
     
     console.log('[COMUNICACAO] 🎯 Threads únicas (admin+busca desabilita dedup):', threadsUnicas.length, '| Admin:', isAdmin, '| Busca:', temBuscaPorTexto);
 
