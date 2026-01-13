@@ -1854,7 +1854,7 @@ export default function ChatWindow({
     <div className="flex flex-col h-full bg-white">
         {/* Header - Modo Broadcast ou Central de Inteligência do Cliente */}
         {mostrarInterfaceBroadcast ? (
-          <div className={`text-white px-4 py-3 border-b flex-shrink-0 shadow-sm ${
+          <div className={`text-white px-4 py-3 border-b flex-shrink-0 shadow-sm flex items-center justify-between ${
             broadcastInterno 
               ? 'bg-gradient-to-r from-purple-500 to-indigo-500' 
               : 'bg-gradient-to-r from-orange-500 to-amber-500'
