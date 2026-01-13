@@ -1852,24 +1852,17 @@ export default function Comunicacao() {
                         }}
                         atendentes={atendentes} />
 
-                        {/* Diagnóstico Visual Realtime (APENAS ADMIN) */}
+                        {/* Botão Diagnóstico Flutuante (APENAS ADMIN) */}
                           {usuario?.role === 'admin' && (
-                            <>
-                            <DiagnosticoVisibilidadeRealtime
-                              threadId={threadAtiva?.id}
-                              ultimaMensagemRecebida={mensagens[mensagens.length - 1]}
-                              filtros={{
-                                scope: filterScope,
-                                integracaoId: selectedIntegrationId,
-                                atendente: selectedAttendantId
-                              }}
-                              realTimeActive={true} />
-                              <BotaoDiagnosticoFlutuante 
-                                usuario={usuario} 
-                                contatoAtivo={contatoAtivo}
-                                threadAtiva={threadAtiva}
-                              />
-                            </>
+                            <BotaoDiagnosticoFlutuante 
+                              usuario={usuario} 
+                              contatoAtivo={contatoAtivo}
+                              threadAtiva={threadAtiva}
+                              mensagens={mensagens}
+                              filterScope={filterScope}
+                              selectedIntegrationId={selectedIntegrationId}
+                              selectedAttendantId={selectedAttendantId}
+                            />
                           )}
                       </div>
 
