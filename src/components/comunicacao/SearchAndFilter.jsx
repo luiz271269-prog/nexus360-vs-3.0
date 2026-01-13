@@ -111,6 +111,15 @@ export default function SearchAndFilter({
         const { buscarContatosPorTelefone, escolherContatoPrincipal } = await import('../lib/deduplicationEngine');
         let contatosExistentes = [];
 
+        // Helper para ignorar contatos mesclados (DRY)
+        const isContatoIgnorado = (c) => {
+          return c.tags?.includes('merged') || 
+                 c.observacoes?.includes('[AUTO-MERGE]') || 
+                 c.observacoes?.includes('[MERGED') || 
+                 c.motivo_bloqueio?.includes('[AUTO-MERGE]') || 
+                 c.motivo_bloqueio?.includes('Consolidado em');
+        };
+
         if (telefoneNormalizado) {
           // 1️⃣ BUSCA POR TELEFONE - Todas as variações
           if (telefoneNormalizado !== novoContatoTelefone) {
@@ -119,19 +128,7 @@ export default function SearchAndFilter({
           const todosContatos = await buscarContatosPorTelefone(base44, telefoneNormalizado);
 
           // ✅ FILTRAR contatos merged
-          contatosExistentes = todosContatos.filter(c => {
-            const isMerged = 
-              c.tags?.includes('merged') || 
-              c.observacoes?.includes('[AUTO-MERGE]') ||
-              c.observacoes?.includes('[MERGED') ||
-              c.motivo_bloqueio?.includes('[AUTO-MERGE]') ||
-              c.motivo_bloqueio?.includes('Consolidado em');
-            
-            if (isMerged) {
-              console.log('[SearchAndFilter] 🏷️ Ignorando contato merged:', c.id, c.nome);
-            }
-            return !isMerged;
-          });
+          contatosExistentes = todosContatos.filter(c => !isContatoIgnorado(c));
 
           console.log('[SearchAndFilter] 📊 Telefone:', telefoneNormalizado, '| Total:', todosContatos.length, '| Válidos:', contatosExistentes.length);
 
@@ -151,64 +148,52 @@ export default function SearchAndFilter({
 
             // Filtrar por nome, empresa, cargo ou observações + excluir merged
             contatosExistentes = contatosNome.filter(c => {
-              // ✅ Ignorar merged
-              const isMerged = 
-                c.tags?.includes('merged') || 
-                c.observacoes?.includes('[AUTO-MERGE]') ||
-                c.observacoes?.includes('[MERGED') ||
-                c.motivo_bloqueio?.includes('[AUTO-MERGE]') ||
-                c.motivo_bloqueio?.includes('Consolidado em');
-              
-              if (isMerged) return false;
+              if (isContatoIgnorado(c)) return false;
 
-              // Verificação segura de propriedades
+              // Safe Access
               const nome = c.nome?.toLowerCase() || '';
               const empresa = c.empresa?.toLowerCase() || '';
               const cargo = c.cargo?.toLowerCase() || '';
-              const observacoes = c.observacoes?.toLowerCase() || '';
+              const obs = c.observacoes?.toLowerCase() || '';
 
               return (
                 nome.includes(termoBusca) ||
                 empresa.includes(termoBusca) ||
                 cargo.includes(termoBusca) ||
-                observacoes.includes(termoBusca)
+                obs.includes(termoBusca)
               );
             });
 
-            // Função auxiliar para calcular score de relevância
-            const calcularScore = (contato, termo) => {
+            // ✅ LÓGICA DE ORDENAÇÃO INTELIGENTE (Score System)
+            const calcularScore = (contato) => {
               let score = 0;
               const nome = contato.nome?.toLowerCase() || '';
               const empresa = contato.empresa?.toLowerCase() || '';
-              const cargo = contato.cargo?.toLowerCase() || '';
-              const obs = contato.observacoes?.toLowerCase() || '';
+              
+              // Prioridade Máxima: Nome Exato ou Começa com
+              if (nome === termoBusca) score += 100;
+              else if (nome.startsWith(termoBusca)) score += 50;
+              else if (nome.includes(termoBusca)) score += 20;
 
-              if (nome === termo) score += 100; // Match exato no nome (maior prioridade)
-              else if (nome.startsWith(termo)) score += 50; // Começa com o termo
-              else if (nome.includes(termo)) score += 20; // Contém o termo
+              // Prioridade Média: Empresa
+              if (empresa === termoBusca) score += 40;
+              else if (empresa.includes(termoBusca)) score += 15;
 
-              if (empresa === termo) score += 40;
-              else if (empresa.includes(termo)) score += 15;
-
-              if (cargo.includes(termo)) score += 10;
-              if (obs.includes(termo)) score += 5;
+              // Prioridade Baixa: Cargo/Obs
+              const outrosCampos = (contato.cargo || '') + (contato.observacoes || '');
+              if (outrosCampos.toLowerCase().includes(termoBusca)) score += 5;
 
               return score;
             };
 
-            // Ordenar por relevância (score) e depois por data
             contatosExistentes.sort((a, b) => {
-              const scoreA = calcularScore(a, termoBusca);
-              const scoreB = calcularScore(b, termoBusca);
+              const scoreA = calcularScore(a);
+              const scoreB = calcularScore(b);
 
-              if (scoreB !== scoreA) {
-                return scoreB - scoreA; // Maior score primeiro
-              }
+              if (scoreB !== scoreA) return scoreB - scoreA; // Maior score primeiro
               
-              // Desempate: mais recente primeiro
-              const dataA = new Date(a.updated_date || a.created_date).getTime();
-              const dataB = new Date(b.updated_date || b.created_date).getTime();
-              return dataB - dataA;
+              // Desempate por data (mais recente no topo)
+              return new Date(b.updated_date || b.created_date) - new Date(a.updated_date || a.created_date);
             });
 
             console.log(`[SearchAndFilter] ✅ ${contatosExistentes.length} contatos encontrados para "${searchTerm}"`);
