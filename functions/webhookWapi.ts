@@ -673,7 +673,7 @@ async function handleMessage(dados, payloadBruto, base44) {
     return jsonErr('erro_salvar_mensagem', 500);
   }
 
-  // ATUALIZAR THREAD (para mensagem NOVA)
+  // ✅ ATUALIZAR THREAD - Incrementar contadores E guardar metadata
   try {
     const agora = new Date().toISOString();
     const threadUpdate = {
@@ -682,15 +682,15 @@ async function handleMessage(dados, payloadBruto, base44) {
       last_message_sender: 'contact',
       last_message_content: String(dados.content || '').substring(0, 100),
       last_media_type: dados.mediaType || 'none',
-      unread_count: (thread.unread_count || 0) + 1,
-      total_mensagens: (thread.total_mensagens || 0) + 1,
+      unread_count: (thread.unread_count || 0) + 1,          // ✅ SEMPRE incrementa
+      total_mensagens: (thread.total_mensagens || 0) + 1,    // ✅ SEMPRE incrementa
       status: 'aberta',
     };
     if (integracaoId && !thread.whatsapp_integration_id) {
       threadUpdate.whatsapp_integration_id = integracaoId;
     }
     await base44.asServiceRole.entities.MessageThread.update(thread.id, threadUpdate);
-    console.log(`[WAPI] 💭 Thread atualizada | Não lidas: ${threadUpdate.unread_count}`);
+    console.log(`[WAPI] 💭 Thread atualizada | Total: ${threadUpdate.total_mensagens} | Não lidas: ${threadUpdate.unread_count}`);
   } catch (updateError) {
     console.error(`[WAPI] ⚠️ Erro ao atualizar thread:`, updateError.message);
   }
