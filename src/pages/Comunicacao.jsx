@@ -1125,12 +1125,11 @@ export default function Comunicacao() {
       if (effectiveScope !== 'unassigned' || !usuario) return new Set();
       
       const setIds = new Set();
-      const mapContatos = new Map(contatos.map(c => [c.id, c]));
 
       threads.forEach((thread) => {
         if (thread.thread_type === 'team_internal' || thread.thread_type === 'sector_group') return;
         
-        const contato = mapContatos.get(thread.contact_id);
+        const contato = contatosMap.get(thread.contact_id);
         const threadComContato = { ...thread, contato };
 
         if (isNaoAtribuida(thread) && canUserSeeThreadBase(usuario, threadComContato)) {
@@ -1138,7 +1137,7 @@ export default function Comunicacao() {
         }
       });
       return setIds;
-    }, [threads, contatos, usuario, effectiveScope]);
+    }, [threads, contatosMap, usuario, effectiveScope]);
 
     const isFilterUnassigned = effectiveScope === 'unassigned';
 
