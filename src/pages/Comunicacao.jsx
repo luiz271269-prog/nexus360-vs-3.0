@@ -247,75 +247,7 @@ export default function Comunicacao() {
     refetchOnWindowFocus: false
   });
 
-  const { data: threads = [], isLoading: loadingThreads } = useQuery({
-    queryKey: ['threads', usuario?.id],
-    queryFn: async () => {
-      if (isRateLimited) return []; // 🚫 Pausar se rate limited
-      try {
-        const allThreads = await base44.entities.MessageThread.list('-last_message_at', 500);
-      console.log('[COMUNICACAO] 📊 Threads carregadas:', allThreads.length);
-      
-      // 👻 DIAGNÓSTICO: Thread fantasma da Z-API
-      const threadFantasmaID = '692650cd2597bbc3faadb99d';
-      const threadFantasma = allThreads.find(t => t.id === threadFantasmaID);
-      
-      console.group('👻 CAÇA-FANTASMAS DE THREAD Z-API');
-      console.log('Total Threads recebidas da API:', allThreads.length);
-      
-      if (threadFantasma) {
-        console.log('✅ A Thread existe na lista bruta!');
-        console.log('Detalhes:', {
-          id: threadFantasma.id,
-          integration_id: threadFantasma.whatsapp_integration_id,
-          contact_id: threadFantasma.contact_id,
-          status: threadFantasma.status,
-          unread: threadFantasma.unread_count,
-          last_message: threadFantasma.last_message_content
-        });
-      } else {
-        console.error('❌ A Thread NÃO veio da API. Problema na query ou RLS.');
-      }
-      console.groupEnd();
-      
-      // ✅ LOG: Contadores de não lidas para debug
-      const comNaoLidas = allThreads.filter(t => (t.unread_count || 0) > 0 || Object.values(t.unread_by || {}).some(v => v > 0));
-      console.log('[COMUNICACAO] 📬 Threads com não lidas:', comNaoLidas.length);
-      
-      // ✅ LOG: Verificar se a thread de teste existe
-      const threadTeste = allThreads.find(t => t.id === '6927a16db587db4e93842639');
-      if (threadTeste) {
-        console.log('[COMUNICACAO] ✅ Thread de teste encontrada:', threadTeste.last_message_at, 'Não lidas:', threadTeste.unread_count);
-      } else {
-        console.log('[COMUNICACAO] ❌ Thread de teste NÃO está no top 500');
-      }
-      
-      return allThreads;
-      } catch (error) {
-      // 🚫 DETECTAR 429 E ATIVAR COOL-DOWN
-      if (error?.message?.includes('429') || error?.response?.status === 429) {
-        console.warn('[COMUNICACAO] ⚠️ 429 Rate Limited! Ativando cool-down de 10s...');
-        setIsRateLimited(true);
-        setTimeout(() => {
-          setIsRateLimited(false);
-          console.log('[COMUNICACAO] ✅ Cool-down finalizado, retentando...');
-        }, 10000);
-        return [];
-      }
-      throw error;
-      }
-      },
-    refetchInterval: 30000, // ✅ Reduzido: Atualizar a cada 30s (evita rate limit)
-    staleTime: 15000, // ✅ Dados frescos por 15s
-    // ✅ Começa IMEDIATAMENTE (sem esperar usuário)
-    enabled: !isRateLimited, // 🚫 Pausar se rate limited
-    retry: 2,
-    retryDelay: 1000,
-    refetchOnWindowFocus: true, // ✅ Atualizar ao voltar para a aba
-    refetchOnMount: 'always', // ✅ Sempre recarregar ao montar
-    onError: (error) => {
-      console.error('[Comunicacao] Erro ao carregar conversas:', error);
-    }
-  });
+
 
   const loadingTopics = loadingThreads;
 
