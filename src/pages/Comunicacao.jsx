@@ -57,7 +57,7 @@ import DiagnosticoVisibilidadeRealtime from "../components/comunicacao/Diagnosti
 import DiagnosticoThreadsInvisiveis from "../components/comunicacao/DiagnosticoThreadsInvisiveis";
 import DiagnosticoComparativoThreads from "../components/comunicacao/DiagnosticoComparativoThreads";
 import LogsFiltragemViewer from "../components/comunicacao/LogsFiltragemViewer";
-import DiagnosticoBuscaGlobal from "../components/comunicacao/DiagnosticoBuscaGlobal";
+import BotaoDiagnosticoFlutuante from "../components/comunicacao/BotaoDiagnosticoFlutuante";
 import { useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 
