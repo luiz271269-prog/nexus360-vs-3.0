@@ -98,6 +98,12 @@ export default function Comunicacao() {
     threadOriginal: null
   });
 
+  // Modal de gerenciador de duplicatas
+  const [modalDuplicatas, setModalDuplicatas] = useState({
+    isOpen: false,
+    telefone: null
+  });
+
   const navigate = useNavigate();
   const queryClient = useQueryClient();
 
@@ -1483,8 +1489,9 @@ export default function Comunicacao() {
                      onModoSelecaoMultiplaChange={setModoSelecaoMultipla}
                      isAdmin={usuario?.role === 'admin'}
                      onAbrirDiagnostico={(identificador) => {
-                       console.log('[Comunicacao] 🔬 Redirecionando para diagnóstico:', identificador);
-                       navigate(createPageUrl('DiagnosticoContato') + `?telefone=${encodeURIComponent(identificador)}`);
+                       console.log('[Comunicacao] 🔬 Abrindo modal de duplicatas:', identificador);
+                       setModalDuplicatas({ isOpen: true, telefone: identificador });
+                       setActiveTab('duplicatas');
                      }} />
 
 
@@ -1618,7 +1625,7 @@ export default function Comunicacao() {
 
             <TabsContent value="duplicatas" className="h-full m-0 overflow-hidden">
               <div className="h-full overflow-y-auto">
-                <GerenciadorDuplicatas />
+                <GerenciadorDuplicatas telefoneInicial={modalDuplicatas.telefone} />
               </div>
             </TabsContent>
 
