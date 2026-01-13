@@ -52,7 +52,9 @@ export default function SearchAndFilter({
   onModoSelecaoMultiplaChange,
   // Para diagnóstico
   isAdmin = false,
-  onAbrirDiagnostico
+  onAbrirDiagnostico,
+  // 🎯 NOVO: Callback para notificar duplicata detectada
+  onDuplicataDetectada
 }) {
   const [showFilters, setShowFilters] = useState(false);
   const [verificandoDuplicatas, setVerificandoDuplicatas] = useState(false);
@@ -207,13 +209,24 @@ export default function SearchAndFilter({
         // 3️⃣ EXIBIR RESULTADO
         if (contatosExistentes && contatosExistentes.length > 0) {
           const principal = escolherContatoPrincipal(contatosExistentes);
-          setDuplicataEncontrada({
+          const resultado = {
             quantidade: contatosExistentes.length,
             principal: principal,
             tipo: telefoneNormalizado ? 'telefone' : 'nome'
-          });
+          };
+          setDuplicataEncontrada(resultado);
+          
+          // 🎯 NOTIFICAR componente pai (Comunicacao.jsx)
+          if (onDuplicataDetectada) {
+            onDuplicataDetectada(resultado);
+          }
         } else {
           setDuplicataEncontrada(null);
+          
+          // 🎯 NOTIFICAR limpeza
+          if (onDuplicataDetectada) {
+            onDuplicataDetectada(null);
+          }
         }
 
       } catch (error) {

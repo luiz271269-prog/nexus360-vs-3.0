@@ -70,6 +70,9 @@ export default function Comunicacao() {
   // RESTAURADO: Estados para criar novo contato
   const [novoContatoTelefone, setNovoContatoTelefone] = useState("");
   const [criandoNovoContato, setCriandoNovoContato] = useState(false);
+  
+  // 🎯 NOVO: Estado para duplicata detectada pela busca
+  const [duplicataEncontrada, setDuplicataEncontrada] = useState(null);
 
   // Estados para seleção múltipla (broadcast)
   const [modoSelecaoMultipla, setModoSelecaoMultipla] = useState(false);
@@ -1003,10 +1006,31 @@ export default function Comunicacao() {
       });
     }
 
+    // ═══════════════════════════════════════════════════════════════════════════════
+    // 🎯 PRIORIDADE 1: Se duplicata detectada, FILTRAR threads do contato principal
+    // ═══════════════════════════════════════════════════════════════════════════════
+    let threadsAProcessar = threads;
+    
+    if (duplicataEncontrada && duplicataEncontrada.principal) {
+      const contatoPrincipalId = duplicataEncontrada.principal.id;
+      console.log(`[COMUNICACAO] 🎯 Duplicata detectada! Filtrando apenas threads do contato principal: ${contatoPrincipalId}`);
+      
+      // Filtrar APENAS threads do contato principal (ignora todos os duplicados)
+      threadsAProcessar = threads.filter((t) => {
+        // Threads internas sempre mantidas
+        if (t.thread_type === 'team_internal' || t.thread_type === 'sector_group') return true;
+        
+        // Threads externas: apenas do contato principal
+        return t.contact_id === contatoPrincipalId;
+      });
+      
+      console.log(`[COMUNICACAO] ✅ Threads filtradas: ${threadsAProcessar.length} (apenas contato principal)`);
+    }
+    
     // ✅ DEDUPLICAÇÃO POR CANAL: Permitir múltiplas threads do mesmo contato se forem de INTEGRAÇÕES DIFERENTES
     // ⚠️ MODO ADMIN + BUSCA: Desativar deduplicação para ver TODAS as threads/duplicatas
     const threadMaisRecentePorContactoCanal = new Map();
-    threads.forEach((thread) => {
+    threadsAProcessar.forEach((thread) => {
       // ✅ Threads internas SEMPRE adicionadas diretamente (chave única por thread.id)
       if (thread.thread_type === 'team_internal' || thread.thread_type === 'sector_group') {
         threadMaisRecentePorContactoCanal.set(`internal-${thread.id}`, thread);
@@ -1014,7 +1038,7 @@ export default function Comunicacao() {
       }
       
       // 🔍 MODO DIAGNÓSTICO ADMIN: Se admin está buscando, mostrar TODAS as threads (incluindo duplicatas)
-      if (isAdmin && temBuscaPorTexto) {
+      if (isAdmin && temBuscaPorTexto && !duplicataEncontrada) {
         threadMaisRecentePorContactoCanal.set(`admin-all-${thread.id}`, thread);
         return;
       }
@@ -1209,10 +1233,19 @@ export default function Comunicacao() {
     // ═══════════════════════════════════════════════════════════════════════════
     // PARTE 2: COM BUSCA - Adicionar contatos sem thread e clientes sem contato
     // IMPORTANTE: Usar contatosComThreadExistente para evitar duplicatas
+    // 🎯 CORREÇÃO: Se duplicata detectada, IGNORAR contatos duplicados (apenas principal)
     // ═══════════════════════════════════════════════════════════════════════════
     if (temBuscaPorTexto) {
       // Contatos sem thread - usar Set de contatos que já têm thread
       contatos.forEach((contato) => {
+        // 🎯 PRIORIDADE MÁXIMA: Se busca detectou duplicatas, IGNORAR contatos que não sejam o principal
+        if (duplicataEncontrada && duplicataEncontrada.principal) {
+          if (contato.id !== duplicataEncontrada.principal.id) {
+            console.log(`[COMUNICACAO] 🚫 Ignorando contato duplicado (não-principal): ${contato.id} ${contato.nome}`);
+            return;
+          }
+        }
+        
         // 🔍 ADMIN VÊ TODOS (incluindo bloqueados e duplicatas)
         if (!isAdmin) {
           // CRÍTICO: Verificar em AMBOS os sets para evitar duplicatas
@@ -1276,7 +1309,7 @@ export default function Comunicacao() {
     }
 
     return threadsFiltrados;
-  }, [threads, contatos, clientes, atendentes, usuario, selectedAttendantId, selectedIntegrationId, selectedCategoria, selectedTipoContato, selectedTagContato, debouncedSearchTerm, mensagensComCategoria, matchBuscaGoogle, filterScope]);
+  }, [threads, contatos, clientes, atendentes, usuario, selectedAttendantId, selectedIntegrationId, selectedCategoria, selectedTipoContato, selectedTagContato, debouncedSearchTerm, mensagensComCategoria, matchBuscaGoogle, filterScope, duplicataEncontrada]);
 
   // Converter para formato compatível com ChatSidebar + ORDENAÇÃO por PRIORIDADE (Regra 3)
   // DEDUPLICAÇÃO FINAL: Garantir que não há entradas duplicadas por contact_id
@@ -1492,7 +1525,9 @@ export default function Comunicacao() {
                        console.log('[Comunicacao] 🔬 Abrindo modal de duplicatas:', identificador);
                        setModalDuplicatas({ isOpen: true, telefone: identificador });
                        setActiveTab('duplicatas');
-                     }} />
+                     }}
+                     // 🎯 NOVO: Passar callback para receber duplicatas detectadas
+                     onDuplicataDetectada={setDuplicataEncontrada} />
 
 
                   <div className="flex-1 overflow-y-auto">
