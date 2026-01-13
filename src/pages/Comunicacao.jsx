@@ -96,26 +96,23 @@ export default function Comunicacao() {
   const [broadcastInterno, setBroadcastInterno] = useState(null); // { destinations: [...] }
   const [isRateLimited, setIsRateLimited] = useState(false); // 🚫 Cool-down para 429
 
-  // Estados com persistência no localStorage
-  const [filterScope, setFilterScopeState] = useState(() => {
+  const [filterScope, setFilterScope] = useState(() => {
     if (typeof window !== 'undefined') {
       return localStorage.getItem('filterScope') || 'all';
     }
     return 'all';
   });
-  
-  const setFilterScope = (value) => {
-    setFilterScopeState(value);
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('filterScope', value);
-    }
-  };
 
   const [selectedAttendantId, setSelectedAttendantId] = useState(null);
   const [selectedIntegrationId, setSelectedIntegrationId] = useState('all');
   const [selectedCategoria, setSelectedCategoria] = useState('all');
   const [selectedTipoContato, setSelectedTipoContato] = useState('all');
   const [selectedTagContato, setSelectedTagContato] = useState('all');
+
+  // Persistir filterScope no localStorage
+  useEffect(() => {
+    localStorage.setItem('filterScope', filterScope);
+  }, [filterScope]);
 
   // Estado para dados do cliente pré-preenchidos (quando clica em cliente_sem_contato)
   const [contactInitialData, setContactInitialData] = useState(null);
@@ -139,12 +136,9 @@ export default function Comunicacao() {
   const queryClient = useQueryClient();
 
   useEffect(() => {
-    if (usuario) {
+    if (usuario && !localStorage.getItem('filterScope')) {
         const isManager = usuario.role === 'admin' || usuario.role === 'supervisor';
-        // Se nenhum filtro foi setado no localStorage, usar default do role
-        if (!localStorage.getItem('filterScope')) {
-          setFilterScope(isManager ? 'all' : 'my');
-        }
+        setFilterScope(isManager ? 'all' : 'my');
     }
   }, [usuario]);
 
@@ -1136,23 +1130,19 @@ export default function Comunicacao() {
     // ═══════════════════════════════════════════════════════════════════════════════
     // 🎯 PRIORIDADE 1: Se duplicata detectada, FILTRAR threads do contato principal
     // ═══════════════════════════════════════════════════════════════════════════════
-    let threadsAProcessar = threads;
-    
-    if (duplicataEncontrada && duplicataEncontrada.principal) {
-      const contatoPrincipalId = duplicataEncontrada.principal.id;
-      console.log(`[COMUNICACAO] 🎯 Duplicata detectada! Filtrando apenas threads do contato principal: ${contatoPrincipalId}`);
+    const threadsAProcessar = React.useMemo(() => {
+      let resultado = threads;
       
-      // Filtrar APENAS threads do contato principal (ignora todos os duplicados)
-      threadsAProcessar = threads.filter((t) => {
-        // Threads internas sempre mantidas
-        if (t.thread_type === 'team_internal' || t.thread_type === 'sector_group') return true;
-        
-        // Threads externas: apenas do contato principal
-        return t.contact_id === contatoPrincipalId;
-      });
+      if (duplicataEncontrada && duplicataEncontrada.principal) {
+        const contatoPrincipalId = duplicataEncontrada.principal.id;
+        resultado = threads.filter((t) => {
+          if (t.thread_type === 'team_internal' || t.thread_type === 'sector_group') return true;
+          return t.contact_id === contatoPrincipalId;
+        });
+      }
       
-      console.log(`[COMUNICACAO] ✅ Threads filtradas: ${threadsAProcessar.length} (apenas contato principal)`);
-    }
+      return resultado;
+    }, [threads, duplicataEncontrada]);
     
     // ✅ DEDUPLICAÇÃO INTELIGENTE: Em modo normal, mostrar APENAS 1 thread por contato (mais recente)
               // ⚠️ MODO ADMIN + BUSCA: Desativar deduplicação para ver TODAS as threads/duplicatas
