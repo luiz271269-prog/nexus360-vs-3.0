@@ -1016,8 +1016,6 @@ export default function Comunicacao() {
     const isFilterUnassigned = filterScope === 'unassigned';
 
     // PASSO 1: Identificar threads não atribuídas visíveis (APENAS EXTERNAS)
-    // 🔧 Expor para diagnóstico
-    window._threadsNaoAtribuidasVisiveis = threadsNaoAtribuidasVisiveis;
     const threadsNaoAtribuidasVisiveis = new Set();
     if (isFilterUnassigned) {
       threads.forEach((thread) => {
@@ -1096,9 +1094,6 @@ export default function Comunicacao() {
       }
     });
     const threadsUnicas = Array.from(threadMaisRecentePorContactoCanal.values());
-    
-    // 🔧 Expor para diagnóstico
-    window._threadsUnicas = threadsUnicas;
     
     console.log('[COMUNICACAO] 🎯 Threads únicas (admin+busca desabilita dedup):', threadsUnicas.length, '| Admin:', isAdmin, '| Busca:', temBuscaPorTexto);
 
@@ -1353,6 +1348,21 @@ export default function Comunicacao() {
       });
     }
 
+    // 🔧 Expor dados intermediários para diagnóstico
+    window._diagnosticoData = {
+      threadsUnicas,
+      threadsNaoAtribuidasVisiveis,
+      duplicataEncontrada,
+      filtrosAtivos: {
+        scope: filterScope,
+        integracaoId: selectedIntegrationId,
+        atendenteId: selectedAttendantId,
+        tipoContato: selectedTipoContato,
+        tagContato: selectedTagContato,
+        categoria: selectedCategoria
+      }
+    };
+    
     return threadsFiltrados;
   }, [threads, contatos, clientes, atendentes, usuario, selectedAttendantId, selectedIntegrationId, selectedCategoria, selectedTipoContato, selectedTagContato, debouncedSearchTerm, mensagensComCategoria, matchBuscaGoogle, filterScope, duplicataEncontrada]);
 
@@ -1716,8 +1726,8 @@ export default function Comunicacao() {
                   }}
                   contatos={contatos}
                   duplicataEncontrada={duplicataEncontrada}
-                  threadsUnicas={window._threadsUnicas}
-                  threadsNaoAtribuidasVisiveis={window._threadsNaoAtribuidasVisiveis}
+                  threadsUnicas={window._diagnosticoData?.threadsUnicas}
+                  threadsNaoAtribuidasVisiveis={window._diagnosticoData?.threadsNaoAtribuidasVisiveis}
                 />
                 
                 <DiagnosticoThreadsInvisiveis

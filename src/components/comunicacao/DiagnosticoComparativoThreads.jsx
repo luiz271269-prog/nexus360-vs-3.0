@@ -6,7 +6,6 @@ import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { CheckCircle, XCircle, AlertCircle, ArrowRight } from 'lucide-react';
 import { canUserSeeThreadBase, canUserSeeThreadWithFilters, isNaoAtribuida } from '../lib/threadVisibility';
-import { matchBuscaGoogle } from '../lib/searchUtils';
 
 export default function DiagnosticoComparativoThreads({ 
   usuario, 
