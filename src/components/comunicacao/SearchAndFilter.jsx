@@ -599,17 +599,17 @@ export default function SearchAndFilter({
               </div>
             )}
 
-            {/* BOTÃO ANÁLISE COMPLETA - Análise por telefone OU nome */}
+            {/* BOTÃO DIAGNÓSTICO - Sempre visível quando há duplicata */}
               {duplicataEncontrada && onAbrirDiagnostico && (
                 <Button
                   onClick={() => {
-                    // ✅ Sempre usar ID do contato (funciona para busca por nome E por telefone)
                     const identificador = duplicataEncontrada.principal.id;
+                    console.log('[SearchAndFilter] 🔬 Abrindo diagnóstico para:', identificador);
                     onAbrirDiagnostico(identificador);
                   }}
-                  className={`shadow-lg ${isAdmin ? 'bg-green-600 hover:bg-green-700 shadow-green-500/25' : 'bg-indigo-600 hover:bg-indigo-700 shadow-indigo-500/25'}`}
+                  className="shadow-lg bg-blue-600 hover:bg-blue-700 text-white"
                   size="sm"
-                  title={isAdmin ? "Analisar e corrigir duplicatas" : "Análise de duplicatas"}
+                  title="Diagnóstico completo do contato"
                 >
                   <Microscope className="w-4 h-4" />
                 </Button>
