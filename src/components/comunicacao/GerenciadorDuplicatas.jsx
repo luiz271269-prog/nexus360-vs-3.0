@@ -31,10 +31,20 @@ export default function GerenciadorDuplicatas({ telefoneInicial = null }) {
       // Agrupar por telefone normalizado
       const grupos = new Map();
       let semTelefone = 0;
+      let contatosMerged = 0;
       
       for (const contato of contatos) {
         if (!contato.telefone) {
           semTelefone++;
+          continue;
+        }
+        
+        // ⚠️ FILTRAR contatos já merged
+        if (contato.tags?.includes('merged') || 
+            contato.observacoes?.includes('[AUTO-MERGE]') || 
+            contato.observacoes?.includes('[MERGED')) {
+          contatosMerged++;
+          console.log('[GerenciadorDuplicatas] 🏷️ Ignorando contato merged:', contato.id, contato.nome);
           continue;
         }
         
@@ -49,6 +59,13 @@ export default function GerenciadorDuplicatas({ telefoneInicial = null }) {
         }
         grupos.get(chave).push(contato);
       }
+      
+      console.log('[GerenciadorDuplicatas] 📊 Resumo busca:', {
+        total: contatos.length,
+        sem_telefone: semTelefone,
+        merged_ignorados: contatosMerged,
+        grupos_criados: grupos.size
+      });
       
       // Filtrar apenas grupos com duplicatas (ou filtrar por telefone específico)
       let gruposDuplicados = Array.from(grupos.entries())
@@ -143,15 +160,32 @@ export default function GerenciadorDuplicatas({ telefoneInicial = null }) {
   };
 
   const consolidarGrupo = async (grupo) => {
+    console.log('[GerenciadorDuplicatas] 🔄 Iniciando consolidação:', grupo);
+    
     const totalContatos = grupo.contatos.length;
     const totalThreads = grupo.detalhes?.threads_total || 0;
     const totalMensagens = grupo.detalhes?.mensagens_total || 0;
     
+    // ✅ VALIDAÇÃO: Filtrar contatos já merged
+    const contatosValidos = grupo.contatos.filter(c => 
+      !c.tags?.includes('merged') && 
+      !c.observacoes?.includes('[AUTO-MERGE]') &&
+      !c.observacoes?.includes('[MERGED')
+    );
+    
+    console.log('[GerenciadorDuplicatas] 📊 Contatos válidos (não merged):', contatosValidos.length, 'de', totalContatos);
+    
+    if (contatosValidos.length < 2) {
+      toast.error('❌ Não há contatos válidos para consolidar (todos já foram merged)');
+      return;
+    }
+    
     if (!confirm(
-      `⚠️ CONSOLIDAR ${totalContatos} CONTATOS DUPLICADOS?\n\n` +
+      `⚠️ CONSOLIDAR ${contatosValidos.length} CONTATOS DUPLICADOS?\n\n` +
       `📱 Telefone: ${grupo.telefone}\n` +
       `🧵 Threads afetadas: ${totalThreads}\n` +
       `💬 Mensagens afetadas: ${totalMensagens}\n\n` +
+      `Contatos que serão consolidados:\n${contatosValidos.map((c, i) => `${i + 1}. ${c.nome} (${c.tipo_contato})`).join('\n')}\n\n` +
       `Esta ação irá:\n` +
       `✓ Unificar todos em 1 contato mestre\n` +
       `✓ Mover todas threads/mensagens para o mestre\n` +
@@ -163,11 +197,15 @@ export default function GerenciadorDuplicatas({ telefoneInicial = null }) {
     const loadingToast = toast.loading('🔄 Consolidando contatos...');
 
     try {
-      // Escolher principal (prioridade: tipo > atualização > criação)
-      const principal = grupo.contatos.reduce((best, curr) => {
+      // Escolher principal (prioridade: tipo > não bloqueado > atualização > criação)
+      const principal = contatosValidos.reduce((best, curr) => {
         const tipoOrder = { cliente: 4, lead: 3, parceiro: 2, fornecedor: 1, novo: 0 };
         const bestTipo = tipoOrder[best.tipo_contato] || 0;
         const currTipo = tipoOrder[curr.tipo_contato] || 0;
+        
+        // Priorizar não bloqueados
+        if (best.bloqueado && !curr.bloqueado) return curr;
+        if (!best.bloqueado && curr.bloqueado) return best;
         
         if (currTipo > bestTipo) return curr;
         if (currTipo < bestTipo) return best;
@@ -178,26 +216,44 @@ export default function GerenciadorDuplicatas({ telefoneInicial = null }) {
         return currDate > bestDate ? curr : best;
       });
 
-      console.log(`[GerenciadorDuplicatas] 🎯 Contato mestre escolhido:`, principal.id, principal.nome);
+      console.log(`[GerenciadorDuplicatas] 🎯 Contato mestre escolhido:`, {
+        id: principal.id,
+        nome: principal.nome,
+        tipo: principal.tipo_contato,
+        bloqueado: principal.bloqueado
+      });
+      
       let threadsMovidas = 0;
       let mensagensMovidas = 0;
 
-      // Processar duplicatas
-      for (const duplicata of grupo.contatos) {
-        if (duplicata.id === principal.id) continue;
-
-        console.log(`[GerenciadorDuplicatas] 🔄 Processando duplicata:`, duplicata.id, duplicata.nome);
+      // Processar duplicatas (apenas os válidos, excluindo o principal)
+      const duplicatasParaProcessar = contatosValidos.filter(c => c.id !== principal.id);
+      
+      console.log(`[GerenciadorDuplicatas] 📋 Duplicatas a processar:`, duplicatasParaProcessar.length);
+      
+      for (const duplicata of duplicatasParaProcessar) {
+        console.log(`[GerenciadorDuplicatas] 🔄 Processando duplicata:`, {
+          id: duplicata.id,
+          nome: duplicata.nome,
+          tipo: duplicata.tipo_contato,
+          bloqueado: duplicata.bloqueado
+        });
 
         // 1. Redirecionar threads
         const threads = await base44.entities.MessageThread.filter({ contact_id: duplicata.id });
-        console.log(`[GerenciadorDuplicatas] 📂 ${threads.length} threads encontradas`);
+        console.log(`[GerenciadorDuplicatas] 📂 ${threads.length} threads encontradas para ${duplicata.nome}`);
         
         for (const thread of threads) {
-          await base44.entities.MessageThread.update(thread.id, { 
-            contact_id: principal.id,
-            status: thread.status === 'merged' ? 'aberta' : thread.status
-          });
-          threadsMovidas++;
+          console.log(`[GerenciadorDuplicatas]   → Movendo thread ${thread.id} de ${duplicata.id} → ${principal.id}`);
+          try {
+            await base44.entities.MessageThread.update(thread.id, { 
+              contact_id: principal.id,
+              status: thread.status === 'merged' ? 'aberta' : thread.status
+            });
+            threadsMovidas++;
+          } catch (err) {
+            console.error(`[GerenciadorDuplicatas] ❌ Erro ao mover thread ${thread.id}:`, err);
+          }
         }
 
         // 2. Redirecionar mensagens (sender)
@@ -206,9 +262,15 @@ export default function GerenciadorDuplicatas({ telefoneInicial = null }) {
           sender_type: 'contact'
         }, '-sent_at', 1000);
         
+        console.log(`[GerenciadorDuplicatas] 💬 ${mensagensSender.length} mensagens (sender) encontradas`);
+        
         for (const msg of mensagensSender) {
-          await base44.entities.Message.update(msg.id, { sender_id: principal.id });
-          mensagensMovidas++;
+          try {
+            await base44.entities.Message.update(msg.id, { sender_id: principal.id });
+            mensagensMovidas++;
+          } catch (err) {
+            console.error(`[GerenciadorDuplicatas] ❌ Erro ao mover mensagem ${msg.id}:`, err);
+          }
         }
 
         // 3. Redirecionar mensagens (recipient)
@@ -217,35 +279,59 @@ export default function GerenciadorDuplicatas({ telefoneInicial = null }) {
           recipient_type: 'contact'
         }, '-sent_at', 1000);
         
+        console.log(`[GerenciadorDuplicatas] 📨 ${mensagensRecipient.length} mensagens (recipient) encontradas`);
+        
         for (const msg of mensagensRecipient) {
-          await base44.entities.Message.update(msg.id, { recipient_id: principal.id });
+          try {
+            await base44.entities.Message.update(msg.id, { recipient_id: principal.id });
+          } catch (err) {
+            console.error(`[GerenciadorDuplicatas] ❌ Erro ao mover mensagem recipient ${msg.id}:`, err);
+          }
         }
 
         // 4. Marcar como merged
-        await base44.entities.Contact.update(duplicata.id, {
-          bloqueado: true,
-          motivo_bloqueio: `[AUTO-MERGE] Consolidado em ${principal.id}`,
-          tags: [...(duplicata.tags || []), 'merged', 'duplicata'],
-          observacoes: `[MERGED ${new Date().toISOString()}] Consolidado em ${principal.id} (${principal.nome})\n\n${duplicata.observacoes || ''}`
-        });
+        console.log(`[GerenciadorDuplicatas] 🏷️ Marcando ${duplicata.id} como merged`);
+        try {
+          await base44.entities.Contact.update(duplicata.id, {
+            bloqueado: true,
+            motivo_bloqueio: `[AUTO-MERGE] Consolidado em ${principal.id}`,
+            tags: [...(duplicata.tags || []).filter(t => t !== 'merged'), 'merged', 'duplicata'],
+            observacoes: `[MERGED ${new Date().toISOString()}] Consolidado em ${principal.id} (${principal.nome})\n\n---\nObservações originais:\n${duplicata.observacoes || 'Nenhuma'}`
+          });
+        } catch (err) {
+          console.error(`[GerenciadorDuplicatas] ❌ Erro ao marcar como merged:`, err);
+        }
       }
+      
+      console.log(`[GerenciadorDuplicatas] ✅ Processamento concluído. Threads: ${threadsMovidas}, Mensagens: ${mensagensMovidas}`);
 
       // 5. Desbloquear e atualizar o principal se necessário
+      console.log(`[GerenciadorDuplicatas] 🔓 Verificando se principal precisa ser desbloqueado...`);
       if (principal.bloqueado) {
+        console.log(`[GerenciadorDuplicatas] 🔓 Desbloqueando principal ${principal.id}`);
         await base44.entities.Contact.update(principal.id, {
           bloqueado: false,
-          motivo_bloqueio: null
+          motivo_bloqueio: null,
+          observacoes: `[MESTRE DE CONSOLIDAÇÃO ${new Date().toISOString()}]\nEste contato é o resultado da consolidação de ${duplicatasParaProcessar.length} duplicatas.\n\n---\n${principal.observacoes || ''}`
         });
       }
 
       toast.dismiss(loadingToast);
-      toast.success(`✅ Consolidado com sucesso!\n📂 ${threadsMovidas} threads + 💬 ${mensagensMovidas} mensagens movidas → ${principal.nome}`);
+      toast.success(
+        `✅ CONSOLIDAÇÃO CONCLUÍDA!\n\n` +
+        `📊 Estatísticas:\n` +
+        `→ ${duplicatasParaProcessar.length} contatos unificados em "${principal.nome}"\n` +
+        `→ ${threadsMovidas} threads movidas\n` +
+        `→ ${mensagensMovidas} mensagens movidas\n\n` +
+        `🎯 Contato mestre: ${principal.nome} (${principal.tipo_contato})`
+      );
       
+      console.log('[GerenciadorDuplicatas] ✅ Consolidação finalizada. Atualizando lista...');
       await buscarDuplicatas(); // Atualizar
     } catch (error) {
-      console.error('[GerenciadorDuplicatas] Erro ao consolidar:', error);
+      console.error('[GerenciadorDuplicatas] ❌ Erro ao consolidar:', error);
       toast.dismiss(loadingToast);
-      toast.error(`Erro ao consolidar: ${error.message}`);
+      toast.error(`❌ Erro ao consolidar: ${error.message}\n\nVeja o console para detalhes.`);
     }
   };
 
