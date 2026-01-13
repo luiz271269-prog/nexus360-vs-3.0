@@ -1373,9 +1373,12 @@ export default function Comunicacao() {
     // ═══════════════════════════════════════════════════════════════════════════
     // PARTE 2: COM BUSCA - Adicionar contatos sem thread e clientes sem contato
     // IMPORTANTE: Usar contatosComThreadExistente para evitar duplicatas
-    // 🎯 CORREÇÃO: Se duplicata detectada, IGNORAR contatos duplicados (apenas principal)
+    // 🎯 DEDUPLICAÇÃO POR TELEFONE: Contatos duplicados devem mostrar apenas o principal
     // ═══════════════════════════════════════════════════════════════════════════
     if (temBuscaPorTexto) {
+      // Rastrear contatos por telefone normalizado para evitar duplicatas
+      const telefonesJaAcionados = new Set();
+
       // Contatos sem thread - usar Set de contatos que já têm thread
       contatos.forEach((contato) => {
         // 🎯 PRIORIDADE MÁXIMA: Se busca detectou duplicatas, IGNORAR contatos que não sejam o principal
@@ -1393,7 +1396,19 @@ export default function Comunicacao() {
             return;
           }
         }
-        
+
+        // 🔍 DEDUPLICAÇÃO POR TELEFONE: Se este telefone já foi adicionado, ignorar
+        if (contato.telefone) {
+          const telNorm = normalizarTelefone(contato.telefone);
+          if (telNorm && telefonesJaAcionados.has(telNorm)) {
+            console.log(`[COMUNICACAO] 🚫 Ignorando contato duplicado por telefone: ${contato.id} ${contato.nome}`);
+            return;
+          }
+          if (telNorm) {
+            telefonesJaAcionados.add(telNorm);
+          }
+        }
+
         // 🔍 ADMIN VÊ TODOS (incluindo bloqueados e duplicatas)
         if (!isAdmin) {
           // CRÍTICO: Verificar em AMBOS os sets para evitar duplicatas
@@ -1404,7 +1419,7 @@ export default function Comunicacao() {
           // Admin: permite ver bloqueados, mas evita duplicatas se já tem thread
           if (!temBuscaPorTexto && contatosComThreadExistente.has(contato.id)) return;
         }
-        
+
         if (!matchBuscaGoogle(contato, debouncedSearchTerm)) return;
 
         threadsFiltrados.push({
