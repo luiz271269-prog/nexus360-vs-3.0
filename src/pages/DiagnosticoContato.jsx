@@ -18,18 +18,45 @@ export default function DiagnosticoContato() {
     setResultado(null);
 
     try {
-      // ✅ BUSCAR POR TODAS AS VARIAÇÕES (agnóstico de provedor)
-      const { buscarContatosPorTelefone } = await import('../components/lib/deduplicationEngine');
-      
-      const telefonNormalizado = normalizarTelefone(telefone);
-      if (!telefonNormalizado) {
-        setResultado({ erro: 'Telefone inválido' });
-        setCarregando(false);
-        return;
-      }
+      let contatosComTelefone = [];
 
-      // 1️⃣ Buscar TODOS os contatos com TODAS as variações do telefone
-      const contatosComTelefone = await buscarContatosPorTelefone(base44, telefonNormalizado);
+      // ✅ DETECTAR SE É ID DE CONTATO OU TELEFONE
+      const inputLimpo = telefone.trim();
+      const ehUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(inputLimpo);
+
+      if (ehUUID) {
+        // 🆔 BUSCAR POR ID ÚNICO
+        console.log(`[DiagnosticoContato] Buscando por ID: ${inputLimpo}`);
+        try {
+          const contato = await base44.entities.Contact.filter({ id: inputLimpo });
+          contatosComTelefone = contato ? [contato].flat() : [];
+          
+          // Buscar outros contatos com mesmo telefone para análise de duplicidade
+          if (contatosComTelefone.length > 0 && contatosComTelefone[0].telefone) {
+            const { buscarContatosPorTelefone } = await import('../components/lib/deduplicationEngine');
+            const todosComMesmoTelefone = await buscarContatosPorTelefone(base44, contatosComTelefone[0].telefone);
+            // Mesclar, priorizando o contato buscado
+            contatosComTelefone = todosComMesmoTelefone;
+          }
+        } catch (err) {
+          console.error('[DiagnosticoContato] Erro ao buscar por ID:', err);
+          setResultado({ erro: 'Contato não encontrado com este ID' });
+          setCarregando(false);
+          return;
+        }
+      } else {
+        // 📱 BUSCAR POR TELEFONE (agnóstico de provedor)
+        const { buscarContatosPorTelefone } = await import('../components/lib/deduplicationEngine');
+        const telefonNormalizado = normalizarTelefone(inputLimpo);
+        
+        if (!telefonNormalizado) {
+          setResultado({ erro: 'Telefone inválido' });
+          setCarregando(false);
+          return;
+        }
+
+        contatosComTelefone = await buscarContatosPorTelefone(base44, telefonNormalizado);
+      }
 
       // 2️⃣ Determinar range de hoje
       const hoje = new Date();
@@ -145,7 +172,7 @@ export default function DiagnosticoContato() {
           <Input
             value={telefone}
             onChange={(e) => setTelefone(e.target.value)}
-            placeholder="Telefone (ex: 5547996744257)"
+            placeholder="Telefone ou ID do contato"
             className="flex-1"
           />
           <Button onClick={analisar} disabled={carregando} className="bg-blue-600">
