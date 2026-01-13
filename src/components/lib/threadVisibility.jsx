@@ -376,41 +376,63 @@ export const canUserSeeThreadBase = (usuario, thread, mensagensThread = []) => {
     }
   }
 
-  // 6️⃣ FILTROS TÉCNICOS (SÓ APLICADOS APÓS CHAVES MESTRAS FALHAREM)
-  // ═══════════════════════════════════════════════════════════════════════════
-  // 🔧 Hardware & Permissões (Integração/Conexão/Setor)
-  // IMPORTANTE: Estas verificações SÓ rodam se thread NÃO está atribuída/fidelizada
-  // ═══════════════════════════════════════════════════════════════════════════
-  
-  const integracaoOk = temPermissaoIntegracao(usuario, thread.whatsapp_integration_id);
-  if (!integracaoOk) {
-    console.log(`[VISIBILIDADE] ❌ Bloqueado por integração: ${thread.whatsapp_integration_id}`);
-    return false;
-  }
-
-  const conexaoOk = threadConexaoVisivel(usuario, thread.conexao_id);
-  if (!conexaoOk) {
-    console.log(`[VISIBILIDADE] ❌ Bloqueado por conexão: ${thread.conexao_id}`);
-    return false;
-  }
-
-  const setorOk = threadSetorVisivel(usuario, thread);
-  if (!setorOk) {
-    const setor = thread.sector_id || thread.setor || 'N/A';
-    console.log(`[VISIBILIDADE] ❌ Bloqueado por setor: ${setor}`);
-    return false;
-  }
-
-  // 7) Thread NÃO ATRIBUÍDA (S/atend.) - todos podem ver
+  // 7) Thread NÃO ATRIBUÍDA (S/atend.) - todos podem ver SE tiverem permissão de integração
   if (naoAtribuida) {
-    console.log(`[VISIBILIDADE] ✅ Thread ${thread.id?.substring(0, 8)} - NÃO ATRIBUÍDA (S/atend.) - visível`);
+    // ✅ EXCEÇÃO CRÍTICA: MENSAGENS RECEBIDAS com interação nas últimas 24h
+    // Se o contato enviou mensagem recentemente → SEMPRE VISÍVEL
+    if (thread.last_inbound_at) {
+      const horasSemResposta = (Date.now() - new Date(thread.last_inbound_at).getTime()) / (1000 * 60 * 60);
+      
+      // Mensagem NOVA (< 24h) de cliente esperando → SEMPRE VISÍVEL (ignora integração)
+      if (horasSemResposta < 24 && thread.last_message_sender === 'contact') {
+        console.log(`[VISIBILIDADE] ✅ Thread ${thread.id?.substring(0, 8)} - MENSAGEM RECEBIDA RECENTE (${horasSemResposta.toFixed(1)}h) - SEMPRE VISÍVEL`);
+        return true;
+      }
+    }
+    
+    // Para threads "frias" (sem interação recente), aplicar filtros técnicos
+    const integracaoOk = temPermissaoIntegracao(usuario, thread.whatsapp_integration_id, thread.id);
+    if (!integracaoOk) {
+      console.log(`[VISIBILIDADE] ❌ Thread ${thread.id?.substring(0, 8)} bloqueada - Integração sem permissão`);
+      return false;
+    }
+
+    const conexaoOk = threadConexaoVisivel(usuario, thread.conexao_id);
+    if (!conexaoOk) {
+      console.log(`[VISIBILIDADE] ❌ Thread ${thread.id?.substring(0, 8)} bloqueada - Conexão sem permissão`);
+      return false;
+    }
+
+    const setorOk = threadSetorVisivel(usuario, thread);
+    if (!setorOk) {
+      const setor = thread.sector_id || thread.setor || 'N/A';
+      console.log(`[VISIBILIDADE] ❌ Thread ${thread.id?.substring(0, 8)} bloqueada - Setor ${setor} sem permissão`);
+      return false;
+    }
+    
+    console.log(`[VISIBILIDADE] ✅ Thread ${thread.id?.substring(0, 8)} - NÃO ATRIBUÍDA + permissões OK - visível`);
     return true;
   }
+  
+  // 6️⃣ Thread atribuída a OUTRO (não fidelizada) - aplicar filtros técnicos
+  // Gerentes podem ver, atendentes comuns não
+  const isGerente = ['gerente', 'coordenador', 'supervisor'].includes(usuario.attendant_role);
+  if (!isGerente) {
+    console.log(`[VISIBILIDADE] ❌ Thread ${thread.id?.substring(0, 8)} bloqueada - Atribuída a outro`);
+    return false;
+  }
+  
+  // Gerente pode ver, mas verificar permissões de integração
+  const integracaoOk = temPermissaoIntegracao(usuario, thread.whatsapp_integration_id, thread.id);
+  if (!integracaoOk) {
+    console.log(`[VISIBILIDADE] ❌ Thread ${thread.id?.substring(0, 8)} bloqueada - Gerente sem permissão em integração`);
+    return false;
+  }
 
-  // 8) Atribuída a outro usuário - bloqueado (apenas para atendentes comuns)
-  console.log(`[VISIBILIDADE] ❌ Thread ${thread.id?.substring(0, 8)} bloqueada - Atribuída a outro`);
-  return false;
-};
+  console.log(`[VISIBILIDADE] ✅ Thread ${thread.id?.substring(0, 8)} - Gerente pode visualizar`);
+  return true;
+
+}
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // REGRA COM FILTROS: Funil de 5 Estágios
@@ -466,22 +488,45 @@ export const canUserSeeThreadWithFilters = (usuario, thread, filtros = {}) => {
 
   // ═══════════════════════════════════════════════════════════════════════
   // 🟢 ESTÁGIO 1: BARREIRA DE SEGURANÇA (apenas para não-atribuídas/não-fidelizadas)
+  // EXCEÇÃO: Mensagens recebidas recentes (<24h) SEMPRE passam
   // ═══════════════════════════════════════════════════════════════════════
   
-  const integracaoOk = temPermissaoIntegracao(usuario, thread.whatsapp_integration_id);
-  if (!integracaoOk) return false;
+  const naoAtribuida = isNaoAtribuida(thread);
+  
+  // ✅ EXCEÇÃO: MENSAGEM RECEBIDA AGUARDANDO ATENDIMENTO → SEMPRE VISÍVEL
+  if (naoAtribuida && thread.last_inbound_at) {
+    const horasSemResposta = (Date.now() - new Date(thread.last_inbound_at).getTime()) / (1000 * 60 * 60);
+    
+    if (horasSemResposta < 24 && thread.last_message_sender === 'contact') {
+      console.log(`[VISIBILIDADE] ✅ Thread ${thread.id?.substring(0, 8)} - MENSAGEM RECEBIDA AGUARDANDO (${horasSemResposta.toFixed(1)}h) - IGNORA FILTROS TÉCNICOS`);
+      // Pula verificações de integração/setor/conexão
+      // Vai direto para estágio 2 (escopo)
+    } else {
+      // Thread fria (sem interação recente) → aplicar filtros técnicos normalmente
+      const integracaoOk = temPermissaoIntegracao(usuario, thread.whatsapp_integration_id, thread.id);
+      if (!integracaoOk) return false;
 
-  const conexaoOk = threadConexaoVisivel(usuario, thread.conexao_id);
-  if (!conexaoOk) return false;
+      const conexaoOk = threadConexaoVisivel(usuario, thread.conexao_id);
+      if (!conexaoOk) return false;
 
-  const setorOk = threadSetorVisivel(usuario, thread);
-  if (!setorOk) return false;
+      const setorOk = threadSetorVisivel(usuario, thread);
+      if (!setorOk) return false;
+    }
+  } else {
+    // Thread atribuída ou sem mensagem recente → verificar permissões normalmente
+    const integracaoOk = temPermissaoIntegracao(usuario, thread.whatsapp_integration_id, thread.id);
+    if (!integracaoOk) return false;
+
+    const conexaoOk = threadConexaoVisivel(usuario, thread.conexao_id);
+    if (!conexaoOk) return false;
+
+    const setorOk = threadSetorVisivel(usuario, thread);
+    if (!setorOk) return false;
+  }
 
   // ═══════════════════════════════════════════════════════════════════════
   // 🔵 ESTÁGIO 2: FILTRO DE ESCOPO (Abas de Navegação)
   // ═══════════════════════════════════════════════════════════════════════
-  
-  const naoAtribuida = isNaoAtribuida(thread);
 
   // A. Aba "Minhas Conversas" (scope = 'my')
   if (filtros.scope === 'my') {
