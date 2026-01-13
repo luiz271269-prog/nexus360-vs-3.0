@@ -39,12 +39,13 @@ export default function GerenciadorDuplicatas({ telefoneInicial = null }) {
           continue;
         }
         
-        // ⚠️ FILTRAR contatos já merged
+        // ⚠️ FILTRAR contatos já merged (TODAS as formas de identificar)
         if (contato.tags?.includes('merged') || 
             contato.observacoes?.includes('[AUTO-MERGE]') || 
-            contato.observacoes?.includes('[MERGED')) {
+            contato.observacoes?.includes('[MERGED') ||
+            contato.motivo_bloqueio?.includes('[AUTO-MERGE]') ||
+            contato.motivo_bloqueio?.includes('Consolidado em')) {
           contatosMerged++;
-          console.log('[GerenciadorDuplicatas] 🏷️ Ignorando contato merged:', contato.id, contato.nome);
           continue;
         }
         
@@ -166,12 +167,25 @@ export default function GerenciadorDuplicatas({ telefoneInicial = null }) {
     const totalThreads = grupo.detalhes?.threads_total || 0;
     const totalMensagens = grupo.detalhes?.mensagens_total || 0;
     
-    // ✅ VALIDAÇÃO: Filtrar contatos já merged
-    const contatosValidos = grupo.contatos.filter(c => 
-      !c.tags?.includes('merged') && 
-      !c.observacoes?.includes('[AUTO-MERGE]') &&
-      !c.observacoes?.includes('[MERGED')
-    );
+    // ✅ VALIDAÇÃO: Filtrar contatos já merged (verificar TODAS as formas de identificar merged)
+    const contatosValidos = grupo.contatos.filter(c => {
+      const isMerged = 
+        c.tags?.includes('merged') || 
+        c.observacoes?.includes('[AUTO-MERGE]') ||
+        c.observacoes?.includes('[MERGED') ||
+        c.motivo_bloqueio?.includes('[AUTO-MERGE]') ||
+        c.motivo_bloqueio?.includes('Consolidado em');
+      
+      if (isMerged) {
+        console.log('[GerenciadorDuplicatas] 🏷️ Ignorando contato merged:', c.id, c.nome, {
+          tags: c.tags,
+          motivo_bloqueio: c.motivo_bloqueio,
+          observacoes: c.observacoes?.substring(0, 100)
+        });
+      }
+      
+      return !isMerged;
+    });
     
     console.log('[GerenciadorDuplicatas] 📊 Contatos válidos (não merged):', contatosValidos.length, 'de', totalContatos);
     
@@ -456,25 +470,37 @@ export default function GerenciadorDuplicatas({ telefoneInicial = null }) {
             </div>
 
             <div className="space-y-3">
-              {grupo.contatos.map((contato, cIdx) => (
+              {grupo.contatos.map((contato, cIdx) => {
+                // ✅ Detectar se é merged
+                const isMerged = 
+                  contato.tags?.includes('merged') || 
+                  contato.observacoes?.includes('[AUTO-MERGE]') ||
+                  contato.observacoes?.includes('[MERGED') ||
+                  contato.motivo_bloqueio?.includes('[AUTO-MERGE]') ||
+                  contato.motivo_bloqueio?.includes('Consolidado em');
+                
+                return (
                 <div
                   key={contato.id}
                   className={`flex items-start justify-between p-4 rounded-xl border-2 transition-all ${
-                    cIdx === 0 
-                      ? 'bg-gradient-to-r from-green-50 to-emerald-50 border-green-300 shadow-md' 
-                      : contato.bloqueado
-                        ? 'bg-red-50 border-red-200'
-                        : 'bg-slate-50 border-slate-200'
+                    isMerged
+                      ? 'bg-slate-200 border-slate-400 opacity-60'
+                      : cIdx === 0 
+                        ? 'bg-gradient-to-r from-green-50 to-emerald-50 border-green-300 shadow-md' 
+                        : contato.bloqueado
+                          ? 'bg-red-50 border-red-200'
+                          : 'bg-slate-50 border-slate-200'
                   }`}
                 >
                   <div className="flex-1">
                     <div className="flex items-center gap-2 mb-2">
                       <span className="text-2xl font-bold text-slate-400">#{cIdx + 1}</span>
-                      <p className="font-bold text-lg text-slate-900">
+                      <p className={`font-bold text-lg ${isMerged ? 'text-slate-500 line-through' : 'text-slate-900'}`}>
                         {contato.nome || 'Sem nome'}
                         {contato.bloqueado && ' 🔒'}
                       </p>
-                      {cIdx === 0 && <Badge className="bg-green-600 text-white shadow">🎯 MESTRE</Badge>}
+                      {!isMerged && cIdx === 0 && <Badge className="bg-green-600 text-white shadow">🎯 MESTRE</Badge>}
+                      {isMerged && <Badge className="bg-slate-500 text-white">❌ JÁ MERGED</Badge>}
                       <Badge className={
                         contato.tipo_contato === 'cliente' ? 'bg-emerald-500 text-white' :
                         contato.tipo_contato === 'lead' ? 'bg-amber-500 text-white' :
@@ -491,20 +517,22 @@ export default function GerenciadorDuplicatas({ telefoneInicial = null }) {
                     <div className="grid grid-cols-2 gap-2 text-xs text-slate-500 mt-2">
                       <div>📅 Criado: {new Date(contato.created_date).toLocaleString('pt-BR')}</div>
                       <div>🔄 Atualizado: {new Date(contato.updated_date).toLocaleString('pt-BR')}</div>
-                      <div>🆔 <code className="bg-slate-100 px-1 rounded">{contato.id.substring(0, 12)}...</code></div>
+                      <div className="col-span-2">🆔 <code className="bg-slate-100 px-1 rounded">{contato.id}</code></div>
                       {contato.bloqueado && (
-                        <div className="text-red-600 font-semibold">🔒 {contato.motivo_bloqueio || 'Bloqueado'}</div>
+                        <div className="col-span-2 text-red-600 font-semibold text-xs">
+                          🔒 {contato.motivo_bloqueio || 'Bloqueado'}
+                        </div>
                       )}
                     </div>
                   </div>
                   
-                  {cIdx > 0 && (
+                  {!isMerged && cIdx > 0 && (
                     <Badge className="bg-red-600 text-white shadow animate-pulse">
                       ⚠️ DUPLICATA
                     </Badge>
                   )}
                 </div>
-              ))}
+              )})}
             </div>
           </Card>
         ))}
