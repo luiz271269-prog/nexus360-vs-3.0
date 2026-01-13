@@ -24,7 +24,8 @@ import {
   Briefcase,
   Flame,
   TrendingUp,
-  CheckSquare } from
+  CheckSquare,
+  Bug } from
 "lucide-react";
 
 // Logos SVG inline para cada canal
