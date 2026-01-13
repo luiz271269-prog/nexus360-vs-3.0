@@ -721,8 +721,17 @@ async function handleMessage(dados, payloadBruto, base44) {
       } else {
           console.log(`[${VERSION}] canonical-thread-not-found: Criando nova thread.`);
           const agora = new Date().toISOString();
+
+          // 🎯 FIX CRÍTICO: Validar contact_id antes de criar thread
+          if (!contato || !contato.id) {
+              console.error(`[${VERSION}] ❌ ERRO CRÍTICO: Tentando criar thread SEM contact_id!`);
+              return jsonServerError({ success: false, error: 'contact_id_missing' });
+          }
+
           thread = await base44.asServiceRole.entities.MessageThread.create({
-              contact_id: contato.id,
+              contact_id: contato.id, // ✅ GARANTIDO: Sempre vai ter contact_id
+              thread_type: 'contact_external', // ✅ NOVO: Tipo explícito
+              channel: 'whatsapp', // ✅ NOVO: Canal
               whatsapp_integration_id: integracaoId,
               status: 'aberta',
               primeira_mensagem_at: agora,
@@ -734,7 +743,7 @@ async function handleMessage(dados, payloadBruto, base44) {
               total_mensagens: 1, // ✅ CRÍTICO: Inicia com 1 (será salva 1 msg logo abaixo)
               unread_count: 1,    // ✅ CRÍTICO: Inicia com 1 (cliente esperando resposta)
           });
-          console.log(`[${VERSION}] new-canonical-thread-created: ${thread.id} | Inicializado com 1 msg e 1 não lida`);
+          console.log(`[${VERSION}] new-canonical-thread-created: ${thread.id} | contact_id: ${contato.id} | Inicializado com 1 msg e 1 não lida`);
       }
   } catch (e) {
     console.error(`[${VERSION}] ❌ Erro thread:`, e?.message || e);
