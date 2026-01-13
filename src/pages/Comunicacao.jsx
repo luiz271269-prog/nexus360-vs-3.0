@@ -1854,19 +1854,6 @@ export default function Comunicacao() {
                         selectedIntegrationId={selectedIntegrationId}
                         selectedAttendantId={selectedAttendantId}
                         contatoAtivo={contatoAtivo} />
-
-                        {/* Botão Diagnóstico Flutuante (APENAS ADMIN) */}
-                          {usuario?.role === 'admin' && (
-                            <BotaoDiagnosticoFlutuante 
-                              usuario={usuario} 
-                              contatoAtivo={contatoAtivo}
-                              threadAtiva={threadAtiva}
-                              mensagens={mensagens}
-                              filterScope={filterScope}
-                              selectedIntegrationId={selectedIntegrationId}
-                              selectedAttendantId={selectedAttendantId}
-                            />
-                          )}
                       </div>
 
                       {showContactInfo && contatoAtivo &&
