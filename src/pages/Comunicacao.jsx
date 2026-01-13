@@ -1776,16 +1776,18 @@ export default function Comunicacao() {
                         }}
                         atendentes={atendentes} />
 
-                        {/* Diagnóstico Visual Realtime (canto inferior direito) */}
-                        <DiagnosticoVisibilidadeRealtime
-                          threadId={threadAtiva?.id}
-                          ultimaMensagemRecebida={mensagens[mensagens.length - 1]}
-                          filtros={{
-                            scope: filterScope,
-                            integracaoId: selectedIntegrationId,
-                            atendente: selectedAttendantId
-                          }}
-                          realTimeActive={true} />
+                        {/* Diagnóstico Visual Realtime (APENAS ADMIN) */}
+                          {usuario?.role === 'admin' && (
+                            <DiagnosticoVisibilidadeRealtime
+                              threadId={threadAtiva?.id}
+                              ultimaMensagemRecebida={mensagens[mensagens.length - 1]}
+                              filtros={{
+                                scope: filterScope,
+                                integracaoId: selectedIntegrationId,
+                                atendente: selectedAttendantId
+                              }}
+                              realTimeActive={true} />
+                          )}
                       </div>
                       
                       {showContactInfo && contatoAtivo &&
