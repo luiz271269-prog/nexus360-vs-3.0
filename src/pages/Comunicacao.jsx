@@ -96,7 +96,21 @@ export default function Comunicacao() {
   const [broadcastInterno, setBroadcastInterno] = useState(null); // { destinations: [...] }
   const [isRateLimited, setIsRateLimited] = useState(false); // 🚫 Cool-down para 429
 
-  const [filterScope, setFilterScope] = useState('all');
+  // Estados com persistência no localStorage
+  const [filterScope, setFilterScopeState] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('filterScope') || 'all';
+    }
+    return 'all';
+  });
+  
+  const setFilterScope = (value) => {
+    setFilterScopeState(value);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('filterScope', value);
+    }
+  };
+
   const [selectedAttendantId, setSelectedAttendantId] = useState(null);
   const [selectedIntegrationId, setSelectedIntegrationId] = useState('all');
   const [selectedCategoria, setSelectedCategoria] = useState('all');
@@ -127,7 +141,10 @@ export default function Comunicacao() {
   useEffect(() => {
     if (usuario) {
         const isManager = usuario.role === 'admin' || usuario.role === 'supervisor';
-        setFilterScope(isManager ? 'all' : 'my');
+        // Se nenhum filtro foi setado no localStorage, usar default do role
+        if (!localStorage.getItem('filterScope')) {
+          setFilterScope(isManager ? 'all' : 'my');
+        }
     }
   }, [usuario]);
 
