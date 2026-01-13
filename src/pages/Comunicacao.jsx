@@ -834,6 +834,37 @@ export default function Comunicacao() {
     queryClient.invalidateQueries({ queryKey: ['threads'] });
   }, [threadAtiva, queryClient]);
 
+  // 🔄 HANDLER DE CORREÇÃO AUTOMÁTICA - Auto-Jump para Thread Canônica
+  const handleCorrigirMismatch = useCallback(async (idThreadReal) => {
+    console.log(`[AUTO-FIX] 🔄 Realizando salto para thread canônica: ${idThreadReal}`);
+
+    try {
+      // 1. Invalida queries para sincronizar lista lateral
+      await queryClient.invalidateQueries({ queryKey: ['threads'] });
+      await queryClient.invalidateQueries({ queryKey: ['mensagens'] });
+
+      // 2. Busca o objeto completo da nova thread
+      const threadNova = await base44.entities.MessageThread.filter({ id: idThreadReal });
+
+      if (threadNova && threadNova.length > 0) {
+        // 3. Força a troca na UI (atualiza também a URL se estiver persistindo)
+        setThreadAtiva(threadNova[0]);
+
+        // 4. Invalidar mensagens da thread anterior para evitar cache
+        queryClient.invalidateQueries({ queryKey: ['mensagens', threadAtiva?.id] });
+
+        toast.success("✅ Conversa atualizada para a versão mais recente!");
+        console.log(`[AUTO-FIX] ✅ Salto concluído. Agora em: ${threadNova[0].id}`);
+      } else {
+        toast.error("❌ Erro ao carregar thread canônica.");
+        console.error(`[AUTO-FIX] ❌ Thread não encontrada: ${idThreadReal}`);
+      }
+    } catch (error) {
+      console.error("[AUTO-FIX] ❌ Erro no auto-fix:", error);
+      toast.error("Erro ao sincronizar conversa");
+    }
+  }, [threadAtiva, queryClient]);
+
   // 🚀 OPTIMISTIC UI: Envio instantâneo de mensagens INTERNAS
   const handleEnviarMensagemInternaOtimista = useCallback(async (dadosEnvio) => {
     if (!threadAtiva || !usuario) return;
