@@ -333,10 +333,28 @@ export const canUserSeeThreadBase = (usuario, thread, mensagensThread = []) => {
     return true;
   }
 
+  // 🔔 PRIORIDADE ZERO: FAIL-SAFE ABSOLUTO - MENSAGENS RECEBIDAS <24h
+  // → SEMPRE VISÍVEL (ignora TUDO: atribuição, integração, setor, conexão)
+  // → ÚNICO BLOQUEIO: Fidelização a OUTRO (proteção de cliente VIP)
+  if (thread.last_inbound_at && thread.last_message_sender === 'contact') {
+    const horasSemResposta = (Date.now() - new Date(thread.last_inbound_at).getTime()) / (1000 * 60 * 60);
+    
+    if (horasSemResposta < 24) {
+      // Respeitar fidelização a OUTRO (proteção VIP)
+      if (contato?.is_cliente_fidelizado && !fidelizado) {
+        console.log(`[VISIBILIDADE] 🛑 Thread ${thread.id?.substring(0, 8)} - Mensagem <24h MAS fidelizada a outro`);
+        return false;
+      }
+      
+      console.log(`[VISIBILIDADE] ✅ Thread ${thread.id?.substring(0, 8)} - FAIL-SAFE 24h ATIVADO (${horasSemResposta.toFixed(1)}h) - IGNORA atribuição/integração/setor`);
+      return true;
+    }
+  }
+
   // ═══════════════════════════════════════════════════════════════════════════════
   // 🔑 CHAVE MESTRA ABSOLUTA: "Se é o dono, nunca bloqueia"
   // ═══════════════════════════════════════════════════════════════════════════════
-  // Verificada PRIMEIRO, antes de qualquer filtro técnico
+  // Verificada DEPOIS do fail-safe (para threads "frias")
   
   // 🔑 PRIORIDADE #1: Contato FIDELIZADO ao usuário
   // → SEMPRE VÊ (ignora integração/setor/conexão/permissão/filtros)
@@ -354,17 +372,6 @@ export const canUserSeeThreadBase = (usuario, thread, mensagensThread = []) => {
   // → Só o dono vê (bloqueia todos outros - inclui admin/gerente)
   if (contato?.is_cliente_fidelizado) {
     return false;
-  }
-
-  // 🔔 EXCEÇÃO CRÍTICA: MENSAGENS RECEBIDAS RECENTES (<24h) SEMPRE VISÍVEIS
-  // Ignora integração/conexão/setor (mas respeita fidelização)
-  if (thread.last_inbound_at && thread.last_message_sender === 'contact') {
-    const horasSemResposta = (Date.now() - new Date(thread.last_inbound_at).getTime()) / (1000 * 60 * 60);
-    
-    if (horasSemResposta < 24) {
-      console.log(`[VISIBILIDADE] ✅ Thread ${thread.id?.substring(0, 8)} - MENSAGEM RECEBIDA <24h (${horasSemResposta.toFixed(1)}h) - SEMPRE VISÍVEL`);
-      return true;
-    }
   }
 
   // 4) GERENTES veem threads SEM RESPOSTA há 30+ minutos
@@ -483,6 +490,37 @@ export const canUserSeeThreadWithFilters = (usuario, thread, filtros = {}) => {
   // ✅ PRIORIDADES ABSOLUTAS (IGNORAM TODAS AS RESTRIÇÕES)
   // ═══════════════════════════════════════════════════════════════════════
   
+  // 🔔 PRIORIDADE ZERO: FAIL-SAFE ABSOLUTO - MENSAGENS RECEBIDAS <24h
+  // → SEMPRE VISÍVEL (ignora atribuição, integração, setor, conexão)
+  // → ÚNICO BLOQUEIO: Fidelização a OUTRO (proteção VIP)
+  // → RESPEITA ESCOPO: Não aparece em "my" se não for minha
+  if (thread.last_inbound_at && thread.last_message_sender === 'contact') {
+    const horasSemResposta = (Date.now() - new Date(thread.last_inbound_at).getTime()) / (1000 * 60 * 60);
+
+    if (horasSemResposta < 24) {
+      // Respeitar fidelização a OUTRO (proteção VIP)
+      if (contato?.is_cliente_fidelizado && !fidelizado) {
+        console.log(`[VISIBILIDADE] 🛑 Thread ${thread.id?.substring(0, 8)} - Mensagem <24h MAS fidelizada a outro`);
+        return false;
+      }
+
+      console.log(`[VISIBILIDADE] ✅ Thread ${thread.id?.substring(0, 8)} - FAIL-SAFE 24h (${horasSemResposta.toFixed(1)}h) - IGNORA atribuição/integração/setor`);
+
+      // 🎯 APLICAR APENAS ESCOPO (my/unassigned/all)
+      if (filtros.scope === 'my') {
+        // Mensagem recente mas não é minha → mostrar em "não atribuídas" ou "todas"
+        return false;
+      }
+
+      if (filtros.scope === 'unassigned') {
+        return isNaoAtribuida(thread); // Só mostra se não atribuída
+      }
+
+      // scope=all ou sem scope → sempre visível
+      return true;
+    }
+  }
+
   // PRIORIDADE 1: Thread ATRIBUÍDA ao usuário → SEMPRE VÊ
   if (atribuido) {
     return true;
@@ -493,29 +531,6 @@ export const canUserSeeThreadWithFilters = (usuario, thread, filtros = {}) => {
   if (fidelizado) {
     console.log(`[VISIBILIDADE] ✅ Thread ${thread.id?.substring(0, 8)} - FIDELIZADA ao usuário ${usuario.email} (ignora restrições)`);
     return true;
-  }
-
-  // 🔔 EXCEÇÃO CRÍTICA: MENSAGENS RECEBIDAS RECENTES (<24h) SEMPRE VISÍVEIS
-  // Ignora integração/conexão/setor (mas respeita fidelização a outro)
-  if (thread.last_inbound_at && thread.last_message_sender === 'contact') {
-    const horasSemResposta = (Date.now() - new Date(thread.last_inbound_at).getTime()) / (1000 * 60 * 60);
-    
-    if (horasSemResposta < 24) {
-      console.log(`[VISIBILIDADE] ✅ Thread ${thread.id?.substring(0, 8)} - MENSAGEM RECEBIDA <24h (${horasSemResposta.toFixed(1)}h) - IGNORA FILTROS TÉCNICOS`);
-      // Pula verificações de integração/setor/conexão
-      
-      // 🎯 APLICAR APENAS ESCOPO (my/unassigned/all)
-      if (filtros.scope === 'my') {
-        return false; // Mensagem recente mas não é minha (não atribuída nem fidelizada)
-      }
-      
-      if (filtros.scope === 'unassigned') {
-        return isNaoAtribuida(thread); // Só mostra se não atribuída
-      }
-      
-      // scope=all ou sem scope → sempre visível
-      return true;
-    }
   }
 
   // ═══════════════════════════════════════════════════════════════════════
