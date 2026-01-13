@@ -56,6 +56,7 @@ import GoToConnectionSetup from "../components/comunicacao/GoToConnectionSetup";
 import DiagnosticoVisibilidadeRealtime from "../components/comunicacao/DiagnosticoVisibilidadeRealtime";
 import DiagnosticoThreadsInvisiveis from "../components/comunicacao/DiagnosticoThreadsInvisiveis";
 import DiagnosticoComparativoThreads from "../components/comunicacao/DiagnosticoComparativoThreads";
+import LogsFiltragemViewer from "../components/comunicacao/LogsFiltragemViewer";
 import { useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 
@@ -1119,7 +1120,22 @@ export default function Comunicacao() {
     // PARTE 1: Filtrar THREADS existentes com REGRAS DE VISUALIZAÇÃO
     // (Usando threadsUnicas - permite múltiplos canais por contato)
     // ═══════════════════════════════════════════════════════════════════════════
+    
+    // 🔍 LOGS DETALHADOS: Rastrear onde cada thread é bloqueada
+    const logsFiltragem = [];
+    
     const threadsFiltrados = threadsUnicas.filter((thread) => {
+      const logThread = (etapa, passou, motivo = '') => {
+        logsFiltragem.push({
+          threadId: thread.id.substring(0, 8),
+          contactId: thread.contact_id?.substring(0, 8),
+          etapa,
+          passou,
+          motivo,
+          timestamp: new Date().toISOString()
+        });
+      };
+      
       // 🔍 DEBUG: Log para thread específica do Luiz
       const isLuizThread = thread.id === '693306f0ffbdced31cc623e3';
       if (isLuizThread) {
@@ -1137,7 +1153,9 @@ export default function Comunicacao() {
       if (thread.thread_type === 'team_internal' || thread.thread_type === 'sector_group') {
         const isParticipant = thread.participants?.includes(usuario?.id);
         const isAdmin = usuario?.role === 'admin';
-        return Boolean(isParticipant || isAdmin);
+        const passou = Boolean(isParticipant || isAdmin);
+        logThread('Thread Interna', passou, !passou ? 'Não é participante nem admin' : 'OK');
+        return passou;
       }
       
       // ⬇️ Daqui pra baixo: SOMENTE threads EXTERNAS (contact_external)
@@ -1150,11 +1168,14 @@ export default function Comunicacao() {
 
       // Threads órfãs sem contato: manter apenas se filtro "não atribuídas" ativo
       if (!contato && !isFilterUnassigned) {
+        logThread('Contato Existe', false, 'Thread órfã sem contato (bloqueado exceto em não atribuídas)');
         if (isLuizThread) {
           console.log('[COMUNICACAO] ❌ DIAGNÓSTICO LUIZ - BLOQUEADO por falta de contato');
         }
         return false;
       }
+      
+      logThread('Contato Existe', true, contato ? 'Contato encontrado' : 'Órfã permitida');
 
       if (thread.contact_id) {
         threadsComContatoIds.add(thread.contact_id);
@@ -1169,20 +1190,34 @@ export default function Comunicacao() {
       if (modoBusca) {
         // Verificar permissões base mesmo em modo busca
         if (!canUserSeeThreadBase(usuario, threadComContato)) {
+          logThread('Modo Busca - Base', false, 'Bloqueado por visibilidade base');
           return false;
         }
+        
+        logThread('Modo Busca - Base', true, 'Passou visibilidade base');
         
         if (!contato || !matchBuscaGoogle(contato, debouncedSearchTerm)) {
+          logThread('Modo Busca - Match', false, 'Não match com termo de busca');
           return false;
         }
         
+        logThread('Modo Busca - Match', true, 'Match encontrado');
+        
         if (selectedTipoContato && selectedTipoContato !== 'all' && contato.tipo_contato !== selectedTipoContato) {
+          logThread('Modo Busca - Tipo', false, `Tipo diferente (esperado: ${selectedTipoContato}, atual: ${contato.tipo_contato})`);
           return false;
         }
+        logThread('Modo Busca - Tipo', true, 'Tipo OK');
+        
         if (selectedTagContato && selectedTagContato !== 'all') {
           const tags = contato.tags || [];
-          if (!tags.includes(selectedTagContato)) return false;
+          if (!tags.includes(selectedTagContato)) {
+            logThread('Modo Busca - Tag', false, `Tag não encontrada (esperado: ${selectedTagContato})`);
+            return false;
+          }
         }
+        logThread('Modo Busca - Tag', true, 'Tag OK');
+        
         return true;
       }
 
@@ -1194,67 +1229,98 @@ export default function Comunicacao() {
       if (isFilterUnassigned) {
         // ✅ Usar Set de IDs de threads (não de contatos)
         if (!threadsNaoAtribuidasVisiveis.has(thread.id)) {
+          logThread('Filtro Não Atribuídas', false, 'Thread não está no Set de não atribuídas visíveis');
           if (isLuizThread) {
             console.log('[COMUNICACAO] ❌ DIAGNÓSTICO LUIZ - BLOQUEADO por filtro não atribuídas');
           }
           return false;
         }
+        
+        logThread('Filtro Não Atribuídas', true, 'Thread está no Set');
 
         // Aplicar filtro de integração específica se selecionado
         if (selectedIntegrationId && selectedIntegrationId !== 'all') {
           if (thread.whatsapp_integration_id !== selectedIntegrationId) {
+            logThread('Filtro Integração', false, `Integração diferente (esperado: ${selectedIntegrationId})`);
             if (isLuizThread) {
               console.log('[COMUNICACAO] ❌ DIAGNÓSTICO LUIZ - BLOQUEADO por filtro de integração específica');
             }
             return false;
           }
         }
+        logThread('Filtro Integração', true, 'Integração OK');
       } else {
         // REGRA CENTRAL: Usar módulo threadVisibility.js para outros escopos
         const podeVer = canUserSeeThreadWithFilters(usuario, threadComContato, filtros);
         if (!podeVer) {
+          logThread('Visibilidade Com Filtros', false, 'Bloqueado por canUserSeeThreadWithFilters');
           if (isLuizThread) {
             console.log('[COMUNICACAO] ❌ DIAGNÓSTICO LUIZ - BLOQUEADO por canUserSeeThreadWithFilters', filtros);
           }
           return false;
         }
+        logThread('Visibilidade Com Filtros', true, 'Passou todas as regras');
       }
 
       // FILTROS ADICIONAIS (categoria, tipo contato, tag)
       if (categoriasSet && !categoriasSet.has(thread.id)) {
+        logThread('Filtro Categoria', false, 'Thread não tem mensagem com categoria selecionada');
         if (isLuizThread) {
           console.log('[COMUNICACAO] ❌ DIAGNÓSTICO LUIZ - BLOQUEADO por filtro de categoria');
         }
         return false;
       }
+      if (categoriasSet) {
+        logThread('Filtro Categoria', true, 'Thread tem mensagem com categoria');
+      }
 
       if (selectedTipoContato && selectedTipoContato !== 'all' && contato) {
         if (contato.tipo_contato !== selectedTipoContato) {
+          logThread('Filtro Tipo Contato', false, `Tipo diferente (esperado: ${selectedTipoContato}, atual: ${contato.tipo_contato})`);
           if (isLuizThread) {
             console.log('[COMUNICACAO] ❌ DIAGNÓSTICO LUIZ - BLOQUEADO por filtro de tipo de contato');
           }
           return false;
         }
+        logThread('Filtro Tipo Contato', true, 'Tipo OK');
       }
 
       if (selectedTagContato && selectedTagContato !== 'all' && contato) {
         const tags = contato.tags || [];
         if (!tags.includes(selectedTagContato)) {
+          logThread('Filtro Tag', false, `Tag não encontrada (esperado: ${selectedTagContato})`);
           if (isLuizThread) {
             console.log('[COMUNICACAO] ❌ DIAGNÓSTICO LUIZ - BLOQUEADO por filtro de tag');
           }
           return false;
         }
+        logThread('Filtro Tag', true, 'Tag OK');
       }
 
       if (isLuizThread) {
         console.log('[COMUNICACAO] ✅ DIAGNÓSTICO LUIZ - PASSOU em todos os filtros!');
       }
-
+      
+      logThread('✅ APROVADA', true, 'Passou em todos os filtros');
       return true;
     });
     
     console.log('[COMUNICACAO] 📊 Total de threads filtradas:', threadsFiltrados.length);
+    
+    // 🔍 LOG RESUMIDO: Threads bloqueadas por etapa
+    const bloqueadasPorEtapa = logsFiltragem
+      .filter(l => !l.passou)
+      .reduce((acc, log) => {
+        acc[log.etapa] = (acc[log.etapa] || 0) + 1;
+        return acc;
+      }, {});
+    
+    if (Object.keys(bloqueadasPorEtapa).length > 0) {
+      console.log('[COMUNICACAO] 🚫 Threads bloqueadas por etapa:', bloqueadasPorEtapa);
+    }
+    
+    // Expor logs para diagnóstico
+    window._logsFiltragem = logsFiltragem;
     
     // 🔍 DEBUG: Verificar se thread canônica do Luiz está na lista
     const threadLuizCanonica = threadsFiltrados.find(t => t.id === '6932fbf5e7708be9b205eaae');
@@ -1281,6 +1347,14 @@ export default function Comunicacao() {
         // 🎯 PRIORIDADE MÁXIMA: Se busca detectou duplicatas, IGNORAR contatos que não sejam o principal
         if (duplicataEncontrada && duplicataEncontrada.principal) {
           if (contato.id !== duplicataEncontrada.principal.id) {
+            logsFiltragem.push({
+              threadId: `contato-${contato.id.substring(0, 8)}`,
+              contactId: contato.id.substring(0, 8),
+              etapa: 'Deduplicação',
+              passou: false,
+              motivo: `Ignorado - não é contato principal (principal: ${duplicataEncontrada.principal.id.substring(0, 8)})`,
+              timestamp: new Date().toISOString()
+            });
             console.log(`[COMUNICACAO] 🚫 Ignorando contato duplicado (não-principal): ${contato.id} ${contato.nome}`);
             return;
           }
@@ -1353,6 +1427,7 @@ export default function Comunicacao() {
       threadsUnicas,
       threadsNaoAtribuidasVisiveis,
       duplicataEncontrada,
+      logsFiltragem, // 🆕 Logs detalhados de cada etapa
       filtrosAtivos: {
         scope: filterScope,
         integracaoId: selectedIntegrationId,
@@ -1360,6 +1435,12 @@ export default function Comunicacao() {
         tipoContato: selectedTipoContato,
         tagContato: selectedTagContato,
         categoria: selectedCategoria
+      },
+      estatisticas: {
+        totalThreadsUnicas: threadsUnicas.length,
+        threadsFiltradas: threadsFiltrados.length,
+        bloqueadas: threadsUnicas.length - threadsFiltrados.length,
+        bloqueadasPorEtapa
       }
     };
     
@@ -1715,6 +1796,8 @@ export default function Comunicacao() {
 
             <TabsContent value="diagnostico" className="h-full m-0 overflow-hidden">
               <div className="h-full overflow-y-auto p-6 space-y-6">
+                <LogsFiltragemViewer />
+                
                 <DiagnosticoComparativoThreads
                   usuario={usuario}
                   filtros={{
