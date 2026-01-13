@@ -600,15 +600,12 @@ export default function SearchAndFilter({
             )}
 
             {/* BOTÃO ANÁLISE COMPLETA - Análise por telefone OU nome */}
-              {duplicataEncontrada && (
+              {duplicataEncontrada && onAbrirDiagnostico && (
                 <Button
                   onClick={() => {
-                    // ✅ Se busca por nome, usar identificador único do contato
-                    const identificador = duplicataEncontrada.tipo === 'nome' 
-                      ? duplicataEncontrada.principal.id  // ID para busca por nome
-                      : duplicataEncontrada.principal.telefone; // Telefone para busca por telefone
-
-                    onAbrirDiagnostico && onAbrirDiagnostico(identificador);
+                    // ✅ Sempre usar ID do contato (funciona para busca por nome E por telefone)
+                    const identificador = duplicataEncontrada.principal.id;
+                    onAbrirDiagnostico(identificador);
                   }}
                   className={`shadow-lg ${isAdmin ? 'bg-green-600 hover:bg-green-700 shadow-green-500/25' : 'bg-indigo-600 hover:bg-indigo-700 shadow-indigo-500/25'}`}
                   size="sm"
