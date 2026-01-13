@@ -543,7 +543,7 @@ async function handleMessage(dados, payloadBruto, base44) {
 
     if (threads && threads.length > 0) {
         thread = threads[0];
-        console.log(`[WAPI]  canonical-thread-found: ${thread.id} (last_message_at: ${thread.last_message_at})`);
+        console.log(`[WAPI] canonical-thread-found: ${thread.id} (last_message_at: ${thread.last_message_at})`);
     } else {
         console.log(`[WAPI] canonical-thread-not-found: Criando nova thread.`);
         const agora = new Date().toISOString();
@@ -557,10 +557,10 @@ async function handleMessage(dados, payloadBruto, base44) {
             last_message_sender: 'contact',
             last_message_content: String(dados.content || '').substring(0, 100),
             last_media_type: dados.mediaType || 'none',
-            total_mensagens: 0, // Inicia com 0, será incrementado depois
-            unread_count: 0,   // Inicia com 0, será incrementado depois
+            total_mensagens: 1, // ✅ CRÍTICO: Inicia com 1 (será salva 1 msg logo abaixo)
+            unread_count: 1,    // ✅ CRÍTICO: Inicia com 1 (cliente esperando resposta)
         });
-        console.log(`[WAPI] new-canonical-thread-created: ${thread.id}`);
+        console.log(`[WAPI] new-canonical-thread-created: ${thread.id} | Inicializado com 1 msg e 1 não lida`);
     }
   } catch (e) {
     console.error(`[WAPI] ❌ Erro thread:`, e?.message);
