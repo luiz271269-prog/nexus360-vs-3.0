@@ -1416,10 +1416,7 @@ export default function Comunicacao() {
       const dateB = new Date(b.last_message_at || 0);
       return dateB - dateA;
     });
-  }, [threadsFiltradas, contatos, atendentes, filterScope, debouncedSearchTerm]);
-  
-  // 🎯 Função auxiliar: Calcular score de relevância da busca
-  const calcularScoreBusca = (contato, termo) => {
+  }, [threadsFiltradas, contatos, atendentes, filterScope, debouncedSearchTerm, calcularScoreBusca]);
     if (!contato || !termo) return 0;
     
     const normalizar = (t) => String(t || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
