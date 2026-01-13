@@ -1456,6 +1456,44 @@ export default function Comunicacao() {
     return score;
   };
 
+  // 🎯 Função auxiliar: Calcular score de relevância da busca
+  const calcularScoreBusca = React.useCallback((contato, termo) => {
+    if (!contato || !termo) return 0;
+    
+    const normalizar = (t) => String(t || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
+    const termoNorm = normalizar(termo);
+    const termoNumeros = termo.replace(/\D/g, '');
+    
+    let score = 0;
+    
+    // 🥇 MATCH EXATO de nome/empresa: +100
+    if (normalizar(contato.nome) === termoNorm) score += 100;
+    if (normalizar(contato.empresa) === termoNorm) score += 100;
+    
+    // 🥈 COMEÇA COM: +50
+    if (normalizar(contato.nome).startsWith(termoNorm)) score += 50;
+    if (normalizar(contato.empresa).startsWith(termoNorm)) score += 50;
+    
+    // 🥉 CONTÉM: +20
+    if (normalizar(contato.nome).includes(termoNorm)) score += 20;
+    if (normalizar(contato.empresa).includes(termoNorm)) score += 15;
+    if (normalizar(contato.cargo).includes(termoNorm)) score += 10;
+    
+    // 📱 TELEFONE: Match exato ou parcial
+    const telContato = (contato.telefone || '').replace(/\D/g, '');
+    if (termoNumeros.length >= 3) {
+      if (telContato === termoNumeros) score += 100; // Match exato
+      else if (telContato.includes(termoNumeros)) score += 80; // Contém
+      else if (termoNumeros.includes(telContato)) score += 60; // Parcial
+    }
+    
+    // 🏷️ VIP/Favorito: Bônus
+    if (contato.tags?.includes('vip')) score += 10;
+    if (contato.is_cliente_fidelizado) score += 5;
+    
+    return score;
+  }, []);
+
   const isManager = usuario?.role === 'admin' || usuario?.role === 'supervisor';
   const contatoAtivo = threadAtiva ? contatos.find((c) => c.id === threadAtiva.contact_id) : null;
 
