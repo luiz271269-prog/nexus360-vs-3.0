@@ -154,20 +154,86 @@ export default function Comunicacao() {
   }, [usuario, threadAtiva?.id, queryClient]);
 
   // ═══════════════════════════════════════════════════════════════════════════════
-  // 🔍 BUSCA DE DADOS - Direto no frontend (sem função backend)
+  // 🔍 BUSCA DE THREADS PRIMEIRO (Fonte da Verdade)
   // ═══════════════════════════════════════════════════════════════════════════════
-  const { data: contatos = [], isLoading: loadingContatos } = useQuery({
-    queryKey: ['contacts'],
-    queryFn: () => base44.entities.Contact.list('-created_date', 300),
-    staleTime: 5 * 60 * 1000,
-    cacheTime: 15 * 60 * 1000,
+  const { data: threads = [], isLoading: loadingThreads } = useQuery({
+    queryKey: ['threads', usuario?.id],
+    queryFn: async () => {
+      if (isRateLimited) return [];
+      try {
+        const allThreads = await base44.entities.MessageThread.list('-last_message_at', 500);
+        console.log('[COMUNICACAO] 📊 Threads carregadas:', allThreads.length);
+        return allThreads;
+      } catch (error) {
+        if (error?.message?.includes('429') || error?.response?.status === 429) {
+          console.warn('[COMUNICACAO] ⚠️ 429 Rate Limited! Ativando cool-down de 10s...');
+          setIsRateLimited(true);
+          setTimeout(() => {
+            setIsRateLimited(false);
+            console.log('[COMUNICACAO] ✅ Cool-down finalizado, retentando...');
+          }, 10000);
+          return [];
+        }
+        throw error;
+      }
+    },
+    refetchInterval: 30000,
+    staleTime: 15000,
+    enabled: !isRateLimited,
     retry: 2,
     retryDelay: 1000,
     refetchOnWindowFocus: true,
-    // ✅ NÃO depende de usuário - começa IMEDIATAMENTE
+    refetchOnMount: 'always',
+    onError: (error) => {
+      console.error('[Comunicacao] Erro ao carregar conversas:', error);
+    }
+  });
+
+  // ═══════════════════════════════════════════════════════════════════════════════
+  // 🎯 EXTRAÇÃO DE IDs DE CONTATO - Hidratação Sob Demanda
+  // ═══════════════════════════════════════════════════════════════════════════════
+  const contactIdsParaCarregar = React.useMemo(() => {
+    if (!threads.length) return [];
+    const ids = threads.map(t => t.contact_id).filter(id => id);
+    console.log('[COMUNICACAO] 🎯 IDs de contato para hidratar:', ids.length);
+    return [...new Set(ids)]; // Remove duplicatas
+  }, [threads]);
+
+  // ═══════════════════════════════════════════════════════════════════════════════
+  // 🔍 BUSCA CIRÚRGICA DE CONTATOS - Apenas os necessários
+  // ═══════════════════════════════════════════════════════════════════════════════
+  const { data: contatos = [], isLoading: loadingContatos } = useQuery({
+    queryKey: ['contacts', contactIdsParaCarregar],
+    queryFn: async () => {
+      if (contactIdsParaCarregar.length === 0) return [];
+      
+      console.log(`[COMUNICACAO] 📎 Hidratando ${contactIdsParaCarregar.length} contatos específicos...`);
+      
+      try {
+        // Estratégia: Buscar lista maior e filtrar em memória (fallback robusto)
+        const todosContatos = await base44.entities.Contact.list('-last_interaction', 1000);
+        
+        // Filtrar em memória apenas os que estão em contactIdsParaCarregar
+        const contatosNecessarios = todosContatos.filter(c =>
+          contactIdsParaCarregar.includes(c.id)
+        );
+        
+        console.log(`[COMUNICACAO] ✅ Contatos hidratados: ${contatosNecessarios.length}/${contactIdsParaCarregar.length}`);
+        return contatosNecessarios;
+      } catch (error) {
+        console.error('[COMUNICACAO] ❌ Erro ao hidratar contatos:', error);
+        return [];
+      }
+    },
+    enabled: contactIdsParaCarregar.length > 0,
+    keepPreviousData: true,
+    staleTime: 60000,
+    cacheTime: 15 * 60 * 1000,
+    retry: 2,
+    retryDelay: 1000,
+    refetchOnWindowFocus: false,
     onError: (error) => {
       console.error('[Comunicacao] Erro ao carregar contatos:', error);
-      toast.error('Erro ao carregar contatos. Tentando novamente...');
     }
   });
 
