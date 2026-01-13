@@ -183,8 +183,12 @@ export default function Comunicacao() {
   // ═══════════════════════════════════════════════════════════════════════════════
   // 1️⃣ EXTRAÇÃO DE IDs DE CONTATO DAS THREADS (Hidratação Sob Demanda)
   const contactIdsParaCarregar = React.useMemo(() => {
-    return [];
-  }, []);
+    if (!threads.length) return [];
+    // Pega todos os contact_id não nulos das threads carregadas
+    const ids = threads.map(t => t.contact_id).filter(id => id);
+    // Remove duplicatas
+    return [...new Set(ids)];
+  }, [threads]);
 
   // 2️⃣ BUSCA CIRÚRGICA: Apenas os contatos necessários
   const { data: contatos = [], isLoading: loadingContatos } = useQuery({
@@ -828,37 +832,6 @@ export default function Comunicacao() {
       queryClient.invalidateQueries({ queryKey: ['mensagens', threadAtiva?.id] });
     }
     queryClient.invalidateQueries({ queryKey: ['threads'] });
-  }, [threadAtiva, queryClient]);
-
-  // 🔄 HANDLER DE CORREÇÃO AUTOMÁTICA - Auto-Jump para Thread Canônica
-  const handleCorrigirMismatch = useCallback(async (idThreadReal) => {
-    console.log(`[AUTO-FIX] 🔄 Realizando salto para thread canônica: ${idThreadReal}`);
-
-    try {
-      // 1. Invalida queries para sincronizar lista lateral
-      await queryClient.invalidateQueries({ queryKey: ['threads'] });
-      await queryClient.invalidateQueries({ queryKey: ['mensagens'] });
-
-      // 2. Busca o objeto completo da nova thread
-      const threadNova = await base44.entities.MessageThread.filter({ id: idThreadReal });
-
-      if (threadNova && threadNova.length > 0) {
-        // 3. Força a troca na UI (atualiza também a URL se estiver persistindo)
-        setThreadAtiva(threadNova[0]);
-
-        // 4. Invalidar mensagens da thread anterior para evitar cache
-        queryClient.invalidateQueries({ queryKey: ['mensagens', threadAtiva?.id] });
-
-        toast.success("✅ Conversa atualizada para a versão mais recente!");
-        console.log(`[AUTO-FIX] ✅ Salto concluído. Agora em: ${threadNova[0].id}`);
-      } else {
-        toast.error("❌ Erro ao carregar thread canônica.");
-        console.error(`[AUTO-FIX] ❌ Thread não encontrada: ${idThreadReal}`);
-      }
-    } catch (error) {
-      console.error("[AUTO-FIX] ❌ Erro no auto-fix:", error);
-      toast.error("Erro ao sincronizar conversa");
-    }
   }, [threadAtiva, queryClient]);
 
   // 🚀 OPTIMISTIC UI: Envio instantâneo de mensagens INTERNAS
@@ -1936,9 +1909,13 @@ export default function Comunicacao() {
                           <div className="space-y-2">
                             <DiagnosticoVisibilidadeRealtime
                               threadId={threadAtiva?.id}
-                              ultimaMensagemRecebida={mensagens[0]} // Primeira msg (mais recente se DESC)
-                              realTimeActive={true}
-                              onCorrigirThread={handleCorrigirMismatch} />
+                              ultimaMensagemRecebida={mensagens[mensagens.length - 1]}
+                              filtros={{
+                                scope: filterScope,
+                                integracaoId: selectedIntegrationId,
+                                atendente: selectedAttendantId
+                              }}
+                              realTimeActive={true} />
 
                             {usuario?.role === 'admin' && (
                               <DiagnosticoBuscaGlobal

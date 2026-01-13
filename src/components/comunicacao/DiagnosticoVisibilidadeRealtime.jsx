@@ -1,106 +1,163 @@
-import React, { useEffect, useState } from 'react';
-import { AlertCircle, CheckCircle2, ArrowRightLeft, ShieldAlert } from 'lucide-react';
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import React, { useState, useEffect } from 'react';
+import { Eye, AlertCircle, CheckCircle2, Zap } from 'lucide-react';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
 
 /**
- * 🚨 DETECTOR DE MISMATCH EM TEMPO REAL
+ * Diagnóstico Visual em Tempo Real
+ * Mostra qual thread está aberto vs qual thread recebeu mensagem
  * 
- * Detecta quando a thread aberta na UI (threadId) é diferente da thread 
- * onde a mensagem realmente foi salva (ultimaMensagemRecebida.thread_id).
- * 
- * Isso acontece quando o backend faz auto-merge para canônica,
- * mas o usuário continua visualizando uma thread antiga/merged.
- * 
- * Solução: Oferece botão para pular para a thread real (canônica).
+ * Props:
+ * - threadId: ID da thread atualmente aberta
+ * - ultimaMensagemRecebida: Objeto da última mensagem recebida
+ * - filtros: Filtros ativos na UI
+ * - realTimeActive: Se real-time subscription está ativo
  */
-export default function DiagnosticoVisibilidadeRealtime({ 
-  threadId, 
+export default function DiagnosticoVisibilidadeRealtime({
+  threadId,
   ultimaMensagemRecebida,
-  realTimeActive = false,
-  onCorrigirThread // Callback: (idThreadReal) => void
+  filtros = {},
+  realTimeActive = false
 }) {
-  const [hasMismatch, setHasMismatch] = useState(false);
-  const [threadReal, setThreadReal] = useState(null);
+  const [historico, setHistorico] = useState([]);
+  const [expandido, setExpandido] = useState(false);
 
   useEffect(() => {
-    // Se não há mensagem ou não está em real-time, não fazer nada
-    if (!ultimaMensagemRecebida || !realTimeActive || !threadId) {
-      setHasMismatch(false);
-      setThreadReal(null);
-      return;
-    }
+    if (ultimaMensagemRecebida) {
+      const novo = {
+        timestamp: new Date().toLocaleTimeString('pt-BR'),
+        conteudo: ultimaMensagemRecebida.content?.substring(0, 50),
+        threadRecebida: ultimaMensagemRecebida.thread_id,
+        threadAtual: threadId,
+        corresponde: ultimaMensagemRecebida.thread_id === threadId,
+        senderType: ultimaMensagemRecebida.sender_type,
+        visibility: ultimaMensagemRecebida.visibility
+      };
 
-    const msgThreadId = ultimaMensagemRecebida.thread_id;
-    
-    // Detectar incompatibilidade
-    if (msgThreadId && msgThreadId !== threadId) {
-      console.error(`[DIAGNÓSTICO] 🚨 MISMATCH DETECTADO!`);
-      console.error(`  👀 Vendo (UI):   ${threadId}`);
-      console.error(`  💾 Real (DB):    ${msgThreadId}`);
-      console.error(`  📄 Conteúdo:     "${ultimaMensagemRecebida.content?.substring(0, 50)}..."`);
-      
-      setHasMismatch(true);
-      setThreadReal(msgThreadId);
-    } else {
-      setHasMismatch(false);
-      setThreadReal(null);
+      setHistorico(prev => [novo, ...prev].slice(0, 5));
     }
-  }, [ultimaMensagemRecebida, threadId, realTimeActive]);
+  }, [ultimaMensagemRecebida, threadId]);
 
-  // Se não há mismatch, não renderizar nada (silencioso)
-  if (!hasMismatch || !threadReal) {
-    return null;
-  }
+  const corresponde = ultimaMensagemRecebida?.thread_id === threadId;
+  const estaVisivel = ultimaMensagemRecebida?.visibility === 'public_to_customer';
 
   return (
-    <div className="fixed bottom-4 right-4 z-50 p-4 rounded-lg shadow-2xl border bg-red-900/95 border-red-500 backdrop-blur-md w-96 animate-in slide-in-from-bottom-5">
-      
-      {/* Header */}
-      <div className="flex items-center justify-between mb-3">
-        <h4 className="text-white font-bold flex items-center gap-2">
-          <ShieldAlert className="w-5 h-5 text-red-400 animate-pulse" />
-          DESINCRONIA DETECTADA
-        </h4>
-        <Badge variant="destructive" className="animate-pulse">MISMATCH</Badge>
-      </div>
-
-      {/* Descrição do Problema */}
-      <div className="space-y-3 text-xs text-slate-200">
-        <div className="bg-black/40 p-3 rounded border border-white/10">
-          <p className="text-red-200 mb-3 leading-relaxed">
-            Você está visualizando uma thread antiga/mesclada, mas a mensagem nova chegou na <strong>thread canônica</strong>.
-          </p>
-          
-          <div className="grid grid-cols-2 gap-3 font-mono text-[10px]">
-            <div className="bg-red-950/50 p-2 rounded border border-red-700/50">
-              <span className="block text-slate-400 mb-1">❌ Vendo (UI):</span>
-              <span className="text-yellow-300 break-all">...{threadId.slice(-8)}</span>
+    <div className="fixed bottom-4 right-4 z-40 max-w-md">
+      <Card className="bg-slate-900 border-slate-700 text-white shadow-xl">
+        <CardHeader className="p-3 pb-2 cursor-pointer hover:bg-slate-800" onClick={() => setExpandido(!expandido)}>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Eye className="h-4 w-4 text-blue-400" />
+              <CardTitle className="text-xs">Diagnóstico Realtime</CardTitle>
             </div>
-            <div className="bg-emerald-950/50 p-2 rounded border border-emerald-700/50">
-              <span className="block text-slate-400 mb-1">✅ Real (DB):</span>
-              <span className="text-emerald-300 break-all">...{threadReal.slice(-8)}</span>
+            <div className="flex gap-1">
+              {realTimeActive && (
+                <Badge className="bg-green-900 text-green-200 text-[10px]">
+                  <Zap className="h-2 w-2 mr-1" />
+                  ON
+                </Badge>
+              )}
+              <Badge className={`text-[10px] ${corresponde ? 'bg-green-900 text-green-200' : 'bg-red-900 text-red-200'}`}>
+                {corresponde ? '✓ Match' : '✗ Mismatch'}
+              </Badge>
             </div>
           </div>
-        </div>
+        </CardHeader>
 
-        {/* Botão de Correção */}
-        <Button 
-          onClick={() => {
-            console.log(`[AUTO-FIX] 🔄 Usuário clicou para corrigir: ${threadReal}`);
-            onCorrigirThread && onCorrigirThread(threadReal);
-          }}
-          className="w-full bg-white text-red-900 hover:bg-slate-200 font-bold shadow-lg transition-all"
-        >
-          <ArrowRightLeft className="w-4 h-4 mr-2" />
-          Ir para Conversa Atual
-        </Button>
+        {expandido && (
+          <CardContent className="p-3 space-y-3 text-xs max-h-96 overflow-y-auto">
+            {/* Status Geral */}
+            <div className="space-y-2 border-b border-slate-700 pb-3">
+              <div className="flex items-center gap-2">
+                {corresponde ? (
+                  <CheckCircle2 className="h-4 w-4 text-green-400" />
+                ) : (
+                  <AlertCircle className="h-4 w-4 text-yellow-400" />
+                )}
+                <span className="font-mono">
+                  {corresponde ? 'Thread: MATCH ✓' : 'Thread: MISMATCH ✗'}
+                </span>
+              </div>
 
-        {/* Aviso Técnico */}
-        <p className="text-slate-400 text-[9px] text-center italic">
-          O backend mesclou threads automaticamente. Clique acima para sincronizar a tela.
-        </p>
-      </div>
+              <div className="flex items-center gap-2">
+                {estaVisivel ? (
+                  <CheckCircle2 className="h-4 w-4 text-green-400" />
+                ) : (
+                  <AlertCircle className="h-4 w-4 text-orange-400" />
+                )}
+                <span className="font-mono">
+                  Visibilidade: {ultimaMensagemRecebida?.visibility || 'N/A'}
+                </span>
+              </div>
+
+              <div className="flex items-center gap-2">
+                {realTimeActive ? (
+                  <CheckCircle2 className="h-4 w-4 text-green-400" />
+                ) : (
+                  <AlertCircle className="h-4 w-4 text-red-400" />
+                )}
+                <span className="font-mono">
+                  Real-time: {realTimeActive ? 'ATIVO' : 'INATIVO'}
+                </span>
+              </div>
+            </div>
+
+            {/* Thread Comparação */}
+            <div className="space-y-1 border-b border-slate-700 pb-3">
+              <div className="text-slate-400">Thread Aberto:</div>
+              <div className="font-mono bg-slate-800 p-2 rounded text-[10px] break-all">
+                {threadId || 'NENHUM'}
+              </div>
+
+              <div className="text-slate-400 mt-2">Thread da Mensagem:</div>
+              <div className="font-mono bg-slate-800 p-2 rounded text-[10px] break-all">
+                {ultimaMensagemRecebida?.thread_id || 'NENHUM'}
+              </div>
+            </div>
+
+            {/* Filtros */}
+            {Object.keys(filtros).length > 0 && (
+              <div className="space-y-1 border-b border-slate-700 pb-3">
+                <div className="text-slate-400">Filtros Ativos:</div>
+                <div className="space-y-1">
+                  {Object.entries(filtros).map(([key, value]) => (
+                    <div key={key} className="flex justify-between text-slate-300">
+                      <span>{key}:</span>
+                      <span className="font-mono">{String(value)}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Histórico */}
+            {historico.length > 0 && (
+              <div className="space-y-1">
+                <div className="text-slate-400 font-semibold">Histórico (últimas 5):</div>
+                <div className="space-y-1 max-h-32 overflow-y-auto">
+                  {historico.map((evento, idx) => (
+                    <div
+                      key={idx}
+                      className={`p-1.5 rounded border text-[9px] ${
+                        evento.corresponde
+                          ? 'bg-green-900/20 border-green-700'
+                          : 'bg-red-900/20 border-red-700'
+                      }`}
+                    >
+                      <div className="font-mono text-slate-300">{evento.timestamp}</div>
+                      <div className="text-slate-400">{evento.conteudo}</div>
+                      <div className="flex justify-between mt-1 text-slate-500">
+                        <span>{evento.corresponde ? '✓' : '✗'}</span>
+                        <span>{evento.senderType}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </CardContent>
+        )}
+      </Card>
     </div>
   );
 }
