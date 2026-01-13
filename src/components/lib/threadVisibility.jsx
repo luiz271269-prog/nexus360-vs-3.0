@@ -416,22 +416,20 @@ export const canUserSeeThreadBase = (usuario, thread, mensagensThread = []) => {
   
   // 6️⃣ Thread atribuída a OUTRO (não fidelizada) - aplicar filtros técnicos
   // Gerentes podem ver, atendentes comuns não
-  const isGerente = ['gerente', 'coordenador', 'supervisor'].includes(usuario.attendant_role);
   if (!isGerente) {
     console.log(`[VISIBILIDADE] ❌ Thread ${thread.id?.substring(0, 8)} bloqueada - Atribuída a outro`);
     return false;
   }
   
   // Gerente pode ver, mas verificar permissões de integração
-  const integracaoOk = temPermissaoIntegracao(usuario, thread.whatsapp_integration_id, thread.id);
-  if (!integracaoOk) {
+  const integracaoOkGerente = temPermissaoIntegracao(usuario, thread.whatsapp_integration_id, thread.id);
+  if (!integracaoOkGerente) {
     console.log(`[VISIBILIDADE] ❌ Thread ${thread.id?.substring(0, 8)} bloqueada - Gerente sem permissão em integração`);
     return false;
   }
 
   console.log(`[VISIBILIDADE] ✅ Thread ${thread.id?.substring(0, 8)} - Gerente pode visualizar`);
   return true;
-
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
