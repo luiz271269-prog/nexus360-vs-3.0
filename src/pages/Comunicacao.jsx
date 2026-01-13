@@ -129,27 +129,52 @@ export default function Comunicacao() {
     carregarUsuario();
   }, []);
 
-  // 🔔 REAL-TIME: Atualizar threads quando houver mudanças
+  // 🔔 REAL-TIME: Atualizar threads E MENSAGENS quando houver mudanças
   useEffect(() => {
     if (!usuario) return;
 
     console.log('[COMUNICACAO] 🔔 Ativando listener real-time para threads');
 
-    const unsubscribe = base44.entities.MessageThread.subscribe((event) => {
+    const unsubscribeThreads = base44.entities.MessageThread.subscribe((event) => {
       console.log(`[COMUNICACAO] 🔔 Thread ${event.type}d:`, event.id);
-      
-      // Invalidar query para recarregar threads
+
+      // ✅ CRÍTICO: Sempre invalidar threads para sincronizar UI
       queryClient.invalidateQueries({ queryKey: ['threads'] });
-      
+
       // Se a thread ativa foi atualizada, recarregar mensagens também
       if (event.id === threadAtiva?.id) {
         queryClient.invalidateQueries({ queryKey: ['mensagens', threadAtiva.id] });
+        console.log(`[COMUNICACAO] 🔄 Recarregando mensagens da thread ativa: ${threadAtiva.id}`);
+      }
+    });
+
+    // 🆕 LISTENER DE MENSAGENS: Invalidar queries quando mensagem chegar
+    const unsubscribeMessages = base44.entities.Message.subscribe((event) => {
+      console.log(`[COMUNICACAO] 💬 Mensagem ${event.type}d:`, event.id, '| thread_id:', event.data?.thread_id);
+
+      if (event.type === 'create' || event.type === 'update') {
+        const threadIdDaMensagem = event.data?.thread_id;
+
+        // Invalidar SEMPRE - mesmo que não seja a thread ativa
+        queryClient.invalidateQueries({ queryKey: ['threads'] });
+
+        // Se a mensagem é da thread ativa, atualizar imediatamente
+        if (threadIdDaMensagem === threadAtiva?.id) {
+          console.log(`[COMUNICACAO] 🔄 Mensagem para thread ativa! Recarregando...`);
+          queryClient.invalidateQueries({ queryKey: ['mensagens', threadAtiva.id] });
+        } else if (threadIdDaMensagem) {
+          // Se é de outra thread, marcar como "novo" no sidebar
+          console.log(`[COMUNICACAO] 📬 Mensagem para thread diferente: ${threadIdDaMensagem}`);
+          // Invalidar a query geral para atualizar sidebar
+          queryClient.invalidateQueries({ queryKey: ['mensagens'] });
+        }
       }
     });
 
     return () => {
-      console.log('[COMUNICACAO] 🔕 Desativando listener real-time');
-      unsubscribe();
+      console.log('[COMUNICACAO] 🔕 Desativando listeners real-time');
+      unsubscribeThreads();
+      unsubscribeMessages();
     };
   }, [usuario, threadAtiva?.id, queryClient]);
 
