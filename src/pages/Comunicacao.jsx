@@ -55,6 +55,7 @@ import GerenciadorDuplicatas from "../components/comunicacao/GerenciadorDuplicat
 import GoToConnectionSetup from "../components/comunicacao/GoToConnectionSetup";
 import DiagnosticoVisibilidadeRealtime from "../components/comunicacao/DiagnosticoVisibilidadeRealtime";
 import DiagnosticoThreadsInvisiveis from "../components/comunicacao/DiagnosticoThreadsInvisiveis";
+import DiagnosticoComparativoThreads from "../components/comunicacao/DiagnosticoComparativoThreads";
 import { useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 
@@ -1015,6 +1016,8 @@ export default function Comunicacao() {
     const isFilterUnassigned = filterScope === 'unassigned';
 
     // PASSO 1: Identificar threads não atribuídas visíveis (APENAS EXTERNAS)
+    // 🔧 Expor para diagnóstico
+    window._threadsNaoAtribuidasVisiveis = threadsNaoAtribuidasVisiveis;
     const threadsNaoAtribuidasVisiveis = new Set();
     if (isFilterUnassigned) {
       threads.forEach((thread) => {
@@ -1093,6 +1096,9 @@ export default function Comunicacao() {
       }
     });
     const threadsUnicas = Array.from(threadMaisRecentePorContactoCanal.values());
+    
+    // 🔧 Expor para diagnóstico
+    window._threadsUnicas = threadsUnicas;
     
     console.log('[COMUNICACAO] 🎯 Threads únicas (admin+busca desabilita dedup):', threadsUnicas.length, '| Admin:', isAdmin, '| Busca:', temBuscaPorTexto);
 
@@ -1699,6 +1705,21 @@ export default function Comunicacao() {
 
             <TabsContent value="diagnostico" className="h-full m-0 overflow-hidden">
               <div className="h-full overflow-y-auto p-6 space-y-6">
+                <DiagnosticoComparativoThreads
+                  usuario={usuario}
+                  filtros={{
+                    scope: filterScope,
+                    integracaoId: selectedIntegrationId,
+                    atendenteId: selectedAttendantId,
+                    tipoContato: selectedTipoContato,
+                    tagContato: selectedTagContato
+                  }}
+                  contatos={contatos}
+                  duplicataEncontrada={duplicataEncontrada}
+                  threadsUnicas={window._threadsUnicas}
+                  threadsNaoAtribuidasVisiveis={window._threadsNaoAtribuidasVisiveis}
+                />
+                
                 <DiagnosticoThreadsInvisiveis
                   usuario={usuario}
                   filtros={{
@@ -1709,6 +1730,7 @@ export default function Comunicacao() {
                   threads={threadsComContato}
                   contatos={contatos}
                 />
+                
                 <DiagnosticoInbound integracoes={integracoes} />
               </div>
             </TabsContent>
