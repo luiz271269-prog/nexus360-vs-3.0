@@ -163,6 +163,7 @@ export default function Comunicacao() {
     retry: 2,
     retryDelay: 1000,
     refetchOnWindowFocus: true,
+    // ✅ NÃO depende de usuário - começa IMEDIATAMENTE
     onError: (error) => {
       console.error('[Comunicacao] Erro ao carregar contatos:', error);
       toast.error('Erro ao carregar contatos. Tentando novamente...');
@@ -175,13 +176,14 @@ export default function Comunicacao() {
     staleTime: 10 * 60 * 1000,
     cacheTime: 15 * 60 * 1000,
     retry: 1,
+    // ✅ NÃO depende de usuário - começa IMEDIATAMENTE
     refetchOnWindowFocus: false
   });
 
   const { data: threads = [], isLoading: loadingThreads } = useQuery({
     queryKey: ['threads', usuario?.id],
     queryFn: async () => {
-      if (!usuario || isRateLimited) return []; // 🚫 Pausar se rate limited
+      if (isRateLimited) return []; // 🚫 Pausar se rate limited
       try {
         const allThreads = await base44.entities.MessageThread.list('-last_message_at', 500);
       console.log('[COMUNICACAO] 📊 Threads carregadas:', allThreads.length);
@@ -237,7 +239,8 @@ export default function Comunicacao() {
       },
     refetchInterval: 30000, // ✅ Reduzido: Atualizar a cada 30s (evita rate limit)
     staleTime: 15000, // ✅ Dados frescos por 15s
-    enabled: !!usuario && !isRateLimited, // 🚫 Pausar se rate limited
+    // ✅ Começa IMEDIATAMENTE (sem esperar usuário)
+    enabled: !isRateLimited, // 🚫 Pausar se rate limited
     retry: 2,
     retryDelay: 1000,
     refetchOnWindowFocus: true, // ✅ Atualizar ao voltar para a aba
@@ -294,6 +297,7 @@ export default function Comunicacao() {
     cacheTime: 15 * 60 * 1000,
     retry: 2,
     retryDelay: 1000,
+    // ✅ NÃO depende de usuário - começa IMEDIATAMENTE
     onError: (error) => {
       console.error('[Comunicacao] Erro ao carregar integrações:', error);
     }
@@ -306,6 +310,7 @@ export default function Comunicacao() {
     cacheTime: 15 * 60 * 1000,
     retry: 2,
     retryDelay: 1000,
+    // ✅ NÃO depende de usuário - começa IMEDIATAMENTE
     onError: (error) => {
       console.error('[Comunicacao] Erro ao carregar GoTo:', error);
     }
@@ -338,7 +343,7 @@ export default function Comunicacao() {
       }
       return [];
     },
-    enabled: !!usuario,
+    // ✅ Começa IMEDIATAMENTE (função não precisa de usuário)
     staleTime: 5 * 60 * 1000,
     retry: 3,
     retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 5000)
