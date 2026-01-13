@@ -129,52 +129,27 @@ export default function Comunicacao() {
     carregarUsuario();
   }, []);
 
-  // 🔔 REAL-TIME: Atualizar threads E MENSAGENS quando houver mudanças
+  // 🔔 REAL-TIME: Atualizar threads quando houver mudanças
   useEffect(() => {
     if (!usuario) return;
 
     console.log('[COMUNICACAO] 🔔 Ativando listener real-time para threads');
 
-    const unsubscribeThreads = base44.entities.MessageThread.subscribe((event) => {
+    const unsubscribe = base44.entities.MessageThread.subscribe((event) => {
       console.log(`[COMUNICACAO] 🔔 Thread ${event.type}d:`, event.id);
-
-      // ✅ CRÍTICO: Sempre invalidar threads para sincronizar UI
+      
+      // Invalidar query para recarregar threads
       queryClient.invalidateQueries({ queryKey: ['threads'] });
-
+      
       // Se a thread ativa foi atualizada, recarregar mensagens também
       if (event.id === threadAtiva?.id) {
         queryClient.invalidateQueries({ queryKey: ['mensagens', threadAtiva.id] });
-        console.log(`[COMUNICACAO] 🔄 Recarregando mensagens da thread ativa: ${threadAtiva.id}`);
-      }
-    });
-
-    // 🆕 LISTENER DE MENSAGENS: Invalidar queries quando mensagem chegar
-    const unsubscribeMessages = base44.entities.Message.subscribe((event) => {
-      console.log(`[COMUNICACAO] 💬 Mensagem ${event.type}d:`, event.id, '| thread_id:', event.data?.thread_id);
-
-      if (event.type === 'create' || event.type === 'update') {
-        const threadIdDaMensagem = event.data?.thread_id;
-
-        // Invalidar SEMPRE - mesmo que não seja a thread ativa
-        queryClient.invalidateQueries({ queryKey: ['threads'] });
-
-        // Se a mensagem é da thread ativa, atualizar imediatamente
-        if (threadIdDaMensagem === threadAtiva?.id) {
-          console.log(`[COMUNICACAO] 🔄 Mensagem para thread ativa! Recarregando...`);
-          queryClient.invalidateQueries({ queryKey: ['mensagens', threadAtiva.id] });
-        } else if (threadIdDaMensagem) {
-          // Se é de outra thread, marcar como "novo" no sidebar
-          console.log(`[COMUNICACAO] 📬 Mensagem para thread diferente: ${threadIdDaMensagem}`);
-          // Invalidar a query geral para atualizar sidebar
-          queryClient.invalidateQueries({ queryKey: ['mensagens'] });
-        }
       }
     });
 
     return () => {
-      console.log('[COMUNICACAO] 🔕 Desativando listeners real-time');
-      unsubscribeThreads();
-      unsubscribeMessages();
+      console.log('[COMUNICACAO] 🔕 Desativando listener real-time');
+      unsubscribe();
     };
   }, [usuario, threadAtiva?.id, queryClient]);
 
@@ -318,16 +293,12 @@ export default function Comunicacao() {
       if (!threadAtiva || isRateLimited) return [];
 
       try {
-        console.log(`[COMUNICACAO] 📨 Carregando mensagens para thread: ${threadAtiva.id}`);
-
         // ✅ QUERY 1: Todas as mensagens (internas E externas)
         const ultimasMensagens = await base44.entities.Message.filter(
           { thread_id: threadAtiva.id },
           '-sent_at',
           200
         );
-
-        console.log(`[COMUNICACAO] ✅ Mensagens carregadas: ${ultimasMensagens.length}`);
 
         // 🔍 QUERY 2 (DIAGNÓSTICO): APENAS mensagens RECEBIDAS do contato (últimas 50)
         let mensagensRecebidas = [];
@@ -389,19 +360,15 @@ export default function Comunicacao() {
       }
     },
     enabled: !!threadAtiva && !isRateLimited,
-    refetchInterval: 15000, // ⏰ REDUZIDO: Atualiza a cada 15s (em vez de 20s) para capturar msgs mais rápido
-    staleTime: 5000, // ⏰ REDUZIDO: Dados frescos por 5s (em vez de 10s) para mostrar msgs recentes
-    retry: 3,
-    retryDelay: 500, // ⚡ MAIS RÁPIDO: Retry mais agressivo
+    refetchInterval: 20000,
+    staleTime: 10000,
+    retry: 2,
+    retryDelay: 1000,
     refetchOnWindowFocus: true,
-    refetchOnReconnect: true, // ✅ NOVO: Recarregar ao reconectar
     onError: (error) => {
       console.error('[Comunicacao] Erro ao carregar mensagens:', error);
-      if (error?.message?.includes('429')) {
-        console.warn('[COMUNICACAO] ⚠️ Rate limit em mensagens, aguardando...');
-      }
     }
-    });
+  });
 
   const { data: todasIntegracoes = [] } = useQuery({
     queryKey: ['integracoes'],
@@ -1905,24 +1872,24 @@ export default function Comunicacao() {
                         }}
                         atendentes={atendentes} />
 
-                        {/* Diagnóstico Visual Realtime (TODOS USUÁRIOS) */}
-                          <div className="space-y-2">
-                            <DiagnosticoVisibilidadeRealtime
-                              threadId={threadAtiva?.id}
-                              ultimaMensagemRecebida={mensagens[mensagens.length - 1]}
-                              filtros={{
-                                scope: filterScope,
-                                integracaoId: selectedIntegrationId,
-                                atendente: selectedAttendantId
-                              }}
-                              realTimeActive={true} />
+                        {/* Diagnóstico Visual Realtime (APENAS ADMIN) */}
+                          {usuario?.role === 'admin' && (
+                            <div className="space-y-2">
+                              <DiagnosticoVisibilidadeRealtime
+                                threadId={threadAtiva?.id}
+                                ultimaMensagemRecebida={mensagens[mensagens.length - 1]}
+                                filtros={{
+                                  scope: filterScope,
+                                  integracaoId: selectedIntegrationId,
+                                  atendente: selectedAttendantId
+                                }}
+                                realTimeActive={true} />
 
-                            {usuario?.role === 'admin' && (
                               <DiagnosticoBuscaGlobal
                                 contactId={contatoAtivo?.id}
                                 threadId={threadAtiva?.id} />
-                            )}
-                          </div>
+                            </div>
+                          )}
                       </div>
                       
                       {showContactInfo && contatoAtivo &&
