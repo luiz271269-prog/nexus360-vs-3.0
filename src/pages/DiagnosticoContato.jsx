@@ -529,8 +529,8 @@ export default function DiagnosticoContato() {
             </div>
           ))}
 
-          {/* DIAGNÓSTICO REALTIME */}
-          {resultado.analiseDetalhadaPorContato.length > 0 && resultado.analiseDetalhadaPorContato[0].threads.length > 0 && (
+          {/* DIAGNÓSTICO REALTIME - APENAS ADMIN */}
+          {usuario?.role === 'admin' && resultado.analiseDetalhadaPorContato.length > 0 && resultado.analiseDetalhadaPorContato[0].threads.length > 0 && (
             <Card className="p-4 bg-slate-50 border-slate-300">
               <h3 className="font-bold text-slate-900 mb-3">🔍 Diagnóstico Real-time</h3>
               <DiagnosticoVisibilidadeRealtime
