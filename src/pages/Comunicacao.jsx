@@ -259,24 +259,46 @@ export default function Comunicacao() {
       if (!threadAtiva || isRateLimited) return [];
 
       try {
-        // ✅ QUERY LIMPA: Apenas thread_id, SEM filtros de channel/visibility/sender_type
-        // Todas as mensagens (internas E externas) devem aparecer
+        // ✅ QUERY 1: Todas as mensagens (internas E externas)
         const ultimasMensagens = await base44.entities.Message.filter(
           { thread_id: threadAtiva.id },
-          '-sent_at', // ✅ Ordenar por sent_at (não created_date)
+          '-sent_at',
           200
         );
 
-        // 🔍 DEBUG: Log detalhado das mensagens
-        console.log(`[COMUNICACAO] 📩 Mensagens carregadas: ${ultimasMensagens.length} | Thread: ${threadAtiva.id}`);
-        console.log('[COMUNICACAO] 🔍 Amostra de mensagens:', ultimasMensagens.slice(0, 3).map(m => ({
-          id: m.id.substring(0, 8),
-          content: m.content.substring(0, 30),
-          sender_type: m.sender_type,
-          visibility: m.visibility,
-          channel: m.channel,
-          sent_at: m.sent_at
-        })));
+        // 🔍 QUERY 2 (DIAGNÓSTICO): Apenas mensagens RECEBIDAS do contato (últimas 50)
+        const mensagensRecebidas = await base44.entities.Message.filter(
+          { 
+            thread_id: threadAtiva.id,
+            sender_type: 'contact'
+          },
+          '-sent_at',
+          50
+        );
+
+        console.log(`[COMUNICACAO] 📩 TOTAL Mensagens: ${ultimasMensagens.length} | Thread: ${threadAtiva.id}`);
+        console.log(`[COMUNICACAO] 📬 Mensagens RECEBIDAS (contact): ${mensagensRecebidas.length}`);
+
+        // 🔍 DEBUG: Breakdown por tipo
+        const porTipo = ultimasMensagens.reduce((acc, m) => {
+          acc[m.sender_type] = (acc[m.sender_type] || 0) + 1;
+          return acc;
+        }, {});
+        console.log('[COMUNICACAO] 📊 Breakdown por sender_type:', porTipo);
+
+        // 🔍 DEBUG: Amostra de mensagens recebidas
+        if (mensagensRecebidas.length > 0) {
+          console.log('[COMUNICACAO] ✅ Amostra RECEBIDAS:', mensagensRecebidas.slice(0, 3).map(m => ({
+            id: m.id.substring(0, 8),
+            content: m.content.substring(0, 40),
+            sender_id: m.sender_id.substring(0, 8),
+            sender_type: m.sender_type,
+            visibility: m.visibility,
+            sent_at: m.sent_at
+          })));
+        } else {
+          console.warn('[COMUNICACAO] ⚠️ NENHUMA mensagem recebida (sender_type=contact) encontrada no banco!');
+        }
 
         return ultimasMensagens.reverse();
       } catch (error) {
@@ -290,12 +312,12 @@ export default function Comunicacao() {
         throw error;
       }
     },
-    enabled: !!threadAtiva && !isRateLimited, // 🚫 Pausar se rate limited
-    refetchInterval: 20000, // ✅ Atualizar a cada 20s
+    enabled: !!threadAtiva && !isRateLimited,
+    refetchInterval: 20000,
     staleTime: 10000,
     retry: 2,
     retryDelay: 1000,
-    refetchOnWindowFocus: true, // ✅ Atualizar ao voltar para a aba
+    refetchOnWindowFocus: true,
     onError: (error) => {
       console.error('[Comunicacao] Erro ao carregar mensagens:', error);
     }
