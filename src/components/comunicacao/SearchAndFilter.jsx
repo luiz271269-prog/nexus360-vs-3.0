@@ -533,88 +533,84 @@ export default function SearchAndFilter({
         }
       </AnimatePresence>
 
-      {/* Botão criar contato + Alerta de duplicata */}
-      {novoContatoTelefone &&
+      {/* ⚠️ ALERTA DE DUPLICATA - SEMPRE VISÍVEL quando detectada */}
+      <AnimatePresence>
+        {duplicataEncontrada && (
+          <motion.div
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            className="bg-orange-50 border-2 border-orange-300 rounded-lg p-3 shadow-md">
+            <div className="flex items-start gap-2">
+              <AlertCircle className="w-5 h-5 text-orange-600 mt-0.5 flex-shrink-0" />
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-bold text-orange-900">
+                  {duplicataEncontrada.quantidade > 1 ? '⚠️ ' : '✅ '}
+                  {duplicataEncontrada.quantidade} contato{duplicataEncontrada.quantidade > 1 ? 's encontrado(s)' : ' encontrado'}
+                </p>
+                <p className="text-xs text-orange-800 mt-1 font-semibold truncate">
+                  {duplicataEncontrada.principal.nome}
+                  {duplicataEncontrada.principal.empresa && ` • ${duplicataEncontrada.principal.empresa}`}
+                </p>
+                <p className="text-[10px] text-orange-700 mt-1">
+                  📱 {duplicataEncontrada.principal.telefone || 'Sem telefone'} • 
+                  <span className="ml-1 px-1.5 py-0.5 bg-orange-200 rounded">{duplicataEncontrada.principal.tipo_contato}</span>
+                </p>
+                {duplicataEncontrada.quantidade > 1 && (
+                  <p className="text-xs text-red-700 mt-2 font-bold">
+                    + {duplicataEncontrada.quantidade - 1} outro(s) contato(s)
+                  </p>
+                )}
+              </div>
+              
+              {/* BOTÃO DIAGNÓSTICO/RESOLVER - Sempre visível */}
+              {onAbrirDiagnostico && (
+                <Button
+                  onClick={() => {
+                    const identificador = duplicataEncontrada.principal.telefone || duplicataEncontrada.principal.id;
+                    console.log('[SearchAndFilter] 🔬 Abrindo diagnóstico:', identificador);
+                    onAbrirDiagnostico(identificador);
+                  }}
+                  className={`shadow-lg flex-shrink-0 ${
+                    duplicataEncontrada.quantidade > 1
+                      ? 'bg-red-600 hover:bg-red-700 text-white animate-pulse'
+                      : 'bg-blue-600 hover:bg-blue-700 text-white'
+                  }`}
+                  size="sm"
+                  title={duplicataEncontrada.quantidade > 1 ? "Analisar e corrigir duplicatas" : "Ver diagnóstico"}
+                >
+                  <Microscope className="w-4 h-4" />
+                  {duplicataEncontrada.quantidade > 1 && <span className="ml-1 text-[10px] font-bold">FIX</span>}
+                </Button>
+              )}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Botão criar contato - Só aparece quando É telefone novo sem duplicatas */}
+      {novoContatoTelefone && !duplicataEncontrada &&
       <motion.div
         initial={{ opacity: 0, y: -10 }}
         animate={{ opacity: 1, y: 0 }}
         className="space-y-2">
-
-          {/* ⚠️ ALERTA DE DUPLICATA - Dinâmico por telefone OU nome */}
-          {duplicataEncontrada && (
-            <div className="bg-orange-50 border border-orange-200 rounded-lg p-3">
-              <div className="flex items-start gap-2">
-                <AlertCircle className="w-4 h-4 text-orange-600 mt-0.5 flex-shrink-0" />
-                <div className="flex-1 min-w-0">
-                  <p className="text-xs font-semibold text-orange-900">
-                    ✅ {duplicataEncontrada.quantidade} contato{duplicataEncontrada.quantidade > 1 ? 's encontrado(s)' : ' encontrado'}
-                    {duplicataEncontrada.tipo === 'nome' && ' (busca por nome)'}
-                  </p>
-                  <p className="text-xs text-orange-700 mt-1 truncate">
-                    <strong>{duplicataEncontrada.principal.nome}</strong>
-                    {duplicataEncontrada.principal.empresa && ` • ${duplicataEncontrada.principal.empresa}`}
-                  </p>
-                  <p className="text-[10px] text-orange-600 mt-1">
-                    📱 {duplicataEncontrada.principal.telefone || 'Sem telefone'} • Tipo: {duplicataEncontrada.principal.tipo_contato}
-                  </p>
-                  {duplicataEncontrada.quantidade > 1 && (
-                    <p className="text-[10px] text-orange-600 mt-1 font-semibold">
-                      + {duplicataEncontrada.quantidade - 1} outro(s) contato(s)
-                    </p>
-                  )}
-                </div>
-              </div>
-            </div>
-          )}
-
-          <div className="flex gap-2">
-            {/* BOTÃO CRIAR - Desabilitado PERMANENTEMENTE se houver duplicata */}
-            {!duplicataEncontrada ? (
-              <Button
-                onClick={onCreateContact}
-                disabled={verificandoDuplicatas}
-                className="flex-1 shadow-lg bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 shadow-green-500/25"
-                size="sm">
-
-                {verificandoDuplicatas ? (
-                  <>
-                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                    Verificando...
-                  </>
-                ) : (
-                  <>
-                    <UserPlus className="w-4 h-4 mr-2" />
-                    Criar Contato: {novoContatoTelefone}
-                  </>
-                )}
-              </Button>
+          <Button
+            onClick={onCreateContact}
+            disabled={verificandoDuplicatas}
+            className="w-full shadow-lg bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 shadow-green-500/25"
+            size="sm">
+            {verificandoDuplicatas ? (
+              <>
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                Verificando...
+              </>
             ) : (
-              <div className="flex-1 bg-slate-100 border border-slate-300 rounded-lg p-3 text-center">
-                <p className="text-xs text-slate-600 font-medium">
-                  ✅ Use o contato existente acima
-                </p>
-                <p className="text-[10px] text-slate-500 mt-1">
-                  Para evitar duplicação, não é permitido criar novo contato
-                </p>
-              </div>
+              <>
+                <UserPlus className="w-4 h-4 mr-2" />
+                Criar Contato: {novoContatoTelefone}
+              </>
             )}
-
-            {/* BOTÃO DIAGNÓSTICO - Sempre visível quando há duplicata */}
-              {duplicataEncontrada && onAbrirDiagnostico && (
-                <Button
-                  onClick={() => {
-                    const identificador = duplicataEncontrada.principal.id;
-                    console.log('[SearchAndFilter] 🔬 Abrindo diagnóstico para:', identificador);
-                    onAbrirDiagnostico(identificador);
-                  }}
-                  className="shadow-lg bg-blue-600 hover:bg-blue-700 text-white"
-                  size="sm"
-                  title="Diagnóstico completo do contato"
-                >
-                  <Microscope className="w-4 h-4" />
-                </Button>
-              )}
-          </div>
+          </Button>
         </motion.div>
       }
     </div>);

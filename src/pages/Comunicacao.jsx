@@ -972,6 +972,7 @@ export default function Comunicacao() {
     const categoriasSet = selectedCategoria !== 'all' ? new Set(mensagensComCategoria.map((m) => m.thread_id)) : null;
     const temBuscaPorTexto = !!debouncedSearchTerm && debouncedSearchTerm.trim().length >= 2;
     const threadsComContatoIds = new Set();
+    const isAdmin = usuario?.role === 'admin';
 
     // ═══════════════════════════════════════════════════════════════════════════
     // FILTRO ESPECIAL: "Não atribuídas" - Mostrar TODAS as threads sem atribuição
@@ -997,13 +998,18 @@ export default function Comunicacao() {
     }
 
     // ✅ DEDUPLICAÇÃO POR CANAL: Permitir múltiplas threads do mesmo contato se forem de INTEGRAÇÕES DIFERENTES
-    // Chave: `${contact_id}-${whatsapp_integration_id}` para threads externas
-    // Isso permite que Tifhany tenha thread Z-API E thread W-API visíveis simultaneamente
+    // ⚠️ MODO ADMIN + BUSCA: Desativar deduplicação para ver TODAS as threads/duplicatas
     const threadMaisRecentePorContactoCanal = new Map();
     threads.forEach((thread) => {
       // ✅ Threads internas SEMPRE adicionadas diretamente (chave única por thread.id)
       if (thread.thread_type === 'team_internal' || thread.thread_type === 'sector_group') {
         threadMaisRecentePorContactoCanal.set(`internal-${thread.id}`, thread);
+        return;
+      }
+      
+      // 🔍 MODO DIAGNÓSTICO ADMIN: Se admin está buscando, mostrar TODAS as threads (incluindo duplicatas)
+      if (isAdmin && temBuscaPorTexto) {
+        threadMaisRecentePorContactoCanal.set(`admin-all-${thread.id}`, thread);
         return;
       }
       
@@ -1033,7 +1039,7 @@ export default function Comunicacao() {
     });
     const threadsUnicas = Array.from(threadMaisRecentePorContactoCanal.values());
     
-    console.log('[COMUNICACAO] 🎯 Threads únicas (agrupadas por contato + canal):', threadsUnicas.length);
+    console.log('[COMUNICACAO] 🎯 Threads únicas (admin+busca desabilita dedup):', threadsUnicas.length, '| Admin:', isAdmin, '| Busca:', temBuscaPorTexto);
 
     // Registrar IDs de contatos que já têm thread (para evitar duplicatas na busca)
     const contatosComThreadExistente = new Set(threadsUnicas.map((t) => t.contact_id).filter(Boolean));
@@ -1201,10 +1207,17 @@ export default function Comunicacao() {
     if (temBuscaPorTexto) {
       // Contatos sem thread - usar Set de contatos que já têm thread
       contatos.forEach((contato) => {
-        // CRÍTICO: Verificar em AMBOS os sets para evitar duplicatas
-        if (contatosComThreadExistente.has(contato.id)) return;
-        if (threadsComContatoIds.has(contato.id)) return;
-        if (contato.bloqueado) return;
+        // 🔍 ADMIN VÊ TODOS (incluindo bloqueados e duplicatas)
+        if (!isAdmin) {
+          // CRÍTICO: Verificar em AMBOS os sets para evitar duplicatas
+          if (contatosComThreadExistente.has(contato.id)) return;
+          if (threadsComContatoIds.has(contato.id)) return;
+          if (contato.bloqueado) return;
+        } else {
+          // Admin: permite ver bloqueados, mas evita duplicatas se já tem thread
+          if (!temBuscaPorTexto && contatosComThreadExistente.has(contato.id)) return;
+        }
+        
         if (!matchBuscaGoogle(contato, debouncedSearchTerm)) return;
 
         threadsFiltrados.push({
@@ -1214,7 +1227,8 @@ export default function Comunicacao() {
           last_message_at: contato.ultima_interacao || contato.created_date,
           last_message_content: null,
           unread_count: 0,
-          status: 'sem_conversa'
+          status: 'sem_conversa',
+          _admin_debug: isAdmin ? { bloqueado: contato.bloqueado, tipo: contato.tipo_contato } : null
         });
       });
 
@@ -1468,7 +1482,10 @@ export default function Comunicacao() {
                      modoSelecaoMultipla={modoSelecaoMultipla}
                      onModoSelecaoMultiplaChange={setModoSelecaoMultipla}
                      isAdmin={usuario?.role === 'admin'}
-                     onAbrirDiagnostico={(telefone) => navigate(createPageUrl('DiagnosticoContato') + `?telefone=${telefone}`)} />
+                     onAbrirDiagnostico={(identificador) => {
+                       console.log('[Comunicacao] 🔬 Redirecionando para diagnóstico:', identificador);
+                       navigate(createPageUrl('DiagnosticoContato') + `?telefone=${encodeURIComponent(identificador)}`);
+                     }} />
 
 
                   <div className="flex-1 overflow-y-auto">
