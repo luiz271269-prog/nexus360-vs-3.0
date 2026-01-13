@@ -526,20 +526,20 @@ async function handleMessage(dados, payloadBruto, base44) {
     const connectedPhone = payloadBruto.connectedPhone || payloadBruto.connected_phone || null;
     console.log(`[${VERSION}] 💬 Nova mensagem de: ${dados.from} | Via: ${connectedPhone || 'não informado'}`);
 
-  // ✅ IDEMPOTÊNCIA RIGOROSA - Verificar duplicatas por múltiplos critérios
+  // ✅ DEDUPLICAÇÃO RIGOROSA - Se duplicata, ignora (simples)
   if (dados.messageId) {
     try {
       const dup = await base44.asServiceRole.entities.Message.filter(
         { whatsapp_message_id: dados.messageId },
         '-created_date',
-        10 // Buscar mais registros para detectar duplicatas
+        1 // Apenas a primeira
       );
       if (dup.length > 0) {
-        console.log(`[${VERSION}] ⏭️ DUPLICATA DETECTADA: ${dados.messageId} (${dup.length} registros já existem)`);
-        return jsonOk({ success: true, ignored: true, reason: 'duplicata', existing_count: dup.length });
+        console.log(`[${VERSION}] ⏭️ DUPLICATA por messageId: ${dados.messageId} (já processada antes)`);
+        return jsonOk({ success: true, ignored: true, reason: 'duplicata_message_id' });
       }
     } catch (err) {
-      console.warn(`[${VERSION}] ⚠️ Erro ao verificar duplicata:`, err.message);
+      console.warn(`[${VERSION}] ⚠️ Erro ao verificar duplicata por messageId:`, err.message);
       // Continua processamento mesmo com erro na verificação
     }
   }
