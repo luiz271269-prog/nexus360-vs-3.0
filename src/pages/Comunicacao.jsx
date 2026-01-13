@@ -1001,6 +1001,37 @@ export default function Comunicacao() {
     return todasPalavrasEncontradas || numeroEncontrado;
   }, []);
 
+  // Calcular score de relevância para ordenação de busca
+  const calcularScoreBusca = React.useCallback((contato, termo) => {
+    if (!contato || !termo) return 0;
+
+    const normalizarTexto = (t) => {
+      if (!t) return '';
+      return String(t).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
+    };
+
+    const termoNorm = normalizarTexto(termo);
+    const nome = normalizarTexto(contato.nome || '');
+    const empresa = normalizarTexto(contato.empresa || '');
+    
+    let score = 0;
+
+    // Match exato no nome = maior prioridade
+    if (nome === termoNorm) score += 100;
+    else if (nome.startsWith(termoNorm)) score += 50;
+    else if (nome.includes(termoNorm)) score += 20;
+
+    // Match na empresa
+    if (empresa === termoNorm) score += 40;
+    else if (empresa.includes(termoNorm)) score += 15;
+
+    // Match em outros campos
+    const outrosCampos = normalizarTexto((contato.cargo || '') + (contato.observacoes || ''));
+    if (outrosCampos.includes(termoNorm)) score += 5;
+
+    return score;
+  }, []);
+
   const threadsFiltradas = React.useMemo(() => {
     if (!usuario) return [];
 
