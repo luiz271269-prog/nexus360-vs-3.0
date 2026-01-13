@@ -161,34 +161,54 @@ export default function SearchAndFilter({
               
               if (isMerged) return false;
 
-              // Match por texto
+              // Verificação segura de propriedades
+              const nome = c.nome?.toLowerCase() || '';
+              const empresa = c.empresa?.toLowerCase() || '';
+              const cargo = c.cargo?.toLowerCase() || '';
+              const observacoes = c.observacoes?.toLowerCase() || '';
+
               return (
-                (c.nome && c.nome.toLowerCase().includes(termoBusca)) ||
-                (c.empresa && c.empresa.toLowerCase().includes(termoBusca)) ||
-                (c.cargo && c.cargo.toLowerCase().includes(termoBusca)) ||
-                (c.observacoes && c.observacoes.toLowerCase().includes(termoBusca))
+                nome.includes(termoBusca) ||
+                empresa.includes(termoBusca) ||
+                cargo.includes(termoBusca) ||
+                observacoes.includes(termoBusca)
               );
             });
 
-            // Ordenar por relevância: nome matching > empresa matching > data
+            // Função auxiliar para calcular score de relevância
+            const calcularScore = (contato, termo) => {
+              let score = 0;
+              const nome = contato.nome?.toLowerCase() || '';
+              const empresa = contato.empresa?.toLowerCase() || '';
+              const cargo = contato.cargo?.toLowerCase() || '';
+              const obs = contato.observacoes?.toLowerCase() || '';
+
+              if (nome === termo) score += 100; // Match exato no nome (maior prioridade)
+              else if (nome.startsWith(termo)) score += 50; // Começa com o termo
+              else if (nome.includes(termo)) score += 20; // Contém o termo
+
+              if (empresa === termo) score += 40;
+              else if (empresa.includes(termo)) score += 15;
+
+              if (cargo.includes(termo)) score += 10;
+              if (obs.includes(termo)) score += 5;
+
+              return score;
+            };
+
+            // Ordenar por relevância (score) e depois por data
             contatosExistentes.sort((a, b) => {
-              const nomeA = (a.nome || '').toLowerCase();
-              const nomeB = (b.nome || '').toLowerCase();
-              const empresaA = (a.empresa || '').toLowerCase();
-              const empresaB = (b.empresa || '').toLowerCase();
-              const cargoA = (a.cargo || '').toLowerCase();
-              const cargoB = (b.cargo || '').toLowerCase();
-              const obsA = (a.observacoes || '').toLowerCase();
-              const obsB = (b.observacoes || '').toLowerCase();
+              const scoreA = calcularScore(a, termoBusca);
+              const scoreB = calcularScore(b, termoBusca);
+
+              if (scoreB !== scoreA) {
+                return scoreB - scoreA; // Maior score primeiro
+              }
               
-              // Pontuação: nome exato=10, nome contains=5, empresa=3, cargo=2, observações=1
-              const scoreA = nomeA === termoBusca ? 10 : (nomeA.includes(termoBusca) ? 5 : (empresaA.includes(termoBusca) ? 3 : (cargoA.includes(termoBusca) ? 2 : (obsA.includes(termoBusca) ? 1 : 0))));
-              const scoreB = nomeB === termoBusca ? 10 : (nomeB.includes(termoBusca) ? 5 : (empresaB.includes(termoBusca) ? 3 : (cargoB.includes(termoBusca) ? 2 : (obsB.includes(termoBusca) ? 1 : 0))));
-              
-              if (scoreB !== scoreA) return scoreB - scoreA;
-              
-              // Mesmo score: mais recente primeiro
-              return new Date(b.updated_date || b.created_date) - new Date(a.updated_date || a.created_date);
+              // Desempate: mais recente primeiro
+              const dataA = new Date(a.updated_date || a.created_date).getTime();
+              const dataB = new Date(b.updated_date || b.created_date).getTime();
+              return dataB - dataA;
             });
 
             console.log(`[SearchAndFilter] ✅ ${contatosExistentes.length} contatos encontrados para "${searchTerm}"`);
