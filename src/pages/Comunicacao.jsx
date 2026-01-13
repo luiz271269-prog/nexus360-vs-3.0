@@ -62,6 +62,9 @@ import { useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 
 
+// 🔧 DEBUG_VIS: feature flag para desativar logs sem perdê-los
+const DEBUG_VIS = typeof window !== 'undefined' && window.localStorage?.getItem('DEBUG_VIS') === '1';
+
 export default function Comunicacao() {
   const { data: usuario, isLoading: isLoadingUsuario } = useQuery({
     queryKey: ['currentUser'],
