@@ -1905,24 +1905,24 @@ export default function Comunicacao() {
                         }}
                         atendentes={atendentes} />
 
-                        {/* Diagnóstico Visual Realtime (APENAS ADMIN) */}
-                          {usuario?.role === 'admin' && (
-                            <div className="space-y-2">
-                              <DiagnosticoVisibilidadeRealtime
-                                threadId={threadAtiva?.id}
-                                ultimaMensagemRecebida={mensagens[mensagens.length - 1]}
-                                filtros={{
-                                  scope: filterScope,
-                                  integracaoId: selectedIntegrationId,
-                                  atendente: selectedAttendantId
-                                }}
-                                realTimeActive={true} />
+                        {/* Diagnóstico Visual Realtime (TODOS USUÁRIOS) */}
+                          <div className="space-y-2">
+                            <DiagnosticoVisibilidadeRealtime
+                              threadId={threadAtiva?.id}
+                              ultimaMensagemRecebida={mensagens[mensagens.length - 1]}
+                              filtros={{
+                                scope: filterScope,
+                                integracaoId: selectedIntegrationId,
+                                atendente: selectedAttendantId
+                              }}
+                              realTimeActive={true} />
 
+                            {usuario?.role === 'admin' && (
                               <DiagnosticoBuscaGlobal
                                 contactId={contatoAtivo?.id}
                                 threadId={threadAtiva?.id} />
-                            </div>
-                          )}
+                            )}
+                          </div>
                       </div>
                       
                       {showContactInfo && contatoAtivo &&
