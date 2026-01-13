@@ -266,15 +266,20 @@ export default function Comunicacao() {
           200
         );
 
-        // 🔍 QUERY 2 (DIAGNÓSTICO): Apenas mensagens RECEBIDAS do contato (últimas 50)
-        const mensagensRecebidas = await base44.entities.Message.filter(
-          { 
-            thread_id: threadAtiva.id,
-            sender_type: 'contact'
-          },
-          '-sent_at',
-          50
-        );
+        // 🔍 QUERY 2 (DIAGNÓSTICO): APENAS mensagens RECEBIDAS do contato (últimas 50)
+        let mensagensRecebidas = [];
+        try {
+          mensagensRecebidas = await base44.entities.Message.filter(
+            { 
+              thread_id: threadAtiva.id,
+              sender_type: 'contact'
+            },
+            '-sent_at',
+            50
+          );
+        } catch (recebidaErr) {
+          console.error('[COMUNICACAO] ❌ Erro ao buscar mensagens recebidas:', recebidaErr.message);
+        }
 
         console.log(`[COMUNICACAO] 📩 TOTAL Mensagens: ${ultimasMensagens.length} | Thread: ${threadAtiva.id}`);
         console.log(`[COMUNICACAO] 📬 Mensagens RECEBIDAS (contact): ${mensagensRecebidas.length}`);
@@ -285,6 +290,13 @@ export default function Comunicacao() {
           return acc;
         }, {});
         console.log('[COMUNICACAO] 📊 Breakdown por sender_type:', porTipo);
+
+        // 🔍 DIAGNÓSTICO CRÍTICO: Mostrar TODAS as mensagens com sender_type/visibility
+        console.group('[COMUNICACAO] 🔍 AUDIT: Todas as mensagens (sender_type + visibility)');
+        ultimasMensagens.slice(0, 20).forEach(m => {
+          console.log(`  ${m.id.substring(0, 8)}: sender_type=${m.sender_type} | visibility=${m.visibility} | content="${m.content.substring(0, 40)}"`);
+        });
+        console.groupEnd();
 
         // 🔍 DEBUG: Amostra de mensagens recebidas
         if (mensagensRecebidas.length > 0) {
@@ -298,6 +310,7 @@ export default function Comunicacao() {
           })));
         } else {
           console.warn('[COMUNICACAO] ⚠️ NENHUMA mensagem recebida (sender_type=contact) encontrada no banco!');
+          console.warn('[COMUNICACAO] ⚠️ Suspeita: RLS rule bloqueando sender_type=contact ou problema no webhook');
         }
 
         return ultimasMensagens.reverse();
