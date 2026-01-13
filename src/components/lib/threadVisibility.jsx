@@ -356,6 +356,17 @@ export const canUserSeeThreadBase = (usuario, thread, mensagensThread = []) => {
     return false;
   }
 
+  // 🔔 EXCEÇÃO CRÍTICA: MENSAGENS RECEBIDAS RECENTES (<24h) SEMPRE VISÍVEIS
+  // Ignora integração/conexão/setor (mas respeita fidelização)
+  if (thread.last_inbound_at && thread.last_message_sender === 'contact') {
+    const horasSemResposta = (Date.now() - new Date(thread.last_inbound_at).getTime()) / (1000 * 60 * 60);
+    
+    if (horasSemResposta < 24) {
+      console.log(`[VISIBILIDADE] ✅ Thread ${thread.id?.substring(0, 8)} - MENSAGEM RECEBIDA <24h (${horasSemResposta.toFixed(1)}h) - SEMPRE VISÍVEL`);
+      return true;
+    }
+  }
+
   // 4) GERENTES veem threads SEM RESPOSTA há 30+ minutos
   if (isGerente && thread.last_inbound_at) {
     const tempoSemResposta = Date.now() - new Date(thread.last_inbound_at).getTime();
@@ -484,43 +495,38 @@ export const canUserSeeThreadWithFilters = (usuario, thread, filtros = {}) => {
     return true;
   }
 
-  // ═══════════════════════════════════════════════════════════════════════
-  // 🟢 ESTÁGIO 1: BARREIRA DE SEGURANÇA (apenas para não-atribuídas/não-fidelizadas)
-  // EXCEÇÃO: Mensagens recebidas recentes (<24h) SEMPRE passam
-  // ═══════════════════════════════════════════════════════════════════════
-  
-  const naoAtribuida = isNaoAtribuida(thread);
-  
-  // ✅ EXCEÇÃO: MENSAGEM RECEBIDA AGUARDANDO ATENDIMENTO → SEMPRE VISÍVEL
-  if (naoAtribuida && thread.last_inbound_at) {
+  // 🔔 EXCEÇÃO CRÍTICA: MENSAGENS RECEBIDAS RECENTES (<24h) SEMPRE VISÍVEIS
+  // Ignora integração/conexão/setor (mas respeita fidelização a outro)
+  if (thread.last_inbound_at && thread.last_message_sender === 'contact') {
     const horasSemResposta = (Date.now() - new Date(thread.last_inbound_at).getTime()) / (1000 * 60 * 60);
     
-    if (horasSemResposta < 24 && thread.last_message_sender === 'contact') {
-      console.log(`[VISIBILIDADE] ✅ Thread ${thread.id?.substring(0, 8)} - MENSAGEM RECEBIDA AGUARDANDO (${horasSemResposta.toFixed(1)}h) - IGNORA FILTROS TÉCNICOS`);
+    if (horasSemResposta < 24) {
+      console.log(`[VISIBILIDADE] ✅ Thread ${thread.id?.substring(0, 8)} - MENSAGEM RECEBIDA <24h (${horasSemResposta.toFixed(1)}h) - IGNORA FILTROS TÉCNICOS`);
       // Pula verificações de integração/setor/conexão
       // Vai direto para estágio 2 (escopo)
-    } else {
-      // Thread fria (sem interação recente) → aplicar filtros técnicos normalmente
-      const integracaoOk = temPermissaoIntegracao(usuario, thread.whatsapp_integration_id, thread.id);
-      if (!integracaoOk) return false;
-
-      const conexaoOk = threadConexaoVisivel(usuario, thread.conexao_id);
-      if (!conexaoOk) return false;
-
-      const setorOk = threadSetorVisivel(usuario, thread);
-      if (!setorOk) return false;
+      
+      // Ainda aplica escopo (my/unassigned/all)
+      if (filtros.scope === 'my') {
+        return false; // Mensagem recente mas não é minha (não atribuída nem fidelizada)
+      }
+      
+      return true; // Mensagem recente = sempre visível (scope=all ou unassigned)
     }
-  } else {
-    // Thread atribuída ou sem mensagem recente → verificar permissões normalmente
-    const integracaoOk = temPermissaoIntegracao(usuario, thread.whatsapp_integration_id, thread.id);
-    if (!integracaoOk) return false;
-
-    const conexaoOk = threadConexaoVisivel(usuario, thread.conexao_id);
-    if (!conexaoOk) return false;
-
-    const setorOk = threadSetorVisivel(usuario, thread);
-    if (!setorOk) return false;
   }
+
+  // ═══════════════════════════════════════════════════════════════════════
+  // 🟢 ESTÁGIO 1: BARREIRA DE SEGURANÇA (apenas para não-atribuídas/não-fidelizadas)
+  // Aplicado apenas para threads "frias" (sem mensagem recente)
+  // ═══════════════════════════════════════════════════════════════════════
+  
+  const integracaoOk = temPermissaoIntegracao(usuario, thread.whatsapp_integration_id, thread.id);
+  if (!integracaoOk) return false;
+
+  const conexaoOk = threadConexaoVisivel(usuario, thread.conexao_id);
+  if (!conexaoOk) return false;
+
+  const setorOk = threadSetorVisivel(usuario, thread);
+  if (!setorOk) return false;
 
   // ═══════════════════════════════════════════════════════════════════════
   // 🔵 ESTÁGIO 2: FILTRO DE ESCOPO (Abas de Navegação)
