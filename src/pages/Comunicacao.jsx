@@ -63,7 +63,17 @@ import { createPageUrl } from "@/utils";
 
 
 export default function Comunicacao() {
-  const [usuario, setUsuario] = useState(null);
+  const { data: usuario, isLoading: isLoadingUsuario } = useQuery({
+    queryKey: ['currentUser'],
+    queryFn: () => base44.auth.me(),
+    staleTime: 5 * 60 * 1000, // 5 minutos
+    retry: 2,
+    refetchOnWindowFocus: true,
+    onError: (error) => {
+        console.error("Erro ao carregar usuário:", error);
+        toast.error(`Erro ao carregar usuário: ${error.message}`);
+    }
+  });
   const [threadAtiva, setThreadAtiva] = useState(null);
   const [activeTab, setActiveTab] = useState("conversas");
   const [showContactInfo, setShowContactInfo] = useState(false);
@@ -115,19 +125,11 @@ export default function Comunicacao() {
   const queryClient = useQueryClient();
 
   useEffect(() => {
-    const carregarUsuario = async () => {
-      try {
-        const user = await base44.auth.me();
-        setUsuario(user);
-        const isManager = user.role === 'admin' || user.role === 'supervisor';
+    if (usuario) {
+        const isManager = usuario.role === 'admin' || usuario.role === 'supervisor';
         setFilterScope(isManager ? 'all' : 'my');
-      } catch (error) {
-        console.error("Erro ao carregar usuário:", error);
-        toast.error(`Erro: ${error.message}`);
-      }
-    };
-    carregarUsuario();
-  }, []);
+    }
+  }, [usuario]);
 
   // 🔔 REAL-TIME: Atualizar threads quando houver mudanças
   useEffect(() => {
@@ -179,7 +181,7 @@ export default function Comunicacao() {
     },
     refetchInterval: 30000,
     staleTime: 15000,
-    enabled: !isRateLimited,
+    enabled: !!usuario && !isRateLimited,
     retry: 2,
     retryDelay: 1000,
     refetchOnWindowFocus: true,
@@ -249,7 +251,7 @@ export default function Comunicacao() {
 
 
 
-  const loadingTopics = loadingThreads;
+  const loadingTopics = loadingThreads || isLoadingUsuario;
 
   const { data: mensagens = [] } = useQuery({
     queryKey: ['mensagens', threadAtiva?.id],
@@ -1622,15 +1624,15 @@ export default function Comunicacao() {
   const isManager = usuario?.role === 'admin' || usuario?.role === 'supervisor';
   const contatoAtivo = threadAtiva ? contatos.find((c) => c.id === threadAtiva.contact_id) : null;
 
-  if (!usuario) {
+  if (isLoadingUsuario) {
     return (
       <div className="flex items-center justify-center h-screen">
         <div className="text-center">
           <RefreshCw className="w-8 h-8 animate-spin text-blue-500 mx-auto mb-4" />
-          <p>Carregando usuário...</p>
+          <p>Carregando dados...</p>
         </div>
-      </div>);
-
+      </div>
+    );
   }
 
   return (
