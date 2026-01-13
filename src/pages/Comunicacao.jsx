@@ -318,12 +318,16 @@ export default function Comunicacao() {
       if (!threadAtiva || isRateLimited) return [];
 
       try {
+        console.log(`[COMUNICACAO] 📨 Carregando mensagens para thread: ${threadAtiva.id}`);
+
         // ✅ QUERY 1: Todas as mensagens (internas E externas)
         const ultimasMensagens = await base44.entities.Message.filter(
           { thread_id: threadAtiva.id },
           '-sent_at',
           200
         );
+
+        console.log(`[COMUNICACAO] ✅ Mensagens carregadas: ${ultimasMensagens.length}`);
 
         // 🔍 QUERY 2 (DIAGNÓSTICO): APENAS mensagens RECEBIDAS do contato (últimas 50)
         let mensagensRecebidas = [];
