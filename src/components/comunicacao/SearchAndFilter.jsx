@@ -122,7 +122,24 @@ export default function SearchAndFilter({
           if (telefoneNormalizado !== novoContatoTelefone) {
             onNovoContatoTelefoneChange(telefoneNormalizado);
           }
-          contatosExistentes = await buscarContatosPorTelefone(base44, telefoneNormalizado);
+          const todosContatos = await buscarContatosPorTelefone(base44, telefoneNormalizado);
+          
+          // ✅ FILTRAR contatos merged
+          contatosExistentes = todosContatos.filter(c => {
+            const isMerged = 
+              c.tags?.includes('merged') || 
+              c.observacoes?.includes('[AUTO-MERGE]') ||
+              c.observacoes?.includes('[MERGED') ||
+              c.motivo_bloqueio?.includes('[AUTO-MERGE]') ||
+              c.motivo_bloqueio?.includes('Consolidado em');
+            
+            if (isMerged) {
+              console.log('[SearchAndFilter] 🏷️ Ignorando contato merged:', c.id, c.nome);
+            }
+            return !isMerged;
+          });
+          
+          console.log('[SearchAndFilter] 📊 Telefone:', telefoneNormalizado, '| Total:', todosContatos.length, '| Válidos:', contatosExistentes.length);
         } else if (ehBuscaPorNome) {
           // 2️⃣ BUSCA POR NOME - Apenas CONTATOS (não threads internas/usuários)
           console.log(`[SearchAndFilter] 🔍 Buscando CONTATOS por nome: "${searchTerm}"`);
@@ -138,13 +155,26 @@ export default function SearchAndFilter({
               100 // Limite para performance
             );
             
-            // Filtrar por nome, empresa, cargo ou observações
-            contatosExistentes = contatosNome.filter(c => 
-              (c.nome && c.nome.toLowerCase().includes(termoBusca)) ||
-              (c.empresa && c.empresa.toLowerCase().includes(termoBusca)) ||
-              (c.cargo && c.cargo.toLowerCase().includes(termoBusca)) ||
-              (c.observacoes && c.observacoes.toLowerCase().includes(termoBusca))
-            );
+            // Filtrar por nome, empresa, cargo ou observações + excluir merged
+            contatosExistentes = contatosNome.filter(c => {
+              // ✅ Ignorar merged
+              const isMerged = 
+                c.tags?.includes('merged') || 
+                c.observacoes?.includes('[AUTO-MERGE]') ||
+                c.observacoes?.includes('[MERGED') ||
+                c.motivo_bloqueio?.includes('[AUTO-MERGE]') ||
+                c.motivo_bloqueio?.includes('Consolidado em');
+              
+              if (isMerged) return false;
+              
+              // Match por texto
+              return (
+                (c.nome && c.nome.toLowerCase().includes(termoBusca)) ||
+                (c.empresa && c.empresa.toLowerCase().includes(termoBusca)) ||
+                (c.cargo && c.cargo.toLowerCase().includes(termoBusca)) ||
+                (c.observacoes && c.observacoes.toLowerCase().includes(termoBusca))
+              );
+            });
             
             // Ordenar por relevância: nome matching > empresa matching > data
             contatosExistentes.sort((a, b) => {
