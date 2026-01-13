@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Loader2, Phone, MessageCircle, AlertCircle, CheckCircle } from "lucide-react";
 import { normalizarTelefone } from "@/components/lib/phoneUtils";
+import DiagnosticoVisibilidadeRealtime from "../components/comunicacao/DiagnosticoVisibilidadeRealtime";
 
 export default function DiagnosticoContato() {
   const [telefone, setTelefone] = useState('5547996744257');
@@ -260,6 +261,21 @@ export default function DiagnosticoContato() {
               </Card>
             </div>
           ))}
+
+          {/* DIAGNÓSTICO REALTIME */}
+          {resultado.analiseDetalhadaPorContato.length > 0 && resultado.analiseDetalhadaPorContato[0].threads.length > 0 && (
+            <Card className="p-4 bg-slate-50 border-slate-300">
+              <h3 className="font-bold text-slate-900 mb-3">🔍 Diagnóstico Real-time</h3>
+              <DiagnosticoVisibilidadeRealtime
+                threadAtiva={resultado.analiseDetalhadaPorContato[0].threads[0].id ? {
+                  id: resultado.analiseDetalhadaPorContato[0].threads[0].id
+                } : null}
+                filterScope="all"
+                selectedIntegrationId="all"
+                selectedAttendantId={null}
+              />
+            </Card>
+          )}
         </div>
       )}
     </div>
