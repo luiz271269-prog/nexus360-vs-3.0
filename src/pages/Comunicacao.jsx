@@ -1316,33 +1316,52 @@ export default function Comunicacao() {
   const threadsComContato = React.useMemo(() => {
     const contatosMap = new Map(contatos.map((c) => [c.id, c]));
     const usuariosMap = new Map(atendentes.map((a) => [a.id, a]));
+    const temBuscaAtiva = debouncedSearchTerm && debouncedSearchTerm.trim().length >= 2;
 
     // ✅ Enriquecer com contato e usuário (SEMPRE buscar User dinamicamente)
     const enriched = threadsFiltradas.map((thread) => {
       const usuarioAtribuido = usuariosMap.get(thread.assigned_user_id);
+      const contatoObj = thread.contato || contatosMap.get(thread.contact_id);
+      
+      // 🎯 Calcular score de relevância se há busca ativa
+      let searchScore = 0;
+      if (temBuscaAtiva && contatoObj) {
+        searchScore = calcularScoreBusca(contatoObj, debouncedSearchTerm);
+      }
+      
       return {
         ...thread,
-        contato: thread.contato || contatosMap.get(thread.contact_id),
+        contato: contatoObj,
         atendente_atribuido: usuarioAtribuido,
-        // ✅ Nome de exibição calculado dinamicamente via helper
-        assigned_user_display_name: usuarioAtribuido ? getUserDisplayName(usuarioAtribuido.id, atendentes) : null
+        assigned_user_display_name: usuarioAtribuido ? getUserDisplayName(usuarioAtribuido.id, atendentes) : null,
+        _searchScore: searchScore
       };
     });
 
     // ✅ SEM DEDUPLICAÇÃO ADICIONAL - Cada thread já é única por canal (contact_id + integration_id)
-    // Threads internas, contatos sem thread e clientes sem contato já foram enriquecidos
     const deduplicated = enriched;
 
     // ═══════════════════════════════════════════════════════════════════════════
-    // ORDENAÇÃO (Regra 3):
-    // 1. 🟢 Threads ativas (conversas com mensagens) - prioridade 1
-    // 2. 🟡 Contatos sem thread - prioridade 2
-    // 3. 🔵 Clientes sem contato - prioridade 3
-    // Dentro de cada grupo: mais recente primeiro (last_message_at)
+    // 🎯 ORDENAÇÃO INTELIGENTE - Estilo WhatsApp:
+    // COM BUSCA: Prioriza relevância do match (score maior = topo)
+    // SEM BUSCA: Prioriza tipo + recência
     // ═══════════════════════════════════════════════════════════════════════════
     
     return deduplicated.sort((a, b) => {
-      // Definir prioridade do tipo
+      // 🔍 MODO BUSCA: Ordenar por relevância (score de match)
+      if (temBuscaAtiva) {
+        const scoreA = a._searchScore || 0;
+        const scoreB = b._searchScore || 0;
+        
+        if (scoreB !== scoreA) return scoreB - scoreA; // Maior score primeiro
+        
+        // Empate: desempatar por recência
+        const dateA = new Date(a.last_message_at || a.updated_date || 0);
+        const dateB = new Date(b.last_message_at || b.updated_date || 0);
+        return dateB - dateA;
+      }
+      
+      // 📋 MODO NORMAL: Ordenar por tipo + recência
       const getPrioridade = (item) => {
         if (item.is_cliente_only) return 3; // Clientes sem contato
         if (item.is_contact_only) return 2; // Contatos sem thread
@@ -1352,7 +1371,6 @@ export default function Comunicacao() {
       const prioA = getPrioridade(a);
       const prioB = getPrioridade(b);
 
-      // Ordenar por prioridade primeiro
       if (prioA !== prioB) return prioA - prioB;
 
       // Dentro do mesmo grupo: mais recente primeiro
@@ -1360,7 +1378,45 @@ export default function Comunicacao() {
       const dateB = new Date(b.last_message_at || 0);
       return dateB - dateA;
     });
-  }, [threadsFiltradas, contatos, atendentes, filterScope]);
+  }, [threadsFiltradas, contatos, atendentes, filterScope, debouncedSearchTerm]);
+  
+  // 🎯 Função auxiliar: Calcular score de relevância da busca
+  const calcularScoreBusca = (contato, termo) => {
+    if (!contato || !termo) return 0;
+    
+    const normalizar = (t) => String(t || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
+    const termoNorm = normalizar(termo);
+    const termoNumeros = termo.replace(/\D/g, '');
+    
+    let score = 0;
+    
+    // 🥇 MATCH EXATO de nome/empresa: +100
+    if (normalizar(contato.nome) === termoNorm) score += 100;
+    if (normalizar(contato.empresa) === termoNorm) score += 100;
+    
+    // 🥈 COMEÇA COM: +50
+    if (normalizar(contato.nome).startsWith(termoNorm)) score += 50;
+    if (normalizar(contato.empresa).startsWith(termoNorm)) score += 50;
+    
+    // 🥉 CONTÉM: +20
+    if (normalizar(contato.nome).includes(termoNorm)) score += 20;
+    if (normalizar(contato.empresa).includes(termoNorm)) score += 15;
+    if (normalizar(contato.cargo).includes(termoNorm)) score += 10;
+    
+    // 📱 TELEFONE: Match exato ou parcial
+    const telContato = (contato.telefone || '').replace(/\D/g, '');
+    if (termoNumeros.length >= 3) {
+      if (telContato === termoNumeros) score += 100; // Match exato
+      else if (telContato.includes(termoNumeros)) score += 80; // Contém
+      else if (termoNumeros.includes(telContato)) score += 60; // Parcial
+    }
+    
+    // 🏷️ VIP/Favorito: Bônus
+    if (contato.tags?.includes('vip')) score += 10;
+    if (contato.is_cliente_fidelizado) score += 5;
+    
+    return score;
+  };
 
   const isManager = usuario?.role === 'admin' || usuario?.role === 'supervisor';
   const contatoAtivo = threadAtiva ? contatos.find((c) => c.id === threadAtiva.contact_id) : null;
