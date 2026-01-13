@@ -593,17 +593,24 @@ export default function SearchAndFilter({
               </div>
             )}
 
-            {/* BOTÃO ANÁLISE COMPLETA - Sempre mostra, mas admin pode corrigir */}
-            {duplicataEncontrada && (
-              <Button
-                onClick={() => onAbrirDiagnostico && onAbrirDiagnostico(duplicataEncontrada.principal.telefone)}
-                className={`shadow-lg ${isAdmin ? 'bg-green-600 hover:bg-green-700 shadow-green-500/25' : 'bg-indigo-600 hover:bg-indigo-700 shadow-indigo-500/25'}`}
-                size="sm"
-                title={isAdmin ? "Analisar e corrigir duplicatas" : "Análise de duplicatas"}
-              >
-                <Microscope className="w-4 h-4" />
-              </Button>
-            )}
+            {/* BOTÃO ANÁLISE COMPLETA - Análise por telefone OU nome */}
+              {duplicataEncontrada && (
+                <Button
+                  onClick={() => {
+                    // ✅ Se busca por nome, usar identificador único do contato
+                    const identificador = duplicataEncontrada.tipo === 'nome' 
+                      ? duplicataEncontrada.principal.id  // ID para busca por nome
+                      : duplicataEncontrada.principal.telefone; // Telefone para busca por telefone
+
+                    onAbrirDiagnostico && onAbrirDiagnostico(identificador);
+                  }}
+                  className={`shadow-lg ${isAdmin ? 'bg-green-600 hover:bg-green-700 shadow-green-500/25' : 'bg-indigo-600 hover:bg-indigo-700 shadow-indigo-500/25'}`}
+                  size="sm"
+                  title={isAdmin ? "Analisar e corrigir duplicatas" : "Análise de duplicatas"}
+                >
+                  <Microscope className="w-4 h-4" />
+                </Button>
+              )}
           </div>
         </motion.div>
       }
