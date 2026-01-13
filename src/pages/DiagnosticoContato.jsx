@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -9,9 +9,20 @@ import { normalizarTelefone } from "@/components/lib/phoneUtils";
 import DiagnosticoVisibilidadeRealtime from "../components/comunicacao/DiagnosticoVisibilidadeRealtime";
 
 export default function DiagnosticoContato() {
-  const [telefone, setTelefone] = useState('5547996744257');
+  // ✅ LER PARÂMETRO DA URL
+  const urlParams = new URLSearchParams(window.location.search);
+  const telefoneURL = urlParams.get('telefone') || '5547996744257';
+  
+  const [telefone, setTelefone] = useState(telefoneURL);
   const [carregando, setCarregando] = useState(false);
   const [resultado, setResultado] = useState(null);
+
+  // ✅ EXECUTAR ANÁLISE AUTOMATICAMENTE SE VEIO DA URL
+  useEffect(() => {
+    if (telefoneURL && telefoneURL !== '5547996744257') {
+      analisar();
+    }
+  }, []);
 
   const analisar = async () => {
     setCarregando(true);
