@@ -1849,7 +1849,11 @@ export default function Comunicacao() {
                           setContatosSelecionados([]);
                           setBroadcastInterno(null);
                         }}
-                        atendentes={atendentes} />
+                        atendentes={atendentes}
+                        filterScope={filterScope}
+                        selectedIntegrationId={selectedIntegrationId}
+                        selectedAttendantId={selectedAttendantId}
+                        contatoAtivo={contatoAtivo} />
 
                         {/* Botão Diagnóstico Flutuante (APENAS ADMIN) */}
                           {usuario?.role === 'admin' && (
