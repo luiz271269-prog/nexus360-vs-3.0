@@ -156,15 +156,48 @@ export default function Comunicacao() {
   // ═══════════════════════════════════════════════════════════════════════════════
   // 🔍 BUSCA DE DADOS - Direto no frontend (sem função backend)
   // ═══════════════════════════════════════════════════════════════════════════════
+  // 1️⃣ EXTRAÇÃO DE IDs DE CONTATO DAS THREADS (Hidratação Sob Demanda)
+  const contactIdsParaCarregar = React.useMemo(() => {
+    if (!threads.length) return [];
+    // Pega todos os contact_id não nulos das threads carregadas
+    const ids = threads.map(t => t.contact_id).filter(id => id);
+    // Remove duplicatas
+    return [...new Set(ids)];
+  }, [threads]);
+
+  // 2️⃣ BUSCA CIRÚRGICA: Apenas os contatos necessários
   const { data: contatos = [], isLoading: loadingContatos } = useQuery({
-    queryKey: ['contacts'],
-    queryFn: () => base44.entities.Contact.list('-created_date', 300),
-    staleTime: 5 * 60 * 1000,
+    queryKey: ['contacts', contactIdsParaCarregar],
+    queryFn: async () => {
+      if (contactIdsParaCarregar.length === 0) return [];
+
+      console.log(`[HIDRATAÇÃO] 🎯 Buscando ${contactIdsParaCarregar.length} contatos específicos das threads...`);
+
+      try {
+        // Estratégia: Buscar lista maior e filtrar em memória se API não suportar IN
+        // Aumentado para 1000 para cobrir contatos antigos que estão nas threads
+        const todosContatos = await base44.entities.Contact.list('-last_interaction', 1000);
+
+        // Filtrar APENAS os contatos que estão nas threads
+        const contatosNecessarios = todosContatos.filter(c => 
+          contactIdsParaCarregar.includes(c.id)
+        );
+
+        console.log(`[HIDRATAÇÃO] ✅ Carregados ${contatosNecessarios.length} de ${contactIdsParaCarregar.length} contatos`);
+
+        return todosContatos; // Retorna todos para cache, mas lógica usa apenas necessários
+      } catch (error) {
+        console.error('[HIDRATAÇÃO] ❌ Erro ao carregar contatos:', error);
+        return [];
+      }
+    },
+    enabled: contactIdsParaCarregar.length > 0,
+    keepPreviousData: true, // Mantém dados antigos enquanto carrega novos (sem piscar)
+    staleTime: 60 * 1000, // 1 minuto de cache
     cacheTime: 15 * 60 * 1000,
     retry: 2,
     retryDelay: 1000,
-    refetchOnWindowFocus: true,
-    // ✅ NÃO depende de usuário - começa IMEDIATAMENTE
+    refetchOnWindowFocus: false,
     onError: (error) => {
       console.error('[Comunicacao] Erro ao carregar contatos:', error);
       toast.error('Erro ao carregar contatos. Tentando novamente...');
