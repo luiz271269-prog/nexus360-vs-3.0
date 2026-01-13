@@ -125,6 +125,30 @@ export default function Comunicacao() {
     carregarUsuario();
   }, []);
 
+  // 🔔 REAL-TIME: Atualizar threads quando houver mudanças
+  useEffect(() => {
+    if (!usuario) return;
+
+    console.log('[COMUNICACAO] 🔔 Ativando listener real-time para threads');
+
+    const unsubscribe = base44.entities.MessageThread.subscribe((event) => {
+      console.log(`[COMUNICACAO] 🔔 Thread ${event.type}d:`, event.id);
+      
+      // Invalidar query para recarregar threads
+      queryClient.invalidateQueries({ queryKey: ['threads'] });
+      
+      // Se a thread ativa foi atualizada, recarregar mensagens também
+      if (event.id === threadAtiva?.id) {
+        queryClient.invalidateQueries({ queryKey: ['mensagens', threadAtiva.id] });
+      }
+    });
+
+    return () => {
+      console.log('[COMUNICACAO] 🔕 Desativando listener real-time');
+      unsubscribe();
+    };
+  }, [usuario, threadAtiva?.id, queryClient]);
+
   // ═══════════════════════════════════════════════════════════════════════════════
   // 🔍 BUSCA DE DADOS - Direto no frontend (sem função backend)
   // ═══════════════════════════════════════════════════════════════════════════════
@@ -1229,6 +1253,20 @@ export default function Comunicacao() {
     });
     
     console.log('[COMUNICACAO] 📊 Total de threads filtradas:', threadsFiltrados.length);
+    
+    // 🔍 DEBUG: Verificar se thread canônica do Luiz está na lista
+    const threadLuizCanonica = threadsFiltrados.find(t => t.id === '6932fbf5e7708be9b205eaae');
+    if (threadLuizCanonica) {
+      console.log('[COMUNICACAO] ✅ Thread canônica Luiz ENCONTRADA na lista filtrada');
+    } else {
+      console.log('[COMUNICACAO] ❌ Thread canônica Luiz NÃO está na lista filtrada');
+      const threadNaLista = threadsAProcessar.find(t => t.id === '6932fbf5e7708be9b205eaae');
+      if (threadNaLista) {
+        console.log('[COMUNICACAO] ⚠️ Thread existe em threadsAProcessar mas foi bloqueada no filtro');
+      } else {
+        console.log('[COMUNICACAO] ⚠️ Thread NÃO existe nem em threadsAProcessar (bloqueada antes)');
+      }
+    }
 
     // ═══════════════════════════════════════════════════════════════════════════
     // PARTE 2: COM BUSCA - Adicionar contatos sem thread e clientes sem contato
