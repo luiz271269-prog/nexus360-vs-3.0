@@ -156,48 +156,15 @@ export default function Comunicacao() {
   // ═══════════════════════════════════════════════════════════════════════════════
   // 🔍 BUSCA DE DADOS - Direto no frontend (sem função backend)
   // ═══════════════════════════════════════════════════════════════════════════════
-  // 1️⃣ EXTRAÇÃO DE IDs DE CONTATO DAS THREADS (Hidratação Sob Demanda)
-  const contactIdsParaCarregar = React.useMemo(() => {
-    if (!threads.length) return [];
-    // Pega todos os contact_id não nulos das threads carregadas
-    const ids = threads.map(t => t.contact_id).filter(id => id);
-    // Remove duplicatas
-    return [...new Set(ids)];
-  }, [threads]);
-
-  // 2️⃣ BUSCA CIRÚRGICA: Apenas os contatos necessários
   const { data: contatos = [], isLoading: loadingContatos } = useQuery({
-    queryKey: ['contacts', contactIdsParaCarregar],
-    queryFn: async () => {
-      if (contactIdsParaCarregar.length === 0) return [];
-
-      console.log(`[HIDRATAÇÃO] 🎯 Buscando ${contactIdsParaCarregar.length} contatos específicos das threads...`);
-
-      try {
-        // Estratégia: Buscar lista maior e filtrar em memória se API não suportar IN
-        // Aumentado para 1000 para cobrir contatos antigos que estão nas threads
-        const todosContatos = await base44.entities.Contact.list('-last_interaction', 1000);
-
-        // Filtrar APENAS os contatos que estão nas threads
-        const contatosNecessarios = todosContatos.filter(c => 
-          contactIdsParaCarregar.includes(c.id)
-        );
-
-        console.log(`[HIDRATAÇÃO] ✅ Carregados ${contatosNecessarios.length} de ${contactIdsParaCarregar.length} contatos`);
-
-        return todosContatos; // Retorna todos para cache, mas lógica usa apenas necessários
-      } catch (error) {
-        console.error('[HIDRATAÇÃO] ❌ Erro ao carregar contatos:', error);
-        return [];
-      }
-    },
-    enabled: contactIdsParaCarregar.length > 0,
-    keepPreviousData: true, // Mantém dados antigos enquanto carrega novos (sem piscar)
-    staleTime: 60 * 1000, // 1 minuto de cache
+    queryKey: ['contacts'],
+    queryFn: () => base44.entities.Contact.list('-created_date', 300),
+    staleTime: 5 * 60 * 1000,
     cacheTime: 15 * 60 * 1000,
     retry: 2,
     retryDelay: 1000,
-    refetchOnWindowFocus: false,
+    refetchOnWindowFocus: true,
+    // ✅ NÃO depende de usuário - começa IMEDIATAMENTE
     onError: (error) => {
       console.error('[Comunicacao] Erro ao carregar contatos:', error);
       toast.error('Erro ao carregar contatos. Tentando novamente...');
@@ -1273,39 +1240,23 @@ export default function Comunicacao() {
       }
       
       // ⬇️ Daqui pra baixo: SOMENTE threads EXTERNAS (contact_external)
-
+      
       const contato = contatosMap.get(thread.contact_id);
-
+      
       if (isLuizThread) {
-        console.log('[COMUNICACAO] 🔍 DIAGNÓSTICO LUIZ - Contato:', contato ? 'ENCONTRADO' : (loadingContatos ? 'CARREGANDO' : 'NÃO ENCONTRADO'));
+        console.log('[COMUNICACAO] 🔍 DIAGNÓSTICO LUIZ - Contato:', contato ? 'ENCONTRADO' : 'NÃO ENCONTRADO');
       }
 
-      // 🎯 FIX HIDRATAÇÃO: Se contato não carregou ainda mas thread existe, não bloqueia
-      // Regra de Ouro: Se o contact_id existe na thread mas o contato não veio na lista,
-      // deixa passar para carreamento sob demanda (em vez de bloquear)
-      if (thread.contact_id && !contato) {
-        // Se ainda está carregando contatos, não bloqueia
-        if (loadingContatos) {
-          logThread('Contato Existe', true, 'Contato carregando (hidratação sob demanda)');
-          return true; // Deixa passar, será refinado quando contatos carregarem
-        }
-
-        // Se está "não atribuídas", permite thread órfã
-        if (isFilterUnassigned) {
-          logThread('Contato Existe', true, 'Órfã permitida em modo não atribuídas');
-          return true;
-        }
-
-        // Caso raro: contato_id na thread mas contato não existe no banco
-        // Ainda assim, não bloqueie - mostre com identificação alternativa
-        logThread('Contato Existe', true, 'Contato não encontrado mas thread mantida (fallback)');
+      // Threads órfãs sem contato: manter apenas se filtro "não atribuídas" ativo
+      if (!contato && !isFilterUnassigned) {
+        logThread('Contato Existe', false, 'Thread órfã sem contato (bloqueado exceto em não atribuídas)');
         if (isLuizThread) {
-          console.log('[COMUNICACAO] ⚠️ DIAGNÓSTICO LUIZ - Contato não encontrado, mas thread mostrada (fallback)');
+          console.log('[COMUNICACAO] ❌ DIAGNÓSTICO LUIZ - BLOQUEADO por falta de contato');
         }
-        return true; // Permite mostrar thread com dados limitados
+        return false;
       }
-
-      logThread('Contato Existe', true, contato ? 'Contato encontrado' : 'Órfã com fallback');
+      
+      logThread('Contato Existe', true, contato ? 'Contato encontrado' : 'Órfã permitida');
 
       if (thread.contact_id) {
         threadsComContatoIds.add(thread.contact_id);
