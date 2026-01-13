@@ -503,20 +503,24 @@ export const canUserSeeThreadWithFilters = (usuario, thread, filtros = {}) => {
     if (horasSemResposta < 24) {
       console.log(`[VISIBILIDADE] ✅ Thread ${thread.id?.substring(0, 8)} - MENSAGEM RECEBIDA <24h (${horasSemResposta.toFixed(1)}h) - IGNORA FILTROS TÉCNICOS`);
       // Pula verificações de integração/setor/conexão
-      // Vai direto para estágio 2 (escopo)
       
-      // Ainda aplica escopo (my/unassigned/all)
+      // 🎯 APLICAR APENAS ESCOPO (my/unassigned/all)
       if (filtros.scope === 'my') {
         return false; // Mensagem recente mas não é minha (não atribuída nem fidelizada)
       }
       
-      return true; // Mensagem recente = sempre visível (scope=all ou unassigned)
+      if (filtros.scope === 'unassigned') {
+        return isNaoAtribuida(thread); // Só mostra se não atribuída
+      }
+      
+      // scope=all ou sem scope → sempre visível
+      return true;
     }
   }
 
   // ═══════════════════════════════════════════════════════════════════════
   // 🟢 ESTÁGIO 1: BARREIRA DE SEGURANÇA (apenas para não-atribuídas/não-fidelizadas)
-  // Aplicado apenas para threads "frias" (sem mensagem recente)
+  // Aplicado apenas para threads "frias" (sem mensagem recente <24h)
   // ═══════════════════════════════════════════════════════════════════════
   
   const integracaoOk = temPermissaoIntegracao(usuario, thread.whatsapp_integration_id, thread.id);
