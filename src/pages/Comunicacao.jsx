@@ -54,6 +54,7 @@ import GerenciadorEtiquetasUnificado from "../components/comunicacao/Gerenciador
 import GerenciadorDuplicatas from "../components/comunicacao/GerenciadorDuplicatas";
 import GoToConnectionSetup from "../components/comunicacao/GoToConnectionSetup";
 import DiagnosticoVisibilidadeRealtime from "../components/comunicacao/DiagnosticoVisibilidadeRealtime";
+import DiagnosticoThreadsInvisiveis from "../components/comunicacao/DiagnosticoThreadsInvisiveis";
 import { useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 
@@ -1697,7 +1698,17 @@ export default function Comunicacao() {
             </TabsContent>
 
             <TabsContent value="diagnostico" className="h-full m-0 overflow-hidden">
-              <div className="h-full overflow-y-auto p-6">
+              <div className="h-full overflow-y-auto p-6 space-y-6">
+                <DiagnosticoThreadsInvisiveis
+                  usuario={usuario}
+                  filtros={{
+                    scope: filterScope,
+                    integracaoId: selectedIntegrationId,
+                    atendenteId: selectedAttendantId
+                  }}
+                  threads={threadsComContato}
+                  contatos={contatos}
+                />
                 <DiagnosticoInbound integracoes={integracoes} />
               </div>
             </TabsContent>
