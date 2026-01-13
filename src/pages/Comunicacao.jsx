@@ -1112,12 +1112,15 @@ export default function Comunicacao() {
     const threadsComContatoIds = new Set();
     const isAdmin = usuario?.role === 'admin';
 
+    // ✅ FAIL-SAFE: Se usuário ainda está carregando E filtro é "unassigned", temporariamente usar "all"
+    const effectiveScope = isLoadingUsuario && filterScope === 'unassigned' ? 'all' : filterScope;
+
     // ═══════════════════════════════════════════════════════════════════════════
     // OTIMIZAÇÃO: Pré-calcular o Set de "Não Atribuídas" separadamente
     // Isso evita reprocessar essa lógica pesada se o filtro não for 'unassigned'
     // ═══════════════════════════════════════════════════════════════════════════
     const threadsNaoAtribuidasVisiveis = React.useMemo(() => {
-      if (effectiveScope !== 'unassigned' || !usuario) return new Set();
+      if (filterScope !== 'unassigned' || !usuario) return new Set();
       
       const setIds = new Set();
       const mapContatos = new Map(contatos.map(c => [c.id, c]));
