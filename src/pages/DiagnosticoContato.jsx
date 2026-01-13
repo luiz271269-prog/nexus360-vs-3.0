@@ -20,9 +20,13 @@ export default function DiagnosticoContato() {
   // ✅ EXECUTAR ANÁLISE AUTOMATICAMENTE SE VEIO DA URL
   useEffect(() => {
     if (telefoneURL && telefoneURL !== '5547996744257') {
-      analisar();
+      // Pequeno delay para garantir que o input foi atualizado
+      const timer = setTimeout(() => {
+        analisar();
+      }, 100);
+      return () => clearTimeout(timer);
     }
-  }, []);
+  }, [telefoneURL]);
 
   const analisar = async () => {
     setCarregando(true);
