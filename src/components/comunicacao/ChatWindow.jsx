@@ -2011,6 +2011,16 @@ export default function ChatWindow({
 
           {/* Ações */}
           <div className="flex items-center gap-2 flex-shrink-0">
+            {/* Botão Diagnóstico (ADMIN ONLY) */}
+            {usuario?.role === 'admin' && (
+              <button
+                title="Diagnósticos (Visibilidade, Busca)"
+                className="bg-gradient-to-br from-red-500 to-red-600 text-white rounded-lg px-3 py-2 shadow-md flex items-center gap-2 hover:shadow-lg transition-all text-xs font-medium hover:from-red-600 hover:to-red-700">
+                  <Bug className="w-4 h-4" />
+                  Diagnóstico
+              </button>
+            )}
+
             {/* Botão Transferir - Somente para quem tem permissão */}
             {podeTransferirConversas && (
               <button
