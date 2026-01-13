@@ -1832,25 +1832,25 @@ export default function Comunicacao() {
                   <>
                       <div className="flex-1 overflow-hidden relative">
                         <ChatWindow
-                        thread={threadAtiva}
-                        mensagens={mensagens}
-                        usuario={usuario}
-                        onEnviarMensagem={async () => {}}
-                        onSendMessageOptimistic={handleEnviarMensagemOtimista}
-                        onSendInternalMessageOptimistic={handleEnviarMensagemInternaOtimista}
-                        onShowContactInfo={() => setShowContactInfo(!showContactInfo)}
-                        onAtualizarMensagens={handleAtualizarMensagens}
-                        integracoes={integracoes}
-                        selectedCategoria={selectedCategoria}
-                        modoSelecaoMultipla={modoSelecaoMultipla}
-                        contatosSelecionados={contatosSelecionados}
-                        broadcastInterno={broadcastInterno}
-                        onCancelarSelecao={() => {
-                          setModoSelecaoMultipla(false);
-                          setContatosSelecionados([]);
-                          setBroadcastInterno(null);
-                        }}
-                        atendentes={atendentes} />
+                          thread={threadAtiva}
+                          mensagens={mensagens}
+                          usuario={usuario}
+                          onEnviarMensagem={async () => {}}
+                          onSendMessageOptimistic={handleEnviarMensagemOtimista}
+                          onSendInternalMessageOptimistic={handleEnviarMensagemInternaOtimista}
+                          onShowContactInfo={() => setShowContactInfo(!showContactInfo)}
+                          onAtualizarMensagens={handleAtualizarMensagens}
+                          integracoes={integracoes}
+                          selectedCategoria={selectedCategoria}
+                          modoSelecaoMultipla={modoSelecaoMultipla}
+                          contatosSelecionados={contatosSelecionados}
+                          broadcastInterno={broadcastInterno}
+                          onCancelarSelecao={() => {
+                            setModoSelecaoMultipla(false);
+                            setContatosSelecionados([]);
+                            setBroadcastInterno(null);
+                          }}
+                          atendentes={atendentes} />
 
                         {/* Diagnóstico Visual Realtime (APENAS ADMIN) */}
                           {usuario?.role === 'admin' && (
@@ -1864,10 +1864,6 @@ export default function Comunicacao() {
                                   atendente: selectedAttendantId
                                 }}
                                 realTimeActive={true} />
-
-                              <DiagnosticoBuscaGlobal
-                                contactId={contatoAtivo?.id}
-                                threadId={threadAtiva?.id} />
                             </div>
                           )}
                       </div>
