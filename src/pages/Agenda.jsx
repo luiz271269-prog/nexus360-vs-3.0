@@ -510,18 +510,24 @@ export default function Agenda() {
           </div>
 
           <div className="lg:col-span-2 h-full">
-            <PainelContexto
-              tarefa={tarefaSelecionada}
-              dados={dadosContexto}
-              onCompletarTarefa={handleSalvarConclusao}
-              carregando={carregandoContexto}
-              onCancelar={() => {
-                // ✅ LIMPAR DA URL AO CANCELAR
-                searchParams.delete('tarefaId');
-                setSearchParams(searchParams);
-                setTarefaSelecionada(null);
-              }}
-            />
+            {tarefaSelecionada ? (
+              <PainelContexto
+                tarefa={tarefaSelecionada}
+                dados={dadosContexto}
+                onCompletarTarefa={handleSalvarConclusao}
+                carregando={carregandoContexto}
+                onCancelar={() => {
+                  // ✅ LIMPAR DA URL AO CANCELAR
+                  searchParams.delete('tarefaId');
+                  setSearchParams(searchParams);
+                  setTarefaSelecionada(null);
+                }}
+              />
+            ) : (
+              <div className="h-full flex items-center justify-center bg-slate-800/30 rounded-lg border border-slate-700 text-slate-400">
+                <p>Selecione uma tarefa para visualizar detalhes</p>
+              </div>
+            )}
           </div>
         </div>
       </div>
