@@ -1940,13 +1940,9 @@ export default function Comunicacao() {
                           <div className="space-y-2">
                             <DiagnosticoVisibilidadeRealtime
                               threadId={threadAtiva?.id}
-                              ultimaMensagemRecebida={mensagens[mensagens.length - 1]}
-                              filtros={{
-                                scope: filterScope,
-                                integracaoId: selectedIntegrationId,
-                                atendente: selectedAttendantId
-                              }}
-                              realTimeActive={true} />
+                              ultimaMensagemRecebida={mensagens[0]} // Primeira msg (mais recente se DESC)
+                              realTimeActive={true}
+                              onCorrigirThread={handleCorrigirMismatch} />
 
                             {usuario?.role === 'admin' && (
                               <DiagnosticoBuscaGlobal
