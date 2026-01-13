@@ -183,12 +183,8 @@ export default function Comunicacao() {
   // ═══════════════════════════════════════════════════════════════════════════════
   // 1️⃣ EXTRAÇÃO DE IDs DE CONTATO DAS THREADS (Hidratação Sob Demanda)
   const contactIdsParaCarregar = React.useMemo(() => {
-    if (!threads.length) return [];
-    // Pega todos os contact_id não nulos das threads carregadas
-    const ids = threads.map(t => t.contact_id).filter(id => id);
-    // Remove duplicatas
-    return [...new Set(ids)];
-  }, [threads]);
+    return [];
+  }, []);
 
   // 2️⃣ BUSCA CIRÚRGICA: Apenas os contatos necessários
   const { data: contatos = [], isLoading: loadingContatos } = useQuery({
