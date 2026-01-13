@@ -1825,15 +1825,21 @@ export default function Comunicacao() {
 
                         {/* Diagnóstico Visual Realtime (APENAS ADMIN) */}
                           {usuario?.role === 'admin' && (
-                            <DiagnosticoVisibilidadeRealtime
-                              threadId={threadAtiva?.id}
-                              ultimaMensagemRecebida={mensagens[mensagens.length - 1]}
-                              filtros={{
-                                scope: filterScope,
-                                integracaoId: selectedIntegrationId,
-                                atendente: selectedAttendantId
-                              }}
-                              realTimeActive={true} />
+                            <div className="space-y-2">
+                              <DiagnosticoVisibilidadeRealtime
+                                threadId={threadAtiva?.id}
+                                ultimaMensagemRecebida={mensagens[mensagens.length - 1]}
+                                filtros={{
+                                  scope: filterScope,
+                                  integracaoId: selectedIntegrationId,
+                                  atendente: selectedAttendantId
+                                }}
+                                realTimeActive={true} />
+
+                              <DiagnosticoBuscaGlobal
+                                contactId={contatoAtivo?.id}
+                                threadId={threadAtiva?.id} />
+                            </div>
                           )}
                       </div>
                       
