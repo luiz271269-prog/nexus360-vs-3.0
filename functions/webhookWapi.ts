@@ -371,7 +371,7 @@ async function handleMessage(dados, payloadBruto, base44) {
 
   const inicio = Date.now();
 
-  // ✅ DEDUPLICAÇÃO INTELIGENTE - Se duplicata, atualiza thread e retorna
+  // ✅ DEDUPLICAÇÃO INTELIGENTE - Se duplicata, ignora (simples)
   if (dados.messageId) {
     try {
       const dup = await base44.asServiceRole.entities.Message.filter(
@@ -382,46 +382,18 @@ async function handleMessage(dados, payloadBruto, base44) {
       
       if (dup && dup.length > 0) {
         const mensagemExistente = dup[0];
-        console.log(`[WAPI] ⏭️ DUPLICADA: ${dados.messageId}`);
+        console.log(`[WAPI] ⏭️ DUPLICADA por messageId: ${dados.messageId} (já processada antes)`);
         
-        // ✅ ATUALIZAR THREAD para que conversa apareça na UI
-        try {
-          const agora = new Date().toISOString();
-          const threadUpdate = {
-            last_message_at: agora,
-            last_inbound_at: agora,
-            last_message_sender: 'contact',
-            last_message_content: String(dados.content || '').substring(0, 100),
-            last_media_type: dados.mediaType || 'none',
-            status: 'aberta',
-            // NÃO incrementa unread_count nem total_mensagens (já contados antes)
-          };
-          
-          await base44.asServiceRole.entities.MessageThread.update(thread.id, threadUpdate);
-          
-          const duracao = Date.now() - inicio;
-          console.log(`[WAPI] ✅ DUPLICATA: Thread ${thread.id} atualizada | Msg: ${mensagemExistente.id} | ${duracao}ms`);
-          
-          return jsonOk({
-            message_id: mensagemExistente.id,
-            contact_id: contato.id,
-            thread_id: thread.id,
-            integration_id: integracaoId,
-            duration_ms: duracao,
-            status: 'duplicate_thread_updated'
-          });
-        } catch (e) {
-          console.error(`[WAPI] ❌ Erro ao atualizar thread duplicata:`, e.message);
-          // Mesmo com erro, retorna sucesso para não reprocessar
-          return jsonOk({
-            message_id: mensagemExistente.id,
-            ignored: true,
-            reason: 'duplicata_com_erro_thread'
-          });
-        }
+        const duracao = Date.now() - inicio;
+        return jsonOk({
+          message_id: mensagemExistente.id,
+          ignored: true,
+          reason: 'duplicata_message_id',
+          duration_ms: duracao
+        });
       }
     } catch (e) {
-      console.warn(`[WAPI] ⚠️ Erro ao verificar duplicata:`, e.message);
+      console.warn(`[WAPI] ⚠️ Erro ao verificar duplicata por messageId:`, e.message);
     }
   }
 
