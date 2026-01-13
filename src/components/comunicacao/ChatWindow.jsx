@@ -105,7 +105,11 @@ export default function ChatWindow({
   contatosSelecionados = [],
   broadcastInterno = null, // { destinations: [...] } para broadcast interno
   onCancelarSelecao,
-  atendentes = [] // ✅ PROP: Recebe lista completa de atendentes do pai (Comunicacao.jsx)
+  atendentes = [], // ✅ PROP: Recebe lista completa de atendentes do pai (Comunicacao.jsx)
+  filterScope = 'all',
+  selectedIntegrationId = 'all',
+  selectedAttendantId = null,
+  contatoAtivo = null
 }) {
   const queryClient = useQueryClient(); // ✅ CRÍTICO: Hook do React Query
   
