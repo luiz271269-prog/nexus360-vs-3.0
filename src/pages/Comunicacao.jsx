@@ -1105,39 +1105,39 @@ export default function Comunicacao() {
     return new Map(contatos.map((c) => [c.id, c]));
   }, [contatos]);
 
+  // ✅ PATCH 3: Segurar "unassigned" até ter dados mínimos carregados
+  const hasBaseData = !!usuario && Array.isArray(threads) && threads.length >= 0;
+  const effectiveScope =
+    (!hasBaseData && filterScope === 'unassigned') ? 'all' : filterScope;
+
+  // ═══════════════════════════════════════════════════════════════════════
+  // OTIMIZAÇÃO: Pré-calcular o Set de "Não Atribuídas" separadamente
+  // Extraído para top-level para evitar nested hooks
+  // ═══════════════════════════════════════════════════════════════════════
+  const threadsNaoAtribuidasVisiveis = React.useMemo(() => {
+    if (effectiveScope !== 'unassigned' || !usuario) return new Set();
+    
+    const setIds = new Set();
+
+    threads.forEach((thread) => {
+      if (thread.thread_type === 'team_internal' || thread.thread_type === 'sector_group') return;
+      
+      const contato = contatosMap.get(thread.contact_id);
+      const threadComContato = { ...thread, contato };
+
+      if (isNaoAtribuida(thread) && canUserSeeThreadBase(usuario, threadComContato)) {
+        setIds.add(thread.id);
+      }
+    });
+    return setIds;
+  }, [threads, contatosMap, usuario, effectiveScope]);
+
   const threadsFiltradas = React.useMemo(() => {
     if (!usuario) return [];
     const categoriasSet = selectedCategoria !== 'all' ? new Set(mensagensComCategoria.map((m) => m.thread_id)) : null;
     const temBuscaPorTexto = !!debouncedSearchTerm && debouncedSearchTerm.trim().length >= 2;
     const threadsComContatoIds = new Set();
     const isAdmin = usuario?.role === 'admin';
-
-    // ✅ PATCH 3: Segurar "unassigned" até ter dados mínimos carregados
-    const hasBaseData = !!usuario && Array.isArray(threads) && threads.length >= 0;
-    const effectiveScope =
-      (!hasBaseData && filterScope === 'unassigned') ? 'all' : filterScope;
-
-    // ═══════════════════════════════════════════════════════════════════════════
-    // OTIMIZAÇÃO: Pré-calcular o Set de "Não Atribuídas" separadamente
-    // Isso evita reprocessar essa lógica pesada se o filtro não for 'unassigned'
-    // ═══════════════════════════════════════════════════════════════════════════
-    const threadsNaoAtribuidasVisiveis = React.useMemo(() => {
-      if (effectiveScope !== 'unassigned' || !usuario) return new Set();
-      
-      const setIds = new Set();
-
-      threads.forEach((thread) => {
-        if (thread.thread_type === 'team_internal' || thread.thread_type === 'sector_group') return;
-        
-        const contato = contatosMap.get(thread.contact_id);
-        const threadComContato = { ...thread, contato };
-
-        if (isNaoAtribuida(thread) && canUserSeeThreadBase(usuario, threadComContato)) {
-          setIds.add(thread.id);
-        }
-      });
-      return setIds;
-    }, [threads, contatosMap, usuario, effectiveScope]);
 
     const isFilterUnassigned = effectiveScope === 'unassigned';
 
