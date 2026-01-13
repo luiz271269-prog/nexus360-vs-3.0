@@ -299,36 +299,35 @@ export default function Comunicacao() {
           console.error('[COMUNICACAO] ❌ Erro ao buscar mensagens recebidas:', recebidaErr.message);
         }
 
-        console.log(`[COMUNICACAO] 📩 TOTAL Mensagens: ${ultimasMensagens.length} | Thread: ${threadAtiva.id}`);
-        console.log(`[COMUNICACAO] 📬 Mensagens RECEBIDAS (contact): ${mensagensRecebidas.length}`);
+        if (DEBUG_VIS) {
+          console.log(`[COMUNICACAO] 📩 TOTAL Mensagens: ${ultimasMensagens.length} | Thread: ${threadAtiva.id}`);
+          console.log(`[COMUNICACAO] 📬 Mensagens RECEBIDAS (contact): ${mensagensRecebidas.length}`);
 
-        // 🔍 DEBUG: Breakdown por tipo
-        const porTipo = ultimasMensagens.reduce((acc, m) => {
-          acc[m.sender_type] = (acc[m.sender_type] || 0) + 1;
-          return acc;
-        }, {});
-        console.log('[COMUNICACAO] 📊 Breakdown por sender_type:', porTipo);
+          const porTipo = ultimasMensagens.reduce((acc, m) => {
+            acc[m.sender_type] = (acc[m.sender_type] || 0) + 1;
+            return acc;
+          }, {});
+          console.log('[COMUNICACAO] 📊 Breakdown por sender_type:', porTipo);
 
-        // 🔍 DIAGNÓSTICO CRÍTICO: Mostrar TODAS as mensagens com sender_type/visibility
-        console.group('[COMUNICACAO] 🔍 AUDIT: Todas as mensagens (sender_type + visibility)');
-        ultimasMensagens.slice(0, 20).forEach(m => {
-          console.log(`  ${m.id.substring(0, 8)}: sender_type=${m.sender_type} | visibility=${m.visibility} | content="${m.content.substring(0, 40)}"`);
-        });
-        console.groupEnd();
+          console.group('[COMUNICACAO] 🔍 AUDIT: Todas as mensagens (sender_type + visibility)');
+          ultimasMensagens.slice(0, 20).forEach(m => {
+            console.log(`  ${m.id.substring(0, 8)}: sender_type=${m.sender_type} | visibility=${m.visibility} | content="${m.content.substring(0, 40)}"`);
+          });
+          console.groupEnd();
 
-        // 🔍 DEBUG: Amostra de mensagens recebidas
-        if (mensagensRecebidas.length > 0) {
-          console.log('[COMUNICACAO] ✅ Amostra RECEBIDAS:', mensagensRecebidas.slice(0, 3).map(m => ({
-            id: m.id.substring(0, 8),
-            content: m.content.substring(0, 40),
-            sender_id: m.sender_id.substring(0, 8),
-            sender_type: m.sender_type,
-            visibility: m.visibility,
-            sent_at: m.sent_at
-          })));
-        } else {
-          console.warn('[COMUNICACAO] ⚠️ NENHUMA mensagem recebida (sender_type=contact) encontrada no banco!');
-          console.warn('[COMUNICACAO] ⚠️ Suspeita: RLS rule bloqueando sender_type=contact ou problema no webhook');
+          if (mensagensRecebidas.length > 0) {
+            console.log('[COMUNICACAO] ✅ Amostra RECEBIDAS:', mensagensRecebidas.slice(0, 3).map(m => ({
+              id: m.id.substring(0, 8),
+              content: m.content.substring(0, 40),
+              sender_id: m.sender_id.substring(0, 8),
+              sender_type: m.sender_type,
+              visibility: m.visibility,
+              sent_at: m.sent_at
+            })));
+          } else {
+            console.warn('[COMUNICACAO] ⚠️ NENHUMA mensagem recebida (sender_type=contact) encontrada no banco!');
+            console.warn('[COMUNICACAO] ⚠️ Suspeita: RLS rule bloqueando sender_type=contact ou problema no webhook');
+          }
         }
 
         return ultimasMensagens.reverse();
@@ -1101,10 +1100,13 @@ export default function Comunicacao() {
     return score;
   }, []);
 
+  // PRÉ-INDEXAÇÃO 1: Mapa de contatos (evita recriar dentro de loops)
+  const contatosMap = React.useMemo(() => {
+    return new Map(contatos.map((c) => [c.id, c]));
+  }, [contatos]);
+
   const threadsFiltradas = React.useMemo(() => {
     if (!usuario) return [];
-
-    const contatosMap = new Map(contatos.map((c) => [c.id, c]));
     const categoriasSet = selectedCategoria !== 'all' ? new Set(mensagensComCategoria.map((m) => m.thread_id)) : null;
     const temBuscaPorTexto = !!debouncedSearchTerm && debouncedSearchTerm.trim().length >= 2;
     const threadsComContatoIds = new Set();
@@ -1192,7 +1194,9 @@ export default function Comunicacao() {
               });
               const threadsUnicas = Array.from(threadMaisRecentePorContacto.values());
     
-    console.log('[COMUNICACAO] 🎯 Threads únicas (admin+busca desabilita dedup):', threadsUnicas.length, '| Admin:', isAdmin, '| Busca:', temBuscaPorTexto);
+    if (DEBUG_VIS) {
+      console.log('[COMUNICACAO] 🎯 Threads únicas (admin+busca desabilita dedup):', threadsUnicas.length, '| Admin:', isAdmin, '| Busca:', temBuscaPorTexto);
+    }
 
     // Registrar IDs de contatos que já têm thread (para evitar duplicatas na busca)
     const contatosComThreadExistente = new Set(threadsUnicas.map((t) => t.contact_id).filter(Boolean));
@@ -1232,9 +1236,8 @@ export default function Comunicacao() {
         });
       };
       
-      // 🔍 DEBUG: Log para thread específica do Luiz
       const isLuizThread = thread.id === '693306f0ffbdced31cc623e3';
-      if (isLuizThread) {
+      if (DEBUG_VIS && isLuizThread) {
         console.log('[COMUNICACAO] 🔍 DIAGNÓSTICO LUIZ - Thread encontrada:', {
           thread_id: thread.id,
           contact_id: thread.contact_id,
@@ -1258,23 +1261,18 @@ export default function Comunicacao() {
       
       const contato = contatosMap.get(thread.contact_id);
       
-      if (isLuizThread) {
+      if (DEBUG_VIS && isLuizThread) {
         console.log('[COMUNICACAO] 🔍 DIAGNÓSTICO LUIZ - Contato:', contato ? 'ENCONTRADO' : 'NÃO ENCONTRADO');
       }
 
-      // ⚠️ FAIL-SAFE: Se thread tem contact_id mas contato não foi carregado, NÃO bloquear
-      // O UI lidará com a falta de dados mostrando fallback (ID/telefone)
       if (!contato && thread.contact_id && !isFilterUnassigned) {
-        // Fail-Safe: Deixar passar, mas marcar para UI renderizar com dados incompletos
         logThread('Contato Existe', true, 'Contato aguardando hidratação (Fail-Safe)');
-        if (isLuizThread) {
+        if (DEBUG_VIS && isLuizThread) {
           console.log('[COMUNICACAO] ⚠️ DIAGNÓSTICO LUIZ - Contato não hidratado, mas thread passa (Fail-Safe)');
         }
-        // Continuar normalmente - não bloquear
       } else if (!contato && !thread.contact_id && !isFilterUnassigned) {
-        // Apenas bloquear se NÃO tem contact_id (órfã de verdade)
         logThread('Contato Existe', false, 'Thread órfã sem contact_id (bloqueado exceto em não atribuídas)');
-        if (isLuizThread) {
+        if (DEBUG_VIS && isLuizThread) {
           console.log('[COMUNICACAO] ❌ DIAGNÓSTICO LUIZ - BLOQUEADO por ser órfã de verdade (sem contact_id)');
         }
         return false;
@@ -1296,6 +1294,7 @@ export default function Comunicacao() {
         // Verificar permissões base mesmo em modo busca
         if (!canUserSeeThreadBase(usuario, threadComContato)) {
           logThread('Modo Busca - Base', false, 'Bloqueado por visibilidade base');
+          if (DEBUG_VIS && isLuizThread) console.log('[COMUNICACAO] ❌ DIAGNÓSTICO LUIZ - Modo Busca bloqueado');
           return false;
         }
         
@@ -1332,10 +1331,9 @@ export default function Comunicacao() {
 
       // FILTRO "NÃO ATRIBUÍDAS": Verificar se thread está no Set de visíveis
       if (isFilterUnassigned) {
-        // ✅ Usar Set de IDs de threads (não de contatos)
         if (!threadsNaoAtribuidasVisiveis.has(thread.id)) {
           logThread('Filtro Não Atribuídas', false, 'Thread não está no Set de não atribuídas visíveis');
-          if (isLuizThread) {
+          if (DEBUG_VIS && isLuizThread) {
             console.log('[COMUNICACAO] ❌ DIAGNÓSTICO LUIZ - BLOQUEADO por filtro não atribuídas');
           }
           return false;
@@ -1343,11 +1341,10 @@ export default function Comunicacao() {
         
         logThread('Filtro Não Atribuídas', true, 'Thread está no Set');
 
-        // Aplicar filtro de integração específica se selecionado
         if (selectedIntegrationId && selectedIntegrationId !== 'all') {
           if (thread.whatsapp_integration_id !== selectedIntegrationId) {
             logThread('Filtro Integração', false, `Integração diferente (esperado: ${selectedIntegrationId})`);
-            if (isLuizThread) {
+            if (DEBUG_VIS && isLuizThread) {
               console.log('[COMUNICACAO] ❌ DIAGNÓSTICO LUIZ - BLOQUEADO por filtro de integração específica');
             }
             return false;
@@ -1355,11 +1352,10 @@ export default function Comunicacao() {
         }
         logThread('Filtro Integração', true, 'Integração OK');
       } else {
-        // REGRA CENTRAL: Usar módulo threadVisibility.js para outros escopos
         const podeVer = canUserSeeThreadWithFilters(usuario, threadComContato, filtros);
         if (!podeVer) {
           logThread('Visibilidade Com Filtros', false, 'Bloqueado por canUserSeeThreadWithFilters');
-          if (isLuizThread) {
+          if (DEBUG_VIS && isLuizThread) {
             console.log('[COMUNICACAO] ❌ DIAGNÓSTICO LUIZ - BLOQUEADO por canUserSeeThreadWithFilters', filtros);
           }
           return false;
@@ -1367,10 +1363,9 @@ export default function Comunicacao() {
         logThread('Visibilidade Com Filtros', true, 'Passou todas as regras');
       }
 
-      // FILTROS ADICIONAIS (categoria, tipo contato, tag)
       if (categoriasSet && !categoriasSet.has(thread.id)) {
         logThread('Filtro Categoria', false, 'Thread não tem mensagem com categoria selecionada');
-        if (isLuizThread) {
+        if (DEBUG_VIS && isLuizThread) {
           console.log('[COMUNICACAO] ❌ DIAGNÓSTICO LUIZ - BLOQUEADO por filtro de categoria');
         }
         return false;
@@ -1382,7 +1377,7 @@ export default function Comunicacao() {
       if (selectedTipoContato && selectedTipoContato !== 'all' && contato) {
         if (contato.tipo_contato !== selectedTipoContato) {
           logThread('Filtro Tipo Contato', false, `Tipo diferente (esperado: ${selectedTipoContato}, atual: ${contato.tipo_contato})`);
-          if (isLuizThread) {
+          if (DEBUG_VIS && isLuizThread) {
             console.log('[COMUNICACAO] ❌ DIAGNÓSTICO LUIZ - BLOQUEADO por filtro de tipo de contato');
           }
           return false;
@@ -1394,7 +1389,7 @@ export default function Comunicacao() {
         const tags = contato.tags || [];
         if (!tags.includes(selectedTagContato)) {
           logThread('Filtro Tag', false, `Tag não encontrada (esperado: ${selectedTagContato})`);
-          if (isLuizThread) {
+          if (DEBUG_VIS && isLuizThread) {
             console.log('[COMUNICACAO] ❌ DIAGNÓSTICO LUIZ - BLOQUEADO por filtro de tag');
           }
           return false;
@@ -1402,7 +1397,7 @@ export default function Comunicacao() {
         logThread('Filtro Tag', true, 'Tag OK');
       }
 
-      if (isLuizThread) {
+      if (DEBUG_VIS && isLuizThread) {
         console.log('[COMUNICACAO] ✅ DIAGNÓSTICO LUIZ - PASSOU em todos os filtros!');
       }
       
@@ -1455,24 +1450,27 @@ export default function Comunicacao() {
         // 🎯 PRIORIDADE MÁXIMA: Se busca detectou duplicatas, IGNORAR contatos que não sejam o principal
         if (duplicataEncontrada && duplicataEncontrada.principal) {
           if (contato.id !== duplicataEncontrada.principal.id) {
-            logsFiltragem.push({
-              threadId: `contato-${contato.id.substring(0, 8)}`,
-              contactId: contato.id.substring(0, 8),
-              etapa: 'Deduplicação',
-              passou: false,
-              motivo: `Ignorado - não é contato principal (principal: ${duplicataEncontrada.principal.id.substring(0, 8)})`,
-              timestamp: new Date().toISOString()
-            });
-            console.log(`[COMUNICACAO] 🚫 Ignorando contato duplicado (não-principal): ${contato.id} ${contato.nome}`);
+            if (DEBUG_VIS) {
+              logsFiltragem.push({
+                threadId: `contato-${contato.id.substring(0, 8)}`,
+                contactId: contato.id.substring(0, 8),
+                etapa: 'Deduplicação',
+                passou: false,
+                motivo: `Ignorado - não é contato principal (principal: ${duplicataEncontrada.principal.id.substring(0, 8)})`,
+                timestamp: new Date().toISOString()
+              });
+              console.log(`[COMUNICACAO] 🚫 Ignorando contato duplicado (não-principal): ${contato.id} ${contato.nome}`);
+            }
             return;
           }
         }
 
-        // 🔍 DEDUPLICAÇÃO POR TELEFONE: Se este telefone já foi adicionado, ignorar
         if (contato.telefone) {
           const telNorm = normalizarTelefone(contato.telefone);
           if (telNorm && telefonesJaAcionados.has(telNorm)) {
-            console.log(`[COMUNICACAO] 🚫 Ignorando contato duplicado por telefone: ${contato.id} ${contato.nome}`);
+            if (DEBUG_VIS) {
+              console.log(`[COMUNICACAO] 🚫 Ignorando contato duplicado por telefone: ${contato.id} ${contato.nome}`);
+            }
             return;
           }
           if (telNorm) {
@@ -1480,14 +1478,11 @@ export default function Comunicacao() {
           }
         }
 
-        // 🔍 ADMIN VÊ TODOS (incluindo bloqueados e duplicatas)
         if (!isAdmin) {
-          // CRÍTICO: Verificar em AMBOS os sets para evitar duplicatas
           if (contatosComThreadExistente.has(contato.id)) return;
           if (threadsComContatoIds.has(contato.id)) return;
           if (contato.bloqueado) return;
         } else {
-          // Admin: permite ver bloqueados, mas evita duplicatas se já tem thread
           if (!temBuscaPorTexto && contatosComThreadExistente.has(contato.id)) return;
         }
 
