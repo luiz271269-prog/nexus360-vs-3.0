@@ -933,9 +933,10 @@ export default function Comunicacao() {
   // 3. 🔵 Clientes sem contato (apenas com busca)
   // ═══════════════════════════════════════════════════════════════════════════════
 
-  // Função de busca estilo Google
+  // Função de busca estilo Google - CORRIGIDA
   const matchBuscaGoogle = React.useCallback((item, termo) => {
-    if (!termo || termo.length < 2) return true;
+    // ✅ SEM TERMO: Não retornar nada (forçar filtragem)
+    if (!termo || termo.trim().length < 2) return false;
 
     const normalizarTexto = (t) => {
       if (!t) return '';
