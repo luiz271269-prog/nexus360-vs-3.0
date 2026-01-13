@@ -1132,6 +1132,24 @@ export default function Comunicacao() {
     return setIds;
   }, [threads, contatosMap, usuario, effectiveScope]);
 
+  // ═══════════════════════════════════════════════════════════════════════════════
+  // 🎯 PRIORIDADE 1: Se duplicata detectada, FILTRAR threads do contato principal
+  // EXTRAÍDO para top-level (antes de threadsFiltradas)
+  // ═══════════════════════════════════════════════════════════════════════════════
+  const threadsAProcessar = React.useMemo(() => {
+    let resultado = threads;
+    
+    if (duplicataEncontrada && duplicataEncontrada.principal) {
+      const contatoPrincipalId = duplicataEncontrada.principal.id;
+      resultado = threads.filter((t) => {
+        if (t.thread_type === 'team_internal' || t.thread_type === 'sector_group') return true;
+        return t.contact_id === contatoPrincipalId;
+      });
+    }
+    
+    return resultado;
+  }, [threads, duplicataEncontrada]);
+
   const threadsFiltradas = React.useMemo(() => {
     if (!usuario) return [];
     const categoriasSet = selectedCategoria !== 'all' ? new Set(mensagensComCategoria.map((m) => m.thread_id)) : null;
@@ -1140,23 +1158,6 @@ export default function Comunicacao() {
     const isAdmin = usuario?.role === 'admin';
 
     const isFilterUnassigned = effectiveScope === 'unassigned';
-
-    // ═══════════════════════════════════════════════════════════════════════════════
-    // 🎯 PRIORIDADE 1: Se duplicata detectada, FILTRAR threads do contato principal
-    // ═══════════════════════════════════════════════════════════════════════════════
-    const threadsAProcessar = React.useMemo(() => {
-      let resultado = threads;
-      
-      if (duplicataEncontrada && duplicataEncontrada.principal) {
-        const contatoPrincipalId = duplicataEncontrada.principal.id;
-        resultado = threads.filter((t) => {
-          if (t.thread_type === 'team_internal' || t.thread_type === 'sector_group') return true;
-          return t.contact_id === contatoPrincipalId;
-        });
-      }
-      
-      return resultado;
-    }, [threads, duplicataEncontrada]);
     
     // ✅ DEDUPLICAÇÃO INTELIGENTE: Em modo normal, mostrar APENAS 1 thread por contato (mais recente)
               // ⚠️ MODO ADMIN + BUSCA: Desativar deduplicação para ver TODAS as threads/duplicatas
