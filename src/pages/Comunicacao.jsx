@@ -1120,7 +1120,7 @@ export default function Comunicacao() {
     // Isso evita reprocessar essa lógica pesada se o filtro não for 'unassigned'
     // ═══════════════════════════════════════════════════════════════════════════
     const threadsNaoAtribuidasVisiveis = React.useMemo(() => {
-      if (filterScope !== 'unassigned' || !usuario) return new Set();
+      if (effectiveScope !== 'unassigned' || !usuario) return new Set();
       
       const setIds = new Set();
       const mapContatos = new Map(contatos.map(c => [c.id, c]));
