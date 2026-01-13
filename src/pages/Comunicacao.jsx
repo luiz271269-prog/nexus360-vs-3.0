@@ -1273,23 +1273,39 @@ export default function Comunicacao() {
       }
       
       // ⬇️ Daqui pra baixo: SOMENTE threads EXTERNAS (contact_external)
-      
+
       const contato = contatosMap.get(thread.contact_id);
-      
+
       if (isLuizThread) {
-        console.log('[COMUNICACAO] 🔍 DIAGNÓSTICO LUIZ - Contato:', contato ? 'ENCONTRADO' : 'NÃO ENCONTRADO');
+        console.log('[COMUNICACAO] 🔍 DIAGNÓSTICO LUIZ - Contato:', contato ? 'ENCONTRADO' : (loadingContatos ? 'CARREGANDO' : 'NÃO ENCONTRADO'));
       }
 
-      // Threads órfãs sem contato: manter apenas se filtro "não atribuídas" ativo
-      if (!contato && !isFilterUnassigned) {
-        logThread('Contato Existe', false, 'Thread órfã sem contato (bloqueado exceto em não atribuídas)');
-        if (isLuizThread) {
-          console.log('[COMUNICACAO] ❌ DIAGNÓSTICO LUIZ - BLOQUEADO por falta de contato');
+      // 🎯 FIX HIDRATAÇÃO: Se contato não carregou ainda mas thread existe, não bloqueia
+      // Regra de Ouro: Se o contact_id existe na thread mas o contato não veio na lista,
+      // deixa passar para carreamento sob demanda (em vez de bloquear)
+      if (thread.contact_id && !contato) {
+        // Se ainda está carregando contatos, não bloqueia
+        if (loadingContatos) {
+          logThread('Contato Existe', true, 'Contato carregando (hidratação sob demanda)');
+          return true; // Deixa passar, será refinado quando contatos carregarem
         }
-        return false;
+
+        // Se está "não atribuídas", permite thread órfã
+        if (isFilterUnassigned) {
+          logThread('Contato Existe', true, 'Órfã permitida em modo não atribuídas');
+          return true;
+        }
+
+        // Caso raro: contato_id na thread mas contato não existe no banco
+        // Ainda assim, não bloqueie - mostre com identificação alternativa
+        logThread('Contato Existe', true, 'Contato não encontrado mas thread mantida (fallback)');
+        if (isLuizThread) {
+          console.log('[COMUNICACAO] ⚠️ DIAGNÓSTICO LUIZ - Contato não encontrado, mas thread mostrada (fallback)');
+        }
+        return true; // Permite mostrar thread com dados limitados
       }
-      
-      logThread('Contato Existe', true, contato ? 'Contato encontrado' : 'Órfã permitida');
+
+      logThread('Contato Existe', true, contato ? 'Contato encontrado' : 'Órfã com fallback');
 
       if (thread.contact_id) {
         threadsComContatoIds.add(thread.contact_id);
