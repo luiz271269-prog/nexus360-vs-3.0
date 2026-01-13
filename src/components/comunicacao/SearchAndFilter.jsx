@@ -138,10 +138,12 @@ export default function SearchAndFilter({
               100 // Limite para performance
             );
             
-            // Filtrar por nome ou empresa com case-insensitive
+            // Filtrar por nome, empresa, cargo ou observações
             contatosExistentes = contatosNome.filter(c => 
               (c.nome && c.nome.toLowerCase().includes(termoBusca)) ||
-              (c.empresa && c.empresa.toLowerCase().includes(termoBusca))
+              (c.empresa && c.empresa.toLowerCase().includes(termoBusca)) ||
+              (c.cargo && c.cargo.toLowerCase().includes(termoBusca)) ||
+              (c.observacoes && c.observacoes.toLowerCase().includes(termoBusca))
             );
             
             // Ordenar por relevância: nome matching > empresa matching > data
@@ -150,10 +152,14 @@ export default function SearchAndFilter({
               const nomeB = (b.nome || '').toLowerCase();
               const empresaA = (a.empresa || '').toLowerCase();
               const empresaB = (b.empresa || '').toLowerCase();
+              const cargoA = (a.cargo || '').toLowerCase();
+              const cargoB = (b.cargo || '').toLowerCase();
+              const obsA = (a.observacoes || '').toLowerCase();
+              const obsB = (b.observacoes || '').toLowerCase();
               
-              // Pontuação: match exato no nome = 10, contains = 5
-              const scoreA = nomeA === termoBusca ? 10 : (nomeA.includes(termoBusca) ? 5 : (empresaA.includes(termoBusca) ? 3 : 0));
-              const scoreB = nomeB === termoBusca ? 10 : (nomeB.includes(termoBusca) ? 5 : (empresaB.includes(termoBusca) ? 3 : 0));
+              // Pontuação: nome exato=10, nome contains=5, empresa=3, cargo=2, observações=1
+              const scoreA = nomeA === termoBusca ? 10 : (nomeA.includes(termoBusca) ? 5 : (empresaA.includes(termoBusca) ? 3 : (cargoA.includes(termoBusca) ? 2 : (obsA.includes(termoBusca) ? 1 : 0))));
+              const scoreB = nomeB === termoBusca ? 10 : (nomeB.includes(termoBusca) ? 5 : (empresaB.includes(termoBusca) ? 3 : (cargoB.includes(termoBusca) ? 2 : (obsB.includes(termoBusca) ? 1 : 0))));
               
               if (scoreB !== scoreA) return scoreB - scoreA;
               
@@ -249,7 +255,7 @@ export default function SearchAndFilter({
         <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 w-4 h-4" />
         <Input
           type="text"
-          placeholder="Buscar contato, empresa..."
+          placeholder="Buscar nome, empresa, cargo, descrição..."
           value={searchTerm}
           onChange={(e) => onSearchChange(e.target.value)}
           className="w-full pl-10 pr-12 py-2.5 bg-white border-slate-200 rounded-xl focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 transition-all" />
