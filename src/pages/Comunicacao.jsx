@@ -1245,16 +1245,25 @@ export default function Comunicacao() {
         console.log('[COMUNICACAO] 🔍 DIAGNÓSTICO LUIZ - Contato:', contato ? 'ENCONTRADO' : 'NÃO ENCONTRADO');
       }
 
-      // Threads órfãs sem contato: manter apenas se filtro "não atribuídas" ativo
-      if (!contato && !isFilterUnassigned) {
-        logThread('Contato Existe', false, 'Thread órfã sem contato (bloqueado exceto em não atribuídas)');
+      // ⚠️ FAIL-SAFE: Se thread tem contact_id mas contato não foi carregado, NÃO bloquear
+      // O UI lidará com a falta de dados mostrando fallback (ID/telefone)
+      if (!contato && thread.contact_id && !isFilterUnassigned) {
+        // Fail-Safe: Deixar passar, mas marcar para UI renderizar com dados incompletos
+        logThread('Contato Existe', true, 'Contato aguardando hidratação (Fail-Safe)');
         if (isLuizThread) {
-          console.log('[COMUNICACAO] ❌ DIAGNÓSTICO LUIZ - BLOQUEADO por falta de contato');
+          console.log('[COMUNICACAO] ⚠️ DIAGNÓSTICO LUIZ - Contato não hidratado, mas thread passa (Fail-Safe)');
+        }
+        // Continuar normalmente - não bloquear
+      } else if (!contato && !thread.contact_id && !isFilterUnassigned) {
+        // Apenas bloquear se NÃO tem contact_id (órfã de verdade)
+        logThread('Contato Existe', false, 'Thread órfã sem contact_id (bloqueado exceto em não atribuídas)');
+        if (isLuizThread) {
+          console.log('[COMUNICACAO] ❌ DIAGNÓSTICO LUIZ - BLOQUEADO por ser órfã de verdade (sem contact_id)');
         }
         return false;
       }
       
-      logThread('Contato Existe', true, contato ? 'Contato encontrado' : 'Órfã permitida');
+      logThread('Contato Existe', true, contato ? 'Contato encontrado' : 'Fail-Safe ativado');
 
       if (thread.contact_id) {
         threadsComContatoIds.add(thread.contact_id);
