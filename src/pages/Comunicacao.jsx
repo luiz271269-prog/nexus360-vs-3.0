@@ -1108,7 +1108,7 @@ export default function Comunicacao() {
     // FILTRO ESPECIAL: "Não atribuídas" - Mostrar TODAS as threads sem atribuição
     // ⚠️ IMPORTANTE: Só aplicável a threads EXTERNAS (não faz sentido para internas)
     // ═══════════════════════════════════════════════════════════════════════════
-    const isFilterUnassigned = filterScope === 'unassigned';
+    const isFilterUnassigned = effectiveScope === 'unassigned';
 
     // PASSO 1: Identificar threads não atribuídas visíveis (APENAS EXTERNAS)
     const threadsNaoAtribuidasVisiveis = new Set();
