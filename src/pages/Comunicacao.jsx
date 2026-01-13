@@ -257,7 +257,7 @@ export default function Comunicacao() {
     queryFn: async () => {
       // 🚫 Dupla verificação: queryFn + enabled (defesa em profundidade)
       if (!threadAtiva || isRateLimited) return [];
-      
+
       try {
         // ✅ QUERY LIMPA: Apenas thread_id, SEM filtros de channel/visibility/sender_type
         // Todas as mensagens (internas E externas) devem aparecer
@@ -266,7 +266,18 @@ export default function Comunicacao() {
           '-sent_at', // ✅ Ordenar por sent_at (não created_date)
           200
         );
+
+        // 🔍 DEBUG: Log detalhado das mensagens
         console.log(`[COMUNICACAO] 📩 Mensagens carregadas: ${ultimasMensagens.length} | Thread: ${threadAtiva.id}`);
+        console.log('[COMUNICACAO] 🔍 Amostra de mensagens:', ultimasMensagens.slice(0, 3).map(m => ({
+          id: m.id.substring(0, 8),
+          content: m.content.substring(0, 30),
+          sender_type: m.sender_type,
+          visibility: m.visibility,
+          channel: m.channel,
+          sent_at: m.sent_at
+        })));
+
         return ultimasMensagens.reverse();
       } catch (error) {
         // 🚫 DETECTAR 429 E ATIVAR COOL-DOWN
