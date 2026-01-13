@@ -1112,8 +1112,10 @@ export default function Comunicacao() {
     const threadsComContatoIds = new Set();
     const isAdmin = usuario?.role === 'admin';
 
-    // ✅ FAIL-SAFE: Se usuário ainda está carregando E filtro é "unassigned", temporariamente usar "all"
-    const effectiveScope = isLoadingUsuario && filterScope === 'unassigned' ? 'all' : filterScope;
+    // ✅ PATCH 3: Segurar "unassigned" até ter dados mínimos carregados
+    const hasBaseData = !!usuario && Array.isArray(threads) && threads.length >= 0;
+    const effectiveScope =
+      (!hasBaseData && filterScope === 'unassigned') ? 'all' : filterScope;
 
     // ═══════════════════════════════════════════════════════════════════════════
     // OTIMIZAÇÃO: Pré-calcular o Set de "Não Atribuídas" separadamente
