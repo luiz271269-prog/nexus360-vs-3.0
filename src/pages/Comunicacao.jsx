@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useTransition } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import ReactFixHelper from "../components/global/ReactFixHelper";
@@ -131,6 +131,9 @@ export default function Comunicacao() {
     isOpen: false,
     telefone: null
   });
+
+  // 🚀 OTIMIZAÇÃO DE PERFORMANCE (UI não trava na troca de filtro)
+  const [isPendingFilter, startTransition] = useTransition();
 
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -1105,27 +1108,29 @@ export default function Comunicacao() {
     const isAdmin = usuario?.role === 'admin';
 
     // ═══════════════════════════════════════════════════════════════════════════
-    // FILTRO ESPECIAL: "Não atribuídas" - Mostrar TODAS as threads sem atribuição
-    // ⚠️ IMPORTANTE: Só aplicável a threads EXTERNAS (não faz sentido para internas)
+    // OTIMIZAÇÃO: Pré-calcular o Set de "Não Atribuídas" separadamente
+    // Isso evita reprocessar essa lógica pesada se o filtro não for 'unassigned'
     // ═══════════════════════════════════════════════════════════════════════════
-    const isFilterUnassigned = effectiveScope === 'unassigned';
+    const threadsNaoAtribuidasVisiveis = React.useMemo(() => {
+      if (effectiveScope !== 'unassigned' || !usuario) return new Set();
+      
+      const setIds = new Set();
+      const mapContatos = new Map(contatos.map(c => [c.id, c]));
 
-    // PASSO 1: Identificar threads não atribuídas visíveis (APENAS EXTERNAS)
-    const threadsNaoAtribuidasVisiveis = new Set();
-    if (isFilterUnassigned) {
       threads.forEach((thread) => {
-        // ✅ Threads internas não entram na lógica de "não atribuídas" (sempre visíveis por participação)
         if (thread.thread_type === 'team_internal' || thread.thread_type === 'sector_group') return;
         
-        const contato = contatosMap.get(thread.contact_id);
+        const contato = mapContatos.get(thread.contact_id);
         const threadComContato = { ...thread, contato };
 
-        // Verificar se é não atribuída E se usuário pode ver (permissões base)
         if (isNaoAtribuida(thread) && canUserSeeThreadBase(usuario, threadComContato)) {
-          threadsNaoAtribuidasVisiveis.add(thread.id);
+          setIds.add(thread.id);
         }
       });
-    }
+      return setIds;
+    }, [threads, contatos, usuario, effectiveScope]);
+
+    const isFilterUnassigned = effectiveScope === 'unassigned';
 
     // ═══════════════════════════════════════════════════════════════════════════════
     // 🎯 PRIORIDADE 1: Se duplicata detectada, FILTRAR threads do contato principal
@@ -1763,7 +1768,12 @@ export default function Comunicacao() {
                      searchTerm={searchTerm}
                      onSearchChange={setSearchTerm}
                      filterScope={filterScope}
-                     onFilterScopeChange={setFilterScope}
+                     onFilterScopeChange={(val) => {
+                       // 🚀 UI Otimista: Troca a aba visualmente rápido, processa a lista em background
+                       startTransition(() => {
+                           setFilterScope(val);
+                       });
+                     }}
                      selectedAttendantId={selectedAttendantId}
                      onSelectedAttendantChange={setSelectedAttendantId}
                      atendentes={atendentes}
@@ -1796,7 +1806,7 @@ export default function Comunicacao() {
                      onDuplicataDetectada={setDuplicataEncontrada} />
 
 
-                  <div className="flex-1 overflow-y-auto">
+                  <div className={`flex-1 overflow-y-auto transition-opacity duration-200 ${isPendingFilter ? 'opacity-50' : 'opacity-100'}`}>
                     <ChatSidebar
                       threads={threadsComContato}
                       threadAtiva={threadAtiva}
