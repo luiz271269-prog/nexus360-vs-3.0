@@ -389,15 +389,19 @@ export default function Comunicacao() {
       }
     },
     enabled: !!threadAtiva && !isRateLimited,
-    refetchInterval: 20000,
-    staleTime: 10000,
-    retry: 2,
-    retryDelay: 1000,
+    refetchInterval: 15000, // ⏰ REDUZIDO: Atualiza a cada 15s (em vez de 20s) para capturar msgs mais rápido
+    staleTime: 5000, // ⏰ REDUZIDO: Dados frescos por 5s (em vez de 10s) para mostrar msgs recentes
+    retry: 3,
+    retryDelay: 500, // ⚡ MAIS RÁPIDO: Retry mais agressivo
     refetchOnWindowFocus: true,
+    refetchOnReconnect: true, // ✅ NOVO: Recarregar ao reconectar
     onError: (error) => {
       console.error('[Comunicacao] Erro ao carregar mensagens:', error);
+      if (error?.message?.includes('429')) {
+        console.warn('[COMUNICACAO] ⚠️ Rate limit em mensagens, aguardando...');
+      }
     }
-  });
+    });
 
   const { data: todasIntegracoes = [] } = useQuery({
     queryKey: ['integracoes'],
