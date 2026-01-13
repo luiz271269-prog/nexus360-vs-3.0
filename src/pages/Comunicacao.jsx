@@ -1832,42 +1832,47 @@ export default function Comunicacao() {
                   <>
                       <div className="flex-1 overflow-hidden relative">
                         <ChatWindow
-                          thread={threadAtiva}
-                          mensagens={mensagens}
-                          usuario={usuario}
-                          onEnviarMensagem={async () => {}}
-                          onSendMessageOptimistic={handleEnviarMensagemOtimista}
-                          onSendInternalMessageOptimistic={handleEnviarMensagemInternaOtimista}
-                          onShowContactInfo={() => setShowContactInfo(!showContactInfo)}
-                          onAtualizarMensagens={handleAtualizarMensagens}
-                          integracoes={integracoes}
-                          selectedCategoria={selectedCategoria}
-                          modoSelecaoMultipla={modoSelecaoMultipla}
-                          contatosSelecionados={contatosSelecionados}
-                          broadcastInterno={broadcastInterno}
-                          onCancelarSelecao={() => {
-                            setModoSelecaoMultipla(false);
-                            setContatosSelecionados([]);
-                            setBroadcastInterno(null);
-                          }}
-                          atendentes={atendentes} />
+                        thread={threadAtiva}
+                        mensagens={mensagens}
+                        usuario={usuario}
+                        onEnviarMensagem={async () => {}}
+                        onSendMessageOptimistic={handleEnviarMensagemOtimista}
+                        onSendInternalMessageOptimistic={handleEnviarMensagemInternaOtimista}
+                        onShowContactInfo={() => setShowContactInfo(!showContactInfo)}
+                        onAtualizarMensagens={handleAtualizarMensagens}
+                        integracoes={integracoes}
+                        selectedCategoria={selectedCategoria}
+                        modoSelecaoMultipla={modoSelecaoMultipla}
+                        contatosSelecionados={contatosSelecionados}
+                        broadcastInterno={broadcastInterno}
+                        onCancelarSelecao={() => {
+                          setModoSelecaoMultipla(false);
+                          setContatosSelecionados([]);
+                          setBroadcastInterno(null);
+                        }}
+                        atendentes={atendentes} />
 
                         {/* Diagnóstico Visual Realtime (APENAS ADMIN) */}
                           {usuario?.role === 'admin' && (
-                            <div className="space-y-2">
-                              <DiagnosticoVisibilidadeRealtime
-                                threadId={threadAtiva?.id}
-                                ultimaMensagemRecebida={mensagens[mensagens.length - 1]}
-                                filtros={{
-                                  scope: filterScope,
-                                  integracaoId: selectedIntegrationId,
-                                  atendente: selectedAttendantId
-                                }}
-                                realTimeActive={true} />
-                            </div>
+                            <>
+                            <DiagnosticoVisibilidadeRealtime
+                              threadId={threadAtiva?.id}
+                              ultimaMensagemRecebida={mensagens[mensagens.length - 1]}
+                              filtros={{
+                                scope: filterScope,
+                                integracaoId: selectedIntegrationId,
+                                atendente: selectedAttendantId
+                              }}
+                              realTimeActive={true} />
+                              <BotaoDiagnosticoFlutuante 
+                                usuario={usuario} 
+                                contatoAtivo={contatoAtivo}
+                                threadAtiva={threadAtiva}
+                              />
+                            </>
                           )}
                       </div>
-                      
+
                       {showContactInfo && contatoAtivo &&
                     <ContactInfoPanel
                       contact={contatoAtivo}
