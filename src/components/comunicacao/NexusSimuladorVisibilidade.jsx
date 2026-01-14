@@ -480,44 +480,79 @@ export default function NexusSimuladorVisibilidade({ usuario, integracoes = [], 
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {simulationResults.resultados.map((res) => (
-                  <tr 
-                    key={res.threadId} 
-                    className={
-                      res.isMatch 
-                        ? "hover:bg-slate-50" 
-                        : res.severity === 'error'
-                        ? "bg-red-50 hover:bg-red-100"
-                        : "bg-amber-50 hover:bg-amber-100"
-                    }
-                  >
-                    <td className="p-3">
-                      <div className="flex items-center gap-3">
-                        {/* Avatar - Estilo ChatSidebar */}
-                        <div className="relative flex-shrink-0">
-                          <div className="w-10 h-10 rounded-full flex items-center justify-center text-white font-bold text-sm shadow-md bg-gradient-to-br from-slate-400 to-slate-500">
-                            {res.contactName.charAt(0).toUpperCase()}
-                          </div>
-                        </div>
-                        
-                        {/* Info */}
-                        <div className="flex-1 min-w-0">
-                          <div className="font-medium text-slate-700 truncate">{res.contactName}</div>
-                          <div className="text-xs text-slate-400 font-mono truncate">{res.threadId.substring(0, 20)}...</div>
-                          <div className="flex items-center gap-1 mt-1">
-                            <Badge variant="outline" className="text-[10px] h-4">
-                              {res.threadType === 'contact_external' ? 'Cliente' : res.threadType === 'team_internal' ? '1:1 Interno' : 'Grupo'}
-                            </Badge>
-                            {res.threadData.assigned && (
-                              <Badge className="bg-indigo-500 text-white text-[10px] h-4">
-                                <UserCheck className="w-2.5 h-2.5 mr-1" />
-                                Atribuído
-                              </Badge>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                    </td>
+               {simulationResults.resultados.map((res) => {
+                 const thread = threads.find(t => t.id === res.threadId);
+                 const contato = thread?.contato;
+                 const hasUnread = (thread?.unread_count || 0) > 0;
+
+                 // Nome formatado igual ChatSidebar
+                 let nomeExibicao = res.contactName;
+                 if (contato?.empresa) nomeExibicao = contato.empresa;
+                 if (contato?.cargo) nomeExibicao += (nomeExibicao && contato.cargo ? " - " : "") + (contato.cargo || "");
+                 if (contato?.nome && contato.nome !== contato.telefone) nomeExibicao += (nomeExibicao ? " - " : "") + contato.nome;
+                 if (!nomeExibicao || nomeExibicao.trim() === '') nomeExibicao = contato?.telefone || res.contactName;
+
+                 return (
+                   <tr 
+                     key={res.threadId} 
+                     className={
+                       res.isMatch 
+                         ? "hover:bg-slate-50" 
+                         : res.severity === 'error'
+                         ? "bg-red-50 hover:bg-red-100"
+                         : "bg-amber-50 hover:bg-amber-100"
+                     }
+                   >
+                     <td className="p-3">
+                       <div className="flex items-center gap-3">
+                         {/* Avatar com foto - Estilo ChatSidebar */}
+                         <div className="relative flex-shrink-0">
+                           <div className={`w-12 h-12 rounded-full flex items-center justify-center text-white font-bold text-lg shadow-md overflow-hidden ${
+                             hasUnread ? 'bg-gradient-to-br from-amber-400 via-orange-500 to-red-500' : 'bg-gradient-to-br from-slate-400 to-slate-500'
+                           }`}>
+                             {contato?.foto_perfil_url ? (
+                               <img src={contato.foto_perfil_url} alt={nomeExibicao} className="w-full h-full object-cover" onError={(e) => { e.target.style.display = 'none'; }} />
+                             ) : (
+                               nomeExibicao.charAt(0).toUpperCase()
+                             )}
+                           </div>
+                         </div>
+
+                         {/* Info completa */}
+                         <div className="flex-1 min-w-0">
+                           {/* Linha 1: Nome + Horário */}
+                           <div className="flex items-center justify-between mb-0.5">
+                             <h3 className="font-semibold text-sm text-slate-900 truncate">{nomeExibicao}</h3>
+                             <span className="text-[10px] text-slate-400 flex-shrink-0 ml-2">
+                               {formatarHorario(thread?.last_message_at)}
+                             </span>
+                           </div>
+
+                           {/* Linha 2: Preview mensagem */}
+                           <p className="text-xs text-slate-500 truncate flex items-center gap-1 mb-1">
+                             {thread?.last_message_sender === 'user' && <CheckCheck className="w-3 h-3 text-blue-500 flex-shrink-0" />}
+                             {thread?.last_media_type === 'image' && <Image className="w-3 h-3 text-blue-500 flex-shrink-0" />}
+                             {thread?.last_media_type === 'video' && <Video className="w-3 h-3 text-purple-500 flex-shrink-0" />}
+                             {thread?.last_media_type === 'audio' && <Mic className="w-3 h-3 text-green-500 flex-shrink-0" />}
+                             {thread?.last_media_type === 'document' && <FileText className="w-3 h-3 text-orange-500 flex-shrink-0" />}
+                             <span className="truncate">{thread?.last_message_content || "Sem mensagens"}</span>
+                           </p>
+
+                           {/* Linha 3: Badges */}
+                           <div className="flex items-center gap-1 flex-wrap">
+                             <Badge variant="outline" className="text-[10px] h-4">
+                               {res.threadType === 'contact_external' ? '👤 Cliente' : res.threadType === 'team_internal' ? '💬 1:1' : '👥 Grupo'}
+                             </Badge>
+                             {thread?.assigned_user_id && (
+                               <Badge className="bg-indigo-500 text-white text-[10px] h-4">
+                                 <UserCheck className="w-2.5 h-2.5 mr-0.5" />
+                                 {getUserDisplayName(thread.assigned_user_id, todosUsuarios).split(' ')[0]}
+                               </Badge>
+                             )}
+                           </div>
+                         </div>
+                       </div>
+                     </td>
                     
                     <td className="p-3 text-center">
                       <div className="flex flex-col items-center gap-1">
@@ -589,8 +624,9 @@ export default function NexusSimuladorVisibilidade({ usuario, integracoes = [], 
                         )}
                       </div>
                     </td>
-                  </tr>
-                ))}
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
