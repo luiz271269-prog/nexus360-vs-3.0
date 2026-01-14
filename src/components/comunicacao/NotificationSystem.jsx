@@ -77,8 +77,7 @@ export default function NotificationSystem({ usuario, threads = [] }) {
       {/* ⭐ CONTAINER BLINDADO: fixed + pointer-events-none evita empurrar sidebar */}
       <div className="fixed bottom-4 right-4 z-[9999] flex flex-col gap-2 pointer-events-none">
         <AnimatePresence>
-          {novasMensagens.map((msg, index) => (
-            {/* Filho pode receber cliques apesar do pai ter pointer-events-none */}
+          {novasMensagens.map((msg) => (
             <motion.div
               key={msg.id}
               initial={{ x: 400, opacity: 0, scale: 0.8 }}
