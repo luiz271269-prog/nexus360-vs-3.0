@@ -522,60 +522,57 @@ export default function NexusSimuladorVisibilidade({ usuario, integracoes = [], 
                        </div>
                      </td>
 
-                    <td className="px-2 py-1">
-                      <div className="flex flex-col items-center gap-0.5">
-                        {res.legacyDecision ? (
-                          <>
-                            <Eye className="w-4 h-4 text-emerald-600" />
-                            <span className="text-[9px] text-emerald-700 font-semibold">VISÍVEL</span>
-                            <span className="text-[8px] text-slate-500 text-center">{res.legacyMotivo}</span>
-                          </>
-                        ) : (
-                          <>
-                            <EyeOff className="w-4 h-4 text-slate-400" />
-                            <span className="text-[9px] text-slate-600 font-semibold">BLOQUEADO</span>
-                            <span className="text-[8px] text-slate-500 text-center">{res.legacyMotivo}</span>
-                          </>
-                        )}
-                      </div>
+                    <td className="px-2 py-1 text-center">
+                      {res.legacyDecision ? (
+                        <Eye className="w-4 h-4 text-emerald-600 mx-auto" />
+                      ) : (
+                        <EyeOff className="w-4 h-4 text-slate-400 mx-auto" />
+                      )}
+                    </td>
+
+                    <td className="px-2 py-1 text-center">
+                      {res.nexusDecision ? (
+                        <Eye className="w-4 h-4 text-indigo-600 mx-auto" />
+                      ) : (
+                        <EyeOff className="w-4 h-4 text-slate-400 mx-auto" />
+                      )}
                     </td>
 
                     <td className="px-2 py-1">
-                      <div className="flex flex-col items-center gap-0.5">
-                        {res.nexusDecision ? (
-                          <>
-                            <Eye className="w-4 h-4 text-indigo-600" />
-                            <span className="text-[9px] text-indigo-700 font-semibold">VISÍVEL</span>
-                            <span className="text-[8px] text-slate-500 text-center">{res.nexusMotivo}</span>
-                          </>
-                        ) : (
-                          <>
-                            <EyeOff className="w-4 h-4 text-slate-400" />
-                            <span className="text-[9px] text-slate-600 font-semibold">BLOQUEADO</span>
-                            <span className="text-[8px] text-slate-500 text-center">{res.nexusMotivo}</span>
-                          </>
-                        )}
-                      </div>
+                      <Badge variant="outline" className="text-[9px] font-mono">
+                        {res.nexusDecisionPath?.[0]?.split(':')[1] || 'N/A'}
+                      </Badge>
+                    </td>
+
+                    <td className="px-2 py-1">
+                      <code className="text-[9px] text-purple-700 font-mono bg-purple-50 px-1 py-0.5 rounded">
+                        {res.nexusReasonCode || 'N/A'}
+                      </code>
                     </td>
 
                     <td className="px-2 py-1">
                       {res.isMatch ? (
-                        <div className="flex items-center gap-1 text-emerald-600 text-[10px] font-semibold">
-                          <CheckCircle2 className="w-4 h-4" />
-                          <div>
-                            <div>✓ MATCH</div>
-                            <div className="text-[8px] text-slate-500">Decisões iguais</div>
-                          </div>
+                        <div className="flex items-center gap-1 text-emerald-600 text-[10px]">
+                          <CheckCircle2 className="w-3 h-3" />
+                          MATCH
                         </div>
                       ) : (
-                        <div className={`flex items-start gap-1 text-[10px] font-bold ${res.severity === 'error' ? 'text-red-700' : 'text-amber-700'}`}>
-                          <AlertTriangle className="w-4 h-4 flex-shrink-0" />
-                          <div>
-                            <div>{res.severity === 'error' ? '🚨 ERRO CRÍTICO' : '⚠️ DIVERGÊNCIA'}</div>
-                            <div className="text-[8px] font-normal">{res.reason}</div>
-                          </div>
+                        <div className={`flex items-center gap-1 text-[10px] font-bold ${res.severity === 'error' ? 'text-red-700' : 'text-amber-700'}`}>
+                          <AlertTriangle className="w-3 h-3" />
+                          {res.severity === 'error' ? 'CRÍTICO' : 'ALERTA'}
                         </div>
                       )}
+                    </td>
+
+                    <td className="px-2 py-1 text-center">
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => setThreadExpandida(threadExpandida === res.threadId ? null : res.threadId)}
+                        className="h-6 w-6 p-0"
+                      >
+                        <Info className="w-3 h-3 text-slate-400" />
+                      </Button>
                     </td>
                     </tr>
                   );
