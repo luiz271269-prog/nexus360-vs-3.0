@@ -1920,7 +1920,7 @@ export default function ChatWindow({
               })()}
             </div>
 
-            {/* Nome + Canal + Termômetro */}
+            {/* Nome + Canal + Botões + Termômetro */}
             <div className="flex-1 min-w-0 flex flex-col gap-1">
               <div className="flex items-center gap-2">
                 <h3 className="text-slate-800 font-bold text-sm truncate">{nomeContato}</h3>
@@ -1945,13 +1945,33 @@ export default function ChatWindow({
                   );
                 })()}
 
+                {/* Botões de Ação */}
+                <div className="flex items-center gap-1 ml-auto flex-shrink-0">
+                  <Button size="icon" variant="ghost" className="h-7 w-7 hover:bg-slate-200/50" onClick={() => abrirDiagnostico()}>
+                    <Zap className="h-4 w-4 text-amber-600" />
+                    <span className="sr-only">Diagnóstico</span>
+                  </Button>
+                  <Button size="icon" variant="ghost" className="h-7 w-7 hover:bg-slate-200/50">
+                    <ArrowRight className="h-4 w-4 text-blue-600" />
+                    <span className="sr-only">Transferir</span>
+                  </Button>
+                  <Button size="icon" variant="ghost" className="h-7 w-7 hover:bg-slate-200/50" onClick={marcarComoLida}>
+                    <Check className="h-4 w-4 text-green-600" />
+                    <span className="sr-only">Lida</span>
+                  </Button>
+                  <Button size="icon" variant="ghost" className="h-7 w-7 hover:bg-slate-200/50" onClick={() => setMostrarDetalhes(!mostrarDetalhes)}>
+                    <ChevronDown className={`h-4 w-4 text-slate-600 transition-transform ${mostrarDetalhes ? 'rotate-180' : ''}`} />
+                    <span className="sr-only">Detalhes</span>
+                  </Button>
+                </div>
+
                 {/* Barra de Temperatura */}
                 {(() => {
                   const score = calcularScoreContato(contatoCompleto);
                   const nivel = getNivelTemperatura(score);
                   const Icon = nivel.icon;
                   return (
-                    <div className="flex items-center gap-1 ml-auto">
+                    <div className="flex items-center gap-1">
                       <div className={`w-4 h-4 rounded-full bg-gradient-to-br ${nivel.gradiente} flex items-center justify-center shadow-sm flex-shrink-0`}>
                         <Icon className="w-2.5 h-2.5 text-white" />
                       </div>
