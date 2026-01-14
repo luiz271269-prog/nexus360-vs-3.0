@@ -25,7 +25,11 @@ import {
   Flame,
   TrendingUp,
   CheckSquare,
-  Bug } from
+  Bug,
+  Zap,
+  Check,
+  ChevronDown,
+  ArrowRight } from
 "lucide-react";
 
 // Logos SVG inline para cada canal
