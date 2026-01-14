@@ -2009,7 +2009,7 @@ export default function ChatWindow({
                   </div>
                 );
               }
-              return <div className="flex-1" />;
+              return null;
             })()}
 
             {/* Ações - Agrupadas */}
