@@ -189,13 +189,13 @@ export default function NexusSimuladorVisibilidade({ usuario, integracoes = [], 
 
   return (
     <div className="grid grid-cols-12 gap-4">
-      {/* BARRAS LATERAIS - Uma por Integração */}
-      <div className="col-span-3 space-y-4 overflow-y-auto h-[calc(100vh-8rem)]">
+      {/* BARRAS LATERAIS - Uma por Integração (Lado a Lado) */}
+      <div className="col-span-3 flex gap-2 overflow-x-auto h-[calc(100vh-8rem)]">
         {integracoes.map(integracao => {
           const threadsIntegracao = threads.filter(t => t.whatsapp_integration_id === integracao.id);
           
           return (
-            <Card key={integracao.id} className="border-slate-200 flex flex-col">
+            <Card key={integracao.id} className="border-slate-200 flex flex-col flex-shrink-0 w-64">
               <CardHeader className="pb-3 flex-shrink-0 bg-gradient-to-r from-slate-50 to-slate-100">
                 <CardTitle className="text-xs flex items-center justify-between">
                   <div className="flex items-center gap-2">
@@ -206,7 +206,7 @@ export default function NexusSimuladorVisibilidade({ usuario, integracoes = [], 
                 </CardTitle>
                 <p className="text-[10px] text-slate-500 mt-1">#{integracao.numero_telefone?.slice(-4)}</p>
               </CardHeader>
-              <CardContent className="p-0 max-h-[400px] overflow-y-auto">
+              <CardContent className="p-0 flex-1 overflow-y-auto">
                 <div className="space-y-0">
                   {threadsIntegracao.map((thread, index) => {
                 // Buscar contato pelo contact_id
