@@ -53,6 +53,28 @@ export default function NexusSimuladorVisibilidade({ usuario, integracoes = [], 
 
   const usuarioAtual = todosUsuarios.find(u => u.id === usuarioSelecionado) || usuario;
 
+  const formatarHorario = (timestamp) => {
+    if (!timestamp) return "";
+    try {
+      const agora = new Date();
+      const dataMsg = new Date(timestamp);
+
+      if (agora.toDateString() === dataMsg.toDateString()) {
+        return new Date(timestamp).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+      }
+
+      const diffDias = Math.floor((agora - dataMsg) / (1000 * 60 * 60 * 24));
+      if (diffDias < 7) {
+        const diasSemana = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
+        return diasSemana[dataMsg.getDay()];
+      }
+
+      return dataMsg.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
+    } catch {
+      return "";
+    }
+  };
+
   const handleAutoMigrate = async () => {
     if (!usuarioAtual) {
       toast.error('Nenhum usuário selecionado');
