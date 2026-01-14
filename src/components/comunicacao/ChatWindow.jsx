@@ -1952,7 +1952,7 @@ export default function ChatWindow({
 
                 {/* Botões de Ação */}
                 <div className="flex items-center gap-1 ml-auto flex-shrink-0">
-                  <Button size="icon" variant="ghost" className="h-7 w-7 hover:bg-slate-200/50" onClick={() => abrirDiagnostico()}>
+                  <Button size="icon" variant="ghost" className="h-7 w-7 hover:bg-slate-200/50" onClick={() => toast.info('Diagnóstico em desenvolvimento')}>
                     <Zap className="h-4 w-4 text-amber-600" />
                     <span className="sr-only">Diagnóstico</span>
                   </Button>
