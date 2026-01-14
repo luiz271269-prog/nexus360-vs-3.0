@@ -369,7 +369,7 @@ export default function Layout({ children, currentPageName }) {
       <CacheBuster />
       <DeploymentBanner />
 
-      {globalUsuario && <NotificationSystem usuario={globalUsuario} threads={threads || []} />}
+      {globalUsuario && <NotificationSystem usuario={globalUsuario} />}
 
       <SideBar
         isOpen={sidebarOpen}
