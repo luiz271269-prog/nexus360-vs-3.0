@@ -958,8 +958,9 @@ export default function GerenciadorUsuariosUnificado({
                     p === recursoSelecionado.id || (recursoSelecionado.acoes || []).some(a => a.id === p)
                   ).length} permissões ativas neste recurso
                 </div>
-              )}
-              </TabsContent>
+              </div>
+            )}
+          </TabsContent>
 
               {/* ABA: Permissões Atuais (Sistema Legado) */}
               <TabsContent value="permissoes_atuais" className="space-y-4 mt-4">
