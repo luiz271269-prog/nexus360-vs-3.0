@@ -1985,34 +1985,8 @@ export default function ChatWindow({
             </div>
           </div>
 
-          {/* LINHA 2: Temperatura + Fidelizado + Ações */}
+          {/* LINHA 2: Fidelizado + Ações */}
           <div className="flex items-center gap-3 justify-between">
-            {/* Barra de Temperatura */}
-            <div className="flex-1">
-              {(() => {
-                const score = calcularScoreContato(contatoCompleto);
-                const nivel = getNivelTemperatura(score);
-                const Icon = nivel.icon;
-                return (
-                  <div className="flex items-center gap-2">
-                    <div className={`w-5 h-5 rounded-full bg-gradient-to-br ${nivel.gradiente} flex items-center justify-center shadow-sm flex-shrink-0`}>
-                      <Icon className="w-3 h-3 text-white" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center justify-between gap-2">
-                        <span className="text-slate-50 font-semibold text-xs truncate">{nivel.emoji} {nivel.label}</span>
-                        <span className="text-[10px] font-bold text-slate-500 flex-shrink-0">{score}%</span>
-                      </div>
-                      <div className="w-full h-1 bg-slate-200 rounded-full overflow-hidden">
-                        <div
-                          className={`h-full bg-gradient-to-r ${nivel.gradiente} transition-all duration-500`}
-                          style={{ width: `${score}%` }} />
-                      </div>
-                    </div>
-                  </div>);
-              })()}
-            </div>
-
             {/* Atendente Fidelizado */}
             {(() => {
               const setorAtual = thread?.sector_id || usuario?.attendant_sector || 'vendas';
