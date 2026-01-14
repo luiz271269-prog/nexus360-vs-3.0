@@ -413,13 +413,15 @@ export default function NexusSimuladorVisibilidade({ usuario, integracoes = [], 
                  const contato = thread?.contact_id ? contatos.find(c => c.id === thread.contact_id) : null;
                  const hasUnread = (thread?.unread_count || 0) > 0;
 
-                 // Nome formatado igual ChatSidebar
-                 let nomeExibicao = res.contactName;
+                 // Nome formatado
+                 let nomeExibicao = "";
                  if (contato) {
                    if (contato.empresa) nomeExibicao = contato.empresa;
-                   if (contato.cargo) nomeExibicao += (nomeExibicao !== res.contactName ? " - " : "") + contato.cargo;
-                   if (contato.nome && contato.nome !== contato.telefone) nomeExibicao += (nomeExibicao !== res.contactName ? " - " : "") + contato.nome;
-                   if (!nomeExibicao || nomeExibicao === res.contactName) nomeExibicao = contato.telefone || contato.nome || res.contactName;
+                   if (contato.cargo) nomeExibicao = nomeExibicao ? nomeExibicao + " - " + contato.cargo : contato.cargo;
+                   if (contato.nome && contato.nome !== contato.telefone) nomeExibicao = nomeExibicao ? nomeExibicao + " - " + contato.nome : contato.nome;
+                   if (!nomeExibicao) nomeExibicao = contato.telefone || res.contactName || "Sem nome";
+                 } else {
+                   nomeExibicao = res.contactName || "Thread";
                  }
 
                  return (
