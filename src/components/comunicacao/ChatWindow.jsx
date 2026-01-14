@@ -29,30 +29,30 @@ import {
 "lucide-react";
 
 // Logos SVG inline para cada canal
-const WhatsAppLogo = () => (
-  <svg viewBox="0 0 24 24" className="w-4 h-4" fill="currentColor">
-    <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z"/>
-  </svg>
-);
+const WhatsAppLogo = () =>
+<svg viewBox="0 0 24 24" className="w-4 h-4" fill="currentColor">
+    <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z" />
+  </svg>;
 
-const InstagramLogo = () => (
-  <svg viewBox="0 0 24 24" className="w-4 h-4" fill="currentColor">
-    <path d="M12 0C8.74 0 8.333.015 7.053.072 5.775.132 4.905.333 4.14.63c-.789.306-1.459.717-2.126 1.384S.935 3.35.63 4.14C.333 4.905.131 5.775.072 7.053.012 8.333 0 8.74 0 12s.015 3.667.072 4.947c.06 1.277.261 2.148.558 2.913.306.788.717 1.459 1.384 2.126.667.666 1.336 1.079 2.126 1.384.766.296 1.636.499 2.913.558C8.333 23.988 8.74 24 12 24s3.667-.015 4.947-.072c1.277-.06 2.148-.262 2.913-.558.788-.306 1.459-.718 2.126-1.384.666-.667 1.079-1.335 1.384-2.126.296-.765.499-1.636.558-2.913.06-1.28.072-1.687.072-4.947s-.015-3.667-.072-4.947c-.06-1.277-.262-2.149-.558-2.913-.306-.789-.718-1.459-1.384-2.126C21.319 1.347 20.651.935 19.86.63c-.765-.297-1.636-.499-2.913-.558C15.667.012 15.26 0 12 0zm0 2.16c3.203 0 3.585.016 4.85.071 1.17.055 1.805.249 2.227.415.562.217.96.477 1.382.896.419.42.679.819.896 1.381.164.422.36 1.057.413 2.227.057 1.266.07 1.646.07 4.85s-.015 3.585-.074 4.85c-.061 1.17-.256 1.805-.421 2.227-.224.562-.479.96-.899 1.382-.419.419-.824.679-1.38.896-.42.164-1.065.36-2.235.413-1.274.057-1.649.07-4.859.07-3.211 0-3.586-.015-4.859-.074-1.171-.061-1.816-.256-2.236-.421-.569-.224-.96-.479-1.379-.899-.421-.419-.69-.824-.9-1.38-.165-.42-.359-1.065-.42-2.235-.045-1.26-.061-1.649-.061-4.844 0-3.196.016-3.586.061-4.861.061-1.17.255-1.814.42-2.234.21-.57.479-.96.9-1.381.419-.419.81-.689 1.379-.898.42-.166 1.051-.361 2.221-.421 1.275-.045 1.65-.06 4.859-.06l.045.03zm0 3.678c-3.405 0-6.162 2.76-6.162 6.162 0 3.405 2.76 6.162 6.162 6.162 3.405 0 6.162-2.76 6.162-6.162 0-3.405-2.76-6.162-6.162-6.162zM12 16c-2.21 0-4-1.79-4-4s1.79-4 4-4 4 1.79 4 4-1.79 4-4 4zm7.846-10.405c0 .795-.646 1.44-1.44 1.44-.795 0-1.44-.646-1.44-1.44 0-.794.646-1.439 1.44-1.439.793-.001 1.44.645 1.44 1.439z"/>
-  </svg>
-);
 
-const FacebookLogo = () => (
-  <svg viewBox="0 0 24 24" className="w-4 h-4" fill="currentColor">
-    <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
-  </svg>
-);
+const InstagramLogo = () =>
+<svg viewBox="0 0 24 24" className="w-4 h-4" fill="currentColor">
+    <path d="M12 0C8.74 0 8.333.015 7.053.072 5.775.132 4.905.333 4.14.63c-.789.306-1.459.717-2.126 1.384S.935 3.35.63 4.14C.333 4.905.131 5.775.072 7.053.012 8.333 0 8.74 0 12s.015 3.667.072 4.947c.06 1.277.261 2.148.558 2.913.306.788.717 1.459 1.384 2.126.667.666 1.336 1.079 2.126 1.384.766.296 1.636.499 2.913.558C8.333 23.988 8.74 24 12 24s3.667-.015 4.947-.072c1.277-.06 2.148-.262 2.913-.558.788-.306 1.459-.718 2.126-1.384.666-.667 1.079-1.335 1.384-2.126.296-.765.499-1.636.558-2.913.06-1.28.072-1.687.072-4.947s-.015-3.667-.072-4.947c-.06-1.277-.262-2.149-.558-2.913-.306-.789-.718-1.459-1.384-2.126C21.319 1.347 20.651.935 19.86.63c-.765-.297-1.636-.499-2.913-.558C15.667.012 15.26 0 12 0zm0 2.16c3.203 0 3.585.016 4.85.071 1.17.055 1.805.249 2.227.415.562.217.96.477 1.382.896.419.42.679.819.896 1.381.164.422.36 1.057.413 2.227.057 1.266.07 1.646.07 4.85s-.015 3.585-.074 4.85c-.061 1.17-.256 1.805-.421 2.227-.224.562-.479.96-.899 1.382-.419.419-.824.679-1.38.896-.42.164-1.065.36-2.235.413-1.274.057-1.649.07-4.859.07-3.211 0-3.586-.015-4.859-.074-1.171-.061-1.816-.256-2.236-.421-.569-.224-.96-.479-1.379-.899-.421-.419-.69-.824-.9-1.38-.165-.42-.359-1.065-.42-2.235-.045-1.26-.061-1.649-.061-4.844 0-3.196.016-3.586.061-4.861.061-1.17.255-1.814.42-2.234.21-.57.479-.96.9-1.381.419-.419.81-.689 1.379-.898.42-.166 1.051-.361 2.221-.421 1.275-.045 1.65-.06 4.859-.06l.045.03zm0 3.678c-3.405 0-6.162 2.76-6.162 6.162 0 3.405 2.76 6.162 6.162 6.162 3.405 0 6.162-2.76 6.162-6.162 0-3.405-2.76-6.162-6.162-6.162zM12 16c-2.21 0-4-1.79-4-4s1.79-4 4-4 4 1.79 4 4-1.79 4-4 4zm7.846-10.405c0 .795-.646 1.44-1.44 1.44-.795 0-1.44-.646-1.44-1.44 0-.794.646-1.439 1.44-1.439.793-.001 1.44.645 1.44 1.439z" />
+  </svg>;
 
-const GoToLogo = () => (
-  <svg viewBox="0 0 120 40" className="h-4" fill="currentColor">
-    <rect x="0" y="28" width="40" height="8" fill="#FFD700"/>
+
+const FacebookLogo = () =>
+<svg viewBox="0 0 24 24" className="w-4 h-4" fill="currentColor">
+    <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z" />
+  </svg>;
+
+
+const GoToLogo = () =>
+<svg viewBox="0 0 120 40" className="h-4" fill="currentColor">
+    <rect x="0" y="28" width="40" height="8" fill="#FFD700" />
     <text x="5" y="22" fontFamily="Arial, sans-serif" fontSize="20" fontWeight="bold">GoTo</text>
-  </svg>
-);
+  </svg>;
+
 import MessageBubble from "./MessageBubble";
 import { base44 } from "@/api/base44Client";
 import { toast } from "sonner";
@@ -112,10 +112,10 @@ export default function ChatWindow({
   contatoAtivo = null
 }) {
   const queryClient = useQueryClient(); // ✅ CRÍTICO: Hook do React Query
-  
+
   // ✅ ESTADOS REMOVIDOS DO PAI - Agora no MessageInput
   // mensagemTexto, pastedImage, pastedImagePreview, inputRef
-  
+
   const [enviando, setEnviando] = useState(false);
   const [erro, setErro] = useState(null);
   const [contatoCompleto, setContatoCompleto] = useState(null);
@@ -160,31 +160,31 @@ export default function ChatWindow({
       console.log('[PODE_INTERAGIR] ❌ Falta usuário ou thread');
       return false;
     }
-    
+
     // Admin sempre pode
     if (usuario.role === 'admin') {
       console.log('[PODE_INTERAGIR] ✅ Admin - LIBERADO');
       return true;
     }
-    
+
     console.log(`[PODE_INTERAGIR] 🔍 Verificando usuário: ${usuario.email}, Thread: ${thread.id?.substring(0, 8)}, Carregando contato: ${carregandoContato}`);
-    
+
     // ✅ NORMALIZAR: maiúsculas, espaços, acentos
     const norm = (v) => String(v || '').toLowerCase().trim();
-    
+
     // 🔍 DEBUG: Mostrar identidades sendo comparadas
     const debugLog = (etapa, resultado, detalhes) => {
       console.log(`[VISIBILIDADE-${usuario.email}] ${etapa}: ${resultado ? '✅' : '❌'}`, detalhes);
     };
-    
+
     // ═══════════════════════════════════════════════════════════════════════════
     // PRIORIDADE 1: Thread ATRIBUÍDA ao usuário → SEMPRE PODE (chave mestra)
     // ═══════════════════════════════════════════════════════════════════════════
-    const isAtribuidoAoUsuario = 
-      norm(thread.assigned_user_id) === norm(usuario.id) ||
-      norm(thread.assigned_user_email) === norm(usuario.email) ||
-      norm(thread.assigned_user_name) === norm(usuario.full_name);
-    
+    const isAtribuidoAoUsuario =
+    norm(thread.assigned_user_id) === norm(usuario.id) ||
+    norm(thread.assigned_user_email) === norm(usuario.email) ||
+    norm(thread.assigned_user_name) === norm(usuario.full_name);
+
     debugLog('PRIORIDADE 1 (Atribuição)', isAtribuidoAoUsuario, {
       'thread.assigned_user_id': thread.assigned_user_id,
       'usuario.id': usuario.id,
@@ -193,9 +193,9 @@ export default function ChatWindow({
       'thread.assigned_user_name': thread.assigned_user_name,
       'usuario.full_name': usuario.full_name
     });
-    
+
     if (isAtribuidoAoUsuario) return true;
-    
+
     // ═══════════════════════════════════════════════════════════════════════════
     // PRIORIDADE 2: Contato FIDELIZADO ao usuário → SEMPRE PODE (chave mestra)
     // ✅ CRÍTICO: Verifica TODOS os campos de fidelização em TODOS os setores
@@ -204,24 +204,24 @@ export default function ChatWindow({
     // ═══════════════════════════════════════════════════════════════════════════
     if (contatoCompleto) {
       const camposFidelizacao = [
-        'atendente_fidelizado_vendas',
-        'atendente_fidelizado_assistencia',
-        'atendente_fidelizado_financeiro',
-        'atendente_fidelizado_fornecedor',
-        'vendedor_responsavel'
-      ];
-      
+      'atendente_fidelizado_vendas',
+      'atendente_fidelizado_assistencia',
+      'atendente_fidelizado_financeiro',
+      'atendente_fidelizado_fornecedor',
+      'vendedor_responsavel'];
+
+
       // Verificar QUALQUER campo de fidelização
       for (const campo of camposFidelizacao) {
         const atendenteFidelizado = contatoCompleto?.[campo];
-        
+
         // 🔍 LOG EXTREMAMENTE DETALHADO para debug
         if (atendenteFidelizado) {
           const normAtendente = norm(atendenteFidelizado);
           const normId = norm(usuario.id);
           const normEmail = norm(usuario.email);
           const normName = norm(usuario.full_name);
-          
+
           console.log(`[DEBUG FIDELIZAÇÃO] ${campo}:`, {
             'valor_bruto': atendenteFidelizado,
             'norm_atendente': normAtendente,
@@ -233,12 +233,12 @@ export default function ChatWindow({
             'match_name': normAtendente === normName
           });
         }
-        
-        const isFidelizado = atendenteFidelizado &&
-          (norm(atendenteFidelizado) === norm(usuario.id) ||
-           norm(atendenteFidelizado) === norm(usuario.email) ||
-           norm(atendenteFidelizado) === norm(usuario.full_name));
-        
+
+        const isFidelizado = atendenteFidelizado && (
+        norm(atendenteFidelizado) === norm(usuario.id) ||
+        norm(atendenteFidelizado) === norm(usuario.email) ||
+        norm(atendenteFidelizado) === norm(usuario.full_name));
+
         debugLog(`PRIORIDADE 2 (Fidelização ${campo})`, isFidelizado, {
           'contato.campo': contatoCompleto?.[campo],
           'usuario.id': usuario.id,
@@ -247,7 +247,7 @@ export default function ChatWindow({
           'setor_thread': thread?.sector_id,
           'setor_usuario': usuario?.attendant_sector
         });
-        
+
         if (isFidelizado) {
           console.log(`[VISIBILIDADE] ✅ LIBERADO por FIDELIZAÇÃO (${campo}) - Usuário: ${usuario.email}`);
           return true;
@@ -263,7 +263,7 @@ export default function ChatWindow({
       console.log(`[VISIBILIDADE] ⏳ Contato ainda carregando - liberando temporariamente`);
       return true;
     }
-    
+
     // ═══════════════════════════════════════════════════════════════════════════
     // PRIORIDADE 3: Gerente/Coordenador → pode enviar (exceto se atribuída a outro)
     // ═══════════════════════════════════════════════════════════════════════════
@@ -271,7 +271,7 @@ export default function ChatWindow({
     debugLog('PRIORIDADE 3 (Gerente)', isGerente, {
       'usuario.attendant_role': usuario?.attendant_role
     });
-    
+
     if (isGerente) {
       // Se a thread está atribuída a outro, bloquear (respeitar atribuição)
       if (thread.assigned_user_id && !isAtribuidoAoUsuario) {
@@ -282,7 +282,7 @@ export default function ChatWindow({
       }
       return true;
     }
-    
+
     // ═══════════════════════════════════════════════════════════════════════════
     // PRIORIDADE 4: Thread NÃO ATRIBUÍDA → qualquer usuário pode (auto-atribui)
     // ═══════════════════════════════════════════════════════════════════════════
@@ -292,9 +292,9 @@ export default function ChatWindow({
       'assigned_user_name': thread.assigned_user_name,
       'assigned_user_email': thread.assigned_user_email
     });
-    
+
     if (isNaoAtribuida) return true;
-    
+
     // ═══════════════════════════════════════════════════════════════════════════
     // FALLBACK: Bloqueado (atribuída a outro, fidelizada a outro)
     // ═══════════════════════════════════════════════════════════════════════════
@@ -314,7 +314,7 @@ export default function ChatWindow({
     if (usuario.role === 'admin') return integracoes;
 
     const whatsappPerms = usuario.whatsapp_permissions || [];
-    
+
     // Se não tem permissões configuradas, mostrar todas
     if (whatsappPerms.length === 0) return integracoes;
 
@@ -356,7 +356,7 @@ export default function ChatWindow({
         setCarregandoContato(false);
         return;
       }
-      
+
       if (!thread?.contact_id) {
         setContatoCompleto(null);
         setCarregandoContato(false);
@@ -464,18 +464,18 @@ export default function ChatWindow({
 
   const autoAtribuirThreadSeNecessario = useCallback(async (threadAtual) => {
     if (!threadAtual || !usuario) return;
-    
+
     const isThreadOrfa = !threadAtual.assigned_user_id && !threadAtual.assigned_user_email;
-    
+
     if (isThreadOrfa) {
-      
+
       try {
         await base44.entities.MessageThread.update(threadAtual.id, {
           assigned_user_id: usuario.id,
           // ✅ assigned_user_name/email REMOVIDOS - buscados dinamicamente do User
           status: 'aberta'
         });
-        
+
         // Registrar log de atribuição automática
         await base44.entities.AutomationLog.create({
           acao: 'auto_atribuicao_resposta',
@@ -492,7 +492,7 @@ export default function ChatWindow({
           origem: 'sistema',
           prioridade: 'normal'
         });
-        
+
         return true;
       } catch (autoAssignError) {
         console.warn('[CHAT] ⚠️ Erro na auto-atribuição:', autoAssignError.message);
@@ -503,12 +503,12 @@ export default function ChatWindow({
   }, [usuario]);
 
   const handleEnviarBroadcast = useCallback(async (opcoes = {}) => {
-    const { 
+    const {
       texto = '',
-      mediaUrl = null, 
-      mediaType = null, 
+      mediaUrl = null,
+      mediaType = null,
       mediaCaption = null,
-      isAudio = false 
+      isAudio = false
     } = opcoes;
 
     if (!podeEnviarMensagens) {
@@ -552,7 +552,7 @@ export default function ChatWindow({
         }
 
         setProgressoBroadcast({ enviados, erros, total: broadcastInterno.destinations.length });
-        await new Promise(r => setTimeout(r, 300));
+        await new Promise((r) => setTimeout(r, 300));
       }
 
       setEnviandoBroadcast(false);
@@ -567,11 +567,11 @@ export default function ChatWindow({
       if (onCancelarSelecao) {
         onCancelarSelecao();
       }
-      
+
       if (onAtualizarMensagens) {
         onAtualizarMensagens();
       }
-      
+
       return;
     }
 
@@ -584,9 +584,9 @@ export default function ChatWindow({
     }
 
     // Usar canal selecionado ou buscar integração ativa
-    const integracaoParaUsar = canalSelecionado 
-      ? integracoes.find(i => i.id === canalSelecionado && i.status === 'conectado')
-      : integracoes.find(i => i.status === 'conectado');
+    const integracaoParaUsar = canalSelecionado ?
+    integracoes.find((i) => i.id === canalSelecionado && i.status === 'conectado') :
+    integracoes.find((i) => i.status === 'conectado');
 
     if (!integracaoParaUsar) {
       toast.error("Nenhuma integração WhatsApp ativa");
@@ -605,7 +605,7 @@ export default function ChatWindow({
       const setor = usuario.attendant_sector;
       mensagemParaEnviar = `${mensagemParaEnviar}\n\n_~ ${primeiroNome} (${setor})_`;
     }
-    
+
     let enviados = 0;
     let erros = 0;
 
@@ -614,7 +614,7 @@ export default function ChatWindow({
 
       if (!telefone) {
         erros++;
-        setProgressoBroadcast(prev => ({ ...prev, erros }));
+        setProgressoBroadcast((prev) => ({ ...prev, erros }));
         continue;
       }
 
@@ -645,14 +645,14 @@ export default function ChatWindow({
 
         if (resultado.data.success) {
           enviados++;
-          
+
           // Buscar ou criar thread para registrar a mensagem
           let threads = await base44.entities.MessageThread.filter({ contact_id: contato.id });
           let threadContato = threads && threads.length > 0 ? threads[0] : null;
-          
-          const contentPreview = mediaUrl 
-            ? (mediaType === 'image' ? '[Imagem]' : mediaType === 'audio' ? '[Áudio]' : mediaType === 'video' ? '[Vídeo]' : '[Arquivo]')
-            : mensagemParaEnviar.substring(0, 100);
+
+          const contentPreview = mediaUrl ?
+          mediaType === 'image' ? '[Imagem]' : mediaType === 'audio' ? '[Áudio]' : mediaType === 'video' ? '[Vídeo]' : '[Arquivo]' :
+          mensagemParaEnviar.substring(0, 100);
 
           if (!threadContato) {
             threadContato = await base44.entities.MessageThread.create({
@@ -704,13 +704,13 @@ export default function ChatWindow({
       }
 
       setProgressoBroadcast({ enviados, erros, total: contatosSelecionados.length });
-      
+
       // Pequeno delay entre envios para evitar rate limit
-      await new Promise(resolve => setTimeout(resolve, 500));
+      await new Promise((resolve) => setTimeout(resolve, 500));
     }
 
     setEnviandoBroadcast(false);
-    
+
     if (enviados > 0) {
       toast.success(`✅ ${enviados} mensagem(ns) enviada(s) com sucesso!`);
     }
@@ -759,7 +759,7 @@ export default function ChatWindow({
       // ═══════════════════════════════════════════════════════════════════
       // THREADS EXTERNAS (WhatsApp) - Lógica original
       // ═══════════════════════════════════════════════════════════════════
-      
+
       const timestamp = new Date().getTime();
       const audioFile = new File([audioBlob], `audio-${timestamp}.ogg`, {
         type: 'audio/ogg; codecs=opus',
@@ -778,7 +778,7 @@ export default function ChatWindow({
       // ═══════════════════════════════════════════════════════════════════
       if (modoSelecaoMultipla && contatosSelecionados.length > 0) {
         toast.info('📤 Enviando áudio para os contatos selecionados...');
-        
+
         await handleEnviarBroadcast({
           mediaUrl: audioUrl,
           mediaType: 'audio',
@@ -944,8 +944,8 @@ export default function ChatWindow({
         let mimeType = imagemFile.type || 'image/png';
         if (!mimeType.startsWith('image/')) mimeType = 'image/png';
         const ext = mimeType.includes('jpeg') ? 'jpg' : mimeType.includes('webp') ? 'webp' : 'png';
-        
-        const imageFile = new File([imagemFile], `broadcast-${timestamp}.${ext}`, { 
+
+        const imageFile = new File([imagemFile], `broadcast-${timestamp}.${ext}`, {
           type: mimeType,
           lastModified: timestamp
         });
@@ -955,7 +955,7 @@ export default function ChatWindow({
         const imageUrl = uploadResponse.file_url;
 
         toast.info('📤 Enviando para os contatos selecionados...');
-        
+
         await handleEnviarBroadcast({
           texto: legendaTexto,
           mediaUrl: imageUrl,
@@ -1038,8 +1038,8 @@ export default function ChatWindow({
         let mimeType = imagemParaEnviar.type || 'image/png';
         if (!mimeType.startsWith('image/')) mimeType = 'image/png';
         const ext = mimeType.includes('jpeg') ? 'jpg' : mimeType.includes('webp') ? 'webp' : 'png';
-        
-        const imageFile = new File([imagemParaEnviar], `print-${timestamp}.${ext}`, { 
+
+        const imageFile = new File([imagemParaEnviar], `print-${timestamp}.${ext}`, {
           type: mimeType,
           lastModified: timestamp
         });
@@ -1110,7 +1110,7 @@ export default function ChatWindow({
       try {
         const timestamp = Date.now();
         const ext = file.name.split('.').pop() || 'file';
-        const uploadFile = new File([file], `broadcast-${timestamp}.${ext}`, { 
+        const uploadFile = new File([file], `broadcast-${timestamp}.${ext}`, {
           type: file.type,
           lastModified: timestamp
         });
@@ -1120,7 +1120,7 @@ export default function ChatWindow({
         const fileUrl = uploadResponse.file_url;
 
         toast.info('📤 Enviando para os contatos selecionados...');
-        
+
         await handleEnviarBroadcast({
           texto: legendaTexto,
           mediaUrl: fileUrl,
@@ -1161,9 +1161,9 @@ export default function ChatWindow({
     setUploadingPastedFile(true);
     setErro(null);
 
-    const contentPreview = fileType === 'image' ? '[Imagem]' : 
-                          fileType === 'video' ? '[Vídeo]' : 
-                          fileType === 'document' ? '[Documento]' : '[Arquivo]';
+    const contentPreview = fileType === 'image' ? '[Imagem]' :
+    fileType === 'video' ? '[Vídeo]' :
+    fileType === 'document' ? '[Documento]' : '[Arquivo]';
 
     let novaMensagem;
     try {
@@ -1200,7 +1200,7 @@ export default function ChatWindow({
       try {
         const timestamp = Date.now();
         const ext = file.name.split('.').pop() || 'file';
-        const uploadFile = new File([file], `${fileType}-${timestamp}.${ext}`, { 
+        const uploadFile = new File([file], `${fileType}-${timestamp}.${ext}`, {
           type: file.type,
           lastModified: timestamp
         });
@@ -1284,13 +1284,13 @@ export default function ChatWindow({
     // ═══════════════════════════════════════════════════════════════════════
     // THREADS EXTERNAS (WhatsApp) - Lógica existente
     // ═══════════════════════════════════════════════════════════════════════
-    
+
     // Se tem arquivo anexado, processar upload e envio
     if (attachedFile) {
       await enviarArquivoAnexado(attachedFile, attachedFileType, texto);
       return;
     }
-    
+
     // Se tem imagem colada, processar como imagem
     if (pastedImage) {
       await enviarImagemColada(pastedImage, pastedImagePreview, texto);
@@ -1468,7 +1468,7 @@ export default function ChatWindow({
   const marcarComoLidaMutation = useMutation({
     mutationFn: async () => {
       if (!thread) return;
-      
+
       // ✅ THREAD INTERNA - usar markThreadAsRead
       if (thread.thread_type === 'team_internal' || thread.thread_type === 'sector_group') {
         await base44.functions.invoke('markThreadAsRead', {
@@ -1738,7 +1738,7 @@ export default function ChatWindow({
 
     // ✅ THREADS INTERNAS: mostrar TODAS as mensagens, sem filtros de WhatsApp
     const isThreadInterna = thread?.thread_type === 'team_internal' || thread?.thread_type === 'sector_group';
-    
+
     if (isThreadInterna) {
       // ✅ THREADS INTERNAS: mostrar TODAS as mensagens válidas sem filtros rigorosos
       return mensagensFiltradas.filter((m) => {
@@ -1746,14 +1746,14 @@ export default function ChatWindow({
         if (m.metadata?.deleted) return true;
         if (m.metadata?.is_system_message) return true;
         if (m.metadata?.optimistic) return true;
-        
+
         // ✅ Aceitar qualquer mensagem com conteúdo ou mídia
         const content = (m.content || '').trim();
-        const hasMidia = m.media_url || (m.media_type && m.media_type !== 'none');
-        
+        const hasMidia = m.media_url || m.media_type && m.media_type !== 'none';
+
         // ✅ SEMPRE mostrar se tem channel=interno (sem validações restritivas)
         if (m.channel === 'interno') return true;
-        
+
         return content.length > 0 || hasMidia;
       });
     }
@@ -1858,12 +1858,12 @@ export default function ChatWindow({
   return (
     <div className="flex flex-col h-full bg-white">
         {/* Header - Modo Broadcast ou Central de Inteligência do Cliente */}
-        {mostrarInterfaceBroadcast ? (
-          <div className={`text-white px-4 py-3 border-b flex-shrink-0 shadow-sm flex items-center justify-between ${
-            broadcastInterno 
-              ? 'bg-gradient-to-r from-purple-500 to-indigo-500' 
-              : 'bg-gradient-to-r from-orange-500 to-amber-500'
-          }`}>
+        {mostrarInterfaceBroadcast ?
+      <div className={`text-white px-4 py-3 border-b flex-shrink-0 shadow-sm flex items-center justify-between ${
+      broadcastInterno ?
+      'bg-gradient-to-r from-purple-500 to-indigo-500' :
+      'bg-gradient-to-r from-orange-500 to-amber-500'}`
+      }>
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <div className="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center">
@@ -1874,97 +1874,76 @@ export default function ChatWindow({
                     {broadcastInterno ? 'Envio Interno' : 'Envio em Massa'}
                   </h3>
                   <p className="text-sm text-white/80">
-                    {broadcastInterno 
-                      ? `${broadcastInterno.destinations.length} destinatário(s) interno(s)` 
-                      : `${contatosSelecionados.length} contato(s) selecionado(s)`
-                    }
+                    {broadcastInterno ?
+                `${broadcastInterno.destinations.length} destinatário(s) interno(s)` :
+                `${contatosSelecionados.length} contato(s) selecionado(s)`
+                }
                   </p>
                 </div>
               </div>
               <button
-                onClick={onCancelarSelecao}
-                className="px-4 py-2 bg-white/20 hover:bg-white/30 rounded-lg text-sm font-medium transition-colors"
-              >
+            onClick={onCancelarSelecao}
+            className="px-4 py-2 bg-white/20 hover:bg-white/30 rounded-lg text-sm font-medium transition-colors">
+
                 Cancelar
               </button>
             </div>
-          </div>
-        ) : (
-        <div className="bg-[#a2bbcd] text-slate-50 px-3 py-2 border-b border-orange-200 flex-shrink-0 shadow-sm">
+          </div> :
+
+      <div className="bg-[#a2bbcd] text-slate-50 px-3 py-2 border-b border-orange-200 flex-shrink-0 shadow-sm">
           {/* LINHA 1: Avatar + Identificação */}
-          <div className="flex items-center gap-3 mb-2">
+          <div className="flex items-center gap-3">
             {/* Avatar + Próxima Ação */}
             <div className="relative flex-shrink-0">
               <div className="w-12 h-12 rounded-full flex items-center justify-center text-white font-bold text-lg shadow-lg overflow-hidden bg-gradient-to-br from-amber-400 via-orange-500 to-red-500">
                 {contatoCompleto?.foto_perfil_url ?
-                <img
-                  src={contatoCompleto.foto_perfil_url}
-                  alt={nomeContato}
-                  className="w-full h-full object-cover"
-                  onError={(e) => {
-                    e.target.style.display = 'none';
-                  }} /> :
-                <span>{getInitials(nomeContato)}</span>
-                }
+              <img
+                src={contatoCompleto.foto_perfil_url}
+                alt={nomeContato}
+                className="w-full h-full object-cover"
+                onError={(e) => {
+                  e.target.style.display = 'none';
+                }} /> :
+              <span>{getInitials(nomeContato)}</span>
+              }
               </div>
 
               {/* Próxima Ação Sugerida - canto inferior */}
               {(() => {
-                const proxAcao = getProximaAcaoSugerida(contatoCompleto);
-                return (
-                  <div
-                    className={`absolute -bottom-1 -right-1 w-5 h-5 ${proxAcao.cor} rounded-full flex items-center justify-center border-2 border-white shadow-md z-20`}
-                    title={`Sugestão: ${proxAcao.label}`}>
+              const proxAcao = getProximaAcaoSugerida(contatoCompleto);
+              return (
+                <div
+                  className={`absolute -bottom-1 -right-1 w-5 h-5 ${proxAcao.cor} rounded-full flex items-center justify-center border-2 border-white shadow-md z-20`}
+                  title={`Sugestão: ${proxAcao.label}`}>
                     <proxAcao.icon className="w-2.5 h-2.5 text-white" />
                   </div>);
-              })()}
+            })()}
             </div>
 
-            {/* Nome + Canal + Termômetro */}
-            <div className="flex-1 min-w-0 flex flex-col gap-1">
-              <div className="flex items-center gap-2">
+            {/* Nome + Canal + Inteligência */}
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2 mb-1">
                 <h3 className="text-slate-800 font-bold text-sm truncate">{nomeContato}</h3>
 
                 {/* Badge do Canal */}
                 {(() => {
-                  const channelConfig = {
-                    whatsapp: { logo: WhatsAppLogo, cor: 'bg-green-100 text-green-700', label: 'WhatsApp' },
-                    instagram: { logo: InstagramLogo, cor: 'bg-pink-100 text-pink-700', label: 'Instagram' },
-                    facebook: { logo: FacebookLogo, cor: 'bg-blue-100 text-blue-700', label: 'Facebook' },
-                    phone: { logo: GoToLogo, cor: 'bg-yellow-100 text-yellow-700', label: 'GoTo' }
-                  };
-                  const canal = thread?.channel || 'whatsapp';
-                  const config = channelConfig[canal] || channelConfig.whatsapp;
-                  const Logo = config.logo;
+                const channelConfig = {
+                  whatsapp: { logo: WhatsAppLogo, cor: 'bg-green-100 text-green-700', label: 'WhatsApp' },
+                  instagram: { logo: InstagramLogo, cor: 'bg-pink-100 text-pink-700', label: 'Instagram' },
+                  facebook: { logo: FacebookLogo, cor: 'bg-blue-100 text-blue-700', label: 'Facebook' },
+                  phone: { logo: GoToLogo, cor: 'bg-yellow-100 text-yellow-700', label: 'GoTo' }
+                };
+                const canal = thread?.channel || 'whatsapp';
+                const config = channelConfig[canal] || channelConfig.whatsapp;
+                const Logo = config.logo;
 
-                  return (
-                    <Badge className={`${config.cor} text-[9px] px-2 py-0.5 flex items-center gap-1`}>
+                return (
+                  <Badge className={`${config.cor} text-[9px] px-2 py-0.5 flex items-center gap-1`}>
                       <Logo />
                       {config.label}
-                    </Badge>
-                  );
-                })()}
+                    </Badge>);
 
-                {/* Barra de Temperatura */}
-                {(() => {
-                  const score = calcularScoreContato(contatoCompleto);
-                  const nivel = getNivelTemperatura(score);
-                  const Icon = nivel.icon;
-                  return (
-                    <div className="flex items-center gap-1 ml-auto">
-                      <div className={`w-4 h-4 rounded-full bg-gradient-to-br ${nivel.gradiente} flex items-center justify-center shadow-sm flex-shrink-0`}>
-                        <Icon className="w-2.5 h-2.5 text-white" />
-                      </div>
-                      <div className="w-16">
-                        <div className="w-full h-1 bg-slate-200 rounded-full overflow-hidden">
-                          <div
-                            className={`h-full bg-gradient-to-r ${nivel.gradiente} transition-all duration-500`}
-                            style={{ width: `${score}%` }} />
-                        </div>
-                      </div>
-                      <span className="text-[10px] font-bold text-slate-500 w-6 text-right">{score}%</span>
-                    </div>);
-                })()}
+              })()}
               </div>
 
               {/* Telefone */}
@@ -1974,127 +1953,153 @@ export default function ChatWindow({
             {/* Componentes de Inteligência Comprimidos */}
             <div className="flex items-center gap-2 flex-shrink-0">
               <CentralInteligenciaContato
-                contato={contatoCompleto}
-                variant="mini"
-                showSugestoes={true} />
+              contato={contatoCompleto}
+              variant="mini"
+              showSugestoes={true} />
 
               <CategorizadorRapido
-                thread={thread}
-                contato={contatoCompleto}
-                onUpdate={onAtualizarMensagens} />
+              thread={thread}
+              contato={contatoCompleto}
+              onUpdate={onAtualizarMensagens} />
             </div>
           </div>
 
-          {/* LINHA 2: Fidelizado + Ações */}
+          {/* LINHA 2: Temperatura + Fidelizado + Ações */}
           <div className="flex items-center gap-3 justify-between">
+            {/* Barra de Temperatura */}
+            <div className="flex-1">
+              {(() => {
+              const score = calcularScoreContato(contatoCompleto);
+              const nivel = getNivelTemperatura(score);
+              const Icon = nivel.icon;
+              return (
+                <div className="flex items-center gap-2">
+                    <div className={`w-5 h-5 rounded-full bg-gradient-to-br ${nivel.gradiente} flex items-center justify-center shadow-sm flex-shrink-0`}>
+                      <Icon className="w-3 h-3 text-white" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-slate-50 font-semibold text-xs truncate">{nivel.emoji} {nivel.label}</span>
+                        <span className="text-[10px] font-bold text-slate-500 flex-shrink-0">{score}%</span>
+                      </div>
+                      <div className="w-full h-1 bg-slate-200 rounded-full overflow-hidden">
+                        <div
+                        className={`h-full bg-gradient-to-r ${nivel.gradiente} transition-all duration-500`}
+                        style={{ width: `${score}%` }} />
+                      </div>
+                    </div>
+                  </div>);
+            })()}
+            </div>
+
             {/* Atendente Fidelizado */}
             {(() => {
-              const setorAtual = thread?.sector_id || usuario?.attendant_sector || 'vendas';
-              const camposFidelizacao = {
-                'vendas': 'atendente_fidelizado_vendas',
-                'assistencia': 'atendente_fidelizado_assistencia',
-                'financeiro': 'atendente_fidelizado_financeiro',
-                'fornecedor': 'atendente_fidelizado_fornecedor'
-              };
-              const campoFidelizado = camposFidelizacao[setorAtual] || 'vendedor_responsavel';
-              const atendenteFidelizado = contatoCompleto?.[campoFidelizado] || contatoCompleto?.vendedor_responsavel;
+            const setorAtual = thread?.sector_id || usuario?.attendant_sector || 'vendas';
+            const camposFidelizacao = {
+              'vendas': 'atendente_fidelizado_vendas',
+              'assistencia': 'atendente_fidelizado_assistencia',
+              'financeiro': 'atendente_fidelizado_financeiro',
+              'fornecedor': 'atendente_fidelizado_fornecedor'
+            };
+            const campoFidelizado = camposFidelizacao[setorAtual] || 'vendedor_responsavel';
+            const atendenteFidelizado = contatoCompleto?.[campoFidelizado] || contatoCompleto?.vendedor_responsavel;
 
-              if (atendenteFidelizado) {
-                return (
-                  <div className="flex items-center gap-1.5 px-2 py-1 bg-amber-100 border border-amber-300 rounded-full flex-shrink-0">
+            if (atendenteFidelizado) {
+              return (
+                <div className="flex items-center gap-1.5 px-2 py-1 bg-amber-100 border border-amber-300 rounded-full flex-shrink-0">
                     <span className="text-amber-600 text-xs">★</span>
                     <span className="text-[10px] font-semibold text-amber-700 truncate max-w-[80px]">
                       {atendenteFidelizado.split(' ')[0]}
                     </span>
-                  </div>
-                );
-              }
-              return <div className="flex-1" />;
-            })()}
+                  </div>);
+
+            }
+            return null;
+          })()}
 
             {/* Ações - Agrupadas */}
             <div className="flex items-center gap-2 flex-shrink-0">
               {/* Botão Diagnóstico (ADMIN ONLY) */}
-              {usuario?.role === 'admin' && (
-                <button
-                  onClick={() => console.log('Diagnóstico em desenvolvimento')}
-                  className="bg-gradient-to-br from-red-500 to-red-600 text-white rounded-lg px-2 py-1.5 shadow-md flex items-center gap-1.5 hover:shadow-lg transition-all hover:from-red-600 hover:to-red-700">
+              {usuario?.role === 'admin' &&
+            <button
+              onClick={() => console.log('Diagnóstico em desenvolvimento')}
+              className="bg-gradient-to-br from-red-500 to-red-600 text-white rounded-lg px-2 py-1.5 shadow-md flex items-center gap-1.5 hover:shadow-lg transition-all hover:from-red-600 hover:to-red-700">
                      <Bug className="w-3.5 h-3.5" />
                      <span className="text-xs font-medium hidden sm:inline">Diagnóstico</span>
                 </button>
-              )}
+            }
 
               {/* Botão Transferir */}
-              {podeTransferirConversas && (
-                <button
-                  onClick={() => setMostrarModalAtribuicao(true)}
-                  className="bg-gradient-to-br from-amber-500 to-amber-600 text-white rounded-lg px-2 py-1.5 shadow-md flex items-center gap-1.5 hover:shadow-lg transition-all hover:from-amber-600 hover:to-amber-700">
+              {podeTransferirConversas &&
+            <button
+              onClick={() => setMostrarModalAtribuicao(true)}
+              className="bg-gradient-to-br from-amber-500 to-amber-600 text-white rounded-lg px-2 py-1.5 shadow-md flex items-center gap-1.5 hover:shadow-lg transition-all hover:from-amber-600 hover:to-amber-700">
                      <Users className="w-3.5 h-3.5" />
                      <span className="text-xs font-medium hidden sm:inline">Transferir</span>
                 </button>
-              )}
+            }
 
               {/* Botão Marcar como Lida */}
-              {getUnreadCount(thread, usuario?.id) > 0 && (
-                <button
-                  onClick={() => marcarComoLidaMutation.mutate()}
-                  disabled={marcarComoLidaMutation.isPending}
-                  className="bg-gradient-to-br from-green-500 to-green-600 text-white rounded-lg px-2 py-1.5 shadow-md flex items-center gap-1.5 hover:from-green-600 hover:to-green-700 hover:shadow-lg transition-all disabled:opacity-50">
+              {getUnreadCount(thread, usuario?.id) > 0 &&
+            <button
+              onClick={() => marcarComoLidaMutation.mutate()}
+              disabled={marcarComoLidaMutation.isPending}
+              className="bg-gradient-to-br from-green-500 to-green-600 text-white rounded-lg px-2 py-1.5 shadow-md flex items-center gap-1.5 hover:from-green-600 hover:to-green-700 hover:shadow-lg transition-all disabled:opacity-50">
                   <CheckSquare className="w-3.5 h-3.5" />
                   <span className="text-xs font-medium hidden sm:inline">Lida ({getUnreadCount(thread, usuario?.id)})</span>
                 </button>
-              )}
+            }
 
               {/* Botão Ver Detalhes */}
               <button
-                onClick={onShowContactInfo}
-                className="bg-gradient-to-br from-slate-600 to-slate-700 text-white rounded-lg px-2 py-1.5 shadow-md flex items-center gap-1.5 hover:from-slate-700 hover:to-slate-800 hover:shadow-lg transition-all">
+              onClick={onShowContactInfo}
+              className="bg-gradient-to-br from-slate-600 to-slate-700 text-white rounded-lg px-2 py-1.5 shadow-md flex items-center gap-1.5 hover:from-slate-700 hover:to-slate-800 hover:shadow-lg transition-all">
                 <Info className="w-3.5 h-3.5" />
                 <span className="text-xs font-medium hidden sm:inline">Detalhes</span>
               </button>
             </div>
           </div>
         </div>
-        )}
+      }
 
         {/* Alerta de Pedido de Transferência - Micro-URA */}
-        {!mostrarInterfaceBroadcast && thread && (
-          <div className="px-4 pt-3">
+        {!mostrarInterfaceBroadcast && thread &&
+      <div className="px-4 pt-3">
             <AlertaPedidoTransferencia
-              thread={thread}
-              atendentes={atendentes}
-              usuarioAtual={usuario}
-              onTransferirAgora={async () => {
-                const sector_id = thread.transfer_requested_sector_id;
-                const user_id = thread.transfer_requested_user_id;
-                
-                if (user_id) {
-                  await base44.entities.MessageThread.update(thread.id, {
-                    assigned_user_id: user_id,
-                    sector_id: sector_id || thread.sector_id,
-                    transfer_pending: false,
-                    transfer_confirmed: false
-                  });
-                } else if (sector_id) {
-                  await base44.entities.MessageThread.update(thread.id, {
-                    sector_id: sector_id,
-                    transfer_pending: false,
-                    transfer_confirmed: false
-                  });
-                }
-                
-                if (onAtualizarMensagens) onAtualizarMensagens();
-                toast.success('✅ Conversa transferida!');
-              }}
-              onCancelar={() => {
-                if (onAtualizarMensagens) onAtualizarMensagens();
-              }}
-            />
+          thread={thread}
+          atendentes={atendentes}
+          usuarioAtual={usuario}
+          onTransferirAgora={async () => {
+            const sector_id = thread.transfer_requested_sector_id;
+            const user_id = thread.transfer_requested_user_id;
+
+            if (user_id) {
+              await base44.entities.MessageThread.update(thread.id, {
+                assigned_user_id: user_id,
+                sector_id: sector_id || thread.sector_id,
+                transfer_pending: false,
+                transfer_confirmed: false
+              });
+            } else if (sector_id) {
+              await base44.entities.MessageThread.update(thread.id, {
+                sector_id: sector_id,
+                transfer_pending: false,
+                transfer_confirmed: false
+              });
+            }
+
+            if (onAtualizarMensagens) onAtualizarMensagens();
+            toast.success('✅ Conversa transferida!');
+          }}
+          onCancelar={() => {
+            if (onAtualizarMensagens) onAtualizarMensagens();
+          }} />
+
           </div>
-        )}
+      }
 
         {mensagemResposta && !mostrarInterfaceBroadcast &&
-        <div className="px-4 py-2 bg-blue-50 border-b border-blue-200 flex-shrink-0">
+      <div className="px-4 py-2 bg-blue-50 border-b border-blue-200 flex-shrink-0">
           <div className="flex items-start justify-between gap-2">
             <div className="flex-1">
               <p className="text-xs text-blue-600 font-semibold mb-1">
@@ -2116,16 +2121,16 @@ export default function ChatWindow({
         </div>
       }
 
-      {mostrarInterfaceBroadcast ? (
+      {mostrarInterfaceBroadcast ?
       <div className="flex-1 overflow-y-auto p-4 bg-gradient-to-br from-orange-50 to-amber-50">
         <div className="max-w-2xl mx-auto">
           <h4 className="text-sm font-semibold text-slate-700 mb-3">
             {broadcastInterno ? 'Destinatários internos:' : 'Contatos selecionados:'}
           </h4>
           <div className="grid grid-cols-2 md:grid-cols-3 gap-2 max-h-[400px] overflow-y-auto">
-            {broadcastInterno ? (
-              broadcastInterno.destinations.map((dest) => (
-                <div key={dest.thread_id} className="bg-white rounded-lg p-2 border border-purple-200 flex items-center gap-2">
+            {broadcastInterno ?
+            broadcastInterno.destinations.map((dest) =>
+            <div key={dest.thread_id} className="bg-white rounded-lg p-2 border border-purple-200 flex items-center gap-2">
                   <div className="w-8 h-8 bg-gradient-to-br from-purple-400 to-indigo-500 rounded-full flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
                     {dest.name.charAt(0).toUpperCase()}
                   </div>
@@ -2136,10 +2141,10 @@ export default function ChatWindow({
                     </p>
                   </div>
                 </div>
-              ))
-            ) : (
-              contatosSelecionados.map((contato) => (
-                <div key={contato.id} className="bg-white rounded-lg p-2 border border-orange-200 flex items-center gap-2">
+            ) :
+
+            contatosSelecionados.map((contato) =>
+            <div key={contato.id} className="bg-white rounded-lg p-2 border border-orange-200 flex items-center gap-2">
                   <div className="w-8 h-8 bg-gradient-to-br from-amber-400 to-orange-500 rounded-full flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
                     {(contato.nome || contato.telefone || '?').charAt(0).toUpperCase()}
                   </div>
@@ -2148,45 +2153,45 @@ export default function ChatWindow({
                     <p className="text-[10px] text-slate-500 truncate">{contato.telefone}</p>
                   </div>
                 </div>
-              ))
-            )}
+            )
+            }
           </div>
         </div>
-      </div>
-    ) : (
-    <div ref={chatContainerRef} className="flex-1 overflow-y-auto p-4 space-y-1 bg-[#efeae2]" style={{ backgroundImage: "url('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAADIAAAAyCAMAAAAp4XiDAAAAUVBMVEWFhYWDg4N3d3dtbW17e3t1dXWBgYGHh4d5eXlzc3Oeli7////l5eXm5ubU1NTg4ODk5OTh4eHf39/e3t7d3d3c3NzS0tLX19fZ2dnPz8/R0dHLKKyVAAAAG3RSTlNAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEAvEOwtAAABhklEQVRIx5WWW47DIAxFMTiYNwEC5NF9L/TPxFJpR5rMGRBfDhdn/XoXKMOGaVhmWQ/WwBEqLwKqrg6hcbKkSBAlR4qAIpNIYXAkI1IYFNEIMYJ4NAQKaAQQKKQRQKCYRgCBkhoAApU0AoiU1gAQKaMRQKSsRgCR8hoARCpoBBCpqBFApJJGAJEqGgBE6mgEEKmrAUCknkYAkfoaAEQaagQQaawRQKSJBgCR5hoBRFprBBBppxFApL1GAJEOGgBEOmoEEOmsEUCki0YAka4aAETaawQQGaIRQGSYRgCRkRoBRMZoBBCZoBFAZJJGAJGpGgFE5mkAEFmoEUBkqUYAkQ0aAUQ2agQQ2aQBQGSbRgCR7RoBRHZqBBDZpQFAZJ9GAJH9GgFEDmoEEDmkAUDkiEYAkaMaAUROaAQQOakBQOScRgCR8xoBRC5qBBC5pAFA5LpGAJEbGgFEbmoEELmjEUDkngYAkYcaAUSeaAQQeaoRQOSFBgCRtxoBRD5oBBD5pAFAhP4Bp4OMj0wjNOcAAAAASUVORK5CYII=')" }}>
-        {mensagens.length === 0 ? (
-          <div className="flex items-center justify-center h-full">
+      </div> :
+
+      <div ref={chatContainerRef} className="flex-1 overflow-y-auto p-4 space-y-1 bg-[#efeae2]" style={{ backgroundImage: "url('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAADIAAAAyCAMAAAAp4XiDAAAAUVBMVEWFhYWDg4N3d3dtbW17e3t1dXWBgYGHh4d5eXlzc3Oeli7////l5eXm5ubU1NTg4ODk5OTh4eHf39/e3t7d3d3c3NzS0tLX19fZ2dnPz8/R0dHLKKyVAAAAG3RSTlNAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEAvEOwtAAABhklEQVRIx5WWW47DIAxFMTiYNwEC5NF9L/TPxFJpR5rMGRBfDhdn/XoXKMOGaVhmWQ/WwBEqLwKqrg6hcbKkSBAlR4qAIpNIYXAkI1IYFNEIMYJ4NAQKaAQQKKQRQKCYRgCBkhoAApU0AoiU1gAQKaMRQKSsRgCR8hoARCpoBBCpqBFApJJGAJEqGgBE6mgEEKmrAUCknkYAkfoaAEQaagQQaawRQKSJBgCR5hoBRFprBBBppxFApL1GAJEOGgBEOmoEEOmsEUCki0YAka4aAETaawQQGaIRQGSYRgCRkRoBRMZoBBCZoBFAZJJGAJGpGgFE5mkAEFmoEUBkqUYAkQ0aAUQ2agQQ2aQBQGSbRgCR7RoBRHZqBBDZpQFAZJ9GAJH9GgFEDmoEEDmkAUDkiEYAkaMaAUROaAQQOakBQOScRgCR8xoBRC5qBBC5pAFA5LpGAJEbGgFEbmoEELmjEUDkngYAkYcaAUSeaAQQeaoRQOSFBgCRtxoBRD5oBBD5pAFAhP4Bp4OMj0wjNOcAAAAASUVORK5CYII=')" }}>
+        {mensagens.length === 0 ?
+        <div className="flex items-center justify-center h-full">
             <p className="text-slate-400">Nenhuma mensagem ainda. Inicie a conversa!</p>
-          </div>
-        ) : mensagensProcessadas.length === 0 && selectedCategoria !== 'all' ? (
-          <div className="flex items-center justify-center h-full">
+          </div> :
+        mensagensProcessadas.length === 0 && selectedCategoria !== 'all' ?
+        <div className="flex items-center justify-center h-full">
             <div className="text-center">
               <Tag className="w-16 h-16 text-slate-300 mx-auto mb-4" />
               <p className="text-slate-600 font-semibold">Nenhuma mensagem com esta etiqueta</p>
               <p className="text-sm text-slate-400 mt-2">Remova o filtro para ver todas as mensagens</p>
             </div>
-          </div>
-        ) : (
-        mensagensProcessadas.map((mensagem, index) => {
-            const msgCompleta = mensagens.find(m => m.id === mensagem.id);
-            const indexOriginal = mensagens.indexOf(msgCompleta);
-            const isFirstUnread =
-            mensagem.sender_type === 'contact' &&
-            mensagem.status !== 'lida' &&
-            mensagem.status !== 'apagada' && (
-            indexOriginal === 0 ||
-            mensagens[indexOriginal - 1] && (
-            mensagens[indexOriginal - 1].status === 'lida' ||
-            mensagens[indexOriginal - 1].status === 'apagada' ||
-            mensagens[indexOriginal - 1].sender_type === 'user'));
+          </div> :
 
-            return (
-              <React.Fragment key={mensagem.id}>
+        mensagensProcessadas.map((mensagem, index) => {
+          const msgCompleta = mensagens.find((m) => m.id === mensagem.id);
+          const indexOriginal = mensagens.indexOf(msgCompleta);
+          const isFirstUnread =
+          mensagem.sender_type === 'contact' &&
+          mensagem.status !== 'lida' &&
+          mensagem.status !== 'apagada' && (
+          indexOriginal === 0 ||
+          mensagens[indexOriginal - 1] && (
+          mensagens[indexOriginal - 1].status === 'lida' ||
+          mensagens[indexOriginal - 1].status === 'apagada' ||
+          mensagens[indexOriginal - 1].sender_type === 'user'));
+
+          return (
+            <React.Fragment key={mensagem.id}>
                   {isFirstUnread && getUnreadCount(thread, usuario?.id) > 0 &&
-                <div
-                  ref={unreadSeparatorRef}
-                  className="flex items-center justify-center my-4">
+              <div
+                ref={unreadSeparatorRef}
+                className="flex items-center justify-center my-4">
 
                       <div className="flex-1 h-px bg-gradient-to-r from-transparent via-red-300 to-transparent"></div>
                       <span className="px-4 py-1 text-xs font-semibold text-red-600 bg-red-50 rounded-full border border-red-200 shadow-sm">
@@ -2194,33 +2199,33 @@ export default function ChatWindow({
                       </span>
                       <div className="flex-1 h-px bg-gradient-to-r from-transparent via-red-300 to-transparent"></div>
                     </div>
-                }
+              }
 
                   <MessageBubble
-                  message={mensagem}
-                  isOwn={
-                    thread?.thread_type === 'team_internal' || thread?.thread_type === 'sector_group'
-                      ? mensagem.sender_id === usuario?.id
-                      : mensagem.sender_type === 'user'
-                  }
-                  thread={thread}
-                  onResponder={handleResponderMensagem}
-                  modoSelecao={modoSelecao}
-                  selecionada={mensagensSelecionadas.includes(mensagem.id)}
-                  onToggleSelecao={toggleSelecionarMensagem}
-                  mensagens={mensagensProcessadas}
-                  integracoes={integracoes}
-                  usuarioAtual={usuario}
-                  contato={contatoCompleto}
-                  atendentes={atendentes} />
+                message={mensagem}
+                isOwn={
+                thread?.thread_type === 'team_internal' || thread?.thread_type === 'sector_group' ?
+                mensagem.sender_id === usuario?.id :
+                mensagem.sender_type === 'user'
+                }
+                thread={thread}
+                onResponder={handleResponderMensagem}
+                modoSelecao={modoSelecao}
+                selecionada={mensagensSelecionadas.includes(mensagem.id)}
+                onToggleSelecao={toggleSelecionarMensagem}
+                mensagens={mensagensProcessadas}
+                integracoes={integracoes}
+                usuarioAtual={usuario}
+                contato={contatoCompleto}
+                atendentes={atendentes} />
 
                 </React.Fragment>);
 
-                })
-        )}
+        })
+        }
         <div ref={messagesEndRef} />
         </div>
-        )}
+      }
 
       {erro &&
       <div className="px-4 py-2 bg-red-50 border-t border-red-200 flex-shrink-0">
@@ -2284,25 +2289,25 @@ export default function ChatWindow({
         contatosSelecionados={contatosSelecionados}
         onCancelarSelecao={onCancelarSelecao}
         enviandoBroadcast={enviandoBroadcast}
-        progressoBroadcast={progressoBroadcast}
-      />
+        progressoBroadcast={progressoBroadcast} />
+
 
       {mostrarSugestor &&
-        <div className="px-3 pb-3">
+      <div className="px-3 pb-3">
           <div className="border border-purple-200 rounded-lg bg-purple-50/50 p-3">
             <SugestorRespostasRapidas
-              mensagemCliente={ultimaMensagemCliente}
-              threadId={thread.id}
-              contactId={thread.contact_id}
-              onUseResposta={(conteudo) => {
-                // Não podemos mais setar mensagemTexto aqui diretamente
-                // Precisamos de uma forma de comunicar com MessageInput
-                setMostrarSugestor(false);
-                toast.info('💡 Sugestão copiada! Cole no campo de mensagem.');
-                navigator.clipboard.writeText(conteudo);
-              }}
-              onClose={() => setMostrarSugestor(false)}
-            />
+            mensagemCliente={ultimaMensagemCliente}
+            threadId={thread.id}
+            contactId={thread.contact_id}
+            onUseResposta={(conteudo) => {
+              // Não podemos mais setar mensagemTexto aqui diretamente
+              // Precisamos de uma forma de comunicar com MessageInput
+              setMostrarSugestor(false);
+              toast.info('💡 Sugestão copiada! Cole no campo de mensagem.');
+              navigator.clipboard.writeText(conteudo);
+            }}
+            onClose={() => setMostrarSugestor(false)} />
+
           </div>
         </div>
       }
@@ -2321,12 +2326,12 @@ export default function ChatWindow({
           // ✅ INVALIDAÇÃO LOCAL: ChatWindow também força atualização
           await queryClient.invalidateQueries({ queryKey: ['threads'] });
           await queryClient.invalidateQueries({ queryKey: ['mensagens', thread?.id] });
-          
+
           if (onAtualizarMensagens) {
             onAtualizarMensagens();
           }
-        }}
-      />
+        }} />
+
     </div>);
 
 }
