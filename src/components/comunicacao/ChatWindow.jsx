@@ -141,6 +141,7 @@ export default function ChatWindow({
   const [canalSelecionado, setCanalSelecionado] = useState(null);
 
   const [mostrarMediaSystem, setMostrarMediaSystem] = useState(false);
+  const [mostrarDetalhes, setMostrarDetalhes] = useState(false);
 
   // Estados para broadcast
   const [enviandoBroadcast, setEnviandoBroadcast] = useState(false);
