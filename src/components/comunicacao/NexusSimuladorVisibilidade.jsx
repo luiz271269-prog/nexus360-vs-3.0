@@ -447,9 +447,12 @@ export default function NexusSimuladorVisibilidade({ usuario, integracoes = [], 
               <thead className="bg-slate-100 text-slate-600 font-semibold text-[10px]">
                 <tr>
                   <th className="px-2 py-1 text-left">Contato</th>
-                  <th className="px-2 py-1 text-center w-32">Sistema Atual</th>
-                  <th className="px-2 py-1 text-center w-32">Nexus360</th>
-                  <th className="px-2 py-1 text-left">Resultado</th>
+                  <th className="px-2 py-1 text-center w-24">Atual</th>
+                  <th className="px-2 py-1 text-center w-24">Nexus</th>
+                  <th className="px-2 py-1 text-left w-32">Regra Nexus</th>
+                  <th className="px-2 py-1 text-left w-40">Código Decisão</th>
+                  <th className="px-2 py-1 text-left">Status</th>
+                  <th className="px-2 py-1 text-center w-16">Detalhes</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
