@@ -488,6 +488,7 @@ export default function NexusSimuladorVisibilidade({ usuario, integracoes = [], 
                  }
 
                  return (
+                   <React.Fragment key={res.threadId}>
                    <tr 
                      key={res.threadId} 
                      className={res.isMatch ? "hover:bg-slate-50" : res.severity === 'error' ? "bg-red-50" : "bg-amber-50"}
