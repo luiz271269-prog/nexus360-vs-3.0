@@ -15,52 +15,9 @@ export default function NotificationSystem({ usuario }) {
   useEffect(() => {
     if (!usuario) return;
 
-    try {
-      // 1️⃣ Calcular total de não lidas
-      const currentTotalUnread = threads.reduce((acc, thread) => acc + (thread.unread_count || 0), 0);
-      
-      // 2️⃣ Encontrar timestamp da mensagem mais recente
-      const latestMessageDate = threads
-        .map(t => t.last_message_at ? new Date(t.last_message_at).getTime() : 0)
-        .reduce((max, curr) => Math.max(max, curr), 0);
-      
-      // 3️⃣ Recuperar estado anterior
-      const { totalUnread: prevUnread, lastMessageDate: prevDate } = lastStateRef.current;
-      
-      // 4️⃣ 🎯 A LÓGICA DE OURO: Notificar APENAS se:
-      // - Aumentou total de não lidas AND
-      // - A data da última mensagem mudou (evita notificar reordenações)
-      const isNovaMensagemReal = 
-        currentTotalUnread > prevUnread && 
-        latestMessageDate > (prevDate || 0);
-
-      if (isNovaMensagemReal) {
-        const diferenca = currentTotalUnread - prevUnread;
-        
-        // 📳 Vibração
-        if (navigator.vibrate) {
-          navigator.vibrate([200, 100, 200]);
-        }
-        
-        // 🔔 Toca som
-        try {
-          const audio = new Audio('data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmwhBCR9y/DajEYMF2S46Om4YRsDOpHW8M16LQUu');
-          audio.volume = 0.3;
-          audio.play().catch(() => {});
-        } catch {}
-        
-        // 📢 Mostrar toast
-        setNovasMensagens(prev => [...prev, { id: Date.now(), count: diferenca }]);
-      }
-      
-      // 5️⃣ Atualizar ref para próximo ciclo
-      lastStateRef.current = { totalUnread: currentTotalUnread, lastMessageDate: latestMessageDate };
-      setTotalNaoLidas(currentTotalUnread);
-      
-    } catch (error) {
-      console.error('[NotificationSystem] Erro:', error);
-    }
-  }, [usuario, threads]);
+    // Sem threads aqui = NotificationSystem apenas renderiza, não causa re-renders
+    // A lógica de monitoramento volta para a página Comunicacao (onde realmente precisa)
+  }, [usuario]);
 
   // Remover notificações antigas
   useEffect(() => {
