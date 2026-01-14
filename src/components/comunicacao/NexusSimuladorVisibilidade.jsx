@@ -425,134 +425,66 @@ export default function NexusSimuladorVisibilidade({ usuario, integracoes = [], 
                  return (
                    <tr 
                      key={res.threadId} 
-                     className={
-                       res.isMatch 
-                         ? "hover:bg-slate-50" 
-                         : res.severity === 'error'
-                         ? "bg-red-50 hover:bg-red-100"
-                         : "bg-amber-50 hover:bg-amber-100"
-                     }
+                     className={res.isMatch ? "hover:bg-slate-50" : res.severity === 'error' ? "bg-red-50" : "bg-amber-50"}
                    >
-                     <td className="p-3">
-                       <div className="flex items-center gap-3">
-                         {/* Avatar com foto - Estilo ChatSidebar */}
-                         <div className="relative flex-shrink-0">
-                           <div className={`w-12 h-12 rounded-full flex items-center justify-center text-white font-bold text-lg shadow-md overflow-hidden ${
-                             hasUnread ? 'bg-gradient-to-br from-amber-400 via-orange-500 to-red-500' : 'bg-gradient-to-br from-slate-400 to-slate-500'
-                           }`}>
-                             {contato?.foto_perfil_url ? (
-                               <img src={contato.foto_perfil_url} alt={nomeExibicao} className="w-full h-full object-cover" onError={(e) => { e.target.style.display = 'none'; }} />
-                             ) : (
-                               nomeExibicao.charAt(0).toUpperCase()
-                             )}
-                           </div>
+                     <td className="px-2 py-1">
+                       <div className="flex items-center gap-2">
+                         <div className={`w-7 h-7 rounded-full flex items-center justify-center text-white font-bold text-[10px] shadow-sm overflow-hidden ${
+                           hasUnread ? 'bg-gradient-to-br from-orange-400 to-red-500' : 'bg-slate-400'
+                         }`}>
+                           {contato?.foto_perfil_url ? (
+                             <img src={contato.foto_perfil_url} alt="" className="w-full h-full object-cover" onError={(e) => { e.target.style.display = 'none'; }} />
+                           ) : (
+                             nomeExibicao.charAt(0).toUpperCase()
+                           )}
                          </div>
-
-                         {/* Info completa */}
                          <div className="flex-1 min-w-0">
-                           {/* Linha 1: Nome + Horário */}
-                           <div className="flex items-center justify-between mb-0.5">
-                             <h3 className="font-semibold text-sm text-slate-900 truncate">{nomeExibicao}</h3>
-                             <span className="text-[10px] text-slate-400 flex-shrink-0 ml-2">
-                               {formatarHorario(thread?.last_message_at)}
-                             </span>
+                           <div className="flex items-center gap-1">
+                             <h3 className="font-semibold text-[11px] text-slate-900 truncate">{nomeExibicao}</h3>
+                             <span className="text-[9px] text-slate-400">{formatarHorario(thread?.last_message_at)}</span>
                            </div>
-
-                           {/* Linha 2: Preview mensagem */}
-                           <p className="text-xs text-slate-500 truncate flex items-center gap-1 mb-1">
-                             {thread?.last_message_sender === 'user' && <CheckCheck className="w-3 h-3 text-blue-500 flex-shrink-0" />}
-                             {thread?.last_media_type === 'image' && <Image className="w-3 h-3 text-blue-500 flex-shrink-0" />}
-                             {thread?.last_media_type === 'video' && <Video className="w-3 h-3 text-purple-500 flex-shrink-0" />}
-                             {thread?.last_media_type === 'audio' && <Mic className="w-3 h-3 text-green-500 flex-shrink-0" />}
-                             {thread?.last_media_type === 'document' && <FileText className="w-3 h-3 text-orange-500 flex-shrink-0" />}
-                             <span className="truncate">{thread?.last_message_content || "Sem mensagens"}</span>
-                           </p>
-
-                           {/* Linha 3: Badges */}
-                           <div className="flex items-center gap-1 flex-wrap">
-                             <Badge variant="outline" className="text-[10px] h-4">
-                               {res.threadType === 'contact_external' ? '👤 Cliente' : res.threadType === 'team_internal' ? '💬 1:1' : '👥 Grupo'}
+                           <div className="flex items-center gap-1">
+                             <Badge variant="outline" className="text-[9px] h-3 px-1">
+                               {res.threadType === 'contact_external' ? 'Ext' : res.threadType === 'team_internal' ? '1:1' : 'Grp'}
                              </Badge>
                              {thread?.assigned_user_id && (
-                               <Badge className="bg-indigo-500 text-white text-[10px] h-4">
-                                 <UserCheck className="w-2.5 h-2.5 mr-0.5" />
-                                 {getUserDisplayName(thread.assigned_user_id, todosUsuarios).split(' ')[0]}
+                               <Badge className="bg-indigo-500 text-white text-[9px] h-3 px-1">
+                                 <UserCheck className="w-2 h-2" />
                                </Badge>
                              )}
                            </div>
                          </div>
                        </div>
                      </td>
-                    
-                    <td className="p-3 text-center">
-                      <div className="flex flex-col items-center gap-1">
-                        {res.legacyDecision ? (
-                          <Eye className="w-5 h-5 text-emerald-600" />
-                        ) : (
-                          <EyeOff className="w-5 h-5 text-slate-400" />
-                        )}
-                        <Badge 
-                          variant={res.legacyDecision ? "default" : "secondary"}
-                          className={res.legacyDecision ? "bg-emerald-100 text-emerald-700" : "bg-slate-200 text-slate-600"}
-                        >
-                          {res.legacyDecision ? "Visível" : "Bloqueado"}
-                        </Badge>
-                        <span className="text-xs text-slate-500 mt-1 text-center max-w-[120px]">
-                          {res.legacyMotivo}
-                        </span>
-                      </div>
+
+                    <td className="px-2 py-1 text-center">
+                      {res.legacyDecision ? (
+                        <Eye className="w-4 h-4 text-emerald-600 mx-auto" />
+                      ) : (
+                        <EyeOff className="w-4 h-4 text-slate-400 mx-auto" />
+                      )}
                     </td>
 
-                    <td className="p-3 text-center">
-                      <div className="flex flex-col items-center gap-1">
-                        {res.nexusDecision ? (
-                          <Eye className="w-5 h-5 text-indigo-600" />
-                        ) : (
-                          <EyeOff className="w-5 h-5 text-slate-400" />
-                        )}
-                        <Badge 
-                          variant={res.nexusDecision ? "default" : "secondary"}
-                          className={res.nexusDecision ? "bg-indigo-100 text-indigo-700" : "bg-slate-200 text-slate-600"}
-                        >
-                          {res.nexusDecision ? "Visível" : "Bloqueado"}
-                        </Badge>
-                        <span className="text-xs text-slate-500 mt-1 text-center max-w-[120px]">
-                          {res.nexusMotivo}
-                        </span>
-                        <code className="text-[10px] text-purple-600 font-mono mt-1">
-                          {res.nexusReasonCode}
-                        </code>
-                      </div>
+                    <td className="px-2 py-1 text-center">
+                      {res.nexusDecision ? (
+                        <Eye className="w-4 h-4 text-indigo-600 mx-auto" />
+                      ) : (
+                        <EyeOff className="w-4 h-4 text-slate-400 mx-auto" />
+                      )}
                     </td>
 
-                    <td className="p-3">
-                      <div className="space-y-2">
-                        {res.isMatch ? (
-                          <div className="flex items-center text-emerald-600 text-xs font-medium">
-                            <CheckCircle2 className="w-4 h-4 mr-2" />
-                            Match perfeito
-                          </div>
-                        ) : (
-                          <div className={`flex items-start gap-2 text-xs font-bold ${
-                            res.severity === 'error' ? 'text-red-700' : 'text-amber-700'
-                          }`}>
-                            <AlertTriangle className="w-4 h-4 mt-0.5 flex-shrink-0" />
-                            <span>{res.reason}</span>
-                          </div>
-                        )}
-                        
-                        {/* Decision Path (Nexus) */}
-                        {res.nexusDecisionPath.length > 0 && (
-                          <div className="text-xs text-slate-500 space-y-1">
-                            <div className="font-semibold">Path:</div>
-                            {res.nexusDecisionPath.map((step, idx) => (
-                              <div key={idx} className="font-mono text-[10px] text-purple-600">
-                                {step}
-                              </div>
-                            ))}
-                          </div>
-                        )}
-                      </div>
+                    <td className="px-2 py-1">
+                      {res.isMatch ? (
+                        <div className="flex items-center text-emerald-600 text-[10px]">
+                          <CheckCircle2 className="w-3 h-3 mr-1" />
+                          OK
+                        </div>
+                      ) : (
+                        <div className={`flex items-center gap-1 text-[10px] font-bold ${res.severity === 'error' ? 'text-red-700' : 'text-amber-700'}`}>
+                          <AlertTriangle className="w-3 h-3" />
+                          {res.reason}
+                        </div>
+                      )}
                     </td>
                     </tr>
                   );
