@@ -754,9 +754,16 @@ async function handleMessage(dados, payloadBruto, base44) {
       }
     }
 
-    // ✅ Core desativado temporariamente (problema de import em Deno Edge)
-    console.log('[WAPI] 🔐 GERENTE: Integração compartilhada (Token seguro no banco)');
-    console.log('[WAPI] 💾 Mensagem salva - Core desativado temporariamente');
+    // ✅ INVOCAR processInboundEvent - ETAPA CRÍTICA
+    console.log('[WAPI] 🎯 Invocando processInboundEvent para thread:', thread.id);
+    await base44.asServiceRole.functions.invoke('processInboundEvent', {
+      thread_id: thread.id,
+      contact_id: contato.id,
+      message_id: mensagem.id,
+      integration_id: integracaoId,
+      provider: 'w_api'
+    });
+    console.log('[WAPI] ✅ processInboundEvent executado com sucesso');
   } catch (err) {
     console.error('[WAPI] 🔴 GERENTE: Erro no processamento:', err.message);
   }
