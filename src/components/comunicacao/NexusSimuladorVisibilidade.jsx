@@ -489,10 +489,7 @@ export default function NexusSimuladorVisibilidade({ usuario, integracoes = [], 
 
                  return (
                    <React.Fragment key={res.threadId}>
-                   <tr 
-                     key={res.threadId} 
-                     className={res.isMatch ? "hover:bg-slate-50" : res.severity === 'error' ? "bg-red-50" : "bg-amber-50"}
-                   >
+                   <tr className={res.isMatch ? "hover:bg-slate-50" : res.severity === 'error' ? "bg-red-50" : "bg-amber-50"}>
                      <td className="px-2 py-1">
                        <div className="flex items-center gap-2">
                          <div className={`w-7 h-7 rounded-full flex items-center justify-center text-white font-bold text-[10px] shadow-sm overflow-hidden ${
