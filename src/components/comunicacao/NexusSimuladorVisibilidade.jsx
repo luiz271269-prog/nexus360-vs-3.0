@@ -392,6 +392,48 @@ export default function NexusSimuladorVisibilidade({ usuario, integracoes = [], 
         </div>
       )}
 
+      {/* Filtros de análise */}
+      {simulationResults && (
+        <Card className="p-3">
+          <div className="flex gap-3 items-center flex-wrap">
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-medium text-slate-700">Filtrar por:</span>
+              <select 
+                value={filtroRegra} 
+                onChange={(e) => setFiltroRegra(e.target.value)}
+                className="text-xs border rounded px-2 py-1 bg-white"
+              >
+                <option value="todas">Todas as Regras</option>
+                <option value="admin_total">P2: Admin Total</option>
+                <option value="thread_atribuida">P3: Thread Atribuída</option>
+                <option value="contato_fidelizado">P4: Fidelizado</option>
+                <option value="janela_24h">P5: Janela 24h</option>
+                <option value="bloqueio_fidelizado_outro">P6: Bloq. Fidelizado Outro</option>
+                <option value="bloqueio_atribuido_outro">P7: Bloq. Atribuído Outro</option>
+                <option value="gerente_supervisao">P8: Gerente Supervisão</option>
+                <option value="bloqueio_integracao">P10: Bloqueio Integração</option>
+                <option value="bloqueio_setor">P11: Bloqueio Setor</option>
+                <option value="nexus360_default">P12: Default Liberado</option>
+              </select>
+            </div>
+            
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-medium text-slate-700">Status:</span>
+              <select 
+                value={filtroDivergencia} 
+                onChange={(e) => setFiltroDivergencia(e.target.value)}
+                className="text-xs border rounded px-2 py-1 bg-white"
+              >
+                <option value="todas">Todas</option>
+                <option value="matches">✓ Matches ({simulationResults.stats.matches})</option>
+                <option value="divergencias">⚠️ Divergências ({simulationResults.stats.divergencias})</option>
+                <option value="criticos">🚨 Críticos ({simulationResults.stats.criticosFalsoNegativo})</option>
+              </select>
+            </div>
+          </div>
+        </Card>
+      )}
+
       {/* Tabela de resultados - COMPACTA */}
       {simulationResults && simulationResults.resultados.length > 0 && (
         <Card className="overflow-hidden">
