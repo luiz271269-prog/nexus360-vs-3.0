@@ -629,11 +629,11 @@ export default function NexusSimuladorVisibilidade({ usuario, integracoes = [], 
                           </div>
                         </div>
                       </td>
-                    </tr>
-                    )}
-                    </>
-                    );
-                    })}
+                      </tr>
+                      )}
+                      </React.Fragment>
+                      );
+                      })}
                     </tbody>
                     </table>
                     </div>
