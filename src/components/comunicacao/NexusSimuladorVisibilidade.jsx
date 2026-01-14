@@ -456,7 +456,22 @@ export default function NexusSimuladorVisibilidade({ usuario, integracoes = [], 
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-               {simulationResults.resultados.map((res) => {
+               {simulationResults.resultados
+                 .filter(res => {
+                   // Filtro por regra
+                   if (filtroRegra !== 'todas') {
+                     const regraNexus = res.nexusDecisionPath?.[0]?.split(':')[1];
+                     if (regraNexus !== filtroRegra) return false;
+                   }
+                   
+                   // Filtro por divergência
+                   if (filtroDivergencia === 'matches' && !res.isMatch) return false;
+                   if (filtroDivergencia === 'divergencias' && res.isMatch) return false;
+                   if (filtroDivergencia === 'criticos' && res.severity !== 'error') return false;
+                   
+                   return true;
+                 })
+                 .map((res) => {
                  const thread = threads.find(t => t.id === res.threadId);
                  const contato = thread?.contact_id ? contatos.find(c => c.id === thread.contact_id) : null;
                  const hasUnread = (thread?.unread_count || 0) > 0;
