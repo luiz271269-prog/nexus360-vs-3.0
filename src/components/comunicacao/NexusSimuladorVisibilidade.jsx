@@ -188,15 +188,61 @@ export default function NexusSimuladorVisibilidade({ usuario, integracoes = [], 
   const temConfigNexus = usuarioAtual?.configuracao_visibilidade_nexus || usuarioAtual?.permissoes_acoes_nexus;
 
   return (
-    <div className="grid grid-cols-12 gap-4">
-      {/* BARRAS LATERAIS - Uma por Integração (Lado a Lado) */}
-      <div className="col-span-3 flex gap-2 overflow-x-auto h-[calc(100vh-8rem)]">
+    <div className="space-y-3">
+      {/* PAINEL SIMULADOR - COMPACTO */}
+      <Card className="border-purple-200 bg-gradient-to-r from-purple-50 to-indigo-50">
+        <CardHeader className="pb-2">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Zap className="w-4 h-4 text-purple-600" />
+              <div>
+                <CardTitle className="text-sm">Simulador Nexus360 - Shadow Engine</CardTitle>
+                <CardDescription className="text-xs">Compare Legado vs Nexus360 • {threads.length} threads</CardDescription>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <select 
+                value={amostraSize} 
+                onChange={(e) => setAmostraSize(Number(e.target.value))}
+                className="text-xs border rounded px-2 py-1 bg-white"
+              >
+                <option value={20}>20</option>
+                <option value={50}>50</option>
+                <option value={100}>100</option>
+                <option value={200}>Todas</option>
+              </select>
+              {!temConfigNexus && (
+                <Button 
+                  size="sm"
+                  variant="outline" 
+                  onClick={handleAutoMigrate}
+                  disabled={migrando || !usuarioAtual}
+                  className="border-indigo-200 text-indigo-700 hover:bg-indigo-50 text-xs h-7"
+                >
+                  {migrando ? <RefreshCw className="w-3 h-3 animate-spin" /> : <Database className="w-3 h-3" />}
+                </Button>
+              )}
+              <Button 
+                size="sm"
+                onClick={runSimulation}
+                disabled={loading || !threads.length || !usuarioAtual}
+                className="bg-purple-600 hover:bg-purple-700 text-xs h-7"
+              >
+                {loading ? <RefreshCw className="w-3 h-3 animate-spin" /> : <PlayCircle className="w-3 h-3" />}
+              </Button>
+            </div>
+          </div>
+        </CardHeader>
+      </Card>
+
+      {/* BARRAS LATERAIS - Integracoes lado a lado */}
+      <div className="flex gap-2 overflow-x-auto h-[calc(100vh-12rem)]">
         {integracoes.map(integracao => {
           const threadsIntegracao = threads.filter(t => t.whatsapp_integration_id === integracao.id);
           
           return (
             <Card key={integracao.id} className="border-slate-200 flex flex-col flex-shrink-0 w-64">
-              <CardHeader className="pb-3 flex-shrink-0 bg-gradient-to-r from-slate-50 to-slate-100">
+              <CardHeader className="pb-2 flex-shrink-0 bg-gradient-to-r from-slate-50 to-slate-100">
                 <CardTitle className="text-xs flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <div className={`w-2 h-2 rounded-full ${integracao.status === 'conectado' ? 'bg-green-500' : 'bg-red-500'}`} />
