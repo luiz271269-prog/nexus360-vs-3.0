@@ -1959,7 +1959,7 @@ export default function ChatWindow({
                     <ArrowRight className="h-4 w-4 text-blue-600" />
                     <span className="sr-only">Transferir</span>
                   </Button>
-                  <Button size="icon" variant="ghost" className="h-7 w-7 hover:bg-slate-200/50" onClick={marcarComoLida}>
+                  <Button size="icon" variant="ghost" className="h-7 w-7 hover:bg-slate-200/50" onClick={() => marcarComoLidaMutation.mutate()}>
                     <Check className="h-4 w-4 text-green-600" />
                     <span className="sr-only">Lida</span>
                   </Button>
