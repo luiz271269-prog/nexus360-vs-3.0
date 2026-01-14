@@ -30,6 +30,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import SeletorEstrategia from './SeletorEstrategia';
+import NexusSimuladorVisibilidade from './NexusSimuladorVisibilidade';
 
 /**
  * Central de Controle Operacional - Dashboard Unificado
@@ -464,27 +465,42 @@ export default function CentralControleOperacional({ onSelecionarThread, usuario
           </div>
         )}
 
-        {/* TABS POR INSTÂNCIA WhatsApp */}
-        <Tabs defaultValue={integracoes[0]?.id || 'geral'} className="space-y-4">
+        {/* TABS PRINCIPAL */}
+        <Tabs defaultValue="operacional" className="space-y-4">
           <TabsList className="bg-slate-800 border border-slate-700 p-1">
-            {integracoes.map(integracao => (
-              <TabsTrigger 
-                key={integracao.id} 
-                value={integracao.id}
-                className="data-[state=active]:bg-slate-700 text-slate-300 data-[state=active]:text-white flex items-center gap-2"
-              >
-                <div className={`w-2 h-2 rounded-full ${integracao.status === 'conectado' ? 'bg-green-500' : 'bg-red-500'}`} />
-                {integracao.nome_instancia}
-                {filasPorInstancia[integracao.id]?.totalFila > 0 && (
-                  <Badge className="bg-orange-600 text-white ml-1 text-xs h-5">
-                    {filasPorInstancia[integracao.id].totalFila}
-                  </Badge>
-                )}
-              </TabsTrigger>
-            ))}
+            <TabsTrigger value="operacional" className="data-[state=active]:bg-slate-700 text-slate-300 data-[state=active]:text-white">
+              <Server className="w-4 h-4 mr-2" />
+              Operacional
+            </TabsTrigger>
+            <TabsTrigger value="nexus_simulador" className="data-[state=active]:bg-purple-700 text-slate-300 data-[state=active]:text-white">
+              <Sparkles className="w-4 h-4 mr-2" />
+              Nexus360 Simulator
+            </TabsTrigger>
           </TabsList>
 
-          {integracoes.map(integracao => (
+          {/* TAB: Operacional (Conteúdo Atual) */}
+          <TabsContent value="operacional" className="space-y-4">
+            {/* TABS POR INSTÂNCIA WhatsApp */}
+            <Tabs defaultValue={integracoes[0]?.id || 'geral'} className="space-y-4">
+              <TabsList className="bg-slate-800 border border-slate-700 p-1">
+                {integracoes.map(integracao => (
+                  <TabsTrigger 
+                    key={integracao.id} 
+                    value={integracao.id}
+                    className="data-[state=active]:bg-slate-700 text-slate-300 data-[state=active]:text-white flex items-center gap-2"
+                  >
+                    <div className={`w-2 h-2 rounded-full ${integracao.status === 'conectado' ? 'bg-green-500' : 'bg-red-500'}`} />
+                    {integracao.nome_instancia}
+                    {filasPorInstancia[integracao.id]?.totalFila > 0 && (
+                      <Badge className="bg-orange-600 text-white ml-1 text-xs h-5">
+                        {filasPorInstancia[integracao.id].totalFila}
+                      </Badge>
+                    )}
+                  </TabsTrigger>
+                ))}
+                </TabsList>
+
+                {integracoes.map(integracao => (
             <TabsContent key={integracao.id} value={integracao.id} className="space-y-4">
               {/* HEADER DA INSTÂNCIA */}
               <div className="bg-slate-800/50 border border-slate-700 rounded-lg p-4">
@@ -692,11 +708,11 @@ export default function CentralControleOperacional({ onSelecionarThread, usuario
                   </div>
                 </div>
               )}
-            </TabsContent>
-          ))}
-        </Tabs>
+              </TabsContent>
+              ))}
+            </Tabs>
 
-        {/* RODAPÉ - AUTOMAÇÕES E PLAYBOOKS */}
+            {/* RODAPÉ - AUTOMAÇÕES E PLAYBOOKS */}
         <div className="mt-6 grid grid-cols-3 gap-4">
           <Card className="bg-slate-800/30 border-slate-700">
             <CardContent className="pt-6">
@@ -742,14 +758,18 @@ export default function CentralControleOperacional({ onSelecionarThread, usuario
               </p>
             </CardContent>
           </Card>
-        </div>
+            </div>
+          </TabsContent>
+
+          {/* TAB: Nexus360 Simulator */}
+          <TabsContent value="nexus_simulador">
+            <NexusSimuladorVisibilidade 
+              usuario={usuarioAtual}
+              integracoes={integracoes}
+            />
+          </TabsContent>
+        </Tabs>
       </div>
-
-      {/* ═══════════════════════════════════════════════════════ */}
-      {/* REMOVIDO: SEÇÕES ANTIGAS */}
-      {/* ═══════════════════════════════════════════════════════ */}
-
-
     </div>
   );
 }
