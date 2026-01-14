@@ -5,7 +5,7 @@ import { MessageCircle, Bell } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'sonner';
 
-export default function NotificationSystem({ usuario, threads = [] }) {
+export default function NotificationSystem({ usuario }) {
   const [totalNaoLidas, setTotalNaoLidas] = useState(0);
   const [novasMensagens, setNovasMensagens] = useState([]);
   // ⭐ REF para guardar estado anterior (evita re-renders)
@@ -13,7 +13,7 @@ export default function NotificationSystem({ usuario, threads = [] }) {
 
   // ⭐ LÓGICA REFINADA: Validação dupla (Total + Timestamp)
   useEffect(() => {
-    if (!usuario || !threads.length) return;
+    if (!usuario) return;
 
     try {
       // 1️⃣ Calcular total de não lidas
