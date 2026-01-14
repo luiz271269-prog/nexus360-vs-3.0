@@ -43,7 +43,7 @@ import {
   XAxis,
   YAxis,
   CartesianGrid,
-  Tooltip,
+  Tooltip as ChartTooltip,
   ResponsiveContainer,
   Legend
 } from "recharts";
@@ -514,7 +514,7 @@ export default function ControlCenter() {
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis dataKey="data" />
                 <YAxis />
-                <Tooltip />
+                <ChartTooltip />
                 <Legend />
                 <Area 
                   type="monotone" 
@@ -566,7 +566,7 @@ export default function ControlCenter() {
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis dataKey="nome" />
                 <YAxis />
-                <Tooltip />
+                <ChartTooltip />
                 <Legend />
                 <Bar dataKey="execucoes" fill="#8b5cf6" name="Execuções" />
                 <Bar dataKey="taxa" fill="#10b981" name="Taxa Sucesso (%)" />
