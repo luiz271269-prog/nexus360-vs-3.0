@@ -27,11 +27,22 @@ export default function NexusSimuladorVisibilidade({ usuario, integracoes = [], 
   const [filtroSetor, setFiltroSetor] = useState('todos');
   const [filtroIntegracao, setFiltroIntegracao] = useState('todas');
   const [filtroTipo, setFiltroTipo] = useState('todos');
+  const [contatos, setContatos] = useState([]);
 
-  // Carregar lista de usuários
+  // Carregar lista de usuários e contatos
   useEffect(() => {
     carregarUsuarios();
+    carregarContatos();
   }, []);
+
+  const carregarContatos = async () => {
+    try {
+      const contacts = await base44.entities.Contact.list();
+      setContatos(contacts || []);
+    } catch (error) {
+      console.error('Erro ao carregar contatos:', error);
+    }
+  };
 
   const carregarUsuarios = async () => {
     try {
@@ -190,15 +201,20 @@ export default function NexusSimuladorVisibilidade({ usuario, integracoes = [], 
           <CardContent className="flex-1 overflow-y-auto p-0">
             <div className="space-y-0">
               {threads.map((thread, index) => {
-                const contato = thread?.contato;
-                const hasUnread = (thread?.unread_count || 0) > 0;
+                // Buscar contato pelo contact_id
+                const contato = thread.contact_id ? contatos.find(c => c.id === thread.contact_id) : null;
+                const hasUnread = (thread.unread_count || 0) > 0;
                 
                 // Nome formatado
-                let nomeExibicao = contato?.nome || "Desconhecido";
-                if (contato?.empresa) nomeExibicao = contato.empresa;
-                if (contato?.cargo) nomeExibicao += (nomeExibicao && contato.cargo ? " - " : "") + (contato.cargo || "");
-                if (contato?.nome && contato.nome !== contato.telefone) nomeExibicao += (nomeExibicao ? " - " : "") + contato.nome;
-                if (!nomeExibicao || nomeExibicao.trim() === '') nomeExibicao = contato?.telefone || thread.id?.substring(0, 20) || "Thread";
+                let nomeExibicao = "Desconhecido";
+                if (contato) {
+                  if (contato.empresa) nomeExibicao = contato.empresa;
+                  if (contato.cargo) nomeExibicao += (nomeExibicao !== "Desconhecido" ? " - " : "") + contato.cargo;
+                  if (contato.nome && contato.nome !== contato.telefone) nomeExibicao += (nomeExibicao !== "Desconhecido" ? " - " : "") + contato.nome;
+                  if (nomeExibicao === "Desconhecido") nomeExibicao = contato.telefone || contato.nome || "Sem nome";
+                } else {
+                  nomeExibicao = thread.id?.substring(0, 20) || "Thread";
+                }
 
                 return (
                   <div 
@@ -569,15 +585,17 @@ export default function NexusSimuladorVisibilidade({ usuario, integracoes = [], 
               <tbody className="divide-y divide-slate-100">
                {simulationResults.resultados.map((res) => {
                  const thread = threads.find(t => t.id === res.threadId);
-                 const contato = thread?.contato;
+                 const contato = thread?.contact_id ? contatos.find(c => c.id === thread.contact_id) : null;
                  const hasUnread = (thread?.unread_count || 0) > 0;
 
                  // Nome formatado igual ChatSidebar
                  let nomeExibicao = res.contactName;
-                 if (contato?.empresa) nomeExibicao = contato.empresa;
-                 if (contato?.cargo) nomeExibicao += (nomeExibicao && contato.cargo ? " - " : "") + (contato.cargo || "");
-                 if (contato?.nome && contato.nome !== contato.telefone) nomeExibicao += (nomeExibicao ? " - " : "") + contato.nome;
-                 if (!nomeExibicao || nomeExibicao.trim() === '') nomeExibicao = contato?.telefone || res.contactName;
+                 if (contato) {
+                   if (contato.empresa) nomeExibicao = contato.empresa;
+                   if (contato.cargo) nomeExibicao += (nomeExibicao !== res.contactName ? " - " : "") + contato.cargo;
+                   if (contato.nome && contato.nome !== contato.telefone) nomeExibicao += (nomeExibicao !== res.contactName ? " - " : "") + contato.nome;
+                   if (!nomeExibicao || nomeExibicao === res.contactName) nomeExibicao = contato.telefone || contato.nome || res.contactName;
+                 }
 
                  return (
                    <tr 
