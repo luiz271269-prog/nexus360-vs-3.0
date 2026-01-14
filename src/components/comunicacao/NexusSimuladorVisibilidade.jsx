@@ -402,9 +402,9 @@ export default function NexusSimuladorVisibilidade({ usuario, integracoes = [], 
               <thead className="bg-slate-100 text-slate-600 font-semibold text-[10px]">
                 <tr>
                   <th className="px-2 py-1 text-left">Contato</th>
-                  <th className="px-2 py-1 text-center">Atual</th>
-                  <th className="px-2 py-1 text-center">Nexus</th>
-                  <th className="px-2 py-1 text-left">Status</th>
+                  <th className="px-2 py-1 text-center w-32">Sistema Atual</th>
+                  <th className="px-2 py-1 text-center w-32">Nexus360</th>
+                  <th className="px-2 py-1 text-left">Resultado</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
