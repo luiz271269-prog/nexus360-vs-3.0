@@ -73,11 +73,21 @@ export default function AtribuirConversaModal({
         }
       }
 
-      // ✅ Atualizar thread
+      // ✅ Atualizar thread com timestamp de transferência
       await base44.entities.MessageThread.update(thread.id, {
         assigned_user_id: atendenteEscolhido.id,
         pre_atendimento_ativo: false,
-        pre_atendimento_state: 'COMPLETED'
+        pre_atendimento_state: 'COMPLETED',
+        last_message_at: new Date().toISOString(), // ⭐ FORÇA thread pro topo
+        metadata: {
+          ...thread.metadata,
+          transferencia_recente: {
+            transferido_em: new Date().toISOString(),
+            transferido_de: thread.assigned_user_name || 'Sistema',
+            transferido_para: atendenteEscolhido.full_name,
+            transferido_por: usuario.full_name
+          }
+        }
       });
 
       await base44.entities.AutomationLog.create({
