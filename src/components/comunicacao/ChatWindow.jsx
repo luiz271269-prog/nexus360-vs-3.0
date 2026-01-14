@@ -1962,15 +1962,7 @@ export default function ChatWindow({
               contato={contatoCompleto}
               onUpdate={onAtualizarMensagens} />
 
-              {/* Botão Diagnóstico (ADMIN ONLY) */}
-              {usuario?.role === 'admin' &&
-            <button
-              onClick={() => console.log('Diagnóstico em desenvolvimento')}
-              className="bg-gradient-to-br from-red-500 to-red-600 text-white rounded-lg px-2 py-1.5 shadow-md flex items-center gap-1.5 hover:shadow-lg transition-all hover:from-red-600 hover:to-red-700">
-                     <Bug className="w-3.5 h-3.5" />
-                     <span className="text-xs font-medium hidden sm:inline">Diagnóstico</span>
-                </button>
-            }
+
 
               {/* Botão Transferir */}
               {podeTransferirConversas &&
