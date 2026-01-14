@@ -2054,50 +2054,8 @@ export default function ChatWindow({
 
             }
             return null;
-          })()}
-
-            {/* Ações - Agrupadas */}
-            <div className="flex items-center gap-2 flex-shrink-0">
-              {/* Botão Diagnóstico (ADMIN ONLY) */}
-              {usuario?.role === 'admin' &&
-            <button
-              onClick={() => console.log('Diagnóstico em desenvolvimento')}
-              className="bg-gradient-to-br from-red-500 to-red-600 text-white rounded-lg px-2 py-1.5 shadow-md flex items-center gap-1.5 hover:shadow-lg transition-all hover:from-red-600 hover:to-red-700">
-                     <Bug className="w-3.5 h-3.5" />
-                     <span className="text-xs font-medium hidden sm:inline">Diagnóstico</span>
-                </button>
-            }
-
-              {/* Botão Transferir */}
-              {podeTransferirConversas &&
-            <button
-              onClick={() => setMostrarModalAtribuicao(true)}
-              className="bg-gradient-to-br from-amber-500 to-amber-600 text-white rounded-lg px-2 py-1.5 shadow-md flex items-center gap-1.5 hover:shadow-lg transition-all hover:from-amber-600 hover:to-amber-700">
-                     <Users className="w-3.5 h-3.5" />
-                     <span className="text-xs font-medium hidden sm:inline">Transferir</span>
-                </button>
-            }
-
-              {/* Botão Marcar como Lida */}
-              {getUnreadCount(thread, usuario?.id) > 0 &&
-            <button
-              onClick={() => marcarComoLidaMutation.mutate()}
-              disabled={marcarComoLidaMutation.isPending}
-              className="bg-gradient-to-br from-green-500 to-green-600 text-white rounded-lg px-2 py-1.5 shadow-md flex items-center gap-1.5 hover:from-green-600 hover:to-green-700 hover:shadow-lg transition-all disabled:opacity-50">
-                  <CheckSquare className="w-3.5 h-3.5" />
-                  <span className="text-xs font-medium hidden sm:inline">Lida ({getUnreadCount(thread, usuario?.id)})</span>
-                </button>
-            }
-
-              {/* Botão Ver Detalhes */}
-              <button
-              onClick={onShowContactInfo}
-              className="bg-gradient-to-br from-slate-600 to-slate-700 text-white rounded-lg px-2 py-1.5 shadow-md flex items-center gap-1.5 hover:from-slate-700 hover:to-slate-800 hover:shadow-lg transition-all">
-                <Info className="w-3.5 h-3.5" />
-                <span className="text-xs font-medium hidden sm:inline">Detalhes</span>
-              </button>
+            })()}
             </div>
-          </div>
         </div>
       }
 
