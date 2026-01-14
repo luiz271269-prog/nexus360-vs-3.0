@@ -22,7 +22,8 @@ import {
   RefreshCw,
   Play,
   Pause,
-  Settings
+  Settings,
+  Bug
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -44,6 +45,7 @@ export default function ControlCenter() {
   const queryClient = useQueryClient();
   const [executing, setExecuting] = useState(false);
   const [lastExecution, setLastExecution] = useState(null);
+  const [diagnosing, setDiagnosing] = useState(false);
 
   const { data: playbooks = [] } = useQuery({
     queryKey: ['playbooks'],
@@ -104,6 +106,28 @@ export default function ControlCenter() {
     }
   };
 
+  const handleDiagnostico = async () => {
+    setDiagnosing(true);
+    try {
+      toast.info('🔍 Iniciando diagnóstico do sistema...');
+      // Diagnosticar threads, execuções, integrações, etc
+      const diagnostico = {
+        timestamp: new Date().toISOString(),
+        threads_totais: threads.length,
+        threads_abertas: threads.filter(t => t.status === 'aberta').length,
+        execucoes_totais: execucoes.length,
+        execucoes_ativas: execucoes.filter(e => e.status === 'ativo' || e.status === 'waiting_follow_up').length,
+        playbooks_ativos: playbooks.filter(p => p.ativo).length,
+        taxa_sucesso: metricas.taxa_sucesso,
+        contatos_ativos: contacts.length
+      };
+      console.log('📊 Diagnóstico do Sistema:', diagnostico);
+      toast.success(`✅ Diagnóstico concluído - ${threads.length} threads, ${execucoes.length} execuções`);
+    } finally {
+      setDiagnosing(false);
+    }
+  };
+
   // Métricas globais
   const metricas = {
     playbooks_ativos: playbooks.filter(p => p.ativo).length,
@@ -160,6 +184,24 @@ export default function ControlCenter() {
           </div>
 
           <div className="flex items-center gap-3">
+            <Button
+              onClick={handleDiagnostico}
+              disabled={diagnosing}
+              className="bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 text-white font-bold shadow-lg"
+            >
+              {diagnosing ? (
+                <>
+                  <RefreshCw className="w-5 h-5 mr-2 animate-spin" />
+                  Diagnosticando...
+                </>
+              ) : (
+                <>
+                  <Bug className="w-5 h-5 mr-2" />
+                  Diagnóstico
+                </>
+              )}
+            </Button>
+
             <Button
               onClick={handleExecutarCiclo}
               disabled={executing}
