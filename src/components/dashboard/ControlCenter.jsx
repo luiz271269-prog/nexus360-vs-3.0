@@ -23,8 +23,15 @@ import {
   Play,
   Pause,
   Settings,
-  Bug
+  Bug,
+  AlertCircle
 } from "lucide-react";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger
+} from "@/components/ui/tooltip";
 import { toast } from "sonner";
 import {
   LineChart,
@@ -128,6 +135,41 @@ export default function ControlCenter() {
     }
   };
 
+  // Validar inconsistências nos contatos (Nexus360 Shadow Engine)
+  const validarConsistenciaContato = (contato) => {
+    const inconsistencias = [];
+    
+    // Validar fidelização vs atribuição
+    const campos_fidelizacao = ['atendente_fidelizado_vendas', 'atendente_fidelizado_assistencia', 'atendente_fidelizado_financeiro', 'atendente_fidelizado_fornecedor'];
+    const temFidelizado = campos_fidelizacao.some(c => contato[c]);
+    
+    if (temFidelizado && !contato.vendedor_responsavel) {
+      inconsistencias.push('⚠️ Contato fidelizado mas sem vendedor responsável');
+    }
+    
+    // Validar score vs tipo_contato
+    if (contato.cliente_score >= 70 && contato.tipo_contato === 'novo') {
+      inconsistencias.push('⚠️ Score alto (70+) mas tipo "novo" - reclassificar');
+    }
+    
+    // Validar channels activos vs optin
+    if (contato.whatsapp_optin === false && contato.telefone) {
+      inconsistencias.push('⚠️ Sem opt-in WhatsApp - consentimento pendente');
+    }
+    
+    // Validar último contato muito antigo
+    if (contato.ultima_interacao) {
+      const diasAtraso = Math.floor((Date.now() - new Date(contato.ultima_interacao)) / (1000 * 60 * 60 * 24));
+      if (diasAtraso > 30) {
+        inconsistencias.push(`⚠️ Sem contato há ${diasAtraso} dias - risco churn`);
+      }
+    }
+    
+    return inconsistencias;
+  };
+
+  const contatosComErros = contacts.filter(c => validarConsistenciaContato(c).length > 0);
+
   // Métricas globais
   const metricas = {
     playbooks_ativos: playbooks.filter(p => p.ativo).length,
@@ -137,7 +179,8 @@ export default function ControlCenter() {
       : 0,
     contacts_score_alto: contacts.filter(c => c.cliente_score >= 70).length,
     threads_abertas: threads.filter(t => t.status === 'aberta').length,
-    insights_pendentes: insights.filter(i => i.status === 'pendente').length
+    insights_pendentes: insights.filter(i => i.status === 'pendente').length,
+    contacts_inconsistencias: contatosComErros.length
   };
 
   // Dados para gráficos (últimos 7 dias)
@@ -286,6 +329,46 @@ export default function ControlCenter() {
                 </p>
               </div>
               <TrendingUp className="w-8 h-8 text-amber-500" />
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className={`border-2 ${metricas.contacts_inconsistencias > 0 ? 'border-red-200 bg-red-50/30' : 'border-slate-200'}`}>
+          <CardContent className="pt-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-slate-600">Inconsistências</p>
+                <p className={`text-2xl font-bold ${metricas.contacts_inconsistencias > 0 ? 'text-red-600' : 'text-slate-600'}`}>
+                  {metricas.contacts_inconsistencias}
+                </p>
+              </div>
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <div className="relative">
+                      <AlertCircle className={`w-8 h-8 ${metricas.contacts_inconsistencias > 0 ? 'text-red-500' : 'text-slate-400'}`} />
+                      {metricas.contacts_inconsistencias > 0 && (
+                        <div className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 rounded-full text-white text-xs flex items-center justify-center">
+                          {metricas.contacts_inconsistencias > 9 ? '9+' : metricas.contacts_inconsistencias}
+                        </div>
+                      )}
+                    </div>
+                  </TooltipTrigger>
+                  <TooltipContent side="left" className="max-w-xs">
+                    <div className="space-y-1">
+                      {contatosComErros.slice(0, 5).map((c, i) => (
+                        <div key={i} className="text-xs">
+                          <p className="font-semibold">{c.nome || c.telefone}</p>
+                          {validarConsistenciaContato(c).map((err, j) => (
+                            <p key={j} className="text-red-200">{err}</p>
+                          ))}
+                        </div>
+                      ))}
+                      {contatosComErros.length > 5 && <p className="text-xs text-gray-300 mt-2">+{contatosComErros.length - 5} mais...</p>}
+                    </div>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
             </div>
           </CardContent>
         </Card>
