@@ -5,8 +5,10 @@ import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Search, Plus, Save, User, Shield, Settings, ChevronRight, Check, Loader2, Trash2 } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Search, Plus, Save, User, Shield, Settings, ChevronRight, Check, Loader2, Trash2, Zap } from "lucide-react";
 import { toast } from "sonner";
+import PainelPermissoesUnificado from "./PainelPermissoesUnificado";
 // Removido debounce do lodash - usando implementação nativa
 
 // ══════════════════════════════════════════════════════════════════════════════
@@ -474,6 +476,26 @@ export default function GerenciadorUsuariosUnificado({
 
   const temPermissao = (permId) => (usuarioSelecionado?.permissoes || []).includes(permId);
 
+  const salvarPermissoesNexus = async (userId, configNexus) => {
+    try {
+      setSalvando(true);
+      await salvarPermissoes(userId, configNexus);
+      // Atualizar lista local
+      const usuariosAtualizados = await carregarUsuarios();
+      setUsuarios(usuariosAtualizados || []);
+      // Atualizar usuário selecionado
+      const atualizado = usuariosAtualizados.find(u => u.id === userId);
+      if (atualizado) {
+        setUsuarioSelecionado(atualizado);
+      }
+    } catch (error) {
+      console.error('Erro ao salvar permissões Nexus:', error);
+      throw error;
+    } finally {
+      setSalvando(false);
+    }
+  };
+
   return (
     <div className="flex h-[calc(100vh-140px)] gap-3">
       {/* ════════════════════════════════════════════════════════════════════════ */}
@@ -627,11 +649,26 @@ export default function GerenciadorUsuariosUnificado({
           </div>
         ) : (
           <div className="flex-1 overflow-auto p-4">
-            {/* ══════════════════════════════════════════════════════════════════ */}
-            {/* DADOS DO USUÁRIO (config) */}
-            {/* ══════════════════════════════════════════════════════════════════ */}
-            {recursoSelecionado?.tipo === "config" && (
-              <div className="space-y-4">
+            <Tabs defaultValue="dados" className="w-full">
+              <TabsList className="grid grid-cols-3 w-full">
+                <TabsTrigger value="dados">
+                  <User className="w-4 h-4 mr-2" />
+                  Dados & Perfil
+                </TabsTrigger>
+                <TabsTrigger value="permissoes_atuais">
+                  <Shield className="w-4 h-4 mr-2" />
+                  Permissões Atuais
+                </TabsTrigger>
+                <TabsTrigger value="permissoes_nexus">
+                  <Zap className="w-4 h-4 mr-2" />
+                  Nexus360 (Novo)
+                </TabsTrigger>
+              </TabsList>
+
+              {/* ABA: Dados & Perfil */}
+              <TabsContent value="dados" className="space-y-4 mt-4">
+                {recursoSelecionado?.tipo === "config" && (
+                  <div className="space-y-4">
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className="text-xs font-medium text-slate-700 mb-1 block">Nome Completo</label>
@@ -921,8 +958,33 @@ export default function GerenciadorUsuariosUnificado({
                     p === recursoSelecionado.id || (recursoSelecionado.acoes || []).some(a => a.id === p)
                   ).length} permissões ativas neste recurso
                 </div>
-              </div>
-            )}
+              )}
+              </TabsContent>
+
+              {/* ABA: Permissões Atuais (Sistema Legado) */}
+              <TabsContent value="permissoes_atuais" className="space-y-4 mt-4">
+                <div className="p-4 bg-amber-50 border border-amber-200 rounded-lg">
+                  <h3 className="font-semibold text-amber-800 mb-2">⚙️ Sistema Atual (Legado)</h3>
+                  <p className="text-xs text-amber-700 mb-3">
+                    Este é o sistema de permissões ATIVO atualmente. Use os recursos à esquerda para configurar.
+                  </p>
+                  <div className="text-xs space-y-1">
+                    <div><strong>Permissões ativas:</strong> {(usuarioSelecionado.permissoes || []).length}</div>
+                    <div><strong>WhatsApp habilitado:</strong> {usuarioSelecionado.is_whatsapp_attendant ? 'Sim' : 'Não'}</div>
+                    <div><strong>Conexões:</strong> {(usuarioSelecionado.whatsapp_permissions || []).length}</div>
+                  </div>
+                </div>
+              </TabsContent>
+
+              {/* ABA: Permissões Nexus360 (Novo Sistema) */}
+              <TabsContent value="permissoes_nexus" className="space-y-4 mt-4">
+                <PainelPermissoesUnificado
+                  usuario={usuarioSelecionado}
+                  integracoes={integracoesWhatsApp}
+                  onSalvar={salvarPermissoesNexus}
+                />
+              </TabsContent>
+            </Tabs>
           </div>
         )}
       </section>
