@@ -260,12 +260,12 @@ export default function NexusSimuladorVisibilidade({ usuario, integracoes = [], 
                 const hasUnread = (thread.unread_count || 0) > 0;
                 
                 // Nome formatado
-                let nomeExibicao = "Desconhecido";
+                let nomeExibicao = "";
                 if (contato) {
                   if (contato.empresa) nomeExibicao = contato.empresa;
-                  if (contato.cargo) nomeExibicao += (nomeExibicao !== "Desconhecido" ? " - " : "") + contato.cargo;
-                  if (contato.nome && contato.nome !== contato.telefone) nomeExibicao += (nomeExibicao !== "Desconhecido" ? " - " : "") + contato.nome;
-                  if (nomeExibicao === "Desconhecido") nomeExibicao = contato.telefone || contato.nome || "Sem nome";
+                  if (contato.cargo) nomeExibicao = nomeExibicao ? nomeExibicao + " - " + contato.cargo : contato.cargo;
+                  if (contato.nome && contato.nome !== contato.telefone) nomeExibicao = nomeExibicao ? nomeExibicao + " - " + contato.nome : contato.nome;
+                  if (!nomeExibicao) nomeExibicao = contato.telefone || "Sem nome";
                 } else {
                   nomeExibicao = thread.id?.substring(0, 20) || "Thread";
                 }
