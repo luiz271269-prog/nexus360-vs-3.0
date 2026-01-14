@@ -1920,9 +1920,9 @@ export default function ChatWindow({
               })()}
             </div>
 
-            {/* Nome + Canal + Inteligência */}
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2 mb-1">
+            {/* Nome + Canal + Termômetro */}
+            <div className="flex-1 min-w-0 flex flex-col gap-1">
+              <div className="flex items-center gap-2">
                 <h3 className="text-slate-800 font-bold text-sm truncate">{nomeContato}</h3>
 
                 {/* Badge do Canal */}
@@ -1943,6 +1943,27 @@ export default function ChatWindow({
                       {config.label}
                     </Badge>
                   );
+                })()}
+
+                {/* Barra de Temperatura */}
+                {(() => {
+                  const score = calcularScoreContato(contatoCompleto);
+                  const nivel = getNivelTemperatura(score);
+                  const Icon = nivel.icon;
+                  return (
+                    <div className="flex items-center gap-1 ml-auto">
+                      <div className={`w-4 h-4 rounded-full bg-gradient-to-br ${nivel.gradiente} flex items-center justify-center shadow-sm flex-shrink-0`}>
+                        <Icon className="w-2.5 h-2.5 text-white" />
+                      </div>
+                      <div className="w-16">
+                        <div className="w-full h-1 bg-slate-200 rounded-full overflow-hidden">
+                          <div
+                            className={`h-full bg-gradient-to-r ${nivel.gradiente} transition-all duration-500`}
+                            style={{ width: `${score}%` }} />
+                        </div>
+                      </div>
+                      <span className="text-[10px] font-bold text-slate-500 w-6 text-right">{score}%</span>
+                    </div>);
                 })()}
               </div>
 
