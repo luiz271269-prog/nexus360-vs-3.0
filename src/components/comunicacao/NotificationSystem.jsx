@@ -78,12 +78,13 @@ export default function NotificationSystem({ usuario, threads = [] }) {
       <div className="fixed bottom-4 right-4 z-[9999] flex flex-col gap-2 pointer-events-none">
         <AnimatePresence>
           {novasMensagens.map((msg, index) => (
+            {/* Filho pode receber cliques apesar do pai ter pointer-events-none */}
             <motion.div
               key={msg.id}
               initial={{ x: 400, opacity: 0, scale: 0.8 }}
               animate={{ x: 0, opacity: 1, scale: 1 }}
               exit={{ x: 400, opacity: 0, scale: 0.8 }}
-              className="pointer-events-auto" {/* Filho pode receber cliques */}
+              className="pointer-events-auto"
             >
               <div className="bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-lg px-5 py-3 shadow-2xl flex items-center gap-3 border-2 border-white">
                 <Bell className="w-5 h-5" />
