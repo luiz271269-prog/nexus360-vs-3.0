@@ -188,185 +188,103 @@ export default function NexusSimuladorVisibilidade({ usuario, integracoes = [], 
   const temConfigNexus = usuarioAtual?.configuracao_visibilidade_nexus || usuarioAtual?.permissoes_acoes_nexus;
 
   return (
-    <div className="grid grid-cols-12 gap-4">
-      {/* BARRAS LATERAIS - Uma por Integração (Lado a Lado) */}
-      <div className="col-span-3 flex gap-2 overflow-x-auto h-[calc(100vh-8rem)]">
-        {integracoes.map(integracao => {
-          const threadsIntegracao = threads.filter(t => t.whatsapp_integration_id === integracao.id);
-          
-          return (
-            <Card key={integracao.id} className="border-slate-200 flex flex-col flex-shrink-0 w-64">
-              <CardHeader className="pb-3 flex-shrink-0 bg-gradient-to-r from-slate-50 to-slate-100">
-                <CardTitle className="text-xs flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <div className={`w-2 h-2 rounded-full ${integracao.status === 'conectado' ? 'bg-green-500' : 'bg-red-500'}`} />
-                    <span className="font-semibold truncate">{integracao.nome_instancia}</span>
-                  </div>
-                  <Badge variant="secondary" className="text-[10px]">{threadsIntegracao.length}</Badge>
-                </CardTitle>
-                <p className="text-[10px] text-slate-500 mt-1">#{integracao.numero_telefone?.slice(-4)}</p>
-              </CardHeader>
-              <CardContent className="p-0 flex-1 overflow-y-auto">
-                <div className="space-y-0">
-                  {threadsIntegracao.map((thread, index) => {
-                // Buscar contato pelo contact_id
-                const contato = thread.contact_id ? contatos.find(c => c.id === thread.contact_id) : null;
-                const hasUnread = (thread.unread_count || 0) > 0;
-                
-                // Nome formatado
-                let nomeExibicao = "Desconhecido";
-                if (contato) {
-                  if (contato.empresa) nomeExibicao = contato.empresa;
-                  if (contato.cargo) nomeExibicao += (nomeExibicao !== "Desconhecido" ? " - " : "") + contato.cargo;
-                  if (contato.nome && contato.nome !== contato.telefone) nomeExibicao += (nomeExibicao !== "Desconhecido" ? " - " : "") + contato.nome;
-                  if (nomeExibicao === "Desconhecido") nomeExibicao = contato.telefone || contato.nome || "Sem nome";
-                } else {
-                  nomeExibicao = thread.id?.substring(0, 20) || "Thread";
-                }
-
-                    return (
-                      <div 
-                        key={thread.id}
-                        className="px-2 py-2 flex items-center gap-2 border-b border-slate-100 hover:bg-gradient-to-r hover:from-amber-50 hover:to-orange-50 cursor-pointer transition-all"
-                      >
-                        {/* Avatar */}
-                        <div className="relative flex-shrink-0">
-                          <div className={`w-10 h-10 rounded-full flex items-center justify-center text-white font-bold text-sm shadow-md overflow-hidden ${
-                            hasUnread ? 'bg-gradient-to-br from-amber-400 via-orange-500 to-red-500' : 'bg-gradient-to-br from-slate-400 to-slate-500'
-                          }`}>
-                            {contato?.foto_perfil_url ? (
-                              <img src={contato.foto_perfil_url} alt={nomeExibicao} className="w-full h-full object-cover" onError={(e) => { e.target.style.display = 'none'; }} />
-                            ) : (
-                              nomeExibicao.charAt(0).toUpperCase()
-                            )}
-                          </div>
-                        </div>
-
-                        {/* Info */}
-                        <div className="flex-1 min-w-0">
-                          {/* Nome + Horário */}
-                          <div className="flex items-center justify-between mb-0.5">
-                            <h3 className={`font-semibold text-xs truncate ${hasUnread ? 'text-slate-900' : 'text-slate-700'}`}>
-                              {nomeExibicao}
-                            </h3>
-                            <span className={`text-[9px] flex-shrink-0 ml-1 ${hasUnread ? 'text-orange-600 font-medium' : 'text-slate-400'}`}>
-                              {formatarHorario(thread.last_message_at)}
-                            </span>
-                          </div>
-
-                          {/* Preview mensagem */}
-                          <p className={`text-[10px] truncate flex items-center gap-1 ${hasUnread ? 'text-slate-800' : 'text-slate-500'}`}>
-                            {thread.last_message_sender === 'user' && <CheckCheck className="w-2.5 h-2.5 text-blue-500 flex-shrink-0" />}
-                            {thread.last_media_type === 'image' && <Image className="w-2.5 h-2.5 text-blue-500 flex-shrink-0" />}
-                            {thread.last_media_type === 'video' && <Video className="w-2.5 h-2.5 text-purple-500 flex-shrink-0" />}
-                            {thread.last_media_type === 'audio' && <Mic className="w-2.5 h-2.5 text-green-500 flex-shrink-0" />}
-                            {thread.last_media_type === 'document' && <FileText className="w-2.5 h-2.5 text-orange-500 flex-shrink-0" />}
-                            <span className="truncate">{thread.last_message_content || "Sem mensagens"}</span>
-                          </p>
-
-                          {/* Badges */}
-                          <div className="flex items-center gap-1 flex-wrap mt-0.5">
-                            <Badge variant="outline" className="text-[9px] h-3 px-1">
-                              {thread.thread_type === 'contact_external' ? 'Cliente' : thread.thread_type === 'team_internal' ? '1:1' : 'Grupo'}
-                            </Badge>
-                            {thread.assigned_user_id && (
-                              <Badge className="bg-indigo-500 text-white text-[9px] h-3 px-1">
-                                <UserCheck className="w-2 h-2 mr-0.5" />
-                                Atrib.
-                              </Badge>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </CardContent>
-            </Card>
-          );
-        })}
-      </div>
-
-      {/* PAINEL PRINCIPAL - Filtros e Resultados */}
-      <div className="col-span-9 space-y-4">
-      {/* Header com ações */}
+    <div className="space-y-4">
+      {/* HEADER */}
       <Card className="border-purple-200 bg-gradient-to-r from-purple-50 to-indigo-50">
         <CardHeader>
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-purple-600 rounded-lg">
-                <Zap className="w-5 h-5 text-white" />
-              </div>
-              <div>
-                <CardTitle className="text-lg">Simulador Nexus360 - Shadow Engine</CardTitle>
-                <CardDescription>
-                  Compare decisões Sistema Atual (Legado) vs Nexus360 • {threads.length} threads disponíveis
-                </CardDescription>
-              </div>
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-purple-600 rounded-lg">
+              <Zap className="w-5 h-5 text-white" />
             </div>
-            <div className="flex items-center gap-2">
-              <div className="flex items-center gap-2 bg-white px-3 py-1 rounded-lg border">
-                <span className="text-xs text-slate-600">Amostra:</span>
-                <select 
-                  value={amostraSize} 
-                  onChange={(e) => setAmostraSize(Number(e.target.value))}
-                  className="text-xs border-0 bg-transparent focus:outline-none"
-                >
-                  <option value={20}>20</option>
-                  <option value={50}>50</option>
-                  <option value={100}>100</option>
-                  <option value={200}>Todas ({threads.length})</option>
-                </select>
-              </div>
-              {!temConfigNexus && (
-                <Button 
-                  variant="outline" 
-                  onClick={handleAutoMigrate}
-                  disabled={migrando || !usuarioAtual}
-                  className="border-indigo-200 text-indigo-700 hover:bg-indigo-50"
-                >
-                  {migrando ? (
-                    <>
-                      <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
-                      Migrando...
-                    </>
-                  ) : (
-                    <>
-                      <Database className="w-4 h-4 mr-2" />
-                      Migrar 1-Click
-                    </>
-                  )}
-                </Button>
-              )}
-              <Button 
-                onClick={runSimulation}
-                disabled={loading || !threads.length || !usuarioAtual}
-                className="bg-purple-600 hover:bg-purple-700"
-              >
-                {loading ? (
-                  <>
-                    <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
-                    Analisando...
-                  </>
-                ) : (
-                  <>
-                    <PlayCircle className="w-4 h-4 mr-2" />
-                    Rodar Validação
-                  </>
-                )}
-              </Button>
+            <div>
+              <CardTitle className="text-lg">Simulador Nexus360 - Shadow Engine</CardTitle>
+              <CardDescription>
+                Validação Matemática: Sistema Atual vs Nexus360 • {threads.length} threads
+              </CardDescription>
             </div>
           </div>
         </CardHeader>
       </Card>
 
-      {/* Filtros - Igual ChatSidebar */}
-      <Card className="border-slate-200">
+      {/* PASSO 1: SELEÇÃO DE USUÁRIO */}
+      <Card className="border-indigo-200">
         <CardHeader className="pb-3">
-          <CardTitle className="text-sm">Filtros de Análise</CardTitle>
+          <CardTitle className="text-sm flex items-center gap-2">
+            <span className="bg-indigo-600 text-white w-6 h-6 rounded-full flex items-center justify-center text-xs">1</span>
+            Selecionar Usuário para Análise
+          </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-3 gap-3">
+          {loadingUsuarios ? (
+            <div className="text-sm text-slate-500 flex items-center gap-2">
+              <RefreshCw className="w-4 h-4 animate-spin" />
+              Carregando usuários...
+            </div>
+          ) : (
+            <div className="grid grid-cols-3 gap-4">
+              <div className="col-span-2">
+                <Select value={usuarioSelecionado || ''} onValueChange={setUsuarioSelecionado}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Escolha um usuário" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {todosUsuarios.map(u => (
+                      <SelectItem key={u.id} value={u.id}>
+                        <div className="flex items-center gap-2">
+                          <User className="w-3 h-3" />
+                          {u.full_name || u.email}
+                          <Badge variant="outline" className="text-xs">
+                            {u.role === 'admin' ? 'Admin' : u.attendant_role || 'User'}
+                          </Badge>
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              
+              {usuarioAtual && (
+                <div className="p-3 bg-slate-50 rounded-lg space-y-1 text-xs">
+                  <div><strong>Setor:</strong> {usuarioAtual.attendant_sector || 'N/A'}</div>
+                  <div><strong>Função:</strong> {usuarioAtual.attendant_role || 'N/A'}</div>
+                  <div>
+                    <strong>Nexus:</strong> {temConfigNexus ? (
+                      <Badge className="bg-green-100 text-green-700 ml-1 text-[10px]">✓ Config</Badge>
+                    ) : (
+                      <Badge variant="secondary" className="ml-1 text-[10px]">Não config</Badge>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* PASSO 2: FILTROS */}
+      <Card className="border-slate-200">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-sm flex items-center gap-2">
+            <span className="bg-indigo-600 text-white w-6 h-6 rounded-full flex items-center justify-center text-xs">2</span>
+            Filtros de Amostra
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-4 gap-3">
+            <div>
+              <label className="text-xs text-slate-600 mb-1 block">Tamanho Amostra</label>
+              <select 
+                value={amostraSize} 
+                onChange={(e) => setAmostraSize(Number(e.target.value))}
+                className="w-full h-8 text-xs border border-slate-200 rounded-md px-2"
+              >
+                <option value={20}>20 threads</option>
+                <option value={50}>50 threads</option>
+                <option value={100}>100 threads</option>
+                <option value={threads.length}>Todas ({threads.length})</option>
+              </select>
+            </div>
+
             <div>
               <label className="text-xs text-slate-600 mb-1 block">Setor</label>
               <Select value={filtroSetor} onValueChange={setFiltroSetor}>
@@ -374,44 +292,40 @@ export default function NexusSimuladorVisibilidade({ usuario, integracoes = [], 
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="todos">Todos os Setores</SelectItem>
+                  <SelectItem value="todos">Todos</SelectItem>
                   <SelectItem value="vendas">Vendas</SelectItem>
                   <SelectItem value="assistencia">Assistência</SelectItem>
                   <SelectItem value="financeiro">Financeiro</SelectItem>
                   <SelectItem value="fornecedor">Fornecedor</SelectItem>
-                  <SelectItem value="geral">Geral</SelectItem>
                 </SelectContent>
               </Select>
             </div>
 
             <div>
-              <label className="text-xs text-slate-600 mb-1 block">Conexão WhatsApp</label>
+              <label className="text-xs text-slate-600 mb-1 block">Conexão</label>
               <Select value={filtroIntegracao} onValueChange={setFiltroIntegracao}>
                 <SelectTrigger className="h-8 text-xs">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="todas">Todas Conexões</SelectItem>
+                  <SelectItem value="todas">Todas</SelectItem>
                   {integracoes.map(int => (
-                    <SelectItem key={int.id} value={int.id}>
-                      {int.nome_instancia}
-                    </SelectItem>
+                    <SelectItem key={int.id} value={int.id}>{int.nome_instancia}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </div>
 
             <div>
-              <label className="text-xs text-slate-600 mb-1 block">Tipo Thread</label>
+              <label className="text-xs text-slate-600 mb-1 block">Tipo</label>
               <Select value={filtroTipo} onValueChange={setFiltroTipo}>
                 <SelectTrigger className="h-8 text-xs">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="todos">Todos Tipos</SelectItem>
-                  <SelectItem value="contact_external">Externas (Clientes)</SelectItem>
-                  <SelectItem value="team_internal">Internas (1:1)</SelectItem>
-                  <SelectItem value="sector_group">Grupos Setor</SelectItem>
+                  <SelectItem value="todos">Todos</SelectItem>
+                  <SelectItem value="contact_external">Clientes</SelectItem>
+                  <SelectItem value="team_internal">Internas</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -419,17 +333,88 @@ export default function NexusSimuladorVisibilidade({ usuario, integracoes = [], 
         </CardContent>
       </Card>
 
-      {/* Alertas */}
-      <Alert>
-        <Info className="h-4 w-4" />
-        <AlertDescription>
-          <strong>Modo Shadow:</strong> Esta análise NÃO afeta o sistema em produção. 
-          Compare as decisões para validar as regras Nexus360 antes da migração real.
-        </AlertDescription>
-      </Alert>
+      {/* PASSO 3: EXECUTAR */}
+      <Card className="border-purple-200 bg-gradient-to-r from-purple-50 to-indigo-50">
+        <CardContent className="pt-6">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <span className="bg-purple-600 text-white w-6 h-6 rounded-full flex items-center justify-center text-xs">3</span>
+              <div>
+                <p className="text-sm font-semibold text-slate-900">Executar Validação</p>
+                <p className="text-xs text-slate-600">Comparação matemática não afeta produção</p>
+              </div>
+            </div>
+            <div className="flex gap-2">
+              {!temConfigNexus && (
+                <Button 
+                  variant="outline" 
+                  onClick={handleAutoMigrate}
+                  disabled={migrando || !usuarioAtual}
+                  className="border-indigo-200 text-indigo-700"
+                >
+                  {migrando ? <RefreshCw className="w-4 h-4 mr-2 animate-spin" /> : <Database className="w-4 h-4 mr-2" />}
+                  Migrar Auto
+                </Button>
+              )}
+              <Button 
+                onClick={runSimulation}
+                disabled={loading || !threads.length || !usuarioAtual}
+                className="bg-purple-600 hover:bg-purple-700"
+              >
+                {loading ? <RefreshCw className="w-4 h-4 mr-2 animate-spin" /> : <PlayCircle className="w-4 h-4 mr-2" />}
+                Rodar Validação
+              </Button>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
-      {/* Estatísticas */}
+      {/* PASSO 4: PREVIEW THREADS */}
+      <Card className="border-slate-200">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-sm flex items-center gap-2">
+            <span className="bg-indigo-600 text-white w-6 h-6 rounded-full flex items-center justify-center text-xs">4</span>
+            Preview de Threads por Conexão
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="flex gap-2 overflow-x-auto">
+            {integracoes.map(integracao => {
+              const threadsIntegracao = threads.filter(t => t.whatsapp_integration_id === integracao.id).slice(0, 5);
+              return (
+                <div key={integracao.id} className="border rounded-lg p-3 flex-shrink-0 w-64">
+                  <div className="flex items-center gap-2 mb-2">
+                    <div className={`w-2 h-2 rounded-full ${integracao.status === 'conectado' ? 'bg-green-500' : 'bg-red-500'}`} />
+                    <span className="text-xs font-semibold">{integracao.nome_instancia}</span>
+                    <Badge variant="secondary" className="text-[10px] ml-auto">{threads.filter(t => t.whatsapp_integration_id === integracao.id).length}</Badge>
+                  </div>
+                  <div className="space-y-1">
+                    {threadsIntegracao.map(thread => {
+                      const contato = thread.contact_id ? contatos.find(c => c.id === thread.contact_id) : null;
+                      let nome = contato?.nome || contato?.telefone || "Sem nome";
+                      return (
+                        <div key={thread.id} className="text-xs text-slate-600 truncate">• {nome}</div>
+                      );
+                    })}
+                    {threads.filter(t => t.whatsapp_integration_id === integracao.id).length > 5 && (
+                      <div className="text-xs text-slate-400">+ {threads.filter(t => t.whatsapp_integration_id === integracao.id).length - 5} mais...</div>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* PASSO 5: RESULTADOS */}
       {simulationResults && (
+        <>
+        <div className="flex items-center gap-2 pt-4">
+          <span className="bg-green-600 text-white w-6 h-6 rounded-full flex items-center justify-center text-xs">5</span>
+          <h3 className="text-sm font-semibold">Resultados da Validação</h3>
+        </div>
+        {/* Estatísticas */}
         <div className="grid grid-cols-4 gap-3">
           <Card>
             <CardContent className="p-4">
@@ -673,7 +658,8 @@ export default function NexusSimuladorVisibilidade({ usuario, integracoes = [], 
           </AlertDescription>
         </Alert>
       )}
-      </div>
+        </>
+      )}
     </div>
   );
 }
