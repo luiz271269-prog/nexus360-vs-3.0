@@ -389,26 +389,22 @@ export default function NexusSimuladorVisibilidade({ usuario, integracoes = [], 
         </div>
       )}
 
-      {/* Tabela de resultados */}
+      {/* Tabela de resultados - COMPACTA */}
       {simulationResults && simulationResults.resultados.length > 0 && (
         <Card className="overflow-hidden">
-          <div className="bg-slate-50 p-3 border-b flex justify-between items-center">
-            <span className="text-sm font-semibold text-slate-700">
-              Comparação Detalhada
-            </span>
-            <span className="text-xs text-slate-500">
-              Última execução: {lastRun?.toLocaleTimeString()}
-            </span>
+          <div className="bg-slate-50 px-2 py-1 border-b flex justify-between items-center">
+            <span className="text-xs font-semibold text-slate-700">Comparação Detalhada</span>
+            <span className="text-[10px] text-slate-500">{lastRun?.toLocaleTimeString()}</span>
           </div>
           
           <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead className="bg-slate-100 text-slate-600 font-semibold">
+            <table className="w-full text-xs">
+              <thead className="bg-slate-100 text-slate-600 font-semibold text-[10px]">
                 <tr>
-                  <th className="p-3 text-left">Conversa / Contato</th>
-                  <th className="p-3 text-center">Sistema Atual</th>
-                  <th className="p-3 text-center">Nexus360</th>
-                  <th className="p-3 text-left">Diagnóstico</th>
+                  <th className="px-2 py-1 text-left">Contato</th>
+                  <th className="px-2 py-1 text-center">Atual</th>
+                  <th className="px-2 py-1 text-center">Nexus</th>
+                  <th className="px-2 py-1 text-left">Status</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
