@@ -1,11 +1,12 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { 
   PlayCircle, AlertTriangle, CheckCircle2, Database, 
-  RefreshCw, Zap, Eye, EyeOff, Info, TrendingUp, ArrowRightLeft
+  RefreshCw, Zap, Eye, EyeOff, Info, TrendingUp, ArrowRightLeft, Users, User
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { executarAnaliseEmLote } from '@/components/lib/nexusComparator';
@@ -18,18 +19,47 @@ export default function NexusSimuladorVisibilidade({ usuario, integracoes = [], 
   const [loading, setLoading] = useState(false);
   const [migrando, setMigrando] = useState(false);
   const [amostraSize, setAmostraSize] = useState(50);
+  const [todosUsuarios, setTodosUsuarios] = useState([]);
+  const [usuarioSelecionado, setUsuarioSelecionado] = useState(null);
+  const [loadingUsuarios, setLoadingUsuarios] = useState(true);
+
+  // Carregar lista de usuários
+  useEffect(() => {
+    carregarUsuarios();
+  }, []);
+
+  const carregarUsuarios = async () => {
+    try {
+      setLoadingUsuarios(true);
+      const users = await base44.entities.User.list();
+      setTodosUsuarios(users || []);
+      
+      // Selecionar usuário logado por padrão
+      if (usuario && !usuarioSelecionado) {
+        setUsuarioSelecionado(usuario.id);
+      }
+    } catch (error) {
+      console.error('Erro ao carregar usuários:', error);
+      toast.error('Erro ao carregar usuários');
+    } finally {
+      setLoadingUsuarios(false);
+    }
+  };
+
+  const usuarioAtual = todosUsuarios.find(u => u.id === usuarioSelecionado) || usuario;
 
   const handleAutoMigrate = async () => {
-    if (!usuario) {
-      toast.error('Nenhum usuário logado');
+    if (!usuarioAtual) {
+      toast.error('Nenhum usuário selecionado');
       return;
     }
     
     const confirmar = window.confirm(
-      '⚠️ MIGRAÇÃO AUTOMÁTICA\n\n' +
-      'Isto irá converter suas permissões LEGADAS para o formato Nexus360.\n\n' +
-      'As permissões antigas serão preservadas, mas as novas configurações Nexus serão ativadas.\n\n' +
-      'Deseja continuar?'
+      `⚠️ MIGRAÇÃO AUTOMÁTICA\n\n` +
+      `Converter permissões de: ${usuarioAtual.full_name || usuarioAtual.email}\n\n` +
+      `Isto irá converter as permissões LEGADAS para o formato Nexus360.\n\n` +
+      `As permissões antigas serão preservadas, mas as novas configurações Nexus serão ativadas.\n\n` +
+      `Deseja continuar?`
     );
     
     if (!confirmar) return;
@@ -38,15 +68,15 @@ export default function NexusSimuladorVisibilidade({ usuario, integracoes = [], 
       setMigrando(true);
       
       // Gerar configuração Nexus360 baseada no perfil legado
-      const newPolicy = buildPolicyFromLegacyUser(usuario);
+      const newPolicy = buildPolicyFromLegacyUser(usuarioAtual);
       
       // Salvar no banco
-      await base44.entities.User.update(usuario.id, newPolicy);
+      await base44.entities.User.update(usuarioAtual.id, newPolicy);
       
-      toast.success('✅ Configuração Nexus360 gerada e salva com sucesso!');
+      toast.success(`✅ Configuração Nexus360 gerada para ${usuarioAtual.full_name}!`);
       
-      // Recarregar página para ver mudanças
-      setTimeout(() => window.location.reload(), 1500);
+      // Recarregar usuários
+      await carregarUsuarios();
       
     } catch (error) {
       console.error('Erro ao migrar configuração:', error);
@@ -57,8 +87,8 @@ export default function NexusSimuladorVisibilidade({ usuario, integracoes = [], 
   };
 
   const runSimulation = async () => {
-    if (!usuario) {
-      toast.error('Nenhum usuário logado');
+    if (!usuarioAtual) {
+      toast.error('Nenhum usuário selecionado');
       return;
     }
     
@@ -81,7 +111,7 @@ export default function NexusSimuladorVisibilidade({ usuario, integracoes = [], 
       }
       
       // Executar análise comparativa
-      const resultado = executarAnaliseEmLote(usuario, threadsParaAnalisar, integracoes);
+      const resultado = executarAnaliseEmLote(usuarioAtual, threadsParaAnalisar, integracoes);
       
       setSimulationResults(resultado);
       setLastRun(new Date());
@@ -104,10 +134,97 @@ export default function NexusSimuladorVisibilidade({ usuario, integracoes = [], 
     }
   };
 
-  const temConfigNexus = usuario?.configuracao_visibilidade_nexus || usuario?.permissoes_acoes_nexus;
+  const temConfigNexus = usuarioAtual?.configuracao_visibilidade_nexus || usuarioAtual?.permissoes_acoes_nexus;
 
   return (
     <div className="space-y-4">
+      {/* Seletor de Usuário e Configurações */}
+      <div className="grid grid-cols-2 gap-4">
+        <Card className="border-slate-200">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm flex items-center gap-2">
+              <Users className="w-4 h-4 text-indigo-600" />
+              Selecionar Usuário
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {loadingUsuarios ? (
+              <div className="text-sm text-slate-500 flex items-center gap-2">
+                <RefreshCw className="w-4 h-4 animate-spin" />
+                Carregando usuários...
+              </div>
+            ) : (
+              <Select value={usuarioSelecionado || ''} onValueChange={setUsuarioSelecionado}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Escolha um usuário" />
+                </SelectTrigger>
+                <SelectContent>
+                  {todosUsuarios.map(u => (
+                    <SelectItem key={u.id} value={u.id}>
+                      <div className="flex items-center gap-2">
+                        <User className="w-3 h-3" />
+                        {u.full_name || u.email}
+                        <Badge variant="outline" className="text-xs">
+                          {u.role === 'admin' ? 'Admin' : u.attendant_role || 'User'}
+                        </Badge>
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+            
+            {usuarioAtual && (
+              <div className="mt-3 p-3 bg-slate-50 rounded-lg space-y-1 text-xs">
+                <div><strong>Nome:</strong> {usuarioAtual.full_name || 'N/A'}</div>
+                <div><strong>Email:</strong> {usuarioAtual.email}</div>
+                <div><strong>Role:</strong> <Badge variant="outline">{usuarioAtual.role}</Badge></div>
+                <div><strong>Setor:</strong> {usuarioAtual.attendant_sector || 'N/A'}</div>
+                <div><strong>Função:</strong> {usuarioAtual.attendant_role || 'N/A'}</div>
+                <div className="pt-2 border-t">
+                  <strong>Config Nexus:</strong> {temConfigNexus ? (
+                    <Badge className="bg-green-100 text-green-700 ml-1">Configurado</Badge>
+                  ) : (
+                    <Badge variant="secondary" className="ml-1">Não configurado</Badge>
+                  )}
+                </div>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card className="border-slate-200">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm flex items-center gap-2">
+              <Database className="w-4 h-4 text-purple-600" />
+              Conexões WhatsApp
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-2">
+              {integracoes.length === 0 ? (
+                <p className="text-sm text-slate-500">Nenhuma integração cadastrada</p>
+              ) : (
+                integracoes.map(int => (
+                  <div key={int.id} className="flex items-center justify-between p-2 bg-slate-50 rounded border">
+                    <div className="flex items-center gap-2">
+                      <div className={`w-2 h-2 rounded-full ${int.status === 'conectado' ? 'bg-green-500' : 'bg-red-500'}`} />
+                      <span className="text-sm font-medium">{int.nome_instancia}</span>
+                    </div>
+                    <Badge variant="outline" className="text-xs">{int.numero_telefone}</Badge>
+                  </div>
+                ))
+              )}
+              <div className="pt-2 border-t text-xs text-slate-600">
+                <strong>Total:</strong> {integracoes.length} conexões
+                <br />
+                <strong>Conectadas:</strong> {integracoes.filter(i => i.status === 'conectado').length}
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
       {/* Header com ações */}
       <Card className="border-purple-200 bg-gradient-to-r from-purple-50 to-indigo-50">
         <CardHeader>
@@ -119,7 +236,7 @@ export default function NexusSimuladorVisibilidade({ usuario, integracoes = [], 
               <div>
                 <CardTitle className="text-lg">Simulador Nexus360 - Shadow Engine</CardTitle>
                 <CardDescription>
-                  Compare decisões Sistema Atual (Legado) vs Nexus360 em {threads.length} threads carregadas
+                  Compare decisões Sistema Atual (Legado) vs Nexus360 • {threads.length} threads disponíveis
                 </CardDescription>
               </div>
             </div>
@@ -141,7 +258,7 @@ export default function NexusSimuladorVisibilidade({ usuario, integracoes = [], 
                 <Button 
                   variant="outline" 
                   onClick={handleAutoMigrate}
-                  disabled={migrando}
+                  disabled={migrando || !usuarioAtual}
                   className="border-indigo-200 text-indigo-700 hover:bg-indigo-50"
                 >
                   {migrando ? (
@@ -159,7 +276,7 @@ export default function NexusSimuladorVisibilidade({ usuario, integracoes = [], 
               )}
               <Button 
                 onClick={runSimulation}
-                disabled={loading || !threads.length}
+                disabled={loading || !threads.length || !usuarioAtual}
                 className="bg-purple-600 hover:bg-purple-700"
               >
                 {loading ? (
