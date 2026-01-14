@@ -176,6 +176,14 @@ export default function ChatSidebar({
       return dateB - dateA;
     });
   }, [threadsFiltradas]);
+  
+  // Verificar se houve transferência recente (últimos 10 segundos)
+  const foiTransferidaRecentemente = (thread) => {
+    const transferencia = thread.metadata?.transferencia_recente;
+    if (!transferencia) return false;
+    const tempoDecorrido = Date.now() - new Date(transferencia.transferido_em).getTime();
+    return tempoDecorrido < 10000; // 10 segundos
+  };
 
   const formatarHorario = (timestamp) => {
     if (!timestamp) return "";
@@ -645,6 +653,18 @@ export default function ChatSidebar({
               </div>
 
               <div className="flex-1 min-w-0">
+                {/* ⭐ AVISO DE TRANSFERÊNCIA RECENTE */}
+                {foiTransferidaRecentemente(thread) && (
+                  <div className="bg-gradient-to-r from-amber-100 to-orange-100 border border-amber-300 rounded-md px-2 py-1 mb-1 animate-pulse">
+                    <div className="flex items-center gap-1.5 text-[10px] font-semibold text-amber-800">
+                      <ArrowRightLeft className="w-3 h-3 text-amber-600" />
+                      <span>
+                        Transferido: {thread.metadata.transferencia_recente.transferido_de} → {thread.metadata.transferencia_recente.transferido_para}
+                      </span>
+                    </div>
+                  </div>
+                )}
+                
                 {/* Linha 1: Nome + Número Conexão + Horário */}
                 <div className="flex items-center justify-between mb-0.5">
                   <div className="flex items-center gap-1 min-w-0 flex-1">
