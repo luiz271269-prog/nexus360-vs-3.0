@@ -28,6 +28,9 @@ export default function NexusSimuladorVisibilidade({ usuario, integracoes = [], 
   const [filtroIntegracao, setFiltroIntegracao] = useState('todas');
   const [filtroTipo, setFiltroTipo] = useState('todos');
   const [contatos, setContatos] = useState([]);
+  const [filtroRegra, setFiltroRegra] = useState('todas');
+  const [filtroDivergencia, setFiltroDivergencia] = useState('todas');
+  const [threadExpandida, setThreadExpandida] = useState(null);
 
   // Carregar lista de usuários e contatos
   useEffect(() => {
