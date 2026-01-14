@@ -576,63 +576,64 @@ export default function NexusSimuladorVisibilidade({ usuario, integracoes = [], 
                     </td>
                     </tr>
                     {threadExpandida === res.threadId && (
-                      <tr className="bg-slate-50">
-                        <td colSpan={7} className="px-4 py-3">
-                          <div className="grid grid-cols-2 gap-4 text-xs">
-                            {/* Coluna Esquerda: Sistema Atual */}
-                            <div className="space-y-2">
-                              <h4 className="font-bold text-slate-700 flex items-center gap-2">
-                                <Eye className="w-4 h-4 text-emerald-600" />
-                                Sistema Atual (Legado)
-                              </h4>
-                              <div className="bg-white rounded p-2 border">
-                                <div className="text-[10px] space-y-1">
-                                  <div><span className="font-semibold">Decisão:</span> {res.legacyDecision ? '✅ VISÍVEL' : '🔒 BLOQUEADO'}</div>
-                                  <div><span className="font-semibold">Motivo:</span> {res.legacyMotivo}</div>
-                                </div>
-                              </div>
-                            </div>
-
-                            {/* Coluna Direita: Nexus360 */}
-                            <div className="space-y-2">
-                              <h4 className="font-bold text-slate-700 flex items-center gap-2">
-                                <Zap className="w-4 h-4 text-indigo-600" />
-                                Nexus360
-                              </h4>
-                              <div className="bg-white rounded p-2 border border-indigo-200">
-                                <div className="text-[10px] space-y-1">
-                                  <div><span className="font-semibold">Decisão:</span> {res.nexusDecision ? '✅ VISÍVEL' : '🔒 BLOQUEADO'}</div>
-                                  <div><span className="font-semibold">Motivo:</span> {res.nexusMotivo}</div>
-                                  <div><span className="font-semibold">Regra:</span> <Badge variant="outline" className="text-[9px] font-mono">{res.nexusDecisionPath?.[0]}</Badge></div>
-                                  <div><span className="font-semibold">Código:</span> <code className="text-purple-700 font-mono bg-purple-50 px-1 rounded">{res.nexusReasonCode}</code></div>
-                                </div>
-                              </div>
-                            </div>
-
-                            {/* Dados da Thread */}
-                            <div className="col-span-2 mt-2">
-                              <h4 className="font-bold text-slate-700 mb-1 flex items-center gap-2">
-                                <Database className="w-4 h-4" />
-                                Metadados da Thread
-                              </h4>
-                              <div className="bg-white rounded p-2 border">
-                                <div className="grid grid-cols-3 gap-2 text-[10px]">
-                                  <div><span className="font-semibold">ID:</span> {thread?.id?.substring(0, 12)}...</div>
-                                  <div><span className="font-semibold">Tipo:</span> {res.threadType}</div>
-                                  <div><span className="font-semibold">Canal:</span> {thread?.channel || 'N/A'}</div>
-                                  <div><span className="font-semibold">Atribuído:</span> {thread?.assigned_user_id ? getUserDisplayName(thread.assigned_user_id, todosUsuarios) : 'Não'}</div>
-                                  <div><span className="font-semibold">Setor:</span> {thread?.sector_id || 'Sem setor'}</div>
-                                  <div><span className="font-semibold">Integração:</span> #{thread?.whatsapp_integration_id?.substring(0, 8) || 'N/A'}</div>
-                                  <div><span className="font-semibold">Fidelizado:</span> {contato?.is_cliente_fidelizado ? '✓ Sim' : 'Não'}</div>
-                                  <div><span className="font-semibold">Última msg:</span> {formatarHorario(thread?.last_message_at)}</div>
-                                  <div><span className="font-semibold">Não lidas:</span> {thread?.unread_count || 0}</div>
-                                </div>
+                    <tr className="bg-slate-50">
+                      <td colSpan={7} className="px-4 py-3">
+                        <div className="grid grid-cols-2 gap-4 text-xs">
+                          {/* Coluna Esquerda: Sistema Atual */}
+                          <div className="space-y-2">
+                            <h4 className="font-bold text-slate-700 flex items-center gap-2">
+                              <Eye className="w-4 h-4 text-emerald-600" />
+                              Sistema Atual (Legado)
+                            </h4>
+                            <div className="bg-white rounded p-2 border">
+                              <div className="text-[10px] space-y-1">
+                                <div><span className="font-semibold">Decisão:</span> {res.legacyDecision ? '✅ VISÍVEL' : '🔒 BLOQUEADO'}</div>
+                                <div><span className="font-semibold">Motivo:</span> {res.legacyMotivo}</div>
                               </div>
                             </div>
                           </div>
-                        </td>
-                      </tr>
+
+                          {/* Coluna Direita: Nexus360 */}
+                          <div className="space-y-2">
+                            <h4 className="font-bold text-slate-700 flex items-center gap-2">
+                              <Zap className="w-4 h-4 text-indigo-600" />
+                              Nexus360
+                            </h4>
+                            <div className="bg-white rounded p-2 border border-indigo-200">
+                              <div className="text-[10px] space-y-1">
+                                <div><span className="font-semibold">Decisão:</span> {res.nexusDecision ? '✅ VISÍVEL' : '🔒 BLOQUEADO'}</div>
+                                <div><span className="font-semibold">Motivo:</span> {res.nexusMotivo}</div>
+                                <div><span className="font-semibold">Caminho:</span> <Badge variant="outline" className="text-[9px] font-mono">{res.nexusDecisionPath?.[0]}</Badge></div>
+                                <div><span className="font-semibold">Código:</span> <code className="text-purple-700 font-mono bg-purple-50 px-1 rounded">{res.nexusReasonCode}</code></div>
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Dados da Thread */}
+                          <div className="col-span-2 mt-2">
+                            <h4 className="font-bold text-slate-700 mb-1 flex items-center gap-2">
+                              <Database className="w-4 h-4" />
+                              Metadados da Thread
+                            </h4>
+                            <div className="bg-white rounded p-2 border">
+                              <div className="grid grid-cols-3 gap-2 text-[10px]">
+                                <div><span className="font-semibold">ID:</span> {thread?.id?.substring(0, 12)}...</div>
+                                <div><span className="font-semibold">Tipo:</span> {res.threadType}</div>
+                                <div><span className="font-semibold">Canal:</span> {thread?.channel || 'N/A'}</div>
+                                <div><span className="font-semibold">Atribuído:</span> {thread?.assigned_user_id ? getUserDisplayName(thread.assigned_user_id, todosUsuarios) : 'Não'}</div>
+                                <div><span className="font-semibold">Setor:</span> {thread?.sector_id || 'Sem setor'}</div>
+                                <div><span className="font-semibold">Integração:</span> #{thread?.whatsapp_integration_id?.substring(0, 8) || 'N/A'}</div>
+                                <div><span className="font-semibold">Fidelizado:</span> {contato?.is_cliente_fidelizado ? '✓ Sim' : 'Não'}</div>
+                                <div><span className="font-semibold">Última msg:</span> {formatarHorario(thread?.last_message_at)}</div>
+                                <div><span className="font-semibold">Não lidas:</span> {thread?.unread_count || 0}</div>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </td>
+                    </tr>
                     )}
+                    </>
                     );
                     })}
                     </tbody>
