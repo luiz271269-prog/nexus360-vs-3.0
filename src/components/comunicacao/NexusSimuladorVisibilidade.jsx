@@ -12,14 +12,27 @@ import { executarAnaliseEmLote } from '@/components/lib/nexusComparator';
 import { buildPolicyFromLegacyUser } from '@/components/lib/nexusLegacyConverter';
 import { base44 } from '@/api/base44Client';
 
-export default function NexusSimuladorVisibilidade({ usuario, integracoes = [] }) {
+export default function NexusSimuladorVisibilidade({ usuario, integracoes = [], threads = [] }) {
   const [simulationResults, setSimulationResults] = useState(null);
   const [lastRun, setLastRun] = useState(null);
   const [loading, setLoading] = useState(false);
   const [migrando, setMigrando] = useState(false);
+  const [amostraSize, setAmostraSize] = useState(50);
 
   const handleAutoMigrate = async () => {
-    if (!usuario) return;
+    if (!usuario) {
+      toast.error('Nenhum usuário logado');
+      return;
+    }
+    
+    const confirmar = window.confirm(
+      '⚠️ MIGRAÇÃO AUTOMÁTICA\n\n' +
+      'Isto irá converter suas permissões LEGADAS para o formato Nexus360.\n\n' +
+      'As permissões antigas serão preservadas, mas as novas configurações Nexus serão ativadas.\n\n' +
+      'Deseja continuar?'
+    );
+    
+    if (!confirmar) return;
     
     try {
       setMigrando(true);
@@ -45,23 +58,30 @@ export default function NexusSimuladorVisibilidade({ usuario, integracoes = [] }
 
   const runSimulation = async () => {
     if (!usuario) {
-      toast.error('Nenhum usuário selecionado');
+      toast.error('Nenhum usuário logado');
       return;
     }
     
     try {
       setLoading(true);
       
-      // Buscar amostra de threads (últimas 50)
-      const threads = await base44.entities.MessageThread.list('-last_message_at', 50);
+      // Usar threads já carregadas ou buscar novas
+      let threadsParaAnalisar = threads;
       
-      if (!threads || threads.length === 0) {
+      if (!threadsParaAnalisar || threadsParaAnalisar.length === 0) {
+        threadsParaAnalisar = await base44.entities.MessageThread.list('-last_message_at', amostraSize);
+      }
+      
+      // Limitar ao tamanho da amostra
+      threadsParaAnalisar = threadsParaAnalisar.slice(0, amostraSize);
+      
+      if (!threadsParaAnalisar || threadsParaAnalisar.length === 0) {
         toast.warning('Nenhuma thread encontrada para análise');
         return;
       }
       
       // Executar análise comparativa
-      const resultado = executarAnaliseEmLote(usuario, threads, integracoes);
+      const resultado = executarAnaliseEmLote(usuario, threadsParaAnalisar, integracoes);
       
       setSimulationResults(resultado);
       setLastRun(new Date());
@@ -97,13 +117,26 @@ export default function NexusSimuladorVisibilidade({ usuario, integracoes = [] }
                 <Zap className="w-5 h-5 text-white" />
               </div>
               <div>
-                <CardTitle className="text-lg">Simulador Nexus360</CardTitle>
+                <CardTitle className="text-lg">Simulador Nexus360 - Shadow Engine</CardTitle>
                 <CardDescription>
-                  Validação matemática: compare decisões legado vs Nexus360
+                  Compare decisões Sistema Atual (Legado) vs Nexus360 em {threads.length} threads carregadas
                 </CardDescription>
               </div>
             </div>
-            <div className="flex gap-2">
+            <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 bg-white px-3 py-1 rounded-lg border">
+                <span className="text-xs text-slate-600">Amostra:</span>
+                <select 
+                  value={amostraSize} 
+                  onChange={(e) => setAmostraSize(Number(e.target.value))}
+                  className="text-xs border-0 bg-transparent focus:outline-none"
+                >
+                  <option value={20}>20</option>
+                  <option value={50}>50</option>
+                  <option value={100}>100</option>
+                  <option value={200}>Todas ({threads.length})</option>
+                </select>
+              </div>
               {!temConfigNexus && (
                 <Button 
                   variant="outline" 
@@ -119,14 +152,14 @@ export default function NexusSimuladorVisibilidade({ usuario, integracoes = [] }
                   ) : (
                     <>
                       <Database className="w-4 h-4 mr-2" />
-                      Migrar do Legado
+                      Migrar 1-Click
                     </>
                   )}
                 </Button>
               )}
               <Button 
                 onClick={runSimulation}
-                disabled={loading}
+                disabled={loading || !threads.length}
                 className="bg-purple-600 hover:bg-purple-700"
               >
                 {loading ? (
@@ -137,7 +170,7 @@ export default function NexusSimuladorVisibilidade({ usuario, integracoes = [] }
                 ) : (
                   <>
                     <PlayCircle className="w-4 h-4 mr-2" />
-                    Testar Aderência
+                    Rodar Validação
                   </>
                 )}
               </Button>

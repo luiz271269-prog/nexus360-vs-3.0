@@ -761,11 +761,12 @@ export default function CentralControleOperacional({ onSelecionarThread, usuario
             </div>
           </TabsContent>
 
-          {/* TAB: Nexus360 Simulator */}
+          {/* TAB: Nexus360 Simulator - Integrado com todos os dados */}
           <TabsContent value="nexus_simulador">
             <NexusSimuladorVisibilidade 
               usuario={usuarioAtual}
               integracoes={integracoes}
+              threads={threads}
             />
           </TabsContent>
         </Tabs>
