@@ -177,7 +177,94 @@ export default function NexusSimuladorVisibilidade({ usuario, integracoes = [], 
   const temConfigNexus = usuarioAtual?.configuracao_visibilidade_nexus || usuarioAtual?.permissoes_acoes_nexus;
 
   return (
-    <div className="space-y-4">
+    <div className="grid grid-cols-12 gap-4">
+      {/* BARRA LATERAL DE CONVERSAS - Estilo ChatSidebar */}
+      <div className="col-span-3 space-y-2">
+        <Card className="border-slate-200 h-[calc(100vh-8rem)] flex flex-col">
+          <CardHeader className="pb-3 flex-shrink-0">
+            <CardTitle className="text-sm flex items-center justify-between">
+              <span>Conversa / Contato</span>
+              <Badge variant="secondary" className="text-xs">{threads.length}</Badge>
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="flex-1 overflow-y-auto p-0">
+            <div className="space-y-0">
+              {threads.map((thread, index) => {
+                const contato = thread?.contato;
+                const hasUnread = (thread?.unread_count || 0) > 0;
+                
+                // Nome formatado
+                let nomeExibicao = contato?.nome || "Desconhecido";
+                if (contato?.empresa) nomeExibicao = contato.empresa;
+                if (contato?.cargo) nomeExibicao += (nomeExibicao && contato.cargo ? " - " : "") + (contato.cargo || "");
+                if (contato?.nome && contato.nome !== contato.telefone) nomeExibicao += (nomeExibicao ? " - " : "") + contato.nome;
+                if (!nomeExibicao || nomeExibicao.trim() === '') nomeExibicao = contato?.telefone || thread.id?.substring(0, 20) || "Thread";
+
+                return (
+                  <div 
+                    key={thread.id}
+                    className="px-3 py-2 flex items-center gap-3 border-b border-slate-100 hover:bg-gradient-to-r hover:from-amber-50 hover:to-orange-50 cursor-pointer transition-all"
+                  >
+                    {/* Avatar */}
+                    <div className="relative flex-shrink-0">
+                      <div className={`w-12 h-12 rounded-full flex items-center justify-center text-white font-bold text-lg shadow-md overflow-hidden ${
+                        hasUnread ? 'bg-gradient-to-br from-amber-400 via-orange-500 to-red-500' : 'bg-gradient-to-br from-slate-400 to-slate-500'
+                      }`}>
+                        {contato?.foto_perfil_url ? (
+                          <img src={contato.foto_perfil_url} alt={nomeExibicao} className="w-full h-full object-cover" onError={(e) => { e.target.style.display = 'none'; }} />
+                        ) : (
+                          nomeExibicao.charAt(0).toUpperCase()
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Info */}
+                    <div className="flex-1 min-w-0">
+                      {/* Nome + Horário */}
+                      <div className="flex items-center justify-between mb-0.5">
+                        <h3 className={`font-semibold text-sm truncate ${hasUnread ? 'text-slate-900' : 'text-slate-700'}`}>
+                          {nomeExibicao}
+                        </h3>
+                        <span className={`text-[10px] flex-shrink-0 ml-2 ${hasUnread ? 'text-orange-600 font-medium' : 'text-slate-400'}`}>
+                          {formatarHorario(thread.last_message_at)}
+                        </span>
+                      </div>
+
+                      {/* Preview mensagem */}
+                      <p className={`text-xs truncate flex items-center gap-1 mb-1 ${hasUnread ? 'text-slate-800' : 'text-slate-500'}`}>
+                        {thread.last_message_sender === 'user' && <CheckCheck className="w-3 h-3 text-blue-500 flex-shrink-0" />}
+                        {thread.last_media_type === 'image' && <Image className="w-3 h-3 text-blue-500 flex-shrink-0" />}
+                        {thread.last_media_type === 'video' && <Video className="w-3 h-3 text-purple-500 flex-shrink-0" />}
+                        {thread.last_media_type === 'audio' && <Mic className="w-3 h-3 text-green-500 flex-shrink-0" />}
+                        {thread.last_media_type === 'document' && <FileText className="w-3 h-3 text-orange-500 flex-shrink-0" />}
+                        {thread.last_media_type === 'location' && <MapPin className="w-3 h-3 text-red-500 flex-shrink-0" />}
+                        {thread.last_media_type === 'contact' && <PhoneIcon className="w-3 h-3 text-cyan-500 flex-shrink-0" />}
+                        <span className="truncate">{thread.last_message_content || "Sem mensagens"}</span>
+                      </p>
+
+                      {/* Badges */}
+                      <div className="flex items-center gap-1 flex-wrap">
+                        <Badge variant="outline" className="text-[10px] h-4">
+                          {thread.thread_type === 'contact_external' ? 'Cliente' : thread.thread_type === 'team_internal' ? '1:1' : 'Grupo'}
+                        </Badge>
+                        {thread.assigned_user_id && (
+                          <Badge className="bg-indigo-500 text-white text-[10px] h-4">
+                            <UserCheck className="w-2.5 h-2.5 mr-0.5" />
+                            Atribuído
+                          </Badge>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* PAINEL PRINCIPAL - Seletor, Filtros e Resultados */}
+      <div className="col-span-9 space-y-4">
       {/* Seletor de Usuário e Configurações */}
       <div className="grid grid-cols-2 gap-4">
         <Card className="border-slate-200">
@@ -647,6 +734,7 @@ export default function NexusSimuladorVisibilidade({ usuario, integracoes = [], 
           </AlertDescription>
         </Alert>
       )}
+      </div>
     </div>
   );
 }
