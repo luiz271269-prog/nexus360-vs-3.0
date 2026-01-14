@@ -2022,7 +2022,7 @@ export default function ChatWindow({
               {/* Botão Diagnóstico (ADMIN ONLY) */}
               {usuario?.role === 'admin' && (
                 <button
-                  title="Diagnósticos"
+                  title="Executar diagnóstico de visibilidade e integridade"
                   onClick={() => console.log('Diagnóstico em desenvolvimento')}
                   className="bg-gradient-to-br from-red-500 to-red-600 text-white rounded-lg p-2 shadow-md flex items-center justify-center hover:shadow-lg transition-all hover:from-red-600 hover:to-red-700">
                      <Bug className="w-3.5 h-3.5" />
@@ -2032,6 +2032,7 @@ export default function ChatWindow({
               {/* Botão Transferir */}
               {podeTransferirConversas && (
                 <button
+                  title="Transferir conversa para outro atendente ou setor"
                   onClick={() => setMostrarModalAtribuicao(true)}
                   className="bg-gradient-to-br from-amber-500 to-amber-600 text-white rounded-lg p-2 shadow-md flex items-center justify-center hover:shadow-lg transition-all hover:from-amber-600 hover:to-amber-700">
                      <Users className="w-3.5 h-3.5" />
@@ -2041,6 +2042,7 @@ export default function ChatWindow({
               {/* Botão Marcar como Lida */}
               {getUnreadCount(thread, usuario?.id) > 0 && (
                 <button
+                  title={`Marcar ${getUnreadCount(thread, usuario?.id)} mensagem(ns) como lida(s)`}
                   onClick={() => marcarComoLidaMutation.mutate()}
                   disabled={marcarComoLidaMutation.isPending}
                   className="bg-gradient-to-br from-green-500 to-green-600 text-white rounded-lg p-2 shadow-md flex items-center justify-center hover:from-green-600 hover:to-green-700 hover:shadow-lg transition-all disabled:opacity-50">
@@ -2050,6 +2052,7 @@ export default function ChatWindow({
 
               {/* Botão Ver Detalhes */}
               <button
+                title="Abrir painel de detalhes do contato (tags, histórico, IA)"
                 onClick={onShowContactInfo}
                 className="bg-gradient-to-br from-slate-600 to-slate-700 text-white rounded-lg p-2 shadow-md flex items-center justify-center hover:from-slate-700 hover:to-slate-800 hover:shadow-lg transition-all">
                 <Info className="w-3.5 h-3.5" />
