@@ -1890,62 +1890,68 @@ export default function ChatWindow({
             </div>
           </div>
         ) : (
-        <div className="bg-[#a2bbcd] text-slate-50 px-2 opacity-100 from-amber-50 via-orange-50 to-rose-50 border-b border-orange-200 flex-shrink-0 shadow-sm">
-        <div className="text-[#6e94c9] rounded-md flex items-center gap-4 justify-between">
-          {/* Avatar */}
-          <div className="relative flex-shrink-0">
-            <div className="w-14 h-14 rounded-full flex items-center justify-center text-white font-bold text-xl shadow-lg overflow-hidden relative bg-gradient-to-br from-amber-400 via-orange-500 to-red-500">
-              {contatoCompleto?.foto_perfil_url ?
-              <img
-                src={contatoCompleto.foto_perfil_url}
-                alt={nomeContato}
-                className="w-full h-full object-cover"
-                onError={(e) => {
-                  e.target.style.display = 'none';
-                }} /> :
-              <span>{getInitials(nomeContato)}</span>
-              }
-            </div>
-            
-            {/* Próxima Ação Sugerida - canto inferior */}
-            {(() => {
-              const proxAcao = getProximaAcaoSugerida(contatoCompleto);
-              return (
-                <div
-                  className={`absolute -bottom-1 -right-1 w-6 h-6 ${proxAcao.cor} rounded-full flex items-center justify-center border-2 border-white shadow-md z-20`}
-                  title={`Sugestão: ${proxAcao.label}`}>
+        <div className="bg-[#a2bbcd] text-slate-50 px-3 py-2 border-b border-orange-200 flex-shrink-0 shadow-sm">
+          {/* LINHA 1: Avatar + Identificação */}
+          <div className="flex items-center gap-3 mb-2">
+            {/* Avatar + Próxima Ação */}
+            <div className="relative flex-shrink-0">
+              <div className="w-12 h-12 rounded-full flex items-center justify-center text-white font-bold text-lg shadow-lg overflow-hidden bg-gradient-to-br from-amber-400 via-orange-500 to-red-500">
+                {contatoCompleto?.foto_perfil_url ?
+                <img
+                  src={contatoCompleto.foto_perfil_url}
+                  alt={nomeContato}
+                  className="w-full h-full object-cover"
+                  onError={(e) => {
+                    e.target.style.display = 'none';
+                  }} /> :
+                <span>{getInitials(nomeContato)}</span>
+                }
+              </div>
 
-                  <proxAcao.icon className="w-3 h-3 text-white" />
-                </div>);
-
-            })()}
-          </div>
-
-          {/* Nome, Telefone e Barra de Temperatura */}
-          <div className="flex-1 min-w-0">
-            <div className="bg-transparent text-black mb-1 flex items-center gap-2">
-              <h3 className="text-slate-800 text-lg font-bold truncate">{nomeContato}</h3>
-              
-              {/* Badge do Canal */}
+              {/* Próxima Ação Sugerida - canto inferior */}
               {(() => {
-                const channelConfig = {
-                  whatsapp: { logo: WhatsAppLogo, cor: 'bg-green-100 text-green-700', label: 'WhatsApp' },
-                  instagram: { logo: InstagramLogo, cor: 'bg-pink-100 text-pink-700', label: 'Instagram' },
-                  facebook: { logo: FacebookLogo, cor: 'bg-blue-100 text-blue-700', label: 'Facebook' },
-                  phone: { logo: GoToLogo, cor: 'bg-yellow-100 text-yellow-700', label: 'GoTo' }
-                };
-                const canal = thread?.channel || 'whatsapp';
-                const config = channelConfig[canal] || channelConfig.whatsapp;
-                const Logo = config.logo;
-                
+                const proxAcao = getProximaAcaoSugerida(contatoCompleto);
                 return (
-                  <Badge className={`${config.cor} text-[10px] px-2 py-0.5 flex items-center gap-1`}>
-                    <Logo />
-                    {config.label}
-                  </Badge>
-                );
+                  <div
+                    className={`absolute -bottom-1 -right-1 w-5 h-5 ${proxAcao.cor} rounded-full flex items-center justify-center border-2 border-white shadow-md z-20`}
+                    title={`Sugestão: ${proxAcao.label}`}>
+                    <proxAcao.icon className="w-2.5 h-2.5 text-white" />
+                  </div>);
               })()}
-              
+            </div>
+
+            {/* Nome + Canal + Inteligência */}
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2 mb-1">
+                <h3 className="text-slate-800 font-bold text-sm truncate">{nomeContato}</h3>
+
+                {/* Badge do Canal */}
+                {(() => {
+                  const channelConfig = {
+                    whatsapp: { logo: WhatsAppLogo, cor: 'bg-green-100 text-green-700', label: 'WhatsApp' },
+                    instagram: { logo: InstagramLogo, cor: 'bg-pink-100 text-pink-700', label: 'Instagram' },
+                    facebook: { logo: FacebookLogo, cor: 'bg-blue-100 text-blue-700', label: 'Facebook' },
+                    phone: { logo: GoToLogo, cor: 'bg-yellow-100 text-yellow-700', label: 'GoTo' }
+                  };
+                  const canal = thread?.channel || 'whatsapp';
+                  const config = channelConfig[canal] || channelConfig.whatsapp;
+                  const Logo = config.logo;
+
+                  return (
+                    <Badge className={`${config.cor} text-[9px] px-2 py-0.5 flex items-center gap-1`}>
+                      <Logo />
+                      {config.label}
+                    </Badge>
+                  );
+                })()}
+              </div>
+
+              {/* Telefone */}
+              <p className="text-slate-50 text-xs">{telefoneExibicao}</p>
+            </div>
+
+            {/* Componentes de Inteligência Comprimidos */}
+            <div className="flex items-center gap-2 flex-shrink-0">
               <CentralInteligenciaContato
                 contato={contatoCompleto}
                 variant="mini"
@@ -1956,113 +1962,101 @@ export default function ChatWindow({
                 contato={contatoCompleto}
                 onUpdate={onAtualizarMensagens} />
             </div>
-            <div className="flex items-center gap-3 mb-2">
-              <p className="text-slate-50 text-xs">{telefoneExibicao}</p>
+          </div>
 
-              {/* Barra de Temperatura Visual */}
+          {/* LINHA 2: Temperatura + Fidelizado + Ações */}
+          <div className="flex items-center gap-3 justify-between">
+            {/* Barra de Temperatura */}
+            <div className="flex-1">
               {(() => {
                 const score = calcularScoreContato(contatoCompleto);
                 const nivel = getNivelTemperatura(score);
                 const Icon = nivel.icon;
                 return (
-                  <div className="flex items-center gap-2 flex-1 max-w-[200px]">
-                    <div className={`w-5 h-5 rounded-full bg-gradient-to-br ${nivel.gradiente} flex items-center justify-center shadow-sm`}>
+                  <div className="flex items-center gap-2">
+                    <div className={`w-5 h-5 rounded-full bg-gradient-to-br ${nivel.gradiente} flex items-center justify-center shadow-sm flex-shrink-0`}>
                       <Icon className="w-3 h-3 text-white" />
                     </div>
-                    <div className="flex-1">
-                      <div className="flex items-center justify-between mb-0.5">
-                        <span className="text-slate-50 font-semibold">{nivel.emoji} {nivel.label}</span>
-                        <span className="text-[10px] font-bold text-slate-500">{score}%</span>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-slate-50 font-semibold text-xs truncate">{nivel.emoji} {nivel.label}</span>
+                        <span className="text-[10px] font-bold text-slate-500 flex-shrink-0">{score}%</span>
                       </div>
-                      <div className="w-full h-1.5 bg-slate-200 rounded-full overflow-hidden">
+                      <div className="w-full h-1 bg-slate-200 rounded-full overflow-hidden">
                         <div
                           className={`h-full bg-gradient-to-r ${nivel.gradiente} transition-all duration-500`}
                           style={{ width: `${score}%` }} />
-
                       </div>
                     </div>
                   </div>);
-
-              })()}
-
-              {/* Atendente Fidelizado */}
-              {(() => {
-                const setorAtual = thread?.sector_id || usuario?.attendant_sector || 'vendas';
-                const camposFidelizacao = {
-                  'vendas': 'atendente_fidelizado_vendas',
-                  'assistencia': 'atendente_fidelizado_assistencia',
-                  'financeiro': 'atendente_fidelizado_financeiro',
-                  'fornecedor': 'atendente_fidelizado_fornecedor'
-                };
-                const campoFidelizado = camposFidelizacao[setorAtual] || 'vendedor_responsavel';
-                const atendenteFidelizado = contatoCompleto?.[campoFidelizado] || contatoCompleto?.vendedor_responsavel;
-
-                if (atendenteFidelizado) {
-                  return (
-                    <div className="flex items-center gap-1.5 px-2 py-1 bg-amber-100 border border-amber-300 rounded-full">
-                      <span className="text-amber-600 text-xs">★</span>
-                      <span className="text-[11px] font-semibold text-amber-700 truncate max-w-[100px]">
-                        {atendenteFidelizado.split(' ')[0]}
-                      </span>
-                    </div>
-                  );
-                }
-                return null;
               })()}
             </div>
 
+            {/* Atendente Fidelizado */}
+            {(() => {
+              const setorAtual = thread?.sector_id || usuario?.attendant_sector || 'vendas';
+              const camposFidelizacao = {
+                'vendas': 'atendente_fidelizado_vendas',
+                'assistencia': 'atendente_fidelizado_assistencia',
+                'financeiro': 'atendente_fidelizado_financeiro',
+                'fornecedor': 'atendente_fidelizado_fornecedor'
+              };
+              const campoFidelizado = camposFidelizacao[setorAtual] || 'vendedor_responsavel';
+              const atendenteFidelizado = contatoCompleto?.[campoFidelizado] || contatoCompleto?.vendedor_responsavel;
 
-          </div>
+              if (atendenteFidelizado) {
+                return (
+                  <div className="flex items-center gap-1.5 px-2 py-1 bg-amber-100 border border-amber-300 rounded-full flex-shrink-0">
+                    <span className="text-amber-600 text-xs">★</span>
+                    <span className="text-[10px] font-semibold text-amber-700 truncate max-w-[80px]">
+                      {atendenteFidelizado.split(' ')[0]}
+                    </span>
+                  </div>
+                );
+              }
+              return null;
+            })()}
 
-          {/* Ações */}
-          <div className="flex items-center gap-2 flex-shrink-0">
-            {/* Botão Diagnóstico (ADMIN ONLY) */}
-            {usuario?.role === 'admin' && (
+            {/* Ações - Agrupadas */}
+            <div className="flex items-center gap-1.5 flex-shrink-0">
+              {/* Botão Diagnóstico (ADMIN ONLY) */}
+              {usuario?.role === 'admin' && (
+                <button
+                  title="Diagnósticos"
+                  onClick={() => console.log('Diagnóstico em desenvolvimento')}
+                  className="bg-gradient-to-br from-red-500 to-red-600 text-white rounded-lg p-2 shadow-md flex items-center justify-center hover:shadow-lg transition-all hover:from-red-600 hover:to-red-700">
+                     <Bug className="w-3.5 h-3.5" />
+                </button>
+              )}
+
+              {/* Botão Transferir */}
+              {podeTransferirConversas && (
+                <button
+                  onClick={() => setMostrarModalAtribuicao(true)}
+                  className="bg-gradient-to-br from-amber-500 to-amber-600 text-white rounded-lg p-2 shadow-md flex items-center justify-center hover:shadow-lg transition-all hover:from-amber-600 hover:to-amber-700">
+                     <Users className="w-3.5 h-3.5" />
+                </button>
+              )}
+
+              {/* Botão Marcar como Lida */}
+              {getUnreadCount(thread, usuario?.id) > 0 && (
+                <button
+                  onClick={() => marcarComoLidaMutation.mutate()}
+                  disabled={marcarComoLidaMutation.isPending}
+                  className="bg-gradient-to-br from-green-500 to-green-600 text-white rounded-lg p-2 shadow-md flex items-center justify-center hover:from-green-600 hover:to-green-700 hover:shadow-lg transition-all disabled:opacity-50">
+                  <CheckSquare className="w-3.5 h-3.5" />
+                </button>
+              )}
+
+              {/* Botão Ver Detalhes */}
               <button
-                title="Diagnósticos (Visibilidade, Busca)"
-                onClick={() => console.log('Diagnóstico em desenvolvimento')}
-                className="bg-gradient-to-br from-red-500 to-red-600 text-white rounded-lg px-3 py-2 shadow-md flex items-center gap-2 hover:shadow-lg transition-all text-xs font-medium hover:from-red-600 hover:to-red-700">
-                  <Bug className="w-4 h-4" />
-                  Diagnóstico
+                onClick={onShowContactInfo}
+                className="bg-gradient-to-br from-slate-600 to-slate-700 text-white rounded-lg p-2 shadow-md flex items-center justify-center hover:from-slate-700 hover:to-slate-800 hover:shadow-lg transition-all">
+                <Info className="w-3.5 h-3.5" />
               </button>
-            )}
-
-            {/* Botão Transferir - Somente para quem tem permissão */}
-            {podeTransferirConversas && (
-              <button
-                onClick={() => setMostrarModalAtribuicao(true)}
-                className="bg-gradient-to-br from-amber-500 to-amber-600 text-white rounded-lg px-3 py-2 shadow-md flex items-center gap-2 hover:shadow-lg transition-all text-xs font-medium">
-                  <Users className="w-4 h-4" />
-                  Transferir
-              </button>
-            )}
-
-            {/* Botão Marcar como Lida */}
-            {getUnreadCount(thread, usuario?.id) > 0 && (
-              <button
-                onClick={() => marcarComoLidaMutation.mutate()}
-                disabled={marcarComoLidaMutation.isPending}
-                className="bg-gradient-to-br from-green-500 to-green-600 text-white rounded-lg px-3 py-2 shadow-md flex items-center gap-2 hover:from-green-600 hover:to-green-700 hover:shadow-lg transition-all disabled:opacity-50">
-                <CheckSquare className="w-4 h-4" />
-                <span className="text-xs font-medium">
-                  {marcarComoLidaMutation.isPending ? 'Marcando...' : `Marcar lida (${getUnreadCount(thread, usuario?.id)})`}
-                </span>
-              </button>
-            )}
-
-            {/* Botão Ver Detalhes */}
-            <button
-              onClick={onShowContactInfo}
-              className="bg-gradient-to-br from-slate-600 to-slate-700 text-white rounded-lg px-3 py-2 shadow-md flex items-center gap-2 hover:from-slate-700 hover:to-slate-800 hover:shadow-lg transition-all">
-
-              <Info className="w-4 h-4" />
-              <span className="text-xs font-medium">Detalhes</span>
-            </button>
+            </div>
           </div>
         </div>
-
-
-      </div>
         )}
 
         {/* Alerta de Pedido de Transferência - Micro-URA */}
