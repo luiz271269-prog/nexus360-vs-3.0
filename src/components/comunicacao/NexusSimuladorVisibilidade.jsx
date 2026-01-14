@@ -6,12 +6,14 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { 
   PlayCircle, AlertTriangle, CheckCircle2, Database, 
-  RefreshCw, Zap, Eye, EyeOff, Info, TrendingUp, ArrowRightLeft, Users, User
+  RefreshCw, Zap, Eye, EyeOff, Info, TrendingUp, ArrowRightLeft, Users, User,
+  CheckCheck, Image, Video, Mic, FileText, MapPin, Phone as PhoneIcon, UserCheck
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { executarAnaliseEmLote } from '@/components/lib/nexusComparator';
 import { buildPolicyFromLegacyUser } from '@/components/lib/nexusLegacyConverter';
 import { base44 } from '@/api/base44Client';
+import { getUserDisplayName } from '../lib/userHelpers';
 
 export default function NexusSimuladorVisibilidade({ usuario, integracoes = [], threads = [] }) {
   const [simulationResults, setSimulationResults] = useState(null);
@@ -22,6 +24,9 @@ export default function NexusSimuladorVisibilidade({ usuario, integracoes = [], 
   const [todosUsuarios, setTodosUsuarios] = useState([]);
   const [usuarioSelecionado, setUsuarioSelecionado] = useState(null);
   const [loadingUsuarios, setLoadingUsuarios] = useState(true);
+  const [filtroSetor, setFiltroSetor] = useState('todos');
+  const [filtroIntegracao, setFiltroIntegracao] = useState('todas');
+  const [filtroTipo, setFiltroTipo] = useState('todos');
 
   // Carregar lista de usuários
   useEffect(() => {
@@ -102,11 +107,24 @@ export default function NexusSimuladorVisibilidade({ usuario, integracoes = [], 
         threadsParaAnalisar = await base44.entities.MessageThread.list('-last_message_at', amostraSize);
       }
       
+      // Aplicar filtros
+      if (filtroSetor !== 'todos') {
+        threadsParaAnalisar = threadsParaAnalisar.filter(t => t.sector_id === filtroSetor);
+      }
+      
+      if (filtroIntegracao !== 'todas') {
+        threadsParaAnalisar = threadsParaAnalisar.filter(t => t.whatsapp_integration_id === filtroIntegracao);
+      }
+      
+      if (filtroTipo !== 'todos') {
+        threadsParaAnalisar = threadsParaAnalisar.filter(t => t.thread_type === filtroTipo);
+      }
+      
       // Limitar ao tamanho da amostra
       threadsParaAnalisar = threadsParaAnalisar.slice(0, amostraSize);
       
       if (!threadsParaAnalisar || threadsParaAnalisar.length === 0) {
-        toast.warning('Nenhuma thread encontrada para análise');
+        toast.warning('Nenhuma thread encontrada com os filtros aplicados');
         return;
       }
       
@@ -296,6 +314,65 @@ export default function NexusSimuladorVisibilidade({ usuario, integracoes = [], 
         </CardHeader>
       </Card>
 
+      {/* Filtros - Igual ChatSidebar */}
+      <Card className="border-slate-200">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-sm">Filtros de Análise</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-3 gap-3">
+            <div>
+              <label className="text-xs text-slate-600 mb-1 block">Setor</label>
+              <Select value={filtroSetor} onValueChange={setFiltroSetor}>
+                <SelectTrigger className="h-8 text-xs">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="todos">Todos os Setores</SelectItem>
+                  <SelectItem value="vendas">Vendas</SelectItem>
+                  <SelectItem value="assistencia">Assistência</SelectItem>
+                  <SelectItem value="financeiro">Financeiro</SelectItem>
+                  <SelectItem value="fornecedor">Fornecedor</SelectItem>
+                  <SelectItem value="geral">Geral</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div>
+              <label className="text-xs text-slate-600 mb-1 block">Conexão WhatsApp</label>
+              <Select value={filtroIntegracao} onValueChange={setFiltroIntegracao}>
+                <SelectTrigger className="h-8 text-xs">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="todas">Todas Conexões</SelectItem>
+                  {integracoes.map(int => (
+                    <SelectItem key={int.id} value={int.id}>
+                      {int.nome_instancia}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div>
+              <label className="text-xs text-slate-600 mb-1 block">Tipo Thread</label>
+              <Select value={filtroTipo} onValueChange={setFiltroTipo}>
+                <SelectTrigger className="h-8 text-xs">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="todos">Todos Tipos</SelectItem>
+                  <SelectItem value="contact_external">Externas (Clientes)</SelectItem>
+                  <SelectItem value="team_internal">Internas (1:1)</SelectItem>
+                  <SelectItem value="sector_group">Grupos Setor</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
       {/* Alertas */}
       <Alert>
         <Info className="h-4 w-4" />
@@ -393,9 +470,31 @@ export default function NexusSimuladorVisibilidade({ usuario, integracoes = [], 
                     }
                   >
                     <td className="p-3">
-                      <div className="font-medium text-slate-700">{res.contactName}</div>
-                      <div className="text-xs text-slate-400 font-mono">{res.threadId.substring(0, 16)}...</div>
-                      <Badge variant="outline" className="text-xs mt-1">{res.threadType}</Badge>
+                      <div className="flex items-center gap-3">
+                        {/* Avatar - Estilo ChatSidebar */}
+                        <div className="relative flex-shrink-0">
+                          <div className="w-10 h-10 rounded-full flex items-center justify-center text-white font-bold text-sm shadow-md bg-gradient-to-br from-slate-400 to-slate-500">
+                            {res.contactName.charAt(0).toUpperCase()}
+                          </div>
+                        </div>
+                        
+                        {/* Info */}
+                        <div className="flex-1 min-w-0">
+                          <div className="font-medium text-slate-700 truncate">{res.contactName}</div>
+                          <div className="text-xs text-slate-400 font-mono truncate">{res.threadId.substring(0, 20)}...</div>
+                          <div className="flex items-center gap-1 mt-1">
+                            <Badge variant="outline" className="text-[10px] h-4">
+                              {res.threadType === 'contact_external' ? 'Cliente' : res.threadType === 'team_internal' ? '1:1 Interno' : 'Grupo'}
+                            </Badge>
+                            {res.threadData.assigned && (
+                              <Badge className="bg-indigo-500 text-white text-[10px] h-4">
+                                <UserCheck className="w-2.5 h-2.5 mr-1" />
+                                Atribuído
+                              </Badge>
+                            )}
+                          </div>
+                        </div>
+                      </div>
                     </td>
                     
                     <td className="p-3 text-center">
