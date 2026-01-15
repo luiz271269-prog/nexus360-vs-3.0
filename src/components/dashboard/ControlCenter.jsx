@@ -24,7 +24,11 @@ import {
   Pause,
   Settings,
   Bug,
-  AlertCircle
+  AlertCircle,
+  FileText,
+  GitCompare,
+  Eye,
+  Radio
 } from "lucide-react";
 import {
   Tooltip,
@@ -32,6 +36,12 @@ import {
   TooltipProvider,
   TooltipTrigger
 } from "@/components/ui/tooltip";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import LogsFiltragemViewer from "../comunicacao/LogsFiltragemViewer";
+import DiagnosticoComparativoThreads from "../comunicacao/DiagnosticoComparativoThreads";
+import DiagnosticoThreadsInvisiveis from "../comunicacao/DiagnosticoThreadsInvisiveis";
+import AnalisadorMensagensRecebidas from "../comunicacao/AnalisadorMensagensRecebidas";
+import LimpezaDuplicatas from "../comunicacao/LimpezaDuplicatas";
 import { toast } from "sonner";
 import {
   LineChart,
