@@ -167,110 +167,107 @@ export default function PainelPermissoesUnificado({ usuario, integracoes = [], o
 
   return (
     <div className="space-y-6">
-      {/* NOVO: Card de controle do sistema ativo */}
-      <Card className="border-2 border-amber-400 bg-gradient-to-r from-amber-50 to-orange-50">
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <div>
-              <CardTitle className="text-base">⚙️ Sistema de Permissões</CardTitle>
-              <CardDescription className="text-xs">
-                Define qual motor controla a visibilidade de threads para este usuário
-              </CardDescription>
-            </div>
-            <Badge 
-              variant={sistemaAtivo === 'legado' ? 'secondary' : 'default'}
-              className="text-sm px-3 py-1"
-            >
-              {sistemaAtivo === 'legado' ? '🔵 Legado (Ativo)' : '🟢 Nexus360 (Ativo)'}
-            </Badge>
-          </div>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-2 gap-3">
-            {/* Opção Legado */}
-            <div 
-              onClick={() => setSistemaAtivo('legado')}
-              className={`p-4 border-2 rounded-lg cursor-pointer transition-all ${
-                sistemaAtivo === 'legado' 
-                  ? 'border-blue-500 bg-blue-50 shadow-md' 
-                  : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
-              }`}
-            >
-              <div className="flex items-start gap-3">
-                <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center mt-0.5 ${
-                  sistemaAtivo === 'legado' ? 'border-blue-500 bg-blue-500' : 'border-gray-300'
-                }`}>
-                  {sistemaAtivo === 'legado' && <div className="w-2.5 h-2.5 bg-white rounded-full" />}
-                </div>
-                <div className="flex-1">
-                  <p className="font-medium text-sm">🔵 Sistema Legado</p>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Lógica hardcoded atual<br />
-                    (threadVisibility.js)
-                  </p>
-                </div>
-              </div>
-            </div>
+      {/* HEADER: Sistema de Permissões lado a lado */}
+       <Card className="border-2 border-amber-400 bg-gradient-to-r from-amber-50 to-orange-50">
+         <CardHeader>
+           <CardTitle className="text-base mb-4">⚙️ Sistema de Permissões - Comparativo</CardTitle>
+           <CardDescription className="text-xs mb-4">Lado a lado: como está (Legado) vs como será (Nexus360)</CardDescription>
+         </CardHeader>
+         <CardContent>
+           <div className="grid grid-cols-2 gap-6">
+             {/* COLUNA 1: LEGADO (ESQUERDA) */}
+             <div className="space-y-3 p-4 border-l-4 border-blue-500 bg-blue-50 rounded-lg">
+               <div className="flex items-center gap-2 mb-3">
+                 <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center border-blue-500 bg-blue-500`}>
+                   <div className="w-3 h-3 bg-white rounded-full" />
+                 </div>
+                 <h3 className="font-semibold text-sm">🔵 Sistema Legado (Atual)</h3>
+               </div>
+               <p className="text-xs text-muted-foreground">Lógica hardcoded</p>
+               <p className="text-xs text-muted-foreground">(threadVisibility.js)</p>
 
-            {/* Opção Nexus360 */}
-            <div 
-              onClick={() => {
-                const temRegras = configuracao.regras_bloqueio?.length > 0 || 
-                                 configuracao.regras_liberacao?.length > 0;
-                
-                if (!temRegras && configuracao.modo_visibilidade === 'padrao_bloqueado') {
-                  toast.error('Configure ao menos 1 regra antes de ativar Nexus360', {
-                    description: 'Modo bloqueado sem liberações = usuário não verá nada'
-                  });
-                  return;
-                }
-                
-                setSistemaAtivo('nexus360');
-              }}
-              className={`p-4 border-2 rounded-lg cursor-pointer transition-all ${
-                sistemaAtivo === 'nexus360' 
-                  ? 'border-green-500 bg-green-50 shadow-md' 
-                  : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
-              }`}
-            >
-              <div className="flex items-start gap-3">
-                <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center mt-0.5 ${
-                  sistemaAtivo === 'nexus360' ? 'border-green-500 bg-green-500' : 'border-gray-300'
-                }`}>
-                  {sistemaAtivo === 'nexus360' && <div className="w-2.5 h-2.5 bg-white rounded-full" />}
-                </div>
-                <div className="flex-1">
-                  <p className="font-medium text-sm">🟢 Nexus360</p>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Motor unificado<br />
-                    (regras P1-P12 + flags)
-                  </p>
-                </div>
-              </div>
-            </div>
-          </div>
+               {/* Preview Legado */}
+               <div className="mt-4 pt-4 border-t border-blue-200">
+                 <p className="text-[10px] font-bold text-blue-800 mb-2">Configuração Atual:</p>
+                 <ul className="space-y-1 text-[10px] text-slate-700">
+                   <li>✓ Setor: <span className="font-medium">{usuario?.setor || 'geral'}</span></li>
+                   <li>✓ Função: <span className="font-medium">{usuario?.attendant_role || 'pleno'}</span></li>
+                   <li>✓ WhatsApp: <span className="font-medium">{usuario?.is_whatsapp_attendant ? 'Ativo' : 'Inativo'}</span></li>
+                   <li>✓ Setores: <span className="font-medium">{(usuario?.whatsapp_setores || []).join(', ') || 'Nenhum'}</span></li>
+                   <li>✓ Conexões: <span className="font-medium">{(usuario?.whatsapp_permissions || []).length}</span></li>
+                 </ul>
+               </div>
 
-          {/* Aviso dinâmico */}
-          {sistemaAtivo === 'nexus360' && (
-            <Alert className="mt-4 bg-green-50 border-green-200">
-              <CheckCircle2 className="h-4 w-4 text-green-600" />
-              <AlertDescription className="text-xs">
-                <strong>✅ Nexus360 selecionado.</strong><br />
-                Após salvar, use o toggle "Runtime Mode" (em Usuários) para ativar em produção.
-              </AlertDescription>
-            </Alert>
-          )}
-          
-          {sistemaAtivo === 'legado' && (
-            <Alert className="mt-4">
-              <Info className="h-4 w-4" />
-              <AlertDescription className="text-xs">
-                Sistema legado selecionado. Configure Nexus360 nas abas abaixo e teste antes de migrar.
-              </AlertDescription>
-            </Alert>
-          )}
-        </CardContent>
-      </Card>
+               <Button 
+                 variant="outline" 
+                 size="sm" 
+                 onClick={() => setSistemaAtivo('legado')}
+                 className={`w-full mt-3 ${sistemaAtivo === 'legado' ? 'border-blue-500 bg-blue-100' : ''}`}
+               >
+                 {sistemaAtivo === 'legado' ? '✓ Legado (Ativo)' : 'Usar Legado'}
+               </Button>
+             </div>
+
+             {/* COLUNA 2: NEXUS360 (DIREITA) */}
+             <div className="space-y-3 p-4 border-r-4 border-green-500 bg-green-50 rounded-lg">
+               <div className="flex items-center gap-2 mb-3">
+                 <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center border-green-500 bg-green-500`}>
+                   <div className="w-3 h-3 bg-white rounded-full" />
+                 </div>
+                 <h3 className="font-semibold text-sm">🟢 Nexus360 (Novo)</h3>
+               </div>
+               <p className="text-xs text-muted-foreground">Motor unificado</p>
+               <p className="text-xs text-muted-foreground">(regras P1-P12 + flags)</p>
+
+               {/* Preview Nexus */}
+               <div className="mt-4 pt-4 border-t border-green-200">
+                 <p className="text-[10px] font-bold text-green-800 mb-2">Nova Configuração:</p>
+                 <ul className="space-y-1 text-[10px] text-slate-700">
+                   <li>✓ Modo: <span className="font-medium">{configuracao.modo_visibilidade === 'padrao_liberado' ? 'Liberado' : 'Bloqueado'}</span></li>
+                   <li>✓ Bloqueios: <span className="font-medium">{configuracao.regras_bloqueio?.length || 0}</span></li>
+                   <li>✓ Liberações: <span className="font-medium">{configuracao.regras_liberacao?.length || 0}</span></li>
+                   <li>✓ Flags Híbridas: <span className="font-medium">{Object.values(permissoesAcoes).filter(v => v === true).length}</span></li>
+                   <li>✓ Strict Mode: <span className="font-medium">{permissoesAcoes.strictMode ? 'Ativo' : 'Inativo'}</span></li>
+                 </ul>
+               </div>
+
+               <Button 
+                 variant="outline" 
+                 size="sm" 
+                 onClick={() => {
+                   const temRegras = configuracao.regras_bloqueio?.length > 0 || 
+                                    configuracao.regras_liberacao?.length > 0;
+
+                   if (!temRegras && configuracao.modo_visibilidade === 'padrao_bloqueado') {
+                     toast.error('Configure ao menos 1 regra antes de ativar Nexus360', {
+                       description: 'Modo bloqueado sem liberações = usuário não verá nada'
+                     });
+                     return;
+                   }
+
+                   setSistemaAtivo('nexus360');
+                 }}
+                 className={`w-full mt-3 ${sistemaAtivo === 'nexus360' ? 'border-green-500 bg-green-100' : ''}`}
+               >
+                 {sistemaAtivo === 'nexus360' ? '✓ Nexus360 (Ativo)' : 'Usar Nexus360'}
+               </Button>
+             </div>
+           </div>
+
+           {/* Alerta contextual */}
+           <Alert className="mt-4 border-amber-300 bg-amber-50">
+             <AlertTriangle className="h-4 w-4 text-amber-600" />
+             <AlertDescription className="text-xs text-amber-800">
+               {sistemaAtivo === 'legado' 
+                 ? '📌 Sistema Legado ativo. Configure Nexus360 abaixo e migre quando pronto.'
+                 : sistemaAtivo === 'nexus360' && (configuracao.regras_bloqueio?.length > 0 || configuracao.regras_liberacao?.length > 0)
+                 ? '✅ Nexus360 pronto para ativar. Salve para aplicar em produção.'
+                 : '⚠️ Configure regras de bloqueio/liberação para ativar Nexus360.'
+               }
+             </AlertDescription>
+           </Alert>
+         </CardContent>
+       </Card>
 
       {/* Header com modo Nexus360 */}
       <Card className="border-purple-200 bg-gradient-to-r from-purple-50 to-indigo-50">
