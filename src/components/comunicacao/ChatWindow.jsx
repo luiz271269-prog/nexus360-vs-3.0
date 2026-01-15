@@ -1920,33 +1920,9 @@ export default function ChatWindow({
             })()}
             </div>
 
-            {/* Nome + Canal + Inteligência */}
+            {/* Nome + Telefone */}
             <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2 mb-1">
-                <h3 className="text-slate-800 font-bold text-sm truncate">{nomeContato}</h3>
-
-                {/* Badge do Canal */}
-                {(() => {
-                const channelConfig = {
-                  whatsapp: { logo: WhatsAppLogo, cor: 'bg-green-100 text-green-700', label: 'WhatsApp' },
-                  instagram: { logo: InstagramLogo, cor: 'bg-pink-100 text-pink-700', label: 'Instagram' },
-                  facebook: { logo: FacebookLogo, cor: 'bg-blue-100 text-blue-700', label: 'Facebook' },
-                  phone: { logo: GoToLogo, cor: 'bg-yellow-100 text-yellow-700', label: 'GoTo' }
-                };
-                const canal = thread?.channel || 'whatsapp';
-                const config = channelConfig[canal] || channelConfig.whatsapp;
-                const Logo = config.logo;
-
-                return (
-                  <Badge className={`${config.cor} text-[9px] px-2 py-0.5 flex items-center gap-1`}>
-                      <Logo />
-                      {config.label}
-                    </Badge>);
-
-              })()}
-              </div>
-
-              {/* Telefone */}
+              <h3 className="text-slate-800 font-bold text-sm truncate mb-1">{nomeContato}</h3>
               <p className="text-slate-50 text-xs">{telefoneExibicao}</p>
             </div>
 
