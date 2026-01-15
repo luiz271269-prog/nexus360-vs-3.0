@@ -1920,16 +1920,10 @@ export default function ChatWindow({
             })()}
             </div>
 
-            {/* Nome + Telefone + Etiqueta */}
+            {/* Nome + Telefone */}
             <div className="flex-1 min-w-0">
               <h3 className="text-slate-800 font-bold text-sm truncate mb-1">{nomeContato}</h3>
-              <div className="flex items-center gap-2">
-                <p className="text-slate-50 text-xs">{telefoneExibicao}</p>
-                <CategorizadorRapido
-                  thread={thread}
-                  contato={contatoCompleto}
-                  onUpdate={onAtualizarMensagens} />
-              </div>
+              <p className="text-slate-50 text-xs">{telefoneExibicao}</p>
             </div>
 
             {/* Componentes de Inteligência Comprimidos + Ações */}
@@ -1938,6 +1932,11 @@ export default function ChatWindow({
               contato={contatoCompleto}
               variant="mini"
               showSugestoes={true} />
+
+              <CategorizadorRapido
+              thread={thread}
+              contato={contatoCompleto}
+              onUpdate={onAtualizarMensagens} />
 
 
 
