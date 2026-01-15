@@ -32,6 +32,7 @@ export default function PainelPermissoesUnificado({ usuario, integracoes = [], o
   const [permissoesAcoes, setPermissoesAcoes] = useState({});
   const [diagnostico, setDiagnostico] = useState({ ativo: false, log_level: 'info' });
   const [presetSelecionado, setPresetSelecionado] = useState(null);
+  const [sistemaAtivo, setSistemaAtivo] = useState('legado');
 
   // Carregar configuração atual do usuário
   useEffect(() => {
@@ -47,6 +48,10 @@ export default function PainelPermissoesUnificado({ usuario, integracoes = [], o
       setDiagnostico(usuario.diagnostico_nexus);
     }
     
+    if (usuario?.sistema_permissoes_ativo) {
+      setSistemaAtivo(usuario.sistema_permissoes_ativo);
+    }
+    
     // Detectar preset baseado em attendant_role
     if (usuario?.attendant_role) {
       setPresetSelecionado(usuario.attendant_role);
@@ -58,6 +63,7 @@ export default function PainelPermissoesUnificado({ usuario, integracoes = [], o
   const handleSalvar = async () => {
     try {
       await onSalvar(usuario.id, {
+        sistema_permissoes_ativo: sistemaAtivo,
         configuracao_visibilidade_nexus: configuracao,
         permissoes_acoes_nexus: permissoesAcoes,
         diagnostico_nexus: diagnostico
@@ -160,6 +166,111 @@ export default function PainelPermissoesUnificado({ usuario, integracoes = [], o
 
   return (
     <div className="space-y-6">
+      {/* NOVO: Card de controle do sistema ativo */}
+      <Card className="border-2 border-amber-400 bg-gradient-to-r from-amber-50 to-orange-50">
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle className="text-base">⚙️ Sistema de Permissões</CardTitle>
+              <CardDescription className="text-xs">
+                Define qual motor controla a visibilidade de threads para este usuário
+              </CardDescription>
+            </div>
+            <Badge 
+              variant={sistemaAtivo === 'legado' ? 'secondary' : 'default'}
+              className="text-sm px-3 py-1"
+            >
+              {sistemaAtivo === 'legado' ? '🔵 Legado (Ativo)' : '🟢 Nexus360 (Ativo)'}
+            </Badge>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-2 gap-3">
+            {/* Opção Legado */}
+            <div 
+              onClick={() => setSistemaAtivo('legado')}
+              className={`p-4 border-2 rounded-lg cursor-pointer transition-all ${
+                sistemaAtivo === 'legado' 
+                  ? 'border-blue-500 bg-blue-50 shadow-md' 
+                  : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
+              }`}
+            >
+              <div className="flex items-start gap-3">
+                <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center mt-0.5 ${
+                  sistemaAtivo === 'legado' ? 'border-blue-500 bg-blue-500' : 'border-gray-300'
+                }`}>
+                  {sistemaAtivo === 'legado' && <div className="w-2.5 h-2.5 bg-white rounded-full" />}
+                </div>
+                <div className="flex-1">
+                  <p className="font-medium text-sm">🔵 Sistema Legado</p>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Lógica hardcoded atual<br />
+                    (threadVisibility.js)
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Opção Nexus360 */}
+            <div 
+              onClick={() => {
+                const temRegras = configuracao.regras_bloqueio?.length > 0 || 
+                                 configuracao.regras_liberacao?.length > 0;
+                
+                if (!temRegras && configuracao.modo_visibilidade === 'padrao_bloqueado') {
+                  toast.error('Configure ao menos 1 regra antes de ativar Nexus360', {
+                    description: 'Modo bloqueado sem liberações = usuário não verá nada'
+                  });
+                  return;
+                }
+                
+                setSistemaAtivo('nexus360');
+              }}
+              className={`p-4 border-2 rounded-lg cursor-pointer transition-all ${
+                sistemaAtivo === 'nexus360' 
+                  ? 'border-green-500 bg-green-50 shadow-md' 
+                  : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
+              }`}
+            >
+              <div className="flex items-start gap-3">
+                <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center mt-0.5 ${
+                  sistemaAtivo === 'nexus360' ? 'border-green-500 bg-green-500' : 'border-gray-300'
+                }`}>
+                  {sistemaAtivo === 'nexus360' && <div className="w-2.5 h-2.5 bg-white rounded-full" />}
+                </div>
+                <div className="flex-1">
+                  <p className="font-medium text-sm">🟢 Nexus360</p>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Motor unificado<br />
+                    (regras P1-P12 + flags)
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Aviso dinâmico */}
+          {sistemaAtivo === 'nexus360' && (
+            <Alert className="mt-4 bg-green-50 border-green-200">
+              <CheckCircle2 className="h-4 w-4 text-green-600" />
+              <AlertDescription className="text-xs">
+                <strong>✅ Nexus360 ativado para este usuário.</strong><br />
+                As regras abaixo serão aplicadas imediatamente ao salvar.
+              </AlertDescription>
+            </Alert>
+          )}
+          
+          {sistemaAtivo === 'legado' && (
+            <Alert className="mt-4">
+              <Info className="h-4 w-4" />
+              <AlertDescription className="text-xs">
+                Sistema legado ativo. Configure Nexus360 nas abas abaixo e teste antes de ativar.
+              </AlertDescription>
+            </Alert>
+          )}
+        </CardContent>
+      </Card>
+
       {/* Header com modo Nexus360 */}
       <Card className="border-purple-200 bg-gradient-to-r from-purple-50 to-indigo-50">
         <CardHeader>
@@ -182,13 +293,7 @@ export default function PainelPermissoesUnificado({ usuario, integracoes = [], o
         </CardHeader>
       </Card>
 
-      <Alert>
-        <Info className="h-4 w-4" />
-        <AlertDescription>
-          <strong>Nexus360:</strong> As configurações abaixo NÃO afetam o sistema atual ainda. 
-          Elas serão ativadas após validação e migração completa. Use para testar e validar as regras.
-        </AlertDescription>
-      </Alert>
+
 
       <Tabs defaultValue="perfil" className="w-full">
         <TabsList className="grid grid-cols-5 w-full">
@@ -302,9 +407,16 @@ export default function PainelPermissoesUnificado({ usuario, integracoes = [], o
                 {configuracao.regras_bloqueio.map((regra, index) => (
                   <Card key={index} className="border-red-200">
                     <CardContent className="p-4 space-y-3">
-                      <div className="flex items-center justify-between">
-                        <Badge variant="destructive">{regra.tipo}</Badge>
-                        <div className="flex items-center gap-2">
+                     <div className="flex items-center justify-between">
+                       <div className="flex items-center gap-2">
+                         <Badge variant="destructive">{regra.tipo}</Badge>
+                         <Badge variant="outline" className="text-xs">
+                           {regra.tipo === 'setor' && 'P11'}
+                           {regra.tipo === 'integracao' && 'P10'}
+                           {regra.tipo === 'canal' && 'P9'}
+                         </Badge>
+                       </div>
+                       <div className="flex items-center gap-2">
                           <Switch
                             checked={regra.ativa}
                             onCheckedChange={(checked) => atualizarRegraBloqueio(index, 'ativa', checked)}
@@ -449,11 +561,16 @@ export default function PainelPermissoesUnificado({ usuario, integracoes = [], o
                 {configuracao.regras_liberacao.map((regra, index) => (
                   <Card key={index} className="border-green-200">
                     <CardContent className="p-4 space-y-3">
-                      <div className="flex items-center justify-between">
-                        <Badge variant="outline" className="bg-green-50 text-green-700 border-green-300">
-                          {regra.tipo === 'janela_24h' ? '⏰ Janela 24h' : '👁️ Supervisão Gerencial'}
-                        </Badge>
-                        <div className="flex items-center gap-2">
+                     <div className="flex items-center justify-between">
+                       <div className="flex items-center gap-2">
+                         <Badge variant="outline" className="bg-green-50 text-green-700 border-green-300">
+                           {regra.tipo === 'janela_24h' ? '⏰ Janela 24h' : '👁️ Supervisão Gerencial'}
+                         </Badge>
+                         <Badge variant="outline" className="text-xs">
+                           {regra.tipo === 'janela_24h' ? 'P5' : 'P8'}
+                         </Badge>
+                       </div>
+                       <div className="flex items-center gap-2">
                           <Switch
                             checked={regra.ativa}
                             onCheckedChange={(checked) => atualizarRegraLiberacao(index, 'ativa', checked)}
@@ -533,6 +650,125 @@ export default function PainelPermissoesUnificado({ usuario, integracoes = [], o
                   Alterações aqui sobrescrevem o preset.
                 </AlertDescription>
               </Alert>
+
+              {/* NOVA SEÇÃO: Visibilidade Fina (Regras Híbridas) */}
+              <div className="mb-8">
+                <div className="flex items-center gap-2 mb-4">
+                  <Eye className="w-5 h-5 text-purple-600" />
+                  <h3 className="font-semibold">Visibilidade Fina (Regras Híbridas P6/P7)</h3>
+                </div>
+                
+                <Alert className="mb-4 bg-purple-50 border-purple-200">
+                  <Info className="h-4 w-4 text-purple-600" />
+                  <AlertDescription className="text-xs">
+                    <strong>Regras Híbridas:</strong> Controlam como supervisores/gerentes 
+                    acessam conversas de equipe sem violar privacidade individual.
+                  </AlertDescription>
+                </Alert>
+                
+                <div className="grid grid-cols-1 gap-3">
+                  {/* Flag 1: Ver Não Atribuídas */}
+                  <div className="flex items-start justify-between p-4 border rounded-lg bg-blue-50/50 hover:bg-blue-100/50 transition-colors">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 mb-1">
+                        <Eye className="w-4 h-4 text-blue-600" />
+                        <span className="text-sm font-medium">Ver threads não atribuídas (filas)</span>
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        Permite visualizar conversas na fila "Sem dono" do seu setor
+                      </p>
+                    </div>
+                    <Switch
+                      checked={permissoesAcoes.podeVerNaoAtribuidas ?? true}
+                      onCheckedChange={(v) => setPermissoesAcoes(prev => ({...prev, podeVerNaoAtribuidas: v}))}
+                    />
+                  </div>
+
+                  {/* Flag 2: Ver Conversas de Outros */}
+                  <div className="flex items-start justify-between p-4 border rounded-lg bg-amber-50/50 hover:bg-amber-100/50 transition-colors">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 mb-1">
+                        <Users className="w-4 h-4 text-amber-600" />
+                        <span className="text-sm font-medium">Ver conversas atribuídas a outros</span>
+                        <Badge variant="outline" className="text-xs ml-2">P7</Badge>
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        Permite supervisão de threads em andamento de outros atendentes do setor
+                      </p>
+                    </div>
+                    <Switch
+                      checked={permissoesAcoes.podeVerConversasOutros ?? false}
+                      onCheckedChange={(v) => setPermissoesAcoes(prev => ({...prev, podeVerConversasOutros: v}))}
+                    />
+                  </div>
+
+                  {/* Flag 3: Ver Carteiras de Outros */}
+                  <div className="flex items-start justify-between p-4 border rounded-lg bg-green-50/50 hover:bg-green-100/50 transition-colors">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 mb-1">
+                        <Users className="w-4 h-4 text-green-600" />
+                        <span className="text-sm font-medium">Ver carteiras de outros atendentes</span>
+                        <Badge variant="outline" className="text-xs ml-2">P6</Badge>
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        Permite acessar contatos fidelizados a colegas do setor (supervisão de carteira)
+                      </p>
+                    </div>
+                    <Switch
+                      checked={permissoesAcoes.podeVerCarteiraOutros ?? false}
+                      onCheckedChange={(v) => setPermissoesAcoes(prev => ({...prev, podeVerCarteiraOutros: v}))}
+                    />
+                  </div>
+
+                  {/* Flag 4: Ver Todos Setores */}
+                  <div className="flex items-start justify-between p-4 border rounded-lg bg-indigo-50/50 hover:bg-indigo-100/50 transition-colors">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 mb-1">
+                        <Shield className="w-4 h-4 text-indigo-600" />
+                        <span className="text-sm font-medium">Ver todos os setores (cross-setorial)</span>
+                        <Badge variant="outline" className="text-xs ml-2">P11 Override</Badge>
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        Permite acesso a threads de TODOS os setores (diretor/gerente geral)
+                      </p>
+                    </div>
+                    <Switch
+                      checked={permissoesAcoes.podeVerTodosSetores ?? false}
+                      onCheckedChange={(v) => setPermissoesAcoes(prev => ({...prev, podeVerTodosSetores: v}))}
+                    />
+                  </div>
+
+                  {/* Flag 5: Strict Mode */}
+                  <div className="flex items-start justify-between p-4 border-2 border-red-300 rounded-lg bg-red-50 hover:bg-red-100/50 transition-colors">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 mb-1">
+                        <Lock className="w-4 h-4 text-red-600" />
+                        <span className="text-sm font-medium">🚨 Strict Mode (Modo Restrito)</span>
+                        <Badge variant="destructive" className="text-xs ml-2">Desativa P5/P8</Badge>
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        Desativa liberações P5 (janela 24h) e P8 (supervisão) - zero exceções
+                      </p>
+                      <p className="text-xs text-red-600 font-medium mt-1">
+                        ⚠️ Use para estagiários ou usuários em período de experiência
+                      </p>
+                    </div>
+                    <Switch
+                      checked={permissoesAcoes.strictMode ?? false}
+                      onCheckedChange={(v) => setPermissoesAcoes(prev => ({...prev, strictMode: v}))}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <Separator className="my-6" />
+
+              {/* Seção existente de ações granulares */}
+              <div>
+                <div className="flex items-center gap-2 mb-3">
+                  <Shield className="w-5 h-5 text-slate-600" />
+                  <h3 className="font-semibold">Ações Granulares (Operações)</h3>
+                </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 {[
