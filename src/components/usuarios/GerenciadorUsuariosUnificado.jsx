@@ -654,22 +654,18 @@ export default function GerenciadorUsuariosUnificado({
         ) : (
           <div className="flex-1 overflow-auto p-4">
             <Tabs defaultValue="dados" className="w-full">
-              <TabsList className="grid grid-cols-4 w-full">
+              <TabsList className="grid grid-cols-3 w-full">
                 <TabsTrigger value="dados">
                   <User className="w-4 h-4 mr-2" />
                   Dados
-                </TabsTrigger>
-                <TabsTrigger value="permissoes_atuais">
-                  <Shield className="w-4 h-4 mr-2" />
-                  Permissões
                 </TabsTrigger>
                 <TabsTrigger value="comunicacao" onClick={() => setRecursoSelecionado({ id: "Comunicacao", nome: "💬 Comunicação", tipo: "menu" })}>
                   <MessageSquare className="w-4 h-4 mr-2" />
                   Comunicação
                 </TabsTrigger>
                 <TabsTrigger value="permissoes_nexus">
-                  <Zap className="w-4 h-4 mr-2" />
-                  Nexus360
+                  <Shield className="w-4 h-4 mr-2" />
+                  Permissões
                 </TabsTrigger>
               </TabsList>
 
@@ -742,22 +738,7 @@ export default function GerenciadorUsuariosUnificado({
                 />
               </TabsContent>
 
-              {/* ABA: Permissões Atuais (Sistema Legado) */}
-              <TabsContent value="permissoes_atuais" className="space-y-4 mt-4">
-                <div className="p-4 bg-amber-50 border border-amber-200 rounded-lg">
-                  <h3 className="font-semibold text-amber-800 mb-2">⚙️ Sistema Atual (Legado)</h3>
-                  <p className="text-xs text-amber-700 mb-3">
-                    Este é o sistema de permissões ATIVO atualmente. Use os recursos à esquerda para configurar.
-                  </p>
-                  <div className="text-xs space-y-1">
-                    <div><strong>Permissões ativas:</strong> {(usuarioSelecionado.permissoes || []).length}</div>
-                    <div><strong>WhatsApp habilitado:</strong> {usuarioSelecionado.is_whatsapp_attendant ? 'Sim' : 'Não'}</div>
-                    <div><strong>Conexões:</strong> {(usuarioSelecionado.whatsapp_permissions || []).length}</div>
-                  </div>
-                </div>
-              </TabsContent>
-
-              {/* ABA: Permissões Nexus360 (Novo Sistema) */}
+              {/* ABA: Permissões Nexus360 (ÚNICO MOTOR DE DECISÃO) */}
               <TabsContent value="permissoes_nexus" className="space-y-4 mt-4">
                 <PainelPermissoesUnificado
                   usuario={usuarioSelecionado}
