@@ -44,7 +44,7 @@ export default function UsuariosPage() {
   }
 
   async function salvarUsuario(usuario, origem = 'legacy') {
-    console.log('[Usuarios] Salvando usuário:', usuario, 'origem:', origem);
+    console.log('[Usuarios] Salvando usuário:', usuario.email, 'origem:', origem);
     
     // IMPORTANTE: paginas_acesso armazena as permissões de páginas/recursos
     const permissoesParaSalvar = usuario.permissoes || usuario.paginas_acesso || [];
@@ -63,18 +63,19 @@ export default function UsuariosPage() {
       max_concurrent_conversations: usuario.max_concurrent_conversations || 5,
     };
 
-    // Se vem do painel Nexus360, respeita campos Nexus como estão
+    // ✅ DIFERENCIAÇÃO CRÍTICA POR ORIGEM
     if (origem === 'nexus360') {
-      console.log('[Usuarios] Origem Nexus360 - respeitando configurações Nexus');
+      // Painel Nexus360: respeita valores Nexus como estão, sem sobrescrita
+      console.log('[Usuarios] ✅ Origem=nexus360: respeitando config Nexus intacta');
       payload.sistema_permissoes_ativo = usuario.sistema_permissoes_ativo ?? 'nexus_shadow';
       payload.configuracao_visibilidade_nexus = usuario.configuracao_visibilidade_nexus;
       payload.permissoes_acoes_nexus = usuario.permissoes_acoes_nexus;
       payload.diagnostico_nexus = usuario.diagnostico_nexus;
     } else {
-      // Fluxo legado: converter e preencher Nexus em background
-      console.log('[Usuarios] Origem legacy - convertendo para Nexus360');
+      // Fluxo legado: converter para Nexus em background, preservar sistema_permissoes_ativo existente
+      console.log('[Usuarios] 🔄 Origem=legacy: convertendo para Nexus360');
       const nexus360 = converterParaNexus360(usuario, integracoes);
-      // Só atualizar sistema_permissoes_ativo se ainda não foi definido
+      // Manter sistema_permissoes_ativo que já foi definido, ou default 'legacy'
       payload.sistema_permissoes_ativo = usuario.sistema_permissoes_ativo ?? 'legacy';
       payload.configuracao_visibilidade_nexus = nexus360.configuracao_visibilidade_nexus;
       payload.permissoes_acoes_nexus = nexus360.permissoes_acoes_nexus;

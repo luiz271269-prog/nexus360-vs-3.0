@@ -291,10 +291,10 @@ export default function GerenciadorUsuariosUnificado({
       return;
     }
     
-    console.log('[GerenciadorUsuarios] Salvando:', usuario);
+    console.log('[GerenciadorUsuarios] Salvando:', usuario, 'origem: legacy');
     setSalvando(true);
     try {
-      const atualizado = await salvarUsuario(usuario);
+      const atualizado = await salvarUsuario(usuario, 'legacy');
       console.log('[GerenciadorUsuarios] Retorno do salvar:', atualizado);
       if (atualizado) {
         setUsuarios(prev => prev.map(u => u.id === usuario.id ? atualizado : u));
