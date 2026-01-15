@@ -32,7 +32,10 @@ export function buildUserPermissions(usuario, allIntegracoes = []) {
   const configNexus = usuario.configuracao_visibilidade_nexus || {};
   const acoes = usuario.permissoes_acoes_nexus || {};
 
-  // Extrair bloqueios ativos
+  // Extrair bloqueios de HARD CORE (P1/P9/P10/P11) - vêm da tela de permissões
+  const hardCoreBloqueios = usuario.hard_core_bloqueios || {};
+  
+  // Extrair bloqueios ativos (Nexus360 custom)
   const regrasBloqueio = (configNexus.regras_bloqueio || [])
     .filter(r => r.ativa)
     .sort((a, b) => (b.prioridade || 0) - (a.prioridade || 0));
@@ -41,18 +44,30 @@ export function buildUserPermissions(usuario, allIntegracoes = []) {
     .filter(r => r.ativa)
     .sort((a, b) => (b.prioridade || 0) - (a.prioridade || 0));
 
-  // Extrair valores bloqueados por tipo
-  const setoresBloqueados = regrasBloqueio
+  // Extrair valores bloqueados por tipo (COMBINAR HARD CORE + CUSTOM)
+  const setoresBloqueadosNexus = regrasBloqueio
     .filter(r => r.tipo === 'setor')
     .flatMap(r => r.valores_bloqueados || []);
+  const setoresBloqueados = [
+    ...(hardCoreBloqueios.setores || []),
+    ...setoresBloqueadosNexus
+  ];
 
-  const integracoesBloqueadas = regrasBloqueio
+  const integracoesBloqueadasNexus = regrasBloqueio
     .filter(r => r.tipo === 'integracao')
     .flatMap(r => r.valores_bloqueados || []);
+  const integracoesBloqueadas = [
+    ...(hardCoreBloqueios.integracoes || []),
+    ...integracoesBloqueadasNexus
+  ];
 
-  const canaisBloqueados = regrasBloqueio
+  const canaisBloqueadosNexus = regrasBloqueio
     .filter(r => r.tipo === 'canal')
     .flatMap(r => r.valores_bloqueados || []);
+  const canaisBloqueados = [
+    ...(hardCoreBloqueios.canais || []),
+    ...canaisBloqueadosNexus
+  ];
 
   // Extrair regras de liberação
   const janelaRegra = regrasLiberacao.find(r => r.tipo === 'janela_24h');
