@@ -82,21 +82,31 @@ export default function SecaoComunicacaoUsuario({
                         integration_name: int.nome_instancia,
                         can_view: true,
                         can_receive: true,
-                        can_send: true
+                        can_send: true,
+                        can_transfer: false,
+                        setores_cobertura: []
                       });
                     }
                     atualizarUsuario("whatsapp_permissions", novasPerms);
                   };
 
-                  const togglePermissao = (campo) => {
+                  const updatePerm = (campo, valor) => {
                     if (!habilitado) return;
                     const novasPerms = perms.map(p => {
                       if (p.integration_id === int.id) {
-                        return { ...p, [campo]: !p[campo] };
+                        return { ...p, [campo]: valor };
                       }
                       return p;
                     });
                     atualizarUsuario("whatsapp_permissions", novasPerms);
+                  };
+
+                  const toggleSetor = (setorValue) => {
+                    const setoresAtualmente = perm?.setores_cobertura || [];
+                    const novosSetores = setoresAtualmente.includes(setorValue)
+                      ? setoresAtualmente.filter(s => s !== setorValue)
+                      : [...setoresAtualmente, setorValue];
+                    updatePerm("setores_cobertura", novosSetores);
                   };
                   
                   return (
@@ -115,30 +125,47 @@ export default function SecaoComunicacaoUsuario({
                         </Badge>
                       </div>
                       {habilitado && (
-                        <div className="flex gap-4 pl-6 text-xs mt-2">
-                          <label className="flex items-center gap-1 cursor-pointer">
-                            <Checkbox
-                              checked={perm?.can_view !== false}
-                              onCheckedChange={() => togglePermissao("can_view")}
-                            />
-                            <span>Ver</span>
-                          </label>
-                          <label className="flex items-center gap-1 cursor-pointer">
-                            <Checkbox
-                              checked={perm?.can_receive !== false}
-                              onCheckedChange={() => togglePermissao("can_receive")}
-                            />
-                            <span>Receber</span>
-                          </label>
-                          <label className="flex items-center gap-1 cursor-pointer">
-                            <Checkbox
-                              checked={perm?.can_send !== false}
-                              onCheckedChange={() => togglePermissao("can_send")}
-                            />
-                            <span>Enviar</span>
-                          </label>
-                        </div>
-                      )}
+                         <div className="space-y-3 pl-6 mt-2">
+                           {/* Permissões: Ver/Receber/Enviar/Transferir */}
+                           <div className="flex gap-3 text-xs">
+                             {[
+                               { key: 'can_view', label: 'Ver' },
+                               { key: 'can_receive', label: 'Receber' },
+                               { key: 'can_send', label: 'Enviar' },
+                               { key: 'can_transfer', label: 'Transferir' }
+                             ].map(({ key, label }) => (
+                               <label key={key} className="flex items-center gap-1 cursor-pointer">
+                                 <Checkbox
+                                   checked={perm?.[key] !== false}
+                                   onCheckedChange={(v) => updatePerm(key, v)}
+                                 />
+                                 <span>{label}</span>
+                               </label>
+                             ))}
+                           </div>
+
+                           {/* Setores de Cobertura por Instância */}
+                           <div>
+                             <p className="text-[10px] font-bold text-slate-600 mb-1">🎯 Setores</p>
+                             <div className="flex flex-wrap gap-1">
+                               {SETORES.map(s => {
+                                 const setoresInstancia = perm?.setores_cobertura || [];
+                                 const ativo = setoresInstancia.includes(s.value);
+                                 return (
+                                   <Badge
+                                     key={s.value}
+                                     variant={ativo ? "default" : "outline"}
+                                     className={`cursor-pointer text-[10px] px-2 py-0.5 ${ativo ? 'bg-blue-500' : ''}`}
+                                     onClick={() => toggleSetor(s.value)}
+                                   >
+                                     {s.label}
+                                   </Badge>
+                                 );
+                               })}
+                             </div>
+                           </div>
+                         </div>
+                       )}
                     </div>
                   );
                 })}
@@ -146,57 +173,7 @@ export default function SecaoComunicacaoUsuario({
             </Card>
           )}
 
-          {/* Setores & Capacidade */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {/* Setores Atendidos */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-base">🎯 Setores Atendidos</CardTitle>
-                <CardDescription>Selecione os setores que este atendente cobre</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="flex flex-wrap gap-2">
-                  {SETORES.map(s => {
-                    const setores = usuarioSelecionado.whatsapp_setores || [];
-                    const ativo = setores.includes(s.value);
-                    return (
-                      <Badge
-                        key={s.value}
-                        variant={ativo ? "default" : "outline"}
-                        className={`cursor-pointer text-xs px-3 py-2 ${ativo ? 'bg-blue-500' : ''}`}
-                        onClick={() => {
-                          const novos = ativo 
-                            ? setores.filter(x => x !== s.value)
-                            : [...setores, s.value];
-                          atualizarUsuario("whatsapp_setores", novos);
-                        }}
-                      >
-                        {s.label}
-                      </Badge>
-                    );
-                  })}
-                </div>
-              </CardContent>
-            </Card>
 
-            {/* Máx. Conversas */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-base">⚡ Capacidade</CardTitle>
-                <CardDescription>Máximo de conversas simultâneas</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <Input
-                  type="number"
-                  min="1"
-                  max="50"
-                  value={usuarioSelecionado.max_concurrent_conversations || 5}
-                  onChange={(e) => atualizarUsuario("max_concurrent_conversations", parseInt(e.target.value) || 5)}
-                  className="h-9"
-                />
-              </CardContent>
-            </Card>
-          </div>
         </>
       )}
     </div>
