@@ -545,6 +545,24 @@ export default function ChatSidebar({
             console.log(`[SIDEBAR] 📬 Thread ${thread.id.substring(0, 8)}... tem ${thread.unread_count} não lidas`);
           }
 
+          // ✅ SKELETON: Se tem contact_id mas contato ainda não foi hidratado
+          if (thread.contact_id && !contato && !thread.is_contact_only && !thread.is_cliente_only) {
+            return (
+              <motion.div
+                key={thread.id}
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: index * 0.05 }}
+                className="px-2 py-2 flex items-center gap-3 border-b border-slate-100">
+                <div className="w-12 h-12 rounded-full bg-slate-200 animate-pulse"></div>
+                <div className="flex-1">
+                  <div className="h-4 bg-slate-200 rounded w-3/4 mb-2 animate-pulse"></div>
+                  <div className="h-3 bg-slate-200 rounded w-1/2 animate-pulse"></div>
+                </div>
+              </motion.div>
+            );
+          }
+
           if (!contato) {
             // Se é um cliente sem contato cadastrado, mostrar com indicador especial
             if (thread.is_cliente_only) {
