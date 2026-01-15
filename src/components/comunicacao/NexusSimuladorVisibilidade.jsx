@@ -262,6 +262,19 @@ export default function NexusSimuladorVisibilidade({ usuario, integracoes = [], 
                 const contato = thread.contact_id ? contatos.find(c => c.id === thread.contact_id) : null;
                 const hasUnread = (thread.unread_count || 0) > 0;
                 
+                // 🔍 Verificar inconsistências do contato com as regras Nexus360
+                let erroNexus = null;
+                if (simulationResults && contato) {
+                  const resultado = simulationResults.resultados.find(r => r.threadId === thread.id);
+                  if (resultado && !resultado.isMatch) {
+                    erroNexus = {
+                      severity: resultado.severity,
+                      descricao: resultado.nexusMotivo || 'Inconsistência detectada',
+                      regra: resultado.nexusDecisionPath?.[0]?.split(':')[1] || 'N/A'
+                    };
+                  }
+                }
+                
                 // Nome formatado
                 let nomeExibicao = "";
                 if (contato) {
@@ -276,7 +289,10 @@ export default function NexusSimuladorVisibilidade({ usuario, integracoes = [], 
                     return (
                       <div 
                         key={thread.id}
-                        className="px-2 py-2 flex items-center gap-2 border-b border-slate-100 hover:bg-gradient-to-r hover:from-amber-50 hover:to-orange-50 cursor-pointer transition-all"
+                        className={`px-2 py-2 flex items-center gap-2 border-b border-slate-100 hover:bg-gradient-to-r hover:from-amber-50 hover:to-orange-50 cursor-pointer transition-all ${
+                          erroNexus ? (erroNexus.severity === 'error' ? 'bg-red-50/50' : 'bg-amber-50/50') : ''
+                        }`}
+                        title={erroNexus ? `❌ ${erroNexus.descricao}` : ''}
                       >
                         {/* Avatar */}
                         <div className="relative flex-shrink-0">
@@ -289,6 +305,18 @@ export default function NexusSimuladorVisibilidade({ usuario, integracoes = [], 
                               nomeExibicao.charAt(0).toUpperCase()
                             )}
                           </div>
+                          
+                          {/* 🚨 Indicador de Erro Nexus360 */}
+                          {erroNexus && (
+                            <div 
+                              className={`absolute -bottom-0.5 -right-0.5 w-4 h-4 rounded-full flex items-center justify-center border-2 border-white shadow-md ${
+                                erroNexus.severity === 'error' ? 'bg-red-600' : 'bg-amber-500'
+                              }`}
+                              title={`Regra: ${erroNexus.regra}\n${erroNexus.descricao}`}
+                            >
+                              <AlertTriangle className="w-2.5 h-2.5 text-white" />
+                            </div>
+                          )}
                         </div>
 
                         {/* Info */}
@@ -324,7 +352,24 @@ export default function NexusSimuladorVisibilidade({ usuario, integracoes = [], 
                                 Atrib.
                               </Badge>
                             )}
+                            {erroNexus && (
+                              <Badge className={`text-[9px] h-3 px-1 ${
+                                erroNexus.severity === 'error' ? 'bg-red-600 text-white' : 'bg-amber-500 text-white'
+                              }`}>
+                                <AlertTriangle className="w-2 h-2 mr-0.5" />
+                                {erroNexus.regra}
+                              </Badge>
+                            )}
                           </div>
+                          
+                          {/* Descrição do Erro */}
+                          {erroNexus && (
+                            <div className={`mt-1 text-[9px] px-1.5 py-0.5 rounded ${
+                              erroNexus.severity === 'error' ? 'bg-red-100 text-red-800' : 'bg-amber-100 text-amber-800'
+                            }`}>
+                              {erroNexus.descricao}
+                            </div>
+                          )}
                         </div>
                       </div>
                     );
