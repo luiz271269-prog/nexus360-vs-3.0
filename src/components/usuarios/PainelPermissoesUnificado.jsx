@@ -13,7 +13,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { PERMISSIONS_PRESETS, buildUserPermissions } from '@/components/lib/permissionsService';
 import { toast } from 'sonner';
 
-export default function PainelPermissoesUnificado({ usuario, integracoes = [], onSalvar }) {
+export default function PainelPermissoesUnificado({ usuario, integracoes = [], onSalvar, runtimeMode = 'legacy' }) {
   const [configuracao, setConfiguracao] = useState({
     modo_visibilidade: 'padrao_liberado',
     regras_bloqueio: [],
@@ -254,8 +254,8 @@ export default function PainelPermissoesUnificado({ usuario, integracoes = [], o
             <Alert className="mt-4 bg-green-50 border-green-200">
               <CheckCircle2 className="h-4 w-4 text-green-600" />
               <AlertDescription className="text-xs">
-                <strong>✅ Nexus360 ativado para este usuário.</strong><br />
-                As regras abaixo serão aplicadas imediatamente ao salvar.
+                <strong>✅ Nexus360 selecionado.</strong><br />
+                Após salvar, use o toggle "Runtime Mode" (em Usuários) para ativar em produção.
               </AlertDescription>
             </Alert>
           )}
@@ -264,7 +264,7 @@ export default function PainelPermissoesUnificado({ usuario, integracoes = [], o
             <Alert className="mt-4">
               <Info className="h-4 w-4" />
               <AlertDescription className="text-xs">
-                Sistema legado ativo. Configure Nexus360 nas abas abaixo e teste antes de ativar.
+                Sistema legado selecionado. Configure Nexus360 nas abas abaixo e teste antes de migrar.
               </AlertDescription>
             </Alert>
           )}
@@ -286,12 +286,40 @@ export default function PainelPermissoesUnificado({ usuario, integracoes = [], o
                 </CardDescription>
               </div>
             </div>
-            <Badge variant={configuracao.modo_visibilidade === 'padrao_liberado' ? 'default' : 'destructive'}>
-              {configuracao.modo_visibilidade === 'padrao_liberado' ? '🟢 Liberado por Padrão' : '🔴 Bloqueado por Padrão'}
-            </Badge>
+            <div className="flex items-center gap-2">
+              <Badge variant={configuracao.modo_visibilidade === 'padrao_liberado' ? 'default' : 'destructive'}>
+                {configuracao.modo_visibilidade === 'padrao_liberado' ? '🟢 Liberado por Padrão' : '🔴 Bloqueado por Padrão'}
+              </Badge>
+              <Badge 
+                variant={runtimeMode === 'nexus_ativo' ? 'default' : 'outline'}
+                className={
+                  runtimeMode === 'nexus_ativo' ? 'bg-green-600 text-white' :
+                  runtimeMode === 'nexus_shadow' ? 'bg-amber-500 text-white' :
+                  'bg-slate-500 text-white'
+                }
+              >
+                {runtimeMode === 'legacy' && '🔵 Legacy Ativo'}
+                {runtimeMode === 'nexus_shadow' && '🟡 Nexus em Shadow'}
+                {runtimeMode === 'nexus_ativo' && '🟢 Nexus360 Ativo'}
+              </Badge>
+            </div>
           </div>
         </CardHeader>
       </Card>
+
+      {/* Alerta de status */}
+      <Alert>
+        <Info className="h-4 w-4" />
+        <AlertDescription>
+          <strong>Nexus360:</strong> {
+            runtimeMode === 'nexus_ativo' 
+              ? 'Estas configurações estão ATIVAS para este usuário. Alterações mudam imediatamente o que ele vê na Comunicação.'
+              : runtimeMode === 'nexus_shadow'
+              ? 'Nexus360 está em modo Shadow (comparação). As regras são calculadas mas não afetam o sistema.'
+              : 'Sistema Legacy ativo. Configure e teste Nexus360 antes de ativar na alternância acima.'
+          }
+        </AlertDescription>
+      </Alert>
 
 
 
@@ -643,11 +671,16 @@ export default function PainelPermissoesUnificado({ usuario, integracoes = [], o
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <Alert>
+              <Alert className={runtimeMode === 'nexus_ativo' ? 'bg-amber-50 border-amber-300' : ''}>
                 <AlertTriangle className="h-4 w-4" />
                 <AlertDescription>
                   Preset aplicado: <strong>{presetSelecionado || 'Nenhum'}</strong>. 
                   Alterações aqui sobrescrevem o preset.
+                  {runtimeMode === 'nexus_ativo' && (
+                    <span className="block mt-1 text-amber-700 font-medium">
+                      ⚠️ ATENÇÃO: Nexus360 está ativo - mudanças afetam o usuário imediatamente!
+                    </span>
+                  )}
                 </AlertDescription>
               </Alert>
 
