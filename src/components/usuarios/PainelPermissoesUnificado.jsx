@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
@@ -321,39 +321,15 @@ export default function PainelPermissoesUnificado({ usuario, integracoes = [], o
         </AlertDescription>
       </Alert>
 
-
-
-      <Tabs defaultValue="perfil" className="w-full">
-        <TabsList className="grid grid-cols-5 w-full">
-          <TabsTrigger value="perfil">
-            <Users className="w-4 h-4 mr-2" />
-            Perfil Rápido
-          </TabsTrigger>
-          <TabsTrigger value="bloqueios">
-            <Lock className="w-4 h-4 mr-2" />
-            Bloqueios
-          </TabsTrigger>
-          <TabsTrigger value="liberacoes">
-            <Unlock className="w-4 h-4 mr-2" />
-            Liberações
-          </TabsTrigger>
-          <TabsTrigger value="acoes">
-            <Shield className="w-4 h-4 mr-2" />
-            Ações
-          </TabsTrigger>
-          <TabsTrigger value="preview">
-            <Eye className="w-4 h-4 mr-2" />
-            Preview
-          </TabsTrigger>
-        </TabsList>
-
-        {/* ABA 1: Perfil Rápido */}
-        <TabsContent value="perfil" className="space-y-4">
-          <Card>
+      {/* SEÇÃO 1: Perfil Rápido */}
+      <Card>
             <CardHeader>
-              <CardTitle>Aplicar Perfil Predefinido</CardTitle>
+              <CardTitle>
+                <Users className="w-5 h-5 inline mr-2" />
+                Aplicar Perfil Predefinido
+              </CardTitle>
               <CardDescription>
-                Escolha um perfil base e personalize depois nas abas "Bloqueios" e "Ações"
+                Escolha um perfil base e personalize depois nas seções abaixo
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -407,15 +383,16 @@ export default function PainelPermissoesUnificado({ usuario, integracoes = [], o
               </div>
             </CardContent>
           </Card>
-        </TabsContent>
 
-        {/* ABA 2: Bloqueios */}
-        <TabsContent value="bloqueios" className="space-y-4">
-          <Card>
+      {/* SEÇÃO 2: Bloqueios (Escopo de Acesso) */}
+      <Card>
             <CardHeader>
-              <CardTitle>Regras de Bloqueio Explícitas</CardTitle>
+              <CardTitle>
+                <Lock className="w-5 h-5 inline mr-2 text-red-600" />
+                Escopo de Acesso - Bloqueios Explícitos
+              </CardTitle>
               <CardDescription>
-                Define o que o usuário NÃO pode ver (deny-first)
+                Define o que o usuário NÃO pode ver (P9/P10/P11 - deny-first)
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -564,15 +541,16 @@ export default function PainelPermissoesUnificado({ usuario, integracoes = [], o
               </div>
             </CardContent>
           </Card>
-        </TabsContent>
 
-        {/* ABA 3: Liberações */}
-        <TabsContent value="liberacoes" className="space-y-4">
-          <Card>
+      {/* SEÇÃO 3: Liberações (Redes de Segurança) */}
+      <Card>
             <CardHeader>
-              <CardTitle>Regras de Liberação Especiais</CardTitle>
+              <CardTitle>
+                <Unlock className="w-5 h-5 inline mr-2 text-green-600" />
+                Redes de Segurança - Liberações Especiais
+              </CardTitle>
               <CardDescription>
-                Libera acesso mesmo quando normalmente seria bloqueado
+                Libera acesso mesmo quando normalmente seria bloqueado (P5/P8 - allow-override)
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -659,15 +637,16 @@ export default function PainelPermissoesUnificado({ usuario, integracoes = [], o
               </div>
             </CardContent>
           </Card>
-        </TabsContent>
 
-        {/* ABA 4: Ações Granulares */}
-        <TabsContent value="acoes" className="space-y-4">
-          <Card>
+      {/* SEÇÃO 4: Ações Granulares */}
+      <Card>
             <CardHeader>
-              <CardTitle>Permissões Granulares de Ações</CardTitle>
+              <CardTitle>
+                <Shield className="w-5 h-5 inline mr-2 text-purple-600" />
+                Permissões Granulares de Ações
+              </CardTitle>
               <CardDescription>
-                Personalize permissão por permissão (sobrescreve preset)
+                Controle fino de ações e flags de visibilidade híbrida (sobrescreve preset)
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -843,15 +822,16 @@ export default function PainelPermissoesUnificado({ usuario, integracoes = [], o
               </div>
             </CardContent>
           </Card>
-        </TabsContent>
 
-        {/* ABA 5: Preview */}
-        <TabsContent value="preview" className="space-y-4">
-          <Card>
+      {/* SEÇÃO 5: Preview Consolidado */}
+      <Card className="border-slate-300 bg-slate-50">
             <CardHeader>
-              <CardTitle>Preview das Permissões Processadas</CardTitle>
+              <CardTitle>
+                <Eye className="w-5 h-5 inline mr-2 text-slate-600" />
+                Preview das Permissões Processadas
+              </CardTitle>
               <CardDescription>
-                Como o sistema interpretará estas configurações
+                Como o sistema interpretará estas configurações (decisão final P1-P12)
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -968,11 +948,9 @@ export default function PainelPermissoesUnificado({ usuario, integracoes = [], o
                 </div>
               )}
             </CardContent>
-          </Card>
-        </TabsContent>
-      </Tabs>
+            </Card>
 
-      {/* Botão Salvar */}
+            {/* Botões de Ação */}
       <div className="flex justify-end gap-3">
         <Button variant="outline" onClick={() => window.location.reload()}>
           Cancelar
