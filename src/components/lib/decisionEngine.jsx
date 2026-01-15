@@ -45,29 +45,22 @@ export function buildUserPermissions(usuario, allIntegracoes = []) {
     .sort((a, b) => (b.prioridade || 0) - (a.prioridade || 0));
 
   // Extrair valores bloqueados por tipo (COMBINAR HARD CORE + CUSTOM)
-  const setoresBloqueadosNexus = regrasBloqueio
-    .filter(r => r.tipo === 'setor')
-    .flatMap(r => r.valores_bloqueados || []);
-  const setoresBloqueados = [
+
+  // Usa Set para evitar duplicatas
+  const setoresBloqueados = [...new Set([
     ...(hardCoreBloqueios.setores || []),
-    ...setoresBloqueadosNexus
-  ];
+    ...regrasBloqueio.filter(r => r.tipo === 'setor').flatMap(r => r.valores_bloqueados || [])
+  ])];
 
-  const integracoesBloqueadasNexus = regrasBloqueio
-    .filter(r => r.tipo === 'integracao')
-    .flatMap(r => r.valores_bloqueados || []);
-  const integracoesBloqueadas = [
+  const integracoesBloqueadas = [...new Set([
     ...(hardCoreBloqueios.integracoes || []),
-    ...integracoesBloqueadasNexus
-  ];
+    ...regrasBloqueio.filter(r => r.tipo === 'integracao').flatMap(r => r.valores_bloqueados || [])
+  ])];
 
-  const canaisBloqueadosNexus = regrasBloqueio
-    .filter(r => r.tipo === 'canal')
-    .flatMap(r => r.valores_bloqueados || []);
-  const canaisBloqueados = [
+  const canaisBloqueados = [...new Set([
     ...(hardCoreBloqueios.canais || []),
-    ...canaisBloqueadosNexus
-  ];
+    ...regrasBloqueio.filter(r => r.tipo === 'canal').flatMap(r => r.valores_bloqueados || [])
+  ])];
 
   // Extrair regras de liberação
   const janelaRegra = regrasLiberacao.find(r => r.tipo === 'janela_24h');

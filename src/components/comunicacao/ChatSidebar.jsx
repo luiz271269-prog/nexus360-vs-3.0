@@ -150,32 +150,9 @@ export default function ChatSidebar({
   const threadsFiltradas = useMemo(() => {
     if (!threads || threads.length === 0) return [];
 
-    return threads.filter((thread) => {
-      // 0. REGRA MESTRA: Admin vê TUDO (sem exceções)
-      if (usuarioAtual?.role === 'admin') return true;
-
-      // 1. LÓGICA INTERNA - Baseada em participação
-      if (thread.thread_type === 'team_internal' || thread.thread_type === 'sector_group') {
-        if (!thread.participants || thread.participants.length === 0) return true;
-        const isParticipant = thread.participants.includes(usuarioAtual?.id);
-        return isParticipant;
-      }
-      
-      // 2. LÓGICA EXTERNA (WhatsApp Z-API/W-API) - Aplicar regras de visibilidade
-      const contato = thread.contato;
-      if (contato && contato.bloqueado) return false;
-      
-      // ✅ USAR MOTOR UNIFICADO P1-P12
-      const result = decidirVisibilidade(
-        usuarioAtual,
-        thread,
-        contato,
-        (u, t) => canUserSeeThreadBase(u, t), // Legacy decider como fallback
-        integracoes
-      );
-
-      return result.visible;
-    });
+    // A lista de threads que chega já foi filtrada pela lógica de `Comunicacao.jsx`.
+    // O filtro aqui foi removido para evitar duplicidade e conflitos.
+    return threads;
   }, [threads, usuarioAtual, integracoes]);
 
   const threadsSorted = useMemo(() => {
