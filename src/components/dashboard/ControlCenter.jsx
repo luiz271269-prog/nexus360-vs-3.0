@@ -36,7 +36,6 @@ import {
   TooltipProvider,
   TooltipTrigger
 } from "@/components/ui/tooltip";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import LogsFiltragemViewer from "../comunicacao/LogsFiltragemViewer";
 import DiagnosticoComparativoThreads from "../comunicacao/DiagnosticoComparativoThreads";
 import DiagnosticoThreadsInvisiveis from "../comunicacao/DiagnosticoThreadsInvisiveis";
