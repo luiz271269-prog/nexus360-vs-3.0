@@ -384,99 +384,102 @@ export default function NexusSimuladorVisibilidade({ usuario, integracoes = [], 
       {/* RESULTADOS DA SIMULAÇÃO */}
       <div className="space-y-3">
 
-      {/* Estatísticas */}
+      {/* Estatísticas + Filtros - LAYOUT COMPACTO */}
       {simulationResults && (
-        <div className="grid grid-cols-4 gap-3">
-          <Card>
-            <CardContent className="p-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-xs text-muted-foreground">Total Analisado</p>
-                  <p className="text-2xl font-bold">{simulationResults.stats.total}</p>
+        <div className="space-y-3">
+          {/* Métricas em Cards Horizontais */}
+          <div className="grid grid-cols-4 gap-3">
+            <Card className="border-2 border-slate-200">
+              <CardContent className="p-3">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-[10px] text-slate-500 uppercase tracking-wide">Total Analisado</p>
+                    <p className="text-3xl font-bold text-slate-900">{simulationResults.stats.total}</p>
+                  </div>
+                  <Database className="w-10 h-10 text-slate-300" />
                 </div>
-                <Database className="w-8 h-8 text-slate-400" />
-              </div>
-            </CardContent>
-          </Card>
+              </CardContent>
+            </Card>
 
-          <Card className="border-green-200">
-            <CardContent className="p-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-xs text-green-600 font-medium">Matches</p>
-                  <p className="text-2xl font-bold text-green-700">{simulationResults.stats.matches}</p>
+            <Card className="border-2 border-green-300 bg-green-50/30">
+              <CardContent className="p-3">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-[10px] text-green-600 uppercase tracking-wide font-medium">Matches</p>
+                    <p className="text-3xl font-bold text-green-700">{simulationResults.stats.matches}</p>
+                  </div>
+                  <CheckCircle2 className="w-10 h-10 text-green-500" />
                 </div>
-                <CheckCircle2 className="w-8 h-8 text-green-500" />
-              </div>
-            </CardContent>
-          </Card>
+              </CardContent>
+            </Card>
 
-          <Card className="border-amber-200">
-            <CardContent className="p-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-xs text-amber-600 font-medium">Divergências</p>
-                  <p className="text-2xl font-bold text-amber-700">{simulationResults.stats.divergencias}</p>
+            <Card className="border-2 border-amber-300 bg-amber-50/30">
+              <CardContent className="p-3">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-[10px] text-amber-600 uppercase tracking-wide font-medium">Divergências</p>
+                    <p className="text-3xl font-bold text-amber-700">{simulationResults.stats.divergencias}</p>
+                  </div>
+                  <AlertTriangle className="w-10 h-10 text-amber-500" />
                 </div>
-                <AlertTriangle className="w-8 h-8 text-amber-500" />
-              </div>
-            </CardContent>
-          </Card>
+              </CardContent>
+            </Card>
 
-          <Card className="border-purple-200">
-            <CardContent className="p-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-xs text-purple-600 font-medium">Aderência</p>
-                  <p className="text-2xl font-bold text-purple-700">{simulationResults.stats.taxa_aderencia}%</p>
+            <Card className="border-2 border-purple-300 bg-purple-50/30">
+              <CardContent className="p-3">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-[10px] text-purple-600 uppercase tracking-wide font-medium">Aderência</p>
+                    <p className="text-3xl font-bold text-purple-700">{simulationResults.stats.taxa_aderencia}%</p>
+                  </div>
+                  <TrendingUp className="w-10 h-10 text-purple-500" />
                 </div>
-                <TrendingUp className="w-8 h-8 text-purple-500" />
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Filtros em Linha Única */}
+          <Card className="border-slate-200">
+            <CardContent className="p-3">
+              <div className="flex gap-4 items-center">
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-semibold text-slate-700">Filtrar por:</span>
+                  <select 
+                    value={filtroRegra} 
+                    onChange={(e) => setFiltroRegra(e.target.value)}
+                    className="text-xs border border-slate-300 rounded px-3 py-1.5 bg-white focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+                  >
+                    <option value="todas">Todas as Regras</option>
+                    <option value="admin_total">P2: Admin Total</option>
+                    <option value="thread_atribuida">P3: Thread Atribuída</option>
+                    <option value="contato_fidelizado">P4: Fidelizado</option>
+                    <option value="janela_24h">P5: Janela 24h</option>
+                    <option value="bloqueio_fidelizado_outro">P6: Bloq. Fidelizado Outro</option>
+                    <option value="bloqueio_atribuido_outro">P7: Bloq. Atribuído Outro</option>
+                    <option value="gerente_supervisao">P8: Gerente Supervisão</option>
+                    <option value="bloqueio_integracao">P10: Bloqueio Integração</option>
+                    <option value="bloqueio_setor">P11: Bloqueio Setor</option>
+                    <option value="nexus360_default">P12: Default Liberado</option>
+                  </select>
+                </div>
+                
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-semibold text-slate-700">Status:</span>
+                  <select 
+                    value={filtroDivergencia} 
+                    onChange={(e) => setFiltroDivergencia(e.target.value)}
+                    className="text-xs border border-slate-300 rounded px-3 py-1.5 bg-white focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+                  >
+                    <option value="todas">Todas</option>
+                    <option value="matches">✓ Matches ({simulationResults.stats.matches})</option>
+                    <option value="divergencias">⚠️ Divergências ({simulationResults.stats.divergencias})</option>
+                    <option value="criticos">🚨 Críticos ({simulationResults.stats.criticosFalsoNegativo})</option>
+                  </select>
+                </div>
               </div>
             </CardContent>
           </Card>
         </div>
-      )}
-
-      {/* Filtros de análise */}
-      {simulationResults && (
-        <Card className="p-3">
-          <div className="flex gap-3 items-center flex-wrap">
-            <div className="flex items-center gap-2">
-              <span className="text-xs font-medium text-slate-700">Filtrar por:</span>
-              <select 
-                value={filtroRegra} 
-                onChange={(e) => setFiltroRegra(e.target.value)}
-                className="text-xs border rounded px-2 py-1 bg-white"
-              >
-                <option value="todas">Todas as Regras</option>
-                <option value="admin_total">P2: Admin Total</option>
-                <option value="thread_atribuida">P3: Thread Atribuída</option>
-                <option value="contato_fidelizado">P4: Fidelizado</option>
-                <option value="janela_24h">P5: Janela 24h</option>
-                <option value="bloqueio_fidelizado_outro">P6: Bloq. Fidelizado Outro</option>
-                <option value="bloqueio_atribuido_outro">P7: Bloq. Atribuído Outro</option>
-                <option value="gerente_supervisao">P8: Gerente Supervisão</option>
-                <option value="bloqueio_integracao">P10: Bloqueio Integração</option>
-                <option value="bloqueio_setor">P11: Bloqueio Setor</option>
-                <option value="nexus360_default">P12: Default Liberado</option>
-              </select>
-            </div>
-            
-            <div className="flex items-center gap-2">
-              <span className="text-xs font-medium text-slate-700">Status:</span>
-              <select 
-                value={filtroDivergencia} 
-                onChange={(e) => setFiltroDivergencia(e.target.value)}
-                className="text-xs border rounded px-2 py-1 bg-white"
-              >
-                <option value="todas">Todas</option>
-                <option value="matches">✓ Matches ({simulationResults.stats.matches})</option>
-                <option value="divergencias">⚠️ Divergências ({simulationResults.stats.divergencias})</option>
-                <option value="criticos">🚨 Críticos ({simulationResults.stats.criticosFalsoNegativo})</option>
-              </select>
-            </div>
-          </div>
-        </Card>
       )}
 
       {/* Tabela de resultados - COMPACTA */}
