@@ -6,10 +6,11 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Search, Plus, Save, User, Shield, Settings, ChevronRight, Check, Loader2, Trash2, Zap } from "lucide-react";
+import { Search, Plus, Save, User, Shield, Settings, ChevronRight, Check, Loader2, Trash2, Zap, MessageSquare } from "lucide-react";
 import { toast } from "sonner";
 import PainelPermissoesUnificado from "./PainelPermissoesUnificado";
-// Removido debounce do lodash - usando implementação nativa
+import SecaoDadosUsuario from "./SecaoDadosUsuario";
+import SecaoComunicacaoUsuario from "./SecaoComunicacaoUsuario";
 
 // ══════════════════════════════════════════════════════════════════════════════
 // CONFIGURAÇÃO DE RECURSOS DO SISTEMA
@@ -653,100 +654,33 @@ export default function GerenciadorUsuariosUnificado({
         ) : (
           <div className="flex-1 overflow-auto p-4">
             <Tabs defaultValue="dados" className="w-full">
-              <TabsList className="grid grid-cols-3 w-full">
+              <TabsList className="grid grid-cols-4 w-full">
                 <TabsTrigger value="dados">
                   <User className="w-4 h-4 mr-2" />
-                  Dados & Perfil
+                  Dados
                 </TabsTrigger>
                 <TabsTrigger value="permissoes_atuais">
                   <Shield className="w-4 h-4 mr-2" />
-                  Permissões Atuais
+                  Permissões
+                </TabsTrigger>
+                <TabsTrigger value="comunicacao" onClick={() => setRecursoSelecionado({ id: "Comunicacao", nome: "💬 Comunicação", tipo: "menu" })}>
+                  <MessageSquare className="w-4 h-4 mr-2" />
+                  Comunicação
                 </TabsTrigger>
                 <TabsTrigger value="permissoes_nexus">
                   <Zap className="w-4 h-4 mr-2" />
-                  Nexus360 (Novo)
+                  Nexus360
                 </TabsTrigger>
               </TabsList>
 
               {/* ABA: Dados & Perfil */}
               <TabsContent value="dados" className="space-y-4 mt-4">
                 {recursoSelecionado?.tipo === "config" && (
-                  <div className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="text-xs font-medium text-slate-700 mb-1 block">Nome Completo</label>
-                    <Input
-                      value={usuarioSelecionado.nome || ""}
-                      onChange={(e) => atualizarUsuario("nome", e.target.value)}
-                      placeholder="Nome do usuário"
-                      className="h-9"
-                    />
-                  </div>
-                  <div>
-                    <label className="text-xs font-medium text-slate-700 mb-1 block">E-mail</label>
-                    <Input
-                      value={usuarioSelecionado.email || ""}
-                      onChange={(e) => atualizarUsuario("email", e.target.value)}
-                      placeholder="email@empresa.com"
-                      className="h-9"
-                      disabled={!usuarioSelecionado.isNovo}
-                    />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-3 gap-4">
-                  <div>
-                    <label className="text-xs font-medium text-slate-700 mb-1 block">Setor</label>
-                    <Select value={usuarioSelecionado.setor || "geral"} onValueChange={(v) => atualizarUsuario("setor", v)}>
-                      <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        {SETORES.map(s => <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>)}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div>
-                    <label className="text-xs font-medium text-slate-700 mb-1 block">Função</label>
-                    <Select value={usuarioSelecionado.funcao || "pleno"} onValueChange={(v) => atualizarUsuario("funcao", v)}>
-                      <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        {FUNCOES.map(f => <SelectItem key={f.value} value={f.value}>{f.label}</SelectItem>)}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div>
-                    <label className="text-xs font-medium text-slate-700 mb-1 block">Tipo de Acesso</label>
-                    <Select value={usuarioSelecionado.tipoAcesso || "user"} onValueChange={(v) => atualizarUsuario("tipoAcesso", v)}>
-                      <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="admin">Administrador</SelectItem>
-                        <SelectItem value="user">Usuário</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-
-                <div className="flex items-center justify-between p-3 bg-slate-50 rounded-lg">
-                  <div>
-                    <p className="text-sm font-medium text-slate-800">Status do Usuário</p>
-                    <p className="text-xs text-slate-500">Usuários inativos não podem acessar o sistema</p>
-                  </div>
-                  <Switch
-                    checked={usuarioSelecionado.ativo !== false}
-                    onCheckedChange={(v) => atualizarUsuario("ativo", v)}
+                  <SecaoDadosUsuario
+                    usuarioSelecionado={usuarioSelecionado}
+                    atualizarUsuario={atualizarUsuario}
+                    integracoesWhatsApp={integracoesWhatsApp}
                   />
-                </div>
-
-                {/* Atendente WhatsApp */}
-                <div className="flex items-center justify-between p-3 bg-green-50 rounded-lg border border-green-200">
-                  <div>
-                    <p className="text-sm font-medium text-green-800">📱 Atendente WhatsApp</p>
-                    <p className="text-xs text-green-600">Habilitar para receber conversas do WhatsApp</p>
-                  </div>
-                  <Switch
-                    checked={usuarioSelecionado.is_whatsapp_attendant || false}
-                    onCheckedChange={(v) => atualizarUsuario("is_whatsapp_attendant", v)}
-                  />
-                </div>
 
                 {/* Permissão para Transferir Conversas */}
                 {usuarioSelecionado.is_whatsapp_attendant && (
@@ -890,30 +824,17 @@ export default function GerenciadorUsuariosUnificado({
                   </div>
                 )}
 
-                {/* Perfis Rápidos */}
-                <div className="pt-4 border-t">
-                  <h3 className="text-xs font-bold text-slate-700 mb-3 flex items-center gap-1">
-                    <Shield className="w-3 h-3" /> Perfis de Acesso Rápido
-                  </h3>
-                  <p className="text-[10px] text-slate-500 mb-3">
-                    Clique em um perfil para aplicar automaticamente as permissões predefinidas
-                  </p>
-                  <div className="grid grid-cols-2 gap-2">
-                    {Object.entries(PERFIS_RAPIDOS).map(([key, perfil]) => (
-                      <button
-                        key={key}
-                        onClick={() => aplicarPerfil(key)}
-                        className={`p-3 rounded-lg text-left transition-all hover:scale-[1.02] hover:shadow-md border-2 border-transparent hover:border-white/50 bg-gradient-to-br ${perfil.cor} text-white`}
-                      >
-                        <div className="font-bold text-sm">{perfil.label}</div>
-                        <div className="text-[10px] opacity-90">{perfil.desc}</div>
-                        <div className="text-[9px] mt-1 opacity-75">{perfil.permissoes.length} permissões</div>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            )}
+                )}
+
+                {/* ══════════════════════════════════════════════════════════════════ */}
+                {/* COMUNICAÇÃO (menu) */}
+                {/* ══════════════════════════════════════════════════════════════════ */}
+                {recursoSelecionado?.id === "Comunicacao" && (
+                <SecaoComunicacaoUsuario
+                usuarioSelecionado={usuarioSelecionado}
+                integracoesWhatsApp={integracoesWhatsApp}
+                atualizarUsuario={atualizarUsuario}
+                />
 
             {/* ══════════════════════════════════════════════════════════════════ */}
             {/* PERMISSÕES DO MENU (menu) */}
@@ -964,6 +885,15 @@ export default function GerenciadorUsuariosUnificado({
               </div>
             )}
           </TabsContent>
+
+              {/* ABA: Comunicação */}
+              <TabsContent value="comunicacao" className="space-y-4 mt-4">
+                <SecaoComunicacaoUsuario
+                  usuarioSelecionado={usuarioSelecionado}
+                  integracoesWhatsApp={integracoesWhatsApp}
+                  atualizarUsuario={atualizarUsuario}
+                />
+              </TabsContent>
 
               {/* ABA: Permissões Atuais (Sistema Legado) */}
               <TabsContent value="permissoes_atuais" className="space-y-4 mt-4">
