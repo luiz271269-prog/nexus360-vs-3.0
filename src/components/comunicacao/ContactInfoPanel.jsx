@@ -116,12 +116,16 @@ export default function ContactInfoPanel({
     
     // AUTO-SAVE instantâneo para contato existente
     if (contact && !novoContatoTelefone && podeEditarContatos) {
+      setSalvando(true);
       try {
         await base44.entities.Contact.update(contact.id, { [campo]: valor });
         if (onUpdate) await onUpdate();
+        // ✅ Feedback visual sutil (sem toast excessivo)
       } catch (error) {
         console.error('[ContactInfoPanel] Erro ao auto-salvar:', error);
         toast.error('Erro ao salvar');
+      } finally {
+        setSalvando(false);
       }
     }
   };
