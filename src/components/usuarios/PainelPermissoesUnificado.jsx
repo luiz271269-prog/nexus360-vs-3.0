@@ -11,6 +11,7 @@ import { Separator } from '@/components/ui/separator';
 import { Shield, Eye, Lock, Unlock, AlertTriangle, CheckCircle2, Info, Zap, Settings, Users } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { PERMISSIONS_PRESETS, buildUserPermissions } from '@/components/lib/permissionsService';
+import GuiaRegraP1P12 from './GuiaRegraP1P12';
 import { toast } from 'sonner';
 
 export default function PainelPermissoesUnificado({ usuario, integracoes = [], onSalvar, runtimeMode = 'legacy' }) {
@@ -350,8 +351,11 @@ export default function PainelPermissoesUnificado({ usuario, integracoes = [], o
          </CardContent>
        </Card>
 
+      {/* GUIA P1-P12 */}
+      <GuiaRegraP1P12 />
+
       {/* Header com modo Nexus360 */}
-      <Card className="border-purple-200 bg-gradient-to-r from-purple-50 to-indigo-50">
+       <Card className="border-purple-200 bg-gradient-to-r from-purple-50 to-indigo-50">
         <CardHeader>
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
