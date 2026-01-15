@@ -164,10 +164,6 @@ export default function ChatSidebar({
       const contato = thread.contato;
       if (contato && contato.bloqueado) return false;
       
-      // ✅ FAIL-SAFE: Não bloquear thread com contact_id se contato ainda não hidratou
-      // (evita thread sumir e reaparecer quando contato carregar)
-      if (!contato && thread.contact_id) return true;
-      
       // ✅ APLICAR REGRAS DE VISIBILIDADE (Conexões WhatsApp + Setores)
       return canUserSeeThreadBase(usuarioAtual, thread);
     });
@@ -547,24 +543,6 @@ export default function ChatSidebar({
           // ✅ DEBUG: Log de contadores para esta thread
           if (thread.id && (thread.unread_count || 0) > 0) {
             console.log(`[SIDEBAR] 📬 Thread ${thread.id.substring(0, 8)}... tem ${thread.unread_count} não lidas`);
-          }
-
-          // ✅ SKELETON: Se tem contact_id mas contato ainda não foi hidratado
-          if (thread.contact_id && !contato && !thread.is_contact_only && !thread.is_cliente_only) {
-            return (
-              <motion.div
-                key={thread.id}
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: index * 0.05 }}
-                className="px-2 py-2 flex items-center gap-3 border-b border-slate-100">
-                <div className="w-12 h-12 rounded-full bg-slate-200 animate-pulse"></div>
-                <div className="flex-1">
-                  <div className="h-4 bg-slate-200 rounded w-3/4 mb-2 animate-pulse"></div>
-                  <div className="h-3 bg-slate-200 rounded w-1/2 animate-pulse"></div>
-                </div>
-              </motion.div>
-            );
           }
 
           if (!contato) {
