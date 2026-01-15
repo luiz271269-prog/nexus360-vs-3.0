@@ -770,42 +770,43 @@ export default function PainelPermissoesUnificado({ usuario, integracoes = [], o
                   <h3 className="font-semibold">Ações Granulares (Operações)</h3>
                 </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                {[
-                  { key: 'podeVerTodasConversas', label: 'Ver Todas as Conversas', icon: Eye },
-                  { key: 'podeEnviarMensagens', label: 'Enviar Mensagens', icon: Shield },
-                  { key: 'podeEnviarMidias', label: 'Enviar Mídias', icon: Shield },
-                  { key: 'podeEnviarAudios', label: 'Enviar Áudios', icon: Shield },
-                  { key: 'podeTransferirConversa', label: 'Transferir Conversas', icon: Shield },
-                  { key: 'podeApagarMensagens', label: 'Apagar Mensagens', icon: Lock },
-                  { key: 'podeGerenciarFilas', label: 'Gerenciar Filas', icon: Settings },
-                  { key: 'podeAtribuirConversas', label: 'Atribuir Conversas', icon: Users },
-                  { key: 'podeVerDetalhesContato', label: 'Ver Detalhes Contato', icon: Eye },
-                  { key: 'podeEditarContato', label: 'Editar Contato', icon: Settings },
-                  { key: 'podeBloquearContato', label: 'Bloquear Contato', icon: Lock },
-                  { key: 'podeDeletarContato', label: 'Deletar Contato', icon: Lock },
-                  { key: 'podeCriarPlaybooks', label: 'Criar Playbooks', icon: Settings },
-                  { key: 'podeEditarPlaybooks', label: 'Editar Playbooks', icon: Settings },
-                  { key: 'podeGerenciarConexoes', label: 'Gerenciar Conexões', icon: Settings },
-                  { key: 'podeVerRelatorios', label: 'Ver Relatórios', icon: Eye },
-                  { key: 'podeExportarDados', label: 'Exportar Dados', icon: Shield },
-                  { key: 'podeGerenciarPermissoes', label: 'Gerenciar Permissões', icon: Lock },
-                  { key: 'podeVerDiagnosticos', label: 'Ver Diagnósticos', icon: Settings }
-                ].map(({ key, label, icon: Icon }) => (
-                  <div key={key} className="flex items-center justify-between p-3 border rounded-lg">
-                    <div className="flex items-center gap-2">
-                      <Icon className="w-4 h-4 text-muted-foreground" />
-                      <span className="text-sm">{label}</span>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  {[
+                    { key: 'podeVerTodasConversas', label: 'Ver Todas as Conversas', icon: Eye },
+                    { key: 'podeEnviarMensagens', label: 'Enviar Mensagens', icon: Shield },
+                    { key: 'podeEnviarMidias', label: 'Enviar Mídias', icon: Shield },
+                    { key: 'podeEnviarAudios', label: 'Enviar Áudios', icon: Shield },
+                    { key: 'podeTransferirConversa', label: 'Transferir Conversas', icon: Shield },
+                    { key: 'podeApagarMensagens', label: 'Apagar Mensagens', icon: Lock },
+                    { key: 'podeGerenciarFilas', label: 'Gerenciar Filas', icon: Settings },
+                    { key: 'podeAtribuirConversas', label: 'Atribuir Conversas', icon: Users },
+                    { key: 'podeVerDetalhesContato', label: 'Ver Detalhes Contato', icon: Eye },
+                    { key: 'podeEditarContato', label: 'Editar Contato', icon: Settings },
+                    { key: 'podeBloquearContato', label: 'Bloquear Contato', icon: Lock },
+                    { key: 'podeDeletarContato', label: 'Deletar Contato', icon: Lock },
+                    { key: 'podeCriarPlaybooks', label: 'Criar Playbooks', icon: Settings },
+                    { key: 'podeEditarPlaybooks', label: 'Editar Playbooks', icon: Settings },
+                    { key: 'podeGerenciarConexoes', label: 'Gerenciar Conexões', icon: Settings },
+                    { key: 'podeVerRelatorios', label: 'Ver Relatórios', icon: Eye },
+                    { key: 'podeExportarDados', label: 'Exportar Dados', icon: Shield },
+                    { key: 'podeGerenciarPermissoes', label: 'Gerenciar Permissões', icon: Lock },
+                    { key: 'podeVerDiagnosticos', label: 'Ver Diagnósticos', icon: Settings }
+                  ].map(({ key, label, icon: Icon }) => (
+                    <div key={key} className="flex items-center justify-between p-3 border rounded-lg">
+                      <div className="flex items-center gap-2">
+                        <Icon className="w-4 h-4 text-muted-foreground" />
+                        <span className="text-sm">{label}</span>
+                      </div>
+                      <Switch
+                        checked={permissoesAcoes[key] ?? (previewPermissoes?.[key] ?? true)}
+                        onCheckedChange={(checked) => setPermissoesAcoes(prev => ({
+                          ...prev,
+                          [key]: checked
+                        }))}
+                      />
                     </div>
-                    <Switch
-                      checked={permissoesAcoes[key] ?? (previewPermissoes?.[key] ?? true)}
-                      onCheckedChange={(checked) => setPermissoesAcoes(prev => ({
-                        ...prev,
-                        [key]: checked
-                      }))}
-                    />
-                  </div>
-                ))}
+                  ))}
+                </div>
               </div>
             </CardContent>
           </Card>
