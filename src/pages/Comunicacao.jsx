@@ -732,9 +732,11 @@ export default function Comunicacao() {
     }
   }, [integracoes, queryClient, usuario]);
 
-  // RESTAURADO: Handler para atualizar informações do contato
+  // Handler para atualizar informações do contato (silencioso para auto-save)
   const handleAtualizarContato = useCallback(async (dadosAtualizados) => {
     try {
+      console.log('[Comunicacao] 🔄 Invalidando cache após edição de contato...');
+      
       await queryClient.invalidateQueries({ queryKey: ['contacts'] });
       await queryClient.invalidateQueries({ queryKey: ['threads'] });
 
@@ -745,7 +747,7 @@ export default function Comunicacao() {
         }
       }
 
-      toast.success('✅ Informações atualizadas!');
+      // ✅ Sem toast para não poluir UI em auto-save (já tem indicador "Salvando...")
     } catch (error) {
       console.error('[Comunicacao] Erro ao atualizar:', error);
       toast.error('Erro ao atualizar informações');

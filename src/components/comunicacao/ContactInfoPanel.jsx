@@ -114,16 +114,26 @@ export default function ContactInfoPanel({
   const handleChange = async (campo, valor) => {
     setFormData(prev => ({ ...prev, [campo]: valor }));
     
-    // AUTO-SAVE instantâneo para contato existente
+    // ✅ AUTO-SAVE DINÂMICO para contato existente
     if (contact && !novoContatoTelefone && podeEditarContatos) {
       setSalvando(true);
       try {
+        console.log(`[ContactInfoPanel] 💾 Auto-salvando campo "${campo}":`, valor);
+        
         await base44.entities.Contact.update(contact.id, { [campo]: valor });
-        if (onUpdate) await onUpdate();
-        // ✅ Feedback visual sutil (sem toast excessivo)
+        
+        console.log(`[ContactInfoPanel] ✅ Campo "${campo}" salvo com sucesso`);
+        
+        // Invalidar queries para refletir mudanças
+        if (onUpdate) {
+          await onUpdate();
+        }
       } catch (error) {
-        console.error('[ContactInfoPanel] Erro ao auto-salvar:', error);
-        toast.error('Erro ao salvar');
+        console.error(`[ContactInfoPanel] ❌ Erro ao salvar campo "${campo}":`, error);
+        toast.error(`Erro ao salvar ${campo}: ${error.message}`);
+        
+        // Reverter valor local em caso de erro
+        setFormData(prev => ({ ...prev, [campo]: contact[campo] || '' }));
       } finally {
         setSalvando(false);
       }
