@@ -33,7 +33,7 @@ import {
 import { getUserDisplayName } from "../lib/userHelpers";
 import UsuarioDisplay from "./UsuarioDisplay";
 import { canUserSeeThreadBase } from "../lib/threadVisibility";
-import { decidirVisibilidade } from "@/components/lib/decidirVisibilidadeNexus";
+import { decidirVisibilidade } from "@/components/lib/decisionEngine";
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // 🎯 GETTER UNIFICADO: Badge de não lidas (externo + interno)
@@ -165,17 +165,16 @@ export default function ChatSidebar({
       const contato = thread.contato;
       if (contato && contato.bloqueado) return false;
       
-      // ✅ USAR MOTOR NEXUS360 ou LEGACY conforme runtime
-      const runtimeMode = usuarioAtual?.sistema_permissoes_ativo || 'legacy';
+      // ✅ USAR MOTOR UNIFICADO P1-P12
       const result = decidirVisibilidade(
         usuarioAtual,
         thread,
-        integracoes,
-        runtimeMode,
-        (u, t) => canUserSeeThreadBase(u, t) // Legacy decider
+        contato,
+        (u, t) => canUserSeeThreadBase(u, t), // Legacy decider como fallback
+        integracoes
       );
-      
-      return result.decision === 'ALLOW';
+
+      return result.visible;
     });
   }, [threads, usuarioAtual, integracoes]);
 
