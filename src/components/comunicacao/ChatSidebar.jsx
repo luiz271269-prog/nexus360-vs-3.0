@@ -33,7 +33,6 @@ import {
 import { getUserDisplayName } from "../lib/userHelpers";
 import UsuarioDisplay from "./UsuarioDisplay";
 import { canUserSeeThreadBase } from "../lib/threadVisibility";
-import { analyzeDivergence } from "../lib/nexusComparator";
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // 🎯 GETTER UNIFICADO: Badge de não lidas (externo + interno)
@@ -109,24 +108,6 @@ const resolveThreadUI = (thread, currentUser, atendentes = []) => {
   return {
     isInternal: false
   };
-};
-
-// ═══════════════════════════════════════════════════════════════════════════════
-// 🎯 MAPEAMENTO REASON CODE → TEXTO DE NEGÓCIO (Badge curto)
-// ═══════════════════════════════════════════════════════════════════════════════
-const REASON_CODE_LABELS = {
-  // Críticos (vermelho) - mostram badge
-  'LOYAL_TO_ANOTHER': 'Carteira outro',
-  'ASSIGNED_TO_ANOTHER': 'De outro',
-  'CHANNEL_BLOCKED': 'Canal lock',
-  'INTEGRATION_BLOCKED': 'Chip lock',
-  'SECTOR_BLOCKED': 'Setor lock',
-  'NOT_PARTICIPANT': 'Não participa',
-  
-  // Alertas (amarelo) - só tooltip
-  'WINDOW_24H_ACTIVE': 'Janela 24h ativa',
-  'MANAGER_SUPERVISION': 'Supervisão gerente',
-  'DEFAULT_ALLOW': 'Nexus + permissivo'
 };
 
 export default function ChatSidebar({ 
@@ -669,31 +650,6 @@ export default function ChatSidebar({
                     nomeExibicao.charAt(0).toUpperCase()
                   )}
                 </div>
-                
-                {/* 🚨 INDICADOR DE INCONSISTÊNCIA NEXUS360 - Shadow Engine */}
-                {(() => {
-                  if (!usuarioAtual) return null;
-                  
-                  // Calcular divergência Legado vs Nexus360
-                  const divergencia = analyzeDivergence(usuarioAtual, thread, integracoes);
-                  
-                  // Se é MATCH, não mostrar nada
-                  if (divergencia.isMatch) return null;
-                  
-                  const isCritico = divergencia.severity === 'error';
-                  const reasonLabel = REASON_CODE_LABELS[divergencia.nexusReasonCode] || divergencia.nexusReasonCode;
-                  
-                  return (
-                    <div 
-                      className={`absolute -bottom-0.5 -right-0.5 w-5 h-5 rounded-full flex items-center justify-center border-2 border-white shadow-lg ${
-                        isCritico ? 'bg-red-600 animate-pulse' : 'bg-amber-500'
-                      }`}
-                      title={`${isCritico ? '🚨 CRÍTICO' : '⚠️ ALERTA'}\n${divergencia.reason}\n\nRegra: ${reasonLabel}\nDescrição: ${divergencia.nexusMotivo}`}
-                    >
-                      <AlertCircle className="w-3 h-3 text-white" />
-                    </div>
-                  );
-                })()}
               </div>
 
               <div className="flex-1 min-w-0">
@@ -829,27 +785,6 @@ export default function ChatSidebar({
                       VIP
                     </span>
                   )}
-                  
-                  {/* 🚨 BADGE DE INCONSISTÊNCIA NEXUS360 - Apenas para CRÍTICOS */}
-                  {(() => {
-                    if (!usuarioAtual) return null;
-                    
-                    const divergencia = analyzeDivergence(usuarioAtual, thread, integracoes);
-                    
-                    // Mostrar badge APENAS para críticos (falsos negativos)
-                    if (divergencia.severity !== 'error') return null;
-                    
-                    const reasonLabel = REASON_CODE_LABELS[divergencia.nexusReasonCode] || divergencia.nexusReasonCode;
-                    
-                    return (
-                      <span 
-                        className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-bold text-white bg-red-600 shadow-md animate-pulse"
-                        title={`🚨 CRÍTICO: ${divergencia.reason}\n${divergencia.nexusMotivo}`}
-                      >
-                        🚨 {reasonLabel}
-                      </span>
-                    );
-                  })()}
                   
                   {/* ATENDENTE: Badge compacto com UsuarioDisplay no tooltip */}
                   {thread.assigned_user_id ? (
