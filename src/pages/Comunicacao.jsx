@@ -195,7 +195,7 @@ export default function Comunicacao() {
         throw error;
       }
     },
-    refetchInterval: 30000,
+    refetchInterval: 45000, // ✅ OT #4: Aumentado para 45s (Realtime cobre updates)
     staleTime: 15000,
     enabled: !!usuario && !isRateLimited,
     retry: 2,
@@ -231,10 +231,9 @@ export default function Comunicacao() {
         // Estratégia: Buscar lista maior e filtrar em memória (fallback robusto)
         const todosContatos = await base44.entities.Contact.list('-last_interaction', 1000);
         
-        // Filtrar em memória apenas os que estão em contactIdsParaCarregar
-        const contatosNecessarios = todosContatos.filter(c =>
-          contactIdsParaCarregar.includes(c.id)
-        );
+        // ✅ OT #1: Otimização O(N) com Set (Muito mais rápido que .includes)
+        const idsSet = new Set(contactIdsParaCarregar);
+        const contatosNecessarios = todosContatos.filter(c => idsSet.has(c.id));
         
         console.log(`[COMUNICACAO] ✅ Contatos hidratados: ${contatosNecessarios.length}/${contactIdsParaCarregar.length}`);
         return contatosNecessarios;
@@ -1189,9 +1188,12 @@ export default function Comunicacao() {
                   threadMaisRecentePorContacto.set(contactId, thread);
                 } else {
                   // Se há múltiplas threads do mesmo contato (em integrações diferentes), manter a mais recente
-                  const dataExistente = new Date(existente.last_message_at || existente.updated_date || existente.created_date || 0);
-                  const dataAtual = new Date(thread.last_message_at || thread.updated_date || thread.created_date || 0);
-                  if (dataAtual > dataExistente) {
+                  
+                  // ✅ OT #2: Comparação de Timestamp Numérico (Mais leve que objetos Date)
+                  const tsExistente = new Date(existente.last_message_at || existente.updated_date || existente.created_date || 0).getTime();
+                  const tsAtual = new Date(thread.last_message_at || thread.updated_date || thread.created_date || 0).getTime();
+                  
+                  if (tsAtual > tsExistente) {
                     threadMaisRecentePorContacto.set(contactId, thread);
                   }
                 }
@@ -1230,6 +1232,9 @@ export default function Comunicacao() {
     
     const threadsFiltrados = threadsUnicas.filter((thread) => {
       const logThread = (etapa, passou, motivo = '') => {
+        // ✅ OT #3: Blindagem de Logs em Produção (só aloca se DEBUG ativo)
+        if (!DEBUG_VIS) return;
+        
         logsFiltragem.push({
           threadId: thread.id.substring(0, 8),
           contactId: thread.contact_id?.substring(0, 8),
