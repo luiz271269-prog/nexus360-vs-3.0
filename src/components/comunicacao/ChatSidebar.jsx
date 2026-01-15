@@ -164,6 +164,10 @@ export default function ChatSidebar({
       const contato = thread.contato;
       if (contato && contato.bloqueado) return false;
       
+      // ✅ FAIL-SAFE: Não bloquear thread com contact_id se contato ainda não hidratou
+      // (evita thread sumir e reaparecer quando contato carregar)
+      if (!contato && thread.contact_id) return true;
+      
       // ✅ APLICAR REGRAS DE VISIBILIDADE (Conexões WhatsApp + Setores)
       return canUserSeeThreadBase(usuarioAtual, thread);
     });
