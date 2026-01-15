@@ -466,7 +466,10 @@ export function decidirVisibilidade(usuario, thread, contato = null, legacyDecid
     const permsNexus = buildUserPermissions(usuario, integracoes);
     const resultadoNexus = canUserSeeThreadDecision(permsNexus, thread, contato);
 
-    const resultadoLegacy = legacyDecider ? legacyDecider(usuario, thread) : { visible: true };
+    const legacyRaw = legacyDecider ? legacyDecider(usuario, thread) : true;
+    const resultadoLegacy = typeof legacyRaw === 'boolean' 
+      ? { visible: legacyRaw, reason_code: legacyRaw ? 'LEGACY_ALLOW' : 'LEGACY_DENY', decision_path: [] }
+      : legacyRaw;
 
     if (resultadoNexus.visible !== resultadoLegacy.visible) {
       console.warn('[NEXUS SHADOW DIVERGENCE]', {
@@ -484,8 +487,10 @@ export function decidirVisibilidade(usuario, thread, contato = null, legacyDecid
   }
 
   // Legacy (padrão): usar fallback
-  const resultado = legacyDecider ? legacyDecider(usuario, thread) : { visible: true };
-  resultado.sistema_usado = 'legacy';
+  const legacyRaw = legacyDecider ? legacyDecider(usuario, thread) : true;
+  const resultado = typeof legacyRaw === 'boolean'
+    ? { visible: legacyRaw, reason_code: legacyRaw ? 'LEGACY_ALLOW' : 'LEGACY_DENY', decision_path: [], sistema_usado: 'legacy' }
+    : { ...legacyRaw, sistema_usado: 'legacy' };
   return resultado;
 }
 
