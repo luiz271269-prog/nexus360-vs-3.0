@@ -43,37 +43,42 @@ export default function UsuariosPage() {
     }));
   }
 
-  async function salvarUsuario(usuario) {
-    console.log('[Usuarios] Salvando usuário:', usuario);
+  async function salvarUsuario(usuario, origem = 'legacy') {
+    console.log('[Usuarios] Salvando usuário:', usuario, 'origem:', origem);
     
     // IMPORTANTE: paginas_acesso armazena as permissões de páginas/recursos
-    // O campo "permissoes" do frontend é mapeado para "paginas_acesso" no banco
     const permissoesParaSalvar = usuario.permissoes || usuario.paginas_acesso || [];
     
-    // NEXUS360: Converter permissões legadas para Nexus360
-    const nexus360 = converterParaNexus360(usuario, integracoes);
-    
-    const payload = {
-      // IMPORTANTE: Salva no campo display_name (editável pelo sistema)
-      // NÃO tentamos alterar full_name pois é do provedor de login
+    let payload = {
       display_name: usuario.nome,
       attendant_sector: usuario.setor || 'geral',
       attendant_role: usuario.funcao || 'pleno',
       role: usuario.tipoAcesso || 'user',
       is_active: usuario.ativo !== false,
-      // Campos de WhatsApp e comunicação
       is_whatsapp_attendant: usuario.is_whatsapp_attendant || false,
       whatsapp_setores: usuario.whatsapp_setores || [],
       whatsapp_permissions: usuario.whatsapp_permissions || [],
       permissoes_comunicacao: usuario.permissoes_comunicacao || {},
-      // IMPORTANTE: Salvar permissões de páginas/recursos aqui
       paginas_acesso: permissoesParaSalvar,
       max_concurrent_conversations: usuario.max_concurrent_conversations || 5,
-      // NEXUS360: Novos campos
-      sistema_permissoes_ativo: 'legacy', // Mantém legado por padrão
-      configuracao_visibilidade_nexus: nexus360.configuracao_visibilidade_nexus,
-      permissoes_acoes_nexus: nexus360.permissoes_acoes_nexus,
     };
+
+    // Se vem do painel Nexus360, respeita campos Nexus como estão
+    if (origem === 'nexus360') {
+      console.log('[Usuarios] Origem Nexus360 - respeitando configurações Nexus');
+      payload.sistema_permissoes_ativo = usuario.sistema_permissoes_ativo ?? 'nexus_shadow';
+      payload.configuracao_visibilidade_nexus = usuario.configuracao_visibilidade_nexus;
+      payload.permissoes_acoes_nexus = usuario.permissoes_acoes_nexus;
+      payload.diagnostico_nexus = usuario.diagnostico_nexus;
+    } else {
+      // Fluxo legado: converter e preencher Nexus em background
+      console.log('[Usuarios] Origem legacy - convertendo para Nexus360');
+      const nexus360 = converterParaNexus360(usuario, integracoes);
+      // Só atualizar sistema_permissoes_ativo se ainda não foi definido
+      payload.sistema_permissoes_ativo = usuario.sistema_permissoes_ativo ?? 'legacy';
+      payload.configuracao_visibilidade_nexus = nexus360.configuracao_visibilidade_nexus;
+      payload.permissoes_acoes_nexus = nexus360.permissoes_acoes_nexus;
+    }
     
     console.log('[Usuarios] Payload para salvar:', payload);
     

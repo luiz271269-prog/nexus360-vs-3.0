@@ -479,11 +479,14 @@ export default function GerenciadorUsuariosUnificado({
   const salvarPermissoesNexus = async (userId, configNexus) => {
     try {
       setSalvando(true);
-      await salvarPermissoes(userId, configNexus);
+      // Chamar salvarUsuario com origem='nexus360' para evitar sobrescrita
+      await salvarUsuario(
+        { id: userId, ...configNexus },
+        'nexus360' // origem: Nexus360
+      );
       // Atualizar lista local
       const usuariosAtualizados = await carregarUsuarios();
       setUsuarios(usuariosAtualizados || []);
-      // Atualizar usuário selecionado
       const atualizado = usuariosAtualizados.find(u => u.id === userId);
       if (atualizado) {
         setUsuarioSelecionado(atualizado);

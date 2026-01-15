@@ -62,12 +62,13 @@ export default function PainelPermissoesUnificado({ usuario, integracoes = [], o
 
   const handleSalvar = async () => {
     try {
+      // Chamar onSalvar com origem='nexus360' para garantir que o sistema respeite estes campos
       await onSalvar(usuario.id, {
         sistema_permissoes_ativo: sistemaAtivo,
         configuracao_visibilidade_nexus: configuracao,
         permissoes_acoes_nexus: permissoesAcoes,
         diagnostico_nexus: diagnostico
-      });
+      }, 'nexus360');
       
       toast.success('Permissões Nexus360 salvas com sucesso');
     } catch (error) {
