@@ -33,6 +33,7 @@ import {
 import { getUserDisplayName } from "../lib/userHelpers";
 import UsuarioDisplay from "./UsuarioDisplay";
 import { canUserSeeThreadBase } from "../lib/threadVisibility";
+import { decidirVisibilidade } from "@/components/lib/decidirVisibilidadeNexus";
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // 🎯 GETTER UNIFICADO: Badge de não lidas (externo + interno)
@@ -144,7 +145,7 @@ export default function ChatSidebar({
   const { etiquetas: etiquetasDB, getConfig: getEtiquetaConfigDinamico } = useEtiquetasContato();
 
   // ═══════════════════════════════════════════════════════════════════════════════
-  // 🛡️ FILTRO DE VISIBILIDADE - Aplica permissões de Conexões e Setores
+  // 🛡️ FILTRO DE VISIBILIDADE - Nexus360 + Legacy
   // ═══════════════════════════════════════════════════════════════════════════════
   const threadsFiltradas = useMemo(() => {
     if (!threads || threads.length === 0) return [];
@@ -160,14 +161,23 @@ export default function ChatSidebar({
         return isParticipant;
       }
       
-      // 2. LÓGICA EXTERNA (WhatsApp Z-API/W-API) - Aplicar regras de permissão
+      // 2. LÓGICA EXTERNA (WhatsApp Z-API/W-API) - Aplicar regras de visibilidade
       const contato = thread.contato;
       if (contato && contato.bloqueado) return false;
       
-      // ✅ APLICAR REGRAS DE VISIBILIDADE (Conexões WhatsApp + Setores)
-      return canUserSeeThreadBase(usuarioAtual, thread);
+      // ✅ USAR MOTOR NEXUS360 ou LEGACY conforme runtime
+      const runtimeMode = usuarioAtual?.sistema_permissoes_ativo || 'legacy';
+      const result = decidirVisibilidade(
+        usuarioAtual,
+        thread,
+        integracoes,
+        runtimeMode,
+        (u, t) => canUserSeeThreadBase(u, t) // Legacy decider
+      );
+      
+      return result.decision === 'ALLOW';
     });
-  }, [threads, usuarioAtual]);
+  }, [threads, usuarioAtual, integracoes]);
 
   const threadsSorted = useMemo(() => {
     return [...threadsFiltradas].sort((a, b) => {

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import GerenciadorUsuariosUnificado from "@/components/usuarios/GerenciadorUsuariosUnificado";
 import { base44 } from "@/api/base44Client";
+import { converterParaNexus360 } from "@/components/lib/converterPermissoesLegacyParaNexus";
 
 export default function UsuariosPage() {
   const [integracoes, setIntegracoes] = useState([]);
@@ -49,6 +50,9 @@ export default function UsuariosPage() {
     // O campo "permissoes" do frontend é mapeado para "paginas_acesso" no banco
     const permissoesParaSalvar = usuario.permissoes || usuario.paginas_acesso || [];
     
+    // NEXUS360: Converter permissões legadas para Nexus360
+    const nexus360 = converterParaNexus360(usuario, integracoes);
+    
     const payload = {
       // IMPORTANTE: Salva no campo display_name (editável pelo sistema)
       // NÃO tentamos alterar full_name pois é do provedor de login
@@ -65,6 +69,10 @@ export default function UsuariosPage() {
       // IMPORTANTE: Salvar permissões de páginas/recursos aqui
       paginas_acesso: permissoesParaSalvar,
       max_concurrent_conversations: usuario.max_concurrent_conversations || 5,
+      // NEXUS360: Novos campos
+      sistema_permissoes_ativo: 'legacy', // Mantém legado por padrão
+      configuracao_visibilidade_nexus: nexus360.configuracao_visibilidade_nexus,
+      permissoes_acoes_nexus: nexus360.permissoes_acoes_nexus,
     };
     
     console.log('[Usuarios] Payload para salvar:', payload);
