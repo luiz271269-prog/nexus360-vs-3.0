@@ -289,7 +289,7 @@ export default function NexusSimuladorVisibilidade({ usuario, integracoes = [], 
                     return (
                       <div 
                         key={thread.id}
-                        className={`px-2 py-2 flex items-center gap-2 border-b border-slate-100 hover:bg-gradient-to-r hover:from-amber-50 hover:to-orange-50 cursor-pointer transition-all ${
+                        className={`px-2 py-2 flex items-center gap-2 border-b border-slate-100 hover:bg-gradient-to-r hover:from-amber-50 hover:to-orange-50 cursor-pointer transition-all group relative ${
                           erroNexus ? (erroNexus.severity === 'error' ? 'bg-red-50/50' : 'bg-amber-50/50') : ''
                         }`}
                         title={erroNexus ? `❌ ${erroNexus.descricao}` : ''}
@@ -370,6 +370,35 @@ export default function NexusSimuladorVisibilidade({ usuario, integracoes = [], 
                               {erroNexus.descricao}
                             </div>
                           )}
+                        </div>
+
+                        {/* 🎯 BOTÕES DE AÇÃO - Aparecem ao hover */}
+                        <div className="absolute right-1 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity flex gap-1">
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setThreadExpandida(threadExpandida === thread.id ? null : thread.id);
+                            }}
+                            className="h-6 w-6 p-0 bg-white shadow-md hover:bg-indigo-50 border border-slate-200"
+                            title="Ver detalhes"
+                          >
+                            <Info className="w-3 h-3 text-indigo-600" />
+                          </Button>
+                          
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              toast.info('🔄 Função "Mover para" em desenvolvimento');
+                            }}
+                            className="h-6 w-6 p-0 bg-white shadow-md hover:bg-amber-50 border border-slate-200"
+                            title="Mover para outro setor/integração"
+                          >
+                            <ArrowRightLeft className="w-3 h-3 text-amber-600" />
+                          </Button>
                         </div>
                       </div>
                     );
