@@ -74,42 +74,9 @@ export default function ContactInfoPanel({
   const podeBloquearContatos = permissoes.pode_bloquear_contatos === true;
   const podeDeletarContatos = permissoes.pode_deletar_contatos === true;
 
-  useEffect(() => {
-    if (contact) {
-      setFormData({
-        empresa: contact.empresa || '',
-        cargo: contact.cargo || '',
-        nome: contact.nome || contact.telefone || '',
-        tipo_contato: contact.tipo_contato || 'lead',
-        vendedor_responsavel: contact.vendedor_responsavel || '',
-        atendente_fidelizado_vendas: contact.atendente_fidelizado_vendas || '',
-        atendente_fidelizado_assistencia: contact.atendente_fidelizado_assistencia || '',
-        atendente_fidelizado_fornecedor: contact.atendente_fidelizado_fornecedor || '',
-        email: contact.email || '',
-        telefone: contact.telefone || '',
-        observacoes: contact.observacoes || '',
-        ramo_atividade: contact.ramo_atividade || '',
-        cliente_id: contact.cliente_id || null
-      });
-    } else if (defaultValues) {
-      // Novo contato com dados pré-preenchidos (ex: cliente_sem_contato)
-      setFormData({
-        empresa: defaultValues.empresa || '',
-        cargo: defaultValues.cargo || '',
-        nome: defaultValues.nome || '',
-        tipo_contato: defaultValues.tipo_contato || 'lead',
-        vendedor_responsavel: defaultValues.vendedor_responsavel || '',
-        atendente_fidelizado_vendas: '',
-        atendente_fidelizado_assistencia: '',
-        atendente_fidelizado_fornecedor: '',
-        email: defaultValues.email || '',
-        telefone: novoContatoTelefone || defaultValues.telefone || '',
-        observacoes: '',
-        ramo_atividade: defaultValues.ramo_atividade || '',
-        cliente_id: defaultValues.cliente_id || null
-      });
-    }
-  }, [contact?.id, novoContatoTelefone, defaultValues?.cliente_id]);
+  // ✅ REMOVIDO: useEffect que sobrescrevia formData e cancelava atualização dinâmica
+  // O estado inicial já é sincronizado via initialData (linha 42-56)
+  // O auto-save instantâneo (linha 118-126) agora funciona sem interferência
 
   const handleChange = async (campo, valor) => {
     setFormData(prev => ({ ...prev, [campo]: valor }));
