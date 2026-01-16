@@ -119,10 +119,13 @@ Deno.serve(async (req) => {
                 sector_key: sectorKey,
                 participants: participantIds,
                 is_group_chat: true,
+                group_chat: true,
                 group_name: `Setor ${sector_name}`,
                 unread_by: initialUnreads,
+                total_mensagens: 0,
                 last_message_at: new Date().toISOString(),
-                status: 'aberta'
+                status: 'aberta',
+                channel: 'interno'
             });
 
             console.log(`[GET-OR-CREATE-SECTOR] ✅ Thread criada: ${newThread.id}`);

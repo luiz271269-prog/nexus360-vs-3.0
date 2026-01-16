@@ -91,9 +91,12 @@ Deno.serve(async (req) => {
                 pair_key: pairKey, // CRÍTICO: A chave mágica para O(1)
                 participants: [user.id, target_user_id],
                 is_group_chat: false,
+                group_chat: false,
                 unread_by: initialUnreads,
+                total_mensagens: 0,
                 last_message_at: new Date().toISOString(),
-                status: 'aberta'
+                status: 'aberta',
+                channel: 'interno'
             });
 
             console.log(`[GET-OR-CREATE-THREAD] ✅ Thread criada: ${newThread.id}`);

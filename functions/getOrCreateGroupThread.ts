@@ -111,10 +111,13 @@ Deno.serve(async (req) => {
                 group_key: groupKey,
                 participants: participantIds,
                 is_group_chat: true,
+                group_chat: true,
                 group_name: group_name || `Grupo ${group_id}`,
                 unread_by: initialUnreads,
+                total_mensagens: 0,
                 last_message_at: new Date().toISOString(),
-                status: 'aberta'
+                status: 'aberta',
+                channel: 'interno'
             });
 
             console.log(`[GET-OR-CREATE-GROUP] ✅ Thread criada: ${newThread.id}`);

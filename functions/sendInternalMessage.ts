@@ -91,6 +91,7 @@ Deno.serve(async (req) => {
       media_url: media_url || null,
       media_caption: media_caption || null,
       channel: 'interno',
+      visibility: 'internal_only',
       status: 'enviada',
       sent_at: agora
     };
