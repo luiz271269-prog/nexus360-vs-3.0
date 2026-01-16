@@ -338,9 +338,19 @@ export default function ChatWindow({
   };
 
   const podeEnviarPorInstancia = getPermissaoInstancia('can_send');
-  const podeEnviarMensagens = podeInteragirNaThread && permissoes.pode_enviar_mensagens !== false && podeEnviarPorInstancia;
-  const podeEnviarMidias = podeInteragirNaThread && permissoes.pode_enviar_midias !== false && podeEnviarPorInstancia;
-  const podeEnviarAudios = podeInteragirNaThread && permissoes.pode_enviar_audios !== false && podeEnviarPorInstancia;
+
+  // Permissões gerais do usuário
+  const temPermissaoGeralEnvio = permissoes.pode_enviar_mensagens !== false;
+  const temPermissaoGeralMidia = permissoes.pode_enviar_midias !== false;
+  const temPermissaoGeralAudio = permissoes.pode_enviar_audios !== false;
+
+  // Determina se está em modo de broadcast interno
+  const isBroadcastInternoAtivo = !!broadcastInterno;
+
+  // Lógica de permissão corrigida
+  const podeEnviarMensagens = isBroadcastInternoAtivo ? temPermissaoGeralEnvio : (podeInteragirNaThread && temPermissaoGeralEnvio && podeEnviarPorInstancia);
+  const podeEnviarMidias = isBroadcastInternoAtivo ? temPermissaoGeralMidia : (podeInteragirNaThread && temPermissaoGeralMidia && podeEnviarPorInstancia);
+  const podeEnviarAudios = isBroadcastInternoAtivo ? temPermissaoGeralAudio : (podeInteragirNaThread && temPermissaoGeralAudio && podeEnviarPorInstancia);
   const podeApagarMensagens = permissoes.pode_apagar_mensagens === true;
   const podeTransferirConversas = true;
 
