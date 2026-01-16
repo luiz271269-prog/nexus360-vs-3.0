@@ -1259,8 +1259,8 @@ export default function Comunicacao() {
         });
       }
       
-      // ✅ THREADS INTERNAS - SEMPRE LIBERADAS se participante/admin (sem bloqueios Nexus360)
-      if (thread.thread_type === 'team_internal') {
+      // ✅ THREADS INTERNAS 1:1 - SEMPRE LIBERADAS se participante/admin (sem bloqueios Nexus360)
+      if (thread.thread_type === 'team_internal' && !thread.is_group_chat) {
         const isParticipant = thread.participants?.includes(usuario?.id);
         const isAdmin = usuario?.role === 'admin';
         const passou = Boolean(isParticipant || isAdmin);
@@ -1268,16 +1268,23 @@ export default function Comunicacao() {
         return passou;
       }
 
-      // ✅ THREADS DE SETOR - liberadas se participante/admin/mesmo setor
+      // ✅ THREADS DE SETOR - liberadas se participante/admin
       if (thread.thread_type === 'sector_group') {
         const isParticipant = thread.participants?.includes(usuario?.id);
         const isAdmin = usuario?.role === 'admin';
-        const isSameSetor = thread.sector_key && 
-                           usuario?.attendant_sector &&
-                           thread.sector_key === `sector:${usuario.attendant_sector}`;
         
-        const passou = Boolean(isParticipant || isAdmin || isSameSetor);
-        logThread('Thread Setor', passou, !passou ? 'Não é participante, admin nem do setor' : 'OK');
+        const passou = Boolean(isParticipant || isAdmin);
+        logThread('Thread Setor', passou, !passou ? 'Não é participante nem admin' : 'OK');
+        return passou;
+      }
+
+      // ✅ THREADS DE GRUPO CUSTOMIZADO - liberadas se participante/admin
+      if (thread.thread_type === 'team_internal' && thread.is_group_chat) {
+        const isParticipant = thread.participants?.includes(usuario?.id);
+        const isAdmin = usuario?.role === 'admin';
+        
+        const passou = Boolean(isParticipant || isAdmin);
+        logThread('Thread Grupo', passou, !passou ? 'Não é participante nem admin' : 'OK');
         return passou;
       }
       
