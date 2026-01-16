@@ -1746,25 +1746,24 @@ export default function ChatWindow({
       });
     }
 
-    // ✅ THREADS INTERNAS: mostrar TODAS as mensagens, sem filtros de WhatsApp
+    // ✅ THREADS INTERNAS: mostrar TODAS as mensagens válidas (sem bloqueios de WhatsApp)
     const isThreadInterna = thread?.thread_type === 'team_internal' || thread?.thread_type === 'sector_group';
 
     if (isThreadInterna) {
-      // ✅ THREADS INTERNAS: mostrar TODAS as mensagens válidas sem filtros rigorosos
       return mensagensFiltradas.filter((m) => {
         // Sempre mostrar mensagens especiais
         if (m.metadata?.deleted) return true;
         if (m.metadata?.is_system_message) return true;
         if (m.metadata?.optimistic) return true;
 
-        // ✅ Aceitar qualquer mensagem com conteúdo ou mídia
-        const content = (m.content || '').trim();
-        const hasMidia = m.media_url || m.media_type && m.media_type !== 'none';
+        // ✅ THREADS INTERNAS: Mostrar TODAS mensagens com sender_type='user' ou channel='interno'
+        if (m.sender_type === 'user' || m.channel === 'interno') {
+          const content = (m.content || '').trim();
+          const hasMidia = m.media_url || (m.media_type && m.media_type !== 'none');
+          return content.length > 0 || hasMidia;
+        }
 
-        // ✅ SEMPRE mostrar se tem channel=interno (sem validações restritivas)
-        if (m.channel === 'interno') return true;
-
-        return content.length > 0 || hasMidia;
+        return false;
       });
     }
 
