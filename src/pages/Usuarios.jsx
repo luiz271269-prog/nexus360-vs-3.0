@@ -67,7 +67,8 @@ export default function UsuariosPage() {
     if (origem === 'nexus360') {
       // Painel Nexus360: respeita valores Nexus como estão, sem sobrescrita
       console.log('[Usuarios] ✅ Origem=nexus360: respeitando config Nexus intacta');
-      payload.sistema_permissoes_ativo = usuario.sistema_permissoes_ativo ?? 'nexus_shadow';
+      // CRÍTICO: usar o valor que veio no objeto usuario
+      payload.sistema_permissoes_ativo = usuario.sistema_permissoes_ativo;
       payload.configuracao_visibilidade_nexus = usuario.configuracao_visibilidade_nexus;
       payload.permissoes_acoes_nexus = usuario.permissoes_acoes_nexus;
       payload.diagnostico_nexus = usuario.diagnostico_nexus;
