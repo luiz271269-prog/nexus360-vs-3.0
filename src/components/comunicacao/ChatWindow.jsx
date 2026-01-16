@@ -265,7 +265,7 @@ export default function ChatWindow({
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
-    // PRIORIDADE 3: Gerente/Coordenador → pode enviar (exceto se atribuída a outro)
+    // PRIORIDADE 3: Gerente/Coordenador → SEMPRE pode enviar (mesmo após transferência)
     // ═══════════════════════════════════════════════════════════════════════════
     const isGerente = ['gerente', 'coordenador', 'supervisor'].includes(usuario.attendant_role);
     debugLog('PRIORIDADE 3 (Gerente)', isGerente, {
@@ -273,13 +273,7 @@ export default function ChatWindow({
     });
 
     if (isGerente) {
-      // Se a thread está atribuída a outro, bloquear (respeitar atribuição)
-      if (thread.assigned_user_id && !isAtribuidoAoUsuario) {
-        debugLog('PRIORIDADE 3 (Gerente bloqueado)', false, {
-          'razão': 'Thread atribuída a outro'
-        });
-        return false;
-      }
+      // ✅ GERENTES SEMPRE PODEM ENVIAR - mesmo se thread transferida para outro setor/usuário
       return true;
     }
 
