@@ -4,8 +4,9 @@ import { ptBR } from 'date-fns/locale';
 import {
   CheckCheck, Check, Forward, Trash2, Loader2, Copy,
   Zap, CheckCircle2, AlertCircle, ChevronRight, Clock, Search, ArrowRight,
-  Reply, Target, Play, FileIcon, Download, ImageIcon, User, Tag, Mic, UserCheck } from
-'lucide-react';
+  Reply, Target, Play, FileIcon, Download, ImageIcon, User, Tag, Mic, UserCheck,
+  Building2, Users
+} from 'lucide-react';
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import {
@@ -983,25 +984,40 @@ export default React.memo(function MessageBubble({
 
                 </div>
                 <div className="flex items-center justify-end gap-1 mt-1 flex-wrap">
-                  {/* THREADS INTERNAS: Atendente + Setor */}
+                  {/* THREADS INTERNAS: Atendente + Destino */}
                   {isThreadInterna && (() => {
                     const atendenteMsg = atendentes.find(a => a.id === message.sender_id);
                     if (!atendenteMsg) return null;
-                    
+
                     const nomeAtendente = (atendenteMsg.display_name || atendenteMsg.full_name || '').split(' ')[0];
-                    const setorAtendente = atendenteMsg.attendant_sector;
-                    
-                    if (!nomeAtendente) return null;
-                    
+
+                    let destinoLabel = null;
+                    let DestinoIcon = null;
+                    let destinoBg = 'bg-gray-100';
+                    let destinoText = 'text-gray-700';
+
+                    if (thread?.thread_type === 'sector_group') {
+                        destinoLabel = `Setor: ${thread.group_name?.replace('Setor ', '') || thread.sector_key?.replace('sector:', '')}`;
+                        DestinoIcon = Building2;
+                        destinoBg = 'bg-purple-100';
+                        destinoText = 'text-purple-800';
+                    } else if (thread?.thread_type === 'team_internal' && thread.is_group_chat) {
+                        destinoLabel = `Grupo: ${thread.group_name}`;
+                        DestinoIcon = Users;
+                        destinoBg = 'bg-sky-100';
+                        destinoText = 'text-sky-800';
+                    }
+
                     return (
                       <>
-                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-cyan-100 text-cyan-700 flex items-center gap-0.5">
+                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-cyan-100 text-cyan-800 flex items-center gap-1 font-medium">
                           <UserCheck className="w-3 h-3" />
                           {nomeAtendente}
                         </span>
-                        {setorAtendente && (
-                          <span className="text-[10px] px-1.5 py-0.5 rounded bg-indigo-100 text-indigo-700">
-                            {setorAtendente}
+                        {destinoLabel && DestinoIcon && (
+                          <span className={`text-[10px] px-1.5 py-0.5 rounded ${destinoBg} ${destinoText} flex items-center gap-1 font-medium`}>
+                              <DestinoIcon className="w-3 h-3" />
+                              {destinoLabel}
                           </span>
                         )}
                       </>
@@ -1114,27 +1130,42 @@ export default React.memo(function MessageBubble({
                 <div className="flex items-center justify-end gap-1 mt-0.5 flex-wrap">
                 {/* THREADS INTERNAS: Atendente + Setor (apenas mensagens enviadas) */}
                 {isOwn && isThreadInterna && (() => {
-                  const atendenteMsg = atendentes.find(a => a.id === message.sender_id);
-                  if (!atendenteMsg) return null;
-                  
-                  const nomeAtendente = (atendenteMsg.display_name || atendenteMsg.full_name || '').split(' ')[0];
-                  const setorAtendente = atendenteMsg.attendant_sector;
-                  
-                  if (!nomeAtendente) return null;
-                  
-                  return (
-                    <>
-                      <span className="text-[10px] px-1.5 py-0.5 rounded bg-cyan-100 text-cyan-700 flex items-center gap-0.5">
-                        <UserCheck className="w-3 h-3" />
-                        {nomeAtendente}
-                      </span>
-                      {setorAtendente && (
-                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-indigo-100 text-indigo-700">
-                          {setorAtendente}
-                        </span>
-                      )}
-                    </>
-                  );
+                    const atendenteMsg = atendentes.find(a => a.id === message.sender_id);
+                    if (!atendenteMsg) return null;
+
+                    const nomeAtendente = (atendenteMsg.display_name || atendenteMsg.full_name || '').split(' ')[0];
+
+                    let destinoLabel = null;
+                    let DestinoIcon = null;
+                    let destinoBg = 'bg-gray-100';
+                    let destinoText = 'text-gray-700';
+
+                    if (thread?.thread_type === 'sector_group') {
+                        destinoLabel = `Setor: ${thread.group_name?.replace('Setor ', '') || thread.sector_key?.replace('sector:', '')}`;
+                        DestinoIcon = Building2;
+                        destinoBg = 'bg-purple-100';
+                        destinoText = 'text-purple-800';
+                    } else if (thread?.thread_type === 'team_internal' && thread.is_group_chat) {
+                        destinoLabel = `Grupo: ${thread.group_name}`;
+                        DestinoIcon = Users;
+                        destinoBg = 'bg-sky-100';
+                        destinoText = 'text-sky-800';
+                    }
+
+                    return (
+                        <>
+                            <span className="text-[10px] px-1.5 py-0.5 rounded bg-cyan-100 text-cyan-800 flex items-center gap-1 font-medium">
+                                <UserCheck className="w-3 h-3" />
+                                {nomeAtendente}
+                            </span>
+                            {destinoLabel && DestinoIcon && (
+                                <span className={`text-[10px] px-1.5 py-0.5 rounded ${destinoBg} ${destinoText} flex items-center gap-1 font-medium`}>
+                                    <DestinoIcon className="w-3 h-3" />
+                                    {destinoLabel}
+                                </span>
+                            )}
+                        </>
+                    );
                 })()}
                 
                 {/* THREADS EXTERNAS: Atendente + Setor + Conexão (apenas mensagens enviadas) */}
