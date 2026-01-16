@@ -1259,12 +1259,19 @@ export default function Comunicacao() {
         });
       }
       
-      // ✅ THREADS INTERNAS - visibilidade baseada APENAS em participação
+      // ✅ THREADS INTERNAS - visibilidade baseada em participação ou setor
       if (thread.thread_type === 'team_internal' || thread.thread_type === 'sector_group') {
         const isParticipant = thread.participants?.includes(usuario?.id);
         const isAdmin = usuario?.role === 'admin';
-        const passou = Boolean(isParticipant || isAdmin);
-        logThread('Thread Interna', passou, !passou ? 'Não é participante nem admin' : 'OK');
+        
+        // Para sector_group, também verificar se usuário está no mesmo setor
+        const isSameSetor = thread.thread_type === 'sector_group' && 
+                           thread.sector_key && 
+                           usuario?.attendant_sector &&
+                           thread.sector_key === `sector:${usuario.attendant_sector}`;
+        
+        const passou = Boolean(isParticipant || isAdmin || isSameSetor);
+        logThread('Thread Interna', passou, !passou ? 'Não é participante, admin nem do setor' : 'OK');
         return passou;
       }
       
