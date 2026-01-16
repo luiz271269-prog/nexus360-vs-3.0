@@ -480,6 +480,8 @@ export default function GerenciadorUsuariosUnificado({
   const salvarPermissoesNexus = async (userId, configNexus) => {
     try {
       setSalvando(true);
+      console.log('[GerenciadorUsuarios] 🔵 Salvando Nexus360 para:', userId, configNexus);
+      
       // Buscar o usuário completo primeiro
       const usuarioCompleto = usuarios.find(u => u.id === userId);
       if (!usuarioCompleto) {
@@ -492,20 +494,25 @@ export default function GerenciadorUsuariosUnificado({
         ...configNexus
       };
       
-      console.log('[GerenciadorUsuarios] Salvando Nexus360 para:', userId, configNexus);
+      console.log('[GerenciadorUsuarios] 📦 Objeto completo a salvar:', usuarioParaSalvar);
       
       // Chamar salvarUsuario com origem='nexus360' para evitar sobrescrita
-      await salvarUsuario(usuarioParaSalvar, 'nexus360');
+      const resultado = await salvarUsuario(usuarioParaSalvar, 'nexus360');
+      
+      console.log('[GerenciadorUsuarios] ✅ Resultado do salvamento:', resultado);
       
       // Atualizar lista local
       const usuariosAtualizados = await carregarUsuarios();
       setUsuarios(usuariosAtualizados || []);
       const atualizado = usuariosAtualizados.find(u => u.id === userId);
       if (atualizado) {
+        console.log('[GerenciadorUsuarios] 🔄 Usuário recarregado:', atualizado);
         setUsuarioSelecionado(atualizado);
+      } else {
+        console.warn('[GerenciadorUsuarios] ⚠️ Usuário não encontrado após salvar');
       }
     } catch (error) {
-      console.error('Erro ao salvar permissões Nexus:', error);
+      console.error('[GerenciadorUsuarios] ❌ Erro ao salvar permissões Nexus:', error);
       throw error;
     } finally {
       setSalvando(false);
