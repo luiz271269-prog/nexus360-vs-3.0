@@ -291,10 +291,10 @@ export default function GerenciadorUsuariosUnificado({
       return;
     }
     
-    console.log('[GerenciadorUsuarios] Salvando:', usuario, 'origem: legacy');
+    console.log('[GerenciadorUsuarios] 💾 Salvando:', usuario);
     setSalvando(true);
     try {
-      const atualizado = await salvarUsuario(usuario, 'legacy');
+      const atualizado = await salvarUsuario(usuario);
       console.log('[GerenciadorUsuarios] Retorno do salvar:', atualizado);
       if (atualizado) {
         setUsuarios(prev => prev.map(u => u.id === usuario.id ? atualizado : u));
@@ -496,8 +496,8 @@ export default function GerenciadorUsuariosUnificado({
       
       console.log('[GerenciadorUsuarios] 📦 Objeto completo a salvar:', usuarioParaSalvar);
       
-      // Chamar salvarUsuario com origem='nexus360' para evitar sobrescrita
-      const resultado = await salvarUsuario(usuarioParaSalvar, 'nexus360');
+      // Chamar salvarUsuario (sempre Nexus360 agora)
+      const resultado = await salvarUsuario(usuarioParaSalvar);
       
       console.log('[GerenciadorUsuarios] ✅ Resultado do salvamento:', resultado);
       
