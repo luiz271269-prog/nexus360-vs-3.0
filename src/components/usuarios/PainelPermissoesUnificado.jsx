@@ -14,7 +14,7 @@ import { PERMISSIONS_PRESETS, buildUserPermissions } from '@/components/lib/perm
 import GuiaRegraP1P12 from './GuiaRegraP1P12';
 import { toast } from 'sonner';
 
-export default function PainelPermissoesUnificado({ usuario, integracoes = [], onSalvar, runtimeMode = 'legacy' }) {
+export default function PainelPermissoesUnificado({ usuario, integracoes = [], onSalvar, runtimeMode = 'nexus360' }) {
   const [configuracao, setConfiguracao] = useState({
     modo_visibilidade: 'padrao_liberado',
     regras_bloqueio: [],
@@ -33,7 +33,6 @@ export default function PainelPermissoesUnificado({ usuario, integracoes = [], o
   const [permissoesAcoes, setPermissoesAcoes] = useState({});
   const [diagnostico, setDiagnostico] = useState({ ativo: false, log_level: 'info' });
   const [presetSelecionado, setPresetSelecionado] = useState(null);
-  const [sistemaAtivo, setSistemaAtivo] = useState('legado');
 
   // Carregar configuração atual do usuário
   useEffect(() => {
@@ -49,10 +48,6 @@ export default function PainelPermissoesUnificado({ usuario, integracoes = [], o
       setDiagnostico(usuario.diagnostico_nexus);
     }
     
-    if (usuario?.sistema_permissoes_ativo) {
-      setSistemaAtivo(usuario.sistema_permissoes_ativo);
-    }
-    
     // Detectar preset baseado em attendant_role
     if (usuario?.attendant_role) {
       setPresetSelecionado(usuario.attendant_role);
@@ -64,7 +59,6 @@ export default function PainelPermissoesUnificado({ usuario, integracoes = [], o
   const handleSalvar = async () => {
     try {
       console.log('[PainelPermissoesUnificado] Salvando configurações Nexus360:', {
-        sistema_permissoes_ativo: sistemaAtivo,
         configuracao_visibilidade_nexus: configuracao,
         permissoes_acoes_nexus: permissoesAcoes,
         diagnostico_nexus: diagnostico
@@ -72,7 +66,6 @@ export default function PainelPermissoesUnificado({ usuario, integracoes = [], o
       
       // Chamar onSalvar passando os dados Nexus360
       await onSalvar(usuario.id, {
-        sistema_permissoes_ativo: sistemaAtivo,
         configuracao_visibilidade_nexus: configuracao,
         permissoes_acoes_nexus: permissoesAcoes,
         diagnostico_nexus: diagnostico
@@ -175,207 +168,6 @@ export default function PainelPermissoesUnificado({ usuario, integracoes = [], o
 
   return (
     <div className="space-y-6">
-      {/* HEADER: Tabela Comparativa - Legado vs Nexus360 */}
-       <Card className="border-2 border-amber-400 bg-gradient-to-r from-amber-50 to-orange-50">
-         <CardHeader>
-           <CardTitle className="text-base">⚙️ Sistema de Permissões - Comparativo</CardTitle>
-           <CardDescription className="text-xs">Legado vs Nexus360: campos iguais em cinza (desabilitado), diferenças destacadas</CardDescription>
-         </CardHeader>
-         <CardContent className="space-y-4">
-           {/* Tabela Comparativa */}
-           <div className="overflow-x-auto">
-             <table className="w-full text-sm border-collapse">
-               <thead>
-                 <tr className="bg-slate-200">
-                   <th className="border px-3 py-2 text-left font-bold">Campo</th>
-                   <th className="border px-3 py-2 text-left font-bold">🔵 Legado (Atual)</th>
-                   <th className="border px-3 py-2 text-left font-bold">🟢 Nexus360 (Novo)</th>
-                 </tr>
-               </thead>
-               <tbody>
-                 {/* Setor */}
-                 <tr className={usuario?.setor === 'geral' ? 'bg-slate-100 opacity-50' : 'hover:bg-blue-50'}>
-                   <td className="border px-3 py-2 font-medium">Setor Principal</td>
-                   <td className="border px-3 py-2">{usuario?.setor || 'geral'}</td>
-                   <td className="border px-3 py-2 text-slate-500">
-                     {usuario?.setor === 'geral' ? '(mesmo)' : usuario?.setor || 'geral'}
-                   </td>
-                 </tr>
-
-                 {/* Função */}
-                 <tr className={usuario?.attendant_role === 'pleno' ? 'bg-slate-100 opacity-50' : 'hover:bg-blue-50'}>
-                   <td className="border px-3 py-2 font-medium">Função</td>
-                   <td className="border px-3 py-2">{usuario?.attendant_role || 'pleno'}</td>
-                   <td className="border px-3 py-2 text-slate-500">
-                     {usuario?.attendant_role === 'pleno' ? '(mesmo)' : usuario?.attendant_role || 'pleno'}
-                   </td>
-                 </tr>
-
-                 {/* Modo Visibilidade */}
-                 <tr className="hover:bg-green-50 bg-green-50/30 border-l-4 border-green-500">
-                   <td className="border px-3 py-2 font-medium">Modo Visibilidade</td>
-                   <td className="border px-3 py-2">
-                     <Badge variant="outline" className="bg-blue-100">Padrão Liberado*</Badge>
-                     <p className="text-[10px] text-muted-foreground mt-1">*sem configuração = libera</p>
-                   </td>
-                   <td className="border px-3 py-2">
-                     <Badge variant={configuracao.modo_visibilidade === 'padrao_liberado' ? 'default' : 'destructive'}>
-                       {configuracao.modo_visibilidade === 'padrao_liberado' ? '🟢 Liberado' : '🔴 Bloqueado'}
-                     </Badge>
-                     <p className="text-[10px] text-muted-foreground mt-1">Configurável</p>
-                   </td>
-                 </tr>
-
-                 {/* Bloqueios */}
-                 <tr className={configuracao.regras_bloqueio?.length === 0 ? 'bg-slate-100 opacity-50' : 'hover:bg-orange-50'}>
-                   <td className="border px-3 py-2 font-medium">Bloqueios Explícitos</td>
-                   <td className="border px-3 py-2">
-                     <Badge variant="outline">Hardcoded</Badge>
-                     <p className="text-[10px] text-muted-foreground mt-1">Integração, conexão, setor</p>
-                   </td>
-                   <td className="border px-3 py-2">
-                     <Badge variant={configuracao.regras_bloqueio?.length > 0 ? 'destructive' : 'outline'}>
-                       {configuracao.regras_bloqueio?.length || 0} regras
-                     </Badge>
-                     <p className="text-[10px] text-muted-foreground mt-1">P9/P10/P11 configuráveis</p>
-                   </td>
-                 </tr>
-
-                 {/* Liberações */}
-                 <tr className={configuracao.regras_liberacao?.length === 0 ? 'bg-slate-100 opacity-50' : 'hover:bg-green-50'}>
-                   <td className="border px-3 py-2 font-medium">Liberações (P5/P8)</td>
-                   <td className="border px-3 py-2">
-                     <Badge variant="outline" className="bg-green-100">Hardcoded</Badge>
-                     <p className="text-[10px] text-muted-foreground mt-1">Janela 24h, Supervisão 30min</p>
-                   </td>
-                   <td className="border px-3 py-2">
-                     <Badge variant={configuracao.regras_liberacao?.length > 0 ? 'default' : 'outline'}>
-                       {configuracao.regras_liberacao?.length || 0} regras
-                     </Badge>
-                     <p className="text-[10px] text-muted-foreground mt-1">Customizáveis</p>
-                   </td>
-                 </tr>
-
-                 {/* Fidelização */}
-                 <tr className="hover:bg-purple-50 bg-purple-50/30 border-l-4 border-purple-500">
-                   <td className="border px-3 py-2 font-medium">Fidelização (Chave Mestra)</td>
-                   <td className="border px-3 py-2">
-                     <Badge variant="secondary">Genérica + Setorial</Badge>
-                     <p className="text-[10px] text-muted-foreground mt-1">Contacto fidelizado = sempre vê</p>
-                   </td>
-                   <td className="border px-3 py-2">
-                     <Badge variant="secondary">Genérica</Badge>
-                     <p className="text-[10px] text-red-600 font-medium mt-1">⚠️ Setorial perdido</p>
-                   </td>
-                 </tr>
-
-                 {/* WhatsApp */}
-                 <tr className={!usuario?.is_whatsapp_attendant ? 'bg-slate-100 opacity-50' : 'hover:bg-blue-50'}>
-                   <td className="border px-3 py-2 font-medium">WhatsApp Ativo</td>
-                   <td className="border px-3 py-2">
-                     <Badge variant={usuario?.is_whatsapp_attendant ? 'default' : 'outline'}>
-                       {usuario?.is_whatsapp_attendant ? 'Ativo' : 'Inativo'}
-                     </Badge>
-                   </td>
-                   <td className="border px-3 py-2 text-slate-500">
-                     {!usuario?.is_whatsapp_attendant ? '(mesmo)' : 'Ativo'}
-                   </td>
-                 </tr>
-
-                 {/* Conexões/Integrações */}
-                 <tr className={!usuario?.whatsapp_permissions?.length ? 'bg-slate-100 opacity-50' : 'hover:bg-blue-50'}>
-                   <td className="border px-3 py-2 font-medium">Conexões WhatsApp</td>
-                   <td className="border px-3 py-2">
-                     <Badge variant="outline">{(usuario?.whatsapp_permissions || []).length} conexões</Badge>
-                   </td>
-                   <td className="border px-3 py-2 text-slate-500">
-                     {!usuario?.whatsapp_permissions?.length ? '(mesmo)' : '+ configurações detalhadas'}
-                   </td>
-                 </tr>
-
-                 {/* Gerência (Supervisão) */}
-                 <tr className={!['gerente', 'coordenador', 'senior'].includes(usuario?.attendant_role) ? 'bg-slate-100 opacity-50' : 'hover:bg-amber-50'}>
-                   <td className="border px-3 py-2 font-medium">Pode Ver Conversas Outros (P7)</td>
-                   <td className="border px-3 py-2">
-                     <Badge variant="outline" className="bg-amber-100">
-                       {['gerente', 'coordenador', 'senior'].includes(usuario?.attendant_role) ? 'Sim' : 'Não'}
-                     </Badge>
-                     <p className="text-[10px] text-muted-foreground mt-1">Por role</p>
-                   </td>
-                   <td className="border px-3 py-2">
-                     <Switch
-                       checked={permissoesAcoes.podeVerConversasOutros ?? false}
-                       onCheckedChange={(v) => setPermissoesAcoes(prev => ({...prev, podeVerConversasOutros: v}))}
-                     />
-                     <p className="text-[10px] text-muted-foreground mt-1">Configurável</p>
-                   </td>
-                 </tr>
-
-                 {/* Strict Mode */}
-                 <tr className={!permissoesAcoes.strictMode ? 'bg-slate-100 opacity-50' : 'bg-red-50/30 border-l-4 border-red-500'}>
-                   <td className="border px-3 py-2 font-medium">Strict Mode (Desativa P5/P8)</td>
-                   <td className="border px-3 py-2 text-slate-500">
-                     N/A (não existe)
-                   </td>
-                   <td className="border px-3 py-2">
-                     <Badge variant={permissoesAcoes.strictMode ? 'destructive' : 'outline'}>
-                       {permissoesAcoes.strictMode ? '🚨 Ativo' : 'Inativo'}
-                     </Badge>
-                   </td>
-                 </tr>
-               </tbody>
-             </table>
-           </div>
-
-           {/* Legenda e Alerta */}
-           <Alert className="mt-4 border-amber-300 bg-amber-50">
-             <AlertTriangle className="h-4 w-4 text-amber-600" />
-             <AlertDescription className="text-xs text-amber-800">
-               <strong>Linhas Cinzas:</strong> Campos idênticos (sem mudança)  
-               <strong className="block mt-1">Linhas Coloridas:</strong> Mudanças importantes ou novas configurações (Nexus360)
-             </AlertDescription>
-           </Alert>
-
-           {/* Botões de Ação */}
-           <div className="flex gap-3 mt-4">
-             <Button 
-               variant={sistemaAtivo === 'legado' ? 'default' : 'outline'}
-               size="sm"
-               onClick={async () => {
-                 setSistemaAtivo('legado');
-                 try {
-                   await onSalvar(usuario.id, { sistema_permissoes_ativo: 'legado' }, 'nexus360');
-                   toast.success('🔵 Sistema Legado ativado');
-                 } catch (error) {
-                   console.error('Erro ao ativar Legado:', error);
-                   toast.error('Erro ao salvar configuração');
-                 }
-               }}
-               className={sistemaAtivo === 'legado' ? 'bg-blue-600' : ''}
-             >
-               🔵 Manter Legado
-             </Button>
-             <Button 
-               variant={sistemaAtivo === 'nexus360' ? 'default' : 'outline'}
-               size="sm"
-               onClick={async () => {
-                 setSistemaAtivo('nexus360');
-                 try {
-                   await onSalvar(usuario.id, { sistema_permissoes_ativo: 'nexus360' }, 'nexus360');
-                   toast.success('🟢 Nexus360 ativado');
-                 } catch (error) {
-                   console.error('Erro ao ativar Nexus360:', error);
-                   toast.error('Erro ao salvar configuração');
-                 }
-               }}
-               className={sistemaAtivo === 'nexus360' ? 'bg-green-600' : ''}
-             >
-               🟢 Ativar Nexus360
-             </Button>
-           </div>
-         </CardContent>
-       </Card>
-
       {/* GUIA P1-P12 */}
       <GuiaRegraP1P12 />
 
