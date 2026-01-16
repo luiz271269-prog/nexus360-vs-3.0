@@ -5,7 +5,7 @@ import {
   CheckCheck, Check, Forward, Trash2, Loader2, Copy,
   Zap, CheckCircle2, AlertCircle, ChevronRight, Clock, Search, ArrowRight,
   Reply, Target, Play, FileIcon, Download, ImageIcon, User, Tag, Mic, UserCheck,
-  Building2, Users
+  Building, Users
 } from 'lucide-react';
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
@@ -998,7 +998,7 @@ export default React.memo(function MessageBubble({
 
                     if (thread?.thread_type === 'sector_group') {
                         destinoLabel = `Setor: ${thread.group_name?.replace('Setor ', '') || thread.sector_key?.replace('sector:', '')}`;
-                        DestinoIcon = Building2;
+                        DestinoIcon = Building;
                         destinoBg = 'bg-purple-100';
                         destinoText = 'text-purple-800';
                     } else if (thread?.thread_type === 'team_internal' && thread.is_group_chat) {
@@ -1142,7 +1142,7 @@ export default React.memo(function MessageBubble({
 
                     if (thread?.thread_type === 'sector_group') {
                         destinoLabel = `Setor: ${thread.group_name?.replace('Setor ', '') || thread.sector_key?.replace('sector:', '')}`;
-                        DestinoIcon = Building2;
+                        DestinoIcon = Building;
                         destinoBg = 'bg-purple-100';
                         destinoText = 'text-purple-800';
                     } else if (thread?.thread_type === 'team_internal' && thread.is_group_chat) {
