@@ -1868,11 +1868,11 @@ export default function ChatWindow({
     <div className="flex flex-col h-full bg-white">
         {/* Header - Modo Broadcast ou Central de Inteligência do Cliente */}
         {mostrarInterfaceBroadcast ?
-      <div className={`text-white px-4 py-3 border-b flex-shrink-0 shadow-sm flex items-center justify-between ${
-      broadcastInterno ?
-      'bg-gradient-to-r from-purple-500 to-indigo-500' :
-      'bg-gradient-to-r from-orange-500 to-amber-500'}`
-      }>
+        <div className={`text-white px-4 py-3 border-b flex-shrink-0 shadow-sm flex items-center justify-between ${
+        broadcastInterno ?
+        'bg-gradient-to-r from-purple-500 to-indigo-500' :
+        'bg-gradient-to-r from-orange-500 to-amber-500'}`
+        }>
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <div className="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center">
@@ -1899,23 +1899,35 @@ export default function ChatWindow({
             </div>
           </div> :
 
-      <div className="bg-[#a2bbcd] text-slate-50 px-3 py-2 border-b border-orange-200 flex-shrink-0 shadow-sm">
-          {/* LINHA 1: Avatar + Identificação */}
-          <div className="flex items-center gap-3">
-            {/* Avatar + Próxima Ação */}
-            <div className="relative flex-shrink-0">
-              <div className="w-12 h-12 rounded-full flex items-center justify-center text-white font-bold text-lg shadow-lg overflow-hidden bg-gradient-to-br from-amber-400 via-orange-500 to-red-500">
-                {contatoCompleto?.foto_perfil_url ?
-              <img
-                src={contatoCompleto.foto_perfil_url}
-                alt={nomeContato}
-                className="w-full h-full object-cover"
-                onError={(e) => {
-                  e.target.style.display = 'none';
-                }} /> :
-              <span>{getInitials(nomeContato)}</span>
-              }
-              </div>
+        <div className={`px-3 py-2 border-b flex-shrink-0 shadow-sm text-slate-50 ${
+          thread?.thread_type === 'team_internal' || thread?.thread_type === 'sector_group'
+            ? 'bg-gradient-to-r from-purple-600 to-indigo-600'
+            : 'bg-[#a2bbcd]'
+        } ${thread?.thread_type === 'sector_group' ? 'border-purple-300' : 'border-orange-200'}`}>
+            {/* LINHA 1: Avatar + Identificação */}
+            <div className="flex items-center gap-3">
+              {/* Avatar + Próxima Ação */}
+              <div className="relative flex-shrink-0">
+                <div className={`w-12 h-12 rounded-full flex items-center justify-center text-white font-bold text-lg shadow-lg overflow-hidden ${
+                  thread?.thread_type === 'team_internal' || thread?.thread_type === 'sector_group'
+                    ? 'bg-gradient-to-br from-purple-400 to-indigo-600'
+                    : 'bg-gradient-to-br from-amber-400 via-orange-500 to-red-500'
+                }`}>
+                  {thread?.thread_type === 'sector_group' ? (
+                    <Building2 className="w-6 h-6 text-white" />
+                  ) : thread?.thread_type === 'team_internal' && thread?.is_group_chat ? (
+                    <Users className="w-6 h-6 text-white" />
+                  ) : contatoCompleto?.foto_perfil_url ?
+                <img
+                  src={contatoCompleto.foto_perfil_url}
+                  alt={nomeContato}
+                  className="w-full h-full object-cover"
+                  onError={(e) => {
+                    e.target.style.display = 'none';
+                  }} /> :
+                <span>{getInitials(nomeContato)}</span>
+                }
+                </div>
 
               {/* Próxima Ação Sugerida - canto inferior */}
               {(() => {
@@ -1929,10 +1941,26 @@ export default function ChatWindow({
             })()}
             </div>
 
-            {/* Nome + Telefone */}
+            {/* Nome + Telefone/Setor */}
             <div className="flex-1 min-w-0">
-              <h3 className="text-slate-800 font-bold text-sm truncate mb-1">{nomeContato}</h3>
-              <p className="text-slate-50 text-xs">{telefoneExibicao}</p>
+              <h3 className="text-slate-50 font-bold text-sm truncate mb-1">
+                {thread?.thread_type === 'sector_group'
+                  ? `Setor ${thread.sector_key?.replace('sector:', '') || 'Geral'}`
+                  : thread?.thread_type === 'team_internal' && thread?.is_group_chat
+                  ? thread.group_name || 'Grupo'
+                  : nomeContato}
+              </h3>
+              <p className="text-slate-200 text-xs">
+                {thread?.thread_type === 'team_internal' && !thread?.is_group_chat ? (
+                  thread.participants?.length === 2 ? '1:1 interno' : 'Chat interno'
+                ) : thread?.thread_type === 'sector_group' ? (
+                  `${thread.participants?.length || 0} membros`
+                ) : thread?.thread_type === 'team_internal' && thread?.is_group_chat ? (
+                  `${thread.participants?.length || 0} membros`
+                ) : (
+                  telefoneExibicao
+                )}
+              </p>
             </div>
 
             {/* Componentes de Inteligência Comprimidos + Ações */}
