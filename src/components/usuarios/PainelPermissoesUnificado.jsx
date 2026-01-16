@@ -334,7 +334,16 @@ export default function PainelPermissoesUnificado({ usuario, integracoes = [], o
              <Button 
                variant={sistemaAtivo === 'legado' ? 'default' : 'outline'}
                size="sm"
-               onClick={() => setSistemaAtivo('legado')}
+               onClick={async () => {
+                 setSistemaAtivo('legado');
+                 try {
+                   await onSalvar(usuario.id, { sistema_permissoes_ativo: 'legado' }, 'nexus360');
+                   toast.success('🔵 Sistema Legado ativado');
+                 } catch (error) {
+                   console.error('Erro ao ativar Legado:', error);
+                   toast.error('Erro ao salvar configuração');
+                 }
+               }}
                className={sistemaAtivo === 'legado' ? 'bg-blue-600' : ''}
              >
                🔵 Manter Legado
@@ -342,7 +351,16 @@ export default function PainelPermissoesUnificado({ usuario, integracoes = [], o
              <Button 
                variant={sistemaAtivo === 'nexus360' ? 'default' : 'outline'}
                size="sm"
-               onClick={() => setSistemaAtivo('nexus360')}
+               onClick={async () => {
+                 setSistemaAtivo('nexus360');
+                 try {
+                   await onSalvar(usuario.id, { sistema_permissoes_ativo: 'nexus360' }, 'nexus360');
+                   toast.success('🟢 Nexus360 ativado');
+                 } catch (error) {
+                   console.error('Erro ao ativar Nexus360:', error);
+                   toast.error('Erro ao salvar configuração');
+                 }
+               }}
                className={sistemaAtivo === 'nexus360' ? 'bg-green-600' : ''}
              >
                🟢 Ativar Nexus360
