@@ -201,7 +201,7 @@ export default function Layout({ children, currentPageName }) {
     if (!usuario) return todosMenuItems; // Fallback: mostrar todos
 
     const role = usuario.role;
-    const setor = usuario.attendant_sector || usuario.whatsapp_setores?.[0] || 'geral';
+    const setor = usuario.attendant_sector || 'geral';
     const nivelAtendente = usuario.attendant_role || 'pleno';
     const paginasAcesso = usuario.paginas_acesso || [];
 

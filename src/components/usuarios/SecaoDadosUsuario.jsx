@@ -125,11 +125,7 @@ export default function SecaoDadosUsuario({
         </CardContent>
       </Card>
 
-      {/* Regras Fixas Hard Core */}
-      <CardRegraFixaHardCore 
-        usuario={usuarioSelecionado}
-        integracoes={integracoesWhatsApp}
-      />
+
 
       {/* Perfis Rápidos */}
       <Card>

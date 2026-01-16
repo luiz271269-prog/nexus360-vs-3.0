@@ -186,40 +186,12 @@ export default function PainelPermissoesUnificado({ usuario, integracoes = [], o
                 </CardDescription>
               </div>
             </div>
-            <div className="flex items-center gap-2">
-              <Badge variant={configuracao.modo_visibilidade === 'padrao_liberado' ? 'default' : 'destructive'}>
-                {configuracao.modo_visibilidade === 'padrao_liberado' ? '🟢 Liberado por Padrão' : '🔴 Bloqueado por Padrão'}
-              </Badge>
-              <Badge 
-                variant={runtimeMode === 'nexus_ativo' ? 'default' : 'outline'}
-                className={
-                  runtimeMode === 'nexus_ativo' ? 'bg-green-600 text-white' :
-                  runtimeMode === 'nexus_shadow' ? 'bg-amber-500 text-white' :
-                  'bg-slate-500 text-white'
-                }
-              >
-                {runtimeMode === 'legacy' && '🔵 Legacy Ativo'}
-                {runtimeMode === 'nexus_shadow' && '🟡 Nexus em Shadow'}
-                {runtimeMode === 'nexus_ativo' && '🟢 Nexus360 Ativo'}
-              </Badge>
-            </div>
+            <Badge variant={configuracao.modo_visibilidade === 'padrao_liberado' ? 'default' : 'destructive'}>
+              {configuracao.modo_visibilidade === 'padrao_liberado' ? '🟢 Liberado por Padrão' : '🔴 Bloqueado por Padrão'}
+            </Badge>
           </div>
         </CardHeader>
       </Card>
-
-      {/* Alerta de status */}
-      <Alert>
-        <Info className="h-4 w-4" />
-        <AlertDescription>
-          <strong>Nexus360:</strong> {
-            runtimeMode === 'nexus_ativo' 
-              ? 'Estas configurações estão ATIVAS para este usuário. Alterações mudam imediatamente o que ele vê na Comunicação.'
-              : runtimeMode === 'nexus_shadow'
-              ? 'Nexus360 está em modo Shadow (comparação). As regras são calculadas mas não afetam o sistema.'
-              : 'Sistema Legacy ativo. Configure e teste Nexus360 antes de ativar na alternância acima.'
-          }
-        </AlertDescription>
-      </Alert>
 
       {/* SEÇÃO 1: Perfil Rápido */}
       <Card>
