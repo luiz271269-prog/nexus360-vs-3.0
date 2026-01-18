@@ -232,6 +232,16 @@ export default function CentralControleOperacional({ onSelecionarThread, usuario
       return;
     }
 
+    // ✅ NEXUS360: Validar permissão para assumir da fila
+    const podeAssumir = usuarioAtual?.permissoes_acoes_nexus?.podeAssumirDaFila ?? 
+                        usuarioAtual?.permissoes_visualizacao?.pode_atribuir_conversas ?? 
+                        true;
+
+    if (!podeAssumir) {
+      toast.error('❌ Você não tem permissão para assumir conversas da fila');
+      return;
+    }
+
     setAtribuindo(setor);
 
     try {
@@ -646,8 +656,13 @@ export default function CentralControleOperacional({ onSelecionarThread, usuario
                                 <Button
                                   size="sm"
                                   onClick={() => atenderProximo(setor)}
-                                  disabled={atribuindo === setor}
-                                  className="bg-green-600 hover:bg-green-700 h-7 text-xs"
+                                  disabled={atribuindo === setor || !(usuarioAtual?.permissoes_acoes_nexus?.podeAssumirDaFila ?? true)}
+                                  title={!(usuarioAtual?.permissoes_acoes_nexus?.podeAssumirDaFila ?? true) ? '🔒 Sem permissão para assumir fila' : ''}
+                                  className={`h-7 text-xs ${
+                                    !(usuarioAtual?.permissoes_acoes_nexus?.podeAssumirDaFila ?? true)
+                                      ? 'bg-slate-600 cursor-not-allowed opacity-50'
+                                      : 'bg-green-600 hover:bg-green-700'
+                                  }`}
                                 >
                                   {atribuindo === setor ? (
                                     <RefreshCw className="w-3 h-3 animate-spin" />

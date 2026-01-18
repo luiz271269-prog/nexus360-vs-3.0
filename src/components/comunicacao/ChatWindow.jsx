@@ -333,10 +333,10 @@ export default function ChatWindow({
 
   const podeEnviarPorInstancia = getPermissaoInstancia('can_send');
 
-  // Permissões gerais do usuário
-  const temPermissaoGeralEnvio = permissoes.pode_enviar_mensagens !== false;
-  const temPermissaoGeralMidia = permissoes.pode_enviar_midias !== false;
-  const temPermissaoGeralAudio = permissoes.pode_enviar_audios !== false;
+  // ✅ NEXUS360: Prioriza novo sistema, fallback para legado, default liberado
+  const temPermissaoGeralEnvio = permNexus.podeEnviarMensagens ?? permLegado.pode_enviar_mensagens ?? true;
+  const temPermissaoGeralMidia = permNexus.podeEnviarMidias ?? permLegado.pode_enviar_midias ?? true;
+  const temPermissaoGeralAudio = permNexus.podeEnviarAudios ?? permLegado.pode_enviar_audios ?? true;
 
   // Determina se está em modo de broadcast interno
   const isBroadcastInternoAtivo = !!broadcastInterno;
@@ -345,8 +345,8 @@ export default function ChatWindow({
   const podeEnviarMensagens = isBroadcastInternoAtivo ? temPermissaoGeralEnvio : (podeInteragirNaThread && temPermissaoGeralEnvio && podeEnviarPorInstancia);
   const podeEnviarMidias = isBroadcastInternoAtivo ? temPermissaoGeralMidia : (podeInteragirNaThread && temPermissaoGeralMidia && podeEnviarPorInstancia);
   const podeEnviarAudios = isBroadcastInternoAtivo ? temPermissaoGeralAudio : (podeInteragirNaThread && temPermissaoGeralAudio && podeEnviarPorInstancia);
-  const podeApagarMensagens = permissoes.pode_apagar_mensagens === true;
-  const podeTransferirConversas = true;
+  const podeApagarMensagens = permNexus.podeApagarMensagens ?? permLegado.pode_apagar_mensagens ?? false;
+  const podeTransferirConversas = permNexus.podeTransferirConversa ?? true;
 
   const navigate = useNavigate();
 

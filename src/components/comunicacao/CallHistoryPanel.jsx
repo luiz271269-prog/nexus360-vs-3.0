@@ -17,11 +17,27 @@ import {
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
-export default function CallHistoryPanel({ contactId }) {
+export default function CallHistoryPanel({ contactId, usuario }) {
+  // ✅ NEXUS360: Verificar permissão para ver histórico
+  const podeVerTodas = usuario?.permissoes_acoes_nexus?.podeVerHistoricoChamadas ?? 
+                       ['gerente', 'coordenador', 'admin'].includes(usuario?.attendant_role || usuario?.role) ??
+                       true;
+
   const { data: callSessions = [], isLoading } = useQuery({
     queryKey: ['call-sessions', contactId],
-    queryFn: () => base44.entities.CallSession.filter({ contact_id: contactId }, '-started_at', 50),
-    enabled: !!contactId,
+    queryFn: async () => {
+      if (podeVerTodas) {
+        // Ver todas as chamadas deste contato
+        return base44.entities.CallSession.filter({ contact_id: contactId }, '-started_at', 50);
+      } else {
+        // Ver apenas chamadas onde EU fui o atendente
+        return base44.entities.CallSession.filter({ 
+          contact_id: contactId, 
+          assigned_user_id: usuario?.id 
+        }, '-started_at', 50);
+      }
+    },
+    enabled: !!contactId && !!usuario,
     refetchInterval: 30000
   });
 
@@ -71,10 +87,17 @@ export default function CallHistoryPanel({ contactId }) {
 
   return (
     <div className="space-y-3 p-4">
-      <h3 className="text-sm font-bold text-slate-700 flex items-center gap-2">
-        <Phone className="w-4 h-4 text-yellow-600" />
-        Histórico de Chamadas ({callSessions.length})
-      </h3>
+      <div className="flex items-center justify-between">
+        <h3 className="text-sm font-bold text-slate-700 flex items-center gap-2">
+          <Phone className="w-4 h-4 text-yellow-600" />
+          Histórico de Chamadas ({callSessions.length})
+        </h3>
+        {!podeVerTodas && (
+          <Badge className="bg-blue-100 text-blue-700 text-xs">
+            📞 Apenas suas chamadas
+          </Badge>
+        )}
+      </div>
 
       <div className="space-y-2 max-h-[500px] overflow-y-auto">
         {callSessions.map((call) => (
