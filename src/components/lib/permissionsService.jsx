@@ -340,7 +340,7 @@ export function buildUserPermissions(usuario, allIntegracoes = []) {
     // Identificação
     id: usuario.id,
     email: usuario.email,
-    full_name: usuario.full_name || usuario.display_name,
+    full_name: usuario.display_name || usuario.full_name, // ✅ Prioriza nome editável
     role: usuario.role,
     attendant_role: usuario.attendant_role,
     attendant_sector: usuario.attendant_sector,
