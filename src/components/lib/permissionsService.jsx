@@ -35,7 +35,23 @@ export const PERMISSIONS_PRESETS = {
     podeVerRelatorios: true,
     podeExportarDados: true,
     podeGerenciarPermissoes: true,
-    podeVerDiagnosticos: true
+    podeVerDiagnosticos: true,
+    // ✅ NOVAS - Sprint 1 e 2
+    podeAssumirDaFila: true,
+    podeCriarNotasInternas: true,
+    podeVerHistoricoChamadas: true,
+    podeResponderMensagens: true,
+    podeEncaminharMensagens: true,
+    podeCategorizarMensagensIndividuais: true,
+    podeAlterarStatusContato: true,
+    podeCriarRespostasRapidas: true,
+    podeDeletarRespostasRapidas: true,
+    podeDeletarPlaybooks: true,
+    podeDuplicarPlaybooks: true,
+    podeRealizarChamadas: true,
+    podeVerMetricasIndividuais: true,
+    podeVerMetricasEquipe: true,
+    podeConfigurarURA: true
   },
   
   gerente: {
@@ -58,7 +74,23 @@ export const PERMISSIONS_PRESETS = {
     podeVerRelatorios: true,
     podeExportarDados: true,
     podeGerenciarPermissoes: false,
-    podeVerDiagnosticos: true
+    podeVerDiagnosticos: true,
+    // ✅ NOVAS - Sprint 1 e 2
+    podeAssumirDaFila: true,
+    podeCriarNotasInternas: true,
+    podeVerHistoricoChamadas: true,
+    podeResponderMensagens: true,
+    podeEncaminharMensagens: true,
+    podeCategorizarMensagensIndividuais: true,
+    podeAlterarStatusContato: true,
+    podeCriarRespostasRapidas: true,
+    podeDeletarRespostasRapidas: false,
+    podeDeletarPlaybooks: false,
+    podeDuplicarPlaybooks: true,
+    podeRealizarChamadas: true,
+    podeVerMetricasIndividuais: true,
+    podeVerMetricasEquipe: true,
+    podeConfigurarURA: true
   },
   
   coordenador: {
@@ -81,7 +113,23 @@ export const PERMISSIONS_PRESETS = {
     podeVerRelatorios: true,
     podeExportarDados: false,
     podeGerenciarPermissoes: false,
-    podeVerDiagnosticos: false
+    podeVerDiagnosticos: false,
+    // ✅ NOVAS - Sprint 1 e 2
+    podeAssumirDaFila: true,
+    podeCriarNotasInternas: true,
+    podeVerHistoricoChamadas: true,
+    podeResponderMensagens: true,
+    podeEncaminharMensagens: true,
+    podeCategorizarMensagensIndividuais: true,
+    podeAlterarStatusContato: true,
+    podeCriarRespostasRapidas: true,
+    podeDeletarRespostasRapidas: false,
+    podeDeletarPlaybooks: false,
+    podeDuplicarPlaybooks: false,
+    podeRealizarChamadas: true,
+    podeVerMetricasIndividuais: true,
+    podeVerMetricasEquipe: true,
+    podeConfigurarURA: false
   },
   
   senior: {
@@ -104,7 +152,23 @@ export const PERMISSIONS_PRESETS = {
     podeVerRelatorios: false,
     podeExportarDados: false,
     podeGerenciarPermissoes: false,
-    podeVerDiagnosticos: false
+    podeVerDiagnosticos: false,
+    // ✅ NOVAS - Sprint 1 e 2
+    podeAssumirDaFila: true,
+    podeCriarNotasInternas: true,
+    podeVerHistoricoChamadas: false,
+    podeResponderMensagens: true,
+    podeEncaminharMensagens: false,
+    podeCategorizarMensagensIndividuais: true,
+    podeAlterarStatusContato: false,
+    podeCriarRespostasRapidas: false,
+    podeDeletarRespostasRapidas: false,
+    podeDeletarPlaybooks: false,
+    podeDuplicarPlaybooks: false,
+    podeRealizarChamadas: true,
+    podeVerMetricasIndividuais: true,
+    podeVerMetricasEquipe: false,
+    podeConfigurarURA: false
   },
   
   pleno: {
@@ -127,7 +191,23 @@ export const PERMISSIONS_PRESETS = {
     podeVerRelatorios: false,
     podeExportarDados: false,
     podeGerenciarPermissoes: false,
-    podeVerDiagnosticos: false
+    podeVerDiagnosticos: false,
+    // ✅ NOVAS - Sprint 1 e 2
+    podeAssumirDaFila: true,
+    podeCriarNotasInternas: true,
+    podeVerHistoricoChamadas: false,
+    podeResponderMensagens: true,
+    podeEncaminharMensagens: false,
+    podeCategorizarMensagensIndividuais: false,
+    podeAlterarStatusContato: false,
+    podeCriarRespostasRapidas: false,
+    podeDeletarRespostasRapidas: false,
+    podeDeletarPlaybooks: false,
+    podeDuplicarPlaybooks: false,
+    podeRealizarChamadas: true,
+    podeVerMetricasIndividuais: true,
+    podeVerMetricasEquipe: false,
+    podeConfigurarURA: false
   },
   
   junior: {
@@ -150,7 +230,23 @@ export const PERMISSIONS_PRESETS = {
     podeVerRelatorios: false,
     podeExportarDados: false,
     podeGerenciarPermissoes: false,
-    podeVerDiagnosticos: false
+    podeVerDiagnosticos: false,
+    // ✅ NOVAS - Sprint 1 e 2 (BLOQUEADO para júnior na maioria)
+    podeAssumirDaFila: false,
+    podeCriarNotasInternas: true, // Liberado - baixo risco
+    podeVerHistoricoChamadas: false,
+    podeResponderMensagens: true,
+    podeEncaminharMensagens: false,
+    podeCategorizarMensagensIndividuais: false,
+    podeAlterarStatusContato: false,
+    podeCriarRespostasRapidas: false,
+    podeDeletarRespostasRapidas: false,
+    podeDeletarPlaybooks: false,
+    podeDuplicarPlaybooks: false,
+    podeRealizarChamadas: false,
+    podeVerMetricasIndividuais: true,
+    podeVerMetricasEquipe: false,
+    podeConfigurarURA: false
   }
 };
 
