@@ -535,124 +535,111 @@ export default function PainelPermissoesUnificado({ usuario, integracoes = [], o
                 </AlertDescription>
               </Alert>
 
-              {/* NOVA SEÇÃO: Visibilidade Fina (Regras Híbridas) */}
-              <div className="mb-8">
-                <div className="flex items-center gap-2 mb-4">
-                  <Eye className="w-5 h-5 text-purple-600" />
-                  <h3 className="font-semibold">Visibilidade Fina (Regras Híbridas P6/P7)</h3>
-                </div>
-                
-                <Alert className="mb-4 bg-purple-50 border-purple-200">
-                  <Info className="h-4 w-4 text-purple-600" />
-                  <AlertDescription className="text-xs">
-                    <strong>Regras Híbridas:</strong> Controlam como supervisores/gerentes 
-                    acessam conversas de equipe sem violar privacidade individual.
-                  </AlertDescription>
-                </Alert>
-                
-                <div className="grid grid-cols-1 gap-3">
-                  {/* Flag 1: Ver Não Atribuídas */}
-                  <div className="flex items-start justify-between p-4 border rounded-lg bg-blue-50/50 hover:bg-blue-100/50 transition-colors">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2 mb-1">
-                        <Eye className="w-4 h-4 text-blue-600" />
-                        <span className="text-sm font-medium">Ver threads não atribuídas (filas)</span>
-                      </div>
-                      <p className="text-xs text-muted-foreground">
-                        Permite visualizar conversas na fila "Sem dono" do seu setor
-                      </p>
-                    </div>
-                    <Switch
-                      checked={permissoesAcoes.podeVerNaoAtribuidas ?? true}
-                      onCheckedChange={(v) => setPermissoesAcoes(prev => ({...prev, podeVerNaoAtribuidas: v}))}
-                    />
-                  </div>
-
-                  {/* Flag 2: Ver Conversas de Outros */}
-                  <div className="flex items-start justify-between p-4 border rounded-lg bg-amber-50/50 hover:bg-amber-100/50 transition-colors">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2 mb-1">
-                        <Users className="w-4 h-4 text-amber-600" />
-                        <span className="text-sm font-medium">Ver conversas atribuídas a outros</span>
-                        <Badge variant="outline" className="text-xs ml-2">P7</Badge>
-                      </div>
-                      <p className="text-xs text-muted-foreground">
-                        Permite supervisão de threads em andamento de outros atendentes do setor
-                      </p>
-                    </div>
-                    <Switch
-                      checked={permissoesAcoes.podeVerConversasOutros ?? false}
-                      onCheckedChange={(v) => setPermissoesAcoes(prev => ({...prev, podeVerConversasOutros: v}))}
-                    />
-                  </div>
-
-                  {/* Flag 3: Ver Carteiras de Outros */}
-                  <div className="flex items-start justify-between p-4 border rounded-lg bg-green-50/50 hover:bg-green-100/50 transition-colors">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2 mb-1">
-                        <Users className="w-4 h-4 text-green-600" />
-                        <span className="text-sm font-medium">Ver carteiras de outros atendentes</span>
-                        <Badge variant="outline" className="text-xs ml-2">P6</Badge>
-                      </div>
-                      <p className="text-xs text-muted-foreground">
-                        Permite acessar contatos fidelizados a colegas do setor (supervisão de carteira)
-                      </p>
-                    </div>
-                    <Switch
-                      checked={permissoesAcoes.podeVerCarteiraOutros ?? false}
-                      onCheckedChange={(v) => setPermissoesAcoes(prev => ({...prev, podeVerCarteiraOutros: v}))}
-                    />
-                  </div>
-
-                  {/* Flag 4: Ver Todos Setores */}
-                  <div className="flex items-start justify-between p-4 border rounded-lg bg-indigo-50/50 hover:bg-indigo-100/50 transition-colors">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2 mb-1">
-                        <Shield className="w-4 h-4 text-indigo-600" />
-                        <span className="text-sm font-medium">Ver todos os setores (cross-setorial)</span>
-                        <Badge variant="outline" className="text-xs ml-2">P11 Override</Badge>
-                      </div>
-                      <p className="text-xs text-muted-foreground">
-                        Permite acesso a threads de TODOS os setores (diretor/gerente geral)
-                      </p>
-                    </div>
-                    <Switch
-                      checked={permissoesAcoes.podeVerTodosSetores ?? false}
-                      onCheckedChange={(v) => setPermissoesAcoes(prev => ({...prev, podeVerTodosSetores: v}))}
-                    />
-                  </div>
-
-                  {/* Flag 5: Strict Mode */}
-                  <div className="flex items-start justify-between p-4 border-2 border-red-300 rounded-lg bg-red-50 hover:bg-red-100/50 transition-colors">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2 mb-1">
-                        <Lock className="w-4 h-4 text-red-600" />
-                        <span className="text-sm font-medium">🚨 Strict Mode (Modo Restrito)</span>
-                        <Badge variant="destructive" className="text-xs ml-2">Desativa P5/P8</Badge>
-                      </div>
-                      <p className="text-xs text-muted-foreground">
-                        Desativa liberações P5 (janela 24h) e P8 (supervisão) - zero exceções
-                      </p>
-                      <p className="text-xs text-red-600 font-medium mt-1">
-                        ⚠️ Use para estagiários ou usuários em período de experiência
-                      </p>
-                    </div>
-                    <Switch
-                      checked={permissoesAcoes.strictMode ?? false}
-                      onCheckedChange={(v) => setPermissoesAcoes(prev => ({...prev, strictMode: v}))}
-                    />
-                  </div>
-                </div>
-              </div>
-
-              <Separator className="my-6" />
-
-              {/* Seção existente de ações granulares - EXPANDIDA */}
+              {/* Seção de ações granulares organizadas */}
               <div>
                 <div className="flex items-center gap-2 mb-4">
                   <Shield className="w-5 h-5 text-slate-600" />
-                  <h3 className="font-semibold">Permissões Detalhadas de Comunicação</h3>
+                  <h3 className="font-semibold">Permissões Detalhadas</h3>
+                  <Badge variant="outline" className="text-xs">
+                    {Object.values(permissoesAcoes).filter(v => v === true).length} ativas
+                  </Badge>
                 </div>
+
+                {/* SEÇÃO ESPECIAL: Regras P1-P12 com Checkboxes */}
+                <Alert className="mb-4 bg-blue-50 border-blue-200">
+                  <Info className="h-4 w-4 text-blue-600" />
+                  <AlertDescription className="text-xs">
+                    <strong>Regras de Visibilidade (P1-P12):</strong> Configure diretamente as flags 
+                    que controlam o que o usuário vê na lista de conversas.
+                  </AlertDescription>
+                </Alert>
+
+                <div className="mb-6 p-4 border-2 border-purple-200 rounded-lg bg-purple-50/30">
+                  <h4 className="text-sm font-semibold text-purple-700 mb-3 flex items-center gap-2">
+                    🎯 Regras de Visibilidade (P1-P12)
+                  </h4>
+                  <div className="grid grid-cols-1 gap-2">
+                    <div className="flex items-start justify-between p-3 border rounded-lg bg-white hover:bg-purple-50/50 transition-colors">
+                      <div className="flex-1 mr-4">
+                        <div className="text-sm font-medium">
+                          <Badge variant="outline" className="mr-2 text-xs">P7</Badge>
+                          Ver todas conversas (Admin/Gerente)
+                        </div>
+                        <div className="text-xs text-muted-foreground mt-1">
+                          Acesso total - vê threads atribuídas a outros (sobrescreve P6)
+                        </div>
+                      </div>
+                      <Switch
+                        checked={permissoesAcoes.podeVerTodasConversas ?? false}
+                        onCheckedChange={(v) => setPermissoesAcoes(prev => ({...prev, podeVerTodasConversas: v}))}
+                      />
+                    </div>
+
+                    <div className="flex items-start justify-between p-3 border rounded-lg bg-white hover:bg-green-50/50 transition-colors">
+                      <div className="flex-1 mr-4">
+                        <div className="text-sm font-medium">
+                          <Badge variant="outline" className="mr-2 text-xs bg-green-50">P5</Badge>
+                          Janela 24h (regra de liberação)
+                        </div>
+                        <div className="text-xs text-muted-foreground mt-1">
+                          Vê threads com msg do cliente {'<'} {configuracao.regras_liberacao.find(r => r.tipo === 'janela_24h')?.configuracao?.horas || 24}h
+                        </div>
+                      </div>
+                      <Switch
+                        checked={configuracao.regras_liberacao.some(r => r.tipo === 'janela_24h' && r.ativa)}
+                        onCheckedChange={(checked) => {
+                          if (checked && !configuracao.regras_liberacao.find(r => r.tipo === 'janela_24h')) {
+                            adicionarRegraLiberacao('janela_24h');
+                          } else {
+                            const index = configuracao.regras_liberacao.findIndex(r => r.tipo === 'janela_24h');
+                            if (index >= 0) atualizarRegraLiberacao(index, 'ativa', checked);
+                          }
+                        }}
+                      />
+                    </div>
+
+                    <div className="flex items-start justify-between p-3 border rounded-lg bg-white hover:bg-green-50/50 transition-colors">
+                      <div className="flex-1 mr-4">
+                        <div className="text-sm font-medium">
+                          <Badge variant="outline" className="mr-2 text-xs bg-green-50">P8</Badge>
+                          Supervisão Gerencial
+                        </div>
+                        <div className="text-xs text-muted-foreground mt-1">
+                          Gerente vê threads sem resposta há {configuracao.regras_liberacao.find(r => r.tipo === 'gerente_supervisao')?.configuracao?.minutos_sem_resposta || 30}+ min
+                        </div>
+                      </div>
+                      <Switch
+                        checked={configuracao.regras_liberacao.some(r => r.tipo === 'gerente_supervisao' && r.ativa)}
+                        onCheckedChange={(checked) => {
+                          if (checked && !configuracao.regras_liberacao.find(r => r.tipo === 'gerente_supervisao')) {
+                            adicionarRegraLiberacao('gerente_supervisao');
+                          } else {
+                            const index = configuracao.regras_liberacao.findIndex(r => r.tipo === 'gerente_supervisao');
+                            if (index >= 0) atualizarRegraLiberacao(index, 'ativa', checked);
+                          }
+                        }}
+                      />
+                    </div>
+
+                    <div className="flex items-start justify-between p-3 border-2 border-red-300 rounded-lg bg-red-50 hover:bg-red-100/50 transition-colors">
+                      <div className="flex-1 mr-4">
+                        <div className="text-sm font-medium">
+                          <Badge variant="destructive" className="mr-2 text-xs">STRICT</Badge>
+                          Strict Mode (desativa P5/P8)
+                        </div>
+                        <div className="text-xs text-muted-foreground mt-1">
+                          Modo restrito - zero exceções (estagiários/teste)
+                        </div>
+                      </div>
+                      <Switch
+                        checked={permissoesAcoes.strictMode ?? false}
+                        onCheckedChange={(v) => setPermissoesAcoes(prev => ({...prev, strictMode: v}))}
+                      />
+                    </div>
+                  </div>
+                </div>
+
+              <Separator className="my-6" />
 
                 {/* CATEGORIA 1: ENVIO DE MENSAGENS */}
                 <div className="mb-6">
@@ -851,64 +838,7 @@ export default function PainelPermissoesUnificado({ usuario, integracoes = [], o
 
                 <Separator className="my-4" />
 
-                {/* CATEGORIA 4: VISIBILIDADE E ACESSO */}
-                <div className="mb-6">
-                  <h4 className="text-sm font-semibold text-slate-700 mb-3 flex items-center gap-2">
-                    👁️ Visibilidade e Acesso a Conversas
-                  </h4>
-                  <div className="grid grid-cols-1 gap-2">
-                    {[
-                      { 
-                        key: 'podeVerTodasConversas', 
-                        label: 'Ver todas as conversas do sistema', 
-                        desc: '🔴 ADMIN/GERENTE - Acesso irrestrito a todas as threads (ignora atribuições)'
-                      },
-                      { 
-                        key: 'podeVerConversasAtribuidas', 
-                        label: 'Ver conversas atribuídas a mim', 
-                        desc: 'Threads com assigned_user_id = meu ID (sempre habilitado)'
-                      },
-                      { 
-                        key: 'podeVerConversasFidelizadas', 
-                        label: 'Ver conversas de contatos fidelizados', 
-                        desc: 'Threads de clientes da minha carteira (atendente_fidelizado_*)'
-                      },
-                      { 
-                        key: 'podeVerConversasNaoAtribuidas', 
-                        label: 'Ver fila de não atribuídas', 
-                        desc: 'Conversas sem dono - permite assumir atendimento'
-                      },
-                      { 
-                        key: 'podeVerConversasOutrosAtendentes', 
-                        label: 'Ver conversas de outros atendentes', 
-                        desc: 'Supervisão - vê threads atribuídas a colegas do setor'
-                      },
-                      { 
-                        key: 'podeVerConversasOutrosSetores', 
-                        label: 'Ver conversas de outros setores', 
-                        desc: '🔴 CROSS-SETORIAL - Acesso além do seu setor (gerente geral)'
-                      },
-                      { 
-                        key: 'podeVerThreadsInternas', 
-                        label: 'Ver chats internos da equipe', 
-                        desc: 'Conversas team_internal e sector_group que participa'
-                      }
-                    ].map(({ key, label, desc }) => (
-                      <div key={key} className="flex items-start justify-between p-3 border rounded-lg hover:bg-slate-50 transition-colors">
-                        <div className="flex-1 mr-4">
-                          <div className="text-sm font-medium">{label}</div>
-                          <div className="text-xs text-muted-foreground mt-1">{desc}</div>
-                        </div>
-                        <Switch
-                          checked={permissoesAcoes[key] ?? (previewPermissoes?.[key] ?? true)}
-                          onCheckedChange={(checked) => setPermissoesAcoes(prev => ({ ...prev, [key]: checked }))}
-                        />
-                      </div>
-                    ))}
-                  </div>
-                </div>
 
-                <Separator className="my-4" />
 
                 {/* CATEGORIA 5: AUTOMAÇÃO E PLAYBOOKS */}
                 <div className="mb-6">
@@ -1203,9 +1133,9 @@ export default function PainelPermissoesUnificado({ usuario, integracoes = [], o
                         desc: 'Discar para contatos via integração GoTo/telefônica'
                       },
                       { 
-                        key: 'podeVerHistoricoChamadas', 
-                        label: '⭐ Ver histórico de chamadas', 
-                        desc: '🚨 PRIVACIDADE: Acessar CallHistoryPanel com ligações de outros'
+                       key: 'podeVerHistoricoChamadas', 
+                       label: 'Ver histórico de chamadas', 
+                       desc: 'CallHistoryPanel - histórico completo de ligações'
                       },
                       { 
                         key: 'podeEscutarGravacoes', 
