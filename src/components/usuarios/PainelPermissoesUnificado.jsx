@@ -647,49 +647,519 @@ export default function PainelPermissoesUnificado({ usuario, integracoes = [], o
 
               <Separator className="my-6" />
 
-              {/* Seção existente de ações granulares */}
+              {/* Seção existente de ações granulares - EXPANDIDA */}
               <div>
-                <div className="flex items-center gap-2 mb-3">
+                <div className="flex items-center gap-2 mb-4">
                   <Shield className="w-5 h-5 text-slate-600" />
-                  <h3 className="font-semibold">Ações Granulares (Operações)</h3>
+                  <h3 className="font-semibold">Permissões Detalhadas de Comunicação</h3>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                  {[
-                    { key: 'podeVerTodasConversas', label: 'Ver Todas as Conversas', icon: Eye },
-                    { key: 'podeEnviarMensagens', label: 'Enviar Mensagens', icon: Shield },
-                    { key: 'podeEnviarMidias', label: 'Enviar Mídias', icon: Shield },
-                    { key: 'podeEnviarAudios', label: 'Enviar Áudios', icon: Shield },
-                    { key: 'podeTransferirConversa', label: 'Transferir Conversas', icon: Shield },
-                    { key: 'podeApagarMensagens', label: 'Apagar Mensagens', icon: Lock },
-                    { key: 'podeGerenciarFilas', label: 'Gerenciar Filas', icon: Settings },
-                    { key: 'podeAtribuirConversas', label: 'Atribuir Conversas', icon: Users },
-                    { key: 'podeVerDetalhesContato', label: 'Ver Detalhes Contato', icon: Eye },
-                    { key: 'podeEditarContato', label: 'Editar Contato', icon: Settings },
-                    { key: 'podeBloquearContato', label: 'Bloquear Contato', icon: Lock },
-                    { key: 'podeDeletarContato', label: 'Deletar Contato', icon: Lock },
-                    { key: 'podeCriarPlaybooks', label: 'Criar Playbooks', icon: Settings },
-                    { key: 'podeEditarPlaybooks', label: 'Editar Playbooks', icon: Settings },
-                    { key: 'podeGerenciarConexoes', label: 'Gerenciar Conexões', icon: Settings },
-                    { key: 'podeVerRelatorios', label: 'Ver Relatórios', icon: Eye },
-                    { key: 'podeExportarDados', label: 'Exportar Dados', icon: Shield },
-                    { key: 'podeGerenciarPermissoes', label: 'Gerenciar Permissões', icon: Lock },
-                    { key: 'podeVerDiagnosticos', label: 'Ver Diagnósticos', icon: Settings }
-                  ].map(({ key, label, icon: Icon }) => (
-                    <div key={key} className="flex items-center justify-between p-3 border rounded-lg">
-                      <div className="flex items-center gap-2">
-                        <Icon className="w-4 h-4 text-muted-foreground" />
-                        <span className="text-sm">{label}</span>
+                {/* CATEGORIA 1: ENVIO DE MENSAGENS */}
+                <div className="mb-6">
+                  <h4 className="text-sm font-semibold text-slate-700 mb-3 flex items-center gap-2">
+                    📤 Envio de Mensagens e Conteúdo
+                  </h4>
+                  <div className="grid grid-cols-1 gap-2">
+                    {[
+                      { 
+                        key: 'podeEnviarMensagens', 
+                        label: 'Enviar mensagens de texto', 
+                        desc: 'Permite digitar e enviar mensagens de texto nas conversas'
+                      },
+                      { 
+                        key: 'podeEnviarMidias', 
+                        label: 'Enviar imagens, vídeos e documentos', 
+                        desc: 'Habilita botão de anexo (📎) para enviar arquivos'
+                      },
+                      { 
+                        key: 'podeEnviarAudios', 
+                        label: 'Gravar e enviar áudios', 
+                        desc: 'Habilita botão de microfone (🎤) para gravar mensagens de voz'
+                      },
+                      { 
+                        key: 'podeUsarTemplates', 
+                        label: 'Usar templates aprovados', 
+                        desc: 'Enviar mensagens fora da janela de 24h usando templates do WhatsApp'
+                      },
+                      { 
+                        key: 'podeUsarRespostasRapidas', 
+                        label: 'Usar respostas rápidas (Quick Replies)', 
+                        desc: 'Acessar biblioteca de respostas prontas para agilizar atendimento'
+                      }
+                    ].map(({ key, label, desc }) => (
+                      <div key={key} className="flex items-start justify-between p-3 border rounded-lg hover:bg-slate-50 transition-colors">
+                        <div className="flex-1 mr-4">
+                          <div className="text-sm font-medium">{label}</div>
+                          <div className="text-xs text-muted-foreground mt-1">{desc}</div>
+                        </div>
+                        <Switch
+                          checked={permissoesAcoes[key] ?? (previewPermissoes?.[key] ?? true)}
+                          onCheckedChange={(checked) => setPermissoesAcoes(prev => ({ ...prev, [key]: checked }))}
+                        />
                       </div>
-                      <Switch
-                        checked={permissoesAcoes[key] ?? (previewPermissoes?.[key] ?? true)}
-                        onCheckedChange={(checked) => setPermissoesAcoes(prev => ({
-                          ...prev,
-                          [key]: checked
-                        }))}
-                      />
-                    </div>
-                  ))}
+                    ))}
+                  </div>
+                </div>
+
+                <Separator className="my-4" />
+
+                {/* CATEGORIA 2: GESTÃO DE CONVERSAS */}
+                <div className="mb-6">
+                  <h4 className="text-sm font-semibold text-slate-700 mb-3 flex items-center gap-2">
+                    💬 Gestão de Conversas
+                  </h4>
+                  <div className="grid grid-cols-1 gap-2">
+                    {[
+                      { 
+                        key: 'podeTransferirConversa', 
+                        label: 'Transferir conversas para outros', 
+                        desc: 'Pode transferir atendimento para outro atendente ou setor'
+                      },
+                      { 
+                        key: 'podeAtribuirConversas', 
+                        label: 'Atribuir conversas não atribuídas', 
+                        desc: 'Pode pegar conversas da fila e atribuir a si mesmo ou colegas'
+                      },
+                      { 
+                        key: 'podeApagarMensagens', 
+                        label: 'Apagar mensagens enviadas', 
+                        desc: 'Permite deletar mensagens do WhatsApp (apaga para todos)'
+                      },
+                      { 
+                        key: 'podeMarcarComoLida', 
+                        label: 'Marcar conversas como lidas', 
+                        desc: 'Pode limpar contador de não lidas mesmo sem ler todas'
+                      },
+                      { 
+                        key: 'podeEncerrarConversa', 
+                        label: 'Encerrar/Arquivar conversas', 
+                        desc: 'Marcar conversa como resolvida e arquivar'
+                      },
+                      { 
+                        key: 'podeReabrirConversa', 
+                        label: 'Reabrir conversas arquivadas', 
+                        desc: 'Reativar conversas que foram encerradas'
+                      }
+                    ].map(({ key, label, desc }) => (
+                      <div key={key} className="flex items-start justify-between p-3 border rounded-lg hover:bg-slate-50 transition-colors">
+                        <div className="flex-1 mr-4">
+                          <div className="text-sm font-medium">{label}</div>
+                          <div className="text-xs text-muted-foreground mt-1">{desc}</div>
+                        </div>
+                        <Switch
+                          checked={permissoesAcoes[key] ?? (previewPermissoes?.[key] ?? true)}
+                          onCheckedChange={(checked) => setPermissoesAcoes(prev => ({ ...prev, [key]: checked }))}
+                        />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <Separator className="my-4" />
+
+                {/* CATEGORIA 3: GESTÃO DE CONTATOS */}
+                <div className="mb-6">
+                  <h4 className="text-sm font-semibold text-slate-700 mb-3 flex items-center gap-2">
+                    👤 Gestão de Contatos
+                  </h4>
+                  <div className="grid grid-cols-1 gap-2">
+                    {[
+                      { 
+                        key: 'podeVerDetalhesContato', 
+                        label: 'Ver informações detalhadas do contato', 
+                        desc: 'Acessar painel lateral com dados completos, histórico e score'
+                      },
+                      { 
+                        key: 'podeEditarContato', 
+                        label: 'Editar dados do contato', 
+                        desc: 'Alterar nome, empresa, cargo, telefone, email e observações'
+                      },
+                      { 
+                        key: 'podeCriarContato', 
+                        label: 'Criar novos contatos', 
+                        desc: 'Adicionar contatos via busca ou formulário de cadastro'
+                      },
+                      { 
+                        key: 'podeBloquearContato', 
+                        label: 'Bloquear/Desbloquear contatos', 
+                        desc: 'Impedir temporariamente recebimento de mensagens de um contato'
+                      },
+                      { 
+                        key: 'podeDeletarContato', 
+                        label: 'Deletar contatos permanentemente', 
+                        desc: '⚠️ Ação irreversível - remove contato e histórico completo'
+                      },
+                      { 
+                        key: 'podeAlterarFidelizacao', 
+                        label: 'Alterar atendente fidelizado', 
+                        desc: 'Modificar atendentes fixos por setor (carteira de clientes)'
+                      },
+                      { 
+                        key: 'podeAlterarTipoContato', 
+                        label: 'Alterar tipo de contato', 
+                        desc: 'Mudar classificação: Novo → Lead → Cliente → Fornecedor'
+                      },
+                      { 
+                        key: 'podeAdicionarTags', 
+                        label: 'Adicionar/Remover etiquetas', 
+                        desc: 'Gerenciar tags para categorização de contatos'
+                      }
+                    ].map(({ key, label, desc }) => (
+                      <div key={key} className="flex items-start justify-between p-3 border rounded-lg hover:bg-slate-50 transition-colors">
+                        <div className="flex-1 mr-4">
+                          <div className="text-sm font-medium">{label}</div>
+                          <div className="text-xs text-muted-foreground mt-1">{desc}</div>
+                        </div>
+                        <Switch
+                          checked={permissoesAcoes[key] ?? (previewPermissoes?.[key] ?? true)}
+                          onCheckedChange={(checked) => setPermissoesAcoes(prev => ({ ...prev, [key]: checked }))}
+                        />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <Separator className="my-4" />
+
+                {/* CATEGORIA 4: VISIBILIDADE E ACESSO */}
+                <div className="mb-6">
+                  <h4 className="text-sm font-semibold text-slate-700 mb-3 flex items-center gap-2">
+                    👁️ Visibilidade e Acesso a Conversas
+                  </h4>
+                  <div className="grid grid-cols-1 gap-2">
+                    {[
+                      { 
+                        key: 'podeVerTodasConversas', 
+                        label: 'Ver todas as conversas do sistema', 
+                        desc: '🔴 ADMIN/GERENTE - Acesso irrestrito a todas as threads (ignora atribuições)'
+                      },
+                      { 
+                        key: 'podeVerConversasAtribuidas', 
+                        label: 'Ver conversas atribuídas a mim', 
+                        desc: 'Threads com assigned_user_id = meu ID (sempre habilitado)'
+                      },
+                      { 
+                        key: 'podeVerConversasFidelizadas', 
+                        label: 'Ver conversas de contatos fidelizados', 
+                        desc: 'Threads de clientes da minha carteira (atendente_fidelizado_*)'
+                      },
+                      { 
+                        key: 'podeVerConversasNaoAtribuidas', 
+                        label: 'Ver fila de não atribuídas', 
+                        desc: 'Conversas sem dono - permite assumir atendimento'
+                      },
+                      { 
+                        key: 'podeVerConversasOutrosAtendentes', 
+                        label: 'Ver conversas de outros atendentes', 
+                        desc: 'Supervisão - vê threads atribuídas a colegas do setor'
+                      },
+                      { 
+                        key: 'podeVerConversasOutrosSetores', 
+                        label: 'Ver conversas de outros setores', 
+                        desc: '🔴 CROSS-SETORIAL - Acesso além do seu setor (gerente geral)'
+                      },
+                      { 
+                        key: 'podeVerThreadsInternas', 
+                        label: 'Ver chats internos da equipe', 
+                        desc: 'Conversas team_internal e sector_group que participa'
+                      }
+                    ].map(({ key, label, desc }) => (
+                      <div key={key} className="flex items-start justify-between p-3 border rounded-lg hover:bg-slate-50 transition-colors">
+                        <div className="flex-1 mr-4">
+                          <div className="text-sm font-medium">{label}</div>
+                          <div className="text-xs text-muted-foreground mt-1">{desc}</div>
+                        </div>
+                        <Switch
+                          checked={permissoesAcoes[key] ?? (previewPermissoes?.[key] ?? true)}
+                          onCheckedChange={(checked) => setPermissoesAcoes(prev => ({ ...prev, [key]: checked }))}
+                        />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <Separator className="my-4" />
+
+                {/* CATEGORIA 5: AUTOMAÇÃO E PLAYBOOKS */}
+                <div className="mb-6">
+                  <h4 className="text-sm font-semibold text-slate-700 mb-3 flex items-center gap-2">
+                    ⚡ Automação e Fluxos
+                  </h4>
+                  <div className="grid grid-cols-1 gap-2">
+                    {[
+                      { 
+                        key: 'podeCriarPlaybooks', 
+                        label: 'Criar novos playbooks', 
+                        desc: 'Desenhar fluxos conversacionais e automações'
+                      },
+                      { 
+                        key: 'podeEditarPlaybooks', 
+                        label: 'Editar playbooks existentes', 
+                        desc: 'Modificar fluxos criados por outros usuários'
+                      },
+                      { 
+                        key: 'podeAtivarDesativarPlaybooks', 
+                        label: 'Ativar/Desativar playbooks', 
+                        desc: 'Controlar quais fluxos estão rodando no sistema'
+                      },
+                      { 
+                        key: 'podeVerEstatisticasPlaybooks', 
+                        label: 'Ver estatísticas de playbooks', 
+                        desc: 'Acessar métricas de performance dos fluxos'
+                      },
+                      { 
+                        key: 'podeCriarPromocoes', 
+                        label: 'Criar campanhas promocionais', 
+                        desc: 'Configurar envios automáticos de promoções'
+                      },
+                      { 
+                        key: 'podeEnviarPromocoesManuais', 
+                        label: 'Enviar promoções manualmente', 
+                        desc: 'Disparar campanhas fora do ciclo automático'
+                      }
+                    ].map(({ key, label, desc }) => (
+                      <div key={key} className="flex items-start justify-between p-3 border rounded-lg hover:bg-slate-50 transition-colors">
+                        <div className="flex-1 mr-4">
+                          <div className="text-sm font-medium">{label}</div>
+                          <div className="text-xs text-muted-foreground mt-1">{desc}</div>
+                        </div>
+                        <Switch
+                          checked={permissoesAcoes[key] ?? (previewPermissoes?.[key] ?? true)}
+                          onCheckedChange={(checked) => setPermissoesAcoes(prev => ({ ...prev, [key]: checked }))}
+                        />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <Separator className="my-4" />
+
+                {/* CATEGORIA 6: CONFIGURAÇÕES E SISTEMA */}
+                <div className="mb-6">
+                  <h4 className="text-sm font-semibold text-slate-700 mb-3 flex items-center gap-2">
+                    ⚙️ Configurações e Sistema
+                  </h4>
+                  <div className="grid grid-cols-1 gap-2">
+                    {[
+                      { 
+                        key: 'podeGerenciarConexoes', 
+                        label: 'Gerenciar conexões WhatsApp', 
+                        desc: '⚠️ Configurar, conectar e desconectar instâncias WhatsApp'
+                      },
+                      { 
+                        key: 'podeGerenciarFilas', 
+                        label: 'Gerenciar filas de atendimento', 
+                        desc: 'Criar, editar e configurar setores/filas de distribuição'
+                      },
+                      { 
+                        key: 'podeGerenciarPermissoes', 
+                        label: 'Gerenciar permissões de outros usuários', 
+                        desc: '🔴 ADMIN - Editar esta tela para outros usuários'
+                      },
+                      { 
+                        key: 'podeVerDiagnosticos', 
+                        label: 'Acessar diagnósticos do sistema', 
+                        desc: 'Ver logs, webhooks e ferramentas de debug técnico'
+                      },
+                      { 
+                        key: 'podeVerRelatorios', 
+                        label: 'Ver relatórios e analytics', 
+                        desc: 'Dashboard com métricas de performance e vendas'
+                      },
+                      { 
+                        key: 'podeExportarDados', 
+                        label: 'Exportar dados e relatórios', 
+                        desc: 'Baixar CSVs, PDFs e planilhas de dados do sistema'
+                      }
+                    ].map(({ key, label, desc }) => (
+                      <div key={key} className="flex items-start justify-between p-3 border rounded-lg hover:bg-slate-50 transition-colors">
+                        <div className="flex-1 mr-4">
+                          <div className="text-sm font-medium">{label}</div>
+                          <div className="text-xs text-muted-foreground mt-1">{desc}</div>
+                        </div>
+                        <Switch
+                          checked={permissoesAcoes[key] ?? (previewPermissoes?.[key] ?? true)}
+                          onCheckedChange={(checked) => setPermissoesAcoes(prev => ({ ...prev, [key]: checked }))}
+                        />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <Separator className="my-4" />
+
+                {/* CATEGORIA 7: BROADCAST E ENVIOS EM MASSA */}
+                <div className="mb-6">
+                  <h4 className="text-sm font-semibold text-slate-700 mb-3 flex items-center gap-2">
+                    📢 Envios em Massa e Broadcast
+                  </h4>
+                  <div className="grid grid-cols-1 gap-2">
+                    {[
+                      { 
+                        key: 'podeUsarBroadcastExterno', 
+                        label: 'Enviar broadcast para múltiplos clientes', 
+                        desc: 'Modo seleção múltipla - enviar mesma mensagem para vários contatos'
+                      },
+                      { 
+                        key: 'podeUsarBroadcastInterno', 
+                        label: 'Enviar broadcast interno (equipe)', 
+                        desc: 'Enviar mensagem para múltiplos atendentes/setores simultaneamente'
+                      },
+                      { 
+                        key: 'podeSelecionarMultiplosContatos', 
+                        label: 'Selecionar múltiplos contatos na lista', 
+                        desc: 'Habilita checkboxes de seleção múltipla'
+                      },
+                      { 
+                        key: 'podeEnviarParaSetorCompleto', 
+                        label: 'Enviar para setor completo (grupo)', 
+                        desc: 'Broadcast para todos do setor de uma vez'
+                      }
+                    ].map(({ key, label, desc }) => (
+                      <div key={key} className="flex items-start justify-between p-3 border rounded-lg hover:bg-slate-50 transition-colors">
+                        <div className="flex-1 mr-4">
+                          <div className="text-sm font-medium">{label}</div>
+                          <div className="text-xs text-muted-foreground mt-1">{desc}</div>
+                        </div>
+                        <Switch
+                          checked={permissoesAcoes[key] ?? (previewPermissoes?.[key] ?? true)}
+                          onCheckedChange={(checked) => setPermissoesAcoes(prev => ({ ...prev, [key]: checked }))}
+                        />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <Separator className="my-4" />
+
+                {/* CATEGORIA 8: MENSAGENS INTERNAS */}
+                <div className="mb-6">
+                  <h4 className="text-sm font-semibold text-slate-700 mb-3 flex items-center gap-2">
+                    🔵 Chat Interno (Team)
+                  </h4>
+                  <div className="grid grid-cols-1 gap-2">
+                    {[
+                      { 
+                        key: 'podeEnviarMensagensInternas', 
+                        label: 'Enviar mensagens internas 1:1', 
+                        desc: 'Chat privado com colegas da equipe'
+                      },
+                      { 
+                        key: 'podeCriarGruposInternos', 
+                        label: 'Criar grupos internos customizados', 
+                        desc: 'Criar canais de equipe personalizados'
+                      },
+                      { 
+                        key: 'podeParticiparGruposSetor', 
+                        label: 'Participar de grupos de setor', 
+                        desc: 'Acesso automático ao grupo do seu setor'
+                      },
+                      { 
+                        key: 'podeAdicionarMembrosGrupo', 
+                        label: 'Adicionar membros em grupos', 
+                        desc: 'Convidar outros usuários para grupos que participa'
+                      }
+                    ].map(({ key, label, desc }) => (
+                      <div key={key} className="flex items-start justify-between p-3 border rounded-lg hover:bg-slate-50 transition-colors">
+                        <div className="flex-1 mr-4">
+                          <div className="text-sm font-medium">{label}</div>
+                          <div className="text-xs text-muted-foreground mt-1">{desc}</div>
+                        </div>
+                        <Switch
+                          checked={permissoesAcoes[key] ?? (previewPermissoes?.[key] ?? true)}
+                          onCheckedChange={(checked) => setPermissoesAcoes(prev => ({ ...prev, [key]: checked }))}
+                        />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <Separator className="my-4" />
+
+                {/* CATEGORIA 9: INTELIGÊNCIA E IA */}
+                <div className="mb-6">
+                  <h4 className="text-sm font-semibold text-slate-700 mb-3 flex items-center gap-2">
+                    🤖 Inteligência Artificial
+                  </h4>
+                  <div className="grid grid-cols-1 gap-2">
+                    {[
+                      { 
+                        key: 'podeUsarSugestorRespostas', 
+                        label: 'Sugestor de respostas com IA', 
+                        desc: 'Botão "Sugerir" que gera respostas contextuais automáticas'
+                      },
+                      { 
+                        key: 'podeVerScoreContato', 
+                        label: 'Ver score e temperatura do contato', 
+                        desc: 'Visualizar análise de engajamento e próximas ações sugeridas'
+                      },
+                      { 
+                        key: 'podeForcarRequalificacao', 
+                        label: 'Forçar requalificação de lead', 
+                        desc: 'Rodar análise de IA manualmente para atualizar score'
+                      },
+                      { 
+                        key: 'podeVerInsightsIA', 
+                        label: 'Ver insights e alertas da IA', 
+                        desc: 'Notificações inteligentes sobre oportunidades e riscos'
+                      }
+                    ].map(({ key, label, desc }) => (
+                      <div key={key} className="flex items-start justify-between p-3 border rounded-lg hover:bg-slate-50 transition-colors">
+                        <div className="flex-1 mr-4">
+                          <div className="text-sm font-medium">{label}</div>
+                          <div className="text-xs text-muted-foreground mt-1">{desc}</div>
+                        </div>
+                        <Switch
+                          checked={permissoesAcoes[key] ?? (previewPermissoes?.[key] ?? true)}
+                          onCheckedChange={(checked) => setPermissoesAcoes(prev => ({ ...prev, [key]: checked }))}
+                        />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <Separator className="my-4" />
+
+                {/* CATEGORIA 10: INTEGRAÇÃO COM OUTROS MÓDULOS */}
+                <div className="mb-6">
+                  <h4 className="text-sm font-semibold text-slate-700 mb-3 flex items-center gap-2">
+                    🔗 Integração com Outros Módulos
+                  </h4>
+                  <div className="grid grid-cols-1 gap-2">
+                    {[
+                      { 
+                        key: 'podeCriarOrcamentoDeChat', 
+                        label: 'Criar orçamento a partir do chat', 
+                        desc: 'Botão contexto na mensagem para gerar orçamento pré-preenchido'
+                      },
+                      { 
+                        key: 'podeCriarClienteDeContato', 
+                        label: 'Converter contato em cliente', 
+                        desc: 'Promover Contact para Cliente (entidade completa)'
+                      },
+                      { 
+                        key: 'podeRegistrarInteracao', 
+                        label: 'Registrar interações manualmente', 
+                        desc: 'Criar registro de ligação, reunião ou visita'
+                      },
+                      { 
+                        key: 'podeAcessarAgenda', 
+                        label: 'Acessar agenda de tarefas', 
+                        desc: 'Ver e criar lembretes/tarefas a partir de conversas'
+                      }
+                    ].map(({ key, label, desc }) => (
+                      <div key={key} className="flex items-start justify-between p-3 border rounded-lg hover:bg-slate-50 transition-colors">
+                        <div className="flex-1 mr-4">
+                          <div className="text-sm font-medium">{label}</div>
+                          <div className="text-xs text-muted-foreground mt-1">{desc}</div>
+                        </div>
+                        <Switch
+                          checked={permissoesAcoes[key] ?? (previewPermissoes?.[key] ?? true)}
+                          onCheckedChange={(checked) => setPermissoesAcoes(prev => ({ ...prev, [key]: checked }))}
+                        />
+                      </div>
+                    ))}
+                  </div>
                 </div>
               </div>
             </CardContent>
