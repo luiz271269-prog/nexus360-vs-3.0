@@ -195,6 +195,10 @@ export default React.memo(function MessageBubble({
   contato = null,
   atendentes = []
 }) {
+  // ✅ NEXUS360: Validar permissões de ações
+  const podeEncaminhar = usuarioAtual?.permissoes_acoes_nexus?.podeEncaminharMensagens ?? true;
+  const podeCategorizar = usuarioAtual?.permissoes_acoes_nexus?.podeCategorizarMensagensIndividuais ?? true;
+
   if (!message || typeof message !== 'object') {
     console.warn('[MessageBubble] Mensagem inválida:', message);
     return null;
@@ -772,27 +776,30 @@ export default React.memo(function MessageBubble({
                     </Tooltip>
                 }
 
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => {
-                        setMostrarDialogEncaminhar(true);
-                        setContatosSelecionados([]);
-                        setBuscaContato("");
-                      }}
-                      disabled={encaminhando}
-                      className={cn(
-                        "h-7 w-7 rounded-full shadow-lg backdrop-blur-sm",
-                        "bg-white/90 hover:bg-white border border-slate-200"
-                      )}>
+                  {/* ✅ NEXUS360: Encaminhar validado */}
+                  {podeEncaminhar && (
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => {
+                          setMostrarDialogEncaminhar(true);
+                          setContatosSelecionados([]);
+                          setBuscaContato("");
+                        }}
+                        disabled={encaminhando}
+                        className={cn(
+                          "h-7 w-7 rounded-full shadow-lg backdrop-blur-sm",
+                          "bg-white/90 hover:bg-white border border-slate-200"
+                        )}>
 
-                        <Forward className="w-3.5 h-3.5 text-slate-700" />
-                      </Button>
-                      </TooltipTrigger>
-                      <TooltipContent side="top">Encaminhar</TooltipContent>
-                      </Tooltip>
+                          <Forward className="w-3.5 h-3.5 text-slate-700" />
+                        </Button>
+                        </TooltipTrigger>
+                        <TooltipContent side="top">Encaminhar</TooltipContent>
+                        </Tooltip>
+                  )}
 
                       {isOwn &&
                 <Tooltip>
@@ -835,26 +842,28 @@ export default React.memo(function MessageBubble({
                     <TooltipContent side="top">Criar Oportunidade de Negócio</TooltipContent>
                   </Tooltip>
 
-                  <DropdownMenu>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <DropdownMenuTrigger asChild>
-                          <Button
-                          variant="ghost"
-                          size="icon"
-                          disabled={categorizando}
-                          className={cn(
-                            "h-7 w-7 rounded-full shadow-lg backdrop-blur-sm",
-                            "bg-white/90 hover:bg-purple-50 border border-slate-200"
-                          )}>
+                  {/* ✅ NEXUS360: Categorizar validado */}
+                  {podeCategorizar && (
+                    <DropdownMenu>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <DropdownMenuTrigger asChild>
+                            <Button
+                            variant="ghost"
+                            size="icon"
+                            disabled={categorizando}
+                            className={cn(
+                              "h-7 w-7 rounded-full shadow-lg backdrop-blur-sm",
+                              "bg-white/90 hover:bg-purple-50 border border-slate-200"
+                            )}>
 
-                            <Tag className="w-3.5 h-3.5 text-purple-600" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                      </TooltipTrigger>
-                      <TooltipContent side="top">Etiquetar Mensagem</TooltipContent>
-                    </Tooltip>
-                    <DropdownMenuContent align="end" className="w-64">
+                              <Tag className="w-3.5 h-3.5 text-purple-600" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                        </TooltipTrigger>
+                        <TooltipContent side="top">Etiquetar Mensagem</TooltipContent>
+                      </Tooltip>
+                      <DropdownMenuContent align="end" className="w-64">
                       <DropdownMenuLabel className="flex items-center justify-between">
                         <span>Etiquetar mensagem</span>
                         <Button
@@ -886,6 +895,7 @@ export default React.memo(function MessageBubble({
                     )}
                     </DropdownMenuContent>
                   </DropdownMenu>
+                  )}
                 </div>
               </TooltipProvider>
             }
