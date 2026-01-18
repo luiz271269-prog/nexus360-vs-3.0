@@ -721,6 +721,11 @@ export default function PainelPermissoesUnificado({ usuario, integracoes = [], o
                         desc: 'Pode pegar conversas da fila e atribuir a si mesmo ou colegas'
                       },
                       { 
+                        key: 'podeAssumirDaFila', 
+                        label: '⭐ Assumir conversa da fila', 
+                        desc: '🚨 CRÍTICO: Botão "Assumir Próximo" - pega thread automaticamente'
+                      },
+                      { 
                         key: 'podeApagarMensagens', 
                         label: 'Apagar mensagens enviadas', 
                         desc: 'Permite deletar mensagens do WhatsApp (apaga para todos)'
@@ -733,12 +738,27 @@ export default function PainelPermissoesUnificado({ usuario, integracoes = [], o
                       { 
                         key: 'podeEncerrarConversa', 
                         label: 'Encerrar/Arquivar conversas', 
-                        desc: 'Marcar conversa como resolvida e arquivar'
+                        desc: 'Marcar conversa como resolvida e arquivar (implementar)'
                       },
                       { 
                         key: 'podeReabrirConversa', 
                         label: 'Reabrir conversas arquivadas', 
-                        desc: 'Reativar conversas que foram encerradas'
+                        desc: 'Reativar conversas que foram encerradas (implementar)'
+                      },
+                      { 
+                        key: 'podeCriarNotasInternas', 
+                        label: '⭐ Criar notas internas (privadas)', 
+                        desc: '🚨 CRÍTICO: Mensagens com visibility=internal_only (cliente não vê)'
+                      },
+                      { 
+                        key: 'podeResponderMensagens', 
+                        label: 'Responder mensagens (reply/quote)', 
+                        desc: 'Usar recurso de resposta citando mensagem anterior'
+                      },
+                      { 
+                        key: 'podeEncaminharMensagens', 
+                        label: '⭐ Encaminhar mensagens para outros contatos', 
+                        desc: '🚨 PRIVACIDADE: Forward de mensagens entre conversas'
                       }
                     ].map(({ key, label, desc }) => (
                       <div key={key} className="flex items-start justify-between p-3 border rounded-lg hover:bg-slate-50 transition-colors">
@@ -800,9 +820,19 @@ export default function PainelPermissoesUnificado({ usuario, integracoes = [], o
                         desc: 'Mudar classificação: Novo → Lead → Cliente → Fornecedor'
                       },
                       { 
+                        key: 'podeAlterarStatusContato', 
+                        label: '⭐ Alterar status do lead/cliente', 
+                        desc: 'Mudar status: novo_lead → qualificado → desqualificado, etc.'
+                      },
+                      { 
                         key: 'podeAdicionarTags', 
                         label: 'Adicionar/Remover etiquetas', 
                         desc: 'Gerenciar tags para categorização de contatos'
+                      },
+                      { 
+                        key: 'podeVerHistoricoCompleto', 
+                        label: 'Ver histórico completo de interações', 
+                        desc: 'Acesso a todas as interações passadas (ligações, emails, visitas)'
                       }
                     ].map(({ key, label, desc }) => (
                       <div key={key} className="flex items-start justify-between p-3 border rounded-lg hover:bg-slate-50 transition-colors">
@@ -898,6 +928,16 @@ export default function PainelPermissoesUnificado({ usuario, integracoes = [], o
                         desc: 'Modificar fluxos criados por outros usuários'
                       },
                       { 
+                        key: 'podeDeletarPlaybooks', 
+                        label: '⭐ Deletar playbooks permanentemente', 
+                        desc: '⚠️ Remover fluxos do sistema (ação irreversível)'
+                      },
+                      { 
+                        key: 'podeDuplicarPlaybooks', 
+                        label: 'Duplicar/Clonar playbooks', 
+                        desc: 'Copiar fluxos existentes para criar variações'
+                      },
+                      { 
                         key: 'podeAtivarDesativarPlaybooks', 
                         label: 'Ativar/Desativar playbooks', 
                         desc: 'Controlar quais fluxos estão rodando no sistema'
@@ -916,6 +956,16 @@ export default function PainelPermissoesUnificado({ usuario, integracoes = [], o
                         key: 'podeEnviarPromocoesManuais', 
                         label: 'Enviar promoções manualmente', 
                         desc: 'Disparar campanhas fora do ciclo automático'
+                      },
+                      { 
+                        key: 'podeCriarRespostasRapidas', 
+                        label: '⭐ Criar respostas rápidas (Quick Replies)', 
+                        desc: 'Adicionar mensagens prontas na biblioteca'
+                      },
+                      { 
+                        key: 'podeDeletarRespostasRapidas', 
+                        label: 'Deletar respostas rápidas', 
+                        desc: 'Remover Quick Replies da biblioteca'
                       }
                     ].map(({ key, label, desc }) => (
                       <div key={key} className="flex items-start justify-between p-3 border rounded-lg hover:bg-slate-50 transition-colors">
@@ -1057,7 +1107,22 @@ export default function PainelPermissoesUnificado({ usuario, integracoes = [], o
                       { 
                         key: 'podeAdicionarMembrosGrupo', 
                         label: 'Adicionar membros em grupos', 
-                        desc: 'Convidar outros usuários para grupos que participa'
+                        desc: 'Convidar outros usuários para grupos que participa (implementar)'
+                      },
+                      { 
+                        key: 'podeRemoverMembrosGrupo', 
+                        label: 'Remover membros de grupos', 
+                        desc: 'Expulsar usuários de grupos internos (implementar)'
+                      },
+                      { 
+                        key: 'podeSairDeGrupo', 
+                        label: 'Sair de grupos', 
+                        desc: 'Deixar conversas em grupo que não quer participar'
+                      },
+                      { 
+                        key: 'podeVerMembrosGrupo', 
+                        label: 'Ver lista de membros do grupo', 
+                        desc: 'Acessar lista completa de participantes'
                       }
                     ].map(({ key, label, desc }) => (
                       <div key={key} className="flex items-start justify-between p-3 border rounded-lg hover:bg-slate-50 transition-colors">
@@ -1102,6 +1167,11 @@ export default function PainelPermissoesUnificado({ usuario, integracoes = [], o
                         key: 'podeVerInsightsIA', 
                         label: 'Ver insights e alertas da IA', 
                         desc: 'Notificações inteligentes sobre oportunidades e riscos'
+                      },
+                      { 
+                        key: 'podeCategorizarMensagensIndividuais', 
+                        label: '⭐ Categorizar mensagens individuais', 
+                        desc: 'Adicionar tags em mensagens específicas (menu contexto)'
                       }
                     ].map(({ key, label, desc }) => (
                       <div key={key} className="flex items-start justify-between p-3 border rounded-lg hover:bg-slate-50 transition-colors">
