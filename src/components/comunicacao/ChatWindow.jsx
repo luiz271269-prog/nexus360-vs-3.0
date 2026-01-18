@@ -147,7 +147,11 @@ export default function ChatWindow({
   const unreadSeparatorRef = useRef(null);
   const fotoJaBuscada = useRef(new Set());
 
-  const permissoes = usuario?.permissoes_comunicacao || {};
+  // ═══════════════════════════════════════════════════════════════════════
+  // ✅ NEXUS360 MIGRATION - VALIDAÇÃO DUPLA (Nexus360 + Legado Fallback)
+  // ═══════════════════════════════════════════════════════════════════════
+  const permNexus = usuario?.permissoes_acoes_nexus || {};
+  const permLegado = usuario?.permissoes_comunicacao || {};
 
   // ✅ LÓGICA CIRÚRGICA: Verificar se usuário pode interagir nesta thread
   // Aplica hierarquia: Admin > Atribuição > Fidelização > Gerente > Não Atribuída
