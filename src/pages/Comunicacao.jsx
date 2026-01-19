@@ -77,12 +77,26 @@ export default function Comunicacao() {
     }
   });
 
+  // ✅ Carregar integrações PRIMEIRO (necessário para buildUserPermissions)
+  const { data: todasIntegracoes = [] } = useQuery({
+    queryKey: ['integracoes'],
+    queryFn: () => base44.entities.WhatsAppIntegration.list(),
+    staleTime: 10 * 60 * 1000,
+    cacheTime: 15 * 60 * 1000,
+    retry: 2,
+    retryDelay: 1000,
+    onError: (error) => {
+      console.error('[Comunicacao] Erro ao carregar integrações:', error);
+    }
+  });
+
   // ✅ NEXUS360: Construir permissões processadas
   const userPermissions = React.useMemo(() => {
     if (!usuario) return null;
     console.log('[NEXUS360] 🔧 Construindo permissões para:', usuario.email);
     return buildUserPermissions(usuario, todasIntegracoes);
   }, [usuario, todasIntegracoes]);
+
   const [threadAtiva, setThreadAtiva] = useState(null);
   const [activeTab, setActiveTab] = useState("conversas");
   const [showContactInfo, setShowContactInfo] = useState(false);
@@ -355,20 +369,6 @@ export default function Comunicacao() {
     refetchOnWindowFocus: true,
     onError: (error) => {
       console.error('[Comunicacao] Erro ao carregar mensagens:', error);
-    }
-  });
-
-  // ✅ Carregar integrações PRIMEIRO (necessário para buildUserPermissions)
-  const { data: todasIntegracoes = [] } = useQuery({
-    queryKey: ['integracoes'],
-    queryFn: () => base44.entities.WhatsAppIntegration.list(),
-    staleTime: 10 * 60 * 1000,
-    cacheTime: 15 * 60 * 1000,
-    retry: 2,
-    retryDelay: 1000,
-    // ✅ NÃO depende de usuário - começa IMEDIATAMENTE
-    onError: (error) => {
-      console.error('[Comunicacao] Erro ao carregar integrações:', error);
     }
   });
 
