@@ -11,80 +11,51 @@
  */
 
 // ═══════════════════════════════════════════════════════════════
-// PRESETS DE PERMISSÕES (Perfis Rápidos)
+// PRESETS DE BLOQUEIOS POR PERFIL
 // ═══════════════════════════════════════════════════════════════
 
-// ═══════════════════════════════════════════════════════════════
-// PRESETS DE VISIBILIDADE (Bloqueios/Liberações por Perfil)
-// ═══════════════════════════════════════════════════════════════
-
-export const VISIBILITY_PRESETS = {
+export const BLOQUEIOS_PRESETS = {
   admin: {
-    // Admin: Acesso total - SEM bloqueios padrão
+    // Admin: Acesso total - sem bloqueios padrão
     setoresBloqueados: [],
     integracoesBloqueadas: [],
-    canaisBloqueados: [],
-    janela24hAtiva: true,
-    janela24hHoras: 24,
-    gerenteSupervisaoAtiva: true,
-    gerenteSupervisaoMinutos: 30
+    canaisBloqueados: []
   },
-  
   gerente: {
-    // Gerente: Visão ampla + gestão - poucos bloqueios
+    // Gerente: Visão ampla + gestão - sem bloqueios
     setoresBloqueados: [],
     integracoesBloqueadas: [],
-    canaisBloqueados: [],
-    janela24hAtiva: true,
-    janela24hHoras: 24,
-    gerenteSupervisaoAtiva: true,
-    gerenteSupervisaoMinutos: 30
+    canaisBloqueados: []
   },
-  
   coordenador: {
-    // Coordenador: Supervisão setorial - bloqueios moderados
-    setoresBloqueados: [],
+    // Coordenador: Supervisão setorial - vê apenas seu setor
+    setoresBloqueados: [], // Será preenchido dinamicamente
     integracoesBloqueadas: [],
-    canaisBloqueados: [],
-    janela24hAtiva: true,
-    janela24hHoras: 12,
-    gerenteSupervisaoAtiva: true,
-    gerenteSupervisaoMinutos: 45
+    canaisBloqueados: []
   },
-  
   senior: {
-    // Senior: Supervisor operacional - alguns bloqueios
-    setoresBloqueados: [],
+    // Senior: Supervisor operacional - vê apenas seu setor
+    setoresBloqueados: [], // Será preenchido dinamicamente
     integracoesBloqueadas: [],
-    canaisBloqueados: [],
-    janela24hAtiva: true,
-    janela24hHoras: 6,
-    gerenteSupervisaoAtiva: false,
-    gerenteSupervisaoMinutos: 0
+    canaisBloqueados: []
   },
-  
   pleno: {
-    // Pleno: Atendente completo - bloqueios padrão
-    setoresBloqueados: [],
+    // Pleno: Atendente completo - vê apenas seu setor
+    setoresBloqueados: [], // Será preenchido dinamicamente
     integracoesBloqueadas: [],
-    canaisBloqueados: [],
-    janela24hAtiva: false,
-    janela24hHoras: 0,
-    gerenteSupervisaoAtiva: false,
-    gerenteSupervisaoMinutos: 0
+    canaisBloqueados: []
   },
-  
   junior: {
-    // Junior: Atendente básico - máximo de bloqueios
-    setoresBloqueados: [],
+    // Junior: Atendente básico - vê apenas seu setor
+    setoresBloqueados: [], // Será preenchido dinamicamente
     integracoesBloqueadas: [],
-    canaisBloqueados: [],
-    janela24hAtiva: false,
-    janela24hHoras: 0,
-    gerenteSupervisaoAtiva: false,
-    gerenteSupervisaoMinutos: 0
+    canaisBloqueados: []
   }
 };
+
+// ═══════════════════════════════════════════════════════════════
+// PRESETS DE PERMISSÕES (Perfis Rápidos)
+// ═══════════════════════════════════════════════════════════════
 
 export const PERMISSIONS_PRESETS = {
   admin: {
@@ -388,16 +359,12 @@ export function buildUserPermissions(usuario, allIntegracoes = []) {
   const configNexus = usuario.configuracao_visibilidade_nexus || {};
   const acoes = usuario.permissoes_acoes_nexus || {};
   
-  // ETAPA 1: Determinar perfil e aplicar presets
-  const perfil = usuario.role === 'admin' ? 'admin' : (usuario.attendant_role || 'pleno');
+  // ETAPA 1: Começar com preset baseado em role/attendant_role
+  const nivelAtendente = usuario.role === 'admin' ? 'admin' : (usuario.attendant_role || 'pleno');
+  const basePermissions = { ...PERMISSIONS_PRESETS[nivelAtendente] } || { ...PERMISSIONS_PRESETS.pleno };
+  const bloqueiosPreset = BLOQUEIOS_PRESETS[nivelAtendente] || BLOQUEIOS_PRESETS.pleno;
   
-  // Preset de AÇÕES
-  let basePermissions = { ...PERMISSIONS_PRESETS[perfil] } || { ...PERMISSIONS_PRESETS.pleno };
-  
-  // Preset de VISIBILIDADE (bloqueios/liberações padrão do cargo)
-  const visibilityPreset = VISIBILITY_PRESETS[perfil] || VISIBILITY_PRESETS.pleno;
-  
-  // ETAPA 2: Processar regras de bloqueio/liberação (exceções do usuário)
+  // ETAPA 2: Processar regras de bloqueio/liberação
   const regrasBloqueio = (configNexus.regras_bloqueio || [])
     .filter(r => r.ativa)
     .sort((a, b) => (b.prioridade || 0) - (a.prioridade || 0));
@@ -406,36 +373,46 @@ export function buildUserPermissions(usuario, allIntegracoes = []) {
     .filter(r => r.ativa)
     .sort((a, b) => (b.prioridade || 0) - (a.prioridade || 0));
   
-  // ETAPA 3: Construir objeto final
+  // ETAPA 3: Aplicar bloqueios padrão do perfil
+  const setorUsuario = usuario.attendant_sector || 'geral';
+  let setoresBloqueadosBase = [...(bloqueiosPreset.setoresBloqueados || [])];
+  
+  // Para coordenador/senior/pleno/junior: bloquear setores fora do seu
+  if (['coordenador', 'senior', 'pleno', 'junior'].includes(nivelAtendente)) {
+    const todosSetores = ['vendas', 'assistencia', 'financeiro', 'fornecedor', 'geral'];
+    setoresBloqueadosBase = todosSetores.filter(s => s !== setorUsuario);
+  }
+  
+  // ETAPA 4: Construir objeto final
   const userPermissions = {
     // Identificação
     id: usuario.id,
     email: usuario.email,
     full_name: usuario.display_name || usuario.full_name, // ✅ Prioriza nome editável
     role: usuario.role,
-    attendant_role: usuario.attendant_role,
-    attendant_sector: usuario.attendant_sector,
+    attendant_role: nivelAtendente,
+    attendant_sector: setorUsuario,
     
-    // Regras de bloqueio (preset + exceções do usuário)
+    // Regras de bloqueio (preset + exceções individuais)
     setoresBloqueados: [
-      ...visibilityPreset.setoresBloqueados,
+      ...setoresBloqueadosBase,
       ...extrairValores(regrasBloqueio, 'setor')
     ],
     integracoesBloqueadas: [
-      ...visibilityPreset.integracoesBloqueadas,
+      ...(bloqueiosPreset.integracoesBloqueadas || []),
       ...extrairValores(regrasBloqueio, 'integracao')
     ],
     canaisBloqueados: [
-      ...visibilityPreset.canaisBloqueados,
+      ...(bloqueiosPreset.canaisBloqueados || []),
       ...extrairValores(regrasBloqueio, 'canal')
     ],
     provedoresBloqueados: extrairValores(regrasBloqueio, 'provedor'),
     
-    // Regras de liberação (preset + exceções do usuário)
-    janela24hAtiva: regraAtiva(regrasLiberacao, 'janela_24h') || visibilityPreset.janela24hAtiva,
-    janela24hHoras: extrairConfig(regrasLiberacao, 'janela_24h', 'horas') || visibilityPreset.janela24hHoras,
-    gerenteSupervisaoAtiva: regraAtiva(regrasLiberacao, 'gerente_supervisao') || visibilityPreset.gerenteSupervisaoAtiva,
-    gerenteSupervisaoMinutos: extrairConfig(regrasLiberacao, 'gerente_supervisao', 'minutos_sem_resposta') || visibilityPreset.gerenteSupervisaoMinutos,
+    // Regras de liberação (flags + configs)
+    janela24hAtiva: regraAtiva(regrasLiberacao, 'janela_24h'),
+    janela24hHoras: extrairConfig(regrasLiberacao, 'janela_24h', 'horas') || 24,
+    gerenteSupervisaoAtiva: regraAtiva(regrasLiberacao, 'gerente_supervisao'),
+    gerenteSupervisaoMinutos: extrairConfig(regrasLiberacao, 'gerente_supervisao', 'minutos_sem_resposta') || 30,
     
     // Deduplicação
     deduplicacaoAtiva: configNexus.deduplicacao?.ativa ?? true,
@@ -550,7 +527,7 @@ export const VISIBILITY_MATRIX = [
   },
   
   {
-    priority: 3,
+    priority: 2,
     name: 'thread_atribuida',
     check: (userPerms, thread, contact) => {
       if (isAtribuidoAoUsuario(userPerms, thread)) {
