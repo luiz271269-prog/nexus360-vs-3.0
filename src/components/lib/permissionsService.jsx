@@ -605,12 +605,27 @@ export const VISIBILITY_MATRIX = [
   },
   
   {
+    priority: 3,
+    name: 'admin_supervisao_total',
+    check: (userPerms, thread, contact) => {
+      // Admin e Gerente veem TUDO (supervisão)
+      if (userPerms.podeVerTodasConversas) {
+        return { 
+          visible: true, 
+          motivo: 'Admin/Gerente - acesso total para supervisão',
+          decision_path: ['ALLOW:admin_supervisao'],
+          reason_code: 'ADMIN_FULL_ACCESS'
+        };
+      }
+      return null;
+    }
+  },
+  
+  {
     priority: 7,
     name: 'bloqueio_atribuido_outro',
     check: (userPerms, thread, contact) => {
-      // Gerente pode ver threads atribuídas a outros (supervisão)
-      if (userPerms.podeVerTodasConversas) return null;
-      
+      // Se chegou aqui, NÃO é admin/gerente (já liberou na priority 3)
       if (thread.assigned_user_id && !isAtribuidoAoUsuario(userPerms, thread)) {
         return { 
           visible: false, 
