@@ -14,6 +14,78 @@
 // PRESETS DE PERMISSÕES (Perfis Rápidos)
 // ═══════════════════════════════════════════════════════════════
 
+// ═══════════════════════════════════════════════════════════════
+// PRESETS DE VISIBILIDADE (Bloqueios/Liberações por Perfil)
+// ═══════════════════════════════════════════════════════════════
+
+export const VISIBILITY_PRESETS = {
+  admin: {
+    // Admin: Acesso total - SEM bloqueios padrão
+    setoresBloqueados: [],
+    integracoesBloqueadas: [],
+    canaisBloqueados: [],
+    janela24hAtiva: true,
+    janela24hHoras: 24,
+    gerenteSupervisaoAtiva: true,
+    gerenteSupervisaoMinutos: 30
+  },
+  
+  gerente: {
+    // Gerente: Visão ampla + gestão - poucos bloqueios
+    setoresBloqueados: [],
+    integracoesBloqueadas: [],
+    canaisBloqueados: [],
+    janela24hAtiva: true,
+    janela24hHoras: 24,
+    gerenteSupervisaoAtiva: true,
+    gerenteSupervisaoMinutos: 30
+  },
+  
+  coordenador: {
+    // Coordenador: Supervisão setorial - bloqueios moderados
+    setoresBloqueados: [],
+    integracoesBloqueadas: [],
+    canaisBloqueados: [],
+    janela24hAtiva: true,
+    janela24hHoras: 12,
+    gerenteSupervisaoAtiva: true,
+    gerenteSupervisaoMinutos: 45
+  },
+  
+  senior: {
+    // Senior: Supervisor operacional - alguns bloqueios
+    setoresBloqueados: [],
+    integracoesBloqueadas: [],
+    canaisBloqueados: [],
+    janela24hAtiva: true,
+    janela24hHoras: 6,
+    gerenteSupervisaoAtiva: false,
+    gerenteSupervisaoMinutos: 0
+  },
+  
+  pleno: {
+    // Pleno: Atendente completo - bloqueios padrão
+    setoresBloqueados: [],
+    integracoesBloqueadas: [],
+    canaisBloqueados: [],
+    janela24hAtiva: false,
+    janela24hHoras: 0,
+    gerenteSupervisaoAtiva: false,
+    gerenteSupervisaoMinutos: 0
+  },
+  
+  junior: {
+    // Junior: Atendente básico - máximo de bloqueios
+    setoresBloqueados: [],
+    integracoesBloqueadas: [],
+    canaisBloqueados: [],
+    janela24hAtiva: false,
+    janela24hHoras: 0,
+    gerenteSupervisaoAtiva: false,
+    gerenteSupervisaoMinutos: 0
+  }
+};
+
 export const PERMISSIONS_PRESETS = {
   admin: {
     // Admin: TODAS as permissões liberadas
@@ -316,17 +388,16 @@ export function buildUserPermissions(usuario, allIntegracoes = []) {
   const configNexus = usuario.configuracao_visibilidade_nexus || {};
   const acoes = usuario.permissoes_acoes_nexus || {};
   
-  // ETAPA 1: Começar com preset baseado em role/attendant_role
-  let basePermissions = {};
+  // ETAPA 1: Determinar perfil e aplicar presets
+  const perfil = usuario.role === 'admin' ? 'admin' : (usuario.attendant_role || 'pleno');
   
-  if (usuario.role === 'admin') {
-    basePermissions = { ...PERMISSIONS_PRESETS.admin };
-  } else {
-    const nivelAtendente = usuario.attendant_role || 'pleno';
-    basePermissions = { ...PERMISSIONS_PRESETS[nivelAtendente] } || { ...PERMISSIONS_PRESETS.pleno };
-  }
+  // Preset de AÇÕES
+  let basePermissions = { ...PERMISSIONS_PRESETS[perfil] } || { ...PERMISSIONS_PRESETS.pleno };
   
-  // ETAPA 2: Processar regras de bloqueio/liberação
+  // Preset de VISIBILIDADE (bloqueios/liberações padrão do cargo)
+  const visibilityPreset = VISIBILITY_PRESETS[perfil] || VISIBILITY_PRESETS.pleno;
+  
+  // ETAPA 2: Processar regras de bloqueio/liberação (exceções do usuário)
   const regrasBloqueio = (configNexus.regras_bloqueio || [])
     .filter(r => r.ativa)
     .sort((a, b) => (b.prioridade || 0) - (a.prioridade || 0));
@@ -345,17 +416,26 @@ export function buildUserPermissions(usuario, allIntegracoes = []) {
     attendant_role: usuario.attendant_role,
     attendant_sector: usuario.attendant_sector,
     
-    // Regras de bloqueio (arrays)
-    setoresBloqueados: extrairValores(regrasBloqueio, 'setor'),
-    integracoesBloqueadas: extrairValores(regrasBloqueio, 'integracao'),
-    canaisBloqueados: extrairValores(regrasBloqueio, 'canal'),
+    // Regras de bloqueio (preset + exceções do usuário)
+    setoresBloqueados: [
+      ...visibilityPreset.setoresBloqueados,
+      ...extrairValores(regrasBloqueio, 'setor')
+    ],
+    integracoesBloqueadas: [
+      ...visibilityPreset.integracoesBloqueadas,
+      ...extrairValores(regrasBloqueio, 'integracao')
+    ],
+    canaisBloqueados: [
+      ...visibilityPreset.canaisBloqueados,
+      ...extrairValores(regrasBloqueio, 'canal')
+    ],
     provedoresBloqueados: extrairValores(regrasBloqueio, 'provedor'),
     
-    // Regras de liberação (flags + configs)
-    janela24hAtiva: regraAtiva(regrasLiberacao, 'janela_24h'),
-    janela24hHoras: extrairConfig(regrasLiberacao, 'janela_24h', 'horas') || 24,
-    gerenteSupervisaoAtiva: regraAtiva(regrasLiberacao, 'gerente_supervisao'),
-    gerenteSupervisaoMinutos: extrairConfig(regrasLiberacao, 'gerente_supervisao', 'minutos_sem_resposta') || 30,
+    // Regras de liberação (preset + exceções do usuário)
+    janela24hAtiva: regraAtiva(regrasLiberacao, 'janela_24h') || visibilityPreset.janela24hAtiva,
+    janela24hHoras: extrairConfig(regrasLiberacao, 'janela_24h', 'horas') || visibilityPreset.janela24hHoras,
+    gerenteSupervisaoAtiva: regraAtiva(regrasLiberacao, 'gerente_supervisao') || visibilityPreset.gerenteSupervisaoAtiva,
+    gerenteSupervisaoMinutos: extrairConfig(regrasLiberacao, 'gerente_supervisao', 'minutos_sem_resposta') || visibilityPreset.gerenteSupervisaoMinutos,
     
     // Deduplicação
     deduplicacaoAtiva: configNexus.deduplicacao?.ativa ?? true,
@@ -464,22 +544,6 @@ export const VISIBILITY_MATRIX = [
             bloqueio: true
           };
         }
-      }
-      return null;
-    }
-  },
-  
-  {
-    priority: 2,
-    name: 'admin_total',
-    check: (userPerms, thread, contact) => {
-      if (userPerms.role === 'admin') {
-        return { 
-          visible: true, 
-          motivo: 'Admin tem acesso total',
-          decision_path: ['ALLOW:admin_total'],
-          reason_code: 'ADMIN_FULL_ACCESS'
-        };
       }
       return null;
     }
