@@ -753,8 +753,11 @@ export function canUserSeeThreadBase(userPermissions, thread, contact = null) {
   let finalReasonCode = null;
   let finalMotivo = null;
   
+  // ✅ CRÍTICO: Ordenar regras por priority numérica (previne bugs de ordem)
+  const regrasOrdenadas = [...VISIBILITY_MATRIX].sort((a, b) => a.priority - b.priority);
+  
   // Iterar matriz em ordem de prioridade
-  for (const rule of VISIBILITY_MATRIX) {
+  for (const rule of regrasOrdenadas) {
     const resultado = rule.check(userPermissions, thread, contact);
     
     if (resultado !== null) {
