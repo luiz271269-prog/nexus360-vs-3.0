@@ -94,7 +94,7 @@ export default function Comunicacao() {
   const userPermissions = React.useMemo(() => {
     if (!usuario) return null;
     console.log('[NEXUS360] 🔧 Construindo permissões para:', usuario.email);
-    return buildUserPermissions(usuario, todasIntegracoes);
+    return permissionsService.buildUserPermissions(usuario, todasIntegracoes);
   }, [usuario, todasIntegracoes]);
 
   const [threadAtiva, setThreadAtiva] = useState(null);
@@ -1132,7 +1132,7 @@ export default function Comunicacao() {
       
       const contato = contatosMap.get(thread.contact_id);
 
-      if (isNaoAtribuida(thread) && canUserSeeThreadBase(userPermissions, thread, contato)) {
+      if (permissionsService.isNaoAtribuida(thread) && permissionsService.canUserSeeThreadBase(userPermissions, thread, contato)) {
         setIds.add(thread.id);
       }
     });
@@ -1330,7 +1330,7 @@ export default function Comunicacao() {
       // ═══════════════════════════════════════════════════════════════════════
       if (modoBusca) {
         // Verificar permissões base mesmo em modo busca (NEXUS360)
-        if (!canUserSeeThreadBase(userPermissions, thread, contato)) {
+        if (!permissionsService.canUserSeeThreadBase(userPermissions, thread, contato)) {
           logThread('Modo Busca - Base', false, 'Bloqueado por visibilidade base');
           if (DEBUG_VIS && isLuizThread) console.log('[COMUNICACAO] ❌ DIAGNÓSTICO LUIZ - Modo Busca bloqueado');
           return false;
@@ -1391,7 +1391,7 @@ export default function Comunicacao() {
         logThread('Filtro Integração', true, 'Integração OK');
       } else {
         // ✅ NEXUS360: Usar canUserSeeThreadBase + aplicar escopo
-        const podeVerBase = canUserSeeThreadBase(userPermissions, thread, contato);
+        const podeVerBase = permissionsService.canUserSeeThreadBase(userPermissions, thread, contato);
         if (!podeVerBase) {
           logThread('Visibilidade Base (Nexus360)', false, 'Bloqueado pela VISIBILITY_MATRIX');
           if (DEBUG_VIS && isLuizThread) {
@@ -1403,7 +1403,7 @@ export default function Comunicacao() {
         // Aplicar filtro de escopo (my/unassigned/all)
         if (filtros.scope && filtros.scope !== 'all') {
           const escopoConfig = { id: filtros.scope, regra: filtros.scope === 'my' ? 'atribuido_ou_fidelizado' : 'sem_assigned_user_id' };
-          const threadsComEscopo = aplicarFiltroEscopo([thread], escopoConfig, userPermissions);
+          const threadsComEscopo = permissionsService.aplicarFiltroEscopo([thread], escopoConfig, userPermissions);
           if (threadsComEscopo.length === 0) {
             logThread('Filtro Escopo', false, `Não passou no escopo ${filtros.scope}`);
             return false;
