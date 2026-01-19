@@ -190,6 +190,7 @@ export default function Layout({ children, currentPageName }) {
     { name: "Leads & Qualificacao", icon: Target, page: "LeadsQualificados" },
     { name: "Clientes", icon: Building2, page: "Clientes" },
     { name: "Produtos", icon: Package, page: "Produtos" },
+    { name: "Automações", icon: Workflow, page: "Automacoes" },
     { name: "Agenda Inteligente", icon: Calendar, page: "Agenda" },
     { name: "Importação", icon: Upload, page: "Importacao" },
     { name: "Gerenciamento de Usuários", icon: UserCog, page: "Usuarios" },
@@ -220,23 +221,23 @@ export default function Layout({ children, currentPageName }) {
       if (setor === 'vendas') {
         return todosMenuItems.filter(item => [
           'Comunicacao', 'Dashboard', 'LeadsQualificados', 'Vendedores', 
-          'Clientes', 'AnalyticsAvancado', 'Agenda', 'Produtos'
+          'Clientes', 'AnalyticsAvancado', 'Agenda', 'Produtos', 'Automacoes'
         ].includes(item.page));
       }
       if (setor === 'assistencia') {
         return todosMenuItems.filter(item => [
-          'Comunicacao', 'Clientes', 'Agenda', 'Dashboard', 'Produtos', 'AnalyticsAvancado'
+          'Comunicacao', 'Clientes', 'Agenda', 'Dashboard', 'Produtos', 'AnalyticsAvancado', 'Automacoes'
         ].includes(item.page));
       }
       if (setor === 'fornecedor') {
         return todosMenuItems.filter(item => [
-          'Comunicacao', 'Produtos', 'Importacao', 'Dashboard', 'Clientes', 'Agenda', 'AnalyticsAvancado'
+          'Comunicacao', 'Produtos', 'Importacao', 'Dashboard', 'Clientes', 'Agenda', 'AnalyticsAvancado', 'Automacoes'
         ].includes(item.page));
       }
       // Gerência geral
       return todosMenuItems.filter(item => [
         'Comunicacao', 'Dashboard', 'LeadsQualificados', 'Clientes', 
-        'Vendedores', 'Produtos', 'Agenda', 'AnalyticsAvancado'
+        'Vendedores', 'Produtos', 'Agenda', 'AnalyticsAvancado', 'Automacoes'
       ].includes(item.page));
     }
 
