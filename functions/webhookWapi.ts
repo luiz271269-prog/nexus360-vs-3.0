@@ -224,14 +224,17 @@ function normalizarPayload(payload) {
         directPath: msgContent.audioMessage.directPath,
         mimetype: msgContent.audioMessage.mimetype
       };
-    } else if (msgContent.documentMessage) {
+    } else if (msgContent.documentMessage || msgContent.documentWithCaptionMessage) {
       mediaType = 'document';
-      conteudo = msgContent.documentMessage.caption || msgContent.documentMessage.fileName || '[Documento]';
+      const docMsg = msgContent.documentMessage || msgContent.documentWithCaptionMessage?.message?.documentMessage;
+      conteudo = docMsg?.caption || docMsg?.fileName || docMsg?.title || '[Documento]';
       downloadSpec = {
         type: 'document',
-        mediaKey: msgContent.documentMessage.mediaKey,
-        directPath: msgContent.documentMessage.directPath,
-        mimetype: msgContent.documentMessage.mimetype
+        mediaKey: docMsg?.mediaKey,
+        directPath: docMsg?.directPath,
+        mimetype: docMsg?.mimetype,
+        url: docMsg?.url,
+        fileName: docMsg?.fileName || docMsg?.title
       };
     } else if (msgContent.stickerMessage) {
       mediaType = 'sticker';
