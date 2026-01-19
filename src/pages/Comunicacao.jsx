@@ -35,17 +35,16 @@ import {
   contatoFidelizadoAoUsuario } from
 "../components/lib/userMatcher";
 import { getUserDisplayName } from "../components/lib/userHelpers";
+import * as permissionsService from "../components/lib/permissionsService";
+
+// Funções específicas que ainda não foram migradas
 import {
-  canUserSeeThreadWithFilters,
-  canUserSeeThreadBase,
-  isNaoAtribuida,
-  filtrarAtendentesVisiveis,
-  verificarBloqueioThread,
-  podeInteragirNaThread,
   temPermissaoIntegracao,
   threadConexaoVisivel,
-  threadSetorVisivel } from
-"../components/lib/threadVisibility";
+  threadSetorVisivel,
+  verificarBloqueioThread,
+  podeInteragirNaThread
+} from "../components/lib/threadVisibility";
 import ModalSemPermissaoConversa from "../components/comunicacao/ModalSemPermissaoConversa";
 import BibliotecaAutomacoes from "../components/automacao/BibliotecaAutomacoes";
 import CentralControleOperacional from "../components/comunicacao/CentralControleOperacional";
@@ -1137,7 +1136,7 @@ export default function Comunicacao() {
       }
     });
     return setIds;
-  }, [threads, contatosMap, usuario, effectiveScope]);
+  }, [threads, contatosMap, usuario, effectiveScope, userPermissions]);
 
   // ═══════════════════════════════════════════════════════════════════════════════
   // 🎯 PRIORIDADE 1: Se duplicata detectada, FILTRAR threads do contato principal
@@ -1610,7 +1609,7 @@ export default function Comunicacao() {
     };
     
     return threadsFiltrados;
-  }, [threads, contatos, clientes, atendentes, usuario, selectedAttendantId, selectedIntegrationId, selectedCategoria, selectedTipoContato, selectedTagContato, debouncedSearchTerm, mensagensComCategoria, matchBuscaGoogle, filterScope, duplicataEncontrada]);
+  }, [threads, contatos, clientes, atendentes, usuario, userPermissions, selectedAttendantId, selectedIntegrationId, selectedCategoria, selectedTipoContato, selectedTagContato, debouncedSearchTerm, mensagensComCategoria, matchBuscaGoogle, filterScope, duplicataEncontrada, effectiveScope, threadsNaoAtribuidasVisiveis, threadsAProcessar, contatosMap]);
 
   // Converter para formato compatível com ChatSidebar + ORDENAÇÃO por PRIORIDADE (Regra 3)
   // DEDUPLICAÇÃO FINAL: Garantir que não há entradas duplicadas por contact_id
