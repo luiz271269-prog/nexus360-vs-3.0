@@ -76,6 +76,13 @@ export default function Comunicacao() {
         toast.error(`Erro ao carregar usuário: ${error.message}`);
     }
   });
+
+  // ✅ NEXUS360: Construir permissões processadas
+  const userPermissions = React.useMemo(() => {
+    if (!usuario) return null;
+    console.log('[NEXUS360] 🔧 Construindo permissões para:', usuario.email);
+    return buildUserPermissions(usuario, todasIntegracoes);
+  }, [usuario, todasIntegracoes]);
   const [threadAtiva, setThreadAtiva] = useState(null);
   const [activeTab, setActiveTab] = useState("conversas");
   const [showContactInfo, setShowContactInfo] = useState(false);
@@ -351,6 +358,7 @@ export default function Comunicacao() {
     }
   });
 
+  // ✅ Carregar integrações PRIMEIRO (necessário para buildUserPermissions)
   const { data: todasIntegracoes = [] } = useQuery({
     queryKey: ['integracoes'],
     queryFn: () => base44.entities.WhatsAppIntegration.list(),
@@ -1115,7 +1123,7 @@ export default function Comunicacao() {
   // Extraído para top-level para evitar nested hooks
   // ═══════════════════════════════════════════════════════════════════════
   const threadsNaoAtribuidasVisiveis = React.useMemo(() => {
-    if (effectiveScope !== 'unassigned' || !usuario) return new Set();
+    if (effectiveScope !== 'unassigned' || !usuario || !userPermissions) return new Set();
     
     const setIds = new Set();
 
@@ -1123,9 +1131,8 @@ export default function Comunicacao() {
       if (thread.thread_type === 'team_internal' || thread.thread_type === 'sector_group') return;
       
       const contato = contatosMap.get(thread.contact_id);
-      const threadComContato = { ...thread, contato };
 
-      if (isNaoAtribuida(thread) && canUserSeeThreadBase(usuario, threadComContato)) {
+      if (isNaoAtribuida(thread) && canUserSeeThreadBase(userPermissions, thread, contato)) {
         setIds.add(thread.id);
       }
     });
@@ -1151,7 +1158,7 @@ export default function Comunicacao() {
   }, [threads, duplicataEncontrada]);
 
   const threadsFiltradas = React.useMemo(() => {
-    if (!usuario) return [];
+    if (!usuario || !userPermissions) return [];
     const categoriasSet = selectedCategoria !== 'all' ? new Set(mensagensComCategoria.map((m) => m.thread_id)) : null;
     const temBuscaPorTexto = !!debouncedSearchTerm && debouncedSearchTerm.trim().length >= 2;
     const threadsComContatoIds = new Set();
@@ -1322,8 +1329,8 @@ export default function Comunicacao() {
       // MODO BUSCA: Aplicar permissões rigorosas mesmo durante a busca
       // ═══════════════════════════════════════════════════════════════════════
       if (modoBusca) {
-        // Verificar permissões base mesmo em modo busca
-        if (!canUserSeeThreadBase(usuario, threadComContato)) {
+        // Verificar permissões base mesmo em modo busca (NEXUS360)
+        if (!canUserSeeThreadBase(userPermissions, thread, contato)) {
           logThread('Modo Busca - Base', false, 'Bloqueado por visibilidade base');
           if (DEBUG_VIS && isLuizThread) console.log('[COMUNICACAO] ❌ DIAGNÓSTICO LUIZ - Modo Busca bloqueado');
           return false;
@@ -1383,15 +1390,27 @@ export default function Comunicacao() {
         }
         logThread('Filtro Integração', true, 'Integração OK');
       } else {
-        const podeVer = canUserSeeThreadWithFilters(usuario, threadComContato, filtros);
-        if (!podeVer) {
-          logThread('Visibilidade Com Filtros', false, 'Bloqueado por canUserSeeThreadWithFilters');
+        // ✅ NEXUS360: Usar canUserSeeThreadBase + aplicar escopo
+        const podeVerBase = canUserSeeThreadBase(userPermissions, thread, contato);
+        if (!podeVerBase) {
+          logThread('Visibilidade Base (Nexus360)', false, 'Bloqueado pela VISIBILITY_MATRIX');
           if (DEBUG_VIS && isLuizThread) {
-            console.log('[COMUNICACAO] ❌ DIAGNÓSTICO LUIZ - BLOQUEADO por canUserSeeThreadWithFilters', filtros);
+            console.log('[COMUNICACAO] ❌ DIAGNÓSTICO LUIZ - BLOQUEADO pela VISIBILITY_MATRIX');
           }
           return false;
         }
-        logThread('Visibilidade Com Filtros', true, 'Passou todas as regras');
+        
+        // Aplicar filtro de escopo (my/unassigned/all)
+        if (filtros.scope && filtros.scope !== 'all') {
+          const escopoConfig = { id: filtros.scope, regra: filtros.scope === 'my' ? 'atribuido_ou_fidelizado' : 'sem_assigned_user_id' };
+          const threadsComEscopo = aplicarFiltroEscopo([thread], escopoConfig, userPermissions);
+          if (threadsComEscopo.length === 0) {
+            logThread('Filtro Escopo', false, `Não passou no escopo ${filtros.scope}`);
+            return false;
+          }
+        }
+        
+        logThread('Visibilidade Nexus360', true, 'Passou VISIBILITY_MATRIX + escopo');
       }
 
       if (categoriasSet && !categoriasSet.has(thread.id)) {

@@ -1,37 +1,19 @@
 /**
  * ═══════════════════════════════════════════════════════════════════════════════
- * 🔐 REGRAS DE VISIBILIDADE DE THREADS - HIERARQUIA DE DECISÃO
+ * 🔐 THREAD VISIBILITY - FUNÇÕES AUXILIARES
  * ═══════════════════════════════════════════════════════════════════════════════
  * 
- * 🔑 PRINCÍPIO FUNDAMENTAL (baseado em estudo validado):
- * "Negócio (Quem deve atender) > Tecnologia (Por onde entra a mensagem)"
+ * ⚠️ IMPORTANTE: Este arquivo contém apenas funções AUXILIARES.
+ * A lógica de DECISÃO DE VISIBILIDADE está em permissionsService.js (Nexus360)
  * 
- * 🎯 CHAVES MESTRAS (ignoram TODAS as restrições técnicas):
- *    1️⃣ ATRIBUIÇÃO: Thread assigned_user_id = usuário → SEMPRE VÊ
- *    2️⃣ FIDELIZAÇÃO: Contato fidelizado ao usuário → SEMPRE VÊ
- *    ⚠️ Estas regras FURAM filtros de integração/setor/conexão/canal
+ * FUNÇÕES AQUI:
+ * - temPermissaoIntegracao: Verifica whatsapp_permissions.can_view
+ * - threadSetorVisivel: Verifica permissoes_visualizacao.setores_visiveis
+ * - threadConexaoVisivel: Verifica permissoes_visualizacao.conexoes_visiveis
+ * - verificarBloqueioThread: Retorna motivo de bloqueio
+ * - podeInteragirNaThread: Verifica can_send/can_transfer
  * 
- * 🛡️ BARREIRAS TÉCNICAS (aplicadas APÓS chaves mestras falharem):
- *    - Integração WhatsApp (whatsapp_permissions.can_view)
- *    - Setor URA/Etiqueta (permissoes_visualizacao.setores_visiveis)
- *    - Conexão/Número (permissoes_visualizacao.conexoes_visiveis)
- * 
- * 📂 FILTROS DE ESCOPO (abas de navegação):
- *    - "Minhas Conversas": Atribuídas + Fidelizadas ao usuário
- *    - "Não Atribuídas": assigned_user_id === NULL
- *    - "Todas": Admin/Gerente vê tudo
- * 
- * 🎨 FILTROS DE ATRIBUTOS (refinamento opcional):
- *    - Conexão específica, Tipo contato, Tags, Categorias
- * 
- * 🔍 BUSCA & DEDUPLICAÇÃO (aplicados em Comunicacao.jsx)
- * 
- * ═══════════════════════════════════════════════════════════════════════════════
- * ✅ CONFORMIDADE VALIDADA COM ESTUDO:
- * - Atribuição/Fidelização = chaves mestras ✅
- * - Independência de provedor ✅
- * - Multi-departamentos (múltiplas threads por contato) ✅
- * - Busca agnóstica de canal ✅
+ * NÃO USAR PARA DECISÃO PRINCIPAL: Use permissionsService.canUserSeeThreadBase
  * ═══════════════════════════════════════════════════════════════════════════════
  */
 
@@ -45,27 +27,13 @@ const normalizar = (v) => (v ? String(v).trim().toLowerCase() : '');
 
 /**
  * Verifica se o usuário tem permissão para a integração (qualquer provedor)
- * ✅ VALE PARA: WhatsApp (Z-API, W-API), Instagram, Facebook, GoTo
- */
-/**
- * ✅ CORREÇÃO CIRÚRGICA (baseada no estudo):
+ * ✅ NEXUS360: Lê whatsapp_permissions.can_view (padrão liberado)
  * 
- * REGRA ATUAL (UX-first):
- * - Sem configuração = LIBERA (return true)
- * - VANTAGEM: Sistema funciona "out-of-the-box" sem travar atendentes
- * - RISCO: Integração "Diretoria" vista por usuário novo
- * 
- * PROTEÇÃO IMPLEMENTADA:
- * - Atribuição/Fidelização são chaves mestras (verificadas ANTES desta função)
- * - Gerentes configurados têm controle granular via whatsapp_permissions
- * - Dados sensíveis (clientes VIP) protegidos por fidelização
- * 
- * QUANDO TROCAR PARA BLOQUEIO PADRÃO:
- * - Ao criar integração crítica real (CEO/Diretoria/Financeiro Sensível)
- * - Implementar onboarding automático que configure permissões
+ * ⚠️ ADMIN OBEDECE BLOQUEIOS (sem bypass) - alinhado com VISIBILITY_MATRIX P10
  */
 export const temPermissaoIntegracao = (usuario, integracaoId, threadId = null) => {
-  if (usuario?.role === 'admin') return true;
+  // ❌ REMOVIDO: Admin bypass (agora obedece bloqueios P10)
+  // if (usuario?.role === 'admin') return true;
   
   const debugPrefix = threadId ? `[Thread ${threadId.substring(0, 8)}]` : '[INTEGRACAO]';
   
@@ -107,10 +75,11 @@ export const temPermissaoIntegracao = (usuario, integracaoId, threadId = null) =
 
 /**
  * Verifica se o usuário tem permissão para a conexão/número específico
- * CORREÇÃO: Threads sem conexaoId são BLOQUEADAS apenas se houver restrições
+ * ✅ NEXUS360: Admin OBEDECE bloqueios (sem bypass)
  */
 export const threadConexaoVisivel = (usuario, conexaoId) => {
-  if (usuario?.role === 'admin') return true;
+  // ❌ REMOVIDO: Admin bypass (agora obedece bloqueios)
+  // if (usuario?.role === 'admin') return true;
   
   const perms = usuario?.permissoes_visualizacao || {};
   const visiveis = perms.conexoes_visiveis;
@@ -121,14 +90,6 @@ export const threadConexaoVisivel = (usuario, conexaoId) => {
   
   return visiveis.map(normalizar).includes(normalizar(conexaoId));
 };
-
-/**
- * Verifica se o setor da thread está visível para o usuário
- * CORREÇÃO: Threads sem setor são BLOQUEADAS apenas se houver restrições
- */
-// ════════════════════════════════════════════════════════════════════════════
-// 🎯 SETOR: Suporta URA (sector_id) e ETIQUETAS (tags do contato)
-// ════════════════════════════════════════════════════════════════════════════
 
 /**
  * Obtém o setor de uma thread com fallback para etiquetas do contato
@@ -158,9 +119,11 @@ export const getSectorFromThreadOrTags = (thread) => {
 
 /**
  * Verifica se usuário pode ver thread baseado no setor (URA ou etiqueta)
+ * ✅ NEXUS360: Admin OBEDECE bloqueios (sem bypass) - alinhado com P11
  */
 export const threadSetorVisivel = (usuario, thread) => {
-  if (usuario?.role === 'admin') return true;
+  // ❌ REMOVIDO: Admin bypass (agora obedece bloqueios P11)
+  // if (usuario?.role === 'admin') return true;
   
   const perms = usuario?.permissoes_visualizacao || {};
   const setoresUser = perms.setores_visiveis;
@@ -665,22 +628,19 @@ export const verificarBloqueioThread = (usuario, thread, contato = null) => {
   }
 
   const perms = usuario.permissoes_visualizacao || {};
-  const isAdmin = usuario.role === 'admin';
-  const isAdminOrAll = isAdmin || !!perms.pode_ver_todas_conversas;
+  const podeVerTodas = perms.pode_ver_todas_conversas === true;
 
   // ✅ THREADS INTERNAS - visibilidade baseada em participação apenas
   if (thread.thread_type === 'team_internal' || thread.thread_type === 'sector_group') {
     const isParticipant = thread.participants?.includes(usuario.id);
-    if (isParticipant || isAdminOrAll) {
+    if (isParticipant || podeVerTodas) {
       return { bloqueado: false, motivo: null, atendenteResponsavel: null };
     }
     return { bloqueado: true, motivo: 'nao_participante', atendenteResponsavel: null };
   }
 
-  // Admin pode tudo
-  if (isAdminOrAll) {
-    return { bloqueado: false, motivo: null, atendenteResponsavel: null };
-  }
+  // ❌ REMOVIDO: Admin bypass total
+  // ✅ NEXUS360: Admin também obedece bloqueios P9/P10/P11
 
   // ═══════════════════════════════════════════════════════════════════════════════
   // PRIORIDADE 1: Thread ATRIBUÍDA ao usuário → NUNCA bloqueia (ignora TUDO)
@@ -780,8 +740,8 @@ export const verificarBloqueioThread = (usuario, thread, contato = null) => {
 export const podeInteragirNaThread = (usuario, thread, contato = null) => {
   if (!usuario || !thread) return false;
   
-  // Admin sempre pode
-  if (usuario.role === 'admin') return true;
+  // ❌ REMOVIDO: Admin bypass
+  // ✅ NEXUS360: Admin obedece can_send de whatsapp_permissions
   
   // 🔑 PRIORIDADE ABSOLUTA #1: Thread ATRIBUÍDA ao usuário → SEMPRE PODE (ignora tudo)
   // ✅ FIX: Verifica ANTES de qualquer outra condição
