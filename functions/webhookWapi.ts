@@ -197,6 +197,7 @@ function normalizarPayload(payload) {
     let conteudo = '';
     let downloadSpec = null;
 
+    // Processar TODOS os tipos de mídia (ordem de prioridade)
     if (msgContent.imageMessage) {
       mediaType = 'image';
       conteudo = msgContent.imageMessage.caption || '[Imagem]';
@@ -204,25 +205,30 @@ function normalizarPayload(payload) {
         type: 'image',
         mediaKey: msgContent.imageMessage.mediaKey,
         directPath: msgContent.imageMessage.directPath,
+        url: msgContent.imageMessage.url,
         mimetype: msgContent.imageMessage.mimetype
       };
     } else if (msgContent.videoMessage) {
       mediaType = 'video';
-      conteudo = msgContent.videoMessage.caption || '[Video]';
+      conteudo = msgContent.videoMessage.caption || '[Vídeo]';
       downloadSpec = {
         type: 'video',
         mediaKey: msgContent.videoMessage.mediaKey,
         directPath: msgContent.videoMessage.directPath,
+        url: msgContent.videoMessage.url,
         mimetype: msgContent.videoMessage.mimetype
       };
-    } else if (msgContent.audioMessage) {
+    } else if (msgContent.audioMessage || msgContent.pttMessage) {
       mediaType = 'audio';
-      conteudo = msgContent.audioMessage.ptt ? '[Audio de voz]' : '[Audio]';
+      const audioMsg = msgContent.audioMessage || msgContent.pttMessage;
+      conteudo = audioMsg?.ptt ? '[Áudio de voz]' : '[Áudio]';
       downloadSpec = {
         type: 'audio',
-        mediaKey: msgContent.audioMessage.mediaKey,
-        directPath: msgContent.audioMessage.directPath,
-        mimetype: msgContent.audioMessage.mimetype
+        mediaKey: audioMsg?.mediaKey,
+        directPath: audioMsg?.directPath,
+        url: audioMsg?.url,
+        mimetype: audioMsg?.mimetype,
+        isPtt: audioMsg?.ptt || false
       };
     } else if (msgContent.documentMessage || msgContent.documentWithCaptionMessage) {
       mediaType = 'document';
@@ -232,27 +238,42 @@ function normalizarPayload(payload) {
         type: 'document',
         mediaKey: docMsg?.mediaKey,
         directPath: docMsg?.directPath,
-        mimetype: docMsg?.mimetype,
         url: docMsg?.url,
-        fileName: docMsg?.fileName || docMsg?.title
+        mimetype: docMsg?.mimetype,
+        fileName: docMsg?.fileName || docMsg?.title,
+        fileLength: docMsg?.fileLength,
+        pageCount: docMsg?.pageCount
       };
     } else if (msgContent.stickerMessage) {
       mediaType = 'sticker';
       conteudo = '[Sticker]';
+      downloadSpec = {
+        type: 'sticker',
+        mediaKey: msgContent.stickerMessage.mediaKey,
+        directPath: msgContent.stickerMessage.directPath,
+        url: msgContent.stickerMessage.url
+      };
     } else if (msgContent.contactMessage || msgContent.contactsArrayMessage) {
       mediaType = 'contact';
-      conteudo = '[Contato]';
+      const contacts = msgContent.contactsArrayMessage?.contacts || [msgContent.contactMessage];
+      const nomes = contacts.map(c => c?.displayName || c?.vcard?.match(/FN:([^\n]+)/)?.[1]).filter(Boolean);
+      conteudo = nomes.length > 0 ? `[Contato: ${nomes.join(', ')}]` : '[Contato]';
     } else if (msgContent.locationMessage || msgContent.liveLocationMessage) {
       mediaType = 'location';
-      conteudo = '[Localizacao]';
+      const locMsg = msgContent.locationMessage || msgContent.liveLocationMessage;
+      conteudo = `[Localização: ${locMsg?.degreesLatitude || 0}, ${locMsg?.degreesLongitude || 0}]`;
     } else if (msgContent.extendedTextMessage) {
       conteudo = msgContent.extendedTextMessage.text || '';
     } else if (msgContent.conversation) {
       conteudo = msgContent.conversation;
+    } else if (msgContent.messageContextInfo && !conteudo) {
+      // Casos raros onde só tem contexto mas sem conteúdo explícito
+      conteudo = conteudoRaw || '[Mensagem sem conteúdo]';
     } else {
       conteudo = conteudoRaw;
     }
 
+    // Aceitar mensagem mesmo sem conteúdo se tiver mídia
     if (!conteudo && mediaType === 'none') {
       return { type: 'unknown', error: 'mensagem_vazia' };
     }
@@ -265,8 +286,8 @@ function normalizarPayload(payload) {
       content: String(conteudo || '').trim(),
       mediaType,
       downloadSpec,
-      mediaCaption: msgContent.imageMessage?.caption || msgContent.videoMessage?.caption,
-      pushName: payload.pushName || payload.senderName || payload.sender?.pushName || payload.text?.senderName,
+      mediaCaption: msgContent.imageMessage?.caption || msgContent.videoMessage?.caption || msgContent.documentMessage?.caption || msgContent.documentWithCaptionMessage?.message?.documentMessage?.caption,
+      pushName: payload.pushName || payload.senderName || payload.sender?.pushName || payload.text?.senderName || payload.sender?.verifiedBizName,
       vcard: msgContent.contactMessage || msgContent.contactsArrayMessage,
       location: msgContent.locationMessage || msgContent.liveLocationMessage,
       quotedMessage: payload.quotedMsg || msgContent.extendedTextMessage?.contextInfo?.quotedMessage
