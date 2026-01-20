@@ -640,45 +640,42 @@ export default function GerenciadorUsuariosUnificado({
       </section>
 
       {/* ════════════════════════════════════════════════════════════════════════ */}
-      {/* COLUNA 3: DETALHES / PERMISSÕES / DADOS */}
+      {/* COLUNA 3: DETALHES / PERMISSÕES / DADOS - COMPACTA */}
       {/* ════════════════════════════════════════════════════════════════════════ */}
-      <section className="flex-1 flex flex-col bg-white rounded-xl border shadow-sm overflow-hidden">
-        <header className="p-3 border-b bg-gradient-to-r from-slate-50 to-slate-100 flex items-center justify-between">
-          <div>
-            <h2 className="text-sm font-bold text-slate-800">
+      <section className="flex-1 flex flex-col bg-white rounded-lg border shadow-sm overflow-hidden">
+        <header className="p-2 border-b bg-gradient-to-r from-slate-50 to-slate-100 flex items-center justify-between">
+          <div className="min-w-0 flex-1">
+            <h2 className="text-xs font-bold text-slate-800 truncate">
               {recursoSelecionado?.nome || "Detalhes"}
             </h2>
-            <p className="text-[10px] text-slate-500">
-              {recursoSelecionado?.description || "Selecione um recurso"}
-            </p>
           </div>
           {salvando && (
-            <div className="flex items-center gap-1 text-xs text-amber-600">
+            <div className="flex items-center gap-1 text-[10px] text-amber-600 flex-shrink-0">
               <Loader2 className="w-3 h-3 animate-spin" />
-              Salvando...
+              Salvando
             </div>
           )}
         </header>
 
         {!usuarioSelecionado ? (
-          <div className="flex-1 flex items-center justify-center text-slate-400 text-sm">
-            <User className="w-8 h-8 mr-2 opacity-50" />
-            Selecione um usuário para começar
+          <div className="flex-1 flex items-center justify-center text-slate-400 text-xs">
+            <User className="w-6 h-6 mr-2 opacity-50" />
+            Selecione um usuário
           </div>
         ) : (
-          <div className="flex-1 overflow-auto p-4">
+          <div className="flex-1 overflow-auto p-3">
             <Tabs defaultValue="dados" className="w-full">
-              <TabsList className="grid grid-cols-3 w-full">
-                <TabsTrigger value="dados">
-                  <User className="w-4 h-4 mr-2" />
+              <TabsList className="grid grid-cols-3 w-full h-8">
+                <TabsTrigger value="dados" className="text-[11px] py-1">
+                  <User className="w-3 h-3 mr-1" />
                   Dados
                 </TabsTrigger>
-                <TabsTrigger value="comunicacao" onClick={() => setRecursoSelecionado({ id: "Comunicacao", nome: "💬 Comunicação", tipo: "menu" })}>
-                  <MessageSquare className="w-4 h-4 mr-2" />
+                <TabsTrigger value="comunicacao" onClick={() => setRecursoSelecionado({ id: "Comunicacao", nome: "💬 Comunicação", tipo: "menu" })} className="text-[11px] py-1">
+                  <MessageSquare className="w-3 h-3 mr-1" />
                   Comunicação
                 </TabsTrigger>
-                <TabsTrigger value="permissoes_nexus">
-                  <Shield className="w-4 h-4 mr-2" />
+                <TabsTrigger value="permissoes_nexus" className="text-[11px] py-1">
+                  <Shield className="w-3 h-3 mr-1" />
                   Permissões
                 </TabsTrigger>
               </TabsList>
