@@ -679,8 +679,8 @@ export default function Comunicacao() {
 
       console.log('[Comunicacao] ✅ Contato processado (novo ou existente):', contatoCompleto.id);
 
-      // ✅ FIX: Buscar integração onde USUÁRIO TEM can_send
-      const integracaoAtiva = integracoes.find((i) => {
+      // ✅ FIX: Buscar integração onde USUÁRIO TEM can_send (reutilizar integracaoAtiva se possível)
+      const integracaoParaThread = integracaoAtiva || integracoes.find((i) => {
         if (i.status !== 'conectado') return false;
         
         // Admin pode usar qualquer integração ativa
@@ -697,7 +697,7 @@ export default function Comunicacao() {
         return perm?.can_send === true;
       });
 
-      if (!integracaoAtiva) {
+      if (!integracaoParaThread) {
         // Contato foi criado/encontrado mas não há integração permitida
         toast.warning('⚠️ Contato criado, mas você não tem acesso a nenhuma integração WhatsApp ativa');
         toast.info('💡 Peça a um colega para iniciar a conversa');
