@@ -168,18 +168,46 @@ export default function NexusSimuladorVisibilidade({ usuario, integracoes = [], 
         return;
       }
       
+      // 🔍 DETECTAR DUPLICATAS POR TELEFONE (análise automática)
+      const mapaTelefones = new Map();
+      for (const thread of threadsParaAnalisar) {
+        const contato = thread.contact_id ? contatos.find(c => c.id === thread.contact_id) : null;
+        if (contato?.telefone) {
+          if (!mapaTelefones.has(contato.telefone)) {
+            mapaTelefones.set(contato.telefone, []);
+          }
+          mapaTelefones.get(contato.telefone).push({ thread, contato });
+        }
+      }
+      
+      // Identificar telefones com duplicatas
+      const duplicatasDetectadas = Array.from(mapaTelefones.entries())
+        .filter(([_, items]) => items.length > 1)
+        .map(([telefone, items]) => ({
+          telefone,
+          count: items.length,
+          threadIds: items.map(i => i.thread.id),
+          contactIds: items.map(i => i.contato.id)
+        }));
+      
       // Executar análise comparativa
       const resultado = executarAnaliseEmLote(usuarioAtual, threadsParaAnalisar, integracoes);
+      
+      // Adicionar informação de duplicatas ao resultado
+      resultado.duplicatas = duplicatasDetectadas;
+      resultado.stats.totalDuplicatas = duplicatasDetectadas.reduce((sum, d) => sum + d.count - 1, 0);
       
       setSimulationResults(resultado);
       setLastRun(new Date());
       
       const { stats } = resultado;
       
-      if (stats.divergencias === 0) {
-        toast.success(`🎉 Perfeito! ${stats.total} threads analisadas - 100% de aderência`);
+      if (stats.divergencias === 0 && stats.totalDuplicatas === 0) {
+        toast.success(`🎉 Perfeito! ${stats.total} threads analisadas - 100% de aderência, sem duplicatas`);
       } else if (stats.criticosFalsoNegativo > 0) {
         toast.error(`🚨 ${stats.criticosFalsoNegativo} falsos negativos críticos encontrados!`);
+      } else if (stats.totalDuplicatas > 0) {
+        toast.warning(`⚠️ ${stats.divergencias} divergências + ${stats.totalDuplicatas} contatos duplicados encontrados`);
       } else {
         toast.warning(`⚠️ ${stats.divergencias} divergências encontradas`);
       }
@@ -265,18 +293,26 @@ export default function NexusSimuladorVisibilidade({ usuario, integracoes = [], 
                 // Buscar contato pelo contact_id
                 const contato = thread.contact_id ? contatos.find(c => c.id === thread.contact_id) : null;
                 const hasUnread = (thread.unread_count || 0) > 0;
-                
+
                 // 🔍 Verificar inconsistências do contato com as regras Nexus360
                 let erroNexus = null;
+                let temDuplicata = false;
+
                 if (simulationResults && contato) {
-                  const resultado = simulationResults.resultados.find(r => r.threadId === thread.id);
-                  if (resultado && !resultado.isMatch) {
-                    erroNexus = {
-                      severity: resultado.severity,
-                      descricao: resultado.nexusMotivo || 'Inconsistência detectada',
-                      regra: resultado.nexusDecisionPath?.[0]?.split(':')[1] || 'N/A'
-                    };
-                  }
+                 const resultado = simulationResults.resultados.find(r => r.threadId === thread.id);
+                 if (resultado && !resultado.isMatch) {
+                   erroNexus = {
+                     severity: resultado.severity,
+                     descricao: resultado.nexusMotivo || 'Inconsistência detectada',
+                     regra: resultado.nexusDecisionPath?.[0]?.split(':')[1] || 'N/A'
+                   };
+                 }
+
+                 // Verificar se este contato tem duplicatas
+                 if (contato?.telefone && simulationResults.duplicatas) {
+                   const duplicata = simulationResults.duplicatas.find(d => d.telefone === contato.telefone);
+                   temDuplicata = duplicata && duplicata.count > 1;
+                 }
                 }
                 
                 // Nome formatado
@@ -392,21 +428,25 @@ export default function NexusSimuladorVisibilidade({ usuario, integracoes = [], 
                           </Button>
 
                           <Button
-                           size="sm"
-                           variant="ghost"
-                           onClick={(e) => {
-                             e.stopPropagation();
-                             if (contato?.telefone) {
-                               setTelefoneParaCorrigir(contato.telefone);
-                               setModalCorrecaoOpen(true);
-                             } else {
-                               toast.error('Contato sem telefone');
-                             }
-                           }}
-                           className="h-6 w-6 p-0 bg-white shadow-md hover:bg-purple-50 border border-slate-200"
-                           title="Corrigir duplicatas"
+                            size="sm"
+                            variant="ghost"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (contato?.telefone) {
+                                setTelefoneParaCorrigir(contato.telefone);
+                                setModalCorrecaoOpen(true);
+                              } else {
+                                toast.error('Contato sem telefone');
+                              }
+                            }}
+                            className={`h-6 w-6 p-0 shadow-md border ${
+                              temDuplicata 
+                                ? 'bg-red-600 hover:bg-red-700 border-red-700 animate-pulse' 
+                                : 'bg-white hover:bg-purple-50 border-slate-200'
+                            }`}
+                            title={temDuplicata ? '🚨 DUPLICATAS DETECTADAS - Clique para corrigir' : 'Corrigir duplicatas'}
                           >
-                           <Users className="w-3 h-3 text-purple-600" />
+                            <Users className={`w-3 h-3 ${temDuplicata ? 'text-white' : 'text-purple-600'}`} />
                           </Button>
                           </div>
                       </div>
@@ -549,18 +589,21 @@ export default function NexusSimuladorVisibilidade({ usuario, integracoes = [], 
                      const regraNexus = res.nexusDecisionPath?.[0]?.split(':')[1];
                      if (regraNexus !== filtroRegra) return false;
                    }
-                   
+
                    // Filtro por divergência
                    if (filtroDivergencia === 'matches' && !res.isMatch) return false;
                    if (filtroDivergencia === 'divergencias' && res.isMatch) return false;
                    if (filtroDivergencia === 'criticos' && res.severity !== 'error') return false;
-                   
+
                    return true;
                  })
                  .map((res) => {
                  const thread = threads.find(t => t.id === res.threadId);
                  const contato = thread?.contact_id ? contatos.find(c => c.id === thread.contact_id) : null;
                  const hasUnread = (thread?.unread_count || 0) > 0;
+
+                 // Verificar se há duplicatas para este contato
+                 const temDuplicataTabela = contato?.telefone && simulationResults.duplicatas?.find(d => d.telefone === contato.telefone && d.count > 1);
 
                  // Nome formatado
                  let nomeExibicao = "";
@@ -670,10 +713,14 @@ export default function NexusSimuladorVisibilidade({ usuario, integracoes = [], 
                              toast.error('Contato sem telefone');
                            }
                          }}
-                         className="h-6 w-6 p-0"
-                         title="Corrigir duplicatas"
+                         className={`h-6 w-6 p-0 shadow-md ${
+                           temDuplicataTabela 
+                             ? 'bg-red-600 hover:bg-red-700 border-2 border-red-700 animate-pulse' 
+                             : 'bg-white hover:bg-purple-50 border border-slate-200'
+                         }`}
+                         title={temDuplicataTabela ? `🚨 ${temDuplicataTabela.count} DUPLICATAS - Clique para corrigir` : 'Corrigir duplicatas'}
                        >
-                         <Users className="w-3 h-3 text-purple-600" />
+                         <Users className={`w-3 h-3 font-bold ${temDuplicataTabela ? 'text-white' : 'text-purple-600'}`} />
                        </Button>
                      </div>
                     </td>
