@@ -80,7 +80,7 @@ export async function getOrCreateContact(base44, data) {
       updateData.nome = pushName;
     }
     
-    // Atualizar foto de perfil
+    // Atualizar foto de perfil (se fornecida)
     if (profilePicUrl && profilePicUrl !== 'null' && contact.foto_perfil_url !== profilePicUrl) {
       updateData.foto_perfil_url = profilePicUrl;
       updateData.foto_perfil_atualizada_em = now;
@@ -98,8 +98,16 @@ export async function getOrCreateContact(base44, data) {
     // Aplicar update
     await base44.asServiceRole.entities.Contact.update(contact.id, updateData);
     
+    // ✅ SE não tem foto, buscar via API WhatsApp (Z-API não envia no webhook)
+    const contatoAtualizado = { ...contact, ...updateData };
+    if (!contatoAtualizado.foto_perfil_url) {
+      console.log(`[contactManager] 📸 Contato sem foto, tentando buscar via API...`);
+      // Retorna contato sem foto (será buscada later por worker assíncrono)
+      contatoAtualizado._buscar_foto_depois = true;
+    }
+    
     // Retornar contato atualizado
-    return { ...contact, ...updateData };
+    return contatoAtualizado;
   }
   
   // ✅ CRIAR novo contato SEM conexao_origem
