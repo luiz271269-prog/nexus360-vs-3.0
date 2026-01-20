@@ -264,17 +264,89 @@ export default function NexusSimuladorVisibilidade({ usuario, integracoes = [], 
       // Executar análise comparativa
       const resultado = executarAnaliseEmLote(usuarioAtual, threadsParaAnalisar, integracoes);
       
+      // 🔍 DIAGNÓSTICO AVANÇADO: Detectar causa raiz de duplicatas (WEBHOOKS DEFEITUOSOS)
+      const diagnosticoWebhooks = {
+        contatosSemNormalizacao: [],
+        contatosRecemCriados: [],
+        sugestoes: []
+      };
+      
+      // Analisar contatos criados nas últimas 48h
+      const limite48h = new Date(Date.now() - 48 * 60 * 60 * 1000);
+      const contatosRecentes = contatos.filter(c => 
+        c.created_date && new Date(c.created_date) > limite48h
+      );
+      
+      // Detectar padrões de telefone sem normalização adequada
+      for (const contato of contatosRecentes) {
+        const tel = contato.telefone || '';
+        
+        // ERRO 1: Telefone sem +55 (webhook não normalizou)
+        if (tel.length >= 10 && !tel.startsWith('+')) {
+          diagnosticoWebhooks.contatosSemNormalizacao.push({
+            contactId: contato.id,
+            telefone: tel,
+            motivo: 'Telefone sem +55 (webhook não normalizou)',
+            created: contato.created_date
+          });
+        }
+        
+        // ERRO 2: Telefone com variação do 9º dígito (webhook não usou contactManager)
+        const telLimpo = tel.replace(/\D/g, '');
+        if (telLimpo.length === 13 && telLimpo.startsWith('55')) {
+          // Buscar variação sem o 9
+          const semNono = telLimpo.substring(0, 4) + telLimpo.substring(5);
+          const variacaoExiste = contatos.some(c => 
+            c.id !== contato.id && 
+            c.telefone?.replace(/\D/g, '') === semNono
+          );
+          
+          if (variacaoExiste) {
+            diagnosticoWebhooks.contatosSemNormalizacao.push({
+              contactId: contato.id,
+              telefone: tel,
+              motivo: '⚠️ DUPLICATA POR WEBHOOK: Variação 9º dígito detectada',
+              variacao: `+${semNono}`,
+              created: contato.created_date
+            });
+          }
+        }
+      }
+      
+      // Gerar sugestões de correção baseadas nos problemas
+      if (diagnosticoWebhooks.contatosSemNormalizacao.length > 0) {
+        diagnosticoWebhooks.sugestoes.push({
+          tipo: 'CRÍTICO',
+          titulo: '🚨 Webhooks criando contatos SEM normalização',
+          descricao: `${diagnosticoWebhooks.contatosSemNormalizacao.length} contatos criados nas últimas 48h com telefone mal formatado`,
+          acao: 'VERIFICAR: webhookFinalZapi, webhookWapi, gotoWebhook devem usar contactManager.js',
+          codigo: 'import { getOrCreateContact } from "./lib/contactManager.js"'
+        });
+      }
+      
+      if (duplicatasDetectadas.length > 0) {
+        diagnosticoWebhooks.sugestoes.push({
+          tipo: 'URGENTE',
+          titulo: '⚠️ Contatos duplicados por telefone',
+          descricao: `${duplicatasDetectadas.length} telefones com múltiplos contatos - causando perda de histórico`,
+          acao: 'USAR: AnalisadorContatosDuplicados para unificar threads e mensagens',
+          codigo: 'Clique no botão "👥" ao lado de cada contato para corrigir'
+        });
+      }
+      
       // Adicionar informação de problemas detectados ao resultado
       resultado.duplicatas = duplicatasDetectadas;
       resultado.threadsSemContato = threadsSemContato;
       resultado.threadsMensagensSuspeitas = threadsMensagensSuspeitas;
       resultado.threadsContatoInvalido = threadsContatoInvalido;
+      resultado.diagnosticoWebhooks = diagnosticoWebhooks;
       
       resultado.stats.totalDuplicatas = duplicatasDetectadas.reduce((sum, d) => sum + d.count - 1, 0);
       resultado.stats.threadsSemContatoValido = threadsSemContato.length;
       resultado.stats.mensagensSuspeitas = threadsMensagensSuspeitas.length;
       resultado.stats.contatosInvalidos = threadsContatoInvalido.length;
-      resultado.stats.totalProblemas = threadsSemContato.length + threadsMensagensSuspeitas.length + threadsContatoInvalido.length;
+      resultado.stats.webhooksSemNormalizacao = diagnosticoWebhooks.contatosSemNormalizacao.length;
+      resultado.stats.totalProblemas = threadsSemContato.length + threadsMensagensSuspeitas.length + threadsContatoInvalido.length + diagnosticoWebhooks.contatosSemNormalizacao.length;
       
       setSimulationResults(resultado);
       setLastRun(new Date());
