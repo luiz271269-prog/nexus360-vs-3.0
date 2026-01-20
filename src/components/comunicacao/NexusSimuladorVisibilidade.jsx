@@ -209,7 +209,11 @@ export default function NexusSimuladorVisibilidade({ usuario, integracoes = [], 
         }
         
         // ERRO CRÍTICO 3: Mensagens suspeitas (não lidas mas sem conteúdo recente)
-        if ((thread.unread_count || 0) > 0 && !thread.last_message_content) {
+        // Apenas alertar se NÃO há last_message_content E NÃO há last_message_at recente (últimas 24h)
+        const ultimaMsgRecente = thread.last_message_at && 
+          (new Date() - new Date(thread.last_message_at)) < 24 * 60 * 60 * 1000;
+        
+        if ((thread.unread_count || 0) > 0 && !thread.last_message_content && !ultimaMsgRecente) {
           threadsMensagensSuspeitas.push({
             threadId: thread.id,
             contactId: contato.id,
