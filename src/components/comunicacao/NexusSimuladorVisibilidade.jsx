@@ -170,9 +170,50 @@ export default function NexusSimuladorVisibilidade({ usuario, integracoes = [], 
       
       // 🔍 DETECTAR DUPLICATAS POR TELEFONE (análise automática)
       const mapaTelefones = new Map();
+      const threadsSemContato = [];
+      const threadsMensagensSuspeitas = [];
+      const threadsContatoInvalido = [];
+      
       for (const thread of threadsParaAnalisar) {
         const contato = thread.contact_id ? contatos.find(c => c.id === thread.contact_id) : null;
-        if (contato?.telefone) {
+        
+        // ERRO CRÍTICO 1: Thread sem contact_id ou contato não encontrado
+        if (!thread.contact_id || !contato) {
+          threadsSemContato.push({
+            threadId: thread.id,
+            motivo: !thread.contact_id ? 'contact_id ausente' : 'Contato não encontrado no banco',
+            thread
+          });
+          continue;
+        }
+        
+        // ERRO CRÍTICO 2: Contato sem telefone ou telefone inválido
+        if (!contato.telefone || contato.telefone.length < 10) {
+          threadsContatoInvalido.push({
+            threadId: thread.id,
+            contactId: contato.id,
+            telefone: contato.telefone || 'VAZIO',
+            motivo: 'Telefone inválido/ausente',
+            thread,
+            contato
+          });
+          continue;
+        }
+        
+        // ERRO CRÍTICO 3: Mensagens suspeitas (não lidas mas sem conteúdo recente)
+        if ((thread.unread_count || 0) > 0 && !thread.last_message_content) {
+          threadsMensagensSuspeitas.push({
+            threadId: thread.id,
+            contactId: contato.id,
+            unread: thread.unread_count,
+            motivo: 'Mensagens não lidas sem conteúdo',
+            thread,
+            contato
+          });
+        }
+        
+        // Detecção normal de duplicatas
+        if (contato.telefone) {
           if (!mapaTelefones.has(contato.telefone)) {
             mapaTelefones.set(contato.telefone, []);
           }
@@ -193,21 +234,34 @@ export default function NexusSimuladorVisibilidade({ usuario, integracoes = [], 
       // Executar análise comparativa
       const resultado = executarAnaliseEmLote(usuarioAtual, threadsParaAnalisar, integracoes);
       
-      // Adicionar informação de duplicatas ao resultado
+      // Adicionar informação de problemas detectados ao resultado
       resultado.duplicatas = duplicatasDetectadas;
+      resultado.threadsSemContato = threadsSemContato;
+      resultado.threadsMensagensSuspeitas = threadsMensagensSuspeitas;
+      resultado.threadsContatoInvalido = threadsContatoInvalido;
+      
       resultado.stats.totalDuplicatas = duplicatasDetectadas.reduce((sum, d) => sum + d.count - 1, 0);
+      resultado.stats.threadsSemContatoValido = threadsSemContato.length;
+      resultado.stats.mensagensSuspeitas = threadsMensagensSuspeitas.length;
+      resultado.stats.contatosInvalidos = threadsContatoInvalido.length;
+      resultado.stats.totalProblemas = threadsSemContato.length + threadsMensagensSuspeitas.length + threadsContatoInvalido.length;
       
       setSimulationResults(resultado);
       setLastRun(new Date());
       
       const { stats } = resultado;
       
-      if (stats.divergencias === 0 && stats.totalDuplicatas === 0) {
-        toast.success(`🎉 Perfeito! ${stats.total} threads analisadas - 100% de aderência, sem duplicatas`);
+      // Priorizar alertas críticos de perda de dados
+      if (stats.totalProblemas > 0) {
+        toast.error(`🚨 CRÍTICO: ${stats.totalProblemas} threads com problemas graves detectados!`, {
+          description: `${stats.threadsSemContatoValido} sem contato | ${stats.contatosInvalidos} contatos inválidos | ${stats.mensagensSuspeitas} mensagens suspeitas`
+        });
       } else if (stats.criticosFalsoNegativo > 0) {
         toast.error(`🚨 ${stats.criticosFalsoNegativo} falsos negativos críticos encontrados!`);
       } else if (stats.totalDuplicatas > 0) {
-        toast.warning(`⚠️ ${stats.divergencias} divergências + ${stats.totalDuplicatas} contatos duplicados encontrados`);
+        toast.warning(`⚠️ ${stats.divergencias} divergências + ${stats.totalDuplicatas} contatos duplicados`);
+      } else if (stats.divergencias === 0) {
+        toast.success(`🎉 Perfeito! ${stats.total} threads analisadas - 100% de aderência`);
       } else {
         toast.warning(`⚠️ ${stats.divergencias} divergências encontradas`);
       }
@@ -584,6 +638,24 @@ export default function NexusSimuladorVisibilidade({ usuario, integracoes = [], 
               <tbody className="divide-y divide-slate-100">
                {simulationResults.resultados
                  .filter(res => {
+                   const thread = threads.find(t => t.id === res.threadId);
+
+                   // Filtros de problemas graves
+                   if (filtroDivergencia === 'sem_contato') {
+                     return simulationResults.threadsSemContato?.some(t => t.threadId === res.threadId);
+                   }
+                   if (filtroDivergencia === 'contato_invalido') {
+                     return simulationResults.threadsContatoInvalido?.some(t => t.threadId === res.threadId);
+                   }
+                   if (filtroDivergencia === 'msg_suspeita') {
+                     return simulationResults.threadsMensagensSuspeitas?.some(t => t.threadId === res.threadId);
+                   }
+                   if (filtroDivergencia === 'todos_problemas') {
+                     return simulationResults.threadsSemContato?.some(t => t.threadId === res.threadId) ||
+                            simulationResults.threadsContatoInvalido?.some(t => t.threadId === res.threadId) ||
+                            simulationResults.threadsMensagensSuspeitas?.some(t => t.threadId === res.threadId);
+                   }
+
                    // Filtro por regra
                    if (filtroRegra !== 'todas') {
                      const regraNexus = res.nexusDecisionPath?.[0]?.split(':')[1];
@@ -604,6 +676,12 @@ export default function NexusSimuladorVisibilidade({ usuario, integracoes = [], 
 
                  // Verificar se há duplicatas para este contato
                  const temDuplicataTabela = contato?.telefone && simulationResults.duplicatas?.find(d => d.telefone === contato.telefone && d.count > 1);
+
+                 // Detectar problemas graves
+                 const semContato = simulationResults.threadsSemContato?.find(t => t.threadId === res.threadId);
+                 const contatoInvalido = simulationResults.threadsContatoInvalido?.find(t => t.threadId === res.threadId);
+                 const msgSuspeita = simulationResults.threadsMensagensSuspeitas?.find(t => t.threadId === res.threadId);
+                 const temProblemaGrave = semContato || contatoInvalido || msgSuspeita;
 
                  // Nome formatado
                  let nomeExibicao = "";
