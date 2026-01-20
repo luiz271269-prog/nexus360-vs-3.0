@@ -664,19 +664,12 @@ async function handleMessage(dados, payloadBruto, base44) {
   // SALVAR MENSAGEM (apenas se não for duplicata)
   let mensagem;
   try {
-    // ✅ FIX MÍDIA: Extrair URL criptografada do WhatsApp como fallback (igual Z-API)
-    let mediaUrlFinal = null;
-    if (dados.downloadSpec?.url) {
-      mediaUrlFinal = dados.downloadSpec.url; // URL criptografada do WhatsApp
-      console.log(`[WAPI] 📎 URL criptografada salva como fallback: ${mediaUrlFinal.substring(0, 60)}...`);
-    }
-
     mensagem = await base44.asServiceRole.entities.Message.create({
       thread_id: thread.id,
       sender_id: contato.id,
       sender_type: 'contact',
       content: dados.content,
-      media_url: mediaUrlFinal,
+      media_url: dados.downloadSpec ? 'pending_download' : null,
       media_type: dados.mediaType,
       media_caption: dados.mediaCaption ?? null,
       channel: 'whatsapp',
@@ -694,12 +687,11 @@ async function handleMessage(dados, payloadBruto, base44) {
         quoted_message: dados.quotedMessage ?? null,
         downloadSpec: dados.downloadSpec ?? null,
         processed_by: VERSION,
-        provider: 'w_api',
-        midia_persistida: false
+        provider: 'w_api'
       },
     });
     
-    console.log(`[WAPI] ✅ Mensagem salva: ${mensagem.id} | URL mídia: ${mediaUrlFinal ? 'presente' : 'ausente'}`);
+    console.log(`[WAPI] ✅ Mensagem salva: ${mensagem.id}`);
   } catch (e) {
     console.error(`[WAPI] ❌ Erro salvar mensagem:`, e?.message);
     return jsonErr('erro_salvar_mensagem', 500);

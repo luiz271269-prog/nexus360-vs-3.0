@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
@@ -256,35 +256,34 @@ export default function PainelPermissoesUnificado({ usuario, integracoes = [], o
             </CardContent>
           </Card>
 
-      {/* ABAS COMPACTAS - Bloqueios + Liberações + Ações */}
+      {/* SEÇÃO 2: Bloqueios (Escopo de Acesso) */}
       <Card>
-        <Tabs defaultValue="bloqueios" className="w-full">
-          <CardHeader className="pb-2">
-            <TabsList className="grid w-full grid-cols-3">
-              <TabsTrigger value="bloqueios" className="text-xs">🔒 Bloqueios</TabsTrigger>
-              <TabsTrigger value="liberacoes" className="text-xs">🔓 Liberações</TabsTrigger>
-              <TabsTrigger value="acoes" className="text-xs">⚡ Ações</TabsTrigger>
-            </TabsList>
-          </CardHeader>
-          
-          <TabsContent value="bloqueios" className="mt-0">
-            <CardContent className="space-y-3 pt-3">
-              <div className="flex gap-1">
-                <Button size="sm" variant="outline" onClick={() => adicionarRegraBloqueio('setor')} className="text-xs h-7">
-                  + Setor
+            <CardHeader>
+              <CardTitle>
+                <Lock className="w-5 h-5 inline mr-2 text-red-600" />
+                Escopo de Acesso - Bloqueios Explícitos
+              </CardTitle>
+              <CardDescription>
+                Define o que o usuário NÃO pode ver (P9/P10/P11 - deny-first)
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex gap-2">
+                <Button size="sm" variant="outline" onClick={() => adicionarRegraBloqueio('setor')}>
+                  + Bloquear Setor
                 </Button>
-                <Button size="sm" variant="outline" onClick={() => adicionarRegraBloqueio('integracao')} className="text-xs h-7">
-                  + Integração
+                <Button size="sm" variant="outline" onClick={() => adicionarRegraBloqueio('integracao')}>
+                  + Bloquear Integração
                 </Button>
-                <Button size="sm" variant="outline" onClick={() => adicionarRegraBloqueio('canal')} className="text-xs h-7">
-                  + Canal
+                <Button size="sm" variant="outline" onClick={() => adicionarRegraBloqueio('canal')}>
+                  + Bloquear Canal
                 </Button>
               </div>
 
-              <div className="space-y-2">
+              <div className="space-y-3">
                 {configuracao.regras_bloqueio.map((regra, index) => (
                   <Card key={index} className="border-red-200">
-                    <CardContent className="p-2 space-y-2">
+                    <CardContent className="p-4 space-y-3">
                      <div className="flex items-center justify-between">
                        <div className="flex items-center gap-2">
                          <Badge variant="destructive">{regra.tipo}</Badge>
@@ -405,29 +404,41 @@ export default function PainelPermissoesUnificado({ usuario, integracoes = [], o
                 ))}
 
                 {configuracao.regras_bloqueio.length === 0 && (
-                  <div className="text-center py-4 text-muted-foreground">
-                    <p className="text-xs">Nenhum bloqueio - Liberado por padrão</p>
+                  <div className="text-center py-8 text-muted-foreground">
+                    <Lock className="w-12 h-12 mx-auto mb-2 opacity-30" />
+                    <p>Nenhuma regra de bloqueio configurada</p>
+                    <p className="text-xs">Usuário pode ver TUDO (padrão Nexus360)</p>
                   </div>
                 )}
               </div>
             </CardContent>
-          </TabsContent>
+          </Card>
 
-          <TabsContent value="liberacoes" className="mt-0">
-            <CardContent className="space-y-3 pt-3">
-              <div className="flex gap-1">
-                <Button size="sm" variant="outline" onClick={() => adicionarRegraLiberacao('janela_24h')} className="text-xs h-7">
+      {/* SEÇÃO 3: Liberações (Redes de Segurança) */}
+      <Card>
+            <CardHeader>
+              <CardTitle>
+                <Unlock className="w-5 h-5 inline mr-2 text-green-600" />
+                Redes de Segurança - Liberações Especiais
+              </CardTitle>
+              <CardDescription>
+                Libera acesso mesmo quando normalmente seria bloqueado (P5/P8 - allow-override)
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex gap-2">
+                <Button size="sm" variant="outline" onClick={() => adicionarRegraLiberacao('janela_24h')}>
                   + Janela 24h
                 </Button>
-                <Button size="sm" variant="outline" onClick={() => adicionarRegraLiberacao('gerente_supervisao')} className="text-xs h-7">
-                  + Supervisão
+                <Button size="sm" variant="outline" onClick={() => adicionarRegraLiberacao('gerente_supervisao')}>
+                  + Supervisão Gerencial
                 </Button>
               </div>
 
-              <div className="space-y-2">
+              <div className="space-y-3">
                 {configuracao.regras_liberacao.map((regra, index) => (
                   <Card key={index} className="border-green-200">
-                    <CardContent className="p-2 space-y-2">
+                    <CardContent className="p-4 space-y-3">
                      <div className="flex items-center justify-between">
                        <div className="flex items-center gap-2">
                          <Badge variant="outline" className="bg-green-50 text-green-700 border-green-300">
@@ -490,27 +501,184 @@ export default function PainelPermissoesUnificado({ usuario, integracoes = [], o
                 ))}
 
                 {configuracao.regras_liberacao.length === 0 && (
-                  <div className="text-center py-3 text-muted-foreground">
-                    <p className="text-xs">Nenhuma liberação</p>
+                  <div className="text-center py-8 text-muted-foreground">
+                    <Unlock className="w-12 h-12 mx-auto mb-2 opacity-30" />
+                    <p>Nenhuma regra de liberação configurada</p>
                   </div>
                 )}
               </div>
             </CardContent>
-          </TabsContent>
+          </Card>
 
-          <TabsContent value="acoes" className="mt-0">
-            <CardContent className="space-y-2 pt-3 max-h-[600px] overflow-y-auto">
-                <div className="space-y-2">
-                  {/* CATEGORIA 1: ENVIO */}
-                  <h4 className="text-xs font-bold text-slate-600 mb-1">📤 Envio</h4>
-                  <div className="grid grid-cols-1 gap-1">
+      {/* SEÇÃO 4: Ações Granulares */}
+      <Card>
+            <CardHeader>
+              <CardTitle>
+                <Shield className="w-5 h-5 inline mr-2 text-purple-600" />
+                Permissões Granulares de Ações
+              </CardTitle>
+              <CardDescription>
+                Controle fino de ações e flags de visibilidade híbrida (sobrescreve preset)
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <Alert className={runtimeMode === 'nexus_ativo' ? 'bg-amber-50 border-amber-300' : ''}>
+                <AlertTriangle className="h-4 w-4" />
+                <AlertDescription>
+                  Preset aplicado: <strong>{presetSelecionado || 'Nenhum'}</strong>. 
+                  Alterações aqui sobrescrevem o preset.
+                  {runtimeMode === 'nexus_ativo' && (
+                    <span className="block mt-1 text-amber-700 font-medium">
+                      ⚠️ ATENÇÃO: Nexus360 está ativo - mudanças afetam o usuário imediatamente!
+                    </span>
+                  )}
+                </AlertDescription>
+              </Alert>
+
+              {/* Seção de ações granulares organizadas */}
+              <div>
+                <div className="flex items-center gap-2 mb-4">
+                  <Shield className="w-5 h-5 text-slate-600" />
+                  <h3 className="font-semibold">Permissões Detalhadas</h3>
+                  <Badge variant="outline" className="text-xs">
+                    {Object.values(permissoesAcoes).filter(v => v === true).length} ativas
+                  </Badge>
+                </div>
+
+                {/* SEÇÃO ESPECIAL: Regras P1-P12 com Checkboxes */}
+                <Alert className="mb-4 bg-blue-50 border-blue-200">
+                  <Info className="h-4 w-4 text-blue-600" />
+                  <AlertDescription className="text-xs">
+                    <strong>Regras de Visibilidade (P1-P12):</strong> Configure diretamente as flags 
+                    que controlam o que o usuário vê na lista de conversas.
+                  </AlertDescription>
+                </Alert>
+
+                <div className="mb-6 p-4 border-2 border-purple-200 rounded-lg bg-purple-50/30">
+                  <h4 className="text-sm font-semibold text-purple-700 mb-3 flex items-center gap-2">
+                    🎯 Regras de Visibilidade (P1-P12)
+                  </h4>
+                  <div className="grid grid-cols-1 gap-2">
+                    <div className="flex items-start justify-between p-3 border rounded-lg bg-white hover:bg-purple-50/50 transition-colors">
+                      <div className="flex-1 mr-4">
+                        <div className="text-sm font-medium">
+                          <Badge variant="outline" className="mr-2 text-xs">P7</Badge>
+                          Ver todas conversas (Admin/Gerente)
+                        </div>
+                        <div className="text-xs text-muted-foreground mt-1">
+                          Acesso total - vê threads atribuídas a outros (sobrescreve P6)
+                        </div>
+                      </div>
+                      <Switch
+                        checked={permissoesAcoes.podeVerTodasConversas ?? false}
+                        onCheckedChange={(v) => setPermissoesAcoes(prev => ({...prev, podeVerTodasConversas: v}))}
+                      />
+                    </div>
+
+                    <div className="flex items-start justify-between p-3 border rounded-lg bg-white hover:bg-green-50/50 transition-colors">
+                      <div className="flex-1 mr-4">
+                        <div className="text-sm font-medium">
+                          <Badge variant="outline" className="mr-2 text-xs bg-green-50">P5</Badge>
+                          Janela 24h (regra de liberação)
+                        </div>
+                        <div className="text-xs text-muted-foreground mt-1">
+                          Vê threads com msg do cliente {'<'} {configuracao.regras_liberacao.find(r => r.tipo === 'janela_24h')?.configuracao?.horas || 24}h
+                        </div>
+                      </div>
+                      <Switch
+                        checked={configuracao.regras_liberacao.some(r => r.tipo === 'janela_24h' && r.ativa)}
+                        onCheckedChange={(checked) => {
+                          if (checked && !configuracao.regras_liberacao.find(r => r.tipo === 'janela_24h')) {
+                            adicionarRegraLiberacao('janela_24h');
+                          } else {
+                            const index = configuracao.regras_liberacao.findIndex(r => r.tipo === 'janela_24h');
+                            if (index >= 0) atualizarRegraLiberacao(index, 'ativa', checked);
+                          }
+                        }}
+                      />
+                    </div>
+
+                    <div className="flex items-start justify-between p-3 border rounded-lg bg-white hover:bg-green-50/50 transition-colors">
+                      <div className="flex-1 mr-4">
+                        <div className="text-sm font-medium">
+                          <Badge variant="outline" className="mr-2 text-xs bg-green-50">P8</Badge>
+                          Supervisão Gerencial
+                        </div>
+                        <div className="text-xs text-muted-foreground mt-1">
+                          Gerente vê threads sem resposta há {configuracao.regras_liberacao.find(r => r.tipo === 'gerente_supervisao')?.configuracao?.minutos_sem_resposta || 30}+ min
+                        </div>
+                      </div>
+                      <Switch
+                        checked={configuracao.regras_liberacao.some(r => r.tipo === 'gerente_supervisao' && r.ativa)}
+                        onCheckedChange={(checked) => {
+                          if (checked && !configuracao.regras_liberacao.find(r => r.tipo === 'gerente_supervisao')) {
+                            adicionarRegraLiberacao('gerente_supervisao');
+                          } else {
+                            const index = configuracao.regras_liberacao.findIndex(r => r.tipo === 'gerente_supervisao');
+                            if (index >= 0) atualizarRegraLiberacao(index, 'ativa', checked);
+                          }
+                        }}
+                      />
+                    </div>
+
+                    <div className="flex items-start justify-between p-3 border-2 border-red-300 rounded-lg bg-red-50 hover:bg-red-100/50 transition-colors">
+                      <div className="flex-1 mr-4">
+                        <div className="text-sm font-medium">
+                          <Badge variant="destructive" className="mr-2 text-xs">STRICT</Badge>
+                          Strict Mode (desativa P5/P8)
+                        </div>
+                        <div className="text-xs text-muted-foreground mt-1">
+                          Modo restrito - zero exceções (estagiários/teste)
+                        </div>
+                      </div>
+                      <Switch
+                        checked={permissoesAcoes.strictMode ?? false}
+                        onCheckedChange={(v) => setPermissoesAcoes(prev => ({...prev, strictMode: v}))}
+                      />
+                    </div>
+                  </div>
+                </div>
+
+              <Separator className="my-6" />
+
+                {/* CATEGORIA 1: ENVIO DE MENSAGENS */}
+                <div className="mb-6">
+                  <h4 className="text-sm font-semibold text-slate-700 mb-3 flex items-center gap-2">
+                    📤 Envio de Mensagens e Conteúdo
+                  </h4>
+                  <div className="grid grid-cols-1 gap-2">
                     {[
-                      { key: 'podeEnviarMensagens', label: 'Mensagens' },
-                      { key: 'podeEnviarMidias', label: 'Mídias' },
-                      { key: 'podeEnviarAudios', label: 'Áudios' }
-                    ].map(({ key, label }) => (
-                      <div key={key} className="flex items-center justify-between p-1.5 border rounded hover:bg-slate-50">
-                        <span className="text-xs">{label}</span>
+                      { 
+                        key: 'podeEnviarMensagens', 
+                        label: 'Enviar mensagens de texto', 
+                        desc: 'Permite digitar e enviar mensagens de texto nas conversas'
+                      },
+                      { 
+                        key: 'podeEnviarMidias', 
+                        label: 'Enviar imagens, vídeos e documentos', 
+                        desc: 'Habilita botão de anexo (📎) para enviar arquivos'
+                      },
+                      { 
+                        key: 'podeEnviarAudios', 
+                        label: 'Gravar e enviar áudios', 
+                        desc: 'Habilita botão de microfone (🎤) para gravar mensagens de voz'
+                      },
+                      { 
+                        key: 'podeUsarTemplates', 
+                        label: 'Usar templates aprovados', 
+                        desc: 'Enviar mensagens fora da janela de 24h usando templates do WhatsApp'
+                      },
+                      { 
+                        key: 'podeUsarRespostasRapidas', 
+                        label: 'Usar respostas rápidas (Quick Replies)', 
+                        desc: 'Acessar biblioteca de respostas prontas para agilizar atendimento'
+                      }
+                    ].map(({ key, label, desc }) => (
+                      <div key={key} className="flex items-start justify-between p-3 border rounded-lg hover:bg-slate-50 transition-colors">
+                        <div className="flex-1 mr-4">
+                          <div className="text-sm font-medium">{label}</div>
+                          <div className="text-xs text-muted-foreground mt-1">{desc}</div>
+                        </div>
                         <Switch
                           checked={permissoesAcoes[key] ?? (previewPermissoes?.[key] ?? true)}
                           onCheckedChange={(checked) => setPermissoesAcoes(prev => ({ ...prev, [key]: checked }))}
@@ -520,24 +688,71 @@ export default function PainelPermissoesUnificado({ usuario, integracoes = [], o
                   </div>
                 </div>
 
-                <Separator className="my-2" />
+                <Separator className="my-4" />
 
-                {/* CATEGORIA 2: GESTÃO */}
-                <div className="space-y-2">
-                  <h4 className="text-xs font-bold text-slate-600 mb-1">💬 Gestão</h4>
-                  <div className="grid grid-cols-1 gap-1">
+                {/* CATEGORIA 2: GESTÃO DE CONVERSAS */}
+                <div className="mb-6">
+                  <h4 className="text-sm font-semibold text-slate-700 mb-3 flex items-center gap-2">
+                    💬 Gestão de Conversas
+                  </h4>
+                  <div className="grid grid-cols-1 gap-2">
                     {[
-                      { key: 'podeTransferirConversa', label: 'Transferir' },
-                      { key: 'podeAtribuirConversas', label: 'Atribuir' },
-                      { key: 'podeAssumirDaFila', label: 'Assumir Fila' },
-                      { key: 'podeApagarMensagens', label: 'Apagar Msgs' },
-                      { key: 'podeMarcarComoLida', label: 'Marcar Lida' },
-                      { key: 'podeCriarNotasInternas', label: 'Notas Internas' },
-                      { key: 'podeResponderMensagens', label: 'Responder' },
-                      { key: 'podeEncaminharMensagens', label: 'Encaminhar' }
-                    ].map(({ key, label }) => (
-                      <div key={key} className="flex items-center justify-between p-1.5 border rounded hover:bg-slate-50">
-                        <span className="text-xs">{label}</span>
+                      { 
+                        key: 'podeTransferirConversa', 
+                        label: 'Transferir conversas para outros', 
+                        desc: 'Pode transferir atendimento para outro atendente ou setor'
+                      },
+                      { 
+                        key: 'podeAtribuirConversas', 
+                        label: 'Atribuir conversas não atribuídas', 
+                        desc: 'Pode pegar conversas da fila e atribuir a si mesmo ou colegas'
+                      },
+                      { 
+                        key: 'podeAssumirDaFila', 
+                        label: '⭐ Assumir conversa da fila', 
+                        desc: '🚨 CRÍTICO: Botão "Assumir Próximo" - pega thread automaticamente'
+                      },
+                      { 
+                        key: 'podeApagarMensagens', 
+                        label: 'Apagar mensagens enviadas', 
+                        desc: 'Permite deletar mensagens do WhatsApp (apaga para todos)'
+                      },
+                      { 
+                        key: 'podeMarcarComoLida', 
+                        label: 'Marcar conversas como lidas', 
+                        desc: 'Pode limpar contador de não lidas mesmo sem ler todas'
+                      },
+                      { 
+                        key: 'podeEncerrarConversa', 
+                        label: 'Encerrar/Arquivar conversas', 
+                        desc: 'Marcar conversa como resolvida e arquivar (implementar)'
+                      },
+                      { 
+                        key: 'podeReabrirConversa', 
+                        label: 'Reabrir conversas arquivadas', 
+                        desc: 'Reativar conversas que foram encerradas (implementar)'
+                      },
+                      { 
+                        key: 'podeCriarNotasInternas', 
+                        label: '⭐ Criar notas internas (privadas)', 
+                        desc: '🚨 CRÍTICO: Mensagens com visibility=internal_only (cliente não vê)'
+                      },
+                      { 
+                        key: 'podeResponderMensagens', 
+                        label: 'Responder mensagens (reply/quote)', 
+                        desc: 'Usar recurso de resposta citando mensagem anterior'
+                      },
+                      { 
+                        key: 'podeEncaminharMensagens', 
+                        label: '⭐ Encaminhar mensagens para outros contatos', 
+                        desc: '🚨 PRIVACIDADE: Forward de mensagens entre conversas'
+                      }
+                    ].map(({ key, label, desc }) => (
+                      <div key={key} className="flex items-start justify-between p-3 border rounded-lg hover:bg-slate-50 transition-colors">
+                        <div className="flex-1 mr-4">
+                          <div className="text-sm font-medium">{label}</div>
+                          <div className="text-xs text-muted-foreground mt-1">{desc}</div>
+                        </div>
                         <Switch
                           checked={permissoesAcoes[key] ?? (previewPermissoes?.[key] ?? true)}
                           onCheckedChange={(checked) => setPermissoesAcoes(prev => ({ ...prev, [key]: checked }))}
@@ -547,24 +762,71 @@ export default function PainelPermissoesUnificado({ usuario, integracoes = [], o
                   </div>
                 </div>
 
-                <Separator className="my-2" />
+                <Separator className="my-4" />
 
-                {/* CATEGORIA 3: CONTATOS */}
-                <div className="space-y-2">
-                  <h4 className="text-xs font-bold text-slate-600 mb-1">👤 Contatos</h4>
-                  <div className="grid grid-cols-1 gap-1">
+                {/* CATEGORIA 3: GESTÃO DE CONTATOS */}
+                <div className="mb-6">
+                  <h4 className="text-sm font-semibold text-slate-700 mb-3 flex items-center gap-2">
+                    👤 Gestão de Contatos
+                  </h4>
+                  <div className="grid grid-cols-1 gap-2">
                     {[
-                      { key: 'podeVerDetalhesContato', label: 'Ver Detalhes' },
-                      { key: 'podeEditarContato', label: 'Editar' },
-                      { key: 'podeCriarContato', label: 'Criar' },
-                      { key: 'podeBloquearContato', label: 'Bloquear' },
-                      { key: 'podeDeletarContato', label: 'Deletar' },
-                      { key: 'podeAlterarFidelizacao', label: 'Fidelização' },
-                      { key: 'podeAlterarStatusContato', label: 'Status' },
-                      { key: 'podeAdicionarTags', label: 'Tags' }
-                    ].map(({ key, label }) => (
-                      <div key={key} className="flex items-center justify-between p-1.5 border rounded hover:bg-slate-50">
-                        <span className="text-xs">{label}</span>
+                      { 
+                        key: 'podeVerDetalhesContato', 
+                        label: 'Ver informações detalhadas do contato', 
+                        desc: 'Acessar painel lateral com dados completos, histórico e score'
+                      },
+                      { 
+                        key: 'podeEditarContato', 
+                        label: 'Editar dados do contato', 
+                        desc: 'Alterar nome, empresa, cargo, telefone, email e observações'
+                      },
+                      { 
+                        key: 'podeCriarContato', 
+                        label: 'Criar novos contatos', 
+                        desc: 'Adicionar contatos via busca ou formulário de cadastro'
+                      },
+                      { 
+                        key: 'podeBloquearContato', 
+                        label: 'Bloquear/Desbloquear contatos', 
+                        desc: 'Impedir temporariamente recebimento de mensagens de um contato'
+                      },
+                      { 
+                        key: 'podeDeletarContato', 
+                        label: 'Deletar contatos permanentemente', 
+                        desc: '⚠️ Ação irreversível - remove contato e histórico completo'
+                      },
+                      { 
+                        key: 'podeAlterarFidelizacao', 
+                        label: 'Alterar atendente fidelizado', 
+                        desc: 'Modificar atendentes fixos por setor (carteira de clientes)'
+                      },
+                      { 
+                        key: 'podeAlterarTipoContato', 
+                        label: 'Alterar tipo de contato', 
+                        desc: 'Mudar classificação: Novo → Lead → Cliente → Fornecedor'
+                      },
+                      { 
+                        key: 'podeAlterarStatusContato', 
+                        label: '⭐ Alterar status do lead/cliente', 
+                        desc: 'Mudar status: novo_lead → qualificado → desqualificado, etc.'
+                      },
+                      { 
+                        key: 'podeAdicionarTags', 
+                        label: 'Adicionar/Remover etiquetas', 
+                        desc: 'Gerenciar tags para categorização de contatos'
+                      },
+                      { 
+                        key: 'podeVerHistoricoCompleto', 
+                        label: 'Ver histórico completo de interações', 
+                        desc: 'Acesso a todas as interações passadas (ligações, emails, visitas)'
+                      }
+                    ].map(({ key, label, desc }) => (
+                      <div key={key} className="flex items-start justify-between p-3 border rounded-lg hover:bg-slate-50 transition-colors">
+                        <div className="flex-1 mr-4">
+                          <div className="text-sm font-medium">{label}</div>
+                          <div className="text-xs text-muted-foreground mt-1">{desc}</div>
+                        </div>
                         <Switch
                           checked={permissoesAcoes[key] ?? (previewPermissoes?.[key] ?? true)}
                           onCheckedChange={(checked) => setPermissoesAcoes(prev => ({ ...prev, [key]: checked }))}
@@ -574,22 +836,73 @@ export default function PainelPermissoesUnificado({ usuario, integracoes = [], o
                   </div>
                 </div>
 
-                <Separator className="my-2" />
+                <Separator className="my-4" />
 
-                {/* CATEGORIA 4: AUTOMAÇÃO */}
-                <div className="space-y-2">
-                  <h4 className="text-xs font-bold text-slate-600 mb-1">⚡ Automação</h4>
-                  <div className="grid grid-cols-1 gap-1">
+
+
+                {/* CATEGORIA 5: AUTOMAÇÃO E PLAYBOOKS */}
+                <div className="mb-6">
+                  <h4 className="text-sm font-semibold text-slate-700 mb-3 flex items-center gap-2">
+                    ⚡ Automação e Fluxos
+                  </h4>
+                  <div className="grid grid-cols-1 gap-2">
                     {[
-                      { key: 'podeCriarPlaybooks', label: 'Criar Playbooks' },
-                      { key: 'podeEditarPlaybooks', label: 'Editar Playbooks' },
-                      { key: 'podeDeletarPlaybooks', label: 'Deletar Playbooks' },
-                      { key: 'podeCriarPromocoes', label: 'Criar Promoções' },
-                      { key: 'podeCriarRespostasRapidas', label: 'Criar Quick Replies' },
-                      { key: 'podeConfigurarURA', label: 'Configurar URA' }
-                    ].map(({ key, label }) => (
-                      <div key={key} className="flex items-center justify-between p-1.5 border rounded hover:bg-slate-50">
-                        <span className="text-xs">{label}</span>
+                      { 
+                        key: 'podeCriarPlaybooks', 
+                        label: 'Criar novos playbooks', 
+                        desc: 'Desenhar fluxos conversacionais e automações'
+                      },
+                      { 
+                        key: 'podeEditarPlaybooks', 
+                        label: 'Editar playbooks existentes', 
+                        desc: 'Modificar fluxos criados por outros usuários'
+                      },
+                      { 
+                        key: 'podeDeletarPlaybooks', 
+                        label: '⭐ Deletar playbooks permanentemente', 
+                        desc: '⚠️ Remover fluxos do sistema (ação irreversível)'
+                      },
+                      { 
+                        key: 'podeDuplicarPlaybooks', 
+                        label: 'Duplicar/Clonar playbooks', 
+                        desc: 'Copiar fluxos existentes para criar variações'
+                      },
+                      { 
+                        key: 'podeAtivarDesativarPlaybooks', 
+                        label: 'Ativar/Desativar playbooks', 
+                        desc: 'Controlar quais fluxos estão rodando no sistema'
+                      },
+                      { 
+                        key: 'podeVerEstatisticasPlaybooks', 
+                        label: 'Ver estatísticas de playbooks', 
+                        desc: 'Acessar métricas de performance dos fluxos'
+                      },
+                      { 
+                        key: 'podeCriarPromocoes', 
+                        label: 'Criar campanhas promocionais', 
+                        desc: 'Configurar envios automáticos de promoções'
+                      },
+                      { 
+                        key: 'podeEnviarPromocoesManuais', 
+                        label: 'Enviar promoções manualmente', 
+                        desc: 'Disparar campanhas fora do ciclo automático'
+                      },
+                      { 
+                        key: 'podeCriarRespostasRapidas', 
+                        label: '⭐ Criar respostas rápidas (Quick Replies)', 
+                        desc: 'Adicionar mensagens prontas na biblioteca'
+                      },
+                      { 
+                        key: 'podeDeletarRespostasRapidas', 
+                        label: 'Deletar respostas rápidas', 
+                        desc: 'Remover Quick Replies da biblioteca'
+                      }
+                    ].map(({ key, label, desc }) => (
+                      <div key={key} className="flex items-start justify-between p-3 border rounded-lg hover:bg-slate-50 transition-colors">
+                        <div className="flex-1 mr-4">
+                          <div className="text-sm font-medium">{label}</div>
+                          <div className="text-xs text-muted-foreground mt-1">{desc}</div>
+                        </div>
                         <Switch
                           checked={permissoesAcoes[key] ?? (previewPermissoes?.[key] ?? true)}
                           onCheckedChange={(checked) => setPermissoesAcoes(prev => ({ ...prev, [key]: checked }))}
@@ -599,25 +912,51 @@ export default function PainelPermissoesUnificado({ usuario, integracoes = [], o
                   </div>
                 </div>
 
-                <Separator className="my-2" />
+                <Separator className="my-4" />
 
-                {/* CATEGORIA 5: SISTEMA */}
-                <div className="space-y-2">
-                  <h4 className="text-xs font-bold text-slate-600 mb-1">⚙️ Sistema</h4>
-                  <div className="grid grid-cols-1 gap-1">
+                {/* CATEGORIA 6: CONFIGURAÇÕES E SISTEMA */}
+                <div className="mb-6">
+                  <h4 className="text-sm font-semibold text-slate-700 mb-3 flex items-center gap-2">
+                    ⚙️ Configurações e Sistema
+                  </h4>
+                  <div className="grid grid-cols-1 gap-2">
                     {[
-                      { key: 'podeGerenciarConexoes', label: 'Gerenciar Conexões' },
-                      { key: 'podeGerenciarFilas', label: 'Gerenciar Filas' },
-                      { key: 'podeGerenciarPermissoes', label: 'Gerenciar Permissões' },
-                      { key: 'podeVerDiagnosticos', label: 'Diagnósticos' },
-                      { key: 'podeVerRelatorios', label: 'Relatórios' },
-                      { key: 'podeExportarDados', label: 'Exportar' },
-                      { key: 'podeRealizarChamadas', label: 'Chamadas' },
-                      { key: 'podeVerMetricasIndividuais', label: 'Métricas Próprias' },
-                      { key: 'podeVerMetricasEquipe', label: 'Métricas Equipe' }
-                    ].map(({ key, label }) => (
-                      <div key={key} className="flex items-center justify-between p-1.5 border rounded hover:bg-slate-50">
-                        <span className="text-xs">{label}</span>
+                      { 
+                        key: 'podeGerenciarConexoes', 
+                        label: 'Gerenciar conexões WhatsApp', 
+                        desc: '⚠️ Configurar, conectar e desconectar instâncias WhatsApp'
+                      },
+                      { 
+                        key: 'podeGerenciarFilas', 
+                        label: 'Gerenciar filas de atendimento', 
+                        desc: 'Criar, editar e configurar setores/filas de distribuição'
+                      },
+                      { 
+                        key: 'podeGerenciarPermissoes', 
+                        label: 'Gerenciar permissões de outros usuários', 
+                        desc: '🔴 ADMIN - Editar esta tela para outros usuários'
+                      },
+                      { 
+                        key: 'podeVerDiagnosticos', 
+                        label: 'Acessar diagnósticos do sistema', 
+                        desc: 'Ver logs, webhooks e ferramentas de debug técnico'
+                      },
+                      { 
+                        key: 'podeVerRelatorios', 
+                        label: 'Ver relatórios e analytics', 
+                        desc: 'Dashboard com métricas de performance e vendas'
+                      },
+                      { 
+                        key: 'podeExportarDados', 
+                        label: 'Exportar dados e relatórios', 
+                        desc: 'Baixar CSVs, PDFs e planilhas de dados do sistema'
+                      }
+                    ].map(({ key, label, desc }) => (
+                      <div key={key} className="flex items-start justify-between p-3 border rounded-lg hover:bg-slate-50 transition-colors">
+                        <div className="flex-1 mr-4">
+                          <div className="text-sm font-medium">{label}</div>
+                          <div className="text-xs text-muted-foreground mt-1">{desc}</div>
+                        </div>
                         <Switch
                           checked={permissoesAcoes[key] ?? (previewPermissoes?.[key] ?? true)}
                           onCheckedChange={(checked) => setPermissoesAcoes(prev => ({ ...prev, [key]: checked }))}
@@ -626,10 +965,352 @@ export default function PainelPermissoesUnificado({ usuario, integracoes = [], o
                     ))}
                   </div>
                 </div>
-              </CardContent>
-            </TabsContent>
-          </Tabs>
-        </Card>
+
+                <Separator className="my-4" />
+
+                {/* CATEGORIA 7: BROADCAST E ENVIOS EM MASSA */}
+                <div className="mb-6">
+                  <h4 className="text-sm font-semibold text-slate-700 mb-3 flex items-center gap-2">
+                    📢 Envios em Massa e Broadcast
+                  </h4>
+                  <div className="grid grid-cols-1 gap-2">
+                    {[
+                      { 
+                        key: 'podeUsarBroadcastExterno', 
+                        label: 'Enviar broadcast para múltiplos clientes', 
+                        desc: 'Modo seleção múltipla - enviar mesma mensagem para vários contatos'
+                      },
+                      { 
+                        key: 'podeUsarBroadcastInterno', 
+                        label: 'Enviar broadcast interno (equipe)', 
+                        desc: 'Enviar mensagem para múltiplos atendentes/setores simultaneamente'
+                      },
+                      { 
+                        key: 'podeSelecionarMultiplosContatos', 
+                        label: 'Selecionar múltiplos contatos na lista', 
+                        desc: 'Habilita checkboxes de seleção múltipla'
+                      },
+                      { 
+                        key: 'podeEnviarParaSetorCompleto', 
+                        label: 'Enviar para setor completo (grupo)', 
+                        desc: 'Broadcast para todos do setor de uma vez'
+                      }
+                    ].map(({ key, label, desc }) => (
+                      <div key={key} className="flex items-start justify-between p-3 border rounded-lg hover:bg-slate-50 transition-colors">
+                        <div className="flex-1 mr-4">
+                          <div className="text-sm font-medium">{label}</div>
+                          <div className="text-xs text-muted-foreground mt-1">{desc}</div>
+                        </div>
+                        <Switch
+                          checked={permissoesAcoes[key] ?? (previewPermissoes?.[key] ?? true)}
+                          onCheckedChange={(checked) => setPermissoesAcoes(prev => ({ ...prev, [key]: checked }))}
+                        />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <Separator className="my-4" />
+
+                {/* CATEGORIA 8: MENSAGENS INTERNAS */}
+                <div className="mb-6">
+                  <h4 className="text-sm font-semibold text-slate-700 mb-3 flex items-center gap-2">
+                    🔵 Chat Interno (Team)
+                  </h4>
+                  <div className="grid grid-cols-1 gap-2">
+                    {[
+                      { 
+                        key: 'podeEnviarMensagensInternas', 
+                        label: 'Enviar mensagens internas 1:1', 
+                        desc: 'Chat privado com colegas da equipe'
+                      },
+                      { 
+                        key: 'podeCriarGruposInternos', 
+                        label: 'Criar grupos internos customizados', 
+                        desc: 'Criar canais de equipe personalizados'
+                      },
+                      { 
+                        key: 'podeParticiparGruposSetor', 
+                        label: 'Participar de grupos de setor', 
+                        desc: 'Acesso automático ao grupo do seu setor'
+                      },
+                      { 
+                        key: 'podeAdicionarMembrosGrupo', 
+                        label: 'Adicionar membros em grupos', 
+                        desc: 'Convidar outros usuários para grupos que participa (implementar)'
+                      },
+                      { 
+                        key: 'podeRemoverMembrosGrupo', 
+                        label: 'Remover membros de grupos', 
+                        desc: 'Expulsar usuários de grupos internos (implementar)'
+                      },
+                      { 
+                        key: 'podeSairDeGrupo', 
+                        label: 'Sair de grupos', 
+                        desc: 'Deixar conversas em grupo que não quer participar'
+                      },
+                      { 
+                        key: 'podeVerMembrosGrupo', 
+                        label: 'Ver lista de membros do grupo', 
+                        desc: 'Acessar lista completa de participantes'
+                      }
+                    ].map(({ key, label, desc }) => (
+                      <div key={key} className="flex items-start justify-between p-3 border rounded-lg hover:bg-slate-50 transition-colors">
+                        <div className="flex-1 mr-4">
+                          <div className="text-sm font-medium">{label}</div>
+                          <div className="text-xs text-muted-foreground mt-1">{desc}</div>
+                        </div>
+                        <Switch
+                          checked={permissoesAcoes[key] ?? (previewPermissoes?.[key] ?? true)}
+                          onCheckedChange={(checked) => setPermissoesAcoes(prev => ({ ...prev, [key]: checked }))}
+                        />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <Separator className="my-4" />
+
+                {/* CATEGORIA 9: INTELIGÊNCIA E IA */}
+                <div className="mb-6">
+                  <h4 className="text-sm font-semibold text-slate-700 mb-3 flex items-center gap-2">
+                    🤖 Inteligência Artificial
+                  </h4>
+                  <div className="grid grid-cols-1 gap-2">
+                    {[
+                      { 
+                        key: 'podeUsarSugestorRespostas', 
+                        label: 'Sugestor de respostas com IA', 
+                        desc: 'Botão "Sugerir" que gera respostas contextuais automáticas'
+                      },
+                      { 
+                        key: 'podeVerScoreContato', 
+                        label: 'Ver score e temperatura do contato', 
+                        desc: 'Visualizar análise de engajamento e próximas ações sugeridas'
+                      },
+                      { 
+                        key: 'podeForcarRequalificacao', 
+                        label: 'Forçar requalificação de lead', 
+                        desc: 'Rodar análise de IA manualmente para atualizar score'
+                      },
+                      { 
+                        key: 'podeVerInsightsIA', 
+                        label: 'Ver insights e alertas da IA', 
+                        desc: 'Notificações inteligentes sobre oportunidades e riscos'
+                      },
+                      { 
+                        key: 'podeCategorizarMensagensIndividuais', 
+                        label: '⭐ Categorizar mensagens individuais', 
+                        desc: 'Adicionar tags em mensagens específicas (menu contexto)'
+                      }
+                    ].map(({ key, label, desc }) => (
+                      <div key={key} className="flex items-start justify-between p-3 border rounded-lg hover:bg-slate-50 transition-colors">
+                        <div className="flex-1 mr-4">
+                          <div className="text-sm font-medium">{label}</div>
+                          <div className="text-xs text-muted-foreground mt-1">{desc}</div>
+                        </div>
+                        <Switch
+                          checked={permissoesAcoes[key] ?? (previewPermissoes?.[key] ?? true)}
+                          onCheckedChange={(checked) => setPermissoesAcoes(prev => ({ ...prev, [key]: checked }))}
+                        />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <Separator className="my-4" />
+
+                {/* CATEGORIA 10: TELEFONIA (GoTo Integration) */}
+                <div className="mb-6">
+                  <h4 className="text-sm font-semibold text-slate-700 mb-3 flex items-center gap-2">
+                    📞 Telefonia e Chamadas
+                  </h4>
+                  <div className="grid grid-cols-1 gap-2">
+                    {[
+                      { 
+                        key: 'podeRealizarChamadas', 
+                        label: '⭐ Realizar chamadas outbound', 
+                        desc: 'Discar para contatos via integração GoTo/telefônica'
+                      },
+                      { 
+                       key: 'podeVerHistoricoChamadas', 
+                       label: 'Ver histórico de chamadas', 
+                       desc: 'CallHistoryPanel - histórico completo de ligações'
+                      },
+                      { 
+                        key: 'podeEscutarGravacoes', 
+                        label: 'Escutar gravações de chamadas', 
+                        desc: '🔴 ALTA SENSIBILIDADE: Ouvir áudios de ligações gravadas'
+                      },
+                      { 
+                        key: 'podeVerMetricasTelefonia', 
+                        label: 'Ver métricas de atendimento telefônico', 
+                        desc: 'Dashboard de performance de chamadas'
+                      }
+                    ].map(({ key, label, desc }) => (
+                      <div key={key} className="flex items-start justify-between p-3 border rounded-lg hover:bg-slate-50 transition-colors">
+                        <div className="flex-1 mr-4">
+                          <div className="text-sm font-medium">{label}</div>
+                          <div className="text-xs text-muted-foreground mt-1">{desc}</div>
+                        </div>
+                        <Switch
+                          checked={permissoesAcoes[key] ?? (previewPermissoes?.[key] ?? true)}
+                          onCheckedChange={(checked) => setPermissoesAcoes(prev => ({ ...prev, [key]: checked }))}
+                        />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <Separator className="my-4" />
+
+                {/* CATEGORIA 11: ANALYTICS E MÉTRICAS */}
+                <div className="mb-6">
+                  <h4 className="text-sm font-semibold text-slate-700 mb-3 flex items-center gap-2">
+                    📊 Analytics e Métricas
+                  </h4>
+                  <div className="grid grid-cols-1 gap-2">
+                    {[
+                      { 
+                        key: 'podeVerMetricasIndividuais', 
+                        label: 'Ver métricas individuais (próprias)', 
+                        desc: 'Dashboard pessoal: metas, conversões, tempo de resposta'
+                      },
+                      { 
+                        key: 'podeVerMetricasEquipe', 
+                        label: '⭐ Ver métricas da equipe', 
+                        desc: '🔴 SUPERVISÃO: Performance de colegas do setor'
+                      },
+                      { 
+                        key: 'podeVerMetricasGlobais', 
+                        label: 'Ver métricas globais da empresa', 
+                        desc: '🔴 DIRETORIA: Visão macro de todos os setores'
+                      },
+                      { 
+                        key: 'podeVerDashboardVendas', 
+                        label: 'Ver dashboard de vendas', 
+                        desc: 'Faturamento, pipeline, conversões'
+                      },
+                      { 
+                        key: 'podeVerRankings', 
+                        label: 'Ver rankings de desempenho', 
+                        desc: 'Classificação de vendedores/atendentes'
+                      },
+                      { 
+                        key: 'podeExportarRelatoriosCustomizados', 
+                        label: 'Exportar relatórios customizados', 
+                        desc: 'Gerar CSVs/PDFs com filtros personalizados'
+                      }
+                    ].map(({ key, label, desc }) => (
+                      <div key={key} className="flex items-start justify-between p-3 border rounded-lg hover:bg-slate-50 transition-colors">
+                        <div className="flex-1 mr-4">
+                          <div className="text-sm font-medium">{label}</div>
+                          <div className="text-xs text-muted-foreground mt-1">{desc}</div>
+                        </div>
+                        <Switch
+                          checked={permissoesAcoes[key] ?? (previewPermissoes?.[key] ?? true)}
+                          onCheckedChange={(checked) => setPermissoesAcoes(prev => ({ ...prev, [key]: checked }))}
+                        />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <Separator className="my-4" />
+
+                {/* CATEGORIA 12: CONFIGURAÇÕES AVANÇADAS */}
+                <div className="mb-6">
+                  <h4 className="text-sm font-semibold text-slate-700 mb-3 flex items-center gap-2">
+                    🎛️ Configurações Avançadas do Sistema
+                  </h4>
+                  <div className="grid grid-cols-1 gap-2">
+                    {[
+                      { 
+                        key: 'podeConfigurarURA', 
+                        label: '⭐ Configurar URA (pré-atendimento)', 
+                        desc: '🔴 ALTO IMPACTO: Editar fluxo de escolha de setor inicial'
+                      },
+                      { 
+                        key: 'podeConfigurarHorariosAtendimento', 
+                        label: 'Configurar horários de atendimento', 
+                        desc: 'Definir quando cada setor/atendente está disponível'
+                      },
+                      { 
+                        key: 'podeConfigurarMensagensAutomaticas', 
+                        label: 'Configurar mensagens automáticas', 
+                        desc: 'Auto-respostas, mensagens de ausência, boas-vindas'
+                      },
+                      { 
+                        key: 'podeConfigurarRegrasRoteamento', 
+                        label: 'Configurar regras de roteamento', 
+                        desc: '🔴 CRÍTICO: Algoritmo de distribuição de conversas'
+                      },
+                      { 
+                        key: 'podeConfigurarSLAs', 
+                        label: 'Configurar SLAs e alertas', 
+                        desc: 'Tempo máximo de resposta, escalação automática'
+                      }
+                    ].map(({ key, label, desc }) => (
+                      <div key={key} className="flex items-start justify-between p-3 border rounded-lg hover:bg-slate-50 transition-colors">
+                        <div className="flex-1 mr-4">
+                          <div className="text-sm font-medium">{label}</div>
+                          <div className="text-xs text-muted-foreground mt-1">{desc}</div>
+                        </div>
+                        <Switch
+                          checked={permissoesAcoes[key] ?? (previewPermissoes?.[key] ?? true)}
+                          onCheckedChange={(checked) => setPermissoesAcoes(prev => ({ ...prev, [key]: checked }))}
+                        />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <Separator className="my-4" />
+
+                {/* CATEGORIA 13: INTEGRAÇÃO COM OUTROS MÓDULOS */}
+                <div className="mb-6">
+                  <h4 className="text-sm font-semibold text-slate-700 mb-3 flex items-center gap-2">
+                    🔗 Integração com Outros Módulos
+                  </h4>
+                  <div className="grid grid-cols-1 gap-2">
+                    {[
+                      { 
+                        key: 'podeCriarOrcamentoDeChat', 
+                        label: 'Criar orçamento a partir do chat', 
+                        desc: 'Botão contexto na mensagem para gerar orçamento pré-preenchido'
+                      },
+                      { 
+                        key: 'podeCriarClienteDeContato', 
+                        label: 'Converter contato em cliente', 
+                        desc: 'Promover Contact para Cliente (entidade completa)'
+                      },
+                      { 
+                        key: 'podeRegistrarInteracao', 
+                        label: 'Registrar interações manualmente', 
+                        desc: 'Criar registro de ligação, reunião ou visita'
+                      },
+                      { 
+                        key: 'podeAcessarAgenda', 
+                        label: 'Acessar agenda de tarefas', 
+                        desc: 'Ver e criar lembretes/tarefas a partir de conversas'
+                      }
+                    ].map(({ key, label, desc }) => (
+                      <div key={key} className="flex items-start justify-between p-3 border rounded-lg hover:bg-slate-50 transition-colors">
+                        <div className="flex-1 mr-4">
+                          <div className="text-sm font-medium">{label}</div>
+                          <div className="text-xs text-muted-foreground mt-1">{desc}</div>
+                        </div>
+                        <Switch
+                          checked={permissoesAcoes[key] ?? (previewPermissoes?.[key] ?? true)}
+                          onCheckedChange={(checked) => setPermissoesAcoes(prev => ({ ...prev, [key]: checked }))}
+                        />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
 
       {/* SEÇÃO 5: Preview Consolidado */}
       <Card className="border-slate-300 bg-slate-50">

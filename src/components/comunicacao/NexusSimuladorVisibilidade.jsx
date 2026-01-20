@@ -161,15 +161,6 @@ export default function NexusSimuladorVisibilidade({ usuario, integracoes = [], 
     try {
       setLoading(true);
       
-      // 🔄 RELOAD CONTATOS INLINE - Garante dados frescos antes da comparação
-      console.log('[SIMULADOR] 🔄 Recarregando contatos...');
-      const contatosFrescos = await base44.entities.Contact.list('-created_date', 1000);
-      setContatos(contatosFrescos || []);
-      console.log(`[SIMULADOR] ✅ ${contatosFrescos?.length || 0} contatos carregados`);
-      
-      // Pequeno delay para garantir render
-      await new Promise(resolve => setTimeout(resolve, 50));
-      
       // Usar threads já carregadas ou buscar novas
       let threadsParaAnalisar = threads;
       
@@ -329,9 +320,6 @@ export default function NexusSimuladorVisibilidade({ usuario, integracoes = [], 
               </div>
             </div>
             <div className="flex items-center gap-2">
-              <Badge variant="outline" className="text-[10px]">
-                {contatos.length} contatos
-              </Badge>
               <select 
                 value={amostraSize} 
                 onChange={(e) => setAmostraSize(Number(e.target.value))}
@@ -356,12 +344,9 @@ export default function NexusSimuladorVisibilidade({ usuario, integracoes = [], 
               <Button 
                 size="sm"
                 variant="outline"
-                onClick={async () => {
-                  await carregarContatos();
-                  toast.success(`✅ ${contatos.length} contatos recarregados`);
-                }}
-                className="border-green-300 text-green-700 hover:bg-green-50 text-xs h-7"
-                title="🔄 Recarregar contatos (clique aqui se cadastrou novos contatos)"
+                onClick={carregarContatos}
+                className="border-slate-300 text-slate-700 hover:bg-slate-50 text-xs h-7"
+                title="Recarregar contatos"
               >
                 <RefreshCw className="w-3 h-3" />
               </Button>
@@ -423,17 +408,15 @@ export default function NexusSimuladorVisibilidade({ usuario, integracoes = [], 
                  }
                 }
                 
-                // Nome formatado - PRIORIDADE: empresa > nome > telefone
+                // Nome formatado
                 let nomeExibicao = "";
                 if (contato) {
-                  nomeExibicao = contato.empresa || contato.nome || contato.telefone || "Sem nome";
+                  if (contato.empresa) nomeExibicao = contato.empresa;
+                  if (contato.cargo) nomeExibicao = nomeExibicao ? nomeExibicao + " - " + contato.cargo : contato.cargo;
+                  if (contato.nome && contato.nome !== contato.telefone) nomeExibicao = nomeExibicao ? nomeExibicao + " - " + contato.nome : contato.nome;
+                  if (!nomeExibicao) nomeExibicao = contato.telefone || "Sem nome";
                 } else {
                   nomeExibicao = thread.id?.substring(0, 20) || "Thread";
-                }
-                
-                // Adicionar indicador de duplicata ao nome
-                if (temDuplicata) {
-                  nomeExibicao = `🔴 ${nomeExibicao}`;
                 }
 
                     return (
@@ -493,29 +476,23 @@ export default function NexusSimuladorVisibilidade({ usuario, integracoes = [], 
 
                           {/* Badges */}
                           <div className="flex items-center gap-1 flex-wrap mt-0.5">
-                           <Badge variant="outline" className="text-[9px] h-3 px-1">
-                             {thread.thread_type === 'contact_external' ? 'Cliente' : thread.thread_type === 'team_internal' ? '1:1' : 'Grupo'}
-                           </Badge>
-                           {thread.assigned_user_id && (
-                             <Badge className="bg-indigo-500 text-white text-[9px] h-3 px-1">
-                               <UserCheck className="w-2 h-2 mr-0.5" />
-                               Atrib.
-                             </Badge>
-                           )}
-                           {temDuplicata && (
-                             <Badge className="bg-red-600 text-white text-[9px] h-3 px-1 font-bold animate-pulse">
-                               <Users className="w-2 h-2 mr-0.5" />
-                               DUP
-                             </Badge>
-                           )}
-                           {erroNexus && (
-                             <Badge className={`text-[9px] h-3 px-1 ${
-                               erroNexus.severity === 'error' ? 'bg-red-600 text-white' : 'bg-amber-500 text-white'
-                             }`}>
-                               <AlertTriangle className="w-2 h-2 mr-0.5" />
-                               {erroNexus.regra}
-                             </Badge>
-                           )}
+                            <Badge variant="outline" className="text-[9px] h-3 px-1">
+                              {thread.thread_type === 'contact_external' ? 'Cliente' : thread.thread_type === 'team_internal' ? '1:1' : 'Grupo'}
+                            </Badge>
+                            {thread.assigned_user_id && (
+                              <Badge className="bg-indigo-500 text-white text-[9px] h-3 px-1">
+                                <UserCheck className="w-2 h-2 mr-0.5" />
+                                Atrib.
+                              </Badge>
+                            )}
+                            {erroNexus && (
+                              <Badge className={`text-[9px] h-3 px-1 ${
+                                erroNexus.severity === 'error' ? 'bg-red-600 text-white' : 'bg-amber-500 text-white'
+                              }`}>
+                                <AlertTriangle className="w-2 h-2 mr-0.5" />
+                                {erroNexus.regra}
+                              </Badge>
+                            )}
                           </div>
                           
                           {/* Descrição do Erro */}
@@ -834,18 +811,16 @@ export default function NexusSimuladorVisibilidade({ usuario, integracoes = [], 
                  const msgSuspeita = simulationResults.threadsMensagensSuspeitas?.find(t => t.threadId === res.threadId);
                  const temProblemaGrave = semContato || contatoInvalido || msgSuspeita;
 
-                 // Nome formatado - PRIORIDADE: empresa > nome > telefone
+                 // Nome formatado
                  let nomeExibicao = "";
                  if (contato) {
-                   nomeExibicao = contato.empresa || contato.nome || contato.telefone || res.contactName || "Sem nome";
+                   if (contato.empresa) nomeExibicao = contato.empresa;
+                   if (contato.cargo) nomeExibicao = nomeExibicao ? nomeExibicao + " - " + contato.cargo : contato.cargo;
+                   if (contato.nome && contato.nome !== contato.telefone) nomeExibicao = nomeExibicao ? nomeExibicao + " - " + contato.nome : contato.nome;
+                   if (!nomeExibicao) nomeExibicao = contato.telefone || res.contactName || "Sem nome";
                  } else {
                    nomeExibicao = res.contactName || "Thread";
                  }
-                 
-                 // Adicionar telefone como contexto extra se contato tem duplicata
-                 const telefoneInfo = temDuplicataTabela && contato?.telefone 
-                   ? ` (${contato.telefone.slice(-4)})` 
-                   : '';
 
                  return (
                    <React.Fragment key={res.threadId}>
@@ -872,10 +847,10 @@ export default function NexusSimuladorVisibilidade({ usuario, integracoes = [], 
                          </div>
                          <div className="flex-1 min-w-0">
                            <div className="flex items-center gap-1">
-                             <h3 className={`font-semibold text-[11px] truncate ${temProblemaGrave ? 'text-red-700 font-bold' : temDuplicataTabela ? 'text-red-700' : 'text-slate-900'}`}>
+                             <h3 className={`font-semibold text-[11px] truncate ${temProblemaGrave ? 'text-red-700 font-bold' : 'text-slate-900'}`}>
                                {temProblemaGrave 
                                  ? `⚠️ ${semContato?.motivo || contatoInvalido?.motivo || msgSuspeita?.motivo}`
-                                 : `${temDuplicataTabela ? '🔴 ' : ''}${nomeExibicao}${telefoneInfo}`
+                                 : nomeExibicao
                                }
                              </h3>
                              <span className="text-[9px] text-slate-400">{formatarHorario(thread?.last_message_at)}</span>
