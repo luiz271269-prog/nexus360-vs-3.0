@@ -150,9 +150,43 @@ export default function ChatSidebar({
   const threadsFiltradas = useMemo(() => {
     if (!threads || threads.length === 0) return [];
 
-    // A lista de threads que chega já foi filtrada pela lógica de `Comunicacao.jsx`.
-    // O filtro aqui foi removido para evitar duplicidade e conflitos.
-    return threads;
+    // 🔍 DEDUPLICAÇÃO VISUAL: Agrupar threads com mesmo telefone
+    const threadsPorTelefone = new Map();
+    
+    for (const thread of threads) {
+      // Threads internas: sempre mostrar (não deduplica)
+      if (thread.thread_type === 'team_internal' || thread.thread_type === 'sector_group') {
+        threadsPorTelefone.set(`internal_${thread.id}`, thread);
+        continue;
+      }
+      
+      // Threads externas: deduplica por telefone
+      const telefone = thread.contato?.telefone?.replace(/\D/g, '');
+      
+      if (!telefone) {
+        threadsPorTelefone.set(`sem_tel_${thread.id}`, thread);
+        continue;
+      }
+      
+      // Se já existe thread com esse telefone, manter a mais recente
+      const chave = `tel_${telefone}`;
+      const threadExistente = threadsPorTelefone.get(chave);
+      
+      if (!threadExistente) {
+        threadsPorTelefone.set(chave, thread);
+      } else {
+        // Comparar last_message_at e manter a mais recente
+        const dataExistente = new Date(threadExistente.last_message_at || 0);
+        const dataAtual = new Date(thread.last_message_at || 0);
+        
+        if (dataAtual > dataExistente) {
+          threadsPorTelefone.set(chave, thread);
+          console.log(`[SIDEBAR] 🔀 Substituindo thread duplicada: ${threadExistente.id} → ${thread.id} (telefone: ${telefone})`);
+        }
+      }
+    }
+    
+    return Array.from(threadsPorTelefone.values());
   }, [threads, usuarioAtual, integracoes]);
 
   const threadsSorted = useMemo(() => {
