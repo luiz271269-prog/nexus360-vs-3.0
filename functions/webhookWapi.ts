@@ -487,21 +487,21 @@ async function handleMessage(dados, payloadBruto, base44) {
 
   console.log(`[WAPI] 🏛️ PORTEIRO RESULTADO: ${integracaoId ? '✅ Integração encontrada' : '❌ Não encontrada'} | Canal: ${integracaoInfo?.numero || connectedPhone || 'N/A'}`);
 
-  // BUSCAR/CRIAR CONTATO - USANDO CONTACT MANAGER (UPSERT ÚNICO)
+  // BUSCAR/CRIAR CONTATO - USANDO CONTACT MANAGER CENTRALIZADO (FONTE ÚNICA)
   const profilePicUrl = payloadBruto.sender?.profilePicture || payloadBruto.sender?.profilePicThumbObj?.eurl || null;
   let contato;
   try {
-    // ✅ Importar e usar getOrCreateContact (fonte única da verdade)
-    const { getOrCreateContact } = await import('./lib/contactManager.js');
+    // ✅ Usar getOrCreateContactCentralized (função centralizada - única fonte da verdade)
+    const { getOrCreateContactCentralized } = await import('./lib/contactManagerCentralized.js');
     
-    contato = await getOrCreateContact(base44, {
-      telefone: dados.from,
-      nome: dados.pushName || dados.from,
-      profilePicUrl: profilePicUrl,
-      pushName: dados.pushName
-    });
+    contato = await getOrCreateContactCentralized(base44, 
+      dados.from,           // ⚠️ TELEFONE BRUTO - função normaliza internamente
+      dados.pushName || dados.from,
+      profilePicUrl,
+      dados.pushName
+    );
     
-    console.log(`[WAPI] 👤 Contato processado via contactManager: ${contato.nome} (${contato.id})`);
+    console.log(`[WAPI] 👤 Contato processado via getOrCreateContactCentralized: ${contato.nome} (${contato.id})`);
   } catch (e) {
     console.error(`[WAPI] ❌ Erro contato:`, e?.message);
     return jsonErr('erro_contato', 500);
