@@ -520,16 +520,16 @@ export default function GerenciadorUsuariosUnificado({
   };
 
   return (
-    <div className="flex h-[calc(100vh-140px)] gap-3">
+    <div className="flex h-[calc(100vh-140px)] gap-2">
       {/* ════════════════════════════════════════════════════════════════════════ */}
-      {/* COLUNA 1: LISTA DE USUÁRIOS */}
+      {/* COLUNA 1: LISTA DE USUÁRIOS - COMPACTA */}
       {/* ════════════════════════════════════════════════════════════════════════ */}
-      <section className="w-64 flex flex-col bg-white rounded-xl border shadow-sm overflow-hidden">
-        <header className="p-3 border-b bg-gradient-to-r from-slate-50 to-slate-100">
-          <div className="flex items-center justify-between mb-2">
-            <h2 className="text-sm font-bold text-slate-800">Usuários</h2>
-            <Button size="sm" variant="outline" onClick={novoUsuario} className="h-7 px-2">
-              <Plus className="w-3 h-3 mr-1" /> Novo
+      <section className="w-56 flex flex-col bg-white rounded-lg border shadow-sm overflow-hidden">
+        <header className="p-2 border-b bg-gradient-to-r from-slate-50 to-slate-100">
+          <div className="flex items-center justify-between mb-1.5">
+            <h2 className="text-xs font-bold text-slate-800">Usuários</h2>
+            <Button size="sm" variant="outline" onClick={novoUsuario} className="h-6 px-1.5 text-xs">
+              <Plus className="w-3 h-3" />
             </Button>
           </div>
           <div className="relative">
@@ -538,59 +538,56 @@ export default function GerenciadorUsuariosUnificado({
               placeholder="Buscar..."
               value={filtro}
               onChange={(e) => setFiltro(e.target.value)}
-              className="h-7 pl-7 text-xs"
+              className="h-6 pl-7 text-[11px]"
             />
           </div>
         </header>
 
         <div className="flex-1 overflow-auto">
           {carregando ? (
-            <div className="p-4 text-center text-xs text-slate-500">
+            <div className="p-3 text-center text-xs text-slate-500">
               <Loader2 className="w-4 h-4 animate-spin mx-auto mb-1" />
               Carregando...
             </div>
           ) : usuariosFiltrados.length === 0 ? (
-            <div className="p-4 text-center text-xs text-slate-500">Nenhum usuário</div>
+            <div className="p-3 text-center text-xs text-slate-500">Nenhum usuário</div>
           ) : (
             <div>
               {Object.entries(usuariosAgrupados).map(([setor, listaUsuarios]) => {
                 const setorConfig = SETOR_LABELS[setor] || SETOR_LABELS.geral;
                 return (
                   <div key={setor}>
-                    {/* Header do Grupo/Setor */}
-                    <div className={`px-3 py-1.5 ${setorConfig.cor} border-b sticky top-0 z-10`}>
+                    <div className={`px-2 py-1 ${setorConfig.cor} border-b sticky top-0 z-10`}>
                       <span className="text-[10px] font-bold">{setorConfig.label}</span>
-                      <Badge variant="outline" className="ml-2 text-[9px] px-1">{listaUsuarios.length}</Badge>
+                      <Badge variant="outline" className="ml-1.5 text-[9px] px-1 py-0">{listaUsuarios.length}</Badge>
                     </div>
-                    {/* Usuários do Grupo */}
                     <ul>
                       {listaUsuarios.map(u => (
                         <li
                           key={u.id}
                           onClick={() => { setUsuarioSelecionado(u); setRecursoSelecionado(RECURSOS_SISTEMA[0]); }}
-                          className={`px-3 py-2 cursor-pointer border-b text-xs transition-colors group ${
+                          className={`px-2 py-1.5 cursor-pointer border-b text-xs transition-colors group ${
                             usuarioSelecionado?.id === u.id
                               ? "bg-indigo-50 border-l-2 border-l-indigo-500"
                               : "hover:bg-slate-50"
                           }`}
                         >
-                          <div className="flex items-center justify-between">
-                            <span className="font-medium text-slate-800 truncate">{u.nome || "(sem nome)"}</span>
-                            <div className="flex items-center gap-1">
-                              <Badge variant={u.ativo ? "default" : "secondary"} className="text-[9px] px-1.5 py-0">
-                                {u.ativo ? "Ativo" : "Inativo"}
+                          <div className="flex items-center justify-between gap-1">
+                            <span className="font-medium text-slate-800 truncate text-[11px]">{u.nome || "(sem nome)"}</span>
+                            <div className="flex items-center gap-0.5">
+                              <Badge variant={u.ativo ? "default" : "secondary"} className="text-[9px] px-1 py-0">
+                                {u.ativo ? "✓" : "✗"}
                               </Badge>
                               <button
                                 onClick={(e) => { e.stopPropagation(); excluirUsuario(u); }}
-                                className="opacity-0 group-hover:opacity-100 p-1 hover:bg-red-100 rounded transition-all"
-                                title="Excluir usuário"
+                                className="opacity-0 group-hover:opacity-100 p-0.5 hover:bg-red-100 rounded transition-all"
+                                title="Excluir"
                               >
                                 <Trash2 className="w-3 h-3 text-red-500" />
                               </button>
                             </div>
                           </div>
                           <div className="text-[10px] text-slate-500 truncate">{u.email}</div>
-                          <div className="text-[10px] text-slate-400">{u.funcao || "—"}</div>
                         </li>
                       ))}
                     </ul>
