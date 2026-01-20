@@ -715,7 +715,7 @@ export default function Comunicacao() {
       // ✅ Thread SEMPRE atribuída ao criador (garante acesso total)
       const novaThread = await base44.entities.MessageThread.create({
         contact_id: contatoCompleto.id,
-        whatsapp_integration_id: integracaoAtiva.id,
+        whatsapp_integration_id: integracaoParaThread.id,
         status: 'aberta',
         unread_count: 0,
         total_mensagens: 0,
