@@ -494,11 +494,12 @@ export default function PainelPermissoesUnificado({ usuario, integracoes = [], o
                     <p className="text-xs">Nenhuma liberação</p>
                   </div>
                 )}
-                </CardContent>
-                </TabsContent>
+              </div>
+            </CardContent>
+          </TabsContent>
 
-                <TabsContent value="acoes" className="mt-0">
-                <CardContent className="space-y-2 pt-3 max-h-[600px] overflow-y-auto">
+          <TabsContent value="acoes" className="mt-0">
+            <CardContent className="space-y-2 pt-3 max-h-[600px] overflow-y-auto">
                 <div className="space-y-2">
                   {/* CATEGORIA 1: ENVIO */}
                   <h4 className="text-xs font-bold text-slate-600 mb-1">📤 Envio</h4>
