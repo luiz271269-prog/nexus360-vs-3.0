@@ -41,20 +41,14 @@ Deno.serve(async (req) => {
         return Response.json({ received: true });
       }
 
-      // 1) Buscar/criar Contact
-      let contact = await base44.entities.Contact.filter({ telefone: senderPhone });
-      if (!contact || contact.length === 0) {
-        contact = await base44.entities.Contact.create({
-          nome: `GoTo ${senderPhone}`,
-          telefone: senderPhone,
-          tipo_contato: 'novo',
-          preferencias_comunicacao: {
-            canal_preferido: 'phone'
-          }
-        });
-      } else {
-        contact = contact[0];
-      }
+      // 1) Buscar/criar Contact usando contactManager (UPSERT ÚNICO)
+      const { getOrCreateContact } = await import('./lib/contactManager.js');
+      const contact = await getOrCreateContact(base44, {
+        telefone: senderPhone,
+        nome: `GoTo ${senderPhone}`,
+        profilePicUrl: null,
+        pushName: null
+      });
 
       // 2) Buscar/criar MessageThread
       let thread = await base44.entities.MessageThread.filter({
