@@ -651,11 +651,13 @@ export default function Comunicacao() {
 
       // ✅ Usar getOrCreateContactCentralized (fonte única)
       const { getOrCreateContactCentralized } = await import('../functions/lib/contactManagerCentralized.js');
+      const integracaoAtiva = integracoes.find((i) => i.status === 'conectado');
       const novoContato = await getOrCreateContactCentralized(base44, 
-        dadosContato.telefone,  // ⚠️ BRUTO - função normaliza
-        dadosContato.nome,
-        null,  // profilePicUrl
-        null   // pushName
+       dadosContato.telefone,  // ⚠️ BRUTO - função normaliza
+       dadosContato.nome,
+       null,  // profilePicUrl
+       null,  // pushName
+       integracaoAtiva?.id  // ✅ NOVO: Passa integração para buscar foto depois se faltar
       );
 
       // ✅ Atualizar com campos adicionais (fora da normalização)
