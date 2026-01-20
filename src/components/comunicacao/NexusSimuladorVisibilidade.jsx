@@ -161,12 +161,14 @@ export default function NexusSimuladorVisibilidade({ usuario, integracoes = [], 
     try {
       setLoading(true);
       
-      // 🔄 Recarregar contatos ANTES da análise (garante dados frescos)
-      console.log('[SIMULADOR] 🔄 Recarregando contatos antes da análise...');
-      await carregarContatos();
+      // 🔄 RELOAD CONTATOS INLINE - Garante dados frescos antes da comparação
+      console.log('[SIMULADOR] 🔄 Recarregando contatos...');
+      const contatosFrescos = await base44.entities.Contact.list('-created_date', 1000);
+      setContatos(contatosFrescos || []);
+      console.log(`[SIMULADOR] ✅ ${contatosFrescos?.length || 0} contatos carregados`);
       
-      // Pequeno delay para garantir que setState completou
-      await new Promise(resolve => setTimeout(resolve, 100));
+      // Pequeno delay para garantir render
+      await new Promise(resolve => setTimeout(resolve, 50));
       
       // Usar threads já carregadas ou buscar novas
       let threadsParaAnalisar = threads;
