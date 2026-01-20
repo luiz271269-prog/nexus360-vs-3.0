@@ -121,19 +121,16 @@ Deno.serve(async (req) => {
       // Determinar direção (inbound se veio de fora, outbound se originou do sistema)
       const direction = payload.direction || 'inbound';
 
-      // 1) Buscar/criar Contact baseado no número
+      // 1) Buscar/criar Contact usando contactManager (UPSERT ÚNICO)
       const contactPhone = direction === 'inbound' ? fromNumber : toNumber;
-      let contact = await base44.entities.Contact.filter({ telefone: contactPhone });
+      const { getOrCreateContact } = await import('./lib/contactManager.js');
       
-      if (!contact || contact.length === 0) {
-        contact = await base44.entities.Contact.create({
-          nome: `GoTo ${contactPhone}`,
-          telefone: contactPhone,
-          tipo_contato: 'novo'
-        });
-      } else {
-        contact = contact[0];
-      }
+      const contact = await getOrCreateContact(base44, {
+        telefone: contactPhone,
+        nome: `GoTo ${contactPhone}`,
+        profilePicUrl: null,
+        pushName: null
+      });
 
       // 2) Buscar ou criar CallSession
       let callSession = await base44.entities.CallSession.filter({ provider_call_id: callId });
