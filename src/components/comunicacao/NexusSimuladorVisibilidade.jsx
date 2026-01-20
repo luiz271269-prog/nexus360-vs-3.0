@@ -606,6 +606,10 @@ export default function NexusSimuladorVisibilidade({ usuario, integracoes = [], 
                     <option value="matches">✓ Matches ({simulationResults.stats.matches})</option>
                     <option value="divergencias">⚠️ Divergências ({simulationResults.stats.divergencias})</option>
                     <option value="criticos">🚨 Críticos ({simulationResults.stats.criticosFalsoNegativo})</option>
+                    <option value="sem_contato">🚨 Sem contato válido ({simulationResults.stats.threadsSemContatoValido || 0})</option>
+                    <option value="contato_invalido">🚨 Contato inválido ({simulationResults.stats.contatosInvalidos || 0})</option>
+                    <option value="msg_suspeita">🚨 Mensagens suspeitas ({simulationResults.stats.mensagensSuspeitas || 0})</option>
+                    <option value="todos_problemas">🚨 TODOS OS PROBLEMAS ({simulationResults.stats.totalProblemas || 0})</option>
                   </select>
                 </div>
               </div>
@@ -696,9 +700,18 @@ export default function NexusSimuladorVisibilidade({ usuario, integracoes = [], 
 
                  return (
                    <React.Fragment key={res.threadId}>
-                   <tr className={res.isMatch ? "hover:bg-slate-50" : res.severity === 'error' ? "bg-red-50" : "bg-amber-50"}>
+                   <tr className={`${
+                     temProblemaGrave ? 'bg-red-100 border-red-300 border-2' :
+                     res.isMatch ? "hover:bg-slate-50" : 
+                     res.severity === 'error' ? "bg-red-50" : "bg-amber-50"
+                   }`}>
                      <td className="px-2 py-1">
                        <div className="flex items-center gap-2">
+                         {temProblemaGrave && (
+                           <Badge className="bg-red-600 text-white text-[10px] px-1 py-0 font-bold animate-pulse">
+                             🚨
+                           </Badge>
+                         )}
                          <div className={`w-7 h-7 rounded-full flex items-center justify-center text-white font-bold text-[10px] shadow-sm overflow-hidden ${
                            hasUnread ? 'bg-gradient-to-br from-orange-400 to-red-500' : 'bg-slate-400'
                          }`}>
@@ -710,7 +723,12 @@ export default function NexusSimuladorVisibilidade({ usuario, integracoes = [], 
                          </div>
                          <div className="flex-1 min-w-0">
                            <div className="flex items-center gap-1">
-                             <h3 className="font-semibold text-[11px] text-slate-900 truncate">{nomeExibicao}</h3>
+                             <h3 className={`font-semibold text-[11px] truncate ${temProblemaGrave ? 'text-red-700 font-bold' : 'text-slate-900'}`}>
+                               {temProblemaGrave 
+                                 ? `⚠️ ${semContato?.motivo || contatoInvalido?.motivo || msgSuspeita?.motivo}`
+                                 : nomeExibicao
+                               }
+                             </h3>
                              <span className="text-[9px] text-slate-400">{formatarHorario(thread?.last_message_at)}</span>
                            </div>
                            <div className="flex items-center gap-1">
