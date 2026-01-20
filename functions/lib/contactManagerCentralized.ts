@@ -140,11 +140,11 @@ export async function getOrCreateContactCentralized(base44, rawPhone, nome, prof
       throw e;
     }
     
-    // ✅ SE não tem foto, marcar para buscar depois (async)
+    // ✅ SE não tem foto E tem integração, BUSCAR depois (async, non-blocking)
     const contatoAtualizado = { ...existing, ...updateData };
-    if (!contatoAtualizado.foto_perfil_url) {
-      contatoAtualizado._buscar_foto_depois = true;
-      console.log(`[CONTACT-MANAGER-CENTRAL] 📸 MARCADO: Buscar foto depois (contato ID: ${existing.id})`);
+    if (!contatoAtualizado.foto_perfil_url && integrationId) {
+      console.log(`[CONTACT-MANAGER-CENTRAL] 📸 Agendando busca de foto (contato ID: ${existing.id})`);
+      buscarFotoPerfilAsync(base44, integrationId, existing.id, phoneE164);
     }
     
     // Retornar contato atualizado
