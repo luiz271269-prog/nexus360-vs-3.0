@@ -89,6 +89,12 @@ export async function getOrCreateContact(base44, data) {
     // ✅ REMOVIDO: Não atualizar conexao_origem
     // Contact é independente de provedor/instância
     
+    // ✅ GARANTIR telefone normalizado no update (corrigir variações antigas)
+    if (contact.telefone !== phoneE164) {
+      console.log(`[contactManager] 🔧 Normalizando telefone: ${contact.telefone} -> ${phoneE164}`);
+      updateData.telefone = phoneE164;
+    }
+    
     // Aplicar update
     await base44.asServiceRole.entities.Contact.update(contact.id, updateData);
     
@@ -98,6 +104,7 @@ export async function getOrCreateContact(base44, data) {
   
   // ✅ CRIAR novo contato SEM conexao_origem
   // Contact não pertence a nenhuma conexão específica
+  console.log(`[contactManager] 🆕 Criando novo contato: ${phoneE164}`);
   const newContact = await base44.asServiceRole.entities.Contact.create({
     nome: pushName || nome || phoneE164,
     telefone: phoneE164,
