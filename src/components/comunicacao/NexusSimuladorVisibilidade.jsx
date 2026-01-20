@@ -354,7 +354,12 @@ export default function NexusSimuladorVisibilidade({ usuario, integracoes = [], 
       const { stats } = resultado;
       
       // Priorizar alertas críticos de perda de dados
-      if (stats.totalProblemas > 0) {
+      if (stats.webhooksSemNormalizacao > 0) {
+        toast.error(`🚨 WEBHOOKS DEFEITUOSOS: ${stats.webhooksSemNormalizacao} contatos criados sem normalização!`, {
+          description: 'Webhooks não estão usando contactManager.js - duplicatas detectadas',
+          duration: 8000
+        });
+      } else if (stats.totalProblemas > 0) {
         toast.error(`🚨 CRÍTICO: ${stats.totalProblemas} threads com problemas graves detectados!`, {
           description: `${stats.threadsSemContatoValido} sem contato | ${stats.contatosInvalidos} contatos inválidos | ${stats.mensagensSuspeitas} mensagens suspeitas`
         });
