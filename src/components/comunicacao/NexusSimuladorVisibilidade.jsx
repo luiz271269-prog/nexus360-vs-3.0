@@ -57,8 +57,16 @@ export default function NexusSimuladorVisibilidade({ usuario, integracoes = [], 
 
   const handleCorrecaoConcluida = async () => {
     toast.info('🔄 Recarregando dados...');
-    await carregarContatos();
     setModalCorrecaoOpen(false);
+    // Recarregar TUDO - contatos E threads
+    await Promise.all([
+      carregarContatos(),
+      (async () => {
+        const threadsData = await base44.entities.MessageThread.list();
+        setThreads(threadsData || []);
+        console.log('[SIMULADOR] ✅ Threads recarregadas:', threadsData.length);
+      })()
+    ]);
     // Limpar resultados antigos para forçar nova análise
     setSimulationResults(null);
     toast.success('✅ Dados atualizados! Execute a simulação novamente.');
