@@ -675,7 +675,7 @@ export default function Comunicacao() {
       
       const contatoCompleto = { ...novoContato, ...updateData };
 
-      console.log('[Comunicacao] ✅ Contato criado:', novoContato.id);
+      console.log('[Comunicacao] ✅ Contato processado (novo ou existente):', contatoCompleto.id);
 
       // ✅ FIX: Buscar integração onde USUÁRIO TEM can_send
       const integracaoAtiva = integracoes.find((i) => {
@@ -696,7 +696,7 @@ export default function Comunicacao() {
       });
 
       if (!integracaoAtiva) {
-        // Contato foi criado mas não há integração permitida
+        // Contato foi criado/encontrado mas não há integração permitida
         toast.warning('⚠️ Contato criado, mas você não tem acesso a nenhuma integração WhatsApp ativa');
         toast.info('💡 Peça a um colega para iniciar a conversa');
         
@@ -712,7 +712,7 @@ export default function Comunicacao() {
 
       // ✅ Thread SEMPRE atribuída ao criador (garante acesso total)
       const novaThread = await base44.entities.MessageThread.create({
-        contact_id: novoContato.id,
+        contact_id: contatoCompleto.id,
         whatsapp_integration_id: integracaoAtiva.id,
         status: 'aberta',
         unread_count: 0,
