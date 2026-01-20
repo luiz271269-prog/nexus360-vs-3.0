@@ -62,9 +62,9 @@ export async function getOrCreateContact(base44, data) {
   
   const now = new Date().toISOString();
   
-  if (existing.length > 0) {
-    // ATUALIZAR contato existente
-    const contact = existing[0];
+  if (existing) {
+    // ✅ ATUALIZAR contato existente (preserva assigned_user_id, vendedor_responsavel, etc.)
+    const contact = existing;
     
     const updateData = {
       ultima_interacao: now
