@@ -760,6 +760,23 @@ export default function NexusSimuladorVisibilidade({ usuario, integracoes = [], 
         </Alert>
       )}
       </div>
+
+      {/* MODAL: Correção de Duplicatas */}
+      <Dialog open={modalCorrecaoOpen} onOpenChange={setModalCorrecaoOpen}>
+        <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Users className="w-5 h-5 text-purple-600" />
+              Correção de Duplicatas
+            </DialogTitle>
+          </DialogHeader>
+          <AnalisadorContatosDuplicados 
+            telefone={telefoneParaCorrigir} 
+            isAdmin={usuario?.role === 'admin'}
+            onClose={() => setModalCorrecaoOpen(false)}
+          />
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
