@@ -1089,6 +1089,32 @@ export default function NexusSimuladorVisibilidade({ usuario, integracoes = [], 
                     </Card>
                     )}
 
+      {/* 🚨 ALERTA CRÍTICO: Webhooks Defeituosos */}
+      {simulationResults?.diagnosticoWebhooks?.sugestoes?.length > 0 && (
+        <div className="space-y-2">
+          {simulationResults.diagnosticoWebhooks.sugestoes.map((sugestao, idx) => (
+            <Alert key={idx} variant={sugestao.tipo === 'CRÍTICO' ? 'destructive' : 'default'} className="border-2">
+              <AlertTriangle className="h-5 w-5" />
+              <AlertDescription>
+                <div className="space-y-2">
+                  <div>
+                    <strong className="text-base">{sugestao.titulo}</strong>
+                    <p className="text-sm mt-1">{sugestao.descricao}</p>
+                  </div>
+                  <div className="bg-slate-900 rounded-md p-2 mt-2">
+                    <p className="text-xs text-amber-400 font-semibold mb-1">💡 CORREÇÃO:</p>
+                    <p className="text-xs text-white mb-1">{sugestao.acao}</p>
+                    <code className="text-xs text-green-300 font-mono block mt-1 bg-slate-800 p-1 rounded">
+                      {sugestao.codigo}
+                    </code>
+                  </div>
+                </div>
+              </AlertDescription>
+            </Alert>
+          ))}
+        </div>
+      )}
+
       {/* Ações rápidas */}
       {simulationResults && simulationResults.stats.divergencias > 0 && (
         <Alert variant="destructive">
