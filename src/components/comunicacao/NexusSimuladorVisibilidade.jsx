@@ -649,14 +649,33 @@ export default function NexusSimuladorVisibilidade({ usuario, integracoes = [], 
                     </td>
 
                     <td className="px-2 py-1 text-center">
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => setThreadExpandida(threadExpandida === res.threadId ? null : res.threadId)}
-                        className="h-6 w-6 p-0"
-                      >
-                        <Info className="w-3 h-3 text-slate-400" />
-                      </Button>
+                     <div className="flex gap-1 justify-center">
+                       <Button
+                         size="sm"
+                         variant="ghost"
+                         onClick={() => setThreadExpandida(threadExpandida === res.threadId ? null : res.threadId)}
+                         className="h-6 w-6 p-0"
+                         title="Ver detalhes"
+                       >
+                         <Info className="w-3 h-3 text-slate-400" />
+                       </Button>
+                       <Button
+                         size="sm"
+                         variant="ghost"
+                         onClick={() => {
+                           if (contato?.telefone) {
+                             setTelefoneParaCorrigir(contato.telefone);
+                             setModalCorrecaoOpen(true);
+                           } else {
+                             toast.error('Contato sem telefone');
+                           }
+                         }}
+                         className="h-6 w-6 p-0"
+                         title="Corrigir duplicatas"
+                       >
+                         <Users className="w-3 h-3 text-purple-600" />
+                       </Button>
+                     </div>
                     </td>
                     </tr>
                     {threadExpandida === res.threadId && (
