@@ -368,42 +368,47 @@ export default function NexusSimuladorVisibilidade({ usuario, integracoes = [], 
                           
                           {/* Descrição do Erro */}
                           {erroNexus && (
-                            <div className={`mt-1 text-[9px] px-1.5 py-0.5 rounded ${
-                              erroNexus.severity === 'error' ? 'bg-red-100 text-red-800' : 'bg-amber-100 text-amber-800'
-                            }`}>
-                              {erroNexus.descricao}
-                            </div>
+                           <div className={`mt-1 text-[9px] px-1.5 py-0.5 rounded ${
+                             erroNexus.severity === 'error' ? 'bg-red-100 text-red-800' : 'bg-amber-100 text-amber-800'
+                           }`}>
+                             {erroNexus.descricao}
+                           </div>
                           )}
-                        </div>
+                          </div>
 
-                        {/* 🎯 BOTÕES DE AÇÃO - Aparecem ao hover */}
-                        <div className="absolute right-1 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity flex gap-1">
+                          {/* 🎯 BOTÕES DE AÇÃO - Aparecem ao hover */}
+                          <div className="absolute right-1 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity flex gap-1">
                           <Button
-                            size="sm"
-                            variant="ghost"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setThreadExpandida(threadExpandida === thread.id ? null : thread.id);
-                            }}
-                            className="h-6 w-6 p-0 bg-white shadow-md hover:bg-indigo-50 border border-slate-200"
-                            title="Ver detalhes"
+                           size="sm"
+                           variant="ghost"
+                           onClick={(e) => {
+                             e.stopPropagation();
+                             setThreadExpandida(threadExpandida === thread.id ? null : thread.id);
+                           }}
+                           className="h-6 w-6 p-0 bg-white shadow-md hover:bg-indigo-50 border border-slate-200"
+                           title="Ver detalhes"
                           >
-                            <Info className="w-3 h-3 text-indigo-600" />
+                           <Info className="w-3 h-3 text-indigo-600" />
                           </Button>
-                          
+
                           <Button
-                            size="sm"
-                            variant="ghost"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              toast.info('🔄 Função "Mover para" em desenvolvimento');
-                            }}
-                            className="h-6 w-6 p-0 bg-white shadow-md hover:bg-amber-50 border border-slate-200"
-                            title="Mover para outro setor/integração"
+                           size="sm"
+                           variant="ghost"
+                           onClick={(e) => {
+                             e.stopPropagation();
+                             if (contato?.telefone) {
+                               setTelefoneParaCorrigir(contato.telefone);
+                               setModalCorrecaoOpen(true);
+                             } else {
+                               toast.error('Contato sem telefone');
+                             }
+                           }}
+                           className="h-6 w-6 p-0 bg-white shadow-md hover:bg-purple-50 border border-slate-200"
+                           title="Corrigir duplicatas"
                           >
-                            <ArrowRightLeft className="w-3 h-3 text-amber-600" />
+                           <Users className="w-3 h-3 text-purple-600" />
                           </Button>
-                        </div>
+                          </div>
                       </div>
                     );
                   })}
