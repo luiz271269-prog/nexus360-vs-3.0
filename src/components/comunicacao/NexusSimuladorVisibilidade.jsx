@@ -161,6 +161,9 @@ export default function NexusSimuladorVisibilidade({ usuario, integracoes = [], 
     try {
       setLoading(true);
       
+      // 🔄 Recarregar contatos ANTES da análise (garante dados atualizados)
+      await carregarContatos();
+      
       // Usar threads já carregadas ou buscar novas
       let threadsParaAnalisar = threads;
       
