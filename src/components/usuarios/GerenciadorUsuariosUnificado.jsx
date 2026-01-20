@@ -681,7 +681,7 @@ export default function GerenciadorUsuariosUnificado({
               </TabsList>
 
               {/* ABA: Dados & Perfil */}
-              <TabsContent value="dados" className="space-y-4 mt-4">
+              <TabsContent value="dados" className="space-y-2 mt-2">
                 {recursoSelecionado?.tipo === "config" && (
                   <SecaoDadosUsuario
                     usuarioSelecionado={usuarioSelecionado}
@@ -691,15 +691,15 @@ export default function GerenciadorUsuariosUnificado({
                 )}
 
             {/* ══════════════════════════════════════════════════════════════════ */}
-            {/* PERMISSÕES DO MENU (menu) */}
+            {/* PERMISSÕES DO MENU (menu) - COMPACTO */}
             {/* ══════════════════════════════════════════════════════════════════ */}
             {recursoSelecionado?.tipo === "menu" && (
-              <div className="space-y-4">
+              <div className="space-y-2">
                 {/* Acesso ao Menu Principal */}
-                <div className="flex items-center justify-between p-3 bg-gradient-to-r from-indigo-50 to-purple-50 rounded-lg border border-indigo-200">
+                <div className="flex items-center justify-between p-2 bg-gradient-to-r from-indigo-50 to-purple-50 rounded-md border border-indigo-200">
                   <div>
-                    <p className="text-sm font-bold text-indigo-800">{recursoSelecionado.nome}</p>
-                    <p className="text-xs text-indigo-600">Acesso à página principal</p>
+                    <p className="text-xs font-bold text-indigo-800">{recursoSelecionado.nome}</p>
+                    <p className="text-[10px] text-indigo-600">Acesso à página</p>
                   </div>
                   <Switch
                     checked={temPermissao(recursoSelecionado.id)}
@@ -709,39 +709,40 @@ export default function GerenciadorUsuariosUnificado({
 
                 {/* Ações/Subtelas */}
                 {recursoSelecionado.acoes && recursoSelecionado.acoes.length > 0 && (
-                  <div className="space-y-2">
-                    <h4 className="text-xs font-bold text-slate-700">Permissões Granulares</h4>
+                  <div className="space-y-1">
+                    <h4 className="text-[10px] font-bold text-slate-700">Permissões Granulares</h4>
                     {recursoSelecionado.acoes.map(acao => (
                       <label
                         key={acao.id}
-                        className="flex items-center gap-3 p-2 rounded-lg hover:bg-slate-50 cursor-pointer transition-colors"
+                        className="flex items-center gap-2 p-1.5 rounded-md hover:bg-slate-50 cursor-pointer transition-colors"
                       >
                         <Checkbox
                           checked={temPermissao(acao.id)}
                           onCheckedChange={() => togglePermissao(acao.id)}
                           disabled={!temPermissao(recursoSelecionado.id)}
+                          className="h-3 w-3"
                         />
-                        <div className="flex-1">
-                          <span className="text-sm font-medium text-slate-800">{acao.nome}</span>
-                          <Badge variant="outline" className="ml-2 text-[9px]">{acao.tipo}</Badge>
+                        <div className="flex-1 min-w-0">
+                          <span className="text-[11px] font-medium text-slate-800 truncate block">{acao.nome}</span>
                         </div>
+                        <Badge variant="outline" className="text-[9px] px-1 py-0 flex-shrink-0">{acao.tipo}</Badge>
                       </label>
                     ))}
                   </div>
                 )}
 
                 {/* Resumo */}
-                <div className="p-3 bg-slate-50 rounded-lg text-xs text-slate-600">
+                <div className="p-2 bg-slate-50 rounded-md text-[10px] text-slate-600">
                   <strong>Resumo:</strong> {(usuarioSelecionado.permissoes || []).filter(p => 
                     p === recursoSelecionado.id || (recursoSelecionado.acoes || []).some(a => a.id === p)
-                  ).length} permissões ativas neste recurso
+                  ).length} ativas
                 </div>
               </div>
             )}
           </TabsContent>
 
               {/* ABA: Comunicação */}
-              <TabsContent value="comunicacao" className="space-y-4 mt-4">
+              <TabsContent value="comunicacao" className="space-y-2 mt-2">
                 <SecaoComunicacaoUsuario
                   usuarioSelecionado={usuarioSelecionado}
                   integracoesWhatsApp={integracoesWhatsApp}
@@ -750,7 +751,7 @@ export default function GerenciadorUsuariosUnificado({
               </TabsContent>
 
               {/* ABA: Permissões Nexus360 (ÚNICO MOTOR DE DECISÃO) */}
-              <TabsContent value="permissoes_nexus" className="space-y-4 mt-4">
+              <TabsContent value="permissoes_nexus" className="space-y-2 mt-2">
                 <PainelPermissoesUnificado
                   usuario={usuarioSelecionado}
                   integracoes={integracoesWhatsApp}
