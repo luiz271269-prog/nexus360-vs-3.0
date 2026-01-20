@@ -3,6 +3,7 @@ import AnalisePlaybooksCritica from './pages/AnalisePlaybooksCritica';
 import AnalyticsAvancado from './pages/AnalyticsAvancado';
 import AnalyticsPlaybooks from './pages/AnalyticsPlaybooks';
 import Auditoria from './pages/Auditoria';
+import Automacoes from './pages/Automacoes';
 import BackupManager from './pages/BackupManager';
 import BaseConhecimento from './pages/BaseConhecimento';
 import ChecklistProducao from './pages/ChecklistProducao';
@@ -64,7 +65,6 @@ import Usuarios from './pages/Usuarios';
 import Vendas from './pages/Vendas';
 import Vendedores from './pages/Vendedores';
 import WhatsAppTemplates from './pages/WhatsAppTemplates';
-import Automacoes from './pages/Automacoes';
 import __Layout from './Layout.jsx';
 
 
@@ -74,6 +74,7 @@ export const PAGES = {
     "AnalyticsAvancado": AnalyticsAvancado,
     "AnalyticsPlaybooks": AnalyticsPlaybooks,
     "Auditoria": Auditoria,
+    "Automacoes": Automacoes,
     "BackupManager": BackupManager,
     "BaseConhecimento": BaseConhecimento,
     "ChecklistProducao": ChecklistProducao,
@@ -135,7 +136,6 @@ export const PAGES = {
     "Vendas": Vendas,
     "Vendedores": Vendedores,
     "WhatsAppTemplates": WhatsAppTemplates,
-    "Automacoes": Automacoes,
 }
 
 export const pagesConfig = {

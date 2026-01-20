@@ -629,18 +629,22 @@ export const verificarBloqueioThread = (usuario, thread, contato = null) => {
 
   const perms = usuario.permissoes_visualizacao || {};
   const podeVerTodas = perms.pode_ver_todas_conversas === true;
+  const isAdmin = usuario.role === 'admin';
+
+  // ✅ CORREÇÃO: Admin NUNCA é bloqueado em verificação de interação
+  if (isAdmin || podeVerTodas) {
+    console.log(`[BLOQUEIO] ✅ BYPASS ADMIN - Usuário ${usuario.email} tem acesso total`);
+    return { bloqueado: false, motivo: null, atendenteResponsavel: null };
+  }
 
   // ✅ THREADS INTERNAS - visibilidade baseada em participação apenas
   if (thread.thread_type === 'team_internal' || thread.thread_type === 'sector_group') {
     const isParticipant = thread.participants?.includes(usuario.id);
-    if (isParticipant || podeVerTodas) {
+    if (isParticipant) {
       return { bloqueado: false, motivo: null, atendenteResponsavel: null };
     }
     return { bloqueado: true, motivo: 'nao_participante', atendenteResponsavel: null };
   }
-
-  // ❌ REMOVIDO: Admin bypass total
-  // ✅ NEXUS360: Admin também obedece bloqueios P9/P10/P11
 
   // ═══════════════════════════════════════════════════════════════════════════════
   // PRIORIDADE 1: Thread ATRIBUÍDA ao usuário → NUNCA bloqueia (ignora TUDO)

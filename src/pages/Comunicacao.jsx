@@ -1185,8 +1185,12 @@ export default function Comunicacao() {
                 // Objetivo: Mostrar contato 1x, com thread mais recente
                 const contactId = thread.contact_id;
                 if (!contactId) {
-                  // Thread órfã sem contato - adicionar com chave única
-                  threadMaisRecentePorContacto.set(`orphan-${thread.id}`, thread);
+                  // ✅ CORREÇÃO: Thread órfã SEM contact_id deve ser IGNORADA
+                  // Exceção: Admin em modo busca/diagnóstico pode ver
+                  if (isAdmin && temBuscaPorTexto) {
+                    threadMaisRecentePorContacto.set(`orphan-${thread.id}`, thread);
+                  }
+                  // ❌ Threads órfãs não devem aparecer em modo normal (dados corrompidos)
                   return;
                 }
 
