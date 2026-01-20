@@ -161,8 +161,12 @@ export default function NexusSimuladorVisibilidade({ usuario, integracoes = [], 
     try {
       setLoading(true);
       
-      // 🔄 Recarregar contatos ANTES da análise (garante dados atualizados)
+      // 🔄 Recarregar contatos ANTES da análise (garante dados frescos)
+      console.log('[SIMULADOR] 🔄 Recarregando contatos antes da análise...');
       await carregarContatos();
+      
+      // Pequeno delay para garantir que setState completou
+      await new Promise(resolve => setTimeout(resolve, 100));
       
       // Usar threads já carregadas ou buscar novas
       let threadsParaAnalisar = threads;
@@ -323,6 +327,9 @@ export default function NexusSimuladorVisibilidade({ usuario, integracoes = [], 
               </div>
             </div>
             <div className="flex items-center gap-2">
+              <Badge variant="outline" className="text-[10px]">
+                {contatos.length} contatos
+              </Badge>
               <select 
                 value={amostraSize} 
                 onChange={(e) => setAmostraSize(Number(e.target.value))}
@@ -347,9 +354,12 @@ export default function NexusSimuladorVisibilidade({ usuario, integracoes = [], 
               <Button 
                 size="sm"
                 variant="outline"
-                onClick={carregarContatos}
-                className="border-slate-300 text-slate-700 hover:bg-slate-50 text-xs h-7"
-                title="Recarregar contatos"
+                onClick={async () => {
+                  await carregarContatos();
+                  toast.success(`✅ ${contatos.length} contatos recarregados`);
+                }}
+                className="border-green-300 text-green-700 hover:bg-green-50 text-xs h-7"
+                title="🔄 Recarregar contatos (clique aqui se cadastrou novos contatos)"
               >
                 <RefreshCw className="w-3 h-3" />
               </Button>
