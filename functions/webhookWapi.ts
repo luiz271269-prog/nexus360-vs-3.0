@@ -487,66 +487,21 @@ async function handleMessage(dados, payloadBruto, base44) {
 
   console.log(`[WAPI] 🏛️ PORTEIRO RESULTADO: ${integracaoId ? '✅ Integração encontrada' : '❌ Não encontrada'} | Canal: ${integracaoInfo?.numero || connectedPhone || 'N/A'}`);
 
-  // BUSCAR/CRIAR CONTATO
+  // BUSCAR/CRIAR CONTATO - USANDO CONTACT MANAGER (UPSERT ÚNICO)
   const profilePicUrl = payloadBruto.sender?.profilePicture || payloadBruto.sender?.profilePicThumbObj?.eurl || null;
   let contato;
   try {
-    const telefoneBase = dados.from.replace(/\D/g, '');
-    const variacoes = [
-      dados.from,
-      dados.from.replace('+', ''),
-      '+55' + telefoneBase.substring(2),
-    ];
+    // ✅ Importar e usar getOrCreateContact (fonte única da verdade)
+    const { getOrCreateContact } = await import('./lib/contactManager.js');
     
-    if (telefoneBase.length === 13 && telefoneBase.startsWith('55')) {
-      const semNono = telefoneBase.substring(0, 4) + telefoneBase.substring(5);
-      variacoes.push('+' + semNono);
-      variacoes.push(semNono);
-    }
+    contato = await getOrCreateContact(base44, {
+      telefone: dados.from,
+      nome: dados.pushName || dados.from,
+      profilePicUrl: profilePicUrl,
+      pushName: dados.pushName
+    });
     
-    if (telefoneBase.length === 12 && telefoneBase.startsWith('55')) {
-      const comNono = telefoneBase.substring(0, 4) + '9' + telefoneBase.substring(4);
-      variacoes.push('+' + comNono);
-      variacoes.push(comNono);
-    }
-    
-    let contatos = [];
-    for (const tel of variacoes) {
-      if (contatos.length > 0) break;
-      try {
-        const resultado = await base44.asServiceRole.entities.Contact.filter(
-          { telefone: tel },
-          '-created_date',
-          1
-        );
-        
-        if (resultado) contatos = resultado;
-      } catch {}
-    }
-
-    if (contatos.length > 0) {
-      contato = contatos[0];
-      const update = { ultima_interacao: new Date().toISOString() };
-      if (dados.pushName && (!contato.nome || contato.nome === dados.from)) {
-        update.nome = dados.pushName;
-      }
-      if (profilePicUrl && contato.foto_perfil_url !== profilePicUrl) {
-        update.foto_perfil_url = profilePicUrl;
-      }
-      await base44.asServiceRole.entities.Contact.update(contato.id, update);
-      console.log(`[WAPI] 👤 Contato existente: ${contato.nome}`);
-    } else {
-      contato = await base44.asServiceRole.entities.Contact.create({
-        nome: dados.pushName || dados.from,
-        telefone: dados.from,
-        tipo_contato: 'lead',
-        whatsapp_status: 'verificado',
-        ultima_interacao: new Date().toISOString(),
-        foto_perfil_url: profilePicUrl
-      });
-      
-      console.log(`[WAPI] 👤 Novo contato: ${contato.nome}`);
-    }
+    console.log(`[WAPI] 👤 Contato processado via contactManager: ${contato.nome} (${contato.id})`);
   } catch (e) {
     console.error(`[WAPI] ❌ Erro contato:`, e?.message);
     return jsonErr('erro_contato', 500);
