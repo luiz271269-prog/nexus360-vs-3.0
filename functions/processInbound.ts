@@ -26,15 +26,17 @@ Deno.serve(async (req) => {
     console.log(`[PROCESS-INBOUND] 💭 Thread: ${thread?.id}`);
 
     // ✅ DELEGAR PARA O CÉREBRO ÚNICO (inboundCore.js)
+    // ✅ GARANTIR que contact/thread/message já vêm do webhook normalizado
+    // Qualquer normalização/deduplicação deve já ter acontecido em Z-API/W-API
     const resultado = await processInboundEvent({
-      base44,
-      contact,
-      thread,
-      message,
-      integration,
-      provider,
-      messageContent,
-      rawPayload
+    base44,
+    contact,
+    thread,
+    message,
+    integration,
+    provider,
+    messageContent,
+    rawPayload
     });
 
     console.log('[PROCESS-INBOUND] ✅ Processamento concluído:', resultado);
