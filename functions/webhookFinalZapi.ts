@@ -551,12 +551,21 @@ async function handleMessage(dados, payloadBruto, base44) {
   // Primeiro: tentar por connectedPhone (mais preciso - identifica QUAL conexão recebeu)
   if (connectedPhone) {
     try {
-      // Normalizar o connectedPhone para busca
+      // ✅ BUSCA INTELIGENTE: Variações do connectedPhone para encontrar integração
+      const phoneBase = String(connectedPhone).replace(/\D/g, '');
       const phoneVariacoes = [
-        '+' + connectedPhone,
-        connectedPhone,
-        '+55' + connectedPhone.replace(/^55/, '')
+        '+' + phoneBase,                    // +5548999322400
+        phoneBase,                          // 5548999322400
+        '+55' + phoneBase.replace(/^55/, ''), // +55 sem duplicado
       ];
+
+      // Se tem 13 dígitos (55+DDD+9+8), também buscar sem o 9
+      if (phoneBase.length === 13 && phoneBase.startsWith('55')) {
+        const ddd = phoneBase.substring(2, 4);
+        const numero = phoneBase.substring(5);
+        phoneVariacoes.push(`+55${ddd}${numero}`);
+        phoneVariacoes.push(`55${ddd}${numero}`);
+      }
 
       for (const tel of phoneVariacoes) {
         if (integracaoId) break;
@@ -568,6 +577,7 @@ async function handleMessage(dados, payloadBruto, base44) {
         if (int.length > 0) {
           integracaoId = int[0].id;
           integracaoInfo = { nome: int[0].nome_instancia, numero: int[0].numero_telefone };
+          console.log(`[${VERSION}] 🔑 Integração encontrada via connectedPhone variação: ${tel}`);
         }
       }
     } catch {
