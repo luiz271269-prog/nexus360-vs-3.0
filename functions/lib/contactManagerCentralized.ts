@@ -111,8 +111,15 @@ export async function getOrCreateContactCentralized(base44, rawPhone, nome, prof
       throw e;
     }
     
+    // ✅ SE não tem foto, marcar para buscar depois (async)
+    const contatoAtualizado = { ...existing, ...updateData };
+    if (!contatoAtualizado.foto_perfil_url) {
+      contatoAtualizado._buscar_foto_depois = true;
+      console.log(`[CONTACT-MANAGER-CENTRAL] 📸 MARCADO: Buscar foto depois (contato ID: ${existing.id})`);
+    }
+    
     // Retornar contato atualizado
-    return { ...existing, ...updateData };
+    return contatoAtualizado;
   }
   
   // ✅ CRIAR novo contato (SÓ cria se realmente não existe)
