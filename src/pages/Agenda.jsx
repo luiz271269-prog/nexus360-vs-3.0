@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useCallback } from "react";
 import { base44 } from "@/api/base44Client";
 import { useSearchParams } from "react-router-dom";
@@ -46,6 +45,10 @@ export default function Agenda() {
   const [filtroIA, setFiltroIA] = useState(false);
   const [mostrarPainelIA, setMostrarPainelIA] = useState(false);
   const [entidadeSelecionadaIA, setEntidadeSelecionadaIA] = useState(null);
+  const [filtroInstancia, setFiltroInstancia] = useState("todas");
+  const [filtroUsuario, setFiltroUsuario] = useState("todos");
+  const [integracoes, setIntegracoes] = useState([]);
+  const [todosUsuarios, setTodosUsuarios] = useState([]);
 
   const gerarLembretesAgenda = useCallback(async (tarefasData, user) => {
     try {
@@ -148,7 +151,27 @@ export default function Agenda() {
 
   useEffect(() => {
     carregarDados();
+    carregarIntegracoes();
+    carregarUsuarios();
   }, [carregarDados]);
+
+  const carregarIntegracoes = async () => {
+    try {
+      const integs = await base44.entities.WhatsAppIntegration.list();
+      setIntegracoes(integs || []);
+    } catch (error) {
+      console.error("Erro ao carregar integrações:", error);
+    }
+  };
+
+  const carregarUsuarios = async () => {
+    try {
+      const users = await base44.entities.User.list();
+      setTodosUsuarios(users || []);
+    } catch (error) {
+      console.error("Erro ao carregar usuários:", error);
+    }
+  };
 
   // ✅ RESTAURAR tarefaSelecionada DA URL ao montar ou quando tarefas carregarem
   useEffect(() => {
@@ -275,8 +298,10 @@ export default function Agenda() {
     const matchPrioridade = filtroPrioridade === "todas" || t.prioridade === filtroPrioridade;
     const matchData = !filtroData || (t.data_prazo && isSameDay(new Date(t.data_prazo), new Date(filtroData)));
     const matchIA = !filtroIA || (t.contexto_ia && t.status === 'pendente' && !t.resultado_execucao);
+    const matchInstancia = filtroInstancia === "todas" || t.whatsapp_integration_id === filtroInstancia;
+    const matchUsuario = filtroUsuario === "todos" || t.vendedor_responsavel === filtroUsuario;
 
-    return matchStatus && matchPrioridade && matchData && matchIA;
+    return matchStatus && matchPrioridade && matchData && matchIA && matchInstancia && matchUsuario;
   }).sort((a, b) => {
     const prioridadeOrdem = { critica: 4, alta: 3, media: 2, baixa: 1 };
     const aPrio = prioridadeOrdem[a.prioridade] || 0;
@@ -301,6 +326,8 @@ export default function Agenda() {
     setFiltroPrioridade("todas");
     setFiltroData(null);
     setFiltroIA(false);
+    setFiltroInstancia("todas");
+    setFiltroUsuario("todos");
     toast.info("🧹 Filtros redefinidos!");
   }, []);
 
@@ -492,11 +519,55 @@ export default function Agenda() {
                 </Tabs>
               </div>
             </div>
-            {(filtroData || filtroIA) && (
-              <div className="mt-4 flex items-center gap-2">
+            
+            <div className="flex flex-col sm:flex-row gap-4 mt-4">
+              <div className="flex-1">
+                <p className="text-sm text-slate-400 mb-1">Instância WhatsApp:</p>
+                <select
+                  value={filtroInstancia}
+                  onChange={(e) => setFiltroInstancia(e.target.value)}
+                  className="w-full px-3 py-2 bg-slate-700/50 border border-slate-600 rounded-lg text-white text-sm focus:ring-2 focus:ring-orange-500"
+                >
+                  <option value="todas">Todas as instâncias</option>
+                  {integracoes.map(integ => (
+                    <option key={integ.id} value={integ.id}>
+                      {integ.nome_instancia} ({integ.numero_telefone?.slice(-4) || 'N/A'})
+                    </option>
+                  ))}
+                </select>
+              </div>
+              
+              <div className="flex-1">
+                <p className="text-sm text-slate-400 mb-1">Responsável:</p>
+                <select
+                  value={filtroUsuario}
+                  onChange={(e) => setFiltroUsuario(e.target.value)}
+                  className="w-full px-3 py-2 bg-slate-700/50 border border-slate-600 rounded-lg text-white text-sm focus:ring-2 focus:ring-orange-500"
+                >
+                  <option value="todos">Todos os usuários</option>
+                  {todosUsuarios.map(user => (
+                    <option key={user.id} value={user.full_name}>
+                      {user.full_name || user.email}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+            {(filtroData || filtroIA || filtroInstancia !== "todas" || filtroUsuario !== "todos") && (
+              <div className="mt-4 flex items-center gap-2 flex-wrap">
                 <span className="text-sm text-slate-400">Filtros Ativos:</span>
                 {filtroData && <Badge variant="secondary" className="bg-blue-600/50 text-white border-blue-700">Data: {format(new Date(filtroData), 'dd/MM/yyyy', { locale: ptBR })}</Badge>}
                 {filtroIA && <Badge variant="secondary" className="bg-purple-600/50 text-white border-purple-700">Tarefas IA</Badge>}
+                {filtroInstancia !== "todas" && (
+                  <Badge variant="secondary" className="bg-green-600/50 text-white border-green-700">
+                    Instância: {integracoes.find(i => i.id === filtroInstancia)?.nome_instancia || 'N/A'}
+                  </Badge>
+                )}
+                {filtroUsuario !== "todos" && (
+                  <Badge variant="secondary" className="bg-indigo-600/50 text-white border-indigo-700">
+                    Responsável: {filtroUsuario}
+                  </Badge>
+                )}
                 <Button onClick={clearFilters} variant="ghost" size="sm" className="text-slate-400 hover:text-white">
                   Limpar Filtros
                 </Button>
