@@ -493,14 +493,15 @@ async function handleMessage(dados, payloadBruto, base44) {
   try {
     // ✅ Usar getOrCreateContactCentralized (função centralizada - única fonte da verdade)
     const { getOrCreateContactCentralized } = await import('./lib/contactManagerCentralized.js');
-    
+
     contato = await getOrCreateContactCentralized(base44, 
       dados.from,           // ⚠️ TELEFONE BRUTO - função normaliza internamente
       dados.pushName || dados.from,
       profilePicUrl,
-      dados.pushName
+      dados.pushName,
+      integracaoId          // ✅ NOVO: Passa integração para buscar foto depois se faltar
     );
-    
+
     console.log(`[WAPI] 👤 Contato processado via getOrCreateContactCentralized: ${contato.nome} (${contato.id})`);
   } catch (e) {
     console.error(`[WAPI] ❌ Erro contato:`, e?.message);
