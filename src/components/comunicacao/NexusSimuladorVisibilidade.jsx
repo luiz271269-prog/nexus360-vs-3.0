@@ -49,9 +49,19 @@ export default function NexusSimuladorVisibilidade({ usuario, integracoes = [], 
     try {
       const contacts = await base44.entities.Contact.list();
       setContatos(contacts || []);
+      console.log('[SIMULADOR] ✅ Contatos recarregados:', contacts.length);
     } catch (error) {
       console.error('Erro ao carregar contatos:', error);
     }
+  };
+
+  const handleCorrecaoConcluida = async () => {
+    toast.info('🔄 Recarregando dados...');
+    await carregarContatos();
+    setModalCorrecaoOpen(false);
+    // Limpar resultados antigos para forçar nova análise
+    setSimulationResults(null);
+    toast.success('✅ Dados atualizados! Execute a simulação novamente.');
   };
 
   const carregarUsuarios = async () => {
@@ -323,6 +333,15 @@ export default function NexusSimuladorVisibilidade({ usuario, integracoes = [], 
                   {migrando ? <RefreshCw className="w-3 h-3 animate-spin" /> : <Database className="w-3 h-3" />}
                 </Button>
               )}
+              <Button 
+                size="sm"
+                variant="outline"
+                onClick={carregarContatos}
+                className="border-slate-300 text-slate-700 hover:bg-slate-50 text-xs h-7"
+                title="Recarregar contatos"
+              >
+                <RefreshCw className="w-3 h-3" />
+              </Button>
               <Button 
                 size="sm"
                 onClick={runSimulation}
@@ -1013,7 +1032,7 @@ export default function NexusSimuladorVisibilidade({ usuario, integracoes = [], 
           <AnalisadorContatosDuplicados 
             telefone={telefoneParaCorrigir} 
             isAdmin={usuario?.role === 'admin'}
-            onClose={() => setModalCorrecaoOpen(false)}
+            onClose={handleCorrecaoConcluida}
           />
         </DialogContent>
       </Dialog>
