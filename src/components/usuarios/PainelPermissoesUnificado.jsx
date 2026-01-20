@@ -489,114 +489,27 @@ export default function PainelPermissoesUnificado({ usuario, integracoes = [], o
                   </Card>
                 ))}
 
-                    <div className="flex items-start justify-between p-2 border rounded-lg bg-white hover:bg-purple-50/50 transition-colors">
-                      <div className="flex-1 mr-2">
-                        <div className="text-xs font-medium">
-                          <Badge variant="outline" className="mr-1 text-[10px]">P7</Badge>
-                          Ver todas conversas
-                        </div>
-                      </div>
-                      <Switch
-                        checked={permissoesAcoes.podeVerTodasConversas ?? false}
-                        onCheckedChange={(v) => setPermissoesAcoes(prev => ({...prev, podeVerTodasConversas: v}))}
-                      />
-                    </div>
-
-                    <div className="flex items-start justify-between p-2 border rounded-lg bg-white hover:bg-green-50/50 transition-colors">
-                      <div className="flex-1 mr-2">
-                        <div className="text-xs font-medium">
-                          <Badge variant="outline" className="mr-1 text-[10px] bg-green-50">P5</Badge>
-                          Janela 24h
-                        </div>
-                      </div>
-                      <Switch
-                        checked={configuracao.regras_liberacao.some(r => r.tipo === 'janela_24h' && r.ativa)}
-                        onCheckedChange={(checked) => {
-                          if (checked && !configuracao.regras_liberacao.find(r => r.tipo === 'janela_24h')) {
-                            adicionarRegraLiberacao('janela_24h');
-                          } else {
-                            const index = configuracao.regras_liberacao.findIndex(r => r.tipo === 'janela_24h');
-                            if (index >= 0) atualizarRegraLiberacao(index, 'ativa', checked);
-                          }
-                        }}
-                      />
-                    </div>
-
-                    <div className="flex items-start justify-between p-2 border rounded-lg bg-white hover:bg-green-50/50 transition-colors">
-                      <div className="flex-1 mr-2">
-                        <div className="text-xs font-medium">
-                          <Badge variant="outline" className="mr-1 text-[10px] bg-green-50">P8</Badge>
-                          Supervisão Gerencial
-                        </div>
-                      </div>
-                      <Switch
-                        checked={configuracao.regras_liberacao.some(r => r.tipo === 'gerente_supervisao' && r.ativa)}
-                        onCheckedChange={(checked) => {
-                          if (checked && !configuracao.regras_liberacao.find(r => r.tipo === 'gerente_supervisao')) {
-                            adicionarRegraLiberacao('gerente_supervisao');
-                          } else {
-                            const index = configuracao.regras_liberacao.findIndex(r => r.tipo === 'gerente_supervisao');
-                            if (index >= 0) atualizarRegraLiberacao(index, 'ativa', checked);
-                          }
-                        }}
-                      />
-                    </div>
-                  </div>
-
                 {configuracao.regras_liberacao.length === 0 && (
                   <div className="text-center py-3 text-muted-foreground">
                     <p className="text-xs">Nenhuma liberação</p>
                   </div>
                 )}
-            </CardContent>
-          </TabsContent>
+                </CardContent>
+                </TabsContent>
 
-          <TabsContent value="acoes" className="mt-0">
-            <CardContent className="space-y-2 pt-3 max-h-[600px] overflow-y-auto">
-                {configuracao.regras_bloqueio.length === 0 && (
-                  <div className="text-center py-3 text-muted-foreground">
-                    <p className="text-xs">Nenhum bloqueio</p>
-                  </div>
-                )}
-              </div>
-            </CardContent>
-          </TabsContent>
-
-          <TabsContent value="liberacoes" className="mt-0">
-            <CardContent className="space-y-3 pt-3">
-              <div className="grid grid-cols-1 gap-2">
+                <TabsContent value="acoes" className="mt-0">
+                <CardContent className="space-y-2 pt-3 max-h-[600px] overflow-y-auto">
+                <div className="space-y-2">
+                  {/* CATEGORIA 1: ENVIO */}
+                  <h4 className="text-xs font-bold text-slate-600 mb-1">📤 Envio</h4>
+                  <div className="grid grid-cols-1 gap-1">
                     {[
-                      { 
-                        key: 'podeEnviarMensagens', 
-                        label: 'Enviar mensagens de texto', 
-                        desc: 'Permite digitar e enviar mensagens de texto nas conversas'
-                      },
-                      { 
-                        key: 'podeEnviarMidias', 
-                        label: 'Enviar imagens, vídeos e documentos', 
-                        desc: 'Habilita botão de anexo (📎) para enviar arquivos'
-                      },
-                      { 
-                        key: 'podeEnviarAudios', 
-                        label: 'Gravar e enviar áudios', 
-                        desc: 'Habilita botão de microfone (🎤) para gravar mensagens de voz'
-                      },
-                      { 
-                        key: 'podeUsarTemplates', 
-                        label: 'Usar templates aprovados', 
-                        desc: 'Enviar mensagens fora da janela de 24h usando templates do WhatsApp'
-                      },
-                      { 
-                        key: 'podeUsarRespostasRapidas', 
-                        label: 'Usar respostas rápidas (Quick Replies)', 
-                        desc: 'Acessar biblioteca de respostas prontas para agilizar atendimento'
-                      }
-                    ].map(({ key, label, desc }) => (
-                      <div key={key} className="flex items-start justify-between p-3 border rounded-lg hover:bg-slate-50 transition-colors">
-                        <div className="flex-1 mr-4">
-                          <div className="text-sm font-medium">{label}</div>
-                          <div className="text-xs text-muted-foreground mt-1">{desc}</div>
-                        </div>
+                      { key: 'podeEnviarMensagens', label: 'Mensagens' },
+                      { key: 'podeEnviarMidias', label: 'Mídias' },
+                      { key: 'podeEnviarAudios', label: 'Áudios' }
+                    ].map(({ key, label }) => (
+                      <div key={key} className="flex items-center justify-between p-1.5 border rounded hover:bg-slate-50">
+                        <span className="text-xs">{label}</span>
                         <Switch
                           checked={permissoesAcoes[key] ?? (previewPermissoes?.[key] ?? true)}
                           onCheckedChange={(checked) => setPermissoesAcoes(prev => ({ ...prev, [key]: checked }))}
@@ -606,14 +519,12 @@ export default function PainelPermissoesUnificado({ usuario, integracoes = [], o
                   </div>
                 </div>
 
-                <Separator className="my-4" />
+                <Separator className="my-2" />
 
-                {/* CATEGORIA 2: GESTÃO DE CONVERSAS */}
-                <div className="mb-6">
-                  <h4 className="text-sm font-semibold text-slate-700 mb-3 flex items-center gap-2">
-                    💬 Gestão de Conversas
-                  </h4>
-                  <div className="grid grid-cols-1 gap-2">
+                {/* CATEGORIA 2: GESTÃO */}
+                <div className="space-y-2">
+                  <h4 className="text-xs font-bold text-slate-600 mb-1">💬 Gestão</h4>
+                  <div className="grid grid-cols-1 gap-1">
                     {[
                       { key: 'podeTransferirConversa', label: 'Transferir' },
                       { key: 'podeAtribuirConversas', label: 'Atribuir' },
