@@ -35,6 +35,9 @@ export default function NexusSimuladorVisibilidade({ usuario, integracoes = [], 
   const [threadExpandida, setThreadExpandida] = useState(null);
   const [modalCorrecaoOpen, setModalCorrecaoOpen] = useState(false);
   const [telefoneParaCorrigir, setTelefoneParaCorrigir] = useState(null);
+  const [filtroNomeContato, setFiltroNomeContato] = useState('');
+  const [filtroUsuarioAtribuido, setFiltroUsuarioAtribuido] = useState('todos');
+  const [filtroInstanciaWhatsApp, setFiltroInstanciaWhatsApp] = useState('todas');
 
   // Carregar lista de usuários e contatos
   useEffect(() => {
@@ -573,9 +576,9 @@ export default function NexusSimuladorVisibilidade({ usuario, integracoes = [], 
           {/* Filtros em Linha Única */}
           <Card className="border-slate-200">
             <CardContent className="p-3">
-              <div className="flex gap-4 items-center">
-                <div className="flex items-center gap-2">
-                  <span className="text-xs font-semibold text-slate-700">Filtrar por:</span>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-3">
+                <div className="flex flex-col gap-1">
+                  <span className="text-xs font-semibold text-slate-700">Regra:</span>
                   <select 
                     value={filtroRegra} 
                     onChange={(e) => setFiltroRegra(e.target.value)}
@@ -594,25 +597,93 @@ export default function NexusSimuladorVisibilidade({ usuario, integracoes = [], 
                     <option value="nexus360_default">P12: Default Liberado</option>
                   </select>
                 </div>
-                
-                <div className="flex items-center gap-2">
+
+                <div className="flex flex-col gap-1">
                   <span className="text-xs font-semibold text-slate-700">Status:</span>
                   <select 
                     value={filtroDivergencia} 
                     onChange={(e) => setFiltroDivergencia(e.target.value)}
                     className="text-xs border border-slate-300 rounded px-3 py-1.5 bg-white focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
                   >
-                    <option value="todas">Todas</option>
-                    <option value="matches">✓ Matches ({simulationResults.stats.matches})</option>
-                    <option value="divergencias">⚠️ Divergências ({simulationResults.stats.divergencias})</option>
-                    <option value="criticos">🚨 Críticos ({simulationResults.stats.criticosFalsoNegativo})</option>
-                    <option value="sem_contato">🚨 Sem contato válido ({simulationResults.stats.threadsSemContatoValido || 0})</option>
-                    <option value="contato_invalido">🚨 Contato inválido ({simulationResults.stats.contatosInvalidos || 0})</option>
-                    <option value="msg_suspeita">🚨 Mensagens suspeitas ({simulationResults.stats.mensagensSuspeitas || 0})</option>
-                    <option value="todos_problemas">🚨 TODOS OS PROBLEMAS ({simulationResults.stats.totalProblemas || 0})</option>
+                     <option value="todas">Todas</option>
+                     <option value="matches">✓ Matches ({simulationResults.stats.matches})</option>
+                     <option value="divergencias">⚠️ Divergências ({simulationResults.stats.divergencias})</option>
+                     <option value="criticos">🚨 Críticos ({simulationResults.stats.criticosFalsoNegativo})</option>
+                     <option value="sem_contato">🚨 Sem contato válido ({simulationResults.stats.threadsSemContatoValido || 0})</option>
+                     <option value="contato_invalido">🚨 Contato inválido ({simulationResults.stats.contatosInvalidos || 0})</option>
+                     <option value="msg_suspeita">🚨 Mensagens suspeitas ({simulationResults.stats.mensagensSuspeitas || 0})</option>
+                     <option value="todos_problemas">🚨 TODOS OS PROBLEMAS ({simulationResults.stats.totalProblemas || 0})</option>
+                  </select>
+                </div>
+
+                <div className="flex flex-col gap-1">
+                  <span className="text-xs font-semibold text-slate-700">Nome Contato:</span>
+                  <input
+                    type="text"
+                    value={filtroNomeContato}
+                    onChange={(e) => setFiltroNomeContato(e.target.value)}
+                    placeholder="Buscar por nome..."
+                    className="text-xs border border-slate-300 rounded px-3 py-1.5 bg-white focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+                  />
+                </div>
+
+                <div className="flex flex-col gap-1">
+                  <span className="text-xs font-semibold text-slate-700">Usuário:</span>
+                  <select 
+                    value={filtroUsuarioAtribuido} 
+                    onChange={(e) => setFiltroUsuarioAtribuido(e.target.value)}
+                    className="text-xs border border-slate-300 rounded px-3 py-1.5 bg-white focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+                  >
+                    <option value="todos">Todos os usuários</option>
+                    <option value="nao_atribuido">Não atribuídas</option>
+                    {todosUsuarios.map(user => (
+                      <option key={user.id} value={user.id}>
+                        {user.full_name || user.email}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="flex flex-col gap-1">
+                  <span className="text-xs font-semibold text-slate-700">Instância:</span>
+                  <select 
+                    value={filtroInstanciaWhatsApp} 
+                    onChange={(e) => setFiltroInstanciaWhatsApp(e.target.value)}
+                    className="text-xs border border-slate-300 rounded px-3 py-1.5 bg-white focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+                  >
+                    <option value="todas">Todas as instâncias</option>
+                    {integracoes.map(integ => (
+                      <option key={integ.id} value={integ.id}>
+                        {integ.nome_instancia} ({integ.numero_telefone?.slice(-4) || 'N/A'})
+                      </option>
+                    ))}
                   </select>
                 </div>
               </div>
+
+              {/* Indicador de filtros ativos */}
+              {(filtroNomeContato || filtroUsuarioAtribuido !== 'todos' || filtroInstanciaWhatsApp !== 'todas') && (
+                <div className="mt-2 flex items-center gap-2 text-xs text-slate-600">
+                  <Badge variant="outline" className="bg-purple-50">
+                    Filtros ativos: {[
+                      filtroNomeContato && 'Nome',
+                      filtroUsuarioAtribuido !== 'todos' && 'Usuário',
+                      filtroInstanciaWhatsApp !== 'todas' && 'Instância'
+                    ].filter(Boolean).join(' • ')}
+                  </Badge>
+                  <button
+                    onClick={() => {
+                      setFiltroNomeContato('');
+                      setFiltroUsuarioAtribuido('todos');
+                      setFiltroInstanciaWhatsApp('todas');
+                      toast.info('Filtros resetados');
+                    }}
+                    className="text-purple-600 hover:text-purple-700 underline"
+                  >
+                    Limpar
+                  </button>
+                </div>
+              )}
             </CardContent>
           </Card>
         </div>
@@ -643,6 +714,7 @@ export default function NexusSimuladorVisibilidade({ usuario, integracoes = [], 
                {simulationResults.resultados
                  .filter(res => {
                    const thread = threads.find(t => t.id === res.threadId);
+                   const contato = thread?.contact_id ? contatos.find(c => c.id === thread.contact_id) : null;
 
                    // Filtros de problemas graves
                    if (filtroDivergencia === 'sem_contato') {
@@ -670,6 +742,22 @@ export default function NexusSimuladorVisibilidade({ usuario, integracoes = [], 
                    if (filtroDivergencia === 'matches' && !res.isMatch) return false;
                    if (filtroDivergencia === 'divergencias' && res.isMatch) return false;
                    if (filtroDivergencia === 'criticos' && res.severity !== 'error') return false;
+
+                   // Filtro por nome do contato
+                   if (filtroNomeContato.trim()) {
+                     const nomeContato = contato?.nome?.toLowerCase() || res.contactName?.toLowerCase() || '';
+                     if (!nomeContato.includes(filtroNomeContato.toLowerCase())) return false;
+                   }
+
+                   // Filtro por usuário atribuído
+                   if (filtroUsuarioAtribuido !== 'todos') {
+                     if (thread?.assigned_user_id !== filtroUsuarioAtribuido) return false;
+                   }
+
+                   // Filtro por instância WhatsApp
+                   if (filtroInstanciaWhatsApp !== 'todas') {
+                     if (thread?.whatsapp_integration_id !== filtroInstanciaWhatsApp) return false;
+                   }
 
                    return true;
                  })
