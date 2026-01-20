@@ -14,6 +14,8 @@ import { executarAnaliseEmLote } from '@/components/lib/nexusComparator';
 import { buildPolicyFromLegacyUser } from '@/components/lib/nexusLegacyConverter';
 import { base44 } from '@/api/base44Client';
 import { getUserDisplayName } from '../lib/userHelpers';
+import AnalisadorContatosDuplicados from './AnalisadorContatosDuplicados';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 
 export default function NexusSimuladorVisibilidade({ usuario, integracoes = [], threads = [] }) {
   const [simulationResults, setSimulationResults] = useState(null);
@@ -31,6 +33,8 @@ export default function NexusSimuladorVisibilidade({ usuario, integracoes = [], 
   const [filtroRegra, setFiltroRegra] = useState('todas');
   const [filtroDivergencia, setFiltroDivergencia] = useState('todas');
   const [threadExpandida, setThreadExpandida] = useState(null);
+  const [modalCorrecaoOpen, setModalCorrecaoOpen] = useState(false);
+  const [telefoneParaCorrigir, setTelefoneParaCorrigir] = useState(null);
 
   // Carregar lista de usuários e contatos
   useEffect(() => {
