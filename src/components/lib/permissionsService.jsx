@@ -533,7 +533,7 @@ export const VISIBILITY_MATRIX = [
       if (isAtribuidoAoUsuario(userPerms, thread)) {
         return { 
           visible: true, 
-          motivo: 'Thread atribuída ao usuário',
+          motivo: 'Thread atribuída ao usuário (sobrepõe bloqueios)',
           decision_path: ['ALLOW:thread_atribuida'],
           reason_code: 'ASSIGNED_TO_USER'
         };
@@ -543,13 +543,13 @@ export const VISIBILITY_MATRIX = [
   },
   
   {
-    priority: 4,
+    priority: 3,
     name: 'contato_fidelizado',
     check: (userPerms, thread, contact) => {
       if (contact && isFidelizadoAoUsuario(userPerms, contact)) {
         return { 
           visible: true, 
-          motivo: 'Contato fidelizado ao usuário',
+          motivo: 'Contato fidelizado ao usuário (sobrepõe bloqueios)',
           decision_path: ['ALLOW:contato_fidelizado'],
           reason_code: 'LOYAL_CONTACT'
         };
@@ -559,7 +559,74 @@ export const VISIBILITY_MATRIX = [
   },
   
   {
+    priority: 4,
+    name: 'bloqueio_integracao',
+    check: (userPerms, thread, contact) => {
+      const integracaoId = thread.whatsapp_integration_id;
+      if (!integracaoId) return null;
+      
+      const permIntegracao = userPerms.integracoes?.[integracaoId];
+      
+      if (permIntegracao && permIntegracao.can_view === false) {
+        return { 
+          visible: false, 
+          motivo: `Integração ${permIntegracao.integration_name} bloqueada`,
+          decision_path: ['DENY:bloqueio_integracao'],
+          reason_code: 'INTEGRATION_BLOCKED',
+          metadata: { integracaoId, nome: permIntegracao.integration_name },
+          bloqueio: true
+        };
+      }
+      
+      return null;
+    }
+  },
+  
+  {
     priority: 5,
+    name: 'bloqueio_setor',
+    check: (userPerms, thread, contact) => {
+      const setorThread = getSectorFromThreadOrTags(thread);
+      if (!setorThread) return null;
+      
+      if (userPerms.setoresBloqueados?.includes(setorThread)) {
+        return { 
+          visible: false, 
+          motivo: `Setor ${setorThread} bloqueado`,
+          decision_path: ['DENY:bloqueio_setor'],
+          reason_code: 'SECTOR_BLOCKED',
+          metadata: { setor: setorThread },
+          bloqueio: true
+        };
+      }
+      
+      return null;
+    }
+  },
+  
+  {
+    priority: 6,
+    name: 'bloqueio_canal',
+    check: (userPerms, thread, contact) => {
+      const canal = thread.channel;
+      if (!canal) return null;
+      
+      if (userPerms.canaisBloqueados?.includes(canal)) {
+        return { 
+          visible: false, 
+          motivo: `Canal ${canal} bloqueado`,
+          decision_path: ['DENY:bloqueio_canal'],
+          reason_code: 'CHANNEL_BLOCKED',
+          metadata: { canal },
+          bloqueio: true
+        };
+      }
+      return null;
+    }
+  },
+  
+  {
+    priority: 7,
     name: 'janela_24h',
     check: (userPerms, thread, contact) => {
       if (!userPerms.janela24hAtiva) return null;
@@ -588,7 +655,7 @@ export const VISIBILITY_MATRIX = [
   },
   
   {
-    priority: 6,
+    priority: 8,
     name: 'bloqueio_fidelizado_outro',
     check: (userPerms, thread, contact) => {
       if (contact?.is_cliente_fidelizado && !isFidelizadoAoUsuario(userPerms, contact)) {
@@ -605,7 +672,7 @@ export const VISIBILITY_MATRIX = [
   },
   
   {
-    priority: 7,
+    priority: 9,
     name: 'bloqueio_atribuido_outro',
     check: (userPerms, thread, contact) => {
       // Gerente pode ver threads atribuídas a outros (supervisão)
@@ -625,7 +692,7 @@ export const VISIBILITY_MATRIX = [
   },
   
   {
-    priority: 8,
+    priority: 10,
     name: 'gerente_supervisao',
     check: (userPerms, thread, contact) => {
       if (!userPerms.gerenteSupervisaoAtiva) return null;
@@ -645,73 +712,6 @@ export const VISIBILITY_MATRIX = [
             metadata: { minutos: minutos.toFixed(0), limite: limiteMinutos }
           };
         }
-      }
-      
-      return null;
-    }
-  },
-  
-  {
-    priority: 9,
-    name: 'bloqueio_canal',
-    check: (userPerms, thread, contact) => {
-      const canal = thread.channel;
-      if (!canal) return null;
-      
-      if (userPerms.canaisBloqueados?.includes(canal)) {
-        return { 
-          visible: false, 
-          motivo: `Canal ${canal} bloqueado`,
-          decision_path: ['DENY:bloqueio_canal'],
-          reason_code: 'CHANNEL_BLOCKED',
-          metadata: { canal },
-          bloqueio: true
-        };
-      }
-      return null;
-    }
-  },
-  
-  {
-    priority: 10,
-    name: 'bloqueio_integracao',
-    check: (userPerms, thread, contact) => {
-      const integracaoId = thread.whatsapp_integration_id;
-      if (!integracaoId) return null;
-      
-      const permIntegracao = userPerms.integracoes?.[integracaoId];
-      
-      if (permIntegracao && permIntegracao.can_view === false) {
-        return { 
-          visible: false, 
-          motivo: `Integração ${permIntegracao.integration_name} bloqueada`,
-          decision_path: ['DENY:bloqueio_integracao'],
-          reason_code: 'INTEGRATION_BLOCKED',
-          metadata: { integracaoId, nome: permIntegracao.integration_name },
-          bloqueio: true
-        };
-      }
-      
-      return null;
-    }
-  },
-  
-  {
-    priority: 11,
-    name: 'bloqueio_setor',
-    check: (userPerms, thread, contact) => {
-      const setorThread = getSectorFromThreadOrTags(thread);
-      if (!setorThread) return null;
-      
-      if (userPerms.setoresBloqueados?.includes(setorThread)) {
-        return { 
-          visible: false, 
-          motivo: `Setor ${setorThread} bloqueado`,
-          decision_path: ['DENY:bloqueio_setor'],
-          reason_code: 'SECTOR_BLOCKED',
-          metadata: { setor: setorThread },
-          bloqueio: true
-        };
       }
       
       return null;
