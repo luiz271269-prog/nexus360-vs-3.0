@@ -178,9 +178,14 @@ export default function NexusSimuladorVisibilidade({ usuario, integracoes = [], 
       const threadsContatoInvalido = [];
       
       for (const thread of threadsParaAnalisar) {
+        // Ignorar threads internas - elas não precisam de contact_id
+        if (thread.thread_type === 'team_internal' || thread.thread_type === 'sector_group') {
+          continue;
+        }
+
         const contato = thread.contact_id ? contatos.find(c => c.id === thread.contact_id) : null;
         
-        // ERRO CRÍTICO 1: Thread sem contact_id ou contato não encontrado
+        // ERRO CRÍTICO 1: Thread sem contact_id ou contato não encontrado (apenas para threads externas)
         if (!thread.contact_id || !contato) {
           threadsSemContato.push({
             threadId: thread.id,
