@@ -604,18 +604,18 @@ async function handleMessage(dados, payloadBruto, base44) {
 
   console.log(`[${VERSION}] 🔗 Integração: ${integracaoId || 'não encontrada'} | Canal: ${integracaoInfo?.numero || connectedPhone || 'N/A'}`);
 
-  // BUSCAR/CRIAR CONTATO - USANDO CONTACT MANAGER (UPSERT ÚNICO)
+  // BUSCAR/CRIAR CONTATO - USANDO CONTACT MANAGER CENTRALIZADO (FONTE ÚNICA)
   let contato;
   try {
-    // ✅ Importar e usar getOrCreateContact (fonte única da verdade)
-    const { getOrCreateContact } = await import('./lib/contactManager.js');
-    
-    contato = await getOrCreateContact(base44, {
-      telefone: dados.from,
-      nome: dados.pushName || dados.from,
-      profilePicUrl: null, // Z-API não fornece foto no webhook padrão
-      pushName: dados.pushName
-    });
+    // ✅ Usar getOrCreateContactCentralized (função centralizada - única fonte da verdade)
+    const { getOrCreateContactCentralized } = await import('./lib/contactManagerCentralized.js');
+
+    contato = await getOrCreateContactCentralized(base44, 
+      dados.from,           // ⚠️ TELEFONE BRUTO - função normaliza internamente
+      dados.pushName || dados.from,
+      null,                 // Z-API não fornece foto no webhook padrão
+      dados.pushName
+    );
     
     console.log(`[${VERSION}] 👤 Contato processado via contactManager: ${contato.nome} (${contato.id})`);
   } catch (e) {
