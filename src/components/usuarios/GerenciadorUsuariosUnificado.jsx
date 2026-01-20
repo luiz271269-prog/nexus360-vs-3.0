@@ -600,15 +600,15 @@ export default function GerenciadorUsuariosUnificado({
       </section>
 
       {/* ════════════════════════════════════════════════════════════════════════ */}
-      {/* COLUNA 2: RECURSOS DO SISTEMA */}
+      {/* COLUNA 2: RECURSOS DO SISTEMA - COMPACTA */}
       {/* ════════════════════════════════════════════════════════════════════════ */}
-      <section className="w-72 flex flex-col bg-white rounded-xl border shadow-sm overflow-hidden">
-        <header className="p-3 border-b bg-gradient-to-r from-slate-50 to-slate-100">
-          <h2 className="text-sm font-bold text-slate-800">Recursos & Páginas</h2>
-          <p className="text-[10px] text-slate-500">Selecione para configurar</p>
+      <section className="w-56 flex flex-col bg-white rounded-lg border shadow-sm overflow-hidden">
+        <header className="p-2 border-b bg-gradient-to-r from-slate-50 to-slate-100">
+          <h2 className="text-xs font-bold text-slate-800">Recursos</h2>
+          <p className="text-[10px] text-slate-500">Selecione</p>
         </header>
 
-        <div className="flex-1 overflow-auto p-2 space-y-1">
+        <div className="flex-1 overflow-auto p-1.5 space-y-0.5">
           {RECURSOS_SISTEMA.map(recurso => {
             const selecionado = recursoSelecionado?.id === recurso.id;
             const temAcessoMenu = temPermissao(recurso.id);
@@ -618,23 +618,21 @@ export default function GerenciadorUsuariosUnificado({
                 key={recurso.id}
                 onClick={() => setRecursoSelecionado(recurso)}
                 disabled={!usuarioSelecionado}
-                className={`w-full text-left px-3 py-2 rounded-lg text-xs transition-all flex items-center gap-2 ${
+                className={`w-full text-left px-2 py-1.5 rounded-md text-xs transition-all flex items-center gap-1.5 ${
                   selecionado
                     ? "bg-indigo-100 border border-indigo-300"
                     : "hover:bg-slate-50 border border-transparent"
                 } ${!usuarioSelecionado ? "opacity-50 cursor-not-allowed" : ""}`}
               >
-                <div className="flex-1">
-                  <div className="flex items-center gap-2">
-                    <span className="font-medium">{recurso.nome}</span>
-                    {recurso.tipo === "config" && <Settings className="w-3 h-3 text-slate-400" />}
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-1.5">
+                    <span className="font-medium text-[11px] truncate">{recurso.nome}</span>
                     {recurso.tipo === "menu" && temAcessoMenu && (
-                      <Check className="w-3 h-3 text-green-600" />
+                      <Check className="w-2.5 h-2.5 text-green-600 flex-shrink-0" />
                     )}
                   </div>
-                  <div className="text-[10px] text-slate-500">{recurso.description}</div>
                 </div>
-                <ChevronRight className={`w-4 h-4 text-slate-400 transition-transform ${selecionado ? "rotate-90" : ""}`} />
+                <ChevronRight className={`w-3 h-3 text-slate-400 transition-transform flex-shrink-0 ${selecionado ? "rotate-90" : ""}`} />
               </button>
             );
           })}
