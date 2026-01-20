@@ -166,6 +166,13 @@ export async function getOrCreateContactCentralized(base44, rawPhone, nome, prof
     });
     
     console.log(`[CONTACT-MANAGER-CENTRAL] ✅ Novo contato criado: ID ${newContact.id}`);
+    
+    // ✅ SE não tem foto E tem integração, BUSCAR depois (async, non-blocking)
+    if (!newContact.foto_perfil_url && integrationId) {
+      console.log(`[CONTACT-MANAGER-CENTRAL] 📸 Agendando busca de foto (novo contato ID: ${newContact.id})`);
+      buscarFotoPerfilAsync(base44, integrationId, newContact.id, phoneE164);
+    }
+    
     return newContact;
   } catch (e) {
     console.error(`[CONTACT-MANAGER-CENTRAL] ❌ Erro ao criar contato:`, e.message);
