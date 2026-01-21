@@ -243,7 +243,7 @@ export default function Comunicacao() {
   const { data: contatosDasThreads = [], isLoading: loadingContatosDasThreads } = useQuery({
     queryKey: ['contacts-threads', contactIdsParaCarregar],
     queryFn: async () => {
-      if (contactIdsParaCarregar.length === 0) return [];
+      if (!Array.isArray(contactIdsParaCarregar) || contactIdsParaCarregar.length === 0) return [];
       
       console.log(`[COMUNICACAO] 📎 Hidratando ${contactIdsParaCarregar.length} contatos de threads...`);
       
@@ -259,7 +259,7 @@ export default function Comunicacao() {
         return [];
       }
     },
-    enabled: contactIdsParaCarregar.length > 0,
+    enabled: Array.isArray(contactIdsParaCarregar) && contactIdsParaCarregar.length > 0,
     keepPreviousData: true,
     staleTime: 60000,
     cacheTime: 15 * 60 * 1000,
