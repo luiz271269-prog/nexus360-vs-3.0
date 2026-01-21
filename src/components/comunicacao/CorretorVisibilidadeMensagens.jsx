@@ -51,7 +51,7 @@ export default function CorretorVisibilidadeMensagens({
       // Verificar se a thread é visível
       const threadEhVisivel = canUserSeeThreadBase(usuario, threadData, contato, integracoes);
 
-      // Analisar mensagens - IDENTIFICAR TODAS AS INCONSISTÊNCIAS
+      // Analisar mensagens - IDENTIFICAR APENAS PROBLEMAS REAIS
       const mensagensComProblema = [];
       
       for (const msg of mensagens) {
@@ -60,29 +60,20 @@ export default function CorretorVisibilidadeMensagens({
         let descricao = '';
         let correcaoSugerida = '';
 
-        // CASO 1: Thread BLOQUEADA com mensagens PÚBLICAS
-        // Estas mensagens NÃO serão visíveis para o usuário
+        // ÚNICO PROBLEMA REAL: Thread BLOQUEADA com mensagens PÚBLICAS
+        // Estas mensagens NÃO serão visíveis para o usuário (mensagens perdidas)
         if (!threadEhVisivel && msg.visibility === 'public_to_customer') {
           temProblema = true;
           problema = 'thread_bloqueada_msg_publica';
-          descricao = 'Thread bloqueada - mensagem pública não será exibida';
+          descricao = 'Thread bloqueada - mensagem pública não será exibida (PERDIDA)';
           correcaoSugerida = 'marcar_como_interna';
         }
         
-        // CASO 2: Thread VISÍVEL mas mensagem marcada como INTERNA
-        // Mensagem poderia ser visível mas está oculta
-        if (threadEhVisivel && msg.visibility === 'internal_only') {
-          // EXCEÇÃO: Mensagens internas propositais são normais
-          // Só marca como problema se não tem indicador de ser intencional
-          if (!msg.content?.includes('[NOTA INTERNA]') && !msg.content?.startsWith('🔒')) {
-            temProblema = true;
-            problema = 'thread_visivel_msg_interna';
-            descricao = 'Thread visível - mensagem marcada como interna (não visível ao cliente)';
-            correcaoSugerida = 'marcar_como_publica';
-          }
-        }
+        // NOTA: Mensagens internal_only em threads visíveis são PROPOSITAIS
+        // São notas internas que o atendente NÃO quer que o cliente veja
+        // Isso NÃO é um problema - é uma funcionalidade normal do sistema
 
-        // CASO 3: Mensagem sem visibility definida (undefined/null)
+        // Mensagem sem visibility definida (undefined/null)
         if (!msg.visibility) {
           temProblema = true;
           problema = 'visibility_ausente';
