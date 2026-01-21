@@ -323,19 +323,17 @@ export default function Comunicacao() {
   });
 
   // ═══════════════════════════════════════════════════════════════════════════════
-  // 🎯 UNIÃO: Contatos das threads + contatos da busca
+  // 🎯 MODO BUSCA: Só contatos da busca | MODO NORMAL: Só contatos das threads
   // ═══════════════════════════════════════════════════════════════════════════════
   const contatos = React.useMemo(() => {
-    const mapa = new Map();
+    const temBusca = debouncedSearchTerm && debouncedSearchTerm.trim().length >= 2;
     
-    // Primeiro: contatos das threads (sempre necessários)
-    contatosDasThreads.forEach(c => mapa.set(c.id, c));
+    // Se está buscando: APENAS contatos da busca
+    if (temBusca) return contatosDaBusca;
     
-    // Depois: contatos da busca (se houver)
-    contatosDaBusca.forEach(c => mapa.set(c.id, c));
-    
-    return Array.from(mapa.values());
-  }, [contatosDasThreads, contatosDaBusca]);
+    // Se não está buscando: APENAS contatos das threads
+    return contatosDasThreads;
+  }, [contatosDasThreads, contatosDaBusca, debouncedSearchTerm]);
 
   const loadingContatos = loadingContatosDasThreads;
 
