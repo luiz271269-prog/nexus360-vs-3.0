@@ -63,21 +63,30 @@ Deno.serve(async (req) => {
 
           if (!senderId || !message) continue;
 
-          // Buscar ou criar Contact
+          // ✅ CENTRALIZADO: Usar contactManagerCentralized para UPSERT único
+          const { getOrCreateContactCentralized } = await import('./lib/contactManagerCentralized.js');
+          
+          // Buscar por instagram_id primeiro
           let contacts = await base44.entities.Contact.filter({
             instagram_id: senderId
           });
 
           let contact;
           if (contacts.length === 0) {
-            // Criar novo contato
-            contact = await base44.entities.Contact.create({
-              nome: `Instagram ${senderId.substring(0, 8)}`,
+            // Criar via centralizado (sem telefone inicial, mas com instagram_id)
+            contact = await getOrCreateContactCentralized(
+              base44,
+              null, // telefone - Instagram não fornece
+              `Instagram User`, // nome genérico (será atualizado se tiver pushName)
+              null, // profilePicUrl
+              null, // pushName
+              integration.id // integração para futuras buscas
+            );
+            
+            // Adicionar instagram_id após criação
+            await base44.entities.Contact.update(contact.id, {
               instagram_id: senderId,
-              tipo_contato: 'novo',
-              metadata: {
-                instagram_profile: event.sender
-              }
+              tipo_contato: 'novo'
             });
           } else {
             contact = contacts[0];

@@ -41,14 +41,16 @@ Deno.serve(async (req) => {
         return Response.json({ received: true });
       }
 
-      // 1) Buscar/criar Contact usando contactManager (UPSERT ÚNICO)
-      const { getOrCreateContact } = await import('./lib/contactManager.js');
-      const contact = await getOrCreateContact(base44, {
-        telefone: senderPhone,
-        nome: `GoTo ${senderPhone}`,
-        profilePicUrl: null,
-        pushName: null
-      });
+      // ✅ CENTRALIZADO: Usar contactManagerCentralized
+      const { getOrCreateContactCentralized } = await import('./lib/contactManagerCentralized.js');
+      const contact = await getOrCreateContactCentralized(
+        base44,
+        senderPhone, // telefone normalizado
+        `GoTo ${senderPhone}`, // nome (será substituído se já existir)
+        null, // profilePicUrl
+        null, // pushName
+        null  // integrationId (GoTo não tem)
+      );
 
       // 2) Buscar/criar MessageThread
       let thread = await base44.entities.MessageThread.filter({
@@ -115,16 +117,18 @@ Deno.serve(async (req) => {
       // Determinar direção (inbound se veio de fora, outbound se originou do sistema)
       const direction = payload.direction || 'inbound';
 
-      // 1) Buscar/criar Contact usando contactManager (UPSERT ÚNICO)
+      // ✅ CENTRALIZADO: Usar contactManagerCentralized
       const contactPhone = direction === 'inbound' ? fromNumber : toNumber;
-      const { getOrCreateContact } = await import('./lib/contactManager.js');
+      const { getOrCreateContactCentralized } = await import('./lib/contactManagerCentralized.js');
       
-      const contact = await getOrCreateContact(base44, {
-        telefone: contactPhone,
-        nome: `GoTo ${contactPhone}`,
-        profilePicUrl: null,
-        pushName: null
-      });
+      const contact = await getOrCreateContactCentralized(
+        base44,
+        contactPhone, // telefone normalizado
+        `GoTo ${contactPhone}`, // nome (será substituído se já existir)
+        null, // profilePicUrl
+        null, // pushName
+        null  // integrationId (GoTo não tem)
+      );
 
       // 2) Buscar ou criar CallSession
       let callSession = await base44.entities.CallSession.filter({ provider_call_id: callId });
