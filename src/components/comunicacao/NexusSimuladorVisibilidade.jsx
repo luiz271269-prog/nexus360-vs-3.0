@@ -15,7 +15,7 @@ import { buildPolicyFromLegacyUser } from '@/components/lib/nexusLegacyConverter
 import { canUserSeeThreadBase } from '@/components/lib/permissionsService';
 import { base44 } from '@/api/base44Client';
 import { getUserDisplayName } from '../lib/userHelpers';
-import AnalisadorContatosDuplicados from './AnalisadorContatosDuplicados';
+import UnificadorContatosManual from './UnificadorContatosManual';
 
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 
@@ -37,7 +37,8 @@ export default function NexusSimuladorVisibilidade({ usuario, integracoes = [], 
   const [filtroDivergencia, setFiltroDivergencia] = useState('todas');
   const [threadExpandida, setThreadExpandida] = useState(null);
   const [modalCorrecaoOpen, setModalCorrecaoOpen] = useState(false);
-  const [telefoneParaCorrigir, setTelefoneParaCorrigir] = useState(null);
+  const [contatoDragOrigem, setContatoDragOrigem] = useState(null);
+  const [contatoDropDestino, setContatoDropDestino] = useState(null);
   const [filtroNomeContato, setFiltroNomeContato] = useState('');
   const [filtroUsuarioAtribuido, setFiltroUsuarioAtribuido] = useState('todos');
   const [filtroInstanciaWhatsApp, setFiltroInstanciaWhatsApp] = useState('todas');
@@ -501,14 +502,15 @@ export default function NexusSimuladorVisibilidade({ usuario, integracoes = [], 
                           e.dataTransfer.dropEffect = 'move';
                         }}
                         onDrop={(e) => {
-                          e.preventDefault();
-                          e.stopPropagation();
-                          if (draggedThread && draggedThread.contato?.id !== contato?.id) {
-                            setTelefoneParaCorrigir(draggedThread.contato?.telefone);
-                            setModalCorrecaoOpen(true);
-                            setDraggedThread(null);
-                          }
-                        }}
+                           e.preventDefault();
+                           e.stopPropagation();
+                           if (draggedThread && draggedThread.contato?.id !== contato?.id) {
+                             setContatoDragOrigem(draggedThread.contato);
+                             setContatoDropDestino(contato);
+                             setModalCorrecaoOpen(true);
+                             setDraggedThread(null);
+                           }
+                         }}
                         className={`px-2 py-2 flex items-center gap-2 border-b border-slate-100 hover:bg-gradient-to-r hover:from-amber-50 hover:to-orange-50 cursor-move transition-all group relative ${
                           draggedThread?.thread.id === thread.id ? 'opacity-50 bg-blue-100' : ''
                         } ${erroNexus ? (erroNexus.severity === 'error' ? 'bg-red-50/50' : 'bg-amber-50/50') : ''} ${temMsgNaoVisivel ? 'border-l-4 border-l-orange-500' : ''}`}
@@ -1216,10 +1218,9 @@ export default function NexusSimuladorVisibilidade({ usuario, integracoes = [], 
               Unificação de Contatos - Correção de Duplicatas
             </DialogTitle>
           </DialogHeader>
-          <AnalisadorContatosDuplicados 
-            telefone={telefoneParaCorrigir} 
-            contatoOrigem={draggedThread?.contato}
-            contatoDestino={contatos.find(c => c.telefone === telefoneParaCorrigir && c.id !== draggedThread?.contato?.id)}
+          <UnificadorContatosManual 
+            contatoOrigem={contatoDragOrigem} 
+            contatoDestino={contatoDropDestino}
             isAdmin={usuario?.role === 'admin'}
             onClose={handleCorrecaoConcluida}
           />
