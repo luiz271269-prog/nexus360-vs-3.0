@@ -1765,8 +1765,11 @@ export default function ChatWindow({
       });
     }
 
-    // ✅ Para threads externas (WhatsApp): aplicar filtros de limpeza existentes
-    return mensagensFiltradas.filter((m) => {
+    // ✅ DEDUPLICAÇÃO DE MENSAGENS RECEBIDAS: Evitar duplicatas com mesmo conteúdo, timestamp e sender
+    const deduped = [];
+    const seen = new Set();
+    
+    const filtradas = mensagensFiltradas.filter((m) => {
       if (m.metadata?.deleted) return true;
       if (m.metadata?.is_system_message) return true;
       if (m.metadata?.optimistic) return true;
@@ -1794,6 +1797,17 @@ export default function ChatWindow({
 
       return false;
     });
+
+    // Deduplicar mensagens recebidas
+    for (const msg of filtradas) {
+      const chave = `${msg.sender_type}|${msg.sender_id}|${msg.content || ''}|${msg.sent_at || ''}`;
+      if (!seen.has(chave)) {
+        seen.add(chave);
+        deduped.push(msg);
+      }
+    }
+
+    return deduped;
   }, [mensagens, selectedCategoria, thread?.thread_type]);
 
   // ✅ HANDLER ATUALIZAR CONTATO - Declarado ANTES dos early returns
