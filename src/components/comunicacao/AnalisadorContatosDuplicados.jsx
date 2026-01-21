@@ -367,7 +367,7 @@ export default function AnalisadorContatosDuplicados({ telefone: telefoneProp, i
 
       {resultado && !resultado.erro && (
         <div className="space-y-4">
-          {/* STATUS - Apenas 1 ou Múltiplos */}
+          {/* SEMPRE MOSTRAR: Lado a lado se houver múltiplos, senão mensagem */}
           {resultado.contatosDuplicados.length === 1 ? (
             <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
               <p className="text-green-800 font-semibold flex items-center gap-2">
@@ -375,91 +375,56 @@ export default function AnalisadorContatosDuplicados({ telefone: telefoneProp, i
               </p>
             </div>
           ) : (
-            <>
-              {/* LADO A LADO - Origem vs Destino */}
-              <div className="grid grid-cols-3 gap-3">
-                {/* COLUNA 1: SERÁ DELETADO */}
-                <div className="bg-red-50 p-4 rounded-lg border-2 border-red-300">
-                  <h3 className="font-bold text-red-700 mb-3 text-sm">🗑️ SERÁ DELETADO</h3>
-                  {resultado.duplicatasParaMesclar.map((analise) => (
-                    <div key={analise.contato.id} className="bg-white p-3 rounded mb-2 text-sm">
-                      <p className="font-bold text-slate-900">{analise.contato.nome}</p>
-                      <p className="text-xs text-slate-600">{analise.contato.telefone}</p>
-                      {analise.contato.empresa && <p className="text-xs text-slate-600">🏢 {analise.contato.empresa}</p>}
-                    </div>
-                  ))}
-                </div>
-
-                {/* COLUNA 2: SETA */}
-                <div className="flex items-center justify-center">
-                  <div className="bg-gradient-to-r from-red-500 to-green-500 w-12 h-12 rounded-full flex items-center justify-center text-white font-bold text-xl">→</div>
-                </div>
-
-                {/* COLUNA 3: SERÁ MANTIDO */}
-                <div className="bg-green-50 p-4 rounded-lg border-2 border-green-400">
-                  <h3 className="font-bold text-green-700 mb-3 text-sm">🏆 SERÁ MANTIDO</h3>
-                  <div className="bg-white p-3 rounded text-sm">
-                    <p className="font-bold text-slate-900">{resultado.principal?.nome}</p>
-                    <p className="text-xs text-slate-600">{resultado.principal?.telefone}</p>
-                    {resultado.principal?.empresa && <p className="text-xs text-slate-600">🏢 {resultado.principal?.empresa}</p>}
+            <div className="grid grid-cols-3 gap-3">
+              {/* COLUNA 1: SERÁ DELETADO */}
+              <div className="bg-red-50 p-4 rounded-lg border-2 border-red-300">
+                <h3 className="font-bold text-red-700 mb-3 text-sm">🗑️ SERÁ DELETADO</h3>
+                {resultado.duplicatasParaMesclar.map((analise) => (
+                  <div key={analise.contato.id} className="bg-white p-3 rounded mb-2 text-sm">
+                    <p className="font-bold text-slate-900">{analise.contato.nome}</p>
+                    <p className="text-xs text-slate-600">{analise.contato.telefone}</p>
+                    {analise.contato.empresa && <p className="text-xs text-slate-600">🏢 {analise.contato.empresa}</p>}
                   </div>
-                </div>
+                ))}
               </div>
 
-              {/* BOTÃO DE UNIFICAÇÃO */}
-              {isAdmin && (
-                <Button
-                  onClick={mesclarContatos}
-                  disabled={corrigindo}
-                  className="w-full bg-green-600 hover:bg-green-700 text-white font-bold"
-                >
-                  {corrigindo ? (
-                    <>
-                      <Loader2 className="w-4 h-4 animate-spin mr-2" />
-                      Unificando...
-                    </>
-                  ) : (
-                    <>
-                      <Copy className="w-4 h-4 mr-2" />
-                      Confirmar Unificação
-                    </>
-                  )}
-                </Button>
-              )}
-            </>
+              {/* COLUNA 2: SETA */}
+              <div className="flex items-center justify-center">
+                <div className="bg-gradient-to-r from-red-500 to-green-500 w-12 h-12 rounded-full flex items-center justify-center text-white font-bold text-xl">→</div>
+              </div>
+
+              {/* COLUNA 3: SERÁ MANTIDO */}
+              <div className="bg-green-50 p-4 rounded-lg border-2 border-green-400">
+                <h3 className="font-bold text-green-700 mb-3 text-sm">🏆 SERÁ MANTIDO</h3>
+                <div className="bg-white p-3 rounded text-sm">
+                  <p className="font-bold text-slate-900">{resultado.principal?.nome}</p>
+                  <p className="text-xs text-slate-600">{resultado.principal?.telefone}</p>
+                  {resultado.principal?.empresa && <p className="text-xs text-slate-600">🏢 {resultado.principal?.empresa}</p>}
+                </div>
+              </div>
+            </div>
           )}
 
-          {/* LISTA EXPANDÍVEL DE CONTATOS */}
-          <div className="border-t pt-4">
-            <p className="text-xs font-bold text-slate-600 uppercase mb-2">Contatos Encontrados</p>
-            {resultado.contatosDuplicados.map((analise, idx) => (
-              <Card key={analise.contato.id} className={`mb-2 cursor-pointer ${idx === 0 ? 'bg-green-50 border-green-300' : 'bg-slate-50'}`}>
-                <div 
-                  onClick={() => setExpandedContatos(p => ({ ...p, [analise.contato.id]: !p[analise.contato.id] }))}
-                  className="p-3 flex items-center justify-between"
-                >
-                  <div className="flex-1">
-                    <p className="font-bold text-sm">{analise.contato.nome} {idx === 0 && <Badge className="bg-green-600 ml-2">Principal</Badge>}</p>
-                    <p className="text-xs text-slate-600">{analise.quantidadeMensagens} msgs • {analise.threads} threads • Score: {analise.score.toFixed(0)}</p>
-                  </div>
-                  {expandedContatos[analise.contato.id] ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-                </div>
-
-                {expandedContatos[analise.contato.id] && (
-                  <div className="border-t bg-white p-3 text-xs text-slate-700 space-y-1">
-                    <p><strong>ID:</strong> {analise.contato.id.substring(0, 12)}...</p>
-                    <p><strong>Email:</strong> {analise.contato.email || 'N/A'}</p>
-                    <p><strong>Tipo:</strong> {analise.contato.tipo_contato}</p>
-                    {isAdmin && idx > 0 && (
-                      <Button onClick={() => deletarDuplicata(analise.contato.id)} variant="destructive" size="sm" className="mt-2">
-                        <Trash2 className="w-3 h-3 mr-1" /> Deletar
-                      </Button>
-                    )}
-                  </div>
-                )}
-              </Card>
-            ))}
-          </div>
+          {/* BOTÃO DE UNIFICAÇÃO - SÓ SE HOUVER MÚLTIPLOS */}
+          {isAdmin && resultado.contatosDuplicados.length > 1 && (
+            <Button
+              onClick={mesclarContatos}
+              disabled={corrigindo}
+              className="w-full bg-green-600 hover:bg-green-700 text-white font-bold"
+            >
+              {corrigindo ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                  Unificando...
+                </>
+              ) : (
+                <>
+                  <Copy className="w-4 h-4 mr-2" />
+                  Confirmar Unificação
+                </>
+              )}
+            </Button>
+          )}
         </div>
       )}
     </div>
