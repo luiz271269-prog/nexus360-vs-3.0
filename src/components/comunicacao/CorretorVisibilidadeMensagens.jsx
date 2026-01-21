@@ -167,10 +167,6 @@ export default function CorretorVisibilidadeMensagens({
       
       toast.success(`✅ Todas as ${analise.estrategiasCorrecao.length} correções aplicadas!`);
       
-      if (onClose) {
-        setTimeout(onClose, 1500);
-      }
-      
     } catch (error) {
       console.error('Erro ao corrigir tudo:', error);
       toast.error('Erro nas correções: ' + error.message);
