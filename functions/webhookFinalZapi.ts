@@ -608,7 +608,7 @@ async function handleMessage(dados, payloadBruto, base44) {
   let contato;
   try {
     // ✅ Usar getOrCreateContactCentralized (função centralizada - única fonte da verdade)
-    const { getOrCreateContactCentralized } = await import('./lib/contactManagerCentralized.js');
+    const { getOrCreateContactCentralized } = await import(new URL('./lib/contactManagerCentralized.js', import.meta.url).href);
 
     contato = await getOrCreateContactCentralized(base44, 
       dados.from,           // ⚠️ TELEFONE BRUTO - função normaliza internamente
