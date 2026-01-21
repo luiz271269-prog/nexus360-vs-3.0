@@ -1323,6 +1323,17 @@ export default React.memo(function MessageBubble({
                 map((contato) => {
                   const selecionado = contatosSelecionados.find((c) => c.id === contato.id);
 
+                  // ✅ Nome formatado: Empresa + Cargo + Nome (igual sidebar)
+                  let nomeExibicao = "";
+                  if (contato.empresa) nomeExibicao += contato.empresa;
+                  if (contato.cargo) nomeExibicao += (nomeExibicao ? " - " : "") + contato.cargo;
+                  if (contato.nome && contato.nome !== contato.telefone && contato.nome !== '-') {
+                    nomeExibicao += (nomeExibicao ? " - " : "") + contato.nome;
+                  }
+                  if (!nomeExibicao || nomeExibicao.trim() === '') {
+                    nomeExibicao = contato.telefone || "Sem nome";
+                  }
+
                   return (
                     <button
                       key={contato.id}
@@ -1333,20 +1344,30 @@ export default React.memo(function MessageBubble({
                       )}>
 
                           <div className={cn(
-                        "w-10 h-10 rounded-full flex items-center justify-center text-white font-bold flex-shrink-0",
+                        "w-10 h-10 rounded-full flex items-center justify-center text-white font-bold flex-shrink-0 overflow-hidden",
                         selecionado ? "bg-blue-600" : "bg-slate-400"
                       )}>
-                            {selecionado ?
-                        <Check className="w-5 h-5" /> :
-
-                        (contato.nome || contato.telefone)?.charAt(0)?.toUpperCase() || '?'
-                        }
+                            {selecionado ? (
+                              <Check className="w-5 h-5" />
+                            ) : contato.foto_perfil_url && contato.foto_perfil_url !== 'null' && contato.foto_perfil_url !== 'undefined' ? (
+                              <img 
+                                src={contato.foto_perfil_url} 
+                                alt={nomeExibicao} 
+                                className="w-full h-full object-cover"
+                                onError={(e) => {
+                                  e.target.style.display = 'none';
+                                  e.target.parentElement.textContent = nomeExibicao.charAt(0).toUpperCase();
+                                }}
+                              />
+                            ) : (
+                              nomeExibicao.charAt(0)?.toUpperCase() || '?'
+                            )}
                           </div>
-                          <div className="flex-1 text-left">
-                            <p className="font-medium text-slate-900">
-                              {contato.nome || 'Sem nome'}
+                          <div className="flex-1 text-left min-w-0">
+                            <p className="font-medium text-slate-900 truncate">
+                              {nomeExibicao}
                             </p>
-                            <p className="text-sm text-slate-500">{contato.telefone}</p>
+                            <p className="text-sm text-slate-500 truncate">{contato.telefone}</p>
                           </div>
                         </button>);
 
