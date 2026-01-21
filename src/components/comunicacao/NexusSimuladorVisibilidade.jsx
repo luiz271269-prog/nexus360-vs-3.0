@@ -41,6 +41,7 @@ export default function NexusSimuladorVisibilidade({ usuario, integracoes = [], 
   const [filtroNomeContato, setFiltroNomeContato] = useState('');
   const [filtroUsuarioAtribuido, setFiltroUsuarioAtribuido] = useState('todos');
   const [filtroInstanciaWhatsApp, setFiltroInstanciaWhatsApp] = useState('todas');
+  const [draggedThread, setDraggedThread] = useState(null);
 
   // Carregar lista de usuários e dados iniciais
   useEffect(() => {
