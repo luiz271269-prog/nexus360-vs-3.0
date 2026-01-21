@@ -112,57 +112,36 @@ export default function CorretorVisibilidadeMensagens({
     const estrategias = [];
 
     // ESTRATÉGIA 1: Thread bloqueada com mensagens públicas → marcar como internas
+    // PROBLEMA CRÍTICO: Mensagens perdidas que nunca chegam ao cliente
     const msgThreadBloqueada = mensagensProblema.filter(m => 
       m.problema === 'thread_bloqueada_msg_publica'
     );
     if (msgThreadBloqueada.length > 0) {
       estrategias.push({
         tipo: 'marcar_internas',
-        titulo: 'Marcar como Internas (Thread Bloqueada)',
+        titulo: '🚨 CORRIGIR: Mensagens Perdidas (Thread Bloqueada)',
         descricao: `${msgThreadBloqueada.length} mensagens públicas em thread bloqueada → marcar internal_only`,
-        icone: EyeOff,
-        cor: 'orange',
+        icone: AlertTriangle,
+        cor: 'red',
         acao: async () => {
           for (const msg of msgThreadBloqueada) {
             await base44.entities.Message.update(msg.id, {
               visibility: 'internal_only'
             });
           }
-          return `${msgThreadBloqueada.length} mensagens marcadas como internas`;
+          return `${msgThreadBloqueada.length} mensagens perdidas recuperadas`;
         }
       });
     }
 
-    // ESTRATÉGIA 2: Thread visível com mensagens internas → marcar como públicas
-    const msgThreadVisivelInterna = mensagensProblema.filter(m => 
-      m.problema === 'thread_visivel_msg_interna'
-    );
-    if (msgThreadVisivelInterna.length > 0) {
-      estrategias.push({
-        tipo: 'marcar_publicas',
-        titulo: 'Tornar Mensagens Públicas',
-        descricao: `${msgThreadVisivelInterna.length} mensagens internas em thread visível → marcar public_to_customer`,
-        icone: Eye,
-        cor: 'green',
-        acao: async () => {
-          for (const msg of msgThreadVisivelInterna) {
-            await base44.entities.Message.update(msg.id, {
-              visibility: 'public_to_customer'
-            });
-          }
-          return `${msgThreadVisivelInterna.length} mensagens tornadas públicas`;
-        }
-      });
-    }
-
-    // ESTRATÉGIA 3: Mensagens sem visibility → definir baseado na thread
+    // ESTRATÉGIA 2: Mensagens sem visibility → definir baseado na thread
     const msgSemVisibility = mensagensProblema.filter(m => 
       m.problema === 'visibility_ausente'
     );
     if (msgSemVisibility.length > 0) {
       estrategias.push({
         tipo: 'definir_visibility',
-        titulo: 'Definir Visibilidade',
+        titulo: 'Definir Visibilidade Ausente',
         descricao: `${msgSemVisibility.length} mensagens sem visibility → definir baseado na thread`,
         icone: Zap,
         cor: 'purple',
