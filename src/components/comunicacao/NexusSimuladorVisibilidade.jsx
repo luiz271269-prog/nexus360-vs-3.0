@@ -350,23 +350,25 @@ export default function NexusSimuladorVisibilidade({ usuario, integracoes = [], 
           threadIds: items.map(i => i.thread.id),
           contactIds: items.map(i => i.contato.id)
         }));
-      
+
       // Executar análise comparativa
       const resultado = executarAnaliseEmLote(usuarioAtual, threadsParaAnalisar, integracoes);
-      
+
       // Adicionar informação de problemas detectados ao resultado
       resultado.duplicatas = duplicatasDetectadas;
       resultado.threadsSemContato = threadsSemContato;
       resultado.threadsMensagensSuspeitas = threadsMensagensSuspeitas;
       resultado.threadsContatoInvalido = threadsContatoInvalido;
       resultado.mensagensComProblemaVisibilidade = mensagensComProblemaVisibilidade;
+      resultado.threadsFragmentadas = threadsFragmentadas; // 🆕 Adicionar fragmentação
 
       resultado.stats.totalDuplicatas = duplicatasDetectadas.reduce((sum, d) => sum + d.count - 1, 0);
       resultado.stats.threadsSemContatoValido = threadsSemContato.length;
       resultado.stats.mensagensSuspeitas = threadsMensagensSuspeitas.length;
       resultado.stats.contatosInvalidos = threadsContatoInvalido.length;
       resultado.stats.mensagensComProblemaVisibilidade = mensagensComProblemaVisibilidade.length;
-      resultado.stats.totalProblemas = threadsSemContato.length + threadsMensagensSuspeitas.length + threadsContatoInvalido.length + mensagensComProblemaVisibilidade.length;
+      resultado.stats.threadsFragmentadas = threadsFragmentadas.length; // 🆕 Stats de fragmentação
+      resultado.stats.totalProblemas = threadsSemContato.length + threadsMensagensSuspeitas.length + threadsContatoInvalido.length + mensagensComProblemaVisibilidade.length + threadsFragmentadas.length; // 🆕 Incluir fragmentação
       
       setSimulationResults(resultado);
       setLastRun(new Date());
