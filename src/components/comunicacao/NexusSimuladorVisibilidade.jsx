@@ -1213,11 +1213,13 @@ export default function NexusSimuladorVisibilidade({ usuario, integracoes = [], 
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Users className="w-5 h-5 text-purple-600" />
-              Correção de Duplicatas
+              Unificação de Contatos - Correção de Duplicatas
             </DialogTitle>
           </DialogHeader>
           <AnalisadorContatosDuplicados 
             telefone={telefoneParaCorrigir} 
+            contatoOrigem={draggedThread?.contato}
+            contatoDestino={contatos.find(c => c.telefone === telefoneParaCorrigir && c.id !== draggedThread?.contato?.id)}
             isAdmin={usuario?.role === 'admin'}
             onClose={handleCorrecaoConcluida}
           />
