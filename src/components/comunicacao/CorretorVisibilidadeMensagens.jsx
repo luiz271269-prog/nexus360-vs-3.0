@@ -96,43 +96,7 @@ export default function CorretorVisibilidadeMensagens({
   const gerarEstrategiasCorrecao = (thread, contato, mensagensProblema, threadVisivel) => {
     const estrategias = [];
 
-    if (!threadVisivel && mensagensProblema.length > 0) {
-      // Estratégia 1: Atribuir thread ao usuário
-      estrategias.push({
-        tipo: 'atribuir_thread',
-        titulo: 'Atribuir Thread ao Usuário',
-        descricao: `Atribuir esta conversa para ${usuario.full_name}`,
-        icone: Eye,
-        cor: 'indigo',
-        acao: async () => {
-          await base44.entities.MessageThread.update(thread.id, {
-            assigned_user_id: usuario.id
-          });
-          return `Thread atribuída para ${usuario.full_name}`;
-        }
-      });
-
-      // Estratégia 2: Fidelizar contato
-      if (contato && usuario.attendant_sector) {
-        const campoFidelizacao = `atendente_fidelizado_${usuario.attendant_sector}`;
-        estrategias.push({
-          tipo: 'fidelizar_contato',
-          titulo: 'Fidelizar Contato',
-          descricao: `Fidelizar ${contato.nome} ao setor ${usuario.attendant_sector}`,
-          icone: Zap,
-          cor: 'purple',
-          acao: async () => {
-            await base44.entities.Contact.update(contato.id, {
-              [campoFidelizacao]: usuario.id,
-              is_cliente_fidelizado: true
-            });
-            return `Contato fidelizado no setor ${usuario.attendant_sector}`;
-          }
-        });
-      }
-    }
-
-    // Estratégia 3: Corrigir visibility das mensagens
+    // Estratégia ÚNICA: Corrigir visibility das mensagens (sem atribuir ou fidelizar)
     const mensagensParaCorrigir = mensagensProblema.filter(m => 
       m.problema === 'thread_bloqueada' && m.visibility !== 'internal_only'
     );
@@ -141,7 +105,7 @@ export default function CorretorVisibilidadeMensagens({
       estrategias.push({
         tipo: 'corrigir_visibility',
         titulo: 'Marcar Mensagens como Internas',
-        descricao: `Marcar ${mensagensParaCorrigir.length} mensagens como internal_only`,
+        descricao: `Marcar ${mensagensParaCorrigir.length} mensagens como internal_only (não altera atribuição da thread)`,
         icone: MessageSquare,
         cor: 'orange',
         acao: async () => {
