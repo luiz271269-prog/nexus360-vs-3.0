@@ -366,129 +366,100 @@ export default function AnalisadorContatosDuplicados({ telefone: telefoneProp, i
       )}
 
       {resultado && !resultado.erro && (
-        <div className="space-y-6">
-          {/* VISUALIZAÇÃO LADO A LADO - LIMPA E MODERNA */}
-          {resultado.contatosDuplicados.length > 1 ? (
-            <div className="grid grid-cols-3 gap-4 items-stretch">
-              {/* COLUNA 1: ORIGEM (será deletado) */}
-              <div className="bg-white rounded-lg border-2 border-red-300 overflow-hidden shadow-lg hover:shadow-xl transition-shadow">
-                <div className="bg-gradient-to-r from-red-500 to-orange-500 px-4 py-3 text-white font-bold flex items-center gap-2">
-                  <AlertCircle className="w-5 h-5" />
-                  SERÁ DELETADO
-                </div>
-
-                <div className="p-4 space-y-4">
+        <div className="space-y-4">
+          {/* STATUS - Apenas 1 ou Múltiplos */}
+          {resultado.contatosDuplicados.length === 1 ? (
+            <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
+              <p className="text-green-800 font-semibold flex items-center gap-2">
+                <CheckCircle className="w-5 h-5" /> ✅ Apenas 1 contato com este telefone
+              </p>
+            </div>
+          ) : (
+            <>
+              {/* LADO A LADO - Origem vs Destino */}
+              <div className="grid grid-cols-3 gap-3">
+                {/* COLUNA 1: SERÁ DELETADO */}
+                <div className="bg-red-50 p-4 rounded-lg border-2 border-red-300">
+                  <h3 className="font-bold text-red-700 mb-3 text-sm">🗑️ SERÁ DELETADO</h3>
                   {resultado.duplicatasParaMesclar.map((analise) => (
-                    <div key={analise.contato.id} className="space-y-2">
-                      <div className="flex items-center gap-3">
-                        <div className="w-12 h-12 bg-red-100 rounded-lg flex items-center justify-center font-bold text-red-600 text-lg">
-                          {analise.contato.nome?.charAt(0).toUpperCase()}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <h3 className="font-bold text-sm text-slate-900 truncate">{analise.contato.nome}</h3>
-                          <p className="text-xs text-slate-500">{analise.contato.telefone}</p>
-                        </div>
-                      </div>
-                      {analise.contato.empresa && <p className="text-xs text-slate-600 ml-15 truncate">🏢 {analise.contato.empresa}</p>}
-                      <p className="text-xs text-slate-500 ml-15">📧 {analise.contato.email || 'Sem email'}</p>
-                      <div className="space-y-1">
-                        <p className="text-xs text-slate-600"><strong>Mensagens:</strong> {analise.quantidadeMensagens}</p>
-                        <p className="text-xs text-slate-600"><strong>Threads:</strong> {analise.threads}</p>
-                        <p className="text-xs text-slate-600"><strong>Score:</strong> {analise.score.toFixed(0)}</p>
-                      </div>
-                      <Badge className="bg-red-600 text-[10px] w-fit mt-2">🗑️ Será removido</Badge>
+                    <div key={analise.contato.id} className="bg-white p-3 rounded mb-2 text-sm">
+                      <p className="font-bold text-slate-900">{analise.contato.nome}</p>
+                      <p className="text-xs text-slate-600">{analise.contato.telefone}</p>
+                      {analise.contato.empresa && <p className="text-xs text-slate-600">🏢 {analise.contato.empresa}</p>}
                     </div>
                   ))}
                 </div>
-              </div>
 
-              {/* COLUNA 2: SETA VISUAL + RESUMO */}
-              <div className="flex flex-col items-center justify-center gap-3 py-4">
-                <div className="w-12 h-12 rounded-full bg-gradient-to-br from-red-500 to-green-500 flex items-center justify-center text-white text-2xl font-bold shadow-lg">
-                  ⟹
-                </div>
-                <p className="text-xs font-bold text-slate-600 uppercase text-center">Consolidar</p>
-                <p className="text-[10px] text-slate-500 text-center max-w-[100px]">Todas as mensagens e dados serão transferidos</p>
-              </div>
-
-              {/* COLUNA 3: DESTINO (será mantido) */}
-              <div className="bg-white rounded-lg border-2 border-green-400 overflow-hidden shadow-lg hover:shadow-xl transition-shadow bg-gradient-to-br from-white to-green-50">
-                <div className="bg-gradient-to-r from-green-500 to-emerald-500 px-4 py-3 text-white font-bold flex items-center gap-2">
-                  <CheckCircle className="w-5 h-5" />
-                  SERÁ MANTIDO
+                {/* COLUNA 2: SETA */}
+                <div className="flex items-center justify-center">
+                  <div className="bg-gradient-to-r from-red-500 to-green-500 w-12 h-12 rounded-full flex items-center justify-center text-white font-bold text-xl">→</div>
                 </div>
 
-                <div className="p-4 space-y-3">
-                  <div className="space-y-2">
-                    <div className="flex items-center gap-3">
-                      <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center font-bold text-green-600 text-lg ring-2 ring-green-300">
-                        {resultado.principal?.nome?.charAt(0).toUpperCase()}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <h3 className="font-bold text-sm text-slate-900 truncate">{resultado.principal?.nome}</h3>
-                        <p className="text-xs text-slate-500">{resultado.principal?.telefone}</p>
-                      </div>
-                    </div>
-                    {resultado.principal?.empresa && <p className="text-xs text-slate-600 ml-15 truncate">🏢 {resultado.principal?.empresa}</p>}
-                    <p className="text-xs text-slate-500 ml-15">📧 {resultado.principal?.email || 'Sem email'}</p>
-                    <div className="space-y-1">
-                      <p className="text-xs text-slate-600"><strong>Mensagens:</strong> {resultado.contatosDuplicados[0]?.quantidadeMensagens || 0}</p>
-                      <p className="text-xs text-slate-600"><strong>Threads:</strong> {resultado.contatosDuplicados[0]?.threads || 0}</p>
-                      <p className="text-xs text-slate-600"><strong>Score:</strong> {resultado.contatosDuplicados[0]?.score.toFixed(0) || 0}</p>
-                    </div>
-                    <Badge className="bg-green-600 text-[10px] w-fit mt-2">🏆 Principal</Badge>
+                {/* COLUNA 3: SERÁ MANTIDO */}
+                <div className="bg-green-50 p-4 rounded-lg border-2 border-green-400">
+                  <h3 className="font-bold text-green-700 mb-3 text-sm">🏆 SERÁ MANTIDO</h3>
+                  <div className="bg-white p-3 rounded text-sm">
+                    <p className="font-bold text-slate-900">{resultado.principal?.nome}</p>
+                    <p className="text-xs text-slate-600">{resultado.principal?.telefone}</p>
+                    {resultado.principal?.empresa && <p className="text-xs text-slate-600">🏢 {resultado.principal?.empresa}</p>}
                   </div>
                 </div>
               </div>
-            </div>
-          ) : (
-            <Card className="p-6 bg-gradient-to-r from-green-50 to-emerald-50 border-2 border-green-200">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <CheckCircle className="w-6 h-6 text-green-600" />
-                  <div>
-                    <h3 className="font-bold text-slate-900">✅ Apenas 1 contato</h3>
-                    <p className="text-xs text-slate-600">Nenhuma duplicata encontrada</p>
-                  </div>
-                </div>
-              </div>
-            </Card>
-          )}
 
-          {/* BOTÃO DE AÇÃO */}
-          {isAdmin && resultado.contatosDuplicados.length > 1 && (
-            <Button
-              onClick={mesclarContatos}
-              disabled={corrigindo}
-              className="w-full h-12 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white font-bold text-base shadow-lg"
-            >
-              {corrigindo ? (
-                <>
-                  <Loader2 className="w-5 h-5 animate-spin mr-3" />
-                  Unificando contatos...
-                </>
-              ) : (
-                <>
-                  <CheckCircle className="w-5 h-5 mr-3" />
-                  ✅ CONFIRMAR UNIFICAÇÃO
-                </>
+              {/* BOTÃO DE UNIFICAÇÃO */}
+              {isAdmin && (
+                <Button
+                  onClick={mesclarContatos}
+                  disabled={corrigindo}
+                  className="w-full bg-green-600 hover:bg-green-700 text-white font-bold"
+                >
+                  {corrigindo ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                      Unificando...
+                    </>
+                  ) : (
+                    <>
+                      <Copy className="w-4 h-4 mr-2" />
+                      Confirmar Unificação
+                    </>
+                  )}
+                </Button>
               )}
-            </Button>
+            </>
           )}
 
-          {/* DETALHES EXPANDÍVEL - SÓ SE HOUVER MÚLTIPLOS */}
-          {resultado.contatosDuplicados.length > 1 && (
-            <Card className="p-4 bg-slate-50 border-slate-200">
-              <p className="text-xs font-semibold text-slate-600 uppercase mb-3">Detalhes Técnicos</p>
-              {resultado.contatosDuplicados.map((analise, idx) => (
-                <div key={analise.contato.id} className="text-xs text-slate-600 mb-3">
-                  <p><strong>{idx === 0 ? '🏆 ' : '🗑️ '}{analise.contato.nome}</strong></p>
-                  <p className="ml-4">ID: <code className="bg-white px-1 rounded text-[9px]">{analise.contato.id.substring(0, 12)}...</code></p>
-                  <p className="ml-4">Tipo: {analise.contato.tipo_contato} | Score: {analise.score.toFixed(0)}</p>
+          {/* LISTA EXPANDÍVEL DE CONTATOS */}
+          <div className="border-t pt-4">
+            <p className="text-xs font-bold text-slate-600 uppercase mb-2">Contatos Encontrados</p>
+            {resultado.contatosDuplicados.map((analise, idx) => (
+              <Card key={analise.contato.id} className={`mb-2 cursor-pointer ${idx === 0 ? 'bg-green-50 border-green-300' : 'bg-slate-50'}`}>
+                <div 
+                  onClick={() => setExpandedContatos(p => ({ ...p, [analise.contato.id]: !p[analise.contato.id] }))}
+                  className="p-3 flex items-center justify-between"
+                >
+                  <div className="flex-1">
+                    <p className="font-bold text-sm">{analise.contato.nome} {idx === 0 && <Badge className="bg-green-600 ml-2">Principal</Badge>}</p>
+                    <p className="text-xs text-slate-600">{analise.quantidadeMensagens} msgs • {analise.threads} threads • Score: {analise.score.toFixed(0)}</p>
+                  </div>
+                  {expandedContatos[analise.contato.id] ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
                 </div>
-              ))}
-            </Card>
-          )}
+
+                {expandedContatos[analise.contato.id] && (
+                  <div className="border-t bg-white p-3 text-xs text-slate-700 space-y-1">
+                    <p><strong>ID:</strong> {analise.contato.id.substring(0, 12)}...</p>
+                    <p><strong>Email:</strong> {analise.contato.email || 'N/A'}</p>
+                    <p><strong>Tipo:</strong> {analise.contato.tipo_contato}</p>
+                    {isAdmin && idx > 0 && (
+                      <Button onClick={() => deletarDuplicata(analise.contato.id)} variant="destructive" size="sm" className="mt-2">
+                        <Trash2 className="w-3 h-3 mr-1" /> Deletar
+                      </Button>
+                    )}
+                  </div>
+                )}
+              </Card>
+            ))}
+          </div>
         </div>
       )}
     </div>
