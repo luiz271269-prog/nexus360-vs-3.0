@@ -41,14 +41,20 @@ Deno.serve(async (req) => {
         return Response.json({ received: true });
       }
 
-      // 1) Buscar/criar Contact usando contactManager (UPSERT ÚNICO)
-      const { getOrCreateContact } = await import('./lib/contactManager.js');
-      const contact = await getOrCreateContact(base44, {
-        telefone: senderPhone,
-        nome: `GoTo ${senderPhone}`,
-        profilePicUrl: null,
-        pushName: null
-      });
+      // 1) Buscar/criar Contact
+      let contact = await base44.entities.Contact.filter({ telefone: senderPhone });
+      if (!contact || contact.length === 0) {
+        contact = await base44.entities.Contact.create({
+          nome: `GoTo ${senderPhone}`,
+          telefone: senderPhone,
+          tipo_contato: 'novo',
+          preferencias_comunicacao: {
+            canal_preferido: 'phone'
+          }
+        });
+      } else {
+        contact = contact[0];
+      }
 
       // 2) Buscar/criar MessageThread
       let thread = await base44.entities.MessageThread.filter({
@@ -115,16 +121,19 @@ Deno.serve(async (req) => {
       // Determinar direção (inbound se veio de fora, outbound se originou do sistema)
       const direction = payload.direction || 'inbound';
 
-      // 1) Buscar/criar Contact usando contactManager (UPSERT ÚNICO)
+      // 1) Buscar/criar Contact baseado no número
       const contactPhone = direction === 'inbound' ? fromNumber : toNumber;
-      const { getOrCreateContact } = await import('./lib/contactManager.js');
+      let contact = await base44.entities.Contact.filter({ telefone: contactPhone });
       
-      const contact = await getOrCreateContact(base44, {
-        telefone: contactPhone,
-        nome: `GoTo ${contactPhone}`,
-        profilePicUrl: null,
-        pushName: null
-      });
+      if (!contact || contact.length === 0) {
+        contact = await base44.entities.Contact.create({
+          nome: `GoTo ${contactPhone}`,
+          telefone: contactPhone,
+          tipo_contato: 'novo'
+        });
+      } else {
+        contact = contact[0];
+      }
 
       // 2) Buscar ou criar CallSession
       let callSession = await base44.entities.CallSession.filter({ provider_call_id: callId });

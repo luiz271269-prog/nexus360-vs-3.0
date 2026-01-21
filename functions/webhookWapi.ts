@@ -487,21 +487,66 @@ async function handleMessage(dados, payloadBruto, base44) {
 
   console.log(`[WAPI] 🏛️ PORTEIRO RESULTADO: ${integracaoId ? '✅ Integração encontrada' : '❌ Não encontrada'} | Canal: ${integracaoInfo?.numero || connectedPhone || 'N/A'}`);
 
-  // BUSCAR/CRIAR CONTATO - USANDO CONTACT MANAGER CENTRALIZADO (FONTE ÚNICA)
+  // BUSCAR/CRIAR CONTATO
   const profilePicUrl = payloadBruto.sender?.profilePicture || payloadBruto.sender?.profilePicThumbObj?.eurl || null;
   let contato;
   try {
-    // ✅ Usar getOrCreateContactCentralized (função centralizada - única fonte da verdade)
-    const { getOrCreateContactCentralized } = await import(new URL('./lib/contactManagerCentralized.js', import.meta.url).href);
+    const telefoneBase = dados.from.replace(/\D/g, '');
+    const variacoes = [
+      dados.from,
+      dados.from.replace('+', ''),
+      '+55' + telefoneBase.substring(2),
+    ];
     
-    contato = await getOrCreateContactCentralized(base44, 
-      dados.from,           // ⚠️ TELEFONE BRUTO - função normaliza internamente
-      dados.pushName || dados.from,
-      profilePicUrl,
-      dados.pushName
-    );
+    if (telefoneBase.length === 13 && telefoneBase.startsWith('55')) {
+      const semNono = telefoneBase.substring(0, 4) + telefoneBase.substring(5);
+      variacoes.push('+' + semNono);
+      variacoes.push(semNono);
+    }
     
-    console.log(`[WAPI] 👤 Contato processado via getOrCreateContactCentralized: ${contato.nome} (${contato.id})`);
+    if (telefoneBase.length === 12 && telefoneBase.startsWith('55')) {
+      const comNono = telefoneBase.substring(0, 4) + '9' + telefoneBase.substring(4);
+      variacoes.push('+' + comNono);
+      variacoes.push(comNono);
+    }
+    
+    let contatos = [];
+    for (const tel of variacoes) {
+      if (contatos.length > 0) break;
+      try {
+        const resultado = await base44.asServiceRole.entities.Contact.filter(
+          { telefone: tel },
+          '-created_date',
+          1
+        );
+        
+        if (resultado) contatos = resultado;
+      } catch {}
+    }
+
+    if (contatos.length > 0) {
+      contato = contatos[0];
+      const update = { ultima_interacao: new Date().toISOString() };
+      if (dados.pushName && (!contato.nome || contato.nome === dados.from)) {
+        update.nome = dados.pushName;
+      }
+      if (profilePicUrl && contato.foto_perfil_url !== profilePicUrl) {
+        update.foto_perfil_url = profilePicUrl;
+      }
+      await base44.asServiceRole.entities.Contact.update(contato.id, update);
+      console.log(`[WAPI] 👤 Contato existente: ${contato.nome}`);
+    } else {
+      contato = await base44.asServiceRole.entities.Contact.create({
+        nome: dados.pushName || dados.from,
+        telefone: dados.from,
+        tipo_contato: 'lead',
+        whatsapp_status: 'verificado',
+        ultima_interacao: new Date().toISOString(),
+        foto_perfil_url: profilePicUrl
+      });
+      
+      console.log(`[WAPI] 👤 Novo contato: ${contato.nome}`);
+    }
   } catch (e) {
     console.error(`[WAPI] ❌ Erro contato:`, e?.message);
     return jsonErr('erro_contato', 500);

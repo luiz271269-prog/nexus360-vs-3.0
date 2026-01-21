@@ -1985,14 +1985,14 @@ export default function ChatWindow({
                 </button>
             }
 
-              {/* Botão Finalizar Conversa */}
+              {/* Botão Marcar como Lida */}
               {getUnreadCount(thread, usuario?.id) > 0 &&
             <button
               onClick={() => marcarComoLidaMutation.mutate()}
               disabled={marcarComoLidaMutation.isPending}
               className="bg-gradient-to-br from-green-500 to-green-600 text-white rounded-lg px-2 py-1.5 shadow-md flex items-center gap-1.5 hover:from-green-600 hover:to-green-700 hover:shadow-lg transition-all disabled:opacity-50">
                   <CheckSquare className="w-3.5 h-3.5" />
-                  <span className="text-xs font-medium whitespace-nowrap">Finalizar ({getUnreadCount(thread, usuario?.id)})</span>
+                  <span className="text-xs font-medium hidden sm:inline">Lida ({getUnreadCount(thread, usuario?.id)})</span>
                 </button>
             }
 

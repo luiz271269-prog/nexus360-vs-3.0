@@ -520,16 +520,16 @@ export default function GerenciadorUsuariosUnificado({
   };
 
   return (
-    <div className="flex h-[calc(100vh-140px)] gap-2">
+    <div className="flex h-[calc(100vh-140px)] gap-3">
       {/* ════════════════════════════════════════════════════════════════════════ */}
-      {/* COLUNA 1: LISTA DE USUÁRIOS - COMPACTA */}
+      {/* COLUNA 1: LISTA DE USUÁRIOS */}
       {/* ════════════════════════════════════════════════════════════════════════ */}
-      <section className="w-56 flex flex-col bg-white rounded-lg border shadow-sm overflow-hidden">
-        <header className="p-2 border-b bg-gradient-to-r from-slate-50 to-slate-100">
-          <div className="flex items-center justify-between mb-1.5">
-            <h2 className="text-xs font-bold text-slate-800">Usuários</h2>
-            <Button size="sm" variant="outline" onClick={novoUsuario} className="h-6 px-1.5 text-xs">
-              <Plus className="w-3 h-3" />
+      <section className="w-64 flex flex-col bg-white rounded-xl border shadow-sm overflow-hidden">
+        <header className="p-3 border-b bg-gradient-to-r from-slate-50 to-slate-100">
+          <div className="flex items-center justify-between mb-2">
+            <h2 className="text-sm font-bold text-slate-800">Usuários</h2>
+            <Button size="sm" variant="outline" onClick={novoUsuario} className="h-7 px-2">
+              <Plus className="w-3 h-3 mr-1" /> Novo
             </Button>
           </div>
           <div className="relative">
@@ -538,56 +538,59 @@ export default function GerenciadorUsuariosUnificado({
               placeholder="Buscar..."
               value={filtro}
               onChange={(e) => setFiltro(e.target.value)}
-              className="h-6 pl-7 text-[11px]"
+              className="h-7 pl-7 text-xs"
             />
           </div>
         </header>
 
         <div className="flex-1 overflow-auto">
           {carregando ? (
-            <div className="p-3 text-center text-xs text-slate-500">
+            <div className="p-4 text-center text-xs text-slate-500">
               <Loader2 className="w-4 h-4 animate-spin mx-auto mb-1" />
               Carregando...
             </div>
           ) : usuariosFiltrados.length === 0 ? (
-            <div className="p-3 text-center text-xs text-slate-500">Nenhum usuário</div>
+            <div className="p-4 text-center text-xs text-slate-500">Nenhum usuário</div>
           ) : (
             <div>
               {Object.entries(usuariosAgrupados).map(([setor, listaUsuarios]) => {
                 const setorConfig = SETOR_LABELS[setor] || SETOR_LABELS.geral;
                 return (
                   <div key={setor}>
-                    <div className={`px-2 py-1 ${setorConfig.cor} border-b sticky top-0 z-10`}>
+                    {/* Header do Grupo/Setor */}
+                    <div className={`px-3 py-1.5 ${setorConfig.cor} border-b sticky top-0 z-10`}>
                       <span className="text-[10px] font-bold">{setorConfig.label}</span>
-                      <Badge variant="outline" className="ml-1.5 text-[9px] px-1 py-0">{listaUsuarios.length}</Badge>
+                      <Badge variant="outline" className="ml-2 text-[9px] px-1">{listaUsuarios.length}</Badge>
                     </div>
+                    {/* Usuários do Grupo */}
                     <ul>
                       {listaUsuarios.map(u => (
                         <li
                           key={u.id}
                           onClick={() => { setUsuarioSelecionado(u); setRecursoSelecionado(RECURSOS_SISTEMA[0]); }}
-                          className={`px-2 py-1.5 cursor-pointer border-b text-xs transition-colors group ${
+                          className={`px-3 py-2 cursor-pointer border-b text-xs transition-colors group ${
                             usuarioSelecionado?.id === u.id
                               ? "bg-indigo-50 border-l-2 border-l-indigo-500"
                               : "hover:bg-slate-50"
                           }`}
                         >
-                          <div className="flex items-center justify-between gap-1">
-                            <span className="font-medium text-slate-800 truncate text-[11px]">{u.nome || "(sem nome)"}</span>
-                            <div className="flex items-center gap-0.5">
-                              <Badge variant={u.ativo ? "default" : "secondary"} className="text-[9px] px-1 py-0">
-                                {u.ativo ? "✓" : "✗"}
+                          <div className="flex items-center justify-between">
+                            <span className="font-medium text-slate-800 truncate">{u.nome || "(sem nome)"}</span>
+                            <div className="flex items-center gap-1">
+                              <Badge variant={u.ativo ? "default" : "secondary"} className="text-[9px] px-1.5 py-0">
+                                {u.ativo ? "Ativo" : "Inativo"}
                               </Badge>
                               <button
                                 onClick={(e) => { e.stopPropagation(); excluirUsuario(u); }}
-                                className="opacity-0 group-hover:opacity-100 p-0.5 hover:bg-red-100 rounded transition-all"
-                                title="Excluir"
+                                className="opacity-0 group-hover:opacity-100 p-1 hover:bg-red-100 rounded transition-all"
+                                title="Excluir usuário"
                               >
                                 <Trash2 className="w-3 h-3 text-red-500" />
                               </button>
                             </div>
                           </div>
                           <div className="text-[10px] text-slate-500 truncate">{u.email}</div>
+                          <div className="text-[10px] text-slate-400">{u.funcao || "—"}</div>
                         </li>
                       ))}
                     </ul>
@@ -600,15 +603,15 @@ export default function GerenciadorUsuariosUnificado({
       </section>
 
       {/* ════════════════════════════════════════════════════════════════════════ */}
-      {/* COLUNA 2: RECURSOS DO SISTEMA - COMPACTA */}
+      {/* COLUNA 2: RECURSOS DO SISTEMA */}
       {/* ════════════════════════════════════════════════════════════════════════ */}
-      <section className="w-56 flex flex-col bg-white rounded-lg border shadow-sm overflow-hidden">
-        <header className="p-2 border-b bg-gradient-to-r from-slate-50 to-slate-100">
-          <h2 className="text-xs font-bold text-slate-800">Recursos</h2>
-          <p className="text-[10px] text-slate-500">Selecione</p>
+      <section className="w-72 flex flex-col bg-white rounded-xl border shadow-sm overflow-hidden">
+        <header className="p-3 border-b bg-gradient-to-r from-slate-50 to-slate-100">
+          <h2 className="text-sm font-bold text-slate-800">Recursos & Páginas</h2>
+          <p className="text-[10px] text-slate-500">Selecione para configurar</p>
         </header>
 
-        <div className="flex-1 overflow-auto p-1.5 space-y-0.5">
+        <div className="flex-1 overflow-auto p-2 space-y-1">
           {RECURSOS_SISTEMA.map(recurso => {
             const selecionado = recursoSelecionado?.id === recurso.id;
             const temAcessoMenu = temPermissao(recurso.id);
@@ -618,21 +621,23 @@ export default function GerenciadorUsuariosUnificado({
                 key={recurso.id}
                 onClick={() => setRecursoSelecionado(recurso)}
                 disabled={!usuarioSelecionado}
-                className={`w-full text-left px-2 py-1.5 rounded-md text-xs transition-all flex items-center gap-1.5 ${
+                className={`w-full text-left px-3 py-2 rounded-lg text-xs transition-all flex items-center gap-2 ${
                   selecionado
                     ? "bg-indigo-100 border border-indigo-300"
                     : "hover:bg-slate-50 border border-transparent"
                 } ${!usuarioSelecionado ? "opacity-50 cursor-not-allowed" : ""}`}
               >
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-1.5">
-                    <span className="font-medium text-[11px] truncate">{recurso.nome}</span>
+                <div className="flex-1">
+                  <div className="flex items-center gap-2">
+                    <span className="font-medium">{recurso.nome}</span>
+                    {recurso.tipo === "config" && <Settings className="w-3 h-3 text-slate-400" />}
                     {recurso.tipo === "menu" && temAcessoMenu && (
-                      <Check className="w-2.5 h-2.5 text-green-600 flex-shrink-0" />
+                      <Check className="w-3 h-3 text-green-600" />
                     )}
                   </div>
+                  <div className="text-[10px] text-slate-500">{recurso.description}</div>
                 </div>
-                <ChevronRight className={`w-3 h-3 text-slate-400 transition-transform flex-shrink-0 ${selecionado ? "rotate-90" : ""}`} />
+                <ChevronRight className={`w-4 h-4 text-slate-400 transition-transform ${selecionado ? "rotate-90" : ""}`} />
               </button>
             );
           })}
@@ -640,48 +645,51 @@ export default function GerenciadorUsuariosUnificado({
       </section>
 
       {/* ════════════════════════════════════════════════════════════════════════ */}
-      {/* COLUNA 3: DETALHES / PERMISSÕES / DADOS - COMPACTA */}
+      {/* COLUNA 3: DETALHES / PERMISSÕES / DADOS */}
       {/* ════════════════════════════════════════════════════════════════════════ */}
-      <section className="flex-1 flex flex-col bg-white rounded-lg border shadow-sm overflow-hidden">
-        <header className="p-2 border-b bg-gradient-to-r from-slate-50 to-slate-100 flex items-center justify-between">
-          <div className="min-w-0 flex-1">
-            <h2 className="text-xs font-bold text-slate-800 truncate">
+      <section className="flex-1 flex flex-col bg-white rounded-xl border shadow-sm overflow-hidden">
+        <header className="p-3 border-b bg-gradient-to-r from-slate-50 to-slate-100 flex items-center justify-between">
+          <div>
+            <h2 className="text-sm font-bold text-slate-800">
               {recursoSelecionado?.nome || "Detalhes"}
             </h2>
+            <p className="text-[10px] text-slate-500">
+              {recursoSelecionado?.description || "Selecione um recurso"}
+            </p>
           </div>
           {salvando && (
-            <div className="flex items-center gap-1 text-[10px] text-amber-600 flex-shrink-0">
+            <div className="flex items-center gap-1 text-xs text-amber-600">
               <Loader2 className="w-3 h-3 animate-spin" />
-              Salvando
+              Salvando...
             </div>
           )}
         </header>
 
         {!usuarioSelecionado ? (
-          <div className="flex-1 flex items-center justify-center text-slate-400 text-xs">
-            <User className="w-6 h-6 mr-2 opacity-50" />
-            Selecione um usuário
+          <div className="flex-1 flex items-center justify-center text-slate-400 text-sm">
+            <User className="w-8 h-8 mr-2 opacity-50" />
+            Selecione um usuário para começar
           </div>
         ) : (
-          <div className="flex-1 overflow-auto p-3">
+          <div className="flex-1 overflow-auto p-4">
             <Tabs defaultValue="dados" className="w-full">
-              <TabsList className="grid grid-cols-3 w-full h-8">
-                <TabsTrigger value="dados" className="text-[11px] py-1">
-                  <User className="w-3 h-3 mr-1" />
+              <TabsList className="grid grid-cols-3 w-full">
+                <TabsTrigger value="dados">
+                  <User className="w-4 h-4 mr-2" />
                   Dados
                 </TabsTrigger>
-                <TabsTrigger value="comunicacao" onClick={() => setRecursoSelecionado({ id: "Comunicacao", nome: "💬 Comunicação", tipo: "menu" })} className="text-[11px] py-1">
-                  <MessageSquare className="w-3 h-3 mr-1" />
+                <TabsTrigger value="comunicacao" onClick={() => setRecursoSelecionado({ id: "Comunicacao", nome: "💬 Comunicação", tipo: "menu" })}>
+                  <MessageSquare className="w-4 h-4 mr-2" />
                   Comunicação
                 </TabsTrigger>
-                <TabsTrigger value="permissoes_nexus" className="text-[11px] py-1">
-                  <Shield className="w-3 h-3 mr-1" />
+                <TabsTrigger value="permissoes_nexus">
+                  <Shield className="w-4 h-4 mr-2" />
                   Permissões
                 </TabsTrigger>
               </TabsList>
 
               {/* ABA: Dados & Perfil */}
-              <TabsContent value="dados" className="space-y-2 mt-2">
+              <TabsContent value="dados" className="space-y-4 mt-4">
                 {recursoSelecionado?.tipo === "config" && (
                   <SecaoDadosUsuario
                     usuarioSelecionado={usuarioSelecionado}
@@ -691,15 +699,15 @@ export default function GerenciadorUsuariosUnificado({
                 )}
 
             {/* ══════════════════════════════════════════════════════════════════ */}
-            {/* PERMISSÕES DO MENU (menu) - COMPACTO */}
+            {/* PERMISSÕES DO MENU (menu) */}
             {/* ══════════════════════════════════════════════════════════════════ */}
             {recursoSelecionado?.tipo === "menu" && (
-              <div className="space-y-2">
+              <div className="space-y-4">
                 {/* Acesso ao Menu Principal */}
-                <div className="flex items-center justify-between p-2 bg-gradient-to-r from-indigo-50 to-purple-50 rounded-md border border-indigo-200">
+                <div className="flex items-center justify-between p-3 bg-gradient-to-r from-indigo-50 to-purple-50 rounded-lg border border-indigo-200">
                   <div>
-                    <p className="text-xs font-bold text-indigo-800">{recursoSelecionado.nome}</p>
-                    <p className="text-[10px] text-indigo-600">Acesso à página</p>
+                    <p className="text-sm font-bold text-indigo-800">{recursoSelecionado.nome}</p>
+                    <p className="text-xs text-indigo-600">Acesso à página principal</p>
                   </div>
                   <Switch
                     checked={temPermissao(recursoSelecionado.id)}
@@ -709,40 +717,39 @@ export default function GerenciadorUsuariosUnificado({
 
                 {/* Ações/Subtelas */}
                 {recursoSelecionado.acoes && recursoSelecionado.acoes.length > 0 && (
-                  <div className="space-y-1">
-                    <h4 className="text-[10px] font-bold text-slate-700">Permissões Granulares</h4>
+                  <div className="space-y-2">
+                    <h4 className="text-xs font-bold text-slate-700">Permissões Granulares</h4>
                     {recursoSelecionado.acoes.map(acao => (
                       <label
                         key={acao.id}
-                        className="flex items-center gap-2 p-1.5 rounded-md hover:bg-slate-50 cursor-pointer transition-colors"
+                        className="flex items-center gap-3 p-2 rounded-lg hover:bg-slate-50 cursor-pointer transition-colors"
                       >
                         <Checkbox
                           checked={temPermissao(acao.id)}
                           onCheckedChange={() => togglePermissao(acao.id)}
                           disabled={!temPermissao(recursoSelecionado.id)}
-                          className="h-3 w-3"
                         />
-                        <div className="flex-1 min-w-0">
-                          <span className="text-[11px] font-medium text-slate-800 truncate block">{acao.nome}</span>
+                        <div className="flex-1">
+                          <span className="text-sm font-medium text-slate-800">{acao.nome}</span>
+                          <Badge variant="outline" className="ml-2 text-[9px]">{acao.tipo}</Badge>
                         </div>
-                        <Badge variant="outline" className="text-[9px] px-1 py-0 flex-shrink-0">{acao.tipo}</Badge>
                       </label>
                     ))}
                   </div>
                 )}
 
                 {/* Resumo */}
-                <div className="p-2 bg-slate-50 rounded-md text-[10px] text-slate-600">
+                <div className="p-3 bg-slate-50 rounded-lg text-xs text-slate-600">
                   <strong>Resumo:</strong> {(usuarioSelecionado.permissoes || []).filter(p => 
                     p === recursoSelecionado.id || (recursoSelecionado.acoes || []).some(a => a.id === p)
-                  ).length} ativas
+                  ).length} permissões ativas neste recurso
                 </div>
               </div>
             )}
           </TabsContent>
 
               {/* ABA: Comunicação */}
-              <TabsContent value="comunicacao" className="space-y-2 mt-2">
+              <TabsContent value="comunicacao" className="space-y-4 mt-4">
                 <SecaoComunicacaoUsuario
                   usuarioSelecionado={usuarioSelecionado}
                   integracoesWhatsApp={integracoesWhatsApp}
@@ -751,7 +758,7 @@ export default function GerenciadorUsuariosUnificado({
               </TabsContent>
 
               {/* ABA: Permissões Nexus360 (ÚNICO MOTOR DE DECISÃO) */}
-              <TabsContent value="permissoes_nexus" className="space-y-2 mt-2">
+              <TabsContent value="permissoes_nexus" className="space-y-4 mt-4">
                 <PainelPermissoesUnificado
                   usuario={usuarioSelecionado}
                   integracoes={integracoesWhatsApp}

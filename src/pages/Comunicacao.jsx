@@ -647,35 +647,24 @@ export default function Comunicacao() {
     try {
       console.log('[Comunicacao] 🆕 Criando novo contato:', dadosContato);
 
+      const telefoneNormalizado = normalizarTelefone(dadosContato.telefone);
+      if (!telefoneNormalizado) {
+        toast.error('❌ Telefone inválido');
+        return;
+      }
+
       toast.info('🔄 Criando contato...');
 
-      // ✅ Usar getOrCreateContactCentralized (fonte única)
-      const { getOrCreateContactCentralized } = await import('../functions/lib/contactManagerCentralized.js');
-      const novoContato = await getOrCreateContactCentralized(base44, 
-        dadosContato.telefone,  // ⚠️ BRUTO - função normaliza
-        dadosContato.nome,
-        null,  // profilePicUrl
-        null   // pushName
-      );
-
-      // ✅ Atualizar com campos adicionais (fora da normalização)
-      const updateData = {
+      // ✅ Criar contato SEM fidelização automática (usuário decide depois)
+      const novoContato = await base44.entities.Contact.create({
+        ...dadosContato,
+        telefone: telefoneNormalizado,
         whatsapp_status: 'nao_verificado',
         tipo_contato: dadosContato.tipo_contato || 'novo',
-      };
-      
-      if (dadosContato.empresa) updateData.empresa = dadosContato.empresa;
-      if (dadosContato.cargo) updateData.cargo = dadosContato.cargo;
-      if (dadosContato.email) updateData.email = dadosContato.email;
-      if (dadosContato.ramo_atividade) updateData.ramo_atividade = dadosContato.ramo_atividade;
-      if (dadosContato.vendedor_responsavel) updateData.vendedor_responsavel = dadosContato.vendedor_responsavel;
-      if (dadosContato.cliente_id) updateData.cliente_id = dadosContato.cliente_id;
+        conexao_origem: null
+      });
 
-      await base44.entities.Contact.update(novoContato.id, updateData);
-      
-      const contatoCompleto = { ...novoContato, ...updateData };
-
-      console.log('[Comunicacao] ✅ Contato processado (novo ou existente):', contatoCompleto.id);
+      console.log('[Comunicacao] ✅ Contato criado:', novoContato.id);
 
       // ✅ FIX: Buscar integração onde USUÁRIO TEM can_send
       const integracaoAtiva = integracoes.find((i) => {
@@ -696,7 +685,7 @@ export default function Comunicacao() {
       });
 
       if (!integracaoAtiva) {
-        // Contato foi criado/encontrado mas não há integração permitida
+        // Contato foi criado mas não há integração permitida
         toast.warning('⚠️ Contato criado, mas você não tem acesso a nenhuma integração WhatsApp ativa');
         toast.info('💡 Peça a um colega para iniciar a conversa');
         
@@ -712,7 +701,7 @@ export default function Comunicacao() {
 
       // ✅ Thread SEMPRE atribuída ao criador (garante acesso total)
       const novaThread = await base44.entities.MessageThread.create({
-        contact_id: contatoCompleto.id,
+        contact_id: novoContato.id,
         whatsapp_integration_id: integracaoAtiva.id,
         status: 'aberta',
         unread_count: 0,

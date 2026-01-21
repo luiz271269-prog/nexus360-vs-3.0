@@ -131,11 +131,11 @@ export default function UsuariosPage() {
   }
 
   return (
-    <div className="p-2 h-full flex flex-col gap-2">
-      <header className="mb-1">
-        <h1 className="text-base font-semibold">Gerenciamento de Usuários & Acessos</h1>
-        <p className="text-[10px] text-gray-500">
-          Controle centralizado de usuários, páginas e permissões granulares.
+    <div className="p-4 h-full flex flex-col gap-3">
+      <header className="mb-2">
+        <h1 className="text-lg font-semibold">Gerenciamento de Usuários & Acessos</h1>
+        <p className="text-xs text-gray-500">
+          Controle centralizado de usuários, páginas e permissões granulares em uma única tela.
         </p>
       </header>
 

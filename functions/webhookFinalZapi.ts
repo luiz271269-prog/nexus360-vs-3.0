@@ -551,21 +551,12 @@ async function handleMessage(dados, payloadBruto, base44) {
   // Primeiro: tentar por connectedPhone (mais preciso - identifica QUAL conexão recebeu)
   if (connectedPhone) {
     try {
-      // ✅ BUSCA INTELIGENTE: Variações do connectedPhone para encontrar integração
-      const phoneBase = String(connectedPhone).replace(/\D/g, '');
+      // Normalizar o connectedPhone para busca
       const phoneVariacoes = [
-        '+' + phoneBase,                    // +5548999322400
-        phoneBase,                          // 5548999322400
-        '+55' + phoneBase.replace(/^55/, ''), // +55 sem duplicado
+        '+' + connectedPhone,
+        connectedPhone,
+        '+55' + connectedPhone.replace(/^55/, '')
       ];
-
-      // Se tem 13 dígitos (55+DDD+9+8), também buscar sem o 9
-      if (phoneBase.length === 13 && phoneBase.startsWith('55')) {
-        const ddd = phoneBase.substring(2, 4);
-        const numero = phoneBase.substring(5);
-        phoneVariacoes.push(`+55${ddd}${numero}`);
-        phoneVariacoes.push(`55${ddd}${numero}`);
-      }
 
       for (const tel of phoneVariacoes) {
         if (integracaoId) break;
@@ -577,7 +568,6 @@ async function handleMessage(dados, payloadBruto, base44) {
         if (int.length > 0) {
           integracaoId = int[0].id;
           integracaoInfo = { nome: int[0].nome_instancia, numero: int[0].numero_telefone };
-          console.log(`[${VERSION}] 🔑 Integração encontrada via connectedPhone variação: ${tel}`);
         }
       }
     } catch {
@@ -604,20 +594,63 @@ async function handleMessage(dados, payloadBruto, base44) {
 
   console.log(`[${VERSION}] 🔗 Integração: ${integracaoId || 'não encontrada'} | Canal: ${integracaoInfo?.numero || connectedPhone || 'N/A'}`);
 
-  // BUSCAR/CRIAR CONTATO - USANDO CONTACT MANAGER CENTRALIZADO (FONTE ÚNICA)
+  // Buscar/criar contato - tentar múltiplas variações do telefone
   let contato;
   try {
-    // ✅ Usar getOrCreateContactCentralized (função centralizada - única fonte da verdade)
-    const { getOrCreateContactCentralized } = await import(new URL('./lib/contactManagerCentralized.js', import.meta.url).href);
-
-    contato = await getOrCreateContactCentralized(base44, 
-      dados.from,           // ⚠️ TELEFONE BRUTO - função normaliza internamente
-      dados.pushName || dados.from,
-      null,                 // Z-API não fornece foto no webhook padrão
-      dados.pushName
-    );
+    // Gerar variações do telefone para busca
+    const telefoneBase = dados.from.replace(/\D/g, '');
+    const variacoes = [
+      dados.from,                                    // +554899322400
+      dados.from.replace('+', ''),                   // 554899322400
+      '+55' + telefoneBase.substring(2),            // +5548999322400 (se já tem 55)
+    ];
     
-    console.log(`[${VERSION}] 👤 Contato processado via contactManager: ${contato.nome} (${contato.id})`);
+    // Se tem 13 dígitos (55+DDD+9+8), também buscar versão sem o 9
+    if (telefoneBase.length === 13 && telefoneBase.startsWith('55')) {
+      const semNono = telefoneBase.substring(0, 4) + telefoneBase.substring(5);
+      variacoes.push('+' + semNono);
+      variacoes.push(semNono);
+    }
+    
+    // Se tem 12 dígitos (55+DDD+8), também buscar versão com o 9
+    if (telefoneBase.length === 12 && telefoneBase.startsWith('55')) {
+      const comNono = telefoneBase.substring(0, 4) + '9' + telefoneBase.substring(4);
+      variacoes.push('+' + comNono);
+      variacoes.push(comNono);
+    }
+    
+    console.log(`[${VERSION}] 🔍 Buscando contato com variações:`, variacoes.slice(0, 3).join(', '));
+    
+    let contatos = [];
+    for (const tel of variacoes) {
+      if (contatos.length > 0) break;
+      try {
+        contatos = await base44.asServiceRole.entities.Contact.filter(
+          { telefone: tel },
+          '-created_date',
+          1
+        );
+      } catch { /* continua */ }
+    }
+
+    if (contatos.length > 0) {
+      contato = contatos[0];
+      const update = { ultima_interacao: new Date().toISOString() };
+      if (dados.pushName && (!contato.nome || contato.nome === dados.from)) {
+        update.nome = dados.pushName;
+      }
+      await base44.asServiceRole.entities.Contact.update(contato.id, update);
+      console.log(`[${VERSION}] 👤 Contato existente: ${contato.nome}`);
+    } else {
+      contato = await base44.asServiceRole.entities.Contact.create({
+        nome: dados.pushName || dados.from,
+        telefone: dados.from,
+        tipo_contato: 'lead',
+        whatsapp_status: 'verificado',
+        ultima_interacao: new Date().toISOString(),
+      });
+      console.log(`[${VERSION}] 👤 Novo contato criado: ${contato.nome}`);
+    }
   } catch (e) {
     console.error(`[${VERSION}] ❌ Erro contato:`, e?.message || e);
     return jsonServerError({ success: false, error: 'erro_contato' });

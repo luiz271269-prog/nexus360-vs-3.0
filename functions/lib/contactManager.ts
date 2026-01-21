@@ -23,48 +23,16 @@ export async function getOrCreateContact(base44, data) {
     throw new Error(`Telefone inválido: ${telefone}`);
   }
   
-  // 🔍 BUSCA INTELIGENTE: Tentar TODAS variações para evitar duplicatas
-  const telefoneBase = phoneE164.replace(/\D/g, '');
-  const variacoes = [
-    phoneE164,                                    // +5548999322400 (normalizado)
-    telefoneBase,                                 // 5548999322400 (sem +)
-  ];
-  
-  // Se tem 13 dígitos (55+DDD+9+8), também buscar sem o 9
-  if (telefoneBase.length === 13 && telefoneBase.startsWith('55')) {
-    const ddd = telefoneBase.substring(2, 4);
-    const numero = telefoneBase.substring(5);
-    variacoes.push(`+55${ddd}${numero}`);        // +554899322400
-    variacoes.push(`55${ddd}${numero}`);         // 554899322400
-  }
-  
-  // Se tem 12 dígitos (55+DDD+8), também buscar com o 9
-  if (telefoneBase.length === 12 && telefoneBase.startsWith('55')) {
-    const ddd = telefoneBase.substring(2, 4);
-    const numero = telefoneBase.substring(4);
-    variacoes.push(`+55${ddd}9${numero}`);       // +5548999322400
-    variacoes.push(`55${ddd}9${numero}`);        // 5548999322400
-  }
-  
-  // ✅ BUSCAR em TODAS variações (evita duplicatas por má normalização anterior)
-  let existing = null;
-  for (const variacao of variacoes) {
-    const result = await base44.asServiceRole.entities.Contact.filter({
-      telefone: variacao
-    }, '-created_date', 1);
-    
-    if (result.length > 0) {
-      existing = result[0];
-      console.log(`[contactManager] ✅ Contato encontrado via variação: ${variacao} -> ID: ${existing.id}`);
-      break;
-    }
-  }
+  // ✅ BUSCA ÚNICA: Apenas por telefone normalizado (ignora conexão/provedor)
+  const existing = await base44.asServiceRole.entities.Contact.filter({
+    telefone: phoneE164
+  }, '-created_date', 1);
   
   const now = new Date().toISOString();
   
-  if (existing) {
-    // ✅ ATUALIZAR contato existente (preserva assigned_user_id, vendedor_responsavel, etc.)
-    const contact = existing;
+  if (existing.length > 0) {
+    // ATUALIZAR contato existente
+    const contact = existing[0];
     
     const updateData = {
       ultima_interacao: now
@@ -80,7 +48,7 @@ export async function getOrCreateContact(base44, data) {
       updateData.nome = pushName;
     }
     
-    // Atualizar foto de perfil (se fornecida)
+    // Atualizar foto de perfil
     if (profilePicUrl && profilePicUrl !== 'null' && contact.foto_perfil_url !== profilePicUrl) {
       updateData.foto_perfil_url = profilePicUrl;
       updateData.foto_perfil_atualizada_em = now;
@@ -89,30 +57,15 @@ export async function getOrCreateContact(base44, data) {
     // ✅ REMOVIDO: Não atualizar conexao_origem
     // Contact é independente de provedor/instância
     
-    // ✅ GARANTIR telefone normalizado no update (corrigir variações antigas)
-    if (contact.telefone !== phoneE164) {
-      console.log(`[contactManager] 🔧 Normalizando telefone: ${contact.telefone} -> ${phoneE164}`);
-      updateData.telefone = phoneE164;
-    }
-    
     // Aplicar update
     await base44.asServiceRole.entities.Contact.update(contact.id, updateData);
     
-    // ✅ SE não tem foto, buscar via API WhatsApp (Z-API não envia no webhook)
-    const contatoAtualizado = { ...contact, ...updateData };
-    if (!contatoAtualizado.foto_perfil_url) {
-      console.log(`[contactManager] 📸 Contato sem foto, tentando buscar via API...`);
-      // Retorna contato sem foto (será buscada later por worker assíncrono)
-      contatoAtualizado._buscar_foto_depois = true;
-    }
-    
     // Retornar contato atualizado
-    return contatoAtualizado;
+    return { ...contact, ...updateData };
   }
   
   // ✅ CRIAR novo contato SEM conexao_origem
   // Contact não pertence a nenhuma conexão específica
-  console.log(`[contactManager] 🆕 Criando novo contato: ${phoneE164}`);
   const newContact = await base44.asServiceRole.entities.Contact.create({
     nome: pushName || nome || phoneE164,
     telefone: phoneE164,
