@@ -135,33 +135,40 @@ export default function SearchAndFilter({
           console.log('[SearchAndFilter] 📊 Telefone:', telefoneNormalizado, '| Total:', todosContatos.length, '| Válidos:', contatosExistentes.length);
 
         } else if (ehBuscaPorNome) {
-          // 2️⃣ BUSCA POR NOME - Apenas CONTATOS (não threads internas/usuários)
+          // 2️⃣ BUSCA POR NOME - Buscar TODOS os contatos do banco e filtrar em memória
           console.log(`[SearchAndFilter] 🔍 Buscando CONTATOS por nome: "${searchTerm}"`);
           
           try {
-            const termoBusca = searchTerm.trim().toLowerCase();
+            // ✅ Normalizar termo (remove acentos, lowercase)
+            const normalizarTexto = (t) => {
+              if (!t) return '';
+              return String(t).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
+            };
             
-            // ✅ Buscar contatos por nome/empresa (APENAS contatos, não usuários)
-            const contatosNome = await base44.entities.Contact.filter(
-              { bloqueado: false }, // Excluir bloqueados
-              'nome', 
-              100 // Limite para performance
-            );
+            const termoBusca = normalizarTexto(searchTerm);
+            
+            // ✅ Buscar TODOS os contatos do banco (sem filtros - filtramos em memória)
+            const todosContatos = await base44.entities.Contact.list('-ultima_interacao', 1000);
 
-            // Filtrar por nome, empresa, cargo ou observações + excluir merged
-            contatosExistentes = contatosNome.filter(c => {
+            // Filtrar por nome, empresa, cargo, email, tags, observações + excluir merged/bloqueados
+            contatosExistentes = todosContatos.filter(c => {
               if (isContatoIgnorado(c)) return false;
-
-              // Safe Access
-              const nome = c.nome?.toLowerCase() || '';
-              const empresa = c.empresa?.toLowerCase() || '';
-              const cargo = c.cargo?.toLowerCase() || '';
-              const obs = c.observacoes?.toLowerCase() || '';
+              if (c.bloqueado) return false; // Bloqueados não aparecem
+              
+              // Normalizar campos
+              const nome = normalizarTexto(c.nome || '');
+              const empresa = normalizarTexto(c.empresa || '');
+              const cargo = normalizarTexto(c.cargo || '');
+              const email = normalizarTexto(c.email || '');
+              const obs = normalizarTexto(c.observacoes || '');
+              const tags = (c.tags || []).map(t => normalizarTexto(t)).join(' ');
 
               return (
                 nome.includes(termoBusca) ||
                 empresa.includes(termoBusca) ||
                 cargo.includes(termoBusca) ||
+                email.includes(termoBusca) ||
+                tags.includes(termoBusca) ||
                 obs.includes(termoBusca)
               );
             });
