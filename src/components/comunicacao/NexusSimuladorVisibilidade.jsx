@@ -16,6 +16,7 @@ import { canUserSeeThreadBase } from '@/components/lib/permissionsService';
 import { base44 } from '@/api/base44Client';
 import { getUserDisplayName } from '../lib/userHelpers';
 import AnalisadorContatosDuplicados from './AnalisadorContatosDuplicados';
+import CorretorVisibilidadeMensagens from './CorretorVisibilidadeMensagens';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 
 export default function NexusSimuladorVisibilidade({ usuario, integracoes = [], threads = [] }) {
@@ -36,7 +37,9 @@ export default function NexusSimuladorVisibilidade({ usuario, integracoes = [], 
   const [filtroDivergencia, setFiltroDivergencia] = useState('todas');
   const [threadExpandida, setThreadExpandida] = useState(null);
   const [modalCorrecaoOpen, setModalCorrecaoOpen] = useState(false);
+  const [modalVisibilidadeOpen, setModalVisibilidadeOpen] = useState(false);
   const [telefoneParaCorrigir, setTelefoneParaCorrigir] = useState(null);
+  const [threadParaCorrigirVisibilidade, setThreadParaCorrigirVisibilidade] = useState(null);
   const [filtroNomeContato, setFiltroNomeContato] = useState('');
   const [filtroUsuarioAtribuido, setFiltroUsuarioAtribuido] = useState('todos');
   const [filtroInstanciaWhatsApp, setFiltroInstanciaWhatsApp] = useState('todas');
@@ -75,6 +78,7 @@ export default function NexusSimuladorVisibilidade({ usuario, integracoes = [], 
   const handleCorrecaoConcluida = async () => {
     toast.info('🔄 Recarregando dados...');
     setModalCorrecaoOpen(false);
+    setModalVisibilidadeOpen(false);
     await recarregarDadosCompletos();
     setSimulationResults(null);
     toast.success('✅ Dados atualizados! Execute a simulação novamente.');
@@ -573,6 +577,23 @@ export default function NexusSimuladorVisibilidade({ usuario, integracoes = [], 
                            <Info className="w-3 h-3 text-indigo-600" />
                           </Button>
 
+                          {/* Botão de correção de visibilidade */}
+                          {temMsgNaoVisivel && (
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setThreadParaCorrigirVisibilidade(thread.id);
+                                setModalVisibilidadeOpen(true);
+                              }}
+                              className="h-6 w-6 p-0 shadow-md bg-orange-600 hover:bg-orange-700 border-2 border-orange-700 animate-pulse"
+                              title="🚨 CORRIGIR VISIBILIDADE - Clique para corrigir"
+                            >
+                              <Eye className="w-3 h-3 text-white font-bold" />
+                            </Button>
+                          )}
+
                           <Button
                             size="sm"
                             variant="ghost"
@@ -846,7 +867,11 @@ export default function NexusSimuladorVisibilidade({ usuario, integracoes = [], 
 
                    // Filtro por usuário atribuído
                    if (filtroUsuarioAtribuido !== 'todos') {
-                     if (thread?.assigned_user_id !== filtroUsuarioAtribuido) return false;
+                     if (filtroUsuarioAtribuido === 'nao_atribuido') {
+                       if (thread?.assigned_user_id) return false;
+                     } else {
+                       if (thread?.assigned_user_id !== filtroUsuarioAtribuido) return false;
+                     }
                    }
 
                    // Filtro por instância WhatsApp
@@ -988,6 +1013,23 @@ export default function NexusSimuladorVisibilidade({ usuario, integracoes = [], 
                        >
                          <Info className="w-3 h-3 text-slate-400" />
                        </Button>
+                       
+                       {/* Botão de correção de visibilidade */}
+                       {msgNaoVisivel && msgNaoVisivel.length > 0 && (
+                         <Button
+                           size="sm"
+                           variant="ghost"
+                           onClick={() => {
+                             setThreadParaCorrigirVisibilidade(res.threadId);
+                             setModalVisibilidadeOpen(true);
+                           }}
+                           className="h-6 w-6 p-0 shadow-md bg-orange-600 hover:bg-orange-700 border-2 border-orange-700 animate-pulse"
+                           title={`🚨 ${msgNaoVisivel.length} MENSAGENS NÃO VISÍVEIS - Clique para corrigir`}
+                         >
+                           <Eye className="w-3 h-3 font-bold text-white" />
+                         </Button>
+                       )}
+
                        <Button
                          size="sm"
                          variant="ghost"
@@ -1127,6 +1169,24 @@ export default function NexusSimuladorVisibilidade({ usuario, integracoes = [], 
           <AnalisadorContatosDuplicados 
             telefone={telefoneParaCorrigir} 
             isAdmin={usuario?.role === 'admin'}
+            onClose={handleCorrecaoConcluida}
+          />
+        </DialogContent>
+      </Dialog>
+
+      {/* 🆕 MODAL: Correção de Visibilidade */}
+      <Dialog open={modalVisibilidadeOpen} onOpenChange={setModalVisibilidadeOpen}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Eye className="w-5 h-5 text-orange-600" />
+              Correção de Visibilidade de Mensagens
+            </DialogTitle>
+          </DialogHeader>
+          <CorretorVisibilidadeMensagens 
+            threadId={threadParaCorrigirVisibilidade}
+            usuario={usuarioAtual}
+            integracoes={integracoes}
             onClose={handleCorrecaoConcluida}
           />
         </DialogContent>
