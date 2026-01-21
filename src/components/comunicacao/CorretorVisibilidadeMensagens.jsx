@@ -51,24 +51,53 @@ export default function CorretorVisibilidadeMensagens({
       // Verificar se a thread é visível
       const threadEhVisivel = canUserSeeThreadBase(usuario, threadData, contato, integracoes);
 
-      // Analisar mensagens
+      // Analisar mensagens - IDENTIFICAR TODAS AS INCONSISTÊNCIAS
       const mensagensComProblema = [];
       
       for (const msg of mensagens) {
-        // Problema 1: Thread bloqueada mas mensagem pública
-        // CORREÇÃO: Só identifica como problema se a thread NÃO está visível E a mensagem é pública
-        // Se a thread JÁ É visível, não há problema com visibilidade de mensagens
+        let temProblema = false;
+        let problema = '';
+        let descricao = '';
+        let correcaoSugerida = '';
+
+        // CASO 1: Thread BLOQUEADA com mensagens PÚBLICAS
+        // Estas mensagens NÃO serão visíveis para o usuário
         if (!threadEhVisivel && msg.visibility === 'public_to_customer') {
-          mensagensComProblema.push({
-            ...msg,
-            problema: 'thread_bloqueada',
-            descricao: 'Thread bloqueada - mensagem pública não será visível',
-            correcaoSugerida: 'marcar_como_interna'
-          });
+          temProblema = true;
+          problema = 'thread_bloqueada_msg_publica';
+          descricao = 'Thread bloqueada - mensagem pública não será exibida';
+          correcaoSugerida = 'marcar_como_interna';
         }
         
-        // Problema 2: Mensagem sem content mas com status enviada (REMOVIDO - não é problema real)
-        // Mensagens podem ter conteúdo vazio legitimamente (ex: mídia, localização, etc)
+        // CASO 2: Thread VISÍVEL mas mensagem marcada como INTERNA
+        // Mensagem poderia ser visível mas está oculta
+        if (threadEhVisivel && msg.visibility === 'internal_only') {
+          // EXCEÇÃO: Mensagens internas propositais são normais
+          // Só marca como problema se não tem indicador de ser intencional
+          if (!msg.content?.includes('[NOTA INTERNA]') && !msg.content?.startsWith('🔒')) {
+            temProblema = true;
+            problema = 'thread_visivel_msg_interna';
+            descricao = 'Thread visível - mensagem marcada como interna (não visível ao cliente)';
+            correcaoSugerida = 'marcar_como_publica';
+          }
+        }
+
+        // CASO 3: Mensagem sem visibility definida (undefined/null)
+        if (!msg.visibility) {
+          temProblema = true;
+          problema = 'visibility_ausente';
+          descricao = 'Visibilidade não definida (undefined)';
+          correcaoSugerida = threadEhVisivel ? 'definir_como_publica' : 'definir_como_interna';
+        }
+
+        if (temProblema) {
+          mensagensComProblema.push({
+            ...msg,
+            problema,
+            descricao,
+            correcaoSugerida
+          });
+        }
       }
 
       setAnalise({
