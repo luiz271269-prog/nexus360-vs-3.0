@@ -386,48 +386,62 @@ export default function AnalisadorContatosDuplicados({ telefone: telefoneProp, i
 
               {/* VISUALIZAÇÃO LADO A LADO - Origem vs Destino */}
               {resultado.contatosDuplicados.length > 1 && (
-                <div className="grid grid-cols-2 gap-3 mt-4">
-                  {/* ORIGEM - A ser mesclada */}
-                  <div className="bg-white rounded-lg p-3 border-2 border-red-300">
-                    <div className="text-xs font-bold text-red-600 mb-2 flex items-center gap-1">
-                      <AlertCircle className="w-3 h-3" />
-                      ORIGEM (Será Mesclada)
+                <div className="grid grid-cols-2 gap-4 mt-4">
+                  {/* ORIGEM - A ser mesclada (VERMELHO) */}
+                  <div className="bg-red-50 rounded-xl p-4 border-2 border-red-300 shadow-lg">
+                    <div className="text-sm font-bold text-red-700 mb-3 flex items-center gap-2">
+                      <AlertCircle className="w-4 h-4" />
+                      ORIGEM - SERÁ MESCLADA
                     </div>
-                    <div className="space-y-2">
+                    <div className="bg-white rounded-lg p-4 border-2 border-red-200 space-y-3">
                       {resultado.duplicatasParaMesclar.map((analise) => (
-                        <div
-                          key={analise.contato.id}
-                          onClick={() => setContatoSelecionadoOrigem(analise.contato.id)}
-                          className={`p-2 rounded cursor-pointer border-2 transition-all ${
-                            contatoSelecionadoOrigem === analise.contato.id
-                              ? 'border-red-500 bg-red-100'
-                              : 'border-slate-200 bg-slate-50 hover:bg-slate-100'
-                          }`}
-                        >
-                          <h4 className="font-semibold text-xs text-slate-900">{analise.contato.nome}</h4>
-                          <p className="text-[10px] text-slate-600 mt-1">
-                            {analise.quantidadeMensagens} mensagens • {analise.threads} threads
-                          </p>
-                          <Badge className="mt-1 text-[9px] bg-red-600">Deletar após merge</Badge>
+                        <div key={analise.contato.id} className="space-y-2">
+                          <div className="flex items-start gap-3">
+                            <div className="w-10 h-10 bg-red-200 rounded-full flex items-center justify-center font-bold text-red-700">
+                              {analise.contato.nome?.charAt(0).toUpperCase()}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <h4 className="font-bold text-sm text-slate-900 truncate">{analise.contato.nome}</h4>
+                              <p className="text-xs text-slate-500">ID: {analise.contato.id?.substring(0, 10)}...</p>
+                            </div>
+                          </div>
+                          {analise.contato.empresa && <p className="text-xs text-slate-600">🏢 {analise.contato.empresa}</p>}
+                          {analise.contato.email && <p className="text-xs text-slate-600">📧 {analise.contato.email}</p>}
+                          <p className="text-xs text-slate-600">📞 {analise.contato.telefone}</p>
+                          <div className="flex gap-1 flex-wrap">
+                            <Badge className="bg-red-600 text-[9px]">🗑️ Será deletado</Badge>
+                            <Badge variant="outline" className="text-[9px]">{analise.quantidadeMensagens} msgs</Badge>
+                            <Badge variant="outline" className="text-[9px]">{analise.threads} threads</Badge>
+                          </div>
                         </div>
                       ))}
                     </div>
                   </div>
 
-                  {/* DESTINO - Principal (mantém os dados) */}
-                  <div className="bg-white rounded-lg p-3 border-2 border-green-500 bg-green-50">
-                    <div className="text-xs font-bold text-green-700 mb-2 flex items-center gap-1">
-                      ✅ DESTINO (Principal)
+                  {/* DESTINO - Principal (VERDE) */}
+                  <div className="bg-green-50 rounded-xl p-4 border-2 border-green-400 shadow-lg">
+                    <div className="text-sm font-bold text-green-700 mb-3 flex items-center gap-2">
+                      ✅ DESTINO - PRINCIPAL
                     </div>
-                    <div className="p-3 rounded bg-white border-2 border-green-400">
-                      <h4 className="font-bold text-sm text-slate-900">{resultado.principal?.nome}</h4>
-                      <Badge className="mt-2 bg-green-600">🏆 Mantém todos os dados</Badge>
-                      <p className="text-[10px] text-slate-600 mt-2">
-                        💾 ID: {resultado.principal?.id?.substring(0, 12)}...
-                      </p>
-                      <p className="text-[10px] text-slate-600">
-                        📱 {resultado.telefone}
-                      </p>
+                    <div className="bg-white rounded-lg p-4 border-2 border-green-300 space-y-3">
+                      <div className="space-y-2">
+                        <div className="flex items-start gap-3">
+                          <div className="w-10 h-10 bg-green-200 rounded-full flex items-center justify-center font-bold text-green-700">
+                            {resultado.principal?.nome?.charAt(0).toUpperCase()}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <h4 className="font-bold text-sm text-slate-900 truncate">{resultado.principal?.nome}</h4>
+                            <p className="text-xs text-slate-500">ID: {resultado.principal?.id?.substring(0, 10)}...</p>
+                          </div>
+                        </div>
+                        {resultado.principal?.empresa && <p className="text-xs text-slate-600">🏢 {resultado.principal?.empresa}</p>}
+                        {resultado.principal?.email && <p className="text-xs text-slate-600">📧 {resultado.principal?.email}</p>}
+                        <p className="text-xs text-slate-600">📞 {resultado.principal?.telefone}</p>
+                        <div className="flex gap-1 flex-wrap">
+                          <Badge className="bg-green-600 text-[9px]">🏆 Mantém dados</Badge>
+                          <Badge className="bg-emerald-600 text-[9px]">✓ Unificado</Badge>
+                        </div>
+                      </div>
                     </div>
                   </div>
                 </div>
