@@ -7,8 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { 
   PlayCircle, AlertTriangle, CheckCircle2, Database, 
   RefreshCw, Zap, Eye, EyeOff, Info, TrendingUp, ArrowRightLeft, Users, User,
-  CheckCheck, Image, Video, Mic, FileText, MapPin, Phone as PhoneIcon, UserCheck,
-  Wrench, Clock
+  CheckCheck, Image, Video, Mic, FileText, MapPin, Phone as PhoneIcon, UserCheck, Clock
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { executarAnaliseEmLote } from '@/components/lib/nexusComparator';
@@ -39,7 +38,6 @@ export default function NexusSimuladorVisibilidade({ usuario, integracoes = [], 
   const [filtroNomeContato, setFiltroNomeContato] = useState('');
   const [filtroUsuarioAtribuido, setFiltroUsuarioAtribuido] = useState('todos');
   const [filtroInstanciaWhatsApp, setFiltroInstanciaWhatsApp] = useState('todas');
-  const [recuperandoMensagens, setRecuperandoMensagens] = useState(false);
   const [resultadoRecuperacao, setResultadoRecuperacao] = useState(null);
 
   // Carregar lista de usuários e contatos
@@ -95,37 +93,7 @@ export default function NexusSimuladorVisibilidade({ usuario, integracoes = [], 
 
   const usuarioAtual = todosUsuarios.find(u => u.id === usuarioSelecionado) || usuario;
 
-  const handleRecuperarMensagens = async () => {
-    if (!window.confirm('⚠️ Recuperar mensagens perdidas de hoje?\n\nIsso irá reprocessar payloads que falharam devido a erros de normalização.')) {
-      return;
-    }
 
-    try {
-      setRecuperandoMensagens(true);
-      toast.info('🔄 Buscando mensagens perdidas...');
-
-      const resultado = await base44.functions.invoke('recuperarMensagensPerdidas', {
-        data_inicio: new Date().toISOString().split('T')[0] + 'T00:00:00'
-      });
-
-      setResultadoRecuperacao(resultado.data);
-
-      if (resultado.data.recuperados > 0) {
-        toast.success(`✅ ${resultado.data.recuperados} mensagens recuperadas!`);
-        // Recarregar contatos e threads
-        await carregarContatos();
-        await runSimulation();
-      } else {
-        toast.info(`ℹ️ Nenhuma mensagem perdida encontrada`);
-      }
-
-    } catch (error) {
-      console.error('Erro ao recuperar mensagens:', error);
-      toast.error('Erro ao recuperar: ' + error.message);
-    } finally {
-      setRecuperandoMensagens(false);
-    }
-  };
 
   const formatarHorario = (timestamp) => {
     if (!timestamp) return "";
@@ -195,6 +163,25 @@ export default function NexusSimuladorVisibilidade({ usuario, integracoes = [], 
     
     try {
       setLoading(true);
+      
+      // ✅ ETAPA 1: Recuperar mensagens perdidas de hoje
+      toast.info('🔄 Recuperando mensagens perdidas...');
+      try {
+        const resultado = await base44.functions.invoke('recuperarMensagensPerdidas', {
+          data_inicio: new Date().toISOString().split('T')[0] + 'T00:00:00'
+        });
+        
+        setResultadoRecuperacao(resultado.data);
+        
+        if (resultado.data.recuperados > 0) {
+          toast.success(`✅ ${resultado.data.recuperados} mensagens recuperadas!`);
+          // Recarregar contatos para incluir os novos
+          await carregarContatos();
+        }
+      } catch (error) {
+        console.error('Erro ao recuperar mensagens:', error);
+        toast.warning('⚠️ Erro na recuperação, continuando análise...');
+      }
       
       // Usar threads já carregadas ou buscar novas
       let threadsParaAnalisar = threads;
@@ -842,26 +829,7 @@ export default function NexusSimuladorVisibilidade({ usuario, integracoes = [], 
         <Card className="overflow-hidden">
           <div className="bg-slate-50 px-2 py-1 border-b flex justify-between items-center">
             <span className="text-xs font-semibold text-slate-700">Comparação Detalhada</span>
-            <div className="flex items-center gap-2">
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={handleRecuperarMensagens}
-                disabled={recuperandoMensagens}
-                className="h-6 text-xs border-orange-300 text-orange-700 hover:bg-orange-50"
-                title="Recuperar mensagens perdidas de hoje"
-              >
-                {recuperandoMensagens ? (
-                  <RefreshCw className="w-3 h-3 animate-spin" />
-                ) : (
-                  <>
-                    <Wrench className="w-3 h-3 mr-1" />
-                    Recuperar Perdidas
-                  </>
-                )}
-              </Button>
-              <span className="text-[10px] text-slate-500">{lastRun?.toLocaleTimeString()}</span>
-            </div>
+            <span className="text-[10px] text-slate-500">{lastRun?.toLocaleTimeString()}</span>
           </div>
           
           <div className="overflow-x-auto">
