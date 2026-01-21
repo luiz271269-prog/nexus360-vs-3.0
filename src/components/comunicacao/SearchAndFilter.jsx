@@ -3,9 +3,9 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { 
-  Search, UserPlus, User, Users, AlertCircle, Phone, Tag, Check, Filter, X, 
-  ChevronDown, Building2, Target, Truck, Handshake, HelpCircle, Sparkles, 
-  Crown, Zap, Star, CheckSquare, Loader2, Microscope 
+  Search, UserPlus, User, Users, Phone, Tag, Check, Filter, X, 
+  ChevronDown, Building2, Target, Truck, Handshake, HelpCircle, 
+  CheckSquare 
 } from 'lucide-react';
 import { normalizarTelefone } from '../lib/phoneUtils';
 import { CATEGORIAS_FIXAS } from './CategorizadorRapido';
@@ -52,13 +52,9 @@ export default function SearchAndFilter({
   onModoSelecaoMultiplaChange,
   // Para diagnóstico
   isAdmin = false,
-  onAbrirDiagnostico,
-  // 🎯 NOVO: Callback para notificar duplicata detectada
-  onDuplicataDetectada
+  onAbrirDiagnostico
 }) {
   const [showFilters, setShowFilters] = useState(false);
-  const [verificandoDuplicatas, setVerificandoDuplicatas] = useState(false);
-  const [duplicataEncontrada, setDuplicataEncontrada] = useState(null);
 
   // Buscar categorias dinâmicas
   const { data: categoriasDB = [] } = useQuery({
@@ -91,162 +87,21 @@ export default function SearchAndFilter({
     emoji: cat.emoji || '🏷️'
   }));
 
-  // ═══════════════════════════════════════════════════════════════════════════════
-  // 🛡️ PREVENÇÃO DE DUPLICATAS - VERIFICAÇÃO POR TELEFONE OU NOME
-  // ═══════════════════════════════════════════════════════════════════════════════
+  // Normalizar telefone para criar contato
   useEffect(() => {
     if (!searchTerm || searchTerm.trim() === '') {
       if (novoContatoTelefone) {
         onNovoContatoTelefoneChange('');
       }
-      setDuplicataEncontrada(null);
       return;
     }
 
     const telefoneNormalizado = normalizarTelefone(searchTerm);
-    const ehBuscaPorNome = !telefoneNormalizado && searchTerm.trim().length >= 2;
-
-    // ✅ VERIFICAR DUPLICATAS POR TELEFONE OU NOME
-    const verificarDuplicata = async () => {
-      setVerificandoDuplicatas(true);
-      try {
-        const { buscarContatosPorTelefone, escolherContatoPrincipal } = await import('../lib/deduplicationEngine');
-        let contatosExistentes = [];
-
-        // Helper para ignorar contatos mesclados (DRY)
-        const isContatoIgnorado = (c) => {
-          return c.tags?.includes('merged') || 
-                 c.observacoes?.includes('[AUTO-MERGE]') || 
-                 c.observacoes?.includes('[MERGED') || 
-                 c.motivo_bloqueio?.includes('[AUTO-MERGE]') || 
-                 c.motivo_bloqueio?.includes('Consolidado em');
-        };
-
-        if (telefoneNormalizado) {
-          // 1️⃣ BUSCA POR TELEFONE - Todas as variações
-          if (telefoneNormalizado !== novoContatoTelefone) {
-            onNovoContatoTelefoneChange(telefoneNormalizado);
-          }
-          const todosContatos = await buscarContatosPorTelefone(base44, telefoneNormalizado);
-
-          // ✅ FILTRAR contatos merged
-          contatosExistentes = todosContatos.filter(c => !isContatoIgnorado(c));
-
-          console.log('[SearchAndFilter] 📊 Telefone:', telefoneNormalizado, '| Total:', todosContatos.length, '| Válidos:', contatosExistentes.length);
-
-        } else if (ehBuscaPorNome) {
-          // 2️⃣ BUSCA POR NOME - Buscar TODOS os contatos do banco e filtrar em memória
-          console.log(`[SearchAndFilter] 🔍 Buscando CONTATOS por nome: "${searchTerm}"`);
-          
-          try {
-            // ✅ Normalizar termo (remove acentos, lowercase)
-            const normalizarTexto = (t) => {
-              if (!t) return '';
-              return String(t).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
-            };
-            
-            const termoBusca = normalizarTexto(searchTerm);
-            
-            // ✅ Buscar TODOS os contatos do banco (sem filtros - filtramos em memória)
-            const todosContatos = await base44.entities.Contact.list('-ultima_interacao', 1000);
-
-            // Filtrar por nome, empresa, cargo, email, tags, observações + excluir merged/bloqueados
-            contatosExistentes = todosContatos.filter(c => {
-              if (isContatoIgnorado(c)) return false;
-              if (c.bloqueado) return false; // Bloqueados não aparecem
-              
-              // Normalizar campos
-              const nome = normalizarTexto(c.nome || '');
-              const empresa = normalizarTexto(c.empresa || '');
-              const cargo = normalizarTexto(c.cargo || '');
-              const email = normalizarTexto(c.email || '');
-              const obs = normalizarTexto(c.observacoes || '');
-              const tags = (c.tags || []).map(t => normalizarTexto(t)).join(' ');
-
-              return (
-                nome.includes(termoBusca) ||
-                empresa.includes(termoBusca) ||
-                cargo.includes(termoBusca) ||
-                email.includes(termoBusca) ||
-                tags.includes(termoBusca) ||
-                obs.includes(termoBusca)
-              );
-            });
-
-            // ✅ LÓGICA DE ORDENAÇÃO INTELIGENTE (Score System)
-            const calcularScore = (contato) => {
-              let score = 0;
-              const nome = contato.nome?.toLowerCase() || '';
-              const empresa = contato.empresa?.toLowerCase() || '';
-              
-              // Prioridade Máxima: Nome Exato ou Começa com
-              if (nome === termoBusca) score += 100;
-              else if (nome.startsWith(termoBusca)) score += 50;
-              else if (nome.includes(termoBusca)) score += 20;
-
-              // Prioridade Média: Empresa
-              if (empresa === termoBusca) score += 40;
-              else if (empresa.includes(termoBusca)) score += 15;
-
-              // Prioridade Baixa: Cargo/Obs
-              const outrosCampos = (contato.cargo || '') + (contato.observacoes || '');
-              if (outrosCampos.toLowerCase().includes(termoBusca)) score += 5;
-
-              return score;
-            };
-
-            contatosExistentes.sort((a, b) => {
-              const scoreA = calcularScore(a);
-              const scoreB = calcularScore(b);
-
-              if (scoreB !== scoreA) return scoreB - scoreA; // Maior score primeiro
-              
-              // Desempate por data (mais recente no topo)
-              return new Date(b.updated_date || b.created_date) - new Date(a.updated_date || a.created_date);
-            });
-
-            console.log(`[SearchAndFilter] ✅ ${contatosExistentes.length} contatos encontrados para "${searchTerm}"`);
-
-          } catch (err) {
-            console.error('[SearchAndFilter] ❌ Erro na busca por nome:', err);
-            contatosExistentes = [];
-          }
-        }
-
-        // 3️⃣ EXIBIR RESULTADO
-        if (contatosExistentes && contatosExistentes.length > 0) {
-          const principal = escolherContatoPrincipal(contatosExistentes);
-          const resultado = {
-            quantidade: contatosExistentes.length,
-            principal: principal,
-            tipo: telefoneNormalizado ? 'telefone' : 'nome'
-          };
-          setDuplicataEncontrada(resultado);
-          
-          // 🎯 NOTIFICAR componente pai (Comunicacao.jsx)
-          if (onDuplicataDetectada) {
-            onDuplicataDetectada(resultado);
-          }
-        } else {
-          setDuplicataEncontrada(null);
-          
-          // 🎯 NOTIFICAR limpeza
-          if (onDuplicataDetectada) {
-            onDuplicataDetectada(null);
-          }
-        }
-
-      } catch (error) {
-        console.error('[SearchAndFilter] Erro ao verificar duplicatas:', error);
-        setDuplicataEncontrada(null);
-      } finally {
-        setVerificandoDuplicatas(false);
-      }
-    };
-
-    // Debounce de 500ms
-    const timer = setTimeout(verificarDuplicata, 500);
-    return () => clearTimeout(timer);
+    if (telefoneNormalizado && telefoneNormalizado !== novoContatoTelefone) {
+      onNovoContatoTelefoneChange(telefoneNormalizado);
+    } else if (!telefoneNormalizado && novoContatoTelefone) {
+      onNovoContatoTelefoneChange('');
+    }
   }, [searchTerm, novoContatoTelefone, onNovoContatoTelefoneChange]);
 
   // Contar filtros ativos
@@ -586,66 +441,8 @@ export default function SearchAndFilter({
         )}
       </AnimatePresence>
 
-      {/* ⚠️ ALERTA DE DUPLICATA - SEMPRE VISÍVEL quando detectada */}
-      <AnimatePresence>
-        {duplicataEncontrada && (
-          <motion.div
-            initial={{ opacity: 0, y: -10 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -10 }}
-            className="bg-orange-50 border-2 border-orange-300 rounded-lg p-3 shadow-md"
-          >
-            <div className="flex items-start gap-2">
-              <AlertCircle className="w-5 h-5 text-orange-600 mt-0.5 flex-shrink-0" />
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-bold text-orange-900">
-                  {duplicataEncontrada.quantidade > 1 ? '⚠️ ' : '✅ '}
-                  {duplicataEncontrada.quantidade} contato{duplicataEncontrada.quantidade > 1 ? 's encontrado(s)' : ' encontrado'}
-                </p>
-                <p className="text-xs text-orange-800 mt-1 font-semibold truncate">
-                  {duplicataEncontrada.principal.nome}
-                  {duplicataEncontrada.principal.empresa && ` • ${duplicataEncontrada.principal.empresa}`}
-                </p>
-                <p className="text-[10px] text-orange-700 mt-1">
-                  📱 {duplicataEncontrada.principal.telefone || 'Sem telefone'} •{' '}
-                  <span className="ml-1 px-1.5 py-0.5 bg-orange-200 rounded">
-                    {duplicataEncontrada.principal.tipo_contato}
-                  </span>
-                </p>
-                {duplicataEncontrada.quantidade > 1 && (
-                  <p className="text-xs text-red-700 mt-2 font-bold">
-                    + {duplicataEncontrada.quantidade - 1} outro(s) contato(s)
-                  </p>
-                )}
-              </div>
-
-              {/* BOTÃO DIAGNÓSTICO/RESOLVER - Sempre visível */}
-              {onAbrirDiagnostico && (
-                <Button
-                  onClick={() => {
-                    const identificador = duplicataEncontrada.principal.telefone || duplicataEncontrada.principal.id;
-                    console.log('[SearchAndFilter] 🔬 Abrindo diagnóstico:', identificador);
-                    onAbrirDiagnostico(identificador);
-                  }}
-                  className={`shadow-lg flex-shrink-0 ${
-                    duplicataEncontrada.quantidade > 1
-                      ? 'bg-red-600 hover:bg-red-700 text-white animate-pulse'
-                      : 'bg-blue-600 hover:bg-blue-700 text-white'
-                  }`}
-                  size="sm"
-                  title={duplicataEncontrada.quantidade > 1 ? "Analisar e corrigir duplicatas" : "Ver diagnóstico"}
-                >
-                  <Microscope className="w-4 h-4" />
-                  {duplicataEncontrada.quantidade > 1 && <span className="ml-1 text-[10px] font-bold">FIX</span>}
-                </Button>
-              )}
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* Botão criar contato - Só aparece quando É telefone novo sem duplicatas */}
-      {novoContatoTelefone && !duplicataEncontrada && (
+      {/* Botão criar contato - Só aparece quando é telefone válido */}
+      {novoContatoTelefone && (
         <motion.div
           initial={{ opacity: 0, y: -10 }}
           animate={{ opacity: 1, y: 0 }}
@@ -653,21 +450,11 @@ export default function SearchAndFilter({
         >
           <Button
             onClick={onCreateContact}
-            disabled={verificandoDuplicatas}
             className="w-full shadow-lg bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 shadow-green-500/25"
             size="sm"
           >
-            {verificandoDuplicatas ? (
-              <>
-                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                Verificando...
-              </>
-            ) : (
-              <>
-                <UserPlus className="w-4 h-4 mr-2" />
-                Criar Contato: {novoContatoTelefone}
-              </>
-            )}
+            <UserPlus className="w-4 h-4 mr-2" />
+            Criar Contato: {novoContatoTelefone}
           </Button>
         </motion.div>
       )}
