@@ -27,7 +27,7 @@ const CACHE_KEY = 'venda_pro_app_version';
 //  VERSIONAMENTO MANUAL
 // ═══════════════════════════════════════════════════════════
 // ATUALIZAR ESTA LINHA A CADA DEPLOY QUE PRECISE DE CACHE BUST
-const APP_VERSION = '202501091200'; // Formato: YYYYMMDDHHMM
+const APP_VERSION = '202501211046'; // Formato: YYYYMMDDHHMM
 
 export default function CacheBuster() {
   const [showUpdateNotification, setShowUpdateNotification] = useState(false);
