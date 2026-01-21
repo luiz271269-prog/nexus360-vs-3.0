@@ -405,11 +405,10 @@ export default React.memo(function MessageBubble({
 
   const toggleContatoSelecionado = (contato) => {
     setContatosSelecionados((prev) => {
-      const jaEsta = prev.find((c) => c.id === contato.id);
-      if (jaEsta) {
-        return prev.filter((c) => c.id !== contato.id);
+      if (prev.includes(contato.id)) {
+        return prev.filter((id) => id !== contato.id);
       } else {
-        return [...prev, contato];
+        return [...prev, contato.id];
       }
     });
   };
@@ -431,7 +430,14 @@ export default React.memo(function MessageBubble({
       let sucessos = 0;
       let erros = 0;
 
-      for (const contato of contatosSelecionados) {
+      for (const contatoId of contatosSelecionados) {
+        const contato = contatos.find(c => c.id === contatoId);
+        if (!contato) {
+          console.error(`[BUBBLE] Contato ${contatoId} não encontrado`);
+          erros++;
+          continue;
+        }
+
         try {
           const resultado = await base44.functions.invoke('encaminharMensagem', {
             message_id: message.id,
@@ -1286,25 +1292,33 @@ export default React.memo(function MessageBubble({
 
             </div>
 
-            {contatosSelecionados.length > 0 &&
-            <div className="flex flex-wrap gap-2 p-3 bg-blue-50 rounded-lg border border-blue-200">
-                {contatosSelecionados.map((contato) =>
-              <Badge
-                key={contato.id}
-                variant="secondary"
-                className="bg-blue-100 text-blue-800 gap-1">
-
-                    {contato.nome || contato.telefone}
-                    <button
-                  onClick={() => toggleContatoSelecionado(contato)}
-                  className="ml-1 hover:bg-blue-200 rounded-full p-0.5">
-
-                      ×
-                    </button>
-                  </Badge>
-              )}
+            {contatosSelecionados.length > 0 && (
+              <div className="flex flex-wrap gap-2 p-3 bg-blue-50 rounded-lg border border-blue-200">
+                {contatosSelecionados.map((contatoId) => {
+                  const contato = contatos.find(c => c.id === contatoId);
+                  if (!contato) return null;
+                  
+                  return (
+                    <Badge
+                      key={contato.id}
+                      variant="secondary"
+                      className="bg-blue-100 text-blue-800 gap-1"
+                    >
+                      {contato.nome || contato.telefone}
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          toggleContatoSelecionado(contato);
+                        }}
+                        className="ml-1 hover:bg-blue-200 rounded-full p-0.5"
+                      >
+                        ×
+                      </button>
+                    </Badge>
+                  );
+                })}
               </div>
-            }
+            )}
 
             <ScrollArea className="h-64 border rounded-lg">
               {!buscaContato || buscaContato.trim().length < 2 ? (
@@ -1323,9 +1337,8 @@ export default React.memo(function MessageBubble({
                 </div>
               ) : (
                 <div className="p-2">
-                  {contatos.
-                map((contato) => {
-                  const selecionado = contatosSelecionados.find((c) => c.id === contato.id);
+                  {contatos.map((contato) => {
+                  const selecionado = contatosSelecionados.includes(contato.id);
 
                   // ✅ Nome formatado: Empresa + Cargo + Nome (igual sidebar)
                   let nomeExibicao = "";
