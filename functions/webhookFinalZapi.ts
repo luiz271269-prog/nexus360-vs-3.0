@@ -614,10 +614,9 @@ async function handleMessage(dados, payloadBruto, base44) {
       dados.from,           // ⚠️ TELEFONE BRUTO - função normaliza internamente
       dados.pushName || dados.from,
       null,                 // Z-API não fornece foto no webhook padrão
-      dados.pushName,
-      integracaoId          // ✅ NOVO: Passa integração para buscar foto depois se faltar
+      dados.pushName
     );
-
+    
     console.log(`[${VERSION}] 👤 Contato processado via contactManager: ${contato.nome} (${contato.id})`);
   } catch (e) {
     console.error(`[${VERSION}] ❌ Erro contato:`, e?.message || e);

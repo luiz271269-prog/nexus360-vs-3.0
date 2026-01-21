@@ -651,13 +651,11 @@ export default function Comunicacao() {
 
       // ✅ Usar getOrCreateContactCentralized (fonte única)
       const { getOrCreateContactCentralized } = await import('../functions/lib/contactManagerCentralized.js');
-      const integracaoAtiva = integracoes.find((i) => i.status === 'conectado');
       const novoContato = await getOrCreateContactCentralized(base44, 
-       dadosContato.telefone,  // ⚠️ BRUTO - função normaliza
-       dadosContato.nome,
-       null,  // profilePicUrl
-       null,  // pushName
-       integracaoAtiva?.id  // ✅ NOVO: Passa integração para buscar foto depois se faltar
+        dadosContato.telefone,  // ⚠️ BRUTO - função normaliza
+        dadosContato.nome,
+        null,  // profilePicUrl
+        null   // pushName
       );
 
       // ✅ Atualizar com campos adicionais (fora da normalização)
@@ -679,8 +677,8 @@ export default function Comunicacao() {
 
       console.log('[Comunicacao] ✅ Contato processado (novo ou existente):', contatoCompleto.id);
 
-      // ✅ FIX: Buscar integração onde USUÁRIO TEM can_send (reutilizar integracaoAtiva se possível)
-      const integracaoParaThread = integracaoAtiva || integracoes.find((i) => {
+      // ✅ FIX: Buscar integração onde USUÁRIO TEM can_send
+      const integracaoAtiva = integracoes.find((i) => {
         if (i.status !== 'conectado') return false;
         
         // Admin pode usar qualquer integração ativa
@@ -697,7 +695,7 @@ export default function Comunicacao() {
         return perm?.can_send === true;
       });
 
-      if (!integracaoParaThread) {
+      if (!integracaoAtiva) {
         // Contato foi criado/encontrado mas não há integração permitida
         toast.warning('⚠️ Contato criado, mas você não tem acesso a nenhuma integração WhatsApp ativa');
         toast.info('💡 Peça a um colega para iniciar a conversa');
@@ -715,7 +713,7 @@ export default function Comunicacao() {
       // ✅ Thread SEMPRE atribuída ao criador (garante acesso total)
       const novaThread = await base44.entities.MessageThread.create({
         contact_id: contatoCompleto.id,
-        whatsapp_integration_id: integracaoParaThread.id,
+        whatsapp_integration_id: integracaoAtiva.id,
         status: 'aberta',
         unread_count: 0,
         total_mensagens: 0,

@@ -25,7 +25,7 @@ Deno.serve(async (req) => {
       return Response.json({ error: 'Não autorizado' }, { status: 401, headers: corsHeaders });
     }
 
-    const { integration_id, contact_id, phone } = await req.json();
+    const { integration_id, phone } = await req.json();
 
     if (!integration_id || !phone) {
       return Response.json({ 
@@ -42,29 +42,11 @@ Deno.serve(async (req) => {
       }, { status: 404, headers: corsHeaders });
     }
 
-    // Normalizar telefone (mesma lógica que contactManagerCentralized)
-    const phoneBase = String(phone).replace(/\D/g, '');
-    const variacoes = [
-      '+' + phoneBase,
-      phoneBase,
-    ];
-    
-    if (phoneBase.length === 13 && phoneBase.startsWith('55')) {
-      const ddd = phoneBase.substring(2, 4);
-      const numero = phoneBase.substring(5);
-      variacoes.push(`+55${ddd}${numero}`);
-      variacoes.push(`55${ddd}${numero}`);
-    }
-    
-    if (phoneBase.length === 12 && phoneBase.startsWith('55')) {
-      const ddd = phoneBase.substring(2, 4);
-      const numero = phoneBase.substring(4);
-      variacoes.push(`+55${ddd}9${numero}`);
-      variacoes.push(`55${ddd}9${numero}`);
-    }
+    // Limpar número (remover +, espaços, etc)
+    const phoneClean = phone.replace(/\D/g, '');
 
     // Montar URL da Z-API
-    const url = `${integracao.base_url_provider}/instances/${integracao.instance_id_provider}/token/${integracao.api_key_provider}/profile-picture?phone=${phoneBase}`;
+    const url = `${integracao.base_url_provider}/instances/${integracao.instance_id_provider}/token/${integracao.api_key_provider}/profile-picture?phone=${phoneClean}`;
 
     // Fazer requisição
     const response = await fetch(url, {
@@ -91,31 +73,17 @@ Deno.serve(async (req) => {
     // Salvar URL no contato se disponível
     if (photoUrl) {
       try {
-        // ✅ Se tem contact_id direto, usar (mais rápido)
-        let contatoId = contact_id;
-        
-        // ✅ Se não, buscar com 6 variações (mesma lógica centralizada)
-        if (!contatoId) {
-          for (const variacao of variacoes) {
-            const contatos = await base44.asServiceRole.entities.Contact.filter({ 
-              telefone: variacao 
-            }, '-created_date', 1);
-            
-            if (contatos.length > 0) {
-              contatoId = contatos[0].id;
-              break;
-            }
-          }
-        }
-        
-        if (contatoId) {
-          await base44.asServiceRole.entities.Contact.update(contatoId, {
+        // Buscar contato pelo telefone normalizado (com + ou sem)
+        const telefoneComPlus = phoneClean.startsWith('+') ? phoneClean : `+${phoneClean}`;
+        const contatos = await base44.asServiceRole.entities.Contact.filter({ 
+          telefone: telefoneComPlus 
+        }, '-created_date', 1);
+
+        if (contatos.length > 0) {
+          await base44.asServiceRole.entities.Contact.update(contatos[0].id, {
             foto_perfil_url: photoUrl,
             foto_perfil_atualizada_em: new Date().toISOString()
           });
-          console.log(`[PROFILE_PIC] ✅ Foto salva no contato: ${contatoId}`);
-        } else {
-          console.warn(`[PROFILE_PIC] ⚠️ Contato não encontrado para atualizar foto`);
         }
       } catch (error) {
         console.warn('Erro ao salvar foto no contato:', error);

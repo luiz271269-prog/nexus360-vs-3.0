@@ -9,44 +9,15 @@
 import { normalizePhone } from './phoneNormalizer.js';
 
 /**
- * Busca foto de perfil via Z-API (async, sem bloquear)
- * @param {object} base44 - SDK Base44
- * @param {string} integrationId - ID da integração Z-API
- * @param {string} contactId - ID do contato
- * @param {string} phoneE164 - Telefone normalizado
- */
-async function buscarFotoPerfilAsync(base44, integrationId, contactId, phoneE164) {
-  try {
-    if (!integrationId) {
-      console.log(`[CONTACT-MANAGER-CENTRAL] ⏭️ Nenhuma integração para buscar foto`);
-      return;
-    }
-
-    // Invocar função de busca de foto (non-blocking)
-    await base44.asServiceRole.functions.invoke('buscarFotoPerfilWhatsApp', {
-      integration_id: integrationId,
-      contact_id: contactId,
-      phone: phoneE164
-    }).catch(err => {
-      console.warn(`[CONTACT-MANAGER-CENTRAL] ⚠️ Erro ao buscar foto (não bloqueia): ${err.message}`);
-      // Não lança erro - falha silenciosa
-    });
-  } catch (e) {
-    console.warn(`[CONTACT-MANAGER-CENTRAL] ⚠️ Exception ao agendar busca de foto:`, e.message);
-  }
-}
-
-/**
  * Busca ou cria contato de forma centralizada
  * @param {object} base44 - SDK Base44
  * @param {string} rawPhone - Telefone em qualquer formato
  * @param {string} nome - Nome do contato
- * @param {string} profilePicUrl - URL da foto de perfil (ou null para buscar)
+ * @param {string} profilePicUrl - URL da foto de perfil
  * @param {string} pushName - Nome do WhatsApp
- * @param {string} integrationId - ID da integração (para buscar foto se null)
  * @returns {object} - Contact atualizado/criado
  */
-export async function getOrCreateContactCentralized(base44, rawPhone, nome, profilePicUrl, pushName, integrationId = null) {
+export async function getOrCreateContactCentralized(base44, rawPhone, nome, profilePicUrl, pushName) {
   console.log(`[CONTACT-MANAGER-CENTRAL] 🎯 Processando contato: ${rawPhone} (nome: ${nome || 'N/A'})`);
   
   // ✅ NORMALIZAR telefone único
@@ -140,15 +111,8 @@ export async function getOrCreateContactCentralized(base44, rawPhone, nome, prof
       throw e;
     }
     
-    // ✅ SE não tem foto E tem integração, BUSCAR depois (async, non-blocking)
-    const contatoAtualizado = { ...existing, ...updateData };
-    if (!contatoAtualizado.foto_perfil_url && integrationId) {
-      console.log(`[CONTACT-MANAGER-CENTRAL] 📸 Agendando busca de foto (contato ID: ${existing.id})`);
-      buscarFotoPerfilAsync(base44, integrationId, existing.id, phoneE164);
-    }
-    
     // Retornar contato atualizado
-    return contatoAtualizado;
+    return { ...existing, ...updateData };
   }
   
   // ✅ CRIAR novo contato (SÓ cria se realmente não existe)
@@ -166,13 +130,6 @@ export async function getOrCreateContactCentralized(base44, rawPhone, nome, prof
     });
     
     console.log(`[CONTACT-MANAGER-CENTRAL] ✅ Novo contato criado: ID ${newContact.id}`);
-    
-    // ✅ SE não tem foto E tem integração, BUSCAR depois (async, non-blocking)
-    if (!newContact.foto_perfil_url && integrationId) {
-      console.log(`[CONTACT-MANAGER-CENTRAL] 📸 Agendando busca de foto (novo contato ID: ${newContact.id})`);
-      buscarFotoPerfilAsync(base44, integrationId, newContact.id, phoneE164);
-    }
-    
     return newContact;
   } catch (e) {
     console.error(`[CONTACT-MANAGER-CENTRAL] ❌ Erro ao criar contato:`, e.message);
