@@ -298,10 +298,8 @@ export default React.memo(function MessageBubble({
   const [apagando, setApagando] = useState(false);
   const [categorizando, setCategorizando] = useState(false);
 
-  const [contatos, setContatos] = useState([]);
   const [contatosSelecionados, setContatosSelecionados] = useState([]);
   const [buscaContato, setBuscaContato] = useState("");
-  const [carregandoContatos, setCarregandoContatos] = useState(false);
 
   const queryClient = useQueryClient();
 
@@ -327,11 +325,7 @@ export default React.memo(function MessageBubble({
       message?.content?.includes('Conversa')
     ));
 
-  useEffect(() => {
-    if (mostrarDialogEncaminhar && contatos.length === 0) {
-      carregarContatos();
-    }
-  }, [mostrarDialogEncaminhar]);
+
 
   const formatarHorario = (timestamp) => {
     if (!timestamp) return '';
@@ -359,24 +353,55 @@ export default React.memo(function MessageBubble({
     }
   };
 
-  const carregarContatos = async () => {
-    setCarregandoContatos(true);
-    try {
-      // ✅ BUSCAR DIRETO NO BANCO (igual SearchAndFilter)
-      const todosContatos = await base44.entities.Contact.list('-ultima_interacao', 1000);
-      
-      const contatosValidos = todosContatos
-        .filter((c) => c && !c.bloqueado && c.telefone)
-        .sort((a, b) => (a.nome || '').localeCompare(b.nome || ''));
+  // ✅ BUSCA SOB DEMANDA - Query reativa baseada no termo de busca
+  const { data: contatos = [], isLoading: carregandoContatos } = useQuery({
+    queryKey: ['contatos-encaminhar', buscaContato],
+    queryFn: async () => {
+      // ✅ Só buscar se termo tiver pelo menos 2 caracteres
+      if (!buscaContato || buscaContato.trim().length < 2) return [];
 
-      setContatos(contatosValidos);
-    } catch (error) {
-      console.error('[BUBBLE] Erro ao carregar contatos:', error);
-      toast.error("Erro ao carregar contatos");
-    } finally {
-      setCarregandoContatos(false);
-    }
-  };
+      const normalizarTexto = (t) => {
+        if (!t) return '';
+        return String(t).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
+      };
+
+      const termoBusca = normalizarTexto(buscaContato);
+      const termoNumeros = buscaContato.replace(/\D/g, '');
+
+      // Buscar todos os contatos do banco
+      const todosContatos = await base44.entities.Contact.list('-ultima_interacao', 1000);
+
+      // Filtrar e ordenar por relevância
+      const contatosValidos = todosContatos
+        .filter((c) => {
+          if (!c || c.bloqueado || !c.telefone) return false;
+
+          const nome = normalizarTexto(c.nome || '');
+          const empresa = normalizarTexto(c.empresa || '');
+          const cargo = normalizarTexto(c.cargo || '');
+          const telefone = (c.telefone || '').replace(/\D/g, '');
+
+          return nome.includes(termoBusca) ||
+                 empresa.includes(termoBusca) ||
+                 cargo.includes(termoBusca) ||
+                 (termoNumeros.length >= 3 && telefone.includes(termoNumeros));
+        })
+        .sort((a, b) => {
+          // Ordenar por relevância
+          const nomeA = normalizarTexto(a.nome || '');
+          const nomeB = normalizarTexto(b.nome || '');
+          
+          const scoreA = nomeA === termoBusca ? 100 : nomeA.startsWith(termoBusca) ? 50 : 10;
+          const scoreB = nomeB === termoBusca ? 100 : nomeB.startsWith(termoBusca) ? 50 : 10;
+          
+          return scoreB - scoreA;
+        });
+
+      return contatosValidos;
+    },
+    enabled: mostrarDialogEncaminhar && buscaContato.trim().length >= 2,
+    staleTime: 30000
+  });
 
   const toggleContatoSelecionado = (contato) => {
     setContatosSelecionados((prev) => {
@@ -1282,44 +1307,23 @@ export default React.memo(function MessageBubble({
             }
 
             <ScrollArea className="h-64 border rounded-lg">
-              {carregandoContatos ?
-              <div className="flex items-center justify-center h-full">
+              {!buscaContato || buscaContato.trim().length < 2 ? (
+                <div className="flex flex-col items-center justify-center h-full text-slate-400">
+                  <Search className="w-12 h-12 mb-3 text-slate-300" />
+                  <p className="text-sm font-medium">Digite para buscar</p>
+                  <p className="text-xs text-slate-400 mt-1">Mínimo 2 caracteres</p>
+                </div>
+              ) : carregandoContatos ? (
+                <div className="flex items-center justify-center h-full">
                   <Loader2 className="w-6 h-6 animate-spin text-blue-600" />
-                </div> :
-              contatos.filter((c) => {
-                if (!buscaContato) return true;
-                const termo = buscaContato.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
-                const nome = (c.nome || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-                const empresa = (c.empresa || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-                const cargo = (c.cargo || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-                const telefone = (c.telefone || '').replace(/\D/g, '');
-                const termoNumeros = buscaContato.replace(/\D/g, '');
-                
-                return nome.includes(termo) || 
-                       empresa.includes(termo) || 
-                       cargo.includes(termo) || 
-                       (termoNumeros.length >= 3 && telefone.includes(termoNumeros));
-              }).length === 0 && !carregandoContatos ?
-              <div className="flex flex-col items-center justify-center h-full text-slate-400">
+                </div>
+              ) : contatos.length === 0 ? (
+                <div className="flex flex-col items-center justify-center h-full text-slate-400">
                   <p className="text-sm">Nenhum contato encontrado</p>
-                </div> :
-
-              <div className="p-2">
+                </div>
+              ) : (
+                <div className="p-2">
                   {contatos.
-                filter((c) => {
-                  if (!buscaContato) return true;
-                  const termo = buscaContato.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
-                  const nome = (c.nome || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-                  const empresa = (c.empresa || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-                  const cargo = (c.cargo || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-                  const telefone = (c.telefone || '').replace(/\D/g, '');
-                  const termoNumeros = buscaContato.replace(/\D/g, '');
-                  
-                  return nome.includes(termo) || 
-                         empresa.includes(termo) || 
-                         cargo.includes(termo) || 
-                         (termoNumeros.length >= 3 && telefone.includes(termoNumeros));
-                }).
                 map((contato) => {
                   const selecionado = contatosSelecionados.find((c) => c.id === contato.id);
 
@@ -1371,9 +1375,9 @@ export default React.memo(function MessageBubble({
                           </div>
                         </button>);
 
-                })}
+                  })}
                 </div>
-              }
+              )}
             </ScrollArea>
           </div>
 
