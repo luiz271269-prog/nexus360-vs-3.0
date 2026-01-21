@@ -318,7 +318,7 @@ export default function Comunicacao() {
       console.log(`[COMUNICACAO] ✅ Busca retornou: ${resultado.length} contatos únicos (limite 100)`);
       return resultado;
     },
-    enabled: debouncedSearchTerm && debouncedSearchTerm.trim().length >= 2,
+    enabled: () => debouncedSearchTerm && debouncedSearchTerm.trim().length >= 2,
     staleTime: 30000
   });
 
@@ -423,7 +423,7 @@ export default function Comunicacao() {
         throw error;
       }
     },
-    enabled: !!threadAtiva && !isRateLimited,
+    enabled: () => !!threadAtiva && !isRateLimited,
     refetchInterval: 20000,
     staleTime: 10000,
     retry: 2,
@@ -490,7 +490,7 @@ export default function Comunicacao() {
       Array.isArray(m.categorias) && m.categorias.includes(selectedCategoria)
       );
     },
-    enabled: !!selectedCategoria && selectedCategoria !== 'all',
+    enabled: () => !!selectedCategoria && selectedCategoria !== 'all',
     staleTime: 10 * 60 * 1000,
     cacheTime: 15 * 60 * 1000,
     retry: 1,
