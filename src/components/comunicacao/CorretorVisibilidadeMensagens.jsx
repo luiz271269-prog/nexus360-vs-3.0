@@ -7,7 +7,7 @@ import { base44 } from '@/api/base44Client';
 import { canUserSeeThreadBase } from '@/components/lib/permissionsService';
 import { 
   Eye, EyeOff, RefreshCw, CheckCircle2, AlertTriangle, 
-  Zap, MessageSquare, Database, TrendingUp 
+  Zap, MessageSquare, Database, TrendingUp, User 
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -239,8 +239,51 @@ export default function CorretorVisibilidadeMensagens({
     );
   }
 
+  // Formatar nome do contato
+  let nomeContato = "Thread sem contato";
+  if (analise.contato) {
+    if (analise.contato.empresa) nomeContato = analise.contato.empresa;
+    else if (analise.contato.nome && analise.contato.nome !== analise.contato.telefone) nomeContato = analise.contato.nome;
+    else if (analise.contato.telefone) nomeContato = analise.contato.telefone;
+  }
+
   return (
     <div className="space-y-4">
+      {/* Cabeçalho com Nome do Contato */}
+      <div className="bg-gradient-to-r from-purple-100 to-indigo-100 rounded-lg p-4 border-2 border-purple-300">
+        <div className="flex items-center gap-3">
+          <div className="w-12 h-12 rounded-full bg-gradient-to-br from-purple-500 to-indigo-600 flex items-center justify-center text-white font-bold text-lg shadow-lg">
+            {analise.contato?.foto_perfil_url ? (
+              <img 
+                src={analise.contato.foto_perfil_url} 
+                alt={nomeContato} 
+                className="w-full h-full object-cover rounded-full" 
+                onError={(e) => { e.target.style.display = 'none'; }} 
+              />
+            ) : (
+              nomeContato.charAt(0).toUpperCase()
+            )}
+          </div>
+          <div className="flex-1">
+            <h3 className="text-lg font-bold text-slate-900">{nomeContato}</h3>
+            {analise.contato && (
+              <div className="flex items-center gap-2 mt-1">
+                {analise.contato.telefone && (
+                  <Badge variant="outline" className="text-xs">
+                    📱 {analise.contato.telefone}
+                  </Badge>
+                )}
+                {analise.contato.email && (
+                  <Badge variant="outline" className="text-xs">
+                    ✉️ {analise.contato.email}
+                  </Badge>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+
       {/* Resumo da Análise */}
       <Card className="border-purple-200 bg-gradient-to-r from-purple-50 to-indigo-50">
         <CardHeader>
@@ -281,8 +324,14 @@ export default function CorretorVisibilidadeMensagens({
           {analise.contato && (
             <div className="bg-white rounded-lg p-3 border border-slate-200">
               <div className="text-xs space-y-1">
-                <div><span className="font-semibold">Contato:</span> {analise.contato.nome}</div>
+                <div><span className="font-semibold">Contato:</span> {nomeContato}</div>
                 <div><span className="font-semibold">Telefone:</span> {analise.contato.telefone}</div>
+                {analise.contato.empresa && (
+                  <div><span className="font-semibold">Empresa:</span> {analise.contato.empresa}</div>
+                )}
+                {analise.contato.cargo && (
+                  <div><span className="font-semibold">Cargo:</span> {analise.contato.cargo}</div>
+                )}
                 <div><span className="font-semibold">Atribuído:</span> {analise.thread.assigned_user_id ? 'Sim' : 'Não'}</div>
                 <div><span className="font-semibold">Setor:</span> {analise.thread.sector_id || 'N/A'}</div>
                 <div><span className="font-semibold">Fidelizado:</span> {analise.contato.is_cliente_fidelizado ? 'Sim' : 'Não'}</div>
@@ -317,19 +366,16 @@ export default function CorretorVisibilidadeMensagens({
           <CardContent className="space-y-2">
             {analise.estrategiasCorrecao.map((estrategia, idx) => {
               const Icon = estrategia.icone;
-              const corBg = `bg-${estrategia.cor}-50`;
-              const corBorder = `border-${estrategia.cor}-200`;
-              const corText = `text-${estrategia.cor}-700`;
               
               return (
                 <div 
                   key={idx} 
-                  className={`${corBg} ${corBorder} border rounded-lg p-3 flex items-center justify-between`}
+                  className={`bg-${estrategia.cor}-50 border-${estrategia.cor}-200 border rounded-lg p-3 flex items-center justify-between`}
                 >
                   <div className="flex items-center gap-3">
-                    <Icon className={`w-5 h-5 ${corText}`} />
+                    <Icon className={`w-5 h-5 text-${estrategia.cor}-700`} />
                     <div>
-                      <h4 className={`font-semibold text-sm ${corText}`}>
+                      <h4 className={`font-semibold text-sm text-${estrategia.cor}-700`}>
                         {estrategia.titulo}
                       </h4>
                       <p className="text-xs text-slate-600">{estrategia.descricao}</p>
@@ -362,19 +408,25 @@ export default function CorretorVisibilidadeMensagens({
           <CardContent>
             <div className="space-y-2 max-h-64 overflow-y-auto">
               {analise.mensagensComProblema.map((msg, idx) => (
-                <div key={idx} className="bg-orange-50 border border-orange-200 rounded-lg p-2">
+                <div key={idx} className="bg-orange-50 border border-orange-200 rounded-lg p-3">
                   <div className="text-xs space-y-1">
-                    <div className="flex items-center justify-between">
-                      <span className="font-semibold text-orange-700">{msg.problema}</span>
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="font-semibold text-orange-700 text-sm">
+                        {msg.problema === 'thread_bloqueada' ? '🚨 Thread Bloqueada' : '⚠️ Sem Conteúdo'}
+                      </span>
                       <Badge className="bg-orange-600 text-white text-[9px]">
                         {msg.correcaoSugerida}
                       </Badge>
                     </div>
-                    <div className="text-slate-600">{msg.descricao}</div>
-                    <div className="text-slate-500">
-                      <span className="font-semibold">Conteúdo:</span> {msg.content?.substring(0, 80) || 'Sem conteúdo'}...
+                    <div className="text-slate-700">
+                      <span className="font-semibold">Remetente:</span> {msg.sender_type === 'user' ? 'Atendente' : nomeContato}
                     </div>
-                    <div className="text-[10px] text-slate-400">
+                    <div className="text-slate-600">{msg.descricao}</div>
+                    <div className="bg-white rounded p-2 border border-orange-100 mt-2">
+                      <span className="font-semibold">Conteúdo:</span> 
+                      <p className="text-slate-500 mt-1">{msg.content?.substring(0, 120) || 'Sem conteúdo'}...</p>
+                    </div>
+                    <div className="text-[10px] text-slate-400 mt-2">
                       ID: {msg.id?.substring(0, 12)}... | {new Date(msg.created_date).toLocaleString('pt-BR')}
                     </div>
                   </div>
