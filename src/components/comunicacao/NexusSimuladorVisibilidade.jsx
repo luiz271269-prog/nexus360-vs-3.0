@@ -850,13 +850,14 @@ export default function NexusSimuladorVisibilidade({ usuario, integracoes = [], 
             <table className="w-full text-xs">
               <thead className="bg-slate-100 text-slate-600 font-semibold text-[10px]">
                 <tr>
-                   <th className="px-2 py-1 text-left">Contato</th>
-                   <th className="px-2 py-1 text-center w-16">Atual</th>
-                   <th className="px-2 py-1 text-center w-16">Nexus</th>
-                   <th className="px-2 py-1 text-left flex-1">Decisão (Regra • Código)</th>
-                   <th className="px-2 py-1 text-left">Status</th>
-                   <th className="px-2 py-1 text-center w-16">Ações</th>
-                 </tr>
+                  <th className="px-2 py-1 text-left">Contato</th>
+                  <th className="px-2 py-1 text-center w-24">Atual</th>
+                  <th className="px-2 py-1 text-center w-24">Nexus</th>
+                  <th className="px-2 py-1 text-left w-32">Regra Nexus</th>
+                  <th className="px-2 py-1 text-left w-40">Código Decisão</th>
+                  <th className="px-2 py-1 text-left">Status</th>
+                  <th className="px-2 py-1 text-center w-16">Detalhes</th>
+                </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
                {simulationResults.resultados
@@ -957,19 +958,13 @@ export default function NexusSimuladorVisibilidade({ usuario, integracoes = [], 
                              🚨
                            </Badge>
                          )}
-                         <div className={`w-7 h-7 rounded-full flex items-center justify-center text-white font-bold text-[10px] shadow-sm overflow-hidden relative ${
+                         <div className={`w-7 h-7 rounded-full flex items-center justify-center text-white font-bold text-[10px] shadow-sm overflow-hidden ${
                            hasUnread ? 'bg-gradient-to-br from-orange-400 to-red-500' : 'bg-slate-400'
                          }`}>
                            {contato?.foto_perfil_url ? (
                              <img src={contato.foto_perfil_url} alt="" className="w-full h-full object-cover" onError={(e) => { e.target.style.display = 'none'; }} />
                            ) : (
                              nomeExibicao.charAt(0).toUpperCase()
-                           )}
-                           {/* 🆕 Indicador de Duplicata */}
-                           {temDuplicataTabela && (
-                             <div className="absolute -bottom-1 -right-1 w-3.5 h-3.5 bg-red-600 rounded-full flex items-center justify-center border-2 border-white shadow-md animate-pulse" title={`🚨 ${temDuplicataTabela.count} duplicatas`}>
-                               <span className="text-white text-[8px] font-bold">{temDuplicataTabela.count}</span>
-                             </div>
                            )}
                          </div>
                          <div className="flex-1 min-w-0">
@@ -983,11 +978,6 @@ export default function NexusSimuladorVisibilidade({ usuario, integracoes = [], 
                            {temProblemaGrave && (
                              <p className="text-[10px] text-red-600 font-semibold">
                                ⚠️ {semContato?.motivo || contatoInvalido?.motivo || msgSuspeita?.motivo || (msgsVisibilidade && `${msgsVisibilidade.length} msgs com problema de visibilidade`)}
-                             </p>
-                           )}
-                           {temDuplicataTabela && (
-                             <p className="text-[10px] text-red-600 font-semibold">
-                               📱 {temDuplicataTabela.count} contatos com mesmo número
                              </p>
                            )}
                            <div className="flex items-center gap-1">
@@ -1022,15 +1012,16 @@ export default function NexusSimuladorVisibilidade({ usuario, integracoes = [], 
                     </td>
 
                     <td className="px-2 py-1">
-                       <div className="flex items-center gap-1 flex-wrap">
-                         <Badge variant="outline" className="text-[9px] font-mono">
-                           {res.nexusDecisionPath?.[0]?.split(':')[1] || 'N/A'}
-                         </Badge>
-                         <code className="text-[9px] text-purple-700 font-mono bg-purple-50 px-1.5 py-0.5 rounded">
-                           {res.nexusReasonCode || 'N/A'}
-                         </code>
-                       </div>
-                     </td>
+                      <Badge variant="outline" className="text-[9px] font-mono">
+                        {res.nexusDecisionPath?.[0]?.split(':')[1] || 'N/A'}
+                      </Badge>
+                    </td>
+
+                    <td className="px-2 py-1">
+                      <code className="text-[9px] text-purple-700 font-mono bg-purple-50 px-1 py-0.5 rounded">
+                        {res.nexusReasonCode || 'N/A'}
+                      </code>
+                    </td>
 
                     <td className="px-2 py-1">
                       {res.isMatch ? (
@@ -1125,59 +1116,16 @@ export default function NexusSimuladorVisibilidade({ usuario, integracoes = [], 
                               <div className="grid grid-cols-3 gap-2 text-[10px]">
                                 <div><span className="font-semibold">ID:</span> {thread?.id?.substring(0, 12)}...</div>
                                 <div><span className="font-semibold">Tipo:</span> {res.threadType}</div>
-                                <div><span className="font-semibold">Canal:</span> {thread?.channel || thread?.whatsapp_integration_id ? 'whatsapp' : 'N/A'}</div>
+                                <div><span className="font-semibold">Canal:</span> {thread?.channel || 'N/A'}</div>
                                 <div><span className="font-semibold">Atribuído:</span> {thread?.assigned_user_id ? getUserDisplayName(thread.assigned_user_id, todosUsuarios) : 'Não'}</div>
                                 <div><span className="font-semibold">Setor:</span> {thread?.sector_id || 'Sem setor'}</div>
                                 <div><span className="font-semibold">Integração:</span> #{thread?.whatsapp_integration_id?.substring(0, 8) || 'N/A'}</div>
                                 <div><span className="font-semibold">Fidelizado:</span> {contato?.is_cliente_fidelizado ? '✓ Sim' : 'Não'}</div>
                                 <div><span className="font-semibold">Última msg:</span> {formatarHorario(thread?.last_message_at)}</div>
-                                <div><span className="font-semibold">Não lidas:</span> {thread?.unread_count || 0} {thread?.unread_by ? `(mapa: ${Object.keys(thread.unread_by).length})` : ''}</div>
-                                <div><span className="font-semibold">Enviadas:</span> {thread?.last_outbound_at ? '✓ Sim' : 'Não'}</div>
-                                <div><span className="font-semibold">Recebidas:</span> {thread?.last_inbound_at ? '✓ Sim' : 'Não'}</div>
-                                <div><span className="font-semibold">Msg Total:</span> {thread?.total_mensagens || 'N/A'}</div>
+                                <div><span className="font-semibold">Não lidas:</span> {thread?.unread_count || 0}</div>
                               </div>
                             </div>
                           </div>
-
-                          {/* 🆕 Duplicatas Detectadas */}
-                          {temDuplicataTabela && (
-                            <div className="col-span-2 mt-2">
-                              <h4 className="font-bold text-red-700 mb-1 flex items-center gap-2">
-                                <Users className="w-4 h-4" />
-                                🚨 Contatos Duplicados ({temDuplicataTabela.count})
-                              </h4>
-                              <div className="bg-red-50 rounded p-2 border border-red-200">
-                                <p className="text-[10px] text-red-700 mb-2">
-                                  <strong>Telefone:</strong> {contato?.telefone}
-                                </p>
-                                <div className="space-y-1">
-                                  {temDuplicataTabela.contactIds?.map((contactId, idx) => {
-                                    const contatoDuplicado = contatos.find(c => c.id === contactId);
-                                    const threadDuplicada = threads.find(t => t.contact_id === contactId && t.whatsapp_integration_id === thread?.whatsapp_integration_id);
-                                    const mesMsgsInbound = threadDuplicada?.last_inbound_at ? '📥 Recebidas' : '';
-                                    const mesMsgsOutbound = threadDuplicada?.last_outbound_at ? '📤 Enviadas' : '';
-                                    const marcaMsgs = `${mesMsgsInbound} ${mesMsgsOutbound}`.trim();
-
-                                    return (
-                                      <div key={idx} className="text-[10px] bg-white rounded p-1.5 border border-red-100">
-                                        <div className="font-semibold text-red-800">
-                                          #{contactId.substring(0, 8)} - {contatoDuplicado?.nome || 'Sem nome'}
-                                        </div>
-                                        <div className="text-slate-600">
-                                          Thread: {threadDuplicada?.id?.substring(0, 8) || 'N/A'}
-                                        </div>
-                                        {marcaMsgs && (
-                                          <div className="text-slate-500 mt-0.5">
-                                            {marcaMsgs}
-                                          </div>
-                                        )}
-                                      </div>
-                                    );
-                                  })}
-                                </div>
-                              </div>
-                            </div>
-                          )}
 
                           {/* 🆕 Problemas de Visibilidade */}
                           {msgsVisibilidade && msgsVisibilidade.length > 0 && (

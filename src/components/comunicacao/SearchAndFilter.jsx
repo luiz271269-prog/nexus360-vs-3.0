@@ -5,7 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { 
   Search, UserPlus, User, Users, Phone, Tag, Check, Filter, X, 
   ChevronDown, Building2, Target, Truck, Handshake, HelpCircle, 
-  CheckSquare, AlertCircle 
+  CheckSquare 
 } from 'lucide-react';
 import { normalizarTelefone } from '../lib/phoneUtils';
 import { CATEGORIAS_FIXAS } from './CategorizadorRapido';
