@@ -371,31 +371,42 @@ export default React.memo(function MessageBubble({
       // Buscar todos os contatos do banco
       const todosContatos = await base44.entities.Contact.list('-ultima_interacao', 1000);
 
-      // Filtrar e ordenar por relevância
-      const contatosValidos = todosContatos
-        .filter((c) => {
-          if (!c || c.bloqueado || !c.telefone) return false;
+      // Filtrar por termo de busca
+      const contatosFiltrados = todosContatos.filter((c) => {
+        if (!c || c.bloqueado || !c.telefone) return false;
 
-          const nome = normalizarTexto(c.nome || '');
-          const empresa = normalizarTexto(c.empresa || '');
-          const cargo = normalizarTexto(c.cargo || '');
-          const telefone = (c.telefone || '').replace(/\D/g, '');
+        const nome = normalizarTexto(c.nome || '');
+        const empresa = normalizarTexto(c.empresa || '');
+        const cargo = normalizarTexto(c.cargo || '');
+        const telefone = (c.telefone || '').replace(/\D/g, '');
 
-          return nome.includes(termoBusca) ||
-                 empresa.includes(termoBusca) ||
-                 cargo.includes(termoBusca) ||
-                 (termoNumeros.length >= 3 && telefone.includes(termoNumeros));
-        })
-        .sort((a, b) => {
-          // Ordenar por relevância
-          const nomeA = normalizarTexto(a.nome || '');
-          const nomeB = normalizarTexto(b.nome || '');
-          
-          const scoreA = nomeA === termoBusca ? 100 : nomeA.startsWith(termoBusca) ? 50 : 10;
-          const scoreB = nomeB === termoBusca ? 100 : nomeB.startsWith(termoBusca) ? 50 : 10;
-          
-          return scoreB - scoreA;
-        });
+        return nome.includes(termoBusca) ||
+               empresa.includes(termoBusca) ||
+               cargo.includes(termoBusca) ||
+               (termoNumeros.length >= 3 && telefone.includes(termoNumeros));
+      });
+
+      // ✅ DEDUPLICAR por telefone (manter o mais recente)
+      const contatosUnicos = new Map();
+      contatosFiltrados.forEach((c) => {
+        const tel = c.telefone.replace(/\D/g, '');
+        const existente = contatosUnicos.get(tel);
+        
+        if (!existente || new Date(c.ultima_interacao || 0) > new Date(existente.ultima_interacao || 0)) {
+          contatosUnicos.set(tel, c);
+        }
+      });
+
+      // Ordenar por relevância
+      const contatosValidos = Array.from(contatosUnicos.values()).sort((a, b) => {
+        const nomeA = normalizarTexto(a.nome || '');
+        const nomeB = normalizarTexto(b.nome || '');
+        
+        const scoreA = nomeA === termoBusca ? 100 : nomeA.startsWith(termoBusca) ? 50 : 10;
+        const scoreB = nomeB === termoBusca ? 100 : nomeB.startsWith(termoBusca) ? 50 : 10;
+        
+        return scoreB - scoreA;
+      });
 
       return contatosValidos;
     },
