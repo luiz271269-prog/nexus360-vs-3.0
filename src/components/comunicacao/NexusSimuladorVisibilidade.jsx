@@ -7,11 +7,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { 
   PlayCircle, AlertTriangle, CheckCircle2, Database, 
   RefreshCw, Zap, Eye, EyeOff, Info, TrendingUp, ArrowRightLeft, Users, User,
-  CheckCheck, Image, Video, Mic, FileText, MapPin, Phone as PhoneIcon, UserCheck
+  CheckCheck, Image, Video, Mic, FileText, MapPin, Phone as PhoneIcon, UserCheck, MessageSquare
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { executarAnaliseEmLote } from '@/components/lib/nexusComparator';
 import { buildPolicyFromLegacyUser } from '@/components/lib/nexusLegacyConverter';
+import { canUserSeeThreadBase } from '@/components/lib/permissionsService';
 import { base44 } from '@/api/base44Client';
 import { getUserDisplayName } from '../lib/userHelpers';
 import AnalisadorContatosDuplicados from './AnalisadorContatosDuplicados';
@@ -30,6 +31,7 @@ export default function NexusSimuladorVisibilidade({ usuario, integracoes = [], 
   const [filtroIntegracao, setFiltroIntegracao] = useState('todas');
   const [filtroTipo, setFiltroTipo] = useState('todos');
   const [contatos, setContatos] = useState([]);
+  const [mensagens, setMensagens] = useState([]);
   const [filtroRegra, setFiltroRegra] = useState('todas');
   const [filtroDivergencia, setFiltroDivergencia] = useState('todas');
   const [threadExpandida, setThreadExpandida] = useState(null);
@@ -39,35 +41,41 @@ export default function NexusSimuladorVisibilidade({ usuario, integracoes = [], 
   const [filtroUsuarioAtribuido, setFiltroUsuarioAtribuido] = useState('todos');
   const [filtroInstanciaWhatsApp, setFiltroInstanciaWhatsApp] = useState('todas');
 
-  // Carregar lista de usuários e contatos
+  // Carregar lista de usuários e dados iniciais
   useEffect(() => {
     carregarUsuarios();
-    carregarContatos();
+    recarregarDadosCompletos();
   }, []);
 
-  const carregarContatos = async () => {
+  const recarregarDadosCompletos = async () => {
     try {
-      const contacts = await base44.entities.Contact.list();
+      toast.info('🔄 Recarregando contatos e mensagens...');
+      
+      const [contacts, messages, threadsData] = await Promise.all([
+        base44.entities.Contact.list(),
+        base44.entities.Message.list(),
+        base44.entities.MessageThread.list()
+      ]);
+      
       setContatos(contacts || []);
-      console.log('[SIMULADOR] ✅ Contatos recarregados:', contacts.length);
+      setMensagens(messages || []);
+      console.log('[SIMULADOR] ✅ Dados recarregados:', {
+        contatos: contacts.length,
+        mensagens: messages.length,
+        threads: threadsData.length
+      });
+      
+      toast.success(`✅ ${contacts.length} contatos e ${messages.length} mensagens carregadas`);
     } catch (error) {
-      console.error('Erro ao carregar contatos:', error);
+      console.error('Erro ao recarregar dados:', error);
+      toast.error('Erro ao recarregar dados');
     }
   };
 
   const handleCorrecaoConcluida = async () => {
     toast.info('🔄 Recarregando dados...');
     setModalCorrecaoOpen(false);
-    // Recarregar TUDO - contatos E threads
-    await Promise.all([
-      carregarContatos(),
-      (async () => {
-        const threadsData = await base44.entities.MessageThread.list();
-        setThreads(threadsData || []);
-        console.log('[SIMULADOR] ✅ Threads recarregadas:', threadsData.length);
-      })()
-    ]);
-    // Limpar resultados antigos para forçar nova análise
+    await recarregarDadosCompletos();
     setSimulationResults(null);
     toast.success('✅ Dados atualizados! Execute a simulação novamente.');
   };
@@ -189,11 +197,12 @@ export default function NexusSimuladorVisibilidade({ usuario, integracoes = [], 
         return;
       }
       
-      // 🔍 DETECTAR DUPLICATAS POR TELEFONE (análise automática)
+      // 🔍 DETECTAR PROBLEMAS CRÍTICOS
       const mapaTelefones = new Map();
       const threadsSemContato = [];
       const threadsMensagensSuspeitas = [];
       const threadsContatoInvalido = [];
+      const mensagensNaoVisiveis = [];
       
       for (const thread of threadsParaAnalisar) {
         // Ignorar threads internas - elas não precisam de contact_id
@@ -203,7 +212,7 @@ export default function NexusSimuladorVisibilidade({ usuario, integracoes = [], 
 
         const contato = thread.contact_id ? contatos.find(c => c.id === thread.contact_id) : null;
         
-        // ERRO CRÍTICO 1: Thread sem contact_id ou contato não encontrado (apenas para threads externas)
+        // ERRO CRÍTICO 1: Thread sem contact_id ou contato não encontrado
         if (!thread.contact_id || !contato) {
           threadsSemContato.push({
             threadId: thread.id,
@@ -226,8 +235,7 @@ export default function NexusSimuladorVisibilidade({ usuario, integracoes = [], 
           continue;
         }
         
-        // ERRO CRÍTICO 3: Mensagens suspeitas (não lidas mas sem conteúdo recente)
-        // Apenas alertar se NÃO há last_message_content E NÃO há last_message_at recente (últimas 24h)
+        // ERRO CRÍTICO 3: Mensagens suspeitas
         const ultimaMsgRecente = thread.last_message_at && 
           (new Date() - new Date(thread.last_message_at)) < 24 * 60 * 60 * 1000;
         
@@ -240,6 +248,26 @@ export default function NexusSimuladorVisibilidade({ usuario, integracoes = [], 
             thread,
             contato
           });
+        }
+        
+        // 🆕 ERRO CRÍTICO 4: Análise de visibilidade de mensagens
+        const mensagensDaThread = mensagens.filter(m => m.thread_id === thread.id);
+        const threadEhVisivel = canUserSeeThreadBase(usuarioAtual, thread, contato, integracoes);
+        
+        for (const mensagem of mensagensDaThread) {
+          // Se a thread não é visível, nenhuma mensagem nela será visível
+          if (!threadEhVisivel && mensagem.visibility !== 'internal_only') {
+            mensagensNaoVisiveis.push({
+              messageId: mensagem.id,
+              threadId: thread.id,
+              contactId: contato.id,
+              motivo: 'Thread bloqueada - mensagem não visível',
+              mensagem,
+              thread,
+              contato,
+              severidade: 'error'
+            });
+          }
         }
         
         // Detecção normal de duplicatas
@@ -269,12 +297,14 @@ export default function NexusSimuladorVisibilidade({ usuario, integracoes = [], 
       resultado.threadsSemContato = threadsSemContato;
       resultado.threadsMensagensSuspeitas = threadsMensagensSuspeitas;
       resultado.threadsContatoInvalido = threadsContatoInvalido;
+      resultado.mensagensNaoVisiveis = mensagensNaoVisiveis;
       
       resultado.stats.totalDuplicatas = duplicatasDetectadas.reduce((sum, d) => sum + d.count - 1, 0);
       resultado.stats.threadsSemContatoValido = threadsSemContato.length;
       resultado.stats.mensagensSuspeitas = threadsMensagensSuspeitas.length;
       resultado.stats.contatosInvalidos = threadsContatoInvalido.length;
-      resultado.stats.totalProblemas = threadsSemContato.length + threadsMensagensSuspeitas.length + threadsContatoInvalido.length;
+      resultado.stats.mensagensNaoVisiveis = mensagensNaoVisiveis.length;
+      resultado.stats.totalProblemas = threadsSemContato.length + threadsMensagensSuspeitas.length + threadsContatoInvalido.length + mensagensNaoVisiveis.length;
       
       setSimulationResults(resultado);
       setLastRun(new Date());
@@ -283,8 +313,8 @@ export default function NexusSimuladorVisibilidade({ usuario, integracoes = [], 
       
       // Priorizar alertas críticos de perda de dados
       if (stats.totalProblemas > 0) {
-        toast.error(`🚨 CRÍTICO: ${stats.totalProblemas} threads com problemas graves detectados!`, {
-          description: `${stats.threadsSemContatoValido} sem contato | ${stats.contatosInvalidos} contatos inválidos | ${stats.mensagensSuspeitas} mensagens suspeitas`
+        toast.error(`🚨 CRÍTICO: ${stats.totalProblemas} problemas graves detectados!`, {
+          description: `${stats.threadsSemContatoValido} sem contato | ${stats.contatosInvalidos} contatos inválidos | ${stats.mensagensSuspeitas} msgs suspeitas | ${stats.mensagensNaoVisiveis} msgs não visíveis`
         });
       } else if (stats.criticosFalsoNegativo > 0) {
         toast.error(`🚨 ${stats.criticosFalsoNegativo} falsos negativos críticos encontrados!`);
@@ -316,7 +346,7 @@ export default function NexusSimuladorVisibilidade({ usuario, integracoes = [], 
               <Zap className="w-4 h-4 text-purple-600" />
               <div>
                 <CardTitle className="text-sm">Simulador Nexus360 - Shadow Engine</CardTitle>
-                <CardDescription className="text-xs">Compare Legado vs Nexus360 • {threads.length} threads</CardDescription>
+                <CardDescription className="text-xs">Compare Legado vs Nexus360 • {threads.length} threads • {mensagens.length} mensagens</CardDescription>
               </div>
             </div>
             <div className="flex items-center gap-2">
@@ -344,11 +374,12 @@ export default function NexusSimuladorVisibilidade({ usuario, integracoes = [], 
               <Button 
                 size="sm"
                 variant="outline"
-                onClick={carregarContatos}
-                className="border-slate-300 text-slate-700 hover:bg-slate-50 text-xs h-7"
-                title="Recarregar contatos"
+                onClick={recarregarDadosCompletos}
+                className="border-slate-300 text-slate-700 hover:bg-slate-50 text-xs h-7 gap-1"
+                title="Comparação Detalhada - Recarrega contatos e mensagens"
               >
-                <RefreshCw className="w-3 h-3" />
+                <MessageSquare className="w-3 h-3" />
+                <span className="hidden sm:inline">Comparação Detalhada</span>
               </Button>
               <Button 
                 size="sm"
@@ -390,6 +421,7 @@ export default function NexusSimuladorVisibilidade({ usuario, integracoes = [], 
                 // 🔍 Verificar inconsistências do contato com as regras Nexus360
                 let erroNexus = null;
                 let temDuplicata = false;
+                let temMsgNaoVisivel = false;
 
                 if (simulationResults && contato) {
                  const resultado = simulationResults.resultados.find(r => r.threadId === thread.id);
@@ -405,6 +437,11 @@ export default function NexusSimuladorVisibilidade({ usuario, integracoes = [], 
                  if (contato?.telefone && simulationResults.duplicatas) {
                    const duplicata = simulationResults.duplicatas.find(d => d.telefone === contato.telefone);
                    temDuplicata = duplicata && duplicata.count > 1;
+                 }
+
+                 // Verificar se tem mensagens não visíveis
+                 if (simulationResults.mensagensNaoVisiveis) {
+                   temMsgNaoVisivel = simulationResults.mensagensNaoVisiveis.some(m => m.threadId === thread.id);
                  }
                 }
                 
@@ -424,7 +461,7 @@ export default function NexusSimuladorVisibilidade({ usuario, integracoes = [], 
                         key={thread.id}
                         className={`px-2 py-2 flex items-center gap-2 border-b border-slate-100 hover:bg-gradient-to-r hover:from-amber-50 hover:to-orange-50 cursor-pointer transition-all group relative ${
                           erroNexus ? (erroNexus.severity === 'error' ? 'bg-red-50/50' : 'bg-amber-50/50') : ''
-                        }`}
+                        } ${temMsgNaoVisivel ? 'border-l-4 border-l-orange-500' : ''}`}
                         title={erroNexus ? `❌ ${erroNexus.descricao}` : ''}
                       >
                         {/* Avatar */}
@@ -448,6 +485,16 @@ export default function NexusSimuladorVisibilidade({ usuario, integracoes = [], 
                               title={`Regra: ${erroNexus.regra}\n${erroNexus.descricao}`}
                             >
                               <AlertTriangle className="w-2.5 h-2.5 text-white" />
+                            </div>
+                          )}
+
+                          {/* 🆕 Indicador de mensagens não visíveis */}
+                          {temMsgNaoVisivel && (
+                            <div 
+                              className="absolute -top-0.5 -right-0.5 w-4 h-4 rounded-full flex items-center justify-center border-2 border-white shadow-md bg-orange-600 animate-pulse"
+                              title="Mensagens não visíveis detectadas"
+                            >
+                              <EyeOff className="w-2.5 h-2.5 text-white" />
                             </div>
                           )}
                         </div>
@@ -483,6 +530,12 @@ export default function NexusSimuladorVisibilidade({ usuario, integracoes = [], 
                               <Badge className="bg-indigo-500 text-white text-[9px] h-3 px-1">
                                 <UserCheck className="w-2 h-2 mr-0.5" />
                                 Atrib.
+                              </Badge>
+                            )}
+                            {temMsgNaoVisivel && (
+                              <Badge className="bg-orange-600 text-white text-[9px] h-3 px-1">
+                                <EyeOff className="w-2 h-2 mr-0.5" />
+                                Msgs
                               </Badge>
                             )}
                             {erroNexus && (
@@ -622,14 +675,15 @@ export default function NexusSimuladorVisibilidade({ usuario, integracoes = [], 
                   >
                     <option value="todas">Todas as Regras</option>
                     <option value="admin_total">P2: Admin Total</option>
-                    <option value="thread_atribuida">P3: Thread Atribuída</option>
-                    <option value="contato_fidelizado">P4: Fidelizado</option>
+                    <option value="assigned_to_me">P3: Atribuída a Mim</option>
+                    <option value="loyalty_contact">P4: Fidelizado</option>
                     <option value="janela_24h">P5: Janela 24h</option>
-                    <option value="bloqueio_fidelizado_outro">P6: Bloq. Fidelizado Outro</option>
-                    <option value="bloqueio_atribuido_outro">P7: Bloq. Atribuído Outro</option>
+                    <option value="blocked_loyalty">P6: Bloq. Fidelizado Outro</option>
+                    <option value="blocked_assigned">P7: Bloq. Atribuído Outro</option>
                     <option value="gerente_supervisao">P8: Gerente Supervisão</option>
-                    <option value="bloqueio_integracao">P10: Bloqueio Integração</option>
-                    <option value="bloqueio_setor">P11: Bloqueio Setor</option>
+                    <option value="blocked_integration">P9: Bloqueio Integração</option>
+                    <option value="blocked_sector">P10: Bloqueio Setor</option>
+                    <option value="blocked_connection">P11: Bloqueio Conexão</option>
                     <option value="nexus360_default">P12: Default Liberado</option>
                   </select>
                 </div>
@@ -648,6 +702,7 @@ export default function NexusSimuladorVisibilidade({ usuario, integracoes = [], 
                      <option value="sem_contato">🚨 Sem contato válido ({simulationResults.stats.threadsSemContatoValido || 0})</option>
                      <option value="contato_invalido">🚨 Contato inválido ({simulationResults.stats.contatosInvalidos || 0})</option>
                      <option value="msg_suspeita">🚨 Mensagens suspeitas ({simulationResults.stats.mensagensSuspeitas || 0})</option>
+                     <option value="msg_nao_visivel">🔶 Mensagens não visíveis ({simulationResults.stats.mensagensNaoVisiveis || 0})</option>
                      <option value="todos_problemas">🚨 TODOS OS PROBLEMAS ({simulationResults.stats.totalProblemas || 0})</option>
                   </select>
                 </div>
@@ -762,10 +817,14 @@ export default function NexusSimuladorVisibilidade({ usuario, integracoes = [], 
                    if (filtroDivergencia === 'msg_suspeita') {
                      return simulationResults.threadsMensagensSuspeitas?.some(t => t.threadId === res.threadId);
                    }
+                   if (filtroDivergencia === 'msg_nao_visivel') {
+                     return simulationResults.mensagensNaoVisiveis?.some(m => m.threadId === res.threadId);
+                   }
                    if (filtroDivergencia === 'todos_problemas') {
                      return simulationResults.threadsSemContato?.some(t => t.threadId === res.threadId) ||
                             simulationResults.threadsContatoInvalido?.some(t => t.threadId === res.threadId) ||
-                            simulationResults.threadsMensagensSuspeitas?.some(t => t.threadId === res.threadId);
+                            simulationResults.threadsMensagensSuspeitas?.some(t => t.threadId === res.threadId) ||
+                            simulationResults.mensagensNaoVisiveis?.some(m => m.threadId === res.threadId);
                    }
 
                    // Filtro por regra
@@ -809,7 +868,8 @@ export default function NexusSimuladorVisibilidade({ usuario, integracoes = [], 
                  const semContato = simulationResults.threadsSemContato?.find(t => t.threadId === res.threadId);
                  const contatoInvalido = simulationResults.threadsContatoInvalido?.find(t => t.threadId === res.threadId);
                  const msgSuspeita = simulationResults.threadsMensagensSuspeitas?.find(t => t.threadId === res.threadId);
-                 const temProblemaGrave = semContato || contatoInvalido || msgSuspeita;
+                 const msgNaoVisivel = simulationResults.mensagensNaoVisiveis?.filter(m => m.threadId === res.threadId);
+                 const temProblemaGrave = semContato || contatoInvalido || msgSuspeita || (msgNaoVisivel && msgNaoVisivel.length > 0);
 
                  // Nome formatado
                  let nomeExibicao = "";
@@ -849,7 +909,7 @@ export default function NexusSimuladorVisibilidade({ usuario, integracoes = [], 
                            <div className="flex items-center gap-1">
                              <h3 className={`font-semibold text-[11px] truncate ${temProblemaGrave ? 'text-red-700 font-bold' : 'text-slate-900'}`}>
                                {temProblemaGrave 
-                                 ? `⚠️ ${semContato?.motivo || contatoInvalido?.motivo || msgSuspeita?.motivo}`
+                                 ? `⚠️ ${semContato?.motivo || contatoInvalido?.motivo || msgSuspeita?.motivo || `${msgNaoVisivel.length} msgs não visíveis`}`
                                  : nomeExibicao
                                }
                              </h3>
@@ -862,6 +922,12 @@ export default function NexusSimuladorVisibilidade({ usuario, integracoes = [], 
                              {thread?.assigned_user_id && (
                                <Badge className="bg-indigo-500 text-white text-[9px] h-3 px-1">
                                  <UserCheck className="w-2 h-2" />
+                               </Badge>
+                             )}
+                             {msgNaoVisivel && msgNaoVisivel.length > 0 && (
+                               <Badge className="bg-orange-600 text-white text-[9px] h-3 px-1">
+                                 <EyeOff className="w-2 h-2 mr-0.5" />
+                                 {msgNaoVisivel.length}
                                </Badge>
                              )}
                            </div>
@@ -999,6 +1065,27 @@ export default function NexusSimuladorVisibilidade({ usuario, integracoes = [], 
                               </div>
                             </div>
                           </div>
+
+                          {/* 🆕 Mensagens Não Visíveis */}
+                          {msgNaoVisivel && msgNaoVisivel.length > 0 && (
+                            <div className="col-span-2 mt-2">
+                              <h4 className="font-bold text-orange-700 mb-1 flex items-center gap-2">
+                                <EyeOff className="w-4 h-4" />
+                                Mensagens Não Visíveis ({msgNaoVisivel.length})
+                              </h4>
+                              <div className="bg-orange-50 rounded p-2 border border-orange-200 max-h-32 overflow-y-auto">
+                                <div className="space-y-1">
+                                  {msgNaoVisivel.map((msg, idx) => (
+                                    <div key={idx} className="text-[10px] border-b border-orange-200 pb-1">
+                                      <div><span className="font-semibold">Msg ID:</span> {msg.messageId.substring(0, 12)}...</div>
+                                      <div><span className="font-semibold">Motivo:</span> {msg.motivo}</div>
+                                      <div><span className="font-semibold">Conteúdo:</span> {msg.mensagem.content?.substring(0, 50) || 'Sem conteúdo'}...</div>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            </div>
+                          )}
                         </div>
                       </td>
                       </tr>
