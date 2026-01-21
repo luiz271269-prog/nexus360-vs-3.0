@@ -850,14 +850,13 @@ export default function NexusSimuladorVisibilidade({ usuario, integracoes = [], 
             <table className="w-full text-xs">
               <thead className="bg-slate-100 text-slate-600 font-semibold text-[10px]">
                 <tr>
-                  <th className="px-2 py-1 text-left">Contato</th>
-                  <th className="px-2 py-1 text-center w-24">Atual</th>
-                  <th className="px-2 py-1 text-center w-24">Nexus</th>
-                  <th className="px-2 py-1 text-left w-32">Regra Nexus</th>
-                  <th className="px-2 py-1 text-left w-40">Código Decisão</th>
-                  <th className="px-2 py-1 text-left">Status</th>
-                  <th className="px-2 py-1 text-center w-16">Detalhes</th>
-                </tr>
+                   <th className="px-2 py-1 text-left">Contato</th>
+                   <th className="px-2 py-1 text-center w-16">Atual</th>
+                   <th className="px-2 py-1 text-center w-16">Nexus</th>
+                   <th className="px-2 py-1 text-left flex-1">Decisão (Regra • Código)</th>
+                   <th className="px-2 py-1 text-left">Status</th>
+                   <th className="px-2 py-1 text-center w-16">Ações</th>
+                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
                {simulationResults.resultados
