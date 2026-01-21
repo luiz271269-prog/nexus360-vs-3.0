@@ -337,41 +337,91 @@ export default function AnalisadorContatosDuplicados({ telefone: telefoneProp, i
 
       {resultado && !resultado.erro && (
         <div className="space-y-4">
-          {/* RESUMO */}
-          <Card className={`p-4 ${resultado.contatosDuplicados.length > 1 ? 'bg-red-50 border-red-200' : 'bg-green-50 border-green-200'}`}>
-            <div className="flex items-start gap-3">
-              {resultado.contatosDuplicados.length > 1 ? (
-                <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
-              ) : (
-                <CheckCircle className="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" />
-              )}
-              <div className="flex-1">
-                <h2 className={`font-bold mb-2 ${resultado.contatosDuplicados.length > 1 ? 'text-red-900' : 'text-green-900'}`}>
-                  {resultado.contatosDuplicados.length > 1 
-                    ? `⚠️ ${resultado.contatosDuplicados.length} CONTATOS ENCONTRADOS` 
-                    : `✅ Apenas 1 contato com este telefone`}
-                </h2>
-                
-                {isAdmin && resultado.contatosDuplicados.length > 1 && (
-                  <Button
-                    onClick={mesclarContatos}
-                    disabled={corrigindo}
-                    className="mt-3 bg-green-600 hover:bg-green-700"
-                  >
-                    {corrigindo ? (
-                      <>
-                        <Loader2 className="w-4 h-4 animate-spin mr-2" />
-                        Mesclando...
-                      </>
-                    ) : (
-                      <>
-                        <Copy className="w-4 h-4 mr-2" />
-                        Mesclar {resultado.duplicatasParaMesclar.length} duplicatas
-                      </>
-                    )}
-                  </Button>
+          {/* RESUMO COM VISUALIZAÇÃO LADO A LADO */}
+          <Card className={`p-4 ${resultado.contatosDuplicados.length > 1 ? 'bg-gradient-to-r from-red-50 to-orange-50 border-orange-300 border-2' : 'bg-green-50 border-green-200'}`}>
+            <div className="space-y-3">
+              <h2 className={`font-bold text-lg flex items-center gap-2 ${resultado.contatosDuplicados.length > 1 ? 'text-red-900' : 'text-green-900'}`}>
+                {resultado.contatosDuplicados.length > 1 ? (
+                  <>
+                    <AlertCircle className="w-5 h-5" />
+                    🚨 {resultado.contatosDuplicados.length} CONTATOS ENCONTRADOS
+                  </>
+                ) : (
+                  <>
+                    <CheckCircle className="w-5 h-5" />
+                    ✅ Apenas 1 contato com este telefone
+                  </>
                 )}
-              </div>
+              </h2>
+
+              {/* VISUALIZAÇÃO LADO A LADO - Origem vs Destino */}
+              {resultado.contatosDuplicados.length > 1 && (
+                <div className="grid grid-cols-2 gap-3 mt-4">
+                  {/* ORIGEM - A ser mesclada */}
+                  <div className="bg-white rounded-lg p-3 border-2 border-red-300">
+                    <div className="text-xs font-bold text-red-600 mb-2 flex items-center gap-1">
+                      <AlertCircle className="w-3 h-3" />
+                      ORIGEM (Será Mesclada)
+                    </div>
+                    <div className="space-y-2">
+                      {resultado.duplicatasParaMesclar.map((analise) => (
+                        <div
+                          key={analise.contato.id}
+                          onClick={() => setContatoSelecionadoOrigem(analise.contato.id)}
+                          className={`p-2 rounded cursor-pointer border-2 transition-all ${
+                            contatoSelecionadoOrigem === analise.contato.id
+                              ? 'border-red-500 bg-red-100'
+                              : 'border-slate-200 bg-slate-50 hover:bg-slate-100'
+                          }`}
+                        >
+                          <h4 className="font-semibold text-xs text-slate-900">{analise.contato.nome}</h4>
+                          <p className="text-[10px] text-slate-600 mt-1">
+                            {analise.quantidadeMensagens} mensagens • {analise.threads} threads
+                          </p>
+                          <Badge className="mt-1 text-[9px] bg-red-600">Deletar após merge</Badge>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* DESTINO - Principal (mantém os dados) */}
+                  <div className="bg-white rounded-lg p-3 border-2 border-green-500 bg-green-50">
+                    <div className="text-xs font-bold text-green-700 mb-2 flex items-center gap-1">
+                      ✅ DESTINO (Principal)
+                    </div>
+                    <div className="p-3 rounded bg-white border-2 border-green-400">
+                      <h4 className="font-bold text-sm text-slate-900">{resultado.principal?.nome}</h4>
+                      <Badge className="mt-2 bg-green-600">🏆 Mantém todos os dados</Badge>
+                      <p className="text-[10px] text-slate-600 mt-2">
+                        💾 ID: {resultado.principal?.id?.substring(0, 12)}...
+                      </p>
+                      <p className="text-[10px] text-slate-600">
+                        📱 {resultado.telefone}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {isAdmin && resultado.contatosDuplicados.length > 1 && (
+                <Button
+                  onClick={mesclarContatos}
+                  disabled={corrigindo}
+                  className="mt-4 w-full bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white font-bold"
+                >
+                  {corrigindo ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                      Mesclando...
+                    </>
+                  ) : (
+                    <>
+                      <Copy className="w-4 h-4 mr-2" />
+                      ✅ Confirmar Unificação
+                    </>
+                  )}
+                </Button>
+              )}
             </div>
           </Card>
 
