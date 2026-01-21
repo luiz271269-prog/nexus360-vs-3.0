@@ -56,24 +56,19 @@ export default function CorretorVisibilidadeMensagens({
       
       for (const msg of mensagens) {
         // Problema 1: Thread bloqueada mas mensagem pública
-        if (!threadEhVisivel && msg.visibility !== 'internal_only') {
+        // CORREÇÃO: Só identifica como problema se a thread NÃO está visível E a mensagem é pública
+        // Se a thread JÁ É visível, não há problema com visibilidade de mensagens
+        if (!threadEhVisivel && msg.visibility === 'public_to_customer') {
           mensagensComProblema.push({
             ...msg,
             problema: 'thread_bloqueada',
-            descricao: 'Thread bloqueada - mensagem não visível ao usuário',
-            correcaoSugerida: 'atribuir_thread'
+            descricao: 'Thread bloqueada - mensagem pública não será visível',
+            correcaoSugerida: 'marcar_como_interna'
           });
         }
         
-        // Problema 2: Mensagem sem content mas com status enviada
-        if (!msg.content && msg.status === 'enviada') {
-          mensagensComProblema.push({
-            ...msg,
-            problema: 'sem_conteudo',
-            descricao: 'Mensagem sem conteúdo',
-            correcaoSugerida: 'marcar_como_falha'
-          });
-        }
+        // Problema 2: Mensagem sem content mas com status enviada (REMOVIDO - não é problema real)
+        // Mensagens podem ter conteúdo vazio legitimamente (ex: mídia, localização, etc)
       }
 
       setAnalise({
