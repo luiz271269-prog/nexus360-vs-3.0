@@ -1,8 +1,8 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.4';
 
 // ╔════════════════════════════════════════════════════════════════════════╗
-// ║  WEBHOOK WHATSAPP W-API - v25.0.0-CLONE-FIX                           ║
-// ║  TIMESTAMP: 2026-01-07T14:30:00 - CORREÇÃO CRÍTICA req.clone()       ║
+// ║  WEBHOOK WHATSAPP W-API - v26.0.0-CENTRALIZED                         ║
+// ║  TIMESTAMP: 2026-01-21 - CENTRALIZAÇÃO COMPLETA                       ║
 // ║                                                                        ║
 // ║  ARQUITETURA: "PORTEIRO CEGO" vs "GERENTE"                            ║
 // ║  • Webhook (Porteiro): Só confere crachá (instanceId/connectedPhone) ║
@@ -11,9 +11,9 @@ import { createClientFromRequest } from 'npm:@base44/sdk@0.8.4';
 // ║  • req.clone() OBRIGATÓRIO para asServiceRole funcionar              ║
 // ╚════════════════════════════════════════════════════════════════════════╝
 
-const VERSION = 'v25.0.0-CLONE-FIX';
-const BUILD_DATE = '2026-01-07T14:30:00';
-const DEPLOYMENT_ID = 'WAPI_CLONE_FIX_2026_01_07';
+const VERSION = 'v26.0.0-CENTRALIZED';
+const BUILD_DATE = '2026-01-21';
+const DEPLOYMENT_ID = 'WAPI_CENTRALIZED_2026_01_21';
 const ARCHITECTURE = 'PORTEIRO-CEGO';
 
 // ╔════════════════════════════════════════════════════════════════════════╗

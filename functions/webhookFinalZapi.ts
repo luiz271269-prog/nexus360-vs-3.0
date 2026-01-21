@@ -6,12 +6,13 @@ import { createClientFromRequest } from 'npm:@base44/sdk@0.8.4';
 import { normalizePhone } from './lib/phoneNormalizer.js';
 
 // ============================================================================
-// WEBHOOK WHATSAPP Z-API - v10.0.0 INGESTÃO PURA + CÉREBRO ISOLADO
+// WEBHOOK WHATSAPP Z-API - v10.1.0 CENTRALIZAÇÃO COMPLETA
 // ============================================================================
 // SIMETRIA COM W-API: Webhook burro, inteligência em processInbound
+// CRÍTICO: Usa contactManagerCentralized para normalização única
 // ============================================================================
-const VERSION = 'v10.0.0-PURE-INGESTION';
-const BUILD_DATE = '2025-12-18';
+const VERSION = 'v10.1.0-CENTRALIZED';
+const BUILD_DATE = '2026-01-21';
 
 const corsHeaders = {
   'Content-Type': 'application/json',
