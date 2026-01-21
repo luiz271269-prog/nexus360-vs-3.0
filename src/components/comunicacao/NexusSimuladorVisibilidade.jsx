@@ -470,9 +470,9 @@ export default function NexusSimuladorVisibilidade({ usuario, integracoes = [], 
                    temDuplicata = duplicata && duplicata.count > 1;
                  }
 
-                 // Verificar se tem mensagens não visíveis
-                 if (simulationResults.mensagensNaoVisiveis) {
-                   temMsgNaoVisivel = simulationResults.mensagensNaoVisiveis.some(m => m.threadId === thread.id);
+                 // Verificar se tem mensagens com problema de visibilidade
+                 if (simulationResults.mensagensComProblemaVisibilidade) {
+                   temMsgNaoVisivel = simulationResults.mensagensComProblemaVisibilidade.some(m => m.threadId === thread.id);
                  }
                 }
                 
@@ -577,10 +577,10 @@ export default function NexusSimuladorVisibilidade({ usuario, integracoes = [], 
                                 {erroNexus.regra}
                               </Badge>
                             )}
-                            {msgsVisibilidade && msgsVisibilidade.length > 0 && (
+                            {temMsgNaoVisivel && (
                               <Badge className="bg-orange-600 text-white text-[9px] h-3 px-1">
                                 <EyeOff className="w-2 h-2 mr-0.5" />
-                                {msgsVisibilidade.length}
+                                Vis
                               </Badge>
                             )}
                           </div>
@@ -593,9 +593,9 @@ export default function NexusSimuladorVisibilidade({ usuario, integracoes = [], 
                              {erroNexus.descricao}
                            </div>
                           )}
-                          {msgsVisibilidade && msgsVisibilidade.length > 0 && (
+                          {temMsgNaoVisivel && (
                            <div className="mt-1 text-[9px] px-1.5 py-0.5 rounded bg-orange-100 text-orange-800">
-                             {msgsVisibilidade[0].problemas[0].descricao}
+                             Problemas de visibilidade detectados
                            </div>
                           )}
                           </div>
@@ -615,17 +615,17 @@ export default function NexusSimuladorVisibilidade({ usuario, integracoes = [], 
                            <Info className="w-3 h-3 text-indigo-600" />
                           </Button>
 
-                          {msgsVisibilidade && msgsVisibilidade.length > 0 && (
+                          {temMsgNaoVisivel && (
                             <Button
                               size="sm"
                               variant="ghost"
                               onClick={(e) => {
                                 e.stopPropagation();
-                                // TODO: Implementar correção automática
-                                toast.info(`${msgsVisibilidade.length} mensagens com problema detectadas`);
+                                const msgsThread = simulationResults.mensagensComProblemaVisibilidade?.filter(m => m.threadId === thread.id);
+                                toast.info(`${msgsThread?.length || 0} mensagens com problema detectadas`);
                               }}
                               className="h-6 w-6 p-0 shadow-md bg-orange-600 hover:bg-orange-700 border-2 border-orange-700 animate-pulse"
-                              title={`🚨 ${msgsVisibilidade.length} MENSAGENS COM PROBLEMA - Clique para corrigir`}
+                              title="🚨 MENSAGENS COM PROBLEMA - Clique para detalhes"
                             >
                               <EyeOff className="w-3 h-3 text-white font-bold" />
                             </Button>
