@@ -1011,16 +1011,15 @@ export default function NexusSimuladorVisibilidade({ usuario, integracoes = [], 
                     </td>
 
                     <td className="px-2 py-1">
-                      <Badge variant="outline" className="text-[9px] font-mono">
-                        {res.nexusDecisionPath?.[0]?.split(':')[1] || 'N/A'}
-                      </Badge>
-                    </td>
-
-                    <td className="px-2 py-1">
-                      <code className="text-[9px] text-purple-700 font-mono bg-purple-50 px-1 py-0.5 rounded">
-                        {res.nexusReasonCode || 'N/A'}
-                      </code>
-                    </td>
+                       <div className="flex items-center gap-1 flex-wrap">
+                         <Badge variant="outline" className="text-[9px] font-mono">
+                           {res.nexusDecisionPath?.[0]?.split(':')[1] || 'N/A'}
+                         </Badge>
+                         <code className="text-[9px] text-purple-700 font-mono bg-purple-50 px-1.5 py-0.5 rounded">
+                           {res.nexusReasonCode || 'N/A'}
+                         </code>
+                       </div>
+                     </td>
 
                     <td className="px-2 py-1">
                       {res.isMatch ? (
