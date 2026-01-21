@@ -294,10 +294,40 @@ export default function AnalisadorContatosDuplicados({ telefone: telefoneProp, i
   };
 
   useEffect(() => {
-    if (telefoneProp) {
+    if (contatoOrigem && contatoDestino) {
+      // Se veio do drag-and-drop, mostrar visualização prévia
+      setResultado({
+        telefone: contatoOrigem.telefone,
+        contatosDuplicados: [
+          { 
+            contato: contatoDestino, 
+            score: 100, 
+            quantidadeMensagens: 0, 
+            quantidadeInteracoes: 0, 
+            threads: 0,
+            temThreadsAtivas: false,
+            ultimaInteracao: new Date(contatoDestino.updated_date || contatoDestino.created_date)
+          },
+          { 
+            contato: contatoOrigem, 
+            score: 50, 
+            quantidadeMensagens: 0, 
+            quantidadeInteracoes: 0, 
+            threads: 0,
+            temThreadsAtivas: false,
+            ultimaInteracao: new Date(contatoOrigem.updated_date || contatoOrigem.created_date)
+          }
+        ],
+        principal: contatoDestino,
+        duplicatasParaMesclar: [{ contato: contatoOrigem, score: 50, quantidadeMensagens: 0, quantidadeInteracoes: 0, threads: 0, temThreadsAtivas: false, ultimaInteracao: new Date(contatoOrigem.updated_date || contatoOrigem.created_date) }],
+        isDragAndDrop: true
+      });
+      setContatoSelecionadoDestino(contatoDestino.id);
+      setContatoSelecionadoOrigem(contatoOrigem.id);
+    } else if (telefoneProp) {
       analisar(telefoneProp);
     }
-  }, [telefoneProp]);
+  }, [telefoneProp, contatoOrigem, contatoDestino]);
 
   return (
     <div className="p-6 max-w-5xl mx-auto space-y-4">
