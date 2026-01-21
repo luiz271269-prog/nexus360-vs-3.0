@@ -1165,52 +1165,54 @@ export default function Comunicacao() {
 
     const isFilterUnassigned = effectiveScope === 'unassigned';
     
-    // ✅ DEDUPLICAÇÃO INTELIGENTE: Em modo normal, mostrar APENAS 1 thread por contato (mais recente)
-              // ⚠️ MODO ADMIN + BUSCA: Desativar deduplicação para ver TODAS as threads/duplicatas
-              const threadMaisRecentePorContacto = new Map();
-              threadsAProcessar.forEach((thread) => {
-                // ✅ Threads internas SEMPRE adicionadas diretamente (chave única por thread.id)
-                if (thread.thread_type === 'team_internal' || thread.thread_type === 'sector_group') {
-                  threadMaisRecentePorContacto.set(`internal-${thread.id}`, thread);
-                  return;
-                }
+    // ✅ DEDUPLICAÇÃO INTELIGENTE: Em modo normal, mostrar APENAS 1 thread por telefone/contato (mais recente)
+            // ⚠️ MODO ADMIN + BUSCA: Desativar deduplicação para ver TODAS as threads/duplicatas
+            const threadMaisRecentePorContacto = new Map();
+            threadsAProcessar.forEach((thread) => {
+              // ✅ Threads internas SEMPRE adicionadas diretamente (chave única por thread.id)
+              if (thread.thread_type === 'team_internal' || thread.thread_type === 'sector_group') {
+                threadMaisRecentePorContacto.set(`internal-${thread.id}`, thread);
+                return;
+              }
 
-                // 🔍 MODO DIAGNÓSTICO ADMIN: Se admin está buscando, mostrar TODAS as threads (incluindo duplicatas)
-                if (isAdmin && temBuscaPorTexto && !duplicataEncontrada) {
-                  threadMaisRecentePorContacto.set(`admin-all-${thread.id}`, thread);
-                  return;
-                }
+              // 🔍 MODO DIAGNÓSTICO ADMIN: Se admin está buscando, mostrar TODAS as threads (incluindo duplicatas)
+              if (isAdmin && temBuscaPorTexto && !duplicataEncontrada) {
+                threadMaisRecentePorContacto.set(`admin-all-${thread.id}`, thread);
+                return;
+              }
 
-                // ✅ Threads externas: deduplicar APENAS por contact_id (não por integração)
-                // Objetivo: Mostrar contato 1x, com thread mais recente
-                const contactId = thread.contact_id;
-                if (!contactId) {
-                  // ✅ CORREÇÃO: Thread órfã SEM contact_id deve ser IGNORADA
-                  // Exceção: Admin em modo busca/diagnóstico pode ver
-                  if (isAdmin && temBuscaPorTexto) {
-                    threadMaisRecentePorContacto.set(`orphan-${thread.id}`, thread);
-                  }
-                  // ❌ Threads órfãs não devem aparecer em modo normal (dados corrompidos)
-                  return;
+              // ✅ Threads externas: deduplicar por TELEFONE (prioridade) ou contact_id (fallback)
+              const contactId = thread.contact_id;
+              if (!contactId) {
+                // ✅ CORREÇÃO: Thread órfã SEM contact_id deve ser IGNORADA
+                // Exceção: Admin em modo busca/diagnóstico pode ver
+                if (isAdmin && temBuscaPorTexto) {
+                  threadMaisRecentePorContacto.set(`orphan-${thread.id}`, thread);
                 }
+                return;
+              }
 
-                // 🎯 CHAVE SIMPLES: APENAS contact_id (deduplica todas as integrações)
-                const existente = threadMaisRecentePorContacto.get(contactId);
-                if (!existente) {
-                  threadMaisRecentePorContacto.set(contactId, thread);
-                } else {
-                  // Se há múltiplas threads do mesmo contato (em integrações diferentes), manter a mais recente
-                  
-                  // ✅ OT #2: Comparação de Timestamp Numérico (Mais leve que objetos Date)
-                  const tsExistente = new Date(existente.last_message_at || existente.updated_date || existente.created_date || 0).getTime();
-                  const tsAtual = new Date(thread.last_message_at || thread.updated_date || thread.created_date || 0).getTime();
-                  
-                  if (tsAtual > tsExistente) {
-                    threadMaisRecentePorContacto.set(contactId, thread);
-                  }
+              // 🎯 DEDUPLICAÇÃO POR TELEFONE (evita duplicatas de contatos com mesmo número)
+              const contato = contatosMap.get(contactId);
+              const telefoneNorm = contato?.telefone ? normalizarTelefone(contato.telefone) : null;
+
+              // Chave: telefone normalizado (prioridade) OU contact_id (fallback)
+              const chave = telefoneNorm || contactId;
+
+              const existente = threadMaisRecentePorContacto.get(chave);
+              if (!existente) {
+                threadMaisRecentePorContacto.set(chave, thread);
+              } else {
+                // Se há múltiplas threads do mesmo telefone/contato, manter a mais recente
+                const tsExistente = new Date(existente.last_message_at || existente.updated_date || existente.created_date || 0).getTime();
+                const tsAtual = new Date(thread.last_message_at || thread.updated_date || thread.created_date || 0).getTime();
+
+                if (tsAtual > tsExistente) {
+                  threadMaisRecentePorContacto.set(chave, thread);
                 }
-              });
-              const threadsUnicas = Array.from(threadMaisRecentePorContacto.values());
+              }
+            });
+            const threadsUnicas = Array.from(threadMaisRecentePorContacto.values());
     
     if (DEBUG_VIS) {
       console.log('[COMUNICACAO] 🎯 Threads únicas (admin+busca desabilita dedup):', threadsUnicas.length, '| Admin:', isAdmin, '| Busca:', temBuscaPorTexto);
