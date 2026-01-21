@@ -259,7 +259,7 @@ export default function Comunicacao() {
         return [];
       }
     },
-    enabled: Array.isArray(contactIdsParaCarregar) && contactIdsParaCarregar.length > 0,
+    enabled: () => Array.isArray(contactIdsParaCarregar) && contactIdsParaCarregar.length > 0,
     keepPreviousData: true,
     staleTime: 60000,
     cacheTime: 15 * 60 * 1000,
