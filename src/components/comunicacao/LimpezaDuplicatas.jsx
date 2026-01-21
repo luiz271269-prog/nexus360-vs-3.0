@@ -3,7 +3,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { base44 } from '@/api/base44Client';
-import { Loader2, Users, MessageSquare, Trash2, CheckCircle2, AlertTriangle } from 'lucide-react';
+import { Loader2, Users, MessageSquare, Trash2, CheckCircle2, AlertTriangle, AlertCircle } from 'lucide-react';
 
 export default function LimpezaDuplicatas() {
   const [loading, setLoading] = useState(false);
