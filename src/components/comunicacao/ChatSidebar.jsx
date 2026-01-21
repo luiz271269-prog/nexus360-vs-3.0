@@ -34,6 +34,7 @@ import { getUserDisplayName } from "../lib/userHelpers";
 import UsuarioDisplay from "./UsuarioDisplay";
 import { canUserSeeThreadBase } from "../lib/threadVisibility";
 import { decidirVisibilidade } from "@/components/lib/decisionEngine";
+import { normalizarTelefone } from "../lib/phoneUtils";
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // 🎯 GETTER UNIFICADO: Badge de não lidas (externo + interno)
