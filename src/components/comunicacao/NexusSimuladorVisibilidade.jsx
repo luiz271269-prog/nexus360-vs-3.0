@@ -1123,16 +1123,19 @@ export default function NexusSimuladorVisibilidade({ usuario, integracoes = [], 
                             </h4>
                             <div className="bg-white rounded p-2 border">
                               <div className="grid grid-cols-3 gap-2 text-[10px]">
-                                <div><span className="font-semibold">ID:</span> {thread?.id?.substring(0, 12)}...</div>
-                                <div><span className="font-semibold">Tipo:</span> {res.threadType}</div>
-                                <div><span className="font-semibold">Canal:</span> {thread?.channel || 'N/A'}</div>
-                                <div><span className="font-semibold">Atribuído:</span> {thread?.assigned_user_id ? getUserDisplayName(thread.assigned_user_id, todosUsuarios) : 'Não'}</div>
-                                <div><span className="font-semibold">Setor:</span> {thread?.sector_id || 'Sem setor'}</div>
-                                <div><span className="font-semibold">Integração:</span> #{thread?.whatsapp_integration_id?.substring(0, 8) || 'N/A'}</div>
-                                <div><span className="font-semibold">Fidelizado:</span> {contato?.is_cliente_fidelizado ? '✓ Sim' : 'Não'}</div>
-                                <div><span className="font-semibold">Última msg:</span> {formatarHorario(thread?.last_message_at)}</div>
-                                <div><span className="font-semibold">Não lidas:</span> {thread?.unread_count || 0}</div>
-                              </div>
+                                 <div><span className="font-semibold">ID:</span> {thread?.id?.substring(0, 12)}...</div>
+                                 <div><span className="font-semibold">Tipo:</span> {res.threadType}</div>
+                                 <div><span className="font-semibold">Canal:</span> {thread?.channel || thread?.whatsapp_integration_id ? 'whatsapp' : 'N/A'}</div>
+                                 <div><span className="font-semibold">Atribuído:</span> {thread?.assigned_user_id ? getUserDisplayName(thread.assigned_user_id, todosUsuarios) : 'Não'}</div>
+                                 <div><span className="font-semibold">Setor:</span> {thread?.sector_id || 'Sem setor'}</div>
+                                 <div><span className="font-semibold">Integração:</span> #{thread?.whatsapp_integration_id?.substring(0, 8) || 'N/A'}</div>
+                                 <div><span className="font-semibold">Fidelizado:</span> {contato?.is_cliente_fidelizado ? '✓ Sim' : 'Não'}</div>
+                                 <div><span className="font-semibold">Última msg:</span> {formatarHorario(thread?.last_message_at)}</div>
+                                 <div><span className="font-semibold">Não lidas:</span> {thread?.unread_count || 0} {thread?.unread_by ? `(mapa: ${Object.keys(thread.unread_by).length})` : ''}</div>
+                                 <div><span className="font-semibold">Enviadas:</span> {thread?.last_outbound_at ? '✓ Sim' : 'Não'}</div>
+                                 <div><span className="font-semibold">Recebidas:</span> {thread?.last_inbound_at ? '✓ Sim' : 'Não'}</div>
+                                 <div><span className="font-semibold">Msg Total:</span> {thread?.total_mensagens || 'N/A'}</div>
+                               </div>
                             </div>
                           </div>
 
