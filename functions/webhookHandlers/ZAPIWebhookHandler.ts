@@ -130,6 +130,21 @@ export default class ZAPIWebhookHandler {
       
       console.log('[ZAPI] 💬 Thread identificada:', thread.id);
       
+      // ✅ DEDUPLICAÇÃO CRÍTICA: Verificar se messageId já existe
+      const mensagensExistentes = await this.base44.entities.Message.filter({
+        whatsapp_message_id: messageId
+      });
+      
+      if (mensagensExistentes.length > 0) {
+        console.log('[ZAPI] ⚠️ Mensagem duplicada detectada, ignorando:', messageId);
+        return {
+          success: true,
+          message: 'Mensagem duplicada ignorada',
+          duplicate: true,
+          message_id: messageId
+        };
+      }
+      
       const novaMensagem = await this.base44.entities.Message.create({
         thread_id: thread.id,
         sender_id: contato.id,
