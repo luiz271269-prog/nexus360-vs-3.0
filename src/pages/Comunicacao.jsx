@@ -238,24 +238,21 @@ export default function Comunicacao() {
   }, [threads]);
 
   // ═══════════════════════════════════════════════════════════════════════════════
-  // 🔍 BUSCA CIRÚRGICA DE CONTATOS - Apenas os necessários
+  // 🔍 CONTATOS DAS THREADS - Apenas os necessários para threads visíveis
   // ═══════════════════════════════════════════════════════════════════════════════
-  const { data: contatos = [], isLoading: loadingContatos } = useQuery({
-    queryKey: ['contacts', contactIdsParaCarregar],
+  const { data: contatosDasThreads = [], isLoading: loadingContatosDasThreads } = useQuery({
+    queryKey: ['contacts-threads', contactIdsParaCarregar],
     queryFn: async () => {
       if (contactIdsParaCarregar.length === 0) return [];
       
-      console.log(`[COMUNICACAO] 📎 Hidratando ${contactIdsParaCarregar.length} contatos específicos...`);
+      console.log(`[COMUNICACAO] 📎 Hidratando ${contactIdsParaCarregar.length} contatos de threads...`);
       
       try {
-        // Estratégia: Buscar lista maior e filtrar em memória (fallback robusto)
-        const todosContatos = await base44.entities.Contact.list('-last_interaction', 1000);
-        
-        // ✅ OT #1: Otimização O(N) com Set (Muito mais rápido que .includes)
+        const todosContatos = await base44.entities.Contact.list('-ultima_interacao', 1000);
         const idsSet = new Set(contactIdsParaCarregar);
         const contatosNecessarios = todosContatos.filter(c => idsSet.has(c.id));
         
-        console.log(`[COMUNICACAO] ✅ Contatos hidratados: ${contatosNecessarios.length}/${contactIdsParaCarregar.length}`);
+        console.log(`[COMUNICACAO] ✅ Contatos hidratados: ${contatosNecessarios.length}`);
         return contatosNecessarios;
       } catch (error) {
         console.error('[COMUNICACAO] ❌ Erro ao hidratar contatos:', error);
@@ -268,11 +265,79 @@ export default function Comunicacao() {
     cacheTime: 15 * 60 * 1000,
     retry: 2,
     retryDelay: 1000,
-    refetchOnWindowFocus: false,
-    onError: (error) => {
-      console.error('[Comunicacao] Erro ao carregar contatos:', error);
-    }
+    refetchOnWindowFocus: false
   });
+
+  // ═══════════════════════════════════════════════════════════════════════════════
+  // 🔍 BUSCA DINÂMICA - Só carrega quando usuário está buscando
+  // ═══════════════════════════════════════════════════════════════════════════════
+  const { data: contatosDaBusca = [] } = useQuery({
+    queryKey: ['contacts-search', debouncedSearchTerm],
+    queryFn: async () => {
+      if (!debouncedSearchTerm || debouncedSearchTerm.trim().length < 2) return [];
+
+      const normalizarTexto = (t) => {
+        if (!t) return '';
+        return String(t).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
+      };
+
+      const termoBusca = normalizarTexto(debouncedSearchTerm);
+      const termoNumeros = debouncedSearchTerm.replace(/\D/g, '');
+
+      console.log(`[COMUNICACAO] 🔍 Buscando contatos: "${debouncedSearchTerm}"`);
+
+      const todosContatos = await base44.entities.Contact.list('-ultima_interacao', 1000);
+      
+      const contatosFiltrados = todosContatos.filter((c) => {
+        if (!c || c.bloqueado) return false;
+
+        const nome = normalizarTexto(c.nome || '');
+        const empresa = normalizarTexto(c.empresa || '');
+        const cargo = normalizarTexto(c.cargo || '');
+        const telefone = (c.telefone || '').replace(/\D/g, '');
+
+        return nome.includes(termoBusca) ||
+               empresa.includes(termoBusca) ||
+               cargo.includes(termoBusca) ||
+               (termoNumeros.length >= 3 && telefone.includes(termoNumeros));
+      });
+
+      // Deduplicar por telefone
+      const contatosUnicos = new Map();
+      contatosFiltrados.forEach((c) => {
+        const tel = normalizarTelefone(c.telefone);
+        if (!tel) return;
+        
+        const existente = contatosUnicos.get(tel);
+        if (!existente || new Date(c.ultima_interacao || 0) > new Date(existente.ultima_interacao || 0)) {
+          contatosUnicos.set(tel, c);
+        }
+      });
+
+      const resultado = Array.from(contatosUnicos.values()).slice(0, 100);
+      console.log(`[COMUNICACAO] ✅ Busca retornou: ${resultado.length} contatos únicos (limite 100)`);
+      return resultado;
+    },
+    enabled: debouncedSearchTerm && debouncedSearchTerm.trim().length >= 2,
+    staleTime: 30000
+  });
+
+  // ═══════════════════════════════════════════════════════════════════════════════
+  // 🎯 UNIÃO: Contatos das threads + contatos da busca
+  // ═══════════════════════════════════════════════════════════════════════════════
+  const contatos = React.useMemo(() => {
+    const mapa = new Map();
+    
+    // Primeiro: contatos das threads (sempre necessários)
+    contatosDasThreads.forEach(c => mapa.set(c.id, c));
+    
+    // Depois: contatos da busca (se houver)
+    contatosDaBusca.forEach(c => mapa.set(c.id, c));
+    
+    return Array.from(mapa.values());
+  }, [contatosDasThreads, contatosDaBusca]);
+
+  const loadingContatos = loadingContatosDasThreads;
 
   const { data: clientes = [] } = useQuery({
     queryKey: ['clientes'],
