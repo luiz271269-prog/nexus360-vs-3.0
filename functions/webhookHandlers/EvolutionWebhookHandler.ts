@@ -133,16 +133,6 @@ export default class EvolutionWebhookHandler {
       });
     }
 
-    // ✅ DEDUPLICAÇÃO CRÍTICA: Verificar se messageId já existe
-    const mensagensExistentes = await this.base44.entities.Message.filter({
-      whatsapp_message_id: mensagem.key.id
-    });
-    
-    if (mensagensExistentes.length > 0) {
-      console.log('[EVOLUTION] ⚠️ Mensagem duplicada detectada, ignorando:', mensagem.key.id);
-      return { success: true, message: 'Mensagem duplicada ignorada', duplicate: true };
-    }
-    
     // Salvar mensagem
     await this.base44.entities.Message.create({
       thread_id: thread.id,

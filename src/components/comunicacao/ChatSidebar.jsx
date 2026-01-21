@@ -34,7 +34,6 @@ import { getUserDisplayName } from "../lib/userHelpers";
 import UsuarioDisplay from "./UsuarioDisplay";
 import { canUserSeeThreadBase } from "../lib/threadVisibility";
 import { decidirVisibilidade } from "@/components/lib/decisionEngine";
-import { normalizarTelefone } from "../lib/phoneUtils";
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // 🎯 GETTER UNIFICADO: Badge de não lidas (externo + interno)
@@ -146,56 +145,23 @@ export default function ChatSidebar({
   const { etiquetas: etiquetasDB, getConfig: getEtiquetaConfigDinamico } = useEtiquetasContato();
 
   // ═══════════════════════════════════════════════════════════════════════════════
-  // 🛡️ DEDUPLICAÇÃO POR TELEFONE - Resolve Fernando x Senior Sistemas
+  // 🛡️ FILTRO DE VISIBILIDADE - Nexus360 + Legacy
   // ═══════════════════════════════════════════════════════════════════════════════
-  const threadsDeduplicated = useMemo(() => {
+  const threadsFiltradas = useMemo(() => {
     if (!threads || threads.length === 0) return [];
 
-    // Mapa: telefone normalizado → thread mais recente
-    const mapaThreads = new Map();
-
-    threads.forEach((thread) => {
-      // ✅ Threads internas NÃO deduplicar
-      if (thread.thread_type === 'team_internal' || thread.thread_type === 'sector_group') {
-        const chave = `INTERNAL_${thread.id}`;
-        mapaThreads.set(chave, thread);
-        return;
-      }
-
-      // ✅ Threads externas: deduplicar por telefone
-      const contato = thread.contato;
-      if (!contato?.telefone) {
-        // Sem telefone: usar contact_id como fallback
-        const chave = `CONTACT_${thread.contact_id || thread.id}`;
-        const existente = mapaThreads.get(chave);
-        if (!existente || new Date(thread.last_message_at || 0) > new Date(existente.last_message_at || 0)) {
-          mapaThreads.set(chave, thread);
-        }
-        return;
-      }
-
-      // Com telefone: deduplicar por telefone normalizado
-      const telefonNorm = normalizarTelefone(contato.telefone);
-      const chave = `PHONE_${telefonNorm}`;
-      const existente = mapaThreads.get(chave);
-
-      // Manter apenas a thread mais recente por telefone
-      if (!existente || new Date(thread.last_message_at || 0) > new Date(existente.last_message_at || 0)) {
-        console.log(`[ChatSidebar] 🔄 Deduplica telefone ${telefonNorm}: mantendo thread ${thread.id}`);
-        mapaThreads.set(chave, thread);
-      }
-    });
-
-    return Array.from(mapaThreads.values());
-  }, [threads]);
+    // A lista de threads que chega já foi filtrada pela lógica de `Comunicacao.jsx`.
+    // O filtro aqui foi removido para evitar duplicidade e conflitos.
+    return threads;
+  }, [threads, usuarioAtual, integracoes]);
 
   const threadsSorted = useMemo(() => {
-    return [...threadsDeduplicated].sort((a, b) => {
+    return [...threadsFiltradas].sort((a, b) => {
       const dateA = new Date(a.last_message_at || 0);
       const dateB = new Date(b.last_message_at || 0);
       return dateB - dateA;
     });
-  }, [threadsDeduplicated]);
+  }, [threadsFiltradas]);
   
   // Verificar se houve transferência recente (últimos 10 segundos)
   const foiTransferidaRecentemente = (thread) => {
