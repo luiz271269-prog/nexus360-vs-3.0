@@ -200,12 +200,10 @@ export default function NexusSimuladorVisibilidade({ usuario, integracoes = [], 
       
       // 🔍 DETECTAR PROBLEMAS CRÍTICOS DE INTEGRIDADE
       const mapaTelefones = new Map();
-      const mapaContactosPorTelefone = new Map(); // 🆕 Detectar duplicatas mesmo telefone com IDs diferentes
       const threadsSemContato = [];
       const threadsMensagensSuspeitas = [];
       const threadsContatoInvalido = [];
       const mensagensComProblemaVisibilidade = [];
-      const threadsFragmentadas = []; // 🆕 Threads fragmentadas por duplicação de contato
 
       for (const thread of threadsParaAnalisar) {
         // Ignorar threads internas - elas não precisam de contact_id
@@ -236,35 +234,6 @@ export default function NexusSimuladorVisibilidade({ usuario, integracoes = [], 
             contato
           });
           continue;
-        }
-
-        // 🆕 ERRO CRÍTICO: Detectar fragmentação - MESMO telefone com IDs de contato DIFERENTES
-        const telefoneNorm = contato.telefone.replace(/\D/g, '');
-        if (!mapaContactosPorTelefone.has(telefoneNorm)) {
-          mapaContactosPorTelefone.set(telefoneNorm, []);
-        }
-        const grupoTelefone = mapaContactosPorTelefone.get(telefoneNorm);
-        grupoTelefone.push({ thread, contato, contactId: contato.id });
-
-        // Se encontrou mesmo telefone com contact_ids DIFERENTES = fragmentação crítica
-        if (grupoTelefone.length > 1) {
-          const contactIdsUnicos = new Set(grupoTelefone.map(g => g.contactId));
-          if (contactIdsUnicos.size > 1) {
-            // Marcar todas as threads deste grupo como fragmentadas
-            grupoTelefone.forEach(item => {
-              if (!threadsFragmentadas.find(f => f.threadId === item.thread.id)) {
-                threadsFragmentadas.push({
-                  threadId: item.thread.id,
-                  contactId: item.contactId,
-                  telefone: contato.telefone,
-                  motivo: `FRAGMENTAÇÃO: ${contactIdsUnicos.size} contatos diferentes com mesmo telefone`,
-                  todosContactos: Array.from(contactIdsUnicos),
-                  thread: item.thread,
-                  contato: item.contato
-                });
-              }
-            });
-          }
         }
 
         // ERRO CRÍTICO 3: Mensagens suspeitas
@@ -350,25 +319,23 @@ export default function NexusSimuladorVisibilidade({ usuario, integracoes = [], 
           threadIds: items.map(i => i.thread.id),
           contactIds: items.map(i => i.contato.id)
         }));
-
+      
       // Executar análise comparativa
       const resultado = executarAnaliseEmLote(usuarioAtual, threadsParaAnalisar, integracoes);
-
+      
       // Adicionar informação de problemas detectados ao resultado
       resultado.duplicatas = duplicatasDetectadas;
       resultado.threadsSemContato = threadsSemContato;
       resultado.threadsMensagensSuspeitas = threadsMensagensSuspeitas;
       resultado.threadsContatoInvalido = threadsContatoInvalido;
       resultado.mensagensComProblemaVisibilidade = mensagensComProblemaVisibilidade;
-      resultado.threadsFragmentadas = threadsFragmentadas; // 🆕 Adicionar fragmentação
 
       resultado.stats.totalDuplicatas = duplicatasDetectadas.reduce((sum, d) => sum + d.count - 1, 0);
       resultado.stats.threadsSemContatoValido = threadsSemContato.length;
       resultado.stats.mensagensSuspeitas = threadsMensagensSuspeitas.length;
       resultado.stats.contatosInvalidos = threadsContatoInvalido.length;
       resultado.stats.mensagensComProblemaVisibilidade = mensagensComProblemaVisibilidade.length;
-      resultado.stats.threadsFragmentadas = threadsFragmentadas.length; // 🆕 Stats de fragmentação
-      resultado.stats.totalProblemas = threadsSemContato.length + threadsMensagensSuspeitas.length + threadsContatoInvalido.length + mensagensComProblemaVisibilidade.length + threadsFragmentadas.length; // 🆕 Incluir fragmentação
+      resultado.stats.totalProblemas = threadsSemContato.length + threadsMensagensSuspeitas.length + threadsContatoInvalido.length + mensagensComProblemaVisibilidade.length;
       
       setSimulationResults(resultado);
       setLastRun(new Date());
