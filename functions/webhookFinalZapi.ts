@@ -575,21 +575,49 @@ async function handleMessage(dados, payloadBruto, base44) {
 
   console.log(`[${VERSION}] 🔗 Integração: ${integracaoId || 'não encontrada'} | Canal: ${integracaoInfo?.numero || connectedPhone || 'N/A'}`);
 
-  // BUSCAR/CRIAR CONTATO - USANDO CONTACT MANAGER CENTRALIZADO (FONTE ÚNICA)
+  // BUSCAR/CRIAR CONTATO - Inline para evitar erros de import
   let contato;
   try {
-    // ✅ Usar getOrCreateContactCentralized (função centralizada - única fonte da verdade)
-    const { getOrCreateContactCentralized } = await import('./lib/contactManagerCentralized.js');
+    const telefoneNormalizado = normalizePhone(dados.from);
 
-    contato = await getOrCreateContactCentralized(base44, 
-      dados.from,           // ⚠️ TELEFONE BRUTO - função normaliza internamente
-      dados.pushName || dados.from,
-      null,                 // Z-API não fornece foto no webhook padrão
-      dados.pushName,
-      integracaoId          // ✅ NOVO: Passa integração para buscar foto depois se faltar
+    if (!telefoneNormalizado) {
+      throw new Error('Telefone inválido após normalização');
+    }
+
+    // Buscar contato existente
+    const contatosExistentes = await base44.asServiceRole.entities.Contact.filter(
+      { telefone: telefoneNormalizado },
+      '-created_date',
+      1
     );
 
-    console.log(`[${VERSION}] 👤 Contato processado via contactManager: ${contato.nome} (${contato.id})`);
+    if (contatosExistentes && contatosExistentes.length > 0) {
+      contato = contatosExistentes[0];
+
+      // Atualizar nome se vier pushName mais completo
+      const updateData = {};
+      const pushName = dados.pushName || null;
+
+      if (pushName && pushName.length > (contato.nome?.length || 0)) {
+        updateData.nome = pushName;
+      }
+
+      if (Object.keys(updateData).length > 0) {
+        await base44.asServiceRole.entities.Contact.update(contato.id, updateData);
+        contato = { ...contato, ...updateData };
+      }
+    } else {
+      // Criar novo contato
+      contato = await base44.asServiceRole.entities.Contact.create({
+        telefone: telefoneNormalizado,
+        nome: dados.pushName || telefoneNormalizado,
+        tipo_contato: 'novo',
+        whatsapp_status: 'nao_verificado',
+        conexao_origem: integracaoId
+      });
+    }
+
+    console.log(`[${VERSION}] 👤 Contato processado: ${contato.nome} (${contato.id})`);
   } catch (e) {
     console.error(`[${VERSION}] ❌ Erro contato:`, e?.message || e);
     return jsonServerError({ success: false, error: 'erro_contato' });
