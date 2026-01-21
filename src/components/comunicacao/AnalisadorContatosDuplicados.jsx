@@ -11,12 +11,14 @@ import {
 import { normalizarTelefone } from "@/components/lib/phoneUtils";
 import { toast } from "sonner";
 
-export default function AnalisadorContatosDuplicados({ telefone: telefoneProp, isAdmin = false, onClose }) {
+export default function AnalisadorContatosDuplicados({ telefone: telefoneProp, isAdmin = false, onClose, contatoOrigem, contatoDestino }) {
   const [telefone, setTelefone] = useState(telefoneProp || '');
   const [carregando, setCarregando] = useState(false);
   const [corrigindo, setCorrigindo] = useState(false);
   const [resultado, setResultado] = useState(null);
   const [expandedContatos, setExpandedContatos] = useState({});
+  const [contatoSelecionadoOrigem, setContatoSelecionadoOrigem] = useState(contatoOrigem?.id || null);
+  const [contatoSelecionadoDestino, setContatoSelecionadoDestino] = useState(contatoDestino?.id || null);
 
   // ✅ ANÁLISE COMPLETA DE DUPLICADOS
   const analisar = async (tel) => {
