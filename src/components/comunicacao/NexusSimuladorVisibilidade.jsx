@@ -957,13 +957,19 @@ export default function NexusSimuladorVisibilidade({ usuario, integracoes = [], 
                              🚨
                            </Badge>
                          )}
-                         <div className={`w-7 h-7 rounded-full flex items-center justify-center text-white font-bold text-[10px] shadow-sm overflow-hidden ${
+                         <div className={`w-7 h-7 rounded-full flex items-center justify-center text-white font-bold text-[10px] shadow-sm overflow-hidden relative ${
                            hasUnread ? 'bg-gradient-to-br from-orange-400 to-red-500' : 'bg-slate-400'
                          }`}>
                            {contato?.foto_perfil_url ? (
                              <img src={contato.foto_perfil_url} alt="" className="w-full h-full object-cover" onError={(e) => { e.target.style.display = 'none'; }} />
                            ) : (
                              nomeExibicao.charAt(0).toUpperCase()
+                           )}
+                           {/* 🆕 Indicador de Duplicata */}
+                           {temDuplicataTabela && (
+                             <div className="absolute -bottom-1 -right-1 w-3.5 h-3.5 bg-red-600 rounded-full flex items-center justify-center border-2 border-white shadow-md animate-pulse" title={`🚨 ${temDuplicataTabela.count} duplicatas`}>
+                               <span className="text-white text-[8px] font-bold">{temDuplicataTabela.count}</span>
+                             </div>
                            )}
                          </div>
                          <div className="flex-1 min-w-0">
@@ -977,6 +983,11 @@ export default function NexusSimuladorVisibilidade({ usuario, integracoes = [], 
                            {temProblemaGrave && (
                              <p className="text-[10px] text-red-600 font-semibold">
                                ⚠️ {semContato?.motivo || contatoInvalido?.motivo || msgSuspeita?.motivo || (msgsVisibilidade && `${msgsVisibilidade.length} msgs com problema de visibilidade`)}
+                             </p>
+                           )}
+                           {temDuplicataTabela && (
+                             <p className="text-[10px] text-red-600 font-semibold">
+                               📱 {temDuplicataTabela.count} contatos com mesmo número
                              </p>
                            )}
                            <div className="flex items-center gap-1">
