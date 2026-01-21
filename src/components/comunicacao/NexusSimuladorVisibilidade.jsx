@@ -933,13 +933,16 @@ export default function NexusSimuladorVisibilidade({ usuario, integracoes = [], 
                          <div className="flex-1 min-w-0">
                            <div className="flex items-center gap-1">
                              <h3 className={`font-semibold text-[11px] truncate ${temProblemaGrave ? 'text-red-700 font-bold' : 'text-slate-900'}`}>
-                               {temProblemaGrave 
-                                 ? `⚠️ ${semContato?.motivo || contatoInvalido?.motivo || msgSuspeita?.motivo || `${msgNaoVisivel.length} msgs não visíveis`}`
-                                 : nomeExibicao
-                               }
+                               {nomeExibicao}
                              </h3>
                              <span className="text-[9px] text-slate-400">{formatarHorario(thread?.last_message_at)}</span>
                            </div>
+                           {/* Mostrar motivo do problema logo abaixo do nome */}
+                           {temProblemaGrave && (
+                             <p className="text-[10px] text-red-600 font-semibold">
+                               ⚠️ {semContato?.motivo || contatoInvalido?.motivo || msgSuspeita?.motivo || `${msgNaoVisivel.length} msgs não visíveis`}
+                             </p>
+                           )}
                            <div className="flex items-center gap-1">
                              <Badge variant="outline" className="text-[9px] h-3 px-1">
                                {res.threadType === 'contact_external' ? 'Ext' : res.threadType === 'team_internal' ? '1:1' : 'Grp'}
