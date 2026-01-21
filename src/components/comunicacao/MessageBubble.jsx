@@ -362,15 +362,12 @@ export default React.memo(function MessageBubble({
   const carregarContatos = async () => {
     setCarregandoContatos(true);
     try {
-      const threadsRecentes = await base44.entities.MessageThread.list('-last_message_at', 50);
-      const contatosIds = [...new Set(threadsRecentes.map((t) => t.contact_id))];
-      const contatosCarregados = await Promise.all(
-        contatosIds.map((id) => base44.entities.Contact.get(id).catch(() => null))
-      );
-
-      const contatosValidos = contatosCarregados.
-      filter((c) => c && !c.bloqueado && c.telefone).
-      sort((a, b) => (a.nome || '').localeCompare(b.nome || ''));
+      // ✅ BUSCAR DIRETO NO BANCO (igual SearchAndFilter)
+      const todosContatos = await base44.entities.Contact.list('-ultima_interacao', 1000);
+      
+      const contatosValidos = todosContatos
+        .filter((c) => c && !c.bloqueado && c.telefone)
+        .sort((a, b) => (a.nome || '').localeCompare(b.nome || ''));
 
       setContatos(contatosValidos);
     } catch (error) {
@@ -1289,21 +1286,40 @@ export default React.memo(function MessageBubble({
               <div className="flex items-center justify-center h-full">
                   <Loader2 className="w-6 h-6 animate-spin text-blue-600" />
                 </div> :
-              contatos.filter((c) =>
-              (c.nome || '').toLowerCase().includes(buscaContato.toLowerCase()) ||
-              (c.telefone || '').includes(buscaContato)
-              ).length === 0 && !carregandoContatos ?
+              contatos.filter((c) => {
+                if (!buscaContato) return true;
+                const termo = buscaContato.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
+                const nome = (c.nome || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+                const empresa = (c.empresa || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+                const cargo = (c.cargo || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+                const telefone = (c.telefone || '').replace(/\D/g, '');
+                const termoNumeros = buscaContato.replace(/\D/g, '');
+                
+                return nome.includes(termo) || 
+                       empresa.includes(termo) || 
+                       cargo.includes(termo) || 
+                       (termoNumeros.length >= 3 && telefone.includes(termoNumeros));
+              }).length === 0 && !carregandoContatos ?
               <div className="flex flex-col items-center justify-center h-full text-slate-400">
                   <p className="text-sm">Nenhum contato encontrado</p>
                 </div> :
 
               <div className="p-2">
                   {contatos.
-                filter((c) =>
-                !buscaContato ||
-                c.nome?.toLowerCase().includes(buscaContato.toLowerCase()) ||
-                c.telefone?.includes(buscaContato)
-                ).
+                filter((c) => {
+                  if (!buscaContato) return true;
+                  const termo = buscaContato.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
+                  const nome = (c.nome || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+                  const empresa = (c.empresa || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+                  const cargo = (c.cargo || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+                  const telefone = (c.telefone || '').replace(/\D/g, '');
+                  const termoNumeros = buscaContato.replace(/\D/g, '');
+                  
+                  return nome.includes(termo) || 
+                         empresa.includes(termo) || 
+                         cargo.includes(termo) || 
+                         (termoNumeros.length >= 3 && telefone.includes(termoNumeros));
+                }).
                 map((contato) => {
                   const selecionado = contatosSelecionados.find((c) => c.id === contato.id);
 
