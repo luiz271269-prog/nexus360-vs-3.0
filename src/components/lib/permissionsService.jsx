@@ -719,42 +719,6 @@ export const VISIBILITY_MATRIX = [
   },
   
   {
-    priority: 11,
-    name: 'mensagem_nao_atribuida',
-    check: (userPerms, thread, contact) => {
-      // ✅ NOVO: Mensagens não atribuídas são visíveis para todos que têm permissão na integração
-      if (!thread.assigned_user_id) {
-        const integracaoId = thread.whatsapp_integration_id;
-        
-        // Sem integração = liberado (thread interna ou sem WhatsApp)
-        if (!integracaoId) {
-          return { 
-            visible: true, 
-            motivo: 'Thread não atribuída sem integração específica',
-            decision_path: ['ALLOW:nao_atribuida_sem_integracao'],
-            reason_code: 'UNASSIGNED_NO_INTEGRATION'
-          };
-        }
-        
-        const permIntegracao = userPerms.integracoes?.[integracaoId];
-        
-        // Se tem permissão can_view na integração, pode ver
-        if (permIntegracao && permIntegracao.can_view !== false) {
-          return { 
-            visible: true, 
-            motivo: `Thread não atribuída - pode ver integração ${permIntegracao.integration_name}`,
-            decision_path: ['ALLOW:nao_atribuida_com_perm_integracao'],
-            reason_code: 'UNASSIGNED_WITH_INTEGRATION_PERM',
-            metadata: { integracaoId, nome: permIntegracao.integration_name }
-          };
-        }
-      }
-      
-      return null;
-    }
-  },
-  
-  {
     priority: 12,
     name: 'nexus360_default',
     check: (userPerms, thread, contact) => {

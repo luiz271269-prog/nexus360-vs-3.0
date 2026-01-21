@@ -1,8 +1,8 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.4';
 
 // ╔════════════════════════════════════════════════════════════════════════╗
-// ║  WEBHOOK WHATSAPP W-API - v26.0.0-CENTRALIZED                         ║
-// ║  TIMESTAMP: 2026-01-21 - CENTRALIZAÇÃO COMPLETA                       ║
+// ║  WEBHOOK WHATSAPP W-API - v25.0.0-CLONE-FIX                           ║
+// ║  TIMESTAMP: 2026-01-07T14:30:00 - CORREÇÃO CRÍTICA req.clone()       ║
 // ║                                                                        ║
 // ║  ARQUITETURA: "PORTEIRO CEGO" vs "GERENTE"                            ║
 // ║  • Webhook (Porteiro): Só confere crachá (instanceId/connectedPhone) ║
@@ -11,9 +11,9 @@ import { createClientFromRequest } from 'npm:@base44/sdk@0.8.4';
 // ║  • req.clone() OBRIGATÓRIO para asServiceRole funcionar              ║
 // ╚════════════════════════════════════════════════════════════════════════╝
 
-const VERSION = 'v26.0.0-CENTRALIZED';
-const BUILD_DATE = '2026-01-21';
-const DEPLOYMENT_ID = 'WAPI_CENTRALIZED_2026_01_21';
+const VERSION = 'v25.0.0-CLONE-FIX';
+const BUILD_DATE = '2026-01-07T14:30:00';
+const DEPLOYMENT_ID = 'WAPI_CLONE_FIX_2026_01_07';
 const ARCHITECTURE = 'PORTEIRO-CEGO';
 
 // ╔════════════════════════════════════════════════════════════════════════╗
@@ -46,6 +46,29 @@ const jsonOk = (data, extra = {}) =>
 
 const jsonErr = (error, status = 500) => 
   Response.json({ success: false, error }, { status, headers: corsHeaders });
+
+function normalizarTelefone(telefone) {
+  if (!telefone) return null;
+  let numeroLimpo = String(telefone).split('@')[0];
+  let apenasNumeros = numeroLimpo.replace(/\D/g, '');
+  if (!apenasNumeros || apenasNumeros.length < 10) return null;
+  
+  if (!apenasNumeros.startsWith('55')) {
+    if (apenasNumeros.length === 10 || apenasNumeros.length === 11) {
+      apenasNumeros = '55' + apenasNumeros;
+    }
+  }
+  
+  if (apenasNumeros.startsWith('55') && apenasNumeros.length === 12) {
+    const ddd = apenasNumeros.substring(2, 4);
+    const numero = apenasNumeros.substring(4);
+    if (!numero.startsWith('9')) {
+      apenasNumeros = '55' + ddd + '9' + numero;
+    }
+  }
+  
+  return '+' + apenasNumeros;
+}
 
 // ============================================================================
 // CLASSIFICADOR
@@ -164,9 +187,9 @@ function normalizarPayload(payload) {
     }
 
     const telefone = payload.phone || payload.from || payload.sender?.id || payload.chat?.id || '';
-    
-    // ✅ NÃO NORMALIZA - contactManager faz isso
-    if (!telefone) return { type: 'unknown', error: 'telefone_invalido' };
+    const numeroLimpo = normalizarTelefone(telefone);
+
+    if (!numeroLimpo) return { type: 'unknown', error: 'telefone_invalido' };
 
     const msgContent = payload.msgContent || {};
     let mediaType = 'none';
@@ -259,7 +282,7 @@ function normalizarPayload(payload) {
       type: 'message',
       instanceId,
       messageId: payload.messageId || payload.key?.id,
-      from: telefone,  // ✅ TELEFONE BRUTO - contactManager normaliza
+      from: numeroLimpo,
       content: String(conteudo || '').trim(),
       mediaType,
       downloadSpec,
@@ -464,58 +487,22 @@ async function handleMessage(dados, payloadBruto, base44) {
 
   console.log(`[WAPI] 🏛️ PORTEIRO RESULTADO: ${integracaoId ? '✅ Integração encontrada' : '❌ Não encontrada'} | Canal: ${integracaoInfo?.numero || connectedPhone || 'N/A'}`);
 
-  // BUSCAR/CRIAR CONTATO - Inline para evitar erros de import
+  // BUSCAR/CRIAR CONTATO - USANDO CONTACT MANAGER CENTRALIZADO (FONTE ÚNICA)
   const profilePicUrl = payloadBruto.sender?.profilePicture || payloadBruto.sender?.profilePicThumbObj?.eurl || null;
   let contato;
   try {
-    const { normalizePhone } = await import('./lib/phoneNormalizer.js');
-    const telefoneNormalizado = normalizePhone(dados.from);
+    // ✅ Usar getOrCreateContactCentralized (função centralizada - única fonte da verdade)
+    const { getOrCreateContactCentralized } = await import('./lib/contactManagerCentralized.js');
 
-    if (!telefoneNormalizado) {
-      throw new Error('Telefone inválido após normalização');
-    }
-
-    // Buscar contato existente
-    const contatosExistentes = await base44.asServiceRole.entities.Contact.filter(
-      { telefone: telefoneNormalizado },
-      '-created_date',
-      1
+    contato = await getOrCreateContactCentralized(base44, 
+      dados.from,           // ⚠️ TELEFONE BRUTO - função normaliza internamente
+      dados.pushName || dados.from,
+      profilePicUrl,
+      dados.pushName,
+      integracaoId          // ✅ NOVO: Passa integração para buscar foto depois se faltar
     );
 
-    if (contatosExistentes && contatosExistentes.length > 0) {
-      contato = contatosExistentes[0];
-
-      // Atualizar nome e foto se necessário
-      const updateData = {};
-      const pushName = dados.pushName || null;
-
-      if (pushName && pushName.length > (contato.nome?.length || 0)) {
-        updateData.nome = pushName;
-      }
-
-      if (profilePicUrl && (!contato.foto_perfil_url || contato.foto_perfil_url !== profilePicUrl)) {
-        updateData.foto_perfil_url = profilePicUrl;
-        updateData.foto_perfil_atualizada_em = new Date().toISOString();
-      }
-
-      if (Object.keys(updateData).length > 0) {
-        await base44.asServiceRole.entities.Contact.update(contato.id, updateData);
-        contato = { ...contato, ...updateData };
-      }
-    } else {
-      // Criar novo contato
-      contato = await base44.asServiceRole.entities.Contact.create({
-        telefone: telefoneNormalizado,
-        nome: dados.pushName || telefoneNormalizado,
-        tipo_contato: 'novo',
-        whatsapp_status: 'nao_verificado',
-        conexao_origem: integracaoId,
-        foto_perfil_url: profilePicUrl,
-        foto_perfil_atualizada_em: profilePicUrl ? new Date().toISOString() : null
-      });
-    }
-
-    console.log(`[WAPI] 👤 Contato processado: ${contato.nome} (${contato.id})`);
+    console.log(`[WAPI] 👤 Contato processado via getOrCreateContactCentralized: ${contato.nome} (${contato.id})`);
   } catch (e) {
     console.error(`[WAPI] ❌ Erro contato:`, e?.message);
     return jsonErr('erro_contato', 500);

@@ -41,16 +41,14 @@ Deno.serve(async (req) => {
         return Response.json({ received: true });
       }
 
-      // ✅ CENTRALIZADO: Usar contactManagerCentralized
-      const { getOrCreateContactCentralized } = await import('./lib/contactManagerCentralized.js');
-      const contact = await getOrCreateContactCentralized(
-        base44,
-        senderPhone, // telefone normalizado
-        `GoTo ${senderPhone}`, // nome (será substituído se já existir)
-        null, // profilePicUrl
-        null, // pushName
-        null  // integrationId (GoTo não tem)
-      );
+      // 1) Buscar/criar Contact usando contactManager (UPSERT ÚNICO)
+      const { getOrCreateContact } = await import('./lib/contactManager.js');
+      const contact = await getOrCreateContact(base44, {
+        telefone: senderPhone,
+        nome: `GoTo ${senderPhone}`,
+        profilePicUrl: null,
+        pushName: null
+      });
 
       // 2) Buscar/criar MessageThread
       let thread = await base44.entities.MessageThread.filter({
@@ -117,18 +115,16 @@ Deno.serve(async (req) => {
       // Determinar direção (inbound se veio de fora, outbound se originou do sistema)
       const direction = payload.direction || 'inbound';
 
-      // ✅ CENTRALIZADO: Usar contactManagerCentralized
+      // 1) Buscar/criar Contact usando contactManager (UPSERT ÚNICO)
       const contactPhone = direction === 'inbound' ? fromNumber : toNumber;
-      const { getOrCreateContactCentralized } = await import('./lib/contactManagerCentralized.js');
+      const { getOrCreateContact } = await import('./lib/contactManager.js');
       
-      const contact = await getOrCreateContactCentralized(
-        base44,
-        contactPhone, // telefone normalizado
-        `GoTo ${contactPhone}`, // nome (será substituído se já existir)
-        null, // profilePicUrl
-        null, // pushName
-        null  // integrationId (GoTo não tem)
-      );
+      const contact = await getOrCreateContact(base44, {
+        telefone: contactPhone,
+        nome: `GoTo ${contactPhone}`,
+        profilePicUrl: null,
+        pushName: null
+      });
 
       // 2) Buscar ou criar CallSession
       let callSession = await base44.entities.CallSession.filter({ provider_call_id: callId });

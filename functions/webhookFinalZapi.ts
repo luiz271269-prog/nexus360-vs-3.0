@@ -1,18 +1,45 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.4';
 
 // ============================================================================
-// IMPORTS CENTRALIZADOS
+// FUNÇÕES UTILITÁRIAS INLINE (evitar imports externos)
 // ============================================================================
-import { normalizePhone } from './lib/phoneNormalizer.js';
+
+function normalizarTelefone(telefone) {
+  if (!telefone) return null;
+  let numeroLimpo = String(telefone).split('@')[0];
+  let apenasNumeros = numeroLimpo.replace(/\D/g, '');
+  if (!apenasNumeros || apenasNumeros.length < 10) return null;
+  
+  // Adicionar código do país se não tiver
+  if (!apenasNumeros.startsWith('55')) {
+    if (apenasNumeros.length === 10 || apenasNumeros.length === 11) {
+      apenasNumeros = '55' + apenasNumeros;
+    }
+  }
+  
+  // Normalizar celulares brasileiros: adicionar 9 se faltar
+  // Formato esperado: 55 + DDD(2) + 9 + número(8) = 13 dígitos
+  // Se veio 55 + DDD(2) + número(8) = 12 dígitos, adiciona o 9
+  if (apenasNumeros.startsWith('55') && apenasNumeros.length === 12) {
+    const ddd = apenasNumeros.substring(2, 4);
+    const numero = apenasNumeros.substring(4);
+    // Celulares começam com 9, 8, 7, 6 (após o 9 adicional)
+    // Se não começa com 9, adicionar
+    if (!numero.startsWith('9')) {
+      apenasNumeros = '55' + ddd + '9' + numero;
+    }
+  }
+  
+  return '+' + apenasNumeros;
+}
 
 // ============================================================================
-// WEBHOOK WHATSAPP Z-API - v10.1.0 CENTRALIZAÇÃO COMPLETA
+// WEBHOOK WHATSAPP Z-API - v10.0.0 INGESTÃO PURA + CÉREBRO ISOLADO
 // ============================================================================
 // SIMETRIA COM W-API: Webhook burro, inteligência em processInbound
-// CRÍTICO: Usa contactManagerCentralized para normalização única
 // ============================================================================
-const VERSION = 'v10.1.0-CENTRALIZED';
-const BUILD_DATE = '2026-01-21';
+const VERSION = 'v10.0.0-PURE-INGESTION';
+const BUILD_DATE = '2025-12-18';
 
 const corsHeaders = {
   'Content-Type': 'application/json',
@@ -161,8 +188,10 @@ function normalizarPayload(payload) {
     };
   }
 
-  // Mensagem real - extrair telefone BRUTO (normalização será feita pelo contactManager)
+  // Mensagem real
   const telefoneOrig = payload.phone ?? payload.from ?? payload.chatId ?? '';
+  const numeroLimpo = normalizarTelefone(telefoneOrig);
+  if (!numeroLimpo) return { type: 'unknown', error: 'telefone_invalido' };
 
   const messageId =
     payload.messageId ||
@@ -319,7 +348,7 @@ function normalizarPayload(payload) {
     type: 'message',
     instanceId,
     messageId,
-    from: telefoneOrig,  // ✅ TELEFONE BRUTO - contactManager normaliza
+    from: numeroLimpo,
     content: String(conteudo ?? '').trim(),
     mediaType,
     mediaUrl,
@@ -575,49 +604,21 @@ async function handleMessage(dados, payloadBruto, base44) {
 
   console.log(`[${VERSION}] 🔗 Integração: ${integracaoId || 'não encontrada'} | Canal: ${integracaoInfo?.numero || connectedPhone || 'N/A'}`);
 
-  // BUSCAR/CRIAR CONTATO - Inline para evitar erros de import
+  // BUSCAR/CRIAR CONTATO - USANDO CONTACT MANAGER CENTRALIZADO (FONTE ÚNICA)
   let contato;
   try {
-    const telefoneNormalizado = normalizePhone(dados.from);
+    // ✅ Usar getOrCreateContactCentralized (função centralizada - única fonte da verdade)
+    const { getOrCreateContactCentralized } = await import('./lib/contactManagerCentralized.js');
 
-    if (!telefoneNormalizado) {
-      throw new Error('Telefone inválido após normalização');
-    }
-
-    // Buscar contato existente
-    const contatosExistentes = await base44.asServiceRole.entities.Contact.filter(
-      { telefone: telefoneNormalizado },
-      '-created_date',
-      1
+    contato = await getOrCreateContactCentralized(base44, 
+      dados.from,           // ⚠️ TELEFONE BRUTO - função normaliza internamente
+      dados.pushName || dados.from,
+      null,                 // Z-API não fornece foto no webhook padrão
+      dados.pushName,
+      integracaoId          // ✅ NOVO: Passa integração para buscar foto depois se faltar
     );
 
-    if (contatosExistentes && contatosExistentes.length > 0) {
-      contato = contatosExistentes[0];
-
-      // Atualizar nome se vier pushName mais completo
-      const updateData = {};
-      const pushName = dados.pushName || null;
-
-      if (pushName && pushName.length > (contato.nome?.length || 0)) {
-        updateData.nome = pushName;
-      }
-
-      if (Object.keys(updateData).length > 0) {
-        await base44.asServiceRole.entities.Contact.update(contato.id, updateData);
-        contato = { ...contato, ...updateData };
-      }
-    } else {
-      // Criar novo contato
-      contato = await base44.asServiceRole.entities.Contact.create({
-        telefone: telefoneNormalizado,
-        nome: dados.pushName || telefoneNormalizado,
-        tipo_contato: 'novo',
-        whatsapp_status: 'nao_verificado',
-        conexao_origem: integracaoId
-      });
-    }
-
-    console.log(`[${VERSION}] 👤 Contato processado: ${contato.nome} (${contato.id})`);
+    console.log(`[${VERSION}] 👤 Contato processado via contactManager: ${contato.nome} (${contato.id})`);
   } catch (e) {
     console.error(`[${VERSION}] ❌ Erro contato:`, e?.message || e);
     return jsonServerError({ success: false, error: 'erro_contato' });

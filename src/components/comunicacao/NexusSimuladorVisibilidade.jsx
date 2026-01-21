@@ -7,7 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { 
   PlayCircle, AlertTriangle, CheckCircle2, Database, 
   RefreshCw, Zap, Eye, EyeOff, Info, TrendingUp, ArrowRightLeft, Users, User,
-  CheckCheck, Image, Video, Mic, FileText, MapPin, Phone as PhoneIcon, UserCheck, Clock
+  CheckCheck, Image, Video, Mic, FileText, MapPin, Phone as PhoneIcon, UserCheck
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { executarAnaliseEmLote } from '@/components/lib/nexusComparator';
@@ -38,7 +38,6 @@ export default function NexusSimuladorVisibilidade({ usuario, integracoes = [], 
   const [filtroNomeContato, setFiltroNomeContato] = useState('');
   const [filtroUsuarioAtribuido, setFiltroUsuarioAtribuido] = useState('todos');
   const [filtroInstanciaWhatsApp, setFiltroInstanciaWhatsApp] = useState('todas');
-  const [resultadoRecuperacao, setResultadoRecuperacao] = useState(null);
 
   // Carregar lista de usuários e contatos
   useEffect(() => {
@@ -92,8 +91,6 @@ export default function NexusSimuladorVisibilidade({ usuario, integracoes = [], 
   };
 
   const usuarioAtual = todosUsuarios.find(u => u.id === usuarioSelecionado) || usuario;
-
-
 
   const formatarHorario = (timestamp) => {
     if (!timestamp) return "";
@@ -163,25 +160,6 @@ export default function NexusSimuladorVisibilidade({ usuario, integracoes = [], 
     
     try {
       setLoading(true);
-      
-      // ✅ ETAPA 1: Recuperar mensagens perdidas de hoje
-      toast.info('🔄 Recuperando mensagens perdidas...');
-      try {
-        const resultado = await base44.functions.invoke('recuperarMensagensPerdidas', {
-          data_inicio: new Date().toISOString().split('T')[0] + 'T00:00:00'
-        });
-        
-        setResultadoRecuperacao(resultado.data);
-        
-        if (resultado.data.recuperados > 0) {
-          toast.success(`✅ ${resultado.data.recuperados} mensagens recuperadas!`);
-          // Recarregar contatos para incluir os novos
-          await carregarContatos();
-        }
-      } catch (error) {
-        console.error('Erro ao recuperar mensagens:', error);
-        toast.warning('⚠️ Erro na recuperação, continuando análise...');
-      }
       
       // Usar threads já carregadas ou buscar novas
       let threadsParaAnalisar = threads;
@@ -1135,68 +1113,6 @@ export default function NexusSimuladorVisibilidade({ usuario, integracoes = [], 
             </Alert>
           ))}
         </div>
-      )}
-
-      {/* 📊 RESULTADO DA RECUPERAÇÃO */}
-      {resultadoRecuperacao && (
-        <Alert className={resultadoRecuperacao.recuperados > 0 ? 'border-green-300 bg-green-50' : 'border-blue-300 bg-blue-50'}>
-          <CheckCircle2 className="h-5 w-5" />
-          <AlertDescription>
-            <div className="space-y-2">
-              <div>
-                <strong className="text-base">📊 Resultado da Recuperação</strong>
-                <div className="grid grid-cols-4 gap-3 mt-2 text-sm">
-                  <div className="bg-white rounded p-2 border">
-                    <p className="text-xs text-slate-500">Payloads Analisados</p>
-                    <p className="text-2xl font-bold text-slate-900">{resultadoRecuperacao.total_payloads}</p>
-                  </div>
-                  <div className="bg-white rounded p-2 border border-green-300">
-                    <p className="text-xs text-green-600">Recuperadas</p>
-                    <p className="text-2xl font-bold text-green-700">{resultadoRecuperacao.recuperados}</p>
-                  </div>
-                  <div className="bg-white rounded p-2 border border-red-300">
-                    <p className="text-xs text-red-600">Erros</p>
-                    <p className="text-2xl font-bold text-red-700">{resultadoRecuperacao.erros}</p>
-                  </div>
-                  <div className="bg-white rounded p-2 border border-blue-300">
-                    <p className="text-xs text-blue-600">Tempo</p>
-                    <p className="text-lg font-bold text-blue-700 flex items-center gap-1">
-                      <Clock className="w-4 h-4" />
-                      Agora
-                    </p>
-                  </div>
-                </div>
-              </div>
-              {resultadoRecuperacao.detalhes?.recuperados?.length > 0 && (
-                <div className="bg-white rounded p-2 border mt-2">
-                  <p className="text-xs font-semibold text-slate-700 mb-1">✅ Mensagens Recuperadas:</p>
-                  <div className="space-y-1 max-h-40 overflow-y-auto">
-                    {resultadoRecuperacao.detalhes.recuperados.map((rec, idx) => (
-                      <div key={idx} className="text-xs text-slate-600 flex items-center gap-2 bg-slate-50 px-2 py-1 rounded">
-                        <PhoneIcon className="w-3 h-3 text-green-600" />
-                        <span className="font-mono">{rec.telefone}</span>
-                        <span className="text-slate-400">→</span>
-                        <span className="text-[10px] text-slate-500">Thread: {rec.thread_id.substring(0, 12)}...</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-              {resultadoRecuperacao.detalhes?.erros?.length > 0 && (
-                <div className="bg-red-50 rounded p-2 border border-red-200 mt-2">
-                  <p className="text-xs font-semibold text-red-700 mb-1">❌ Erros:</p>
-                  <div className="space-y-1 max-h-40 overflow-y-auto">
-                    {resultadoRecuperacao.detalhes.erros.map((err, idx) => (
-                      <div key={idx} className="text-xs text-red-600 bg-white px-2 py-1 rounded">
-                        {err.telefone}: {err.erro}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
-          </AlertDescription>
-        </Alert>
       )}
 
       {/* Ações rápidas */}

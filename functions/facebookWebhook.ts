@@ -63,30 +63,21 @@ Deno.serve(async (req) => {
 
           if (!senderId || !message) continue;
 
-          // ✅ CENTRALIZADO: Usar contactManagerCentralized para UPSERT único
-          const { getOrCreateContactCentralized } = await import('./lib/contactManagerCentralized.js');
-          
-          // Buscar por facebook_id primeiro
+          // Buscar ou criar Contact
           let contacts = await base44.entities.Contact.filter({
             facebook_id: senderId
           });
 
           let contact;
           if (contacts.length === 0) {
-            // Criar via centralizado (sem telefone inicial, mas com facebook_id)
-            contact = await getOrCreateContactCentralized(
-              base44,
-              null, // telefone - Facebook não fornece
-              `Facebook User`, // nome genérico (será atualizado se tiver pushName)
-              null, // profilePicUrl
-              null, // pushName
-              integration.id // integração para futuras buscas
-            );
-            
-            // Adicionar facebook_id após criação
-            await base44.entities.Contact.update(contact.id, {
+            // Criar novo contato
+            contact = await base44.entities.Contact.create({
+              nome: `Facebook ${senderId.substring(0, 8)}`,
               facebook_id: senderId,
-              tipo_contato: 'novo'
+              tipo_contato: 'novo',
+              metadata: {
+                facebook_profile: event.sender
+              }
             });
           } else {
             contact = contacts[0];
