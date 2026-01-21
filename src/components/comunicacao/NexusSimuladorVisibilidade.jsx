@@ -491,10 +491,28 @@ export default function NexusSimuladorVisibilidade({ usuario, integracoes = [], 
                     return (
                       <div 
                         key={thread.id}
-                        className={`px-2 py-2 flex items-center gap-2 border-b border-slate-100 hover:bg-gradient-to-r hover:from-amber-50 hover:to-orange-50 cursor-pointer transition-all group relative ${
-                          erroNexus ? (erroNexus.severity === 'error' ? 'bg-red-50/50' : 'bg-amber-50/50') : ''
-                        } ${temMsgNaoVisivel ? 'border-l-4 border-l-orange-500' : ''}`}
-                        title={erroNexus ? `❌ ${erroNexus.descricao}` : ''}
+                        draggable
+                        onDragStart={(e) => {
+                          setDraggedThread({ thread, contato, integracao });
+                          e.dataTransfer.effectAllowed = 'move';
+                        }}
+                        onDragOver={(e) => {
+                          e.preventDefault();
+                          e.dataTransfer.dropEffect = 'move';
+                        }}
+                        onDrop={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          if (draggedThread && draggedThread.contato?.id !== contato?.id) {
+                            setTelefoneParaCorrigir(draggedThread.contato?.telefone);
+                            setModalCorrecaoOpen(true);
+                            setDraggedThread(null);
+                          }
+                        }}
+                        className={`px-2 py-2 flex items-center gap-2 border-b border-slate-100 hover:bg-gradient-to-r hover:from-amber-50 hover:to-orange-50 cursor-move transition-all group relative ${
+                          draggedThread?.thread.id === thread.id ? 'opacity-50 bg-blue-100' : ''
+                        } ${erroNexus ? (erroNexus.severity === 'error' ? 'bg-red-50/50' : 'bg-amber-50/50') : ''} ${temMsgNaoVisivel ? 'border-l-4 border-l-orange-500' : ''}`}
+                        title={draggedThread?.thread.id === thread.id ? '🔄 Arraste para outro contato para unificar' : erroNexus ? `❌ ${erroNexus.descricao}` : ''}
                       >
                         {/* Avatar */}
                         <div className="relative flex-shrink-0">
