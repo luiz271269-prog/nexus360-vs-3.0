@@ -120,26 +120,68 @@ export default function CorretorVisibilidadeMensagens({
   const gerarEstrategiasCorrecao = (thread, contato, mensagensProblema, threadVisivel) => {
     const estrategias = [];
 
-    // Estratégia ÚNICA: Corrigir visibility das mensagens (sem atribuir ou fidelizar)
-    const mensagensParaCorrigir = mensagensProblema.filter(m => 
-      m.problema === 'thread_bloqueada' && m.visibility !== 'internal_only'
+    // ESTRATÉGIA 1: Thread bloqueada com mensagens públicas → marcar como internas
+    const msgThreadBloqueada = mensagensProblema.filter(m => 
+      m.problema === 'thread_bloqueada_msg_publica'
     );
-    
-    if (mensagensParaCorrigir.length > 0) {
+    if (msgThreadBloqueada.length > 0) {
       estrategias.push({
-        tipo: 'corrigir_visibility',
-        titulo: 'Marcar Mensagens como Internas',
-        descricao: `Marcar ${mensagensParaCorrigir.length} mensagens como internal_only (não altera atribuição da thread)`,
-        icone: MessageSquare,
+        tipo: 'marcar_internas',
+        titulo: 'Marcar como Internas (Thread Bloqueada)',
+        descricao: `${msgThreadBloqueada.length} mensagens públicas em thread bloqueada → marcar internal_only`,
+        icone: EyeOff,
         cor: 'orange',
         acao: async () => {
-          // Atualizar em lote
-          for (const msg of mensagensParaCorrigir) {
+          for (const msg of msgThreadBloqueada) {
             await base44.entities.Message.update(msg.id, {
               visibility: 'internal_only'
             });
           }
-          return `${mensagensParaCorrigir.length} mensagens marcadas como internas`;
+          return `${msgThreadBloqueada.length} mensagens marcadas como internas`;
+        }
+      });
+    }
+
+    // ESTRATÉGIA 2: Thread visível com mensagens internas → marcar como públicas
+    const msgThreadVisivelInterna = mensagensProblema.filter(m => 
+      m.problema === 'thread_visivel_msg_interna'
+    );
+    if (msgThreadVisivelInterna.length > 0) {
+      estrategias.push({
+        tipo: 'marcar_publicas',
+        titulo: 'Tornar Mensagens Públicas',
+        descricao: `${msgThreadVisivelInterna.length} mensagens internas em thread visível → marcar public_to_customer`,
+        icone: Eye,
+        cor: 'green',
+        acao: async () => {
+          for (const msg of msgThreadVisivelInterna) {
+            await base44.entities.Message.update(msg.id, {
+              visibility: 'public_to_customer'
+            });
+          }
+          return `${msgThreadVisivelInterna.length} mensagens tornadas públicas`;
+        }
+      });
+    }
+
+    // ESTRATÉGIA 3: Mensagens sem visibility → definir baseado na thread
+    const msgSemVisibility = mensagensProblema.filter(m => 
+      m.problema === 'visibility_ausente'
+    );
+    if (msgSemVisibility.length > 0) {
+      estrategias.push({
+        tipo: 'definir_visibility',
+        titulo: 'Definir Visibilidade',
+        descricao: `${msgSemVisibility.length} mensagens sem visibility → definir baseado na thread`,
+        icone: Zap,
+        cor: 'purple',
+        acao: async () => {
+          for (const msg of msgSemVisibility) {
+            await base44.entities.Message.update(msg.id, {
+              visibility: threadVisivel ? 'public_to_customer' : 'internal_only'
+            });
+          }
+          return `${msgSemVisibility.length} mensagens com visibility definida`;
         }
       });
     }
