@@ -203,6 +203,7 @@ export default function NexusSimuladorVisibilidade({ usuario, integracoes = [], 
       const threadsSemContato = [];
       const threadsMensagensSuspeitas = [];
       const threadsContatoInvalido = [];
+      const mensagensComProblemaVisibilidade = [];
 
       for (const thread of threadsParaAnalisar) {
         // Ignorar threads internas - elas não precisam de contact_id
@@ -250,6 +251,56 @@ export default function NexusSimuladorVisibilidade({ usuario, integracoes = [], 
           });
         }
 
+        // 🆕 ERRO CRÍTICO 4: Problemas de visibilidade nas mensagens (INTEGRIDADE DO BANCO)
+        const mensagensDaThread = mensagens.filter(m => m.thread_id === thread.id);
+
+        for (const mensagem of mensagensDaThread) {
+          const problemas = [];
+
+          // Problema 1: Campo visibility ausente ou undefined
+          if (mensagem.visibility === undefined || mensagem.visibility === null) {
+            problemas.push({
+              tipo: 'visibility_undefined',
+              descricao: 'Campo visibility ausente no banco de dados',
+              severidade: 'error'
+            });
+          }
+
+          // Problema 2: Valor de visibility inválido
+          const valoresValidos = ['public_to_customer', 'internal_only'];
+          if (mensagem.visibility && !valoresValidos.includes(mensagem.visibility)) {
+            problemas.push({
+              tipo: 'visibility_invalid',
+              descricao: `Valor inválido: "${mensagem.visibility}" (esperado: public_to_customer ou internal_only)`,
+              severidade: 'error'
+            });
+          }
+
+          // Problema 3: Thread bloqueada mas mensagem está como public
+          if (thread.bloqueado && mensagem.visibility === 'public_to_customer') {
+            problemas.push({
+              tipo: 'thread_blocked_public_message',
+              descricao: 'Thread bloqueada mas mensagem marcada como pública (pode causar vazamento)',
+              severidade: 'warning'
+            });
+          }
+
+          // Se encontrou problemas, adicionar à lista
+          if (problemas.length > 0) {
+            mensagensComProblemaVisibilidade.push({
+              messageId: mensagem.id,
+              threadId: thread.id,
+              contactId: contato.id,
+              content: mensagem.content?.substring(0, 100) || '(sem conteúdo)',
+              visibility: mensagem.visibility,
+              problemas,
+              mensagem,
+              thread,
+              contato
+            });
+          }
+        }
+
         // Detecção de duplicatas
         if (contato.telefone) {
           if (!mapaTelefones.has(contato.telefone)) {
@@ -277,12 +328,14 @@ export default function NexusSimuladorVisibilidade({ usuario, integracoes = [], 
       resultado.threadsSemContato = threadsSemContato;
       resultado.threadsMensagensSuspeitas = threadsMensagensSuspeitas;
       resultado.threadsContatoInvalido = threadsContatoInvalido;
+      resultado.mensagensComProblemaVisibilidade = mensagensComProblemaVisibilidade;
 
       resultado.stats.totalDuplicatas = duplicatasDetectadas.reduce((sum, d) => sum + d.count - 1, 0);
       resultado.stats.threadsSemContatoValido = threadsSemContato.length;
       resultado.stats.mensagensSuspeitas = threadsMensagensSuspeitas.length;
       resultado.stats.contatosInvalidos = threadsContatoInvalido.length;
-      resultado.stats.totalProblemas = threadsSemContato.length + threadsMensagensSuspeitas.length + threadsContatoInvalido.length;
+      resultado.stats.mensagensComProblemaVisibilidade = mensagensComProblemaVisibilidade.length;
+      resultado.stats.totalProblemas = threadsSemContato.length + threadsMensagensSuspeitas.length + threadsContatoInvalido.length + mensagensComProblemaVisibilidade.length;
       
       setSimulationResults(resultado);
       setLastRun(new Date());
@@ -292,7 +345,7 @@ export default function NexusSimuladorVisibilidade({ usuario, integracoes = [], 
       // Priorizar alertas críticos de perda de dados
       if (stats.totalProblemas > 0) {
         toast.error(`🚨 CRÍTICO: ${stats.totalProblemas} problemas graves detectados!`, {
-          description: `${stats.threadsSemContatoValido} sem contato | ${stats.contatosInvalidos} contatos inválidos | ${stats.mensagensSuspeitas} msgs suspeitas`
+          description: `${stats.threadsSemContatoValido} sem contato | ${stats.contatosInvalidos} contatos inválidos | ${stats.mensagensSuspeitas} msgs suspeitas | ${stats.mensagensComProblemaVisibilidade} msgs com problema de visibilidade`
         });
       } else if (stats.criticosFalsoNegativo > 0) {
         toast.error(`🚨 ${stats.criticosFalsoNegativo} falsos negativos críticos encontrados!`);
@@ -524,6 +577,12 @@ export default function NexusSimuladorVisibilidade({ usuario, integracoes = [], 
                                 {erroNexus.regra}
                               </Badge>
                             )}
+                            {msgsVisibilidade && msgsVisibilidade.length > 0 && (
+                              <Badge className="bg-orange-600 text-white text-[9px] h-3 px-1">
+                                <EyeOff className="w-2 h-2 mr-0.5" />
+                                {msgsVisibilidade.length}
+                              </Badge>
+                            )}
                           </div>
                           
                           {/* Descrição do Erro */}
@@ -532,6 +591,11 @@ export default function NexusSimuladorVisibilidade({ usuario, integracoes = [], 
                              erroNexus.severity === 'error' ? 'bg-red-100 text-red-800' : 'bg-amber-100 text-amber-800'
                            }`}>
                              {erroNexus.descricao}
+                           </div>
+                          )}
+                          {msgsVisibilidade && msgsVisibilidade.length > 0 && (
+                           <div className="mt-1 text-[9px] px-1.5 py-0.5 rounded bg-orange-100 text-orange-800">
+                             {msgsVisibilidade[0].problemas[0].descricao}
                            </div>
                           )}
                           </div>
@@ -551,7 +615,21 @@ export default function NexusSimuladorVisibilidade({ usuario, integracoes = [], 
                            <Info className="w-3 h-3 text-indigo-600" />
                           </Button>
 
-
+                          {msgsVisibilidade && msgsVisibilidade.length > 0 && (
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                // TODO: Implementar correção automática
+                                toast.info(`${msgsVisibilidade.length} mensagens com problema detectadas`);
+                              }}
+                              className="h-6 w-6 p-0 shadow-md bg-orange-600 hover:bg-orange-700 border-2 border-orange-700 animate-pulse"
+                              title={`🚨 ${msgsVisibilidade.length} MENSAGENS COM PROBLEMA - Clique para corrigir`}
+                            >
+                              <EyeOff className="w-3 h-3 text-white font-bold" />
+                            </Button>
+                          )}
 
                           <Button
                             size="sm"
@@ -682,6 +760,7 @@ export default function NexusSimuladorVisibilidade({ usuario, integracoes = [], 
                      <option value="sem_contato">🚨 Sem contato válido ({simulationResults.stats.threadsSemContatoValido || 0})</option>
                      <option value="contato_invalido">🚨 Contato inválido ({simulationResults.stats.contatosInvalidos || 0})</option>
                      <option value="msg_suspeita">🚨 Mensagens suspeitas ({simulationResults.stats.mensagensSuspeitas || 0})</option>
+                     <option value="problema_visibilidade">🔶 Problemas de visibilidade ({simulationResults.stats.mensagensComProblemaVisibilidade || 0})</option>
                      <option value="todos_problemas">🚨 TODOS OS PROBLEMAS ({simulationResults.stats.totalProblemas || 0})</option>
                   </select>
                 </div>
@@ -796,10 +875,14 @@ export default function NexusSimuladorVisibilidade({ usuario, integracoes = [], 
                    if (filtroDivergencia === 'msg_suspeita') {
                      return simulationResults.threadsMensagensSuspeitas?.some(t => t.threadId === res.threadId);
                    }
+                   if (filtroDivergencia === 'problema_visibilidade') {
+                     return simulationResults.mensagensComProblemaVisibilidade?.some(m => m.threadId === res.threadId);
+                   }
                    if (filtroDivergencia === 'todos_problemas') {
                      return simulationResults.threadsSemContato?.some(t => t.threadId === res.threadId) ||
                             simulationResults.threadsContatoInvalido?.some(t => t.threadId === res.threadId) ||
-                            simulationResults.threadsMensagensSuspeitas?.some(t => t.threadId === res.threadId);
+                            simulationResults.threadsMensagensSuspeitas?.some(t => t.threadId === res.threadId) ||
+                            simulationResults.mensagensComProblemaVisibilidade?.some(m => m.threadId === res.threadId);
                    }
 
                    // Filtro por regra
@@ -847,7 +930,8 @@ export default function NexusSimuladorVisibilidade({ usuario, integracoes = [], 
                  const semContato = simulationResults.threadsSemContato?.find(t => t.threadId === res.threadId);
                  const contatoInvalido = simulationResults.threadsContatoInvalido?.find(t => t.threadId === res.threadId);
                  const msgSuspeita = simulationResults.threadsMensagensSuspeitas?.find(t => t.threadId === res.threadId);
-                 const temProblemaGrave = semContato || contatoInvalido || msgSuspeita;
+                 const msgsVisibilidade = simulationResults.mensagensComProblemaVisibilidade?.filter(m => m.threadId === res.threadId);
+                 const temProblemaGrave = semContato || contatoInvalido || msgSuspeita || (msgsVisibilidade && msgsVisibilidade.length > 0);
 
                  // Nome formatado
                  let nomeExibicao = "";
@@ -893,7 +977,7 @@ export default function NexusSimuladorVisibilidade({ usuario, integracoes = [], 
                            {/* Mostrar motivo do problema logo abaixo do nome */}
                            {temProblemaGrave && (
                              <p className="text-[10px] text-red-600 font-semibold">
-                               ⚠️ {semContato?.motivo || contatoInvalido?.motivo || msgSuspeita?.motivo}
+                               ⚠️ {semContato?.motivo || contatoInvalido?.motivo || msgSuspeita?.motivo || (msgsVisibilidade && `${msgsVisibilidade.length} msgs com problema de visibilidade`)}
                              </p>
                            )}
                            <div className="flex items-center gap-1">
@@ -1043,8 +1127,39 @@ export default function NexusSimuladorVisibilidade({ usuario, integracoes = [], 
                             </div>
                           </div>
 
+                          {/* 🆕 Problemas de Visibilidade */}
+                          {msgsVisibilidade && msgsVisibilidade.length > 0 && (
+                            <div className="col-span-2 mt-2">
+                              <h4 className="font-bold text-orange-700 mb-1 flex items-center gap-2">
+                                <EyeOff className="w-4 h-4" />
+                                Mensagens com Problema de Visibilidade ({msgsVisibilidade.length})
+                              </h4>
+                              <div className="bg-orange-50 rounded p-2 border border-orange-200 max-h-40 overflow-y-auto space-y-2">
+                                {msgsVisibilidade.map((msgProblema, idx) => (
+                                  <div key={idx} className="bg-white rounded p-2 border border-orange-300">
+                                    <div className="text-[10px] space-y-1">
+                                      <div className="font-semibold text-orange-800">Msg #{msgProblema.messageId.substring(0, 12)}...</div>
+                                      <div className="text-slate-600">{msgProblema.content}</div>
+                                      <div className="flex items-center gap-1 text-[9px]">
+                                        <Badge variant="outline" className="text-[8px]">
+                                          visibility: {msgProblema.visibility || 'undefined'}
+                                        </Badge>
+                                      </div>
+                                      {msgProblema.problemas.map((prob, pIdx) => (
+                                        <div key={pIdx} className={`text-[9px] px-2 py-1 rounded ${
+                                          prob.severidade === 'error' ? 'bg-red-100 text-red-800' : 'bg-yellow-100 text-yellow-800'
+                                        }`}>
+                                          <span className="font-semibold">{prob.tipo}:</span> {prob.descricao}
+                                        </div>
+                                      ))}
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
 
-                        </div>
+                          </div>
                       </td>
                       </tr>
                       )}
