@@ -6,7 +6,7 @@
 // Garante deduplicação atômica, normalização única, sem variações
 // ============================================================================
 
-import { normalizePhone } from './phoneNormalizer.js';
+import { normalizePhone } from new URL('./phoneNormalizer.js', import.meta.url).href;
 
 /**
  * Busca ou cria contato de forma centralizada
