@@ -366,187 +366,129 @@ export default function AnalisadorContatosDuplicados({ telefone: telefoneProp, i
       )}
 
       {resultado && !resultado.erro && (
-        <div className="space-y-4">
-          {/* RESUMO COM VISUALIZAÇÃO LADO A LADO */}
-          <Card className={`p-4 ${resultado.contatosDuplicados.length > 1 ? 'bg-gradient-to-r from-red-50 to-orange-50 border-orange-300 border-2' : 'bg-green-50 border-green-200'}`}>
-            <div className="space-y-3">
-              <h2 className={`font-bold text-lg flex items-center gap-2 ${resultado.contatosDuplicados.length > 1 ? 'text-red-900' : 'text-green-900'}`}>
-                {resultado.contatosDuplicados.length > 1 ? (
-                  <>
-                    <AlertCircle className="w-5 h-5" />
-                    🚨 {resultado.contatosDuplicados.length} CONTATOS ENCONTRADOS
-                  </>
-                ) : (
-                  <>
-                    <CheckCircle className="w-5 h-5" />
-                    ✅ Apenas 1 contato com este telefone
-                  </>
-                )}
-              </h2>
+        <div className="space-y-6">
+          {/* VISUALIZAÇÃO LADO A LADO - LIMPA E MODERNA */}
+          {resultado.contatosDuplicados.length > 1 ? (
+            <div className="grid grid-cols-3 gap-4 items-stretch">
+              {/* COLUNA 1: ORIGEM (será deletado) */}
+              <div className="bg-white rounded-lg border-2 border-red-300 overflow-hidden shadow-lg hover:shadow-xl transition-shadow">
+                <div className="bg-gradient-to-r from-red-500 to-orange-500 px-4 py-3 text-white font-bold flex items-center gap-2">
+                  <AlertCircle className="w-5 h-5" />
+                  SERÁ DELETADO
+                </div>
 
-              {/* VISUALIZAÇÃO LADO A LADO - Origem vs Destino */}
-              {resultado.contatosDuplicados.length > 1 && (
-                <div className="grid grid-cols-12 gap-4 mt-6 items-start">
-                  {/* ORIGEM - A ser mesclada */}
-                  <div className="col-span-5 bg-gradient-to-br from-red-50 to-orange-50 rounded-xl p-5 border border-red-200 shadow-md hover:shadow-lg transition-shadow">
-                    <div className="flex items-center gap-2 mb-4">
-                      <div className="p-2 bg-red-100 rounded-lg">
-                        <AlertCircle className="w-4 h-4 text-red-600" />
-                      </div>
-                      <div>
-                        <p className="text-xs font-semibold text-slate-600 uppercase tracking-wider">Origem</p>
-                        <p className="text-sm font-bold text-red-700">Será Mesclada</p>
-                      </div>
-                    </div>
-
-                    <div className="space-y-3">
-                      {resultado.duplicatasParaMesclar.map((analise) => (
-                        <div key={analise.contato.id} className="bg-white rounded-lg p-3 border border-red-100 hover:border-red-300 transition-colors">
-                          <div className="flex items-center gap-3 mb-2">
-                            <div className="w-9 h-9 bg-gradient-to-br from-red-400 to-orange-400 rounded-lg flex items-center justify-center font-bold text-white text-sm">
-                              {analise.contato.nome?.charAt(0).toUpperCase()}
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <h4 className="font-semibold text-sm text-slate-900 truncate">{analise.contato.nome}</h4>
-                              <p className="text-xs text-slate-500">{analise.contato.telefone}</p>
-                            </div>
-                          </div>
-                          {analise.contato.empresa && <p className="text-xs text-slate-600 truncate">🏢 {analise.contato.empresa}</p>}
-                          <div className="flex gap-2 mt-2 flex-wrap">
-                            <Badge className="bg-red-600 text-[9px] py-1">Deletar</Badge>
-                            <Badge variant="outline" className="text-[9px] py-1 bg-slate-50">{analise.quantidadeMensagens} mensagens</Badge>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* SETA OU DIVISOR */}
-                  <div className="col-span-2 flex items-center justify-center h-full">
-                    <div className="text-center">
-                      <div className="inline-flex items-center justify-center w-10 h-10 bg-gradient-to-r from-red-500 to-green-500 rounded-full text-white font-bold text-lg">
-                        →
-                      </div>
-                      <p className="text-xs text-slate-500 mt-2 font-semibold uppercase">Mesclar</p>
-                    </div>
-                  </div>
-
-                  {/* DESTINO - Principal */}
-                  <div className="col-span-5 bg-gradient-to-br from-green-50 to-emerald-50 rounded-xl p-5 border border-green-300 shadow-md hover:shadow-lg transition-shadow">
-                    <div className="flex items-center gap-2 mb-4">
-                      <div className="p-2 bg-green-100 rounded-lg">
-                        <CheckCircle className="w-4 h-4 text-green-600" />
-                      </div>
-                      <div>
-                        <p className="text-xs font-semibold text-slate-600 uppercase tracking-wider">Destino</p>
-                        <p className="text-sm font-bold text-green-700">Permanece</p>
-                      </div>
-                    </div>
-
-                    <div className="bg-white rounded-lg p-3 border-2 border-green-300">
-                      <div className="flex items-center gap-3 mb-3">
-                        <div className="w-9 h-9 bg-gradient-to-br from-green-400 to-emerald-400 rounded-lg flex items-center justify-center font-bold text-white text-sm">
-                          {resultado.principal?.nome?.charAt(0).toUpperCase()}
+                <div className="p-4 space-y-4">
+                  {resultado.duplicatasParaMesclar.map((analise) => (
+                    <div key={analise.contato.id} className="space-y-2">
+                      <div className="flex items-center gap-3">
+                        <div className="w-12 h-12 bg-red-100 rounded-lg flex items-center justify-center font-bold text-red-600 text-lg">
+                          {analise.contato.nome?.charAt(0).toUpperCase()}
                         </div>
                         <div className="flex-1 min-w-0">
-                          <h4 className="font-bold text-sm text-slate-900 truncate">{resultado.principal?.nome}</h4>
-                          <p className="text-xs text-slate-500">{resultado.principal?.telefone}</p>
+                          <h3 className="font-bold text-sm text-slate-900 truncate">{analise.contato.nome}</h3>
+                          <p className="text-xs text-slate-500">{analise.contato.telefone}</p>
                         </div>
                       </div>
-                      {resultado.principal?.empresa && <p className="text-xs text-slate-600 truncate mb-2">🏢 {resultado.principal?.empresa}</p>}
-                      <div className="flex gap-2 flex-wrap">
-                        <Badge className="bg-green-600 text-[9px] py-1">🏆 Principal</Badge>
-                        <Badge className="bg-emerald-600 text-[9px] py-1">Unificado</Badge>
+                      {analise.contato.empresa && <p className="text-xs text-slate-600 ml-15 truncate">🏢 {analise.contato.empresa}</p>}
+                      <p className="text-xs text-slate-500 ml-15">📧 {analise.contato.email || 'Sem email'}</p>
+                      <div className="space-y-1">
+                        <p className="text-xs text-slate-600"><strong>Mensagens:</strong> {analise.quantidadeMensagens}</p>
+                        <p className="text-xs text-slate-600"><strong>Threads:</strong> {analise.threads}</p>
+                        <p className="text-xs text-slate-600"><strong>Score:</strong> {analise.score.toFixed(0)}</p>
+                      </div>
+                      <Badge className="bg-red-600 text-[10px] w-fit mt-2">🗑️ Será removido</Badge>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* COLUNA 2: SETA VISUAL + RESUMO */}
+              <div className="flex flex-col items-center justify-center gap-3 py-4">
+                <div className="w-12 h-12 rounded-full bg-gradient-to-br from-red-500 to-green-500 flex items-center justify-center text-white text-2xl font-bold shadow-lg">
+                  ⟹
+                </div>
+                <p className="text-xs font-bold text-slate-600 uppercase text-center">Consolidar</p>
+                <p className="text-[10px] text-slate-500 text-center max-w-[100px]">Todas as mensagens e dados serão transferidos</p>
+              </div>
+
+              {/* COLUNA 3: DESTINO (será mantido) */}
+              <div className="bg-white rounded-lg border-2 border-green-400 overflow-hidden shadow-lg hover:shadow-xl transition-shadow bg-gradient-to-br from-white to-green-50">
+                <div className="bg-gradient-to-r from-green-500 to-emerald-500 px-4 py-3 text-white font-bold flex items-center gap-2">
+                  <CheckCircle className="w-5 h-5" />
+                  SERÁ MANTIDO
+                </div>
+
+                <div className="p-4 space-y-3">
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-3">
+                      <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center font-bold text-green-600 text-lg ring-2 ring-green-300">
+                        {resultado.principal?.nome?.charAt(0).toUpperCase()}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <h3 className="font-bold text-sm text-slate-900 truncate">{resultado.principal?.nome}</h3>
+                        <p className="text-xs text-slate-500">{resultado.principal?.telefone}</p>
                       </div>
                     </div>
+                    {resultado.principal?.empresa && <p className="text-xs text-slate-600 ml-15 truncate">🏢 {resultado.principal?.empresa}</p>}
+                    <p className="text-xs text-slate-500 ml-15">📧 {resultado.principal?.email || 'Sem email'}</p>
+                    <div className="space-y-1">
+                      <p className="text-xs text-slate-600"><strong>Mensagens:</strong> {resultado.contatosDuplicados[0]?.quantidadeMensagens || 0}</p>
+                      <p className="text-xs text-slate-600"><strong>Threads:</strong> {resultado.contatosDuplicados[0]?.threads || 0}</p>
+                      <p className="text-xs text-slate-600"><strong>Score:</strong> {resultado.contatosDuplicados[0]?.score.toFixed(0) || 0}</p>
+                    </div>
+                    <Badge className="bg-green-600 text-[10px] w-fit mt-2">🏆 Principal</Badge>
                   </div>
                 </div>
-              )}
-
-              {isAdmin && resultado.contatosDuplicados.length > 1 && (
-                <Button
-                  onClick={mesclarContatos}
-                  disabled={corrigindo}
-                  className="mt-4 w-full bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white font-bold"
-                >
-                  {corrigindo ? (
-                    <>
-                      <Loader2 className="w-4 h-4 animate-spin mr-2" />
-                      Mesclando...
-                    </>
-                  ) : (
-                    <>
-                      <Copy className="w-4 h-4 mr-2" />
-                      ✅ Confirmar Unificação
-                    </>
-                  )}
-                </Button>
-              )}
+              </div>
             </div>
-          </Card>
-
-          {/* CONTATOS DETALHADO */}
-          {resultado.contatosDuplicados.map((analise, idx) => (
-            <Card key={analise.contato.id} className={`p-4 ${idx === 0 ? 'border-2 border-green-500 bg-green-50' : 'bg-slate-50'}`}>
-              <div className="space-y-3">
-                {/* Header */}
-                <div 
-                  onClick={() => setExpandedContatos(p => ({ ...p, [analise.contato.id]: !p[analise.contato.id] }))}
-                  className="cursor-pointer flex items-center justify-between"
-                >
-                  <div className="flex items-center gap-3 flex-1">
-                    <User className="w-5 h-5 text-slate-500" />
-                    <div>
-                      <h3 className="font-bold text-lg">
-                        {analise.contato.nome}
-                        {idx === 0 && <Badge className="ml-2 bg-green-600">Principal</Badge>}
-                      </h3>
-                      <p className="text-xs text-slate-600">
-                        Score: {analise.score.toFixed(0)} | {analise.quantidadeMensagens} mensagens | {analise.quantidadeInteracoes} interações
-                      </p>
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-xs text-slate-600">Criado: {new Date(analise.contato.created_date).toLocaleDateString('pt-BR')}</p>
-                    <p className="text-xs text-slate-600">Última: {analise.ultimaInteracao.toLocaleDateString('pt-BR')}</p>
-                    {expandedContatos[analise.contato.id] ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+          ) : (
+            <Card className="p-6 bg-gradient-to-r from-green-50 to-emerald-50 border-2 border-green-200">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <CheckCircle className="w-6 h-6 text-green-600" />
+                  <div>
+                    <h3 className="font-bold text-slate-900">✅ Apenas 1 contato</h3>
+                    <p className="text-xs text-slate-600">Nenhuma duplicata encontrada</p>
                   </div>
                 </div>
-
-                {/* Detalhes expandível */}
-                {expandedContatos[analise.contato.id] && (
-                  <div className="border-t pt-3 space-y-2 text-xs text-slate-700">
-                    <p><strong>ID:</strong> <code className="bg-white px-1 rounded">{analise.contato.id.substring(0, 12)}...</code></p>
-                    <p><strong>Tipo:</strong> {analise.contato.tipo_contato}</p>
-                    <p><strong>Telefone:</strong> {analise.contato.telefone}</p>
-                    {analise.contato.empresa && <p><strong>Empresa:</strong> {analise.contato.empresa}</p>}
-                    {analise.contato.email && <p><strong>Email:</strong> {analise.contato.email}</p>}
-                    
-                    <div className="flex gap-2 mt-3 flex-wrap">
-                      <Badge variant="outline">{analise.threads} threads</Badge>
-                      <Badge variant="outline">{analise.quantidadeMensagens} mensagens</Badge>
-                      <Badge variant="outline">{analise.quantidadeInteracoes} interações</Badge>
-                      {analise.temThreadsAtivas && <Badge className="bg-blue-200 text-blue-800">Threads ativas</Badge>}
-                    </div>
-
-                    {/* Ações Admin */}
-                    {isAdmin && idx > 0 && (
-                      <div className="flex gap-2 mt-3 pt-3 border-t">
-                        <Button
-                          onClick={() => deletarDuplicata(analise.contato.id)}
-                          variant="destructive"
-                          size="sm"
-                        >
-                          <Trash2 className="w-3 h-3 mr-1" />
-                          Deletar
-                        </Button>
-                      </div>
-                    )}
-                  </div>
-                )}
               </div>
             </Card>
-          ))}
+          )}
+
+          {/* BOTÃO DE AÇÃO */}
+          {isAdmin && resultado.contatosDuplicados.length > 1 && (
+            <Button
+              onClick={mesclarContatos}
+              disabled={corrigindo}
+              className="w-full h-12 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white font-bold text-base shadow-lg"
+            >
+              {corrigindo ? (
+                <>
+                  <Loader2 className="w-5 h-5 animate-spin mr-3" />
+                  Unificando contatos...
+                </>
+              ) : (
+                <>
+                  <CheckCircle className="w-5 h-5 mr-3" />
+                  ✅ CONFIRMAR UNIFICAÇÃO
+                </>
+              )}
+            </Button>
+          )}
+
+          {/* DETALHES EXPANDÍVEL - SÓ SE HOUVER MÚLTIPLOS */}
+          {resultado.contatosDuplicados.length > 1 && (
+            <Card className="p-4 bg-slate-50 border-slate-200">
+              <p className="text-xs font-semibold text-slate-600 uppercase mb-3">Detalhes Técnicos</p>
+              {resultado.contatosDuplicados.map((analise, idx) => (
+                <div key={analise.contato.id} className="text-xs text-slate-600 mb-3">
+                  <p><strong>{idx === 0 ? '🏆 ' : '🗑️ '}{analise.contato.nome}</strong></p>
+                  <p className="ml-4">ID: <code className="bg-white px-1 rounded text-[9px]">{analise.contato.id.substring(0, 12)}...</code></p>
+                  <p className="ml-4">Tipo: {analise.contato.tipo_contato} | Score: {analise.score.toFixed(0)}</p>
+                </div>
+              ))}
+            </Card>
+          )}
         </div>
       )}
     </div>
