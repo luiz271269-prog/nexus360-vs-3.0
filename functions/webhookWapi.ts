@@ -47,29 +47,6 @@ const jsonOk = (data, extra = {}) =>
 const jsonErr = (error, status = 500) => 
   Response.json({ success: false, error }, { status, headers: corsHeaders });
 
-function normalizarTelefone(telefone) {
-  if (!telefone) return null;
-  let numeroLimpo = String(telefone).split('@')[0];
-  let apenasNumeros = numeroLimpo.replace(/\D/g, '');
-  if (!apenasNumeros || apenasNumeros.length < 10) return null;
-  
-  if (!apenasNumeros.startsWith('55')) {
-    if (apenasNumeros.length === 10 || apenasNumeros.length === 11) {
-      apenasNumeros = '55' + apenasNumeros;
-    }
-  }
-  
-  if (apenasNumeros.startsWith('55') && apenasNumeros.length === 12) {
-    const ddd = apenasNumeros.substring(2, 4);
-    const numero = apenasNumeros.substring(4);
-    if (!numero.startsWith('9')) {
-      apenasNumeros = '55' + ddd + '9' + numero;
-    }
-  }
-  
-  return '+' + apenasNumeros;
-}
-
 // ============================================================================
 // CLASSIFICADOR
 // ============================================================================
@@ -187,9 +164,9 @@ function normalizarPayload(payload) {
     }
 
     const telefone = payload.phone || payload.from || payload.sender?.id || payload.chat?.id || '';
-    const numeroLimpo = normalizarTelefone(telefone);
-
-    if (!numeroLimpo) return { type: 'unknown', error: 'telefone_invalido' };
+    
+    // ✅ NÃO NORMALIZA - contactManager faz isso
+    if (!telefone) return { type: 'unknown', error: 'telefone_invalido' };
 
     const msgContent = payload.msgContent || {};
     let mediaType = 'none';
@@ -282,7 +259,7 @@ function normalizarPayload(payload) {
       type: 'message',
       instanceId,
       messageId: payload.messageId || payload.key?.id,
-      from: numeroLimpo,
+      from: telefone,  // ✅ TELEFONE BRUTO - contactManager normaliza
       content: String(conteudo || '').trim(),
       mediaType,
       downloadSpec,
