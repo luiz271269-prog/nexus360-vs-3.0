@@ -15,7 +15,7 @@ export default function PainelContexto({ tarefa, dados, onCompletarTarefa, loadi
       alert("Por favor, adicione observações sobre o resultado da interação");
       return;
     }
-    onCompletarTarefa(tarefa.id, observacoes, resultado);
+    onCompletarTarefa(observacoes, resultado);
     setObservacoes('');
     setResultado('sucesso');
   };
