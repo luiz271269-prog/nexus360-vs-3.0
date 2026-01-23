@@ -272,8 +272,7 @@ export default function Agenda() {
         }
       });
 
-      // Apply Operation 2: replace `MotorInteligencia.processarFeedbackTarefa(`
-      MotorInteligencia.processarFeedbackTarefa(usuario.id,
+      MotorInteligencia.processarFeedbackTarefa(
         tarefaSelecionada.id,
         observacoes,
         resultado
