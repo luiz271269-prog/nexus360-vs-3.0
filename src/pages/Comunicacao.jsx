@@ -200,11 +200,16 @@ export default function Comunicacao() {
       if (isRateLimited) return [];
       try {
         const allThreads = await base44.entities.MessageThread.filter(
-          { is_canonical: true }, // ✅ CORREÇÃO #8: Listar APENAS threads canônicas
+          { 
+            $or: [
+              { is_canonical: true }, 
+              { is_canonical: { $exists: false } } // ✅ CORREÇÃO #8.1: Incluir threads sem a flag (legado)
+            ]
+          },
           '-last_message_at', 
           500
         );
-        console.log('[COMUNICACAO] 📊 Threads canônicas carregadas:', allThreads.length);
+        console.log('[COMUNICACAO] 📊 Threads canônicas/legado carregadas:', allThreads.length);
         return allThreads;
       } catch (error) {
         if (error?.message?.includes('429') || error?.response?.status === 429) {

@@ -68,7 +68,10 @@ export async function calcularLembretesGlobal(usuario) {
     try {
       threads = await base44.entities.MessageThread.filter({ 
         status: 'aberta',
-        is_canonical: true // ✅ CORREÇÃO #7: Contar APENAS threads canônicas
+        $or: [
+          { is_canonical: true },
+          { is_canonical: { $exists: false } } // ✅ CORREÇÃO #7.1: Contar threads canônicas ou sem a flag (legado)
+        ]
       }, '-last_message_at', 20);
     } catch (error) {
       console.warn('[LEMBRETES] ⚠️ Erro no lote 2:', error.message);
