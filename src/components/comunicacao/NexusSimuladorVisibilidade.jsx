@@ -1325,6 +1325,52 @@ export default function NexusSimuladorVisibilidade({ usuario, integracoes = [], 
           </AlertDescription>
         </Alert>
       )}
+
+      {/* Ações de Correção Automática */}
+      {simulationResults && simulationResults.stats.totalDuplicatas > 0 && (
+        <Card className="border-red-300 bg-red-50">
+          <CardContent className="p-4">
+            <div className="flex items-start gap-3">
+              <AlertTriangle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
+              <div className="flex-1">
+                <h4 className="font-bold text-red-900 mb-2">
+                  🚨 {simulationResults.stats.totalDuplicatas} Threads Duplicadas Detectadas
+                </h4>
+                <p className="text-sm text-red-800 mb-3">
+                  {simulationResults.duplicatas.length} contatos com múltiplas threads - isso fragmenta o histórico e causa mensagens invisíveis.
+                </p>
+                <Button
+                  onClick={async () => {
+                    if (!window.confirm('🔧 Consolidar TODAS as threads duplicadas?\n\nIsso irá:\n• Marcar 1 thread como canônica por contato\n• Marcar as demais como merged\n• Não mover mensagens (preserva histórico)\n\nContinuar?')) {
+                      return;
+                    }
+                    
+                    try {
+                      toast.info('🔄 Consolidando threads duplicadas...');
+                      const result = await base44.functions.invoke('consolidarThreadsDuplicadas', {
+                        auto_fix_all: true
+                      });
+                      
+                      if (result.data.success) {
+                        toast.success(`✅ ${result.data.resultados.threads_merged} threads consolidadas!`);
+                        await recarregarDadosCompletos();
+                        setSimulationResults(null);
+                      }
+                    } catch (err) {
+                      toast.error('Erro ao consolidar: ' + err.message);
+                    }
+                  }}
+                  className="bg-red-600 hover:bg-red-700 text-white"
+                  size="sm"
+                >
+                  <Users className="w-4 h-4 mr-2" />
+                  Consolidar Todas Automaticamente
+                </Button>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
       </div>
 
       {/* MODAL: Correção de Duplicatas */}
