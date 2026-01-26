@@ -199,17 +199,8 @@ export default function Comunicacao() {
     queryFn: async () => {
       if (isRateLimited) return [];
       try {
-        const allThreads = await base44.entities.MessageThread.filter(
-          { 
-            $or: [
-              { is_canonical: true }, 
-              { is_canonical: { $exists: false } } // ✅ CORREÇÃO #8.1: Incluir threads sem a flag (legado)
-            ]
-          },
-          '-last_message_at', 
-          500
-        );
-        console.log('[COMUNICACAO] 📊 Threads canônicas/legado carregadas:', allThreads.length);
+        const allThreads = await base44.entities.MessageThread.list('-last_message_at', 500);
+        console.log('[COMUNICACAO] 📊 Threads carregadas:', allThreads.length);
         return allThreads;
       } catch (error) {
         if (error?.message?.includes('429') || error?.response?.status === 429) {

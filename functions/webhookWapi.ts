@@ -559,11 +559,10 @@ async function handleMessage(dados, payloadBruto, base44) {
     const threads = await base44.asServiceRole.entities.MessageThread.filter(
         { 
             contact_id: contato.id,
-            whatsapp_integration_id: integracaoId || null,
-            is_canonical: true // ✅ CORREÇÃO #1: Buscar APENAS thread canônica
+            whatsapp_integration_id: integracaoId || null
         },
-        '-last_message_at',
-        1
+        '-last_message_at', // A mais recente é a canônica
+        1 // Otimização: buscar apenas a mais recente
     );
 
     if (threads && threads.length > 0) {
@@ -576,15 +575,14 @@ async function handleMessage(dados, payloadBruto, base44) {
             contact_id: contato.id,
             whatsapp_integration_id: integracaoId,
             status: 'aberta',
-            is_canonical: true, // ✅ CORREÇÃO #2: Marcar como canônica
             primeira_mensagem_at: agora,
             last_message_at: agora,
             last_inbound_at: agora,
             last_message_sender: 'contact',
             last_message_content: String(dados.content || '').substring(0, 100),
             last_media_type: dados.mediaType || 'none',
-            total_mensagens: 1,
-            unread_count: 1,
+            total_mensagens: 1, // ✅ CRÍTICO: Inicia com 1 (será salva 1 msg logo abaixo)
+            unread_count: 1,    // ✅ CRÍTICO: Inicia com 1 (cliente esperando resposta)
         });
         console.log(`[WAPI] new-canonical-thread-created: ${thread.id} | Inicializado com 1 msg e 1 não lida`);
     }
@@ -603,15 +601,6 @@ async function handleMessage(dados, payloadBruto, base44) {
     
     if (todasThreadsContato && todasThreadsContato.length > 1) {
       console.log(`[WAPI] 🔀 AUTO-MERGE: ${todasThreadsContato.length} threads encontradas. Canônica: ${thread.id}`);
-      
-      // ✅ CORREÇÃO #3: Garantir que thread principal seja canônica
-      try {
-        await base44.asServiceRole.entities.MessageThread.update(thread.id, {
-          is_canonical: true
-        });
-      } catch (err) {
-        console.warn(`[WAPI] ⚠️ Erro ao marcar thread principal como canônica:`, err.message);
-      }
       
       // Marcar todas as antigas como merged_into (sem mover mensagens)
       for (let i = 1; i < todasThreadsContato.length; i++) {
