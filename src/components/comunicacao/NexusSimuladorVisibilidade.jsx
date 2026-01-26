@@ -506,9 +506,10 @@ export default function NexusSimuladorVisibilidade({ usuario, integracoes = [], 
                         onDrop={(e) => {
                            e.preventDefault();
                            e.stopPropagation();
-                           if (draggedThread && draggedThread.contato?.id !== contato?.id) {
+                           if (draggedThread && draggedThread.thread.id !== thread.id) {
                              setContatoDragOrigem(draggedThread.contato);
                              setContatoDropDestino(contato);
+                             setTelefoneParaCorrigir(contato?.telefone || draggedThread.contato?.telefone);
                              setModalCorrecaoOpen(true);
                              setDraggedThread(null);
                            }
