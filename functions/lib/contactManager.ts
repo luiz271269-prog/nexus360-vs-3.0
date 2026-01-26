@@ -95,7 +95,8 @@ export async function getOrCreateThread(base44, data) {
   // Exemplo: Contato X tem thread Z-API + thread W-API + thread Instagram
   const existing = await base44.asServiceRole.entities.MessageThread.filter({
     contact_id: contact_id,
-    whatsapp_integration_id: integration_id
+    whatsapp_integration_id: integration_id,
+    is_canonical: true
   }, '-last_message_at', 1);
   
   const now = new Date().toISOString();
@@ -123,6 +124,7 @@ export async function getOrCreateThread(base44, data) {
   const newThread = await base44.asServiceRole.entities.MessageThread.create({
     contact_id: contact_id,
     whatsapp_integration_id: integration_id,
+    is_canonical: true,
     conexao_id: integration_id,
     status: 'aberta',
     primeira_mensagem_at: now,

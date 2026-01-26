@@ -559,7 +559,8 @@ async function handleMessage(dados, payloadBruto, base44) {
     const threads = await base44.asServiceRole.entities.MessageThread.filter(
         { 
             contact_id: contato.id,
-            whatsapp_integration_id: integracaoId || null
+            whatsapp_integration_id: integracaoId || null,
+            is_canonical: true
         },
         '-last_message_at', // A mais recente é a canônica
         1 // Otimização: buscar apenas a mais recente
@@ -574,6 +575,7 @@ async function handleMessage(dados, payloadBruto, base44) {
         thread = await base44.asServiceRole.entities.MessageThread.create({
             contact_id: contato.id,
             whatsapp_integration_id: integracaoId,
+            is_canonical: true,
             status: 'aberta',
             primeira_mensagem_at: agora,
             last_message_at: agora,
