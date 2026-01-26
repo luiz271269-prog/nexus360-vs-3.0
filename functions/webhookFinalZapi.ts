@@ -34,12 +34,12 @@ function normalizarTelefone(telefone) {
 }
 
 // ============================================================================
-// WEBHOOK WHATSAPP Z-API - v10.0.0 INGESTÃO PURA + CÉREBRO ISOLADO
+// WEBHOOK WHATSAPP Z-API - v11.0.0 CANONICAL CASCADE FIX
 // ============================================================================
-// SIMETRIA COM W-API: Webhook burro, inteligência em processInbound
+// FIX: Busca em cascata (canônica → ativa → criar) para evitar duplicatas
 // ============================================================================
-const VERSION = 'v10.0.0-PURE-INGESTION';
-const BUILD_DATE = '2025-12-18';
+const VERSION = 'v11.0.0-CANONICAL-CASCADE';
+const BUILD_DATE = '2026-01-26';
 
 const corsHeaders = {
   'Content-Type': 'application/json',
@@ -656,54 +656,26 @@ async function handleMessage(dados, payloadBruto, base44) {
     return jsonServerError({ success: false, error: 'erro_contato' });
   }
 
-  // ✅ VERIFICAÇÃO ADICIONAL: Duplicata por timestamp + telefone (últimos 2 segundos)
-  // MOVIDO PARA DEPOIS da criação do contato para ter contato.id disponível
-  
-  // 🔧 AUTO-MERGE: Se N > 1 threads, marcar antigas como merged
-  try {
-    const todasThreadsContato = await base44.asServiceRole.entities.MessageThread.filter(
-      { contact_id: contato.id, whatsapp_integration_id: integracaoId },
-      '-last_message_at',
-      10
-    );
-
-    if (todasThreadsContato && todasThreadsContato.length > 1) {
-      console.log(`[${VERSION}] 🔀 AUTO-MERGE: ${todasThreadsContato.length} threads encontradas. Canônica: ${todasThreadsContato[0].id}`);
-
-      // Marcar todas as antigas como merged_into (sem mover mensagens)
-      for (let i = 1; i < todasThreadsContato.length; i++) {
-        const threadAntiga = todasThreadsContato[i];
-        try {
-          await base44.asServiceRole.entities.MessageThread.update(threadAntiga.id, {
-            status: 'merged',
-            merged_into: todasThreadsContato[0].id,
-            is_canonical: false
-          });
-          console.log(`[${VERSION}] ✅ Thread antiga marcada como merged: ${threadAntiga.id}`);
-        } catch {}
-      }
-    }
-  } catch (err) {
-    console.warn(`[${VERSION}] ⚠️ Erro ao fazer auto-merge:`, err.message);
-  }
-
-  // ✅ BUSCAR/CRIAR THREAD - LÓGICA ATÔMICA (CANONICAL THREAD)
+  // ✅ BUSCAR/CRIAR THREAD - LÓGICA EM CASCATA (CANONICAL → ACTIVE → CREATE)
   let thread;
   try {
-      console.log(`[${VERSION}] 🔍 Buscando thread canônica para { contact_id: "${contato.id}", integration_id: "${integracaoId}" }`);
-      const threads = await base44.asServiceRole.entities.MessageThread.filter(
+      console.log(`[${VERSION}] 🔍 [STEP 1/3] Buscando thread canônica para { contact_id: "${contato.id}", integration_id: "${integracaoId}" }`);
+      
+      // STEP 1: Buscar thread canônica explícita
+      const canonicalThreads = await base44.asServiceRole.entities.MessageThread.filter(
           { 
               contact_id: contato.id,
               whatsapp_integration_id: integracaoId || null,
               is_canonical: true
           },
-          '-last_message_at', // A mais recente é a canônica
-          1 // Otimização: buscar apenas a mais recente
+          '-last_message_at',
+          1
       );
 
-      if (threads && threads.length > 0) {
-          thread = threads[0];
-          console.log(`[${VERSION}]  canonical-thread-found: ${thread.id} (last_message_at: ${thread.last_message_at})`);
+      if (canonicalThreads && canonicalThreads.length > 0) {
+          // ✅ ENCONTROU THREAD CANÔNICA - ATUALIZAR E USAR
+          thread = canonicalThreads[0];
+          console.log(`[${VERSION}] ✅ [STEP 1/3] Thread canônica encontrada: ${thread.id}`);
 
           const agora = new Date().toISOString();
           const threadUpdate = {
@@ -714,38 +686,88 @@ async function handleMessage(dados, payloadBruto, base44) {
               last_media_type: dados.mediaType || 'none',
               unread_count: (thread.unread_count || 0) + 1,
               total_mensagens: (thread.total_mensagens || 0) + 1,
-              status: 'aberta', // Garante reabertura
+              status: 'aberta',
           };
           await base44.asServiceRole.entities.MessageThread.update(thread.id, threadUpdate);
-          console.log(`[${VERSION}] canonical-thread-updated | unread: ${threadUpdate.unread_count}`);
+          console.log(`[${VERSION}] ✅ Thread canônica atualizada | unread: ${threadUpdate.unread_count}`);
 
       } else {
-          console.log(`[${VERSION}] canonical-thread-not-found: Criando nova thread.`);
-          const agora = new Date().toISOString();
+          // ⚠️ NÃO ENCONTROU CANÔNICA - BUSCAR THREADS ATIVAS
+          console.log(`[${VERSION}] ⚠️ [STEP 2/3] Nenhuma thread canônica. Buscando threads ativas...`);
+          
+          const activeThreads = await base44.asServiceRole.entities.MessageThread.filter(
+              { 
+                  contact_id: contato.id,
+                  whatsapp_integration_id: integracaoId || null,
+                  status: { $nin: ['merged', 'fechada', 'arquivada', 'spam'] }
+              },
+              '-last_message_at',
+              10
+          );
 
-          // 🎯 FIX CRÍTICO: Validar contact_id antes de criar thread
-          if (!contato || !contato.id) {
-              console.error(`[${VERSION}] ❌ ERRO CRÍTICO: Tentando criar thread SEM contact_id!`);
-              return jsonServerError({ success: false, error: 'contact_id_missing' });
+          if (activeThreads && activeThreads.length > 0) {
+              // ✅ ENCONTROU THREADS ATIVAS - PROMOVER A MAIS RECENTE A CANÔNICA
+              thread = activeThreads[0];
+              console.log(`[${VERSION}] ✅ [STEP 2/3] Thread ativa encontrada: ${thread.id}. Promovendo a canônica...`);
+
+              const agora = new Date().toISOString();
+              const updateCanonical = {
+                  is_canonical: true,
+                  last_message_at: agora,
+                  last_inbound_at: agora,
+                  last_message_sender: 'contact',
+                  last_message_content: String(dados.content || '').substring(0, 100),
+                  last_media_type: dados.mediaType || 'none',
+                  unread_count: (thread.unread_count || 0) + 1,
+                  total_mensagens: (thread.total_mensagens || 0) + 1,
+                  status: 'aberta',
+              };
+              await base44.asServiceRole.entities.MessageThread.update(thread.id, updateCanonical);
+              console.log(`[${VERSION}] ✅ Thread promovida a canônica: ${thread.id} | unread: ${updateCanonical.unread_count}`);
+
+              // 🔀 MARCAR TODAS AS OUTRAS THREADS ATIVAS COMO MERGED
+              for (let i = 1; i < activeThreads.length; i++) {
+                  const otherThread = activeThreads[i];
+                  try {
+                      await base44.asServiceRole.entities.MessageThread.update(otherThread.id, {
+                          status: 'merged',
+                          is_canonical: false,
+                          merged_into: thread.id,
+                      });
+                      console.log(`[${VERSION}] 🔀 Thread secundária marcada como merged: ${otherThread.id} → ${thread.id}`);
+                  } catch (e) {
+                      console.warn(`[${VERSION}] ⚠️ Erro ao marcar thread ${otherThread.id} como merged:`, e.message);
+                  }
+              }
+
+          } else {
+              // ⚠️ NÃO ENCONTROU NENHUMA THREAD (NEM CANÔNICA, NEM ATIVA) - CRIAR NOVA
+              console.log(`[${VERSION}] ⚠️ [STEP 3/3] Nenhuma thread existente. Criando nova thread canônica...`);
+              
+              const agora = new Date().toISOString();
+              if (!contato || !contato.id) {
+                  console.error(`[${VERSION}] ❌ ERRO CRÍTICO: Tentando criar thread SEM contact_id!`);
+                  return jsonServerError({ success: false, error: 'contact_id_missing' });
+              }
+
+              thread = await base44.asServiceRole.entities.MessageThread.create({
+                  contact_id: contato.id,
+                  thread_type: 'contact_external',
+                  channel: 'whatsapp',
+                  whatsapp_integration_id: integracaoId,
+                  is_canonical: true,
+                  status: 'aberta',
+                  primeira_mensagem_at: agora,
+                  last_message_at: agora,
+                  last_inbound_at: agora,
+                  last_message_sender: 'contact',
+                  last_message_content: String(dados.content || '').substring(0, 100),
+                  last_media_type: dados.mediaType || 'none',
+                  total_mensagens: 1,
+                  unread_count: 1,
+              });
+              console.log(`[${VERSION}] ✅ [STEP 3/3] Nova thread canônica criada: ${thread.id} | contact_id: ${contato.id}`);
           }
-
-          thread = await base44.asServiceRole.entities.MessageThread.create({
-              contact_id: contato.id, // ✅ GARANTIDO: Sempre vai ter contact_id
-              thread_type: 'contact_external', // ✅ NOVO: Tipo explícito
-              channel: 'whatsapp', // ✅ NOVO: Canal
-              whatsapp_integration_id: integracaoId,
-              is_canonical: true,
-              status: 'aberta',
-              primeira_mensagem_at: agora,
-              last_message_at: agora,
-              last_inbound_at: agora,
-              last_message_sender: 'contact',
-              last_message_content: String(dados.content || '').substring(0, 100),
-              last_media_type: dados.mediaType || 'none',
-              total_mensagens: 1, // ✅ CRÍTICO: Inicia com 1 (será salva 1 msg logo abaixo)
-              unread_count: 1,    // ✅ CRÍTICO: Inicia com 1 (cliente esperando resposta)
-          });
-          console.log(`[${VERSION}] new-canonical-thread-created: ${thread.id} | contact_id: ${contato.id} | Inicializado com 1 msg e 1 não lida`);
       }
   } catch (e) {
     console.error(`[${VERSION}] ❌ Erro thread:`, e?.message || e);
