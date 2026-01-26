@@ -199,8 +199,12 @@ export default function Comunicacao() {
     queryFn: async () => {
       if (isRateLimited) return [];
       try {
-        const allThreads = await base44.entities.MessageThread.list('-last_message_at', 500);
-        console.log('[COMUNICACAO] 📊 Threads carregadas:', allThreads.length);
+        const allThreads = await base44.entities.MessageThread.filter(
+          { is_canonical: true }, // ✅ CORREÇÃO #8: Listar APENAS threads canônicas
+          '-last_message_at', 
+          500
+        );
+        console.log('[COMUNICACAO] 📊 Threads canônicas carregadas:', allThreads.length);
         return allThreads;
       } catch (error) {
         if (error?.message?.includes('429') || error?.response?.status === 429) {

@@ -670,6 +670,15 @@ async function handleMessage(dados, payloadBruto, base44) {
     if (todasThreadsContato && todasThreadsContato.length > 1) {
       console.log(`[${VERSION}] 🔀 AUTO-MERGE: ${todasThreadsContato.length} threads encontradas. Canônica: ${todasThreadsContato[0].id}`);
 
+      // ✅ CORREÇÃO #6: Garantir que thread principal seja canônica
+      try {
+        await base44.asServiceRole.entities.MessageThread.update(todasThreadsContato[0].id, {
+          is_canonical: true
+        });
+      } catch (err) {
+        console.warn(`[${VERSION}] ⚠️ Erro ao marcar thread principal como canônica:`, err.message);
+      }
+
       // Marcar todas as antigas como merged_into (sem mover mensagens)
       for (let i = 1; i < todasThreadsContato.length; i++) {
         const threadAntiga = todasThreadsContato[i];
@@ -694,10 +703,11 @@ async function handleMessage(dados, payloadBruto, base44) {
       const threads = await base44.asServiceRole.entities.MessageThread.filter(
           { 
               contact_id: contato.id,
-              whatsapp_integration_id: integracaoId || null
+              whatsapp_integration_id: integracaoId || null,
+              is_canonical: true // ✅ CORREÇÃO #4: Buscar APENAS thread canônica
           },
-          '-last_message_at', // A mais recente é a canônica
-          1 // Otimização: buscar apenas a mais recente
+          '-last_message_at',
+          1
       );
 
       if (threads && threads.length > 0) {
@@ -729,19 +739,20 @@ async function handleMessage(dados, payloadBruto, base44) {
           }
 
           thread = await base44.asServiceRole.entities.MessageThread.create({
-              contact_id: contato.id, // ✅ GARANTIDO: Sempre vai ter contact_id
-              thread_type: 'contact_external', // ✅ NOVO: Tipo explícito
-              channel: 'whatsapp', // ✅ NOVO: Canal
+              contact_id: contato.id,
+              thread_type: 'contact_external',
+              channel: 'whatsapp',
               whatsapp_integration_id: integracaoId,
               status: 'aberta',
+              is_canonical: true, // ✅ CORREÇÃO #5: Marcar como canônica
               primeira_mensagem_at: agora,
               last_message_at: agora,
               last_inbound_at: agora,
               last_message_sender: 'contact',
               last_message_content: String(dados.content || '').substring(0, 100),
               last_media_type: dados.mediaType || 'none',
-              total_mensagens: 1, // ✅ CRÍTICO: Inicia com 1 (será salva 1 msg logo abaixo)
-              unread_count: 1,    // ✅ CRÍTICO: Inicia com 1 (cliente esperando resposta)
+              total_mensagens: 1,
+              unread_count: 1,
           });
           console.log(`[${VERSION}] new-canonical-thread-created: ${thread.id} | contact_id: ${contato.id} | Inicializado com 1 msg e 1 não lida`);
       }
