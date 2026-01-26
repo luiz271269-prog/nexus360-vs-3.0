@@ -1,8 +1,4 @@
-
 import { base44 } from "@/api/base44Client";
-import PromptOptimizer from "../inteligencia/PromptOptimizer";
-import { cacheGlobal } from "../inteligencia/CacheInteligente";
-import { queryOptimizer } from "../inteligencia/QueryOptimizer";
 
 /**
  * ╔═══════════════════════════════════════════════════════════════╗
@@ -32,23 +28,11 @@ export default class MotorInteligencia {
 
       console.log(`🧠 Analisando cliente: ${cliente.razao_social}`);
 
-      // Carregar dados relacionados COM OTIMIZAÇÃO
+      // Carregar dados relacionados
       const [vendas, orcamentos, interacoes, scoreAnterior] = await Promise.all([
-        queryOptimizer.filterOtimizado(
-          base44.entities.Venda,
-          { cliente_nome: cliente.razao_social },
-          { limite: 10, ordenacao: '-data_venda' }
-        ),
-        queryOptimizer.filterOtimizado(
-          base44.entities.Orcamento,
-          { cliente_nome: cliente.razao_social },
-          { limite: 10, ordenacao: '-data_orcamento' }
-        ),
-        queryOptimizer.filterOtimizado(
-          base44.entities.Interacao,
-          { cliente_nome: cliente.razao_social },
-          { limite: 10, ordenacao: '-data_interacao' }
-        ),
+        base44.entities.Venda.filter({ cliente_nome: cliente.razao_social }, '-data_venda', 10),
+        base44.entities.Orcamento.filter({ cliente_nome: cliente.razao_social }, '-data_orcamento', 10),
+        base44.entities.Interacao.filter({ cliente_nome: cliente.razao_social }, '-data_interacao', 10),
         this.getScoreAnterior(clienteId)
       ]);
 
@@ -61,15 +45,8 @@ export default class MotorInteligencia {
         scoreAnterior
       );
 
-      // Usar cache para análise (evita reprocessar o mesmo cliente múltiplas vezes)
-      const analiseIA = await cacheGlobal.cacheLLM(
-        `analise_cliente_${clienteId}_${Date.now() - (Date.now() % (60 * 60 * 1000))}`, // Cache por hora
-        { type: 'analise_cliente' },
-        async () => {
-          // Prompt OTIMIZADO
-          const promptOtimizado = PromptOptimizer.otimizarPromptAnaliseCliente(contextoCompleto);
-          
-          const schema = {
+      // Análise de IA
+      const schema = {
             type: "object",
             properties: {
               score_engagement: { type: "number", minimum: 0, maximum: 100 },
@@ -96,22 +73,10 @@ export default class MotorInteligencia {
             ]
           };
 
-          const resultado = await base44.integrations.Core.InvokeLLM({
-            prompt: promptOtimizado,
-            response_json_schema: schema
-          });
-
-          // Validar resposta
-          const validacao = PromptOptimizer.validarRespostaIA(resultado, schema);
-          if (!validacao.valido) {
-            console.error('❌ Resposta IA inválida:', validacao.erros);
-            throw new Error(`Validação falhou: ${validacao.erros.join(', ')}`);
-          }
-
-          return resultado;
-        },
-        60 // Cache por 60 minutos
-      );
+      const analiseIA = await base44.integrations.Core.InvokeLLM({
+        prompt: this.construirPromptAnalise(contextoCompleto),
+        response_json_schema: schema
+      });
 
       // Calcular score total ponderado
       const score_total = Math.round(
@@ -141,9 +106,6 @@ export default class MotorInteligencia {
 
       console.log(`✅ Cliente analisado: Score ${score_total}, Risco: ${analiseIA.risco_churn}`);
 
-      // Invalidar cache de queries relacionadas
-      cacheGlobal.invalidarEntidade('ClienteScore');
-
       return scoreData;
 
     } catch (error) {
@@ -159,15 +121,8 @@ export default class MotorInteligencia {
     try {
       console.log("🤖 Gerando tarefas inteligentes...");
 
-      // Buscar scores COM OTIMIZAÇÃO
-      const scores = await queryOptimizer.listOtimizado(
-        base44.entities.ClienteScore,
-        {
-          ordenacao: '-score_urgencia',
-          limite: 50,
-          usarCache: true
-        }
-      );
+      // Buscar scores
+      const scores = await base44.entities.ClienteScore.list('-score_urgencia', 50);
       
       const clientesUrgentes = scores.filter(score => 
         score.score_urgencia >= 70 || 
@@ -195,15 +150,11 @@ export default class MotorInteligencia {
 
         if (!cliente) continue;
 
-        // Verificar se já tem tarefa pendente (COM CACHE)
-        const tarefasExistentes = await queryOptimizer.filterOtimizado(
-          base44.entities.TarefaInteligente,
-          {
-            cliente_id: score.cliente_id,
-            status: "pendente"
-          },
-          { ttlCache: 2 } // Cache curto para tarefas
-        );
+        // Verificar se já tem tarefa pendente
+        const tarefasExistentes = await base44.entities.TarefaInteligente.filter({
+          cliente_id: score.cliente_id,
+          status: "pendente"
+        });
 
         if (tarefasExistentes.length > 0) {
           console.log(`⏭️ Cliente ${score.cliente_nome} já tem tarefa pendente`);
@@ -243,9 +194,6 @@ export default class MotorInteligencia {
 
         tarefasCriadas++;
         console.log(`✅ Tarefa criada: ${tipoTarefa} para ${score.cliente_nome}`);
-
-        // Invalidar cache
-        cacheGlobal.invalidarEntidade('TarefaInteligente');
       }
 
       console.log(`🎯 ${tarefasCriadas} tarefas inteligentes geradas`);
@@ -412,15 +360,25 @@ Extraia:
 
   static async getScoreAnterior(clienteId) {
     try {
-      const scores = await queryOptimizer.filterOtimizado(
-        base44.entities.ClienteScore,
-        { cliente_id: clienteId },
-        { usarCache: true, ttlCache: 10 }
-      );
+      const scores = await base44.entities.ClienteScore.filter({ cliente_id: clienteId });
       return scores.length > 0 ? scores[0] : null;
     } catch {
       return null;
     }
+  }
+
+  static construirPromptAnalise(contexto) {
+    return `Analise o seguinte cliente e forneça scores detalhados:
+
+Cliente: ${contexto.cliente.nome}
+Segmento: ${contexto.cliente.segmento}
+Classificação: ${contexto.cliente.classificacao}
+
+Vendas: ${contexto.vendas.total} vendas, valor total R$ ${contexto.vendas.valor_total}
+Orçamentos: ${contexto.orcamentos.total} orçamentos, ${contexto.orcamentos.em_aberto} em aberto
+Interações: ${contexto.interacoes.total} interações, ${contexto.interacoes.dias_sem_contato} dias sem contato
+
+Forneça uma análise completa com scores de engajamento, potencial de compra, urgência, valor do cliente e satisfação.`;
   }
 
   static construirContextoCliente(cliente, vendas, orcamentos, interacoes, scoreAnterior) {
