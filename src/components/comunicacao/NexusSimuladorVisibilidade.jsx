@@ -45,6 +45,7 @@ export default function NexusSimuladorVisibilidade({ usuario, integracoes = [], 
   const [draggedThread, setDraggedThread] = useState(null);
   const [threadsDuplicadasCache, setThreadsDuplicadasCache] = useState({});
   const [telefoneParaCorrigir, setTelefoneParaCorrigir] = useState(null);
+  const [mostrarApenasCanonicas, setMostrarApenasCanonicas] = useState(true);
 
   // Carregar lista de usuários e dados iniciais
   useEffect(() => {
@@ -429,10 +430,60 @@ export default function NexusSimuladorVisibilidade({ usuario, integracoes = [], 
         </CardHeader>
       </Card>
 
+      {/* Filtro de Threads Canônicas */}
+      {simulationResults && simulationResults.stats.totalDuplicatas > 0 && (
+        <Card className="border-amber-300 bg-amber-50">
+          <CardContent className="p-3 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <AlertTriangle className="w-4 h-4 text-amber-600" />
+              <span className="text-sm font-semibold text-amber-900">
+                {mostrarApenasCanonicas ? 'Mostrando apenas threads canônicas' : `Mostrando TODAS as threads (incluindo ${simulationResults.stats.totalDuplicatas} duplicadas)`}
+              </span>
+            </div>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => setMostrarApenasCanonicas(!mostrarApenasCanonicas)}
+              className="border-amber-600 text-amber-700 hover:bg-amber-100"
+            >
+              {mostrarApenasCanonicas ? 'Mostrar Todas' : 'Ocultar Duplicadas'}
+            </Button>
+          </CardContent>
+        </Card>
+      )}
+
       {/* BARRAS LATERAIS - Integracoes lado a lado */}
       <div className="flex gap-2 overflow-x-auto h-[calc(100vh-12rem)]">
         {integracoes.map(integracao => {
-          const threadsIntegracao = threads.filter(t => t.whatsapp_integration_id === integracao.id);
+          let threadsIntegracao = threads.filter(t => t.whatsapp_integration_id === integracao.id);
+          
+          // Filtrar apenas canônicas se opção ativada
+          if (mostrarApenasCanonicas) {
+            // Agrupar por contact_id e pegar apenas a canônica ou a mais recente
+            const mapaContatos = new Map();
+            threadsIntegracao.forEach(t => {
+              if (!t.contact_id) {
+                mapaContatos.set(t.id, t); // Threads sem contato sempre aparecem
+                return;
+              }
+              
+              const existing = mapaContatos.get(t.contact_id);
+              if (!existing) {
+                mapaContatos.set(t.contact_id, t);
+              } else {
+                // Se a atual é canônica, substituir
+                if (t.is_canonical === true) {
+                  mapaContatos.set(t.contact_id, t);
+                } else if (existing.is_canonical !== true) {
+                  // Se nenhuma é canônica, pegar a mais recente
+                  if (new Date(t.last_message_at || 0) > new Date(existing.last_message_at || 0)) {
+                    mapaContatos.set(t.contact_id, t);
+                  }
+                }
+              }
+            });
+            threadsIntegracao = Array.from(mapaContatos.values());
+          }
           
           return (
             <Card key={integracao.id} className="border-slate-200 flex flex-col flex-shrink-0 w-64">
