@@ -1,34 +1,35 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.4';
 
 // ╔════════════════════════════════════════════════════════════════════════╗
-// ║  WEBHOOK WHATSAPP W-API - v25.0.0-CLONE-FIX                           ║
-// ║  TIMESTAMP: 2026-01-07T14:30:00 - CORREÇÃO CRÍTICA req.clone()       ║
+// ║  WEBHOOK WHATSAPP W-API - v26.0.0-CANONICAL-CASCADE                   ║
+// ║  TIMESTAMP: 2026-01-26 - CASCATA CANÔNICA (SIMETRIA COM Z-API)       ║
 // ║                                                                        ║
 // ║  ARQUITETURA: "PORTEIRO CEGO" vs "GERENTE"                            ║
 // ║  • Webhook (Porteiro): Só confere crachá (instanceId/connectedPhone) ║
 // ║  • Core/Workers (Gerente): Usa token do banco para ações             ║
 // ║  • Token NUNCA trafega no webhook de entrada                          ║
 // ║  • req.clone() OBRIGATÓRIO para asServiceRole funcionar              ║
+// ║  • FIX: Busca cascata canônica → ativa → criar (evita duplicatas)    ║
 // ╚════════════════════════════════════════════════════════════════════════╝
 
-const VERSION = 'v25.0.0-CLONE-FIX';
-const BUILD_DATE = '2026-01-07T14:30:00';
-const DEPLOYMENT_ID = 'WAPI_CLONE_FIX_2026_01_07';
+const VERSION = 'v26.0.0-CANONICAL-CASCADE';
+const BUILD_DATE = '2026-01-26';
+const DEPLOYMENT_ID = 'WAPI_CANONICAL_CASCADE_2026_01_26';
 const ARCHITECTURE = 'PORTEIRO-CEGO';
 
 // ╔════════════════════════════════════════════════════════════════════════╗
 // ║  LOG BOOT - CONFIRMA VERSÃO ATIVA                                      ║
 // ╚════════════════════════════════════════════════════════════════════════╝
 console.log('╔════════════════════════════════════════════════════════════════╗');
-console.log('║  🚀 W-API WEBHOOK v25 - req.clone() FIX                   ║');
+console.log('║  🚀 W-API WEBHOOK v26 - CANONICAL CASCADE FIX             ║');
 console.log('╠════════════════════════════════════════════════════════════╣');
-console.log(`║  📅 BUILD: ${BUILD_DATE}                     ║`);
-console.log(`║  🆔 DEPLOY: ${DEPLOYMENT_ID}         ║`);
+console.log(`║  📅 BUILD: ${BUILD_DATE}                                ║`);
+console.log(`║  🆔 DEPLOY: ${DEPLOYMENT_ID}  ║`);
 console.log('║  🏛️  ARQUITETURA: PORTEIRO CEGO vs GERENTE                ║');
 console.log('║  🔒 TOKEN: Nunca usado no webhook (apenas no Core)        ║');
 console.log('║  🎯 LOOKUP: instanceId ou connectedPhone -> Banco         ║');
 console.log('║  ✅ AUTH: req.clone() OBRIGATÓRIO                         ║');
-console.log('║  ⚠️  SDK 0.8.4 - WEBHOOK PATTERN (igual Z-API)            ║');
+console.log('║  🔀 CASCATA: canônica → ativa → criar (anti-duplicata)   ║');
 console.log('╚════════════════════════════════════════════════════════════╝');
 
 const corsHeaders = {
@@ -429,8 +430,8 @@ async function handleMessage(dados, payloadBruto, base44) {
   // a integração no banco de dados usando APENAS essas chaves públicas.
   //
   // ESTRATÉGIA DE LOOKUP (prioridades):
-  // 1. connectedPhone → filter({numero_telefone}) [PRIORIDADE 1]
-  // 2. instanceId → filter({instance_id_provider}) [FALLBACK]
+  // 1. instanceId → filter({instance_id_provider}) [PRIORIDADE 1]
+  // 2. connectedPhone → filter({numero_telefone}) [FALLBACK]
   //
   // O Token (api_key_provider) fica SEGURO no banco e será lido apenas
   // pelo "Gerente" (processInboundEvent, persistirMidiaWapi) quando
@@ -552,75 +553,122 @@ async function handleMessage(dados, payloadBruto, base44) {
     return jsonErr('erro_contato', 500);
   }
 
-  // ✅ BUSCAR/CRIAR THREAD - LÓGICA ATÔMICA (CANONICAL THREAD)
+  // ✅ BUSCAR/CRIAR THREAD - LÓGICA EM CASCATA (CANONICAL → ACTIVE → CREATE)
   let thread;
   try {
-    console.log(`[WAPI] 🔍 Buscando thread canônica para { contact_id: "${contato.id}", integration_id: "${integracaoId}" }`);
-    const threads = await base44.asServiceRole.entities.MessageThread.filter(
-        { 
-            contact_id: contato.id,
-            whatsapp_integration_id: integracaoId || null,
-            is_canonical: true
-        },
-        '-last_message_at', // A mais recente é a canônica
-        1 // Otimização: buscar apenas a mais recente
-    );
+      console.log(`[WAPI] 🔍 [STEP 1/3] Buscando thread canônica para { contact_id: "${contato.id}", integration_id: "${integracaoId}" }`);
+      
+      // STEP 1: Buscar thread canônica explícita
+      const canonicalThreads = await base44.asServiceRole.entities.MessageThread.filter(
+          { 
+              contact_id: contato.id,
+              whatsapp_integration_id: integracaoId || null,
+              is_canonical: true
+          },
+          '-last_message_at',
+          1
+      );
 
-    if (threads && threads.length > 0) {
-        thread = threads[0];
-        console.log(`[WAPI] canonical-thread-found: ${thread.id} (last_message_at: ${thread.last_message_at})`);
-    } else {
-        console.log(`[WAPI] canonical-thread-not-found: Criando nova thread.`);
-        const agora = new Date().toISOString();
-        thread = await base44.asServiceRole.entities.MessageThread.create({
-            contact_id: contato.id,
-            whatsapp_integration_id: integracaoId,
-            is_canonical: true,
-            status: 'aberta',
-            primeira_mensagem_at: agora,
-            last_message_at: agora,
-            last_inbound_at: agora,
-            last_message_sender: 'contact',
-            last_message_content: String(dados.content || '').substring(0, 100),
-            last_media_type: dados.mediaType || 'none',
-            total_mensagens: 1, // ✅ CRÍTICO: Inicia com 1 (será salva 1 msg logo abaixo)
-            unread_count: 1,    // ✅ CRÍTICO: Inicia com 1 (cliente esperando resposta)
-        });
-        console.log(`[WAPI] new-canonical-thread-created: ${thread.id} | Inicializado com 1 msg e 1 não lida`);
-    }
+      if (canonicalThreads && canonicalThreads.length > 0) {
+          // ✅ ENCONTROU THREAD CANÔNICA - ATUALIZAR E USAR
+          thread = canonicalThreads[0];
+          console.log(`[WAPI] ✅ [STEP 1/3] Thread canônica encontrada: ${thread.id}`);
+
+          const agora = new Date().toISOString();
+          const threadUpdate = {
+              last_message_at: agora,
+              last_inbound_at: agora,
+              last_message_sender: 'contact',
+              last_message_content: String(dados.content || '').substring(0, 100),
+              last_media_type: dados.mediaType || 'none',
+              unread_count: (thread.unread_count || 0) + 1,
+              total_mensagens: (thread.total_mensagens || 0) + 1,
+              status: 'aberta',
+          };
+          await base44.asServiceRole.entities.MessageThread.update(thread.id, threadUpdate);
+          console.log(`[WAPI] ✅ Thread canônica atualizada | unread: ${threadUpdate.unread_count}`);
+
+      } else {
+          // ⚠️ NÃO ENCONTROU CANÔNICA - BUSCAR THREADS ATIVAS
+          console.log(`[WAPI] ⚠️ [STEP 2/3] Nenhuma thread canônica. Buscando threads ativas...`);
+          
+          const activeThreads = await base44.asServiceRole.entities.MessageThread.filter(
+              { 
+                  contact_id: contato.id,
+                  whatsapp_integration_id: integracaoId || null,
+                  status: { $nin: ['merged', 'fechada', 'arquivada', 'spam'] }
+              },
+              '-last_message_at',
+              10
+          );
+
+          if (activeThreads && activeThreads.length > 0) {
+              // ✅ ENCONTROU THREADS ATIVAS - PROMOVER A MAIS RECENTE A CANÔNICA
+              thread = activeThreads[0];
+              console.log(`[WAPI] ✅ [STEP 2/3] Thread ativa encontrada: ${thread.id}. Promovendo a canônica...`);
+
+              const agora = new Date().toISOString();
+              const updateCanonical = {
+                  is_canonical: true,
+                  last_message_at: agora,
+                  last_inbound_at: agora,
+                  last_message_sender: 'contact',
+                  last_message_content: String(dados.content || '').substring(0, 100),
+                  last_media_type: dados.mediaType || 'none',
+                  unread_count: (thread.unread_count || 0) + 1,
+                  total_mensagens: (thread.total_mensagens || 0) + 1,
+                  status: 'aberta',
+              };
+              await base44.asServiceRole.entities.MessageThread.update(thread.id, updateCanonical);
+              console.log(`[WAPI] ✅ Thread promovida a canônica: ${thread.id} | unread: ${updateCanonical.unread_count}`);
+
+              // 🔀 MARCAR TODAS AS OUTRAS THREADS ATIVAS COMO MERGED
+              for (let i = 1; i < activeThreads.length; i++) {
+                  const otherThread = activeThreads[i];
+                  try {
+                      await base44.asServiceRole.entities.MessageThread.update(otherThread.id, {
+                          status: 'merged',
+                          is_canonical: false,
+                          merged_into: thread.id,
+                      });
+                      console.log(`[WAPI] 🔀 Thread secundária marcada como merged: ${otherThread.id} → ${thread.id}`);
+                  } catch (e) {
+                      console.warn(`[WAPI] ⚠️ Erro ao marcar thread ${otherThread.id} como merged:`, e.message);
+                  }
+              }
+
+          } else {
+              // ⚠️ NÃO ENCONTROU NENHUMA THREAD (NEM CANÔNICA, NEM ATIVA) - CRIAR NOVA
+              console.log(`[WAPI] ⚠️ [STEP 3/3] Nenhuma thread existente. Criando nova thread canônica...`);
+              
+              const agora = new Date().toISOString();
+              if (!contato || !contato.id) {
+                  console.error(`[WAPI] ❌ ERRO CRÍTICO: Tentando criar thread SEM contact_id!`);
+                  return jsonErr('contact_id_missing', 500);
+              }
+
+              thread = await base44.asServiceRole.entities.MessageThread.create({
+                  contact_id: contato.id,
+                  thread_type: 'contact_external',
+                  channel: 'whatsapp',
+                  whatsapp_integration_id: integracaoId,
+                  is_canonical: true,
+                  status: 'aberta',
+                  primeira_mensagem_at: agora,
+                  last_message_at: agora,
+                  last_inbound_at: agora,
+                  last_message_sender: 'contact',
+                  last_message_content: String(dados.content || '').substring(0, 100),
+                  last_media_type: dados.mediaType || 'none',
+                  total_mensagens: 1,
+                  unread_count: 1,
+              });
+              console.log(`[WAPI] ✅ [STEP 3/3] Nova thread canônica criada: ${thread.id} | contact_id: ${contato.id}`);
+          }
+      }
   } catch (e) {
     console.error(`[WAPI] ❌ Erro thread:`, e?.message);
     return jsonErr('erro_thread', 500);
-  }
-  
-  // 🔧 AUTO-MERGE: Se N > 1 threads, marcar antigas como merged
-  try {
-    const todasThreadsContato = await base44.asServiceRole.entities.MessageThread.filter(
-      { contact_id: contato.id, whatsapp_integration_id: integracaoId },
-      '-last_message_at',
-      10
-    );
-    
-    if (todasThreadsContato && todasThreadsContato.length > 1) {
-      console.log(`[WAPI] 🔀 AUTO-MERGE: ${todasThreadsContato.length} threads encontradas. Canônica: ${thread.id}`);
-      
-      // Marcar todas as antigas como merged_into (sem mover mensagens)
-      for (let i = 1; i < todasThreadsContato.length; i++) {
-        const threadAntiga = todasThreadsContato[i];
-        if (threadAntiga.id !== thread.id) {
-          try {
-            await base44.asServiceRole.entities.MessageThread.update(threadAntiga.id, {
-              status: 'merged',
-              merged_into: thread.id,
-              is_canonical: false
-            });
-            console.log(`[WAPI] ✅ Thread antiga marcada como merged: ${threadAntiga.id}`);
-          } catch {}
-        }
-      }
-    }
-  } catch (err) {
-    console.warn(`[WAPI] ⚠️ Erro ao fazer auto-merge:`, err.message);
   }
 
   // DEDUPLICAÇÃO POR CONTEÚDO
@@ -697,28 +745,6 @@ async function handleMessage(dados, payloadBruto, base44) {
   } catch (e) {
     console.error(`[WAPI] ❌ Erro salvar mensagem:`, e?.message);
     return jsonErr('erro_salvar_mensagem', 500);
-  }
-
-  // ✅ ATUALIZAR THREAD - Incrementar contadores E guardar metadata
-  try {
-    const agora = new Date().toISOString();
-    const threadUpdate = {
-      last_message_at: agora,
-      last_inbound_at: agora,
-      last_message_sender: 'contact',
-      last_message_content: String(dados.content || '').substring(0, 100),
-      last_media_type: dados.mediaType || 'none',
-      unread_count: (thread.unread_count || 0) + 1,          // ✅ SEMPRE incrementa
-      total_mensagens: (thread.total_mensagens || 0) + 1,    // ✅ SEMPRE incrementa
-      status: 'aberta',
-    };
-    if (integracaoId && !thread.whatsapp_integration_id) {
-      threadUpdate.whatsapp_integration_id = integracaoId;
-    }
-    await base44.asServiceRole.entities.MessageThread.update(thread.id, threadUpdate);
-    console.log(`[WAPI] 💭 Thread atualizada | Total: ${threadUpdate.total_mensagens} | Não lidas: ${threadUpdate.unread_count}`);
-  } catch (updateError) {
-    console.error(`[WAPI] ⚠️ Erro ao atualizar thread:`, updateError.message);
   }
 
   // ═══════════════════════════════════════════════════════════════════
@@ -844,7 +870,8 @@ Deno.serve(async (req) => {
         token_usage: 'GERENTE - Core e Workers buscam token no banco',
         security: 'Token nunca trafega no webhook de entrada',
         symmetry: 'Total com Z-API (webhookFinalZapi)',
-        critical_fix: 'req.clone() previne erro de asServiceRole'
+        critical_fix: 'req.clone() previne erro de asServiceRole',
+        canonical_cascade: 'Busca canônica → ativa → criar (v26.0.0)'
       },
       no_supabase_vars: true,
       cache_bust: Date.now()
