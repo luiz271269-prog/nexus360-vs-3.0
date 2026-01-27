@@ -50,7 +50,6 @@ import BibliotecaAutomacoes from "../components/automacao/BibliotecaAutomacoes";
 import CentralControleOperacional from "../components/comunicacao/CentralControleOperacional";
 import DiagnosticoCirurgicoEmbed from "../components/comunicacao/DiagnosticoCirurgicoEmbed";
 import GerenciadorEtiquetasUnificado from "../components/comunicacao/GerenciadorEtiquetasUnificado";
-import GerenciadorDuplicatas from "../components/comunicacao/GerenciadorDuplicatas";
 import GoToConnectionSetup from "../components/comunicacao/GoToConnectionSetup";
 import DiagnosticoThreadsInvisiveis from "../components/comunicacao/DiagnosticoThreadsInvisiveis";
 import DiagnosticoComparativoThreads from "../components/comunicacao/DiagnosticoComparativoThreads";
@@ -148,11 +147,7 @@ export default function Comunicacao() {
     threadOriginal: null
   });
 
-  // Modal de gerenciador de duplicatas
-  const [modalDuplicatas, setModalDuplicatas] = useState({
-    isOpen: false,
-    telefone: null
-  });
+
 
   // 🚀 OTIMIZAÇÃO DE PERFORMANCE (UI não trava na troca de filtro)
   const [isPendingFilter, startTransition] = useTransition();
@@ -2034,12 +2029,6 @@ export default function Comunicacao() {
             <TabsContent value="etiquetas" className="h-full m-0 overflow-hidden">
               <div className="h-full overflow-y-auto p-6">
                 <GerenciadorEtiquetasUnificado usuarioAtual={usuario} />
-              </div>
-            </TabsContent>
-
-            <TabsContent value="duplicatas" className="h-full m-0 overflow-hidden">
-              <div className="h-full overflow-y-auto">
-                <GerenciadorDuplicatas telefoneInicial={modalDuplicatas.telefone} />
               </div>
             </TabsContent>
 
