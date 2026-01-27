@@ -1,6 +1,9 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { base44 } from "@/api/base44Client";
 import { useSearchParams } from "react-router-dom";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { toast } from "sonner";
 import PainelPrioridades from "../components/agenda/PainelPrioridades";
 import PainelContexto from "../components/agenda/PainelContexto";
 import MotorInteligencia from "../components/agenda/MotorInteligencia";
