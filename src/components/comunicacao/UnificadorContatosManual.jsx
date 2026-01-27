@@ -15,12 +15,21 @@ export default function UnificadorContatosManual({ telefoneInicial, contatoOrige
 
   // Carregar duplicatas pelo telefone
   React.useEffect(() => {
-    if (telefoneInicial && !contatoOrigem && !contatoDestino) {
-      carregarDuplicatasPorTelefone(telefoneInicial);
-    } else if (contatoOrigem && contatoDestino) {
+    console.log('[UNIFICADOR] Props recebidas:', { 
+      telefoneInicial, 
+      temOrigem: !!contatoOrigem, 
+      temDestino: !!contatoDestino 
+    });
+
+    if (contatoOrigem && contatoDestino) {
       // Modo drag-and-drop - usar os contatos fornecidos
+      console.log('[UNIFICADOR] Modo drag-and-drop ativado');
       setContatoPrincipal(contatoDestino);
       setContatosDuplicados([contatoOrigem]);
+    } else if (telefoneInicial && !contatoOrigem && !contatoDestino) {
+      // Modo busca por telefone
+      console.log('[UNIFICADOR] Modo busca por telefone ativado');
+      carregarDuplicatasPorTelefone(telefoneInicial);
     }
   }, [telefoneInicial, contatoOrigem, contatoDestino]);
 

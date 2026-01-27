@@ -506,15 +506,17 @@ export default function NexusSimuladorVisibilidade({ usuario, integracoes = [], 
                           e.dataTransfer.dropEffect = 'move';
                         }}
                         onDrop={(e) => {
-                           e.preventDefault();
-                           e.stopPropagation();
-                           if (draggedThread && draggedThread.contato?.id !== contato?.id) {
-                             setContatoDragOrigem(draggedThread.contato);
-                             setContatoDropDestino(contato);
-                             setModalCorrecaoOpen(true);
-                             setDraggedThread(null);
-                           }
-                         }}
+                          e.preventDefault();
+                          e.stopPropagation();
+                          if (draggedThread && draggedThread.contato?.id !== contato?.id) {
+                            console.log('[DRAG] Unificando:', draggedThread.contato?.nome, '→', contato?.nome);
+                            setTelefoneParaCorrigir(null);
+                            setContatoDragOrigem(draggedThread.contato);
+                            setContatoDropDestino(contato);
+                            setModalCorrecaoOpen(true);
+                            setDraggedThread(null);
+                          }
+                        }}
                         className={`px-2 py-2 flex items-center gap-2 border-b border-slate-100 hover:bg-gradient-to-r hover:from-amber-50 hover:to-orange-50 cursor-move transition-all group relative ${
                           draggedThread?.thread.id === thread.id ? 'opacity-50 bg-blue-100' : ''
                         } ${erroNexus ? (erroNexus.severity === 'error' ? 'bg-red-50/50' : 'bg-amber-50/50') : ''} ${temMsgNaoVisivel ? 'border-l-4 border-l-orange-500' : ''}`}
