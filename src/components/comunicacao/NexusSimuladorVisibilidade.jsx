@@ -947,41 +947,44 @@ export default function NexusSimuladorVisibilidade({ usuario, integracoes = [], 
               </thead>
               <tbody className="divide-y divide-slate-100">
                {(() => {
-                  // 🆕 AGRUPAR por contact_id - eliminar duplicatas da mesma conversa
-                  const mapaContatoThreads = new Map();
+                  // 🆕 AGRUPAR por CONTATO ÚNICO (telefone + nome + empresa + cargo)
+                  // Evita duplicação de visibilidade quando o mesmo contato tem múltiplas threads
+                  const mapaContatoUnico = new Map();
 
                   simulationResults.resultados.forEach(res => {
                     const thread = threads.find(t => t.id === res.threadId);
                     const contato = thread?.contact_id ? contatos.find(c => c.id === thread.contact_id) : null;
 
-                    // Usar contact_id como chave principal (ou thread_id se não houver contato)
-                    const chaveContato = contato?.id || 'sem_contato_' + thread?.id;
+                    if (!contato) return; // Ignorar threads sem contato
 
-                    if (!mapaContatoThreads.has(chaveContato)) {
-                      mapaContatoThreads.set(chaveContato, {
+                    // Chave ÚNICA: normalizar telefone + nome + empresa + cargo
+                    const telefoneLimpo = (contato.telefone || '').replace(/\D/g, '');
+                    const chaveUnica = `${telefoneLimpo}|${(contato.nome || '').toLowerCase()}|${(contato.empresa || '').toLowerCase()}|${(contato.cargo || '').toLowerCase()}`;
+
+                    if (!mapaContatoUnico.has(chaveUnica)) {
+                      mapaContatoUnico.set(chaveUnica, {
                         contato,
                         threads: [],
-                        ultimaThread: null
+                        ultimaThread: null,
+                        primeiroRes: res
                       });
                     }
 
-                    const entrada = mapaContatoThreads.get(chaveContato);
+                    const entrada = mapaContatoUnico.get(chaveUnica);
                     entrada.threads.push({ res, thread });
 
-                    // Manter a thread mais recente
+                    // Manter a thread mais recente (last_message_at)
                     if (!entrada.ultimaThread || 
                         new Date(thread?.last_message_at || 0) > new Date(entrada.ultimaThread.last_message_at || 0)) {
                       entrada.ultimaThread = thread;
                     }
                   });
 
-                  // Converter para array ordenado por data
-                  const resultadosAgrupados = Array.from(mapaContatoThreads.values())
+                  // Converter para array ordenado por última mensagem
+                  const resultadosAgrupados = Array.from(mapaContatoUnico.values())
                     .map(entrada => {
-                      // Usar o primeiro resultado de cada thread agrupada
-                      const primeiroRes = entrada.threads[0].res;
                       return {
-                        res: primeiroRes,
+                        res: entrada.primeiroRes,
                         thread: entrada.ultimaThread,
                         contato: entrada.contato,
                         totalThreads: entrada.threads.length
