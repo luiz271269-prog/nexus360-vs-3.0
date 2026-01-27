@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { base44 } from '@/api/base44Client';
-import { Card, CardHeader, CardContent } from '@/components/ui/card';
+import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -256,9 +256,9 @@ export default function UnificadorContatosManual({ telefoneInicial, contatoOrige
         let conversasMovidas = 0;
 
       for (const threadDup of threadsDup) {
-        // Criar chave de canal unificada (blindado contra valores nulos)
+        // Criar chave de canal unificada
         const getChannelKey = (thread) => {
-          const channel = thread.channel || 'desconhecido';
+          const channel = thread.channel;
           let integrationId = null;
           
           if (channel === 'whatsapp') {
@@ -272,8 +272,6 @@ export default function UnificadorContatosManual({ telefoneInicial, contatoOrige
           } else if (channel === 'interno') {
             integrationId = 'internal';
           }
-          
-          integrationId = integrationId || 'nulo';
           
           return `${channel}:${integrationId}`;
         };
@@ -305,23 +303,20 @@ export default function UnificadorContatosManual({ telefoneInicial, contatoOrige
               const batch = mensagens.slice(i, i + BATCH_SIZE);
               console.log(`[UNIFICAÇÃO] Movendo batch ${i}-${i + batch.length}...`);
               
-              // Processar em paralelo dentro do batch (Promise.all para otimizar)
-              await Promise.all(batch.map(async (msg) => {
+              // Processar sequencialmente dentro do batch (mais seguro)
+              for (const msg of batch) {
                 await base44.entities.Message.update(msg.id, {
                   thread_id: threadConflito.id,
                   recipient_id: mestre.id
                 });
                 
                 // Guardar a última mensagem movida (para last_message_at real)
-                const msgSentAt = msg.sent_at || msg.created_date;
-                const ultimaSentAt = ultimaMensagemMovida?.sent_at || ultimaMensagemMovida?.created_date;
-                
-                if (!ultimaMensagemMovida || (msgSentAt && msgSentAt > ultimaSentAt)) {
+                if (!ultimaMensagemMovida || msg.sent_at > ultimaMensagemMovida.sent_at) {
                   ultimaMensagemMovida = msg;
                 }
-              }));
-              
-              totalMovidas += batch.length;
+                
+                totalMovidas++;
+              }
             }
 
             if (mensagens.length < 500) break;
@@ -330,28 +325,16 @@ export default function UnificadorContatosManual({ telefoneInicial, contatoOrige
           console.log(`[UNIFICAÇÃO] Total movido: ${totalMovidas} mensagens`);
           mensagensMovidas += totalMovidas;
 
-          // Atualizar thread mestre no backend e em memória (com fallback robusto)
-          if (totalMovidas > 0) {
-            const last = ultimaMensagemMovida;
-            const lastAt = last?.sent_at || last?.created_date || new Date().toISOString();
+          // Atualizar thread mestre com timestamp REAL da última mensagem
+          if (totalMovidas > 0 && ultimaMensagemMovida) {
+            const lastMessageAt = ultimaMensagemMovida.sent_at || ultimaMensagemMovida.created_date;
             
-            const atualizacaoThreadMestre = {
-              last_message_at: lastAt,
+            await base44.entities.MessageThread.update(threadConflito.id, {
+              last_message_at: lastMessageAt,
               total_mensagens: (threadConflito.total_mensagens || 0) + totalMovidas
-            };
-
-            await base44.entities.MessageThread.update(threadConflito.id, atualizacaoThreadMestre);
-
-            // Atualizar também no array em memória
-            const idx = threadsMestre.findIndex(tm => tm.id === threadConflito.id);
-            if (idx !== -1) {
-              threadsMestre[idx] = {
-                ...threadsMestre[idx],
-                ...atualizacaoThreadMestre
-              };
-            }
+            });
             
-            console.log(`[UNIFICAÇÃO] Thread mestre atualizada (backend + memória) com last_message_at: ${lastAt}`);
+            console.log(`[UNIFICAÇÃO] Thread mestre atualizada com last_message_at: ${lastMessageAt}`);
           }
 
           // Marcar como merged ao invés de deletar (mantém histórico)
@@ -370,14 +353,6 @@ export default function UnificadorContatosManual({ telefoneInicial, contatoOrige
             contact_id: mestre.id,
             is_canonical: true
           });
-          
-          // Atualizar array em memória para próximas comparações
-          threadsMestre.push({
-            ...threadDup,
-            contact_id: mestre.id,
-            is_canonical: true
-          });
-          
           conversasMovidas++;
         }
       }
