@@ -1320,7 +1320,8 @@ export default function NexusSimuladorVisibilidade({ usuario, integracoes = [], 
         onClose={() => {
           setModalUnificacaoAbertoMultipla(false);
           setContatosSelecionadosMultiplos([]);
-          recarregarDadosCompletos();
+          setSimulationResults(null); // 🆕 Limpar resultados antigos
+          recarregarDadosCompletos(); // Recarrega contatos/threads
         }}
         contatosSelecionados={contatosSelecionadosMultiplos}
       />
