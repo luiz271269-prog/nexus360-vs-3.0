@@ -953,18 +953,17 @@ export default function NexusSimuladorVisibilidade({ usuario, integracoes = [], 
                    const thread = threads.find(t => t.id === res.threadId);
                    const contato = thread?.contact_id ? contatos.find(c => c.id === thread.contact_id) : null;
                    const chave = contato?.id || thread?.id;
-                   
+
                    if (!mapa.has(chave)) {
                      mapa.set(chave, []);
                    }
                    mapa.get(chave).push({ res, thread, contato });
                  });
-                 
+
                  // Converter para array e filtrar
                  const resultadosAgrupados = Array.from(mapa.values())
                    .map(grupo => grupo[0]) // Pegar primeira thread de cada contato
                    .filter(({ res, thread, contato }) => {
-                     // Aplicar filtros normalmente
                      if (filtroDivergencia === 'sem_contato') {
                        return simulationResults.threadsSemContato?.some(t => t.threadId === res.threadId);
                      }
@@ -1006,70 +1005,10 @@ export default function NexusSimuladorVisibilidade({ usuario, integracoes = [], 
                      }
                      return true;
                    });
-                 
+
                  return resultadosAgrupados;
                })()
                .map(({ res, thread, contato }) => {
-                 .filter(res => {
-                   const thread = threads.find(t => t.id === res.threadId);
-                   const contato = thread?.contact_id ? contatos.find(c => c.id === thread.contact_id) : null;
-
-                   // Filtros de problemas graves
-                   if (filtroDivergencia === 'sem_contato') {
-                     return simulationResults.threadsSemContato?.some(t => t.threadId === res.threadId);
-                   }
-                   if (filtroDivergencia === 'contato_invalido') {
-                     return simulationResults.threadsContatoInvalido?.some(t => t.threadId === res.threadId);
-                   }
-                   if (filtroDivergencia === 'msg_suspeita') {
-                     return simulationResults.threadsMensagensSuspeitas?.some(t => t.threadId === res.threadId);
-                   }
-                   if (filtroDivergencia === 'problema_visibilidade') {
-                     return simulationResults.mensagensComProblemaVisibilidade?.some(m => m.threadId === res.threadId);
-                   }
-                   if (filtroDivergencia === 'todos_problemas') {
-                     return simulationResults.threadsSemContato?.some(t => t.threadId === res.threadId) ||
-                            simulationResults.threadsContatoInvalido?.some(t => t.threadId === res.threadId) ||
-                            simulationResults.threadsMensagensSuspeitas?.some(t => t.threadId === res.threadId) ||
-                            simulationResults.mensagensComProblemaVisibilidade?.some(m => m.threadId === res.threadId);
-                   }
-
-                   // Filtro por regra
-                   if (filtroRegra !== 'todas') {
-                     const regraNexus = res.nexusDecisionPath?.[0]?.split(':')[1];
-                     if (regraNexus !== filtroRegra) return false;
-                   }
-
-                   // Filtro por divergência
-                   if (filtroDivergencia === 'matches' && !res.isMatch) return false;
-                   if (filtroDivergencia === 'divergencias' && res.isMatch) return false;
-                   if (filtroDivergencia === 'criticos' && res.severity !== 'error') return false;
-
-                   // Filtro por nome do contato
-                   if (filtroNomeContato.trim()) {
-                     const nomeContato = contato?.nome?.toLowerCase() || res.contactName?.toLowerCase() || '';
-                     if (!nomeContato.includes(filtroNomeContato.toLowerCase())) return false;
-                   }
-
-                   // Filtro por usuário atribuído
-                   if (filtroUsuarioAtribuido !== 'todos') {
-                     if (filtroUsuarioAtribuido === 'nao_atribuido') {
-                       if (thread?.assigned_user_id) return false;
-                     } else {
-                       if (thread?.assigned_user_id !== filtroUsuarioAtribuido) return false;
-                     }
-                   }
-
-                   // Filtro por instância WhatsApp
-                   if (filtroInstanciaWhatsApp !== 'todas') {
-                     if (thread?.whatsapp_integration_id !== filtroInstanciaWhatsApp) return false;
-                   }
-
-                   return true;
-                 })
-                 .map((res) => {
-                 const thread = threads.find(t => t.id === res.threadId);
-                 const contato = thread?.contact_id ? contatos.find(c => c.id === thread.contact_id) : null;
                  const hasUnread = (thread?.unread_count || 0) > 0;
 
                  // Verificar se há duplicatas para este contato
