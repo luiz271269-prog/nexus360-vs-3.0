@@ -233,13 +233,55 @@ export default function UnificadorContatosCentralizado({
   // ════════════════════════════════════════════════════════════════════════
   useEffect(() => {
     if (contatoOrigem && contatoDestino) {
-      // Modo drag-and-drop: pré-carregar origem e destino
-      setDuplicatas([contatoDestino, contatoOrigem]);
-      setMestreEscolhido(contatoDestino.id);
+      // Modo drag-and-drop: buscar estatísticas completas
+      carregarStatsDragDrop();
     } else if (telefoneInicial) {
       buscarDuplicatas(telefoneInicial);
     }
   }, [telefoneInicial, contatoOrigem, contatoDestino]);
+
+  const carregarStatsDragDrop = async () => {
+    setBuscando(true);
+    try {
+      const contatosParaAnalisar = [contatoDestino, contatoOrigem];
+      
+      // Buscar estatísticas completas para cada contato
+      const comStats = await Promise.all(
+        contatosParaAnalisar.map(async (contato) => {
+          const threads = await base44.entities.MessageThread.filter({ contact_id: contato.id });
+          const mensagens = await base44.entities.Message.filter(
+            { sender_id: contato.id, sender_type: 'contact' },
+            '-sent_at',
+            100
+          );
+          const interacoes = await base44.entities.Interacao.filter(
+            { contact_id: contato.id },
+            '-created_date',
+            50
+          );
+
+          return {
+            ...contato,
+            stats: {
+              threads: threads.length,
+              mensagens: mensagens.length,
+              interacoes: interacoes.length,
+              ultimaAtualizacao: contato.updated_date || contato.created_date
+            }
+          };
+        })
+      );
+
+      setDuplicatas(comStats);
+      setMestreEscolhido(contatoDestino.id);
+      toast.success('✅ Contatos carregados via drag-and-drop');
+    } catch (error) {
+      console.error('[UnificadorCentralizado] Erro ao carregar stats drag-drop:', error);
+      toast.error('Erro ao carregar estatísticas');
+    } finally {
+      setBuscando(false);
+    }
+  };
 
   // ════════════════════════════════════════════════════════════════════════
   // RENDERIZAÇÃO
