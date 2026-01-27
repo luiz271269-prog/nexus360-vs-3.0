@@ -1213,23 +1213,73 @@ export default function NexusSimuladorVisibilidade({ usuario, integracoes = [], 
                             </div>
                           </div>
 
-                          {/* Dados da Thread */}
+                          {/* Dados da Thread + Contato */}
                           <div className="col-span-2 mt-2">
                             <h4 className="font-bold text-slate-700 mb-1 flex items-center gap-2">
                               <Database className="w-4 h-4" />
-                              Metadados da Thread
+                              Metadados Thread & Contato
                             </h4>
-                            <div className="bg-white rounded p-2 border">
-                              <div className="grid grid-cols-3 gap-2 text-[10px]">
-                                <div><span className="font-semibold">ID:</span> {thread?.id?.substring(0, 12)}...</div>
-                                <div><span className="font-semibold">Tipo:</span> {res.threadType}</div>
-                                <div><span className="font-semibold">Canal:</span> {thread?.channel || 'N/A'}</div>
-                                <div><span className="font-semibold">Atribuído:</span> {thread?.assigned_user_id ? getUserDisplayName(thread.assigned_user_id, todosUsuarios) : 'Não'}</div>
-                                <div><span className="font-semibold">Setor:</span> {thread?.sector_id || 'Sem setor'}</div>
-                                <div><span className="font-semibold">Integração:</span> #{thread?.whatsapp_integration_id?.substring(0, 8) || 'N/A'}</div>
-                                <div><span className="font-semibold">Fidelizado:</span> {contato?.is_cliente_fidelizado ? '✓ Sim' : 'Não'}</div>
-                                <div><span className="font-semibold">Última msg:</span> {formatarHorario(thread?.last_message_at)}</div>
-                                <div><span className="font-semibold">Não lidas:</span> {thread?.unread_count || 0}</div>
+                            <div className="bg-white rounded p-2 border space-y-2">
+                              {/* Thread */}
+                              <div>
+                                <span className="font-semibold text-[10px] text-slate-600">THREAD:</span>
+                                <div className="grid grid-cols-4 gap-2 text-[10px] mt-1">
+                                  <div><span className="font-semibold">ID:</span> {thread?.id?.substring(0, 10)}...</div>
+                                  <div><span className="font-semibold">Tipo:</span> {res.threadType}</div>
+                                  <div><span className="font-semibold">Canal:</span> {thread?.channel || 'N/A'}</div>
+                                  <div><span className="font-semibold">Status:</span> {thread?.status || 'aberta'}</div>
+                                  <div><span className="font-semibold">Atribuído:</span> {thread?.assigned_user_id ? getUserDisplayName(thread.assigned_user_id, todosUsuarios) : '❌ Não'}</div>
+                                  <div><span className="font-semibold">Setor:</span> {thread?.sector_id || 'Sem setor'}</div>
+                                  <div><span className="font-semibold">Instância:</span> {integracoes.find(i => i.id === thread?.whatsapp_integration_id)?.nome_instancia || 'N/A'}</div>
+                                  <div><span className="font-semibold">Bloqueada:</span> {thread?.bloqueado ? '🔒 Sim' : 'Não'}</div>
+                                </div>
+                              </div>
+
+                              {/* Mensagens */}
+                              <div>
+                                <span className="font-semibold text-[10px] text-slate-600">MENSAGENS:</span>
+                                <div className="grid grid-cols-4 gap-2 text-[10px] mt-1">
+                                  <div><span className="font-semibold">Total:</span> {thread?.total_mensagens || 0}</div>
+                                  <div><span className="font-semibold">Não lidas:</span> {thread?.unread_count || 0}</div>
+                                  <div><span className="font-semibold">Última:</span> {formatarHorario(thread?.last_message_at)}</div>
+                                  <div><span className="font-semibold">De:</span> {thread?.last_message_sender === 'user' ? '📤 Sistema' : '📩 Cliente'}</div>
+                                  <div><span className="font-semibold">Inbound:</span> {formatarHorario(thread?.last_inbound_at)}</div>
+                                  <div><span className="font-semibold">Outbound:</span> {formatarHorario(thread?.last_outbound_at)}</div>
+                                  <div><span className="font-semibold">Human msg:</span> {formatarHorario(thread?.last_human_message_at)}</div>
+                                  <div><span className="font-semibold">Tipo mídia:</span> {thread?.last_media_type || 'texto'}</div>
+                                </div>
+                              </div>
+
+                              {/* Contato */}
+                              <div>
+                                <span className="font-semibold text-[10px] text-slate-600">CONTATO:</span>
+                                <div className="grid grid-cols-4 gap-2 text-[10px] mt-1">
+                                  <div><span className="font-semibold">ID:</span> {contato?.id?.substring(0, 10) || 'N/A'}...</div>
+                                  <div><span className="font-semibold">Telefone:</span> <code className="bg-slate-100 px-1 rounded">{contato?.telefone || '❌ Vazio'}</code></div>
+                                  <div><span className="font-semibold">Tipo:</span> {contato?.tipo_contato || 'novo'}</div>
+                                  <div><span className="font-semibold">Segmento:</span> {contato?.segmento_atual || 'N/A'}</div>
+                                  <div><span className="font-semibold">Fidelizado:</span> {contato?.is_cliente_fidelizado ? '⭐ Sim' : 'Não'}</div>
+                                  <div><span className="font-semibold">Score:</span> {contato?.cliente_score || 0}</div>
+                                  <div><span className="font-semibold">Engajamento:</span> {contato?.score_engajamento || 0}</div>
+                                  <div><span className="font-semibold">WhatsApp:</span> {contato?.whatsapp_status || 'nao_verificado'}</div>
+                                </div>
+                              </div>
+
+                              {/* Log */}
+                              <div className="mt-2 pt-2 border-t">
+                                <span className="font-semibold text-[10px] text-slate-600">LOG DE DIAGNÓSTICO:</span>
+                                <div className="bg-slate-50 rounded p-2 mt-1 text-[9px] font-mono space-y-0.5">
+                                  <div>✓ Thread ID: {thread?.id?.substring(0, 20)}...</div>
+                                  <div>✓ Contact ID: {contato?.id?.substring(0, 20) || 'AUSENTE'}...</div>
+                                  <div>✓ Última msg: {new Date(thread?.last_message_at).toLocaleString('pt-BR') || 'Nunca'}</div>
+                                  <div>✓ Instância: {integracoes.find(i => i.id === thread?.whatsapp_integration_id)?.numero_telefone || 'N/A'}</div>
+                                  <div>✓ Status thread: {thread?.status} | Bloqueada: {thread?.bloqueado ? 'Sim' : 'Não'}</div>
+                                  <div>✓ Telefone normalizado: {contato?.telefone || 'CRÍTICO: Vazio'}</div>
+                                  <div>✓ Decisão Legado: {res.legacyDecision ? '✅ VISÍVEL' : '🔒 BLOQUEADO'}</div>
+                                  <div>✓ Decisão Nexus360: {res.nexusDecision ? '✅ VISÍVEL' : '🔒 BLOQUEADO'}</div>
+                                  <div>✓ Regra Nexus: {res.nexusDecisionPath?.[0]?.split(':')[1] || 'N/A'}</div>
+                                  <div>{res.isMatch ? '✓ MATCH' : `⚠️ DIVERGÊNCIA (${res.severity})`}</div>
+                                </div>
                               </div>
                             </div>
                           </div>
