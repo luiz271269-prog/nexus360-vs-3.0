@@ -1307,6 +1307,17 @@ export default function NexusSimuladorVisibilidade({ usuario, integracoes = [], 
         </DialogContent>
       </Dialog>
 
+      {/* MODAL: Unificação Múltipla */}
+      <SeletorUnificacaoMultipla
+        isOpen={modalUnificacaoAbertoMultipla}
+        onClose={() => {
+          setModalUnificacaoAbertoMultipla(false);
+          setContatosSelecionadosMultiplos([]);
+          recarregarDadosCompletos();
+        }}
+        contatosSelecionados={contatosSelecionadosMultiplos}
+      />
+
 
     </div>
   );
