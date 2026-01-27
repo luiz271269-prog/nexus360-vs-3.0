@@ -267,6 +267,8 @@ export default function UnificadorContatosCentralizado({
   const carregarStatsDragDrop = async () => {
     setBuscando(true);
     try {
+      // ✅ ORDEM IMPORTANTE: [DESTINO (mestre), ORIGEM (será deletado)]
+      // Destino recebe: threads, msgs, interações, dados do origem
       const contatosParaAnalisar = [contatoDestino, contatoOrigem];
       
       // Buscar estatísticas completas para cada contato
@@ -297,8 +299,16 @@ export default function UnificadorContatosCentralizado({
       );
 
       setDuplicatas(comStats);
+      // ✅ FORÇAR: contatoDestino SEMPRE é o mestre
       setMestreEscolhido(contatoDestino.id);
-      toast.success('✅ Contatos carregados via drag-and-drop');
+      
+      toast.success(
+        `✅ Pronto para unificar!\n\n` +
+        `🎯 MESTRE (mantém tudo): ${contatoDestino.nome || 'Sem nome'}\n` +
+        `🗑️ ORIGEM (será deletado): ${contatoOrigem.nome || 'Sem nome'}\n\n` +
+        `⚠️ Cuidado: Esta ação é IRREVERSÍVEL`,
+        { duration: 5000 }
+      );
     } catch (error) {
       console.error('[UnificadorCentralizado] Erro ao carregar stats drag-drop:', error);
       toast.error('Erro ao carregar estatísticas');
