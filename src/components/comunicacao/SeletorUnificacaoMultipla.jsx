@@ -223,12 +223,14 @@ export default function SeletorUnificacaoMultipla({
                       <div className="flex-1">
                         <div className="font-medium text-slate-900">{r.duplicata}</div>
                         {r.status === 'sucesso' ? (
-                          <div className="text-sm text-slate-600 mt-1">
-                            ✅ Unificado com sucesso
-                            <br />
-                            • {r.threads_movidas} conversa(s) • {r.mensagens_movidas} mensagem(s)
-                          </div>
-                        ) : (
+                           <div className="text-sm text-slate-600 mt-1">
+                             ✅ Unificado com sucesso
+                             <br />
+                             • {r.duplicatas_processadas} contato(s) processado(s)
+                             <br />
+                             • {r.threads_movidas} conversa(s) • {r.mensagens_movidas} mensagem(s) • {r.interacoes_movidas} interação(ões)
+                           </div>
+                         ) : (
                           <div className="text-sm text-red-600 mt-1">
                             ❌ {r.erro}
                           </div>
