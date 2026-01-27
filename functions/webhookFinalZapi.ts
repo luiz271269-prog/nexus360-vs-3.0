@@ -594,65 +594,28 @@ async function handleMessage(dados, payloadBruto, base44) {
 
   console.log(`[${VERSION}] 🔗 Integração: ${integracaoId || 'não encontrada'} | Canal: ${integracaoInfo?.numero || connectedPhone || 'N/A'}`);
 
-  // Buscar/criar contato - tentar múltiplas variações do telefone
+  // ✅ BUSCAR/CRIAR CONTATO - FUNÇÃO CENTRALIZADA ÚNICA
   let contato;
   try {
-    // Gerar variações do telefone para busca
-    const telefoneBase = dados.from.replace(/\D/g, '');
-    const variacoes = [
-      dados.from,                                    // +554899322400
-      dados.from.replace('+', ''),                   // 554899322400
-      '+55' + telefoneBase.substring(2),            // +5548999322400 (se já tem 55)
-    ];
+    console.log(`[${VERSION}] 🎯 Chamando função CENTRALIZADA para contato: ${dados.from}`);
     
-    // Se tem 13 dígitos (55+DDD+9+8), também buscar versão sem o 9
-    if (telefoneBase.length === 13 && telefoneBase.startsWith('55')) {
-      const semNono = telefoneBase.substring(0, 4) + telefoneBase.substring(5);
-      variacoes.push('+' + semNono);
-      variacoes.push(semNono);
+    const resultado = await base44.asServiceRole.functions.invoke('getOrCreateContactCentralized', {
+      telefone: dados.from,
+      pushName: dados.pushName || null,
+      profilePicUrl: null,
+      conexaoId: integracaoId
+    });
+    
+    if (!resultado?.data?.success || !resultado?.data?.contact) {
+      console.error(`[${VERSION}] ❌ Função centralizada falhou:`, resultado?.data);
+      return jsonServerError({ success: false, error: 'erro_contato_centralizado' });
     }
     
-    // Se tem 12 dígitos (55+DDD+8), também buscar versão com o 9
-    if (telefoneBase.length === 12 && telefoneBase.startsWith('55')) {
-      const comNono = telefoneBase.substring(0, 4) + '9' + telefoneBase.substring(4);
-      variacoes.push('+' + comNono);
-      variacoes.push(comNono);
-    }
+    contato = resultado.data.contact;
+    console.log(`[${VERSION}] ✅ Contato obtido via função centralizada: ${contato.id} | ${contato.nome} | Ação: ${resultado.data.action}`);
     
-    console.log(`[${VERSION}] 🔍 Buscando contato com variações:`, variacoes.slice(0, 3).join(', '));
-    
-    let contatos = [];
-    for (const tel of variacoes) {
-      if (contatos.length > 0) break;
-      try {
-        contatos = await base44.asServiceRole.entities.Contact.filter(
-          { telefone: tel },
-          '-created_date',
-          1
-        );
-      } catch { /* continua */ }
-    }
-
-    if (contatos.length > 0) {
-      contato = contatos[0];
-      const update = { ultima_interacao: new Date().toISOString() };
-      if (dados.pushName && (!contato.nome || contato.nome === dados.from)) {
-        update.nome = dados.pushName;
-      }
-      await base44.asServiceRole.entities.Contact.update(contato.id, update);
-      console.log(`[${VERSION}] 👤 Contato existente: ${contato.nome}`);
-    } else {
-      contato = await base44.asServiceRole.entities.Contact.create({
-        nome: dados.pushName || dados.from,
-        telefone: dados.from,
-        tipo_contato: 'lead',
-        whatsapp_status: 'verificado',
-        ultima_interacao: new Date().toISOString(),
-      });
-      console.log(`[${VERSION}] 👤 Novo contato criado: ${contato.nome}`);
-    }
   } catch (e) {
-    console.error(`[${VERSION}] ❌ Erro contato:`, e?.message || e);
+    console.error(`[${VERSION}] ❌ Erro ao chamar função centralizada:`, e?.message || e);
     return jsonServerError({ success: false, error: 'erro_contato' });
   }
 
