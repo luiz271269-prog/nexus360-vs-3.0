@@ -564,6 +564,60 @@ async function handleMessage(dados, payloadBruto, base44) {
     console.warn(`[WAPI] ⚠️ Erro ao fazer auto-merge:`, err.message);
   }
 
+  // ✅ BUSCAR/CRIAR THREAD - LÓGICA ATÔMICA (CANONICAL THREAD)
+  // 🎯 Usar threadCanonica se auto-merge encontrou, senão buscar/criar
+  let thread = threadCanonica;
+  
+  if (!thread) {
+    try {
+      console.log(`[WAPI] 🔍 Buscando thread canônica para contact_id: "${contato.id}"`);
+      const threads = await base44.asServiceRole.entities.MessageThread.filter(
+          { 
+              contact_id: contato.id,
+              is_canonical: true,
+              status: 'aberta'
+          },
+          '-last_message_at',
+          1
+      );
+
+      if (threads && threads.length > 0) {
+        thread = threads[0];
+        console.log(`[WAPI] ✅ canonical-thread-found: ${thread.id} | Unificada para todas as integrações`);
+      } else {
+        console.log(`[WAPI] 🆕 canonical-thread-not-found: Criando thread ÚNICA para este contato.`);
+        const agora = new Date().toISOString();
+        thread = await base44.asServiceRole.entities.MessageThread.create({
+            contact_id: contato.id,
+            whatsapp_integration_id: integracaoId,
+            conexao_id: integracaoId, // Compatibilidade
+            thread_type: 'contact_external',
+            channel: 'whatsapp',
+            is_canonical: true,
+            status: 'aberta',
+            primeira_mensagem_at: agora,
+            last_message_at: agora,
+            last_inbound_at: agora,
+            last_message_sender: 'contact',
+            last_message_content: String(dados.content || '').substring(0, 100),
+            last_media_type: dados.mediaType || 'none',
+            total_mensagens: 1,
+            unread_count: 1,
+        });
+        console.log(`[WAPI] ✅ new-canonical-thread-created: ${thread.id} | Thread UNIFICADA criada`);
+      }
+    } catch (e) {
+      console.error(`[WAPI] ❌ Erro thread:`, e?.message);
+      return jsonErr('erro_thread', 500);
+    }
+  }
+  
+  // Validação final
+  if (!thread || !thread.id) {
+    console.error(`[WAPI] ❌ ERRO CRÍTICO: Thread não foi criada/encontrada!`);
+    return jsonErr('thread_not_found', 500);
+  }
+
   // DEDUPLICAÇÃO POR CONTEÚDO
   try {
     const doisSegundosAtras = new Date(Date.now() - 2000).toISOString();
