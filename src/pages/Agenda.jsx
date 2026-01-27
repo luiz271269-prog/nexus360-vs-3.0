@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useCallback } from "react";
 import { base44 } from "@/api/base44Client";
 import { useSearchParams } from "react-router-dom";
@@ -7,7 +8,7 @@ import MotorInteligencia from "../components/agenda/MotorInteligencia";
 import AlertasInteligentesIA from '../components/global/AlertasInteligentesIA';
 import BotaoNexusFlutuante from '../components/global/BotaoNexusFlutuante';
 import PainelInsightsIA from '../components/global/PainelInsightsIA';
-import LimpezaDuplicatas from '../components/comunicacao/LimpezaDuplicatas';
+
 
 import {
   Calendar, // Changed from CalendarCheck for header icon
@@ -585,7 +586,6 @@ export default function Agenda() {
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-[calc(100vh-600px)] lg:h-[calc(100vh-350px)]"> {/* Adjusted height to account for new header */}
           <div className="lg:col-span-1 h-full space-y-4">
-            {usuario?.role === 'admin' && <LimpezaDuplicatas />}
             <PainelPrioridades
               tarefas={tarefasFiltradas}
               tarefaSelecionada={tarefaSelecionada}
