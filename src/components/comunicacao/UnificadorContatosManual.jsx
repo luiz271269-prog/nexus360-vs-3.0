@@ -33,19 +33,91 @@ export default function UnificadorContatosManual({ telefoneInicial, contatoOrige
     }
   }, [telefoneInicial, contatoOrigem, contatoDestino]);
 
+  // Gerar variações do telefone para busca robusta
+  const gerarVariacoesTelefone = (telefone) => {
+    const limpo = telefone.replace(/\D/g, '');
+    const variacoes = new Set([limpo]);
+
+    // +55 vs sem 55
+    if (limpo.startsWith('55')) {
+      variacoes.add(limpo.substring(2));
+    } else {
+      variacoes.add('55' + limpo);
+    }
+
+    // 9 dígito móvel (adicionar/remover)
+    if (limpo.length === 13 && limpo.startsWith('55')) {
+      const semPais = limpo.substring(2);
+      if (semPais[2] === '9') {
+        variacoes.add('55' + semPais.substring(0, 2) + semPais.substring(3));
+      }
+    }
+
+    if (limpo.length === 11) {
+      if (limpo[2] !== '9') {
+        variacoes.add(limpo.substring(0, 2) + '9' + limpo.substring(2));
+      }
+    }
+
+    return Array.from(variacoes);
+  };
+
+  // Escolher contato principal por "força" (não por idade)
+  const escolherContatoPrincipal = (contatos) => {
+    return contatos.reduce((melhor, atual) => {
+      let scoreMelhor = 0;
+      let scoreAtual = 0;
+
+      // Pontuação por atributos importantes
+      if (melhor.assigned_user_id) scoreMelhor += 10;
+      if (melhor.is_cliente_fidelizado) scoreMelhor += 8;
+      if (melhor.cliente_id) scoreMelhor += 7;
+      if (melhor.vendedor_responsavel) scoreMelhor += 5;
+      if (melhor.foto_perfil_url) scoreMelhor += 3;
+      if ((melhor.tags || []).length > 0) scoreMelhor += 2;
+      if (melhor.email) scoreMelhor += 2;
+      if (melhor.empresa) scoreMelhor += 2;
+
+      if (atual.assigned_user_id) scoreAtual += 10;
+      if (atual.is_cliente_fidelizado) scoreAtual += 8;
+      if (atual.cliente_id) scoreAtual += 7;
+      if (atual.vendedor_responsavel) scoreAtual += 5;
+      if (atual.foto_perfil_url) scoreAtual += 3;
+      if ((atual.tags || []).length > 0) scoreAtual += 2;
+      if (atual.email) scoreAtual += 2;
+      if (atual.empresa) scoreAtual += 2;
+
+      return scoreAtual > scoreMelhor ? atual : melhor;
+    });
+  };
+
   const carregarDuplicatasPorTelefone = async (telefone) => {
     setLoading(true);
     try {
       console.log('[UNIFICADOR] Buscando duplicatas para:', telefone);
-      const telLimpo = telefone.replace(/\D/g, '');
-      console.log('[UNIFICADOR] Telefone limpo:', telLimpo);
       
-      const todosContatos = await base44.entities.Contact.list('-created_date', 1000);
+      const variacoes = gerarVariacoesTelefone(telefone);
+      console.log('[UNIFICADOR] Variações do telefone:', variacoes);
+      
+      // Buscar TODOS os contatos (sem limite)
+      let todosContatos = [];
+      let offset = 0;
+      const batchSize = 500;
+      
+      while (true) {
+        const batch = await base44.entities.Contact.list('-created_date', batchSize);
+        todosContatos.push(...batch);
+        
+        if (batch.length < batchSize) break;
+        offset += batchSize;
+      }
+      
       console.log('[UNIFICADOR] Total de contatos carregados:', todosContatos.length);
       
+      // Filtrar por TODAS as variações do telefone
       const duplicatas = todosContatos.filter(c => {
         const tel = (c.telefone || '').replace(/\D/g, '');
-        return tel === telLimpo;
+        return variacoes.some(v => v === tel);
       });
 
       console.log('[UNIFICADOR] Duplicatas encontradas:', duplicatas.length);
@@ -57,13 +129,14 @@ export default function UnificadorContatosManual({ telefoneInicial, contatoOrige
         return;
       }
 
-      // Ordenar por created_date (mais antigo primeiro = principal)
-      duplicatas.sort((a, b) => new Date(a.created_date) - new Date(b.created_date));
+      // Escolher principal por "força", não por idade
+      const principal = escolherContatoPrincipal(duplicatas);
+      const outrosDuplicados = duplicatas.filter(d => d.id !== principal.id);
       
-      setContatoPrincipal(duplicatas[0]);
-      setContatosDuplicados(duplicatas.slice(1));
+      setContatoPrincipal(principal);
+      setContatosDuplicados(outrosDuplicados);
       
-      toast.success(`✅ ${duplicatas.length} contatos encontrados (${duplicatas.length - 1} duplicatas)`);
+      toast.success(`✅ ${duplicatas.length} contatos encontrados (${outrosDuplicados.length} duplicatas)`);
     } catch (error) {
       console.error('Erro ao buscar duplicatas:', error);
       toast.error('Erro ao buscar duplicatas');
@@ -133,7 +206,7 @@ export default function UnificadorContatosManual({ telefoneInicial, contatoOrige
         await base44.entities.Contact.update(mestre.id, updateMestre);
       }
 
-      // 2️⃣ FUSÃO DE THREADS
+      // 2️⃣ FUSÃO DE THREADS - MELHORADA
       const threadsDup = await base44.entities.MessageThread.filter({ contact_id: duplicata.id });
       const threadsMestre = await base44.entities.MessageThread.filter({ contact_id: mestre.id });
       
@@ -141,37 +214,84 @@ export default function UnificadorContatosManual({ telefoneInicial, contatoOrige
       let conversasMovidas = 0;
 
       for (const threadDup of threadsDup) {
-        const threadConflito = threadsMestre.find(
-          tm => tm.whatsapp_integration_id === threadDup.whatsapp_integration_id
-        );
+        // Criar chave de canal unificada
+        const getChannelKey = (thread) => {
+          const channel = thread.channel;
+          let integrationId = null;
+          
+          if (channel === 'whatsapp') {
+            integrationId = thread.whatsapp_integration_id || thread.conexao_id;
+          } else if (channel === 'instagram') {
+            integrationId = thread.instagram_integration_id;
+          } else if (channel === 'facebook') {
+            integrationId = thread.facebook_integration_id;
+          } else if (channel === 'phone') {
+            integrationId = thread.goto_integration_id;
+          } else if (channel === 'interno') {
+            integrationId = 'internal';
+          }
+          
+          return `${channel}:${integrationId}`;
+        };
+
+        const keyDup = getChannelKey(threadDup);
+        const threadConflito = threadsMestre.find(tm => getChannelKey(tm) === keyDup);
 
         if (threadConflito) {
-          // CONFLITO: Mesclar mensagens
-          const mensagens = await base44.entities.Message.filter(
-            { thread_id: threadDup.id },
-            '-sent_at',
-            500
-          );
+          // CONFLITO: Mesclar TODAS as mensagens (paginado)
+          let offsetMensagens = 0;
+          let totalMovidas = 0;
 
-          for (const msg of mensagens) {
-            await base44.entities.Message.update(msg.id, {
-              thread_id: threadConflito.id,
-              recipient_id: mestre.id
-            });
-            mensagensMovidas++;
+          while (true) {
+            const mensagens = await base44.entities.Message.filter(
+              { thread_id: threadDup.id },
+              '-sent_at',
+              500
+            );
+
+            if (mensagens.length === 0) break;
+
+            for (const msg of mensagens) {
+              await base44.entities.Message.update(msg.id, {
+                thread_id: threadConflito.id,
+                recipient_id: mestre.id
+              });
+              totalMovidas++;
+            }
+
+            offsetMensagens += mensagens.length;
+            if (mensagens.length < 500) break;
           }
 
-          if (mensagens.length > 0) {
+          mensagensMovidas += totalMovidas;
+
+          // Atualizar thread mestre
+          if (totalMovidas > 0) {
+            const ultimaMsg = await base44.entities.Message.filter(
+              { thread_id: threadConflito.id },
+              '-sent_at',
+              1
+            );
+
             await base44.entities.MessageThread.update(threadConflito.id, {
-              last_message_at: mensagens[0].sent_at || mensagens[0].created_date,
-              total_mensagens: (threadConflito.total_mensagens || 0) + mensagens.length
+              last_message_at: ultimaMsg[0]?.sent_at || ultimaMsg[0]?.created_date,
+              total_mensagens: (threadConflito.total_mensagens || 0) + totalMovidas
             });
           }
 
-          await base44.entities.MessageThread.delete(threadDup.id);
+          // Marcar como merged ao invés de deletar
+          await base44.entities.MessageThread.update(threadDup.id, {
+            status: 'merged',
+            is_canonical: false,
+            merged_into: threadConflito.id
+          });
+
         } else {
-          // SEM CONFLITO: Reatribuir
-          await base44.entities.MessageThread.update(threadDup.id, { contact_id: mestre.id });
+          // SEM CONFLITO: Reatribuir e garantir canonicidade
+          await base44.entities.MessageThread.update(threadDup.id, { 
+            contact_id: mestre.id,
+            is_canonical: true
+          });
           conversasMovidas++;
         }
       }
@@ -183,8 +303,8 @@ export default function UnificadorContatosManual({ telefoneInicial, contatoOrige
         }
         totalInteracoesMovidas += interacoes.length;
 
-        // 4️⃣ DELETAR DUPLICATA
-        await base44.entities.Contact.delete({ id: duplicata.id });
+        // 4️⃣ DELETAR DUPLICATA (método correto)
+        await base44.entities.Contact.delete(duplicata.id);
         
         console.log(`[UNIFICAÇÃO] ✅ Duplicata ${duplicata.id} unificada em ${mestre.id}`);
         
