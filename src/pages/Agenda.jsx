@@ -19,12 +19,8 @@ import {
   PlayCircle,
   Sparkles,
 } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { toast } from "sonner";
-
 import { format, isToday, isPast, isSameDay } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
