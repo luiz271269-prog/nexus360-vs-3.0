@@ -23,8 +23,8 @@ import { normalizarTelefone } from '../lib/phoneUtils';
  */
 export default function UnificadorContatosCentralizado({ 
   telefoneInicial = null, 
-  contatoOrigem = null, 
-  contatoDestino = null,
+  contatoOrigem = null,  // ORIGEM (será deletado)
+  contatoDestino = null, // DESTINO (receberá tudo - MESTRE)
   onClose = null,
   isAdmin = false 
 }) {
