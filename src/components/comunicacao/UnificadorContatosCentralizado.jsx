@@ -298,45 +298,50 @@ export default function UnificadorContatosCentralizado({
   }
 
   return (
-    <div className="space-y-6 p-6 max-w-6xl mx-auto">
-      {/* HEADER */}
-      <Card className="bg-gradient-to-r from-indigo-50 to-purple-50 border-indigo-200">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-3 text-indigo-900">
-            <Merge className="w-6 h-6" />
-            Unificador de Contatos Centralizado
-          </CardTitle>
-          <p className="text-sm text-indigo-600 mt-1">
-            Busque duplicatas por telefone e unifique em um único contato
-          </p>
-        </CardHeader>
-        <CardContent>
-          <div className="flex gap-2">
-            <div className="relative flex-1">
-              <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-              <Input
-                value={telefone}
-                onChange={(e) => setTelefone(e.target.value)}
-                placeholder="Digite o telefone (ex: +5548999322400)"
-                className="pl-10"
-                onKeyPress={(e) => e.key === 'Enter' && buscarDuplicatas()}
-              />
-            </div>
-            <Button
-              onClick={() => buscarDuplicatas()}
-              disabled={buscando || !telefone.trim()}
-              className="bg-indigo-600 hover:bg-indigo-700"
-            >
-              {buscando ? (
-                <Loader2 className="w-4 h-4 animate-spin mr-2" />
-              ) : (
-                <Search className="w-4 h-4 mr-2" />
-              )}
-              Buscar
-            </Button>
+    <div className="space-y-4 max-w-7xl mx-auto">
+      {/* HEADER COM BUSCA */}
+      <div className="bg-gradient-to-r from-indigo-600 to-purple-600 rounded-xl p-6 shadow-lg">
+        <div className="flex items-center gap-3 mb-4">
+          <div className="w-12 h-12 bg-white/20 rounded-lg flex items-center justify-center">
+            <Merge className="w-7 h-7 text-white" />
           </div>
-        </CardContent>
-      </Card>
+          <div>
+            <h2 className="text-2xl font-bold text-white">Unificador de Contatos Centralizado</h2>
+            <p className="text-indigo-100 text-sm">Busque duplicatas por telefone e unifique em um único contato</p>
+          </div>
+        </div>
+        
+        <div className="flex gap-2">
+          <div className="relative flex-1">
+            <Phone className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+            <Input
+              value={telefone}
+              onChange={(e) => setTelefone(e.target.value)}
+              placeholder="Digite o telefone (ex: +5548999322400 ou 48999322400)"
+              className="pl-12 h-12 text-base bg-white"
+              onKeyPress={(e) => e.key === 'Enter' && buscarDuplicatas()}
+            />
+          </div>
+          <Button
+            onClick={() => buscarDuplicatas()}
+            disabled={buscando || !telefone.trim()}
+            size="lg"
+            className="bg-white text-indigo-600 hover:bg-indigo-50 font-semibold px-6"
+          >
+            {buscando ? (
+              <>
+                <Loader2 className="w-5 h-5 animate-spin mr-2" />
+                Buscando...
+              </>
+            ) : (
+              <>
+                <Search className="w-5 h-5 mr-2" />
+                Buscar Duplicatas
+              </>
+            )}
+          </Button>
+        </div>
+      </div>
 
       {/* RESULTADO DE SUCESSO */}
       {estatisticas && (
@@ -356,138 +361,285 @@ export default function UnificadorContatosCentralizado({
 
       {/* VISUALIZAÇÃO DE DUPLICATAS */}
       {duplicatas.length >= 2 && (
-        <div className="grid grid-cols-3 gap-4">
-          {/* COLUNA 1: DUPLICATAS (SERÃO DELETADAS) */}
-          <div className="col-span-1 space-y-3">
-            <div className="bg-red-50 p-3 rounded-lg border-2 border-red-300">
-              <h3 className="font-bold text-red-700 text-sm mb-2 flex items-center gap-2">
-                🗑️ SERÃO DELETADAS
-                <Badge className="bg-red-600 text-white">{duplicatas.length - 1}</Badge>
-              </h3>
-              <p className="text-xs text-red-600 mb-3">Contatos que serão removidos após unificação</p>
-            </div>
-
-            <div className="space-y-2">
-              {duplicatas
-                .filter(c => c.id !== mestreEscolhido)
-                .map((contato) => (
-                  <Card key={contato.id} className="p-3 bg-white border-red-200 hover:border-red-400 transition-colors">
-                    <div className="flex items-start justify-between mb-2">
-                      <div className="flex-1 min-w-0">
-                        <p className="font-bold text-slate-900 truncate">{contato.nome || 'Sem nome'}</p>
-                        <p className="text-xs text-slate-600">{contato.telefone}</p>
-                        {contato.empresa && (
-                          <p className="text-xs text-slate-500 truncate">🏢 {contato.empresa}</p>
-                        )}
-                      </div>
-                      <Badge className="bg-red-600 text-white text-xs shrink-0">DUP</Badge>
-                    </div>
-                    <div className="flex gap-3 text-xs text-slate-500">
-                      <span title="Threads">🧵 {contato.stats.threads}</span>
-                      <span title="Mensagens">💬 {contato.stats.mensagens}</span>
-                      <span title="Interações">📝 {contato.stats.interacoes}</span>
-                    </div>
-                  </Card>
-                ))}
-            </div>
-          </div>
-
-          {/* COLUNA 2: SETA */}
-          <div className="col-span-1 flex items-center justify-center">
-            <div className="flex flex-col items-center gap-3">
-              <div className="bg-gradient-to-r from-red-500 to-green-500 w-16 h-16 rounded-full flex items-center justify-center shadow-lg">
-                <ArrowRight className="w-8 h-8 text-white" />
-              </div>
-              <p className="text-sm text-slate-600 font-semibold text-center">
-                Tudo será<br />unificado em →
+        <div className="space-y-4">
+          {/* RESUMO DO QUE SERÁ FEITO */}
+          <Alert className="bg-indigo-50 border-indigo-200">
+            <Info className="w-4 h-4 text-indigo-600" />
+            <AlertDescription className="ml-3 text-indigo-900">
+              <p className="font-bold mb-1">📋 {duplicatas.length} contatos encontrados para unificação</p>
+              <p className="text-sm text-indigo-700">
+                Selecione qual será o <strong>contato mestre</strong> (mantido). Os demais serão mesclados nele.
               </p>
-            </div>
-          </div>
+            </AlertDescription>
+          </Alert>
 
-          {/* COLUNA 3: MESTRE (SERÁ MANTIDO) */}
-          <div className="col-span-1 space-y-3">
-            <div className="bg-green-50 p-3 rounded-lg border-2 border-green-400">
-              <h3 className="font-bold text-green-700 text-sm mb-2 flex items-center gap-2">
-                🏆 SERÁ MANTIDO
-                <Badge className="bg-green-600 text-white">MESTRE</Badge>
-              </h3>
-              <p className="text-xs text-green-600 mb-3">
-                Escolha qual contato será o principal
-              </p>
-            </div>
-
-            <div className="space-y-2">
-              {duplicatas.map((contato) => (
+          {/* CARDS DOS CONTATOS - LAYOUT MELHORADO */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {duplicatas.map((contato, index) => {
+              const isMestre = mestreEscolhido === contato.id;
+              const seraDeletado = mestreEscolhido && mestreEscolhido !== contato.id;
+              
+              return (
                 <Card
                   key={contato.id}
                   onClick={() => setMestreEscolhido(contato.id)}
-                  className={`p-3 cursor-pointer transition-all ${
-                    mestreEscolhido === contato.id
-                      ? 'bg-gradient-to-r from-green-50 to-emerald-50 border-2 border-green-500 shadow-lg'
-                      : 'bg-white border-slate-200 hover:border-green-300'
+                  className={`relative cursor-pointer transition-all transform hover:scale-105 ${
+                    isMestre
+                      ? 'bg-gradient-to-br from-green-50 to-emerald-50 border-4 border-green-500 shadow-2xl ring-4 ring-green-200'
+                      : seraDeletado
+                      ? 'bg-red-50 border-2 border-red-300 opacity-75 hover:opacity-100'
+                      : 'bg-white border-2 border-slate-300 hover:border-indigo-400 shadow-md'
                   }`}
                 >
-                  <div className="flex items-start justify-between mb-2">
-                    <div className="flex-1 min-w-0">
-                      <p className="font-bold text-slate-900 truncate">{contato.nome || 'Sem nome'}</p>
-                      <p className="text-xs text-slate-600">{contato.telefone}</p>
-                      {contato.empresa && (
-                        <p className="text-xs text-slate-500 truncate">🏢 {contato.empresa}</p>
-                      )}
-                    </div>
-                    {mestreEscolhido === contato.id && (
-                      <Badge className="bg-green-600 text-white text-xs shrink-0">
-                        <CheckCircle2 className="w-3 h-3 mr-1" />
-                        SELECIONADO
+                  {/* Badge de Status */}
+                  <div className="absolute -top-2 -right-2 z-10">
+                    {isMestre ? (
+                      <Badge className="bg-green-600 text-white shadow-lg text-sm px-3 py-1 font-bold">
+                        <CheckCircle2 className="w-4 h-4 mr-1" />
+                        🏆 MESTRE
+                      </Badge>
+                    ) : seraDeletado ? (
+                      <Badge className="bg-red-600 text-white shadow-lg text-sm px-3 py-1 font-bold">
+                        🗑️ DELETAR
+                      </Badge>
+                    ) : (
+                      <Badge className="bg-slate-400 text-white shadow-lg text-sm px-3 py-1">
+                        #{index + 1}
                       </Badge>
                     )}
                   </div>
-                  <div className="flex gap-3 text-xs text-slate-500">
-                    <span title="Threads">🧵 {contato.stats.threads}</span>
-                    <span title="Mensagens">💬 {contato.stats.mensagens}</span>
-                    <span title="Interações">📝 {contato.stats.interacoes}</span>
-                  </div>
-                  <div className="mt-2 text-xs text-slate-400 flex items-center gap-1">
-                    <Calendar className="w-3 h-3" />
-                    {new Date(contato.stats.ultimaAtualizacao).toLocaleDateString('pt-BR')}
-                  </div>
+
+                  <CardContent className="p-5">
+                    {/* Avatar + Nome */}
+                    <div className="flex items-start gap-4 mb-4">
+                      <div className={`w-16 h-16 rounded-full flex items-center justify-center text-white font-bold text-2xl shadow-lg overflow-hidden ${
+                        isMestre ? 'bg-gradient-to-br from-green-500 to-emerald-600 ring-4 ring-green-200' :
+                        seraDeletado ? 'bg-gradient-to-br from-red-400 to-red-600' :
+                        'bg-gradient-to-br from-indigo-500 to-purple-600'
+                      }`}>
+                        {contato.foto_perfil_url ? (
+                          <img src={contato.foto_perfil_url} alt={contato.nome} className="w-full h-full object-cover" />
+                        ) : (
+                          (contato.nome || 'S').charAt(0).toUpperCase()
+                        )}
+                      </div>
+                      
+                      <div className="flex-1 min-w-0">
+                        <h3 className="font-bold text-lg text-slate-900 truncate mb-1">
+                          {contato.nome || 'Sem nome'}
+                        </h3>
+                        <p className="text-sm text-slate-600 font-mono">{contato.telefone}</p>
+                        {contato.empresa && (
+                          <p className="text-sm text-slate-700 mt-1 flex items-center gap-1">
+                            <User className="w-3 h-3" />
+                            {contato.empresa}
+                          </p>
+                        )}
+                        {contato.cargo && (
+                          <p className="text-xs text-slate-500">{contato.cargo}</p>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Estatísticas */}
+                    <div className="bg-slate-50 rounded-lg p-3 space-y-2">
+                      <div className="flex items-center justify-between text-sm">
+                        <span className="text-slate-600 flex items-center gap-2">
+                          <MessageSquare className="w-4 h-4 text-purple-600" />
+                          Threads
+                        </span>
+                        <span className="font-bold text-slate-900">{contato.stats.threads}</span>
+                      </div>
+                      <div className="flex items-center justify-between text-sm">
+                        <span className="text-slate-600 flex items-center gap-2">
+                          💬 Mensagens
+                        </span>
+                        <span className="font-bold text-slate-900">{contato.stats.mensagens}</span>
+                      </div>
+                      <div className="flex items-center justify-between text-sm">
+                        <span className="text-slate-600 flex items-center gap-2">
+                          📝 Interações
+                        </span>
+                        <span className="font-bold text-slate-900">{contato.stats.interacoes}</span>
+                      </div>
+                      <div className="pt-2 border-t border-slate-200">
+                        <div className="flex items-center justify-between text-xs">
+                          <span className="text-slate-500 flex items-center gap-1">
+                            <Calendar className="w-3 h-3" />
+                            Atualizado
+                          </span>
+                          <span className="text-slate-700 font-medium">
+                            {new Date(contato.stats.ultimaAtualizacao).toLocaleDateString('pt-BR')}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Indicador de Ação */}
+                    {isMestre && (
+                      <div className="mt-3 text-center">
+                        <p className="text-xs text-green-700 font-semibold">
+                          ✓ Este contato será mantido e receberá todos os dados
+                        </p>
+                      </div>
+                    )}
+                    {seraDeletado && (
+                      <div className="mt-3 text-center">
+                        <p className="text-xs text-red-700 font-semibold">
+                          ⚠️ Será mesclado no contato mestre e deletado
+                        </p>
+                      </div>
+                    )}
+                  </CardContent>
                 </Card>
-              ))}
-            </div>
+              );
+            })}
           </div>
+
+          {/* PREVIEW DA OPERAÇÃO */}
+          {mestreEscolhido && duplicatas.length >= 2 && (
+            <Card className="bg-gradient-to-r from-orange-50 to-amber-50 border-2 border-orange-300">
+              <CardContent className="p-6">
+                <div className="flex items-start gap-6">
+                  <div className="flex-1">
+                    <h3 className="font-bold text-orange-900 text-lg mb-3 flex items-center gap-2">
+                      <AlertTriangle className="w-5 h-5" />
+                      Preview da Unificação
+                    </h3>
+                    
+                    <div className="grid grid-cols-2 gap-4 mb-4">
+                      {/* Estatísticas ANTES */}
+                      <div className="bg-white rounded-lg p-4 border border-orange-200">
+                        <p className="text-xs text-orange-700 font-bold mb-2">ANTES (Fragmentado):</p>
+                        <div className="space-y-1 text-sm">
+                          <div className="flex justify-between">
+                            <span className="text-slate-600">Contatos:</span>
+                            <span className="font-bold text-slate-900">{duplicatas.length}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-slate-600">Threads:</span>
+                            <span className="font-bold text-slate-900">
+                              {duplicatas.reduce((sum, c) => sum + c.stats.threads, 0)}
+                            </span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-slate-600">Mensagens:</span>
+                            <span className="font-bold text-slate-900">
+                              {duplicatas.reduce((sum, c) => sum + c.stats.mensagens, 0)}
+                            </span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-slate-600">Interações:</span>
+                            <span className="font-bold text-slate-900">
+                              {duplicatas.reduce((sum, c) => sum + c.stats.interacoes, 0)}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Estatísticas DEPOIS */}
+                      <div className="bg-green-50 rounded-lg p-4 border-2 border-green-400">
+                        <p className="text-xs text-green-700 font-bold mb-2">DEPOIS (Unificado):</p>
+                        <div className="space-y-1 text-sm">
+                          <div className="flex justify-between">
+                            <span className="text-slate-600">Contatos:</span>
+                            <span className="font-bold text-green-700">1 ✓</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-slate-600">Threads:</span>
+                            <span className="font-bold text-green-700">
+                              {duplicatas.reduce((sum, c) => sum + c.stats.threads, 0)}
+                            </span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-slate-600">Mensagens:</span>
+                            <span className="font-bold text-green-700">
+                              {duplicatas.reduce((sum, c) => sum + c.stats.mensagens, 0)}
+                            </span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-slate-600">Interações:</span>
+                            <span className="font-bold text-green-700">
+                              {duplicatas.reduce((sum, c) => sum + c.stats.interacoes, 0)}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Mestre Selecionado */}
+                    <div className="bg-white rounded-lg p-4 border-2 border-green-500">
+                      <p className="text-xs text-green-700 font-bold mb-2">🏆 CONTATO MESTRE SELECIONADO:</p>
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-green-500 to-emerald-600 flex items-center justify-center text-white font-bold text-lg">
+                          {(duplicatas.find(c => c.id === mestreEscolhido)?.nome || 'S').charAt(0).toUpperCase()}
+                        </div>
+                        <div>
+                          <p className="font-bold text-slate-900">
+                            {duplicatas.find(c => c.id === mestreEscolhido)?.nome || 'Sem nome'}
+                          </p>
+                          <p className="text-xs text-slate-600">
+                            {duplicatas.find(c => c.id === mestreEscolhido)?.telefone}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="w-24 flex items-center justify-center">
+                    <ArrowRight className="w-16 h-16 text-orange-600" />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          )}
         </div>
       )}
 
-      {/* BOTÃO DE UNIFICAÇÃO */}
-      {duplicatas.length >= 2 && (
-        <Card className="p-4 bg-gradient-to-r from-orange-50 to-red-50 border-orange-200">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="font-bold text-orange-900">Pronto para unificar?</p>
-              <p className="text-sm text-orange-700">
-                {duplicatas.length - 1} contato(s) serão mesclados em "{duplicatas.find(c => c.id === mestreEscolhido)?.nome || 'contato selecionado'}"
-              </p>
-            </div>
-            <Button
-              onClick={unificarContatos}
-              disabled={unificando || !mestreEscolhido}
-              size="lg"
-              className="bg-gradient-to-r from-orange-600 to-red-600 hover:from-orange-700 hover:to-red-700 text-white font-bold shadow-lg"
-            >
-              {unificando ? (
-                <>
-                  <Loader2 className="w-5 h-5 animate-spin mr-2" />
-                  Unificando...
-                </>
-              ) : (
-                <>
-                  <Merge className="w-5 h-5 mr-2" />
-                  Confirmar Unificação
-                </>
-              )}
-            </Button>
-          </div>
-        </Card>
+      {/* BOTÃO DE UNIFICAÇÃO - DESTAQUE */}
+      {duplicatas.length >= 2 && mestreEscolhido && (
+        <div className="sticky bottom-0 z-20">
+          <Card className="border-4 border-orange-400 bg-gradient-to-r from-orange-500 to-red-500 shadow-2xl">
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-4">
+                  <div className="w-14 h-14 bg-white/20 rounded-full flex items-center justify-center">
+                    <Merge className="w-8 h-8 text-white" />
+                  </div>
+                  <div>
+                    <p className="font-bold text-white text-xl">Pronto para unificar?</p>
+                    <p className="text-orange-100 text-sm mt-1">
+                      <strong className="text-white">{duplicatas.length - 1} contato(s)</strong> serão mesclados em{' '}
+                      <strong className="text-white">"{duplicatas.find(c => c.id === mestreEscolhido)?.nome || 'contato selecionado'}"</strong>
+                    </p>
+                    <p className="text-xs text-orange-100 mt-1 flex items-center gap-2">
+                      <AlertTriangle className="w-3 h-3" />
+                      Esta ação é IRREVERSÍVEL - todos os dados serão consolidados
+                    </p>
+                  </div>
+                </div>
+                <Button
+                  onClick={unificarContatos}
+                  disabled={unificando || !mestreEscolhido}
+                  size="lg"
+                  className="bg-white text-orange-600 hover:bg-orange-50 font-bold shadow-xl px-8 py-6 text-lg h-auto"
+                >
+                  {unificando ? (
+                    <>
+                      <Loader2 className="w-6 h-6 animate-spin mr-3" />
+                      Unificando...
+                    </>
+                  ) : (
+                    <>
+                      <Merge className="w-6 h-6 mr-3" />
+                      CONFIRMAR UNIFICAÇÃO
+                    </>
+                  )}
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
       )}
     </div>
   );
