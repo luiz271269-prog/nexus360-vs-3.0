@@ -7,32 +7,102 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Loader2, ArrowRight, AlertCircle, CheckCircle, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 
-export default function UnificadorContatosManual({ contatoOrigem, contatoDestino, isAdmin = false, onClose }) {
+export default function UnificadorContatosManual({ telefoneInicial, contatoOrigem, contatoDestino, isAdmin = false, onClose }) {
   const [unificando, setUnificando] = useState(false);
+  const [contatosDuplicados, setContatosDuplicados] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [contatoPrincipal, setContatoPrincipal] = useState(null);
 
-  if (!contatoOrigem || !contatoDestino) {
+  // Carregar duplicatas pelo telefone
+  React.useEffect(() => {
+    if (telefoneInicial && !contatoOrigem && !contatoDestino) {
+      carregarDuplicatasPorTelefone(telefoneInicial);
+    } else if (contatoOrigem && contatoDestino) {
+      // Modo drag-and-drop - usar os contatos fornecidos
+      setContatoPrincipal(contatoDestino);
+      setContatosDuplicados([contatoOrigem]);
+    }
+  }, [telefoneInicial, contatoOrigem, contatoDestino]);
+
+  const carregarDuplicatasPorTelefone = async (telefone) => {
+    setLoading(true);
+    try {
+      const telLimpo = telefone.replace(/\D/g, '');
+      const todosContatos = await base44.entities.Contact.list('-created_date', 1000);
+      
+      const duplicatas = todosContatos.filter(c => {
+        const tel = (c.telefone || '').replace(/\D/g, '');
+        return tel === telLimpo;
+      });
+
+      if (duplicatas.length <= 1) {
+        toast.info('Nenhuma duplicata encontrada para este telefone');
+        setContatosDuplicados([]);
+        setContatoPrincipal(null);
+        return;
+      }
+
+      // Ordenar por created_date (mais antigo primeiro = principal)
+      duplicatas.sort((a, b) => new Date(a.created_date) - new Date(b.created_date));
+      
+      setContatoPrincipal(duplicatas[0]);
+      setContatosDuplicados(duplicatas.slice(1));
+      
+      toast.success(`✅ ${duplicatas.length} contatos encontrados (${duplicatas.length - 1} duplicatas)`);
+    } catch (error) {
+      console.error('Erro ao buscar duplicatas:', error);
+      toast.error('Erro ao buscar duplicatas');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <Loader2 className="w-8 h-8 animate-spin text-purple-600" />
+      </div>
+    );
+  }
+
+  if (!contatoPrincipal || contatosDuplicados.length === 0) {
     return (
       <Alert className="bg-blue-50 border-blue-200">
         <AlertCircle className="w-4 h-4 text-blue-600" />
         <AlertDescription className="text-blue-700 ml-2">
-          Selecione 2 contatos para unificar
+          {telefoneInicial ? 'Nenhuma duplicata encontrada' : 'Selecione 2 contatos para unificar'}
         </AlertDescription>
       </Alert>
     );
   }
 
-  const unificar = async () => {
+  const unificarTodos = async () => {
     if (!isAdmin) {
       toast.error('Apenas admin pode unificar');
       return;
     }
 
+    const confirmar = window.confirm(
+      `⚠️ UNIFICAÇÃO EM MASSA\n\n` +
+      `Principal: ${contatoPrincipal.nome}\n` +
+      `Duplicatas: ${contatosDuplicados.length}\n\n` +
+      `Todas as conversas e mensagens serão movidas para o contato principal.\n\n` +
+      `Deseja continuar?`
+    );
+
+    if (!confirmar) return;
+
     setUnificando(true);
-    const loadingToast = toast.loading('🔄 Unificando contatos...');
+    const loadingToast = toast.loading(`🔄 Unificando ${contatosDuplicados.length} duplicata(s)...`);
 
     try {
-      const mestre = contatoDestino;
-      const duplicata = contatoOrigem;
+      let totalMensagensMovidas = 0;
+      let totalConversasMovidas = 0;
+      let totalInteracoesMovidas = 0;
+
+      // Processar cada duplicata
+      for (const duplicata of contatosDuplicados) {
+        const mestre = contatoPrincipal;
 
       // 1️⃣ FUSÃO DE DADOS
       const updateMestre = {};
@@ -91,18 +161,25 @@ export default function UnificadorContatosManual({ contatoOrigem, contatoDestino
         }
       }
 
-      // 3️⃣ INTERAÇÕES
-      const interacoes = await base44.entities.Interacao.filter({ contact_id: duplicata.id });
-      for (const int of interacoes) {
-        await base44.entities.Interacao.update(int.id, { contact_id: mestre.id });
-      }
+        // 3️⃣ INTERAÇÕES
+        const interacoes = await base44.entities.Interacao.filter({ contact_id: duplicata.id });
+        for (const int of interacoes) {
+          await base44.entities.Interacao.update(int.id, { contact_id: mestre.id });
+        }
+        totalInteracoesMovidas += interacoes.length;
 
-      // 4️⃣ DELETAR DUPLICATA
-      await base44.entities.Contact.delete(duplicata.id);
+        // 4️⃣ DELETAR DUPLICATA
+        await base44.entities.Contact.delete({ id: duplicata.id });
+        
+        console.log(`[UNIFICAÇÃO] ✅ Duplicata ${duplicata.id} unificada em ${mestre.id}`);
+        
+        totalConversasMovidas += conversasMovidas;
+        totalMensagensMovidas += mensagensMovidas;
+      }
 
       toast.dismiss(loadingToast);
       toast.success('✅ Unificação Concluída!', {
-        description: `${conversasMovidas} conversas + ${mensagensMovidas} mensagens migradas`
+        description: `${contatosDuplicados.length} contatos • ${totalConversasMovidas} conversas • ${totalMensagensMovidas} mensagens`
       });
 
       if (onClose) onClose();
@@ -118,71 +195,90 @@ export default function UnificadorContatosManual({ contatoOrigem, contatoDestino
 
   return (
     <div className="space-y-4">
-      {/* LAYOUT 3 COLUNAS */}
-      <div className="grid grid-cols-3 gap-3">
-        {/* COLUNA 1: ORIGEM (será deletado) */}
-        <div className="bg-red-50 p-4 rounded-lg border-2 border-red-300">
-          <h3 className="font-bold text-red-700 mb-3 text-sm">🗑️ SERÁ DELETADO</h3>
-          <div className="bg-white p-3 rounded text-sm space-y-2">
-            <p className="font-bold text-slate-900">{contatoOrigem.nome}</p>
-            <p className="text-xs text-slate-600">{contatoOrigem.telefone}</p>
-            {contatoOrigem.empresa && (
-              <p className="text-xs text-slate-600">🏢 {contatoOrigem.empresa}</p>
-            )}
-            {contatoOrigem.email && (
-              <p className="text-xs text-slate-600">📧 {contatoOrigem.email}</p>
-            )}
-          </div>
-        </div>
+      {/* LAYOUT: Principal + Duplicatas */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {/* CONTATO PRINCIPAL (será mantido) */}
+        <Card className="border-2 border-green-400 bg-green-50">
+          <CardHeader className="pb-3">
+            <h3 className="font-bold text-green-700 flex items-center gap-2">
+              <CheckCircle className="w-5 h-5" />
+              🏆 PRINCIPAL (Mais Antigo)
+            </h3>
+          </CardHeader>
+          <CardContent>
+            <div className="bg-white p-4 rounded-lg text-sm space-y-2">
+              <p className="font-bold text-slate-900 text-lg">{contatoPrincipal.nome}</p>
+              <p className="text-xs text-slate-600">📞 {contatoPrincipal.telefone}</p>
+              {contatoPrincipal.empresa && (
+                <p className="text-xs text-slate-600">🏢 {contatoPrincipal.empresa}</p>
+              )}
+              {contatoPrincipal.email && (
+                <p className="text-xs text-slate-600">📧 {contatoPrincipal.email}</p>
+              )}
+              <Badge className="bg-green-600 text-white text-xs">
+                Criado: {new Date(contatoPrincipal.created_date).toLocaleDateString('pt-BR')}
+              </Badge>
+            </div>
+          </CardContent>
+        </Card>
 
-        {/* COLUNA 2: SETA */}
-        <div className="flex items-center justify-center">
-          <div className="bg-gradient-to-r from-red-500 to-green-500 w-12 h-12 rounded-full flex items-center justify-center text-white font-bold text-xl">
-            →
-          </div>
-        </div>
-
-        {/* COLUNA 3: DESTINO (será mantido) */}
-        <div className="bg-green-50 p-4 rounded-lg border-2 border-green-400">
-          <h3 className="font-bold text-green-700 mb-3 text-sm">🏆 SERÁ MANTIDO</h3>
-          <div className="bg-white p-3 rounded text-sm space-y-2">
-            <p className="font-bold text-slate-900">{contatoDestino.nome}</p>
-            <p className="text-xs text-slate-600">{contatoDestino.telefone}</p>
-            {contatoDestino.empresa && (
-              <p className="text-xs text-slate-600">🏢 {contatoDestino.empresa}</p>
-            )}
-            {contatoDestino.email && (
-              <p className="text-xs text-slate-600">📧 {contatoDestino.email}</p>
-            )}
-          </div>
-        </div>
+        {/* DUPLICATAS (serão deletadas) */}
+        <Card className="border-2 border-red-400 bg-red-50">
+          <CardHeader className="pb-3">
+            <h3 className="font-bold text-red-700 flex items-center gap-2">
+              <Trash2 className="w-5 h-5" />
+              🗑️ DUPLICATAS ({contatosDuplicados.length})
+            </h3>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-2 max-h-80 overflow-y-auto">
+              {contatosDuplicados.map((dup) => (
+                <div key={dup.id} className="bg-white p-3 rounded-lg border border-red-200">
+                  <p className="font-semibold text-slate-900 text-sm">{dup.nome}</p>
+                  <p className="text-xs text-slate-600">📞 {dup.telefone}</p>
+                  {dup.empresa && (
+                    <p className="text-xs text-slate-600">🏢 {dup.empresa}</p>
+                  )}
+                  <Badge variant="outline" className="text-[10px] mt-1">
+                    ID: {dup.id.substring(0, 8)}...
+                  </Badge>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
       {/* ALERTA EXPLICATIVO */}
       <Alert className="bg-amber-50 border-amber-200">
         <AlertCircle className="w-4 h-4 text-amber-600" />
-        <AlertDescription className="text-amber-700 ml-2 text-xs">
-          Todas as mensagens, conversas e dados do contato <strong>{contatoOrigem.nome}</strong> serão 
-          transferidos para <strong>{contatoDestino.nome}</strong>, e o primeiro será deletado.
+        <AlertDescription className="text-amber-700 ml-2 text-sm">
+          <strong>O que será feito:</strong>
+          <ul className="list-disc ml-4 mt-2 space-y-1">
+            <li>Todas as <strong>mensagens</strong> das duplicatas serão movidas para o contato principal</li>
+            <li>Todas as <strong>threads</strong> serão reagrupadas no contato principal</li>
+            <li>Todas as <strong>interações</strong> serão transferidas</li>
+            <li>Os {contatosDuplicados.length} contato(s) duplicado(s) será(ão) <strong>deletado(s)</strong></li>
+          </ul>
         </AlertDescription>
       </Alert>
 
       {/* BOTÃO DE CONFIRMAÇÃO */}
       {isAdmin && (
         <Button
-          onClick={unificar}
+          onClick={unificarTodos}
           disabled={unificando}
-          className="w-full bg-green-600 hover:bg-green-700 text-white font-bold h-11"
+          className="w-full bg-green-600 hover:bg-green-700 text-white font-bold h-12"
         >
           {unificando ? (
             <>
-              <Loader2 className="w-4 h-4 animate-spin mr-2" />
-              Unificando...
+              <Loader2 className="w-5 h-5 animate-spin mr-2" />
+              Unificando {contatosDuplicados.length} contato(s)...
             </>
           ) : (
             <>
-              <CheckCircle className="w-4 h-4 mr-2" />
-              ✅ Confirmar Unificação
+              <CheckCircle className="w-5 h-5 mr-2" />
+              ✅ Unificar {contatosDuplicados.length} Duplicata(s)
             </>
           )}
         </Button>
