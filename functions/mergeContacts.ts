@@ -317,6 +317,80 @@ Deno.serve(async (req) => {
       console.log('[MERGE] ✅ Duplicata deletada:', duplicataId);
     }
 
+    // ════════════════════════════════════════════════════════════════════
+    // 🆕 PÓS-PROCESSAMENTO: CONSOLIDAR PARA UMA ÚNICA THREAD CANÔNICA
+    // ════════════════════════════════════════════════════════════════════
+    console.log('[MERGE] 🔄 Consolidando múltiplas threads em uma única canônica...');
+    
+    const threadsFinaisDoMestre = await base44.asServiceRole.entities.MessageThread.filter({
+      contact_id: masterContactId,
+      status: { $ne: 'merged' } // Excluir as já merged
+    });
+    
+    console.log('[MERGE] Threads finais do mestre:', threadsFinaisDoMestre.length);
+    
+    if (threadsFinaisDoMestre.length > 1) {
+      // Usar a primeira thread como canônica
+      const threadCanonica = threadsFinaisDoMestre[0];
+      console.log('[MERGE] ✅ Thread canônica selecionada:', threadCanonica.id);
+      
+      // Mover mensagens de todas as outras para a canônica
+      for (let i = 1; i < threadsFinaisDoMestre.length; i++) {
+        const threadSecundaria = threadsFinaisDoMestre[i];
+        console.log('[MERGE] 🔀 Consolidando thread:', threadSecundaria.id);
+        
+        // Mover mensagens em lotes
+        let movidasAqui = 0;
+        while (true) {
+          const msgs = await base44.asServiceRole.entities.Message.filter(
+            { thread_id: threadSecundaria.id },
+            '-sent_at',
+            500
+          );
+          if (msgs.length === 0) break;
+          
+          const chunkSize = 50;
+          for (let j = 0; j < msgs.length; j += chunkSize) {
+            const batch = msgs.slice(j, j + chunkSize);
+            await Promise.all(batch.map(m => 
+              base44.asServiceRole.entities.Message.update(m.id, {
+                thread_id: threadCanonica.id
+              })
+            ));
+          }
+          
+          movidasAqui += msgs.length;
+          if (msgs.length < 500) break;
+        }
+        
+        stats.mensagensMovidas += movidasAqui;
+        
+        // Marcar como merged
+        await base44.asServiceRole.entities.MessageThread.update(threadSecundaria.id, {
+          status: 'merged',
+          is_canonical: false,
+          merged_into: threadCanonica.id
+        });
+        
+        console.log('[MERGE] ✅ Thread consolidada:', movidasAqui, 'mensagens movidas');
+      }
+      
+      // Atualizar last_message_at da thread canônica
+      const lastMsgs = await base44.asServiceRole.entities.Message.filter(
+        { thread_id: threadCanonica.id },
+        '-sent_at',
+        1
+      );
+      const lastAt = lastMsgs[0]?.sent_at || lastMsgs[0]?.created_date || new Date().toISOString();
+      
+      await base44.asServiceRole.entities.MessageThread.update(threadCanonica.id, {
+        last_message_at: lastAt,
+        total_mensagens: threadsFinaisDoMestre.reduce((sum, t) => sum + (t.total_mensagens || 0), 0)
+      });
+      
+      console.log('[MERGE] ✅ Thread canônica atualizada');
+    }
+
     console.log('[MERGE] ════════════════════════════════════════════════════════');
     console.log('[MERGE] ✅ UNIFICAÇÃO COMPLETA');
     console.log('[MERGE] Stats:', stats);
