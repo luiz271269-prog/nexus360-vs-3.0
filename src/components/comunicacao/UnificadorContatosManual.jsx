@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
 import { base44 } from '@/api/base44Client';
-import { Card } from '@/components/ui/card';
+// CORREÇÃO 1: Imports completos
+import { Card, CardHeader, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Loader2, ArrowRight, AlertCircle, CheckCircle, Trash2 } from 'lucide-react';
+import { Loader2, AlertCircle, CheckCircle, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 
 export default function UnificadorContatosManual({ telefoneInicial, contatoOrigem, contatoDestino, isAdmin = false, onClose }) {
@@ -13,94 +14,56 @@ export default function UnificadorContatosManual({ telefoneInicial, contatoOrige
   const [loading, setLoading] = useState(false);
   const [contatoPrincipal, setContatoPrincipal] = useState(null);
 
-  // Carregar duplicatas pelo telefone
   React.useEffect(() => {
-    console.log('[UNIFICADOR] Props recebidas:', { 
-      telefoneInicial, 
-      temOrigem: !!contatoOrigem, 
-      temDestino: !!contatoDestino 
-    });
+    console.log('[UNIFICADOR] Props:', { telefoneInicial, temOrigem: !!contatoOrigem });
 
     if (contatoOrigem && contatoDestino) {
-      // Modo drag-and-drop - usar os contatos fornecidos
-      console.log('[UNIFICADOR] Modo drag-and-drop ativado');
       setContatoPrincipal(contatoDestino);
       setContatosDuplicados([contatoOrigem]);
     } else if (telefoneInicial && !contatoOrigem && !contatoDestino) {
-      // Modo busca por telefone
-      console.log('[UNIFICADOR] Modo busca por telefone ativado');
       carregarDuplicatasPorTelefone(telefoneInicial);
     }
   }, [telefoneInicial, contatoOrigem, contatoDestino]);
 
-  // Gerar TODAS as variações possíveis do telefone
   const gerarVariacoesTelefone = (telefone) => {
     const limpo = telefone.replace(/\D/g, '');
     const variacoes = new Set([limpo]);
-
-    // Variação 1: +55 vs sem 55
-    if (limpo.startsWith('55') && limpo.length >= 12) {
-      const sem55 = limpo.substring(2);
-      variacoes.add(sem55);
-      
-      // Se tem 9 dígito no celular (posição 2 após remover 55)
-      if (sem55.length === 11 && sem55[2] === '9') {
-        variacoes.add(sem55.substring(0, 2) + sem55.substring(3)); // Remove o 9
-      }
-    } else if (!limpo.startsWith('55') && limpo.length >= 10) {
-      variacoes.add('55' + limpo);
-      
-      // Se tem 9 dígito
-      if (limpo.length === 11 && limpo[2] === '9') {
-        variacoes.add('55' + limpo);
-        variacoes.add('55' + limpo.substring(0, 2) + limpo.substring(3)); // 55 + sem 9
-        variacoes.add(limpo.substring(0, 2) + limpo.substring(3)); // Sem 55 e sem 9
-      }
-      
-      // Se NÃO tem 9 dígito
-      if (limpo.length === 10 && limpo[2] !== '9') {
-        variacoes.add('55' + limpo.substring(0, 2) + '9' + limpo.substring(2)); // Adiciona 9
-        variacoes.add(limpo.substring(0, 2) + '9' + limpo.substring(2)); // Sem 55 + com 9
-      }
+    if (limpo.startsWith('55')) variacoes.add(limpo.substring(2));
+    else variacoes.add('55' + limpo);
+    
+    if (limpo.length === 13 && limpo.startsWith('55')) {
+      const semPais = limpo.substring(2);
+      if (semPais[2] === '9') variacoes.add('55' + semPais.substring(0, 2) + semPais.substring(3));
     }
-
-    // Adicionar variação com 0 no DDD (ex: 048 vs 48)
-    Array.from(variacoes).forEach(v => {
-      if (v.length >= 10 && !v.startsWith('0')) {
-        variacoes.add('0' + v);
-      }
-      if (v.length >= 11 && v.startsWith('0')) {
-        variacoes.add(v.substring(1));
-      }
-    });
-
+    if (limpo.length === 11 && limpo[2] !== '9') {
+      variacoes.add(limpo.substring(0, 2) + '9' + limpo.substring(2));
+    }
     return Array.from(variacoes);
   };
 
-  // Escolher contato principal por "força" (não por idade)
   const escolherContatoPrincipal = (contatos) => {
     return contatos.reduce((melhor, atual) => {
       let scoreMelhor = 0;
       let scoreAtual = 0;
+      
+      const pontuar = (c) => {
+        let s = 0;
+        if (c.assigned_user_id) s += 10;
+        if (c.is_cliente_fidelizado) s += 8;
+        if (c.cliente_id) s += 7;
+        if (c.vendedor_responsavel) s += 5;
+        if (c.foto_perfil_url) s += 3;
+        if ((c.tags || []).length > 0) s += 2;
+        return s;
+      };
 
-      // Pontuação por atributos importantes
-      if (melhor.assigned_user_id) scoreMelhor += 10;
-      if (melhor.is_cliente_fidelizado) scoreMelhor += 8;
-      if (melhor.cliente_id) scoreMelhor += 7;
-      if (melhor.vendedor_responsavel) scoreMelhor += 5;
-      if (melhor.foto_perfil_url) scoreMelhor += 3;
-      if ((melhor.tags || []).length > 0) scoreMelhor += 2;
-      if (melhor.email) scoreMelhor += 2;
-      if (melhor.empresa) scoreMelhor += 2;
-
-      if (atual.assigned_user_id) scoreAtual += 10;
-      if (atual.is_cliente_fidelizado) scoreAtual += 8;
-      if (atual.cliente_id) scoreAtual += 7;
-      if (atual.vendedor_responsavel) scoreAtual += 5;
-      if (atual.foto_perfil_url) scoreAtual += 3;
-      if ((atual.tags || []).length > 0) scoreAtual += 2;
-      if (atual.email) scoreAtual += 2;
-      if (atual.empresa) scoreAtual += 2;
+      scoreMelhor = pontuar(melhor);
+      scoreAtual = pontuar(atual);
+      
+      // Desempate por antiguidade (ID menor ou data)
+      if (scoreAtual === scoreMelhor) {
+         return new Date(atual.created_date) < new Date(melhor.created_date) ? atual : melhor;
+      }
 
       return scoreAtual > scoreMelhor ? atual : melhor;
     });
@@ -109,96 +72,34 @@ export default function UnificadorContatosManual({ telefoneInicial, contatoOrige
   const carregarDuplicatasPorTelefone = async (telefone) => {
     setLoading(true);
     try {
-      console.log('[UNIFICADOR] 🔍 Buscando duplicatas para:', telefone);
-      
       const variacoes = gerarVariacoesTelefone(telefone);
-      console.log('[UNIFICADOR] 📱 Variações geradas:', variacoes);
+      // Workaround: buscar lote grande
+      const todosContatos = await base44.entities.Contact.list('-created_date', 5000);
       
-      // Buscar TODOS os contatos (sem limite artificial)
-      const todosContatos = await base44.entities.Contact.list('-created_date', 10000);
-      console.log('[UNIFICADOR] 📊 Total de contatos carregados:', todosContatos.length);
-      
-      // DEBUG: Mostrar todos os telefones do banco para diagnóstico
-      console.log('[UNIFICADOR] 🔍 Primeiros 20 telefones do banco:', 
-        todosContatos.slice(0, 20).map(c => ({ nome: c.nome, tel: c.telefone }))
-      );
-      
-      // Filtrar por TODAS as variações do telefone
       const duplicatas = todosContatos.filter(c => {
-        if (!c.telefone) {
-          console.log('[UNIFICADOR] ⚠️ Contato sem telefone:', c.nome, c.id.substring(0,8));
-          return false;
-        }
-        
-        const tel = c.telefone.replace(/\D/g, '');
-        const match = variacoes.some(v => {
-          const isMatch = v === tel;
-          if (isMatch) {
-            console.log(`[UNIFICADOR] ✓ MATCH: ${c.nome} | Tel original: ${c.telefone} | Tel limpo: ${tel} | Variação: ${v}`);
-          }
-          return isMatch;
-        });
-        
-        return match;
+        const tel = (c.telefone || '').replace(/\D/g, '');
+        return variacoes.some(v => v === tel);
       });
 
-      console.log('[UNIFICADOR] 🎯 Total de duplicatas encontradas:', duplicatas.length);
-      
-      if (duplicatas.length === 0) {
-        console.error('[UNIFICADOR] ❌ PROBLEMA: Nenhum contato encontrado para as variações:', variacoes);
-        toast.error('Nenhum contato encontrado para este telefone. Verifique o console (F12).');
+      if (duplicatas.length <= 1) {
+        toast.warning('Apenas 1 contato encontrado.');
         setContatosDuplicados([]);
         setContatoPrincipal(null);
         return;
       }
 
-      if (duplicatas.length === 1) {
-        console.warn('[UNIFICADOR] ⚠️ Apenas 1 contato encontrado - não há duplicatas');
-        toast.warning('Apenas 1 contato encontrado para este telefone');
-        setContatosDuplicados([]);
-        setContatoPrincipal(null);
-        return;
-      }
-
-      // Escolher principal por "força", não por idade
       const principal = escolherContatoPrincipal(duplicatas);
-      const outrosDuplicados = duplicatas.filter(d => d.id !== principal.id);
-      
-      console.log('[UNIFICADOR] 👑 Principal escolhido:', principal.nome, '| ID:', principal.id.substring(0,8));
-      console.log('[UNIFICADOR] 🗑️ Duplicatas a remover:', outrosDuplicados.map(d => d.nome).join(', '));
-      
       setContatoPrincipal(principal);
-      setContatosDuplicados(outrosDuplicados);
+      setContatosDuplicados(duplicatas.filter(d => d.id !== principal.id));
       
-      toast.success(`✅ ${duplicatas.length} contatos encontrados (${outrosDuplicados.length} duplicatas)`, {
-        description: `Principal: ${principal.nome}`
-      });
+      toast.success(`Encontradas ${duplicatas.length - 1} duplicatas.`);
     } catch (error) {
-      console.error('[UNIFICADOR] ❌ ERRO CRÍTICO ao buscar duplicatas:', error);
-      toast.error('Erro ao buscar duplicatas: ' + error.message);
+      console.error(error);
+      toast.error('Erro ao buscar duplicatas');
     } finally {
       setLoading(false);
     }
   };
-
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center py-12">
-        <Loader2 className="w-8 h-8 animate-spin text-purple-600" />
-      </div>
-    );
-  }
-
-  if (!contatoPrincipal || contatosDuplicados.length === 0) {
-    return (
-      <Alert className="bg-blue-50 border-blue-200">
-        <AlertCircle className="w-4 h-4 text-blue-600" />
-        <AlertDescription className="text-blue-700 ml-2">
-          {telefoneInicial ? 'Nenhuma duplicata encontrada' : 'Selecione 2 contatos para unificar'}
-        </AlertDescription>
-      </Alert>
-    );
-  }
 
   const unificarTodos = async () => {
     if (!isAdmin) {
@@ -206,207 +107,145 @@ export default function UnificadorContatosManual({ telefoneInicial, contatoOrige
       return;
     }
 
-    const confirmar = window.confirm(
-      `⚠️ UNIFICAÇÃO EM MASSA\n\n` +
-      `Principal: ${contatoPrincipal.nome}\n` +
-      `Duplicatas: ${contatosDuplicados.length}\n\n` +
-      `Todas as conversas e mensagens serão movidas para o contato principal.\n\n` +
-      `Deseja continuar?`
-    );
-
-    if (!confirmar) return;
+    if (!window.confirm(`Confirmar unificação de ${contatosDuplicados.length} duplicatas em ${contatoPrincipal.nome}?`)) return;
 
     setUnificando(true);
-    const loadingToast = toast.loading(`🔄 Unificando ${contatosDuplicados.length} duplicata(s)...`);
+    const loadingToast = toast.loading(`Iniciando unificação blindada...`);
 
     try {
-      let totalMensagensMovidas = 0;
-      let totalConversasMovidas = 0;
-      let totalInteracoesMovidas = 0;
+      let totalMensagens = 0;
+      let totalConversas = 0;
 
-      // Buscar threads do mestre UMA VEZ (fora do loop)
+      // Carregar threads do mestre UMA VEZ
       const threadsMestre = await base44.entities.MessageThread.filter({ contact_id: contatoPrincipal.id });
 
-      // Processar cada duplicata
       for (const duplicata of contatosDuplicados) {
-        console.log(`[UNIFICAÇÃO] Processando duplicata ${duplicata.id} (${duplicata.nome})`);
-        
         const mestre = contatoPrincipal;
 
-        // 1️⃣ FUSÃO DE DADOS
+        // 1. MERGE DE DADOS
         const updateMestre = {};
         if (!mestre.email && duplicata.email) updateMestre.email = duplicata.email;
         if (!mestre.cargo && duplicata.cargo) updateMestre.cargo = duplicata.cargo;
         if (!mestre.empresa && duplicata.empresa) updateMestre.empresa = duplicata.empresa;
         
         const tagsSet = new Set(mestre.tags || []);
-        (duplicata.tags || []).forEach(tag => tagsSet.add(tag));
-        if ((duplicata.tags || []).length > 0) updateMestre.tags = Array.from(tagsSet);
+        (duplicata.tags || []).forEach(t => tagsSet.add(t));
+        if (tagsSet.size > (mestre.tags || []).length) updateMestre.tags = Array.from(tagsSet);
 
         if (Object.keys(updateMestre).length > 0) {
-          console.log('[UNIFICAÇÃO] Atualizando dados do mestre:', updateMestre);
           await base44.entities.Contact.update(mestre.id, updateMestre);
         }
 
-        // 2️⃣ FUSÃO DE THREADS
+        // 2. MERGE DE THREADS
         const threadsDup = await base44.entities.MessageThread.filter({ contact_id: duplicata.id });
-        console.log(`[UNIFICAÇÃO] ${threadsDup.length} threads da duplicata`);
-        
-        let mensagensMovidas = 0;
-        let conversasMovidas = 0;
 
-      for (const threadDup of threadsDup) {
-        // Criar chave de canal unificada
-        const getChannelKey = (thread) => {
-          const channel = thread.channel;
-          let integrationId = null;
-          
-          if (channel === 'whatsapp') {
-            integrationId = thread.whatsapp_integration_id || thread.conexao_id;
-          } else if (channel === 'instagram') {
-            integrationId = thread.instagram_integration_id;
-          } else if (channel === 'facebook') {
-            integrationId = thread.facebook_integration_id;
-          } else if (channel === 'phone') {
-            integrationId = thread.goto_integration_id;
-          } else if (channel === 'interno') {
-            integrationId = 'internal';
-          }
-          
-          return `${channel}:${integrationId}`;
-        };
+        for (const threadDup of threadsDup) {
+          // CORREÇÃO 2: Chave de canal blindada
+          const getChannelKey = (t) => {
+            const ch = t.channel || 'desconhecido';
+            let intId = 'nulo';
+            if (ch === 'whatsapp') intId = t.whatsapp_integration_id || t.conexao_id || 'nulo';
+            else if (ch === 'instagram') intId = t.instagram_integration_id;
+            else if (ch === 'facebook') intId = t.facebook_integration_id;
+            else if (ch === 'phone') intId = t.goto_integration_id;
+            else if (ch === 'interno') intId = 'internal';
+            return `${ch}:${intId}`;
+          };
 
-        const keyDup = getChannelKey(threadDup);
-        const threadConflito = threadsMestre.find(tm => getChannelKey(tm) === keyDup);
+          const keyDup = getChannelKey(threadDup);
+          const threadConflito = threadsMestre.find(tm => getChannelKey(tm) === keyDup);
 
-        if (threadConflito) {
-          console.log(`[UNIFICAÇÃO] CONFLITO - Mesclando thread ${threadDup.id} → ${threadConflito.id}`);
-          
-          // CONFLITO: Mesclar TODAS as mensagens (paginado + batches pequenos)
-          let totalMovidas = 0;
-          let ultimaMensagemMovida = null;
+          if (threadConflito) {
+            // --- CONFLITO: MOVER MENSAGENS ---
+            let movidasAqui = 0;
+            
+            while (true) {
+              const msgs = await base44.entities.Message.filter({ thread_id: threadDup.id }, '-sent_at', 500);
+              if (msgs.length === 0) break;
 
-          while (true) {
-            const mensagens = await base44.entities.Message.filter(
-              { thread_id: threadDup.id },
-              '-sent_at',
-              500
-            );
-
-            console.log(`[UNIFICAÇÃO] Batch de ${mensagens.length} mensagens encontradas`);
-
-            if (mensagens.length === 0) break;
-
-            // Processar em batches de 50 para evitar timeout/rate limit
-            const BATCH_SIZE = 50;
-            for (let i = 0; i < mensagens.length; i += BATCH_SIZE) {
-              const batch = mensagens.slice(i, i + BATCH_SIZE);
-              console.log(`[UNIFICAÇÃO] Movendo batch ${i}-${i + batch.length}...`);
-              
-              // Processar sequencialmente dentro do batch (mais seguro)
-              for (const msg of batch) {
-                await base44.entities.Message.update(msg.id, {
-                  thread_id: threadConflito.id,
-                  recipient_id: mestre.id
-                });
-                
-                // Guardar a última mensagem movida (para last_message_at real)
-                if (!ultimaMensagemMovida || msg.sent_at > ultimaMensagemMovida.sent_at) {
-                  ultimaMensagemMovida = msg;
-                }
-                
-                totalMovidas++;
+              // CORREÇÃO 5: Lotes de 50 para evitar Rate Limit
+              const chunkSize = 50;
+              for (let i = 0; i < msgs.length; i += chunkSize) {
+                const batch = msgs.slice(i, i + chunkSize);
+                await Promise.all(batch.map(m => 
+                  base44.entities.Message.update(m.id, { thread_id: threadConflito.id, recipient_id: mestre.id })
+                ));
               }
+
+              movidasAqui += msgs.length;
+              if (msgs.length < 500) break;
+            }
+            totalMensagens += movidasAqui;
+
+            if (movidasAqui > 0) {
+              // CORREÇÃO 4: Timestamp robusto
+              const lastMsgs = await base44.entities.Message.filter({ thread_id: threadConflito.id }, '-sent_at', 1);
+              const lastAt = lastMsgs[0]?.sent_at || lastMsgs[0]?.created_date || new Date().toISOString();
+              
+              const updateData = {
+                last_message_at: lastAt,
+                total_mensagens: (threadConflito.total_mensagens || 0) + movidasAqui
+              };
+              
+              await base44.entities.MessageThread.update(threadConflito.id, updateData);
+              
+              // Atualizar memória
+              const idx = threadsMestre.findIndex(tm => tm.id === threadConflito.id);
+              if (idx !== -1) threadsMestre[idx] = { ...threadsMestre[idx], ...updateData };
             }
 
-            if (mensagens.length < 500) break;
-          }
+            // Marcar antiga como merged
+            await base44.entities.MessageThread.update(threadDup.id, {
+              status: 'merged',
+              is_canonical: false,
+              merged_into: threadConflito.id
+            });
 
-          console.log(`[UNIFICAÇÃO] Total movido: ${totalMovidas} mensagens`);
-          mensagensMovidas += totalMovidas;
-
-          // Atualizar thread mestre com timestamp REAL da última mensagem
-          if (totalMovidas > 0 && ultimaMensagemMovida) {
-            const lastMessageAt = ultimaMensagemMovida.sent_at || ultimaMensagemMovida.created_date;
-            
-            await base44.entities.MessageThread.update(threadConflito.id, {
-              last_message_at: lastMessageAt,
-              total_mensagens: (threadConflito.total_mensagens || 0) + totalMovidas
+          } else {
+            // --- SEM CONFLITO: REATRIBUIR ---
+            await base44.entities.MessageThread.update(threadDup.id, { 
+              contact_id: mestre.id,
+              is_canonical: true 
             });
             
-            console.log(`[UNIFICAÇÃO] Thread mestre atualizada com last_message_at: ${lastMessageAt}`);
+            // CORREÇÃO 3: Adicionar ao array em memória para capturar futuras duplicatas
+            threadsMestre.push({
+              ...threadDup,
+              contact_id: mestre.id,
+              is_canonical: true
+            });
+            
+            totalConversas++;
           }
-
-          // Marcar como merged ao invés de deletar (mantém histórico)
-          console.log('[UNIFICAÇÃO] Marcando thread como merged');
-          await base44.entities.MessageThread.update(threadDup.id, {
-            status: 'merged',
-            is_canonical: false,
-            merged_into: threadConflito.id
-          });
-
-        } else {
-          console.log(`[UNIFICAÇÃO] SEM CONFLITO - Reatribuindo thread ${threadDup.id}`);
-          
-          // SEM CONFLITO: Reatribuir e garantir canonicidade
-          await base44.entities.MessageThread.update(threadDup.id, { 
-            contact_id: mestre.id,
-            is_canonical: true
-          });
-          conversasMovidas++;
         }
-      }
-      
-      console.log(`[UNIFICAÇÃO] Threads processadas: ${conversasMovidas} movidas, ${mensagensMovidas} mensagens`);
-      totalConversasMovidas += conversasMovidas;
-      totalMensagensMovidas += mensagensMovidas;
 
-        // 3️⃣ INTERAÇÕES
+        // 3. INTERAÇÕES
         const interacoes = await base44.entities.Interacao.filter({ contact_id: duplicata.id });
         for (const int of interacoes) {
           await base44.entities.Interacao.update(int.id, { contact_id: mestre.id });
         }
-        totalInteracoesMovidas += interacoes.length;
 
-        // 4️⃣ VALIDAR e DELETAR DUPLICATA (sem $ne - filtrar em JS)
-        console.log(`[UNIFICAÇÃO] Validando antes de deletar ${duplicata.id}...`);
+        // 4. LIMPEZA E DELETE
+        // Validar threads restantes (sem usar $ne)
+        const threadsFinais = await base44.entities.MessageThread.filter({ contact_id: duplicata.id });
+        const ativas = threadsFinais.filter(t => t.status !== 'merged');
         
-        // Buscar TODAS as threads e filtrar em JS (sem $ne que quebra no backend)
-        const todasThreadsDup = await base44.entities.MessageThread.filter({ 
-          contact_id: duplicata.id
-        });
-        const threadsRestantes = todasThreadsDup.filter(t => t.status !== 'merged');
-        
-        if (threadsRestantes.length > 0) {
-          console.error(`[UNIFICAÇÃO] ⚠️ AVISO: ${threadsRestantes.length} threads ainda apontam para ${duplicata.id}`);
-          toast.warning(`${threadsRestantes.length} threads ainda vinculadas - corrigindo...`);
-          
-          // Corrigir: reatribuir essas threads ao mestre
-          for (const t of threadsRestantes) {
-            await base44.entities.MessageThread.update(t.id, { contact_id: mestre.id });
-          }
+        if (ativas.length > 0) {
+          // Fallback de segurança
+          for (const t of ativas) await base44.entities.MessageThread.update(t.id, { contact_id: mestre.id });
         }
-        
-        console.log(`[UNIFICAÇÃO] Deletando contato duplicado ${duplicata.id}`);
-        try {
-          await base44.entities.Contact.delete(duplicata.id);
-          console.log(`[UNIFICAÇÃO] ✅ Duplicata ${duplicata.id} deletada com sucesso`);
-        } catch (deleteError) {
-          console.error(`[UNIFICAÇÃO] ❌ FALHA ao deletar ${duplicata.id}:`, deleteError);
-          toast.error(`Erro ao deletar ${duplicata.nome}: ${deleteError.message}`);
-          throw deleteError; // Propagar erro para parar o processo
-        }
+
+        await base44.entities.Contact.delete(duplicata.id);
       }
 
       toast.dismiss(loadingToast);
-      toast.success('✅ Unificação Concluída!', {
-        description: `${contatosDuplicados.length} contatos • ${totalConversasMovidas} conversas • ${totalMensagensMovidas} mensagens`
+      toast.success('Unificação Completa!', {
+        description: `${totalConversas} conversas e ${totalMensagens} mensagens movidas.`
       });
-
       if (onClose) onClose();
 
     } catch (error) {
-      console.error('[UNIFICAÇÃO]', error);
+      console.error(error);
       toast.dismiss(loadingToast);
       toast.error(`Erro: ${error.message}`);
     } finally {
@@ -414,55 +253,35 @@ export default function UnificadorContatosManual({ telefoneInicial, contatoOrige
     }
   };
 
+  if (loading) return <div className="p-8 flex justify-center"><Loader2 className="animate-spin" /></div>;
+  if (!contatoPrincipal) return null;
+
   return (
     <div className="space-y-4">
-      {/* LAYOUT: Principal + Duplicatas */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {/* CONTATO PRINCIPAL (será mantido) */}
         <Card className="border-2 border-green-400 bg-green-50">
-          <CardHeader className="pb-3">
-           <h3 className="font-bold text-green-700 flex items-center gap-2">
-             <CheckCircle className="w-5 h-5" />
-             🏆 PRINCIPAL (Mais Forte)
-           </h3>
+          <CardHeader className="pb-2">
+            <h3 className="font-bold text-green-700 flex items-center gap-2"><CheckCircle className="w-5 h-5"/> PRINCIPAL</h3>
           </CardHeader>
           <CardContent>
-            <div className="bg-white p-4 rounded-lg text-sm space-y-2">
-              <p className="font-bold text-slate-900 text-lg">{contatoPrincipal.nome}</p>
-              <p className="text-xs text-slate-600">📞 {contatoPrincipal.telefone}</p>
-              {contatoPrincipal.empresa && (
-                <p className="text-xs text-slate-600">🏢 {contatoPrincipal.empresa}</p>
-              )}
-              {contatoPrincipal.email && (
-                <p className="text-xs text-slate-600">📧 {contatoPrincipal.email}</p>
-              )}
-              <Badge className="bg-green-600 text-white text-xs">
-                Criado: {new Date(contatoPrincipal.created_date).toLocaleDateString('pt-BR')}
-              </Badge>
+            <div className="bg-white p-3 rounded text-sm">
+              <p className="font-bold text-lg">{contatoPrincipal.nome}</p>
+              <p>📞 {contatoPrincipal.telefone}</p>
+              <Badge className="bg-green-600 mt-2">ID: {contatoPrincipal.id.substring(0,8)}...</Badge>
             </div>
           </CardContent>
         </Card>
 
-        {/* DUPLICATAS (serão deletadas) */}
         <Card className="border-2 border-red-400 bg-red-50">
-          <CardHeader className="pb-3">
-            <h3 className="font-bold text-red-700 flex items-center gap-2">
-              <Trash2 className="w-5 h-5" />
-              🗑️ DUPLICATAS ({contatosDuplicados.length})
-            </h3>
+          <CardHeader className="pb-2">
+            <h3 className="font-bold text-red-700 flex items-center gap-2"><Trash2 className="w-5 h-5"/> DUPLICATAS ({contatosDuplicados.length})</h3>
           </CardHeader>
           <CardContent>
-            <div className="space-y-2 max-h-80 overflow-y-auto">
-              {contatosDuplicados.map((dup) => (
-                <div key={dup.id} className="bg-white p-3 rounded-lg border border-red-200">
-                  <p className="font-semibold text-slate-900 text-sm">{dup.nome}</p>
-                  <p className="text-xs text-slate-600">📞 {dup.telefone}</p>
-                  {dup.empresa && (
-                    <p className="text-xs text-slate-600">🏢 {dup.empresa}</p>
-                  )}
-                  <Badge variant="outline" className="text-[10px] mt-1">
-                    ID: {dup.id.substring(0, 8)}...
-                  </Badge>
+            <div className="space-y-2 max-h-60 overflow-y-auto">
+              {contatosDuplicados.map(dup => (
+                <div key={dup.id} className="bg-white p-2 rounded border text-sm">
+                  <p className="font-bold">{dup.nome}</p>
+                  <p>📞 {dup.telefone}</p>
                 </div>
               ))}
             </div>
@@ -470,48 +289,20 @@ export default function UnificadorContatosManual({ telefoneInicial, contatoOrige
         </Card>
       </div>
 
-      {/* ALERTA EXPLICATIVO */}
-      <Alert className="bg-amber-50 border-amber-200">
-        <AlertCircle className="w-4 h-4 text-amber-600" />
-        <AlertDescription className="text-amber-700 ml-2 text-sm">
-          <strong>O que será feito:</strong>
-          <ul className="list-disc ml-4 mt-2 space-y-1">
-            <li>Todas as <strong>mensagens</strong> das duplicatas serão movidas para o contato principal</li>
-            <li>Todas as <strong>threads</strong> serão reagrupadas no contato principal</li>
-            <li>Todas as <strong>interações</strong> serão transferidas</li>
-            <li>Os {contatosDuplicados.length} contato(s) duplicado(s) será(ão) <strong>deletado(s)</strong></li>
-          </ul>
+      <Alert className="bg-amber-50">
+        <AlertCircle className="w-4 h-4" />
+        <AlertDescription>
+          Ação irreversível. As mensagens serão movidas e as duplicatas excluídas permanentemente.
         </AlertDescription>
       </Alert>
 
-      {/* BOTÃO DE CONFIRMAÇÃO */}
-      {isAdmin && (
-        <Button
-          onClick={unificarTodos}
-          disabled={unificando}
-          className="w-full bg-green-600 hover:bg-green-700 text-white font-bold h-12"
-        >
-          {unificando ? (
-            <>
-              <Loader2 className="w-5 h-5 animate-spin mr-2" />
-              Unificando {contatosDuplicados.length} contato(s)...
-            </>
-          ) : (
-            <>
-              <CheckCircle className="w-5 h-5 mr-2" />
-              ✅ Unificar {contatosDuplicados.length} Duplicata(s)
-            </>
-          )}
+      {isAdmin ? (
+        <Button onClick={unificarTodos} disabled={unificando} className="w-full bg-green-600 h-12 text-lg">
+          {unificando ? <Loader2 className="animate-spin mr-2" /> : <CheckCircle className="mr-2" />}
+          Confirmar Unificação
         </Button>
-      )}
-
-      {!isAdmin && (
-        <Alert className="bg-red-50 border-red-200">
-          <AlertCircle className="w-4 h-4 text-red-600" />
-          <AlertDescription className="text-red-700 ml-2">
-            Apenas administrador pode realizar esta ação.
-          </AlertDescription>
-        </Alert>
+      ) : (
+        <Alert variant="destructive"><AlertDescription>Apenas Admin pode unificar.</AlertDescription></Alert>
       )}
     </div>
   );
