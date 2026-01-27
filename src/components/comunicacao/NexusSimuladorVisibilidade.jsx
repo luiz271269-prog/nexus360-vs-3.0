@@ -43,9 +43,6 @@ export default function NexusSimuladorVisibilidade({ usuario, integracoes = [], 
   const [filtroUsuarioAtribuido, setFiltroUsuarioAtribuido] = useState('todos');
   const [filtroInstanciaWhatsApp, setFiltroInstanciaWhatsApp] = useState('todas');
   const [draggedThread, setDraggedThread] = useState(null);
-  const [threadsDuplicadasCache, setThreadsDuplicadasCache] = useState({});
-  const [telefoneParaCorrigir, setTelefoneParaCorrigir] = useState(null);
-  const [mostrarApenasCanonicas, setMostrarApenasCanonicas] = useState(true);
 
   // Carregar lista de usuários e dados iniciais
   useEffect(() => {
@@ -430,60 +427,10 @@ export default function NexusSimuladorVisibilidade({ usuario, integracoes = [], 
         </CardHeader>
       </Card>
 
-      {/* Filtro de Threads Canônicas */}
-      {simulationResults && simulationResults.stats.totalDuplicatas > 0 && (
-        <Card className="border-amber-300 bg-amber-50">
-          <CardContent className="p-3 flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <AlertTriangle className="w-4 h-4 text-amber-600" />
-              <span className="text-sm font-semibold text-amber-900">
-                {mostrarApenasCanonicas ? 'Mostrando apenas threads canônicas' : `Mostrando TODAS as threads (incluindo ${simulationResults.stats.totalDuplicatas} duplicadas)`}
-              </span>
-            </div>
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => setMostrarApenasCanonicas(!mostrarApenasCanonicas)}
-              className="border-amber-600 text-amber-700 hover:bg-amber-100"
-            >
-              {mostrarApenasCanonicas ? 'Mostrar Todas' : 'Ocultar Duplicadas'}
-            </Button>
-          </CardContent>
-        </Card>
-      )}
-
       {/* BARRAS LATERAIS - Integracoes lado a lado */}
       <div className="flex gap-2 overflow-x-auto h-[calc(100vh-12rem)]">
         {integracoes.map(integracao => {
-          let threadsIntegracao = threads.filter(t => t.whatsapp_integration_id === integracao.id);
-          
-          // Filtrar apenas canônicas se opção ativada
-          if (mostrarApenasCanonicas) {
-            // Agrupar por contact_id e pegar apenas a canônica ou a mais recente
-            const mapaContatos = new Map();
-            threadsIntegracao.forEach(t => {
-              if (!t.contact_id) {
-                mapaContatos.set(t.id, t); // Threads sem contato sempre aparecem
-                return;
-              }
-              
-              const existing = mapaContatos.get(t.contact_id);
-              if (!existing) {
-                mapaContatos.set(t.contact_id, t);
-              } else {
-                // Se a atual é canônica, substituir
-                if (t.is_canonical === true) {
-                  mapaContatos.set(t.contact_id, t);
-                } else if (existing.is_canonical !== true) {
-                  // Se nenhuma é canônica, pegar a mais recente
-                  if (new Date(t.last_message_at || 0) > new Date(existing.last_message_at || 0)) {
-                    mapaContatos.set(t.contact_id, t);
-                  }
-                }
-              }
-            });
-            threadsIntegracao = Array.from(mapaContatos.values());
-          }
+          const threadsIntegracao = threads.filter(t => t.whatsapp_integration_id === integracao.id);
           
           return (
             <Card key={integracao.id} className="border-slate-200 flex flex-col flex-shrink-0 w-64">
@@ -557,10 +504,9 @@ export default function NexusSimuladorVisibilidade({ usuario, integracoes = [], 
                         onDrop={(e) => {
                            e.preventDefault();
                            e.stopPropagation();
-                           if (draggedThread && draggedThread.thread.id !== thread.id) {
+                           if (draggedThread && draggedThread.contato?.id !== contato?.id) {
                              setContatoDragOrigem(draggedThread.contato);
                              setContatoDropDestino(contato);
-                             setTelefoneParaCorrigir(contato?.telefone || draggedThread.contato?.telefone);
                              setModalCorrecaoOpen(true);
                              setDraggedThread(null);
                            }
@@ -1114,34 +1060,15 @@ export default function NexusSimuladorVisibilidade({ usuario, integracoes = [], 
 
                     <td className="px-2 py-1 text-center">
                      <div className="flex gap-1 justify-center">
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={async () => {
-                          const expandir = threadExpandida !== res.threadId;
-                          setThreadExpandida(expandir ? res.threadId : null);
-
-                          // Buscar threads duplicadas ao expandir
-                          if (expandir && contato?.id && !threadsDuplicadasCache[res.threadId]) {
-                            try {
-                              const duplicatas = await base44.entities.MessageThread.filter({
-                                contact_id: contato.id
-                              }, '-updated_date', 20);
-
-                              setThreadsDuplicadasCache(prev => ({
-                                ...prev,
-                                [res.threadId]: duplicatas.filter(t => t.id !== res.threadId)
-                              }));
-                            } catch (err) {
-                              console.error('Erro ao buscar duplicatas:', err);
-                            }
-                          }
-                        }}
-                        className="h-6 w-6 p-0"
-                        title="Ver detalhes e análise de duplicação"
-                      >
-                        <Info className="w-3 h-3 text-slate-400" />
-                      </Button>
+                       <Button
+                         size="sm"
+                         variant="ghost"
+                         onClick={() => setThreadExpandida(threadExpandida === res.threadId ? null : res.threadId)}
+                         className="h-6 w-6 p-0"
+                         title="Ver detalhes"
+                       >
+                         <Info className="w-3 h-3 text-slate-400" />
+                       </Button>
 
                        <Button
                          size="sm"
@@ -1199,103 +1126,6 @@ export default function NexusSimuladorVisibilidade({ usuario, integracoes = [], 
                               </div>
                             </div>
                           </div>
-
-                          {/* 🔍 ANÁLISE DE DUPLICAÇÃO */}
-                          {(() => {
-                            const duplicatas = threadsDuplicadasCache[res.threadId] || [];
-                            if (duplicatas.length === 0) return null;
-
-                            return (
-                              <div className="col-span-2">
-                                <div className="bg-red-900/30 border-2 border-red-700/50 rounded-lg p-3">
-                                  <div className="flex items-start gap-3 mb-3">
-                                    <AlertTriangle className="w-5 h-5 text-red-400 flex-shrink-0 mt-0.5" />
-                                    <div className="flex-1">
-                                      <h5 className="text-sm font-bold text-red-400">
-                                        ⚠️ {duplicatas.length} Thread{duplicatas.length > 1 ? 's' : ''} Duplicada{duplicatas.length > 1 ? 's' : ''} Detectada{duplicatas.length > 1 ? 's' : ''}
-                                      </h5>
-                                      <p className="text-xs text-slate-300 mt-1">
-                                        Este contato possui múltiplas threads - apenas 1 deve ser canônica (is_canonical: true)
-                                      </p>
-                                    </div>
-                                  </div>
-                                  
-                                  <div className="space-y-2">
-                                    {duplicatas.map((dup, idx) => (
-                                      <div key={dup.id} className="bg-slate-800/50 border border-slate-600 rounded-lg p-3">
-                                        <div className="flex items-center justify-between mb-2">
-                                          <div className="flex items-center gap-2">
-                                            <div className="w-6 h-6 bg-red-500 rounded-full flex items-center justify-center text-white text-xs font-bold">
-                                              {idx + 1}
-                                            </div>
-                                            <span className="text-xs font-mono text-slate-300">
-                                              {dup.id.substring(0, 12)}...
-                                            </span>
-                                          </div>
-                                          <Badge className={dup.is_canonical ? "bg-green-600" : "bg-red-600"}>
-                                            {dup.is_canonical ? "CANÔNICA" : "NÃO-CANÔNICA"}
-                                          </Badge>
-                                        </div>
-                                        
-                                        <div className="grid grid-cols-2 gap-3 text-xs">
-                                          <div>
-                                            <span className="text-slate-400">Integração:</span>
-                                            <p className="text-white font-mono truncate">
-                                              {integracoes.find(i => i.id === dup.whatsapp_integration_id)?.nome_instancia || 'N/A'}
-                                            </p>
-                                          </div>
-                                          <div>
-                                            <span className="text-slate-400">Atribuído:</span>
-                                            <p className="text-white">
-                                              {dup.assigned_user_id ? getUserDisplayName(dup.assigned_user_id, todosUsuarios) : '❌ Não'}
-                                            </p>
-                                          </div>
-                                          <div>
-                                            <span className="text-slate-400">Última msg:</span>
-                                            <p className="text-white">
-                                              {dup.last_message_at ? new Date(dup.last_message_at).toLocaleString('pt-BR', {
-                                                day: '2-digit',
-                                                month: '2-digit',
-                                                hour: '2-digit',
-                                                minute: '2-digit'
-                                              }) : 'N/A'}
-                                            </p>
-                                          </div>
-                                          <div>
-                                            <span className="text-slate-400">Total msgs:</span>
-                                            <p className="text-white font-bold">
-                                              {dup.total_mensagens || 0}
-                                            </p>
-                                          </div>
-                                        </div>
-
-                                        {dup.status === 'merged' && (
-                                          <div className="mt-2 flex items-center gap-2 text-xs text-amber-400">
-                                            <CheckCircle2 className="w-3 h-3" />
-                                            Merged em: {dup.merged_into?.substring(0, 12)}...
-                                          </div>
-                                        )}
-                                      </div>
-                                    ))}
-                                  </div>
-
-                                  <div className="mt-3 p-3 bg-slate-800/30 rounded-lg border border-slate-700">
-                                    <h6 className="text-xs font-semibold text-amber-400 mb-2">
-                                      💡 Impacto na Visibilidade:
-                                    </h6>
-                                    <ul className="text-xs text-slate-300 space-y-1">
-                                      <li>• Mensagens antigas podem estar na thread não-canônica</li>
-                                      <li>• Atendente fidelizado pode não ver conversas antigas</li>
-                                      <li>• Histórico fragmentado entre threads</li>
-                                      <li className="text-green-400 font-semibold mt-2">
-                                        ✅ Solução: Marcar antigas como status='merged', is_canonical=false
-                                      </li>
-                                    </ul>
-                                  </div>
-                                </div>
-                              </div>
-                            );
-                          })()}
 
                           {/* Dados da Thread */}
                           <div className="col-span-2 mt-2">
@@ -1377,52 +1207,6 @@ export default function NexusSimuladorVisibilidade({ usuario, integracoes = [], 
           </AlertDescription>
         </Alert>
       )}
-
-      {/* Ações de Correção Automática */}
-      {simulationResults && simulationResults.stats.totalDuplicatas > 0 && (
-        <Card className="border-red-300 bg-red-50">
-          <CardContent className="p-4">
-            <div className="flex items-start gap-3">
-              <AlertTriangle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
-              <div className="flex-1">
-                <h4 className="font-bold text-red-900 mb-2">
-                  🚨 {simulationResults.stats.totalDuplicatas} Threads Duplicadas Detectadas
-                </h4>
-                <p className="text-sm text-red-800 mb-3">
-                  {simulationResults.duplicatas.length} contatos com múltiplas threads - isso fragmenta o histórico e causa mensagens invisíveis.
-                </p>
-                <Button
-                  onClick={async () => {
-                    if (!window.confirm('🔧 Consolidar TODAS as threads duplicadas?\n\nIsso irá:\n• Marcar 1 thread como canônica por contato\n• Marcar as demais como merged\n• Não mover mensagens (preserva histórico)\n\nContinuar?')) {
-                      return;
-                    }
-                    
-                    try {
-                      toast.info('🔄 Consolidando threads duplicadas...');
-                      const result = await base44.functions.invoke('consolidarThreadsDuplicadas', {
-                        auto_fix_all: true
-                      });
-                      
-                      if (result.data.success) {
-                        toast.success(`✅ ${result.data.resultados.threads_merged} threads consolidadas!`);
-                        await recarregarDadosCompletos();
-                        setSimulationResults(null);
-                      }
-                    } catch (err) {
-                      toast.error('Erro ao consolidar: ' + err.message);
-                    }
-                  }}
-                  className="bg-red-600 hover:bg-red-700 text-white"
-                  size="sm"
-                >
-                  <Users className="w-4 h-4 mr-2" />
-                  Consolidar Todas Automaticamente
-                </Button>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      )}
       </div>
 
       {/* MODAL: Correção de Duplicatas */}
@@ -1435,7 +1219,6 @@ export default function NexusSimuladorVisibilidade({ usuario, integracoes = [], 
             </DialogTitle>
           </DialogHeader>
           <UnificadorContatosManual 
-            telefone={telefoneParaCorrigir}
             contatoOrigem={contatoDragOrigem} 
             contatoDestino={contatoDropDestino}
             isAdmin={usuario?.role === 'admin'}
