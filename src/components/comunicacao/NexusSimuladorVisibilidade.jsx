@@ -947,23 +947,48 @@ export default function NexusSimuladorVisibilidade({ usuario, integracoes = [], 
               </thead>
               <tbody className="divide-y divide-slate-100">
                {(() => {
-                 // 🆕 AGRUPAR por contact_id - eliminar duplicatas da mesma conversa
-                 const mapa = new Map();
-                 simulationResults.resultados.forEach(res => {
-                   const thread = threads.find(t => t.id === res.threadId);
-                   const contato = thread?.contact_id ? contatos.find(c => c.id === thread.contact_id) : null;
-                   const chave = contato?.id || thread?.id;
+                  // 🆕 AGRUPAR por contact_id - eliminar duplicatas da mesma conversa
+                  const mapaContatoThreads = new Map();
 
-                   if (!mapa.has(chave)) {
-                     mapa.set(chave, []);
-                   }
-                   mapa.get(chave).push({ res, thread, contato });
-                 });
+                  simulationResults.resultados.forEach(res => {
+                    const thread = threads.find(t => t.id === res.threadId);
+                    const contato = thread?.contact_id ? contatos.find(c => c.id === thread.contact_id) : null;
 
-                 // Converter para array e filtrar
-                 const resultadosAgrupados = Array.from(mapa.values())
-                   .map(grupo => grupo[0]) // Pegar primeira thread de cada contato
-                   .filter(({ res, thread, contato }) => {
+                    // Usar contact_id como chave principal (ou thread_id se não houver contato)
+                    const chaveContato = contato?.id || 'sem_contato_' + thread?.id;
+
+                    if (!mapaContatoThreads.has(chaveContato)) {
+                      mapaContatoThreads.set(chaveContato, {
+                        contato,
+                        threads: [],
+                        ultimaThread: null
+                      });
+                    }
+
+                    const entrada = mapaContatoThreads.get(chaveContato);
+                    entrada.threads.push({ res, thread });
+
+                    // Manter a thread mais recente
+                    if (!entrada.ultimaThread || 
+                        new Date(thread?.last_message_at || 0) > new Date(entrada.ultimaThread.last_message_at || 0)) {
+                      entrada.ultimaThread = thread;
+                    }
+                  });
+
+                  // Converter para array ordenado por data
+                  const resultadosAgrupados = Array.from(mapaContatoThreads.values())
+                    .map(entrada => {
+                      // Usar o primeiro resultado de cada thread agrupada
+                      const primeiroRes = entrada.threads[0].res;
+                      return {
+                        res: primeiroRes,
+                        thread: entrada.ultimaThread,
+                        contato: entrada.contato,
+                        totalThreads: entrada.threads.length
+                      };
+                    })
+                    .sort((a, b) => new Date(b.thread?.last_message_at || 0) - new Date(a.thread?.last_message_at || 0))
+                    .filter(({ res, thread, contato }) => {
                      if (filtroDivergencia === 'sem_contato') {
                        return simulationResults.threadsSemContato?.some(t => t.threadId === res.threadId);
                      }
