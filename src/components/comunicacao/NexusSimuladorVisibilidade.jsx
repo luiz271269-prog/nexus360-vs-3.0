@@ -15,7 +15,7 @@ import { buildPolicyFromLegacyUser } from '@/components/lib/nexusLegacyConverter
 import { canUserSeeThreadBase } from '@/components/lib/permissionsService';
 import { base44 } from '@/api/base44Client';
 import { getUserDisplayName } from '../lib/userHelpers';
-import UnificadorContatosManual from './UnificadorContatosManual';
+import UnificadorContatosCentralizado from './UnificadorContatosCentralizado';
 
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 
@@ -1230,7 +1230,7 @@ export default function NexusSimuladorVisibilidade({ usuario, integracoes = [], 
               Unificação de Contatos - Correção de Duplicatas
             </DialogTitle>
           </DialogHeader>
-          <UnificadorContatosManual 
+          <UnificadorContatosCentralizado 
             telefoneInicial={telefoneParaCorrigir}
             contatoOrigem={contatoDragOrigem} 
             contatoDestino={contatoDropDestino}
