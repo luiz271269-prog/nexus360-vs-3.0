@@ -195,13 +195,21 @@ export default function Comunicacao() {
   // 🔍 BUSCA DE THREADS PRIMEIRO (Fonte da Verdade)
   // ═══════════════════════════════════════════════════════════════════════════════
   const { data: threads = [], isLoading: loadingThreads } = useQuery({
-    queryKey: ['threads', usuario?.id],
-    queryFn: async () => {
-      if (isRateLimited) return [];
-      try {
-        const allThreads = await base44.entities.MessageThread.list('-last_message_at', 500);
-        console.log('[COMUNICACAO] 📊 Threads carregadas:', allThreads.length);
-        return allThreads;
+  queryKey: ['threads', usuario?.id],
+  queryFn: async () => {
+    if (isRateLimited) return [];
+    try {
+      // ✅ Carregar APENAS threads canônicas e não-merged
+      const allThreads = await base44.entities.MessageThread.filter(
+        {
+          is_canonical: true,
+          status: { $ne: 'merged' }
+        },
+        '-last_message_at',
+        500
+      );
+      console.log('[COMUNICACAO] 📊 Threads canônicas carregadas:', allThreads.length);
+      return allThreads;
       } catch (error) {
         if (error?.message?.includes('429') || error?.response?.status === 429) {
           console.warn('[COMUNICACAO] ⚠️ 429 Rate Limited! Ativando cool-down de 10s...');
@@ -511,7 +519,9 @@ export default function Comunicacao() {
         const threadsExistentes = await base44.entities.MessageThread.filter(
           { 
             contact_id: thread.contact_id,
-            whatsapp_integration_id: integracaoAtiva.id
+            whatsapp_integration_id: integracaoAtiva.id,
+            is_canonical: true,
+            status: 'aberta'
           },
           '-last_message_at',
           1
@@ -549,12 +559,14 @@ export default function Comunicacao() {
         const novaThread = await base44.entities.MessageThread.create({
           contact_id: thread.contact_id,
           whatsapp_integration_id: integracaoAtiva.id,
+          conexao_id: integracaoAtiva.id, // Compatibilidade
+          is_canonical: true, // CRÍTICO
           status: 'aberta',
           unread_count: 0,
           janela_24h_expira_em: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
           can_send_without_template: true,
-          assigned_user_id: usuario.id
-          // ✅ assigned_user_name/email REMOVIDOS - buscados dinamicamente do User
+          assigned_user_id: usuario.id,
+          primeira_mensagem_at: new Date().toISOString()
         });
 
         await queryClient.invalidateQueries({ queryKey: ['threads'] });
@@ -621,15 +633,18 @@ export default function Comunicacao() {
         return;
       }
 
-      // Criar nova thread atribuída ao usuário atual
+      // Criar nova thread canônica atribuída ao usuário atual
       const novaThread = await base44.entities.MessageThread.create({
         contact_id: contato.id,
         whatsapp_integration_id: integracaoAtiva.id,
+        conexao_id: integracaoAtiva.id, // Compatibilidade
+        is_canonical: true, // CRÍTICO
         status: 'aberta',
         unread_count: 0,
         janela_24h_expira_em: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
         can_send_without_template: true,
-        assigned_user_id: usuario.id
+        assigned_user_id: usuario.id,
+        primeira_mensagem_at: new Date().toISOString()
       });
 
       await queryClient.invalidateQueries({ queryKey: ['threads'] });
@@ -655,16 +670,30 @@ export default function Comunicacao() {
 
       toast.info('🔄 Criando contato...');
 
-      // ✅ Criar contato SEM fidelização automática (usuário decide depois)
-      const novoContato = await base44.entities.Contact.create({
-        ...dadosContato,
+      // ✅ Criar contato via função centralizada (ÚNICO ponto de entrada)
+      const resultadoContato = await base44.functions.invoke('getOrCreateContactCentralized', {
         telefone: telefoneNormalizado,
-        whatsapp_status: 'nao_verificado',
-        tipo_contato: dadosContato.tipo_contato || 'novo',
-        conexao_origem: null
+        pushName: dadosContato.nome || null,
+        profilePicUrl: null
       });
 
-      console.log('[Comunicacao] ✅ Contato criado:', novoContato.id);
+      if (!resultadoContato?.data?.success || !resultadoContato?.data?.contact) {
+        throw new Error(resultadoContato?.data?.error || 'Falha ao criar contato');
+      }
+
+      const novoContato = resultadoContato.data.contact;
+      console.log('[Comunicacao] ✅ Contato garantido:', novoContato.id);
+
+      // Atualizar campos adicionais do formulário
+      await base44.entities.Contact.update(novoContato.id, {
+        empresa: dadosContato.empresa || null,
+        cargo: dadosContato.cargo || null,
+        email: dadosContato.email || null,
+        vendedor_responsavel: dadosContato.vendedor_responsavel || null,
+        ramo_atividade: dadosContato.ramo_atividade || null,
+        tipo_contato: dadosContato.tipo_contato || 'novo',
+        cliente_id: dadosContato.cliente_id || null
+      });
 
       // ✅ FIX: Buscar integração onde USUÁRIO TEM can_send
       const integracaoAtiva = integracoes.find((i) => {
@@ -699,10 +728,12 @@ export default function Comunicacao() {
 
       toast.info('🔄 Criando conversa...');
 
-      // ✅ Thread SEMPRE atribuída ao criador (garante acesso total)
+      // ✅ Thread SEMPRE canônica e atribuída ao criador (garante acesso total)
       const novaThread = await base44.entities.MessageThread.create({
         contact_id: novoContato.id,
         whatsapp_integration_id: integracaoAtiva.id,
+        conexao_id: integracaoAtiva.id, // Compatibilidade
+        is_canonical: true, // CRÍTICO: marcar como canônica
         status: 'aberta',
         unread_count: 0,
         total_mensagens: 0,
