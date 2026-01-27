@@ -526,6 +526,9 @@ async function handleMessage(dados, payloadBruto, base44) {
     const connectedPhone = payloadBruto.connectedPhone || payloadBruto.connected_phone || null;
     console.log(`[${VERSION}] 💬 Nova mensagem de: ${dados.from} | Via: ${connectedPhone || 'não informado'}`);
 
+  // ✅ DECLARAR threadCanonica NO INÍCIO (antes de qualquer uso)
+  let threadCanonica = null;
+
   // ✅ DEDUPLICAÇÃO RIGOROSA - Se duplicata, ignora (simples)
   if (dados.messageId) {
     try {
