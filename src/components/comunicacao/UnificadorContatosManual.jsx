@@ -27,16 +27,22 @@ export default function UnificadorContatosManual({ telefoneInicial, contatoOrige
   const carregarDuplicatasPorTelefone = async (telefone) => {
     setLoading(true);
     try {
+      console.log('[UNIFICADOR] Buscando duplicatas para:', telefone);
       const telLimpo = telefone.replace(/\D/g, '');
+      console.log('[UNIFICADOR] Telefone limpo:', telLimpo);
+      
       const todosContatos = await base44.entities.Contact.list('-created_date', 1000);
+      console.log('[UNIFICADOR] Total de contatos carregados:', todosContatos.length);
       
       const duplicatas = todosContatos.filter(c => {
         const tel = (c.telefone || '').replace(/\D/g, '');
         return tel === telLimpo;
       });
 
+      console.log('[UNIFICADOR] Duplicatas encontradas:', duplicatas.length);
+
       if (duplicatas.length <= 1) {
-        toast.info('Nenhuma duplicata encontrada para este telefone');
+        toast.warning('Apenas 1 contato encontrado para este telefone');
         setContatosDuplicados([]);
         setContatoPrincipal(null);
         return;

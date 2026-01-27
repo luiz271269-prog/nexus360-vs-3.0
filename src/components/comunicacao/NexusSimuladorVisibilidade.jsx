@@ -79,6 +79,9 @@ export default function NexusSimuladorVisibilidade({ usuario, integracoes = [], 
   const handleCorrecaoConcluida = async () => {
     toast.info('🔄 Recarregando dados...');
     setModalCorrecaoOpen(false);
+    setTelefoneParaCorrigir(null);
+    setContatoDragOrigem(null);
+    setContatoDropDestino(null);
     await recarregarDadosCompletos();
     setSimulationResults(null);
     toast.success('✅ Dados atualizados! Execute a simulação novamente.');
@@ -659,6 +662,9 @@ export default function NexusSimuladorVisibilidade({ usuario, integracoes = [], 
                             onClick={(e) => {
                               e.stopPropagation();
                               if (contato?.telefone) {
+                                console.log('[DUPLICATAS] Abrindo correção para telefone:', contato.telefone);
+                                setContatoDragOrigem(null);
+                                setContatoDropDestino(null);
                                 setTelefoneParaCorrigir(contato.telefone);
                                 setModalCorrecaoOpen(true);
                               } else {
@@ -1076,6 +1082,9 @@ export default function NexusSimuladorVisibilidade({ usuario, integracoes = [], 
                          variant="ghost"
                          onClick={() => {
                            if (contato?.telefone) {
+                             console.log('[DUPLICATAS] Abrindo correção para telefone:', contato.telefone);
+                             setContatoDragOrigem(null);
+                             setContatoDropDestino(null);
                              setTelefoneParaCorrigir(contato.telefone);
                              setModalCorrecaoOpen(true);
                            } else {
