@@ -897,7 +897,14 @@ export default function NexusSimuladorVisibilidade({ usuario, integracoes = [], 
                   </Button>
                   <Button
                     size="sm"
-                    onClick={() => setModalUnificacaoAbertoMultipla(true)}
+                    onClick={() => {
+                      // Deduplicar antes de abrir
+                      const unicos = Array.from(
+                        new Map(contatosSelecionadosMultiplos.map(c => [c.id, c])).values()
+                      );
+                      setContatosSelecionadosMultiplos(unicos);
+                      setModalUnificacaoAbertoMultipla(true);
+                    }}
                     className="bg-orange-600 hover:bg-orange-700 text-xs h-7"
                   >
                     🔗 Unificar Múltiplos
