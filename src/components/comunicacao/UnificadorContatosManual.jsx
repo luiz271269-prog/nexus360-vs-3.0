@@ -94,26 +94,40 @@ export default function UnificadorContatosManual({ telefoneInicial, contatoOrige
   const carregarDuplicatasPorTelefone = async (telefone) => {
     setLoading(true);
     try {
-      console.log('[UNIFICADOR] Buscando duplicatas para:', telefone);
+      console.log('[UNIFICADOR] 🔍 Buscando duplicatas para:', telefone);
       
       const variacoes = gerarVariacoesTelefone(telefone);
-      console.log('[UNIFICADOR] Variações do telefone:', variacoes);
+      console.log('[UNIFICADOR] 📱 Variações geradas:', variacoes);
       
-      // SOLUÇÃO: Buscar por filtro de telefone no backend é mais eficiente
-      // Mas como workaround, buscar um lote grande único
-      const todosContatos = await base44.entities.Contact.list('-created_date', 5000);
-      
-      console.log('[UNIFICADOR] Total de contatos carregados:', todosContatos.length);
+      // Buscar TODOS os contatos (sem limite artificial)
+      const todosContatos = await base44.entities.Contact.list('-created_date', 10000);
+      console.log('[UNIFICADOR] 📊 Total de contatos carregados:', todosContatos.length);
       
       // Filtrar por TODAS as variações do telefone
       const duplicatas = todosContatos.filter(c => {
-        const tel = (c.telefone || '').replace(/\D/g, '');
-        return variacoes.some(v => v === tel);
+        if (!c.telefone) return false;
+        const tel = c.telefone.replace(/\D/g, '');
+        const match = variacoes.some(v => v === tel);
+        
+        if (match) {
+          console.log('[UNIFICADOR] ✓ Match encontrado:', c.nome, '|', c.telefone, '| ID:', c.id.substring(0,8));
+        }
+        
+        return match;
       });
 
-      console.log('[UNIFICADOR] Duplicatas encontradas:', duplicatas.length);
+      console.log('[UNIFICADOR] 🎯 Total de duplicatas encontradas:', duplicatas.length);
+      
+      if (duplicatas.length === 0) {
+        console.error('[UNIFICADOR] ❌ PROBLEMA: Nenhum contato encontrado para as variações:', variacoes);
+        toast.error('Nenhum contato encontrado para este telefone. Verifique o console (F12).');
+        setContatosDuplicados([]);
+        setContatoPrincipal(null);
+        return;
+      }
 
-      if (duplicatas.length <= 1) {
+      if (duplicatas.length === 1) {
+        console.warn('[UNIFICADOR] ⚠️ Apenas 1 contato encontrado - não há duplicatas');
         toast.warning('Apenas 1 contato encontrado para este telefone');
         setContatosDuplicados([]);
         setContatoPrincipal(null);
@@ -124,13 +138,18 @@ export default function UnificadorContatosManual({ telefoneInicial, contatoOrige
       const principal = escolherContatoPrincipal(duplicatas);
       const outrosDuplicados = duplicatas.filter(d => d.id !== principal.id);
       
+      console.log('[UNIFICADOR] 👑 Principal escolhido:', principal.nome, '| ID:', principal.id.substring(0,8));
+      console.log('[UNIFICADOR] 🗑️ Duplicatas a remover:', outrosDuplicados.map(d => d.nome).join(', '));
+      
       setContatoPrincipal(principal);
       setContatosDuplicados(outrosDuplicados);
       
-      toast.success(`✅ ${duplicatas.length} contatos encontrados (${outrosDuplicados.length} duplicatas)`);
+      toast.success(`✅ ${duplicatas.length} contatos encontrados (${outrosDuplicados.length} duplicatas)`, {
+        description: `Principal: ${principal.nome}`
+      });
     } catch (error) {
-      console.error('Erro ao buscar duplicatas:', error);
-      toast.error('Erro ao buscar duplicatas');
+      console.error('[UNIFICADOR] ❌ ERRO CRÍTICO ao buscar duplicatas:', error);
+      toast.error('Erro ao buscar duplicatas: ' + error.message);
     } finally {
       setLoading(false);
     }
