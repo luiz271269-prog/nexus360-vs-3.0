@@ -99,25 +99,9 @@ export default function UnificadorContatosManual({ telefoneInicial, contatoOrige
       const variacoes = gerarVariacoesTelefone(telefone);
       console.log('[UNIFICADOR] Variações do telefone:', variacoes);
       
-      // Buscar TODOS os contatos paginando corretamente
-      let todosContatos = [];
-      const batchSize = 500;
-      
-      while (true) {
-        const batch = await base44.entities.Contact.list('-created_date', batchSize);
-        todosContatos.push(...batch);
-        
-        console.log('[UNIFICADOR] Batch carregado:', batch.length, '| Total acumulado:', todosContatos.length);
-        
-        if (batch.length < batchSize) break;
-        
-        // Usar o ID do último item como cursor para próxima página
-        // (simulando paginação - Base44 usa limit, não offset)
-        if (todosContatos.length >= 5000) {
-          console.warn('[UNIFICADOR] Limite de 5000 contatos atingido');
-          break;
-        }
-      }
+      // SOLUÇÃO: Buscar por filtro de telefone no backend é mais eficiente
+      // Mas como workaround, buscar um lote grande único
+      const todosContatos = await base44.entities.Contact.list('-created_date', 5000);
       
       console.log('[UNIFICADOR] Total de contatos carregados:', todosContatos.length);
       
@@ -326,11 +310,34 @@ export default function UnificadorContatosManual({ telefoneInicial, contatoOrige
         }
         totalInteracoesMovidas += interacoes.length;
 
-        // 4️⃣ DELETAR DUPLICATA (método correto)
-        console.log(`[UNIFICAÇÃO] Deletando contato duplicado ${duplicata.id}`);
-        await base44.entities.Contact.delete(duplicata.id);
+        // 4️⃣ VALIDAR e DELETAR DUPLICATA
+        console.log(`[UNIFICAÇÃO] Validando antes de deletar ${duplicata.id}...`);
         
-        console.log(`[UNIFICAÇÃO] ✅ Duplicata ${duplicata.id} unificada e deletada`);
+        // Verificar se ainda há threads apontando para esta duplicata
+        const threadsRestantes = await base44.entities.MessageThread.filter({ 
+          contact_id: duplicata.id,
+          status: { $ne: 'merged' } // Ignorar threads já merged
+        });
+        
+        if (threadsRestantes.length > 0) {
+          console.error(`[UNIFICAÇÃO] ⚠️ AVISO: ${threadsRestantes.length} threads ainda apontam para ${duplicata.id}`);
+          toast.warning(`${threadsRestantes.length} threads ainda vinculadas - corrigindo...`);
+          
+          // Corrigir: reatribuir essas threads ao mestre
+          for (const t of threadsRestantes) {
+            await base44.entities.MessageThread.update(t.id, { contact_id: mestre.id });
+          }
+        }
+        
+        console.log(`[UNIFICAÇÃO] Deletando contato duplicado ${duplicata.id}`);
+        try {
+          await base44.entities.Contact.delete(duplicata.id);
+          console.log(`[UNIFICAÇÃO] ✅ Duplicata ${duplicata.id} deletada com sucesso`);
+        } catch (deleteError) {
+          console.error(`[UNIFICAÇÃO] ❌ FALHA ao deletar ${duplicata.id}:`, deleteError);
+          toast.error(`Erro ao deletar ${duplicata.nome}: ${deleteError.message}`);
+          throw deleteError; // Propagar erro para parar o processo
+        }
       }
 
       toast.dismiss(loadingToast);
