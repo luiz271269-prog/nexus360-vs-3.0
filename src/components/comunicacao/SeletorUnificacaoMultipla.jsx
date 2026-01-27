@@ -42,10 +42,10 @@ export default function SeletorUnificacaoMultipla({
     try {
       const resultados = [];
       
-      // 🆕 Se só tem 1 contato (mestre), apenas agrupa/reconsolidada
+      // Executar merge
       if (contatosParaMerge.length === 0) {
+        // 🆕 Se só tem 1 contato (mestre), apenas consolida threads
         console.log(`[UnificacaoMultipla] ℹ️ Apenas 1 contato - consolidando threads`);
-        // Chamar função que garante consolidação de threads duplicadas do mesmo contato
         const resultado = await base44.functions.invoke('mergeContacts', {
           master_id: mestreSelecionado.id,
           duplicate_ids: [] // Vazio = apenas consolida
@@ -55,8 +55,9 @@ export default function SeletorUnificacaoMultipla({
           resultados.push({
             duplicata: mestreSelecionado.nome,
             status: 'sucesso',
-            threads_movidas: resultado.data.stats.threads_moved || 0,
-            mensagens_movidas: resultado.data.stats.messages_moved || 0
+            threads_movidas: 0,
+            mensagens_movidas: 0,
+            note: 'Consolidado'
           });
         } else {
           resultados.push({
