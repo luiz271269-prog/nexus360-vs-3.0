@@ -325,16 +325,27 @@ export default function UnificadorContatosManual({ telefoneInicial, contatoOrige
           console.log(`[UNIFICAÇÃO] Total movido: ${totalMovidas} mensagens`);
           mensagensMovidas += totalMovidas;
 
-          // Atualizar thread mestre com timestamp REAL da última mensagem
+          // Atualizar thread mestre no backend e em memória
           if (totalMovidas > 0 && ultimaMensagemMovida) {
             const lastMessageAt = ultimaMensagemMovida.sent_at || ultimaMensagemMovida.created_date;
             
-            await base44.entities.MessageThread.update(threadConflito.id, {
+            const atualizacaoThreadMestre = {
               last_message_at: lastMessageAt,
               total_mensagens: (threadConflito.total_mensagens || 0) + totalMovidas
-            });
+            };
+
+            await base44.entities.MessageThread.update(threadConflito.id, atualizacaoThreadMestre);
+
+            // Atualizar também no array em memória
+            const idx = threadsMestre.findIndex(tm => tm.id === threadConflito.id);
+            if (idx !== -1) {
+              threadsMestre[idx] = {
+                ...threadsMestre[idx],
+                ...atualizacaoThreadMestre
+              };
+            }
             
-            console.log(`[UNIFICAÇÃO] Thread mestre atualizada com last_message_at: ${lastMessageAt}`);
+            console.log(`[UNIFICAÇÃO] Thread mestre atualizada (backend + memória) com last_message_at: ${lastMessageAt}`);
           }
 
           // Marcar como merged ao invés de deletar (mantém histórico)
