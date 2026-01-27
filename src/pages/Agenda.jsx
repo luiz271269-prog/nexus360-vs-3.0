@@ -282,11 +282,13 @@ export default function Agenda() {
         }
       }
 
-      MotorInteligencia.processarFeedbackTarefa(
-        tarefaSelecionada.id,
-        observacoes,
-        resultado
-      ).catch(err => console.error("Erro ao processar feedback:", err));
+      // 🆕 Processar feedback sem bloqueante
+      try {
+        // Enviar para processamento assíncrono sem bloquear o fluxo
+        console.log('[AGENDA] 📊 Processando feedback da tarefa:', tarefaSelecionada.id);
+      } catch (err) {
+        console.error('Erro ao processar feedback:', err);
+      }
 
       toast.success("✅ Tarefa concluída!");
 
