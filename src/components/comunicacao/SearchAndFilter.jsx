@@ -52,7 +52,9 @@ export default function SearchAndFilter({
   onModoSelecaoMultiplaChange,
   // Para diagnóstico
   isAdmin = false,
-  onAbrirDiagnostico
+  onAbrirDiagnostico,
+  // Callback para duplicatas detectadas
+  onDuplicataDetectada
 }) {
   const [showFilters, setShowFilters] = useState(false);
 
@@ -87,11 +89,23 @@ export default function SearchAndFilter({
     emoji: cat.emoji || '🏷️'
   }));
 
-  // Normalizar telefone para criar contato
+  // ✅ DETECÇÃO DE DUPLICATAS POR TELEFONE
+  const { data: todosContatos = [] } = useQuery({
+    queryKey: ['contacts-duplicates'],
+    queryFn: () => base44.entities.Contact.list('-created_date', 1000),
+    staleTime: 5 * 60 * 1000,
+    enabled: isAdmin // Só carregar se admin
+  });
+
+  // Normalizar telefone para criar contato + detectar duplicatas
   useEffect(() => {
     if (!searchTerm || searchTerm.trim() === '') {
       if (novoContatoTelefone) {
         onNovoContatoTelefoneChange('');
+      }
+      // Limpar detecção de duplicata
+      if (onDuplicataDetectada) {
+        onDuplicataDetectada(null);
       }
       return;
     }
@@ -99,10 +113,39 @@ export default function SearchAndFilter({
     const telefoneNormalizado = normalizarTelefone(searchTerm);
     if (telefoneNormalizado && telefoneNormalizado !== novoContatoTelefone) {
       onNovoContatoTelefoneChange(telefoneNormalizado);
+      
+      // ✅ DETECTAR DUPLICATAS ao buscar por telefone
+      if (isAdmin && onDuplicataDetectada && todosContatos.length > 0) {
+        const telLimpo = telefoneNormalizado.replace(/\D/g, '');
+        const contatosComTelefone = todosContatos.filter(c => {
+          const tel = (c.telefone || '').replace(/\D/g, '');
+          return tel === telLimpo;
+        });
+        
+        if (contatosComTelefone.length > 1) {
+          // Ordenar por created_date (mais antigo = principal)
+          const ordenados = contatosComTelefone.sort((a, b) => 
+            new Date(a.created_date) - new Date(b.created_date)
+          );
+          
+          console.log(`[SEARCH] 🚨 ${contatosComTelefone.length} duplicatas detectadas para: ${telefoneNormalizado}`);
+          onDuplicataDetectada({
+            telefone: telefoneNormalizado,
+            principal: ordenados[0],
+            duplicatas: ordenados.slice(1)
+          });
+        } else {
+          // Sem duplicatas
+          onDuplicataDetectada(null);
+        }
+      }
     } else if (!telefoneNormalizado && novoContatoTelefone) {
       onNovoContatoTelefoneChange('');
+      if (onDuplicataDetectada) {
+        onDuplicataDetectada(null);
+      }
     }
-  }, [searchTerm, novoContatoTelefone, onNovoContatoTelefoneChange]);
+  }, [searchTerm, novoContatoTelefone, onNovoContatoTelefoneChange, isAdmin, onDuplicataDetectada, todosContatos]);
 
   // Contar filtros ativos
   const filtrosAtivos = [
