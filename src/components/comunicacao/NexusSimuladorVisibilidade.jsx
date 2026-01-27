@@ -880,9 +880,55 @@ export default function NexusSimuladorVisibilidade({ usuario, integracoes = [], 
           </div>
           
           <div className="overflow-x-auto">
+            {/* Barra de ações para múltipla seleção */}
+            {contatosSelecionadosMultiplos.length > 0 && (
+              <div className="bg-indigo-50 border-b border-indigo-200 px-3 py-2 flex items-center justify-between">
+                <span className="text-xs font-semibold text-indigo-700">
+                  {contatosSelecionadosMultiplos.length} contato(s) selecionado(s)
+                </span>
+                <div className="flex gap-2">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => setContatosSelecionadosMultiplos([])}
+                    className="text-xs h-7"
+                  >
+                    Limpar
+                  </Button>
+                  <Button
+                    size="sm"
+                    onClick={() => setModalUnificacaoAbertoMultipla(true)}
+                    className="bg-orange-600 hover:bg-orange-700 text-xs h-7"
+                  >
+                    🔗 Unificar Múltiplos
+                  </Button>
+                </div>
+              </div>
+            )}
+
             <table className="w-full text-xs">
               <thead className="bg-slate-100 text-slate-600 font-semibold text-[10px]">
                 <tr>
+                  <th className="px-2 py-1 text-center w-6">
+                    <input
+                      type="checkbox"
+                      checked={contatosSelecionadosMultiplos.length === simulationResults.resultados.length && simulationResults.resultados.length > 0}
+                      onChange={(e) => {
+                        if (e.target.checked) {
+                          const contatos = simulationResults.resultados
+                            .map(res => {
+                              const thread = threads.find(t => t.id === res.threadId);
+                              return thread?.contact_id ? contatos.find(c => c.id === thread.contact_id) : null;
+                            })
+                            .filter((c, idx, arr) => c && arr.findIndex(x => x?.id === c.id) === idx);
+                          setContatosSelecionadosMultiplos(contatos);
+                        } else {
+                          setContatosSelecionadosMultiplos([]);
+                        }
+                      }}
+                      className="w-4 h-4 rounded cursor-pointer"
+                    />
+                  </th>
                   <th className="px-2 py-1 text-left">Contato</th>
                   <th className="px-2 py-1 text-center w-24">Atual</th>
                   <th className="px-2 py-1 text-center w-24">Nexus</th>
