@@ -19,7 +19,12 @@ export default function SeletorUnificacaoMultipla({
     return null;
   }
 
-  const contatosComestados = contatosSelecionados.map((contato, idx) => ({
+  // 🆕 DEDUPLICAR contatos por ID (pode aparecer múltiplas vezes se estiver em threads diferentes)
+  const contatosUnicos = Array.from(
+    new Map(contatosSelecionados.map(c => [c.id, c])).values()
+  );
+
+  const contatosComestados = contatosUnicos.map((contato, idx) => ({
     ...contato,
     isMestre: mestreSelecionado?.id === contato.id,
     ordem: idx + 1
