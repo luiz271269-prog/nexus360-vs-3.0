@@ -1007,12 +1007,10 @@ export default function NexusSimuladorVisibilidade({ usuario, integracoes = [], 
                    });
 
                  return resultadosAgrupados;
-               })()
-               .map(({ res, thread, contato }) => {
-                 const hasUnread = (thread?.unread_count || 0) > 0;
-
-                 // Verificar se há duplicatas para este contato
-                 const temDuplicataTabela = contato?.telefone && simulationResults.duplicatas?.find(d => d.telefone === contato.telefone && d.count > 1);
+                 })()
+                 .map(({ res, thread, contato }) => {
+                  const hasUnread = (thread?.unread_count || 0) > 0;
+                  const temDuplicataTabela = contato?.telefone && simulationResults.duplicatas?.find(d => d.telefone === contato.telefone && d.count > 1);
 
                  // Detectar problemas graves
                  const semContato = simulationResults.threadsSemContato?.find(t => t.threadId === res.threadId);
