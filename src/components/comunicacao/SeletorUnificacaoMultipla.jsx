@@ -38,53 +38,74 @@ export default function SeletorUnificacaoMultipla({
       return;
     }
 
-    if (contatosParaMerge.length === 0) {
-      toast.error('Selecione pelo menos 2 contatos');
-      return;
-    }
-
     setProcessando(true);
     try {
-      // ✅ FLUXO: Executar merge em série (1 por vez) para segurança máxima
       const resultados = [];
       
-      for (const duplicata of contatosParaMerge) {
-        console.log(`[UnificacaoMultipla] 🔄 Mergeando ${duplicata.nome} → ${mestreSelecionado.nome}`);
-        
+      // 🆕 Se só tem 1 contato (mestre), apenas agrupa/reconsolidada
+      if (contatosParaMerge.length === 0) {
+        console.log(`[UnificacaoMultipla] ℹ️ Apenas 1 contato - consolidando threads`);
+        // Chamar função que garante consolidação de threads duplicadas do mesmo contato
         const resultado = await base44.functions.invoke('mergeContacts', {
           master_id: mestreSelecionado.id,
-          duplicate_ids: [duplicata.id] // 1 por vez
+          duplicate_ids: [] // Vazio = apenas consolida
         });
 
         if (resultado.data.success) {
           resultados.push({
-            duplicata: duplicata.nome,
+            duplicata: mestreSelecionado.nome,
             status: 'sucesso',
             threads_movidas: resultado.data.stats.threads_moved || 0,
             mensagens_movidas: resultado.data.stats.messages_moved || 0
           });
         } else {
           resultados.push({
-            duplicata: duplicata.nome,
+            duplicata: mestreSelecionado.nome,
             status: 'erro',
             erro: resultado.data.error
           });
         }
+      } else {
+        // FLUXO NORMAL: Unificar múltiplos contatos em série (1 por vez)
+        for (const duplicata of contatosParaMerge) {
+          console.log(`[UnificacaoMultipla] 🔄 Mergeando ${duplicata.nome} → ${mestreSelecionado.nome}`);
+          
+          const resultado = await base44.functions.invoke('mergeContacts', {
+            master_id: mestreSelecionado.id,
+            duplicate_ids: [duplicata.id] // 1 por vez
+          });
 
-        // Delay entre merges (100ms) para não sobrecarregar
-        await new Promise(r => setTimeout(r, 100));
+          if (resultado.data.success) {
+            resultados.push({
+              duplicata: duplicata.nome,
+              status: 'sucesso',
+              threads_movidas: resultado.data.stats.threads_moved || 0,
+              mensagens_movidas: resultado.data.stats.messages_moved || 0
+            });
+          } else {
+            resultados.push({
+              duplicata: duplicata.nome,
+              status: 'erro',
+              erro: resultado.data.error
+            });
+          }
+
+          // Delay entre merges (100ms)
+          await new Promise(r => setTimeout(r, 100));
+        }
       }
 
       setResultado(resultados);
       
       const sucessos = resultados.filter(r => r.status === 'sucesso').length;
-      toast.success(`✅ ${sucessos}/${contatosParaMerge.length} contatos unificados!`, {
+      const total = contatosParaMerge.length || 1;
+      toast.success(`✅ ${sucessos}/${total} consolidado(s)!`, {
         duration: 5000
       });
 
     } catch (error) {
       console.error('[UnificacaoMultipla] Erro:', error);
-      toast.error(`Erro ao unificar: ${error.message}`);
+      toast.error(`Erro ao consolidar: ${error.message}`);
     } finally {
       setProcessando(false);
     }
