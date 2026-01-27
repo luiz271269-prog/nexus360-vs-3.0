@@ -1875,9 +1875,8 @@ export default function Comunicacao() {
                      onModoSelecaoMultiplaChange={setModoSelecaoMultipla}
                      isAdmin={usuario?.role === 'admin'}
                      onAbrirDiagnostico={(identificador) => {
-                       console.log('[Comunicacao] 🔬 Abrindo modal de duplicatas:', identificador);
-                       setModalDuplicatas({ isOpen: true, telefone: identificador });
-                       setActiveTab('duplicatas');
+                       console.log('[Comunicacao] 🔬 Detectada duplicata:', identificador);
+                       toast.info('💡 Use o Unificador Centralizado para corrigir duplicatas');
                      }}
                      // 🎯 NOVO: Passar callback para receber duplicatas detectadas
                      onDuplicataDetectada={setDuplicataEncontrada} />
