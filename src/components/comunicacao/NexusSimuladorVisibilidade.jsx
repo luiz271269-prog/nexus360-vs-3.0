@@ -1030,6 +1030,24 @@ export default function NexusSimuladorVisibilidade({ usuario, integracoes = [], 
                      res.isMatch ? "hover:bg-slate-50" : 
                      res.severity === 'error' ? "bg-red-50" : "bg-amber-50"
                    }`}>
+                     <td className="px-2 py-1 text-center">
+                       <input
+                         type="checkbox"
+                         checked={contatosSelecionadosMultiplos.some(c => c?.id === contato?.id)}
+                         onChange={(e) => {
+                           if (e.target.checked && contato) {
+                             setContatosSelecionadosMultiplos(prev => 
+                               prev.find(c => c.id === contato.id) ? prev : [...prev, contato]
+                             );
+                           } else {
+                             setContatosSelecionadosMultiplos(prev =>
+                               prev.filter(c => c.id !== contato?.id)
+                             );
+                           }
+                         }}
+                         className="w-4 h-4 rounded cursor-pointer"
+                       />
+                     </td>
                      <td className="px-2 py-1">
                        <div className="flex items-center gap-2">
                          {temProblemaGrave && (
