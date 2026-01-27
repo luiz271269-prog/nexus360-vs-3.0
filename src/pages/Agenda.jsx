@@ -241,6 +241,47 @@ export default function Agenda() {
         }
       });
 
+      // ✅ CORREÇÃO: Atualizar a Thread para subir na barra de contatos
+      if (tarefaSelecionada.thread_id || tarefaSelecionada.contact_id || tarefaSelecionada.cliente_id) {
+        let threadId = tarefaSelecionada.thread_id;
+        
+        // Se não tem thread_id direto, buscar thread canônica do contato/cliente
+        if (!threadId && (tarefaSelecionada.contact_id || tarefaSelecionada.cliente_id)) {
+          try {
+            const filters = {};
+            if (tarefaSelecionada.contact_id) {
+              filters.contact_id = tarefaSelecionada.contact_id;
+            } else if (tarefaSelecionada.cliente_id) {
+              // Buscar contato do cliente primeiro
+              const contatos = await base44.entities.Contact.filter({ cliente_id: tarefaSelecionada.cliente_id }, '-created_date', 1);
+              if (contatos.length > 0) {
+                filters.contact_id = contatos[0].id;
+              }
+            }
+            
+            if (filters.contact_id) {
+              filters.is_canonical = true;
+              filters.status = 'aberta';
+              
+              const threads = await base44.entities.MessageThread.filter(filters, '-last_message_at', 1);
+              if (threads.length > 0) threadId = threads[0].id;
+            }
+          } catch (e) {
+            console.error('[AGENDA] ⚠️ Erro ao buscar thread:', e);
+          }
+        }
+
+        // "Toca" a thread para ela subir na barra
+        if (threadId) {
+          await base44.entities.MessageThread.update(threadId, {
+            last_message_at: new Date().toISOString(),
+            last_message_content: `✅ Tarefa Concluída: ${resultado}`,
+            last_message_sender: 'user'
+          });
+          console.log('[AGENDA] ✅ Thread atualizada:', threadId);
+        }
+      }
+
       MotorInteligencia.processarFeedbackTarefa(
         tarefaSelecionada.id,
         observacoes,
@@ -249,7 +290,6 @@ export default function Agenda() {
 
       toast.success("✅ Tarefa concluída!");
 
-      // ✅ LIMPAR DA URL
       searchParams.delete('tarefaId');
       setSearchParams(searchParams);
 
