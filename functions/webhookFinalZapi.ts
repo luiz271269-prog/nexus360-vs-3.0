@@ -34,12 +34,13 @@ function normalizarTelefone(telefone) {
 }
 
 // ============================================================================
-// WEBHOOK WHATSAPP Z-API - v11.0.0 CANONICAL CASCADE FIX
+// WEBHOOK WHATSAPP Z-API - v13.0.0 BUSCA TOTAL + RACE FIX
 // ============================================================================
-// FIX: Busca em cascata (canônica → ativa → criar) para evitar duplicatas
+// FIX: Busca TOTAL sem filtro is_canonical (já que campo pode não persistir)
+// FIX: Mitigação de race condition com delay + re-verificação
 // ============================================================================
-const VERSION = 'v11.0.0-CANONICAL-CASCADE';
-const BUILD_DATE = '2026-01-26';
+const VERSION = 'v13.0.0-BUSCA-TOTAL-RACEFIX';
+const BUILD_DATE = '2026-01-27';
 
 const corsHeaders = {
   'Content-Type': 'application/json',
@@ -656,29 +657,33 @@ async function handleMessage(dados, payloadBruto, base44) {
     return jsonServerError({ success: false, error: 'erro_contato' });
   }
 
-  // ✅ BUSCAR/CRIAR THREAD - LÓGICA EM CASCATA (CANONICAL → ACTIVE → CREATE)
+  // ✅ BUSCAR THREAD EXISTENTE - BUSCA TOTAL SEM DEPENDER DE is_canonical
+  // (campo pode não estar persistindo corretamente)
   let thread;
   try {
-      console.log(`[${VERSION}] 🔍 [STEP 1/3] Buscando thread canônica para { contact_id: "${contato.id}", integration_id: "${integracaoId}" }`);
+      console.log(`[${VERSION}] 🔍 Buscando TODAS as threads para { contact_id: "${contato.id}", integration_id: "${integracaoId || 'null'}" }`);
       
-      // STEP 1: Buscar thread canônica explícita
-      const canonicalThreads = await base44.asServiceRole.entities.MessageThread.filter(
+      // BUSCAR TODAS as threads deste contato + integração, sem filtrar por is_canonical ou status
+      const todasThreads = await base44.asServiceRole.entities.MessageThread.filter(
           { 
               contact_id: contato.id,
-              whatsapp_integration_id: integracaoId || null,
-              is_canonical: true
+              whatsapp_integration_id: integracaoId || null
           },
-          '-last_message_at',
-          1
+          '-last_message_at', // Mais recente primeiro
+          20 // Buscar mais para garantir que pegamos TODAS
       );
 
-      if (canonicalThreads && canonicalThreads.length > 0) {
-          // ✅ ENCONTROU THREAD CANÔNICA - ATUALIZAR E USAR
-          thread = canonicalThreads[0];
-          console.log(`[${VERSION}] ✅ [STEP 1/3] Thread canônica encontrada: ${thread.id}`);
+      console.log(`[${VERSION}] 📊 Encontradas ${todasThreads.length} threads total para este contato+integração`);
+
+      if (todasThreads && todasThreads.length > 0) {
+          // ✅ ENCONTROU THREADS - USAR A PRIMEIRA (MAIS RECENTE)
+          thread = todasThreads[0];
+          console.log(`[${VERSION}] ✅ Usando thread existente (mais recente): ${thread.id}`);
 
           const agora = new Date().toISOString();
           const threadUpdate = {
+              is_canonical: true, // Forçar canônica
+              status: 'aberta',
               last_message_at: agora,
               last_inbound_at: agora,
               last_message_sender: 'contact',
@@ -686,33 +691,51 @@ async function handleMessage(dados, payloadBruto, base44) {
               last_media_type: dados.mediaType || 'none',
               unread_count: (thread.unread_count || 0) + 1,
               total_mensagens: (thread.total_mensagens || 0) + 1,
-              status: 'aberta',
           };
           await base44.asServiceRole.entities.MessageThread.update(thread.id, threadUpdate);
-          console.log(`[${VERSION}] ✅ Thread canônica atualizada | unread: ${threadUpdate.unread_count}`);
+          console.log(`[${VERSION}] ✅ Thread atualizada e promovida a canônica | unread: ${threadUpdate.unread_count}`);
+
+          // 🔀 MARCAR TODAS AS OUTRAS COMO MERGED
+          for (let i = 1; i < todasThreads.length; i++) {
+              const otherThread = todasThreads[i];
+              try {
+                  await base44.asServiceRole.entities.MessageThread.update(otherThread.id, {
+                      status: 'merged',
+                      is_canonical: false,
+                      merged_into: thread.id,
+                  });
+                  console.log(`[${VERSION}] 🔀 Thread secundária #${i} marcada como merged: ${otherThread.id} → ${thread.id}`);
+              } catch (e) {
+                  console.warn(`[${VERSION}] ⚠️ Erro ao marcar thread ${otherThread.id} como merged:`, e.message);
+              }
+          }
 
       } else {
-          // ⚠️ NÃO ENCONTROU CANÔNICA - BUSCAR THREADS ATIVAS
-          console.log(`[${VERSION}] ⚠️ [STEP 2/3] Nenhuma thread canônica. Buscando threads ativas...`);
+          // ⚠️ NENHUMA THREAD EXISTENTE - CRIAR NOVA COM PROTEÇÃO DE RACE CONDITION
+          console.log(`[${VERSION}] ⚠️ Nenhuma thread existente. Aguardando 250ms antes de criar...`);
           
-          const activeThreads = await base44.asServiceRole.entities.MessageThread.filter(
+          // Mitigação de race condition: pequena pausa
+          await new Promise(resolve => setTimeout(resolve, 250));
+
+          // RE-VERIFICAR antes de criar
+          const recheckThreads = await base44.asServiceRole.entities.MessageThread.filter(
               { 
                   contact_id: contato.id,
-                  whatsapp_integration_id: integracaoId || null,
-                  status: { $nin: ['merged', 'fechada', 'arquivada', 'spam'] }
+                  whatsapp_integration_id: integracaoId || null
               },
               '-last_message_at',
-              10
+              1
           );
 
-          if (activeThreads && activeThreads.length > 0) {
-              // ✅ ENCONTROU THREADS ATIVAS - PROMOVER A MAIS RECENTE A CANÔNICA
-              thread = activeThreads[0];
-              console.log(`[${VERSION}] ✅ [STEP 2/3] Thread ativa encontrada: ${thread.id}. Promovendo a canônica...`);
-
+          if (recheckThreads && recheckThreads.length > 0) {
+              // Outra thread foi criada no meio tempo, usar ela
+              thread = recheckThreads[0];
+              console.log(`[${VERSION}] ✅ Race condition mitigada: Usando thread recém-criada: ${thread.id}`);
+              
               const agora = new Date().toISOString();
-              const updateCanonical = {
+              await base44.asServiceRole.entities.MessageThread.update(thread.id, {
                   is_canonical: true,
+                  status: 'aberta',
                   last_message_at: agora,
                   last_inbound_at: agora,
                   last_message_sender: 'contact',
@@ -720,30 +743,9 @@ async function handleMessage(dados, payloadBruto, base44) {
                   last_media_type: dados.mediaType || 'none',
                   unread_count: (thread.unread_count || 0) + 1,
                   total_mensagens: (thread.total_mensagens || 0) + 1,
-                  status: 'aberta',
-              };
-              await base44.asServiceRole.entities.MessageThread.update(thread.id, updateCanonical);
-              console.log(`[${VERSION}] ✅ Thread promovida a canônica: ${thread.id} | unread: ${updateCanonical.unread_count}`);
-
-              // 🔀 MARCAR TODAS AS OUTRAS THREADS ATIVAS COMO MERGED
-              for (let i = 1; i < activeThreads.length; i++) {
-                  const otherThread = activeThreads[i];
-                  try {
-                      await base44.asServiceRole.entities.MessageThread.update(otherThread.id, {
-                          status: 'merged',
-                          is_canonical: false,
-                          merged_into: thread.id,
-                      });
-                      console.log(`[${VERSION}] 🔀 Thread secundária marcada como merged: ${otherThread.id} → ${thread.id}`);
-                  } catch (e) {
-                      console.warn(`[${VERSION}] ⚠️ Erro ao marcar thread ${otherThread.id} como merged:`, e.message);
-                  }
-              }
-
+              });
           } else {
-              // ⚠️ NÃO ENCONTROU NENHUMA THREAD (NEM CANÔNICA, NEM ATIVA) - CRIAR NOVA
-              console.log(`[${VERSION}] ⚠️ [STEP 3/3] Nenhuma thread existente. Criando nova thread canônica...`);
-              
+              console.log(`[${VERSION}] ✅ Nenhuma thread ainda. Criando nova thread canônica...`);
               const agora = new Date().toISOString();
               if (!contato || !contato.id) {
                   console.error(`[${VERSION}] ❌ ERRO CRÍTICO: Tentando criar thread SEM contact_id!`);
@@ -766,7 +768,7 @@ async function handleMessage(dados, payloadBruto, base44) {
                   total_mensagens: 1,
                   unread_count: 1,
               });
-              console.log(`[${VERSION}] ✅ [STEP 3/3] Nova thread canônica criada: ${thread.id} | contact_id: ${contato.id}`);
+              console.log(`[${VERSION}] ✅ Nova thread canônica criada: ${thread.id} | contact_id: ${contato.id}`);
           }
       }
   } catch (e) {
