@@ -7,7 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { 
   Loader2, Phone, Search, Merge, CheckCircle2, 
-  AlertTriangle, User, MessageSquare, Calendar, ArrowRight
+  AlertTriangle, User, MessageSquare, Calendar, ArrowRight, Info
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { normalizarTelefone } from '../lib/phoneUtils';
@@ -169,24 +169,37 @@ export default function UnificadorContatosCentralizado({
     const loadingToast = toast.loading('🔄 Unificando contatos...');
 
     try {
+      console.log('[UnificadorCentralizado] Iniciando unificação...', {
+        masterContactId: mestreEscolhido,
+        duplicateContactIds: duplicatasIds
+      });
+
       // ✅ CHAMAR FUNÇÃO BACKEND CENTRALIZADA
       const response = await base44.functions.invoke('mergeContacts', {
         masterContactId: mestreEscolhido,
         duplicateContactIds: duplicatasIds
       });
 
-      if (response.data.success) {
-        const stats = response.data.stats;
-        
+      console.log('[UnificadorCentralizado] Resposta recebida:', response);
+
+      // Verificar se há dados na resposta
+      if (!response || !response.data) {
+        throw new Error('Resposta vazia da função backend');
+      }
+
+      const { success, error, stats, masterContactName } = response.data;
+
+      if (success) {
         toast.dismiss(loadingToast);
         toast.success(
           `✅ UNIFICAÇÃO CONCLUÍDA!\n\n` +
           `📊 Estatísticas:\n` +
-          `→ ${stats.duplicatasProcessadas} duplicatas removidas\n` +
-          `→ ${stats.threadsMovidas} threads movidas\n` +
-          `→ ${stats.mensagensMovidas} mensagens movidas\n` +
-          `→ ${stats.interacoesMovidas} interações movidas\n\n` +
-          `🎯 Contato mestre: ${response.data.masterContactName}`
+          `→ ${stats.duplicatasProcessadas || 0} duplicatas removidas\n` +
+          `→ ${stats.threadsMovidas || 0} threads movidas\n` +
+          `→ ${stats.mensagensMovidas || 0} mensagens movidas\n` +
+          `→ ${stats.interacoesMovidas || 0} interações movidas\n\n` +
+          `🎯 Contato mestre: ${masterContactName || 'N/A'}`,
+          { duration: 6000 }
         );
 
         setEstatisticas(stats);
@@ -197,12 +210,23 @@ export default function UnificadorContatosCentralizado({
           setTimeout(onClose, 2000);
         }
       } else {
-        throw new Error(response.data.error || 'Erro desconhecido');
+        throw new Error(error || 'Erro desconhecido na unificação');
       }
     } catch (error) {
       console.error('[UnificadorCentralizado] Erro na unificação:', error);
       toast.dismiss(loadingToast);
-      toast.error(`❌ Erro: ${error.message}\n\nVeja o console para detalhes.`);
+      
+      // Mensagem de erro mais detalhada
+      const errorMsg = error.message || 'Erro desconhecido';
+      const isNetworkError = errorMsg.includes('fetch') || errorMsg.includes('network');
+      
+      toast.error(
+        `❌ Falha na unificação\n\n` +
+        `${isNetworkError ? '🌐 Erro de conexão' : '⚠️ Erro no processamento'}\n` +
+        `Detalhes: ${errorMsg}\n\n` +
+        `Verifique o console para mais informações.`,
+        { duration: 8000 }
+      );
     } finally {
       setUnificando(false);
     }
