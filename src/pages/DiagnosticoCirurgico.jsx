@@ -1,595 +1,500 @@
 import React, { useState } from 'react';
 import { base44 } from '@/api/base44Client';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { 
+  Bug, 
   CheckCircle, 
-  XCircle, 
-  AlertTriangle,
-  Activity,
+  AlertTriangle, 
+  Loader2, 
   Database,
-  Code,
+  GitMerge,
+  Search,
   Zap,
+  FileCode,
   RefreshCw
 } from 'lucide-react';
 import { toast } from 'sonner';
-import { getWebhookUrlIntegracao } from '../components/lib/webhookUtils';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 
 export default function DiagnosticoCirurgico() {
-  const [testando, setTestando] = useState(false);
-  const [resultado, setResultado] = useState(null);
-  const [testandoCache, setTestandoCache] = useState(false);
-  const [resultadoCache, setResultadoCache] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [resultadoSchema, setResultadoSchema] = useState(null);
+  const [resultadoAuditoria, setResultadoAuditoria] = useState(null);
+  const [resultadoConsolidacao, setResultadoConsolidacao] = useState(null);
+  const [dryRun, setDryRun] = useState(true);
 
-  const executarDiagnosticoCirurgico = async () => {
-    setTestando(true);
-    setResultado(null);
-
-    const diagnostico = {
-      timestamp: new Date().toISOString(),
-      testes: []
-    };
-
+  const validarSchema = async () => {
+    setLoading(true);
     try {
-      // ========== TESTE 1: BUSCAR INTEGRAÇÃO ==========
-      console.log('[DIAG] Buscando integracao...');
-      const integracoes = await base44.entities.WhatsAppIntegration.list();
+      const { data } = await base44.functions.invoke('validarSchema', {});
+      setResultadoSchema(data.resultado);
       
-      diagnostico.testes.push({
-        nome: '1. Integração WhatsApp Existe',
-        status: integracoes.length > 0 ? 'sucesso' : 'erro',
-        detalhes: {
-          total: integracoes.length,
-          primeira: integracoes[0]
-        }
-      });
-
-      if (integracoes.length === 0) {
-        setResultado(diagnostico);
-        setTestando(false);
-        return;
-      }
-
-      const integracao = integracoes[0];
-
-      // ========== TESTE 2: TESTAR CONEXÃO HTTP ==========
-      console.log('[DIAG] Testando conexao HTTP com webhook...');
-      const webhookUrlBase = getWebhookUrlIntegracao(integracao);
-      const webhookUrl = webhookUrlBase.includes('?') ? `${webhookUrlBase}&debug=true` : `${webhookUrlBase}?debug=true`;
-      
-      try {
-        const response = await fetch(webhookUrl, { method: 'GET' });
-        diagnostico.testes.push({
-          nome: '2. Webhook Responde (GET)',
-          status: response.ok ? 'sucesso' : 'erro',
-          detalhes: {
-            status: response.status,
-            url: webhookUrl
-          }
-        });
-      } catch (error) {
-        diagnostico.testes.push({
-          nome: '2. Webhook Responde (GET)',
-          status: 'erro',
-          detalhes: {
-            erro: error.message,
-            url: webhookUrl
-          }
-        });
-      }
-
-      // ========== TESTE 3: ENVIAR PAYLOAD TESTE ==========
-      console.log('[DIAG] Enviando payload de teste...');
-      const messageIdTeste = `DIAG_TEST_${Date.now()}`;
-      const payloadTeste = {
-        // Chaves de roteamento: incluir todos os aliases comuns
-        instanceId: integracao.instance_id_provider,
-        instance: integracao.instance_id_provider,
-        instance_id: integracao.instance_id_provider,
-        
-        type: 'ReceivedCallback',
-        event: 'ReceivedCallback',
-        eventName: 'ReceivedCallback',
-        event_type: 'ReceivedCallback',
-        
-        // Objeto evento aninhado (opcional, para compatibilidade)
-        evento: {
-          event: 'ReceivedCallback',
-          instanceId: integracao.instance_id_provider,
-          type: 'ReceivedCallback'
-        },
-        
-        // Dados da mensagem
-        phone: '5548999000111',
-        telefone: '5548999000111',
-        momment: Date.now(),
-        messageId: messageIdTeste,
-        id: messageIdTeste, // espelhar para id
-        text: { message: 'TESTE CIRURGICO' }
-      };
-
-      let webhookResponse = null;
-      try {
-        const response = await fetch(webhookUrl, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payloadTeste)
-        });
-        webhookResponse = await response.json();
-        
-        diagnostico.testes.push({
-          nome: '3. Webhook Aceita POST',
-          status: response.ok ? 'sucesso' : 'erro',
-          detalhes: {
-            status: response.status,
-            response: webhookResponse,
-            debug: webhookResponse?.debug || null
-          }
-        });
-      } catch (error) {
-        diagnostico.testes.push({
-          nome: '3. Webhook Aceita POST',
-          status: 'erro',
-          detalhes: {
-            erro: error.message
-          }
-        });
-      }
-
-      // ========== TESTE 4: AGUARDAR PROCESSAMENTO ==========
-      console.log('[DIAG] Aguardando 3 segundos para processamento...');
-      await new Promise(resolve => setTimeout(resolve, 3000));
-
-      // ========== TESTE 5: VERIFICAR ZAPIPALOADNORMALIZED ==========
-      console.log('[DIAG] Verificando ZapiPayloadNormalized...');
-      try {
-        const payloads = await base44.asServiceRole.entities.ZapiPayloadNormalized.filter(
-          { instance_identificado: integracao.instance_id_provider },
-          '-timestamp_recebido',
-          10
-        );
-
-        const payloadEncontrado = payloads.find(p => 
-          p.payload_bruto?.messageId === messageIdTeste
-        );
-
-        diagnostico.testes.push({
-          nome: '4. ZapiPayloadNormalized Criado',
-          status: payloadEncontrado ? 'sucesso' : 'erro',
-          detalhes: {
-            total_recentes: payloads.length,
-            encontrado: !!payloadEncontrado,
-            messageId_buscado: messageIdTeste,
-            payload: payloadEncontrado
-          }
-        });
-      } catch (error) {
-        diagnostico.testes.push({
-          nome: '4. ZapiPayloadNormalized Criado',
-          status: 'erro',
-          detalhes: {
-            erro: error.message,
-            stack: error.stack
-          }
-        });
-      }
-
-      // ========== TESTE 6: VERIFICAR MESSAGE ==========
-      console.log('[DIAG] Verificando Message...');
-      try {
-        const messages = await base44.asServiceRole.entities.Message.filter(
-          { whatsapp_message_id: messageIdTeste },
-          '-created_date',
-          1
-        );
-
-        diagnostico.testes.push({
-          nome: '5. Message Criada',
-          status: messages.length > 0 ? 'sucesso' : 'erro',
-          detalhes: {
-            encontrada: messages.length > 0,
-            messageId_buscado: messageIdTeste,
-            message: messages[0]
-          }
-        });
-      } catch (error) {
-        diagnostico.testes.push({
-          nome: '5. Message Criada',
-          status: 'erro',
-          detalhes: {
-            erro: error.message,
-            stack: error.stack
-          }
-        });
-      }
-
-      // ========== TESTE 7: VERIFICAR CONTACT ==========
-      console.log('[DIAG] Verificando Contact...');
-      try {
-        const contacts = await base44.asServiceRole.entities.Contact.filter(
-          { telefone: '5548999000111' },
-          '-created_date',
-          1
-        );
-
-        diagnostico.testes.push({
-          nome: '6. Contact Criado',
-          status: contacts.length > 0 ? 'sucesso' : 'erro',
-          detalhes: {
-            encontrado: contacts.length > 0,
-            telefone_buscado: '5548999000111',
-            contact: contacts[0]
-          }
-        });
-      } catch (error) {
-        diagnostico.testes.push({
-          nome: '6. Contact Criado',
-          status: 'erro',
-          detalhes: {
-            erro: error.message,
-            stack: error.stack
-          }
-        });
-      }
-
-      // ========== TESTE 8: VERIFICAR SCHEMA DA ENTIDADE ==========
-      console.log('[DIAG] Verificando schema ZapiPayloadNormalized...');
-      try {
-        const schema = await base44.entities.ZapiPayloadNormalized.schema();
-        
-        const camposObrigatorios = ['payload_bruto', 'instance_identificado', 'evento', 'timestamp_recebido'];
-        const camposFaltando = camposObrigatorios.filter(campo => !schema.properties[campo]);
-
-        diagnostico.testes.push({
-          nome: '7. Schema ZapiPayloadNormalized Correto',
-          status: camposFaltando.length === 0 ? 'sucesso' : 'erro',
-          detalhes: {
-            schema_properties: Object.keys(schema.properties),
-            campos_obrigatorios: camposObrigatorios,
-            campos_faltando: camposFaltando
-          }
-        });
-      } catch (error) {
-        diagnostico.testes.push({
-          nome: '7. Schema ZapiPayloadNormalized Correto',
-          status: 'erro',
-          detalhes: {
-            erro: error.message
-          }
-        });
-      }
-
-      setResultado(diagnostico);
-
-    } catch (error) {
-      console.error('[DIAG] Erro fatal:', error);
-      toast.error('Erro no diagnostico: ' + error.message);
-    } finally {
-      setTestando(false);
-    }
-  };
-
-  const forcarTesteVersao = async () => {
-    setTestandoCache(true);
-    setResultadoCache(null);
-
-    try {
-      const integracoes = await base44.entities.WhatsAppIntegration.list();
-      if (integracoes.length === 0) {
-        toast.error('Nenhuma integração encontrada');
-        setTestandoCache(false);
-        return;
-      }
-
-      const integracao = integracoes[0];
-      const webhookUrl = getWebhookUrlIntegracao(integracao);
-      const timestampCache = Date.now();
-      const getUrl = `${webhookUrl}?v=${timestampCache}&cache_bust=${Math.random()}`;
-      
-      const getResponse = await fetch(getUrl, {
-        method: 'GET',
-        headers: {
-          'Cache-Control': 'no-cache, no-store, must-revalidate',
-          'Pragma': 'no-cache',
-          'Expires': '0'
-        }
-      });
-
-      const getResult = await getResponse.json();
-      
-      setResultadoCache({
-        status: getResponse.status,
-        version: getResult.version || 'VERSÃO NÃO IDENTIFICADA',
-        build_date: getResult.build_date || 'N/A',
-        auth_method: getResult.auth_method || 'N/A',
-        versao_esperada: 'v23.0.0-AGGRESSIVE-REDEPLOY',
-        versao_match: getResult.version === 'v23.0.0-AGGRESSIVE-REDEPLOY'
-      });
-
-      if (getResult.version === 'v23.0.0-AGGRESSIVE-REDEPLOY') {
-        toast.success('✅ Versão v23 está ATIVA!');
+      if (data.resultado.schema_valido) {
+        toast.success('✅ Schema válido!');
       } else {
-        toast.error(`❌ Versão antiga: ${getResult.version || 'desconhecida'}`);
+        toast.error('❌ Schema com problemas');
       }
-
     } catch (error) {
-      toast.error('Erro: ' + error.message);
-      setResultadoCache({ erro: error.message });
+      toast.error('Erro ao validar schema: ' + error.message);
     } finally {
-      setTestandoCache(false);
+      setLoading(false);
     }
   };
 
-  const getIcone = (status) => {
-    switch (status) {
-      case 'sucesso': return <CheckCircle className="w-5 h-5 text-green-600" />;
-      case 'erro': return <XCircle className="w-5 h-5 text-red-600" />;
-      default: return <AlertTriangle className="w-5 h-5 text-yellow-600" />;
+  const executarAuditoria = async () => {
+    setLoading(true);
+    try {
+      const { data } = await base44.functions.invoke('auditoriaDuplicatas', {});
+      setResultadoAuditoria(data.resultado);
+      
+      const total = data.resultado.contatos_duplicados.length + data.resultado.threads_duplicadas.length;
+      if (total === 0) {
+        toast.success('✅ Nenhuma duplicata encontrada!');
+      } else {
+        toast.warning(`⚠️ ${total} problemas encontrados`);
+      }
+    } catch (error) {
+      toast.error('Erro na auditoria: ' + error.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const executarConsolidacao = async (isDryRun) => {
+    setLoading(true);
+    setDryRun(isDryRun);
+    
+    try {
+      const { data } = await base44.functions.invoke('consolidarHistorico', { dry_run: isDryRun });
+      setResultadoConsolidacao(data.resultado);
+      
+      if (isDryRun) {
+        toast.info('📋 Simulação concluída');
+      } else {
+        toast.success(`✅ Consolidação executada! ${data.resultado.threads_marcadas_merged} threads unificadas`);
+      }
+    } catch (error) {
+      toast.error('Erro na consolidação: ' + error.message);
+    } finally {
+      setLoading(false);
     }
   };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 p-6">
-      <div className="max-w-5xl mx-auto space-y-6">
-        
+      <div className="max-w-7xl mx-auto space-y-6">
         {/* Header */}
-        <div>
-          <h1 className="text-3xl font-bold text-slate-900 flex items-center gap-3">
-            <Zap className="w-8 h-8 text-red-600" />
-            Diagnóstico Cirúrgico
-          </h1>
-          <p className="text-slate-600 mt-1">
-            Identifica EXATAMENTE onde o sistema está falhando
-          </p>
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold text-slate-900 flex items-center gap-3">
+              <div className="w-12 h-12 bg-gradient-to-br from-red-500 to-red-600 rounded-xl flex items-center justify-center shadow-lg">
+                <Bug className="w-7 h-7 text-white" />
+              </div>
+              Diagnóstico Cirúrgico
+            </h1>
+            <p className="text-slate-600 mt-2">
+              Validação de schema, auditoria de duplicatas e consolidação histórica
+            </p>
+          </div>
+          
+          <Button
+            onClick={() => {
+              setResultadoSchema(null);
+              setResultadoAuditoria(null);
+              setResultadoConsolidacao(null);
+            }}
+            variant="outline"
+            size="sm"
+          >
+            <RefreshCw className="w-4 h-4 mr-2" />
+            Limpar
+          </Button>
         </div>
 
-        <Tabs defaultValue="teste-completo" className="w-full">
-          <TabsList className="grid w-full grid-cols-2">
-            <TabsTrigger value="teste-completo">Teste Completo</TabsTrigger>
-            <TabsTrigger value="verificar-versao">Verificar Versão</TabsTrigger>
+        {/* Ações Rápidas */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <Card className="border-2 border-blue-200 bg-blue-50/50">
+            <CardHeader>
+              <CardTitle className="text-lg flex items-center gap-2">
+                <Database className="w-5 h-5 text-blue-600" />
+                Validar Schema
+              </CardTitle>
+              <CardDescription>
+                Testa se campos críticos persistem no banco
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Button 
+                onClick={validarSchema} 
+                disabled={loading}
+                className="w-full bg-blue-600 hover:bg-blue-700"
+              >
+                {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Zap className="w-4 h-4" />}
+                <span className="ml-2">Validar Agora</span>
+              </Button>
+            </CardContent>
+          </Card>
+
+          <Card className="border-2 border-orange-200 bg-orange-50/50">
+            <CardHeader>
+              <CardTitle className="text-lg flex items-center gap-2">
+                <Search className="w-5 h-5 text-orange-600" />
+                Auditar Duplicatas
+              </CardTitle>
+              <CardDescription>
+                Varre o banco procurando contatos e threads duplicadas
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Button 
+                onClick={executarAuditoria} 
+                disabled={loading}
+                className="w-full bg-orange-600 hover:bg-orange-700"
+              >
+                {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />}
+                <span className="ml-2">Auditar Agora</span>
+              </Button>
+            </CardContent>
+          </Card>
+
+          <Card className="border-2 border-green-200 bg-green-50/50">
+            <CardHeader>
+              <CardTitle className="text-lg flex items-center gap-2">
+                <GitMerge className="w-5 h-5 text-green-600" />
+                Consolidar Histórico
+              </CardTitle>
+              <CardDescription>
+                Unifica threads duplicadas (marca como merged)
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-2">
+              <Button 
+                onClick={() => executarConsolidacao(true)} 
+                disabled={loading}
+                variant="outline"
+                className="w-full"
+              >
+                {loading && dryRun ? <Loader2 className="w-4 h-4 animate-spin" /> : <FileCode className="w-4 h-4" />}
+                <span className="ml-2">Simular</span>
+              </Button>
+              <Button 
+                onClick={() => executarConsolidacao(false)} 
+                disabled={loading}
+                className="w-full bg-green-600 hover:bg-green-700"
+              >
+                {loading && !dryRun ? <Loader2 className="w-4 h-4 animate-spin" /> : <GitMerge className="w-4 h-4" />}
+                <span className="ml-2">Executar</span>
+              </Button>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Resultados */}
+        <Tabs defaultValue="schema" className="w-full">
+          <TabsList className="grid w-full grid-cols-3">
+            <TabsTrigger value="schema">Validação Schema</TabsTrigger>
+            <TabsTrigger value="auditoria">Auditoria</TabsTrigger>
+            <TabsTrigger value="consolidacao">Consolidação</TabsTrigger>
           </TabsList>
 
-          {/* ABA 1: TESTE COMPLETO */}
-          <TabsContent value="teste-completo" className="space-y-6">
-            <div className="flex justify-end">
-              <Button 
-                onClick={executarDiagnosticoCirurgico}
-                disabled={testando}
-                className="bg-red-600 hover:bg-red-700 gap-2"
-                size="lg"
-              >
-                {testando ? (
-                  <>
-                    <Activity className="w-5 h-5 animate-spin" />
-                    Executando...
-                  </>
-                ) : (
-                  <>
-                    <Zap className="w-5 h-5" />
-                    Executar Diagnóstico
-                  </>
-                )}
-              </Button>
-            </div>
-
-            <Alert className="bg-blue-50 border-blue-300">
-              <Database className="h-4 w-4 text-blue-700" />
-              <AlertDescription className="text-blue-800">
-                <strong>O que este diagnóstico faz:</strong>
-                <ol className="list-decimal ml-6 mt-2 space-y-1">
-                  <li>Verifica se a integração WhatsApp está configurada</li>
-                  <li>Testa se o webhook responde (GET e POST)</li>
-                  <li>Envia uma mensagem de teste real</li>
-                  <li>Verifica se ZapiPayloadNormalized foi criado</li>
-                  <li>Verifica se Message foi criada</li>
-                  <li>Verifica se Contact foi criado</li>
-                  <li>Valida o schema das entidades</li>
-                </ol>
-              </AlertDescription>
-            </Alert>
-
-            {/* Resultados */}
-            {resultado && (
-          <Card>
-            <CardHeader className="bg-slate-50">
-              <CardTitle className="text-sm flex items-center gap-2">
-                <Code className="w-4 h-4" />
-                Resultados do Diagnostico
-                <Badge className="ml-auto">
-                  {resultado.testes.filter(t => t.status === 'sucesso').length} / {resultado.testes.length}
-                </Badge>
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="p-0">
-              <div className="divide-y">
-                {resultado.testes.map((teste, idx) => (
-                  <div key={idx} className="p-4 hover:bg-slate-50 transition-colors">
-                    <div className="flex items-start gap-3">
-                      {getIcone(teste.status)}
-                      <div className="flex-1 min-w-0">
-                        <h4 className="font-semibold text-sm text-slate-900">
-                          {teste.nome}
-                        </h4>
-                        <Badge 
-                          className={`mt-1 text-xs ${
-                            teste.status === 'sucesso' ? 'bg-green-100 text-green-800' :
-                            'bg-red-100 text-red-800'
-                          }`}
-                        >
-                          {teste.status.toUpperCase()}
-                        </Badge>
-                        
-                        {/* Detalhes */}
-                        <details className="mt-2">
-                          <summary className="text-xs text-blue-600 cursor-pointer hover:underline">
-                            Ver detalhes completos
-                          </summary>
-                          <pre className="mt-2 text-xs bg-slate-900 text-slate-100 p-3 rounded overflow-x-auto">
-                            {JSON.stringify(teste.detalhes, null, 2)}
-                          </pre>
-                        </details>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        )}
-
-        {/* Diagnóstico de Falhas */}
-        {resultado && (
-          <Card className="border-2 border-red-300 bg-red-50">
-            <CardHeader>
-              <CardTitle className="text-sm text-red-900">
-                Analise de Falhas Detectadas
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="text-sm space-y-3">
-              {resultado.testes.filter(t => t.status === 'erro').map((teste, idx) => (
-                <Alert key={idx} className="bg-white border-red-300">
-                  <XCircle className="h-4 w-4 text-red-600" />
-                  <AlertDescription>
-                    <strong className="text-red-900">{teste.nome}</strong>
-                    <p className="text-slate-700 mt-1">
-                      {teste.detalhes.erro || 'Falha detectada - veja detalhes acima'}
-                    </p>
-                    
-                    {/* Sugestoes especificas */}
-                    {teste.nome.includes('ZapiPayloadNormalized') && (
-                      <div className="mt-2 p-2 bg-yellow-50 rounded text-xs">
-                        <strong>Solucao:</strong> O webhook nao esta conseguindo persistir no banco.
-                        Verifique:
-                        <ul className="list-disc ml-6 mt-1">
-                          <li>Permissoes do Service Role</li>
-                          <li>Logs da funcao whatsappWebhook (Code - Functions - whatsappWebhook - Logs)</li>
-                          <li>Se ha erros de validacao de schema</li>
-                        </ul>
-                      </div>
-                    )}
-                    
-                    {teste.nome.includes('Message Criada') && (
-                      <div className="mt-2 p-2 bg-yellow-50 rounded text-xs">
-                        <strong>Solucao:</strong> O fluxo esta sendo interrompido antes de criar a Message.
-                        Se ZapiPayloadNormalized foi criado mas Message nao, o erro esta no processamento apos normalizacao.
-                      </div>
-                    )}
-                  </AlertDescription>
-                </Alert>
-              ))}
-              
-              {resultado.testes.filter(t => t.status === 'erro').length === 0 && (
-                <Alert className="bg-green-50 border-green-300">
-                  <CheckCircle className="h-4 w-4 text-green-600" />
-                  <AlertDescription className="text-green-800">
-                    Todos os testes passaram! O sistema esta funcionando corretamente.
-                  </AlertDescription>
-                </Alert>
-              )}
-            </CardContent>
-          </Card>
-            )}
-          </TabsContent>
-
-          {/* ABA 2: VERIFICAR VERSÃO */}
-          <TabsContent value="verificar-versao" className="space-y-6">
-            <div className="flex justify-end">
-              <Button
-                onClick={forcarTesteVersao}
-                disabled={testandoCache}
-                size="lg"
-                className="bg-orange-600 hover:bg-orange-700 gap-2"
-              >
-                {testandoCache ? (
-                  <>
-                    <RefreshCw className="w-5 h-5 animate-spin" />
-                    Testando...
-                  </>
-                ) : (
-                  <>
-                    <RefreshCw className="w-5 h-5" />
-                    Verificar Versão Ativa
-                  </>
-                )}
-              </Button>
-            </div>
-
-            <Alert className="bg-blue-50 border-blue-300">
-              <Database className="h-4 w-4 text-blue-700" />
-              <AlertDescription className="text-blue-800">
-                <strong>O que este teste faz:</strong>
-                <ul className="list-disc ml-6 mt-2 space-y-1">
-                  <li>Força invalidação de cache com parâmetros únicos</li>
-                  <li>Verifica qual versão do webhook está ativa</li>
-                  <li>Compara com a versão esperada (v22.0.0-FORCE-REDEPLOY)</li>
-                </ul>
-              </AlertDescription>
-            </Alert>
-
-            {resultadoCache && (
-              <Card className={`border-2 ${resultadoCache.versao_match ? 'border-green-500 bg-green-50' : 'border-red-500 bg-red-50'}`}>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-3">
-                    {resultadoCache.versao_match ? (
+          {/* TAB: Schema */}
+          <TabsContent value="schema" className="space-y-4">
+            {resultadoSchema ? (
+              <>
+                <Alert className={resultadoSchema.schema_valido ? 'border-green-500 bg-green-50' : 'border-red-500 bg-red-50'}>
+                  <AlertDescription className="flex items-center gap-2">
+                    {resultadoSchema.schema_valido ? (
                       <>
-                        <CheckCircle className="w-6 h-6 text-green-600" />
-                        <span className="text-green-900">✅ Versão v22 Confirmada!</span>
+                        <CheckCircle className="w-5 h-5 text-green-600" />
+                        <span className="font-semibold text-green-900">{resultadoSchema.conclusao}</span>
                       </>
                     ) : (
                       <>
-                        <XCircle className="w-6 h-6 text-red-600" />
-                        <span className="text-red-900">❌ Versão Antiga Detectada</span>
+                        <AlertTriangle className="w-5 h-5 text-red-600" />
+                        <span className="font-semibold text-red-900">{resultadoSchema.conclusao}</span>
                       </>
                     )}
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="p-4 bg-white rounded border">
-                      <div className="text-xs text-slate-500 mb-1">Versão Esperada:</div>
-                      <div className="text-lg font-bold text-green-700">{resultadoCache.versao_esperada}</div>
-                    </div>
-                    <div className="p-4 bg-white rounded border">
-                      <div className="text-xs text-slate-500 mb-1">Versão Detectada:</div>
-                      <div className={`text-lg font-bold ${resultadoCache.versao_match ? 'text-green-700' : 'text-red-700'}`}>
-                        {resultadoCache.version}
+                  </AlertDescription>
+                </Alert>
+
+                {resultadoSchema.campos_ok.length > 0 && (
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="text-sm text-green-700">✅ Campos OK</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="flex flex-wrap gap-2">
+                        {resultadoSchema.campos_ok.map((campo) => (
+                          <Badge key={campo} className="bg-green-100 text-green-800">
+                            {campo}
+                          </Badge>
+                        ))}
                       </div>
-                    </div>
-                  </div>
+                    </CardContent>
+                  </Card>
+                )}
 
-                  <div className="grid gap-3">
-                    <div className="p-3 bg-white rounded border">
-                      <div className="text-xs text-slate-500">Build Date:</div>
-                      <div className="font-mono text-sm">{resultadoCache.build_date}</div>
-                    </div>
-                    <div className="p-3 bg-white rounded border">
-                      <div className="text-xs text-slate-500">Auth Method:</div>
-                      <div className="font-mono text-sm">{resultadoCache.auth_method}</div>
-                    </div>
-                  </div>
+                {resultadoSchema.campos_faltando.length > 0 && (
+                  <Card className="border-red-200">
+                    <CardHeader>
+                      <CardTitle className="text-sm text-red-700">❌ Campos com Problema</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-2">
+                        {resultadoSchema.campos_faltando.map((campo, idx) => (
+                          <div key={idx} className="text-sm text-red-600 font-mono bg-red-50 p-2 rounded">
+                            {campo}
+                          </div>
+                        ))}
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
 
-                  {!resultadoCache.versao_match && !resultadoCache.erro && (
-                    <Alert className="bg-yellow-50 border-yellow-500">
-                      <AlertTriangle className="h-4 w-4 text-yellow-700" />
-                      <AlertDescription className="text-yellow-900">
-                        <strong>⚠️ Versão antiga ainda ativa!</strong>
-                        <ul className="list-disc ml-6 mt-2 text-sm">
-                          <li>Aguarde 2-3 minutos e teste novamente</li>
-                          <li>Envie uma mensagem REAL via WhatsApp para forçar reload</li>
-                          <li>Verifique se a função foi salva corretamente</li>
-                        </ul>
-                      </AlertDescription>
-                    </Alert>
-                  )}
-                </CardContent>
-              </Card>
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-sm">Testes Executados</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-2">
+                      {resultadoSchema.testes.map((teste, idx) => (
+                        <div key={idx} className="flex items-center justify-between text-sm p-2 bg-slate-50 rounded">
+                          <span className="font-medium">{teste.etapa}</span>
+                          <Badge className={teste.status === 'sucesso' ? 'bg-green-500' : 'bg-red-500'}>
+                            {teste.status}
+                          </Badge>
+                        </div>
+                      ))}
+                    </div>
+                  </CardContent>
+                </Card>
+              </>
+            ) : (
+              <div className="text-center py-12 text-slate-500">
+                Execute a validação de schema para ver resultados
+              </div>
+            )}
+          </TabsContent>
+
+          {/* TAB: Auditoria */}
+          <TabsContent value="auditoria" className="space-y-4">
+            {resultadoAuditoria ? (
+              <>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  <Card>
+                    <CardContent className="pt-6">
+                      <div className="text-2xl font-bold text-slate-900">
+                        {resultadoAuditoria.estatisticas.contatos_duplicados}
+                      </div>
+                      <div className="text-sm text-slate-600">Contatos Duplicados</div>
+                    </CardContent>
+                  </Card>
+                  <Card>
+                    <CardContent className="pt-6">
+                      <div className="text-2xl font-bold text-slate-900">
+                        {resultadoAuditoria.estatisticas.threads_duplicadas}
+                      </div>
+                      <div className="text-sm text-slate-600">Threads Duplicadas</div>
+                    </CardContent>
+                  </Card>
+                  <Card>
+                    <CardContent className="pt-6">
+                      <div className="text-2xl font-bold text-orange-600">
+                        {resultadoAuditoria.threads_sem_canonical.length}
+                      </div>
+                      <div className="text-sm text-slate-600">Sem is_canonical</div>
+                    </CardContent>
+                  </Card>
+                  <Card>
+                    <CardContent className="pt-6">
+                      <div className="text-2xl font-bold text-red-600">
+                        {resultadoAuditoria.threads_merged_sem_destino.length}
+                      </div>
+                      <div className="text-sm text-slate-600">Merged Inválidas</div>
+                    </CardContent>
+                  </Card>
+                </div>
+
+                {resultadoAuditoria.contatos_duplicados.length > 0 && (
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="text-sm">📞 Contatos Duplicados por Telefone</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-3 max-h-96 overflow-y-auto">
+                        {resultadoAuditoria.contatos_duplicados.map((dup, idx) => (
+                          <div key={idx} className="p-3 bg-red-50 border border-red-200 rounded-lg">
+                            <div className="font-semibold text-red-900">
+                              {dup.telefone} ({dup.quantidade}x)
+                            </div>
+                            <div className="mt-2 space-y-1">
+                              {dup.contatos.map((c) => (
+                                <div key={c.id} className="text-xs font-mono text-slate-600 flex items-center gap-2">
+                                  <span className="text-slate-400">{c.id.substring(0, 8)}</span>
+                                  <span>{c.nome}</span>
+                                  <Badge variant="outline" className="text-[10px]">
+                                    {new Date(c.created_date).toLocaleDateString()}
+                                  </Badge>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+
+                {resultadoAuditoria.threads_duplicadas.length > 0 && (
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="text-sm">💬 Threads Duplicadas por Contact</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-3 max-h-96 overflow-y-auto">
+                        {resultadoAuditoria.threads_duplicadas.slice(0, 20).map((dup, idx) => (
+                          <div key={idx} className="p-3 bg-orange-50 border border-orange-200 rounded-lg">
+                            <div className="flex items-center justify-between">
+                              <span className="font-semibold text-orange-900">
+                                Contact: {dup.contact_id.substring(0, 8)}
+                              </span>
+                              <div className="flex gap-2">
+                                <Badge className="bg-blue-100 text-blue-800">{dup.quantidade} threads</Badge>
+                                <Badge className="bg-green-100 text-green-800">{dup.canonicas} canônicas</Badge>
+                                <Badge className="bg-purple-100 text-purple-800">{dup.merged} merged</Badge>
+                              </div>
+                            </div>
+                            <div className="mt-2 space-y-1">
+                              {dup.threads.map((t) => (
+                                <div key={t.id} className="text-xs font-mono text-slate-600 flex items-center gap-2">
+                                  <span className="text-slate-400">{t.id.substring(0, 8)}</span>
+                                  {t.is_canonical && <Badge className="bg-green-500 text-white text-[10px]">CANONICAL</Badge>}
+                                  {t.status === 'merged' && <Badge className="bg-purple-500 text-white text-[10px]">MERGED</Badge>}
+                                  <span className="text-slate-500">→ {t.whatsapp_integration_id?.substring(0, 8) || 'sem int'}</span>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+              </>
+            ) : (
+              <div className="text-center py-12 text-slate-500">
+                Execute a auditoria para identificar duplicatas
+              </div>
+            )}
+          </TabsContent>
+
+          {/* TAB: Consolidação */}
+          <TabsContent value="consolidacao" className="space-y-4">
+            {resultadoConsolidacao ? (
+              <>
+                <Alert className={resultadoConsolidacao.dry_run ? 'border-blue-500 bg-blue-50' : 'border-green-500 bg-green-50'}>
+                  <AlertDescription className="flex items-center gap-2">
+                    {resultadoConsolidacao.dry_run ? (
+                      <>
+                        <FileCode className="w-5 h-5 text-blue-600" />
+                        <span className="font-semibold text-blue-900">
+                          Simulação - Nenhuma alteração foi feita no banco
+                        </span>
+                      </>
+                    ) : (
+                      <>
+                        <CheckCircle className="w-5 h-5 text-green-600" />
+                        <span className="font-semibold text-green-900">
+                          Consolidação Executada - Banco de dados atualizado
+                        </span>
+                      </>
+                    )}
+                  </AlertDescription>
+                </Alert>
+
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  <Card>
+                    <CardContent className="pt-6">
+                      <div className="text-2xl font-bold text-slate-900">
+                        {resultadoConsolidacao.estatisticas.grupos_processados}
+                      </div>
+                      <div className="text-sm text-slate-600">Contatos Processados</div>
+                    </CardContent>
+                  </Card>
+                  <Card>
+                    <CardContent className="pt-6">
+                      <div className="text-2xl font-bold text-green-600">
+                        {resultadoConsolidacao.estatisticas.threads_marcadas_canonical}
+                      </div>
+                      <div className="text-sm text-slate-600">Marcadas Canônicas</div>
+                    </CardContent>
+                  </Card>
+                  <Card>
+                    <CardContent className="pt-6">
+                      <div className="text-2xl font-bold text-purple-600">
+                        {resultadoConsolidacao.estatisticas.threads_marcadas_merged}
+                      </div>
+                      <div className="text-sm text-slate-600">Marcadas Merged</div>
+                    </CardContent>
+                  </Card>
+                  <Card>
+                    <CardContent className="pt-6">
+                      <div className="text-2xl font-bold text-red-600">
+                        {resultadoConsolidacao.estatisticas.erros_total}
+                      </div>
+                      <div className="text-sm text-slate-600">Erros</div>
+                    </CardContent>
+                  </Card>
+                </div>
+
+                {resultadoConsolidacao.detalhes.length > 0 && (
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="text-sm">Detalhes do Processamento</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-2 max-h-96 overflow-y-auto">
+                        {resultadoConsolidacao.detalhes.slice(0, 50).map((det, idx) => (
+                          <div key={idx} className="text-xs p-2 bg-slate-50 rounded border border-slate-200">
+                            <div className="font-semibold text-slate-700">
+                              Contact: {det.contact_id?.substring(0, 8)}
+                            </div>
+                            {det.acao === 'consolidacao' && (
+                              <div className="mt-1 space-y-1">
+                                <div className="text-green-600">
+                                  ✅ Canônica: {det.canonical_id?.substring(0, 8)}
+                                </div>
+                                <div className="text-purple-600">
+                                  🔀 Merged: {det.duplicadas_ids?.length || 0} threads
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+
+                {!resultadoConsolidacao.dry_run && resultadoConsolidacao.threads_marcadas_merged > 0 && (
+                  <Alert className="border-green-500 bg-green-50">
+                    <AlertDescription className="text-green-900">
+                      ✅ Consolidação concluída! As threads antigas foram marcadas como "merged" e não aparecerão mais na listagem.
+                      Atualize a página de Comunicação para ver o resultado.
+                    </AlertDescription>
+                  </Alert>
+                )}
+              </>
+            ) : (
+              <div className="text-center py-12 text-slate-500">
+                Execute a consolidação (simulação ou real) para ver resultados
+              </div>
             )}
           </TabsContent>
         </Tabs>
-
       </div>
     </div>
   );
