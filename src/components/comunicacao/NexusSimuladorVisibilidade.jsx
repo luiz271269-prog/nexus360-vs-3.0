@@ -43,6 +43,7 @@ export default function NexusSimuladorVisibilidade({ usuario, integracoes = [], 
   const [filtroUsuarioAtribuido, setFiltroUsuarioAtribuido] = useState('todos');
   const [filtroInstanciaWhatsApp, setFiltroInstanciaWhatsApp] = useState('todas');
   const [draggedThread, setDraggedThread] = useState(null);
+  const [telefoneParaCorrigir, setTelefoneParaCorrigir] = useState(null);
 
   // Carregar lista de usuários e dados iniciais
   useEffect(() => {
@@ -1219,6 +1220,7 @@ export default function NexusSimuladorVisibilidade({ usuario, integracoes = [], 
             </DialogTitle>
           </DialogHeader>
           <UnificadorContatosManual 
+            telefoneInicial={telefoneParaCorrigir}
             contatoOrigem={contatoDragOrigem} 
             contatoDestino={contatoDropDestino}
             isAdmin={usuario?.role === 'admin'}
