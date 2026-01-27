@@ -626,7 +626,6 @@ async function handleMessage(dados, payloadBruto, base44) {
   // MOVIDO PARA DEPOIS da criação do contato para ter contato.id disponível
   
   // 🔧 AUTO-MERGE: Unificar todas as threads antigas deste contato (ANTES de criar/usar)
-  let threadCanonica = null;
   try {
     const todasThreadsContato = await base44.asServiceRole.entities.MessageThread.filter(
       { contact_id: contato.id },
