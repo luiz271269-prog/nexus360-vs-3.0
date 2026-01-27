@@ -190,7 +190,7 @@ export default function SeletorUnificacaoMultipla({
               </Button>
               <Button
                 onClick={handleUnificar}
-                disabled={!mestreSelecionado || contatosParaMerge.length === 0 || processando}
+                disabled={!mestreSelecionado || processando}
                 className="bg-orange-600 hover:bg-orange-700"
               >
                 {processando ? '🔄 Unificando...' : '✅ Unificar Agora'}
