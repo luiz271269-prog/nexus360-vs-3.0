@@ -33,31 +33,46 @@ export default function UnificadorContatosManual({ telefoneInicial, contatoOrige
     }
   }, [telefoneInicial, contatoOrigem, contatoDestino]);
 
-  // Gerar variações do telefone para busca robusta
+  // Gerar TODAS as variações possíveis do telefone
   const gerarVariacoesTelefone = (telefone) => {
     const limpo = telefone.replace(/\D/g, '');
     const variacoes = new Set([limpo]);
 
-    // +55 vs sem 55
-    if (limpo.startsWith('55')) {
-      variacoes.add(limpo.substring(2));
-    } else {
+    // Variação 1: +55 vs sem 55
+    if (limpo.startsWith('55') && limpo.length >= 12) {
+      const sem55 = limpo.substring(2);
+      variacoes.add(sem55);
+      
+      // Se tem 9 dígito no celular (posição 2 após remover 55)
+      if (sem55.length === 11 && sem55[2] === '9') {
+        variacoes.add(sem55.substring(0, 2) + sem55.substring(3)); // Remove o 9
+      }
+    } else if (!limpo.startsWith('55') && limpo.length >= 10) {
       variacoes.add('55' + limpo);
-    }
-
-    // 9 dígito móvel (adicionar/remover)
-    if (limpo.length === 13 && limpo.startsWith('55')) {
-      const semPais = limpo.substring(2);
-      if (semPais[2] === '9') {
-        variacoes.add('55' + semPais.substring(0, 2) + semPais.substring(3));
+      
+      // Se tem 9 dígito
+      if (limpo.length === 11 && limpo[2] === '9') {
+        variacoes.add('55' + limpo);
+        variacoes.add('55' + limpo.substring(0, 2) + limpo.substring(3)); // 55 + sem 9
+        variacoes.add(limpo.substring(0, 2) + limpo.substring(3)); // Sem 55 e sem 9
+      }
+      
+      // Se NÃO tem 9 dígito
+      if (limpo.length === 10 && limpo[2] !== '9') {
+        variacoes.add('55' + limpo.substring(0, 2) + '9' + limpo.substring(2)); // Adiciona 9
+        variacoes.add(limpo.substring(0, 2) + '9' + limpo.substring(2)); // Sem 55 + com 9
       }
     }
 
-    if (limpo.length === 11) {
-      if (limpo[2] !== '9') {
-        variacoes.add(limpo.substring(0, 2) + '9' + limpo.substring(2));
+    // Adicionar variação com 0 no DDD (ex: 048 vs 48)
+    Array.from(variacoes).forEach(v => {
+      if (v.length >= 10 && !v.startsWith('0')) {
+        variacoes.add('0' + v);
       }
-    }
+      if (v.length >= 11 && v.startsWith('0')) {
+        variacoes.add(v.substring(1));
+      }
+    });
 
     return Array.from(variacoes);
   };
@@ -103,15 +118,26 @@ export default function UnificadorContatosManual({ telefoneInicial, contatoOrige
       const todosContatos = await base44.entities.Contact.list('-created_date', 10000);
       console.log('[UNIFICADOR] 📊 Total de contatos carregados:', todosContatos.length);
       
+      // DEBUG: Mostrar todos os telefones do banco para diagnóstico
+      console.log('[UNIFICADOR] 🔍 Primeiros 20 telefones do banco:', 
+        todosContatos.slice(0, 20).map(c => ({ nome: c.nome, tel: c.telefone }))
+      );
+      
       // Filtrar por TODAS as variações do telefone
       const duplicatas = todosContatos.filter(c => {
-        if (!c.telefone) return false;
-        const tel = c.telefone.replace(/\D/g, '');
-        const match = variacoes.some(v => v === tel);
-        
-        if (match) {
-          console.log('[UNIFICADOR] ✓ Match encontrado:', c.nome, '|', c.telefone, '| ID:', c.id.substring(0,8));
+        if (!c.telefone) {
+          console.log('[UNIFICADOR] ⚠️ Contato sem telefone:', c.nome, c.id.substring(0,8));
+          return false;
         }
+        
+        const tel = c.telefone.replace(/\D/g, '');
+        const match = variacoes.some(v => {
+          const isMatch = v === tel;
+          if (isMatch) {
+            console.log(`[UNIFICADOR] ✓ MATCH: ${c.nome} | Tel original: ${c.telefone} | Tel limpo: ${tel} | Variação: ${v}`);
+          }
+          return isMatch;
+        });
         
         return match;
       });
