@@ -16,6 +16,7 @@ import { canUserSeeThreadBase } from '@/components/lib/permissionsService';
 import { base44 } from '@/api/base44Client';
 import { getUserDisplayName } from '../lib/userHelpers';
 import UnificadorContatosCentralizado from './UnificadorContatosCentralizado';
+import SeletorUnificacaoMultipla from './SeletorUnificacaoMultipla';
 
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 
