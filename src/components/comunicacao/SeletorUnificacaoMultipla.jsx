@@ -67,32 +67,31 @@ export default function SeletorUnificacaoMultipla({
           });
         }
       } else {
-        // FLUXO NORMAL: Unificar múltiplos contatos em série (1 por vez)
-        for (const duplicata of contatosParaMerge) {
-          console.log(`[UnificacaoMultipla] 🔄 Mergeando ${duplicata.nome} → ${mestreSelecionado.nome}`);
-          
-          const resultado = await base44.functions.invoke('mergeContacts', {
-            master_id: mestreSelecionado.id,
-            duplicate_ids: [duplicata.id] // 1 por vez
+        // 🆕 FLUXO OTIMIZADO: Unificar TODOS DE UMA VEZ no backend
+        console.log(`[UnificacaoMultipla] 🔄 Mergeando ${contatosParaMerge.length} contato(s) → ${mestreSelecionado.nome}`);
+        
+        const resultado = await base44.functions.invoke('mergeContacts', {
+          masterContactId: mestreSelecionado.id,
+          duplicateContactIds: contatosParaMerge.map(c => c.id) // TODOS de uma vez
+        });
+
+        if (resultado.data.success) {
+          // Stats agregados
+          const stats = resultado.data.stats;
+          resultados.push({
+            duplicata: `${contatosParaMerge.length} contato(s)`,
+            status: 'sucesso',
+            threads_movidas: stats.threadsMovidas || 0,
+            mensagens_movidas: stats.mensagensMovidas || 0,
+            interacoes_movidas: stats.interacoesMovidas || 0,
+            duplicatas_processadas: stats.duplicatasProcessadas || 0
           });
-
-          if (resultado.data.success) {
-            resultados.push({
-              duplicata: duplicata.nome,
-              status: 'sucesso',
-              threads_movidas: resultado.data.stats.threads_moved || 0,
-              mensagens_movidas: resultado.data.stats.messages_moved || 0
-            });
-          } else {
-            resultados.push({
-              duplicata: duplicata.nome,
-              status: 'erro',
-              erro: resultado.data.error
-            });
-          }
-
-          // Delay entre merges (100ms)
-          await new Promise(r => setTimeout(r, 100));
+        } else {
+          resultados.push({
+            duplicata: `${contatosParaMerge.length} contato(s)`,
+            status: 'erro',
+            erro: resultado.data.error
+          });
         }
       }
 
