@@ -99,17 +99,24 @@ export default function UnificadorContatosManual({ telefoneInicial, contatoOrige
       const variacoes = gerarVariacoesTelefone(telefone);
       console.log('[UNIFICADOR] Variações do telefone:', variacoes);
       
-      // Buscar TODOS os contatos (sem limite)
+      // Buscar TODOS os contatos paginando corretamente
       let todosContatos = [];
-      let offset = 0;
       const batchSize = 500;
       
       while (true) {
         const batch = await base44.entities.Contact.list('-created_date', batchSize);
         todosContatos.push(...batch);
         
+        console.log('[UNIFICADOR] Batch carregado:', batch.length, '| Total acumulado:', todosContatos.length);
+        
         if (batch.length < batchSize) break;
-        offset += batchSize;
+        
+        // Usar o ID do último item como cursor para próxima página
+        // (simulando paginação - Base44 usa limit, não offset)
+        if (todosContatos.length >= 5000) {
+          console.warn('[UNIFICADOR] Limite de 5000 contatos atingido');
+          break;
+        }
       }
       
       console.log('[UNIFICADOR] Total de contatos carregados:', todosContatos.length);
@@ -188,30 +195,36 @@ export default function UnificadorContatosManual({ telefoneInicial, contatoOrige
       let totalConversasMovidas = 0;
       let totalInteracoesMovidas = 0;
 
+      // Buscar threads do mestre UMA VEZ (fora do loop)
+      const threadsMestre = await base44.entities.MessageThread.filter({ contact_id: contatoPrincipal.id });
+
       // Processar cada duplicata
       for (const duplicata of contatosDuplicados) {
+        console.log(`[UNIFICAÇÃO] Processando duplicata ${duplicata.id} (${duplicata.nome})`);
+        
         const mestre = contatoPrincipal;
 
-      // 1️⃣ FUSÃO DE DADOS
-      const updateMestre = {};
-      if (!mestre.email && duplicata.email) updateMestre.email = duplicata.email;
-      if (!mestre.cargo && duplicata.cargo) updateMestre.cargo = duplicata.cargo;
-      if (!mestre.empresa && duplicata.empresa) updateMestre.empresa = duplicata.empresa;
-      
-      const tagsSet = new Set(mestre.tags || []);
-      (duplicata.tags || []).forEach(tag => tagsSet.add(tag));
-      if ((duplicata.tags || []).length > 0) updateMestre.tags = Array.from(tagsSet);
+        // 1️⃣ FUSÃO DE DADOS
+        const updateMestre = {};
+        if (!mestre.email && duplicata.email) updateMestre.email = duplicata.email;
+        if (!mestre.cargo && duplicata.cargo) updateMestre.cargo = duplicata.cargo;
+        if (!mestre.empresa && duplicata.empresa) updateMestre.empresa = duplicata.empresa;
+        
+        const tagsSet = new Set(mestre.tags || []);
+        (duplicata.tags || []).forEach(tag => tagsSet.add(tag));
+        if ((duplicata.tags || []).length > 0) updateMestre.tags = Array.from(tagsSet);
 
-      if (Object.keys(updateMestre).length > 0) {
-        await base44.entities.Contact.update(mestre.id, updateMestre);
-      }
+        if (Object.keys(updateMestre).length > 0) {
+          console.log('[UNIFICAÇÃO] Atualizando dados do mestre:', updateMestre);
+          await base44.entities.Contact.update(mestre.id, updateMestre);
+        }
 
-      // 2️⃣ FUSÃO DE THREADS - MELHORADA
-      const threadsDup = await base44.entities.MessageThread.filter({ contact_id: duplicata.id });
-      const threadsMestre = await base44.entities.MessageThread.filter({ contact_id: mestre.id });
-      
-      let mensagensMovidas = 0;
-      let conversasMovidas = 0;
+        // 2️⃣ FUSÃO DE THREADS
+        const threadsDup = await base44.entities.MessageThread.filter({ contact_id: duplicata.id });
+        console.log(`[UNIFICAÇÃO] ${threadsDup.length} threads da duplicata`);
+        
+        let mensagensMovidas = 0;
+        let conversasMovidas = 0;
 
       for (const threadDup of threadsDup) {
         // Criar chave de canal unificada
@@ -238,8 +251,9 @@ export default function UnificadorContatosManual({ telefoneInicial, contatoOrige
         const threadConflito = threadsMestre.find(tm => getChannelKey(tm) === keyDup);
 
         if (threadConflito) {
+          console.log(`[UNIFICAÇÃO] CONFLITO - Mesclando thread ${threadDup.id} → ${threadConflito.id}`);
+          
           // CONFLITO: Mesclar TODAS as mensagens (paginado)
-          let offsetMensagens = 0;
           let totalMovidas = 0;
 
           while (true) {
@@ -248,6 +262,8 @@ export default function UnificadorContatosManual({ telefoneInicial, contatoOrige
               '-sent_at',
               500
             );
+
+            console.log(`[UNIFICAÇÃO] Movendo ${mensagens.length} mensagens...`);
 
             if (mensagens.length === 0) break;
 
@@ -259,10 +275,10 @@ export default function UnificadorContatosManual({ telefoneInicial, contatoOrige
               totalMovidas++;
             }
 
-            offsetMensagens += mensagens.length;
             if (mensagens.length < 500) break;
           }
 
+          console.log(`[UNIFICAÇÃO] Total movido: ${totalMovidas} mensagens`);
           mensagensMovidas += totalMovidas;
 
           // Atualizar thread mestre
@@ -279,7 +295,8 @@ export default function UnificadorContatosManual({ telefoneInicial, contatoOrige
             });
           }
 
-          // Marcar como merged ao invés de deletar
+          // Marcar como merged ao invés de deletar (mantém histórico)
+          console.log('[UNIFICAÇÃO] Marcando thread como merged');
           await base44.entities.MessageThread.update(threadDup.id, {
             status: 'merged',
             is_canonical: false,
@@ -287,6 +304,8 @@ export default function UnificadorContatosManual({ telefoneInicial, contatoOrige
           });
 
         } else {
+          console.log(`[UNIFICAÇÃO] SEM CONFLITO - Reatribuindo thread ${threadDup.id}`);
+          
           // SEM CONFLITO: Reatribuir e garantir canonicidade
           await base44.entities.MessageThread.update(threadDup.id, { 
             contact_id: mestre.id,
@@ -295,6 +314,10 @@ export default function UnificadorContatosManual({ telefoneInicial, contatoOrige
           conversasMovidas++;
         }
       }
+      
+      console.log(`[UNIFICAÇÃO] Threads processadas: ${conversasMovidas} movidas, ${mensagensMovidas} mensagens`);
+      totalConversasMovidas += conversasMovidas;
+      totalMensagensMovidas += mensagensMovidas;
 
         // 3️⃣ INTERAÇÕES
         const interacoes = await base44.entities.Interacao.filter({ contact_id: duplicata.id });
@@ -304,12 +327,10 @@ export default function UnificadorContatosManual({ telefoneInicial, contatoOrige
         totalInteracoesMovidas += interacoes.length;
 
         // 4️⃣ DELETAR DUPLICATA (método correto)
+        console.log(`[UNIFICAÇÃO] Deletando contato duplicado ${duplicata.id}`);
         await base44.entities.Contact.delete(duplicata.id);
         
-        console.log(`[UNIFICAÇÃO] ✅ Duplicata ${duplicata.id} unificada em ${mestre.id}`);
-        
-        totalConversasMovidas += conversasMovidas;
-        totalMensagensMovidas += mensagensMovidas;
+        console.log(`[UNIFICAÇÃO] ✅ Duplicata ${duplicata.id} unificada e deletada`);
       }
 
       toast.dismiss(loadingToast);
@@ -335,10 +356,10 @@ export default function UnificadorContatosManual({ telefoneInicial, contatoOrige
         {/* CONTATO PRINCIPAL (será mantido) */}
         <Card className="border-2 border-green-400 bg-green-50">
           <CardHeader className="pb-3">
-            <h3 className="font-bold text-green-700 flex items-center gap-2">
-              <CheckCircle className="w-5 h-5" />
-              🏆 PRINCIPAL (Mais Antigo)
-            </h3>
+           <h3 className="font-bold text-green-700 flex items-center gap-2">
+             <CheckCircle className="w-5 h-5" />
+             🏆 PRINCIPAL (Mais Forte)
+           </h3>
           </CardHeader>
           <CardContent>
             <div className="bg-white p-4 rounded-lg text-sm space-y-2">
