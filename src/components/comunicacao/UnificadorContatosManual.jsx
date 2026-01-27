@@ -282,8 +282,9 @@ export default function UnificadorContatosManual({ telefoneInicial, contatoOrige
         if (threadConflito) {
           console.log(`[UNIFICAÇÃO] CONFLITO - Mesclando thread ${threadDup.id} → ${threadConflito.id}`);
           
-          // CONFLITO: Mesclar TODAS as mensagens (paginado)
+          // CONFLITO: Mesclar TODAS as mensagens (paginado + batches pequenos)
           let totalMovidas = 0;
+          let ultimaMensagemMovida = null;
 
           while (true) {
             const mensagens = await base44.entities.Message.filter(
@@ -292,16 +293,30 @@ export default function UnificadorContatosManual({ telefoneInicial, contatoOrige
               500
             );
 
-            console.log(`[UNIFICAÇÃO] Movendo ${mensagens.length} mensagens...`);
+            console.log(`[UNIFICAÇÃO] Batch de ${mensagens.length} mensagens encontradas`);
 
             if (mensagens.length === 0) break;
 
-            for (const msg of mensagens) {
-              await base44.entities.Message.update(msg.id, {
-                thread_id: threadConflito.id,
-                recipient_id: mestre.id
-              });
-              totalMovidas++;
+            // Processar em batches de 50 para evitar timeout/rate limit
+            const BATCH_SIZE = 50;
+            for (let i = 0; i < mensagens.length; i += BATCH_SIZE) {
+              const batch = mensagens.slice(i, i + BATCH_SIZE);
+              console.log(`[UNIFICAÇÃO] Movendo batch ${i}-${i + batch.length}...`);
+              
+              // Processar sequencialmente dentro do batch (mais seguro)
+              for (const msg of batch) {
+                await base44.entities.Message.update(msg.id, {
+                  thread_id: threadConflito.id,
+                  recipient_id: mestre.id
+                });
+                
+                // Guardar a última mensagem movida (para last_message_at real)
+                if (!ultimaMensagemMovida || msg.sent_at > ultimaMensagemMovida.sent_at) {
+                  ultimaMensagemMovida = msg;
+                }
+                
+                totalMovidas++;
+              }
             }
 
             if (mensagens.length < 500) break;
@@ -310,18 +325,16 @@ export default function UnificadorContatosManual({ telefoneInicial, contatoOrige
           console.log(`[UNIFICAÇÃO] Total movido: ${totalMovidas} mensagens`);
           mensagensMovidas += totalMovidas;
 
-          // Atualizar thread mestre
-          if (totalMovidas > 0) {
-            const ultimaMsg = await base44.entities.Message.filter(
-              { thread_id: threadConflito.id },
-              '-sent_at',
-              1
-            );
-
+          // Atualizar thread mestre com timestamp REAL da última mensagem
+          if (totalMovidas > 0 && ultimaMensagemMovida) {
+            const lastMessageAt = ultimaMensagemMovida.sent_at || ultimaMensagemMovida.created_date;
+            
             await base44.entities.MessageThread.update(threadConflito.id, {
-              last_message_at: ultimaMsg[0]?.sent_at || ultimaMsg[0]?.created_date,
+              last_message_at: lastMessageAt,
               total_mensagens: (threadConflito.total_mensagens || 0) + totalMovidas
             });
+            
+            console.log(`[UNIFICAÇÃO] Thread mestre atualizada com last_message_at: ${lastMessageAt}`);
           }
 
           // Marcar como merged ao invés de deletar (mantém histórico)
@@ -355,14 +368,14 @@ export default function UnificadorContatosManual({ telefoneInicial, contatoOrige
         }
         totalInteracoesMovidas += interacoes.length;
 
-        // 4️⃣ VALIDAR e DELETAR DUPLICATA
+        // 4️⃣ VALIDAR e DELETAR DUPLICATA (sem $ne - filtrar em JS)
         console.log(`[UNIFICAÇÃO] Validando antes de deletar ${duplicata.id}...`);
         
-        // Verificar se ainda há threads apontando para esta duplicata
-        const threadsRestantes = await base44.entities.MessageThread.filter({ 
-          contact_id: duplicata.id,
-          status: { $ne: 'merged' } // Ignorar threads já merged
+        // Buscar TODAS as threads e filtrar em JS (sem $ne que quebra no backend)
+        const todasThreadsDup = await base44.entities.MessageThread.filter({ 
+          contact_id: duplicata.id
         });
+        const threadsRestantes = todasThreadsDup.filter(t => t.status !== 'merged');
         
         if (threadsRestantes.length > 0) {
           console.error(`[UNIFICAÇÃO] ⚠️ AVISO: ${threadsRestantes.length} threads ainda apontam para ${duplicata.id}`);
