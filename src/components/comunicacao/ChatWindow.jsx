@@ -1731,30 +1731,10 @@ export default function ChatWindow({
   }, [contatoCompleto, usuario, navigate]);
 
   // 🎯 MEMOIZAÇÃO: Processar mensagens ANTES de qualquer early return
-  // ✅ INCLUIR MENSAGENS DE THREADS MERGED
-  const mensagensComMerged = useMemo(() => {
-    if (!thread) return mensagens;
-    
-    // Se a thread atual é canônica, incluir mensagens de threads merged
-    if (thread.is_canonical && thread.id) {
-      // Buscar outras threads que foram merged nesta
-      const threadsMerged = thread.merged_thread_ids || [];
-      
-      // Se há threads merged, filtrar mensagens de todas elas
-      if (threadsMerged.length > 0) {
-        const threadIds = [thread.id, ...threadsMerged];
-        return mensagens.filter(m => threadIds.includes(m.thread_id));
-      }
-    }
-    
-    // Caso normal: apenas mensagens da thread atual
-    return mensagens.filter(m => m.thread_id === thread.id);
-  }, [mensagens, thread]);
-
   const mensagensProcessadas = useMemo(() => {
-    if (mensagensComMerged.length === 0) return [];
+    if (mensagens.length === 0) return [];
 
-    let mensagensFiltradas = mensagensComMerged;
+    let mensagensFiltradas = mensagens;
 
     // Filtrar por categoria se necessário
     if (selectedCategoria && selectedCategoria !== 'all') {
@@ -1814,7 +1794,7 @@ export default function ChatWindow({
 
       return false;
     });
-  }, [mensagensComMerged, selectedCategoria, thread?.thread_type]);
+  }, [mensagens, selectedCategoria, thread?.thread_type]);
 
   // ✅ HANDLER ATUALIZAR CONTATO - Declarado ANTES dos early returns
   const handleAtualizarContato = useCallback(async (campo, valor) => {
