@@ -40,20 +40,34 @@ Deno.serve(async (req) => {
     const threadIds = new Set(mensagens.map(m => m.thread_id).filter(Boolean));
     console.log(`[${VERSION}] 🧵 Threads únicas: ${threadIds.size}`);
 
-    const threads = await base44.asServiceRole.entities.MessageThread.filter(
+    const allThreads = await base44.asServiceRole.entities.MessageThread.filter(
       { id: { $in: Array.from(threadIds) } },
       '-created_date',
       200
     );
+    
+    // ✅ THREADS INTERNAS: Sempre incluir (não são merged)
+    const threads = allThreads.filter(t => {
+      if (t.thread_type === 'team_internal' || t.thread_type === 'sector_group') {
+        return true;
+      }
+      return t.status !== 'merged'; // Externas: excluir merged
+    });
 
-    console.log(`[${VERSION}] 🧵 Threads recuperadas: ${threads.length}`);
+    console.log(`[${VERSION}] 🧵 Threads recuperadas: ${threads.length} (${allThreads.filter(t => t.thread_type === 'team_internal' || t.thread_type === 'sector_group').length} internas)`);
 
-    // ✅ 3. ANALISAR CONTATOS ASSOCIADOS
+    // ✅ 3. ANALISAR CONTATOS ASSOCIADOS (apenas threads externas)
     const contactIds = new Set();
     threads.forEach(t => {
+      // Threads internas não têm contact_id (têm participants)
+      if ((t.thread_type === 'team_internal' || t.thread_type === 'sector_group')) {
+        return;
+      }
       if (t.contact_id) contactIds.add(t.contact_id);
     });
     mensagens.forEach(m => {
+      // Mensagens internas têm sender_type='user' sempre
+      if (m.channel === 'interno') return;
       if (m.sender_id) contactIds.add(m.sender_id);
     });
 
@@ -140,12 +154,18 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Threads orfãs (sem contato)
-    const threadsOrfas = threads.filter(t => !t.contact_id);
+    // Threads orfãs (sem contato) - APENAS threads externas
+    const threadsOrfas = threads.filter(t => {
+      // Threads internas não precisam de contact_id
+      if (t.thread_type === 'team_internal' || t.thread_type === 'sector_group') {
+        return false;
+      }
+      return !t.contact_id;
+    });
     if (threadsOrfas.length > 0) {
       problemas.push({
         tipo: 'CRÍTICO',
-        descricao: `${threadsOrfas.length} threads sem contact_id associado`,
+        descricao: `${threadsOrfas.length} threads EXTERNAS sem contact_id associado`,
         ids: threadsOrfas.slice(0, 5).map(t => t.id),
       });
     }

@@ -54,7 +54,18 @@ export default function CentralControleOperacional({ onSelecionarThread, usuario
 
   const { data: threads = [] } = useQuery({
     queryKey: ['threads-controle'],
-    queryFn: () => base44.entities.MessageThread.list('-last_message_at', 200),
+    queryFn: async () => {
+      const allThreads = await base44.entities.MessageThread.list('-last_message_at', 200);
+      
+      // ✅ THREADS INTERNAS: Sempre incluir (não têm is_canonical nem merge)
+      // ✅ THREADS EXTERNAS: Apenas canônicas e não-merged
+      return allThreads.filter(t => {
+        if (t.thread_type === 'team_internal' || t.thread_type === 'sector_group') {
+          return true; // Threads internas sempre visíveis
+        }
+        return t.status !== 'merged'; // Threads externas: excluir apenas merged
+      });
+    },
     refetchInterval: 30000,
     initialData: []
   });

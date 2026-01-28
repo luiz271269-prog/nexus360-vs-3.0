@@ -66,7 +66,15 @@ export async function calcularLembretesGlobal(usuario) {
     let threads = [];
     
     try {
-      threads = await base44.entities.MessageThread.filter({ status: 'aberta' }, '-last_message_at', 20);
+      const allThreads = await base44.entities.MessageThread.filter({ status: 'aberta' }, '-last_message_at', 20);
+      
+      // ✅ THREADS INTERNAS: Sempre incluir (contam para notificações)
+      threads = allThreads.filter(t => {
+        if (t.thread_type === 'team_internal' || t.thread_type === 'sector_group') {
+          return true; // Threads internas sempre contam
+        }
+        return t.status !== 'merged'; // Threads externas: apenas não-merged
+      });
     } catch (error) {
       console.warn('[LEMBRETES] ⚠️ Erro no lote 2:', error.message);
     }
