@@ -1205,12 +1205,19 @@ export default function Comunicacao() {
   // OTIMIZAÇÃO: Pré-calcular o Set de "Não Atribuídas" separadamente
   // Extraído para top-level para evitar nested hooks
   // ═══════════════════════════════════════════════════════════════════════
+  // ═══════════════════════════════════════════════════════════════════════
+  // ✅ PRÉ-CÁLCULO: Threads não-atribuídas visíveis em escopo 'unassigned'
+  // IMPORTANTE: Threads internas já têm sua própria regra (participação)
+  // e retornam ANTES desta verificação na VISIBILITY_MATRIX
+  // ═══════════════════════════════════════════════════════════════════════
   const threadsNaoAtribuidasVisiveis = React.useMemo(() => {
     if (effectiveScope !== 'unassigned' || !usuario || !userPermissions) return new Set();
     
     const setIds = new Set();
 
     threads.forEach((thread) => {
+      // ✅ SAGRADO: Threads internas nunca entram neste Set
+      // (têm sua própria regra de visibilidade por participação)
       if (thread.thread_type === 'team_internal' || thread.thread_type === 'sector_group') return;
       
       const contato = contatosMap.get(thread.contact_id);
