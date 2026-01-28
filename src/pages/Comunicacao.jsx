@@ -54,6 +54,7 @@ import GoToConnectionSetup from "../components/comunicacao/GoToConnectionSetup";
 import DiagnosticoThreadsInvisiveis from "../components/comunicacao/DiagnosticoThreadsInvisiveis";
 import DiagnosticoComparativoThreads from "../components/comunicacao/DiagnosticoComparativoThreads";
 import LogsFiltragemViewer from "../components/comunicacao/LogsFiltragemViewer";
+import DiagnosticoMensagensInternas from "../components/comunicacao/DiagnosticoMensagensInternas";
 
 import { useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
@@ -2073,8 +2074,9 @@ export default function Comunicacao() {
             </TabsContent>
 
             <TabsContent value="diagnostico-cirurgico" className="h-full m-0 overflow-hidden">
-              <div className="h-full overflow-y-auto p-6">
+              <div className="h-full overflow-y-auto p-6 space-y-6">
                 <DiagnosticoCirurgicoEmbed />
+                <DiagnosticoMensagensInternas />
               </div>
             </TabsContent>
 
