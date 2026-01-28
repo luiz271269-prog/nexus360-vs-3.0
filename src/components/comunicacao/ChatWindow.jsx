@@ -332,7 +332,11 @@ export default function ChatWindow({
     if (whatsappPerms.length === 0) return true;
 
     const perm = whatsappPerms.find((p) => p.integration_id === thread.whatsapp_integration_id);
-    return perm ? perm[permissionKey] : false;
+    
+    // ✅ CRÍTICO: Se não há permissão configurada para esta instância, LIBERAR por padrão
+    if (!perm) return true;
+    
+    return perm[permissionKey] ?? true;
   };
 
   const podeEnviarPorInstancia = getPermissaoInstancia('can_send');
