@@ -194,17 +194,23 @@ export default function Comunicacao() {
   queryFn: async () => {
     if (isRateLimited) return [];
     try {
-      // ✅ Carregar APENAS threads canônicas e não-merged
-      const allThreads = await base44.entities.MessageThread.filter(
-        {
-          is_canonical: true,
-          status: { $ne: 'merged' }
-        },
-        '-last_message_at',
-        500
-      );
-      console.log('[COMUNICACAO] 📊 Threads canônicas carregadas:', allThreads.length);
-      return allThreads;
+      // ✅ THREADS INTERNAS: SEMPRE mostrar (não têm is_canonical)
+      // ✅ THREADS EXTERNAS: Apenas canônicas e não-merged
+      const allThreads = await base44.entities.MessageThread.list('-last_message_at', 500);
+      
+      // Filtrar APENAS threads externas merged (internas nunca são merged)
+      const threadsVisiveis = allThreads.filter(t => {
+        // Threads internas SEMPRE passam (não aplicam lógica de merge)
+        if (t.thread_type === 'team_internal' || t.thread_type === 'sector_group') {
+          return true;
+        }
+        
+        // Threads externas: apenas canônicas e não-merged
+        return t.is_canonical === true && t.status !== 'merged';
+      });
+      
+      console.log('[COMUNICACAO] 📊 Threads carregadas:', allThreads.length, '| Visíveis:', threadsVisiveis.length, '| Internas:', allThreads.filter(t => t.thread_type === 'team_internal' || t.thread_type === 'sector_group').length);
+      return threadsVisiveis;
       } catch (error) {
         if (error?.message?.includes('429') || error?.response?.status === 429) {
           console.warn('[COMUNICACAO] ⚠️ 429 Rate Limited! Ativando cool-down de 10s...');
