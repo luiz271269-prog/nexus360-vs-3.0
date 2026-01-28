@@ -1439,28 +1439,39 @@ export default function Comunicacao() {
       // MODO NORMAL (sem busca): Aplicar regras estritas de visibilidade
       // ═══════════════════════════════════════════════════════════════════════
 
-      // FILTRO "NÃO ATRIBUÍDAS": Verificar se thread está no Set de visíveis
+      // ═══════════════════════════════════════════════════════════════════════
+      // ✅ FILTRO "NÃO ATRIBUÍDAS": Apenas para threads EXTERNAS
+      // Threads internas são SAGRADAS - já passaram por sua lógica própria acima
+      // ═══════════════════════════════════════════════════════════════════════
       if (isFilterUnassigned) {
-        if (!threadsNaoAtribuidasVisiveis.has(thread.id)) {
-          logThread('Filtro Não Atribuídas', false, 'Thread não está no Set de não atribuídas visíveis');
-          if (DEBUG_VIS && isLuizThread) {
-            console.log('[COMUNICACAO] ❌ DIAGNÓSTICO LUIZ - BLOQUEADO por filtro não atribuídas');
-          }
-          return false;
-        }
-        
-        logThread('Filtro Não Atribuídas', true, 'Thread está no Set');
-
-        if (selectedIntegrationId && selectedIntegrationId !== 'all') {
-          if (thread.whatsapp_integration_id !== selectedIntegrationId) {
-            logThread('Filtro Integração', false, `Integração diferente (esperado: ${selectedIntegrationId})`);
+        // ✅ CURTO-CIRCUITO: Threads internas NUNCA são bloqueadas por escopo
+        // (visibilidade delas já foi decidida por participação/admin acima)
+        if (!(thread.thread_type === 'team_internal' || thread.thread_type === 'sector_group')) {
+          // ✅ APENAS para threads EXTERNAS: verificar Set de não atribuídas visíveis
+          if (!threadsNaoAtribuidasVisiveis.has(thread.id)) {
+            logThread('Filtro Não Atribuídas', false, 'Thread não está no Set de não atribuídas visíveis');
             if (DEBUG_VIS && isLuizThread) {
-              console.log('[COMUNICACAO] ❌ DIAGNÓSTICO LUIZ - BLOQUEADO por filtro de integração específica');
+              console.log('[COMUNICACAO] ❌ DIAGNÓSTICO LUIZ - BLOQUEADO por filtro não atribuídas');
             }
             return false;
           }
+          
+          logThread('Filtro Não Atribuídas', true, 'Thread está no Set');
+
+          if (selectedIntegrationId && selectedIntegrationId !== 'all') {
+            if (thread.whatsapp_integration_id !== selectedIntegrationId) {
+              logThread('Filtro Integração', false, `Integração diferente (esperado: ${selectedIntegrationId})`);
+              if (DEBUG_VIS && isLuizThread) {
+                console.log('[COMUNICACAO] ❌ DIAGNÓSTICO LUIZ - BLOQUEADO por filtro de integração específica');
+              }
+              return false;
+            }
+          }
+          logThread('Filtro Integração', true, 'Integração OK');
+        } else {
+          // ✅ Threads internas passam direto (já foram validadas acima)
+          logThread('Filtro Não Atribuídas', true, 'Thread interna (ignorada pelo escopo)');
         }
-        logThread('Filtro Integração', true, 'Integração OK');
       } else {
         // ✅ NEXUS360: Usar canUserSeeThreadBase + aplicar escopo
         const podeVerBase = permissionsService.canUserSeeThreadBase(userPermissions, thread, contato);
