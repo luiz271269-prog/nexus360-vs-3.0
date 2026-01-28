@@ -974,9 +974,11 @@ export default function Comunicacao() {
           return antigas.filter((m) => m.id !== tempId);
         });
         
-        // 5. Invalidar para buscar mensagem real do backend
-        await queryClient.invalidateQueries({ queryKey: ['mensagens', threadAtiva.id] });
-        await queryClient.invalidateQueries({ queryKey: ['threads'] });
+        // 5. ✅ CRÍTICO: Invalidar queries para RECARREGAR com a nova thread
+        await Promise.all([
+          queryClient.invalidateQueries({ queryKey: ['mensagens', threadAtiva.id] }),
+          queryClient.invalidateQueries({ queryKey: ['threads', usuario?.id] })
+        ]);
       } else {
         throw new Error(resultado.data.error || 'Erro ao enviar');
       }
