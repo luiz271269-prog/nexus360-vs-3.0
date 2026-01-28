@@ -567,10 +567,15 @@ export const VISIBILITY_MATRIX = [
       
       const permIntegracao = userPerms.integracoes?.[integracaoId];
       
-      if (permIntegracao && permIntegracao.can_view === false) {
+      // ✅ CRÍTICO: NÃO bloquear se thread foi TRANSFERIDA para instância do usuário
+      // Conversa transferida = usuário pode continuar mesmo se instância foi bloqueada depois
+      const threadFoiTransferida = thread.assigned_user_id === userPerms.id || 
+                                   thread.last_message_sender === 'user';
+      
+      if (permIntegracao && permIntegracao.can_view === false && !threadFoiTransferida) {
         return { 
           visible: false, 
-          motivo: `Integração ${permIntegracao.integration_name} bloqueada`,
+          motivo: `Integração ${permIntegracao.integration_name} bloqueada (não transferida)`,
           decision_path: ['DENY:bloqueio_integracao'],
           reason_code: 'INTEGRATION_BLOCKED',
           metadata: { integracaoId, nome: permIntegracao.integration_name },
