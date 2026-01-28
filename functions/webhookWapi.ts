@@ -865,16 +865,50 @@ Deno.serve(async (req) => {
   }
 
   const classification = classifyWapiEvent(payload);
+  console.log('[WAPI] 📊 Classification:', classification, '| Event:', payload.event || payload.type);
+  
   const motivoIgnorar = deveIgnorar(payload, classification);
   
   if (motivoIgnorar) {
     console.log('[WAPI] ⏭️ Ignorado:', motivoIgnorar);
+    
+    // ✅ SALVAR AUDIT LOG mesmo de eventos ignorados (para diagnóstico)
+    try {
+      await base44.asServiceRole.entities.ZapiPayloadNormalized.create({
+        payload_bruto: payload,
+        instance_identificado: payload.instanceId || payload.instance || null,
+        integration_id: null,
+        message_id: payload.messageId || null,
+        evento: payload.event || payload.type || 'unknown',
+        timestamp_recebido: new Date().toISOString(),
+        sucesso_processamento: false,
+        erro_detalhes: `Ignorado: ${motivoIgnorar}`
+      });
+    } catch {}
+    
     return jsonOk({ ignored: true, reason: motivoIgnorar });
   }
 
   const dados = normalizarPayload(payload);
+  console.log('[WAPI] 🔄 Dados normalizados:', { type: dados.type, error: dados.error, from: dados.from, mediaType: dados.mediaType });
+  
   if (dados.type === 'unknown') {
     console.log(`[WAPI] ⏭️ Unknown: ${dados.error}`);
+    
+    // ✅ SALVAR AUDIT LOG de erros de normalização
+    try {
+      await base44.asServiceRole.entities.ZapiPayloadNormalized.create({
+        payload_bruto: payload,
+        instance_identificado: payload.instanceId || null,
+        integration_id: null,
+        message_id: payload.messageId || null,
+        evento: payload.event || payload.type || 'unknown',
+        timestamp_recebido: new Date().toISOString(),
+        sucesso_processamento: false,
+        erro_detalhes: `Normalização falhou: ${dados.error}`
+      });
+    } catch {}
+    
     return jsonOk({ ignored: true, reason: dados.error });
   }
 
