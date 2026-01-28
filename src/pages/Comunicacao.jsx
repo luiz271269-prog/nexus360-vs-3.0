@@ -298,11 +298,32 @@ export default function Comunicacao() {
       if (!threadAtiva || isRateLimited) return [];
 
       try {
-        // ✅ QUERY 1: Todas as mensagens (internas E externas)
+        // ✅ BUSCAR THREADS MERGED que apontam para esta thread canônica
+        let threadIdsParaBuscar = [threadAtiva.id];
+        
+        try {
+          const threadsMerged = await base44.entities.MessageThread.filter(
+            { 
+              merged_into: threadAtiva.id,
+              status: 'merged'
+            },
+            '-created_date',
+            20
+          );
+          
+          if (threadsMerged && threadsMerged.length > 0) {
+            console.log(`[COMUNICACAO] 🔀 Encontradas ${threadsMerged.length} threads merged, carregando histórico completo...`);
+            threadIdsParaBuscar = [threadAtiva.id, ...threadsMerged.map(t => t.id)];
+          }
+        } catch (mergedErr) {
+          console.warn('[COMUNICACAO] ⚠️ Erro ao buscar threads merged:', mergedErr.message);
+        }
+        
+        // ✅ QUERY 1: Todas as mensagens (thread atual + threads antigas merged)
         const ultimasMensagens = await base44.entities.Message.filter(
-          { thread_id: threadAtiva.id },
+          { thread_id: { $in: threadIdsParaBuscar } },
           '-sent_at',
-          200
+          500
         );
 
         // 🔍 QUERY 2 (DIAGNÓSTICO): APENAS mensagens RECEBIDAS do contato (últimas 50)
