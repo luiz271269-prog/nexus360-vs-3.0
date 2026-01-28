@@ -1765,23 +1765,23 @@ export default function ChatWindow({
         if (m.metadata?.is_system_message) return true;
         if (m.metadata?.optimistic) return true;
 
-        // ✅ INDIVIDUALIZAÇÃO: Validar APENAS conteúdo mínimo
-        // NÃO verificar canal, JID, contact_id, etc (lógica de WhatsApp)
+        // ✅ CRITÉRIO MÍNIMO para threads internas: Ter ALGO (texto OU mídia)
         const content = (m.content || '').trim();
         const hasMidia = m.media_url || (m.media_type && m.media_type !== 'none');
         
-        // ✅ CRITÉRIO MÍNIMO: Ter texto OU mídia OU metadata válida
-        const temConteudo = content.length > 0;
-        const temMetadataValida = m.metadata && Object.keys(m.metadata).length > 0;
+        // ✅ FIX: Aceitar mensagem se tem conteúdo OU mídia (sem exigir metadata)
+        const valida = content.length > 0 || hasMidia;
         
-        const valida = temConteudo || hasMidia || temMetadataValida;
-        
-        console.log(`[MENSAGENS] 📬 Msg ${m.id.substring(0, 8)}: sender="${m.sender_id?.substring(0, 8)}", channel="${m.channel}", content="${content.substring(0, 40)}", válida=${valida}`);
+        if (!valida) {
+          console.log(`[MENSAGENS] ❌ Msg ${m.id.substring(0, 8)}: rejeitada (sem conteúdo e sem mídia)`);
+        } else {
+          console.log(`[MENSAGENS] ✅ Msg ${m.id.substring(0, 8)}: sender="${m.sender_id?.substring(0, 8)}", channel="${m.channel}", content="${content.substring(0, 40)}"`);
+        }
         
         return valida;
       });
 
-      console.log(`[MENSAGENS] ✅ Thread interna - ${mensagensInternas.length}/${mensagens.length} mensagens INDIVIDUALIZADAS exibidas`);
+      console.log(`[MENSAGENS] ✅ Thread interna - ${mensagensInternas.length}/${mensagens.length} mensagens exibidas`);
       
       return mensagensInternas;
     }

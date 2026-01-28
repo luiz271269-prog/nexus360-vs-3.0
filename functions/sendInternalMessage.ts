@@ -90,6 +90,8 @@ Deno.serve(async (req) => {
       thread_id: thread.id,
       sender_id: user.id,
       sender_type: 'user',
+      recipient_id: null, // ✅ TODOS na thread veem (recipient_id null = broadcast)
+      recipient_type: 'group', // ✅ Para threads internas, recipient_type é sempre 'group'
       content: contentFinal,
       media_type: media_type,
       media_url: media_url || null,
