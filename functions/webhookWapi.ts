@@ -734,9 +734,9 @@ async function handleMessage(dados, payloadBruto, base44) {
   }
 
   // ═══════════════════════════════════════════════════════════════════
-  // 🏛️ ARQUITETURA "GERENTE" - ETAPA 2: PROCESSAMENTO COM TOKEN
+  // 🏛️ ARQUITETURA "GERENTE" - ETAPA 2: PROCESSAMENTO VIA CÉREBRO CENTRAL
   // ═══════════════════════════════════════════════════════════════════
-  // Agora o "Gerente" (processInboundEvent) entra em ação.
+  // Agora o "Gerente" (processInbound → inboundCore) entra em ação.
   // Ele recebe o integracaoId do "Porteiro" e, internamente,
   // busca o Token (api_key_provider) do banco quando precisar
   // realizar ações como:
@@ -757,33 +757,28 @@ async function handleMessage(dados, payloadBruto, base44) {
       unread_count: thread.unread_count
     });
 
-    let integracaoObj = null;
+    let integracaoCompleta = null;
     if (integracaoId) {
       try {
-        const ints = await base44.asServiceRole.entities.WhatsAppIntegration.filter(
-          { id: integracaoId },
-          '-created_date',
-          1
-        );
-
-        integracaoObj = ints?.[0] || null;
+        integracaoCompleta = await base44.asServiceRole.entities.WhatsAppIntegration.get(integracaoId);
         console.log('[WAPI] 🔐 GERENTE: Integração carregada (Token seguro no banco)');
       } catch (e) {
         console.warn('[WAPI] ⚠️ Integração não encontrada:', e.message);
-        integracaoObj = { id: integracaoId };
       }
     }
 
-    // ✅ INVOCAR processInboundEvent - ETAPA CRÍTICA
-    console.log('[WAPI] 🎯 Invocando processInboundEvent para thread:', thread.id);
-    await base44.asServiceRole.functions.invoke('processInboundEvent', {
-      thread_id: thread.id,
-      contact_id: contato.id,
-      message_id: mensagem.id,
-      integration_id: integracaoId,
-      provider: 'w_api'
+    // ✅ INVOCAR processInbound (adaptador HTTP que delega para inboundCore)
+    console.log('[WAPI] 🎯 Invocando processInbound (adaptador) para thread:', thread.id);
+    await base44.asServiceRole.functions.invoke('processInbound', {
+      message: mensagem,
+      contact: contato,
+      thread: thread,
+      integration: integracaoCompleta,
+      provider: 'w_api',
+      messageContent: dados.content,
+      rawPayload: payloadBruto
     });
-    console.log('[WAPI] ✅ processInboundEvent executado com sucesso');
+    console.log('[WAPI] ✅ processInbound executado com sucesso');
   } catch (err) {
     console.error('[WAPI] 🔴 GERENTE: Erro no processamento:', err.message);
   }
