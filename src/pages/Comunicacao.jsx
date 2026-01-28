@@ -284,23 +284,73 @@ export default function Comunicacao() {
          // Buscar contatos no banco que NÃO têm thread
          const todosBD = await base44.entities.Contact.list('-created_date', 500);
 
-         const normalizarTexto = (t) => {
-           if (!t) return '';
-           return String(t).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
+         // ✅ Função de similaridade para fuzzy matching
+         const calcularSimilaridade = (str1, str2) => {
+           const s1 = str1.toLowerCase().trim();
+           const s2 = str2.toLowerCase().trim();
+
+           if (s1 === s2) return 1.0; // Match exato
+           if (s1.includes(s2) || s2.includes(s1)) return 0.8; // Contém
+
+           // Verifica se começa com o termo
+           if (s1.startsWith(s2) || s2.startsWith(s1)) return 0.7;
+
+           // Verifica a quantidade de caracteres em comum (semelhança parcial)
+           let matches = 0;
+           for (let char of s2) {
+             if (s1.includes(char)) matches++;
+           }
+           return matches / s2.length * 0.5;
          };
 
-         const termoNorm = normalizarTexto(debouncedSearchTerm);
-         const termoNumeros = String(debouncedSearchTerm).replace(/\D/g, '');
+         const term = debouncedSearchTerm.toLowerCase().trim();
 
-         const resultado = todosBD.filter(c => {
-           const nomeMatch = normalizarTexto(c.nome || '').includes(termoNorm);
-           const empresaMatch = normalizarTexto(c.empresa || '').includes(termoNorm);
-           const teleMatch = termoNumeros.length >= 3 && String(c.telefone || '').replace(/\D/g, '').includes(termoNumeros);
-           return nomeMatch || empresaMatch || teleMatch;
-         });
+         // ✅ BUSCA COM SEMELHANÇA - filtra e ordena por relevância
+         const resultados = todosBD
+           .map(c => {
+             let score = 0;
 
-         console.log(`[COMUNICACAO] ✅ ${resultado.length} contatos encontrados`);
-         return resultado;
+             // Nome - peso 5
+             const nomeSimilaridade = calcularSimilaridade(c.nome || '', term);
+             score += nomeSimilaridade * 5;
+
+             // Empresa - peso 3
+             const empresaSimilaridade = calcularSimilaridade(c.empresa || '', term);
+             score += empresaSimilaridade * 3;
+
+             // Cargo - peso 2
+             const cargoSimilaridade = calcularSimilaridade(c.cargo || '', term);
+             score += cargoSimilaridade * 2;
+
+             // Descrição/Observações - peso 1
+             const obsSimilaridade = calcularSimilaridade(c.observacoes || '', term);
+             score += obsSimilaridade * 1;
+
+             // Telefone - peso 3 (semelhança parcial por dígitos)
+             const telNorm = (c.telefone || '').replace(/\D/g, '');
+             const termDigitos = term.replace(/\D/g, '');
+             let telScore = 0;
+             if (termDigitos.length >= 3 && telNorm.includes(termDigitos)) {
+               telScore = 0.8; // Contém a sequência de dígitos
+             } else if (termDigitos.length > 0 && telNorm.length > 0) {
+               // Busca parcial por dígitos
+               let matches = 0;
+               for (let digit of termDigitos) {
+                 if (telNorm.includes(digit)) matches++;
+               }
+               telScore = matches / termDigitos.length * 0.6;
+             }
+             score += telScore * 3;
+
+             return { contato: c, score };
+           })
+           .filter(item => item.score > 0.3) // Mínimo de relevância (30%)
+           .sort((a, b) => b.score - a.score) // Ordenar por relevância (maior score primeiro)
+           .map(item => item.contato)
+           .slice(0, 100); // Limite de 100 resultados
+
+         console.log(`[COMUNICACAO] ✅ ${resultados.length} contatos encontrados`);
+         return resultados;
        } catch (error) {
          console.error('[COMUNICACAO] ❌ Erro na busca:', error);
          return [];
