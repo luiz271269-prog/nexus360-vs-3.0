@@ -348,10 +348,28 @@ export default function ChatWindow({
   // Determina se está em modo de broadcast interno
   const isBroadcastInternoAtivo = !!broadcastInterno;
 
-  // Lógica de permissão corrigida
-  const podeEnviarMensagens = isBroadcastInternoAtivo ? temPermissaoGeralEnvio : (podeInteragirNaThread && temPermissaoGeralEnvio && podeEnviarPorInstancia);
-  const podeEnviarMidias = isBroadcastInternoAtivo ? temPermissaoGeralMidia : (podeInteragirNaThread && temPermissaoGeralMidia && podeEnviarPorInstancia);
-  const podeEnviarAudios = isBroadcastInternoAtivo ? temPermissaoGeralAudio : (podeInteragirNaThread && temPermissaoGeralAudio && podeEnviarPorInstancia);
+  // ═══════════════════════════════════════════════════════════════════════════════
+  // 🔥 REGRA CRÍTICA: ATRIBUIÇÃO/TRANSFERÊNCIA É CHAVE MESTRA
+  // Se thread está atribuída/transferida ao usuário, IGNORA bloqueios de instância
+  // ═══════════════════════════════════════════════════════════════════════════════
+  const norm = (v) => String(v || '').toLowerCase().trim();
+  const isAtribuidaOuTransferida = 
+    norm(thread?.assigned_user_id) === norm(usuario?.id) ||
+    norm(thread?.transfer_requested_user_id) === norm(usuario?.id);
+
+  // Lógica de permissão: Atribuição/Transferência OVERRIDE permissões de instância
+  const podeEnviarMensagens = isBroadcastInternoAtivo 
+    ? temPermissaoGeralEnvio 
+    : (isAtribuidaOuTransferida && temPermissaoGeralEnvio) || (podeInteragirNaThread && temPermissaoGeralEnvio && podeEnviarPorInstancia);
+    
+  const podeEnviarMidias = isBroadcastInternoAtivo 
+    ? temPermissaoGeralMidia 
+    : (isAtribuidaOuTransferida && temPermissaoGeralMidia) || (podeInteragirNaThread && temPermissaoGeralMidia && podeEnviarPorInstancia);
+    
+  const podeEnviarAudios = isBroadcastInternoAtivo 
+    ? temPermissaoGeralAudio 
+    : (isAtribuidaOuTransferida && temPermissaoGeralAudio) || (podeInteragirNaThread && temPermissaoGeralAudio && podeEnviarPorInstancia);
+    
   const podeApagarMensagens = permNexus.podeApagarMensagens ?? permLegado.pode_apagar_mensagens ?? false;
   const podeTransferirConversas = permNexus.podeTransferirConversa ?? true;
 
