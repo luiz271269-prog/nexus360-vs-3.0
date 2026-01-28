@@ -190,27 +190,31 @@ export default function Comunicacao() {
   // 🔍 BUSCA DE THREADS PRIMEIRO (Fonte da Verdade)
   // ═══════════════════════════════════════════════════════════════════════════════
   const { data: threads = [], isLoading: loadingThreads } = useQuery({
-  queryKey: ['threads', usuario?.id],
-  queryFn: async () => {
-    if (isRateLimited) return [];
-    try {
-      // ✅ THREADS INTERNAS: SEMPRE mostrar (não têm is_canonical)
-      // ✅ THREADS EXTERNAS: Apenas canônicas e não-merged
-      const allThreads = await base44.entities.MessageThread.list('-last_message_at', 500);
-      
-      // Filtrar APENAS threads externas merged (internas nunca são merged)
-      const threadsVisiveis = allThreads.filter(t => {
-        // Threads internas SEMPRE passam (não aplicam lógica de merge)
-        if (t.thread_type === 'team_internal' || t.thread_type === 'sector_group') {
-          return true;
-        }
-        
-        // Threads externas: apenas canônicas e não-merged
-        return t.is_canonical === true && t.status !== 'merged';
-      });
-      
-      console.log('[COMUNICACAO] 📊 Threads carregadas:', allThreads.length, '| Visíveis:', threadsVisiveis.length, '| Internas:', allThreads.filter(t => t.thread_type === 'team_internal' || t.thread_type === 'sector_group').length);
-      return threadsVisiveis;
+    queryKey: ['threads', usuario?.id],
+    queryFn: async () => {
+      if (isRateLimited) return [];
+      try {
+        // ✅ QUERY OTIMIZADA: Buscar externas canônicas + internas em paralelo
+        const [threadsExternas, threadsInternas] = await Promise.all([
+          // Externas: apenas canônicas e não-merged
+          base44.entities.MessageThread.filter(
+            { is_canonical: true, status: { $ne: 'merged' } },
+            '-last_message_at',
+            500
+          ),
+          // Internas: team_internal e sector_group (SEM is_canonical)
+          base44.entities.MessageThread.filter(
+            { thread_type: { $in: ['team_internal', 'sector_group'] } },
+            '-last_message_at',
+            100
+          )
+        ]);
+
+        // Mesclar: internas sempre isoladas da lógica de canônicos
+        const threadsVisiveis = [...threadsExternas, ...threadsInternas];
+
+        console.log('[COMUNICACAO] 📊 Externas canônicas:', threadsExternas.length, '| Internas:', threadsInternas.length, '| Total:', threadsVisiveis.length);
+        return threadsVisiveis;
       } catch (error) {
         if (error?.message?.includes('429') || error?.response?.status === 429) {
           console.warn('[COMUNICACAO] ⚠️ 429 Rate Limited! Ativando cool-down de 10s...');
