@@ -57,6 +57,7 @@ import LogsFiltragemViewer from "../components/comunicacao/LogsFiltragemViewer";
 
 import { useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
+import { carregarTodasThreads, podeVerThreadInterna } from "../components/lib/internalThreadsService";
 
 
 // 🔧 DEBUG_VIS: feature flag para desativar logs sem perdê-los
