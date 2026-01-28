@@ -1892,18 +1892,15 @@ export default function Comunicacao() {
     return resultados.sort((a, b) => (b._searchScore || 0) - (a._searchScore || 0));
   }, [threads, contatos, contatosBuscados, debouncedSearchTerm, selectedTipoContato, selectedTagContato, matchBuscaGoogle, calcularScoreBusca, threadsAProcessar, userPermissions]);
 
-  // Converter para formato compatível com ChatSidebar + ORDENAÇÃO por PRIORIDADE (Regra 3)
-  // DEDUPLICAÇÃO FINAL: Garantir que não há entradas duplicadas por contact_id
-  const threadsComContato = React.useMemo(() => {
+  // ═══════════════════════════════════════════════════════════════════════════════
+  // 📋 LISTA RECENTE - Modo normal (sem busca)
+  // ═══════════════════════════════════════════════════════════════════════════════
+  const listaRecentes = React.useMemo(() => {
     const contatosMap = new Map(contatos.map((c) => [c.id, c]));
     const usuariosMap = new Map(atendentes.map((a) => [a.id, a]));
-    const temBuscaAtiva = debouncedSearchTerm && debouncedSearchTerm.trim().length >= 2;
-    
-    // 🔍 MODO BUSCA: Usar coleção específica de resultados
-    const sourceThreads = temBuscaAtiva ? threadsResultantesDaBusca : threadsFiltradas;
 
-    // ✅ Enriquecer com contato e usuário (SEMPRE buscar User dinamicamente)
-    const enriched = sourceThreads.map((thread) => {
+    // ✅ Enriquecer com contato e usuário
+    const enriched = threadsFiltradas.map((thread) => {
       const usuarioAtribuido = usuariosMap.get(thread.assigned_user_id);
       const contatoObj = thread.contato || contatosMap.get(thread.contact_id);
       
@@ -1911,13 +1908,11 @@ export default function Comunicacao() {
         ...thread,
         contato: contatoObj,
         atendente_atribuido: usuarioAtribuido,
-        assigned_user_display_name: usuarioAtribuido ? getUserDisplayName(usuarioAtribuido.id, atendentes) : null,
-        _searchScore: thread._searchScore || 0
+        assigned_user_display_name: usuarioAtribuido ? getUserDisplayName(usuarioAtribuido.id, atendentes) : null
       };
     });
 
-    // 🎯 AGRUPAMENTO POR CHAVE ÚNICA (telefone+nome+empresa+cargo)
-    // Elimina duplicatas visuais causadas por múltiplos contact_id do mesmo contato real
+    // 🎯 Deduplicação por chave única
     const gerarChaveUnica = (contato) => {
       if (!contato) return null;
       const tel = normalizarTelefone(contato.telefone || '') || '';
@@ -1928,9 +1923,7 @@ export default function Comunicacao() {
     };
 
     const threadsPorChaveUnica = new Map();
-    
     enriched.forEach((thread) => {
-      // Usuários internos não agrupam
       if (thread.thread_type === 'team_internal' || thread.thread_type === 'sector_group') {
         threadsPorChaveUnica.set(`internal-${thread.id}`, thread);
         return;
@@ -1938,7 +1931,6 @@ export default function Comunicacao() {
 
       const chave = gerarChaveUnica(thread.contato);
       if (!chave) {
-        // Thread sem contato válido - manter individual
         threadsPorChaveUnica.set(`orphan-${thread.id}`, thread);
         return;
       }
@@ -1947,10 +1939,8 @@ export default function Comunicacao() {
       if (!existente) {
         threadsPorChaveUnica.set(chave, thread);
       } else {
-        // Manter thread mais recente (com mais mensagens)
         const tsExistente = new Date(existente.last_message_at || 0).getTime();
         const tsAtual = new Date(thread.last_message_at || 0).getTime();
-        
         if (tsAtual > tsExistente) {
           threadsPorChaveUnica.set(chave, thread);
         }
@@ -1959,31 +1949,53 @@ export default function Comunicacao() {
 
     const deduplicated = Array.from(threadsPorChaveUnica.values());
 
-    // ═══════════════════════════════════════════════════════════════════════════
-    // 🎯 ORDENAÇÃO INTELIGENTE - Estilo WhatsApp:
-    // COM BUSCA: Prioriza relevância do match (score maior = topo)
-    // SEM BUSCA: Prioriza tipo + recência
-    // ═══════════════════════════════════════════════════════════════════════════
-    
+    // ✅ Ordenar por tipo + recência
     return deduplicated.sort((a, b) => {
-      // 📋 MODO NORMAL: Ordenar por tipo + recência
       const getPrioridade = (item) => {
-        if (item.is_cliente_only) return 3; // Clientes sem contato
-        if (item.is_contact_only) return 2; // Contatos sem thread
-        return 1; // Threads ativas
+        if (item.is_cliente_only) return 3;
+        if (item.is_contact_only) return 2;
+        return 1;
       };
 
       const prioA = getPrioridade(a);
       const prioB = getPrioridade(b);
-
       if (prioA !== prioB) return prioA - prioB;
 
-      // Dentro do mesmo grupo: mais recente primeiro
       const dateA = new Date(a.last_message_at || 0);
       const dateB = new Date(b.last_message_at || 0);
       return dateB - dateA;
     });
-  }, [sourceThreads, contatos, atendentes, filterScope, debouncedSearchTerm]);
+  }, [threadsFiltradas, contatos, atendentes]);
+
+  // ═══════════════════════════════════════════════════════════════════════════════
+  // 🔍 LISTA BUSCA - Modo pesquisa (com texto digitado)
+  // ═══════════════════════════════════════════════════════════════════════════════
+  const listaBusca = React.useMemo(() => {
+    const contatosMap = new Map(contatos.map((c) => [c.id, c]));
+    const usuariosMap = new Map(atendentes.map((a) => [a.id, a]));
+
+    // ✅ Enriquecer threads com contato e usuário
+    const enrichedThreads = threadsResultantesDaBusca.map((thread) => {
+      const usuarioAtribuido = usuariosMap.get(thread.assigned_user_id);
+      const contatoObj = thread.contato || contatosMap.get(thread.contact_id);
+      
+      return {
+        ...thread,
+        contato: contatoObj,
+        atendente_atribuido: usuarioAtribuido,
+        assigned_user_display_name: usuarioAtribuido ? getUserDisplayName(usuarioAtribuido.id, atendentes) : null
+      };
+    });
+
+    // ✅ Ordenar apenas por score de relevância
+    return enrichedThreads.sort((a, b) => (b._searchScore || 0) - (a._searchScore || 0));
+  }, [threadsResultantesDaBusca, contatos, atendentes]);
+
+  // ═══════════════════════════════════════════════════════════════════════════════
+  // 🎯 SELETOR DE FONTE - Busca ativa ou lista recente?
+  // ═══════════════════════════════════════════════════════════════════════════════
+  const temBuscaAtiva = debouncedSearchTerm && debouncedSearchTerm.trim().length >= 2;
+  const threadsParaExibir = temBuscaAtiva ? listaBusca : listaRecentes;
 
   const isManager = usuario?.role === 'admin' || usuario?.role === 'supervisor';
   const contatoAtivo = threadAtiva ? contatos.find((c) => c.id === threadAtiva.contact_id) : null;
