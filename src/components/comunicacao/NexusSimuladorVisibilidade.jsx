@@ -56,23 +56,34 @@ export default function NexusSimuladorVisibilidade({ usuario, integracoes = [], 
 
   const recarregarDadosCompletos = async () => {
     try {
-      toast.info('🔄 Recarregando contatos e mensagens...');
+      toast.info('🔄 Recarregando TODOS os dados do banco...');
       
+      // ✅ SEM LIMITES - Carregar TUDO conforme banco de dados
       const [contacts, messages, threadsData] = await Promise.all([
-        base44.entities.Contact.list(),
-        base44.entities.Message.list(),
-        base44.entities.MessageThread.list()
+        base44.entities.Contact.list('created_date', 10000),
+        base44.entities.Message.list('created_date', 10000),
+        base44.entities.MessageThread.list('created_date', 10000)
       ]);
       
       setContatos(contacts || []);
       setMensagens(messages || []);
-      console.log('[SIMULADOR] ✅ Dados recarregados:', {
-        contatos: contacts.length,
-        mensagens: messages.length,
-        threads: threadsData.length
+      
+      console.log('[SIMULADOR] ✅ TODOS os dados recarregados:', {
+        contatos: contacts?.length || 0,
+        mensagens: messages?.length || 0,
+        threads: threadsData?.length || 0
       });
       
-      toast.success(`✅ ${contacts.length} contatos e ${messages.length} mensagens carregadas`);
+      // ✅ Log detalhado por thread
+      if (threadsData && threadsData.length > 0) {
+        const sample = threadsData.slice(0, 3);
+        sample.forEach(t => {
+          const msgsDaThread = messages?.filter(m => m.thread_id === t.id) || [];
+          console.log(`[THREAD ${t.id.substring(0, 8)}] total_mensagens=${t.total_mensagens} | msgs_no_db=${msgsDaThread.length}`);
+        });
+      }
+      
+      toast.success(`✅ ${contacts?.length || 0} contatos + ${messages?.length || 0} mensagens carregadas`);
     } catch (error) {
       console.error('Erro ao recarregar dados:', error);
       toast.error('Erro ao recarregar dados');
