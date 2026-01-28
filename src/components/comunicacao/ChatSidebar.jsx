@@ -54,14 +54,14 @@ const getUnreadCount = (thread, currentUserId) => {
 // 🎨 RESOLVER UI: Título/Avatar/Badge para threads (externo + interno)
 // ═══════════════════════════════════════════════════════════════════════════════
 const resolveThreadUI = (thread, currentUser, atendentes = []) => {
-  // ✅ THREADS INTERNAS
-  if (thread.thread_type === 'team_internal' || thread.thread_type === 'sector_group') {
-    // 1:1 interno: buscar o outro participante
+  // ✅ USUÁRIOS INTERNOS
+    if (thread.thread_type === 'team_internal' || thread.thread_type === 'sector_group') {
+      // 1:1 interno: buscar o outro usuario participante
     if (thread.thread_type === 'team_internal' && !thread.is_group_chat) {
-    const outroUserId = thread.participants?.find(id => id !== currentUser?.id);
+      const outroUserId = thread.participants?.find(id => id !== currentUser?.id);
 
-    // ✅ FIX: Threads internas podem não ter outros participants (group chats) ou estar incompletas
-    // Mostrar thread mesmo sem encontrar o outro participante
+      // ✅ FIX: Usuários internos podem não ter outros participants (group chats) ou estar incompletos
+      // Mostrar thread mesmo sem encontrar o outro usuario
     if (outroUserId) {
     const outroUser = atendentes.find(a => a.id === outroUserId);
     const nome = outroUser?.full_name || outroUser?.email || 'Usuário';
@@ -81,15 +81,15 @@ const resolveThreadUI = (thread, currentUser, atendentes = []) => {
     };
     }
 
-    // ✅ Se não encontrou outro participante, mostrar como thread incompleta
+    // ✅ Se não encontrou outro usuario, mostrar como incompleto
     return {
-    isInternal: true,
-    title: 'Chat Interno',
-    badge: '',
-    avatar: 'C',
-    avatarUrl: null,
-    subtitle: '1:1 interno (incompleto)',
-    setorCor: 'geral'
+      isInternal: true,
+      title: 'Chat Interno',
+      badge: '',
+      avatar: 'C',
+      avatarUrl: null,
+      subtitle: '1:1 usuario interno (incompleto)',
+      setorCor: 'geral'
     };
     }
     

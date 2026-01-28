@@ -291,22 +291,22 @@ export default function Comunicacao() {
       if (!threadAtiva || isRateLimited) return [];
 
       try {
-        // ✅ THREADS INTERNAS: NÃO se aplica unificação/merge (são conversas entre users)
-        const isThreadInterna = threadAtiva.thread_type === 'team_internal' || threadAtiva.thread_type === 'sector_group';
-        
-        if (isThreadInterna) {
-          console.log('[COMUNICACAO] 🔵 Thread interna - buscando apenas mensagens diretas (sem merge)');
-          const ultimasMensagens = await base44.entities.Message.filter(
-            { thread_id: threadAtiva.id },
-            '-sent_at',
-            500
-          );
-          
-          console.log(`[COMUNICACAO] 📩 Thread interna - ${ultimasMensagens.length} mensagens carregadas`);
-          return ultimasMensagens.reverse();
-        }
-        
-        // ✅ THREADS EXTERNAS: Buscar histórico consolidado (thread atual + merged + MESMO CONTATO)
+        // ✅ USUÁRIOS INTERNOS: NÃO se aplica unificação/merge (são conversas entre usuarios)
+           const isUsuarioInterno = threadAtiva.thread_type === 'team_internal' || threadAtiva.thread_type === 'sector_group';
+
+           if (isUsuarioInterno) {
+             console.log('[COMUNICACAO] 🔵 Usuário interno - buscando apenas mensagens diretas (sem merge)');
+             const ultimasMensagens = await base44.entities.Message.filter(
+               { thread_id: threadAtiva.id },
+               '-sent_at',
+               500
+             );
+
+             console.log(`[COMUNICACAO] 📩 Usuário interno - ${ultimasMensagens.length} mensagens carregadas`);
+             return ultimasMensagens.reverse();
+           }
+
+           // ✅ THREADS EXTERNAS: Buscar histórico consolidado (thread atual + merged + MESMO CONTATO)
         let threadIdsParaBuscar = [threadAtiva.id];
         
         try {
@@ -501,7 +501,7 @@ export default function Comunicacao() {
     setShowContactInfo(false);
     setContactInitialData(null);
 
-    // ✅ CASO 0: THREAD INTERNA - Abrir direto sem validações de WhatsApp
+    // ✅ CASO 0: USUÁRIO INTERNO - Abrir direto sem validações de WhatsApp
     if (thread.thread_type === 'team_internal' || thread.thread_type === 'sector_group') {
       setThreadAtiva(thread);
       return;
@@ -1264,9 +1264,9 @@ export default function Comunicacao() {
     const threadMaisRecentePorContacto = new Map();
     
     threadsAProcessar.forEach((thread) => { // Using threadsAProcessar to respect duplicataEncontrada filter
-      // ✅ Threads internas: NUNCA deduplicam (USUARIOS ≠ CONTATOS)
-      // Threads internas usam pair_key/sector_key como identificador ÚNICO
-      // NÃO devem usar contact_id (que é null para threads internas)
+      // ✅ Usuários internos: NUNCA deduplicam (USUARIOS ≠ CONTATOS)
+      // Usuários internos usam pair_key/sector_key como identificador ÚNICO
+      // NÃO devem usar contact_id (que é null para usuários internos)
       if (thread.thread_type === 'team_internal' || thread.thread_type === 'sector_group') {
         // Usar thread_id direto como chave (garantia absoluta de unicidade)
         threadMaisRecentePorContacto.set(`internal-${thread.id}`, thread);
@@ -1362,15 +1362,15 @@ export default function Comunicacao() {
        }
 
        // ═══════════════════════════════════════════════════════════════════════════
-       // ✅ THREADS INTERNAS - SAGRADAS: Nunca bloqueadas por escopos/filtros
-       // Usam APENAS participação como critério (curto-circuita TUDO)
-       // ═══════════════════════════════════════════════════════════════════════════
-       if (thread.thread_type === 'team_internal' || thread.thread_type === 'sector_group') {
-         const visInterna = podeVerThreadInterna(thread, usuario);
-         logThread('Thread Interna (INDEPENDENTE)', visInterna, visInterna ? 'Participante ou admin' : 'Não é participante nem admin');
-         // ✅ RETORNA DIRETO: Ignora scope/unassigned/filtros - threads internas são sagradas
-         return visInterna;
-       }
+       // ✅ USUÁRIOS INTERNOS - SAGRADOS: Nunca bloqueados por escopos/filtros
+               // Usam APENAS participação como critério (curto-circuita TUDO)
+               // ═══════════════════════════════════════════════════════════════════════════
+               if (thread.thread_type === 'team_internal' || thread.thread_type === 'sector_group') {
+                 const visInterna = podeVerThreadInterna(thread, usuario);
+                 logThread('Usuário Interno (INDEPENDENTE)', visInterna, visInterna ? 'Participante ou admin' : 'Não é participante nem admin');
+                 // ✅ RETORNA DIRETO: Ignora scope/unassigned/filtros - usuários internos são sagrados
+                 return visInterna;
+               }
       
       // ⬇️ Daqui pra baixo: SOMENTE threads EXTERNAS (contact_external)
       
