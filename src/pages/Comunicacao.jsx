@@ -1323,38 +1323,42 @@ export default function Comunicacao() {
     const logsFiltragem = [];
     
     const threadsFiltrados = threadsUnicas.filter((thread) => {
-      const logThread = (etapa, passou, motivo = '') => {
-        // ✅ OT #3: Blindagem de Logs em Produção (só aloca se DEBUG ativo)
-        if (!DEBUG_VIS) return;
+       const logThread = (etapa, passou, motivo = '') => {
+         // ✅ OT #3: Blindagem de Logs em Produção (só aloca se DEBUG ativo)
+         if (!DEBUG_VIS) return;
 
-        logsFiltragem.push({
-          threadId: thread.id.substring(0, 8),
-          contactId: thread.contact_id?.substring(0, 8),
-          etapa,
-          passou,
-          motivo,
-          timestamp: new Date().toISOString()
-        });
-      };
+         logsFiltragem.push({
+           threadId: thread.id.substring(0, 8),
+           contactId: thread.contact_id?.substring(0, 8),
+           etapa,
+           passou,
+           motivo,
+           timestamp: new Date().toISOString()
+         });
+       };
 
-      const isLuizThread = thread.id === '693306f0ffbdced31cc623e3';
-      if (DEBUG_VIS && isLuizThread) {
-        console.log('[COMUNICACAO] 🔍 DIAGNÓSTICO LUIZ - Thread encontrada:', {
-          thread_id: thread.id,
-          contact_id: thread.contact_id,
-          integration_id: thread.whatsapp_integration_id,
-          unread_count: thread.unread_count,
-          last_message_at: thread.last_message_at,
-          thread_type: thread.thread_type
-        });
-      }
+       const isLuizThread = thread.id === '693306f0ffbdced31cc623e3';
+       if (DEBUG_VIS && isLuizThread) {
+         console.log('[COMUNICACAO] 🔍 DIAGNÓSTICO LUIZ - Thread encontrada:', {
+           thread_id: thread.id,
+           contact_id: thread.contact_id,
+           integration_id: thread.whatsapp_integration_id,
+           unread_count: thread.unread_count,
+           last_message_at: thread.last_message_at,
+           thread_type: thread.thread_type
+         });
+       }
 
-      // ✅ THREADS INTERNAS - Usar função centralizada (curto-circuita antes da VISIBILITYMATRIX)
-      const visInterna = podeVerThreadInterna(thread, usuario);
-      if (visInterna !== null) {
-        logThread('Thread Interna', visInterna, visInterna ? 'Participante ou admin' : 'Não é participante nem admin');
-        return visInterna;
-      }
+       // ═══════════════════════════════════════════════════════════════════════════
+       // ✅ THREADS INTERNAS - SAGRADAS: Nunca bloqueadas por escopos/filtros
+       // Usam APENAS participação como critério (curto-circuita TUDO)
+       // ═══════════════════════════════════════════════════════════════════════════
+       if (thread.thread_type === 'team_internal' || thread.thread_type === 'sector_group') {
+         const visInterna = podeVerThreadInterna(thread, usuario);
+         logThread('Thread Interna (INDEPENDENTE)', visInterna, visInterna ? 'Participante ou admin' : 'Não é participante nem admin');
+         // ✅ RETORNA DIRETO: Ignora scope/unassigned/filtros - threads internas são sagradas
+         return visInterna;
+       }
       
       // ⬇️ Daqui pra baixo: SOMENTE threads EXTERNAS (contact_external)
       
