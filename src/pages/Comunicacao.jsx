@@ -298,7 +298,22 @@ export default function Comunicacao() {
       if (!threadAtiva || isRateLimited) return [];
 
       try {
-        // ✅ BUSCAR THREADS MERGED que apontam para esta thread canônica
+        // ✅ THREADS INTERNAS: NÃO se aplica unificação/merge (são conversas entre users)
+        const isThreadInterna = threadAtiva.thread_type === 'team_internal' || threadAtiva.thread_type === 'sector_group';
+        
+        if (isThreadInterna) {
+          console.log('[COMUNICACAO] 🔵 Thread interna - buscando apenas mensagens diretas (sem merge)');
+          const ultimasMensagens = await base44.entities.Message.filter(
+            { thread_id: threadAtiva.id },
+            '-sent_at',
+            500
+          );
+          
+          console.log(`[COMUNICACAO] 📩 Thread interna - ${ultimasMensagens.length} mensagens carregadas`);
+          return ultimasMensagens.reverse();
+        }
+        
+        // ✅ THREADS EXTERNAS: Buscar histórico consolidado (thread atual + merged)
         let threadIdsParaBuscar = [threadAtiva.id];
         
         try {
