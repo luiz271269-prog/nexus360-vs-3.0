@@ -868,6 +868,9 @@ export default function Comunicacao() {
     let mediaUrlFinal = null;
     let mediaTypeFinal = 'none';
     let mediaCaptionFinal = null;
+    
+    // ✅ FIX DUPLICAÇÃO: Gerar ID temporário UMA VEZ (fora do try/catch)
+    const tempId = `temp-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 
     try {
       // ✅ UPLOAD DE MÍDIA ANTES (igual WhatsApp externo)
@@ -922,7 +925,7 @@ export default function Comunicacao() {
 
       // 1. Criar mensagem temporária (aparece INSTANTANEAMENTE)
       const msgTemp = {
-        id: `temp-${Date.now()}`,
+        id: tempId, // ✅ FIX: Usar ID gerado fora do try
         thread_id: threadAtiva.id,
         sender_id: usuario.id,
         sender_type: "user",
@@ -958,19 +961,23 @@ export default function Comunicacao() {
       const resultado = await base44.functions.invoke('sendInternalMessage', payload);
 
       if (resultado.data.success) {
-        // 4. Substituir mensagem temporária pela real
-        queryClient.invalidateQueries({ queryKey: ['mensagens', threadAtiva.id] });
-        queryClient.invalidateQueries({ queryKey: ['threads'] });
-        toast.success('✅ Mensagem enviada!');
+        // 4. ✅ FIX: Remover temporária ANTES de invalidar
+        queryClient.setQueryData(['mensagens', threadAtiva.id], (antigas = []) => {
+          return antigas.filter((m) => m.id !== tempId);
+        });
+        
+        // 5. Invalidar para buscar mensagem real do backend
+        await queryClient.invalidateQueries({ queryKey: ['mensagens', threadAtiva.id] });
+        await queryClient.invalidateQueries({ queryKey: ['threads'] });
       } else {
         throw new Error(resultado.data.error || 'Erro ao enviar');
       }
     } catch (error) {
       console.error('[OPTIMISTIC INTERNO] Erro:', error);
 
-      // 5. ROLLBACK: Remover mensagem temporária
+      // ROLLBACK: Remover mensagem temporária usando ID correto
       queryClient.setQueryData(['mensagens', threadAtiva.id], (antigas = []) => {
-        return antigas.filter((m) => m.id !== `temp-${Date.now()}`);
+        return antigas.filter((m) => m.id !== tempId);
       });
 
       toast.error(`Erro ao enviar: ${error.message}`);
