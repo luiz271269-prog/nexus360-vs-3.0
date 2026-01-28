@@ -1748,20 +1748,23 @@ export default function ChatWindow({
     const isThreadInterna = thread?.thread_type === 'team_internal' || thread?.thread_type === 'sector_group';
 
     if (isThreadInterna) {
+      console.log('[MENSAGENS] 🔵 Thread interna detectada, mostrando TODAS mensagens');
+      
       return mensagensFiltradas.filter((m) => {
         // Sempre mostrar mensagens especiais
         if (m.metadata?.deleted) return true;
         if (m.metadata?.is_system_message) return true;
         if (m.metadata?.optimistic) return true;
 
-        // ✅ THREADS INTERNAS: Mostrar TODAS mensagens com sender_type='user' ou channel='interno'
-        if (m.sender_type === 'user' || m.channel === 'interno') {
-          const content = (m.content || '').trim();
-          const hasMidia = m.media_url || (m.media_type && m.media_type !== 'none');
-          return content.length > 0 || hasMidia;
-        }
-
-        return false;
+        // ✅ CRÍTICO: Threads internas têm sender_type='user' SEMPRE
+        // Não há 'contact' em threads internas
+        const content = (m.content || '').trim();
+        const hasMidia = m.media_url || (m.media_type && m.media_type !== 'none');
+        const temConteudoValido = content.length > 0 || hasMidia;
+        
+        console.log(`[MENSAGENS] 📬 Msg ${m.id.substring(0, 8)}: sender_type=${m.sender_type}, channel=${m.channel}, content="${content.substring(0, 30)}", válida=${temConteudoValido}`);
+        
+        return temConteudoValido;
       });
     }
 
