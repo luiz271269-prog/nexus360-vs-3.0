@@ -54,6 +54,7 @@ Deno.serve(async (req) => {
       );
     }
 
+    // ✅ Validar que é thread interna
     if (thread.thread_type !== 'team_internal' && thread.thread_type !== 'sector_group') {
       return new Response(
         JSON.stringify({ success: false, error: 'Thread nao eh interna' }),
@@ -61,13 +62,12 @@ Deno.serve(async (req) => {
       );
     }
 
-    // ✅ Validar participação OU admin (mensagens internas sem restrições Nexus360)
-    const isParticipant = thread.participants?.includes(user.id);
-    const isAdmin = user.role === 'admin';
-
-    if (!isParticipant && !isAdmin) {
+    // ✅ Usar função centralizada de permissão
+    const { podeEnviarMensagemInterna } = await import('./lib/internalMessagePermissions.js');
+    
+    if (!podeEnviarMensagemInterna(thread, user)) {
       return new Response(
-        JSON.stringify({ success: false, error: 'Usuario nao eh participante nem admin' }),
+        JSON.stringify({ success: false, error: 'Usuario nao tem permissao para enviar' }),
         { status: 403, headers }
       );
     }
