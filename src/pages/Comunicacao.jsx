@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useCallback, useTransition } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -1300,9 +1299,10 @@ export default function Comunicacao() {
     const contatosComThreadExistente = new Set(threadsUnicas.map((t) => t.contact_id).filter(Boolean));
 
     // Montar objeto de filtros para threadVisibility
-    // Quando filtro é "não atribuídas", não passar atendente específico
+    // ✅ CRÍTICO: Atendente SEMPRE filtra (mesmo em "não atribuídas")
+    // Threads transferidas para você devem aparecer independente do escopo
     const filtros = {
-      atendenteId: isFilterUnassigned ? null : selectedAttendantId,
+      atendenteId: selectedAttendantId,
       integracaoId: selectedIntegrationId,
       scope: filterScope
     };
