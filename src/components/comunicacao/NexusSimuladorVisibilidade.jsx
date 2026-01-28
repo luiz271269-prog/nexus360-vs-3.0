@@ -1287,7 +1287,10 @@ export default function NexusSimuladorVisibilidade({ usuario, integracoes = [], 
                               <div>
                                 <span className="font-semibold text-[10px] text-slate-600">MENSAGENS:</span>
                                 <div className="grid grid-cols-4 gap-2 text-[10px] mt-1">
-                                  <div><span className="font-semibold">Total:</span> {thread?.total_mensagens || 0}</div>
+                                  <div><span className="font-semibold">Total:</span> {(() => {
+                                    const msgsDaThread = mensagens?.filter(m => m.thread_id === thread?.id) || [];
+                                    return msgsDaThread.length;
+                                  })()}</div>
                                   <div><span className="font-semibold">Não lidas:</span> {thread?.unread_count || 0}</div>
                                   <div><span className="font-semibold">Última:</span> {formatarHorario(thread?.last_message_at)}</div>
                                   <div><span className="font-semibold">De:</span> {thread?.last_message_sender === 'user' ? '📤 Sistema' : '📩 Cliente'}</div>
