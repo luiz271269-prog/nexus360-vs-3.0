@@ -390,6 +390,15 @@ export default function NexusSimuladorVisibilidade({ usuario, integracoes = [], 
               </div>
             </div>
             <div className="flex items-center gap-2">
+              <Button
+                size="sm"
+                onClick={() => setModalUnificacaoAbertoMultipla(true)}
+                className="bg-gradient-to-r from-orange-500 to-amber-600 hover:from-orange-600 hover:to-amber-700 text-white text-xs h-7 gap-1 shadow-md"
+                title="Unificar Contatos Duplicados"
+              >
+                <Users className="w-3 h-3" />
+                <span className="hidden sm:inline">Unificar Múltiplos</span>
+              </Button>
               <select 
                 value={amostraSize} 
                 onChange={(e) => setAmostraSize(Number(e.target.value))}
