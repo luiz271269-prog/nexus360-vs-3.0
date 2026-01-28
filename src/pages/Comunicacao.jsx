@@ -234,41 +234,81 @@ export default function Comunicacao() {
   }, [threads]);
 
   // ═══════════════════════════════════════════════════════════════════════════════
-  // 🔍 BUSCA CIRÚRGICA DE CONTATOS - Apenas os necessários
-  // ═══════════════════════════════════════════════════════════════════════════════
-  const { data: contatos = [], isLoading: loadingContatos } = useQuery({
-    queryKey: ['contacts', contactIdsParaCarregar],
-    queryFn: async () => {
-      if (contactIdsParaCarregar.length === 0) return [];
-      
-      console.log(`[COMUNICACAO] 📎 Hidratando ${contactIdsParaCarregar.length} contatos específicos...`);
-      
-      try {
-        // Estratégia: Buscar lista maior e filtrar em memória (fallback robusto)
-        const todosContatos = await base44.entities.Contact.list('-last_interaction', 1000);
-        
-        // ✅ OT #1: Otimização O(N) com Set (Muito mais rápido que .includes)
-        const idsSet = new Set(contactIdsParaCarregar);
-        const contatosNecessarios = todosContatos.filter(c => idsSet.has(c.id));
-        
-        console.log(`[COMUNICACAO] ✅ Contatos hidratados: ${contatosNecessarios.length}/${contactIdsParaCarregar.length}`);
-        return contatosNecessarios;
-      } catch (error) {
-        console.error('[COMUNICACAO] ❌ Erro ao hidratar contatos:', error);
-        return [];
-      }
-    },
-    enabled: contactIdsParaCarregar.length > 0,
-    keepPreviousData: true,
-    staleTime: 60000,
-    cacheTime: 15 * 60 * 1000,
-    retry: 2,
-    retryDelay: 1000,
-    refetchOnWindowFocus: false,
-    onError: (error) => {
-      console.error('[Comunicacao] Erro ao carregar contatos:', error);
-    }
-  });
+   // 🔍 BUSCA CIRÚRGICA DE CONTATOS - Apenas os necessários
+   // ═══════════════════════════════════════════════════════════════════════════════
+   const { data: contatos = [], isLoading: loadingContatos } = useQuery({
+     queryKey: ['contacts', contactIdsParaCarregar],
+     queryFn: async () => {
+       if (contactIdsParaCarregar.length === 0) return [];
+
+       console.log(`[COMUNICACAO] 📎 Hidratando ${contactIdsParaCarregar.length} contatos específicos...`);
+
+       try {
+         // Estratégia: Buscar lista maior e filtrar em memória (fallback robusto)
+         const todosContatos = await base44.entities.Contact.list('-last_interaction', 1000);
+
+         // ✅ OT #1: Otimização O(N) com Set (Muito mais rápido que .includes)
+         const idsSet = new Set(contactIdsParaCarregar);
+         const contatosNecessarios = todosContatos.filter(c => idsSet.has(c.id));
+
+         console.log(`[COMUNICACAO] ✅ Contatos hidratados: ${contatosNecessarios.length}/${contactIdsParaCarregar.length}`);
+         return contatosNecessarios;
+       } catch (error) {
+         console.error('[COMUNICACAO] ❌ Erro ao hidratar contatos:', error);
+         return [];
+       }
+     },
+     enabled: contactIdsParaCarregar.length > 0,
+     keepPreviousData: true,
+     staleTime: 60000,
+     cacheTime: 15 * 60 * 1000,
+     retry: 2,
+     retryDelay: 1000,
+     refetchOnWindowFocus: false,
+     onError: (error) => {
+       console.error('[Comunicacao] Erro ao carregar contatos:', error);
+     }
+   });
+
+   // ═══════════════════════════════════════════════════════════════════════════════
+   // 🔍 BUSCA NO BANCO DE DADOS - Quando há termo de busca (sem threads)
+   // ═══════════════════════════════════════════════════════════════════════════════
+   const { data: contatosBuscados = [] } = useQuery({
+     queryKey: ['contacts-search', debouncedSearchTerm],
+     queryFn: async () => {
+       if (!debouncedSearchTerm || debouncedSearchTerm.trim().length < 2) return [];
+
+       console.log(`[COMUNICACAO] 🔍 Buscando contatos: "${debouncedSearchTerm}"...`);
+
+       try {
+         // Buscar contatos no banco que NÃO têm thread
+         const todosBD = await base44.entities.Contact.list('-created_date', 500);
+
+         const normalizarTexto = (t) => {
+           if (!t) return '';
+           return String(t).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
+         };
+
+         const termoNorm = normalizarTexto(debouncedSearchTerm);
+         const termoNumeros = String(debouncedSearchTerm).replace(/\D/g, '');
+
+         const resultado = todosBD.filter(c => {
+           const nomeMatch = normalizarTexto(c.nome || '').includes(termoNorm);
+           const empresaMatch = normalizarTexto(c.empresa || '').includes(termoNorm);
+           const teleMatch = termoNumeros.length >= 3 && String(c.telefone || '').replace(/\D/g, '').includes(termoNumeros);
+           return nomeMatch || empresaMatch || teleMatch;
+         });
+
+         console.log(`[COMUNICACAO] ✅ ${resultado.length} contatos encontrados`);
+         return resultado;
+       } catch (error) {
+         console.error('[COMUNICACAO] ❌ Erro na busca:', error);
+         return [];
+       }
+     },
+     staleTime: 30000,
+     retry: 1
+   });
 
   const { data: clientes = [] } = useQuery({
     queryKey: ['clientes'],
