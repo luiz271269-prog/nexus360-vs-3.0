@@ -1668,8 +1668,48 @@ export default function Comunicacao() {
       };
     });
 
-    // ✅ SEM DEDUPLICAÇÃO ADICIONAL - Cada thread já é única por canal (contact_id + integration_id)
-    const deduplicated = enriched;
+    // 🎯 AGRUPAMENTO POR CHAVE ÚNICA (telefone+nome+empresa+cargo)
+    // Elimina duplicatas visuais causadas por múltiplos contact_id do mesmo contato real
+    const gerarChaveUnica = (contato) => {
+      if (!contato) return null;
+      const tel = normalizarTelefone(contato.telefone || '') || '';
+      const nome = (contato.nome || '').trim().toLowerCase();
+      const empresa = (contato.empresa || '').trim().toLowerCase();
+      const cargo = (contato.cargo || '').trim().toLowerCase();
+      return `${tel}|${nome}|${empresa}|${cargo}`;
+    };
+
+    const threadsPorChaveUnica = new Map();
+    
+    enriched.forEach((thread) => {
+      // Threads internas não agrupam
+      if (thread.thread_type === 'team_internal' || thread.thread_type === 'sector_group') {
+        threadsPorChaveUnica.set(`internal-${thread.id}`, thread);
+        return;
+      }
+
+      const chave = gerarChaveUnica(thread.contato);
+      if (!chave) {
+        // Thread sem contato válido - manter individual
+        threadsPorChaveUnica.set(`orphan-${thread.id}`, thread);
+        return;
+      }
+
+      const existente = threadsPorChaveUnica.get(chave);
+      if (!existente) {
+        threadsPorChaveUnica.set(chave, thread);
+      } else {
+        // Manter thread mais recente (com mais mensagens)
+        const tsExistente = new Date(existente.last_message_at || 0).getTime();
+        const tsAtual = new Date(thread.last_message_at || 0).getTime();
+        
+        if (tsAtual > tsExistente) {
+          threadsPorChaveUnica.set(chave, thread);
+        }
+      }
+    });
+
+    const deduplicated = Array.from(threadsPorChaveUnica.values());
 
     // ═══════════════════════════════════════════════════════════════════════════
     // 🎯 ORDENAÇÃO INTELIGENTE - Estilo WhatsApp:
