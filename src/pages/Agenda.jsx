@@ -6,7 +6,6 @@ import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import PainelPrioridades from "../components/agenda/PainelPrioridades";
 import PainelContexto from "../components/agenda/PainelContexto";
-import MotorInteligencia from "../components/agenda/MotorInteligencia";
 import AlertasInteligentesIA from '../components/global/AlertasInteligentesIA';
 import BotaoNexusFlutuante from '../components/global/BotaoNexusFlutuante';
 import PainelInsightsIA from '../components/global/PainelInsightsIA';
