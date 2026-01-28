@@ -244,7 +244,7 @@ export default function SeletorUnificacaoMultipla({
                     </div>
                   </button>
                 ))
-                )}
+              )}
             </div>
 
             {/* Resumo */}
