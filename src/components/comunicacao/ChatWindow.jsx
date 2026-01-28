@@ -1744,28 +1744,46 @@ export default function ChatWindow({
       });
     }
 
-    // ✅ THREADS INTERNAS: mostrar TODAS as mensagens válidas (sem bloqueios de WhatsApp)
+    // ✅ THREADS INTERNAS: mostrar TODAS as mensagens do thread_id DIRETO
+    // 🔧 INDIVIDUALIZAÇÃO COMPLETA: Sem filtros agressivos, sem merge, sem canonização
     const isThreadInterna = thread?.thread_type === 'team_internal' || thread?.thread_type === 'sector_group';
 
     if (isThreadInterna) {
-      console.log('[MENSAGENS] 🔵 Thread interna detectada, mostrando TODAS mensagens');
+      console.log('[MENSAGENS] 🔵 Thread interna - INDIVIDUALIZANDO mensagens (thread_id direto)');
       
-      return mensagensFiltradas.filter((m) => {
-        // Sempre mostrar mensagens especiais
+      // ✅ REGRA SIMPLIFICADA: ACEITAR TUDO que pertence a esta thread
+      // Mensagens internas NÃO passam por filtros de WhatsApp/canal/JID
+      const mensagensInternas = mensagensFiltradas.filter((m) => {
+        // ✅ FIX CRÍTICO: Garantir que é da thread ATUAL (não merge de outras)
+        if (m.thread_id !== thread.id) {
+          console.log(`[MENSAGENS] ⚠️ Msg ${m.id.substring(0, 8)} de thread DIFERENTE - descartada`);
+          return false;
+        }
+
+        // ✅ Mensagens especiais sempre passam
         if (m.metadata?.deleted) return true;
         if (m.metadata?.is_system_message) return true;
         if (m.metadata?.optimistic) return true;
 
-        // ✅ CRÍTICO: Threads internas têm sender_type='user' SEMPRE
-        // Não há 'contact' em threads internas
+        // ✅ INDIVIDUALIZAÇÃO: Validar APENAS conteúdo mínimo
+        // NÃO verificar canal, JID, contact_id, etc (lógica de WhatsApp)
         const content = (m.content || '').trim();
         const hasMidia = m.media_url || (m.media_type && m.media_type !== 'none');
-        const temConteudoValido = content.length > 0 || hasMidia;
         
-        console.log(`[MENSAGENS] 📬 Msg ${m.id.substring(0, 8)}: sender_type=${m.sender_type}, channel=${m.channel}, content="${content.substring(0, 30)}", válida=${temConteudoValido}`);
+        // ✅ CRITÉRIO MÍNIMO: Ter texto OU mídia OU metadata válida
+        const temConteudo = content.length > 0;
+        const temMetadataValida = m.metadata && Object.keys(m.metadata).length > 0;
         
-        return temConteudoValido;
+        const valida = temConteudo || hasMidia || temMetadataValida;
+        
+        console.log(`[MENSAGENS] 📬 Msg ${m.id.substring(0, 8)}: sender="${m.sender_id?.substring(0, 8)}", channel="${m.channel}", content="${content.substring(0, 40)}", válida=${valida}`);
+        
+        return valida;
       });
+
+      console.log(`[MENSAGENS] ✅ Thread interna - ${mensagensInternas.length}/${mensagens.length} mensagens INDIVIDUALIZADAS exibidas`);
+      
+      return mensagensInternas;
     }
 
     // ✅ Para threads externas (WhatsApp): aplicar filtros de limpeza existentes
