@@ -1907,18 +1907,12 @@ export default function Comunicacao() {
       const usuarioAtribuido = usuariosMap.get(thread.assigned_user_id);
       const contatoObj = thread.contato || contatosMap.get(thread.contact_id);
       
-      // 🎯 Calcular score de relevância se há busca ativa
-      let searchScore = 0;
-      if (temBuscaAtiva && contatoObj) {
-        searchScore = calcularScoreBusca(contatoObj, debouncedSearchTerm);
-      }
-      
       return {
         ...thread,
         contato: contatoObj,
         atendente_atribuido: usuarioAtribuido,
         assigned_user_display_name: usuarioAtribuido ? getUserDisplayName(usuarioAtribuido.id, atendentes) : null,
-        _searchScore: searchScore
+        _searchScore: thread._searchScore || 0
       };
     });
 
