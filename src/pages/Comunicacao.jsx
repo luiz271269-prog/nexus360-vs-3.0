@@ -1453,12 +1453,17 @@ export default function Comunicacao() {
 
        // ═══════════════════════════════════════════════════════════════════════════
        // ✅ USUÁRIOS INTERNOS - SAGRADOS: Nunca bloqueados por escopos/filtros
-               // Usam APENAS participação como critério (curto-circuita TUDO)
+               // MAS: Bloqueados durante busca ativa (usuário quer ver resultados da busca)
                // ═══════════════════════════════════════════════════════════════════════════
                if (thread.thread_type === 'team_internal' || thread.thread_type === 'sector_group') {
+                 // 🔍 BUSCA ATIVA: Bloquear threads internas (mostrar apenas resultados da busca)
+                 if (modoBusca) {
+                   logThread('Modo Busca - Interno', false, 'Threads internas bloqueadas durante busca');
+                   return false;
+                 }
+                 
                  const visInterna = podeVerThreadInterna(thread, usuario);
                  logThread('Usuário Interno (INDEPENDENTE)', visInterna, visInterna ? 'Participante ou admin' : 'Não é participante nem admin');
-                 // ✅ RETORNA DIRETO: Ignora scope/unassigned/filtros - usuários internos são sagrados
                  return visInterna;
                }
       
