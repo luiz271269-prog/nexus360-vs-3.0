@@ -1983,7 +1983,7 @@ export default function Comunicacao() {
       const dateB = new Date(b.last_message_at || 0);
       return dateB - dateA;
     });
-  }, [threadsFiltradas, contatos, atendentes, filterScope, debouncedSearchTerm, calcularScoreBusca]);
+  }, [sourceThreads, contatos, atendentes, filterScope, debouncedSearchTerm]);
 
   const isManager = usuario?.role === 'admin' || usuario?.role === 'supervisor';
   const contatoAtivo = threadAtiva ? contatos.find((c) => c.id === threadAtiva.contact_id) : null;
