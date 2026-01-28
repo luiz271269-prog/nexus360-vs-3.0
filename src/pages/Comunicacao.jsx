@@ -1264,8 +1264,11 @@ export default function Comunicacao() {
     const threadMaisRecentePorContacto = new Map();
     
     threadsAProcessar.forEach((thread) => { // Using threadsAProcessar to respect duplicataEncontrada filter
-      // ✅ Threads internas SEMPRE adicionadas diretamente
+      // ✅ Threads internas: NUNCA deduplicam (USUARIOS ≠ CONTATOS)
+      // Threads internas usam pair_key/sector_key como identificador ÚNICO
+      // NÃO devem usar contact_id (que é null para threads internas)
       if (thread.thread_type === 'team_internal' || thread.thread_type === 'sector_group') {
+        // Usar thread_id direto como chave (garantia absoluta de unicidade)
         threadMaisRecentePorContacto.set(`internal-${thread.id}`, thread);
         return;
       }
