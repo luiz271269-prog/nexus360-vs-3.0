@@ -1808,21 +1808,40 @@ export default function Comunicacao() {
 
     const contatosMap = new Map(contatos.map((c) => [c.id, c]));
     const resultados = [];
-    
-    // PARTE 1: Threads EXTERNAS que fazem match com o termo
+
+    // PARTE 1: Threads (internas + externas) que fazem match com o termo
     threadsAProcessar.forEach((thread) => {
-      // ✅ Bloquear threads internas completamente em modo busca
+      // ✅ THREADS INTERNAS: Buscar por participantes, nome do grupo, etc
       if (thread.thread_type === 'team_internal' || thread.thread_type === 'sector_group') {
+        // Match no nome do grupo
+        if (!matchBuscaGoogle({ nome: thread.group_name }, debouncedSearchTerm)) {
+          return;
+        }
+
+        // Match nos participantes (buscar por nome de usuário)
+        const participantsMatch = (thread.participants || []).some(userId => {
+          const att = atendentes.find(a => a.id === userId);
+          return att && matchBuscaGoogle({ nome: att.full_name || att.email }, debouncedSearchTerm);
+        });
+
+        if (!matchBuscaGoogle({ nome: thread.group_name }, debouncedSearchTerm) && !participantsMatch) {
+          return;
+        }
+
+        resultados.push({
+          ...thread,
+          _searchScore: 50 // Score fixo para internos
+        });
         return;
       }
-      
+
       const contato = contatosMap.get(thread.contact_id);
-      
+
       // ✅ Verificar permissões base (NEXUS360)
       if (!permissionsService.canUserSeeThreadBase(userPermissions, thread, contato)) {
         return;
       }
-      
+
       // ✅ Verificar match com termo
       if (!contato || !matchBuscaGoogle(contato, debouncedSearchTerm)) {
         return;
