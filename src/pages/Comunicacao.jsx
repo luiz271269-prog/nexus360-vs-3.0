@@ -1966,19 +1966,6 @@ export default function Comunicacao() {
     // ═══════════════════════════════════════════════════════════════════════════
     
     return deduplicated.sort((a, b) => {
-      // 🔍 MODO BUSCA: Ordenar por relevância (score de match)
-      if (temBuscaAtiva) {
-        const scoreA = a._searchScore || 0;
-        const scoreB = b._searchScore || 0;
-        
-        if (scoreB !== scoreA) return scoreB - scoreA; // Maior score primeiro
-        
-        // Empate: desempatar por recência
-        const dateA = new Date(a.last_message_at || a.updated_date || 0);
-        const dateB = new Date(b.last_message_at || b.updated_date || 0);
-        return dateB - dateA;
-      }
-      
       // 📋 MODO NORMAL: Ordenar por tipo + recência
       const getPrioridade = (item) => {
         if (item.is_cliente_only) return 3; // Clientes sem contato
