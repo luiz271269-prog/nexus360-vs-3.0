@@ -33,6 +33,19 @@ export default function SeletorUnificacaoMultipla({
 
   const contatosParaMerge = contatosComestados.filter(c => !c.isMestre);
 
+  // 🔍 Filtrar por nome/telefone/empresa/cargo
+  const contatosFiltrados = contatosComestados.filter(c => {
+    if (!filtroNome.trim()) return true;
+    const termo = filtroNome.toLowerCase();
+    return (
+      (c.nome?.toLowerCase() || '').includes(termo) ||
+      (c.telefone?.toLowerCase() || '').includes(termo) ||
+      (c.empresa?.toLowerCase() || '').includes(termo) ||
+      (c.cargo?.toLowerCase() || '').includes(termo) ||
+      (c.email?.toLowerCase() || '').includes(termo)
+    );
+  });
+
   const handleUnificar = async () => {
     if (!mestreSelecionado) {
       toast.error('Selecione um contato MESTRE');
