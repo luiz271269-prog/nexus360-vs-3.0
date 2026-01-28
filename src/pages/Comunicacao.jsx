@@ -1623,8 +1623,8 @@ export default function Comunicacao() {
       // Rastrear contatos por telefone normalizado para evitar duplicatas
       const telefonesJaAcionados = new Set();
 
-      // ✅ COMBINAR: Contatos carregados + contatos buscados no BD
-      const todosCont = [...contatos, ...contatosBuscados];
+      // ✅ COMBINAR: Contatos carregados + contatos buscados no BD (apenas durante busca)
+      const todosCont = temBuscaPorTexto ? [...contatos, ...contatosBuscados] : [...contatos];
       const contatosUnicos = new Map(todosCont.map(c => [c.id, c]));
 
       // Contatos sem thread - usar Set de contatos que já têm thread
