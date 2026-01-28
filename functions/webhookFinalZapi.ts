@@ -908,12 +908,13 @@ async function handleMessage(dados, payloadBruto, base44) {
       payload_bruto: payloadBruto,
       instance_identificado: dados.instanceId ?? null,
       integration_id: integracaoId,
+      message_id: dados.messageId ?? null,
       evento: 'ReceivedCallback',
       timestamp_recebido: new Date().toISOString(),
       sucesso_processamento: true,
     });
-  } catch {
-    // silencioso
+  } catch (auditErr) {
+    console.warn(`[${VERSION}] ⚠️ Erro ao salvar audit log (não-crítico):`, auditErr?.message);
   }
 
   const duracao = Date.now() - inicio;
