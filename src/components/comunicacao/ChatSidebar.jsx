@@ -58,25 +58,39 @@ const resolveThreadUI = (thread, currentUser, atendentes = []) => {
   if (thread.thread_type === 'team_internal' || thread.thread_type === 'sector_group') {
     // 1:1 interno: buscar o outro participante
     if (thread.thread_type === 'team_internal' && !thread.is_group_chat) {
-      const outroUserId = thread.participants?.find(id => id !== currentUser?.id);
-      if (outroUserId) {
-        const outroUser = atendentes.find(a => a.id === outroUserId);
-        const nome = outroUser?.full_name || outroUser?.email || 'Usuário';
-        const avatar = outroUser?.full_name?.charAt(0)?.toUpperCase() || outroUser?.email?.charAt(0)?.toUpperCase() || 'U';
-        
-        // ✅ CORREÇÃO: Usar foto_perfil_url do User quando disponível
-        const avatarUrl = outroUser?.foto_perfil_url || null;
-        
-        return {
-          isInternal: true,
-          title: nome,
-          badge: '',
-          avatar: avatar,
-          avatarUrl: avatarUrl,
-          subtitle: '1:1 interno',
-          setorCor: outroUser?.attendant_sector || 'geral'
-        };
-      }
+    const outroUserId = thread.participants?.find(id => id !== currentUser?.id);
+
+    // ✅ FIX: Threads internas podem não ter outros participants (group chats) ou estar incompletas
+    // Mostrar thread mesmo sem encontrar o outro participante
+    if (outroUserId) {
+    const outroUser = atendentes.find(a => a.id === outroUserId);
+    const nome = outroUser?.full_name || outroUser?.email || 'Usuário';
+    const avatar = outroUser?.full_name?.charAt(0)?.toUpperCase() || outroUser?.email?.charAt(0)?.toUpperCase() || 'U';
+
+    // ✅ CORREÇÃO: Usar foto_perfil_url do User quando disponível
+    const avatarUrl = outroUser?.foto_perfil_url || null;
+
+    return {
+      isInternal: true,
+      title: nome,
+      badge: '',
+      avatar: avatar,
+      avatarUrl: avatarUrl,
+      subtitle: '1:1 interno',
+      setorCor: outroUser?.attendant_sector || 'geral'
+    };
+    }
+
+    // ✅ Se não encontrou outro participante, mostrar como thread incompleta
+    return {
+    isInternal: true,
+    title: 'Chat Interno',
+    badge: '',
+    avatar: 'C',
+    avatarUrl: null,
+    subtitle: '1:1 interno (incompleto)',
+    setorCor: 'geral'
+    };
     }
     
     // Grupo de setor
