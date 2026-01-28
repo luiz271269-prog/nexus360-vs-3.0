@@ -61,9 +61,13 @@ Deno.serve(async (req) => {
       );
     }
 
-    if (!thread.participants || !thread.participants.includes(user.id)) {
+    // ✅ Validar participação OU admin (mensagens internas sem restrições Nexus360)
+    const isParticipant = thread.participants?.includes(user.id);
+    const isAdmin = user.role === 'admin';
+
+    if (!isParticipant && !isAdmin) {
       return new Response(
-        JSON.stringify({ success: false, error: 'Usuario nao eh participante' }),
+        JSON.stringify({ success: false, error: 'Usuario nao eh participante nem admin' }),
         { status: 403, headers }
       );
     }
