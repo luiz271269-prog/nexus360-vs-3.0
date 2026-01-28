@@ -1090,8 +1090,15 @@ export default function NexusSimuladorVisibilidade({ usuario, integracoes = [], 
                      if (filtroDivergencia === 'divergencias' && res.isMatch) return false;
                      if (filtroDivergencia === 'criticos' && res.severity !== 'error') return false;
                      if (filtroNomeContato.trim()) {
-                       const nomeContato = contato?.nome?.toLowerCase() || res.contactName?.toLowerCase() || '';
-                       if (!nomeContato.includes(filtroNomeContato.toLowerCase())) return false;
+                       const termo = filtroNomeContato.toLowerCase();
+                       const match = (
+                         (contato?.nome?.toLowerCase() || '').includes(termo) ||
+                         (contato?.telefone?.toLowerCase() || '').includes(termo) ||
+                         (contato?.empresa?.toLowerCase() || '').includes(termo) ||
+                         (contato?.cargo?.toLowerCase() || '').includes(termo) ||
+                         (res.contactName?.toLowerCase() || '').includes(termo)
+                       );
+                       if (!match) return false;
                      }
                      if (filtroUsuarioAtribuido !== 'todos') {
                        if (filtroUsuarioAtribuido === 'nao_atribuido') {
