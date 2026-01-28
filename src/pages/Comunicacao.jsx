@@ -2317,7 +2317,7 @@ export default function Comunicacao() {
                     integracaoId: selectedIntegrationId,
                     atendenteId: selectedAttendantId
                   }}
-                  threads={threadsComContato}
+                  threads={threads}
                   contatos={contatos}
                 />
                 
