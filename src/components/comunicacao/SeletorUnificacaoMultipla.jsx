@@ -215,35 +215,36 @@ export default function SeletorUnificacaoMultipla({
                 </div>
               ) : (
                 contatosFiltrados.map((contato) => (
-                <button
-                  key={contato.id}
-                  onClick={() => setMestreSelecionado(contato)}
-                  disabled={processando}
-                  className={`w-full text-left p-3 rounded-lg border-2 transition-all ${
-                    contato.isMestre
-                      ? 'border-green-500 bg-green-50'
-                      : 'border-slate-200 bg-white hover:border-slate-300'
-                  } disabled:opacity-50`}
-                >
-                  <div className="flex items-start justify-between">
-                    <div>
-                      <div className="font-medium flex items-center gap-2">
-                        {contato.nome || 'Sem nome'}
-                        {contato.isMestre && (
-                          <Badge className="bg-green-600 text-white">MESTRE</Badge>
-                        )}
+                  <button
+                    key={contato.id}
+                    onClick={() => setMestreSelecionado(contato)}
+                    disabled={processando}
+                    className={`w-full text-left p-3 rounded-lg border-2 transition-all ${
+                      contato.isMestre
+                        ? 'border-green-500 bg-green-50'
+                        : 'border-slate-200 bg-white hover:border-slate-300'
+                    } disabled:opacity-50`}
+                  >
+                    <div className="flex items-start justify-between">
+                      <div>
+                        <div className="font-medium flex items-center gap-2">
+                          {contato.nome || 'Sem nome'}
+                          {contato.isMestre && (
+                            <Badge className="bg-green-600 text-white">MESTRE</Badge>
+                          )}
+                        </div>
+                        <div className="text-sm text-slate-500 mt-1">
+                          📱 {contato.telefone || 'Sem telefone'}
+                          {contato.email && ` • 📧 ${contato.email}`}
+                        </div>
                       </div>
-                      <div className="text-sm text-slate-500 mt-1">
-                        📱 {contato.telefone || 'Sem telefone'}
-                        {contato.email && ` • 📧 ${contato.email}`}
-                      </div>
+                      {contato.isMestre && (
+                        <CheckCircle2 className="w-5 h-5 text-green-600 mt-1 flex-shrink-0" />
+                      )}
                     </div>
-                    {contato.isMestre && (
-                      <CheckCircle2 className="w-5 h-5 text-green-600 mt-1 flex-shrink-0" />
-                    )}
-                  </div>
-                </button>
-              ))}
+                  </button>
+                ))
+                )}
             </div>
 
             {/* Resumo */}
