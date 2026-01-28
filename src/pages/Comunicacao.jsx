@@ -194,31 +194,16 @@ export default function Comunicacao() {
   queryFn: async () => {
     if (isRateLimited) return [];
     try {
-      // ✅ Carregar threads canônicas E threads internas
-      const [threadsExternas, threadsInternas] = await Promise.all([
-        base44.entities.MessageThread.filter(
-          {
-            is_canonical: true,
-            status: { $ne: 'merged' }
-          },
-          '-last_message_at',
-          500
-        ),
-        base44.entities.MessageThread.filter(
-          {
-            thread_type: { $in: ['team_internal', 'sector_group'] }
-          },
-          '-last_message_at',
-          100
-        )
-      ]);
-      
-      const allThreads = [...threadsExternas, ...threadsInternas];
-      console.log('[COMUNICACAO] 📊 Threads carregadas:', {
-        externas: threadsExternas.length,
-        internas: threadsInternas.length,
-        total: allThreads.length
-      });
+      // ✅ Carregar APENAS threads canônicas e não-merged
+      const allThreads = await base44.entities.MessageThread.filter(
+        {
+          is_canonical: true,
+          status: { $ne: 'merged' }
+        },
+        '-last_message_at',
+        500
+      );
+      console.log('[COMUNICACAO] 📊 Threads canônicas carregadas:', allThreads.length);
       return allThreads;
       } catch (error) {
         if (error?.message?.includes('429') || error?.response?.status === 429) {
