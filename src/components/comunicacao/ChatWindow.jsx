@@ -1770,41 +1770,8 @@ export default function ChatWindow({
     const isThreadInterna = thread?.thread_type === 'team_internal' || thread?.thread_type === 'sector_group';
 
     if (isThreadInterna) {
-      console.log('[MENSAGENS] 🔵 Thread interna - INDIVIDUALIZANDO mensagens (thread_id direto)');
-      
-      // ✅ REGRA SIMPLIFICADA: ACEITAR TUDO que pertence a esta thread
-      // Mensagens internas NÃO passam por filtros de WhatsApp/canal/JID
-      const mensagensInternas = mensagensFiltradas.filter((m) => {
-        // ✅ FIX CRÍTICO: Garantir que é da thread ATUAL (não merge de outras)
-        if (m.thread_id !== thread.id) {
-          console.log(`[MENSAGENS] ⚠️ Msg ${m.id.substring(0, 8)} de thread DIFERENTE - descartada`);
-          return false;
-        }
-
-        // ✅ Mensagens especiais sempre passam
-        if (m.metadata?.deleted) return true;
-        if (m.metadata?.is_system_message) return true;
-        if (m.metadata?.optimistic) return true;
-
-        // ✅ CRITÉRIO MÍNIMO para threads internas: Ter ALGO (texto OU mídia)
-        const content = (m.content || '').trim();
-        const hasMidia = m.media_url || (m.media_type && m.media_type !== 'none');
-        
-        // ✅ FIX: Aceitar mensagem se tem conteúdo OU mídia (sem exigir metadata)
-        const valida = content.length > 0 || hasMidia;
-        
-        if (!valida) {
-          console.log(`[MENSAGENS] ❌ Msg ${m.id.substring(0, 8)}: rejeitada (sem conteúdo e sem mídia)`);
-        } else {
-          console.log(`[MENSAGENS] ✅ Msg ${m.id.substring(0, 8)}: sender="${m.sender_id?.substring(0, 8)}", channel="${m.channel}", content="${content.substring(0, 40)}"`);
-        }
-        
-        return valida;
-      });
-
-      console.log(`[MENSAGENS] ✅ Thread interna - ${mensagensInternas.length}/${mensagens.length} mensagens exibidas`);
-      
-      return mensagensInternas;
+      // ✅ CIRÚRGICA: Sem filtros. APENAS garantir que é a thread certa
+      return mensagensFiltradas.filter((m) => m.thread_id === thread.id);
     }
 
     // ✅ Para threads externas (WhatsApp): aplicar filtros de limpeza existentes
