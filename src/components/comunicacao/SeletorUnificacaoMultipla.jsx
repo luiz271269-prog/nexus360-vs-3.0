@@ -42,6 +42,26 @@ export default function SeletorUnificacaoMultipla({
     try {
       const resultados = [];
       
+      // 🆕 SINCRONIZAR MENSAGENS ÓRFÃS PRIMEIRO
+      if (contatosParaMerge.length > 0) {
+        console.log(`[UnificacaoMultipla] 🔄 Sincronizando mensagens órfãs...`);
+        
+        for (const duplicata of contatosParaMerge) {
+          try {
+            const syncResult = await base44.functions.invoke('sincronizarMensagensOrfas', {
+              contact_id: duplicata.id,
+              target_contact_id: mestreSelecionado.id
+            });
+
+            if (syncResult.data.success) {
+              console.log(`[UnificacaoMultipla] ✅ ${duplicata.nome}: ${syncResult.data.stats.mensagens_atualizadas} mensagens sincronizadas`);
+            }
+          } catch (syncError) {
+            console.warn(`[UnificacaoMultipla] ⚠️ Erro ao sincronizar ${duplicata.nome}:`, syncError.message);
+          }
+        }
+      }
+      
       // Executar merge
       if (contatosParaMerge.length === 0) {
         // 🆕 Se só tem 1 contato (mestre), apenas consolida threads
@@ -99,7 +119,7 @@ export default function SeletorUnificacaoMultipla({
       
       const sucessos = resultados.filter(r => r.status === 'sucesso').length;
       const total = contatosParaMerge.length || 1;
-      toast.success(`✅ ${sucessos}/${total} consolidado(s)!`, {
+      toast.success(`✅ ${sucessos}/${total} consolidado(s)! Mensagens órfãs sincronizadas.`, {
         duration: 5000
       });
 
