@@ -54,10 +54,10 @@ Deno.serve(async (req) => {
       );
     }
 
-    // ✅ Validar que é thread interna
+    // ✅ Validar que é usuario interno
     if (thread.thread_type !== 'team_internal' && thread.thread_type !== 'sector_group') {
       return new Response(
-        JSON.stringify({ success: false, error: 'Thread nao eh interna' }),
+        JSON.stringify({ success: false, error: 'Thread nao eh de usuario interno' }),
         { status: 400, headers }
       );
     }
@@ -90,8 +90,8 @@ Deno.serve(async (req) => {
       thread_id: thread.id,
       sender_id: user.id,
       sender_type: 'user',
-      recipient_id: null, // ✅ TODOS na thread veem (recipient_id null = broadcast)
-      recipient_type: 'group', // ✅ Para threads internas, recipient_type é sempre 'group'
+      recipient_id: null, // ✅ TODOS usuarios veem (recipient_id null = broadcast)
+      recipient_type: 'group', // ✅ Para usuarios internos, recipient_type é sempre 'group'
       content: contentFinal,
       media_type: media_type,
       media_url: media_url || null,

@@ -1209,7 +1209,7 @@ export default function Comunicacao() {
   // ═══════════════════════════════════════════════════════════════════════
   // ═══════════════════════════════════════════════════════════════════════
   // ✅ PRÉ-CÁLCULO: Threads não-atribuídas visíveis em escopo 'unassigned'
-  // IMPORTANTE: Threads internas já têm sua própria regra (participação)
+  // IMPORTANTE: Usuários internos já têm sua própria regra (participação)
   // e retornam ANTES desta verificação na VISIBILITY_MATRIX
   // ═══════════════════════════════════════════════════════════════════════
   const threadsNaoAtribuidasVisiveis = React.useMemo(() => {
@@ -1218,7 +1218,7 @@ export default function Comunicacao() {
     const setIds = new Set();
 
     threads.forEach((thread) => {
-      // ✅ SAGRADO: Threads internas nunca entram neste Set
+      // ✅ SAGRADO: Usuários internos nunca entram neste Set
       // (têm sua própria regra de visibilidade por participação)
       if (thread.thread_type === 'team_internal' || thread.thread_type === 'sector_group') return;
       
@@ -1741,7 +1741,7 @@ export default function Comunicacao() {
     const threadsPorChaveUnica = new Map();
     
     enriched.forEach((thread) => {
-      // Threads internas não agrupam
+      // Usuários internos não agrupam
       if (thread.thread_type === 'team_internal' || thread.thread_type === 'sector_group') {
         threadsPorChaveUnica.set(`internal-${thread.id}`, thread);
         return;

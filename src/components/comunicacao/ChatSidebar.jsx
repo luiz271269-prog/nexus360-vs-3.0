@@ -443,7 +443,7 @@ export default function ChatSidebar({
         // 🔍 PRIORIDADE: Verificar PRIMEIRO se é thread interna EXPLÍCITA
         const isThreadInterna = thread.thread_type === 'team_internal' || thread.thread_type === 'sector_group';
 
-        // ✅ THREADS INTERNAS - Renderizar com UI resolvida
+        // ✅ USUÁRIOS INTERNOS - Renderizar com UI resolvida
         if (isThreadInterna) {
           const threadUI = resolveThreadUI(thread, usuarioAtual, atendentes);
           const isSelected = contatosSelecionados.find(c => c.id === thread.id);

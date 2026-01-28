@@ -768,7 +768,7 @@ export default function ChatWindow({
 
     try {
       // ═══════════════════════════════════════════════════════════════════
-      // THREAD INTERNA: Usar handler otimista (igual texto/imagem)
+      // USUÁRIO INTERNO: Usar handler otimista (igual texto/imagem)
       // ═══════════════════════════════════════════════════════════════════
       if (thread?.thread_type === 'team_internal' || thread?.thread_type === 'sector_group') {
         if (onSendInternalMessageOptimistic) {
@@ -1291,7 +1291,7 @@ export default function ChatWindow({
   // 🚀 HANDLER DE ENVIO - Recebe dados do MessageInput
   const handleEnviarFromInput = useCallback(async ({ texto, pastedImage, pastedImagePreview, attachedFile, attachedFileType }) => {
     // ═══════════════════════════════════════════════════════════════════════
-    // THREAD INTERNA (team_internal ou sector_group) - Sempre usar handler otimista
+    // USUÁRIO INTERNO (team_internal ou sector_group) - Sempre usar handler otimista
     // ═══════════════════════════════════════════════════════════════════════
     if (thread?.thread_type === 'team_internal' || thread?.thread_type === 'sector_group') {
       if (onSendInternalMessageOptimistic) {
@@ -1498,7 +1498,7 @@ export default function ChatWindow({
     mutationFn: async () => {
       if (!thread) return;
 
-      // ✅ THREAD INTERNA - usar markThreadAsRead
+      // ✅ USUÁRIO INTERNO - usar markThreadAsRead
       if (thread.thread_type === 'team_internal' || thread.thread_type === 'sector_group') {
         await base44.functions.invoke('markThreadAsRead', {
           thread_id: thread.id
