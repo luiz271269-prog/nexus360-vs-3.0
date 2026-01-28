@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useCallback, useTransition } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -306,10 +307,11 @@ export default function Comunicacao() {
           return ultimasMensagens.reverse();
         }
         
-        // ✅ THREADS EXTERNAS: Buscar histórico consolidado (thread atual + merged)
+        // ✅ THREADS EXTERNAS: Buscar histórico consolidado (thread atual + merged + MESMO CONTATO)
         let threadIdsParaBuscar = [threadAtiva.id];
         
         try {
+          // Buscar threads merged OFICIALMENTE
           const threadsMerged = await base44.entities.MessageThread.filter(
             { 
               merged_into: threadAtiva.id,
@@ -320,14 +322,34 @@ export default function Comunicacao() {
           );
           
           if (threadsMerged && threadsMerged.length > 0) {
-            console.log(`[COMUNICACAO] 🔀 Encontradas ${threadsMerged.length} threads merged, carregando histórico completo...`);
-            threadIdsParaBuscar = [threadAtiva.id, ...threadsMerged.map(t => t.id)];
+            console.log(`[COMUNICACAO] 🔀 Encontradas ${threadsMerged.length} threads merged oficialmente`);
+            threadIdsParaBuscar.push(...threadsMerged.map(t => t.id));
+          }
+          
+          // 🆕 BUSCAR TODAS AS THREADS DO MESMO CONTATO (unificação inteligente)
+          if (threadAtiva.contact_id) {
+            const todasThreadsDoContato = await base44.entities.MessageThread.filter(
+              { 
+                contact_id: threadAtiva.contact_id,
+                status: { $in: ['aberta', 'fechada'] }
+              },
+              '-created_date',
+              50
+            );
+            
+            if (todasThreadsDoContato && todasThreadsDoContato.length > 1) {
+              console.log(`[COMUNICACAO] 🔗 Encontradas ${todasThreadsDoContato.length} threads do mesmo contato - UNIFICANDO histórico`);
+              const idsAdicionais = todasThreadsDoContato.map(t => t.id).filter(id => !threadIdsParaBuscar.includes(id));
+              threadIdsParaBuscar.push(...idsAdicionais);
+            }
           }
         } catch (mergedErr) {
-          console.warn('[COMUNICACAO] ⚠️ Erro ao buscar threads merged:', mergedErr.message);
+          console.warn('[COMUNICACAO] ⚠️ Erro ao buscar threads para unificação:', mergedErr.message);
         }
         
-        // ✅ QUERY 1: Todas as mensagens (thread atual + threads antigas merged)
+        console.log(`[COMUNICACAO] 📦 Buscando mensagens de ${threadIdsParaBuscar.length} thread(s) para histórico unificado`);
+        
+        // ✅ QUERY: Todas as mensagens (thread atual + merged + mesmo contato)
         const ultimasMensagens = await base44.entities.Message.filter(
           { thread_id: { $in: threadIdsParaBuscar } },
           '-sent_at',
@@ -1106,9 +1128,8 @@ export default function Comunicacao() {
   // 3. 🔵 Clientes sem contato (apenas com busca)
   // ═══════════════════════════════════════════════════════════════════════════════
 
-  // Função de busca estilo Google - CORRIGIDA
+  // Função de busca melhorada para termos compostos
   const matchBuscaGoogle = React.useCallback((item, termo) => {
-    // ✅ SEM TERMO: Não retornar nada (forçar filtragem)
     if (!termo || termo.trim().length < 2) return false;
 
     const normalizarTexto = (t) => {
@@ -1118,24 +1139,26 @@ export default function Comunicacao() {
 
     const termoNorm = normalizarTexto(termo);
     const termoNumeros = String(termo).replace(/\D/g, '');
-    const palavras = termoNorm.split(/\s+/).filter((p) => p.length > 0);
 
     const camposTexto = [
-    item.nome, item.empresa, item.cargo, item.email, item.observacoes,
-    item.vendedor_responsavel, item.razao_social, item.nome_fantasia,
-    item.contato_principal_nome, item.segmento,
-    ...(Array.isArray(item.tags) ? item.tags : [])].
-    filter(Boolean);
+      item.nome, item.empresa, item.cargo, item.email, item.observacoes,
+      item.vendedor_responsavel, item.razao_social, item.nome_fantasia,
+      item.contato_principal_nome, item.segmento,
+      ...(Array.isArray(item.tags) ? item.tags : [])
+    ].filter(Boolean);
 
     const camposNumero = [item.telefone, item.cnpj].filter(Boolean);
 
     const textoCompleto = camposTexto.map((c) => normalizarTexto(String(c))).join(' ');
     const numerosCompletos = camposNumero.map((c) => String(c).replace(/\D/g, '')).join(' ');
 
-    const todasPalavrasEncontradas = palavras.every((p) => textoCompleto.includes(p));
-    const numeroEncontrado = termoNumeros.length >= 3 && numerosCompletos.includes(termoNumeros);
+    const matchTexto = textoCompleto.includes(termoNorm);
+    const matchNumero = termoNumeros.length >= 3 && numerosCompletos.includes(termoNumeros);
 
-    return todasPalavrasEncontradas || numeroEncontrado;
+    const palavrasTermo = termoNorm.split(' ').filter(Boolean);
+    const todasPalavrasEncontradas = palavrasTermo.every(p => textoCompleto.includes(p));
+
+    return matchTexto || matchNumero || todasPalavrasEncontradas;
   }, []);
 
   // Calcular score de relevância para ordenação de busca
@@ -1227,55 +1250,50 @@ export default function Comunicacao() {
 
     const isFilterUnassigned = effectiveScope === 'unassigned';
     
-    // ✅ DEDUPLICAÇÃO INTELIGENTE: Em modo normal, mostrar APENAS 1 thread por contato (mais recente)
-              // ⚠️ MODO ADMIN + BUSCA: Desativar deduplicação para ver TODAS as threads/duplicatas
-              const threadMaisRecentePorContacto = new Map();
-              threadsAProcessar.forEach((thread) => {
-                // ✅ Threads internas SEMPRE adicionadas diretamente (chave única por thread.id)
-                if (thread.thread_type === 'team_internal' || thread.thread_type === 'sector_group') {
-                  threadMaisRecentePorContacto.set(`internal-${thread.id}`, thread);
-                  return;
-                }
+    // 🆕 DEDUPLICAÇÃO CONDICIONAL: 
+    // - COM BUSCA: NÃO deduplicar (mostrar TODAS as threads do mesmo contato)
+    // - SEM BUSCA: Deduplicar normalmente (1 thread por contato)
+    const threadMaisRecentePorContacto = new Map();
+    
+    threadsAProcessar.forEach((thread) => { // Using threadsAProcessar to respect duplicataEncontrada filter
+      // ✅ Threads internas SEMPRE adicionadas diretamente
+      if (thread.thread_type === 'team_internal' || thread.thread_type === 'sector_group') {
+        threadMaisRecentePorContacto.set(`internal-${thread.id}`, thread);
+        return;
+      }
 
-                // 🔍 MODO DIAGNÓSTICO ADMIN: Se admin está buscando, mostrar TODAS as threads (incluindo duplicatas)
-                if (isAdmin && temBuscaPorTexto && !duplicataEncontrada) {
-                  threadMaisRecentePorContacto.set(`admin-all-${thread.id}`, thread);
-                  return;
-                }
+      // 🆕 COM BUSCA ATIVA: Mostrar TODAS as threads (sem deduplicar)
+      if (temBuscaPorTexto) {
+        threadMaisRecentePorContacto.set(`search-all-${thread.id}`, thread);
+        return;
+      }
 
-                // ✅ Threads externas: deduplicar APENAS por contact_id (não por integração)
-                // Objetivo: Mostrar contato 1x, com thread mais recente
-                const contactId = thread.contact_id;
-                if (!contactId) {
-                  // ✅ CORREÇÃO: Thread órfã SEM contact_id deve ser IGNORADA
-                  // Exceção: Admin em modo busca/diagnóstico pode ver
-                  if (isAdmin && temBuscaPorTexto) {
-                    threadMaisRecentePorContacto.set(`orphan-${thread.id}`, thread);
-                  }
-                  // ❌ Threads órfãs não devem aparecer em modo normal (dados corrompidos)
-                  return;
-                }
+      // ✅ SEM BUSCA: Deduplicar por contact_id (comportamento normal)
+      const contactId = thread.contact_id;
+      if (!contactId) {
+        if (isAdmin) {
+          threadMaisRecentePorContacto.set(`orphan-${thread.id}`, thread);
+        }
+        return;
+      }
 
-                // 🎯 CHAVE SIMPLES: APENAS contact_id (deduplica todas as integrações)
-                const existente = threadMaisRecentePorContacto.get(contactId);
-                if (!existente) {
-                  threadMaisRecentePorContacto.set(contactId, thread);
-                } else {
-                  // Se há múltiplas threads do mesmo contato (em integrações diferentes), manter a mais recente
-                  
-                  // ✅ OT #2: Comparação de Timestamp Numérico (Mais leve que objetos Date)
-                  const tsExistente = new Date(existente.last_message_at || existente.updated_date || existente.created_date || 0).getTime();
-                  const tsAtual = new Date(thread.last_message_at || thread.updated_date || thread.created_date || 0).getTime();
-                  
-                  if (tsAtual > tsExistente) {
-                    threadMaisRecentePorContacto.set(contactId, thread);
-                  }
-                }
-              });
-              const threadsUnicas = Array.from(threadMaisRecentePorContacto.values());
+      const existente = threadMaisRecentePorContacto.get(contactId);
+      if (!existente) {
+        threadMaisRecentePorContacto.set(contactId, thread);
+      } else {
+        const tsExistente = new Date(existente.last_message_at || existente.updated_date || existente.created_date || 0).getTime();
+        const tsAtual = new Date(thread.last_message_at || thread.updated_date || thread.created_date || 0).getTime();
+        
+        if (tsAtual > tsExistente) {
+          threadMaisRecentePorContacto.set(contactId, thread);
+        }
+      }
+    });
+    
+    const threadsUnicas = Array.from(threadMaisRecentePorContacto.values());
     
     if (DEBUG_VIS) {
-      console.log('[COMUNICACAO] 🎯 Threads únicas (admin+busca desabilita dedup):', threadsUnicas.length, '| Admin:', isAdmin, '| Busca:', temBuscaPorTexto);
+      console.log('[COMUNICACAO] 🎯 Threads processadas:', threadsUnicas.length, '| Busca ativa:', temBuscaPorTexto);
     }
 
     // Registrar IDs de contatos que já têm thread (para evitar duplicatas na busca)
@@ -1289,11 +1307,11 @@ export default function Comunicacao() {
       scope: filterScope
     };
 
-    // ═══════════════════════════════════════════════════════════════════════════
+    // ═══════════════════════════════════════════════════════════════════════
     // MODO BUSCA: Se há termo de busca, relaxar filtros de visibilidade
     // A busca serve para ENCONTRAR contatos e iniciar novas conversas
     // O modal de permissão será exibido ao clicar se necessário
-    // ═══════════════════════════════════════════════════════════════════════════
+    // ═══════════════════════════════════════════════════════════════════════
     const modoBusca = temBuscaPorTexto;
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -1800,7 +1818,7 @@ export default function Comunicacao() {
             </div>
 
             <div className="flex items-center gap-3">
-              {/* Contador de Não Atribuídas */}
+              {/* Contador de Não Atribuidas */}
               <ContadorNaoAtribuidas
                 threads={threads}
                 integracoes={integracoes}
