@@ -29,15 +29,34 @@ export default function DiagnosticoMensagensInternas() {
 
       console.log(`📊 [DIAGNÓSTICO] ${threadsInternas.length} threads internas encontradas`);
 
+      // 🔍 BUSCAR MENSAGENS INTERNAS GLOBALMENTE (últimos 2 minutos)
+      const doisMinutosAtras = new Date(Date.now() - 2 * 60 * 1000).toISOString();
+      const mensagensRecentesInternas = await base44.entities.Message.filter(
+        {
+          channel: 'interno',
+          sent_at: { $gte: doisMinutosAtras }
+        },
+        '-sent_at',
+        100
+      );
+
+      console.log(`🔍 [DIAGNÓSTICO] ${mensagensRecentesInternas.length} mensagens internas nos últimos 2 minutos`);
+
       // Analisar cada thread
       const analise = [];
 
       for (const thread of threadsInternas.slice(0, 10)) {
-        // Buscar mensagens da thread
+        // Buscar TODAS as mensagens da thread (sem limite de tempo)
         const mensagens = await base44.entities.Message.filter(
           { thread_id: thread.id },
           '-sent_at',
-          100
+          200
+        );
+
+        // 🔍 DIAGNÓSTICO CIRÚRGICO: Detectar mensagens órfãs (channel=interno mas thread_id não bate)
+        const mensagensOrfas = mensagensRecentesInternas.filter(m => 
+          m.thread_id !== thread.id && 
+          thread.participants?.some(p => p === m.sender_id || p === m.recipient_id)
         );
 
         // Verificar permissão do usuário
@@ -84,6 +103,31 @@ export default function DiagnosticoMensagensInternas() {
             content: m.content?.substring(0, 50),
             media_type: m.media_type,
             sent_at: m.sent_at
+          })),
+          mensagensOrfas: mensagensOrfas.map(m => ({
+            id: m.id.substring(0, 8),
+            thread_id_salvo: m.thread_id?.substring(0, 8),
+            sender_id: m.sender_id?.substring(0, 8),
+            content: m.content?.substring(0, 50),
+            sent_at: m.sent_at
+          })),
+          // 🔍 LOGS DETALHADOS das últimas 10 mensagens
+          logsDetalhados: mensagens.slice(-10).map(m => ({
+            id: m.id,
+            thread_id: m.thread_id,
+            sender_id: m.sender_id,
+            sender_type: m.sender_type,
+            recipient_id: m.recipient_id,
+            recipient_type: m.recipient_type,
+            channel: m.channel,
+            visibility: m.visibility,
+            content: m.content,
+            media_type: m.media_type,
+            media_url: m.media_url,
+            status: m.status,
+            sent_at: m.sent_at,
+            created_date: m.created_date,
+            metadata: m.metadata
           }))
         });
       }
@@ -96,6 +140,7 @@ export default function DiagnosticoMensagensInternas() {
           sector: usuario.attendant_sector
         },
         total_threads: threadsInternas.length,
+        mensagens_recentes_globais: mensagensRecentesInternas.length,
         analise
       });
 
@@ -156,6 +201,9 @@ export default function DiagnosticoMensagensInternas() {
               </p>
               <p className="text-xs mt-1">
                 Analisando <strong>{resultado.analise.length}</strong> threads mais recentes
+              </p>
+              <p className="text-xs mt-1">
+                <strong>{resultado.mensagens_recentes_globais}</strong> mensagens internas enviadas nos últimos 2 minutos
               </p>
             </div>
 
@@ -279,6 +327,29 @@ export default function DiagnosticoMensagensInternas() {
                     </div>
                   </div>
 
+                  {/* Mensagens Órfãs (channel=interno mas thread_id diferente) */}
+                  {item.mensagensOrfas?.length > 0 && (
+                    <div className="bg-red-50 border border-red-200 rounded p-3">
+                      <p className="font-semibold text-xs text-red-700 mb-2">
+                        ⚠️ Mensagens Órfãs Detectadas ({item.mensagensOrfas.length}):
+                      </p>
+                      <p className="text-[10px] text-red-600 mb-2">
+                        Estas mensagens foram enviadas para participantes desta thread, mas estão salvas com thread_id diferente
+                      </p>
+                      <div className="space-y-1 max-h-32 overflow-y-auto">
+                        {item.mensagensOrfas.map((msg, i) => (
+                          <div key={i} className="text-[10px] font-mono bg-white p-1 rounded border border-red-300">
+                            <span className="text-red-600">Msg: {msg.id}</span> |{' '}
+                            <span className="text-orange-600">Thread salvo: {msg.thread_id_salvo}</span>
+                            <div className="text-slate-600 mt-0.5 truncate">
+                              "{msg.content}"
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
                   {/* Últimas 5 mensagens */}
                   <div>
                     <p className="font-semibold text-xs text-slate-700 mb-2">Últimas 5 mensagens:</p>
@@ -298,6 +369,50 @@ export default function DiagnosticoMensagensInternas() {
                       ))}
                     </div>
                   </div>
+
+                  {/* 🔍 LOGS COMPLETOS (expansível) */}
+                  <details className="bg-slate-50 rounded p-2">
+                    <summary className="cursor-pointer text-xs font-semibold text-slate-700 hover:text-slate-900">
+                      🔍 Ver Logs Completos das Últimas 10 Mensagens
+                    </summary>
+                    <div className="mt-2 space-y-2 max-h-96 overflow-y-auto">
+                      {item.logsDetalhados?.map((log, i) => (
+                        <div key={i} className="text-[9px] font-mono bg-white p-2 rounded border border-slate-200">
+                          <div className="grid grid-cols-2 gap-1">
+                            <div><strong>ID:</strong> {log.id.substring(0, 12)}...</div>
+                            <div><strong>Thread:</strong> {log.thread_id.substring(0, 12)}...</div>
+                            <div><strong>Sender:</strong> {log.sender_id?.substring(0, 12) || 'N/A'}</div>
+                            <div><strong>Type:</strong> <Badge variant="outline">{log.sender_type}</Badge></div>
+                            <div><strong>Channel:</strong> <Badge>{log.channel}</Badge></div>
+                            <div><strong>Visibility:</strong> <Badge>{log.visibility}</Badge></div>
+                            <div><strong>Status:</strong> {log.status}</div>
+                            <div><strong>Media:</strong> {log.media_type}</div>
+                          </div>
+                          {log.content && (
+                            <div className="mt-1 p-1 bg-slate-100 rounded text-slate-700">
+                              <strong>Conteúdo:</strong> "{log.content.substring(0, 100)}"
+                            </div>
+                          )}
+                          {log.media_url && (
+                            <div className="mt-1 text-blue-600 truncate">
+                              <strong>URL:</strong> {log.media_url.substring(0, 60)}...
+                            </div>
+                          )}
+                          <div className="mt-1 text-slate-500">
+                            <strong>Enviado:</strong> {log.sent_at || log.created_date}
+                          </div>
+                          {log.metadata && Object.keys(log.metadata).length > 0 && (
+                            <details className="mt-1">
+                              <summary className="text-purple-600 cursor-pointer">Ver Metadata</summary>
+                              <pre className="text-[8px] bg-slate-100 p-1 rounded mt-1 overflow-auto">
+                                {JSON.stringify(log.metadata, null, 2)}
+                              </pre>
+                            </details>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </details>
                 </div>
               ))}
             </div>
