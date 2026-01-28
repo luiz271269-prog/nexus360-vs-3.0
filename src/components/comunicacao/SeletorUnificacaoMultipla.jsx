@@ -198,9 +198,23 @@ export default function SeletorUnificacaoMultipla({
         {/* ANTES DA UNIFICAÇÃO */}
         {!resultado && (
           <div className="space-y-4">
+            {/* Campo de busca */}
+            <input
+              type="text"
+              placeholder="🔍 Buscar por nome, telefone, empresa, cargo..."
+              value={filtroNome}
+              onChange={(e) => setFiltroNome(e.target.value)}
+              className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
+            />
+
             {/* Lista de contatos com seletor */}
             <div className="bg-slate-50 rounded-lg border border-slate-200 p-4 space-y-2 max-h-60 overflow-y-auto">
-              {contatosComestados.map((contato) => (
+              {contatosFiltrados.length === 0 ? (
+                <div className="text-sm text-slate-500 text-center py-4">
+                  Nenhum contato encontrado
+                </div>
+              ) : (
+                contatosFiltrados.map((contato) => (
                 <button
                   key={contato.id}
                   onClick={() => setMestreSelecionado(contato)}
