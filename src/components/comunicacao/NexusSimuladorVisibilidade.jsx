@@ -655,6 +655,58 @@ export default function NexusSimuladorVisibilidade({ usuario, integracoes = [], 
                           <Button
                            size="sm"
                            variant="ghost"
+                           onClick={async (e) => {
+                             e.stopPropagation();
+                             if (!contato?.id) {
+                               toast.error('Contato não carregado');
+                               return;
+                             }
+
+                             try {
+                               toast.info('🔍 Analisando contato...');
+                               const result = await base44.functions.invoke('diagnosticarContatoDuplicado', {
+                                 contact_id: contato.id
+                               });
+
+                               if (result.data.success) {
+                                 const { diagnostico } = result.data;
+
+                                 // Montar resumo visual
+                                 let mensagem = `📋 DIAGNÓSTICO - ${contato.nome}\n\n`;
+                                 mensagem += `Threads: ${diagnostico.resumo.total_threads}\n`;
+                                 mensagem += `Mensagens: ${diagnostico.resumo.total_mensagens}\n`;
+                                 mensagem += `Duplicatas: ${diagnostico.resumo.total_contatos_duplicados}\n`;
+                                 mensagem += `Problemas: ${diagnostico.resumo.total_problemas}\n\n`;
+
+                                 if (diagnostico.acoes_necessarias.length > 0) {
+                                   mensagem += `⚠️ AÇÕES NECESSÁRIAS:\n`;
+                                   diagnostico.acoes_necessarias.forEach((acao, idx) => {
+                                     mensagem += `${idx + 1}. ${acao.descricao} (${acao.prioridade})\n`;
+                                   });
+                                 } else {
+                                   mensagem += `✅ Nenhuma ação necessária`;
+                                 }
+
+                                 toast.info(mensagem, { duration: 8000 });
+
+                                 // Armazenar diagnóstico para próxima ação
+                                 window._ultimoDiagnostico = diagnostico;
+                               } else {
+                                 toast.error('Erro ao diagnosticar: ' + result.data.error);
+                               }
+                             } catch (error) {
+                               toast.error('Erro ao executar diagnóstico: ' + error.message);
+                             }
+                           }}
+                           className="h-6 w-6 p-0 bg-white shadow-md hover:bg-blue-50 border border-slate-200"
+                           title="Diagnóstico: Ver correções necessárias"
+                          >
+                           <Zap className="w-3 h-3 text-blue-600" />
+                          </Button>
+
+                          <Button
+                           size="sm"
+                           variant="ghost"
                            onClick={(e) => {
                              e.stopPropagation();
                              setThreadExpandida(threadExpandida === thread.id ? null : thread.id);
