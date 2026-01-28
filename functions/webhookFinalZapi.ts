@@ -696,21 +696,6 @@ async function handleMessage(dados, payloadBruto, base44) {
           thread = threads[0];
           console.log(`[${VERSION}] ✅ canonical-thread-found: ${thread.id} | Unificada para todas as integrações`);
 
-          const agora = new Date().toISOString();
-          const threadUpdate = {
-              last_message_at: agora,
-              last_inbound_at: agora,
-              last_message_sender: 'contact',
-              last_message_content: String(dados.content || '').substring(0, 100),
-              last_media_type: dados.mediaType || 'none',
-              unread_count: (thread.unread_count || 0) + 1,
-              total_mensagens: (thread.total_mensagens || 0) + 1,
-              status: 'aberta',
-              whatsapp_integration_id: integracaoId || thread.whatsapp_integration_id
-          };
-          await base44.asServiceRole.entities.MessageThread.update(thread.id, threadUpdate);
-          console.log(`[${VERSION}] canonical-thread-updated | unread: ${threadUpdate.unread_count}`);
-
       } else {
           console.log(`[${VERSION}] 🆕 canonical-thread-not-found: Criando thread ÚNICA para este contato.`);
           const agora = new Date().toISOString();
@@ -868,6 +853,26 @@ async function handleMessage(dados, payloadBruto, base44) {
   } catch (e) {
     console.error(`[${VERSION}] ❌ Erro salvar mensagem:`, e?.message || e);
     return jsonServerError({ success: false, error: 'erro_salvar_mensagem' });
+  }
+
+  // ✅ ATUALIZAR THREAD - Incrementar contadores DEPOIS de salvar mensagem
+  try {
+    const agora = new Date().toISOString();
+    const threadUpdate = {
+      last_message_at: agora,
+      last_inbound_at: agora,
+      last_message_sender: 'contact',
+      last_message_content: String(dados.content || '').substring(0, 100),
+      last_media_type: dados.mediaType || 'none',
+      unread_count: (thread.unread_count || 0) + 1,
+      total_mensagens: (thread.total_mensagens || 0) + 1,
+      status: 'aberta',
+      whatsapp_integration_id: integracaoId || thread.whatsapp_integration_id
+    };
+    await base44.asServiceRole.entities.MessageThread.update(thread.id, threadUpdate);
+    console.log(`[${VERSION}] 💭 Thread atualizada | Total: ${threadUpdate.total_mensagens} | Não lidas: ${threadUpdate.unread_count}`);
+  } catch (updateError) {
+    console.error(`[${VERSION}] ⚠️ Erro ao atualizar thread:`, updateError.message);
   }
 
   // ============================================================================
