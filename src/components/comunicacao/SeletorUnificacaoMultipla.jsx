@@ -14,6 +14,7 @@ export default function SeletorUnificacaoMultipla({
   const [mestreSelecionado, setMestreSelecionado] = useState(null);
   const [processando, setProcessando] = useState(false);
   const [resultado, setResultado] = useState(null);
+  const [filtroNome, setFiltroNome] = useState('');
 
   if (!Array.isArray(contatosSelecionados)) {
     return null;
