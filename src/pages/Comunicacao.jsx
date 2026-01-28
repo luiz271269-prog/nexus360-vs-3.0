@@ -2171,7 +2171,7 @@ export default function Comunicacao() {
 
                   <div className={`flex-1 overflow-y-auto transition-opacity duration-200 ${isPendingFilter ? 'opacity-50' : 'opacity-100'}`}>
                     <ChatSidebar
-                      threads={threadsComContato}
+                      threads={threadsParaExibir}
                       threadAtiva={threadAtiva}
                       onSelecionarThread={handleSelecionarThread}
                       loading={loadingTopics}
