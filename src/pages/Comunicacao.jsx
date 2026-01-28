@@ -1799,15 +1799,111 @@ export default function Comunicacao() {
     return threadsFiltrados;
   }, [threads, contatos, clientes, atendentes, usuario, userPermissions, selectedAttendantId, selectedIntegrationId, selectedCategoria, selectedTipoContato, selectedTagContato, debouncedSearchTerm, mensagensComCategoria, matchBuscaGoogle, filterScope, duplicataEncontrada, effectiveScope, threadsNaoAtribuidasVisiveis, threadsAProcessar, contatosMap, contatosBuscados]);
 
+  // ═══════════════════════════════════════════════════════════════════════════════
+  // 🔍 COLEÇÃO ESPECÍFICA PARA MODO BUSCA - Apenas resultados reais da busca
+  // ═══════════════════════════════════════════════════════════════════════════════
+  const threadsResultantesDaBusca = React.useMemo(() => {
+    const temBuscaAtiva = !!debouncedSearchTerm && debouncedSearchTerm.trim().length >= 2;
+    if (!temBuscaAtiva) return [];
+
+    const contatosMap = new Map(contatos.map((c) => [c.id, c]));
+    const resultados = [];
+    
+    // PARTE 1: Threads EXTERNAS que fazem match com o termo
+    threadsAProcessar.forEach((thread) => {
+      // ✅ Bloquear threads internas completamente em modo busca
+      if (thread.thread_type === 'team_internal' || thread.thread_type === 'sector_group') {
+        return;
+      }
+      
+      const contato = contatosMap.get(thread.contact_id);
+      
+      // ✅ Verificar permissões base (NEXUS360)
+      if (!permissionsService.canUserSeeThreadBase(userPermissions, thread, contato)) {
+        return;
+      }
+      
+      // ✅ Verificar match com termo
+      if (!contato || !matchBuscaGoogle(contato, debouncedSearchTerm)) {
+        return;
+      }
+      
+      // ✅ Verificar filtros tipo/tag
+      if (selectedTipoContato && selectedTipoContato !== 'all' && contato.tipo_contato !== selectedTipoContato) {
+        return;
+      }
+      
+      if (selectedTagContato && selectedTagContato !== 'all') {
+        const tags = contato.tags || [];
+        if (!tags.includes(selectedTagContato)) {
+          return;
+        }
+      }
+      
+      // ✅ PASSOU: Adicionar à lista
+      resultados.push({
+        ...thread,
+        contato,
+        _searchScore: calcularScoreBusca(contato, debouncedSearchTerm)
+      });
+    });
+    
+    // PARTE 2: Contatos SEM THREAD que fazem match
+    const contatosUnicos = new Map([...contatos, ...contatosBuscados].map(c => [c.id, c]));
+    const contatosComThreadExistente = new Set(threadsAProcessar.map((t) => t.contact_id).filter(Boolean));
+    
+    Array.from(contatosUnicos.values()).forEach((contato) => {
+      // ✅ Pular se já tem thread
+      if (contatosComThreadExistente.has(contato.id)) return;
+      
+      // ✅ Pular bloqueados
+      if (contato.bloqueado) return;
+      
+      // ✅ Verificar match
+      if (!matchBuscaGoogle(contato, debouncedSearchTerm)) return;
+      
+      // ✅ Verificar filtros
+      if (selectedTipoContato && selectedTipoContato !== 'all' && contato.tipo_contato !== selectedTipoContato) {
+        return;
+      }
+      
+      if (selectedTagContato && selectedTagContato !== 'all') {
+        const tags = contato.tags || [];
+        if (!tags.includes(selectedTagContato)) {
+          return;
+        }
+      }
+      
+      // ✅ PASSOU: Adicionar como "contato sem thread"
+      resultados.push({
+        id: `contato-sem-thread-${contato.id}`,
+        contact_id: contato.id,
+        is_contact_only: true,
+        contato,
+        last_message_at: contato.ultima_interacao || contato.created_date,
+        last_message_content: null,
+        unread_count: 0,
+        status: 'sem_conversa',
+        _searchScore: calcularScoreBusca(contato, debouncedSearchTerm)
+      });
+    });
+    
+    // ✅ ORDENAR por score de relevância
+    return resultados.sort((a, b) => (b._searchScore || 0) - (a._searchScore || 0));
+  }, [threads, contatos, contatosBuscados, debouncedSearchTerm, selectedTipoContato, selectedTagContato, matchBuscaGoogle, calcularScoreBusca, threadsAProcessar, userPermissions]);
+
   // Converter para formato compatível com ChatSidebar + ORDENAÇÃO por PRIORIDADE (Regra 3)
   // DEDUPLICAÇÃO FINAL: Garantir que não há entradas duplicadas por contact_id
   const threadsComContato = React.useMemo(() => {
     const contatosMap = new Map(contatos.map((c) => [c.id, c]));
     const usuariosMap = new Map(atendentes.map((a) => [a.id, a]));
     const temBuscaAtiva = debouncedSearchTerm && debouncedSearchTerm.trim().length >= 2;
+    
+    // 🔍 MODO BUSCA: Usar coleção específica de resultados
+    const sourceThreads = temBuscaAtiva ? threadsResultantesDaBusca : threadsFiltradas;
 
     // ✅ Enriquecer com contato e usuário (SEMPRE buscar User dinamicamente)
-    const enriched = threadsFiltradas.map((thread) => {
+    const enriched = sourceThreads.map((thread) => {
       const usuarioAtribuido = usuariosMap.get(thread.assigned_user_id);
       const contatoObj = thread.contato || contatosMap.get(thread.contact_id);
       
