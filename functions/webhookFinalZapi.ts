@@ -871,20 +871,34 @@ async function handleMessage(dados, payloadBruto, base44) {
   }
 
   // ============================================================================
-  // ✅ INVOCAR processInboundEvent - ETAPA CRÍTICA
+  // ✅ PROCESSAR VIA CÉREBRO CENTRAL (INBOUND CORE)
   // ============================================================================
   try {
-    console.log(`[${VERSION}] 🎯 Invocando processInboundEvent para thread: ${thread.id}`);
-    await base44.asServiceRole.functions.invoke('processInboundEvent', {
-      thread_id: thread.id,
-      contact_id: contato.id,
-      message_id: mensagem.id,
-      integration_id: integracaoId,
-      provider: 'z_api'
+    console.log(`[${VERSION}] 🎯 Invocando processInbound (adaptador) para thread: ${thread.id}`);
+    
+    // Buscar integração completa
+    let integracaoCompleta = null;
+    if (integracaoId) {
+      try {
+        integracaoCompleta = await base44.asServiceRole.entities.WhatsAppIntegration.get(integracaoId);
+      } catch (e) {
+        console.warn(`[${VERSION}] ⚠️ Erro ao buscar integração completa:`, e.message);
+      }
+    }
+    
+    // Chamar processInbound (adaptador HTTP) que delega para inboundCore
+    await base44.asServiceRole.functions.invoke('processInbound', {
+      message: mensagem,
+      contact: contato,
+      thread: thread,
+      integration: integracaoCompleta,
+      provider: 'z_api',
+      messageContent: dados.content,
+      rawPayload: payloadBruto
     });
-    console.log(`[${VERSION}] ✅ processInboundEvent executado com sucesso`);
+    console.log(`[${VERSION}] ✅ processInbound executado com sucesso`);
   } catch (error) {
-    console.error(`[${VERSION}] ⚠️ Erro ao invocar processInboundEvent:`, error?.message || error);
+    console.error(`[${VERSION}] ⚠️ Erro ao invocar processInbound:`, error?.message || error);
     // Continua mesmo se houver erro (não bloqueia o webhook)
   }
 
