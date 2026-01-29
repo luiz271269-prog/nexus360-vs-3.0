@@ -701,10 +701,8 @@ export default function ChatSidebar({
                   </span>
                 </div>
 
-                {/* Linha 2: Preview mensagem - IGNORAR MENSAGENS DE SISTEMA */}
-                <p className={`text-xs truncate flex items-center gap-1 ${
-                  hasUnread ? 'text-slate-800' : 'text-slate-500'}`
-                  }>
+                {/* ✅ LINHA 2: Preview mensagem - LÓGICA SEPARADA (interno vs externo) */}
+                <p className={`text-xs truncate flex items-center gap-1 ${hasUnread ? 'text-slate-800' : 'text-slate-500'}`}>
                   {thread.is_contact_only ? (
                     <span className="text-slate-400 italic">Sem conversa ativa</span>
                   ) : (
@@ -722,6 +720,7 @@ export default function ChatSidebar({
                         {(() => {
                           let content = thread.last_message_content;
                           
+                          // ✅ THREADS EXTERNAS: Filtros agressivos de limpeza
                           if (!content || content === '[No content]' || /^[\+\d]+@(lid|s\.whatsapp\.net|c\.us)/.test(content)) {
                             if (thread.last_media_type === 'image') return "[Imagem]";
                             if (thread.last_media_type === 'video') return "[Video]";
@@ -736,6 +735,11 @@ export default function ChatSidebar({
                           return content;
                         })()}
                       </span>
+                      {thread.last_message_sender_name && (
+                        <span className="text-[9px] text-slate-400 italic">
+                          ~ {thread.last_message_sender_name.split(' ')[0]}
+                        </span>
+                      )}
                     </>
                   )}
                 </p>
