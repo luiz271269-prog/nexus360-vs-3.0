@@ -110,12 +110,33 @@ Deno.serve(async (req) => {
 
     const agora = new Date().toISOString();
 
+    // ✅ DIFERENCIAR: 1:1 interno vs Grupo/Setor
+    const is1on1 = thread.thread_type === 'team_internal' && 
+                   !thread.is_group_chat && 
+                   thread.participants?.length === 2;
+    
+    let recipientIdFinal = null;
+    let recipientTypeFinal = 'group';
+    
+    if (is1on1) {
+      // 🎯 1:1 INTERNO: Identificar o outro usuário como destinatário
+      const outroUsuarioId = thread.participants.find(id => id !== user.id);
+      if (outroUsuarioId) {
+        recipientIdFinal = outroUsuarioId;
+        recipientTypeFinal = 'user';
+        console.log('[SEND_INTERNAL] 💬 Mensagem 1:1 para usuário:', outroUsuarioId);
+      }
+    } else {
+      // 👥 GRUPO/SETOR: Broadcast para todos (recipient_id null)
+      console.log('[SEND_INTERNAL] 👥 Mensagem de grupo - broadcast para todos os participantes');
+    }
+
     const messageData = {
       thread_id: thread.id,
       sender_id: user.id,
       sender_type: 'user',
-      recipient_id: null, // ✅ TODOS usuarios veem (recipient_id null = broadcast)
-      recipient_type: 'group', // ✅ Para usuarios internos, recipient_type é sempre 'group'
+      recipient_id: recipientIdFinal, // 1:1 = outro user_id | Grupo = null
+      recipient_type: recipientTypeFinal, // 1:1 = 'user' | Grupo = 'group'
       content: contentFinal,
       media_type: media_type,
       media_url: media_url || null,
@@ -123,7 +144,12 @@ Deno.serve(async (req) => {
       channel: 'interno',
       visibility: 'internal_only',
       status: 'enviada',
-      sent_at: agora
+      sent_at: agora,
+      metadata: {
+        is_internal_message: true, // ✅ FLAG: Diferencia de mensagens externas
+        is_1on1: is1on1,
+        sender_name: user.full_name || user.email
+      }
     };
 
     if (reply_to_message_id) {
@@ -132,10 +158,15 @@ Deno.serve(async (req) => {
 
     console.log('[SEND_INTERNAL] 🔵 Criando mensagem interna:', {
       thread_id: thread.id,
+      thread_type: thread.thread_type,
       sender_id: user.id,
       sender_type: 'user',
+      recipient_id: recipientIdFinal,
+      recipient_type: recipientTypeFinal,
       channel: 'interno',
       visibility: 'internal_only',
+      is_1on1: is1on1,
+      participants_count: thread.participants?.length,
       content: contentFinal.substring(0, 50)
     });
 

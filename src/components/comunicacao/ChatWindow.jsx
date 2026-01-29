@@ -1773,55 +1773,62 @@ export default function ChatWindow({
       });
     }
 
-    // ✅ THREADS INTERNAS: mostrar TODAS as mensagens do thread_id DIRETO
-    // 🔧 INDIVIDUALIZAÇÃO COMPLETA: Sem filtros agressivos, sem merge, sem canonização
+    // ✅ THREADS INTERNAS: Apenas mensagens entre USUÁRIOS (não contatos externos)
+    // 🔧 REGRA SAGRADA: channel='interno' + sender_type='user' + recipient_type IN ['user', 'group']
     const isThreadInterna = thread?.thread_type === 'team_internal' || thread?.thread_type === 'sector_group';
 
     if (isThreadInterna) {
-      // ✅ LOG: Diagnosticar mensagens internas
       console.log('[MENSAGENS_INTERNAS] 🔍 Total mensagens recebidas:', mensagensFiltradas.length);
       console.log('[MENSAGENS_INTERNAS] 📋 Primeiras 3 mensagens:', mensagensFiltradas.slice(0, 3).map(m => ({
         id: m.id?.substring(0, 8),
         sender_type: m.sender_type,
+        recipient_type: m.recipient_type,
         channel: m.channel,
+        visibility: m.visibility,
         content: m.content?.substring(0, 30),
-        media_type: m.media_type,
-        visibility: m.visibility
+        media_type: m.media_type
       })));
 
       const mensagensInternasProcessadas = mensagensFiltradas.filter((m) => {
-        // SEMPRE mostrar mensagens com sender_type='user' ou channel='interno'
-        if (m.sender_type === 'user' || m.channel === 'interno') {
-          const content = (m.content || '').trim();
-          // ✅ FIX: Verificar media_type PRIMEIRO (mais confiável que media_url durante upload)
-          const hasMidia = (m.media_type && m.media_type !== 'none') || m.media_url;
-          const shouldShow = content.length > 0 || hasMidia;
-          
-          console.log('[MENSAGENS_INTERNAS] ✅ Mensagem aprovada:', {
+        // 🎯 REGRA CLARA: Mensagens internas são SEMPRE entre USUÁRIOS
+        // ✅ Validação tripla: channel, sender_type, recipient_type
+        const isInterna = 
+          m.channel === 'interno' && 
+          m.sender_type === 'user' && 
+          (m.recipient_type === 'user' || m.recipient_type === 'group');
+
+        if (!isInterna) {
+          console.log('[MENSAGENS_INTERNAS] ❌ Rejeitada (não é interna):', {
             id: m.id?.substring(0, 8),
-            sender_type: m.sender_type,
             channel: m.channel,
-            has_content: content.length > 0,
-            has_midia: hasMidia,
-            media_type: m.media_type,
-            media_url: !!m.media_url,
-            shouldShow
+            sender_type: m.sender_type,
+            recipient_type: m.recipient_type
           });
-          
-          return shouldShow;
+          return false;
         }
-        
-        console.log('[MENSAGENS_INTERNAS] ❌ Mensagem rejeitada:', {
+
+        // ✅ Validar conteúdo (texto OU mídia)
+        const content = (m.content || '').trim();
+        const hasMidia = (m.media_type && m.media_type !== 'none') || m.media_url;
+        const shouldShow = content.length > 0 || hasMidia;
+
+        if (!shouldShow) {
+          console.log('[MENSAGENS_INTERNAS] ❌ Rejeitada (sem conteúdo):', m.id?.substring(0, 8));
+          return false;
+        }
+
+        console.log('[MENSAGENS_INTERNAS] ✅ Aprovada:', {
           id: m.id?.substring(0, 8),
-          sender_type: m.sender_type,
-          channel: m.channel,
-          reason: 'sender_type != user AND channel != interno'
+          sender: m.sender_id?.substring(0, 8),
+          recipient: m.recipient_id?.substring(0, 8) || 'GROUP',
+          has_content: content.length > 0,
+          has_midia: hasMidia
         });
-        
-        return false;
+
+        return true;
       });
 
-      console.log('[MENSAGENS_INTERNAS] 📊 RESULTADO FINAL:', mensagensInternasProcessadas.length, 'de', mensagensFiltradas.length);
+      console.log('[MENSAGENS_INTERNAS] 📊 RESULTADO:', mensagensInternasProcessadas.length, 'de', mensagensFiltradas.length);
       return mensagensInternasProcessadas;
     }
 
