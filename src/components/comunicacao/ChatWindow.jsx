@@ -1785,7 +1785,8 @@ export default function ChatWindow({
         // SEMPRE mostrar mensagens com sender_type='user' ou channel='interno'
         if (m.sender_type === 'user' || m.channel === 'interno') {
           const content = (m.content || '').trim();
-          const hasMidia = m.media_url || (m.media_type && m.media_type !== 'none');
+          // ✅ FIX: Verificar media_type PRIMEIRO (mais confiável que media_url durante upload)
+          const hasMidia = (m.media_type && m.media_type !== 'none') || m.media_url;
           const shouldShow = content.length > 0 || hasMidia;
           
           console.log('[MENSAGENS_INTERNAS] ✅ Mensagem aprovada:', {
@@ -1794,6 +1795,8 @@ export default function ChatWindow({
             channel: m.channel,
             has_content: content.length > 0,
             has_midia: hasMidia,
+            media_type: m.media_type,
+            media_url: !!m.media_url,
             shouldShow
           });
           
