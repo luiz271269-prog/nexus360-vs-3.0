@@ -1064,11 +1064,14 @@ export default function Comunicacao() {
           return antigas.filter((m) => m.id !== tempId);
         });
         
-        // 5. ✅ CRÍTICO: Invalidar queries para RECARREGAR com a nova thread
+        // 5. ✅ CRÍTICO: Invalidar TODAS queries relacionadas
         await Promise.all([
           queryClient.invalidateQueries({ queryKey: ['mensagens', threadAtiva.id] }),
-          queryClient.invalidateQueries({ queryKey: ['threads', usuario?.id] })
+          queryClient.invalidateQueries({ queryKey: ['threads', usuario?.id] }),
+          queryClient.invalidateQueries({ queryKey: ['threads'] }) // ✅ FIX: Recarregar sidebar também
         ]);
+        
+        toast.success('✅ Mensagem enviada!');
       } else {
         throw new Error(resultado.data.error || 'Erro ao enviar');
       }
