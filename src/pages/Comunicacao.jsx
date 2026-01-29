@@ -1328,14 +1328,36 @@ export default function Comunicacao() {
   // EXTRAÍDO para top-level (antes de threadsFiltradas)
   // ═══════════════════════════════════════════════════════════════════════════════
   const threadsAProcessar = React.useMemo(() => {
+    if (DEBUG_VIS) {
+      console.group('[COMUNICACAO] 🔍 threadsAProcessar - FILTRO DUPLICATAS');
+      console.log('Total threads brutas:', threads.length);
+      console.log('duplicataEncontrada:', duplicataEncontrada ? {
+        principal_id: duplicataEncontrada.principal?.id,
+        principal_nome: duplicataEncontrada.principal?.nome,
+        duplicatas_count: duplicataEncontrada.duplicatas?.length
+      } : null);
+    }
+    
     let resultado = threads;
     
     if (duplicataEncontrada && duplicataEncontrada.principal) {
       const contatoPrincipalId = duplicataEncontrada.principal.id;
+      const antesCount = resultado.length;
+      
       resultado = threads.filter((t) => {
         if (t.thread_type === 'team_internal' || t.thread_type === 'sector_group') return true;
         return t.contact_id === contatoPrincipalId;
       });
+      
+      if (DEBUG_VIS) {
+        console.log(`🔴 FILTRO DUPLICATAS ATIVO - Bloqueou ${antesCount - resultado.length} threads`);
+        console.log('Threads restantes:', resultado.length);
+      }
+    }
+    
+    if (DEBUG_VIS) {
+      console.log('threadsAProcessar final:', resultado.length);
+      console.groupEnd();
     }
     
     return resultado;
