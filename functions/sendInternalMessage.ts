@@ -45,11 +45,24 @@ Deno.serve(async (req) => {
       );
     }
 
-    const thread = await base44.asServiceRole.entities.MessageThread.get(thread_id);
-
-    if (!thread) {
+    let thread;
+    try {
+      thread = await base44.asServiceRole.entities.MessageThread.get(thread_id);
+      
+      if (!thread) {
+        console.error('[SEND_INTERNAL] ❌ Thread null:', thread_id);
+        return new Response(
+          JSON.stringify({ success: false, error: 'Thread nao encontrada' }),
+          { status: 404, headers }
+        );
+      }
+    } catch (getError) {
+      console.error('[SEND_INTERNAL] ❌ Erro ao buscar thread:', {
+        thread_id,
+        error: getError.message
+      });
       return new Response(
-        JSON.stringify({ success: false, error: 'Thread nao encontrada' }),
+        JSON.stringify({ success: false, error: `Thread nao encontrada: ${getError.message}` }),
         { status: 404, headers }
       );
     }
@@ -184,10 +197,15 @@ Deno.serve(async (req) => {
     );
 
   } catch (error) {
+    console.error('[SEND_INTERNAL] ❌ ERRO CRÍTICO:', {
+      message: error.message,
+      stack: error.stack
+    });
     return new Response(
       JSON.stringify({
         success: false,
-        error: error.message || 'Erro interno'
+        error: error.message || 'Erro interno',
+        details: error.stack
       }),
       { status: 500, headers }
     );

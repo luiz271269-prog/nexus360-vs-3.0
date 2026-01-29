@@ -566,34 +566,14 @@ export default function ChatWindow({
 
       for (const dest of broadcastInterno.destinations) {
         try {
-          // ✅ CRÍTICO: Validar que é thread interna ANTES de enviar
+          // ✅ Validação simples: thread_id deve existir
           if (!dest.thread_id) {
-            console.error(`❌ Destino sem thread_id:`, dest);
+            console.error(`[BROADCAST_INTERNO] ❌ Destino sem thread_id:`, dest);
             erros++;
             continue;
           }
 
-          // Buscar thread para validar tipo
-          const threads = await base44.entities.MessageThread.filter({ id: dest.thread_id });
-          const targetThread = threads?.[0];
-
-          if (!targetThread) {
-            console.error(`❌ Thread não encontrada: ${dest.thread_id}`);
-            erros++;
-            continue;
-          }
-
-          // ✅ BLOQUEAR envio para threads externas
-          if (targetThread.thread_type === 'contact_external') {
-            console.error(`❌ BLOQUEADO: Tentativa de envio interno para thread externa`, {
-              thread_id: dest.thread_id,
-              thread_type: targetThread.thread_type,
-              dest_name: dest.name
-            });
-            erros++;
-            continue;
-          }
-
+          // ✅ Backend valida se é thread interna - não fazer query extra aqui
           await base44.functions.invoke('sendInternalMessage', {
             thread_id: dest.thread_id,
             content: texto.trim() || (mediaUrl ? `[${mediaType}]` : ''),
