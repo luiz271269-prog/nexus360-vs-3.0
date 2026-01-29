@@ -1,5 +1,31 @@
 import React, { useMemo, useState } from "react";
-import { CheckCheck, Clock, User, Users, AlertCircle, Image, Video, Mic, FileText, MapPin, Phone as PhoneIcon, Tag, Building2, Target, Truck, Handshake, HelpCircle, UserCheck, Send, X, CheckSquare, Square, MessagesSquare, ArrowRightLeft, Plus } from "lucide-react";
+import { 
+  CheckCheck, 
+  Clock, 
+  User, 
+  Users, 
+  AlertCircle, 
+  Image, 
+  Video, 
+  Mic, 
+  FileText, 
+  MapPin, 
+  Phone as PhoneIcon, 
+  Tag, 
+  Building2,
+  Target, 
+  Truck, 
+  Handshake, 
+  HelpCircle, 
+  UserCheck, 
+  Send, 
+  X, 
+  CheckSquare, 
+  Square, 
+  MessagesSquare, 
+  ArrowRightLeft, 
+  Plus 
+} from "lucide-react";
 import InternalMessageComposer from "./InternalMessageComposer";
 import { Badge } from "@/components/ui/badge";
 import { motion } from "framer-motion";
