@@ -1441,18 +1441,15 @@ export default function Comunicacao() {
          });
        };
 
-       const isLuizThread = thread.id === '6932fbf5e7708be9b205eaae';
-       if (isLuizThread) {
+       const isLuizThread = thread.id === '693306f0ffbdced31cc623e3';
+       if (DEBUG_VIS && isLuizThread) {
          console.log('[COMUNICACAO] 🔍 DIAGNÓSTICO LUIZ - Thread encontrada:', {
            thread_id: thread.id,
            contact_id: thread.contact_id,
            integration_id: thread.whatsapp_integration_id,
-           assigned_user_id: thread.assigned_user_id,
            unread_count: thread.unread_count,
            last_message_at: thread.last_message_at,
-           thread_type: thread.thread_type,
-           is_canonical: thread.is_canonical,
-           status: thread.status
+           thread_type: thread.thread_type
          });
        }
 
@@ -1476,24 +1473,18 @@ export default function Comunicacao() {
       
       const contato = contatosMap.get(thread.contact_id);
       
-      if (isLuizThread) {
-        console.log('[COMUNICACAO] 🔍 DIAGNÓSTICO LUIZ - Contato:', contato ? {
-          id: contato.id,
-          nome: contato.nome,
-          telefone: contato.telefone,
-          tipo_contato: contato.tipo_contato,
-          bloqueado: contato.bloqueado
-        } : 'NÃO ENCONTRADO');
+      if (DEBUG_VIS && isLuizThread) {
+        console.log('[COMUNICACAO] 🔍 DIAGNÓSTICO LUIZ - Contato:', contato ? 'ENCONTRADO' : 'NÃO ENCONTRADO');
       }
 
       if (!contato && thread.contact_id && !isFilterUnassigned) {
         logThread('Contato Existe', true, 'Contato aguardando hidratação (Fail-Safe)');
-        if (isLuizThread) {
+        if (DEBUG_VIS && isLuizThread) {
           console.log('[COMUNICACAO] ⚠️ DIAGNÓSTICO LUIZ - Contato não hidratado, mas thread passa (Fail-Safe)');
         }
       } else if (!contato && !thread.contact_id && !isFilterUnassigned) {
         logThread('Contato Existe', false, 'Thread órfã sem contact_id (bloqueado exceto em não atribuídas)');
-        if (isLuizThread) {
+        if (DEBUG_VIS && isLuizThread) {
           console.log('[COMUNICACAO] ❌ DIAGNÓSTICO LUIZ - BLOQUEADO por ser órfã de verdade (sem contact_id)');
         }
         return false;
@@ -1515,10 +1506,7 @@ export default function Comunicacao() {
         // Verificar permissões base mesmo em modo busca (NEXUS360)
         if (!permissionsService.canUserSeeThreadBase(userPermissions, thread, contato)) {
           logThread('Modo Busca - Base', false, 'Bloqueado por visibilidade base');
-          if (isLuizThread) {
-            console.log('[COMUNICACAO] ❌ DIAGNÓSTICO LUIZ - Modo Busca bloqueado por canUserSeeThreadBase');
-            console.log('[COMUNICACAO] 🔍 userPermissions:', userPermissions);
-          }
+          if (DEBUG_VIS && isLuizThread) console.log('[COMUNICACAO] ❌ DIAGNÓSTICO LUIZ - Modo Busca bloqueado');
           return false;
         }
         
@@ -1591,11 +1579,8 @@ export default function Comunicacao() {
         const podeVerBase = permissionsService.canUserSeeThreadBase(userPermissions, thread, contato);
         if (!podeVerBase) {
           logThread('Visibilidade Base (Nexus360)', false, 'Bloqueado pela VISIBILITY_MATRIX');
-          if (isLuizThread) {
+          if (DEBUG_VIS && isLuizThread) {
             console.log('[COMUNICACAO] ❌ DIAGNÓSTICO LUIZ - BLOQUEADO pela VISIBILITY_MATRIX');
-            console.log('[COMUNICACAO] 🔍 Thread:', { id: thread.id, assigned_user_id: thread.assigned_user_id, sector_id: thread.sector_id, integration_id: thread.whatsapp_integration_id });
-            console.log('[COMUNICACAO] 🔍 Contato:', contato ? { id: contato.id, fidelizado: contato.atendente_fidelizado_vendas || contato.vendedor_responsavel } : 'null');
-            console.log('[COMUNICACAO] 🔍 userPermissions:', userPermissions);
           }
           return false;
         }
@@ -1606,9 +1591,6 @@ export default function Comunicacao() {
           const threadsComEscopo = permissionsService.aplicarFiltroEscopo([thread], escopoConfig, userPermissions);
           if (threadsComEscopo.length === 0) {
             logThread('Filtro Escopo', false, `Não passou no escopo ${filtros.scope}`);
-            if (isLuizThread) {
-              console.log('[COMUNICACAO] ❌ DIAGNÓSTICO LUIZ - BLOQUEADO pelo filtro de escopo', filtros.scope);
-            }
             return false;
           }
         }
