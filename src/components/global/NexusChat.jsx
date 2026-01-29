@@ -48,18 +48,23 @@ export default function NexusChat({ isOpen, onToggle }) {
       if (mensagens.length === 0) {
         adicionarMensagemSistema(
           `Olá, ${user.full_name}! 👋\n\n` +
-          `Sou o **Nexus**, seu assistente inteligente do VendaPro.\n\n` +
-          `**Posso ajudar você a:**\n` +
-          `• 🔍 Buscar clientes, produtos e orçamentos\n` +
-          `• 📝 Criar tarefas para vendedores\n` +
-          `• 📊 Gerar relatórios e análises\n` +
-          `• 💬 Registrar interações com clientes\n` +
-          `• ❓ Responder perguntas sobre o sistema\n\n` +
-          `**Exemplos de comandos:**\n` +
-          `"Buscar cliente Empresa X"\n` +
-          `"Criar tarefa urgente para João"\n` +
-          `"Quantos orçamentos tenho pendentes?"\n\n` +
-          `Como posso ajudar você hoje?`
+          `Sou o **Nexus**, seu assistente inteligente completo do VendaPro.\n\n` +
+          `**🎯 Minhas Capacidades:**\n` +
+          `• 📊 Análise de dados reais (clientes, vendas, orçamentos, conversas)\n` +
+          `• 💡 Sugestões inteligentes baseadas no contexto do seu negócio\n` +
+          `• 🔍 Busca avançada em toda a base de dados\n` +
+          `• 📈 Insights de performance e oportunidades\n` +
+          `• 🚨 Alertas proativos sobre problemas e urgências\n` +
+          `• 🎓 Orientação sobre funcionalidades do sistema\n` +
+          `• 🔧 Diagnóstico e solução de erros técnicos\n` +
+          `• 💬 Gestão de comunicação e threads\n\n` +
+          `**💡 Exemplos do que posso fazer:**\n` +
+          `"Quais clientes não foram contatados esta semana?"\n` +
+          `"Analise meu desempenho de vendas"\n` +
+          `"Por que esta thread não aparece?"\n` +
+          `"Sugira ações para orçamentos parados"\n` +
+          `"Encontre conversas urgentes não atribuídas"\n\n` +
+          `Tenho acesso completo aos dados do sistema. Como posso ajudar?`
         );
       }
     } catch (error) {
@@ -83,7 +88,7 @@ export default function NexusChat({ isOpen, onToggle }) {
     setMensagens(prev => [...prev, novaMensagemSistema]);
   };
 
-  const handleEnviarMensagem = async (e) => { // Renamed from handleEnviar in outline to match existing function name
+  const handleEnviarMensagem = async (e) => {
     e.preventDefault();
 
     if (!inputMensagem.trim() || enviando) return;
@@ -101,7 +106,7 @@ export default function NexusChat({ isOpen, onToggle }) {
     setInputMensagem('');
     setEnviando(true);
     setUltimaConsulta(agora);
-    setErro(null); // Clear previous errors
+    setErro(null);
 
     const novaMensagem = {
       id: Date.now(),
@@ -113,36 +118,121 @@ export default function NexusChat({ isOpen, onToggle }) {
     setMensagens(prev => [...prev, novaMensagem]);
 
     try {
-      // ✅ TIMEOUT: 15 segundos máximo
+      // ✅ TIMEOUT: 30 segundos para permitir análises complexas
       const timeoutPromise = new Promise((_, reject) => {
-        setTimeout(() => reject(new Error('Timeout')), 15000);
+        setTimeout(() => reject(new Error('Timeout')), 30000);
       });
 
-      const { InvokeLLM } = await import("@/integrations/Core");
+      // 🔍 BUSCAR CONTEXTO COMPLETO DO SISTEMA
+      const [
+        clientesRecentes,
+        vendasRecentes,
+        orcamentosRecentes,
+        threadsRecentes,
+        vendedores,
+        produtos,
+        integracoes
+      ] = await Promise.all([
+        base44.entities.Cliente.list('-updated_date', 10).catch(() => []),
+        base44.entities.Venda.list('-data_venda', 10).catch(() => []),
+        base44.entities.Orcamento.list('-updated_date', 10).catch(() => []),
+        base44.entities.MessageThread.list('-last_message_at', 20).catch(() => []),
+        base44.entities.Vendedor.list().catch(() => []),
+        base44.entities.Produto.list('nome', 50).catch(() => []),
+        base44.entities.WhatsAppIntegration.list().catch(() => [])
+      ]);
+
+      // 📊 CALCULAR ESTATÍSTICAS
+      const totalClientes = clientesRecentes.length;
+      const totalVendas = vendasRecentes.length;
+      const orcamentosPendentes = orcamentosRecentes.filter(o => o.status === 'enviado' || o.status === 'negociando').length;
+      const threadsNaoAtribuidas = threadsRecentes.filter(t => !t.assigned_user_id && t.thread_type === 'contact_external').length;
+      const threadsComNaoLidas = threadsRecentes.filter(t => (t.unread_count || 0) > 0).length;
+
+      // 🔐 CONTEXTO DO USUÁRIO
+      const perfilUsuario = `
+**PERFIL DO USUÁRIO:**
+- Nome: ${usuario.full_name}
+- Email: ${usuario.email}
+- Cargo/Função: ${usuario.role === 'admin' ? 'Administrador' : 'Usuário'}
+- Setor: ${usuario.attendant_sector || 'Não definido'}
+- Nível: ${usuario.attendant_role || 'Não definido'}
+`;
+
+      // 📋 CONTEXTO DO SISTEMA
+      const contextoSistema = `
+**VISÃO GERAL DO SISTEMA (Últimas atualizações):**
+- 👥 Clientes recentes: ${totalClientes}
+- 💰 Vendas recentes: ${totalVendas}
+- 📄 Orçamentos pendentes: ${orcamentosPendentes}
+- 💬 Conversas não atribuídas: ${threadsNaoAtribuidas}
+- 🔔 Conversas com mensagens não lidas: ${threadsComNaoLidas}
+- 👨‍💼 Vendedores ativos: ${vendedores.filter(v => v.status === 'ativo').length}
+- 📦 Produtos cadastrados: ${produtos.length}
+- 📱 Integrações WhatsApp: ${integracoes.filter(i => i.status === 'conectado').length} conectadas
+
+**CLIENTES RECENTES (últimos 10):**
+${clientesRecentes.map((c, i) => `${i+1}. ${c.razao_social || c.nome_fantasia} - Status: ${c.status} - Vendedor: ${c.vendedor_id || 'Não atribuído'}`).join('\n')}
+
+**ORÇAMENTOS RECENTES (últimos 10):**
+${orcamentosRecentes.map((o, i) => `${i+1}. #${o.numero_orcamento || 'S/N'} - ${o.cliente_nome} - R$ ${o.valor_total?.toFixed(2) || '0.00'} - Status: ${o.status}`).join('\n')}
+
+**CONVERSAS ATIVAS (últimas 20):**
+${threadsRecentes.map((t, i) => {
+  const unread = t.unread_count || 0;
+  const tipo = t.thread_type === 'team_internal' ? '[INTERNA]' : t.thread_type === 'sector_group' ? '[SETOR]' : '[CLIENTE]';
+  const atendente = t.assigned_user_id || 'Não atribuído';
+  return `${i+1}. ${tipo} ${t.id.substring(0, 8)}... - ${unread} não lidas - Atendente: ${atendente}`;
+}).join('\n')}
+`;
 
       // Contexto das últimas mensagens
       const contextoConversa = mensagens
-        .slice(-5) // Get last 5 messages for context
-        .map(m => ({
-          role: m.role,
-          content: m.content
-        }));
+        .slice(-8)
+        .map(m => `${m.role}: ${m.content}`)
+        .join('\n');
 
-      // Enhance context with user info if available
-      const userInfo = usuario ? `Nome do usuário: ${usuario.full_name}\nEmail: ${usuario.email}` : '';
+      const consultaPromise = base44.integrations.Core.InvokeLLM({
+        prompt: `Você é o **Nexus**, o assistente inteligente do **VendaPro** - um sistema completo de gestão de vendas e comunicação omnichannel.
 
-      const consultaPromise = InvokeLLM({
-        prompt: `Você é o Nexus, assistente inteligente do VendaPro. Seu objetivo é ajudar o usuário com tarefas e informações relacionadas ao sistema VendaPro.
+${perfilUsuario}
 
-${userInfo ? `**INFORMAÇÕES DO USUÁRIO:**\n${userInfo}\n\n` : ''}
+${contextoSistema}
+
 **HISTÓRICO DA CONVERSA:**
-${contextoConversa.map(c => `${c.role}: ${c.content}`).join('\n')}
+${contextoConversa}
 
-**PERGUNTA DO USUÁRIO:**
+**NOVA PERGUNTA DO USUÁRIO:**
 ${mensagemUsuario}
 
-Responda de forma clara, concisa e útil.`,
-        add_context_from_internet: false // As per outline, explicitly set to false
+**SUAS CAPACIDADES:**
+1. 📊 **Análise de Dados**: Analise clientes, vendas, orçamentos e identifique padrões
+2. 💡 **Sugestões Inteligentes**: Sugira ações baseadas no contexto (ex: "Cliente X está sem contato há 10 dias - sugiro follow-up")
+3. 🔍 **Busca e Filtros**: Ajude a encontrar informações específicas nos dados
+4. 📈 **Insights de Performance**: Identifique oportunidades, gargalos e melhorias
+5. 🚨 **Alertas Proativos**: Detecte problemas (conversas não atribuídas, orçamentos vencidos, etc)
+6. 🎯 **Orientação de Processos**: Explique como usar funcionalidades do sistema
+7. 🔧 **Diagnóstico de Problemas**: Identifique causas de erros e sugira soluções técnicas
+8. 💬 **Gestão de Comunicação**: Analise threads, sugira respostas, identifique urgências
+
+**INSTRUÇÕES CRÍTICAS:**
+- Use os DADOS REAIS acima para responder com precisão
+- Se o usuário pedir análises, use os números e informações fornecidas
+- Se identificar problemas nos dados (ex: threads não atribuídas), MENCIONE proativamente
+- Seja OBJETIVO e ACIONÁVEL - sempre sugira próximos passos concretos
+- Se o usuário pedir para "criar" ou "registrar" algo, explique os passos necessários no sistema
+- Para erros técnicos, forneça diagnóstico detalhado e soluções práticas
+- Adapte suas respostas ao nível de acesso do usuário (Admin vê tudo, usuários limitados)
+- Use emojis para clareza visual
+- Seja proativo: se vir oportunidades ou problemas, MENCIONE espontaneamente
+
+**FORMATO DA RESPOSTA:**
+- Comece com um resumo direto
+- Use bullet points para clareza
+- Termine sempre com "Próximos passos sugeridos" ou "Posso ajudar com algo mais?"
+
+Responda agora de forma completa e útil:`,
+        add_context_from_internet: false
       });
 
       const resultado = await Promise.race([consultaPromise, timeoutPromise]);
