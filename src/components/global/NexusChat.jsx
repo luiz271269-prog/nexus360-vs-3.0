@@ -57,7 +57,8 @@ export default function NexusChat({ isOpen, onToggle }) {
           `• 🚨 Alertas proativos sobre problemas e urgências\n` +
           `• 🎓 Orientação sobre funcionalidades do sistema\n` +
           `• 🔧 Diagnóstico e solução de erros técnicos\n` +
-          `• 💬 Gestão de comunicação e threads\n\n` +
+          `• 💬 Gestão de comunicação e threads\n` +
+          `• 🌐 Pesquisas externas na internet (notícias, dados atualizados, etc)\n\n` +
           `**💡 Exemplos do que posso fazer:**\n` +
           `"Quais clientes não foram contatados esta semana?"\n` +
           `"Analise meu desempenho de vendas"\n` +
@@ -214,6 +215,7 @@ ${mensagemUsuario}
 6. 🎯 **Orientação de Processos**: Explique como usar funcionalidades do sistema
 7. 🔧 **Diagnóstico de Problemas**: Identifique causas de erros e sugira soluções técnicas
 8. 💬 **Gestão de Comunicação**: Analise threads, sugira respostas, identifique urgências
+9. 🌐 **Pesquisa Externa**: Busque informações atualizadas na internet quando necessário
 
 **INSTRUÇÕES CRÍTICAS:**
 - Use os DADOS REAIS acima para responder com precisão
@@ -225,6 +227,7 @@ ${mensagemUsuario}
 - Adapte suas respostas ao nível de acesso do usuário (Admin vê tudo, usuários limitados)
 - Use emojis para clareza visual
 - Seja proativo: se vir oportunidades ou problemas, MENCIONE espontaneamente
+- Para perguntas que exigem informações atualizadas ou externas ao sistema, USE a internet
 
 **FORMATO DA RESPOSTA:**
 - Comece com um resumo direto
@@ -232,7 +235,7 @@ ${mensagemUsuario}
 - Termine sempre com "Próximos passos sugeridos" ou "Posso ajudar com algo mais?"
 
 Responda agora de forma completa e útil:`,
-        add_context_from_internet: false
+        add_context_from_internet: true
       });
 
       const resultado = await Promise.race([consultaPromise, timeoutPromise]);
