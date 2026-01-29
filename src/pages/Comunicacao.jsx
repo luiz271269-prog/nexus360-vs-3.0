@@ -1619,6 +1619,20 @@ export default function Comunicacao() {
         const podeVerBase = permissionsService.canUserSeeThreadBase(userPermissions, thread, contato);
         if (!podeVerBase) {
           logThread('Visibilidade Base (Nexus360)', false, 'Bloqueado pela VISIBILITY_MATRIX');
+          
+          // 🔍 LOG DETALHADO: Identificar threads bloqueadas
+          console.log('[BLOQUEADO] ❌ Thread ID:', thread.id?.substring(0, 8), {
+            thread_type: thread.thread_type,
+            contact_id: thread.contact_id?.substring(0, 8),
+            contato_nome: contato?.nome || 'SEM_CONTATO',
+            contato_email: contato?.email || null,
+            assigned_user: thread.assigned_user_id?.substring(0, 8),
+            integration_id: thread.whatsapp_integration_id?.substring(0, 8),
+            sector_id: thread.sector_id,
+            unread_count: thread.unread_count,
+            motivo_bloqueio: 'canUserSeeThreadBase retornou false'
+          });
+          
           if (DEBUG_VIS && isThreadDeUsuarioQueEContato) {
             console.log('[COMUNICACAO] ❌ USUÁRIO-CONTATO - BLOQUEADO pela VISIBILITY_MATRIX:', {
               thread_id: thread.id.substring(0, 8),
