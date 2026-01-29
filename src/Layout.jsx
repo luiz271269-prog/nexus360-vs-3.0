@@ -331,7 +331,7 @@ export default function Layout({ children, currentPageName }) {
 
       if (user) {
         try {
-          const contadores = await calcularLembretesGlobal(user);
+          const contadores = await calcularLembretesGlobal(user, base44);
           setContadoresLembretes(contadores);
         } catch (error) {
           console.error('[LAYOUT] Erro ao calcular lembretes:', error);
