@@ -1506,19 +1506,24 @@ export default function Comunicacao() {
       
       const contato = contatosMap.get(thread.contact_id);
       
-      if (DEBUG_VIS && isLuizThread) {
-        console.log('[COMUNICACAO] 🔍 DIAGNÓSTICO LUIZ - Contato:', contato ? 'ENCONTRADO' : 'NÃO ENCONTRADO');
+      if (DEBUG_VIS && isThreadDeUsuarioQueEContato) {
+        console.log('[COMUNICACAO] 🔍 USUÁRIO-CONTATO - Contato:', contato ? {
+          id: contato.id.substring(0, 8),
+          nome: contato.nome,
+          email: contato.email,
+          tipo_contato: contato.tipo_contato
+        } : 'NÃO ENCONTRADO');
       }
 
       if (!contato && thread.contact_id && !isFilterUnassigned) {
         logThread('Contato Existe', true, 'Contato aguardando hidratação (Fail-Safe)');
-        if (DEBUG_VIS && isLuizThread) {
-          console.log('[COMUNICACAO] ⚠️ DIAGNÓSTICO LUIZ - Contato não hidratado, mas thread passa (Fail-Safe)');
+        if (DEBUG_VIS && isThreadDeUsuarioQueEContato) {
+          console.log('[COMUNICACAO] ⚠️ USUÁRIO-CONTATO - Contato não hidratado, mas thread passa (Fail-Safe)');
         }
       } else if (!contato && !thread.contact_id && !isFilterUnassigned) {
         logThread('Contato Existe', false, 'Thread órfã sem contact_id (bloqueado exceto em não atribuídas)');
-        if (DEBUG_VIS && isLuizThread) {
-          console.log('[COMUNICACAO] ❌ DIAGNÓSTICO LUIZ - BLOQUEADO por ser órfã de verdade (sem contact_id)');
+        if (DEBUG_VIS && isThreadDeUsuarioQueEContato) {
+          console.log('[COMUNICACAO] ❌ USUÁRIO-CONTATO - BLOQUEADO por ser órfã de verdade (sem contact_id)');
         }
         return false;
       }
@@ -1539,7 +1544,9 @@ export default function Comunicacao() {
         // Verificar permissões base mesmo em modo busca (NEXUS360)
         if (!permissionsService.canUserSeeThreadBase(userPermissions, thread, contato)) {
           logThread('Modo Busca - Base', false, 'Bloqueado por visibilidade base');
-          if (DEBUG_VIS && isLuizThread) console.log('[COMUNICACAO] ❌ DIAGNÓSTICO LUIZ - Modo Busca bloqueado');
+          if (DEBUG_VIS && isThreadDeUsuarioQueEContato) {
+            console.log('[COMUNICACAO] ❌ USUÁRIO-CONTATO - Modo Busca bloqueado por VISIBILITY_MATRIX');
+          }
           return false;
         }
         
@@ -1585,8 +1592,8 @@ export default function Comunicacao() {
           // ✅ APENAS para threads EXTERNAS: verificar Set de não atribuídas visíveis
           if (!threadsNaoAtribuidasVisiveis.has(thread.id)) {
             logThread('Filtro Não Atribuídas', false, 'Thread não está no Set de não atribuídas visíveis');
-            if (DEBUG_VIS && isLuizThread) {
-              console.log('[COMUNICACAO] ❌ DIAGNÓSTICO LUIZ - BLOQUEADO por filtro não atribuídas');
+            if (DEBUG_VIS && isThreadDeUsuarioQueEContato) {
+              console.log('[COMUNICACAO] ❌ USUÁRIO-CONTATO - BLOQUEADO por filtro não atribuídas');
             }
             return false;
           }
@@ -1596,8 +1603,8 @@ export default function Comunicacao() {
           if (selectedIntegrationId && selectedIntegrationId !== 'all') {
             if (thread.whatsapp_integration_id !== selectedIntegrationId) {
               logThread('Filtro Integração', false, `Integração diferente (esperado: ${selectedIntegrationId})`);
-              if (DEBUG_VIS && isLuizThread) {
-                console.log('[COMUNICACAO] ❌ DIAGNÓSTICO LUIZ - BLOQUEADO por filtro de integração específica');
+              if (DEBUG_VIS && isThreadDeUsuarioQueEContato) {
+                console.log('[COMUNICACAO] ❌ USUÁRIO-CONTATO - BLOQUEADO por filtro de integração específica');
               }
               return false;
             }
@@ -1643,8 +1650,8 @@ export default function Comunicacao() {
 
       if (categoriasSet && !categoriasSet.has(thread.id)) {
         logThread('Filtro Categoria', false, 'Thread não tem mensagem com categoria selecionada');
-        if (DEBUG_VIS && isLuizThread) {
-          console.log('[COMUNICACAO] ❌ DIAGNÓSTICO LUIZ - BLOQUEADO por filtro de categoria');
+        if (DEBUG_VIS && isThreadDeUsuarioQueEContato) {
+          console.log('[COMUNICACAO] ❌ USUÁRIO-CONTATO - BLOQUEADO por filtro de categoria');
         }
         return false;
       }
@@ -1655,8 +1662,8 @@ export default function Comunicacao() {
       if (selectedTipoContato && selectedTipoContato !== 'all' && contato) {
         if (contato.tipo_contato !== selectedTipoContato) {
           logThread('Filtro Tipo Contato', false, `Tipo diferente (esperado: ${selectedTipoContato}, atual: ${contato.tipo_contato})`);
-          if (DEBUG_VIS && isLuizThread) {
-            console.log('[COMUNICACAO] ❌ DIAGNÓSTICO LUIZ - BLOQUEADO por filtro de tipo de contato');
+          if (DEBUG_VIS && isThreadDeUsuarioQueEContato) {
+            console.log('[COMUNICACAO] ❌ USUÁRIO-CONTATO - BLOQUEADO por filtro de tipo de contato');
           }
           return false;
         }
@@ -1667,16 +1674,16 @@ export default function Comunicacao() {
         const tags = contato.tags || [];
         if (!tags.includes(selectedTagContato)) {
           logThread('Filtro Tag', false, `Tag não encontrada (esperado: ${selectedTagContato})`);
-          if (DEBUG_VIS && isLuizThread) {
-            console.log('[COMUNICACAO] ❌ DIAGNÓSTICO LUIZ - BLOQUEADO por filtro de tag');
+          if (DEBUG_VIS && isThreadDeUsuarioQueEContato) {
+            console.log('[COMUNICACAO] ❌ USUÁRIO-CONTATO - BLOQUEADO por filtro de tag');
           }
           return false;
         }
         logThread('Filtro Tag', true, 'Tag OK');
       }
 
-      if (DEBUG_VIS && isLuizThread) {
-        console.log('[COMUNICACAO] ✅ DIAGNÓSTICO LUIZ - PASSOU em todos os filtros!');
+      if (DEBUG_VIS && isThreadDeUsuarioQueEContato) {
+        console.log('[COMUNICACAO] ✅ USUÁRIO-CONTATO - PASSOU em todos os filtros!');
       }
       
       logThread('✅ APROVADA', true, 'Passou em todos os filtros');
