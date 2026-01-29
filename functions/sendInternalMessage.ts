@@ -106,7 +106,24 @@ Deno.serve(async (req) => {
       messageData.reply_to_message_id = reply_to_message_id;
     }
 
+    console.log('[SEND_INTERNAL] 🔵 Criando mensagem interna:', {
+      thread_id: thread.id,
+      sender_id: user.id,
+      sender_type: 'user',
+      channel: 'interno',
+      visibility: 'internal_only',
+      content: contentFinal.substring(0, 50)
+    });
+
     const savedMessage = await base44.asServiceRole.entities.Message.create(messageData);
+
+    console.log('[SEND_INTERNAL] ✅ Mensagem criada com sucesso:', {
+      message_id: savedMessage.id,
+      thread_id: savedMessage.thread_id,
+      sender_id: savedMessage.sender_id,
+      channel: savedMessage.channel,
+      visibility: savedMessage.visibility
+    });
 
     // ✅ CORREÇÃO: Garantir que unread_by seja atualizado corretamente para TODOS os participantes
     let currentUnreads = thread.unread_by || {};
@@ -120,6 +137,8 @@ Deno.serve(async (req) => {
         currentUnreads[participantId] = (currentUnreads[participantId] || 0) + 1;
       }
     });
+
+    console.log('[SEND_INTERNAL] 🔔 Atualizando unread_by:', currentUnreads);
 
     // ✅ Preview de conteúdo mais robusto
     let previewContent = content ? content.substring(0, 200) : '';
@@ -143,6 +162,12 @@ Deno.serve(async (req) => {
       last_media_type: media_type,
       unread_by: currentUnreads,
       total_mensagens: (thread.total_mensagens || 0) + 1
+    });
+
+    console.log('[SEND_INTERNAL] ✅ Thread atualizada:', {
+      thread_id: thread.id,
+      total_mensagens: (thread.total_mensagens || 0) + 1,
+      unread_by: currentUnreads
     });
 
     return new Response(
