@@ -566,21 +566,20 @@ export default function ChatWindow({
 
       for (const dest of broadcastInterno.destinations) {
         try {
-          // ✅ Validação simples: thread_id deve existir
-          if (!dest.thread_id) {
-            console.error(`[BROADCAST_INTERNO] ❌ Destino sem thread_id:`, dest);
+          // Validação prévia: thread_id + contexto de usuário
+          if (!dest.thread_id || !usuario?.id) {
+            console.error(`[BROADCAST_INTERNO] ❌ Contexto inválido:`, dest);
             erros++;
             continue;
           }
 
-          // ✅ Backend valida se é thread interna - não fazer query extra aqui
+          // 🎯 ENVIO INTERNO PURO - Sem campos de WhatsApp/Contact
           await base44.functions.invoke('sendInternalMessage', {
             thread_id: dest.thread_id,
             content: texto.trim() || (mediaUrl ? `[${mediaType}]` : ''),
             media_type: mediaType || 'none',
             media_url: mediaUrl,
-            media_caption: mediaCaption,
-            metadata: { broadcast: true, destination_type: dest.type }
+            media_caption: mediaCaption
           });
           enviados++;
         } catch (err) {
@@ -1299,9 +1298,24 @@ export default function ChatWindow({
   // 🚀 HANDLER DE ENVIO - Recebe dados do MessageInput
   const handleEnviarFromInput = useCallback(async ({ texto, pastedImage, pastedImagePreview, attachedFile, attachedFileType }) => {
     // ═══════════════════════════════════════════════════════════════════════
-    // USUÁRIO INTERNO (team_internal ou sector_group) - Sempre usar handler otimista
+    // 🎯 FLUXO EXCLUSIVO INTERNO - Validação prévia + Handler dedicado
     // ═══════════════════════════════════════════════════════════════════════
     if (thread?.thread_type === 'team_internal' || thread?.thread_type === 'sector_group') {
+      // Validação de contexto ANTES de chamar backend
+      if (!usuario?.id || !thread?.id) {
+        toast.error("⚠️ Contexto inválido. Recarregue a página.");
+        return;
+      }
+
+      // Validação de participação
+      const isParticipante = thread.participants?.includes(usuario.id);
+      const isAdmin = usuario.role === 'admin';
+
+      if (!isParticipante && !isAdmin) {
+        toast.error("❌ Você não é participante desta conversa interna");
+        return;
+      }
+
       if (onSendInternalMessageOptimistic) {
         onSendInternalMessageOptimistic({
           texto,

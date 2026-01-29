@@ -45,53 +45,47 @@ Deno.serve(async (req) => {
       );
     }
 
+    // ═══════════════════════════════════════════════════════════════════
+    // 🎯 FLUXO EXCLUSIVO INTERNO - Zero validação de contact/WhatsApp
+    // ═══════════════════════════════════════════════════════════════════
     let thread;
     try {
       thread = await base44.asServiceRole.entities.MessageThread.get(thread_id);
-      
+
       if (!thread) {
-        console.error('[SEND_INTERNAL] ❌ Thread null:', thread_id);
         return new Response(
           JSON.stringify({ success: false, error: 'Thread nao encontrada' }),
           { status: 404, headers }
         );
       }
     } catch (getError) {
-      console.error('[SEND_INTERNAL] ❌ Erro ao buscar thread:', {
-        thread_id,
-        error: getError.message
-      });
       return new Response(
         JSON.stringify({ success: false, error: `Thread nao encontrada: ${getError.message}` }),
         { status: 404, headers }
       );
     }
 
-    // ✅ Validar que é usuario interno
+    // ✅ VALIDAÇÃO CRÍTICA: Thread DEVE ser interna
     if (thread.thread_type !== 'team_internal' && thread.thread_type !== 'sector_group') {
-      console.error('[SEND_INTERNAL] ❌ Thread inválida:', {
-        thread_id: thread.id,
-        thread_type: thread.thread_type,
-        esperado: 'team_internal ou sector_group'
-      });
       return new Response(
-        JSON.stringify({ success: false, error: 'Thread nao eh de usuario interno' }),
+        JSON.stringify({ 
+          success: false, 
+          error: 'Esta funcao eh exclusiva para threads internas (team_internal/sector_group)'
+        }),
         { status: 400, headers }
       );
     }
 
-    // ✅ Validar permissões inline (import dinâmico causando erro)
-    const isParticipante = thread.participants?.includes(user.id) || false;
+    // ✅ VALIDAÇÃO: Usuário deve ser participante ou admin
+    const isParticipante = Array.isArray(thread.participants) && thread.participants.includes(user.id);
     const isAdmin = user.role === 'admin';
-    
+
     if (!isParticipante && !isAdmin) {
-      console.error('[SEND_INTERNAL] ❌ Usuário sem permissão:', {
-        user_id: user.id,
-        participants: thread.participants,
-        isAdmin
-      });
       return new Response(
-        JSON.stringify({ success: false, error: 'Usuario nao eh participante desta thread' }),
+        JSON.stringify({ 
+          success: false, 
+          error: 'Usuario nao eh participante desta thread interna'
+        }),
         { status: 403, headers }
       );
     }
@@ -131,30 +125,33 @@ Deno.serve(async (req) => {
       console.log('[SEND_INTERNAL] 👥 Mensagem de grupo - broadcast para todos os participantes');
     }
 
+    // ═══════════════════════════════════════════════════════════════════
+    // 🎯 PAYLOAD PURO INTERNO - Zero campos de WhatsApp/Contact
+    // ═══════════════════════════════════════════════════════════════════
     const messageData = {
       thread_id: thread.id,
       sender_id: user.id,
       sender_type: 'user',
-      recipient_id: recipientIdFinal, // 1:1 = outro user_id | Grupo = null
-      recipient_type: recipientTypeFinal, // 1:1 = 'user' | Grupo = 'group'
+      recipient_id: recipientIdFinal || null,
+      recipient_type: recipientTypeFinal,
       content: contentFinal,
-      media_type: media_type,
-      media_url: media_url || null,
-      media_caption: media_caption || null,
       channel: 'interno',
       visibility: 'internal_only',
+      provider: 'internal_system',
       status: 'enviada',
       sent_at: agora,
       metadata: {
-        is_internal_message: true, // ✅ FLAG: Diferencia de mensagens externas
+        is_internal_message: true,
         is_1on1: is1on1,
         sender_name: user.full_name || user.email
       }
     };
 
-    if (reply_to_message_id) {
-      messageData.reply_to_message_id = reply_to_message_id;
-    }
+    // Campos opcionais (só se houver)
+    if (media_type && media_type !== 'none') messageData.media_type = media_type;
+    if (media_url) messageData.media_url = media_url;
+    if (media_caption) messageData.media_caption = media_caption;
+    if (reply_to_message_id) messageData.reply_to_message_id = reply_to_message_id;
 
     console.log('[SEND_INTERNAL] 🔵 Criando mensagem interna:', {
       thread_id: thread.id,
