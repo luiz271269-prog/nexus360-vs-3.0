@@ -80,12 +80,18 @@ Deno.serve(async (req) => {
       );
     }
 
-    // ✅ Usar função centralizada de permissão
-    const { podeEnviarMensagemInterna } = await import('./lib/internalMessagePermissions.js');
+    // ✅ Validar permissões inline (import dinâmico causando erro)
+    const isParticipante = thread.participants?.includes(user.id) || false;
+    const isAdmin = user.role === 'admin';
     
-    if (!podeEnviarMensagemInterna(thread, user)) {
+    if (!isParticipante && !isAdmin) {
+      console.error('[SEND_INTERNAL] ❌ Usuário sem permissão:', {
+        user_id: user.id,
+        participants: thread.participants,
+        isAdmin
+      });
       return new Response(
-        JSON.stringify({ success: false, error: 'Usuario nao tem permissao para enviar' }),
+        JSON.stringify({ success: false, error: 'Usuario nao eh participante desta thread' }),
         { status: 403, headers }
       );
     }
