@@ -56,6 +56,11 @@ Deno.serve(async (req) => {
 
     // ✅ Validar que é usuario interno
     if (thread.thread_type !== 'team_internal' && thread.thread_type !== 'sector_group') {
+      console.error('[SEND_INTERNAL] ❌ Thread inválida:', {
+        thread_id: thread.id,
+        thread_type: thread.thread_type,
+        esperado: 'team_internal ou sector_group'
+      });
       return new Response(
         JSON.stringify({ success: false, error: 'Thread nao eh de usuario interno' }),
         { status: 400, headers }
