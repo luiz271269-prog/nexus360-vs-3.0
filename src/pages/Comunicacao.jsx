@@ -1441,15 +1441,26 @@ export default function Comunicacao() {
          });
        };
 
-       const isLuizThread = thread.id === '693306f0ffbdced31cc623e3';
-       if (DEBUG_VIS && isLuizThread) {
-         console.log('[COMUNICACAO] 🔍 DIAGNÓSTICO LUIZ - Thread encontrada:', {
-           thread_id: thread.id,
-           contact_id: thread.contact_id,
-           integration_id: thread.whatsapp_integration_id,
+       // 🔍 DIAGNÓSTICO: Identificar threads de usuários que também são contatos
+       const isThreadDeUsuarioQueEContato = DEBUG_VIS && thread.contact_id && contatos.find(c => {
+         const atendenteMatch = atendentes.find(a => 
+           a.email?.toLowerCase() === c.email?.toLowerCase() ||
+           a.full_name?.toLowerCase() === c.nome?.toLowerCase()
+         );
+         return atendenteMatch && c.id === thread.contact_id;
+       });
+       
+       if (DEBUG_VIS && isThreadDeUsuarioQueEContato) {
+         const contato = contatosMap.get(thread.contact_id);
+         console.log('[COMUNICACAO] 🔍 THREAD DE USUÁRIO-CONTATO:', {
+           thread_id: thread.id.substring(0, 8),
+           thread_type: thread.thread_type,
+           contact_id: thread.contact_id?.substring(0, 8),
+           contato_nome: contato?.nome,
+           contato_email: contato?.email,
+           integration_id: thread.whatsapp_integration_id?.substring(0, 8),
            unread_count: thread.unread_count,
-           last_message_at: thread.last_message_at,
-           thread_type: thread.thread_type
+           assigned_user_id: thread.assigned_user_id?.substring(0, 8)
          });
        }
 
@@ -1579,8 +1590,18 @@ export default function Comunicacao() {
         const podeVerBase = permissionsService.canUserSeeThreadBase(userPermissions, thread, contato);
         if (!podeVerBase) {
           logThread('Visibilidade Base (Nexus360)', false, 'Bloqueado pela VISIBILITY_MATRIX');
-          if (DEBUG_VIS && isLuizThread) {
-            console.log('[COMUNICACAO] ❌ DIAGNÓSTICO LUIZ - BLOQUEADO pela VISIBILITY_MATRIX');
+          if (DEBUG_VIS && isThreadDeUsuarioQueEContato) {
+            console.log('[COMUNICACAO] ❌ USUÁRIO-CONTATO - BLOQUEADO pela VISIBILITY_MATRIX:', {
+              thread_id: thread.id.substring(0, 8),
+              thread_type: thread.thread_type,
+              contato_nome: contato?.nome,
+              userPermissions_resumo: {
+                role: userPermissions.role,
+                isAdmin: userPermissions.isAdmin,
+                attendant_sector: userPermissions.attendant_sector,
+                integracoes_visiveis: userPermissions.integracoes_visiveis?.length
+              }
+            });
           }
           return false;
         }
@@ -1657,17 +1678,26 @@ export default function Comunicacao() {
     // Expor logs para diagnóstico
     window._logsFiltragem = logsFiltragem;
     
-    // 🔍 DEBUG: Verificar se thread canônica do Luiz está na lista
-    const threadLuizCanonica = threadsFiltrados.find(t => t.id === '6932fbf5e7708be9b205eaae');
-    if (threadLuizCanonica) {
-      console.log('[COMUNICACAO] ✅ Thread canônica Luiz ENCONTRADA na lista filtrada');
-    } else {
-      console.log('[COMUNICACAO] ❌ Thread canônica Luiz NÃO está na lista filtrada');
-      const threadNaLista = threadsAProcessar.find(t => t.id === '6932fbf5e7708be9b205eaae');
-      if (threadNaLista) {
-        console.log('[COMUNICACAO] ⚠️ Thread existe em threadsAProcessar mas foi bloqueada no filtro');
-      } else {
-        console.log('[COMUNICACAO] ⚠️ Thread NÃO existe nem em threadsAProcessar (bloqueada antes)');
+    // 🔍 DIAGNÓSTICO: Threads de usuários que também são contatos
+    if (DEBUG_VIS) {
+      const threadsDeUsuariosContatos = threadsUnicas.filter(t => {
+        if (!t.contact_id) return false;
+        const contato = contatosMap.get(t.contact_id);
+        if (!contato) return false;
+        return atendentes.some(a => 
+          a.email?.toLowerCase() === contato.email?.toLowerCase() ||
+          a.full_name?.toLowerCase() === contato.nome?.toLowerCase()
+        );
+      });
+      
+      if (threadsDeUsuariosContatos.length > 0) {
+        console.group('[COMUNICACAO] 🔍 THREADS DE USUÁRIOS-CONTATOS');
+        threadsDeUsuariosContatos.forEach(t => {
+          const contato = contatosMap.get(t.contact_id);
+          const passou = threadsFiltrados.some(tf => tf.id === t.id);
+          console.log(`${passou ? '✅' : '❌'} Thread ${t.id.substring(0, 8)} - ${contato?.nome} (${t.thread_type}) - ${passou ? 'PASSOU' : 'BLOQUEADO'}`);
+        });
+        console.groupEnd();
       }
     }
 
