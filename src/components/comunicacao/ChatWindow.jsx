@@ -2239,7 +2239,7 @@ export default function ChatWindow({
           mensagens[indexOriginal - 1].sender_type === 'user'));
 
           return (
-            <React.Fragment key={mensagem.id} data-source-location="MessageBubble">
+            <React.Fragment key={mensagem.id}>
                   {isFirstUnread && getUnreadCount(thread, usuario?.id) > 0 &&
               <div
                 ref={unreadSeparatorRef}
