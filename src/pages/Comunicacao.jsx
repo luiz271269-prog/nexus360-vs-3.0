@@ -938,43 +938,13 @@ export default function Comunicacao() {
       setContatosSelecionados([]);
       queryClient.invalidateQueries({ queryKey: ['threads'] });
     } else if (selectionData.mode === 'broadcast') {
-      // ✅ VALIDAÇÃO CRÍTICA: Garantir que TODAS as destinations são internas
-      const destinationsValidas = (selectionData.destinations || []).filter(dest => {
-        // Se tem thread_id, deve ser thread interna
-        if (dest.thread_id) {
-          const thread = threads.find(t => t.id === dest.thread_id);
-          if (!thread) {
-            console.error('[BROADCAST_INTERNO] ❌ Thread não encontrada:', dest.thread_id);
-            return false;
-          }
-          if (thread.thread_type !== 'team_internal' && thread.thread_type !== 'sector_group') {
-            console.error('[BROADCAST_INTERNO] ❌ Thread NÃO É INTERNA:', thread.id, thread.thread_type);
-            return false;
-          }
-          return true;
-        }
-        return false;
-      });
-
-      if (destinationsValidas.length === 0) {
-        toast.error('❌ Nenhum destinatário interno válido selecionado');
-        return;
-      }
-
-      if (destinationsValidas.length < selectionData.destinations.length) {
-        toast.warning(`⚠️ ${selectionData.destinations.length - destinationsValidas.length} destinatário(s) inválido(s) removido(s)`);
-      }
-
-      // Ativar modo broadcast interno APENAS com destinations válidas
-      setBroadcastInterno({
-        ...selectionData,
-        destinations: destinationsValidas
-      });
+      // Ativar modo broadcast interno
+      setBroadcastInterno(selectionData);
       setModoSelecaoMultipla(true);
       setThreadAtiva(null);
       setContatosSelecionados([]);
     }
-  }, [queryClient, threads]);
+  }, [queryClient]);
 
   // Handler para atualizar mensagens após envio
   const handleAtualizarMensagens = useCallback(async (novasMensagens) => {
