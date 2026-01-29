@@ -1770,15 +1770,48 @@ export default function ChatWindow({
     const isThreadInterna = thread?.thread_type === 'team_internal' || thread?.thread_type === 'sector_group';
 
     if (isThreadInterna) {
-      return mensagensFiltradas.filter((m) => {
+      // ✅ LOG: Diagnosticar mensagens internas
+      console.log('[MENSAGENS_INTERNAS] 🔍 Total mensagens recebidas:', mensagensFiltradas.length);
+      console.log('[MENSAGENS_INTERNAS] 📋 Primeiras 3 mensagens:', mensagensFiltradas.slice(0, 3).map(m => ({
+        id: m.id?.substring(0, 8),
+        sender_type: m.sender_type,
+        channel: m.channel,
+        content: m.content?.substring(0, 30),
+        media_type: m.media_type,
+        visibility: m.visibility
+      })));
+
+      const mensagensInternasProcessadas = mensagensFiltradas.filter((m) => {
         // SEMPRE mostrar mensagens com sender_type='user' ou channel='interno'
         if (m.sender_type === 'user' || m.channel === 'interno') {
           const content = (m.content || '').trim();
           const hasMidia = m.media_url || (m.media_type && m.media_type !== 'none');
-          return content.length > 0 || hasMidia;
+          const shouldShow = content.length > 0 || hasMidia;
+          
+          console.log('[MENSAGENS_INTERNAS] ✅ Mensagem aprovada:', {
+            id: m.id?.substring(0, 8),
+            sender_type: m.sender_type,
+            channel: m.channel,
+            has_content: content.length > 0,
+            has_midia: hasMidia,
+            shouldShow
+          });
+          
+          return shouldShow;
         }
+        
+        console.log('[MENSAGENS_INTERNAS] ❌ Mensagem rejeitada:', {
+          id: m.id?.substring(0, 8),
+          sender_type: m.sender_type,
+          channel: m.channel,
+          reason: 'sender_type != user AND channel != interno'
+        });
+        
         return false;
       });
+
+      console.log('[MENSAGENS_INTERNAS] 📊 RESULTADO FINAL:', mensagensInternasProcessadas.length, 'de', mensagensFiltradas.length);
+      return mensagensInternasProcessadas;
     }
 
     // ✅ Para threads externas (WhatsApp): aplicar filtros de limpeza existentes
