@@ -60,8 +60,8 @@ import { createPageUrl } from "@/utils";
 import { carregarTodasThreads, podeVerThreadInterna } from "../components/lib/internalThreadsService";
 
 
-// 🔧 DEBUG_VIS: feature flag para desativar logs sem perdê-los
-const DEBUG_VIS = typeof window !== 'undefined' && window.localStorage?.getItem('DEBUG_VIS') === '1';
+// 🔧 DEBUG_VIS: Forçar ativado para diagnóstico
+const DEBUG_VIS = true;
 
 export default function Comunicacao() {
   const { data: usuario, isLoading: isLoadingUsuario } = useQuery({
