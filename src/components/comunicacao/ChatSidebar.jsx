@@ -514,15 +514,21 @@ export default function ChatSidebar({
                   </span>
                 </div>
 
+                {/* ✅ PREVIEW MENSAGEM INTERNA - Usar metadata se disponível */}
                 <p className={`text-xs truncate flex items-center gap-1 ${hasUnread ? 'text-slate-800' : 'text-slate-500'}`}>
-                  {thread.last_message_sender === 'user' && <CheckCheck className="w-3 h-3 text-blue-500 flex-shrink-0" />}
+                  {thread.last_message_sender === 'user' && <CheckCheck className="w-3 h-3 text-indigo-500 flex-shrink-0" />}
                   {thread.last_media_type === 'image' && <Image className="w-3 h-3 text-blue-500 flex-shrink-0" />}
                   {thread.last_media_type === 'video' && <Video className="w-3 h-3 text-purple-500 flex-shrink-0" />}
                   {thread.last_media_type === 'audio' && <Mic className="w-3 h-3 text-green-500 flex-shrink-0" />}
                   {thread.last_media_type === 'document' && <FileText className="w-3 h-3 text-orange-500 flex-shrink-0" />}
                   <span className="truncate">
-                    {thread.last_message_content || "💬 Aguardando mensagem..."}
+                    {thread.last_message_content || "💬 Sem mensagens"}
                   </span>
+                  {thread.last_message_sender_name && (
+                    <span className="text-[9px] text-indigo-400 italic">
+                      ~ {thread.last_message_sender_name.split(' ')[0]}
+                    </span>
+                  )}
                 </p>
 
                 <div className="flex items-center gap-1 mt-1 overflow-hidden">
