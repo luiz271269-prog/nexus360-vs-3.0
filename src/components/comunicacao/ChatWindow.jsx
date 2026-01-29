@@ -1770,8 +1770,16 @@ export default function ChatWindow({
     const isThreadInterna = thread?.thread_type === 'team_internal' || thread?.thread_type === 'sector_group';
 
     if (isThreadInterna) {
-      // ✅ CIRÚRGICA: Sem filtros. APENAS garantir que é a thread certa
-      return mensagensFiltradas.filter((m) => m.thread_id === thread.id);
+      // ✅ VERSÃO FUNCIONANDO: Filtro específico para mensagens internas
+      return mensagensFiltradas.filter((m) => {
+        // SEMPRE mostrar mensagens com sender_type='user' ou channel='interno'
+        if (m.sender_type === 'user' || m.channel === 'interno') {
+          const content = (m.content || '').trim();
+          const hasMidia = m.media_url || (m.media_type && m.media_type !== 'none');
+          return content.length > 0 || hasMidia;
+        }
+        return false;
+      });
     }
 
     // ✅ Para threads externas (WhatsApp): aplicar filtros de limpeza existentes
