@@ -59,7 +59,6 @@ import ChecklistProducao from './pages/ChecklistProducao';
 import ChecklistValidacaoWAPI from './pages/ChecklistValidacaoWAPI';
 import ChecklistValidacaoZAPI from './pages/ChecklistValidacaoZAPI';
 import Clientes from './pages/Clientes';
-import Comunicacao from './pages/Comunicacao';
 import ContatosParados from './pages/ContatosParados';
 import Dashboard from './pages/Dashboard';
 import DashboardExecutivo from './pages/DashboardExecutivo';
@@ -114,6 +113,7 @@ import Usuarios from './pages/Usuarios';
 import Vendas from './pages/Vendas';
 import Vendedores from './pages/Vendedores';
 import WhatsAppTemplates from './pages/WhatsAppTemplates';
+import Comunicacao from './pages/Comunicacao';
 import __Layout from './Layout.jsx';
 
 
@@ -130,7 +130,6 @@ export const PAGES = {
     "ChecklistValidacaoWAPI": ChecklistValidacaoWAPI,
     "ChecklistValidacaoZAPI": ChecklistValidacaoZAPI,
     "Clientes": Clientes,
-    "Comunicacao": Comunicacao,
     "ContatosParados": ContatosParados,
     "Dashboard": Dashboard,
     "DashboardExecutivo": DashboardExecutivo,
@@ -185,6 +184,7 @@ export const PAGES = {
     "Vendas": Vendas,
     "Vendedores": Vendedores,
     "WhatsAppTemplates": WhatsAppTemplates,
+    "Comunicacao": Comunicacao,
 }
 
 export const pagesConfig = {
