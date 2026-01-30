@@ -186,8 +186,9 @@ export default function Comunicacao() {
       debounceTimer = setTimeout(() => {
         console.log(`[COMUNICACAO] ♻️ Invalidando ${invalidacoesPendentes.size} thread(s) agrupadas`);
         
-        // Invalidar queries de forma agrupada
-        queryClient.invalidateQueries({ queryKey: ['threads'] });
+        // ✅ FIX: Invalidar queries SEPARADAS (evita recarregar internas desnecessariamente)
+        queryClient.invalidateQueries({ queryKey: ['threads-externas'] });
+        queryClient.invalidateQueries({ queryKey: ['threads-internas'] });
         
         // Se alguma thread ativa foi atualizada, recarregar mensagens
         if (threadAtiva?.id && invalidacoesPendentes.has(threadAtiva.id)) {
@@ -207,39 +208,81 @@ export default function Comunicacao() {
   }, [usuario, threadAtiva?.id, queryClient]);
 
   // ═══════════════════════════════════════════════════════════════════════════════
-  // 🔍 BUSCA DE THREADS PRIMEIRO (Fonte da Verdade)
+  // 🔍 BUSCA DE THREADS SEPARADAS - INTERNAS vs EXTERNAS (Evita 429)
   // ═══════════════════════════════════════════════════════════════════════════════
-  const { data: threads = [], isLoading: loadingThreads } = useQuery({
-    queryKey: ['threads', usuario?.id],
+  
+  // ✅ THREADS INTERNAS: Ritmo lento, menos volume
+  const { data: threadsInternas = [], isLoading: loadingThreadsInternas } = useQuery({
+    queryKey: ['threads-internas', usuario?.id],
+    queryFn: async () => {
+      if (!usuario) return [];
+      try {
+        return await base44.entities.MessageThread.filter(
+          { thread_type: { $in: ['team_internal', 'sector_group'] } },
+          '-last_message_at',
+          100
+        );
+      } catch (error) {
+        console.error('[COMUNICACAO] ❌ Erro ao carregar threads internas:', error);
+        return [];
+      }
+    },
+    refetchInterval: 60000, // 60s - Internas são mais estáveis
+    staleTime: 60000,
+    enabled: !!usuario,
+    retry: 2,
+    retryDelay: 1000,
+    refetchOnWindowFocus: true
+  });
+
+  // ✅ THREADS EXTERNAS: Ritmo moderado, mais volume
+  const { data: threadsExternas = [], isLoading: loadingThreadsExternas } = useQuery({
+    queryKey: ['threads-externas', usuario?.id],
     queryFn: async () => {
       if (isRateLimited) return [];
       try {
-        // ✅ Usar função centralizada para carregar threads
-        return await carregarTodasThreads();
+        return await base44.entities.MessageThread.filter(
+          { is_canonical: true, status: { $ne: 'merged' } },
+          '-last_message_at',
+          500
+        );
       } catch (error) {
         if (error?.message?.includes('429') || error?.response?.status === 429) {
-          console.warn('[COMUNICACAO] ⚠️ 429 Rate Limited! Ativando cool-down de 10s...');
+          console.warn('[COMUNICACAO] ⚠️ 429 em threads externas! Cool-down de 10s...');
           setIsRateLimited(true);
           setTimeout(() => {
             setIsRateLimited(false);
-            console.log('[COMUNICACAO] ✅ Cool-down finalizado, retentando...');
+            console.log('[COMUNICACAO] ✅ Cool-down finalizado');
           }, 10000);
           return [];
         }
         throw error;
       }
     },
-    refetchInterval: 60000, // ✅ Aumentado para 60s (Realtime + debounce cobrem updates)
-    staleTime: 30000,
+    refetchInterval: 45000, // 45s - Externas precisam de atualização mais frequente
+    staleTime: 15000,
     enabled: !!usuario && !isRateLimited,
     retry: 2,
     retryDelay: 1000,
     refetchOnWindowFocus: true,
     refetchOnMount: 'always',
     onError: (error) => {
-      console.error('[Comunicacao] Erro ao carregar conversas:', error);
+      console.error('[COMUNICACAO] Erro ao carregar threads externas:', error);
     }
   });
+
+  // ✅ COMBINAR: Internas + Externas (Memoizado)
+  const threads = React.useMemo(() => {
+    const combinadas = [...threadsExternas, ...threadsInternas];
+    console.log('[COMUNICACAO] 📊 Threads combinadas:', {
+      externas: threadsExternas.length,
+      internas: threadsInternas.length,
+      total: combinadas.length
+    });
+    return combinadas;
+  }, [threadsExternas, threadsInternas]);
+
+  const loadingThreads = loadingThreadsInternas || loadingThreadsExternas;
 
   // ═══════════════════════════════════════════════════════════════════════════════
   // 🎯 EXTRAÇÃO DE IDs DE CONTATO - Hidratação Sob Demanda
@@ -392,29 +435,30 @@ export default function Comunicacao() {
 
   const loadingTopics = loadingThreads || isLoadingUsuario;
 
+  // ═══════════════════════════════════════════════════════════════════════════════
+  // 🔍 BUSCA DE MENSAGENS - BRANCH EXPLÍCITO (Internas vs Externas)
+  // ═══════════════════════════════════════════════════════════════════════════════
+  const isThreadInterna = threadAtiva?.thread_type === 'team_internal' || threadAtiva?.thread_type === 'sector_group';
+
   const { data: mensagens = [] } = useQuery({
     queryKey: ['mensagens', threadAtiva?.id],
     queryFn: async () => {
-      // 🚫 Dupla verificação: queryFn + enabled (defesa em profundidade)
       if (!threadAtiva || isRateLimited) return [];
 
       try {
-        // ✅ USUÁRIOS INTERNOS: NÃO se aplica unificação/merge (são conversas entre usuarios)
-           const isUsuarioInterno = threadAtiva.thread_type === 'team_internal' || threadAtiva.thread_type === 'sector_group';
+        // ✅ BRANCH INTERNO: Busca simples, SEM merge
+        if (isThreadInterna) {
+          console.log('[COMUNICACAO] 🔵 Thread interna - busca direta (SEM merge)');
+          const ultimasMensagens = await base44.entities.Message.filter(
+            { thread_id: threadAtiva.id },
+            '-sent_at',
+            500
+          );
+          console.log(`[COMUNICACAO] 📩 ${ultimasMensagens.length} mensagens internas carregadas`);
+          return ultimasMensagens.reverse();
+        }
 
-           if (isUsuarioInterno) {
-             console.log('[COMUNICACAO] 🔵 Usuário interno - buscando apenas mensagens diretas (sem merge)');
-             const ultimasMensagens = await base44.entities.Message.filter(
-               { thread_id: threadAtiva.id },
-               '-sent_at',
-               500
-             );
-
-             console.log(`[COMUNICACAO] 📩 Usuário interno - ${ultimasMensagens.length} mensagens carregadas`);
-             return ultimasMensagens.reverse();
-           }
-
-           // ✅ THREADS EXTERNAS: Buscar histórico consolidado (thread atual + merged + MESMO CONTATO)
+        // ✅ BRANCH EXTERNO: Buscar histórico consolidado (thread atual + merged + MESMO CONTATO)
         let threadIdsParaBuscar = [threadAtiva.id];
         
         try {
@@ -522,7 +566,7 @@ export default function Comunicacao() {
       }
     },
     enabled: !!threadAtiva && !isRateLimited,
-    refetchInterval: 20000,
+    refetchInterval: isThreadInterna ? 30000 : 20000, // Internas: 30s | Externas: 20s
     staleTime: 10000,
     retry: 2,
     retryDelay: 1000,
@@ -800,7 +844,7 @@ export default function Comunicacao() {
         primeira_mensagem_at: new Date().toISOString()
       });
 
-      await queryClient.invalidateQueries({ queryKey: ['threads'] });
+      await queryClient.invalidateQueries({ queryKey: ['threads-externas'] });
       setThreadAtiva(novaThread);
       setModalSemPermissao({ isOpen: false, contato: null, atendenteResponsavel: null, motivoBloqueio: null, threadOriginal: null });
       toast.success('✅ Nova conversa iniciada!');
@@ -899,10 +943,10 @@ export default function Comunicacao() {
 
       console.log('[Comunicacao] ✅ Thread criada e atribuída ao criador:', novaThread.id);
 
-      // ✅ Aguardar ambas as queries atualizarem antes de abrir
+      // ✅ Aguardar queries atualizarem (apenas externas, pois nova thread é WhatsApp)
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ['contacts'] }),
-        queryClient.invalidateQueries({ queryKey: ['threads'] })
+        queryClient.invalidateQueries({ queryKey: ['threads-externas'] })
       ]);
 
       // ✅ Aguardar queries serem reexecutadas antes de abrir thread
@@ -929,7 +973,7 @@ export default function Comunicacao() {
       console.log('[Comunicacao] 🔄 Invalidando cache após edição de contato...');
       
       await queryClient.invalidateQueries({ queryKey: ['contacts'] });
-      await queryClient.invalidateQueries({ queryKey: ['threads'] });
+      await queryClient.invalidateQueries({ queryKey: ['threads-externas'] });
 
       if (threadAtiva) {
         const threadAtualizada = await base44.entities.MessageThread.filter({ id: threadAtiva.id });
@@ -972,7 +1016,9 @@ export default function Comunicacao() {
     } else {
       queryClient.invalidateQueries({ queryKey: ['mensagens', threadAtiva?.id] });
     }
-    queryClient.invalidateQueries({ queryKey: ['threads'] });
+    // ✅ FIX: Invalidar apenas a query relevante (interna ou externa)
+    const isInterna = threadAtiva?.thread_type === 'team_internal' || threadAtiva?.thread_type === 'sector_group';
+    queryClient.invalidateQueries({ queryKey: [isInterna ? 'threads-internas' : 'threads-externas'] });
   }, [threadAtiva, queryClient]);
 
   // 🚀 OPTIMISTIC UI: Envio instantâneo de mensagens INTERNAS
@@ -1082,11 +1128,10 @@ export default function Comunicacao() {
           return antigas.filter((m) => m.id !== tempId);
         });
         
-        // 5. ✅ CRÍTICO: Invalidar TODAS queries relacionadas
+        // 5. ✅ CRÍTICO: Invalidar queries relacionadas (APENAS internas)
         await Promise.all([
           queryClient.invalidateQueries({ queryKey: ['mensagens', threadAtiva.id] }),
-          queryClient.invalidateQueries({ queryKey: ['threads', usuario?.id] }),
-          queryClient.invalidateQueries({ queryKey: ['threads'] }) // ✅ FIX: Recarregar sidebar também
+          queryClient.invalidateQueries({ queryKey: ['threads-internas'] }) // ✅ FIX: Apenas internas
         ]);
         
         toast.success('✅ Mensagem enviada!');
@@ -1205,9 +1250,9 @@ export default function Comunicacao() {
           pre_atendimento_ativo: false
         });
 
-        // 4. Invalidar queries para substituir mensagem temporária pela real
+        // 4. Invalidar queries para substituir mensagem temporária pela real (apenas externas)
         queryClient.invalidateQueries({ queryKey: ['mensagens', threadAtiva.id] });
-        queryClient.invalidateQueries({ queryKey: ['threads'] });
+        queryClient.invalidateQueries({ queryKey: ['threads-externas'] });
       } else {
         throw new Error(resultado.data.error || 'Erro ao enviar');
       }
@@ -2178,7 +2223,8 @@ export default function Comunicacao() {
                 variant="outline"
                 size="sm"
                 onClick={() => {
-                  queryClient.invalidateQueries({ queryKey: ['threads'] });
+                  queryClient.invalidateQueries({ queryKey: ['threads-externas'] });
+                  queryClient.invalidateQueries({ queryKey: ['threads-internas'] });
                   queryClient.invalidateQueries({ queryKey: ['contacts'] });
                   queryClient.invalidateQueries({ queryKey: ['integracoes'] });
                   queryClient.invalidateQueries({ queryKey: ['atendentes'] });
@@ -2437,7 +2483,10 @@ export default function Comunicacao() {
                 <ConfiguracaoCanaisComunicacao
                   integracoes={integracoes}
                   usuarioAtual={usuario}
-                  onRecarregar={() => queryClient.invalidateQueries({ queryKey: ['integracoes'] })} />
+                  onRecarregar={() => {
+                    queryClient.invalidateQueries({ queryKey: ['integracoes'] });
+                    queryClient.invalidateQueries({ queryKey: ['threads-externas'] });
+                  }} />
 
                 <GoToConnectionSetup
                   integracoes={gotoIntegracoes}
