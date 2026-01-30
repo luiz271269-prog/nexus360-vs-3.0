@@ -87,65 +87,66 @@ Deno.serve(async (req) => {
     };
 
     // ==========================================
-    // 2. ANÁLISE DE SENTIMENTO COM IA
+    // 2. ANÁLISE MULTIMODAL AVANÇADA COM IA
     // ==========================================
     const textosMensagens = mensagensEnviadas
       .filter(m => m.content && m.content.length > 5)
-      .slice(-20) // Últimas 20 mensagens
+      .slice(-30) // Aumentado para 30 mensagens
       .map(m => m.content)
       .join('\n');
+
+    // 🖼️ Buscar mensagens com mídia (imagens) para análise visual
+    const mensagensComImagem = mensagensEnviadas
+      .filter(m => m.media_type === 'image' && m.media_url)
+      .slice(-5); // Últimas 5 imagens
 
     let analiseSentimento = {
       sentimento_predominante: 'neutro',
       score_sentimento: 50,
-      evolucao_sentimento: 'estavel'
+      evolucao_sentimento: 'estavel',
+      razoes: []
     };
 
-    if (textosMensagens.length > 50) {
-      try {
-        const resultadoIA = await base44.integrations.Core.InvokeLLM({
-          prompt: `Analise o sentimento geral destas mensagens de um cliente:
-
-${textosMensagens}
-
-Retorne JSON estruturado com:
-- sentimento_predominante: "muito_positivo", "positivo", "neutro", "negativo", ou "muito_negativo"
-- score_sentimento: número de 0 a 100 (0=muito negativo, 100=muito positivo)
-- evolucao_sentimento: "melhorando", "estavel", ou "piorando"`,
-          response_json_schema: {
-            type: "object",
-            properties: {
-              sentimento_predominante: { type: "string" },
-              score_sentimento: { type: "number" },
-              evolucao_sentimento: { type: "string" }
-            }
-          }
-        });
-
-        analiseSentimento = resultadoIA;
-      } catch (error) {
-        console.error('Erro na análise de sentimento:', error);
-      }
-    }
-
-    // ==========================================
-    // 3. PALAVRAS-CHAVE E INTENÇÕES
-    // ==========================================
     let palavrasChave = [];
     let intencoesDetectadas = [];
+    let padroesBehaviorais = [];
+    let insightsVisuais = [];
 
-    if (textosMensagens.length > 50) {
+    if (textosMensagens.length > 20) {
       try {
-        const resultadoIA = await base44.integrations.Core.InvokeLLM({
-          prompt: `Analise estas mensagens e extraia:
-1. Top 5 palavras-chave mais frequentes e sua categoria (produto, problema, dúvida, elogio, reclamação)
-2. Intenções detectadas (comprar, suporte, informação, reclamação, etc)
+        // 🚀 ANÁLISE ÚNICA CONSOLIDADA - Reduz chamadas de IA e melhora contexto
+        const promptConsolidado = `Você é um analista de comportamento de clientes B2B. Analise profundamente o histórico abaixo:
 
-Mensagens:
-${textosMensagens}`,
+📱 HISTÓRICO DE MENSAGENS (últimos ${periodo_dias} dias):
+${textosMensagens}
+
+📊 DADOS DO CONTATO:
+- Empresa: ${contato.empresa || 'N/A'}
+- Cargo: ${contato.cargo || 'N/A'}
+- Ramo: ${contato.ramo_atividade || 'N/A'}
+- Tipo: ${contato.tipo_contato || 'novo'}
+
+📈 MÉTRICAS:
+- Total mensagens: ${metricas.total_mensagens}
+- Taxa resposta: ${metricas.taxa_resposta.toFixed(1)}%
+- Tempo médio resposta: ${metricas.tempo_medio_resposta_minutos.toFixed(0)}min
+
+Forneça uma análise estruturada e ACIONÁVEL para vendas B2B.`;
+
+        const analiseCompleta = await base44.integrations.Core.InvokeLLM({
+          prompt: promptConsolidado,
           response_json_schema: {
             type: "object",
             properties: {
+              sentimento: {
+                type: "object",
+                properties: {
+                  predominante: { type: "string", enum: ["muito_positivo", "positivo", "neutro", "negativo", "muito_negativo"] },
+                  score: { type: "number", minimum: 0, maximum: 100 },
+                  evolucao: { type: "string", enum: ["melhorando", "estavel", "piorando"] },
+                  razoes: { type: "array", items: { type: "string" } }
+                }
+              },
               palavras_chave: {
                 type: "array",
                 items: {
@@ -153,7 +154,8 @@ ${textosMensagens}`,
                   properties: {
                     palavra: { type: "string" },
                     frequencia: { type: "number" },
-                    categoria: { type: "string" }
+                    categoria: { type: "string", enum: ["produto", "problema", "duvida", "elogio", "reclamacao", "preco", "prazo", "tecnico"] },
+                    relevancia_comercial: { type: "number", minimum: 0, maximum: 10 }
                   }
                 }
               },
@@ -162,83 +164,227 @@ ${textosMensagens}`,
                 items: {
                   type: "object",
                   properties: {
-                    intencao: { type: "string" },
-                    confianca: { type: "number" }
+                    intencao: { type: "string", enum: ["comprar", "cotacao", "suporte", "reclamacao", "informacao", "negociacao", "cancelamento"] },
+                    confianca: { type: "number", minimum: 0, maximum: 100 },
+                    evidencias: { type: "array", items: { type: "string" } }
                   }
                 }
+              },
+              padroes_comportamentais: {
+                type: "array",
+                items: {
+                  type: "object",
+                  properties: {
+                    padrao: { type: "string" },
+                    descricao: { type: "string" },
+                    impacto: { type: "string", enum: ["positivo", "neutro", "negativo"] }
+                  }
+                }
+              },
+              perfil_cliente: {
+                type: "string",
+                enum: ["analitico", "pragmatico", "relacional", "inovador"]
+              },
+              nivel_maturidade_compra: {
+                type: "string",
+                enum: ["consciencia", "consideracao", "decisao", "pronto_comprar"]
+              },
+              objecoes_identificadas: {
+                type: "array",
+                items: { type: "string" }
+              },
+              oportunidades_upsell: {
+                type: "array",
+                items: { type: "string" }
               }
             }
           }
         });
 
-        palavrasChave = resultadoIA.palavras_chave || [];
-        intencoesDetectadas = (resultadoIA.intencoes || []).map(i => ({
-          ...i,
+        analiseSentimento = {
+          sentimento_predominante: analiseCompleta.sentimento?.predominante || 'neutro',
+          score_sentimento: analiseCompleta.sentimento?.score || 50,
+          evolucao_sentimento: analiseCompleta.sentimento?.evolucao || 'estavel',
+          razoes: analiseCompleta.sentimento?.razoes || []
+        };
+
+        palavrasChave = (analiseCompleta.palavras_chave || [])
+          .sort((a, b) => (b.relevancia_comercial || 0) - (a.relevancia_comercial || 0))
+          .slice(0, 10);
+
+        intencoesDetectadas = (analiseCompleta.intencoes || []).map(i => ({
+          intencao: i.intencao,
+          confianca: i.confianca,
+          evidencias: i.evidencias || [],
           primeira_deteccao: new Date().toISOString()
         }));
+
+        padroesBehaviorais = analiseCompleta.padroes_comportamentais || [];
+
       } catch (error) {
-        console.error('Erro na extração de palavras-chave:', error);
+        console.error('❌ Erro na análise consolidada:', error);
+      }
+    }
+
+    // 🖼️ ANÁLISE VISUAL DE IMAGENS (se houver)
+    if (mensagensComImagem.length > 0) {
+      try {
+        const imageUrls = mensagensComImagem
+          .map(m => m.media_url)
+          .filter(Boolean)
+          .slice(0, 3); // Máximo 3 imagens para não ultrapassar limites
+
+        if (imageUrls.length > 0) {
+          const analiseVisual = await base44.integrations.Core.InvokeLLM({
+            prompt: `Analise estas imagens enviadas pelo cliente e identifique:
+1. Produtos/serviços de interesse
+2. Problemas técnicos ou necessidades
+3. Contexto do negócio (ambiente, equipamentos)
+4. Urgência visual (danos, defeitos, etc)
+
+Forneça insights comerciais acionáveis.`,
+            file_urls: imageUrls,
+            response_json_schema: {
+              type: "object",
+              properties: {
+                produtos_identificados: { type: "array", items: { type: "string" } },
+                problemas_detectados: { type: "array", items: { type: "string" } },
+                contexto_negocio: { type: "string" },
+                nivel_urgencia: { type: "string", enum: ["baixa", "media", "alta", "critica"] },
+                insights_comerciais: { type: "array", items: { type: "string" } }
+              }
+            }
+          });
+
+          insightsVisuais = analiseVisual.insights_comerciais || [];
+          
+          // Aplicar tag se urgência crítica detectada em imagens
+          if (analiseVisual.nivel_urgencia === 'critica' || analiseVisual.nivel_urgencia === 'alta') {
+            const urgenciaTag = await base44.asServiceRole.entities.Tag.list('-created_date', 1, { nome: 'urgencia_visual_detectada' });
+            if (urgenciaTag.length === 0) {
+              await base44.asServiceRole.entities.Tag.create({
+                nome: 'urgencia_visual_detectada',
+                categoria: 'visual',
+                cor: '#ef4444'
+              });
+            }
+          }
+
+          console.log(`📸 Análise visual concluída: ${imageUrls.length} imagem(ns)`);
+        }
+      } catch (error) {
+        console.warn('⚠️ Erro na análise visual:', error.message);
       }
     }
 
     // ==========================================
-    // 4. SEGMENTAÇÃO INTELIGENTE
+    // 4. SEGMENTAÇÃO INTELIGENTE AVANÇADA
     // ==========================================
     let segmentoSugerido = 'lead_frio';
     let estagioVida = 'descoberta';
     let scoreEngajamento = 30;
     let confiancaSegmentacao = 60;
 
-    // Lógica de segmentação baseada em métricas
-    if (mensagensEnviadas.length >= 10 && taxaResposta > 80) {
+    // 🧠 ALGORITMO HÍBRIDO: Regras + IA
+    const pontos = {
+      mensagens: mensagensEnviadas.length * 3,
+      taxaResposta: taxaResposta * 0.4,
+      sentimento: analiseSentimento.score_sentimento * 0.3,
+      tempoResposta: tempoMedioResposta < 60 ? 20 : tempoMedioResposta < 180 ? 10 : 0,
+      intencaoCompra: intencoesDetectadas.some(i => i.intencao === 'comprar' || i.intencao === 'cotacao') ? 25 : 0,
+      palavrasPositivas: palavrasChave.filter(p => p.categoria === 'elogio' || p.relevancia_comercial >= 8).length * 5
+    };
+
+    scoreEngajamento = Math.min(100, Math.round(Object.values(pontos).reduce((a, b) => a + b, 0)));
+
+    // 🎯 SEGMENTAÇÃO BASEADA EM DADOS REAIS
+    const temIntencaoCompra = intencoesDetectadas.some(i => 
+      (i.intencao === 'comprar' || i.intencao === 'cotacao') && i.confianca > 60
+    );
+    const temReclamacao = intencoesDetectadas.some(i => i.intencao === 'reclamacao');
+    const engajamentoAlto = scoreEngajamento > 70;
+    const engajamentoBaixo = scoreEngajamento < 30;
+    const sentimentoNegativo = analiseSentimento.score_sentimento < 40;
+
+    if (temReclamacao && sentimentoNegativo) {
+      segmentoSugerido = 'risco_churn';
+      estagioVida = 'reativacao';
+      confiancaSegmentacao = 95;
+    } else if (temIntencaoCompra && engajamentoAlto) {
+      segmentoSugerido = 'lead_quente';
+      estagioVida = 'decisao';
+      confiancaSegmentacao = 90;
+    } else if (mensagensEnviadas.length >= 10 && taxaResposta > 80 && !sentimentoNegativo) {
       segmentoSugerido = 'cliente_ativo';
       estagioVida = 'pos_venda';
-      scoreEngajamento = 85;
-      confiancaSegmentacao = 90;
-    } else if (mensagensEnviadas.length >= 5 && analiseSentimento.score_sentimento > 70) {
-      segmentoSugerido = 'lead_quente';
-      estagioVida = 'consideracao';
-      scoreEngajamento = 70;
-      confiancaSegmentacao = 85;
-    } else if (mensagensEnviadas.length >= 3) {
+      confiancaSegmentacao = 92;
+    } else if (mensagensEnviadas.length >= 5 && analiseSentimento.score_sentimento > 60) {
       segmentoSugerido = 'lead_morno';
-      estagioVida = 'descoberta';
-      scoreEngajamento = 50;
-      confiancaSegmentacao = 75;
-    } else if (mensagensEnviadas.length === 0 && contato.created_date) {
-      const diasSemMensagens = (Date.now() - new Date(contato.created_date).getTime()) / (1000 * 60 * 60 * 24);
+      estagioVida = 'consideracao';
+      confiancaSegmentacao = 80;
+    } else if (engajamentoBaixo || mensagensEnviadas.length === 0) {
+      const diasSemMensagens = contato.created_date 
+        ? (Date.now() - new Date(contato.created_date).getTime()) / (1000 * 60 * 60 * 24)
+        : 0;
+      
       if (diasSemMensagens > 30) {
         segmentoSugerido = 'cliente_inativo';
         estagioVida = 'reativacao';
-        scoreEngajamento = 10;
+        confiancaSegmentacao = 85;
       }
     }
 
-    // Ajustar por sentimento
-    if (analiseSentimento.score_sentimento < 30) {
-      segmentoSugerido = 'risco_churn';
-      scoreEngajamento = Math.max(10, scoreEngajamento - 20);
-    }
-
     // ==========================================
-    // 5. PRÓXIMA AÇÃO SUGERIDA
+    // 5. PRÓXIMA AÇÃO SUGERIDA COM IA
     // ==========================================
     let proximaAcao = 'Acompanhar evolução';
+    let acoesPrioritarias = [];
     
-    if (segmentoSugerido === 'lead_quente') {
-      proximaAcao = '🎯 Enviar proposta comercial formal';
-    } else if (segmentoSugerido === 'cliente_ativo') {
-      proximaAcao = '💎 Verificar oportunidades de upsell';
-    } else if (segmentoSugerido === 'risco_churn') {
-      proximaAcao = '🚨 URGENTE: Contato imediato para resolver insatisfação';
-    } else if (segmentoSugerido === 'lead_morno') {
-      proximaAcao = '📞 Agendar call de descoberta';
-    } else if (segmentoSugerido === 'cliente_inativo') {
-      proximaAcao = '🔄 Campanha de reativação';
+    // 🤖 IA SUGERE AÇÕES BASEADAS NO CONTEXTO COMPLETO
+    try {
+      const sugestaoAcoes = await base44.integrations.Core.InvokeLLM({
+        prompt: `Com base nesta análise de cliente:
+- Segmento: ${segmentoSugerido}
+- Score Engajamento: ${scoreEngajamento}/100
+- Sentimento: ${analiseSentimento.sentimento_predominante} (${analiseSentimento.score_sentimento}/100)
+- Intenções: ${intencoesDetectadas.map(i => i.intencao).join(', ') || 'nenhuma clara'}
+- Palavras-chave comerciais: ${palavrasChave.filter(p => p.relevancia_comercial >= 7).map(p => p.palavra).join(', ') || 'nenhuma'}
+${insightsVisuais.length > 0 ? `- Insights visuais: ${insightsVisuais.join(', ')}` : ''}
+
+Sugira a MELHOR ação comercial imediata (específica, acionável, com prazo).`,
+        response_json_schema: {
+          type: "object",
+          properties: {
+            acao_principal: { type: "string" },
+            prazo_sugerido: { type: "string" },
+            acoes_secundarias: { type: "array", items: { type: "string" } },
+            justificativa: { type: "string" }
+          }
+        }
+      });
+
+      proximaAcao = `${sugestaoAcoes.acao_principal} (${sugestaoAcoes.prazo_sugerido})`;
+      acoesPrioritarias = sugestaoAcoes.acoes_secundarias || [];
+      
+    } catch (error) {
+      console.warn('⚠️ Erro ao gerar sugestão de ação com IA:', error.message);
+      
+      // Fallback para regras fixas
+      if (segmentoSugerido === 'lead_quente') {
+        proximaAcao = '🎯 Enviar proposta comercial formal (24h)';
+      } else if (segmentoSugerido === 'cliente_ativo') {
+        proximaAcao = '💎 Verificar oportunidades de upsell (esta semana)';
+      } else if (segmentoSugerido === 'risco_churn') {
+        proximaAcao = '🚨 URGENTE: Contato imediato para resolver insatisfação (hoje)';
+      } else if (segmentoSugerido === 'lead_morno') {
+        proximaAcao = '📞 Agendar call de descoberta (3 dias)';
+      } else if (segmentoSugerido === 'cliente_inativo') {
+        proximaAcao = '🔄 Campanha de reativação (imediato)';
+      }
     }
 
     // ==========================================
-    // 6. SALVAR ANÁLISE
+    // 6. SALVAR ANÁLISE ENRIQUECIDA
     // ==========================================
     const analise = await base44.asServiceRole.entities.ContactBehaviorAnalysis.create({
       contact_id,
@@ -247,12 +393,16 @@ ${textosMensagens}`,
       analise_sentimento: analiseSentimento,
       palavras_chave_frequentes: palavrasChave,
       intencoes_detectadas: intencoesDetectadas,
+      padroes_comportamentais: padroesBehaviorais,
+      insights_visuais: insightsVisuais,
       segmento_sugerido: segmentoSugerido,
       confianca_segmentacao: confiancaSegmentacao,
       estagio_ciclo_vida: estagioVida,
       score_engajamento: scoreEngajamento,
       proxima_acao_sugerida: proximaAcao,
-      ultima_analise: new Date().toISOString()
+      acoes_prioritarias: acoesPrioritarias,
+      ultima_analise: new Date().toISOString(),
+      versao_analise: '2.0_multimodal'
     });
 
     // ==========================================
@@ -343,7 +493,11 @@ ${textosMensagens}`,
         score: scoreEngajamento,
         sentimento: analiseSentimento.sentimento_predominante,
         proxima_acao: proximaAcao,
-        tags_atribuidas: tagsParaAtribuir
+        tags_atribuidas: tagsParaAtribuir,
+        insights_visuais_count: insightsVisuais.length,
+        padroes_detectados: padroesBehaviorais.length,
+        intencoes_ativas: intencoesDetectadas.filter(i => i.confianca > 70).length,
+        nivel_confianca: confiancaSegmentacao
       }
     }, { status: 200, headers: corsHeaders });
 
