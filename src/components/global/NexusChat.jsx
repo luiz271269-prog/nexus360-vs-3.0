@@ -18,7 +18,7 @@ import { toast } from 'sonner';
 
 import { AnimatePresence, motion } from 'framer-motion';
 
-export default function NexusChat({ isOpen, onToggle }) {
+export default function NexusChat({ isOpen, onToggle, agentContext = {}, agentSession = {} }) {
   const [mensagens, setMensagens] = useState([]);
   const [inputMensagem, setInputMensagem] = useState('');
   const [enviando, setEnviando] = useState(false);
@@ -26,9 +26,8 @@ export default function NexusChat({ isOpen, onToggle }) {
   const [erro, setErro] = useState(null);
   const messagesEndRef = useRef(null);
 
-  // ✅ ADICIONAR PROTEÇÃO DE RATE LIMIT
   const [ultimaConsulta, setUltimaConsulta] = useState(0);
-  const MIN_INTERVALO = 2000; // 2 segundos entre mensagens
+  const MIN_INTERVALO = 2000;
 
   useEffect(() => {
     if (isOpen) {
@@ -119,123 +118,19 @@ export default function NexusChat({ isOpen, onToggle }) {
     setMensagens(prev => [...prev, novaMensagem]);
 
     try {
-      // ✅ TIMEOUT: 30 segundos para permitir análises complexas
       const timeoutPromise = new Promise((_, reject) => {
         setTimeout(() => reject(new Error('Timeout')), 30000);
       });
 
-      // 🔍 BUSCAR CONTEXTO COMPLETO DO SISTEMA
-      const [
-        clientesRecentes,
-        vendasRecentes,
-        orcamentosRecentes,
-        threadsRecentes,
-        vendedores,
-        produtos,
-        integracoes
-      ] = await Promise.all([
-        base44.entities.Cliente.list('-updated_date', 10).catch(() => []),
-        base44.entities.Venda.list('-data_venda', 10).catch(() => []),
-        base44.entities.Orcamento.list('-updated_date', 10).catch(() => []),
-        base44.entities.MessageThread.list('-last_message_at', 20).catch(() => []),
-        base44.entities.Vendedor.list().catch(() => []),
-        base44.entities.Produto.list('nome', 50).catch(() => []),
-        base44.entities.WhatsAppIntegration.list().catch(() => [])
-      ]);
-
-      // 📊 CALCULAR ESTATÍSTICAS
-      const totalClientes = clientesRecentes.length;
-      const totalVendas = vendasRecentes.length;
-      const orcamentosPendentes = orcamentosRecentes.filter(o => o.status === 'enviado' || o.status === 'negociando').length;
-      const threadsNaoAtribuidas = threadsRecentes.filter(t => !t.assigned_user_id && t.thread_type === 'contact_external').length;
-      const threadsComNaoLidas = threadsRecentes.filter(t => (t.unread_count || 0) > 0).length;
-
-      // 🔐 CONTEXTO DO USUÁRIO
-      const perfilUsuario = `
-**PERFIL DO USUÁRIO:**
-- Nome: ${usuario.full_name}
-- Email: ${usuario.email}
-- Cargo/Função: ${usuario.role === 'admin' ? 'Administrador' : 'Usuário'}
-- Setor: ${usuario.attendant_sector || 'Não definido'}
-- Nível: ${usuario.attendant_role || 'Não definido'}
-`;
-
-      // 📋 CONTEXTO DO SISTEMA
-      const contextoSistema = `
-**VISÃO GERAL DO SISTEMA (Últimas atualizações):**
-- 👥 Clientes recentes: ${totalClientes}
-- 💰 Vendas recentes: ${totalVendas}
-- 📄 Orçamentos pendentes: ${orcamentosPendentes}
-- 💬 Conversas não atribuídas: ${threadsNaoAtribuidas}
-- 🔔 Conversas com mensagens não lidas: ${threadsComNaoLidas}
-- 👨‍💼 Vendedores ativos: ${vendedores.filter(v => v.status === 'ativo').length}
-- 📦 Produtos cadastrados: ${produtos.length}
-- 📱 Integrações WhatsApp: ${integracoes.filter(i => i.status === 'conectado').length} conectadas
-
-**CLIENTES RECENTES (últimos 10):**
-${clientesRecentes.map((c, i) => `${i+1}. ${c.razao_social || c.nome_fantasia} - Status: ${c.status} - Vendedor: ${c.vendedor_id || 'Não atribuído'}`).join('\n')}
-
-**ORÇAMENTOS RECENTES (últimos 10):**
-${orcamentosRecentes.map((o, i) => `${i+1}. #${o.numero_orcamento || 'S/N'} - ${o.cliente_nome} - R$ ${o.valor_total?.toFixed(2) || '0.00'} - Status: ${o.status}`).join('\n')}
-
-**CONVERSAS ATIVAS (últimas 20):**
-${threadsRecentes.map((t, i) => {
-  const unread = t.unread_count || 0;
-  const tipo = t.thread_type === 'team_internal' ? '[INTERNA]' : t.thread_type === 'sector_group' ? '[SETOR]' : '[CLIENTE]';
-  const atendente = t.assigned_user_id || 'Não atribuído';
-  return `${i+1}. ${tipo} ${t.id.substring(0, 8)}... - ${unread} não lidas - Atendente: ${atendente}`;
-}).join('\n')}
-`;
-
-      // Contexto das últimas mensagens
-      const contextoConversa = mensagens
-        .slice(-8)
-        .map(m => `${m.role}: ${m.content}`)
-        .join('\n');
-
-      const consultaPromise = base44.integrations.Core.InvokeLLM({
-        prompt: `Você é o **Nexus**, o assistente inteligente do **VendaPro** - um sistema completo de gestão de vendas e comunicação omnichannel.
-
-${perfilUsuario}
-
-${contextoSistema}
-
-**HISTÓRICO DA CONVERSA:**
-${contextoConversa}
-
-**NOVA PERGUNTA DO USUÁRIO:**
-${mensagemUsuario}
-
-**SUAS CAPACIDADES:**
-1. 📊 **Análise de Dados**: Analise clientes, vendas, orçamentos e identifique padrões
-2. 💡 **Sugestões Inteligentes**: Sugira ações baseadas no contexto (ex: "Cliente X está sem contato há 10 dias - sugiro follow-up")
-3. 🔍 **Busca e Filtros**: Ajude a encontrar informações específicas nos dados
-4. 📈 **Insights de Performance**: Identifique oportunidades, gargalos e melhorias
-5. 🚨 **Alertas Proativos**: Detecte problemas (conversas não atribuídas, orçamentos vencidos, etc)
-6. 🎯 **Orientação de Processos**: Explique como usar funcionalidades do sistema
-7. 🔧 **Diagnóstico de Problemas**: Identifique causas de erros e sugira soluções técnicas
-8. 💬 **Gestão de Comunicação**: Analise threads, sugira respostas, identifique urgências
-9. 🌐 **Pesquisa Externa**: Busque informações atualizadas na internet quando necessário
-
-**INSTRUÇÕES CRÍTICAS:**
-- Use os DADOS REAIS acima para responder com precisão
-- Se o usuário pedir análises, use os números e informações fornecidas
-- Se identificar problemas nos dados (ex: threads não atribuídas), MENCIONE proativamente
-- Seja OBJETIVO e ACIONÁVEL - sempre sugira próximos passos concretos
-- Se o usuário pedir para "criar" ou "registrar" algo, explique os passos necessários no sistema
-- Para erros técnicos, forneça diagnóstico detalhado e soluções práticas
-- Adapte suas respostas ao nível de acesso do usuário (Admin vê tudo, usuários limitados)
-- Use emojis para clareza visual
-- Seja proativo: se vir oportunidades ou problemas, MENCIONE espontaneamente
-- Para perguntas que exigem informações atualizadas ou externas ao sistema, USE a internet
-
-**FORMATO DA RESPOSTA:**
-- Comece com um resumo direto
-- Use bullet points para clareza
-- Termine sempre com "Próximos passos sugeridos" ou "Posso ajudar com algo mais?"
-
-Responda agora de forma completa e útil:`,
-        add_context_from_internet: true
+      // 🤖 CHAMAR AGENT COMMAND (orquestrador)
+      const consultaPromise = base44.functions.invoke('agentCommand', {
+        command: 'chat',
+        user_message: mensagemUsuario,
+        context: {
+          user: agentContext.user,
+          page: agentContext.page,
+          path: agentContext.path
+        }
       });
 
       const resultado = await Promise.race([consultaPromise, timeoutPromise]);
@@ -243,8 +138,9 @@ Responda agora de forma completa e útil:`,
       const respostaIA = {
         id: Date.now() + 1,
         role: 'assistant',
-        content: resultado,
-        timestamp: new Date().toISOString()
+        content: resultado.data?.response || resultado.response || 'Erro ao processar resposta',
+        timestamp: new Date().toISOString(),
+        run_id: resultado.data?.run_id || resultado.run_id
       };
 
       setMensagens(prev => [...prev, respostaIA]);
@@ -353,8 +249,17 @@ Responda agora de forma completa e útil:`,
               <div>
                 <h3 className="text-white font-bold">Nexus AI</h3>
                 <div className="flex items-center gap-2">
-                  <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse" />
-                  <span className="text-xs text-purple-100">Online</span>
+                  <div className={`w-2 h-2 rounded-full ${
+                    agentSession.status === 'online' ? 'bg-green-400' :
+                    agentSession.status === 'degraded' ? 'bg-yellow-400' :
+                    'bg-red-400'
+                  } ${agentSession.status !== 'offline' ? 'animate-pulse' : ''}`} />
+                  <span className="text-xs text-purple-100">
+                    {agentSession.status === 'online' ? 'Online' :
+                     agentSession.status === 'degraded' ? 'Degradado' :
+                     'Offline'}
+                    {agentSession.activeRuns > 0 && ` • ${agentSession.activeRuns} ativas`}
+                  </span>
                 </div>
               </div>
             </div>

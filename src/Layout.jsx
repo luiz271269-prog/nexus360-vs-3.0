@@ -141,9 +141,36 @@ function SideBar({ isOpen, menuItems, contadoresLembretes, usuario, loadingUsuar
           >
             <Sparkles className="h-6 w-6 text-white" />
             <div className="absolute inset-0 bg-gradient-to-br from-white/20 to-transparent rounded-xl" />
-            <Badge className="absolute -top-1 -right-1 h-5 min-w-5 flex items-center justify-center text-[9px] font-bold px-1 bg-green-500 text-white rounded-full shadow-lg animate-pulse">
-              ON
-            </Badge>
+            {(() => {
+              const getAgentBadge = (session) => {
+                if (session.status === 'offline') {
+                  return { text: 'OFF', color: 'bg-red-500', pulse: false, tooltip: 'Agente offline' };
+                }
+                if (session.status === 'degraded') {
+                  return { text: 'SLOW', color: 'bg-yellow-500', pulse: true, tooltip: 'Processamento degradado' };
+                }
+                if (session.activeRuns > 0) {
+                  return { 
+                    text: `${session.activeRuns}`, 
+                    color: 'bg-blue-500', 
+                    pulse: true,
+                    tooltip: `${session.activeRuns} execuções ativas`
+                  };
+                }
+                return { text: 'ON', color: 'bg-green-500', pulse: false, tooltip: 'Agente online' };
+              };
+
+              const badge = getAgentBadge(agentSession);
+
+              return (
+                <Badge 
+                  className={`absolute -top-1 -right-1 h-5 min-w-5 flex items-center justify-center text-[9px] font-bold px-1 ${badge.color} text-white rounded-full shadow-lg ${badge.pulse ? 'animate-pulse' : ''}`}
+                  title={badge.tooltip}
+                >
+                  {badge.text}
+                </Badge>
+              );
+            })()}
             {/* Tooltip */}
             <div className="absolute left-full ml-3 px-3 py-2 bg-slate-800 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-50 shadow-xl border border-slate-700">
               🤖 Nexus AI <span className="text-green-400 ml-1">Online</span>
@@ -179,6 +206,12 @@ export default function Layout({ children, currentPageName }) {
   const [loadingUsuario, setLoadingUsuario] = useState(true);
   const [badges, setBadges] = useState({});
   const [contadoresLembretes, setContadoresLembretes] = useState({});
+  const [agentSession, setAgentSession] = useState({
+    status: 'online',
+    mode: 'assistente',
+    activeRuns: 0,
+    lastHeartbeat: null
+  });
   const navigate = useNavigate();
   const ultimaAtualizacaoRef = useRef(0);
 
@@ -293,15 +326,45 @@ export default function Layout({ children, currentPageName }) {
 
   useEffect(() => {
     carregarDadosGlobais();
+    checkAgentHealth();
     
-    const interval = setInterval(() => {
-      // Recarregar dados apenas se já passou pelo carregamento inicial
+    const intervalDados = setInterval(() => {
       if (!loadingUsuario) {
         carregarDadosGlobais();
       }
-    }, 15 * 60 * 1000); // Aumentado para 15min
-    return () => clearInterval(interval);
+    }, 15 * 60 * 1000);
+    
+    const intervalAgent = setInterval(() => {
+      checkAgentHealth();
+    }, 30000); // 30 segundos
+    
+    return () => {
+      clearInterval(intervalDados);
+      clearInterval(intervalAgent);
+    };
   }, [loadingUsuario]);
+
+  const checkAgentHealth = async () => {
+    try {
+      const runs = await base44.entities.AgentRun.filter({
+        status: 'processando',
+        created_date: { $gte: new Date(Date.now() - 5 * 60 * 1000).toISOString() }
+      });
+      
+      setAgentSession({
+        status: 'online',
+        mode: 'assistente',
+        activeRuns: runs.length,
+        lastHeartbeat: new Date().toISOString()
+      });
+    } catch (error) {
+      console.error('[LAYOUT] Erro ao verificar saúde do agente:', error);
+      setAgentSession(prev => ({
+        ...prev,
+        status: error.message?.includes('429') ? 'degraded' : 'offline'
+      }));
+    }
+  };
 
   const handleLogout = async () => {
     try {
@@ -309,10 +372,8 @@ export default function Layout({ children, currentPageName }) {
     } catch (error) {
       console.error('[LAYOUT] Erro ao fazer logout:', error);
     } finally {
-      // Garante que o estado reflita desconexão
       setGlobalUsuario(null);
       setLoadingUsuario(false);
-      // Opcional: forçar reload
       window.location.reload();
     }
   };
@@ -425,6 +486,18 @@ export default function Layout({ children, currentPageName }) {
       <NexusChat
         isOpen={nexusOpen}
         onToggle={() => setNexusOpen(false)}
+        agentContext={{
+          user: globalUsuario ? {
+            id: globalUsuario.id,
+            role: globalUsuario.role,
+            sector: globalUsuario.attendant_sector || 'geral',
+            level: globalUsuario.attendant_role || 'pleno',
+            paginas_acesso: globalUsuario.paginas_acesso || []
+          } : null,
+          page: currentPageName,
+          path: typeof window !== 'undefined' ? window.location.pathname : '/'
+        }}
+        agentSession={agentSession}
       />
 
       <LembreteFlutuanteIA

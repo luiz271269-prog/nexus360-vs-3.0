@@ -71,6 +71,7 @@ import CentralInteligenciaContato, {
 './CentralInteligenciaContato';
 import MessageInput from './MessageInput';
 import AlertaPedidoTransferencia from './AlertaPedidoTransferencia';
+import AgentSuggestion from './AgentSuggestion';
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // 🎯 GETTER UNIFICADO: Contagem de não lidas (externo + interno)
@@ -2143,10 +2144,24 @@ export default function ChatWindow({
         </div>
       }
 
+        {/* Sugestões do Agente (Playbook 01: Link Intelligence) */}
+        {!mostrarInterfaceBroadcast && thread && thread.thread_type === 'contact_external' && (
+          <div className="px-4 pt-3">
+            <AgentSuggestion 
+              threadId={thread.id}
+              onUseSuggestion={(texto) => {
+                // Copiar para clipboard e notificar usuário
+                navigator.clipboard.writeText(texto);
+                toast.success('💡 Sugestão copiada! Cole no campo de mensagem.');
+              }}
+            />
+          </div>
+        )}
+
         {/* Alerta de Pedido de Transferência - Micro-URA */}
         {!mostrarInterfaceBroadcast && thread &&
-      <div className="px-4 pt-3">
-            <AlertaPedidoTransferencia
+        <div className="px-4 pt-3">
+              <AlertaPedidoTransferencia
           thread={thread}
           atendentes={atendentes}
           usuarioAtual={usuario}
