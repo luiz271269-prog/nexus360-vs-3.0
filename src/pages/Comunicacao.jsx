@@ -169,20 +169,39 @@ export default function Comunicacao() {
 
     console.log('[COMUNICACAO] 🔔 Ativando listener real-time para threads');
 
+    // ✅ DEBOUNCE: Evitar invalidações excessivas que causam 429
+    let debounceTimer = null;
+    const invalidacoesPendentes = new Set();
+
     const unsubscribe = base44.entities.MessageThread.subscribe((event) => {
       console.log(`[COMUNICACAO] 🔔 Thread ${event.type}d:`, event.id);
       
-      // Invalidar query para recarregar threads
-      queryClient.invalidateQueries({ queryKey: ['threads'] });
+      // Adicionar à fila de invalidações
+      invalidacoesPendentes.add(event.id);
       
-      // Se a thread ativa foi atualizada, recarregar mensagens também
-      if (event.id === threadAtiva?.id) {
-        queryClient.invalidateQueries({ queryKey: ['mensagens', threadAtiva.id] });
-      }
+      // Limpar timer anterior
+      if (debounceTimer) clearTimeout(debounceTimer);
+      
+      // Agendar invalidação em 2 segundos (agrupa múltiplos eventos)
+      debounceTimer = setTimeout(() => {
+        console.log(`[COMUNICACAO] ♻️ Invalidando ${invalidacoesPendentes.size} thread(s) agrupadas`);
+        
+        // Invalidar queries de forma agrupada
+        queryClient.invalidateQueries({ queryKey: ['threads'] });
+        
+        // Se alguma thread ativa foi atualizada, recarregar mensagens
+        if (threadAtiva?.id && invalidacoesPendentes.has(threadAtiva.id)) {
+          queryClient.invalidateQueries({ queryKey: ['mensagens', threadAtiva.id] });
+        }
+        
+        // Limpar fila
+        invalidacoesPendentes.clear();
+      }, 2000);
     });
 
     return () => {
       console.log('[COMUNICACAO] 🔕 Desativando listener real-time');
+      if (debounceTimer) clearTimeout(debounceTimer);
       unsubscribe();
     };
   }, [usuario, threadAtiva?.id, queryClient]);
@@ -210,8 +229,8 @@ export default function Comunicacao() {
         throw error;
       }
     },
-    refetchInterval: 45000, // ✅ OT #4: Aumentado para 45s (Realtime cobre updates)
-    staleTime: 15000,
+    refetchInterval: 60000, // ✅ Aumentado para 60s (Realtime + debounce cobrem updates)
+    staleTime: 30000,
     enabled: !!usuario && !isRateLimited,
     retry: 2,
     retryDelay: 1000,
