@@ -115,7 +115,7 @@ function NavItem({ href, icon: Icon, label, badge, badgeColor, lembretesCount })
 
 
 
-function SideBar({ isOpen, menuItems, contadoresLembretes, usuario, loadingUsuario, onLogout, onOpenNexus }) {
+function SideBar({ isOpen, menuItems, contadoresLembretes, usuario, loadingUsuario, onLogout, onOpenNexus, agentSession }) {
   return (
     <TooltipProvider>
       <aside
@@ -441,6 +441,7 @@ export default function Layout({ children, currentPageName }) {
         loadingUsuario={loadingUsuario}
         onLogout={handleLogout}
         onOpenNexus={() => setNexusOpen(true)}
+        agentSession={agentSession}
       />
 
       {sidebarOpen && (
