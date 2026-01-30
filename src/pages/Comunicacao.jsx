@@ -244,23 +244,23 @@ export default function Comunicacao() {
         return await base44.entities.MessageThread.filter(
           { is_canonical: true, status: { $ne: 'merged' } },
           '-last_message_at',
-          500
+          200  // ✅ OTIMIZAÇÃO: 500 → 200 (60% menos dados)
         );
       } catch (error) {
         if (error?.message?.includes('429') || error?.response?.status === 429) {
-          console.warn('[COMUNICACAO] ⚠️ 429 em threads externas! Cool-down de 10s...');
+          console.warn('[COMUNICACAO] ⚠️ 429 em threads externas! Cool-down de 60s...');
           setIsRateLimited(true);
           setTimeout(() => {
             setIsRateLimited(false);
             console.log('[COMUNICACAO] ✅ Cool-down finalizado');
-          }, 10000);
+          }, 60000);  // ✅ OTIMIZAÇÃO: 10s → 60s (mais seguro)
           return [];
         }
         throw error;
       }
     },
-    refetchInterval: 45000, // 45s - Externas precisam de atualização mais frequente
-    staleTime: 15000,
+    refetchInterval: 90000, // ✅ OTIMIZAÇÃO: 45s → 90s (50% menos requisições)
+    staleTime: 30000,  // ✅ OTIMIZAÇÃO: 15s → 30s (cache mais agressivo)
     enabled: !!usuario && !isRateLimited,
     retry: 2,
     retryDelay: 1000,
@@ -504,7 +504,7 @@ export default function Comunicacao() {
         const ultimasMensagens = await base44.entities.Message.filter(
           { thread_id: { $in: threadIdsParaBuscar } },
           '-sent_at',
-          500
+          200  // ✅ OTIMIZAÇÃO: 500 → 200 (60% menos dados iniciais)
         );
 
         // 🔍 QUERY 2 (DIAGNÓSTICO): APENAS mensagens RECEBIDAS do contato (últimas 50)
