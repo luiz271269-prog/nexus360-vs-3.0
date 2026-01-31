@@ -1109,7 +1109,7 @@ export default React.memo(function MessageBubble({
                 message?.media_url.toLowerCase().includes('.doc') ||
                 message?.media_url.toLowerCase().includes('.xls')
               ))
-            ) && message?.media_url &&
+            ) && message?.media_url && message?.media_url !== 'pending_download' &&
             <div className="overflow-hidden">
                 <button
                   onClick={() => window.open(message.media_url, '_blank', 'noopener,noreferrer')}
@@ -1150,7 +1150,39 @@ export default React.memo(function MessageBubble({
               </div>
             }
             
-
+            {/* DOCUMENTO PENDENTE - Quando ainda está baixando */}
+            {(
+              message?.media_type === 'document' || 
+              message?.content === 'pdf' ||
+              message?.content?.toLowerCase() === '[documento]' ||
+              (message?.media_url && (
+                message?.media_url.toLowerCase().includes('.pdf') ||
+                message?.media_url.toLowerCase().includes('.doc') ||
+                message?.media_url.toLowerCase().includes('.xls')
+              ))
+            ) && message?.media_url === 'pending_download' &&
+            <div className="overflow-hidden px-3 py-3">
+                <div className="flex items-center gap-3 opacity-70">
+                  <div className="w-12 h-12 rounded-lg flex items-center justify-center flex-shrink-0 bg-slate-200">
+                    <Loader2 className="w-6 h-6 text-slate-400 animate-spin" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-slate-500">
+                      {message.media_caption || message.content?.replace(/[\[\]]/g, '').trim() || 'Documento'}
+                    </p>
+                    <p className="text-xs text-slate-400">
+                      Processando arquivo...
+                    </p>
+                  </div>
+                </div>
+                <div className={cn("flex items-center justify-end gap-1 mt-2 flex-wrap")}>
+                  <span className="text-[10px] text-slate-500">
+                    {format(new Date(message.sent_at || message.created_date), 'dd/MM HH:mm')}
+                  </span>
+                  {isOwn && message.status === 'enviando' && <Clock className="w-3 h-3 text-slate-400" />}
+                </div>
+              </div>
+            }
 
             {/* TEXTO - ✅ RENDERIZAÇÃO SEGURA DE EMOJIS */}
             {(!message?.media_url || message?.media_type === 'none') && message?.content != null && String(message.content || '').trim() !== '' && String(message.content) !== '[No content]' &&
