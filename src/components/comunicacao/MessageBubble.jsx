@@ -691,14 +691,17 @@ export default React.memo(function MessageBubble({
           "max-w-[65%]",
           "flex flex-col group relative"
         )}>
-          {!isOwn && (thread?.thread_type === 'team_internal' || thread?.thread_type === 'sector_group' || message.channel === 'interno') && (() => {
+          {/* ✅ Nome do remetente: SEMPRE mostrar em threads internas (exceto se for você) */}
+          {(thread?.thread_type === 'team_internal' || thread?.thread_type === 'sector_group' || message.channel === 'interno') && (() => {
             const atendenteRemetente = atendentes.find(a => a.id === message.sender_id);
             if (!atendenteRemetente) return null;
+            
+            // Mostrar nome do remetente em TODAS as mensagens
             return (
-              <div className="mb-0.5">
+              <div className={`mb-0.5 ${isOwn ? 'text-right' : 'text-left'}`}>
                 <UsuarioDisplay 
                   usuario={atendenteRemetente} 
-                  className="text-[11px] font-semibold text-cyan-600"
+                  className={`text-[11px] font-semibold ${isOwn ? 'text-blue-700' : 'text-cyan-600'}`}
                   variant="compact"
                 />
               </div>
