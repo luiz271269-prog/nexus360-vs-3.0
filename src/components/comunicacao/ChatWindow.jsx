@@ -1890,7 +1890,7 @@ export default function ChatWindow({
     }
   }, [contatoCompleto, podeTransferirConversas]);
 
-  // 🎯 BUSCAR NOME DO OUTRO PARTICIPANTE (threads internas 1:1)
+  // 🎯 BUSCAR NOME + SETOR DO OUTRO PARTICIPANTE (threads internas 1:1)
   const [outroParticipanteNome, setOutroParticipanteNome] = useState('');
   
   useEffect(() => {
@@ -1909,7 +1909,9 @@ export default function ChatWindow({
       
       try {
         const outroUser = await base44.entities.User.get(outroId);
-        setOutroParticipanteNome(outroUser.full_name || outroUser.email);
+        const nome = outroUser.full_name || outroUser.email;
+        const setor = outroUser.attendant_sector || 'geral';
+        setOutroParticipanteNome(`${nome} • ${setor}`);
       } catch (error) {
         console.error('[CHAT] Erro ao buscar nome do participante:', error);
         setOutroParticipanteNome('Usuário');
