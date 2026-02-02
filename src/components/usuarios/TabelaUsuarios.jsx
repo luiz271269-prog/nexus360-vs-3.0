@@ -48,6 +48,8 @@ export default function TabelaUsuarios({ usuarios, vendedores, onEditar, onAlter
                     <div>
                       <div className="font-medium text-slate-800 flex items-center gap-2">
                         {usuario.full_name}
+                        {usuario.attendant_sector && <span className="text-slate-400">•</span>}
+                        {usuario.attendant_sector && <span className="text-slate-600 font-normal text-sm">{usuario.attendant_sector}</span>}
                         {isCurrentUser && <Crown className="w-4 h-4 text-amber-500" />}
                       </div>
                       <div className="text-sm text-slate-500">{usuario.email}</div>
