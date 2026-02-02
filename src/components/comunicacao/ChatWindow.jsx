@@ -1890,6 +1890,35 @@ export default function ChatWindow({
     }
   }, [contatoCompleto, podeTransferirConversas]);
 
+  // 🎯 BUSCAR NOME DO OUTRO PARTICIPANTE (threads internas 1:1)
+  const [outroParticipanteNome, setOutroParticipanteNome] = useState('');
+  
+  useEffect(() => {
+    const buscarNomeParticipante = async () => {
+      if (thread?.thread_type !== 'team_internal' || thread?.is_group_chat) {
+        setOutroParticipanteNome('');
+        return;
+      }
+      
+      // Encontrar ID do outro participante (não é o usuário atual)
+      const outroId = thread.participants?.find(id => id !== usuario?.id);
+      if (!outroId) {
+        setOutroParticipanteNome('Usuário');
+        return;
+      }
+      
+      try {
+        const outroUser = await base44.entities.User.get(outroId);
+        setOutroParticipanteNome(outroUser.full_name || outroUser.email);
+      } catch (error) {
+        console.error('[CHAT] Erro ao buscar nome do participante:', error);
+        setOutroParticipanteNome('Usuário');
+      }
+    };
+    
+    buscarNomeParticipante();
+  }, [thread?.id, thread?.participants, usuario?.id]);
+
   // Se está em modo broadcast com contatos selecionados, mostrar interface de envio
   const mostrarInterfaceBroadcast = modoSelecaoMultipla && (contatosSelecionados.length > 0 || broadcastInterno);
 
@@ -2027,11 +2056,13 @@ export default function ChatWindow({
                   ? `Setor ${thread.sector_key?.replace('sector:', '') || 'Geral'}`
                   : thread?.thread_type === 'team_internal' && thread?.is_group_chat
                   ? thread.group_name || 'Grupo'
+                  : thread?.thread_type === 'team_internal' && !thread?.is_group_chat
+                  ? outroParticipanteNome || 'Contato'
                   : nomeContato}
               </h3>
               <p className="text-slate-200 text-xs">
                 {thread?.thread_type === 'team_internal' && !thread?.is_group_chat ? (
-                  thread.participants?.length === 2 ? '1:1 interno' : 'Chat interno'
+                  '1:1 interno'
                 ) : thread?.thread_type === 'sector_group' ? (
                   `${thread.participants?.length || 0} membros`
                 ) : thread?.thread_type === 'team_internal' && thread?.is_group_chat ? (
@@ -2284,11 +2315,7 @@ export default function ChatWindow({
 
                   <MessageBubble
                 message={mensagem}
-                isOwn={
-                thread?.thread_type === 'team_internal' || thread?.thread_type === 'sector_group' ?
-                mensagem.sender_id === usuario?.id :
-                mensagem.sender_type === 'user'
-                }
+                isOwn={mensagem.sender_id === usuario?.id}
                 thread={thread}
                 onResponder={handleResponderMensagem}
                 modoSelecao={modoSelecao}
