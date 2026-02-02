@@ -123,9 +123,14 @@ export default function AtribuirConversaModal({
         sent_at: new Date().toISOString(),
         metadata: {
           is_system_message: true,
+          is_transfer_message: true,
           action_type: 'assignment',
           atendente_anterior: thread.assigned_user_name || null,
-          atendente_novo: atendenteEscolhido.full_name
+          atendente_novo: atendenteEscolhido.full_name,
+          transferred_by_name: usuario.full_name,
+          transferred_by_id: usuario.id,
+          sector_destino: atendenteEscolhido.attendant_sector || 'geral',
+          contact_name: contatoNome
         }
       });
 
