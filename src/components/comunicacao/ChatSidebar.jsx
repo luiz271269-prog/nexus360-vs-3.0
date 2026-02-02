@@ -527,7 +527,24 @@ export default function ChatSidebar({
                 <div className="flex items-center justify-between mb-0.5">
                   <div className="flex items-center gap-1 min-w-0 flex-1">
                     <h3 className={`font-semibold truncate text-sm ${hasUnread ? 'text-slate-900' : 'text-slate-700'}`}>
-                      {threadUI.badge} {thread.thread_type === 'team_internal' && !thread.is_group_chat ? nomeExibicao : threadUI.title}
+                      {threadUI.badge} {thread.thread_type === 'team_internal' && !thread.is_group_chat ? (
+                        <>
+                          {nomeExibicao}
+                          {(() => {
+                            const outroUserId = thread.participants?.find(id => id !== usuarioAtual?.id);
+                            const outroUser = atendentes.find(a => a.id === outroUserId);
+                            if (outroUser?.attendant_sector) {
+                              return (
+                                <>
+                                  <span className="text-slate-400 mx-1">•</span>
+                                  <span className="text-slate-600 font-normal text-xs">{outroUser.attendant_sector}</span>
+                                </>
+                              );
+                            }
+                            return null;
+                          })()}
+                        </>
+                      ) : threadUI.title}
                     </h3>
                     {hasUnread && (
                       <Badge className="rounded-full min-w-[18px] h-4 flex items-center justify-center p-0 px-1 bg-gradient-to-r from-purple-400 via-indigo-500 to-blue-500 text-white text-[10px] font-bold border-0 shadow-lg">
