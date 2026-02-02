@@ -257,13 +257,11 @@ export default function ConfiguracaoWhatsAppUnificado({ onClose }) {
   };
 
   const getWebhookUrl = (integracao) => {
-    const baseUrl = window.location.origin;
+    // Determinar a função handler baseada no provedor
+    const webhookFn = integracao.api_provider === 'w_api' ? 'webhookWapi' : 'webhookWatsZapi';
     
-    if (integracao.api_provider === 'w_api') {
-      return `${baseUrl}/api/functions/webhookWapi`;
-    } else {
-      return `${baseUrl}/api/functions/webhookWatsZapi`;
-    }
+    // Usar utilitário centralizado para gerar URL dinâmica
+    return getWebhookUrlProducao(webhookFn);
   };
 
   const handleProviderChange = (provider) => {
@@ -1145,7 +1143,7 @@ export default function ConfiguracaoWhatsAppUnificado({ onClose }) {
               <Input
                 value={novaIntegracao.webhook_url}
                 onChange={(e) => setNovaIntegracao({...novaIntegracao, webhook_url: e.target.value})}
-                placeholder="https://seu-app.base44.app/api/functions/webhookWapi"
+                placeholder="URL será gerada automaticamente"
                 className="font-mono text-xs bg-white"
               />
               <div className="mt-2 space-y-1">
@@ -1272,7 +1270,7 @@ export default function ConfiguracaoWhatsAppUnificado({ onClose }) {
                   <Input
                     value={integracaoEditando.webhook_url}
                     onChange={(e) => setIntegracaoEditando({...integracaoEditando, webhook_url: e.target.value})}
-                    placeholder="https://seu-app.base44.app/api/functions/webhookWapi"
+                    placeholder="URL será gerada automaticamente"
                     className="font-mono text-xs bg-white"
                   />
                   <p className="text-xs text-purple-700 font-medium mt-2">

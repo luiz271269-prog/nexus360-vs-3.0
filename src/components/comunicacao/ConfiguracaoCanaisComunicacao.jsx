@@ -279,10 +279,9 @@ export default function ConfiguracaoCanaisComunicacao({ integracoes, onRecarrega
     setIntegracaoSelecionada(null);
     resetForm();
 
-    // ✅ Pré-preencher com URL de produção correta
+    // ✅ Pré-preencher com URL de produção correta (dinâmica)
     const provider = PROVIDERS[initialNovaIntegracaoState.api_provider];
-    const WEBHOOK_BASE = 'https://nexus360-pro.base44.app/api/apps/68a7d067890527304dbe8477/functions';
-    const webhookUrl = `${WEBHOOK_BASE}/${provider.webhookFn}`;
+    const webhookUrl = getWebhookUrlProducao(provider.webhookFn);
 
     setNovaIntegracao({
       ...initialNovaIntegracaoState,
@@ -468,9 +467,8 @@ export default function ConfiguracaoCanaisComunicacao({ integracoes, onRecarrega
       const tokenInstancia = novaIntegracao.token_instancia.trim();
       const tokenConta = novaIntegracao.client_token_conta.trim();
 
-      // ✅ SEMPRE USAR URL DE PRODUÇÃO CORRETA (source of truth)
-      const WEBHOOK_BASE = 'https://nexus360-pro.base44.app/api/apps/68a7d067890527304dbe8477/functions';
-      const webhookUrlFinal = `${WEBHOOK_BASE}/${provider.webhookFn}`;
+      // ✅ SEMPRE USAR URL DE PRODUÇÃO CORRETA (source of truth - dinâmica)
+      const webhookUrlFinal = getWebhookUrlProducao(provider.webhookFn);
 
       console.log('[CONFIG] 🔗 URL do Webhook (PRODUÇÃO):', webhookUrlFinal);
 
@@ -1404,7 +1402,7 @@ export default function ConfiguracaoCanaisComunicacao({ integracoes, onRecarrega
                         <Input
                           value={novaIntegracao.webhook_url}
                           onChange={(e) => setNovaIntegracao({...novaIntegracao, webhook_url: e.target.value})}
-                          placeholder="https://nexus360-pro.base44.app/api/apps/68a7d067890527304dbe8477/functions/webhookWapi"
+                          placeholder="URL será gerada automaticamente"
                           className="font-mono text-[10px] bg-white h-8"
                         />
                         <div className="mt-1.5 space-y-0.5">
@@ -2002,7 +2000,7 @@ export default function ConfiguracaoCanaisComunicacao({ integracoes, onRecarrega
                     <Input
                       value={novaIntegracao.webhook_url}
                       onChange={(e) => setNovaIntegracao({...novaIntegracao, webhook_url: e.target.value})}
-                      placeholder="https://seu-app.base44.app/api/functions/webhookWapi"
+                      placeholder="URL será gerada automaticamente"
                       className="font-mono text-xs bg-white"
                     />
                     <div className="mt-2 space-y-1">
