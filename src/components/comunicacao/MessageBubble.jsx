@@ -605,7 +605,9 @@ export default React.memo(function MessageBubble({
   // 🔔 MENSAGEM DE TRANSFERÊNCIA
   // ═══════════════════════════════════════════════════════════════════════════
   if (isTransferMessage) {
-    const setorTransferido = message.metadata?.setor || thread?.sector_id || 'geral';
+    const setorTransferido = message.metadata?.sector_destino || message.metadata?.setor || thread?.sector_id || 'geral';
+    const usuarioTransferiu = message.metadata?.transferred_by_name || message.metadata?.transferido_por || 'Sistema';
+    const horarioTransferencia = message.sent_at || message.created_date;
     
     const coresSetor = {
       vendas: {
@@ -649,16 +651,17 @@ export default React.memo(function MessageBubble({
 
     return (
       <div className="w-full flex justify-center my-3">
-        <div className={`bg-gradient-to-r ${cores.bg} border-2 ${cores.border} ${cores.text} text-sm px-5 py-2.5 rounded-full inline-flex items-center justify-center gap-2.5 shadow-lg max-w-[85%]`}>
-          <div className={`w-7 h-7 bg-gradient-to-br ${cores.icon} rounded-full flex items-center justify-center flex-shrink-0 shadow-md`}>
-            <ArrowRight className="w-4 h-4 text-white" />
+        <div className={`bg-gradient-to-r ${cores.bg} border-2 ${cores.border} ${cores.text} text-sm px-5 py-2.5 rounded-2xl inline-flex flex-col items-center justify-center gap-1 shadow-lg max-w-[85%]`}>
+          <div className="flex items-center gap-2.5">
+            <div className={`w-7 h-7 bg-gradient-to-br ${cores.icon} rounded-full flex items-center justify-center flex-shrink-0 shadow-md`}>
+              <ArrowRight className="w-4 h-4 text-white" />
+            </div>
+            <span className="font-semibold leading-tight">
+              {sanitizeEmojis(String(message.content || ''))}
+            </span>
           </div>
-          <span className="font-semibold leading-tight">
-            {sanitizeEmojis(String(message.content || ''))}
-            {message.metadata?.transferido_por && ` · por ${sanitizeEmojis(message.metadata.transferido_por)}`}
-          </span>
-          <span className={`text-[11px] ${cores.timestamp} font-medium opacity-80`}>
-            {formatarHorario(message.sent_at || message.created_date)}
+          <span className={`text-[10px] ${cores.timestamp} font-medium`}>
+            por {sanitizeEmojis(usuarioTransferiu)} às {horarioTransferencia ? format(new Date(horarioTransferencia), 'HH:mm', { locale: ptBR }) : '--:--'}
           </span>
         </div>
       </div>
