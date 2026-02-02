@@ -8,6 +8,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { base44 } from "@/api/base44Client";
 import { X, Smartphone, Zap, CheckCircle, AlertCircle, QrCode, Loader2, RefreshCw, WifiOff, Power, Settings, Trash2, Copy, ExternalLink, Wifi, Database, Cloud } from "lucide-react";
 import { toast } from "sonner";
+import { getWebhookUrlProducao } from "../lib/webhookUtils";
 
 // ============================================================================
 // CONFIGURAÇÃO WHATSAPP UNIFICADO - Suporta Z-API e W-API

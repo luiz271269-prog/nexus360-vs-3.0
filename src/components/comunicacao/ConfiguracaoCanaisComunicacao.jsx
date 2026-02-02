@@ -889,6 +889,8 @@ export default function ConfiguracaoCanaisComunicacao({ integracoes, onRecarrega
     try {
       toast.info("📥 Importando instância...");
       
+      const webhookUrlImportacao = getWebhookUrlProducao('webhookWapi');
+      
       await base44.entities.WhatsAppIntegration.create({
         nome_instancia: (instW.instanceName || `importada-${Date.now()}`).toLowerCase().replace(/[^a-z0-9-]/g, '-'),
         numero_telefone: instW.connectedPhone || "",
@@ -899,7 +901,7 @@ export default function ConfiguracaoCanaisComunicacao({ integracoes, onRecarrega
         base_url_provider: "https://api.w-api.app/v1",
         status: instW.connected ? "conectado" : "desconectado",
         tipo_conexao: "webhook",
-        webhook_url: `https://nexus360-pro.base44.app/api/apps/68a7d067890527304dbe8477/functions/webhookWapi`,
+        webhook_url: webhookUrlImportacao,
         configuracoes_avancadas: {
           auto_resposta_fora_horario: false,
           rate_limit_mensagens_hora: 100
