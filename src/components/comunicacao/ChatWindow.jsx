@@ -121,6 +121,7 @@ export default function ChatWindow({
   const [contatoCompleto, setContatoCompleto] = useState(null);
   const [carregandoContato, setCarregandoContato] = useState(true);
   const [mostrarModalAtribuicao, setMostrarModalAtribuicao] = useState(false);
+  const [mostrarModalCompartilhamento, setMostrarModalCompartilhamento] = useState(false);
 
   const [mensagemResposta, setMensagemResposta] = useState(null);
   const [modoSelecao, setModoSelecao] = useState(false);
@@ -2093,9 +2094,21 @@ export default function ChatWindow({
               {podeTransferirConversas &&
             <button
               onClick={() => setMostrarModalAtribuicao(true)}
-              className="bg-gradient-to-br from-amber-500 to-amber-600 text-white rounded-lg px-2 py-1.5 shadow-md flex items-center gap-1.5 hover:shadow-lg transition-all hover:from-amber-600 hover:to-amber-700">
+              className="bg-gradient-to-br from-amber-500 to-amber-600 text-white rounded-lg px-2 py-1.5 shadow-md flex items-center gap-1.5 hover:shadow-lg transition-all hover:from-amber-600 hover:to-amber-700"
+              title="Transferir responsabilidade da conversa">
                      <Users className="w-3.5 h-3.5" />
                      <span className="text-xs font-medium hidden sm:inline">Transferir</span>
+                </button>
+            }
+
+              {/* Botão Compartilhar */}
+              {podeTransferirConversas &&
+            <button
+              onClick={() => setMostrarModalCompartilhamento(true)}
+              className="bg-gradient-to-br from-blue-500 to-blue-600 text-white rounded-lg px-2 py-1.5 shadow-md flex items-center gap-1.5 hover:shadow-lg transition-all hover:from-blue-600 hover:to-blue-700"
+              title="Compartilhar conversa com outros atendentes">
+                     <UserPlus className="w-3.5 h-3.5" />
+                     <span className="text-xs font-medium hidden sm:inline">Compartilhar</span>
                 </button>
             }
 
@@ -2424,7 +2437,7 @@ export default function ChatWindow({
 
       {/* Modal removido - agora usa MediaAttachmentSystem */}
 
-      {/* MODAL DE ATRIBUIÇÃO/TRANSFERÊNCIA - NOVO COMPONENTE */}
+      {/* MODAL DE ATRIBUIÇÃO/TRANSFERÊNCIA */}
       <AtribuirConversaModal
         isOpen={mostrarModalAtribuicao}
         onClose={() => setMostrarModalAtribuicao(false)}
@@ -2432,11 +2445,27 @@ export default function ChatWindow({
         usuario={usuario}
         contatoNome={contatoCompleto?.nome || 'Cliente'}
         atendentes={atendentes}
+        mode="transferir"
         onSuccess={async () => {
-          // ✅ INVALIDAÇÃO LOCAL: ChatWindow também força atualização
           await queryClient.invalidateQueries({ queryKey: ['threads'] });
           await queryClient.invalidateQueries({ queryKey: ['mensagens', thread?.id] });
+          if (onAtualizarMensagens) {
+            onAtualizarMensagens();
+          }
+        }} />
 
+      {/* MODAL DE COMPARTILHAMENTO */}
+      <AtribuirConversaModal
+        isOpen={mostrarModalCompartilhamento}
+        onClose={() => setMostrarModalCompartilhamento(false)}
+        thread={thread}
+        usuario={usuario}
+        contatoNome={contatoCompleto?.nome || 'Cliente'}
+        atendentes={atendentes}
+        mode="compartilhar"
+        onSuccess={async () => {
+          await queryClient.invalidateQueries({ queryKey: ['threads'] });
+          await queryClient.invalidateQueries({ queryKey: ['mensagens', thread?.id] });
           if (onAtualizarMensagens) {
             onAtualizarMensagens();
           }
