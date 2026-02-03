@@ -89,6 +89,35 @@ export async function processInboundEvent(params) {
   result.pipeline.push('input_normalized');
   
   // ============================================================================
+  // 🛡️ IDEMPOTÊNCIA CRÍTICA - Proteção contra duplicação (REPLAY SAFE)
+  // ============================================================================
+  result.pipeline.push('idempotency_check');
+  
+  if (message.whatsapp_message_id && integration?.id) {
+    try {
+      const existingMsg = await base44.asServiceRole.entities.Message.filter({
+        whatsapp_message_id: message.whatsapp_message_id,
+        'metadata.whatsapp_integration_id': integration.id
+      }, '-created_date', 1);
+      
+      if (existingMsg && existingMsg.length > 0) {
+        console.log(`[CORE] ⏭️ DUPLICATA DETECTADA: ${message.whatsapp_message_id} (já existe: ${existingMsg[0].id})`);
+        result.actions.push('skipped_duplicate');
+        return {
+          ...result,
+          status: 'skipped',
+          skipped: true,
+          reason: 'duplicate_whatsapp_message_id',
+          existing_message_id: existingMsg[0].id
+        };
+      }
+      console.log(`[CORE] ✅ Idempotência OK: ${message.whatsapp_message_id} (nova mensagem)`);
+    } catch (e) {
+      console.warn('[CORE] ⚠️ Erro ao verificar duplicata:', e.message);
+    }
+  }
+  
+  // ============================================================================
   // 🛑 KILL SWITCH - RESET DO FUNIL DE PROMOÇÕES (PRIORIDADE MÁXIMA)
   // ============================================================================
   if (message.sender_type === 'contact') {

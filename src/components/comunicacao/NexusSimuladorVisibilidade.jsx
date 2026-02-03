@@ -17,8 +17,10 @@ import { base44 } from '@/api/base44Client';
 import { getUserDisplayName } from '../lib/userHelpers';
 import UnificadorContatosCentralizado from './UnificadorContatosCentralizado';
 import SeletorUnificacaoMultipla from './SeletorUnificacaoMultipla';
+import PainelReplayWAPI from './PainelReplayWAPI';
 
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 export default function NexusSimuladorVisibilidade({ usuario, integracoes = [], threads = [] }) {
   const [simulationResults, setSimulationResults] = useState(null);
@@ -389,6 +391,24 @@ export default function NexusSimuladorVisibilidade({ usuario, integracoes = [], 
 
   return (
     <div className="space-y-3">
+      {/* TABS: Simulador | Replay */}
+      <Tabs defaultValue="simulador" className="w-full">
+        <TabsList className="grid w-full grid-cols-2 mb-3">
+          <TabsTrigger value="simulador" className="text-sm">
+            <Eye className="w-4 h-4 mr-2" />
+            Simulador Visibilidade
+          </TabsTrigger>
+          <TabsTrigger value="replay" className="text-sm">
+            <Database className="w-4 h-4 mr-2" />
+            Replay W-API
+          </TabsTrigger>
+        </TabsList>
+        
+        <TabsContent value="replay" className="mt-0">
+          <PainelReplayWAPI integracoes={integracoes} />
+        </TabsContent>
+        
+        <TabsContent value="simulador" className="mt-0 space-y-3">
       {/* PAINEL SIMULADOR - COMPACTO */}
       <Card className="border-purple-200 bg-gradient-to-r from-purple-50 to-indigo-50">
         <CardHeader className="pb-2">
@@ -1486,7 +1506,8 @@ export default function NexusSimuladorVisibilidade({ usuario, integracoes = [], 
         contatosSelecionados={contatosSelecionadosMultiplos}
       />
 
-
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }
