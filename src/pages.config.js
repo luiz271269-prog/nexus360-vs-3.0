@@ -85,6 +85,7 @@ import GerenciadorPermissoes from './pages/GerenciadorPermissoes';
 import Home from './pages/Home';
 import Importacao from './pages/Importacao';
 import InteligenciaMetricas from './pages/InteligenciaMetricas';
+import JarvisControl from './pages/JarvisControl';
 import KPIDashboard from './pages/KPIDashboard';
 import LeadsQualificados from './pages/LeadsQualificados';
 import Metas from './pages/Metas';
@@ -114,7 +115,6 @@ import Usuarios from './pages/Usuarios';
 import Vendas from './pages/Vendas';
 import Vendedores from './pages/Vendedores';
 import WhatsAppTemplates from './pages/WhatsAppTemplates';
-import JarvisControl from './pages/JarvisControl';
 import __Layout from './Layout.jsx';
 
 
@@ -157,6 +157,7 @@ export const PAGES = {
     "Home": Home,
     "Importacao": Importacao,
     "InteligenciaMetricas": InteligenciaMetricas,
+    "JarvisControl": JarvisControl,
     "KPIDashboard": KPIDashboard,
     "LeadsQualificados": LeadsQualificados,
     "Metas": Metas,
@@ -186,7 +187,6 @@ export const PAGES = {
     "Vendas": Vendas,
     "Vendedores": Vendedores,
     "WhatsAppTemplates": WhatsAppTemplates,
-    "JarvisControl": JarvisControl,
 }
 
 export const pagesConfig = {
