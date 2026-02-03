@@ -24,18 +24,147 @@ export default function AtribuirConversaModal({
   usuario,
   contatoNome = 'Cliente',
   onSuccess,
-  atendentes = [] // ✅ PROP: Recebe lista de atendentes do pai (Comunicacao.jsx)
+  atendentes = [], // ✅ PROP: Recebe lista de atendentes do pai (Comunicacao.jsx)
+  mode = 'transferir' // 🆕 PROP: 'transferir' | 'compartilhar'
 }) {
   const queryClient = useQueryClient(); // ✅ Hook do React Query
   const [atribuindo, setAtribuindo] = useState(false);
   const [busca, setBusca] = useState("");
   const [mensagemTransferencia, setMensagemTransferencia] = useState("");
+  
+  // 🆕 ESTADOS PARA COMPARTILHAMENTO
+  const [compartilhandoSelecionados, setCompartilhandoSelecionados] = useState([]);
 
   useEffect(() => {
     if (isOpen) {
       setMensagemTransferencia(`Conversa com ${contatoNome} transferida.`);
     }
   }, [isOpen, contatoNome]);
+
+  // 🆕 FUNÇÃO DE COMPARTILHAMENTO
+  const handleCompartilhar = async () => {
+    if (!thread?.id || !usuario) {
+      toast.error("Dados da conversa não disponíveis");
+      return;
+    }
+
+    if (compartilhandoSelecionados.length === 0) {
+      toast.error("Selecione pelo menos um atendente para compartilhar");
+      return;
+    }
+
+    setAtribuindo(true);
+    try {
+      // Validar fidelização para todos os selecionados
+      const contato = thread.contato;
+      if (contato?.is_cliente_fidelizado && usuario.role !== 'admin') {
+        const camposFidelizacao = [
+          'atendente_fidelizado_vendas',
+          'atendente_fidelizado_assistencia',
+          'atendente_fidelizado_financeiro',
+          'atendente_fidelizado_fornecedor',
+          'vendedor_responsavel'
+        ];
+        
+        const atendentesFidelizados = camposFidelizacao
+          .map(campo => contato[campo])
+          .filter(Boolean);
+        
+        if (atendentesFidelizados.length > 0) {
+          const algumNaoPermitido = compartilhandoSelecionados.some(
+            id => !atendentesFidelizados.includes(id)
+          );
+          
+          if (algumNaoPermitido) {
+            toast.error("❌ Alguns atendentes não têm permissão para este cliente fidelizado");
+            setAtribuindo(false);
+            return;
+          }
+        }
+      }
+
+      // Obter lista atual de compartilhados
+      const compartilhadosAtuais = thread.shared_with_users || [];
+      const novosCompartilhados = [...new Set([...compartilhadosAtuais, ...compartilhandoSelecionados])];
+
+      // Atualizar thread com novos compartilhados
+      await base44.entities.MessageThread.update(thread.id, {
+        shared_with_users: novosCompartilhados,
+        shared_permissions: {
+          ...(thread.shared_permissions || {}),
+          ...compartilhandoSelecionados.reduce((acc, userId) => ({
+            ...acc,
+            [userId]: { can_reply: true, added_at: new Date().toISOString(), added_by: usuario.id }
+          }), {})
+        }
+      });
+
+      // Log de auditoria
+      await base44.entities.AutomationLog.create({
+        acao: 'compartilhamento_conversa',
+        contato_id: thread.contact_id,
+        thread_id: thread.id,
+        usuario_id: usuario.id,
+        resultado: 'sucesso',
+        timestamp: new Date().toISOString(),
+        detalhes: {
+          mensagem: `Conversa compartilhada com ${compartilhandoSelecionados.length} atendente(s)`,
+          responsavel_principal: thread.assigned_user_name || 'Sistema',
+          compartilhado_com: compartilhandoSelecionados.map(id => 
+            atendentes.find(a => a.id === id)?.full_name || 'Desconhecido'
+          ),
+          compartilhado_por: usuario.full_name
+        },
+        origem: 'manual',
+        prioridade: 'normal'
+      });
+
+      // Mensagem interna de notificação
+      const nomesCompartilhados = compartilhandoSelecionados
+        .map(id => atendentes.find(a => a.id === id)?.full_name)
+        .filter(Boolean)
+        .join(', ');
+
+      await base44.entities.Message.create({
+        thread_id: thread.id,
+        sender_id: usuario.id,
+        sender_type: 'user',
+        recipient_id: thread.contact_id,
+        recipient_type: 'contact',
+        content: `🔗 Conversa compartilhada com: ${nomesCompartilhados} por ${usuario.full_name}`,
+        channel: 'interno',
+        status: 'enviada',
+        sent_at: new Date().toISOString(),
+        metadata: {
+          is_system_message: true,
+          is_sharing_message: true,
+          action_type: 'sharing',
+          responsavel_principal: thread.assigned_user_name,
+          compartilhado_com: nomesCompartilhados,
+          shared_by_name: usuario.full_name,
+          shared_by_id: usuario.id,
+          contact_name: contatoNome
+        }
+      });
+
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['threads'] }),
+        queryClient.invalidateQueries({ queryKey: ['threads-controle'] }),
+        queryClient.invalidateQueries({ queryKey: ['mensagens', thread.id] })
+      ]);
+
+      toast.success(`✅ Conversa compartilhada com ${compartilhandoSelecionados.length} atendente(s)`);
+
+      onClose();
+      if (onSuccess) await onSuccess();
+
+    } catch (error) {
+      console.error('[AtribuirModal] Erro ao compartilhar conversa:', error);
+      toast.error(`Erro ao compartilhar conversa: ${error.message}`);
+    } finally {
+      setAtribuindo(false);
+    }
+  };
 
   const handleAtribuir = async (atendenteId) => {
     if (!thread?.id || !usuario) {
@@ -204,25 +333,39 @@ export default function AtribuirConversaModal({
       <DialogContent className="max-w-md">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <Users className="w-5 h-5 text-orange-500" />
-            {thread?.assigned_user_id ? 'Transferir Conversa' : 'Atribuir Conversa'}
+            {mode === 'transferir' ? (
+              <>
+                <Users className="w-5 h-5 text-orange-500" />
+                {thread?.assigned_user_id ? 'Transferir Responsabilidades' : 'Atribuir Conversa'}
+              </>
+            ) : (
+              <>
+                <Users className="w-5 h-5 text-blue-500" />
+                Compartilhar Conversa
+              </>
+            )}
           </DialogTitle>
           <DialogDescription>
-            Selecione um atendente para {thread?.assigned_user_id ? 'transferir' : 'atribuir'} esta conversa
+            {mode === 'transferir' 
+              ? `Selecione um atendente para ${thread?.assigned_user_id ? 'transferir' : 'atribuir'} esta conversa. O responsável atual perderá o acesso.`
+              : 'Selecione atendentes para visualizar e colaborar nesta conversa. O responsável atual permanece o mesmo.'
+            }
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4">
-          {/* Mensagem personalizada */}
-          <div>
-            <Label className="text-sm text-slate-600">Mensagem de transferência</Label>
-            <Input
-              value={mensagemTransferencia}
-              onChange={(e) => setMensagemTransferencia(e.target.value)}
-              placeholder="Mensagem que aparecerá no chat..."
-              className="mt-1"
-            />
-          </div>
+          {/* Mensagem personalizada (apenas transferência) */}
+          {mode === 'transferir' && (
+            <div>
+              <Label className="text-sm text-slate-600">Mensagem de transferência</Label>
+              <Input
+                value={mensagemTransferencia}
+                onChange={(e) => setMensagemTransferencia(e.target.value)}
+                placeholder="Mensagem que aparecerá no chat..."
+                className="mt-1"
+              />
+            </div>
+          )}
 
           {/* Busca */}
           <div className="relative">
@@ -234,6 +377,17 @@ export default function AtribuirConversaModal({
               className="pl-10"
             />
           </div>
+
+          {/* Informação do responsável atual (modo compartilhar) */}
+          {mode === 'compartilhar' && thread?.assigned_user_id && (
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+              <div className="flex items-center gap-2 text-sm text-blue-700">
+                <UserCheck className="w-4 h-4" />
+                <span className="font-medium">Responsável: {thread.assigned_user_name || 'Não definido'}</span>
+              </div>
+              <p className="text-xs text-blue-600 mt-1">O responsável não será alterado</p>
+            </div>
+          )}
 
           {/* Lista de atendentes */}
           <div className="max-h-64 overflow-y-auto space-y-1">
@@ -248,18 +402,22 @@ export default function AtribuirConversaModal({
                 const setorCfg = setorConfig[setor] || setorConfig['geral'];
                 const nivelCfg = nivelConfig[nivel] || nivelConfig['pleno'];
                 const isAtual = thread && thread.assigned_user_id === atendente.id;
+                const isCompartilhado = thread?.shared_with_users?.includes(atendente.id);
+                const isSelecionado = compartilhandoSelecionados.includes(atendente.id);
 
-                return (
-                  <button
-                    key={atendente.id}
-                    onClick={() => handleAtribuir(atendente.id)}
-                    disabled={atribuindo || isAtual}
-                    className={`w-full flex items-center gap-3 p-3 rounded-lg transition-colors border ${
-                      isAtual 
-                        ? 'bg-green-50 border-green-300 cursor-not-allowed' 
-                        : 'hover:bg-orange-50 border-slate-200 hover:border-orange-300'
-                    }`}
-                  >
+                // Modo Transferir: botão clicável
+                if (mode === 'transferir') {
+                  return (
+                    <button
+                      key={atendente.id}
+                      onClick={() => handleAtribuir(atendente.id)}
+                      disabled={atribuindo || isAtual}
+                      className={`w-full flex items-center gap-3 p-3 rounded-lg transition-colors border ${
+                        isAtual 
+                          ? 'bg-green-50 border-green-300 cursor-not-allowed' 
+                          : 'hover:bg-orange-50 border-slate-200 hover:border-orange-300'
+                      }`}
+                    >
                     <div className={`w-10 h-10 ${setorCfg.cor} rounded-full flex items-center justify-center text-white font-bold shadow-md`}>
                       {(atendente.full_name || atendente.email || '?').charAt(0).toUpperCase()}
                     </div>
@@ -281,11 +439,91 @@ export default function AtribuirConversaModal({
                         )}
                       </div>
                     </div>
+                    </button>
+                  );
+                }
+
+                // Modo Compartilhar: checkbox de seleção múltipla
+                return (
+                  <button
+                    key={atendente.id}
+                    onClick={() => {
+                      if (isAtual || isCompartilhado) return;
+                      setCompartilhandoSelecionados(prev => 
+                        prev.includes(atendente.id)
+                          ? prev.filter(id => id !== atendente.id)
+                          : [...prev, atendente.id]
+                      );
+                    }}
+                    disabled={atribuindo || isAtual || isCompartilhado}
+                    className={`w-full flex items-center gap-3 p-3 rounded-lg transition-colors border ${
+                      isAtual 
+                        ? 'bg-green-50 border-green-300 cursor-not-allowed' 
+                        : isCompartilhado
+                        ? 'bg-blue-50 border-blue-200 cursor-not-allowed'
+                        : isSelecionado
+                        ? 'bg-blue-100 border-blue-400'
+                        : 'hover:bg-blue-50 border-slate-200 hover:border-blue-300'
+                    }`}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={isSelecionado}
+                      disabled={isAtual || isCompartilhado}
+                      className="w-4 h-4 text-blue-600"
+                      readOnly
+                    />
+                    <div className={`w-10 h-10 ${setorCfg.cor} rounded-full flex items-center justify-center text-white font-bold shadow-md`}>
+                      {(atendente.full_name || atendente.email || '?').charAt(0).toUpperCase()}
+                    </div>
+                    <div className="flex-1 text-left min-w-0">
+                      <div className="flex items-center gap-2 mb-1">
+                        <UsuarioDisplay usuario={atendente} className="flex-1 min-w-0" />
+                        {isAtual && <UserCheck className="w-4 h-4 text-green-500 flex-shrink-0" />}
+                        {isCompartilhado && <Badge variant="outline" className="text-xs">Já compartilhado</Badge>}
+                      </div>
+                      <div className="flex items-center gap-1 flex-wrap">
+                        <span className={`inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-semibold text-white ${nivelCfg.cor}`}>
+                          {nivelCfg.label}
+                        </span>
+                        {atendente.role === 'admin' && (
+                          <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-semibold text-amber-700 bg-amber-100">
+                            <Star className="w-2.5 h-2.5" /> Admin
+                          </span>
+                        )}
+                      </div>
+                    </div>
                   </button>
                 );
               })
             )}
           </div>
+
+          {/* Botão de ação (modo compartilhar) */}
+          {mode === 'compartilhar' && (
+            <div className="flex justify-between items-center pt-4 border-t">
+              <div className="text-sm text-slate-600">
+                {compartilhandoSelecionados.length > 0 
+                  ? `${compartilhandoSelecionados.length} atendente(s) selecionado(s)`
+                  : 'Nenhum atendente selecionado'
+                }
+              </div>
+              <Button
+                onClick={handleCompartilhar}
+                disabled={atribuindo || compartilhandoSelecionados.length === 0}
+                className="bg-blue-600 hover:bg-blue-700"
+              >
+                {atribuindo ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Compartilhando...
+                  </>
+                ) : (
+                  'Compartilhar Conversa'
+                )}
+              </Button>
+            </div>
+          )}
         </div>
       </DialogContent>
     </Dialog>
