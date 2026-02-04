@@ -15,12 +15,13 @@ import { base44 } from '@/api/base44Client';
 export default function PainelReplayWAPI({ integracoes = [] }) {
   const [loading, setLoading] = useState(false);
   const [resultado, setResultado] = useState(null);
+  const [comparacao, setComparacao] = useState(null); // 🆕 Resultado da comparação
   const [integracaoSelecionada, setIntegracaoSelecionada] = useState('');
   const [dataInicio, setDataInicio] = useState('');
   const [dataFim, setDataFim] = useState('');
   const [telefone, setTelefone] = useState('');
   const [margemSegundos, setMargemSegundos] = useState(60);
-  const [modo, setModo] = useState('auto'); // 'auto' ou 'manual'
+  const [modo, setModo] = useState('manual'); // 'auto' ou 'manual'
   
   // Configurar datas padrão (últimas 24h)
   useEffect(() => {
@@ -31,7 +32,51 @@ export default function PainelReplayWAPI({ integracoes = [] }) {
     setDataInicio(yesterday.toISOString().slice(0, 16));
   }, []);
   
-  const handleReplayManual = async () => {
+  // 🆕 FUNÇÃO 1: Comparar com provedor
+  const handleComparar = async () => {
+    if (!integracaoSelecionada || !dataInicio || !dataFim) {
+      toast.error('Preencha todos os campos obrigatórios');
+      return;
+    }
+    
+    setLoading(true);
+    setComparacao(null);
+    setResultado(null);
+    
+    try {
+      toast.info('🔍 Comparando com provedor...');
+      
+      const response = await base44.functions.invoke('sincronizarMensagensWAPI', {
+        integrationId: integracaoSelecionada,
+        from: new Date(dataInicio).toISOString(),
+        to: new Date(dataFim).toISOString(),
+        phone: telefone || undefined,
+        syncMissing: false // Apenas comparar
+      });
+      
+      if (response.data.success) {
+        setComparacao(response.data.resultados);
+        
+        const { mensagens_faltando } = response.data.resultados;
+        if (mensagens_faltando === 0) {
+          toast.success('✅ Tudo sincronizado! Nenhuma mensagem faltando.');
+        } else {
+          toast.warning(`⚠️ ${mensagens_faltando} mensagens faltando no banco!`);
+        }
+      } else {
+        toast.error('Erro: ' + response.data.error);
+      }
+      
+    } catch (error) {
+      console.error('[COMPARAR] Erro:', error);
+      toast.error('Erro ao comparar: ' + error.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+  
+  // 🆕 FUNÇÃO 2: Sincronizar mensagens faltando
+  const handleSincronizar = async () => {
     if (!integracaoSelecionada || !dataInicio || !dataFim) {
       toast.error('Preencha todos os campos obrigatórios');
       return;
@@ -41,30 +86,36 @@ export default function PainelReplayWAPI({ integracoes = [] }) {
     setResultado(null);
     
     try {
-      toast.info('🔄 Iniciando replay manual...');
+      toast.info('🔄 Sincronizando mensagens faltando...');
       
-      const response = await base44.functions.invoke('replayWapiEvents', {
+      const response = await base44.functions.invoke('sincronizarMensagensWAPI', {
         integrationId: integracaoSelecionada,
         from: new Date(dataInicio).toISOString(),
         to: new Date(dataFim).toISOString(),
-        phone: telefone || undefined
+        phone: telefone || undefined,
+        syncMissing: true // Sincronizar
       });
       
       if (response.data.success) {
         setResultado(response.data.resultados);
+        setComparacao(response.data.resultados); // Atualizar comparação também
         
-        const { created, skipped, errors } = response.data.resultados;
-        toast.success(`✅ Replay concluído: ${created} recuperadas, ${skipped} duplicatas, ${errors} erros`);
+        const { sincronizadas, erros_sync } = response.data.resultados;
+        toast.success(`✅ ${sincronizadas} mensagens sincronizadas, ${erros_sync} erros`);
       } else {
         toast.error('Erro: ' + response.data.error);
       }
       
     } catch (error) {
-      console.error('[REPLAY] Erro:', error);
-      toast.error('Erro ao executar replay: ' + error.message);
+      console.error('[SYNC] Erro:', error);
+      toast.error('Erro ao sincronizar: ' + error.message);
     } finally {
       setLoading(false);
     }
+  };
+  
+  const handleReplayManual = async () => {
+    await handleComparar();
   };
   
   const handleReplayAuto = async () => {
@@ -224,10 +275,21 @@ export default function PainelReplayWAPI({ integracoes = [] }) {
             )}
           </div>
           
-          {/* Botão de ação */}
+          {/* Botões de ação */}
           <div className="flex justify-end gap-2 pt-4 border-t">
+            {comparacao && comparacao.mensagens_faltando > 0 && (
+              <Button
+                onClick={handleSincronizar}
+                disabled={loading}
+                className="bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700"
+              >
+                <CheckCircle2 className="w-4 h-4 mr-2" />
+                Sincronizar {comparacao.mensagens_faltando} Faltando
+              </Button>
+            )}
+            
             <Button
-              onClick={modo === 'auto' ? handleReplayAuto : handleReplayManual}
+              onClick={modo === 'auto' ? handleReplayAuto : handleComparar}
               disabled={loading || !integracaoSelecionada}
               className="bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700"
             >
@@ -239,7 +301,7 @@ export default function PainelReplayWAPI({ integracoes = [] }) {
               ) : (
                 <>
                   <PlayCircle className="w-4 h-4 mr-2" />
-                  Executar Replay {modo === 'auto' ? 'Automático' : 'Manual'}
+                  {modo === 'auto' ? 'Executar Replay Automático' : 'Comparar com Provedor'}
                 </>
               )}
             </Button>
@@ -247,8 +309,91 @@ export default function PainelReplayWAPI({ integracoes = [] }) {
         </CardContent>
       </Card>
       
-      {/* Resultados */}
-      {resultado && (
+      {/* Resultado da Comparação */}
+      {comparacao && (
+        <Card className={comparacao.mensagens_faltando > 0 ? 'border-yellow-200 bg-yellow-50' : 'border-green-200 bg-green-50'}>
+          <CardHeader>
+            <CardTitle className="text-lg flex items-center gap-2">
+              {comparacao.mensagens_faltando > 0 ? (
+                <AlertTriangle className="w-5 h-5 text-yellow-600" />
+              ) : (
+                <CheckCircle2 className="w-5 h-5 text-green-600" />
+              )}
+              Comparação: Provedor vs Banco
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid grid-cols-3 gap-4">
+              <div className="bg-white rounded-lg p-3 border">
+                <div className="text-xs text-slate-600">No Provedor</div>
+                <div className="text-2xl font-bold text-slate-900">{comparacao.mensagens_provedor}</div>
+              </div>
+              
+              <div className="bg-blue-100 rounded-lg p-3 border border-blue-300">
+                <div className="text-xs text-blue-700">No Banco</div>
+                <div className="text-2xl font-bold text-blue-800">{comparacao.mensagens_banco}</div>
+              </div>
+              
+              <div className={`rounded-lg p-3 border ${comparacao.mensagens_faltando > 0 ? 'bg-red-100 border-red-300' : 'bg-green-100 border-green-300'}`}>
+                <div className={`text-xs ${comparacao.mensagens_faltando > 0 ? 'text-red-700' : 'text-green-700'}`}>
+                  Faltando
+                </div>
+                <div className={`text-2xl font-bold ${comparacao.mensagens_faltando > 0 ? 'text-red-800' : 'text-green-800'}`}>
+                  {comparacao.mensagens_faltando}
+                </div>
+              </div>
+            </div>
+            
+            {/* Mensagens Faltando - Detalhes */}
+            {comparacao.faltando_detalhes && comparacao.faltando_detalhes.length > 0 && (
+              <div className="bg-white rounded-lg p-4 border border-yellow-300">
+                <div className="flex items-center gap-2 mb-3">
+                  <AlertTriangle className="w-4 h-4 text-yellow-600" />
+                  <span className="text-sm font-semibold text-slate-700">
+                    Mensagens Faltando ({comparacao.faltando_detalhes.length})
+                  </span>
+                </div>
+                <div className="space-y-2 max-h-64 overflow-y-auto">
+                  {comparacao.faltando_detalhes.map((msg, idx) => (
+                    <div key={idx} className="flex items-start gap-3 text-xs p-2 bg-yellow-50 rounded border border-yellow-200">
+                      <div className="flex-1 space-y-1">
+                        <div className="flex items-center gap-2">
+                          <Badge className="bg-yellow-600 text-white text-[10px]">FALTANDO</Badge>
+                          <span className="text-slate-500 font-mono">{msg.message_id?.substring(0, 20)}</span>
+                        </div>
+                        <div className="text-slate-700">
+                          <Phone className="w-3 h-3 inline mr-1" />
+                          {msg.from}
+                        </div>
+                        <div className="text-slate-600 italic">
+                          "{msg.content || '[Sem conteúdo]'}"
+                        </div>
+                        <div className="text-slate-400 text-[10px]">
+                          <Clock className="w-3 h-3 inline mr-1" />
+                          {new Date(msg.timestamp).toLocaleString('pt-BR')}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+            
+            {/* Resultado da Sincronização */}
+            {comparacao.sincronizadas !== undefined && (
+              <Alert className="bg-green-50 border-green-300">
+                <CheckCircle2 className="w-4 h-4 text-green-600" />
+                <AlertDescription className="text-sm text-green-800">
+                  ✅ Sincronização concluída: {comparacao.sincronizadas} mensagens recuperadas, {comparacao.erros_sync} erros
+                </AlertDescription>
+              </Alert>
+            )}
+          </CardContent>
+        </Card>
+      )}
+      
+      {/* Resultados Legados (replay antigo) */}
+      {resultado && !comparacao && (
         <Card className="border-green-200 bg-green-50">
           <CardHeader>
             <CardTitle className="text-lg flex items-center gap-2">
@@ -278,39 +423,6 @@ export default function PainelReplayWAPI({ integracoes = [] }) {
                 <div className="text-2xl font-bold text-red-800">{resultado.errors}</div>
               </div>
             </div>
-            
-            {/* Detalhes */}
-            {resultado.detalhes && resultado.detalhes.length > 0 && (
-              <div className="bg-white rounded-lg p-3 border max-h-64 overflow-y-auto">
-                <div className="text-xs font-semibold text-slate-700 mb-2">
-                  Detalhes ({resultado.detalhes.length} eventos)
-                </div>
-                <div className="space-y-1">
-                  {resultado.detalhes.slice(0, 50).map((detalhe, idx) => (
-                    <div key={idx} className="flex items-center gap-2 text-xs">
-                      {detalhe.status === 'created' && (
-                        <Badge className="bg-green-600 text-white">CRIADA</Badge>
-                      )}
-                      {detalhe.status === 'skipped' && (
-                        <Badge className="bg-blue-600 text-white">DUPLICATA</Badge>
-                      )}
-                      {detalhe.status === 'error' && (
-                        <Badge className="bg-red-600 text-white">ERRO</Badge>
-                      )}
-                      <span className="text-slate-600">
-                        {detalhe.message_id?.substring(0, 20) || 'N/A'}
-                      </span>
-                      {detalhe.telefone && (
-                        <span className="text-slate-500">• {detalhe.telefone}</span>
-                      )}
-                      {detalhe.reason && (
-                        <span className="text-slate-400">• {detalhe.reason}</span>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
           </CardContent>
         </Card>
       )}
