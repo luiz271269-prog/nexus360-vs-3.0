@@ -236,16 +236,30 @@ export default function Comunicacao() {
     refetchOnWindowFocus: true
   });
 
-  // ✅ THREADS EXTERNAS: Ritmo moderado, mais volume
+  // ✅ THREADS EXTERNAS: Busca livre (sem RLS), permissões aplicadas no frontend
   const { data: threadsExternas = [], isLoading: loadingThreadsExternas } = useQuery({
     queryKey: ['threads-externas', usuario?.id],
     queryFn: async () => {
-      if (isRateLimited) return [];
+      if (isRateLimited || !usuario) return [];
       try {
+        // ✅ Busca livre via função backend (sem bloqueio de integração)
+        const response = await base44.functions.invoke('buscarThreadsLivre', {
+          status: 'aberta',
+          limit: 200,
+          incluirInternas: false
+        });
+        
+        if (response?.data?.success) {
+          console.log('[COMUNICACAO] ✅ Threads externas via busca livre:', response.data.threads.length);
+          return response.data.threads || [];
+        }
+        
+        // Fallback: busca com RLS
+        console.warn('[COMUNICACAO] ⚠️ Fallback para busca com RLS');
         return await base44.entities.MessageThread.filter(
           { is_canonical: true, status: { $ne: 'merged' } },
           '-last_message_at',
-          200  // ✅ OTIMIZAÇÃO: 500 → 200 (60% menos dados)
+          200
         );
       } catch (error) {
         if (error?.message?.includes('429') || error?.response?.status === 429) {
@@ -254,14 +268,14 @@ export default function Comunicacao() {
           setTimeout(() => {
             setIsRateLimited(false);
             console.log('[COMUNICACAO] ✅ Cool-down finalizado');
-          }, 60000);  // ✅ OTIMIZAÇÃO: 10s → 60s (mais seguro)
+          }, 60000);
           return [];
         }
         throw error;
       }
     },
-    refetchInterval: 90000, // ✅ OTIMIZAÇÃO: 45s → 90s (50% menos requisições)
-    staleTime: 30000,  // ✅ OTIMIZAÇÃO: 15s → 30s (cache mais agressivo)
+    refetchInterval: 90000,
+    staleTime: 30000,
     enabled: !!usuario && !isRateLimited,
     retry: 2,
     retryDelay: 1000,
@@ -296,55 +310,78 @@ export default function Comunicacao() {
   }, [threads]);
 
   // ═══════════════════════════════════════════════════════════════════════════════
-   // 🔍 BUSCA CIRÚRGICA DE CONTATOS - Apenas os necessários
+  // 🔍 BUSCA LIVRE DE CONTATOS - Hidratação sem bloqueio de RLS
+  // ═══════════════════════════════════════════════════════════════════════════════
+  const { data: contatos = [], isLoading: loadingContatos } = useQuery({
+    queryKey: ['contacts', contactIdsParaCarregar],
+    queryFn: async () => {
+      if (contactIdsParaCarregar.length === 0) return [];
+
+      console.log(`[COMUNICACAO] 📎 Hidratando ${contactIdsParaCarregar.length} contatos (busca livre)...`);
+
+      try {
+        // ✅ Busca livre via backend (sem RLS - retorna TODOS os contatos)
+        const response = await base44.functions.invoke('buscarContatosLivre', {
+          searchTerm: null,
+          limit: 1000
+        });
+
+        if (response?.data?.success) {
+          const todosContatos = response.data.contatos || [];
+          const idsSet = new Set(contactIdsParaCarregar);
+          const contatosNecessarios = todosContatos.filter(c => idsSet.has(c.id));
+          console.log(`[COMUNICACAO] ✅ Contatos hidratados (livre): ${contatosNecessarios.length}/${contactIdsParaCarregar.length}`);
+          return contatosNecessarios;
+        }
+
+        // Fallback: busca com RLS
+        console.warn('[COMUNICACAO] ⚠️ Fallback para busca com RLS (contatos)');
+        const todosContatos = await base44.entities.Contact.list('-last_interaction', 1000);
+        const idsSet = new Set(contactIdsParaCarregar);
+        return todosContatos.filter(c => idsSet.has(c.id));
+      } catch (error) {
+        console.error('[COMUNICACAO] ❌ Erro ao hidratar contatos:', error);
+        return [];
+      }
+    },
+    enabled: contactIdsParaCarregar.length > 0,
+    keepPreviousData: true,
+    staleTime: 60000,
+    cacheTime: 15 * 60 * 1000,
+    retry: 2,
+    retryDelay: 1000,
+    refetchOnWindowFocus: false,
+    onError: (error) => {
+      console.error('[Comunicacao] Erro ao carregar contatos:', error);
+    }
+  });
+
    // ═══════════════════════════════════════════════════════════════════════════════
-   const { data: contatos = [], isLoading: loadingContatos } = useQuery({
-     queryKey: ['contacts', contactIdsParaCarregar],
-     queryFn: async () => {
-       if (contactIdsParaCarregar.length === 0) return [];
-
-       console.log(`[COMUNICACAO] 📎 Hidratando ${contactIdsParaCarregar.length} contatos específicos...`);
-
-       try {
-         // Estratégia: Buscar lista maior e filtrar em memória (fallback robusto)
-         const todosContatos = await base44.entities.Contact.list('-last_interaction', 1000);
-
-         // ✅ OT #1: Otimização O(N) com Set (Muito mais rápido que .includes)
-         const idsSet = new Set(contactIdsParaCarregar);
-         const contatosNecessarios = todosContatos.filter(c => idsSet.has(c.id));
-
-         console.log(`[COMUNICACAO] ✅ Contatos hidratados: ${contatosNecessarios.length}/${contactIdsParaCarregar.length}`);
-         return contatosNecessarios;
-       } catch (error) {
-         console.error('[COMUNICACAO] ❌ Erro ao hidratar contatos:', error);
-         return [];
-       }
-     },
-     enabled: contactIdsParaCarregar.length > 0,
-     keepPreviousData: true,
-     staleTime: 60000,
-     cacheTime: 15 * 60 * 1000,
-     retry: 2,
-     retryDelay: 1000,
-     refetchOnWindowFocus: false,
-     onError: (error) => {
-       console.error('[Comunicacao] Erro ao carregar contatos:', error);
-     }
-   });
-
-   // ═══════════════════════════════════════════════════════════════════════════════
-   // 🔍 BUSCA NO BANCO DE DADOS - Quando há termo de busca (sem threads)
+   // 🔍 BUSCA LIVRE NO BANCO - Quando há termo de busca (sem bloqueio de integração)
    // ═══════════════════════════════════════════════════════════════════════════════
    const { data: contatosBuscados = [] } = useQuery({
      queryKey: ['contacts-search', debouncedSearchTerm],
      queryFn: async () => {
        if (!debouncedSearchTerm || debouncedSearchTerm.trim().length < 2) return [];
 
-       console.log(`[COMUNICACAO] 🔍 Buscando contatos: "${debouncedSearchTerm}"...`);
+       console.log(`[COMUNICACAO] 🔍 Buscando contatos (LIVRE): "${debouncedSearchTerm}"...`);
 
        try {
-         // Buscar contatos no banco que NÃO têm thread
-         const todosBD = await base44.entities.Contact.list('-created_date', 500);
+         // ✅ Busca livre via backend (SEM bloqueio de RLS/integração)
+         const response = await base44.functions.invoke('buscarContatosLivre', {
+           searchTerm: debouncedSearchTerm,
+           limit: 500
+         });
+         
+         let todosBD = [];
+         if (response?.data?.success) {
+           todosBD = response.data.contatos || [];
+           console.log('[COMUNICACAO] ✅ Busca livre retornou:', todosBD.length, 'contatos');
+         } else {
+           // Fallback: busca com RLS
+           console.warn('[COMUNICACAO] ⚠️ Fallback para busca com RLS (busca de contatos)');
+           todosBD = await base44.entities.Contact.list('-created_date', 500);
+         }
 
          // ✅ Função de similaridade para fuzzy matching
          const calcularSimilaridade = (str1, str2) => {
