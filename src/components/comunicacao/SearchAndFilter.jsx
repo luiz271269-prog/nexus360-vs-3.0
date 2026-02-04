@@ -283,7 +283,18 @@ export default function SearchAndFilter({
                     color="bg-orange-500"
                   />
 
-                  {/* C. Todas: Tudo que passou no Estágio 1 (Segurança) */}
+                  {/* C. Não Adicionadas: contact_id === NULL (contatos não cadastrados) */}
+                  {isAdmin && (
+                    <FilterOption
+                      selected={filterScope === 'nao_adicionado'}
+                      onClick={() => onFilterScopeChange('nao_adicionado')}
+                      icon={HelpCircle}
+                      label="Não adicionadas"
+                      color="bg-red-500"
+                    />
+                  )}
+
+                  {/* D. Todas: Tudo que passou no Estágio 1 (Segurança) */}
                   {isManager && (
                     <FilterOption
                       selected={filterScope === 'all'}
@@ -438,9 +449,21 @@ export default function SearchAndFilter({
           >
             {filterScope !== 'all' && filterScope !== 'my' && (
               <FilterChip
-                label={filterScope === 'unassigned' ? 'Não atribuídas' : 'Por atendente'}
-                emoji={filterScope === 'unassigned' ? '⚠️' : '👤'}
-                color="bg-blue-500"
+                label={
+                  filterScope === 'unassigned' ? 'Não atribuídas' : 
+                  filterScope === 'nao_adicionado' ? 'Não adicionadas' :
+                  'Por atendente'
+                }
+                emoji={
+                  filterScope === 'unassigned' ? '⚠️' : 
+                  filterScope === 'nao_adicionado' ? '❓' :
+                  '👤'
+                }
+                color={
+                  filterScope === 'unassigned' ? 'bg-orange-500' :
+                  filterScope === 'nao_adicionado' ? 'bg-red-500' :
+                  'bg-blue-500'
+                }
                 onRemove={() => onFilterScopeChange('all')}
               />
             )}

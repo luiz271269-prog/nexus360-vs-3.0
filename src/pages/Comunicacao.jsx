@@ -1646,9 +1646,28 @@ export default function Comunicacao() {
       // ═══════════════════════════════════════════════════════════════════════
 
       // ═══════════════════════════════════════════════════════════════════════
-      // ✅ FILTRO "NÃO ATRIBUÍDAS": Apenas para threads EXTERNAS
+      // ✅ FILTRO "NÃO ATRIBUÍDAS" vs "NÃO ADICIONADAS"
       // Threads internas são SAGRADAS - já passaram por sua lógica própria acima
       // ═══════════════════════════════════════════════════════════════════════
+      
+      // ✅ NOVO: Filtro "Não Adicionadas" (contact_id === NULL)
+      if (filterScope === 'nao_adicionado') {
+        // ✅ Threads internas não se aplicam (não têm contact_id por definição)
+        if (thread.thread_type === 'team_internal' || thread.thread_type === 'sector_group') {
+          logThread('Filtro Não Adicionadas', false, 'Thread interna (não se aplica)');
+          return false;
+        }
+        
+        // ✅ Apenas threads SEM contact_id passam
+        if (thread.contact_id) {
+          logThread('Filtro Não Adicionadas', false, 'Thread tem contact_id (não é órfã)');
+          return false;
+        }
+        
+        logThread('Filtro Não Adicionadas', true, 'Thread órfã (contact_id == null)');
+        return true; // ✅ Pula outros filtros (thread órfã não tem contato para filtrar)
+      }
+      
       if (isFilterUnassigned) {
         // ✅ CURTO-CIRCUITO: Threads internas NUNCA são bloqueadas por escopo
         // (visibilidade delas já foi decidida por participação/admin acima)
@@ -1665,15 +1684,20 @@ export default function Comunicacao() {
           logThread('Filtro Não Atribuídas', true, 'Thread está no Set');
 
           if (selectedIntegrationId && selectedIntegrationId !== 'all') {
-            if (thread.whatsapp_integration_id !== selectedIntegrationId) {
-              logThread('Filtro Integração', false, `Integração diferente (esperado: ${selectedIntegrationId})`);
+            // ✅ FIX: Verificar origin_integration_ids[] para threads canônicas unificadas
+            const integrationIds = thread.origin_integration_ids?.length > 0 
+              ? thread.origin_integration_ids 
+              : [thread.whatsapp_integration_id];
+            
+            if (!integrationIds.includes(selectedIntegrationId)) {
+              logThread('Filtro Integração', false, `Integração não encontrada em origin_integration_ids (esperado: ${selectedIntegrationId})`);
               if (DEBUG_VIS && isThreadDeUsuarioQueEContato) {
                 console.log('[COMUNICACAO] ❌ USUÁRIO-CONTATO - BLOQUEADO por filtro de integração específica');
               }
               return false;
             }
           }
-          logThread('Filtro Integração', true, 'Integração OK');
+          logThread('Filtro Integração', true, 'Integração OK (verificou origin_integration_ids)');
         } else {
           // ✅ Threads internas passam direto (já foram validadas acima)
           logThread('Filtro Não Atribuídas', true, 'Thread interna (ignorada pelo escopo)');
