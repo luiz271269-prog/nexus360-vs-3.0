@@ -316,16 +316,40 @@ function construirMapaIntegracoes(usuario, allIntegracoes) {
   const whatsappPerms = usuario.whatsapp_permissions || [];
   const integracoesMap = {};
   
+  // ✅ CIRÚRGICA: Se whatsapp_permissions[] está vazio = LIBERA TUDO (compatibilidade)
+  const temPermissoesConfiguradas = whatsappPerms.length > 0;
+  
   allIntegracoes.forEach(integracao => {
     const perm = whatsappPerms.find(p => p.integration_id === integracao.id);
     
-    // NEXUS360: Default liberado (usa ?? true)
-    integracoesMap[integracao.id] = {
-      can_view: perm?.can_view ?? true,
-      can_send: perm?.can_send ?? true,
-      can_receive: perm?.can_receive ?? true,
-      integration_name: perm?.integration_name || integracao.nome_instancia || 'Sem nome'
-    };
+    // ✅ LÓGICA CORRIGIDA:
+    // - Sem permissões configuradas = libera tudo (default true)
+    // - Com permissões configuradas = respeita valores EXATOS (false = bloqueado)
+    if (temPermissoesConfiguradas && !perm) {
+      // Integração não está na lista de permissões = BLOQUEADO
+      integracoesMap[integracao.id] = {
+        can_view: false,
+        can_send: false,
+        can_receive: false,
+        integration_name: integracao.nome_instancia || 'Sem nome'
+      };
+    } else if (perm) {
+      // Integração tem permissão configurada = usa valores EXATOS
+      integracoesMap[integracao.id] = {
+        can_view: perm.can_view === true, // ✅ Explícito: deve ser true
+        can_send: perm.can_send === true,
+        can_receive: perm.can_receive === true,
+        integration_name: perm.integration_name || integracao.nome_instancia || 'Sem nome'
+      };
+    } else {
+      // Sem permissões configuradas = LIBERA (compatibilidade)
+      integracoesMap[integracao.id] = {
+        can_view: true,
+        can_send: true,
+        can_receive: true,
+        integration_name: integracao.nome_instancia || 'Sem nome'
+      };
+    }
   });
   
   // Aplicar bloqueios explícitos de regras_bloqueio
