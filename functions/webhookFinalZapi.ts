@@ -79,8 +79,8 @@ function deveIgnorar(payload) {
     return 'jid_sistema';
   }
 
-  // PERMITIR: QR Code e Connection
-  if (tipo.includes('qrcode') || tipo.includes('connection')) {
+  // PERMITIR: QR Code, Connection e Desconexão
+  if (tipo.includes('qrcode') || tipo.includes('connection') || tipo.includes('disconnect')) {
     return null;
   }
 
@@ -152,7 +152,16 @@ function normalizarPayload(payload) {
     };
   }
 
-  // Connection
+  // Connection / Disconnection
+  if (tipoRaw.includes('disconnect')) {
+    return {
+      type: 'disconnection',
+      instanceId,
+      status: 'desconectado',
+      moment: payload.moment ?? payload.timestamp ?? null
+    };
+  }
+
   if (tipoRaw.includes('connection') || typeof payload.connected === 'boolean') {
     return {
       type: 'connection',
@@ -418,6 +427,8 @@ Deno.serve(async (req) => {
         return await handleQRCode(dados, base44);
       case 'connection':
         return await handleConnection(dados, base44);
+      case 'disconnection':
+        return await handleDisconnection(dados, base44);
       case 'message_update':
         return await handleMessageUpdate(dados, base44);
       case 'message':
@@ -485,6 +496,74 @@ async function handleConnection(dados, base44) {
   }
 
   return jsonOk({ success: true, processed: 'connection', status: dados.status });
+}
+
+// ============================================================================
+// HANDLE DISCONNECTION
+// ============================================================================
+async function handleDisconnection(dados, base44) {
+  console.log(`[${VERSION}] 🔴 Disconnection: ${dados.instanceId}`);
+  
+  if (!dados.instanceId) return jsonOk({ success: true, ignored: true, reason: 'no_instance_id' });
+
+  try {
+    const integracoes = await base44.asServiceRole.entities.WhatsAppIntegration.filter(
+      { instance_id_provider: dados.instanceId },
+      '-created_date',
+      1
+    );
+
+    if (integracoes.length === 0) {
+      console.warn(`[${VERSION}] ⚠️ Instância não mapeada: ${dados.instanceId}`);
+      return jsonOk({ success: true, ignored: true, reason: 'unmapped_instance' });
+    }
+
+    const integracao = integracoes[0];
+    const timestamp = dados.moment ? new Date(dados.moment * 1000).toISOString() : new Date().toISOString();
+
+    // Anti-spam: não processar se já está desconectado recentemente
+    if (integracao.status === 'desconectado' && integracao.last_disconnected_at) {
+      const diffMs = Date.now() - new Date(integracao.last_disconnected_at).getTime();
+      if (diffMs < 120000) { // 2 minutos
+        console.log(`[${VERSION}] ⏭️ Desconexão já registrada recentemente`);
+        return jsonOk({ success: true, ignored: true, reason: 'already_disconnected' });
+      }
+    }
+
+    await base44.asServiceRole.entities.WhatsAppIntegration.update(integracao.id, {
+      status: 'desconectado',
+      last_disconnected_at: timestamp,
+      status_reason: 'webhookDisconnected',
+      ultima_atividade: timestamp
+    });
+
+    console.log(`[${VERSION}] 🔴 DESCONEXÃO REGISTRADA: ${integracao.nome_instancia} às ${timestamp}`);
+
+    // Criar notificação para usuários com acesso
+    try {
+      await base44.asServiceRole.entities.NotificationEvent.create({
+        tipo: 'integration_disconnected',
+        titulo: `Instância WhatsApp desconectada`,
+        mensagem: `A instância ${integracao.nome_instancia} foi desconectada às ${new Date(timestamp).toLocaleTimeString('pt-BR')}`,
+        prioridade: 'alta',
+        integration_id: integracao.id,
+        metadata: {
+          integration_name: integracao.nome_instancia,
+          phone: integracao.numero_telefone,
+          disconnected_at: timestamp,
+          provider: 'z_api'
+        }
+      });
+    } catch (notifErr) {
+      console.warn(`[${VERSION}] ⚠️ Erro ao criar notificação:`, notifErr.message);
+    }
+
+    return jsonOk({ success: true, processed: 'disconnection', integration_id: integracao.id });
+
+  } catch (error) {
+    console.error(`[${VERSION}] ❌ Erro ao processar desconexão:`, error.message);
+    return jsonOk({ success: true, error: 'processing_failed', details: error.message });
+  }
 }
 
 async function handleMessageUpdate(dados, base44) {
