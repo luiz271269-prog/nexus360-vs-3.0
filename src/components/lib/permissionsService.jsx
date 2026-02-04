@@ -601,24 +601,14 @@ export const VISIBILITY_MATRIX = [
     priority: 4,
     name: 'bloqueio_integracao',
     check: (userPerms, thread, contact) => {
-      // ✅ ADMIN NUNCA É BLOQUEADO POR INTEGRAÇÃO
-      if (userPerms.role === 'admin') return null;
-
       const integracaoId = thread.whatsapp_integration_id;
       if (!integracaoId) return null;
 
       const permIntegracao = userPerms.integracoes?.[integracaoId];
 
-      // ✅ CIRÚRGICA: Verificar se integração está bloqueada (can_view === false)
-      // IMPORTANTE: undefined ou null = LIBERA (compatibilidade)
-      if (!permIntegracao) {
-        // Integração não mapeada = libera (fail-safe)
-        return null;
-      }
-
-      // ✅ REMOVIDO: Verificação de thread transferida (movida para P2)
-
-      if (permIntegracao.can_view === false) {
+      // ✅ REGRA PRIMÁRIA: Se integração está explicitamente bloqueada (can_view === false)
+      // PREVALECE SOBRE TUDO, inclusive admin
+      if (permIntegracao && permIntegracao.can_view === false) {
         return { 
           visible: false, 
           motivo: `Integração ${permIntegracao.integration_name} bloqueada para visualização`,
@@ -627,6 +617,17 @@ export const VISIBILITY_MATRIX = [
           metadata: { integracaoId, nome: permIntegracao.integration_name },
           bloqueio: true
         };
+      }
+
+      // ✅ BYPASS ADMIN: Só se não houver bloqueio explícito definido
+      // Admin sem regras definidas = libera tudo
+      if (userPerms.role === 'admin' && !permIntegracao) {
+        return null; // Libera (bypass admin)
+      }
+
+      // Integração não mapeada ou sem permissão definida = libera (fail-safe)
+      if (!permIntegracao) {
+        return null;
       }
 
       return null;
@@ -640,10 +641,11 @@ export const VISIBILITY_MATRIX = [
       const setorThread = getSectorFromThreadOrTags(thread);
       if (!setorThread) return null;
       
+      // ✅ REGRA PRIMÁRIA: Bloqueio explícito prevalece sobre tudo (até admin)
       if (userPerms.setoresBloqueados?.includes(setorThread)) {
         return { 
           visible: false, 
-          motivo: `Setor ${setorThread} bloqueado`,
+          motivo: `Setor ${setorThread} bloqueado explicitamente`,
           decision_path: ['DENY:bloqueio_setor'],
           reason_code: 'SECTOR_BLOCKED',
           metadata: { setor: setorThread },
@@ -651,6 +653,7 @@ export const VISIBILITY_MATRIX = [
         };
       }
       
+      // ✅ Admin sem bloqueios explícitos = libera automaticamente
       return null;
     }
   },
@@ -662,16 +665,19 @@ export const VISIBILITY_MATRIX = [
       const canal = thread.channel;
       if (!canal) return null;
       
+      // ✅ REGRA PRIMÁRIA: Bloqueio explícito prevalece sobre tudo (até admin)
       if (userPerms.canaisBloqueados?.includes(canal)) {
         return { 
           visible: false, 
-          motivo: `Canal ${canal} bloqueado`,
+          motivo: `Canal ${canal} bloqueado explicitamente`,
           decision_path: ['DENY:bloqueio_canal'],
           reason_code: 'CHANNEL_BLOCKED',
           metadata: { canal },
           bloqueio: true
         };
       }
+      
+      // ✅ Admin sem bloqueios explícitos = libera automaticamente
       return null;
     }
   },
