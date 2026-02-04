@@ -1,6 +1,5 @@
-import React, { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { base44 } from "@/api/base44Client";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { TrendingUp, Users, DollarSign, Target, Award, Calendar, Filter, BarChart3, Brain, Zap, AlertCircle, CheckCircle, TrendingDown, Activity, ChevronRight, Building2 } from "lucide-react";
 
 import VisaoGeralEmpresa from "../components/dashboard/VisaoGeralEmpresa";
