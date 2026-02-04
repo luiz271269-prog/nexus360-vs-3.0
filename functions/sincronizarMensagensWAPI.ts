@@ -38,12 +38,21 @@ async function buscarMensagensWAPI({ base44Instance, integration, from, to, phon
   console.log(`[SYNC-WAPI] 🌐 URL: ${baseUrl}`);
   
   try {
-    // W-API endpoint: GET /messages/{instance}
-    const url = `${baseUrl}/messages/${instanceId}`;
+    // W-API endpoint: GET /messages/{instance} com query params
+    const fromTimestamp = new Date(from).getTime();
+    const toTimestamp = new Date(to).getTime();
     
-    console.log(`[SYNC-WAPI] 🚀 Fazendo requisição para: ${url}`);
+    const url = new URL(`${baseUrl}/messages/${instanceId}`);
+    url.searchParams.append('start', fromTimestamp.toString()); // Unix timestamp em ms
+    url.searchParams.append('end', toTimestamp.toString());
+    if (phone) {
+      url.searchParams.append('phone', normalizarTelefone(phone));
+    }
+    url.searchParams.append('limit', '500'); // Limite para evitar sobrecarga
     
-    const response = await fetch(url, {
+    console.log(`[SYNC-WAPI] 🚀 Fazendo requisição para: ${url.toString()}`);
+    
+    const response = await fetch(url.toString(), {
       method: 'GET',
       headers: {
         'Authorization': `Bearer ${token}`,
@@ -60,23 +69,52 @@ async function buscarMensagensWAPI({ base44Instance, integration, from, to, phon
     }
     
     const data = await response.json();
-    console.log(`[SYNC-WAPI] 📦 Resposta recebida:`, JSON.stringify(data).substring(0, 500));
+    
+    // ✅ LOG DETALHADO DA ESTRUTURA (para debug - truncado em 2000 chars)
+    const dataStr = JSON.stringify(data, null, 2);
+    console.log(`[SYNC-WAPI] 📦 ESTRUTURA DA RESPOSTA (${dataStr.length} chars):`);
+    console.log(dataStr.substring(0, 2000));
+    if (dataStr.length > 2000) {
+      console.log(`[SYNC-WAPI] ... (truncado em 2000 de ${dataStr.length} chars)`);
+    }
     
     // Extrair array de mensagens (estrutura varia por provedor)
     const allMessages = data.messages || data.data || data.result || (Array.isArray(data) ? data : []);
-    console.log(`[SYNC-WAPI] 📊 Total de mensagens retornadas: ${allMessages.length}`);
     
-    // Filtrar por período
-    const fromTimestamp = new Date(from).getTime();
-    const toTimestamp = new Date(to).getTime();
+    if (allMessages.length === 0) {
+      console.warn(`[SYNC-WAPI] ⚠️ NENHUMA MENSAGEM RETORNADA. Verifique:`);
+      console.warn(`[SYNC-WAPI]    - Endpoint correto?`);
+      console.warn(`[SYNC-WAPI]    - Query params aceitos pelo provedor?`);
+      console.warn(`[SYNC-WAPI]    - Provedor mantém histórico do período solicitado?`);
+      console.warn(`[SYNC-WAPI]    - Chaves da resposta: ${Object.keys(data).join(', ')}`);
+    } else {
+      console.log(`[SYNC-WAPI] 📊 Total de mensagens retornadas: ${allMessages.length}`);
+      // Log exemplo da primeira mensagem
+      if (allMessages[0]) {
+        console.log(`[SYNC-WAPI] 📝 Exemplo da 1ª mensagem:`, JSON.stringify(allMessages[0], null, 2).substring(0, 500));
+      }
+    }
     
+    // Filtrar por período (já filtrado na query, mas validar novamente)
     const filtered = allMessages.filter(msg => {
-      // Timestamp pode estar em diferentes formatos
-      const msgTimestamp = msg.timestamp 
-        ? (msg.timestamp * 1000) // Unix timestamp em segundos
-        : (msg.t ? msg.t * 1000 : new Date(msg.created_at || msg.date).getTime());
+      // ✅ Normalização robusta de timestamp
+      let msgTimestamp;
+      if (typeof msg.timestamp === 'number') {
+        // Detectar se é segundos ou milissegundos (> 10 bilhões = ms)
+        msgTimestamp = msg.timestamp > 100000000000 ? msg.timestamp : msg.timestamp * 1000;
+      } else if (typeof msg.t === 'number') {
+        msgTimestamp = msg.t > 100000000000 ? msg.t : msg.t * 1000;
+      } else if (msg.created_at || msg.date) {
+        msgTimestamp = new Date(msg.created_at || msg.date).getTime();
+      } else {
+        console.warn(`[SYNC-WAPI] ⚠️ Mensagem ${msg.id || msg.messageId || 'sem ID'} SEM timestamp válido. Campos disponíveis:`, Object.keys(msg).join(', '));
+        return false; // Descartar mensagens sem timestamp
+      }
       
-      if (msgTimestamp < fromTimestamp || msgTimestamp > toTimestamp) return false;
+      if (msgTimestamp < fromTimestamp || msgTimestamp > toTimestamp) {
+        console.log(`[SYNC-WAPI] ➖ Ignorando por período: ${new Date(msgTimestamp).toISOString()} fora de ${from} → ${to}`);
+        return false;
+      }
       
       // Apenas mensagens recebidas (não enviadas por nós)
       if (msg.fromMe === true || msg.from_me === true) return false;
@@ -127,10 +165,16 @@ async function buscarMensagensZAPI({ base44Instance, integration, from, to, phon
   console.log(`[SYNC-ZAPI] 📅 Período: ${from} → ${to}`);
   
   try {
-    // Z-API endpoint: GET /instances/{instance}/token/{token}/messages
-    const url = `${baseUrl}/instances/${instanceId}/token/${token}/messages`;
+    // Z-API endpoint: GET /instances/{instance}/token/{token}/messages com query params
+    const url = new URL(`${baseUrl}/instances/${instanceId}/token/${token}/messages`);
+    url.searchParams.append('startDate', new Date(from).toISOString());
+    url.searchParams.append('endDate', new Date(to).toISOString());
+    if (phone) {
+      url.searchParams.append('phone', normalizarTelefone(phone));
+    }
+    url.searchParams.append('limit', '500');
     
-    console.log(`[SYNC-ZAPI] 🚀 Fazendo requisição para: ${url}`);
+    console.log(`[SYNC-ZAPI] 🚀 Fazendo requisição para: ${url.toString()}`);
     
     const headers = {
       'Content-Type': 'application/json'
@@ -140,7 +184,7 @@ async function buscarMensagensZAPI({ base44Instance, integration, from, to, phon
       headers['Client-Token'] = clientToken;
     }
     
-    const response = await fetch(url, { method: 'GET', headers });
+    const response = await fetch(url.toString(), { method: 'GET', headers });
     
     console.log(`[SYNC-ZAPI] 📥 Status HTTP: ${response.status}`);
     
@@ -151,18 +195,49 @@ async function buscarMensagensZAPI({ base44Instance, integration, from, to, phon
     }
     
     const messages = await response.json();
+    
+    // ✅ LOG DETALHADO DA ESTRUTURA
+    const msgStr = JSON.stringify(messages, null, 2);
+    console.log(`[SYNC-ZAPI] 📦 ESTRUTURA DA RESPOSTA (${msgStr.length} chars):`);
+    console.log(msgStr.substring(0, 2000));
+    if (msgStr.length > 2000) {
+      console.log(`[SYNC-ZAPI] ... (truncado em 2000 de ${msgStr.length} chars)`);
+    }
+    
     const msgArray = Array.isArray(messages) ? messages : (messages.data || []);
     
-    console.log(`[SYNC-ZAPI] 📊 Total de mensagens retornadas: ${msgArray.length}`);
+    if (msgArray.length === 0) {
+      console.warn(`[SYNC-ZAPI] ⚠️ NENHUMA MENSAGEM RETORNADA. Verifique:`);
+      console.warn(`[SYNC-ZAPI]    - Endpoint correto para sua instância/plano?`);
+      console.warn(`[SYNC-ZAPI]    - Z-API mantém histórico desse período?`);
+      console.warn(`[SYNC-ZAPI]    - Chaves da resposta: ${Object.keys(messages).join(', ')}`);
+    } else {
+      console.log(`[SYNC-ZAPI] 📊 Total de mensagens retornadas: ${msgArray.length}`);
+      if (msgArray[0]) {
+        console.log(`[SYNC-ZAPI] 📝 Exemplo da 1ª mensagem:`, JSON.stringify(msgArray[0], null, 2).substring(0, 500));
+      }
+    }
     
-    // Filtrar por período e telefone
+    // Filtrar por período e telefone (validar novamente)
     const fromTimestamp = new Date(from).getTime();
     const toTimestamp = new Date(to).getTime();
     
     const filtered = msgArray.filter(msg => {
-      // Timestamp em segundos (Z-API usa 'momment')
-      const msgTimestamp = msg.momment ? msg.momment * 1000 : new Date(msg.timestamp).getTime();
-      if (msgTimestamp < fromTimestamp || msgTimestamp > toTimestamp) return false;
+      // ✅ Normalização robusta (Z-API usa 'momment' em segundos)
+      let msgTimestamp;
+      if (typeof msg.momment === 'number') {
+        msgTimestamp = msg.momment * 1000;
+      } else if (msg.timestamp) {
+        msgTimestamp = new Date(msg.timestamp).getTime();
+      } else {
+        console.warn(`[SYNC-ZAPI] ⚠️ Mensagem ${msg.messageId || msg.id || 'sem ID'} SEM timestamp válido. Campos disponíveis:`, Object.keys(msg).join(', '));
+        return false;
+      }
+      
+      if (msgTimestamp < fromTimestamp || msgTimestamp > toTimestamp) {
+        console.log(`[SYNC-ZAPI] ➖ Ignorando por período: ${new Date(msgTimestamp).toISOString()}`);
+        return false;
+      }
       
       // Apenas recebidas
       if (msg.fromMe === true) return false;
