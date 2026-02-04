@@ -272,6 +272,11 @@ function normalizarPayload(payload) {
     } else {
       conteudo = conteudoRaw;
     }
+    
+    // ✅ EMOJIS: Se não encontrou texto mas payload tem body/text, usar
+    if (!conteudo && (payload.body || payload.text?.message)) {
+      conteudo = payload.body || payload.text?.message || '';
+    }
 
     // Aceitar mensagem mesmo sem conteúdo se tiver mídia
     if (!conteudo && mediaType === 'none') {
