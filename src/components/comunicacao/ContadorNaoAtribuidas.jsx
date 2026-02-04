@@ -24,7 +24,7 @@ import { isNaoAtribuida } from "../lib/threadVisibility";
  * 3️⃣ Breakdown por integração
  */
 export default function ContadorNaoAtribuidas({ threads = [], integracoes = [], usuario = null, onClickVerFila, onClickConexao, className = "" }) {
-  // ✅ CALCULAR LOCALMENTE a partir de threads do pai
+  // ✅ CIRÚRGICA: CALCULAR LOCALMENTE - APENAS threads EXTERNAS não atribuídas
   const dados = useMemo(() => {
     if (!threads.length || !usuario) {
       return { 
@@ -36,8 +36,14 @@ export default function ContadorNaoAtribuidas({ threads = [], integracoes = [], 
       };
     }
 
-    // Filtrar threads não atribuídas E visíveis
-    const naoAtribuidas = threads.filter(t => isNaoAtribuida(t));
+    // ✅ SAGRADO: Filtrar threads não atribuídas EXTERNAS (EXCLUIR internas)
+    const naoAtribuidas = threads.filter(t => {
+      // ✅ CRÍTICO: Threads internas NÃO participam de "não atribuídas"
+      if (t.thread_type === 'team_internal' || t.thread_type === 'sector_group') {
+        return false;
+      }
+      return isNaoAtribuida(t);
+    });
 
     // Breakdown por setor
     const porSetorMap = {};
