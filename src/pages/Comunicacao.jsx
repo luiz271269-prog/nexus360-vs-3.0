@@ -1697,6 +1697,28 @@ export default function Comunicacao() {
         return true; // ✅ Pula outros filtros (thread órfã não tem contato para filtrar)
       }
       
+      // ═══════════════════════════════════════════════════════════════════════
+      // ✅ CRÍTICO: Filtro de INTEGRAÇÃO deve ser aplicado SEMPRE (TODAS as threads EXTERNAS)
+      // ═══════════════════════════════════════════════════════════════════════
+      if (selectedIntegrationId && selectedIntegrationId !== 'all') {
+        // ✅ Threads internas não têm integração WhatsApp (pular)
+        if (!(thread.thread_type === 'team_internal' || thread.thread_type === 'sector_group')) {
+          // ✅ FIX: Verificar origin_integration_ids[] para threads canônicas unificadas
+          const integrationIds = thread.origin_integration_ids?.length > 0 
+            ? thread.origin_integration_ids 
+            : [thread.whatsapp_integration_id];
+          
+          if (!integrationIds.includes(selectedIntegrationId)) {
+            logThread('Filtro Integração', false, `Integração não encontrada (esperado: ${selectedIntegrationId}, atual: ${integrationIds.join(', ')})`);
+            if (DEBUG_VIS && isThreadDeUsuarioQueEContato) {
+              console.log('[COMUNICACAO] ❌ USUÁRIO-CONTATO - BLOQUEADO por filtro de integração específica');
+            }
+            return false;
+          }
+          logThread('Filtro Integração', true, 'Integração OK (verificou origin_integration_ids)');
+        }
+      }
+      
       if (isFilterUnassigned) {
         // ✅ CURTO-CIRCUITO: Threads internas NUNCA são bloqueadas por escopo
         // (visibilidade delas já foi decidida por participação/admin acima)
@@ -1711,22 +1733,6 @@ export default function Comunicacao() {
           }
           
           logThread('Filtro Não Atribuídas', true, 'Thread está no Set');
-
-          if (selectedIntegrationId && selectedIntegrationId !== 'all') {
-            // ✅ FIX: Verificar origin_integration_ids[] para threads canônicas unificadas
-            const integrationIds = thread.origin_integration_ids?.length > 0 
-              ? thread.origin_integration_ids 
-              : [thread.whatsapp_integration_id];
-            
-            if (!integrationIds.includes(selectedIntegrationId)) {
-              logThread('Filtro Integração', false, `Integração não encontrada em origin_integration_ids (esperado: ${selectedIntegrationId})`);
-              if (DEBUG_VIS && isThreadDeUsuarioQueEContato) {
-                console.log('[COMUNICACAO] ❌ USUÁRIO-CONTATO - BLOQUEADO por filtro de integração específica');
-              }
-              return false;
-            }
-          }
-          logThread('Filtro Integração', true, 'Integração OK (verificou origin_integration_ids)');
         } else {
           // ✅ Threads internas passam direto (já foram validadas acima)
           logThread('Filtro Não Atribuídas', true, 'Thread interna (ignorada pelo escopo)');
