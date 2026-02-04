@@ -555,6 +555,21 @@ export const VISIBILITY_MATRIX = [
     name: 'thread_atribuida',
     check: (userPerms, thread, contact) => {
       if (isAtribuidoAoUsuario(userPerms, thread)) {
+        // ✅ CIRÚRGICO: Thread atribuída mas usuário sem permissão para integração = ainda bloqueia
+        const integracaoId = thread.whatsapp_integration_id;
+        if (integracaoId) {
+          const permIntegracao = userPerms.integracoes?.[integracaoId];
+          if (permIntegracao && permIntegracao.can_view === false) {
+            return { 
+              visible: false, 
+              motivo: `Thread atribuída mas integração ${permIntegracao.integration_name} bloqueada`,
+              decision_path: ['DENY:thread_atribuida_sem_permissao_integracao'],
+              reason_code: 'ASSIGNED_BUT_INTEGRATION_BLOCKED',
+              bloqueio: true
+            };
+          }
+        }
+
         return { 
           visible: true, 
           motivo: 'Thread atribuída ao usuário (sobrepõe bloqueios)',
@@ -586,23 +601,24 @@ export const VISIBILITY_MATRIX = [
     priority: 4,
     name: 'bloqueio_integracao',
     check: (userPerms, thread, contact) => {
+      // ✅ ADMIN NUNCA É BLOQUEADO POR INTEGRAÇÃO
+      if (userPerms.role === 'admin') return null;
+
       const integracaoId = thread.whatsapp_integration_id;
       if (!integracaoId) return null;
-      
+
       const permIntegracao = userPerms.integracoes?.[integracaoId];
-      
+
       // ✅ CIRÚRGICA: Verificar se integração está bloqueada (can_view === false)
       // IMPORTANTE: undefined ou null = LIBERA (compatibilidade)
       if (!permIntegracao) {
         // Integração não mapeada = libera (fail-safe)
         return null;
       }
-      
-      // ✅ CRÍTICO: NÃO bloquear se thread foi TRANSFERIDA/ATRIBUÍDA ao usuário
-      // Conversa transferida = usuário pode continuar mesmo se instância bloqueada depois
-      const threadFoiTransferida = thread.assigned_user_id === userPerms.id;
-      
-      if (permIntegracao.can_view === false && !threadFoiTransferida) {
+
+      // ✅ REMOVIDO: Verificação de thread transferida (movida para P2)
+
+      if (permIntegracao.can_view === false) {
         return { 
           visible: false, 
           motivo: `Integração ${permIntegracao.integration_name} bloqueada para visualização`,
@@ -612,7 +628,7 @@ export const VISIBILITY_MATRIX = [
           bloqueio: true
         };
       }
-      
+
       return null;
     }
   },
