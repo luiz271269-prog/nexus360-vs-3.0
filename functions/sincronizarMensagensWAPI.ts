@@ -21,7 +21,7 @@ function normalizarTelefone(phone) {
 }
 
 /**
- * Busca mensagens direto da W-API usando logs salvos
+ * Busca mensagens DIRETO DO PROVEDOR W-API
  */
 async function buscarMensagensWAPI({ base44Instance, integration, from, to, phone }) {
   const baseUrl = integration.base_url_provider || 'https://api.w-api.app';
@@ -32,130 +32,165 @@ async function buscarMensagensWAPI({ base44Instance, integration, from, to, phon
     throw new Error('Token ou instanceId ausente na integração');
   }
   
-  console.log(`[SYNC-WAPI] 📡 Buscando mensagens da W-API...`);
+  console.log(`[SYNC-WAPI] 📡 Buscando mensagens DIRETO do provedor W-API...`);
   console.log(`[SYNC-WAPI] 🔑 Instance: ${instanceId}`);
   console.log(`[SYNC-WAPI] 📅 Período: ${from} → ${to}`);
+  console.log(`[SYNC-WAPI] 🌐 URL: ${baseUrl}`);
   
   try {
-    // W-API: Buscar do nosso próprio log (ZapiPayloadNormalized) como fonte confiável
-    console.log(`[SYNC-WAPI] ℹ️  Buscando logs salvos (webhooks recebidos)...`);
+    // W-API endpoint: GET /messages/{instance}
+    const url = `${baseUrl}/messages/${instanceId}`;
     
-    const logsWapi = await base44Instance.asServiceRole.entities.ZapiPayloadNormalized.filter({
-      integration_id: integration.id,
-      provider: 'w_api',
-      evento: 'ReceivedCallback',
-      timestamp_recebido: {
-        $gte: from,
-        $lte: to
+    console.log(`[SYNC-WAPI] 🚀 Fazendo requisição para: ${url}`);
+    
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
       }
-    }, 'timestamp_recebido', 10000);
+    });
     
-    console.log(`[SYNC-WAPI] ✅ ${logsWapi.length} eventos encontrados nos logs salvos`);
+    console.log(`[SYNC-WAPI] 📥 Status HTTP: ${response.status}`);
     
-    // Extrair mensagens dos payloads brutos
-    const messages = logsWapi
-      .filter(log => {
-        const payload = log.payload_bruto;
-        if (!payload) return false;
-        
-        // Apenas mensagens recebidas
-        const data = payload.data || payload;
-        if (data.fromMe === true) return false;
-        
-        // Filtrar por telefone
-        if (phone) {
-          const msgPhone = normalizarTelefone(data.from || data.phone);
-          const filterPhone = normalizarTelefone(phone);
-          if (msgPhone !== filterPhone) return false;
-        }
-        
-        return true;
-      })
-      .map(log => {
-        const payload = log.payload_bruto;
-        const data = payload.data || payload;
-        
-        return {
-          message_id: data.id || data.messageId || data.key?.id,
-          from: normalizarTelefone(data.from || data.phone),
-          content: data.text?.message || data.body || '',
-          timestamp: log.timestamp_recebido,
-          type: data.type || 'text',
-          pushName: data.pushName || data.senderName,
-          raw: payload
-        };
-      });
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error(`[SYNC-WAPI] ❌ Erro HTTP ${response.status}: ${errorText}`);
+      throw new Error(`W-API retornou ${response.status}: ${errorText.substring(0, 200)}`);
+    }
     
-    console.log(`[SYNC-WAPI] 🎯 ${messages.length} mensagens válidas após filtros`);
+    const data = await response.json();
+    console.log(`[SYNC-WAPI] 📦 Resposta recebida:`, JSON.stringify(data).substring(0, 500));
     
-    return messages;
+    // Extrair array de mensagens (estrutura varia por provedor)
+    const allMessages = data.messages || data.data || data.result || (Array.isArray(data) ? data : []);
+    console.log(`[SYNC-WAPI] 📊 Total de mensagens retornadas: ${allMessages.length}`);
+    
+    // Filtrar por período
+    const fromTimestamp = new Date(from).getTime();
+    const toTimestamp = new Date(to).getTime();
+    
+    const filtered = allMessages.filter(msg => {
+      // Timestamp pode estar em diferentes formatos
+      const msgTimestamp = msg.timestamp 
+        ? (msg.timestamp * 1000) // Unix timestamp em segundos
+        : (msg.t ? msg.t * 1000 : new Date(msg.created_at || msg.date).getTime());
+      
+      if (msgTimestamp < fromTimestamp || msgTimestamp > toTimestamp) return false;
+      
+      // Apenas mensagens recebidas (não enviadas por nós)
+      if (msg.fromMe === true || msg.from_me === true) return false;
+      
+      // Filtrar por telefone se especificado
+      if (phone) {
+        const msgPhone = normalizarTelefone(msg.from || msg.phone || msg.sender?.id || msg.chatId);
+        const filterPhone = normalizarTelefone(phone);
+        if (msgPhone !== filterPhone) return false;
+      }
+      
+      return true;
+    });
+    
+    console.log(`[SYNC-WAPI] 🎯 ${filtered.length} mensagens após filtros (período + direção + telefone)`);
+    
+    return filtered.map(msg => ({
+      message_id: msg.id || msg.messageId || msg.key?.id || msg._id,
+      from: normalizarTelefone(msg.from || msg.phone || msg.sender?.id || msg.chatId),
+      content: msg.text?.message || msg.body || msg.message || msg.content || '',
+      timestamp: msg.timestamp || msg.t || Math.floor(new Date(msg.created_at || msg.date).getTime() / 1000),
+      type: msg.type || (msg.msgContent ? 'media' : 'text'),
+      pushName: msg.pushName || msg.senderName || msg.sender?.pushName || msg.notifyName,
+      raw: msg
+    }));
     
   } catch (error) {
-    console.error('[SYNC-WAPI] ❌ Erro ao buscar mensagens:', error.message);
+    console.error('[SYNC-WAPI] ❌ Erro ao buscar do provedor:', error.message);
     throw error;
   }
 }
 
 /**
- * Busca mensagens direto da Z-API usando logs salvos
+ * Busca mensagens DIRETO DO PROVEDOR Z-API
  */
 async function buscarMensagensZAPI({ base44Instance, integration, from, to, phone }) {
-  console.log(`[SYNC-ZAPI] 📡 Buscando mensagens da Z-API (via logs)...`);
-  console.log(`[SYNC-ZAPI] 🔑 Instance: ${integration.instance_id_provider}`);
+  const baseUrl = integration.base_url_provider || 'https://api.z-api.io';
+  const instanceId = integration.instance_id_provider;
+  const token = integration.api_key_provider;
+  const clientToken = integration.security_client_token_header;
+  
+  if (!instanceId || !token) {
+    throw new Error('Configuração Z-API incompleta');
+  }
+  
+  console.log(`[SYNC-ZAPI] 📡 Buscando mensagens DIRETO do provedor Z-API...`);
+  console.log(`[SYNC-ZAPI] 🔑 Instance: ${instanceId}`);
   console.log(`[SYNC-ZAPI] 📅 Período: ${from} → ${to}`);
   
   try {
-    // Z-API: Buscar do nosso próprio log (ZapiPayloadNormalized) como fonte confiável
-    const logsZapi = await base44Instance.asServiceRole.entities.ZapiPayloadNormalized.filter({
-      integration_id: integration.id,
-      provider: 'z_api',
-      evento: 'ReceivedCallback',
-      timestamp_recebido: {
-        $gte: from,
-        $lte: to
+    // Z-API endpoint: GET /instances/{instance}/token/{token}/messages
+    const url = `${baseUrl}/instances/${instanceId}/token/${token}/messages`;
+    
+    console.log(`[SYNC-ZAPI] 🚀 Fazendo requisição para: ${url}`);
+    
+    const headers = {
+      'Content-Type': 'application/json'
+    };
+    
+    if (clientToken) {
+      headers['Client-Token'] = clientToken;
+    }
+    
+    const response = await fetch(url, { method: 'GET', headers });
+    
+    console.log(`[SYNC-ZAPI] 📥 Status HTTP: ${response.status}`);
+    
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error(`[SYNC-ZAPI] ❌ Erro HTTP ${response.status}: ${errorText}`);
+      throw new Error(`Z-API retornou ${response.status}: ${errorText.substring(0, 200)}`);
+    }
+    
+    const messages = await response.json();
+    const msgArray = Array.isArray(messages) ? messages : (messages.data || []);
+    
+    console.log(`[SYNC-ZAPI] 📊 Total de mensagens retornadas: ${msgArray.length}`);
+    
+    // Filtrar por período e telefone
+    const fromTimestamp = new Date(from).getTime();
+    const toTimestamp = new Date(to).getTime();
+    
+    const filtered = msgArray.filter(msg => {
+      // Timestamp em segundos (Z-API usa 'momment')
+      const msgTimestamp = msg.momment ? msg.momment * 1000 : new Date(msg.timestamp).getTime();
+      if (msgTimestamp < fromTimestamp || msgTimestamp > toTimestamp) return false;
+      
+      // Apenas recebidas
+      if (msg.fromMe === true) return false;
+      
+      // Filtrar por telefone
+      if (phone) {
+        const msgPhone = normalizarTelefone(msg.phone || msg.from);
+        const filterPhone = normalizarTelefone(phone);
+        if (msgPhone !== filterPhone) return false;
       }
-    }, 'timestamp_recebido', 10000);
+      
+      return true;
+    });
     
-    console.log(`[SYNC-ZAPI] ✅ ${logsZapi.length} eventos encontrados nos logs salvos`);
+    console.log(`[SYNC-ZAPI] 🎯 ${filtered.length} mensagens após filtros`);
     
-    // Extrair mensagens dos payloads brutos
-    const messages = logsZapi
-      .filter(log => {
-        const payload = log.payload_bruto;
-        if (!payload) return false;
-        
-        // Apenas mensagens recebidas
-        if (payload.fromMe === true) return false;
-        
-        // Filtrar por telefone
-        if (phone) {
-          const msgPhone = normalizarTelefone(payload.phone || payload.from);
-          const filterPhone = normalizarTelefone(phone);
-          if (msgPhone !== filterPhone) return false;
-        }
-        
-        return true;
-      })
-      .map(log => {
-        const payload = log.payload_bruto;
-        
-        return {
-          message_id: payload.messageId || payload.id,
-          from: normalizarTelefone(payload.phone || payload.from),
-          content: payload.text?.message || payload.body || '',
-          timestamp: log.timestamp_recebido,
-          type: payload.type || 'text',
-          pushName: payload.senderName || payload.pushName,
-          raw: payload
-        };
-      });
-    
-    console.log(`[SYNC-ZAPI] 🎯 ${messages.length} mensagens válidas após filtros`);
-    
-    return messages;
+    return filtered.map(msg => ({
+      message_id: msg.messageId || msg.id,
+      from: normalizarTelefone(msg.phone || msg.from),
+      content: msg.text?.message || msg.body || '',
+      timestamp: msg.momment,
+      type: msg.type || 'text',
+      pushName: msg.senderName || msg.pushName,
+      raw: msg
+    }));
     
   } catch (error) {
-    console.error('[SYNC-ZAPI] ❌ Erro ao buscar mensagens:', error.message);
+    console.error('[SYNC-ZAPI] ❌ Erro ao buscar do provedor:', error.message);
     throw error;
   }
 }
