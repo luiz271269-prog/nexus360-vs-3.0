@@ -191,12 +191,27 @@ export default function SearchAndFilter({
           : 'hover:bg-slate-100 text-slate-700'
       }`}
     >
-      {emoji && <span>{emoji}</span>}
-      {Icon && !emoji && <Icon className="w-4 h-4" />}
+      {emoji && <span className="text-base">{emoji}</span>}
+      {Icon && !emoji && <Icon className={`w-4 h-4 ${selected ? 'text-white' : getIconColor(color)}`} />}
       <span className="flex-1">{label}</span>
       {selected && <Check className="w-4 h-4" />}
     </button>
   );
+
+  const getIconColor = (color) => {
+    const colorMap = {
+      'bg-blue-500': 'text-blue-600',
+      'bg-orange-500': 'text-orange-600',
+      'bg-red-500': 'text-red-600',
+      'bg-emerald-500': 'text-emerald-600',
+      'bg-purple-500': 'text-purple-600',
+      'bg-green-500': 'text-green-600',
+      'bg-green-600': 'text-green-700',
+      'bg-slate-500': 'text-slate-600',
+      'bg-slate-400': 'text-slate-500'
+    };
+    return colorMap[color] || 'text-slate-500';
+  };
 
   return (
     <div className="bg-slate-50 text-[#343979] px-3 py-1 rounded-lg border-b border-slate-200 flex-shrink-0 space-y-2 from-white to-slate-50">
