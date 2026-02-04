@@ -185,16 +185,16 @@ export default function SearchAndFilter({
   const FilterOption = ({ selected, onClick, icon: Icon, emoji, label, color }) => (
     <button
       onClick={onClick}
-      className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-left text-sm transition-all ${
+      className={`w-full flex items-center gap-1.5 px-2 py-1 rounded text-left text-xs transition-all ${
         selected
           ? `${color} text-white shadow-md`
           : 'hover:bg-slate-100 text-slate-700'
       }`}
     >
-      {emoji && <span className="text-base">{emoji}</span>}
-      {Icon && !emoji && <Icon className={`w-4 h-4 ${selected ? 'text-white' : getIconColor(color)}`} />}
-      <span className="flex-1">{label}</span>
-      {selected && <Check className="w-4 h-4" />}
+      {emoji && <span className="text-sm">{emoji}</span>}
+      {Icon && !emoji && <Icon className={`w-3.5 h-3.5 ${selected ? 'text-white' : getIconColor(color)}`} />}
+      <span className="flex-1 truncate">{label}</span>
+      {selected && <Check className="w-3 h-3" />}
     </button>
   );
 
