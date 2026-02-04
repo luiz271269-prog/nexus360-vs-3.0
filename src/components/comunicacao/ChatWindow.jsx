@@ -2330,7 +2330,7 @@ export default function ChatWindow({
 
                   <MessageBubble
                 message={mensagem}
-                isOwn={mensagem.sender_id === usuario?.id}
+                isOwn={mensagem.sender_type === 'user'}
                 thread={thread}
                 onResponder={handleResponderMensagem}
                 modoSelecao={modoSelecao}
