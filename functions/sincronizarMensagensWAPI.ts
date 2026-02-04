@@ -21,125 +21,106 @@ function normalizarTelefone(phone) {
 }
 
 /**
- * Busca mensagens DIRETO DO PROVEDOR W-API
+ * Busca mensagens dos LOGS DE WEBHOOK salvos (não busca do provedor)
+ * 
+ * ⚠️ IMPORTANTE: W-API não oferece endpoint de listagem histórica.
+ * A única fonte de verdade são os webhooks recebidos e salvos em ZapiPayloadNormalized.
  */
 async function buscarMensagensWAPI({ base44Instance, integration, from, to, phone }) {
-  const baseUrl = integration.base_url_provider || 'https://api.w-api.app';
-  const token = integration.api_key_provider;
   const instanceId = integration.instance_id_provider;
   
-  if (!token || !instanceId) {
-    throw new Error('Token ou instanceId ausente na integração');
-  }
-  
-  console.log(`[SYNC-WAPI] 📡 Buscando mensagens DIRETO do provedor W-API...`);
+  console.log(`[SYNC-WAPI] 📡 Buscando mensagens dos LOGS DE WEBHOOK (não do provedor)...`);
   console.log(`[SYNC-WAPI] 🔑 Instance: ${instanceId}`);
   console.log(`[SYNC-WAPI] 📅 Período: ${from} → ${to}`);
-  console.log(`[SYNC-WAPI] 🌐 URL: ${baseUrl}`);
+  console.warn(`[SYNC-WAPI] ⚠️ W-API não oferece API de listagem histórica.`);
+  console.warn(`[SYNC-WAPI] ⚠️ Usando logs de webhook salvos como fonte de verdade.`);
   
   try {
-    // W-API endpoint: GET /messages/{instance} com query params
-    const fromTimestamp = new Date(from).getTime();
-    const toTimestamp = new Date(to).getTime();
+    // Buscar logs de webhook salvos
+    const fromDate = new Date(from).toISOString();
+    const toDate = new Date(to).toISOString();
     
-    const url = new URL(`${baseUrl}/messages/${instanceId}`);
-    url.searchParams.append('start', fromTimestamp.toString()); // Unix timestamp em ms
-    url.searchParams.append('end', toTimestamp.toString());
-    if (phone) {
-      url.searchParams.append('phone', normalizarTelefone(phone));
-    }
-    url.searchParams.append('limit', '500'); // Limite para evitar sobrecarga
+    console.log(`[SYNC-WAPI] 🔍 Buscando em ZapiPayloadNormalized...`);
     
-    console.log(`[SYNC-WAPI] 🚀 Fazendo requisição para: ${url.toString()}`);
+    const logs = await base44Instance.asServiceRole.entities.ZapiPayloadNormalized.filter({
+      integration_id: instanceId,
+      timestamp_recebido: {
+        $gte: fromDate,
+        $lte: toDate
+      },
+      evento: 'ReceivedCallback', // Apenas mensagens recebidas
+      sucesso_processamento: true
+    }, '-timestamp_recebido', 1000);
     
-    const response = await fetch(url.toString(), {
-      method: 'GET',
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json'
-      }
-    });
+    console.log(`[SYNC-WAPI] 📊 Total de logs encontrados: ${logs.length}`);
     
-    console.log(`[SYNC-WAPI] 📥 Status HTTP: ${response.status}`);
-    
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error(`[SYNC-WAPI] ❌ Erro HTTP ${response.status}: ${errorText}`);
-      throw new Error(`W-API retornou ${response.status}: ${errorText.substring(0, 200)}`);
+    if (logs.length === 0) {
+      console.warn(`[SYNC-WAPI] ⚠️ NENHUM LOG DE WEBHOOK encontrado para este período.`);
+      console.warn(`[SYNC-WAPI] Isso significa que:`);
+      console.warn(`[SYNC-WAPI]    1. Não houve mensagens recebidas neste período, OU`);
+      console.warn(`[SYNC-WAPI]    2. Os webhooks não foram processados/salvos corretamente`);
+      return [];
     }
     
-    const data = await response.json();
+    // Extrair mensagens dos payloads
+    const mensagens = [];
     
-    // ✅ LOG DETALHADO DA ESTRUTURA (para debug - truncado em 2000 chars)
-    const dataStr = JSON.stringify(data, null, 2);
-    console.log(`[SYNC-WAPI] 📦 ESTRUTURA DA RESPOSTA (${dataStr.length} chars):`);
-    console.log(dataStr.substring(0, 2000));
-    if (dataStr.length > 2000) {
-      console.log(`[SYNC-WAPI] ... (truncado em 2000 de ${dataStr.length} chars)`);
-    }
-    
-    // Extrair array de mensagens (estrutura varia por provedor)
-    const allMessages = data.messages || data.data || data.result || (Array.isArray(data) ? data : []);
-    
-    if (allMessages.length === 0) {
-      console.warn(`[SYNC-WAPI] ⚠️ NENHUMA MENSAGEM RETORNADA. Verifique:`);
-      console.warn(`[SYNC-WAPI]    - Endpoint correto?`);
-      console.warn(`[SYNC-WAPI]    - Query params aceitos pelo provedor?`);
-      console.warn(`[SYNC-WAPI]    - Provedor mantém histórico do período solicitado?`);
-      console.warn(`[SYNC-WAPI]    - Chaves da resposta: ${Object.keys(data).join(', ')}`);
-    } else {
-      console.log(`[SYNC-WAPI] 📊 Total de mensagens retornadas: ${allMessages.length}`);
-      // Log exemplo da primeira mensagem
-      if (allMessages[0]) {
-        console.log(`[SYNC-WAPI] 📝 Exemplo da 1ª mensagem:`, JSON.stringify(allMessages[0], null, 2).substring(0, 500));
+    for (const log of logs) {
+      try {
+        const payload = log.payload_bruto;
+        
+        // Extrair dados da mensagem do payload W-API
+        const msg = payload.data || payload.message || payload;
+        
+        // Normalizar telefone
+        const telefone = normalizarTelefone(
+          msg.from || msg.phone || msg.sender?.id || msg.chatId || log.telefone_normalizado
+        );
+        
+        // Filtrar por telefone se especificado
+        if (phone && telefone !== normalizarTelefone(phone)) {
+          continue;
+        }
+        
+        // Extrair message_id
+        const message_id = msg.id || msg.messageId || msg.key?.id || msg._id || log.message_id;
+        
+        if (!message_id) {
+          console.warn(`[SYNC-WAPI] ⚠️ Log ${log.id} sem message_id. Pulando.`);
+          continue;
+        }
+        
+        // Extrair conteúdo
+        const content = msg.text?.message || msg.body || msg.message || msg.content || '';
+        
+        // Extrair timestamp
+        let timestamp;
+        if (typeof msg.timestamp === 'number') {
+          timestamp = msg.timestamp > 100000000000 ? msg.timestamp / 1000 : msg.timestamp;
+        } else if (typeof msg.t === 'number') {
+          timestamp = msg.t > 100000000000 ? msg.t / 1000 : msg.t;
+        } else {
+          timestamp = Math.floor(new Date(log.timestamp_recebido).getTime() / 1000);
+        }
+        
+        mensagens.push({
+          message_id,
+          from: telefone,
+          content,
+          timestamp,
+          type: msg.type || (msg.msgContent ? 'media' : 'text'),
+          pushName: msg.pushName || msg.senderName || msg.sender?.pushName || msg.notifyName,
+          raw: payload
+        });
+        
+      } catch (error) {
+        console.error(`[SYNC-WAPI] ❌ Erro ao processar log ${log.id}:`, error.message);
       }
     }
     
-    // Filtrar por período (já filtrado na query, mas validar novamente)
-    const filtered = allMessages.filter(msg => {
-      // ✅ Normalização robusta de timestamp
-      let msgTimestamp;
-      if (typeof msg.timestamp === 'number') {
-        // Detectar se é segundos ou milissegundos (> 10 bilhões = ms)
-        msgTimestamp = msg.timestamp > 100000000000 ? msg.timestamp : msg.timestamp * 1000;
-      } else if (typeof msg.t === 'number') {
-        msgTimestamp = msg.t > 100000000000 ? msg.t : msg.t * 1000;
-      } else if (msg.created_at || msg.date) {
-        msgTimestamp = new Date(msg.created_at || msg.date).getTime();
-      } else {
-        console.warn(`[SYNC-WAPI] ⚠️ Mensagem ${msg.id || msg.messageId || 'sem ID'} SEM timestamp válido. Campos disponíveis:`, Object.keys(msg).join(', '));
-        return false; // Descartar mensagens sem timestamp
-      }
-      
-      if (msgTimestamp < fromTimestamp || msgTimestamp > toTimestamp) {
-        console.log(`[SYNC-WAPI] ➖ Ignorando por período: ${new Date(msgTimestamp).toISOString()} fora de ${from} → ${to}`);
-        return false;
-      }
-      
-      // Apenas mensagens recebidas (não enviadas por nós)
-      if (msg.fromMe === true || msg.from_me === true) return false;
-      
-      // Filtrar por telefone se especificado
-      if (phone) {
-        const msgPhone = normalizarTelefone(msg.from || msg.phone || msg.sender?.id || msg.chatId);
-        const filterPhone = normalizarTelefone(phone);
-        if (msgPhone !== filterPhone) return false;
-      }
-      
-      return true;
-    });
+    console.log(`[SYNC-WAPI] ✅ ${mensagens.length} mensagens extraídas dos logs`);
     
-    console.log(`[SYNC-WAPI] 🎯 ${filtered.length} mensagens após filtros (período + direção + telefone)`);
-    
-    return filtered.map(msg => ({
-      message_id: msg.id || msg.messageId || msg.key?.id || msg._id,
-      from: normalizarTelefone(msg.from || msg.phone || msg.sender?.id || msg.chatId),
-      content: msg.text?.message || msg.body || msg.message || msg.content || '',
-      timestamp: msg.timestamp || msg.t || Math.floor(new Date(msg.created_at || msg.date).getTime() / 1000),
-      type: msg.type || (msg.msgContent ? 'media' : 'text'),
-      pushName: msg.pushName || msg.senderName || msg.sender?.pushName || msg.notifyName,
-      raw: msg
-    }));
+    return mensagens;
     
   } catch (error) {
     console.error('[SYNC-WAPI] ❌ Erro ao buscar do provedor:', error.message);
