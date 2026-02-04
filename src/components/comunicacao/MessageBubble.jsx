@@ -1002,15 +1002,10 @@ export default React.memo(function MessageBubble({
                 )}>
                     <Play className="w-4 h-4 text-white" />
                   </div>
-                  {!message?.media_url ? (
+                  {!message?.media_url || message?.media_url === 'pending_download' ? (
                     <div className="flex-1 flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs bg-slate-100 text-slate-600">
-                      <Mic className="w-4 h-4 flex-shrink-0" />
-                      <span>Áudio não disponível</span>
-                    </div>
-                  ) : message?.media_url?.includes('mmg.whatsapp.net') ? (
-                    <div className="flex-1 flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs bg-slate-100 text-slate-600">
-                      <Mic className="w-4 h-4 flex-shrink-0" />
-                      <span>Áudio recebido (arquivo temporário)</span>
+                      <Loader2 className="w-4 h-4 flex-shrink-0 animate-spin" />
+                      <span>Processando áudio...</span>
                     </div>
                   ) : (
                     <audio
