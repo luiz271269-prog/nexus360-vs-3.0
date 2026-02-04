@@ -31,6 +31,7 @@ import {
 import { toast } from 'sonner';
 import SeletorEstrategia from './SeletorEstrategia';
 import NexusSimuladorVisibilidade from './NexusSimuladorVisibilidade';
+import PainelReplayWAPI from './PainelReplayWAPI';
 
 /**
  * Central de Controle Operacional - Dashboard Unificado
@@ -493,6 +494,10 @@ export default function CentralControleOperacional({ onSelecionarThread, usuario
               <Server className="w-4 h-4 mr-2" />
               Operacional
             </TabsTrigger>
+            <TabsTrigger value="replay_wapi" className="data-[state=active]:bg-indigo-700 text-slate-300 data-[state=active]:text-white">
+              <RefreshCw className="w-4 h-4 mr-2" />
+              Replay W-API
+            </TabsTrigger>
             <TabsTrigger value="nexus_simulador" className="data-[state=active]:bg-purple-700 text-slate-300 data-[state=active]:text-white">
               <Sparkles className="w-4 h-4 mr-2" />
               Nexus360 Simulator
@@ -784,6 +789,13 @@ export default function CentralControleOperacional({ onSelecionarThread, usuario
               </p>
             </CardContent>
           </Card>
+            </div>
+          </TabsContent>
+
+          {/* TAB: Replay W-API */}
+          <TabsContent value="replay_wapi">
+            <div className="p-6">
+              <PainelReplayWAPI integracoes={integracoes} />
             </div>
           </TabsContent>
 
