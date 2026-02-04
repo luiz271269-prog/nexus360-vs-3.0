@@ -1698,8 +1698,10 @@ export default function Comunicacao() {
       }
       
       // ═══════════════════════════════════════════════════════════════════════
-      // ✅ CRÍTICO: Filtro de INTEGRAÇÃO deve ser aplicado SEMPRE (TODAS as threads EXTERNAS)
+      // ✅ CRÍTICO: Filtros SEMPRE aplicados (INDEPENDENTE do escopo ou busca)
       // ═══════════════════════════════════════════════════════════════════════
+      
+      // Filtro de INTEGRAÇÃO (threads externas)
       if (selectedIntegrationId && selectedIntegrationId !== 'all') {
         // ✅ Threads internas não têm integração WhatsApp (pular)
         if (!(thread.thread_type === 'team_internal' || thread.thread_type === 'sector_group')) {
@@ -1710,12 +1712,50 @@ export default function Comunicacao() {
           
           if (!integrationIds.includes(selectedIntegrationId)) {
             logThread('Filtro Integração', false, `Integração não encontrada (esperado: ${selectedIntegrationId}, atual: ${integrationIds.join(', ')})`);
-            if (DEBUG_VIS && isThreadDeUsuarioQueEContato) {
-              console.log('[COMUNICACAO] ❌ USUÁRIO-CONTATO - BLOQUEADO por filtro de integração específica');
-            }
             return false;
           }
           logThread('Filtro Integração', true, 'Integração OK (verificou origin_integration_ids)');
+        }
+      }
+      
+      // Filtro de ATENDENTE
+      if (selectedAttendantId && selectedAttendantId !== 'all') {
+        if (thread.assigned_user_id !== selectedAttendantId) {
+          logThread('Filtro Atendente', false, `Atendente diferente (esperado: ${selectedAttendantId}, atual: ${thread.assigned_user_id})`);
+          return false;
+        }
+        logThread('Filtro Atendente', true, 'Atendente OK');
+      }
+      
+      // Filtro de CATEGORIA (threads externas)
+      if (categoriasSet && !(thread.thread_type === 'team_internal' || thread.thread_type === 'sector_group')) {
+        if (!categoriasSet.has(thread.id)) {
+          logThread('Filtro Categoria', false, 'Thread não tem mensagem com categoria selecionada');
+          return false;
+        }
+        logThread('Filtro Categoria', true, 'Thread tem mensagem com categoria');
+      }
+      
+      // Filtro de TIPO DE CONTATO (threads externas)
+      if (selectedTipoContato && selectedTipoContato !== 'all' && contato) {
+        if (!(thread.thread_type === 'team_internal' || thread.thread_type === 'sector_group')) {
+          if (contato.tipo_contato !== selectedTipoContato) {
+            logThread('Filtro Tipo Contato', false, `Tipo diferente (esperado: ${selectedTipoContato}, atual: ${contato.tipo_contato})`);
+            return false;
+          }
+          logThread('Filtro Tipo Contato', true, 'Tipo OK');
+        }
+      }
+      
+      // Filtro de TAG (threads externas)
+      if (selectedTagContato && selectedTagContato !== 'all' && contato) {
+        if (!(thread.thread_type === 'team_internal' || thread.thread_type === 'sector_group')) {
+          const tags = contato.tags || [];
+          if (!tags.includes(selectedTagContato)) {
+            logThread('Filtro Tag', false, `Tag não encontrada (esperado: ${selectedTagContato})`);
+            return false;
+          }
+          logThread('Filtro Tag', true, 'Tag OK');
         }
       }
       
@@ -1783,40 +1823,6 @@ export default function Comunicacao() {
         }
         
         logThread('Visibilidade Nexus360', true, 'Passou VISIBILITY_MATRIX + escopo');
-      }
-
-      if (categoriasSet && !categoriasSet.has(thread.id)) {
-        logThread('Filtro Categoria', false, 'Thread não tem mensagem com categoria selecionada');
-        if (DEBUG_VIS && isThreadDeUsuarioQueEContato) {
-          console.log('[COMUNICACAO] ❌ USUÁRIO-CONTATO - BLOQUEADO por filtro de categoria');
-        }
-        return false;
-      }
-      if (categoriasSet) {
-        logThread('Filtro Categoria', true, 'Thread tem mensagem com categoria');
-      }
-
-      if (selectedTipoContato && selectedTipoContato !== 'all' && contato) {
-        if (contato.tipo_contato !== selectedTipoContato) {
-          logThread('Filtro Tipo Contato', false, `Tipo diferente (esperado: ${selectedTipoContato}, atual: ${contato.tipo_contato})`);
-          if (DEBUG_VIS && isThreadDeUsuarioQueEContato) {
-            console.log('[COMUNICACAO] ❌ USUÁRIO-CONTATO - BLOQUEADO por filtro de tipo de contato');
-          }
-          return false;
-        }
-        logThread('Filtro Tipo Contato', true, 'Tipo OK');
-      }
-
-      if (selectedTagContato && selectedTagContato !== 'all' && contato) {
-        const tags = contato.tags || [];
-        if (!tags.includes(selectedTagContato)) {
-          logThread('Filtro Tag', false, `Tag não encontrada (esperado: ${selectedTagContato})`);
-          if (DEBUG_VIS && isThreadDeUsuarioQueEContato) {
-            console.log('[COMUNICACAO] ❌ USUÁRIO-CONTATO - BLOQUEADO por filtro de tag');
-          }
-          return false;
-        }
-        logThread('Filtro Tag', true, 'Tag OK');
       }
 
       if (DEBUG_VIS && isThreadDeUsuarioQueEContato) {
