@@ -306,6 +306,8 @@ Deno.serve(async (req) => {
     // Auditoria
     await base44.asServiceRole.entities.AuditLog.create({
       acao: 'sincronizar_mensagens_provedor',
+      entidade_tipo: 'WhatsAppIntegration',
+      entidade_id: integrationId,
       usuario_id: user.id,
       timestamp: new Date().toISOString(),
       detalhes: {
@@ -316,7 +318,7 @@ Deno.serve(async (req) => {
         resultados: resultadoSync
       },
       origem: 'manual',
-      prioridade: 'alta'
+      nivel: 'info'
     });
     
     return Response.json({
