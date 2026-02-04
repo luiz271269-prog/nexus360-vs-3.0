@@ -150,6 +150,7 @@ export default function SearchAndFilter({
   // Contar filtros ativos
   const filtrosAtivos = [
     filterScope !== 'all' && filterScope !== 'my',
+    selectedAttendantId,
     selectedIntegrationId && selectedIntegrationId !== 'all',
     selectedCategoria && selectedCategoria !== 'all',
     selectedTipoContato && selectedTipoContato !== 'all',
