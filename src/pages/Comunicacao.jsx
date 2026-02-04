@@ -113,6 +113,7 @@ export default function Comunicacao() {
   // Estados para seleção múltipla (broadcast)
   const [modoSelecaoMultipla, setModoSelecaoMultipla] = useState(false);
   const [contatosSelecionados, setContatosSelecionados] = useState([]);
+  const [mostrarSelecionados, setMostrarSelecionados] = useState(false);
   
   // Estados para broadcast interno
   const [broadcastInterno, setBroadcastInterno] = useState(null); // { destinations: [...] }
