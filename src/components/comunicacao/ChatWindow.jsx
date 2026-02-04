@@ -1,8 +1,9 @@
-import React, { useState, useRef, useEffect, useCallback, useMemo } from "react";
+import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { useQueryClient, useMutation } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import IntegrationStatusBanner from './IntegrationStatusBanner';
 import {
   Send,
   Paperclip,
@@ -340,6 +341,25 @@ export default function ChatWindow({
   };
 
   const podeEnviarPorInstancia = getPermissaoInstancia('can_send');
+
+  // 🔐 Construir userPermissions para o banner de status
+  const userPermissions = useMemo(() => {
+    if (!usuario) return null;
+    
+    const whatsappPerms = usuario.whatsapp_permissions || [];
+    const integracoesMap = {};
+    
+    integracoes.forEach(integracao => {
+      const perm = whatsappPerms.find(p => p.integration_id === integracao.id);
+      integracoesMap[integracao.id] = {
+        can_view: perm?.can_view ?? true,
+        can_send: perm?.can_send ?? true,
+        integration_name: integracao.nome_instancia
+      };
+    });
+    
+    return { integracoes: integracoesMap };
+  }, [usuario, integracoes]);
 
   // ✅ NEXUS360: Prioriza novo sistema, fallback para legado, default liberado
   const temPermissaoGeralEnvio = permNexus.podeEnviarMensagens ?? permLegado.pode_enviar_mensagens ?? true;
@@ -2188,6 +2208,16 @@ export default function ChatWindow({
             </div>
         </div>
       }
+
+        {/* Banner de Status da Integração */}
+        {!mostrarInterfaceBroadcast && thread?.whatsapp_integration_id && userPermissions && (
+          <div className="px-4 pt-3">
+            <IntegrationStatusBanner 
+              integrationId={thread.whatsapp_integration_id}
+              userPermissions={userPermissions}
+            />
+          </div>
+        )}
 
         {/* Alerta de Pedido de Transferência - Micro-URA */}
         {!mostrarInterfaceBroadcast && thread &&
