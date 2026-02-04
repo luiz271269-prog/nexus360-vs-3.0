@@ -78,6 +78,11 @@ function classifyWapiEvent(payload) {
 
   const evento = String(payload.event || payload.type || '').toLowerCase();
 
+  // ✅ EVENTOS DE CONEXÃO/DESCONEXÃO
+  if (evento === 'webhookdisconnected' || evento === 'webhookconnected' || evento === 'instancedisconnected') {
+    return 'connection-status';
+  }
+
   if (evento.includes('delivery') || evento.includes('ack') || evento.includes('status')) {
     return 'system-status';
   }
@@ -103,6 +108,7 @@ function deveIgnorar(payload, classification) {
 
   if (classification === 'ignore') return 'evento_desconhecido';
   if (classification === 'system-status') return null;
+  if (classification === 'connection-status') return null;
 
   const tipo = String(payload.type ?? payload.event ?? '').toLowerCase();
   
@@ -365,6 +371,98 @@ async function handleConnection(dados, base44, payloadBruto) {
     console.error('[WAPI] ❌ Erro ao atualizar conexão:', e.message);
   }
   return jsonOk({ processed: 'connection', status: dados.status, provider: 'w_api' });
+}
+
+// ============================================================================
+// HANDLE DISCONNECTION/CONNECTION STATUS
+// ============================================================================
+async function handleConnectionStatus(payload, base44) {
+  const evento = String(payload.event || '').toLowerCase();
+  const instanceId = payload.instanceId;
+  const moment = payload.moment; // epoch seconds
+  
+  if (!instanceId) {
+    console.warn('[WAPI] ⚠️ Evento de status sem instanceId');
+    return jsonOk({ ignored: true, reason: 'no_instance_id' });
+  }
+
+  try {
+    // Buscar integração
+    const integracoes = await base44.asServiceRole.entities.WhatsAppIntegration.filter(
+      { instance_id_provider: instanceId },
+      '-created_date',
+      1
+    );
+
+    if (!integracoes || integracoes.length === 0) {
+      console.warn('[WAPI] ⚠️ Instância não mapeada:', instanceId);
+      return jsonOk({ ignored: true, reason: 'unmapped_instance' });
+    }
+
+    const integracao = integracoes[0];
+    const timestamp = moment ? new Date(moment * 1000).toISOString() : new Date().toISOString();
+    
+    if (evento === 'webhookdisconnected') {
+      // Anti-spam: não processar se já está desconectado há menos de 2 minutos
+      if (integracao.status === 'desconectado' && integracao.last_disconnected_at) {
+        const diffMs = Date.now() - new Date(integracao.last_disconnected_at).getTime();
+        if (diffMs < 120000) { // 2 minutos
+          console.log('[WAPI] ⏭️ Desconexão já registrada recentemente');
+          return jsonOk({ ignored: true, reason: 'already_disconnected' });
+        }
+      }
+
+      await base44.asServiceRole.entities.WhatsAppIntegration.update(integracao.id, {
+        status: 'desconectado',
+        last_disconnected_at: timestamp,
+        status_reason: 'webhookDisconnected',
+        ultima_atividade: timestamp
+      });
+
+      console.log(`[WAPI] 🔴 DESCONEXÃO REGISTRADA: ${integracao.nome_instancia} às ${timestamp}`);
+
+      // Criar notificação para usuários com acesso
+      try {
+        await base44.asServiceRole.entities.NotificationEvent.create({
+          tipo: 'integration_disconnected',
+          titulo: `Instância WhatsApp desconectada`,
+          mensagem: `A instância ${integracao.nome_instancia} foi desconectada às ${new Date(timestamp).toLocaleTimeString('pt-BR')}`,
+          prioridade: 'alta',
+          integration_id: integracao.id,
+          metadata: {
+            integration_name: integracao.nome_instancia,
+            phone: integracao.numero_telefone,
+            disconnected_at: timestamp
+          }
+        });
+      } catch (notifErr) {
+        console.warn('[WAPI] ⚠️ Erro ao criar notificação:', notifErr.message);
+      }
+
+      return jsonOk({ processed: 'disconnection', integration_id: integracao.id });
+    }
+
+    if (evento === 'webhookconnected') {
+      await base44.asServiceRole.entities.WhatsAppIntegration.update(integracao.id, {
+        status: 'conectado',
+        last_connected_at: timestamp,
+        status_reason: null,
+        ultima_atividade: timestamp,
+        token_status: 'valido'
+      });
+
+      console.log(`[WAPI] 🟢 RECONEXÃO REGISTRADA: ${integracao.nome_instancia} às ${timestamp}`);
+
+      return jsonOk({ processed: 'reconnection', integration_id: integracao.id });
+    }
+
+    return jsonOk({ ignored: true, reason: 'unknown_connection_event' });
+
+  } catch (error) {
+    console.error('[WAPI] ❌ Erro ao processar status de conexão:', error.message);
+    // ✅ NUNCA derrubar webhook - sempre retornar 200
+    return jsonOk({ error: 'processing_failed', details: error.message });
+  }
 }
 
 async function handleMessageUpdate(dados, base44) {
@@ -915,6 +1013,11 @@ Deno.serve(async (req) => {
     } catch {}
     
     return jsonOk({ ignored: true, reason: dados.error });
+  }
+
+  // ✅ TRATAR EVENTOS DE CONEXÃO/DESCONEXÃO (antes da normalização)
+  if (classification === 'connection-status') {
+    return await handleConnectionStatus(payload, base44);
   }
 
   console.log(`[WAPI] 🔄 Processando: ${dados.type}`);
