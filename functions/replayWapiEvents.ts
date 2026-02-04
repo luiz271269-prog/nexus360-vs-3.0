@@ -72,7 +72,10 @@ function normalizarPayloadReplay(rawEvent) {
                   data.type === 'audio' ? 'audio' :
                   data.type === 'document' ? 'document' : 'none',
       media_url: data.url || null,
-      sent_at: data.timestamp ? new Date(data.timestamp * 1000).toISOString() : new Date().toISOString()
+      // ✅ FIX: Usar timestamp_recebido do log como fallback
+      sent_at: data.timestamp 
+        ? new Date(data.timestamp * 1000).toISOString() 
+        : (rawEvent.timestamp_recebido || new Date().toISOString())
     },
     messageContent: data.text?.message || data.body || '',
     rawPayload: rawEvent
@@ -144,56 +147,115 @@ Deno.serve(async (req) => {
     
     console.log(`[REPLAY] 🎯 ${candidates.length} eventos candidatos para reprocessamento`);
     
+    // ✅ DEDUPLICAÇÃO PRÉ-PROCESSAMENTO
+    const candidateIds = candidates
+      .map(c => (c.data || c).id || (c.data || c).messageId)
+      .filter(Boolean);
+    
+    console.log(`[REPLAY] 🔍 Verificando ${candidateIds.length} IDs contra banco...`);
+    
+    const existingMessages = await base44.asServiceRole.entities.Message.filter({
+      whatsapp_message_id: { $in: candidateIds }
+    });
+    
+    const existingIds = new Set(existingMessages.map(m => m.whatsapp_message_id));
+    const newCandidates = candidates.filter(c => {
+      const data = c.data || c;
+      const msgId = data.id || data.messageId;
+      return !existingIds.has(msgId);
+    });
+    
+    console.log(`[REPLAY] ⏭️  ${existingMessages.length} mensagens já existem (pulando)`);
+    console.log(`[REPLAY] 🔄 ${newCandidates.length} mensagens novas para processar`);
+    
     // Resultados
     const results = {
       total: candidates.length,
       created: 0,
-      skipped: 0,
+      skipped: existingMessages.length,
       errors: 0,
       detalhes: []
     };
     
-    // Processar cada evento
-    for (const event of candidates) {
-      try {
-        const normalized = normalizarPayloadReplay(event);
-        
-        // Chamar o processInboundEvent (que tem idempotência)
-        const processResult = await processInboundEvent({
-          base44,
-          contact: normalized.contact,
-          thread: normalized.thread,
-          message: normalized.message,
-          integration: integration,
-          provider: 'w_api',
-          messageContent: normalized.messageContent,
-          rawPayload: normalized.rawPayload
-        });
-        
-        if (processResult.skipped) {
-          results.skipped++;
-          results.detalhes.push({
-            message_id: normalized.message.whatsapp_message_id,
-            status: 'skipped',
-            reason: processResult.reason
+    // ✅ PROCESSAMENTO EM LOTES COM RETRY
+    const BATCH_SIZE = 50;
+    const MAX_RETRIES = 3;
+    
+    const processWithRetry = async (event) => {
+      const normalized = normalizarPayloadReplay(event);
+      
+      for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+        try {
+          const processResult = await processInboundEvent({
+            base44,
+            contact: normalized.contact,
+            thread: normalized.thread,
+            message: normalized.message,
+            integration: integration,
+            provider: 'w_api',
+            messageContent: normalized.messageContent,
+            rawPayload: normalized.rawPayload
           });
-        } else if (processResult.status === 'created' || processResult.handled_by_ura) {
-          results.created++;
-          results.detalhes.push({
-            message_id: normalized.message.whatsapp_message_id,
-            status: 'created',
-            telefone: normalized.contact.telefone
-          });
+          
+          return { success: true, result: processResult, normalized };
+        } catch (error) {
+          if (attempt === MAX_RETRIES) {
+            throw error;
+          }
+          const delay = Math.pow(2, attempt - 1) * 1000;
+          console.warn(`[REPLAY] ⚠️ Tentativa ${attempt}/${MAX_RETRIES} falhou para ${normalized.message.whatsapp_message_id}. Retry em ${delay}ms...`);
+          await new Promise(resolve => setTimeout(resolve, delay));
         }
-        
-      } catch (error) {
-        results.errors++;
-        results.detalhes.push({
-          event: event,
-          status: 'error',
-          error: error.message
-        });
-        console.error('[REPLAY] ❌ Erro ao processar evento:', error.message);
+      }
+    };
+    
+    // Processar em lotes
+    for (let i = 0; i < newCandidates.length; i += BATCH_SIZE) {
+      const batch = newCandidates.slice(i, i + BATCH_SIZE);
+      const batchNum = Math.floor(i / BATCH_SIZE) + 1;
+      const totalBatches = Math.ceil(newCandidates.length / BATCH_SIZE);
+      
+      console.log(`[REPLAY] 📦 Processando lote ${batchNum}/${totalBatches} (${batch.length} msgs)`);
+      
+      const batchResults = await Promise.allSettled(
+        batch.map(event => processWithRetry(event))
+      );
+      
+      batchResults.forEach((result, idx) => {
+        if (result.status === 'fulfilled') {
+          const { result: processResult, normalized } = result.value;
+          
+          if (processResult.skipped) {
+            results.skipped++;
+            results.detalhes.push({
+              message_id: normalized.message.whatsapp_message_id,
+              status: 'skipped',
+              reason: processResult.reason
+            });
+          } else {
+            results.created++;
+            results.detalhes.push({
+              message_id: normalized.message.whatsapp_message_id,
+              status: 'created',
+              telefone: normalized.contact.telefone
+            });
+          }
+        } else {
+          results.errors++;
+          const event = batch[idx];
+          const data = event.data || event;
+          results.detalhes.push({
+            message_id: data.id || data.messageId,
+            status: 'error',
+            error: result.reason?.message || 'Erro desconhecido'
+          });
+          console.error('[REPLAY] ❌ Erro definitivo após retries:', result.reason?.message);
+        }
+      });
+      
+      // Pequeno delay entre lotes
+      if (i + BATCH_SIZE < newCandidates.length) {
+        await new Promise(resolve => setTimeout(resolve, 100));
       }
     }
     
