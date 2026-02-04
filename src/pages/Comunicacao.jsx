@@ -590,22 +590,35 @@ export default function Comunicacao() {
     }
   });
 
-  // Filtrar integrações baseado nas permissões do usuário
-  // ALINHADO com threadVisibility.js: usa permissoes_visualizacao.integracoes_visiveis
+  // ✅ CIRÚRGICA P1: Filtrar integrações por whatsapp_permissions + permissoes_visualizacao
   const integracoes = React.useMemo(() => {
     if (!usuario || !todasIntegracoes.length) return [];
     if (usuario.role === 'admin') return todasIntegracoes;
 
+    const whatsappPerms = usuario.whatsapp_permissions || [];
     const perms = usuario.permissoes_visualizacao || {};
     const integracoesVisiveis = perms.integracoes_visiveis || [];
 
-    // Array vazio = sem restrição (mesma regra do threadVisibility.js)
+    // Normalizar função
+    const normalizar = (v) => v ? String(v).trim().toLowerCase() : '';
+
+    // Filtrar por whatsapp_permissions (can_view: true)
+    const integracoesComPermissao = whatsappPerms
+      .filter(wp => wp.can_view === true)
+      .map(wp => wp.integration_id);
+
+    // Se há permissões WhatsApp configuradas, usar APENAS essas
+    if (integracoesComPermissao.length > 0) {
+      const permNorm = new Set(integracoesComPermissao.map(normalizar));
+      return todasIntegracoes.filter((i) => permNorm.has(normalizar(i.id)));
+    }
+
+    // Fallback: permissoes_visualizacao.integracoes_visiveis
     if (integracoesVisiveis.length === 0) return todasIntegracoes;
 
-    const normalizar = (v) => v ? String(v).trim().toLowerCase() : '';
     const visiveisNorm = new Set(integracoesVisiveis.map(normalizar));
     return todasIntegracoes.filter((i) => visiveisNorm.has(normalizar(i.id)));
-  }, [todasIntegracoes, usuario?.id, usuario?.role, usuario?.permissoes_visualizacao]);
+  }, [todasIntegracoes, usuario?.id, usuario?.role, usuario?.whatsapp_permissions, usuario?.permissoes_visualizacao]);
 
   // ✅ FONTE ÚNICA: Buscar atendentes via função (igual em TODAS as telas)
   const { data: atendentes = [] } = useQuery({
@@ -893,22 +906,25 @@ export default function Comunicacao() {
         cliente_id: dadosContato.cliente_id || null
       });
 
-      // ✅ FIX: Buscar integração onde USUÁRIO TEM can_send
+      // ✅ CIRÚRGICA P4: Validar can_send ANTES de criar thread
       const integracaoAtiva = integracoes.find((i) => {
         if (i.status !== 'conectado') return false;
         
         // Admin pode usar qualquer integração ativa
         if (usuario.role === 'admin') return true;
         
-        // Verificar se usuário tem permissão can_send nesta integração
+        // ✅ CRÍTICO: Verificar can_view E can_send
         const whatsappPerms = usuario.whatsapp_permissions || [];
         
-        // Sem restrições configuradas = libera
+        // Sem restrições configuradas = libera (compatibilidade)
         if (whatsappPerms.length === 0) return true;
         
         // Buscar permissão específica para esta integração
         const perm = whatsappPerms.find(p => p.integration_id === i.id);
-        return perm?.can_send === true;
+        
+        // ✅ AMBAS as permissões devem ser true
+        if (!perm) return false;
+        return perm.can_view === true && perm.can_send === true;
       });
 
       if (!integracaoAtiva) {
@@ -1156,6 +1172,18 @@ export default function Comunicacao() {
     if (!threadAtiva || !usuario) return;
 
     const { texto, integrationId, replyToMessage, mediaUrl, mediaType, mediaCaption, isAudio } = dadosEnvio;
+
+    // ✅ CIRÚRGICA P1.5: Validar can_send ANTES de enviar
+    if (usuario.role !== 'admin') {
+      const whatsappPerms = usuario.whatsapp_permissions || [];
+      if (whatsappPerms.length > 0) {
+        const perm = whatsappPerms.find(p => p.integration_id === integrationId);
+        if (!perm || perm.can_send !== true) {
+          toast.error('❌ Você não tem permissão para enviar mensagens por esta conexão');
+          return;
+        }
+      }
+    }
 
     // 1. Criar mensagem temporária (aparece instantaneamente na tela)
     const msgTemp = {
