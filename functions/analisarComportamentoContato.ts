@@ -491,51 +491,99 @@ Forneça insights comerciais acionáveis.`,
     }
 
     // ==========================================
-    // 5. PRÓXIMA AÇÃO SUGERIDA COM IA
+    // 5. SISTEMA DE ALERTAS (P0)
     // ==========================================
+    const alerts = [];
+
+    if (maxFollowUpStreak >= 3) {
+      alerts.push({ level: 'alto', reason: `${maxFollowUpStreak} follow-ups consecutivos sem resposta do cliente` });
+    }
+
+    if (daysStalled > 3 && estagioVida === 'negociacao') {
+      alerts.push({ level: 'alto', reason: 'Negociação parada há mais de 3 dias' });
+    }
+
+    if (dealRisk > 70 && buyIntent > 50) {
+      alerts.push({ level: 'alto', reason: 'Alto risco de perda em negociação com boa intenção de compra' });
+    }
+
+    if (analiseSentimento.score_sentimento < 40 && temReclamacao) {
+      alerts.push({ level: 'alto', reason: 'Reclamação + sentimento negativo detectado' });
+    }
+
+    if (hasFriction) {
+      alerts.push({ level: 'medio', reason: frictionReasons.join('; ') });
+    }
+
+    if (buyIntent > 70 && daysStalled > 2) {
+      alerts.push({ level: 'medio', reason: 'Oportunidade quente esfriando (sem interação recente)' });
+    }
+
+    // ==========================================
+    // 6. HANDOFF E PRÓXIMA AÇÃO
+    // ==========================================
+    const needManager = (dealRisk > 70 && buyIntent > 50) || (healthScore < 40 && buyIntent > 60);
+    
+    const handoff = 
+      needManager && hasFriction ? 'co_atendimento_gerente' :
+      healthScore < 30 && maxFollowUpStreak > 5 ? 'trocar_responsavel' :
+      'manter';
+
     let proximaAcao = 'Acompanhar evolução';
     let acoesPrioritarias = [];
+    let messageSuggestion = '';
     
     // 🤖 IA SUGERE AÇÕES BASEADAS NO CONTEXTO COMPLETO
     try {
       const sugestaoAcoes = await base44.integrations.Core.InvokeLLM({
-        prompt: `Com base nesta análise de cliente:
+        prompt: `Com base nesta análise de cliente B2B:
+- Health Score: ${healthScore}/100
+- Deal Risk: ${dealRisk}/100
+- Buy Intent: ${buyIntent}/100
+- Engagement: ${scoreEngajamento}/100
 - Segmento: ${segmentoSugerido}
-- Score Engajamento: ${scoreEngajamento}/100
 - Sentimento: ${analiseSentimento.sentimento_predominante} (${analiseSentimento.score_sentimento}/100)
 - Intenções: ${intencoesDetectadas.map(i => i.intencao).join(', ') || 'nenhuma clara'}
-- Palavras-chave comerciais: ${palavrasChave.filter(p => p.relevancia_comercial >= 7).map(p => p.palavra).join(', ') || 'nenhuma'}
+- Objeções: ${(objections || []).map(o => o.text).join('; ') || 'nenhuma'}
+- Alertas: ${alerts.map(a => a.reason).join('; ') || 'nenhum'}
 ${insightsVisuais.length > 0 ? `- Insights visuais: ${insightsVisuais.join(', ')}` : ''}
 
-Sugira a MELHOR ação comercial imediata (específica, acionável, com prazo).`,
+Sugira:
+1. A melhor ação comercial IMEDIATA (específica, acionável, com prazo em horas)
+2. Uma mensagem WhatsApp curta e profissional para enviar ao cliente
+3. 2-3 ações secundárias`,
         response_json_schema: {
           type: "object",
           properties: {
             acao_principal: { type: "string" },
-            prazo_sugerido: { type: "string" },
-            acoes_secundarias: { type: "array", items: { type: "string" } },
+            prazo_horas: { type: "number" },
+            message_suggestion: { type: "string" },
+            acoes_secundarias: { type: "array", items: { type: "string" }, maxItems: 3 },
             justificativa: { type: "string" }
           }
         }
       });
 
-      proximaAcao = `${sugestaoAcoes.acao_principal} (${sugestaoAcoes.prazo_sugerido})`;
+      proximaAcao = sugestaoAcoes.acao_principal;
       acoesPrioritarias = sugestaoAcoes.acoes_secundarias || [];
+      messageSuggestion = sugestaoAcoes.message_suggestion || '';
       
     } catch (error) {
       console.warn('⚠️ Erro ao gerar sugestão de ação com IA:', error.message);
       
       // Fallback para regras fixas
       if (segmentoSugerido === 'lead_quente') {
-        proximaAcao = '🎯 Enviar proposta comercial formal (24h)';
+        proximaAcao = 'Enviar proposta comercial formal';
+        messageSuggestion = 'Olá! Preparei uma proposta personalizada para você. Posso enviar?';
       } else if (segmentoSugerido === 'cliente_ativo') {
-        proximaAcao = '💎 Verificar oportunidades de upsell (esta semana)';
+        proximaAcao = 'Verificar oportunidades de upsell';
       } else if (segmentoSugerido === 'risco_churn') {
-        proximaAcao = '🚨 URGENTE: Contato imediato para resolver insatisfação (hoje)';
+        proximaAcao = 'URGENTE: Contato imediato para resolver insatisfação';
+        messageSuggestion = 'Vi que houve um problema. Podemos conversar para resolver juntos?';
       } else if (segmentoSugerido === 'lead_morno') {
-        proximaAcao = '📞 Agendar call de descoberta (3 dias)';
+        proximaAcao = 'Agendar call de descoberta';
       } else if (segmentoSugerido === 'cliente_inativo') {
-        proximaAcao = '🔄 Campanha de reativação (imediato)';
+        proximaAcao = 'Campanha de reativação';
       }
     }
 
