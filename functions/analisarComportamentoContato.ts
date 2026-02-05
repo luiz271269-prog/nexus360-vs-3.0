@@ -25,7 +25,7 @@ Deno.serve(async (req) => {
       return Response.json({ error: 'Não autorizado' }, { status: 401, headers: corsHeaders });
     }
 
-    const { contact_id, periodo_dias = 30 } = await req.json();
+    const { contact_id, periodo_dias = 30, mode = 'period' } = await req.json();
 
     if (!contact_id) {
       return Response.json({ error: 'contact_id obrigatório' }, { status: 400, headers: corsHeaders });
@@ -37,18 +37,37 @@ Deno.serve(async (req) => {
       return Response.json({ error: 'Contato não encontrado' }, { status: 404, headers: corsHeaders });
     }
 
-    // 📊 BUSCAR MENSAGENS DOS ÚLTIMOS X DIAS
-    const dataInicio = new Date();
-    dataInicio.setDate(dataInicio.getDate() - periodo_dias);
-
-    const todasMensagens = await base44.asServiceRole.entities.Message.list('-created_date', 500);
-    const threads = await base44.asServiceRole.entities.MessageThread.list('-created_date', 50, { contact_id });
+    // 📊 BUSCAR THREADS DO CONTATO (todas visíveis ao usuário)
+    const threads = await base44.asServiceRole.entities.MessageThread.filter({ contact_id });
+    
+    if (threads.length === 0) {
+      return Response.json({ 
+        error: 'Nenhuma conversa encontrada para este contato',
+        info: 'O contato precisa ter pelo menos uma conversa para análise'
+      }, { status: 400, headers: corsHeaders });
+    }
 
     const threadIds = threads.map(t => t.id);
-    const mensagens = todasMensagens.filter(m => 
-      threadIds.includes(m.thread_id) && 
-      new Date(m.created_date) >= dataInicio
-    );
+
+    // 📊 CALCULAR PERÍODO
+    const dataInicio = new Date();
+    dataInicio.setDate(dataInicio.getDate() - periodo_dias);
+    const dataFim = new Date();
+
+    // 📊 BUSCAR MENSAGENS CORRETAS: Filtrar no banco por thread_id + período
+    const mensagens = await base44.asServiceRole.entities.Message.filter({
+      thread_id: { $in: threadIds },
+      created_date: { $gte: dataInicio.toISOString() }
+    }, '-created_date', 1500); // Limite de 1500 mensagens por contato
+
+    if (mensagens.length === 0) {
+      return Response.json({
+        error: 'Nenhuma mensagem encontrada no período analisado',
+        info: `Período: últimos ${periodo_dias} dias. Tente aumentar o período.`
+      }, { status: 400, headers: corsHeaders });
+    }
+
+    console.log(`📊 Análise iniciada: ${mensagens.length} mensagens de ${threads.length} thread(s) nos últimos ${periodo_dias} dias`);
 
     // ==========================================
     // 1. MÉTRICAS DE ENGAJAMENTO
