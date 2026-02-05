@@ -63,22 +63,34 @@ export default function DiagnosticoBloqueios() {
     setResultado(null);
 
     try {
-      const telefoneNormalizado = normalizarTelefone(tel);
-      if (!telefoneNormalizado) {
-        toast.error('Telefone inválido');
-        setBuscando(false);
-        return;
-      }
+      // Limpar caracteres especiais do input
+      const telLimpo = tel.replace(/\D/g, '');
+      
+      // Tentar múltiplas variações do telefone
+      const variacoes = [
+        telLimpo,                                    // 5548988020340
+        `+${telLimpo}`,                             // +5548988020340
+        telLimpo.startsWith('55') ? telLimpo.substring(2) : telLimpo, // 48988020340
+        telLimpo.startsWith('55') ? `+${telLimpo}` : `+55${telLimpo}` // +5548988020340
+      ];
 
-      // Buscar contato
-      const contatos = await base44.entities.Contact.filter({ telefone: telefoneNormalizado });
+      // Buscar contato tentando todas as variações
+      let contatos = [];
+      for (const variacao of variacoes) {
+        const resultado = await base44.entities.Contact.filter({ telefone: variacao });
+        if (resultado.length > 0) {
+          contatos = resultado;
+          break;
+        }
+      }
       
       if (contatos.length === 0) {
         setResultado({
           encontrado: false,
-          telefone: telefoneNormalizado
+          telefone: telLimpo,
+          variacoesTentadas: variacoes
         });
-        toast.info('Nenhum contato encontrado com este telefone');
+        toast.error(`Nenhum contato encontrado. Tentamos: ${variacoes.join(', ')}`);
         setBuscando(false);
         return;
       }
