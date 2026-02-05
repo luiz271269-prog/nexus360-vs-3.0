@@ -681,7 +681,7 @@ Sugira:
     }
 
     // ==========================================
-    // 6B. PAYLOAD HIERÁRQUICO COM INSIGHTS COMPLETO
+    // 6B. PAYLOAD HIERÁRQUICO COM INSIGHTS COMPLETO (PROFISSIONAL)
     // ==========================================
     const payload = {
       scope: {
@@ -704,12 +704,13 @@ Sugira:
       scores_explain: {
         health: `Saúde = Sentimento(${analiseSentimento.score_sentimento}% × 50%) + Responsividade(${responsividadeScore.toFixed(0)}% × 30%) + Fricção(${hasFriction ? 0 : 20}% × 20%)`,
         deal_risk: `Risco = Dias parado(${Math.min(daysStalled * 10, 40)}%) + Objeções altas(${Math.min(objecoesAltas * 15, 30)}%) + Follow-ups(${Math.min(Math.max(maxFollowUpStreak - 2, 0) * 10, 30)}%)`,
-        buy_intent: `Intenção = ${intentsCompra.length} intenção(ões) de compra detectada(s) com confiança média ${buyIntent}%`,
+        buy_intent: `Intenção = ${intentsCompra.length} intenção(ões) de compra com confiança ${buyIntent}%`,
         engagement: `Engajamento = Vol(${Math.round(inbound.length * 3)}) + Reciprocidade(${(inbound.length / Math.max(outbound.length, 1) * 40).toFixed(0)}) + Sentimento + Tempo resposta`
       },
       stage: {
         current: estagioVida,
-        days_stalled: daysStalled
+        days_stalled: daysStalled,
+        pipeline_hint: `Cliente está em ${estagioVida}. ${daysStalled > 0 ? `Parado há ${daysStalled} dia(s) de inatividade.` : 'Engajado recentemente.'}`
       },
       root_causes: rootCauses,
       evidence_snippets: evidenceSnippets.slice(0, 5),
@@ -727,15 +728,31 @@ Sugira:
           best_contact_times: []
         }
       },
+      // 🆕 FRICÇÕES COMERCIAIS (novo)
+      friction_details: fricoesComerciais.map((f, i) => ({
+        id: i + 1,
+        title: f.friccao,
+        severity: f.severidade,
+        origin: f.origem,
+        impact: f.impacto_fechamento,
+        strategy: estrategiasDesbloqueio[i]?.estrategia,
+        suggested_message: estrategiasDesbloqueio[i]?.mensagem_proposta
+      })) || [],
       topics: topics || [],
       objections: objections || [],
       alerts,
+      // 🆕 PRÓXIMA AÇÃO ESTRUTURADA EM PASSOS (novo)
       next_best_action: {
         action: proximaAcao,
         deadline_hours: sugestaoAcoes?.prazo_horas || null,
         message_suggestion: messageSuggestion,
         need_manager: needManager,
-        handoff
+        handoff,
+        secondary_actions: acoesPrioritarias.slice(0, 3).map((acao, i) => ({
+          priority: i + 1,
+          action: acao,
+          suggested_owner: i === 0 ? 'vendas' : i === 1 ? 'suporte' : 'financeiro'
+        }))
       }
     };
 
