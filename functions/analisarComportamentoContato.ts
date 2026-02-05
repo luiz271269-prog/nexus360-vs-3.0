@@ -688,8 +688,60 @@ Sugira:
       }
     }
 
+    // ==========================================
+    // 7. PAYLOAD HIERÁRQUICO (ConversationInsightsPayload)
+    // ==========================================
+    const payload = {
+      scope: {
+        mode,
+        start: dataInicio.toISOString(),
+        end: dataFim.toISOString(),
+        threads: threadsScope.length,
+        messages: mensagens.length,
+        limited_by_visibility: limitedByVisibility,
+        visibility_notice: limitedByVisibility 
+          ? 'Insights limitados: existem conversas que você não tem permissão para visualizar.'
+          : null
+      },
+      scores: {
+        health: healthScore,
+        deal_risk: dealRisk,
+        buy_intent: buyIntent,
+        engagement: scoreEngajamento
+      },
+      stage: {
+        current: estagioVida,
+        days_stalled: daysStalled
+      },
+      metrics: {
+        sentiment_current: analiseSentimento.score_sentimento,
+        sentiment_trend: analiseSentimento.evolucao_sentimento,
+        friccao: {
+          has_friction: hasFriction,
+          reasons: frictionReasons
+        },
+        responsiveness: {
+          avg_reply_minutes_company: avgReplyCompany,
+          avg_reply_minutes_client: avgReplyClient,
+          unanswered_followups: maxFollowUpStreak,
+          best_contact_times: []
+        }
+      },
+      topics: topics || [],
+      objections: objections || [],
+      alerts,
+      next_best_action: {
+        action: proximaAcao,
+        deadline_hours: sugestaoAcoes?.prazo_horas || null,
+        message_suggestion: messageSuggestion,
+        need_manager: needManager,
+        handoff
+      }
+    };
+
     return Response.json({
       success: true,
+      payload,
       analise,
       resumo: {
         segmento: segmentoSugerido,
