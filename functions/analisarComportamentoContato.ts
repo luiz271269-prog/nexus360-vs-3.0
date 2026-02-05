@@ -327,6 +327,9 @@ Forneça uma análise estruturada e ACIONÁVEL para vendas B2B.`;
           .sort((a, b) => (b.relevancia_comercial || 0) - (a.relevancia_comercial || 0))
           .slice(0, 10);
 
+        const topics = (analiseCompleta.topics || []).slice(0, 5);
+        const objections = (analiseCompleta.objecoes || []).slice(0, 3);
+
         intencoesDetectadas = (analiseCompleta.intencoes || []).map(i => ({
           intencao: i.intencao,
           confianca: i.confianca,
