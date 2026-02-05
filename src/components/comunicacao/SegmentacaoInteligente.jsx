@@ -81,6 +81,9 @@ export default function SegmentacaoInteligente({ contactId }) {
 
       if (resultado.data.success) {
         const resumo = resultado.data.resumo;
+        const payloadData = resultado.data.payload;
+        
+        setPayload(payloadData);
         
         // Foto será buscada automaticamente ao recarregar o contato no ChatWindow
         
