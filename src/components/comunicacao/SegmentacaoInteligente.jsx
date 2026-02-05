@@ -521,40 +521,80 @@ export default function SegmentacaoInteligente({
             </Card>
           )}
 
-          {/* Próxima Ação com Template de Mensagem */}
+          {/* Próxima Ação Estruturada com Passos e Handoff */}
           {payload?.next_best_action && (
             <Card className="border-green-300 bg-gradient-to-br from-green-50 to-emerald-50">
               <CardHeader>
                 <CardTitle className="text-sm flex items-center gap-2">
                   <Zap className="w-4 h-4 text-green-600" />
-                  Próxima Ação Recomendada
+                  Próxima Ação Recomendada (Plano de Ação)
                   {payload.next_best_action.need_manager && (
-                    <Badge className="bg-red-500 text-white text-xs ml-auto">Gerente Necessário</Badge>
+                    <Badge className="bg-red-500 text-white text-xs ml-auto">⚠️ Gerente</Badge>
                   )}
                 </CardTitle>
               </CardHeader>
-              <CardContent className="space-y-3">
-                <div>
-                  <p className="text-sm font-semibold text-slate-800 mb-1">
-                    {payload.next_best_action.action}
+              <CardContent className="space-y-4">
+                {/* Objetivo */}
+                <div className="bg-white p-3 rounded border border-green-200">
+                  <p className="text-xs text-slate-500 font-medium mb-1">📌 Objetivo:</p>
+                  <p className="text-sm font-semibold text-slate-800">
+                    {payload.next_best_action.objective || payload.next_best_action.action}
                   </p>
-                  {payload.next_best_action.deadline_hours && (
-                    <p className="text-xs text-slate-500">
-                      Prazo: {payload.next_best_action.deadline_hours}h
-                    </p>
-                  )}
-                  <Badge variant="outline" className="mt-1 text-xs">
-                    {payload.next_best_action.handoff === 'co_atendimento_gerente' ? '👥 Co-atendimento' :
-                     payload.next_best_action.handoff === 'trocar_responsavel' ? '🔄 Trocar responsável' :
-                     '✅ Manter atual'}
-                  </Badge>
                 </div>
 
+                {/* Passos */}
+                {payload.next_best_action.steps && payload.next_best_action.steps.length > 0 && (
+                  <div className="space-y-2">
+                    <p className="text-xs font-bold text-slate-700">📋 Passos Prioritários:</p>
+                    {payload.next_best_action.steps.map((step, i) => (
+                      <div key={i} className="p-2 bg-white rounded border-l-4 border-green-400">
+                        <div className="flex items-start gap-2">
+                          <span className="text-xs font-bold text-green-600 bg-green-100 rounded-full w-6 h-6 flex items-center justify-center flex-shrink-0">
+                            {step.step}
+                          </span>
+                          <div className="flex-1">
+                            <p className="text-xs font-semibold text-slate-800">{step.title}</p>
+                            <p className="text-xs text-slate-600 mt-0.5">{step.detail}</p>
+                            {step.due_at && (
+                              <p className="text-xs text-slate-500 mt-1">
+                                ⏰ {new Date(step.due_at).toLocaleDateString('pt-BR')}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* Handoff Recomendado */}
+                {payload.next_best_action.handoff_recommended && payload.next_best_action.handoff_recommended.length > 0 && (
+                  <div className="space-y-2">
+                    <p className="text-xs font-bold text-slate-700">🤝 Encaminhamentos:</p>
+                    {payload.next_best_action.handoff_recommended.map((handoff, i) => (
+                      <div key={i} className="p-2 bg-white rounded border border-amber-200">
+                        <div className="flex items-start gap-2">
+                          <Badge className={`text-xs flex-shrink-0 ${
+                            handoff.priority === 'high' ? 'bg-red-500' : 'bg-blue-500'
+                          } text-white`}>
+                            {handoff.priority}
+                          </Badge>
+                          <div className="flex-1">
+                            <p className="text-xs font-semibold text-slate-800">{handoff.to_team}</p>
+                            <p className="text-xs text-slate-600">{handoff.reason}</p>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* Mensagem Sugerida */}
                 {payload.next_best_action.message_suggestion && (
                   <div className="bg-white p-3 rounded-lg border border-green-200">
-                    <p className="text-xs text-slate-500 mb-1 font-medium">Mensagem sugerida:</p>
-                    <p className="text-sm text-slate-700 italic mb-2">
-                      "{payload.next_best_action.message_suggestion}"
+                    <p className="text-xs text-slate-500 mb-1 font-bold">💬 Mensagem Sugerida:</p>
+                    <p className="text-xs text-slate-700 mb-3 leading-relaxed whitespace-pre-wrap">
+                      {payload.next_best_action.message_suggestion}
                     </p>
                     <Button
                       size="sm"
@@ -566,7 +606,7 @@ export default function SegmentacaoInteligente({
                       }}
                     >
                       <Copy className="w-3 h-3 mr-1" />
-                      Copiar Mensagem
+                      Copiar para WhatsApp
                     </Button>
                   </div>
                 )}
