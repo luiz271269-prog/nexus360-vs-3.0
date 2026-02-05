@@ -176,7 +176,9 @@ Deno.serve(async (req) => {
       avg_reply_minutes_company: avgReplyCompany,
       avg_reply_minutes_client: avgReplyClient,
       unanswered_followups: maxFollowUpStreak,
-      days_since_last_inbound: daysSinceLastInbound
+      days_since_last_inbound: daysSinceLastInbound,
+      taxa_resposta: outbound.length > 0 ? parseFloat(((inbound.length / outbound.length) * 100).toFixed(1)) : 0,
+      tempo_medio_resposta_minutos: avgReplyCompany || 0
     };
 
     // ==========================================
@@ -221,8 +223,8 @@ ${textosMensagens}
 
 📈 MÉTRICAS:
 - Total mensagens: ${metricas.total_mensagens}
-- Taxa resposta: ${metricas.taxa_resposta.toFixed(1)}%
-- Tempo médio resposta: ${metricas.tempo_medio_resposta_minutos.toFixed(0)}min
+- Taxa resposta: ${metricas.taxa_resposta}%
+- Tempo médio resposta: ${Math.round(metricas.tempo_medio_resposta_minutos)}min
 
 Forneça uma análise estruturada e ACIONÁVEL para vendas B2B.`;
 
@@ -623,10 +625,10 @@ Sugira:
     const fotoAntiga = !contato.foto_perfil_atualizada_em || 
       (Date.now() - new Date(contato.foto_perfil_atualizada_em).getTime()) > 7 * 24 * 60 * 60 * 1000;
 
-    if (fotoAntiga && threads.length > 0 && threads[0].whatsapp_integration_id) {
+    if (fotoAntiga && threadsScope.length > 0 && threadsScope[0].whatsapp_integration_id) {
       try {
         const fotoResult = await base44.asServiceRole.functions.invoke('buscarFotoPerfilWhatsApp', {
-          integration_id: threads[0].whatsapp_integration_id,
+          integration_id: threadsScope[0].whatsapp_integration_id,
           phone: contato.telefone
         });
         
