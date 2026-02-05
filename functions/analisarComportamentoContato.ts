@@ -470,15 +470,15 @@ Forneça insights comerciais acionáveis.`,
       segmentoSugerido = 'lead_quente';
       estagioVida = 'decisao';
       confiancaSegmentacao = 90;
-    } else if (mensagensEnviadas.length >= 10 && taxaResposta > 80 && !sentimentoNegativo) {
+    } else if (inbound.length >= 10 && outbound.length > 0 && (inbound.length / outbound.length) > 0.8 && !sentimentoNegativo) {
       segmentoSugerido = 'cliente_ativo';
       estagioVida = 'pos_venda';
       confiancaSegmentacao = 92;
-    } else if (mensagensEnviadas.length >= 5 && analiseSentimento.score_sentimento > 60) {
+    } else if (inbound.length >= 5 && analiseSentimento.score_sentimento > 60) {
       segmentoSugerido = 'lead_morno';
       estagioVida = 'consideracao';
       confiancaSegmentacao = 80;
-    } else if (engajamentoBaixo || mensagensEnviadas.length === 0) {
+    } else if (engajamentoBaixo || inbound.length === 0) {
       const diasSemMensagens = contato.created_date 
         ? (Date.now() - new Date(contato.created_date).getTime()) / (1000 * 60 * 60 * 24)
         : 0;
