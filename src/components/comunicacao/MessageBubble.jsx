@@ -93,7 +93,7 @@ const ImageWithFallback = ({ src, alt, className, onClick, isPersisted }) => {
 };
 
 const FunctionDisplay = ({ toolCall }) => {
-  const [expanded, setExpanded] = useState(false);
+  const [expanded, setExpanded] = React.useState(false);
   const name = toolCall?.name || 'Function';
   const status = toolCall?.status || 'pending';
   const results = toolCall?.results;
