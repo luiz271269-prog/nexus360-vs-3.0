@@ -70,12 +70,13 @@ export default function SegmentacaoInteligente({ contactId }) {
 
   const analisarComportamento = async () => {
     setAnalisando(true);
-    const toastId = toast.loading('🤖 IA analisando histórico de conversas...', { duration: Infinity });
+    const toastId = toast.loading(`🤖 IA analisando últimos ${periodoDias} dias...`, { duration: Infinity });
     
     try {
       const resultado = await base44.functions.invoke('analisarComportamentoContato', {
         contact_id: contactId,
-        periodo_dias: 30
+        periodo_dias: periodoDias,
+        mode: 'period'
       });
 
       if (resultado.data.success) {
