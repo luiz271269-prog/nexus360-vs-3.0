@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import React from "react";
 import { base44 } from "@/api/base44Client";
 import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
@@ -51,8 +51,8 @@ export default function AtribuidorAtendenteRapido({
   disabled = false,
   atendentes = [] // ✅ PROP: Recebe lista de atendentes do pai
 }) {
-  const [salvando, setSalvando] = useState(false);
-  const [menuAberto, setMenuAberto] = useState(false);
+  const [salvando, setSalvando] = React.useState(false);
+  const [menuAberto, setMenuAberto] = React.useState(false);
   const queryClient = useQueryClient();
 
   // Determinar qual campo de fidelização usar baseado no tipo de contato e setor
@@ -203,7 +203,7 @@ export default function AtribuidorAtendenteRapido({
   };
 
   // ✅ TRANSFERÊNCIA SEM RESTRIÇÕES: Mostrar TODOS os atendentes
-  const pessoasDisponiveis = useMemo(() => {
+  const pessoasDisponiveis = React.useMemo(() => {
     return atendentes
       .filter(a => {
         if (!(a.full_name || a.email)) return false;

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -7,9 +7,9 @@ import { base44 } from '@/api/base44Client';
 import { toast } from 'sonner';
 
 export default function CriarGrupoModal({ open, onClose, usuarios = [], currentUser, onSuccess }) {
-  const [groupName, setGroupName] = useState('');
-  const [selectedMembers, setSelectedMembers] = useState([]);
-  const [creating, setCreating] = useState(false);
+  const [groupName, setGroupName] = React.useState('');
+  const [selectedMembers, setSelectedMembers] = React.useState([]);
+  const [creating, setCreating] = React.useState(false);
 
   // Filtrar usuários disponíveis (excluir usuário atual)
   const usuariosDisponiveis = usuarios.filter(u => u.id !== currentUser?.id);

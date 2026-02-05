@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -12,12 +12,12 @@ import CriarGrupoModal from './CriarGrupoModal';
 import UsuarioDisplay from './UsuarioDisplay';
 
 export default function InternalMessageComposer({ open, onClose, currentUser, onSelectDestinations, mode = 'compose', originUserId = null }) {
-  const [selectedUsers, setSelectedUsers] = useState([]);
-  const [selectedSectors, setSelectedSectors] = useState([]);
-  const [selectedGroups, setSelectedGroups] = useState([]);
-  const [resolving, setResolving] = useState(false);
-  const [criarGrupoOpen, setCriarGrupoOpen] = useState(false);
-  const [selectedOriginUser, setSelectedOriginUser] = useState(originUserId || '');
+  const [selectedUsers, setSelectedUsers] = React.useState([]);
+  const [selectedSectors, setSelectedSectors] = React.useState([]);
+  const [selectedGroups, setSelectedGroups] = React.useState([]);
+  const [resolving, setResolving] = React.useState(false);
+  const [criarGrupoOpen, setCriarGrupoOpen] = React.useState(false);
+  const [selectedOriginUser, setSelectedOriginUser] = React.useState(originUserId || '');
 
   // Buscar todos os usuários via função (igual ao AtribuirConversaModal)
   const { data: usuarios = [], isLoading: loadingUsers } = useQuery({
@@ -48,7 +48,7 @@ export default function InternalMessageComposer({ open, onClose, currentUser, on
   });
 
   // Extrair setores únicos
-  const setores = useMemo(() => {
+  const setores = React.useMemo(() => {
     const setoresUnicos = new Set();
     usuarios.forEach(u => {
       if (u.attendant_sector) setoresUnicos.add(u.attendant_sector);
@@ -57,7 +57,7 @@ export default function InternalMessageComposer({ open, onClose, currentUser, on
   }, [usuarios]);
 
   // Usuários (excluindo o atual) - SEM busca, sempre todos
-  const usuariosDisponiveis = useMemo(() => {
+  const usuariosDisponiveis = React.useMemo(() => {
     return usuarios.filter(u => u.id !== currentUser?.id);
   }, [usuarios, currentUser?.id]);
   
