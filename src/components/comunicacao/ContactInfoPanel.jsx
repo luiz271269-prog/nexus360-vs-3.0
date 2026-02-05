@@ -722,7 +722,12 @@ export default function ContactInfoPanel({
         </TabsContent>
 
         <TabsContent value="ia" className="flex-1 overflow-y-auto p-4 m-0">
-          <SegmentacaoInteligente contactId={contact.id} />
+          <SegmentacaoInteligente 
+            contactId={contact.id}
+            mode="bubble"
+            visibleThreadIds={threadAtual ? [threadAtual.id] : []}
+            activeThreadId={threadAtual?.id}
+          />
         </TabsContent>
 
         <TabsContent value="chamadas" className="flex-1 overflow-y-auto m-0">
