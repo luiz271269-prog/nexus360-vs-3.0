@@ -82,8 +82,50 @@ _Agendado via Agenda IA Nexus_`;
         // Enviar lembrete via Central de Comunicação
         let enviouComSucesso = false;
         
-        if (reminder.channel === 'internal' || reminder.channel === 'whatsapp_internal') {
-          // Enviar mensagem interna para o usuário
+        if (reminder.channel === 'whatsapp_external') {
+          // 📱 ENVIAR VIA WHATSAPP EXTERNO
+          try {
+            // Buscar usuário e contato do usuário (se tiver telefone cadastrado)
+            const targetUser = await base44.asServiceRole.entities.User.get(reminder.target_user_id);
+            
+            // Buscar Contact vinculado ao user (pelo email ou telefone)
+            let contactUser = null;
+            if (targetUser.telefone) {
+              const contacts = await base44.asServiceRole.entities.Contact.filter({
+                telefone: targetUser.telefone
+              }, '-created_date', 1);
+              contactUser = contacts?.[0];
+            }
+            
+            if (!contactUser || !contactUser.telefone) {
+              throw new Error('Usuário sem telefone cadastrado para WhatsApp');
+            }
+            
+            // Buscar integração WhatsApp ativa
+            const integracoes = await base44.asServiceRole.entities.WhatsAppIntegration.filter({
+              status: 'conectado'
+            }, '-created_date', 1);
+            
+            if (!integracoes || integracoes.length === 0) {
+              throw new Error('Nenhuma integração WhatsApp ativa');
+            }
+            
+            // Enviar via WhatsApp
+            const result = await base44.asServiceRole.functions.invoke('enviarWhatsApp', {
+              integration_id: integracoes[0].id,
+              numero_destino: contactUser.telefone,
+              mensagem: mensagemLembrete
+            });
+            
+            if (result.data.success) {
+              enviouComSucesso = true;
+              console.log(`[REMINDER-WORKER] 📱 WhatsApp enviado para ${contactUser.telefone}`);
+            }
+          } catch (e) {
+            console.error(`[REMINDER-WORKER] ❌ Erro WhatsApp externo:`, e.message);
+          }
+        } else if (reminder.channel === 'internal' || reminder.channel === 'whatsapp_internal') {
+          // 💬 ENVIAR VIA MENSAGEM INTERNA
           try {
             // Buscar ou criar thread interna entre sistema e usuário
             const result = await base44.asServiceRole.functions.invoke('getOrCreateInternalThread', {
@@ -99,6 +141,7 @@ _Agendado via Agenda IA Nexus_`;
               });
               
               enviouComSucesso = true;
+              console.log(`[REMINDER-WORKER] 💬 Mensagem interna enviada`);
             }
           } catch (e) {
             console.error(`[REMINDER-WORKER] ❌ Erro ao enviar interno:`, e.message);
