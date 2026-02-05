@@ -26,6 +26,7 @@ export default function SegmentacaoInteligente({ contactId }) {
   const [loading, setLoading] = useState(true);
   const [analisando, setAnalisando] = useState(false);
   const [tags, setTags] = useState([]);
+  const [periodoDias, setPeriodoDias] = useState(30);
 
   useEffect(() => {
     carregarAnalise();
