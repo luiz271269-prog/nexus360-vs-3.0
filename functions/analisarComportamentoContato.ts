@@ -90,39 +90,93 @@ Deno.serve(async (req) => {
     console.log(`📊 Análise [${mode}]: ${mensagens.length} mensagens de ${threadsScope.length}/${threadsAll.length} thread(s) nos últimos ${periodo_dias} dias`);
 
     // ==========================================
-    // 1. MÉTRICAS DE ENGAJAMENTO
+    // HELPER: Limpar assinaturas
     // ==========================================
-    const mensagensEnviadas = mensagens.filter(m => m.sender_type === 'contact');
-    const mensagensRecebidas = mensagens.filter(m => m.sender_type === 'user');
+    const cleanText = (text) => {
+      if (!text) return '';
+      return text.replace(/~\s*[\wÁ-úçÇ ]+\s*\([^)]*\)\s*$/gm, '').trim();
+    };
 
-    const frequenciaDias = periodo_dias / Math.max(1, mensagensEnviadas.length);
-    
-    let tempoMedioResposta = 0;
-    let respostasContabilizadas = 0;
+    // ==========================================
+    // 1. NORMALIZAÇÃO + MÉTRICAS DETERMINÍSTICAS
+    // ==========================================
+    const inbound = mensagens.filter(m => m.sender_type === 'contact');
+    const outbound = mensagens.filter(m => m.sender_type === 'user');
+
+    // 1.1 Tempo médio de resposta (EMPRESA responde ao cliente)
+    let tempoRespostaEmpresa = 0;
+    let countRespostaEmpresa = 0;
     
     for (let i = 1; i < mensagens.length; i++) {
       if (mensagens[i].sender_type === 'user' && mensagens[i-1].sender_type === 'contact') {
         const diff = new Date(mensagens[i].created_date) - new Date(mensagens[i-1].created_date);
-        tempoMedioResposta += diff;
-        respostasContabilizadas++;
+        tempoRespostaEmpresa += diff;
+        countRespostaEmpresa++;
       }
     }
     
-    if (respostasContabilizadas > 0) {
-      tempoMedioResposta = (tempoMedioResposta / respostasContabilizadas) / (1000 * 60); // em minutos
+    const avgReplyCompany = countRespostaEmpresa > 0 
+      ? Math.round(tempoRespostaEmpresa / countRespostaEmpresa / (1000 * 60))
+      : null;
+
+    // 1.2 Tempo médio de resposta (CLIENTE responde à empresa)
+    let tempoRespostaCliente = 0;
+    let countRespostaCliente = 0;
+    
+    for (let i = 1; i < mensagens.length; i++) {
+      if (mensagens[i].sender_type === 'contact' && mensagens[i-1].sender_type === 'user') {
+        const diff = new Date(mensagens[i].created_date) - new Date(mensagens[i-1].created_date);
+        tempoRespostaCliente += diff;
+        countRespostaCliente++;
+      }
+    }
+    
+    const avgReplyClient = countRespostaCliente > 0
+      ? Math.round(tempoRespostaCliente / countRespostaCliente / (1000 * 60))
+      : null;
+
+    // 1.3 Follow-ups consecutivos (CRÍTICO: maior streak outbound sem inbound)
+    let maxFollowUpStreak = 0;
+    let currentStreak = 0;
+    
+    for (const msg of mensagens) {
+      if (msg.sender_type === 'user') {
+        currentStreak++;
+        maxFollowUpStreak = Math.max(maxFollowUpStreak, currentStreak);
+      } else {
+        currentStreak = 0;
+      }
     }
 
-    const taxaResposta = mensagensEnviadas.length > 0 
-      ? (mensagensRecebidas.length / mensagensEnviadas.length) * 100 
-      : 0;
+    // 1.4 Dias desde última mensagem do cliente
+    const lastInbound = inbound.length > 0 ? inbound[inbound.length - 1] : null;
+    const daysSinceLastInbound = lastInbound 
+      ? Math.floor((Date.now() - new Date(lastInbound.created_date).getTime()) / (1000 * 60 * 60 * 24))
+      : null;
+
+    // 1.5 Frases de corte (risco relacional)
+    const frasesCorte = ['inviável', 'muito pouco', 'obrigada então', 'não cabe', 'não consigo'];
+    const cortesDetectados = [];
+    
+    for (const msg of inbound) {
+      const texto = cleanText(msg.content || '').toLowerCase();
+      for (const frase of frasesCorte) {
+        if (texto.includes(frase)) {
+          cortesDetectados.push(`Cliente disse: "${frase}"`);
+          break;
+        }
+      }
+    }
 
     const metricas = {
       total_mensagens: mensagens.length,
-      mensagens_enviadas: mensagensEnviadas.length,
-      mensagens_recebidas: mensagensRecebidas.length,
-      frequencia_media_dias: parseFloat(frequenciaDias.toFixed(2)),
-      tempo_medio_resposta_minutos: parseFloat(tempoMedioResposta.toFixed(2)),
-      taxa_resposta: parseFloat(taxaResposta.toFixed(2))
+      mensagens_inbound: inbound.length,
+      mensagens_outbound: outbound.length,
+      frequencia_media_dias: parseFloat((periodo_dias / Math.max(1, inbound.length)).toFixed(2)),
+      avg_reply_minutes_company: avgReplyCompany,
+      avg_reply_minutes_client: avgReplyClient,
+      unanswered_followups: maxFollowUpStreak,
+      days_since_last_inbound: daysSinceLastInbound
     };
 
     // ==========================================
