@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React from "react";
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import {
@@ -45,8 +45,8 @@ import { sanitizeEmojis } from '../lib/emojiSanitizer';
 
 // Componente de imagem com fallback seguro
 const ImageWithFallback = ({ src, alt, className, onClick, isPersisted }) => {
-  const [hasError, setHasError] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
+  const [hasError, setHasError] = React.useState(false);
+  const [isLoading, setIsLoading] = React.useState(true);
 
   const isUrlPermanente = src && (
     src.includes('base44.app') || 
@@ -293,13 +293,13 @@ export default React.memo(function MessageBubble({
     );
   }
 
-  const [mostrarDialogEncaminhar, setMostrarDialogEncaminhar] = useState(false);
-  const [encaminhando, setEncaminhando] = useState(false);
-  const [apagando, setApagando] = useState(false);
-  const [categorizando, setCategorizando] = useState(false);
+  const [mostrarDialogEncaminhar, setMostrarDialogEncaminhar] = React.useState(false);
+  const [encaminhando, setEncaminhando] = React.useState(false);
+  const [apagando, setApagando] = React.useState(false);
+  const [categorizando, setCategorizando] = React.useState(false);
 
-  const [contatosSelecionados, setContatosSelecionados] = useState([]);
-  const [buscaContato, setBuscaContato] = useState("");
+  const [contatosSelecionados, setContatosSelecionados] = React.useState([]);
+  const [buscaContato, setBuscaContato] = React.useState("");
 
   const queryClient = useQueryClient();
 
@@ -499,7 +499,7 @@ export default React.memo(function MessageBubble({
   };
 
   // ✅ BUSCAR MENSAGEM ORIGINAL para quote/resposta (IGUAL WhatsApp)
-  const mensagemOriginal = useMemo(() => {
+  const mensagemOriginal = React.useMemo(() => {
     if (!message?.reply_to_message_id || !mensagens) return null;
     return mensagens.find((m) => m.id === message.reply_to_message_id);
   }, [message?.reply_to_message_id, mensagens]);
