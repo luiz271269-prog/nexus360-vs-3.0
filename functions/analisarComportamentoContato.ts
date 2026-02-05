@@ -396,24 +396,62 @@ Forneça insights comerciais acionáveis.`,
     }
 
     // ==========================================
-    // 4. SEGMENTAÇÃO INTELIGENTE AVANÇADA
+    // 4. SCORECARDS (P0: health, deal_risk, buy_intent, engagement)
     // ==========================================
-    let segmentoSugerido = 'lead_frio';
-    let estagioVida = 'descoberta';
-    let scoreEngajamento = 30;
-    let confiancaSegmentacao = 60;
-
-    // 🧠 ALGORITMO HÍBRIDO: Regras + IA
+    
+    // 4.1 ENGAGEMENT SCORE (volume + reciprocidade + regularidade)
     const pontos = {
-      mensagens: mensagensEnviadas.length * 3,
-      taxaResposta: taxaResposta * 0.4,
+      mensagens: inbound.length * 3,
+      reciprocidade: outbound.length > 0 ? (inbound.length / outbound.length) * 40 : 0,
       sentimento: analiseSentimento.score_sentimento * 0.3,
-      tempoResposta: tempoMedioResposta < 60 ? 20 : tempoMedioResposta < 180 ? 10 : 0,
+      tempoResposta: avgReplyCompany && avgReplyCompany < 60 ? 20 : avgReplyCompany && avgReplyCompany < 180 ? 10 : 0,
       intencaoCompra: intencoesDetectadas.some(i => i.intencao === 'comprar' || i.intencao === 'cotacao') ? 25 : 0,
       palavrasPositivas: palavrasChave.filter(p => p.categoria === 'elogio' || p.relevancia_comercial >= 8).length * 5
     };
 
-    scoreEngajamento = Math.min(100, Math.round(Object.values(pontos).reduce((a, b) => a + b, 0)));
+    const scoreEngajamento = Math.min(100, Math.round(Object.values(pontos).reduce((a, b) => a + b, 0)));
+
+    // 4.2 BUY INTENT (0-100 baseado em intenções)
+    const intentsCompra = intencoesDetectadas.filter(i => 
+      ['comprar', 'cotacao', 'negociacao'].includes(i.intencao)
+    );
+    const buyIntent = intentsCompra.length > 0
+      ? Math.round(intentsCompra.reduce((sum, i) => sum + i.confianca, 0) / intentsCompra.length)
+      : 0;
+
+    // 4.3 DIAS PARADO (heurística: desde última mensagem inbound)
+    const daysStalled = daysSinceLastInbound || 0;
+
+    // 4.4 FRICÇÃO
+    const hasFriction = maxFollowUpStreak >= 3 || cortesDetectados.length > 0;
+    const frictionReasons = [
+      maxFollowUpStreak >= 3 ? `${maxFollowUpStreak} follow-ups sem resposta` : null,
+      ...cortesDetectados
+    ].filter(Boolean);
+
+    // 4.5 HEALTH SCORE (sentimento 50% + responsividade 30% + ausência fricção 20%)
+    const responsividadeScore = avgReplyClient 
+      ? Math.max(0, 100 - (avgReplyClient / 60) * 10) // penaliza respostas lentas
+      : 50;
+    
+    const healthScore = Math.round(
+      analiseSentimento.score_sentimento * 0.5 +
+      responsividadeScore * 0.3 +
+      (hasFriction ? 0 : 20)
+    );
+
+    // 4.6 DEAL RISK (dias parado + objeções + follow-ups)
+    const objecoesAltas = (objections || []).filter(o => o.severity === 'alta').length;
+    const dealRisk = Math.min(100, Math.round(
+      Math.min(daysStalled * 10, 40) +
+      Math.min(objecoesAltas * 15, 30) +
+      Math.min(Math.max(maxFollowUpStreak - 2, 0) * 10, 30)
+    ));
+
+    // 4.7 SEGMENTAÇÃO (mantida para compatibilidade)
+    let segmentoSugerido = 'lead_frio';
+    let estagioVida = 'descoberta';
+    let confiancaSegmentacao = 60;
 
     // 🎯 SEGMENTAÇÃO BASEADA EM DADOS REAIS
     const temIntencaoCompra = intencoesDetectadas.some(i => 
