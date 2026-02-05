@@ -188,35 +188,55 @@ export default function SegmentacaoInteligente({ contactId }) {
 
   return (
     <div className="space-y-4">
-      {/* Header com botão de análise */}
+      {/* Header com seletor de período e botão de análise */}
       <Card className="bg-gradient-to-r from-purple-50 to-blue-50 border-purple-200">
         <CardHeader>
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-2">
               <Brain className="w-5 h-5 text-purple-600" />
               <CardTitle className="text-lg">Segmentação Inteligente</CardTitle>
             </div>
-            <Button
-              onClick={analisarComportamento}
-              disabled={analisando}
-              size="sm"
-              className="bg-purple-600 hover:bg-purple-700"
-            >
-              {analisando ? (
-                <>
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  Analisando...
-                </>
-              ) : (
-                <>
-                  <RefreshCw className="w-4 h-4 mr-2" />
-                  Analisar Agora
-                </>
-              )}
-            </Button>
           </div>
+          
+          {/* Seletor de Período */}
+          <div className="flex items-center gap-3 mb-3">
+            <span className="text-sm text-slate-600 font-medium">Período de análise:</span>
+            <div className="flex gap-2">
+              {[7, 15, 30, 60, 90].map(dias => (
+                <Button
+                  key={dias}
+                  onClick={() => setPeriodoDias(dias)}
+                  variant={periodoDias === dias ? "default" : "outline"}
+                  size="sm"
+                  className={periodoDias === dias ? "bg-purple-600" : ""}
+                >
+                  {dias} dias
+                </Button>
+              ))}
+            </div>
+          </div>
+
+          <Button
+            onClick={analisarComportamento}
+            disabled={analisando}
+            size="sm"
+            className="w-full bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700"
+          >
+            {analisando ? (
+              <>
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                Analisando últimos {periodoDias} dias...
+              </>
+            ) : (
+              <>
+                <RefreshCw className="w-4 h-4 mr-2" />
+                Analisar Últimos {periodoDias} Dias
+              </>
+            )}
+          </Button>
+
           {analise && (
-            <CardDescription className="flex items-center gap-2">
+            <CardDescription className="flex items-center gap-2 mt-3">
               <Clock className="w-3 h-3" />
               Última análise: {new Date(analise.ultima_analise).toLocaleString('pt-BR')}
               {(() => {
