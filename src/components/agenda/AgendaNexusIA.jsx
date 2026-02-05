@@ -339,5 +339,6 @@ export default function AgendaNexusIA({ usuario }) {
           <ConfiguracaoSincronizacao usuario={usuario} onUpdate={carregarDados} />
         </TabsContent>
       </Tabs>
-
-        <div className="bg-gradient-to-br from-slate-900/80 via-slate-800/70 to-slate-900/70 text-white px-6 py-5 backdrop-blur-lg rounded-2xl border border-slate-700/50 shadow-2xl">
+    </div>
+  );
+}
