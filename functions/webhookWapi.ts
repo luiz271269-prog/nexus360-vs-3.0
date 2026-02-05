@@ -496,6 +496,14 @@ async function handleMessage(dados, payloadBruto, base44) {
   console.log('[WAPI] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
   console.log('[WAPI] INICIO handleMessage | De:', dados.from, '| Tipo:', dados.mediaType);
 
+  // 🗓️ DETECÇÃO IMEDIATA - AGENDA NEXUS IA
+  if (dados.from === '+5548999999999') {
+    console.log('╔════════════════════════════════════════════════════════════════╗');
+    console.log('║  🗓️ AGENDA NEXUS IA DETECTADA - NÚMERO ESPECIAL +5548999999999  ║');
+    console.log('║  📱 Roteamento automático para processScheduleIntent           ║');
+    console.log('╚════════════════════════════════════════════════════════════════╝');
+  }
+
   const inicio = Date.now();
 
   // ✅ DEDUPLICAÇÃO INTELIGENTE - Se duplicata, ignora (simples)

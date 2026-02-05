@@ -605,6 +605,14 @@ async function handleMessage(dados, payloadBruto, base44) {
     const connectedPhone = payloadBruto.connectedPhone || payloadBruto.connected_phone || null;
     console.log(`[${VERSION}] 💬 Nova mensagem de: ${dados.from} | Via: ${connectedPhone || 'não informado'}`);
 
+  // 🗓️ DETECÇÃO IMEDIATA - AGENDA NEXUS IA
+  if (dados.from === '+5548999999999') {
+    console.log('╔════════════════════════════════════════════════════════════════╗');
+    console.log('║  🗓️ AGENDA NEXUS IA DETECTADA - NÚMERO ESPECIAL +5548999999999  ║');
+    console.log('║  📱 Roteamento automático para processScheduleIntent           ║');
+    console.log('╚════════════════════════════════════════════════════════════════╝');
+  }
+
   // ✅ DECLARAR threadCanonica NO INÍCIO (antes de qualquer uso)
   let threadCanonica = null;
 
