@@ -307,7 +307,228 @@ export default function SegmentacaoInteligente({ contactId }) {
         </Card>
       ) : (
         <>
-          {/* Segmento e Score */}
+          {/* Aviso de Visibilidade Limitada */}
+          {payload?.scope?.limited_by_visibility && (
+            <Card className="border-amber-300 bg-amber-50">
+              <CardContent className="p-3 flex items-start gap-2">
+                <AlertCircle className="w-4 h-4 text-amber-600 mt-0.5 flex-shrink-0" />
+                <p className="text-sm text-amber-800">
+                  {payload.scope.visibility_notice}
+                </p>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Scorecards (4 métricas principais) */}
+          {payload && (
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+              <Card className="border-green-200 bg-gradient-to-br from-green-50 to-emerald-50">
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-xs font-medium text-slate-600 flex items-center gap-1">
+                    <Heart className="w-3 h-3" /> Saúde
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold text-green-700">{payload.scores.health}</div>
+                  <Progress value={payload.scores.health} className="h-1 mt-1" />
+                </CardContent>
+              </Card>
+
+              <Card className="border-red-200 bg-gradient-to-br from-red-50 to-rose-50">
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-xs font-medium text-slate-600 flex items-center gap-1">
+                    <Shield className="w-3 h-3" /> Risco
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold text-red-700">{payload.scores.deal_risk}</div>
+                  <Progress value={payload.scores.deal_risk} className="h-1 mt-1" />
+                </CardContent>
+              </Card>
+
+              <Card className="border-blue-200 bg-gradient-to-br from-blue-50 to-cyan-50">
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-xs font-medium text-slate-600 flex items-center gap-1">
+                    <Target className="w-3 h-3" /> Intenção
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold text-blue-700">{payload.scores.buy_intent}</div>
+                  <Progress value={payload.scores.buy_intent} className="h-1 mt-1" />
+                </CardContent>
+              </Card>
+
+              <Card className="border-purple-200 bg-gradient-to-br from-purple-50 to-violet-50">
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-xs font-medium text-slate-600 flex items-center gap-1">
+                    <Sparkles className="w-3 h-3" /> Engajamento
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold text-purple-700">{payload.scores.engagement}</div>
+                  <Progress value={payload.scores.engagement} className="h-1 mt-1" />
+                </CardContent>
+              </Card>
+            </div>
+          )}
+
+          {/* Estágio + Dias Parado */}
+          {payload && (
+            <Card className="border-slate-300">
+              <CardHeader>
+                <CardTitle className="text-sm flex items-center gap-2">
+                  <Activity className="w-4 h-4" />
+                  Estágio no Funil
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="flex items-center justify-between">
+                  <Badge className="text-sm px-3 py-1">
+                    {payload.stage.current}
+                  </Badge>
+                  {payload.stage.days_stalled > 0 && (
+                    <div className="text-sm text-slate-600">
+                      <Clock className="w-3 h-3 inline mr-1" />
+                      Parado há <span className="font-bold">{payload.stage.days_stalled}</span> dia(s)
+                    </div>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Alertas */}
+          {payload?.alerts?.length > 0 && (
+            <Card className="border-orange-300 bg-orange-50">
+              <CardHeader>
+                <CardTitle className="text-sm flex items-center gap-2">
+                  <AlertTriangle className="w-4 h-4 text-orange-600" />
+                  Alertas de Risco
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-2">
+                {payload.alerts.map((alert, i) => (
+                  <div key={i} className={`flex items-start gap-2 p-2 rounded-lg ${
+                    alert.level === 'alto' ? 'bg-red-100 border border-red-300' :
+                    alert.level === 'medio' ? 'bg-yellow-100 border border-yellow-300' :
+                    'bg-blue-100 border border-blue-300'
+                  }`}>
+                    <AlertCircle className={`w-4 h-4 mt-0.5 ${
+                      alert.level === 'alto' ? 'text-red-600' :
+                      alert.level === 'medio' ? 'text-yellow-600' :
+                      'text-blue-600'
+                    }`} />
+                    <p className="text-sm font-medium">{alert.reason}</p>
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Próxima Ação com Template de Mensagem */}
+          {payload?.next_best_action && (
+            <Card className="border-green-300 bg-gradient-to-br from-green-50 to-emerald-50">
+              <CardHeader>
+                <CardTitle className="text-sm flex items-center gap-2">
+                  <Zap className="w-4 h-4 text-green-600" />
+                  Próxima Ação Recomendada
+                  {payload.next_best_action.need_manager && (
+                    <Badge className="bg-red-500 text-white text-xs ml-auto">Gerente Necessário</Badge>
+                  )}
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <div>
+                  <p className="text-sm font-semibold text-slate-800 mb-1">
+                    {payload.next_best_action.action}
+                  </p>
+                  {payload.next_best_action.deadline_hours && (
+                    <p className="text-xs text-slate-500">
+                      Prazo: {payload.next_best_action.deadline_hours}h
+                    </p>
+                  )}
+                  <Badge variant="outline" className="mt-1 text-xs">
+                    {payload.next_best_action.handoff === 'co_atendimento_gerente' ? '👥 Co-atendimento' :
+                     payload.next_best_action.handoff === 'trocar_responsavel' ? '🔄 Trocar responsável' :
+                     '✅ Manter atual'}
+                  </Badge>
+                </div>
+
+                {payload.next_best_action.message_suggestion && (
+                  <div className="bg-white p-3 rounded-lg border border-green-200">
+                    <p className="text-xs text-slate-500 mb-1 font-medium">Mensagem sugerida:</p>
+                    <p className="text-sm text-slate-700 italic mb-2">
+                      "{payload.next_best_action.message_suggestion}"
+                    </p>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="w-full"
+                      onClick={() => {
+                        navigator.clipboard.writeText(payload.next_best_action.message_suggestion);
+                        toast.success('Mensagem copiada!');
+                      }}
+                    >
+                      <Copy className="w-3 h-3 mr-1" />
+                      Copiar Mensagem
+                    </Button>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Objeções */}
+          {payload?.objections?.length > 0 && (
+            <Card className="border-amber-300">
+              <CardHeader>
+                <CardTitle className="text-sm flex items-center gap-2">
+                  <AlertTriangle className="w-4 h-4 text-amber-600" />
+                  Objeções Detectadas
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-2">
+                {payload.objections.map((obj, i) => (
+                  <div key={i} className="p-3 bg-amber-50 rounded-lg border border-amber-200">
+                    <div className="flex items-start justify-between mb-1">
+                      <p className="text-sm font-medium text-slate-800">"{obj.text}"</p>
+                      <Badge className={`text-xs ${
+                        obj.severity === 'alta' ? 'bg-red-500' :
+                        obj.severity === 'media' ? 'bg-yellow-500' :
+                        'bg-blue-500'
+                      } text-white`}>
+                        {obj.severity}
+                      </Badge>
+                    </div>
+                    <p className="text-xs text-slate-600 mb-1">Categoria: {obj.category}</p>
+                    <p className="text-xs text-green-700 font-medium">💡 {obj.unlock_hint}</p>
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Topics */}
+          {payload?.topics?.length > 0 && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-sm">Temas Dominantes</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-2">
+                  {payload.topics.map((topic, i) => (
+                    <div key={i} className="flex items-center gap-2">
+                      <span className="text-sm font-medium text-slate-700 min-w-24">{topic.name}</span>
+                      <Progress value={topic.weight * 100} className="h-2 flex-1" />
+                      <span className="text-xs text-slate-500">{Math.round(topic.weight * 100)}%</span>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Segmento e Score (mantidos para compatibilidade) */}
           <div className="grid grid-cols-2 gap-4">
             <Card>
               <CardHeader className="pb-3">
