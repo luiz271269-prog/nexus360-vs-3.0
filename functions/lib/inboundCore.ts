@@ -285,6 +285,51 @@ export async function processInboundEvent(params) {
     result.actions.push('new_cycle_detected');
   }
   
+  // ============================================================================
+  // 🗓️ ROTEAMENTO AGENDA IA (NOVO RAMO - NÃO INTRUSIVO)
+  // ============================================================================
+  result.pipeline.push('agenda_ia_check');
+  
+  // Verificar se deve rotear para Agenda IA
+  if (thread.assistant_mode === 'agenda' || 
+      integration?.nome_instancia === 'NEXUS_AGENDA_INTEGRATION' ||
+      contact?.telefone === '+5548999999999') {
+    
+    console.log('[CORE] 🗓️ Thread elegível para Agenda IA - ROTEANDO');
+    result.actions.push('routing_to_agenda_ia');
+    
+    try {
+      const agendaResult = await base44.asServiceRole.functions.invoke('routeToAgendaIA', {
+        thread_id: thread.id,
+        message_id: message.id,
+        content: userInput.content,
+        from_type: message.sender_type === 'user' ? 'internal_user' : 'external_contact',
+        from_id: message.sender_id
+      });
+      
+      if (agendaResult.data?.routed && agendaResult.data?.result?.message_to_send) {
+        // Enviar resposta da Agenda IA
+        await enviarMensagem({ 
+          base44, 
+          integration, 
+          contact, 
+          message: agendaResult.data.result.message_to_send, 
+          provider, 
+          thread 
+        });
+        
+        result.actions.push('agenda_ia_response_sent');
+      }
+      
+      return { ...result, routed: true, to: 'agenda_ia', agenda_result: agendaResult.data };
+      
+    } catch (e) {
+      console.error('[CORE] ❌ Erro ao rotear para Agenda IA:', e.message);
+      result.actions.push('agenda_ia_routing_failed');
+      // Não bloqueia - continua fluxo normal
+    }
+  }
+  
   // (5) GUARDAS DE ROTEAMENTO
   result.pipeline.push('routing_guards');
   
