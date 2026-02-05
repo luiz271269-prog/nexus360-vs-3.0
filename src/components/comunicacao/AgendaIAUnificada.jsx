@@ -74,10 +74,8 @@ export default function AgendaIAUnificada({ open, onClose, usuario }) {
       }, '-created_date', 1);
 
       if (!contatos || contatos.length === 0) {
-        console.log('[AGENDA-IA] ⚠️ Contato não encontrado, criando...');
-        await base44.functions.invoke('createAgendaIAContact');
-        toast.info('🤖 Criando assistente de agenda...');
-        setTimeout(() => buscarThreadAgendaIA(), 2000);
+        console.log('[AGENDA-IA] ⚠️ Contato não encontrado - criar manualmente via Dashboard');
+        toast.warning('⚠️ Configure o contato Agenda IA primeiro');
         return;
       }
 
