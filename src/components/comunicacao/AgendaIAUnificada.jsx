@@ -23,6 +23,7 @@ import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import ConfiguracaoSincronizacao from '../agenda/ConfiguracaoSincronizacao';
+import InstrucoesAcessoExternoAgendaIA from '../agenda/InstrucoesAcessoExternoAgendaIA';
 
 export default function AgendaIAUnificada({ open, onClose, usuario }) {
   const [eventos, setEventos] = useState([]);
@@ -199,11 +200,12 @@ export default function AgendaIAUnificada({ open, onClose, usuario }) {
         </DialogHeader>
 
         <Tabs defaultValue="chat" className="flex-1 flex flex-col overflow-hidden">
-          <TabsList className="grid w-full grid-cols-4">
+          <TabsList className="grid w-full grid-cols-5">
             <TabsTrigger value="chat">💬 Chat IA</TabsTrigger>
             <TabsTrigger value="eventos">📅 Eventos</TabsTrigger>
             <TabsTrigger value="lembretes">🔔 Lembretes</TabsTrigger>
             <TabsTrigger value="config">⚙️ Config</TabsTrigger>
+            <TabsTrigger value="instrucoes">📱 WhatsApp</TabsTrigger>
           </TabsList>
 
           {/* ABA: CHAT CONVERSACIONAL */}
@@ -377,6 +379,11 @@ export default function AgendaIAUnificada({ open, onClose, usuario }) {
           {/* ABA: CONFIGURAÇÕES */}
           <TabsContent value="config" className="flex-1 overflow-auto p-4">
             <ConfiguracaoSincronizacao usuario={usuario} onUpdate={carregarDados} />
+          </TabsContent>
+
+          {/* ABA: INSTRUÇÕES WHATSAPP EXTERNO */}
+          <TabsContent value="instrucoes" className="flex-1 overflow-auto">
+            <InstrucoesAcessoExternoAgendaIA />
           </TabsContent>
         </Tabs>
 
