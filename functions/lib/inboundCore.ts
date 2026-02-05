@@ -290,6 +290,16 @@ export async function processInboundEvent(params) {
   // ============================================================================
   result.pipeline.push('agenda_ia_check');
   
+  // LOG DETALHADO DE DIAGNÓSTICO
+  console.log('[CORE] 🔍 AGENDA IA CHECK:', {
+    assistant_mode: thread.assistant_mode,
+    integration_name: integration?.nome_instancia,
+    contact_telefone: contact?.telefone,
+    should_route: thread.assistant_mode === 'agenda' || 
+                  integration?.nome_instancia === 'NEXUS_AGENDA_INTEGRATION' ||
+                  contact?.telefone === '+5548999999999'
+  });
+  
   // Verificar se deve rotear para Agenda IA
   if (thread.assistant_mode === 'agenda' || 
       integration?.nome_instancia === 'NEXUS_AGENDA_INTEGRATION' ||
