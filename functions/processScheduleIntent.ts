@@ -29,12 +29,33 @@ Deno.serve(async (req) => {
     
     const payload = await req.json();
     const { thread_id, message_id, text, from_type, from_id } = payload;
-    
+
     if (!thread_id || !text || !from_type || !from_id) {
       return Response.json({ 
         success: false, 
         error: 'Campos obrigatórios: thread_id, text, from_type, from_id' 
       }, { status: 400 });
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // VALIDAÇÕES BÁSICAS (P1 - Segurança)
+    // ═══════════════════════════════════════════════════════════════════════
+
+    // Validar quota diária (anti-spam)
+    const today = new Date().toISOString().split('T')[0];
+    const existingToday = await base44.asServiceRole.entities.ScheduleEvent.filter({
+      created_by_id: from_id,
+      created_date: { $gte: `${today}T00:00:00`, $lte: `${today}T23:59:59` }
+    });
+
+    const MAX_EVENTS_PER_DAY = from_type === 'internal_user' ? 50 : 10;
+
+    if (existingToday && existingToday.length >= MAX_EVENTS_PER_DAY) {
+      console.log(`[AGENDA-IA] 🚫 Quota diária excedida: ${existingToday.length}/${MAX_EVENTS_PER_DAY}`);
+      return Response.json({
+        success: false,
+        message_to_send: `⚠️ Você atingiu o limite de ${MAX_EVENTS_PER_DAY} eventos por dia. Tente novamente amanhã.`
+      });
     }
     
     console.log(`[AGENDA-IA] 🚀 Processando mensagem | Thread: ${thread_id.substring(0, 8)} | Tipo: ${from_type}`);
@@ -143,6 +164,11 @@ RETORNE JSON COM:
         }
       });
       
+      // Forçar action se detectado comando explícito
+      if (forcedAction) {
+        agendaIntent.action = forcedAction;
+      }
+
       console.log(`[AGENDA-IA] 🤖 IA Intent:`, agendaIntent);
     } catch (e) {
       console.error(`[AGENDA-IA] ❌ Erro na IA:`, e.message);
@@ -154,7 +180,136 @@ RETORNE JSON COM:
     }
     
     // ═══════════════════════════════════════════════════════════════════════
-    // PASSO 3: HANDLE MISSING FIELDS
+    // HANDLE ACTION: LIST
+    // ═══════════════════════════════════════════════════════════════════════
+    if (agendaIntent.action === 'list') {
+      console.log(`[AGENDA-IA] 📋 Listando eventos...`);
+
+      const targetUserId = from_type === 'internal_user' ? from_id : null;
+
+      if (!targetUserId) {
+        return Response.json({
+          success: false,
+          message_to_send: '❌ Listagem de agenda só disponível para usuários internos'
+        });
+      }
+
+      // Buscar eventos futuros do usuário
+      const now = new Date().toISOString();
+      const in7Days = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
+
+      const events = await base44.asServiceRole.entities.ScheduleEvent.filter({
+        assigned_user_id: targetUserId,
+        start_at: { $gte: now, $lte: in7Days },
+        status: { $in: ['scheduled', 'pending_review'] }
+      }, 'start_at', 20);
+
+      if (!events || events.length === 0) {
+        return Response.json({
+          success: true,
+          action: 'list',
+          message_to_send: '📭 Você não tem eventos agendados nos próximos 7 dias.'
+        });
+      }
+
+      // Formatar lista
+      let message = `📅 **Sua Agenda (próximos 7 dias)**\n\n`;
+
+      events.forEach((evt, idx) => {
+        const date = new Date(evt.start_at);
+        const dateStr = date.toLocaleDateString('pt-BR', { 
+          day: '2-digit', 
+          month: 'short',
+          weekday: 'short'
+        });
+        const timeStr = date.toLocaleTimeString('pt-BR', { 
+          hour: '2-digit', 
+          minute: '2-digit' 
+        });
+
+        message += `${idx + 1}. **${evt.title}**\n`;
+        message += `   📅 ${dateStr} às ${timeStr}\n`;
+        if (evt.description) {
+          message += `   📝 ${evt.description}\n`;
+        }
+        message += `\n`;
+      });
+
+      message += `\n💡 Use "cancelar [número]" para remover um evento.`;
+
+      return Response.json({
+        success: true,
+        action: 'list',
+        total: events.length,
+        message_to_send: message
+      });
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // HANDLE ACTION: CANCEL
+    // ═══════════════════════════════════════════════════════════════════════
+    if (agendaIntent.action === 'cancel') {
+      console.log(`[AGENDA-IA] ❌ Cancelando evento...`);
+
+      const targetUserId = from_type === 'internal_user' ? from_id : null;
+
+      if (!targetUserId) {
+        return Response.json({
+          success: false,
+          message_to_send: '❌ Cancelamento só disponível para usuários internos'
+        });
+      }
+
+      // Buscar eventos recentes do usuário
+      const now = new Date().toISOString();
+      const events = await base44.asServiceRole.entities.ScheduleEvent.filter({
+        assigned_user_id: targetUserId,
+        start_at: { $gte: now },
+        status: 'scheduled'
+      }, 'start_at', 10);
+
+      if (!events || events.length === 0) {
+        return Response.json({
+          success: false,
+          message_to_send: '❌ Você não tem eventos agendados para cancelar.'
+        });
+      }
+
+      // Identificar qual evento cancelar (primeiro, ou por contexto)
+      const eventToCancel = events[0]; // Simplificado: cancela o próximo
+
+      // Cancelar evento
+      await base44.asServiceRole.entities.ScheduleEvent.update(eventToCancel.id, {
+        status: 'cancelled',
+        cancelled_at: new Date().toISOString()
+      });
+
+      // Cancelar lembretes pendentes
+      const reminders = await base44.asServiceRole.entities.ScheduleReminder.filter({
+        event_id: eventToCancel.id,
+        status: 'pending'
+      });
+
+      for (const reminder of (reminders || [])) {
+        await base44.asServiceRole.entities.ScheduleReminder.update(reminder.id, {
+          status: 'failed',
+          failed_at: new Date().toISOString(),
+          error_details: 'Evento cancelado pelo usuário'
+        });
+      }
+
+      const dateStr = new Date(eventToCancel.start_at).toLocaleString('pt-BR');
+
+      return Response.json({
+        success: true,
+        action: 'cancel',
+        event_id: eventToCancel.id,
+        message_to_send: `✅ Evento cancelado:\n\n📌 ${eventToCancel.title}\n📅 ${dateStr}`
+      });
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // PASSO 3: HANDLE MISSING FIELDS (CREATE/RESCHEDULE)
     // ═══════════════════════════════════════════════════════════════════════
     if (agendaIntent.missing_fields && agendaIntent.missing_fields.length > 0) {
       console.log(`[AGENDA-IA] ❓ Campos faltantes:`, agendaIntent.missing_fields);
@@ -271,9 +426,32 @@ Confirma? (Responda: sim/ok ou não)`;
     }
     
     // ═══════════════════════════════════════════════════════════════════════
-    // PASSO 6: CREATE EVENT + REMINDERS
+    // VALIDAÇÃO DE DATA (P1 - Segurança)
     // ═══════════════════════════════════════════════════════════════════════
     const startAt = `${agendaIntent.date}T${agendaIntent.time}:00`;
+    const startDate = new Date(startAt);
+    const now = new Date();
+
+    // Não aceitar datas passadas
+    if (startDate < now) {
+      return Response.json({
+        success: false,
+        message_to_send: '⏰ Não posso agendar eventos no passado. Escolha uma data futura.'
+      });
+    }
+
+    // Não aceitar datas muito distantes (> 2 anos)
+    const maxFutureDate = new Date(now.getFullYear() + 2, 11, 31);
+    if (startDate > maxFutureDate) {
+      return Response.json({
+        success: false,
+        message_to_send: '📅 Data muito distante. Por favor, escolha uma data nos próximos 2 anos.'
+      });
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // PASSO 6: CREATE EVENT + REMINDERS
+    // ═══════════════════════════════════════════════════════════════════════
     const titleNorm = (agendaIntent.title || '').toLowerCase().replace(/\s+/g, '_');
     const eventDedupeKey = `${assigned_user_id}_${startAt}_${titleNorm}`;
     
