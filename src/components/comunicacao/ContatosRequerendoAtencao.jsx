@@ -21,7 +21,16 @@ export default function ContatosRequerendoAtencao({ usuario, contatos, onSelecio
   const [contatosComAlerta, setContatosComAlerta] = useState([]);
   const [expandido, setExpandido] = useState(false);
   const [agrupadoPor, setAgrupadoPor] = useState('topico'); // 'topico' ou 'usuario'
+  const [gruposExpandidos, setGruposExpandidos] = useState({}); // ✅ FIX: Hook fora do map
   const isHeader = variant === 'header';
+
+  // Toggle grupo expandido
+  const toggleGrupo = (nomeGrupo) => {
+    setGruposExpandidos(prev => ({
+      ...prev,
+      [nomeGrupo]: !prev[nomeGrupo]
+    }));
+  };
 
   useEffect(() => {
     if (expandido) {
@@ -32,7 +41,7 @@ export default function ContatosRequerendoAtencao({ usuario, contatos, onSelecio
   const carregarContatosComAlerta = async () => {
     setLoading(true);
     try {
-      // Buscar análises comportamentais com alertas
+      // Buscar análises comportamentais com alertas (últimos 7 dias)
       const analisesRecentes = await base44.entities.ContactBehaviorAnalysis.filter(
         {
           ultima_analise: { 
@@ -43,26 +52,59 @@ export default function ContatosRequerendoAtencao({ usuario, contatos, onSelecio
         100
       );
 
-      // Processar e extrair contatos com alertas críticos
-      const contatosProcessados = await Promise.all(
-        analisesRecentes.map(async (analise) => {
-          try {
-            const contato = contatos.find(c => c.id === analise.contact_id);
-            if (!contato) return null;
+      // ✅ FIX N+1: Buscar TODAS as threads em UMA query
+      const contactIds = [...new Set(analisesRecentes.map(a => a.contact_id))];
+      const todasThreads = await base44.entities.MessageThread.filter(
+        { 
+          contact_id: { $in: contactIds },
+          status: 'aberta'
+        },
+        '-last_message_at',
+        500
+      );
 
-            // Buscar thread para verificar atendente
-            const threads = await base44.entities.MessageThread.filter(
-              { contact_id: analise.contact_id, status: 'aberta' },
-              '-last_message_at',
-              1
-            );
+      // Criar mapa contact_id -> thread mais recente
+      const threadsMap = new Map();
+      todasThreads.forEach(t => {
+        if (!t.contact_id) return;
+        const existing = threadsMap.get(t.contact_id);
+        if (!existing || new Date(t.last_message_at) > new Date(existing.last_message_at)) {
+          threadsMap.set(t.contact_id, t);
+        }
+      });
 
-            const thread = threads[0];
+      // Processar análises (SEM queries adicionais)
+      const contatosProcessados = analisesRecentes.map((analise) => {
+        try {
+          const contato = contatos.find(c => c.id === analise.contact_id);
+          if (!contato) return null;
 
-            // Verificar condições críticas baseadas nas métricas
-            const alertas = [];
+          const thread = threadsMap.get(analise.contact_id);
 
-            // Score baixo
+          // ✅ PRIORIZAR insights do motor (se existir)
+          let alertas = [];
+          let scores = null;
+          let nextAction = null;
+
+          // Tentar usar insights do motor primeiro
+          if (analise.insights?.alerts && analise.insights.alerts.length > 0) {
+            // ✅ Usar alertas do motor
+            alertas = analise.insights.alerts.map(a => ({
+              tipo: a.reason?.toLowerCase().replace(/\s+/g, '_'),
+              nivel: a.level,
+              mensagem: a.reason,
+              topico: a.reason.includes('follow-up') ? 'Follow-ups Sem Resposta' :
+                      a.reason.includes('negociação') || a.reason.includes('parad') ? 'Negociação Estagnada' :
+                      a.reason.includes('risco') ? 'Risco de Perda' :
+                      a.reason.includes('reclamação') || a.reason.includes('sentimento') ? 'Risco de Churn' :
+                      a.reason.includes('oportunidade') || a.reason.includes('quente') ? 'Oportunidade Esfriando' :
+                      'Outros Alertas'
+            }));
+
+            scores = analise.insights.scores;
+            nextAction = analise.insights.next_best_action;
+          } else {
+            // ✅ FALLBACK: Regras locais (compatibilidade com análises antigas)
             if (analise.score_engajamento < 40) {
               alertas.push({
                 tipo: 'score_baixo',
@@ -72,7 +114,6 @@ export default function ContatosRequerendoAtencao({ usuario, contatos, onSelecio
               });
             }
 
-            // Sentimento negativo
             if (analise.analise_sentimento?.score_sentimento < 40) {
               alertas.push({
                 tipo: 'sentimento_negativo',
@@ -82,7 +123,6 @@ export default function ContatosRequerendoAtencao({ usuario, contatos, onSelecio
               });
             }
 
-            // Lead quente sem ação
             if (analise.segmento_sugerido === 'lead_quente') {
               const diasSemResposta = thread?.last_inbound_at 
                 ? Math.floor((Date.now() - new Date(thread.last_inbound_at).getTime()) / (1000 * 60 * 60 * 24))
@@ -98,7 +138,6 @@ export default function ContatosRequerendoAtencao({ usuario, contatos, onSelecio
               }
             }
 
-            // Risco de churn
             if (analise.segmento_sugerido === 'risco_churn') {
               alertas.push({
                 tipo: 'risco_churn',
@@ -108,7 +147,6 @@ export default function ContatosRequerendoAtencao({ usuario, contatos, onSelecio
               });
             }
 
-            // Cliente inativo que foi ativo
             if (analise.segmento_sugerido === 'cliente_inativo' && analise.metricas_engajamento?.total_mensagens > 10) {
               alertas.push({
                 tipo: 'cliente_inativo',
@@ -117,29 +155,44 @@ export default function ContatosRequerendoAtencao({ usuario, contatos, onSelecio
                 topico: 'Reativação Necessária'
               });
             }
-
-            if (alertas.length === 0) return null;
-
-            return {
-              contato,
-              thread,
-              analise,
-              alertas,
-              atendente_id: thread?.assigned_user_id || null,
-              prioridade: alertas.some(a => a.nivel === 'critico') ? 1 : 
-                         alertas.some(a => a.nivel === 'alto') ? 2 : 3
-            };
-          } catch (error) {
-            console.error('Erro ao processar análise:', error);
-            return null;
           }
-        })
-      );
+
+          if (alertas.length === 0) return null;
+
+          // Calcular prioridade baseada em scores do motor (se disponível)
+          let prioridade = 3;
+          if (alertas.some(a => a.nivel === 'critico')) prioridade = 1;
+          else if (alertas.some(a => a.nivel === 'alto')) prioridade = 2;
+          
+          // Refinar com deal_risk (se disponível)
+          if (scores?.deal_risk > 70) prioridade = Math.min(prioridade, 1);
+          else if (scores?.deal_risk > 50) prioridade = Math.min(prioridade, 2);
+
+          return {
+            contato,
+            thread,
+            analise,
+            alertas,
+            scores,
+            nextAction,
+            atendente_id: thread?.assigned_user_id || null,
+            prioridade,
+            deal_risk: scores?.deal_risk || 0
+          };
+        } catch (error) {
+          console.error('Erro ao processar análise:', error);
+          return null;
+        }
+      });
 
       const contatosValidos = contatosProcessados.filter(c => c !== null);
       
-      // Ordenar por prioridade
-      contatosValidos.sort((a, b) => a.prioridade - b.prioridade);
+      // ✅ Ordenar por: prioridade → deal_risk → score_engajamento
+      contatosValidos.sort((a, b) => {
+        if (a.prioridade !== b.prioridade) return a.prioridade - b.prioridade;
+        if (a.deal_risk !== b.deal_risk) return b.deal_risk - a.deal_risk;
+        return (a.analise.score_engajamento || 0) - (b.analise.score_engajamento || 0);
+      });
 
       setContatosComAlerta(contatosValidos);
     } catch (error) {
@@ -277,13 +330,13 @@ export default function ContatosRequerendoAtencao({ usuario, contatos, onSelecio
                   Object.entries(grupos).map(([nomeGrupo, items]) => {
                     if (!items || items.length === 0) return null;
 
-                    const [grupoExpandido, setGrupoExpandido] = useState(true);
+                    const grupoExpandido = gruposExpandidos[nomeGrupo] !== false; // ✅ Default true
 
                     return (
                       <div key={nomeGrupo} className="border-b border-slate-100">
                         {/* Header do grupo */}
                         <button
-                          onClick={() => setGrupoExpandido(!grupoExpandido)}
+                          onClick={() => toggleGrupo(nomeGrupo)}
                           className="w-full px-3 py-2 flex items-center justify-between hover:bg-slate-50 transition-colors"
                         >
                           <div className="flex items-center gap-2">
@@ -553,14 +606,30 @@ export default function ContatosRequerendoAtencao({ usuario, contatos, onSelecio
                                   {alerta.mensagem}
                                 </p>
 
+                                {/* Próxima ação (se disponível) */}
+                                {item.nextAction?.action && (
+                                  <p className="text-xs text-green-700 font-medium mb-1">
+                                    💡 {item.nextAction.action}
+                                    {item.nextAction.deadline_hours && (
+                                      <span className="text-slate-500 ml-1">({item.nextAction.deadline_hours}h)</span>
+                                    )}
+                                  </p>
+                                )}
+
                                 <div className="flex items-center gap-1 flex-wrap">
                                   <Badge className={`${getNivelCor(alerta.nivel)} text-white text-[9px] px-1 py-0`}>
                                     {alerta.nivel}
                                   </Badge>
                                   
-                                  {item.analise.score_engajamento && (
-                                    <Badge variant="outline" className="text-[9px] px-1 py-0">
-                                      Score: {item.analise.score_engajamento}
+                                  {item.scores?.deal_risk > 0 && (
+                                    <Badge variant="outline" className="text-[9px] px-1 py-0 border-red-300 text-red-700">
+                                      Risco: {item.scores.deal_risk}
+                                    </Badge>
+                                  )}
+
+                                  {item.scores?.health > 0 && (
+                                    <Badge variant="outline" className="text-[9px] px-1 py-0 border-green-300 text-green-700">
+                                      Saúde: {item.scores.health}
                                     </Badge>
                                   )}
                                 </div>
