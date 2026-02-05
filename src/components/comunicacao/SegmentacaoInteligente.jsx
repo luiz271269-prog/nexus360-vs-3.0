@@ -427,23 +427,40 @@ export default function SegmentacaoInteligente({
             </div>
           )}
 
-          {/* Causas Raiz + Evidências */}
+          {/* Causas Raiz + Evidências (Estrutura Profunda) */}
           {payload?.root_causes && payload.root_causes.length > 0 && (
             <Card className="border-red-300 bg-red-50">
               <CardHeader>
                 <CardTitle className="text-sm flex items-center gap-2">
                   <AlertTriangle className="w-4 h-4 text-red-600" />
-                  Por que está em risco?
+                  Por que está em risco? (Análise Detalhada)
                 </CardTitle>
               </CardHeader>
-              <CardContent className="space-y-3">
+              <CardContent className="space-y-4">
                 {payload.root_causes.map((cause, i) => (
-                  <div key={i} className="p-2 bg-white rounded border border-red-200">
-                    <p className="text-sm font-medium text-slate-800 mb-1">🔴 {cause}</p>
+                  <div key={cause.id || i} className="p-3 bg-white rounded border-l-4 border-red-400">
+                    <div className="flex items-start justify-between mb-2">
+                      <p className="text-sm font-bold text-slate-900">{cause.title || cause}</p>
+                      <Badge className={`text-xs ${
+                        cause.severity === 'high' ? 'bg-red-500' :
+                        cause.severity === 'medium' ? 'bg-orange-500' :
+                        'bg-yellow-500'
+                      } text-white`}>
+                        {cause.severity || 'info'}
+                      </Badge>
+                    </div>
+                    {cause.why && (
+                      <p className="text-xs text-slate-700 mb-2">📋 {cause.why}</p>
+                    )}
                     {payload.evidence_snippets?.[i] && (
-                      <p className="text-xs text-slate-600 italic">
-                        💬 "{payload.evidence_snippets[i].snippet}"
-                      </p>
+                      <div className="mt-2 p-2 bg-slate-50 rounded border border-slate-200">
+                        <p className="text-xs text-slate-600 italic font-mono">
+                          💬 "{payload.evidence_snippets[i].snippet}"
+                        </p>
+                        <p className="text-xs text-slate-500 mt-1">
+                          🕐 {new Date(payload.evidence_snippets[i].ts).toLocaleDateString('pt-BR')} • {payload.evidence_snippets[i].topic}
+                        </p>
+                      </div>
                     )}
                   </div>
                 ))}
