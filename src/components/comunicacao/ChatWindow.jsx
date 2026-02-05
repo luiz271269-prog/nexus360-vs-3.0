@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback, useMemo } from "react";
+import React from "react";
 import { useQueryClient, useMutation } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -117,37 +117,37 @@ export default function ChatWindow({
   // ✅ ESTADOS REMOVIDOS DO PAI - Agora no MessageInput
   // mensagemTexto, pastedImage, pastedImagePreview, inputRef
 
-  const [enviando, setEnviando] = useState(false);
-  const [erro, setErro] = useState(null);
-  const [contatoCompleto, setContatoCompleto] = useState(null);
-  const [carregandoContato, setCarregandoContato] = useState(true);
-  const [mostrarModalAtribuicao, setMostrarModalAtribuicao] = useState(false);
-  const [mostrarModalCompartilhamento, setMostrarModalCompartilhamento] = useState(false);
+  const [enviando, setEnviando] = React.useState(false);
+  const [erro, setErro] = React.useState(null);
+  const [contatoCompleto, setContatoCompleto] = React.useState(null);
+  const [carregandoContato, setCarregandoContato] = React.useState(true);
+  const [mostrarModalAtribuicao, setMostrarModalAtribuicao] = React.useState(false);
+  const [mostrarModalCompartilhamento, setMostrarModalCompartilhamento] = React.useState(false);
 
-  const [mensagemResposta, setMensagemResposta] = useState(null);
-  const [modoSelecao, setModoSelecao] = useState(false);
-  const [mensagensSelecionadas, setMensagensSelecionadas] = useState([]);
+  const [mensagemResposta, setMensagemResposta] = React.useState(null);
+  const [modoSelecao, setModoSelecao] = React.useState(false);
+  const [mensagensSelecionadas, setMensagensSelecionadas] = React.useState([]);
 
-  const [gravandoAudio, setGravandoAudio] = useState(false);
-  const [mediaRecorder, setMediaRecorder] = useState(null);
-  const audioStreamRef = useRef(null);
-  const [uploadingPastedFile, setUploadingPastedFile] = useState(false);
+  const [gravandoAudio, setGravandoAudio] = React.useState(false);
+  const [mediaRecorder, setMediaRecorder] = React.useState(null);
+  const audioStreamRef = React.useRef(null);
+  const [uploadingPastedFile, setUploadingPastedFile] = React.useState(false);
 
-  const [mostrarSugestor, setMostrarSugestor] = useState(false);
-  const [ultimaMensagemCliente, setUltimaMensagemCliente] = useState(null);
+  const [mostrarSugestor, setMostrarSugestor] = React.useState(false);
+  const [ultimaMensagemCliente, setUltimaMensagemCliente] = React.useState(null);
 
-  const [canalSelecionado, setCanalSelecionado] = useState(null);
+  const [canalSelecionado, setCanalSelecionado] = React.useState(null);
 
-  const [mostrarMediaSystem, setMostrarMediaSystem] = useState(false);
+  const [mostrarMediaSystem, setMostrarMediaSystem] = React.useState(false);
 
   // Estados para broadcast
-  const [enviandoBroadcast, setEnviandoBroadcast] = useState(false);
-  const [progressoBroadcast, setProgressoBroadcast] = useState({ enviados: 0, erros: 0, total: 0 });
+  const [enviandoBroadcast, setEnviandoBroadcast] = React.useState(false);
+  const [progressoBroadcast, setProgressoBroadcast] = React.useState({ enviados: 0, erros: 0, total: 0 });
 
-  const messagesEndRef = useRef(null);
-  const chatContainerRef = useRef(null);
-  const unreadSeparatorRef = useRef(null);
-  const fotoJaBuscada = useRef(new Set());
+  const messagesEndRef = React.useRef(null);
+  const chatContainerRef = React.useRef(null);
+  const unreadSeparatorRef = React.useRef(null);
+  const fotoJaBuscada = React.useRef(new Set());
 
   // ═══════════════════════════════════════════════════════════════════════
   // ✅ NEXUS360 MIGRATION - VALIDAÇÃO DUPLA (Nexus360 + Legado Fallback)
@@ -308,7 +308,7 @@ export default function ChatWindow({
   }, [usuario, thread, contatoCompleto, carregandoContato]);
 
   // ✅ FILTRAR INTEGRAÇÕES BASEADO NAS PERMISSÕES DO USUÁRIO
-  const integracoesPermitidas = useMemo(() => {
+  const integracoesPermitidas = React.useMemo(() => {
     if (!usuario) return integracoes;
     if (usuario.role === 'admin') return integracoes;
 
@@ -343,7 +343,7 @@ export default function ChatWindow({
   const podeEnviarPorInstancia = getPermissaoInstancia('can_send');
 
   // 🔐 Construir userPermissions para o banner de status
-  const userPermissions = useMemo(() => {
+  const userPermissions = React.useMemo(() => {
     if (!usuario) return null;
     
     const whatsappPerms = usuario.whatsapp_permissions || [];
@@ -396,7 +396,7 @@ export default function ChatWindow({
 
   const navigate = useNavigate();
 
-  useEffect(() => {
+  React.useEffect(() => {
     let isMounted = true;
 
     const carregarContato = async () => {
@@ -501,7 +501,7 @@ export default function ChatWindow({
   }, [thread?.contact_id, thread?.whatsapp_integration_id]);
 
   // Inicializar canal selecionado com o da thread
-  useEffect(() => {
+  React.useEffect(() => {
     if (thread?.whatsapp_integration_id && integracoes.length > 0) {
       const integracaoAtual = integracoes.find((i) => i.id === thread.whatsapp_integration_id);
       if (integracaoAtual) {
@@ -512,7 +512,7 @@ export default function ChatWindow({
 
   // ✅ REMOVIDO: handleAtribuirConversa - usa AtribuirConversaModal
 
-  const autoAtribuirThreadSeNecessario = useCallback(async (threadAtual) => {
+  const autoAtribuirThreadSeNecessario = React.useCallback(async (threadAtual) => {
     if (!threadAtual || !usuario) return;
 
     const isThreadOrfa = !threadAtual.assigned_user_id && !threadAtual.assigned_user_email;
@@ -552,7 +552,7 @@ export default function ChatWindow({
     return false;
   }, [usuario]);
 
-  const handleEnviarBroadcast = useCallback(async (opcoes = {}) => {
+  const handleEnviarBroadcast = React.useCallback(async (opcoes = {}) => {
     const {
       texto = '',
       mediaUrl = null,
@@ -785,7 +785,7 @@ export default function ChatWindow({
     }
   }, [podeEnviarMensagens, contatosSelecionados, broadcastInterno, usuario, onCancelarSelecao, onAtualizarMensagens, integracoes, canalSelecionado]);
 
-  const enviarAudio = useCallback(async (audioBlob) => {
+  const enviarAudio = React.useCallback(async (audioBlob) => {
     if (!podeEnviarAudios) {
       toast.error("❌ Você não tem permissão para enviar áudios");
       return;
@@ -934,7 +934,7 @@ export default function ChatWindow({
     }
   }, [podeEnviarAudios, modoSelecaoMultipla, contatosSelecionados, broadcastInterno, handleEnviarBroadcast, thread, usuario, carregandoContato, contatoCompleto, canalSelecionado, mensagemResposta, onAtualizarMensagens, autoAtribuirThreadSeNecessario]);
 
-  const iniciarGravacaoAudio = useCallback(async () => {
+  const iniciarGravacaoAudio = React.useCallback(async () => {
     if (!podeEnviarAudios) {
       toast.error("❌ Você não tem permissão para enviar áudios");
       return;
@@ -977,7 +977,7 @@ export default function ChatWindow({
     }
   }, [podeEnviarAudios, enviarAudio]);
 
-  const pararGravacaoAudio = useCallback(() => {
+  const pararGravacaoAudio = React.useCallback(() => {
     if (mediaRecorder && mediaRecorder.state !== 'inactive') {
       mediaRecorder.stop();
       setGravandoAudio(false);
@@ -988,7 +988,7 @@ export default function ChatWindow({
   // ═══════════════════════════════════════════════════════════════════════════
   // 🖼️ ENVIAR IMAGEM COLADA - Declarada ANTES de handleEnviarFromInput
   // ═══════════════════════════════════════════════════════════════════════════
-  const enviarImagemColada = useCallback(async (imagemFile, previewUrl, legendaTexto = '') => {
+  const enviarImagemColada = React.useCallback(async (imagemFile, previewUrl, legendaTexto = '') => {
     if (!imagemFile || !podeEnviarMidias) {
       toast.error('Não foi possível enviar a imagem');
       return;
@@ -1156,7 +1156,7 @@ export default function ChatWindow({
   }, [podeEnviarMidias, modoSelecaoMultipla, contatosSelecionados, broadcastInterno, handleEnviarBroadcast, thread, usuario, contatoCompleto, canalSelecionado, mensagemResposta, onAtualizarMensagens, autoAtribuirThreadSeNecessario]);
 
   // 📎 ENVIAR ARQUIVO ANEXADO (imagem, vídeo, documento)
-  const enviarArquivoAnexado = useCallback(async (file, fileType, legendaTexto = '') => {
+  const enviarArquivoAnexado = React.useCallback(async (file, fileType, legendaTexto = '') => {
     if (!file || !podeEnviarMidias) {
       toast.error('Não foi possível enviar o arquivo');
       return;
@@ -1317,7 +1317,7 @@ export default function ChatWindow({
   }, [podeEnviarMidias, modoSelecaoMultipla, contatosSelecionados, broadcastInterno, handleEnviarBroadcast, thread, usuario, contatoCompleto, canalSelecionado, mensagemResposta, onAtualizarMensagens, autoAtribuirThreadSeNecessario]);
 
   // 🚀 HANDLER DE ENVIO - Recebe dados do MessageInput
-  const handleEnviarFromInput = useCallback(async ({ texto, pastedImage, pastedImagePreview, attachedFile, attachedFileType }) => {
+  const handleEnviarFromInput = React.useCallback(async ({ texto, pastedImage, pastedImagePreview, attachedFile, attachedFileType }) => {
     // ═══════════════════════════════════════════════════════════════════════
     // 🎯 FLUXO EXCLUSIVO INTERNO - Validação prévia + Handler dedicado
     // ═══════════════════════════════════════════════════════════════════════
@@ -1434,14 +1434,14 @@ export default function ChatWindow({
     }
   }, [modoSelecaoMultipla, contatosSelecionados, broadcastInterno, handleEnviarBroadcast, thread, contatoCompleto, autoAtribuirThreadSeNecessario, usuario, canalSelecionado, mensagemResposta, onSendMessageOptimistic, onEnviarMensagem, enviarImagemColada, enviarArquivoAnexado]);
 
-  const handleResponderMensagem = useCallback((mensagem) => {
+  const handleResponderMensagem = React.useCallback((mensagem) => {
     setMensagemResposta(mensagem);
     setModoSelecao(false);
     setMensagensSelecionadas([]);
     setMostrarSugestor(false);
   }, []);
 
-  const ativarModoSelecao = useCallback(() => {
+  const ativarModoSelecao = React.useCallback(() => {
     if (!podeApagarMensagens) {
       toast.error("❌ Você não tem permissão para apagar mensagens");
       return;
@@ -1453,12 +1453,12 @@ export default function ChatWindow({
     setMostrarSugestor(false);
   }, [podeApagarMensagens]);
 
-  const cancelarModoSelecao = useCallback(() => {
+  const cancelarModoSelecao = React.useCallback(() => {
     setModoSelecao(false);
     setMensagensSelecionadas([]);
   }, []);
 
-  const toggleSelecionarMensagem = useCallback((mensagemId) => {
+  const toggleSelecionarMensagem = React.useCallback((mensagemId) => {
     setMensagensSelecionadas((prev) => {
       if (prev.includes(mensagemId)) {
         return prev.filter((id) => id !== mensagemId);
@@ -1468,7 +1468,7 @@ export default function ChatWindow({
     });
   }, []);
 
-  const apagarMensagensSelecionadas = useCallback(async () => {
+  const apagarMensagensSelecionadas = React.useCallback(async () => {
     if (!podeApagarMensagens) {
       toast.error("❌ Você não tem permissão para apagar mensagens");
       return;
@@ -1590,7 +1590,7 @@ export default function ChatWindow({
 
   // ✅ Foco automático removido - agora é responsabilidade do MessageInput
 
-  useEffect(() => {
+  React.useEffect(() => {
     if (!mensagens.length) return;
 
     const primeiraLidaIndex = mensagens.findIndex(
@@ -1617,7 +1617,7 @@ export default function ChatWindow({
     return () => clearTimeout(timer);
   }, [mensagens, thread?.id, thread?.unread_count]);
 
-  useEffect(() => {
+  React.useEffect(() => {
     if (mensagens && mensagens.length > 0) {
       const ultimaMensagem = mensagens[mensagens.length - 1];
 
@@ -1633,14 +1633,14 @@ export default function ChatWindow({
     }
   }, [mensagens, thread]);
 
-  useEffect(() => {
+  React.useEffect(() => {
     if (erro) {
       const timer = setTimeout(() => setErro(null), 5000);
       return () => clearTimeout(timer);
     }
   }, [erro]);
 
-  useEffect(() => {
+  React.useEffect(() => {
     window.handleCriarOportunidadeDeChat = async (mensagem, threadData) => {
       if (!contatoCompleto) {
         toast.error('Aguarde o carregamento do contato');
@@ -1795,7 +1795,7 @@ export default function ChatWindow({
   }, [contatoCompleto, usuario, navigate]);
 
   // 🎯 MEMOIZAÇÃO: Processar mensagens ANTES de qualquer early return
-  const mensagensProcessadas = useMemo(() => {
+  const mensagensProcessadas = React.useMemo(() => {
     if (mensagens.length === 0) return [];
 
     let mensagensFiltradas = mensagens;
@@ -1899,7 +1899,7 @@ export default function ChatWindow({
   }, [mensagens, selectedCategoria, thread?.thread_type]);
 
   // ✅ HANDLER ATUALIZAR CONTATO - Declarado ANTES dos early returns
-  const handleAtualizarContato = useCallback(async (campo, valor) => {
+  const handleAtualizarContato = React.useCallback(async (campo, valor) => {
     if (!contatoCompleto || !podeTransferirConversas) return;
 
     try {
@@ -1912,9 +1912,9 @@ export default function ChatWindow({
   }, [contatoCompleto, podeTransferirConversas]);
 
   // 🎯 BUSCAR NOME + SETOR DO OUTRO PARTICIPANTE (threads internas 1:1)
-  const [outroParticipanteNome, setOutroParticipanteNome] = useState('');
+  const [outroParticipanteNome, setOutroParticipanteNome] = React.useState('');
   
-  useEffect(() => {
+  React.useEffect(() => {
     const buscarNomeParticipante = async () => {
       if (thread?.thread_type !== 'team_internal' || thread?.is_group_chat) {
         setOutroParticipanteNome('');
