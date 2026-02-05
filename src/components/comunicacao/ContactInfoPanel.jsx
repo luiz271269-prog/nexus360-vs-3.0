@@ -7,7 +7,8 @@ import { Label } from '@/components/ui/label';
 import {
   User, Briefcase, Phone, Mail, Building2, Tag,
   Loader2, Brain, X, AlertCircle,
-  ShieldAlert, ShieldCheck, Trash2, CheckCircle2, UserPlus
+  ShieldAlert, ShieldCheck, Trash2, CheckCircle2, UserPlus,
+  Lock, Unlock
 } from 'lucide-react';
 import { createPageUrl } from "@/utils";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
