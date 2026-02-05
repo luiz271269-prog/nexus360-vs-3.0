@@ -182,10 +182,10 @@ Deno.serve(async (req) => {
     // ==========================================
     // 2. ANÁLISE MULTIMODAL AVANÇADA COM IA
     // ==========================================
-    const textosMensagens = mensagensEnviadas
+    const textosMensagens = inbound
       .filter(m => m.content && m.content.length > 5)
-      .slice(-30) // Aumentado para 30 mensagens
-      .map(m => m.content)
+      .slice(-30)
+      .map(m => cleanText(m.content))
       .join('\n');
 
     // 🖼️ Buscar mensagens com mídia (imagens) para análise visual
