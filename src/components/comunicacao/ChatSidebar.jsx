@@ -44,6 +44,7 @@ import CentralInteligenciaContato, {
 import CriarGrupoModal from './CriarGrupoModal';
 import { toast } from 'sonner';
 import AtribuidorAtendenteRapido from "./AtribuidorAtendenteRapido";
+import AgendaIAUnificada from './AgendaIAUnificada';
 import {
   SETORES_ATENDIMENTO,
   podeAtenderContato,
@@ -173,6 +174,7 @@ export default function ChatSidebar({
   const [internalComposerOpen, setInternalComposerOpen] = useState(false);
   const [delegateMode, setDelegateMode] = useState(false);
   const [criarGrupoOpen, setCriarGrupoOpen] = useState(false);
+  const [agendaIAOpen, setAgendaIAOpen] = useState(false);
 
   // Buscar categorias dinâmicas
   const { data: categoriasDB = [] } = useQuery({
@@ -392,7 +394,7 @@ export default function ChatSidebar({
             </div>
           </div>
           
-          <div className="flex gap-1">
+          <div className="grid grid-cols-4 gap-1">
             <Button
               onClick={() => {
                 setDelegateMode(false);
@@ -400,7 +402,7 @@ export default function ChatSidebar({
               }}
               variant="outline"
               size="sm"
-              className="flex-1 bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-600 hover:to-blue-700 text-white border-0 h-7 text-[10px] px-2"
+              className="bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-600 hover:to-blue-700 text-white border-0 h-7 text-[10px] px-1"
             >
               <Send className="w-3 h-3 mr-0.5" />
               Enviar
@@ -412,19 +414,28 @@ export default function ChatSidebar({
               }}
               variant="outline"
               size="sm"
-              className="flex-1 bg-gradient-to-r from-orange-500 to-amber-600 hover:from-orange-600 hover:to-amber-700 text-white border-0 h-7 text-[10px] px-2"
+              className="bg-gradient-to-r from-orange-500 to-amber-600 hover:from-orange-600 hover:to-amber-700 text-white border-0 h-7 text-[10px] px-1"
             >
               <ArrowRightLeft className="w-3 h-3 mr-0.5" />
-              Transferir
+              Transfer
             </Button>
             <Button
               onClick={() => setCriarGrupoOpen(true)}
               variant="outline"
               size="sm"
-              className="flex-1 bg-gradient-to-r from-slate-500 to-slate-600 hover:from-slate-600 hover:to-slate-700 text-white border-0 h-7 text-[10px] px-2"
+              className="bg-gradient-to-r from-slate-500 to-slate-600 hover:from-slate-600 hover:to-slate-700 text-white border-0 h-7 text-[10px] px-1"
             >
               <Plus className="w-3 h-3 mr-0.5" />
               Grupo
+            </Button>
+            <Button
+              onClick={() => setAgendaIAOpen(true)}
+              variant="outline"
+              size="sm"
+              className="bg-gradient-to-r from-emerald-500 to-green-600 hover:from-emerald-600 hover:to-green-700 text-white border-0 h-7 text-[10px] px-1"
+            >
+              <CalendarCheck className="w-3 h-3 mr-0.5" />
+              Agenda
             </Button>
           </div>
         </div>
@@ -458,6 +469,13 @@ export default function ChatSidebar({
           setCriarGrupoOpen(false);
           toast.success('✅ Grupo criado!');
         }}
+      />
+
+      {/* Modal Agenda IA Unificada */}
+      <AgendaIAUnificada
+        open={agendaIAOpen}
+        onClose={() => setAgendaIAOpen(false)}
+        usuario={usuarioAtual}
       />
 
       {/* ═══════════════════════════════════════════════════════════════════ */}
