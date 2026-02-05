@@ -189,9 +189,9 @@ Deno.serve(async (req) => {
       .join('\n');
 
     // 🖼️ Buscar mensagens com mídia (imagens) para análise visual
-    const mensagensComImagem = mensagensEnviadas
+    const mensagensComImagem = inbound
       .filter(m => m.media_type === 'image' && m.media_url)
-      .slice(-5); // Últimas 5 imagens
+      .slice(-5);
 
     let analiseSentimento = {
       sentimento_predominante: 'neutro',
