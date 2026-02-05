@@ -122,7 +122,7 @@ export default function DiagnosticoBloqueios() {
         encontrado: true,
         contato,
         bloqueios,
-        telefone: telefoneNormalizado
+        telefone: contato.telefone
       });
 
     } catch (error) {
