@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import React from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Badge } from "@/components/ui/badge";
@@ -34,11 +34,11 @@ export default function SeletorEtiquetasContato({
   // Para exibição de usuários
   atendentes = []
 }) {
-  const [aberto, setAberto] = useState(false);
-  const [busca, setBusca] = useState('');
-  const [salvando, setSalvando] = useState(false);
-  const [criandoNova, setCriandoNova] = useState(false);
-  const [novaEtiqueta, setNovaEtiqueta] = useState('');
+  const [aberto, setAberto] = React.useState(false);
+  const [busca, setBusca] = React.useState('');
+  const [salvando, setSalvando] = React.useState(false);
+  const [criandoNova, setCriandoNova] = React.useState(false);
+  const [novaEtiqueta, setNovaEtiqueta] = React.useState('');
   const queryClient = useQueryClient();
 
   const etiquetasAtuais = contato?.tags || selectedTags || [];
@@ -51,7 +51,7 @@ export default function SeletorEtiquetasContato({
   });
 
   // Filtrar etiquetas aplicáveis ao contexto
-  const etiquetasFiltradas = useMemo(() => {
+  const etiquetasFiltradas = React.useMemo(() => {
     return etiquetasDB.filter(etq => {
       // Filtro de busca
       if (busca && !etq.label?.toLowerCase().includes(busca.toLowerCase())) {
@@ -71,7 +71,7 @@ export default function SeletorEtiquetasContato({
   }, [etiquetasDB, busca, setorUsuario, tipoContato]);
 
   // Etiquetas de destaque (para exibição na sidebar)
-  const etiquetasDestaque = useMemo(() => {
+  const etiquetasDestaque = React.useMemo(() => {
     return etiquetasDB.filter(e => e.destaque === true);
   }, [etiquetasDB]);
 

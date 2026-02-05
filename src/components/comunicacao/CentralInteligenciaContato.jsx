@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { 
@@ -426,8 +426,8 @@ export default function CentralInteligenciaContato({
   onUpdate,
   showSugestoes = true 
 }) {
-  const [salvando, setSalvando] = useState(false);
-  const [menuAberto, setMenuAberto] = useState(false);
+  const [salvando, setSalvando] = React.useState(false);
+  const [menuAberto, setMenuAberto] = React.useState(false);
   const queryClient = useQueryClient();
 
   // Buscar atendentes
