@@ -89,10 +89,22 @@ Deno.serve(async (req) => {
       timeStyle: 'short'
     });
     
+    // Detectar comando explícito primeiro
+    const lowerText = text.toLowerCase();
+    let forcedAction = null;
+
+    if (lowerText.includes('listar') || lowerText.includes('minha agenda') || lowerText.includes('próximos')) {
+      forcedAction = 'list';
+    } else if (lowerText.includes('cancelar') || lowerText.includes('remover')) {
+      forcedAction = 'cancel';
+    } else if (lowerText.includes('remarcar') || lowerText.includes('mudar') || lowerText.includes('alterar')) {
+      forcedAction = 'reschedule';
+    }
+
     const prompt = `Você é o assistente de agenda Nexus. Hora atual: ${currentTime} (São Paulo).
 
-MENSAGEM DO USUÁRIO:
-${text}
+    MENSAGEM DO USUÁRIO:
+    ${text}
 
 ${conversationState?.pending_intent_json ? `
 CONTEXTO DE CONVERSA ANTERIOR:
