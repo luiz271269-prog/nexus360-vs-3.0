@@ -252,6 +252,16 @@ Forneça uma análise estruturada e ACIONÁVEL para vendas B2B.`;
                   }
                 }
               },
+              topics: {
+                type: "array",
+                items: {
+                  type: "object",
+                  properties: {
+                    name: { type: "string", enum: ["preco", "prazo", "especificacao", "suporte", "financeiro", "concorrencia", "relacionamento", "produto"] },
+                    weight: { type: "number", minimum: 0, maximum: 1 }
+                  }
+                }
+              },
               intencoes: {
                 type: "array",
                 items: {
@@ -260,6 +270,18 @@ Forneça uma análise estruturada e ACIONÁVEL para vendas B2B.`;
                     intencao: { type: "string", enum: ["comprar", "cotacao", "suporte", "reclamacao", "informacao", "negociacao", "cancelamento"] },
                     confianca: { type: "number", minimum: 0, maximum: 100 },
                     evidencias: { type: "array", items: { type: "string" } }
+                  }
+                }
+              },
+              objecoes: {
+                type: "array",
+                items: {
+                  type: "object",
+                  properties: {
+                    text: { type: "string" },
+                    category: { type: "string", enum: ["preco", "prazo", "condicao_pagamento", "produto", "outro"] },
+                    severity: { type: "string", enum: ["baixa", "media", "alta"] },
+                    unlock_hint: { type: "string" }
                   }
                 }
               },
