@@ -39,12 +39,17 @@ export default function InstrucoesAcessoExternoAgendaIA() {
           <div className="flex items-center justify-center gap-3 p-4 bg-emerald-50 rounded-lg border-2 border-emerald-300">
             <Phone className="w-6 h-6 text-emerald-600" />
             <span className="text-2xl font-bold text-emerald-900 tracking-wider">
-              +55 48 99999-9999
+              +55 99 99999-9999
             </span>
           </div>
           <p className="text-sm text-slate-600 text-center mt-3">
-            Telefone do contato AGENDA_IA_NEXUS no banco de dados
+            Número virtual exclusivo (DDD 99 não existe no Brasil)
           </p>
+          <div className="mt-2 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+            <p className="text-xs text-blue-900">
+              ✅ <strong>Formato interno:</strong> <code className="bg-blue-100 px-1 rounded">+559999999999</code> (sem hífens/espaços)
+            </p>
+          </div>
         </CardContent>
       </Card>
 
@@ -218,8 +223,8 @@ export default function InstrucoesAcessoExternoAgendaIA() {
       {/* Alertas Importantes */}
       <Alert className="border-amber-300 bg-amber-50">
         <AlertDescription className="text-sm text-amber-900">
-          ⚠️ <strong>Importante:</strong> O número correto é <code className="bg-amber-100 px-2 py-0.5 rounded">+5548999999999</code> (nove "9s" no final). 
-          Mensagens para números diferentes não serão roteadas automaticamente para a Agenda IA.
+          ⚠️ <strong>Importante:</strong> O número correto é <code className="bg-amber-100 px-2 py-0.5 rounded">+559999999999</code> (DDD 99 + nove "9s"). 
+          Este é um número virtual exclusivo - DDD 99 não existe no Brasil, garantindo que nenhum cliente real tenha este número.
         </AlertDescription>
       </Alert>
 

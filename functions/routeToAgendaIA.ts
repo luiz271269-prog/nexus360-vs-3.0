@@ -9,7 +9,7 @@ import { createClientFromRequest } from 'npm:@base44/sdk@0.8.6';
 // CONDIÇÕES PARA ENTRAR NA AGENDA IA:
 // 1. thread.assistant_mode == 'agenda' OU
 // 2. integration_id == NEXUS_AGENDA_INTEGRATION OU  
-// 3. contact.telefone == '+5548999999999' (AGENDA_IA_NEXUS)
+// 3. contact.telefone == '+559999999999' (NÚMERO VIRTUAL EXCLUSIVO - DDD 99 não existe)
 // ═══════════════════════════════════════════════════════════════════════════
 
 Deno.serve(async (req) => {
@@ -83,12 +83,12 @@ Deno.serve(async (req) => {
       }
     }
     
-    // CONDIÇÃO 3: Contato especial AGENDA_IA_NEXUS
+    // CONDIÇÃO 3: Contato especial AGENDA_IA_NEXUS (número virtual)
     if (thread.contact_id) {
       const contact = await base44.asServiceRole.entities.Contact.get(thread.contact_id);
       
-      if (contact?.telefone === '+5548999999999') {
-        console.log(`[ROUTE-AGENDA] ✅ Contato AGENDA_IA_NEXUS → ROTEAR`);
+      if (contact?.telefone === '+559999999999') {
+        console.log(`[ROUTE-AGENDA] ✅ Contato AGENDA_IA_NEXUS (número virtual +559999999999) → ROTEAR`);
         
         const result = await base44.asServiceRole.functions.invoke('processScheduleIntent', {
           thread_id,

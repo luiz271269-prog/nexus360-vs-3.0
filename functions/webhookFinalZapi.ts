@@ -606,10 +606,11 @@ async function handleMessage(dados, payloadBruto, base44) {
     console.log(`[${VERSION}] 💬 Nova mensagem de: ${dados.from} | Via: ${connectedPhone || 'não informado'}`);
 
   // 🗓️ DETECÇÃO IMEDIATA - AGENDA NEXUS IA
-  if (dados.from === '+5548999999999') {
+  if (dados.from === '+559999999999') {
     console.log('╔════════════════════════════════════════════════════════════════╗');
-    console.log('║  🗓️ AGENDA NEXUS IA DETECTADA - NÚMERO ESPECIAL +5548999999999  ║');
+    console.log('║  🗓️ AGENDA NEXUS IA DETECTADA - NÚMERO VIRTUAL +559999999999   ║');
     console.log('║  📱 Roteamento automático para processScheduleIntent           ║');
+    console.log('║  ✅ DDD 99 não existe - Número exclusivo do sistema            ║');
     console.log('╚════════════════════════════════════════════════════════════════╝');
   }
 
