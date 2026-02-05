@@ -24,7 +24,8 @@ import {
   Square, 
   MessagesSquare, 
   ArrowRightLeft, 
-  Plus 
+  Plus,
+  CalendarCheck
 } from "lucide-react";
 import InternalMessageComposer from "./InternalMessageComposer";
 import { Badge } from "@/components/ui/badge";
