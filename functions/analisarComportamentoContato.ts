@@ -249,7 +249,7 @@ Forneça uma análise estruturada e ACIONÁVEL para vendas B2B.`;
                   properties: {
                     palavra: { type: "string" },
                     frequencia: { type: "number" },
-                    categoria: { type: "string", enum: ["produto", "problema", "duvida", "elogio", "reclamacao", "preco", "prazo", "tecnico"] },
+                    categoria: { type: "string", enum: ["produto", "problema", "duvida", "elogio", "reclamacao", "preco", "prazo", "tecnico", "documento", "pagamento", "urgencia"] },
                     relevancia_comercial: { type: "number", minimum: 0, maximum: 10 }
                   }
                 }
@@ -259,7 +259,7 @@ Forneça uma análise estruturada e ACIONÁVEL para vendas B2B.`;
                 items: {
                   type: "object",
                   properties: {
-                    name: { type: "string", enum: ["preco", "prazo", "especificacao", "suporte", "financeiro", "concorrencia", "relacionamento", "produto"] },
+                    name: { type: "string" },
                     weight: { type: "number", minimum: 0, maximum: 1 }
                   }
                 }
@@ -269,7 +269,7 @@ Forneça uma análise estruturada e ACIONÁVEL para vendas B2B.`;
                 items: {
                   type: "object",
                   properties: {
-                    intencao: { type: "string", enum: ["comprar", "cotacao", "suporte", "reclamacao", "informacao", "negociacao", "cancelamento"] },
+                    intencao: { type: "string" },
                     confianca: { type: "number", minimum: 0, maximum: 100 },
                     evidencias: { type: "array", items: { type: "string" } }
                   }
@@ -281,9 +281,10 @@ Forneça uma análise estruturada e ACIONÁVEL para vendas B2B.`;
                   type: "object",
                   properties: {
                     text: { type: "string" },
-                    category: { type: "string", enum: ["preco", "prazo", "condicao_pagamento", "produto", "outro"] },
+                    category: { type: "string" },
                     severity: { type: "string", enum: ["baixa", "media", "alta"] },
-                    unlock_hint: { type: "string" }
+                    unlock_hint: { type: "string" },
+                    contexto: { type: "string" }
                   }
                 }
               },
@@ -294,7 +295,31 @@ Forneça uma análise estruturada e ACIONÁVEL para vendas B2B.`;
                   properties: {
                     padrao: { type: "string" },
                     descricao: { type: "string" },
-                    impacto: { type: "string", enum: ["positivo", "neutro", "negativo"] }
+                    impacto: { type: "string", enum: ["positivo", "neutro", "negativo"] },
+                    frequencia: { type: "string", enum: ["rara", "ocasional", "frequente", "cronica"] }
+                  }
+                }
+              },
+              fricoes_comerciais: {
+                type: "array",
+                items: {
+                  type: "object",
+                  properties: {
+                    friccao: { type: "string" },
+                    severidade: { type: "string", enum: ["baixa", "media", "alta"] },
+                    origem: { type: "string" },
+                    impacto_fechamento: { type: "string" }
+                  }
+                }
+              },
+              estranagias_desbloqueio: {
+                type: "array",
+                items: {
+                  type: "object",
+                  properties: {
+                    objeção: { type: "string" },
+                    estrategia: { type: "string" },
+                    mensagem_proposta: { type: "string" }
                   }
                 }
               },
@@ -304,11 +329,7 @@ Forneça uma análise estruturada e ACIONÁVEL para vendas B2B.`;
               },
               nivel_maturidade_compra: {
                 type: "string",
-                enum: ["consciencia", "consideracao", "decisao", "pronto_comprar"]
-              },
-              objecoes_identificadas: {
-                type: "array",
-                items: { type: "string" }
+                enum: ["consciencia", "consideracao", "decisao", "negociacao", "pronto_comprar", "pos_venda"]
               },
               oportunidades_upsell: {
                 type: "array",
