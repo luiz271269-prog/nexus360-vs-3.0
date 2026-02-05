@@ -27,6 +27,7 @@ import WebhookInstructions from "../components/comunicacao/WebhookInstructions";
 import ErrorBoundary from "../components/comunicacao/ErrorBoundary";
 import NotificationSystem from "../components/comunicacao/NotificationSystem";
 import ContadorNaoAtribuidas from "../components/comunicacao/ContadorNaoAtribuidas";
+import ContatosRequerendoAtencao from "../components/comunicacao/ContatosRequerendoAtencao";
 import { useDebounce } from "../components/lib/useDebounce";
 import { normalizarTelefone } from "../components/lib/phoneUtils";
 import {
@@ -2431,19 +2432,26 @@ export default function Comunicacao() {
 
 
                   <div className={`flex-1 overflow-y-auto transition-opacity duration-200 ${isPendingFilter ? 'opacity-50' : 'opacity-100'}`}>
-                    <ChatSidebar
-                      threads={threadsParaExibir}
-                      threadAtiva={threadAtiva}
-                      onSelecionarThread={handleSelecionarThread}
-                      loading={loadingTopics}
-                      usuarioAtual={usuario}
-                      integracoes={integracoes}
-                      atendentes={atendentes}
-                      modoSelecaoMultipla={modoSelecaoMultipla}
-                      setModoSelecaoMultipla={setModoSelecaoMultipla}
-                      contatosSelecionados={contatosSelecionados}
-                      setContatosSelecionados={setContatosSelecionados}
-                      onSelectInternalDestinations={handleInternalSelection} />
+                   {/* Contatos Requerendo Atenção */}
+                   <ContatosRequerendoAtencao
+                     usuario={usuario}
+                     contatos={contatos}
+                     onSelecionarContato={handleSelecionarThread}
+                   />
+
+                   <ChatSidebar
+                     threads={threadsParaExibir}
+                     threadAtiva={threadAtiva}
+                     onSelecionarThread={handleSelecionarThread}
+                     loading={loadingTopics}
+                     usuarioAtual={usuario}
+                     integracoes={integracoes}
+                     atendentes={atendentes}
+                     modoSelecaoMultipla={modoSelecaoMultipla}
+                     setModoSelecaoMultipla={setModoSelecaoMultipla}
+                     contatosSelecionados={contatosSelecionados}
+                     setContatosSelecionados={setContatosSelecionados}
+                     onSelectInternalDestinations={handleInternalSelection} />
 
                   </div>
                 </div>

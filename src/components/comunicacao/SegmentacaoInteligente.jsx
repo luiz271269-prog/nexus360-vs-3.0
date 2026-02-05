@@ -21,12 +21,20 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 
-export default function SegmentacaoInteligente({ contactId }) {
+export default function SegmentacaoInteligente({ 
+  contactId,
+  mode = "period",
+  visibleThreadIds = [],
+  activeThreadId = null,
+  defaultPeriodoDias = 30
+}) {
   const [analise, setAnalise] = useState(null);
+  const [payload, setPayload] = useState(null);
   const [loading, setLoading] = useState(true);
   const [analisando, setAnalisando] = useState(false);
   const [tags, setTags] = useState([]);
-  const [periodoDias, setPeriodoDias] = useState(30);
+  const [periodoDias, setPeriodoDias] = useState(defaultPeriodoDias);
+  const [modeAtual, setModeAtual] = useState(mode);
 
   useEffect(() => {
     carregarAnalise();
@@ -70,14 +78,34 @@ export default function SegmentacaoInteligente({ contactId }) {
 
   const analisarComportamento = async () => {
     setAnalisando(true);
-    const toastId = toast.loading(`🤖 IA analisando últimos ${periodoDias} dias...`, { duration: Infinity });
+    
+    // Guardrail para modo bolha
+    if (modeAtual === "bubble" && (!visibleThreadIds || visibleThreadIds.length === 0)) {
+      toast.error("Não há threads visíveis na bolha. Abra uma conversa ou mude para análise por período.");
+      setAnalisando(false);
+      return;
+    }
+
+    const toastId = toast.loading(
+      `🤖 IA analisando ${modeAtual === "bubble" ? "conversas da bolha" : `últimos ${periodoDias} dias`}...`, 
+      { duration: Infinity }
+    );
     
     try {
-      const resultado = await base44.functions.invoke('analisarComportamentoContato', {
+      const payload = {
         contact_id: contactId,
-        periodo_dias: periodoDias,
-        mode: 'period'
-      });
+        mode: modeAtual,
+        active_thread_id: activeThreadId
+      };
+
+      if (modeAtual === "period") {
+        payload.periodo_dias = periodoDias;
+      }
+      if (modeAtual === "bubble") {
+        payload.visible_thread_ids = visibleThreadIds;
+      }
+
+      const resultado = await base44.functions.invoke('analisarComportamentoContato', payload);
 
       if (resultado.data.success) {
         const resumo = resultado.data.resumo;
@@ -201,23 +229,45 @@ export default function SegmentacaoInteligente({ contactId }) {
             </div>
           </div>
           
-          {/* Seletor de Período */}
-          <div className="flex items-center gap-3 mb-3">
-            <span className="text-sm text-slate-600 font-medium">Período de análise:</span>
-            <div className="flex gap-2">
-              {[7, 15, 30, 60, 90].map(dias => (
-                <Button
-                  key={dias}
-                  onClick={() => setPeriodoDias(dias)}
-                  variant={periodoDias === dias ? "default" : "outline"}
-                  size="sm"
-                  className={periodoDias === dias ? "bg-purple-600" : ""}
-                >
-                  {dias} dias
-                </Button>
-              ))}
-            </div>
+          {/* Seletor de Modo */}
+          <div className="flex items-center gap-2 mb-3">
+            <Button
+              size="sm"
+              variant={modeAtual === "bubble" ? "default" : "outline"}
+              onClick={() => setModeAtual("bubble")}
+              className={modeAtual === "bubble" ? "bg-purple-600" : ""}
+            >
+              Conversas Visíveis
+            </Button>
+            <Button
+              size="sm"
+              variant={modeAtual === "period" ? "default" : "outline"}
+              onClick={() => setModeAtual("period")}
+              className={modeAtual === "period" ? "bg-purple-600" : ""}
+            >
+              Período
+            </Button>
           </div>
+
+          {/* Seletor de Período (apenas se mode === period) */}
+          {modeAtual === "period" && (
+            <div className="flex items-center gap-3 mb-3">
+              <span className="text-sm text-slate-600 font-medium">Período:</span>
+              <div className="flex gap-2">
+                {[7, 15, 30, 60, 90].map(dias => (
+                  <Button
+                    key={dias}
+                    onClick={() => setPeriodoDias(dias)}
+                    variant={periodoDias === dias ? "default" : "outline"}
+                    size="sm"
+                    className={periodoDias === dias ? "bg-purple-600" : ""}
+                  >
+                    {dias}d
+                  </Button>
+                ))}
+              </div>
+            </div>
+          )}
 
           <Button
             onClick={analisarComportamento}
@@ -228,12 +278,12 @@ export default function SegmentacaoInteligente({ contactId }) {
             {analisando ? (
               <>
                 <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                Analisando últimos {periodoDias} dias...
+                {modeAtual === "bubble" ? "Analisando bolha..." : `Analisando ${periodoDias} dias...`}
               </>
             ) : (
               <>
                 <RefreshCw className="w-4 h-4 mr-2" />
-                Analisar Últimos {periodoDias} Dias
+                {modeAtual === "bubble" ? "Analisar Conversas Visíveis" : `Analisar Últimos ${periodoDias} Dias`}
               </>
             )}
           </Button>
@@ -577,13 +627,22 @@ export default function SegmentacaoInteligente({ contactId }) {
               </div>
               <div>
                 <p className="text-xs text-slate-500">Taxa de Resposta</p>
-                <p className="text-2xl font-bold">{analise.metricas_engajamento?.taxa_resposta?.toFixed(1) || 0}%</p>
+                <p className="text-2xl font-bold">
+                  {(() => {
+                    const taxa = analise.metricas_engajamento?.taxa_resposta;
+                    return typeof taxa === "number" ? taxa.toFixed(1) : "0.0";
+                  })()}%
+                </p>
               </div>
               <div>
-                <p className="text-xs text-slate-500">Tempo Médio Resposta</p>
+                <p className="text-xs text-slate-500">Tempo Médio Resposta (Empresa)</p>
                 <p className="text-xl font-bold flex items-center gap-1">
                   <Clock className="w-4 h-4 text-slate-400" />
-                  {analise.metricas_engajamento?.tempo_medio_resposta_minutos?.toFixed(0) || 0}min
+                  {(() => {
+                    const tempo = analise.metricas_engajamento?.avg_reply_minutes_company ?? 
+                                  analise.metricas_engajamento?.tempo_medio_resposta_minutos;
+                    return typeof tempo === "number" ? Math.round(tempo) : 0;
+                  })()}min
                 </p>
               </div>
               <div>
