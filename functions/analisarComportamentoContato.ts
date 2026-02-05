@@ -361,6 +361,10 @@ Forneça uma análise estruturada e ACIONÁVEL para vendas B2B.`;
         }));
 
         padroesBehaviorais = analiseCompleta.padroes_comportamentais || [];
+        
+        // 🔑 FRICÇÕES COMERCIAIS DETECTADAS (novo)
+        let fricoesComerciais = analiseCompleta.fricoes_comerciais || [];
+        let estrategiasDesbloqueio = analiseCompleta.estranagias_desbloqueio || [];
 
       } catch (error) {
         console.error('❌ Erro na análise consolidada:', error);
