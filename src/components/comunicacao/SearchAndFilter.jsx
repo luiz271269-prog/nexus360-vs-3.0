@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useMemo } from "react";
+import React from "react";
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -56,7 +56,7 @@ export default function SearchAndFilter({
   // Callback para duplicatas detectadas
   onDuplicataDetectada
 }) {
-  const [showFilters, setShowFilters] = useState(false);
+  const [showFilters, setShowFilters] = React.useState(false);
 
   // Buscar categorias dinâmicas
   const { data: categoriasDB = [] } = useQuery({
@@ -73,7 +73,7 @@ export default function SearchAndFilter({
   });
 
   // Etiquetas de destaque dinâmicas
-  const etiquetasDestaque = useMemo(() => {
+  const etiquetasDestaque = React.useMemo(() => {
     return etiquetasDB.map((etq) => ({
       value: etq.nome,
       label: etq.label,
@@ -98,7 +98,7 @@ export default function SearchAndFilter({
   });
 
   // Normalizar telefone para criar contato + detectar duplicatas
-  useEffect(() => {
+  React.useEffect(() => {
     if (!searchTerm || searchTerm.trim() === '') {
       if (novoContatoTelefone) {
         onNovoContatoTelefoneChange('');

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useTransition } from "react";
+import React from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
@@ -96,52 +96,52 @@ export default function Comunicacao() {
     return permissionsService.buildUserPermissions(usuario, todasIntegracoes);
   }, [usuario, todasIntegracoes]);
 
-  const [threadAtiva, setThreadAtiva] = useState(null);
-  const [activeTab, setActiveTab] = useState("conversas");
-  const [showContactInfo, setShowContactInfo] = useState(false);
-  const [searchTerm, setSearchTerm] = useState("");
+  const [threadAtiva, setThreadAtiva] = React.useState(null);
+  const [activeTab, setActiveTab] = React.useState("conversas");
+  const [showContactInfo, setShowContactInfo] = React.useState(false);
+  const [searchTerm, setSearchTerm] = React.useState("");
   const debouncedSearchTerm = useDebounce(searchTerm, 300);
-  const [mostrarInstrucoesWebhook, setMostrarInstrucoesWebhook] = useState(false);
+  const [mostrarInstrucoesWebhook, setMostrarInstrucoesWebhook] = React.useState(false);
 
   // RESTAURADO: Estados para criar novo contato
-  const [novoContatoTelefone, setNovoContatoTelefone] = useState("");
-  const [criandoNovoContato, setCriandoNovoContato] = useState(false);
+  const [novoContatoTelefone, setNovoContatoTelefone] = React.useState("");
+  const [criandoNovoContato, setCriandoNovoContato] = React.useState(false);
   
   // 🎯 NOVO: Estado para duplicata detectada pela busca
-  const [duplicataEncontrada, setDuplicataEncontrada] = useState(null);
+  const [duplicataEncontrada, setDuplicataEncontrada] = React.useState(null);
 
   // Estados para seleção múltipla (broadcast)
-  const [modoSelecaoMultipla, setModoSelecaoMultipla] = useState(false);
-  const [contatosSelecionados, setContatosSelecionados] = useState([]);
-  const [mostrarSelecionados, setMostrarSelecionados] = useState(false);
+  const [modoSelecaoMultipla, setModoSelecaoMultipla] = React.useState(false);
+  const [contatosSelecionados, setContatosSelecionados] = React.useState([]);
+  const [mostrarSelecionados, setMostrarSelecionados] = React.useState(false);
   
   // Estados para broadcast interno
-  const [broadcastInterno, setBroadcastInterno] = useState(null); // { destinations: [...] }
-  const [isRateLimited, setIsRateLimited] = useState(false); // 🚫 Cool-down para 429
+  const [broadcastInterno, setBroadcastInterno] = React.useState(null); // { destinations: [...] }
+  const [isRateLimited, setIsRateLimited] = React.useState(false); // 🚫 Cool-down para 429
 
-  const [filterScope, setFilterScope] = useState(() => {
+  const [filterScope, setFilterScope] = React.useState(() => {
     if (typeof window !== 'undefined') {
       return localStorage.getItem('filterScope') || 'all';
     }
     return 'all';
   });
 
-  const [selectedAttendantId, setSelectedAttendantId] = useState(null);
-  const [selectedIntegrationId, setSelectedIntegrationId] = useState('all');
-  const [selectedCategoria, setSelectedCategoria] = useState('all');
-  const [selectedTipoContato, setSelectedTipoContato] = useState('all');
-  const [selectedTagContato, setSelectedTagContato] = useState('all');
+  const [selectedAttendantId, setSelectedAttendantId] = React.useState(null);
+  const [selectedIntegrationId, setSelectedIntegrationId] = React.useState('all');
+  const [selectedCategoria, setSelectedCategoria] = React.useState('all');
+  const [selectedTipoContato, setSelectedTipoContato] = React.useState('all');
+  const [selectedTagContato, setSelectedTagContato] = React.useState('all');
 
   // Persistir filterScope no localStorage
-  useEffect(() => {
+  React.useEffect(() => {
     localStorage.setItem('filterScope', filterScope);
   }, [filterScope]);
 
   // Estado para dados do cliente pré-preenchidos (quando clica em cliente_sem_contato)
-  const [contactInitialData, setContactInitialData] = useState(null);
+  const [contactInitialData, setContactInitialData] = React.useState(null);
 
   // Estado para modal de sem permissão
-  const [modalSemPermissao, setModalSemPermissao] = useState({
+  const [modalSemPermissao, setModalSemPermissao] = React.useState({
     isOpen: false,
     contato: null,
     atendenteResponsavel: null,
@@ -152,12 +152,12 @@ export default function Comunicacao() {
 
 
   // 🚀 OTIMIZAÇÃO DE PERFORMANCE (UI não trava na troca de filtro)
-  const [isPendingFilter, startTransition] = useTransition();
+  const [isPendingFilter, startTransition] = React.useTransition();
 
   const navigate = useNavigate();
   const queryClient = useQueryClient();
 
-  useEffect(() => {
+  React.useEffect(() => {
     if (usuario && !localStorage.getItem('filterScope')) {
         const isManager = usuario.role === 'admin' || usuario.role === 'supervisor';
         setFilterScope(isManager ? 'all' : 'my');
@@ -165,7 +165,7 @@ export default function Comunicacao() {
   }, [usuario]);
 
   // 🔔 REAL-TIME: Atualizar threads quando houver mudanças
-  useEffect(() => {
+  React.useEffect(() => {
     if (!usuario) return;
 
     console.log('[COMUNICACAO] 🔔 Ativando listener real-time para threads');
@@ -697,7 +697,7 @@ export default function Comunicacao() {
   // ═══════════════════════════════════════════════════════════════════════════════
   // 🎯 HANDLER DE SELEÇÃO DE THREAD/CONTATO/CLIENTE
   // ═══════════════════════════════════════════════════════════════════════════════
-  const handleSelecionarThread = useCallback(async (thread) => {
+  const handleSelecionarThread = React.useCallback(async (thread) => {
     console.log('🖱️ [Comunicacao] Selecionando:', thread.id);
     setCriandoNovoContato(false);
     setNovoContatoTelefone("");
@@ -867,7 +867,7 @@ export default function Comunicacao() {
   }, [integracoes, queryClient, clientes, contatos, usuario]);
 
   // Handler para iniciar nova conversa quando não tem permissão na existente
-  const handleIniciarNovaConversaSemPermissao = useCallback(async () => {
+  const handleIniciarNovaConversaSemPermissao = React.useCallback(async () => {
     const { contato } = modalSemPermissao;
     if (!contato) {
       setModalSemPermissao({ isOpen: false, contato: null, atendenteResponsavel: null, motivoBloqueio: null, threadOriginal: null });
@@ -906,7 +906,7 @@ export default function Comunicacao() {
   }, [modalSemPermissao, integracoes, usuario, queryClient]);
 
   // RESTAURADO: Handler para criar novo contato
-  const handleCriarNovoContato = useCallback(async (dadosContato) => {
+  const handleCriarNovoContato = React.useCallback(async (dadosContato) => {
     try {
       console.log('[Comunicacao] 🆕 Criando novo contato:', dadosContato);
 
@@ -1022,7 +1022,7 @@ export default function Comunicacao() {
   }, [integracoes, queryClient, usuario]);
 
   // Handler para atualizar informações do contato (silencioso para auto-save)
-  const handleAtualizarContato = useCallback(async (dadosAtualizados) => {
+  const handleAtualizarContato = React.useCallback(async (dadosAtualizados) => {
     try {
       console.log('[Comunicacao] 🔄 Invalidando cache após edição de contato...');
       
@@ -1044,7 +1044,7 @@ export default function Comunicacao() {
   }, [threadAtiva, queryClient]);
 
   // Handler para seleção de destinatários internos
-  const handleInternalSelection = useCallback((selectionData) => {
+  const handleInternalSelection = React.useCallback((selectionData) => {
     console.log('🔵 [Comunicacao] Seleção interna:', selectionData);
     
     if (selectionData.mode === 'single') {
@@ -1064,7 +1064,7 @@ export default function Comunicacao() {
   }, [queryClient]);
 
   // Handler para atualizar mensagens após envio
-  const handleAtualizarMensagens = useCallback(async (novasMensagens) => {
+  const handleAtualizarMensagens = React.useCallback(async (novasMensagens) => {
     if (novasMensagens) {
       queryClient.setQueryData(['mensagens', threadAtiva?.id], novasMensagens);
     } else {
@@ -1076,7 +1076,7 @@ export default function Comunicacao() {
   }, [threadAtiva, queryClient]);
 
   // 🚀 OPTIMISTIC UI: Envio instantâneo de mensagens INTERNAS
-  const handleEnviarMensagemInternaOtimista = useCallback(async (dadosEnvio) => {
+  const handleEnviarMensagemInternaOtimista = React.useCallback(async (dadosEnvio) => {
     if (!threadAtiva || !usuario) return;
 
     const { texto, pastedImage, attachedFile, attachedFileType, replyToMessage, audioBlob } = dadosEnvio;
@@ -1205,7 +1205,7 @@ export default function Comunicacao() {
   }, [threadAtiva, usuario, queryClient]);
 
   // 🚀 OPTIMISTIC UI: Envio instantâneo de mensagens EXTERNAS (WhatsApp)
-  const handleEnviarMensagemOtimista = useCallback(async (dadosEnvio) => {
+  const handleEnviarMensagemOtimista = React.useCallback(async (dadosEnvio) => {
     if (!threadAtiva || !usuario) return;
 
     const { texto, integrationId, replyToMessage, mediaUrl, mediaType, mediaCaption, isAudio } = dadosEnvio;

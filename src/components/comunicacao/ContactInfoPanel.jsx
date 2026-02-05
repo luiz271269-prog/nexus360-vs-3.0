@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { base44 } from '@/api/base44Client';
 import { Input } from '@/components/ui/input';
@@ -35,8 +35,8 @@ export default function ContactInfoPanel({
   atendentes = [] // ✅ PROP: Recebe lista de atendentes do pai
 }) {
   const navigate = useNavigate();
-  const [salvando, setSalvando] = useState(false);
-  const [usuario, setUsuario] = useState(null);
+  const [salvando, setSalvando] = React.useState(false);
+  const [usuario, setUsuario] = React.useState(null);
 
   // Mesclar defaultValues (de cliente_sem_contato) com dados do contact
   const initialData = {
@@ -55,9 +55,9 @@ export default function ContactInfoPanel({
     cliente_id: defaultValues?.cliente_id || contact?.cliente_id || null
   };
 
-  const [formData, setFormData] = useState(initialData);
+  const [formData, setFormData] = React.useState(initialData);
 
-  useEffect(() => {
+  React.useEffect(() => {
     const carregarUsuario = async () => {
       try {
         const user = await base44.auth.me();
@@ -74,7 +74,7 @@ export default function ContactInfoPanel({
   const podeBloquearContatos = permissoes.pode_bloquear_contatos === true;
   const podeDeletarContatos = permissoes.pode_deletar_contatos === true;
 
-  useEffect(() => {
+  React.useEffect(() => {
     if (contact) {
       setFormData({
         empresa: contact.empresa || '',
