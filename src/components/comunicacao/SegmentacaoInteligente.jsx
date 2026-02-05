@@ -362,17 +362,18 @@ export default function SegmentacaoInteligente({
         </Card>
       ) : (
         <>
-          {/* Aviso de Visibilidade Limitada */}
+          {/* Aviso de Visibilidade */}
           {payload?.scope?.limited_by_visibility && (
             <Card className="border-amber-300 bg-amber-50">
               <CardContent className="p-3 flex items-start gap-2">
                 <AlertCircle className="w-4 h-4 text-amber-600 mt-0.5 flex-shrink-0" />
-                <p className="text-sm text-amber-800">
-                  {payload.scope.visibility_notice}
-                </p>
+                <p className="text-sm text-amber-800">{payload.scope.visibility_notice}</p>
               </CardContent>
             </Card>
           )}
+
+          {/* Renderizar insights estruturados */}
+          <InsightRenderer insights={payload} />
 
           {/* Scorecards (4 métricas principais) */}
           {payload && (
@@ -860,87 +861,7 @@ export default function SegmentacaoInteligente({
             </Card>
           )}
 
-          {/* Intenções Detectadas */}
-          {analise.intencoes_detectadas?.length > 0 && (
-            <Card className="border-blue-200 bg-blue-50">
-              <CardHeader>
-                <CardTitle className="text-sm flex items-center gap-2">
-                  <Target className="w-4 h-4 text-blue-600" />
-                  Intenções Detectadas pela IA
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-2">
-                  {analise.intencoes_detectadas.slice(0, 5).map((intencao, i) => (
-                    <div key={i} className="flex items-center justify-between p-2 bg-white rounded-lg border border-blue-200">
-                      <div className="flex items-center gap-2">
-                        <Badge variant="outline" className="font-mono text-xs">
-                          {intencao.intencao}
-                        </Badge>
-                        {intencao.evidencias?.slice(0, 2).map((ev, j) => (
-                          <span key={j} className="text-xs text-slate-500 italic">"{ev.substring(0, 30)}..."</span>
-                        ))}
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <Progress value={intencao.confianca} className="w-16 h-2" />
-                        <span className="text-xs font-semibold text-blue-600">{intencao.confianca}%</span>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-          )}
 
-          {/* Insights Visuais (Análise de Imagens) */}
-          {analise.insights_visuais?.length > 0 && (
-            <Card className="border-purple-200 bg-purple-50">
-              <CardHeader>
-                <CardTitle className="text-sm flex items-center gap-2">
-                  <Sparkles className="w-4 h-4 text-purple-600" />
-                  Insights das Imagens Enviadas
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <ul className="space-y-2">
-                  {analise.insights_visuais.map((insight, i) => (
-                    <li key={i} className="flex items-start gap-2 text-sm">
-                      <span className="text-purple-600 font-bold">•</span>
-                      <span className="text-slate-700">{insight}</span>
-                    </li>
-                  ))}
-                </ul>
-              </CardContent>
-            </Card>
-          )}
-
-          {/* Padrões Comportamentais */}
-          {analise.padroes_comportamentais?.length > 0 && (
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-sm flex items-center gap-2">
-                  <Brain className="w-4 h-4 text-indigo-600" />
-                  Padrões de Comportamento
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-2">
-                  {analise.padroes_comportamentais.map((padrao, i) => (
-                    <div key={i} className="flex items-start gap-2 p-2 bg-slate-50 rounded-lg">
-                      <span className={`text-lg ${
-                        padrao.impacto === 'positivo' ? '✅' : 
-                        padrao.impacto === 'negativo' ? '⚠️' : 'ℹ️'
-                      }`}></span>
-                      <div className="flex-1">
-                        <p className="text-sm font-medium text-slate-800">{padrao.padrao}</p>
-                        <p className="text-xs text-slate-600">{padrao.descricao}</p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-          )}
         </>
       )}
     </div>
