@@ -261,23 +261,42 @@ export default function SegmentacaoInteligente({ contactId }) {
             <Sparkles className="w-12 h-12 text-purple-300 mx-auto mb-3" />
             <p className="text-slate-600 mb-2 font-medium">Nenhuma análise disponível ainda</p>
             <p className="text-sm text-slate-500 mb-4">
-              A IA analisará o histórico de mensagens para identificar padrões de comportamento,
-              sentimento e recomendar ações.
+              A IA analisará o histórico de mensagens visíveis para identificar padrões de comportamento,
+              sentimento e recomendar ações baseadas nas conversas dos últimos {periodoDias} dias.
             </p>
+            
+            {/* Seletor de Período na primeira análise */}
+            <div className="mb-4 p-3 bg-white rounded-lg border">
+              <p className="text-xs text-slate-600 mb-2 font-medium">Selecione o período:</p>
+              <div className="flex flex-wrap gap-2">
+                {[7, 15, 30, 60, 90].map(dias => (
+                  <Button
+                    key={dias}
+                    onClick={() => setPeriodoDias(dias)}
+                    variant={periodoDias === dias ? "default" : "outline"}
+                    size="sm"
+                    className={periodoDias === dias ? "bg-purple-600" : ""}
+                  >
+                    {dias} dias
+                  </Button>
+                ))}
+              </div>
+            </div>
+
             <Button 
               onClick={analisarComportamento} 
               disabled={analisando}
-              className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700"
+              className="w-full bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700"
             >
               {analisando ? (
                 <>
                   <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  Analisando...
+                  Analisando últimos {periodoDias} dias...
                 </>
               ) : (
                 <>
                   <Brain className="w-4 h-4 mr-2" />
-                  Realizar Primeira Análise
+                  Analisar Últimos {periodoDias} Dias
                 </>
               )}
             </Button>
