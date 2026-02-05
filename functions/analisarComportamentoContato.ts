@@ -590,7 +590,132 @@ Sugira:
     }
 
     // ==========================================
-    // 6. SALVAR ANÁLISE ENRIQUECIDA
+    // 6A. CALCULAR ROOT CAUSES + EVIDENCE
+    // ==========================================
+    const rootCauses = [];
+    const evidenceSnippets = [];
+
+    // Causa 1: Follow-ups sem resposta
+    if (maxFollowUpStreak >= 3) {
+      rootCauses.push(`${maxFollowUpStreak} follow-ups consecutivos sem resposta`);
+      inbound.length > 0 && evidenceSnippets.push({
+        cause: `${maxFollowUpStreak} follow-ups sem resposta`,
+        snippet: `Cliente não respondeu aos últimos ${maxFollowUpStreak} contatos`,
+        timestamp: new Date().toISOString(),
+        thread_id: threadIds[0]
+      });
+    }
+
+    // Causa 2: Dias parado
+    if (daysStalled > 3) {
+      rootCauses.push(`Negociação parada há ${daysStalled} dias`);
+      lastInbound && evidenceSnippets.push({
+        cause: `Parado há ${daysStalled} dias`,
+        snippet: `Última mensagem do cliente: ${cleanText(lastInbound.content || '').substring(0, 50)}...`,
+        timestamp: lastInbound.created_date,
+        thread_id: lastInbound.thread_id
+      });
+    }
+
+    // Causa 3: Objeções não resolvidas
+    if ((objections || []).length > 0) {
+      const objecoesTexto = objections.map(o => `"${o.text}"`).join('; ');
+      rootCauses.push(`Objeções não resolvidas: ${objecoesTexto}`);
+      objections.slice(0, 2).forEach(obj => {
+        evidenceSnippets.push({
+          cause: `Objeção: ${obj.category}`,
+          snippet: `"${obj.text}" - ${obj.unlock_hint}`,
+          timestamp: new Date().toISOString(),
+          thread_id: threadIds[0]
+        });
+      });
+    }
+
+    // Causa 4: Sentimento negativo
+    if (analiseSentimento.score_sentimento < 40) {
+      rootCauses.push(`Sentimento predominantemente negativo (${analiseSentimento.score_sentimento}/100)`);
+      analiseSentimento.razoes?.length > 0 && evidenceSnippets.push({
+        cause: 'Sentimento negativo',
+        snippet: analiseSentimento.razoes[0],
+        timestamp: new Date().toISOString(),
+        thread_id: threadIds[0]
+      });
+    }
+
+    // Causa 5: Frases de corte detectadas
+    if (cortesDetectados.length > 0) {
+      rootCauses.push(`Cliente disse: ${cortesDetectados.map(c => `"${c.replace('Cliente disse: ', '')}"`).join(', ')}`);
+      cortesDetectados.forEach(corte => {
+        evidenceSnippets.push({
+          cause: 'Frase de corte',
+          snippet: corte,
+          timestamp: new Date().toISOString(),
+          thread_id: threadIds[0]
+        });
+      });
+    }
+
+    // ==========================================
+    // 6B. PAYLOAD HIERÁRQUICO COM INSIGHTS COMPLETO
+    // ==========================================
+    const payload = {
+      scope: {
+        mode,
+        start: dataInicio.toISOString(),
+        end: dataFim.toISOString(),
+        threads: threadsScope.length,
+        messages: mensagens.length,
+        limited_by_visibility: limitedByVisibility,
+        visibility_notice: limitedByVisibility 
+          ? 'Insights limitados: existem conversas que você não tem permissão para visualizar.'
+          : null
+      },
+      scores: {
+        health: healthScore,
+        deal_risk: dealRisk,
+        buy_intent: buyIntent,
+        engagement: scoreEngajamento
+      },
+      scores_explain: {
+        health: `Saúde = Sentimento(${analiseSentimento.score_sentimento}% × 50%) + Responsividade(${responsividadeScore.toFixed(0)}% × 30%) + Fricção(${hasFriction ? 0 : 20}% × 20%)`,
+        deal_risk: `Risco = Dias parado(${Math.min(daysStalled * 10, 40)}%) + Objeções altas(${Math.min(objecoesAltas * 15, 30)}%) + Follow-ups(${Math.min(Math.max(maxFollowUpStreak - 2, 0) * 10, 30)}%)`,
+        buy_intent: `Intenção = ${intentsCompra.length} intenção(ões) de compra detectada(s) com confiança média ${buyIntent}%`,
+        engagement: `Engajamento = Vol(${Math.round(inbound.length * 3)}) + Reciprocidade(${(inbound.length / Math.max(outbound.length, 1) * 40).toFixed(0)}) + Sentimento + Tempo resposta`
+      },
+      stage: {
+        current: estagioVida,
+        days_stalled: daysStalled
+      },
+      root_causes: rootCauses,
+      evidence_snippets: evidenceSnippets.slice(0, 5),
+      metrics: {
+        sentiment_current: analiseSentimento.score_sentimento,
+        sentiment_trend: analiseSentimento.evolucao_sentimento,
+        friccao: {
+          has_friction: hasFriction,
+          reasons: frictionReasons
+        },
+        responsiveness: {
+          avg_reply_minutes_company: avgReplyCompany,
+          avg_reply_minutes_client: avgReplyClient,
+          unanswered_followups: maxFollowUpStreak,
+          best_contact_times: []
+        }
+      },
+      topics: topics || [],
+      objections: objections || [],
+      alerts,
+      next_best_action: {
+        action: proximaAcao,
+        deadline_hours: sugestaoAcoes?.prazo_horas || null,
+        message_suggestion: messageSuggestion,
+        need_manager: needManager,
+        handoff
+      }
+    };
+
+    // ==========================================
+    // 6C. SALVAR ANÁLISE ENRIQUECIDA
     // ==========================================
     const analise = await base44.asServiceRole.entities.ContactBehaviorAnalysis.create({
       contact_id,
@@ -608,7 +733,8 @@ Sugira:
       proxima_acao_sugerida: proximaAcao,
       acoes_prioritarias: acoesPrioritarias,
       ultima_analise: new Date().toISOString(),
-      versao_analise: '2.0_multimodal'
+      versao_analise: '2.0_multimodal',
+      insights: payload
     });
 
     // ==========================================
@@ -690,59 +816,12 @@ Sugira:
       }
     }
 
-    // ==========================================
-    // 7. PAYLOAD HIERÁRQUICO (ConversationInsightsPayload)
-    // ==========================================
-    const payload = {
-      scope: {
-        mode,
-        start: dataInicio.toISOString(),
-        end: dataFim.toISOString(),
-        threads: threadsScope.length,
-        messages: mensagens.length,
-        limited_by_visibility: limitedByVisibility,
-        visibility_notice: limitedByVisibility 
-          ? 'Insights limitados: existem conversas que você não tem permissão para visualizar.'
-          : null
-      },
-      scores: {
-        health: healthScore,
-        deal_risk: dealRisk,
-        buy_intent: buyIntent,
-        engagement: scoreEngajamento
-      },
-      stage: {
-        current: estagioVida,
-        days_stalled: daysStalled
-      },
-      metrics: {
-        sentiment_current: analiseSentimento.score_sentimento,
-        sentiment_trend: analiseSentimento.evolucao_sentimento,
-        friccao: {
-          has_friction: hasFriction,
-          reasons: frictionReasons
-        },
-        responsiveness: {
-          avg_reply_minutes_company: avgReplyCompany,
-          avg_reply_minutes_client: avgReplyClient,
-          unanswered_followups: maxFollowUpStreak,
-          best_contact_times: []
-        }
-      },
-      topics: topics || [],
-      objections: objections || [],
-      alerts,
-      next_best_action: {
-        action: proximaAcao,
-        deadline_hours: sugestaoAcoes?.prazo_horas || null,
-        message_suggestion: messageSuggestion,
-        need_manager: needManager,
-        handoff
-      }
-    };
+
 
     return Response.json({
       success: true,
+      analysis_id: analise.id,
+      saved: true,
       payload,
       analise,
       resumo: {
@@ -755,7 +834,9 @@ Sugira:
         insights_visuais_count: insightsVisuais.length,
         padroes_detectados: padroesBehaviorais.length,
         intencoes_ativas: intencoesDetectadas.filter(i => i.confianca > 70).length,
-        nivel_confianca: confiancaSegmentacao
+        nivel_confianca: confiancaSegmentacao,
+        root_causes_count: rootCauses.length,
+        evidence_count: evidenceSnippets.length
       }
     }, { status: 200, headers: corsHeaders });
 
