@@ -17,7 +17,12 @@ import {
   Loader2,
   RefreshCw,
   AlertCircle,
-  Sparkles
+  Sparkles,
+  Heart,
+  Shield,
+  Activity,
+  AlertTriangle,
+  Copy
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -422,6 +427,30 @@ export default function SegmentacaoInteligente({
             </div>
           )}
 
+          {/* Causas Raiz + Evidências */}
+          {payload?.root_causes && payload.root_causes.length > 0 && (
+            <Card className="border-red-300 bg-red-50">
+              <CardHeader>
+                <CardTitle className="text-sm flex items-center gap-2">
+                  <AlertTriangle className="w-4 h-4 text-red-600" />
+                  Por que está em risco?
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                {payload.root_causes.map((cause, i) => (
+                  <div key={i} className="p-2 bg-white rounded border border-red-200">
+                    <p className="text-sm font-medium text-slate-800 mb-1">🔴 {cause}</p>
+                    {payload.evidence_snippets?.[i] && (
+                      <p className="text-xs text-slate-600 italic">
+                        💬 "{payload.evidence_snippets[i].snippet}"
+                      </p>
+                    )}
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
+          )}
+
           {/* Estágio + Dias Parado */}
           {payload && (
             <Card className="border-slate-300">
@@ -434,7 +463,7 @@ export default function SegmentacaoInteligente({
               <CardContent>
                 <div className="flex items-center justify-between">
                   <Badge className="text-sm px-3 py-1">
-                    {payload.stage.current}
+                    {payload.stage.current?.replace(/_/g, ' ')}
                   </Badge>
                   {payload.stage.days_stalled > 0 && (
                     <div className="text-sm text-slate-600">
