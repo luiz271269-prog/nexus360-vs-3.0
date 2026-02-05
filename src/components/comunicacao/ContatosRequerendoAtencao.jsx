@@ -527,13 +527,13 @@ export default function ContatosRequerendoAtencao({ usuario, contatos, onSelecio
               Object.entries(grupos).map(([nomeGrupo, items]) => {
                 if (!items || items.length === 0) return null;
 
-                const [grupoExpandido, setGrupoExpandido] = useState(true);
+                const grupoExpandido = gruposExpandidos[nomeGrupo] !== false;
 
                 return (
                   <div key={nomeGrupo} className="border-b border-slate-100">
                     {/* Header do grupo */}
                     <button
-                      onClick={() => setGrupoExpandido(!grupoExpandido)}
+                      onClick={() => toggleGrupo(nomeGrupo)}
                       className="w-full px-3 py-2 flex items-center justify-between hover:bg-slate-50 transition-colors"
                     >
                       <div className="flex items-center gap-2">
