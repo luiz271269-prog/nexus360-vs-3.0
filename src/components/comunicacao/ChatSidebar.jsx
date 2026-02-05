@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React from "react";
 import { 
   CheckCheck, 
   Clock, 
@@ -172,10 +172,10 @@ export default function ChatSidebar({
   const modoSelecao = modoSelecaoMultipla;
 
   // Estado para o composer de mensagens internas
-  const [internalComposerOpen, setInternalComposerOpen] = useState(false);
-  const [delegateMode, setDelegateMode] = useState(false);
-  const [criarGrupoOpen, setCriarGrupoOpen] = useState(false);
-  const [agendaIAOpen, setAgendaIAOpen] = useState(false);
+  const [internalComposerOpen, setInternalComposerOpen] = React.useState(false);
+  const [delegateMode, setDelegateMode] = React.useState(false);
+  const [criarGrupoOpen, setCriarGrupoOpen] = React.useState(false);
+  const [agendaIAOpen, setAgendaIAOpen] = React.useState(false);
 
   // Buscar categorias dinâmicas
   const { data: categoriasDB = [] } = useQuery({
@@ -190,7 +190,7 @@ export default function ChatSidebar({
   // ═══════════════════════════════════════════════════════════════════════════════
   // 🛡️ FILTRO DE VISIBILIDADE - Nexus360 + Legacy
   // ═══════════════════════════════════════════════════════════════════════════════
-  const threadsFiltradas = useMemo(() => {
+  const threadsFiltradas = React.useMemo(() => {
     if (!threads || threads.length === 0) return [];
 
     // A lista de threads que chega já foi filtrada pela lógica de `Comunicacao.jsx`.
@@ -198,7 +198,7 @@ export default function ChatSidebar({
     return threads;
   }, [threads, usuarioAtual, integracoes]);
 
-  const threadsSorted = useMemo(() => {
+  const threadsSorted = React.useMemo(() => {
     return [...threadsFiltradas].sort((a, b) => {
       const dateA = new Date(a.last_message_at || 0);
       const dateB = new Date(b.last_message_at || 0);
