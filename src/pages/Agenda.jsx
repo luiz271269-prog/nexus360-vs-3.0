@@ -9,6 +9,8 @@ import PainelContexto from "../components/agenda/PainelContexto";
 import AlertasInteligentesIA from '../components/global/AlertasInteligentesIA';
 import BotaoNexusFlutuante from '../components/global/BotaoNexusFlutuante';
 import PainelInsightsIA from '../components/global/PainelInsightsIA';
+import ConfiguracaoSincronizacao from '../components/agenda/ConfiguracaoSincronizacao';
+import AgendaNexusIA from '../components/agenda/AgendaNexusIA';
 import {
   Calendar,
   CalendarCheck,
@@ -45,6 +47,7 @@ export default function Agenda() {
   const [filtroUsuario, setFiltroUsuario] = useState("todos");
   const [integracoes, setIntegracoes] = useState([]);
   const [todosUsuarios, setTodosUsuarios] = useState([]);
+  const [abaSelecionada, setAbaSelecionada] = useState('tarefas'); // 'tarefas' ou 'agenda_ia'
 
   const gerarLembretesAgenda = useCallback(async (tarefasData, user) => {
     try {
@@ -438,7 +441,20 @@ export default function Agenda() {
       />
 
       <div className="space-y-6 p-6 flex-grow overflow-auto">
-        <div className="bg-gradient-to-br from-slate-900/80 via-slate-800/70 to-slate-900/70 text-white px-6 py-5 backdrop-blur-lg rounded-2xl border border-slate-700/50 shadow-2xl">
+        {/* Abas: Tarefas IA vs Agenda Nexus IA */}
+        <Tabs value={abaSelecionada} onValueChange={setAbaSelecionada} className="w-full">
+          <TabsList className="grid w-full grid-cols-2 bg-slate-800/50 border border-slate-700">
+            <TabsTrigger value="tarefas" className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-amber-400 data-[state=active]:to-orange-500 data-[state=active]:text-white">
+              🎯 Tarefas IA (Legacy)
+            </TabsTrigger>
+            <TabsTrigger value="agenda_ia" className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-purple-600 data-[state=active]:to-indigo-600 data-[state=active]:text-white">
+              🗓️ Agenda Nexus IA
+            </TabsTrigger>
+          </TabsList>
+
+          {/* ABA: TAREFAS IA (LEGADO) */}
+          <TabsContent value="tarefas" className="mt-6">
+            <div className="bg-gradient-to-br from-slate-900/80 via-slate-800/70 to-slate-900/70 text-white px-6 py-5 backdrop-blur-lg rounded-2xl border border-slate-700/50 shadow-2xl">
           <div className="flex flex-col sm:flex-row items-center gap-3">
             <Button
               onClick={carregarDados}
@@ -614,6 +630,13 @@ export default function Agenda() {
             )}
           </div>
         </div>
+          </TabsContent>
+
+          {/* ABA: AGENDA NEXUS IA */}
+          <TabsContent value="agenda_ia" className="mt-6">
+            <AgendaNexusIA usuario={usuario} />
+          </TabsContent>
+        </Tabs>
       </div>
     </div>
   );
