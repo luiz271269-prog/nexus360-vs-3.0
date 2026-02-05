@@ -74,11 +74,11 @@ Deno.serve(async (req) => {
     dataInicio.setDate(dataInicio.getDate() - periodo_dias);
     const dataFim = new Date();
 
-    // 📊 BUSCAR MENSAGENS CORRETAS: Filtrar no banco por thread_id + período
+    // 📊 BUSCAR MENSAGENS CORRETAS: Filtrar em ASC (cronológico) para métricas precisas
     const mensagens = await base44.asServiceRole.entities.Message.filter({
       thread_id: { $in: threadIds },
       created_date: { $gte: dataInicio.toISOString() }
-    }, 'created_date', 1500); // ASC para métricas cronológicas
+    }, 'created_date', 1500); // ASC (mais antigas primeiro) — CRÍTICO para métricas
 
     if (mensagens.length === 0) {
       return Response.json({
@@ -738,20 +738,37 @@ Sugira:
         strategy: estrategiasDesbloqueio[i]?.estrategia,
         suggested_message: estrategiasDesbloqueio[i]?.mensagem_proposta
       })) || [],
-      topics: topics || [],
-      objections: objections || [],
+      topics: topics?.map(t => ({ name: t.name, weight: t.weight })) || [],
+      // 🆕 OBJEÇÕES COM CONTEXTO (novo)
+      objections: (objections || []).map((obj, i) => ({
+        id: `obj_${i + 1}`,
+        type: obj.category || 'outro',
+        text: obj.text,
+        severity: obj.severity,
+        handling: obj.unlock_hint,
+        context: obj.contexto
+      })),
       alerts,
       // 🆕 PRÓXIMA AÇÃO ESTRUTURADA EM PASSOS (novo)
       next_best_action: {
+        objective: `${proximaAcao}`,
         action: proximaAcao,
         deadline_hours: sugestaoAcoes?.prazo_horas || null,
         message_suggestion: messageSuggestion,
         need_manager: needManager,
         handoff,
-        secondary_actions: acoesPrioritarias.slice(0, 3).map((acao, i) => ({
-          priority: i + 1,
-          action: acao,
-          suggested_owner: i === 0 ? 'vendas' : i === 1 ? 'suporte' : 'financeiro'
+        owner_team: 'vendas',
+        handoff_recommended: [
+          needManager ? { to_team: 'gerencia', reason: 'Aprovação de estratégia e comunicação crítica', priority: 'high' } : null,
+          healthScore < 40 ? { to_team: 'suporte', reason: 'Relacionamento crítico', priority: 'high' } : null,
+          { to_team: 'financeiro', reason: 'Documentação e pagamentos pendentes', priority: 'medium' }
+        ].filter(Boolean),
+        steps: acoesPrioritarias.slice(0, 3).map((acao, i) => ({
+          step: i + 1,
+          title: acao,
+          detail: acao,
+          due_at: new Date(Date.now() + (i + 1) * 24 * 60 * 60 * 1000).toISOString(),
+          suggested_owner: i === 0 ? 'vendas' : i === 1 ? 'assistencia' : 'financeiro'
         }))
       }
     };
