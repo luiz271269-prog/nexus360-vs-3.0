@@ -2310,6 +2310,16 @@ export default function Comunicacao() {
                 }}
                 className="shadow-lg" />
 
+              {/* Contatos Requerendo Atenção */}
+              <ContatosRequerendoAtencao
+                usuario={usuario}
+                contatos={contatos}
+                onSelecionarContato={(thread) => {
+                  handleSelecionarThread(thread);
+                  setActiveTab('conversas');
+                }}
+                variant="header"
+              />
 
               {integracoes.length === 0 &&
               <Button
@@ -2432,13 +2442,6 @@ export default function Comunicacao() {
 
 
                   <div className={`flex-1 overflow-y-auto transition-opacity duration-200 ${isPendingFilter ? 'opacity-50' : 'opacity-100'}`}>
-                   {/* Contatos Requerendo Atenção */}
-                   <ContatosRequerendoAtencao
-                     usuario={usuario}
-                     contatos={contatos}
-                     onSelecionarContato={handleSelecionarThread}
-                   />
-
                    <ChatSidebar
                      threads={threadsParaExibir}
                      threadAtiva={threadAtiva}
