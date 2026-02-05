@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Tag, Check, X } from "lucide-react";
@@ -26,9 +26,9 @@ const CATEGORIAS_FIXAS = [
 ];
 
 export default function CategorizadorRapido({ thread = null, contato = null, onUpdate }) {
-  const [salvando, setSalvando] = useState(false);
-  const [novaCategoria, setNovaCategoria] = useState('');
-  const [adicionandoNova, setAdicionandoNova] = useState(false);
+  const [salvando, setSalvando] = React.useState(false);
+  const [novaCategoria, setNovaCategoria] = React.useState('');
+  const [adicionandoNova, setAdicionandoNova] = React.useState(false);
   const queryClient = useQueryClient();
 
   // Buscar categorias dinâmicas do banco
