@@ -614,30 +614,39 @@ export default function SegmentacaoInteligente({
             </Card>
           )}
 
-          {/* Objeções */}
+          {/* Objeções com Estratégia de Desbloqueio */}
           {payload?.objections?.length > 0 && (
             <Card className="border-amber-300">
               <CardHeader>
                 <CardTitle className="text-sm flex items-center gap-2">
                   <AlertTriangle className="w-4 h-4 text-amber-600" />
-                  Objeções Detectadas
+                  Objeções & Estratégia de Desbloqueio
                 </CardTitle>
               </CardHeader>
-              <CardContent className="space-y-2">
+              <CardContent className="space-y-3">
                 {payload.objections.map((obj, i) => (
-                  <div key={i} className="p-3 bg-amber-50 rounded-lg border border-amber-200">
-                    <div className="flex items-start justify-between mb-1">
-                      <p className="text-sm font-medium text-slate-800">"{obj.text}"</p>
+                  <div key={obj.id || i} className="p-3 bg-amber-50 rounded-lg border-l-4 border-amber-400">
+                    <div className="flex items-start justify-between mb-2">
+                      <div>
+                        <Badge variant="outline" className="text-xs mb-1">{obj.type}</Badge>
+                        <p className="text-sm font-semibold text-slate-800">"{obj.text}"</p>
+                      </div>
                       <Badge className={`text-xs ${
-                        obj.severity === 'alta' ? 'bg-red-500' :
-                        obj.severity === 'media' ? 'bg-yellow-500' :
+                        obj.severity === 'alta' || obj.severity === 'high' ? 'bg-red-500' :
+                        obj.severity === 'media' || obj.severity === 'medium' ? 'bg-yellow-500' :
                         'bg-blue-500'
-                      } text-white`}>
+                      } text-white flex-shrink-0`}>
                         {obj.severity}
                       </Badge>
                     </div>
-                    <p className="text-xs text-slate-600 mb-1">Categoria: {obj.category}</p>
-                    <p className="text-xs text-green-700 font-medium">💡 {obj.unlock_hint}</p>
+                    {obj.handling && (
+                      <p className="text-xs text-green-700 font-medium mt-2">
+                        💡 Como destravar: {obj.handling}
+                      </p>
+                    )}
+                    {obj.context && (
+                      <p className="text-xs text-slate-600 mt-2">📝 Contexto: {obj.context}</p>
+                    )}
                   </div>
                 ))}
               </CardContent>
