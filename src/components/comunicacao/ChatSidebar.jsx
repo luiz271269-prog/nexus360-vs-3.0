@@ -128,7 +128,7 @@ const resolveThreadUI = (thread, currentUser, atendentes = []) => {
         isInternal: true,
         title: `Setor ${setor}`,
         badge: '',
-        avatar: <Building2 className="w-6 h-6" />,
+        avatar: 'G',
         subtitle: `Grupo • ${thread.participants?.length || 0} membros`,
         setorCor: setor
       };
@@ -140,7 +140,7 @@ const resolveThreadUI = (thread, currentUser, atendentes = []) => {
         isInternal: true,
         title: thread.group_name || 'Grupo',
         badge: '',
-        avatar: <Users className="w-6 h-6" />,
+        avatar: 'G',
         subtitle: `${thread.participants?.length || 0} membros`,
         setorCor: 'geral'
       };
