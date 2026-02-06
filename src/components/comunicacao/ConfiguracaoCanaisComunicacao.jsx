@@ -490,6 +490,13 @@ export default function ConfiguracaoCanaisComunicacao({ integracoes, onRecarrega
       
       console.log('[CONFIG] 📦 Provedor:', provider.nome);
 
+      console.log('[CONFIG] 💾 Salvando integração com dados:', {
+        provedor: provider.nome,
+        webhook_url_final: webhookUrlFinal,
+        instance_id: instanceId.substring(0, 20) + '...',
+        modo: provider.modo
+      });
+
       const dadosIntegracao = {
         nome_instancia: novaIntegracao.nome_instancia.trim(),
         numero_telefone: novaIntegracao.numero_telefone.trim(),
@@ -500,7 +507,7 @@ export default function ConfiguracaoCanaisComunicacao({ integracoes, onRecarrega
         api_key_provider: tokenInstancia,
         security_client_token_header: provider.requerClientToken ? tokenConta : null,
         base_url_provider: provider.baseUrl,
-        webhook_url: webhookUrlFinal,
+        webhook_url: webhookUrlFinal, // ✅ SEMPRE webhook recalculado, nunca do campo
         configuracoes_avancadas: {
           auto_resposta_fora_horario: false,
           rate_limit_mensagens_hora: 100
@@ -563,6 +570,23 @@ export default function ConfiguracaoCanaisComunicacao({ integracoes, onRecarrega
   };
 
   const handleEditarIntegracao = () => {
+    // ✅ RECALCULAR URL DO WEBHOOK ao entrar em modo edição
+    if (integracaoSelecionada) {
+      const provider = PROVIDERS[integracaoSelecionada.api_provider || "z_api"];
+      const webhookUrlAtualizada = getWebhookUrlProducao(provider.webhookFn);
+      
+      console.log('[CONFIG] 🔄 Recalculando webhook ao editar:', {
+        provedor: provider.nome,
+        funcao: provider.webhookFn,
+        url_calculada: webhookUrlAtualizada,
+        url_antiga: novaIntegracao.webhook_url
+      });
+      
+      setNovaIntegracao(prev => ({
+        ...prev,
+        webhook_url: webhookUrlAtualizada
+      }));
+    }
     setModoEdicao(true);
   };
 
