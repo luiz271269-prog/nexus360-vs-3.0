@@ -2045,9 +2045,9 @@ export default function ChatWindow({
                     : 'bg-gradient-to-br from-amber-400 via-orange-500 to-red-500'
                 }`}>
                   {thread?.thread_type === 'sector_group' ? (
-                    <Building2 className="w-6 h-6 text-white" />
+                    'G'
                   ) : thread?.thread_type === 'team_internal' && thread?.is_group_chat ? (
-                    <Users className="w-6 h-6 text-white" />
+                    'G'
                   ) : contatoCompleto?.foto_perfil_url ?
                 <img
                   src={contatoCompleto.foto_perfil_url}
