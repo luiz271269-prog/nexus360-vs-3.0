@@ -473,12 +473,18 @@ export default function ConfiguracaoCanaisComunicacao({ integracoes, onRecarrega
       const tokenConta = novaIntegracao.client_token_conta.trim();
 
       // ✅ SEMPRE USAR URL DE PRODUÇÃO CORRETA (source of truth - dinâmica)
+      // IGNORA completamente o campo webhook_url do formulário - recalcula sempre
       const webhookUrlFinal = getWebhookUrlProducao(provider.webhookFn);
 
-      console.log('[CONFIG] 🔗 URL do Webhook (PRODUÇÃO):', webhookUrlFinal);
+      console.log('[CONFIG] 🔗 URL do Webhook RECALCULADA (PRODUÇÃO):', webhookUrlFinal);
+      console.log('[CONFIG] 📝 Provedor atual:', provider.nome, '| Função:', provider.webhookFn);
 
       // Se usuário tentou usar URL personalizada diferente, avisar
       if (novaIntegracao.webhook_url?.trim() && novaIntegracao.webhook_url !== webhookUrlFinal) {
+        console.warn('[CONFIG] ⚠️ URL do campo diferente da calculada:', {
+          campo: novaIntegracao.webhook_url,
+          calculada: webhookUrlFinal
+        });
         toast.warning('⚠️ URL personalizada substituída pela URL de produção correta', { duration: 5000 });
       }
       
@@ -1211,7 +1217,17 @@ export default function ConfiguracaoCanaisComunicacao({ integracoes, onRecarrega
                         <Label className="text-[11px] font-semibold text-slate-600">Provedor *</Label>
                         <Select
                           value={novaIntegracao.api_provider}
-                          onValueChange={(v) => setNovaIntegracao({...novaIntegracao, api_provider: v, client_token_conta: ""})}
+                          onValueChange={(v) => {
+                            // ✅ RECALCULAR URL DO WEBHOOK ao mudar provedor
+                            const provider = PROVIDERS[v];
+                            const webhookUrlAtualizada = getWebhookUrlProducao(provider.webhookFn);
+                            setNovaIntegracao({
+                              ...novaIntegracao, 
+                              api_provider: v, 
+                              client_token_conta: "",
+                              webhook_url: webhookUrlAtualizada
+                            });
+                          }}
                         >
                           <SelectTrigger className="mt-1 h-8 text-xs">
                             <SelectValue />
