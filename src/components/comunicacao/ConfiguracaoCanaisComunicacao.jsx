@@ -263,6 +263,11 @@ export default function ConfiguracaoCanaisComunicacao({ integracoes, onRecarrega
 
   const selecionarIntegracao = (integracao) => {
     setIntegracaoSelecionada(integracao);
+    
+    // ✅ RECALCULAR URL DO WEBHOOK DINAMICAMENTE baseado no provedor
+    const provider = PROVIDERS[integracao.api_provider || "z_api"];
+    const webhookUrlDinamica = getWebhookUrlProducao(provider.webhookFn);
+    
     setNovaIntegracao({
       nome_instancia: integracao.nome_instancia,
       numero_telefone: integracao.numero_telefone,
@@ -270,7 +275,7 @@ export default function ConfiguracaoCanaisComunicacao({ integracoes, onRecarrega
       instance_id: integracao.instance_id_provider || "",
       token_instancia: integracao.api_key_provider || "",
       client_token_conta: integracao.security_client_token_header || "",
-      webhook_url: integracao.webhook_url || ""
+      webhook_url: webhookUrlDinamica // ✅ URL DINÂMICA recalculada, não pegando do banco
     });
     setModoEdicao(false);
   };
