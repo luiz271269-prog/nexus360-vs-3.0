@@ -541,8 +541,8 @@ export default function InternalMessageComposer({ open, onClose, currentUser, on
                               <Square className="w-4 h-4 text-slate-300" />
                             )}
                           </div>
-                          <div className={`w-8 h-8 rounded-full ${setorCfg.cor} flex items-center justify-center text-white shadow-sm`}>
-                            <Building2 className="w-4 h-4" />
+                          <div className={`w-8 h-8 rounded-full ${setorCfg.cor} flex items-center justify-center text-white shadow-sm text-xs font-bold`}>
+                            {setorCfg.emoji}
                           </div>
                           <div className="flex-1 min-w-0">
                             <div className="font-medium text-slate-700 truncate text-xs">
