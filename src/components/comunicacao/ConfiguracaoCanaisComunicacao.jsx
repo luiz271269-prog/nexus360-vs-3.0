@@ -924,7 +924,13 @@ export default function ConfiguracaoCanaisComunicacao({ integracoes, onRecarrega
     try {
       toast.info("📥 Importando instância...");
       
+      // ✅ SEMPRE usar webhookWapi para W-API (tanto manual quanto integrador)
       const webhookUrlImportacao = getWebhookUrlProducao('webhookWapi');
+      
+      console.log('[IMPORT] 📥 Importando instância W-API:', {
+        instanceId: instW.instanceId,
+        webhook_calculado: webhookUrlImportacao
+      });
       
       await base44.entities.WhatsAppIntegration.create({
         nome_instancia: (instW.instanceName || `importada-${Date.now()}`).toLowerCase().replace(/[^a-z0-9-]/g, '-'),
