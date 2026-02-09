@@ -227,6 +227,7 @@ export default function Layout({ children, currentPageName }) {
     { name: "Agenda Inteligente", icon: Calendar, page: "Agenda" },
     { name: "Importação", icon: Upload, page: "Importacao" },
     { name: "Gerenciamento de Usuários", icon: UserCog, page: "Usuarios" },
+    { name: "Ferramentas de Migração", icon: Activity, page: "FerramentasMigracao" },
     { name: "Auditoria", icon: Shield, page: "Auditoria" }
   ];
 
@@ -246,7 +247,11 @@ export default function Layout({ children, currentPageName }) {
 
     // Administrador - acesso total
     if (role === 'admin') {
-      return todosMenuItems;
+      return todosMenuItems.filter(item => {
+        // Ferramentas de Migração: apenas admin
+        if (item.page === 'FerramentasMigracao') return true;
+        return true;
+      });
     }
 
     // Gerência (coordenador/gerente)
@@ -255,24 +260,24 @@ export default function Layout({ children, currentPageName }) {
         return todosMenuItems.filter(item => [
           'Comunicacao', 'Dashboard', 'LeadsQualificados', 'Vendedores', 
           'Clientes', 'AnalyticsAvancado', 'Agenda', 'Produtos', 'Automacoes'
-        ].includes(item.page));
-      }
-      if (setor === 'assistencia') {
+        ].includes(item.page) && item.page !== 'FerramentasMigracao');
+        }
+        if (setor === 'assistencia') {
         return todosMenuItems.filter(item => [
           'Comunicacao', 'Clientes', 'Agenda', 'Dashboard', 'Produtos', 'AnalyticsAvancado', 'Automacoes'
-        ].includes(item.page));
-      }
-      if (setor === 'fornecedor') {
+        ].includes(item.page) && item.page !== 'FerramentasMigracao');
+        }
+        if (setor === 'fornecedor') {
         return todosMenuItems.filter(item => [
           'Comunicacao', 'Produtos', 'Importacao', 'Dashboard', 'Clientes', 'Agenda', 'AnalyticsAvancado', 'Automacoes'
-        ].includes(item.page));
-      }
-      // Gerência geral
-      return todosMenuItems.filter(item => [
+        ].includes(item.page) && item.page !== 'FerramentasMigracao');
+        }
+        // Gerência geral
+        return todosMenuItems.filter(item => [
         'Comunicacao', 'Dashboard', 'LeadsQualificados', 'Clientes', 
         'Vendedores', 'Produtos', 'Agenda', 'AnalyticsAvancado', 'Automacoes'
-      ].includes(item.page));
-    }
+        ].includes(item.page) && item.page !== 'FerramentasMigracao');
+        }
 
     // Supervisor (senior)
     if (nivelAtendente === 'senior') {
@@ -280,45 +285,45 @@ export default function Layout({ children, currentPageName }) {
         return todosMenuItems.filter(item => [
           'Comunicacao', 'LeadsQualificados', 'Vendedores', 'Clientes', 
           'Agenda', 'Dashboard', 'Produtos'
-        ].includes(item.page));
+        ].includes(item.page) && item.page !== 'FerramentasMigracao');
       }
       if (setor === 'assistencia') {
         return todosMenuItems.filter(item => [
           'Comunicacao', 'Clientes', 'Agenda', 'Dashboard', 'Produtos'
-        ].includes(item.page));
+        ].includes(item.page) && item.page !== 'FerramentasMigracao');
       }
       if (setor === 'fornecedor') {
         return todosMenuItems.filter(item => [
           'Comunicacao', 'Produtos', 'Importacao', 'Agenda', 'Dashboard'
-        ].includes(item.page));
+        ].includes(item.page) && item.page !== 'FerramentasMigracao');
       }
       // Supervisor geral
       return todosMenuItems.filter(item => [
         'Comunicacao', 'Clientes', 'Agenda', 'Dashboard', 'Produtos'
-      ].includes(item.page));
+      ].includes(item.page) && item.page !== 'FerramentasMigracao');
     }
 
     // Atendente (junior/pleno)
     if (setor === 'vendas') {
       return todosMenuItems.filter(item => [
         'Comunicacao', 'LeadsQualificados', 'Clientes', 'Produtos', 'Agenda', 'Dashboard'
-      ].includes(item.page));
+      ].includes(item.page) && item.page !== 'FerramentasMigracao');
     }
     if (setor === 'assistencia') {
       return todosMenuItems.filter(item => [
         'Comunicacao', 'Clientes', 'Produtos', 'Agenda', 'Dashboard'
-      ].includes(item.page));
+      ].includes(item.page) && item.page !== 'FerramentasMigracao');
     }
     if (setor === 'fornecedor') {
       return todosMenuItems.filter(item => [
         'Comunicacao', 'Produtos', 'Clientes', 'Agenda', 'Dashboard'
-      ].includes(item.page));
+      ].includes(item.page) && item.page !== 'FerramentasMigracao');
     }
 
     // Usuário padrão (fallback)
     return todosMenuItems.filter(item => [
       'Comunicacao', 'Dashboard', 'Clientes', 'Agenda'
-    ].includes(item.page));
+    ].includes(item.page) && item.page !== 'FerramentasMigracao');
   };
 
   // Aplicar filtro de perfil
