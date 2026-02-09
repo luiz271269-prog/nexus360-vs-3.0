@@ -21,9 +21,11 @@ Deno.serve(async (req) => {
     // URL de produção correta
     const WEBHOOK_BASE = 'https://nexus360-pro.base44.app/api/apps/68a7d067890527304dbe8477/functions';
     
+    // ✅ MAPEAMENTO CORRETO: Z-API → webhookWatsZapi | W-API → webhookWapi
     const PROVIDERS = {
       z_api: 'webhookWatsZapi',
-      w_api: 'webhookWapi'
+      w_api: 'webhookWapi',
+      w_api_integrator: 'webhookWapi' // Integrador também usa webhookWapi
     };
 
     // Buscar todas as integrações com service role
@@ -41,12 +43,14 @@ Deno.serve(async (req) => {
         // Verificar se precisa atualizar
         const webhookAtual = integracao.webhook_url || '';
         
+        // ✅ ATUALIZAR se: URL errada, preview, ou FUNÇÃO ERRADA para provedor
         const precisaAtualizar = 
           !webhookAtual || 
           webhookAtual.includes('preview-sandbox') || 
           webhookAtual.includes('preview.') ||
           webhookAtual.includes(':3000') ||
-          !webhookAtual.includes('/apps/68a7d067890527304dbe8477/');
+          !webhookAtual.includes('/apps/68a7d067890527304dbe8477/') ||
+          webhookAtual !== webhookUrlCorreta; // ✅ CRÍTICO: Corrigir se URL não bate (ex: W-API com webhookWatsZapi)
 
         if (precisaAtualizar) {
           await base44.asServiceRole.entities.WhatsAppIntegration.update(
