@@ -640,12 +640,26 @@ async function handleMessage(dados, payloadBruto, base44) {
       // Eleger a mais antiga como canônica (preserva histórico)
       threadCanonica = todasThreadsContato[todasThreadsContato.length - 1];
       
-      // Marcar canônica
+      // ✅ COLETAR HISTÓRICO: Todas integrações usadas nas threads antigas
+      const integracoesHistoricas = new Set();
+      if (integracaoId) integracoesHistoricas.add(integracaoId); // Integração atual
+      
+      todasThreadsContato.forEach(t => {
+        if (t.whatsapp_integration_id) integracoesHistoricas.add(t.whatsapp_integration_id);
+        if (t.origin_integration_ids?.length > 0) {
+          t.origin_integration_ids.forEach(id => integracoesHistoricas.add(id));
+        }
+      });
+      
+      // Marcar canônica COM propagação de integrações
       await base44.asServiceRole.entities.MessageThread.update(threadCanonica.id, {
         is_canonical: true,
-        status: 'aberta'
+        status: 'aberta',
+        whatsapp_integration_id: integracaoId || threadCanonica.whatsapp_integration_id, // ✅ Atualizar se possível
+        origin_integration_ids: Array.from(integracoesHistoricas), // ✅ HISTÓRICO COMPLETO
+        ultima_atividade: new Date().toISOString()
       });
-      console.log(`[WAPI] ✅ Thread canônica eleita: ${threadCanonica.id} (mais antiga)`);
+      console.log(`[WAPI] ✅ Thread canônica eleita: ${threadCanonica.id} (${integracoesHistoricas.size} integrações no histórico)`);
 
       // Marcar demais como merged
       for (const threadAntiga of todasThreadsContato) {
@@ -664,12 +678,25 @@ async function handleMessage(dados, payloadBruto, base44) {
       }
     } else if (todasThreadsContato && todasThreadsContato.length === 1) {
       threadCanonica = todasThreadsContato[0];
-      // Garantir que está marcada como canônica
-      if (!threadCanonica.is_canonical) {
-        await base44.asServiceRole.entities.MessageThread.update(threadCanonica.id, {
+      // Garantir que está marcada como canônica E atualizar integração
+      const needsUpdate = !threadCanonica.is_canonical || 
+                          (integracaoId && threadCanonica.whatsapp_integration_id !== integracaoId);
+      
+      if (needsUpdate) {
+        const updateData = {
           is_canonical: true,
           status: 'aberta'
-        });
+        };
+        
+        if (integracaoId && threadCanonica.whatsapp_integration_id !== integracaoId) {
+          updateData.whatsapp_integration_id = integracaoId;
+          const historicoAtual = threadCanonica.origin_integration_ids || [];
+          if (!historicoAtual.includes(integracaoId)) {
+            updateData.origin_integration_ids = [...historicoAtual, integracaoId];
+          }
+        }
+        
+        await base44.asServiceRole.entities.MessageThread.update(threadCanonica.id, updateData);
       }
     }
   } catch (err) {
