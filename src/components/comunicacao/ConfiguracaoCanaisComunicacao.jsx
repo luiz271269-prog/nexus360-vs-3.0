@@ -1856,13 +1856,35 @@ export default function ConfiguracaoCanaisComunicacao({ integracoes, onRecarrega
                                              webhook_wapi: comparacao.webhookWAPI
                                            });
 
+                                           // ✅ Atualizar integração
                                            await base44.entities.WhatsAppIntegration.update(integracao.id, {
                                              status: comparacao.instanciaWAPI.connected ? 'conectado' : 'desconectado',
                                              numero_telefone: comparacao.instanciaWAPI.connectedPhone || integracao.numero_telefone,
                                              webhook_url: webhookUrlCorreta, // ✅ CRÍTICO: Corrige URL do webhook
                                              ultima_atividade: new Date().toISOString()
                                            });
-                                           toast.success("✅ Sincronizado com W-API (webhook corrigido)");
+
+                                           // ✅ CRÍTICO: Propagar correção para TODAS as threads que usam esta integração
+                                           try {
+                                             const threadsAfetadas = await base44.entities.MessageThread.filter({
+                                               whatsapp_integration_id: integracao.id
+                                             }, '-created_date', 200);
+
+                                             console.log(`[SYNC] 🔄 Atualizando ${threadsAfetadas.length} threads afetadas...`);
+
+                                             for (const thr of threadsAfetadas) {
+                                               await base44.entities.MessageThread.update(thr.id, {
+                                                 whatsapp_integration_id: integracao.id, // Reforçar link
+                                                 ultima_atividade: new Date().toISOString()
+                                               });
+                                             }
+
+                                             console.log('[SYNC] ✅ Threads atualizadas com integração corrigida');
+                                           } catch (threadErr) {
+                                             console.error('[SYNC] ⚠️ Erro ao atualizar threads:', threadErr.message);
+                                           }
+
+                                           toast.success("✅ Sincronizado com W-API (webhook + threads corrigidos)");
                                            if (onRecarregar) await onRecarregar();
                                            await sincronizarComProvedor();
                                          } catch (error) {
