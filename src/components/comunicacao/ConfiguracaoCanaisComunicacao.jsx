@@ -1841,27 +1841,39 @@ export default function ConfiguracaoCanaisComunicacao({ integracoes, onRecarrega
                                       </Button>
                                     )}
                                     {comparacao.status === 'divergente' && (
-                                      <Button
-                                        size="sm"
-                                        onClick={async () => {
-                                          try {
-                                            await base44.entities.WhatsAppIntegration.update(integracao.id, {
-                                              status: comparacao.instanciaWAPI.connected ? 'conectado' : 'desconectado',
-                                              numero_telefone: comparacao.instanciaWAPI.connectedPhone || integracao.numero_telefone,
-                                              ultima_atividade: new Date().toISOString()
-                                            });
-                                            toast.success("✅ Sincronizado com W-API");
-                                            if (onRecarregar) await onRecarregar();
-                                            await sincronizarComProvedor();
-                                          } catch (error) {
-                                            toast.error("Erro: " + error.message);
-                                          }
-                                        }}
-                                        className="h-7 text-xs bg-indigo-600 hover:bg-indigo-700"
-                                      >
-                                        <RefreshCw className="w-3 h-3 mr-1" />
-                                        Corrigir Divergências
-                                      </Button>
+                                     <Button
+                                       size="sm"
+                                       onClick={async () => {
+                                         try {
+                                           // ✅ CALCULAR URL CORRETA baseada no provedor
+                                           const provider = PROVIDERS[integracao.api_provider || 'z_api'];
+                                           const webhookUrlCorreta = getWebhookUrlProducao(provider.webhookFn);
+
+                                           console.log('[SYNC] 🔧 Corrigindo divergências:', {
+                                             integration_id: integracao.id,
+                                             webhook_antigo: integracao.webhook_url,
+                                             webhook_correto: webhookUrlCorreta,
+                                             webhook_wapi: comparacao.webhookWAPI
+                                           });
+
+                                           await base44.entities.WhatsAppIntegration.update(integracao.id, {
+                                             status: comparacao.instanciaWAPI.connected ? 'conectado' : 'desconectado',
+                                             numero_telefone: comparacao.instanciaWAPI.connectedPhone || integracao.numero_telefone,
+                                             webhook_url: webhookUrlCorreta, // ✅ CRÍTICO: Corrige URL do webhook
+                                             ultima_atividade: new Date().toISOString()
+                                           });
+                                           toast.success("✅ Sincronizado com W-API (webhook corrigido)");
+                                           if (onRecarregar) await onRecarregar();
+                                           await sincronizarComProvedor();
+                                         } catch (error) {
+                                           toast.error("Erro: " + error.message);
+                                         }
+                                       }}
+                                       className="h-7 text-xs bg-indigo-600 hover:bg-indigo-700"
+                                     >
+                                       <RefreshCw className="w-3 h-3 mr-1" />
+                                       Corrigir Divergências
+                                     </Button>
                                     )}
                                   </div>
                                 )}
