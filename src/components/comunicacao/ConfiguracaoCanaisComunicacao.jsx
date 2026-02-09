@@ -1446,17 +1446,20 @@ export default function ConfiguracaoCanaisComunicacao({ integracoes, onRecarrega
                         </div>
                       )}
 
-                      {/* Campo de Webhook URL - Editável */}
+                      {/* Campo de Webhook URL - Somente Leitura para W-API */}
                       <div className="p-3 bg-purple-50 border-2 border-purple-200 rounded-lg">
                         <Label className="text-[11px] font-semibold text-purple-700 mb-1.5 flex items-center gap-2">
                           🔗 URL do Webhook
-                          <Badge className="bg-purple-600 text-white text-[9px] h-4 px-1.5">Configure no provedor</Badge>
+                          <Badge className="bg-purple-600 text-white text-[9px] h-4 px-1.5">
+                            {PROVIDERS[novaIntegracao.api_provider]?.webhookFn === 'webhookWapi' ? 'Gerada automaticamente' : 'Configure no provedor'}
+                          </Badge>
                         </Label>
                         <Input
                           value={novaIntegracao.webhook_url}
                           onChange={(e) => setNovaIntegracao({...novaIntegracao, webhook_url: e.target.value})}
                           placeholder="URL será gerada automaticamente"
                           className="font-mono text-[10px] bg-white h-8"
+                          readOnly={PROVIDERS[novaIntegracao.api_provider]?.webhookFn === 'webhookWapi'}
                         />
                         <div className="mt-1.5 space-y-0.5">
                           <p className="text-[10px] text-purple-600">

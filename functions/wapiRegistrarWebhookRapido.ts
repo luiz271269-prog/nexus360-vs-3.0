@@ -35,8 +35,8 @@ Deno.serve(async (req) => {
     const instanceId = integracao.instance_id_provider;
     const token = integracao.api_key_provider;
     
-    // Construir URL do webhook automaticamente
-    const webhookUrl = `https://${req.headers.get('host')}/functions/webhookWapi`;
+    // ✅ SEMPRE usar URL de PRODUÇÃO fixa (não req.headers que pode ser preview)
+    const webhookUrl = 'https://nexus360-pro.base44.app/api/apps/68a7d067890527304dbe8477/functions/webhookWapi';
 
     console.log(`[WAPI-REGISTER] 📝 Instance: ${instanceId}`);
     console.log(`[WAPI-REGISTER] 🔗 Webhook: ${webhookUrl}`);
