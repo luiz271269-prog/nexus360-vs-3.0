@@ -783,6 +783,19 @@ async function handleMessage(dados, payloadBruto, base44) {
       if (threads && threads.length > 0) {
           thread = threads[0];
           console.log(`[${VERSION}] ✅ canonical-thread-found: ${thread.id} | Unificada para todas as integrações`);
+          
+          // ✅ ATUALIZAR integração se mudou (Z-API pode migrar de chip)
+          const needsIntegrationUpdate = integracaoId && thread.whatsapp_integration_id !== integracaoId;
+          if (needsIntegrationUpdate) {
+            const historicoAtual = thread.origin_integration_ids || [];
+            const novoHistorico = [...new Set([...historicoAtual, integracaoId])];
+            
+            await base44.asServiceRole.entities.MessageThread.update(thread.id, {
+              whatsapp_integration_id: integracaoId,
+              origin_integration_ids: novoHistorico
+            });
+            console.log(`[${VERSION}] 🔄 Integração atualizada: ${thread.whatsapp_integration_id?.substring(0, 8)} → ${integracaoId.substring(0, 8)}`);
+          }
 
       } else {
           console.log(`[${VERSION}] 🆕 canonical-thread-not-found: Criando thread ÚNICA para este contato.`);
@@ -797,6 +810,7 @@ async function handleMessage(dados, payloadBruto, base44) {
               contact_id: contato.id,
               whatsapp_integration_id: integracaoId,
               conexao_id: integracaoId, // Compatibilidade
+              origin_integration_ids: [integracaoId], // ✅ INICIALIZAR histórico
               thread_type: 'contact_external',
               channel: 'whatsapp',
               is_canonical: true,
