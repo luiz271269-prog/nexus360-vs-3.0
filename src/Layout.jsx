@@ -230,6 +230,7 @@ export default function Layout({ children, currentPageName }) {
     { name: "Central de Comunicacao", icon: MessageSquare, page: "Comunicacao" },
     { name: "Contatos Inteligentes", icon: Target, page: "ContatosInteligentes" },
     { name: "Dashboard", icon: Home, page: "Dashboard" },
+    { name: "Métricas de Inteligência", icon: Brain, page: "InteligenciaMetricas" },
     { name: "Metas de Vendas", icon: Users, page: "Vendedores" },
     { name: "Leads & Qualificacao", icon: Target, page: "LeadsQualificados" },
     { name: "Clientes", icon: Building2, page: "Clientes" },
