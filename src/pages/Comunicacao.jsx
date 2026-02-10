@@ -2293,7 +2293,7 @@ export default function Comunicacao() {
               </div>
             </div>
 
-            <div className="bg-orange-500 text-slate-50 flex items-center gap-3">
+            <div className="bg-transparent text-black flex items-center gap-3">
               {/* Contador de Não Atribuidas */}
               <ContadorNaoAtribuidas
                 threads={threads}
