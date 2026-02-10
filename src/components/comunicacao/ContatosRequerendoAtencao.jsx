@@ -41,6 +41,24 @@ export default function ContatosRequerendoAtencao({ usuario, contatos, onSelecio
   const carregarContatosComAlerta = async () => {
     setLoading(true);
     try {
+      // Buscar apenas contatos do usuário (leads e clientes)
+      let queryContatos = {
+        tipo_contato: { $in: ['lead', 'cliente'] }
+      };
+      
+      // Filtrar por atribuição (se não for admin)
+      if (usuario?.role !== 'admin') {
+        queryContatos.vendedor_responsavel = usuario.id;
+      }
+      
+      const contatosUsuario = await base44.entities.Contact.filter(
+        queryContatos,
+        '-ultima_interacao',
+        200
+      );
+      
+      const contactIdsUsuario = new Set(contatosUsuario.map(c => c.id));
+      
       // Buscar análises comportamentais com alertas (últimos 7 dias)
       const analisesRecentes = await base44.entities.ContactBehaviorAnalysis.filter(
         {
@@ -51,6 +69,9 @@ export default function ContatosRequerendoAtencao({ usuario, contatos, onSelecio
         '-ultima_analise',
         100
       );
+      
+      // Filtrar apenas análises dos contatos do usuário
+      const analisesDoUsuario = analisesRecentes.filter(a => contactIdsUsuario.has(a.contact_id));
 
       // ✅ FIX N+1: Buscar TODAS as threads em UMA query
       const contactIds = [...new Set(analisesRecentes.map(a => a.contact_id))];
@@ -74,9 +95,10 @@ export default function ContatosRequerendoAtencao({ usuario, contatos, onSelecio
       });
 
       // Processar análises (SEM queries adicionais)
-      const contatosProcessados = analisesRecentes.map((analise) => {
+      const contatosProcessados = analisesDoUsuario.map((analise) => {
         try {
-          const contato = contatos.find(c => c.id === analise.contact_id);
+          // Buscar contato do array de contatos do usuário
+          const contato = contatosUsuario.find(c => c.id === analise.contact_id);
           if (!contato) return null;
 
           const thread = threadsMap.get(analise.contact_id);
