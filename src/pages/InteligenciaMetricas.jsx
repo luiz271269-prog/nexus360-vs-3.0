@@ -49,66 +49,79 @@ export default function InteligenciaMetricas() {
       const limite24h = new Date(agora - 24 * 60 * 60 * 1000).toISOString();
       const limite7d = new Date(agora - 7 * 24 * 60 * 60 * 1000).toISOString();
 
-      // 1. Buscar TODAS análises (últimas 24h e últimas 7d)
+      // 1. Buscar TODAS análises usando created_date (campo correto)
       const [analises24h, analises7d, todasAnalises] = await Promise.all([
         base44.entities.ContactBehaviorAnalysis.filter(
-          { ultima_analise: { $gte: limite24h } },
-          '-ultima_analise',
+          { created_date: { $gte: limite24h } },
+          '-created_date',
           500
         ),
         base44.entities.ContactBehaviorAnalysis.filter(
-          { ultima_analise: { $gte: limite7d } },
-          '-ultima_analise',
+          { created_date: { $gte: limite7d } },
+          '-created_date',
           500
         ),
-        base44.entities.ContactBehaviorAnalysis.filter(
-          {},
-          '-ultima_analise',
-          1000
-        )
+        base44.entities.ContactBehaviorAnalysis.list('-created_date', 1000)
       ]);
 
-      // 2. Buscar contatos ativos
+      // 2. Buscar contatos ativos (leads + clientes)
       const contatosAtivos = await base44.entities.Contact.filter(
         { tipo_contato: { $in: ['lead', 'cliente'] } },
-        '-ultima_interacao',
+        '-created_date',
         500
       );
 
-      // 3. Buscar mensagens das últimas 24h (para calcular volume)
+      // 3. Buscar TODAS mensagens das últimas 24h
       const mensagens24h = await base44.entities.Message.filter(
         { created_date: { $gte: limite24h } },
         '-created_date',
         1000
       );
 
+      // 4. Buscar threads ativas
+      const threadsAtivas = await base44.entities.MessageThread.filter(
+        { 
+          status: 'aberta',
+          thread_type: 'contact_external'
+        },
+        '-last_message_at',
+        500
+      );
+
       // Calcular métricas 24h
       const totalAnalises24h = analises24h.length;
-      const comInsights24h = analises24h.filter(a => a.insights).length;
+      const comInsights24h = analises24h.filter(a => a.insights && Object.keys(a.insights).length > 0).length;
       const taxaSucesso = totalAnalises24h > 0 ? Math.round((comInsights24h / totalAnalises24h) * 100) : 0;
 
-      // Scores médios (24h)
-      const scoresMedios = {
-        deal_risk: Math.round(analises24h.reduce((sum, a) => sum + (a.insights?.scores?.deal_risk || 0), 0) / totalAnalises24h) || 0,
-        buy_intent: Math.round(analises24h.reduce((sum, a) => sum + (a.insights?.scores?.buy_intent || 0), 0) / totalAnalises24h) || 0,
-        engagement: Math.round(analises24h.reduce((sum, a) => sum + (a.insights?.scores?.engagement || 0), 0) / totalAnalises24h) || 0,
-        health: Math.round(analises24h.reduce((sum, a) => sum + (a.insights?.scores?.health || 0), 0) / totalAnalises24h) || 0
-      };
+      // Scores médios de TODAS as análises (não só 24h)
+      const analisesComScores = todasAnalises.filter(a => a.insights?.scores);
+      const totalComScores = analisesComScores.length;
+      
+      const scoresMedios = totalComScores > 0 ? {
+        deal_risk: Math.round(analisesComScores.reduce((sum, a) => sum + (a.insights.scores.deal_risk || 0), 0) / totalComScores),
+        buy_intent: Math.round(analisesComScores.reduce((sum, a) => sum + (a.insights.scores.buy_intent || 0), 0) / totalComScores),
+        engagement: Math.round(analisesComScores.reduce((sum, a) => sum + (a.insights.scores.engagement || 0), 0) / totalComScores),
+        health: Math.round(analisesComScores.reduce((sum, a) => sum + (a.insights.scores.health || 0), 0) / totalComScores)
+      } : { deal_risk: 0, buy_intent: 0, engagement: 0, health: 0 };
 
       // Alertas ativos (todas análises)
-      const alertasAtivos = todasAnalises.reduce((sum, a) => sum + (a.insights?.alerts?.length || 0), 0);
+      const alertasAtivos = todasAnalises.reduce((sum, a) => {
+        const alerts = a.insights?.alerts;
+        return sum + (Array.isArray(alerts) ? alerts.length : 0);
+      }, 0);
       
-      // Distribuição por stage (todas análises)
-      const porStage = todasAnalises.reduce((acc, a) => {
-        const stage = a.insights?.stage?.current || 'desconhecido';
-        acc[stage] = (acc[stage] || 0) + 1;
-        return acc;
-      }, {});
+      // Distribuição por stage (todas análises COM stage definido)
+      const porStage = {};
+      todasAnalises.forEach(a => {
+        const stage = a.insights?.stage?.current;
+        if (stage && stage !== 'desconhecido') {
+          porStage[stage] = (porStage[stage] || 0) + 1;
+        }
+      });
 
       // Cobertura de análise
-      const contatosComAnalise = contatosAtivos.filter(c => 
-        todasAnalises.some(a => a.contact_id === c.id)
-      ).length;
+      const contactIdsComAnalise = new Set(todasAnalises.map(a => a.contact_id));
+      const contatosComAnalise = contatosAtivos.filter(c => contactIdsComAnalise.has(c.id)).length;
       const taxaCobertura = contatosAtivos.length > 0 
         ? Math.round((contatosComAnalise / contatosAtivos.length) * 100) 
         : 0;
@@ -120,9 +133,15 @@ export default function InteligenciaMetricas() {
         recebidas: mensagens24h.filter(m => m.sender_type === 'contact').length
       };
 
-      // Tendência 7d vs 24h
-      const mediaAnalisesPorDia7d = analises7d.length / 7;
-      const tendencia = totalAnalises24h > mediaAnalisesPorDia7d ? 'alta' : 'baixa';
+      console.log('[METRICAS] Dados carregados:', {
+        analises24h: totalAnalises24h,
+        analises7d: analises7d.length,
+        totalAnalises: todasAnalises.length,
+        contatosAtivos: contatosAtivos.length,
+        mensagens24h: mensagens24h.length,
+        taxaSucesso,
+        scoresMedios
+      });
 
       setMetricas({
         totalAnalises24h,
@@ -134,13 +153,13 @@ export default function InteligenciaMetricas() {
         alertasAtivos,
         porStage,
         volumeMensagens,
-        tendencia,
         contatosAtivos: contatosAtivos.length,
         contatosComAnalise,
+        threadsAtivas: threadsAtivas.length,
         ultimaAtualizacao: new Date().toISOString()
       });
     } catch (error) {
-      console.error('Erro ao carregar métricas:', error);
+      console.error('[METRICAS] Erro ao carregar:', error);
     } finally {
       setLoading(false);
     }
