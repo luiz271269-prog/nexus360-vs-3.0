@@ -9,10 +9,13 @@ import { createClientFromRequest } from 'npm:@base44/sdk@0.8.6';
 Deno.serve(async (req) => {
   try {
     const base44 = createClientFromRequest(req);
-    const user = await base44.auth.me();
     
-    if (!user) {
-      return Response.json({ error: 'Unauthorized' }, { status: 401 });
+    // Tentar autenticação (pode não ter em automações scheduled)
+    let user = null;
+    try {
+      user = await base44.auth.me();
+    } catch (e) {
+      console.log('[ANALISE_LOTE] Rodando sem user context (scheduled automation)');
     }
     
     const body = await req.json().catch(() => ({}));
@@ -31,9 +34,9 @@ Deno.serve(async (req) => {
     // MODO 1: IDs ESPECÍFICOS (chamada do componente)
     // ══════════════════════════════════════════════════════════════
     if (contact_ids && Array.isArray(contact_ids) && contact_ids.length > 0) {
-      console.log(`[ANALISE_LOTE] Modo direto | User: ${user.email} | IDs: ${contact_ids.length}`);
+      console.log(`[ANALISE_LOTE] Modo direto | IDs: ${contact_ids.length}`);
       
-      const contatos = await base44.entities.Contact.filter(
+      const contatos = await base44.asServiceRole.entities.Contact.filter(
         { id: { $in: contact_ids } },
         '-ultima_interacao',
         100
@@ -74,14 +77,14 @@ Deno.serve(async (req) => {
     // MODO 2: PRIORIZAÇÃO (retorna lista ordenada com contexto)
     // ══════════════════════════════════════════════════════════════
     if (modo === 'priorizacao') {
-      console.log(`[ANALISE_LOTE] Modo priorização | User: ${user.email}`);
+      console.log(`[ANALISE_LOTE] Modo priorização`);
       
       let queryContatos = {
         tipo_contato: { $in: Array.isArray(tipo) ? tipo : [tipo] }
       };
       
-      // Filtrar por usuário (exceto admin)
-      if (user.role !== 'admin') {
+      // Filtrar por usuário (exceto admin) - apenas se tiver user
+      if (user && user.role !== 'admin') {
         queryContatos.vendedor_responsavel = user.id;
       }
       
@@ -191,7 +194,7 @@ Deno.serve(async (req) => {
     // ══════════════════════════════════════════════════════════════
     // MODO 3: AUTOMAÇÃO SCHEDULED (análise periódica)
     // ══════════════════════════════════════════════════════════════
-    console.log(`[ANALISE_LOTE] Modo scheduled | User: ${user.email} | Limit: ${limit}`);
+    console.log(`[ANALISE_LOTE] Modo scheduled | Limit: ${limit}`);
     
     let query = {
       tipo_contato: { $in: Array.isArray(tipo) ? tipo : ['lead', 'cliente'] }
@@ -203,12 +206,8 @@ Deno.serve(async (req) => {
       };
     }
     
-    // Filtrar por usuário (exceto admin)
-    if (user.role !== 'admin') {
-      query.vendedor_responsavel = user.id;
-    }
-    
-    const contatos = await base44.entities.Contact.filter(
+    // Usar service role para automações (sem user context)
+    const contatos = await base44.asServiceRole.entities.Contact.filter(
       query,
       '-ultima_interacao',
       limit
@@ -227,8 +226,8 @@ Deno.serve(async (req) => {
       resultados.total_processados++;
       
       try {
-        // Verificar análise recente (< 24h)
-        const analises = await base44.entities.ContactBehaviorAnalysis.filter(
+        // Verificar análise recente (< 24h) - usar service role
+        const analises = await base44.asServiceRole.entities.ContactBehaviorAnalysis.filter(
           {
             contact_id: contato.id,
             ultima_analise: { 

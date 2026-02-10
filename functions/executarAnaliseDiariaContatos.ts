@@ -21,19 +21,11 @@ Deno.serve(async (req) => {
 
   try {
     const base44 = createClientFromRequest(req);
-    const user = await base44.auth.me();
 
-    if (!user) {
-      return Response.json({ error: 'Não autorizado' }, { status: 401, headers: corsHeaders });
-    }
-
-    const { modo_execucao = 'usuario_atual' } = await req.json().catch(() => ({}));
-
-    console.log(`[ANALISE_DIARIA] Iniciando rotina para usuário ${user.id} (modo: ${modo_execucao})`);
+    console.log(`[ANALISE_DIARIA] Iniciando rotina diária (modo: scheduled - service role)`);
 
     const resultados = {
-      usuario_id: user.id,
-      modo_execucao,
+      modo_execucao: 'scheduled',
       rotinas: [],
       tempo_total_ms: 0,
       total_contatos_analisados: 0,
@@ -41,13 +33,13 @@ Deno.serve(async (req) => {
       erros: []
     };
 
-    // Helper: rodar lote e registrar resultado
+    // Helper: rodar lote e registrar resultado (usa service role)
     async function rodarLote(descricao, payload) {
       const inicioLote = Date.now();
       console.log(`[ANALISE_DIARIA] 📊 ${descricao}`);
 
       try {
-        const resp = await base44.functions.invoke('analisarClientesEmLote', payload);
+        const resp = await base44.asServiceRole.functions.invoke('analisarClientesEmLote', payload);
         const tempo_ms = Date.now() - inicioLote;
 
         const resumo = resp.data || resp;
