@@ -19,10 +19,13 @@ Deno.serve(async (req) => {
 
   try {
     const base44 = createClientFromRequest(req);
-    const user = await base44.auth.me();
     
-    if (!user) {
-      return Response.json({ error: 'Não autorizado' }, { status: 401, headers: corsHeaders });
+    // Autenticação opcional (automações scheduled não têm user)
+    let user = null;
+    try {
+      user = await base44.auth.me();
+    } catch (e) {
+      console.log('[ANALISE_COMPORTAMENTO] Rodando sem user context (scheduled)');
     }
 
     const { 
