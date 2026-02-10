@@ -88,12 +88,11 @@ Deno.serve(async (req) => {
         queryContatos.vendedor_responsavel = user.id;
       }
       
-      // Filtrar contatos com atividade recente
-      if (diasSemMensagem > 0) {
-        queryContatos.ultima_interacao = {
-          $gte: new Date(Date.now() - diasSemMensagem * 24 * 60 * 60 * 1000).toISOString()
-        };
-      }
+      // ✅ CORREÇÃO: Sempre filtrar por atividade recente no modo priorização
+      // (contatos sem mensagens recentes = 400 na análise)
+      queryContatos.ultima_interacao = {
+        $gte: new Date(Date.now() - Math.max(diasSemMensagem, 30) * 24 * 60 * 60 * 1000).toISOString()
+      };
       
       // ✅ Usar service role se não houver user (automações agendadas)
       const client = user ? base44 : base44.asServiceRole;
@@ -248,12 +247,18 @@ Deno.serve(async (req) => {
         }
         
         // Executar análise (service role para chamada interna)
-        await base44.asServiceRole.functions.invoke('analisarComportamentoContato', {
+        const resp = await base44.asServiceRole.functions.invoke('analisarComportamentoContato', {
           contact_id: contato.id
         });
         
-        resultados.analises_criadas++;
-        console.log(`[ANALISE_LOTE] ✅ ${contato.nome} analisado`);
+        // ✅ Verificar sucesso (pode retornar 400 se sem mensagens)
+        if (resp.success || resp.data?.success) {
+          resultados.analises_criadas++;
+          console.log(`[ANALISE_LOTE] ✅ ${contato.nome} analisado`);
+        } else {
+          resultados.analises_puladas++;
+          console.log(`[ANALISE_LOTE] ⏭️ ${contato.nome} pulado (sem dados suficientes)`);
+        }
         
         // Delay anti-rate-limit
         if (resultados.total_processados < contatos.length) {
