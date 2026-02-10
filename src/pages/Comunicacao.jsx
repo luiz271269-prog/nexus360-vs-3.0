@@ -43,8 +43,8 @@ import {
   threadConexaoVisivel,
   threadSetorVisivel,
   verificarBloqueioThread,
-  podeInteragirNaThread
-} from "../components/lib/threadVisibility";
+  podeInteragirNaThread } from
+"../components/lib/threadVisibility";
 import ModalSemPermissaoConversa from "../components/comunicacao/ModalSemPermissaoConversa";
 import BibliotecaAutomacoes from "../components/automacao/BibliotecaAutomacoes";
 import CentralControleOperacional from "../components/comunicacao/CentralControleOperacional";
@@ -72,8 +72,8 @@ export default function Comunicacao() {
     retry: 2,
     refetchOnWindowFocus: true,
     onError: (error) => {
-        console.error("Erro ao carregar usuário:", error);
-        toast.error(`Erro ao carregar usuário: ${error.message}`);
+      console.error("Erro ao carregar usuário:", error);
+      toast.error(`Erro ao carregar usuário: ${error.message}`);
     }
   });
 
@@ -107,7 +107,7 @@ export default function Comunicacao() {
   // RESTAURADO: Estados para criar novo contato
   const [novoContatoTelefone, setNovoContatoTelefone] = React.useState("");
   const [criandoNovoContato, setCriandoNovoContato] = React.useState(false);
-  
+
   // 🎯 NOVO: Estado para duplicata detectada pela busca
   const [duplicataEncontrada, setDuplicataEncontrada] = React.useState(null);
 
@@ -115,7 +115,7 @@ export default function Comunicacao() {
   const [modoSelecaoMultipla, setModoSelecaoMultipla] = React.useState(false);
   const [contatosSelecionados, setContatosSelecionados] = React.useState([]);
   const [mostrarSelecionados, setMostrarSelecionados] = React.useState(false);
-  
+
   // Estados para broadcast interno
   const [broadcastInterno, setBroadcastInterno] = React.useState(null); // { destinations: [...] }
   const [isRateLimited, setIsRateLimited] = React.useState(false); // 🚫 Cool-down para 429
@@ -160,8 +160,8 @@ export default function Comunicacao() {
 
   React.useEffect(() => {
     if (usuario && !localStorage.getItem('filterScope')) {
-        const isManager = usuario.role === 'admin' || usuario.role === 'supervisor';
-        setFilterScope(isManager ? 'all' : 'my');
+      const isManager = usuario.role === 'admin' || usuario.role === 'supervisor';
+      setFilterScope(isManager ? 'all' : 'my');
     }
   }, [usuario]);
 
@@ -177,26 +177,26 @@ export default function Comunicacao() {
 
     const unsubscribe = base44.entities.MessageThread.subscribe((event) => {
       console.log(`[COMUNICACAO] 🔔 Thread ${event.type}d:`, event.id);
-      
+
       // Adicionar à fila de invalidações
       invalidacoesPendentes.add(event.id);
-      
+
       // Limpar timer anterior
       if (debounceTimer) clearTimeout(debounceTimer);
-      
+
       // Agendar invalidação em 2 segundos (agrupa múltiplos eventos)
       debounceTimer = setTimeout(() => {
         console.log(`[COMUNICACAO] ♻️ Invalidando ${invalidacoesPendentes.size} thread(s) agrupadas`);
-        
+
         // ✅ FIX: Invalidar queries SEPARADAS (evita recarregar internas desnecessariamente)
         queryClient.invalidateQueries({ queryKey: ['threads-externas'] });
         queryClient.invalidateQueries({ queryKey: ['threads-internas'] });
-        
+
         // Se alguma thread ativa foi atualizada, recarregar mensagens
         if (threadAtiva?.id && invalidacoesPendentes.has(threadAtiva.id)) {
           queryClient.invalidateQueries({ queryKey: ['mensagens', threadAtiva.id] });
         }
-        
+
         // Limpar fila
         invalidacoesPendentes.clear();
       }, 2000);
@@ -212,7 +212,7 @@ export default function Comunicacao() {
   // ═══════════════════════════════════════════════════════════════════════════════
   // 🔍 BUSCA DE THREADS SEPARADAS - INTERNAS vs EXTERNAS (Evita 429)
   // ═══════════════════════════════════════════════════════════════════════════════
-  
+
   // ✅ THREADS INTERNAS: Ritmo lento, menos volume
   const { data: threadsInternas = [], isLoading: loadingThreadsInternas } = useQuery({
     queryKey: ['threads-internas', usuario?.id],
@@ -249,12 +249,12 @@ export default function Comunicacao() {
           limit: 200,
           incluirInternas: false
         });
-        
+
         if (response?.data?.success) {
           console.log('[COMUNICACAO] ✅ Threads externas via busca livre:', response.data.threads.length);
           return response.data.threads || [];
         }
-        
+
         // Fallback: busca com RLS
         console.warn('[COMUNICACAO] ⚠️ Fallback para busca com RLS');
         return await base44.entities.MessageThread.filter(
@@ -305,7 +305,7 @@ export default function Comunicacao() {
   // ═══════════════════════════════════════════════════════════════════════════════
   const contactIdsParaCarregar = React.useMemo(() => {
     if (!threads.length) return [];
-    const ids = threads.map(t => t.contact_id).filter(id => id);
+    const ids = threads.map((t) => t.contact_id).filter((id) => id);
     console.log('[COMUNICACAO] 🎯 IDs de contato para hidratar:', ids.length);
     return [...new Set(ids)]; // Remove duplicatas
   }, [threads]);
@@ -330,7 +330,7 @@ export default function Comunicacao() {
         if (response?.data?.success) {
           const todosContatos = response.data.contatos || [];
           const idsSet = new Set(contactIdsParaCarregar);
-          const contatosNecessarios = todosContatos.filter(c => idsSet.has(c.id));
+          const contatosNecessarios = todosContatos.filter((c) => idsSet.has(c.id));
           console.log(`[COMUNICACAO] ✅ Contatos hidratados (livre): ${contatosNecessarios.length}/${contactIdsParaCarregar.length}`);
           return contatosNecessarios;
         }
@@ -339,7 +339,7 @@ export default function Comunicacao() {
         console.warn('[COMUNICACAO] ⚠️ Fallback para busca com RLS (contatos)');
         const todosContatos = await base44.entities.Contact.list('-last_interaction', 1000);
         const idsSet = new Set(contactIdsParaCarregar);
-        return todosContatos.filter(c => idsSet.has(c.id));
+        return todosContatos.filter((c) => idsSet.has(c.id));
       } catch (error) {
         console.error('[COMUNICACAO] ❌ Erro ao hidratar contatos:', error);
         return [];
@@ -357,108 +357,108 @@ export default function Comunicacao() {
     }
   });
 
-   // ═══════════════════════════════════════════════════════════════════════════════
-   // 🔍 BUSCA LIVRE NO BANCO - Quando há termo de busca (sem bloqueio de integração)
-   // ═══════════════════════════════════════════════════════════════════════════════
-   const { data: contatosBuscados = [] } = useQuery({
-     queryKey: ['contacts-search', debouncedSearchTerm],
-     queryFn: async () => {
-       if (!debouncedSearchTerm || debouncedSearchTerm.trim().length < 2) return [];
+  // ═══════════════════════════════════════════════════════════════════════════════
+  // 🔍 BUSCA LIVRE NO BANCO - Quando há termo de busca (sem bloqueio de integração)
+  // ═══════════════════════════════════════════════════════════════════════════════
+  const { data: contatosBuscados = [] } = useQuery({
+    queryKey: ['contacts-search', debouncedSearchTerm],
+    queryFn: async () => {
+      if (!debouncedSearchTerm || debouncedSearchTerm.trim().length < 2) return [];
 
-       console.log(`[COMUNICACAO] 🔍 Buscando contatos (LIVRE): "${debouncedSearchTerm}"...`);
+      console.log(`[COMUNICACAO] 🔍 Buscando contatos (LIVRE): "${debouncedSearchTerm}"...`);
 
-       try {
-         // ✅ Busca livre via backend (SEM bloqueio de RLS/integração)
-         const response = await base44.functions.invoke('buscarContatosLivre', {
-           searchTerm: debouncedSearchTerm,
-           limit: 500
-         });
-         
-         let todosBD = [];
-         if (response?.data?.success) {
-           todosBD = response.data.contatos || [];
-           console.log('[COMUNICACAO] ✅ Busca livre retornou:', todosBD.length, 'contatos');
-         } else {
-           // Fallback: busca com RLS
-           console.warn('[COMUNICACAO] ⚠️ Fallback para busca com RLS (busca de contatos)');
-           todosBD = await base44.entities.Contact.list('-created_date', 500);
-         }
+      try {
+        // ✅ Busca livre via backend (SEM bloqueio de RLS/integração)
+        const response = await base44.functions.invoke('buscarContatosLivre', {
+          searchTerm: debouncedSearchTerm,
+          limit: 500
+        });
 
-         // ✅ Função de similaridade para fuzzy matching
-         const calcularSimilaridade = (str1, str2) => {
-           const s1 = str1.toLowerCase().trim();
-           const s2 = str2.toLowerCase().trim();
+        let todosBD = [];
+        if (response?.data?.success) {
+          todosBD = response.data.contatos || [];
+          console.log('[COMUNICACAO] ✅ Busca livre retornou:', todosBD.length, 'contatos');
+        } else {
+          // Fallback: busca com RLS
+          console.warn('[COMUNICACAO] ⚠️ Fallback para busca com RLS (busca de contatos)');
+          todosBD = await base44.entities.Contact.list('-created_date', 500);
+        }
 
-           if (s1 === s2) return 1.0; // Match exato
-           if (s1.includes(s2) || s2.includes(s1)) return 0.8; // Contém
+        // ✅ Função de similaridade para fuzzy matching
+        const calcularSimilaridade = (str1, str2) => {
+          const s1 = str1.toLowerCase().trim();
+          const s2 = str2.toLowerCase().trim();
 
-           // Verifica se começa com o termo
-           if (s1.startsWith(s2) || s2.startsWith(s1)) return 0.7;
+          if (s1 === s2) return 1.0; // Match exato
+          if (s1.includes(s2) || s2.includes(s1)) return 0.8; // Contém
 
-           // Verifica a quantidade de caracteres em comum (semelhança parcial)
-           let matches = 0;
-           for (let char of s2) {
-             if (s1.includes(char)) matches++;
-           }
-           return matches / s2.length * 0.5;
-         };
+          // Verifica se começa com o termo
+          if (s1.startsWith(s2) || s2.startsWith(s1)) return 0.7;
 
-         const term = debouncedSearchTerm.toLowerCase().trim();
+          // Verifica a quantidade de caracteres em comum (semelhança parcial)
+          let matches = 0;
+          for (let char of s2) {
+            if (s1.includes(char)) matches++;
+          }
+          return matches / s2.length * 0.5;
+        };
 
-         // ✅ BUSCA COM SEMELHANÇA - filtra e ordena por relevância
-         const resultados = todosBD
-           .map(c => {
-             let score = 0;
+        const term = debouncedSearchTerm.toLowerCase().trim();
 
-             // Nome - peso 5
-             const nomeSimilaridade = calcularSimilaridade(c.nome || '', term);
-             score += nomeSimilaridade * 5;
+        // ✅ BUSCA COM SEMELHANÇA - filtra e ordena por relevância
+        const resultados = todosBD.
+        map((c) => {
+          let score = 0;
 
-             // Empresa - peso 3
-             const empresaSimilaridade = calcularSimilaridade(c.empresa || '', term);
-             score += empresaSimilaridade * 3;
+          // Nome - peso 5
+          const nomeSimilaridade = calcularSimilaridade(c.nome || '', term);
+          score += nomeSimilaridade * 5;
 
-             // Cargo - peso 2
-             const cargoSimilaridade = calcularSimilaridade(c.cargo || '', term);
-             score += cargoSimilaridade * 2;
+          // Empresa - peso 3
+          const empresaSimilaridade = calcularSimilaridade(c.empresa || '', term);
+          score += empresaSimilaridade * 3;
 
-             // Descrição/Observações - peso 1
-             const obsSimilaridade = calcularSimilaridade(c.observacoes || '', term);
-             score += obsSimilaridade * 1;
+          // Cargo - peso 2
+          const cargoSimilaridade = calcularSimilaridade(c.cargo || '', term);
+          score += cargoSimilaridade * 2;
 
-             // Telefone - peso 3 (semelhança parcial por dígitos)
-             const telNorm = (c.telefone || '').replace(/\D/g, '');
-             const termDigitos = term.replace(/\D/g, '');
-             let telScore = 0;
-             if (termDigitos.length >= 3 && telNorm.includes(termDigitos)) {
-               telScore = 0.8; // Contém a sequência de dígitos
-             } else if (termDigitos.length > 0 && telNorm.length > 0) {
-               // Busca parcial por dígitos
-               let matches = 0;
-               for (let digit of termDigitos) {
-                 if (telNorm.includes(digit)) matches++;
-               }
-               telScore = matches / termDigitos.length * 0.6;
-             }
-             score += telScore * 3;
+          // Descrição/Observações - peso 1
+          const obsSimilaridade = calcularSimilaridade(c.observacoes || '', term);
+          score += obsSimilaridade * 1;
 
-             return { contato: c, score };
-           })
-           .filter(item => item.score > 0.3) // Mínimo de relevância (30%)
-           .sort((a, b) => b.score - a.score) // Ordenar por relevância (maior score primeiro)
-           .map(item => item.contato)
-           .slice(0, 100); // Limite de 100 resultados
+          // Telefone - peso 3 (semelhança parcial por dígitos)
+          const telNorm = (c.telefone || '').replace(/\D/g, '');
+          const termDigitos = term.replace(/\D/g, '');
+          let telScore = 0;
+          if (termDigitos.length >= 3 && telNorm.includes(termDigitos)) {
+            telScore = 0.8; // Contém a sequência de dígitos
+          } else if (termDigitos.length > 0 && telNorm.length > 0) {
+            // Busca parcial por dígitos
+            let matches = 0;
+            for (let digit of termDigitos) {
+              if (telNorm.includes(digit)) matches++;
+            }
+            telScore = matches / termDigitos.length * 0.6;
+          }
+          score += telScore * 3;
 
-         console.log(`[COMUNICACAO] ✅ ${resultados.length} contatos encontrados`);
-         return resultados;
-       } catch (error) {
-         console.error('[COMUNICACAO] ❌ Erro na busca:', error);
-         return [];
-       }
-     },
-     staleTime: 30000,
-     retry: 1
-   });
+          return { contato: c, score };
+        }).
+        filter((item) => item.score > 0.3) // Mínimo de relevância (30%)
+        .sort((a, b) => b.score - a.score) // Ordenar por relevância (maior score primeiro)
+        .map((item) => item.contato).
+        slice(0, 100); // Limite de 100 resultados
+
+        console.log(`[COMUNICACAO] ✅ ${resultados.length} contatos encontrados`);
+        return resultados;
+      } catch (error) {
+        console.error('[COMUNICACAO] ❌ Erro na busca:', error);
+        return [];
+      }
+    },
+    staleTime: 30000,
+    retry: 1
+  });
 
   const { data: clientes = [] } = useQuery({
     queryKey: ['clientes'],
@@ -499,58 +499,58 @@ export default function Comunicacao() {
 
         // ✅ BRANCH EXTERNO: Buscar histórico consolidado (thread atual + merged + MESMO CONTATO)
         let threadIdsParaBuscar = [threadAtiva.id];
-        
+
         try {
           // Buscar threads merged OFICIALMENTE
           const threadsMerged = await base44.entities.MessageThread.filter(
-            { 
+            {
               merged_into: threadAtiva.id,
               status: 'merged'
             },
             '-created_date',
             20
           );
-          
+
           if (threadsMerged && threadsMerged.length > 0) {
             console.log(`[COMUNICACAO] 🔀 Encontradas ${threadsMerged.length} threads merged oficialmente`);
-            threadIdsParaBuscar.push(...threadsMerged.map(t => t.id));
+            threadIdsParaBuscar.push(...threadsMerged.map((t) => t.id));
           }
-          
+
           // 🆕 BUSCAR TODAS AS THREADS DO MESMO CONTATO (unificação inteligente)
           if (threadAtiva.contact_id) {
             const todasThreadsDoContato = await base44.entities.MessageThread.filter(
-              { 
+              {
                 contact_id: threadAtiva.contact_id,
                 status: { $in: ['aberta', 'fechada'] }
               },
               '-created_date',
               50
             );
-            
+
             if (todasThreadsDoContato && todasThreadsDoContato.length > 1) {
               console.log(`[COMUNICACAO] 🔗 Encontradas ${todasThreadsDoContato.length} threads do mesmo contato - UNIFICANDO histórico`);
-              const idsAdicionais = todasThreadsDoContato.map(t => t.id).filter(id => !threadIdsParaBuscar.includes(id));
+              const idsAdicionais = todasThreadsDoContato.map((t) => t.id).filter((id) => !threadIdsParaBuscar.includes(id));
               threadIdsParaBuscar.push(...idsAdicionais);
             }
           }
         } catch (mergedErr) {
           console.warn('[COMUNICACAO] ⚠️ Erro ao buscar threads para unificação:', mergedErr.message);
         }
-        
+
         console.log(`[COMUNICACAO] 📦 Buscando mensagens de ${threadIdsParaBuscar.length} thread(s) para histórico unificado`);
-        
+
         // ✅ QUERY: Todas as mensagens (thread atual + merged + mesmo contato)
         const ultimasMensagens = await base44.entities.Message.filter(
           { thread_id: { $in: threadIdsParaBuscar } },
           '-sent_at',
-          200  // ✅ OTIMIZAÇÃO: 500 → 200 (60% menos dados iniciais)
+          200 // ✅ OTIMIZAÇÃO: 500 → 200 (60% menos dados iniciais)
         );
 
         // 🔍 QUERY 2 (DIAGNÓSTICO): APENAS mensagens RECEBIDAS do contato (últimas 50)
         let mensagensRecebidas = [];
         try {
           mensagensRecebidas = await base44.entities.Message.filter(
-            { 
+            {
               thread_id: threadAtiva.id,
               sender_type: 'contact'
             },
@@ -572,13 +572,13 @@ export default function Comunicacao() {
           console.log('[COMUNICACAO] 📊 Breakdown por sender_type:', porTipo);
 
           console.group('[COMUNICACAO] 🔍 AUDIT: Todas as mensagens (sender_type + visibility)');
-          ultimasMensagens.slice(0, 20).forEach(m => {
+          ultimasMensagens.slice(0, 20).forEach((m) => {
             console.log(`  ${m.id.substring(0, 8)}: sender_type=${m.sender_type} | visibility=${m.visibility} | content="${m.content.substring(0, 40)}"`);
           });
           console.groupEnd();
 
           if (mensagensRecebidas.length > 0) {
-            console.log('[COMUNICACAO] ✅ Amostra RECEBIDAS:', mensagensRecebidas.slice(0, 3).map(m => ({
+            console.log('[COMUNICACAO] ✅ Amostra RECEBIDAS:', mensagensRecebidas.slice(0, 3).map((m) => ({
               id: m.id.substring(0, 8),
               content: m.content.substring(0, 40),
               sender_id: m.sender_id.substring(0, 8),
@@ -641,9 +641,9 @@ export default function Comunicacao() {
     const normalizar = (v) => v ? String(v).trim().toLowerCase() : '';
 
     // Filtrar por whatsapp_permissions (can_view: true)
-    const integracoesComPermissao = whatsappPerms
-      .filter(wp => wp.can_view === true)
-      .map(wp => wp.integration_id);
+    const integracoesComPermissao = whatsappPerms.
+    filter((wp) => wp.can_view === true).
+    map((wp) => wp.integration_id);
 
     // Se há permissões WhatsApp configuradas, usar APENAS essas
     if (integracoesComPermissao.length > 0) {
@@ -714,7 +714,7 @@ export default function Comunicacao() {
     // 🔧 AUTO-REDIRECIONAR: Se thread é merged, buscar canônica
     if (thread.status === 'merged' && thread.merged_into) {
       console.log(`[Comunicacao] 🔀 Auto-redirecionar: ${thread.id} → ${thread.merged_into}`);
-      const threadCanonica = threads.find(t => t.id === thread.merged_into);
+      const threadCanonica = threads.find((t) => t.id === thread.merged_into);
       if (threadCanonica) {
         console.log('[Comunicacao] ✅ Canônica encontrada, abrindo...');
         return handleSelecionarThread(threadCanonica);
@@ -766,7 +766,7 @@ export default function Comunicacao() {
         }
 
         const threadsExistentes = await base44.entities.MessageThread.filter(
-          { 
+          {
             contact_id: thread.contact_id,
             whatsapp_integration_id: integracaoAtiva.id,
             is_canonical: true,
@@ -779,7 +779,7 @@ export default function Comunicacao() {
         if (threadsExistentes && threadsExistentes.length > 0) {
           // Verificar permissão antes de abrir (EXCETO fidelizados)
           const contatoObj = contatos.find((c) => c.id === thread.contact_id);
-          
+
           // ✅ FIDELIZADO: SEMPRE pode abrir (ignora TODAS as restrições)
           const isFidelizadoAoUsuario = contatoFidelizadoAoUsuario(contatoObj, usuario);
           if (isFidelizadoAoUsuario) {
@@ -787,7 +787,7 @@ export default function Comunicacao() {
             setThreadAtiva(threadsExistentes[0]);
             return;
           }
-          
+
           const bloqueio = verificarBloqueioThread(usuario, threadsExistentes[0], contatoObj);
 
           if (bloqueio.bloqueado) {
@@ -831,7 +831,7 @@ export default function Comunicacao() {
 
     // CASO 3: THREAD NORMAL - Redirecionar para canônica se houver mais antigas
     const contatoObj = contatos.find((c) => c.id === thread.contact_id);
-    
+
     // ✅ FIDELIZADO: SEMPRE pode abrir (ignora TODAS as restrições de setor/integração)
     const isFidelizadoAoUsuario = contatoFidelizadoAoUsuario(contatoObj, usuario);
     if (isFidelizadoAoUsuario) {
@@ -839,17 +839,17 @@ export default function Comunicacao() {
       setThreadAtiva(thread);
       return;
     }
-    
+
     // 🔧 AUTO-REDIRECIONAR para thread canônica se a atual for não-canônica
     if (thread.status === 'merged' && thread.merged_into) {
       console.log(`[Comunicacao] 🔀 Auto-redirecionando thread merged ${thread.id} → ${thread.merged_into}`);
-      const threadCanonica = threads.find(t => t.id === thread.merged_into);
+      const threadCanonica = threads.find((t) => t.id === thread.merged_into);
       if (threadCanonica) {
         setThreadAtiva(threadCanonica);
         return;
       }
     }
-    
+
     const bloqueio = verificarBloqueioThread(usuario, thread, contatoObj);
 
     if (bloqueio.bloqueado) {
@@ -947,19 +947,19 @@ export default function Comunicacao() {
       // ✅ CIRÚRGICA P4: Validar can_send ANTES de criar thread
       const integracaoAtiva = integracoes.find((i) => {
         if (i.status !== 'conectado') return false;
-        
+
         // Admin pode usar qualquer integração ativa
         if (usuario.role === 'admin') return true;
-        
+
         // ✅ CRÍTICO: Verificar can_view E can_send
         const whatsappPerms = usuario.whatsapp_permissions || [];
-        
+
         // Sem restrições configuradas = libera (compatibilidade)
         if (whatsappPerms.length === 0) return true;
-        
+
         // Buscar permissão específica para esta integração
-        const perm = whatsappPerms.find(p => p.integration_id === i.id);
-        
+        const perm = whatsappPerms.find((p) => p.integration_id === i.id);
+
         // ✅ AMBAS as permissões devem ser true
         if (!perm) return false;
         return perm.can_view === true && perm.can_send === true;
@@ -969,7 +969,7 @@ export default function Comunicacao() {
         // Contato foi criado mas não há integração permitida
         toast.warning('⚠️ Contato criado, mas você não tem acesso a nenhuma integração WhatsApp ativa');
         toast.info('💡 Peça a um colega para iniciar a conversa');
-        
+
         await queryClient.invalidateQueries({ queryKey: ['contacts'] });
         setCriandoNovoContato(false);
         setNovoContatoTelefone("");
@@ -1000,12 +1000,12 @@ export default function Comunicacao() {
 
       // ✅ Aguardar queries atualizarem (apenas externas, pois nova thread é WhatsApp)
       await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ['contacts'] }),
-        queryClient.invalidateQueries({ queryKey: ['threads-externas'] })
-      ]);
+      queryClient.invalidateQueries({ queryKey: ['contacts'] }),
+      queryClient.invalidateQueries({ queryKey: ['threads-externas'] })]
+      );
 
       // ✅ Aguardar queries serem reexecutadas antes de abrir thread
-      await new Promise(r => setTimeout(r, 500));
+      await new Promise((r) => setTimeout(r, 500));
 
       // ✅ Fechar painel e abrir thread diretamente
       setCriandoNovoContato(false);
@@ -1026,7 +1026,7 @@ export default function Comunicacao() {
   const handleAtualizarContato = React.useCallback(async (dadosAtualizados) => {
     try {
       console.log('[Comunicacao] 🔄 Invalidando cache após edição de contato...');
-      
+
       await queryClient.invalidateQueries({ queryKey: ['contacts'] });
       await queryClient.invalidateQueries({ queryKey: ['threads-externas'] });
 
@@ -1047,7 +1047,7 @@ export default function Comunicacao() {
   // Handler para seleção de destinatários internos
   const handleInternalSelection = React.useCallback((selectionData) => {
     console.log('🔵 [Comunicacao] Seleção interna:', selectionData);
-    
+
     if (selectionData.mode === 'single') {
       // Abrir thread única na ChatWindow
       setThreadAtiva(selectionData.thread);
@@ -1085,7 +1085,7 @@ export default function Comunicacao() {
     let mediaUrlFinal = null;
     let mediaTypeFinal = 'none';
     let mediaCaptionFinal = null;
-    
+
     // ✅ FIX DUPLICAÇÃO: Gerar ID temporário UMA VEZ (fora do try/catch)
     const tempId = `temp-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 
@@ -1101,14 +1101,14 @@ export default function Comunicacao() {
         const uploadResponse = await base44.integrations.Core.UploadFile({ file: audioFile });
         mediaUrlFinal = uploadResponse.file_url;
         mediaTypeFinal = 'audio';
-      }
-      else if (pastedImage) {
+      } else
+      if (pastedImage) {
         const timestamp = Date.now();
         let mimeType = pastedImage.type || 'image/png';
         if (!mimeType.startsWith('image/')) mimeType = 'image/png';
         const ext = mimeType.includes('jpeg') ? 'jpg' : mimeType.includes('webp') ? 'webp' : 'png';
 
-        const imageFile = new File([pastedImage], `internal-${timestamp}.${ext}`, { 
+        const imageFile = new File([pastedImage], `internal-${timestamp}.${ext}`, {
           type: mimeType,
           lastModified: timestamp
         });
@@ -1117,11 +1117,11 @@ export default function Comunicacao() {
         mediaUrlFinal = uploadResponse.file_url;
         mediaTypeFinal = 'image';
         mediaCaptionFinal = texto?.trim() || null;
-      }
-      else if (attachedFile) {
+      } else
+      if (attachedFile) {
         const timestamp = Date.now();
         const ext = attachedFile.name.split('.').pop() || 'file';
-        const uploadFile = new File([attachedFile], `internal-${timestamp}.${ext}`, { 
+        const uploadFile = new File([attachedFile], `internal-${timestamp}.${ext}`, {
           type: attachedFile.type,
           lastModified: timestamp
         });
@@ -1182,13 +1182,13 @@ export default function Comunicacao() {
         queryClient.setQueryData(['mensagens', threadAtiva.id], (antigas = []) => {
           return antigas.filter((m) => m.id !== tempId);
         });
-        
+
         // 5. ✅ CRÍTICO: Invalidar queries relacionadas (APENAS internas)
         await Promise.all([
-          queryClient.invalidateQueries({ queryKey: ['mensagens', threadAtiva.id] }),
-          queryClient.invalidateQueries({ queryKey: ['threads-internas'] }) // ✅ FIX: Apenas internas
+        queryClient.invalidateQueries({ queryKey: ['mensagens', threadAtiva.id] }),
+        queryClient.invalidateQueries({ queryKey: ['threads-internas'] }) // ✅ FIX: Apenas internas
         ]);
-        
+
         toast.success('✅ Mensagem enviada!');
       } else {
         throw new Error(resultado.data.error || 'Erro ao enviar');
@@ -1215,7 +1215,7 @@ export default function Comunicacao() {
     if (usuario.role !== 'admin') {
       const whatsappPerms = usuario.whatsapp_permissions || [];
       if (whatsappPerms.length > 0) {
-        const perm = whatsappPerms.find(p => p.integration_id === integrationId);
+        const perm = whatsappPerms.find((p) => p.integration_id === integrationId);
         if (!perm || perm.can_send !== true) {
           toast.error('❌ Você não tem permissão para enviar mensagens por esta conexão');
           return;
@@ -1365,11 +1365,11 @@ export default function Comunicacao() {
     const termoNumeros = String(termo).replace(/\D/g, '');
 
     const camposTexto = [
-      item.nome, item.empresa, item.cargo, item.email, item.observacoes,
-      item.vendedor_responsavel, item.razao_social, item.nome_fantasia,
-      item.contato_principal_nome, item.segmento,
-      ...(Array.isArray(item.tags) ? item.tags : [])
-    ].filter(Boolean);
+    item.nome, item.empresa, item.cargo, item.email, item.observacoes,
+    item.vendedor_responsavel, item.razao_social, item.nome_fantasia,
+    item.contato_principal_nome, item.segmento,
+    ...(Array.isArray(item.tags) ? item.tags : [])].
+    filter(Boolean);
 
     const camposNumero = [item.telefone, item.cnpj].filter(Boolean);
 
@@ -1380,7 +1380,7 @@ export default function Comunicacao() {
     const matchNumero = termoNumeros.length >= 3 && numerosCompletos.includes(termoNumeros);
 
     const palavrasTermo = termoNorm.split(' ').filter(Boolean);
-    const todasPalavrasEncontradas = palavrasTermo.every(p => textoCompleto.includes(p));
+    const todasPalavrasEncontradas = palavrasTermo.every((p) => textoCompleto.includes(p));
 
     return matchTexto || matchNumero || todasPalavrasEncontradas;
   }, []);
@@ -1397,17 +1397,17 @@ export default function Comunicacao() {
     const termoNorm = normalizarTexto(termo);
     const nome = normalizarTexto(contato.nome || '');
     const empresa = normalizarTexto(contato.empresa || '');
-    
+
     let score = 0;
 
     // Match exato no nome = maior prioridade
-    if (nome === termoNorm) score += 100;
-    else if (nome.startsWith(termoNorm)) score += 50;
-    else if (nome.includes(termoNorm)) score += 20;
+    if (nome === termoNorm) score += 100;else
+    if (nome.startsWith(termoNorm)) score += 50;else
+    if (nome.includes(termoNorm)) score += 20;
 
     // Match na empresa
-    if (empresa === termoNorm) score += 40;
-    else if (empresa.includes(termoNorm)) score += 15;
+    if (empresa === termoNorm) score += 40;else
+    if (empresa.includes(termoNorm)) score += 15;
 
     // Match em outros campos
     const outrosCampos = normalizarTexto((contato.cargo || '') + (contato.observacoes || ''));
@@ -1424,7 +1424,7 @@ export default function Comunicacao() {
   // ✅ PATCH 3: Segurar "unassigned" até ter dados mínimos carregados
   const hasBaseData = !!usuario && Array.isArray(threads) && threads.length >= 0;
   const effectiveScope =
-    (!hasBaseData && filterScope === 'unassigned') ? 'all' : filterScope;
+  !hasBaseData && filterScope === 'unassigned' ? 'all' : filterScope;
 
   // ═══════════════════════════════════════════════════════════════════════
   // OTIMIZAÇÃO: Pré-calcular o Set de "Não Atribuídas" separadamente
@@ -1437,14 +1437,14 @@ export default function Comunicacao() {
   // ═══════════════════════════════════════════════════════════════════════
   const threadsNaoAtribuidasVisiveis = React.useMemo(() => {
     if (effectiveScope !== 'unassigned' || !usuario || !userPermissions) return new Set();
-    
+
     const setIds = new Set();
 
     threads.forEach((thread) => {
       // ✅ SAGRADO: Usuários internos nunca entram neste Set
       // (têm sua própria regra de visibilidade por participação)
       if (thread.thread_type === 'team_internal' || thread.thread_type === 'sector_group') return;
-      
+
       const contato = contatosMap.get(thread.contact_id);
 
       if (permissionsService.isNaoAtribuida(thread) && permissionsService.canUserSeeThreadBase(userPermissions, thread, contato)) {
@@ -1468,29 +1468,29 @@ export default function Comunicacao() {
         duplicatas_count: duplicataEncontrada.duplicatas?.length
       } : null);
     }
-    
+
     let resultado = threads;
-    
+
     if (duplicataEncontrada && duplicataEncontrada.principal) {
       const contatoPrincipalId = duplicataEncontrada.principal.id;
       const antesCount = resultado.length;
-      
+
       resultado = threads.filter((t) => {
         if (t.thread_type === 'team_internal' || t.thread_type === 'sector_group') return true;
         return t.contact_id === contatoPrincipalId;
       });
-      
+
       if (DEBUG_VIS) {
         console.log(`🔴 FILTRO DUPLICATAS ATIVO - Bloqueou ${antesCount - resultado.length} threads`);
         console.log('Threads restantes:', resultado.length);
       }
     }
-    
+
     if (DEBUG_VIS) {
       console.log('threadsAProcessar final:', resultado.length);
       console.groupEnd();
     }
-    
+
     return resultado;
   }, [threads, duplicataEncontrada]);
 
@@ -1502,13 +1502,13 @@ export default function Comunicacao() {
     const isAdmin = usuario?.role === 'admin';
 
     const isFilterUnassigned = effectiveScope === 'unassigned';
-    
+
     // 🆕 DEDUPLICAÇÃO CONDICIONAL: 
     // - COM BUSCA: NÃO deduplicar (mostrar TODAS as threads do mesmo contato)
     // - SEM BUSCA: Deduplicar normalmente (1 thread por contato)
     const threadMaisRecentePorContacto = new Map();
-    
-    threadsAProcessar.forEach((thread) => { // Using threadsAProcessar to respect duplicataEncontrada filter
+
+    threadsAProcessar.forEach((thread) => {// Using threadsAProcessar to respect duplicataEncontrada filter
       // ✅ Usuários internos: NUNCA deduplicam (USUARIOS ≠ CONTATOS)
       // Usuários internos usam pair_key/sector_key como identificador ÚNICO
       // NÃO devem usar contact_id (que é null para usuários internos)
@@ -1539,15 +1539,15 @@ export default function Comunicacao() {
       } else {
         const tsExistente = new Date(existente.last_message_at || existente.updated_date || existente.created_date || 0).getTime();
         const tsAtual = new Date(thread.last_message_at || thread.updated_date || thread.created_date || 0).getTime();
-        
+
         if (tsAtual > tsExistente) {
           threadMaisRecentePorContacto.set(contactId, thread);
         }
       }
     });
-    
+
     const threadsUnicas = Array.from(threadMaisRecentePorContacto.values());
-    
+
     if (DEBUG_VIS) {
       console.log('[COMUNICACAO] 🎯 Threads processadas:', threadsUnicas.length, '| Busca ativa:', temBuscaPorTexto);
     }
@@ -1575,68 +1575,68 @@ export default function Comunicacao() {
     // PARTE 1: Filtrar THREADS existentes com REGRAS DE VISUALIZAÇÃO
     // (Usando threadsUnicas - permite múltiplos canais por contato)
     // ═══════════════════════════════════════════════════════════════════════════
-    
+
     // 🔍 LOGS DETALHADOS: Rastrear onde cada thread é bloqueada
     const logsFiltragem = [];
-    
+
     const threadsFiltrados = threadsUnicas.filter((thread) => {
-       const logThread = (etapa, passou, motivo = '') => {
-         // ✅ OT #3: Blindagem de Logs em Produção (só aloca se DEBUG ativo)
-         if (!DEBUG_VIS) return;
+      const logThread = (etapa, passou, motivo = '') => {
+        // ✅ OT #3: Blindagem de Logs em Produção (só aloca se DEBUG ativo)
+        if (!DEBUG_VIS) return;
 
-         logsFiltragem.push({
-           threadId: thread.id.substring(0, 8),
-           contactId: thread.contact_id?.substring(0, 8),
-           etapa,
-           passou,
-           motivo,
-           timestamp: new Date().toISOString()
-         });
-       };
+        logsFiltragem.push({
+          threadId: thread.id.substring(0, 8),
+          contactId: thread.contact_id?.substring(0, 8),
+          etapa,
+          passou,
+          motivo,
+          timestamp: new Date().toISOString()
+        });
+      };
 
-       // 🔍 DIAGNÓSTICO: Identificar threads de usuários que também são contatos
-       const isThreadDeUsuarioQueEContato = DEBUG_VIS && thread.contact_id && contatos.find(c => {
-         const atendenteMatch = atendentes.find(a => 
-           a.email?.toLowerCase() === c.email?.toLowerCase() ||
-           a.full_name?.toLowerCase() === c.nome?.toLowerCase()
-         );
-         return atendenteMatch && c.id === thread.contact_id;
-       });
-       
-       if (DEBUG_VIS && isThreadDeUsuarioQueEContato) {
-         const contato = contatosMap.get(thread.contact_id);
-         console.log('[COMUNICACAO] 🔍 THREAD DE USUÁRIO-CONTATO:', {
-           thread_id: thread.id.substring(0, 8),
-           thread_type: thread.thread_type,
-           contact_id: thread.contact_id?.substring(0, 8),
-           contato_nome: contato?.nome,
-           contato_email: contato?.email,
-           integration_id: thread.whatsapp_integration_id?.substring(0, 8),
-           unread_count: thread.unread_count,
-           assigned_user_id: thread.assigned_user_id?.substring(0, 8)
-         });
-       }
+      // 🔍 DIAGNÓSTICO: Identificar threads de usuários que também são contatos
+      const isThreadDeUsuarioQueEContato = DEBUG_VIS && thread.contact_id && contatos.find((c) => {
+        const atendenteMatch = atendentes.find((a) =>
+        a.email?.toLowerCase() === c.email?.toLowerCase() ||
+        a.full_name?.toLowerCase() === c.nome?.toLowerCase()
+        );
+        return atendenteMatch && c.id === thread.contact_id;
+      });
 
-       // ═══════════════════════════════════════════════════════════════════════════
-       // ✅ USUÁRIOS INTERNOS - SAGRADOS: Nunca bloqueados por escopos/filtros
-               // MAS: Bloqueados durante busca ativa (usuário quer ver resultados da busca)
-               // ═══════════════════════════════════════════════════════════════════════════
-               if (thread.thread_type === 'team_internal' || thread.thread_type === 'sector_group') {
-                 // 🔍 BUSCA ATIVA: Bloquear threads internas (mostrar apenas resultados da busca)
-                 if (modoBusca) {
-                   logThread('Modo Busca - Interno', false, 'Threads internas bloqueadas durante busca');
-                   return false;
-                 }
-                 
-                 const visInterna = podeVerThreadInterna(thread, usuario);
-                 logThread('Usuário Interno (INDEPENDENTE)', visInterna, visInterna ? 'Participante ou admin' : 'Não é participante nem admin');
-                 return visInterna;
-               }
-      
+      if (DEBUG_VIS && isThreadDeUsuarioQueEContato) {
+        const contato = contatosMap.get(thread.contact_id);
+        console.log('[COMUNICACAO] 🔍 THREAD DE USUÁRIO-CONTATO:', {
+          thread_id: thread.id.substring(0, 8),
+          thread_type: thread.thread_type,
+          contact_id: thread.contact_id?.substring(0, 8),
+          contato_nome: contato?.nome,
+          contato_email: contato?.email,
+          integration_id: thread.whatsapp_integration_id?.substring(0, 8),
+          unread_count: thread.unread_count,
+          assigned_user_id: thread.assigned_user_id?.substring(0, 8)
+        });
+      }
+
+      // ═══════════════════════════════════════════════════════════════════════════
+      // ✅ USUÁRIOS INTERNOS - SAGRADOS: Nunca bloqueados por escopos/filtros
+      // MAS: Bloqueados durante busca ativa (usuário quer ver resultados da busca)
+      // ═══════════════════════════════════════════════════════════════════════════
+      if (thread.thread_type === 'team_internal' || thread.thread_type === 'sector_group') {
+        // 🔍 BUSCA ATIVA: Bloquear threads internas (mostrar apenas resultados da busca)
+        if (modoBusca) {
+          logThread('Modo Busca - Interno', false, 'Threads internas bloqueadas durante busca');
+          return false;
+        }
+
+        const visInterna = podeVerThreadInterna(thread, usuario);
+        logThread('Usuário Interno (INDEPENDENTE)', visInterna, visInterna ? 'Participante ou admin' : 'Não é participante nem admin');
+        return visInterna;
+      }
+
       // ⬇️ Daqui pra baixo: SOMENTE threads EXTERNAS (contact_external)
-      
+
       const contato = contatosMap.get(thread.contact_id);
-      
+
       if (DEBUG_VIS && isThreadDeUsuarioQueEContato) {
         console.log('[COMUNICACAO] 🔍 USUÁRIO-CONTATO - Contato:', contato ? {
           id: contato.id.substring(0, 8),
@@ -1658,7 +1658,7 @@ export default function Comunicacao() {
         }
         return false;
       }
-      
+
       logThread('Contato Existe', true, contato ? 'Contato encontrado' : 'Fail-Safe ativado');
 
       if (thread.contact_id) {
@@ -1680,22 +1680,22 @@ export default function Comunicacao() {
           }
           return false;
         }
-        
+
         logThread('Modo Busca - Base', true, 'Passou visibilidade base');
-        
+
         if (!contato || !matchBuscaGoogle(contato, debouncedSearchTerm)) {
           logThread('Modo Busca - Match', false, 'Não match com termo de busca');
           return false;
         }
-        
+
         logThread('Modo Busca - Match', true, 'Match encontrado');
-        
+
         if (selectedTipoContato && selectedTipoContato !== 'all' && contato.tipo_contato !== selectedTipoContato) {
           logThread('Modo Busca - Tipo', false, `Tipo diferente (esperado: ${selectedTipoContato}, atual: ${contato.tipo_contato})`);
           return false;
         }
         logThread('Modo Busca - Tipo', true, 'Tipo OK');
-        
+
         if (selectedTagContato && selectedTagContato !== 'all') {
           const tags = contato.tags || [];
           if (!tags.includes(selectedTagContato)) {
@@ -1704,7 +1704,7 @@ export default function Comunicacao() {
           }
         }
         logThread('Modo Busca - Tag', true, 'Tag OK');
-        
+
         return true;
       }
 
@@ -1716,7 +1716,7 @@ export default function Comunicacao() {
       // ✅ FILTRO "NÃO ATRIBUÍDAS" vs "NÃO ADICIONADAS"
       // Threads internas são SAGRADAS - já passaram por sua lógica própria acima
       // ═══════════════════════════════════════════════════════════════════════
-      
+
       // ✅ NOVO: Filtro "Não Adicionadas" (contact_id === NULL)
       if (filterScope === 'nao_adicionado') {
         // ✅ Threads internas não se aplicam (não têm contact_id por definição)
@@ -1724,30 +1724,30 @@ export default function Comunicacao() {
           logThread('Filtro Não Adicionadas', false, 'Thread interna (não se aplica)');
           return false;
         }
-        
+
         // ✅ Apenas threads SEM contact_id passam
         if (thread.contact_id) {
           logThread('Filtro Não Adicionadas', false, 'Thread tem contact_id (não é órfã)');
           return false;
         }
-        
+
         logThread('Filtro Não Adicionadas', true, 'Thread órfã (contact_id == null)');
         return true; // ✅ Pula outros filtros (thread órfã não tem contato para filtrar)
       }
-      
+
       // ═══════════════════════════════════════════════════════════════════════
       // ✅ CRÍTICO: Filtros SEMPRE aplicados (INDEPENDENTE do escopo ou busca)
       // ═══════════════════════════════════════════════════════════════════════
-      
+
       // Filtro de INTEGRAÇÃO (threads externas)
       if (selectedIntegrationId && selectedIntegrationId !== 'all') {
         // ✅ Threads internas não têm integração WhatsApp (pular)
         if (!(thread.thread_type === 'team_internal' || thread.thread_type === 'sector_group')) {
           // ✅ FIX: Verificar origin_integration_ids[] para threads canônicas unificadas
-          const integrationIds = thread.origin_integration_ids?.length > 0 
-            ? thread.origin_integration_ids 
-            : [thread.whatsapp_integration_id];
-          
+          const integrationIds = thread.origin_integration_ids?.length > 0 ?
+          thread.origin_integration_ids :
+          [thread.whatsapp_integration_id];
+
           if (!integrationIds.includes(selectedIntegrationId)) {
             logThread('Filtro Integração', false, `Integração não encontrada (esperado: ${selectedIntegrationId}, atual: ${integrationIds.join(', ')})`);
             return false;
@@ -1755,7 +1755,7 @@ export default function Comunicacao() {
           logThread('Filtro Integração', true, 'Integração OK (verificou origin_integration_ids)');
         }
       }
-      
+
       // Filtro de ATENDENTE
       if (selectedAttendantId && selectedAttendantId !== 'all') {
         if (thread.assigned_user_id !== selectedAttendantId) {
@@ -1764,7 +1764,7 @@ export default function Comunicacao() {
         }
         logThread('Filtro Atendente', true, 'Atendente OK');
       }
-      
+
       // Filtro de CATEGORIA (threads externas)
       if (categoriasSet && !(thread.thread_type === 'team_internal' || thread.thread_type === 'sector_group')) {
         if (!categoriasSet.has(thread.id)) {
@@ -1773,7 +1773,7 @@ export default function Comunicacao() {
         }
         logThread('Filtro Categoria', true, 'Thread tem mensagem com categoria');
       }
-      
+
       // Filtro de TIPO DE CONTATO (threads externas)
       if (selectedTipoContato && selectedTipoContato !== 'all' && contato) {
         if (!(thread.thread_type === 'team_internal' || thread.thread_type === 'sector_group')) {
@@ -1784,7 +1784,7 @@ export default function Comunicacao() {
           logThread('Filtro Tipo Contato', true, 'Tipo OK');
         }
       }
-      
+
       // Filtro de TAG (threads externas)
       if (selectedTagContato && selectedTagContato !== 'all' && contato) {
         if (!(thread.thread_type === 'team_internal' || thread.thread_type === 'sector_group')) {
@@ -1796,7 +1796,7 @@ export default function Comunicacao() {
           logThread('Filtro Tag', true, 'Tag OK');
         }
       }
-      
+
       if (isFilterUnassigned) {
         // ✅ CURTO-CIRCUITO: Threads internas NUNCA são bloqueadas por escopo
         // (visibilidade delas já foi decidida por participação/admin acima)
@@ -1809,7 +1809,7 @@ export default function Comunicacao() {
             }
             return false;
           }
-          
+
           logThread('Filtro Não Atribuídas', true, 'Thread está no Set');
         } else {
           // ✅ Threads internas passam direto (já foram validadas acima)
@@ -1820,7 +1820,7 @@ export default function Comunicacao() {
         const podeVerBase = permissionsService.canUserSeeThreadBase(userPermissions, thread, contato);
         if (!podeVerBase) {
           logThread('Visibilidade Base (Nexus360)', false, 'Bloqueado pela VISIBILITY_MATRIX');
-          
+
           // 🔍 LOG DETALHADO: Identificar threads bloqueadas
           console.log('[BLOQUEADO] ❌ Thread ID:', thread.id?.substring(0, 8), {
             thread_type: thread.thread_type,
@@ -1833,7 +1833,7 @@ export default function Comunicacao() {
             unread_count: thread.unread_count,
             motivo_bloqueio: 'canUserSeeThreadBase retornou false'
           });
-          
+
           if (DEBUG_VIS && isThreadDeUsuarioQueEContato) {
             console.log('[COMUNICACAO] ❌ USUÁRIO-CONTATO - BLOQUEADO pela VISIBILITY_MATRIX:', {
               thread_id: thread.id.substring(0, 8),
@@ -1849,7 +1849,7 @@ export default function Comunicacao() {
           }
           return false;
         }
-        
+
         // Aplicar filtro de escopo (my/unassigned/all)
         if (filtros.scope && filtros.scope !== 'all') {
           const escopoConfig = { id: filtros.scope, regra: filtros.scope === 'my' ? 'atribuido_ou_fidelizado' : 'sem_assigned_user_id' };
@@ -1859,52 +1859,52 @@ export default function Comunicacao() {
             return false;
           }
         }
-        
+
         logThread('Visibilidade Nexus360', true, 'Passou VISIBILITY_MATRIX + escopo');
       }
 
       if (DEBUG_VIS && isThreadDeUsuarioQueEContato) {
         console.log('[COMUNICACAO] ✅ USUÁRIO-CONTATO - PASSOU em todos os filtros!');
       }
-      
+
       logThread('✅ APROVADA', true, 'Passou em todos os filtros');
       return true;
     });
-    
+
     console.log('[COMUNICACAO] 📊 Total de threads filtradas:', threadsFiltrados.length);
-    
+
     // 🔍 LOG RESUMIDO: Threads bloqueadas por etapa
-    const bloqueadasPorEtapa = logsFiltragem
-      .filter(l => !l.passou)
-      .reduce((acc, log) => {
-        acc[log.etapa] = (acc[log.etapa] || 0) + 1;
-        return acc;
-      }, {});
-    
+    const bloqueadasPorEtapa = logsFiltragem.
+    filter((l) => !l.passou).
+    reduce((acc, log) => {
+      acc[log.etapa] = (acc[log.etapa] || 0) + 1;
+      return acc;
+    }, {});
+
     if (Object.keys(bloqueadasPorEtapa).length > 0) {
       console.log('[COMUNICACAO] 🚫 Threads bloqueadas por etapa:', bloqueadasPorEtapa);
     }
-    
+
     // Expor logs para diagnóstico
     window._logsFiltragem = logsFiltragem;
-    
+
     // 🔍 DIAGNÓSTICO: Threads de usuários que também são contatos
     if (DEBUG_VIS) {
-      const threadsDeUsuariosContatos = threadsUnicas.filter(t => {
+      const threadsDeUsuariosContatos = threadsUnicas.filter((t) => {
         if (!t.contact_id) return false;
         const contato = contatosMap.get(t.contact_id);
         if (!contato) return false;
-        return atendentes.some(a => 
-          a.email?.toLowerCase() === contato.email?.toLowerCase() ||
-          a.full_name?.toLowerCase() === contato.nome?.toLowerCase()
+        return atendentes.some((a) =>
+        a.email?.toLowerCase() === contato.email?.toLowerCase() ||
+        a.full_name?.toLowerCase() === contato.nome?.toLowerCase()
         );
       });
-      
+
       if (threadsDeUsuariosContatos.length > 0) {
         console.group('[COMUNICACAO] 🔍 THREADS DE USUÁRIOS-CONTATOS');
-        threadsDeUsuariosContatos.forEach(t => {
+        threadsDeUsuariosContatos.forEach((t) => {
           const contato = contatosMap.get(t.contact_id);
-          const passou = threadsFiltrados.some(tf => tf.id === t.id);
+          const passou = threadsFiltrados.some((tf) => tf.id === t.id);
           console.log(`${passou ? '✅' : '❌'} Thread ${t.id.substring(0, 8)} - ${contato?.nome} (${t.thread_type}) - ${passou ? 'PASSOU' : 'BLOQUEADO'}`);
         });
         console.groupEnd();
@@ -1922,7 +1922,7 @@ export default function Comunicacao() {
 
       // ✅ COMBINAR: Contatos carregados + contatos buscados no BD (apenas durante busca)
       const todosCont = temBuscaPorTexto ? [...contatos, ...contatosBuscados] : [...contatos];
-      const contatosUnicos = new Map(todosCont.map(c => [c.id, c]));
+      const contatosUnicos = new Map(todosCont.map((c) => [c.id, c]));
 
       // Contatos sem thread - usar Set de contatos que já têm thread
       Array.from(contatosUnicos.values()).forEach((contato) => {
@@ -2037,7 +2037,7 @@ export default function Comunicacao() {
         bloqueadasPorEtapa
       }
     };
-    
+
     return threadsFiltrados;
   }, [threads, contatos, clientes, atendentes, usuario, userPermissions, selectedAttendantId, selectedIntegrationId, selectedCategoria, selectedTipoContato, selectedTagContato, debouncedSearchTerm, mensagensComCategoria, matchBuscaGoogle, filterScope, duplicataEncontrada, effectiveScope, threadsNaoAtribuidasVisiveis, threadsAProcessar, contatosMap, contatosBuscados]);
 
@@ -2061,8 +2061,8 @@ export default function Comunicacao() {
         }
 
         // Match nos participantes (buscar por nome de usuário)
-        const participantsMatch = (thread.participants || []).some(userId => {
-          const att = atendentes.find(a => a.id === userId);
+        const participantsMatch = (thread.participants || []).some((userId) => {
+          const att = atendentes.find((a) => a.id === userId);
           return att && matchBuscaGoogle({ nome: att.full_name || att.email }, debouncedSearchTerm);
         });
 
@@ -2088,19 +2088,19 @@ export default function Comunicacao() {
       if (!contato || !matchBuscaGoogle(contato, debouncedSearchTerm)) {
         return;
       }
-      
+
       // ✅ Verificar filtros tipo/tag
       if (selectedTipoContato && selectedTipoContato !== 'all' && contato.tipo_contato !== selectedTipoContato) {
         return;
       }
-      
+
       if (selectedTagContato && selectedTagContato !== 'all') {
         const tags = contato.tags || [];
         if (!tags.includes(selectedTagContato)) {
           return;
         }
       }
-      
+
       // ✅ PASSOU: Adicionar à lista
       resultados.push({
         ...thread,
@@ -2108,33 +2108,33 @@ export default function Comunicacao() {
         _searchScore: calcularScoreBusca(contato, debouncedSearchTerm)
       });
     });
-    
+
     // PARTE 2: Contatos SEM THREAD que fazem match
-    const contatosUnicos = new Map([...contatos, ...contatosBuscados].map(c => [c.id, c]));
+    const contatosUnicos = new Map([...contatos, ...contatosBuscados].map((c) => [c.id, c]));
     const contatosComThreadExistente = new Set(threadsAProcessar.map((t) => t.contact_id).filter(Boolean));
-    
+
     Array.from(contatosUnicos.values()).forEach((contato) => {
       // ✅ Pular se já tem thread
       if (contatosComThreadExistente.has(contato.id)) return;
-      
+
       // ✅ Pular bloqueados
       if (contato.bloqueado) return;
-      
+
       // ✅ Verificar match
       if (!matchBuscaGoogle(contato, debouncedSearchTerm)) return;
-      
+
       // ✅ Verificar filtros
       if (selectedTipoContato && selectedTipoContato !== 'all' && contato.tipo_contato !== selectedTipoContato) {
         return;
       }
-      
+
       if (selectedTagContato && selectedTagContato !== 'all') {
         const tags = contato.tags || [];
         if (!tags.includes(selectedTagContato)) {
           return;
         }
       }
-      
+
       // ✅ PASSOU: Adicionar como "contato sem thread"
       resultados.push({
         id: `contato-sem-thread-${contato.id}`,
@@ -2148,7 +2148,7 @@ export default function Comunicacao() {
         _searchScore: calcularScoreBusca(contato, debouncedSearchTerm)
       });
     });
-    
+
     // ✅ ORDENAR por score de relevância
     return resultados.sort((a, b) => (b._searchScore || 0) - (a._searchScore || 0));
   }, [threads, contatos, contatosBuscados, debouncedSearchTerm, selectedTipoContato, selectedTagContato, matchBuscaGoogle, calcularScoreBusca, threadsAProcessar, userPermissions]);
@@ -2164,7 +2164,7 @@ export default function Comunicacao() {
     const enriched = threadsFiltradas.map((thread) => {
       const usuarioAtribuido = usuariosMap.get(thread.assigned_user_id);
       const contatoObj = thread.contato || contatosMap.get(thread.contact_id);
-      
+
       return {
         ...thread,
         contato: contatoObj,
@@ -2239,7 +2239,7 @@ export default function Comunicacao() {
     const enrichedThreads = threadsResultantesDaBusca.map((thread) => {
       const usuarioAtribuido = usuariosMap.get(thread.assigned_user_id);
       const contatoObj = thread.contato || contatosMap.get(thread.contact_id);
-      
+
       return {
         ...thread,
         contato: contatoObj,
@@ -2268,8 +2268,8 @@ export default function Comunicacao() {
           <RefreshCw className="w-8 h-8 animate-spin text-blue-500 mx-auto mb-4" />
           <p>Carregando dados...</p>
         </div>
-      </div>
-    );
+      </div>);
+
   }
 
   return (
@@ -2293,7 +2293,7 @@ export default function Comunicacao() {
               </div>
             </div>
 
-            <div className="flex items-center gap-3">
+            <div className="bg-orange-500 text-slate-50 flex items-center gap-3">
               {/* Contador de Não Atribuidas */}
               <ContadorNaoAtribuidas
                 threads={threads}
@@ -2318,8 +2318,8 @@ export default function Comunicacao() {
                   handleSelecionarThread(thread);
                   setActiveTab('conversas');
                 }}
-                variant="header"
-              />
+                variant="header" />
+
 
               {integracoes.length === 0 &&
               <Button
@@ -2401,60 +2401,60 @@ export default function Comunicacao() {
                 <div className="w-80 border-r border-slate-200 bg-white flex flex-col overflow-hidden">
                   {/* RESTAURADO: SearchAndFilter com TODOS os props */}
                    <SearchAndFilter
-                     searchTerm={searchTerm}
-                     onSearchChange={setSearchTerm}
-                     filterScope={filterScope}
-                     onFilterScopeChange={(val) => {
-                       // 🚀 UI Otimista: Troca a aba visualmente rápido, processa a lista em background
-                       startTransition(() => {
-                           setFilterScope(val);
-                       });
-                     }}
-                     selectedAttendantId={selectedAttendantId}
-                     onSelectedAttendantChange={setSelectedAttendantId}
-                     atendentes={atendentes}
-                     isManager={isManager}
-                     novoContatoTelefone={novoContatoTelefone}
-                     onNovoContatoTelefoneChange={setNovoContatoTelefone}
-                     onCreateContact={() => {
-                       setCriandoNovoContato(true);
-                       setThreadAtiva(null);
-                       setShowContactInfo(true);
-                     }}
-                     integracoes={integracoes}
-                     selectedIntegrationId={selectedIntegrationId}
-                     onSelectedIntegrationChange={setSelectedIntegrationId}
-                     selectedCategoria={selectedCategoria}
-                     onSelectedCategoriaChange={setSelectedCategoria}
-                     selectedTipoContato={selectedTipoContato}
-                     onSelectedTipoContatoChange={setSelectedTipoContato}
-                     selectedTagContato={selectedTagContato}
-                     onSelectedTagContatoChange={setSelectedTagContato}
-                     modoSelecaoMultipla={modoSelecaoMultipla}
-                     onModoSelecaoMultiplaChange={setModoSelecaoMultipla}
-                     isAdmin={usuario?.role === 'admin'}
-                     onAbrirDiagnostico={(identificador) => {
-                       console.log('[Comunicacao] 🔬 Detectada duplicata:', identificador);
-                       toast.info('💡 Use o Unificador Centralizado para corrigir duplicatas');
-                     }}
-                     // 🎯 NOVO: Passar callback para receber duplicatas detectadas
-                     onDuplicataDetectada={setDuplicataEncontrada} />
+                    searchTerm={searchTerm}
+                    onSearchChange={setSearchTerm}
+                    filterScope={filterScope}
+                    onFilterScopeChange={(val) => {
+                      // 🚀 UI Otimista: Troca a aba visualmente rápido, processa a lista em background
+                      startTransition(() => {
+                        setFilterScope(val);
+                      });
+                    }}
+                    selectedAttendantId={selectedAttendantId}
+                    onSelectedAttendantChange={setSelectedAttendantId}
+                    atendentes={atendentes}
+                    isManager={isManager}
+                    novoContatoTelefone={novoContatoTelefone}
+                    onNovoContatoTelefoneChange={setNovoContatoTelefone}
+                    onCreateContact={() => {
+                      setCriandoNovoContato(true);
+                      setThreadAtiva(null);
+                      setShowContactInfo(true);
+                    }}
+                    integracoes={integracoes}
+                    selectedIntegrationId={selectedIntegrationId}
+                    onSelectedIntegrationChange={setSelectedIntegrationId}
+                    selectedCategoria={selectedCategoria}
+                    onSelectedCategoriaChange={setSelectedCategoria}
+                    selectedTipoContato={selectedTipoContato}
+                    onSelectedTipoContatoChange={setSelectedTipoContato}
+                    selectedTagContato={selectedTagContato}
+                    onSelectedTagContatoChange={setSelectedTagContato}
+                    modoSelecaoMultipla={modoSelecaoMultipla}
+                    onModoSelecaoMultiplaChange={setModoSelecaoMultipla}
+                    isAdmin={usuario?.role === 'admin'}
+                    onAbrirDiagnostico={(identificador) => {
+                      console.log('[Comunicacao] 🔬 Detectada duplicata:', identificador);
+                      toast.info('💡 Use o Unificador Centralizado para corrigir duplicatas');
+                    }}
+                    // 🎯 NOVO: Passar callback para receber duplicatas detectadas
+                    onDuplicataDetectada={setDuplicataEncontrada} />
 
 
                   <div className={`flex-1 overflow-y-auto transition-opacity duration-200 ${isPendingFilter ? 'opacity-50' : 'opacity-100'}`}>
                    <ChatSidebar
-                     threads={threadsParaExibir}
-                     threadAtiva={threadAtiva}
-                     onSelecionarThread={handleSelecionarThread}
-                     loading={loadingTopics}
-                     usuarioAtual={usuario}
-                     integracoes={integracoes}
-                     atendentes={atendentes}
-                     modoSelecaoMultipla={modoSelecaoMultipla}
-                     setModoSelecaoMultipla={setModoSelecaoMultipla}
-                     contatosSelecionados={contatosSelecionados}
-                     setContatosSelecionados={setContatosSelecionados}
-                     onSelectInternalDestinations={handleInternalSelection} />
+                      threads={threadsParaExibir}
+                      threadAtiva={threadAtiva}
+                      onSelecionarThread={handleSelecionarThread}
+                      loading={loadingTopics}
+                      usuarioAtual={usuario}
+                      integracoes={integracoes}
+                      atendentes={atendentes}
+                      modoSelecaoMultipla={modoSelecaoMultipla}
+                      setModoSelecaoMultipla={setModoSelecaoMultipla}
+                      contatosSelecionados={contatosSelecionados}
+                      setContatosSelecionados={setContatosSelecionados}
+                      onSelectInternalDestinations={handleInternalSelection} />
 
                   </div>
                 </div>
@@ -2560,8 +2560,8 @@ export default function Comunicacao() {
                   contatos={contatos}
                   duplicataEncontrada={duplicataEncontrada}
                   threadsUnicas={window._diagnosticoData?.threadsUnicas}
-                  threadsNaoAtribuidasVisiveis={window._diagnosticoData?.threadsNaoAtribuidasVisiveis}
-                />
+                  threadsNaoAtribuidasVisiveis={window._diagnosticoData?.threadsNaoAtribuidasVisiveis} />
+
                 
                 <DiagnosticoThreadsInvisiveis
                   usuario={usuario}
@@ -2571,8 +2571,8 @@ export default function Comunicacao() {
                     atendenteId: selectedAttendantId
                   }}
                   threads={threadsFiltradas}
-                  contatos={contatos}
-                />
+                  contatos={contatos} />
+
                 
                 <DiagnosticoInbound integracoes={integracoes} />
               </div>
