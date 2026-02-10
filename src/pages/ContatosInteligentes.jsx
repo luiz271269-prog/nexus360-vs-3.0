@@ -31,8 +31,8 @@ export default function ContatosInteligentes() {
   } = useContatosInteligentes(usuario, {
     tipo: ['lead', 'cliente'],
     diasSemMensagem: 2,
-    minDealRisk: 30,
-    limit: 50,
+    minDealRisk: 20,
+    limit: 100,
     autoRefresh: true
   });
 
