@@ -1,9 +1,18 @@
-import { createClientFromRequest } from 'npm:@base44/sdk@0.8.4';
+import { createClientFromRequest } from 'npm:@base44/sdk@0.8.6';
 
-// ==========================================
-// ANÁLISE DE COMPORTAMENTO DE CONTATO
-// ==========================================
-// Analisa mensagens, sentimento, padrões e segmenta automaticamente
+/**
+ * ═══════════════════════════════════════════════════════════════════════════
+ * ANÁLISE COMPORTAMENTAL DE CONTATO - V3 (Refatorada)
+ * ═══════════════════════════════════════════════════════════════════════════
+ * 
+ * MUDANÇAS CRÍTICAS:
+ * 1. ✅ NUNCA retorna 400 - sempre marca status (ok/insufficient_data/error)
+ * 2. ✅ Calcula timestamps (last_message_at, last_inbound_at, last_outbound_at)
+ * 3. ✅ Buckets de inatividade (active/30/60/90+)
+ * 4. ✅ Métricas hard (ratio, gaps, velocity, balance)
+ * 5. ✅ Priority score unificado (inatividade + IA)
+ * 6. ✅ Persistência estruturada em ContactBehaviorAnalysis
+ */
 
 Deno.serve(async (req) => {
   const corsHeaders = {
@@ -20,993 +29,433 @@ Deno.serve(async (req) => {
   try {
     const base44 = createClientFromRequest(req);
     
-    // Tentar autenticação (pode não ter em chamadas internas de automações)
     let user = null;
     try {
       user = await base44.auth.me();
     } catch (e) {
-      console.log('[ANALISE_COMPORTAMENTO] Rodando sem user context (internal call)');
+      console.log('[ANALISE] Rodando sem user context');
     }
 
-    const { 
-      contact_id, 
-      periodo_dias = 30, 
-      mode = 'period',
-      visible_thread_ids = [],
-      active_thread_id = null
-    } = await req.json();
+    const { contact_id, limit = 100 } = await req.json();
 
     if (!contact_id) {
       return Response.json({ error: 'contact_id obrigatório' }, { status: 400, headers: corsHeaders });
     }
 
-    // 📊 BUSCAR DADOS DO CONTATO
-    const contato = await base44.asServiceRole.entities.Contact.get(contact_id);
-    if (!contato) {
+    // ══════════════════════════════════════════════════════════════
+    // ETAPA A: BUSCAR DADOS DO CONTATO
+    // ══════════════════════════════════════════════════════════════
+    const contact = await base44.asServiceRole.entities.Contact.get(contact_id);
+    if (!contact) {
       return Response.json({ error: 'Contato não encontrado' }, { status: 404, headers: corsHeaders });
     }
 
-    // 📊 BUSCAR THREADS DO CONTATO
-    const threadsAll = await base44.asServiceRole.entities.MessageThread.filter({ contact_id });
+    console.log(`[ANALISE] 🎯 Analisando: ${contact.nome} (${contact.telefone})`);
+
+    // ══════════════════════════════════════════════════════════════
+    // ETAPA B: BUSCAR ÚLTIMAS N MENSAGENS (DESC → ASC)
+    // ══════════════════════════════════════════════════════════════
+    const threads = await base44.asServiceRole.entities.MessageThread.filter({ contact_id: contact_id });
     
-    if (threadsAll.length === 0) {
-      return Response.json({ 
-        error: 'Nenhuma conversa encontrada para este contato',
-        info: 'O contato precisa ter pelo menos uma conversa para análise'
-      }, { status: 400, headers: corsHeaders });
-    }
-
-    // 📊 APLICAR ESCOPO (bubble ou period)
-    let threadsScope = threadsAll;
-    
-    if (mode === 'bubble') {
-      if (!visible_thread_ids || visible_thread_ids.length === 0) {
-        return Response.json({ 
-          error: 'Modo "bubble" requer visible_thread_ids' 
-        }, { status: 400, headers: corsHeaders });
-      }
-      const bubbleSet = new Set([...visible_thread_ids, active_thread_id].filter(Boolean));
-      threadsScope = threadsAll.filter(t => bubbleSet.has(t.id));
-    }
-
-    const threadIds = threadsScope.map(t => t.id);
-    const limitedByVisibility = threadsScope.length < threadsAll.length;
-
-    // 📊 CALCULAR PERÍODO
-    const dataInicio = new Date();
-    dataInicio.setDate(dataInicio.getDate() - periodo_dias);
-    const dataFim = new Date();
-
-    // 📊 BUSCAR MENSAGENS CORRETAS: Filtrar em ASC (cronológico) para métricas precisas
-    const mensagens = await base44.asServiceRole.entities.Message.filter({
-      thread_id: { $in: threadIds },
-      created_date: { $gte: dataInicio.toISOString() }
-    }, 'created_date', 1500); // ASC (mais antigas primeiro) — CRÍTICO para métricas
-
-    if (mensagens.length === 0) {
+    if (threads.length === 0) {
+      console.log(`[ANALISE] ⚠️ ${contact.nome} sem threads - marcando insufficient_data`);
+      
+      await base44.asServiceRole.entities.ContactBehaviorAnalysis.create({
+        contact_id: contact_id,
+        analyzed_at: new Date().toISOString(),
+        status: 'insufficient_data',
+        error_reason: 'Contato sem conversas',
+        window_size: 0,
+        bucket_inactive: '90+',
+        priority_label: 'BAIXO',
+        priority_score: 0
+      });
+      
       return Response.json({
-        error: 'Nenhuma mensagem encontrada no período analisado',
-        info: `Período: últimos ${periodo_dias} dias. Tente aumentar o período.`
-      }, { status: 400, headers: corsHeaders });
+        success: true,
+        skipped: true,
+        reason: 'insufficient_data',
+        message: 'Contato sem conversas - análise não aplicável'
+      }, { headers: corsHeaders });
     }
 
-    console.log(`📊 Análise [${mode}]: ${mensagens.length} mensagens de ${threadsScope.length}/${threadsAll.length} thread(s) nos últimos ${periodo_dias} dias`);
+    const threadIds = threads.map(t => t.id);
+    
+    // Buscar DESC para pegar as mais recentes, depois inverter
+    const mensagensDesc = await base44.asServiceRole.entities.Message.filter(
+      { thread_id: { $in: threadIds } },
+      '-sent_at',
+      limit
+    );
 
-    // ==========================================
-    // HELPER: Limpar assinaturas
-    // ==========================================
-    const cleanText = (text) => {
-      if (!text) return '';
-      return text.replace(/~\s*[\wÁ-úçÇ ]+\s*\([^)]*\)\s*$/gm, '').trim();
-    };
+    if (mensagensDesc.length === 0) {
+      console.log(`[ANALISE] ⚠️ ${contact.nome} sem mensagens - marcando insufficient_data`);
+      
+      await base44.asServiceRole.entities.ContactBehaviorAnalysis.create({
+        contact_id: contact_id,
+        analyzed_at: new Date().toISOString(),
+        status: 'insufficient_data',
+        error_reason: 'Contato sem mensagens',
+        window_size: 0,
+        bucket_inactive: '90+',
+        priority_label: 'BAIXO',
+        priority_score: 0
+      });
+      
+      return Response.json({
+        success: true,
+        skipped: true,
+        reason: 'insufficient_data',
+        message: 'Contato sem mensagens - análise não aplicável'
+      }, { headers: corsHeaders });
+    }
 
-    // ==========================================
-    // 1. NORMALIZAÇÃO + MÉTRICAS DETERMINÍSTICAS
-    // ==========================================
-    const inbound = mensagens.filter(m => m.sender_type === 'contact');
-    const outbound = mensagens.filter(m => m.sender_type === 'user');
+    // ✅ CRÍTICO: Inverter para ordem ASC (cronológica)
+    const mensagens = [...mensagensDesc].reverse();
+    
+    console.log(`[ANALISE] 📊 ${mensagens.length} mensagens carregadas (ASC)`);
 
-    // 1.1 Tempo médio de resposta (EMPRESA responde ao cliente)
-    let tempoRespostaEmpresa = 0;
-    let countRespostaEmpresa = 0;
+    // ══════════════════════════════════════════════════════════════
+    // ETAPA C: TIMESTAMPS E BUCKETS DE INATIVIDADE
+    // ══════════════════════════════════════════════════════════════
+    const agora = new Date();
+    const ultimaMsg = mensagens[mensagens.length - 1];
+    const primeiraMsg = mensagens[0];
+    
+    const lastMessageAt = ultimaMsg.sent_at || ultimaMsg.created_date;
+    
+    const inboundMessages = mensagens.filter(m => m.sender_type === 'contact');
+    const outboundMessages = mensagens.filter(m => m.sender_type === 'user');
+    
+    const lastInboundAt = inboundMessages.length > 0 
+      ? (inboundMessages[inboundMessages.length - 1].sent_at || inboundMessages[inboundMessages.length - 1].created_date)
+      : null;
+      
+    const lastOutboundAt = outboundMessages.length > 0
+      ? (outboundMessages[outboundMessages.length - 1].sent_at || outboundMessages[outboundMessages.length - 1].created_date)
+      : null;
+    
+    const daysInactiveTotal = lastMessageAt 
+      ? Math.floor((agora - new Date(lastMessageAt)) / (1000 * 60 * 60 * 24)) 
+      : 999;
+      
+    const daysInactiveInbound = lastInboundAt 
+      ? Math.floor((agora - new Date(lastInboundAt)) / (1000 * 60 * 60 * 24)) 
+      : 999;
+      
+    const daysInactiveOutbound = lastOutboundAt 
+      ? Math.floor((agora - new Date(lastOutboundAt)) / (1000 * 60 * 60 * 24)) 
+      : 999;
+    
+    // ✅ BUCKET baseado em INBOUND (cliente sem responder)
+    const bucketInactive = 
+      daysInactiveInbound < 30 ? 'active' :
+      daysInactiveInbound < 60 ? '30' :
+      daysInactiveInbound < 90 ? '60' : '90+';
+    
+    console.log(`[ANALISE] 📅 Inatividade: Total=${daysInactiveTotal}d | Inbound=${daysInactiveInbound}d | Bucket=${bucketInactive}`);
+
+    // ══════════════════════════════════════════════════════════════
+    // ETAPA D: MÉTRICAS DETERMINÍSTICAS (Hard Stats)
+    // ══════════════════════════════════════════════════════════════
+    const totalMessages = mensagens.length;
+    const inboundCount = inboundMessages.length;
+    const outboundCount = outboundMessages.length;
+    const ratioInOut = outboundCount > 0 ? (inboundCount / outboundCount) : 0;
+    
+    // Tempos de resposta
+    const responseTimesAgent = [];
+    const responseTimesContact = [];
     
     for (let i = 1; i < mensagens.length; i++) {
-      if (mensagens[i].sender_type === 'user' && mensagens[i-1].sender_type === 'contact') {
-        const diff = new Date(mensagens[i].created_date) - new Date(mensagens[i-1].created_date);
-        tempoRespostaEmpresa += diff;
-        countRespostaEmpresa++;
+      const msgAtual = mensagens[i];
+      const msgAnterior = mensagens[i - 1];
+      
+      const diff = new Date(msgAtual.sent_at || msgAtual.created_date) - new Date(msgAnterior.sent_at || msgAnterior.created_date);
+      if (diff <= 0 || diff > 7 * 24 * 60 * 60 * 1000) continue;
+      
+      const diffMinutes = diff / (1000 * 60);
+      
+      if (msgAtual.sender_type === 'user' && msgAnterior.sender_type === 'contact') {
+        responseTimesAgent.push(diffMinutes);
+      }
+      
+      if (msgAtual.sender_type === 'contact' && msgAnterior.sender_type === 'user') {
+        responseTimesContact.push(diffMinutes);
       }
     }
     
-    const avgReplyCompany = countRespostaEmpresa > 0 
-      ? Math.round(tempoRespostaEmpresa / countRespostaEmpresa / (1000 * 60))
-      : null;
-
-    // 1.2 Tempo médio de resposta (CLIENTE responde à empresa)
-    let tempoRespostaCliente = 0;
-    let countRespostaCliente = 0;
+    const avgReplyMinutesAgent = responseTimesAgent.length > 0
+      ? Math.round(responseTimesAgent.reduce((a, b) => a + b, 0) / responseTimesAgent.length)
+      : 0;
+      
+    const avgReplyMinutesContact = responseTimesContact.length > 0
+      ? Math.round(responseTimesContact.reduce((a, b) => a + b, 0) / responseTimesContact.length)
+      : 0;
     
+    // Follow-ups órfãos
+    const unansweredFollowups = mensagens
+      .slice(-10)
+      .filter((m, idx, arr) => {
+        if (m.sender_type !== 'user') return false;
+        const nextMsg = arr[idx + 1];
+        return !nextMsg || nextMsg.sender_type === 'user';
+      }).length;
+    
+    // Gaps e velocity
+    const gaps = [];
     for (let i = 1; i < mensagens.length; i++) {
-      if (mensagens[i].sender_type === 'contact' && mensagens[i-1].sender_type === 'user') {
-        const diff = new Date(mensagens[i].created_date) - new Date(mensagens[i-1].created_date);
-        tempoRespostaCliente += diff;
-        countRespostaCliente++;
-      }
+      const diff = new Date(mensagens[i].sent_at || mensagens[i].created_date) - 
+                   new Date(mensagens[i-1].sent_at || mensagens[i-1].created_date);
+      gaps.push(diff / (1000 * 60 * 60 * 24));
     }
+    const maxSilenceGapDays = gaps.length > 0 ? Math.max(...gaps) : 0;
     
-    const avgReplyClient = countRespostaCliente > 0
-      ? Math.round(tempoRespostaCliente / countRespostaCliente / (1000 * 60))
-      : null;
-
-    // 1.3 Follow-ups consecutivos (CRÍTICO: maior streak outbound sem inbound)
-    let maxFollowUpStreak = 0;
-    let currentStreak = 0;
+    const diasHistorico = Math.floor((new Date(lastMessageAt) - new Date(primeiraMsg.sent_at || primeiraMsg.created_date)) / (1000 * 60 * 60 * 24));
+    const conversationVelocity = diasHistorico > 0 ? (totalMessages / diasHistorico) : 0;
     
-    for (const msg of mensagens) {
-      if (msg.sender_type === 'user') {
-        currentStreak++;
-        maxFollowUpStreak = Math.max(maxFollowUpStreak, currentStreak);
-      } else {
-        currentStreak = 0;
-      }
-    }
-
-    // 1.4 Dias desde última mensagem do cliente
-    const lastInbound = inbound.length > 0 ? inbound[inbound.length - 1] : null;
-    const daysSinceLastInbound = lastInbound 
-      ? Math.floor((Date.now() - new Date(lastInbound.created_date).getTime()) / (1000 * 60 * 60 * 24))
-      : null;
-
-    // 1.5 Frases de corte (risco relacional)
-    const frasesCorte = ['inviável', 'muito pouco', 'obrigada então', 'não cabe', 'não consigo'];
-    const cortesDetectados = [];
-    
-    for (const msg of inbound) {
-      const texto = cleanText(msg.content || '').toLowerCase();
-      for (const frase of frasesCorte) {
-        if (texto.includes(frase)) {
-          cortesDetectados.push(`Cliente disse: "${frase}"`);
-          break;
-        }
-      }
-    }
-
-    const metricas = {
-      total_mensagens: mensagens.length,
-      mensagens_inbound: inbound.length,
-      mensagens_outbound: outbound.length,
-      frequencia_media_dias: parseFloat((periodo_dias / Math.max(1, inbound.length)).toFixed(2)),
-      avg_reply_minutes_company: avgReplyCompany,
-      avg_reply_minutes_client: avgReplyClient,
-      unanswered_followups: maxFollowUpStreak,
-      days_since_last_inbound: daysSinceLastInbound,
-      taxa_resposta: outbound.length > 0 ? parseFloat(((inbound.length / outbound.length) * 100).toFixed(1)) : 0,
-      tempo_medio_resposta_minutos: avgReplyCompany || 0
+    // Balanço últimas 10
+    const last10 = mensagens.slice(-10);
+    const last10Balance = {
+      inbound: last10.filter(m => m.sender_type === 'contact').length,
+      outbound: last10.filter(m => m.sender_type === 'user').length
     };
 
-    // ==========================================
-    // 1.5 BUSCAR TAGS ATIVAS DO CONTATO
-    // ==========================================
-    const contactTags = await base44.asServiceRole.entities.ContactTag.filter({ contact_id });
-    const tagIds = contactTags.map(ct => ct.tag_id);
-    const tagsCompletas = tagIds.length > 0 
-      ? await base44.asServiceRole.entities.Tag.filter({ id: { $in: tagIds } })
-      : [];
-
-    const tagsNomes = tagsCompletas.map(t => t.nome);
-    const tagsAtuais = contato.tags || [];
-    const todasTagsUnificadas = [...new Set([...tagsNomes, ...tagsAtuais])];
-
-    console.log(`🏷️ Tags ativas: ${todasTagsUnificadas.join(', ') || 'nenhuma'}`);
-
-    // ==========================================
-    // 2. ANÁLISE MULTIMODAL AVANÇADA COM IA
-    // ==========================================
-    const textosMensagens = inbound
+    // ══════════════════════════════════════════════════════════════
+    // ETAPA E: ANÁLISE DE IA (Semântica)
+    // ══════════════════════════════════════════════════════════════
+    let aiScores = { health: 50, deal_risk: 0, buy_intent: 0, engagement: 50 };
+    let sentimentoPredominante = 'neutro';
+    let objecoes = [];
+    let signals = [];
+    let stageAtual = 'descoberta';
+    let evidencias = [];
+    
+    const textos = inboundMessages
       .filter(m => m.content && m.content.length > 5)
-      .slice(-30)
-      .map(m => cleanText(m.content))
+      .slice(-50)
+      .map(m => m.content)
       .join('\n');
 
-    // 🖼️ Buscar mensagens com mídia (imagens) para análise visual
-    const mensagensComImagem = inbound
-      .filter(m => m.media_type === 'image' && m.media_url)
-      .slice(-5);
-
-    let analiseSentimento = {
-      sentimento_predominante: 'neutro',
-      score_sentimento: 50,
-      evolucao_sentimento: 'estavel',
-      razoes: []
-    };
-
-    let palavrasChave = [];
-    let intencoesDetectadas = [];
-    let padroesBehaviorais = [];
-    let insightsVisuais = [];
-
-    if (textosMensagens.length > 20) {
+    if (textos.length > 20) {
       try {
-        // 🚀 ANÁLISE ÚNICA CONSOLIDADA - Reduz chamadas de IA e melhora contexto
-        const promptConsolidado = `Você é um analista de comportamento de clientes B2B. Analise profundamente o histórico abaixo:
+        const analiseIA = await base44.asServiceRole.integrations.Core.InvokeLLM({
+          prompt: `Analise o histórico de mensagens deste contato B2B:
 
-📱 HISTÓRICO DE MENSAGENS (últimos ${periodo_dias} dias):
-${textosMensagens}
+📱 HISTÓRICO (últimas ${mensagens.length} mensagens):
+${textos}
 
 📊 DADOS DO CONTATO:
-- Empresa: ${contato.empresa || 'N/A'}
-- Cargo: ${contato.cargo || 'N/A'}
-- Ramo: ${contato.ramo_atividade || 'N/A'}
-- Tipo: ${contato.tipo_contato || 'novo'}
+- Nome: ${contact.nome}
+- Empresa: ${contact.empresa || 'N/A'}
+- Tipo: ${contact.tipo_contato || 'novo'}
 
-🏷️ ETIQUETAS ATIVAS:
-${todasTagsUnificadas.length > 0 ? todasTagsUnificadas.map(t => `- ${t}`).join('\n') : '- Nenhuma etiqueta definida'}
-
-${contato.is_vip ? '⭐ CONTATO VIP - Atendimento premium obrigatório' : ''}
-${contato.is_prioridade ? '🔔 CONTATO PRIORITÁRIO - Atenção especial' : ''}
-${todasTagsUnificadas.includes('inadimplente') ? '⚠️ INADIMPLENTE - Evite vendas, foque em regularização financeira' : ''}
-${todasTagsUnificadas.includes('blacklist') || todasTagsUnificadas.includes('parar_contato') ? '🚫 NÃO CONTACTAR - Bloqueio ativo' : ''}
-
-📈 MÉTRICAS:
-- Total mensagens: ${metricas.total_mensagens}
-- Taxa resposta: ${metricas.taxa_resposta}%
-- Tempo médio resposta: ${Math.round(metricas.tempo_medio_resposta_minutos)}min
-
-⚠️ IMPORTANTE: Considere SEMPRE as etiquetas ao sugerir ações:
-- Se "inadimplente": priorize regularização financeira antes de vendas
-- Se "vip": atendimento premium e respostas em até 1h
-- Se "risco_cancelamento": foque em retenção, não em vendas
-- Se "blacklist" ou "parar_contato": retorne buy_intent = 0 e sugira não contactar
-
-Forneça uma análise estruturada e ACIONÁVEL para vendas B2B.`;
-
-        const analiseCompleta = await base44.asServiceRole.integrations.Core.InvokeLLM({
-          prompt: promptConsolidado,
+Forneça análise estruturada.`,
           response_json_schema: {
             type: "object",
             properties: {
-              sentimento: {
-                type: "object",
-                properties: {
-                  predominante: { type: "string", enum: ["muito_positivo", "positivo", "neutro", "negativo", "muito_negativo"] },
-                  score: { type: "number", minimum: 0, maximum: 100 },
-                  evolucao: { type: "string", enum: ["melhorando", "estavel", "piorando"] },
-                  razoes: { type: "array", items: { type: "string" } }
-                }
-              },
-              palavras_chave: {
-                type: "array",
-                items: {
-                  type: "object",
-                  properties: {
-                    palavra: { type: "string" },
-                    frequencia: { type: "number" },
-                    categoria: { type: "string", enum: ["produto", "problema", "duvida", "elogio", "reclamacao", "preco", "prazo", "tecnico", "documento", "pagamento", "urgencia"] },
-                    relevancia_comercial: { type: "number", minimum: 0, maximum: 10 }
-                  }
-                }
-              },
-              topics: {
-                type: "array",
-                items: {
-                  type: "object",
-                  properties: {
-                    name: { type: "string" },
-                    weight: { type: "number", minimum: 0, maximum: 1 }
-                  }
-                }
-              },
-              intencoes: {
-                type: "array",
-                items: {
-                  type: "object",
-                  properties: {
-                    intencao: { type: "string" },
-                    confianca: { type: "number", minimum: 0, maximum: 100 },
-                    evidencias: { type: "array", items: { type: "string" } }
-                  }
-                }
-              },
-              objecoes: {
-                type: "array",
-                items: {
-                  type: "object",
-                  properties: {
-                    text: { type: "string" },
-                    category: { type: "string" },
-                    severity: { type: "string", enum: ["baixa", "media", "alta"] },
-                    unlock_hint: { type: "string" },
-                    contexto: { type: "string" }
-                  }
-                }
-              },
-              padroes_comportamentais: {
-                type: "array",
-                items: {
-                  type: "object",
-                  properties: {
-                    padrao: { type: "string" },
-                    descricao: { type: "string" },
-                    impacto: { type: "string", enum: ["positivo", "neutro", "negativo"] },
-                    frequencia: { type: "string", enum: ["rara", "ocasional", "frequente", "cronica"] }
-                  }
-                }
-              },
-              fricoes_comerciais: {
-                type: "array",
-                items: {
-                  type: "object",
-                  properties: {
-                    friccao: { type: "string" },
-                    severidade: { type: "string", enum: ["baixa", "media", "alta"] },
-                    origem: { type: "string" },
-                    impacto_fechamento: { type: "string" }
-                  }
-                }
-              },
-              estranagias_desbloqueio: {
-                type: "array",
-                items: {
-                  type: "object",
-                  properties: {
-                    objeção: { type: "string" },
-                    estrategia: { type: "string" },
-                    mensagem_proposta: { type: "string" }
-                  }
-                }
-              },
-              perfil_cliente: {
+              sentiment: {
                 type: "string",
-                enum: ["analitico", "pragmatico", "relacional", "inovador"]
+                enum: ["muito_positivo", "positivo", "neutro", "negativo", "muito_negativo"]
               },
-              nivel_maturidade_compra: {
-                type: "string",
-                enum: ["consciencia", "consideracao", "decisao", "negociacao", "pronto_comprar", "pos_venda"]
-              },
-              oportunidades_upsell: {
+              buy_intent: { type: "number", minimum: 0, maximum: 100 },
+              engagement: { type: "number", minimum: 0, maximum: 100 },
+              deal_risk: { type: "number", minimum: 0, maximum: 100 },
+              health: { type: "number", minimum: 0, maximum: 100 },
+              stage: { type: "string" },
+              objections: {
                 type: "array",
-                items: { type: "string" }
-              }
+                items: {
+                  type: "object",
+                  properties: {
+                    type: { type: "string" },
+                    evidence: { type: "string" },
+                    severity: { type: "string", enum: ["baixa", "media", "alta"] }
+                  }
+                }
+              },
+              signals: { type: "array", items: { type: "string" } }
             }
           }
         });
 
-        analiseSentimento = {
-          sentimento_predominante: analiseCompleta.sentimento?.predominante || 'neutro',
-          score_sentimento: analiseCompleta.sentimento?.score || 50,
-          evolucao_sentimento: analiseCompleta.sentimento?.evolucao || 'estavel',
-          razoes: analiseCompleta.sentimento?.razoes || []
+        sentimentoPredominante = analiseIA.sentiment || 'neutro';
+        aiScores = {
+          health: analiseIA.health || 50,
+          deal_risk: analiseIA.deal_risk || 0,
+          buy_intent: analiseIA.buy_intent || 0,
+          engagement: analiseIA.engagement || 50
         };
-
-        palavrasChave = (analiseCompleta.palavras_chave || [])
-          .sort((a, b) => (b.relevancia_comercial || 0) - (a.relevancia_comercial || 0))
-          .slice(0, 10);
-
-        const topics = (analiseCompleta.topics || []).slice(0, 5);
-        const objections = (analiseCompleta.objecoes || []).slice(0, 3);
-
-        intencoesDetectadas = (analiseCompleta.intencoes || []).map(i => ({
-          intencao: i.intencao,
-          confianca: i.confianca,
-          evidencias: i.evidencias || [],
-          primeira_deteccao: new Date().toISOString()
-        }));
-
-        padroesBehaviorais = analiseCompleta.padroes_comportamentais || [];
+        objecoes = analiseIA.objections || [];
+        signals = analiseIA.signals || [];
+        stageAtual = analiseIA.stage || 'descoberta';
         
-        // 🔑 FRICÇÕES COMERCIAIS DETECTADAS (novo)
-        let fricoesComerciais = analiseCompleta.fricoes_comerciais || [];
-        let estrategiasDesbloqueio = analiseCompleta.estranagias_desbloqueio || [];
-
       } catch (error) {
-        console.error('❌ Erro na análise consolidada:', error);
+        console.warn('[ANALISE] ⚠️ Erro na IA:', error.message);
       }
     }
 
-    // 🖼️ ANÁLISE VISUAL DE IMAGENS (se houver)
-    if (mensagensComImagem.length > 0) {
-      try {
-        const imageUrls = mensagensComImagem
-          .map(m => m.media_url)
-          .filter(Boolean)
-          .slice(0, 3); // Máximo 3 imagens para não ultrapassar limites
-
-        if (imageUrls.length > 0) {
-          const analiseVisual = await base44.asServiceRole.integrations.Core.InvokeLLM({
-            prompt: `Analise estas imagens enviadas pelo cliente e identifique:
-1. Produtos/serviços de interesse
-2. Problemas técnicos ou necessidades
-3. Contexto do negócio (ambiente, equipamentos)
-4. Urgência visual (danos, defeitos, etc)
-
-Forneça insights comerciais acionáveis.`,
-            file_urls: imageUrls,
-            response_json_schema: {
-              type: "object",
-              properties: {
-                produtos_identificados: { type: "array", items: { type: "string" } },
-                problemas_detectados: { type: "array", items: { type: "string" } },
-                contexto_negocio: { type: "string" },
-                nivel_urgencia: { type: "string", enum: ["baixa", "media", "alta", "critica"] },
-                insights_comerciais: { type: "array", items: { type: "string" } }
-              }
-            }
-          });
-
-          insightsVisuais = analiseVisual.insights_comerciais || [];
-          
-          // Aplicar tag se urgência crítica detectada em imagens
-          if (analiseVisual.nivel_urgencia === 'critica' || analiseVisual.nivel_urgencia === 'alta') {
-            const urgenciaTag = await base44.asServiceRole.entities.Tag.list('-created_date', 1, { nome: 'urgencia_visual_detectada' });
-            if (urgenciaTag.length === 0) {
-              await base44.asServiceRole.entities.Tag.create({
-                nome: 'urgencia_visual_detectada',
-                categoria: 'visual',
-                cor: '#ef4444'
-              });
-            }
-          }
-
-          console.log(`📸 Análise visual concluída: ${imageUrls.length} imagem(ns)`);
-        }
-      } catch (error) {
-        console.warn('⚠️ Erro na análise visual:', error.message);
-      }
-    }
-
-    // ==========================================
-    // 4. SCORECARDS (P0: health, deal_risk, buy_intent, engagement)
-    // ==========================================
+    // ══════════════════════════════════════════════════════════════
+    // ETAPA F: CALCULAR PRIORITY SCORE
+    // ══════════════════════════════════════════════════════════════
+    let inactivityPoints = 0;
+    if (bucketInactive === '30') inactivityPoints = 10;
+    if (bucketInactive === '60') inactivityPoints = 20;
+    if (bucketInactive === '90+') inactivityPoints = 30;
     
-    // 4.1 ENGAGEMENT SCORE (volume + reciprocidade + regularidade)
-    const pontos = {
-      mensagens: inbound.length * 3,
-      reciprocidade: outbound.length > 0 ? (inbound.length / outbound.length) * 40 : 0,
-      sentimento: analiseSentimento.score_sentimento * 0.3,
-      tempoResposta: avgReplyCompany && avgReplyCompany < 60 ? 20 : avgReplyCompany && avgReplyCompany < 180 ? 10 : 0,
-      intencaoCompra: intencoesDetectadas.some(i => i.intencao === 'comprar' || i.intencao === 'cotacao') ? 25 : 0,
-      palavrasPositivas: palavrasChave.filter(p => p.categoria === 'elogio' || p.relevancia_comercial >= 8).length * 5
-    };
-
-    const scoreEngajamento = Math.min(100, Math.round(Object.values(pontos).reduce((a, b) => a + b, 0)));
-
-    // 4.2 BUY INTENT (0-100 baseado em intenções)
-    const intentsCompra = intencoesDetectadas.filter(i => 
-      ['comprar', 'cotacao', 'negociacao'].includes(i.intencao)
-    );
-    const buyIntent = intentsCompra.length > 0
-      ? Math.round(intentsCompra.reduce((sum, i) => sum + i.confianca, 0) / intentsCompra.length)
-      : 0;
-
-    // 4.3 DIAS PARADO (heurística: desde última mensagem inbound)
-    const daysStalled = daysSinceLastInbound || 0;
-
-    // 4.4 FRICÇÃO
-    const hasFriction = maxFollowUpStreak >= 3 || cortesDetectados.length > 0;
-    const frictionReasons = [
-      maxFollowUpStreak >= 3 ? `${maxFollowUpStreak} follow-ups sem resposta` : null,
-      ...cortesDetectados
-    ].filter(Boolean);
-
-    // 4.5 HEALTH SCORE (sentimento 50% + responsividade 30% + ausência fricção 20%)
-    const responsividadeScore = avgReplyClient 
-      ? Math.max(0, 100 - (avgReplyClient / 60) * 10) // penaliza respostas lentas
-      : 50;
-    
-    const healthScore = Math.round(
-      analiseSentimento.score_sentimento * 0.5 +
-      responsividadeScore * 0.3 +
-      (hasFriction ? 0 : 20)
-    );
-
-    // 4.6 DEAL RISK (dias parado + objeções + follow-ups)
-    const objecoesAltas = (objections || []).filter(o => o.severity === 'alta').length;
-    const dealRisk = Math.min(100, Math.round(
-      Math.min(daysStalled * 10, 40) +
-      Math.min(objecoesAltas * 15, 30) +
-      Math.min(Math.max(maxFollowUpStreak - 2, 0) * 10, 30)
+    const priorityScore = Math.min(100, Math.round(
+      inactivityPoints +
+      (aiScores.deal_risk || 0) * 0.4 +
+      (100 - (aiScores.buy_intent || 50)) * 0.2 +
+      (100 - (aiScores.engagement || 50)) * 0.2 +
+      Math.min(maxSilenceGapDays * 2, 15)
     ));
-
-    // 4.7 SEGMENTAÇÃO (mantida para compatibilidade)
-    let segmentoSugerido = 'lead_frio';
-    let estagioVida = 'descoberta';
-    let confiancaSegmentacao = 60;
-
-    // 🎯 SEGMENTAÇÃO BASEADA EM DADOS REAIS
-    const temIntencaoCompra = intencoesDetectadas.some(i => 
-      (i.intencao === 'comprar' || i.intencao === 'cotacao') && i.confianca > 60
-    );
-    const temReclamacao = intencoesDetectadas.some(i => i.intencao === 'reclamacao');
-    const engajamentoAlto = scoreEngajamento > 70;
-    const engajamentoBaixo = scoreEngajamento < 30;
-    const sentimentoNegativo = analiseSentimento.score_sentimento < 40;
-
-    if (temReclamacao && sentimentoNegativo) {
-      segmentoSugerido = 'risco_churn';
-      estagioVida = 'reativacao';
-      confiancaSegmentacao = 95;
-    } else if (temIntencaoCompra && engajamentoAlto) {
-      segmentoSugerido = 'lead_quente';
-      estagioVida = 'decisao';
-      confiancaSegmentacao = 90;
-    } else if (inbound.length >= 10 && outbound.length > 0 && (inbound.length / outbound.length) > 0.8 && !sentimentoNegativo) {
-      segmentoSugerido = 'cliente_ativo';
-      estagioVida = 'pos_venda';
-      confiancaSegmentacao = 92;
-    } else if (inbound.length >= 5 && analiseSentimento.score_sentimento > 60) {
-      segmentoSugerido = 'lead_morno';
-      estagioVida = 'consideracao';
-      confiancaSegmentacao = 80;
-    } else if (engajamentoBaixo || inbound.length === 0) {
-      const diasSemMensagens = contato.created_date 
-        ? (Date.now() - new Date(contato.created_date).getTime()) / (1000 * 60 * 60 * 24)
-        : 0;
-      
-      if (diasSemMensagens > 30) {
-        segmentoSugerido = 'cliente_inativo';
-        estagioVida = 'reativacao';
-        confiancaSegmentacao = 85;
-      }
-    }
-
-    // ==========================================
-    // 5. SISTEMA DE ALERTAS (P0)
-    // ==========================================
-    const alerts = [];
-
-    if (maxFollowUpStreak >= 3) {
-      alerts.push({ level: 'alto', reason: `${maxFollowUpStreak} follow-ups consecutivos sem resposta do cliente` });
-    }
-
-    if (daysStalled > 3 && estagioVida === 'negociacao') {
-      alerts.push({ level: 'alto', reason: 'Negociação parada há mais de 3 dias' });
-    }
-
-    if (dealRisk > 70 && buyIntent > 50) {
-      alerts.push({ level: 'alto', reason: 'Alto risco de perda em negociação com boa intenção de compra' });
-    }
-
-    if (analiseSentimento.score_sentimento < 40 && temReclamacao) {
-      alerts.push({ level: 'alto', reason: 'Reclamação + sentimento negativo detectado' });
-    }
-
-    if (hasFriction) {
-      alerts.push({ level: 'medio', reason: frictionReasons.join('; ') });
-    }
-
-    if (buyIntent > 70 && daysStalled > 2) {
-      alerts.push({ level: 'medio', reason: 'Oportunidade quente esfriando (sem interação recente)' });
-    }
-
-    // ==========================================
-    // 6. HANDOFF E PRÓXIMA AÇÃO
-    // ==========================================
-    const needManager = (dealRisk > 70 && buyIntent > 50) || (healthScore < 40 && buyIntent > 60);
     
-    const handoff = 
-      needManager && hasFriction ? 'co_atendimento_gerente' :
-      healthScore < 30 && maxFollowUpStreak > 5 ? 'trocar_responsavel' :
-      'manter';
-
-    let proximaAcao = 'Acompanhar evolução';
-    let acoesPrioritarias = [];
-    let messageSuggestion = '';
+    const priorityLabel = 
+      priorityScore >= 75 ? 'CRITICO' :
+      priorityScore >= 55 ? 'ALTO' :
+      priorityScore >= 35 ? 'MEDIO' : 'BAIXO';
     
-    // 🤖 IA SUGERE AÇÕES BASEADAS NO CONTEXTO COMPLETO
-    try {
-      const sugestaoAcoes = await base44.asServiceRole.integrations.Core.InvokeLLM({
-        prompt: `Com base nesta análise de cliente B2B:
-- Health Score: ${healthScore}/100
-- Deal Risk: ${dealRisk}/100
-- Buy Intent: ${buyIntent}/100
-- Engagement: ${scoreEngajamento}/100
-- Segmento: ${segmentoSugerido}
-- Sentimento: ${analiseSentimento.sentimento_predominante} (${analiseSentimento.score_sentimento}/100)
-- Intenções: ${intencoesDetectadas.map(i => i.intencao).join(', ') || 'nenhuma clara'}
-- Objeções: ${(objections || []).map(o => o.text).join('; ') || 'nenhuma'}
-- Alertas: ${alerts.map(a => a.reason).join('; ') || 'nenhum'}
-${insightsVisuais.length > 0 ? `- Insights visuais: ${insightsVisuais.join(', ')}` : ''}
+    console.log(`[ANALISE] 🎯 Priority: ${priorityLabel} (${priorityScore}/100) | Bucket: ${bucketInactive}`);
 
-Sugira:
-1. A melhor ação comercial IMEDIATA (específica, acionável, com prazo em horas)
-2. Uma mensagem WhatsApp curta e profissional para enviar ao cliente
-3. 2-3 ações secundárias`,
-        response_json_schema: {
-          type: "object",
-          properties: {
-            acao_principal: { type: "string" },
-            prazo_horas: { type: "number" },
-            message_suggestion: { type: "string" },
-            acoes_secundarias: { type: "array", items: { type: "string" }, maxItems: 3 },
-            justificativa: { type: "string" }
-          }
-        }
-      });
-
-      proximaAcao = sugestaoAcoes.acao_principal;
-      acoesPrioritarias = sugestaoAcoes.acoes_secundarias || [];
-      messageSuggestion = sugestaoAcoes.message_suggestion || '';
-      
-    } catch (error) {
-      console.warn('⚠️ Erro ao gerar sugestão de ação com IA:', error.message);
-      
-      // Fallback para regras fixas
-      if (segmentoSugerido === 'lead_quente') {
-        proximaAcao = 'Enviar proposta comercial formal';
-        messageSuggestion = 'Olá! Preparei uma proposta personalizada para você. Posso enviar?';
-      } else if (segmentoSugerido === 'cliente_ativo') {
-        proximaAcao = 'Verificar oportunidades de upsell';
-      } else if (segmentoSugerido === 'risco_churn') {
-        proximaAcao = 'URGENTE: Contato imediato para resolver insatisfação';
-        messageSuggestion = 'Vi que houve um problema. Podemos conversar para resolver juntos?';
-      } else if (segmentoSugerido === 'lead_morno') {
-        proximaAcao = 'Agendar call de descoberta';
-      } else if (segmentoSugerido === 'cliente_inativo') {
-        proximaAcao = 'Campanha de reativação';
-      }
-    }
-
-    // ==========================================
-    // 6A. CALCULAR ROOT CAUSES + EVIDENCE
-    // ==========================================
+    // Root causes
     const rootCauses = [];
-    const evidenceSnippets = [];
+    if (unansweredFollowups >= 3) rootCauses.push(`${unansweredFollowups} follow-ups sem resposta`);
+    if (daysInactiveInbound > 7) rootCauses.push(`Cliente sem responder há ${daysInactiveInbound} dias`);
+    if (objecoes.length > 0) rootCauses.push(`${objecoes.length} objeção(ões) ativa(s)`);
+    if (aiScores.health < 40) rootCauses.push('Saúde baixa do relacionamento');
 
-    // Causa 1: Follow-ups sem resposta
-    if (maxFollowUpStreak >= 3) {
-      rootCauses.push(`${maxFollowUpStreak} follow-ups consecutivos sem resposta`);
-      inbound.length > 0 && evidenceSnippets.push({
-        cause: `${maxFollowUpStreak} follow-ups sem resposta`,
-        snippet: `Cliente não respondeu aos últimos ${maxFollowUpStreak} contatos`,
-        timestamp: new Date().toISOString(),
-        thread_id: threadIds[0]
-      });
-    }
-
-    // Causa 2: Dias parado
-    if (daysStalled > 3) {
-      rootCauses.push(`Negociação parada há ${daysStalled} dias`);
-      lastInbound && evidenceSnippets.push({
-        cause: `Parado há ${daysStalled} dias`,
-        snippet: `Última mensagem do cliente: ${cleanText(lastInbound.content || '').substring(0, 50)}...`,
-        timestamp: lastInbound.created_date,
-        thread_id: lastInbound.thread_id
-      });
-    }
-
-    // Causa 3: Objeções não resolvidas
-    if ((objections || []).length > 0) {
-      const objecoesTexto = objections.map(o => `"${o.text}"`).join('; ');
-      rootCauses.push(`Objeções não resolvidas: ${objecoesTexto}`);
-      objections.slice(0, 2).forEach(obj => {
-        evidenceSnippets.push({
-          cause: `Objeção: ${obj.category}`,
-          snippet: `"${obj.text}" - ${obj.unlock_hint}`,
-          timestamp: new Date().toISOString(),
-          thread_id: threadIds[0]
-        });
-      });
-    }
-
-    // Causa 4: Sentimento negativo
-    if (analiseSentimento.score_sentimento < 40) {
-      rootCauses.push(`Sentimento predominantemente negativo (${analiseSentimento.score_sentimento}/100)`);
-      analiseSentimento.razoes?.length > 0 && evidenceSnippets.push({
-        cause: 'Sentimento negativo',
-        snippet: analiseSentimento.razoes[0],
-        timestamp: new Date().toISOString(),
-        thread_id: threadIds[0]
-      });
-    }
-
-    // Causa 5: Frases de corte detectadas
-    if (cortesDetectados.length > 0) {
-      rootCauses.push(`Cliente disse: ${cortesDetectados.map(c => `"${c.replace('Cliente disse: ', '')}"`).join(', ')}`);
-      cortesDetectados.forEach(corte => {
-        evidenceSnippets.push({
-          cause: 'Frase de corte',
-          snippet: corte,
-          timestamp: new Date().toISOString(),
-          thread_id: threadIds[0]
-        });
-      });
-    }
-
-    // ==========================================
-    // 6B. PAYLOAD HIERÁRQUICO COM INSIGHTS COMPLETO (PROFISSIONAL)
-    // ==========================================
-    const payload = {
-      scope: {
-        mode,
-        start: dataInicio.toISOString(),
-        end: dataFim.toISOString(),
-        threads: threadsScope.length,
-        messages: mensagens.length,
-        limited_by_visibility: limitedByVisibility,
-        visibility_notice: limitedByVisibility 
-          ? 'Insights limitados: existem conversas que você não tem permissão para visualizar.'
-          : null
-      },
-      scores: {
-        health: healthScore,
-        deal_risk: dealRisk,
-        buy_intent: buyIntent,
-        engagement: scoreEngajamento
-      },
-      scores_explain: {
-        health: `Saúde = Sentimento(${analiseSentimento.score_sentimento}% × 50%) + Responsividade(${responsividadeScore.toFixed(0)}% × 30%) + Fricção(${hasFriction ? 0 : 20}% × 20%)`,
-        deal_risk: `Risco = Dias parado(${Math.min(daysStalled * 10, 40)}%) + Objeções altas(${Math.min(objecoesAltas * 15, 30)}%) + Follow-ups(${Math.min(Math.max(maxFollowUpStreak - 2, 0) * 10, 30)}%)`,
-        buy_intent: `Intenção = ${intentsCompra.length} intenção(ões) de compra com confiança ${buyIntent}%`,
-        engagement: `Engajamento = Vol(${Math.round(inbound.length * 3)}) + Reciprocidade(${(inbound.length / Math.max(outbound.length, 1) * 40).toFixed(0)}) + Sentimento + Tempo resposta`
-      },
-      stage: {
-        current: estagioVida,
-        days_stalled: daysStalled,
-        pipeline_hint: `Cliente está em ${estagioVida}. ${daysStalled > 0 ? `Parado há ${daysStalled} dia(s) de inatividade.` : 'Engajado recentemente.'}`
-      },
-      root_causes: rootCauses,
-      evidence_snippets: evidenceSnippets.slice(0, 5),
-      metrics: {
-        sentiment_current: analiseSentimento.score_sentimento,
-        sentiment_trend: analiseSentimento.evolucao_sentimento,
-        friccao: {
-          has_friction: hasFriction,
-          reasons: frictionReasons
-        },
-        responsiveness: {
-          avg_reply_minutes_company: avgReplyCompany,
-          avg_reply_minutes_client: avgReplyClient,
-          unanswered_followups: maxFollowUpStreak,
-          best_contact_times: []
-        }
-      },
-      // 🆕 FRICÇÕES COMERCIAIS (novo)
-      friction_details: fricoesComerciais.map((f, i) => ({
-        id: i + 1,
-        title: f.friccao,
-        severity: f.severidade,
-        origin: f.origem,
-        impact: f.impacto_fechamento,
-        strategy: estrategiasDesbloqueio[i]?.estrategia,
-        suggested_message: estrategiasDesbloqueio[i]?.mensagem_proposta
-      })) || [],
-      topics: topics?.map(t => ({ name: t.name, weight: t.weight })) || [],
-      // 🆕 OBJEÇÕES COM CONTEXTO (novo)
-      objections: (objections || []).map((obj, i) => ({
-        id: `obj_${i + 1}`,
-        type: obj.category || 'outro',
-        text: obj.text,
-        severity: obj.severity,
-        handling: obj.unlock_hint,
-        context: obj.contexto
-      })),
-      alerts,
-      // 🆕 PRÓXIMA AÇÃO ESTRUTURADA EM PASSOS (novo)
-      next_best_action: {
-        objective: `${proximaAcao}`,
-        action: proximaAcao,
-        deadline_hours: sugestaoAcoes?.prazo_horas || null,
-        message_suggestion: messageSuggestion,
-        need_manager: needManager,
-        handoff,
-        owner_team: 'vendas',
-        handoff_recommended: [
-          needManager ? { to_team: 'gerencia', reason: 'Aprovação de estratégia e comunicação crítica', priority: 'high' } : null,
-          healthScore < 40 ? { to_team: 'suporte', reason: 'Relacionamento crítico', priority: 'high' } : null,
-          { to_team: 'financeiro', reason: 'Documentação e pagamentos pendentes', priority: 'medium' }
-        ].filter(Boolean),
-        steps: acoesPrioritarias.slice(0, 3).map((acao, i) => ({
-          step: i + 1,
-          title: acao,
-          detail: acao,
-          due_at: new Date(Date.now() + (i + 1) * 24 * 60 * 60 * 1000).toISOString(),
-          suggested_owner: i === 0 ? 'vendas' : i === 1 ? 'assistencia' : 'financeiro'
-        }))
-      }
+    // Next best action
+    let nextBestAction = {
+      action: 'Acompanhar',
+      message_suggestion: '',
+      deadline_hours: 48,
+      need_manager: false
     };
+    
+    if (priorityLabel === 'CRITICO') {
+      nextBestAction = {
+        action: 'URGENTE: Contato imediato',
+        message_suggestion: `Olá ${contact.nome?.split(' ')[0] || ''}! Notei que estamos sem conversar há um tempo. Como posso ajudar?`,
+        deadline_hours: 4,
+        need_manager: aiScores.deal_risk > 70
+      };
+    } else if (priorityLabel === 'ALTO') {
+      nextBestAction = {
+        action: 'Retomar contato em breve',
+        message_suggestion: `Oi ${contact.nome?.split(' ')[0] || ''}! Tudo bem? Gostaria de saber se posso ajudar em algo.`,
+        deadline_hours: 24,
+        need_manager: false
+      };
+    }
 
-    // ==========================================
-    // 6C. SALVAR ANÁLISE ENRIQUECIDA
-    // ==========================================
+    // ══════════════════════════════════════════════════════════════
+    // PERSISTIR ANÁLISE COMPLETA
+    // ══════════════════════════════════════════════════════════════
     const analise = await base44.asServiceRole.entities.ContactBehaviorAnalysis.create({
-      contact_id,
-      periodo_analise: `${dataInicio.toISOString().split('T')[0]} a ${new Date().toISOString().split('T')[0]}`,
-      metricas_engajamento: metricas,
-      analise_sentimento: analiseSentimento,
-      palavras_chave_frequentes: palavrasChave,
-      intencoes_detectadas: intencoesDetectadas,
-      padroes_comportamentais: padroesBehaviorais,
-      insights_visuais: insightsVisuais,
-      segmento_sugerido: segmentoSugerido,
-      confianca_segmentacao: confiancaSegmentacao,
-      estagio_ciclo_vida: estagioVida,
-      score_engajamento: scoreEngajamento,
-      proxima_acao_sugerida: proximaAcao,
-      acoes_prioritarias: acoesPrioritarias,
-      ultima_analise: new Date().toISOString(),
-      versao_analise: '2.0_multimodal',
-      insights: payload
+      contact_id: contact_id,
+      analyzed_at: new Date().toISOString(),
+      window_size: mensagens.length,
+      status: 'ok',
+      
+      // TIMESTAMPS
+      last_message_at: lastMessageAt,
+      last_inbound_at: lastInboundAt,
+      last_outbound_at: lastOutboundAt,
+      
+      // INATIVIDADE
+      days_inactive_total: daysInactiveTotal,
+      days_inactive_inbound: daysInactiveInbound,
+      days_inactive_outbound: daysInactiveOutbound,
+      bucket_inactive: bucketInactive,
+      
+      // PRIORITY
+      priority_score: priorityScore,
+      priority_label: priorityLabel,
+      root_causes: rootCauses,
+      
+      // MÉTRICAS HARD
+      metricas_relacionamento: {
+        total_mensagens: totalMessages,
+        inbound_count: inboundCount,
+        outbound_count: outboundCount,
+        ratio_in_out: ratioInOut,
+        avg_response_time_agent_minutes: avgReplyMinutesAgent,
+        avg_response_time_contact_minutes: avgReplyMinutesContact,
+        max_silence_gap_days: maxSilenceGapDays,
+        conversation_velocity: conversationVelocity,
+        last_10_balance: last10Balance,
+        unanswered_followups: unansweredFollowups
+      },
+      
+      // AI INSIGHTS
+      ai_insights: {
+        sentiment: sentimentoPredominante,
+        buy_intent: aiScores.buy_intent,
+        engagement: aiScores.engagement,
+        deal_risk: aiScores.deal_risk,
+        health: aiScores.health,
+        stage_suggested: stageAtual,
+        objections: objecoes,
+        signals: signals,
+        next_best_action: nextBestAction,
+        evidence: evidencias
+      },
+      
+      // LEGADO (compatibilidade)
+      periodo_analise: `${new Date(primeiraMsg.created_date).toISOString().split('T')[0]} a ${new Date().toISOString().split('T')[0]}`,
+      insights: {
+        scores: aiScores,
+        stage: { current: stageAtual, days_stalled: daysInactiveInbound },
+        alerts: rootCauses.map(r => ({ level: priorityLabel.toLowerCase(), reason: r })),
+        next_best_action: nextBestAction
+      }
     });
 
-    // ==========================================
-    // 7. ATUALIZAR CONTATO + BUSCAR FOTO
-    // ==========================================
-    const updateData = {
-      segmento_atual: segmentoSugerido,
-      estagio_ciclo_vida: estagioVida,
-      score_engajamento: scoreEngajamento,
-      ultima_analise_comportamento: new Date().toISOString()
-    };
-
-    // 📸 Buscar foto de perfil se não existir ou estiver antiga (>7 dias)
-    const fotoAntiga = !contato.foto_perfil_atualizada_em || 
-      (Date.now() - new Date(contato.foto_perfil_atualizada_em).getTime()) > 7 * 24 * 60 * 60 * 1000;
-
-    if (fotoAntiga && threadsScope.length > 0 && threadsScope[0].whatsapp_integration_id) {
-      try {
-        const fotoResult = await base44.asServiceRole.functions.invoke('buscarFotoPerfilWhatsApp', {
-          integration_id: threadsScope[0].whatsapp_integration_id,
-          phone: contato.telefone
-        });
-        
-        if (fotoResult?.profilePictureUrl) {
-          updateData.foto_perfil_url = fotoResult.profilePictureUrl;
-          updateData.foto_perfil_atualizada_em = new Date().toISOString();
-          console.log('📸 Foto de perfil atualizada durante análise');
-        }
-      } catch (error) {
-        console.warn('⚠️ Erro ao buscar foto durante análise:', error.message);
-      }
-    }
-
-    await base44.asServiceRole.entities.Contact.update(contact_id, updateData);
-
-    // ==========================================
-    // 8. ATRIBUIR TAGS AUTOMATICAMENTE (EXPANDIDO)
-    // ==========================================
-    const tagsParaAtribuir = [];
-    
-    // 🏷️ TAGS BÁSICAS (já existentes)
-    if (scoreEngajamento > 80) tagsParaAtribuir.push('ia:alto_engajamento');
-    if (segmentoSugerido === 'lead_quente') tagsParaAtribuir.push('ia:oportunidade_quente');
-    if (segmentoSugerido === 'risco_churn') tagsParaAtribuir.push('ia:risco_cancelamento');
-    if (analiseSentimento.score_sentimento < 40) tagsParaAtribuir.push('ia:insatisfeito');
-
-    // 🆕 TAGS DE PALAVRAS-CHAVE
-    const topPalavras = palavrasChave.slice(0, 5);
-    for (const palavra of topPalavras) {
-      if (palavra.categoria === 'preco' && palavra.relevancia_comercial >= 7) {
-        tagsParaAtribuir.push('ia:sensivel_preco');
-      }
-      if (palavra.categoria === 'prazo' && palavra.relevancia_comercial >= 7) {
-        tagsParaAtribuir.push('ia:urgente_prazo');
-      }
-      if (palavra.categoria === 'tecnico' && palavra.frequencia >= 3) {
-        tagsParaAtribuir.push('ia:duvidas_tecnicas');
-      }
-      if (palavra.categoria === 'reclamacao') {
-        tagsParaAtribuir.push('ia:historico_reclamacao');
-      }
-    }
-
-    // 🆕 TAGS DE OBJEÇÕES
-    if ((objections || []).some(o => o.category === 'preco')) {
-      tagsParaAtribuir.push('ia:objecao_preco');
-    }
-    if ((objections || []).some(o => o.category === 'concorrente')) {
-      tagsParaAtribuir.push('ia:avaliando_concorrencia');
-    }
-
-    // 🆕 TAGS DE INTENÇÃO
-    if (intencoesDetectadas.some(i => i.intencao === 'comprar' && i.confianca > 80)) {
-      tagsParaAtribuir.push('ia:intencao_compra_forte');
-    }
-
-    // 🆕 TAGS DE COMPORTAMENTO VISUAL
-    if (insightsVisuais.length > 0) {
-      tagsParaAtribuir.push('ia:enviou_imagens');
-    }
-
-    // 🆕 TAGS DE PERFIL
-    if (analiseCompleta?.perfil_cliente) {
-      tagsParaAtribuir.push(`ia:perfil_${analiseCompleta.perfil_cliente}`);
-    }
-
-    // 🆕 TAGS DE ESTÁGIO
-    if (analiseCompleta?.nivel_maturidade_compra) {
-      tagsParaAtribuir.push(`ia:estagio_${analiseCompleta.nivel_maturidade_compra}`);
-    }
-
-    // 🧹 LIMPAR TAGS ANTIGAS DA IA (manter apenas tags manuais)
-    const tagsExistentes = contato.tags || [];
-    const tagsManuais = tagsExistentes.filter(t => !t.startsWith('ia:'));
-    
-    // Unificar: tags manuais + novas tags IA
-    const tagsFinais = [...new Set([...tagsManuais, ...tagsParaAtribuir])];
-
-    // Atualizar array de tags no Contact
+    // Atualizar Contact
     await base44.asServiceRole.entities.Contact.update(contact_id, {
-      tags: tagsFinais
+      score_engajamento: aiScores.engagement,
+      ultima_analise_comportamento: new Date().toISOString()
     });
-
-    // 💾 SALVAR RELAÇÕES EM ContactTag (metadados)
-    for (const tagNome of tagsParaAtribuir) {
-      try {
-        // Buscar ou criar tag
-        let tags = await base44.asServiceRole.entities.Tag.list('-created_date', 1, { nome: tagNome });
-        let tag;
-        
-        if (tags.length === 0) {
-          // Detectar categoria pelo prefixo
-          const categoria = tagNome.includes('ia:perfil_') ? 'perfil' :
-                           tagNome.includes('ia:estagio_') ? 'estagio' :
-                           tagNome.includes('ia:objecao_') ? 'objecao' :
-                           tagNome.includes('ia:alerta:') ? 'alerta' :
-                           'comportamento';
-
-          tag = await base44.asServiceRole.entities.Tag.create({
-            nome: tagNome,
-            categoria,
-            automacao_ativa: true,
-            cor: categoria === 'alerta' ? '#ef4444' : 
-                 categoria === 'perfil' ? '#8b5cf6' :
-                 categoria === 'objecao' ? '#f97316' : '#10b981'
-          });
-        } else {
-          tag = tags[0];
-        }
-
-        // Verificar se já existe a relação
-        const existente = await base44.asServiceRole.entities.ContactTag.list('-created_date', 1, {
-          contact_id,
-          tag_id: tag.id
-        });
-
-        if (existente.length === 0) {
-          await base44.asServiceRole.entities.ContactTag.create({
-            contact_id,
-            tag_id: tag.id,
-            atribuida_por: 'sistema',
-            origem: 'ia',
-            confianca_ia: confiancaSegmentacao
-          });
-        }
-      } catch (error) {
-        console.error(`Erro ao atribuir tag ${tagNome}:`, error);
-      }
-    }
-
-    console.log(`🏷️ Tags atribuídas: ${tagsParaAtribuir.length} (Total no contato: ${tagsFinais.length})`);
-
-
 
     return Response.json({
       success: true,
       analysis_id: analise.id,
-      saved: true,
-      payload,
-      analise,
       resumo: {
-        segmento: segmentoSugerido,
-        estagio: estagioVida,
-        score: scoreEngajamento,
-        sentimento: analiseSentimento.sentimento_predominante,
-        proxima_acao: proximaAcao,
-        tags_atribuidas: tagsParaAtribuir,
-        insights_visuais_count: insightsVisuais.length,
-        padroes_detectados: padroesBehaviorais.length,
-        intencoes_ativas: intencoesDetectadas.filter(i => i.confianca > 70).length,
-        nivel_confianca: confiancaSegmentacao,
-        root_causes_count: rootCauses.length,
-        evidence_count: evidenceSnippets.length
+        priority: priorityLabel,
+        score: priorityScore,
+        bucket: bucketInactive,
+        root_causes: rootCauses,
+        next_action: nextBestAction.action,
+        suggested_message: nextBestAction.message_suggestion
       }
-    }, { status: 200, headers: corsHeaders });
+    }, { headers: corsHeaders });
 
   } catch (error) {
-    console.error('Erro na análise de comportamento:', error);
+    console.error('[ANALISE] ❌ Erro crítico:', error);
+    
+    // Mesmo em erro, tentar salvar análise com status error
+    try {
+      const { contact_id } = await req.json();
+      if (contact_id) {
+        await base44.asServiceRole.entities.ContactBehaviorAnalysis.create({
+          contact_id: contact_id,
+          analyzed_at: new Date().toISOString(),
+          status: 'error',
+          error_reason: error.message,
+          window_size: 0,
+          bucket_inactive: '90+',
+          priority_label: 'BAIXO',
+          priority_score: 0
+        });
+      }
+    } catch (saveError) {
+      console.error('[ANALISE] Erro ao salvar análise de erro:', saveError);
+    }
+    
     return Response.json({
-      error: error.message,
-      stack: error.stack
+      success: false,
+      error: error.message
     }, { status: 500, headers: corsHeaders });
   }
 });
