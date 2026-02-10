@@ -63,10 +63,10 @@ export default function ContatosRequerendoAtencao({ usuario, contatos, onSelecio
       }
       
       // 2. BUSCAR ANÁLISES EXISTENTES (últimas 24h)
-      const contactIds = contatosUsuario.map(c => c.id);
+      const contactIdsParaAnalise = contatosUsuario.map(c => c.id);
       const analisesExistentes = await base44.entities.ContactBehaviorAnalysis.filter(
         {
-          contact_id: { $in: contactIds },
+          contact_id: { $in: contactIdsParaAnalise },
           ultima_analise: { 
             $gte: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString() 
           }
@@ -113,10 +113,10 @@ export default function ContatosRequerendoAtencao({ usuario, contatos, onSelecio
       const analisesDoUsuario = Array.from(analisesMap.values());
 
       // ✅ FIX N+1: Buscar TODAS as threads em UMA query
-      const contactIds = [...new Set(analisesRecentes.map(a => a.contact_id))];
+      const contactIdsThreads = [...new Set(analisesDoUsuario.map(a => a.contact_id))];
       const todasThreads = await base44.entities.MessageThread.filter(
         { 
-          contact_id: { $in: contactIds },
+          contact_id: { $in: contactIdsThreads },
           status: 'aberta'
         },
         '-last_message_at',
