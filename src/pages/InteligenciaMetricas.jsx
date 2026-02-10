@@ -45,40 +45,98 @@ export default function InteligenciaMetricas() {
   const carregarMetricas = async () => {
     setLoading(true);
     try {
-      // Buscar análises das últimas 24h
-      const dataLimite = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
-      const analises = await base44.entities.ContactBehaviorAnalysis.filter(
-        { ultima_analise: { $gte: dataLimite } },
-        '-ultima_analise',
+      const agora = Date.now();
+      const limite24h = new Date(agora - 24 * 60 * 60 * 1000).toISOString();
+      const limite7d = new Date(agora - 7 * 24 * 60 * 60 * 1000).toISOString();
+
+      // 1. Buscar TODAS análises (últimas 24h e últimas 7d)
+      const [analises24h, analises7d, todasAnalises] = await Promise.all([
+        base44.entities.ContactBehaviorAnalysis.filter(
+          { ultima_analise: { $gte: limite24h } },
+          '-ultima_analise',
+          500
+        ),
+        base44.entities.ContactBehaviorAnalysis.filter(
+          { ultima_analise: { $gte: limite7d } },
+          '-ultima_analise',
+          500
+        ),
+        base44.entities.ContactBehaviorAnalysis.filter(
+          {},
+          '-ultima_analise',
+          1000
+        )
+      ]);
+
+      // 2. Buscar contatos ativos
+      const contatosAtivos = await base44.entities.Contact.filter(
+        { tipo_contato: { $in: ['lead', 'cliente'] } },
+        '-ultima_interacao',
         500
       );
 
-      // Calcular métricas agregadas
-      const totalAnalises = analises.length;
-      const comInsights = analises.filter(a => a.insights).length;
-      const taxaSucesso = totalAnalises > 0 ? Math.round((comInsights / totalAnalises) * 100) : 0;
+      // 3. Buscar mensagens das últimas 24h (para calcular volume)
+      const mensagens24h = await base44.entities.Message.filter(
+        { created_date: { $gte: limite24h } },
+        '-created_date',
+        1000
+      );
 
+      // Calcular métricas 24h
+      const totalAnalises24h = analises24h.length;
+      const comInsights24h = analises24h.filter(a => a.insights).length;
+      const taxaSucesso = totalAnalises24h > 0 ? Math.round((comInsights24h / totalAnalises24h) * 100) : 0;
+
+      // Scores médios (24h)
       const scoresMedios = {
-        deal_risk: Math.round(analises.reduce((sum, a) => sum + (a.insights?.scores?.deal_risk || 0), 0) / totalAnalises) || 0,
-        buy_intent: Math.round(analises.reduce((sum, a) => sum + (a.insights?.scores?.buy_intent || 0), 0) / totalAnalises) || 0,
-        engagement: Math.round(analises.reduce((sum, a) => sum + (a.insights?.scores?.engagement || 0), 0) / totalAnalises) || 0,
-        health: Math.round(analises.reduce((sum, a) => sum + (a.insights?.scores?.health || 0), 0) / totalAnalises) || 0
+        deal_risk: Math.round(analises24h.reduce((sum, a) => sum + (a.insights?.scores?.deal_risk || 0), 0) / totalAnalises24h) || 0,
+        buy_intent: Math.round(analises24h.reduce((sum, a) => sum + (a.insights?.scores?.buy_intent || 0), 0) / totalAnalises24h) || 0,
+        engagement: Math.round(analises24h.reduce((sum, a) => sum + (a.insights?.scores?.engagement || 0), 0) / totalAnalises24h) || 0,
+        health: Math.round(analises24h.reduce((sum, a) => sum + (a.insights?.scores?.health || 0), 0) / totalAnalises24h) || 0
       };
 
-      const alertasAtivos = analises.reduce((sum, a) => sum + (a.insights?.alerts?.length || 0), 0);
+      // Alertas ativos (todas análises)
+      const alertasAtivos = todasAnalises.reduce((sum, a) => sum + (a.insights?.alerts?.length || 0), 0);
       
-      const porStage = analises.reduce((acc, a) => {
+      // Distribuição por stage (todas análises)
+      const porStage = todasAnalises.reduce((acc, a) => {
         const stage = a.insights?.stage?.current || 'desconhecido';
         acc[stage] = (acc[stage] || 0) + 1;
         return acc;
       }, {});
 
+      // Cobertura de análise
+      const contatosComAnalise = contatosAtivos.filter(c => 
+        todasAnalises.some(a => a.contact_id === c.id)
+      ).length;
+      const taxaCobertura = contatosAtivos.length > 0 
+        ? Math.round((contatosComAnalise / contatosAtivos.length) * 100) 
+        : 0;
+
+      // Volume de mensagens
+      const volumeMensagens = {
+        total: mensagens24h.length,
+        enviadas: mensagens24h.filter(m => m.sender_type === 'user').length,
+        recebidas: mensagens24h.filter(m => m.sender_type === 'contact').length
+      };
+
+      // Tendência 7d vs 24h
+      const mediaAnalisesPorDia7d = analises7d.length / 7;
+      const tendencia = totalAnalises24h > mediaAnalisesPorDia7d ? 'alta' : 'baixa';
+
       setMetricas({
-        totalAnalises,
+        totalAnalises24h,
+        totalAnalises7d: analises7d.length,
+        totalAnalisesGeral: todasAnalises.length,
         taxaSucesso,
+        taxaCobertura,
         scoresMedios,
         alertasAtivos,
         porStage,
+        volumeMensagens,
+        tendencia,
+        contatosAtivos: contatosAtivos.length,
+        contatosComAnalise,
         ultimaAtualizacao: new Date().toISOString()
       });
     } catch (error) {
@@ -131,10 +189,10 @@ export default function InteligenciaMetricas() {
             </CardHeader>
             <CardContent>
               <p className="text-3xl font-bold text-purple-600">
-                {metricas?.totalAnalises || 0}
+                {metricas?.totalAnalises24h || 0}
               </p>
               <p className="text-xs text-purple-600 mt-1">
-                Taxa de sucesso: {metricas?.taxaSucesso || 0}%
+                Sucesso: {metricas?.taxaSucesso || 0}% · 7d: {metricas?.totalAnalises7d || 0}
               </p>
             </CardContent>
           </Card>
@@ -177,19 +235,51 @@ export default function InteligenciaMetricas() {
             <CardHeader className="pb-2">
               <CardTitle className="text-sm font-medium text-blue-700 flex items-center gap-2">
                 <Target className="w-4 h-4" />
-                Contatos Ativos
+                Cobertura
               </CardTitle>
             </CardHeader>
             <CardContent>
               <p className="text-3xl font-bold text-blue-600">
-                {clientes.length}
+                {metricas?.taxaCobertura || 0}%
               </p>
               <p className="text-xs text-blue-600 mt-1">
-                Analisados
+                {metricas?.contatosComAnalise || 0} de {metricas?.contatosAtivos || 0} contatos
               </p>
             </CardContent>
           </Card>
         </div>
+
+        {/* Volume de mensagens */}
+        <Card className="mb-6">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Activity className="w-5 h-5 text-slate-600" />
+              Volume de Mensagens (24h)
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-3 gap-4">
+              <div className="text-center">
+                <p className="text-2xl font-bold text-slate-900">
+                  {metricas?.volumeMensagens?.total || 0}
+                </p>
+                <p className="text-xs text-slate-600 mt-1">Total</p>
+              </div>
+              <div className="text-center">
+                <p className="text-2xl font-bold text-blue-600">
+                  {metricas?.volumeMensagens?.enviadas || 0}
+                </p>
+                <p className="text-xs text-slate-600 mt-1">Enviadas</p>
+              </div>
+              <div className="text-center">
+                <p className="text-2xl font-bold text-green-600">
+                  {metricas?.volumeMensagens?.recebidas || 0}
+                </p>
+                <p className="text-xs text-slate-600 mt-1">Recebidas</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
 
         {/* Scores Médios - Camada 1 (Análise) */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
