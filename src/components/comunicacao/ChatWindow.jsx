@@ -2360,7 +2360,11 @@ export default function ChatWindow({
 
                   <MessageBubble
                 message={mensagem}
-                isOwn={mensagem.sender_type === 'user' && mensagem.sender_id === usuario?.id}
+                isOwn={
+                  thread?.thread_type === 'team_internal' || thread?.thread_type === 'sector_group'
+                    ? mensagem.sender_id === usuario?.id  // Interno: só suas mensagens à direita
+                    : mensagem.sender_type === 'user'     // Externo: qualquer atendente à direita
+                }
                 thread={thread}
                 onResponder={handleResponderMensagem}
                 modoSelecao={modoSelecao}
