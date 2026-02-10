@@ -20,12 +20,12 @@ Deno.serve(async (req) => {
   try {
     const base44 = createClientFromRequest(req);
     
-    // Autenticação opcional (automações scheduled não têm user)
+    // Tentar autenticação (pode não ter em chamadas internas de automações)
     let user = null;
     try {
       user = await base44.auth.me();
     } catch (e) {
-      console.log('[ANALISE_COMPORTAMENTO] Rodando sem user context (scheduled)');
+      console.log('[ANALISE_COMPORTAMENTO] Rodando sem user context (internal call)');
     }
 
     const { 
