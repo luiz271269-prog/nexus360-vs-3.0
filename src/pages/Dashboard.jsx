@@ -20,8 +20,6 @@ import { createPageUrl } from "@/utils";
 
 import AlertasInteligentesIA from "../components/global/AlertasInteligentesIA";
 import BotaoNexusFlutuante from "../components/global/BotaoNexusFlutuante";
-import { useContatosInteligentes } from "../components/hooks/useContatosInteligentes";
-import ClienteCard from "../components/inteligencia/ClienteCard";
 
 // Cache global para evitar chamadas desnecessárias
 const dashboardCache = {
@@ -147,15 +145,6 @@ export default function Dashboard() {
   const [metricasIA, setMetricasIA] = useState(null);
   const [alertasIA, setAlertasIA] = useState([]);
   const [fluxosAtivos, setFluxosAtivos] = useState([]);
-
-  // 🧠 Contatos Inteligentes (Camada 3)
-  const { clientes: contatosCriticos, totalUrgentes, loading: loadingContatos } = useContatosInteligentes(usuario, {
-    tipo: ['lead', 'cliente'],
-    diasSemMensagem: 2,
-    minDealRisk: 50,
-    limit: 10,
-    autoRefresh: true
-  });
 
   const filtrarDadosPorPerfil = (usuario, dados) => {
     if (usuario.role === 'user') {
@@ -539,10 +528,10 @@ export default function Dashboard() {
         </div>
 
         <BotaoNexusFlutuante
-          contadorLembretes={alertasIA.length + totalUrgentes}
+          contadorLembretes={alertasIA.length}
           onClick={() => {
-            if (alertasIA.length > 0 || totalUrgentes > 0) {
-              toast.info(`📊 ${alertasIA.length} alertas + ${totalUrgentes} contatos urgentes`);
+            if (alertasIA.length > 0) {
+              toast.info(`📊 ${alertasIA.length} alertas de IA`);
             }
           }} />
 
@@ -559,57 +548,6 @@ export default function Dashboard() {
             }
             setAlertasIA((prev) => prev.filter((a) => a.id !== alerta.id));
           }} />
-
-        {/* 🎯 CONTATOS CRÍTICOS - Análise com Tags */}
-        {totalUrgentes > 0 && (
-          <Card className="border-2 border-orange-500/50 bg-gradient-to-br from-orange-50 to-red-50">
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <CardTitle className="text-lg font-bold text-slate-800 flex items-center gap-2">
-                  <AlertCircle className="w-5 h-5 text-orange-600" />
-                  🚨 Contatos Requerendo Atenção Imediata
-                </CardTitle>
-                <Badge className="bg-orange-600 text-white">
-                  {totalUrgentes} crítico{totalUrgentes > 1 ? 's' : ''}
-                </Badge>
-              </div>
-              <p className="text-sm text-slate-600 mt-1">
-                Análise inteligente com tags, priorização e sugestões da IA
-              </p>
-            </CardHeader>
-            <CardContent>
-              {loadingContatos ? (
-                <div className="space-y-3">
-                  {[1, 2, 3].map(i => (
-                    <div key={i} className="h-32 bg-slate-100 rounded-lg animate-pulse" />
-                  ))}
-                </div>
-              ) : (
-                <div className="space-y-3 max-h-96 overflow-y-auto">
-                  {contatosCriticos.slice(0, 5).map((contato) => (
-                    <ClienteCard
-                      key={contato.id}
-                      contato={contato}
-                      onAbrirConversa={(c) => {
-                        navigate(createPageUrl('Comunicacao') + `?contactId=${c.id}`);
-                      }}
-                    />
-                  ))}
-                  {contatosCriticos.length > 5 && (
-                    <Button
-                      variant="outline"
-                      className="w-full"
-                      onClick={() => navigate(createPageUrl('ContatosInteligentes'))}
-                    >
-                      Ver todos os {totalUrgentes} contatos críticos
-                      <ChevronRight className="w-4 h-4 ml-2" />
-                    </Button>
-                  )}
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        )}
 
         {/* Navegação por Perspectivas */}
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
