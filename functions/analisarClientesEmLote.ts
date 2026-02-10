@@ -95,7 +95,10 @@ Deno.serve(async (req) => {
         };
       }
       
-      const contatos = await base44.entities.Contact.filter(
+      // ✅ Usar service role se não houver user (automações agendadas)
+      const client = user ? base44 : base44.asServiceRole;
+      
+      const contatos = await client.entities.Contact.filter(
         queryContatos,
         '-ultima_interacao',
         limit
@@ -103,7 +106,7 @@ Deno.serve(async (req) => {
       
       // Buscar análises (últimas 24h)
       const contactIds = contatos.map(c => c.id);
-      const analises = await base44.entities.ContactBehaviorAnalysis.filter(
+      const analises = await client.entities.ContactBehaviorAnalysis.filter(
         { contact_id: { $in: contactIds } },
         '-ultima_analise',
         200
