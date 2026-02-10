@@ -212,10 +212,34 @@ export default function InteligenciaMetricas() {
             </p>
           </div>
 
-          <Button onClick={carregarMetricas} variant="outline" className="gap-2">
-            <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
-            Atualizar
-          </Button>
+          <div className="flex gap-2">
+            <Button
+              onClick={async () => {
+                setLoading(true);
+                try {
+                  const resp = await base44.functions.invoke('executarAnaliseDiariaContatos', {});
+                  const criadas = resp.data?.total_analises_criadas || 0;
+                  if (criadas > 0) {
+                    setTimeout(() => carregarMetricas(), 2000);
+                  }
+                } catch (error) {
+                  console.error('[METRICAS] Erro ao rodar análise:', error);
+                } finally {
+                  setLoading(false);
+                }
+              }}
+              disabled={loading}
+              className="bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white gap-2"
+            >
+              <Zap className="w-4 h-4" />
+              Rodar Análise Agora
+            </Button>
+
+            <Button onClick={carregarMetricas} variant="outline" className="gap-2">
+              <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+              Atualizar
+            </Button>
+          </div>
         </div>
 
         {/* Cards principais - Camada 3 (Priorização) */}
