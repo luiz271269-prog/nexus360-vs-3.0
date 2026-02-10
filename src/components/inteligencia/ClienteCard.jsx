@@ -1,181 +1,172 @@
 import React from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { 
-  AlertTriangle, 
   MessageSquare, 
   Copy, 
-  Clock,
+  AlertCircle, 
   TrendingUp,
   TrendingDown,
-  Activity
-} from "lucide-react";
-import { toast } from "sonner";
-import { useNavigate } from "react-router-dom";
-import { createPageUrl } from "@/utils";
+  Clock
+} from 'lucide-react';
+import { toast } from 'sonner';
 
-export default function ClienteCard({ cliente }) {
-  const navigate = useNavigate();
-  
-  const getPrioridadeCor = (label) => {
-    switch (label) {
-      case 'CRITICO': return 'bg-red-500 text-white';
-      case 'ALTO': return 'bg-orange-500 text-white';
-      case 'MEDIO': return 'bg-yellow-500 text-white';
-      default: return 'bg-blue-500 text-white';
+export default function ClienteCard({ contato, onAbrirConversa }) {
+  // Prioridade e scores vindos do backend (motor unificado)
+  const prioridadeLabel = contato.prioridadeLabel || 'BAIXO';
+  const dealRisk = contato.dealRisk || 0;
+  const buyIntent = contato.buyIntent || 0;
+  const health = contato.health || 0;
+  const rootCause = contato.rootCause || 'Aguardando análise...';
+  const suggestedMessage = contato.suggestedMessage || '';
+  const diasParado = contato.diasSemMensagem || 0;
+
+  // 🎨 Cores baseadas na prioridade (calculada no backend)
+  const prioridadeConfig = {
+    CRITICO: { 
+      bg: 'bg-red-500', 
+      border: 'border-red-500',
+      text: 'text-red-500',
+      dot: 'bg-red-500'
+    },
+    ALTO: { 
+      bg: 'bg-orange-500', 
+      border: 'border-orange-500',
+      text: 'text-orange-500',
+      dot: 'bg-orange-500'
+    },
+    MEDIO: { 
+      bg: 'bg-yellow-500', 
+      border: 'border-yellow-500',
+      text: 'text-yellow-500',
+      dot: 'bg-yellow-500'
+    },
+    BAIXO: { 
+      bg: 'bg-blue-500', 
+      border: 'border-blue-500',
+      text: 'text-blue-500',
+      dot: 'bg-blue-500'
     }
   };
-  
-  const getScoreCor = (score) => {
-    if (score >= 70) return 'text-red-600';
-    if (score >= 50) return 'text-orange-600';
-    if (score >= 30) return 'text-yellow-600';
-    return 'text-green-600';
-  };
 
-  const handleResponder = () => {
-    navigate(createPageUrl('Comunicacao') + `?contact=${cliente.contact_id}`);
-  };
+  const config = prioridadeConfig[prioridadeLabel];
 
-  const handleCopiarMsg = () => {
-    if (cliente.suggested_message) {
-      navigator.clipboard.writeText(cliente.suggested_message);
-      toast.success('✅ Mensagem copiada para a área de transferência!');
+  const copiarMensagem = () => {
+    if (!suggestedMessage) {
+      toast.error('Nenhuma mensagem sugerida disponível');
+      return;
     }
+    navigator.clipboard.writeText(suggestedMessage);
+    toast.success('✅ Mensagem copiada! Pronta para colar no chat.');
   };
 
   return (
-    <Card className="hover:shadow-lg transition-all duration-300 border-l-4" 
-          style={{ borderLeftColor: cliente.prioridadeLabel === 'CRITICO' ? '#ef4444' : 
-                                     cliente.prioridadeLabel === 'ALTO' ? '#f97316' : '#eab308' }}>
-      <CardHeader className="pb-3">
-        <div className="flex items-start justify-between">
-          <div className="flex-1">
-            <CardTitle className="text-base font-bold text-slate-800 mb-1">
-              {cliente.empresa || cliente.nome}
-            </CardTitle>
-            <p className="text-xs text-slate-500">
-              {cliente.telefone}
+    <div className="group relative p-4 border-b border-slate-100 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-all cursor-pointer">
+      {/* Indicador lateral de prioridade */}
+      <div className={`absolute left-0 top-0 bottom-0 w-1 ${config.bg}`} />
+
+      {/* Header: Nome e Badge */}
+      <div className="flex justify-between items-start mb-2 pl-3">
+        <div className="flex-1">
+          <div className="flex items-center gap-2">
+            <h4 className="font-bold text-sm text-slate-800 dark:text-white truncate">
+              {contato.empresa || contato.nome || contato.telefone}
+            </h4>
+            <span className={`w-2 h-2 rounded-full ${config.dot} animate-pulse`} />
+          </div>
+          <div className="flex items-center gap-2 mt-0.5">
+            <Clock className="w-3 h-3 text-slate-400" />
+            <span className="text-xs text-slate-500">
+              Parado há {diasParado} dias
+            </span>
+          </div>
+        </div>
+
+        <Badge className={`${config.bg} text-white text-[10px] px-2 py-0.5 font-bold`}>
+          {prioridadeLabel}
+        </Badge>
+      </div>
+
+      {/* 🧠 Diagnóstico IA: O "Porquê" da Atenção (Turning Point) */}
+      <div className={`pl-3 mb-3 p-3 rounded-lg bg-blue-50 dark:bg-blue-900/20 border-l-4 ${config.border}`}>
+        <div className="flex items-start gap-2">
+          <AlertCircle className={`w-4 h-4 ${config.text} flex-shrink-0 mt-0.5`} />
+          <div>
+            <p className="text-[10px] uppercase font-bold text-slate-500 dark:text-slate-400 mb-1">
+              Causa Raiz (IA)
+            </p>
+            <p className="text-xs text-slate-700 dark:text-slate-300 leading-relaxed">
+              {rootCause}
             </p>
           </div>
-          
-          <Badge className={`${getPrioridadeCor(cliente.prioridadeLabel)} text-xs font-bold`}>
-            {cliente.prioridadeLabel}
-          </Badge>
+        </div>
+      </div>
+
+      {/* 📊 Mini Scores de Saúde */}
+      <div className="pl-3 flex gap-6 mb-4">
+        <div className="flex items-center gap-2">
+          <TrendingDown className="w-4 h-4 text-red-500" />
+          <div>
+            <p className="text-[10px] text-slate-400 uppercase">Risco</p>
+            <p className="text-sm font-bold text-red-600">{dealRisk}%</p>
+          </div>
         </div>
         
-        {/* Badges de info */}
-        <div className="flex gap-1 flex-wrap mt-2">
-          <Badge variant="outline" className="text-xs">
-            {cliente.stage_current || 'N/A'}
-          </Badge>
-          
-          {cliente.days_stalled > 0 && (
-            <Badge variant="outline" className="text-xs flex items-center gap-1">
-              <Clock className="w-3 h-3" />
-              {cliente.days_stalled}d parado
-            </Badge>
-          )}
-          
-          {cliente.tipo_contato && (
-            <Badge variant="outline" className="text-xs capitalize">
-              {cliente.tipo_contato}
-            </Badge>
-          )}
-        </div>
-      </CardHeader>
-
-      <CardContent className="space-y-3">
-        {/* Scores */}
-        <div className="grid grid-cols-4 gap-2">
-          {cliente.deal_risk > 0 && (
-            <div className="text-center">
-              <p className="text-xs text-slate-500 mb-1">Risco</p>
-              <p className={`text-sm font-bold ${getScoreCor(cliente.deal_risk)}`}>
-                {cliente.deal_risk}
-              </p>
-            </div>
-          )}
-          
-          {cliente.buy_intent > 0 && (
-            <div className="text-center">
-              <p className="text-xs text-slate-500 mb-1">Intenção</p>
-              <p className={`text-sm font-bold ${getScoreCor(100 - cliente.buy_intent)}`}>
-                {cliente.buy_intent}
-              </p>
-            </div>
-          )}
-          
-          {cliente.engagement > 0 && (
-            <div className="text-center">
-              <p className="text-xs text-slate-500 mb-1">Engaj.</p>
-              <p className={`text-sm font-bold ${getScoreCor(100 - cliente.engagement)}`}>
-                {cliente.engagement}
-              </p>
-            </div>
-          )}
-          
-          {cliente.health > 0 && (
-            <div className="text-center">
-              <p className="text-xs text-slate-500 mb-1">Saúde</p>
-              <p className={`text-sm font-bold text-green-600`}>
-                {cliente.health}
-              </p>
-            </div>
-          )}
-        </div>
-
-        {/* Causas raiz */}
-        {cliente.root_causes && cliente.root_causes.length > 0 && (
+        <div className="flex items-center gap-2">
+          <TrendingUp className="w-4 h-4 text-green-500" />
           <div>
-            <p className="text-xs text-slate-500 mb-1 font-medium">Causas:</p>
-            <div className="flex gap-1 flex-wrap">
-              {cliente.root_causes.slice(0, 3).map((causa, idx) => (
-                <Badge key={idx} variant="outline" className="text-xs bg-red-50 text-red-700 border-red-200">
-                  {causa}
-                </Badge>
-              ))}
-            </div>
+            <p className="text-[10px] text-slate-400 uppercase">Intenção</p>
+            <p className="text-sm font-bold text-green-600">{buyIntent}%</p>
           </div>
-        )}
-
-        {/* Próxima ação */}
-        {cliente.next_action && (
-          <div className="bg-blue-50 rounded-lg p-2">
-            <p className="text-xs font-medium text-blue-900 mb-1">
-              💡 Ação Recomendada:
-            </p>
-            <p className="text-xs text-blue-700">
-              {cliente.next_action}
-            </p>
-          </div>
-        )}
-
-        {/* Botões de ação */}
-        <div className="flex gap-2 pt-2">
-          <Button
-            onClick={handleResponder}
-            size="sm"
-            className="flex-1 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700"
-          >
-            <MessageSquare className="w-4 h-4 mr-2" />
-            Responder
-          </Button>
-          
-          {cliente.suggested_message && (
-            <Button
-              onClick={handleCopiarMsg}
-              size="sm"
-              variant="outline"
-              className="flex-1"
-            >
-              <Copy className="w-4 h-4 mr-2" />
-              Copiar Msg
-            </Button>
-          )}
         </div>
-      </CardContent>
-    </Card>
+        
+        <div className="flex items-center gap-2">
+          <div className={`w-3 h-3 rounded-full ${health > 70 ? 'bg-green-500' : health > 40 ? 'bg-yellow-500' : 'bg-red-500'}`} />
+          <div>
+            <p className="text-[10px] text-slate-400 uppercase">Saúde</p>
+            <p className="text-sm font-bold text-blue-600">{health}%</p>
+          </div>
+        </div>
+      </div>
+
+      {/* 🎯 Ações Rápidas (visíveis no hover) */}
+      <div className="pl-3 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+        {suggestedMessage && (
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={(e) => {
+              e.stopPropagation();
+              copiarMensagem();
+            }}
+            className="flex-1 text-xs"
+          >
+            <Copy className="w-3 h-3 mr-1" />
+            Copiar Sugestão IA
+          </Button>
+        )}
+        
+        <Button
+          size="sm"
+          onClick={(e) => {
+            e.stopPropagation();
+            if (onAbrirConversa) {
+              onAbrirConversa(contato);
+            }
+          }}
+          className="bg-blue-600 hover:bg-blue-700 text-white"
+        >
+          <MessageSquare className="w-4 h-4" />
+        </Button>
+      </div>
+
+      {/* Preview da mensagem sugerida (tooltip ao copiar) */}
+      {suggestedMessage && (
+        <div className="pl-3 mt-2 p-2 bg-slate-100 dark:bg-slate-800 rounded text-[10px] text-slate-600 dark:text-slate-400 opacity-0 group-hover:opacity-100 transition-opacity">
+          <p className="font-semibold mb-1">💡 Sugestão da IA:</p>
+          <p className="line-clamp-2">{suggestedMessage}</p>
+        </div>
+      )}
+    </div>
   );
 }
