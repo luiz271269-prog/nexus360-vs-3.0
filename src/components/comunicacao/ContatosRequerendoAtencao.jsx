@@ -41,12 +41,11 @@ export default function ContatosRequerendoAtencao({ usuario, contatos, onSelecio
   const carregarContatosComAlerta = async () => {
     setLoading(true);
     try {
-      // Buscar apenas contatos do usuário (leads e clientes)
+      // 1. BUSCAR TODOS CONTATOS DO USUÁRIO (leads e clientes)
       let queryContatos = {
         tipo_contato: { $in: ['lead', 'cliente'] }
       };
       
-      // Filtrar por atribuição (se não for admin)
       if (usuario?.role !== 'admin') {
         queryContatos.vendedor_responsavel = usuario.id;
       }
@@ -54,24 +53,64 @@ export default function ContatosRequerendoAtencao({ usuario, contatos, onSelecio
       const contatosUsuario = await base44.entities.Contact.filter(
         queryContatos,
         '-ultima_interacao',
-        200
-      );
-      
-      const contactIdsUsuario = new Set(contatosUsuario.map(c => c.id));
-      
-      // Buscar análises comportamentais com alertas (últimos 7 dias)
-      const analisesRecentes = await base44.entities.ContactBehaviorAnalysis.filter(
-        {
-          ultima_analise: { 
-            $gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString() 
-          }
-        },
-        '-ultima_analise',
         100
       );
       
-      // Filtrar apenas análises dos contatos do usuário
-      const analisesDoUsuario = analisesRecentes.filter(a => contactIdsUsuario.has(a.contact_id));
+      if (contatosUsuario.length === 0) {
+        setContatos([]);
+        setLoading(false);
+        return;
+      }
+      
+      // 2. BUSCAR ANÁLISES EXISTENTES (últimas 24h)
+      const contactIds = contatosUsuario.map(c => c.id);
+      const analisesExistentes = await base44.entities.ContactBehaviorAnalysis.filter(
+        {
+          contact_id: { $in: contactIds },
+          ultima_analise: { 
+            $gte: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString() 
+          }
+        },
+        '-ultima_analise',
+        200
+      );
+      
+      const analisesMap = new Map(analisesExistentes.map(a => [a.contact_id, a]));
+      
+      // 3. IDENTIFICAR CONTATOS SEM ANÁLISE RECENTE
+      const contatosSemAnalise = contatosUsuario.filter(c => !analisesMap.has(c.id));
+      
+      // 4. EXECUTAR ANÁLISE EM LOTE PARA CONTATOS SEM ANÁLISE
+      if (contatosSemAnalise.length > 0) {
+        console.log(`[ContatosRequerendo] Analisando ${contatosSemAnalise.length} contatos sem análise recente...`);
+        
+        try {
+          // Chamar função de análise em lote
+          await base44.functions.invoke('analisarClientesEmLote', {
+            contact_ids: contatosSemAnalise.map(c => c.id).slice(0, 20), // Máximo 20 por vez
+            force: true
+          });
+          
+          // Aguardar 2s para análises serem salvas
+          await new Promise(r => setTimeout(r, 2000));
+          
+          // Buscar análises atualizadas
+          const novasAnalises = await base44.entities.ContactBehaviorAnalysis.filter(
+            {
+              contact_id: { $in: contatosSemAnalise.map(c => c.id) }
+            },
+            '-ultima_analise',
+            50
+          );
+          
+          novasAnalises.forEach(a => analisesMap.set(a.contact_id, a));
+        } catch (error) {
+          console.warn('[ContatosRequerendo] Erro ao analisar em lote:', error.message);
+        }
+      }
+      
+      // 5. USAR ANÁLISES DISPONÍVEIS
+      const analisesDoUsuario = Array.from(analisesMap.values());
 
       // ✅ FIX N+1: Buscar TODAS as threads em UMA query
       const contactIds = [...new Set(analisesRecentes.map(a => a.contact_id))];
