@@ -22,6 +22,16 @@ Deno.serve(async (req) => {
   try {
     const base44 = createClientFromRequest(req);
 
+    // ✅ CORREÇÃO 401: Verificar se há autenticação (automações agendadas não enviam Authorization)
+    let user = null;
+    try {
+      user = await base44.auth.me();
+      console.log(`[ANALISE_DIARIA] Executando como usuário: ${user.email}`);
+    } catch (authError) {
+      console.log(`[ANALISE_DIARIA] Rodando sem autenticação (scheduled automation mode) - usando service role`);
+      // OK: Automações agendadas rodam sem user context, apenas com service role
+    }
+
     console.log(`[ANALISE_DIARIA] Iniciando rotina diária (modo: scheduled - service role)`);
 
     const resultados = {
