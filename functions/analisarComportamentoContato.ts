@@ -182,6 +182,21 @@ Deno.serve(async (req) => {
     };
 
     // ==========================================
+    // 1.5 BUSCAR TAGS ATIVAS DO CONTATO
+    // ==========================================
+    const contactTags = await base44.asServiceRole.entities.ContactTag.filter({ contact_id });
+    const tagIds = contactTags.map(ct => ct.tag_id);
+    const tagsCompletas = tagIds.length > 0 
+      ? await base44.asServiceRole.entities.Tag.filter({ id: { $in: tagIds } })
+      : [];
+
+    const tagsNomes = tagsCompletas.map(t => t.nome);
+    const tagsAtuais = contato.tags || [];
+    const todasTagsUnificadas = [...new Set([...tagsNomes, ...tagsAtuais])];
+
+    console.log(`🏷️ Tags ativas: ${todasTagsUnificadas.join(', ') || 'nenhuma'}`);
+
+    // ==========================================
     // 2. ANÁLISE MULTIMODAL AVANÇADA COM IA
     // ==========================================
     const textosMensagens = inbound
@@ -221,10 +236,24 @@ ${textosMensagens}
 - Ramo: ${contato.ramo_atividade || 'N/A'}
 - Tipo: ${contato.tipo_contato || 'novo'}
 
+🏷️ ETIQUETAS ATIVAS:
+${todasTagsUnificadas.length > 0 ? todasTagsUnificadas.map(t => `- ${t}`).join('\n') : '- Nenhuma etiqueta definida'}
+
+${contato.is_vip ? '⭐ CONTATO VIP - Atendimento premium obrigatório' : ''}
+${contato.is_prioridade ? '🔔 CONTATO PRIORITÁRIO - Atenção especial' : ''}
+${todasTagsUnificadas.includes('inadimplente') ? '⚠️ INADIMPLENTE - Evite vendas, foque em regularização financeira' : ''}
+${todasTagsUnificadas.includes('blacklist') || todasTagsUnificadas.includes('parar_contato') ? '🚫 NÃO CONTACTAR - Bloqueio ativo' : ''}
+
 📈 MÉTRICAS:
 - Total mensagens: ${metricas.total_mensagens}
 - Taxa resposta: ${metricas.taxa_resposta}%
 - Tempo médio resposta: ${Math.round(metricas.tempo_medio_resposta_minutos)}min
+
+⚠️ IMPORTANTE: Considere SEMPRE as etiquetas ao sugerir ações:
+- Se "inadimplente": priorize regularização financeira antes de vendas
+- Se "vip": atendimento premium e respostas em até 1h
+- Se "risco_cancelamento": foque em retenção, não em vendas
+- Se "blacklist" ou "parar_contato": retorne buy_intent = 0 e sugira não contactar
 
 Forneça uma análise estruturada e ACIONÁVEL para vendas B2B.`;
 
@@ -830,15 +859,74 @@ Sugira:
     await base44.asServiceRole.entities.Contact.update(contact_id, updateData);
 
     // ==========================================
-    // 8. ATRIBUIR TAGS AUTOMATICAMENTE
+    // 8. ATRIBUIR TAGS AUTOMATICAMENTE (EXPANDIDO)
     // ==========================================
     const tagsParaAtribuir = [];
     
-    if (scoreEngajamento > 80) tagsParaAtribuir.push('alto_engajamento');
-    if (segmentoSugerido === 'lead_quente') tagsParaAtribuir.push('oportunidade_quente');
-    if (segmentoSugerido === 'risco_churn') tagsParaAtribuir.push('risco_cancelamento');
-    if (analiseSentimento.score_sentimento < 40) tagsParaAtribuir.push('insatisfeito');
+    // 🏷️ TAGS BÁSICAS (já existentes)
+    if (scoreEngajamento > 80) tagsParaAtribuir.push('ia:alto_engajamento');
+    if (segmentoSugerido === 'lead_quente') tagsParaAtribuir.push('ia:oportunidade_quente');
+    if (segmentoSugerido === 'risco_churn') tagsParaAtribuir.push('ia:risco_cancelamento');
+    if (analiseSentimento.score_sentimento < 40) tagsParaAtribuir.push('ia:insatisfeito');
 
+    // 🆕 TAGS DE PALAVRAS-CHAVE
+    const topPalavras = palavrasChave.slice(0, 5);
+    for (const palavra of topPalavras) {
+      if (palavra.categoria === 'preco' && palavra.relevancia_comercial >= 7) {
+        tagsParaAtribuir.push('ia:sensivel_preco');
+      }
+      if (palavra.categoria === 'prazo' && palavra.relevancia_comercial >= 7) {
+        tagsParaAtribuir.push('ia:urgente_prazo');
+      }
+      if (palavra.categoria === 'tecnico' && palavra.frequencia >= 3) {
+        tagsParaAtribuir.push('ia:duvidas_tecnicas');
+      }
+      if (palavra.categoria === 'reclamacao') {
+        tagsParaAtribuir.push('ia:historico_reclamacao');
+      }
+    }
+
+    // 🆕 TAGS DE OBJEÇÕES
+    if ((objections || []).some(o => o.category === 'preco')) {
+      tagsParaAtribuir.push('ia:objecao_preco');
+    }
+    if ((objections || []).some(o => o.category === 'concorrente')) {
+      tagsParaAtribuir.push('ia:avaliando_concorrencia');
+    }
+
+    // 🆕 TAGS DE INTENÇÃO
+    if (intencoesDetectadas.some(i => i.intencao === 'comprar' && i.confianca > 80)) {
+      tagsParaAtribuir.push('ia:intencao_compra_forte');
+    }
+
+    // 🆕 TAGS DE COMPORTAMENTO VISUAL
+    if (insightsVisuais.length > 0) {
+      tagsParaAtribuir.push('ia:enviou_imagens');
+    }
+
+    // 🆕 TAGS DE PERFIL
+    if (analiseCompleta?.perfil_cliente) {
+      tagsParaAtribuir.push(`ia:perfil_${analiseCompleta.perfil_cliente}`);
+    }
+
+    // 🆕 TAGS DE ESTÁGIO
+    if (analiseCompleta?.nivel_maturidade_compra) {
+      tagsParaAtribuir.push(`ia:estagio_${analiseCompleta.nivel_maturidade_compra}`);
+    }
+
+    // 🧹 LIMPAR TAGS ANTIGAS DA IA (manter apenas tags manuais)
+    const tagsExistentes = contato.tags || [];
+    const tagsManuais = tagsExistentes.filter(t => !t.startsWith('ia:'));
+    
+    // Unificar: tags manuais + novas tags IA
+    const tagsFinais = [...new Set([...tagsManuais, ...tagsParaAtribuir])];
+
+    // Atualizar array de tags no Contact
+    await base44.asServiceRole.entities.Contact.update(contact_id, {
+      tags: tagsFinais
+    });
+
+    // 💾 SALVAR RELAÇÕES EM ContactTag (metadados)
     for (const tagNome of tagsParaAtribuir) {
       try {
         // Buscar ou criar tag
@@ -846,10 +934,20 @@ Sugira:
         let tag;
         
         if (tags.length === 0) {
+          // Detectar categoria pelo prefixo
+          const categoria = tagNome.includes('ia:perfil_') ? 'perfil' :
+                           tagNome.includes('ia:estagio_') ? 'estagio' :
+                           tagNome.includes('ia:objecao_') ? 'objecao' :
+                           tagNome.includes('ia:alerta:') ? 'alerta' :
+                           'comportamento';
+
           tag = await base44.asServiceRole.entities.Tag.create({
             nome: tagNome,
-            categoria: 'comportamento',
-            automacao_ativa: true
+            categoria,
+            automacao_ativa: true,
+            cor: categoria === 'alerta' ? '#ef4444' : 
+                 categoria === 'perfil' ? '#8b5cf6' :
+                 categoria === 'objecao' ? '#f97316' : '#10b981'
           });
         } else {
           tag = tags[0];
@@ -874,6 +972,8 @@ Sugira:
         console.error(`Erro ao atribuir tag ${tagNome}:`, error);
       }
     }
+
+    console.log(`🏷️ Tags atribuídas: ${tagsParaAtribuir.length} (Total no contato: ${tagsFinais.length})`);
 
 
 

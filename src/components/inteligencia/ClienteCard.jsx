@@ -87,6 +87,63 @@ export default function ClienteCard({ contato, onAbrirConversa }) {
         </Badge>
       </div>
 
+      {/* 🏷️ Tags do Contato */}
+      <div className="pl-3 flex gap-1 flex-wrap mb-3">
+        {contato.is_vip && (
+          <Badge className="bg-purple-600 text-white text-[9px] px-1.5 py-0.5 font-bold">
+            ⭐ VIP
+          </Badge>
+        )}
+        
+        {contato.is_prioridade && (
+          <Badge className="bg-indigo-600 text-white text-[9px] px-1.5 py-0.5 font-bold">
+            🔔 Prioritário
+          </Badge>
+        )}
+        
+        {contato.tags?.filter(t => !t.startsWith('ia:')).slice(0, 3).map(tag => (
+          <Badge 
+            key={tag}
+            variant="outline"
+            className="text-[9px] px-1.5 py-0.5 border-slate-400 text-slate-700"
+          >
+            🏷️ {tag}
+          </Badge>
+        ))}
+        
+        {contato.tags?.filter(t => t.startsWith('ia:')).slice(0, 2).map(tag => {
+          const tagLimpo = tag.replace('ia:', '').replace(/_/g, ' ');
+          const tagConfig = {
+            'risco cancelamento': { icon: '⚠️', color: 'border-red-500 text-red-700' },
+            'oportunidade quente': { icon: '🔥', color: 'border-green-500 text-green-700' },
+            'alto engajamento': { icon: '✅', color: 'border-blue-500 text-blue-700' },
+            'sensivel preco': { icon: '💲', color: 'border-yellow-500 text-yellow-700' },
+            'urgente prazo': { icon: '⏰', color: 'border-red-500 text-red-700' },
+            'objecao preco': { icon: '🛑', color: 'border-orange-500 text-orange-700' },
+            'intencao compra forte': { icon: '🎯', color: 'border-green-600 text-green-800' },
+            'insatisfeito': { icon: '😞', color: 'border-red-500 text-red-700' }
+          };
+          
+          const config = tagConfig[tagLimpo] || { icon: '🤖', color: 'border-blue-300 text-blue-600' };
+          
+          return (
+            <Badge 
+              key={tag}
+              variant="outline"
+              className={`text-[9px] px-1.5 py-0.5 ${config.color}`}
+            >
+              {config.icon} {tagLimpo}
+            </Badge>
+          );
+        })}
+        
+        {(contato.tags?.length || 0) > 5 && (
+          <Badge variant="outline" className="text-[9px] px-1.5 py-0.5 text-slate-500">
+            +{contato.tags.length - 5}
+          </Badge>
+        )}
+      </div>
+
       {/* 🧠 Diagnóstico IA: O "Porquê" da Atenção (Turning Point) */}
       <div className={`pl-3 mb-3 p-3 rounded-lg bg-blue-50 dark:bg-blue-900/20 border-l-4 ${config.border}`}>
         <div className="flex items-start gap-2">
@@ -154,17 +211,21 @@ export default function ClienteCard({ contato, onAbrirConversa }) {
               onAbrirConversa(contato);
             }
           }}
-          className="bg-blue-600 hover:bg-blue-700 text-white"
+          className="bg-blue-600 hover:bg-blue-700 text-white text-xs px-2"
         >
-          <MessageSquare className="w-4 h-4" />
+          <MessageSquare className="w-3 h-3 mr-1" />
+          Abrir
         </Button>
       </div>
 
-      {/* Preview da mensagem sugerida (tooltip ao copiar) */}
+      {/* Preview da mensagem sugerida */}
       {suggestedMessage && (
-        <div className="pl-3 mt-2 p-2 bg-slate-100 dark:bg-slate-800 rounded text-[10px] text-slate-600 dark:text-slate-400 opacity-0 group-hover:opacity-100 transition-opacity">
-          <p className="font-semibold mb-1">💡 Sugestão da IA:</p>
-          <p className="line-clamp-2">{suggestedMessage}</p>
+        <div className="pl-3 mt-2 p-2.5 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 rounded-lg border border-blue-200 dark:border-blue-800 text-xs text-slate-700 dark:text-slate-300 opacity-0 group-hover:opacity-100 transition-opacity">
+          <p className="font-semibold mb-1.5 text-blue-700 dark:text-blue-300 flex items-center gap-1">
+            <TrendingUp className="w-3 h-3" />
+            Sugestão da IA:
+          </p>
+          <p className="leading-relaxed">{suggestedMessage}</p>
         </div>
       )}
     </div>
