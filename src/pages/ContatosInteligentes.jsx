@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useContatosInteligentes } from '../components/hooks/useContatosInteligentes';
 import { base44 } from '@/api/base44Client';
 import ClienteCard from '../components/inteligencia/ClienteCard';
@@ -37,7 +37,7 @@ export default function ContatosInteligentes() {
   });
 
   // Carregar usuário
-  useState(() => {
+  useEffect(() => {
     base44.auth.me().then(setUsuario).catch(console.error);
   }, []);
 
