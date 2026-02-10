@@ -43,7 +43,7 @@ Deno.serve(async (req) => {
       
       for (const contato of contatos) {
         try {
-          await base44.functions.invoke('analisarComportamentoContato', {
+          await base44.asServiceRole.functions.invoke('analisarComportamentoContato', {
             contact_id: contato.id
           });
           resultados.sucesso++;
@@ -245,8 +245,8 @@ Deno.serve(async (req) => {
           continue;
         }
         
-        // Executar análise
-        await base44.functions.invoke('analisarComportamentoContato', {
+        // Executar análise (service role para chamada interna)
+        await base44.asServiceRole.functions.invoke('analisarComportamentoContato', {
           contact_id: contato.id
         });
         
