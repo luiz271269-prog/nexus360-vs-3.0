@@ -103,48 +103,48 @@ Deno.serve(async (req) => {
         limit
       );
       
-      // Buscar análises (últimas 24h)
+      // ✅ Buscar análises (últimas 7 dias - estrutura V3)
       const contactIds = contatos.map(c => c.id);
       const analises = await client.entities.ContactBehaviorAnalysis.filter(
-        { contact_id: { $in: contactIds } },
-        '-ultima_analise',
+        { 
+          contact_id: { $in: contactIds },
+          analyzed_at: { $gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString() }
+        },
+        '-analyzed_at',
         200
       );
       
+      console.log(`[ANALISE_LOTE] ${analises.length} análises encontradas para ${contactIds.length} contatos`);
+      
       const analisesMap = new Map(analises.map(a => [a.contact_id, a]));
       
-      // Enriquecer contatos com análises
+      // ✅ Enriquecer contatos com análises V3
       const clientesEnriquecidos = contatos.map(contato => {
         const analise = analisesMap.get(contato.id);
         
-        if (!analise || !analise.insights) {
+        // ✅ Pular se não tem análise ou é insufficient_data
+        if (!analise || analise.status === 'insufficient_data') {
+          console.log(`[ANALISE_LOTE] ⏭️ ${contato.nome} sem análise válida`);
           return null;
         }
         
-        const scores = analise.insights.scores || {};
-        const stage = analise.insights.stage || {};
-        const nextAction = analise.insights.next_best_action || {};
-        const rootCauses = analise.insights.root_causes || [];
+        // ✅ USAR CAMPOS NOVOS (estrutura V3)
+        const deal_risk = analise.ai_insights?.deal_risk || 0;
+        const buy_intent = analise.ai_insights?.buy_intent || 0;
+        const engagement = analise.ai_insights?.engagement || 0;
+        const health = analise.ai_insights?.health || 0;
+        const stage = analise.ai_insights?.stage_suggested || 'descoberta';
+        const nextAction = analise.ai_insights?.next_best_action || {};
+        const rootCauses = analise.root_causes || [];
         
-        // Calcular prioridade
-        const deal_risk = scores.deal_risk || 0;
-        const buy_intent = scores.buy_intent || 0;
-        const engagement = scores.engagement || 0;
-        const days_stalled = stage.days_stalled || 0;
+        const prioridadeScore = analise.priority_score || 0;
+        const prioridadeLabel = analise.priority_label || 'BAIXO';
         
-        let prioridadeScore = 0;
-        prioridadeScore += deal_risk * 0.4;
-        prioridadeScore += (100 - buy_intent) * 0.25;
-        prioridadeScore += (100 - engagement) * 0.2;
-        prioridadeScore += Math.min(days_stalled * 5, 15);
-        
-        const prioridadeLabel = 
-          prioridadeScore >= 75 ? 'CRITICO' : 
-          prioridadeScore >= 55 ? 'ALTO' : 
-          prioridadeScore >= 35 ? 'MEDIO' : 'BAIXO';
-        
-        // Filtrar por minDealRisk
-        if (deal_risk < minDealRisk) return null;
+        // ✅ Filtrar por minDealRisk
+        if (deal_risk < minDealRisk) {
+          console.log(`[ANALISE_LOTE] ⏭️ ${contato.nome} deal_risk ${deal_risk} < ${minDealRisk}`);
+          return null;
+        }
         
         return {
           contact_id: contato.id,
@@ -152,36 +152,51 @@ Deno.serve(async (req) => {
           empresa: contato.empresa,
           telefone: contato.telefone,
           tipo_contato: contato.tipo_contato,
+          vendedor_responsavel: contato.vendedor_responsavel,
+          assigned_user_id: contato.assigned_user_id,
           deal_risk,
           buy_intent,
           engagement,
-          health: scores.health || 0,
-          stage_current: stage.current,
-          stage_label: stage.label,
-          days_stalled,
-          root_causes: rootCauses.map(r => r.title || r),
-          next_action: nextAction.action,
-          suggested_message: nextAction.message_suggestion,
-          prioridadeScore: Math.round(prioridadeScore),
-          prioridadeLabel
+          health,
+          stage_current: stage,
+          days_stalled: analise.days_inactive_inbound || 0,
+          days_inactive_inbound: analise.days_inactive_inbound || 0,
+          bucket_inactive: analise.bucket_inactive || 'active',
+          root_causes: rootCauses,
+          next_action: nextAction.action || 'Acompanhar',
+          suggested_message: nextAction.message_suggestion || '',
+          prioridadeScore,
+          prioridadeLabel,
+          analyzed_at: analise.analyzed_at
         };
       }).filter(c => c !== null);
       
       // Ordenar por prioridade
       clientesEnriquecidos.sort((a, b) => b.prioridadeScore - a.prioridadeScore);
       
+      console.log(`[ANALISE_LOTE] ✅ ${clientesEnriquecidos.length} contatos enriquecidos com análise`);
+      
       // Calcular estatísticas
       const stats = {
         total: clientesEnriquecidos.length,
+        criticos: clientesEnriquecidos.filter(c => c.prioridadeLabel === 'CRITICO').length,
+        altos: clientesEnriquecidos.filter(c => c.prioridadeLabel === 'ALTO').length,
         porPrioridade: {
           CRITICO: clientesEnriquecidos.filter(c => c.prioridadeLabel === 'CRITICO').length,
           ALTO: clientesEnriquecidos.filter(c => c.prioridadeLabel === 'ALTO').length,
           MEDIO: clientesEnriquecidos.filter(c => c.prioridadeLabel === 'MEDIO').length,
           BAIXO: clientesEnriquecidos.filter(c => c.prioridadeLabel === 'BAIXO').length
         },
+        porBucket: {
+          active: clientesEnriquecidos.filter(c => c.bucket_inactive === 'active').length,
+          '30': clientesEnriquecidos.filter(c => c.bucket_inactive === '30').length,
+          '60': clientesEnriquecidos.filter(c => c.bucket_inactive === '60').length,
+          '90+': clientesEnriquecidos.filter(c => c.bucket_inactive === '90+').length
+        },
         scoresMedios: {
           deal_risk: Math.round(clientesEnriquecidos.reduce((s, c) => s + c.deal_risk, 0) / clientesEnriquecidos.length) || 0,
-          engagement: Math.round(clientesEnriquecidos.reduce((s, c) => s + c.engagement, 0) / clientesEnriquecidos.length) || 0
+          engagement: Math.round(clientesEnriquecidos.reduce((s, c) => s + c.engagement, 0) / clientesEnriquecidos.length) || 0,
+          health: Math.round(clientesEnriquecidos.reduce((s, c) => s + c.health, 0) / clientesEnriquecidos.length) || 0
         }
       };
       
