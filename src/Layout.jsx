@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import { base44 } from "@/api/base44Client";
+import { useContatosInteligentes } from "../components/hooks/useContatosInteligentes";
 import {
   BarChart3,
   Users,
@@ -214,10 +215,20 @@ export default function Layout({ children, currentPageName }) {
   });
   const navigate = useNavigate();
   const ultimaAtualizacaoRef = useRef(0);
+  
+  // Hook Contatos Inteligentes (Camada 3)
+  const { totalUrgentes, criticos } = useContatosInteligentes(globalUsuario, {
+    tipo: ['lead', 'cliente'],
+    diasSemMensagem: 2,
+    minDealRisk: 30,
+    limit: 50,
+    autoRefresh: true
+  });
 
   // Definição completa de todos os itens do menu
   const todosMenuItems = [
     { name: "Central de Comunicacao", icon: MessageSquare, page: "Comunicacao" },
+    { name: "Contatos Inteligentes", icon: Target, page: "ContatosInteligentes" },
     { name: "Dashboard", icon: Home, page: "Dashboard" },
     { name: "Metas de Vendas", icon: Users, page: "Vendedores" },
     { name: "Leads & Qualificacao", icon: Target, page: "LeadsQualificados" },
@@ -398,6 +409,10 @@ export default function Layout({ children, currentPageName }) {
       if (user) {
         try {
           const contadores = await calcularLembretesGlobal(user, base44);
+
+          // Adicionar contador de Contatos Inteligentes (Camada 3)
+          contadores['ContatosInteligentes'] = totalUrgentes || 0;
+
           setContadoresLembretes(contadores);
         } catch (error) {
           console.error('[LAYOUT] Erro ao calcular lembretes:', error);

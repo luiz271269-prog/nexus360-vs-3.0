@@ -16,7 +16,16 @@ Deno.serve(async (req) => {
     }
     
     const body = await req.json().catch(() => ({}));
-    const { contact_ids, force, limit = 50, priorizar_ativos = true } = body;
+    const { 
+      contact_ids, 
+      force, 
+      limit = 50, 
+      priorizar_ativos = true,
+      modo = 'scheduled',
+      tipo = ['lead', 'cliente'],
+      diasSemMensagem = 2,
+      minDealRisk = 30
+    } = body;
     
     // ══════════════════════════════════════════════════════════════
     // MODO 1: IDs ESPECÍFICOS (chamada do componente)
@@ -62,12 +71,130 @@ Deno.serve(async (req) => {
     }
     
     // ══════════════════════════════════════════════════════════════
-    // MODO 2: AUTOMAÇÃO SCHEDULED (análise periódica)
+    // MODO 2: PRIORIZAÇÃO (retorna lista ordenada com contexto)
+    // ══════════════════════════════════════════════════════════════
+    if (modo === 'priorizacao') {
+      console.log(`[ANALISE_LOTE] Modo priorização | User: ${user.email}`);
+      
+      let queryContatos = {
+        tipo_contato: { $in: Array.isArray(tipo) ? tipo : [tipo] }
+      };
+      
+      // Filtrar por usuário (exceto admin)
+      if (user.role !== 'admin') {
+        queryContatos.vendedor_responsavel = user.id;
+      }
+      
+      // Filtrar contatos com atividade recente
+      if (diasSemMensagem > 0) {
+        queryContatos.ultima_interacao = {
+          $gte: new Date(Date.now() - diasSemMensagem * 24 * 60 * 60 * 1000).toISOString()
+        };
+      }
+      
+      const contatos = await base44.entities.Contact.filter(
+        queryContatos,
+        '-ultima_interacao',
+        limit
+      );
+      
+      // Buscar análises (últimas 24h)
+      const contactIds = contatos.map(c => c.id);
+      const analises = await base44.entities.ContactBehaviorAnalysis.filter(
+        { contact_id: { $in: contactIds } },
+        '-ultima_analise',
+        200
+      );
+      
+      const analisesMap = new Map(analises.map(a => [a.contact_id, a]));
+      
+      // Enriquecer contatos com análises
+      const clientesEnriquecidos = contatos.map(contato => {
+        const analise = analisesMap.get(contato.id);
+        
+        if (!analise || !analise.insights) {
+          return null;
+        }
+        
+        const scores = analise.insights.scores || {};
+        const stage = analise.insights.stage || {};
+        const nextAction = analise.insights.next_best_action || {};
+        const rootCauses = analise.insights.root_causes || [];
+        
+        // Calcular prioridade
+        const deal_risk = scores.deal_risk || 0;
+        const buy_intent = scores.buy_intent || 0;
+        const engagement = scores.engagement || 0;
+        const days_stalled = stage.days_stalled || 0;
+        
+        let prioridadeScore = 0;
+        prioridadeScore += deal_risk * 0.4;
+        prioridadeScore += (100 - buy_intent) * 0.25;
+        prioridadeScore += (100 - engagement) * 0.2;
+        prioridadeScore += Math.min(days_stalled * 5, 15);
+        
+        const prioridadeLabel = 
+          prioridadeScore >= 75 ? 'CRITICO' : 
+          prioridadeScore >= 55 ? 'ALTO' : 
+          prioridadeScore >= 35 ? 'MEDIO' : 'BAIXO';
+        
+        // Filtrar por minDealRisk
+        if (deal_risk < minDealRisk) return null;
+        
+        return {
+          contact_id: contato.id,
+          nome: contato.nome,
+          empresa: contato.empresa,
+          telefone: contato.telefone,
+          tipo_contato: contato.tipo_contato,
+          deal_risk,
+          buy_intent,
+          engagement,
+          health: scores.health || 0,
+          stage_current: stage.current,
+          stage_label: stage.label,
+          days_stalled,
+          root_causes: rootCauses.map(r => r.title || r),
+          next_action: nextAction.action,
+          suggested_message: nextAction.message_suggestion,
+          prioridadeScore: Math.round(prioridadeScore),
+          prioridadeLabel
+        };
+      }).filter(c => c !== null);
+      
+      // Ordenar por prioridade
+      clientesEnriquecidos.sort((a, b) => b.prioridadeScore - a.prioridadeScore);
+      
+      // Calcular estatísticas
+      const stats = {
+        total: clientesEnriquecidos.length,
+        porPrioridade: {
+          CRITICO: clientesEnriquecidos.filter(c => c.prioridadeLabel === 'CRITICO').length,
+          ALTO: clientesEnriquecidos.filter(c => c.prioridadeLabel === 'ALTO').length,
+          MEDIO: clientesEnriquecidos.filter(c => c.prioridadeLabel === 'MEDIO').length,
+          BAIXO: clientesEnriquecidos.filter(c => c.prioridadeLabel === 'BAIXO').length
+        },
+        scoresMedios: {
+          deal_risk: Math.round(clientesEnriquecidos.reduce((s, c) => s + c.deal_risk, 0) / clientesEnriquecidos.length) || 0,
+          engagement: Math.round(clientesEnriquecidos.reduce((s, c) => s + c.engagement, 0) / clientesEnriquecidos.length) || 0
+        }
+      };
+      
+      return Response.json({
+        success: true,
+        modo: 'priorizacao',
+        clientes: clientesEnriquecidos,
+        estatisticas: stats
+      });
+    }
+    
+    // ══════════════════════════════════════════════════════════════
+    // MODO 3: AUTOMAÇÃO SCHEDULED (análise periódica)
     // ══════════════════════════════════════════════════════════════
     console.log(`[ANALISE_LOTE] Modo scheduled | User: ${user.email} | Limit: ${limit}`);
     
     let query = {
-      tipo_contato: { $in: ['lead', 'cliente'] }
+      tipo_contato: { $in: Array.isArray(tipo) ? tipo : ['lead', 'cliente'] }
     };
     
     if (priorizar_ativos) {
