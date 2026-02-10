@@ -33,14 +33,19 @@ export default function InteligenciaMetricas() {
   });
 
   useEffect(() => {
-    base44.auth.me().then(setUsuario).catch(console.error);
+    const init = async () => {
+      try {
+        const user = await base44.auth.me();
+        console.log('[METRICAS] Usuario carregado:', user);
+        setUsuario(user);
+        await carregarMetricas();
+      } catch (error) {
+        console.error('[METRICAS] Erro ao carregar usuario:', error);
+        setLoading(false);
+      }
+    };
+    init();
   }, []);
-
-  useEffect(() => {
-    if (usuario) {
-      carregarMetricas();
-    }
-  }, [usuario]);
 
   const carregarMetricas = async () => {
     setLoading(true);
@@ -133,14 +138,18 @@ export default function InteligenciaMetricas() {
         recebidas: mensagens24h.filter(m => m.sender_type === 'contact').length
       };
 
-      console.log('[METRICAS] Dados carregados:', {
+      console.log('[METRICAS] 📊 Dados carregados:', {
         analises24h: totalAnalises24h,
         analises7d: analises7d.length,
         totalAnalises: todasAnalises.length,
+        analisesComScores: totalComScores,
         contatosAtivos: contatosAtivos.length,
         mensagens24h: mensagens24h.length,
+        threadsAtivas: threadsAtivas.length,
         taxaSucesso,
-        scoresMedios
+        scoresMedios,
+        alertasAtivos,
+        porStage
       });
 
       setMetricas({
@@ -165,12 +174,24 @@ export default function InteligenciaMetricas() {
     }
   };
 
-  if (!usuario || loading) {
+  if (loading && !metricas) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 p-6 flex items-center justify-center">
         <div className="text-center">
           <Brain className="w-12 h-12 animate-pulse text-purple-600 mx-auto mb-3" />
           <p className="text-slate-600">Carregando métricas de inteligência...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!metricas) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 p-6 flex items-center justify-center">
+        <div className="text-center">
+          <AlertTriangle className="w-12 h-12 text-orange-500 mx-auto mb-3" />
+          <p className="text-slate-600 mb-4">Erro ao carregar métricas</p>
+          <Button onClick={carregarMetricas}>Tentar Novamente</Button>
         </div>
       </div>
     );
