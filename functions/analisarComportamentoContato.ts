@@ -260,7 +260,7 @@ ${todasTagsUnificadas.includes('blacklist') || todasTagsUnificadas.includes('par
 
 Forneça uma análise estruturada e ACIONÁVEL para vendas B2B.`;
 
-        const analiseCompleta = await base44.integrations.Core.InvokeLLM({
+        const analiseCompleta = await base44.asServiceRole.integrations.Core.InvokeLLM({
           prompt: promptConsolidado,
           response_json_schema: {
             type: "object",
@@ -412,7 +412,7 @@ Forneça uma análise estruturada e ACIONÁVEL para vendas B2B.`;
           .slice(0, 3); // Máximo 3 imagens para não ultrapassar limites
 
         if (imageUrls.length > 0) {
-          const analiseVisual = await base44.integrations.Core.InvokeLLM({
+          const analiseVisual = await base44.asServiceRole.integrations.Core.InvokeLLM({
             prompt: `Analise estas imagens enviadas pelo cliente e identifique:
 1. Produtos/serviços de interesse
 2. Problemas técnicos ou necessidades
@@ -594,7 +594,7 @@ Forneça insights comerciais acionáveis.`,
     
     // 🤖 IA SUGERE AÇÕES BASEADAS NO CONTEXTO COMPLETO
     try {
-      const sugestaoAcoes = await base44.integrations.Core.InvokeLLM({
+      const sugestaoAcoes = await base44.asServiceRole.integrations.Core.InvokeLLM({
         prompt: `Com base nesta análise de cliente B2B:
 - Health Score: ${healthScore}/100
 - Deal Risk: ${dealRisk}/100
