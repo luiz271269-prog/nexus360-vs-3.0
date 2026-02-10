@@ -83,6 +83,7 @@ import Fase2 from './pages/Fase2';
 import Fase2Documentacao from './pages/Fase2Documentacao';
 import Fase3 from './pages/Fase3';
 import Fase4 from './pages/Fase4';
+import FerramentasMigracao from './pages/FerramentasMigracao';
 import GerenciadorPermissoes from './pages/GerenciadorPermissoes';
 import Home from './pages/Home';
 import Importacao from './pages/Importacao';
@@ -117,7 +118,6 @@ import Usuarios from './pages/Usuarios';
 import Vendas from './pages/Vendas';
 import Vendedores from './pages/Vendedores';
 import WhatsAppTemplates from './pages/WhatsAppTemplates';
-import FerramentasMigracao from './pages/FerramentasMigracao';
 import __Layout from './Layout.jsx';
 
 
@@ -158,6 +158,7 @@ export const PAGES = {
     "Fase2Documentacao": Fase2Documentacao,
     "Fase3": Fase3,
     "Fase4": Fase4,
+    "FerramentasMigracao": FerramentasMigracao,
     "GerenciadorPermissoes": GerenciadorPermissoes,
     "Home": Home,
     "Importacao": Importacao,
@@ -192,7 +193,6 @@ export const PAGES = {
     "Vendas": Vendas,
     "Vendedores": Vendedores,
     "WhatsAppTemplates": WhatsAppTemplates,
-    "FerramentasMigracao": FerramentasMigracao,
 }
 
 export const pagesConfig = {

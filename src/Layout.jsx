@@ -337,7 +337,7 @@ export default function Layout({ children, currentPageName }) {
       if (!loadingUsuario) {
         carregarDadosGlobais();
       }
-    }, 15 * 60 * 1000);
+    }, 5 * 60 * 1000); // ✅ Reduzido para 5min (era 15min) - alertas mais responsivos
     
     const intervalAgent = setInterval(() => {
       checkAgentHealth();

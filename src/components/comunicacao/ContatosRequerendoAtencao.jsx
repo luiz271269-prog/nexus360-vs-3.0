@@ -632,13 +632,28 @@ export default function ContatosRequerendoAtencao({ usuario, contatos, onSelecio
                                       Saúde: {item.scores.health}
                                     </Badge>
                                   )}
-                                </div>
-                              </div>
+                                  </div>
 
-                              {/* Ação sugerida (ícone) */}
-                              <div className="flex-shrink-0">
-                                <ChevronRight className="w-4 h-4 text-slate-400" />
-                              </div>
+                                  {/* Ações rápidas */}
+                                  {item.nextAction?.message_suggestion && (
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      navigator.clipboard.writeText(item.nextAction.message_suggestion);
+                                      toast.success('✅ Mensagem sugerida copiada!');
+                                    }}
+                                    className="text-[9px] px-1.5 py-0.5 bg-blue-100 text-blue-700 rounded hover:bg-blue-200 transition-colors mt-1"
+                                    title="Copiar mensagem sugerida pela IA"
+                                  >
+                                    📋 Copiar Msg
+                                  </button>
+                                  )}
+                                  </div>
+
+                                  {/* Ação sugerida (ícone) */}
+                                  <div className="flex-shrink-0">
+                                  <ChevronRight className="w-4 h-4 text-slate-400" />
+                                  </div>
                             </button>
                           );
                         })}
