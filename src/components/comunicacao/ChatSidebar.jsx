@@ -826,6 +826,31 @@ export default function ChatSidebar({
                     );
                   })()}
 
+                  {/* ✅ ANÁLISE IA - PRIORITY BADGE */}
+                  {(() => {
+                    // Buscar análise mais recente
+                    const analise = thread._analiseComportamental;
+                    if (!analise || !analise.priority_label) return null;
+                    
+                    const badgeConfig = {
+                      'CRITICO': { emoji: '🔴', label: 'Crítico', bg: 'bg-red-500' },
+                      'ALTO': { emoji: '🟠', label: 'Alto', bg: 'bg-orange-500' },
+                      'MEDIO': { emoji: '🟡', label: 'Médio', bg: 'bg-yellow-500' },
+                      'BAIXO': { emoji: '🟢', label: 'Baixo', bg: 'bg-green-500' }
+                    };
+                    
+                    const cfg = badgeConfig[analise.priority_label] || badgeConfig['MEDIO'];
+                    
+                    return (
+                      <span 
+                        className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-semibold text-white ${cfg.bg} shadow-sm`}
+                        title={`${analise.days_inactive_inbound || 0} dias sem responder`}
+                      >
+                        {cfg.emoji} {cfg.label}
+                      </span>
+                    );
+                  })()}
+
                   {/* DESTAQUES (max 2) - DINÂMICO */}
                   {contato?.tags && contato.tags.length > 0 && (() => {
                     // Buscar etiquetas de destaque do banco
@@ -839,7 +864,7 @@ export default function ChatSidebar({
                         const ordemB = etiquetasDestaqueDB.find(e => e.nome === b)?.ordem || 100;
                         return ordemA - ordemB;
                       })
-                      .slice(0, 2);
+                      .slice(0, 1); // ✅ Reduzido para 1 (espaço para análise IA)
 
                     return tagsOrdenadas.map(etq => {
                       const cfg = getEtiquetaConfigDinamico(etq);

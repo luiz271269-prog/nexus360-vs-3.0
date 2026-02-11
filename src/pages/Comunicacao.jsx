@@ -288,16 +288,59 @@ export default function Comunicacao() {
     }
   });
 
-  // ✅ COMBINAR: Internas + Externas (Memoizado)
+  // ✅ Buscar análises comportamentais
+  const { data: analisesComportamentais = [] } = useQuery({
+    queryKey: ['analises-comportamentais'],
+    queryFn: async () => {
+      try {
+        // Buscar todas as análises recentes (últimas 24h)
+        const dataLimite = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+        return await base44.entities.ContactBehaviorAnalysis.filter(
+          { analyzed_at: { $gte: dataLimite } },
+          '-analyzed_at',
+          500
+        );
+      } catch (error) {
+        console.error('[COMUNICACAO] Erro ao carregar análises:', error);
+        return [];
+      }
+    },
+    staleTime: 5 * 60 * 1000,
+    enabled: !!usuario
+  });
+
+  // ✅ COMBINAR: Internas + Externas + Enriquecer com análises
   const threads = React.useMemo(() => {
     const combinadas = [...threadsExternas, ...threadsInternas];
-    console.log('[COMUNICACAO] 📊 Threads combinadas:', {
+    
+    // Criar mapa de análises por contact_id
+    const analisesPorContato = new Map();
+    analisesComportamentais.forEach(analise => {
+      if (!analisesPorContato.has(analise.contact_id)) {
+        analisesPorContato.set(analise.contact_id, analise);
+      }
+    });
+    
+    // Enriquecer threads com análises
+    const enriquecidas = combinadas.map(thread => {
+      if (thread.contact_id) {
+        const analise = analisesPorContato.get(thread.contact_id);
+        if (analise) {
+          return { ...thread, _analiseComportamental: analise };
+        }
+      }
+      return thread;
+    });
+    
+    console.log('[COMUNICACAO] 📊 Threads combinadas + análises:', {
       externas: threadsExternas.length,
       internas: threadsInternas.length,
-      total: combinadas.length
+      total: enriquecidas.length,
+      com_analise: enriquecidas.filter(t => t._analiseComportamental).length
     });
-    return combinadas;
-  }, [threadsExternas, threadsInternas]);
+    
+    return enriquecidas;
+  }, [threadsExternas, threadsInternas, analisesComportamentais]);
 
   const loadingThreads = loadingThreadsInternas || loadingThreadsExternas;
 
