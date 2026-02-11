@@ -45,6 +45,7 @@ const GoToLogo = () => (
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import EmojiPickerButton from './EmojiPickerButton';
+import SeletorPromocoesAtivas from '../automacao/SeletorPromocoesAtivas';
 
 export default function MessageInput({
   onSendMessage,
@@ -83,6 +84,7 @@ export default function MessageInput({
   const [pastedImage, setPastedImage] = useState(null);
   const [pastedImagePreview, setPastedImagePreview] = useState(null);
   const [showAttachMenu, setShowAttachMenu] = useState(false);
+  const [showPromocoesMenu, setShowPromocoesMenu] = useState(false);
   const [selectedFile, setSelectedFile] = useState(null);
   const [filePreview, setFilePreview] = useState(null);
   const [recordingTime, setRecordingTime] = useState(0);
@@ -163,6 +165,16 @@ export default function MessageInput({
     setSelectedFile(null);
     setFilePreview(null);
   }, [filePreview]);
+
+  const handleSelecionarPromocao = useCallback((dadosPromocao) => {
+    const { file, previewUrl, caption } = dadosPromocao;
+    
+    setPastedImage(file);
+    setPastedImagePreview(previewUrl);
+    setMensagemTexto(caption || mensagemTexto);
+    setShowPromocoesMenu(false);
+    setShowAttachMenu(false);
+  }, [mensagemTexto]);
 
   const handleEnviarComArquivo = useCallback(async (e) => {
     e?.preventDefault();
@@ -426,7 +438,29 @@ export default function MessageInput({
                 </div>
                 <span className="text-sm font-medium text-slate-800">Documento</span>
               </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setShowAttachMenu(false);
+                  setShowPromocoesMenu(true);
+                }}
+                className="w-full flex items-center gap-3 px-4 py-3 hover:bg-orange-50 transition-colors text-left"
+              >
+                <div className="w-11 h-11 bg-gradient-to-br from-orange-500 to-amber-500 rounded-full flex items-center justify-center shadow-sm">
+                  <Sparkles className="w-5 h-5 text-white" />
+                </div>
+                <span className="text-sm font-medium text-slate-800">Promoções</span>
+              </button>
             </div>
+          )}
+
+          {/* Menu de Promoções */}
+          {showPromocoesMenu && (
+            <SeletorPromocoesAtivas
+              onSelecionarPromocao={handleSelecionarPromocao}
+              onClose={() => setShowPromocoesMenu(false)}
+            />
           )}
         </div>
 
