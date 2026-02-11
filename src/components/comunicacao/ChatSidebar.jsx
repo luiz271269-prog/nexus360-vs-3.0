@@ -62,6 +62,7 @@ import { getUserDisplayName } from "../lib/userHelpers";
 import UsuarioDisplay from "./UsuarioDisplay";
 import { canUserSeeThreadBase } from "../lib/threadVisibility";
 import { decidirVisibilidade } from "@/components/lib/decisionEngine";
+import MensagemReativacaoRapida from './MensagemReativacaoRapida';
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // 🎯 GETTER UNIFICADO: Badge de não lidas (externo + interno)
@@ -826,29 +827,48 @@ export default function ChatSidebar({
                     );
                   })()}
 
-                  {/* ✅ ANÁLISE IA - PRIORITY BADGE */}
+                  {/* ✅ MENSAGEM REATIVAÇÃO RÁPIDA */}
                   {(() => {
-                    // Buscar análise mais recente
                     const analise = thread._analiseComportamental;
-                    if (!analise || !analise.priority_label) return null;
+                    const diasInativo = analise?.days_inactive_inbound || 0;
                     
-                    const badgeConfig = {
-                      'CRITICO': { emoji: '🔴', label: 'Crítico', bg: 'bg-red-500' },
-                      'ALTO': { emoji: '🟠', label: 'Alto', bg: 'bg-orange-500' },
-                      'MEDIO': { emoji: '🟡', label: 'Médio', bg: 'bg-yellow-500' },
-                      'BAIXO': { emoji: '🟢', label: 'Baixo', bg: 'bg-green-500' }
-                    };
+                    // Mostrar sugestão rápida se inativo 30+ dias
+                    if (diasInativo >= 30) {
+                      return (
+                        <MensagemReativacaoRapida
+                          contato={contato}
+                          analise={analise}
+                          variant="badge"
+                          onUsarMensagem={(msg) => {
+                            // Abrir conversa e preparar mensagem
+                            handleClick(thread);
+                          }}
+                        />
+                      );
+                    }
                     
-                    const cfg = badgeConfig[analise.priority_label] || badgeConfig['MEDIO'];
+                    // Senão, mostrar análise de prioridade
+                    if (analise?.priority_label) {
+                      const badgeConfig = {
+                        'CRITICO': { emoji: '🔴', label: 'Crítico', bg: 'bg-red-500' },
+                        'ALTO': { emoji: '🟠', label: 'Alto', bg: 'bg-orange-500' },
+                        'MEDIO': { emoji: '🟡', label: 'Médio', bg: 'bg-yellow-500' },
+                        'BAIXO': { emoji: '🟢', label: 'Baixo', bg: 'bg-green-500' }
+                      };
+                      
+                      const cfg = badgeConfig[analise.priority_label] || badgeConfig['MEDIO'];
+                      
+                      return (
+                        <span 
+                          className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-semibold text-white ${cfg.bg} shadow-sm`}
+                          title={`${diasInativo} dias sem responder`}
+                        >
+                          {cfg.emoji} {cfg.label}
+                        </span>
+                      );
+                    }
                     
-                    return (
-                      <span 
-                        className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-semibold text-white ${cfg.bg} shadow-sm`}
-                        title={`${analise.days_inactive_inbound || 0} dias sem responder`}
-                      >
-                        {cfg.emoji} {cfg.label}
-                      </span>
-                    );
+                    return null;
                   })()}
 
                   {/* DESTAQUES (max 2) - DINÂMICO */}

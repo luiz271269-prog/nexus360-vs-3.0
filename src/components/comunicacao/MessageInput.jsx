@@ -457,7 +457,7 @@ export default function MessageInput({
           disabled={enviando || carregandoContato || gravandoAudio || modoSelecao || uploadingPastedFile || !podeEnviarMensagens}
         />
 
-        {/* ✅ BOTÃO IA - SEMPRE VISÍVEL (análise baseada em 50-100 mensagens) */}
+        {/* ✅ BOTÃO IA - SEMPRE VISÍVEL com animação se última mensagem é do cliente */}
         {podeEnviarMensagens && (
           <Button
             type="button"
@@ -465,15 +465,19 @@ export default function MessageInput({
             variant="ghost"
             size="icon"
             className={cn(
-              "text-sm font-medium rounded-md inline-flex items-center justify-center gap-2 whitespace-nowrap transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 h-9 w-9 flex-shrink-0",
+              "text-sm font-medium rounded-md inline-flex items-center justify-center gap-2 whitespace-nowrap transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 h-9 w-9 flex-shrink-0 relative",
               mostrarSugestor 
                 ? "bg-gradient-to-r from-purple-500 to-indigo-600 text-white hover:from-purple-600 hover:to-indigo-700 shadow-lg" 
-                : "text-purple-600 hover:bg-purple-50"
+                : "text-purple-600 hover:bg-purple-50",
+              ultimaMensagemCliente && "animate-pulse"
             )}
             title="Sugestões de Resposta IA (últimas 50-100 mensagens)"
             disabled={enviando || carregandoContato || gravandoAudio || modoSelecao || uploadingPastedFile}
           >
             <Sparkles className="w-5 h-5" />
+            {ultimaMensagemCliente && !mostrarSugestor && (
+              <span className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full border-2 border-white animate-ping" />
+            )}
           </Button>
         )}
 

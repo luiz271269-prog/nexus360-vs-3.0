@@ -72,6 +72,7 @@ import CentralInteligenciaContato, {
 './CentralInteligenciaContato';
 import MessageInput from './MessageInput';
 import AlertaPedidoTransferencia from './AlertaPedidoTransferencia';
+import MensagemReativacaoRapida from './MensagemReativacaoRapida';
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // 🎯 GETTER UNIFICADO: Contagem de não lidas (externo + interno)
@@ -136,6 +137,8 @@ export default function ChatWindow({
 
   const [mostrarSugestor, setMostrarSugestor] = React.useState(false);
   const [ultimaMensagemCliente, setUltimaMensagemCliente] = React.useState(null);
+  const [mostrarReativacaoRapida, setMostrarReativacaoRapida] = React.useState(false);
+  const [analiseComportamental, setAnaliseComportamental] = React.useState(null);
 
   const [canalSelecionado, setCanalSelecionado] = React.useState(null);
 
@@ -1626,6 +1629,38 @@ export default function ChatWindow({
     return () => clearTimeout(timer);
   }, [mensagens, thread?.id, thread?.unread_count]);
 
+  // ✅ Buscar análise comportamental do contato
+  React.useEffect(() => {
+    const buscarAnalise = async () => {
+      if (!thread?.contact_id) {
+        setAnaliseComportamental(null);
+        return;
+      }
+      
+      try {
+        const analises = await base44.entities.ContactBehaviorAnalysis.filter(
+          { contact_id: thread.contact_id },
+          '-analyzed_at',
+          1
+        );
+        
+        if (analises.length > 0) {
+          setAnaliseComportamental(analises[0]);
+          
+          // ✅ Mostrar reativação rápida se inativo 30+ dias
+          const diasInativo = analises[0].days_inactive_inbound || 0;
+          if (diasInativo >= 30) {
+            setMostrarReativacaoRapida(true);
+          }
+        }
+      } catch (error) {
+        console.error('[CHAT] Erro ao buscar análise:', error);
+      }
+    };
+    
+    buscarAnalise();
+  }, [thread?.contact_id]);
+
   React.useEffect(() => {
     if (mensagens && mensagens.length > 0) {
       const ultimaMensagem = mensagens[mensagens.length - 1];
@@ -1634,6 +1669,7 @@ export default function ChatWindow({
         setUltimaMensagemCliente(ultimaMensagem.content);
         // ✅ Abrir sugestor automaticamente quando cliente envia mensagem
         setMostrarSugestor(true);
+        setMostrarReativacaoRapida(false); // Fechar reativação se cliente respondeu
       } else {
         setUltimaMensagemCliente(null);
         setMostrarSugestor(false);
@@ -2460,25 +2496,40 @@ export default function ChatWindow({
         progressoBroadcast={progressoBroadcast} />
 
 
-      {mostrarSugestor &&
-      <div className="px-3 pb-3">
+      {/* ✅ REATIVAÇÃO RÁPIDA (inatividade 30+ dias) */}
+      {mostrarReativacaoRapida && !mostrarSugestor && analiseComportamental && (
+        <div className="px-3 pb-3">
+          <MensagemReativacaoRapida
+            contato={contatoCompleto}
+            analise={analiseComportamental}
+            variant="inline"
+            onUsarMensagem={(mensagem) => {
+              setMostrarReativacaoRapida(false);
+              toast.success('💡 Mensagem copiada! Cole no campo abaixo.');
+              navigator.clipboard.writeText(mensagem);
+            }}
+          />
+        </div>
+      )}
+
+      {/* ✅ SUGESTOR COMPLETO (análise detalhada) */}
+      {mostrarSugestor && !mostrarReativacaoRapida && (
+        <div className="px-3 pb-3">
           <div className="border border-purple-200 rounded-lg bg-purple-50/50 p-3">
             <SugestorRespostasRapidas
-            mensagemCliente={ultimaMensagemCliente}
-            threadId={thread.id}
-            contactId={thread.contact_id}
-            onUseResposta={(conteudo) => {
-              // Não podemos mais setar mensagemTexto aqui diretamente
-              // Precisamos de uma forma de comunicar com MessageInput
-              setMostrarSugestor(false);
-              toast.info('💡 Sugestão copiada! Cole no campo de mensagem.');
-              navigator.clipboard.writeText(conteudo);
-            }}
-            onClose={() => setMostrarSugestor(false)} />
-
+              mensagemCliente={ultimaMensagemCliente}
+              threadId={thread.id}
+              contactId={thread.contact_id}
+              onUseResposta={(conteudo) => {
+                setMostrarSugestor(false);
+                toast.info('💡 Sugestão copiada! Cole no campo de mensagem.');
+                navigator.clipboard.writeText(conteudo);
+              }}
+              onClose={() => setMostrarSugestor(false)}
+            />
           </div>
         </div>
-      }
+      )}
 
       {/* Modal removido - agora usa MediaAttachmentSystem */}
 
