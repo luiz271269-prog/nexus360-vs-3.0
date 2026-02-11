@@ -108,11 +108,6 @@ export default function ChatWindow({
   contatosSelecionados = [],
   broadcastInterno = null, // { destinations: [...] } para broadcast interno
   onCancelarSelecao,
-  // Props para envio em massa (via ContatosRequerendoAtencao)
-  modoEnvioMassa = false,
-  contatosEnvioMassa = [],
-  onCancelarEnvioMassa,
-  onEnvioMassaCompleto,
   atendentes = [], // ✅ PROP: Recebe lista completa de atendentes do pai (Comunicacao.jsx)
   filterScope = 'all',
   selectedIntegrationId = 'all',
@@ -152,10 +147,6 @@ export default function ChatWindow({
   // Estados para broadcast
   const [enviandoBroadcast, setEnviandoBroadcast] = React.useState(false);
   const [progressoBroadcast, setProgressoBroadcast] = React.useState({ enviados: 0, erros: 0, total: 0 });
-  
-  // Estados para envio em massa
-  const [mensagemMassa, setMensagemMassa] = React.useState('');
-  const [enviandoMassa, setEnviandoMassa] = React.useState(false);
 
   const messagesEndRef = React.useRef(null);
   const chatContainerRef = React.useRef(null);
@@ -381,52 +372,6 @@ export default function ChatWindow({
 
   // Determina se está em modo de broadcast interno
   const isBroadcastInternoAtivo = !!broadcastInterno;
-  
-  // Handler para envio em massa
-  const handleEnviarMassa = React.useCallback(async () => {
-    if (!mensagemMassa.trim()) {
-      toast.error('Digite uma mensagem');
-      return;
-    }
-
-    if (!contatosEnvioMassa.length) {
-      toast.error('Nenhum contato selecionado');
-      return;
-    }
-
-    setEnviandoMassa(true);
-
-    try {
-      toast.loading(`📤 Enviando para ${contatosEnvioMassa.length} contatos...`, { id: 'envio-massa' });
-
-      const resultado = await base44.functions.invoke('enviarMensagemMassa', {
-        contact_ids: contatosEnvioMassa.map(c => c.contact_id || c.id),
-        mensagem: mensagemMassa,
-        personalizar: true
-      });
-
-      if (resultado.data?.success) {
-        toast.success(
-          `✅ ${resultado.data.enviados} enviada(s)!` +
-          (resultado.data.erros > 0 ? `\n⚠️ ${resultado.data.erros} erro(s)` : ''),
-          { id: 'envio-massa', duration: 5000 }
-        );
-
-        if (resultado.data.enviados > 0) {
-          setMensagemMassa('');
-          if (onEnvioMassaCompleto) onEnvioMassaCompleto();
-        }
-      } else {
-        throw new Error(resultado.data?.error || 'Erro ao enviar');
-      }
-
-    } catch (error) {
-      console.error('[ENVIO-MASSA] Erro:', error);
-      toast.error(`❌ ${error.message}`, { id: 'envio-massa' });
-    } finally {
-      setEnviandoMassa(false);
-    }
-  }, [mensagemMassa, contatosEnvioMassa, onEnvioMassaCompleto]);
 
   // ═══════════════════════════════════════════════════════════════════════════════
   // 🔥 REGRA CRÍTICA: ATRIBUIÇÃO/TRANSFERÊNCIA É CHAVE MESTRA
@@ -2046,11 +1991,8 @@ export default function ChatWindow({
 
   // Se está em modo broadcast com contatos selecionados, mostrar interface de envio
   const mostrarInterfaceBroadcast = modoSelecaoMultipla && (contatosSelecionados.length > 0 || broadcastInterno);
-  
-  // Se está em modo envio em massa, mostrar interface específica
-  const mostrarInterfaceEnvioMassa = modoEnvioMassa && contatosEnvioMassa.length > 0;
 
-  if (!thread && !mostrarInterfaceBroadcast && !mostrarInterfaceEnvioMassa) {
+  if (!thread && !mostrarInterfaceBroadcast) {
     return (
       <div className="flex items-center justify-center h-full bg-slate-50">
         <div className="text-center">
@@ -2102,28 +2044,8 @@ export default function ChatWindow({
 
   return (
     <div className="flex flex-col h-full bg-white">
-        {/* Header - Modo Envio em Massa, Broadcast ou Central de Inteligência do Cliente */}
-        {mostrarInterfaceEnvioMassa ? (
-          <div className="bg-gradient-to-r from-blue-600 to-cyan-600 text-white px-4 py-3 border-b flex-shrink-0 shadow-sm flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center">
-                <Users className="w-6 h-6 text-white" />
-              </div>
-              <div>
-                <h3 className="text-lg font-bold">Envio em Massa</h3>
-                <p className="text-sm text-white/80">
-                  {contatosEnvioMassa.length} contato(s) selecionado(s)
-                </p>
-              </div>
-            </div>
-            <button
-              onClick={onCancelarEnvioMassa}
-              className="px-4 py-2 bg-white/20 hover:bg-white/30 rounded-lg text-sm font-medium transition-colors"
-            >
-              Cancelar
-            </button>
-          </div>
-        ) : mostrarInterfaceBroadcast ?
+        {/* Header - Modo Broadcast ou Central de Inteligência do Cliente */}
+        {mostrarInterfaceBroadcast ?
         <div className={`text-white px-4 py-3 border-b flex-shrink-0 shadow-sm flex items-center justify-between ${
         broadcastInterno ?
         'bg-gradient-to-r from-purple-500 to-indigo-500' :
@@ -2403,81 +2325,7 @@ export default function ChatWindow({
         </div>
       }
 
-      {mostrarInterfaceEnvioMassa ? (
-        <div className="flex-1 overflow-y-auto p-6 bg-gradient-to-br from-blue-50 to-cyan-50">
-          <div className="max-w-3xl mx-auto space-y-4">
-            {/* Lista de contatos */}
-            <div>
-              <h4 className="text-sm font-semibold text-slate-700 mb-3">Contatos selecionados:</h4>
-              <div className="flex flex-wrap gap-2 p-4 bg-white rounded-lg border border-blue-200">
-                {contatosEnvioMassa.map((c) => (
-                  <Badge key={c.contact_id || c.id} variant="outline" className="text-xs bg-blue-50 border-blue-300">
-                    {c.nome || c.empresa}
-                  </Badge>
-                ))}
-              </div>
-            </div>
-
-            {/* Campo de mensagem */}
-            <div className="space-y-2">
-              <label className="text-sm font-semibold text-slate-700">Mensagem *</label>
-              <textarea
-                value={mensagemMassa}
-                onChange={(e) => setMensagemMassa(e.target.value)}
-                placeholder="Digite sua mensagem aqui...&#10;&#10;Use {{nome}} e {{empresa}} para personalizar.&#10;&#10;Ex: Olá {{nome}}! Temos novidades para você..."
-                rows={8}
-                className="w-full resize-none border border-slate-300 rounded-lg p-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-              <p className="text-xs text-slate-500">
-                💡 Placeholders disponíveis: <code className="bg-slate-100 px-1 rounded">{'{{nome}}'}</code>, <code className="bg-slate-100 px-1 rounded">{'{{empresa}}'}</code>
-              </p>
-              <p className="text-xs text-slate-600">{mensagemMassa.length} caracteres</p>
-            </div>
-
-            {/* Preview */}
-            {mensagemMassa && contatosEnvioMassa.length > 0 && (
-              <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
-                <p className="text-xs font-semibold text-green-800 mb-2">
-                  📝 Preview (primeiro contato):
-                </p>
-                <p className="text-sm text-slate-700 whitespace-pre-wrap">
-                  {mensagemMassa
-                    .replace(/\{\{nome\}\}/gi, contatosEnvioMassa[0].nome || 'Cliente')
-                    .replace(/\{\{empresa\}\}/gi, contatosEnvioMassa[0].empresa || '')}
-                </p>
-              </div>
-            )}
-
-            {/* Botão Enviar */}
-            <div className="flex justify-end gap-3">
-              <Button
-                variant="outline"
-                onClick={onCancelarEnvioMassa}
-                disabled={enviandoMassa}
-              >
-                Cancelar
-              </Button>
-              <Button
-                onClick={handleEnviarMassa}
-                disabled={enviandoMassa || !mensagemMassa.trim()}
-                className="bg-blue-600 hover:bg-blue-700"
-              >
-                {enviandoMassa ? (
-                  <>
-                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                    Enviando...
-                  </>
-                ) : (
-                  <>
-                    <Send className="w-4 h-4 mr-2" />
-                    Enviar para {contatosEnvioMassa.length}
-                  </>
-                )}
-              </Button>
-            </div>
-          </div>
-        </div>
-      ) : mostrarInterfaceBroadcast ?
+      {mostrarInterfaceBroadcast ?
       <div className="flex-1 overflow-y-auto p-4 bg-gradient-to-br from-orange-50 to-amber-50">
         <div className="max-w-2xl mx-auto">
           <h4 className="text-sm font-semibold text-slate-700 mb-3">
@@ -2616,8 +2464,7 @@ export default function ChatWindow({
       }
 
       {/* ✅ COMPONENTE ISOLADO - Zero re-render no ChatWindow ao digitar */}
-      {!mostrarInterfaceEnvioMassa && (
-        <MessageInput
+      <MessageInput
           onSendMessage={handleEnviarFromInput}
           mensagemResposta={mensagemResposta}
           onClearResposta={() => setMensagemResposta(null)}
@@ -2648,7 +2495,6 @@ export default function ChatWindow({
           enviandoBroadcast={enviandoBroadcast}
           progressoBroadcast={progressoBroadcast}
         />
-      )}
 
 
       {/* 🎯 SISTEMA INTELIGENTE DE SUGESTÕES - 2 NÍVEIS */}
