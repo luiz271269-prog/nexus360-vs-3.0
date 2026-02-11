@@ -18,7 +18,7 @@ import {
 import { toast } from 'sonner';
 import { useContatosInteligentes } from '../hooks/useContatosInteligentes';
 import { base44 } from '@/api/base44Client';
-import ModalEnvioMassa from './ModalEnvioMassa';
+import { createPageUrl } from '@/utils';
 
 export default function ContatosRequerendoAtencao({ usuario, onSelecionarContato, variant = 'sidebar' }) {
   const [expandido, setExpandido] = useState(false);
@@ -27,7 +27,6 @@ export default function ContatosRequerendoAtencao({ usuario, onSelecionarContato
   const [usuariosMap, setUsuariosMap] = useState({});
   const [enviandoPromos, setEnviandoPromos] = useState(false);
   const [contatosSelecionados, setContatosSelecionados] = useState([]);
-  const [modalMassaOpen, setModalMassaOpen] = useState(false);
   const isHeader = variant === 'header';
 
   // ✅ Motor Unificado V3
@@ -193,7 +192,19 @@ export default function ContatosRequerendoAtencao({ usuario, onSelecionarContato
       toast.error('Selecione ao menos 1 contato');
       return;
     }
-    setModalMassaOpen(true);
+    
+    // Salvar no localStorage para passar para página Comunicacao
+    localStorage.setItem('envio_massa_contatos', JSON.stringify(
+      contatosSelecionados.map(c => ({
+        contact_id: c.contact_id || c.id,
+        nome: c.nome,
+        empresa: c.empresa,
+        telefone: c.telefone
+      }))
+    ));
+    
+    // Navegar para página de comunicação
+    window.location.href = createPageUrl('Comunicacao') + '?modo=envio_massa';
   };
 
   const enviarPromocoesAutomaticas = async () => {
@@ -809,16 +820,7 @@ export default function ContatosRequerendoAtencao({ usuario, onSelecionarContato
         </div>
       )}
 
-      {/* Modal de Envio em Massa */}
-      <ModalEnvioMassa
-        isOpen={modalMassaOpen}
-        onClose={() => setModalMassaOpen(false)}
-        contatosSelecionados={contatosSelecionados}
-        onEnvioCompleto={() => {
-          setContatosSelecionados([]);
-          refetch();
-        }}
-      />
+
     </div>
   );
 }
