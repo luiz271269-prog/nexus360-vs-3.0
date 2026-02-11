@@ -32,51 +32,39 @@ export default function SugestorRespostasRapidas({
     setSugestoes([]);
 
     try {
-      console.log('[SUGESTOR] 🧠 Gerando sugestões para:', mensagemCliente.substring(0, 50));
+      console.log('[SUGESTOR] 🧠 Usando função V3 com análise comportamental');
 
-      // Chamar LLM DIRETO sem consultar base de conhecimento (para reduzir rate limit)
-      const prompt = `Você é um assistente de atendimento profissional.
-
-Cliente perguntou: "${mensagemCliente}"
-
-Gere 3 sugestões de respostas claras, objetivas e profissionais.
-Formate como JSON:
-{
-  "sugestoes": [
-    {"texto": "Resposta 1", "tom": "formal"},
-    {"texto": "Resposta 2", "tom": "amigavel"},
-    {"texto": "Resposta 3", "tom": "objetiva"}
-  ]
-}`;
-
-      const resposta = await base44.integrations.Core.InvokeLLM({
-        prompt: prompt,
-        response_json_schema: {
-          type: "object",
-          properties: {
-            sugestoes: {
-              type: "array",
-              items: {
-                type: "object",
-                properties: {
-                  texto: { type: "string" },
-                  tom: { type: "string" }
-                }
-              }
-            }
-          }
-        }
+      // ✅ Chamar função backend V3 que integra ContactBehaviorAnalysis
+      const resultado = await base44.functions.invoke('gerarSugestoesRespostaContato', {
+        contact_id: contactId,
+        limit: 80,
+        tom: ['formal', 'amigavel', 'objetiva'],
+        idioma: 'pt-BR'
       });
 
-      if (resposta && resposta.sugestoes && Array.isArray(resposta.sugestoes)) {
-        setSugestoes(resposta.sugestoes);
-        console.log('[SUGESTOR] ✅ Sugestões geradas:', resposta.sugestoes.length);
+      if (resultado.data?.success && resultado.data.suggestions) {
+        // Converter formato backend → formato UI
+        const sugestoesUI = resultado.data.suggestions.map(s => ({
+          texto: s.message,
+          tom: s.tone,
+          title: s.title
+        }));
+        
+        setSugestoes(sugestoesUI);
+        console.log('[SUGESTOR] ✅ Sugestões V3 geradas:', sugestoesUI.length);
+        
+        // Mostrar análise se disponível
+        if (resultado.data.analysis?.customer_intent) {
+          const intent = resultado.data.analysis.customer_intent;
+          const urgency = resultado.data.analysis.urgency;
+          toast.info(`🎯 Intenção: ${intent} • Urgência: ${urgency}`, { duration: 3000 });
+        }
       } else {
-        throw new Error('Resposta inválida da IA');
+        throw new Error(resultado.data?.error || 'Resposta inválida');
       }
 
     } catch (error) {
-      console.error('[SUGESTOR] ❌ Erro:', error);
+      console.error('[SUGESTOR] ❌ Erro ao gerar V3:', error);
       setErro('Não foi possível gerar sugestões. Tente novamente.');
       
       // Fallback: sugestões genéricas
