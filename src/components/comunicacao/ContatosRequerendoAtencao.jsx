@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -96,6 +96,11 @@ export default function ContatosRequerendoAtencao({ usuario, onSelecionarContato
       grupos[topico].push(item);
     });
 
+    // ✅ ORDENAR por score dentro de cada grupo
+    Object.keys(grupos).forEach(key => {
+      grupos[key].sort((a, b) => (b.prioridadeScore || 0) - (a.prioridadeScore || 0));
+    });
+
     return grupos;
   };
 
@@ -109,6 +114,11 @@ export default function ContatosRequerendoAtencao({ usuario, onSelecionarContato
       
       if (!grupos[key]) grupos[key] = [];
       grupos[key].push(item);
+    });
+
+    // ✅ ORDENAR por score dentro de cada grupo
+    Object.keys(grupos).forEach(key => {
+      grupos[key].sort((a, b) => (b.prioridadeScore || 0) - (a.prioridadeScore || 0));
     });
 
     return grupos;
@@ -132,6 +142,11 @@ export default function ContatosRequerendoAtencao({ usuario, onSelecionarContato
         '💀 90+ dias inativos';
 
       grupos[key].push(item);
+    });
+
+    // ✅ ORDENAR por score dentro de cada grupo
+    Object.keys(grupos).forEach(key => {
+      grupos[key].sort((a, b) => (b.prioridadeScore || 0) - (a.prioridadeScore || 0));
     });
 
     return grupos;
@@ -170,7 +185,7 @@ export default function ContatosRequerendoAtencao({ usuario, onSelecionarContato
     
     return (
       <button
-        key={item.contact_id}
+        key={item.contact_id || item.id}
         onClick={() => {
           if (onSelecionarContato) {
             // ✅ Passar dados enriquecidos do contato
@@ -201,10 +216,10 @@ export default function ContatosRequerendoAtencao({ usuario, onSelecionarContato
             }
           }
         }}
-        className="w-full px-4 py-2 flex items-start gap-2 hover:bg-white transition-colors border-b border-slate-100 last:border-b-0 relative"
+        className="relative w-full px-4 py-2 flex items-start gap-2 hover:bg-white transition-colors border-b border-slate-100 last:border-b-0"
       >
         {/* Indicador lateral */}
-        <div className={`w-1 h-full absolute left-0 ${getPrioridadeCor(item.prioridadeLabel)}`} />
+        <div className={`w-1 h-full absolute left-0 top-0 ${getPrioridadeCor(item.prioridadeLabel)}`} />
 
         {/* Avatar */}
         <div className="relative flex-shrink-0 mt-0.5">
