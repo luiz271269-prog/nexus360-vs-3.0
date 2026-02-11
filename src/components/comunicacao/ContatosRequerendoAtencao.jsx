@@ -502,24 +502,46 @@ export default function ContatosRequerendoAtencao({ usuario, onSelecionarContato
                   </Button>
                 </div>
 
-                {/* Botão Envio Automático */}
-                <Button
-                  onClick={enviarPromocoesAutomaticas}
-                  disabled={enviandoPromos || loading || totalAlertas === 0}
-                  className="w-full h-8 text-xs bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white shadow-md"
-                >
-                  {enviandoPromos ? (
-                    <>
-                      <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />
-                      Enviando...
-                    </>
-                  ) : (
-                    <>
-                      <Sparkles className="w-3.5 h-3.5 mr-1.5" />
-                      Enviar Promoções Auto ({totalAlertas})
-                    </>
-                  )}
-                </Button>
+                {/* Botões de Ação */}
+                <div className="flex gap-2">
+                  <Button
+                    onClick={enviarPromocoesAutomaticas}
+                    disabled={enviandoPromos || loading || totalAlertas === 0}
+                    className="flex-1 h-8 text-xs bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white shadow-md disabled:opacity-50"
+                  >
+                    {enviandoPromos ? (
+                      <>
+                        <Loader2 className="w-3.5 h-3.5 mr-1 animate-spin" />
+                        Enviando...
+                      </>
+                    ) : (
+                      <>
+                        <Sparkles className="w-3.5 h-3.5 mr-1" />
+                        Auto ({totalAlertas})
+                      </>
+                    )}
+                  </Button>
+                  <Button
+                    onClick={abrirModalMassa}
+                    disabled={contatosSelecionados.length === 0}
+                    className="flex-1 h-8 text-xs bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700 text-white shadow-md disabled:opacity-50"
+                  >
+                    <MessageSquare className="w-3.5 h-3.5 mr-1" />
+                    Massa ({contatosSelecionados.length})
+                  </Button>
+                </div>
+
+                {/* Selecionar todos */}
+                {totalAlertas > 0 && (
+                  <Button
+                    onClick={toggleSelecionarTodos}
+                    variant="outline"
+                    size="sm"
+                    className="w-full h-7 text-xs"
+                  >
+                    {contatosSelecionados.length === contatosComAlerta.length ? '❌ Desmarcar Todos' : '✅ Selecionar Todos'}
+                  </Button>
+                )}
               </div>
 
               {/* Lista */}
