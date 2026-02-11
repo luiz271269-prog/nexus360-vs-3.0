@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
 import {
   AlertTriangle,
   Target,
@@ -11,11 +12,13 @@ import {
   User,
   Clock,
   Send,
-  Sparkles
+  Sparkles,
+  MessageSquare
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useContatosInteligentes } from '../hooks/useContatosInteligentes';
 import { base44 } from '@/api/base44Client';
+import ModalEnvioMassa from './ModalEnvioMassa';
 
 export default function ContatosRequerendoAtencao({ usuario, onSelecionarContato, variant = 'sidebar' }) {
   const [expandido, setExpandido] = useState(false);
@@ -23,6 +26,8 @@ export default function ContatosRequerendoAtencao({ usuario, onSelecionarContato
   const [gruposExpandidos, setGruposExpandidos] = useState({});
   const [usuariosMap, setUsuariosMap] = useState({});
   const [enviandoPromos, setEnviandoPromos] = useState(false);
+  const [contatosSelecionados, setContatosSelecionados] = useState([]);
+  const [modalMassaOpen, setModalMassaOpen] = useState(false);
   const isHeader = variant === 'header';
 
   // ✅ Motor Unificado V3
@@ -162,6 +167,35 @@ export default function ContatosRequerendoAtencao({ usuario, onSelecionarContato
 
   const totalAlertas = totalUrgentes || contatosComAlerta.length;
 
+  const toggleSelecaoContato = (contato) => {
+    setContatosSelecionados(prev => {
+      const id = contato.contact_id || contato.id;
+      const jaEsta = prev.some(c => (c.contact_id || c.id) === id);
+      
+      if (jaEsta) {
+        return prev.filter(c => (c.contact_id || c.id) !== id);
+      } else {
+        return [...prev, contato];
+      }
+    });
+  };
+
+  const toggleSelecionarTodos = () => {
+    if (contatosSelecionados.length === contatosComAlerta.length) {
+      setContatosSelecionados([]);
+    } else {
+      setContatosSelecionados([...contatosComAlerta]);
+    }
+  };
+
+  const abrirModalMassa = () => {
+    if (contatosSelecionados.length === 0) {
+      toast.error('Selecione ao menos 1 contato');
+      return;
+    }
+    setModalMassaOpen(true);
+  };
+
   const enviarPromocoesAutomaticas = async () => {
     if (!contatosComAlerta.length) {
       toast.error('Nenhum contato para enviar promoções');
@@ -235,61 +269,74 @@ export default function ContatosRequerendoAtencao({ usuario, onSelecionarContato
     }
   };
 
-  // ✅ Renderizar item de contato
+  // ✅ Renderizar item de contato (com seleção)
   const renderContatoItem = (item) => {
     const assignedId = item.vendedor_responsavel || item.assigned_user_id;
     const atendenteNome = assignedId ? (usuariosMap[assignedId] || 'Carregando...') : 'Não atribuído';
+    const contatoId = item.contact_id || item.id;
+    const estaSelecionado = contatosSelecionados.some(c => (c.contact_id || c.id) === contatoId);
     
     return (
-      <button
-        key={item.contact_id || item.id}
-        onClick={() => {
-          if (onSelecionarContato) {
-            // ✅ Passar dados enriquecidos do contato
-            if (item.thread_id) {
-              onSelecionarContato({ 
-                id: item.thread_id,
-                contatoPreCarregado: {
-                  id: item.contact_id,
-                  nome: item.nome,
-                  empresa: item.empresa,
-                  telefone: item.telefone,
-                  tipo_contato: item.tipo_contato,
-                  vendedor_responsavel: item.vendedor_responsavel,
-                  score_engajamento: item.engagement,
-                  cliente_score: item.health
-                }
-              });
-              setExpandido(false);
-            } else {
-              // Fallback: buscar thread
-              base44.entities.MessageThread.filter({ contact_id: item.contact_id }, '-last_message_at', 1)
-                .then(threads => {
-                  if (threads.length > 0) {
-                    onSelecionarContato({ id: threads[0].id });
-                    setExpandido(false);
-                  }
-                });
-            }
-          }
-        }}
-        className="relative w-full px-4 py-2 flex items-start gap-2 hover:bg-white transition-colors border-b border-slate-100 last:border-b-0"
+      <div
+        key={contatoId}
+        className={`relative w-full px-4 py-2 flex items-start gap-2 border-b border-slate-100 last:border-b-0 transition-colors ${
+          estaSelecionado ? 'bg-blue-50' : 'hover:bg-white'
+        }`}
       >
         {/* Indicador lateral */}
         <div className={`w-1 h-full absolute left-0 top-0 ${getPrioridadeCor(item.prioridadeLabel)}`} />
 
+        {/* Checkbox de seleção */}
+        <div className="flex-shrink-0 mt-2.5">
+          <Checkbox
+            checked={estaSelecionado}
+            onCheckedChange={() => toggleSelecaoContato(item)}
+            onClick={(e) => e.stopPropagation()}
+          />
+        </div>
+
         {/* Avatar */}
-        <div className="relative flex-shrink-0 mt-0.5">
+        <button
+          onClick={() => {
+            if (onSelecionarContato) {
+              if (item.thread_id) {
+                onSelecionarContato({ 
+                  id: item.thread_id,
+                  contatoPreCarregado: {
+                    id: item.contact_id,
+                    nome: item.nome,
+                    empresa: item.empresa,
+                    telefone: item.telefone,
+                    tipo_contato: item.tipo_contato,
+                    vendedor_responsavel: item.vendedor_responsavel,
+                    score_engajamento: item.engagement,
+                    cliente_score: item.health
+                  }
+                });
+                setExpandido(false);
+              } else {
+                base44.entities.MessageThread.filter({ contact_id: item.contact_id }, '-last_message_at', 1)
+                  .then(threads => {
+                    if (threads.length > 0) {
+                      onSelecionarContato({ id: threads[0].id });
+                      setExpandido(false);
+                    }
+                  });
+              }
+            }
+          }}
+          className="relative flex-shrink-0 mt-0.5 cursor-pointer hover:scale-105 transition-transform"
+        >
           <div className="w-8 h-8 rounded-full flex items-center justify-center text-white font-bold text-sm shadow-sm bg-gradient-to-br from-orange-400 to-red-500">
             {item.nome?.charAt(0)?.toUpperCase() || '?'}
           </div>
           <Badge className={`absolute -bottom-1 -right-1 ${getBucketCor(item.bucket_inactive)} text-white text-[8px] px-1 py-0 h-4 min-w-4 flex items-center justify-center`}>
             {item.bucket_inactive === 'active' ? '✓' : item.bucket_inactive}
           </Badge>
-        </div>
+        </button>
 
         {/* Info */}
-        <div className="flex-1 min-w-0 text-left">
+        <div className="flex-1 min-w-0 text-left cursor-pointer" onClick={() => toggleSelecaoContato(item)}>
           <div className="flex items-center gap-1 mb-0.5">
             <p className="font-medium text-xs text-slate-800 truncate">
               {item.empresa || item.nome}
@@ -347,9 +394,7 @@ export default function ContatosRequerendoAtencao({ usuario, onSelecionarContato
             </button>
           )}
         </div>
-
-        <ChevronRight className="w-4 h-4 text-slate-400 flex-shrink-0 mt-1" />
-      </button>
+      </div>
     );
   };
 
@@ -643,24 +688,46 @@ export default function ContatosRequerendoAtencao({ usuario, onSelecionarContato
               </Button>
             </div>
 
-            {/* Botão Envio Automático */}
-            <Button
-              onClick={enviarPromocoesAutomaticas}
-              disabled={enviandoPromos || loading || totalAlertas === 0}
-              className="w-full h-8 text-xs bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white shadow-md disabled:opacity-50"
-            >
-              {enviandoPromos ? (
-                <>
-                  <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />
-                  Enviando promoções...
-                </>
-              ) : (
-                <>
-                  <Sparkles className="w-3.5 h-3.5 mr-1.5" />
-                  Enviar Promoções Auto ({totalAlertas})
-                </>
-              )}
-            </Button>
+            {/* Botões de Ação */}
+            <div className="flex gap-2">
+              <Button
+                onClick={enviarPromocoesAutomaticas}
+                disabled={enviandoPromos || loading || totalAlertas === 0}
+                className="flex-1 h-8 text-xs bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white shadow-md disabled:opacity-50"
+              >
+                {enviandoPromos ? (
+                  <>
+                    <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />
+                    Enviando...
+                  </>
+                ) : (
+                  <>
+                    <Sparkles className="w-3.5 h-3.5 mr-1.5" />
+                    Auto ({totalAlertas})
+                  </>
+                )}
+              </Button>
+              <Button
+                onClick={abrirModalMassa}
+                disabled={contatosSelecionados.length === 0}
+                className="flex-1 h-8 text-xs bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700 text-white shadow-md disabled:opacity-50"
+              >
+                <MessageSquare className="w-3.5 h-3.5 mr-1.5" />
+                Massa ({contatosSelecionados.length})
+              </Button>
+            </div>
+
+            {/* Botão selecionar todos */}
+            {totalAlertas > 0 && (
+              <Button
+                onClick={toggleSelecionarTodos}
+                variant="outline"
+                size="sm"
+                className="w-full h-7 text-xs"
+              >
+                {contatosSelecionados.length === contatosComAlerta.length ? '❌ Desmarcar Todos' : '✅ Selecionar Todos'}
+              </Button>
+            )}
           </div>
 
           {/* Lista de grupos */}
@@ -741,6 +808,17 @@ export default function ContatosRequerendoAtencao({ usuario, onSelecionarContato
           )}
         </div>
       )}
+
+      {/* Modal de Envio em Massa */}
+      <ModalEnvioMassa
+        isOpen={modalMassaOpen}
+        onClose={() => setModalMassaOpen(false)}
+        contatosSelecionados={contatosSelecionados}
+        onEnvioCompleto={() => {
+          setContatosSelecionados([]);
+          refetch();
+        }}
+      />
     </div>
   );
 }
