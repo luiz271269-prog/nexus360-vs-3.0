@@ -17,26 +17,23 @@ export default function SugestorRespostasRapidas({
   onUseResposta,
   onClose 
 }) {
-  const [gerando, setGerando] = useState(false);
+  const [status, setStatus] = useState('idle'); // ✅ Estado único: idle | loading | cached | ready | error
   const [sugestoes, setSugestoes] = useState([]);
   const [erro, setErro] = useState(null);
-  const [analiseContexto, setAnaliseContexto] = useState(null); // ✅ Análise da conversa
-  const [stage, setStage] = useState('loading'); // loading | cached | generating | ready
-  const abortControllerRef = React.useRef(null); // ✅ Debounce/cancelamento
+  const [analiseContexto, setAnaliseContexto] = useState(null);
+  const abortControllerRef = useRef(null);
+  const reqSeqRef = useRef(0); // ✅ Controle de concorrência
 
   const gerarSugestoes = async (force = false) => {
-    if (!mensagemCliente || mensagemCliente.length < 5) {
-      toast.error('Mensagem muito curta para gerar sugestões');
-      return;
-    }
-
-    // ✅ Cancelar requisição anterior se existir
+    const seq = ++reqSeqRef.current; // ✅ Incrementar sequência
+    
+    // ✅ Cancelar requisição anterior
     if (abortControllerRef.current) {
       abortControllerRef.current.abort();
     }
     abortControllerRef.current = new AbortController();
 
-    setGerando(true);
+    setStatus('loading');
     setErro(null);
     if (force) {
       setSugestoes([]);
@@ -44,17 +41,23 @@ export default function SugestorRespostasRapidas({
     }
 
     try {
-      console.log('[SUGESTOR] 🧠 Chamando backend V3...');
-      setStage(force ? 'generating' : 'loading');
+      console.log(`[SUGESTOR] 🧠 Chamando backend V3 (seq=${seq})...`);
 
-      // ✅ Chamar função backend V3 (OTIMIZADO: cache + paralelo + tokens reduzidos)
+      // ✅ Payload otimizado com thread_id
       const resultado = await base44.functions.invoke('gerarSugestoesRespostaContato', {
-        contact_id: contactId,
+        thread_id: threadId || null, // ✅ NOVO: preferencial (-80ms)
+        contact_id: contactId || null, // ✅ Fallback
         limit: 50,
-        tom: ['formal', 'amigavel', 'objetiva'],
-        idioma: 'pt-BR',
-        force // ✅ Forçar regeneração
+        language: 'pt-BR',
+        tones: ['formal', 'amigavel', 'objetiva'],
+        force
       });
+
+      // ✅ CRÍTICO: Ignorar se resposta chegou atrasada
+      if (seq !== reqSeqRef.current) {
+        console.log(`[SUGESTOR] ⚠️ Resposta descartada (seq=${seq}, atual=${reqSeqRef.current})`);
+        return;
+      }
 
       if (resultado.data?.success && resultado.data.suggestions) {
         const isCacheHit = resultado.data.meta?.cache_hit === true;
@@ -68,7 +71,7 @@ export default function SugestorRespostasRapidas({
         
         setSugestoes(sugestoesUI);
         setAnaliseContexto(resultado.data.analysis);
-        setStage(isCacheHit ? 'cached' : 'ready');
+        setStatus(isCacheHit ? 'cached' : 'ready');
         
         console.log(`[SUGESTOR] ✅ ${isCacheHit ? 'Cache hit' : 'Sugestões geradas'} (${sugestoesUI.length} itens)`);
         
@@ -93,6 +96,12 @@ export default function SugestorRespostasRapidas({
       }
 
     } catch (error) {
+      // ✅ Ignorar erros de requisições antigas
+      if (seq !== reqSeqRef.current) {
+        console.log(`[SUGESTOR] ⚠️ Erro de req antiga ignorado (seq=${seq})`);
+        return;
+      }
+      
       if (error.name === 'AbortError') {
         console.log('[SUGESTOR] ⚠️ Requisição cancelada');
         return;
@@ -100,7 +109,7 @@ export default function SugestorRespostasRapidas({
       
       console.error('[SUGESTOR] ❌ Erro ao gerar V3:', error);
       setErro('Não foi possível gerar sugestões. Tente novamente.');
-      setStage('error');
+      setStatus('error');
       
       // Fallback: sugestões genéricas
       setSugestoes([
@@ -118,7 +127,6 @@ export default function SugestorRespostasRapidas({
         }
       ]);
     } finally {
-      setGerando(false);
       abortControllerRef.current = null;
     }
   };
@@ -141,16 +149,20 @@ export default function SugestorRespostasRapidas({
     }
   };
 
-  // ✅ Gerar sugestões automaticamente ao montar (debounce)
+  // ✅ Gerar sugestões automaticamente ao montar/trocar thread
   useEffect(() => {
-    if (!contactId) return;
+    if (!contactId && !threadId) return;
     
-    // Debounce: aguardar 300ms antes de disparar
+    // ✅ Guard: evitar chamadas redundantes
+    if (status === 'loading' || status === 'cached' || status === 'ready') {
+      console.log('[SUGESTOR] ⏭️ Pulando disparo (já em processo ou pronto)');
+      return;
+    }
+    
+    // Debounce: aguardar 200ms antes de disparar
     const timer = setTimeout(() => {
-      if (sugestoes.length === 0 && !gerando && !erro) {
-        gerarSugestoes(false);
-      }
-    }, 300);
+      gerarSugestoes(false);
+    }, 200);
     
     return () => {
       clearTimeout(timer);
@@ -159,7 +171,7 @@ export default function SugestorRespostasRapidas({
         abortControllerRef.current.abort();
       }
     };
-  }, [contactId]);
+  }, [threadId, contactId]); // ✅ Depende de AMBOS (corrige bug de cache de thread)
 
   return (
     <Card className="border-2 border-purple-200 bg-gradient-to-br from-purple-50 to-indigo-50 shadow-lg">
@@ -265,8 +277,14 @@ export default function SugestorRespostasRapidas({
           )}
         </div>
 
-        {/* Estados de Loading */}
-        {sugestoes.length === 0 && !gerando && !erro && (
+        {/* Loading States */}
+        {status === 'idle' && (
+          <div className="text-center py-4">
+            <p className="text-sm text-purple-600">Inicializando...</p>
+          </div>
+        )}
+
+        {status === 'loading' && (
           <div className="text-center py-6">
             <div className="relative w-16 h-16 mx-auto mb-3">
               <Loader2 className="w-16 h-16 animate-spin text-purple-600" />
@@ -274,38 +292,34 @@ export default function SugestorRespostasRapidas({
                 <Sparkles className="w-6 h-6 text-purple-800" />
               </div>
             </div>
-            <p className="text-sm font-semibold text-purple-800 mb-1">
-              {stage === 'loading' ? 'Verificando cache...' : 
-               stage === 'generating' ? 'Gerando sugestões...' : 
-               'Analisando últimas 50 mensagens...'}
-            </p>
-            <p className="text-xs text-purple-600">
-              {stage === 'loading' ? '⚡ Busca instantânea' : 'Contexto + Comportamento + Intenção'}
-            </p>
-          </div>
-        )}
-
-        {/* Loading */}
-        {gerando && (
-          <div className="flex items-center justify-center py-8">
-            <Loader2 className="w-6 h-6 animate-spin text-purple-600 mr-2" />
-            <span className="text-sm text-purple-700">Gerando sugestões...</span>
+            <p className="text-sm font-semibold text-purple-800 mb-1">⚡ Analisando conversa...</p>
+            <p className="text-xs text-purple-600">Verificando cache + contexto</p>
           </div>
         )}
 
         {/* Erro */}
-        {erro && (
+        {status === 'error' && erro && (
           <div className="bg-red-50 border border-red-200 rounded-lg p-3 flex items-start gap-2">
             <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
-            <p className="text-sm text-red-700">{erro}</p>
+            <div className="flex-1">
+              <p className="text-sm text-red-700 mb-2">{erro}</p>
+              <Button
+                onClick={() => gerarSugestoes(true)}
+                size="sm"
+                variant="outline"
+                className="border-red-300 text-red-700 hover:bg-red-50"
+              >
+                🔄 Tentar Novamente
+              </Button>
+            </div>
           </div>
         )}
 
         {/* Sugestões */}
-        {sugestoes.length > 0 && (
+        {(status === 'ready' || status === 'cached') && sugestoes.length > 0 && (
           <div className="space-y-2">
             {/* Badge de Cache/Geração */}
-            {stage === 'cached' && (
+            {status === 'cached' && (
               <div className="flex items-center justify-center gap-2 py-1.5 px-3 bg-green-50 border border-green-200 rounded-lg">
                 <Badge className="bg-green-500 text-white text-[9px] px-1.5 py-0.5">⚡ CACHE</Badge>
                 <span className="text-xs text-green-700 font-medium">Resposta instantânea</span>
@@ -340,12 +354,12 @@ export default function SugestorRespostasRapidas({
               variant="outline"
               size="sm"
               className="w-full border-purple-300 text-purple-700 hover:bg-purple-50"
-              disabled={gerando}
+              disabled={status === 'loading'}
             >
               🔄 Gerar Novas Sugestões
             </Button>
-          </div>
-        )}
+            </div>
+            )}
 
         {/* Footer */}
         <div className="mt-3 pt-3 border-t border-purple-100">

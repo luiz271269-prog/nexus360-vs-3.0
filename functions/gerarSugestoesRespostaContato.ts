@@ -12,42 +12,75 @@ Deno.serve(async (req) => {
   try {
     const body = await req.json().catch(() => ({}));
     const {
+      thread_id, // ✅ NOVO: thread_id preferencial
       contact_id,
-      limit = 50, // ✅ OTIMIZADO: 50 mensagens por padrão (2x mais rápido)
-      tom = ['formal', 'amigavel', 'objetiva'],
-      idioma = 'pt-BR',
+      limit = 50,
+      tones = ['formal', 'amigavel', 'objetiva'], // ✅ Padronizado
+      language = 'pt-BR',
+      force = false
     } = body;
 
-    if (!contact_id) {
-      return Response.json({ success: false, error: 'contact_id é obrigatório' }, { status: 400 });
-    }
+    // ✅ Aceita tom/idioma (legado) ou tones/language (novo)
+    const tom = body.tom || tones;
+    const idioma = body.idioma || language;
 
-    const N = Math.max(30, Math.min(80, Number(limit) || 50)); // ✅ Limites ajustados
-    const forceRegenerate = body.force === true; // ✅ Forçar regeneração (ignora cache)
+    const N = Math.max(30, Math.min(80, Number(limit) || 50));
+    const forceRegenerate = force === true;
 
     // ═════════════════════════════════════════════════════════════════
-    // 1️⃣+2️⃣ BUSCAR TUDO EM PARALELO (OTIMIZADO)
+    // 1️⃣ RESOLVER THREAD (otimizado com thread_id direto)
     // ═════════════════════════════════════════════════════════════════
-    const [contato, analises, threads] = await Promise.all([
-      base44.asServiceRole.entities.Contact.get(contact_id).catch(() => null),
-      base44.asServiceRole.entities.ContactBehaviorAnalysis.filter(
-        { contact_id },
-        '-analyzed_at',
-        1
-      ),
-      base44.asServiceRole.entities.MessageThread.filter(
-        { contact_id, is_canonical: true },
-        '-last_message_at',
-        1
-      )
-    ]);
+    let thread = null;
+    let contato = null;
 
-    if (!contato) {
-      return Response.json({ success: false, error: 'Contato não encontrado' }, { status: 404 });
+    if (thread_id) {
+      // ✅ CAMINHO RÁPIDO: thread direto + contato em paralelo (-80ms)
+      const threadPromise = base44.asServiceRole.entities.MessageThread.get(thread_id).catch(() => null);
+      const contatoPromise = contact_id 
+        ? base44.asServiceRole.entities.Contact.get(contact_id).catch(() => null)
+        : null;
+      
+      [thread, contato] = await Promise.all([threadPromise, contatoPromise]);
+      
+      // Se thread existe mas contato não veio, buscar pelo contact_id da thread
+      if (thread && !contato && thread.contact_id) {
+        contato = await base44.asServiceRole.entities.Contact.get(thread.contact_id).catch(() => null);
+      }
+    } else if (contact_id) {
+      // ✅ FALLBACK: buscar thread canônica
+      const [contatoData, threadsData] = await Promise.all([
+        base44.asServiceRole.entities.Contact.get(contact_id).catch(() => null),
+        base44.asServiceRole.entities.MessageThread.filter(
+          { contact_id, is_canonical: true },
+          '-last_message_at',
+          1
+        )
+      ]);
+      contato = contatoData;
+      thread = threadsData?.[0] || null;
+    } else {
+      return Response.json({ 
+        success: false, 
+        error: 'thread_id ou contact_id é obrigatório' 
+      }, { status: 400 });
     }
 
+    if (!thread && !contato) {
+      return Response.json({ 
+        success: false, 
+        error: 'Thread/Contato não encontrado' 
+      }, { status: 404 });
+    }
+
+    // ═════════════════════════════════════════════════════════════════
+    // 2️⃣ BUSCAR ANÁLISE EM PARALELO
+    // ═════════════════════════════════════════════════════════════════
+    const analises = await base44.asServiceRole.entities.ContactBehaviorAnalysis.filter(
+      { contact_id: contato?.id || thread?.contact_id },
+      '-analyzed_at',
+      1
+    );
     const analise = analises[0] || null;
-    const thread = threads?.[0] || null;
 
     // Buscar mensagens (DESC depois invertemos)
     const msgQuery = thread
