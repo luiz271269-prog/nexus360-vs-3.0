@@ -457,14 +457,20 @@ export default function MessageInput({
           disabled={enviando || carregandoContato || gravandoAudio || modoSelecao || uploadingPastedFile || !podeEnviarMensagens}
         />
 
-        {ultimaMensagemCliente && podeEnviarMensagens && !mostrarSugestor && (
+        {/* ✅ BOTÃO IA - SEMPRE VISÍVEL (análise baseada em 50-100 mensagens) */}
+        {podeEnviarMensagens && (
           <Button
             type="button"
             onClick={onToggleSugestor}
             variant="ghost"
             size="icon"
-            className="text-red-600 text-sm font-medium rounded-md inline-flex items-center justify-center gap-2 whitespace-nowrap transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 hover:text-accent-foreground h-9 w-9 flex-shrink-0 hover:bg-purple-50"
-            title="Sugestões de IA"
+            className={cn(
+              "text-sm font-medium rounded-md inline-flex items-center justify-center gap-2 whitespace-nowrap transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 h-9 w-9 flex-shrink-0",
+              mostrarSugestor 
+                ? "bg-gradient-to-r from-purple-500 to-indigo-600 text-white hover:from-purple-600 hover:to-indigo-700 shadow-lg" 
+                : "text-purple-600 hover:bg-purple-50"
+            )}
+            title="Sugestões de Resposta IA (últimas 50-100 mensagens)"
             disabled={enviando || carregandoContato || gravandoAudio || modoSelecao || uploadingPastedFile}
           >
             <Sparkles className="w-5 h-5" />
