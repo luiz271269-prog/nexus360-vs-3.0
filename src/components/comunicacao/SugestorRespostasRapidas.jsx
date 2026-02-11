@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -7,8 +7,8 @@ import { base44 } from '@/api/base44Client';
 import { toast } from 'sonner';
 
 /**
- * Sugestor de Respostas Rápidas - VERSÃO OTIMIZADA
- * Reduzido ao mínimo de chamadas de API
+ * Sugestor de Respostas Rápidas - V3 com Análise Comportamental
+ * Integra últimas mensagens + insights da IA
  */
 export default function SugestorRespostasRapidas({ 
   mensagemCliente, 
@@ -20,6 +20,7 @@ export default function SugestorRespostasRapidas({
   const [gerando, setGerando] = useState(false);
   const [sugestoes, setSugestoes] = useState([]);
   const [erro, setErro] = useState(null);
+  const [analiseContexto, setAnaliseContexto] = useState(null); // ✅ Análise da conversa
 
   const gerarSugestoes = async () => {
     if (!mensagemCliente || mensagemCliente.length < 5) {
@@ -51,13 +52,21 @@ export default function SugestorRespostasRapidas({
         }));
         
         setSugestoes(sugestoesUI);
+        setAnaliseContexto(resultado.data.analysis); // ✅ Armazenar análise
         console.log('[SUGESTOR] ✅ Sugestões V3 geradas:', sugestoesUI.length);
         
         // Mostrar análise se disponível
         if (resultado.data.analysis?.customer_intent) {
           const intent = resultado.data.analysis.customer_intent;
           const urgency = resultado.data.analysis.urgency;
-          toast.info(`🎯 Intenção: ${intent} • Urgência: ${urgency}`, { duration: 3000 });
+          const intentLabels = {
+            'orcamento': '💰 Orçamento',
+            'duvida': '❓ Dúvida',
+            'reclamacao': '⚠️ Reclamação',
+            'followup': '📞 Follow-up',
+            'outro': '💬 Outro'
+          };
+          toast.info(`${intentLabels[intent] || intent} • Urgência: ${urgency}`, { duration: 3000 });
         }
       } else {
         throw new Error(resultado.data?.error || 'Resposta inválida');
@@ -105,6 +114,13 @@ export default function SugestorRespostasRapidas({
     }
   };
 
+  // ✅ Gerar sugestões automaticamente ao montar
+  useEffect(() => {
+    if (contactId && sugestoes.length === 0 && !gerando && !erro) {
+      gerarSugestoes();
+    }
+  }, [contactId]);
+
   return (
     <Card className="border-2 border-purple-200 bg-gradient-to-br from-purple-50 to-indigo-50 shadow-lg">
       <div className="p-4">
@@ -123,22 +139,48 @@ export default function SugestorRespostasRapidas({
           </Button>
         </div>
 
-        {/* Mensagem do Cliente */}
-        <div className="bg-white/60 rounded-lg p-3 mb-3 border border-purple-100">
-          <p className="text-xs text-purple-600 font-medium mb-1">Cliente perguntou:</p>
-          <p className="text-sm text-slate-700 line-clamp-2">{mensagemCliente}</p>
+        {/* Contexto da Análise */}
+        <div className="bg-white/60 rounded-lg p-3 mb-3 border border-purple-100 space-y-2">
+          <div>
+            <p className="text-xs text-purple-600 font-medium mb-1">Última mensagem do cliente:</p>
+            <p className="text-sm text-slate-700 line-clamp-2">{mensagemCliente}</p>
+          </div>
+          
+          {analiseContexto && (
+            <div className="pt-2 border-t border-purple-100 space-y-1">
+              {analiseContexto.customer_intent && (
+                <div className="flex items-center gap-2">
+                  <Badge className="bg-purple-100 text-purple-700 text-xs">
+                    {analiseContexto.customer_intent === 'orcamento' ? '💰 Orçamento' :
+                     analiseContexto.customer_intent === 'duvida' ? '❓ Dúvida' :
+                     analiseContexto.customer_intent === 'reclamacao' ? '⚠️ Reclamação' :
+                     analiseContexto.customer_intent === 'followup' ? '📞 Follow-up' : '💬 Outro'}
+                  </Badge>
+                  <Badge className={`text-xs ${
+                    analiseContexto.urgency === 'alta' ? 'bg-red-100 text-red-700' :
+                    analiseContexto.urgency === 'media' ? 'bg-yellow-100 text-yellow-700' :
+                    'bg-green-100 text-green-700'
+                  }`}>
+                    {analiseContexto.urgency === 'alta' ? '🔴 Alta' :
+                     analiseContexto.urgency === 'media' ? '🟡 Média' : '🟢 Baixa'}
+                  </Badge>
+                </div>
+              )}
+              {analiseContexto.next_best_action?.action && (
+                <p className="text-xs text-purple-600">
+                  💡 <strong>Ação sugerida:</strong> {analiseContexto.next_best_action.action}
+                </p>
+              )}
+            </div>
+          )}
         </div>
 
-        {/* Botão Gerar (só aparece se não tem sugestões) */}
-        {sugestoes.length === 0 && !gerando && (
-          <Button
-            onClick={gerarSugestoes}
-            disabled={gerando}
-            className="w-full bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white"
-          >
-            <Sparkles className="w-4 h-4 mr-2" />
-            Gerar Sugestões de Respostas
-          </Button>
+        {/* Geração automática ao montar */}
+        {sugestoes.length === 0 && !gerando && !erro && (
+          <div className="text-center py-4">
+            <Loader2 className="w-6 h-6 animate-spin text-purple-600 mx-auto mb-2" />
+            <p className="text-sm text-purple-700">Analisando conversa...</p>
+          </div>
         )}
 
         {/* Loading */}

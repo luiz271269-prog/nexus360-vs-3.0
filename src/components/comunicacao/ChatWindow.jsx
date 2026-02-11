@@ -1632,6 +1632,8 @@ export default function ChatWindow({
 
       if (ultimaMensagem.sender_type === 'contact' && ultimaMensagem.content) {
         setUltimaMensagemCliente(ultimaMensagem.content);
+        // ✅ Abrir sugestor automaticamente quando cliente envia mensagem
+        setMostrarSugestor(true);
       } else {
         setUltimaMensagemCliente(null);
         setMostrarSugestor(false);
