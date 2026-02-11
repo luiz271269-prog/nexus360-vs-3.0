@@ -156,21 +156,51 @@ export default function SugestorRespostasRapidas({
               <span className="text-xs">💬</span>
             </div>
             <div className="flex-1 min-w-0">
-              <p className="text-xs text-purple-700 font-semibold mb-1">Última mensagem do cliente:</p>
-              <p className="text-sm text-slate-800 line-clamp-2 font-medium">{mensagemCliente}</p>
+              {analiseContexto?.is_latest_courtesy ? (
+                <>
+                  <p className="text-xs text-purple-700 font-semibold mb-1">Última mensagem ÚTIL do cliente:</p>
+                  <p className="text-sm text-slate-800 font-medium mb-2">{analiseContexto.last_useful_message}</p>
+
+                  <div className="flex items-center gap-2 p-2 bg-purple-50 rounded border border-purple-100">
+                    <Badge className="bg-purple-500 text-white text-[8px] px-1 py-0">🟣 CORTESIA</Badge>
+                    <p className="text-xs text-purple-600 italic">"{analiseContexto.last_customer_message}"</p>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <p className="text-xs text-purple-700 font-semibold mb-1">Última mensagem do cliente:</p>
+                  <p className="text-sm text-slate-800 line-clamp-2 font-medium">{mensagemCliente}</p>
+                </>
+              )}
             </div>
           </div>
+
+          {/* Open Loop Warning */}
+          {analiseContexto?.open_loop?.is_overdue && (
+            <div className="pt-2 border-t border-red-100 bg-red-50 p-2 rounded">
+              <div className="flex items-center gap-1 mb-1">
+                <Badge className="bg-red-600 text-white text-xs">⚠️ ATRASO</Badge>
+                <span className="text-xs text-red-700 font-semibold">
+                  Atendente prometeu retorno há {analiseContexto.open_loop.hours_since_promise}h
+                </span>
+              </div>
+              <p className="text-xs text-red-600 italic">"{analiseContexto.open_loop.promise_text}"</p>
+            </div>
+          )}
           
           {analiseContexto && (
             <div className="pt-2 border-t border-purple-100 space-y-1">
-              {analiseContexto.customer_intent && (
-                <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-wrap">
+                {(analiseContexto.conversation_type || analiseContexto.customer_intent) && (
                   <Badge className="bg-purple-100 text-purple-700 text-xs">
-                    {analiseContexto.customer_intent === 'orcamento' ? '💰 Orçamento' :
-                     analiseContexto.customer_intent === 'duvida' ? '❓ Dúvida' :
-                     analiseContexto.customer_intent === 'reclamacao' ? '⚠️ Reclamação' :
-                     analiseContexto.customer_intent === 'followup' ? '📞 Follow-up' : '💬 Outro'}
+                    {(analiseContexto.conversation_type || analiseContexto.customer_intent) === 'orcamento' ? '💰 Orçamento' :
+                     (analiseContexto.conversation_type || analiseContexto.customer_intent) === 'pergunta' || analiseContexto.customer_intent === 'duvida' ? '❓ Pergunta' :
+                     (analiseContexto.conversation_type || analiseContexto.customer_intent) === 'reclamacao' ? '⚠️ Reclamação' :
+                     (analiseContexto.conversation_type || analiseContexto.customer_intent) === 'followup' ? '📞 Follow-up' :
+                     (analiseContexto.conversation_type || analiseContexto.customer_intent) === 'cortesia' ? '🟣 Cortesia' : '💬 Outro'}
                   </Badge>
+                )}
+                {analiseContexto.urgency && (
                   <Badge className={`text-xs ${
                     analiseContexto.urgency === 'alta' ? 'bg-red-100 text-red-700' :
                     analiseContexto.urgency === 'media' ? 'bg-yellow-100 text-yellow-700' :
@@ -179,11 +209,16 @@ export default function SugestorRespostasRapidas({
                     {analiseContexto.urgency === 'alta' ? '🔴 Alta' :
                      analiseContexto.urgency === 'media' ? '🟡 Média' : '🟢 Baixa'}
                   </Badge>
-                </div>
-              )}
+                )}
+              </div>
               {analiseContexto.next_best_action?.action && (
                 <p className="text-xs text-purple-600">
-                  💡 <strong>Ação sugerida:</strong> {analiseContexto.next_best_action.action}
+                  💡 <strong>Ação:</strong> {analiseContexto.next_best_action.action}
+                </p>
+              )}
+              {analiseContexto.next_best_action?.ask && (
+                <p className="text-xs text-purple-600">
+                  ❓ <strong>Confirmar:</strong> {analiseContexto.next_best_action.ask}
                 </p>
               )}
             </div>

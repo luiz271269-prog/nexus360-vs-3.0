@@ -94,7 +94,74 @@ Deno.serve(async (req) => {
     });
 
     const hasEnoughData = normalized.length >= 5;
-    const lastInbound = [...normalized].reverse().find(x => x.direction === 'inbound');
+
+    // ═════════════════════════════════════════════════════════════════
+    // 3.5️⃣ SELEÇÃO INTELIGENTE DE ÚLTIMA MENSAGEM ÚTIL
+    // ═════════════════════════════════════════════════════════════════
+    const pickLastUseful = (msgs) => {
+      const inbound = msgs.filter(x => x.direction === 'inbound').slice(-10);
+      if (inbound.length === 0) return { useful: null, latest: null, is_low_signal: true };
+
+      const scored = inbound.map(m => {
+        const text = m.text.toLowerCase();
+        const len = text.length;
+        let score = 0;
+
+        if (text.includes('?')) score += 3;
+        if (/\b(orçamento|cotação|preço|valor|quanto|quando|prazo|entrega|estoque|nota|boleto|pix|nf)\b/i.test(text)) score += 3;
+        if (/\b\d+\b/.test(text)) score += 2;
+        if (len > 25) score += 2;
+        if (/\b(obrigado|ok|blz|valeu|show|perfeito|certo|entendi|top|ótimo)\b/i.test(text) && len < 25) score -= 5;
+        if (/\b(sim|não|tá|ok|uhum|aham)\b/i.test(text) && len < 15) score -= 3;
+
+        return { ...m, score, is_useful: score > 0 };
+      });
+
+      scored.sort((a, b) => b.score - a.score);
+
+      return {
+        useful: scored[0],
+        latest: inbound[inbound.length - 1],
+        is_low_signal: scored[0].score <= 0
+      };
+    };
+
+    const classifyType = (text) => {
+      if (!text) return 'generico';
+      const lower = text.toLowerCase();
+
+      if (/\b(orçamento|cotação|preço|valor|quanto)\b/i.test(lower)) return 'orcamento';
+      if (lower.includes('?') || /\b(conseguiu|tem|vai|quando|previsão)\b/i.test(lower)) return 'pergunta';
+      if (/\b(nada ainda|alguma novidade|cadê|ficou)\b/i.test(lower)) return 'followup';
+      if (/\b(problema|demora|reclamação|péssimo)\b/i.test(lower)) return 'reclamacao';
+      if (/\b(obrigado|valeu|show|top)\b/i.test(lower) && lower.length < 25) return 'cortesia';
+
+      return 'interesse';
+    };
+
+    const detectOpenLoop = (msgs) => {
+      const lastOut = [...msgs].reverse().find(x => x.direction === 'outbound');
+      if (!lastOut) return null;
+
+      const hasPromise = /\b(vou|irei|já retorno|verificar|cotando|separo|confirmo|envio|mando|te retorno)\b/i.test(lastOut.text);
+      if (!hasPromise) return null;
+
+      const hoursSince = (Date.now() - new Date(lastOut.at)) / (1000 * 60 * 60);
+
+      return {
+        status: 'aguardando_acao_atendente',
+        promise_text: lastOut.text,
+        hours_since_promise: Math.floor(hoursSince),
+        is_overdue: hoursSince > 24
+      };
+    };
+
+    const lastInboundData = pickLastUseful(normalized);
+    const lastInbound = lastInboundData.useful || lastInboundData.latest;
+    const latestInbound = lastInboundData.latest;
+    const isCourtesy = lastInboundData.is_low_signal;
+    const conversationType = classifyType(lastInbound?.text || '');
+    const openLoop = detectOpenLoop(normalized);
     const lastOutbound = [...normalized].reverse().find(x => x.direction === 'outbound');
 
     // ═════════════════════════════════════════════════════════════════
@@ -133,24 +200,40 @@ Regras:
 - Tipo: ${contato.tipo_contato || 'N/D'}
 
 ${analise ? `ANÁLISE COMPORTAMENTAL (última):
-- Status: ${analise.status}
 - Inatividade: ${analise.days_inactive_inbound || 0} dias (cliente sem responder)
-- Bucket: ${analise.bucket_inactive || 'active'}
 - Deal Risk: ${analise.ai_insights?.deal_risk || 0}%
 - Buy Intent: ${analise.ai_insights?.buy_intent || 0}%
 - Engagement: ${analise.ai_insights?.engagement || 0}%
 - Sentiment: ${analise.ai_insights?.sentiment || 'neutro'}
-- Próxima Ação IA: ${analise.ai_insights?.next_best_action?.action || 'N/D'}
-- Sugestão de Mensagem: ${analise.ai_insights?.next_best_action?.message_suggestion || 'N/D'}
 ` : ''}
 
-CONVERSA (ordem cronológica, últimas 20):
-${conversationText}
-
-ÚLTIMA MENSAGEM DO CLIENTE:
+ÚLTIMA MENSAGEM ÚTIL DO CLIENTE:
 ${lastInbound?.text || 'N/D'}
 
-Retorne JSON estruturado.`;
+${isCourtesy ? `ÚLTIMA MENSAGEM (cortesia/encerramento detectado):
+"${latestInbound?.text}"
+⚠️ Esta é uma cortesia. Use a mensagem útil acima como base da análise.
+` : ''}
+
+TIPO DE CONVERSA DETECTADO: ${conversationType}
+
+${openLoop ? `⚠️ PENDÊNCIA DETECTADA:
+- Status: Atendente prometeu ação mas não cumpriu
+- Promessa: "${openLoop.promise_text}"
+- Há ${openLoop.hours_since_promise} horas
+- Atrasado: ${openLoop.is_overdue ? 'SIM (>24h)' : 'NÃO'}
+
+CRÍTICO: Cliente aguarda retorno. Suas sugestões DEVEM incluir:
+1. Pedido de desculpas (se atrasado)
+2. Status atualizado do que foi pedido
+3. Prazo específico de entrega
+4. Confirmação de escopo (quantidade/modelo)
+` : ''}
+
+CONVERSA (últimas 15 mensagens):
+${conversationText}
+
+Retorne JSON estruturado com análise completa e 3 sugestões otimizadas.`;
 
     const schema = {
       type: "object",
@@ -248,7 +331,14 @@ Retorne JSON estruturado.`;
         has_analysis: !!analise,
         ai: { ok: true }
       },
-      analysis,
+      analysis: {
+        ...analysis,
+        last_useful_message: lastInbound?.text || latestInbound?.text || 'N/D',
+        last_customer_message: latestInbound?.text || 'N/D',
+        is_latest_courtesy: isCourtesy,
+        conversation_type: conversationType,
+        open_loop: openLoop
+      },
       suggestions
     });
 

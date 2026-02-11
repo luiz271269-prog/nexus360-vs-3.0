@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Zap, Copy, Loader2, RefreshCw } from 'lucide-react';
@@ -15,87 +15,134 @@ import { toast } from 'sonner';
  */
 export default function MensagemReativacaoRapida({ 
   contato, 
-  analise, 
+  analise,
+  threadId, // ✅ NOVO: para buscar última mensagem útil
   onUsarMensagem,
   variant = 'inline' // inline | badge
 }) {
   const [mensagemSugerida, setMensagemSugerida] = useState(null);
   const [gerando, setGerando] = useState(false);
+  const [ultimaMensagemUtil, setUltimaMensagemUtil] = useState(null); // ✅ NOVO
+  const [tipoConversa, setTipoConversa] = useState('generico'); // ✅ NOVO
 
   const diasInativo = analise?.days_inactive_inbound || 0;
   const tipoContato = contato?.tipo_contato || 'lead';
   const empresa = contato?.empresa || contato?.nome;
   const primeiroNome = empresa?.split(' ')[0] || 'Cliente';
 
+  // ✅ Buscar última mensagem ÚTIL do cliente
+  useEffect(() => {
+    const buscarUltimaMensagemUtil = async () => {
+      if (!threadId && !contato?.id) return;
+      
+      try {
+        const filter = threadId 
+          ? { thread_id: threadId, sender_type: 'contact' }
+          : { contact_id: contato.id, sender_type: 'contact' };
+        
+        const msgs = await base44.entities.Message.filter(filter, '-created_date', 10);
+        
+        if (msgs.length > 0) {
+          // Score de relevância
+          const scored = msgs.map(m => {
+            const text = (m.content || '').toLowerCase();
+            const len = text.length;
+            let score = 0;
+            
+            if (text.includes('?')) score += 3;
+            if (/\b(orçamento|cotação|preço|valor|quanto|quando|prazo|entrega|estoque)\b/i.test(text)) score += 3;
+            if (/\b\d+\b/.test(text)) score += 2;
+            if (len > 25) score += 2;
+            if (/\b(obrigado|ok|blz|valeu|show|perfeito)\b/i.test(text) && len < 25) score -= 5;
+            if (/\b(sim|não|tá|ok|uhum)\b/i.test(text) && len < 15) score -= 3;
+            
+            return { ...m, score };
+          });
+          
+          scored.sort((a, b) => b.score - a.score);
+          const melhorMsg = scored[0];
+          
+          if (melhorMsg?.content) {
+            setUltimaMensagemUtil(melhorMsg.content);
+            
+            // Classificar tipo
+            const tipo = classifyType(melhorMsg.content);
+            setTipoConversa(tipo);
+          }
+        }
+      } catch (error) {
+        console.error('[REATIVACAO] Erro ao buscar mensagem útil:', error);
+      }
+    };
+    
+    if (diasInativo >= 30) {
+      buscarUltimaMensagemUtil();
+    }
+  }, [diasInativo, threadId, contato?.id]);
+
+  const classifyType = (text) => {
+    if (!text) return 'generico';
+    const lower = text.toLowerCase();
+    
+    if (/\b(orçamento|cotação|preço|valor|quanto)\b/i.test(lower)) return 'orcamento';
+    if (lower.includes('?') || /\b(conseguiu|tem|vai|quando|previsão)\b/i.test(lower)) return 'pergunta';
+    if (/\b(nada ainda|alguma novidade|cadê|ficou)\b/i.test(lower)) return 'followup';
+    if (/\b(problema|demora|reclamação|péssimo)\b/i.test(lower)) return 'reclamacao';
+    
+    return 'interesse';
+  };
+
   // ✅ Gerar mensagem automática ao montar
   useEffect(() => {
-    if (diasInativo >= 30 && !mensagemSugerida && !gerando) {
+    if (diasInativo >= 30 && !mensagemSugerida && !gerando && tipoConversa !== 'generico') {
       gerarMensagemRapida();
     }
-  }, [diasInativo]);
+  }, [diasInativo, tipoConversa]);
 
   const gerarMensagemRapida = async () => {
     setGerando(true);
     
     try {
-      // 🎯 Templates inteligentes baseados no perfil
-      const templates = [];
-
-      // Lead inativo 30-60 dias
-      if (tipoContato === 'lead' && diasInativo >= 30 && diasInativo < 60) {
-        templates.push(
-          `Oi ${primeiroNome}! Tudo bem? 😊\n\nVi que conversamos há um tempo... Surgiu alguma novidade por aí? Posso ajudar em algo?`,
-          `E aí ${primeiroNome}, como vão as coisas? 🚀\n\nAqui temos algumas novidades que podem te interessar. Quer dar uma olhada?`,
-          `Olá ${primeiroNome}! 👋\n\nQueria retomar nossa conversa... Ainda tem interesse no que conversamos?`
-        );
-      }
-
-      // Lead inativo 60-90 dias (urgente)
-      if (tipoContato === 'lead' && diasInativo >= 60 && diasInativo < 90) {
-        templates.push(
-          `Oi ${primeiroNome}! 🎯\n\nFaz tempo que não conversamos... Como posso ajudar a tirar seu projeto do papel hoje?`,
-          `${primeiroNome}, tudo bem? ⚡\n\nVi que temos uma conversa pendente. Que tal retomarmos? Tenho algumas ideias pra você!`,
-          `E aí ${primeiroNome}! 💡\n\nNotei que ficamos um tempo sem falar... Quer marcar uma call rápida pra alinharmos?`
-        );
-      }
-
-      // Lead inativo 90+ dias (crítico - reativar)
-      if (tipoContato === 'lead' && diasInativo >= 90) {
-        templates.push(
-          `Oi ${primeiroNome}! 🔥\n\nFaz tempo mesmo que não conversamos... Vale a pena retomarmos? Pode ser que eu consiga ajudar agora!`,
-          `${primeiroNome}, tudo bem por aí? 🌟\n\nSei que já passou um tempo, mas gostaria muito de retomar nossa conversa. Topas?`,
-          `E aí ${primeiroNome}! 🚀\n\nLembrei de você hoje... Como estão as coisas? Ainda posso ser útil de alguma forma?`
-        );
-      }
-
-      // Cliente inativo 30-60 dias
-      if (tipoContato === 'cliente' && diasInativo >= 30 && diasInativo < 60) {
-        templates.push(
-          `Oi ${primeiroNome}! Tudo certo por aí? 😊\n\nEstava pensando em vocês... Precisando de algo? Estamos aqui!`,
-          `E aí ${primeiroNome}, como vão as coisas? 🤝\n\nFaz um tempo que não conversamos... Tudo ok com vocês?`,
-          `Olá ${primeiroNome}! 👋\n\nPassando aqui pra saber notícias... Como podemos ajudar hoje?`
-        );
-      }
-
-      // Cliente inativo 60+ dias (atenção - risco churn)
-      if (tipoContato === 'cliente' && diasInativo >= 60) {
-        templates.push(
-          `Oi ${primeiroNome}! 🎯\n\nSentimos sua falta por aqui... Está tudo bem? Como podemos melhorar nosso atendimento?`,
-          `${primeiroNome}, tudo certo? 💙\n\nFaz um tempo que não temos notícias suas... Gostaria de saber se precisam de alguma coisa!`,
-          `E aí ${primeiroNome}! 🌟\n\nNotamos que ficamos sem conversar... Quer agendar uma call pra vermos como estão as coisas?`
-        );
-      }
-
-      // Se não tem template específico, usar genérico
-      if (templates.length === 0) {
-        templates.push(
+      // 🎯 Templates contextuais por TIPO DE CONVERSA (não por perfil)
+      const templates = {
+        pergunta: [
+          `Oi ${primeiroNome}! Vi sua dúvida aqui 👀\n\nDeixa eu conferir isso pra você agora mesmo.`,
+          `E aí ${primeiroNome}! Sobre sua pergunta...\n\nVou verificar e já te retorno, ok?`,
+          `Oi ${primeiroNome}! 😊\n\nDeixa eu ver isso que você perguntou e já te respondo.`
+        ],
+        orcamento: [
+          `Oi ${primeiroNome}! Sobre o orçamento... 💰\n\nDeixa eu ver os valores atualizados pra você.`,
+          `E aí ${primeiroNome}! Vou conferir esse orçamento agora.\n\nJá te mando os detalhes! 📊`,
+          `Oi ${primeiroNome}! 😊\n\nVou preparar esse orçamento pra você agora mesmo.`
+        ],
+        followup: [
+          `Oi ${primeiroNome}! Desculpa a demora 😅\n\nDeixa eu retomar isso com você agora.`,
+          `E aí ${primeiroNome}! Obrigado por cobrar 🙏\n\nVou ver o andamento e já te atualizo.`,
+          `Oi ${primeiroNome}! Tudo bem?\n\nVou verificar o status e te retorno já já.`
+        ],
+        reclamacao: [
+          `Oi ${primeiroNome}. Entendo sua preocupação.\n\nDeixa eu verificar o que aconteceu e resolvo isso pra você.`,
+          `${primeiroNome}, peço desculpas pela situação.\n\nVou apurar agora e te retorno com a solução.`,
+          `Oi ${primeiroNome}. Vi sua mensagem 🙏\n\nVou resolver isso pra você com urgência.`
+        ],
+        interesse: [
+          `Oi ${primeiroNome}! Tudo bem? 😊\n\nVi sua mensagem e queria retomar nossa conversa.`,
+          `E aí ${primeiroNome}! Como vão as coisas?\n\nGostaria de dar sequência ao que conversamos.`,
+          `Oi ${primeiroNome}! 👋\n\nFiquei de te retornar e queria saber se ainda faz sentido.`
+        ],
+        generico: [
           `Oi ${primeiroNome}! Tudo bem? 😊\n\nGostaria de retomar nossa conversa... Posso ajudar em algo?`,
           `E aí ${primeiroNome}, como vai? 👋\n\nFaz um tempo que não conversamos... Surgiu alguma novidade?`
-        );
-      }
+        ]
+      };
 
-      // Escolher aleatoriamente um template
-      const mensagem = templates[Math.floor(Math.random() * templates.length)];
+      const opcoes = templates[tipoConversa] || templates['generico'];
+      
+      // ✅ Seleção inteligente (não aleatória)
+      const jaUsou = analise?.metadata?.quick_reengagement?.last_template_used;
+      const indice = jaUsou === opcoes[0] ? 1 : 0;
+      const mensagem = opcoes[indice];
+      
       setMensagemSugerida(mensagem);
       
     } catch (error) {
