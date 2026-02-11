@@ -286,22 +286,32 @@ export default function ContatosRequerendoAtencao({ usuario, onSelecionarContato
   // ═══════════════════════════════════════════════════════════════
   if (isHeader) {
     return (
-      <div className="bg-orange-500 text-slate-50 relative">
+      <div className="relative">
         <Button
           onClick={() => setExpandido(!expandido)}
           variant="outline"
           size="sm"
-          className="border-white/30 text-white hover:bg-white/20 shadow-lg relative"
+          className={`
+            border-2 transition-all duration-300 shadow-md relative
+            ${totalAlertas >= 10 ? 'border-red-500 bg-red-50 text-red-700 hover:bg-red-100' :
+              totalAlertas >= 5 ? 'border-orange-500 bg-orange-50 text-orange-700 hover:bg-orange-100' :
+              totalAlertas > 0 ? 'border-yellow-500 bg-yellow-50 text-yellow-700 hover:bg-yellow-100' :
+              'border-slate-300 bg-white text-slate-600 hover:bg-slate-50'}
+          `}
           disabled={loading}
         >
           {loading ? (
             <Loader2 className="w-4 h-4 mr-2 animate-spin" />
           ) : (
-            <AlertTriangle className="w-4 h-4 mr-2" />
+            <AlertTriangle className={`w-4 h-4 mr-2 ${totalAlertas > 0 ? 'animate-pulse' : ''}`} />
           )}
-          Contatos Requerendo Atenção
+          <span className="font-semibold">Requerem Atenção</span>
           {totalAlertas > 0 && (
-            <Badge className="ml-2 bg-red-500 text-white font-bold text-xs">
+            <Badge className={`ml-2 font-bold text-xs shadow-sm ${
+              totalAlertas >= 10 ? 'bg-red-600' :
+              totalAlertas >= 5 ? 'bg-orange-600' :
+              'bg-yellow-600'
+            } text-white`}>
               {totalAlertas}
             </Badge>
           )}
@@ -309,36 +319,19 @@ export default function ContatosRequerendoAtencao({ usuario, onSelecionarContato
 
         {expandido && (
           <>
-            <div className="fixed inset-0 z-40" onClick={() => setExpandido(false)} />
+            <div className="fixed inset-0 z-40 bg-black/20 backdrop-blur-sm" onClick={() => setExpandido(false)} />
 
-            <div className="absolute top-full right-0 mt-2 w-96 bg-white rounded-lg shadow-2xl border border-slate-200 z-50 max-h-[600px] overflow-hidden flex flex-col">
+            <div className="absolute top-full right-0 mt-3 w-[420px] bg-white rounded-xl shadow-2xl border-2 border-slate-200 z-50 max-h-[650px] overflow-hidden flex flex-col">
               {/* Header do dropdown */}
-              <div className="px-3 py-2 flex items-center justify-between bg-slate-50 border-b border-slate-200">
-                <div className="flex gap-1">
-                  <Button
-                    size="sm"
-                    variant={agrupadoPor === 'prioridade' ? 'default' : 'outline'}
-                    onClick={() => setAgrupadoPor('prioridade')}
-                    className="h-6 text-xs px-2"
-                  >
-                    Prioridade
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant={agrupadoPor === 'bucket' ? 'default' : 'outline'}
-                    onClick={() => setAgrupadoPor('bucket')}
-                    className="h-6 text-xs px-2"
-                  >
-                    Inatividade
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant={agrupadoPor === 'atendente' ? 'default' : 'outline'}
-                    onClick={() => setAgrupadoPor('atendente')}
-                    className="h-6 text-xs px-2"
-                  >
-                    Atendente
-                  </Button>
+              <div className="px-4 py-3 flex items-center justify-between bg-gradient-to-r from-slate-50 to-slate-100 border-b-2 border-slate-200">
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-orange-500 to-red-500 flex items-center justify-center shadow-sm">
+                    <AlertTriangle className="w-4 h-4 text-white" />
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-bold text-slate-800">Contatos Urgentes</h3>
+                    <p className="text-xs text-slate-500">{totalAlertas} requerem atenção</p>
+                  </div>
                 </div>
 
                 <Button
@@ -346,24 +339,57 @@ export default function ContatosRequerendoAtencao({ usuario, onSelecionarContato
                   variant="ghost"
                   onClick={refetch}
                   disabled={loading}
-                  className="h-6 text-xs px-2"
+                  className="h-7 w-7 p-0 hover:bg-slate-200"
                 >
-                  <RefreshCw className={`w-3 h-3 ${loading ? 'animate-spin' : ''}`} />
+                  <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
                 </Button>
               </div>
 
+              {/* Filtros de agrupamento */}
+              <div className="px-4 py-2 border-b border-slate-100 bg-slate-50/50">
+                <div className="flex gap-1.5">
+                  <Button
+                    size="sm"
+                    variant={agrupadoPor === 'prioridade' ? 'default' : 'outline'}
+                    onClick={() => setAgrupadoPor('prioridade')}
+                    className="h-7 text-xs px-2.5 flex-1"
+                  >
+                    🔴 Prioridade
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant={agrupadoPor === 'bucket' ? 'default' : 'outline'}
+                    onClick={() => setAgrupadoPor('bucket')}
+                    className="h-7 text-xs px-2.5 flex-1"
+                  >
+                    📅 Inatividade
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant={agrupadoPor === 'atendente' ? 'default' : 'outline'}
+                    onClick={() => setAgrupadoPor('atendente')}
+                    className="h-7 text-xs px-2.5 flex-1"
+                  >
+                    👤 Atendente
+                  </Button>
+                </div>
+              </div>
+
               {/* Lista */}
-              <div className="flex-1 overflow-y-auto">
+              <div className="flex-1 overflow-y-auto scrollbar-custom">
                 {loading ? (
-                  <div className="p-4 text-center">
-                    <Loader2 className="w-6 h-6 animate-spin text-slate-400 mx-auto mb-2" />
-                    <p className="text-xs text-slate-500">Analisando contatos...</p>
+                  <div className="p-8 text-center">
+                    <Loader2 className="w-8 h-8 animate-spin text-orange-500 mx-auto mb-3" />
+                    <p className="text-sm font-medium text-slate-700">Analisando contatos...</p>
+                    <p className="text-xs text-slate-500 mt-1">Aguarde um momento</p>
                   </div>
                 ) : totalAlertas === 0 ? (
-                  <div className="p-4 text-center">
-                    <Target className="w-8 h-8 text-green-400 mx-auto mb-2" />
-                    <p className="text-sm font-medium text-slate-700">Tudo sob controle!</p>
-                    <p className="text-xs text-slate-500 mt-1">Nenhum contato requer atenção</p>
+                  <div className="p-8 text-center">
+                    <div className="w-16 h-16 rounded-full bg-green-100 flex items-center justify-center mx-auto mb-3">
+                      <Target className="w-8 h-8 text-green-600" />
+                    </div>
+                    <p className="text-sm font-bold text-slate-800">Tudo sob controle!</p>
+                    <p className="text-xs text-slate-500 mt-1">Nenhum contato requer atenção imediata</p>
                   </div>
                 ) : (
                   Object.entries(grupos).map(([nomeGrupo, items]) => {
@@ -407,13 +433,22 @@ export default function ContatosRequerendoAtencao({ usuario, onSelecionarContato
 
               {/* Footer com estatísticas */}
               {estatisticas && (
-                <div className="px-3 py-2 bg-slate-50 border-t border-slate-200 flex items-center justify-between text-xs">
-                  <span className="text-slate-600">
-                    {criticos.length} críticos · {altos.length} altos
-                  </span>
-                  <span className="text-slate-500">
-                    Total: {contatosComAlerta.length}
-                  </span>
+                <div className="px-4 py-3 bg-gradient-to-r from-slate-50 to-slate-100 border-t-2 border-slate-200">
+                  <div className="flex items-center justify-between text-xs">
+                    <div className="flex items-center gap-3">
+                      <span className="flex items-center gap-1 text-red-700 font-semibold">
+                        <span className="w-2 h-2 rounded-full bg-red-500"></span>
+                        {criticos.length} críticos
+                      </span>
+                      <span className="flex items-center gap-1 text-orange-700 font-semibold">
+                        <span className="w-2 h-2 rounded-full bg-orange-500"></span>
+                        {altos.length} altos
+                      </span>
+                    </div>
+                    <span className="text-slate-600 font-medium">
+                      Total: {contatosComAlerta.length}
+                    </span>
+                  </div>
                 </div>
               )}
             </div>
@@ -427,22 +462,41 @@ export default function ContatosRequerendoAtencao({ usuario, onSelecionarContato
   // VERSÃO SIDEBAR (original)
   // ═══════════════════════════════════════════════════════════════
   return (
-    <div className="border-b border-slate-200 bg-white">
+    <div className="border-b-2 border-slate-200 bg-gradient-to-r from-white to-slate-50">
       {/* Header clicável */}
       <button
         onClick={() => setExpandido(!expandido)}
-        className="w-full px-3 py-2 flex items-center justify-between hover:bg-slate-50 transition-colors"
+        className="w-full px-4 py-3 flex items-center justify-between hover:bg-gradient-to-r hover:from-orange-50 hover:to-red-50 transition-all duration-200 group"
       >
-        <div className="flex items-center gap-2">
-          <AlertTriangle className="w-4 h-4 text-orange-600" />
-          <span className="font-semibold text-sm text-slate-800">
-            Requerem Atenção
-          </span>
+        <div className="flex items-center gap-2.5">
+          <div className={`
+            w-8 h-8 rounded-lg flex items-center justify-center shadow-sm transition-all
+            ${totalAlertas >= 10 ? 'bg-gradient-to-br from-red-500 to-red-600' :
+              totalAlertas >= 5 ? 'bg-gradient-to-br from-orange-500 to-orange-600' :
+              totalAlertas > 0 ? 'bg-gradient-to-br from-yellow-500 to-orange-500' :
+              'bg-gradient-to-br from-slate-400 to-slate-500'}
+          `}>
+            <AlertTriangle className={`w-4 h-4 text-white ${totalAlertas > 0 ? 'animate-pulse' : ''}`} />
+          </div>
+          <div className="text-left">
+            <span className="font-bold text-sm text-slate-800 block">
+              Requerem Atenção
+            </span>
+            {totalAlertas > 0 && (
+              <span className="text-xs text-slate-500">
+                {criticos.length} críticos • {altos.length} altos
+              </span>
+            )}
+          </div>
         </div>
         
         <div className="flex items-center gap-2">
           {totalAlertas > 0 && (
-            <Badge className="bg-red-500 text-white font-bold text-xs">
+            <Badge className={`font-bold text-xs shadow-sm ${
+              totalAlertas >= 10 ? 'bg-red-600' :
+              totalAlertas >= 5 ? 'bg-orange-600' :
+              'bg-yellow-600'
+            } text-white`}>
               {totalAlertas}
             </Badge>
           )}
@@ -450,42 +504,42 @@ export default function ContatosRequerendoAtencao({ usuario, onSelecionarContato
           {loading ? (
             <Loader2 className="w-4 h-4 animate-spin text-slate-400" />
           ) : expandido ? (
-            <ChevronDown className="w-4 h-4 text-slate-400" />
+            <ChevronDown className="w-4 h-4 text-slate-400 group-hover:text-slate-600 transition-colors" />
           ) : (
-            <ChevronRight className="w-4 h-4 text-slate-400" />
+            <ChevronRight className="w-4 h-4 text-slate-400 group-hover:text-slate-600 transition-colors" />
           )}
         </div>
       </button>
 
       {/* Conteúdo expandido */}
       {expandido && (
-        <div className="border-t border-slate-200">
+        <div className="border-t-2 border-slate-200 bg-slate-50/30">
           {/* Toggle de agrupamento */}
-          <div className="px-3 py-2 flex items-center justify-between bg-slate-50 border-b border-slate-200">
-            <div className="flex gap-1">
+          <div className="px-3 py-2.5 flex items-center justify-between bg-slate-100 border-b border-slate-200">
+            <div className="flex gap-1.5 flex-1">
               <Button
                 size="sm"
                 variant={agrupadoPor === 'prioridade' ? 'default' : 'outline'}
                 onClick={() => setAgrupadoPor('prioridade')}
-                className="h-6 text-xs px-2"
+                className="h-7 text-xs px-2.5 flex-1"
               >
-                Prioridade
+                🔴 Prioridade
               </Button>
               <Button
                 size="sm"
                 variant={agrupadoPor === 'bucket' ? 'default' : 'outline'}
                 onClick={() => setAgrupadoPor('bucket')}
-                className="h-6 text-xs px-2"
+                className="h-7 text-xs px-2.5 flex-1"
               >
-                Inatividade
+                📅 Dias
               </Button>
               <Button
                 size="sm"
                 variant={agrupadoPor === 'atendente' ? 'default' : 'outline'}
                 onClick={() => setAgrupadoPor('atendente')}
-                className="h-6 text-xs px-2"
+                className="h-7 text-xs px-2.5 flex-1"
               >
-                Atendente
+                👤 Pessoa
               </Button>
             </div>
 
@@ -494,24 +548,27 @@ export default function ContatosRequerendoAtencao({ usuario, onSelecionarContato
               variant="ghost"
               onClick={refetch}
               disabled={loading}
-              className="h-6 text-xs px-2"
+              className="h-7 w-7 p-0 ml-2 hover:bg-slate-200"
             >
-              <RefreshCw className={`w-3 h-3 ${loading ? 'animate-spin' : ''}`} />
+              <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
             </Button>
           </div>
 
           {/* Lista de grupos */}
-          <div className="max-h-96 overflow-y-auto">
+          <div className="max-h-[400px] overflow-y-auto scrollbar-custom">
             {loading ? (
-              <div className="p-4 text-center">
-                <Loader2 className="w-6 h-6 animate-spin text-slate-400 mx-auto mb-2" />
-                <p className="text-xs text-slate-500">Analisando contatos...</p>
+              <div className="p-6 text-center">
+                <Loader2 className="w-7 h-7 animate-spin text-orange-500 mx-auto mb-3" />
+                <p className="text-sm font-medium text-slate-700">Analisando contatos...</p>
+                <p className="text-xs text-slate-500 mt-1">Aguarde um momento</p>
               </div>
             ) : totalAlertas === 0 ? (
-              <div className="p-4 text-center">
-                <Target className="w-8 h-8 text-green-400 mx-auto mb-2" />
-                <p className="text-sm font-medium text-slate-700">Tudo sob controle!</p>
-                <p className="text-xs text-slate-500 mt-1">Nenhum contato requer atenção</p>
+              <div className="p-6 text-center">
+                <div className="w-14 h-14 rounded-full bg-green-100 flex items-center justify-center mx-auto mb-3">
+                  <Target className="w-7 h-7 text-green-600" />
+                </div>
+                <p className="text-sm font-bold text-slate-800">Tudo sob controle!</p>
+                <p className="text-xs text-slate-500 mt-1">Nenhum contato requer atenção imediata</p>
               </div>
             ) : (
               Object.entries(grupos).map(([nomeGrupo, items]) => {
@@ -555,13 +612,22 @@ export default function ContatosRequerendoAtencao({ usuario, onSelecionarContato
 
           {/* Footer com estatísticas */}
           {estatisticas && (
-            <div className="px-3 py-2 bg-slate-50 border-t border-slate-200 flex items-center justify-between text-xs">
-              <span className="text-slate-600">
-                {criticos.length} críticos · {altos.length} altos
-              </span>
-              <span className="text-slate-500">
-                Total: {contatosComAlerta.length}
-              </span>
+            <div className="px-4 py-3 bg-gradient-to-r from-slate-100 to-slate-50 border-t-2 border-slate-200">
+              <div className="flex items-center justify-between text-xs">
+                <div className="flex items-center gap-3">
+                  <span className="flex items-center gap-1.5 text-red-700 font-semibold">
+                    <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse"></span>
+                    {criticos.length} críticos
+                  </span>
+                  <span className="flex items-center gap-1.5 text-orange-700 font-semibold">
+                    <span className="w-2 h-2 rounded-full bg-orange-500"></span>
+                    {altos.length} altos
+                  </span>
+                </div>
+                <span className="text-slate-600 font-medium">
+                  Total: {contatosComAlerta.length}
+                </span>
+              </div>
             </div>
           )}
         </div>
