@@ -55,6 +55,7 @@ import DiagnosticoThreadsInvisiveis from "../components/comunicacao/DiagnosticoT
 import DiagnosticoComparativoThreads from "../components/comunicacao/DiagnosticoComparativoThreads";
 import LogsFiltragemViewer from "../components/comunicacao/LogsFiltragemViewer";
 import DiagnosticoMensagensInternas from "../components/comunicacao/DiagnosticoMensagensInternas";
+import ModalEnvioMassa from "../components/comunicacao/ModalEnvioMassa";
 
 import { useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
@@ -116,6 +117,8 @@ export default function Comunicacao() {
   const [modoSelecaoMultipla, setModoSelecaoMultipla] = React.useState(false);
   const [contatosSelecionados, setContatosSelecionados] = React.useState([]);
   const [mostrarSelecionados, setMostrarSelecionados] = React.useState(false);
+  const [modalEnvioMassaOpen, setModalEnvioMassaOpen] = React.useState(false);
+  const [contatosParaEnvioMassa, setContatosParaEnvioMassa] = React.useState([]);
 
   // Estados para broadcast interno
   const [broadcastInterno, setBroadcastInterno] = React.useState(null); // { destinations: [...] }
@@ -165,6 +168,29 @@ export default function Comunicacao() {
       setFilterScope(isManager ? 'all' : 'my');
     }
   }, [usuario]);
+
+  // ✅ Detectar modo envio em massa via URL
+  React.useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const modo = urlParams.get('modo');
+    
+    if (modo === 'envio_massa') {
+      const contatosSalvos = localStorage.getItem('envio_massa_contatos');
+      if (contatosSalvos) {
+        try {
+          const contatos = JSON.parse(contatosSalvos);
+          setContatosParaEnvioMassa(contatos);
+          setModalEnvioMassaOpen(true);
+          localStorage.removeItem('envio_massa_contatos');
+          
+          // Limpar URL
+          window.history.replaceState({}, '', createPageUrl('Comunicacao'));
+        } catch (error) {
+          console.error('[Comunicacao] Erro ao carregar contatos do localStorage:', error);
+        }
+      }
+    }
+  }, []);
 
   // 🔔 REAL-TIME: Atualizar threads quando houver mudanças
   React.useEffect(() => {
@@ -2686,6 +2712,20 @@ export default function Comunicacao() {
         onIniciarNovaConversa={handleIniciarNovaConversaSemPermissao}
         podeIniciarNova={true} />
 
+        {/* Modal de Envio em Massa */}
+        <ModalEnvioMassa
+          isOpen={modalEnvioMassaOpen}
+          onClose={() => {
+            setModalEnvioMassaOpen(false);
+            setContatosParaEnvioMassa([]);
+          }}
+          contatosSelecionados={contatosParaEnvioMassa}
+          onEnvioCompleto={() => {
+            setContatosParaEnvioMassa([]);
+            queryClient.invalidateQueries({ queryKey: ['threads-externas'] });
+            queryClient.invalidateQueries({ queryKey: ['contacts'] });
+          }}
+        />
       </ErrorBoundary>);
 
 
