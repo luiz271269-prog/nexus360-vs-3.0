@@ -77,24 +77,28 @@ Deno.serve(async (req) => {
     // MODO 2: PRIORIZAÇÃO (retorna lista ordenada com contexto)
     // ══════════════════════════════════════════════════════════════
     if (modo === 'priorizacao') {
-      console.log(`[ANALISE_LOTE] Modo priorização`);
+      console.log(`[ANALISE_LOTE] 🎯 Modo priorização`);
       
       let queryContatos = {
         tipo_contato: { $in: Array.isArray(tipo) ? tipo : [tipo] }
       };
       
-      // Filtrar por usuário (exceto admin) - apenas se tiver user
+      // Filtrar por usuário (exceto admin)
       if (user && user.role !== 'admin') {
         queryContatos.vendedor_responsavel = user.id;
       }
       
-      // ✅ CORREÇÃO: Sempre filtrar por atividade recente no modo priorização
-      // (contatos sem mensagens recentes = 400 na análise)
+      // ✅ PATCH 1: Filtro INVERTIDO - pegar contatos PARADOS (não recentes)
+      // Objetivo: mostrar 30/60/90+ dias sem mensagem
+      const agora = new Date();
+      const diasMinimosInatividade = Math.max(diasSemMensagem, 2);
+      
       queryContatos.ultima_interacao = {
-        $gte: new Date(Date.now() - Math.max(diasSemMensagem, 30) * 24 * 60 * 60 * 1000).toISOString()
+        $lte: new Date(agora.getTime() - diasMinimosInatividade * 24 * 60 * 60 * 1000).toISOString()
       };
       
-      // ✅ Usar service role se não houver user (automações agendadas)
+      console.log(`[ANALISE_LOTE] 📅 Buscando contatos inativos há ${diasMinimosInatividade}+ dias`);
+      
       const client = user ? base44 : base44.asServiceRole;
       
       const contatos = await client.entities.Contact.filter(
@@ -103,32 +107,89 @@ Deno.serve(async (req) => {
         limit
       );
       
-      // ✅ Buscar análises (últimas 7 dias - estrutura V3)
-      const contactIds = contatos.map(c => c.id);
-      const analises = await client.entities.ContactBehaviorAnalysis.filter(
-        { 
-          contact_id: { $in: contactIds },
-          analyzed_at: { $gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString() }
-        },
-        '-analyzed_at',
-        200
-      );
+      console.log(`[ANALISE_LOTE] 📊 ${contatos.length} contatos inativos encontrados`);
       
-      console.log(`[ANALISE_LOTE] ${analises.length} análises encontradas para ${contactIds.length} contatos`);
+      // ✅ Buscar análises (últimas 7 dias - estrutura V3) + threads canônicas
+      const contactIds = contatos.map(c => c.id);
+      
+      const [analises, threads] = await Promise.all([
+        client.entities.ContactBehaviorAnalysis.filter(
+          { 
+            contact_id: { $in: contactIds },
+            analyzed_at: { $gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString() }
+          },
+          '-analyzed_at',
+          200
+        ),
+        // ✅ PATCH 5: Buscar threads canônicas para navegação
+        client.entities.MessageThread.filter(
+          { contact_id: { $in: contactIds }, is_canonical: true },
+          null,
+          200
+        )
+      ]);
+      
+      console.log(`[ANALISE_LOTE] ${analises.length} análises + ${threads.length} threads para ${contactIds.length} contatos`);
       
       const analisesMap = new Map(analises.map(a => [a.contact_id, a]));
+      const threadsMap = new Map(threads.map(t => [t.contact_id, t]));
       
-      // ✅ Enriquecer contatos com análises V3
+      // ✅ PATCH 2: NUNCA excluir contatos - devolver com status
       const clientesEnriquecidos = contatos.map(contato => {
         const analise = analisesMap.get(contato.id);
+        const thread = threadsMap.get(contato.id);
         
-        // ✅ Pular se não tem análise ou é insufficient_data
-        if (!analise || analise.status === 'insufficient_data') {
-          console.log(`[ANALISE_LOTE] ⏭️ ${contato.nome} sem análise válida`);
-          return null;
+        // Calcular inatividade do próprio contato (fallback)
+        const ultimaInteracao = new Date(contato.ultima_interacao || contato.created_date);
+        const daysInactive = Math.floor((agora - ultimaInteracao) / (1000 * 60 * 60 * 24));
+        
+        const bucketInactiveCalc = 
+          daysInactive < 30 ? 'active' :
+          daysInactive < 60 ? '30' :
+          daysInactive < 90 ? '60' : '90+';
+        
+        // ✅ CASO 1: SEM ANÁLISE ou INSUFFICIENT_DATA
+        if (!analise || analise.status === 'insufficient_data' || analise.status === 'error') {
+          const prioridadeInatividade = 
+            daysInactive >= 90 ? 75 :
+            daysInactive >= 60 ? 60 :
+            daysInactive >= 30 ? 40 : 10;
+          
+          const labelInatividade = 
+            prioridadeInatividade >= 75 ? 'CRITICO' :
+            prioridadeInatividade >= 55 ? 'ALTO' :
+            prioridadeInatividade >= 35 ? 'MEDIO' : 'BAIXO';
+          
+          return {
+            contact_id: contato.id,
+            nome: contato.nome,
+            empresa: contato.empresa,
+            telefone: contato.telefone,
+            tipo_contato: contato.tipo_contato,
+            vendedor_responsavel: contato.vendedor_responsavel,
+            assigned_user_id: contato.assigned_user_id,
+            thread_id: thread?.id || null,
+            status: analise?.status || 'no_analysis',
+            deal_risk: 0,
+            buy_intent: 0,
+            engagement: 0,
+            health: 50,
+            stage_current: 'descoberta',
+            days_inactive_inbound: daysInactive,
+            days_inactive_total: daysInactive,
+            bucket_inactive: bucketInactiveCalc,
+            root_causes: [`${daysInactive} dias sem interação`, 'Sem análise comportamental'],
+            rootCause: `${daysInactive} dias sem interação`,
+            next_action: 'Retomar contato',
+            suggested_message: `Olá ${contato.nome?.split(' ')[0] || ''}! Tudo bem? Gostaria de saber se posso ajudar em algo.`,
+            suggestedMessage: `Olá ${contato.nome?.split(' ')[0] || ''}! Tudo bem?`,
+            prioridadeScore: prioridadeInatividade,
+            prioridadeLabel: labelInatividade,
+            analyzed_at: null
+          };
         }
         
-        // ✅ USAR CAMPOS NOVOS (estrutura V3)
+        // ✅ CASO 2: COM ANÁLISE VÁLIDA (estrutura V3)
         const deal_risk = analise.ai_insights?.deal_risk || 0;
         const buy_intent = analise.ai_insights?.buy_intent || 0;
         const engagement = analise.ai_insights?.engagement || 0;
@@ -140,12 +201,16 @@ Deno.serve(async (req) => {
         const prioridadeScore = analise.priority_score || 0;
         const prioridadeLabel = analise.priority_label || 'BAIXO';
         
-        // ✅ Filtrar por minDealRisk
-        if (deal_risk < minDealRisk) {
-          console.log(`[ANALISE_LOTE] ⏭️ ${contato.nome} deal_risk ${deal_risk} < ${minDealRisk}`);
-          return null;
+        // ✅ PATCH 3: Regra OR - (inatividade >= 30) OR (deal_risk >= minDealRisk)
+        const daysInactiveInbound = analise.days_inactive_inbound || daysInactive;
+        const passaPorInatividade = daysInactiveInbound >= 30;
+        const passaPorRisco = deal_risk >= minDealRisk;
+        
+        if (!passaPorInatividade && !passaPorRisco) {
+          return null; // Só exclui se NÃO passar por nenhum critério
         }
         
+        // ✅ PATCH 4: DTO padronizado (nomes consistentes)
         return {
           contact_id: contato.id,
           nome: contato.nome,
@@ -154,17 +219,23 @@ Deno.serve(async (req) => {
           tipo_contato: contato.tipo_contato,
           vendedor_responsavel: contato.vendedor_responsavel,
           assigned_user_id: contato.assigned_user_id,
+          thread_id: thread?.id || null,
+          status: analise.status,
           deal_risk,
+          dealRisk: deal_risk, // UI usa camelCase
           buy_intent,
+          buyIntent: buy_intent,
           engagement,
           health,
           stage_current: stage,
-          days_stalled: analise.days_inactive_inbound || 0,
-          days_inactive_inbound: analise.days_inactive_inbound || 0,
-          bucket_inactive: analise.bucket_inactive || 'active',
+          days_inactive_inbound: daysInactiveInbound,
+          days_inactive_total: analise.days_inactive_total || daysInactive,
+          bucket_inactive: analise.bucket_inactive || bucketInactiveCalc,
           root_causes: rootCauses,
+          rootCause: rootCauses[0] || 'Requer atenção',
           next_action: nextAction.action || 'Acompanhar',
           suggested_message: nextAction.message_suggestion || '',
+          suggestedMessage: nextAction.message_suggestion || '', // UI usa camelCase
           prioridadeScore,
           prioridadeLabel,
           analyzed_at: analise.analyzed_at
@@ -217,9 +288,11 @@ Deno.serve(async (req) => {
       tipo_contato: { $in: Array.isArray(tipo) ? tipo : ['lead', 'cliente'] }
     };
     
+    // ✅ PATCH 6: Scheduled deve analisar também buckets 60/90+
     if (priorizar_ativos) {
+      // Pegar últimos 90 dias (em vez de 30) para cobrir todos buckets
       query.ultima_interacao = {
-        $gte: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString()
+        $gte: new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString()
       };
     }
     
