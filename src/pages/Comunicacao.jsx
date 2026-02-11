@@ -117,7 +117,7 @@ export default function Comunicacao() {
   const [modoSelecaoMultipla, setModoSelecaoMultipla] = React.useState(false);
   const [contatosSelecionados, setContatosSelecionados] = React.useState([]);
   const [mostrarSelecionados, setMostrarSelecionados] = React.useState(false);
-  const [modalEnvioMassaOpen, setModalEnvioMassaOpen] = React.useState(false);
+  const [modoEnvioMassa, setModoEnvioMassa] = React.useState(false);
   const [contatosParaEnvioMassa, setContatosParaEnvioMassa] = React.useState([]);
 
   // Estados para broadcast interno
@@ -180,7 +180,8 @@ export default function Comunicacao() {
         try {
           const contatos = JSON.parse(contatosSalvos);
           setContatosParaEnvioMassa(contatos);
-          setModalEnvioMassaOpen(true);
+          setModoEnvioMassa(true);
+          setThreadAtiva(null); // Limpar thread ativa
           localStorage.removeItem('envio_massa_contatos');
           
           // Limpar URL
