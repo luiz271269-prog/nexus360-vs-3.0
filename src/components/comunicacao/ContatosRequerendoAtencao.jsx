@@ -9,7 +9,9 @@ import {
   RefreshCw,
   Loader2,
   User,
-  Clock
+  Clock,
+  Send,
+  Sparkles
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useContatosInteligentes } from '../hooks/useContatosInteligentes';
@@ -20,6 +22,7 @@ export default function ContatosRequerendoAtencao({ usuario, onSelecionarContato
   const [agrupadoPor, setAgrupadoPor] = useState('prioridade'); // prioridade | atendente | bucket
   const [gruposExpandidos, setGruposExpandidos] = useState({});
   const [usuariosMap, setUsuariosMap] = useState({});
+  const [enviandoPromos, setEnviandoPromos] = useState(false);
   const isHeader = variant === 'header';
 
   // ✅ Motor Unificado V3
@@ -158,6 +161,60 @@ export default function ContatosRequerendoAtencao({ usuario, onSelecionarContato
     agruparPorAtendente();
 
   const totalAlertas = totalUrgentes || contatosComAlerta.length;
+
+  const enviarPromocoesAutomaticas = async () => {
+    if (!contatosComAlerta.length) {
+      toast.error('Nenhum contato para enviar promoções');
+      return;
+    }
+
+    const confirmacao = window.confirm(
+      `🚀 Enviar promoções automáticas para ${contatosComAlerta.length} contatos?\n\n` +
+      `Processo:\n` +
+      `1️⃣ Saudação personalizada (agora)\n` +
+      `2️⃣ Aguardar 5 minutos\n` +
+      `3️⃣ Enviar promoção ativa\n\n` +
+      `Tempo estimado: ${Math.ceil(contatosComAlerta.length * 0.8)}s para saudações`
+    );
+
+    if (!confirmacao) return;
+
+    setEnviandoPromos(true);
+    
+    try {
+      const contactIds = contatosComAlerta.map(c => c.contact_id || c.id);
+      
+      toast.loading(`📤 Enviando saudações para ${contactIds.length} contatos...`, { id: 'envio-lote' });
+
+      const resultado = await base44.functions.invoke('enviarPromocoesLote', {
+        contact_ids: contactIds
+      });
+
+      if (resultado.data?.success) {
+        toast.success(
+          `✅ ${resultado.data.enviados} saudações enviadas!\n` +
+          `⏰ Promoções serão enviadas em 5 minutos`,
+          { id: 'envio-lote', duration: 5000 }
+        );
+
+        // Mostrar resumo dos resultados
+        if (resultado.data.erros > 0) {
+          toast.warning(
+            `⚠️ ${resultado.data.erros} contatos com erro`,
+            { duration: 4000 }
+          );
+        }
+      } else {
+        throw new Error(resultado.data?.error || 'Erro desconhecido');
+      }
+
+    } catch (error) {
+      console.error('[ContatosRequerendoAtencao] Erro ao enviar promoções:', error);
+      toast.error(`❌ ${error.message}`, { id: 'envio-lote' });
+    } finally {
+      setEnviandoPromos(false);
+    }
+  };
 
   const getPrioridadeCor = (label) => {
     switch (label) {
@@ -361,7 +418,7 @@ export default function ContatosRequerendoAtencao({ usuario, onSelecionarContato
               </div>
 
               {/* Filtros de agrupamento */}
-              <div className="px-4 py-2 border-b border-slate-100 bg-slate-50/50">
+              <div className="px-4 py-2 border-b border-slate-100 bg-slate-50/50 space-y-2">
                 <div className="flex gap-1.5">
                   <Button
                     size="sm"
@@ -388,6 +445,25 @@ export default function ContatosRequerendoAtencao({ usuario, onSelecionarContato
                     👤 Atendente
                   </Button>
                 </div>
+
+                {/* Botão Envio Automático */}
+                <Button
+                  onClick={enviarPromocoesAutomaticas}
+                  disabled={enviandoPromos || loading || totalAlertas === 0}
+                  className="w-full h-8 text-xs bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white shadow-md"
+                >
+                  {enviandoPromos ? (
+                    <>
+                      <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />
+                      Enviando...
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles className="w-3.5 h-3.5 mr-1.5" />
+                      Enviar Promoções Auto ({totalAlertas})
+                    </>
+                  )}
+                </Button>
               </div>
 
               {/* Lista */}
@@ -529,9 +605,9 @@ export default function ContatosRequerendoAtencao({ usuario, onSelecionarContato
       {/* Conteúdo expandido */}
       {expandido && (
         <div className="border-t-2 border-slate-200 bg-slate-50/30">
-          {/* Toggle de agrupamento */}
-          <div className="px-3 py-2.5 flex items-center justify-between bg-slate-100 border-b border-slate-200">
-            <div className="flex gap-1.5 flex-1">
+          {/* Toggle de agrupamento + Botão Promoções */}
+          <div className="px-3 py-2.5 bg-slate-100 border-b border-slate-200 space-y-2">
+            <div className="flex gap-1.5">
               <Button
                 size="sm"
                 variant={agrupadoPor === 'prioridade' ? 'default' : 'outline'}
@@ -556,16 +632,34 @@ export default function ContatosRequerendoAtencao({ usuario, onSelecionarContato
               >
                 👤 Pessoa
               </Button>
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={refetch}
+                disabled={loading}
+                className="h-7 w-7 p-0 hover:bg-slate-200"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
+              </Button>
             </div>
 
+            {/* Botão Envio Automático */}
             <Button
-              size="sm"
-              variant="ghost"
-              onClick={refetch}
-              disabled={loading}
-              className="h-7 w-7 p-0 ml-2 hover:bg-slate-200"
+              onClick={enviarPromocoesAutomaticas}
+              disabled={enviandoPromos || loading || totalAlertas === 0}
+              className="w-full h-8 text-xs bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white shadow-md disabled:opacity-50"
             >
-              <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
+              {enviandoPromos ? (
+                <>
+                  <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />
+                  Enviando promoções...
+                </>
+              ) : (
+                <>
+                  <Sparkles className="w-3.5 h-3.5 mr-1.5" />
+                  Enviar Promoções Auto ({totalAlertas})
+                </>
+              )}
             </Button>
           </div>
 
