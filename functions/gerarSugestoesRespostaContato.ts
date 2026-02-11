@@ -13,7 +13,7 @@ Deno.serve(async (req) => {
     const body = await req.json().catch(() => ({}));
     const {
       contact_id,
-      limit = 80,
+      limit = 50, // ✅ OTIMIZADO: 50 mensagens por padrão (2x mais rápido)
       tom = ['formal', 'amigavel', 'objetiva'],
       idioma = 'pt-BR',
     } = body;
@@ -22,7 +22,7 @@ Deno.serve(async (req) => {
       return Response.json({ success: false, error: 'contact_id é obrigatório' }, { status: 400 });
     }
 
-    const N = Math.max(50, Math.min(100, Number(limit) || 80));
+    const N = Math.max(30, Math.min(80, Number(limit) || 50)); // ✅ Limites ajustados
 
     // ═════════════════════════════════════════════════════════════════
     // 1️⃣ BUSCAR CONTATO + ANÁLISE COMPORTAMENTAL (V3)
@@ -98,10 +98,10 @@ Deno.serve(async (req) => {
     const lastOutbound = [...normalized].reverse().find(x => x.direction === 'outbound');
 
     // ═════════════════════════════════════════════════════════════════
-    // 4️⃣ MONTAR CONTEXTO PARA IA
+    // 4️⃣ MONTAR CONTEXTO PARA IA (OTIMIZADO)
     // ═════════════════════════════════════════════════════════════════
     const conversationText = normalized
-      .slice(-20) // Últimas 20 mensagens para contexto
+      .slice(-15) // ✅ OTIMIZADO: 15 mensagens (era 20) - reduz tokens
       .map((x) => {
         const who = x.direction === 'inbound' ? 'CLIENTE' : 'AGENTE';
         return `${who}: ${x.text}`;
