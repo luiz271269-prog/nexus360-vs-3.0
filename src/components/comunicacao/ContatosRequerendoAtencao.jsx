@@ -173,14 +173,20 @@ export default function ContatosRequerendoAtencao({ usuario, onSelecionarContato
         key={item.contact_id}
         onClick={() => {
           if (onSelecionarContato) {
-            // Buscar thread para abrir conversa
-            base44.entities.MessageThread.filter({ contact_id: item.contact_id }, '-last_message_at', 1)
-              .then(threads => {
-                if (threads.length > 0) {
-                  onSelecionarContato({ id: threads[0].id });
-                  setExpandido(false);
-                }
-              });
+            // ✅ Usar thread_id já vindo do endpoint (ou buscar se null)
+            if (item.thread_id) {
+              onSelecionarContato({ id: item.thread_id });
+              setExpandido(false);
+            } else {
+              // Fallback: buscar thread se não veio
+              base44.entities.MessageThread.filter({ contact_id: item.contact_id }, '-last_message_at', 1)
+                .then(threads => {
+                  if (threads.length > 0) {
+                    onSelecionarContato({ id: threads[0].id });
+                    setExpandido(false);
+                  }
+                });
+            }
           }
         }}
         className="w-full px-4 py-2 flex items-start gap-2 hover:bg-white transition-colors border-b border-slate-100 last:border-b-0 relative"
