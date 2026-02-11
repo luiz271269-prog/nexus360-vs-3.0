@@ -23,84 +23,35 @@ export default function ModalEnvioMassa({ isOpen, onClose, contatosSelecionados,
       return;
     }
 
-    const confirmacao = window.confirm(
-      `📤 Enviar mensagem para ${contatosSelecionados.length} contato(s)?\n\n` +
-      `Mensagem: "${mensagem.slice(0, 50)}..."\n\n` +
-      `Tempo estimado: ${Math.ceil(contatosSelecionados.length * 0.5)}s`
-    );
-
-    if (!confirmacao) return;
-
     setEnviando(true);
-    const resultados = { sucesso: 0, erro: 0, erros: [] };
 
     try {
       toast.loading(`📤 Enviando para ${contatosSelecionados.length} contatos...`, { id: 'envio-massa' });
 
-      for (const contato of contatosSelecionados) {
-        try {
-          // Buscar thread do contato
-          const threads = await base44.entities.MessageThread.filter({
-            contact_id: contato.contact_id || contato.id,
-            is_canonical: true,
-            thread_type: 'contact_external'
-          }, '-last_message_at', 1);
+      const resultado = await base44.functions.invoke('enviarMensagemMassa', {
+        contact_ids: contatosSelecionados.map(c => c.contact_id || c.id),
+        mensagem,
+        personalizar: true
+      });
 
-          if (!threads.length) {
-            throw new Error('Thread não encontrada');
-          }
-
-          const thread = threads[0];
-
-          // Personalizar mensagem
-          let mensagemPersonalizada = mensagem
-            .replace(/\{\{nome\}\}/gi, contato.nome || 'Cliente')
-            .replace(/\{\{empresa\}\}/gi, contato.empresa || '');
-
-          // Enviar via função unificada
-          await base44.functions.invoke('enviarMensagemUnificada', {
-            thread_id: thread.id,
-            texto: mensagemPersonalizada,
-            integration_id: thread.whatsapp_integration_id
-          });
-
-          resultados.sucesso++;
-
-          // Anti-rate-limit
-          await new Promise(resolve => setTimeout(resolve, 500));
-
-        } catch (error) {
-          resultados.erro++;
-          resultados.erros.push({
-            nome: contato.nome,
-            erro: error.message
-          });
-          console.error(`Erro ao enviar para ${contato.nome}:`, error);
-        }
-      }
-
-      // Resultado final
-      if (resultados.sucesso > 0) {
+      if (resultado.data?.success) {
         toast.success(
-          `✅ ${resultados.sucesso} mensagem(s) enviada(s)!` +
-          (resultados.erro > 0 ? `\n⚠️ ${resultados.erro} erro(s)` : ''),
+          `✅ ${resultado.data.enviados} enviada(s)!` +
+          (resultado.data.erros > 0 ? `\n⚠️ ${resultado.data.erros} erro(s)` : ''),
           { id: 'envio-massa', duration: 5000 }
         );
+
+        if (resultado.data.enviados > 0) {
+          setMensagem('');
+          onClose();
+          if (onEnvioCompleto) onEnvioCompleto();
+        }
       } else {
-        toast.error(`❌ Nenhuma mensagem enviada (${resultados.erro} erros)`, { id: 'envio-massa' });
-      }
-
-      if (resultados.sucesso > 0 && onEnvioCompleto) {
-        onEnvioCompleto();
-      }
-
-      if (resultados.sucesso > 0) {
-        setMensagem('');
-        onClose();
+        throw new Error(resultado.data?.error || 'Erro ao enviar');
       }
 
     } catch (error) {
-      console.error('[ModalEnvioMassa] Erro geral:', error);
+      console.error('[ModalEnvioMassa] Erro:', error);
       toast.error(`❌ ${error.message}`, { id: 'envio-massa' });
     } finally {
       setEnviando(false);
