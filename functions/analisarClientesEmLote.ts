@@ -27,7 +27,9 @@ Deno.serve(async (req) => {
       modo = 'scheduled',
       tipo = ['lead', 'cliente'],
       diasSemMensagem = 2,
-      minDealRisk = 30
+      minDealRisk = 30,
+      bucket_inactive = null, // '30'|'60'|'90'|'all'|null
+      include_sem_analise = true
     } = body;
     
     // ══════════════════════════════════════════════════════════════
@@ -88,16 +90,31 @@ Deno.serve(async (req) => {
         queryContatos.vendedor_responsavel = user.id;
       }
       
-      // ✅ PATCH 1: Filtro INVERTIDO - pegar contatos PARADOS (não recentes)
-      // Objetivo: mostrar 30/60/90+ dias sem mensagem
+      // ✅ PATCH 1: Filtro INVERTIDO com suporte a BUCKETS
       const agora = new Date();
-      const diasMinimosInatividade = Math.max(diasSemMensagem, 2);
       
-      queryContatos.ultima_interacao = {
-        $lte: new Date(agora.getTime() - diasMinimosInatividade * 24 * 60 * 60 * 1000).toISOString()
-      };
+      // Determinar dias de inatividade por bucket
+      let diasInatividade;
+      if (bucket_inactive === '90') {
+        diasInatividade = 90;
+      } else if (bucket_inactive === '60') {
+        diasInatividade = 60;
+      } else if (bucket_inactive === '30') {
+        diasInatividade = 30;
+      } else if (bucket_inactive === 'all') {
+        diasInatividade = null; // Sem filtro de data
+      } else {
+        diasInatividade = Math.max(diasSemMensagem, 2); // Default
+      }
       
-      console.log(`[ANALISE_LOTE] 📅 Buscando contatos inativos há ${diasMinimosInatividade}+ dias`);
+      if (diasInatividade !== null) {
+        queryContatos.ultima_interacao = {
+          $lte: new Date(agora.getTime() - diasInatividade * 24 * 60 * 60 * 1000).toISOString()
+        };
+        console.log(`[ANALISE_LOTE] 📅 Buscando contatos inativos há ${diasInatividade}+ dias (bucket: ${bucket_inactive || 'default'})`);
+      } else {
+        console.log(`[ANALISE_LOTE] 📅 Buscando TODOS contatos (sem filtro de inatividade)`);
+      }
       
       const client = user ? base44 : base44.asServiceRole;
       
@@ -201,13 +218,17 @@ Deno.serve(async (req) => {
         const prioridadeScore = analise.priority_score || 0;
         const prioridadeLabel = analise.priority_label || 'BAIXO';
         
-        // ✅ PATCH 3: Regra OR - (inatividade >= 30) OR (deal_risk >= minDealRisk)
+        // ✅ PATCH 3: Regra OR - (inatividade >= bucket) OR (deal_risk >= minDealRisk)
         const daysInactiveInbound = analise.days_inactive_inbound || daysInactive;
-        const passaPorInatividade = daysInactiveInbound >= 30;
+        const bucketMinimo = bucket_inactive === '90' ? 90 : bucket_inactive === '60' ? 60 : 30;
+        
+        const passaPorInatividade = daysInactiveInbound >= bucketMinimo;
         const passaPorRisco = deal_risk >= minDealRisk;
         
+        // Só exclui se NÃO passar por NENHUM critério
         if (!passaPorInatividade && !passaPorRisco) {
-          return null; // Só exclui se NÃO passar por nenhum critério
+          console.log(`[ANALISE_LOTE] ⏭️ ${contato.nome} não passa (inatividade=${daysInactiveInbound}d < ${bucketMinimo}d, risco=${deal_risk} < ${minDealRisk})`);
+          return null;
         }
         
         // ✅ PATCH 4: DTO padronizado (nomes consistentes)
