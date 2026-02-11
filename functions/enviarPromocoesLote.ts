@@ -28,6 +28,8 @@ Deno.serve(async (req) => {
 
     console.log(`[PROMO-LOTE] Processando ${contact_ids.length} contatos...`);
 
+    const now = new Date();
+
     // ═══════════════════════════════════════════════════════════════
     // 1️⃣ BUSCAR DADOS EM PARALELO
     // ═══════════════════════════════════════════════════════════════
@@ -54,7 +56,6 @@ Deno.serve(async (req) => {
     }
 
     const integracaoDefault = integracoes[0];
-    const now = new Date();
     
     let enviados = 0;
     let erros = 0;
