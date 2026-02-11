@@ -2566,17 +2566,12 @@ export default function Comunicacao() {
                       onAtualizarMensagens={handleAtualizarMensagens}
                       integracoes={integracoes}
                       selectedCategoria={selectedCategoria}
-                      modoEnvioMassa={true}
-                      contatosEnvioMassa={contatosParaEnvioMassa}
-                      onCancelarEnvioMassa={() => {
+                      modoSelecaoMultipla={true}
+                      contatosSelecionados={contatosParaEnvioMassa}
+                      broadcastInterno={null}
+                      onCancelarSelecao={() => {
                         setModoEnvioMassa(false);
                         setContatosParaEnvioMassa([]);
-                      }}
-                      onEnvioMassaCompleto={() => {
-                        setModoEnvioMassa(false);
-                        setContatosParaEnvioMassa([]);
-                        queryClient.invalidateQueries({ queryKey: ['threads-externas'] });
-                        queryClient.invalidateQueries({ queryKey: ['contacts'] });
                       }}
                       atendentes={atendentes}
                       filterScope={filterScope}
