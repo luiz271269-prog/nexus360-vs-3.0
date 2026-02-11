@@ -25,29 +25,27 @@ Deno.serve(async (req) => {
     const N = Math.max(30, Math.min(80, Number(limit) || 50)); // ✅ Limites ajustados
 
     // ═════════════════════════════════════════════════════════════════
-    // 1️⃣ BUSCAR CONTATO + ANÁLISE COMPORTAMENTAL (V3)
+    // 1️⃣+2️⃣ BUSCAR TUDO EM PARALELO (OTIMIZADO)
     // ═════════════════════════════════════════════════════════════════
-    const contato = await base44.asServiceRole.entities.Contact.get(contact_id).catch(() => null);
+    const [contato, analises, threads] = await Promise.all([
+      base44.asServiceRole.entities.Contact.get(contact_id).catch(() => null),
+      base44.asServiceRole.entities.ContactBehaviorAnalysis.filter(
+        { contact_id },
+        '-analyzed_at',
+        1
+      ),
+      base44.asServiceRole.entities.MessageThread.filter(
+        { contact_id, is_canonical: true },
+        '-last_message_at',
+        1
+      )
+    ]);
+
     if (!contato) {
       return Response.json({ success: false, error: 'Contato não encontrado' }, { status: 404 });
     }
 
-    // Buscar última análise comportamental
-    const analises = await base44.asServiceRole.entities.ContactBehaviorAnalysis.filter(
-      { contact_id: contact_id },
-      '-analyzed_at',
-      1
-    );
     const analise = analises[0] || null;
-
-    // ═════════════════════════════════════════════════════════════════
-    // 2️⃣ BUSCAR THREAD CANÔNICA + MENSAGENS
-    // ═════════════════════════════════════════════════════════════════
-    const threads = await base44.asServiceRole.entities.MessageThread.filter(
-      { contact_id: contact_id, is_canonical: true },
-      '-last_message_at',
-      1
-    );
     const thread = threads?.[0] || null;
 
     // Buscar mensagens (DESC depois invertemos)
@@ -165,46 +163,82 @@ Deno.serve(async (req) => {
     const lastOutbound = [...normalized].reverse().find(x => x.direction === 'outbound');
 
     // ═════════════════════════════════════════════════════════════════
+    // 🚀 CACHE DE SUGESTÕES (15min TTL) - OTIMIZAÇÃO CRÍTICA
+    // ═════════════════════════════════════════════════════════════════
+    if (analise?.ai_insights?.suggestions_cached && Array.isArray(analise.ai_insights.suggestions_cached)) {
+      const cacheTimestamp = analise.ai_insights.suggestions_generated_at;
+      
+      if (cacheTimestamp) {
+        const cacheAge = Date.now() - new Date(cacheTimestamp).getTime();
+        const CACHE_VALID_MS = 15 * 60 * 1000; // 15 minutos
+        
+        if (cacheAge < CACHE_VALID_MS && cacheAge >= 0) {
+          console.log(`[CACHE] ✅ Hit (${Math.floor(cacheAge / 1000)}s de idade)`);
+          
+          return Response.json({
+            success: true,
+            contact_id,
+            meta: {
+              limit: N,
+              fetched: normalized.length,
+              hasEnoughData,
+              lastInboundAt: lastInbound?.at || null,
+              lastOutboundAt: lastOutbound?.at || null,
+              thread_id: thread?.id || null,
+              has_analysis: !!analise,
+              cache_hit: true,
+              cache_age_seconds: Math.floor(cacheAge / 1000),
+              ai: { ok: true, cached: true }
+            },
+            analysis: {
+              ...(analise.ai_insights || {}),
+              last_useful_message: lastInbound?.text || latestInbound?.text || 'N/D',
+              last_customer_message: latestInbound?.text || 'N/D',
+              is_latest_courtesy: isCourtesy,
+              conversation_type: conversationType,
+              open_loop: openLoop
+            },
+            suggestions: analise.ai_insights.suggestions_cached
+          });
+        }
+      }
+    }
+
+    console.log('[CACHE] ❌ Miss - gerando novas sugestões');
+
+    // ═════════════════════════════════════════════════════════════════
     // 4️⃣ MONTAR CONTEXTO PARA IA (OTIMIZADO)
     // ═════════════════════════════════════════════════════════════════
     const conversationText = normalized
-      .slice(-15) // ✅ OTIMIZADO: 15 mensagens (era 20) - reduz tokens
+      .slice(-10) // ⚠️ OTIMIZADO: 10 mensagens (era 15) - reduz 33% tokens
       .map((x) => {
-        const who = x.direction === 'inbound' ? 'CLIENTE' : 'AGENTE';
-        return `${who}: ${x.text}`;
+        const who = x.direction === 'inbound' ? 'C' : 'A'; // ✅ Abreviado
+        const maxLen = 150; // ✅ Limitar tamanho
+        const text = x.text.length > maxLen ? x.text.slice(0, maxLen) + '...' : x.text;
+        return `${who}: ${text}`;
       })
       .join('\n');
 
     // ═════════════════════════════════════════════════════════════════
     // 5️⃣ CHAMAR IA PARA ANÁLISE + SUGESTÕES
     // ═════════════════════════════════════════════════════════════════
-    const systemInstruction = `Você é um assistente comercial especializado.
-Analise a conversa e gere:
-1) Resumo do que o cliente quer
-2) Intenção (orçamento, dúvida, reclamação, followup, outro)
-3) Urgência (baixa, media, alta)
-4) Objeções identificadas
-5) Informações faltantes
-6) Próxima ação recomendada
-7) 3 sugestões de resposta (formal, amigável, objetiva)
+    const systemInstruction = `Assistente comercial especializado.
+Analise a conversa e retorne JSON:
+1) Resumo breve do pedido
+2) Intenção: orçamento/dúvida/reclamação/followup/outro
+3) Urgência: baixa/media/alta
+4) Próxima ação + pergunta de confirmação
+5) 3 respostas CURTAS (máx 2 linhas): formal, amigável, objetiva
 
-Regras:
-- Respostas CURTAS (máx 2-3 linhas)
-- Orientadas à ação
-- Não inventar dados
-- Usar contexto da análise comportamental quando disponível`;
+Regras: orientado à ação, sem inventar dados.`;
 
     const userPrompt = `DADOS DO CONTATO:
 - Nome: ${contato.nome || 'N/D'}
 - Empresa: ${contato.empresa || 'N/D'}
 - Tipo: ${contato.tipo_contato || 'N/D'}
 
-${analise ? `ANÁLISE COMPORTAMENTAL (última):
-- Inatividade: ${analise.days_inactive_inbound || 0} dias (cliente sem responder)
-- Deal Risk: ${analise.ai_insights?.deal_risk || 0}%
-- Buy Intent: ${analise.ai_insights?.buy_intent || 0}%
-- Engagement: ${analise.ai_insights?.engagement || 0}%
-- Sentiment: ${analise.ai_insights?.sentiment || 'neutro'}
+${analise ? `ANÁLISE (${analise.days_inactive_inbound || 0}d sem resposta):
+Risk ${analise.ai_insights?.deal_risk || 0}% | Intent ${analise.ai_insights?.buy_intent || 0}% | Engage ${analise.ai_insights?.engagement || 0}%
 ` : ''}
 
 ÚLTIMA MENSAGEM ÚTIL DO CLIENTE:
@@ -230,7 +264,7 @@ CRÍTICO: Cliente aguarda retorno. Suas sugestões DEVEM incluir:
 4. Confirmação de escopo (quantidade/modelo)
 ` : ''}
 
-CONVERSA (últimas 15 mensagens):
+CONVERSA (últimas 10):
 ${conversationText}
 
 Retorne JSON estruturado com análise completa e 3 sugestões otimizadas.`;
