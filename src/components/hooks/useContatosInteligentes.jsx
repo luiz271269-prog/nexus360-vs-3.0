@@ -41,11 +41,23 @@ export function useContatosInteligentes(usuario, opcoes = {}) {
         diasSemMensagem,
         minDealRisk,
         limit,
-        forcarReanalise
+        force: forcarReanalise // ✅ FIX: backend espera 'force', não 'forcarReanalise'
       });
       
       if (response.data?.success) {
-        setClientes(response.data.clientes || []);
+        // ✅ NORMALIZAÇÃO: padronizar campos backend → UI
+        const normalizados = (response.data.clientes || []).map(c => ({
+          ...c,
+          id: c.contact_id, // key estável
+          thread_id: c.thread_id || c.threadId || null,
+          atendente_nome: c.atendente_nome || c.atendenteNome || null,
+          dealRisk: c.dealRisk ?? c.deal_risk ?? 0,
+          suggestedMessage: c.suggestedMessage ?? c.suggested_message ?? '',
+          rootCause: c.rootCause ?? (Array.isArray(c.root_causes) ? c.root_causes[0] : '') ?? 'Requer atenção',
+          prioridadeScore: c.prioridadeScore ?? c.priority_score ?? 0
+        }));
+        
+        setClientes(normalizados);
         setEstatisticas(response.data.estatisticas || null);
       } else {
         throw new Error(response.data?.error || 'Erro desconhecido');
