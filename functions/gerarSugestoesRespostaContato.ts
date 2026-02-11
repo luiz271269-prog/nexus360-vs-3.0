@@ -23,6 +23,7 @@ Deno.serve(async (req) => {
     }
 
     const N = Math.max(30, Math.min(80, Number(limit) || 50)); // ✅ Limites ajustados
+    const forceRegenerate = body.force === true; // ✅ Forçar regeneração (ignora cache)
 
     // ═════════════════════════════════════════════════════════════════
     // 1️⃣+2️⃣ BUSCAR TUDO EM PARALELO (OTIMIZADO)
@@ -165,15 +166,21 @@ Deno.serve(async (req) => {
     // ═════════════════════════════════════════════════════════════════
     // 🚀 CACHE DE SUGESTÕES (15min TTL) - OTIMIZAÇÃO CRÍTICA
     // ═════════════════════════════════════════════════════════════════
-    if (analise?.ai_insights?.suggestions_cached && Array.isArray(analise.ai_insights.suggestions_cached)) {
+    if (!forceRegenerate && analise?.ai_insights?.suggestions_cached && Array.isArray(analise.ai_insights.suggestions_cached)) {
       const cacheTimestamp = analise.ai_insights.suggestions_generated_at;
+      const cacheLastMsgId = analise.ai_insights.suggestions_last_message_id;
       
       if (cacheTimestamp) {
         const cacheAge = Date.now() - new Date(cacheTimestamp).getTime();
         const CACHE_VALID_MS = 15 * 60 * 1000; // 15 minutos
         
-        if (cacheAge < CACHE_VALID_MS && cacheAge >= 0) {
-          console.log(`[CACHE] ✅ Hit (${Math.floor(cacheAge / 1000)}s de idade)`);
+        // ✅ Cache válido SE: dentro do TTL E última mensagem não mudou
+        const currentLastMsgId = latestInbound?.id;
+        const cacheStillValid = cacheAge < CACHE_VALID_MS && cacheAge >= 0 && 
+                                (!currentLastMsgId || cacheLastMsgId === currentLastMsgId);
+        
+        if (cacheStillValid) {
+          console.log(`[CACHE] ✅ Hit (${Math.floor(cacheAge / 1000)}s, msg_id match)`);
           
           return Response.json({
             success: true,
@@ -201,19 +208,78 @@ Deno.serve(async (req) => {
             suggestions: analise.ai_insights.suggestions_cached
           });
         }
+        
+        if (cacheLastMsgId !== currentLastMsgId) {
+          console.log('[CACHE] ❌ Miss - nova mensagem detectada');
+        } else {
+          console.log('[CACHE] ❌ Miss - TTL expirado');
+        }
       }
     }
 
     console.log('[CACHE] ❌ Miss - gerando novas sugestões');
 
     // ═════════════════════════════════════════════════════════════════
-    // 4️⃣ MONTAR CONTEXTO PARA IA (OTIMIZADO)
+    // 4️⃣ SELEÇÃO INTELIGENTE DE MENSAGENS PARA LLM (8-12 msgs)
     // ═════════════════════════════════════════════════════════════════
-    const conversationText = normalized
-      .slice(-10) // ⚠️ OTIMIZADO: 10 mensagens (era 15) - reduz 33% tokens
+    const selectRelevantMessages = (msgs) => {
+      // Separar inbound/outbound
+      const inbound = msgs.filter(x => x.direction === 'inbound');
+      const outbound = msgs.filter(x => x.direction === 'outbound');
+      
+      // ✅ Priorizar mensagens úteis
+      const scoredInbound = inbound.map(m => {
+        const text = m.text.toLowerCase();
+        let score = 0;
+        
+        if (text.includes('?')) score += 3;
+        if (/\b(orçamento|cotação|preço|valor|quanto|prazo)\b/i.test(text)) score += 4;
+        if (/\b(problema|demora|reclamação|urgente)\b/i.test(text)) score += 3;
+        if (/\b\d+\b/.test(text)) score += 2;
+        if (text.length > 30) score += 1;
+        
+        return { ...m, score };
+      }).sort((a, b) => b.score - a.score);
+      
+      // ✅ Selecionar mensagens chave
+      const selected = [];
+      
+      // 1. Últimas 3 inbound úteis (max score)
+      selected.push(...scoredInbound.slice(0, 3));
+      
+      // 2. Última outbound (contexto da resposta do atendente)
+      if (outbound.length > 0) {
+        selected.push(outbound[outbound.length - 1]);
+      }
+      
+      // 3. Mensagem de pedido/orçamento (se houver e não estiver nas 3 últimas)
+      const orcamentoMsg = scoredInbound.find(m => 
+        /\b(orçamento|cotação|preço)\b/i.test(m.text) && 
+        !selected.find(s => s.id === m.id)
+      );
+      if (orcamentoMsg) {
+        selected.push(orcamentoMsg);
+        
+        // Adicionar 2 msgs de contexto antes do pedido
+        const idx = msgs.findIndex(m => m.id === orcamentoMsg.id);
+        if (idx > 0) selected.push(msgs[idx - 1]);
+        if (idx > 1) selected.push(msgs[idx - 2]);
+      }
+      
+      // 4. Completar até 10 msgs com as mais recentes (se ainda faltar)
+      const recentMsgs = msgs.slice(-10).filter(m => !selected.find(s => s.id === m.id));
+      selected.push(...recentMsgs.slice(0, 10 - selected.length));
+      
+      // Ordenar cronologicamente
+      return selected.sort((a, b) => new Date(a.at) - new Date(b.at));
+    };
+    
+    const relevantMsgs = selectRelevantMessages(normalized);
+    
+    const conversationText = relevantMsgs
       .map((x) => {
-        const who = x.direction === 'inbound' ? 'C' : 'A'; // ✅ Abreviado
-        const maxLen = 150; // ✅ Limitar tamanho
+        const who = x.direction === 'inbound' ? 'C' : 'A';
+        const maxLen = 150;
         const text = x.text.length > maxLen ? x.text.slice(0, maxLen) + '...' : x.text;
         return `${who}: ${text}`;
       })
@@ -341,7 +407,8 @@ Retorne JSON estruturado com análise completa e 3 sugestões otimizadas.`;
           ai_insights: {
             ...analise.ai_insights,
             suggestions_cached: suggestions,
-            suggestions_generated_at: new Date().toISOString()
+            suggestions_generated_at: new Date().toISOString(),
+            suggestions_last_message_id: latestInbound?.id || null // ✅ Invalidar cache em nova msg
           }
         });
       } catch (err) {

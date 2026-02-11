@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -21,29 +21,44 @@ export default function SugestorRespostasRapidas({
   const [sugestoes, setSugestoes] = useState([]);
   const [erro, setErro] = useState(null);
   const [analiseContexto, setAnaliseContexto] = useState(null); // ✅ Análise da conversa
+  const [stage, setStage] = useState('loading'); // loading | cached | generating | ready
+  const abortControllerRef = React.useRef(null); // ✅ Debounce/cancelamento
 
-  const gerarSugestoes = async () => {
+  const gerarSugestoes = async (force = false) => {
     if (!mensagemCliente || mensagemCliente.length < 5) {
       toast.error('Mensagem muito curta para gerar sugestões');
       return;
     }
 
+    // ✅ Cancelar requisição anterior se existir
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+    abortControllerRef.current = new AbortController();
+
     setGerando(true);
     setErro(null);
-    setSugestoes([]);
+    if (force) {
+      setSugestoes([]);
+      setAnaliseContexto(null);
+    }
 
     try {
-      console.log('[SUGESTOR] 🧠 Usando função V3 com análise comportamental');
+      console.log('[SUGESTOR] 🧠 Chamando backend V3...');
+      setStage(force ? 'generating' : 'loading');
 
-      // ✅ Chamar função backend V3 que integra ContactBehaviorAnalysis (OTIMIZADO)
+      // ✅ Chamar função backend V3 (OTIMIZADO: cache + paralelo + tokens reduzidos)
       const resultado = await base44.functions.invoke('gerarSugestoesRespostaContato', {
         contact_id: contactId,
-        limit: 50, // ✅ OTIMIZADO: 50 mensagens (2x mais rápido que 100)
+        limit: 50,
         tom: ['formal', 'amigavel', 'objetiva'],
-        idioma: 'pt-BR'
+        idioma: 'pt-BR',
+        force // ✅ Forçar regeneração
       });
 
       if (resultado.data?.success && resultado.data.suggestions) {
+        const isCacheHit = resultado.data.meta?.cache_hit === true;
+        
         // Converter formato backend → formato UI
         const sugestoesUI = resultado.data.suggestions.map(s => ({
           texto: s.message,
@@ -52,11 +67,16 @@ export default function SugestorRespostasRapidas({
         }));
         
         setSugestoes(sugestoesUI);
-        setAnaliseContexto(resultado.data.analysis); // ✅ Armazenar análise
-        console.log('[SUGESTOR] ✅ Sugestões V3 geradas:', sugestoesUI.length);
+        setAnaliseContexto(resultado.data.analysis);
+        setStage(isCacheHit ? 'cached' : 'ready');
         
-        // Mostrar análise se disponível
-        if (resultado.data.analysis?.customer_intent) {
+        console.log(`[SUGESTOR] ✅ ${isCacheHit ? 'Cache hit' : 'Sugestões geradas'} (${sugestoesUI.length} itens)`);
+        
+        // Toast informativo
+        if (isCacheHit) {
+          const cacheAge = resultado.data.meta.cache_age_seconds;
+          toast.success(`⚡ Cache (${cacheAge}s atrás)`, { duration: 2000 });
+        } else if (resultado.data.analysis?.customer_intent) {
           const intent = resultado.data.analysis.customer_intent;
           const urgency = resultado.data.analysis.urgency;
           const intentLabels = {
@@ -66,15 +86,21 @@ export default function SugestorRespostasRapidas({
             'followup': '📞 Follow-up',
             'outro': '💬 Outro'
           };
-          toast.info(`${intentLabels[intent] || intent} • Urgência: ${urgency}`, { duration: 3000 });
+          toast.info(`${intentLabels[intent] || intent} • ${urgency}`, { duration: 3000 });
         }
       } else {
         throw new Error(resultado.data?.error || 'Resposta inválida');
       }
 
     } catch (error) {
+      if (error.name === 'AbortError') {
+        console.log('[SUGESTOR] ⚠️ Requisição cancelada');
+        return;
+      }
+      
       console.error('[SUGESTOR] ❌ Erro ao gerar V3:', error);
       setErro('Não foi possível gerar sugestões. Tente novamente.');
+      setStage('error');
       
       // Fallback: sugestões genéricas
       setSugestoes([
@@ -93,6 +119,7 @@ export default function SugestorRespostasRapidas({
       ]);
     } finally {
       setGerando(false);
+      abortControllerRef.current = null;
     }
   };
 
@@ -114,11 +141,24 @@ export default function SugestorRespostasRapidas({
     }
   };
 
-  // ✅ Gerar sugestões automaticamente ao montar
+  // ✅ Gerar sugestões automaticamente ao montar (debounce)
   useEffect(() => {
-    if (contactId && sugestoes.length === 0 && !gerando && !erro) {
-      gerarSugestoes();
-    }
+    if (!contactId) return;
+    
+    // Debounce: aguardar 300ms antes de disparar
+    const timer = setTimeout(() => {
+      if (sugestoes.length === 0 && !gerando && !erro) {
+        gerarSugestoes(false);
+      }
+    }, 300);
+    
+    return () => {
+      clearTimeout(timer);
+      // Cancelar requisição em andamento ao desmontar
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+      }
+    };
   }, [contactId]);
 
   return (
@@ -225,7 +265,7 @@ export default function SugestorRespostasRapidas({
           )}
         </div>
 
-        {/* Geração automática ao montar */}
+        {/* Estados de Loading */}
         {sugestoes.length === 0 && !gerando && !erro && (
           <div className="text-center py-6">
             <div className="relative w-16 h-16 mx-auto mb-3">
@@ -234,8 +274,14 @@ export default function SugestorRespostasRapidas({
                 <Sparkles className="w-6 h-6 text-purple-800" />
               </div>
             </div>
-            <p className="text-sm font-semibold text-purple-800 mb-1">Analisando últimas 50 mensagens...</p>
-            <p className="text-xs text-purple-600">Contexto + Comportamento + Intenção</p>
+            <p className="text-sm font-semibold text-purple-800 mb-1">
+              {stage === 'loading' ? 'Verificando cache...' : 
+               stage === 'generating' ? 'Gerando sugestões...' : 
+               'Analisando últimas 50 mensagens...'}
+            </p>
+            <p className="text-xs text-purple-600">
+              {stage === 'loading' ? '⚡ Busca instantânea' : 'Contexto + Comportamento + Intenção'}
+            </p>
           </div>
         )}
 
@@ -258,6 +304,14 @@ export default function SugestorRespostasRapidas({
         {/* Sugestões */}
         {sugestoes.length > 0 && (
           <div className="space-y-2">
+            {/* Badge de Cache/Geração */}
+            {stage === 'cached' && (
+              <div className="flex items-center justify-center gap-2 py-1.5 px-3 bg-green-50 border border-green-200 rounded-lg">
+                <Badge className="bg-green-500 text-white text-[9px] px-1.5 py-0.5">⚡ CACHE</Badge>
+                <span className="text-xs text-green-700 font-medium">Resposta instantânea</span>
+              </div>
+            )}
+
             {sugestoes.map((sugestao, index) => (
               <Card 
                 key={index}
@@ -282,7 +336,7 @@ export default function SugestorRespostasRapidas({
 
             {/* Botão Gerar Novamente */}
             <Button
-              onClick={gerarSugestoes}
+              onClick={() => gerarSugestoes(true)}
               variant="outline"
               size="sm"
               className="w-full border-purple-300 text-purple-700 hover:bg-purple-50"
