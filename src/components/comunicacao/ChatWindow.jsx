@@ -383,16 +383,23 @@ export default function ChatWindow({
     norm(thread?.transfer_requested_user_id) === norm(usuario?.id);
 
   // Lógica de permissão: Atribuição/Transferência OVERRIDE permissões de instância
+  // ✅ MODO BROADCAST/MASSA: Se está em seleção múltipla, libera com permissão geral
   const podeEnviarMensagens = isBroadcastInternoAtivo 
     ? temPermissaoGeralEnvio 
+    : modoSelecaoMultipla 
+    ? temPermissaoGeralEnvio
     : (isAtribuidaOuTransferida && temPermissaoGeralEnvio) || (podeInteragirNaThread && temPermissaoGeralEnvio && podeEnviarPorInstancia);
     
   const podeEnviarMidias = isBroadcastInternoAtivo 
     ? temPermissaoGeralMidia 
+    : modoSelecaoMultipla
+    ? temPermissaoGeralMidia
     : (isAtribuidaOuTransferida && temPermissaoGeralMidia) || (podeInteragirNaThread && temPermissaoGeralMidia && podeEnviarPorInstancia);
     
   const podeEnviarAudios = isBroadcastInternoAtivo 
     ? temPermissaoGeralAudio 
+    : modoSelecaoMultipla
+    ? temPermissaoGeralAudio
     : (isAtribuidaOuTransferida && temPermissaoGeralAudio) || (podeInteragirNaThread && temPermissaoGeralAudio && podeEnviarPorInstancia);
     
   const podeApagarMensagens = permNexus.podeApagarMensagens ?? permLegado.pode_apagar_mensagens ?? false;
