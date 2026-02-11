@@ -162,17 +162,35 @@ export const ACOES_SUGERIDAS = [
 
 /**
  * Calcula o score de importância do contato (0-100)
- * Quanto maior, mais "quente" e prioritário
+ * ✅ V3: Integra análise comportamental (ContactBehaviorAnalysis)
  */
-export function calcularScoreContato(contato) {
+export function calcularScoreContato(contato, analise = null) {
   if (!contato) return 0;
   
+  // ✅ PRIORIDADE 1: Se tem análise V3, usar health/engagement direto
+  if (analise?.ai_insights) {
+    const health = analise.ai_insights.health || 0;
+    const engagement = analise.ai_insights.engagement || 0;
+    const buyIntent = analise.ai_insights.buy_intent || 0;
+    
+    // Combinar scores IA (70%) + dados estruturados (30%)
+    let scoreBase = (health * 0.4) + (engagement * 0.3) + (buyIntent * 0.3);
+    
+    // Bonus por etiquetas VIP/prioridade
+    const tags = contato.tags || [];
+    if (tags.includes('vip')) scoreBase += 15;
+    if (tags.includes('prioridade')) scoreBase += 10;
+    
+    return Math.min(100, Math.max(0, Math.round(scoreBase)));
+  }
+  
+  // ✅ FALLBACK: Cálculo tradicional (se sem análise)
   let score = 0;
   
   // 1. TIPO DE CONTATO (até 25 pontos)
   const tipo = TIPOS_CONTATO.find(t => t.value === contato.tipo_contato);
   if (tipo) {
-    score += tipo.prioridade * 8; // cliente=24, lead=8, fornecedor/parceiro=16
+    score += tipo.prioridade * 8;
   }
   
   // 2. ETIQUETAS DE DESTAQUE (até 25 pontos)
@@ -222,40 +240,48 @@ export function getNivelTemperatura(score) {
 }
 
 /**
- * Sugere a próxima ação baseada no contato
+ * Sugere a próxima ação baseada no contato + análise V3
+ * ✅ INTEGRA: priority_label, deal_risk, next_best_action
  */
-export function getProximaAcaoSugerida(contato) {
-  if (!contato) return ACOES_SUGERIDAS[4]; // acompanhar como padrão
+export function getProximaAcaoSugerida(contato, analise = null) {
+  if (!contato) return ACOES_SUGERIDAS[4];
   
-  const score = calcularScoreContato(contato);
+  // ✅ PRIORIDADE 1: Se tem análise V3, usar next_best_action
+  if (analise?.ai_insights?.next_best_action) {
+    const action = analise.ai_insights.next_best_action.action || '';
+    const needManager = analise.ai_insights.next_best_action.need_manager || false;
+    
+    // Mapear ação IA → ação sugerida
+    if (needManager || analise.priority_label === 'CRITICO') {
+      return ACOES_SUGERIDAS[0]; // ligar
+    }
+    if (action.toLowerCase().includes('urgente') || action.toLowerCase().includes('imediato')) {
+      return ACOES_SUGERIDAS[1]; // whatsapp
+    }
+    if (action.toLowerCase().includes('oferta') || action.toLowerCase().includes('proposta')) {
+      return ACOES_SUGERIDAS[3]; // oferta
+    }
+  }
+  
+  // ✅ FALLBACK: Lógica tradicional
+  const score = calcularScoreContato(contato, analise);
   const tags = contato.tags || [];
   
-  // VIP ou Prioridade = Ligar
   if (tags.includes('vip') || tags.includes('prioridade') || score >= 80) {
-    return ACOES_SUGERIDAS[0]; // ligar
+    return ACOES_SUGERIDAS[0];
   }
   
-  // Em decisão = Enviar oferta
   if (contato.estagio_ciclo_vida === 'decisao') {
-    return ACOES_SUGERIDAS[3]; // oferta
+    return ACOES_SUGERIDAS[3];
   }
   
-  // Cliente fidelizado = Programa fidelidade
   if (contato.is_cliente_fidelizado || contato.tipo_contato === 'cliente') {
-    return ACOES_SUGERIDAS[5]; // fidelizar
+    return ACOES_SUGERIDAS[5];
   }
   
-  // Score quente = WhatsApp
-  if (score >= 60) {
-    return ACOES_SUGERIDAS[1]; // whatsapp
-  }
+  if (score >= 60) return ACOES_SUGERIDAS[1];
+  if (score >= 40) return ACOES_SUGERIDAS[2];
   
-  // Score morno = Agendar
-  if (score >= 40) {
-    return ACOES_SUGERIDAS[2]; // agendar
-  }
-  
-  // Padrão = Acompanhar
   return ACOES_SUGERIDAS[4];
 }
 
@@ -429,6 +455,22 @@ export default function CentralInteligenciaContato({
   const [salvando, setSalvando] = React.useState(false);
   const [menuAberto, setMenuAberto] = React.useState(false);
   const queryClient = useQueryClient();
+  
+  // ✅ V3: Buscar análise comportamental do contato
+  const { data: analise } = useQuery({
+    queryKey: ['analise-contato', contato?.id],
+    queryFn: async () => {
+      if (!contato?.id) return null;
+      const analises = await base44.entities.ContactBehaviorAnalysis.filter(
+        { contact_id: contato.id },
+        '-analyzed_at',
+        1
+      );
+      return analises[0] || null;
+    },
+    enabled: !!contato?.id,
+    staleTime: 2 * 60 * 1000
+  });
 
   // Buscar atendentes
   const { data: atendentes = [] } = useQuery({
@@ -462,10 +504,10 @@ export default function CentralInteligenciaContato({
   const tipoContatoAtual = contato?.tipo_contato || 'novo';
   const todasEtiquetas = filtrarEtiquetasAplicaveis(todasEtiquetasBase, tipoContatoAtual, null);
 
-  // Calcular dados do contato
-  const score = calcularScoreContato(contato);
+  // ✅ Calcular dados do contato (integrando análise V3)
+  const score = calcularScoreContato(contato, analise);
   const nivel = getNivelTemperatura(score);
-  const proxAcao = getProximaAcaoSugerida(contato);
+  const proxAcao = getProximaAcaoSugerida(contato, analise);
   const Icon = nivel.icon;
   
   // Dados atuais
