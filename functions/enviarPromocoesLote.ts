@@ -1,12 +1,18 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.6';
+import {
+  getActivePromotions,
+  filterEligiblePromotions,
+  pickPromotion,
+  readLastPromoIds
+} from './lib/promotionEngine.js';
 
 // ============================================================================
 // ENVIO EM LOTE: Saudação → 5min → Promoção
 // ============================================================================
 // Para contatos urgentes que requerem atenção
-// 1. Envia saudação contextualizada
-// 2. Aguarda 5 minutos
-// 3. Envia promoção ativa
+// 1. Envia saudação contextualizada (IA)
+// 2. Agenda promoção para 5min depois
+// 3. processarFilaPromocoes envia quando chegar a hora
 // ============================================================================
 
 Deno.serve(async (req) => {
@@ -25,11 +31,13 @@ Deno.serve(async (req) => {
     // ═══════════════════════════════════════════════════════════════
     // 1️⃣ BUSCAR DADOS EM PARALELO
     // ═══════════════════════════════════════════════════════════════
-    const [contatos, integracoes, promosAtivas] = await Promise.all([
+    const [contatos, integracoes] = await Promise.all([
       base44.asServiceRole.entities.Contact.filter({ id: { $in: contact_ids } }),
-      base44.asServiceRole.entities.WhatsAppIntegration.filter({ status: 'conectado' }),
-      base44.asServiceRole.entities.Promotion.filter({ ativo: true }, '-priority', 20)
+      base44.asServiceRole.entities.WhatsAppIntegration.filter({ status: 'conectado' })
     ]);
+
+    // ✅ Buscar promoções usando motor (reutilização)
+    const promosAtivas = await getActivePromotions(base44, now);
 
     if (!integracoes.length) {
       return Response.json({ 
@@ -132,32 +140,32 @@ Gere APENAS a mensagem de saudação, sem aspas ou formatação extra.`;
         console.log(`[PROMO-LOTE] ✅ Saudação enviada: ${contato.nome}`);
 
         // ═══════════════════════════════════════════════════════════════
-        // 5️⃣ AGENDAR PROMOÇÃO PARA 5 MINUTOS
+        // 5️⃣ AGENDAR PROMOÇÃO PARA 5 MINUTOS (usando motor)
         // ═══════════════════════════════════════════════════════════════
         const timestampPromo = new Date(now.getTime() + 5 * 60 * 1000); // +5 min
 
-        // Selecionar melhor promoção (prioridade + não enviada recentemente)
-        const lastPromoIds = contato.last_promo_ids || [];
-        const promosFiltradas = promosAtivas.filter(p => {
-          // Elegível por tipo de contato
-          const tipoMatch = !p.target_contact_types?.length || 
-                           p.target_contact_types.includes(contato.tipo_contato);
-          
-          // Não enviou recentemente
-          const naoEnviouRecentemente = !lastPromoIds.includes(p.id);
-          
-          return tipoMatch && naoEnviouRecentemente;
-        });
+        // ✅ REUTILIZAR: filtrar e selecionar com rotação inteligente
+        const eligible = filterEligiblePromotions(promosAtivas, contato, thread);
+        const promoSelecionada = pickPromotion(eligible, contato);
 
-        const promoSelecionada = promosFiltradas.sort((a, b) => 
-          (a.priority || 999) - (b.priority || 999)
-        )[0] || promosAtivas[0];
+        if (!promoSelecionada) {
+          console.log(`[PROMO-LOTE] ⚠️ Sem promoção elegível para ${contato.nome}`);
+          resultados.push({
+            contact_id: contato.id,
+            nome: contato.nome,
+            status: 'aviso',
+            motivo: 'Sem promoção elegível (filtros/rotação)'
+          });
+          continue;
+        }
 
         // Criar item na fila de trabalho (WorkQueueItem)
         await base44.asServiceRole.entities.WorkQueueItem.create({
           tipo: 'enviar_promocao',
           contact_id: contato.id,
           thread_id: thread.id,
+          reason: 'promocao_lote',
+          severity: diasInativo >= 30 ? 'high' : 'medium',
           scheduled_for: timestampPromo.toISOString(),
           status: 'agendado',
           payload: {
@@ -167,7 +175,8 @@ Gere APENAS a mensagem de saudação, sem aspas ou formatação extra.`;
           },
           metadata: {
             saudacao_enviada_em: now.toISOString(),
-            dias_inativo: diasInativo
+            dias_inativo: diasInativo,
+            saudacao_texto: mensagemSaudacao.slice(0, 100)
           }
         });
 

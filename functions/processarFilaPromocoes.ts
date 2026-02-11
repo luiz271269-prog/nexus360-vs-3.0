@@ -1,10 +1,12 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.6';
+import { sendPromotion, readLastPromoIds, writeLastPromoIds } from './lib/promotionEngine.js';
 
 // ============================================================================
 // PROCESSADOR DA FILA DE PROMOÇÕES
 // ============================================================================
-// Executar a cada 1 minuto via automação
+// Executar a cada 5 minutos via automação
 // Processa WorkQueueItems do tipo 'enviar_promocao' que estão agendados
+// Reutiliza promotionEngine.js para envio
 // ============================================================================
 
 Deno.serve(async (req) => {
@@ -60,65 +62,23 @@ Deno.serve(async (req) => {
           continue;
         }
 
-        // Montar mensagem da promoção
-        let mensagemPromo = promo.descricao || promo.titulo;
-        
-        // Substituir placeholders
-        mensagemPromo = mensagemPromo
-          .replace(/\{\{nome\}\}/gi, contato.nome || 'Cliente')
-          .replace(/\{\{empresa\}\}/gi, contato.empresa || '');
+        // ✅ REUTILIZAR: sendPromotion() do promotionEngine
+        // Já faz: formatação, envio, registro, atualização de controles
+        await sendPromotion(base44, {
+          contact: contato,
+          thread,
+          integration_id,
+          promo,
+          trigger: trigger || 'manual_lote_urgentes'
+        });
 
-        // Adicionar preço se houver
-        if (promo.price_info) {
-          mensagemPromo += `\n\n💰 ${promo.price_info}`;
-        }
-
-        // Adicionar link se houver
-        if (promo.link_produto) {
-          mensagemPromo += `\n\n🔗 ${promo.link_produto}`;
-        }
-
-        // Enviar promoção
-        const envioData = {
-          thread_id,
-          texto: mensagemPromo,
-          integration_id
-        };
-
-        // Se tiver imagem, anexar
-        if (promo.imagem_url && promo.tipo_midia === 'image') {
-          envioData.media_url = promo.imagem_url;
-          envioData.media_type = 'image';
-          envioData.media_caption = promo.descricao_curta || promo.titulo;
-        }
-
-        await base44.asServiceRole.functions.invoke('enviarMensagemUnificada', envioData);
-
-        // Atualizar controles no contato
-        const lastPromoIds = contato.last_promo_ids || [];
-        const nextIds = [promotion_id, ...lastPromoIds].slice(0, 3);
+        // ✅ REUTILIZAR: rotação inteligente de IDs
+        const lastIds = readLastPromoIds(contato);
+        const nextIds = writeLastPromoIds(lastIds, promotion_id);
 
         await base44.asServiceRole.entities.Contact.update(contact_id, {
           last_promo_inbound_at: now.toISOString(),
-          last_promo_ids: nextIds,
-          promocoes_recebidas: {
-            ...(contato.promocoes_recebidas || {}),
-            [promotion_id]: ((contato.promocoes_recebidas || {})[promotion_id] || 0) + 1
-          }
-        });
-
-        // Log de engajamento
-        await base44.asServiceRole.entities.EngagementLog.create({
-          contact_id,
-          thread_id,
-          type: 'offer',
-          sent_at: now.toISOString(),
-          status: 'sent',
-          metadata: {
-            promotion_id,
-            trigger,
-            via_lote_urgentes: true
-          }
+          last_promo_ids: nextIds
         });
 
         // Marcar item como processado
