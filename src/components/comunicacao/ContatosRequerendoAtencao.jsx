@@ -187,7 +187,7 @@ export default function ContatosRequerendoAtencao({ usuario, onSelecionarContato
     }
   };
 
-  const abrirModalMassa = () => {
+  const abrirEnvioMassa = () => {
     if (contatosSelecionados.length === 0) {
       toast.error('Selecione ao menos 1 contato');
       return;
@@ -522,7 +522,7 @@ export default function ContatosRequerendoAtencao({ usuario, onSelecionarContato
                     )}
                   </Button>
                   <Button
-                    onClick={abrirModalMassa}
+                    onClick={abrirEnvioMassa}
                     disabled={contatosSelecionados.length === 0}
                     className="flex-1 h-8 text-xs bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700 text-white shadow-md disabled:opacity-50"
                   >
@@ -741,7 +741,7 @@ export default function ContatosRequerendoAtencao({ usuario, onSelecionarContato
                 )}
               </Button>
               <Button
-                onClick={abrirModalMassa}
+                onClick={abrirEnvioMassa}
                 disabled={contatosSelecionados.length === 0}
                 className="flex-1 h-8 text-xs bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700 text-white shadow-md disabled:opacity-50"
               >

@@ -55,7 +55,7 @@ import DiagnosticoThreadsInvisiveis from "../components/comunicacao/DiagnosticoT
 import DiagnosticoComparativoThreads from "../components/comunicacao/DiagnosticoComparativoThreads";
 import LogsFiltragemViewer from "../components/comunicacao/LogsFiltragemViewer";
 import DiagnosticoMensagensInternas from "../components/comunicacao/DiagnosticoMensagensInternas";
-import ModalEnvioMassa from "../components/comunicacao/ModalEnvioMassa";
+
 
 import { useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
@@ -117,7 +117,7 @@ export default function Comunicacao() {
   const [modoSelecaoMultipla, setModoSelecaoMultipla] = React.useState(false);
   const [contatosSelecionados, setContatosSelecionados] = React.useState([]);
   const [mostrarSelecionados, setMostrarSelecionados] = React.useState(false);
-  const [modalEnvioMassaOpen, setModalEnvioMassaOpen] = React.useState(false);
+  const [modoEnvioMassa, setModoEnvioMassa] = React.useState(false);
   const [contatosParaEnvioMassa, setContatosParaEnvioMassa] = React.useState([]);
 
   // Estados para broadcast interno
@@ -180,7 +180,8 @@ export default function Comunicacao() {
         try {
           const contatos = JSON.parse(contatosSalvos);
           setContatosParaEnvioMassa(contatos);
-          setModalEnvioMassaOpen(true);
+          setModoEnvioMassa(true);
+          setThreadAtiva(null); // Limpar thread ativa
           localStorage.removeItem('envio_massa_contatos');
           
           // Limpar URL
@@ -2552,7 +2553,38 @@ export default function Comunicacao() {
                 </div>
 
                 <div className="flex-1 flex overflow-hidden">
-                  {threadAtiva && !criandoNovoContato || modoSelecaoMultipla && (contatosSelecionados.length > 0 || broadcastInterno) ?
+                  {modoEnvioMassa && contatosParaEnvioMassa.length > 0 ? (
+                    <ChatWindow
+                      thread={null}
+                      mensagens={[]}
+                      usuario={usuario}
+                      contatoPreCarregado={null}
+                      onEnviarMensagem={async () => {}}
+                      onSendMessageOptimistic={handleEnviarMensagemOtimista}
+                      onSendInternalMessageOptimistic={handleEnviarMensagemInternaOtimista}
+                      onShowContactInfo={() => {}}
+                      onAtualizarMensagens={handleAtualizarMensagens}
+                      integracoes={integracoes}
+                      selectedCategoria={selectedCategoria}
+                      modoEnvioMassa={true}
+                      contatosEnvioMassa={contatosParaEnvioMassa}
+                      onCancelarEnvioMassa={() => {
+                        setModoEnvioMassa(false);
+                        setContatosParaEnvioMassa([]);
+                      }}
+                      onEnvioMassaCompleto={() => {
+                        setModoEnvioMassa(false);
+                        setContatosParaEnvioMassa([]);
+                        queryClient.invalidateQueries({ queryKey: ['threads-externas'] });
+                        queryClient.invalidateQueries({ queryKey: ['contacts'] });
+                      }}
+                      atendentes={atendentes}
+                      filterScope={filterScope}
+                      selectedIntegrationId={selectedIntegrationId}
+                      selectedAttendantId={selectedAttendantId}
+                      contatoAtivo={null}
+                    />
+                  ) : threadAtiva && !criandoNovoContato || modoSelecaoMultipla && (contatosSelecionados.length > 0 || broadcastInterno) ?
                   <>
                       <div className="flex-1 overflow-hidden relative">
                         <ChatWindow
@@ -2712,20 +2744,7 @@ export default function Comunicacao() {
         onIniciarNovaConversa={handleIniciarNovaConversaSemPermissao}
         podeIniciarNova={true} />
 
-        {/* Modal de Envio em Massa */}
-        <ModalEnvioMassa
-          isOpen={modalEnvioMassaOpen}
-          onClose={() => {
-            setModalEnvioMassaOpen(false);
-            setContatosParaEnvioMassa([]);
-          }}
-          contatosSelecionados={contatosParaEnvioMassa}
-          onEnvioCompleto={() => {
-            setContatosParaEnvioMassa([]);
-            queryClient.invalidateQueries({ queryKey: ['threads-externas'] });
-            queryClient.invalidateQueries({ queryKey: ['contacts'] });
-          }}
-        />
+
       </ErrorBoundary>);
 
 
