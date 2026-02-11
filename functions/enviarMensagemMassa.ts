@@ -67,11 +67,11 @@ Deno.serve(async (req) => {
             .replace(/\{\{empresa\}\}/gi, contato.empresa || '');
         }
 
-        // ✅ REUTILIZA: mesma função de envio unificada
-        const resp = await base44.asServiceRole.functions.invoke('enviarMensagemUnificada', {
-          thread_id: thread.id,
-          texto: textoFinal,
-          integration_id: thread.whatsapp_integration_id
+        // ✅ ENVIO DIRETO: Usa enviarWhatsApp que funciona com service role
+        const resp = await base44.asServiceRole.functions.invoke('enviarWhatsApp', {
+          integration_id: thread.whatsapp_integration_id,
+          numero_destino: contato.telefone,
+          mensagem: textoFinal
         });
 
         if (resp.data?.success) {
