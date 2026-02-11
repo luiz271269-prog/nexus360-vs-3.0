@@ -146,17 +146,28 @@ export default function MensagemReativacaoRapida({
   return (
     <div className="bg-gradient-to-r from-purple-50 to-indigo-50 border border-purple-200 rounded-lg p-3">
       <div className="flex items-start gap-2 mb-2">
-        <Zap className="w-4 h-4 text-purple-600 flex-shrink-0 mt-0.5" />
+        <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-purple-500 to-indigo-600 flex items-center justify-center flex-shrink-0 shadow-sm">
+          <Zap className="w-4 h-4 text-white" />
+        </div>
         <div className="flex-1 min-w-0">
-          <p className="text-xs font-semibold text-purple-900 mb-1">
-            💡 Sugestão Rápida de Reativação
-          </p>
+          <div className="flex items-center gap-2 mb-1">
+            <p className="text-xs font-bold text-purple-900">
+              ⚡ Reativação Instantânea
+            </p>
+            <Badge className="bg-blue-500 text-white text-[8px] px-1 py-0 font-bold">
+              SEM ANÁLISE
+            </Badge>
+          </div>
           <p className="text-[10px] text-purple-700">
-            {diasInativo} dias sem resposta • {tipoContato === 'cliente' ? 'Cliente' : 'Lead'} inativo
+            {diasInativo} dias sem resposta • Sugestão baseada em perfil
           </p>
         </div>
-        <Badge className="bg-red-500 text-white text-[9px] px-1.5 py-0.5">
-          {diasInativo >= 90 ? 'CRÍTICO' : diasInativo >= 60 ? 'URGENTE' : 'ALERTA'}
+        <Badge className={`text-[9px] px-1.5 py-0.5 font-bold ${
+          diasInativo >= 90 ? 'bg-red-600 text-white' : 
+          diasInativo >= 60 ? 'bg-orange-500 text-white' : 
+          'bg-yellow-500 text-white'
+        }`}>
+          {diasInativo >= 90 ? '🔴 CRÍTICO' : diasInativo >= 60 ? '🟠 URGENTE' : '🟡 ALERTA'}
         </Badge>
       </div>
 

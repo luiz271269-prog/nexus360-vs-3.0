@@ -125,25 +125,40 @@ export default function SugestorRespostasRapidas({
     <Card className="border-2 border-purple-200 bg-gradient-to-br from-purple-50 to-indigo-50 shadow-lg">
       <div className="p-4">
         <div className="flex items-center justify-between mb-3">
-          <div className="flex items-center gap-2">
-            <Sparkles className="w-5 h-5 text-purple-600" />
-            <h4 className="font-semibold text-purple-900">Sugestões de IA</h4>
+          <div className="flex items-center gap-2.5">
+            <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-purple-500 to-indigo-600 flex items-center justify-center shadow-md">
+              <Sparkles className="w-5 h-5 text-white" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h4 className="font-bold text-purple-900 text-sm">Análise Completa IA</h4>
+                <Badge className="bg-green-500 text-white text-[8px] px-1.5 py-0 font-bold">
+                  50 MENSAGENS
+                </Badge>
+              </div>
+              <p className="text-[10px] text-purple-600">Contexto + Comportamento</p>
+            </div>
           </div>
           <Button
             variant="ghost"
             size="icon"
             onClick={onClose}
-            className="h-6 w-6 text-purple-600 hover:bg-purple-100"
+            className="h-7 w-7 text-purple-600 hover:bg-purple-100"
           >
             <X className="w-4 h-4" />
           </Button>
         </div>
 
         {/* Contexto da Análise */}
-        <div className="bg-white/60 rounded-lg p-3 mb-3 border border-purple-100 space-y-2">
-          <div>
-            <p className="text-xs text-purple-600 font-medium mb-1">Última mensagem do cliente:</p>
-            <p className="text-sm text-slate-700 line-clamp-2">{mensagemCliente}</p>
+        <div className="bg-white rounded-lg p-3 mb-3 border border-purple-200 shadow-sm space-y-2">
+          <div className="flex items-start gap-2">
+            <div className="w-6 h-6 rounded bg-purple-100 flex items-center justify-center flex-shrink-0 mt-0.5">
+              <span className="text-xs">💬</span>
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-xs text-purple-700 font-semibold mb-1">Última mensagem do cliente:</p>
+              <p className="text-sm text-slate-800 line-clamp-2 font-medium">{mensagemCliente}</p>
+            </div>
           </div>
           
           {analiseContexto && (
@@ -177,9 +192,15 @@ export default function SugestorRespostasRapidas({
 
         {/* Geração automática ao montar */}
         {sugestoes.length === 0 && !gerando && !erro && (
-          <div className="text-center py-4">
-            <Loader2 className="w-6 h-6 animate-spin text-purple-600 mx-auto mb-2" />
-            <p className="text-sm text-purple-700">Analisando conversa...</p>
+          <div className="text-center py-6">
+            <div className="relative w-16 h-16 mx-auto mb-3">
+              <Loader2 className="w-16 h-16 animate-spin text-purple-600" />
+              <div className="absolute inset-0 flex items-center justify-center">
+                <Sparkles className="w-6 h-6 text-purple-800" />
+              </div>
+            </div>
+            <p className="text-sm font-semibold text-purple-800 mb-1">Analisando últimas 50 mensagens...</p>
+            <p className="text-xs text-purple-600">Contexto + Comportamento + Intenção</p>
           </div>
         )}
 

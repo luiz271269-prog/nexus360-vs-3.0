@@ -2496,33 +2496,49 @@ export default function ChatWindow({
         progressoBroadcast={progressoBroadcast} />
 
 
-      {/* ✅ REATIVAÇÃO RÁPIDA (inatividade 30+ dias) */}
+      {/* 🎯 SISTEMA INTELIGENTE DE SUGESTÕES - 2 NÍVEIS */}
+      
+      {/* NÍVEL 1: ⚡ REATIVAÇÃO INSTANTÂNEA (sem análise de histórico) */}
+      {/* Aparece quando: contato inativo 30+ dias, ANTES da análise completa */}
       {mostrarReativacaoRapida && !mostrarSugestor && analiseComportamental && (
         <div className="px-3 pb-3">
+          <div className="mb-2 flex items-center gap-2 px-3 py-1.5 bg-blue-50 border border-blue-200 rounded-lg">
+            <div className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse"></div>
+            <p className="text-xs text-blue-700 font-medium">
+              💡 Sequência 1: Reativação instantânea (sem análise)
+            </p>
+          </div>
           <MensagemReativacaoRapida
             contato={contatoCompleto}
             analise={analiseComportamental}
             variant="inline"
             onUsarMensagem={(mensagem) => {
               setMostrarReativacaoRapida(false);
-              toast.success('💡 Mensagem copiada! Cole no campo abaixo.');
+              toast.success('⚡ Mensagem instantânea copiada! Cole no campo abaixo.');
               navigator.clipboard.writeText(mensagem);
             }}
           />
         </div>
       )}
 
-      {/* ✅ SUGESTOR COMPLETO (análise detalhada) */}
+      {/* NÍVEL 2: 🧠 ANÁLISE COMPLETA (50 mensagens + comportamento) */}
+      {/* Aparece quando: cliente enviou mensagem nova, análise profunda */}
       {mostrarSugestor && !mostrarReativacaoRapida && (
         <div className="px-3 pb-3">
-          <div className="border border-purple-200 rounded-lg bg-purple-50/50 p-3">
+          <div className="mb-2 flex items-center gap-2 px-3 py-1.5 bg-green-50 border border-green-200 rounded-lg">
+            <div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse"></div>
+            <p className="text-xs text-green-700 font-medium">
+              🧠 Sequência 2: Análise completa (últimas 50 mensagens)
+            </p>
+          </div>
+          <div className="border-2 border-purple-200 rounded-lg bg-gradient-to-br from-purple-50 to-indigo-50 shadow-md">
             <SugestorRespostasRapidas
               mensagemCliente={ultimaMensagemCliente}
               threadId={thread.id}
               contactId={thread.contact_id}
               onUseResposta={(conteudo) => {
                 setMostrarSugestor(false);
-                toast.info('💡 Sugestão copiada! Cole no campo de mensagem.');
+                toast.success('🧠 Sugestão completa copiada! Cole no campo de mensagem.');
                 navigator.clipboard.writeText(conteudo);
               }}
               onClose={() => setMostrarSugestor(false)}
