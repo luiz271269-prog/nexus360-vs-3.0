@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import { useEffect, useRef } from 'react';
 import { base44 } from '@/api/base44Client';
 
 export default function InitializadorSistema() {
