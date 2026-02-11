@@ -102,6 +102,7 @@ export default function Comunicacao() {
   const [showContactInfo, setShowContactInfo] = React.useState(false);
   const [searchTerm, setSearchTerm] = React.useState("");
   const debouncedSearchTerm = useDebounce(searchTerm, 300);
+  const [contatoPreCarregado, setContatoPreCarregado] = React.useState(null); // ✅ Contato já processado da lista
   const [mostrarInstrucoesWebhook, setMostrarInstrucoesWebhook] = React.useState(false);
 
   // RESTAURADO: Estados para criar novo contato
@@ -698,16 +699,37 @@ export default function Comunicacao() {
   // ═══════════════════════════════════════════════════════════════════════════════
   // 🎯 HANDLER DE SELEÇÃO DE THREAD/CONTATO/CLIENTE
   // ═══════════════════════════════════════════════════════════════════════════════
-  const handleSelecionarThread = React.useCallback(async (thread) => {
-    console.log('🖱️ [Comunicacao] Selecionando:', thread.id);
+  const handleSelecionarThread = React.useCallback(async (threadData) => {
+    // ✅ Aceita { id, contatoPreCarregado } ou thread direta
+    const thread = threadData.id ? { id: threadData.id } : threadData;
+    const contatoPre = threadData.contatoPreCarregado || null;
+    
+    console.log('🖱️ [Comunicacao] Selecionando:', thread.id, contatoPre ? '(com contato pré-carregado)' : '');
+    
     setCriandoNovoContato(false);
     setNovoContatoTelefone("");
     setShowContactInfo(false);
     setContactInitialData(null);
+    setContatoPreCarregado(contatoPre); // ✅ Armazenar contato pré-carregado
+
+    // ✅ Buscar thread completa se só temos o ID
+    let threadCompleta = thread;
+    if (thread.id && !thread.contact_id && !thread.thread_type) {
+      const threadsEncontradas = threads.find(t => t.id === thread.id);
+      if (threadsEncontradas) {
+        threadCompleta = threadsEncontradas;
+      } else {
+        // Buscar do banco
+        const res = await base44.entities.MessageThread.filter({ id: thread.id }, '-created_date', 1);
+        if (res?.length > 0) {
+          threadCompleta = res[0];
+        }
+      }
+    }
 
     // ✅ CASO 0: USUÁRIO INTERNO - Abrir direto sem validações de WhatsApp
-    if (thread.thread_type === 'team_internal' || thread.thread_type === 'sector_group') {
-      setThreadAtiva(thread);
+    if (threadCompleta.thread_type === 'team_internal' || threadCompleta.thread_type === 'sector_group') {
+      setThreadAtiva(threadCompleta);
       return;
     }
 
@@ -864,8 +886,8 @@ export default function Comunicacao() {
       return;
     }
 
-    setThreadAtiva(thread);
-  }, [integracoes, queryClient, clientes, contatos, usuario]);
+    setThreadAtiva(threadCompleta);
+  }, [integracoes, queryClient, clientes, contatos, usuario, threads]);
 
   // Handler para iniciar nova conversa quando não tem permissão na existente
   const handleIniciarNovaConversaSemPermissao = React.useCallback(async () => {
@@ -2314,8 +2336,9 @@ export default function Comunicacao() {
               <ContatosRequerendoAtencao
                 usuario={usuario}
                 contatos={contatos}
-                onSelecionarContato={(thread) => {
-                  handleSelecionarThread(thread);
+                onSelecionarContato={(threadData) => {
+                  // ✅ Recebe { id, contatoPreCarregado }
+                  handleSelecionarThread(threadData);
                   setActiveTab('conversas');
                 }}
                 variant="header" />
@@ -2467,6 +2490,7 @@ export default function Comunicacao() {
                         thread={threadAtiva}
                         mensagens={mensagens}
                         usuario={usuario}
+                        contatoPreCarregado={contatoPreCarregado}
                         onEnviarMensagem={async () => {}}
                         onSendMessageOptimistic={handleEnviarMensagemOtimista}
                         onSendInternalMessageOptimistic={handleEnviarMensagemInternaOtimista}

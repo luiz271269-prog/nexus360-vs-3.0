@@ -94,6 +94,7 @@ export default function ChatWindow({
   thread = null,
   mensagens = [],
   usuario = null,
+  contatoPreCarregado = null, // ✅ Contato já processado da lista de priorização
   onEnviarMensagem,
   onSendMessageOptimistic,
   onSendInternalMessageOptimistic, // ✅ NOVO: Handler otimista para mensagens internas
@@ -413,6 +414,14 @@ export default function ChatWindow({
         return;
       }
 
+      // ✅ PRIORIDADE 1: Usar contato pré-carregado se disponível
+      if (contatoPreCarregado && contatoPreCarregado.id === thread.contact_id) {
+        console.log('[CHAT] ⚡ Usando contato pré-carregado (lista de priorização)');
+        setContatoCompleto(contatoPreCarregado);
+        setCarregandoContato(false);
+        return;
+      }
+
       setCarregandoContato(true);
 
       try {
@@ -498,7 +507,7 @@ export default function ChatWindow({
     return () => {
       isMounted = false;
     };
-  }, [thread?.contact_id, thread?.whatsapp_integration_id]);
+  }, [thread?.contact_id, thread?.whatsapp_integration_id, contatoPreCarregado]);
 
   // Inicializar canal selecionado com o da thread
   React.useEffect(() => {
