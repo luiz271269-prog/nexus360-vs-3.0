@@ -173,12 +173,24 @@ export default function ContatosRequerendoAtencao({ usuario, onSelecionarContato
         key={item.contact_id}
         onClick={() => {
           if (onSelecionarContato) {
-            // ✅ Usar thread_id já vindo do endpoint (ou buscar se null)
+            // ✅ Passar dados enriquecidos do contato
             if (item.thread_id) {
-              onSelecionarContato({ id: item.thread_id });
+              onSelecionarContato({ 
+                id: item.thread_id,
+                contatoPreCarregado: {
+                  id: item.contact_id,
+                  nome: item.nome,
+                  empresa: item.empresa,
+                  telefone: item.telefone,
+                  tipo_contato: item.tipo_contato,
+                  vendedor_responsavel: item.vendedor_responsavel,
+                  score_engajamento: item.engagement,
+                  cliente_score: item.health
+                }
+              });
               setExpandido(false);
             } else {
-              // Fallback: buscar thread se não veio
+              // Fallback: buscar thread
               base44.entities.MessageThread.filter({ contact_id: item.contact_id }, '-last_message_at', 1)
                 .then(threads => {
                   if (threads.length > 0) {
