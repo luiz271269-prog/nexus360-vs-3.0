@@ -18,6 +18,8 @@ import {
   CheckSquare
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { useNavigate } from 'react-router-dom';
+import { createPageUrl } from '@/utils';
 import ModalEnvioMassa from '../components/comunicacao/ModalEnvioMassa';
 
 export default function ContatosInteligentes() {
@@ -27,6 +29,8 @@ export default function ContatosInteligentes() {
   const [modoSelecao, setModoSelecao] = useState(false);
   const [contatosSelecionados, setContatosSelecionados] = useState([]);
   const [mostrarModalMassa, setMostrarModalMassa] = useState(false);
+  
+  const navigate = useNavigate();
   
   const { 
     clientes, 
@@ -333,6 +337,24 @@ export default function ContatosInteligentes() {
                 )}
                 <ClienteCard 
                   cliente={cliente}
+                  onAbrirConversa={async (clienteData) => {
+                    try {
+                      const threads = await base44.entities.MessageThread.filter({
+                        contact_id: clienteData.contact_id || clienteData.id,
+                        is_canonical: true
+                      }, '-last_message_at', 1);
+                      
+                      if (threads.length > 0) {
+                        navigate(createPageUrl('Comunicacao') + `?thread=${threads[0].id}`);
+                      } else {
+                        toast.info('💬 Contato sem conversa. Redirecionando...');
+                        navigate(createPageUrl('Comunicacao') + `?contact=${clienteData.contact_id || clienteData.id}`);
+                      }
+                    } catch (error) {
+                      console.error('[ContatosInteligentes] Erro ao abrir:', error);
+                      toast.error('❌ Erro ao abrir conversa');
+                    }
+                  }}
                   className={modoSelecao && contatosSelecionados.some(c => (c.contact_id || c.id) === cliente.contact_id) ? 'ring-2 ring-blue-500' : ''}
                 />
               </div>

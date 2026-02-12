@@ -311,32 +311,48 @@ export default function ContatosRequerendoAtencao({ usuario, onSelecionarContato
 
         {/* Avatar */}
         <button
-          onClick={() => {
-            if (onSelecionarContato) {
-              if (item.thread_id) {
-                onSelecionarContato({
-                  id: item.thread_id,
-                  contatoPreCarregado: {
-                    id: item.contact_id,
-                    nome: item.nome,
-                    empresa: item.empresa,
-                    telefone: item.telefone,
-                    tipo_contato: item.tipo_contato,
-                    vendedor_responsavel: item.vendedor_responsavel,
-                    score_engajamento: item.engagement,
-                    cliente_score: item.health
-                  }
-                });
-                setExpandido(false);
-              } else {
-                base44.entities.MessageThread.filter({ contact_id: item.contact_id }, '-last_message_at', 1).
-                then((threads) => {
-                  if (threads.length > 0) {
-                    onSelecionarContato({ id: threads[0].id });
-                    setExpandido(false);
-                  }
-                });
+          onClick={async (e) => {
+            e.stopPropagation();
+            
+            if (!onSelecionarContato) return;
+            
+            try {
+              let threadId = item.thread_id;
+              
+              if (!threadId) {
+                toast.info('🔄 Buscando conversa...');
+                const threads = await base44.entities.MessageThread.filter({
+                  contact_id: item.contact_id,
+                  is_canonical: true
+                }, '-last_message_at', 1);
+                
+                if (!threads.length) {
+                  toast.error('❌ Conversa não encontrada. Crie um novo contato.');
+                  return;
+                }
+                
+                threadId = threads[0].id;
               }
+              
+              onSelecionarContato({
+                id: threadId,
+                contatoPreCarregado: {
+                  id: item.contact_id,
+                  nome: item.nome,
+                  empresa: item.empresa,
+                  telefone: item.telefone,
+                  tipo_contato: item.tipo_contato,
+                  vendedor_responsavel: item.vendedor_responsavel,
+                  score_engajamento: item.engagement,
+                  cliente_score: item.health
+                }
+              });
+              
+              setExpandido(false);
+              
+            } catch (error) {
+              console.error('[ContatosRequerendoAtencao] Erro ao abrir:', error);
+              toast.error('❌ Erro ao abrir conversa');
             }
           }}
           className="relative flex-shrink-0 mt-0.5 cursor-pointer hover:scale-105 transition-transform">
@@ -350,7 +366,7 @@ export default function ContatosRequerendoAtencao({ usuario, onSelecionarContato
         </button>
 
         {/* Info */}
-        <div className="flex-1 min-w-0 text-left cursor-pointer" onClick={() => toggleSelecaoContato(item)}>
+        <div className="flex-1 min-w-0 text-left">
           <div className="flex items-center gap-1 mb-0.5">
             <p className="font-medium text-xs text-slate-800 truncate">
               {item.empresa || item.nome}
