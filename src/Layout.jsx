@@ -215,23 +215,31 @@ export default function Layout({ children, currentPageName }) {
   });
   const navigate = useNavigate();
   const ultimaAtualizacaoRef = useRef(0);
+  const [totalUrgentes, setTotalUrgentes] = useState(0);
+  const [criticos, setCriticos] = useState([]);
   
-  // Hook Contatos Inteligentes (Camada 3)
-  const { totalUrgentes, criticos } = useContatosInteligentes(globalUsuario, {
-    tipo: ['lead', 'cliente'],
-    diasSemMensagem: 2,
-    minDealRisk: 30,
-    limit: 50,
-    autoRefresh: true
-  });
+  // ✅ Chamar hook após usuário estar disponível
+  const contatosInteligentes = globalUsuario 
+    ? useContatosInteligentes(globalUsuario, {
+        tipo: ['lead', 'cliente'],
+        diasSemMensagem: 2,
+        minDealRisk: 30,
+        limit: 50,
+        autoRefresh: true
+      })
+    : null;
 
   // ✅ P1 FIX: Sincronizar badge em tempo real
   useEffect(() => {
-    setContadoresLembretes(prev => ({
-      ...prev,
-      ContatosInteligentes: totalUrgentes || 0
-    }));
-  }, [totalUrgentes]);
+    if (contatosInteligentes) {
+      setTotalUrgentes(contatosInteligentes.totalUrgentes || 0);
+      setCriticos(contatosInteligentes.criticos || []);
+      setContadoresLembretes(prev => ({
+        ...prev,
+        ContatosInteligentes: contatosInteligentes.totalUrgentes || 0
+      }));
+    }
+  }, [contatosInteligentes?.totalUrgentes, contatosInteligentes?.criticos]);
 
   // Definição completa de todos os itens do menu
   const todosMenuItems = [
