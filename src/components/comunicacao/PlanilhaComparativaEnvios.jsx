@@ -429,11 +429,11 @@ export default function PlanilhaComparativaEnvios() {
                 <div>
                   <h4 className="font-bold text-red-800 mb-2">🚨 Gaps Críticos</h4>
                   <ul className="space-y-1 text-slate-700">
+                    <li>• <Badge className="bg-red-600 text-white text-xs animate-pulse">P0</Badge> <span className="font-bold text-red-700">FUNÇÃO QUEBRADA</span> - enviarCampanhaLote.ts erro de deploy</li>
                     <li>• <Badge className="bg-red-500 text-white text-xs">P0</Badge> Broadcast não persiste</li>
                     <li>• <Badge className="bg-orange-500 text-white text-xs">P1</Badge> Contact não atualizado (saudação)</li>
                     <li>• <Badge className="bg-yellow-500 text-white text-xs">P2</Badge> Worker sem AutomationLog</li>
                     <li>• <Badge className="bg-blue-500 text-white text-xs">P3</Badge> Thread não atualizada (worker)</li>
-                    <li>• <Badge className="bg-blue-500 text-white text-xs">P3</Badge> Contadores não implementados</li>
                   </ul>
                 </div>
               </div>
