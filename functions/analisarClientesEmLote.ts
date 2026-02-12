@@ -121,7 +121,7 @@ Deno.serve(async (req) => {
       const contatos = await client.entities.Contact.filter(
         queryContatos,
         '-ultima_interacao',
-        limit
+        limit || 9999
       );
       
       console.log(`[ANALISE_LOTE] 📊 ${contatos.length} contatos inativos encontrados`);
