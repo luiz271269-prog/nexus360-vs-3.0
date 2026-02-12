@@ -173,119 +173,50 @@ export default function SugestorRespostasRapidas({
     };
   }, [threadId, contactId]); // ✅ Depende de AMBOS (corrige bug de cache de thread)
 
-  return (
-    <div className="bg-white rounded-xl shadow-xl border-2 border-purple-300 overflow-hidden">
-      {/* Header compacto e elegante */}
-      <div className="bg-gradient-to-r from-purple-600 to-indigo-600 px-4 py-2.5 flex items-center justify-between">
-        <div className="flex items-center gap-2.5">
-          <div className="w-8 h-8 rounded-lg bg-white/20 flex items-center justify-center shadow-md">
-            <Sparkles className="w-4 h-4 text-white" />
-          </div>
-          <div>
-            <div className="flex items-center gap-2">
-              <h4 className="font-bold text-white text-sm">Análise Completa IA</h4>
-              <Badge className="bg-green-500 text-white text-[9px] px-1.5 py-0.5 font-bold shadow-sm">
-                50 MENSAGENS
-              </Badge>
-            </div>
-            <p className="text-[10px] text-purple-100">Contexto + Comportamento</p>
-          </div>
-        </div>
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={onClose}
-          className="h-7 w-7 text-white hover:bg-white/20 transition-colors"
-        >
-          <X className="w-4 h-4" />
-        </Button>
-      </div>
+        {/* Sugestões - Ultra compactas */}
+        {(status === 'ready' || status === 'cached') && sugestoes.length > 0 && (
+          <div className="space-y-1.5">
+            {status === 'cached' && (
+              <div className="flex items-center justify-center gap-1.5 py-1 px-2 bg-green-50 border border-green-200 rounded">
+                <Badge className="bg-green-600 text-white text-[8px] px-1 py-0">⚡</Badge>
+                <span className="text-[10px] text-green-700 font-medium">Cache</span>
+              </div>
+            )}
 
-      {/* Conteúdo principal */}
-      <div className="p-4 space-y-3">
-        {/* Contexto da Análise - Design melhorado */}
-        <div className="bg-gradient-to-br from-purple-50 to-indigo-50 rounded-xl p-3 border border-purple-200 shadow-sm space-y-3">
-          {/* Mensagem do cliente */}
-          <div className="flex items-start gap-3">
-            <div className="w-8 h-8 rounded-lg bg-purple-500 flex items-center justify-center flex-shrink-0 shadow-sm">
-              <span className="text-base">💬</span>
-            </div>
-            <div className="flex-1 min-w-0">
-              {analiseContexto?.is_latest_courtesy ? (
-                <>
-                  <p className="text-xs text-purple-700 font-semibold mb-1.5">Última mensagem ÚTIL do cliente:</p>
-                  <p className="text-sm text-slate-900 font-medium mb-2 leading-relaxed">{analiseContexto.last_useful_message}</p>
-
-                  <div className="flex items-center gap-2 p-2.5 bg-white rounded-lg border border-purple-200 shadow-sm">
-                    <Badge className="bg-purple-500 text-white text-[9px] px-1.5 py-0.5 font-bold">🟣 CORTESIA</Badge>
-                    <p className="text-xs text-purple-700 italic font-medium">"{analiseContexto.last_customer_message}"</p>
+            {sugestoes.map((sugestao, index) => (
+              <div
+                key={index}
+                onClick={() => onUseResposta(sugestao.texto)}
+                className="bg-white hover:bg-purple-50 transition-all border border-purple-200 hover:border-purple-400 rounded-lg cursor-pointer group"
+              >
+                <div className="p-2">
+                  <Badge className={`text-[9px] mb-1 ${getTomColor(sugestao.tom)}`}>
+                    {getTomIcon(sugestao.tom)} {sugestao.tom}
+                  </Badge>
+                  <p className="text-xs text-slate-800 group-hover:text-slate-900 leading-snug">
+                    {sugestao.texto}
+                  </p>
+                  <div className="mt-1 text-[9px] text-purple-600 opacity-0 group-hover:opacity-100 transition-opacity">
+                    👆 Clique para usar esta resposta
                   </div>
-                </>
-              ) : (
-                <>
-                  <p className="text-xs text-purple-700 font-semibold mb-1.5">Última mensagem do cliente:</p>
-                  <p className="text-sm text-slate-900 line-clamp-2 font-medium leading-relaxed">{mensagemCliente}</p>
-                </>
-              )}
-            </div>
-          </div>
+                </div>
+              </div>
+            ))}
 
-          {/* Open Loop Warning */}
-          {analiseContexto?.open_loop?.is_overdue && (
-            <div className="bg-red-50 p-3 rounded-lg border-l-4 border-red-500 shadow-sm">
-              <div className="flex items-center gap-2 mb-1.5">
-                <Badge className="bg-red-600 text-white text-xs font-bold shadow-sm">⚠️ ATRASO</Badge>
-                <span className="text-xs text-red-800 font-semibold">
-                  Atendente prometeu retorno há {analiseContexto.open_loop.hours_since_promise}h
-                </span>
-              </div>
-              <p className="text-xs text-red-700 italic font-medium">"{analiseContexto.open_loop.promise_text}"</p>
-            </div>
-          )}
-          
-          {/* Badges de análise */}
-          {analiseContexto && (
-            <div className="pt-2.5 border-t border-purple-200 space-y-2">
-              <div className="flex items-center gap-2 flex-wrap">
-                {(analiseContexto.conversation_type || analiseContexto.customer_intent) && (
-                  <Badge className="bg-white text-purple-800 border border-purple-300 text-xs font-semibold shadow-sm">
-                    {(analiseContexto.conversation_type || analiseContexto.customer_intent) === 'orcamento' ? '💰 Orçamento' :
-                     (analiseContexto.conversation_type || analiseContexto.customer_intent) === 'pergunta' || analiseContexto.customer_intent === 'duvida' ? '❓ Pergunta' :
-                     (analiseContexto.conversation_type || analiseContexto.customer_intent) === 'reclamacao' ? '⚠️ Reclamação' :
-                     (analiseContexto.conversation_type || analiseContexto.customer_intent) === 'followup' ? '📞 Follow-up' :
-                     (analiseContexto.conversation_type || analiseContexto.customer_intent) === 'cortesia' ? '🟣 Cortesia' : '💬 Outro'}
-                  </Badge>
-                )}
-                {analiseContexto.urgency && (
-                  <Badge className={`text-xs font-semibold shadow-sm ${
-                    analiseContexto.urgency === 'alta' ? 'bg-red-100 text-red-800 border border-red-300' :
-                    analiseContexto.urgency === 'media' ? 'bg-yellow-100 text-yellow-800 border border-yellow-300' :
-                    'bg-green-100 text-green-800 border border-green-300'
-                  }`}>
-                    {analiseContexto.urgency === 'alta' ? '🔴 Alta' :
-                     analiseContexto.urgency === 'media' ? '🟡 Média' : '🟢 Baixa'}
-                  </Badge>
-                )}
-              </div>
-              {analiseContexto.next_best_action?.action && (
-                <div className="flex items-start gap-2 p-2 bg-white rounded-lg border border-purple-200">
-                  <span className="text-sm">💡</span>
-                  <p className="text-xs text-purple-700 font-medium leading-relaxed">
-                    <strong className="text-purple-900">Ação:</strong> {analiseContexto.next_best_action.action}
-                  </p>
-                </div>
-              )}
-              {analiseContexto.next_best_action?.ask && (
-                <div className="flex items-start gap-2 p-2 bg-white rounded-lg border border-purple-200">
-                  <span className="text-sm">❓</span>
-                  <p className="text-xs text-purple-700 font-medium leading-relaxed">
-                    <strong className="text-purple-900">Confirmar:</strong> {analiseContexto.next_best_action.ask}
-                  </p>
-                </div>
-              )}
-            </div>
-          )}
-        </div>
+            <Button
+              onClick={() => gerarSugestoes(true)}
+              variant="outline"
+              size="sm"
+              className="w-full h-7 border-purple-300 text-purple-700 hover:bg-purple-50 text-xs"
+              disabled={status === 'loading'}
+            >
+              🔄 Gerar Novas
+            </Button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
 
         {/* Loading States */}
         {status === 'idle' && (
