@@ -133,9 +133,11 @@ Gere APENAS a mensagem de saudação, sem aspas ou formatação extra.`;
         // 4️⃣ ENVIAR SAUDAÇÃO
         // ═══════════════════════════════════════════════════════════════
         await base44.asServiceRole.functions.invoke('enviarMensagemUnificada', {
-          thread_id: thread.id,
-          texto: mensagemSaudacao,
-          integration_id: thread.whatsapp_integration_id || integracaoDefault.id
+          connectionId: thread.whatsapp_integration_id || integracaoDefault.id,
+          threadId: thread.id,
+          contactId: contato.id,
+          content: mensagemSaudacao,
+          mediaType: 'none'
         });
 
         console.log(`[PROMO-LOTE] ✅ Saudação enviada: ${contato.nome}`);
