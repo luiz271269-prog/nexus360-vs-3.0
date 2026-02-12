@@ -798,7 +798,8 @@ ${item.suggested_message ? `💬 SUGESTÃO IA:\n${item.suggested_message}` : ''}
         contatosSelecionados={contatosComAlerta}
         onEnvioCompleto={() => {
           setMostrarModalPromoAuto(false);
-          refetch();
+          toast.info('🔄 Atualizando lista de contatos...');
+          setTimeout(() => refetch(), 1000);
         }}
       />
 
@@ -952,10 +953,10 @@ ${item.suggested_message ? `💬 SUGESTÃO IA:\n${item.suggested_message}` : ''}
       )}
 
       <div className="border-b-2 border-slate-200 bg-gradient-to-r from-white to-slate-50">
-      {/* Header clicável */}
-      <button
-        onClick={() => setExpandido(!expandido)}
-        className="w-full px-4 py-3 flex items-center justify-between hover:bg-gradient-to-r hover:from-orange-50 hover:to-red-50 transition-all duration-200 group">
+              {/* Header clicável com auto-refresh após envio */}
+              <button
+                onClick={() => setExpandido(!expandido)}
+                className="w-full px-4 py-3 flex items-center justify-between hover:bg-gradient-to-r hover:from-orange-50 hover:to-red-50 transition-all duration-200 group">
 
         <div className="flex items-center gap-2.5">
           <div className={`
