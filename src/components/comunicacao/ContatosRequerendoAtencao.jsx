@@ -311,49 +311,30 @@ export default function ContatosRequerendoAtencao({ usuario, onSelecionarContato
 
         {/* Avatar */}
         <button
-          onClick={async (e) => {
+          onClick={(e) => {
             e.stopPropagation();
             
             if (!onSelecionarContato) return;
-            
-            try {
-              let threadId = item.thread_id;
-              
-              if (!threadId) {
-                toast.info('🔄 Buscando conversa...');
-                const threads = await base44.entities.MessageThread.filter({
-                  contact_id: item.contact_id,
-                  is_canonical: true
-                }, '-last_message_at', 1);
-                
-                if (!threads.length) {
-                  toast.error('❌ Conversa não encontrada. Crie um novo contato.');
-                  return;
-                }
-                
-                threadId = threads[0].id;
-              }
-              
-              onSelecionarContato({
-                id: threadId,
-                contatoPreCarregado: {
-                  id: item.contact_id,
-                  nome: item.nome,
-                  empresa: item.empresa,
-                  telefone: item.telefone,
-                  tipo_contato: item.tipo_contato,
-                  vendedor_responsavel: item.vendedor_responsavel,
-                  score_engajamento: item.engagement,
-                  cliente_score: item.health
-                }
-              });
-              
-              setExpandido(false);
-              
-            } catch (error) {
-              console.error('[ContatosRequerendoAtencao] Erro ao abrir:', error);
-              toast.error('❌ Erro ao abrir conversa');
+            if (!item.thread_id) {
+              toast.error('❌ Thread canônica não encontrada');
+              return;
             }
+            
+            onSelecionarContato({
+              id: item.thread_id,
+              contatoPreCarregado: {
+                id: item.contact_id,
+                nome: item.nome,
+                empresa: item.empresa,
+                telefone: item.telefone,
+                tipo_contato: item.tipo_contato,
+                vendedor_responsavel: item.vendedor_responsavel,
+                score_engajamento: item.engagement,
+                cliente_score: item.health
+              }
+            });
+            
+            setExpandido(false);
           }}
           className="relative flex-shrink-0 mt-0.5 cursor-pointer hover:scale-105 transition-transform">
 
