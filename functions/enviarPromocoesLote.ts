@@ -3,7 +3,8 @@ import {
   getActivePromotions,
   filterEligiblePromotions,
   pickPromotion,
-  readLastPromoIds
+  readLastPromoIds,
+  isBlocked
 } from './lib/promotionEngine.js';
 
 // ============================================================================
@@ -83,51 +84,40 @@ Deno.serve(async (req) => {
           continue;
         }
 
-        // Buscar últimas 5 mensagens para contexto
-        const mensagens = await base44.asServiceRole.entities.Message.filter({
-          thread_id: thread.id
-        }, '-created_date', 5);
+        // ✅ P0 FIX: VALIDAR BLOQUEIOS ABSOLUTOS
+        const { blocked, reason } = isBlocked({
+          contact: contato,
+          thread,
+          integration: integracaoDefault
+        });
 
-        const ultimaInbound = mensagens.find(m => m.sender_type === 'contact');
+        if (blocked) {
+          console.log(`[PROMO-LOTE] ⛔ ${contato.nome}: ${reason}`);
+          resultados.push({
+            contact_id: contato.id,
+            nome: contato.nome,
+            status: 'bloqueado',
+            motivo: reason
+          });
+          continue;
+        }
+
+        // ✅ P1 FIX: Calcular dias inativo SEM buscar mensagens (usar thread)
         const diasInativo = thread.last_inbound_at 
           ? Math.floor((now - new Date(thread.last_inbound_at)) / (1000 * 60 * 60 * 24))
           : 999;
 
         // ═══════════════════════════════════════════════════════════════
-        // 3️⃣ GERAR SAUDAÇÃO CONTEXTUALIZADA (IA)
+        // 3️⃣ GERAR SAUDAÇÃO (TEMPLATE RÁPIDO - P0 FIX)
         // ═══════════════════════════════════════════════════════════════
-        const contextoConversa = mensagens
-          .slice(0, 3)
-          .map(m => `${m.sender_type === 'contact' ? 'Cliente' : 'Atendente'}: ${m.content}`)
-          .join('\n');
+        // ✅ Template evita: 49 LLM calls, rate-limit, 98-147s de delay
+        const mensagemSaudacao = `Olá ${contato.nome}! 👋
 
-        const promptSaudacao = `
-Você é um assistente de vendas amigável. Gere uma mensagem de saudação/reativação para este cliente:
+Percebi que faz ${diasInativo} dias que não conversamos.
 
-Cliente: ${contato.nome}
-Empresa: ${contato.empresa || 'Não informado'}
-Dias sem responder: ${diasInativo}
-Última mensagem do cliente: ${ultimaInbound?.content || 'Nenhuma'}
+${contato.empresa ? `Como estão as coisas na ${contato.empresa}?` : 'Como posso te ajudar hoje?'}
 
-Contexto das últimas mensagens:
-${contextoConversa || 'Sem histórico'}
-
-Instruções:
-- Seja cordial e empático
-- Mencione o assunto anterior se houver
-- Pergunte se ainda tem interesse ou se pode ajudar em algo
-- Máximo 2 frases
-- Tom amigável mas profissional
-- Sem emojis excessivos (máx 1-2)
-
-Gere APENAS a mensagem de saudação, sem aspas ou formatação extra.`;
-
-        const saudacaoResult = await base44.asServiceRole.integrations.Core.InvokeLLM({
-          prompt: promptSaudacao,
-          add_context_from_internet: false
-        });
-
-        const mensagemSaudacao = saudacaoResult.trim();
+Estou à disposição! 😊`.trim();
 
         // ═══════════════════════════════════════════════════════════════
         // 4️⃣ ENVIAR SAUDAÇÃO (via enviarWhatsApp diretamente)
