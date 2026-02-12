@@ -671,7 +671,7 @@ export default function ChatWindow({
       }
 
       // ✅ DELEGAR para função unificada
-      const contactIds = contatosSelecionados.map(c => c.id);
+      const contactIds = contatosSelecionados.map(c => c.contact_id || c.id);
       
       const resultado = await base44.functions.invoke('enviarCampanhaLote', {
         contact_ids: contactIds,
