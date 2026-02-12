@@ -282,6 +282,29 @@ export default function ContatosRequerendoAtencao({ usuario, onSelecionarContato
     setMostrarModalPromoAuto(true);
   };
 
+  const abrirAnaliseIA = async (contato) => {
+    try {
+      setContatoAnaliseAberto(contato);
+      setAnaliseCarregando(true);
+
+      const analises = await base44.entities.ContactBehaviorAnalysis.filter({
+        contact_id: contato.contact_id || contato.id
+      }, '-analyzed_at', 1);
+
+      if (analises.length > 0) {
+        setDadosAnalise(analises[0]);
+      } else {
+        setDadosAnalise(null);
+        toast.info('Sem análise disponível para este contato');
+      }
+    } catch (error) {
+      console.error('[ContatosRequerendoAtencao] Erro ao carregar análise:', error);
+      toast.error('Erro ao carregar análise');
+    } finally {
+      setAnaliseCarregando(false);
+    }
+  };
+
   const getPrioridadeCor = (label) => {
     switch (label) {
       case 'CRITICO':return 'bg-red-500';
