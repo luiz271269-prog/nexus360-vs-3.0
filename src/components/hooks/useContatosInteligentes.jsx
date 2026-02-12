@@ -35,27 +35,25 @@ export function useContatosInteligentes(usuario, opcoes = {}) {
     setError(null);
     
     try {
+      // ✅ BUSCA DIRETA DO BANCO (analisarClientesEmLote já retorna com thread_id canônico)
       const response = await base44.functions.invoke('analisarClientesEmLote', {
         modo: 'priorizacao',
         tipo,
         diasSemMensagem,
         minDealRisk,
         limit,
-        force: forcarReanalise // ✅ FIX: backend espera 'force', não 'forcarReanalise'
+        force: forcarReanalise
       });
       
       if (response.data?.success) {
-        // ✅ NORMALIZAÇÃO: padronizar campos backend → UI
+        // ✅ Backend já retorna normalizados com thread_id, só garantir compatibilidade UI
         const normalizados = (response.data.clientes || []).map(c => ({
           ...c,
-          id: c.contact_id, // key estável
-          thread_id: c.thread_id || c.threadId || null,
-          atendente_nome: c.atendente_nome || c.atendenteNome || null,
-          dealRisk: c.dealRisk ?? c.deal_risk ?? 0,
-          suggestedMessage: c.suggestedMessage ?? c.suggested_message ?? '',
-          rootCause: c.rootCause ?? (Array.isArray(c.root_causes) ? c.root_causes[0] : '') ?? 'Requer atenção',
-          prioridadeScore: c.prioridadeScore ?? c.priority_score ?? 0
+          id: c.contact_id, // key estável para React
+          // thread_id já vem do backend (linha 188/243 do analisarClientesEmLote)
         }));
+        
+        console.log(`[useContatosInteligentes] ✅ ${normalizados.length} contatos carregados (${normalizados.filter(c => c.thread_id).length} com thread_id)`);
         
         setClientes(normalizados);
         setEstatisticas(response.data.estatisticas || null);
