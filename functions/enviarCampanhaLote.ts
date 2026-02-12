@@ -146,15 +146,20 @@ Deno.serve(async (req) => {
             }
           });
 
-          // ✅ REGRA 5: ATUALIZAR THREAD (copiado do ChatWindow linha 1402-1410)
+          // ✅ REGRA 5: ATUALIZAR THREAD (com marcação de broadcast)
           await base44.asServiceRole.entities.MessageThread.update(thread.id, {
-            last_message_content: mensagemFinal.substring(0, 100),
+            last_message_content: `[Broadcast] ${mensagemFinal.substring(0, 80)}`,
             last_message_at: now.toISOString(),
             last_outbound_at: now.toISOString(),
             last_message_sender: 'user',
             last_human_message_at: now.toISOString(),
             whatsapp_integration_id: integration.id,
-            pre_atendimento_ativo: false  // ✅ Desliga URA se ativa
+            pre_atendimento_ativo: false,  // ✅ Desliga URA se ativa
+            metadata: {
+              ultima_mensagem_origem: 'broadcast_massa',
+              broadcast_data: now.toISOString(),
+              broadcast_para_contatos: contact_ids.length
+            }
           });
 
           resultados.push({
