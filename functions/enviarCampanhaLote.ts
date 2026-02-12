@@ -74,6 +74,8 @@ Deno.serve(async (req) => {
       }, { status: 400 });
     }
 
+    // ✅ Criar mapa de integrações por ID para lookup correto
+    const integracoesMap = new Map(integracoes.map(i => [i.id, i]));
     const integracaoDefault = integracoes[0];
 
     // Buscar promoções ativas (apenas se modo = promocao)
@@ -107,27 +109,46 @@ Deno.serve(async (req) => {
           continue;
         }
 
-        const thread = threadsMap.get(contact_id);
+        let thread = threadsMap.get(contact_id);
         
+        // ✅ P1: Se não houver thread canônica, criar uma
         if (!thread) {
-          console.log(`[CAMPANHA-LOTE] ⚠️ Thread não encontrada: ${contato.nome}`);
-          resultados.push({ 
+          console.log(`[CAMPANHA-LOTE] 📝 Criando thread canônica: ${contato.nome}`);
+          thread = await base44.asServiceRole.entities.MessageThread.create({
+            contact_id: contato.id,
+            channel: 'whatsapp',
+            is_canonical: true,
+            status: 'aberta',
+            whatsapp_integration_id: integracaoDefault.id,
+            last_message_at: now.toISOString()
+          });
+          threadsMap.set(contact_id, thread);
+        }
+
+        // ✅ P0: Validar telefone antes de qualquer processamento
+        if (!contato.telefone?.trim()) {
+          console.log(`[CAMPANHA-LOTE] ⚠️ Telefone inválido: ${contato.nome}`);
+          resultados.push({
             contact_id: contato.id,
             nome: contato.nome,
-            status: 'erro', 
-            motivo: 'Thread não encontrada' 
+            status: 'erro',
+            motivo: 'Telefone não cadastrado'
           });
           erros++;
           continue;
         }
 
+        // ✅ P0: Usar integração correta (da thread, não default)
+        const integracaoId = thread.whatsapp_integration_id || integracaoDefault.id;
+        const integracaoUsada = integracoesMap.get(integracaoId) || integracaoDefault;
+
         // ═══════════════════════════════════════════════════════════════
-        // P0: VALIDAR BLOQUEIOS ABSOLUTOS
+        // P0: VALIDAR BLOQUEIOS ABSOLUTOS (com integração correta)
         // ═══════════════════════════════════════════════════════════════
         const { blocked, reason } = isBlocked({
           contact: contato,
           thread,
-          integration: integracaoDefault
+          integration: integracaoUsada
         });
 
         if (blocked) {
@@ -158,7 +179,7 @@ Deno.serve(async (req) => {
           }
 
           const resp = await base44.asServiceRole.functions.invoke('enviarWhatsApp', {
-            integration_id: thread.whatsapp_integration_id || integracaoDefault.id,
+            integration_id: integracaoId,
             numero_destino: contato.telefone,
             mensagem: textoFinal
           });
@@ -231,9 +252,28 @@ Estou à disposição! 😊`.trim();
             }
           }
 
+          // ✅ P2: Verificar se já enviou saudação recente (evitar duplicação)
+          const saudacaoRecente = await base44.asServiceRole.entities.Message.filter({
+            thread_id: thread.id,
+            sender_type: 'user',
+            sent_at: { $gte: new Date(now.getTime() - 60 * 60 * 1000).toISOString() },
+            'metadata.origem_campanha': 'lote_urgentes'
+          }, '-sent_at', 1);
+
+          if (saudacaoRecente.length > 0) {
+            console.log(`[CAMPANHA-LOTE] ⏭️ ${contato.nome}: saudação enviada há ${Math.round((now - new Date(saudacaoRecente[0].sent_at)) / 60000)}min`);
+            resultados.push({
+              contact_id: contato.id,
+              nome: contato.nome,
+              status: 'aviso',
+              motivo: 'Saudação já enviada na última hora'
+            });
+            continue;
+          }
+
           // Enviar saudação via gateway unificado
           const resultadoEnvio = await base44.asServiceRole.functions.invoke('enviarWhatsApp', {
-            integration_id: thread.whatsapp_integration_id || integracaoDefault.id,
+            integration_id: integracaoId,
             numero_destino: contato.telefone,
             mensagem: mensagemSaudacao
           });
@@ -257,8 +297,9 @@ Estou à disposição! 😊`.trim();
             status: 'enviada',
             sent_at: now.toISOString(),
             metadata: {
-              whatsapp_integration_id: thread.whatsapp_integration_id || integracaoDefault.id,
-              origem_campanha: 'lote_urgentes'
+              whatsapp_integration_id: integracaoId,
+              origem_campanha: 'lote_urgentes',
+              lote_timestamp: now.toISOString()
             }
           });
 
@@ -279,11 +320,12 @@ Estou à disposição! 😊`.trim();
             resultados.push({
               contact_id: contato.id,
               nome: contato.nome,
-              status: 'aviso',
-              motivo: 'Sem promoção elegível (filtros/rotação)',
-              saudacao_enviada: true
+              status: 'parcial',
+              motivo: 'Saudação enviada, mas sem promoção elegível',
+              saudacao_enviada: true,
+              promocao_agendada: false
             });
-            enviados++; // Conta saudação como enviada
+            enviados++; // Conta apenas saudação
             continue;
           }
 
@@ -300,7 +342,7 @@ Estou à disposição! 😊`.trim();
             status: 'agendado',
             payload: {
               promotion_id: promoSelecionada.id,
-              integration_id: thread.whatsapp_integration_id || integracaoDefault.id,
+              integration_id: integracaoId,
               trigger: 'manual_lote_urgentes'
             },
             metadata: {
