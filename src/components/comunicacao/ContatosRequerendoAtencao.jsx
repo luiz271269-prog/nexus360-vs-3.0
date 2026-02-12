@@ -29,9 +29,10 @@ export default function ContatosRequerendoAtencao({ usuario, onSelecionarContato
   const [usuariosMap, setUsuariosMap] = useState({});
   const [enviandoPromos, setEnviandoPromos] = useState(false);
   const [contatosSelecionados, setContatosSelecionados] = useState([]);
+  const [diasInatividade, setDiasInatividade] = useState(5);
   const isHeader = variant === 'header';
 
-  // ✅ Motor Unificado V3
+  // ✅ Motor Unificado V3 - BUSCA TODOS do banco
   const {
     clientes: contatosComAlerta,
     loading,
@@ -42,9 +43,9 @@ export default function ContatosRequerendoAtencao({ usuario, onSelecionarContato
     refetch
   } = useContatosInteligentes(usuario, {
     tipo: ['lead', 'cliente'],
-    diasSemMensagem: 2,
-    minDealRisk: 20,
-    limit: 100,
+    diasSemMensagem: diasInatividade,
+    minDealRisk: 0,
+    limit: null,
     autoRefresh: true,
     refreshInterval: 5 * 60 * 1000
   });
