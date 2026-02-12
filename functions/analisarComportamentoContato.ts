@@ -696,20 +696,54 @@ Status: ${prontuarioObj.visao_geral ? 'COMPLETA' : 'PARCIAL'}
       }
     });
 
-    // Atualizar Contact com dados do Prontuário para cache/alertas
+    // ✅ CACHE NO CONTACT (B) - para Contatos Inteligentes, automações e alertas
     const updateContactData = {
       score_engajamento: aiScores.engagement,
-      ultima_analise_comportamento: new Date().toISOString()
+      ultima_analise_comportamento: new Date().toISOString(),
+      segmento_atual: determinarSegmento(aiScores.deal_risk, aiScores.buy_intent, bucketInactive),
+      estagio_ciclo_vida: stageAtual,
+      cliente_score: priorityScore,
+      campos_personalizados: {
+        // CACHE: Relationship Profile
+        relationship_profile_type: insightsV2.relationship_profile.type,
+        relationship_profile_flags: insightsV2.relationship_profile.flags.join(','),
+        relationship_profile_summary: insightsV2.relationship_profile.summary,
+        
+        // CACHE: Scores críticos
+        deal_risk_cached: aiScores.deal_risk,
+        buy_intent_cached: aiScores.buy_intent,
+        health_cached: aiScores.health,
+        engagement_cached: aiScores.engagement,
+        
+        // CACHE: Risco relacional
+        relationship_risk_level: insightsV2.relationship_risk.level,
+        relationship_risk_events_count: insightsV2.relationship_risk.events?.length || 0,
+        
+        // CACHE: Status e timestamps
+        last_analysis_status: 'ok',
+        last_analysis_at: new Date().toISOString(),
+        last_analysis_priority_label: priorityLabel,
+        last_analysis_priority_score: priorityScore,
+        
+        // CACHE: Playbook (para automações)
+        playbook_goal: insightsV2.playbook.goal,
+        playbook_when_to_compete: insightsV2.playbook.when_to_compete.join('|'),
+        playbook_when_to_decline: insightsV2.playbook.when_to_decline.join('|'),
+        
+        // CACHE: Inatividade
+        bucket_inactive: bucketInactive,
+        days_inactive_inbound: daysInactiveInbound,
+        days_inactive_total: daysInactiveTotal
+      }
     };
     
-    // ✅ Adicionar campos de cache para alimentar Contatos Inteligentes + alertas
-    if (analiseDataV2.relationship_profile) {
-      updateContactData.campos_personalizados = {
-        relationship_profile_type: analiseDataV2.relationship_profile.type,
-        relationship_profile_flags: analiseDataV2.relationship_profile.flags,
-        relationship_profile_summary: analiseDataV2.relationship_profile.summary,
-        relationship_risk_level: analiseDataV2.relationship_risk?.level || 'low'
-      };
+    // Helper para segmentação
+    function determinarSegmento(dealRisk, buyIntent, bucket) {
+      if (dealRisk > 70 && bucket === '90+') return 'risco_churn';
+      if (buyIntent > 70 && dealRisk < 30) return 'lead_quente';
+      if (buyIntent > 40 && dealRisk < 50) return 'lead_morno';
+      if (bucket === '90+') return 'lead_frio';
+      return 'cliente_ativo';
     }
     
     await base44.asServiceRole.entities.Contact.update(contact_id, updateContactData);
