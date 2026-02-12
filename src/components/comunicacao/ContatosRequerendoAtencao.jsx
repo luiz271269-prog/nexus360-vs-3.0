@@ -464,18 +464,40 @@ export default function ContatosRequerendoAtencao({ usuario, onSelecionarContato
 
           {/* Botões de ação */}
           <div className="flex gap-1.5 mt-2 flex-wrap">
-            {item.suggested_message &&
             <button
               onClick={(e) => {
                 e.stopPropagation();
-                navigator.clipboard.writeText(item.suggested_message);
-                toast.success('✅ Mensagem copiada!');
+                
+                // Formatar dados analisados para copiar
+                const dadosFormatados = `
+📊 ANÁLISE IA - ${item.empresa || item.nome}
+
+🎯 PRIORIDADE: ${item.prioridadeLabel}
+   Score: ${item.prioridadeScore}/100
+
+⏰ INATIVIDADE: ${item.days_inactive_inbound || 0} dias sem responder
+   Bucket: ${item.bucket_inactive}
+
+💼 ATENDENTE: ${atendenteNome}
+
+📈 MÉTRICAS:
+   • Intenção de Compra: ${item.buy_intent || 0}%
+   • Engajamento: ${item.engagement || 0}%
+   • Risco Deal: ${item.deal_risk || 0}%
+   • Saúde Relação: ${item.health || 0}%
+
+⚠️ MOTIVOS: ${item.root_causes?.join(', ') || 'N/A'}
+
+${item.suggested_message ? `💬 SUGESTÃO IA:\n${item.suggested_message}` : ''}
+`.trim();
+                
+                navigator.clipboard.writeText(dadosFormatados);
+                toast.success('✅ Análise copiada!');
               }}
               className="text-[9px] px-1.5 py-0.5 bg-blue-100 text-blue-700 rounded hover:bg-blue-200 transition-colors inline-block">
 
-                📋 Copiar Sugestão IA
-              </button>
-            }
+              📋 Copiar Análise
+            </button>
 
             <button
               onClick={(e) => {
