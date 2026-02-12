@@ -71,26 +71,44 @@ export default function ContatosRequerendoAtencao({ usuario, onSelecionarContato
     }
   }, [usuario]);
 
-  // ✅ Carregar nomes dos atendentes
+  // ✅ Carregar nomes dos atendentes via função centralizada
   useEffect(() => {
     const carregarAtendentes = async () => {
       try {
-        const assignedIds = [...new Set(
-          contatosComAlerta.
-          map((c) => c.vendedor_responsavel || c.assigned_user_id).
-          filter(Boolean)
-        )];
-
-        if (assignedIds.length > 0) {
-          const users = await base44.asServiceRole.entities.User.filter({
-            id: { $in: assignedIds }
-          });
-
+        // ✅ Usar mesma função que o resto do sistema
+        const resultado = await base44.functions.invoke('listarUsuariosParaAtribuicao', {});
+        
+        if (resultado?.data?.success && resultado?.data?.usuarios) {
+          const todosUsuarios = resultado.data.usuarios;
           const map = {};
-          users.forEach((u) => {
+          
+          todosUsuarios.forEach((u) => {
             map[u.id] = u.full_name || u.email;
           });
+          
           setUsuariosMap(map);
+          console.log('[ContatosRequerendoAtencao] ✅ Mapa de atendentes carregado:', Object.keys(map).length);
+        } else {
+          console.warn('[ContatosRequerendoAtencao] ⚠️ Fallback para busca direta User');
+          
+          // Fallback: buscar diretamente
+          const assignedIds = [...new Set(
+            contatosComAlerta
+              .map((c) => c.vendedor_responsavel || c.assigned_user_id)
+              .filter(Boolean)
+          )];
+
+          if (assignedIds.length > 0) {
+            const users = await base44.asServiceRole.entities.User.filter({
+              id: { $in: assignedIds }
+            });
+
+            const map = {};
+            users.forEach((u) => {
+              map[u.id] = u.full_name || u.email;
+            });
+            setUsuariosMap(map);
+          }
         }
       } catch (error) {
         console.error('[ContatosRequerendoAtencao] Erro ao carregar atendentes:', error);
@@ -208,6 +226,26 @@ export default function ContatosRequerendoAtencao({ usuario, onSelecionarContato
       setContatosSelecionados([]);
     } else {
       setContatosSelecionados([...contatosComAlerta]);
+    }
+  };
+
+  // ✅ Selecionar todos de um grupo específico
+  const toggleSelecionarGrupo = (itemsDoGrupo) => {
+    const idsGrupo = itemsDoGrupo.map(i => i.contact_id || i.id);
+    const todosDoGrupoJaSelecionados = idsGrupo.every(id => 
+      contatosSelecionados.some(c => (c.contact_id || c.id) === id)
+    );
+
+    if (todosDoGrupoJaSelecionados) {
+      // Desmarcar todos do grupo
+      setContatosSelecionados(prev => 
+        prev.filter(c => !idsGrupo.includes(c.contact_id || c.id))
+      );
+    } else {
+      // Selecionar todos do grupo
+      const idsJaSelecionados = new Set(contatosSelecionados.map(c => c.contact_id || c.id));
+      const novosContatos = itemsDoGrupo.filter(i => !idsJaSelecionados.has(i.contact_id || i.id));
+      setContatosSelecionados(prev => [...prev, ...novosContatos]);
     }
   };
 
@@ -601,24 +639,43 @@ export default function ContatosRequerendoAtencao({ usuario, onSelecionarContato
                 return (
                   <div key={nomeGrupo} className="border-b border-slate-100">
                         {/* Header do grupo */}
-                        <button
-                      onClick={() => toggleGrupo(nomeGrupo)}
-                      className="w-full px-3 py-2 flex items-center justify-between hover:bg-slate-50 transition-colors">
-
-                          <div className="flex items-center gap-2">
-                            <span className="text-sm font-medium text-slate-700">
-                              {nomeGrupo}
-                            </span>
-                            <Badge variant="outline" className="text-xs">
-                              {items.length}
-                            </Badge>
-                          </div>
-                          {grupoExpandido ?
-                      <ChevronDown className="w-3 h-3 text-slate-400" /> :
-
-                      <ChevronRight className="w-3 h-3 text-slate-400" />
-                      }
-                        </button>
+                        <div className="flex items-center">
+                          <button
+                            onClick={() => toggleGrupo(nomeGrupo)}
+                            className="flex-1 px-3 py-2 flex items-center justify-between hover:bg-slate-50 transition-colors"
+                          >
+                            <div className="flex items-center gap-2">
+                              <span className="text-sm font-medium text-slate-700">
+                                {nomeGrupo}
+                              </span>
+                              <Badge variant="outline" className="text-xs">
+                                {items.length}
+                              </Badge>
+                            </div>
+                            {grupoExpandido ? (
+                              <ChevronDown className="w-3 h-3 text-slate-400" />
+                            ) : (
+                              <ChevronRight className="w-3 h-3 text-slate-400" />
+                            )}
+                          </button>
+                          
+                          {/* Botão Selecionar Grupo */}
+                          {grupoExpandido && (
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                toggleSelecionarGrupo(items);
+                              }}
+                              className="h-7 text-xs px-2 mr-2"
+                            >
+                              {items.every(i => contatosSelecionados.some(c => (c.contact_id || c.id) === (i.contact_id || i.id))) 
+                                ? '❌ Desmarcar' 
+                                : '✅ Todos'}
+                            </Button>
+                          )}
+                        </div>
 
                         {/* Items */}
                         {grupoExpandido &&
@@ -868,24 +925,43 @@ export default function ContatosRequerendoAtencao({ usuario, onSelecionarContato
             return (
               <div key={nomeGrupo} className="border-b border-slate-100">
                     {/* Header do grupo */}
-                    <button
-                  onClick={() => toggleGrupo(nomeGrupo)}
-                  className="w-full px-3 py-2 flex items-center justify-between hover:bg-slate-50 transition-colors">
-
-                      <div className="flex items-center gap-2">
-                        <span className="text-sm font-medium text-slate-700">
-                          {nomeGrupo}
-                        </span>
-                        <Badge variant="outline" className="text-xs">
-                          {items.length}
-                        </Badge>
-                      </div>
-                      {grupoExpandido ?
-                  <ChevronDown className="w-3 h-3 text-slate-400" /> :
-
-                  <ChevronRight className="w-3 h-3 text-slate-400" />
-                  }
-                    </button>
+                    <div className="flex items-center">
+                      <button
+                        onClick={() => toggleGrupo(nomeGrupo)}
+                        className="flex-1 px-3 py-2 flex items-center justify-between hover:bg-slate-50 transition-colors"
+                      >
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm font-medium text-slate-700">
+                            {nomeGrupo}
+                          </span>
+                          <Badge variant="outline" className="text-xs">
+                            {items.length}
+                          </Badge>
+                        </div>
+                        {grupoExpandido ? (
+                          <ChevronDown className="w-3 h-3 text-slate-400" />
+                        ) : (
+                          <ChevronRight className="w-3 h-3 text-slate-400" />
+                        )}
+                      </button>
+                      
+                      {/* Botão Selecionar Grupo */}
+                      {grupoExpandido && (
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            toggleSelecionarGrupo(items);
+                          }}
+                          className="h-7 text-xs px-2 mr-2"
+                        >
+                          {items.every(i => contatosSelecionados.some(c => (c.contact_id || c.id) === (i.contact_id || i.id))) 
+                            ? '❌ Desmarcar' 
+                            : '✅ Todos'}
+                        </Button>
+                      )}
+                    </div>
 
                     {/* Items */}
                     {grupoExpandido &&
