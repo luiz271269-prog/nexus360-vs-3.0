@@ -108,13 +108,14 @@ Deno.serve(async (req) => {
         if (modo === 'broadcast') {
           console.log(`[CAMPANHA-LOTE] Enviando broadcast para ${contato.nome}`);
 
-          // ✅ CHAMAR GATEWAY DE ENVIO
+          // ✅ CHAMAR GATEWAY DE ENVIO COM MÍDIA
            const respEnvio = await base44.asServiceRole.functions.invoke('enviarWhatsApp', {
              integration_id: integration.id,
              numero_destino: contato.telefone,
              mensagem: mensagemFinal,
              media_url,
-             media_type
+             media_type,
+             media_caption: media_caption || null
            });
 
           if (!respEnvio.data?.success) {
