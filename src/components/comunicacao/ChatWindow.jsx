@@ -606,14 +606,12 @@ export default function ChatWindow({
 
       for (const dest of broadcastInterno.destinations) {
         try {
-          // Validação prévia: thread_id + contexto de usuário
           if (!dest.thread_id || !usuario?.id) {
             console.error(`[BROADCAST_INTERNO] ❌ Contexto inválido:`, dest);
             erros++;
             continue;
           }
 
-          // 🎯 ENVIO INTERNO PURO - Sem campos de WhatsApp/Contact
           await base44.functions.invoke('sendInternalMessage', {
             thread_id: dest.thread_id,
             content: texto.trim() || (mediaUrl ? `[${mediaType}]` : ''),
@@ -652,146 +650,58 @@ export default function ChatWindow({
     }
 
     // ═══════════════════════════════════════════════════════════════════════
-    // MODO BROADCAST EXTERNO (WhatsApp)
+    // MODO BROADCAST EXTERNO (WhatsApp) - ✅ REFATORADO: Delega para função unificada
     // ═══════════════════════════════════════════════════════════════════════
     if (contatosSelecionados.length === 0) {
       toast.error("Nenhum contato selecionado");
       return;
     }
 
-    // Usar canal selecionado ou buscar integração ativa
-    const integracaoParaUsar = canalSelecionado ?
-    integracoes.find((i) => i.id === canalSelecionado && i.status === 'conectado') :
-    integracoes.find((i) => i.status === 'conectado');
-
-    if (!integracaoParaUsar) {
-      toast.error("Nenhuma integração WhatsApp ativa");
-      return;
-    }
-
     setEnviandoBroadcast(true);
     setProgressoBroadcast({ enviados: 0, erros: 0, total: contatosSelecionados.length });
 
-    // 📝 ASSINATURA: Adicionar setor e nome do atendente ao final da mensagem
-    // Usa display_name (editável) > full_name (login) como fallback
-    let mensagemParaEnviar = texto.trim();
-    const nomeAtendente = usuario?.display_name || usuario?.full_name;
-    if (nomeAtendente && usuario?.attendant_sector) {
-      const primeiroNome = nomeAtendente.split(' ')[0];
-      const setor = usuario.attendant_sector;
-      mensagemParaEnviar = `${mensagemParaEnviar}\n\n_~ ${primeiroNome} (${setor})_`;
-    }
-
-    let enviados = 0;
-    let erros = 0;
-
-    for (const contato of contatosSelecionados) {
-      const telefone = contato.telefone || contato.celular;
-
-      if (!telefone) {
-        erros++;
-        setProgressoBroadcast((prev) => ({ ...prev, erros }));
-        continue;
+    try {
+      // 📝 Adicionar assinatura
+      let mensagemFinal = texto.trim();
+      const nomeAtendente = usuario?.display_name || usuario?.full_name;
+      if (nomeAtendente && usuario?.attendant_sector) {
+        const primeiroNome = nomeAtendente.split(' ')[0];
+        const setor = usuario.attendant_sector;
+        mensagemFinal = `${mensagemFinal}\n\n_~ ${primeiroNome} (${setor})_`;
       }
 
-      try {
-        // Preparar dados de envio
-        const dadosEnvio = {
-          integration_id: integracaoParaUsar.id,
-          numero_destino: telefone
-        };
+      // ✅ DELEGAR para função unificada
+      const contactIds = contatosSelecionados.map(c => c.id);
+      
+      const resultado = await base44.functions.invoke('enviarCampanhaLote', {
+        contact_ids: contactIds,
+        modo: 'broadcast',
+        mensagem: mensagemFinal,
+        personalizar: false // já tem assinatura
+      });
 
-        // Adicionar mídia se houver
-        if (mediaUrl && mediaType) {
-          if (isAudio || mediaType === 'audio') {
-            dadosEnvio.audio_url = mediaUrl;
-            dadosEnvio.media_type = 'audio';
-          } else {
-            dadosEnvio.media_url = mediaUrl;
-            dadosEnvio.media_type = mediaType;
-            if (mediaCaption || mensagemParaEnviar) {
-              dadosEnvio.media_caption = mediaCaption || mensagemParaEnviar;
-            }
-          }
-        } else if (mensagemParaEnviar) {
-          dadosEnvio.mensagem = mensagemParaEnviar;
+      setEnviandoBroadcast(false);
+
+      if (resultado.data?.success) {
+        const { enviados, erros } = resultado.data;
+        
+        if (enviados > 0) {
+          toast.success(`✅ ${enviados} mensagem(ns) enviada(s)!`);
+        }
+        if (erros > 0) {
+          toast.error(`❌ ${erros} erro(s) no envio`);
         }
 
-        const resultado = await base44.functions.invoke('enviarWhatsApp', dadosEnvio);
-
-        if (resultado.data.success) {
-          enviados++;
-
-          // Buscar ou criar thread para registrar a mensagem
-          let threads = await base44.entities.MessageThread.filter({ contact_id: contato.id });
-          let threadContato = threads && threads.length > 0 ? threads[0] : null;
-
-          const contentPreview = mediaUrl ?
-          mediaType === 'image' ? '[Imagem]' : mediaType === 'audio' ? '[Áudio]' : mediaType === 'video' ? '[Vídeo]' : '[Arquivo]' :
-          mensagemParaEnviar.substring(0, 100);
-
-          if (!threadContato) {
-            threadContato = await base44.entities.MessageThread.create({
-              contact_id: contato.id,
-              whatsapp_integration_id: integracaoParaUsar.id,
-              status: 'aberta',
-              last_message_content: contentPreview,
-              last_message_at: new Date().toISOString(),
-              last_message_sender: 'user',
-              last_media_type: mediaType || 'none'
-            });
-          } else {
-            await base44.entities.MessageThread.update(threadContato.id, {
-              last_message_content: contentPreview,
-              last_message_at: new Date().toISOString(),
-              last_message_sender: 'user',
-              last_human_message_at: new Date().toISOString(),
-              last_media_type: mediaType || 'none',
-              pre_atendimento_ativo: false
-            });
-          }
-
-          // Registrar a mensagem na thread
-          await base44.entities.Message.create({
-            thread_id: threadContato.id,
-            sender_id: usuario?.id || 'system',
-            sender_type: 'user',
-            recipient_id: contato.id,
-            recipient_type: 'contact',
-            content: mediaCaption || mensagemParaEnviar || contentPreview,
-            channel: 'whatsapp',
-            status: 'enviada',
-            whatsapp_message_id: resultado.data.message_id,
-            sent_at: new Date().toISOString(),
-            media_url: mediaUrl || null,
-            media_type: mediaType || 'none',
-            media_caption: mediaCaption,
-            metadata: {
-              whatsapp_integration_id: integracaoParaUsar.id,
-              broadcast: true
-            }
-          });
-        } else {
-          erros++;
-        }
-      } catch (error) {
-        console.error(`[BROADCAST] Erro ao enviar para ${telefone}:`, error);
-        erros++;
+        // Atualizar progresso final
+        setProgressoBroadcast({ enviados, erros, total: contactIds.length });
+      } else {
+        throw new Error(resultado.data?.error || 'Erro no envio em massa');
       }
 
-      setProgressoBroadcast({ enviados, erros, total: contatosSelecionados.length });
-
-      // Pequeno delay entre envios para evitar rate limit
-      await new Promise((resolve) => setTimeout(resolve, 500));
-    }
-
-    setEnviandoBroadcast(false);
-
-    if (enviados > 0) {
-      toast.success(`✅ ${enviados} mensagem(ns) enviada(s) com sucesso!`);
-    }
-    if (erros > 0) {
-      toast.error(`❌ ${erros} erro(s) no envio`);
+    } catch (error) {
+      console.error('[BROADCAST] Erro:', error);
+      toast.error(`❌ Erro: ${error.message}`);
+      setEnviandoBroadcast(false);
     }
 
     // Cancelar modo seleção após envio

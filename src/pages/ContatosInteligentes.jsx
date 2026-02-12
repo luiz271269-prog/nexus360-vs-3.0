@@ -12,12 +12,21 @@ import {
   RefreshCw,
   Loader2,
   Target,
-  Filter
+  Filter,
+  Sparkles,
+  Users,
+  CheckSquare
 } from 'lucide-react';
+import { toast } from 'sonner';
+import ModalEnvioMassa from '../components/comunicacao/ModalEnvioMassa';
 
 export default function ContatosInteligentes() {
   const [usuario, setUsuario] = useState(null);
   const [filtroAtivo, setFiltroAtivo] = useState('todos'); // todos, critico, alto
+  const [enviandoPromos, setEnviandoPromos] = useState(false);
+  const [modoSelecao, setModoSelecao] = useState(false);
+  const [contatosSelecionados, setContatosSelecionados] = useState([]);
+  const [mostrarModalMassa, setMostrarModalMassa] = useState(false);
   
   const { 
     clientes, 
@@ -46,6 +55,86 @@ export default function ContatosInteligentes() {
     if (filtroAtivo === 'alto') return ['CRITICO', 'ALTO'].includes(c.prioridadeLabel);
     return true;
   });
+
+  const enviarPromocoesAutomaticas = async () => {
+    const contatos = modoSelecao && contatosSelecionados.length > 0 
+      ? contatosSelecionados 
+      : clientesFiltrados;
+
+    if (!contatos.length) {
+      toast.error('Nenhum contato para enviar');
+      return;
+    }
+
+    const confirmacao = window.confirm(
+      `🚀 Enviar promoções automáticas para ${contatos.length} contatos?\n\n` +
+      `Processo:\n` +
+      `1️⃣ Saudação personalizada (agora)\n` +
+      `2️⃣ Aguardar 5 minutos\n` +
+      `3️⃣ Enviar promoção ativa\n\n` +
+      `Bloqueios: Fornecedores, tags bloqueadas, financeiro\n` +
+      `Tempo estimado: ${Math.ceil(contatos.length * 0.8)}s`
+    );
+
+    if (!confirmacao) return;
+
+    setEnviandoPromos(true);
+    toast.loading(`📤 Enviando saudações para ${contatos.length} contatos...`, { id: 'envio-lote' });
+
+    try {
+      const contactIds = contatos.map(c => c.contact_id || c.id);
+
+      const resultado = await base44.functions.invoke('enviarCampanhaLote', {
+        contact_ids: contactIds,
+        modo: 'promocao',
+        delay_minutos: 5
+      });
+
+      if (resultado.data?.success) {
+        const { enviados, erros } = resultado.data;
+        toast.success(`✅ ${enviados} saudações enviadas! Promoções agendadas para daqui 5 min.`, { id: 'envio-lote' });
+        
+        if (erros > 0) {
+          toast.error(`⚠️ ${erros} erros (bloqueios ou falhas)`);
+        }
+
+        refetch();
+      } else {
+        throw new Error(resultado.data?.error || 'Erro no envio');
+      }
+    } catch (error) {
+      console.error('[CONTATOS-INTELIGENTES] Erro:', error);
+      toast.error(`❌ Erro: ${error.message}`, { id: 'envio-lote' });
+    } finally {
+      setEnviandoPromos(false);
+      setModoSelecao(false);
+      setContatosSelecionados([]);
+    }
+  };
+
+  const abrirEnvioMassa = () => {
+    const contatos = modoSelecao && contatosSelecionados.length > 0 
+      ? contatosSelecionados 
+      : clientesFiltrados;
+
+    if (!contatos.length) {
+      toast.error('Nenhum contato para enviar');
+      return;
+    }
+
+    setMostrarModalMassa(true);
+  };
+
+  const toggleSelecaoContato = (contactId) => {
+    setContatosSelecionados(prev => {
+      if (prev.some(c => (c.contact_id || c.id) === contactId)) {
+        return prev.filter(c => (c.contact_id || c.id) !== contactId);
+      } else {
+        const contato = clientesFiltrados.find(c => (c.contact_id || c.id) === contactId);
+        return contato ? [...prev, contato] : prev;
+      }
+    });
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 p-6">
@@ -131,32 +220,72 @@ export default function ContatosInteligentes() {
           </Card>
         </div>
 
-        {/* Filtros rápidos */}
-        <div className="flex items-center gap-2 mb-6">
-          <Filter className="w-4 h-4 text-slate-500" />
-          <Button
-            size="sm"
-            variant={filtroAtivo === 'todos' ? 'default' : 'outline'}
-            onClick={() => setFiltroAtivo('todos')}
-          >
-            Todos ({clientes.length})
-          </Button>
-          <Button
-            size="sm"
-            variant={filtroAtivo === 'critico' ? 'default' : 'outline'}
-            onClick={() => setFiltroAtivo('critico')}
-            className={filtroAtivo === 'critico' ? 'bg-red-500 hover:bg-red-600' : ''}
-          >
-            Críticos ({criticos.length})
-          </Button>
-          <Button
-            size="sm"
-            variant={filtroAtivo === 'alto' ? 'default' : 'outline'}
-            onClick={() => setFiltroAtivo('alto')}
-            className={filtroAtivo === 'alto' ? 'bg-orange-500 hover:bg-orange-600' : ''}
-          >
-            Alta Prioridade ({totalUrgentes})
-          </Button>
+        {/* Filtros + Ações */}
+        <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center gap-2">
+            <Filter className="w-4 h-4 text-slate-500" />
+            <Button
+              size="sm"
+              variant={filtroAtivo === 'todos' ? 'default' : 'outline'}
+              onClick={() => setFiltroAtivo('todos')}
+            >
+              Todos ({clientes.length})
+            </Button>
+            <Button
+              size="sm"
+              variant={filtroAtivo === 'critico' ? 'default' : 'outline'}
+              onClick={() => setFiltroAtivo('critico')}
+              className={filtroAtivo === 'critico' ? 'bg-red-500 hover:bg-red-600' : ''}
+            >
+              Críticos ({criticos.length})
+            </Button>
+            <Button
+              size="sm"
+              variant={filtroAtivo === 'alto' ? 'default' : 'outline'}
+              onClick={() => setFiltroAtivo('alto')}
+              className={filtroAtivo === 'alto' ? 'bg-orange-500 hover:bg-orange-600' : ''}
+            >
+              Alta Prioridade ({totalUrgentes})
+            </Button>
+          </div>
+
+          {/* Botões de Ação */}
+          {clientesFiltrados.length > 0 && (
+            <div className="flex items-center gap-2">
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => setModoSelecao(!modoSelecao)}
+                className={modoSelecao ? 'bg-blue-50 border-blue-300' : ''}
+              >
+                <CheckSquare className="w-4 h-4 mr-1" />
+                {modoSelecao ? `Selecionados (${contatosSelecionados.length})` : 'Selecionar'}
+              </Button>
+
+              <Button
+                onClick={enviarPromocoesAutomaticas}
+                disabled={enviandoPromos}
+                className="bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white"
+              >
+                {enviandoPromos ? (
+                  <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                ) : (
+                  <Sparkles className="w-4 h-4 mr-2" />
+                )}
+                Auto ({modoSelecao && contatosSelecionados.length > 0 ? contatosSelecionados.length : clientesFiltrados.length})
+              </Button>
+
+              <Button
+                onClick={abrirEnvioMassa}
+                disabled={loading}
+                variant="outline"
+                className="border-orange-300 text-orange-700 hover:bg-orange-50"
+              >
+                <Users className="w-4 h-4 mr-2" />
+                Massa ({modoSelecao && contatosSelecionados.length > 0 ? contatosSelecionados.length : clientesFiltrados.length})
+              </Button>
+            </div>
+          )}
         </div>
 
         {/* Lista de clientes */}
@@ -186,9 +315,72 @@ export default function ContatosInteligentes() {
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {clientesFiltrados.map(cliente => (
-              <ClienteCard key={cliente.contact_id} cliente={cliente} />
+              <div 
+                key={cliente.contact_id} 
+                className="relative"
+                onClick={() => modoSelecao && toggleSelecaoContato(cliente.contact_id)}
+              >
+                {modoSelecao && (
+                  <div className="absolute top-2 left-2 z-10">
+                    <input
+                      type="checkbox"
+                      checked={contatosSelecionados.some(c => (c.contact_id || c.id) === cliente.contact_id)}
+                      onChange={() => toggleSelecaoContato(cliente.contact_id)}
+                      className="w-5 h-5 rounded border-2 border-blue-500"
+                      onClick={(e) => e.stopPropagation()}
+                    />
+                  </div>
+                )}
+                <ClienteCard 
+                  cliente={cliente}
+                  className={modoSelecao && contatosSelecionados.some(c => (c.contact_id || c.id) === cliente.contact_id) ? 'ring-2 ring-blue-500' : ''}
+                />
+              </div>
             ))}
           </div>
+        )}
+
+        {/* Modal de Envio em Massa */}
+        {mostrarModalMassa && (
+          <ModalEnvioMassa
+            contatosSelecionados={modoSelecao && contatosSelecionados.length > 0 ? contatosSelecionados : clientesFiltrados}
+            onClose={() => {
+              setMostrarModalMassa(false);
+              setModoSelecao(false);
+              setContatosSelecionados([]);
+            }}
+            onEnviar={async (mensagem) => {
+              const contatos = modoSelecao && contatosSelecionados.length > 0 
+                ? contatosSelecionados 
+                : clientesFiltrados;
+              
+              const contactIds = contatos.map(c => c.contact_id || c.id);
+              
+              toast.loading(`📤 Enviando para ${contactIds.length} contatos...`, { id: 'massa' });
+
+              try {
+                const resultado = await base44.functions.invoke('enviarCampanhaLote', {
+                  contact_ids: contactIds,
+                  modo: 'broadcast',
+                  mensagem,
+                  personalizar: true
+                });
+
+                if (resultado.data?.success) {
+                  toast.success(`✅ ${resultado.data.enviados} enviadas!`, { id: 'massa' });
+                  if (resultado.data.erros > 0) {
+                    toast.error(`⚠️ ${resultado.data.erros} erros`);
+                  }
+                  setMostrarModalMassa(false);
+                  setModoSelecao(false);
+                  setContatosSelecionados([]);
+                  refetch();
+                }
+              } catch (error) {
+                toast.error(`❌ ${error.message}`, { id: 'massa' });
+              }
+            }}
+          />
         )}
       </div>
     </div>
