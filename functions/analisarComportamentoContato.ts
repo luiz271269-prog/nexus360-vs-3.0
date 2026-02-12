@@ -484,8 +484,12 @@ Retorne OBRIGATORIAMENTE todos os campos acima.`;
         signals = (analiseIA.signals || []);
         stageAtual = analiseIA.stage?.current || 'descoberta';
         
-        // Armazenar dados completos para persistência
-        window.analiseV2Completa = analiseIA;
+        // ✅ Armazenar dados V2 completos (não usar window)
+        console.log('[ANALISE] ✅ Análise V2 recebida da IA', {
+          relationship_type: analiseIA.relationship_profile?.type,
+          flags_count: analiseIA.relationship_profile?.flags?.length || 0,
+          risk_level: analiseIA.relationship_risk?.level
+        });
         
       } catch (error) {
         console.warn('[ANALISE] ⚠️ Erro na IA:', error.message);
@@ -549,7 +553,7 @@ Retorne OBRIGATORIAMENTE todos os campos acima.`;
     // ══════════════════════════════════════════════════════════════
     // PERSISTIR ANÁLISE COMPLETA (v2 + legado)
     // ══════════════════════════════════════════════════════════════
-    const analiseDataV2 = typeof window !== 'undefined' && window.analiseV2Completa ? window.analiseV2Completa : {};
+    const analiseDataV2 = mensagens.length > 0 && analiseIA ? analiseIA : {};
     
     const analise = await base44.asServiceRole.entities.ContactBehaviorAnalysis.create({
       contact_id: contact_id,
@@ -670,11 +674,23 @@ Retorne OBRIGATORIAMENTE todos os campos acima.`;
       }
     });
 
-    // Atualizar Contact
-    await base44.asServiceRole.entities.Contact.update(contact_id, {
+    // Atualizar Contact com dados do Prontuário para cache/alertas
+    const updateContactData = {
       score_engajamento: aiScores.engagement,
       ultima_analise_comportamento: new Date().toISOString()
-    });
+    };
+    
+    // ✅ Adicionar campos de cache para alimentar Contatos Inteligentes + alertas
+    if (analiseDataV2.relationship_profile) {
+      updateContactData.campos_personalizados = {
+        relationship_profile_type: analiseDataV2.relationship_profile.type,
+        relationship_profile_flags: analiseDataV2.relationship_profile.flags,
+        relationship_profile_summary: analiseDataV2.relationship_profile.summary,
+        relationship_risk_level: analiseDataV2.relationship_risk?.level || 'low'
+      };
+    }
+    
+    await base44.asServiceRole.entities.Contact.update(contact_id, updateContactData);
 
     return Response.json({
       success: true,
