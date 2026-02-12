@@ -25,6 +25,7 @@ import { useContatosInteligentes } from '../hooks/useContatosInteligentes';
 import { base44 } from '@/api/base44Client';
 import { createPageUrl } from '@/utils';
 import ModalEnvioPromocoesAutomaticas from './ModalEnvioPromocoesAutomaticas';
+import DiagnosticoDiasInativos from './DiagnosticoDiasInativos';
 
 export default function ContatosRequerendoAtencao({ usuario, onSelecionarContato, variant = 'sidebar' }) {
   const [expandido, setExpandido] = useState(false);
@@ -489,6 +490,12 @@ export default function ContatosRequerendoAtencao({ usuario, onSelecionarContato
               </Badge>
             }
           </div>
+
+          {/* Debug diagnóstico */}
+          <DiagnosticoDiasInativos 
+            contactId={item.contact_id} 
+            contatoNome={item.nome} 
+          />
 
           {/* Botões de ação */}
           <div className="flex gap-1.5 mt-2 flex-wrap">
