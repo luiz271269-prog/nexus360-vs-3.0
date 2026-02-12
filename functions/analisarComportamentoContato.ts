@@ -551,9 +551,87 @@ Retorne OBRIGATORIAMENTE todos os campos acima.`;
     }
 
     // ══════════════════════════════════════════════════════════════
-    // PERSISTIR ANÁLISE COMPLETA (v2 + legado)
+    // PERSISTIR ANÁLISE COMPLETA (V3.1: V2 como FONTE DA VERDADE)
     // ══════════════════════════════════════════════════════════════
     const analiseDataV2 = mensagens.length > 0 && analiseIA ? analiseIA : {};
+    
+    // ✅ Montar INSIGHTS_V2 (JSONB - fonte da verdade completa)
+    const insightsV2 = {
+      relationship_profile: analiseDataV2.relationship_profile || {
+        type: 'outro',
+        flags: [],
+        summary: 'Perfil a classificar'
+      },
+      scores: analiseDataV2.scores || aiScores,
+      stage: analiseDataV2.stage || {
+        current: stageAtual,
+        days_stalled: daysInactiveInbound,
+        last_milestone: 'Última mensagem',
+        last_milestone_at: lastMessageAt
+      },
+      root_causes: (analiseDataV2.root_causes || []).map(r => ({
+        cause: r.cause || '',
+        severity: r.severity || 'medium',
+        confidence: r.confidence || 0.5
+      })),
+      evidence_snippets: analiseDataV2.evidence_snippets || [],
+      objections: analiseDataV2.objections || objecoes,
+      alerts: analiseDataV2.alerts || [],
+      playbook: analiseDataV2.playbook || {
+        goal: 'Manter relacionamento e aumentar conversão',
+        rules_of_game: [],
+        when_to_compete: [],
+        when_to_decline: []
+      },
+      next_best_action: analiseDataV2.next_best_action || nextBestAction,
+      relationship_risk: analiseDataV2.relationship_risk || {
+        level: 'low',
+        events: []
+      },
+      metricas_relacionamento: {
+        total_mensagens: totalMessages,
+        inbound_count: inboundCount,
+        outbound_count: outboundCount,
+        ratio_in_out: ratioInOut,
+        avg_response_time_agent_minutes: avgReplyMinutesAgent,
+        avg_response_time_contact_minutes: avgReplyMinutesContact,
+        max_silence_gap_days: maxSilenceGapDays,
+        conversation_velocity: conversationVelocity,
+        last_10_balance: last10Balance,
+        unanswered_followups: unansweredFollowups
+      }
+    };
+    
+    // ✅ Montar PRONTUÁRIO_TEXT (concatenado para leitura/busca rápida)
+    const prontuarioObj = analiseDataV2.prontuario_ptbr || {};
+    const prontuarioText = `
+PRONTUÁRIO DE INTELIGÊNCIA - ${contact.nome}
+
+1️⃣ VISÃO GERAL DO RELACIONAMENTO
+${prontuarioObj.visao_geral || 'N/A'}
+
+2️⃣ NECESSIDADES E CONTEXTO DE COMPRA
+${prontuarioObj.necessidades_contexto || 'N/A'}
+
+3️⃣ ESTADO ATUAL DA CONTA (SCORES)
+${prontuarioObj.estado_atual_scores || 'N/A'}
+
+4️⃣ CAUSAS PRINCIPAIS
+${prontuarioObj.causas_principais || 'N/A'}
+
+5️⃣ OPORTUNIDADES E SINAIS POSITIVOS
+${prontuarioObj.oportunidades_sinais_positivos || 'N/A'}
+
+6️⃣ RECOMENDAÇÕES OBJETIVAS
+${prontuarioObj.recomendacoes_objetivas || 'N/A'}
+
+7️⃣ SUGESTÃO DE MENSAGEM PRONTA
+${prontuarioObj.mensagem_pronta || 'N/A'}
+
+---
+Análise gerada em: ${new Date().toISOString()}
+Status: ${prontuarioObj.visao_geral ? 'COMPLETA' : 'PARCIAL'}
+    `.trim();
     
     const analise = await base44.asServiceRole.entities.ContactBehaviorAnalysis.create({
       contact_id: contact_id,
@@ -575,80 +653,24 @@ Retorne OBRIGATORIAMENTE todos os campos acima.`;
       // PRIORITY
       priority_score: priorityScore,
       priority_label: priorityLabel,
-      root_causes: (analiseDataV2.root_causes || []).map(r => ({
-        cause: r.cause || '',
-        severity: r.severity || 'medium',
-        confidence: r.confidence || 0.5
-      })),
+      root_causes: (analiseDataV2.root_causes || []).map(r => r.cause || ''),
       
-      // MÉTRICAS HARD
-      metricas_relacionamento: {
-        total_mensagens: totalMessages,
-        inbound_count: inboundCount,
-        outbound_count: outboundCount,
-        ratio_in_out: ratioInOut,
-        avg_response_time_agent_minutes: avgReplyMinutesAgent,
-        avg_response_time_contact_minutes: avgReplyMinutesContact,
-        max_silence_gap_days: maxSilenceGapDays,
-        conversation_velocity: conversationVelocity,
-        last_10_balance: last10Balance,
-        unanswered_followups: unansweredFollowups
-      },
+      // ✅ FONTE DA VERDADE V3.1
+      insights_v2: insightsV2,
+      prontuario_text: prontuarioText,
       
-      // RELATIONSHIP PROFILE (V2)
-      relationship_profile: analiseDataV2.relationship_profile || {
-        type: 'outro',
-        flags: [],
-        summary: 'Perfil a classificar'
-      },
-      
-      // SCORES (V2)
-      scores: analiseDataV2.scores || aiScores,
-      
-      // STAGE (V2)
-      stage: analiseDataV2.stage || {
-        current: stageAtual,
-        days_stalled: daysInactiveInbound,
-        last_milestone: 'Última mensagem',
-        last_milestone_at: lastMessageAt
-      },
-      
-      // EVIDENCE SNIPPETS (V2)
-      evidence_snippets: analiseDataV2.evidence_snippets || [],
-      
-      // OBJECTIONS (V2)
-      objections: analiseDataV2.objections || objecoes,
-      
-      // ALERTS (V2)
-      alerts: analiseDataV2.alerts || [],
-      
-      // PLAYBOOK (V2)
-      playbook: analiseDataV2.playbook || {
-        goal: 'Manter relacionamento e aumentar conversão',
-        rules_of_game: [],
-        when_to_compete: [],
-        when_to_decline: []
-      },
-      
-      // NEXT BEST ACTION (V2)
-      next_best_action: analiseDataV2.next_best_action || nextBestAction,
-      
-      // RELATIONSHIP RISK (V2)
-      relationship_risk: analiseDataV2.relationship_risk || {
-        level: 'low',
-        events: []
-      },
-      
-      // PRONTUÁRIO PT-BR (V2)
-      prontuario_ptbr: analiseDataV2.prontuario_ptbr || {
-        visao_geral: '',
-        necessidades_contexto: '',
-        estado_atual_scores: '',
-        causas_principais: '',
-        oportunidades_sinais_positivos: '',
-        recomendacoes_objetivas: '',
-        mensagem_pronta: ''
-      },
+      // CAMPOS V2 (para compatibilidade)
+      relationship_profile: insightsV2.relationship_profile,
+      scores: insightsV2.scores,
+      stage: insightsV2.stage,
+      evidence_snippets: insightsV2.evidence_snippets,
+      objections: insightsV2.objections,
+      alerts: insightsV2.alerts,
+      playbook: insightsV2.playbook,
+      next_best_action: insightsV2.next_best_action,
+      relationship_risk: insightsV2.relationship_risk,
+      prontuario_ptbr: prontuarioObj,
+      metricas_relacionamento: insightsV2.metricas_relacionamento,
       
       // AI INSIGHTS (legado)
       ai_insights: {
@@ -664,7 +686,7 @@ Retorne OBRIGATORIAMENTE todos os campos acima.`;
         evidence: evidencias
       },
       
-      // LEGADO (compatibilidade)
+      // LEGADO
       periodo_analise: `${new Date(primeiraMsg.created_date).toISOString().split('T')[0]} a ${new Date().toISOString().split('T')[0]}`,
       insights: {
         scores: aiScores,
