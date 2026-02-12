@@ -63,33 +63,35 @@ export default function ContatosRequerendoAtencao({ usuario, onSelecionarContato
   const [analisandoContatos, setAnalisandoContatos] = useState(false);
   const loading = hookLoading || analisandoContatos;
 
-  // ✅ Refetch com análise comportamental
+  // ✅ Refetch rápido + análise em background
   const refetch = async () => {
     setAnalisandoContatos(true);
     try {
-      console.log('[ContatosRequerendoAtencao] 🔄 Iniciando análise comportamental de contatos...');
+      console.log('[ContatosRequerendoAtencao] ⚡ Recarregando lista...');
       
-      const resultado = await base44.functions.invoke('executarAnaliseDiariaContatos', {});
+      // ✅ 1. Recarregar imediatamente (rápido)
+      await refetchHook();
+      toast.success('✅ Lista atualizada!');
       
-      if (resultado?.data?.success) {
-        const analisados = resultado.data.analisados || resultado.data.count || 0;
-        console.log(`[ContatosRequerendoAtencao] ✅ ${analisados} contatos analisados`);
-        toast.success(`✅ ${analisados} contatos analisados!`);
-      } else {
-        console.warn('[ContatosRequerendoAtencao] ⚠️ Análise retornou erro:', resultado?.data?.error);
-        toast.warning('⚠️ Erro na análise - recarregando dados');
-      }
-      
-      // Aguardar propagação dos dados
-      await new Promise(r => setTimeout(r, 1500));
+      // ✅ 2. Dispara análise em background (não bloqueia)
+      console.log('[ContatosRequerendoAtencao] 🔄 Análise iniciada (background)...');
+      base44.functions.invoke('executarAnaliseDiariaContatos', {})
+        .then((resultado) => {
+          if (resultado?.data?.success) {
+            console.log(`[ContatosRequerendoAtencao] ✅ Análise concluída (${resultado.data.analisados || 0} contatos)`);
+            // Recarregar dados após análise
+            setTimeout(() => refetchHook(), 800);
+          }
+        })
+        .catch((error) => {
+          console.warn('[ContatosRequerendoAtencao] ⚠️ Análise em background falhou:', error.message);
+        });
       
     } catch (error) {
-      console.error('[ContatosRequerendoAtencao] ❌ Erro ao analisar:', error);
-      toast.error(`❌ ${error.message || 'Erro ao atualizar análises'}`);
+      console.error('[ContatosRequerendoAtencao] ❌ Erro ao recarregar:', error);
+      toast.error(`❌ ${error.message}`);
     } finally {
       setAnalisandoContatos(false);
-      // Recarregar dados do hook
-      refetchHook();
     }
   };
 
