@@ -318,26 +318,49 @@ export default function ContatosRequerendoAtencao({ usuario, onSelecionarContato
             e.stopPropagation();
             
             if (!onSelecionarContato) return;
-            if (!item.thread_id) {
-              toast.error('❌ Thread canônica não encontrada');
-              return;
+            
+            if (item.thread_id) {
+              onSelecionarContato({
+                id: item.thread_id,
+                contatoPreCarregado: {
+                  id: item.contact_id,
+                  nome: item.nome,
+                  empresa: item.empresa,
+                  telefone: item.telefone,
+                  tipo_contato: item.tipo_contato,
+                  vendedor_responsavel: item.vendedor_responsavel,
+                  score_engajamento: item.engagement,
+                  cliente_score: item.health
+                }
+              });
+              setExpandido(false);
+            } else {
+              // Buscar thread canônica se não veio pré-carregada
+              base44.entities.MessageThread.filter({
+                contact_id: item.contact_id,
+                is_canonical: true
+              }, '-last_message_at', 1)
+              .then((threads) => {
+                if (threads.length > 0) {
+                  onSelecionarContato({
+                    id: threads[0].id,
+                    contatoPreCarregado: {
+                      id: item.contact_id,
+                      nome: item.nome,
+                      empresa: item.empresa,
+                      telefone: item.telefone,
+                      tipo_contato: item.tipo_contato,
+                      vendedor_responsavel: item.vendedor_responsavel,
+                      score_engajamento: item.engagement,
+                      cliente_score: item.health
+                    }
+                  });
+                  setExpandido(false);
+                } else {
+                  toast.error('❌ Thread canônica não encontrada');
+                }
+              });
             }
-            
-            onSelecionarContato({
-              id: item.thread_id,
-              contatoPreCarregado: {
-                id: item.contact_id,
-                nome: item.nome,
-                empresa: item.empresa,
-                telefone: item.telefone,
-                tipo_contato: item.tipo_contato,
-                vendedor_responsavel: item.vendedor_responsavel,
-                score_engajamento: item.engagement,
-                cliente_score: item.health
-              }
-            });
-            
-            setExpandido(false);
           }}
           className="relative flex-shrink-0 mt-0.5 cursor-pointer hover:scale-105 transition-transform">
 
