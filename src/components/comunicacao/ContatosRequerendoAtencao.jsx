@@ -780,6 +780,155 @@ export default function ContatosRequerendoAtencao({ usuario, onSelecionarContato
         }}
       />
 
+      {/* Modal de Análise IA */}
+      {contatoAnaliseAberto && (
+        <>
+          <div 
+            className="fixed inset-0 z-50 bg-black/20 backdrop-blur-sm" 
+            onClick={() => setContatoAnaliseAberto(null)} 
+          />
+          <div className="fixed inset-0 z-50 flex items-center justify-center pointer-events-none">
+            <div 
+              className="w-96 bg-white rounded-xl shadow-2xl border border-slate-200 overflow-hidden pointer-events-auto"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* Header */}
+              <div className="bg-gradient-to-r from-purple-600 to-indigo-600 px-6 py-4 flex items-center justify-between">
+                <div className="flex items-center gap-2 text-white">
+                  <Brain className="w-5 h-5" />
+                  <div>
+                    <h3 className="font-bold text-sm">{contatoAnaliseAberto.empresa || contatoAnaliseAberto.nome}</h3>
+                    <p className="text-xs opacity-90">Análise de Comportamento IA</p>
+                  </div>
+                </div>
+                <Button
+                  onClick={() => setContatoAnaliseAberto(null)}
+                  variant="ghost"
+                  size="icon"
+                  className="h-6 w-6 hover:bg-white/20 text-white">
+                  <X className="w-4 h-4" />
+                </Button>
+              </div>
+
+              {/* Conteúdo */}
+              {analiseCarregando ? (
+                <div className="p-8 text-center">
+                  <Loader2 className="w-8 h-8 animate-spin mx-auto text-purple-600 mb-3" />
+                  <p className="text-sm text-slate-600">Analisando...</p>
+                </div>
+              ) : !dadosAnalise ? (
+                <div className="p-6 text-center">
+                  <Brain className="w-12 h-12 mx-auto mb-3 text-slate-400" />
+                  <p className="text-sm text-slate-600">Sem análise disponível</p>
+                </div>
+              ) : (
+                <div className="p-6 space-y-4 max-h-[500px] overflow-y-auto">
+                  {/* Priority Score */}
+                  <div className="bg-gradient-to-r from-slate-50 to-slate-100 rounded-lg p-4">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-xs font-bold text-slate-700">PRIORIDADE</span>
+                      <Badge className={
+                        dadosAnalise.priority_label === 'CRITICO' ? 'bg-red-500' :
+                        dadosAnalise.priority_label === 'ALTO' ? 'bg-orange-500' :
+                        dadosAnalise.priority_label === 'MEDIO' ? 'bg-yellow-500' :
+                        'bg-green-500'
+                      }>
+                        {dadosAnalise.priority_label || 'BAIXO'}
+                      </Badge>
+                    </div>
+                    <div className="w-full bg-slate-300 rounded-full h-2">
+                      <div 
+                        className={`h-2 rounded-full transition-all ${
+                          dadosAnalise.priority_score > 70 ? 'bg-red-500' :
+                          dadosAnalise.priority_score > 40 ? 'bg-orange-500' :
+                          'bg-green-500'
+                        }`}
+                        style={{ width: `${dadosAnalise.priority_score}%` }}
+                      />
+                    </div>
+                    <p className="text-xs text-slate-600 mt-2">Score: {dadosAnalise.priority_score || 0}/100</p>
+                  </div>
+
+                  {/* AI Insights */}
+                  {dadosAnalise.ai_insights && (
+                    <div className="bg-purple-50 rounded-lg p-4 space-y-3">
+                      {/* Sentimento */}
+                      {dadosAnalise.ai_insights.sentiment && (
+                        <div>
+                          <p className="text-xs font-bold text-slate-700 mb-1">Sentimento</p>
+                          <Badge className={
+                            dadosAnalise.ai_insights.sentiment?.includes('positivo') 
+                              ? 'bg-green-100 text-green-800' 
+                              : dadosAnalise.ai_insights.sentiment?.includes('negativo')
+                              ? 'bg-red-100 text-red-800'
+                              : 'bg-slate-100 text-slate-800'
+                          }>
+                            {dadosAnalise.ai_insights.sentiment}
+                          </Badge>
+                        </div>
+                      )}
+
+                      {/* Scores Grid */}
+                      <div className="grid grid-cols-2 gap-2 text-xs">
+                        {dadosAnalise.ai_insights.buy_intent > 0 && (
+                          <div className="bg-white rounded p-2">
+                            <p className="text-slate-600">Intenção Compra</p>
+                            <p className="font-bold text-green-600">{dadosAnalise.ai_insights.buy_intent}%</p>
+                          </div>
+                        )}
+                        {dadosAnalise.ai_insights.engagement > 0 && (
+                          <div className="bg-white rounded p-2">
+                            <p className="text-slate-600">Engajamento</p>
+                            <p className="font-bold text-blue-600">{dadosAnalise.ai_insights.engagement}%</p>
+                          </div>
+                        )}
+                        {dadosAnalise.ai_insights.deal_risk > 0 && (
+                          <div className="bg-white rounded p-2">
+                            <p className="text-slate-600">Risco Deal</p>
+                            <p className="font-bold text-red-600">{dadosAnalise.ai_insights.deal_risk}%</p>
+                          </div>
+                        )}
+                        {dadosAnalise.ai_insights.health > 0 && (
+                          <div className="bg-white rounded p-2">
+                            <p className="text-slate-600">Saúde</p>
+                            <p className="font-bold text-purple-600">{dadosAnalise.ai_insights.health}%</p>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Próxima Ação */}
+                  {dadosAnalise.ai_insights?.next_best_action && (
+                    <div className="bg-indigo-50 border-l-4 border-indigo-500 rounded p-3">
+                      <p className="text-xs font-bold text-indigo-900 mb-1">🎯 Próxima Ação</p>
+                      <p className="text-xs text-slate-700">{dadosAnalise.ai_insights.next_best_action.action}</p>
+                      {dadosAnalise.ai_insights.next_best_action.deadline_hours && (
+                        <p className="text-xs text-indigo-700 mt-1 font-semibold">
+                          ⏱️ Prazo: {dadosAnalise.ai_insights.next_best_action.deadline_hours}h
+                        </p>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Root Causes */}
+                  {dadosAnalise.root_causes?.length > 0 && (
+                    <div className="bg-orange-50 rounded-lg p-3">
+                      <p className="text-xs font-bold text-orange-900 mb-2">⚠️ Motivos</p>
+                      <div className="space-y-1">
+                        {dadosAnalise.root_causes.map((cause, idx) => (
+                          <div key={idx} className="text-xs text-slate-700">• {cause}</div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+        </>
+      )}
+
       <div className="border-b-2 border-slate-200 bg-gradient-to-r from-white to-slate-50">
       {/* Header clicável */}
       <button
