@@ -219,6 +219,7 @@ export default function ContatosRequerendoAtencao({ usuario, onSelecionarContato
       `1️⃣ Saudação personalizada (agora)\n` +
       `2️⃣ Aguardar 5 minutos\n` +
       `3️⃣ Enviar promoção ativa\n\n` +
+      `Bloqueios: Fornecedores, tags bloqueadas, financeiro\n` +
       `Tempo estimado: ${Math.ceil(contatosComAlerta.length * 0.8)}s para saudações`
     );
 
@@ -231,8 +232,10 @@ export default function ContatosRequerendoAtencao({ usuario, onSelecionarContato
 
       toast.loading(`📤 Enviando saudações para ${contactIds.length} contatos...`, { id: 'envio-lote' });
 
-      const resultado = await base44.functions.invoke('enviarPromocoesLote', {
-        contact_ids: contactIds
+      const resultado = await base44.functions.invoke('enviarCampanhaLote', {
+        contact_ids: contactIds,
+        modo: 'promocao',
+        delay_minutos: 5
       });
 
       if (resultado.data?.success) {
