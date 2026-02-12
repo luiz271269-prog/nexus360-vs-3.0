@@ -115,16 +115,18 @@ Deno.serve(async (req) => {
             throw new Error(respEnvio.data?.error || 'Erro no gateway');
           }
 
-          // ✅ PERSISTIR MESSAGE (P0 FIX)
+          // ✅ REGRA 4: PERSISTIR MESSAGE (copiado do ChatWindow linha 1382-1400)
           await base44.asServiceRole.entities.Message.create({
             thread_id: thread.id,
+            sender_id: (await base44.auth.me())?.id || 'system',
             sender_type: 'user',
-            sender_id: (await base44.auth.me()).id,
-            recipient_type: 'contact',
             recipient_id: contato.id,
+            recipient_type: 'contact',
             content: mensagemFinal,
             channel: 'whatsapp',
             status: 'enviada',
+            whatsapp_message_id: respEnvio.data.message_id,  // ✅ CRÍTICO: ID do gateway
+            sent_at: now.toISOString(),
             visibility: 'public_to_customer',
             metadata: {
               whatsapp_integration_id: integration.id,
@@ -133,12 +135,15 @@ Deno.serve(async (req) => {
             }
           });
 
-          // ✅ ATUALIZAR THREAD (P0 FIX)
+          // ✅ REGRA 5: ATUALIZAR THREAD (copiado do ChatWindow linha 1402-1410)
           await base44.asServiceRole.entities.MessageThread.update(thread.id, {
+            last_message_content: mensagemFinal.substring(0, 100),
             last_message_at: now.toISOString(),
             last_outbound_at: now.toISOString(),
-            last_message_content: mensagemFinal.substring(0, 100),
-            last_message_sender: 'user'
+            last_message_sender: 'user',
+            last_human_message_at: now.toISOString(),
+            whatsapp_integration_id: integration.id,
+            pre_atendimento_ativo: false  // ✅ Desliga URA se ativa
           });
 
           resultados.push({
@@ -180,16 +185,18 @@ Deno.serve(async (req) => {
             throw new Error(respSaudacao.data?.error || 'Erro ao enviar saudação');
           }
 
-          // ✅ PERSISTIR SAUDAÇÃO
+          // ✅ REGRA 4: PERSISTIR SAUDAÇÃO (copiado do ChatWindow)
           await base44.asServiceRole.entities.Message.create({
             thread_id: thread.id,
+            sender_id: (await base44.auth.me())?.id || 'system',
             sender_type: 'user',
-            sender_id: (await base44.auth.me()).id,
-            recipient_type: 'contact',
             recipient_id: contato.id,
+            recipient_type: 'contact',
             content: saudacao,
             channel: 'whatsapp',
             status: 'enviada',
+            whatsapp_message_id: respSaudacao.data.message_id,  // ✅ CRÍTICO
+            sent_at: now.toISOString(),
             visibility: 'public_to_customer',
             metadata: {
               whatsapp_integration_id: integration.id,
@@ -197,12 +204,20 @@ Deno.serve(async (req) => {
             }
           });
 
-          // ✅ ATUALIZAR THREAD
+          // ✅ REGRA 5: ATUALIZAR THREAD (copiado do ChatWindow)
           await base44.asServiceRole.entities.MessageThread.update(thread.id, {
+            last_message_content: saudacao.substring(0, 100),
             last_message_at: now.toISOString(),
             last_outbound_at: now.toISOString(),
-            last_message_content: saudacao.substring(0, 100),
-            last_message_sender: 'user'
+            last_message_sender: 'user',
+            last_human_message_at: now.toISOString(),
+            whatsapp_integration_id: integration.id,
+            pre_atendimento_ativo: false
+          });
+
+          // ✅ P1 FIX: ATUALIZAR CONTACT (cooldown de promoção)
+          await base44.asServiceRole.entities.Contact.update(contato.id, {
+            last_any_promo_sent_at: now.toISOString()
           });
 
           // ✅ 3. Agendar promoção na fila
