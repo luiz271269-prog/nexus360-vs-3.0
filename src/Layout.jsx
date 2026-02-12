@@ -280,23 +280,23 @@ export default function Layout({ children, currentPageName }) {
         return todosMenuItems.filter(item => [
           'Comunicacao', 'Dashboard', 'LeadsQualificados', 'Vendedores', 
           'Clientes', 'Agenda', 'Produtos', 'Automacoes'
-        ].includes(item.page) && item.page !== 'FerramentasMigracao');
+        ].includes(item.page));
         }
         if (setor === 'assistencia') {
         return todosMenuItems.filter(item => [
           'Comunicacao', 'Clientes', 'Agenda', 'Dashboard', 'Produtos', 'Automacoes'
-        ].includes(item.page) && item.page !== 'FerramentasMigracao');
+        ].includes(item.page));
         }
         if (setor === 'fornecedor') {
         return todosMenuItems.filter(item => [
           'Comunicacao', 'Produtos', 'Importacao', 'Dashboard', 'Clientes', 'Agenda', 'Automacoes'
-        ].includes(item.page) && item.page !== 'FerramentasMigracao');
+        ].includes(item.page));
         }
         // Gerência geral
         return todosMenuItems.filter(item => [
         'Comunicacao', 'Dashboard', 'LeadsQualificados', 'Clientes', 
         'Vendedores', 'Produtos', 'Agenda', 'Automacoes'
-        ].includes(item.page) && item.page !== 'FerramentasMigracao');
+        ].includes(item.page));
         }
 
     // Supervisor (senior)
@@ -305,44 +305,44 @@ export default function Layout({ children, currentPageName }) {
         return todosMenuItems.filter(item => [
           'Comunicacao', 'LeadsQualificados', 'Vendedores', 'Clientes', 
           'Agenda', 'Dashboard', 'Produtos'
-        ].includes(item.page) && item.page !== 'FerramentasMigracao');
+        ].includes(item.page));
       }
       if (setor === 'assistencia') {
         return todosMenuItems.filter(item => [
           'Comunicacao', 'Clientes', 'Agenda', 'Dashboard', 'Produtos'
-        ].includes(item.page) && item.page !== 'FerramentasMigracao');
+        ].includes(item.page));
       }
       if (setor === 'fornecedor') {
         return todosMenuItems.filter(item => [
           'Comunicacao', 'Produtos', 'Importacao', 'Agenda', 'Dashboard'
-        ].includes(item.page) && item.page !== 'FerramentasMigracao');
+        ].includes(item.page));
       }
       return todosMenuItems.filter(item => [
         'Comunicacao', 'Clientes', 'Agenda', 'Dashboard', 'Produtos'
-      ].includes(item.page) && item.page !== 'FerramentasMigracao');
+      ].includes(item.page));
     }
 
     // Atendente (junior/pleno)
     if (setor === 'vendas') {
       return todosMenuItems.filter(item => [
         'Comunicacao', 'LeadsQualificados', 'Clientes', 'Produtos', 'Agenda', 'Dashboard'
-      ].includes(item.page) && item.page !== 'FerramentasMigracao');
+      ].includes(item.page));
     }
     if (setor === 'assistencia') {
       return todosMenuItems.filter(item => [
         'Comunicacao', 'Clientes', 'Produtos', 'Agenda', 'Dashboard'
-      ].includes(item.page) && item.page !== 'FerramentasMigracao');
+      ].includes(item.page));
     }
     if (setor === 'fornecedor') {
       return todosMenuItems.filter(item => [
         'Comunicacao', 'Produtos', 'Clientes', 'Agenda', 'Dashboard'
-      ].includes(item.page) && item.page !== 'FerramentasMigracao');
+      ].includes(item.page));
     }
 
     // Usuário padrão (fallback)
     return todosMenuItems.filter(item => [
       'Comunicacao', 'Dashboard', 'Clientes', 'Agenda'
-    ].includes(item.page) && item.page !== 'FerramentasMigracao');
+    ].includes(item.page));
   };
 
   // Aplicar filtro de perfil
@@ -351,22 +351,15 @@ export default function Layout({ children, currentPageName }) {
   useEffect(() => {
     carregarDadosGlobais();
     checkAgentHealth();
-    
-    const intervalDados = setInterval(() => {
-      if (!loadingUsuario) {
-        carregarDadosGlobais();
-      }
-    }, 5 * 60 * 1000); // ✅ Reduzido para 5min (era 15min) - alertas mais responsivos
-    
-    const intervalAgent = setInterval(() => {
-      checkAgentHealth();
-    }, 30000); // 30 segundos
-    
+
+    const intervalDados = setInterval(carregarDadosGlobais, 5 * 60 * 1000); // ✅ Poll a cada 5min
+    const intervalAgent = setInterval(checkAgentHealth, 30000); // 30 segundos
+
     return () => {
       clearInterval(intervalDados);
       clearInterval(intervalAgent);
     };
-  }, [loadingUsuario]);
+  }, []); // ✅ Throttle interno impede excesso de chamadas
 
   const checkAgentHealth = async () => {
     try {
@@ -418,11 +411,12 @@ export default function Layout({ children, currentPageName }) {
         try {
           const contadores = await calcularLembretesGlobal(user, base44);
 
-          // Contatos Inteligentes: manter consistente com hook (sem variável inexistente)
+          // ✅ P1 FIX: Usar totalUrgentes do hook sem risco de ReferenceError
           const urgentes = contatosInteligentes?.totalUrgentes;
           if (typeof urgentes === 'number') {
             contadores['ContatosInteligentes'] = urgentes;
           } else {
+            // Mantém valor anterior se hook ainda não está pronto
             contadores['ContatosInteligentes'] = contadores['ContatosInteligentes'] ?? 0;
           }
 
