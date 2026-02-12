@@ -195,7 +195,43 @@ ${contato.empresa ? `Como estão as coisas na ${contato.empresa}?` : 'Como posso
 
 Estou à disposição! 😊`.trim();
 
-          // Enviar saudação
+          // ✅ P2: DEDUPE - Verificar se já tem item agendado recente
+          const itemExistente = await base44.asServiceRole.entities.WorkQueueItem.filter({
+            tipo: 'enviar_promocao',
+            contact_id: contato.id,
+            status: 'agendado',
+            scheduled_for: { $gte: now.toISOString() }
+          }, '-created_date', 1);
+
+          if (itemExistente.length > 0) {
+            console.log(`[CAMPANHA-LOTE] ⏭️ ${contato.nome}: já tem promoção agendada`);
+            resultados.push({
+              contact_id: contato.id,
+              nome: contato.nome,
+              status: 'aviso',
+              motivo: 'Promoção já agendada (dedupe)'
+            });
+            continue;
+          }
+
+          // ✅ P2: COOLDOWN - Verificar last_any_promo_sent_at
+          if (contato.last_any_promo_sent_at) {
+            const ultimaPromo = new Date(contato.last_any_promo_sent_at);
+            const horasDesdeUltima = (now - ultimaPromo) / (1000 * 60 * 60);
+            
+            if (horasDesdeUltima < 12) {
+              console.log(`[CAMPANHA-LOTE] ⏳ ${contato.nome}: cooldown (${Math.round(horasDesdeUltima)}h)`);
+              resultados.push({
+                contact_id: contato.id,
+                nome: contato.nome,
+                status: 'aviso',
+                motivo: `Cooldown (última promoção há ${Math.round(horasDesdeUltima)}h)`
+              });
+              continue;
+            }
+          }
+
+          // Enviar saudação via gateway unificado
           const resultadoEnvio = await base44.asServiceRole.functions.invoke('enviarWhatsApp', {
             integration_id: thread.whatsapp_integration_id || integracaoDefault.id,
             numero_destino: contato.telefone,
@@ -207,6 +243,32 @@ Estou à disposição! 😊`.trim();
           }
 
           console.log(`[CAMPANHA-LOTE] ✅ Saudação enviada: ${contato.nome}`);
+
+          // ✅ P1: PERSISTÊNCIA - Garantir Message outbound visível na UI
+          const messageCreated = await base44.asServiceRole.entities.Message.create({
+            thread_id: thread.id,
+            sender_id: 'sistema',
+            sender_type: 'user',
+            recipient_id: contato.id,
+            recipient_type: 'contact',
+            content: mensagemSaudacao,
+            channel: 'whatsapp',
+            provider: 'whatsapp',
+            status: 'enviada',
+            sent_at: now.toISOString(),
+            metadata: {
+              whatsapp_integration_id: thread.whatsapp_integration_id || integracaoDefault.id,
+              origem_campanha: 'lote_urgentes'
+            }
+          });
+
+          // ✅ P1: Atualizar thread.last_message_at para aparecer no topo
+          await base44.asServiceRole.entities.MessageThread.update(thread.id, {
+            last_message_at: now.toISOString(),
+            last_message_content: mensagemSaudacao.slice(0, 100),
+            last_message_sender: 'user',
+            last_outbound_at: now.toISOString()
+          });
 
           // Selecionar promoção com rotação inteligente
           const eligible = filterEligiblePromotions(promosAtivas, contato, thread);
@@ -243,6 +305,7 @@ Estou à disposição! 😊`.trim();
             },
             metadata: {
               saudacao_enviada_em: now.toISOString(),
+              saudacao_message_id: messageCreated.id,
               dias_inativo: diasInativo,
               saudacao_texto: mensagemSaudacao.slice(0, 100)
             }
