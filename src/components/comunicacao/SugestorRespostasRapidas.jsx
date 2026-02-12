@@ -174,54 +174,57 @@ export default function SugestorRespostasRapidas({
   }, [threadId, contactId]); // ✅ Depende de AMBOS (corrige bug de cache de thread)
 
   return (
-    <Card className="border-2 border-purple-200 bg-gradient-to-br from-purple-50 to-indigo-50 shadow-lg">
-      <div className="p-4">
-        <div className="flex items-center justify-between mb-3">
-          <div className="flex items-center gap-2.5">
-            <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-purple-500 to-indigo-600 flex items-center justify-center shadow-md">
-              <Sparkles className="w-5 h-5 text-white" />
-            </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <h4 className="font-bold text-purple-900 text-sm">Análise Completa IA</h4>
-                <Badge className="bg-green-500 text-white text-[8px] px-1.5 py-0 font-bold">
-                  50 MENSAGENS
-                </Badge>
-              </div>
-              <p className="text-[10px] text-purple-600">Contexto + Comportamento</p>
-            </div>
+    <div className="bg-white rounded-xl shadow-xl border-2 border-purple-300 overflow-hidden">
+      {/* Header compacto e elegante */}
+      <div className="bg-gradient-to-r from-purple-600 to-indigo-600 px-4 py-2.5 flex items-center justify-between">
+        <div className="flex items-center gap-2.5">
+          <div className="w-8 h-8 rounded-lg bg-white/20 flex items-center justify-center shadow-md">
+            <Sparkles className="w-4 h-4 text-white" />
           </div>
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={onClose}
-            className="h-7 w-7 text-purple-600 hover:bg-purple-100"
-          >
-            <X className="w-4 h-4" />
-          </Button>
+          <div>
+            <div className="flex items-center gap-2">
+              <h4 className="font-bold text-white text-sm">Análise Completa IA</h4>
+              <Badge className="bg-green-500 text-white text-[9px] px-1.5 py-0.5 font-bold shadow-sm">
+                50 MENSAGENS
+              </Badge>
+            </div>
+            <p className="text-[10px] text-purple-100">Contexto + Comportamento</p>
+          </div>
         </div>
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={onClose}
+          className="h-7 w-7 text-white hover:bg-white/20 transition-colors"
+        >
+          <X className="w-4 h-4" />
+        </Button>
+      </div>
 
-        {/* Contexto da Análise */}
-        <div className="bg-white rounded-lg p-3 mb-3 border border-purple-200 shadow-sm space-y-2">
-          <div className="flex items-start gap-2">
-            <div className="w-6 h-6 rounded bg-purple-100 flex items-center justify-center flex-shrink-0 mt-0.5">
-              <span className="text-xs">💬</span>
+      {/* Conteúdo principal */}
+      <div className="p-4 space-y-3">
+        {/* Contexto da Análise - Design melhorado */}
+        <div className="bg-gradient-to-br from-purple-50 to-indigo-50 rounded-xl p-3 border border-purple-200 shadow-sm space-y-3">
+          {/* Mensagem do cliente */}
+          <div className="flex items-start gap-3">
+            <div className="w-8 h-8 rounded-lg bg-purple-500 flex items-center justify-center flex-shrink-0 shadow-sm">
+              <span className="text-base">💬</span>
             </div>
             <div className="flex-1 min-w-0">
               {analiseContexto?.is_latest_courtesy ? (
                 <>
-                  <p className="text-xs text-purple-700 font-semibold mb-1">Última mensagem ÚTIL do cliente:</p>
-                  <p className="text-sm text-slate-800 font-medium mb-2">{analiseContexto.last_useful_message}</p>
+                  <p className="text-xs text-purple-700 font-semibold mb-1.5">Última mensagem ÚTIL do cliente:</p>
+                  <p className="text-sm text-slate-900 font-medium mb-2 leading-relaxed">{analiseContexto.last_useful_message}</p>
 
-                  <div className="flex items-center gap-2 p-2 bg-purple-50 rounded border border-purple-100">
-                    <Badge className="bg-purple-500 text-white text-[8px] px-1 py-0">🟣 CORTESIA</Badge>
-                    <p className="text-xs text-purple-600 italic">"{analiseContexto.last_customer_message}"</p>
+                  <div className="flex items-center gap-2 p-2.5 bg-white rounded-lg border border-purple-200 shadow-sm">
+                    <Badge className="bg-purple-500 text-white text-[9px] px-1.5 py-0.5 font-bold">🟣 CORTESIA</Badge>
+                    <p className="text-xs text-purple-700 italic font-medium">"{analiseContexto.last_customer_message}"</p>
                   </div>
                 </>
               ) : (
                 <>
-                  <p className="text-xs text-purple-700 font-semibold mb-1">Última mensagem do cliente:</p>
-                  <p className="text-sm text-slate-800 line-clamp-2 font-medium">{mensagemCliente}</p>
+                  <p className="text-xs text-purple-700 font-semibold mb-1.5">Última mensagem do cliente:</p>
+                  <p className="text-sm text-slate-900 line-clamp-2 font-medium leading-relaxed">{mensagemCliente}</p>
                 </>
               )}
             </div>
@@ -229,22 +232,23 @@ export default function SugestorRespostasRapidas({
 
           {/* Open Loop Warning */}
           {analiseContexto?.open_loop?.is_overdue && (
-            <div className="pt-2 border-t border-red-100 bg-red-50 p-2 rounded">
-              <div className="flex items-center gap-1 mb-1">
-                <Badge className="bg-red-600 text-white text-xs">⚠️ ATRASO</Badge>
-                <span className="text-xs text-red-700 font-semibold">
+            <div className="bg-red-50 p-3 rounded-lg border-l-4 border-red-500 shadow-sm">
+              <div className="flex items-center gap-2 mb-1.5">
+                <Badge className="bg-red-600 text-white text-xs font-bold shadow-sm">⚠️ ATRASO</Badge>
+                <span className="text-xs text-red-800 font-semibold">
                   Atendente prometeu retorno há {analiseContexto.open_loop.hours_since_promise}h
                 </span>
               </div>
-              <p className="text-xs text-red-600 italic">"{analiseContexto.open_loop.promise_text}"</p>
+              <p className="text-xs text-red-700 italic font-medium">"{analiseContexto.open_loop.promise_text}"</p>
             </div>
           )}
           
+          {/* Badges de análise */}
           {analiseContexto && (
-            <div className="pt-2 border-t border-purple-100 space-y-1">
+            <div className="pt-2.5 border-t border-purple-200 space-y-2">
               <div className="flex items-center gap-2 flex-wrap">
                 {(analiseContexto.conversation_type || analiseContexto.customer_intent) && (
-                  <Badge className="bg-purple-100 text-purple-700 text-xs">
+                  <Badge className="bg-white text-purple-800 border border-purple-300 text-xs font-semibold shadow-sm">
                     {(analiseContexto.conversation_type || analiseContexto.customer_intent) === 'orcamento' ? '💰 Orçamento' :
                      (analiseContexto.conversation_type || analiseContexto.customer_intent) === 'pergunta' || analiseContexto.customer_intent === 'duvida' ? '❓ Pergunta' :
                      (analiseContexto.conversation_type || analiseContexto.customer_intent) === 'reclamacao' ? '⚠️ Reclamação' :
@@ -253,10 +257,10 @@ export default function SugestorRespostasRapidas({
                   </Badge>
                 )}
                 {analiseContexto.urgency && (
-                  <Badge className={`text-xs ${
-                    analiseContexto.urgency === 'alta' ? 'bg-red-100 text-red-700' :
-                    analiseContexto.urgency === 'media' ? 'bg-yellow-100 text-yellow-700' :
-                    'bg-green-100 text-green-700'
+                  <Badge className={`text-xs font-semibold shadow-sm ${
+                    analiseContexto.urgency === 'alta' ? 'bg-red-100 text-red-800 border border-red-300' :
+                    analiseContexto.urgency === 'media' ? 'bg-yellow-100 text-yellow-800 border border-yellow-300' :
+                    'bg-green-100 text-green-800 border border-green-300'
                   }`}>
                     {analiseContexto.urgency === 'alta' ? '🔴 Alta' :
                      analiseContexto.urgency === 'media' ? '🟡 Média' : '🟢 Baixa'}
@@ -264,14 +268,20 @@ export default function SugestorRespostasRapidas({
                 )}
               </div>
               {analiseContexto.next_best_action?.action && (
-                <p className="text-xs text-purple-600">
-                  💡 <strong>Ação:</strong> {analiseContexto.next_best_action.action}
-                </p>
+                <div className="flex items-start gap-2 p-2 bg-white rounded-lg border border-purple-200">
+                  <span className="text-sm">💡</span>
+                  <p className="text-xs text-purple-700 font-medium leading-relaxed">
+                    <strong className="text-purple-900">Ação:</strong> {analiseContexto.next_best_action.action}
+                  </p>
+                </div>
               )}
               {analiseContexto.next_best_action?.ask && (
-                <p className="text-xs text-purple-600">
-                  ❓ <strong>Confirmar:</strong> {analiseContexto.next_best_action.ask}
-                </p>
+                <div className="flex items-start gap-2 p-2 bg-white rounded-lg border border-purple-200">
+                  <span className="text-sm">❓</span>
+                  <p className="text-xs text-purple-700 font-medium leading-relaxed">
+                    <strong className="text-purple-900">Confirmar:</strong> {analiseContexto.next_best_action.ask}
+                  </p>
+                </div>
               )}
             </div>
           )}
@@ -315,37 +325,39 @@ export default function SugestorRespostasRapidas({
           </div>
         )}
 
-        {/* Sugestões */}
+        {/* Sugestões - Cards maiores e mais legíveis */}
         {(status === 'ready' || status === 'cached') && sugestoes.length > 0 && (
-          <div className="space-y-2">
+          <div className="space-y-3">
             {/* Badge de Cache/Geração */}
             {status === 'cached' && (
-              <div className="flex items-center justify-center gap-2 py-1.5 px-3 bg-green-50 border border-green-200 rounded-lg">
-                <Badge className="bg-green-500 text-white text-[9px] px-1.5 py-0.5">⚡ CACHE</Badge>
-                <span className="text-xs text-green-700 font-medium">Resposta instantânea</span>
+              <div className="flex items-center justify-center gap-2 py-2 px-4 bg-gradient-to-r from-green-50 to-emerald-50 border border-green-300 rounded-lg shadow-sm">
+                <Badge className="bg-green-600 text-white text-[10px] px-2 py-0.5 font-bold shadow-sm">⚡ CACHE</Badge>
+                <span className="text-xs text-green-800 font-semibold">Resposta instantânea</span>
               </div>
             )}
 
             {sugestoes.map((sugestao, index) => (
-              <Card 
+              <div
                 key={index}
-                className="bg-white hover:bg-purple-50 transition-colors border-purple-200 hover:border-purple-400 cursor-pointer group"
                 onClick={() => onUseResposta(sugestao.texto)}
+                className="bg-white hover:bg-gradient-to-br hover:from-purple-50 hover:to-indigo-50 transition-all duration-200 border-2 border-purple-200 hover:border-purple-400 rounded-xl cursor-pointer group shadow-sm hover:shadow-md"
               >
-                <div className="p-3">
-                  <div className="flex items-center gap-2 mb-2">
-                    <Badge className={`text-xs ${getTomColor(sugestao.tom)}`}>
+                <div className="p-4">
+                  <div className="flex items-center gap-2 mb-3">
+                    <Badge className={`text-xs font-semibold shadow-sm ${getTomColor(sugestao.tom)}`}>
                       {getTomIcon(sugestao.tom)} {sugestao.tom}
                     </Badge>
                   </div>
-                  <p className="text-sm text-slate-700 group-hover:text-slate-900">
+                  <p className="text-sm text-slate-800 group-hover:text-slate-900 font-medium leading-relaxed">
                     {sugestao.texto}
                   </p>
-                  <div className="mt-2 text-xs text-purple-600 opacity-0 group-hover:opacity-100 transition-opacity">
-                    👆 Clique para usar esta resposta
+                  <div className="mt-3 pt-3 border-t border-purple-100 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                    <span className="text-xs text-purple-600 font-semibold">
+                      👆 Clique para usar esta resposta
+                    </span>
                   </div>
                 </div>
-              </Card>
+              </div>
             ))}
 
             {/* Botão Gerar Novamente */}
@@ -353,21 +365,16 @@ export default function SugestorRespostasRapidas({
               onClick={() => gerarSugestoes(true)}
               variant="outline"
               size="sm"
-              className="w-full border-purple-300 text-purple-700 hover:bg-purple-50"
+              className="w-full border-2 border-purple-300 text-purple-700 hover:bg-purple-50 font-semibold shadow-sm hover:shadow-md transition-all"
               disabled={status === 'loading'}
             >
               🔄 Gerar Novas Sugestões
             </Button>
-            </div>
-            )}
+          </div>
+        )}
 
-        {/* Footer */}
-        <div className="mt-3 pt-3 border-t border-purple-100">
-          <p className="text-xs text-purple-600 text-center">
-            💡 Dica: Você pode editar a resposta antes de enviar
-          </p>
-        </div>
+        {/* Footer - Removido para economizar espaço */}
       </div>
-    </Card>
+    </div>
   );
 }
