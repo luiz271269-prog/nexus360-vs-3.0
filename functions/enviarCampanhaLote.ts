@@ -18,7 +18,9 @@ Deno.serve(async (req) => {
       mensagem = '',
       personalizar = true,
       delay_minutos = 5,
-      texto_saudacao_custom = null
+      texto_saudacao_custom = null,
+      media_url = null,
+      media_type = 'none'
     } = body;
 
     console.log(`[CAMPANHA-LOTE] Modo: ${modo} | Contatos: ${contact_ids.length}`);
@@ -106,11 +108,13 @@ Deno.serve(async (req) => {
           console.log(`[CAMPANHA-LOTE] Enviando broadcast para ${contato.nome}`);
 
           // ✅ CHAMAR GATEWAY DE ENVIO
-          const respEnvio = await base44.asServiceRole.functions.invoke('enviarWhatsApp', {
-            integration_id: integration.id,
-            numero_destino: contato.telefone,
-            mensagem: mensagemFinal
-          });
+           const respEnvio = await base44.asServiceRole.functions.invoke('enviarWhatsApp', {
+             integration_id: integration.id,
+             numero_destino: contato.telefone,
+             mensagem: mensagemFinal,
+             media_url,
+             media_type
+           });
 
           if (!respEnvio.data?.success) {
             throw new Error(respEnvio.data?.error || 'Erro no gateway');
@@ -126,9 +130,11 @@ Deno.serve(async (req) => {
             content: mensagemFinal,
             channel: 'whatsapp',
             status: 'enviada',
-            whatsapp_message_id: respEnvio.data.message_id,  // ✅ CRÍTICO: ID do gateway
+            whatsapp_message_id: respEnvio.data.message_id,
             sent_at: now.toISOString(),
             visibility: 'public_to_customer',
+            media_url,
+            media_type,
             metadata: {
               whatsapp_integration_id: integration.id,
               origem_campanha: 'broadcast_massa',
