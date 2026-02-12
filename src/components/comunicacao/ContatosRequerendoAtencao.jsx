@@ -355,48 +355,49 @@ export default function ContatosRequerendoAtencao({ usuario, onSelecionarContato
 
         {/* Avatar - Clique para abrir conversa */}
         <button
-          onClick={(e) => {
+          onClick={async (e) => {
             e.stopPropagation();
 
+            console.log('[ContatosRequerendoAtencao] 🖱️ Avatar clicado para:', item.nome, '| onSelecionarContato:', !!onSelecionarContato);
+
             if (!onSelecionarContato) {
-              toast.error('❌ Callback não configurado');
+              console.error('[ContatosRequerendoAtencao] ❌ onSelecionarContato não está configurado!');
+              toast.error('❌ Erro ao abrir conversa');
               return;
             }
 
-            (async () => {
-              try {
-                // Buscar ou criar thread canônica
-                const threads = await base44.entities.MessageThread.filter({
-                  contact_id: item.contact_id,
-                  is_canonical: true
-                }, '-last_message_at', 1);
+            try {
+              console.log('[ContatosRequerendoAtencao] 🔍 Buscando thread para contact_id:', item.contact_id);
 
-                if (threads && threads.length > 0) {
-                  console.log('[ContatosRequerendoAtencao] ✅ Thread canônica encontrada:', threads[0].id);
-                  onSelecionarContato({
-                    id: threads[0].id,
-                    contatoPreCarregado: {
-                      id: item.contact_id,
-                      nome: item.nome,
-                      empresa: item.empresa,
-                      telefone: item.telefone,
-                      tipo_contato: item.tipo_contato,
-                      vendedor_responsavel: item.vendedor_responsavel,
-                      score_engajamento: item.engagement,
-                      cliente_score: item.health
-                    }
-                  });
-                  setExpandido(false);
-                  toast.success('✅ Conversa aberta!');
-                } else {
-                  console.warn('[ContatosRequerendoAtencao] ⚠️ Thread canônica não encontrada');
-                  toast.error('❌ Conversa não disponível');
-                }
-              } catch (error) {
-                console.error('[ContatosRequerendoAtencao] Erro:', error);
-                toast.error('❌ Erro ao abrir conversa');
+              // Buscar thread canônica
+              const threads = await base44.entities.MessageThread.filter({
+                contact_id: item.contact_id,
+                is_canonical: true
+              }, '-last_message_at', 1);
+
+              if (threads && threads.length > 0) {
+                console.log('[ContatosRequerendoAtencao] ✅ Thread encontrada:', threads[0].id);
+                onSelecionarContato({
+                  id: threads[0].id,
+                  contatoPreCarregado: {
+                    id: item.contact_id,
+                    nome: item.nome,
+                    empresa: item.empresa,
+                    telefone: item.telefone,
+                    tipo_contato: item.tipo_contato,
+                    vendedor_responsavel: item.vendedor_responsavel
+                  }
+                });
+                setExpandido(false);
+                toast.success('✅ Conversa aberta!');
+              } else {
+                console.warn('[ContatosRequerendoAtencao] ⚠️ Nenhuma thread encontrada');
+                toast.error('❌ Conversa não disponível');
               }
-            })();
+            } catch (error) {
+              console.error('[ContatosRequerendoAtencao] ❌ Erro ao abrir:', error);
+              toast.error(`❌ ${error.message}`);
+            }
           }}
           className="relative flex-shrink-0 mt-0.5 cursor-pointer hover:scale-105 transition-transform active:scale-95">
 
