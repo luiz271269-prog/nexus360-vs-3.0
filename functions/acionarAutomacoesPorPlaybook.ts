@@ -8,6 +8,15 @@ import { createClientFromRequest } from 'npm:@base44/sdk@0.8.6';
  * 
  * C) Automações baseadas em playbook (triggers)
  */
+/**
+ * CHAMAR AUTOMAÇÕES + GERAR HOOK CRIATIVO
+ * 
+ * Fluxo:
+ * 1. analisarComportamentoContato termina
+ * 2. acionarAutomacoesPorPlaybook é chamada
+ * 3. Avalia playbook + gera hook criativo
+ * 4. Cria WorkQueueItems com sugestão de mensagem com hook
+ */
 Deno.serve(async (req) => {
   try {
     const base44 = createClientFromRequest(req);
@@ -48,6 +57,9 @@ Deno.serve(async (req) => {
     const acionadas = [];
     const erros = [];
 
+    // ✅ Selecionar hook criativo baseado em análise
+    const hookMotor = await gerarHookParaContato(analise, contactData);
+    
     // ═══════════════════════════════════════════════════════════════
     // REGRA 1: when_to_decline → Adicionar à WorkQueue com severity:LOW
     // ═══════════════════════════════════════════════════════════════
@@ -63,17 +75,18 @@ Deno.serve(async (req) => {
           await base44.entities.WorkQueueItem.create({
             tipo: 'avaliar_potencial',
             contact_id: contact_id,
-            thread_id: '', // será preenchido se encontrar thread
+            thread_id: '', 
             reason: 'playbook_when_to_decline',
             severity: 'low',
             status: 'agendado',
-            scheduled_for: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(), // 7 dias
+            scheduled_for: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
             payload: {
               playbook_rules_matched: playbook.when_to_decline,
               analysis_id: analysis_id,
-              action: 'revisar_se_continuar_cotando'
+              action: 'revisar_se_continuar_cotando',
+              hook_criativo: hookMotor // ✅ Adicionar hook mesmo em decline
             },
-            notes: `Playbook V2: este contato tem baixa probabilidade de conversão. Revisar critérios antes de investir esforço.`
+            notes: `Playbook V2: baixa probabilidade. Hook sugerido se decidir engajar: ${hookMotor?.sugestao || 'N/A'}`
           });
 
           acionadas.push('WorkQueueItem:when_to_decline');
@@ -104,12 +117,14 @@ Deno.serve(async (req) => {
           if (threads.length > 0) {
             const thread = threads[0];
 
-            // Marcar como prioritário nos campos_personalizados
+            // Marcar como prioritário + adicionar hook sugerido
             await base44.entities.MessageThread.update(thread.id, {
               campos_personalizados: {
-                ...thread.campos_personalizados,
+                ...(thread.campos_personalizados || {}),
                 playbook_status: 'compete',
                 playbook_matched_rules: playbook.when_to_compete.join('; '),
+                hook_criativo_sugerido: hookMotor?.sugestao, // ✅ Hook pronto para usar
+                hook_tipo: hookMotor?.tipo,
                 last_playbook_check: new Date().toISOString()
               }
             });
@@ -140,7 +155,7 @@ Deno.serve(async (req) => {
         if (threads.length > 0) {
           const thread = threads[0];
 
-          // Criar WorkQueueItem para reativação
+          // Criar WorkQueueItem para reativação com hook criativo
           await base44.entities.WorkQueueItem.create({
             tipo: 'reativacao',
             contact_id: contact_id,
@@ -148,13 +163,14 @@ Deno.serve(async (req) => {
             reason: `relationship_risk_${analise.relationship_risk.level}`,
             severity: analise.relationship_risk.level === 'critical' ? 'critical' : 'high',
             status: 'agendado',
-            scheduled_for: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(), // 24h
+            scheduled_for: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
             payload: {
               risk_events: analise.relationship_risk.events,
               playbook_goal: playbook.goal,
-              suggested_action: analise.next_best_action?.suggested_message
+              suggested_action: analise.next_best_action?.suggested_message,
+              hook_criativo: hookMotor // ✅ Hook de reativação personalizado
             },
-            notes: `Risco relacional ${analise.relationship_risk.level}: execute playbook de reativação`
+            notes: `URGENTE - Risco ${analise.relationship_risk.level}: ${hookMotor?.sugestao || 'Restaurar confiança'}`
           });
 
           acionadas.push('WorkQueueItem:relationship_risk');
