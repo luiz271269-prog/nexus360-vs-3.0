@@ -33,6 +33,9 @@ export default function ContatosRequerendoAtencao({ usuario, onSelecionarContato
   const [diasInatividade, setDiasInatividade] = useState(5);
   const [totalContatosBanco, setTotalContatosBanco] = useState(null);
   const [mostrarModalPromoAuto, setMostrarModalPromoAuto] = useState(false);
+  const [contatoAnaliseAberto, setContatoAnaliseAberto] = useState(null);
+  const [analiseCarregando, setAnaliseCarregando] = useState(false);
+  const [dadosAnalise, setDadosAnalise] = useState(null);
   const isHeader = variant === 'header';
 
   // ✅ Motor Unificado V3 - BUSCA TODOS do banco
