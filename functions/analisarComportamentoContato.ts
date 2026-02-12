@@ -748,6 +748,17 @@ Status: ${prontuarioObj.visao_geral ? 'COMPLETA' : 'PARCIAL'}
     
     await base44.asServiceRole.entities.Contact.update(contact_id, updateContactData);
 
+    // ✅ CHAMAR AUTOMAÇÕES + HOOKS PÓS-ANÁLISE
+    try {
+      await base44.asServiceRole.functions.invoke('acionarAutomacoesPorPlaybook', {
+        contact_id: contact_id,
+        analysis_id: analise.id
+      });
+      console.log('[ANALISE] ✅ Automações acionadas com sucesso');
+    } catch (error) {
+      console.warn('[ANALISE] ⚠️ Erro ao acionar automações:', error.message);
+    }
+
     return Response.json({
       success: true,
       analysis_id: analise.id,
