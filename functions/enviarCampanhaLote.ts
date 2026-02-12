@@ -24,7 +24,21 @@ Deno.serve(async (req) => {
       media_caption = null
     } = body;
 
-    console.log(`[CAMPANHA-LOTE] Modo: ${modo} | Contatos: ${contact_ids.length}`);
+    console.log(`[CAMPANHA-LOTE] ✅ Payload recebido:`, { 
+      modo, 
+      contact_ids: contact_ids.length,
+      mensagem: mensagem.substring(0, 100),
+      media_type,
+      personalizar
+    });
+
+    // ✅ VALIDAÇÃO: Mensagem obrigatória
+    if (!mensagem || !mensagem.trim()) {
+      return Response.json({
+        success: false,
+        error: `Mensagem vazia. Recebido: "${mensagem}"`
+      }, { status: 400 });
+    }
 
     if (!contact_ids || contact_ids.length === 0) {
       return Response.json({
@@ -104,9 +118,11 @@ Deno.serve(async (req) => {
             .replace(/\{\{empresa\}\}/gi, contato.empresa || '');
         }
 
+        console.log(`[CAMPANHA-LOTE] 📨 ${contato.nome}: mensagem="${mensagemFinal.substring(0, 60)}" | personalizada=${personalizar}`);
+
         // ✅ MODO BROADCAST: Enviar imediatamente via gateway
         if (modo === 'broadcast') {
-          console.log(`[CAMPANHA-LOTE] Enviando broadcast para ${contato.nome}`);
+          console.log(`[CAMPANHA-LOTE] 📤 Enviando broadcast para ${contato.nome}`);
 
           // ✅ CHAMAR GATEWAY DE ENVIO COM MÍDIA
            const respEnvio = await base44.asServiceRole.functions.invoke('enviarWhatsApp', {
