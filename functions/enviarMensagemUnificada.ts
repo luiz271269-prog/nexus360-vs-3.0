@@ -1,16 +1,23 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.4';
 
 /**
+ * ⚠️ DEPRECATED - USE enviarCampanhaLote
+ * 
  * ROTEADOR CENTRAL DE ENVIO
  * Hub agnóstico que despacha mensagens para o adaptador correto
  * baseado na conexão escolhida pelo usuário.
  * 
- * Preserva 100% a lógica existente do WhatsApp.
+ * STATUS: INATIVO (zero uso no frontend)
+ * Será removida em 30 dias se não houver chamadas em logs
+ * Migração: enviarCampanhaLote com modo='broadcast'
  */
 
 Deno.serve(async (req) => {
   try {
     const base44 = createClientFromRequest(req);
+    
+    // ⚠️ DEPRECATION WARNING
+    console.warn('[DEPRECATED] enviarMensagemUnificada está INATIVA. Migre para enviarCampanhaLote');
     const user = await base44.auth.me();
     
     if (!user) {
