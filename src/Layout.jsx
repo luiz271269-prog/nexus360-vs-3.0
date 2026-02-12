@@ -279,23 +279,23 @@ export default function Layout({ children, currentPageName }) {
       if (setor === 'vendas') {
         return todosMenuItems.filter(item => [
           'Comunicacao', 'Dashboard', 'LeadsQualificados', 'Vendedores', 
-          'Clientes', 'AnalyticsAvancado', 'Agenda', 'Produtos', 'Automacoes'
+          'Clientes', 'Agenda', 'Produtos', 'Automacoes'
         ].includes(item.page) && item.page !== 'FerramentasMigracao');
         }
         if (setor === 'assistencia') {
         return todosMenuItems.filter(item => [
-          'Comunicacao', 'Clientes', 'Agenda', 'Dashboard', 'Produtos', 'AnalyticsAvancado', 'Automacoes'
+          'Comunicacao', 'Clientes', 'Agenda', 'Dashboard', 'Produtos', 'Automacoes'
         ].includes(item.page) && item.page !== 'FerramentasMigracao');
         }
         if (setor === 'fornecedor') {
         return todosMenuItems.filter(item => [
-          'Comunicacao', 'Produtos', 'Importacao', 'Dashboard', 'Clientes', 'Agenda', 'AnalyticsAvancado', 'Automacoes'
+          'Comunicacao', 'Produtos', 'Importacao', 'Dashboard', 'Clientes', 'Agenda', 'Automacoes'
         ].includes(item.page) && item.page !== 'FerramentasMigracao');
         }
         // Gerência geral
         return todosMenuItems.filter(item => [
         'Comunicacao', 'Dashboard', 'LeadsQualificados', 'Clientes', 
-        'Vendedores', 'Produtos', 'Agenda', 'AnalyticsAvancado', 'Automacoes'
+        'Vendedores', 'Produtos', 'Agenda', 'Automacoes'
         ].includes(item.page) && item.page !== 'FerramentasMigracao');
         }
 
@@ -317,7 +317,6 @@ export default function Layout({ children, currentPageName }) {
           'Comunicacao', 'Produtos', 'Importacao', 'Agenda', 'Dashboard'
         ].includes(item.page) && item.page !== 'FerramentasMigracao');
       }
-      // Supervisor geral
       return todosMenuItems.filter(item => [
         'Comunicacao', 'Clientes', 'Agenda', 'Dashboard', 'Produtos'
       ].includes(item.page) && item.page !== 'FerramentasMigracao');
@@ -419,8 +418,13 @@ export default function Layout({ children, currentPageName }) {
         try {
           const contadores = await calcularLembretesGlobal(user, base44);
 
-          // Adicionar contador de Contatos Inteligentes (Camada 3)
-          contadores['ContatosInteligentes'] = totalUrgentes || 0;
+          // Contatos Inteligentes: manter consistente com hook (sem variável inexistente)
+          const urgentes = contatosInteligentes?.totalUrgentes;
+          if (typeof urgentes === 'number') {
+            contadores['ContatosInteligentes'] = urgentes;
+          } else {
+            contadores['ContatosInteligentes'] = contadores['ContatosInteligentes'] ?? 0;
+          }
 
           setContadoresLembretes(contadores);
         } catch (error) {
