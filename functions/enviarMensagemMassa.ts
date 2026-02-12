@@ -10,16 +10,26 @@ import { createClientFromRequest } from 'npm:@base44/sdk@0.8.6';
 Deno.serve(async (req) => {
   try {
     const base44 = createClientFromRequest(req);
-    const { contact_ids, mensagem, personalizar = true } = await req.json();
+    const { 
+      contact_ids, 
+      mensagem, 
+      personalizar = true,
+      media_url = null,
+      media_type = 'none',
+      media_caption = null
+    } = await req.json();
 
-    // ✅ REDIRECIONAR para função unificada
-    console.log(`[ENVIO-MASSA] 🔄 Redirecionando para enviarCampanhaLote (modo: broadcast)`);
+    // ✅ REDIRECIONAR para função unificada COM MÍDIA
+    console.log(`[ENVIO-MASSA] 📤 Redirecionando para enviarCampanhaLote | Mídia: ${media_type}`);
     
     const resultado = await base44.asServiceRole.functions.invoke('enviarCampanhaLote', {
       contact_ids,
       modo: 'broadcast',
       mensagem,
-      personalizar
+      personalizar,
+      media_url,
+      media_type,
+      media_caption
     });
 
     return Response.json(resultado.data);
