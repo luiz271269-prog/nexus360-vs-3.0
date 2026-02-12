@@ -30,6 +30,7 @@ export default function ContatosRequerendoAtencao({ usuario, onSelecionarContato
   const [enviandoPromos, setEnviandoPromos] = useState(false);
   const [contatosSelecionados, setContatosSelecionados] = useState([]);
   const [diasInatividade, setDiasInatividade] = useState(5);
+  const [totalContatosBanco, setTotalContatosBanco] = useState(null);
   const isHeader = variant === 'header';
 
   // ✅ Motor Unificado V3 - BUSCA TODOS do banco
@@ -49,6 +50,24 @@ export default function ContatosRequerendoAtencao({ usuario, onSelecionarContato
     autoRefresh: true,
     refreshInterval: 5 * 60 * 1000
   });
+
+  // ✅ Carregar total de contatos do banco
+  useEffect(() => {
+    const carregarTotalContatos = async () => {
+      try {
+        const total = await base44.asServiceRole.entities.Contact.filter({
+          tipo_contato: { $in: ['lead', 'cliente'] }
+        });
+        setTotalContatosBanco(total.length);
+      } catch (error) {
+        console.error('[ContatosRequerendoAtencao] Erro ao carregar total:', error);
+      }
+    };
+
+    if (usuario) {
+      carregarTotalContatos();
+    }
+  }, [usuario]);
 
   // ✅ Carregar nomes dos atendentes
   useEffect(() => {
@@ -484,7 +503,10 @@ export default function ContatosRequerendoAtencao({ usuario, onSelecionarContato
                   </div>
                   <div>
                     <h3 className="text-sm font-bold text-slate-800">Contatos Urgentes</h3>
-                    <p className="text-xs text-slate-500">{totalAlertas} requerem atenção</p>
+                    <p className="text-xs text-slate-500">
+                      {totalAlertas} requerem atenção
+                      {totalContatosBanco && <span className="text-slate-400"> • {totalContatosBanco} total</span>}
+                    </p>
                   </div>
                 </div>
 
@@ -665,9 +687,16 @@ export default function ContatosRequerendoAtencao({ usuario, onSelecionarContato
                         {altos.length} altos
                       </span>
                     </div>
-                    <span className="text-slate-600 font-medium">
-                      Total: {contatosComAlerta.length}
-                    </span>
+                    <div className="text-right">
+                      <div className="text-slate-600 font-medium">
+                        Filtrados: {contatosComAlerta.length}
+                      </div>
+                      {totalContatosBanco && (
+                        <div className="text-slate-400 text-[10px]">
+                          Base total: {totalContatosBanco}
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </div>
             }
@@ -707,6 +736,11 @@ export default function ContatosRequerendoAtencao({ usuario, onSelecionarContato
                 {criticos.length} críticos • {altos.length} altos
               </span>
             }
+            {totalContatosBanco && (
+              <span className="text-[10px] text-slate-400 block">
+                Base: {totalContatosBanco} contatos
+              </span>
+            )}
           </div>
         </div>
         
@@ -909,9 +943,16 @@ export default function ContatosRequerendoAtencao({ usuario, onSelecionarContato
                     {altos.length} altos
                   </span>
                 </div>
-                <span className="text-slate-600 font-medium">
-                  Total: {contatosComAlerta.length}
-                </span>
+                <div className="text-right">
+                  <div className="text-slate-600 font-medium">
+                    Filtrados: {contatosComAlerta.length}
+                  </div>
+                  {totalContatosBanco && (
+                    <div className="text-slate-400 text-[10px]">
+                      Base total: {totalContatosBanco}
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
         }
