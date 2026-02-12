@@ -225,6 +225,14 @@ export default function Layout({ children, currentPageName }) {
     autoRefresh: true
   });
 
+  // ✅ P1 FIX: Sincronizar badge em tempo real
+  useEffect(() => {
+    setContadoresLembretes(prev => ({
+      ...prev,
+      ContatosInteligentes: totalUrgentes || 0
+    }));
+  }, [totalUrgentes]);
+
   // Definição completa de todos os itens do menu
   const todosMenuItems = [
     { name: "Central de Comunicacao", icon: MessageSquare, page: "Comunicacao" },
