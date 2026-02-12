@@ -15,7 +15,10 @@ import {
   Send,
   Sparkles,
   MessageSquare,
-  Calendar } from
+  Calendar,
+  Brain,
+  X,
+  TrendingUp } from
 'lucide-react';
 import { toast } from 'sonner';
 import { useContatosInteligentes } from '../hooks/useContatosInteligentes';
