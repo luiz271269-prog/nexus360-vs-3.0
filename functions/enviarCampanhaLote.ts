@@ -283,6 +283,25 @@ Estou à disposição! 😊`.trim();
 
     console.log(`[CAMPANHA-LOTE] ✅ Concluído: ${enviados} enviados, ${erros} erros`);
 
+    // ✅ PERSISTIR LOG DA CAMPANHA
+    const user = await base44.auth.me().catch(() => null);
+    await base44.asServiceRole.entities.AutomationLog.create({
+      acao: `envio_massa_${modo}`,
+      origem: 'manual',
+      prioridade: 'normal',
+      usuario_id: user?.id || 'sistema',
+      timestamp: now.toISOString(),
+      resultado: enviados > 0 ? 'sucesso' : 'erro',
+      detalhes: {
+        modo,
+        total_contatos: contact_ids.length,
+        enviados,
+        erros,
+        mensagem_enviada: modo === 'broadcast' ? mensagem?.slice(0, 100) : 'saudação+promoção',
+        resultados: resultados.slice(0, 50) // Limitar para não exceder tamanho
+      }
+    });
+
     return Response.json({
       success: true,
       modo,
