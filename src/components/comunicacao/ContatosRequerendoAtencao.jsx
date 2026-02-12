@@ -378,6 +378,10 @@ export default function ContatosRequerendoAtencao({ usuario, onSelecionarContato
                 } else {
                   toast.error('❌ Thread canônica não encontrada');
                 }
+              })
+              .catch((error) => {
+                console.error('[ContatosRequerendoAtencao] Erro ao buscar thread:', error);
+                toast.error('❌ Erro ao abrir conversa');
               });
             }
           }}
