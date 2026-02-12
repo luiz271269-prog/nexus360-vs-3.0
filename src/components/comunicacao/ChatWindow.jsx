@@ -59,6 +59,7 @@ import { base44 } from "@/api/base44Client";
 import { toast } from "sonner";
 
 import SugestorRespostasRapidas from './SugestorRespostasRapidas';
+import SugestorRespostaBroadcast from './SugestorRespostaBroadcast';
 import { useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import MediaAttachmentSystem from './MediaAttachmentSystem';
@@ -2413,11 +2414,34 @@ export default function ChatWindow({
         />
 
 
-      {/* 🎯 SISTEMA INTELIGENTE DE SUGESTÕES - 2 NÍVEIS */}
+      {/* 🎯 SISTEMA INTELIGENTE DE SUGESTÕES - 3 NÍVEIS */}
+      
+      {/* NÍVEL 0: 📤 RESPOSTA A BROADCAST (prioridade máxima) */}
+      {/* Aparece quando: cliente respondeu a envio em massa recente */}
+      {thread?.metadata?.ultima_mensagem_origem === 'broadcast_massa' && ultimaMensagemCliente && !mostrarSugestor && (
+        <div className="px-3 pb-3">
+          <div className="mb-2 flex items-center gap-2 px-3 py-1.5 bg-cyan-50 border border-cyan-200 rounded-lg">
+            <div className="w-1.5 h-1.5 rounded-full bg-cyan-500 animate-pulse"></div>
+            <p className="text-xs text-cyan-700 font-medium">
+              📤 Cliente respondeu ao broadcast! Sugestões inteligentes abaixo:
+            </p>
+          </div>
+          <SugestorRespostaBroadcast
+            thread={thread}
+            ultimaMensagemCliente={ultimaMensagemCliente}
+            contato={contatoCompleto}
+            usuario={usuario}
+            onSugerirResposta={(resposta) => {
+              navigator.clipboard.writeText(resposta);
+              toast.success('✅ Resposta copiada! Cole no campo de mensagem.');
+            }}
+          />
+        </div>
+      )}
       
       {/* NÍVEL 1: ⚡ REATIVAÇÃO INSTANTÂNEA (sem análise de histórico) */}
       {/* Aparece quando: contato inativo 30+ dias, ANTES da análise completa */}
-      {mostrarReativacaoRapida && !mostrarSugestor && analiseComportamental && (
+      {mostrarReativacaoRapida && !mostrarSugestor && !thread?.metadata?.ultima_mensagem_origem === 'broadcast_massa' && analiseComportamental && (
         <div className="px-3 pb-3">
           <div className="mb-2 flex items-center gap-2 px-3 py-1.5 bg-blue-50 border border-blue-200 rounded-lg">
             <div className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse"></div>
@@ -2440,7 +2464,7 @@ export default function ChatWindow({
 
       {/* NÍVEL 2: 🧠 ANÁLISE COMPLETA (50 mensagens + comportamento) */}
       {/* Aparece quando: cliente enviou mensagem nova, análise profunda */}
-      {mostrarSugestor && !mostrarReativacaoRapida && (
+      {mostrarSugestor && !mostrarReativacaoRapida && !thread?.metadata?.ultima_mensagem_origem === 'broadcast_massa' && (
         <div className="px-3 pb-3">
           <div className="mb-2 flex items-center gap-2 px-3 py-1.5 bg-green-50 border border-green-200 rounded-lg">
             <div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse"></div>
