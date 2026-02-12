@@ -239,56 +239,253 @@ Deno.serve(async (req) => {
 
     if (textos.length > 20) {
       try {
-        const analiseIA = await base44.asServiceRole.integrations.Core.InvokeLLM({
-          prompt: `Analise o histórico de mensagens deste contato B2B:
+        const promptV2 = `🧠 MOTOR DE INTELIGÊNCIA COMERCIAL E RELACIONAL - V2
+==========================================================================
 
-📱 HISTÓRICO (últimas ${mensagens.length} mensagens):
-${textos}
+Você é um motor de inteligência comercial e relacional especializado em análise B2B.
+Seu objetivo é analisar todo o histórico de conversas e gerar insights profundos, consistentes e acionáveis.
 
-📊 DADOS DO CONTATO:
+📥 CONTEXTO DO CONTATO:
 - Nome: ${contact.nome}
 - Empresa: ${contact.empresa || 'N/A'}
 - Tipo: ${contact.tipo_contato || 'novo'}
+- Telefone: ${contact.telefone || 'N/A'}
+- Mensagens analisadas: ${mensagens.length} (últimas 50)
 
-Forneça análise estruturada.`,
+📱 HISTÓRICO DE MENSAGENS (em ordem cronológica):
+${textos}
+
+📊 DADOS ESTRUTURAIS ADICIONAIS:
+- Total de mensagens: ${totalMessages}
+- Inbound: ${inboundCount} | Outbound: ${outboundCount}
+- Razão Inbound/Outbound: ${ratioInOut.toFixed(2)}
+- Tempo médio de resposta (atendente): ${avgReplyMinutesAgent} minutos
+- Tempo médio de resposta (contato): ${avgReplyMinutesContact} minutos
+- Dias sem resposta (inbound): ${daysInactiveInbound}
+- Maior gap de silêncio: ${maxSilenceGapDays.toFixed(1)} dias
+
+⚠️ REGRAS OBRIGATÓRIAS DO MOTOR:
+1. Sempre classificar o tipo de relacionamento (relationship_profile.type)
+2. Detectar sensibilidades: preço, prazo, processo formal, terceiros, benchmarking
+3. Identificar eventos de atrito relacional (mensagens duras, confusão, delays)
+4. NUNCA recomendar mensagens agressivas ou de corte definitivo
+5. Para multi-cotação: priorizar alinhamento de critérios
+6. Tom profissional, analítico e estratégico
+7. Não inventar dados não implícitos no histórico
+
+🎯 SAÍDA OBRIGATÓRIA - RETORNE UM JSON COM:
+
+{
+  "relationship_profile": {
+    "type": "comprador_corporativo_multi_cotacao|cliente_fidelizado|lead_quente|suporte_tecnico|financeiro|outro",
+    "flags": ["price_sensitive"|"deadline_sensitive"|"process_formal"|"decision_by_third_party"|"uses_benchmark"|"relationship_frictions"],
+    "summary": "Resumo do perfil em 1 frase"
+  },
+
+  "scores": {
+    "health": 0-100,
+    "deal_risk": 0-100,
+    "buy_intent": 0-100,
+    "engagement": 0-100
+  },
+
+  "stage": {
+    "current": "primeiro_contato|cotacao_enviada|negociacao|negociacao_stalled|perdido|ganho",
+    "days_stalled": número,
+    "last_milestone": "descrição",
+    "last_milestone_at": "YYYY-MM-DDTHH:MM:SSZ"
+  },
+
+  "root_causes": [
+    { "cause": "descrição", "severity": "low|medium|high|critical", "confidence": 0.0-1.0 }
+  ],
+
+  "evidence_snippets": [
+    { "timestamp": "DD/MM HH:MM", "sender": "contact|agent|system", "text": "trecho", "related_cause": "causa" }
+  ],
+
+  "objections": [
+    { "type": "preco|prazo|marca|condicoes_comerciais|processo", "status": "open|resolved|recurring", "snippet": "evidência" }
+  ],
+
+  "alerts": [
+    { "level": "info|warning|critical", "message": "descrição do alerta" }
+  ],
+
+  "playbook": {
+    "goal": "Objetivo estratégico com este contato",
+    "rules_of_game": ["Regra 1", "Regra 2"],
+    "when_to_compete": ["Cenário 1", "Cenário 2"],
+    "when_to_decline": ["Cenário 1", "Cenário 2"]
+  },
+
+  "next_best_action": {
+    "action": "Ação prática e estratégica",
+    "priority": "low|medium|high|urgent",
+    "rationale": "Por que essa ação",
+    "suggested_message": "Mensagem profissional, relacional (máx 300 caracteres)"
+  },
+
+  "relationship_risk": {
+    "level": "low|medium|high|critical",
+    "events": [
+      { "timestamp": "DD/MM HH:MM", "type": "friction|cutoff_message|confusion|delay", "snippet": "evidência" }
+    ]
+  },
+
+  "prontuario_ptbr": {
+    "visao_geral": "Perfil, tipo de relacionamento, padrão histórico (2-3 linhas)",
+    "necessidades_contexto": "O que compra, como decide, fatores influentes (2-3 linhas)",
+    "estado_atual_scores": "Health, Deal Risk, Engagement, Buy Intent em texto (2-3 linhas)",
+    "causas_principais": "Motivos reais de perda, travamento ou desgaste (3-4 linhas)",
+    "oportunidades_sinais_positivos": "Indicadores de valor ou potencial (2-3 linhas)",
+    "recomendacoes_objetivas": "Ações práticas focadas em estratégia (3-4 linhas)",
+    "mensagem_pronta": "Mensagem curta, profissional, relacional (máx 300 caracteres)"
+  }
+}
+
+Retorne OBRIGATORIAMENTE todos os campos acima.`;
+
+        const analiseIA = await base44.asServiceRole.integrations.Core.InvokeLLM({
+          prompt: promptV2,
           response_json_schema: {
             type: "object",
             properties: {
-              sentiment: {
-                type: "string",
-                enum: ["muito_positivo", "positivo", "neutro", "negativo", "muito_negativo"]
+              relationship_profile: {
+                type: "object",
+                properties: {
+                  type: { type: "string" },
+                  flags: { type: "array", items: { type: "string" } },
+                  summary: { type: "string" }
+                }
               },
-              buy_intent: { type: "number", minimum: 0, maximum: 100 },
-              engagement: { type: "number", minimum: 0, maximum: 100 },
-              deal_risk: { type: "number", minimum: 0, maximum: 100 },
-              health: { type: "number", minimum: 0, maximum: 100 },
-              stage: { type: "string" },
+              scores: {
+                type: "object",
+                properties: {
+                  health: { type: "number" },
+                  deal_risk: { type: "number" },
+                  buy_intent: { type: "number" },
+                  engagement: { type: "number" }
+                }
+              },
+              stage: {
+                type: "object",
+                properties: {
+                  current: { type: "string" },
+                  days_stalled: { type: "number" },
+                  last_milestone: { type: "string" },
+                  last_milestone_at: { type: "string" }
+                }
+              },
+              root_causes: {
+                type: "array",
+                items: {
+                  type: "object",
+                  properties: {
+                    cause: { type: "string" },
+                    severity: { type: "string" },
+                    confidence: { type: "number" }
+                  }
+                }
+              },
+              evidence_snippets: {
+                type: "array",
+                items: {
+                  type: "object",
+                  properties: {
+                    timestamp: { type: "string" },
+                    sender: { type: "string" },
+                    text: { type: "string" },
+                    related_cause: { type: "string" }
+                  }
+                }
+              },
               objections: {
                 type: "array",
                 items: {
                   type: "object",
                   properties: {
                     type: { type: "string" },
-                    evidence: { type: "string" },
-                    severity: { type: "string", enum: ["baixa", "media", "alta"] }
+                    status: { type: "string" },
+                    snippet: { type: "string" }
                   }
                 }
               },
-              signals: { type: "array", items: { type: "string" } }
+              alerts: {
+                type: "array",
+                items: {
+                  type: "object",
+                  properties: {
+                    level: { type: "string" },
+                    message: { type: "string" }
+                  }
+                }
+              },
+              playbook: {
+                type: "object",
+                properties: {
+                  goal: { type: "string" },
+                  rules_of_game: { type: "array", items: { type: "string" } },
+                  when_to_compete: { type: "array", items: { type: "string" } },
+                  when_to_decline: { type: "array", items: { type: "string" } }
+                }
+              },
+              next_best_action: {
+                type: "object",
+                properties: {
+                  action: { type: "string" },
+                  priority: { type: "string" },
+                  rationale: { type: "string" },
+                  suggested_message: { type: "string" }
+                }
+              },
+              relationship_risk: {
+                type: "object",
+                properties: {
+                  level: { type: "string" },
+                  events: {
+                    type: "array",
+                    items: {
+                      type: "object",
+                      properties: {
+                        timestamp: { type: "string" },
+                        type: { type: "string" },
+                        snippet: { type: "string" }
+                      }
+                    }
+                  }
+                }
+              },
+              prontuario_ptbr: {
+                type: "object",
+                properties: {
+                  visao_geral: { type: "string" },
+                  necessidades_contexto: { type: "string" },
+                  estado_atual_scores: { type: "string" },
+                  causas_principais: { type: "string" },
+                  oportunidades_sinais_positivos: { type: "string" },
+                  recomendacoes_objetivas: { type: "string" },
+                  mensagem_pronta: { type: "string" }
+                }
+              }
             }
           }
         });
 
-        sentimentoPredominante = analiseIA.sentiment || 'neutro';
+        // Mapear resposta da IA para as variáveis locais
+        sentimentoPredominante = 'neutro';
         aiScores = {
-          health: analiseIA.health || 50,
-          deal_risk: analiseIA.deal_risk || 0,
-          buy_intent: analiseIA.buy_intent || 0,
-          engagement: analiseIA.engagement || 50
+          health: analiseIA.scores?.health || 50,
+          deal_risk: analiseIA.scores?.deal_risk || 0,
+          buy_intent: analiseIA.scores?.buy_intent || 0,
+          engagement: analiseIA.scores?.engagement || 50
         };
         objecoes = analiseIA.objections || [];
-        signals = analiseIA.signals || [];
-        stageAtual = analiseIA.stage || 'descoberta';
+        signals = (analiseIA.signals || []);
+        stageAtual = analiseIA.stage?.current || 'descoberta';
+        
+        // Armazenar dados completos para persistência
+        window.analiseV2Completa = analiseIA;
         
       } catch (error) {
         console.warn('[ANALISE] ⚠️ Erro na IA:', error.message);
@@ -350,8 +547,10 @@ Forneça análise estruturada.`,
     }
 
     // ══════════════════════════════════════════════════════════════
-    // PERSISTIR ANÁLISE COMPLETA
+    // PERSISTIR ANÁLISE COMPLETA (v2 + legado)
     // ══════════════════════════════════════════════════════════════
+    const analiseDataV2 = typeof window !== 'undefined' && window.analiseV2Completa ? window.analiseV2Completa : {};
+    
     const analise = await base44.asServiceRole.entities.ContactBehaviorAnalysis.create({
       contact_id: contact_id,
       analyzed_at: new Date().toISOString(),
@@ -372,7 +571,11 @@ Forneça análise estruturada.`,
       // PRIORITY
       priority_score: priorityScore,
       priority_label: priorityLabel,
-      root_causes: rootCauses,
+      root_causes: (analiseDataV2.root_causes || []).map(r => ({
+        cause: r.cause || '',
+        severity: r.severity || 'medium',
+        confidence: r.confidence || 0.5
+      })),
       
       // MÉTRICAS HARD
       metricas_relacionamento: {
@@ -388,7 +591,62 @@ Forneça análise estruturada.`,
         unanswered_followups: unansweredFollowups
       },
       
-      // AI INSIGHTS
+      // RELATIONSHIP PROFILE (V2)
+      relationship_profile: analiseDataV2.relationship_profile || {
+        type: 'outro',
+        flags: [],
+        summary: 'Perfil a classificar'
+      },
+      
+      // SCORES (V2)
+      scores: analiseDataV2.scores || aiScores,
+      
+      // STAGE (V2)
+      stage: analiseDataV2.stage || {
+        current: stageAtual,
+        days_stalled: daysInactiveInbound,
+        last_milestone: 'Última mensagem',
+        last_milestone_at: lastMessageAt
+      },
+      
+      // EVIDENCE SNIPPETS (V2)
+      evidence_snippets: analiseDataV2.evidence_snippets || [],
+      
+      // OBJECTIONS (V2)
+      objections: analiseDataV2.objections || objecoes,
+      
+      // ALERTS (V2)
+      alerts: analiseDataV2.alerts || [],
+      
+      // PLAYBOOK (V2)
+      playbook: analiseDataV2.playbook || {
+        goal: 'Manter relacionamento e aumentar conversão',
+        rules_of_game: [],
+        when_to_compete: [],
+        when_to_decline: []
+      },
+      
+      // NEXT BEST ACTION (V2)
+      next_best_action: analiseDataV2.next_best_action || nextBestAction,
+      
+      // RELATIONSHIP RISK (V2)
+      relationship_risk: analiseDataV2.relationship_risk || {
+        level: 'low',
+        events: []
+      },
+      
+      // PRONTUÁRIO PT-BR (V2)
+      prontuario_ptbr: analiseDataV2.prontuario_ptbr || {
+        visao_geral: '',
+        necessidades_contexto: '',
+        estado_atual_scores: '',
+        causas_principais: '',
+        oportunidades_sinais_positivos: '',
+        recomendacoes_objetivas: '',
+        mensagem_pronta: ''
+      },
+      
+      // AI INSIGHTS (legado)
       ai_insights: {
         sentiment: sentimentoPredominante,
         buy_intent: aiScores.buy_intent,
