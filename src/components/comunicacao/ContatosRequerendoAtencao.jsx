@@ -44,12 +44,12 @@ export default function ContatosRequerendoAtencao({ usuario, onSelecionarContato
   // ✅ Motor Unificado V3 - BUSCA TODOS do banco
   const {
     clientes: contatosComAlerta,
-    loading,
+    loading: hookLoading,
     estatisticas,
     totalUrgentes,
     criticos,
     altos,
-    refetch
+    refetch: refetchHook
   } = useContatosInteligentes(usuario, {
     tipo: ['lead', 'cliente'],
     diasSemMensagem: diasInatividade,
@@ -58,6 +58,40 @@ export default function ContatosRequerendoAtencao({ usuario, onSelecionarContato
     autoRefresh: true,
     refreshInterval: 5 * 60 * 1000
   });
+
+  // ✅ Estado local para controlar loading da análise
+  const [analisandoContatos, setAnalisandoContatos] = useState(false);
+  const loading = hookLoading || analisandoContatos;
+
+  // ✅ Refetch com análise comportamental
+  const refetch = async () => {
+    setAnalisandoContatos(true);
+    try {
+      console.log('[ContatosRequerendoAtencao] 🔄 Iniciando análise comportamental de contatos...');
+      
+      const resultado = await base44.functions.invoke('executarAnaliseDiariaContatos', {});
+      
+      if (resultado?.data?.success) {
+        const analisados = resultado.data.analisados || resultado.data.count || 0;
+        console.log(`[ContatosRequerendoAtencao] ✅ ${analisados} contatos analisados`);
+        toast.success(`✅ ${analisados} contatos analisados!`);
+      } else {
+        console.warn('[ContatosRequerendoAtencao] ⚠️ Análise retornou erro:', resultado?.data?.error);
+        toast.warning('⚠️ Erro na análise - recarregando dados');
+      }
+      
+      // Aguardar propagação dos dados
+      await new Promise(r => setTimeout(r, 1500));
+      
+    } catch (error) {
+      console.error('[ContatosRequerendoAtencao] ❌ Erro ao analisar:', error);
+      toast.error(`❌ ${error.message || 'Erro ao atualizar análises'}`);
+    } finally {
+      setAnalisandoContatos(false);
+      // Recarregar dados do hook
+      refetchHook();
+    }
+  };
 
   // ✅ Carregar total de contatos do banco
   useEffect(() => {
