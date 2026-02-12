@@ -20,7 +20,8 @@ Deno.serve(async (req) => {
       delay_minutos = 5,
       texto_saudacao_custom = null,
       media_url = null,
-      media_type = 'none'
+      media_type = 'none',
+      media_caption = null
     } = body;
 
     console.log(`[CAMPANHA-LOTE] Modo: ${modo} | Contatos: ${contact_ids.length}`);
@@ -120,7 +121,7 @@ Deno.serve(async (req) => {
             throw new Error(respEnvio.data?.error || 'Erro no gateway');
           }
 
-          // ✅ REGRA 4: PERSISTIR MESSAGE (copiado do ChatWindow linha 1382-1400)
+          // ✅ REGRA 4: PERSISTIR MESSAGE (com ou sem mídia)
           await base44.asServiceRole.entities.Message.create({
             thread_id: thread.id,
             sender_id: (await base44.auth.me())?.id || 'system',
@@ -133,12 +134,14 @@ Deno.serve(async (req) => {
             whatsapp_message_id: respEnvio.data.message_id,
             sent_at: now.toISOString(),
             visibility: 'public_to_customer',
-            media_url,
-            media_type,
+            media_url: media_url || null,
+            media_type: media_type || 'none',
+            media_caption: media_caption || null,
             metadata: {
               whatsapp_integration_id: integration.id,
               origem_campanha: 'broadcast_massa',
-              personalizada: personalizar
+              personalizada: personalizar,
+              midia_incluida: !!media_url
             }
           });
 
