@@ -62,6 +62,13 @@ export default function PlanilhaComparativaEnvios() {
   const gaps = [
     { 
       prioridade: 'P0', 
+      gap: '❌ ERRO DE DEPLOY: enviarCampanhaLote.ts não compila', 
+      funcao: 'enviarCampanhaLote.ts', 
+      impacto: '🔥 FUNÇÃO QUEBRADA - não está deployada, TODOS os envios em massa estão FALHANDO (UI chama função que não existe)', 
+      solucao: 'URGENTE: Corrigir erro TypeScript (provavelmente falta import ou tipo incorreto) - converter para .js ou corrigir tipos' 
+    },
+    { 
+      prioridade: 'P0', 
       gap: 'Broadcast não persiste Message/Thread', 
       funcao: 'enviarCampanhaLote (broadcast)', 
       impacto: 'Mensagens enviadas mas invisíveis na UI - usuário vê modal "Enviando para 3 contatos" mas mensagens não aparecem no histórico', 
