@@ -21,6 +21,7 @@ import { toast } from 'sonner';
 import { useContatosInteligentes } from '../hooks/useContatosInteligentes';
 import { base44 } from '@/api/base44Client';
 import { createPageUrl } from '@/utils';
+import ModalEnvioPromocoesAutomaticas from './ModalEnvioPromocoesAutomaticas';
 
 export default function ContatosRequerendoAtencao({ usuario, onSelecionarContato, variant = 'sidebar' }) {
   const [expandido, setExpandido] = useState(false);
@@ -31,6 +32,7 @@ export default function ContatosRequerendoAtencao({ usuario, onSelecionarContato
   const [contatosSelecionados, setContatosSelecionados] = useState([]);
   const [diasInatividade, setDiasInatividade] = useState(5);
   const [totalContatosBanco, setTotalContatosBanco] = useState(null);
+  const [mostrarModalPromoAuto, setMostrarModalPromoAuto] = useState(false);
   const isHeader = variant === 'header';
 
   // ✅ Motor Unificado V3 - BUSCA TODOS do banco
@@ -235,55 +237,8 @@ export default function ContatosRequerendoAtencao({ usuario, onSelecionarContato
       return;
     }
 
-    const confirmacao = window.confirm(
-      `🚀 Enviar promoções automáticas para ${contatosComAlerta.length} contatos?\n\n` +
-      `Processo:\n` +
-      `1️⃣ Saudação personalizada (agora)\n` +
-      `2️⃣ Aguardar 5 minutos\n` +
-      `3️⃣ Enviar promoção ativa\n\n` +
-      `Bloqueios: Fornecedores, tags bloqueadas, financeiro\n` +
-      `Tempo estimado: ${Math.ceil(contatosComAlerta.length * 0.8)}s para saudações`
-    );
-
-    if (!confirmacao) return;
-
-    setEnviandoPromos(true);
-
-    try {
-      const contactIds = contatosComAlerta.map((c) => c.contact_id || c.id);
-
-      toast.loading(`📤 Enviando saudações para ${contactIds.length} contatos...`, { id: 'envio-lote' });
-
-      const resultado = await base44.functions.invoke('enviarCampanhaLote', {
-        contact_ids: contactIds,
-        modo: 'promocao',
-        delay_minutos: 5
-      });
-
-      if (resultado.data?.success) {
-        toast.success(
-          `✅ ${resultado.data.enviados} saudações enviadas!\n` +
-          `⏰ Promoções serão enviadas em 5 minutos`,
-          { id: 'envio-lote', duration: 5000 }
-        );
-
-        // Mostrar resumo dos resultados
-        if (resultado.data.erros > 0) {
-          toast.warning(
-            `⚠️ ${resultado.data.erros} contatos com erro`,
-            { duration: 4000 }
-          );
-        }
-      } else {
-        throw new Error(resultado.data?.error || 'Erro desconhecido');
-      }
-
-    } catch (error) {
-      console.error('[ContatosRequerendoAtencao] Erro ao enviar promoções:', error);
-      toast.error(`❌ ${error.message}`, { id: 'envio-lote' });
-    } finally {
-      setEnviandoPromos(false);
-    }
+    // ✅ Abrir modal moderno ao invés de window.confirm
+    setMostrarModalPromoAuto(true);
   };
 
   const getPrioridadeCor = (label) => {
@@ -715,7 +670,18 @@ export default function ContatosRequerendoAtencao({ usuario, onSelecionarContato
   // VERSÃO SIDEBAR (original)
   // ═══════════════════════════════════════════════════════════════
   return (
-    <div className="border-b-2 border-slate-200 bg-gradient-to-r from-white to-slate-50">
+    <>
+      <ModalEnvioPromocoesAutomaticas
+        isOpen={mostrarModalPromoAuto}
+        onClose={() => setMostrarModalPromoAuto(false)}
+        contatosSelecionados={contatosComAlerta}
+        onEnvioCompleto={() => {
+          setMostrarModalPromoAuto(false);
+          refetch();
+        }}
+      />
+
+      <div className="border-b-2 border-slate-200 bg-gradient-to-r from-white to-slate-50">
       {/* Header clicável */}
       <button
         onClick={() => setExpandido(!expandido)}
@@ -964,6 +930,7 @@ export default function ContatosRequerendoAtencao({ usuario, onSelecionarContato
       }
 
 
-    </div>);
-
+      </div>
+    </>
+  );
 }

@@ -17,7 +17,8 @@ Deno.serve(async (req) => {
       modo = 'broadcast',
       mensagem = '',
       personalizar = true,
-      delay_minutos = 5
+      delay_minutos = 5,
+      texto_saudacao_custom = null
     } = body;
 
     console.log(`[CAMPANHA-LOTE] Modo: ${modo} | Contatos: ${contact_ids.length}`);
@@ -172,8 +173,12 @@ Deno.serve(async (req) => {
 
           const promo = promocoes[0];
 
-          // ✅ 2. Enviar saudação imediata
-          const saudacao = `Olá ${contato.nome || 'Cliente'}! Tudo bem? 😊`;
+          // ✅ 2. Enviar saudação imediata (personalizada se fornecido)
+          const saudacao = texto_saudacao_custom 
+            ? texto_saudacao_custom
+                .replace(/\{\{nome\}\}/gi, contato.nome || 'Cliente')
+                .replace(/\{\{empresa\}\}/gi, contato.empresa || '')
+            : `Olá ${contato.nome || 'Cliente'}! Tudo bem? 😊`;
 
           const respSaudacao = await base44.asServiceRole.functions.invoke('enviarWhatsApp', {
             integration_id: integration.id,
