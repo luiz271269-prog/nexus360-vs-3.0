@@ -1674,8 +1674,7 @@ export default function ChatWindow({
 
       if (ultimaMensagem.sender_type === 'contact' && ultimaMensagem.content) {
         setUltimaMensagemCliente(ultimaMensagem.content);
-        // ✅ Abrir sugestor automaticamente quando cliente envia mensagem
-        setMostrarSugestor(true);
+        // ✅ NÃO abrir automaticamente - deixar usuário decidir
         setMostrarReativacaoRapida(false); // Fechar reativação se cliente respondeu
       } else {
         setUltimaMensagemCliente(null);
