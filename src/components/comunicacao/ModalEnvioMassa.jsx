@@ -13,6 +13,7 @@ export default function ModalEnvioMassa({ isOpen, onClose, contatosSelecionados,
   const [enviando, setEnviando] = useState(false);
   const [media, setMedia] = useState(null);
   const [mediaUrl, setMediaUrl] = useState(null);
+  const [mediaCaption, setMediaCaption] = useState('');
   const [carregandoMedia, setCarregandoMedia] = useState(false);
 
   const handleUploadMedia = async (file) => {
@@ -60,7 +61,8 @@ export default function ModalEnvioMassa({ isOpen, onClose, contatosSelecionados,
         mensagem,
         personalizar: true,
         media_url: mediaUrl,
-        media_type: media ? getMediaType(media) : 'none'
+        media_type: media ? getMediaType(media) : 'none',
+        media_caption: mediaCaption || null
       });
 
       if (resultado.data?.success) {
@@ -72,6 +74,7 @@ export default function ModalEnvioMassa({ isOpen, onClose, contatosSelecionados,
 
         if (resultado.data.enviados > 0) {
           setMensagem('');
+          setMediaCaption('');
           onClose();
           if (onEnvioCompleto) onEnvioCompleto();
         }
@@ -138,8 +141,21 @@ export default function ModalEnvioMassa({ isOpen, onClose, contatosSelecionados,
          </div>
 
          {/* Seção de Mídia */}
-         <div className="space-y-2 border rounded-lg p-3 bg-slate-50">
-           <Label>Mídia (opcional)</Label>
+           <div className="space-y-2 border rounded-lg p-3 bg-slate-50">
+             <Label>Mídia (opcional)</Label>
+             {mediaUrl && (
+               <div className="space-y-1">
+                 <Label htmlFor="caption" className="text-xs">Legenda da mídia (opcional)</Label>
+                 <textarea
+                   id="caption"
+                   value={mediaCaption}
+                   onChange={(e) => setMediaCaption(e.target.value)}
+                   placeholder="Adicione uma descrição para a imagem/vídeo..."
+                   rows={2}
+                   className="w-full p-2 text-xs border border-slate-300 rounded resize-none"
+                 />
+               </div>
+             )}
 
            {!mediaUrl ? (
              <div className="flex items-center gap-2">
