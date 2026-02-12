@@ -2418,7 +2418,7 @@ export default function ChatWindow({
       
       {/* NÍVEL 0: 📤 RESPOSTA A BROADCAST (prioridade máxima) */}
       {/* Aparece quando: cliente respondeu a envio em massa recente */}
-      {thread?.metadata?.ultima_mensagem_origem === 'broadcast_massa' && ultimaMensagemCliente && !mostrarSugestor && (
+      {thread?.metadata?.broadcast_data && ultimaMensagemCliente && !mostrarSugestor && !mostrarReativacaoRapida && (
         <div className="px-3 pb-3">
           <div className="mb-2 flex items-center gap-2 px-3 py-1.5 bg-cyan-50 border border-cyan-200 rounded-lg">
             <div className="w-1.5 h-1.5 rounded-full bg-cyan-500 animate-pulse"></div>

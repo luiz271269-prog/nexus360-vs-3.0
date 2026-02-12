@@ -19,8 +19,8 @@ export default function SugestorRespostaBroadcast({
   useEffect(() => {
     // Só gera sugestões se:
     // 1. Última mensagem é do cliente
-    // 2. Thread foi resultado de broadcast recente
-    if (!ultimaMensagemCliente || !thread?.metadata?.ultima_mensagem_origem === 'broadcast_massa') {
+    // 2. Thread foi resultado de broadcast recente (verifica broadcast_data)
+    if (!ultimaMensagemCliente || !thread?.metadata?.broadcast_data) {
       return;
     }
 
@@ -54,22 +54,27 @@ Formato: JSON array com max 3 sugestões
 ]
       `;
 
-      const resultado = await base44.asServiceRole.integrations.Core.InvokeLLM({
+      const resultado = await base44.integrations.Core.InvokeLLM({
         prompt,
         response_json_schema: {
-          type: 'array',
-          items: {
-            type: 'object',
-            properties: {
-              resposta: { type: 'string' },
-              tipo: { type: 'string' },
-              prioridade: { type: 'string' }
+          type: 'object',
+          properties: {
+            sugestoes: {
+              type: 'array',
+              items: {
+                type: 'object',
+                properties: {
+                  resposta: { type: 'string' },
+                  tipo: { type: 'string' },
+                  prioridade: { type: 'string' }
+                }
+              }
             }
           }
         }
       });
 
-      setSugestoes(resultado || []);
+      setSugestoes(resultado?.sugestoes || []);
     } catch (error) {
       console.error('[SugestorBroadcast] Erro:', error);
     } finally {
@@ -105,7 +110,7 @@ Formato: JSON array com max 3 sugestões
     setTimeout(() => setCopiada(null), 2000);
   };
 
-  if (!ultimaMensagemCliente || !thread?.metadata?.ultima_mensagem_origem === 'broadcast_massa') {
+  if (!ultimaMensagemCliente || !thread?.metadata?.broadcast_data) {
     return null;
   }
 
