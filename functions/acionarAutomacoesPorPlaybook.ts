@@ -219,7 +219,6 @@ Deno.serve(async (req) => {
 
 /**
  * Avalia se uma regra do playbook se aplica ao contato
- * Usa campos em cache no Contact para decisão rápida
  */
 function avaliarPlaybookRule(contact, rules) {
   if (!rules || rules.length === 0) return false;
@@ -228,8 +227,6 @@ function avaliarPlaybookRule(contact, rules) {
   const dealRisk = personalizados.deal_risk_cached || 0;
   const engagement = personalizados.engagement_cached || 0;
 
-  // Lógica simples: se a regra menciona "preço" e deal_risk > 70 → true
-  // Expandir conforme necessário
   return rules.some((rule) => {
     if (rule.includes('preço') || rule.includes('benchmark')) {
       return dealRisk > 70;
@@ -239,4 +236,70 @@ function avaliarPlaybookRule(contact, rules) {
     }
     return false;
   });
+}
+
+/**
+ * ✅ Gera hook criativo INDEPENDENTE do conteúdo
+ * Input: análise completa (scores, profile, risk)
+ * Output: { tipo, sugestao, principles }
+ */
+async function gerarHookParaContato(analise, contactData) {
+  try {
+    // Regra 1: Risco relacional alto → Personalização extrema
+    if (['high', 'critical'].includes(analise.relationship_risk?.level)) {
+      return {
+        tipo: 'personalizacao_extrema',
+        sugestao: `Você mencionou que {tema}... achei uma solução específica pra isso. Pode ser interessante?`,
+        principles: ['atenção', 'respeito', 'reconhecimento']
+      };
+    }
+
+    // Regra 2: Price sensitive + processo formal → Contraste
+    if (
+      analise.relationship_profile?.flags?.includes('price_sensitive') &&
+      analise.relationship_profile?.flags?.includes('process_formal')
+    ) {
+      return {
+        tipo: 'contraste_provocacao',
+        sugestao: `Aviso: você provavelmente está pagando a mais nessa categoria. Quer conferir se é verdade?`,
+        principles: ['contraste', 'reatividade']
+      };
+    }
+
+    // Regra 3: Lead frio → Autoridade + prova social
+    if (analise.scores?.deal_risk < 50 && analise.scores?.engagement < 40) {
+      return {
+        tipo: 'autoridade_prova_social',
+        sugestao: `3-5 empresas no seu ramo já fazem isso conosco. Quer saber como conseguiram?`,
+        principles: ['autoridade', 'prova_social']
+      };
+    }
+
+    // Regra 4: Cliente fidelizado mas travado → Reciprocidade
+    if (
+      analise.relationship_profile?.type === 'cliente_fidelizado' &&
+      analise.stage?.current === 'negociacao_stalled'
+    ) {
+      return {
+        tipo: 'reciprocidade_valor',
+        sugestao: `Fiz uma análise do seu histórico de compras conosco. Dá pra economizar ~15% mudando a frequência. Te envio o detalhe?`,
+        principles: ['reciprocidade', 'credibilidade']
+      };
+    }
+
+    // Padrão: Curiosidade + Escassez (funciona em qualquer contexto)
+    return {
+      tipo: 'curiosidade_scarcity',
+      sugestao: `⏰ Achei algo que você pediu há pouco... mas só conseguimos 2 unidades por esse preço. Vale a pena a gente conversar agora?`,
+      principles: ['curiosidade', 'urgência', 'escassez']
+    };
+  } catch (error) {
+    console.warn('[gerarHook] Erro ao gerar hook:', error);
+    // Fallback
+    return {
+      tipo: 'default',
+      sugestao: 'Oi! Gostaria de conversar sobre uma oportunidade?',
+      principles: []
+    };
+  }
 }
