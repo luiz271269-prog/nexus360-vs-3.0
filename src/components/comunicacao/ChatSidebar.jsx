@@ -827,7 +827,30 @@ export default function ChatSidebar({
                     );
                   })()}
 
-                  {/* ✅ MENSAGEM REATIVAÇÃO RÁPIDA */}
+                  {/* 📤 BROADCAST RECENTE - Mostrar se última mensagem foi en massa */}
+                  {(() => {
+                    // Detectar se última mensagem foi enviada em massa
+                    const ultimaMensagemBroadcast = thread.metadata?.ultima_mensagem_origem === 'broadcast_massa' || 
+                      thread.last_message_content?.includes('[Broadcast]');
+                    const ultimaMensagemHoras = thread.last_message_at 
+                      ? Math.floor((Date.now() - new Date(thread.last_message_at).getTime()) / (1000 * 60 * 60))
+                      : null;
+                    
+                    if (ultimaMensagemBroadcast && ultimaMensagemHoras !== null && ultimaMensagemHoras < 24) {
+                      return (
+                        <span 
+                          className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-semibold text-white bg-gradient-to-r from-blue-500 to-cyan-500 shadow-sm animate-pulse"
+                          title={`Broadcast há ${ultimaMensagemHoras}h`}
+                        >
+                          📤 Broadcast
+                        </span>
+                      );
+                    }
+                    
+                    return null;
+                  })()}
+
+                 {/* ✅ MENSAGEM REATIVAÇÃO RÁPIDA */}
                   {(() => {
                     const analise = thread._analiseComportamental;
                     const diasInativo = analise?.days_inactive_inbound || 0;
