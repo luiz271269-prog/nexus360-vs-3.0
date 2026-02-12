@@ -130,15 +130,17 @@ Gere APENAS a mensagem de saudação, sem aspas ou formatação extra.`;
         const mensagemSaudacao = saudacaoResult.trim();
 
         // ═══════════════════════════════════════════════════════════════
-        // 4️⃣ ENVIAR SAUDAÇÃO
+        // 4️⃣ ENVIAR SAUDAÇÃO (via enviarWhatsApp diretamente)
         // ═══════════════════════════════════════════════════════════════
-        await base44.asServiceRole.functions.invoke('enviarMensagemUnificada', {
-          connectionId: thread.whatsapp_integration_id || integracaoDefault.id,
-          threadId: thread.id,
-          contactId: contato.id,
-          content: mensagemSaudacao,
-          mediaType: 'none'
+        const resultadoEnvio = await base44.asServiceRole.functions.invoke('enviarWhatsApp', {
+          integration_id: thread.whatsapp_integration_id || integracaoDefault.id,
+          numero_destino: contato.telefone,
+          mensagem: mensagemSaudacao
         });
+
+        if (!resultadoEnvio.data?.success) {
+          throw new Error(resultadoEnvio.data?.error || 'Falha ao enviar saudação');
+        }
 
         console.log(`[PROMO-LOTE] ✅ Saudação enviada: ${contato.nome}`);
 
@@ -198,12 +200,13 @@ Gere APENAS a mensagem de saudação, sem aspas ou formatação extra.`;
         await new Promise(resolve => setTimeout(resolve, 800));
 
       } catch (error) {
-        console.error(`[PROMO-LOTE] ❌ Erro em ${contato.nome}:`, error.message);
+        const erroDetalhado = error.response?.data || error.data || error.message;
+        console.error(`[PROMO-LOTE] ❌ Erro em ${contato.nome}:`, JSON.stringify(erroDetalhado, null, 2));
         resultados.push({
           contact_id: contato.id,
           nome: contato.nome,
           status: 'erro',
-          motivo: error.message
+          motivo: typeof erroDetalhado === 'string' ? erroDetalhado : JSON.stringify(erroDetalhado)
         });
         erros++;
       }
