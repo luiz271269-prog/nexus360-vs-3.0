@@ -462,23 +462,36 @@ export default function ContatosRequerendoAtencao({ usuario, onSelecionarContato
             }
           </div>
 
-          {/* Mensagem sugerida (preview) */}
-          {item.suggested_message &&
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              navigator.clipboard.writeText(item.suggested_message);
-              toast.success('✅ Mensagem copiada!');
-            }}
-            className="text-[9px] px-1.5 py-0.5 bg-blue-100 text-blue-700 rounded hover:bg-blue-200 transition-colors mt-1 inline-block">
+          {/* Botões de ação */}
+          <div className="flex gap-1.5 mt-2 flex-wrap">
+            {item.suggested_message &&
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                navigator.clipboard.writeText(item.suggested_message);
+                toast.success('✅ Mensagem copiada!');
+              }}
+              className="text-[9px] px-1.5 py-0.5 bg-blue-100 text-blue-700 rounded hover:bg-blue-200 transition-colors inline-block">
 
-              📋 Copiar Sugestão IA
+                📋 Copiar Sugestão IA
+              </button>
+            }
+
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                abrirAnaliseIA(item);
+              }}
+              className="text-[9px] px-1.5 py-0.5 bg-purple-100 text-purple-700 rounded hover:bg-purple-200 transition-colors inline-block flex items-center gap-0.5">
+
+              <Brain className="w-3 h-3" />
+              Análise IA
             </button>
-          }
-        </div>
-      </div>);
+          </div>
+          </div>
+          </div>);
 
-  };
+          };
 
   // ═══════════════════════════════════════════════════════════════
   // VERSÃO HEADER (compacta para o topo)
