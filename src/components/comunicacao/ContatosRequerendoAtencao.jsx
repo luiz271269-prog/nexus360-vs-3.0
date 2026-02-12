@@ -634,7 +634,7 @@ export default function ContatosRequerendoAtencao({ usuario, onSelecionarContato
               Object.entries(grupos).map(([nomeGrupo, items]) => {
                 if (!items || items.length === 0) return null;
 
-                const grupoExpandido = gruposExpandidos[nomeGrupo] !== false;
+                const grupoExpandido = gruposExpandidos[nomeGrupo] === true;
 
                 return (
                   <div key={nomeGrupo} className="border-b border-slate-100">
@@ -920,7 +920,7 @@ export default function ContatosRequerendoAtencao({ usuario, onSelecionarContato
           Object.entries(grupos).map(([nomeGrupo, items]) => {
             if (!items || items.length === 0) return null;
 
-            const grupoExpandido = gruposExpandidos[nomeGrupo] !== false;
+            const grupoExpandido = gruposExpandidos[nomeGrupo] === true;
 
             return (
               <div key={nomeGrupo} className="border-b border-slate-100">
