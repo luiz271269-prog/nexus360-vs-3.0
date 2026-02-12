@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Input } from '@/components/ui/input';
 import {
   AlertTriangle,
   Target,
@@ -13,7 +14,8 @@ import {
   Clock,
   Send,
   Sparkles,
-  MessageSquare } from
+  MessageSquare,
+  Calendar } from
 'lucide-react';
 import { toast } from 'sonner';
 import { useContatosInteligentes } from '../hooks/useContatosInteligentes';
@@ -475,6 +477,31 @@ export default function ContatosRequerendoAtencao({ usuario, onSelecionarContato
 
               {/* Filtros de agrupamento */}
               <div className="px-4 py-2 border-b border-slate-100 bg-slate-50/50 space-y-2">
+                {/* Configuração de dias */}
+                <div className="flex items-center gap-2">
+                  <Calendar className="w-3.5 h-3.5 text-slate-500" />
+                  <Input
+                    type="number"
+                    min="1"
+                    max="90"
+                    value={diasInatividade}
+                    onChange={(e) => {
+                      const dias = parseInt(e.target.value) || 5;
+                      setDiasInatividade(Math.max(1, Math.min(90, dias)));
+                    }}
+                    className="h-7 w-16 text-xs text-center"
+                  />
+                  <span className="text-xs text-slate-600">dias inativos</span>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => refetch()}
+                    className="h-7 px-2 text-xs ml-auto"
+                  >
+                    Aplicar
+                  </Button>
+                </div>
+                
                 <div className="flex gap-1.5">
                   <Button
                   size="sm"
@@ -685,6 +712,31 @@ export default function ContatosRequerendoAtencao({ usuario, onSelecionarContato
       <div className="border-t-2 border-slate-200 bg-slate-50/30">
           {/* Toggle de agrupamento + Botão Promoções */}
           <div className="px-3 py-2.5 bg-slate-100 border-b border-slate-200 space-y-2">
+            {/* Configuração de dias */}
+            <div className="flex items-center gap-2">
+              <Calendar className="w-3.5 h-3.5 text-slate-500" />
+              <Input
+                type="number"
+                min="1"
+                max="90"
+                value={diasInatividade}
+                onChange={(e) => {
+                  const dias = parseInt(e.target.value) || 5;
+                  setDiasInatividade(Math.max(1, Math.min(90, dias)));
+                }}
+                className="h-7 w-16 text-xs text-center"
+              />
+              <span className="text-xs text-slate-600">dias inativos</span>
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => refetch()}
+                className="h-7 px-2 text-xs ml-auto"
+              >
+                Aplicar
+              </Button>
+            </div>
+            
             <div className="flex gap-1.5">
               <Button
               size="sm"
