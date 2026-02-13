@@ -431,18 +431,27 @@ Deno.serve(async (req) => {
         endpoint = `${baseUrl}/instances/${instanceId}/token/${token}/${config.endpoint}`;
         
         if (tipoMidiaReal === 'document') {
-          // ✅ Z-API DOCUMENTO: apenas document + fileName (SEM mimetype!)
-          // ⚠️ CRÍTICO: Z-API NÃO aceita 'mimetype' - detecta automaticamente pela extensão
-          // 📌 Auditoria: Removido mimetype para evitar erro NOT_FOUND (compatível com doc Z-API)
-          const nomeArquivoSeguro = sanitizarFileName(media_caption || 'document', extensaoArquivo);
+          // ✅ Z-API DOCUMENTO: document + fileName obrigatório com extensão válida
+          // ⚠️ CRÍTICO: Z-API precisa que fileName tenha extensão para reconhecer tipo
+          // Se media_caption não informado, usar nome genérico com extensão correta
+          let nomeArquivoSeguro;
+          
+          if (media_caption && media_caption.includes('.')) {
+            // Caption já tem extensão
+            nomeArquivoSeguro = sanitizarFileName(media_caption, extensaoArquivo);
+          } else {
+            // Garantir que tem extensão válida (ex: "documento.pdf")
+            const nomeBase = media_caption ? media_caption.replace(/[\/:*?"<>|\\]/g, '_').slice(0, 100) : 'documento';
+            nomeArquivoSeguro = `${nomeBase}.${extensaoArquivo}`;
+          }
           
           body = {
             phone: numeroFormatado,
             document: media_url,
-            fileName: nomeArquivoSeguro   // Z-API detecta tipo pela extensão do fileName
+            fileName: nomeArquivoSeguro   // ✅ OBRIGATÓRIO: Z-API detecta tipo pela extensão
           };
           
-          console.log(`[ENVIAR-WHATSAPP-UNIFICADO] 📄 Documento Z-API enviado: ${nomeArquivoSeguro}`);
+          console.log(`[ENVIAR-WHATSAPP-UNIFICADO] 📄 Z-API documento: "${nomeArquivoSeguro}" | URL: ${media_url?.substring(0, 50)}...`);
         } else if (tipoMidiaReal === 'image') {
           // Z-API IMAGEM - IMPORTANTE: Z-API precisa fazer download da URL
           // Se a URL for do Supabase Storage, garantir que é pública
