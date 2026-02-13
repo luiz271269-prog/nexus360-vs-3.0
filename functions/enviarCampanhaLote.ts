@@ -32,11 +32,11 @@ Deno.serve(async (req) => {
       personalizar
     });
 
-    // ✅ VALIDAÇÃO: Mensagem obrigatória
-    if (!mensagem || !mensagem.trim()) {
+    // ✅ VALIDAÇÃO: Mensagem OU mídia obrigatória
+    if ((!mensagem || !mensagem.trim()) && !media_url) {
       return Response.json({
         success: false,
-        error: `Mensagem vazia. Recebido: "${mensagem}"`
+        error: `Mensagem e mídia vazias. Recebido mensagem: "${mensagem}", media_url: ${media_url}`
       }, { status: 400 });
     }
 
@@ -122,7 +122,7 @@ Deno.serve(async (req) => {
 
         // ✅ MODO BROADCAST: Enviar imediatamente via gateway
         if (modo === 'broadcast') {
-          console.log(`[CAMPANHA-LOTE] 📤 Enviando broadcast para ${contato.nome}`);
+          console.log(`[CAMPANHA-LOTE] 📤 Enviando broadcast para ${contato.nome} | Mídia: ${media_type}`);
 
           // ✅ CHAMAR GATEWAY DE ENVIO COM MÍDIA
            const respEnvio = await base44.asServiceRole.functions.invoke('enviarWhatsApp', {
@@ -131,7 +131,7 @@ Deno.serve(async (req) => {
              mensagem: mensagemFinal,
              media_url,
              media_type,
-             media_caption: media_caption || null
+             media_caption: media_caption || (media_url ? mensagemFinal : null)
            });
 
           if (!respEnvio.data?.success) {
@@ -145,7 +145,7 @@ Deno.serve(async (req) => {
             sender_type: 'user',
             recipient_id: contato.id,
             recipient_type: 'contact',
-            content: media_url ? (media_caption || '[Mídia]') : mensagemFinal,
+            content: mensagemFinal,
             channel: 'whatsapp',
             status: 'enviada',
             whatsapp_message_id: respEnvio.data.message_id,
@@ -158,29 +158,30 @@ Deno.serve(async (req) => {
               whatsapp_integration_id: integration.id,
               origem_campanha: 'broadcast_massa',
               personalizada: personalizar,
-              midia_incluida: !!media_url
+              midia_incluida: !!media_url,
+              broadcast_id: `broadcast_${now.getTime()}`
             }
           });
 
-          // ✅ REGRA 5: ATUALIZAR THREAD (com marcação de broadcast)
+          // ✅ REGRA 5: ATUALIZAR THREAD (com marcação de broadcast + metadados estruturados)
           await base44.asServiceRole.entities.MessageThread.update(thread.id, {
-            last_message_content: media_url 
-              ? `[Broadcast] [${media_type}] ${(media_caption || mensagemFinal).substring(0, 60)}`
-              : `[Broadcast] ${mensagemFinal.substring(0, 80)}`,
+            last_message_content: `[Broadcast] ${mensagemFinal.substring(0, 80)}`,
             last_message_at: now.toISOString(),
             last_outbound_at: now.toISOString(),
             last_message_sender: 'user',
             last_human_message_at: now.toISOString(),
             last_media_type: media_url ? media_type : 'none',
             whatsapp_integration_id: integration.id,
-            pre_atendimento_ativo: false,  // ✅ Desliga URA se ativa
+            pre_atendimento_ativo: false,
             metadata: {
               ultima_mensagem_origem: 'broadcast_massa',
               broadcast_data: {
                 sent_at: now.toISOString(),
+                broadcast_sent_at: now.toISOString(),
                 broadcast_id: `broadcast_${now.getTime()}`,
                 tem_midia: !!media_url,
-                tipo_midia: media_type
+                tipo_midia: media_type,
+                timestamp: now.toISOString()
               },
               broadcast_para_contatos: contact_ids.length
             }
