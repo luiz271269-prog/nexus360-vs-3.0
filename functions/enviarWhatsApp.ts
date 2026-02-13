@@ -452,8 +452,10 @@ Deno.serve(async (req) => {
         let nomeArquivoSeguro;
         
         if (tipoMidiaReal === 'document') {
-          // ✅ Z-API DOCUMENTO com extensão no path
-          endpoint = `${baseUrl}/instances/${instanceId}/token/${token}/${config.endpoint}/${extensaoArquivo}`;
+          // ✅ Z-API DOCUMENTO - Payload correto segundo documentação oficial
+          // Endpoint: POST /instances/{instanceId}/token/{token}/send-document
+          // Corpo: { phone, document, fileName }
+          endpoint = `${baseUrl}/instances/${instanceId}/token/${token}/${config.endpoint}`;
           
           if (media_caption && media_caption.includes('.')) {
             nomeArquivoSeguro = sanitizarFileName(media_caption, extensaoArquivo);
@@ -462,13 +464,23 @@ Deno.serve(async (req) => {
             nomeArquivoSeguro = `${nomeBase}.${extensaoArquivo}`;
           }
           
+          // ✅ VALIDAÇÃO CRÍTICA: Garantir que fileName tem extensão
+          if (!nomeArquivoSeguro.includes('.')) {
+            nomeArquivoSeguro = `${nomeArquivoSeguro}.${extensaoArquivo}`;
+          }
+          
           body = {
             phone: numeroFormatado,
             document: media_url,
             fileName: nomeArquivoSeguro
           };
           
-          console.log(`[ENVIAR-WHATSAPP-UNIFICADO] 📄 Z-API documento: ${nomeArquivoSeguro} | ext=${extensaoArquivo} | URL: ${media_url?.substring(0, 50)}...`);
+          console.log(`[ENVIAR-WHATSAPP-UNIFICADO] 📄 Z-API DOCUMENTO CORRETO`);
+          console.log(`[ENVIAR-WHATSAPP-UNIFICADO]   - Endpoint: ${endpoint}`);
+          console.log(`[ENVIAR-WHATSAPP-UNIFICADO]   - Phone: ${numeroFormatado}`);
+          console.log(`[ENVIAR-WHATSAPP-UNIFICADO]   - Document URL: ${media_url?.substring(0, 80)}...`);
+          console.log(`[ENVIAR-WHATSAPP-UNIFICADO]   - FileName: ${nomeArquivoSeguro}`);
+          console.log(`[ENVIAR-WHATSAPP-UNIFICADO]   - Extension: ${extensaoArquivo}`);
         } else {
           // Outros tipos (imagem, vídeo, audio)
           endpoint = `${baseUrl}/instances/${instanceId}/token/${token}/${config.endpoint}`;
