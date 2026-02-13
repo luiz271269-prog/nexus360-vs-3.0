@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { base44 } from '@/api/base44Client';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -12,39 +12,61 @@ import {
   Clock,
   Loader2,
   X,
-  Download
+  Download,
+  RefreshCw,
+  BookOpen
 } from 'lucide-react';
 import { toast } from 'sonner';
 
 export default function PainelAnaliseContatoIA({ contactId, onClose }) {
   const [analise, setAnalise] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [reanalysing, setReanalysing] = useState(false);
+
+  const carregarAnalise = async () => {
+    if (!contactId) return;
+    
+    try {
+      setLoading(true);
+      
+      const analises = await base44.entities.ContactBehaviorAnalysis.filter({
+        contact_id: contactId
+      }, '-analyzed_at', 1);
+
+      if (analises.length > 0) {
+        setAnalise(analises[0]);
+      } else {
+        toast.info('Nenhuma análise disponível');
+      }
+    } catch (error) {
+      console.error('[PainelAnaliseContatoIA] Erro:', error);
+      toast.error('Erro ao carregar análise');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleReanalise = async () => {
+    try {
+      setReanalysing(true);
+      toast.loading('🧠 Analisando últimas 50 mensagens...', { id: 'reanalise' });
+      
+      await base44.functions.invoke('analisarComportamentoContato', {
+        contact_id: contactId,
+        limit: 50
+      });
+      
+      await carregarAnalise();
+      toast.success('✅ Análise atualizada!', { id: 'reanalise' });
+    } catch (error) {
+      console.error('[PainelAnaliseContatoIA] Erro reanálise:', error);
+      toast.error('Erro ao reanalisar', { id: 'reanalise' });
+    } finally {
+      setReanalysing(false);
+    }
+  };
 
   useEffect(() => {
-    if (!contactId) return;
-
-    const carregarAnalise = async () => {
-      try {
-        setLoading(true);
-        
-        // Buscar análise do contato
-        const analises = await base44.entities.ContactBehaviorAnalysis.filter({
-          contact_id: contactId
-        }, '-analyzed_at', 1);
-
-        if (analises.length > 0) {
-          setAnalise(analises[0]);
-        } else {
-          toast.info('Nenhuma análise disponível para este contato');
-        }
-      } catch (error) {
-        console.error('[PainelAnaliseContatoIA] Erro ao carregar análise:', error);
-        toast.error('Erro ao carregar análise');
-      } finally {
-        setLoading(false);
-      }
-    };
-
     carregarAnalise();
   }, [contactId]);
 
@@ -69,14 +91,32 @@ export default function PainelAnaliseContatoIA({ contactId, onClose }) {
         <div className="flex items-center gap-2 text-white">
           <Brain className="w-5 h-5" />
           <h3 className="font-bold">Análise IA</h3>
+          <Badge className="bg-white/20 text-white text-[10px] px-1.5">
+            50 msgs
+          </Badge>
         </div>
-        <Button
-          onClick={onClose}
-          variant="ghost"
-          size="icon"
-          className="h-6 w-6 hover:bg-white/20 text-white">
-          <X className="w-4 h-4" />
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button
+            onClick={handleReanalise}
+            disabled={reanalysing}
+            variant="ghost"
+            size="icon"
+            className="h-7 w-7 hover:bg-white/20 text-white"
+            title="Reanalisar (50 mensagens)">
+            {reanalysing ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : (
+              <RefreshCw className="w-4 h-4" />
+            )}
+          </Button>
+          <Button
+            onClick={onClose}
+            variant="ghost"
+            size="icon"
+            className="h-6 w-6 hover:bg-white/20 text-white">
+            <X className="w-4 h-4" />
+          </Button>
+        </div>
       </div>
 
       {/* Conteúdo */}
@@ -87,10 +127,26 @@ export default function PainelAnaliseContatoIA({ contactId, onClose }) {
         </div>
       ) : analise ? (
         <div className="p-6 space-y-4 max-h-[600px] overflow-y-auto">
+          {/* Última Mensagem */}
+          {analise.last_inbound_at && (
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+              <div className="flex items-center gap-2 mb-2">
+                <BookOpen className="w-4 h-4 text-blue-600" />
+                <span className="text-xs font-bold text-blue-800">Última mensagem</span>
+              </div>
+              <p className="text-sm text-slate-700 mb-1">
+                {mensagensProcessadas?.[mensagensProcessadas.length - 1]?.content?.substring(0, 150) || 'N/D'}
+              </p>
+              <div className="text-[10px] text-slate-500">
+                🕐 {new Date(analise.last_inbound_at).toLocaleString('pt-BR')} ({analise.days_inactive_inbound || 0}d atrás)
+              </div>
+            </div>
+          )}
+        
           {/* Status */}
           <div className="space-y-2">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-semibold text-slate-600">STATUS</span>
+              <span className="text-xs font-semibold text-slate-600">PRIORIDADE</span>
               <Badge className={
                 analise.priority_label === 'CRITICO' ? 'bg-red-500' :
                 analise.priority_label === 'ALTO' ? 'bg-orange-500' :
@@ -101,78 +157,97 @@ export default function PainelAnaliseContatoIA({ contactId, onClose }) {
               </Badge>
             </div>
             <div className="text-xs text-slate-600">
-              Score: {analise.priority_score || 0}/100
+              Score: {analise.priority_score || 0}/100 • {analise.window_size || 0} msgs analisadas
             </div>
           </div>
 
-          {/* AI Insights */}
-          {analise.ai_insights && (
-            <Card className="border-purple-200 bg-purple-50/50">
+          {/* Prontuário Completo */}
+          {analise.prontuario_ptbr && (
+            <Card className="border-purple-200 bg-gradient-to-br from-purple-50 to-indigo-50">
               <CardHeader className="pb-3">
                 <CardTitle className="text-sm flex items-center gap-2">
-                  <Zap className="w-4 h-4 text-purple-600" />
-                  Insights IA
+                  <BookOpen className="w-4 h-4 text-purple-600" />
+                  Prontuário (50 msgs)
                 </CardTitle>
               </CardHeader>
-              <CardContent className="space-y-3 text-sm">
-                {/* Sentimento */}
-                {analise.ai_insights.sentiment && (
+              <CardContent className="space-y-3 text-xs">
+                {analise.prontuario_ptbr.visao_geral && (
                   <div>
-                    <p className="text-xs font-semibold text-slate-700 mb-1">Sentimento</p>
-                    <Badge variant="outline" className={
-                      analise.ai_insights.sentiment?.includes('positivo') 
-                        ? 'bg-green-100 text-green-800 border-green-300'
-                        : analise.ai_insights.sentiment?.includes('negativo')
-                        ? 'bg-red-100 text-red-800 border-red-300'
-                        : 'bg-slate-100 text-slate-800 border-slate-300'
-                    }>
-                      {analise.ai_insights.sentiment}
-                    </Badge>
+                    <p className="font-bold text-purple-900 mb-1">1️⃣ Visão Geral</p>
+                    <p className="text-slate-700 leading-relaxed">{analise.prontuario_ptbr.visao_geral}</p>
                   </div>
                 )}
-
-                {/* Scores */}
-                <div className="grid grid-cols-2 gap-2 pt-2">
-                  {analise.ai_insights.buy_intent > 0 && (
-                    <div className="bg-white rounded p-2">
-                      <p className="text-[10px] text-slate-600">Intenção Compra</p>
-                      <p className="font-bold text-green-600">{analise.ai_insights.buy_intent}%</p>
-                    </div>
-                  )}
-                  {analise.ai_insights.engagement > 0 && (
-                    <div className="bg-white rounded p-2">
-                      <p className="text-[10px] text-slate-600">Engajamento</p>
-                      <p className="font-bold text-blue-600">{analise.ai_insights.engagement}%</p>
-                    </div>
-                  )}
-                  {analise.ai_insights.deal_risk > 0 && (
-                    <div className="bg-white rounded p-2">
-                      <p className="text-[10px] text-slate-600">Risco Deal</p>
-                      <p className="font-bold text-red-600">{analise.ai_insights.deal_risk}%</p>
-                    </div>
-                  )}
-                  {analise.ai_insights.health > 0 && (
-                    <div className="bg-white rounded p-2">
-                      <p className="text-[10px] text-slate-600">Saúde Relação</p>
-                      <p className="font-bold text-purple-600">{analise.ai_insights.health}%</p>
-                    </div>
-                  )}
-                </div>
-
-                {/* Próxima ação */}
-                {analise.ai_insights.next_best_action && (
-                  <div className="bg-white rounded p-2 mt-2 border-l-4 border-indigo-500">
-                    <p className="text-[10px] font-bold text-indigo-700 mb-1">Próxima Ação</p>
-                    <p className="text-xs text-slate-700">{analise.ai_insights.next_best_action.action}</p>
-                    {analise.ai_insights.next_best_action.deadline_hours && (
-                      <p className="text-[10px] text-slate-500 mt-1">
-                        ⏱️ Prazo: {analise.ai_insights.next_best_action.deadline_hours}h
-                      </p>
-                    )}
+                
+                {analise.prontuario_ptbr.necessidades_contexto && (
+                  <div>
+                    <p className="font-bold text-purple-900 mb-1">2️⃣ Necessidades</p>
+                    <p className="text-slate-700 leading-relaxed">{analise.prontuario_ptbr.necessidades_contexto}</p>
+                  </div>
+                )}
+                
+                {analise.prontuario_ptbr.causas_principais && (
+                  <div>
+                    <p className="font-bold text-purple-900 mb-1">4️⃣ Causas Principais</p>
+                    <p className="text-slate-700 leading-relaxed">{analise.prontuario_ptbr.causas_principais}</p>
+                  </div>
+                )}
+                
+                {analise.prontuario_ptbr.recomendacoes_objetivas && (
+                  <div className="bg-white rounded p-2 border-l-4 border-purple-500">
+                    <p className="font-bold text-purple-900 mb-1">6️⃣ Recomendações</p>
+                    <p className="text-slate-700 leading-relaxed">{analise.prontuario_ptbr.recomendacoes_objetivas}</p>
+                  </div>
+                )}
+                
+                {analise.prontuario_ptbr.mensagem_pronta && (
+                  <div className="bg-green-50 rounded p-2 border border-green-200">
+                    <p className="font-bold text-green-900 mb-1">💬 Mensagem Sugerida</p>
+                    <p className="text-slate-700 leading-relaxed italic">{analise.prontuario_ptbr.mensagem_pronta}</p>
+                    <Button
+                      onClick={() => {
+                        navigator.clipboard.writeText(analise.prontuario_ptbr.mensagem_pronta);
+                        toast.success('✅ Copiada!');
+                      }}
+                      size="sm"
+                      variant="outline"
+                      className="mt-2 h-6 text-[10px]"
+                    >
+                      📋 Copiar
+                    </Button>
                   </div>
                 )}
               </CardContent>
             </Card>
+          )}
+
+          {/* Scores (Compacto) */}
+          {analise.scores && (
+            <div className="grid grid-cols-2 gap-2">
+              {analise.scores.buy_intent > 0 && (
+                <div className="bg-green-50 rounded-lg p-2 border border-green-200">
+                  <p className="text-[10px] text-green-700 font-semibold">Intenção Compra</p>
+                  <p className="font-bold text-green-600 text-lg">{analise.scores.buy_intent}%</p>
+                </div>
+              )}
+              {analise.scores.engagement > 0 && (
+                <div className="bg-blue-50 rounded-lg p-2 border border-blue-200">
+                  <p className="text-[10px] text-blue-700 font-semibold">Engajamento</p>
+                  <p className="font-bold text-blue-600 text-lg">{analise.scores.engagement}%</p>
+                </div>
+              )}
+              {analise.scores.deal_risk > 0 && (
+                <div className="bg-red-50 rounded-lg p-2 border border-red-200">
+                  <p className="text-[10px] text-red-700 font-semibold">Risco Deal</p>
+                  <p className="font-bold text-red-600 text-lg">{analise.scores.deal_risk}%</p>
+                </div>
+              )}
+              {analise.scores.health > 0 && (
+                <div className="bg-purple-50 rounded-lg p-2 border border-purple-200">
+                  <p className="text-[10px] text-purple-700 font-semibold">Saúde Relação</p>
+                  <p className="font-bold text-purple-600 text-lg">{analise.scores.health}%</p>
+                </div>
+              )}
+            </div>
           )}
 
           {/* Métricas */}
@@ -233,12 +308,17 @@ export default function PainelAnaliseContatoIA({ contactId, onClose }) {
             </Card>
           )}
 
-          {/* Data análise */}
-          <div className="text-[10px] text-slate-500 flex items-center gap-1 pt-2 border-t border-slate-100">
-            <Clock className="w-3 h-3" />
-            Analisado há {analise.analyzed_at ? 
-              Math.round((Date.now() - new Date(analise.analyzed_at).getTime()) / 60000) + 'min' 
-              : 'recentemente'}
+          {/* Rodapé com timestamp */}
+          <div className="text-[10px] text-slate-500 flex items-center justify-between pt-2 border-t border-slate-100">
+            <div className="flex items-center gap-1">
+              <Clock className="w-3 h-3" />
+              Analisado há {analise.analyzed_at ? 
+                Math.round((Date.now() - new Date(analise.analyzed_at).getTime()) / 60000) + 'min' 
+                : 'recentemente'}
+            </div>
+            <Badge variant="outline" className="text-[9px]">
+              {analise.window_size || 0} msgs
+            </Badge>
           </div>
         </div>
       ) : null}
