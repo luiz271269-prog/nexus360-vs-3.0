@@ -89,20 +89,22 @@ Deno.serve(async (req) => {
         }
       }
       
-      // ✅ ESTRATÉGIA 2: Se não achou por telefone, buscar texto (limitado a 200)
+      // ✅ ESTRATÉGIA 2: Se não achou por telefone, buscar texto (universo expandido 1000)
       if (contatos.length === 0) {
-        const todosBD = await base44.asServiceRole.entities.Contact.list('-ultima_interacao', 200);
+        const todosBD = await base44.asServiceRole.entities.Contact.list('-ultima_interacao', 1000);
         
         // Filtro local (Base44 não suporta $regex case-insensitive)
         contatos = todosBD.filter(c => {
           const nome = (c.nome || '').toLowerCase();
           const empresa = (c.empresa || '').toLowerCase();
           const cargo = (c.cargo || '').toLowerCase();
+          const observacoes = (c.observacoes || '').toLowerCase();
           const telefone = (c.telefone || '').replace(/\D/g, '');
           
           return nome.includes(termo) || 
                  empresa.includes(termo) || 
                  cargo.includes(termo) ||
+                 observacoes.includes(termo) ||
                  (termoNumeros && telefone.includes(termoNumeros));
         }).slice(0, 100); // Limitar a 100
         
