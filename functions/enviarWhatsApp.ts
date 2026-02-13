@@ -440,15 +440,9 @@ Deno.serve(async (req) => {
         }
       } else {
         // ========== Z-API ==========
-        endpoint = `${baseUrl}/instances/${instanceId}/token/${token}/${config.endpoint}`;
-        
+        // ✅ Para Z-API, documento precisa incluir extensão no endpoint: /send-document/{extension}
         if (tipoMidiaReal === 'document') {
-          // ✅ Z-API DOCUMENTO: Não enviar document diretamente - Z-API não tem /send-document
-          // SOLUÇÃO: Enviar como texto com link ou usar método alternativo
-          // Endpoint /send-document retorna NOT_FOUND - Z-API não suporta
-          
-          // FALLBACK: Enviar como mensagem de texto com link para download
-          endpoint = `${baseUrl}/instances/${instanceId}/token/${token}/send-text`;
+          endpoint = `${baseUrl}/instances/${instanceId}/token/${token}/${config.endpoint}/${extensaoArquivo}`;
           
           let nomeArquivoSeguro;
           if (media_caption && media_caption.includes('.')) {
@@ -460,11 +454,17 @@ Deno.serve(async (req) => {
           
           body = {
             phone: numeroFormatado,
-            message: `📄 ${nomeArquivoSeguro}\n\n${media_url}`
+            document: media_url,
+            fileName: nomeArquivoSeguro
           };
           
-          console.log(`[ENVIAR-WHATSAPP-UNIFICADO] 📄 Z-API documento (FALLBACK via texto): "${nomeArquivoSeguro}" | Link: ${media_url?.substring(0, 50)}...`);
-        } else if (tipoMidiaReal === 'image') {
+          console.log(`[ENVIAR-WHATSAPP-UNIFICADO] 📄 Z-API documento: ${nomeArquivoSeguro} | ext=${extensaoArquivo} | URL: ${media_url?.substring(0, 50)}...`);
+        } else {
+          // Outros tipos (imagem, vídeo)
+          endpoint = `${baseUrl}/instances/${instanceId}/token/${token}/${config.endpoint}`;
+        }
+        
+        if (tipoMidiaReal === 'image') {
           // Z-API IMAGEM - IMPORTANTE: Z-API precisa fazer download da URL
           // Se a URL for do Supabase Storage, garantir que é pública
           let urlParaUsar = media_url;
