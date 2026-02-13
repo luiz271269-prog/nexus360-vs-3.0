@@ -443,27 +443,27 @@ Deno.serve(async (req) => {
         endpoint = `${baseUrl}/instances/${instanceId}/token/${token}/${config.endpoint}`;
         
         if (tipoMidiaReal === 'document') {
-          // ✅ Z-API DOCUMENTO: document + fileName obrigatório com extensão válida
-          // ⚠️ CRÍTICO: Z-API precisa que fileName tenha extensão para reconhecer tipo
-          // Se media_caption não informado, usar nome genérico com extensão correta
-          let nomeArquivoSeguro;
+          // ✅ Z-API DOCUMENTO: Não enviar document diretamente - Z-API não tem /send-document
+          // SOLUÇÃO: Enviar como texto com link ou usar método alternativo
+          // Endpoint /send-document retorna NOT_FOUND - Z-API não suporta
           
+          // FALLBACK: Enviar como mensagem de texto com link para download
+          endpoint = `${baseUrl}/instances/${instanceId}/token/${token}/send-text`;
+          
+          let nomeArquivoSeguro;
           if (media_caption && media_caption.includes('.')) {
-            // Caption já tem extensão
             nomeArquivoSeguro = sanitizarFileName(media_caption, extensaoArquivo);
           } else {
-            // Garantir que tem extensão válida (ex: "documento.pdf")
             const nomeBase = media_caption ? media_caption.replace(/[\/:*?"<>|\\]/g, '_').slice(0, 100) : 'documento';
             nomeArquivoSeguro = `${nomeBase}.${extensaoArquivo}`;
           }
           
           body = {
             phone: numeroFormatado,
-            document: media_url,
-            fileName: nomeArquivoSeguro   // ✅ OBRIGATÓRIO: Z-API detecta tipo pela extensão
+            message: `📄 ${nomeArquivoSeguro}\n\n${media_url}`
           };
           
-          console.log(`[ENVIAR-WHATSAPP-UNIFICADO] 📄 Z-API documento: "${nomeArquivoSeguro}" | URL: ${media_url?.substring(0, 50)}...`);
+          console.log(`[ENVIAR-WHATSAPP-UNIFICADO] 📄 Z-API documento (FALLBACK via texto): "${nomeArquivoSeguro}" | Link: ${media_url?.substring(0, 50)}...`);
         } else if (tipoMidiaReal === 'image') {
           // Z-API IMAGEM - IMPORTANTE: Z-API precisa fazer download da URL
           // Se a URL for do Supabase Storage, garantir que é pública
