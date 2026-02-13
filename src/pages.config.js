@@ -120,6 +120,7 @@ import Vendas from './pages/Vendas';
 import Vendedores from './pages/Vendedores';
 import WhatsAppTemplates from './pages/WhatsAppTemplates';
 import DiagnosticoContatoSical from './pages/DiagnosticoContatoSical';
+import DiagnosticoThaisSical from './pages/DiagnosticoThaisSical';
 import __Layout from './Layout.jsx';
 
 
@@ -197,6 +198,7 @@ export const PAGES = {
     "Vendedores": Vendedores,
     "WhatsAppTemplates": WhatsAppTemplates,
     "DiagnosticoContatoSical": DiagnosticoContatoSical,
+    "DiagnosticoThaisSical": DiagnosticoThaisSical,
 }
 
 export const pagesConfig = {
