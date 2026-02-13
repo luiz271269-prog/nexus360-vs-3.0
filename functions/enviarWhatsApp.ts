@@ -352,8 +352,8 @@ Deno.serve(async (req) => {
           body.messageId = reply_to_message_id;
         }
       } else {
-        // Z-API: usar send-audio com campo 'audio'
-        // Documentação: https://developer.z-api.io/en/message/send-message-audio
+        // Z-API: usar endpoint correto para áudio
+        // Z-API pode usar send-audio ou send-message dependendo da versão
         endpoint = `${baseUrl}/instances/${instanceId}/token/${token}/send-audio`;
         body = {
           phone: numeroFormatado,
