@@ -448,11 +448,12 @@ Deno.serve(async (req) => {
         }
       } else {
         // ========== Z-API ==========
-        // ✅ Para Z-API, documento precisa incluir extensão no endpoint: /send-document/{extension}
+        let nomeArquivoSeguro;
+        
         if (tipoMidiaReal === 'document') {
+          // ✅ Z-API DOCUMENTO com extensão no path
           endpoint = `${baseUrl}/instances/${instanceId}/token/${token}/${config.endpoint}/${extensaoArquivo}`;
           
-          let nomeArquivoSeguro;
           if (media_caption && media_caption.includes('.')) {
             nomeArquivoSeguro = sanitizarFileName(media_caption, extensaoArquivo);
           } else {
@@ -468,7 +469,7 @@ Deno.serve(async (req) => {
           
           console.log(`[ENVIAR-WHATSAPP-UNIFICADO] 📄 Z-API documento: ${nomeArquivoSeguro} | ext=${extensaoArquivo} | URL: ${media_url?.substring(0, 50)}...`);
         } else {
-          // Outros tipos (imagem, vídeo)
+          // Outros tipos (imagem, vídeo, audio)
           endpoint = `${baseUrl}/instances/${instanceId}/token/${token}/${config.endpoint}`;
         }
         
