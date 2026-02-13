@@ -23,7 +23,7 @@ const MEDIA_CONFIG = {
     zapiField: 'document', 
     wapiField: 'document',
     caption: true,
-    zapiRequiresExtension: true,  // Exige /send-document/{extension}
+    zapiRequiresFileName: true,   // Z-API exige fileName obrigatoriamente
     zapiFallbackToText: true,      // Fallback para /send-text se falhar
     wapiRequiresExtension: true 
   }
