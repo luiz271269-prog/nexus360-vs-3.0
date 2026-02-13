@@ -179,13 +179,14 @@ export default function PainelAnaliseContatoIA({ contactId, onClose }) {
         </div>
       </div>
 
-      {/* Conteúdo */}
-      {loading ? (
-        <div className="p-8 text-center">
-          <Loader2 className="w-8 h-8 animate-spin mx-auto text-purple-600 mb-3" />
-          <p className="text-sm text-slate-600">Analisando contato...</p>
-        </div>
-      ) : analise ? (
+      {/* Conteúdo das Tabs */}
+      {tabAtiva === 'perfil' ? (
+        loading ? (
+          <div className="p-8 text-center">
+            <Loader2 className="w-8 h-8 animate-spin mx-auto text-purple-600 mb-3" />
+            <p className="text-sm text-slate-600">Analisando perfil...</p>
+          </div>
+        ) : analise ? (
         <div className="p-6 space-y-4 max-h-[600px] overflow-y-auto">
           {/* Última Mensagem */}
           {analise.last_inbound_at && (
