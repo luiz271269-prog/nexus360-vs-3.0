@@ -269,6 +269,7 @@ Deno.serve(async (req) => {
 
     let endpoint;
     let body;
+    let tipoMidiaReal; // ✅ CRÍTICO: Declarar no escopo principal para fallback funcionar
 
     // ========== BOTÕES INTERATIVOS ==========
     if (message_type === 'interactive_buttons' || interactive_buttons) {
