@@ -431,8 +431,9 @@ Deno.serve(async (req) => {
         endpoint = `${baseUrl}/instances/${instanceId}/token/${token}/${config.endpoint}`;
         
         if (tipoMidiaReal === 'document') {
-          // ✅ Z-API DOCUMENTO: apenas document + fileName
+          // ✅ Z-API DOCUMENTO: apenas document + fileName (SEM mimetype!)
           // ⚠️ CRÍTICO: Z-API NÃO aceita 'mimetype' - detecta automaticamente pela extensão
+          // 📌 Auditoria: Removido mimetype para evitar erro NOT_FOUND (compatível com doc Z-API)
           const nomeArquivoSeguro = sanitizarFileName(media_caption || 'document', extensaoArquivo);
           
           body = {
@@ -441,7 +442,7 @@ Deno.serve(async (req) => {
             fileName: nomeArquivoSeguro   // Z-API detecta tipo pela extensão do fileName
           };
           
-          console.log(`[ENVIAR-WHATSAPP-UNIFICADO] 📄 Documento Z-API: ${nomeArquivoSeguro}`);
+          console.log(`[ENVIAR-WHATSAPP-UNIFICADO] 📄 Documento Z-API enviado: ${nomeArquivoSeguro}`);
         } else if (tipoMidiaReal === 'image') {
           // Z-API IMAGEM - IMPORTANTE: Z-API precisa fazer download da URL
           // Se a URL for do Supabase Storage, garantir que é pública
