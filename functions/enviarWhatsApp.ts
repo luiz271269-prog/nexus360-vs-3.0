@@ -7,7 +7,8 @@ import { createClientFromRequest } from 'npm:@base44/sdk@0.8.4';
 // Detecta automaticamente o provedor e adapta o envio
 // ============================================================================
 
-const VERSION = 'v2.1.0';
+const VERSION = 'v2.3.0-FIX-ZAPI';
+const ZAPI_BASE_URL = 'https://api.z-api.io';
 const WAPI_BASE_URL = 'https://api.w-api.app/v1';
 
 // Configuração de mídia por provedor
