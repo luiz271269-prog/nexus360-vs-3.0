@@ -13,11 +13,10 @@ export default function DiagnosticoThaisSical() {
   const executarDiagnostico = async () => {
     setCarregando(true);
     try {
-      // 1. Buscar usuário Thais
+      // 1. Buscar usuário Thais (email exato para garantir precisão)
       const todosUsuarios = await base44.entities.User.list('-created_date', 200);
       const thais = todosUsuarios.find(u => 
-        (u.email || '').toLowerCase().includes('thais') ||
-        (u.full_name || '').toLowerCase().includes('thais')
+        (u.email || '').toLowerCase() === 'vendas5@liesch.com.br'
       );
 
       if (!thais) {
@@ -26,8 +25,8 @@ export default function DiagnosticoThaisSical() {
         return;
       }
 
-      // 2. Buscar contatos "sical"
-      const todosContatos = await base44.entities.Contact.list('-created_date', 500);
+      // 2. Buscar contatos "sical" (aumentado para 1000 para garantir que pegue todos)
+      const todosContatos = await base44.entities.Contact.list('-created_date', 1000);
       const contatosSical = todosContatos.filter(c => 
         (c.nome || '').toLowerCase().includes('sical') ||
         (c.empresa || '').toLowerCase().includes('sical')

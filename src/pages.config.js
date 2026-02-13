@@ -69,10 +69,12 @@ import DebugWebhooks from './pages/DebugWebhooks';
 import DiagnosticoBloqueios from './pages/DiagnosticoBloqueios';
 import DiagnosticoCirurgico from './pages/DiagnosticoCirurgico';
 import DiagnosticoContato from './pages/DiagnosticoContato';
+import DiagnosticoContatoSical from './pages/DiagnosticoContatoSical';
 import DiagnosticoDetalhado from './pages/DiagnosticoDetalhado';
 import DiagnosticoInbound from './pages/DiagnosticoInbound';
 import DiagnosticoMensagemLuiz from './pages/DiagnosticoMensagemLuiz';
 import DiagnosticoPreAtendimento from './pages/DiagnosticoPreAtendimento';
+import DiagnosticoThaisSical from './pages/DiagnosticoThaisSical';
 import DiagnosticoWhatsApp from './pages/DiagnosticoWhatsApp';
 import Documentacao from './pages/Documentacao';
 import DocumentacaoCompleta from './pages/DocumentacaoCompleta';
@@ -119,8 +121,6 @@ import Usuarios from './pages/Usuarios';
 import Vendas from './pages/Vendas';
 import Vendedores from './pages/Vendedores';
 import WhatsAppTemplates from './pages/WhatsAppTemplates';
-import DiagnosticoContatoSical from './pages/DiagnosticoContatoSical';
-import DiagnosticoThaisSical from './pages/DiagnosticoThaisSical';
 import __Layout from './Layout.jsx';
 
 
@@ -147,10 +147,12 @@ export const PAGES = {
     "DiagnosticoBloqueios": DiagnosticoBloqueios,
     "DiagnosticoCirurgico": DiagnosticoCirurgico,
     "DiagnosticoContato": DiagnosticoContato,
+    "DiagnosticoContatoSical": DiagnosticoContatoSical,
     "DiagnosticoDetalhado": DiagnosticoDetalhado,
     "DiagnosticoInbound": DiagnosticoInbound,
     "DiagnosticoMensagemLuiz": DiagnosticoMensagemLuiz,
     "DiagnosticoPreAtendimento": DiagnosticoPreAtendimento,
+    "DiagnosticoThaisSical": DiagnosticoThaisSical,
     "DiagnosticoWhatsApp": DiagnosticoWhatsApp,
     "Documentacao": Documentacao,
     "DocumentacaoCompleta": DocumentacaoCompleta,
@@ -197,8 +199,6 @@ export const PAGES = {
     "Vendas": Vendas,
     "Vendedores": Vendedores,
     "WhatsAppTemplates": WhatsAppTemplates,
-    "DiagnosticoContatoSical": DiagnosticoContatoSical,
-    "DiagnosticoThaisSical": DiagnosticoThaisSical,
 }
 
 export const pagesConfig = {
