@@ -98,11 +98,14 @@ export default class ZAPIService {
       const endpoint = endpointMap[mediaType] || 'send-document';
       const url = `${baseUrl}/instances/${integracao.instance_id_provider}/token/${integracao.api_key_provider}/${endpoint}`;
 
+      // ✅ FIX: Z-API usa campo 'url' para document (igual W-API), não 'document'
       const payload = {
         phone: numeroFormatado,
-        [mediaType]: mediaUrl,
+        url: mediaUrl, // ✅ CORREÇÃO: sempre 'url' (padrão Z-API/W-API)
         caption: caption
       };
+
+      console.log('[Z-API] Enviando mídia:', { endpoint, mediaType, payload });
 
       const response = await fetch(url, {
         method: 'POST',
