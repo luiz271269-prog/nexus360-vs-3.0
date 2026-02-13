@@ -403,7 +403,15 @@ export default function Comunicacao() {
           const todosContatos = response.data.contatos || [];
           const idsSet = new Set(contactIdsParaCarregar);
           const contatosNecessarios = todosContatos.filter((c) => idsSet.has(c.id));
-          console.log(`[COMUNICACAO] ✅ Contatos hidratados (livre): ${contatosNecessarios.length}/${contactIdsParaCarregar.length}`);
+          
+          // 🔍 LOG CIRÚRGICO: Hidratação
+          console.log(`[COMUNICACAO] 📊 HIDRATAÇÃO - User: ${usuario.email}`, {
+            recebidos_backend: todosContatos.length,
+            necessarios: contatosNecessarios.length,
+            solicitados: contactIdsParaCarregar.length,
+            user_id_backend: response.data.user_id
+          });
+          
           return contatosNecessarios;
         }
 
@@ -449,7 +457,18 @@ export default function Comunicacao() {
         let todosBD = [];
         if (response?.data?.success) {
           todosBD = response.data.contatos || [];
-          console.log('[COMUNICACAO] ✅ Busca livre retornou:', todosBD.length, 'contatos');
+          
+          // 🔍 LOG CIRÚRGICO: Busca por texto
+          console.log(`[COMUNICACAO] 📊 BUSCA LIVRE - User: ${usuario.email}`, {
+            termo: debouncedSearchTerm,
+            recebidos_backend: todosBD.length,
+            user_id_backend: response.data.user_id,
+            tem_luiz: todosBD.some(c => c.nome?.toLowerCase().includes('luiz')),
+            primeiros_3: todosBD.slice(0, 3).map(c => ({ 
+              nome: c.nome, 
+              telefone: c.telefone 
+            }))
+          });
         } else {
           // Fallback: busca com RLS
           console.warn('[COMUNICACAO] ⚠️ Fallback para busca com RLS (busca de contatos)');
@@ -521,7 +540,19 @@ export default function Comunicacao() {
         .map((item) => item.contato).
         slice(0, 100); // Limite de 100 resultados
 
-        console.log(`[COMUNICACAO] ✅ ${resultados.length} contatos encontrados`);
+        // 🔍 LOG CIRÚRGICO: Após filtro local (frontend)
+        console.log(`[COMUNICACAO] 📊 APÓS FILTRO FRONTEND - User: ${usuario.email}`, {
+          termo: debouncedSearchTerm,
+          antes_filtro: todosBD.length,
+          depois_filtro: resultados.length,
+          tem_luiz_antes: todosBD.some(c => c.nome?.toLowerCase().includes('luiz')),
+          tem_luiz_depois: resultados.some(c => c.nome?.toLowerCase().includes('luiz')),
+          primeiros_3_filtrados: resultados.slice(0, 3).map(c => ({ 
+            nome: c.nome, 
+            score: c.score 
+          }))
+        });
+        
         return resultados;
       } catch (error) {
         console.error('[COMUNICACAO] ❌ Erro na busca:', error);
