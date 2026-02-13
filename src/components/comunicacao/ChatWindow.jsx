@@ -2308,7 +2308,7 @@ export default function ChatWindow({
           mensagens[indexOriginal - 1].sender_type === 'user'));
 
           return (
-            <React.Fragment key={mensagem.id}>
+            <div key={mensagem.id}>
                   {isFirstUnread && getUnreadCount(thread, usuario?.id) > 0 &&
               <div
                 ref={unreadSeparatorRef}
@@ -2340,7 +2340,7 @@ export default function ChatWindow({
                 contato={contatoCompleto}
                 atendentes={atendentes} />
 
-                </React.Fragment>);
+                </div>);
 
         })
         }
