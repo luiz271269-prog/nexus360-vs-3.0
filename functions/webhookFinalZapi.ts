@@ -17,17 +17,26 @@ function normalizarTelefone(telefone) {
     }
   }
   
-  // Normalizar celulares brasileiros: adicionar 9 se faltar
+  // ===== NORMALIZAR CELULARES BRASILEIROS (adicionar 9) =====
   // Formato esperado: 55 + DDD(2) + 9 + número(8) = 13 dígitos
-  // Se veio 55 + DDD(2) + número(8) = 12 dígitos, adiciona o 9
+  // Se veio 55 + DDD(2) + número(8) = 12 dígitos, verifica se é celular e adiciona o 9
   if (apenasNumeros.startsWith('55') && apenasNumeros.length === 12) {
     const ddd = apenasNumeros.substring(2, 4);
     const numero = apenasNumeros.substring(4);
-    // Celulares começam com 9, 8, 7, 6 (após o 9 adicional)
-    // Se não começa com 9, adicionar
-    if (!numero.startsWith('9')) {
+    
+    // ✅ CORREÇÃO CRÍTICA: Verificar se é celular (começa com 6, 7, 8 ou 9)
+    // Telefones fixos (2, 3, 4, 5) NÃO recebem o dígito 9
+    if (['6', '7', '8', '9'].includes(numero[0])) {
       apenasNumeros = '55' + ddd + '9' + numero;
+      console.log(`[${VERSION}] ✅ Celular detectado - adicionado dígito 9: ${apenasNumeros}`);
+    } else {
+      console.log(`[${VERSION}] ℹ️ Telefone fixo detectado (${numero[0]}) - mantendo formato original`);
     }
+  }
+  
+  // Validação final de tamanho
+  if (apenasNumeros.startsWith('55') && apenasNumeros.length !== 13 && apenasNumeros.length !== 12) {
+    console.warn(`[${VERSION}] ⚠️ Tamanho inesperado após normalização: ${apenasNumeros} (len: ${apenasNumeros.length})`);
   }
   
   return '+' + apenasNumeros;
