@@ -206,7 +206,7 @@ function normalizarPayload(payload) {
     // Processar TODOS os tipos de mídia (ordem de prioridade)
     if (msgContent.imageMessage) {
       mediaType = 'image';
-      conteudo = msgContent.imageMessage.caption || '[Imagem]';
+      conteudo = msgContent.imageMessage.caption || '📷 [Imagem recebida]';
       downloadSpec = {
         type: 'image',
         mediaKey: msgContent.imageMessage.mediaKey,
@@ -216,7 +216,7 @@ function normalizarPayload(payload) {
       };
     } else if (msgContent.videoMessage) {
       mediaType = 'video';
-      conteudo = msgContent.videoMessage.caption || '[Vídeo]';
+      conteudo = msgContent.videoMessage.caption || '🎥 [Vídeo recebido]';
       downloadSpec = {
         type: 'video',
         mediaKey: msgContent.videoMessage.mediaKey,
@@ -227,7 +227,7 @@ function normalizarPayload(payload) {
     } else if (msgContent.audioMessage || msgContent.pttMessage) {
       mediaType = 'audio';
       const audioMsg = msgContent.audioMessage || msgContent.pttMessage;
-      conteudo = audioMsg?.ptt ? '[Áudio de voz]' : '[Áudio]';
+      conteudo = audioMsg?.ptt ? '🎤 [Áudio de voz]' : '🎤 [Áudio recebido]';
       downloadSpec = {
         type: 'audio',
         mediaKey: audioMsg?.mediaKey,
@@ -239,14 +239,15 @@ function normalizarPayload(payload) {
     } else if (msgContent.documentMessage || msgContent.documentWithCaptionMessage) {
       mediaType = 'document';
       const docMsg = msgContent.documentMessage || msgContent.documentWithCaptionMessage?.message?.documentMessage;
-      conteudo = docMsg?.caption || docMsg?.fileName || docMsg?.title || '[Documento]';
+      const fileName = docMsg?.fileName || docMsg?.title || 'arquivo';
+      conteudo = docMsg?.caption ? `${docMsg.caption} (${fileName})` : `📄 [Documento: ${fileName}]`;
       downloadSpec = {
         type: 'document',
         mediaKey: docMsg?.mediaKey,
         directPath: docMsg?.directPath,
         url: docMsg?.url,
         mimetype: docMsg?.mimetype,
-        fileName: docMsg?.fileName || docMsg?.title,
+        fileName: fileName,
         fileLength: docMsg?.fileLength,
         pageCount: docMsg?.pageCount
       };
@@ -263,11 +264,11 @@ function normalizarPayload(payload) {
       mediaType = 'contact';
       const contacts = msgContent.contactsArrayMessage?.contacts || [msgContent.contactMessage];
       const nomes = contacts.map(c => c?.displayName || c?.vcard?.match(/FN:([^\n]+)/)?.[1]).filter(Boolean);
-      conteudo = nomes.length > 0 ? `[Contato: ${nomes.join(', ')}]` : '[Contato]';
+      conteudo = nomes.length > 0 ? `📇 [Contato: ${nomes.join(', ')}]` : '📇 [Contato compartilhado]';
     } else if (msgContent.locationMessage || msgContent.liveLocationMessage) {
       mediaType = 'location';
       const locMsg = msgContent.locationMessage || msgContent.liveLocationMessage;
-      conteudo = `[Localização: ${locMsg?.degreesLatitude || 0}, ${locMsg?.degreesLongitude || 0}]`;
+      conteudo = `📍 [Localização: ${locMsg?.degreesLatitude || 0}, ${locMsg?.degreesLongitude || 0}]`;
     } else if (msgContent.extendedTextMessage) {
       conteudo = msgContent.extendedTextMessage.text || '';
     } else if (msgContent.conversation) {
@@ -730,6 +731,7 @@ async function handleMessage(dados, payloadBruto, base44) {
             contact_id: contato.id,
             whatsapp_integration_id: integracaoId,
             conexao_id: integracaoId, // Compatibilidade
+            origin_integration_ids: integracaoId ? [integracaoId] : [], // ✅ INICIALIZAR histórico
             thread_type: 'contact_external',
             channel: 'whatsapp',
             is_canonical: true,
@@ -813,6 +815,9 @@ async function handleMessage(dados, payloadBruto, base44) {
       whatsapp_message_id: dados.messageId ?? null,
       sent_at: new Date().toISOString(),
       metadata: {
+        analise_multimodal: null,
+        midia_persistida: false,
+        deleted: null,
         whatsapp_integration_id: integracaoId,
         instance_id: dados.instanceId ?? null,
         connected_phone: connectedPhone ?? null,
@@ -827,7 +832,7 @@ async function handleMessage(dados, payloadBruto, base44) {
       },
     });
     
-    console.log(`[WAPI] ✅ Mensagem salva: ${mensagem.id}`);
+    console.log(`[WAPI] ✅ Mensagem salva: ${mensagem.id} | Mídia: ${dados.downloadSpec ? 'pending_download' : 'nenhuma'}`);
   } catch (e) {
     console.error(`[WAPI] ❌ Erro salvar mensagem:`, e?.message);
     return jsonErr('erro_salvar_mensagem', 500);

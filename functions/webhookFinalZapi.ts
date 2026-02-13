@@ -288,14 +288,12 @@ function normalizarPayload(payload) {
   } else if (payload.audioUrl) {
     mediaType = 'audio';
     mediaUrl = payload.audioUrl;
-    // ✅ FIX VISUAL
     conteudo = '🎤 [Áudio recebido]';
   } else if (payload.document) {
     mediaType = 'document';
     if (typeof payload.document === 'object') {
       mediaUrl = payload.document.documentUrl ?? payload.document.url ?? payload.document.link ?? payload.document.mediaUrl ?? null;
       const fileName = payload.document.fileName || payload.fileName || 'arquivo';
-      // ✅ FIX VISUAL: Garante texto descritivo
       conteudo = payload.document.caption ? `${payload.document.caption} (${fileName})` : `📄 [Documento: ${fileName}]`;
     } else if (typeof payload.document === 'string' && payload.document.startsWith('http')) {
       mediaUrl = payload.document;
@@ -306,7 +304,6 @@ function normalizarPayload(payload) {
     mediaType = 'document';
     mediaUrl = payload.documentUrl;
     const fileName = payload.fileName || 'arquivo';
-    // ✅ FIX VISUAL: Texto descritivo com nome
     conteudo = payload.caption ? `${payload.caption} (${fileName})` : `📄 [Documento: ${fileName}]`;
   } else if (payload.sticker) {
     mediaType = 'sticker';
@@ -318,10 +315,10 @@ function normalizarPayload(payload) {
     conteudo = '[Sticker]';
   } else if (payload.contactMessage || payload.vcard) {
     mediaType = 'contact';
-    conteudo = '📇 Contato compartilhado';
+    conteudo = '📇 [Contato compartilhado]';
   } else if (payload.location) {
     mediaType = 'location';
-    conteudo = '📍 Localização';
+    conteudo = '📍 [Localização]';
   }
   
   // Fallback: mediaUrl genérico no root
@@ -331,16 +328,16 @@ function normalizarPayload(payload) {
     const ext = (payload.mediaUrl.split('.').pop() || '').toLowerCase().split('?')[0];
     if (['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(ext)) {
       mediaType = 'image';
-      if (!conteudo) conteudo = '[Imagem]';
+      if (!conteudo) conteudo = '📷 [Imagem recebida]';
     } else if (['mp4', 'mov', 'avi', '3gp'].includes(ext)) {
       mediaType = 'video';
-      if (!conteudo) conteudo = '[Vídeo]';
+      if (!conteudo) conteudo = '🎥 [Vídeo recebido]';
     } else if (['mp3', 'ogg', 'opus', 'wav', 'm4a'].includes(ext)) {
       mediaType = 'audio';
-      if (!conteudo) conteudo = '[Áudio]';
+      if (!conteudo) conteudo = '🎤 [Áudio recebido]';
     } else {
       mediaType = 'document';
-      if (!conteudo) conteudo = '[Documento]';
+      if (!conteudo) conteudo = '📄 [Documento]';
     }
   }
 
@@ -727,12 +724,26 @@ async function handleMessage(dados, payloadBruto, base44) {
       // Eleger a mais antiga como canônica (preserva histórico)
       threadCanonica = todasThreadsContato[todasThreadsContato.length - 1]; // Última (mais antiga por ordenação)
       
-      // Marcar canônica
+      // ✅ COLETAR HISTÓRICO: Todas integrações usadas nas threads antigas
+      const integracoesHistoricas = new Set();
+      if (integracaoId) integracoesHistoricas.add(integracaoId); // Integração atual
+      
+      todasThreadsContato.forEach(t => {
+        if (t.whatsapp_integration_id) integracoesHistoricas.add(t.whatsapp_integration_id);
+        if (t.origin_integration_ids?.length > 0) {
+          t.origin_integration_ids.forEach(id => integracoesHistoricas.add(id));
+        }
+      });
+      
+      // Marcar canônica COM propagação de integrações
       await base44.asServiceRole.entities.MessageThread.update(threadCanonica.id, {
         is_canonical: true,
-        status: 'aberta'
+        status: 'aberta',
+        whatsapp_integration_id: integracaoId || threadCanonica.whatsapp_integration_id, // ✅ Atualizar se possível
+        origin_integration_ids: Array.from(integracoesHistoricas), // ✅ HISTÓRICO COMPLETO
+        ultima_atividade: new Date().toISOString()
       });
-      console.log(`[${VERSION}] ✅ Thread canônica eleita: ${threadCanonica.id} (mais antiga)`);
+      console.log(`[${VERSION}] ✅ Thread canônica eleita: ${threadCanonica.id} (${integracoesHistoricas.size} integrações no histórico)`);
 
       // Marcar demais como merged
       for (const threadAntiga of todasThreadsContato) {
@@ -751,12 +762,25 @@ async function handleMessage(dados, payloadBruto, base44) {
       }
     } else if (todasThreadsContato && todasThreadsContato.length === 1) {
       threadCanonica = todasThreadsContato[0];
-      // Garantir que está marcada como canônica
-      if (!threadCanonica.is_canonical) {
-        await base44.asServiceRole.entities.MessageThread.update(threadCanonica.id, {
+      // Garantir que está marcada como canônica E atualizar integração
+      const needsUpdate = !threadCanonica.is_canonical || 
+                          (integracaoId && threadCanonica.whatsapp_integration_id !== integracaoId);
+      
+      if (needsUpdate) {
+        const updateData = {
           is_canonical: true,
           status: 'aberta'
-        });
+        };
+        
+        if (integracaoId && threadCanonica.whatsapp_integration_id !== integracaoId) {
+          updateData.whatsapp_integration_id = integracaoId;
+          const historicoAtual = threadCanonica.origin_integration_ids || [];
+          if (!historicoAtual.includes(integracaoId)) {
+            updateData.origin_integration_ids = [...historicoAtual, integracaoId];
+          }
+        }
+        
+        await base44.asServiceRole.entities.MessageThread.update(threadCanonica.id, updateData);
       }
     }
   } catch (err) {
@@ -810,7 +834,7 @@ async function handleMessage(dados, payloadBruto, base44) {
               contact_id: contato.id,
               whatsapp_integration_id: integracaoId,
               conexao_id: integracaoId, // Compatibilidade
-              origin_integration_ids: [integracaoId], // ✅ INICIALIZAR histórico
+              origin_integration_ids: integracaoId ? [integracaoId] : [], // ✅ INICIALIZAR histórico
               thread_type: 'contact_external',
               channel: 'whatsapp',
               is_canonical: true,
