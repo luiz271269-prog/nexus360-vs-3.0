@@ -15,6 +15,8 @@ export default function ModalEnvioMassa({ isOpen, onClose, contatosSelecionados,
   const [mediaUrl, setMediaUrl] = useState(null);
   const [mediaCaption, setMediaCaption] = useState('');
   const [carregandoMedia, setCarregandoMedia] = useState(false);
+  const [pastedImage, setPastedImage] = useState(null);
+  const [pastedImagePreview, setPastedImagePreview] = useState(null);
 
   const handleUploadMedia = async (file) => {
     if (!file) return;
@@ -41,8 +43,21 @@ export default function ModalEnvioMassa({ isOpen, onClose, contatosSelecionados,
   };
 
   const handleEnviar = async () => {
-    if (!mensagem.trim()) {
-      toast.error('Digite uma mensagem');
+    // ✅ FIX: Capturar valores ANTES de qualquer operação assíncrona
+    const mensagemTexto = mensagem.trim();
+    const urlMidia = pastedImagePreview || mediaUrl; // Priorizar imagem colada
+    const tipoMidia = pastedImage ? 'image' : (media ? getMediaType(media) : 'none');
+    const legendaMidia = mediaCaption || null;
+
+    console.log('[MODAL_ENVIO_MASSA] 📤 Captura de valores:', {
+      mensagemTexto: mensagemTexto.substring(0, 100),
+      urlMidia,
+      tipoMidia,
+      legendaMidia
+    });
+
+    if (!mensagemTexto && !urlMidia) {
+      toast.error('Digite uma mensagem ou anexe uma mídia');
       return;
     }
 
@@ -56,13 +71,29 @@ export default function ModalEnvioMassa({ isOpen, onClose, contatosSelecionados,
     try {
       toast.loading(`📤 Enviando para ${contatosSelecionados.length} contatos...`, { id: 'envio-massa' });
 
+      // ✅ FIX: Fazer upload da imagem colada se existir
+      let finalMediaUrl = urlMidia;
+      if (pastedImage && !mediaUrl) {
+        console.log('[MODAL_ENVIO_MASSA] 🖼️ Upload de imagem colada...');
+        const uploadResult = await base44.integrations.Core.UploadFile({ file: pastedImage });
+        finalMediaUrl = uploadResult.file_url;
+      }
+
+      console.log('[MODAL_ENVIO_MASSA] 📤 Payload final:', {
+        contact_ids: contatosSelecionados.length,
+        mensagem: mensagemTexto.substring(0, 100),
+        media_url: finalMediaUrl,
+        media_type: tipoMidia,
+        media_caption: legendaMidia
+      });
+
       const resultado = await base44.functions.invoke('enviarMensagemMassa', {
         contact_ids: contatosSelecionados.map(c => c.contact_id || c.id),
-        mensagem,
+        mensagem: mensagemTexto,
         personalizar: true,
-        media_url: mediaUrl,
-        media_type: media ? getMediaType(media) : 'none',
-        media_caption: mediaCaption || null
+        media_url: finalMediaUrl,
+        media_type: tipoMidia,
+        media_caption: legendaMidia
       });
 
       if (resultado.data?.success) {
@@ -73,8 +104,13 @@ export default function ModalEnvioMassa({ isOpen, onClose, contatosSelecionados,
         );
 
         if (resultado.data.enviados > 0) {
+          // ✅ FIX: Limpar estados APÓS sucesso confirmado
           setMensagem('');
           setMediaCaption('');
+          setMedia(null);
+          setMediaUrl(null);
+          setPastedImage(null);
+          setPastedImagePreview(null);
           onClose();
           if (onEnvioCompleto) onEnvioCompleto();
         }
@@ -123,15 +159,31 @@ export default function ModalEnvioMassa({ isOpen, onClose, contatosSelecionados,
 
         {/* Campo de mensagem */}
          <div className="space-y-2">
-           <Label htmlFor="mensagem">Mensagem *</Label>
-           <Textarea
-             id="mensagem"
-             value={mensagem}
-             onChange={(e) => setMensagem(e.target.value)}
-             placeholder="Digite sua mensagem aqui...&#10;&#10;Use {{nome}} e {{empresa}} para personalizar.&#10;&#10;Ex: Olá {{nome}}! Temos novidades para você..."
-             rows={6}
-             className="resize-none"
-           />
+          <Label htmlFor="mensagem">Mensagem *</Label>
+          <Textarea
+            id="mensagem"
+            value={mensagem}
+            onChange={(e) => setMensagem(e.target.value)}
+            onPaste={async (e) => {
+              // ✅ FIX: Capturar imagens coladas do clipboard
+              const items = Array.from(e.clipboardData.items);
+              const imageItem = items.find(item => item.type.startsWith('image/'));
+
+              if (imageItem) {
+                e.preventDefault();
+                const file = imageItem.getAsFile();
+                if (file) {
+                  setPastedImage(file);
+                  const previewUrl = URL.createObjectURL(file);
+                  setPastedImagePreview(previewUrl);
+                  toast.success('🖼️ Imagem colada! Será enviada com a mensagem.');
+                }
+              }
+            }}
+            placeholder="Digite sua mensagem aqui...&#10;&#10;Use {{nome}} e {{empresa}} para personalizar.&#10;&#10;Ex: Olá {{nome}}! Temos novidades para você..."
+            rows={6}
+            className="resize-none"
+          />
            <p className="text-xs text-slate-500">
              💡 Placeholders disponíveis: <code className="bg-slate-100 px-1 rounded">{'{{nome}}'}</code>, <code className="bg-slate-100 px-1 rounded">{'{{empresa}}'}</code>
            </p>
@@ -141,23 +193,45 @@ export default function ModalEnvioMassa({ isOpen, onClose, contatosSelecionados,
          </div>
 
          {/* Seção de Mídia */}
-           <div className="space-y-2 border rounded-lg p-3 bg-slate-50">
-             <Label>Mídia (opcional)</Label>
-             {mediaUrl && (
-               <div className="space-y-1">
-                 <Label htmlFor="caption" className="text-xs">Legenda da mídia (opcional)</Label>
-                 <textarea
-                   id="caption"
-                   value={mediaCaption}
-                   onChange={(e) => setMediaCaption(e.target.value)}
-                   placeholder="Adicione uma descrição para a imagem/vídeo..."
-                   rows={2}
-                   className="w-full p-2 text-xs border border-slate-300 rounded resize-none"
-                 />
-               </div>
-             )}
+          <div className="space-y-2 border rounded-lg p-3 bg-slate-50">
+            <Label>Mídia (opcional)</Label>
 
-           {!mediaUrl ? (
+            {/* Preview de imagem colada */}
+            {pastedImagePreview && (
+              <div className="mb-2 relative rounded-lg overflow-hidden border-2 border-blue-300 bg-blue-50">
+                <Badge className="absolute top-2 left-2 bg-blue-600 text-white text-xs">
+                  Imagem colada
+                </Badge>
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  onClick={() => {
+                    setPastedImage(null);
+                    setPastedImagePreview(null);
+                    toast.success('Imagem removida');
+                  }}
+                  className="absolute top-2 right-2 bg-white/90 hover:bg-white">
+                  <X className="w-4 h-4 text-red-600" />
+                </Button>
+                <img src={pastedImagePreview} alt="Preview" className="w-full max-h-48 object-contain" />
+              </div>
+            )}
+
+            {(mediaUrl || pastedImagePreview) && (
+              <div className="space-y-1">
+                <Label htmlFor="caption" className="text-xs">Legenda da mídia (opcional)</Label>
+                <textarea
+                  id="caption"
+                  value={mediaCaption}
+                  onChange={(e) => setMediaCaption(e.target.value)}
+                  placeholder="Adicione uma descrição para a imagem/vídeo..."
+                  rows={2}
+                  className="w-full p-2 text-xs border border-slate-300 rounded resize-none"
+                />
+              </div>
+            )}
+
+          {!mediaUrl && !pastedImagePreview ? (
              <div className="flex items-center gap-2">
                <label className="flex-1 flex items-center justify-center gap-2 cursor-pointer border-2 border-dashed border-slate-300 rounded-lg p-4 hover:border-blue-500 hover:bg-blue-50 transition-colors">
                  <Upload className="w-4 h-4 text-slate-600" />
@@ -226,7 +300,7 @@ export default function ModalEnvioMassa({ isOpen, onClose, contatosSelecionados,
           </Button>
           <Button
             onClick={handleEnviar}
-            disabled={enviando || !mensagem.trim()}
+            disabled={enviando || (!mensagem.trim() && !pastedImagePreview && !mediaUrl)}
             className="bg-blue-600 hover:bg-blue-700"
           >
             {enviando ? (
