@@ -383,15 +383,16 @@ Deno.serve(async (req) => {
     
     // ========== MÍDIAS (imagem, vídeo, documento) ==========
     else if (media_url && media_type) {
-      // ✅ CRÍTICO: Respeitar media_type PRIMEIRO (explícito do usuário)
-      // Detectar tipo da URL é fallback APENAS se media_type for 'none'
-      if (media_type && media_type !== 'none') {
-        tipoMidiaReal = media_type; // Usar tipo explícito
-        console.log(`[ENVIAR-WHATSAPP-UNIFICADO] ✅ Usando media_type explícito: ${media_type}`);
-      } else {
-        tipoMidiaReal = detectarTipoMidia(media_url, 'none'); // Detectar pela URL
-        console.log(`[ENVIAR-WHATSAPP-UNIFICADO] 🔍 Detectado pela URL: ${tipoMidiaReal}`);
+      // ✅ CRÍTICO: Forçar media_type SEMPRE como 'document' para PDFs mesmo se URL pareça imagem
+      let tipoMidiaReal = media_type;
+      
+      // Se media_type é 'document', NUNCA deixa detectarTipoMidia sobrescrever para 'image'
+      if (media_type !== 'document') {
+        // Só detectar se media_type NÃO foi explicitamente definido como 'document'
+        tipoMidiaReal = detectarTipoMidia(media_url, media_type);
       }
+      
+      console.log(`[ENVIAR-WHATSAPP-UNIFICADO] ✅ Tipo de mídia: ${tipoMidiaReal} (input: ${media_type})`);
       
       const config = MEDIA_CONFIG[tipoMidiaReal];
 
