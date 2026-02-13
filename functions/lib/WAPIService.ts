@@ -210,6 +210,57 @@ export default class WAPIService {
     }
   }
 
+  static async enviarDocumento(integracao, destinatario, documentUrl, caption = '', fileName = 'documento.pdf', replyToMessageId = null) {
+    try {
+      const numeroFormatado = destinatario.replace(/\D/g, '');
+      const instanceId = integracao.instance_id_provider;
+      const token = integracao.api_key_provider;
+      
+      // W-API: POST /v1/message/send-document?instanceId=XXX
+      const url = `https://api.w-api.app/v1/message/send-document?instanceId=${instanceId}`;
+
+      const payload = {
+        phone: numeroFormatado,
+        url: documentUrl,
+        caption: caption,
+        fileName: fileName,
+        delayMessage: 1
+      };
+
+      if (replyToMessageId) {
+        payload.messageId = replyToMessageId;
+      }
+
+      console.log('[W-API] Enviando documento:', { url, fileName, payload });
+
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(payload)
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || errorData.error || `HTTP ${response.status}`);
+      }
+
+      const data = await response.json();
+      
+      return {
+        sucesso: true,
+        messageId: data.messageId || data.key?.id || data.id,
+        dados: data
+      };
+
+    } catch (error) {
+      console.error('❌ [W-API] Erro ao enviar documento:', error);
+      throw error;
+    }
+  }
+
   /**
    * Processa webhook da W-API
    * Evento principal: webhookReceived
