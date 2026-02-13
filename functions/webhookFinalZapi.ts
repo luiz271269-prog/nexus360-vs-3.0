@@ -303,19 +303,52 @@ function normalizarPayload(payload) {
   } else if (payload.document) {
     mediaType = 'document';
         if (typeof payload.document === 'object') {
-          // ⚠️ Z-API: documento como objeto (raro mas possível)
+          // ✅ Z-API: documento como objeto - garantir fileName com extensão válida
           mediaUrl = payload.document.documentUrl ?? payload.document.url ?? payload.document.link ?? payload.document.mediaUrl ?? null;
-          const fileName = payload.document.fileName || payload.fileName || 'arquivo';
+          
+          // ⚠️ CRÍTICO: Z-API precisa que fileName tenha extensão para reconhecer tipo
+          let fileName = payload.document.fileName || payload.fileName || null;
+          if (!fileName || fileName === 'documento' || fileName === '[Document]') {
+            // Extrair extensão da URL ou usar padrão com extensão
+            const ext = mediaUrl ? (mediaUrl.split('.').pop()?.split('?')[0] || 'pdf').toLowerCase() : 'pdf';
+            fileName = `documento.${ext}`;
+          } else if (!fileName.includes('.')) {
+            // Se não tem extensão, adicionar baseado no mimeType ou URL
+            const mimeType = payload.document.mimeType || '';
+            let ext = 'pdf'; // default
+            if (mimeType.includes('word')) ext = 'docx';
+            else if (mimeType.includes('sheet')) ext = 'xlsx';
+            else if (mimeType.includes('presentation')) ext = 'pptx';
+            else if (mediaUrl?.includes('.')) {
+              ext = (mediaUrl.split('.').pop()?.split('?')[0] || 'pdf').toLowerCase();
+            }
+            fileName = `${fileName}.${ext}`;
+          }
+          
           conteudo = payload.document.caption ? `${payload.document.caption} (${fileName})` : `📄 [Documento: ${fileName}]`;
     } else if (typeof payload.document === 'string' && payload.document.startsWith('http')) {
       mediaUrl = payload.document;
-      const fileName = payload.fileName || 'arquivo';
+      let fileName = payload.fileName || null;
+      if (!fileName) {
+        const ext = (mediaUrl.split('.').pop()?.split('?')[0] || 'pdf').toLowerCase();
+        fileName = `documento.${ext}`;
+      }
       conteudo = `📄 [Documento: ${fileName}]`;
     }
   } else if (payload.documentUrl) {
     mediaType = 'document';
     mediaUrl = payload.documentUrl;
-    const fileName = payload.fileName || 'arquivo';
+    
+    // ✅ CRÍTICO: Garantir fileName com extensão válida para Z-API
+    let fileName = payload.fileName || null;
+    if (!fileName) {
+      const ext = (mediaUrl.split('.').pop()?.split('?')[0] || 'pdf').toLowerCase();
+      fileName = `documento.${ext}`;
+    } else if (!fileName.includes('.')) {
+      const ext = (mediaUrl.split('.').pop()?.split('?')[0] || 'pdf').toLowerCase();
+      fileName = `${fileName}.${ext}`;
+    }
+    
     conteudo = payload.caption ? `${payload.caption} (${fileName})` : `📄 [Documento: ${fileName}]`;
   } else if (payload.sticker) {
     mediaType = 'sticker';
