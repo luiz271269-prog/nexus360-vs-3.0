@@ -300,56 +300,48 @@ function normalizarPayload(payload) {
     mediaType = 'audio';
     mediaUrl = payload.audioUrl;
     conteudo = '🎤 [Áudio recebido]';
-  } else if (payload.document) {
+  } else if (payload.document || payload.documentUrl) {
     mediaType = 'document';
-        if (typeof payload.document === 'object') {
-          // ✅ Z-API: documento como objeto - garantir fileName com extensão válida
-          mediaUrl = payload.document.documentUrl ?? payload.document.url ?? payload.document.link ?? payload.document.mediaUrl ?? null;
-          
-          // ⚠️ CRÍTICO: Z-API precisa que fileName tenha extensão para reconhecer tipo
-          let fileName = payload.document.fileName || payload.fileName || null;
-          if (!fileName || fileName === 'documento' || fileName === '[Document]') {
-            // Extrair extensão da URL ou usar padrão com extensão
-            const ext = mediaUrl ? (mediaUrl.split('.').pop()?.split('?')[0] || 'pdf').toLowerCase() : 'pdf';
-            fileName = `documento.${ext}`;
-          } else if (!fileName.includes('.')) {
-            // Se não tem extensão, adicionar baseado no mimeType ou URL
-            const mimeType = payload.document.mimeType || '';
-            let ext = 'pdf'; // default
-            if (mimeType.includes('word')) ext = 'docx';
-            else if (mimeType.includes('sheet')) ext = 'xlsx';
-            else if (mimeType.includes('presentation')) ext = 'pptx';
-            else if (mediaUrl?.includes('.')) {
-              ext = (mediaUrl.split('.').pop()?.split('?')[0] || 'pdf').toLowerCase();
-            }
-            fileName = `${fileName}.${ext}`;
-          }
-          
-          conteudo = payload.document.caption ? `${payload.document.caption} (${fileName})` : `📄 [Documento: ${fileName}]`;
+    
+    // ✅ CRÍTICO: Extrair URL do documento (pode vir de várias formas)
+    let documentUrl = null;
+    let rawFileName = null;
+    
+    if (typeof payload.document === 'object') {
+      documentUrl = payload.document.documentUrl ?? payload.document.url ?? payload.document.link ?? payload.document.mediaUrl ?? null;
+      rawFileName = payload.document.fileName || null;
     } else if (typeof payload.document === 'string' && payload.document.startsWith('http')) {
-      mediaUrl = payload.document;
-      let fileName = payload.fileName || null;
-      if (!fileName) {
-        const ext = (mediaUrl.split('.').pop()?.split('?')[0] || 'pdf').toLowerCase();
-        fileName = `documento.${ext}`;
+      documentUrl = payload.document;
+    } else if (payload.documentUrl) {
+      documentUrl = payload.documentUrl;
+    }
+    
+    mediaUrl = documentUrl;
+    
+    // ✅ NORMALIZAR FILE NAME: extrair extensão e garantir segurança
+    const ext = (mediaUrl?.split('.').pop()?.split('?')[0] || 'pdf').toLowerCase();
+    const fileNameBase = rawFileName || payload.fileName || 'documento';
+    const fileNameSeguro = fileNameBase
+      .replace(/[\/:*?"<>|\\[\]]/g, '_')  // Remover caracteres perigosos e colchetes
+      .slice(0, 100)                       // Limitar tamanho
+      .replace(/^\.+/, '');                // Remover pontos no início
+    
+    // Garantir extensão
+    let fileNameFinal;
+    if (!fileNameSeguro.toLowerCase().endsWith(`.${ext}`)) {
+      const lastDot = fileNameSeguro.lastIndexOf('.');
+      if (lastDot > 0 && lastDot < fileNameSeguro.length - 5) {
+        // Tem ponto no meio mas não é extensão válida, remover
+        fileNameFinal = `${fileNameSeguro.substring(0, lastDot)}.${ext}`;
+      } else {
+        fileNameFinal = `${fileNameSeguro}.${ext}`;
       }
-      conteudo = `📄 [Documento: ${fileName}]`;
-    }
-  } else if (payload.documentUrl) {
-    mediaType = 'document';
-    mediaUrl = payload.documentUrl;
-    
-    // ✅ CRÍTICO: Garantir fileName com extensão válida para Z-API
-    let fileName = payload.fileName || null;
-    if (!fileName) {
-      const ext = (mediaUrl.split('.').pop()?.split('?')[0] || 'pdf').toLowerCase();
-      fileName = `documento.${ext}`;
-    } else if (!fileName.includes('.')) {
-      const ext = (mediaUrl.split('.').pop()?.split('?')[0] || 'pdf').toLowerCase();
-      fileName = `${fileName}.${ext}`;
+    } else {
+      fileNameFinal = fileNameSeguro;
     }
     
-    conteudo = payload.caption ? `${payload.caption} (${fileName})` : `📄 [Documento: ${fileName}]`;
+    // ✅ RENDERIZAÇÃO: Caption exibe o nome do arquivo
+    conteudo = fileNameFinal;
   } else if (payload.sticker) {
     mediaType = 'sticker';
     if (typeof payload.sticker === 'object') {
