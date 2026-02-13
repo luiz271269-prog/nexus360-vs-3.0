@@ -122,9 +122,8 @@ function sanitizarFileName(nome, extensao) {
 }
 
 // Detectar tipo de mídia pela extensão/URL
+// ✅ CRÍTICO: URL sempre tem prioridade sobre tipoInformado para determinar tipo real
 function detectarTipoMidia(url, tipoInformado) {
-  if (tipoInformado && tipoInformado !== 'none') return tipoInformado;
-  
   const ext = extrairExtensao(url);
   const mapExt = {
     'jpg': 'image', 'jpeg': 'image', 'png': 'image', 'gif': 'image', 'webp': 'image',
@@ -132,7 +131,20 @@ function detectarTipoMidia(url, tipoInformado) {
     'mp3': 'audio', 'ogg': 'audio', 'opus': 'audio', 'wav': 'audio', 'm4a': 'audio', 'amr': 'audio',
     'pdf': 'document', 'doc': 'document', 'docx': 'document', 'xls': 'document', 'xlsx': 'document', 'txt': 'document', 'zip': 'document'
   };
-  return mapExt[ext] || 'document';
+  
+  const tipoDetectado = mapExt[ext];
+  
+  // ✅ Se a URL tem extensão clara (documento/imagem/áudio/vídeo), usar tipo detectado
+  // Caso contrário, usar tipoInformado se válido
+  if (tipoDetectado) {
+    if (tipoInformado && tipoInformado !== 'none' && tipoDetectado !== tipoInformado) {
+      console.warn(`[ENVIAR-WHATSAPP-UNIFICADO] ⚠️ Conflito de tipo: URL sugere ${tipoDetectado}, mas tipoInformado=${tipoInformado}. Usando URL.`);
+    }
+    return tipoDetectado; // URL tem prioridade
+  }
+  
+  // Fallback: usar tipoInformado se válido
+  return (tipoInformado && tipoInformado !== 'none') ? tipoInformado : 'document';
 }
 
 // Formatar número de telefone (apenas dígitos)
