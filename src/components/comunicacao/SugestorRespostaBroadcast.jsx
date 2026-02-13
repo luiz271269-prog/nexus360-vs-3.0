@@ -18,13 +18,21 @@ export default function SugestorRespostaBroadcast({
   const [mostrarIACompleta, setMostrarIACompleta] = useState(false);
   const [carregandoIA, setCarregandoIA] = useState(false);
 
-  // ✅ DETECÇÃO: Verificar se há broadcast recente
+  // ✅ DETECÇÃO: Verificar se há broadcast recente (janela de 72h)
   const temBroadcastRecente = () => {
-    if (!thread?.metadata?.broadcast_data) return false;
-    const broadcastTime = new Date(thread.metadata.broadcast_data);
+    const data = thread?.metadata?.broadcast_data;
+    if (!data) return false;
+
+    // ✅ FIX: broadcast_data é objeto, não string - ler campo correto
+    const sentAt = typeof data === 'string' ? data : (data.broadcast_sent_at || data.sent_at || data.timestamp);
+    if (!sentAt) return false;
+
+    const broadcastTime = new Date(sentAt);
+    if (Number.isNaN(broadcastTime.getTime())) return false;
+
     const agora = new Date();
-    const diasDecorridos = (agora - broadcastTime) / (1000 * 60 * 60 * 24);
-    return diasDecorridos <= 3; // Janela de 72h
+    const horasDecorridas = (agora.getTime() - broadcastTime.getTime()) / (1000 * 60 * 60);
+    return horasDecorridas <= 72; // 72h = 3 dias
   };
 
   useEffect(() => {
@@ -164,11 +172,14 @@ export default function SugestorRespostaBroadcast({
     setCarregando(false);
   };
 
-  // ✅ IA COMPLETA: Usar análise V3.1 + insights
+  // ✅ IA COMPLETA: Usar análise V3.1 + insights cacheados
   const gerarSuguestaoIACompleta = async () => {
     setCarregandoIA(true);
     try {
       const intencao = classificarIntencao(ultimaMensagemCliente);
+      
+      // ✅ V3.1 INTEGRATION: Usar campos cacheados do motor de inteligência
+      const perfil = contato?.campos_personalizados || {};
       
       const prompt = `Você é um especialista em vendas B2B respondendo a uma resposta a broadcast/campanha.
 
@@ -176,6 +187,13 @@ export default function SugestorRespostaBroadcast({
 - Nome: ${contato?.nome || 'Cliente'}
 - Empresa: ${contato?.empresa || 'Não informado'}
 - Tipo: ${contato?.tipo_contato || 'Não informado'}
+
+🧠 ANÁLISE V3.1 (Motor de Inteligência):
+- Perfil de relacionamento: ${perfil.relationship_profile_type || 'não classificado'}
+- Risco relacional: ${perfil.relationship_risk_level || 'desconhecido'}
+- Deal risk: ${perfil.deal_risk_cached ?? 'N/A'}
+- Buy intent: ${perfil.buy_intent_cached ?? 'N/A'}
+- Health score: ${perfil.health_cached ?? 'N/A'}
 
 💬 MENSAGEM DO CLIENTE:
 "${ultimaMensagemCliente}"
