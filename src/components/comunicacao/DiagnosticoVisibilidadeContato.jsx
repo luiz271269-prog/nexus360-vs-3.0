@@ -217,7 +217,22 @@ export default function DiagnosticoVisibilidadeContato({ integracoes = [] }) {
                   {diagnostico.threads.length} Thread(s) Encontrada(s)
                 </h3>
 
-                {diagnostico.threads.map((diag, idx) => (
+                {diagnostico.threads.map((diag, idx) => {
+                  // 🎯 ANÁLISE DETALHADA: Extrair flags booleanas
+                  const integracaoId = diag.thread.whatsapp_integration_id;
+                  const permIntegracao = diagnostico.userPermissions.integracoes?.[integracaoId];
+                  
+                  const flags = {
+                    can_view_thread: diag.visible,
+                    integracao_bloqueada: permIntegracao?.can_view === false,
+                    thread_atribuida_outro: diag.assigned_user_id && diag.assigned_user_id !== diagnostico.usuario.id,
+                    contato_fidelizado_outro: diagnostico.contato.is_cliente_fidelizado && 
+                      !permissionsService.isFidelizadoAoUsuario(diagnostico.userPermissions, diagnostico.contato),
+                    thread_atribuida_a_mim: diag.assigned_user_id === diagnostico.usuario.id,
+                    contato_fidelizado_a_mim: permissionsService.isFidelizadoAoUsuario(diagnostico.userPermissions, diagnostico.contato)
+                  };
+
+                  return (
                   <Card key={idx} className={`border-2 ${diag.visible ? 'border-green-300 bg-green-50' : 'border-red-300 bg-red-50'}`}>
                     <CardHeader className="pb-3">
                       <div className="flex items-center justify-between">
@@ -227,7 +242,7 @@ export default function DiagnosticoVisibilidadeContato({ integracoes = [] }) {
                           ) : (
                             <XCircle className="w-5 h-5 text-red-600" />
                           )}
-                          Thread #{idx + 1} - {diag.visible ? 'VISÍVEL' : 'BLOQUEADA'}
+                          Thread #{idx + 1} - {diag.visible ? 'VISÍVEL ✅' : 'BLOQUEADA ❌'}
                         </CardTitle>
                         <Badge className={diag.visible ? 'bg-green-600' : 'bg-red-600'}>
                           {diag.reason_code}
@@ -235,6 +250,56 @@ export default function DiagnosticoVisibilidadeContato({ integracoes = [] }) {
                       </div>
                     </CardHeader>
                     <CardContent className="space-y-3">
+                      {/* 🎯 FLAGS BOOLEANAS EXPLÍCITAS */}
+                      <div className="p-4 bg-white rounded-lg border-2 border-slate-300">
+                        <p className="text-xs font-bold text-slate-700 mb-3 uppercase tracking-wide">
+                          🔐 Flags de Permissão (true/false)
+                        </p>
+                        <div className="space-y-2">
+                          <div className="flex items-center justify-between p-2 bg-slate-50 rounded">
+                            <span className="text-sm font-medium text-slate-700">can_view_thread</span>
+                            <Badge className={flags.can_view_thread ? 'bg-green-600' : 'bg-red-600'}>
+                              {flags.can_view_thread ? '✅ true' : '❌ false'}
+                            </Badge>
+                          </div>
+                          
+                          <div className="flex items-center justify-between p-2 bg-slate-50 rounded">
+                            <span className="text-sm font-medium text-slate-700">integração_bloqueada</span>
+                            <Badge className={flags.integracao_bloqueada ? 'bg-red-600' : 'bg-green-600'}>
+                              {flags.integracao_bloqueada ? '❌ true (BLOQUEADA)' : '✅ false'}
+                            </Badge>
+                          </div>
+                          
+                          <div className="flex items-center justify-between p-2 bg-slate-50 rounded">
+                            <span className="text-sm font-medium text-slate-700">thread_atribuída_outro</span>
+                            <Badge className={flags.thread_atribuida_outro ? 'bg-red-600' : 'bg-green-600'}>
+                              {flags.thread_atribuida_outro ? '❌ true (BLOQUEADA)' : '✅ false'}
+                            </Badge>
+                          </div>
+                          
+                          <div className="flex items-center justify-between p-2 bg-slate-50 rounded">
+                            <span className="text-sm font-medium text-slate-700">contato_fidelizado_outro</span>
+                            <Badge className={flags.contato_fidelizado_outro ? 'bg-red-600' : 'bg-green-600'}>
+                              {flags.contato_fidelizado_outro ? '❌ true (BLOQUEADA)' : '✅ false'}
+                            </Badge>
+                          </div>
+
+                          <div className="flex items-center justify-between p-2 bg-green-50 rounded border border-green-200">
+                            <span className="text-sm font-medium text-green-700">thread_atribuída_a_mim</span>
+                            <Badge className={flags.thread_atribuida_a_mim ? 'bg-green-600' : 'bg-slate-300'}>
+                              {flags.thread_atribuida_a_mim ? '✅ true' : 'false'}
+                            </Badge>
+                          </div>
+
+                          <div className="flex items-center justify-between p-2 bg-green-50 rounded border border-green-200">
+                            <span className="text-sm font-medium text-green-700">contato_fidelizado_a_mim</span>
+                            <Badge className={flags.contato_fidelizado_a_mim ? 'bg-green-600' : 'bg-slate-300'}>
+                              {flags.contato_fidelizado_a_mim ? '✅ true' : 'false'}
+                            </Badge>
+                          </div>
+                        </div>
+                      </div>
+
                       {/* Motivo Principal */}
                       <div className={`p-3 rounded-lg ${diag.visible ? 'bg-green-100 border border-green-300' : 'bg-red-100 border border-red-300'}`}>
                         <p className="text-sm font-semibold mb-1">
@@ -321,9 +386,39 @@ export default function DiagnosticoVisibilidadeContato({ integracoes = [] }) {
                           </pre>
                         </div>
                       )}
+
+                      {/* 🎯 PERMISSÕES DA INTEGRAÇÃO */}
+                      {permIntegracao && (
+                        <div className="p-3 bg-purple-50 rounded-lg border border-purple-200">
+                          <p className="text-xs font-semibold text-purple-800 mb-2">
+                            📱 Integração: {permIntegracao.integration_name || diag.integracao?.nome_instancia}
+                          </p>
+                          <div className="grid grid-cols-3 gap-2">
+                            <div className="text-center p-2 bg-white rounded border">
+                              <p className="text-[10px] text-slate-500">can_view</p>
+                              <Badge className={permIntegracao.can_view ? 'bg-green-600 text-xs' : 'bg-red-600 text-xs'}>
+                                {permIntegracao.can_view ? '✅' : '❌'}
+                              </Badge>
+                            </div>
+                            <div className="text-center p-2 bg-white rounded border">
+                              <p className="text-[10px] text-slate-500">can_send</p>
+                              <Badge className={permIntegracao.can_send ? 'bg-green-600 text-xs' : 'bg-red-600 text-xs'}>
+                                {permIntegracao.can_send ? '✅' : '❌'}
+                              </Badge>
+                            </div>
+                            <div className="text-center p-2 bg-white rounded border">
+                              <p className="text-[10px] text-slate-500">can_receive</p>
+                              <Badge className={permIntegracao.can_receive ? 'bg-green-600 text-xs' : 'bg-red-600 text-xs'}>
+                                {permIntegracao.can_receive ? '✅' : '❌'}
+                              </Badge>
+                            </div>
+                          </div>
+                        </div>
+                      )}
                     </CardContent>
                   </Card>
-                ))}
+                  );
+                })}
               </div>
             )}
 
