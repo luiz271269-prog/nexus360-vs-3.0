@@ -302,10 +302,11 @@ function normalizarPayload(payload) {
     conteudo = '🎤 [Áudio recebido]';
   } else if (payload.document) {
     mediaType = 'document';
-    if (typeof payload.document === 'object') {
-      mediaUrl = payload.document.documentUrl ?? payload.document.url ?? payload.document.link ?? payload.document.mediaUrl ?? null;
-      const fileName = payload.document.fileName || payload.fileName || 'arquivo';
-      conteudo = payload.document.caption ? `${payload.document.caption} (${fileName})` : `📄 [Documento: ${fileName}]`;
+        if (typeof payload.document === 'object') {
+          // ⚠️ Z-API: documento como objeto (raro mas possível)
+          mediaUrl = payload.document.documentUrl ?? payload.document.url ?? payload.document.link ?? payload.document.mediaUrl ?? null;
+          const fileName = payload.document.fileName || payload.fileName || 'arquivo';
+          conteudo = payload.document.caption ? `${payload.document.caption} (${fileName})` : `📄 [Documento: ${fileName}]`;
     } else if (typeof payload.document === 'string' && payload.document.startsWith('http')) {
       mediaUrl = payload.document;
       const fileName = payload.fileName || 'arquivo';
