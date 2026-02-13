@@ -145,7 +145,7 @@ Deno.serve(async (req) => {
             sender_type: 'user',
             recipient_id: contato.id,
             recipient_type: 'contact',
-            content: mensagemFinal,
+            content: media_url ? (media_caption || '[Mídia]') : mensagemFinal,
             channel: 'whatsapp',
             status: 'enviada',
             whatsapp_message_id: respEnvio.data.message_id,
@@ -164,16 +164,24 @@ Deno.serve(async (req) => {
 
           // ✅ REGRA 5: ATUALIZAR THREAD (com marcação de broadcast)
           await base44.asServiceRole.entities.MessageThread.update(thread.id, {
-            last_message_content: `[Broadcast] ${mensagemFinal.substring(0, 80)}`,
+            last_message_content: media_url 
+              ? `[Broadcast] [${media_type}] ${(media_caption || mensagemFinal).substring(0, 60)}`
+              : `[Broadcast] ${mensagemFinal.substring(0, 80)}`,
             last_message_at: now.toISOString(),
             last_outbound_at: now.toISOString(),
             last_message_sender: 'user',
             last_human_message_at: now.toISOString(),
+            last_media_type: media_url ? media_type : 'none',
             whatsapp_integration_id: integration.id,
             pre_atendimento_ativo: false,  // ✅ Desliga URA se ativa
             metadata: {
               ultima_mensagem_origem: 'broadcast_massa',
-              broadcast_data: now.toISOString(),
+              broadcast_data: {
+                sent_at: now.toISOString(),
+                broadcast_id: `broadcast_${now.getTime()}`,
+                tem_midia: !!media_url,
+                tipo_midia: media_type
+              },
               broadcast_para_contatos: contact_ids.length
             }
           });
