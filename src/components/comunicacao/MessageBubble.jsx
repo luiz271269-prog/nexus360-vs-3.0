@@ -1118,7 +1118,7 @@ export default React.memo(function MessageBubble({
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium truncate mb-0.5 text-slate-900">
-                      {message.media_caption || message.content?.replace(/[\[\]]/g, '').trim() || 'Documento'}
+                      📄 {message.media_caption || message.content?.replace(/[\[\]]/g, '').trim() || 'Documento'}
                     </p>
                     <div className="flex items-center gap-2">
                       <p className="text-xs uppercase font-semibold text-blue-600">
