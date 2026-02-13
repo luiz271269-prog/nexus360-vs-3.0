@@ -234,7 +234,9 @@ function normalizarPayload(payload) {
   if (presentMediaFields.length > 0) {
     console.log(`[${VERSION}] 📎 Campos de mídia presentes:`, presentMediaFields);
     for (const field of presentMediaFields) {
-      console.log(`[${VERSION}] 📎 ${field}:`, JSON.stringify(payload[field]).substring(0, 300));
+      const fieldValue = payload[field];
+      const preview = typeof fieldValue === 'object' ? JSON.stringify(fieldValue).substring(0, 200) : String(fieldValue).substring(0, 200);
+      console.log(`[${VERSION}] 📎 ${field}:`, preview);
     }
   }
   
