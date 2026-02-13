@@ -571,8 +571,10 @@ Deno.serve(async (req) => {
     console.log(`[ENVIAR-WHATSAPP-UNIFICADO] 📥 Resposta ${providerName} (HTTP ${response.status}):`, responseText);
 
     // ✅ FALLBACK INTELIGENTE: Z-API documento falha → tentar /send-text com link
-    if (!isWAPI && tipoMidiaReal === 'document' && !response.ok && responseText.includes('NOT_FOUND')) {
-      console.warn(`[ENVIAR-WHATSAPP-UNIFICADO] ⚠️ Z-API /send-document falhou, ativando fallback /send-text com link`);
+    // Triggers: NOT_FOUND, 404, ou método não disponível
+    if (!isWAPI && tipoMidiaReal === 'document' && !response.ok && (responseText.includes('NOT_FOUND') || response.status === 404)) {
+      console.warn(`[ENVIAR-WHATSAPP-UNIFICADO] ⚠️ Z-API /send-document retornou ${response.status}, ativando fallback /send-text com link`);
+      console.warn(`[ENVIAR-WHATSAPP-UNIFICADO] ⚠️ Resposta original:`, responseText.substring(0, 200));
       
       const endpointFallback = `${baseUrl}/instances/${instanceId}/token/${token}/send-text`;
       const nomeArquivo = body.fileName || 'documento';
@@ -581,6 +583,8 @@ Deno.serve(async (req) => {
         message: `📄 ${nomeArquivo}\n\n${media_url}`
       };
       
+      console.log(`[ENVIAR-WHATSAPP-UNIFICADO] 🔄 FALLBACK enviando via /send-text`);
+      
       response = await fetch(endpointFallback, {
         method: 'POST',
         headers: requestHeaders,
@@ -588,7 +592,7 @@ Deno.serve(async (req) => {
       });
       
       responseText = await response.text();
-      console.log(`[ENVIAR-WHATSAPP-UNIFICADO] 📥 Fallback /send-text (HTTP ${response.status}):`, responseText.substring(0, 100));
+      console.log(`[ENVIAR-WHATSAPP-UNIFICADO] 📥 Fallback /send-text (HTTP ${response.status}):`, responseText.substring(0, 200));
     }
 
     let result;
