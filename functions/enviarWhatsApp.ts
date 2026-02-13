@@ -14,10 +14,18 @@ const WAPI_BASE_URL = 'https://api.w-api.app/v1';
 // Z-API: campos diretos (image, video, audio, document)
 // W-API: campos específicos + extension obrigatório para documentos
 const MEDIA_CONFIG = {
-  image: { endpoint: 'send-image', zapiField: 'image', wapiField: 'image' },
-  video: { endpoint: 'send-video', zapiField: 'video', wapiField: 'video' },
-  document: { endpoint: 'send-document', zapiField: 'document', wapiField: 'document' },
-  audio: { endpoint: 'send-audio', zapiField: 'audio', wapiField: 'audio' } // W-API usa 'audio' para áudio
+  image: { endpoint: 'send-image', zapiField: 'image', wapiField: 'image', caption: true },
+  video: { endpoint: 'send-video', zapiField: 'video', wapiField: 'video', caption: true },
+  audio: { endpoint: 'send-audio', zapiField: 'audio', wapiField: 'audio', caption: false },
+  document: { 
+    endpoint: 'send-document', 
+    zapiField: 'document', 
+    wapiField: 'document',
+    caption: true,
+    zapiRequiresExtension: true,  // Exige /send-document/{extension}
+    zapiFallbackToText: true,      // Fallback para /send-text se falhar
+    wapiRequiresExtension: true 
+  }
 };
 
 // Mapeamento de extensões para MIME types (Z-API)
