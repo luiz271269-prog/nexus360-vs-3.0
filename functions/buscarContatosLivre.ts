@@ -34,7 +34,7 @@ Deno.serve(async (req) => {
   if (req.method === 'GET') {
     return Response.json({ 
       status: 'ok',
-      description: 'Busca livre de contatos (ignora RLS para permitir busca ampla)'
+      description: 'Busca GLOBAL livre de contatos (ignora RLS, sem filtros de permissão)'
     });
   }
 
@@ -47,11 +47,11 @@ Deno.serve(async (req) => {
       return Response.json({ error: 'Não autenticado' }, { status: 401 });
     }
 
-    const { searchTerm, limit = 500 } = await req.json();
+    const { searchTerm, limit = 200 } = await req.json();
     
     // 🔍 LOG CIRÚRGICO: Identificar quem está chamando
     console.log('[buscarContatosLivre] 📞 CHAMADA RECEBIDA:', {
-      user_id: user.id,
+      user_id: user.id?.substring(0, 8),
       user_email: user.email,
       user_role: user.role,
       searchTerm: searchTerm || '(vazio)',
@@ -66,74 +66,118 @@ Deno.serve(async (req) => {
     
     if (searchTerm && searchTerm.trim()) {
       const termo = searchTerm.trim().toLowerCase();
-      const termoLimpo = termo.replace(/\D/g, '');
+      const termoNumeros = termo.replace(/\D/g, '');
       
-      console.log(`[buscarContatosLivre] 🔍 Buscando: "${termo}"`);
+      console.log(`[buscarContatosLivre] 🔍 Termo normalizado: "${termo}" | Números: "${termoNumeros}"`);
       
-      // ✅ OTIMIZAÇÃO: Buscar por campos específicos com LIMIT menor (200 em vez de 500)
-      const [porNome, porEmpresa, porTelefone] = await Promise.all([
-        // Busca por nome (case-insensitive via $regex não suportado - usar filtro local)
-        base44.asServiceRole.entities.Contact.list('-created_date', 200),
-        // Busca complementar se termo for numérico
-        termoLimpo.length >= 4 
-          ? base44.asServiceRole.entities.Contact.list('-created_date', 200)
-          : Promise.resolve([])
-      ].filter(Boolean));
+      // ✅ ESTRATÉGIA 1: Busca por telefone canônico (mais eficiente)
+      if (termoNumeros.length >= 4) {
+        try {
+          // Tentar busca exata por telefone_canonico (mais rápido)
+          const porTelefone = await base44.asServiceRole.entities.Contact.filter(
+            { telefone_canonico: { $contains: termoNumeros } },
+            '-ultima_interacao',
+            50
+          );
+          
+          if (porTelefone.length > 0) {
+            console.log(`[buscarContatosLivre] ✅ Encontrou ${porTelefone.length} por telefone canônico`);
+            contatos = porTelefone;
+          }
+        } catch (error) {
+          console.warn('[buscarContatosLivre] ⚠️ Campo telefone_canonico ainda não existe:', error.message);
+        }
+      }
       
-      // Combinar resultados
-      const todosResultados = [...porNome, ...porEmpresa, ...porTelefone];
-      const unicosMap = new Map(todosResultados.map(c => [c.id, c]));
-      
-      // Filtrar localmente (Base44 não suporta $regex)
-      contatos = Array.from(unicosMap.values()).filter(c => {
-        const nome = (c.nome || '').toLowerCase();
-        const empresa = (c.empresa || '').toLowerCase();
-        const cargo = (c.cargo || '').toLowerCase();
-        const telefone = (c.telefone || '').replace(/\D/g, '');
+      // ✅ ESTRATÉGIA 2: Se não achou por telefone, buscar texto (limitado a 200)
+      if (contatos.length === 0) {
+        const todosBD = await base44.asServiceRole.entities.Contact.list('-ultima_interacao', 200);
         
-        return nome.includes(termo) || 
-               empresa.includes(termo) || 
-               cargo.includes(termo) ||
-               (termoLimpo && telefone.includes(termoLimpo));
-      }).slice(0, 100); // ✅ Limitar a 100 resultados
+        // Filtro local (Base44 não suporta $regex case-insensitive)
+        contatos = todosBD.filter(c => {
+          const nome = (c.nome || '').toLowerCase();
+          const empresa = (c.empresa || '').toLowerCase();
+          const cargo = (c.cargo || '').toLowerCase();
+          const telefone = (c.telefone || '').replace(/\D/g, '');
+          
+          return nome.includes(termo) || 
+                 empresa.includes(termo) || 
+                 cargo.includes(termo) ||
+                 (termoNumeros && telefone.includes(termoNumeros));
+        }).slice(0, 100); // Limitar a 100
+        
+        console.log(`[buscarContatosLivre] ✅ Busca texto retornou ${contatos.length} resultados`);
+      }
       
-      console.log(`[buscarContatosLivre] ✅ ${contatos.length} resultados encontrados`);
     } else {
-      // ✅ FIX: Sem busca, retornar apenas 200 últimos (não 500/1000)
+      // ✅ SEM BUSCA: Retornar últimos 200 (não 500/1000)
       contatos = await base44.asServiceRole.entities.Contact.list('-ultima_interacao', 200);
-      console.log(`[buscarContatosLivre] ✅ ${contatos.length} contatos recentes carregados`);
+      console.log(`[buscarContatosLivre] ✅ ${contatos.length} contatos recentes carregados (sem busca)`);
     }
 
-    // 🔍 LOG CIRÚRGICO: Mostrar resultados ANTES de qualquer filtro
-    console.log('[buscarContatosLivre] 📊 RETORNANDO (sem filtros de permissão):', {
+    // ═══════════════════════════════════════════════════════════════════════
+    // 🎯 DEDUPLICAÇÃO POR TELEFONE CANÔNICO (se campo existir)
+    // ═══════════════════════════════════════════════════════════════════════
+    const contatosPorTelefone = new Map();
+    const contatosSemTelefone = [];
+    
+    contatos.forEach(c => {
+      const telCanon = c.telefone_canonico || (c.telefone || '').replace(/\D/g, '');
+      
+      if (!telCanon) {
+        contatosSemTelefone.push(c);
+        return;
+      }
+      
+      const existente = contatosPorTelefone.get(telCanon);
+      if (!existente) {
+        contatosPorTelefone.set(telCanon, c);
+      } else {
+        // Manter o mais recente
+        const tsExistente = new Date(existente.ultima_interacao || existente.updated_date || 0).getTime();
+        const tsAtual = new Date(c.ultima_interacao || c.updated_date || 0).getTime();
+        
+        if (tsAtual > tsExistente) {
+          contatosPorTelefone.set(telCanon, c);
+        }
+      }
+    });
+    
+    const contatosDeduplicated = [...contatosPorTelefone.values(), ...contatosSemTelefone];
+
+    // 🔍 LOG CIRÚRGICO: Resultado final (SEM FILTROS DE PERMISSÃO)
+    console.log('[buscarContatosLivre] 📊 RETORNANDO (GLOBAL - sem filtros):', {
       user_email: user.email,
       user_role: user.role,
-      total_contatos: contatos.length,
-      primeiros_3: contatos.slice(0, 3).map(c => ({
+      total_antes_dedup: contatos.length,
+      total_depois_dedup: contatosDeduplicated.length,
+      duplicatas_removidas: contatos.length - contatosDeduplicated.length,
+      primeiros_3: contatosDeduplicated.slice(0, 3).map(c => ({
         id: c.id?.substring(0, 8),
         nome: c.nome,
         telefone: c.telefone,
-        tipo: c.tipo_contato,
+        telefone_canonico: c.telefone_canonico || 'N/A',
         empresa: c.empresa
       })),
-      tem_luiz: contatos.some(c => c.nome?.toLowerCase().includes('luiz')),
-      WARNING: '⚠️ Esta função NÃO aplica filtros de permissão - isso é INTENCIONAL'
+      tem_luiz: contatosDeduplicated.some(c => c.nome?.toLowerCase().includes('luiz')),
+      WARNING: '⚠️ NENHUM filtro de permissão aplicado - INTENCIONAL'
     });
 
     return Response.json({ 
       success: true,
-      contatos,
-      total: contatos.length,
+      contatos: contatosDeduplicated,
+      total: contatosDeduplicated.length,
       user_id: user.id,
       _meta: {
         searchTerm: searchTerm || null,
         aplicou_filtro_permissao: false, // ✅ CONTRATO: NUNCA filtrar por permissão
+        deduplicated: contatosDeduplicated.length < contatos.length,
         timestamp: new Date().toISOString()
       }
     });
 
   } catch (error) {
-    console.error('[buscarContatosLivre] Erro:', error);
+    console.error('[buscarContatosLivre] ❌ ERRO:', error);
     return Response.json({ 
       success: false, 
       error: error.message 
