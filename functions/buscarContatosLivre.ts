@@ -1,8 +1,22 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.4';
 
 /**
- * Busca livre de contatos no banco (sem RLS)
- * Usado para permitir busca ampla, com filtragem de permissões no frontend
+ * ═══════════════════════════════════════════════════════════════════════
+ * 🌍 BUSCA GLOBAL DE CONTATOS - SEM FILTROS DE PERMISSÃO
+ * ═══════════════════════════════════════════════════════════════════════
+ * 
+ * CONTRATO ARQUITETURAL:
+ * 1. Esta função SEMPRE retorna contatos de forma LIVRE (asServiceRole)
+ * 2. NÃO aplica filtros de setor, integração, owner, fidelização
+ * 3. NÃO respeita RLS (Row Level Security)
+ * 4. Objetivo: encontrar contato canônico por nome/telefone/empresa
+ * 
+ * RESPONSABILIDADE DE PERMISSÕES:
+ * - Frontend: mostra contato na lista (SEMPRE)
+ * - Camada de Threads: aplica permissões ao tentar abrir/enviar (canUserSeeThreadBase)
+ * 
+ * ⚠️ NUNCA adicionar filtros de permissão nesta função!
+ * ═══════════════════════════════════════════════════════════════════════
  */
 
 Deno.serve(async (req) => {
@@ -36,15 +50,18 @@ Deno.serve(async (req) => {
     const { searchTerm, limit = 500 } = await req.json();
     
     // 🔍 LOG CIRÚRGICO: Identificar quem está chamando
-    console.log('[buscarContatosLivre] 📞 CHAMADA:', {
+    console.log('[buscarContatosLivre] 📞 CHAMADA RECEBIDA:', {
       user_id: user.id,
       user_email: user.email,
       user_role: user.role,
-      searchTerm,
-      limit
+      searchTerm: searchTerm || '(vazio)',
+      limit,
+      timestamp: new Date().toISOString()
     });
 
-    // ✅ FIX PERFORMANCE: Usar queries otimizadas em vez de .list() completo
+    // ═══════════════════════════════════════════════════════════════════════
+    // 🌍 BUSCA SEMPRE GLOBAL - SEM FILTROS DE PERMISSÃO
+    // ═══════════════════════════════════════════════════════════════════════
     let contatos = [];
     
     if (searchTerm && searchTerm.trim()) {
@@ -87,23 +104,32 @@ Deno.serve(async (req) => {
       console.log(`[buscarContatosLivre] ✅ ${contatos.length} contatos recentes carregados`);
     }
 
-    // 🔍 LOG CIRÚRGICO: Mostrar primeiros 3 resultados
-    console.log('[buscarContatosLivre] 📊 RETORNANDO:', {
-      total: contatos.length,
+    // 🔍 LOG CIRÚRGICO: Mostrar resultados ANTES de qualquer filtro
+    console.log('[buscarContatosLivre] 📊 RETORNANDO (sem filtros de permissão):', {
+      user_email: user.email,
+      user_role: user.role,
+      total_contatos: contatos.length,
       primeiros_3: contatos.slice(0, 3).map(c => ({
         id: c.id?.substring(0, 8),
         nome: c.nome,
         telefone: c.telefone,
-        tipo: c.tipo_contato
+        tipo: c.tipo_contato,
+        empresa: c.empresa
       })),
-      tem_luiz: contatos.some(c => c.nome?.toLowerCase().includes('luiz'))
+      tem_luiz: contatos.some(c => c.nome?.toLowerCase().includes('luiz')),
+      WARNING: '⚠️ Esta função NÃO aplica filtros de permissão - isso é INTENCIONAL'
     });
 
     return Response.json({ 
       success: true,
       contatos,
       total: contatos.length,
-      user_id: user.id
+      user_id: user.id,
+      _meta: {
+        searchTerm: searchTerm || null,
+        aplicou_filtro_permissao: false, // ✅ CONTRATO: NUNCA filtrar por permissão
+        timestamp: new Date().toISOString()
+      }
     });
 
   } catch (error) {
