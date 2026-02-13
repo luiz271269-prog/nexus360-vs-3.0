@@ -899,15 +899,16 @@ async function handleMessage(dados, payloadBruto, base44) {
   // ============================================================================
   let mediaUrlFinal = dados.mediaUrl ?? null;
   let midiaPersistida = false;
-  
+
   if (dados.mediaUrl && dados.mediaType && dados.mediaType !== 'none') {
     console.log(`[${VERSION}] 📎 Mídia detectada: ${dados.mediaType} | URL temp: ${dados.mediaUrl?.substring(0, 60)}...`);
-    
-    // Verificar se é URL temporária do WhatsApp (mmg.whatsapp.net, z-api, ou backblaze)
+
+    // ⚠️ CRÍTICO: Z-API retorna URLs com Backblaze B2 que são TEMPORÁRIAS (expiram em ~2h)
+    // Verificar se é URL temporária (SEMPRE fazer persist para URLs de provedor)
     const isUrlTemporaria = dados.mediaUrl.includes('mmg.whatsapp.net') || 
                             dados.mediaUrl.includes('z-api.io') ||
                             dados.mediaUrl.includes('api.z-api.io') ||
-                            dados.mediaUrl.includes('backblazeb2.com') ||
+                            dados.mediaUrl.includes('backblazeb2.com') ||  // ⚠️ Z-API usa B2 (TEMPORÁRIO!)
                             dados.mediaUrl.includes('temp-file-download');
     
     if (isUrlTemporaria) {
