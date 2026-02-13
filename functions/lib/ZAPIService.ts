@@ -135,50 +135,6 @@ export default class ZAPIService {
     }
   }
 
-  static async enviarDocumento(integracao, destinatario, documentUrl, caption = '', fileName = 'documento.pdf') {
-    try {
-      const numeroFormatado = destinatario.replace(/\D/g, '');
-      const baseUrl = integracao.base_url_provider?.replace(/\/$/, '') || 'https://api.z-api.io';
-      
-      const url = `${baseUrl}/instances/${integracao.instance_id_provider}/token/${integracao.api_key_provider}/send-document`;
-
-      const payload = {
-        phone: numeroFormatado,
-        url: documentUrl,
-        caption: caption,
-        fileName: fileName
-      };
-
-      console.log('[Z-API] Enviando documento:', { fileName, payload });
-
-      const response = await fetch(url, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Client-Token': integracao.security_client_token_header
-        },
-        body: JSON.stringify(payload)
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || errorData.error || `HTTP ${response.status}`);
-      }
-
-      const data = await response.json();
-      
-      return {
-        sucesso: true,
-        messageId: data.messageId || data.key?.id,
-        dados: data
-      };
-
-    } catch (error) {
-      console.error('❌ [Z-API] Erro ao enviar documento:', error);
-      throw error;
-    }
-  }
-
   static processarWebhook(payload) {
     try {
       console.log('📥 [Z-API] Processando webhook:', payload);
