@@ -15,6 +15,7 @@ import { toast } from 'sonner';
 export default function SeletorPromocoesAtivas({ onSelecionarPromocao, onClose }) {
   const [promocoes, setPromocoes] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [selecionadas, setSelecionadas] = useState([]);
 
   useEffect(() => {
     carregarPromocoesAtivas();
@@ -24,8 +25,8 @@ export default function SeletorPromocoesAtivas({ onSelecionarPromocao, onClose }
     try {
       setLoading(true);
       const promos = await base44.entities.Promotion.filter(
-        { ativo: true },
-        '-created_date',
+        { is_active: true },
+        '-priority',
         50
       );
       setPromocoes(promos);
@@ -37,40 +38,54 @@ export default function SeletorPromocoesAtivas({ onSelecionarPromocao, onClose }
     }
   };
 
-  const handleSelecionar = async (promo) => {
-    if (!promo.image_url) {
-      toast.error('Esta promoção não tem imagem configurada');
+  const toggleSelecao = (promoId) => {
+    setSelecionadas(prev => 
+      prev.includes(promoId) 
+        ? prev.filter(id => id !== promoId)
+        : [...prev, promoId]
+    );
+  };
+
+  const handleEnviarSelecionadas = async () => {
+    if (selecionadas.length === 0) {
+      toast.error('Selecione pelo menos uma promoção');
       return;
     }
 
-    try {
-      // Baixar a imagem da URL
-      toast.info('📥 Preparando imagem da promoção...');
-      
-      const response = await fetch(promo.image_url);
-      const blob = await response.blob();
-      
-      // Criar File object da imagem
-      const fileName = `promocao-${promo.id}.${blob.type.split('/')[1] || 'jpg'}`;
-      const file = new File([blob], fileName, { type: blob.type });
-      
-      // Criar preview URL
-      const previewUrl = URL.createObjectURL(blob);
-      
-      // Passar para o componente pai
-      onSelecionarPromocao({
-        file,
-        previewUrl,
-        caption: promo.mensagem || promo.titulo || '',
-        promocao: promo
-      });
-      
-      toast.success('✅ Imagem da promoção carregada!');
-      onClose();
-    } catch (error) {
-      console.error('[SeletorPromocoesAtivas] Erro ao carregar imagem:', error);
-      toast.error('Erro ao carregar imagem da promoção');
+    const promosSelecionadas = promocoes.filter(p => selecionadas.includes(p.id));
+    
+    for (const promo of promosSelecionadas) {
+      if (!promo.image_url) {
+        toast.error(`${promo.titulo} não tem imagem configurada`);
+        continue;
+      }
+
+      try {
+        toast.info(`📥 Preparando ${promo.titulo}...`);
+        
+        const response = await fetch(promo.image_url);
+        const blob = await response.blob();
+        
+        const fileName = `promocao-${promo.id}.${blob.type.split('/')[1] || 'jpg'}`;
+        const file = new File([blob], fileName, { type: blob.type });
+        const previewUrl = URL.createObjectURL(blob);
+        
+        onSelecionarPromocao({
+          file,
+          previewUrl,
+          caption: promo.mensagem || promo.titulo || '',
+          promocao: promo
+        });
+        
+        await new Promise(resolve => setTimeout(resolve, 300));
+      } catch (error) {
+        console.error('[SeletorPromocoesAtivas] Erro:', error);
+        toast.error(`Erro ao carregar ${promo.titulo}`);
+      }
     }
+    
+    toast.success(`✅ ${selecionadas.length} promoção(ões) carregadas!`);
+    onClose();
   };
 
   return (
@@ -104,13 +119,19 @@ export default function SeletorPromocoesAtivas({ onSelecionarPromocao, onClose }
           </div>
         ) : (
           <div className="space-y-3">
-            {promocoes.map((promo) => (
+            {promocoes.map((promo) => {
+              const isSelected = selecionadas.includes(promo.id);
+              return (
               <button
                 key={promo.id}
-                onClick={() => handleSelecionar(promo)}
-                className="w-full text-left rounded-xl border-2 border-slate-200 hover:border-orange-400 hover:shadow-lg transition-all group overflow-hidden bg-white"
+                onClick={() => toggleSelecao(promo.id)}
+                className={`w-full text-left rounded-xl border-2 transition-all group overflow-hidden ${
+                  isSelected 
+                    ? 'border-orange-500 bg-orange-50 shadow-lg' 
+                    : 'border-slate-200 hover:border-orange-400 hover:shadow-lg bg-white'
+                }`}
               >
-                {/* Imagem Grande */}
+                {/* Imagem Grande com Checkbox */}
                 {promo.image_url ? (
                   <div className="relative w-full h-48 bg-slate-100 overflow-hidden">
                     <img
@@ -118,19 +139,48 @@ export default function SeletorPromocoesAtivas({ onSelecionarPromocao, onClose }
                       alt={promo.titulo}
                       className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                     />
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/0 to-black/0 opacity-0 group-hover:opacity-100 transition-opacity">
-                      <div className="absolute bottom-3 left-3 right-3 flex items-center justify-between">
-                        <span className="text-white font-medium text-sm flex items-center gap-2">
-                          <Copy className="w-4 h-4" />
-                          Clique para copiar
-                        </span>
-                        <CheckCircle2 className="w-5 h-5 text-white" />
+                    {/* Checkbox */}
+                    <div className="absolute top-3 right-3">
+                      <div className={`w-7 h-7 rounded-full flex items-center justify-center transition-all shadow-lg ${
+                        isSelected 
+                          ? 'bg-orange-500' 
+                          : 'bg-white/90 group-hover:bg-white'
+                      }`}>
+                        {isSelected ? (
+                          <CheckCircle2 className="w-5 h-5 text-white" />
+                        ) : (
+                          <div className="w-4 h-4 rounded-full border-2 border-slate-400" />
+                        )}
                       </div>
+                    </div>
+                    {/* Overlay ao hover */}
+                    <div className={`absolute inset-0 transition-opacity ${
+                      isSelected ? 'bg-orange-500/20' : 'bg-gradient-to-t from-black/60 via-black/0 to-black/0 opacity-0 group-hover:opacity-100'
+                    }`}>
+                      {!isSelected && (
+                        <div className="absolute bottom-3 left-3 right-3 flex items-center justify-between">
+                          <span className="text-white font-medium text-sm flex items-center gap-2">
+                            <Copy className="w-4 h-4" />
+                            Clique para selecionar
+                          </span>
+                        </div>
+                      )}
                     </div>
                   </div>
                 ) : (
-                  <div className="w-full h-48 bg-gradient-to-br from-slate-100 to-slate-200 flex items-center justify-center">
+                  <div className="relative w-full h-48 bg-gradient-to-br from-slate-100 to-slate-200 flex items-center justify-center">
                     <ImageIcon className="w-16 h-16 text-slate-400" />
+                    <div className="absolute top-3 right-3">
+                      <div className={`w-7 h-7 rounded-full flex items-center justify-center transition-all shadow-lg ${
+                        isSelected ? 'bg-orange-500' : 'bg-white'
+                      }`}>
+                        {isSelected ? (
+                          <CheckCircle2 className="w-5 h-5 text-white" />
+                        ) : (
+                          <div className="w-4 h-4 rounded-full border-2 border-slate-400" />
+                        )}
+                      </div>
+                    </div>
                   </div>
                 )}
 
@@ -144,28 +194,56 @@ export default function SeletorPromocoesAtivas({ onSelecionarPromocao, onClose }
                       {promo.mensagem}
                     </p>
                   )}
-                  <div className="flex items-center gap-2">
+                  <div className="flex flex-wrap items-center gap-2">
                     {promo.image_url && (
                       <Badge className="text-xs bg-green-500 text-white">
                         ✓ Com Imagem
                       </Badge>
                     )}
-                    <Badge variant="outline" className="text-xs">
-                      {promo.tipo_gatilho || 'manual'}
-                    </Badge>
+                    {promo.categoria && (
+                      <Badge variant="outline" className="text-xs">
+                        {promo.categoria}
+                      </Badge>
+                    )}
+                    {promo.preco && (
+                      <Badge className="text-xs bg-blue-500 text-white">
+                        R$ {parseFloat(promo.preco).toFixed(2)}
+                      </Badge>
+                    )}
+                    {promo.expires_at && (
+                      <Badge variant="outline" className="text-xs text-orange-600 border-orange-300">
+                        Até {new Date(promo.expires_at).toLocaleDateString('pt-BR')}
+                      </Badge>
+                    )}
                   </div>
                 </div>
               </button>
-            ))}
+            );
+            })}
           </div>
         )}
       </div>
 
-      {/* Footer com dica */}
+      {/* Footer com contador e botão de envio */}
       <div className="px-4 py-3 bg-gradient-to-r from-orange-50 to-amber-50 border-t border-orange-200">
-        <p className="text-xs text-slate-700 text-center font-medium">
-          💡 A imagem será colada no chat + você pode adicionar texto
-        </p>
+        {selecionadas.length > 0 ? (
+          <div className="flex items-center justify-between gap-3">
+            <p className="text-xs text-slate-700 font-medium">
+              {selecionadas.length} selecionada(s)
+            </p>
+            <Button
+              onClick={handleEnviarSelecionadas}
+              size="sm"
+              className="bg-orange-500 hover:bg-orange-600 text-white"
+            >
+              Enviar Selecionadas
+            </Button>
+          </div>
+        ) : (
+          <p className="text-xs text-slate-700 text-center font-medium">
+            💡 Clique nas promoções para selecioná-las
+          </p>
+        )}
       </div>
     </div>
   );
