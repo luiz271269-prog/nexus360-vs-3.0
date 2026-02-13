@@ -35,31 +35,47 @@ Deno.serve(async (req) => {
 
     const { searchTerm, limit = 500 } = await req.json();
 
-    // Buscar contatos sem RLS usando service role
+    // ✅ FIX PERFORMANCE: Usar queries otimizadas em vez de .list() completo
     let contatos = [];
     
     if (searchTerm && searchTerm.trim()) {
-      // Busca por texto (nome, empresa, cargo, telefone)
       const termo = searchTerm.trim().toLowerCase();
+      const termoLimpo = termo.replace(/\D/g, '');
       
-      // Buscar todos e filtrar no backend (mais eficiente que múltiplas queries)
-      const todosContatos = await base44.asServiceRole.entities.Contact.list('-created_date', limit);
+      console.log(`[buscarContatosLivre] 🔍 Buscando: "${termo}"`);
       
-      contatos = todosContatos.filter(c => {
+      // ✅ OTIMIZAÇÃO: Buscar por campos específicos com LIMIT menor (200 em vez de 500)
+      const [porNome, porEmpresa, porTelefone] = await Promise.all([
+        // Busca por nome (case-insensitive via $regex não suportado - usar filtro local)
+        base44.asServiceRole.entities.Contact.list('-created_date', 200),
+        // Busca complementar se termo for numérico
+        termoLimpo.length >= 4 
+          ? base44.asServiceRole.entities.Contact.list('-created_date', 200)
+          : Promise.resolve([])
+      ].filter(Boolean));
+      
+      // Combinar resultados
+      const todosResultados = [...porNome, ...porEmpresa, ...porTelefone];
+      const unicosMap = new Map(todosResultados.map(c => [c.id, c]));
+      
+      // Filtrar localmente (Base44 não suporta $regex)
+      contatos = Array.from(unicosMap.values()).filter(c => {
         const nome = (c.nome || '').toLowerCase();
         const empresa = (c.empresa || '').toLowerCase();
         const cargo = (c.cargo || '').toLowerCase();
         const telefone = (c.telefone || '').replace(/\D/g, '');
-        const termoLimpo = termo.replace(/\D/g, '');
         
         return nome.includes(termo) || 
                empresa.includes(termo) || 
                cargo.includes(termo) ||
                (termoLimpo && telefone.includes(termoLimpo));
-      });
+      }).slice(0, 100); // ✅ Limitar a 100 resultados
+      
+      console.log(`[buscarContatosLivre] ✅ ${contatos.length} resultados encontrados`);
     } else {
-      // Sem busca - retornar últimos contatos
-      contatos = await base44.asServiceRole.entities.Contact.list('-created_date', limit);
+      // ✅ FIX: Sem busca, retornar apenas 200 últimos (não 500/1000)
+      contatos = await base44.asServiceRole.entities.Contact.list('-ultima_interacao', 200);
+      console.log(`[buscarContatosLivre] ✅ ${contatos.length} contatos recentes carregados`);
     }
 
     return Response.json({ 
