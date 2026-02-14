@@ -7,7 +7,7 @@ import { createClientFromRequest } from 'npm:@base44/sdk@0.8.4';
 // Detecta automaticamente o provedor e adapta o envio
 // ============================================================================
 
-const VERSION = 'v2.3.0-FIX-ZAPI';
+const VERSION = 'v2.4.0-DOCUMENT-EQUALS-IMAGE';
 const ZAPI_BASE_URL = 'https://api.z-api.io';
 const WAPI_BASE_URL = 'https://api.w-api.app/v1';
 
@@ -467,6 +467,12 @@ Deno.serve(async (req) => {
           // Corpo: { phone, document, fileName }
           endpoint = `${baseUrl}/instances/${instanceId}/token/${token}/${config.endpoint}`;
           
+          // ✅ LIMPAR URL (igual imagens)
+          let urlParaUsar = media_url;
+          if (media_url.includes('base44-prod/public/')) {
+            urlParaUsar = media_url.split('?')[0]; // Remove query params
+          }
+          
           if (media_caption && media_caption.includes('.')) {
             nomeArquivoSeguro = sanitizarFileName(media_caption, extensaoArquivo);
           } else {
@@ -479,17 +485,22 @@ Deno.serve(async (req) => {
             nomeArquivoSeguro = `${nomeArquivoSeguro}.${extensaoArquivo}`;
           }
           
+          const mimeType = obterMimeType(extensaoArquivo);
+          
           body = {
             phone: numeroFormatado,
-            document: media_url,
+            document: urlParaUsar,
+            mimetype: mimeType,
             fileName: nomeArquivoSeguro
           };
           
           console.log(`[ENVIAR-WHATSAPP-UNIFICADO] 📄 Z-API DOCUMENTO CORRETO`);
           console.log(`[ENVIAR-WHATSAPP-UNIFICADO]   - Endpoint: ${endpoint}`);
           console.log(`[ENVIAR-WHATSAPP-UNIFICADO]   - Phone: ${numeroFormatado}`);
-          console.log(`[ENVIAR-WHATSAPP-UNIFICADO]   - Document URL: ${media_url?.substring(0, 80)}...`);
+          console.log(`[ENVIAR-WHATSAPP-UNIFICADO]   - Document URL original: ${media_url?.substring(0, 80)}...`);
+          console.log(`[ENVIAR-WHATSAPP-UNIFICADO]   - Document URL limpa: ${urlParaUsar?.substring(0, 80)}...`);
           console.log(`[ENVIAR-WHATSAPP-UNIFICADO]   - FileName: ${nomeArquivoSeguro}`);
+          console.log(`[ENVIAR-WHATSAPP-UNIFICADO]   - Mimetype: ${mimeType}`);
           console.log(`[ENVIAR-WHATSAPP-UNIFICADO]   - Extension: ${extensaoArquivo}`);
         } else {
           // Outros tipos (imagem, vídeo, audio)

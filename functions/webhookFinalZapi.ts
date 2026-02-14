@@ -340,8 +340,14 @@ function normalizarPayload(payload) {
       fileNameFinal = fileNameSeguro;
     }
     
-    // ✅ RENDERIZAÇÃO: Caption exibe o nome do arquivo
+    // ✅ RENDERIZAÇÃO: Caption exibe o nome do arquivo (igual imagem com caption)
     conteudo = fileNameFinal;
+    
+    // ✅ PRESERVAR fileName no mediaCaption para o frontend renderizar corretamente
+    // Sem isso, MessageBubble mostra "[Documento]" genérico
+    if (!payload.caption && !payload.document?.caption) {
+      payload.caption = fileNameFinal; // Força caption para ser propagado
+    }
   } else if (payload.sticker) {
     mediaType = 'sticker';
     if (typeof payload.sticker === 'object') {
@@ -395,7 +401,7 @@ function normalizarPayload(payload) {
     content: String(conteudo ?? '').trim(),
     mediaType,
     mediaUrl,
-    mediaCaption: payload.image?.caption ?? payload.video?.caption ?? payload.caption ?? null,
+    mediaCaption: payload.image?.caption ?? payload.video?.caption ?? payload.document?.caption ?? payload.caption ?? null,
     pushName: payload.senderName ?? payload.pushName ?? payload.chatName ?? null,
     vcard: payload.contactMessage ?? payload.vcard ?? null,
     location: payload.location ?? null,
