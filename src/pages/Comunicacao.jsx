@@ -2050,23 +2050,9 @@ export default function Comunicacao() {
 
       // Contatos sem thread - usar Set de contatos que já têm thread
       Array.from(contatosUnicos.values()).forEach((contato) => {
-        // 🎯 PRIORIDADE MÁXIMA: Se busca detectou duplicatas, IGNORAR contatos que não sejam o principal
-        if (duplicataEncontrada && duplicataEncontrada.principal) {
-          if (contato.id !== duplicataEncontrada.principal.id) {
-            if (DEBUG_VIS) {
-              logsFiltragem.push({
-                threadId: `contato-${contato.id.substring(0, 8)}`,
-                contactId: contato.id.substring(0, 8),
-                etapa: 'Deduplicação',
-                passou: false,
-                motivo: `Ignorado - não é contato principal (principal: ${duplicataEncontrada.principal.id.substring(0, 8)})`,
-                timestamp: new Date().toISOString()
-              });
-              console.log(`[COMUNICACAO] 🚫 Ignorando contato duplicado (não-principal): ${contato.id} ${contato.nome}`);
-            }
-            return;
-          }
-        }
+        // ✅ REMOVIDO: Filtro de duplicata não deve bloquear busca
+        // Busca SEMPRE mostra todos os contatos (permissões aplicadas ao abrir thread)
+        // Duplicatas detectadas servem apenas para alerta informativo
 
         if (contato.telefone) {
           const telNorm = normalizarTelefone(contato.telefone);

@@ -89,23 +89,14 @@ export default function SearchAndFilter({
     emoji: cat.emoji || '🏷️'
   }));
 
-  // ✅ DETECÇÃO DE DUPLICATAS POR TELEFONE (NÃO-BLOQUEANTE)
-  const { data: todosContatos = [] } = useQuery({
-    queryKey: ['contacts-duplicates'],
-    queryFn: () => base44.entities.Contact.list('-created_date', 1000),
-    staleTime: 5 * 60 * 1000,
-    enabled: isAdmin // Só carregar se admin
-  });
-
-  // Normalizar telefone para criar contato + detectar duplicatas (modo informativo)
+  // ✅ DETECÇÃO DE DUPLICATAS DESATIVADA - NÃO bloqueia busca
+  // Busca é SEMPRE livre, permissões aplicadas ao abrir thread
+  
+  // Normalizar telefone apenas para criar contato
   React.useEffect(() => {
     if (!searchTerm || searchTerm.trim() === '') {
       if (novoContatoTelefone) {
         onNovoContatoTelefoneChange('');
-      }
-      // Limpar detecção de duplicata
-      if (onDuplicataDetectada) {
-        onDuplicataDetectada(null);
       }
       return;
     }
@@ -113,43 +104,10 @@ export default function SearchAndFilter({
     const telefoneNormalizado = normalizarTelefone(searchTerm);
     if (telefoneNormalizado && telefoneNormalizado !== novoContatoTelefone) {
       onNovoContatoTelefoneChange(telefoneNormalizado);
-      
-      // ✅ DETECTAR DUPLICATAS ao buscar por telefone (MODO INFORMATIVO - NÃO BLOQUEIA)
-      if (isAdmin && onDuplicataDetectada && todosContatos.length > 0) {
-        const telLimpo = telefoneNormalizado.replace(/\D/g, '');
-        const contatosComTelefone = todosContatos.filter(c => {
-          const tel = (c.telefone || '').replace(/\D/g, '');
-          return tel === telLimpo;
-        });
-        
-        if (contatosComTelefone.length > 1) {
-          // Ordenar por created_date (mais antigo = principal)
-          const ordenados = contatosComTelefone.sort((a, b) => 
-            new Date(a.created_date) - new Date(b.created_date)
-          );
-          
-          console.log(`[SEARCH] ℹ️ ${contatosComTelefone.length} versões detectadas (exibindo principal): ${telefoneNormalizado}`);
-          
-          // ✅ MODO INFORMATIVO: Seta duplicatas mas NÃO bloqueia
-          // A página Comunicacao vai FILTRAR automaticamente para mostrar só o principal
-          onDuplicataDetectada({
-            telefone: telefoneNormalizado,
-            principal: ordenados[0],
-            duplicatas: ordenados.slice(1),
-            modo: 'informativo' // ✅ Flag para não bloquear
-          });
-        } else {
-          // Sem duplicatas
-          onDuplicataDetectada(null);
-        }
-      }
     } else if (!telefoneNormalizado && novoContatoTelefone) {
       onNovoContatoTelefoneChange('');
-      if (onDuplicataDetectada) {
-        onDuplicataDetectada(null);
-      }
     }
-  }, [searchTerm, novoContatoTelefone, onNovoContatoTelefoneChange, isAdmin, onDuplicataDetectada, todosContatos]);
+  }, [searchTerm, novoContatoTelefone, onNovoContatoTelefoneChange]);
 
   // Contar filtros ativos
   const filtrosAtivos = [
