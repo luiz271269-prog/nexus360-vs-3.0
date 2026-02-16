@@ -70,30 +70,71 @@ Deno.serve(async (req) => {
       
       console.log(`[buscarContatosLivre] 🔍 Termo normalizado: "${termo}" | Números: "${termoNumeros}"`);
       
-      // ✅ ESTRATÉGIA 1: Busca por telefone canônico (mais eficiente)
-      if (termoNumeros.length >= 4) {
-        try {
-          // Tentar busca exata por telefone_canonico (mais rápido)
-          const porTelefone = await base44.asServiceRole.entities.Contact.filter(
-            { telefone_canonico: { $contains: termoNumeros } },
+      // ✅ ESTRATÉGIA 1: BUSCA POR TELEFONE - Usar 6 variações (igual getOrCreateContactCentralized)
+      if (termoNumeros.length >= 8) {
+        // Gerar variações de telefone (com/sem +, com/sem 9, etc)
+        const gerarVariacoes = (tel) => {
+          const telLimpo = tel.replace(/\D/g, '');
+          const variacoes = new Set();
+          
+          // Adicionar 55 se não tiver
+          let telBase = telLimpo;
+          if (!telBase.startsWith('55') && (telBase.length === 10 || telBase.length === 11)) {
+            telBase = '55' + telBase;
+          }
+          
+          // Adicionar 9 se for celular e tiver 12 dígitos
+          if (telBase.startsWith('55') && telBase.length === 12) {
+            const ddd = telBase.substring(2, 4);
+            const numero = telBase.substring(4);
+            if (['6', '7', '8', '9'].includes(numero[0])) {
+              telBase = '55' + ddd + '9' + numero;
+            }
+          }
+          
+          // Gerar 6 variações
+          variacoes.add('+' + telBase);
+          variacoes.add(telBase);
+          
+          // Com/sem 9
+          if (telBase.length === 13 && telBase.startsWith('55')) {
+            const semNono = telBase.substring(0, 4) + telBase.substring(5);
+            variacoes.add('+' + semNono);
+            variacoes.add(semNono);
+          }
+          if (telBase.length === 12 && telBase.startsWith('55')) {
+            const comNono = telBase.substring(0, 4) + '9' + telBase.substring(4);
+            variacoes.add('+' + comNono);
+            variacoes.add(comNono);
+          }
+          
+          return Array.from(variacoes);
+        };
+        
+        const variacoes = gerarVariacoes(termoNumeros);
+        console.log(`[buscarContatosLivre] 📞 Buscando ${variacoes.length} variações de telefone:`, variacoes);
+        
+        // Buscar por cada variação (early return quando encontrar)
+        for (const variacao of variacoes) {
+          const resultado = await base44.asServiceRole.entities.Contact.filter(
+            { telefone: variacao },
             '-ultima_interacao',
-            50
+            10
           );
           
-          if (porTelefone.length > 0) {
-            console.log(`[buscarContatosLivre] ✅ Encontrou ${porTelefone.length} por telefone canônico`);
-            contatos = porTelefone;
+          if (resultado.length > 0) {
+            console.log(`[buscarContatosLivre] ✅ Encontrou ${resultado.length} com variação: "${variacao}"`);
+            contatos = resultado;
+            break;
           }
-        } catch (error) {
-          console.warn('[buscarContatosLivre] ⚠️ Campo telefone_canonico ainda não existe:', error.message);
         }
       }
       
-      // ✅ ESTRATÉGIA 2: Se não achou por telefone, buscar texto (universo expandido 1000)
+      // ✅ ESTRATÉGIA 2: Se não achou por telefone, buscar por NOME/EMPRESA/CARGO
       if (contatos.length === 0) {
         const todosBD = await base44.asServiceRole.entities.Contact.list('-ultima_interacao', 1000);
         
-        // Filtro local (Base44 não suporta $regex case-insensitive)
+        // Filtro local por texto
         contatos = todosBD.filter(c => {
           const nome = (c.nome || '').toLowerCase();
           const empresa = (c.empresa || '').toLowerCase();
@@ -101,18 +142,22 @@ Deno.serve(async (req) => {
           const observacoes = (c.observacoes || '').toLowerCase();
           const telefone = (c.telefone || '').replace(/\D/g, '');
           
-          return nome.includes(termo) || 
-                 empresa.includes(termo) || 
-                 cargo.includes(termo) ||
-                 observacoes.includes(termo) ||
-                 (termoNumeros && telefone.includes(termoNumeros));
-        }).slice(0, 100); // Limitar a 100
+          // Match de texto OU telefone parcial
+          const matchTexto = nome.includes(termo) || 
+                             empresa.includes(termo) || 
+                             cargo.includes(termo) ||
+                             observacoes.includes(termo);
+          
+          const matchTelefone = termoNumeros.length >= 4 && telefone.includes(termoNumeros);
+          
+          return matchTexto || matchTelefone;
+        }).slice(0, 100);
         
         console.log(`[buscarContatosLivre] ✅ Busca texto retornou ${contatos.length} resultados`);
       }
       
     } else {
-      // ✅ SEM BUSCA: Retornar últimos 200 (não 500/1000)
+      // ✅ SEM BUSCA: Retornar últimos 200
       contatos = await base44.asServiceRole.entities.Contact.list('-ultima_interacao', 200);
       console.log(`[buscarContatosLivre] ✅ ${contatos.length} contatos recentes carregados (sem busca)`);
     }
