@@ -430,6 +430,7 @@ export default function Comunicacao() {
 
   // ═══════════════════════════════════════════════════════════════════════════════
   // 🔍 BUSCA LIVRE DE CONTATOS - Hidratação sem bloqueio de RLS
+  // ✅ PRESERVA _meta (score_completude, tem_dados_basicos) do backend
   // ═══════════════════════════════════════════════════════════════════════════════
   const { data: contatos = [], isLoading: loadingContatos } = useQuery({
     queryKey: ['contacts', contactIdsParaCarregar],
@@ -439,7 +440,7 @@ export default function Comunicacao() {
       console.log(`[COMUNICACAO] 📎 Hidratando ${contactIdsParaCarregar.length} contatos (busca livre)...`);
 
       try {
-        // ✅ Busca livre via backend (sem RLS - retorna TODOS os contatos)
+        // ✅ Busca livre via backend (sem RLS - retorna TODOS os contatos COM _meta)
         const response = await base44.functions.invoke('buscarContatosLivre', {
           searchTerm: null,
           limit: 1000
@@ -450,15 +451,17 @@ export default function Comunicacao() {
           const idsSet = new Set(contactIdsParaCarregar);
           const contatosNecessarios = todosContatos.filter((c) => idsSet.has(c.id));
           
-          // 🔍 LOG CIRÚRGICO: Hidratação
+          // 🔍 LOG CIRÚRGICO: Hidratação + Metadados
+          const vazios = contatosNecessarios.filter(c => !c._meta?.tem_dados_basicos);
           console.log(`[COMUNICACAO] 📊 HIDRATAÇÃO - User: ${usuario.email}`, {
             recebidos_backend: todosContatos.length,
             necessarios: contatosNecessarios.length,
             solicitados: contactIdsParaCarregar.length,
+            vazios_count: vazios.length,
             user_id_backend: response.data.user_id
           });
           
-          return contatosNecessarios;
+          return contatosNecessarios; // ✅ PRESERVA _meta do backend
         }
 
         // Fallback: busca com RLS
@@ -2291,21 +2294,31 @@ export default function Comunicacao() {
 
   // ═══════════════════════════════════════════════════════════════════════════════
   // 📋 LISTA RECENTE - Modo normal (sem busca)
+  // ✅ NOVA LÓGICA: Ordena por completude (contatos completos primeiro)
   // ═══════════════════════════════════════════════════════════════════════════════
   const listaRecentes = React.useMemo(() => {
-    const contatosMap = new Map(contatos.map((c) => [c.id, c]));
+    const contatosMap = new Map(contatos.map((c) => [c.id, c])); // ✅ Preserva _meta
     const usuariosMap = new Map(atendentes.map((a) => [a.id, a]));
 
-    // ✅ Enriquecer com contato e usuário
+    // ✅ Enriquecer com contato + metadados de qualidade
     const enriched = threadsFiltradas.map((thread) => {
       const usuarioAtribuido = usuariosMap.get(thread.assigned_user_id);
       const contatoObj = thread.contato || contatosMap.get(thread.contact_id);
+      
+      // ✅ Calcular score UI baseado em _meta do backend
+      const meta = contatoObj?._meta || {};
+      const scoreCompletude = meta.score_completude ?? 0;
+      const temDadosBasicos = meta.tem_dados_basicos ?? false;
 
       return {
         ...thread,
         contato: contatoObj,
         atendente_atribuido: usuarioAtribuido,
-        assigned_user_display_name: usuarioAtribuido ? getUserDisplayName(usuarioAtribuido.id, atendentes) : null
+        assigned_user_display_name: usuarioAtribuido ? getUserDisplayName(usuarioAtribuido.id, atendentes) : null,
+        uiMeta: {
+          temDadosBasicos,
+          scoreCompletude
+        }
       };
     });
 
@@ -2346,8 +2359,15 @@ export default function Comunicacao() {
 
     const deduplicated = Array.from(threadsPorChaveUnica.values());
 
-    // ✅ Ordenar por tipo + recência
+    // ✅ NOVA ORDENAÇÃO: Completude → Tipo → Recência
     return deduplicated.sort((a, b) => {
+      // 1️⃣ PRIORIDADE MÁXIMA: Contatos com dados completos
+      const scoreA = a.uiMeta?.scoreCompletude ?? 0;
+      const scoreB = b.uiMeta?.scoreCompletude ?? 0;
+      
+      if (scoreA !== scoreB) return scoreB - scoreA; // Completos primeiro
+      
+      // 2️⃣ Tipo de item (threads > contatos sem thread > clientes sem contato)
       const getPrioridade = (item) => {
         if (item.is_cliente_only) return 3;
         if (item.is_contact_only) return 2;
@@ -2358,6 +2378,7 @@ export default function Comunicacao() {
       const prioB = getPrioridade(b);
       if (prioA !== prioB) return prioA - prioB;
 
+      // 3️⃣ Recência
       const dateA = new Date(a.last_message_at || 0);
       const dateB = new Date(b.last_message_at || 0);
       return dateB - dateA;
@@ -2366,26 +2387,46 @@ export default function Comunicacao() {
 
   // ═══════════════════════════════════════════════════════════════════════════════
   // 🔍 LISTA BUSCA - Modo pesquisa (com texto digitado)
+  // ✅ NOVA LÓGICA: Completude + Relevância combinadas
   // ═══════════════════════════════════════════════════════════════════════════════
   const listaBusca = React.useMemo(() => {
-    const contatosMap = new Map(contatos.map((c) => [c.id, c]));
+    const contatosMap = new Map(contatos.map((c) => [c.id, c])); // ✅ Preserva _meta
     const usuariosMap = new Map(atendentes.map((a) => [a.id, a]));
 
-    // ✅ Enriquecer threads com contato e usuário
+    // ✅ Enriquecer threads com contato + metadados de qualidade
     const enrichedThreads = threadsResultantesDaBusca.map((thread) => {
       const usuarioAtribuido = usuariosMap.get(thread.assigned_user_id);
       const contatoObj = thread.contato || contatosMap.get(thread.contact_id);
+      
+      // ✅ Calcular score UI
+      const meta = contatoObj?._meta || {};
+      const scoreCompletude = meta.score_completude ?? 0;
 
       return {
         ...thread,
         contato: contatoObj,
         atendente_atribuido: usuarioAtribuido,
-        assigned_user_display_name: usuarioAtribuido ? getUserDisplayName(usuarioAtribuido.id, atendentes) : null
+        assigned_user_display_name: usuarioAtribuido ? getUserDisplayName(usuarioAtribuido.id, atendentes) : null,
+        uiMeta: {
+          temDadosBasicos: meta.tem_dados_basicos ?? false,
+          scoreCompletude
+        }
       };
     });
 
-    // ✅ Ordenar apenas por score de relevância
-    return enrichedThreads.sort((a, b) => (b._searchScore || 0) - (a._searchScore || 0));
+    // ✅ NOVA ORDENAÇÃO: Completude (70%) + Relevância busca (30%)
+    return enrichedThreads.sort((a, b) => {
+      const scoreCompletudeA = a.uiMeta?.scoreCompletude ?? 0;
+      const scoreCompletudeB = b.uiMeta?.scoreCompletude ?? 0;
+      const scoreRelevanciaA = a._searchScore ?? 0;
+      const scoreRelevanciaB = b._searchScore ?? 0;
+      
+      // Score híbrido: 70% completude + 30% relevância
+      const scoreFinalA = (scoreCompletudeA * 0.7) + (scoreRelevanciaA * 0.3);
+      const scoreFinalB = (scoreCompletudeB * 0.7) + (scoreRelevanciaB * 0.3);
+      
+      return scoreFinalB - scoreFinalA;
+    });
   }, [threadsResultantesDaBusca, contatos, atendentes]);
 
   // ═══════════════════════════════════════════════════════════════════════════════
