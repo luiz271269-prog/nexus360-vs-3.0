@@ -651,14 +651,15 @@ export default function ChatSidebar({
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: index * 0.05 }}
                 onClick={() => handleClick(thread)}
-                className="flex items-center gap-3 p-4 cursor-pointer transition-all border-b border-slate-100 hover:bg-slate-50">
+                className="flex items-center gap-3 p-4 cursor-pointer transition-all border-b border-slate-100 hover:bg-amber-50 border-l-2 border-l-amber-400">
 
-                <div className="w-12 h-12 rounded-full flex items-center justify-center text-white font-bold text-lg shadow-md bg-gradient-to-br from-slate-400 to-slate-500">
-                  ?
+                <div className="w-12 h-12 rounded-full flex items-center justify-center text-white font-bold text-lg shadow-md bg-gradient-to-br from-amber-400 to-orange-500">
+                  📝
                 </div>
                 <div className="flex-1">
-                  <h3 className="font-semibold text-slate-700">Contato Desconhecido</h3>
-                  <p className="text-sm text-slate-600">ID: {thread.contact_id}</p>
+                  <h3 className="font-semibold text-amber-700">Cadastro incompleto</h3>
+                  <p className="text-xs text-slate-600">Clique para preencher dados</p>
+                  <p className="text-[10px] text-slate-400 mt-0.5">ID: {thread.contact_id?.substring(0, 16)}...</p>
                 </div>
               </motion.div>
             );
