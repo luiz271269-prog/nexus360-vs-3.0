@@ -51,23 +51,31 @@ export default function BuscaRapidaContato({ onContatoSelecionado, onThreadCriad
     setBuscando(true);
 
     try {
-      console.log('[BUSCA] Procurando contato:', numeroFormatado);
+      console.log('[BUSCA] Procurando contato via função centralizada:', numeroFormatado);
       
-      const contatos = await base44.entities.Contact.filter({
-        telefone: numeroFormatado
+      // ✅ CORREÇÃO: Usar função centralizada que faz busca com 6 variações
+      const resultado = await base44.functions.invoke('getOrCreateContactCentralized', {
+        telefone: numeroFormatado,
+        pushName: null,
+        profilePicUrl: null
       });
 
-      if (contatos.length > 0) {
-        const contato = contatos[0];
-        console.log('[BUSCA] Contato encontrado:', contato.id);
-        toast.success(`Contato encontrado: ${contato.nome || numeroFormatado}`);
+      if (resultado?.data?.success && resultado?.data?.contact) {
+        const contato = resultado.data.contact;
+        const acao = resultado.data.action; // 'created', 'updated' ou 'found'
+        
+        console.log('[BUSCA] Contato via centralizada:', contato.id, '| Ação:', acao);
+        
+        if (acao === 'created') {
+          toast.success(`✅ Novo contato criado: ${contato.nome}`);
+        } else {
+          toast.success(`✅ Contato encontrado: ${contato.nome}`);
+        }
         
         await abrirConversa(contato);
         setNumero("");
       } else {
-        console.log('[BUSCA] Contato não encontrado, perguntando se quer criar');
-        setContatoParaCriar({ telefone: numeroFormatado });
-        setShowDialog(true);
+        throw new Error(resultado?.data?.error || 'Erro ao buscar contato');
       }
 
     } catch (error) {
@@ -171,42 +179,10 @@ export default function BuscaRapidaContato({ onContatoSelecionado, onThreadCriad
     }
   };
 
+  // ✅ REMOVIDO: Dialog nunca mais será exibido - função centralizada cria automaticamente
   const confirmarCriacaoContato = async () => {
-    setCriandoContato(true);
-
-    try {
-      console.log('[CRIAR] Criando contato:', contatoParaCriar.telefone);
-      
-      const novoContato = await base44.entities.Contact.create({
-        nome: contatoParaCriar.telefone,
-        telefone: contatoParaCriar.telefone,
-        tipo_contato: "lead",
-        vendedor_responsavel: "Sistema",
-        whatsapp_status: "nao_verificado",
-        whatsapp_optin: false,
-        tags: ["novo_contato"],
-        observacoes: "Contato criado via busca rápida"
-      });
-
-      console.log('[CRIAR] Contato criado:', novoContato.id);
-      toast.success("✅ Contato criado!");
-
-      setShowDialog(false);
-      setContatoParaCriar(null);
-      setNumero("");
-
-      // Aguardar um pouco para garantir que o contato foi salvo
-      await new Promise(resolve => setTimeout(resolve, 500));
-
-      // Abrir conversa
-      await abrirConversa(novoContato);
-
-    } catch (error) {
-      console.error("[CRIAR] Erro:", error);
-      toast.error("Erro ao criar contato: " + error.message);
-    }
-
-    setCriandoContato(false);
+    // Esta função não é mais necessária - getOrCreateContactCentralized cria automaticamente
+    setShowDialog(false);
   };
 
   return (
