@@ -1087,6 +1087,7 @@ async function handleMessage(dados, payloadBruto, base44) {
       evento: 'ReceivedCallback',
       timestamp_recebido: new Date().toISOString(),
       sucesso_processamento: true,
+      provider: 'z_api'
     });
   } catch (auditErr) {
     console.warn(`[${VERSION}] ⚠️ Erro ao salvar audit log (não-crítico):`, auditErr?.message);

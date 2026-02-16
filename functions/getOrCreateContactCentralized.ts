@@ -120,6 +120,8 @@ Deno.serve(async (req) => {
     for (const variacao of variacoes) {
       if (contatoExistente) break;
       
+      console.log(`[${VERSION}] 🔍 Testando variação ${variacoes.indexOf(variacao) + 1}/${variacoes.length}: "${variacao}"`);
+      
       try {
         const resultado = await base44.asServiceRole.entities.Contact.filter(
           { telefone: variacao },
@@ -127,14 +129,24 @@ Deno.serve(async (req) => {
           1
         );
         
+        console.log(`[${VERSION}] 📊 Query retornou: ${resultado?.length || 0} resultado(s)`);
+        
         if (resultado && resultado.length > 0) {
           contatoExistente = resultado[0];
-          console.log(`[${VERSION}] ✅ Contato encontrado (variação: ${variacao}): ${contatoExistente.id}`);
+          console.log(`[${VERSION}] ✅ ENCONTRADO! ID: ${contatoExistente.id} | Nome: ${contatoExistente.nome} | Tel DB: "${contatoExistente.telefone}"`);
           break;
+        } else {
+          console.log(`[${VERSION}] ⏭️ Variação "${variacao}" → Nenhum resultado`);
         }
       } catch (searchErr) {
-        console.warn(`[${VERSION}] ⚠️ Erro ao buscar variação ${variacao}:`, searchErr.message);
+        console.error(`[${VERSION}] ❌ ERRO CRÍTICO ao buscar "${variacao}":`, searchErr.message);
+        console.error(`[${VERSION}] ❌ Stack:`, searchErr.stack);
       }
+    }
+    
+    if (!contatoExistente) {
+      console.log(`[${VERSION}] ⚠️ NENHUMA VARIAÇÃO ENCONTRADA após ${variacoes.length} tentativas`);
+      console.log(`[${VERSION}] 🆕 Criando NOVO contato com telefone: "${telefoneNormalizado}"`);
     }
   } catch (e) {
     console.error(`[${VERSION}] ❌ Erro geral na busca:`, e.message);
