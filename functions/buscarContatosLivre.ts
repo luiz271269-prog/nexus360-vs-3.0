@@ -233,22 +233,38 @@ Deno.serve(async (req) => {
     
     const contatosDeduplicated = [...contatosPorTelefone.values(), ...contatosSemTelefone];
 
-    // 🔍 LOG CIRÚRGICO: Resultado final (SEM FILTROS DE PERMISSÃO)
+    // ✅ ORDENAR: Contatos completos primeiro, vazios depois (priorização, NÃO exclusão)
+    const contatosOrdenados = contatosDeduplicated.sort((a, b) => {
+      const scoreA = a._meta?.score_completude || 0;
+      const scoreB = b._meta?.score_completude || 0;
+      
+      // Contatos mais completos primeiro
+      if (scoreB !== scoreA) return scoreB - scoreA;
+      
+      // Mesmo score: mais recente primeiro
+      const tsA = new Date(a.ultima_interacao || a.updated_date || 0).getTime();
+      const tsB = new Date(b.ultima_interacao || b.updated_date || 0).getTime();
+      return tsB - tsA;
+    });
+
+    // 🔍 LOG CIRÚRGICO: Resultado final (SEM FILTROS DE PERMISSÃO/QUALIDADE)
+    const contatosVazios = contatosOrdenados.filter(c => !c._meta?.tem_dados_basicos);
     console.log('[buscarContatosLivre] 📊 RETORNANDO (GLOBAL - sem filtros):', {
       user_email: user.email,
       user_role: user.role,
       total_antes_dedup: contatos.length,
-      total_depois_dedup: contatosDeduplicated.length,
-      duplicatas_removidas: contatos.length - contatosDeduplicated.length,
-      primeiros_3: contatosDeduplicated.slice(0, 3).map(c => ({
+      total_depois_dedup: contatosOrdenados.length,
+      duplicatas_removidas: contatos.length - contatosOrdenados.length,
+      contatos_vazios: contatosVazios.length,
+      contatos_completos: contatosOrdenados.length - contatosVazios.length,
+      primeiros_3: contatosOrdenados.slice(0, 3).map(c => ({
         id: c.id?.substring(0, 8),
         nome: c.nome,
         telefone: c.telefone,
-        telefone_canonico: c.telefone_canonico || 'N/A',
-        empresa: c.empresa
+        completude: c._meta?.score_completude || 0,
+        tem_dados: c._meta?.tem_dados_basicos
       })),
-      tem_luiz: contatosDeduplicated.some(c => c.nome?.toLowerCase().includes('luiz')),
-      WARNING: '⚠️ NENHUM filtro de permissão aplicado - INTENCIONAL'
+      WARNING: '⚠️ NENHUM filtro de permissão/qualidade aplicado - INTENCIONAL (apenas ordenação)'
     });
 
     return Response.json({ 
