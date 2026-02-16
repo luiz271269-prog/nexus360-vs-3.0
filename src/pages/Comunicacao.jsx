@@ -543,7 +543,7 @@ export default function Comunicacao() {
 
           return { contato: c, score };
         }).
-        filter((item) => item.score > 0.3) // Mínimo de relevância (30%)
+        filter((item) => item.score > 0.15) // ✅ REDUZIDO: 0.3 → 0.15 (mais tolerante em busca)
         .sort((a, b) => b.score - a.score) // Ordenar por relevância (maior score primeiro)
         .map((item) => item.contato).
         slice(0, 100); // Limite de 100 resultados
@@ -2183,6 +2183,19 @@ export default function Comunicacao() {
     const contatosJaProcessados = new Set();
 
     // ═══════════════════════════════════════════════════════════════════════════
+    // ✅ FALLBACK: Se contatosBuscados vazio, usar threads diretamente
+    // ═══════════════════════════════════════════════════════════════════════════
+    const todosContatosEncontrados = new Map([...contatos, ...contatosBuscados].map(c => [c.id, c]));
+    
+    console.log('[BUSCA] 📊 FONTE DE DADOS:', {
+      termo: debouncedSearchTerm,
+      contatos_hidratados: contatos.length,
+      contatosBuscados_query: contatosBuscados.length,
+      todosContatosEncontrados: todosContatosEncontrados.size,
+      vai_usar_fallback: todosContatosEncontrados.size === 0
+    });
+
+    // ═══════════════════════════════════════════════════════════════════════════
     // PARTE 1: THREADS INTERNAS (não têm contact_id, usar diretamente)
     // ═══════════════════════════════════════════════════════════════════════════
     threadsAProcessar.forEach((thread) => {
@@ -2205,7 +2218,36 @@ export default function Comunicacao() {
     // ═══════════════════════════════════════════════════════════════════════════
     // PARTE 2: CONTATOS ENCONTRADOS - Fonte primária (consolidar por contact_id)
     // ═══════════════════════════════════════════════════════════════════════════
-    const todosContatosEncontrados = new Map([...contatos, ...contatosBuscados].map(c => [c.id, c]));
+    
+    // ✅ FALLBACK CRÍTICO: Se nenhum contato encontrado, usar threads antigas
+    if (todosContatosEncontrados.size === 0) {
+      console.log('[BUSCA] ⚠️ FALLBACK: Nenhum contato encontrado, usando threads antigas...');
+      
+      threadsAProcessar.forEach((thread) => {
+        if (thread.thread_type === 'team_internal' || thread.thread_type === 'sector_group') return;
+        
+        const contato = contatosMap.get(thread.contact_id);
+        
+        // Verificar permissões base
+        if (!permissionsService.canUserSeeThreadBase(userPermissions, thread, contato)) {
+          return;
+        }
+        
+        // Match com termo
+        if (contato && !matchBuscaGoogle(contato, debouncedSearchTerm)) {
+          return;
+        }
+        
+        resultados.push({
+          ...thread,
+          contato,
+          _searchScore: contato ? calcularScoreBusca(contato, debouncedSearchTerm) : 0
+        });
+      });
+      
+      console.log('[BUSCA] ✅ FALLBACK retornou:', resultados.length, 'threads');
+      return resultados.sort((a, b) => (b._searchScore || 0) - (a._searchScore || 0));
+    }
 
     todosContatosEncontrados.forEach((contato) => {
       // ✅ Pular bloqueados
