@@ -266,16 +266,21 @@ export default function Comunicacao() {
     refetchOnWindowFocus: true
   });
 
-  // ✅ THREADS EXTERNAS: Busca livre (sem RLS), permissões aplicadas no frontend
+  // ══════════════════════════════════════════════════════════════════════
+  // ✅ THREADS EXTERNAS: Busca LIVRE (sem RLS)
+  // Permissões aplicadas DEPOIS no frontend (canUserSeeThreadBase)
+  // ══════════════════════════════════════════════════════════════════════
   const { data: threadsExternas = [], isLoading: loadingThreadsExternas } = useQuery({
     queryKey: ['threads-externas', usuario?.id],
     queryFn: async () => {
       if (isRateLimited || !usuario) return [];
       try {
-        // ✅ Busca livre via função backend (sem bloqueio de integração)
+        console.log('[COMUNICACAO] 🔍 Buscando threads LIVRES (sem filtro de integração/setor)...');
+        
+        // ✅ Busca GLOBAL via função backend (sem bloqueio de RLS)
         const response = await base44.functions.invoke('buscarThreadsLivre', {
           status: 'aberta',
-          limit: 200,
+          limit: 500, // ✅ Aumentado de 200 para 500 (mais threads = menos contatos "órfãos")
           incluirInternas: false
         });
 
@@ -289,7 +294,7 @@ export default function Comunicacao() {
         return await base44.entities.MessageThread.filter(
           { is_canonical: true, status: { $ne: 'merged' } },
           '-last_message_at',
-          200
+          500
         );
       } catch (error) {
         if (error?.message?.includes('429') || error?.response?.status === 429) {
@@ -1579,44 +1584,10 @@ export default function Comunicacao() {
   }, [threads, contatosMap, usuario, effectiveScope, userPermissions]);
 
   // ═══════════════════════════════════════════════════════════════════════════════
-  // 🎯 PRIORIDADE 1: Se duplicata detectada, FILTRAR threads do contato principal
-  // EXTRAÍDO para top-level (antes de threadsFiltradas)
+  // ✅ REMOVIDO: Filtro de duplicatas - Busca SEMPRE mostra todos os contatos
+  // Detecção de duplicata serve apenas para alerta informativo (não bloqueia)
   // ═══════════════════════════════════════════════════════════════════════════════
-  const threadsAProcessar = React.useMemo(() => {
-    if (DEBUG_VIS) {
-      console.group('[COMUNICACAO] 🔍 threadsAProcessar - FILTRO DUPLICATAS');
-      console.log('Total threads brutas:', threads.length);
-      console.log('duplicataEncontrada:', duplicataEncontrada ? {
-        principal_id: duplicataEncontrada.principal?.id,
-        principal_nome: duplicataEncontrada.principal?.nome,
-        duplicatas_count: duplicataEncontrada.duplicatas?.length
-      } : null);
-    }
-
-    let resultado = threads;
-
-    if (duplicataEncontrada && duplicataEncontrada.principal) {
-      const contatoPrincipalId = duplicataEncontrada.principal.id;
-      const antesCount = resultado.length;
-
-      resultado = threads.filter((t) => {
-        if (t.thread_type === 'team_internal' || t.thread_type === 'sector_group') return true;
-        return t.contact_id === contatoPrincipalId;
-      });
-
-      if (DEBUG_VIS) {
-        console.log(`🔴 FILTRO DUPLICATAS ATIVO - Bloqueou ${antesCount - resultado.length} threads`);
-        console.log('Threads restantes:', resultado.length);
-      }
-    }
-
-    if (DEBUG_VIS) {
-      console.log('threadsAProcessar final:', resultado.length);
-      console.groupEnd();
-    }
-
-    return resultado;
-  }, [threads, duplicataEncontrada]);
+  const threadsAProcessar = threads; // ✅ SEM FILTRO de duplicatas
 
   const threadsFiltradas = React.useMemo(() => {
     if (!usuario || !userPermissions) return [];
@@ -2194,46 +2165,53 @@ export default function Comunicacao() {
         return;
       }
 
-      // ✅ Verificar match com termo
-      if (!contato || !matchBuscaGoogle(contato, debouncedSearchTerm)) {
+      // ✅ Verificar match com termo (só se contato existir)
+      if (contato && !matchBuscaGoogle(contato, debouncedSearchTerm)) {
         return;
       }
 
-      // ✅ Verificar filtros tipo/tag
-      if (selectedTipoContato && selectedTipoContato !== 'all' && contato.tipo_contato !== selectedTipoContato) {
-        return;
-      }
-
-      if (selectedTagContato && selectedTagContato !== 'all') {
-        const tags = contato.tags || [];
-        if (!tags.includes(selectedTagContato)) {
+      // ✅ Aplicar filtros de UI escolhidos pelo usuário
+      if (contato) {
+        if (selectedTipoContato && selectedTipoContato !== 'all' && contato.tipo_contato !== selectedTipoContato) {
           return;
+        }
+
+        if (selectedTagContato && selectedTagContato !== 'all') {
+          const tags = contato.tags || [];
+          if (!tags.includes(selectedTagContato)) {
+            return;
+          }
         }
       }
 
-      // ✅ PASSOU: Adicionar à lista
+      // ✅ PASSOU: Adicionar thread à lista de busca
       resultados.push({
         ...thread,
         contato,
-        _searchScore: calcularScoreBusca(contato, debouncedSearchTerm)
+        _searchScore: contato ? calcularScoreBusca(contato, debouncedSearchTerm) : 0
       });
     });
 
-    // PARTE 2: Contatos SEM THREAD que fazem match
+    // ═════════════════════════════════════════════════════════════════════════
+    // PARTE 2: Contatos PUROS da busca (SEM bloqueio por thread)
+    // ═════════════════════════════════════════════════════════════════════════
+    // ✅ CRÍTICO: Em modo busca, contato SEMPRE aparece se existir no banco
+    // Permissões são aplicadas ao CLICAR (modal de bloqueio se necessário)
+    // ═════════════════════════════════════════════════════════════════════════
     const contatosUnicos = new Map([...contatos, ...contatosBuscados].map((c) => [c.id, c]));
-    const contatosComThreadExistente = new Set(threadsAProcessar.map((t) => t.contact_id).filter(Boolean));
+    const contatosJaExibidosComoThread = new Set(resultados.map(r => r.contact_id).filter(Boolean));
 
     Array.from(contatosUnicos.values()).forEach((contato) => {
-      // ✅ Pular se já tem thread
-      if (contatosComThreadExistente.has(contato.id)) return;
+      // ✅ ÚNICO BLOQUEIO: Se já foi exibido como thread (evitar duplicata visual)
+      if (contatosJaExibidosComoThread.has(contato.id)) return;
 
-      // ✅ Pular bloqueados
+      // ✅ Pular bloqueados (contato bloqueado = não pode conversar nunca)
       if (contato.bloqueado) return;
 
-      // ✅ Verificar match
+      // ✅ Verificar match de busca
       if (!matchBuscaGoogle(contato, debouncedSearchTerm)) return;
 
-      // ✅ Verificar filtros
+      // ✅ Respeitar apenas filtros de UI escolhidos pelo usuário (tipo/tag)
       if (selectedTipoContato && selectedTipoContato !== 'all' && contato.tipo_contato !== selectedTipoContato) {
         return;
       }
@@ -2245,7 +2223,8 @@ export default function Comunicacao() {
         }
       }
 
-      // ✅ PASSOU: Adicionar como "contato sem thread"
+      // ✅ PASSOU: Adicionar como "contato sem thread visível"
+      // Modal de permissão aparecerá ao clicar se necessário
       resultados.push({
         id: `contato-sem-thread-${contato.id}`,
         contact_id: contato.id,
