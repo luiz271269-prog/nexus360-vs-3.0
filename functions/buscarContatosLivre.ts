@@ -163,12 +163,33 @@ Deno.serve(async (req) => {
     }
 
     // ═══════════════════════════════════════════════════════════════════════
-    // 🎯 DEDUPLICAÇÃO POR TELEFONE CANÔNICO (se campo existir)
+    // 🎯 FILTRO QUALIDADE: Remover contatos sem dados básicos (apenas telefone)
+    // ═══════════════════════════════════════════════════════════════════════
+    const contatosComDados = contatos.filter(c => {
+      // ✅ Manter se tem nome diferente do telefone
+      if (c.nome && c.nome !== c.telefone && c.nome !== '+' + (c.telefone || '').replace(/\D/g, '')) {
+        return true;
+      }
+      
+      // ✅ Manter se tem empresa, cargo ou email
+      if (c.empresa || c.cargo || c.email) {
+        return true;
+      }
+      
+      // ✅ Descartar: só tem telefone (contatos vazios criados pelo webhook)
+      console.log(`[buscarContatosLivre] 🗑️ Removendo contato vazio: ${c.id} | ${c.telefone}`);
+      return false;
+    });
+    
+    console.log(`[buscarContatosLivre] 🧹 Filtro de qualidade: ${contatos.length} → ${contatosComDados.length} (removidos ${contatos.length - contatosComDados.length} vazios)`);
+    
+    // ═══════════════════════════════════════════════════════════════════════
+    // 🎯 DEDUPLICAÇÃO POR TELEFONE CANÔNICO
     // ═══════════════════════════════════════════════════════════════════════
     const contatosPorTelefone = new Map();
     const contatosSemTelefone = [];
     
-    contatos.forEach(c => {
+    contatosComDados.forEach(c => {
       const telCanon = c.telefone_canonico || (c.telefone || '').replace(/\D/g, '');
       
       if (!telCanon) {
@@ -180,12 +201,25 @@ Deno.serve(async (req) => {
       if (!existente) {
         contatosPorTelefone.set(telCanon, c);
       } else {
-        // Manter o mais recente
-        const tsExistente = new Date(existente.ultima_interacao || existente.updated_date || 0).getTime();
-        const tsAtual = new Date(c.ultima_interacao || c.updated_date || 0).getTime();
+        // Manter o mais completo (com mais dados)
+        const scoreExistente = (existente.nome !== existente.telefone ? 10 : 0) + 
+                               (existente.empresa ? 5 : 0) + 
+                               (existente.cargo ? 3 : 0) + 
+                               (existente.email ? 2 : 0);
+        const scoreAtual = (c.nome !== c.telefone ? 10 : 0) + 
+                           (c.empresa ? 5 : 0) + 
+                           (c.cargo ? 3 : 0) + 
+                           (c.email ? 2 : 0);
         
-        if (tsAtual > tsExistente) {
+        if (scoreAtual > scoreExistente) {
           contatosPorTelefone.set(telCanon, c);
+        } else if (scoreAtual === scoreExistente) {
+          // Mesmo score: manter o mais recente
+          const tsExistente = new Date(existente.ultima_interacao || existente.updated_date || 0).getTime();
+          const tsAtual = new Date(c.ultima_interacao || c.updated_date || 0).getTime();
+          if (tsAtual > tsExistente) {
+            contatosPorTelefone.set(telCanon, c);
+          }
         }
       }
     });
