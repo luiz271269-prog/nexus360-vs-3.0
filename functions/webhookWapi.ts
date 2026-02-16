@@ -62,8 +62,14 @@ function normalizarTelefone(telefone) {
   if (apenasNumeros.startsWith('55') && apenasNumeros.length === 12) {
     const ddd = apenasNumeros.substring(2, 4);
     const numero = apenasNumeros.substring(4);
-    if (!numero.startsWith('9')) {
+    
+    // ✅ CORREÇÃO CRÍTICA: Verificar se é celular (6, 7, 8, 9)
+    // Telefones fixos (2, 3, 4, 5) NÃO recebem o dígito 9
+    if (['6', '7', '8', '9'].includes(numero[0])) {
       apenasNumeros = '55' + ddd + '9' + numero;
+      console.log(`[WAPI] ✅ Celular detectado - adicionado dígito 9: ${apenasNumeros}`);
+    } else {
+      console.log(`[WAPI] ℹ️ Telefone fixo detectado (${numero[0]}) - mantendo formato original`);
     }
   }
   
