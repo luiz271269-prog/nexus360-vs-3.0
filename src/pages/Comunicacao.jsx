@@ -2280,7 +2280,8 @@ export default function Comunicacao() {
 
   // ═══════════════════════════════════════════════════════════════════════════════
   // 🔍 LISTA BUSCA - Busca de banco CRM (TODAS as relevâncias)
-  // ✅ SEM DEDUPLICAÇÃO: Mostrar todas as variações de contatos
+  // ✅ ZERO DEDUPLICAÇÃO: Cada contact_id é um item único na busca
+  // ✅ PRIORIDADE: Relevância de busca > Completude > Recência
   // ═══════════════════════════════════════════════════════════════════════════════
   const listaBusca = React.useMemo(() => {
     if (!debouncedSearchTerm || debouncedSearchTerm.trim().length < 2) return [];
@@ -2288,6 +2289,7 @@ export default function Comunicacao() {
     const contatosMap = new Map([...contatos, ...contatosBuscados].map(c => [c.id, c])); // ✅ Preserva _meta + busca
     const usuariosMap = new Map(atendentes.map((a) => [a.id, a]));
     const resultadosBusca = [];
+    const idsJaProcessados = new Set(); // ✅ ÚNICO filtro: evitar duplicatas EXATAS por ID
 
     console.log('[BUSCA CRM] 📊 INÍCIO:', {
       termo: debouncedSearchTerm,
@@ -2296,9 +2298,13 @@ export default function Comunicacao() {
     });
 
     // ═══════════════════════════════════════════════════════════════════════════
-    // ESTRATÉGIA: Processar CADA contato encontrado (sem consolidar por telefone)
+    // ESTRATÉGIA: Processar CADA contato encontrado SEM consolidar por telefone
+    // Cada contact_id = 1 item na lista (permite ver todas as variações)
     // ═══════════════════════════════════════════════════════════════════════════
     contatosMap.forEach((contato, contactId) => {
+      // ✅ Evitar duplicatas EXATAS (mesmo ID processado 2x)
+      if (idsJaProcessados.has(contactId)) return;
+
       // Pular bloqueados
       if (contato.bloqueado) return;
 
@@ -2317,8 +2323,8 @@ export default function Comunicacao() {
         }
       }
 
-      // ✅ Buscar thread mais recente deste contato
-      const threadsDoContato = threadsFiltradas.filter(t => t.contact_id === contactId);
+      // ✅ Buscar thread mais recente deste contato (sem filtrar por visibilidade)
+      const threadsDoContato = threads.filter(t => t.contact_id === contactId);
       
       let itemFinal;
       if (threadsDoContato.length > 0) {
@@ -2365,29 +2371,36 @@ export default function Comunicacao() {
       }
 
       resultadosBusca.push(itemFinal);
+      idsJaProcessados.add(contactId); // ✅ Marcar como processado
     });
 
     console.log('[BUSCA CRM] 📊 RESULTADO:', {
       termo: debouncedSearchTerm,
       contatos_processados: resultadosBusca.length,
       com_thread: resultadosBusca.filter(r => !r.is_contact_only).length,
-      sem_thread: resultadosBusca.filter(r => r.is_contact_only).length
+      sem_thread: resultadosBusca.filter(r => r.is_contact_only).length,
+      com_everal: resultadosBusca.filter(r => r.contato?.nome?.toLowerCase().includes('everal')).length
     });
 
-    // ✅ ORDENAÇÃO: Score de busca + Completude + Recência
+    // ✅ ORDENAÇÃO CRM: Relevância (60%) + Completude (30%) + Recência (10%)
     return resultadosBusca.sort((a, b) => {
       const scoreCompletudeA = a.uiMeta?.scoreCompletude ?? 0;
       const scoreCompletudeB = b.uiMeta?.scoreCompletude ?? 0;
       const scoreRelevanciaA = a._searchScore ?? 0;
       const scoreRelevanciaB = b._searchScore ?? 0;
       
-      // Score híbrido: 50% relevância + 50% completude
-      const scoreFinalA = (scoreRelevanciaA * 0.5) + (scoreCompletudeA * 0.5);
-      const scoreFinalB = (scoreRelevanciaB * 0.5) + (scoreCompletudeB * 0.5);
+      // Score híbrido: 60% relevância + 30% completude + 10% recência
+      const tsA = new Date(a.last_message_at || 0).getTime();
+      const tsB = new Date(b.last_message_at || 0).getTime();
+      const scoreRecenciaA = tsA / 1e12; // Normalizar timestamp
+      const scoreRecenciaB = tsB / 1e12;
+      
+      const scoreFinalA = (scoreRelevanciaA * 0.6) + (scoreCompletudeA * 0.3) + (scoreRecenciaA * 0.1);
+      const scoreFinalB = (scoreRelevanciaB * 0.6) + (scoreCompletudeB * 0.3) + (scoreRecenciaB * 0.1);
       
       return scoreFinalB - scoreFinalA;
     });
-  }, [contatos, contatosBuscados, threadsFiltradas, atendentes, debouncedSearchTerm, selectedTipoContato, selectedTagContato, matchBuscaGoogle, calcularScoreBusca]);
+  }, [contatos, contatosBuscados, threads, atendentes, debouncedSearchTerm, selectedTipoContato, selectedTagContato, matchBuscaGoogle, calcularScoreBusca]);
 
   // ═══════════════════════════════════════════════════════════════════════════════
   // 🎯 SELETOR DE FONTE - Busca ativa ou lista recente?
