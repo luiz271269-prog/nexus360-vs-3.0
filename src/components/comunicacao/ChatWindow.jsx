@@ -442,14 +442,48 @@ export default function ChatWindow({
         setContatoCompleto(contato);
         setCarregandoContato(false);
 
-        // Buscar foto/nome em background (não bloqueia UI)
-        const isContatoReal = contato.telefone &&
-        !/^[\+\d\s]+@(lid|broadcast|s\.whatsapp\.net|c\.us)/i.test(contato.telefone);
+        // ✅ AUTO-ENRIQUECIMENTO: Contatos vazios (só telefone) buscam dados do WhatsApp
+        const nome = (contato.nome || '').trim();
+        const telefone = (contato.telefone || '').replace(/\D/g, '');
+        const estaVazio = (
+          (!nome || nome === contato.telefone || nome === '+' + telefone) &&
+          !contato.empresa &&
+          !contato.cargo
+        );
 
-        if (isContatoReal && thread.whatsapp_integration_id) {
+        const isContatoReal = contato.telefone &&
+          !/^[\+\d\s]+@(lid|broadcast|s\.whatsapp\.net|c\.us)/i.test(contato.telefone);
+
+        if (estaVazio && isContatoReal && thread.whatsapp_integration_id) {
+          console.log('[CHAT] 🔍 Contato vazio detectado - enriquecendo automaticamente...');
+          
+          setTimeout(async () => {
+            if (!isMounted) return;
+
+            try {
+              const resultado = await base44.functions.invoke('enriquecerContatoVazio', {
+                contact_id: contato.id,
+                integration_id: thread.whatsapp_integration_id
+              });
+
+              if (!isMounted) return;
+
+              if (resultado?.data?.updated && resultado?.data?.contact) {
+                console.log('[CHAT] ✅ Contato enriquecido:', resultado.data.dados_atualizados);
+                setContatoCompleto(resultado.data.contact);
+                
+                // Invalidar cache para atualizar sidebar
+                queryClient.invalidateQueries({ queryKey: ['contacts'] });
+              }
+            } catch (error) {
+              console.warn('[CHAT] ⚠️ Erro ao enriquecer contato:', error.message);
+            }
+          }, 500);
+        } else if (isContatoReal && thread.whatsapp_integration_id) {
+          // Buscar foto se desatualizada (lógica existente para contatos completos)
           const deveBuscarFoto = !contato.foto_perfil_url ||
-          !contato.foto_perfil_atualizada_em ||
-          new Date() - new Date(contato.foto_perfil_atualizada_em) > 24 * 60 * 60 * 1000;
+            !contato.foto_perfil_atualizada_em ||
+            new Date() - new Date(contato.foto_perfil_atualizada_em) > 24 * 60 * 60 * 1000;
 
           const chaveCache = `${contato.id}-${thread.whatsapp_integration_id}`;
 
@@ -460,42 +494,29 @@ export default function ChatWindow({
               if (!isMounted) return;
 
               try {
-                const [resultadoFoto, resultadoNome] = await Promise.all([
-                base44.functions.invoke('buscarFotoPerfilWhatsApp', {
+                const resultadoFoto = await base44.functions.invoke('buscarFotoPerfilWhatsApp', {
                   integration_id: thread.whatsapp_integration_id,
                   phone: contato.telefone
-                }).catch(() => null),
-                base44.functions.invoke('buscarNomeContatoWhatsApp', {
-                  integration_id: thread.whatsapp_integration_id,
-                  phone: contato.telefone
-                }).catch(() => null)]
-                );
+                }).catch(() => null);
 
                 if (!isMounted) return;
 
-                const updates = {};
-
                 if (resultadoFoto?.data?.success && resultadoFoto?.data?.profilePictureUrl) {
-                  updates.foto_perfil_url = resultadoFoto.data.profilePictureUrl;
-                  updates.foto_perfil_atualizada_em = new Date().toISOString();
-                }
-
-                if (resultadoNome?.data?.success && resultadoNome?.data?.contactName) {
-                  const nomeAtualGenerico = !contato.nome ||
-                  contato.nome === contato.telefone ||
-                  /^[\+\d\s\-\(\)]+$/.test(contato.nome);
-
-                  if (nomeAtualGenerico) {
-                    updates.nome = resultadoNome.data.contactName;
-                  }
-                }
-
-                if (Object.keys(updates).length > 0 && isMounted) {
-                  await base44.entities.Contact.update(contato.id, updates);
-                  setContatoCompleto((prev) => prev?.id === contato.id ? { ...prev, ...updates } : prev);
+                  await base44.entities.Contact.update(contato.id, {
+                    foto_perfil_url: resultadoFoto.data.profilePictureUrl,
+                    foto_perfil_atualizada_em: new Date().toISOString()
+                  });
+                  
+                  setContatoCompleto((prev) => 
+                    prev?.id === contato.id ? {
+                      ...prev,
+                      foto_perfil_url: resultadoFoto.data.profilePictureUrl,
+                      foto_perfil_atualizada_em: new Date().toISOString()
+                    } : prev
+                  );
                 }
               } catch (error) {
-                console.warn('Erro ao buscar dados:', error.message);
+                console.warn('[CHAT] Erro ao buscar foto:', error.message);
               }
             }, 1000);
           }
