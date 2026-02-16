@@ -2172,95 +2172,49 @@ export default function Comunicacao() {
   }, [threads, contatos, clientes, atendentes, usuario, userPermissions, selectedAttendantId, selectedIntegrationId, selectedCategoria, selectedTipoContato, selectedTagContato, debouncedSearchTerm, mensagensComCategoria, matchBuscaGoogle, filterScope, duplicataEncontrada, effectiveScope, threadsNaoAtribuidasVisiveis, threadsAProcessar, contatosMap, contatosBuscados]);
 
   // ═══════════════════════════════════════════════════════════════════════════════
-  // 🔍 COLEÇÃO ESPECÍFICA PARA MODO BUSCA - Apenas resultados reais da busca
+  // 🔍 COLEÇÃO ESPECÍFICA PARA MODO BUSCA - CONSOLIDADA POR CONTATO
+  // ✅ NOVA ESTRATÉGIA: Contatos como fonte primária, threads como complemento
   // ═══════════════════════════════════════════════════════════════════════════════
   const threadsResultantesDaBusca = React.useMemo(() => {
     const temBuscaAtiva = !!debouncedSearchTerm && debouncedSearchTerm.trim().length >= 2;
     if (!temBuscaAtiva) return [];
 
-    const contatosMap = new Map(contatos.map((c) => [c.id, c]));
     const resultados = [];
+    const contatosJaProcessados = new Set();
 
-    // PARTE 1: Threads (internas + externas) que fazem match com o termo
+    // ═══════════════════════════════════════════════════════════════════════════
+    // PARTE 1: THREADS INTERNAS (não têm contact_id, usar diretamente)
+    // ═══════════════════════════════════════════════════════════════════════════
     threadsAProcessar.forEach((thread) => {
-      // ✅ THREADS INTERNAS: Buscar por participantes, nome do grupo, etc
       if (thread.thread_type === 'team_internal' || thread.thread_type === 'sector_group') {
-        // Match no nome do grupo
-        if (!matchBuscaGoogle({ nome: thread.group_name }, debouncedSearchTerm)) {
-          return;
-        }
-
-        // Match nos participantes (buscar por nome de usuário)
+        // Match no nome do grupo ou participantes
         const participantsMatch = (thread.participants || []).some((userId) => {
           const att = atendentes.find((a) => a.id === userId);
           return att && matchBuscaGoogle({ nome: att.full_name || att.email }, debouncedSearchTerm);
         });
 
-        if (!matchBuscaGoogle({ nome: thread.group_name }, debouncedSearchTerm) && !participantsMatch) {
-          return;
-        }
-
-        resultados.push({
-          ...thread,
-          _searchScore: 50 // Score fixo para internos
-        });
-        return;
-      }
-
-      const contato = contatosMap.get(thread.contact_id);
-
-      // ✅ Verificar permissões base (NEXUS360)
-      if (!permissionsService.canUserSeeThreadBase(userPermissions, thread, contato)) {
-        return;
-      }
-
-      // ✅ Verificar match com termo (só se contato existir)
-      if (contato && !matchBuscaGoogle(contato, debouncedSearchTerm)) {
-        return;
-      }
-
-      // ✅ Aplicar filtros de UI escolhidos pelo usuário
-      if (contato) {
-        if (selectedTipoContato && selectedTipoContato !== 'all' && contato.tipo_contato !== selectedTipoContato) {
-          return;
-        }
-
-        if (selectedTagContato && selectedTagContato !== 'all') {
-          const tags = contato.tags || [];
-          if (!tags.includes(selectedTagContato)) {
-            return;
-          }
+        if (matchBuscaGoogle({ nome: thread.group_name }, debouncedSearchTerm) || participantsMatch) {
+          resultados.push({
+            ...thread,
+            _searchScore: 50 // Score fixo para internos
+          });
         }
       }
-
-      // ✅ PASSOU: Adicionar thread à lista de busca
-      resultados.push({
-        ...thread,
-        contato,
-        _searchScore: contato ? calcularScoreBusca(contato, debouncedSearchTerm) : 0
-      });
     });
 
-    // ═════════════════════════════════════════════════════════════════════════
-    // PARTE 2: Contatos PUROS da busca (SEM bloqueio por thread)
-    // ═════════════════════════════════════════════════════════════════════════
-    // ✅ CRÍTICO: Em modo busca, contato SEMPRE aparece se existir no banco
-    // Permissões são aplicadas ao CLICAR (modal de bloqueio se necessário)
-    // ═════════════════════════════════════════════════════════════════════════
-    const contatosUnicos = new Map([...contatos, ...contatosBuscados].map((c) => [c.id, c]));
-    const contatosJaExibidosComoThread = new Set(resultados.map(r => r.contact_id).filter(Boolean));
+    // ═══════════════════════════════════════════════════════════════════════════
+    // PARTE 2: CONTATOS ENCONTRADOS - Fonte primária (consolidar por contact_id)
+    // ═══════════════════════════════════════════════════════════════════════════
+    const todosContatosEncontrados = new Map([...contatos, ...contatosBuscados].map(c => [c.id, c]));
 
-    Array.from(contatosUnicos.values()).forEach((contato) => {
-      // ✅ ÚNICO BLOQUEIO: Se já foi exibido como thread (evitar duplicata visual)
-      if (contatosJaExibidosComoThread.has(contato.id)) return;
-
-      // ✅ Pular bloqueados (contato bloqueado = não pode conversar nunca)
+    todosContatosEncontrados.forEach((contato) => {
+      // ✅ Pular bloqueados
       if (contato.bloqueado) return;
 
-      // ✅ Verificar match de busca
+      // ✅ Verificar match
       if (!matchBuscaGoogle(contato, debouncedSearchTerm)) return;
 
-      // ✅ Respeitar apenas filtros de UI escolhidos pelo usuário (tipo/tag)
+      // ✅ Filtros de UI
       if (selectedTipoContato && selectedTipoContato !== 'all' && contato.tipo_contato !== selectedTipoContato) {
         return;
       }
@@ -2272,24 +2226,77 @@ export default function Comunicacao() {
         }
       }
 
-      // ✅ PASSOU: Adicionar como "contato sem thread visível"
-      // Modal de permissão aparecerá ao clicar se necessário
-      resultados.push({
-        id: `contato-sem-thread-${contato.id}`,
-        contact_id: contato.id,
-        is_contact_only: true,
-        contato,
-        last_message_at: contato.ultima_interacao || contato.created_date,
-        last_message_content: null,
-        unread_count: 0,
-        status: 'sem_conversa',
-        _searchScore: calcularScoreBusca(contato, debouncedSearchTerm)
-      });
+      // ✅ Buscar TODAS as threads deste contato
+      const threadsDoContato = threadsAProcessar.filter(t => 
+        t.contact_id === contato.id && 
+        (t.thread_type === 'contact_external' || !t.thread_type)
+      );
+
+      // ✅ CONSOLIDAÇÃO: Usar thread mais recente OU criar pseudo-item
+      let itemFinal;
+      if (threadsDoContato.length > 0) {
+        // Ordenar por recência
+        const threadMaisRecente = threadsDoContato.sort((a, b) => {
+          const tsA = new Date(a.last_message_at || a.updated_date || 0).getTime();
+          const tsB = new Date(b.last_message_at || b.updated_date || 0).getTime();
+          return tsB - tsA;
+        })[0];
+
+        // ✅ Verificar permissões base
+        if (!permissionsService.canUserSeeThreadBase(userPermissions, threadMaisRecente, contato)) {
+          return;
+        }
+
+        itemFinal = {
+          ...threadMaisRecente,
+          contato,
+          _searchScore: calcularScoreBusca(contato, debouncedSearchTerm),
+          _threadsConsolidadas: threadsDoContato.length // DEBUG: quantas threads foram unificadas
+        };
+      } else {
+        // Sem thread: criar pseudo-item "contato-only"
+        itemFinal = {
+          id: `contato-sem-thread-${contato.id}`,
+          contact_id: contato.id,
+          is_contact_only: true,
+          contato,
+          last_message_at: contato.ultima_interacao || contato.created_date,
+          last_message_content: null,
+          unread_count: 0,
+          status: 'sem_conversa',
+          _searchScore: calcularScoreBusca(contato, debouncedSearchTerm)
+        };
+      }
+
+      resultados.push(itemFinal);
+      contatosJaProcessados.add(contato.id);
     });
 
-    // ✅ ORDENAR por score de relevância
+    // ═══════════════════════════════════════════════════════════════════════════
+    // PARTE 3: Threads ÓRFÃS (sem contact_id conhecido) - Apenas se admin
+    // ═══════════════════════════════════════════════════════════════════════════
+    if (usuario?.role === 'admin') {
+      threadsAProcessar.forEach((thread) => {
+        if (thread.thread_type === 'team_internal' || thread.thread_type === 'sector_group') return;
+        if (!thread.contact_id) {
+          resultados.push({
+            ...thread,
+            _searchScore: 0 // Órfãs no final
+          });
+        }
+      });
+    }
+
+    console.log('[COMUNICACAO] 🔍 BUSCA CONSOLIDADA:', {
+      termo: debouncedSearchTerm,
+      contatos_processados: contatosJaProcessados.size,
+      resultados_totais: resultados.length,
+      threads_consolidadas: resultados.filter(r => r._threadsConsolidadas > 1).length
+    });
+
+    // ✅ ORDENAR por score (já será reordenado por completude em listaBusca)
     return resultados.sort((a, b) => (b._searchScore || 0) - (a._searchScore || 0));
-  }, [threads, contatos, contatosBuscados, debouncedSearchTerm, selectedTipoContato, selectedTagContato, matchBuscaGoogle, calcularScoreBusca, threadsAProcessar, userPermissions]);
+  }, [threads, contatos, contatosBuscados, debouncedSearchTerm, selectedTipoContato, selectedTagContato, matchBuscaGoogle, calcularScoreBusca, threadsAProcessar, userPermissions, usuario?.role, atendentes]);
 
   // ═══════════════════════════════════════════════════════════════════════════════
   // 📋 LISTA RECENTE - Modo normal (sem busca)
