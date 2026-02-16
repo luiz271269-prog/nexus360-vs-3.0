@@ -64,7 +64,13 @@ Deno.serve(async (req) => {
     // ═══════════════════════════════════════════════════════════════════════
     let contatos = [];
     
-    if (searchTerm && searchTerm.trim()) {
+    if (!searchTerm || !searchTerm.trim()) {
+      // ✅ MODO HIDRATAÇÃO (sem busca): Retornar todos com filtro de qualidade
+      console.log(`[buscarContatosLivre] 📦 MODO HIDRATAÇÃO (sem searchTerm) - limit: ${limit}`);
+      contatos = await base44.asServiceRole.entities.Contact.list('-ultima_interacao', limit);
+      console.log(`[buscarContatosLivre] ✅ Contatos carregados (ANTES filtro qualidade): ${contatos.length}`);
+    } else {
+      // ✅ MODO BUSCA TEXTUAL
       const termo = searchTerm.trim().toLowerCase();
       const termoNumeros = termo.replace(/\D/g, '');
       
