@@ -471,10 +471,11 @@ export default function Comunicacao() {
             termo: debouncedSearchTerm,
             recebidos_backend: todosBD.length,
             user_id_backend: response.data.user_id,
-            tem_luiz: todosBD.some(c => c.nome?.toLowerCase().includes('luiz')),
-            primeiros_3: todosBD.slice(0, 3).map(c => ({ 
+            tem_everal: todosBD.some(c => c.nome?.toLowerCase().includes('everal')),
+            primeiros_5: todosBD.slice(0, 5).map(c => ({ 
               nome: c.nome, 
-              telefone: c.telefone 
+              telefone: c.telefone,
+              empresa: c.empresa
             }))
           });
         } else {
@@ -541,10 +542,34 @@ export default function Comunicacao() {
           }
           score += telScore * 3;
 
+          // 🔍 LOG CIRÚRGICO: Contatos com "everal" no nome
+          if (term.includes('everal') && (c.nome?.toLowerCase().includes('everal'))) {
+            console.log('[BUSCA] 🔍 SCORE CALCULADO:', {
+              nome: c.nome,
+              termo: term,
+              nomeSimilaridade,
+              score_final: score,
+              vai_passar: score > 0.15
+            });
+          }
+
           return { contato: c, score };
         }).
-        filter((item) => item.score > 0.15) // ✅ REDUZIDO: 0.3 → 0.15 (mais tolerante em busca)
-        .sort((a, b) => b.score - a.score) // Ordenar por relevância (maior score primeiro)
+        filter((item) => {
+          const passou = item.score > 0.15; // ✅ REDUZIDO: 0.3 → 0.15
+          
+          // 🔍 LOG: Contatos bloqueados com "everal"
+          if (term.includes('everal') && item.contato.nome?.toLowerCase().includes('everal') && !passou) {
+            console.log('[BUSCA] ❌ BLOQUEADO por score:', {
+              nome: item.contato.nome,
+              score: item.score,
+              threshold: 0.15
+            });
+          }
+          
+          return passou;
+        }).
+        sort((a, b) => b.score - a.score) // Ordenar por relevância (maior score primeiro)
         .map((item) => item.contato).
         slice(0, 100); // Limite de 100 resultados
 
@@ -553,11 +578,12 @@ export default function Comunicacao() {
           termo: debouncedSearchTerm,
           antes_filtro: todosBD.length,
           depois_filtro: resultados.length,
-          tem_luiz_antes: todosBD.some(c => c.nome?.toLowerCase().includes('luiz')),
-          tem_luiz_depois: resultados.some(c => c.nome?.toLowerCase().includes('luiz')),
-          primeiros_3_filtrados: resultados.slice(0, 3).map(c => ({ 
-            nome: c.nome, 
-            score: c.score 
+          tem_everal_antes: todosBD.some(c => c.nome?.toLowerCase().includes('everal')),
+          tem_everal_depois: resultados.some(c => c.nome?.toLowerCase().includes('everal')),
+          primeiros_5_filtrados: resultados.slice(0, 5).map(c => ({ 
+            nome: c.nome,
+            empresa: c.empresa,
+            telefone: c.telefone
           }))
         });
         
