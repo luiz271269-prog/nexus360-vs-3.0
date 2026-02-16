@@ -817,16 +817,22 @@ export default function Comunicacao() {
     setNovoContatoTelefone("");
     setShowContactInfo(false);
     setContactInitialData(null);
-    setContatoPreCarregado(contatoPre); // ✅ Armazenar contato pré-carregado
+    setContatoPreCarregado(contatoPre);
 
-    // ✅ Buscar thread completa se só temos o ID
+    // ✅ CRÍTICO: Não buscar do banco se ID for sintético
+    const isSyntheticId = thread.id && (
+      thread.id.startsWith('contato-sem-thread-') || 
+      thread.id.startsWith('cliente-sem-contato-')
+    );
+
+    // ✅ Buscar thread completa apenas se for ID real
     let threadCompleta = thread;
-    if (thread.id && !thread.contact_id && !thread.thread_type) {
+    if (thread.id && !thread.contact_id && !thread.thread_type && !isSyntheticId) {
       const threadsEncontradas = threads.find(t => t.id === thread.id);
       if (threadsEncontradas) {
         threadCompleta = threadsEncontradas;
       } else {
-        // Buscar do banco
+        // Buscar do banco apenas para IDs reais
         const res = await base44.entities.MessageThread.filter({ id: thread.id }, '-created_date', 1);
         if (res?.length > 0) {
           threadCompleta = res[0];
