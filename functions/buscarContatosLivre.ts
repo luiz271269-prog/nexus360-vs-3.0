@@ -136,36 +136,32 @@ Deno.serve(async (req) => {
         }
       }
       
-      // ✅ ESTRATÉGIA 2: Se não achou por telefone, buscar por NOME/EMPRESA/CARGO
-      if (contatos.length === 0) {
-        const todosBD = await base44.asServiceRole.entities.Contact.list('-ultima_interacao', 1000);
-        
-        // Filtro local por texto
-        contatos = todosBD.filter(c => {
-          const nome = (c.nome || '').toLowerCase();
-          const empresa = (c.empresa || '').toLowerCase();
-          const cargo = (c.cargo || '').toLowerCase();
-          const observacoes = (c.observacoes || '').toLowerCase();
-          const telefone = (c.telefone || '').replace(/\D/g, '');
+        // ✅ ESTRATÉGIA 2: Se não achou por telefone, buscar por NOME/EMPRESA/CARGO
+        if (contatos.length === 0) {
+          const todosBD = await base44.asServiceRole.entities.Contact.list('-ultima_interacao', 1000);
           
-          // Match de texto OU telefone parcial
-          const matchTexto = nome.includes(termo) || 
-                             empresa.includes(termo) || 
-                             cargo.includes(termo) ||
-                             observacoes.includes(termo);
+          // Filtro local por texto
+          contatos = todosBD.filter(c => {
+            const nome = (c.nome || '').toLowerCase();
+            const empresa = (c.empresa || '').toLowerCase();
+            const cargo = (c.cargo || '').toLowerCase();
+            const observacoes = (c.observacoes || '').toLowerCase();
+            const telefone = (c.telefone || '').replace(/\D/g, '');
+            
+            // Match de texto OU telefone parcial
+            const matchTexto = nome.includes(termo) || 
+                               empresa.includes(termo) || 
+                               cargo.includes(termo) ||
+                               observacoes.includes(termo);
+            
+            const matchTelefone = termoNumeros.length >= 4 && telefone.includes(termoNumeros);
+            
+            return matchTexto || matchTelefone;
+          }).slice(0, 100);
           
-          const matchTelefone = termoNumeros.length >= 4 && telefone.includes(termoNumeros);
-          
-          return matchTexto || matchTelefone;
-        }).slice(0, 100);
-        
-        console.log(`[buscarContatosLivre] ✅ Busca texto retornou ${contatos.length} resultados`);
+          console.log(`[buscarContatosLivre] ✅ Busca texto retornou ${contatos.length} resultados`);
+        }
       }
-      
-    } else {
-      // ✅ SEM BUSCA: Retornar últimos 200
-      contatos = await base44.asServiceRole.entities.Contact.list('-ultima_interacao', 200);
-      console.log(`[buscarContatosLivre] ✅ ${contatos.length} contatos recentes carregados (sem busca)`);
     }
 
     // ═══════════════════════════════════════════════════════════════════════
