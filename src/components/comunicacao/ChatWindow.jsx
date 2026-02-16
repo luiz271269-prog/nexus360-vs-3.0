@@ -442,7 +442,7 @@ export default function ChatWindow({
         setContatoCompleto(contato);
         setCarregandoContato(false);
 
-        // ✅ AUTO-ENRIQUECIMENTO: Contatos vazios (só telefone) buscam dados do WhatsApp
+        // ✅ AUTO-ENRIQUECIMENTO IMEDIATO: Contatos vazios buscam dados do WhatsApp
         const nome = (contato.nome || '').trim();
         const telefone = (contato.telefone || '').replace(/\D/g, '');
         const estaVazio = (
@@ -455,9 +455,10 @@ export default function ChatWindow({
           !/^[\+\d\s]+@(lid|broadcast|s\.whatsapp\.net|c\.us)/i.test(contato.telefone);
 
         if (estaVazio && isContatoReal && thread.whatsapp_integration_id) {
-          console.log('[CHAT] 🔍 Contato vazio detectado - enriquecendo automaticamente...');
-          
-          setTimeout(async () => {
+          console.log('[CHAT] 🔍 Contato vazio detectado - enriquecendo IMEDIATAMENTE...');
+
+          // ✅ EXECUÇÃO IMEDIATA (sem setTimeout) após identificação
+          (async () => {
             if (!isMounted) return;
 
             try {
@@ -483,7 +484,7 @@ export default function ChatWindow({
             } catch (error) {
               console.warn('[CHAT] ⚠️ Erro ao enriquecer contato:', error.message);
             }
-          }, 500);
+          })();
         } else if (isContatoReal && thread.whatsapp_integration_id) {
           // Buscar foto se desatualizada (lógica existente para contatos completos)
           const deveBuscarFoto = !contato.foto_perfil_url ||
