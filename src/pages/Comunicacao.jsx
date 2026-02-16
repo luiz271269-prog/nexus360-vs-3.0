@@ -376,12 +376,13 @@ export default function Comunicacao() {
   }, [threadsExternas, threadsInternas, analisesComportamentais]);
 
   // ═══════════════════════════════════════════════════════════════════════════════
-  // 🔄 AUTO-ENRIQUECIMENTO DE CONTATOS VAZIOS (em background)
+  // 🔄 FALLBACK: Enriquecimento de contatos vazios (reforço frontend)
+  // Backend já enriquece primeiro, este é apenas um reforço para casos edge
   // ═══════════════════════════════════════════════════════════════════════════════
   React.useEffect(() => {
+    // ✅ THROTTLE: Evitar múltiplas execuções (só roda se backend não enriqueceu)
     if (!contatos || contatos.length === 0 || !integracoes || integracoes.length === 0) return;
 
-    // Detectar contatos vazios (score 0)
     const contatosVazios = contatos.filter(c => {
       const nome = (c.nome || '').trim();
       const telefone = (c.telefone || '').replace(/\D/g, '');
@@ -390,16 +391,15 @@ export default function Comunicacao() {
         !c.empresa &&
         !c.cargo
       );
-    }).slice(0, 10); // Max 10 por vez
+    }).slice(0, 5); // Reduzido: backend já enriquece 10
 
     if (contatosVazios.length === 0) return;
 
     const integracaoAtiva = integracoes.find(i => i.status === 'conectado');
     if (!integracaoAtiva) return;
 
-    console.log(`[COMUNICACAO] 🔍 Auto-enriquecendo ${contatosVazios.length} contatos vazios em background...`);
+    console.log(`[COMUNICACAO] 🔄 Fallback: Enriquecendo ${contatosVazios.length} contatos restantes...`);
 
-    // Enriquecer em background (não bloquear UI)
     setTimeout(async () => {
       try {
         await base44.functions.invoke('enriquecerContatosEmLote', {
@@ -407,17 +407,14 @@ export default function Comunicacao() {
           integration_id: integracaoAtiva.id
         });
 
-        console.log('[COMUNICACAO] ✅ Enriquecimento concluído - atualizando listas...');
-        
-        // Invalidar cache para atualizar UI
         queryClient.invalidateQueries({ queryKey: ['contacts'] });
         queryClient.invalidateQueries({ queryKey: ['contacts-search'] });
         queryClient.invalidateQueries({ queryKey: ['threads-externas'] });
       } catch (error) {
-        console.warn('[COMUNICACAO] ⚠️ Erro ao enriquecer em lote:', error.message);
+        console.warn('[COMUNICACAO] ⚠️ Erro em fallback de enriquecimento:', error.message);
       }
-    }, 2000); // 2s delay para não interferir com carregamento inicial
-  }, [contatos.length, integracoes.length]); // Trigger quando listas mudam
+    }, 3000); // 3s delay (backend enriquece primeiro)
+  }, [contatos.length, integracoes.length]);
 
   const loadingThreads = loadingThreadsInternas || loadingThreadsExternas;
 

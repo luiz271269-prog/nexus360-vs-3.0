@@ -233,13 +233,57 @@ Deno.serve(async (req) => {
     
     const contatosDeduplicated = [...contatosPorTelefone.values(), ...contatosSemTelefone];
 
+    // ═══════════════════════════════════════════════════════════════════════
+    // 🔄 AUTO-ENRIQUECIMENTO EM LOTE (backend-first)
+    // ═══════════════════════════════════════════════════════════════════════
+    const candidatosVazios = contatosDeduplicated.filter(c => {
+      const nome = (c.nome || '').trim();
+      const telefone = (c.telefone || '').replace(/\D/g, '');
+      const empresa = (c.empresa || '').trim();
+      const cargo = (c.cargo || '').trim();
+
+      const soTelefone = (
+        !nome || 
+        nome === c.telefone || 
+        nome === '+' + telefone
+      ) && !empresa && !cargo;
+
+      return soTelefone && telefone && telefone.length >= 8;
+    });
+
+    // ✅ MODO HIDRATAÇÃO: Enriquecer vazios em background (fire-and-forget)
+    if (!searchTerm && candidatosVazios.length > 0) {
+      // Buscar integração ativa para enriquecimento
+      const integracoes = await base44.asServiceRole.entities.WhatsAppIntegration.filter(
+        { status: 'conectado' },
+        '-updated_date',
+        1
+      );
+
+      const integracaoAtiva = integracoes?.[0];
+
+      if (integracaoAtiva) {
+        const lote = candidatosVazios.slice(0, 10); // Max 10 por hidratação
+
+        console.log(`[buscarContatosLivre] 🔄 Disparando enriquecimento de ${lote.length} contatos vazios (fire-and-forget)...`);
+
+        // Fire-and-forget: não bloquear resposta
+        base44.functions.invoke('enriquecerContatosEmLote', {
+          contact_ids: lote.map(c => c.id),
+          integration_id: integracaoAtiva.id
+        }).catch(err => {
+          console.warn('[buscarContatosLivre] ⚠️ Erro ao enriquecer lote:', err?.message);
+        });
+      }
+    }
+
     // ✅ FILTRO TEMPORÁRIO: Excluir contatos completamente vazios (score 0)
     // Contatos com score 0 = apenas telefone, sem nome/empresa/cargo/email
     const contatosFiltrados = contatosDeduplicated.filter(c => {
       const score = c._meta?.score_completude || 0;
       return score > 0; // Manter apenas com ALGUM dado útil
     });
-    
+
     console.log(`[buscarContatosLivre] 🧹 Filtro qualidade: ${contatosDeduplicated.length} → ${contatosFiltrados.length} (removeu ${contatosDeduplicated.length - contatosFiltrados.length} vazios)`);
     
     // ✅ ORDENAR: Contatos completos primeiro, vazios depois (priorização, NÃO exclusão)
