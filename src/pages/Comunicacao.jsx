@@ -375,6 +375,50 @@ export default function Comunicacao() {
     return enriquecidas;
   }, [threadsExternas, threadsInternas, analisesComportamentais]);
 
+  // ═══════════════════════════════════════════════════════════════════════════════
+  // 🔄 AUTO-ENRIQUECIMENTO DE CONTATOS VAZIOS (em background)
+  // ═══════════════════════════════════════════════════════════════════════════════
+  React.useEffect(() => {
+    if (!contatos || contatos.length === 0 || !integracoes || integracoes.length === 0) return;
+
+    // Detectar contatos vazios (score 0)
+    const contatosVazios = contatos.filter(c => {
+      const nome = (c.nome || '').trim();
+      const telefone = (c.telefone || '').replace(/\D/g, '');
+      return (
+        (!nome || nome === c.telefone || nome === '+' + telefone) &&
+        !c.empresa &&
+        !c.cargo
+      );
+    }).slice(0, 10); // Max 10 por vez
+
+    if (contatosVazios.length === 0) return;
+
+    const integracaoAtiva = integracoes.find(i => i.status === 'conectado');
+    if (!integracaoAtiva) return;
+
+    console.log(`[COMUNICACAO] 🔍 Auto-enriquecendo ${contatosVazios.length} contatos vazios em background...`);
+
+    // Enriquecer em background (não bloquear UI)
+    setTimeout(async () => {
+      try {
+        await base44.functions.invoke('enriquecerContatosEmLote', {
+          contact_ids: contatosVazios.map(c => c.id),
+          integration_id: integracaoAtiva.id
+        });
+
+        console.log('[COMUNICACAO] ✅ Enriquecimento concluído - atualizando listas...');
+        
+        // Invalidar cache para atualizar UI
+        queryClient.invalidateQueries({ queryKey: ['contacts'] });
+        queryClient.invalidateQueries({ queryKey: ['contacts-search'] });
+        queryClient.invalidateQueries({ queryKey: ['threads-externas'] });
+      } catch (error) {
+        console.warn('[COMUNICACAO] ⚠️ Erro ao enriquecer em lote:', error.message);
+      }
+    }, 2000); // 2s delay para não interferir com carregamento inicial
+  }, [contatos.length, integracoes.length]); // Trigger quando listas mudam
+
   const loadingThreads = loadingThreadsInternas || loadingThreadsExternas;
 
   // ═══════════════════════════════════════════════════════════════════════════════
