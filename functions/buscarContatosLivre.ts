@@ -269,13 +269,16 @@ Deno.serve(async (req) => {
 
     return Response.json({ 
       success: true,
-      contatos: contatosDeduplicated,
-      total: contatosDeduplicated.length,
+      contatos: contatosOrdenados,
+      total: contatosOrdenados.length,
       user_id: user.id,
       _meta: {
         searchTerm: searchTerm || null,
         aplicou_filtro_permissao: false, // ✅ CONTRATO: NUNCA filtrar por permissão
-        deduplicated: contatosDeduplicated.length < contatos.length,
+        aplicou_filtro_qualidade: false, // ✅ NOVO: NUNCA excluir por qualidade (só ordenar)
+        deduplicated: contatosOrdenados.length < contatos.length,
+        contatos_vazios: contatosVazios.length,
+        ordenacao: 'por_completude_desc',
         timestamp: new Date().toISOString()
       }
     });
