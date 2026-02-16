@@ -165,33 +165,38 @@ Deno.serve(async (req) => {
     }
 
     // ═══════════════════════════════════════════════════════════════════════
-    // 🎯 FILTRO QUALIDADE: Remover contatos sem dados básicos (apenas telefone)
-    // ═══════════════════════════════════════════════════════════════════════
-    const contatosComDados = contatos.filter(c => {
-      // ✅ Manter se tem nome diferente do telefone
-      if (c.nome && c.nome !== c.telefone && c.nome !== '+' + (c.telefone || '').replace(/\D/g, '')) {
-        return true;
-      }
-      
-      // ✅ Manter se tem empresa, cargo ou email
-      if (c.empresa || c.cargo || c.email) {
-        return true;
-      }
-      
-      // ✅ Descartar: só tem telefone (contatos vazios criados pelo webhook)
-      console.log(`[buscarContatosLivre] 🗑️ Removendo contato vazio: ${c.id} | ${c.telefone}`);
-      return false;
-    });
-    
-    console.log(`[buscarContatosLivre] 🧹 Filtro de qualidade: ${contatos.length} → ${contatosComDados.length} (removidos ${contatos.length - contatosComDados.length} vazios)`);
-    
-    // ═══════════════════════════════════════════════════════════════════════
-    // 🎯 DEDUPLICAÇÃO POR TELEFONE CANÔNICO
+    // 🎯 DEDUPLICAÇÃO POR TELEFONE CANÔNICO (mantém TODOS os contatos, mesmo vazios)
+    // ⚠️ CRÍTICO: Backend NÃO deve filtrar por qualidade - isso é papel do frontend
     // ═══════════════════════════════════════════════════════════════════════
     const contatosPorTelefone = new Map();
     const contatosSemTelefone = [];
     
-    contatosComDados.forEach(c => {
+    // ✅ MARCAR qualidade para frontend decidir (sem excluir)
+    const contatosComMetadata = contatos.map(c => {
+      const nome = (c.nome || '').trim();
+      const telefone = (c.telefone || '').replace(/\D/g, '');
+      const temDados = (
+        (nome && nome !== c.telefone && nome !== '+' + telefone) ||
+        c.empresa || 
+        c.cargo || 
+        c.email
+      );
+      
+      return {
+        ...c,
+        _meta: {
+          tem_dados_basicos: temDados,
+          score_completude: (
+            (nome && nome !== c.telefone ? 10 : 0) +
+            (c.empresa ? 5 : 0) +
+            (c.cargo ? 3 : 0) +
+            (c.email ? 2 : 0)
+          )
+        }
+      };
+    });
+    
+    contatosComMetadata.forEach(c => {
       const telCanon = c.telefone_canonico || (c.telefone || '').replace(/\D/g, '');
       
       if (!telCanon) {
