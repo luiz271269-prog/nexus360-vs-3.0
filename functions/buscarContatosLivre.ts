@@ -233,8 +233,17 @@ Deno.serve(async (req) => {
     
     const contatosDeduplicated = [...contatosPorTelefone.values(), ...contatosSemTelefone];
 
+    // ✅ FILTRO TEMPORÁRIO: Excluir contatos completamente vazios (score 0)
+    // Contatos com score 0 = apenas telefone, sem nome/empresa/cargo/email
+    const contatosFiltrados = contatosDeduplicated.filter(c => {
+      const score = c._meta?.score_completude || 0;
+      return score > 0; // Manter apenas com ALGUM dado útil
+    });
+    
+    console.log(`[buscarContatosLivre] 🧹 Filtro qualidade: ${contatosDeduplicated.length} → ${contatosFiltrados.length} (removeu ${contatosDeduplicated.length - contatosFiltrados.length} vazios)`);
+    
     // ✅ ORDENAR: Contatos completos primeiro, vazios depois (priorização, NÃO exclusão)
-    const contatosOrdenados = contatosDeduplicated.sort((a, b) => {
+    const contatosOrdenados = contatosFiltrados.sort((a, b) => {
       const scoreA = a._meta?.score_completude || 0;
       const scoreB = b._meta?.score_completude || 0;
       
