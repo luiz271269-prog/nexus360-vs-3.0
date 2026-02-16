@@ -2211,6 +2211,15 @@ export default function Comunicacao() {
       // ✅ Pular bloqueados
       if (contato.bloqueado) return;
 
+      // 🔍 DEBUG: Log para identificar porque contatos não passam
+      console.log('[BUSCA] 🔍 Verificando contato:', {
+        id: contato.id?.substring(0, 8),
+        nome: contato.nome,
+        empresa: contato.empresa,
+        termo: debouncedSearchTerm,
+        match: matchBuscaGoogle(contato, debouncedSearchTerm)
+      });
+
       // ✅ Verificar match
       if (!matchBuscaGoogle(contato, debouncedSearchTerm)) return;
 
@@ -2289,6 +2298,9 @@ export default function Comunicacao() {
 
     console.log('[COMUNICACAO] 🔍 BUSCA CONSOLIDADA:', {
       termo: debouncedSearchTerm,
+      todosContatosEncontrados_size: todosContatosEncontrados.size,
+      contatos_size: contatos.length,
+      contatosBuscados_size: contatosBuscados.length,
       contatos_processados: contatosJaProcessados.size,
       resultados_totais: resultados.length,
       threads_consolidadas: resultados.filter(r => r._threadsConsolidadas > 1).length
