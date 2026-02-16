@@ -89,7 +89,7 @@ export default function SearchAndFilter({
     emoji: cat.emoji || '🏷️'
   }));
 
-  // ✅ DETECÇÃO DE DUPLICATAS POR TELEFONE
+  // ✅ DETECÇÃO DE DUPLICATAS POR TELEFONE (NÃO-BLOQUEANTE)
   const { data: todosContatos = [] } = useQuery({
     queryKey: ['contacts-duplicates'],
     queryFn: () => base44.entities.Contact.list('-created_date', 1000),
@@ -97,7 +97,7 @@ export default function SearchAndFilter({
     enabled: isAdmin // Só carregar se admin
   });
 
-  // Normalizar telefone para criar contato + detectar duplicatas
+  // Normalizar telefone para criar contato + detectar duplicatas (modo informativo)
   React.useEffect(() => {
     if (!searchTerm || searchTerm.trim() === '') {
       if (novoContatoTelefone) {
@@ -114,7 +114,7 @@ export default function SearchAndFilter({
     if (telefoneNormalizado && telefoneNormalizado !== novoContatoTelefone) {
       onNovoContatoTelefoneChange(telefoneNormalizado);
       
-      // ✅ DETECTAR DUPLICATAS ao buscar por telefone
+      // ✅ DETECTAR DUPLICATAS ao buscar por telefone (MODO INFORMATIVO - NÃO BLOQUEIA)
       if (isAdmin && onDuplicataDetectada && todosContatos.length > 0) {
         const telLimpo = telefoneNormalizado.replace(/\D/g, '');
         const contatosComTelefone = todosContatos.filter(c => {
@@ -128,11 +128,15 @@ export default function SearchAndFilter({
             new Date(a.created_date) - new Date(b.created_date)
           );
           
-          console.log(`[SEARCH] 🚨 ${contatosComTelefone.length} duplicatas detectadas para: ${telefoneNormalizado}`);
+          console.log(`[SEARCH] ℹ️ ${contatosComTelefone.length} versões detectadas (exibindo principal): ${telefoneNormalizado}`);
+          
+          // ✅ MODO INFORMATIVO: Seta duplicatas mas NÃO bloqueia
+          // A página Comunicacao vai FILTRAR automaticamente para mostrar só o principal
           onDuplicataDetectada({
             telefone: telefoneNormalizado,
             principal: ordenados[0],
-            duplicatas: ordenados.slice(1)
+            duplicatas: ordenados.slice(1),
+            modo: 'informativo' // ✅ Flag para não bloquear
           });
         } else {
           // Sem duplicatas
