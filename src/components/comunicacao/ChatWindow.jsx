@@ -471,9 +471,14 @@ export default function ChatWindow({
               if (resultado?.data?.updated && resultado?.data?.contact) {
                 console.log('[CHAT] ✅ Contato enriquecido:', resultado.data.dados_atualizados);
                 setContatoCompleto(resultado.data.contact);
-                
-                // Invalidar cache para atualizar sidebar
+
+                // ✅ SINCRONIZAÇÃO CRÍTICA: Invalidar todas as queries de contatos
+                // para atualizar sidebar com dados novos (nome/foto do WhatsApp)
                 queryClient.invalidateQueries({ queryKey: ['contacts'] });
+                queryClient.invalidateQueries({ queryKey: ['contacts-search'] });
+                queryClient.invalidateQueries({ queryKey: ['threads'] }); // Rehidratar thread.contato
+
+                toast.success('✅ Contato atualizado com dados do WhatsApp', { duration: 2000 });
               }
             } catch (error) {
               console.warn('[CHAT] ⚠️ Erro ao enriquecer contato:', error.message);
