@@ -1104,6 +1104,11 @@ export default function ConfiguracaoCanaisComunicacao({ integracoes, onRecarrega
             <span className="font-medium">GoTo</span>
             <Badge className="ml-auto bg-yellow-100 text-yellow-700 text-[10px] h-4 px-1.5">{gotoIntegracoes.length}</Badge>
           </TabsTrigger>
+          <TabsTrigger value="meta" className="flex items-center gap-1.5 py-2 data-[state=active]:bg-white text-xs">
+            <Cloud className="w-4 h-4 text-blue-600" />
+            <span className="font-medium">Meta API</span>
+            <Badge className="ml-auto bg-blue-100 text-blue-700 text-[10px] h-4 px-1.5">{integracoes.filter(i => i.api_provider === 'meta_cloud_api').length}</Badge>
+          </TabsTrigger>
         </TabsList>
 
         {/* WhatsApp Tab - APENAS WhatsApp, sem GoTo */}
