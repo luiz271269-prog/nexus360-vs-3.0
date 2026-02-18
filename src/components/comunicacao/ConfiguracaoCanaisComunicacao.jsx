@@ -117,6 +117,18 @@ const PROVIDERS = {
     tipo: "whatsapp",
     modo: "integrator"
   },
+  meta_cloud_api: {
+    nome: "Meta Cloud API",
+    cor: "sky",
+    baseUrl: "https://graph.facebook.com/v21.0",
+    requerClientToken: false,
+    webhookFn: "webhookWatsZapi",
+    testarFn: null,
+    icon: WhatsAppLogo,
+    tipo: "whatsapp",
+    modo: "manual",
+    requerMetaIds: true
+  },
   instagram_api: {
     nome: "Instagram",
     cor: "pink",
