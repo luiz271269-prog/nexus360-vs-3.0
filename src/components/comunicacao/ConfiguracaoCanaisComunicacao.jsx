@@ -80,6 +80,7 @@ import { getWebhookUrlProducao, getWebhookUrlAmbienteAtual } from "../lib/webhoo
 import InstagramConnectionSetup from "./InstagramConnectionSetup";
 import FacebookConnectionSetup from "./FacebookConnectionSetup";
 import GoToConnectionSetup from "./GoToConnectionSetup";
+import MetaCloudAPISetup from "./MetaCloudAPISetup";
 
 // Configuração dos provedores
 const PROVIDERS = {
