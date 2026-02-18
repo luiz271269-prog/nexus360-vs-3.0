@@ -1438,7 +1438,7 @@ export default function ConfiguracaoCanaisComunicacao({ integracoes, onRecarrega
                         </>
                       )}
 
-                      {PROVIDERS[novaIntegracao.api_provider]?.modo !== 'integrator' && (
+                      {PROVIDERS[novaIntegracao.api_provider]?.modo !== 'integrator' && novaIntegracao.api_provider !== 'meta_cloud_api' && (
                         <div className="grid grid-cols-2 gap-3">
                           <div>
                             <Label className="text-[11px] font-semibold text-slate-600 flex items-center gap-1">
