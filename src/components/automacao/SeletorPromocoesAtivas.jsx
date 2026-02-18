@@ -25,7 +25,7 @@ export default function SeletorPromocoesAtivas({ onSelecionarPromocao, onClose }
     try {
       setLoading(true);
       const promos = await base44.entities.Promotion.filter(
-        { is_active: true },
+        { ativo: true },
         '-priority',
         50
       );
