@@ -176,22 +176,22 @@ export default function Comunicacao() {
     const modo = urlParams.get('modo');
     
     if (modo === 'envio_massa') {
-      const contatosSalvos = localStorage.getItem('envio_massa_contatos');
-      if (contatosSalvos) {
-        try {
-          const contatos = JSON.parse(contatosSalvos);
-          setContatosParaEnvioMassa(contatos);
-          setModoEnvioMassa(true);
-          setThreadAtiva(null); // Limpar thread ativa
-          localStorage.removeItem('envio_massa_contatos');
-          
-          // Limpar URL
-          window.history.replaceState({}, '', createPageUrl('Comunicacao'));
-        } catch (error) {
-          console.error('[Comunicacao] Erro ao carregar contatos do localStorage:', error);
+          const contatosSalvos = localStorage.getItem('envio_massa_contatos');
+          if (contatosSalvos) {
+            try {
+              const contatos = JSON.parse(contatosSalvos);
+              setContatosParaEnvioMassa(contatos);
+              setModoEnvioMassa(true);
+              setThreadAtiva(null);
+              localStorage.removeItem('envio_massa_contatos');
+              window.history.replaceState({}, '', createPageUrl('Comunicacao'));
+              // Mudar para aba de conversas para exibir o painel de envio
+              setActiveTab('conversas');
+            } catch (error) {
+              console.error('[Comunicacao] Erro ao carregar contatos do localStorage:', error);
+            }
+          }
         }
-      }
-    }
   }, []);
 
   // 🔔 REAL-TIME: Atualizar threads quando houver mudanças
