@@ -519,6 +519,10 @@ export default function ConfiguracaoCanaisComunicacao({ integracoes, onRecarrega
         instance_id_provider: instanceId,
         api_key_provider: tokenInstancia,
         security_client_token_header: provider.requerClientToken ? tokenConta : null,
+        ...(novaIntegracao.api_provider === 'meta_cloud_api' && {
+          meta_waba_id: instanceId,
+          meta_phone_number_id: tokenConta,
+        }),
         base_url_provider: provider.baseUrl,
         webhook_url: webhookUrlFinal, // ✅ SEMPRE webhook recalculado, nunca do campo
         configuracoes_avancadas: {
