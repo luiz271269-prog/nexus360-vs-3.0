@@ -1297,6 +1297,13 @@ export default function ConfiguracaoCanaisComunicacao({ integracoes, onRecarrega
                                 <span className="text-xs text-slate-600">Cria via API (Custom)</span>
                               </span>
                             </SelectItem>
+                            <SelectItem value="meta_cloud_api">
+                              <span className="flex items-center gap-2">
+                                <div className="w-4 h-4 text-green-600"><WhatsAppLogo /></div>
+                                <Badge className="bg-sky-100 text-sky-700 text-[10px]">Meta Cloud API</Badge>
+                                <span className="text-xs text-slate-600">Número fixo, sem Android</span>
+                              </span>
+                            </SelectItem>
                           </SelectContent>
                         </Select>
                       </div>
