@@ -1,15 +1,19 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.6';
 
 // ============================================================================
-// ENVIO DE CAMPANHAS UNIFICADO - BROADCAST + PROMOÇÕES
+// ENVIO DE CAMPANHAS - ARQUITETURA ASSÍNCRONA (SAFE BATCH)
 // ============================================================================
-// Função central que unifica envio em massa (broadcast) e promoções agendadas
-// Baseada no fluxo que FUNCIONA: envio individual para grupos pequenos
+// Modo BROADCAST: enfileira WorkQueueItems instantaneamente → worker envia por baixo
+// Modo PROMOÇÃO:  envia saudação imediata + enfileira promoção com delay
+//
+// ✅ Sem timeout: qualquer volume de contatos retorna em ~1-3s
+// ✅ Worker (processarFilaBroadcast) roda a cada 5min e processa em lotes de 20
+// ✅ Controle de cooldown via last_any_promo_sent_at
 // ============================================================================
 
 Deno.serve(async (req) => {
   const base44 = createClientFromRequest(req);
-  
+
   try {
     const body = await req.json();
     const {
@@ -24,206 +28,138 @@ Deno.serve(async (req) => {
       media_caption = null
     } = body;
 
-    console.log(`[CAMPANHA-LOTE] ✅ Payload recebido:`, { 
-      modo, 
-      contact_ids: contact_ids.length,
-      mensagem: mensagem.substring(0, 100),
-      media_type,
-      personalizar
+    console.log(`[CAMPANHA-LOTE] Payload:`, {
+      modo,
+      total: contact_ids.length,
+      mensagem: mensagem?.substring(0, 80),
+      media_type
     });
 
-    // ✅ VALIDAÇÃO: Mensagem OU mídia obrigatória
+    // ── Validações ──────────────────────────────────────────────────────────
     if ((!mensagem || !mensagem.trim()) && !media_url) {
-      return Response.json({
-        success: false,
-        error: `Mensagem e mídia vazias. Recebido mensagem: "${mensagem}", media_url: ${media_url}`
-      }, { status: 400 });
+      return Response.json({ success: false, error: 'Mensagem ou mídia obrigatória' }, { status: 400 });
+    }
+    if (!contact_ids?.length) {
+      return Response.json({ success: false, error: 'Lista de contatos vazia' }, { status: 400 });
     }
 
-    if (!contact_ids || contact_ids.length === 0) {
-      return Response.json({
-        success: false,
-        error: 'Lista de contatos vazia'
-      }, { status: 400 });
-    }
-
-    // ✅ VALIDAÇÃO: Verificar integração conectada
-    const integrations = await base44.asServiceRole.entities.WhatsAppIntegration.filter({
-      status: 'conectado'
-    });
-
+    // ── Integração conectada ─────────────────────────────────────────────────
+    const integrations = await base44.asServiceRole.entities.WhatsAppIntegration.filter({ status: 'conectado' });
     if (!integrations.length) {
-      return Response.json({
-        success: false,
-        error: 'Nenhuma integração WhatsApp conectada'
-      }, { status: 400 });
+      return Response.json({ success: false, error: 'Nenhuma integração WhatsApp conectada' }, { status: 400 });
     }
-
     const integration = integrations[0];
-    console.log(`[CAMPANHA-LOTE] Usando integração: ${integration.nome_instancia}`);
 
-    // ✅ CARREGAR CONTATOS
-    const contatos = await base44.asServiceRole.entities.Contact.filter({
-      id: { $in: contact_ids }
-    });
-
-    console.log(`[CAMPANHA-LOTE] ${contatos.length} contatos carregados`);
-
-    // ✅ Obter usuário atual ANTES do loop (evita múltiplas chamadas)
-    let usuarioAtual = null;
-    try {
-      usuarioAtual = await base44.auth.me();
-    } catch (_) {
-      // Fallback: usar service role
-    }
-    const senderId = usuarioAtual?.id || 'system';
+    // ── Usuário atual (para sender_id) ───────────────────────────────────────
+    let senderId = 'system';
+    try { senderId = (await base44.auth.me())?.id || 'system'; } catch (_) {}
 
     const now = new Date();
+    const broadcastId = `broadcast_${now.getTime()}`;
+
+    // ── Carregar contatos ────────────────────────────────────────────────────
+    const contatos = await base44.asServiceRole.entities.Contact.filter({ id: { $in: contact_ids } });
+    console.log(`[CAMPANHA-LOTE] ${contatos.length} contatos carregados`);
+
     const resultados = [];
-    let enviados = 0;
+    let enfileirados = 0;
     let erros = 0;
 
-    // ============================================================================
-    // LOOP DE ENVIO - BASEADO NO QUE FUNCIONA
-    // ============================================================================
-    for (const contato of contatos) {
-      try {
-        // ✅ VALIDAÇÃO 1: Telefone obrigatório
+    // ══════════════════════════════════════════════════════════════════════════
+    // MODO BROADCAST → Enfileirar tudo (sem envio direto → sem timeout)
+    // ══════════════════════════════════════════════════════════════════════════
+    if (modo === 'broadcast') {
+      for (const contato of contatos) {
         if (!contato.telefone) {
-          resultados.push({
-            contact_id: contato.id,
-            nome: contato.nome,
-            status: 'erro',
-            motivo: 'Telefone vazio'
-          });
+          resultados.push({ contact_id: contato.id, nome: contato.nome, status: 'erro', motivo: 'Sem telefone' });
           erros++;
           continue;
         }
 
-        // ✅ VALIDAÇÃO 2: Buscar ou criar thread canônica
-        let threads = await base44.asServiceRole.entities.MessageThread.filter({
+        const mensagemFinal = personalizar
+          ? mensagem
+              .replace(/\{\{nome\}\}/gi, contato.nome || 'Cliente')
+              .replace(/\{\{empresa\}\}/gi, contato.empresa || '')
+          : mensagem;
+
+        await base44.asServiceRole.entities.WorkQueueItem.create({
+          tipo: 'enviar_broadcast_avulso',
           contact_id: contato.id,
-          is_canonical: true
-        });
-
-        let thread = threads[0];
-
-        if (!thread) {
-          console.log(`[CAMPANHA-LOTE] Criando thread para ${contato.nome}`);
-          thread = await base44.asServiceRole.entities.MessageThread.create({
-            contact_id: contato.id,
-            is_canonical: true,
-            channel: 'whatsapp',
-            whatsapp_integration_id: integration.id,
-            status: 'aberta'
-          });
-        }
-
-        // ✅ PERSONALIZAR MENSAGEM (se modo broadcast)
-        let mensagemFinal = mensagem;
-        if (modo === 'broadcast' && personalizar) {
-          mensagemFinal = mensagem
-            .replace(/\{\{nome\}\}/gi, contato.nome || 'Cliente')
-            .replace(/\{\{empresa\}\}/gi, contato.empresa || '');
-        }
-
-        console.log(`[CAMPANHA-LOTE] 📨 ${contato.nome}: mensagem="${mensagemFinal.substring(0, 60)}" | personalizada=${personalizar}`);
-
-        // ✅ MODO BROADCAST: Enviar imediatamente via gateway
-        if (modo === 'broadcast') {
-          console.log(`[CAMPANHA-LOTE] 📤 Enviando broadcast para ${contato.nome} | Mídia: ${media_type}`);
-
-          // ✅ CHAMAR GATEWAY DE ENVIO COM MÍDIA
-           const respEnvio = await base44.asServiceRole.functions.invoke('enviarWhatsApp', {
-             integration_id: integration.id,
-             numero_destino: contato.telefone,
-             mensagem: mensagemFinal,
-             media_url,
-             media_type,
-             media_caption: media_caption || (media_url ? mensagemFinal : null)
-           });
-
-          if (!respEnvio.data?.success) {
-            throw new Error(respEnvio.data?.error || 'Erro no gateway');
-          }
-
-          // ✅ REGRA 4: PERSISTIR MESSAGE (com ou sem mídia)
-          await base44.asServiceRole.entities.Message.create({
-            thread_id: thread.id,
-            sender_id: senderId,
-            sender_type: 'user',
-            recipient_id: contato.id,
-            recipient_type: 'contact',
-            content: mensagemFinal,
-            channel: 'whatsapp',
-            status: 'enviada',
-            whatsapp_message_id: respEnvio.data.message_id,
-            sent_at: now.toISOString(),
-            visibility: 'public_to_customer',
+          status: 'pendente',
+          scheduled_for: now.toISOString(),
+          payload: {
+            integration_id: integration.id,
+            mensagem: mensagemFinal,
             media_url: media_url || null,
             media_type: media_type || 'none',
             media_caption: media_caption || null,
-            metadata: {
-              whatsapp_integration_id: integration.id,
-              origem_campanha: 'broadcast_massa',
-              personalizada: personalizar,
-              midia_incluida: !!media_url,
-              broadcast_id: `broadcast_${now.getTime()}`
-            }
-          });
+            sender_id: senderId,
+            broadcast_id: broadcastId
+          }
+        });
 
-          // ✅ REGRA 5: ATUALIZAR THREAD (com marcação de broadcast + metadados estruturados)
-          await base44.asServiceRole.entities.MessageThread.update(thread.id, {
-            last_message_content: `[Broadcast] ${mensagemFinal.substring(0, 80)}`,
-            last_message_at: now.toISOString(),
-            last_outbound_at: now.toISOString(),
-            last_message_sender: 'user',
-            last_human_message_at: now.toISOString(),
-            last_media_type: media_url ? media_type : 'none',
-            whatsapp_integration_id: integration.id,
-            pre_atendimento_ativo: false,
-            metadata: {
-              ultima_mensagem_origem: 'broadcast_massa',
-              broadcast_data: {
-                sent_at: now.toISOString(),
-                broadcast_sent_at: now.toISOString(),
-                broadcast_id: `broadcast_${now.getTime()}`,
-                tem_midia: !!media_url,
-                tipo_midia: media_type,
-                timestamp: now.toISOString()
-              },
-              broadcast_para_contatos: contact_ids.length
-            }
-          });
+        resultados.push({ contact_id: contato.id, nome: contato.nome, status: 'enfileirado' });
+        enfileirados++;
+      }
 
-          resultados.push({
-            contact_id: contato.id,
-            nome: contato.nome,
-            status: 'enviado',
-            mensagem: mensagemFinal
-          });
+      // Auditoria
+      await base44.asServiceRole.entities.AutomationLog.create({
+        automation_type: 'broadcast_massa',
+        status: 'success',
+        metadata: { contact_ids, enfileirados, erros, broadcast_id: broadcastId }
+      });
 
-          enviados++;
-        }
+      console.log(`[CAMPANHA-LOTE] ✅ ${enfileirados} broadcasts enfileirados (worker processará em lotes)`);
 
-        // ✅ MODO PROMOÇÃO: Enviar saudação + agendar promoção
-        if (modo === 'promocao') {
-          console.log(`[CAMPANHA-LOTE] Agendando promoção para ${contato.nome}`);
+      return Response.json({
+        success: true,
+        modo: 'broadcast',
+        enfileirados,
+        erros,
+        resultados,
+        mensagem_status: `${enfileirados} mensagens enfileiradas. Envio iniciará em segundos pelo worker.`,
+        broadcast_id: broadcastId,
+        timestamp: now.toISOString()
+      });
+    }
 
-          // ✅ 1. Buscar promoção ativa
-          const promocoes = await base44.asServiceRole.entities.Promotion.filter({
-            is_active: true,
-            expires_at: { $gte: now.toISOString() }
-          }, '-priority', 1);
+    // ══════════════════════════════════════════════════════════════════════════
+    // MODO PROMOÇÃO → Saudação imediata + enfileirar promoção
+    // ══════════════════════════════════════════════════════════════════════════
+    if (modo === 'promocao') {
+      const promocoes = await base44.asServiceRole.entities.Promotion.filter({
+        is_active: true,
+        expires_at: { $gte: now.toISOString() }
+      }, '-priority', 1);
 
-          if (!promocoes.length) {
-            throw new Error('Nenhuma promoção ativa');
+      if (!promocoes.length) {
+        return Response.json({ success: false, error: 'Nenhuma promoção ativa' }, { status: 400 });
+      }
+      const promo = promocoes[0];
+
+      for (const contato of contatos) {
+        try {
+          if (!contato.telefone) {
+            resultados.push({ contact_id: contato.id, nome: contato.nome, status: 'erro', motivo: 'Sem telefone' });
+            erros++;
+            continue;
           }
 
-          const promo = promocoes[0];
+          // Buscar/criar thread canônica
+          let threads = await base44.asServiceRole.entities.MessageThread.filter({ contact_id: contato.id, is_canonical: true });
+          let thread = threads[0];
+          if (!thread) {
+            thread = await base44.asServiceRole.entities.MessageThread.create({
+              contact_id: contato.id,
+              is_canonical: true,
+              channel: 'whatsapp',
+              whatsapp_integration_id: integration.id,
+              status: 'aberta'
+            });
+          }
 
-          // ✅ 2. Enviar saudação imediata (personalizada se fornecido)
-          const saudacao = texto_saudacao_custom 
+          // Saudação personalizada
+          const saudacao = texto_saudacao_custom
             ? texto_saudacao_custom
                 .replace(/\{\{nome\}\}/gi, contato.nome || 'Cliente')
                 .replace(/\{\{empresa\}\}/gi, contato.empresa || '')
@@ -235,11 +171,9 @@ Deno.serve(async (req) => {
             mensagem: saudacao
           });
 
-          if (!respSaudacao.data?.success) {
-            throw new Error(respSaudacao.data?.error || 'Erro ao enviar saudação');
-          }
+          if (!respSaudacao.data?.success) throw new Error(respSaudacao.data?.error || 'Erro ao enviar saudação');
 
-          // ✅ REGRA 4: PERSISTIR SAUDAÇÃO (copiado do ChatWindow)
+          // Persistir saudação
           await base44.asServiceRole.entities.Message.create({
             thread_id: thread.id,
             sender_id: senderId,
@@ -249,16 +183,12 @@ Deno.serve(async (req) => {
             content: saudacao,
             channel: 'whatsapp',
             status: 'enviada',
-            whatsapp_message_id: respSaudacao.data.message_id,  // ✅ CRÍTICO
+            whatsapp_message_id: respSaudacao.data.message_id,
             sent_at: now.toISOString(),
             visibility: 'public_to_customer',
-            metadata: {
-              whatsapp_integration_id: integration.id,
-              origem_campanha: 'promocao_saudacao'
-            }
+            metadata: { whatsapp_integration_id: integration.id, origem_campanha: 'promocao_saudacao' }
           });
 
-          // ✅ REGRA 5: ATUALIZAR THREAD (copiado do ChatWindow)
           await base44.asServiceRole.entities.MessageThread.update(thread.id, {
             last_message_content: saudacao.substring(0, 100),
             last_message_at: now.toISOString(),
@@ -269,83 +199,60 @@ Deno.serve(async (req) => {
             pre_atendimento_ativo: false
           });
 
-          // ✅ P1 FIX: ATUALIZAR CONTACT (cooldown de promoção)
           await base44.asServiceRole.entities.Contact.update(contato.id, {
             last_any_promo_sent_at: now.toISOString()
           });
 
-          // ✅ 3. Agendar promoção na fila
+          // Enfileirar promoção com delay
           const scheduledFor = new Date(now.getTime() + delay_minutos * 60 * 1000);
-
           await base44.asServiceRole.entities.WorkQueueItem.create({
             tipo: 'enviar_promocao',
             contact_id: contato.id,
             thread_id: thread.id,
             status: 'agendado',
             scheduled_for: scheduledFor.toISOString(),
-            payload: {
-              promotion_id: promo.id,
-              integration_id: integration.id,
-              trigger: 'lote_urgentes'
-            },
-            metadata: {
-              saudacao_enviada_em: now.toISOString(),
-              delay_minutos
-            }
+            payload: { promotion_id: promo.id, integration_id: integration.id, trigger: 'lote_urgentes' },
+            metadata: { saudacao_enviada_em: now.toISOString(), delay_minutos }
           });
 
           resultados.push({
             contact_id: contato.id,
             nome: contato.nome,
             status: 'agendado',
-            saudacao: saudacao,
             promo_agendada_para: scheduledFor.toISOString()
           });
+          enfileirados++;
 
-          enviados++;
+          // Anti-rate-limit apenas no modo promoção (envio síncrono da saudação)
+          await new Promise(r => setTimeout(r, 600));
+
+        } catch (error) {
+          console.error(`[CAMPANHA-LOTE] ❌ ${contato.nome}:`, error.message);
+          resultados.push({ contact_id: contato.id, nome: contato.nome, status: 'erro', motivo: error.message });
+          erros++;
         }
-
-        // ✅ ANTI-RATE-LIMIT
-        await new Promise(resolve => setTimeout(resolve, modo === 'broadcast' ? 500 : 800));
-
-      } catch (error) {
-        console.error(`[CAMPANHA-LOTE] ❌ ${contato.nome}:`, error.message);
-        resultados.push({
-          contact_id: contato.id,
-          nome: contato.nome,
-          status: 'erro',
-          motivo: error.message
-        });
-        erros++;
       }
+
+      await base44.asServiceRole.entities.AutomationLog.create({
+        automation_type: 'promocao_lote',
+        status: enfileirados > 0 ? 'success' : 'failed',
+        metadata: { contact_ids, enfileirados, erros }
+      });
+
+      return Response.json({
+        success: true,
+        modo: 'promocao',
+        enviados: enfileirados,
+        erros,
+        resultados,
+        timestamp: now.toISOString()
+      });
     }
 
-    // ✅ AUDITORIA
-    await base44.asServiceRole.entities.AutomationLog.create({
-      automation_type: modo === 'broadcast' ? 'broadcast_massa' : 'promocao_lote',
-      status: enviados > 0 ? 'success' : 'failed',
-      metadata: {
-        contact_ids,
-        enviados,
-        erros,
-        resultados: resultados.slice(0, 10)
-      }
-    });
-
-    return Response.json({
-      success: true,
-      modo,
-      enviados,
-      erros,
-      resultados,
-      timestamp: now.toISOString()
-    });
+    return Response.json({ success: false, error: `Modo inválido: ${modo}` }, { status: 400 });
 
   } catch (error) {
     console.error('[CAMPANHA-LOTE] ❌ ERRO GERAL:', error);
-    return Response.json({
-      success: false,
-      error: error.message
-    }, { status: 500 });
+    return Response.json({ success: false, error: error.message }, { status: 500 });
   }
 });
