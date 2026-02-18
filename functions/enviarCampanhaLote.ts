@@ -69,6 +69,15 @@ Deno.serve(async (req) => {
 
     console.log(`[CAMPANHA-LOTE] ${contatos.length} contatos carregados`);
 
+    // ✅ Obter usuário atual ANTES do loop (evita múltiplas chamadas)
+    let usuarioAtual = null;
+    try {
+      usuarioAtual = await base44.auth.me();
+    } catch (_) {
+      // Fallback: usar service role
+    }
+    const senderId = usuarioAtual?.id || 'system';
+
     const now = new Date();
     const resultados = [];
     let enviados = 0;
