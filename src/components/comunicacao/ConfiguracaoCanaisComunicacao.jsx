@@ -2181,6 +2181,15 @@ export default function ConfiguracaoCanaisComunicacao({ integracoes, onRecarrega
             onRecarregar={handleRecarregarTodos}
           />
         </TabsContent>
+
+        {/* Meta Cloud API Tab */}
+        <TabsContent value="meta" className="mt-4">
+          <MetaCloudAPISetup
+            integracoes={integracoes}
+            onRecarregar={onRecarregar}
+            usuarioAtual={usuarioAtual}
+          />
+        </TabsContent>
       </Tabs>
     </div>
   );
