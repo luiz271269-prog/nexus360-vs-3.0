@@ -242,7 +242,7 @@ Deno.serve(async (req) => {
           // ✅ REGRA 4: PERSISTIR SAUDAÇÃO (copiado do ChatWindow)
           await base44.asServiceRole.entities.Message.create({
             thread_id: thread.id,
-            sender_id: (await base44.auth.me())?.id || 'system',
+            sender_id: senderId,
             sender_type: 'user',
             recipient_id: contato.id,
             recipient_type: 'contact',
