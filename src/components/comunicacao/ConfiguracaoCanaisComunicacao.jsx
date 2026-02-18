@@ -1400,7 +1400,7 @@ export default function ConfiguracaoCanaisComunicacao({ integracoes, onRecarrega
                         </div>
                       </div>
 
-                      {PROVIDERS[novaIntegracao.api_provider]?.modo !== 'integrator' && (
+                      {PROVIDERS[novaIntegracao.api_provider]?.modo !== 'integrator' && novaIntegracao.api_provider !== 'meta_cloud_api' && (
                         <div>
                           <Label className="text-[11px] font-semibold text-slate-600">Instance ID *</Label>
                           <Input
@@ -1410,6 +1410,32 @@ export default function ConfiguracaoCanaisComunicacao({ integracoes, onRecarrega
                             className="mt-1 h-8 font-mono text-[11px]"
                           />
                         </div>
+                      )}
+
+                      {novaIntegracao.api_provider === 'meta_cloud_api' && (
+                        <>
+                          <div className="p-2 bg-sky-50 border border-sky-200 rounded text-[10px] text-sky-800">
+                            ☁️ <strong>Meta Cloud API</strong>: use número fixo ou celular sem Android. Obtenha os IDs em <a href="https://developers.facebook.com/apps" target="_blank" rel="noopener noreferrer" className="underline">developers.facebook.com</a>.
+                          </div>
+                          <div>
+                            <Label className="text-[11px] font-semibold text-slate-600">WABA ID (WhatsApp Business Account ID) *</Label>
+                            <Input
+                              value={novaIntegracao.instance_id}
+                              onChange={(e) => setNovaIntegracao({...novaIntegracao, instance_id: e.target.value.trim()})}
+                              placeholder="123456789012345"
+                              className="mt-1 h-8 font-mono text-[11px]"
+                            />
+                          </div>
+                          <div>
+                            <Label className="text-[11px] font-semibold text-slate-600">Phone Number ID *</Label>
+                            <Input
+                              value={novaIntegracao.client_token_conta}
+                              onChange={(e) => setNovaIntegracao({...novaIntegracao, client_token_conta: e.target.value.trim()})}
+                              placeholder="987654321098765"
+                              className="mt-1 h-8 font-mono text-[11px]"
+                            />
+                          </div>
+                        </>
                       )}
 
                       {PROVIDERS[novaIntegracao.api_provider]?.modo !== 'integrator' && (
