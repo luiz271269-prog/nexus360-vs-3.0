@@ -1083,7 +1083,7 @@ export default function ConfiguracaoCanaisComunicacao({ integracoes, onRecarrega
 
       {/* Tabs por Canal */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="grid w-full grid-cols-4 bg-slate-100 p-0.5 h-auto">
+        <TabsList className="grid w-full grid-cols-5 bg-slate-100 p-0.5 h-auto">
           <TabsTrigger value="whatsapp" className="flex items-center gap-1.5 py-2 data-[state=active]:bg-white text-xs">
             <WhatsAppLogo />
             <span className="font-medium">WhatsApp</span>
