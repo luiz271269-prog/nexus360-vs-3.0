@@ -2,9 +2,18 @@ import { createClientFromRequest } from 'npm:@base44/sdk@0.8.6';
 
 /**
  * ORQUESTRADOR DIÁRIO DE ANÁLISE DE CONTATOS
- * Executa análise in-line sem chamar função externa (evita 403)
- * Deve ser agendado para rodar 1x por dia (ex: 2h da manhã)
+ * 
+ * ESTRATÉGIA ANTI-TIMEOUT:
+ * - Timeout interno de 45s (servidor corta em ~60s)
+ * - Processa poucos contatos por execução (10-15 total)
+ * - Prioriza contatos sem análise recente
+ * - Delay mínimo entre chamadas (200ms)
+ * - Para graciosamente quando tempo limite se aproxima
  */
+
+const TIMEOUT_INTERNO_MS = 45_000; // 45 segundos
+const DELAY_ENTRE_CONTATOS_MS = 200;
+
 Deno.serve(async (req) => {
   const inicio = Date.now();
 
@@ -21,175 +30,170 @@ Deno.serve(async (req) => {
 
   try {
     const base44 = createClientFromRequest(req);
-
-    console.log(`[ANALISE_DIARIA] Iniciando rotina diária (service role)`);
+    console.log('[ANALISE_DIARIA] 🚀 Iniciando (timeout interno: 45s)');
 
     const resultados = {
-      modo_execucao: 'scheduled',
       rotinas: [],
-      tempo_total_ms: 0,
       total_contatos_analisados: 0,
       total_analises_criadas: 0,
+      total_pulados: 0,
+      parou_por_timeout: false,
       erros: []
     };
 
-    // Helper: analisar lote direto (sem chamar analisarClientesEmLote)
-    async function rodarLote(descricao, filtroContatos, limitContatos) {
-      const inicioLote = Date.now();
-      console.log(`[ANALISE_DIARIA] 📊 ${descricao}`);
+    // Helper: verificar se tempo está acabando
+    const tempoEsgotado = () => (Date.now() - inicio) >= TIMEOUT_INTERNO_MS;
 
+    // Helper: processar um lote de contatos
+    async function rodarLote(descricao, filtroContatos, limite) {
+      if (tempoEsgotado()) {
+        console.warn(`[ANALISE_DIARIA] ⏱️ Pulando ${descricao} - tempo esgotado`);
+        resultados.parou_por_timeout = true;
+        return;
+      }
+
+      const inicioLote = Date.now();
+      console.log(`[ANALISE_DIARIA] 📊 ${descricao} (limite: ${limite})`);
+
+      let contatos = [];
       try {
-        const contatos = await base44.asServiceRole.entities.Contact.filter(
+        contatos = await base44.asServiceRole.entities.Contact.filter(
           filtroContatos,
           '-ultima_interacao',
-          limitContatos
+          limite
         );
+      } catch (error) {
+        console.error(`[ANALISE_DIARIA] ❌ Erro ao buscar ${descricao}:`, error.message);
+        resultados.erros.push({ rotina: descricao, erro: error.message });
+        return;
+      }
 
-        console.log(`[ANALISE_DIARIA] ${contatos.length} contatos para ${descricao}`);
+      console.log(`[ANALISE_DIARIA] ${contatos.length} contatos em ${descricao}`);
 
-        let processados = 0;
-        let criados = 0;
-        const errosInternos = [];
+      let processados = 0;
+      let criados = 0;
+      let pulados = 0;
 
-        for (const contato of contatos) {
-          processados++;
-          
-          try {
-            // Verificar análise recente (< 24h)
-            const analises = await base44.asServiceRole.entities.ContactBehaviorAnalysis.filter(
-              {
-                contact_id: contato.id,
-                created_date: { $gte: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString() }
-              },
-              '-created_date',
-              1
-            );
-            
-            if (analises.length > 0) {
-              continue;
-            }
+      // Corte de 24h de análise
+      const limite24h = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
 
-            // Chamar análise
-            const resp = await base44.asServiceRole.functions.invoke('analisarComportamentoContato', {
-              contact_id: contato.id
-            });
-            
-            if (resp.success || resp.data?.success) {
-              criados++;
-            }
-            
-            // Delay anti-rate-limit (500ms entre análises)
-            if (processados < contatos.length) {
-              await new Promise(r => setTimeout(r, 500));
-            }
-            
-          } catch (error) {
-            errosInternos.push({ nome: contato.nome, erro: error.message });
-            
-            // Se atingir rate limit, aguardar mais tempo
-            if (error.message?.includes('Rate limit') || error.message?.includes('429')) {
-              console.warn(`[ANALISE_DIARIA] Rate limit - aguardando 3s`);
-              await new Promise(r => setTimeout(r, 3000));
-            }
-          }
+      for (const contato of contatos) {
+        // Parar se tempo interno esgotado
+        if (tempoEsgotado()) {
+          console.warn(`[ANALISE_DIARIA] ⏱️ Timeout interno atingido em ${descricao} (${processados}/${contatos.length})`);
+          resultados.parou_por_timeout = true;
+          break;
         }
 
-        const tempo_ms = Date.now() - inicioLote;
-        
-        resultados.total_contatos_analisados += processados;
-        resultados.total_analises_criadas += criados;
+        try {
+          // Verificar análise recente em memória (sem query extra)
+          // Usar apenas a data do contato para evitar N queries extras
+          const ultimaAnalise = contato.ultima_analise_comportamento;
+          if (ultimaAnalise && ultimaAnalise >= limite24h) {
+            pulados++;
+            continue;
+          }
 
-        resultados.rotinas.push({
-          descricao,
-          status: errosInternos.length < contatos.length ? 'sucesso' : 'erro_parcial',
-          tempo_ms,
-          contatos_encontrados: contatos.length,
-          contatos_processados: processados,
-          analises_criadas: criados,
-          erros: errosInternos.length
-        });
+          await base44.asServiceRole.functions.invoke('analisarComportamentoContato', {
+            contact_id: contato.id
+          });
 
-        console.log(`[ANALISE_DIARIA] ✅ ${descricao} | ${criados}/${contatos.length} | ${tempo_ms}ms`);
+          criados++;
+          processados++;
 
-      } catch (error) {
-        const tempo_ms = Date.now() - inicioLote;
-        console.error(`[ANALISE_DIARIA] ❌ ${descricao}:`, error);
+          if (processados < contatos.length) {
+            await new Promise(r => setTimeout(r, DELAY_ENTRE_CONTATOS_MS));
+          }
 
-        resultados.rotinas.push({
-          descricao,
-          status: 'erro',
-          tempo_ms,
-          erro: error.message
-        });
+        } catch (error) {
+          processados++;
+          resultados.erros.push({ nome: contato.nome, erro: error.message });
 
-        resultados.erros.push({
-          rotina: descricao,
-          erro: error.message
-        });
+          // Rate limit: aguardar mais
+          if (error.message?.includes('429') || error.message?.includes('Rate limit')) {
+            console.warn('[ANALISE_DIARIA] ⚠️ Rate limit - aguardando 5s');
+            await new Promise(r => setTimeout(r, 5000));
+          }
+        }
       }
+
+      resultados.total_contatos_analisados += processados;
+      resultados.total_analises_criadas += criados;
+      resultados.total_pulados += pulados;
+
+      const tempoLote = Date.now() - inicioLote;
+      resultados.rotinas.push({
+        descricao,
+        status: 'ok',
+        tempo_ms: tempoLote,
+        encontrados: contatos.length,
+        processados,
+        criados,
+        pulados
+      });
+
+      console.log(`[ANALISE_DIARIA] ✅ ${descricao} | criados: ${criados} | pulados: ${pulados} | ${tempoLote}ms`);
     }
 
     // ==========================================
-    // ROTINAS DE ANÁLISE
+    // ROTINAS - Limites pequenos para caber no timeout
+    // Total máximo: ~15 análises × ~2s cada = ~30s
     // ==========================================
 
-    // 1️⃣ VARREDURA: Contatos ativos (últimos 30 dias)
-    await rodarLote('VARREDURA_30_DIAS', 
+    // 1️⃣ ATIVOS (30 dias) - maior prioridade, mais volume
+    await rodarLote('ATIVOS_30D',
       {
         tipo_contato: { $in: ['lead', 'cliente'] },
         ultima_interacao: { $gte: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString() }
       },
-      50 // Reduzido para evitar timeout
+      8
     );
 
-    // 2️⃣ INATIVIDADE: 30-59 dias
-    await rodarLote('INATIVOS_30_59_DIAS',
+    // 2️⃣ INATIVOS 30-60 dias
+    await rodarLote('INATIVOS_30_60D',
       {
         tipo_contato: { $in: ['lead', 'cliente'] },
-        ultima_interacao: { 
-          $gte: new Date(Date.now() - 59 * 24 * 60 * 60 * 1000).toISOString(),
+        ultima_interacao: {
+          $gte: new Date(Date.now() - 60 * 24 * 60 * 60 * 1000).toISOString(),
           $lte: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString()
         }
       },
-      30
+      4
     );
 
-    // 3️⃣ INATIVIDADE: 60-89 dias
-    await rodarLote('INATIVOS_60_89_DIAS',
+    // 3️⃣ INATIVOS 60-90 dias
+    await rodarLote('INATIVOS_60_90D',
       {
         tipo_contato: { $in: ['lead', 'cliente'] },
-        ultima_interacao: { 
-          $gte: new Date(Date.now() - 89 * 24 * 60 * 60 * 1000).toISOString(),
+        ultima_interacao: {
+          $gte: new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString(),
           $lte: new Date(Date.now() - 60 * 24 * 60 * 60 * 1000).toISOString()
         }
       },
-      30
+      3
     );
 
-    // 4️⃣ CONTATOS VIP
-    await rodarLote('CONTATOS_VIP',
-      {
-        is_vip: true,
-        tipo_contato: { $in: ['lead', 'cliente'] }
-      },
-      20
+    // 4️⃣ VIPs - sempre analisar
+    await rodarLote('VIPS',
+      { is_vip: true, tipo_contato: { $in: ['lead', 'cliente'] } },
+      5
     );
 
     // ==========================================
-    // FINALIZAÇÃO
-    // ==========================================
-    resultados.tempo_total_ms = Date.now() - inicio;
-
-    console.log('[ANALISE_DIARIA] ✅ Rotina concluída', {
-      tempo_total: `${(resultados.tempo_total_ms / 1000).toFixed(1)}s`,
-      contatos: resultados.total_contatos_analisados,
-      analises: resultados.total_analises_criadas,
+    const tempoTotal = Date.now() - inicio;
+    console.log('[ANALISE_DIARIA] 🏁 Concluído', {
+      tempo_total: `${(tempoTotal / 1000).toFixed(1)}s`,
+      analisados: resultados.total_contatos_analisados,
+      criados: resultados.total_analises_criadas,
+      pulados: resultados.total_pulados,
+      timeout: resultados.parou_por_timeout,
       erros: resultados.erros.length
     });
 
     return Response.json({
       success: true,
-      mensagem: `Análise diária: ${resultados.total_analises_criadas} análises criadas de ${resultados.total_contatos_analisados} processados`,
+      mensagem: `${resultados.total_analises_criadas} análises criadas, ${resultados.total_pulados} puladas (já analisadas), ${resultados.total_contatos_analisados} processados em ${(tempoTotal / 1000).toFixed(1)}s`,
+      tempo_total_ms: tempoTotal,
       ...resultados
     }, { status: 200, headers: corsHeaders });
 
