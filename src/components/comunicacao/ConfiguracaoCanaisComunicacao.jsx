@@ -1464,7 +1464,7 @@ export default function ConfiguracaoCanaisComunicacao({ integracoes, onRecarrega
                             </div>
                           </div>
                           
-                          {novaIntegracao.api_provider === 'z_api' && (
+                          {novaIntegracao.api_provider === 'z_api' && novaIntegracao.api_provider !== 'meta_cloud_api' && (
                             <div>
                               <Label className="text-[11px] font-semibold text-slate-600 flex items-center gap-1">
                                 <Shield className="w-3 h-3" />
