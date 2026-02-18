@@ -711,17 +711,35 @@ export default function ChatWindow({
       setEnviandoBroadcast(false);
 
       if (resultado.data?.success) {
-        const { enviados, erros } = resultado.data;
+        const { enviados, erros, resultados: res } = resultado.data;
         
         if (enviados > 0) {
           toast.success(`✅ ${enviados} mensagem(ns) enviada(s)!`);
         }
         if (erros > 0) {
-          toast.error(`❌ ${erros} erro(s) no envio`);
+          toast.warning(`⚠️ ${erros} contato(s) com erro`);
         }
 
-        // Atualizar progresso final
         setProgressoBroadcast({ enviados, erros, total: contactIds.length });
+
+        // ✅ Invalidar threads para refletir last_message atualizado na sidebar
+        queryClient.invalidateQueries({ queryKey: ['threads-externas'] });
+        queryClient.invalidateQueries({ queryKey: ['contacts'] });
+
+        // ✅ Se enviou para 1 contato, abrir a conversa automaticamente
+        if (enviados === 1 && res?.[0]?.contact_id) {
+          setTimeout(async () => {
+            try {
+              const threads = await base44.entities.MessageThread.filter({
+                contact_id: res[0].contact_id,
+                is_canonical: true
+              }, '-last_message_at', 1);
+              if (threads?.length > 0 && onAtualizarMensagens) {
+                onAtualizarMensagens();
+              }
+            } catch (_) {}
+          }, 800);
+        }
       } else {
         throw new Error(resultado.data?.error || 'Erro no envio em massa');
       }
