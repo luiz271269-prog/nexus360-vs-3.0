@@ -42,7 +42,7 @@ export default function MetricasOperacionais({ dados, filtros, isGerente }) {
       </div>
 
       {/* Funil de Vendas e Performance */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
         
         {/* Funil de Vendas */}
         <Card className="bg-gradient-to-br from-slate-900 to-slate-800 border-slate-700 text-white">
