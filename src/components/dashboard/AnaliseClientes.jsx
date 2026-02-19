@@ -78,14 +78,14 @@ export default function AnaliseClientes({ dados, filtros, isGerente }) {
 
         {/* Receita por Segmento */}
         <Card className="bg-gradient-to-br from-slate-900 to-slate-800 border-slate-700 text-white">
-          <CardHeader>
+          <CardHeader className="px-4 py-3 md:px-6 md:py-4">
             <CardTitle className="flex items-center gap-2 bg-gradient-to-r from-amber-400 to-orange-500 bg-clip-text text-transparent">
               <DollarSign className="w-5 h-5 text-green-500" />
               Receita por Segmento
             </CardTitle>
           </CardHeader>
-          <CardContent className="bg-slate-800/30 pt-4 pb-4 px-2">
-            <ResponsiveContainer width="100%" height={300}>
+          <CardContent className="bg-slate-800/30 pt-2 pb-4 px-2">
+            <ResponsiveContainer width="100%" height={220}>
               <BarChart data={analises.receitaPorSegmento}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#374151"/>
                 <XAxis dataKey="segmento" tick={{ fontSize: 12, fill: '#9ca3af' }}/>
