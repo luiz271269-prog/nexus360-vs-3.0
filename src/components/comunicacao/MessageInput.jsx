@@ -468,9 +468,9 @@ export default function MessageInput({
           title={gravandoAudio ? `Parar gravação (${formatTime(recordingTime)})` : (!podeEnviarAudios ? "Sem permissão para enviar áudios" : "Gravar áudio")}
         >
           {gravandoAudio ? (
-            <StopCircle className="w-5 h-5" />
+            <StopCircle className="w-4 h-4 md:w-5 md:h-5" />
           ) : (
-            <Mic className="w-5 h-5 text-slate-600" />
+            <Mic className="w-4 h-4 md:w-5 md:h-5 text-slate-600" />
           )}
         </Button>
 
