@@ -127,7 +127,7 @@ export default function VisaoGeralEmpresa({ dados }) {
       </div>
 
       {/* Análises e Rankings */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
         <Card className="bg-gradient-to-br from-slate-900 to-slate-800 border-slate-700">
           <CardHeader className="px-6 py-4">
             <CardTitle className="flex items-center gap-2 bg-gradient-to-r from-amber-400 to-orange-500 bg-clip-text text-transparent">
