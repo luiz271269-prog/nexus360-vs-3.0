@@ -458,7 +458,7 @@ export default function MessageInput({
           variant="ghost"
           size="icon"
           className={cn(
-            "text-sm font-medium rounded-md inline-flex items-center justify-center gap-2 whitespace-nowrap transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 h-9 w-9 flex-shrink-0",
+            "text-sm font-medium rounded-md inline-flex items-center justify-center gap-2 whitespace-nowrap transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 h-8 w-8 md:h-9 md:w-9 flex-shrink-0",
             gravandoAudio 
               ? "bg-red-500 hover:bg-red-600 text-white" 
               : "text-zinc-950 hover:bg-accent hover:text-accent-foreground"
