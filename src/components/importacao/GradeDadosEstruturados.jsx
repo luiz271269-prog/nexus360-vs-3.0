@@ -171,7 +171,7 @@ export default function GradeDadosEstruturados({
         }
     }
     setMapeamentoCampos(mapeamentoInicial);
-  }, [dadosIniciais, mapeamentoSugerido, extrairCabecalhos, destino]);
+  }, [dadosIniciais, mapeamentoSugerido, extrairCabecalhos, destino, obterSchema]);
 
   useEffect(() => {
     const carregarDadosApoio = async () => {
