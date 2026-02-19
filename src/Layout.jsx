@@ -469,6 +469,18 @@ export default function Layout({ children, currentPageName }) {
 
       {globalUsuario && <NotificationSystem usuario={globalUsuario} />}
 
+      {/* Header mobile fixo no topo */}
+      <header className="md:hidden fixed top-0 left-0 right-0 z-40 flex items-center justify-between px-4 h-14 bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 border-b border-slate-700/50 shadow-lg">
+        <button
+          onClick={() => setSidebarOpen(true)}
+          className="w-10 h-10 bg-gradient-to-br from-amber-400 via-orange-500 to-red-500 rounded-xl flex items-center justify-center shadow-lg"
+        >
+          <Menu className="h-5 w-5 text-white" />
+        </button>
+        <span className="text-white font-semibold text-sm truncate max-w-[180px]">{currentPageName}</span>
+        <UserAuthWidget usuario={globalUsuario} loadingUsuario={loadingUsuario} onLogout={handleLogout} />
+      </header>
+
       <SideBar
         isOpen={sidebarOpen}
         menuItems={menuItems}
