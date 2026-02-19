@@ -673,18 +673,21 @@ export default function GerenciadorUsuariosUnificado({
         ) : (
           <div className="flex-1 overflow-auto p-4">
             <Tabs defaultValue="dados" className="w-full">
-              <TabsList className="grid grid-cols-3 w-full">
-                <TabsTrigger value="dados">
-                  <User className="w-4 h-4 mr-2" />
-                  Dados
+              <TabsList className="grid grid-cols-2 md:grid-cols-3 w-full">
+                <TabsTrigger value="dados" className="text-xs md:text-sm">
+                  <User className="w-4 h-4 mr-1 md:mr-2" />
+                  <span className="hidden sm:inline">Dados</span>
+                  <span className="sm:hidden">Dados</span>
                 </TabsTrigger>
-                <TabsTrigger value="comunicacao" onClick={() => setRecursoSelecionado({ id: "Comunicacao", nome: "💬 Comunicação", tipo: "menu" })}>
-                  <MessageSquare className="w-4 h-4 mr-2" />
-                  Comunicação
+                <TabsTrigger value="comunicacao" onClick={() => setRecursoSelecionado({ id: "Comunicacao", nome: "💬 Comunicação", tipo: "menu" })} className="text-xs md:text-sm">
+                  <MessageSquare className="w-4 h-4 mr-1 md:mr-2" />
+                  <span className="hidden sm:inline">Comunicação</span>
+                  <span className="sm:hidden">Comun.</span>
                 </TabsTrigger>
-                <TabsTrigger value="permissoes_nexus">
-                  <Shield className="w-4 h-4 mr-2" />
-                  Permissões
+                <TabsTrigger value="permissoes_nexus" className="text-xs md:text-sm">
+                  <Shield className="w-4 h-4 mr-1 md:mr-2" />
+                  <span className="hidden sm:inline">Permissões</span>
+                  <span className="sm:hidden">Perm.</span>
                 </TabsTrigger>
               </TabsList>
 
