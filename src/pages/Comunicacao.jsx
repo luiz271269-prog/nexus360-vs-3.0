@@ -2557,7 +2557,7 @@ export default function Comunicacao() {
             </TabsList>
           </div>
 
-          <div className="flex-1 overflow-hidden">
+          <div className="flex-1 overflow-hidden min-h-0">
             {/* TAB: CONVERSAS */}
             <TabsContent value="conversas" className="h-full m-0 p-0">
 
