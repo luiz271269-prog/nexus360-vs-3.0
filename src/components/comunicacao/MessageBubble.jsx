@@ -1112,6 +1112,7 @@ export default React.memo(function MessageBubble({
                     <AudioPlayer src={message.media_url} />
                   )}
                 </div>
+                {/* remove ícone duplicado de Mic no wrapper externo — o AudioPlayer já tem play/pause */}
 
                 {/* Transcrição (quando disponível) */}
                 {message?.metadata?.analise_multimodal?.transcricao && (
