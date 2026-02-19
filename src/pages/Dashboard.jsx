@@ -486,13 +486,12 @@ export default function Dashboard() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-purple-50/20">
-      <div className="max-w-[1600px] mx-auto p-3 md:p-6 space-y-4 md:space-y-6">
+      <div className="max-w-[1600px] mx-auto p-2 sm:p-3 md:p-6 space-y-3 md:space-y-6">
 
-        {/* Header com Gradiente Laranja - oculto no mobile (já existe o header do Layout) */}
+        {/* Header Desktop */}
         <div className="hidden md:block bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 rounded-2xl shadow-xl border-2 border-slate-700/50 p-6 relative overflow-hidden">
           <div className="absolute top-0 right-0 w-64 h-64 bg-gradient-to-br from-orange-400/10 to-red-500/10 rounded-full blur-3xl"></div>
           <div className="absolute bottom-0 left-0 w-64 h-64 bg-gradient-to-tr from-amber-400/10 to-orange-500/10 rounded-full blur-3xl"></div>
-
           <div className="flex items-center justify-between relative z-10">
             <div className="flex items-center gap-4">
               <div className="w-16 h-16 bg-gradient-to-br from-amber-400 via-orange-500 to-red-500 rounded-2xl flex items-center justify-center shadow-2xl shadow-orange-500/50 transform hover:scale-105 transition-all duration-300 relative">
@@ -508,22 +507,22 @@ export default function Dashboard() {
                 </p>
               </div>
             </div>
-
-            {/* Filtros, Mês e Exportar no Cabeçalho */}
             <div className="flex items-center gap-3">
-              <FiltrosAvancados
-                filtros={filtros}
-                onFiltrosChange={setFiltros}
-                vendedores={dados.vendedores}
-                isGerente={isGerente} />
-
+              <FiltrosAvancados filtros={filtros} onFiltrosChange={setFiltros} vendedores={dados.vendedores} isGerente={isGerente} />
               <FiltroMes mesSelecionado={mesSelecionado} onMesChange={handleMesChange} />
-
-              <ExportadorDashboard
-                dados={dados}
-                filtros={filtros}
-                viewMode={viewMode} />
+              <ExportadorDashboard dados={dados} filtros={filtros} viewMode={viewMode} />
             </div>
+          </div>
+        </div>
+
+        {/* Header Mobile compacto */}
+        <div className="md:hidden bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 rounded-xl p-3 flex items-center justify-between gap-2">
+          <div>
+            <p className="text-white font-bold text-base">{isGerente ? 'Dashboard Executivo' : 'Minha Performance'}</p>
+            <p className="text-slate-400 text-xs">{isGerente ? 'Desempenho comercial' : `Olá, ${nomeUsuario}`}</p>
+          </div>
+          <div className="flex items-center gap-2 flex-shrink-0">
+            <FiltroMes mesSelecionado={mesSelecionado} onMesChange={handleMesChange} />
           </div>
         </div>
 
@@ -549,28 +548,23 @@ export default function Dashboard() {
             setAlertasIA((prev) => prev.filter((a) => a.id !== alerta.id));
           }} />
 
-        {/* Navegação por Perspectivas */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2 md:gap-3">
+        {/* Navegação por Perspectivas - scroll horizontal no mobile */}
+        <div className="flex gap-2 overflow-x-auto pb-1 md:grid md:grid-cols-3 lg:grid-cols-5 md:gap-3 scrollbar-none">
           {navegacao.map((item) =>
             <button
               key={item.key}
               onClick={() => setViewMode(item.key)}
-              className={`bg-gradient-to-br from-orange-500 via-orange-600 to-red-500 hover:from-orange-600 hover:via-red-500 hover:to-red-600 text-slate-50 p-3 rounded-xl border border-slate-200/50 transition-all duration-300 transform hover:-translate-y-1 hover:shadow-2xl shadow-xl ${
+              className={`flex-shrink-0 bg-gradient-to-br from-orange-500 via-orange-600 to-red-500 hover:from-orange-600 hover:via-red-500 hover:to-red-600 text-slate-50 p-2.5 md:p-3 rounded-xl border border-slate-200/50 transition-all duration-300 shadow-xl ${
                 viewMode === item.key ? 'scale-105 ring-2 ring-orange-400' : ''}`
               }>
-
               <div className="flex items-center gap-2">
-                <div
-                  className={`w-8 h-8 rounded-lg flex items-center justify-center ${
-                    viewMode === item.key ?
-                      'bg-gradient-to-br from-amber-500 to-orange-500 text-white shadow-lg' :
-                      'bg-white/20 text-slate-100 backdrop-blur-sm'}`
-                  }>
-
+                <div className={`w-7 h-7 md:w-8 md:h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${
+                  viewMode === item.key ? 'bg-gradient-to-br from-amber-500 to-orange-500 text-white shadow-lg' : 'bg-white/20 text-slate-100'}`
+                }>
                   <item.icon className="w-4 h-4" />
                 </div>
                 <div className="text-left">
-                  <h3 className="text-slate-50 font-semibold text-sm">{item.label}</h3>
+                  <h3 className="text-slate-50 font-semibold text-xs md:text-sm whitespace-nowrap">{item.label}</h3>
                   <p className="text-slate-200 text-xs hidden md:block">{item.descricao}</p>
                 </div>
               </div>
@@ -578,25 +572,23 @@ export default function Dashboard() {
           )}
         </div>
 
-
-
-        {/* Estatísticas Resumo */}
-        <div className="bg-gradient-to-r from-orange-500 via-orange-600 to-red-500 px-3 md:px-5 py-3 backdrop-blur-md rounded-xl border border-slate-200/50">
-          <div className="text-sm flex items-center justify-center gap-2 md:gap-4 flex-wrap">
-            <div className="bg-gradient-to-r from-slate-800/80 to-slate-900/80 text-slate-50 px-4 py-2 font-semibold flex items-center gap-2 rounded-lg border border-blue-200/20">
+        {/* Estatísticas Resumo - scroll horizontal no mobile */}
+        <div className="bg-gradient-to-r from-orange-500 via-orange-600 to-red-500 px-3 py-2.5 rounded-xl border border-slate-200/50">
+          <div className="flex items-center gap-2 overflow-x-auto scrollbar-none">
+            <div className="flex-shrink-0 bg-gradient-to-r from-slate-800/80 to-slate-900/80 text-slate-50 px-3 py-1.5 font-semibold flex items-center gap-1.5 rounded-lg text-xs md:text-sm">
               <span>📊 {dados.vendas.length} vendas</span>
             </div>
-            <div className="bg-gradient-to-r from-slate-800/80 to-slate-900/80 text-slate-50 px-4 py-2 font-semibold flex items-center gap-2 rounded-lg border border-green-200/20">
+            <div className="flex-shrink-0 bg-gradient-to-r from-slate-800/80 to-slate-900/80 text-slate-50 px-3 py-1.5 font-semibold flex items-center gap-1.5 rounded-lg text-xs md:text-sm">
               <span>🎯 {dados.orcamentos.length} orçamentos</span>
             </div>
-            <div className="bg-gradient-to-r from-slate-800/80 to-slate-900/80 text-slate-50 px-4 py-2 font-semibold flex items-center gap-2 rounded-lg border border-purple-200/20">
+            <div className="flex-shrink-0 bg-gradient-to-r from-slate-800/80 to-slate-900/80 text-slate-50 px-3 py-1.5 font-semibold flex items-center gap-1.5 rounded-lg text-xs md:text-sm">
               <span>👥 {dados.clientes.length} clientes</span>
             </div>
-            <div className="bg-gradient-to-r from-slate-800/80 to-slate-900/80 text-slate-50 px-4 py-2 font-semibold flex items-center gap-2 rounded-lg border border-orange-200/20">
+            <div className="flex-shrink-0 bg-gradient-to-r from-slate-800/80 to-slate-900/80 text-slate-50 px-3 py-1.5 font-semibold flex items-center gap-1.5 rounded-lg text-xs md:text-sm">
               <span>📞 {dados.interacoes.length} interações</span>
             </div>
             {isGerente &&
-              <div className="bg-gradient-to-r from-slate-800/80 to-slate-900/80 text-slate-50 px-4 py-2 font-semibold flex items-center gap-2 rounded-lg border border-yellow-200/20">
+              <div className="flex-shrink-0 bg-gradient-to-r from-slate-800/80 to-slate-900/80 text-slate-50 px-3 py-1.5 font-semibold flex items-center gap-1.5 rounded-lg text-xs md:text-sm">
                 <span>🏆 {dados.vendedores.length} vendedores</span>
               </div>
             }
@@ -605,29 +597,22 @@ export default function Dashboard() {
 
         {/* Conteúdo Dinâmico por Perspectiva */}
         {loading ?
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            {Array(6).
-              fill(0).
-              map((_, i) =>
-                <div key={i} className="bg-slate-100 rounded-xl h-64 animate-pulse border border-slate-200" />
-              )}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {Array(6).fill(0).map((_, i) =>
+              <div key={i} className="bg-slate-100 rounded-xl h-40 md:h-64 animate-pulse border border-slate-200" />
+            )}
           </div> :
-
           <>
             {viewMode === 'empresa' && isGerente &&
               <VisaoGeralEmpresa dados={dados} filtros={filtros} usuario={usuario} />
             }
-
             {viewMode === 'vendedores' &&
               <PerformanceVendedores dados={dados} filtros={filtros} isGerente={isGerente} usuario={usuario} />
             }
-
             {viewMode === 'clientes' && <AnaliseClientes dados={dados} filtros={filtros} isGerente={isGerente} />}
-
             {viewMode === 'operacional' &&
               <MetricasOperacionais dados={dados} filtros={filtros} isGerente={isGerente} />
             }
-
             {viewMode === 'analytics' && isGerente &&
               <AnalyticsAvancadoEmbed />
             }
