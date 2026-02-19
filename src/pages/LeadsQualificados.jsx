@@ -407,7 +407,7 @@ export default function LeadsQualificados() {
 
         {/* HEADER COMPACTO NO TOPO */}
         <div className="bg-orange-500 p-3 opacity-90 rounded-lg from-white via-orange-50 to-white shadow-lg border border-orange-200/50">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-wrap items-center justify-between gap-2">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 bg-gradient-to-br from-orange-400 to-orange-500 rounded-lg flex items-center justify-center shadow-md">
                 <Target className="w-6 h-6 text-white" />
@@ -451,40 +451,40 @@ export default function LeadsQualificados() {
         {/* TABS + FILTROS INTEGRADOS */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
           <div className="bg-gradient-to-r from-black via-orange-900/50 to-black rounded-lg border border-orange-500/20 p-2">
-            <div className="flex items-center justify-between gap-4">
-              {/* TABS */}
-              <TabsList className="bg-transparent h-9 p-0 gap-2">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
+              {/* TABS - scroll horizontal no mobile */}
+              <TabsList className="bg-transparent h-9 p-0 gap-1 overflow-x-auto flex-wrap sm:flex-nowrap w-full sm:w-auto">
                 <TabsTrigger
                   value="leads"
-                  className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-orange-600 data-[state=active]:to-orange-500 data-[state=active]:text-white text-slate-300 h-9 px-4 text-xs font-semibold">
+                  className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-orange-600 data-[state=active]:to-orange-500 data-[state=active]:text-white text-slate-300 h-9 px-2 sm:px-4 text-xs font-semibold whitespace-nowrap">
                   <Target className="w-3 h-3 mr-1" />
-                  Kanban de Gestão de Leads
-                  <Badge variant="secondary" className="ml-2 bg-orange-100 text-orange-700 text-[10px] h-4">{leadsFiltrados.length}</Badge>
+                  <span className="hidden sm:inline">Kanban de Gestão de </span>Leads
+                  <Badge variant="secondary" className="ml-1 bg-orange-100 text-orange-700 text-[10px] h-4">{leadsFiltrados.length}</Badge>
                 </TabsTrigger>
                 <TabsTrigger
                   value="clientes"
-                  className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-orange-600 data-[state=active]:to-orange-500 data-[state=active]:text-white text-slate-300 h-9 px-4 text-xs font-semibold">
+                  className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-orange-600 data-[state=active]:to-orange-500 data-[state=active]:text-white text-slate-300 h-9 px-2 sm:px-4 text-xs font-semibold whitespace-nowrap">
                   <Users className="w-3 h-3 mr-1" />
-                  Kanban de Gestão de Clientes
-                  <Badge variant="secondary" className="ml-2 bg-orange-100 text-orange-700 text-[10px] h-4">{clientesAtivos.length}</Badge>
+                  <span className="hidden sm:inline">Kanban de Gestão de </span>Clientes
+                  <Badge variant="secondary" className="ml-1 bg-orange-100 text-orange-700 text-[10px] h-4">{clientesAtivos.length}</Badge>
                 </TabsTrigger>
                 <TabsTrigger
                   value="orcamentos"
-                  className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-orange-600 data-[state=active]:to-orange-500 data-[state=active]:text-white text-slate-300 h-9 px-4 text-xs font-semibold">
+                  className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-orange-600 data-[state=active]:to-orange-500 data-[state=active]:text-white text-slate-300 h-9 px-2 sm:px-4 text-xs font-semibold whitespace-nowrap">
                   <FileText className="w-3 h-3 mr-1" />
-                  Pipeline de Orçamentos
-                  <Badge variant="secondary" className="ml-2 bg-orange-100 text-orange-700 text-[10px] h-4">{orcamentos.length}</Badge>
+                  <span className="hidden sm:inline">Pipeline de </span>Orçamentos
+                  <Badge variant="secondary" className="ml-1 bg-orange-100 text-orange-700 text-[10px] h-4">{orcamentos.length}</Badge>
                 </TabsTrigger>
                 <TabsTrigger
                   value="nexus"
-                  className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-purple-600 data-[state=active]:to-indigo-500 data-[state=active]:text-white text-slate-300 h-9 px-4 text-xs font-semibold">
+                  className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-purple-600 data-[state=active]:to-indigo-500 data-[state=active]:text-white text-slate-300 h-9 px-2 sm:px-4 text-xs font-semibold whitespace-nowrap">
                   <Zap className="w-3 h-3 mr-1" />
-                  Nexus Command Center
+                  Nexus
                 </TabsTrigger>
               </TabsList>
 
               {/* FILTROS COMPACTOS */}
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 w-full sm:w-auto">
                 <div className="relative">
                   <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-3 h-3 text-slate-400" />
                   <Input
@@ -499,7 +499,7 @@ export default function LeadsQualificados() {
                         setFiltrosClientes({ ...filtrosClientes, busca: e.target.value });
                       }
                     }}
-                    className="pl-7 h-7 w-[180px] text-xs bg-black/30 border-orange-500/30 text-white placeholder:text-slate-400" />
+                    className="pl-7 h-7 w-full sm:w-[180px] text-xs bg-black/30 border-orange-500/30 text-white placeholder:text-slate-400" />
                 </div>
 
                 {activeTab !== 'orcamentos' && (
