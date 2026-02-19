@@ -1,4 +1,3 @@
-
 import React from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -10,9 +9,9 @@ export default function PerformanceVendedores({ dados, filtros, isGerente, usuar
   const metricas = calcularMetricasVendedores(dados, usuario);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 md:space-y-6">
       {/* KPIs de Performance */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
         <PerformanceKPI
           titulo="Top Vendedor"
           valor={metricas.topVendedor?.nome || 'N/A'}
