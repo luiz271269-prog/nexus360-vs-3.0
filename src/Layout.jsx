@@ -478,26 +478,28 @@ export default function Layout({ children, currentPageName }) {
         />
       )}
 
-      <header className="md:hidden bg-gradient-to-r from-slate-900 to-slate-800 shadow-xl flex items-center justify-between p-4 border-b border-slate-700/50">
-        <Link to={createPageUrl("Dashboard")} className="flex items-center gap-3">
-          <div className="w-8 h-8 bg-gradient-to-br from-amber-400 to-orange-500 rounded-lg flex items-center justify-center">
-            <Zap className="h-5 w-5 text-white" />
-          </div>
-          <span className="text-xl font-bold bg-gradient-to-r from-amber-400 to-orange-500 bg-clip-text text-transparent">
-            VendaPro
-          </span>
-        </Link>
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={() => setSidebarOpen(true)}
-          className="text-white hover:bg-white/10"
-        >
-          <Menu className="h-6 w-6" />
-        </Button>
-      </header>
+      <main className="bg-slate-50 flex-1 min-w-0 overflow-x-hidden overflow-y-auto p-0 relative flex flex-col">
+        {/* Header mobile - dentro do main para não empurrar o sidebar */}
+        <header className="md:hidden bg-gradient-to-r from-slate-900 to-slate-800 shadow-xl flex items-center justify-between p-4 border-b border-slate-700/50 flex-shrink-0">
+          <Link to={createPageUrl("Dashboard")} className="flex items-center gap-3">
+            <div className="w-8 h-8 bg-gradient-to-br from-amber-400 to-orange-500 rounded-lg flex items-center justify-center">
+              <Zap className="h-5 w-5 text-white" />
+            </div>
+            <span className="text-xl font-bold bg-gradient-to-r from-amber-400 to-orange-500 bg-clip-text text-transparent">
+              VendaPro
+            </span>
+          </Link>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => setSidebarOpen(true)}
+            className="text-white hover:bg-white/10"
+          >
+            <Menu className="h-6 w-6" />
+          </Button>
+        </header>
 
-      <main className="bg-slate-50 from-amber-50 via-orange-50/30 to-red-50/20 flex-1 min-w-0 overflow-x-hidden overflow-y-auto p-0 relative">
+        <div className="flex-1 relative overflow-x-hidden overflow-y-auto">
         <div className="absolute inset-0 opacity-30 pointer-events-none">
           <div className="absolute top-20 left-20 w-72 h-72 bg-gradient-to-r from-amber-400/20 to-orange-600/20 rounded-full mix-blend-multiply filter blur-xl animate-pulse" />
           <div className="absolute top-40 right-20 w-72 h-72 bg-gradient-to-r from-orange-400/20 to-red-600/20 rounded-full mix-blend-multiply filter blur-xl animate-pulse animation-delay-2s" />
