@@ -591,22 +591,13 @@ export default function MessageInput({
             type="button"
             onClick={handleEnviar}
             disabled={enviando || carregandoContato || uploadingPastedFile || !podeEnviarMidias}
-            className="bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white flex-shrink-0"
+            className="bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white flex-shrink-0 h-8 w-8 md:h-9 md:w-auto md:px-3 p-0"
             title={selectedFile ? "Enviar arquivo" : "Enviar imagem colada"}
           >
             {uploadingPastedFile ? (
-              <Loader2 className="w-5 h-5 animate-spin" />
+              <Loader2 className="w-4 h-4 animate-spin" />
             ) : (
-              <>
-                {selectedFile ? (
-                  selectedFile.type === 'image' ? <ImageIcon className="w-4 h-4 mr-1" /> :
-                  selectedFile.type === 'video' ? <Video className="w-4 h-4 mr-1" /> :
-                  <File className="w-4 h-4 mr-1" />
-                ) : (
-                  <ImageIcon className="w-4 h-4 mr-1" />
-                )}
-                <Send className="w-4 h-4" />
-              </>
+              <Send className="w-4 h-4" />
             )}
           </Button>
         ) : (
@@ -623,7 +614,7 @@ export default function MessageInput({
               (!mensagemTexto.trim() && !pastedImage && !selectedFile)
             }
             className={cn(
-              "flex-shrink-0",
+              "flex-shrink-0 h-8 w-8 md:h-9 md:w-9 p-0",
               modoSelecaoMultipla && contatosSelecionados.length > 0 
                 ? 'bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600' 
                 : 'bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700',
@@ -638,9 +629,9 @@ export default function MessageInput({
             }
           >
             {enviando || enviandoBroadcast ? (
-              <Loader2 className="w-5 h-5 animate-spin" />
+              <Loader2 className="w-4 h-4 animate-spin" />
             ) : (
-              <Send className="w-5 h-5" />
+              <Send className="w-4 h-4" />
             )}
           </Button>
         )}
