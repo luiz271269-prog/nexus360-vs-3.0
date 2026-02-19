@@ -38,10 +38,10 @@ export default function GradeDadosEstruturados({
   const [validacaoLinhas, setValidacaoLinhas] = useState({});
 
   const entidadesMap = {
-    'clientes': Cliente,
-    'vendedores': Vendedor,
-    'vendas': Venda,
-    'orcamentos': Orcamento
+    'clientes': base44.entities.Cliente,
+    'vendedores': base44.entities.Vendedor,
+    'vendas': base44.entities.Venda,
+    'orcamentos': base44.entities.Orcamento
   };
 
   const vendedorObrigatorio = destino === 'vendas' || destino === 'clientes';
