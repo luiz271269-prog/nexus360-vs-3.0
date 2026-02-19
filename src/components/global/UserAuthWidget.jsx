@@ -104,9 +104,9 @@ export default function UserAuthWidget({ usuario, loadingUsuario, onLogout }) {
             )}
           </div>
         </DropdownMenuLabel>
-        
+
         <DropdownMenuSeparator className="bg-slate-700" />
-        
+
         <DropdownMenuItem 
           onClick={onLogout}
           className="cursor-pointer text-red-400 hover:text-red-300 hover:bg-red-900/20 focus:text-red-300 focus:bg-red-900/20"
@@ -115,7 +115,7 @@ export default function UserAuthWidget({ usuario, loadingUsuario, onLogout }) {
           <span>Sair</span>
         </DropdownMenuItem>
       </DropdownMenuContent>
-    </DropdownMenu>
-    </TooltipProvider>
+      </DropdownMenu>
+      </TooltipProvider>
   );
 }
