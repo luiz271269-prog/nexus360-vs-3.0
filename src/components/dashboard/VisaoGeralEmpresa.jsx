@@ -1,4 +1,3 @@
-
 import React from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { DollarSign, Target, Users, TrendingUp, AlertCircle, CheckCircle, FileText } from "lucide-react";
@@ -10,9 +9,9 @@ export default function VisaoGeralEmpresa({ dados }) {
   const distribuicoes = calcularDistribuicoes(dados);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 md:space-y-6">
       {/* KPIs Principais da Empresa */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-6">
         <KPICard
           titulo="Faturamento Total"
           valor={`R$ ${kpis.faturamentoTotal.toLocaleString('pt-BR')}`}
