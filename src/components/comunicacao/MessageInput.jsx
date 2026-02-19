@@ -271,7 +271,7 @@ export default function MessageInput({
   const mostrarInterfaceBroadcast = modoSelecaoMultipla && contatosSelecionados.length > 0;
 
   return (
-    <form onSubmit={handleEnviar} className="bg-[#d6dfe1] text-gray-950 px-2 md:px-3 rounded-lg border-t flex-shrink-0">
+    <form onSubmit={handleEnviar} className="bg-[#d6dfe1] text-gray-950 px-2 md:px-3 rounded-lg border-t flex-shrink-0 pb-safe" style={{ paddingBottom: 'max(0.5rem, env(safe-area-inset-bottom))' }}>
       {/* Inputs ocultos para arquivos */}
       <input
         ref={imageInputRef}
