@@ -133,7 +133,7 @@ function SideBar({ isOpen, menuItems, contadoresLembretes, usuario, loadingUsuar
             <X className="h-7 w-7 text-white" />
             <div className="absolute inset-0 bg-gradient-to-br from-white/20 to-transparent rounded-xl" />
           </button>
-          <Link to={createPageUrl("Comunicacao")} className="relative group hidden md:flex">
+          <Link to={createPageUrl("Dashboard")} className="relative group hidden md:flex">
             <div className="w-12 h-12 bg-gradient-to-br from-amber-400 via-orange-500 to-red-500 rounded-xl flex items-center justify-center shadow-lg group-hover:shadow-xl group-hover:shadow-orange-500/30 transition-all duration-300">
               <Zap className="h-7 w-7 text-white" />
               <div className="absolute inset-0 bg-gradient-to-br from-white/20 to-transparent rounded-xl" />
