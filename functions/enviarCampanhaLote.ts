@@ -50,9 +50,14 @@ Deno.serve(async (req) => {
     }
     const integration = integrations[0];
 
-    // ── Usuário atual (para sender_id) ───────────────────────────────────────
+    // ── Usuário atual (para sender_id e {{atendente}}) ───────────────────────
     let senderId = 'system';
-    try { senderId = (await base44.auth.me())?.id || 'system'; } catch (_) {}
+    let nomeAtendente = 'nossa equipe';
+    try {
+      const me = await base44.auth.me();
+      senderId = me?.id || 'system';
+      nomeAtendente = me?.full_name?.split(' ')[0] || me?.full_name || 'nossa equipe';
+    } catch (_) {}
 
     const now = new Date();
     const broadcastId = `broadcast_${now.getTime()}`;

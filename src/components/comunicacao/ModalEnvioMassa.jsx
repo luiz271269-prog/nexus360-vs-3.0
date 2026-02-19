@@ -185,7 +185,10 @@ export default function ModalEnvioMassa({ isOpen, onClose, contatosSelecionados,
             className="resize-none"
           />
            <p className="text-xs text-slate-500">
-             💡 Placeholders disponíveis: <code className="bg-slate-100 px-1 rounded">{'{{nome}}'}</code>, <code className="bg-slate-100 px-1 rounded">{'{{empresa}}'}</code>
+             💡 Placeholders disponíveis: <code className="bg-slate-100 px-1 rounded">{'{{nome}}'}</code>, <code className="bg-slate-100 px-1 rounded">{'{{empresa}}'}</code>, <code className="bg-slate-100 px-1 rounded">{'{{atendente}}'}</code>
+           </p>
+           <p className="text-xs text-slate-400 italic">
+             ✨ <code className="bg-slate-100 px-1 rounded">{'{{atendente}}'}</code> será substituído pelo seu primeiro nome automaticamente — humaniza a conversa e reduz spam.
            </p>
            <p className="text-xs text-slate-600">
              {mensagem.length} caracteres
