@@ -379,7 +379,7 @@ export default function GradeDadosEstruturados({
 
       // 4. Salvar o mapeamento se for nomeado
       if (nomeMapeamento) {
-        await MapeamentoImportacao.create({
+        await base44.entities.MapeamentoImportacao.create({
           nome_mapeamento: nomeMapeamento,
           tipo_documento: tiposDetectados[0]?.tipo || 'generico',
           entidade_destino: destino,
@@ -390,7 +390,7 @@ export default function GradeDadosEstruturados({
 
       // 5. Atualizar o registro de importação
       if (processamentoId) {
-        await ImportacaoDocumento.update(processamentoId, {
+        await base44.entities.ImportacaoDocumento.update(processamentoId, {
           status_processamento: 'sucesso',
           dados_extraidos: {
               ...(dadosIniciais || {}),
