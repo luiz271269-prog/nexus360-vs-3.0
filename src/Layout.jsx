@@ -497,7 +497,7 @@ export default function Layout({ children, currentPageName }) {
         </Button>
       </header>
 
-      <main className="bg-slate-50 from-amber-50 via-orange-50/30 to-red-50/20 flex-1 overflow-x-hidden overflow-y-auto p-0 relative">
+      <main className="bg-slate-50 from-amber-50 via-orange-50/30 to-red-50/20 flex-1 min-w-0 overflow-x-hidden overflow-y-auto p-0 relative">
         <div className="absolute inset-0 opacity-30 pointer-events-none">
           <div className="absolute top-20 left-20 w-72 h-72 bg-gradient-to-r from-amber-400/20 to-orange-600/20 rounded-full mix-blend-multiply filter blur-xl animate-pulse" />
           <div className="absolute top-40 right-20 w-72 h-72 bg-gradient-to-r from-orange-400/20 to-red-600/20 rounded-full mix-blend-multiply filter blur-xl animate-pulse animation-delay-2s" />
