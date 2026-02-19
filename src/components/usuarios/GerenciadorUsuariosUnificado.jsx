@@ -520,11 +520,11 @@ export default function GerenciadorUsuariosUnificado({
   };
 
   return (
-    <div className="flex h-[calc(100vh-140px)] gap-3">
+    <div className="flex flex-col md:flex-row h-[calc(100vh-140px)] gap-3">
       {/* ════════════════════════════════════════════════════════════════════════ */}
       {/* COLUNA 1: LISTA DE USUÁRIOS */}
       {/* ════════════════════════════════════════════════════════════════════════ */}
-      <section className="w-64 flex flex-col bg-white rounded-xl border shadow-sm overflow-hidden">
+      <section className="w-full md:w-64 flex flex-col bg-white rounded-xl border shadow-sm overflow-hidden">
         <header className="p-3 border-b bg-gradient-to-r from-slate-50 to-slate-100">
           <div className="flex items-center justify-between mb-2">
             <h2 className="text-sm font-bold text-slate-800">Usuários</h2>
