@@ -2411,6 +2411,19 @@ export default function Comunicacao() {
   const isManager = usuario?.role === 'admin' || usuario?.role === 'supervisor';
   const contatoAtivo = threadAtiva ? contatos.find((c) => c.id === threadAtiva.contact_id) : null;
 
+  // 📱 MOBILE: controle de "tela" ativa (lista ou chat)
+  const [mobileView, setMobileView] = React.useState('lista'); // 'lista' | 'chat'
+
+  // Quando selecionar thread no mobile, ir para tela de chat
+  const handleSelecionarThreadMobile = React.useCallback(async (threadData) => {
+    await handleSelecionarThread(threadData);
+    setMobileView('chat');
+  }, [handleSelecionarThread]);
+
+  const handleVoltarListaMobile = React.useCallback(() => {
+    setMobileView('lista');
+  }, []);
+
   if (isLoadingUsuario) {
     return (
       <div className="flex items-center justify-center h-screen">
