@@ -1093,14 +1093,12 @@ export default React.memo(function MessageBubble({
             {/* ÁUDIO - ✅ AGNÓSTICO: Funciona para WhatsApp E Interno */}
             {message?.media_type === 'audio' && (message?.media_url || message.content?.includes('[Áudio]')) &&
             <div className={cn(
-              "px-2 py-1.5 min-w-[160px] max-w-[240px]",
+              "px-2 py-2 min-w-[220px] max-w-[300px]",
               "text-slate-800"
             )}>
                 <div className="flex items-center gap-2">
-                  <div className={cn(
-                  "w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0",
-                  "bg-green-500"
-                )}>
+                  {/* Avatar do remetente */}
+                  <div className="w-9 h-9 rounded-full bg-green-500 flex items-center justify-center flex-shrink-0 overflow-hidden">
                     <Mic className="w-4 h-4 text-white" />
                   </div>
                   {!message?.media_url || message?.media_url === 'pending_download' ? (
