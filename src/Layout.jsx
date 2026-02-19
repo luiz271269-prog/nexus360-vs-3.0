@@ -206,6 +206,7 @@ export default function Layout({ children, currentPageName }) {
   const [globalUsuario, setGlobalUsuario] = useState(null);
   const [loadingUsuario, setLoadingUsuario] = useState(true);
   const [badges, setBadges] = useState({});
+  const [unreadTotal, setUnreadTotal] = useState(0);
   const [contadoresLembretes, setContadoresLembretes] = useState({});
   const [agentSession, setAgentSession] = useState({
     status: 'online',
