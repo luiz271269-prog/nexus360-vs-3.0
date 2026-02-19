@@ -165,8 +165,8 @@ export default function GradeDadosEstruturados({
       set_internalLoading(true);
       try {
         const [clientesData, vendedoresData] = await Promise.all([
-          Cliente.list(),
-          Vendedor.list()
+          base44.entities.Cliente.list(),
+          base44.entities.Vendedor.list()
         ]);
         setClientes(clientesData);
         setVendedores(vendedoresData);
