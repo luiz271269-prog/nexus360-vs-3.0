@@ -48,20 +48,20 @@ export default function PerformanceVendedores({ dados, filtros, isGerente, usuar
         
         {/* Coluna Esquerda: Ranking de Vendedores Detalhado - 75% */}
         <Card className="lg:col-span-3 bg-gradient-to-br from-slate-900 to-slate-800 border-slate-700 text-white">
-          <CardHeader className="pb-4">
+          <CardHeader className="pb-3 px-4 md:pb-4 md:px-6">
             <CardTitle className="flex items-center gap-2 bg-gradient-to-r from-amber-400 to-orange-500 bg-clip-text text-transparent">
               <Award className="w-5 h-5 text-yellow-500" />
               Ranking de Performance
             </CardTitle>
           </CardHeader>
-          <CardContent className="pt-0">
+          <CardContent className="pt-0 px-3 md:px-6">
             <div className="space-y-2">
               {metricas.rankingVendedores && metricas.rankingVendedores.length > 0 ?
               metricas.rankingVendedores.map((vendedor, index) =>
-              <div key={vendedor.id} className="flex items-center gap-3 p-2 rounded-lg bg-slate-800/50 hover:bg-slate-700/50 transition-colors border border-slate-700 shadow-sm">
+              <div key={vendedor.id} className="flex items-center gap-2 md:gap-3 p-2 rounded-lg bg-slate-800/50 hover:bg-slate-700/50 transition-colors border border-slate-700 shadow-sm">
                     
                     {/* Posição, Foto e Nome */}
-                    <div className="flex items-center gap-3 w-64 flex-shrink-0">
+                    <div className="flex items-center gap-2 w-32 sm:w-48 md:w-64 flex-shrink-0">
                       <div className={`w-7 h-7 rounded-full flex-shrink-0 flex items-center justify-center text-xs font-bold ${
                   index === 0 ? 'bg-yellow-400 text-yellow-900' :
                   index === 1 ? 'bg-slate-400 text-slate-900' :
