@@ -85,6 +85,8 @@ Deno.serve(async (req) => {
           ? mensagem
               .replace(/\{\{nome\}\}/gi, contato.nome || 'Cliente')
               .replace(/\{\{empresa\}\}/gi, contato.empresa || '')
+              .replace(/\{\{atendente\}\}/gi, nomeAtendente)
+              .replace(/\{\{usuario\}\}/gi, nomeAtendente)
           : mensagem;
 
         await base44.asServiceRole.entities.WorkQueueItem.create({
@@ -168,6 +170,8 @@ Deno.serve(async (req) => {
             ? texto_saudacao_custom
                 .replace(/\{\{nome\}\}/gi, contato.nome || 'Cliente')
                 .replace(/\{\{empresa\}\}/gi, contato.empresa || '')
+                .replace(/\{\{atendente\}\}/gi, nomeAtendente)
+                .replace(/\{\{usuario\}\}/gi, nomeAtendente)
             : `Olá ${contato.nome || 'Cliente'}! Tudo bem? 😊`;
 
           const respSaudacao = await base44.asServiceRole.functions.invoke('enviarWhatsApp', {

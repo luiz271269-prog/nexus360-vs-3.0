@@ -288,7 +288,9 @@ export default function ModalEnvioMassa({ isOpen, onClose, contatosSelecionados,
             <p className="text-sm text-slate-700 whitespace-pre-wrap">
               {mensagem
                 .replace(/\{\{nome\}\}/gi, contatosSelecionados[0].nome || 'Cliente')
-                .replace(/\{\{empresa\}\}/gi, contatosSelecionados[0].empresa || '')}
+                .replace(/\{\{empresa\}\}/gi, contatosSelecionados[0].empresa || '')
+                .replace(/\{\{atendente\}\}/gi, '👤 seu nome')
+                .replace(/\{\{usuario\}\}/gi, '👤 seu nome')}
             </p>
           </div>
         )}
