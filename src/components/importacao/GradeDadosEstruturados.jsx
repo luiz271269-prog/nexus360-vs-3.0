@@ -47,6 +47,19 @@ export default function GradeDadosEstruturados({
   const vendedorObrigatorio = destino === 'vendas' || destino === 'clientes';
   const destinoBloqueado = destinoSugerido && destinoSugerido !== 'nao_aplicavel';
   
+  const obterSchema = useCallback((entidade) => {
+    try {
+      if (!entidade) return null;
+      if (typeof entidade.schema === 'function') {
+        return entidade.schema();
+      }
+      return null;
+    } catch (e) {
+      console.warn('Erro ao obter schema:', e);
+      return null;
+    }
+  }, []);
+  
   const formatarNomeCampo = useCallback((campo) => (
     campo.replace(/_/g, ' ').replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase()).trim()
   ), []);
