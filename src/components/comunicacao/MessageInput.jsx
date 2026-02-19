@@ -573,15 +573,15 @@ export default function MessageInput({
             onPaste={handlePaste}
             placeholder={
               selectedFile
-                ? "Digite uma legenda para o arquivo..."
+                ? "Legenda..."
                 : pastedImagePreview 
-                ? "Digite uma legenda para a imagem..." 
+                ? "Legenda..." 
                 : !podeEnviarMensagens 
-                ? "Sem permissão para enviar mensagens" 
-                : "Digite sua mensagem... (Ctrl+V para colar imagem)"
+                ? "Sem permissão" 
+                : "Digite..."
             }
-            rows={Math.max(1, Math.min(5, mensagemTexto.split('\n').length))}
-            className="w-full p-3 border border-slate-300 rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-orange-500"
+            rows={Math.max(1, Math.min(4, mensagemTexto.split('\n').length))}
+            className="w-full p-2 md:p-3 text-sm border border-slate-300 rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-orange-500"
             disabled={enviando || carregandoContato || gravandoAudio || modoSelecao || uploadingPastedFile || !podeEnviarMensagens}
           />
         </div>
