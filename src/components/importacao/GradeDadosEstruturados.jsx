@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -8,12 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import {
   Save, X, Edit, Plus, Trash2, Check, Table, ArrowRight, Loader2, AlertTriangle, Info, Brain, Eye, Target, Link2, UserCheck, UserPlus, AlertCircle
 } from "lucide-react";
-import { Cliente } from "@/entities/Cliente";
-import { Vendedor } from "@/entities/Vendedor";
-import { MapeamentoImportacao } from "@/entities/MapeamentoImportacao";
-import { ImportacaoDocumento } from "@/entities/ImportacaoDocumento";
-import { Venda } from "@/entities/Venda";
-import { Orcamento } from "@/entities/Orcamento";
+import { base44 } from "@/api/base44Client";
 
 export default function GradeDadosEstruturados({
   dadosIniciais,
