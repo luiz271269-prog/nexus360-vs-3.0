@@ -245,6 +245,7 @@ export default function Layout({ children, currentPageName }) {
   // Definição completa de todos os itens do menu
   const todosMenuItems = [
     { name: "Central de Comunicacao", icon: MessageSquare, page: "Comunicacao" },
+    { name: "Dashboard", icon: Home, page: "Dashboard" },
     { name: "Contatos Inteligentes", icon: Target, page: "ContatosInteligentes" },
     { name: "Leads & Qualificacao", icon: Target, page: "LeadsQualificados" },
     { name: "Clientes", icon: Building2, page: "Clientes" },
