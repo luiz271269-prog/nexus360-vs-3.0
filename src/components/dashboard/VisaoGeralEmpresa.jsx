@@ -232,11 +232,11 @@ function KPICard({ titulo, valor, variacao, icon: Icon, cor }) {
 
   return (
     <Card className="bg-gradient-to-br from-slate-900 to-slate-800 border border-slate-700 shadow-lg hover:shadow-xl hover:shadow-purple-500/10 transition-all transform hover:-translate-y-1">
-      <CardContent className="p-4">
+      <CardContent className="p-3 md:p-4">
         <div className="flex items-center justify-between">
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium text-slate-400 mb-1 truncate">{titulo}</p>
-            <p className="text-2xl font-bold text-white truncate">{valor}</p>
+            <p className="text-xs md:text-sm font-medium text-slate-400 mb-1 truncate">{titulo}</p>
+            <p className="text-xl md:text-2xl font-bold text-white truncate">{valor}</p>
             {variacao !== undefined &&
             <p className={`text-sm flex items-center gap-1 mt-1 ${
             variacao >= 0 ? 'text-green-400' : 'text-red-400'}`}>
