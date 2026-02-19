@@ -488,8 +488,8 @@ export default function Dashboard() {
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-purple-50/20">
       <div className="max-w-[1600px] mx-auto p-6 space-y-6">
 
-        {/* Header com Gradiente Laranja */}
-        <div className="bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 rounded-2xl shadow-xl border-2 border-slate-700/50 p-6 relative overflow-hidden">
+        {/* Header com Gradiente Laranja - oculto no mobile (já existe o header do Layout) */}
+        <div className="hidden md:block bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 rounded-2xl shadow-xl border-2 border-slate-700/50 p-6 relative overflow-hidden">
           <div className="absolute top-0 right-0 w-64 h-64 bg-gradient-to-br from-orange-400/10 to-red-500/10 rounded-full blur-3xl"></div>
           <div className="absolute bottom-0 left-0 w-64 h-64 bg-gradient-to-tr from-amber-400/10 to-orange-500/10 rounded-full blur-3xl"></div>
 
