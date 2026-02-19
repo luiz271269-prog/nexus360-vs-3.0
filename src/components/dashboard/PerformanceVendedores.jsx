@@ -44,7 +44,7 @@ export default function PerformanceVendedores({ dados, filtros, isGerente, usuar
       </div>
 
       {/* Seção Principal: Ranking (75%) e Análises (25%) */}
-      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-4 md:gap-6">
         
         {/* Coluna Esquerda: Ranking de Vendedores Detalhado - 75% */}
         <Card className="lg:col-span-3 bg-gradient-to-br from-slate-900 to-slate-800 border-slate-700 text-white">
