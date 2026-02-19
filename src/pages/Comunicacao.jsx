@@ -2653,11 +2653,11 @@ export default function Comunicacao() {
               </div>
 
               {/* ── MOBILE: tela única alternante (lista ↔ chat) ── */}
-              <div className="flex md:hidden h-full flex-col">
+              <div className="flex md:hidden h-full flex-col min-h-0">
 
                 {/* TELA: LISTA */}
                 {mobileView === 'lista' && (
-                  <div className="flex flex-col h-full bg-white">
+                  <div className="flex flex-col h-full min-h-0 bg-white">
                     <SearchAndFilter
                       searchTerm={searchTerm}
                       onSearchChange={setSearchTerm}
