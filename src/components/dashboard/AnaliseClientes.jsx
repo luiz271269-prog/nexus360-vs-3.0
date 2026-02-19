@@ -245,15 +245,15 @@ function ClienteKPI({ titulo, valor, subtitulo, icon: Icon, cor }) {
 
   return (
     <Card className="bg-gradient-to-br from-slate-900 to-slate-800 border-slate-700 text-white shadow-lg hover:shadow-xl hover:shadow-purple-500/10 transition-shadow transform hover:-translate-y-1">
-      <CardContent className="p-4">
-        <div className="flex items-center justify-between">
-          <div>
-            <p className="text-sm font-medium text-slate-400 mb-1">{titulo}</p>
-            <p className="text-2xl font-bold text-white">{valor}</p>
-            <p className="text-sm text-slate-500 mt-1">{subtitulo}</p>
+      <CardContent className="p-3 md:p-4">
+        <div className="flex items-center justify-between gap-2">
+          <div className="min-w-0">
+            <p className="text-xs md:text-sm font-medium text-slate-400 mb-1">{titulo}</p>
+            <p className="text-xl md:text-2xl font-bold text-white truncate">{valor}</p>
+            <p className="text-xs text-slate-500 mt-1 truncate">{subtitulo}</p>
           </div>
-          <div className={`w-12 h-12 bg-gradient-to-br ${getCor(cor)} rounded-xl flex items-center justify-center shadow-lg`}>
-            <Icon className="w-6 h-6 text-white" />
+          <div className={`w-10 h-10 md:w-12 md:h-12 flex-shrink-0 bg-gradient-to-br ${getCor(cor)} rounded-xl flex items-center justify-center shadow-lg`}>
+            <Icon className="w-5 h-5 md:w-6 md:h-6 text-white" />
           </div>
         </div>
       </CardContent>
