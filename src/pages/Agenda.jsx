@@ -383,17 +383,17 @@ export default function Agenda() {
   return (
     <div className="h-screen flex flex-col bg-gradient-to-br from-amber-50 via-orange-50/30 to-red-50/20">
       {/* Header com Gradiente Laranja */}
-      <div className="bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 border-b-2 border-slate-700/50 p-6 shadow-xl">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <div className="w-16 h-16 bg-gradient-to-br from-amber-400 via-orange-500 to-red-500 rounded-2xl flex items-center justify-center shadow-2xl shadow-orange-500/50">
-              <Calendar className="w-9 h-9 text-white" />
+      <div className="bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 border-b-2 border-slate-700/50 p-4 md:p-6 shadow-xl">
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex items-center gap-3 md:gap-4">
+            <div className="w-10 h-10 md:w-16 md:h-16 bg-gradient-to-br from-amber-400 via-orange-500 to-red-500 rounded-2xl flex items-center justify-center shadow-2xl shadow-orange-500/50 flex-shrink-0">
+              <Calendar className="w-5 h-5 md:w-9 md:h-9 text-white" />
             </div>
             <div>
-              <h1 className="text-3xl font-bold bg-gradient-to-r from-amber-400 via-orange-500 to-red-500 bg-clip-text text-transparent">
+              <h1 className="text-lg md:text-3xl font-bold bg-gradient-to-r from-amber-400 via-orange-500 to-red-500 bg-clip-text text-transparent">
                 Agenda Inteligente
               </h1>
-              <p className="text-slate-300 mt-1">
+              <p className="text-slate-300 mt-0.5 text-xs md:text-base">
                 Tarefas priorizadas pela IA para maximizar resultados
               </p>
             </div>
@@ -440,7 +440,7 @@ export default function Agenda() {
         }}
       />
 
-      <div className="space-y-6 p-6 flex-grow overflow-auto">
+      <div className="space-y-4 md:space-y-6 p-3 md:p-6 flex-grow overflow-auto">
         {/* Abas: Tarefas IA vs Agenda Nexus IA */}
         <Tabs value={abaSelecionada} onValueChange={setAbaSelecionada} className="w-full">
           <TabsList className="grid w-full grid-cols-2 bg-slate-800/50 border border-slate-700">
@@ -600,7 +600,7 @@ export default function Agenda() {
           />
         )}
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-[calc(100vh-600px)] lg:h-[calc(100vh-350px)]">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-6 min-h-[400px] lg:h-[calc(100vh-350px)]">
           <div className="lg:col-span-1 h-full space-y-4">
             <PainelPrioridades
               tarefas={tarefasFiltradas}
