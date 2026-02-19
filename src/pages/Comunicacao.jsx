@@ -2440,8 +2440,9 @@ export default function Comunicacao() {
       <div className="h-screen flex flex-col bg-gradient-to-br from-amber-50 via-orange-50/30 to-red-50/20 overflow-hidden">
         <NotificationSystem usuario={usuario} threads={threads} />
 
-        <div className="bg-gradient-to-r px-8 from-slate-900 via-slate-800 to-slate-900 border-b border-slate-700/50 shadow-xl flex-shrink-0">
-          <div className="flex items-center justify-between">
+        {/* ── HEADER DESKTOP ── */}
+        <div className="hidden md:block bg-gradient-to-r px-8 from-slate-900 via-slate-800 to-slate-900 border-b border-slate-700/50 shadow-xl flex-shrink-0">
+          <div className="flex items-center justify-between py-3">
             <div className="flex items-center gap-4">
               <div className="w-12 h-12 bg-gradient-to-br from-amber-400 via-orange-500 to-red-500 rounded-xl flex items-center justify-center shadow-lg shadow-orange-500/30">
                 <MessageSquare className="w-7 h-7 text-white" />
@@ -2450,71 +2451,69 @@ export default function Comunicacao() {
                 <h1 className="text-2xl font-bold bg-gradient-to-r from-amber-400 via-orange-500 to-red-500 bg-clip-text text-transparent">
                   Central de Comunicacao
                 </h1>
-                <p className="text-sm text-slate-300">
-                  WhatsApp, Templates e Automação
-                </p>
+                <p className="text-sm text-slate-300">WhatsApp, Templates e Automação</p>
               </div>
             </div>
-
-            <div className="bg-transparent text-black flex items-center gap-3">
-              {/* Contador de Não Atribuidas */}
-              <ContadorNaoAtribuidas
-                threads={threads}
-                integracoes={integracoes}
-                usuario={usuario}
-                onClickVerFila={() => {
-                  setFilterScope('unassigned');
-                  setActiveTab('conversas');
-                }}
-                onClickConexao={(integrationId) => {
-                  setFilterScope('unassigned');
-                  setSelectedIntegrationId(integrationId);
-                  setActiveTab('conversas');
-                }}
+            <div className="flex items-center gap-3">
+              <ContadorNaoAtribuidas threads={threads} integracoes={integracoes} usuario={usuario}
+                onClickVerFila={() => { setFilterScope('unassigned'); setActiveTab('conversas'); }}
+                onClickConexao={(id) => { setFilterScope('unassigned'); setSelectedIntegrationId(id); setActiveTab('conversas'); }}
                 className="shadow-lg" />
-
-              {/* Contatos Requerendo Atenção */}
-              <ContatosRequerendoAtencao
-                usuario={usuario}
-                contatos={contatos}
-                onSelecionarContato={(threadData) => {
-                  // ✅ Recebe { id, contatoPreCarregado }
-                  handleSelecionarThread(threadData);
-                  setActiveTab('conversas');
-                }}
+              <ContatosRequerendoAtencao usuario={usuario} contatos={contatos}
+                onSelecionarContato={(t) => { handleSelecionarThread(t); setActiveTab('conversas'); }}
                 variant="header" />
-
-
               {integracoes.length === 0 &&
-              <Button
-                onClick={() => setMostrarInstrucoesWebhook(true)}
-                variant="outline"
-                size="sm"
-                className="border-white/30 text-white hover:bg-white/20">
+                <Button onClick={() => setMostrarInstrucoesWebhook(true)} variant="outline" size="sm"
+                  className="border-white/30 text-white hover:bg-white/20">Configurar Webhook</Button>}
+              <Button variant="outline" size="sm" onClick={() => {
+                queryClient.invalidateQueries({ queryKey: ['threads-externas'] });
+                queryClient.invalidateQueries({ queryKey: ['threads-internas'] });
+                queryClient.invalidateQueries({ queryKey: ['contacts'] });
+                queryClient.invalidateQueries({ queryKey: ['integracoes'] });
+                queryClient.invalidateQueries({ queryKey: ['atendentes'] });
+                if (threadAtiva) queryClient.invalidateQueries({ queryKey: ['mensagens', threadAtiva.id] });
+                toast.info("🔄 Atualizando dados...");
+              }} className="bg-orange-500 text-white h-8 px-3 text-xs border border-white/30 hover:bg-white/20 rounded-md flex items-center gap-2">
+                <RefreshCw className="w-4 h-4" /> Atualizar
+              </Button>
+            </div>
+          </div>
+        </div>
 
-                  Configurar Webhook
-                </Button>
-              }
+        {/* ── HEADER MOBILE ── */}
+        <div className="md:hidden bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 border-b border-slate-700/50 shadow-xl flex-shrink-0">
+          <div className="flex items-center justify-between px-3 py-2">
+            {/* Título compacto */}
+            <div className="flex items-center gap-2 min-w-0">
+              <div className="w-8 h-8 bg-gradient-to-br from-amber-400 via-orange-500 to-red-500 rounded-lg flex items-center justify-center shadow-md flex-shrink-0">
+                <MessageSquare className="w-4 h-4 text-white" />
+              </div>
+              <span className="text-sm font-bold bg-gradient-to-r from-amber-400 via-orange-500 to-red-500 bg-clip-text text-transparent truncate">
+                Comunicação
+              </span>
+            </div>
 
-              <Button
-                variant="outline"
-                size="sm"
+            {/* Ações compactas */}
+            <div className="flex items-center gap-1.5">
+              <ContadorNaoAtribuidas threads={threads} integracoes={integracoes} usuario={usuario}
+                onClickVerFila={() => { setFilterScope('unassigned'); setActiveTab('conversas'); }}
+                onClickConexao={(id) => { setFilterScope('unassigned'); setSelectedIntegrationId(id); setActiveTab('conversas'); }}
+                className="shadow-lg" />
+              <ContatosRequerendoAtencao usuario={usuario} contatos={contatos}
+                onSelecionarContato={(t) => { handleSelecionarThread(t); setActiveTab('conversas'); }}
+                variant="header" />
+              <button
                 onClick={() => {
                   queryClient.invalidateQueries({ queryKey: ['threads-externas'] });
                   queryClient.invalidateQueries({ queryKey: ['threads-internas'] });
                   queryClient.invalidateQueries({ queryKey: ['contacts'] });
-                  queryClient.invalidateQueries({ queryKey: ['integracoes'] });
-                  queryClient.invalidateQueries({ queryKey: ['atendentes'] });
-                  if (threadAtiva) {
-                    queryClient.invalidateQueries({ queryKey: ['mensagens', threadAtiva.id] });
-                  }
-                  toast.info("🔄 Atualizando dados...");
-                }} className="bg-orange-500 text-white px-3 text-xs font-medium rounded-md inline-flex items-center justify-center gap-2 whitespace-nowrap transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 border shadow-sm hover:text-accent-foreground h-8 border-white/30 hover:bg-white/20">
-
-
-                <RefreshCw className="w-4 h-4 mr-2" />
-                Atualizar
-              </Button>
+                  toast.info("🔄 Atualizando...");
+                }}
+                className="w-8 h-8 bg-orange-500 hover:bg-orange-600 rounded-lg flex items-center justify-center transition-colors flex-shrink-0"
+                title="Atualizar"
+              >
+                <RefreshCw className="w-4 h-4 text-white" />
+              </button>
             </div>
           </div>
         </div>
