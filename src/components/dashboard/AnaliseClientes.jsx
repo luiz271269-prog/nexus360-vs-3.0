@@ -42,18 +42,18 @@ export default function AnaliseClientes({ dados, filtros, isGerente }) {
       </div>
 
       {/* Análises Visuais */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
         
         {/* Distribuição por Segmento */}
         <Card className="bg-gradient-to-br from-slate-900 to-slate-800 border-slate-700 text-white">
-          <CardHeader>
+          <CardHeader className="px-4 py-3 md:px-6 md:py-4">
             <CardTitle className="flex items-center gap-2 bg-gradient-to-r from-amber-400 to-orange-500 bg-clip-text text-transparent">
               <Target className="w-5 h-5 text-blue-500" />
               Clientes por Segmento
             </CardTitle>
           </CardHeader>
-          <CardContent className="bg-slate-800/30 pt-4 pb-4 px-2">
-            <ResponsiveContainer width="100%" height={300}>
+          <CardContent className="bg-slate-800/30 pt-2 pb-4 px-2">
+            <ResponsiveContainer width="100%" height={220}>
               <PieChart>
                 <Pie
                   data={analises.porSegmento}
