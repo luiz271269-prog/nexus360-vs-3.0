@@ -486,7 +486,7 @@ export default function Dashboard() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-purple-50/20">
-      <div className="max-w-[1600px] mx-auto p-6 space-y-6">
+      <div className="max-w-[1600px] mx-auto p-3 md:p-6 space-y-4 md:space-y-6">
 
         {/* Header com Gradiente Laranja - oculto no mobile (já existe o header do Layout) */}
         <div className="hidden md:block bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 rounded-2xl shadow-xl border-2 border-slate-700/50 p-6 relative overflow-hidden">
@@ -550,7 +550,7 @@ export default function Dashboard() {
           }} />
 
         {/* Navegação por Perspectivas */}
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2 md:gap-3">
           {navegacao.map((item) =>
             <button
               key={item.key}
@@ -581,8 +581,8 @@ export default function Dashboard() {
 
 
         {/* Estatísticas Resumo */}
-        <div className="bg-gradient-to-r from-orange-500 via-orange-600 to-red-500 px-5 py-3 backdrop-blur-md rounded-xl border border-slate-200/50">
-          <div className="text-sm flex items-center justify-center gap-4 flex-wrap">
+        <div className="bg-gradient-to-r from-orange-500 via-orange-600 to-red-500 px-3 md:px-5 py-3 backdrop-blur-md rounded-xl border border-slate-200/50">
+          <div className="text-sm flex items-center justify-center gap-2 md:gap-4 flex-wrap">
             <div className="bg-gradient-to-r from-slate-800/80 to-slate-900/80 text-slate-50 px-4 py-2 font-semibold flex items-center gap-2 rounded-lg border border-blue-200/20">
               <span>📊 {dados.vendas.length} vendas</span>
             </div>
