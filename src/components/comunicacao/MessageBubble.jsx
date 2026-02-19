@@ -43,6 +43,39 @@ import {
 import UsuarioDisplay from './UsuarioDisplay';
 import { sanitizeEmojis } from '../lib/emojiSanitizer';
 
+// Componente de player de áudio com controle de velocidade
+const AudioPlayer = ({ src }) => {
+  const audioRef = React.useRef(null);
+  const [speed, setSpeed] = React.useState(1);
+
+  const speeds = [1, 1.5, 2];
+
+  const cycleSpeed = () => {
+    const next = speeds[(speeds.indexOf(speed) + 1) % speeds.length];
+    setSpeed(next);
+    if (audioRef.current) audioRef.current.playbackRate = next;
+  };
+
+  return (
+    <div className="flex items-center gap-1.5 flex-1">
+      <audio
+        ref={audioRef}
+        src={src}
+        controls
+        className="flex-1 h-8 min-w-0"
+        onPlay={() => { if (audioRef.current) audioRef.current.playbackRate = speed; }}
+      />
+      <button
+        onClick={cycleSpeed}
+        className="flex-shrink-0 text-[10px] font-bold px-1.5 py-0.5 rounded bg-slate-200 hover:bg-slate-300 text-slate-700 transition-colors min-w-[32px] text-center"
+        title="Alterar velocidade"
+      >
+        {speed}x
+      </button>
+    </div>
+  );
+};
+
 // Componente de imagem com fallback seguro
 const ImageWithFallback = ({ src, alt, className, onClick, isPersisted }) => {
   const [hasError, setHasError] = React.useState(false);
