@@ -605,7 +605,7 @@ export default function GerenciadorUsuariosUnificado({
       {/* ════════════════════════════════════════════════════════════════════════ */}
       {/* COLUNA 2: RECURSOS DO SISTEMA */}
       {/* ════════════════════════════════════════════════════════════════════════ */}
-      <section className="w-72 flex flex-col bg-white rounded-xl border shadow-sm overflow-hidden">
+      <section className="w-full md:w-72 flex flex-col bg-white rounded-xl border shadow-sm overflow-hidden">
         <header className="p-3 border-b bg-gradient-to-r from-slate-50 to-slate-100">
           <h2 className="text-sm font-bold text-slate-800">Recursos & Páginas</h2>
           <p className="text-[10px] text-slate-500">Selecione para configurar</p>
