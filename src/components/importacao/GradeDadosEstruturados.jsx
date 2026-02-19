@@ -449,9 +449,11 @@ export default function GradeDadosEstruturados({
     );
   };
   
-  const camposDisponiveis = destino !== 'nao_aplicavel' && entidadesMap[destino]
-    ? Object.keys(entidadesMap[destino].schema().properties)
-    : [];
+  const camposDisponiveis = useMemo(() => {
+    if (destino === 'nao_aplicavel' || !entidadesMap[destino]) return [];
+    const schema = obterSchema(entidadesMap[destino]);
+    return schema && schema.properties ? Object.keys(schema.properties) : [];
+  }, [destino, entidadesMap, obterSchema]);
 
   return (
     <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-[60]">
