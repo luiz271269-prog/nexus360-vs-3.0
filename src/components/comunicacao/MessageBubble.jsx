@@ -43,23 +43,11 @@ import {
 import UsuarioDisplay from './UsuarioDisplay';
 import { sanitizeEmojis } from '../lib/emojiSanitizer';
 
-// Componente de player de áudio customizado estilo WhatsApp
+// Player de áudio: nativo + botão de velocidade
 const AudioPlayer = ({ src }) => {
   const audioRef = React.useRef(null);
-  const [isPlaying, setIsPlaying] = React.useState(false);
-  const [progress, setProgress] = React.useState(0);
-  const [duration, setDuration] = React.useState(0);
   const [speed, setSpeed] = React.useState(1);
   const speeds = [1, 1.5, 2];
-
-  const togglePlay = () => {
-    if (!audioRef.current) return;
-    if (isPlaying) {
-      audioRef.current.pause();
-    } else {
-      audioRef.current.play();
-    }
-  };
 
   const cycleSpeed = () => {
     const next = speeds[(speeds.indexOf(speed) + 1) % speeds.length];
@@ -67,77 +55,19 @@ const AudioPlayer = ({ src }) => {
     if (audioRef.current) audioRef.current.playbackRate = next;
   };
 
-  const handleTimeUpdate = () => {
-    if (!audioRef.current) return;
-    const pct = audioRef.current.duration ? (audioRef.current.currentTime / audioRef.current.duration) * 100 : 0;
-    setProgress(pct);
-  };
-
-  const handleSeek = (e) => {
-    if (!audioRef.current || !audioRef.current.duration) return;
-    const rect = e.currentTarget.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const pct = Math.max(0, Math.min(1, x / rect.width));
-    audioRef.current.currentTime = pct * audioRef.current.duration;
-  };
-
-  const fmt = (s) => {
-    if (!s || isNaN(s)) return '0:00';
-    const m = Math.floor(s / 60);
-    const sec = Math.floor(s % 60);
-    return `${m}:${sec.toString().padStart(2, '0')}`;
-  };
-
-  const remaining = audioRef.current ? audioRef.current.duration - audioRef.current.currentTime : duration;
-
   return (
-    <div className="flex items-center gap-2 flex-1 min-w-0">
+    <div className="flex items-center gap-1.5 flex-1 min-w-0">
       <audio
         ref={audioRef}
         src={src}
-        onPlay={() => { setIsPlaying(true); if (audioRef.current) audioRef.current.playbackRate = speed; }}
-        onPause={() => setIsPlaying(false)}
-        onEnded={() => { setIsPlaying(false); setProgress(0); }}
-        onTimeUpdate={handleTimeUpdate}
-        onLoadedMetadata={() => setDuration(audioRef.current?.duration || 0)}
+        controls
+        className="flex-1 h-8 min-w-0"
+        onPlay={() => { if (audioRef.current) audioRef.current.playbackRate = speed; }}
       />
-
-      {/* Play/Pause */}
-      <button
-        onClick={togglePlay}
-        className="w-8 h-8 rounded-full bg-green-500 hover:bg-green-600 flex items-center justify-center flex-shrink-0 transition-colors"
-      >
-        {isPlaying ? (
-          <svg className="w-3.5 h-3.5 text-white" fill="currentColor" viewBox="0 0 24 24">
-            <rect x="6" y="4" width="4" height="16" rx="1"/><rect x="14" y="4" width="4" height="16" rx="1"/>
-          </svg>
-        ) : (
-          <svg className="w-3.5 h-3.5 text-white ml-0.5" fill="currentColor" viewBox="0 0 24 24">
-            <path d="M8 5v14l11-7z"/>
-          </svg>
-        )}
-      </button>
-
-      {/* Barra de progresso + tempo */}
-      <div className="flex-1 min-w-0 flex flex-col gap-0.5">
-        <div
-          className="w-full h-1.5 bg-slate-300 rounded-full cursor-pointer relative overflow-hidden"
-          onClick={handleSeek}
-        >
-          <div
-            className="h-full bg-green-500 rounded-full transition-none"
-            style={{ width: `${progress}%` }}
-          />
-        </div>
-        <span className="text-[10px] text-slate-500 select-none">
-          {isPlaying ? `-${fmt(remaining)}` : fmt(duration)}
-        </span>
-      </div>
-
-      {/* Velocidade */}
       <button
         onClick={cycleSpeed}
-        className="flex-shrink-0 text-[10px] font-bold w-7 h-5 rounded bg-slate-200 hover:bg-slate-300 text-slate-700 transition-colors text-center leading-none"
+        className="flex-shrink-0 text-[10px] font-bold w-7 h-6 rounded bg-slate-200 hover:bg-slate-300 text-slate-700 transition-colors text-center"
+        title="Velocidade"
       >
         {speed}x
       </button>
