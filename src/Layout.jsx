@@ -478,6 +478,7 @@ export default function Layout({ children, currentPageName }) {
         onLogout={handleLogout}
         onOpenNexus={() => setNexusOpen(true)}
         agentSession={agentSession}
+        onToggle={() => setSidebarOpen(prev => !prev)}
       />
 
       {sidebarOpen && (
