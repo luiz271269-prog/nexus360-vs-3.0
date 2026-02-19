@@ -34,46 +34,42 @@ export default function UserAuthWidget({ usuario, loadingUsuario, onLogout }) {
   // Se não há usuário logado
   if (!usuario) {
     return (
-      <TooltipProvider>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <button
-              onClick={handleLogin}
-              className="w-full flex items-center justify-center p-3 rounded-xl bg-gradient-to-br from-green-600 via-emerald-600 to-teal-600 hover:from-green-700 hover:via-emerald-700 hover:to-teal-700 shadow-lg transition-all group"
-            >
-              <LogIn className="h-5 w-5 text-white" />
-            </button>
-          </TooltipTrigger>
-          <TooltipContent side="right" className="bg-slate-800 border-slate-700">
-            <p className="text-sm text-white">Entrar</p>
-          </TooltipContent>
-        </Tooltip>
-      </TooltipProvider>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <button
+            onClick={handleLogin}
+            className="w-full flex items-center justify-center p-3 rounded-xl bg-gradient-to-br from-green-600 via-emerald-600 to-teal-600 hover:from-green-700 hover:via-emerald-700 hover:to-teal-700 shadow-lg transition-all group"
+          >
+            <LogIn className="h-5 w-5 text-white" />
+          </button>
+        </TooltipTrigger>
+        <TooltipContent side="right" className="bg-slate-800 border-slate-700">
+          <p className="text-sm text-white">Entrar</p>
+        </TooltipContent>
+      </Tooltip>
     );
   }
 
   // Se há usuário logado
   return (
     <DropdownMenu>
-      <TooltipProvider>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <DropdownMenuTrigger asChild>
-              <button className="w-full flex items-center justify-center p-3 rounded-xl bg-slate-800/50 hover:bg-slate-700/50 transition-all group relative">
-                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center text-white font-bold text-sm shadow-lg">
-                  {usuario.full_name ? usuario.full_name.substring(0, 2).toUpperCase() : '?'}
-                </div>
-                {usuario.role === 'admin' && (
-                  <div className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 rounded-full border-2 border-slate-900" />
-                )}
-              </button>
-            </DropdownMenuTrigger>
-          </TooltipTrigger>
-          <TooltipContent side="right" className="bg-slate-800 border-slate-700">
-            <p className="text-sm text-white">Menu do Usuário</p>
-          </TooltipContent>
-        </Tooltip>
-      </TooltipProvider>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <DropdownMenuTrigger asChild>
+            <button className="w-full flex items-center justify-center p-3 rounded-xl bg-slate-800/50 hover:bg-slate-700/50 transition-all group relative">
+              <div className="w-10 h-10 rounded-full bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center text-white font-bold text-sm shadow-lg">
+                {usuario.full_name ? usuario.full_name.substring(0, 2).toUpperCase() : '?'}
+              </div>
+              {usuario.role === 'admin' && (
+                <div className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 rounded-full border-2 border-slate-900" />
+              )}
+            </button>
+          </DropdownMenuTrigger>
+        </TooltipTrigger>
+        <TooltipContent side="right" className="bg-slate-800 border-slate-700">
+          <p className="text-sm text-white">Menu do Usuário</p>
+        </TooltipContent>
+      </Tooltip>
 
       <DropdownMenuContent 
         side="right" 
