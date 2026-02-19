@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -504,25 +503,25 @@ Forneça:
   const isAdmin = usuario?.role === 'admin';
 
   return (
-    <div className="space-y-6 p-6">
+    <div className="space-y-4 md:space-y-6 p-3 md:p-6">
       {/* Header com Gradiente Laranja */}
-      <div className="bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 rounded-2xl shadow-xl border-2 border-slate-700/50 p-6">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <div className="w-16 h-16 bg-gradient-to-br from-amber-400 via-orange-500 to-red-500 rounded-2xl flex items-center justify-center shadow-2xl shadow-orange-500/50">
-              <Users className="w-9 h-9 text-white" />
+      <div className="bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 rounded-2xl shadow-xl border-2 border-slate-700/50 p-4 md:p-6">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+          <div className="flex items-center gap-3 md:gap-4">
+            <div className="w-12 h-12 md:w-16 md:h-16 bg-gradient-to-br from-amber-400 via-orange-500 to-red-500 rounded-2xl flex items-center justify-center shadow-2xl shadow-orange-500/50 flex-shrink-0">
+              <Users className="w-6 h-6 md:w-9 md:h-9 text-white" />
             </div>
             <div>
-              <h1 className="text-3xl font-bold bg-gradient-to-r from-amber-400 via-orange-500 to-red-500 bg-clip-text text-transparent">
+              <h1 className="text-xl md:text-3xl font-bold bg-gradient-to-r from-amber-400 via-orange-500 to-red-500 bg-clip-text text-transparent">
                 Gestão de Vendedores
               </h1>
-              <p className="text-slate-300 mt-1">
+              <p className="text-slate-300 mt-1 text-sm md:text-base">
                 Equipe de vendas e performance em tempo real
               </p>
             </div>
           </div>
 
-          <div className="flex gap-3">
+          <div className="flex gap-2 md:gap-3 flex-wrap">
               <Button
                 onClick={handleAnalisarComIA}
                 disabled={analisandoIA}
@@ -714,7 +713,7 @@ Forneça:
       )}
 
       {/* Cards de Performance */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
         {vendedoresComMetricas.slice(0, 4).map((vendedor) => (
           <Card key={vendedor.id} className="hover:shadow-lg transition-shadow">
             <CardHeader className="pb-3">
