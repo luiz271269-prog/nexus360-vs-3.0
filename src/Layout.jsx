@@ -116,7 +116,7 @@ function NavItem({ href, icon: Icon, label, badge, badgeColor, lembretesCount })
 
 
 
-function SideBar({ isOpen, menuItems, contadoresLembretes, usuario, loadingUsuario, onLogout, onOpenNexus, agentSession }) {
+function SideBar({ isOpen, menuItems, contadoresLembretes, usuario, loadingUsuario, onLogout, onOpenNexus, agentSession, onToggle }) {
   return (
     <TooltipProvider>
       <aside
@@ -125,7 +125,15 @@ function SideBar({ isOpen, menuItems, contadoresLembretes, usuario, loadingUsuar
         } transition-transform duration-300 ease-in-out md:relative md:translate-x-0 flex flex-col border-r border-slate-700/50`}
       >
         <div className="flex items-center justify-center p-4 border-b border-slate-700/50">
-          <Link to={createPageUrl("Dashboard")} className="relative group">
+          {/* Mobile: botão hambúrguer para abrir/fechar sidebar. Desktop: logo link */}
+          <button
+            onClick={onToggle}
+            className="relative group md:hidden w-12 h-12 bg-gradient-to-br from-amber-400 via-orange-500 to-red-500 rounded-xl flex items-center justify-center shadow-lg hover:shadow-xl hover:shadow-orange-500/30 transition-all duration-300"
+          >
+            <Menu className="h-7 w-7 text-white" />
+            <div className="absolute inset-0 bg-gradient-to-br from-white/20 to-transparent rounded-xl" />
+          </button>
+          <Link to={createPageUrl("Dashboard")} className="relative group hidden md:flex">
             <div className="w-12 h-12 bg-gradient-to-br from-amber-400 via-orange-500 to-red-500 rounded-xl flex items-center justify-center shadow-lg group-hover:shadow-xl group-hover:shadow-orange-500/30 transition-all duration-300">
               <Zap className="h-7 w-7 text-white" />
               <div className="absolute inset-0 bg-gradient-to-br from-white/20 to-transparent rounded-xl" />
