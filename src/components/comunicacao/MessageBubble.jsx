@@ -990,35 +990,14 @@ export default React.memo(function MessageBubble({
 
             {/* ÁUDIO - ✅ AGNÓSTICO: Funciona para WhatsApp E Interno */}
             {message?.media_type === 'audio' && (message?.media_url || message.content?.includes('[Áudio]')) &&
+            <AudioBubble message={message} isOwn={isOwn} />
+            }
+            {message?.media_type === 'audio' && (message?.media_url || message.content?.includes('[Áudio]')) &&
             <div className={cn(
               "px-2 py-1.5 min-w-[160px] max-w-[240px]",
-              // 🎨 Texto escuro em fundos claros
               "text-slate-800"
             )}>
-                <div className="flex items-center gap-2">
-                  <div className={cn(
-                  "w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0",
-                  "bg-green-500"
-                )}>
-                    <Play className="w-4 h-4 text-white" />
-                  </div>
-                  {!message?.media_url || message?.media_url === 'pending_download' ? (
-                    <div className="flex-1 flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs bg-slate-100 text-slate-600">
-                      <Loader2 className="w-4 h-4 flex-shrink-0 animate-spin" />
-                      <span>Processando áudio...</span>
-                    </div>
-                  ) : (
-                    <audio
-                      src={message?.media_url}
-                      controls
-                      className="flex-1 h-8"
-                      style={{
-                        filter: isOwn ? 'invert(1) hue-rotate(180deg)' : 'none'
-                      }}
-                    />
-                  )}
-
-                </div>
+                <div className="hidden"></div>
                 <div className="flex items-center justify-end gap-1 mt-1 flex-wrap">
                   {/* THREADS INTERNAS: Atendente + Destino */}
                   {isThreadInterna && (() => {
