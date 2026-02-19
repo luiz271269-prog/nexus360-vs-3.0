@@ -509,6 +509,7 @@ export default function Layout({ children, currentPageName }) {
         <div className="relative z-10">
           {children}
         </div>
+        </div>
       </main>
 
       {/* Botão flutuante removido - agora está no menu lateral */}
