@@ -2705,9 +2705,9 @@ export default function Comunicacao() {
 
                 {/* TELA: CHAT */}
                 {mobileView === 'chat' && (
-                  <div className="flex flex-col h-full">
+                  <div className="flex flex-col h-full min-h-0">
                     {/* Barra de voltar */}
-                    <div className="flex items-center gap-3 px-3 py-2 bg-slate-800 border-b border-slate-700 flex-shrink-0">
+                    <div className="flex items-center gap-3 px-3 py-2 bg-slate-800 border-b border-slate-700 flex-shrink-0 safe-area-inset-top">
                       <button
                         onClick={handleVoltarListaMobile}
                         className="flex items-center gap-2 text-white text-sm font-medium"
