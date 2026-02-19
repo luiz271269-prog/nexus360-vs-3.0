@@ -116,5 +116,6 @@ export default function UserAuthWidget({ usuario, loadingUsuario, onLogout }) {
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
+    </TooltipProvider>
   );
 }
