@@ -157,7 +157,7 @@ export default function GradeDadosEstruturados({
         // Simple auto-mapping based on common names
         const Entidade = entidadesMap[destino];
         if (Entidade) {
-            const schema = Entidade.schema();
+            const schema = obterSchema(Entidade);
             if (schema && schema.properties) {
                 const camposDestino = Object.keys(schema.properties);
                 colunas.forEach(coluna => {
