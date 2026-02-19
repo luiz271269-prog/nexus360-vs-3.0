@@ -42,7 +42,7 @@ export default function VisaoGeralEmpresa({ dados }) {
       </div>
 
       {/* Gráficos de Tendência dos Últimos 4 Meses */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
         {/* Evolução do Faturamento */}
         <Card className="bg-gradient-to-br from-slate-900 to-slate-800 border-slate-700">
           <CardHeader className="px-6 py-4">
