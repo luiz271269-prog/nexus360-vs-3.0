@@ -277,19 +277,18 @@ function PerformanceKPI({ titulo, valor, subtitulo, icon: Icon, cor, foto_url })
 
   return (
     <Card className="bg-gradient-to-br from-slate-900 to-slate-800 border-slate-700 text-white shadow-lg hover:shadow-xl hover:shadow-purple-500/10 transition-shadow transform hover:-translate-y-1">
-      <CardContent className="p-4">
-        <div className="flex items-center gap-3">
-          <div className={`w-10 h-10 flex-shrink-0 bg-gradient-to-br ${cores[cor]} flex items-center justify-center overflow-hidden ${foto_url ? 'rounded-full' : 'rounded-lg'}`}>
+      <CardContent className="p-3 md:p-4">
+        <div className="flex items-center gap-2 md:gap-3">
+          <div className={`w-9 h-9 md:w-10 md:h-10 flex-shrink-0 bg-gradient-to-br ${cores[cor]} flex items-center justify-center overflow-hidden ${foto_url ? 'rounded-full' : 'rounded-lg'}`}>
             {foto_url ?
             <img src={foto_url} alt={valor} className="w-full h-full object-cover" /> :
-
-            Icon && <Icon className="w-5 h-5 text-white" />
+            Icon && <Icon className="w-4 h-4 md:w-5 md:h-5 text-white" />
             }
           </div>
           <div className="flex-grow min-w-0">
-            <h3 className="text-xs font-medium text-slate-400">{titulo}</h3>
-            <p className="text-lg font-bold text-white truncate">{valor}</p>
-            {subtitulo && <p className="text-xs text-slate-500">{subtitulo}</p>}
+            <h3 className="text-xs font-medium text-slate-400 truncate">{titulo}</h3>
+            <p className="text-base md:text-lg font-bold text-white truncate">{valor}</p>
+            {subtitulo && <p className="text-xs text-slate-500 truncate">{subtitulo}</p>}
           </div>
         </div>
       </CardContent>
