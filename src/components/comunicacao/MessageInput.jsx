@@ -376,19 +376,19 @@ export default function MessageInput({
 
 
 
-      <div className="flex items-end gap-2 relative">
+      <div className="flex items-end gap-1 md:gap-2 relative">
         {/* Botão Anexar com Menu */}
         <div className="relative" ref={attachMenuRef}>
           <Button
             type="button"
             variant="ghost"
             size="icon"
-            className="bg-transparent text-slate-50 text-sm font-medium rounded-md inline-flex items-center justify-center gap-2 whitespace-nowrap transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 hover:bg-accent hover:text-accent-foreground h-9 w-9 flex-shrink-0"
+            className="bg-transparent text-slate-50 text-sm font-medium rounded-md inline-flex items-center justify-center gap-2 whitespace-nowrap transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 hover:bg-accent hover:text-accent-foreground h-8 w-8 md:h-9 md:w-9 flex-shrink-0"
             disabled={enviando || carregandoContato || gravandoAudio || modoSelecao || !podeEnviarMidias}
             onClick={() => setShowAttachMenu(!showAttachMenu)}
             title={!podeEnviarMidias ? "Sem permissão para enviar mídias" : "Anexar arquivo"}
           >
-            <Paperclip className="w-5 h-5 text-slate-600" />
+            <Paperclip className="w-4 h-4 md:w-5 md:h-5 text-slate-600" />
           </Button>
 
           {/* Menu de Anexos - Estilo WhatsApp */}
