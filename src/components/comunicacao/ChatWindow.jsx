@@ -2005,7 +2005,7 @@ export default function ChatWindow({
   const canManageConversation = isManager || thread?.assigned_user_id === usuario?.id || !thread?.assigned_user_id;
 
   return (
-    <div className="flex flex-col h-full bg-white">
+    <div className="flex flex-col h-full min-h-0 bg-white overflow-hidden">
         {/* Header - Modo Broadcast ou Central de Inteligência do Cliente */}
         {mostrarInterfaceBroadcast ?
         <div className={`text-white px-4 py-3 border-b flex-shrink-0 shadow-sm flex items-center justify-between ${
