@@ -333,21 +333,15 @@ export default function MessageInput({
       )}
 
       {integracoes.length > 1 && !modoSelecaoMultipla && (
-        <div className="mb-2 flex items-center gap-2">
-          <label className="text-gray-900 text-xs font-medium">Enviar por:</label>
+        <div className="mb-1 flex items-center gap-1 flex-wrap">
+          <label className="text-gray-900 text-xs font-medium whitespace-nowrap">Enviar por:</label>
           <select
             value={canalSelecionado || thread?.whatsapp_integration_id || ''}
             onChange={(e) => onCanalChange(e.target.value)}
-            className="bg-[#778ca6] text-slate-50 px-2 py-1 text-xs rounded border border-slate-300 flex items-center gap-1"
+            className="bg-[#778ca6] text-slate-50 px-1.5 py-0.5 text-xs rounded border border-slate-300 min-w-0 flex-1 truncate"
           >
             {integracoes.map((int) => {
-              const channelLogos = {
-                z_api: '🟢',
-                w_api: '🟢',
-                instagram_api: '📸',
-                facebook_graph_api: '📘',
-                goto_phone: '📞'
-              };
+              const channelLogos = { z_api: '🟢', w_api: '🟢', instagram_api: '📸', facebook_graph_api: '📘', goto_phone: '📞' };
               const emoji = channelLogos[int.api_provider] || '📱';
               return (
                 <option key={int.id} value={int.id}>
@@ -360,21 +354,15 @@ export default function MessageInput({
       )}
 
       {integracoes.length > 0 && modoSelecaoMultipla && contatosSelecionados.length > 0 && (
-        <div className="mb-2 flex items-center gap-2">
-          <label className="text-gray-900 text-xs font-medium">Enviar por:</label>
+        <div className="mb-1 flex items-center gap-1 flex-wrap">
+          <label className="text-gray-900 text-xs font-medium whitespace-nowrap">Enviar por:</label>
           <select
             value={canalSelecionado || integracoes.find(i => i.status === 'conectado')?.id || ''}
             onChange={(e) => onCanalChange(e.target.value)}
-            className="bg-[#778ca6] text-slate-50 px-2 py-1 text-xs rounded border border-slate-300"
+            className="bg-[#778ca6] text-slate-50 px-1.5 py-0.5 text-xs rounded border border-slate-300 min-w-0 flex-1 truncate"
           >
             {integracoes.filter(i => i.status === 'conectado').map((int) => {
-              const channelLogos = {
-                z_api: '🟢',
-                w_api: '🟢',
-                instagram_api: '📸',
-                facebook_graph_api: '📘',
-                goto_phone: '📞'
-              };
+              const channelLogos = { z_api: '🟢', w_api: '🟢', instagram_api: '📸', facebook_graph_api: '📘', goto_phone: '📞' };
               const emoji = channelLogos[int.api_provider] || '📱';
               return (
                 <option key={int.id} value={int.id}>
