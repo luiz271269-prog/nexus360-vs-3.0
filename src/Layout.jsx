@@ -246,6 +246,7 @@ export default function Layout({ children, currentPageName }) {
   const todosMenuItems = [
     { name: "Central de Comunicacao", icon: MessageSquare, page: "Comunicacao" },
     { name: "Contatos Inteligentes", icon: Target, page: "ContatosInteligentes" },
+    { name: "Dashboard", icon: Home, page: "Dashboard" },
     { name: "Leads & Qualificacao", icon: Target, page: "LeadsQualificados" },
     { name: "Clientes", icon: Building2, page: "Clientes" },
     { name: "Metas de Vendas", icon: Users, page: "Vendedores" },
