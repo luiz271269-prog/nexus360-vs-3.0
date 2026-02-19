@@ -2561,30 +2561,22 @@ export default function Comunicacao() {
           <div className="flex-1 overflow-hidden">
             {/* TAB: CONVERSAS */}
             <TabsContent value="conversas" className="h-full m-0 p-0">
-              <div className="flex h-full">
+
+              {/* ── DESKTOP: layout lado a lado ── */}
+              <div className="hidden md:flex h-full">
                 <div className="w-80 border-r border-slate-200 bg-white flex flex-col overflow-hidden">
-                  {/* RESTAURADO: SearchAndFilter com TODOS os props */}
-                   <SearchAndFilter
+                  <SearchAndFilter
                     searchTerm={searchTerm}
                     onSearchChange={setSearchTerm}
                     filterScope={filterScope}
-                    onFilterScopeChange={(val) => {
-                      // 🚀 UI Otimista: Troca a aba visualmente rápido, processa a lista em background
-                      startTransition(() => {
-                        setFilterScope(val);
-                      });
-                    }}
+                    onFilterScopeChange={(val) => startTransition(() => setFilterScope(val))}
                     selectedAttendantId={selectedAttendantId}
                     onSelectedAttendantChange={setSelectedAttendantId}
                     atendentes={atendentes}
                     isManager={isManager}
                     novoContatoTelefone={novoContatoTelefone}
                     onNovoContatoTelefoneChange={setNovoContatoTelefone}
-                    onCreateContact={() => {
-                      setCriandoNovoContato(true);
-                      setThreadAtiva(null);
-                      setShowContactInfo(true);
-                    }}
+                    onCreateContact={() => { setCriandoNovoContato(true); setThreadAtiva(null); setShowContactInfo(true); }}
                     integracoes={integracoes}
                     selectedIntegrationId={selectedIntegrationId}
                     onSelectedIntegrationChange={setSelectedIntegrationId}
@@ -2597,16 +2589,11 @@ export default function Comunicacao() {
                     modoSelecaoMultipla={modoSelecaoMultipla}
                     onModoSelecaoMultiplaChange={setModoSelecaoMultipla}
                     isAdmin={usuario?.role === 'admin'}
-                    onAbrirDiagnostico={(identificador) => {
-                      console.log('[Comunicacao] 🔬 Detectada duplicata:', identificador);
-                      toast.info('💡 Use o Unificador Centralizado para corrigir duplicatas');
-                    }}
-                    // 🎯 NOVO: Passar callback para receber duplicatas detectadas
+                    onAbrirDiagnostico={() => toast.info('💡 Use o Unificador Centralizado para corrigir duplicatas')}
                     onDuplicataDetectada={setDuplicataEncontrada} />
 
-
                   <div className={`flex-1 overflow-y-auto transition-opacity duration-200 ${isPendingFilter ? 'opacity-50' : 'opacity-100'}`}>
-                   <ChatSidebar
+                    <ChatSidebar
                       threads={threadsParaExibir}
                       threadAtiva={threadAtiva}
                       onSelecionarThread={handleSelecionarThread}
@@ -2619,103 +2606,149 @@ export default function Comunicacao() {
                       contatosSelecionados={contatosSelecionados}
                       setContatosSelecionados={setContatosSelecionados}
                       onSelectInternalDestinations={handleInternalSelection} />
-
                   </div>
                 </div>
 
                 <div className="flex-1 flex overflow-hidden">
                   {modoEnvioMassa && contatosParaEnvioMassa.length > 0 ? (
-                    <ChatWindow
-                      thread={null}
-                      mensagens={[]}
-                      usuario={usuario}
-                      contatoPreCarregado={null}
-                      onEnviarMensagem={async () => {}}
-                      onSendMessageOptimistic={handleEnviarMensagemOtimista}
-                      onSendInternalMessageOptimistic={handleEnviarMensagemInternaOtimista}
-                      onShowContactInfo={() => {}}
-                      onAtualizarMensagens={handleAtualizarMensagens}
-                      integracoes={integracoes}
-                      selectedCategoria={selectedCategoria}
-                      modoSelecaoMultipla={true}
-                      contatosSelecionados={contatosParaEnvioMassa}
-                      broadcastInterno={null}
-                      onCancelarSelecao={() => {
-                        setModoEnvioMassa(false);
-                        setContatosParaEnvioMassa([]);
-                      }}
-                      atendentes={atendentes}
-                      filterScope={filterScope}
-                      selectedIntegrationId={selectedIntegrationId}
-                      selectedAttendantId={selectedAttendantId}
-                      contatoAtivo={null}
-                    />
-                  ) : threadAtiva && !criandoNovoContato || modoSelecaoMultipla && (contatosSelecionados.length > 0 || broadcastInterno) ?
-                  <>
+                    <ChatWindow thread={null} mensagens={[]} usuario={usuario} contatoPreCarregado={null}
+                      onEnviarMensagem={async () => {}} onSendMessageOptimistic={handleEnviarMensagemOtimista}
+                      onSendInternalMessageOptimistic={handleEnviarMensagemInternaOtimista} onShowContactInfo={() => {}}
+                      onAtualizarMensagens={handleAtualizarMensagens} integracoes={integracoes}
+                      selectedCategoria={selectedCategoria} modoSelecaoMultipla={true}
+                      contatosSelecionados={contatosParaEnvioMassa} broadcastInterno={null}
+                      onCancelarSelecao={() => { setModoEnvioMassa(false); setContatosParaEnvioMassa([]); }}
+                      atendentes={atendentes} filterScope={filterScope} selectedIntegrationId={selectedIntegrationId}
+                      selectedAttendantId={selectedAttendantId} contatoAtivo={null} />
+                  ) : threadAtiva && !criandoNovoContato || modoSelecaoMultipla && (contatosSelecionados.length > 0 || broadcastInterno) ? (
+                    <>
                       <div className="flex-1 overflow-hidden relative">
-                        <ChatWindow
-                        thread={threadAtiva}
-                        mensagens={mensagens}
-                        usuario={usuario}
-                        contatoPreCarregado={contatoPreCarregado}
-                        onEnviarMensagem={async () => {}}
-                        onSendMessageOptimistic={handleEnviarMensagemOtimista}
-                        onSendInternalMessageOptimistic={handleEnviarMensagemInternaOtimista}
-                        onShowContactInfo={() => setShowContactInfo(!showContactInfo)}
-                        onAtualizarMensagens={handleAtualizarMensagens}
-                        integracoes={integracoes}
-                        selectedCategoria={selectedCategoria}
-                        modoSelecaoMultipla={modoSelecaoMultipla}
-                        contatosSelecionados={contatosSelecionados}
-                        broadcastInterno={broadcastInterno}
-                        onCancelarSelecao={() => {
-                          setModoSelecaoMultipla(false);
-                          setContatosSelecionados([]);
-                          setBroadcastInterno(null);
-                        }}
-                        atendentes={atendentes}
-                        filterScope={filterScope}
-                        selectedIntegrationId={selectedIntegrationId}
-                        selectedAttendantId={selectedAttendantId}
-                        contatoAtivo={contatoAtivo} />
+                        <ChatWindow thread={threadAtiva} mensagens={mensagens} usuario={usuario}
+                          contatoPreCarregado={contatoPreCarregado} onEnviarMensagem={async () => {}}
+                          onSendMessageOptimistic={handleEnviarMensagemOtimista}
+                          onSendInternalMessageOptimistic={handleEnviarMensagemInternaOtimista}
+                          onShowContactInfo={() => setShowContactInfo(!showContactInfo)}
+                          onAtualizarMensagens={handleAtualizarMensagens} integracoes={integracoes}
+                          selectedCategoria={selectedCategoria} modoSelecaoMultipla={modoSelecaoMultipla}
+                          contatosSelecionados={contatosSelecionados} broadcastInterno={broadcastInterno}
+                          onCancelarSelecao={() => { setModoSelecaoMultipla(false); setContatosSelecionados([]); setBroadcastInterno(null); }}
+                          atendentes={atendentes} filterScope={filterScope} selectedIntegrationId={selectedIntegrationId}
+                          selectedAttendantId={selectedAttendantId} contatoAtivo={contatoAtivo} />
                       </div>
-
                       {showContactInfo && contatoAtivo &&
-                    <ContactInfoPanel
-                      contact={contatoAtivo}
-                      threadAtual={threadAtiva}
-                      onClose={() => setShowContactInfo(false)}
-                      onUpdate={handleAtualizarContato}
-                      atendentes={atendentes} />
-
-                    }
-                    </> :
-                  criandoNovoContato ?
-                  <>
-                      <EmptyState
-                      message={contactInitialData ? "Criar Contato do Cliente" : "Criar Novo Contato"}
-                      subtitle={contactInitialData ? `Cliente: ${contactInitialData.empresa || contactInitialData.nome}` : "Preencha as informações ao lado"} />
-
-                      
-                      <ContactInfoPanel
-                      contact={null}
-                      novoContatoTelefone={novoContatoTelefone}
-                      defaultValues={contactInitialData}
-                      onClose={() => {
-                        setCriandoNovoContato(false);
-                        setNovoContatoTelefone("");
-                        setShowContactInfo(false);
-                        setContactInitialData(null);
-                      }}
-                      onUpdate={handleCriarNovoContato}
-                      atendentes={atendentes} />
-
-                    </> :
-
-                  <EmptyState />
-                  }
+                        <ContactInfoPanel contact={contatoAtivo} threadAtual={threadAtiva}
+                          onClose={() => setShowContactInfo(false)} onUpdate={handleAtualizarContato}
+                          atendentes={atendentes} />}
+                    </>
+                  ) : criandoNovoContato ? (
+                    <>
+                      <EmptyState message={contactInitialData ? "Criar Contato do Cliente" : "Criar Novo Contato"}
+                        subtitle={contactInitialData ? `Cliente: ${contactInitialData.empresa || contactInitialData.nome}` : "Preencha as informações ao lado"} />
+                      <ContactInfoPanel contact={null} novoContatoTelefone={novoContatoTelefone}
+                        defaultValues={contactInitialData}
+                        onClose={() => { setCriandoNovoContato(false); setNovoContatoTelefone(""); setShowContactInfo(false); setContactInitialData(null); }}
+                        onUpdate={handleCriarNovoContato} atendentes={atendentes} />
+                    </>
+                  ) : <EmptyState />}
                 </div>
               </div>
+
+              {/* ── MOBILE: tela única alternante (lista ↔ chat) ── */}
+              <div className="flex md:hidden h-full flex-col">
+
+                {/* TELA: LISTA */}
+                {mobileView === 'lista' && (
+                  <div className="flex flex-col h-full bg-white">
+                    <SearchAndFilter
+                      searchTerm={searchTerm}
+                      onSearchChange={setSearchTerm}
+                      filterScope={filterScope}
+                      onFilterScopeChange={(val) => startTransition(() => setFilterScope(val))}
+                      selectedAttendantId={selectedAttendantId}
+                      onSelectedAttendantChange={setSelectedAttendantId}
+                      atendentes={atendentes}
+                      isManager={isManager}
+                      novoContatoTelefone={novoContatoTelefone}
+                      onNovoContatoTelefoneChange={setNovoContatoTelefone}
+                      onCreateContact={() => { setCriandoNovoContato(true); setThreadAtiva(null); setShowContactInfo(true); setMobileView('chat'); }}
+                      integracoes={integracoes}
+                      selectedIntegrationId={selectedIntegrationId}
+                      onSelectedIntegrationChange={setSelectedIntegrationId}
+                      selectedCategoria={selectedCategoria}
+                      onSelectedCategoriaChange={setSelectedCategoria}
+                      selectedTipoContato={selectedTipoContato}
+                      onSelectedTipoContatoChange={setSelectedTipoContato}
+                      selectedTagContato={selectedTagContato}
+                      onSelectedTagContatoChange={setSelectedTagContato}
+                      modoSelecaoMultipla={modoSelecaoMultipla}
+                      onModoSelecaoMultiplaChange={setModoSelecaoMultipla}
+                      isAdmin={usuario?.role === 'admin'}
+                      onAbrirDiagnostico={() => toast.info('💡 Use o Unificador Centralizado para corrigir duplicatas')}
+                      onDuplicataDetectada={setDuplicataEncontrada} />
+
+                    <div className={`flex-1 overflow-y-auto transition-opacity duration-200 ${isPendingFilter ? 'opacity-50' : 'opacity-100'}`}>
+                      <ChatSidebar
+                        threads={threadsParaExibir}
+                        threadAtiva={threadAtiva}
+                        onSelecionarThread={handleSelecionarThreadMobile}
+                        loading={loadingTopics}
+                        usuarioAtual={usuario}
+                        integracoes={integracoes}
+                        atendentes={atendentes}
+                        modoSelecaoMultipla={modoSelecaoMultipla}
+                        setModoSelecaoMultipla={setModoSelecaoMultipla}
+                        contatosSelecionados={contatosSelecionados}
+                        setContatosSelecionados={setContatosSelecionados}
+                        onSelectInternalDestinations={(sel) => { handleInternalSelection(sel); setMobileView('chat'); }} />
+                    </div>
+                  </div>
+                )}
+
+                {/* TELA: CHAT */}
+                {mobileView === 'chat' && (
+                  <div className="flex flex-col h-full">
+                    {/* Barra de voltar */}
+                    <div className="flex items-center gap-3 px-3 py-2 bg-slate-800 border-b border-slate-700 flex-shrink-0">
+                      <button
+                        onClick={handleVoltarListaMobile}
+                        className="flex items-center gap-2 text-white text-sm font-medium"
+                      >
+                        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+                        </svg>
+                        Conversas
+                      </button>
+                      {contatoAtivo && (
+                        <span className="text-slate-300 text-sm truncate flex-1">
+                          {contatoAtivo.nome}
+                        </span>
+                      )}
+                    </div>
+
+                    <div className="flex-1 overflow-hidden">
+                      {criandoNovoContato ? (
+                        <ContactInfoPanel contact={null} novoContatoTelefone={novoContatoTelefone}
+                          defaultValues={contactInitialData}
+                          onClose={() => { setCriandoNovoContato(false); setNovoContatoTelefone(""); setShowContactInfo(false); setContactInitialData(null); setMobileView('lista'); }}
+                          onUpdate={handleCriarNovoContato} atendentes={atendentes} />
+                      ) : threadAtiva || (modoSelecaoMultipla && (contatosSelecionados.length > 0 || broadcastInterno)) ? (
+                        <ChatWindow thread={threadAtiva} mensagens={mensagens} usuario={usuario}
+                          contatoPreCarregado={contatoPreCarregado} onEnviarMensagem={async () => {}}
+                          onSendMessageOptimistic={handleEnviarMensagemOtimista}
+                          onSendInternalMessageOptimistic={handleEnviarMensagemInternaOtimista}
+                          onShowContactInfo={() => setShowContactInfo(!showContactInfo)}
+                          onAtualizarMensagens={handleAtualizarMensagens} integracoes={integracoes}
+                          selectedCategoria={selectedCategoria} modoSelecaoMultipla={modoSelecaoMultipla}
+                          contatosSelecionados={contatosSelecionados} broadcastInterno={broadcastInterno}
+                          onCancelarSelecao={() => { setModoSelecaoMultipla(false); setContatosSelecionados([]); setBroadcastInterno(null); setMobileView('lista'); }}
+                          atendentes={atendentes} filterScope={filterScope} selectedIntegrationId={selectedIntegrationId}
+                          selectedAttendantId={selectedAttendantId} contatoAtivo={contatoAtivo} />
+                      ) : <EmptyState />}
+                    </div>
+                  </div>
+                )}
+              </div>
+
             </TabsContent>
 
             {/* TAB: CONTROLE OPERACIONAL - FILAS + SAÚDE + DASHBOARD CONSOLIDADO */}
