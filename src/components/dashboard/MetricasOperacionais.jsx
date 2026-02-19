@@ -83,14 +83,14 @@ export default function MetricasOperacionais({ dados, filtros, isGerente }) {
 
         {/* Performance Mensal */}
         <Card className="bg-gradient-to-br from-slate-900 to-slate-800 border-slate-700 text-white">
-          <CardHeader>
+          <CardHeader className="px-4 py-3 md:px-6 md:py-4">
             <CardTitle className="flex items-center gap-2 bg-gradient-to-r from-amber-400 to-orange-500 bg-clip-text text-transparent">
               <TrendingUp className="w-5 h-5 text-green-500" />
               Performance Mensal
             </CardTitle>
           </CardHeader>
-          <CardContent className="bg-slate-800/30 pt-4 pb-4 px-2">
-            <ResponsiveContainer width="100%" height={300}>
+          <CardContent className="bg-slate-800/30 pt-2 pb-4 px-2">
+            <ResponsiveContainer width="100%" height={220}>
               <AreaChart data={metricas.performanceMensal}>
                 <defs>
                   <linearGradient id="vendas" x1="0" y1="0" x2="0" y2="1">
