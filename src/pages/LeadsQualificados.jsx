@@ -455,25 +455,25 @@ export default function LeadsQualificados() {
               {/* TABS - scroll horizontal no mobile */}
               <TabsList className="bg-transparent h-9 p-0 gap-1 overflow-x-auto flex-wrap sm:flex-nowrap w-full sm:w-auto">
                 <TabsTrigger
-                  value="leads"
+                  value="orcamentos"
                   className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-orange-600 data-[state=active]:to-orange-500 data-[state=active]:text-white text-slate-300 h-9 px-2 sm:px-4 text-xs font-semibold whitespace-nowrap">
-                  <Target className="w-3 h-3 mr-1" />
-                  <span className="hidden sm:inline">Kanban de Gestão de </span>Leads
-                  <Badge variant="secondary" className="ml-1 bg-orange-100 text-orange-700 text-[10px] h-4">{leadsFiltrados.length}</Badge>
+                  <FileText className="w-3 h-3 mr-1" />
+                  Business ORÇAMENTOS
+                  <Badge variant="secondary" className="ml-1 bg-orange-100 text-orange-700 text-[10px] h-4">{orcamentos.length}</Badge>
                 </TabsTrigger>
                 <TabsTrigger
                   value="clientes"
                   className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-orange-600 data-[state=active]:to-orange-500 data-[state=active]:text-white text-slate-300 h-9 px-2 sm:px-4 text-xs font-semibold whitespace-nowrap">
                   <Users className="w-3 h-3 mr-1" />
-                  <span className="hidden sm:inline">Kanban de Gestão de </span>Clientes
+                  Gestão CLIENTES
                   <Badge variant="secondary" className="ml-1 bg-orange-100 text-orange-700 text-[10px] h-4">{clientesAtivos.length}</Badge>
                 </TabsTrigger>
                 <TabsTrigger
-                  value="orcamentos"
+                  value="leads"
                   className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-orange-600 data-[state=active]:to-orange-500 data-[state=active]:text-white text-slate-300 h-9 px-2 sm:px-4 text-xs font-semibold whitespace-nowrap">
-                  <FileText className="w-3 h-3 mr-1" />
-                  <span className="hidden sm:inline">Pipeline de </span>Orçamentos
-                  <Badge variant="secondary" className="ml-1 bg-orange-100 text-orange-700 text-[10px] h-4">{orcamentos.length}</Badge>
+                  <Target className="w-3 h-3 mr-1" />
+                  Qualifica LEADS
+                  <Badge variant="secondary" className="ml-1 bg-orange-100 text-orange-700 text-[10px] h-4">{leadsFiltrados.length}</Badge>
                 </TabsTrigger>
                 <TabsTrigger
                   value="nexus"
