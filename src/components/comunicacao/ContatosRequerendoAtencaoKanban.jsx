@@ -344,20 +344,20 @@ export default function ContatosRequerendoAtencaoKanban({ usuario, onSelecionarC
         </div>
 
         <div className="flex-1 min-w-0">
-          {/* Linha 1: Nome */}
+          {/* Linha 1: Nome - 14px (semibold) */}
           <div className="flex items-center justify-between mb-0.5">
             <h3 className="font-semibold truncate text-sm text-slate-900">
               {nomeExibicao}
             </h3>
           </div>
 
-          {/* Linha 2: Inatividade */}
+          {/* Linha 2: Inatividade - 12px (regular) */}
           <p className="text-xs text-slate-500 flex items-center gap-1 mb-1">
             <Clock className="w-3 h-3" />
-            {item.days_inactive_inbound || 0} dias sem responder
+            {item.days_inactive_inbound || 0}d sem responder
           </p>
 
-          {/* Linha 3: Badges */}
+          {/* Linha 3: Badges - 11px (semibold) */}
           <div className="flex items-center gap-1 flex-wrap">
             {/* Tipo Contato */}
             {(() => {
@@ -371,26 +371,26 @@ export default function ContatosRequerendoAtencaoKanban({ usuario, onSelecionarC
               };
               const cfg = tiposConfig[tipoContato] || tiposConfig['novo'];
               return (
-                <span className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-semibold text-white ${cfg.bg} shadow-sm`}>
+                <span className={`inline-flex items-center gap-0.5 px-1 py-0.5 rounded-full text-xs font-semibold text-white ${cfg.bg} shadow-sm`}>
                   {cfg.emoji} {cfg.label}
                 </span>
               );
             })()}
 
             {/* Prioridade */}
-            <Badge className={`${getPrioridadeCor(item.prioridadeLabel)} text-white text-[10px] px-1.5 py-0.5`}>
+            <Badge className={`${getPrioridadeCor(item.prioridadeLabel)} text-white text-xs px-1.5 py-0.5`}>
               {item.prioridadeLabel}
             </Badge>
 
             {/* Deal Risk */}
             {item.deal_risk > 0 && (
-              <Badge variant="outline" className="text-[10px] px-1.5 py-0.5 border-red-300 text-red-700">
-                Risco: {item.deal_risk}%
+              <Badge variant="outline" className="text-xs px-1 py-0.5 border-red-300 text-red-700">
+                Risco {item.deal_risk}%
               </Badge>
             )}
 
             {/* Atendente */}
-            <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-semibold text-white bg-indigo-500 shadow-sm">
+            <span className="inline-flex items-center gap-0.5 px-1 py-0.5 rounded-full text-xs font-semibold text-white bg-indigo-500 shadow-sm">
               <User className="w-3 h-3" />
               {atendenteNome.split(' ')[0]}
             </span>
@@ -495,7 +495,7 @@ export default function ContatosRequerendoAtencaoKanban({ usuario, onSelecionarC
                 <AlertTriangle className="w-4 h-4 text-white" />
               </div>
               <div>
-                <h2 className="font-bold text-sm text-slate-800">Contatos Urgentes</h2>
+                <h2 className="font-bold text-base text-slate-800">Contatos Urgentes</h2>
                 <p className="text-xs text-slate-500">{totalAlertas} requerem atenção</p>
               </div>
             </div>
@@ -505,14 +505,14 @@ export default function ContatosRequerendoAtencaoKanban({ usuario, onSelecionarC
                 disabled={loading || totalAlertas === 0}
                 className="h-7 text-xs bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white shadow-md disabled:opacity-50 px-3">
                 <Sparkles className="w-3.5 h-3.5 mr-1" />
-                Automático ({totalAlertas})
+                Automático
               </Button>
               <Button
                 onClick={abrirEnvioMassa}
                 disabled={contatosSelecionados.length === 0}
                 className="h-7 text-xs bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 text-white shadow-md disabled:opacity-50 px-3">
                 <MessageSquare className="w-3.5 h-3.5 mr-1" />
-                Massa ({contatosSelecionados.length})
+                Massa
               </Button>
               <Button
                 size="sm"
@@ -595,7 +595,7 @@ export default function ContatosRequerendoAtencaoKanban({ usuario, onSelecionarC
           <div className="flex-1 overflow-x-auto p-4 space-x-4 flex">
             {Object.entries(grupos).map(([nomeColuna, items]) => (
               <div key={nomeColuna} className="flex-shrink-0 w-72 rounded-lg overflow-hidden flex flex-col">
-                {/* Header da Coluna */}
+                {/* Header da Coluna - 14px */}
                 <div className="bg-gradient-to-r from-purple-600 to-indigo-600 px-4 py-3 rounded-t-lg shadow-md">
                   <div className="flex items-center justify-between gap-2">
                     <span className="text-sm font-bold text-white">{nomeColuna}</span>
@@ -606,7 +606,7 @@ export default function ContatosRequerendoAtencaoKanban({ usuario, onSelecionarC
                       {items.length > 0 && (
                         <button
                           onClick={() => toggleSelecionarGrupo(items)}
-                          className="text-white hover:bg-white/20 rounded px-2 py-1 transition-colors text-xs font-medium"
+                          className="text-white hover:bg-white/20 rounded px-2 py-1 transition-colors text-sm font-medium"
                         >
                           {items.every(i => contatosSelecionados.some(c => (c.contact_id || c.id) === (i.contact_id || i.id))) 
                             ? '❌' 
