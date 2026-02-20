@@ -42,6 +42,7 @@ import {
 "@/components/ui/dropdown-menu";
 import UsuarioDisplay from './UsuarioDisplay';
 import { sanitizeEmojis } from '../lib/emojiSanitizer';
+import EtiquetaFaseDialog from './EtiquetaFaseDialog';
 
 // Player de áudio: nativo + botão de velocidade
 const AudioPlayer = ({ src }) => {
