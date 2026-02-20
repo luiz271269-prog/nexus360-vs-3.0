@@ -2419,6 +2419,7 @@ export default function Comunicacao() {
   // 📱 MOBILE: controle de "tela" ativa (lista ou chat)
   const [mobileView, setMobileView] = React.useState('lista'); // 'lista' | 'chat'
   const [mostrarKanbanRequerAtencao, setMostrarKanbanRequerAtencao] = React.useState(false);
+  const [mostrarKanbanNaoAtribuidos, setMostrarKanbanNaoAtribuidos] = React.useState(false);
 
   // Quando selecionar thread no mobile, ir para tela de chat
   const handleSelecionarThreadMobile = React.useCallback(async (threadData) => {
