@@ -332,7 +332,7 @@ export default function MessageInput({
         </div>
       )}
 
-      {integracoes.length > 1 && !modoSelecaoMultipla && (
+      {integracoes.length > 1 && !modoSelecaoMultipla && thread?.thread_type === 'contact_external' && (
         <div className="mb-1 flex items-center gap-1 flex-wrap">
           <label className="text-gray-900 text-xs font-medium whitespace-nowrap">Enviar por:</label>
           <select
