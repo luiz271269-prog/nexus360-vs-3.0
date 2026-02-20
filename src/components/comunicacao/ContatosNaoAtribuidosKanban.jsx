@@ -226,7 +226,7 @@ export default function ContatosNaoAtribuidosKanban({ usuario, threads = [], onC
   return (
     <>
       <div className="flex h-full min-h-0 bg-slate-50">
-        <div className={`flex flex-col h-full min-h-0 transition-all ${chatAberto ? 'w-1/2' : 'w-full'}`}>
+        <div className={`flex flex-col h-full min-h-0 transition-all ${chatAberto ? 'w-96' : 'w-full'}`}>
           <div className="flex-shrink-0 bg-white border-b-2 border-slate-200 p-4 space-y-3">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
