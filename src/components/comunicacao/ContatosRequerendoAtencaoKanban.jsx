@@ -557,9 +557,35 @@ export default function ContatosRequerendoAtencaoKanban({ usuario, onSelecionarC
               </Button>
             </div>
 
-
-
-
+            {/* Filtro de Etiquetas */}
+            {etiquetasUnicas.length > 0 && (
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-[10px] font-semibold text-slate-600">⭐ Etiquetas Destaque</span>
+                <button
+                  onClick={() => setEtiquetaSelecionada(null)}
+                  className={`px-2 py-1 rounded-full text-[10px] font-medium transition-all ${
+                    !etiquetaSelecionada 
+                      ? 'bg-gradient-to-r from-indigo-500 to-blue-500 text-white' 
+                      : 'bg-slate-200 text-slate-700 hover:bg-slate-300'
+                  }`}
+                >
+                  Todas
+                </button>
+                {etiquetasUnicas.map(etq => (
+                  <button
+                    key={etq}
+                    onClick={() => setEtiquetaSelecionada(etiquetaSelecionada === etq ? null : etq)}
+                    className={`px-2 py-1 rounded-full text-[10px] font-medium transition-all flex items-center gap-0.5 ${
+                      etiquetaSelecionada === etq 
+                        ? 'bg-gradient-to-r from-purple-500 to-pink-500 text-white shadow-sm' 
+                        : 'bg-slate-200 text-slate-700 hover:bg-slate-300'
+                    }`}
+                  >
+                    🏷️ {etq}
+                  </button>
+                ))}
+              </div>
+            )}
 
 
           </div>
