@@ -176,7 +176,8 @@ export default function ChatSidebar({
   onSelectedIntegrationChange,
   filterScope,
   contatos = [], // Para ContatosRequerendoAtencao
-  onOpenKanbanRequerAtencao // Callback para abrir Kanban em tela cheia
+  onOpenKanbanRequerAtencao, // Callback para abrir Kanban em tela cheia
+  onOpenKanbanNaoAtribuidos // Callback para abrir Kanban de não atribuídos
 }) {
   // Estado local apenas para compatibilidade
   const modoSelecao = modoSelecaoMultipla;
