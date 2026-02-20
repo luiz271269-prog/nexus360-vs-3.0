@@ -383,23 +383,32 @@ export default function ChatWindow({
     norm(thread?.assigned_user_id) === norm(usuario?.id) ||
     norm(thread?.transfer_requested_user_id) === norm(usuario?.id);
 
+  // ✅ Threads internas NUNCA devem ser bloqueadas por permissões de instância WhatsApp
+  const isThreadInterna = thread?.thread_type === 'team_internal' || thread?.thread_type === 'sector_group';
+
   // Lógica de permissão: Atribuição/Transferência OVERRIDE permissões de instância
   // ✅ MODO BROADCAST/MASSA: Se está em seleção múltipla, libera com permissão geral
   const podeEnviarMensagens = isBroadcastInternoAtivo 
     ? temPermissaoGeralEnvio 
     : modoSelecaoMultipla 
     ? temPermissaoGeralEnvio
+    : isThreadInterna
+    ? temPermissaoGeralEnvio  // Internas: apenas permissão geral, sem checar instância
     : (isAtribuidaOuTransferida && temPermissaoGeralEnvio) || (podeInteragirNaThread && temPermissaoGeralEnvio && podeEnviarPorInstancia);
     
   const podeEnviarMidias = isBroadcastInternoAtivo 
     ? temPermissaoGeralMidia 
     : modoSelecaoMultipla
     ? temPermissaoGeralMidia
+    : isThreadInterna
+    ? temPermissaoGeralMidia
     : (isAtribuidaOuTransferida && temPermissaoGeralMidia) || (podeInteragirNaThread && temPermissaoGeralMidia && podeEnviarPorInstancia);
     
   const podeEnviarAudios = isBroadcastInternoAtivo 
     ? temPermissaoGeralAudio 
     : modoSelecaoMultipla
+    ? temPermissaoGeralAudio
+    : isThreadInterna
     ? temPermissaoGeralAudio
     : (isAtribuidaOuTransferida && temPermissaoGeralAudio) || (podeInteragirNaThread && temPermissaoGeralAudio && podeEnviarPorInstancia);
     
