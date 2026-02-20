@@ -1361,6 +1361,8 @@ export default React.memo(function MessageBubble({
         onFechar={() => setEtiquetaFaseDialog(null)}
         etiqueta={etiquetaFaseDialog}
         onConfirmar={handleConfirmarEtiquetaFase}
+        mensagem={message}
+        contato={contato}
       />
 
       <Dialog open={mostrarDialogEncaminhar} onOpenChange={setMostrarDialogEncaminhar}>
