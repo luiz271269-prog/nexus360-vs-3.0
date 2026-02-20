@@ -18,7 +18,8 @@ import {
   X,
   TrendingUp,
   ChevronDown,
-  ChevronRight
+  ChevronRight,
+  ArrowLeft
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useContatosInteligentes } from '../hooks/useContatosInteligentes';
@@ -26,6 +27,7 @@ import { base44 } from '@/api/base44Client';
 import { createPageUrl } from '@/utils';
 import ModalEnvioPromocoesAutomaticas from './ModalEnvioPromocoesAutomaticas';
 import DiagnosticoDiasInativos from './DiagnosticoDiasInativos';
+import ChatWindow from './ChatWindow';
 
 export default function ContatosRequerendoAtencaoKanban({ usuario, onSelecionarContato, onClose }) {
   const [agrupadoPor, setAgrupadoPor] = useState('bucket'); // bucket | prioridade
@@ -37,6 +39,11 @@ export default function ContatosRequerendoAtencaoKanban({ usuario, onSelecionarC
   const [contatoAnaliseAberto, setContatoAnaliseAberto] = useState(null);
   const [analiseCarregando, setAnaliseCarregando] = useState(false);
   const [dadosAnalise, setDadosAnalise] = useState(null);
+  
+  // ✅ Estado para abrir chat lateral
+  const [chatAberto, setChatAberto] = useState(null); // { thread, contato }
+  const [mensagensChat, setMensagensChat] = useState([]);
+  const [carregandoMensagens, setCarregandoMensagens] = useState(false);
 
   // ✅ Motor Unificado V3
   const {
@@ -302,9 +309,17 @@ export default function ContatosRequerendoAtencaoKanban({ usuario, onSelecionarC
             }, '-last_message_at', 1);
 
             if (threads && threads.length > 0) {
-              onSelecionarContato({
-                id: threads[0].id,
-                contatoPreCarregado: {
+              // ✅ Abrir chat lateral dentro do Kanban
+              setCarregandoMensagens(true);
+              const mensagens = await base44.entities.Message.filter(
+                { thread_id: threads[0].id },
+                '-sent_at',
+                200
+              );
+              
+              setChatAberto({
+                thread: threads[0],
+                contato: {
                   id: item.contact_id,
                   nome: item.nome,
                   empresa: item.empresa,
@@ -313,12 +328,14 @@ export default function ContatosRequerendoAtencaoKanban({ usuario, onSelecionarC
                   vendedor_responsavel: item.vendedor_responsavel
                 }
               });
-              toast.success('✅ Conversa aberta!');
+              setMensagensChat(mensagens.reverse());
+              setCarregandoMensagens(false);
             } else {
               toast.error('❌ Conversa não disponível');
             }
           } catch (error) {
             toast.error(`❌ ${error.message}`);
+            setCarregandoMensagens(false);
           }
         }}
         className={`px-2 py-2 flex items-center gap-3 cursor-pointer transition-all border-b border-slate-100 hover:bg-gradient-to-r hover:from-amber-50 hover:to-orange-50 ${
@@ -475,7 +492,9 @@ export default function ContatosRequerendoAtencaoKanban({ usuario, onSelecionarC
         </>
       )}
 
-      <div className="flex flex-col h-full min-h-0 bg-slate-50">
+      <div className="flex h-full min-h-0 bg-slate-50">
+        {/* ✅ KANBAN COLUMNS */}
+        <div className={`flex flex-col h-full min-h-0 transition-all ${chatAberto ? 'w-1/2' : 'w-full'}`}>
         {/* ✅ HEADER COM CONTROLES */}
         <div className="flex-shrink-0 bg-white border-b-2 border-slate-200 p-4 space-y-3">
           {/* Título */}
@@ -632,6 +651,74 @@ export default function ContatosRequerendoAtencaoKanban({ usuario, onSelecionarC
           </div>
         )}
       </div>
+
+      {/* ✅ CHAT LATERAL */}
+      {chatAberto && (
+        <div className="w-1/2 border-l border-slate-200 bg-white flex flex-col overflow-hidden">
+          {/* Header do Chat */}
+          <div className="flex-shrink-0 bg-gradient-to-r from-slate-800 to-slate-700 px-4 py-3 flex items-center justify-between border-b border-slate-600">
+            <div className="flex items-center gap-3 min-w-0">
+              <Button
+                onClick={() => setChatAberto(null)}
+                variant="ghost"
+                size="sm"
+                className="h-8 w-8 p-0 hover:bg-white/20 text-white flex-shrink-0"
+              >
+                <ArrowLeft className="w-4 h-4" />
+              </Button>
+              <div className="w-10 h-10 rounded-full flex items-center justify-center text-white font-bold text-lg shadow-md bg-gradient-to-br from-amber-400 via-orange-500 to-red-500 flex-shrink-0">
+                {chatAberto.contato.nome?.charAt(0)?.toUpperCase() || '?'}
+              </div>
+              <div className="min-w-0">
+                <h3 className="font-semibold text-white text-sm truncate">
+                  {chatAberto.contato.empresa || chatAberto.contato.nome}
+                </h3>
+                <p className="text-xs text-slate-300 truncate">
+                  {chatAberto.contato.cargo ? `${chatAberto.contato.cargo} - ` : ''}{chatAberto.contato.nome}
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Chat Window */}
+          {carregandoMensagens ? (
+            <div className="flex-1 flex items-center justify-center">
+              <Loader2 className="w-8 h-8 animate-spin text-orange-500" />
+            </div>
+          ) : (
+            <ChatWindow
+              thread={chatAberto.thread}
+              mensagens={mensagensChat}
+              usuario={usuario}
+              contatoPreCarregado={chatAberto.contato}
+              onEnviarMensagem={async () => {}}
+              onSendMessageOptimistic={async () => {}}
+              onSendInternalMessageOptimistic={async () => {}}
+              onShowContactInfo={() => {}}
+              onAtualizarMensagens={async () => {
+                const mensagens = await base44.entities.Message.filter(
+                  { thread_id: chatAberto.thread.id },
+                  '-sent_at',
+                  200
+                );
+                setMensagensChat(mensagens.reverse());
+              }}
+              integracoes={[]}
+              selectedCategoria="all"
+              modoSelecaoMultipla={false}
+              contatosSelecionados={[]}
+              broadcastInterno={null}
+              onCancelarSelecao={() => {}}
+              atendentes={[]}
+              filterScope="all"
+              selectedIntegrationId="all"
+              selectedAttendantId={null}
+              contatoAtivo={chatAberto.contato}
+            />
+          )}
+        </div>
+      )}
+    </div>
     </>
   );
 }
