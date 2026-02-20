@@ -2645,7 +2645,7 @@ export default function Comunicacao() {
                   </div>
                 </div>
 
-                <div className={`flex overflow-hidden ${sidebarViewMode === 'kanban' ? 'flex-1 min-h-0' : 'flex-1'}`}>
+                <div className="flex-1 flex overflow-hidden">
                   {modoEnvioMassa && contatosParaEnvioMassa.length > 0 ? (
                     <ChatWindow thread={null} mensagens={[]} usuario={usuario} contatoPreCarregado={null}
                       onEnviarMensagem={async () => {}} onSendMessageOptimistic={handleEnviarMensagemOtimista}
