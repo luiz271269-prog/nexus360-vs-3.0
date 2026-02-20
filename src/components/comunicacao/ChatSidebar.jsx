@@ -450,7 +450,9 @@ export default function ChatSidebar({
               Agenda
             </Button>
           </div>
-          
+
+          <div className="h-px bg-purple-300/30 my-1.5" />
+
           {/* ✅ BOTÕES AÇÃO - Não Atribuídos + Contatos Parados */}
            <div className="flex gap-1">
              {onOpenKanbanNaoAtribuidos && (() => {
