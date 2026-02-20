@@ -14,6 +14,7 @@ Deno.serve(async (req) => {
       cliente_telefone,
       cliente_email,
       vendedor,
+      status,
       valor_total,
       produtos,
       observacoes,
