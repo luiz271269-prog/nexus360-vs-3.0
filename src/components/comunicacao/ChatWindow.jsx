@@ -1322,6 +1322,8 @@ export default function ChatWindow({
       }
 
       if (onSendInternalMessageOptimistic) {
+        // ✅ Marcar como lida ao responder (interno)
+        marcarLidaAoResponder();
         onSendInternalMessageOptimistic({
           texto,
           pastedImage,
