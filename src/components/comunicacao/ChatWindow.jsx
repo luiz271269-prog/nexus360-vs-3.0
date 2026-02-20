@@ -1300,47 +1300,6 @@ export default function ChatWindow({
     })();
   }, [podeEnviarMidias, modoSelecaoMultipla, contatosSelecionados, broadcastInterno, handleEnviarBroadcast, thread, usuario, contatoCompleto, canalSelecionado, mensagemResposta, onAtualizarMensagens, autoAtribuirThreadSeNecessario]);
 
-  const marcarComoLidaMutation = useMutation({
-    mutationFn: async () => {
-      if (!thread) return;
-
-      if (thread.thread_type === 'team_internal' || thread.thread_type === 'sector_group') {
-        await base44.functions.invoke('markThreadAsRead', { thread_id: thread.id });
-        return;
-      }
-
-      const mensagensNaoLidas = mensagens.filter(
-        (m) => m.sender_type === 'contact' && m.status !== 'lida' && m.status !== 'apagada'
-      );
-      if (mensagensNaoLidas.length === 0) return;
-
-      for (const msg of mensagensNaoLidas) {
-        await base44.entities.Message.update(msg.id, { status: 'lida', read_at: new Date().toISOString() });
-      }
-      if (thread.unread_count > 0) {
-        await base44.entities.MessageThread.update(thread.id, { unread_count: 0 });
-      }
-    },
-    onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ['threads'] });
-      if (onAtualizarMensagens) onAtualizarMensagens();
-    },
-    onError: (error) => {
-      console.error('[CHAT] ❌ Erro ao marcar como lida:', error);
-    }
-  });
-
-  const marcarLidaAoResponder = React.useCallback(() => {
-    if (!thread) return;
-    const temNaoLidas =
-      (thread.thread_type === 'team_internal' || thread.thread_type === 'sector_group')
-        ? (thread.unread_by?.[usuario?.id] || 0) > 0
-        : (thread.unread_count || 0) > 0;
-    if (temNaoLidas && !marcarComoLidaMutation.isPending) {
-      marcarComoLidaMutation.mutate();
-    }
-  }, [thread, usuario?.id, marcarComoLidaMutation]);
-
   // 🚀 HANDLER DE ENVIO - Recebe dados do MessageInput
   const handleEnviarFromInput = React.useCallback(async ({ texto, pastedImage, pastedImagePreview, attachedFile, attachedFileType }) => {
     // ═══════════════════════════════════════════════════════════════════════
