@@ -29,7 +29,7 @@ import WebhookInstructions from "../components/comunicacao/WebhookInstructions";
 import ErrorBoundary from "../components/comunicacao/ErrorBoundary";
 import NotificationSystem from "../components/comunicacao/NotificationSystem";
 import ContadorNaoAtribuidas from "../components/comunicacao/ContadorNaoAtribuidas";
-import ContatosRequerendoAtencao from "../components/comunicacao/ContatosRequerendoAtencao";
+import ContatosRequerendoAtencaoKanban from "../components/comunicacao/ContatosRequerendoAtencaoKanban";
 import { useDebounce } from "../components/lib/useDebounce";
 import { normalizarTelefone } from "../components/lib/phoneUtils";
 import {
@@ -2418,6 +2418,7 @@ export default function Comunicacao() {
 
   // 📱 MOBILE: controle de "tela" ativa (lista ou chat)
   const [mobileView, setMobileView] = React.useState('lista'); // 'lista' | 'chat'
+  const [mostrarKanbanRequerAtencao, setMostrarKanbanRequerAtencao] = React.useState(false);
 
   // Quando selecionar thread no mobile, ir para tela de chat
   const handleSelecionarThreadMobile = React.useCallback(async (threadData) => {
@@ -2551,7 +2552,16 @@ export default function Comunicacao() {
           <div className="flex-1 overflow-hidden min-h-0">
             {/* TAB: CONVERSAS */}
             <TabsContent value="conversas" className="h-full m-0 p-0">
-
+              {mostrarKanbanRequerAtencao ? (
+                <ContatosRequerendoAtencaoKanban
+                  usuario={usuario}
+                  onSelecionarContato={(t) => {
+                    handleSelecionarThread(t);
+                    setMostrarKanbanRequerAtencao(false);
+                  }}
+                />
+              ) : (
+              <>
               {/* ── DESKTOP: layout lado a lado ── */}
               <div className="hidden md:flex h-full">
                 <div className={`border-r border-slate-200 bg-white flex flex-col overflow-hidden flex-shrink-0 ${sidebarViewMode === 'kanban' ? (threadAtiva ? 'w-72' : 'w-full') : 'w-80'}`}>
@@ -2742,15 +2752,28 @@ export default function Comunicacao() {
                   <div className="flex flex-col h-full min-h-0">
                     {/* Barra de voltar */}
                     <div className="flex items-center gap-3 px-3 py-2 bg-slate-800 border-b border-slate-700 flex-shrink-0 safe-area-inset-top">
-                      <button
-                        onClick={handleVoltarListaMobile}
-                        className="flex items-center gap-2 text-white text-sm font-medium"
-                      >
-                        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
-                        </svg>
-                        Conversas
-                      </button>
+                      {mostrarKanbanRequerAtencao && (
+                        <button
+                          onClick={() => setMostrarKanbanRequerAtencao(false)}
+                          className="flex items-center gap-2 text-white text-sm font-medium"
+                        >
+                          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+                          </svg>
+                          Voltar
+                        </button>
+                      )}
+                      {!mostrarKanbanRequerAtencao && (
+                        <button
+                          onClick={handleVoltarListaMobile}
+                          className="flex items-center gap-2 text-white text-sm font-medium"
+                        >
+                          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+                          </svg>
+                          Conversas
+                        </button>
+                      )}
                       {contatoAtivo && (
                         <span className="text-slate-300 text-sm truncate flex-1">
                           {contatoAtivo.nome}
@@ -2759,7 +2782,15 @@ export default function Comunicacao() {
                     </div>
 
                     <div className="flex-1 overflow-hidden min-h-0">
-                      {criandoNovoContato ? (
+                       {mostrarKanbanRequerAtencao ? (
+                         <ContatosRequerendoAtencaoKanban
+                           usuario={usuario}
+                           onSelecionarContato={(t) => {
+                             handleSelecionarThread(t);
+                             setMostrarKanbanRequerAtencao(false);
+                           }}
+                         />
+                       ) : criandoNovoContato ? (
                         <ContactInfoPanel contact={null} novoContatoTelefone={novoContatoTelefone}
                           defaultValues={contactInitialData}
                           onClose={() => { setCriandoNovoContato(false); setNovoContatoTelefone(""); setShowContactInfo(false); setContactInitialData(null); setMobileView('lista'); }}

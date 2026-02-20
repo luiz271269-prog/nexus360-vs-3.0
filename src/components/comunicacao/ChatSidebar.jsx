@@ -464,19 +464,18 @@ export default function ChatSidebar({
                 variant="sidebar"
               />
             )}
-            <Button
-              onClick={() => {
-                // Mostrar Kanban em tela cheia
-                const modal = document.createElement('div');
-                modal.id = 'kanban-modal-requer-atencao';
-                modal.className = 'fixed inset-0 z-50 bg-slate-50 overflow-auto';
-                document.body.appendChild(modal);
-              }}
-              className="bg-gradient-to-r from-red-500 to-orange-600 hover:from-red-600 hover:to-orange-700 text-white border-0 h-7 text-[10px] px-2 flex items-center gap-1.5 font-semibold shadow-md w-full justify-center"
-            >
-              <AlertTriangle className="w-3.5 h-3.5" />
-              <span>Requer Atenção</span>
-            </Button>
+            <div className="flex gap-1 w-full">
+              {contatos && (
+                <ContatosRequerendoAtencao 
+                  usuario={usuarioAtual} 
+                  contatos={contatos}
+                  onSelecionarContato={(t) => {
+                    onSelecionarThread(t);
+                  }}
+                  variant="sidebar"
+                />
+              )}
+            </div>
           </div>
         </div>
       )}
