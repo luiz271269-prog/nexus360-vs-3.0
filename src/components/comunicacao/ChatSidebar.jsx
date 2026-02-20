@@ -449,36 +449,18 @@ export default function ChatSidebar({
             </Button>
           </div>
           
-          {/* ✅ BOTÕES AÇÃO - Não Atribuídas + Requer Atenção */}
-          <div className="grid grid-cols-2 gap-1">
-            {onFilterScopeChange && onSelectedIntegrationChange && (
-              <ContadorNaoAtribuidas 
-                threads={threads} 
-                integracoes={integracoes} 
-                usuario={usuarioAtual}
-                onClickVerFila={() => onFilterScopeChange('unassigned')}
-                onClickConexao={(id) => {
-                  onFilterScopeChange('unassigned');
-                  onSelectedIntegrationChange(id);
-                }}
-                className="shadow-sm"
-                variant="sidebar"
-              />
-            )}
-            <div className="flex gap-1 w-full">
-              {contatos && onOpenKanbanRequerAtencao && (
-                <ContatosRequerendoAtencao 
-                  usuario={usuarioAtual} 
-                  contatos={contatos}
-                  onSelecionarContato={(t) => {
-                    onSelecionarThread(t);
-                  }}
-                  onOpenKanban={() => onOpenKanbanRequerAtencao()}
-                  variant="sidebar"
-                />
-              )}
-            </div>
-          </div>
+          {/* ✅ BOTÃO - Requer Atenção */}
+          {contatos && onOpenKanbanRequerAtencao && (
+            <ContatosRequerendoAtencao 
+              usuario={usuarioAtual} 
+              contatos={contatos}
+              onSelecionarContato={(t) => {
+                onSelecionarThread(t);
+              }}
+              onOpenKanban={() => onOpenKanbanRequerAtencao()}
+              variant="sidebar"
+            />
+          )}
         </div>
       )}
 
