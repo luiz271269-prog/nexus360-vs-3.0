@@ -1421,7 +1421,7 @@ export default function ChatWindow({
     } else {
       toast.error("Nenhum método de envio de mensagem configurado.");
     }
-  }, [modoSelecaoMultipla, contatosSelecionados, broadcastInterno, handleEnviarBroadcast, thread, contatoCompleto, autoAtribuirThreadSeNecessario, usuario, canalSelecionado, mensagemResposta, onSendMessageOptimistic, onEnviarMensagem, enviarImagemColada, enviarArquivoAnexado]);
+  }, [modoSelecaoMultipla, contatosSelecionados, broadcastInterno, handleEnviarBroadcast, thread, contatoCompleto, autoAtribuirThreadSeNecessario, usuario, canalSelecionado, mensagemResposta, onSendMessageOptimistic, onEnviarMensagem, enviarImagemColada, enviarArquivoAnexado, marcarLidaAoResponder]);
 
   const handleResponderMensagem = React.useCallback((mensagem) => {
     setMensagemResposta(mensagem);
