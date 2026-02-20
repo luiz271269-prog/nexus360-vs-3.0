@@ -1565,12 +1565,17 @@ export default function ChatWindow({
     }
   });
 
-  // ✅ REMOVIDO: Marcação automática como lida (deixar manual via botão)
-  // useEffect(() => {
-  //   if (!thread || !usuario || !mensagens.length) return;
-  //   if (marcarComoLidaMutation.isPending) return;
-  //   marcarComoLidaMutation.mutate();
-  // }, [thread?.id, mensagens.length, usuario?.id]);
+  // ✅ Marcar como lida silenciosamente ao enviar qualquer mensagem
+  const marcarLidaAoResponder = React.useCallback(() => {
+    if (!thread) return;
+    const temNaoLidas = 
+      (thread.thread_type === 'team_internal' || thread.thread_type === 'sector_group')
+        ? (thread.unread_by?.[usuario?.id] || 0) > 0
+        : (thread.unread_count || 0) > 0;
+    if (temNaoLidas && !marcarComoLidaMutation.isPending) {
+      marcarComoLidaMutation.mutate();
+    }
+  }, [thread, usuario?.id, marcarComoLidaMutation]);
 
   // ✅ Foco automático removido - agora é responsabilidade do MessageInput
 
