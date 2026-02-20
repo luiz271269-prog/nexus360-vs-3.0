@@ -118,6 +118,9 @@ export default function Comunicacao() {
 
   // Estados para seleção múltipla (broadcast)
   const [modoSelecaoMultipla, setModoSelecaoMultipla] = React.useState(false);
+  const [sidebarViewMode, setSidebarViewMode] = React.useState(() =>
+    typeof window !== 'undefined' ? (localStorage.getItem('sidebarViewMode') || 'list') : 'list'
+  );
   const [contatosSelecionados, setContatosSelecionados] = React.useState([]);
   const [mostrarSelecionados, setMostrarSelecionados] = React.useState(false);
   const [modoEnvioMassa, setModoEnvioMassa] = React.useState(false);
