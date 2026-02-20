@@ -458,12 +458,14 @@ export default function ChatSidebar({
                return (
                  <Button
                    onClick={() => onOpenKanbanNaoAtribuidos()}
-                   className="flex-1 bg-gradient-to-r from-red-500 to-orange-600 hover:from-red-600 hover:to-orange-700 text-white border-0 h-7 text-[10px] px-2 flex items-center gap-1.5 font-semibold shadow-md relative"
+                   className="flex-1 bg-gradient-to-r from-red-500 to-orange-600 hover:from-red-600 hover:to-orange-700 text-white border-0 h-7 text-[10px] px-2 flex items-center justify-between font-semibold shadow-md"
                  >
-                   <AlertTriangle className="w-3.5 h-3.5" />
-                   <span>Não Atrib.</span>
+                   <span className="flex items-center gap-1.5">
+                     <AlertTriangle className="w-3.5 h-3.5" />
+                     <span>Não Atribuídos</span>
+                   </span>
                    {naoAtribuidos > 0 && (
-                     <Badge className="bg-white text-red-600 text-[9px] font-bold px-1.5 h-5 min-w-5 flex items-center justify-center rounded-full">
+                     <Badge className="bg-white text-red-600 text-[9px] font-bold px-1.5 h-5 min-w-5 flex items-center justify-center rounded-full ml-1">
                        {naoAtribuidos}
                      </Badge>
                    )}
@@ -483,12 +485,14 @@ export default function ChatSidebar({
                return (
                  <Button
                    onClick={() => onOpenKanbanRequerAtencao()}
-                   className="flex-1 bg-gradient-to-r from-red-500 to-orange-600 hover:from-red-600 hover:to-orange-700 text-white border-0 h-7 text-[10px] px-2 flex items-center gap-1.5 font-semibold shadow-md relative"
+                   className="flex-1 bg-gradient-to-r from-red-500 to-orange-600 hover:from-red-600 hover:to-orange-700 text-white border-0 h-7 text-[10px] px-2 flex items-center justify-between font-semibold shadow-md"
                  >
-                   <AlertTriangle className="w-3.5 h-3.5" />
-                   <span>Parados</span>
+                   <span className="flex items-center gap-1.5">
+                     <AlertTriangle className="w-3.5 h-3.5" />
+                     <span>Contatos Parados</span>
+                   </span>
                    {threadsComProblema > 0 && (
-                     <Badge className="bg-white text-red-600 text-[9px] font-bold px-1.5 h-5 min-w-5 flex items-center justify-center rounded-full">
+                     <Badge className="bg-white text-red-600 text-[9px] font-bold px-1.5 h-5 min-w-5 flex items-center justify-center rounded-full ml-1">
                        {threadsComProblema}
                      </Badge>
                    )}
