@@ -2643,7 +2643,7 @@ export default function Comunicacao() {
                           onSelectedIntegrationChange={setSelectedIntegrationId}
                           filterScope={filterScope}
                           contatos={contatos}
-                          onOpenKanbanNaoAtribuidos={() => toast.info('Contatos não atribuídos em breve')}
+                          onOpenKanbanNaoAtribuidos={() => setMostrarKanbanNaoAtribuidos(true)}
                           onOpenKanbanRequerAtencao={() => setMostrarKanbanRequerAtencao(true)} />
                       </div>
                     )}
