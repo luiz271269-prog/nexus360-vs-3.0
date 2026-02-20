@@ -194,7 +194,18 @@ export default function ContatosNaoAtribuidosKanban({ usuario, threads = [], onC
            </div>
 
            <p className="text-xs text-slate-500 truncate mb-0.5 flex items-center gap-1">
-             <Clock className="w-3 h-3 flex-shrink-0" />
+             {(() => {
+               if (thread.last_message_sender === 'user') {
+                 if (thread.read_at) {
+                   return <span className="text-blue-600 font-bold">✓✓</span>;
+                 } else if (thread.delivered_at) {
+                   return <span className="text-slate-400">✓</span>;
+                 } else {
+                   return <span className="text-slate-400">📤</span>;
+                 }
+               }
+               return <Clock className="w-3 h-3 flex-shrink-0" />;
+             })()}
              {formatarDataUltimaMensagem(thread.last_inbound_at || thread.last_message_at)}
            </p>
 
