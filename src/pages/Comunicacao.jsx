@@ -2621,6 +2621,7 @@ export default function Comunicacao() {
                         threads={threadsParaExibir}
                         threadAtiva={threadAtiva}
                         onSelecionarThread={handleSelecionarThread}
+                        onVoltar={() => setThreadAtiva(null)}
                         usuarioAtual={usuario}
                         integracoes={integracoes}
                         atendentes={atendentes}
