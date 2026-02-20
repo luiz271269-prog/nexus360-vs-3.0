@@ -174,7 +174,8 @@ export default function ChatSidebar({
   onFilterScopeChange,
   onSelectedIntegrationChange,
   filterScope,
-  contatos = [] // Para ContatosRequerendoAtencao
+  contatos = [], // Para ContatosRequerendoAtencao
+  onOpenKanbanRequerAtencao // Callback para abrir Kanban em tela cheia
 }) {
   // Estado local apenas para compatibilidade
   const modoSelecao = modoSelecaoMultipla;
@@ -465,13 +466,14 @@ export default function ChatSidebar({
               />
             )}
             <div className="flex gap-1 w-full">
-              {contatos && (
+              {contatos && onOpenKanbanRequerAtencao && (
                 <ContatosRequerendoAtencao 
                   usuario={usuarioAtual} 
                   contatos={contatos}
                   onSelecionarContato={(t) => {
                     onSelecionarThread(t);
                   }}
+                  onOpenKanban={() => onOpenKanbanRequerAtencao()}
                   variant="sidebar"
                 />
               )}

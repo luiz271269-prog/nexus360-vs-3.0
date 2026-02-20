@@ -2640,7 +2640,8 @@ export default function Comunicacao() {
                           onFilterScopeChange={setFilterScope}
                           onSelectedIntegrationChange={setSelectedIntegrationId}
                           filterScope={filterScope}
-                          contatos={contatos} />
+                          contatos={contatos}
+                          onOpenKanbanRequerAtencao={() => setMostrarKanbanRequerAtencao(true)} />
                       </div>
                     )}
                   </div>
@@ -2742,7 +2743,8 @@ export default function Comunicacao() {
                         onFilterScopeChange={setFilterScope}
                         onSelectedIntegrationChange={setSelectedIntegrationId}
                         filterScope={filterScope}
-                        contatos={contatos} />
+                        contatos={contatos}
+                        onOpenKanbanRequerAtencao={() => { setMostrarKanbanRequerAtencao(true); setMobileView('chat'); }} />
                     </div>
                   </div>
                 )}
