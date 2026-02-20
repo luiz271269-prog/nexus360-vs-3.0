@@ -2796,16 +2796,25 @@ export default function Comunicacao() {
                     </div>
 
                     <div className="flex-1 overflow-hidden min-h-0">
-                       {mostrarKanbanRequerAtencao ? (
-                         <ContatosRequerendoAtencaoKanban
-                           usuario={usuario}
-                           onSelecionarContato={(t) => {
-                             handleSelecionarThread(t);
-                             setMostrarKanbanRequerAtencao(false);
-                           }}
-                           onClose={() => setMostrarKanbanRequerAtencao(false)}
-                         />
-                       ) : criandoNovoContato ? (
+                       {mostrarKanbanNaoAtribuidos ? (
+                          <ContatosNaoAtribuidosKanban
+                            usuario={usuario}
+                            onSelecionarContato={(t) => {
+                              handleSelecionarThread(t);
+                              setMostrarKanbanNaoAtribuidos(false);
+                            }}
+                            onClose={() => setMostrarKanbanNaoAtribuidos(false)}
+                          />
+                        ) : mostrarKanbanRequerAtencao ? (
+                          <ContatosRequerendoAtencaoKanban
+                            usuario={usuario}
+                            onSelecionarContato={(t) => {
+                              handleSelecionarThread(t);
+                              setMostrarKanbanRequerAtencao(false);
+                            }}
+                            onClose={() => setMostrarKanbanRequerAtencao(false)}
+                          />
+                        ) : criandoNovoContato ? (
                         <ContactInfoPanel contact={null} novoContatoTelefone={novoContatoTelefone}
                           defaultValues={contactInitialData}
                           onClose={() => { setCriandoNovoContato(false); setNovoContatoTelefone(""); setShowContactInfo(false); setContactInitialData(null); setMobileView('lista'); }}
