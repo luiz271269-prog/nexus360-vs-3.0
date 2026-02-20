@@ -28,6 +28,8 @@ import {
   CalendarCheck
 } from "lucide-react";
 import InternalMessageComposer from "./InternalMessageComposer";
+import ContadorNaoAtribuidas from "./ContadorNaoAtribuidas";
+import ContatosRequerendoAtencao from "./ContatosRequerendoAtencao";
 import { Badge } from "@/components/ui/badge";
 import { motion } from "framer-motion";
 import { format } from "date-fns";
