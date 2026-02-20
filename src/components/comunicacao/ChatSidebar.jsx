@@ -463,7 +463,7 @@ export default function ChatSidebar({
                    <AlertTriangle className="w-3.5 h-3.5" />
                    <span>Não Atrib.</span>
                    {naoAtribuidos > 0 && (
-                     <Badge className="absolute -top-2 -right-2 bg-white text-red-600 text-[9px] font-bold px-1.5 h-5 min-w-5 flex items-center justify-center rounded-full shadow-lg">
+                     <Badge className="bg-white text-red-600 text-[9px] font-bold px-1.5 h-5 min-w-5 flex items-center justify-center rounded-full">
                        {naoAtribuidos}
                      </Badge>
                    )}
@@ -488,7 +488,7 @@ export default function ChatSidebar({
                    <AlertTriangle className="w-3.5 h-3.5" />
                    <span>Parados</span>
                    {threadsComProblema > 0 && (
-                     <Badge className="absolute -top-2 -right-2 bg-white text-red-600 text-[9px] font-bold px-1.5 h-5 min-w-5 flex items-center justify-center rounded-full shadow-lg">
+                     <Badge className="bg-white text-red-600 text-[9px] font-bold px-1.5 h-5 min-w-5 flex items-center justify-center rounded-full">
                        {threadsComProblema}
                      </Badge>
                    )}
