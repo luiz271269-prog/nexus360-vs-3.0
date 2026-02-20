@@ -2648,6 +2648,21 @@ export default function Comunicacao() {
 
 
 
+                {/* Botão Voltar ao Kanban — só aparece no modo kanban com conversa ativa */}
+                {sidebarViewMode === 'kanban' && threadAtiva && (
+                  <div className="absolute top-0 left-0 z-10 hidden md:flex items-center px-2 py-1.5 bg-slate-800 border-b border-slate-700 w-72">
+                    <button
+                      onClick={() => setThreadAtiva(null)}
+                      className="flex items-center gap-1.5 text-white text-xs font-medium hover:text-amber-400 transition-colors"
+                    >
+                      <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+                      </svg>
+                      Voltar ao Kanban
+                    </button>
+                  </div>
+                )}
+
                 <div className="flex-1 flex overflow-hidden">
                   {modoEnvioMassa && contatosParaEnvioMassa.length > 0 ? (
                     <ChatWindow thread={null} mensagens={[]} usuario={usuario} contatoPreCarregado={null}
