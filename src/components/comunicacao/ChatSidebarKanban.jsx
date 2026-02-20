@@ -180,53 +180,48 @@ export default function ChatSidebarKanban({ threads, threadAtiva, onSelecionarTh
           </button>
         </div>
       )}
-    <div className="flex gap-2 flex-1 overflow-x-auto p-2 bg-slate-100 min-h-0">
-      {colunas.map(coluna => {
-        const totalNaoLidas = coluna.threads.reduce((sum, t) => sum + getUnreadCount(t, usuarioAtual?.id), 0);
-        const headerCor = corConfig[coluna.cor] || 'bg-slate-600';
-        const dotCor = statusDot[coluna.status] || 'bg-slate-400';
+      <div className="flex gap-2 flex-1 overflow-x-auto p-2 bg-slate-100 min-h-0">
+        {colunas.map(coluna => {
+          const totalNaoLidas = coluna.threads.reduce((sum, t) => sum + getUnreadCount(t, usuarioAtual?.id), 0);
+          const headerCor = corConfig[coluna.cor] || 'bg-slate-600';
+          const dotCor = statusDot[coluna.status] || 'bg-slate-400';
 
-        return (
-          <div key={coluna.id} className="flex flex-col flex-shrink-0 w-52 min-w-[200px] bg-slate-50 rounded-xl border border-slate-200 overflow-hidden shadow-sm">
-            {/* Header da coluna */}
-            <div className={`${headerCor} px-3 py-2 flex items-center justify-between`}>
-              <div className="flex items-center gap-1.5 min-w-0">
-                <div className={`w-2 h-2 rounded-full flex-shrink-0 ${dotCor}`} />
-                <span className="text-white font-semibold text-xs truncate">{coluna.nome}</span>
-              </div>
-              <div className="flex items-center gap-1 flex-shrink-0">
-                {totalNaoLidas > 0 && (
-                  <Badge className="rounded-full min-w-[18px] h-4 flex items-center justify-center p-0 px-1 bg-white/30 text-white text-[9px] font-bold border-0">
-                    {totalNaoLidas}
-                  </Badge>
-                )}
-                <span className="text-white/70 text-[9px]">{coluna.threads.length}</span>
-              </div>
-            </div>
-
-            {/* Cards */}
-            <div className="flex-1 overflow-y-auto p-1.5 space-y-1.5">
-              {coluna.threads.length === 0 ? (
-                <div className="text-center py-8 text-slate-400 text-xs">
-                  Sem conversas
+          return (
+            <div key={coluna.id} className="flex flex-col flex-shrink-0 w-52 min-w-[200px] bg-slate-50 rounded-xl border border-slate-200 overflow-hidden shadow-sm">
+              <div className={`${headerCor} px-3 py-2 flex items-center justify-between`}>
+                <div className="flex items-center gap-1.5 min-w-0">
+                  <div className={`w-2 h-2 rounded-full flex-shrink-0 ${dotCor}`} />
+                  <span className="text-white font-semibold text-xs truncate">{coluna.nome}</span>
                 </div>
-              ) : (
-                coluna.threads.map(thread => (
-                  <ThreadCardKanban
-                    key={thread.id}
-                    thread={thread}
-                    isAtiva={threadAtiva?.id === thread.id}
-                    usuarioAtual={usuarioAtual}
-                    atendentes={atendentes}
-                    onSelecionarThread={onSelecionarThread}
-                  />
-                ))
-              )}
+                <div className="flex items-center gap-1 flex-shrink-0">
+                  {totalNaoLidas > 0 && (
+                    <Badge className="rounded-full min-w-[18px] h-4 flex items-center justify-center p-0 px-1 bg-white/30 text-white text-[9px] font-bold border-0">
+                      {totalNaoLidas}
+                    </Badge>
+                  )}
+                  <span className="text-white/70 text-[9px]">{coluna.threads.length}</span>
+                </div>
+              </div>
+              <div className="flex-1 overflow-y-auto p-1.5 space-y-1.5">
+                {coluna.threads.length === 0 ? (
+                  <div className="text-center py-8 text-slate-400 text-xs">Sem conversas</div>
+                ) : (
+                  coluna.threads.map(thread => (
+                    <ThreadCardKanban
+                      key={thread.id}
+                      thread={thread}
+                      isAtiva={threadAtiva?.id === thread.id}
+                      usuarioAtual={usuarioAtual}
+                      atendentes={atendentes}
+                      onSelecionarThread={onSelecionarThread}
+                    />
+                  ))
+                )}
+              </div>
             </div>
-          </div>
-        );
-      })}
-    </div>
+          );
+        })}
+      </div>
     </div>
   );
 }
