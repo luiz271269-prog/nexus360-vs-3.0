@@ -1349,6 +1349,14 @@ export default React.memo(function MessageBubble({
         </div>
       </div>
 
+      {/* Dialog de fase do Kanban ao etiquetar */}
+      <EtiquetaFaseDialog
+        aberto={!!etiquetaFaseDialog}
+        onFechar={() => setEtiquetaFaseDialog(null)}
+        etiqueta={etiquetaFaseDialog}
+        onConfirmar={handleConfirmarEtiquetaFase}
+      />
+
       <Dialog open={mostrarDialogEncaminhar} onOpenChange={setMostrarDialogEncaminhar}>
         <DialogContent className="max-w-md">
           <DialogHeader>
