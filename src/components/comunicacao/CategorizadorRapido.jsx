@@ -30,6 +30,7 @@ export default function CategorizadorRapido({ thread = null, contato = null, onU
   const [salvando, setSalvando] = React.useState(false);
   const [novaCategoria, setNovaCategoria] = React.useState('');
   const [adicionandoNova, setAdicionandoNova] = React.useState(false);
+  const [editandoFaseDe, setEditandoFaseDe] = React.useState(null); // nome da categoria sendo editada
   const queryClient = useQueryClient();
 
   // Buscar categorias dinâmicas do banco
