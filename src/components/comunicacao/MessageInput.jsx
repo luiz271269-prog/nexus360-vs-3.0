@@ -14,7 +14,8 @@ import {
   File,
   FileText,
   Video,
-  Trash2
+  Trash2,
+  Camera
 } from 'lucide-react';
 
 // Logos SVG inline para cada canal
