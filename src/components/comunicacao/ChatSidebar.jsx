@@ -863,48 +863,55 @@ export default function ChatSidebar({
                   </span>
                 </div>
 
-                {/* ✅ LINHA 2: Preview mensagem - LÓGICA SEPARADA (interno vs externo) */}
-                <p className={`text-xs truncate flex items-center gap-1 ${hasUnread ? 'text-slate-800' : 'text-slate-500'}`}>
-                  {thread.is_contact_only ? (
-                    <span className="text-slate-400 italic">Sem conversa ativa</span>
-                  ) : (
-                    <>
-                      {thread.last_message_sender === 'user' && (
-                        <CheckCheck className="w-3 h-3 text-blue-500 flex-shrink-0" />
-                      )}
-                      {thread.last_media_type === 'image' && <Image className="w-3 h-3 text-blue-500 flex-shrink-0" />}
-                      {thread.last_media_type === 'video' && <Video className="w-3 h-3 text-purple-500 flex-shrink-0" />}
-                      {thread.last_media_type === 'audio' && <Mic className="w-3 h-3 text-green-500 flex-shrink-0" />}
-                      {thread.last_media_type === 'document' && <FileText className="w-3 h-3 text-orange-500 flex-shrink-0" />}
-                      {thread.last_media_type === 'location' && <MapPin className="w-3 h-3 text-red-500 flex-shrink-0" />}
-                      {thread.last_media_type === 'contact' && <PhoneIcon className="w-3 h-3 text-cyan-500 flex-shrink-0" />}
-                      <span className="truncate">
-                        {(() => {
-                          let content = thread.last_message_content;
-                          
-                          // ✅ THREADS EXTERNAS: Filtros agressivos de limpeza
-                          if (!content || content === '[No content]' || /^[\+\d]+@(lid|s\.whatsapp\.net|c\.us)/.test(content)) {
-                            if (thread.last_media_type === 'image') return "[Imagem]";
-                            if (thread.last_media_type === 'video') return "[Video]";
-                            if (thread.last_media_type === 'audio') return "[Audio]";
-                            if (thread.last_media_type === 'document') return "[Documento]";
-                            if (thread.last_media_type === 'location') return "[Localizacao]";
-                            if (thread.last_media_type === 'contact') return "[Contato]";
-                            if (thread.last_media_type === 'sticker') return "[Sticker]";
-                            return "Nova mensagem";
-                          }
-                          
-                          return content;
-                        })()}
-                      </span>
-                      {thread.last_message_sender_name && (
-                        <span className="text-[9px] text-slate-400 italic">
-                          ~ {thread.last_message_sender_name.split(' ')[0]}
+                {/* ✅ LINHA 2: Preview mensagem + Data última recebida */}
+                <div className="flex items-center justify-between gap-1 mb-0.5">
+                  <p className={`text-xs truncate flex items-center gap-1 flex-1 ${hasUnread ? 'text-slate-800' : 'text-slate-500'}`}>
+                    {thread.is_contact_only ? (
+                      <span className="text-slate-400 italic">Sem conversa ativa</span>
+                    ) : (
+                      <>
+                        {thread.last_message_sender === 'user' && (
+                          <CheckCheck className="w-3 h-3 text-blue-500 flex-shrink-0" />
+                        )}
+                        {thread.last_media_type === 'image' && <Image className="w-3 h-3 text-blue-500 flex-shrink-0" />}
+                        {thread.last_media_type === 'video' && <Video className="w-3 h-3 text-purple-500 flex-shrink-0" />}
+                        {thread.last_media_type === 'audio' && <Mic className="w-3 h-3 text-green-500 flex-shrink-0" />}
+                        {thread.last_media_type === 'document' && <FileText className="w-3 h-3 text-orange-500 flex-shrink-0" />}
+                        {thread.last_media_type === 'location' && <MapPin className="w-3 h-3 text-red-500 flex-shrink-0" />}
+                        {thread.last_media_type === 'contact' && <PhoneIcon className="w-3 h-3 text-cyan-500 flex-shrink-0" />}
+                        <span className="truncate">
+                          {(() => {
+                            let content = thread.last_message_content;
+                            
+                            // ✅ THREADS EXTERNAS: Filtros agressivos de limpeza
+                            if (!content || content === '[No content]' || /^[\+\d]+@(lid|s\.whatsapp\.net|c\.us)/.test(content)) {
+                              if (thread.last_media_type === 'image') return "[Imagem]";
+                              if (thread.last_media_type === 'video') return "[Video]";
+                              if (thread.last_media_type === 'audio') return "[Audio]";
+                              if (thread.last_media_type === 'document') return "[Documento]";
+                              if (thread.last_media_type === 'location') return "[Localizacao]";
+                              if (thread.last_media_type === 'contact') return "[Contato]";
+                              if (thread.last_media_type === 'sticker') return "[Sticker]";
+                              return "Nova mensagem";
+                            }
+                            
+                            return content;
+                          })()}
                         </span>
-                      )}
-                    </>
+                        {thread.last_message_sender_name && (
+                          <span className="text-[9px] text-slate-400 italic">
+                            ~ {thread.last_message_sender_name.split(' ')[0]}
+                          </span>
+                        )}
+                      </>
+                    )}
+                  </p>
+                  {thread.last_inbound_at && thread.last_message_sender === 'contact' && (
+                    <span className="text-[9px] text-slate-400 flex-shrink-0 whitespace-nowrap ml-1" title={`Último recebimento: ${thread.last_inbound_at}`}>
+                      📥 {formatarHorario(thread.last_inbound_at)}
+                    </span>
                   )}
-                </p>
+                </div>
 
                 {/* Linha 3: TIPO + DESTAQUE + ATENDENTE (horizontal compacto com labels) */}
                 <div className="flex items-center gap-1 mt-1 overflow-hidden">
