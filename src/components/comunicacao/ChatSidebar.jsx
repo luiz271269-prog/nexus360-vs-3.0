@@ -169,7 +169,12 @@ export default function ChatSidebar({
   setModoSelecaoMultipla,
   contatosSelecionados = [],
   setContatosSelecionados,
-  onSelectInternalDestinations // Callback para seleção interna
+  onSelectInternalDestinations, // Callback para seleção interna
+  // Props para botões de ação
+  onFilterScopeChange,
+  onSelectedIntegrationChange,
+  filterScope,
+  contatos = [] // Para ContatosRequerendoAtencao
 }) {
   // Estado local apenas para compatibilidade
   const modoSelecao = modoSelecaoMultipla;
