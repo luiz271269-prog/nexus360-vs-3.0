@@ -17,6 +17,8 @@ import {
 import { toast } from "sonner";
 
 import ChatSidebar from "../components/comunicacao/ChatSidebar";
+import ChatSidebarKanban from "../components/comunicacao/ChatSidebarKanban";
+import { LayoutList, Columns } from "lucide-react";
 import ChatWindow from "../components/comunicacao/ChatWindow";
 import ContactInfoPanel from "../components/comunicacao/ContactInfoPanel";
 import ConfiguracaoCanaisComunicacao from "../components/comunicacao/ConfiguracaoCanaisComunicacao";
