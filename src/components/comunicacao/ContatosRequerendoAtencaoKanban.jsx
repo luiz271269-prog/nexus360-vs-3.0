@@ -30,7 +30,6 @@ import DiagnosticoDiasInativos from './DiagnosticoDiasInativos';
 import ChatWindow from './ChatWindow';
 
 export default function ContatosRequerendoAtencaoKanban({ usuario, onSelecionarContato, onClose }) {
-  const [agrupadoPor, setAgrupadoPor] = useState('bucket'); // bucket | prioridade
   const [diasInatividade, setDiasInatividade] = useState(5);
   const [contatosSelecionados, setContatosSelecionados] = useState([]);
   const [usuariosMap, setUsuariosMap] = useState({});
@@ -131,33 +130,7 @@ export default function ContatosRequerendoAtencaoKanban({ usuario, onSelecionarC
     }
   }, [contatosComAlerta]);
 
-  // ✅ Agrupamento por Bucket de Inatividade
-  const agruparPorBucket = () => {
-    const grupos = {
-      '🔥 Ativos (<30 dias)': [],
-      '⚠️ 30-59 dias': [],
-      '🚨 60-89 dias': [],
-      '💀 90+ dias': []
-    };
-
-    contatosComAlerta.forEach((item) => {
-      const bucket = item.bucket_inactive || 'active';
-      const key =
-        bucket === 'active' ? '🔥 Ativos (<30 dias)' :
-        bucket === '30' ? '⚠️ 30-59 dias' :
-        bucket === '60' ? '🚨 60-89 dias' :
-        '💀 90+ dias';
-      grupos[key].push(item);
-    });
-
-    Object.keys(grupos).forEach((key) => {
-      grupos[key].sort((a, b) => (b.prioridadeScore || 0) - (a.prioridadeScore || 0));
-    });
-
-    return grupos;
-  };
-
-  // ✅ Agrupamento por Prioridade
+  // ✅ Agrupamento único por Prioridade Combinada (Inatividade + Score)
   const agruparPorPrioridade = () => {
     const grupos = {
       '🔴 Críticos': [],
@@ -174,14 +147,19 @@ export default function ContatosRequerendoAtencaoKanban({ usuario, onSelecionarC
       grupos[topico].push(item);
     });
 
+    // Ordenar dentro de cada grupo por prioridade (inatividade + score)
     Object.keys(grupos).forEach((key) => {
-      grupos[key].sort((a, b) => (b.prioridadeScore || 0) - (a.prioridadeScore || 0));
+      grupos[key].sort((a, b) => {
+        const scoreA = (b.prioridadeScore || 0) + (b.days_inactive_inbound || 0);
+        const scoreB = (a.prioridadeScore || 0) + (a.days_inactive_inbound || 0);
+        return scoreA - scoreB;
+      });
     });
 
     return grupos;
   };
 
-  const grupos = agrupadoPor === 'bucket' ? agruparPorBucket() : agruparPorPrioridade();
+  const grupos = agruparPorPrioridade();
   const totalAlertas = totalUrgentes || contatosComAlerta.length;
 
   const toggleSelecaoContato = (contato) => {
@@ -561,23 +539,7 @@ export default function ContatosRequerendoAtencaoKanban({ usuario, onSelecionarC
               </Button>
             </div>
 
-            {/* Toggle Visualização */}
-            <div className="flex gap-1.5">
-              <Button
-                size="sm"
-                variant={agrupadoPor === 'bucket' ? 'default' : 'outline'}
-                onClick={() => setAgrupadoPor('bucket')}
-                className="h-7 text-xs px-2.5 flex-1">
-                📅 Inatividade
-              </Button>
-              <Button
-                size="sm"
-                variant={agrupadoPor === 'prioridade' ? 'default' : 'outline'}
-                onClick={() => setAgrupadoPor('prioridade')}
-                className="h-7 text-xs px-2.5 flex-1">
-                🔴 Prioridade
-              </Button>
-            </div>
+
 
 
 
