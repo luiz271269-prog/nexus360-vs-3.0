@@ -202,7 +202,13 @@ export default function ChatSidebarKanban({ threads, threadAtiva, onSelecionarTh
       col.threads.sort((a, b) => new Date(b.last_message_at || 0) - new Date(a.last_message_at || 0));
     });
 
-    return Object.values(mapa).filter(c => c.threads.length > 0 || integracoes.find(i => i.id === c.id));
+    // ✅ Filtrar coluna "Outras" só para ADM
+    const isAdmin = usuarioAtual?.role === 'admin';
+    return Object.values(mapa).filter(c => {
+      // Ocultar coluna "Outras" para não-admin
+      if (c.id === 'outras' && !isAdmin) return false;
+      return c.threads.length > 0 || integracoes.find(i => i.id === c.id);
+    });
   }, [threads, integracoes]);
 
   const corConfig = {
