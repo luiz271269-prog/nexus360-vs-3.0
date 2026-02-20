@@ -69,12 +69,14 @@ import DebugWebhooks from './pages/DebugWebhooks';
 import DiagnosticoBloqueios from './pages/DiagnosticoBloqueios';
 import DiagnosticoCirurgico from './pages/DiagnosticoCirurgico';
 import DiagnosticoContato from './pages/DiagnosticoContato';
+import DiagnosticoContatoEveraldo from './pages/DiagnosticoContatoEveraldo';
 import DiagnosticoContatoSical from './pages/DiagnosticoContatoSical';
 import DiagnosticoDetalhado from './pages/DiagnosticoDetalhado';
 import DiagnosticoInbound from './pages/DiagnosticoInbound';
 import DiagnosticoMensagemLuiz from './pages/DiagnosticoMensagemLuiz';
 import DiagnosticoPreAtendimento from './pages/DiagnosticoPreAtendimento';
 import DiagnosticoThaisSical from './pages/DiagnosticoThaisSical';
+import DiagnosticoWAPIConexoes from './pages/DiagnosticoWAPIConexoes';
 import DiagnosticoWhatsApp from './pages/DiagnosticoWhatsApp';
 import Documentacao from './pages/Documentacao';
 import DocumentacaoCompleta from './pages/DocumentacaoCompleta';
@@ -121,8 +123,6 @@ import Usuarios from './pages/Usuarios';
 import Vendas from './pages/Vendas';
 import Vendedores from './pages/Vendedores';
 import WhatsAppTemplates from './pages/WhatsAppTemplates';
-import DiagnosticoContatoEveraldo from './pages/DiagnosticoContatoEveraldo';
-import DiagnosticoWAPIConexoes from './pages/DiagnosticoWAPIConexoes';
 import __Layout from './Layout.jsx';
 
 
@@ -149,12 +149,14 @@ export const PAGES = {
     "DiagnosticoBloqueios": DiagnosticoBloqueios,
     "DiagnosticoCirurgico": DiagnosticoCirurgico,
     "DiagnosticoContato": DiagnosticoContato,
+    "DiagnosticoContatoEveraldo": DiagnosticoContatoEveraldo,
     "DiagnosticoContatoSical": DiagnosticoContatoSical,
     "DiagnosticoDetalhado": DiagnosticoDetalhado,
     "DiagnosticoInbound": DiagnosticoInbound,
     "DiagnosticoMensagemLuiz": DiagnosticoMensagemLuiz,
     "DiagnosticoPreAtendimento": DiagnosticoPreAtendimento,
     "DiagnosticoThaisSical": DiagnosticoThaisSical,
+    "DiagnosticoWAPIConexoes": DiagnosticoWAPIConexoes,
     "DiagnosticoWhatsApp": DiagnosticoWhatsApp,
     "Documentacao": Documentacao,
     "DocumentacaoCompleta": DocumentacaoCompleta,
@@ -201,8 +203,6 @@ export const PAGES = {
     "Vendas": Vendas,
     "Vendedores": Vendedores,
     "WhatsAppTemplates": WhatsAppTemplates,
-    "DiagnosticoContatoEveraldo": DiagnosticoContatoEveraldo,
-    "DiagnosticoWAPIConexoes": DiagnosticoWAPIConexoes,
 }
 
 export const pagesConfig = {

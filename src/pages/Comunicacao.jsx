@@ -664,11 +664,11 @@ export default function Comunicacao() {
         console.log(`[COMUNICACAO] 📦 Buscando mensagens de ${threadIdsParaBuscar.length} thread(s) para histórico unificado`);
 
         // ✅ QUERY: Todas as mensagens (thread atual + merged + mesmo contato)
-        const ultimasMensagens = await base44.entities.Message.filter(
-          { thread_id: { $in: threadIdsParaBuscar } },
-          '-sent_at',
-          200 // ✅ OTIMIZAÇÃO: 500 → 200 (60% menos dados iniciais)
-        );
+         const ultimasMensagens = await base44.entities.Message.filter(
+           { thread_id: { $in: threadIdsParaBuscar } },
+           '-sent_at',
+           50 // ✅ OTIMIZAÇÃO: 200 → 50 (75% menos dados iniciais - carrega mais sob demanda)
+         );
 
         // 🔍 QUERY 2 (DIAGNÓSTICO): APENAS mensagens RECEBIDAS do contato (últimas 50)
         let mensagensRecebidas = [];
@@ -881,18 +881,15 @@ export default function Comunicacao() {
       thread.id.startsWith('cliente-sem-contato-')
     );
 
-    // ✅ Buscar thread completa apenas se for ID real
+    // ✅ Buscar thread completa APENAS se necessário (otimizado)
     let threadCompleta = thread;
     if (thread.id && !thread.contact_id && !thread.thread_type && !isSyntheticId) {
-      const threadsEncontradas = threads.find(t => t.id === thread.id);
-      if (threadsEncontradas) {
-        threadCompleta = threadsEncontradas;
-      } else {
-        // Buscar do banco apenas para IDs reais
-        const res = await base44.entities.MessageThread.filter({ id: thread.id }, '-created_date', 1);
-        if (res?.length > 0) {
-          threadCompleta = res[0];
-        }
+      // PRIMEIRO: tentar cache local (threadsAProcessar ou threads)
+      threadCompleta = threads.find(t => t.id === thread.id) || thread;
+      
+      // APENAS SE for absolutamente necessário buscar do banco
+      if (!threadCompleta.thread_type && threadCompleta.id === thread.id) {
+        console.warn('[PERF] ⚠️ BUSCA REDUNDANTE DO BANCO - thread já deve estar em cache');
       }
     }
 
