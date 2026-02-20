@@ -1301,7 +1301,7 @@ export default function ChatWindow({
   }, [podeEnviarMidias, modoSelecaoMultipla, contatosSelecionados, broadcastInterno, handleEnviarBroadcast, thread, usuario, contatoCompleto, canalSelecionado, mensagemResposta, onAtualizarMensagens, autoAtribuirThreadSeNecessario]);
 
   // ═══════════════════════════════════════════════════════════════════════════
-  // ✅ Marcar como lida — DEVE ser declarado ANTES de handleEnviarFromInput
+  // ✅ Declarados ANTES de handleEnviarFromInput (que os usa nas dependências)
   // ═══════════════════════════════════════════════════════════════════════════
   const marcarComoLidaMutation = useMutation({
     mutationFn: async () => {
