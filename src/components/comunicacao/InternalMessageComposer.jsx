@@ -186,17 +186,11 @@ export default function InternalMessageComposer({ open, onClose, currentUser, on
           });
           thread = result?.data?.thread || result?.thread;
         } else if (selectedGroups.length === 1) {
-          const threads = await base44.entities.MessageThread.filter({ id: selectedGroups[0] });
-          thread = threads?.[0];
+          thread = grupos.find(g => g.id === selectedGroups[0]) || null;
         }
 
         if (thread) {
-          onSelectDestinations({
-            mode: 'single',
-            thread: thread
-          });
-          
-          // Limpar seleção
+          onSelectDestinations({ mode: 'single', thread });
           setSelectedUsers([]);
           setSelectedSectors([]);
           setSelectedGroups([]);
@@ -205,62 +199,44 @@ export default function InternalMessageComposer({ open, onClose, currentUser, on
           toast.error('Erro ao abrir conversa');
         }
       } else {
-        // Múltiplos destinatários - preparar lista para broadcast
-        const destinations = [];
+        // Múltiplos destinatários — resolver TUDO em paralelo
+        const [usersResults, sectorsResults] = await Promise.all([
+          Promise.all(
+            selectedUsers.map(userId =>
+              base44.functions.invoke('getOrCreateInternalThread', { target_user_id: userId })
+                .then(result => {
+                  const thread = result?.data?.thread || result?.thread;
+                  if (!thread) return null;
+                  const user = usuarios.find(u => u.id === userId);
+                  return { type: 'user', thread_id: thread.id, user_id: userId, name: user?.full_name || 'Usuário' };
+                })
+                .catch(() => null)
+            )
+          ),
+          Promise.all(
+            selectedSectors.map(sectorName =>
+              base44.functions.invoke('getOrCreateSectorThread', { sector_name: sectorName })
+                .then(result => {
+                  const thread = result?.data?.thread || result?.thread;
+                  if (!thread) return null;
+                  return { type: 'sector', thread_id: thread.id, sector_name: sectorName, name: `Setor ${sectorName}` };
+                })
+                .catch(() => null)
+            )
+          )
+        ]);
 
-        // Resolver usuários
-        for (const userId of selectedUsers) {
-          const result = await base44.functions.invoke('getOrCreateInternalThread', {
-            target_user_id: userId
-          });
-          const thread = result?.data?.thread || result?.thread;
-          if (thread) {
-            const user = usuarios.find(u => u.id === userId);
-            destinations.push({
-              type: 'user',
-              thread_id: thread.id,
-              user_id: userId,
-              name: user?.full_name || 'Usuário'
-            });
-          }
-        }
+        // Grupos já estão em memória — sem chamada extra
+        const groupsResults = selectedGroups.map(groupId => {
+          const grupo = grupos.find(g => g.id === groupId);
+          if (!grupo) return null;
+          return { type: 'group', thread_id: groupId, name: grupo.group_name || 'Grupo' };
+        });
 
-        // Resolver setores
-        for (const sectorName of selectedSectors) {
-          const result = await base44.functions.invoke('getOrCreateSectorThread', {
-            sector_name: sectorName
-          });
-          const thread = result?.data?.thread || result?.thread;
-          if (thread) {
-            destinations.push({
-              type: 'sector',
-              thread_id: thread.id,
-              sector_name: sectorName,
-              name: `Setor ${sectorName}`
-            });
-          }
-        }
-
-        // Resolver grupos
-        for (const groupId of selectedGroups) {
-          const threads = await base44.entities.MessageThread.filter({ id: groupId });
-          const thread = threads?.[0];
-          if (thread) {
-            destinations.push({
-              type: 'group',
-              thread_id: groupId,
-              name: thread.group_name || 'Grupo'
-            });
-          }
-        }
+        const destinations = [...usersResults, ...sectorsResults, ...groupsResults].filter(Boolean);
 
         if (destinations.length > 0) {
-          onSelectDestinations({
-            mode: 'broadcast',
-            destinations: destinations
-          });
-          
-          // Limpar seleção
+          onSelectDestinations({ mode: 'broadcast', destinations });
           setSelectedUsers([]);
           setSelectedSectors([]);
           setSelectedGroups([]);
