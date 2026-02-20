@@ -27,7 +27,7 @@ import { createPageUrl } from '@/utils';
 import ModalEnvioPromocoesAutomaticas from './ModalEnvioPromocoesAutomaticas';
 import DiagnosticoDiasInativos from './DiagnosticoDiasInativos';
 
-export default function ContatosRequerendoAtencao({ usuario, onSelecionarContato, variant = 'sidebar' }) {
+export default function ContatosRequerendoAtencao({ usuario, onSelecionarContato, variant = 'sidebar', onOpenKanban }) {
   const [expandido, setExpandido] = useState(false);
   const [agrupadoPor, setAgrupadoPor] = useState('prioridade'); // prioridade | atendente | bucket
   const [gruposExpandidos, setGruposExpandidos] = useState({});
@@ -556,7 +556,13 @@ ${item.suggested_message ? `💬 SUGESTÃO IA:\n${item.suggested_message}` : ''}
   if (variant === "sidebar" && !isHeader) {
     return (
       <Button
-        onClick={() => setExpandido(!expandido)}
+        onClick={() => {
+          if (onOpenKanban) {
+            onOpenKanban();
+          } else {
+            setExpandido(!expandido);
+          }
+        }}
         className="bg-gradient-to-r from-red-500 to-orange-600 hover:from-red-600 hover:to-orange-700 text-white border-0 h-7 text-[10px] px-2 flex items-center gap-1.5 font-semibold shadow-md"
       >
         <AlertTriangle className="w-3.5 h-3.5" />
