@@ -29,7 +29,7 @@ import {
 } from "lucide-react";
 import InternalMessageComposer from "./InternalMessageComposer";
 import ContadorNaoAtribuidas from "./ContadorNaoAtribuidas";
-import ContatosRequerendoAtencao from "./ContatosRequerendoAtencao";
+import ContatosRequerendoAtencaoKanban from "./ContatosRequerendoAtencaoKanban";
 import { Badge } from "@/components/ui/badge";
 import { motion } from "framer-motion";
 import { format } from "date-fns";
@@ -464,13 +464,11 @@ export default function ChatSidebar({
                 variant="sidebar"
               />
             )}
-            <ContatosRequerendoAtencao 
+            <ContatosRequerendoAtencaoKanban 
               usuario={usuarioAtual} 
-              contatos={contatos}
               onSelecionarContato={(t) => {
                 onSelecionarThread(t);
               }}
-              variant="sidebar"
             />
           </div>
         </div>
