@@ -362,20 +362,18 @@ export default function ContatosRequerendoAtencaoKanban({ usuario, onSelecionarC
 
         <div className="flex-1 min-w-0">
           {/* Linha 1: Nome - text-sm (14px semibold) */}
-          <div className="flex items-center justify-between mb-0.5">
-            <h3 className="font-semibold truncate text-sm text-slate-900">
-              {nomeExibicao}
-            </h3>
-          </div>
+          <h3 className="font-semibold truncate text-sm text-slate-900 mb-0.5">
+            {nomeExibicao}
+          </h3>
 
-          {/* Linha 2: Inatividade - text-xs (12px regular) */}
-          <p className="text-xs text-slate-500 flex items-center gap-1 mb-1">
-            <Clock className="w-3 h-3" />
-            {item.days_inactive_inbound || 0}d sem responder
+          {/* Linha 2: Preview (inatividade) - text-xs (12px regular) */}
+          <p className="text-xs text-slate-500 truncate mb-0.5 flex items-center gap-1">
+            <Clock className="w-3 h-3 flex-shrink-0" />
+            {item.days_inactive_inbound || 0}d
           </p>
 
-          {/* Linha 3: Badges - text-[10px] (10px semibold) */}
-          <div className="flex items-center gap-1 flex-wrap">
+          {/* Linha 3: Badges compactas - text-[9px] (9px semibold) */}
+          <div className="flex items-center gap-0.5 flex-wrap">
             {/* Tipo Contato */}
             {(() => {
               const tipoContato = item.tipo_contato || 'novo';
@@ -388,27 +386,20 @@ export default function ContatosRequerendoAtencaoKanban({ usuario, onSelecionarC
               };
               const cfg = tiposConfig[tipoContato] || tiposConfig['novo'];
               return (
-                <span className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-semibold text-white ${cfg.bg} shadow-sm`}>
+                <span className={`inline-flex items-center gap-0.5 px-1 py-0 rounded-full text-[9px] font-semibold text-white ${cfg.bg} shadow-sm`}>
                   {cfg.emoji} {cfg.label}
                 </span>
               );
             })()}
 
             {/* Prioridade */}
-            <Badge className={`${getPrioridadeCor(item.prioridadeLabel)} text-white text-[10px] px-1.5 py-0.5`}>
+            <Badge className={`${getPrioridadeCor(item.prioridadeLabel)} text-white text-[9px] px-1 py-0`}>
               {item.prioridadeLabel}
             </Badge>
 
-            {/* Deal Risk */}
-            {item.deal_risk > 0 && (
-              <Badge variant="outline" className="text-[10px] px-1.5 py-0.5 border-red-300 text-red-700">
-                Risco: {item.deal_risk}%
-              </Badge>
-            )}
-
             {/* Atendente */}
-            <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-semibold text-white bg-indigo-500 shadow-sm">
-              <User className="w-3 h-3" />
+            <span className="inline-flex items-center gap-0.5 px-1 py-0 rounded-full text-[9px] font-semibold text-white bg-indigo-500 shadow-sm">
+              <User className="w-2 h-2" />
               {atendenteNome.split(' ')[0]}
             </span>
           </div>
