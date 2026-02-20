@@ -1526,62 +1526,6 @@ export default function ChatWindow({
 
 
 
-  const marcarComoLidaMutation = useMutation({
-    mutationFn: async () => {
-      if (!thread) return;
-
-      // ✅ USUÁRIO INTERNO - usar markThreadAsRead
-      if (thread.thread_type === 'team_internal' || thread.thread_type === 'sector_group') {
-        await base44.functions.invoke('markThreadAsRead', {
-          thread_id: thread.id
-        });
-        return;
-      }
-
-      // ✅ THREAD EXTERNA - lógica existente
-      const mensagensNaoLidas = mensagens.filter(
-        (m) => m.sender_type === 'contact' && m.status !== 'lida' && m.status !== 'apagada'
-      );
-
-      if (mensagensNaoLidas.length === 0) return;
-
-      for (const msg of mensagensNaoLidas) {
-        await base44.entities.Message.update(msg.id, {
-          status: 'lida',
-          read_at: new Date().toISOString()
-        });
-      }
-
-      if (thread.unread_count > 0) {
-        await base44.entities.MessageThread.update(thread.id, {
-          unread_count: 0
-        });
-      }
-    },
-    onSuccess: async () => {
-      // ✅ DETERMINÍSTICO: Invalida apenas quando backend confirma
-      await queryClient.invalidateQueries({ queryKey: ['threads'] });
-      if (onAtualizarMensagens) {
-        onAtualizarMensagens();
-      }
-    },
-    onError: (error) => {
-      console.error('[CHAT] ❌ Erro ao marcar como lida:', error);
-    }
-  });
-
-  // ✅ Marcar como lida silenciosamente ao enviar qualquer mensagem
-  const marcarLidaAoResponder = React.useCallback(() => {
-    if (!thread) return;
-    const temNaoLidas = 
-      (thread.thread_type === 'team_internal' || thread.thread_type === 'sector_group')
-        ? (thread.unread_by?.[usuario?.id] || 0) > 0
-        : (thread.unread_count || 0) > 0;
-    if (temNaoLidas && !marcarComoLidaMutation.isPending) {
-      marcarComoLidaMutation.mutate();
-    }
-  }, [thread, usuario?.id, marcarComoLidaMutation]);
-
   // ✅ Foco automático removido - agora é responsabilidade do MessageInput
 
   React.useEffect(() => {
