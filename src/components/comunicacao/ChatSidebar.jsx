@@ -388,8 +388,8 @@ export default function ChatSidebar({
       {/* SUPER CONTATO FIXO - EQUIPE INTERNA / SETOR */}
       {/* ═══════════════════════════════════════════════════════════════════ */}
       {!modoSelecao && (
-        <div className="sticky top-0 z-10 bg-purple-50/80 backdrop-blur-sm border-b border-purple-200 px-2 py-1.5">
-          <div className="flex items-center gap-2 mb-1.5">
+        <div className="sticky top-0 z-10 bg-purple-50/80 backdrop-blur-sm border-b border-purple-200 px-2 py-1.5 space-y-1.5">
+          <div className="flex items-center gap-2">
             <div className="w-8 h-8 rounded-full flex items-center justify-center text-white shadow-sm bg-gradient-to-br from-purple-500 to-indigo-600">
               <MessagesSquare className="w-4 h-4" />
             </div>
@@ -446,6 +446,33 @@ export default function ChatSidebar({
               <CalendarCheck className="w-3 h-3 mr-0.5" />
               Agenda
             </Button>
+          </div>
+          
+          {/* ✅ BOTÕES AÇÃO - Não Atribuídas + Requer Atenção */}
+          <div className="grid grid-cols-2 gap-1">
+            {onFilterScopeChange && onSelectedIntegrationChange && (
+              <ContadorNaoAtribuidas 
+                threads={threads} 
+                integracoes={integracoes} 
+                usuario={usuarioAtual}
+                onClickVerFila={() => onFilterScopeChange('unassigned')}
+                onClickConexao={(id) => {
+                  onFilterScopeChange('unassigned');
+                  onSelectedIntegrationChange(id);
+                }}
+                className="shadow-sm"
+              />
+            )}
+            {contatos && (
+              <ContatosRequerendoAtencao 
+                usuario={usuarioAtual} 
+                contatos={contatos}
+                onSelecionarContato={(t) => {
+                  onSelecionarThread(t);
+                }}
+                variant="sidebar"
+              />
+            )}
           </div>
         </div>
       )}
