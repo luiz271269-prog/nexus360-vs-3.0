@@ -105,6 +105,68 @@ export default function EtiquetaFaseDialog({ aberto, onFechar, etiqueta, onConfi
           </DialogTitle>
         </DialogHeader>
 
+        {/* ── CARD DE PRÉVIA DA MENSAGEM ── */}
+        {(contato || mensagem) && (
+          <div className="border-2 border-amber-200 bg-amber-50 rounded-xl p-3 shadow-sm">
+            {/* Cabeçalho: nome */}
+            <div className="flex items-center justify-between mb-1">
+              <span className="font-bold text-slate-800 text-sm uppercase tracking-wide truncate">
+                {contato?.nome || contato?.empresa || mensagem?.sender_id?.slice(0,8) || 'Contato'}
+              </span>
+              <span className="text-[10px] text-slate-400">···</span>
+            </div>
+            {/* Empresa / cargo se houver */}
+            {contato?.empresa && contato?.nome && contato.empresa !== contato.nome && (
+              <p className="text-[11px] text-slate-500 truncate mb-1">{contato.empresa}</p>
+            )}
+            {/* Linha 2: vendedor */}
+            {contato?.vendedor_responsavel && (
+              <div className="flex items-center gap-1 text-[11px] text-slate-600 mb-1">
+                <User className="w-3 h-3 text-slate-400" />
+                <span className="truncate">{contato.vendedor_responsavel.split(' ')[0]}</span>
+              </div>
+            )}
+            {/* Linha 3: data e hora */}
+            <div className="flex items-center gap-3 mb-2">
+              <div className="flex items-center gap-1 text-[11px] text-slate-600">
+                <Calendar className="w-3 h-3 text-slate-400" />
+                <span>{mensagem?.sent_at || mensagem?.created_date
+                  ? new Date(mensagem.sent_at || mensagem.created_date).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })
+                  : new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })
+                }</span>
+              </div>
+              <div className="flex items-center gap-1 text-[11px] text-slate-600">
+                <Clock className="w-3 h-3 text-slate-400" />
+                <span>{mensagem?.sent_at || mensagem?.created_date
+                  ? new Date(mensagem.sent_at || mensagem.created_date).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
+                  : new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
+                }</span>
+              </div>
+            </div>
+            {/* Etiqueta */}
+            {etiqueta && (
+              <span className={`inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full border font-medium ${etiqueta.cor || 'bg-yellow-100 text-yellow-800 border-yellow-300'}`}>
+                {etiqueta.emoji} {etiqueta.label}
+              </span>
+            )}
+            {/* Prévia do conteúdo */}
+            {mensagem?.content && (
+              <div className="mt-2 pt-2 border-t border-amber-200">
+                <p className="text-[11px] text-slate-600 line-clamp-2 italic">
+                  "{mensagem.content.substring(0, 80)}{mensagem.content.length > 80 ? '…' : ''}"
+                </p>
+              </div>
+            )}
+            {/* Botão Msg estilo card */}
+            <div className="mt-2">
+              <div className="flex items-center justify-center gap-1.5 bg-green-500 text-white text-[11px] font-semibold rounded-lg py-1.5 opacity-60 cursor-default">
+                <MessageSquare className="w-3 h-3" />
+                Msg
+              </div>
+            </div>
+          </div>
+        )}
+
         <div className="space-y-4">
           {/* PASSO 1: Destino */}
           <div>
