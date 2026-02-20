@@ -549,32 +549,51 @@ export default React.memo(function MessageBubble({
     }).filter(Boolean);
   };
 
-  const handleToggleCategoria = async (valorCategoria) => {
+  const aplicarEtiqueta = async (valorCategoria) => {
     if (categorizando || !message) return;
-
     setCategorizando(true);
     try {
       const categoriasAtuais = normalizarCategorias(message?.categorias);
-      const novasCategorias = categoriasAtuais.includes(valorCategoria) ?
-      categoriasAtuais.filter((c) => c !== valorCategoria) :
-      [...categoriasAtuais, valorCategoria];
+      const novasCategorias = categoriasAtuais.includes(valorCategoria)
+        ? categoriasAtuais.filter((c) => c !== valorCategoria)
+        : [...categoriasAtuais, valorCategoria];
 
-      await base44.entities.Message.update(message?.id, {
-        categorias: novasCategorias
-      });
-
+      await base44.entities.Message.update(message?.id, { categorias: novasCategorias });
       const threadId = thread?.id;
-      if (threadId) {
-        await queryClient.invalidateQueries({ queryKey: ['mensagens', threadId] });
-      }
+      if (threadId) await queryClient.invalidateQueries({ queryKey: ['mensagens', threadId] });
 
       const catConfig = todasCategorias.find((c) => c.nome === valorCategoria);
       toast.success(`${catConfig?.emoji || '🏷️'} ${catConfig?.label || valorCategoria} ${novasCategorias.includes(valorCategoria) ? 'adicionada' : 'removida'}`);
     } catch (error) {
-      console.error('[BUBBLE] ❌ Erro ao categorizar:', error);
       toast.error(`Erro: ${error.message}`);
     } finally {
       setCategorizando(false);
+    }
+  };
+
+  const handleToggleCategoria = (valorCategoria) => {
+    const categoriasAtuais = normalizarCategorias(message?.categorias);
+    // Se está removendo, apenas remove — sem dialog
+    if (categoriasAtuais.includes(valorCategoria)) {
+      aplicarEtiqueta(valorCategoria);
+      return;
+    }
+    // Está adicionando: abre dialog de fase
+    const catConfig = todasCategorias.find((c) => c.nome === valorCategoria);
+    setEtiquetaFaseDialog(catConfig || { nome: valorCategoria, label: valorCategoria, emoji: '🏷️' });
+  };
+
+  const handleConfirmarEtiquetaFase = async (fase, criarOportunidade) => {
+    const etiqueta = etiquetaFaseDialog;
+    setEtiquetaFaseDialog(null);
+    if (!etiqueta) return;
+
+    // 1. Aplica a etiqueta na mensagem
+    await aplicarEtiqueta(etiqueta.nome);
+
+    // 2. Cria oportunidade no Kanban na fase escolhida
+    if (criarOportunidade && fase && window.handleCriarOportunidadeDeChat) {
+      window.handleCriarOportunidadeDeChat(message, thread || {}, fase);
     }
   };
 
