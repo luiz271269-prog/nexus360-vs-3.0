@@ -566,7 +566,7 @@ ${item.suggested_message ? `💬 SUGESTÃO IA:\n${item.suggested_message}` : ''}
         className="bg-gradient-to-r from-red-500 to-orange-600 hover:from-red-600 hover:to-orange-700 text-white border-0 h-7 text-[10px] px-2 flex items-center gap-1.5 font-semibold shadow-md"
       >
         <AlertTriangle className="w-3.5 h-3.5" />
-        <span>Atenção</span>
+        <span>Contatos Parados</span>
         {totalAlertas > 0 && (
           <Badge className="ml-0.5 h-4 min-w-4 px-1 rounded-full text-[8px] font-bold bg-white/30">
             {totalAlertas}
@@ -600,7 +600,7 @@ ${item.suggested_message ? `💬 SUGESTÃO IA:\n${item.suggested_message}` : ''}
 
           <AlertTriangle className={`w-4 h-4 mr-2 ${totalAlertas > 0 ? 'animate-pulse' : ''}`} />
           }
-          <span className="font-semibold">Requerem Atenção</span>
+          <span className="font-semibold">Contatos Parados</span>
           {totalAlertas > 0 &&
           <Badge className={`ml-2 font-bold text-xs shadow-sm ${
           totalAlertas >= 10 ? 'bg-red-600' :
@@ -1031,7 +1031,7 @@ ${item.suggested_message ? `💬 SUGESTÃO IA:\n${item.suggested_message}` : ''}
           </div>
           <div className="text-left">
             <span className="font-bold text-sm text-slate-800 block">
-              Requerem Atenção
+              Contatos Parados
             </span>
             {totalAlertas > 0 &&
             <span className="text-xs text-slate-500">
