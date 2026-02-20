@@ -154,6 +154,12 @@ export default function ChatWindow({
   const unreadSeparatorRef = React.useRef(null);
   const fotoJaBuscada = React.useRef(new Set());
 
+  // ✅ LAZY PAGINATION: Estados para carregar histórico ao scroll-up
+  const [loadingOlder, setLoadingOlder] = React.useState(false);
+  const [hasMoreMessages, setHasMoreMessages] = React.useState(true);
+  const [oldestLoadedTimestamp, setOldestLoadedTimestamp] = React.useState(null);
+  const isLoadingOlderRef = React.useRef(false);
+
   // ═══════════════════════════════════════════════════════════════════════
   // ✅ NEXUS360 MIGRATION - VALIDAÇÃO DUPLA (Nexus360 + Legado Fallback)
   // ═══════════════════════════════════════════════════════════════════════
@@ -1575,6 +1581,134 @@ export default function ChatWindow({
 
   // marcarComoLidaMutation e marcarLidaAoResponder estão declarados ACIMA (antes de handleEnviarFromInput)
 
+  // ✅ INICIALIZAR oldestLoadedTimestamp quando mensagens carregam
+  React.useEffect(() => {
+    if (mensagens.length > 0) {
+      const oldest = mensagens[0]?.sent_at || mensagens[0]?.created_date;
+      setOldestLoadedTimestamp(oldest);
+      setHasMoreMessages(mensagens.length === 20); // Se carregou exatamente 20, pode ter mais
+    } else {
+      setOldestLoadedTimestamp(null);
+      setHasMoreMessages(true);
+    }
+  }, [mensagens.length, thread?.id]);
+
+  // ✅ SCROLL LAZY: Detectar quando usuário sobe para buscar histórico
+  React.useEffect(() => {
+    const container = chatContainerRef.current;
+    if (!container) return;
+
+    const handleScroll = async () => {
+      // Ignorar se já está carregando ou não tem mais mensagens
+      if (isLoadingOlderRef.current || !hasMoreMessages || !oldestLoadedTimestamp) return;
+
+      const { scrollTop } = container;
+
+      // Detectar quando está próximo do TOPO (≤150px)
+      if (scrollTop <= 150) {
+        console.log('[SCROLL-UP] ⬆️ Próximo do topo - buscando mensagens antigas...');
+        
+        isLoadingOlderRef.current = true;
+        setLoadingOlder(true);
+
+        try {
+          // Salvar posição atual antes de carregar mais
+          const scrollHeightBefore = container.scrollHeight;
+          const scrollTopBefore = container.scrollTop;
+
+          // Buscar próximo bloco de mensagens antigas
+          const isThreadInterna = thread?.thread_type === 'team_internal' || thread?.thread_type === 'sector_group';
+          let olderMessages = [];
+
+          if (isThreadInterna) {
+            // Thread interna: busca simples
+            olderMessages = await base44.entities.Message.filter(
+              {
+                thread_id: thread.id,
+                sent_at: { $lt: oldestLoadedTimestamp }
+              },
+              '-sent_at',
+              20
+            );
+          } else {
+            // Thread externa: buscar de todas threads consolidadas
+            let threadIdsParaBuscar = [thread.id];
+
+            // Buscar merged + mesmo contato (igual query inicial)
+            try {
+              const threadsMerged = await base44.entities.MessageThread.filter(
+                { merged_into: thread.id, status: 'merged' },
+                '-created_date',
+                20
+              );
+              if (threadsMerged.length > 0) {
+                threadIdsParaBuscar.push(...threadsMerged.map(t => t.id));
+              }
+
+              if (thread.contact_id) {
+                const todasThreadsDoContato = await base44.entities.MessageThread.filter(
+                  {
+                    contact_id: thread.contact_id,
+                    status: { $in: ['aberta', 'fechada'] }
+                  },
+                  '-created_date',
+                  50
+                );
+                if (todasThreadsDoContato.length > 1) {
+                  const idsAdicionais = todasThreadsDoContato.map(t => t.id).filter(id => !threadIdsParaBuscar.includes(id));
+                  threadIdsParaBuscar.push(...idsAdicionais);
+                }
+              }
+            } catch (err) {
+              console.warn('[SCROLL-UP] ⚠️ Erro ao buscar threads consolidadas:', err.message);
+            }
+
+            olderMessages = await base44.entities.Message.filter(
+              {
+                thread_id: { $in: threadIdsParaBuscar },
+                sent_at: { $lt: oldestLoadedTimestamp }
+              },
+              '-sent_at',
+              20
+            );
+          }
+
+          if (olderMessages.length === 0) {
+            console.log('[SCROLL-UP] 📭 Fim do histórico');
+            setHasMoreMessages(false);
+            return;
+          }
+
+          console.log('[SCROLL-UP] ✅ Carregadas', olderMessages.length, 'mensagens antigas');
+
+          // Atualizar cache INSERINDO NO INÍCIO
+          queryClient.setQueryData(['mensagens', thread.id], (antigas = []) => {
+            return [...olderMessages.reverse(), ...antigas];
+          });
+
+          // Atualizar timestamp da mais antiga
+          setOldestLoadedTimestamp(olderMessages[0]?.sent_at || olderMessages[0]?.created_date);
+
+          // ✅ MANTER POSIÇÃO VISUAL: Ajustar scroll após inserir mensagens
+          requestAnimationFrame(() => {
+            const scrollHeightAfter = container.scrollHeight;
+            const scrollDiff = scrollHeightAfter - scrollHeightBefore;
+            container.scrollTop = scrollTopBefore + scrollDiff;
+          });
+
+        } catch (error) {
+          console.error('[SCROLL-UP] ❌ Erro ao carregar antigas:', error);
+        } finally {
+          isLoadingOlderRef.current = false;
+          setLoadingOlder(false);
+        }
+      }
+    };
+
+    container.addEventListener('scroll', handleScroll);
+    return () => container.removeEventListener('scroll', handleScroll);
+  }, [thread?.id, thread?.contact_id, thread?.thread_type, hasMoreMessages, oldestLoadedTimestamp, queryClient]);
+
   React.useEffect(() => {
     if (!mensagens.length) return;
 
@@ -1600,7 +1734,7 @@ export default function ChatWindow({
     }, 300);
 
     return () => clearTimeout(timer);
-  }, [mensagens, thread?.id, thread?.unread_count]);
+  }, [mensagens.length, thread?.id, thread?.unread_count]);
 
   // ✅ Buscar análise comportamental do contato
   React.useEffect(() => {
@@ -2418,6 +2552,16 @@ ${conteudoMensagem}${dadosExtraidos?.observacoes_extraidas ? `\n\n📋 IA: ${dad
         <div ref={messagesEndRef} />
         </div>
       }
+
+      {/* ✅ Indicador de carregamento de histórico (scroll-up) */}
+      {loadingOlder && (
+        <div className="px-4 py-2 bg-blue-50 border-b border-blue-200 flex-shrink-0">
+          <div className="flex items-center justify-center gap-2">
+            <Loader2 className="w-4 h-4 animate-spin text-blue-500" />
+            <p className="text-xs text-blue-600 font-medium">Carregando mensagens antigas...</p>
+          </div>
+        </div>
+      )}
 
       {erro &&
       <div className="px-4 py-2 bg-red-50 border-t border-red-200 flex-shrink-0">

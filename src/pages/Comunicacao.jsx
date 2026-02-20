@@ -603,6 +603,7 @@ export default function Comunicacao() {
   // ═══════════════════════════════════════════════════════════════════════════════
   const isThreadInterna = threadAtiva?.thread_type === 'team_internal' || threadAtiva?.thread_type === 'sector_group';
 
+  // ✅ NOVO: Query LAZY com paginação (carrega apenas 20 msgs iniciais)
   const { data: mensagens = [] } = useQuery({
     queryKey: ['mensagens', threadAtiva?.id],
     queryFn: async () => {
@@ -615,7 +616,7 @@ export default function Comunicacao() {
           const ultimasMensagens = await base44.entities.Message.filter(
             { thread_id: threadAtiva.id },
             '-sent_at',
-            500
+            20 // ✅ LAZY: 500 → 20 (carrega mais ao scroll-up)
           );
           console.log(`[COMUNICACAO] 📩 ${ultimasMensagens.length} mensagens internas carregadas`);
           return ultimasMensagens.reverse();
@@ -667,53 +668,13 @@ export default function Comunicacao() {
          const ultimasMensagens = await base44.entities.Message.filter(
            { thread_id: { $in: threadIdsParaBuscar } },
            '-sent_at',
-           50 // ✅ OTIMIZAÇÃO: 200 → 50 (75% menos dados iniciais - carrega mais sob demanda)
+           20 // ✅ LAZY: 50 → 20 (carrega mais ao scroll-up)
          );
 
-        // 🔍 QUERY 2 (DIAGNÓSTICO): APENAS mensagens RECEBIDAS do contato (últimas 50)
-        let mensagensRecebidas = [];
-        try {
-          mensagensRecebidas = await base44.entities.Message.filter(
-            {
-              thread_id: threadAtiva.id,
-              sender_type: 'contact'
-            },
-            '-sent_at',
-            50
-          );
-        } catch (recebidaErr) {
-          console.error('[COMUNICACAO] ❌ Erro ao buscar mensagens recebidas:', recebidaErr.message);
-        }
+        // ✅ REMOVIDO: Query de diagnóstico (mensagens recebidas) - não bloqueante
 
         if (DEBUG_VIS) {
           console.log(`[COMUNICACAO] 📩 TOTAL Mensagens: ${ultimasMensagens.length} | Thread: ${threadAtiva.id}`);
-          console.log(`[COMUNICACAO] 📬 Mensagens RECEBIDAS (contact): ${mensagensRecebidas.length}`);
-
-          const porTipo = ultimasMensagens.reduce((acc, m) => {
-            acc[m.sender_type] = (acc[m.sender_type] || 0) + 1;
-            return acc;
-          }, {});
-          console.log('[COMUNICACAO] 📊 Breakdown por sender_type:', porTipo);
-
-          console.group('[COMUNICACAO] 🔍 AUDIT: Todas as mensagens (sender_type + visibility)');
-          ultimasMensagens.slice(0, 20).forEach((m) => {
-            console.log(`  ${m.id.substring(0, 8)}: sender_type=${m.sender_type} | visibility=${m.visibility} | content="${m.content.substring(0, 40)}"`);
-          });
-          console.groupEnd();
-
-          if (mensagensRecebidas.length > 0) {
-            console.log('[COMUNICACAO] ✅ Amostra RECEBIDAS:', mensagensRecebidas.slice(0, 3).map((m) => ({
-              id: m.id.substring(0, 8),
-              content: m.content.substring(0, 40),
-              sender_id: m.sender_id.substring(0, 8),
-              sender_type: m.sender_type,
-              visibility: m.visibility,
-              sent_at: m.sent_at
-            })));
-          } else {
-            console.warn('[COMUNICACAO] ⚠️ NENHUMA mensagem recebida (sender_type=contact) encontrada no banco!');
-            console.warn('[COMUNICACAO] ⚠️ Suspeita: RLS rule bloqueando sender_type=contact ou problema no webhook');
-          }
         }
 
         return ultimasMensagens.reverse();
