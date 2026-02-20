@@ -185,6 +185,7 @@ export default function ChatSidebar({
   const [delegateMode, setDelegateMode] = React.useState(false);
   const [criarGrupoOpen, setCriarGrupoOpen] = React.useState(false);
   const [agendaIAOpen, setAgendaIAOpen] = React.useState(false);
+  const [etiquetaSelecionada, setEtiquetaSelecionada] = React.useState(null);
 
   // Buscar categorias dinâmicas
   const { data: categoriasDB = [] } = useQuery({
@@ -208,12 +209,33 @@ export default function ChatSidebar({
   }, [threads, usuarioAtual, integracoes]);
 
   const threadsSorted = React.useMemo(() => {
-    return [...threadsFiltradas].sort((a, b) => {
+    let filtered = [...threadsFiltradas];
+    
+    // Filtrar por etiqueta se selecionada
+    if (etiquetaSelecionada) {
+      filtered = filtered.filter(t => {
+        const contato = t.contato;
+        return contato?.tags?.includes(etiquetaSelecionada);
+      });
+    }
+    
+    return filtered.sort((a, b) => {
       const dateA = new Date(a.last_message_at || 0);
       const dateB = new Date(b.last_message_at || 0);
       return dateB - dateA;
     });
-  }, [threadsFiltradas]);
+  }, [threadsFiltradas, etiquetaSelecionada]);
+
+  // Extrair todas as etiquetas únicas
+  const etiquetasUnicas = React.useMemo(() => {
+    const etiquetas = new Set();
+    threads.forEach(t => {
+      if (t.contato?.tags?.length > 0) {
+        t.contato.tags.forEach(tag => etiquetas.add(tag));
+      }
+    });
+    return Array.from(etiquetas).sort();
+  }, [threads]);
   
   // Verificar se houve transferência recente (últimos 10 segundos)
   const foiTransferidaRecentemente = (thread) => {
@@ -518,6 +540,43 @@ export default function ChatSidebar({
         onClose={() => setAgendaIAOpen(false)}
         usuario={usuarioAtual}
       />
+
+      {/* ═══════════════════════════════════════════════════════════════════ */}
+      {/* FILTRO DE ETIQUETAS */}
+      {/* ═══════════════════════════════════════════════════════════════════ */}
+      {etiquetasUnicas.length > 0 && !modoSelecao && (
+        <div className="sticky top-20 z-10 bg-slate-50/80 backdrop-blur-sm border-b border-slate-200 px-2 py-2 space-y-1.5">
+          <p className="text-[10px] font-semibold text-slate-600 px-1">⭐ Etiquetas Destaque</p>
+          <div className="flex flex-wrap gap-1">
+            <button
+              onClick={() => setEtiquetaSelecionada(null)}
+              className={`px-2 py-1 rounded-full text-[10px] font-medium transition-all ${
+                !etiquetaSelecionada 
+                  ? 'bg-gradient-to-r from-indigo-500 to-blue-500 text-white' 
+                  : 'bg-slate-200 text-slate-700 hover:bg-slate-300'
+              }`}
+            >
+              Todas
+            </button>
+            {etiquetasUnicas.map(etq => {
+              const cfg = getEtiquetaConfigDinamico(etq);
+              return (
+                <button
+                  key={etq}
+                  onClick={() => setEtiquetaSelecionada(etiquetaSelecionada === etq ? null : etq)}
+                  className={`px-2 py-1 rounded-full text-[10px] font-medium transition-all flex items-center gap-0.5 ${
+                    etiquetaSelecionada === etq 
+                      ? `${cfg.cor || 'bg-slate-500'} text-white shadow-sm` 
+                      : 'bg-slate-200 text-slate-700 hover:bg-slate-300'
+                  }`}
+                >
+                  {cfg.emoji || '🏷️'} {etq}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* ═══════════════════════════════════════════════════════════════════ */}
       {/* LISTA NORMAL DE THREADS */}
