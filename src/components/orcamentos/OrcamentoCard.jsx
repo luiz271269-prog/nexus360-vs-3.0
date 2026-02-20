@@ -75,16 +75,16 @@ export default function OrcamentoCard({ orcamento, onEdit, onWhatsApp }) {
           <span className="font-bold text-slate-800">{formatCurrency(orcamento.valor_total)}</span>
         </div>
 
-        {/* Linha 3: Vendedor */}
-        <div className="flex items-center gap-1 text-xs text-slate-600">
-          <User className="w-3 h-3 text-slate-400 flex-shrink-0" />
-          <span className="truncate">{primeiroVendedor}</span>
-        </div>
-
-        {/* Linha 4: Data */}
-        <div className="flex items-center gap-1 text-xs text-slate-600">
-          <Calendar className="w-3 h-3 text-slate-400 flex-shrink-0" />
-          <span>{formatDate(orcamento.data_orcamento)}</span>
+        {/* Linha 3: Vendedor + Data na mesma linha */}
+        <div className="flex items-center justify-between text-xs text-slate-600">
+          <div className="flex items-center gap-1">
+            <User className="w-3 h-3 text-slate-400 flex-shrink-0" />
+            <span className="truncate">{primeiroVendedor}</span>
+          </div>
+          <div className="flex items-center gap-1">
+            <Calendar className="w-3 h-3 text-slate-400 flex-shrink-0" />
+            <span>{formatDate(orcamento.data_orcamento)}</span>
+          </div>
         </div>
 
         {/* Linha 5: Badges — igual à sidebar (Tipo + Probabilidade + Chat) */}
