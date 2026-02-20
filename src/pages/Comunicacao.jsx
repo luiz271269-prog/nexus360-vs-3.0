@@ -2728,7 +2728,11 @@ export default function Comunicacao() {
                         setModoSelecaoMultipla={setModoSelecaoMultipla}
                         contatosSelecionados={contatosSelecionados}
                         setContatosSelecionados={setContatosSelecionados}
-                        onSelectInternalDestinations={(sel) => { handleInternalSelection(sel); setMobileView('chat'); }} />
+                        onSelectInternalDestinations={(sel) => { handleInternalSelection(sel); setMobileView('chat'); }}
+                        onFilterScopeChange={setFilterScope}
+                        onSelectedIntegrationChange={setSelectedIntegrationId}
+                        filterScope={filterScope}
+                        contatos={contatos} />
                     </div>
                   </div>
                 )}
