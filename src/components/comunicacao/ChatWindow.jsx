@@ -1650,7 +1650,7 @@ export default function ChatWindow({
   }, [erro]);
 
   React.useEffect(() => {
-    window.handleCriarOportunidadeDeChat = async (mensagem, threadData) => {
+    window.handleCriarOportunidadeDeChat = async (mensagem, threadData, statusInicial = 'rascunho') => {
       if (!contatoCompleto) {
         toast.error('Aguarde o carregamento do contato');
         return;
