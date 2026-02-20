@@ -2812,7 +2812,8 @@ export default function Comunicacao() {
                   </div>
                 )}
               </div>
-
+              </>
+              )}
             </TabsContent>
 
             {/* TAB: CONTROLE OPERACIONAL - FILAS + SAÚDE + DASHBOARD CONSOLIDADO */}
