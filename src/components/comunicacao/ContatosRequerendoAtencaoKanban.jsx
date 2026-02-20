@@ -23,6 +23,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useContatosInteligentes } from '../hooks/useContatosInteligentes';
+import { useEtiquetasContato } from './SeletorEtiquetasContato';
 import { base44 } from '@/api/base44Client';
 import { createPageUrl } from '@/utils';
 import ModalEnvioPromocoesAutomaticas from './ModalEnvioPromocoesAutomaticas';
@@ -130,6 +131,9 @@ export default function ContatosRequerendoAtencaoKanban({ usuario, onSelecionarC
       carregarAtendentes();
     }
   }, [contatosComAlerta]);
+
+  // ✅ Buscar configurações dinâmicas de etiquetas
+  const { etiquetas: etiquetasDB, getConfig: getEtiquetaConfig } = useEtiquetasContato();
 
   // ✅ Extrair todas as etiquetas únicas dos contatos
   const etiquetasUnicas = useMemo(() => {
@@ -571,19 +575,22 @@ export default function ContatosRequerendoAtencaoKanban({ usuario, onSelecionarC
                 >
                   Todas
                 </button>
-                {etiquetasUnicas.map(etq => (
-                  <button
-                    key={etq}
-                    onClick={() => setEtiquetaSelecionada(etiquetaSelecionada === etq ? null : etq)}
-                    className={`px-2 py-1 rounded-full text-[10px] font-medium transition-all flex items-center gap-0.5 ${
-                      etiquetaSelecionada === etq 
-                        ? 'bg-gradient-to-r from-purple-500 to-pink-500 text-white shadow-sm' 
-                        : 'bg-slate-200 text-slate-700 hover:bg-slate-300'
-                    }`}
-                  >
-                    🏷️ {etq}
-                  </button>
-                ))}
+                {etiquetasUnicas.map(etq => {
+                  const cfg = getEtiquetaConfig(etq);
+                  return (
+                    <button
+                      key={etq}
+                      onClick={() => setEtiquetaSelecionada(etiquetaSelecionada === etq ? null : etq)}
+                      className={`px-2 py-1 rounded-full text-[10px] font-medium transition-all flex items-center gap-0.5 ${
+                        etiquetaSelecionada === etq 
+                          ? `${cfg.cor} text-white shadow-sm` 
+                          : 'bg-slate-200 text-slate-700 hover:bg-slate-300'
+                      }`}
+                    >
+                      {cfg.emoji} {cfg.label || etq}
+                    </button>
+                  );
+                })}
               </div>
             )}
 
