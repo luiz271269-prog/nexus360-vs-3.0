@@ -583,7 +583,7 @@ export default React.memo(function MessageBubble({
     setEtiquetaFaseDialog(catConfig || { nome: valorCategoria, label: valorCategoria, emoji: '🏷️' });
   };
 
-  const handleConfirmarEtiquetaFase = async (fase, criarOportunidade) => {
+  const handleConfirmarEtiquetaFase = async (fase, criarOportunidade, destino) => {
     const etiqueta = etiquetaFaseDialog;
     setEtiquetaFaseDialog(null);
     if (!etiqueta) return;
@@ -591,9 +591,15 @@ export default React.memo(function MessageBubble({
     // 1. Aplica a etiqueta na mensagem
     await aplicarEtiqueta(etiqueta.nome);
 
-    // 2. Cria oportunidade no Kanban na fase escolhida
-    if (criarOportunidade && fase && window.handleCriarOportunidadeDeChat) {
-      window.handleCriarOportunidadeDeChat(message, thread || {}, fase);
+    // 2. Cria no Kanban conforme destino escolhido
+    if (criarOportunidade) {
+      if (destino === 'orcamentos' && fase && window.handleCriarOportunidadeDeChat) {
+        window.handleCriarOportunidadeDeChat(message, thread || {}, fase, 'orcamentos');
+      } else if (destino === 'leads' && window.handleCriarOportunidadeDeChat) {
+        window.handleCriarOportunidadeDeChat(message, thread || {}, null, 'leads');
+      } else if (destino === 'clientes' && window.handleCriarOportunidadeDeChat) {
+        window.handleCriarOportunidadeDeChat(message, thread || {}, null, 'clientes');
+      }
     }
   };
 
