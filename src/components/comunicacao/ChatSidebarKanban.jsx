@@ -106,9 +106,61 @@ function ThreadCardKanban({ thread, isAtiva, usuarioAtual, atendentes, onSelecio
 }
 
 export default function ChatSidebarKanban({ threads, threadAtiva, onSelecionarThread, onVoltar, usuarioAtual, integracoes = [], atendentes = [] }) {
+  // ✅ APLICAR MESMA LÓGICA DE VISIBILIDADE DO CHATWINDOW
+  const threadsFiltradas = React.useMemo(() => {
+    if (!usuarioAtual || threads.length === 0) return [];
+
+    // Admin vê tudo
+    if (usuarioAtual.role === 'admin') return threads;
+
+    // Filtrar threads visíveis para o usuário
+    return threads.filter(thread => {
+      if (!thread) return false;
+
+      // Normalizar função
+      const norm = (v) => String(v || '').toLowerCase().trim();
+
+      // P1: Atribuído ao usuário → sempre visível
+      if (
+        norm(thread.assigned_user_id) === norm(usuarioAtual.id) ||
+        norm(thread.assigned_user_email) === norm(usuarioAtual.email) ||
+        norm(thread.assigned_user_name) === norm(usuarioAtual.full_name) ||
+        norm(thread.transfer_requested_user_id) === norm(usuarioAtual.id)
+      ) {
+        return true;
+      }
+
+      // P2: Gerente/Coordenador → vê tudo
+      if (['gerente', 'coordenador', 'supervisor'].includes(usuarioAtual.attendant_role)) {
+        return true;
+      }
+
+      // P3: Thread não atribuída → qualquer usuário vê
+      if (!thread.assigned_user_id && !thread.assigned_user_name && !thread.assigned_user_email) {
+        return true;
+      }
+
+      // P4: Compartilhada com o usuário
+      if (thread.shared_with_users?.includes(usuarioAtual.id)) {
+        return true;
+      }
+
+      // P5: Threads internas (team_internal) onde é participante
+      if (
+        (thread.thread_type === 'team_internal' || thread.thread_type === 'sector_group') &&
+        thread.participants?.includes(usuarioAtual.id)
+      ) {
+        return true;
+      }
+
+      // Bloqueado: atribuída a outro usuário
+      return false;
+    });
+  }, [threads, usuarioAtual]);
+
   // Agrupar threads externas por integração
   const colunas = React.useMemo(() => {
-    const externas = threads.filter(t =>
+    const externas = threadsFiltradas.filter(t =>
       t.thread_type === 'contact_external' || (!t.thread_type && t.contact_id)
     );
 
