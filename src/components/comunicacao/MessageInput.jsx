@@ -493,6 +493,21 @@ export default function MessageInput({
           disabled={enviando || carregandoContato || gravandoAudio || modoSelecao || uploadingPastedFile || !podeEnviarMensagens}
         />
 
+        {/* 📷 BOTÃO CÂMERA - Apenas mobile */}
+        {isMobile && podeEnviarMidias && (
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            className="text-sm font-medium rounded-md inline-flex items-center justify-center gap-2 whitespace-nowrap transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 h-8 w-8 flex-shrink-0 md:hidden"
+            disabled={enviando || carregandoContato || gravandoAudio || modoSelecao || uploadingPastedFile}
+            onClick={() => cameraInputRef.current?.click()}
+            title="Tirar foto"
+          >
+            <Camera className="w-4 h-4 text-slate-600" />
+          </Button>
+        )}
+
         {/* ✅ BOTÃO IA - SEMPRE VISÍVEL com animação se última mensagem é do cliente */}
         {podeEnviarMensagens && (
           <Button
