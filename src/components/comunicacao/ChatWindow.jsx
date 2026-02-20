@@ -1344,16 +1344,31 @@ export default function ChatWindow({
   // 🚀 HANDLER DE ENVIO - Recebe dados do MessageInput
   const handleEnviarFromInput = React.useCallback(async ({ texto, pastedImage, pastedImagePreview, attachedFile, attachedFileType }) => {
     // ═══════════════════════════════════════════════════════════════════════
-    // 🎯 FLUXO EXCLUSIVO INTERNO - Validação prévia + Handler dedicado
+    // 🎯 PRIORIDADE 1: BROADCAST INTERNO/EXTERNO (sem thread específica)
+    // Deve ser checado ANTES de qualquer validação de thread
+    // ═══════════════════════════════════════════════════════════════════════
+    if (modoSelecaoMultipla && (contatosSelecionados.length > 0 || broadcastInterno)) {
+      if (attachedFile) {
+        await enviarArquivoAnexado(attachedFile, attachedFileType, texto);
+        return;
+      }
+      if (pastedImage) {
+        await enviarImagemColada(pastedImage, pastedImagePreview, texto);
+        return;
+      }
+      await handleEnviarBroadcast({ texto });
+      return;
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // 🎯 PRIORIDADE 2: THREAD INTERNA (team_internal / sector_group)
     // ═══════════════════════════════════════════════════════════════════════
     if (thread?.thread_type === 'team_internal' || thread?.thread_type === 'sector_group') {
-      // Validação de contexto ANTES de chamar backend
       if (!usuario?.id || !thread?.id) {
         toast.error("⚠️ Contexto inválido. Recarregue a página.");
         return;
       }
 
-      // Validação de participação
       const isParticipante = thread.participants?.includes(usuario.id);
       const isAdmin = usuario.role === 'admin';
 
@@ -1363,7 +1378,6 @@ export default function ChatWindow({
       }
 
       if (onSendInternalMessageOptimistic) {
-        // ✅ Marcar como lida ao responder (interno)
         marcarLidaAoResponder();
         onSendInternalMessageOptimistic({
           texto,
@@ -1393,12 +1407,6 @@ export default function ChatWindow({
     // Se tem imagem colada, processar como imagem
     if (pastedImage) {
       await enviarImagemColada(pastedImage, pastedImagePreview, texto);
-      return;
-    }
-
-    // Se estiver em modo broadcast (externo ou interno), chamar o handler de broadcast
-    if (modoSelecaoMultipla && (contatosSelecionados.length > 0 || broadcastInterno)) {
-      await handleEnviarBroadcast({ texto });
       return;
     }
 
