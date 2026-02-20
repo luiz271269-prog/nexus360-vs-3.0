@@ -173,14 +173,30 @@ export default function ContatosNaoAtribuidosKanban({ usuario, threads = [], onC
         </div>
 
         <div className="flex-1 min-w-0">
-          <h3 className="font-semibold truncate text-sm text-slate-900 mb-0.5">
-            {nomeExibicao}
-          </h3>
+           <div className="flex items-center justify-between gap-2 mb-0.5">
+             <h3 className="font-semibold truncate text-sm text-slate-900">
+               {nomeExibicao}
+             </h3>
+             {(thread.unread_count > 0 || thread.total_mensagens > 0) && (
+               <div className="flex items-center gap-0.5 flex-shrink-0">
+                 {thread.unread_count > 0 && (
+                   <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-red-500 text-white text-[10px] font-bold rounded-full shadow-md">
+                     💬 {thread.unread_count}
+                   </span>
+                 )}
+                 {thread.total_mensagens > 0 && (
+                   <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-green-500 text-white text-[10px] font-bold rounded-full shadow-md">
+                     ✓ {thread.total_mensagens}
+                   </span>
+                 )}
+               </div>
+             )}
+           </div>
 
-          <p className="text-xs text-slate-500 truncate mb-0.5 flex items-center gap-1">
-            <Clock className="w-3 h-3 flex-shrink-0" />
-            {formatarDataUltimaMensagem(thread.last_inbound_at || thread.last_message_at)}
-          </p>
+           <p className="text-xs text-slate-500 truncate mb-0.5 flex items-center gap-1">
+             <Clock className="w-3 h-3 flex-shrink-0" />
+             {formatarDataUltimaMensagem(thread.last_inbound_at || thread.last_message_at)}
+           </p>
 
           {contato.tags && contato.tags.length > 0 && (
             <div className="flex items-center gap-0.5 flex-wrap">
