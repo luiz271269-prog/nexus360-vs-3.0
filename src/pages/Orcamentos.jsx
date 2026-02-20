@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useCallback } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -59,6 +58,13 @@ export default function Orcamentos() {
       return data;
     },
   });
+
+  // ✅ Auto-refresh quando oportunidade criada via chat
+  React.useEffect(() => {
+    const handler = () => refetch();
+    window.addEventListener('orcamentos:refresh', handler);
+    return () => window.removeEventListener('orcamentos:refresh', handler);
+  }, [refetch]);
 
   const { data: clientes = [] } = useQuery({
     queryKey: ['clientes'],

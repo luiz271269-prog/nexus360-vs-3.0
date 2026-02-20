@@ -1754,6 +1754,9 @@ ${conteudoMensagem}${dadosExtraidos?.observacoes_extraidas ? `\n\n📋 IA: ${dad
           }
         );
 
+        // ✅ Sync: atualiza Kanban em tempo real se estiver aberto
+        window.dispatchEvent(new CustomEvent('orcamentos:refresh'));
+
         if (dadosExtraidos?.itens?.length > 0) {
           toast.success(`🤖 IA identificou ${dadosExtraidos.itens.length} item(ns)!`, { duration: 2000 });
         }
