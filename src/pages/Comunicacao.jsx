@@ -2493,13 +2493,6 @@ export default function Comunicacao() {
 
             {/* Ações compactas */}
             <div className="flex items-center gap-1.5">
-              <ContadorNaoAtribuidas threads={threads} integracoes={integracoes} usuario={usuario}
-                onClickVerFila={() => { setFilterScope('unassigned'); setActiveTab('conversas'); }}
-                onClickConexao={(id) => { setFilterScope('unassigned'); setSelectedIntegrationId(id); setActiveTab('conversas'); }}
-                className="shadow-lg" />
-              <ContatosRequerendoAtencao usuario={usuario} contatos={contatos}
-                onSelecionarContato={(t) => { handleSelecionarThread(t); setActiveTab('conversas'); }}
-                variant="header" />
               <button
                 onClick={() => {
                   queryClient.invalidateQueries({ queryKey: ['threads-externas'] });
