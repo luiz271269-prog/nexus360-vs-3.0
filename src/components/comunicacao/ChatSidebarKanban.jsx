@@ -256,16 +256,31 @@ export default function ChatSidebarKanban({ threads, threadAtiva, onSelecionarTh
                 {coluna.threads.length === 0 ? (
                   <div className="text-center py-8 text-slate-400 text-xs">Sem conversas</div>
                 ) : (
-                  coluna.threads.map(thread => (
-                    <ThreadCardKanban
-                      key={thread.id}
-                      thread={thread}
-                      isAtiva={threadAtiva?.id === thread.id}
-                      usuarioAtual={usuarioAtual}
-                      atendentes={atendentes}
-                      onSelecionarThread={onSelecionarThread}
-                    />
-                  ))
+                  coluna.threads.map(thread => {
+                    // Calcular se pode interagir (mesmo sistema do ChatWindow)
+                    const norm = (v) => String(v || '').toLowerCase().trim();
+                    const isAtribuidoOuTransferido = 
+                      norm(thread.assigned_user_id) === norm(usuarioAtual?.id) ||
+                      norm(thread.transfer_requested_user_id) === norm(usuarioAtual?.id);
+                    const isGerente = ['gerente', 'coordenador', 'supervisor'].includes(usuarioAtual?.attendant_role);
+                    const isNaoAtribuida = !thread.assigned_user_id && !thread.assigned_user_name && !thread.assigned_user_email;
+                    const isCompartilhada = thread.shared_with_users?.includes(usuarioAtual?.id);
+                    const isInterno = thread.participants?.includes(usuarioAtual?.id);
+                    
+                    const podeInteragir = usuarioAtual?.role === 'admin' || isAtribuidoOuTransferido || isGerente || isNaoAtribuida || isCompartilhada || isInterno;
+
+                    return (
+                      <ThreadCardKanban
+                        key={thread.id}
+                        thread={thread}
+                        isAtiva={threadAtiva?.id === thread.id}
+                        usuarioAtual={usuarioAtual}
+                        atendentes={atendentes}
+                        onSelecionarThread={onSelecionarThread}
+                        podeInteragir={podeInteragir}
+                      />
+                    );
+                  })
                 )}
               </div>
             </div>
