@@ -442,14 +442,30 @@ export default function ContatosRequerendoAtencaoKanban({ usuario, onSelecionarC
                 <p className="text-xs text-slate-500">{totalAlertas} requerem atenção</p>
               </div>
             </div>
-            <Button
-              size="sm"
-              variant="ghost"
-              onClick={refetch}
-              disabled={loading}
-              className="h-7 w-7 p-0 hover:bg-slate-200">
-              <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button
+                onClick={() => setMostrarModalPromoAuto(true)}
+                disabled={loading || totalAlertas === 0}
+                className="h-7 text-xs bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white shadow-md disabled:opacity-50 px-3">
+                <Sparkles className="w-3.5 h-3.5 mr-1" />
+                Automático ({totalAlertas})
+              </Button>
+              <Button
+                onClick={abrirEnvioMassa}
+                disabled={contatosSelecionados.length === 0}
+                className="h-7 text-xs bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 text-white shadow-md disabled:opacity-50 px-3">
+                <MessageSquare className="w-3.5 h-3.5 mr-1" />
+                Massa ({contatosSelecionados.length})
+              </Button>
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={refetch}
+                disabled={loading}
+                className="h-7 w-7 p-0 hover:bg-slate-200">
+                <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
+              </Button>
+            </div>
           </div>
 
           {/* Configurações */}
@@ -496,23 +512,7 @@ export default function ContatosRequerendoAtencaoKanban({ usuario, onSelecionarC
               </Button>
             </div>
 
-            {/* Botões de Ação */}
-            <div className="flex gap-2">
-              <Button
-                onClick={() => setMostrarModalPromoAuto(true)}
-                disabled={loading || totalAlertas === 0}
-                className="flex-1 h-8 text-xs bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white shadow-md disabled:opacity-50">
-                <Sparkles className="w-3.5 h-3.5 mr-1.5" />
-                Automático ({totalAlertas})
-              </Button>
-              <Button
-                onClick={abrirEnvioMassa}
-                disabled={contatosSelecionados.length === 0}
-                className="flex-1 h-8 text-xs bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700 text-white shadow-md disabled:opacity-50">
-                <MessageSquare className="w-3.5 h-3.5 mr-1.5" />
-                Massa ({contatosSelecionados.length})
-              </Button>
-            </div>
+
 
             {/* Selecionar Todos */}
             {totalAlertas > 0 && (
@@ -546,19 +546,19 @@ export default function ContatosRequerendoAtencaoKanban({ usuario, onSelecionarC
         ) : (
           <div className="flex-1 overflow-x-auto p-4 space-x-4 flex">
             {Object.entries(grupos).map(([nomeColuna, items]) => (
-              <div key={nomeColuna} className="flex-shrink-0 w-72 bg-white rounded-lg shadow-sm border border-slate-200 overflow-hidden flex flex-col">
+              <div key={nomeColuna} className="flex-shrink-0 w-72 rounded-lg overflow-hidden flex flex-col">
                 {/* Header da Coluna */}
-                <div className="bg-gradient-to-r from-slate-50 to-slate-100 px-4 py-3 border-b border-slate-200">
+                <div className="bg-gradient-to-r from-purple-600 to-indigo-600 px-4 py-3 rounded-t-lg shadow-md">
                   <div className="flex items-center justify-between">
-                    <span className="text-sm font-bold text-slate-800">{nomeColuna}</span>
-                    <Badge variant="outline" className="text-xs font-bold">
+                    <span className="text-sm font-bold text-white">{nomeColuna}</span>
+                    <Badge className="bg-white/30 text-white text-xs font-bold">
                       {items.length}
                     </Badge>
                   </div>
                 </div>
 
                 {/* Cards */}
-                <div className="flex-1 overflow-y-auto p-3 space-y-2 scrollbar-custom">
+                <div className="flex-1 overflow-y-auto p-3 space-y-2 scrollbar-custom bg-white rounded-b-lg shadow-sm border border-slate-200 border-t-0">
                   {items.length === 0 ? (
                     <div className="text-center py-8 text-slate-400 text-xs">
                       Sem contatos
