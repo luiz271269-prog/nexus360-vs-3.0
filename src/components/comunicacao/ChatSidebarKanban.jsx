@@ -27,7 +27,7 @@ const formatarHorario = (timestamp) => {
   } catch { return ""; }
 };
 
-function ThreadCardKanban({ thread, isAtiva, usuarioAtual, atendentes, onSelecionarThread }) {
+function ThreadCardKanban({ thread, isAtiva, usuarioAtual, atendentes, onSelecionarThread, podeInteragir }) {
   const contato = thread.contato;
   const hasUnread = getUnreadCount(thread, usuarioAtual?.id) > 0;
 
