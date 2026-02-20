@@ -1656,146 +1656,113 @@ export default function ChatWindow({
         return;
       }
 
-      let conteudoMensagem = '';
-      let mediaUrl = null;
+      const toastId = toast.loading('🤖 IA analisando e criando oportunidade...');
 
-      if (mensagem.content) {
-        conteudoMensagem = mensagem.content;
-      } else if (mensagem.media_type === 'audio') {
-        conteudoMensagem = '[Áudio gravado]';
-      } else if (mensagem.media_type === 'image') {
-        conteudoMensagem = '[Imagem/Print enviada]';
-        mediaUrl = mensagem.media_url;
-        if (mensagem.media_url) {
-          conteudoMensagem += `\n\nURL da imagem: ${mensagem.media_url}`;
-        }
-      } else if (mensagem.media_type === 'video') {
-        conteudoMensagem = '[Vídeo enviado]';
-      } else if (mensagem.media_type === 'document') {
-        conteudoMensagem = '[Documento anexado]';
-      } else {
-        conteudoMensagem = '[Mensagem sem texto]';
-      }
+      try {
+        // Extrair dados com IA se houver texto
+        let dadosExtraidos = null;
+        if (mensagem.content && mensagem.content.trim().length > 10) {
+          try {
+            const resultado = await base44.integrations.Core.InvokeLLM({
+              prompt: `Analise esta mensagem de chat e extraia dados estruturados para criar um orçamento comercial.
 
-      const tipoRemetente = mensagem.sender_type === 'user' ? 'Atendente' : 'Cliente';
-      const nomeRemetente = mensagem.sender_type === 'user' ?
-      usuario?.full_name || 'Atendente' :
-      contatoCompleto?.nome || 'Cliente';
+MENSAGEM DO CLIENTE:
+${mensagem.content}
 
-      // Extração inteligente de dados estruturados com IA
-      let dadosExtraidos = null;
-      if (mensagem.content && mensagem.content.trim().length > 10) {
-        try {
-          toast.info('🤖 IA analisando mensagem para extrair dados...', { duration: 2000 });
+INSTRUÇÕES:
+1. Identifique produtos/serviços mencionados com quantidades e valores (se houver)
+2. Extraia condições de pagamento, prazos ou datas mencionadas
+3. Capture observações importantes ou requisitos específicos
+4. Se não houver dados claros, retorne campos vazios
 
-          const prompt = `Analise esta mensagem de chat e extraia dados estruturados para criar um orçamento comercial.
-
-    MENSAGEM DO CLIENTE:
-    ${mensagem.content}
-
-    INSTRUÇÕES:
-    1. Identifique produtos/serviços mencionados com quantidades e valores (se houver)
-    2. Extraia condições de pagamento, prazos ou datas mencionadas
-    3. Capture observações importantes ou requisitos específicos
-    4. Se não houver dados claros, retorne campos vazios
-
-    Retorne JSON estruturado.`;
-
-          const schema = {
-            type: "object",
-            properties: {
-              itens: {
-                type: "array",
-                items: {
-                  type: "object",
-                  properties: {
-                    nome_produto: { type: "string" },
-                    descricao: { type: "string" },
-                    quantidade: { type: "number" },
-                    valor_unitario: { type: "number" },
-                    referencia: { type: "string" }
-                  }
+Retorne JSON estruturado.`,
+              response_json_schema: {
+                type: "object",
+                properties: {
+                  itens: {
+                    type: "array",
+                    items: {
+                      type: "object",
+                      properties: {
+                        nome_produto: { type: "string" },
+                        descricao: { type: "string" },
+                        quantidade: { type: "number" },
+                        valor_unitario: { type: "number" }
+                      }
+                    }
+                  },
+                  valor_total: { type: "number" },
+                  condicao_pagamento: { type: "string" },
+                  observacoes_extraidas: { type: "string" }
                 }
-              },
-              numero_orcamento: { type: "string" },
-              condicao_pagamento: { type: "string" },
-              data_vencimento: { type: "string" },
-              observacoes_extraidas: { type: "string" }
+              }
+            });
+            dadosExtraidos = resultado;
+          } catch (_) { /* Continua sem dados da IA */ }
+        }
+
+        const tipoRemetente = mensagem.sender_type === 'user' ? 'Atendente' : 'Cliente';
+        const nomeRemetente = mensagem.sender_type === 'user'
+          ? (usuario?.full_name || 'Atendente')
+          : (contatoCompleto?.nome || 'Cliente');
+
+        const conteudoMensagem = mensagem.content || (
+          mensagem.media_type === 'audio' ? '[Áudio gravado]' :
+          mensagem.media_type === 'image' ? '[Imagem/Print]' :
+          mensagem.media_type === 'video' ? '[Vídeo]' :
+          mensagem.media_type === 'document' ? '[Documento]' : '[Mensagem sem texto]'
+        );
+
+        const observacoes = `[💬 Chat ${threadData.id?.slice(-8)} - ${new Date().toLocaleString('pt-BR')}]
+👤 ${nomeRemetente} (${tipoRemetente})
+
+${conteudoMensagem}${dadosExtraidos?.observacoes_extraidas ? `\n\n📋 IA: ${dadosExtraidos.observacoes_extraidas}` : ''}`;
+
+        // ✅ SALVAR DIRETO NO BANCO via backend function
+        const response = await base44.functions.invoke('criarOportunidadeDoChat', {
+          message_id: mensagem.id,
+          thread_id: threadData.id,
+          contact_id: threadData.contact_id,
+          cliente_nome: contatoCompleto.nome || contatoCompleto.empresa || '',
+          cliente_telefone: contatoCompleto.telefone || '',
+          cliente_email: contatoCompleto.email || '',
+          vendedor: usuario?.full_name || '',
+          valor_total: dadosExtraidos?.valor_total || 0,
+          produtos: dadosExtraidos?.itens?.map(i => ({
+            nome: i.nome_produto || '',
+            descricao: i.descricao || '',
+            quantidade: i.quantidade || 1,
+            valor_unitario: i.valor_unitario || 0,
+            valor_total: (i.quantidade || 1) * (i.valor_unitario || 0)
+          })) || [],
+          observacoes,
+          media_url: mensagem.media_url || '',
+          media_type: mensagem.media_type || 'text'
+        });
+
+        if (!response?.data?.success) throw new Error(response?.data?.error || 'Erro ao criar');
+
+        toast.dismiss(toastId);
+        toast.success(
+          `✅ Oportunidade ${response.data.numero_orcamento} criada no Kanban!`,
+          {
+            duration: 5000,
+            action: {
+              label: 'Ver Kanban',
+              onClick: () => navigate(createPageUrl('Orcamentos'))
             }
-          };
-
-          const resultado = await base44.integrations.Core.InvokeLLM({
-            prompt: prompt,
-            response_json_schema: schema
-          });
-
-          dadosExtraidos = resultado;
-
-          if (resultado.itens && resultado.itens.length > 0) {
-            toast.success(`✅ IA identificou ${resultado.itens.length} item(ns)!`, { duration: 2000 });
           }
-        } catch (error) {
-          console.error('[CHAT] Erro ao extrair dados com IA:', error);
-          toast.warning('⚠️ Não foi possível extrair dados automaticamente', { duration: 2000 });
+        );
+
+        if (dadosExtraidos?.itens?.length > 0) {
+          toast.success(`🤖 IA identificou ${dadosExtraidos.itens.length} item(ns)!`, { duration: 2000 });
         }
+
+      } catch (error) {
+        console.error('[CHAT] Erro ao criar oportunidade:', error);
+        toast.dismiss(toastId);
+        toast.error('Erro ao criar oportunidade: ' + error.message);
       }
-
-      const observacoesBase = `[Oportunidade criada a partir do Chat WhatsApp - ${new Date().toLocaleString('pt-BR')}]
-
-    📱 Thread ID: ${threadData.id}
-    👤 Remetente: ${nomeRemetente} (${tipoRemetente})
-    📅 Data: ${new Date(mensagem.created_date || mensagem.sent_at).toLocaleString('pt-BR')}
-    ${mensagem.media_type ? `📎 Tipo: ${mensagem.media_type}` : ''}
-
-    💬 Conteúdo da Mensagem:
-    ${conteudoMensagem}`;
-
-      const observacoesFinal = dadosExtraidos?.observacoes_extraidas ?
-      `${observacoesBase}\n\n📋 Observações Extraídas pela IA:\n${dadosExtraidos.observacoes_extraidas}\n\n---\n✅ Status inicial: Enviado (Aguardando resposta do cliente)\n🎯 Próximos passos: Revisar itens extraídos e enviar proposta formal` :
-      `${observacoesBase}\n\n---\n✅ Status inicial: Enviado (Aguardando resposta do cliente)\n🎯 Próximos passos: Adicionar itens, valores e enviar proposta formal`;
-
-      const queryParams = new URLSearchParams({
-        origem: 'chat',
-        thread_id: threadData.id,
-        message_id: mensagem.id,
-
-        cliente_nome: contatoCompleto.nome || '',
-        cliente_telefone: contatoCompleto.telefone || '',
-        cliente_celular: contatoCompleto.celular || contatoCompleto.telefone || '',
-        cliente_email: contatoCompleto.email || '',
-        cliente_empresa: contatoCompleto.empresa || '',
-
-        vendedor: usuario?.full_name || usuario?.email || '',
-        data_orcamento: new Date().toISOString().slice(0, 10),
-        status: 'rascunho',
-
-        observacoes: observacoesFinal
-      });
-
-      // Adicionar dados extraídos se houver
-      if (dadosExtraidos) {
-        if (dadosExtraidos.numero_orcamento) {
-          queryParams.set('numero_orcamento', dadosExtraidos.numero_orcamento);
-        }
-        if (dadosExtraidos.condicao_pagamento) {
-          queryParams.set('condicao_pagamento', dadosExtraidos.condicao_pagamento);
-        }
-        if (dadosExtraidos.data_vencimento) {
-          queryParams.set('data_vencimento', dadosExtraidos.data_vencimento);
-        }
-        if (dadosExtraidos.itens && dadosExtraidos.itens.length > 0) {
-          queryParams.set('itens_extraidos', encodeURIComponent(JSON.stringify(dadosExtraidos.itens)));
-        }
-      }
-
-      // Adicionar media_url se for imagem
-      if (mediaUrl) {
-        queryParams.set('media_url', mediaUrl);
-      }
-
-      navigate(createPageUrl('OrcamentoDetalhes') + '?' + queryParams.toString());
-
-      toast.success('🎯 Oportunidade criada! Preencha os detalhes do orçamento.', { duration: 3000 });
     };
 
     return () => {

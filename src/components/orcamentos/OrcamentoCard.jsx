@@ -1,9 +1,8 @@
-
 import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { User, Calendar, DollarSign, AlertTriangle, MessageSquare, Phone } from 'lucide-react';
+import { User, Calendar, DollarSign, MessageSquare, Mic, FileText } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
 
@@ -13,9 +12,42 @@ export default function OrcamentoCard({ orcamento, onEdit, onDelete, onDuplicar,
   const formatDate = (dateString) => dateString ? new Date(dateString).toLocaleDateString('pt-BR', { timeZone: 'UTC' }) : '-';
 
   const temTelefone = orcamento.cliente_telefone || orcamento.cliente_celular;
+  const origemChat = orcamento.origem_chat;
 
   return (
     <Card className="hover:shadow-lg transition-all cursor-pointer group">
+      {/* ✅ PREVIEW MÍDIA DO CHAT */}
+      {origemChat?.media_url && origemChat.media_type === 'image' && (
+        <div className="relative overflow-hidden rounded-t-lg">
+          <img
+            src={origemChat.media_url}
+            className="w-full h-28 object-cover cursor-pointer"
+            onClick={(e) => { e.stopPropagation(); window.open(origemChat.media_url, '_blank'); }}
+            onError={(e) => { e.target.parentElement.style.display = 'none'; }}
+          />
+          <Badge className="absolute top-2 right-2 bg-green-600 text-[10px]">💬 Chat</Badge>
+        </div>
+      )}
+      {origemChat?.media_type === 'audio' && (
+        <div className="relative h-16 bg-gradient-to-r from-purple-500 to-indigo-600 rounded-t-lg flex items-center justify-center gap-2 text-white">
+          <Mic className="w-6 h-6" />
+          <span className="text-sm font-medium">Áudio do Cliente</span>
+          <Badge className="absolute top-2 right-2 bg-green-600 text-[10px]">💬 Chat</Badge>
+        </div>
+      )}
+      {origemChat?.media_type === 'document' && (
+        <div className="relative h-16 bg-gradient-to-r from-blue-500 to-cyan-600 rounded-t-lg flex items-center justify-center gap-2 text-white">
+          <FileText className="w-6 h-6" />
+          <span className="text-sm font-medium">Documento</span>
+          <Badge className="absolute top-2 right-2 bg-green-600 text-[10px]">💬 Chat</Badge>
+        </div>
+      )}
+      {origemChat && !origemChat.media_url && (
+        <div className="px-3 pt-2">
+          <Badge className="bg-green-100 text-green-700 text-[10px]">💬 Criado via Chat</Badge>
+        </div>
+      )}
+
       <CardHeader className="p-3">
         <CardTitle className="text-sm font-bold">{orcamento.cliente_nome}</CardTitle>
         <Badge variant="outline" className="w-fit">{orcamento.numero_orcamento || 'Sem código'}</Badge>
