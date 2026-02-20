@@ -130,30 +130,27 @@ export default function ContatosRequerendoAtencaoKanban({ usuario, onSelecionarC
     }
   }, [contatosComAlerta]);
 
-  // ✅ Agrupamento único por Prioridade Combinada (Inatividade + Score)
+  // ✅ Agrupamento único por Prioridade (baseado em dias inativos)
   const agruparPorPrioridade = () => {
     const grupos = {
-      '🔴 Críticos': [],
-      '🟠 Alta Prioridade': [],
-      '🟡 Média Prioridade': [],
-      '🟢 Monitorar': []
+      '🔴 Críticos (90+ dias)': [],
+      '🟠 Alta Prioridade (60-89 dias)': [],
+      '🟡 Prioritários (30-59 dias)': [],
+      '🟢 Monitorar (7-29 dias)': []
     };
 
     contatosComAlerta.forEach((item) => {
-      const topico = item.prioridadeLabel === 'CRITICO' ? '🔴 Críticos' :
-        item.prioridadeLabel === 'ALTO' ? '🟠 Alta Prioridade' :
-        item.prioridadeLabel === 'MEDIO' ? '🟡 Média Prioridade' :
-        '🟢 Monitorar';
+      const dias = item.days_inactive_inbound || 0;
+      const topico = dias >= 90 ? '🔴 Críticos (90+ dias)' :
+        dias >= 60 ? '🟠 Alta Prioridade (60-89 dias)' :
+        dias >= 30 ? '🟡 Prioritários (30-59 dias)' :
+        '🟢 Monitorar (7-29 dias)';
       grupos[topico].push(item);
     });
 
-    // Ordenar dentro de cada grupo por prioridade (inatividade + score)
+    // Ordenar dentro de cada grupo por dias inativos (decrescente)
     Object.keys(grupos).forEach((key) => {
-      grupos[key].sort((a, b) => {
-        const scoreA = (b.prioridadeScore || 0) + (b.days_inactive_inbound || 0);
-        const scoreB = (a.prioridadeScore || 0) + (a.days_inactive_inbound || 0);
-        return scoreA - scoreB;
-      });
+      grupos[key].sort((a, b) => (b.days_inactive_inbound || 0) - (a.days_inactive_inbound || 0));
     });
 
     return grupos;
