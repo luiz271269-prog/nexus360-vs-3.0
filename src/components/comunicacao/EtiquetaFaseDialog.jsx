@@ -3,7 +3,7 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { KanbanSquare, Tag, Target, Users, FileText } from "lucide-react";
+import { KanbanSquare, Tag, Target, Users, FileText, User, Calendar, Clock, MessageSquare } from "lucide-react";
 
 export const FASES_KANBAN = [
   { value: 'rascunho',          label: 'Rascunho',         etapa: 'interna',    color: 'bg-indigo-100 text-indigo-800 border-indigo-300' },
