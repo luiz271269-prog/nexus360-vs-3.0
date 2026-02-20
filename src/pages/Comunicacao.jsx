@@ -2611,6 +2611,10 @@ export default function Comunicacao() {
                         usuarioAtual={usuario}
                         integracoes={integracoes}
                         atendentes={atendentes}
+                        onFilterScopeChange={setFilterScope}
+                        onSelectedIntegrationChange={setSelectedIntegrationId}
+                        filterScope={filterScope}
+                        contatos={contatos}
                       />
                     ) : (
                       <div className="h-full overflow-y-auto">
