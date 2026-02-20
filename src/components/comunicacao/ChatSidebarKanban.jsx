@@ -227,5 +227,6 @@ export default function ChatSidebarKanban({ threads, threadAtiva, onSelecionarTh
         );
       })}
     </div>
+    </div>
   );
 }
