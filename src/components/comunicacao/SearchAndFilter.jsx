@@ -505,3 +505,6 @@ export default function SearchAndFilter({
     </div>
   );
 }
+
+// 🔌 Exportar sub-componentes para uso em outras telas
+export { TIPOS_CONTATO };
