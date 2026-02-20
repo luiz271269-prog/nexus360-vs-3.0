@@ -5,8 +5,8 @@ import {
   CheckCheck, Check, Forward, Trash2, Loader2, Copy,
   Zap, CheckCircle2, AlertCircle, ChevronRight, Clock, Search, ArrowRight,
   Reply, Target, Play, FileIcon, Download, ImageIcon, User, Tag, Mic, UserCheck,
-  Building, Users
-} from 'lucide-react';
+  Building, Users } from
+'lucide-react';
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import {
@@ -63,17 +63,17 @@ const AudioPlayer = ({ src }) => {
         src={src}
         controls
         className="flex-1 h-8 min-w-0"
-        onPlay={() => { if (audioRef.current) audioRef.current.playbackRate = speed; }}
-      />
+        onPlay={() => {if (audioRef.current) audioRef.current.playbackRate = speed;}} />
+
       <button
         onClick={cycleSpeed}
         className="flex-shrink-0 text-[10px] font-bold w-7 h-6 rounded bg-slate-200 hover:bg-slate-300 text-slate-700 transition-colors text-center"
-        title="Velocidade"
-      >
+        title="Velocidade">
+
         {speed}x
       </button>
-    </div>
-  );
+    </div>);
+
 };
 
 // Componente de imagem com fallback seguro
@@ -82,10 +82,10 @@ const ImageWithFallback = ({ src, alt, className, onClick, isPersisted }) => {
   const [isLoading, setIsLoading] = React.useState(true);
 
   const isUrlPermanente = src && (
-    src.includes('base44.app') || 
-    src.includes('supabase.co') || 
-    src.includes('storage.googleapis.com')
-  );
+  src.includes('base44.app') ||
+  src.includes('supabase.co') ||
+  src.includes('storage.googleapis.com'));
+
 
   if (hasError || !src) {
     return (
@@ -97,17 +97,17 @@ const ImageWithFallback = ({ src, alt, className, onClick, isPersisted }) => {
           </p>
           {src && <p className="text-[10px] text-slate-400 mt-1 break-all max-w-[200px]">{src.substring(0, 50)}...</p>}
         </div>
-      </div>
-    );
+      </div>);
+
   }
 
   return (
     <div className="relative">
-      {isLoading && (
-        <div className="absolute inset-0 flex items-center justify-center bg-slate-100 rounded-2xl">
+      {isLoading &&
+      <div className="absolute inset-0 flex items-center justify-center bg-slate-100 rounded-2xl">
           <div className="w-8 h-8 border-2 border-slate-300 border-t-blue-500 rounded-full animate-spin" />
         </div>
-      )}
+      }
       <img
         src={src}
         alt={alt}
@@ -119,10 +119,10 @@ const ImageWithFallback = ({ src, alt, className, onClick, isPersisted }) => {
           console.warn('[MSG] Erro ao carregar imagem:', src);
           setIsLoading(false);
           setHasError(true);
-        }}
-      />
-    </div>
-  );
+        }} />
+
+    </div>);
+
 };
 
 const FunctionDisplay = ({ toolCall }) => {
@@ -245,7 +245,7 @@ export default React.memo(function MessageBubble({
   // ✅ RENDERIZAÇÃO DE LOCALIZAÇÃO (padrão WhatsApp)
   if (message.media_type === 'location' && message.metadata?.location) {
     const loc = message.metadata.location;
-    
+
     // Guard: se não houver coordenadas válidas, fallback para texto
     if (!loc.lat || !loc.lng || !loc.url) {
       return (
@@ -253,14 +253,14 @@ export default React.memo(function MessageBubble({
           {!isOwn && <div className="h-7 w-7 rounded-lg bg-slate-100 flex items-center justify-center mt-0.5">
             <div className="h-1.5 w-1.5 rounded-full bg-slate-400" />
           </div>}
-          <div className={cn("max-w-[65%] rounded-2xl px-4 py-2.5", 
-            isOwn ? "bg-[#d9fdd3]" : "bg-white border border-slate-200")}>
+          <div className={cn("max-w-[65%] rounded-2xl px-4 py-2.5",
+          isOwn ? "bg-[#d9fdd3]" : "bg-white border border-slate-200")}>
             <p className="text-sm text-slate-800">{message.content || '📍 Localização'}</p>
           </div>
-        </div>
-      );
+        </div>);
+
     }
-    
+
     return (
       <div className={cn("flex gap-3 group", isOwn ? "justify-end" : "justify-start")}>
         {!isOwn && <div className="h-7 w-7 rounded-lg bg-slate-100 flex items-center justify-center mt-0.5">
@@ -278,18 +278,18 @@ export default React.memo(function MessageBubble({
             <div className="bg-slate-100 p-3 flex items-center gap-3">
               <div className="w-10 h-10 rounded-full bg-red-500 flex items-center justify-center flex-shrink-0">
                 <svg className="w-6 h-6 text-white" fill="currentColor" viewBox="0 0 24 24">
-                  <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/>
+                  <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z" />
                 </svg>
               </div>
               <div className="flex-1 min-w-0">
                 <div className="font-medium text-sm text-slate-900 truncate">
                   {loc.name || 'Localização'}
                 </div>
-                {loc.address && (
-                  <div className="text-xs text-slate-600 truncate">
+                {loc.address &&
+                <div className="text-xs text-slate-600 truncate">
                     {loc.address}
                   </div>
-                )}
+                }
               </div>
             </div>
             
@@ -298,8 +298,8 @@ export default React.memo(function MessageBubble({
               href={loc.url}
               target="_blank"
               rel="noopener noreferrer"
-              className="block p-3 hover:bg-slate-50 transition-colors border-t border-slate-200"
-            >
+              className="block p-3 hover:bg-slate-50 transition-colors border-t border-slate-200">
+
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2 text-sm text-blue-600 font-medium">
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -322,8 +322,8 @@ export default React.memo(function MessageBubble({
             </div>
           </div>
         </div>
-      </div>
-    );
+      </div>);
+
   }
 
   const [mostrarDialogEncaminhar, setMostrarDialogEncaminhar] = React.useState(false);
@@ -346,18 +346,18 @@ export default React.memo(function MessageBubble({
   const todasCategorias = [...CATEGORIAS_FIXAS, ...categoriasDB];
 
   // Detectar se é thread interna
-  const isThreadInterna = thread?.thread_type === 'team_internal' || 
-                          thread?.thread_type === 'sector_group' || 
-                          message.channel === 'interno';
+  const isThreadInterna = thread?.thread_type === 'team_internal' ||
+  thread?.thread_type === 'sector_group' ||
+  message.channel === 'interno';
 
-  const isTransferMessage = 
-    (message?.metadata?.is_system_message === true && message?.metadata?.message_type === 'transfer') ||
-    (message?.metadata?.action_type === 'assignment') ||
-    (message?.channel === 'interno' && (
-      message?.content?.includes('transferida') || 
-      message?.content?.includes('atribuída') ||
-      message?.content?.includes('Conversa')
-    ));
+  const isTransferMessage =
+  message?.metadata?.is_system_message === true && message?.metadata?.message_type === 'transfer' ||
+  message?.metadata?.action_type === 'assignment' ||
+  message?.channel === 'interno' && (
+  message?.content?.includes('transferida') ||
+  message?.content?.includes('atribuída') ||
+  message?.content?.includes('Conversa'));
+
 
 
 
@@ -406,30 +406,30 @@ export default React.memo(function MessageBubble({
       const todosContatos = await base44.entities.Contact.list('-ultima_interacao', 1000);
 
       // Filtrar e ordenar por relevância
-      const contatosValidos = todosContatos
-        .filter((c) => {
-          if (!c || c.bloqueado || !c.telefone) return false;
+      const contatosValidos = todosContatos.
+      filter((c) => {
+        if (!c || c.bloqueado || !c.telefone) return false;
 
-          const nome = normalizarTexto(c.nome || '');
-          const empresa = normalizarTexto(c.empresa || '');
-          const cargo = normalizarTexto(c.cargo || '');
-          const telefone = (c.telefone || '').replace(/\D/g, '');
+        const nome = normalizarTexto(c.nome || '');
+        const empresa = normalizarTexto(c.empresa || '');
+        const cargo = normalizarTexto(c.cargo || '');
+        const telefone = (c.telefone || '').replace(/\D/g, '');
 
-          return nome.includes(termoBusca) ||
-                 empresa.includes(termoBusca) ||
-                 cargo.includes(termoBusca) ||
-                 (termoNumeros.length >= 3 && telefone.includes(termoNumeros));
-        })
-        .sort((a, b) => {
-          // Ordenar por relevância
-          const nomeA = normalizarTexto(a.nome || '');
-          const nomeB = normalizarTexto(b.nome || '');
-          
-          const scoreA = nomeA === termoBusca ? 100 : nomeA.startsWith(termoBusca) ? 50 : 10;
-          const scoreB = nomeB === termoBusca ? 100 : nomeB.startsWith(termoBusca) ? 50 : 10;
-          
-          return scoreB - scoreA;
-        });
+        return nome.includes(termoBusca) ||
+        empresa.includes(termoBusca) ||
+        cargo.includes(termoBusca) ||
+        termoNumeros.length >= 3 && telefone.includes(termoNumeros);
+      }).
+      sort((a, b) => {
+        // Ordenar por relevância
+        const nomeA = normalizarTexto(a.nome || '');
+        const nomeB = normalizarTexto(b.nome || '');
+
+        const scoreA = nomeA === termoBusca ? 100 : nomeA.startsWith(termoBusca) ? 50 : 10;
+        const scoreB = nomeB === termoBusca ? 100 : nomeB.startsWith(termoBusca) ? 50 : 10;
+
+        return scoreB - scoreA;
+      });
 
       return contatosValidos;
     },
@@ -465,7 +465,7 @@ export default React.memo(function MessageBubble({
       let erros = 0;
 
       for (const contatoId of contatosSelecionados) {
-        const contato = contatos.find(c => c.id === contatoId);
+        const contato = contatos.find((c) => c.id === contatoId);
         if (!contato) {
           console.error(`[BUBBLE] Contato ${contatoId} não encontrado`);
           erros++;
@@ -554,9 +554,9 @@ export default React.memo(function MessageBubble({
     setCategorizando(true);
     try {
       const categoriasAtuais = normalizarCategorias(message?.categorias);
-      const novasCategorias = categoriasAtuais.includes(valorCategoria)
-        ? categoriasAtuais.filter((c) => c !== valorCategoria)
-        : [...categoriasAtuais, valorCategoria];
+      const novasCategorias = categoriasAtuais.includes(valorCategoria) ?
+      categoriasAtuais.filter((c) => c !== valorCategoria) :
+      [...categoriasAtuais, valorCategoria];
 
       await base44.entities.Message.update(message?.id, { categorias: novasCategorias });
       const threadId = thread?.id;
@@ -667,7 +667,7 @@ export default React.memo(function MessageBubble({
     const setorTransferido = message.metadata?.sector_destino || message.metadata?.setor || thread?.sector_id || 'geral';
     const usuarioTransferiu = message.metadata?.transferred_by_name || message.metadata?.transferido_por || 'Sistema';
     const horarioTransferencia = message.sent_at || message.created_date;
-    
+
     const coresSetor = {
       vendas: {
         bg: 'from-rose-100 to-pink-100',
@@ -723,17 +723,17 @@ export default React.memo(function MessageBubble({
             por {sanitizeEmojis(usuarioTransferiu)} às {horarioTransferencia ? format(new Date(horarioTransferencia), 'HH:mm', { locale: ptBR }) : '--:--'}
           </span>
         </div>
-      </div>
-    );
+      </div>);
+
   }
 
   return (
     <>
       <div className={cn(
-          "flex w-full px-[5%]",
-          isOwn ? "justify-end" : "justify-start"
-        )}
-        onClick={() => modoSelecao && onToggleSelecao?.(message.id)}>
+        "flex w-full px-[5%]",
+        isOwn ? "justify-end" : "justify-start"
+      )}
+      onClick={() => modoSelecao && onToggleSelecao?.(message.id)}>
 
         {modoSelecao &&
         <div className="flex items-center justify-center mr-2">
@@ -751,93 +751,93 @@ export default React.memo(function MessageBubble({
           "flex flex-col group relative"
         )}>
           {!isOwn && (thread?.thread_type === 'team_internal' || thread?.thread_type === 'sector_group' || message.channel === 'interno') && (() => {
-            const atendenteRemetente = atendentes.find(a => a.id === message.sender_id);
+            const atendenteRemetente = atendentes.find((a) => a.id === message.sender_id);
             if (!atendenteRemetente) return null;
             return (
               <div className="mb-0.5">
-                <UsuarioDisplay 
-                  usuario={atendenteRemetente} 
+                <UsuarioDisplay
+                  usuario={atendenteRemetente}
                   className="text-[11px] font-semibold text-cyan-600"
-                  variant="compact"
-                />
-              </div>
-            );
+                  variant="compact" />
+
+              </div>);
+
           })()}
-          {!isOwn && message.sender_type === 'contact' && contato?.nome && (
-            <div className="flex items-center gap-2 mb-0.5">
+          {!isOwn && message.sender_type === 'contact' && contato?.nome &&
+          <div className="flex items-center gap-2 mb-0.5">
               <span className="text-[11px] font-semibold text-[#00a884]">
                 {contato.nome}
               </span>
               {(() => {
-                const integracaoId = message?.metadata?.whatsapp_integration_id || thread?.whatsapp_integration_id;
-                if (!integracaoId || integracoes.length <= 1) return null;
-                
-                const integracao = integracoes.find(i => i.id === integracaoId);
-                if (!integracao) return null;
-                
-                const displayNumero = integracao.numero_telefone || integracao.nome_instancia;
-                return (
-                  <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-green-100 text-green-700 font-medium">
+              const integracaoId = message?.metadata?.whatsapp_integration_id || thread?.whatsapp_integration_id;
+              if (!integracaoId || integracoes.length <= 1) return null;
+
+              const integracao = integracoes.find((i) => i.id === integracaoId);
+              if (!integracao) return null;
+
+              const displayNumero = integracao.numero_telefone || integracao.nome_instancia;
+              return (
+                <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-green-100 text-green-700 font-medium">
                     📱 {displayNumero}
-                  </span>
-                );
-              })()}
+                  </span>);
+
+            })()}
             </div>
-          )}
+          }
 
           {/* ✅ QUOTE/RESPOSTA - Estilo WhatsApp */}
-          {mensagemOriginal && (
-            <div className={cn(
-              "mb-1.5 mx-2 mt-2 px-2 py-1.5 rounded-md border-l-[3px]",
-              isThreadInterna 
-                ? (isOwn ? "bg-blue-50/50 border-blue-400" : "bg-slate-50 border-slate-400")
-                : (isOwn ? "bg-emerald-50/50 border-emerald-500" : "bg-slate-50 border-slate-400")
-            )}>
+          {mensagemOriginal &&
+          <div className={cn(
+            "mb-1.5 mx-2 mt-2 px-2 py-1.5 rounded-md border-l-[3px]",
+            isThreadInterna ?
+            isOwn ? "bg-blue-50/50 border-blue-400" : "bg-slate-50 border-slate-400" :
+            isOwn ? "bg-emerald-50/50 border-emerald-500" : "bg-slate-50 border-slate-400"
+          )}>
               {/* Nome do remetente original */}
               <p className={cn(
-                "text-[11px] font-semibold mb-0.5",
-                isThreadInterna 
-                  ? (isOwn ? "text-blue-600" : "text-slate-600")
-                  : (isOwn ? "text-emerald-600" : "text-slate-600")
-              )}>
+              "text-[11px] font-semibold mb-0.5",
+              isThreadInterna ?
+              isOwn ? "text-blue-600" : "text-slate-600" :
+              isOwn ? "text-emerald-600" : "text-slate-600"
+            )}>
                 {(() => {
-                  if (mensagemOriginal.sender_type === 'user') {
-                    // Mensagem de atendente
-                    const atendenteOriginal = atendentes.find(a => a.id === mensagemOriginal.sender_id);
-                    if (mensagemOriginal.sender_id === usuarioAtual?.id) return 'Você';
-                    return atendenteOriginal?.display_name || atendenteOriginal?.full_name || 'Atendente';
-                  } else {
-                    // Mensagem do cliente/contato
-                    return contato?.nome || 'Cliente';
-                  }
-                })()}
+                if (mensagemOriginal.sender_type === 'user') {
+                  // Mensagem de atendente
+                  const atendenteOriginal = atendentes.find((a) => a.id === mensagemOriginal.sender_id);
+                  if (mensagemOriginal.sender_id === usuarioAtual?.id) return 'Você';
+                  return atendenteOriginal?.display_name || atendenteOriginal?.full_name || 'Atendente';
+                } else {
+                  // Mensagem do cliente/contato
+                  return contato?.nome || 'Cliente';
+                }
+              })()}
               </p>
               
               {/* Preview do conteúdo */}
               <p className="text-[12px] text-slate-600 line-clamp-2 break-words">
                 {(() => {
-                  // Mostrar mídia com ícone
-                  if (mensagemOriginal.media_type === 'image') return '📷 Imagem';
-                  if (mensagemOriginal.media_type === 'video') return '🎥 Vídeo';
-                  if (mensagemOriginal.media_type === 'audio') return '🎤 Áudio';
-                  if (mensagemOriginal.media_type === 'document') return '📄 Documento';
-                  if (mensagemOriginal.media_type === 'sticker') return '🎨 Sticker';
-                  if (mensagemOriginal.media_type === 'location') return '📍 Localização';
-                  
-                  // Sanitizar emojis do texto
-                  const texto = sanitizeEmojis(String(mensagemOriginal.content || ''));
-                  return texto || '[Conteúdo não disponível]';
-                })()}
+                // Mostrar mídia com ícone
+                if (mensagemOriginal.media_type === 'image') return '📷 Imagem';
+                if (mensagemOriginal.media_type === 'video') return '🎥 Vídeo';
+                if (mensagemOriginal.media_type === 'audio') return '🎤 Áudio';
+                if (mensagemOriginal.media_type === 'document') return '📄 Documento';
+                if (mensagemOriginal.media_type === 'sticker') return '🎨 Sticker';
+                if (mensagemOriginal.media_type === 'location') return '📍 Localização';
+
+                // Sanitizar emojis do texto
+                const texto = sanitizeEmojis(String(mensagemOriginal.content || ''));
+                return texto || '[Conteúdo não disponível]';
+              })()}
               </p>
             </div>
-          )}
+          }
 
           <div className={cn(
             "rounded-lg relative shadow-sm",
             // 🎨 CORES TIPO WHATSAPP: Internas (azul claro suave) vs Externas (verde claro)
-            thread?.thread_type === 'team_internal' || thread?.thread_type === 'sector_group' || message.channel === 'interno'
-              ? (isOwn ? "bg-[#cfe9ff] border border-blue-200" : "bg-white border border-slate-200")
-              : (isOwn ? "bg-[#d9fdd3] border border-green-200" : "bg-white border border-slate-200"),
+            thread?.thread_type === 'team_internal' || thread?.thread_type === 'sector_group' || message.channel === 'interno' ?
+            isOwn ? "bg-[#cfe9ff] border border-blue-200" : "bg-white border border-slate-200" :
+            isOwn ? "bg-[#d9fdd3] border border-green-200" : "bg-white border border-slate-200",
             selecionada ? 'ring-2 ring-blue-500' : '',
             message.media_url && message.media_type !== 'none' ? '' : 'px-3 py-1.5'
           )}
@@ -867,29 +867,29 @@ export default React.memo(function MessageBubble({
                 }
 
                   {/* ✅ NEXUS360: Encaminhar validado */}
-                  {podeEncaminhar && (
-                    <Tooltip>
+                  {podeEncaminhar &&
+                <Tooltip>
                       <TooltipTrigger asChild>
                         <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => {
-                          setMostrarDialogEncaminhar(true);
-                          setContatosSelecionados([]);
-                          setBuscaContato("");
-                        }}
-                        disabled={encaminhando}
-                        className={cn(
-                          "h-7 w-7 rounded-full shadow-lg backdrop-blur-sm",
-                          "bg-white/90 hover:bg-white border border-slate-200"
-                        )}>
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => {
+                        setMostrarDialogEncaminhar(true);
+                        setContatosSelecionados([]);
+                        setBuscaContato("");
+                      }}
+                      disabled={encaminhando}
+                      className={cn(
+                        "h-7 w-7 rounded-full shadow-lg backdrop-blur-sm",
+                        "bg-white/90 hover:bg-white border border-slate-200"
+                      )}>
 
                           <Forward className="w-3.5 h-3.5 text-slate-700" />
                         </Button>
                         </TooltipTrigger>
                         <TooltipContent side="top">Encaminhar</TooltipContent>
                         </Tooltip>
-                  )}
+                }
 
                       {isOwn &&
                 <Tooltip>
@@ -933,19 +933,19 @@ export default React.memo(function MessageBubble({
                   </Tooltip>
 
                   {/* ✅ NEXUS360: Categorizar validado */}
-                  {podeCategorizar && (
-                    <DropdownMenu>
+                  {podeCategorizar &&
+                <DropdownMenu>
                       <Tooltip>
                         <TooltipTrigger asChild>
                           <DropdownMenuTrigger asChild>
                             <Button
-                            variant="ghost"
-                            size="icon"
-                            disabled={categorizando}
-                            className={cn(
-                              "h-7 w-7 rounded-full shadow-lg backdrop-blur-sm",
-                              "bg-white/90 hover:bg-purple-50 border border-slate-200"
-                            )}>
+                          variant="ghost"
+                          size="icon"
+                          disabled={categorizando}
+                          className={cn(
+                            "h-7 w-7 rounded-full shadow-lg backdrop-blur-sm",
+                            "bg-white/90 hover:bg-purple-50 border border-slate-200"
+                          )}>
 
                               <Tag className="w-3.5 h-3.5 text-purple-600" />
                             </Button>
@@ -985,7 +985,7 @@ export default React.memo(function MessageBubble({
                     )}
                     </DropdownMenuContent>
                   </DropdownMenu>
-                  )}
+                }
                 </div>
               </TooltipProvider>
             }
@@ -999,8 +999,8 @@ export default React.memo(function MessageBubble({
                 alt="Imagem"
                 className="max-w-[280px] max-h-[280px] object-cover rounded-lg cursor-pointer"
                 onClick={() => window.open(message.media_url, '_blank')}
-                isPersisted={message.metadata?.midia_persistida}
-              /> : message.metadata?.requiresDownload ?
+                isPersisted={message.metadata?.midia_persistida} /> :
+              message.metadata?.requiresDownload ?
               <div className="flex flex-col items-center justify-center bg-slate-100 rounded-2xl p-8 min-h-[200px] max-w-[280px]">
                 <Loader2 className="w-8 h-8 animate-spin text-blue-500 mb-2" />
                 <span className="text-sm text-slate-600 font-medium">Processando imagem...</span>
@@ -1019,20 +1019,20 @@ export default React.memo(function MessageBubble({
                     </p>
                   </div>
               }
-                <div className="absolute bottom-2 right-2 bg-black/50 backdrop-blur-sm px-2 py-0.5 rounded-md">
+                <div className="bg-slate-200 px-2 py-0.5 rounded-[10px] absolute bottom-2 right-2 backdrop-blur-sm">
                   <div className="flex items-center gap-1 flex-wrap">
                     {message?.categorias && message.categorias.length > 0 &&
-                    <div className="flex gap-1 mr-1 flex-wrap">
+                  <div className="flex gap-1 mr-1 flex-wrap">
                           {message.categorias.slice(0, 3).map((cat) => {
-                        const config = getCategoriaConfig(cat, categoriasDB);
-                        return (
-                          <span key={cat} className="text-[9px] px-1.5 py-0.5 bg-white/20 rounded flex items-center gap-1">
+                      const config = getCategoriaConfig(cat, categoriasDB);
+                      return (
+                        <span key={cat} className="text-[9px] px-1.5 py-0.5 bg-white/20 rounded flex items-center gap-1">
                                 {config.emoji} {config.label}
                               </span>);
 
-                      })}
+                    })}
                         </div>
-                    }
+                  }
 
                       <span className="text-[10px] text-slate-500">
                         {format(new Date(message.sent_at || message.created_date), 'dd/MM HH:mm')}
@@ -1058,63 +1058,63 @@ export default React.memo(function MessageBubble({
                   <div className="w-9 h-9 rounded-full bg-green-500 flex items-center justify-center flex-shrink-0 overflow-hidden">
                     <Mic className="w-4 h-4 text-white" />
                   </div>
-                  {!message?.media_url || message?.media_url === 'pending_download' ? (
-                    <div className="flex-1 flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs bg-slate-100 text-slate-600">
+                  {!message?.media_url || message?.media_url === 'pending_download' ?
+                <div className="flex-1 flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs bg-slate-100 text-slate-600">
                       <Loader2 className="w-4 h-4 flex-shrink-0 animate-spin" />
                       <span>Processando áudio...</span>
-                    </div>
-                  ) : (
-                    <AudioPlayer src={message.media_url} />
-                  )}
+                    </div> :
+
+                <AudioPlayer src={message.media_url} />
+                }
                 </div>
                 {/* remove ícone duplicado de Mic no wrapper externo — o AudioPlayer já tem play/pause */}
 
                 {/* Transcrição (quando disponível) */}
-                {message?.metadata?.analise_multimodal?.transcricao && (
-                  <div className="mt-1.5 px-1 py-1 bg-black/5 rounded text-[11px] text-slate-600 italic leading-snug">
+                {message?.metadata?.analise_multimodal?.transcricao &&
+              <div className="mt-1.5 px-1 py-1 bg-black/5 rounded text-[11px] text-slate-600 italic leading-snug">
                     💬 {message.metadata.analise_multimodal.transcricao}
                   </div>
-                )}
+              }
                 <div className="flex items-center justify-end gap-1 mt-1 flex-wrap">
                   {/* THREADS INTERNAS: Atendente + Destino */}
                   {isThreadInterna && (() => {
-                    const atendenteMsg = atendentes.find(a => a.id === message.sender_id);
-                    if (!atendenteMsg) return null;
+                  const atendenteMsg = atendentes.find((a) => a.id === message.sender_id);
+                  if (!atendenteMsg) return null;
 
-                    const nomeAtendente = (atendenteMsg.display_name || atendenteMsg.full_name || '').split(' ')[0];
+                  const nomeAtendente = (atendenteMsg.display_name || atendenteMsg.full_name || '').split(' ')[0];
 
-                    let destinoLabel = null;
-                    let DestinoIcon = null;
-                    let destinoBg = 'bg-gray-100';
-                    let destinoText = 'text-gray-700';
+                  let destinoLabel = null;
+                  let DestinoIcon = null;
+                  let destinoBg = 'bg-gray-100';
+                  let destinoText = 'text-gray-700';
 
-                    if (thread?.thread_type === 'sector_group') {
-                        destinoLabel = `Setor: ${thread.group_name?.replace('Setor ', '') || thread.sector_key?.replace('sector:', '')}`;
-                        DestinoIcon = Building;
-                        destinoBg = 'bg-purple-100';
-                        destinoText = 'text-purple-800';
-                    } else if (thread?.thread_type === 'team_internal' && thread.is_group_chat) {
-                        destinoLabel = `Grupo: ${thread.group_name}`;
-                        DestinoIcon = Users;
-                        destinoBg = 'bg-sky-100';
-                        destinoText = 'text-sky-800';
-                    }
+                  if (thread?.thread_type === 'sector_group') {
+                    destinoLabel = `Setor: ${thread.group_name?.replace('Setor ', '') || thread.sector_key?.replace('sector:', '')}`;
+                    DestinoIcon = Building;
+                    destinoBg = 'bg-purple-100';
+                    destinoText = 'text-purple-800';
+                  } else if (thread?.thread_type === 'team_internal' && thread.is_group_chat) {
+                    destinoLabel = `Grupo: ${thread.group_name}`;
+                    DestinoIcon = Users;
+                    destinoBg = 'bg-sky-100';
+                    destinoText = 'text-sky-800';
+                  }
 
-                    return (
-                      <>
+                  return (
+                    <>
                         <span className="text-[10px] px-1.5 py-0.5 rounded bg-cyan-100 text-cyan-800 flex items-center gap-1 font-medium">
                           <UserCheck className="w-3 h-3" />
                           {nomeAtendente}
                         </span>
-                        {destinoLabel && DestinoIcon && (
-                          <span className={`text-[10px] px-1.5 py-0.5 rounded ${destinoBg} ${destinoText} flex items-center gap-1 font-medium`}>
+                        {destinoLabel && DestinoIcon &&
+                      <span className={`text-[10px] px-1.5 py-0.5 rounded ${destinoBg} ${destinoText} flex items-center gap-1 font-medium`}>
                               <DestinoIcon className="w-3 h-3" />
                               {destinoLabel}
                           </span>
-                        )}
-                      </>
-                    );
-                  })()}
+                      }
+                      </>);
+
+                })()}
                   
                   <span className="text-[10px] text-slate-500">
                     {format(new Date(message.sent_at || message.created_date), 'dd/MM HH:mm')}
@@ -1132,15 +1132,15 @@ export default React.memo(function MessageBubble({
             {message?.media_type === 'video' && message?.media_url &&
             <div className="px-3 py-2">
                 <video
-                  src={message.media_url}
-                  controls
-                  className="max-w-[280px] max-h-[280px] rounded-lg"
-                />
+                src={message.media_url}
+                controls
+                className="max-w-[280px] max-h-[280px] rounded-lg" />
+
                 {message.media_caption &&
-                <div className="px-2 py-1 mt-1 text-slate-800">
+              <div className="px-2 py-1 mt-1 text-slate-800">
                     <p className="text-sm">{message.media_caption}</p>
                   </div>
-                }
+              }
                 <div className="flex items-center justify-end gap-1 mt-1">
                   <span className="text-[11px] text-slate-500">
                     {format(new Date(message.sent_at || message.created_date), 'dd/MM HH:mm')}
@@ -1155,20 +1155,20 @@ export default React.memo(function MessageBubble({
 
             {/* DOCUMENTO/PDF - Abre direto sem forçar download */}
             {(
-              message?.media_type === 'document' || 
-              message?.content === 'pdf' ||
-              message?.content?.toLowerCase() === '[documento]' ||
-              (message?.media_url && (
-                message?.media_url.toLowerCase().includes('.pdf') ||
-                message?.media_url.toLowerCase().includes('.doc') ||
-                message?.media_url.toLowerCase().includes('.xls')
-              ))
-            ) && message?.media_url && message?.media_url !== 'pending_download' &&
+            message?.media_type === 'document' ||
+            message?.content === 'pdf' ||
+            message?.content?.toLowerCase() === '[documento]' ||
+            message?.media_url && (
+            message?.media_url.toLowerCase().includes('.pdf') ||
+            message?.media_url.toLowerCase().includes('.doc') ||
+            message?.media_url.toLowerCase().includes('.xls'))) &&
+
+            message?.media_url && message?.media_url !== 'pending_download' &&
             <div className="overflow-hidden">
                 <button
-                  onClick={() => window.open(message.media_url, '_blank', 'noopener,noreferrer')}
-                  className="flex items-center gap-3 hover:bg-black/5 active:bg-black/10 transition-colors w-full text-left p-3 cursor-pointer"
-                >
+                onClick={() => window.open(message.media_url, '_blank', 'noopener,noreferrer')}
+                className="flex items-center gap-3 hover:bg-black/5 active:bg-black/10 transition-colors w-full text-left p-3 cursor-pointer">
+
                   <div className="w-12 h-12 rounded-lg flex items-center justify-center flex-shrink-0 shadow-sm bg-blue-500">
                     <FileIcon className="w-6 h-6 text-white" />
                   </div>
@@ -1179,9 +1179,9 @@ export default React.memo(function MessageBubble({
                     <div className="flex items-center gap-2">
                       <p className="text-xs uppercase font-semibold text-blue-600">
                         {(() => {
-                          const ext = message.media_url?.split('.').pop()?.split('?')[0]?.toLowerCase();
-                          return ext || 'PDF';
-                        })()}
+                        const ext = message.media_url?.split('.').pop()?.split('?')[0]?.toLowerCase();
+                        return ext || 'PDF';
+                      })()}
                       </p>
                       <span className="text-xs text-slate-500">
                         • Toque para abrir
@@ -1206,15 +1206,15 @@ export default React.memo(function MessageBubble({
             
             {/* DOCUMENTO PENDENTE - Quando ainda está baixando */}
             {(
-              message?.media_type === 'document' || 
-              message?.content === 'pdf' ||
-              message?.content?.toLowerCase() === '[documento]' ||
-              (message?.media_url && (
-                message?.media_url.toLowerCase().includes('.pdf') ||
-                message?.media_url.toLowerCase().includes('.doc') ||
-                message?.media_url.toLowerCase().includes('.xls')
-              ))
-            ) && message?.media_url === 'pending_download' &&
+            message?.media_type === 'document' ||
+            message?.content === 'pdf' ||
+            message?.content?.toLowerCase() === '[documento]' ||
+            message?.media_url && (
+            message?.media_url.toLowerCase().includes('.pdf') ||
+            message?.media_url.toLowerCase().includes('.doc') ||
+            message?.media_url.toLowerCase().includes('.xls'))) &&
+
+            message?.media_url === 'pending_download' &&
             <div className="overflow-hidden px-3 py-3">
                 <div className="flex items-center gap-3 opacity-70">
                   <div className="w-12 h-12 rounded-lg flex items-center justify-center flex-shrink-0 bg-slate-200">
@@ -1242,10 +1242,10 @@ export default React.memo(function MessageBubble({
             {(!message?.media_url || message?.media_type === 'none') && message?.content != null && String(message.content || '').trim() !== '' && String(message.content) !== '[No content]' &&
             <>
                 <div className={cn(
-                  "break-words whitespace-pre-wrap", 
-                  // 🎨 TEXTO ESCURO HARMONIOSO em fundos claros
-                  "text-[#111b21]"
-                )} style={{ wordBreak: 'break-word', overflowWrap: 'anywhere' }}>
+                "break-words whitespace-pre-wrap",
+                // 🎨 TEXTO ESCURO HARMONIOSO em fundos claros
+                "text-[#111b21]"
+              )} style={{ wordBreak: 'break-word', overflowWrap: 'anywhere' }}>
                   <p className="text-[14.2px] leading-[19px]" style={{ fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Color Emoji", sans-serif' }}>
                     {sanitizeEmojis(String(message.content || ''))}
                   </p>
@@ -1254,42 +1254,42 @@ export default React.memo(function MessageBubble({
                 <div className="flex items-center justify-end gap-1 mt-0.5 flex-wrap">
                 {/* THREADS INTERNAS: Atendente + Setor (apenas mensagens enviadas) */}
                 {isOwn && isThreadInterna && (() => {
-                    const atendenteMsg = atendentes.find(a => a.id === message.sender_id);
-                    if (!atendenteMsg) return null;
+                  const atendenteMsg = atendentes.find((a) => a.id === message.sender_id);
+                  if (!atendenteMsg) return null;
 
-                    const nomeAtendente = (atendenteMsg.display_name || atendenteMsg.full_name || '').split(' ')[0];
+                  const nomeAtendente = (atendenteMsg.display_name || atendenteMsg.full_name || '').split(' ')[0];
 
-                    let destinoLabel = null;
-                    let DestinoIcon = null;
-                    let destinoBg = 'bg-gray-100';
-                    let destinoText = 'text-gray-700';
+                  let destinoLabel = null;
+                  let DestinoIcon = null;
+                  let destinoBg = 'bg-gray-100';
+                  let destinoText = 'text-gray-700';
 
-                    if (thread?.thread_type === 'sector_group') {
-                        destinoLabel = `Setor: ${thread.group_name?.replace('Setor ', '') || thread.sector_key?.replace('sector:', '')}`;
-                        DestinoIcon = Building;
-                        destinoBg = 'bg-purple-100';
-                        destinoText = 'text-purple-800';
-                    } else if (thread?.thread_type === 'team_internal' && thread.is_group_chat) {
-                        destinoLabel = `Grupo: ${thread.group_name}`;
-                        DestinoIcon = Users;
-                        destinoBg = 'bg-sky-100';
-                        destinoText = 'text-sky-800';
-                    }
+                  if (thread?.thread_type === 'sector_group') {
+                    destinoLabel = `Setor: ${thread.group_name?.replace('Setor ', '') || thread.sector_key?.replace('sector:', '')}`;
+                    DestinoIcon = Building;
+                    destinoBg = 'bg-purple-100';
+                    destinoText = 'text-purple-800';
+                  } else if (thread?.thread_type === 'team_internal' && thread.is_group_chat) {
+                    destinoLabel = `Grupo: ${thread.group_name}`;
+                    DestinoIcon = Users;
+                    destinoBg = 'bg-sky-100';
+                    destinoText = 'text-sky-800';
+                  }
 
-                    return (
-                        <>
+                  return (
+                    <>
                             <span className="text-[10px] px-1.5 py-0.5 rounded bg-cyan-100 text-cyan-800 flex items-center gap-1 font-medium">
                                 <UserCheck className="w-3 h-3" />
                                 {nomeAtendente}
                             </span>
-                            {destinoLabel && DestinoIcon && (
-                                <span className={`text-[10px] px-1.5 py-0.5 rounded ${destinoBg} ${destinoText} flex items-center gap-1 font-medium`}>
+                            {destinoLabel && DestinoIcon &&
+                      <span className={`text-[10px] px-1.5 py-0.5 rounded ${destinoBg} ${destinoText} flex items-center gap-1 font-medium`}>
                                     <DestinoIcon className="w-3 h-3" />
                                     {destinoLabel}
                                 </span>
-                            )}
-                        </>
-                    );
+                      }
+                        </>);
+
                 })()}
                 
                 {/* THREADS EXTERNAS: Atendente + Setor + Conexão (apenas mensagens enviadas) */}
@@ -1301,45 +1301,45 @@ export default React.memo(function MessageBubble({
                   if (!integracao) return null;
 
                   const displayNumero = integracao.numero_telefone || integracao.nome_instancia;
-                  const atendenteRemetente = atendentes.find(a => a.id === message.sender_id);
+                  const atendenteRemetente = atendentes.find((a) => a.id === message.sender_id);
                   const nomeCompletoAtendente = atendenteRemetente?.display_name || atendenteRemetente?.full_name;
                   const nomeAtendente = nomeCompletoAtendente?.split(' ')[0];
                   const setorAtendente = atendenteRemetente?.attendant_sector;
 
                   return (
                     <>
-                      {nomeAtendente && (
-                        <>
+                      {nomeAtendente &&
+                      <>
                           <span className="text-[10px] px-1.5 py-0.5 rounded bg-green-100 text-green-700 flex items-center gap-0.5">
                             <UserCheck className="w-3 h-3" />
                             {nomeAtendente}
                           </span>
-                          {setorAtendente && (
-                            <span className="text-[10px] px-1.5 py-0.5 rounded bg-blue-100 text-blue-700">
+                          {setorAtendente &&
+                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-blue-100 text-blue-700">
                               {setorAtendente}
                             </span>
-                          )}
+                        }
                         </>
-                      )}
+                      }
                       <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-100 text-slate-700">
                         📱 {displayNumero}
                       </span>
-                    </>
-                  );
+                    </>);
+
                 })()}
                 
                 <span className="text-[11px] text-slate-500">
                   {format(new Date(message.sent_at || message.created_date), 'dd/MM HH:mm')}
                 </span>
-                {isOwn && (
-                  <>
+                {isOwn &&
+                <>
                     {message.status === 'enviando' && <Clock className="w-[16px] h-[16px] text-slate-400" />}
                     {message.status === 'enviada' && <Check className="w-[16px] h-[16px] text-slate-500" />}
                     {message.status === 'entregue' && <CheckCheck className="w-[16px] h-[16px] text-slate-600" />}
                     {message.status === 'lida' && <CheckCheck className="w-[16px] h-[16px] text-blue-500" />}
                     {message.status === 'falhou' && <AlertCircle className="w-[16px] h-[16px] text-red-500" />}
                   </>
-                )}
+                }
                 </div>
               </>
             }
@@ -1362,8 +1362,8 @@ export default React.memo(function MessageBubble({
         etiqueta={etiquetaFaseDialog}
         onConfirmar={handleConfirmarEtiquetaFase}
         mensagem={message}
-        contato={contato}
-      />
+        contato={contato} />
+
 
       <Dialog open={mostrarDialogEncaminhar} onOpenChange={setMostrarDialogEncaminhar}>
         <DialogContent className="max-w-md">
@@ -1388,51 +1388,51 @@ export default React.memo(function MessageBubble({
 
             </div>
 
-            {contatosSelecionados.length > 0 && (
-              <div className="flex flex-wrap gap-2 p-3 bg-blue-50 rounded-lg border border-blue-200">
+            {contatosSelecionados.length > 0 &&
+            <div className="flex flex-wrap gap-2 p-3 bg-blue-50 rounded-lg border border-blue-200">
                 {contatosSelecionados.map((contatoId) => {
-                  const contato = contatos.find(c => c.id === contatoId);
-                  if (!contato) return null;
-                  
-                  return (
-                    <Badge
-                      key={contato.id}
-                      variant="secondary"
-                      className="bg-blue-100 text-blue-800 gap-1"
-                    >
+                const contato = contatos.find((c) => c.id === contatoId);
+                if (!contato) return null;
+
+                return (
+                  <Badge
+                    key={contato.id}
+                    variant="secondary"
+                    className="bg-blue-100 text-blue-800 gap-1">
+
                       {contato.nome || contato.telefone}
                       <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          toggleContatoSelecionado(contato);
-                        }}
-                        className="ml-1 hover:bg-blue-200 rounded-full p-0.5"
-                      >
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        toggleContatoSelecionado(contato);
+                      }}
+                      className="ml-1 hover:bg-blue-200 rounded-full p-0.5">
+
                         ×
                       </button>
-                    </Badge>
-                  );
-                })}
+                    </Badge>);
+
+              })}
               </div>
-            )}
+            }
 
             <ScrollArea className="h-64 border rounded-lg">
-              {!buscaContato || buscaContato.trim().length < 2 ? (
-                <div className="flex flex-col items-center justify-center h-full text-slate-400">
+              {!buscaContato || buscaContato.trim().length < 2 ?
+              <div className="flex flex-col items-center justify-center h-full text-slate-400">
                   <Search className="w-12 h-12 mb-3 text-slate-300" />
                   <p className="text-sm font-medium">Digite para buscar</p>
                   <p className="text-xs text-slate-400 mt-1">Mínimo 2 caracteres</p>
-                </div>
-              ) : carregandoContatos ? (
-                <div className="flex items-center justify-center h-full">
+                </div> :
+              carregandoContatos ?
+              <div className="flex items-center justify-center h-full">
                   <Loader2 className="w-6 h-6 animate-spin text-blue-600" />
-                </div>
-              ) : contatos.length === 0 ? (
-                <div className="flex flex-col items-center justify-center h-full text-slate-400">
+                </div> :
+              contatos.length === 0 ?
+              <div className="flex flex-col items-center justify-center h-full text-slate-400">
                   <p className="text-sm">Nenhum contato encontrado</p>
-                </div>
-              ) : (
-                <div className="p-2">
+                </div> :
+
+              <div className="p-2">
                   {contatos.map((contato) => {
                   const selecionado = contatosSelecionados.includes(contato.id);
 
@@ -1460,21 +1460,21 @@ export default React.memo(function MessageBubble({
                         "w-10 h-10 rounded-full flex items-center justify-center text-white font-bold flex-shrink-0 overflow-hidden",
                         selecionado ? "bg-blue-600" : "bg-slate-400"
                       )}>
-                            {selecionado ? (
-                              <Check className="w-5 h-5" />
-                            ) : contato.foto_perfil_url && contato.foto_perfil_url !== 'null' && contato.foto_perfil_url !== 'undefined' ? (
-                              <img 
-                                src={contato.foto_perfil_url} 
-                                alt={nomeExibicao} 
-                                className="w-full h-full object-cover"
-                                onError={(e) => {
-                                  e.target.style.display = 'none';
-                                  e.target.parentElement.textContent = nomeExibicao.charAt(0).toUpperCase();
-                                }}
-                              />
-                            ) : (
-                              nomeExibicao.charAt(0)?.toUpperCase() || '?'
-                            )}
+                            {selecionado ?
+                        <Check className="w-5 h-5" /> :
+                        contato.foto_perfil_url && contato.foto_perfil_url !== 'null' && contato.foto_perfil_url !== 'undefined' ?
+                        <img
+                          src={contato.foto_perfil_url}
+                          alt={nomeExibicao}
+                          className="w-full h-full object-cover"
+                          onError={(e) => {
+                            e.target.style.display = 'none';
+                            e.target.parentElement.textContent = nomeExibicao.charAt(0).toUpperCase();
+                          }} /> :
+
+
+                        nomeExibicao.charAt(0)?.toUpperCase() || '?'
+                        }
                           </div>
                           <div className="flex-1 text-left min-w-0">
                             <p className="font-medium text-slate-900 truncate">
@@ -1484,9 +1484,9 @@ export default React.memo(function MessageBubble({
                           </div>
                         </button>);
 
-                  })}
+                })}
                 </div>
-              )}
+              }
             </ScrollArea>
           </div>
 
