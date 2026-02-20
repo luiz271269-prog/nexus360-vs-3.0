@@ -360,9 +360,9 @@ export default function AnalisadorMensagensRecebidas() {
                         <AlertDescription className="text-xs text-red-800">
                           <strong>ERRO:</strong> A thread está associada à conexão ERRADA!
                           <br />
-                          <strong>Esperado:</strong> {item.integration.numero_telefone}
+                          <strong>Esperado (Payload):</strong> {item.integration.numero_telefone}
                           <br />
-                          <strong>Mas está:</strong> {integracoes.find(i => i.id === diag.thread_integration_id)?.numero_telefone || 'Desconhecida'}
+                          <strong>Mas está salvo na Thread:</strong> {diag.thread_integration_id || 'NULL'}
                         </AlertDescription>
                       </Alert>
                     )}
