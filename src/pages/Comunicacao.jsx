@@ -2645,19 +2645,7 @@ export default function Comunicacao() {
                   </div>
                 </div>
 
-                {/* Botão voltar no modo kanban */}
-                {sidebarViewMode === 'kanban' && threadAtiva && (
-                  <button
-                    onClick={() => setThreadAtiva(null)}
-                    className="absolute top-0 left-0 z-20 hidden md:flex items-center gap-1.5 px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-white text-xs font-medium transition-colors border-b border-r border-slate-600 rounded-br-lg"
-                    style={{ marginTop: 0 }}
-                  >
-                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
-                    </svg>
-                    Voltar
-                  </button>
-                )}
+
 
                 <div className="flex-1 flex overflow-hidden">
                   {modoEnvioMassa && contatosParaEnvioMassa.length > 0 ? (
