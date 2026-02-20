@@ -38,6 +38,7 @@ export default function ContatosRequerendoAtencaoKanban({ usuario, onSelecionarC
   const [contatoAnaliseAberto, setContatoAnaliseAberto] = useState(null);
   const [analiseCarregando, setAnaliseCarregando] = useState(false);
   const [dadosAnalise, setDadosAnalise] = useState(null);
+  const [etiquetaSelecionada, setEtiquetaSelecionada] = useState(null);
   
   // ✅ Estado para abrir chat lateral
   const [chatAberto, setChatAberto] = useState(null); // { thread, contato }
@@ -130,34 +131,54 @@ export default function ContatosRequerendoAtencaoKanban({ usuario, onSelecionarC
     }
   }, [contatosComAlerta]);
 
-  // ✅ Agrupamento único por Prioridade (baseado em dias inativos)
-  const agruparPorPrioridade = () => {
-    const grupos = {
-      '🔴 Críticos (90+ dias)': [],
-      '🟠 Alta Prioridade (60-89 dias)': [],
-      '🟡 Prioritários (30-59 dias)': [],
-      '🟢 Monitorar (7-29 dias)': []
+  // ✅ Extrair todas as etiquetas únicas dos contatos
+  const etiquetasUnicas = useMemo(() => {
+    const etiquetas = new Set();
+    contatosComAlerta.forEach(item => {
+      if (item.tags?.length > 0) {
+        item.tags.forEach(tag => etiquetas.add(tag));
+      }
+    });
+    return Array.from(etiquetas).sort();
+  }, [contatosComAlerta]);
+
+  // ✅ Agrupamento único por Prioridade (baseado em dias inativos) + Filtro por etiqueta
+  const agruparPorPrioridade = useMemo(() => {
+    return () => {
+      // Primeiro filtrar por etiqueta se selecionada
+      const contatosFiltrados = etiquetaSelecionada 
+        ? contatosComAlerta.filter(item => item.tags?.includes(etiquetaSelecionada))
+        : contatosComAlerta;
+
+      const grupos = {
+        '🔴 Críticos (90+ dias)': [],
+        '🟠 Alta Prioridade (60-89 dias)': [],
+        '🟡 Prioritários (30-59 dias)': [],
+        '🟢 Monitorar (7-29 dias)': []
+      };
+
+      contatosFiltrados.forEach((item) => {
+        const dias = item.days_inactive_inbound || 0;
+        const topico = dias >= 90 ? '🔴 Críticos (90+ dias)' :
+          dias >= 60 ? '🟠 Alta Prioridade (60-89 dias)' :
+          dias >= 30 ? '🟡 Prioritários (30-59 dias)' :
+          '🟢 Monitorar (7-29 dias)';
+        grupos[topico].push(item);
+      });
+
+      // Ordenar dentro de cada grupo por dias inativos (decrescente)
+      Object.keys(grupos).forEach((key) => {
+        grupos[key].sort((a, b) => (b.days_inactive_inbound || 0) - (a.days_inactive_inbound || 0));
+      });
+
+      return grupos;
     };
-
-    contatosComAlerta.forEach((item) => {
-      const dias = item.days_inactive_inbound || 0;
-      const topico = dias >= 90 ? '🔴 Críticos (90+ dias)' :
-        dias >= 60 ? '🟠 Alta Prioridade (60-89 dias)' :
-        dias >= 30 ? '🟡 Prioritários (30-59 dias)' :
-        '🟢 Monitorar (7-29 dias)';
-      grupos[topico].push(item);
-    });
-
-    // Ordenar dentro de cada grupo por dias inativos (decrescente)
-    Object.keys(grupos).forEach((key) => {
-      grupos[key].sort((a, b) => (b.days_inactive_inbound || 0) - (a.days_inactive_inbound || 0));
-    });
-
-    return grupos;
-  };
+  }, [contatosComAlerta, etiquetaSelecionada]);
 
   const grupos = agruparPorPrioridade();
-  const totalAlertas = totalUrgentes || contatosComAlerta.length;
+  const totalAlertas = etiquetaSelecionada 
+    ? contatosComAlerta.filter(c => c.tags?.includes(etiquetaSelecionada)).length
+    : (totalUrgentes || contatosComAlerta.length);
 
   const toggleSelecaoContato = (contato) => {
     setContatosSelecionados((prev) => {
