@@ -122,6 +122,7 @@ import Vendas from './pages/Vendas';
 import Vendedores from './pages/Vendedores';
 import WhatsAppTemplates from './pages/WhatsAppTemplates';
 import DiagnosticoContatoEveraldo from './pages/DiagnosticoContatoEveraldo';
+import DiagnosticoWAPIConexoes from './pages/DiagnosticoWAPIConexoes';
 import __Layout from './Layout.jsx';
 
 
@@ -201,6 +202,7 @@ export const PAGES = {
     "Vendedores": Vendedores,
     "WhatsAppTemplates": WhatsAppTemplates,
     "DiagnosticoContatoEveraldo": DiagnosticoContatoEveraldo,
+    "DiagnosticoWAPIConexoes": DiagnosticoWAPIConexoes,
 }
 
 export const pagesConfig = {
