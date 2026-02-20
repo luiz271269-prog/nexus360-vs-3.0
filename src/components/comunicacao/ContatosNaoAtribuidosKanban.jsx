@@ -35,8 +35,8 @@ export default function ContatosNaoAtribuidosKanban({ usuario, threads = [], onC
       if (t.thread_type === 'team_internal' || t.thread_type === 'sector_group' || !t.contact_id) {
         return false;
       }
-      // ✅ Apenas threads externas com contato
-      return !t.assigned_user_id && isNaoAtribuida(t);
+      // ✅ Apenas threads externas com contato e SEM atendente
+      return !t.assigned_user_id;
     });
   }, [threads]);
 
