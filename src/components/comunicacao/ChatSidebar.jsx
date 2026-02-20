@@ -461,18 +461,17 @@ export default function ChatSidebar({
                   onSelectedIntegrationChange(id);
                 }}
                 className="shadow-sm"
-              />
-            )}
-            {contatos && (
-              <ContatosRequerendoAtencao 
-                usuario={usuarioAtual} 
-                contatos={contatos}
-                onSelecionarContato={(t) => {
-                  onSelecionarThread(t);
-                }}
                 variant="sidebar"
               />
             )}
+            <ContatosRequerendoAtencao 
+              usuario={usuarioAtual} 
+              contatos={contatos}
+              onSelecionarContato={(t) => {
+                onSelecionarThread(t);
+              }}
+              variant="sidebar"
+            />
           </div>
         </div>
       )}
