@@ -247,7 +247,7 @@ export default function Layout({ children, currentPageName }) {
     { name: "Dashboard", icon: BarChart3, page: "Dashboard" },
     { name: "Central de Comunicacao", icon: MessageSquare, page: "Comunicacao" },
     { name: "Contatos Inteligentes", icon: Target, page: "ContatosInteligentes" },
-    { name: "CRM - Kanban", icon: Target, page: "LeadsQualificados" },
+    { name: "CRM - Kanban", icon: Briefcase, page: "LeadsQualificados" },
     { name: "Clientes", icon: Building2, page: "Clientes" },
     { name: "Metas de Vendas", icon: Users, page: "Vendedores" },
     { name: "Agenda Inteligente", icon: Calendar, page: "Agenda" },
