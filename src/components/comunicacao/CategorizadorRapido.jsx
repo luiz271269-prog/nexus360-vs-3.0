@@ -333,6 +333,9 @@ export default function CategorizadorRapido({ thread = null, contato = null, onU
   );
 }
 
+// Fechar popover de fase ao clicar fora (via evento global)
+// Isso é tratado no componente pai via stopPropagation — sem side effect.
+
 // Exportar para uso em filtros
 export const getCategoriaConfig = (nome, categoriasDB = []) => {
   const fixa = CATEGORIAS_FIXAS.find(c => c.nome === nome);
