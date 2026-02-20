@@ -23,7 +23,7 @@ import { isNaoAtribuida } from "../lib/threadVisibility";
  * 2️⃣ Breakdown por setor
  * 3️⃣ Breakdown por integração
  */
-export default function ContadorNaoAtribuidas({ threads = [], integracoes = [], usuario = null, onClickVerFila, onClickConexao, className = "" }) {
+export default function ContadorNaoAtribuidas({ threads = [], integracoes = [], usuario = null, onClickVerFila, onClickConexao, className = "", variant = "header" }) {
   // ✅ CIRÚRGICA: CALCULAR LOCALMENTE - APENAS threads EXTERNAS não atribuídas
   const dados = useMemo(() => {
     if (!threads.length || !usuario) {
@@ -124,6 +124,24 @@ export default function ContadorNaoAtribuidas({ threads = [], integracoes = [], 
   };
 
   const estilo = getEstilo();
+
+  // ✅ VERSÃO SIDEBAR - Botão compacto igual aos internos
+  if (variant === "sidebar") {
+    return (
+      <Button
+        onClick={onClickVerFila}
+        className="bg-gradient-to-r from-orange-500 to-red-600 hover:from-orange-600 hover:to-red-700 text-white border-0 h-7 text-[10px] px-2 flex items-center gap-1.5 font-semibold shadow-md"
+      >
+        <MessageSquare className="w-3.5 h-3.5" />
+        <span>Não Atrib.</span>
+        {dados.total > 0 && (
+          <Badge className="ml-0.5 h-4 min-w-4 px-1 rounded-full text-[8px] font-bold bg-white/30">
+            {dados.total}
+          </Badge>
+        )}
+      </Button>
+    );
+  }
 
   const content =
   <Button
