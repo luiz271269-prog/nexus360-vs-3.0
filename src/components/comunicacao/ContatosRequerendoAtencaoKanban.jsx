@@ -197,6 +197,23 @@ export default function ContatosRequerendoAtencaoKanban({ usuario, onSelecionarC
     }
   };
 
+  const toggleSelecionarGrupo = (itemsDoGrupo) => {
+    const idsGrupo = itemsDoGrupo.map(i => i.contact_id || i.id);
+    const todosDoGrupoJaSelecionados = idsGrupo.every(id => 
+      contatosSelecionados.some(c => (c.contact_id || c.id) === id)
+    );
+
+    if (todosDoGrupoJaSelecionados) {
+      setContatosSelecionados(prev => 
+        prev.filter(c => !idsGrupo.includes(c.contact_id || c.id))
+      );
+    } else {
+      const idsJaSelecionados = new Set(contatosSelecionados.map(c => c.contact_id || c.id));
+      const novosContatos = itemsDoGrupo.filter(i => !idsJaSelecionados.has(i.contact_id || i.id));
+      setContatosSelecionados(prev => [...prev, ...novosContatos]);
+    }
+  };
+
   const abrirEnvioMassa = () => {
     if (contatosSelecionados.length === 0) {
       toast.error('Selecione ao menos 1 contato');
@@ -514,16 +531,7 @@ export default function ContatosRequerendoAtencaoKanban({ usuario, onSelecionarC
 
 
 
-            {/* Selecionar Todos */}
-            {totalAlertas > 0 && (
-              <Button
-                onClick={toggleSelecionarTodos}
-                variant="outline"
-                size="sm"
-                className="w-full h-7 text-xs">
-                {contatosSelecionados.length === contatosComAlerta.length ? '❌ Desmarcar Todos' : '✅ Selecionar Todos'}
-              </Button>
-            )}
+
           </div>
         </div>
 
@@ -549,11 +557,23 @@ export default function ContatosRequerendoAtencaoKanban({ usuario, onSelecionarC
               <div key={nomeColuna} className="flex-shrink-0 w-72 rounded-lg overflow-hidden flex flex-col">
                 {/* Header da Coluna */}
                 <div className="bg-gradient-to-r from-purple-600 to-indigo-600 px-4 py-3 rounded-t-lg shadow-md">
-                  <div className="flex items-center justify-between">
+                  <div className="flex items-center justify-between gap-2">
                     <span className="text-sm font-bold text-white">{nomeColuna}</span>
-                    <Badge className="bg-white/30 text-white text-xs font-bold">
-                      {items.length}
-                    </Badge>
+                    <div className="flex items-center gap-2">
+                      <Badge className="bg-white/30 text-white text-xs font-bold">
+                        {items.length}
+                      </Badge>
+                      {items.length > 0 && (
+                        <button
+                          onClick={() => toggleSelecionarGrupo(items)}
+                          className="text-white hover:bg-white/20 rounded px-2 py-1 transition-colors text-xs font-medium"
+                        >
+                          {items.every(i => contatosSelecionados.some(c => (c.contact_id || c.id) === (i.contact_id || i.id))) 
+                            ? '❌' 
+                            : '✅'}
+                        </button>
+                      )}
+                    </div>
                   </div>
                 </div>
 
