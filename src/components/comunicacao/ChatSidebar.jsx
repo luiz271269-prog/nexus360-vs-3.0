@@ -451,18 +451,29 @@ export default function ChatSidebar({
             </Button>
           </div>
           
-          {/* ✅ BOTÕES AÇÃO - Requer Atenção */}
-          {contatos && onOpenKanbanRequerAtencao && (
-            <ContatosRequerendoAtencao 
-              usuario={usuarioAtual} 
-              contatos={contatos}
-              onSelecionarContato={(t) => {
-                onSelecionarThread(t);
-              }}
-              onOpenKanban={() => onOpenKanbanRequerAtencao()}
-              variant="sidebar"
-            />
-          )}
+          {/* ✅ BOTÕES AÇÃO - Não Atribuídos + Requer Atenção */}
+          <div className="flex gap-1">
+            {onOpenKanbanNaoAtribuidos && (
+              <Button
+                onClick={() => onOpenKanbanNaoAtribuidos()}
+                className="flex-1 bg-gradient-to-r from-red-500 to-orange-600 hover:from-red-600 hover:to-orange-700 text-white border-0 h-7 text-[10px] px-2 flex items-center gap-1.5 font-semibold shadow-md"
+              >
+                <AlertTriangle className="w-3.5 h-3.5" />
+                <span>Não Atrib.</span>
+              </Button>
+            )}
+            {contatos && onOpenKanbanRequerAtencao && (
+              <ContatosRequerendoAtencao 
+                usuario={usuarioAtual} 
+                contatos={contatos}
+                onSelecionarContato={(t) => {
+                  onSelecionarThread(t);
+                }}
+                onOpenKanban={() => onOpenKanbanRequerAtencao()}
+                variant="sidebar"
+              />
+            )}
+          </div>
         </div>
       )}
 
