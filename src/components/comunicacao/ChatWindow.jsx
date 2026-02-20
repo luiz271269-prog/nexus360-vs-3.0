@@ -1565,6 +1565,8 @@ export default function ChatWindow({
     }
   }, [podeApagarMensagens, mensagensSelecionadas, mensagens, thread, onAtualizarMensagens]);
 
+  // marcarComoLidaMutation e marcarLidaAoResponder estão declarados ACIMA (antes de handleEnviarFromInput)
+
   React.useEffect(() => {
     if (!mensagens.length) return;
 
