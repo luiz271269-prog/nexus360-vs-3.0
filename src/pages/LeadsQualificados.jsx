@@ -42,7 +42,7 @@ export default function LeadsQualificados() {
   const [viewMode, setViewMode] = useState('kanban');
   const [atendentes, setAtendentes] = useState([]);
   const [sincronizando, setSincronizando] = useState(false);
-  const [activeTab, setActiveTab] = useState('leads');
+  const [activeTab, setActiveTab] = useState('orcamentos');
   const [pendingStatusChange, setPendingStatusChange] = useState(null);
   const [showClienteForm, setShowClienteForm] = useState(false);
   const [editingCliente, setEditingCliente] = useState(null);
