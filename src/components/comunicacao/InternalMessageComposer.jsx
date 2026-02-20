@@ -248,14 +248,20 @@ export default function InternalMessageComposer({ open, onClose, currentUser, on
 
         const destinations = [...usersResults, ...sectorsResults, ...groupsResults].filter(Boolean);
 
+        const totalSelecionadosOriginal = selectedUsers.length + selectedSectors.length + selectedGroups.length;
+        const falhas = totalSelecionadosOriginal - destinations.length;
+
         if (destinations.length > 0) {
+          if (falhas > 0) {
+            toast.warning(`⚠️ ${falhas} destinatário(s) não puderam ser resolvidos`);
+          }
           onSelectDestinations({ mode: 'broadcast', destinations });
           setSelectedUsers([]);
           setSelectedSectors([]);
           setSelectedGroups([]);
           onClose();
         } else {
-          toast.error('Erro ao resolver destinatários');
+          toast.error('Todos os destinatários falharam. Verifique a conexão e tente novamente.');
         }
       }
     } catch (err) {
