@@ -19,7 +19,8 @@ import {
   TrendingUp,
   ChevronDown,
   ChevronRight,
-  ArrowLeft
+  ArrowLeft,
+  Tag
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useContatosInteligentes } from '../hooks/useContatosInteligentes';
@@ -38,6 +39,7 @@ export default function ContatosRequerendoAtencaoKanban({ usuario, onSelecionarC
   const [contatoAnaliseAberto, setContatoAnaliseAberto] = useState(null);
   const [analiseCarregando, setAnaliseCarregando] = useState(false);
   const [dadosAnalise, setDadosAnalise] = useState(null);
+  const [etiquetasSelecionadas, setEtiquetasSelecionadas] = useState([]);
   
   // ✅ Estado para abrir chat lateral
   const [chatAberto, setChatAberto] = useState(null); // { thread, contato }
@@ -156,8 +158,50 @@ export default function ContatosRequerendoAtencaoKanban({ usuario, onSelecionarC
     return grupos;
   };
 
-  const grupos = agruparPorPrioridade();
-  const totalAlertas = totalUrgentes || contatosComAlerta.length;
+  // ✅ Filtrar por etiquetas selecionadas
+  const contatosFiltrados = etiquetasSelecionadas.length > 0
+    ? contatosComAlerta.filter(item => 
+        item.tags && item.tags.some(tag => etiquetasSelecionadas.includes(tag))
+      )
+    : contatosComAlerta;
+
+  // ✅ Obter todas as etiquetas únicas
+  const todasEtiquetas = useMemo(() => {
+    const tags = new Set();
+    contatosComAlerta.forEach(item => {
+      if (item.tags && Array.isArray(item.tags)) {
+        item.tags.forEach(tag => tags.add(tag));
+      }
+    });
+    return Array.from(tags).sort();
+  }, [contatosComAlerta]);
+
+  const agruparContatosFiltrados = () => {
+    const grupos = {
+      '🔴 Críticos (90+ dias)': [],
+      '🟠 Alta Prioridade (60-89 dias)': [],
+      '🟡 Prioritários (30-59 dias)': [],
+      '🟢 Monitorar (7-29 dias)': []
+    };
+
+    contatosFiltrados.forEach((item) => {
+      const dias = item.days_inactive_inbound || 0;
+      const topico = dias >= 90 ? '🔴 Críticos (90+ dias)' :
+        dias >= 60 ? '🟠 Alta Prioridade (60-89 dias)' :
+        dias >= 30 ? '🟡 Prioritários (30-59 dias)' :
+        '🟢 Monitorar (7-29 dias)';
+      grupos[topico].push(item);
+    });
+
+    Object.keys(grupos).forEach((key) => {
+      grupos[key].sort((a, b) => (b.days_inactive_inbound || 0) - (a.days_inactive_inbound || 0));
+    });
+
+    return grupos;
+  };
+
+  const grupos = agruparContatosFiltrados();
+  const totalAlertas = contatosFiltrados.length;
 
   const toggleSelecaoContato = (contato) => {
     setContatosSelecionados((prev) => {
@@ -256,6 +300,26 @@ export default function ContatosRequerendoAtencaoKanban({ usuario, onSelecionarC
     }
   };
 
+  // ✅ Formatar data da última mensagem
+  const formatarDataUltimaMensagem = (data) => {
+    if (!data) return 'Sem mensagens';
+    try {
+      const dataObj = new Date(data);
+      const agora = new Date();
+      const diffMs = agora - dataObj;
+      const diffDias = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+      const diffHoras = Math.floor(diffMs / (1000 * 60 * 60));
+      const diffMin = Math.floor(diffMs / (1000 * 60));
+
+      if (diffDias > 0) return `${diffDias}d atrás`;
+      if (diffHoras > 0) return `${diffHoras}h atrás`;
+      if (diffMin > 0) return `${diffMin}m atrás`;
+      return 'Agora';
+    } catch {
+      return 'Sem data';
+    }
+  };
+
   // ✅ Card de Contato - IGUAL à lista de contatos da sidebar
   const renderContatoCard = (item) => {
     const assignedId = item.vendedor_responsavel || item.assigned_user_id;
@@ -341,13 +405,27 @@ export default function ContatosRequerendoAtencaoKanban({ usuario, onSelecionarC
             {nomeExibicao}
           </h3>
 
-          {/* Linha 2: Preview (inatividade) - text-xs (12px regular) */}
+          {/* Linha 2: Data última mensagem - text-xs (12px regular) */}
           <p className="text-xs text-slate-500 truncate mb-0.5 flex items-center gap-1">
             <Clock className="w-3 h-3 flex-shrink-0" />
-            {item.days_inactive_inbound || 0}d
+            {formatarDataUltimaMensagem(item.last_inbound_at || item.ultima_interacao)}
           </p>
 
-          {/* Linha 3: Badges compactas - text-[9px] (9px semibold) */}
+          {/* Linha 3: Etiquetas - text-[8px] */}
+          {item.tags && item.tags.length > 0 && (
+            <div className="flex items-center gap-0.5 flex-wrap">
+              {item.tags.slice(0, 3).map((tag) => (
+                <Badge key={tag} className="bg-gradient-to-r from-purple-500 to-pink-500 text-white text-[8px] px-1.5 py-0 h-4">
+                  {tag}
+                </Badge>
+              ))}
+              {item.tags.length > 3 && (
+                <span className="text-[8px] text-slate-500 font-semibold">+{item.tags.length - 3}</span>
+              )}
+            </div>
+          )}
+
+          {/* Linha 4: Badges compactas - text-[9px] (9px semibold) */}
           <div className="flex items-center gap-0.5 flex-wrap">
             {/* Tipo Contato */}
             {(() => {
@@ -535,6 +613,39 @@ export default function ContatosRequerendoAtencaoKanban({ usuario, onSelecionarC
                 Aplicar
               </Button>
             </div>
+
+            {/* Filtro de Etiquetas */}
+            {todasEtiquetas.length > 0 && (
+              <div className="space-y-1">
+                <label className="text-xs font-semibold text-slate-700 flex items-center gap-1.5">
+                  <Tag className="w-3 h-3" />
+                  Filtrar por etiquetas
+                </label>
+                <div className="flex flex-wrap gap-1">
+                  {todasEtiquetas.map((tag) => (
+                    <Button
+                      key={tag}
+                      size="sm"
+                      variant={etiquetasSelecionadas.includes(tag) ? 'default' : 'outline'}
+                      onClick={() => {
+                        setEtiquetasSelecionadas(prev =>
+                          prev.includes(tag)
+                            ? prev.filter(t => t !== tag)
+                            : [...prev, tag]
+                        );
+                      }}
+                      className={`h-6 px-2 text-xs ${
+                        etiquetasSelecionadas.includes(tag)
+                          ? 'bg-gradient-to-r from-purple-500 to-pink-500 text-white'
+                          : ''
+                      }`}
+                    >
+                      {tag}
+                    </Button>
+                  ))}
+                </div>
+              </div>
+            )}
 
 
 
