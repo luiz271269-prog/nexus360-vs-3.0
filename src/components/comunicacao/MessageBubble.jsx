@@ -330,6 +330,7 @@ export default React.memo(function MessageBubble({
   const [encaminhando, setEncaminhando] = React.useState(false);
   const [apagando, setApagando] = React.useState(false);
   const [categorizando, setCategorizando] = React.useState(false);
+  const [etiquetaFaseDialog, setEtiquetaFaseDialog] = React.useState(null); // { nome, label, emoji, kanban_fase_padrao }
 
   const [contatosSelecionados, setContatosSelecionados] = React.useState([]);
   const [buscaContato, setBuscaContato] = React.useState("");
