@@ -52,8 +52,9 @@ function ThreadCardKanban({ thread, isAtiva, usuarioAtual, atendentes, onSelecio
 
   return (
     <div
-      onClick={() => onSelecionarThread(thread)}
-      className={`bg-white rounded-lg border shadow-sm p-2.5 cursor-pointer transition-all hover:shadow-md hover:border-orange-300 ${isAtiva ? 'border-orange-400 bg-orange-50' : 'border-slate-200'}`}
+      onClick={() => podeInteragir && onSelecionarThread(thread)}
+      className={`bg-white rounded-lg border shadow-sm p-2.5 transition-all ${podeInteragir ? 'cursor-pointer hover:shadow-md hover:border-orange-300' : 'cursor-not-allowed opacity-50'} ${isAtiva ? 'border-orange-400 bg-orange-50' : 'border-slate-200'}`}
+      title={!podeInteragir ? 'Sem permissão para acessar esta conversa' : ''}
     >
       {/* Linha 1: Avatar + Nome + Horário */}
       <div className="flex items-start gap-2 mb-1.5">
