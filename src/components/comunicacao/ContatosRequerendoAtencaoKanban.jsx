@@ -274,97 +274,127 @@ export default function ContatosRequerendoAtencaoKanban({ usuario, onSelecionarC
     }
   };
 
-  // ✅ Card de Contato
+  // ✅ Card de Contato - IGUAL à lista de contatos da sidebar
   const renderContatoCard = (item) => {
     const assignedId = item.vendedor_responsavel || item.assigned_user_id;
     const atendenteNome = assignedId ? usuariosMap[assignedId] || 'Carregando...' : 'Não atribuído';
     const contatoId = item.contact_id || item.id;
     const estaSelecionado = contatosSelecionados.some((c) => (c.contact_id || c.id) === contatoId);
 
+    // Nome formatado: Empresa + Cargo + Nome (igual ChatSidebar)
+    let nomeExibicao = "";
+    if (item.empresa) nomeExibicao += item.empresa;
+    if (item.cargo) nomeExibicao += (nomeExibicao ? " - " : "") + item.cargo;
+    if (item.nome && item.nome !== item.telefone) nomeExibicao += (nomeExibicao ? " - " : "") + item.nome;
+    if (!nomeExibicao || nomeExibicao.trim() === '') {
+      nomeExibicao = item.telefone || "Sem Nome";
+    }
+
     return (
       <div
         key={contatoId}
-        className={`p-3 rounded-lg border-l-4 transition-all ${
-          estaSelecionado ? 'bg-blue-50 border-blue-500' : 'bg-white border-slate-200 hover:shadow-md'
+        onClick={async (e) => {
+          e.stopPropagation();
+          try {
+            const threads = await base44.entities.MessageThread.filter({
+              contact_id: item.contact_id,
+              is_canonical: true
+            }, '-last_message_at', 1);
+
+            if (threads && threads.length > 0) {
+              onSelecionarContato({
+                id: threads[0].id,
+                contatoPreCarregado: {
+                  id: item.contact_id,
+                  nome: item.nome,
+                  empresa: item.empresa,
+                  telefone: item.telefone,
+                  tipo_contato: item.tipo_contato,
+                  vendedor_responsavel: item.vendedor_responsavel
+                }
+              });
+              toast.success('✅ Conversa aberta!');
+            } else {
+              toast.error('❌ Conversa não disponível');
+            }
+          } catch (error) {
+            toast.error(`❌ ${error.message}`);
+          }
+        }}
+        className={`px-2 py-2 flex items-center gap-3 cursor-pointer transition-all border-b border-slate-100 hover:bg-gradient-to-r hover:from-amber-50 hover:to-orange-50 ${
+          estaSelecionado ? 'bg-orange-100 border-l-4 border-l-orange-500' : ''
         }`}
-        style={{ borderLeftColor: agrupadoPor === 'prioridade' ? undefined : undefined }}
       >
-        {/* Header com checkbox + avatar */}
-        <div className="flex items-start gap-2 mb-2">
+        {/* Checkbox */}
+        <div className="flex-shrink-0" onClick={(e) => e.stopPropagation()}>
           <Checkbox
             checked={estaSelecionado}
             onCheckedChange={() => toggleSelecaoContato(item)}
-            className="mt-0.5"
           />
-          <div className="w-7 h-7 rounded-full flex items-center justify-center text-white font-bold text-xs bg-gradient-to-br from-orange-400 to-red-500 flex-shrink-0">
+        </div>
+
+        {/* Avatar */}
+        <div className="relative flex-shrink-0">
+          <div className="w-12 h-12 rounded-full flex items-center justify-center text-white font-bold text-lg shadow-md bg-gradient-to-br from-amber-400 via-orange-500 to-red-500">
             {item.nome?.charAt(0)?.toUpperCase() || '?'}
           </div>
-          <div className="flex-1 min-w-0">
-            <p className="font-medium text-xs text-slate-800 truncate">
-              {item.empresa || item.nome}
-            </p>
-            <p className="text-[10px] text-slate-500">
-              {item.dias_sem_responder || item.days_inactive_inbound || 0}d inativo
-            </p>
-          </div>
-        </div>
-
-        {/* Badges */}
-        <div className="flex gap-1 flex-wrap mb-2">
-          <Badge className={`${getPrioridadeCor(item.prioridadeLabel)} text-white text-[8px] px-1 py-0`}>
-            {item.prioridadeLabel}
+          <Badge className={`absolute -bottom-1 -right-1 ${getBucketCor(item.bucket_inactive)} text-white text-[8px] px-1 py-0 h-4 min-w-4 flex items-center justify-center`}>
+            {item.bucket_inactive === 'active' ? '✓' : item.bucket_inactive}
           </Badge>
-          {item.deal_risk > 0 && (
-            <Badge variant="outline" className="text-[8px] px-1 py-0 border-red-300 text-red-700">
-              Risco: {item.deal_risk}%
-            </Badge>
-          )}
         </div>
 
-        {/* Botões de ação */}
-        <div className="flex gap-1">
-          <button
-            onClick={async (e) => {
-              e.stopPropagation();
-              try {
-                const threads = await base44.entities.MessageThread.filter({
-                  contact_id: item.contact_id,
-                  is_canonical: true
-                }, '-last_message_at', 1);
+        <div className="flex-1 min-w-0">
+          {/* Linha 1: Nome */}
+          <div className="flex items-center justify-between mb-0.5">
+            <h3 className="font-semibold truncate text-sm text-slate-900">
+              {nomeExibicao}
+            </h3>
+          </div>
 
-                if (threads && threads.length > 0) {
-                  onSelecionarContato({
-                    id: threads[0].id,
-                    contatoPreCarregado: {
-                      id: item.contact_id,
-                      nome: item.nome,
-                      empresa: item.empresa,
-                      telefone: item.telefone,
-                      tipo_contato: item.tipo_contato,
-                      vendedor_responsavel: item.vendedor_responsavel
-                    }
-                  });
-                  toast.success('✅ Conversa aberta!');
-                } else {
-                  toast.error('❌ Conversa não disponível');
-                }
-              } catch (error) {
-                toast.error(`❌ ${error.message}`);
-              }
-            }}
-            className="flex-1 text-[8px] px-1.5 py-1 bg-blue-100 text-blue-700 rounded hover:bg-blue-200 transition-colors"
-          >
-            💬 Chat
-          </button>
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              abrirAnaliseIA(item);
-            }}
-            className="flex-1 text-[8px] px-1.5 py-1 bg-purple-100 text-purple-700 rounded hover:bg-purple-200 transition-colors"
-          >
-            🧠 IA
-          </button>
+          {/* Linha 2: Inatividade */}
+          <p className="text-xs text-slate-500 flex items-center gap-1 mb-1">
+            <Clock className="w-3 h-3" />
+            {item.days_inactive_inbound || 0} dias sem responder
+          </p>
+
+          {/* Linha 3: Badges */}
+          <div className="flex items-center gap-1 flex-wrap">
+            {/* Tipo Contato */}
+            {(() => {
+              const tipoContato = item.tipo_contato || 'novo';
+              const tiposConfig = {
+                'novo': { emoji: '?', label: 'Novo', bg: 'bg-slate-400' },
+                'lead': { emoji: 'L', label: 'Lead', bg: 'bg-amber-500' },
+                'cliente': { emoji: 'C', label: 'Cliente', bg: 'bg-emerald-500' },
+                'fornecedor': { emoji: 'F', label: 'Fornec.', bg: 'bg-blue-500' },
+                'parceiro': { emoji: 'P', label: 'Parceiro', bg: 'bg-purple-500' }
+              };
+              const cfg = tiposConfig[tipoContato] || tiposConfig['novo'];
+              return (
+                <span className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-semibold text-white ${cfg.bg} shadow-sm`}>
+                  {cfg.emoji} {cfg.label}
+                </span>
+              );
+            })()}
+
+            {/* Prioridade */}
+            <Badge className={`${getPrioridadeCor(item.prioridadeLabel)} text-white text-[10px] px-1.5 py-0.5`}>
+              {item.prioridadeLabel}
+            </Badge>
+
+            {/* Deal Risk */}
+            {item.deal_risk > 0 && (
+              <Badge variant="outline" className="text-[10px] px-1.5 py-0.5 border-red-300 text-red-700">
+                Risco: {item.deal_risk}%
+              </Badge>
+            )}
+
+            {/* Atendente */}
+            <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-semibold text-white bg-indigo-500 shadow-sm">
+              <User className="w-3 h-3" />
+              {atendenteNome.split(' ')[0]}
+            </span>
+          </div>
         </div>
       </div>
     );
