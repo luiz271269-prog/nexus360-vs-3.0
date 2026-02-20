@@ -54,7 +54,7 @@ export const DESTINOS_KANBAN = [
  *
  * onConfirmar(fase, criarOportunidade, destino) => void
  */
-export default function EtiquetaFaseDialog({ aberto, onFechar, etiqueta, onConfirmar }) {
+export default function EtiquetaFaseDialog({ aberto, onFechar, etiqueta, onConfirmar, mensagem, contato }) {
   const [destino, setDestino] = React.useState('orcamentos');
   const [faseSelecionada, setFaseSelecionada] = React.useState(null);
   const [criarOportunidade, setCriarOportunidade] = React.useState(false);
