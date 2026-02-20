@@ -185,7 +185,6 @@ export default function ChatSidebar({
   const [delegateMode, setDelegateMode] = React.useState(false);
   const [criarGrupoOpen, setCriarGrupoOpen] = React.useState(false);
   const [agendaIAOpen, setAgendaIAOpen] = React.useState(false);
-  const [etiquetaSelecionada, setEtiquetaSelecionada] = React.useState(null);
 
   // Buscar categorias dinâmicas
   const { data: categoriasDB = [] } = useQuery({
@@ -209,33 +208,12 @@ export default function ChatSidebar({
   }, [threads, usuarioAtual, integracoes]);
 
   const threadsSorted = React.useMemo(() => {
-    let filtered = [...threadsFiltradas];
-    
-    // Filtrar por etiqueta se selecionada
-    if (etiquetaSelecionada) {
-      filtered = filtered.filter(t => {
-        const contato = t.contato;
-        return contato?.tags?.includes(etiquetaSelecionada);
-      });
-    }
-    
-    return filtered.sort((a, b) => {
+    return [...threadsFiltradas].sort((a, b) => {
       const dateA = new Date(a.last_message_at || 0);
       const dateB = new Date(b.last_message_at || 0);
       return dateB - dateA;
     });
-  }, [threadsFiltradas, etiquetaSelecionada]);
-
-  // Extrair todas as etiquetas únicas
-  const etiquetasUnicas = React.useMemo(() => {
-    const etiquetas = new Set();
-    threads.forEach(t => {
-      if (t.contato?.tags?.length > 0) {
-        t.contato.tags.forEach(tag => etiquetas.add(tag));
-      }
-    });
-    return Array.from(etiquetas).sort();
-  }, [threads]);
+  }, [threadsFiltradas]);
   
   // Verificar se houve transferência recente (últimos 10 segundos)
   const foiTransferidaRecentemente = (thread) => {
@@ -542,43 +520,6 @@ export default function ChatSidebar({
       />
 
       {/* ═══════════════════════════════════════════════════════════════════ */}
-      {/* FILTRO DE ETIQUETAS */}
-      {/* ═══════════════════════════════════════════════════════════════════ */}
-      {etiquetasUnicas.length > 0 && !modoSelecao && (
-        <div className="sticky top-20 z-10 bg-slate-50/80 backdrop-blur-sm border-b border-slate-200 px-2 py-2 space-y-1.5">
-          <p className="text-[10px] font-semibold text-slate-600 px-1">⭐ Etiquetas Destaque</p>
-          <div className="flex flex-wrap gap-1">
-            <button
-              onClick={() => setEtiquetaSelecionada(null)}
-              className={`px-2 py-1 rounded-full text-[10px] font-medium transition-all ${
-                !etiquetaSelecionada 
-                  ? 'bg-gradient-to-r from-indigo-500 to-blue-500 text-white' 
-                  : 'bg-slate-200 text-slate-700 hover:bg-slate-300'
-              }`}
-            >
-              Todas
-            </button>
-            {etiquetasUnicas.map(etq => {
-              const cfg = getEtiquetaConfigDinamico(etq);
-              return (
-                <button
-                  key={etq}
-                  onClick={() => setEtiquetaSelecionada(etiquetaSelecionada === etq ? null : etq)}
-                  className={`px-2 py-1 rounded-full text-[10px] font-medium transition-all flex items-center gap-0.5 ${
-                    etiquetaSelecionada === etq 
-                      ? `${cfg.cor || 'bg-slate-500'} text-white shadow-sm` 
-                      : 'bg-slate-200 text-slate-700 hover:bg-slate-300'
-                  }`}
-                >
-                  {cfg.emoji || '🏷️'} {etq}
-                </button>
-              );
-            })}
-          </div>
-        </div>
-      )}
-
-      {/* ═══════════════════════════════════════════════════════════════════ */}
       {/* LISTA NORMAL DE THREADS */}
       {/* ═══════════════════════════════════════════════════════════════════ */}
       {threadsSorted.map((thread, index) => {
@@ -863,55 +804,48 @@ export default function ChatSidebar({
                   </span>
                 </div>
 
-                {/* ✅ LINHA 2: Preview mensagem + Data última recebida */}
-                <div className="flex items-center justify-between gap-1 mb-0.5">
-                  <p className={`text-xs truncate flex items-center gap-1 flex-1 ${hasUnread ? 'text-slate-800' : 'text-slate-500'}`}>
-                    {thread.is_contact_only ? (
-                      <span className="text-slate-400 italic">Sem conversa ativa</span>
-                    ) : (
-                      <>
-                        {thread.last_message_sender === 'user' && (
-                          <CheckCheck className="w-3 h-3 text-blue-500 flex-shrink-0" />
-                        )}
-                        {thread.last_media_type === 'image' && <Image className="w-3 h-3 text-blue-500 flex-shrink-0" />}
-                        {thread.last_media_type === 'video' && <Video className="w-3 h-3 text-purple-500 flex-shrink-0" />}
-                        {thread.last_media_type === 'audio' && <Mic className="w-3 h-3 text-green-500 flex-shrink-0" />}
-                        {thread.last_media_type === 'document' && <FileText className="w-3 h-3 text-orange-500 flex-shrink-0" />}
-                        {thread.last_media_type === 'location' && <MapPin className="w-3 h-3 text-red-500 flex-shrink-0" />}
-                        {thread.last_media_type === 'contact' && <PhoneIcon className="w-3 h-3 text-cyan-500 flex-shrink-0" />}
-                        <span className="truncate">
-                          {(() => {
-                            let content = thread.last_message_content;
-                            
-                            // ✅ THREADS EXTERNAS: Filtros agressivos de limpeza
-                            if (!content || content === '[No content]' || /^[\+\d]+@(lid|s\.whatsapp\.net|c\.us)/.test(content)) {
-                              if (thread.last_media_type === 'image') return "[Imagem]";
-                              if (thread.last_media_type === 'video') return "[Video]";
-                              if (thread.last_media_type === 'audio') return "[Audio]";
-                              if (thread.last_media_type === 'document') return "[Documento]";
-                              if (thread.last_media_type === 'location') return "[Localizacao]";
-                              if (thread.last_media_type === 'contact') return "[Contato]";
-                              if (thread.last_media_type === 'sticker') return "[Sticker]";
-                              return "Nova mensagem";
-                            }
-                            
-                            return content;
-                          })()}
+                {/* ✅ LINHA 2: Preview mensagem - LÓGICA SEPARADA (interno vs externo) */}
+                <p className={`text-xs truncate flex items-center gap-1 ${hasUnread ? 'text-slate-800' : 'text-slate-500'}`}>
+                  {thread.is_contact_only ? (
+                    <span className="text-slate-400 italic">Sem conversa ativa</span>
+                  ) : (
+                    <>
+                      {thread.last_message_sender === 'user' && (
+                        <CheckCheck className="w-3 h-3 text-blue-500 flex-shrink-0" />
+                      )}
+                      {thread.last_media_type === 'image' && <Image className="w-3 h-3 text-blue-500 flex-shrink-0" />}
+                      {thread.last_media_type === 'video' && <Video className="w-3 h-3 text-purple-500 flex-shrink-0" />}
+                      {thread.last_media_type === 'audio' && <Mic className="w-3 h-3 text-green-500 flex-shrink-0" />}
+                      {thread.last_media_type === 'document' && <FileText className="w-3 h-3 text-orange-500 flex-shrink-0" />}
+                      {thread.last_media_type === 'location' && <MapPin className="w-3 h-3 text-red-500 flex-shrink-0" />}
+                      {thread.last_media_type === 'contact' && <PhoneIcon className="w-3 h-3 text-cyan-500 flex-shrink-0" />}
+                      <span className="truncate">
+                        {(() => {
+                          let content = thread.last_message_content;
+                          
+                          // ✅ THREADS EXTERNAS: Filtros agressivos de limpeza
+                          if (!content || content === '[No content]' || /^[\+\d]+@(lid|s\.whatsapp\.net|c\.us)/.test(content)) {
+                            if (thread.last_media_type === 'image') return "[Imagem]";
+                            if (thread.last_media_type === 'video') return "[Video]";
+                            if (thread.last_media_type === 'audio') return "[Audio]";
+                            if (thread.last_media_type === 'document') return "[Documento]";
+                            if (thread.last_media_type === 'location') return "[Localizacao]";
+                            if (thread.last_media_type === 'contact') return "[Contato]";
+                            if (thread.last_media_type === 'sticker') return "[Sticker]";
+                            return "Nova mensagem";
+                          }
+                          
+                          return content;
+                        })()}
+                      </span>
+                      {thread.last_message_sender_name && (
+                        <span className="text-[9px] text-slate-400 italic">
+                          ~ {thread.last_message_sender_name.split(' ')[0]}
                         </span>
-                        {thread.last_message_sender_name && (
-                          <span className="text-[9px] text-slate-400 italic">
-                            ~ {thread.last_message_sender_name.split(' ')[0]}
-                          </span>
-                        )}
-                      </>
-                    )}
-                  </p>
-                  {thread.last_inbound_at && thread.last_message_sender === 'contact' && (
-                    <span className="text-[9px] text-slate-400 flex-shrink-0 whitespace-nowrap ml-1" title={`Último recebimento: ${thread.last_inbound_at}`}>
-                      📥 {formatarHorario(thread.last_inbound_at)}
-                    </span>
+                      )}
+                    </>
                   )}
-                </div>
+                </p>
 
                 {/* Linha 3: TIPO + DESTAQUE + ATENDENTE (horizontal compacto com labels) */}
                 <div className="flex items-center gap-1 mt-1 overflow-hidden">

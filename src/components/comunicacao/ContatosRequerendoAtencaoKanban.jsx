@@ -23,7 +23,6 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useContatosInteligentes } from '../hooks/useContatosInteligentes';
-import { useEtiquetasContato } from './SeletorEtiquetasContato';
 import { base44 } from '@/api/base44Client';
 import { createPageUrl } from '@/utils';
 import ModalEnvioPromocoesAutomaticas from './ModalEnvioPromocoesAutomaticas';
@@ -39,7 +38,6 @@ export default function ContatosRequerendoAtencaoKanban({ usuario, onSelecionarC
   const [contatoAnaliseAberto, setContatoAnaliseAberto] = useState(null);
   const [analiseCarregando, setAnaliseCarregando] = useState(false);
   const [dadosAnalise, setDadosAnalise] = useState(null);
-  const [etiquetaSelecionada, setEtiquetaSelecionada] = useState(null);
   
   // ✅ Estado para abrir chat lateral
   const [chatAberto, setChatAberto] = useState(null); // { thread, contato }
@@ -132,57 +130,34 @@ export default function ContatosRequerendoAtencaoKanban({ usuario, onSelecionarC
     }
   }, [contatosComAlerta]);
 
-  // ✅ Buscar configurações dinâmicas de etiquetas
-  const { etiquetas: etiquetasDB, getConfig: getEtiquetaConfig } = useEtiquetasContato();
-
-  // ✅ Extrair todas as etiquetas únicas dos contatos
-  const etiquetasUnicas = useMemo(() => {
-    const etiquetas = new Set();
-    contatosComAlerta.forEach(item => {
-      if (item.tags?.length > 0) {
-        item.tags.forEach(tag => etiquetas.add(tag));
-      }
-    });
-    return Array.from(etiquetas).sort();
-  }, [contatosComAlerta]);
-
-  // ✅ Agrupamento único por Prioridade (baseado em dias inativos) + Filtro por etiqueta
-  const agruparPorPrioridade = useMemo(() => {
-    return () => {
-      // Primeiro filtrar por etiqueta se selecionada
-      const contatosFiltrados = etiquetaSelecionada 
-        ? contatosComAlerta.filter(item => item.tags?.includes(etiquetaSelecionada))
-        : contatosComAlerta;
-
-      const grupos = {
-        '🔴 Críticos (90+ dias)': [],
-        '🟠 Alta Prioridade (60-89 dias)': [],
-        '🟡 Prioritários (30-59 dias)': [],
-        '🟢 Monitorar (7-29 dias)': []
-      };
-
-      contatosFiltrados.forEach((item) => {
-        const dias = item.days_inactive_inbound || 0;
-        const topico = dias >= 90 ? '🔴 Críticos (90+ dias)' :
-          dias >= 60 ? '🟠 Alta Prioridade (60-89 dias)' :
-          dias >= 30 ? '🟡 Prioritários (30-59 dias)' :
-          '🟢 Monitorar (7-29 dias)';
-        grupos[topico].push(item);
-      });
-
-      // Ordenar dentro de cada grupo por dias inativos (decrescente)
-      Object.keys(grupos).forEach((key) => {
-        grupos[key].sort((a, b) => (b.days_inactive_inbound || 0) - (a.days_inactive_inbound || 0));
-      });
-
-      return grupos;
+  // ✅ Agrupamento único por Prioridade (baseado em dias inativos)
+  const agruparPorPrioridade = () => {
+    const grupos = {
+      '🔴 Críticos (90+ dias)': [],
+      '🟠 Alta Prioridade (60-89 dias)': [],
+      '🟡 Prioritários (30-59 dias)': [],
+      '🟢 Monitorar (7-29 dias)': []
     };
-  }, [contatosComAlerta, etiquetaSelecionada]);
+
+    contatosComAlerta.forEach((item) => {
+      const dias = item.days_inactive_inbound || 0;
+      const topico = dias >= 90 ? '🔴 Críticos (90+ dias)' :
+        dias >= 60 ? '🟠 Alta Prioridade (60-89 dias)' :
+        dias >= 30 ? '🟡 Prioritários (30-59 dias)' :
+        '🟢 Monitorar (7-29 dias)';
+      grupos[topico].push(item);
+    });
+
+    // Ordenar dentro de cada grupo por dias inativos (decrescente)
+    Object.keys(grupos).forEach((key) => {
+      grupos[key].sort((a, b) => (b.days_inactive_inbound || 0) - (a.days_inactive_inbound || 0));
+    });
+
+    return grupos;
+  };
 
   const grupos = agruparPorPrioridade();
-  const totalAlertas = etiquetaSelecionada 
-    ? contatosComAlerta.filter(c => c.tags?.includes(etiquetaSelecionada)).length
-    : (totalUrgentes || contatosComAlerta.length);
+  const totalAlertas = totalUrgentes || contatosComAlerta.length;
 
   const toggleSelecaoContato = (contato) => {
     setContatosSelecionados((prev) => {
@@ -561,38 +536,9 @@ export default function ContatosRequerendoAtencaoKanban({ usuario, onSelecionarC
               </Button>
             </div>
 
-            {/* Filtro de Etiquetas */}
-            {etiquetasUnicas.length > 0 && (
-              <div className="flex items-center gap-2 flex-wrap">
-                <span className="text-[10px] font-semibold text-slate-600">⭐ Etiquetas Destaque</span>
-                <button
-                  onClick={() => setEtiquetaSelecionada(null)}
-                  className={`px-2 py-1 rounded-full text-[10px] font-medium transition-all ${
-                    !etiquetaSelecionada 
-                      ? 'bg-gradient-to-r from-indigo-500 to-blue-500 text-white' 
-                      : 'bg-slate-200 text-slate-700 hover:bg-slate-300'
-                  }`}
-                >
-                  Todas
-                </button>
-                {etiquetasUnicas.map(etq => {
-                  const cfg = getEtiquetaConfig(etq);
-                  return (
-                    <button
-                      key={etq}
-                      onClick={() => setEtiquetaSelecionada(etiquetaSelecionada === etq ? null : etq)}
-                      className={`px-2 py-1 rounded-full text-[10px] font-medium transition-all flex items-center gap-0.5 ${
-                        etiquetaSelecionada === etq 
-                          ? `${cfg.cor} text-white shadow-sm` 
-                          : 'bg-slate-200 text-slate-700 hover:bg-slate-300'
-                      }`}
-                    >
-                      {cfg.emoji} {cfg.label || etq}
-                    </button>
-                  );
-                })}
-              </div>
-            )}
+
+
+
 
 
           </div>

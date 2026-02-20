@@ -24,20 +24,15 @@ import { isNaoAtribuida } from "../lib/threadVisibility";
  * 3️⃣ Breakdown por integração
  */
 export default function ContadorNaoAtribuidas({ threads = [], integracoes = [], usuario = null, onClickVerFila, onClickConexao, className = "", variant = "header" }) {
-  // ✅ CIRÚRGICA: CALCULAR LOCALMENTE - APENAS threads EXTERNAS não atribuídas COM PRIORIDADES
+  // ✅ CIRÚRGICA: CALCULAR LOCALMENTE - APENAS threads EXTERNAS não atribuídas
   const dados = useMemo(() => {
     if (!threads.length || !usuario) {
       return { 
         total: 0, 
         nao_atribuidas: 0, 
-        criticos: 0,
-        altos: 0,
-        prioritarios: 0,
-        monitorar: 0,
         travadas: 0, 
         por_setor: [], 
-        por_integracao: [],
-        por_prioridade: {}
+        por_integracao: [] 
       };
     }
 
@@ -48,23 +43,6 @@ export default function ContadorNaoAtribuidas({ threads = [], integracoes = [], 
         return false;
       }
       return isNaoAtribuida(t);
-    });
-
-    // Agrupamento por prioridade (baseado em dias inativos)
-    const porPrioridade = {
-      '🔴 Críticos (90+ dias)': [],
-      '🟠 Alta Prioridade (60-89 dias)': [],
-      '🟡 Prioritários (30-59 dias)': [],
-      '🟢 Monitorar (7-29 dias)': []
-    };
-
-    naoAtribuidas.forEach(t => {
-      const dias = t.contato?.days_inactive_inbound || 0;
-      const topico = dias >= 90 ? '🔴 Críticos (90+ dias)' :
-        dias >= 60 ? '🟠 Alta Prioridade (60-89 dias)' :
-        dias >= 30 ? '🟡 Prioritários (30-59 dias)' :
-        '🟢 Monitorar (7-29 dias)';
-      porPrioridade[topico].push(t);
     });
 
     // Breakdown por setor
@@ -91,14 +69,9 @@ export default function ContadorNaoAtribuidas({ threads = [], integracoes = [], 
     return {
       total: naoAtribuidas.length,
       nao_atribuidas: naoAtribuidas.length,
-      criticos: porPrioridade['🔴 Críticos (90+ dias)'].length,
-      altos: porPrioridade['🟠 Alta Prioridade (60-89 dias)'].length,
-      prioritarios: porPrioridade['🟡 Prioritários (30-59 dias)'].length,
-      monitorar: porPrioridade['🟢 Monitorar (7-29 dias)'].length,
       travadas: 0,
       por_setor: Object.values(porSetorMap),
-      por_integracao: Object.values(porIntegracaoMap),
-      por_prioridade: porPrioridade
+      por_integracao: Object.values(porIntegracaoMap)
     };
   }, [threads, usuario]);
 
@@ -216,35 +189,21 @@ export default function ContadorNaoAtribuidas({ threads = [], integracoes = [], 
                 </p>
               </div>
               
-              {/* Breakdown por Prioridade */}
-              {dados.total > 0 && (
-                <div className="flex flex-wrap gap-2 text-xs">
-                  {dados.criticos > 0 && (
-                    <div className="flex items-center gap-1 bg-red-50 px-2 py-1 rounded">
-                      <span className="w-1.5 h-1.5 bg-red-500 rounded-full" />
-                      <span className="text-slate-600">Críticos:</span>
-                      <span className="font-bold text-red-700">{dados.criticos}</span>
+              {/* Breakdown de tipos */}
+              {(dados.nao_atribuidas > 0 || dados.travadas > 0) && (
+                <div className="flex gap-2 text-xs">
+                  {dados.nao_atribuidas > 0 && (
+                    <div className="flex items-center gap-1 bg-blue-50 px-2 py-1 rounded">
+                      <span className="w-1.5 h-1.5 bg-blue-500 rounded-full" />
+                      <span className="text-slate-600">Não atribuídas:</span>
+                      <span className="font-bold text-blue-700">{dados.nao_atribuidas}</span>
                     </div>
                   )}
-                  {dados.altos > 0 && (
-                    <div className="flex items-center gap-1 bg-orange-50 px-2 py-1 rounded">
-                      <span className="w-1.5 h-1.5 bg-orange-500 rounded-full" />
-                      <span className="text-slate-600">Alta:</span>
-                      <span className="font-bold text-orange-700">{dados.altos}</span>
-                    </div>
-                  )}
-                  {dados.prioritarios > 0 && (
-                    <div className="flex items-center gap-1 bg-yellow-50 px-2 py-1 rounded">
-                      <span className="w-1.5 h-1.5 bg-yellow-500 rounded-full" />
-                      <span className="text-slate-600">Prior.:</span>
-                      <span className="font-bold text-yellow-700">{dados.prioritarios}</span>
-                    </div>
-                  )}
-                  {dados.monitorar > 0 && (
-                    <div className="flex items-center gap-1 bg-green-50 px-2 py-1 rounded">
-                      <span className="w-1.5 h-1.5 bg-green-500 rounded-full" />
-                      <span className="text-slate-600">Monitor.:</span>
-                      <span className="font-bold text-green-700">{dados.monitorar}</span>
+                  {dados.travadas > 0 && (
+                    <div className="flex items-center gap-1 bg-amber-50 px-2 py-1 rounded">
+                      <span className="w-1.5 h-1.5 bg-amber-500 rounded-full" />
+                      <span className="text-slate-600">Travadas:</span>
+                      <span className="font-bold text-amber-700">{dados.travadas}</span>
                     </div>
                   )}
                 </div>
