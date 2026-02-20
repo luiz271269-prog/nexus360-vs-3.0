@@ -452,28 +452,46 @@ export default function ChatSidebar({
           </div>
           
           {/* ✅ BOTÕES AÇÃO - Não Atribuídos + Requer Atenção */}
-          <div className="flex gap-1">
-            {onOpenKanbanNaoAtribuidos && (
-              <Button
-                onClick={() => onOpenKanbanNaoAtribuidos()}
-                className="flex-1 bg-gradient-to-r from-red-500 to-orange-600 hover:from-red-600 hover:to-orange-700 text-white border-0 h-7 text-[10px] px-2 flex items-center gap-1.5 font-semibold shadow-md"
-              >
-                <AlertTriangle className="w-3.5 h-3.5" />
-                <span>Não Atrib.</span>
-              </Button>
-            )}
-            {contatos && onOpenKanbanRequerAtencao && (
-              <ContatosRequerendoAtencao 
-                usuario={usuarioAtual} 
-                contatos={contatos}
-                onSelecionarContato={(t) => {
-                  onSelecionarThread(t);
-                }}
-                onOpenKanban={() => onOpenKanbanRequerAtencao()}
-                variant="sidebar"
-              />
-            )}
-          </div>
+           <div className="flex gap-1">
+             {onOpenKanbanNaoAtribuidos && (() => {
+               const naoAtribuidos = threads?.filter(t => !t.assigned_user_id && t.contact_id && !t.is_contact_only).length || 0;
+               return (
+                 <Button
+                   onClick={() => onOpenKanbanNaoAtribuidos()}
+                   className="flex-1 bg-gradient-to-r from-red-500 to-orange-600 hover:from-red-600 hover:to-orange-700 text-white border-0 h-7 text-[10px] px-2 flex items-center gap-1.5 font-semibold shadow-md relative"
+                 >
+                   <AlertTriangle className="w-3.5 h-3.5" />
+                   <span>Não Atrib.</span>
+                   {naoAtribuidos > 0 && (
+                     <Badge className="absolute -top-2 -right-2 bg-white text-red-600 text-[9px] font-bold px-1.5 h-5 min-w-5 flex items-center justify-center rounded-full shadow-lg">
+                       {naoAtribuidos}
+                     </Badge>
+                   )}
+                 </Button>
+               );
+             })()}
+             {contatos && onOpenKanbanRequerAtencao && (() => {
+               const requerAtencao = contatos?.length || 0;
+               return (
+                 <div className="flex-1 relative">
+                   <ContatosRequerendoAtencao 
+                     usuario={usuarioAtual} 
+                     contatos={contatos}
+                     onSelecionarContato={(t) => {
+                       onSelecionarThread(t);
+                     }}
+                     onOpenKanban={() => onOpenKanbanRequerAtencao()}
+                     variant="sidebar"
+                   />
+                   {requerAtencao > 0 && (
+                     <Badge className="absolute -top-2 -right-2 bg-white text-red-600 text-[9px] font-bold px-1.5 h-5 min-w-5 flex items-center justify-center rounded-full shadow-lg">
+                       {requerAtencao}
+                     </Badge>
+                   )}
+                 </div>
+               );
+             })()}
+           </div>
         </div>
       )}
 
