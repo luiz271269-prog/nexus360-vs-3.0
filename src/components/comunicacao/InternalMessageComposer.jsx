@@ -200,29 +200,42 @@ export default function InternalMessageComposer({ open, onClose, currentUser, on
         }
       } else {
         // Múltiplos destinatários — resolver TUDO em paralelo
+        // Executar em batches de 10 para evitar fan-out excessivo
+        const batchPromises = async (items, fn, batchSize = 10) => {
+          const results = [];
+          for (let i = 0; i < items.length; i += batchSize) {
+            const batch = items.slice(i, i + batchSize);
+            const batchResults = await Promise.all(batch.map(fn));
+            results.push(...batchResults);
+          }
+          return results;
+        };
+
         const [usersResults, sectorsResults] = await Promise.all([
-          Promise.all(
-            selectedUsers.map(userId =>
-              base44.functions.invoke('getOrCreateInternalThread', { target_user_id: userId })
-                .then(result => {
-                  const thread = result?.data?.thread || result?.thread;
-                  if (!thread) return null;
-                  const user = usuarios.find(u => u.id === userId);
-                  return { type: 'user', thread_id: thread.id, user_id: userId, name: user?.full_name || 'Usuário' };
-                })
-                .catch(() => null)
-            )
+          batchPromises(selectedUsers, userId =>
+            base44.functions.invoke('getOrCreateInternalThread', { target_user_id: userId })
+              .then(result => {
+                const thread = result?.data?.thread || result?.thread;
+                if (!thread) return null;
+                const user = usuarios.find(u => u.id === userId);
+                return { type: 'user', thread_id: thread.id, user_id: userId, name: user?.full_name || 'Usuário' };
+              })
+              .catch(err => {
+                console.error('[INTERNAL_THREAD] Erro para user', userId, err);
+                return null;
+              })
           ),
-          Promise.all(
-            selectedSectors.map(sectorName =>
-              base44.functions.invoke('getOrCreateSectorThread', { sector_name: sectorName })
-                .then(result => {
-                  const thread = result?.data?.thread || result?.thread;
-                  if (!thread) return null;
-                  return { type: 'sector', thread_id: thread.id, sector_name: sectorName, name: `Setor ${sectorName}` };
-                })
-                .catch(() => null)
-            )
+          batchPromises(selectedSectors, sectorName =>
+            base44.functions.invoke('getOrCreateSectorThread', { sector_name: sectorName })
+              .then(result => {
+                const thread = result?.data?.thread || result?.thread;
+                if (!thread) return null;
+                return { type: 'sector', thread_id: thread.id, sector_name: sectorName, name: `Setor ${sectorName}` };
+              })
+              .catch(err => {
+                console.error('[INTERNAL_THREAD] Erro para setor', sectorName, err);
+                return null;
+              })
           )
         ]);
 
