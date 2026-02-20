@@ -1394,6 +1394,9 @@ export default function ChatWindow({
     setMensagemResposta(null);
     setMostrarSugestor(false);
 
+    // ✅ Marcar mensagens recebidas como lidas ao responder
+    marcarLidaAoResponder();
+
     // Tentar enviar otimista primeiro
     if (onSendMessageOptimistic) {
       onSendMessageOptimistic({
