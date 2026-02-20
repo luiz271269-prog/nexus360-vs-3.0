@@ -105,7 +105,7 @@ function ThreadCardKanban({ thread, isAtiva, usuarioAtual, atendentes, onSelecio
   );
 }
 
-export default function ChatSidebarKanban({ threads, threadAtiva, onSelecionarThread, usuarioAtual, integracoes = [], atendentes = [] }) {
+export default function ChatSidebarKanban({ threads, threadAtiva, onSelecionarThread, onVoltar, usuarioAtual, integracoes = [], atendentes = [] }) {
   // Agrupar threads externas por integração
   const colunas = React.useMemo(() => {
     const externas = threads.filter(t =>
