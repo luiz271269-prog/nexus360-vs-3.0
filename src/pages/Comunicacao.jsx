@@ -2553,7 +2553,16 @@ export default function Comunicacao() {
           <div className="flex-1 overflow-hidden min-h-0">
             {/* TAB: CONVERSAS */}
             <TabsContent value="conversas" className="h-full m-0 p-0">
-              {mostrarKanbanRequerAtencao ? (
+              {mostrarKanbanNaoAtribuidos ? (
+                <ContatosNaoAtribuidosKanban
+                  usuario={usuario}
+                  onSelecionarContato={(t) => {
+                    handleSelecionarThread(t);
+                    setMostrarKanbanNaoAtribuidos(false);
+                  }}
+                  onClose={() => setMostrarKanbanNaoAtribuidos(false)}
+                />
+              ) : mostrarKanbanRequerAtencao ? (
                 <ContatosRequerendoAtencaoKanban
                   usuario={usuario}
                   onSelecionarContato={(t) => {
