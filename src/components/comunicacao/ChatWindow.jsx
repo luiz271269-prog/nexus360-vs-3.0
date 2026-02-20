@@ -1718,29 +1718,6 @@ Retorne JSON estruturado.`,
 
 ${conteudoMensagem}${dadosExtraidos?.observacoes_extraidas ? `\n\n📋 IA: ${dadosExtraidos.observacoes_extraidas}` : ''}`;
 
-        // ✅ SALVAR DIRETO NO BANCO via backend function
-        const response = await base44.functions.invoke('criarOportunidadeDoChat', {
-          message_id: mensagem.id,
-          thread_id: threadData.id,
-          contact_id: threadData.contact_id,
-          cliente_nome: contatoCompleto.nome || contatoCompleto.empresa || '',
-          cliente_telefone: contatoCompleto.telefone || '',
-          cliente_email: contatoCompleto.email || '',
-          vendedor: usuario?.full_name || '',
-          status: statusInicial || 'rascunho',
-          valor_total: dadosExtraidos?.valor_total || 0,
-          produtos: dadosExtraidos?.itens?.map(i => ({
-            nome: i.nome_produto || '',
-            descricao: i.descricao || '',
-            quantidade: i.quantidade || 1,
-            valor_unitario: i.valor_unitario || 0,
-            valor_total: (i.quantidade || 1) * (i.valor_unitario || 0)
-          })) || [],
-          observacoes,
-          media_url: mensagem.media_url || '',
-          media_type: mensagem.media_type || 'text'
-        });
-
         // ====== ROTEAMENTO POR DESTINO ======
         if (destino === 'leads') {
           // Criar/atualizar Contact como lead
