@@ -551,6 +551,26 @@ ${item.suggested_message ? `💬 SUGESTÃO IA:\n${item.suggested_message}` : ''}
           };
 
   // ═══════════════════════════════════════════════════════════════
+  // VERSÃO SIDEBAR (botão compacto igual aos internos)
+  // ═══════════════════════════════════════════════════════════════
+  if (variant === "sidebar" && !isHeader) {
+    return (
+      <Button
+        onClick={() => setExpandido(!expandido)}
+        className="bg-gradient-to-r from-red-500 to-orange-600 hover:from-red-600 hover:to-orange-700 text-white border-0 h-7 text-[10px] px-2 flex items-center gap-1.5 font-semibold shadow-md"
+      >
+        <AlertTriangle className="w-3.5 h-3.5" />
+        <span>Atenção</span>
+        {totalAlertas > 0 && (
+          <Badge className="ml-0.5 h-4 min-w-4 px-1 rounded-full text-[8px] font-bold bg-white/30">
+            {totalAlertas}
+          </Badge>
+        )}
+      </Button>
+    );
+  }
+
+  // ═══════════════════════════════════════════════════════════════
   // VERSÃO HEADER (compacta para o topo)
   // ═══════════════════════════════════════════════════════════════
   if (isHeader) {
