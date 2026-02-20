@@ -93,10 +93,14 @@ export default function MessageInput({
   const inputRef = useRef(null);
   const fileInputRef = useRef(null);
   const imageInputRef = useRef(null);
+  const cameraInputRef = useRef(null);
   const videoInputRef = useRef(null);
   const documentInputRef = useRef(null);
   const attachMenuRef = useRef(null);
   const recordingIntervalRef = useRef(null);
+
+  // Detectar se é mobile
+  const isMobile = typeof navigator !== 'undefined' && /Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
 
   const handlePaste = useCallback(async (e) => {
     const items = e.clipboardData?.items;
