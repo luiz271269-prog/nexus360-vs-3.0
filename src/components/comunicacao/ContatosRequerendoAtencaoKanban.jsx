@@ -27,7 +27,7 @@ import { createPageUrl } from '@/utils';
 import ModalEnvioPromocoesAutomaticas from './ModalEnvioPromocoesAutomaticas';
 import DiagnosticoDiasInativos from './DiagnosticoDiasInativos';
 
-export default function ContatosRequerendoAtencaoKanban({ usuario, onSelecionarContato }) {
+export default function ContatosRequerendoAtencaoKanban({ usuario, onSelecionarContato, onClose }) {
   const [agrupadoPor, setAgrupadoPor] = useState('bucket'); // bucket | prioridade
   const [diasInatividade, setDiasInatividade] = useState(5);
   const [contatosSelecionados, setContatosSelecionados] = useState([]);
@@ -451,6 +451,16 @@ export default function ContatosRequerendoAtencaoKanban({ usuario, onSelecionarC
           {/* Título */}
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
+              {onClose && (
+                <Button
+                  onClick={onClose}
+                  variant="ghost"
+                  size="sm"
+                  className="h-8 w-8 p-0 hover:bg-slate-200"
+                >
+                  <X className="w-4 h-4" />
+                </Button>
+              )}
               <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-red-500 to-orange-500 flex items-center justify-center shadow-sm">
                 <AlertTriangle className="w-4 h-4 text-white" />
               </div>

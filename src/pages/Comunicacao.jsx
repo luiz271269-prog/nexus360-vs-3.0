@@ -2559,6 +2559,7 @@ export default function Comunicacao() {
                     handleSelecionarThread(t);
                     setMostrarKanbanRequerAtencao(false);
                   }}
+                  onClose={() => setMostrarKanbanRequerAtencao(false)}
                 />
               ) : (
               <>
@@ -2791,6 +2792,7 @@ export default function Comunicacao() {
                              handleSelecionarThread(t);
                              setMostrarKanbanRequerAtencao(false);
                            }}
+                           onClose={() => setMostrarKanbanRequerAtencao(false)}
                          />
                        ) : criandoNovoContato ? (
                         <ContactInfoPanel contact={null} novoContatoTelefone={novoContatoTelefone}
