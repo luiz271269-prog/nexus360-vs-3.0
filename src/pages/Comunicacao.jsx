@@ -2566,9 +2566,9 @@ export default function Comunicacao() {
             {/* TAB: CONVERSAS */}
             <TabsContent value="conversas" className="h-full m-0 p-0">
 
-              {/* ── DESKTOP: layout lado a lado ── */}
-              <div className="hidden md:flex h-full">
-                <div className="w-80 border-r border-slate-200 bg-white flex flex-col overflow-hidden">
+              {/* ── DESKTOP: layout lado a lado (lista) ou empilhado (kanban) ── */}
+              <div className={`hidden md:flex h-full ${sidebarViewMode === 'kanban' ? 'flex-col' : ''}`}>
+                <div className={`border-r border-slate-200 bg-white flex flex-col overflow-hidden flex-shrink-0 ${sidebarViewMode === 'kanban' ? (threadAtiva ? 'h-64' : 'h-full') : 'w-80'}`}>
                   <SearchAndFilter
                     searchTerm={searchTerm}
                     onSearchChange={setSearchTerm}
