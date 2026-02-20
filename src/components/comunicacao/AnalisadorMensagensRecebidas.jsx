@@ -338,12 +338,12 @@ export default function AnalisadorMensagensRecebidas() {
                           </div>
                           <div className={`rounded p-2 border ${diag.match_correto ? 'bg-white border-green-200' : 'bg-red-100 border-red-300'}`}>
                             <p className="text-[10px] text-purple-600 font-semibold mb-1">THREAD (Salvo no DB)</p>
-                            {thread?.whatsapp_integration_id ? (
+                            {item.thread?.whatsapp_integration_id ? (
                               <>
                                 <p className="font-mono text-xs">
-                                  {integracoes.find(i => i.id === thread.whatsapp_integration_id)?.numero_telefone || 'Integração não encontrada'}
+                                  ID: {item.thread.whatsapp_integration_id?.substring(0, 8)}...
                                 </p>
-                                <p className="text-[10px] text-slate-500 mt-1">ID: {thread.whatsapp_integration_id?.substring(0, 8)}...</p>
+                                <p className="text-[10px] text-slate-500 mt-1">Status: {diag.match_correto ? '✅ Correto' : '❌ Incorreto'}</p>
                               </>
                             ) : (
                               <p className="text-red-600 font-semibold">NULL</p>
