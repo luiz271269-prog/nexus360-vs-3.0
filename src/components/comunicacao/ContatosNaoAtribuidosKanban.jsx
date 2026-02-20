@@ -28,13 +28,15 @@ export default function ContatosNaoAtribuidosKanban({ usuario, threads = [], onC
   const [carregandoMensagens, setCarregandoMensagens] = useState(false);
   const [etiquetasSelecionadas, setEtiquetasSelecionadas] = useState([]);
 
-  // Filtrar threads não atribuídas
+  // Filtrar APENAS threads externas não atribuídas (sem mensagens internas)
   const naoAtribuidasBase = useMemo(() => {
     return threads.filter(t => {
-      if (t.thread_type === 'team_internal' || t.thread_type === 'sector_group') {
+      // ✅ CRÍTICO: Excluir threads internas completamente
+      if (t.thread_type === 'team_internal' || t.thread_type === 'sector_group' || !t.contact_id) {
         return false;
       }
-      return isNaoAtribuida(t);
+      // ✅ Apenas threads externas com contato
+      return !t.assigned_user_id && isNaoAtribuida(t);
     });
   }, [threads]);
 
