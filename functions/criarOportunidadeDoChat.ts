@@ -43,7 +43,7 @@ Deno.serve(async (req) => {
       vendedor: vendedor || user.full_name,
       data_orcamento: new Date().toISOString().slice(0, 10),
       valor_total: parseFloat(valor_total) || 0,
-      status: 'rascunho',
+      status: status || 'rascunho',
       observacoes: observacoes || '',
       produtos: produtos || [],
       origem_chat: {
