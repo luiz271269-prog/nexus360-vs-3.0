@@ -572,6 +572,39 @@ export default function Dashboard() {
           )}
         </div>
 
+        {/* Acesso Rápido Kanbans */}
+        <div className="grid grid-cols-3 gap-3">
+          <button
+            onClick={() => navigate(createPageUrl('LeadsQualificados'))}
+            className="bg-gradient-to-br from-blue-500 to-indigo-600 text-white p-4 rounded-xl shadow-lg hover:shadow-xl hover:scale-[1.02] transition-all duration-200 text-left">
+            <div className="flex items-center justify-between mb-1">
+              <span className="text-xs font-medium opacity-80">Kanban de Gestão de Leads</span>
+              <Target className="w-4 h-4 opacity-70" />
+            </div>
+            <p className="text-3xl font-bold">{dados.clientes.filter(c => ['novo_lead','primeiro_contato','em_conversa','levantamento_dados','pre_qualificado','qualificacao_tecnica','em_aquecimento','lead_qualificado'].includes(c.status)).length}</p>
+          </button>
+
+          <button
+            onClick={() => navigate(createPageUrl('Clientes'))}
+            className="bg-gradient-to-br from-emerald-500 to-teal-600 text-white p-4 rounded-xl shadow-lg hover:shadow-xl hover:scale-[1.02] transition-all duration-200 text-left">
+            <div className="flex items-center justify-between mb-1">
+              <span className="text-xs font-medium opacity-80">Kanban de Gestão de Clientes</span>
+              <Users className="w-4 h-4 opacity-70" />
+            </div>
+            <p className="text-3xl font-bold">{dados.clientes.filter(c => ['Ativo','Em Risco','Promotor','Prospect','Inativo'].includes(c.status)).length}</p>
+          </button>
+
+          <button
+            onClick={() => navigate(createPageUrl('Orcamentos'))}
+            className="bg-gradient-to-br from-amber-500 to-orange-600 text-white p-4 rounded-xl shadow-lg hover:shadow-xl hover:scale-[1.02] transition-all duration-200 text-left">
+            <div className="flex items-center justify-between mb-1">
+              <span className="text-xs font-medium opacity-80">Pipeline de Orçamentos</span>
+              <DollarSign className="w-4 h-4 opacity-70" />
+            </div>
+            <p className="text-3xl font-bold">{dados.orcamentos.length}</p>
+          </button>
+        </div>
+
         {/* Estatísticas Resumo - scroll horizontal no mobile */}
         <div className="bg-gradient-to-r from-orange-500 via-orange-600 to-red-500 px-3 py-2.5 rounded-xl border border-slate-200/50">
           <div className="flex items-center gap-2 overflow-x-auto scrollbar-none">
