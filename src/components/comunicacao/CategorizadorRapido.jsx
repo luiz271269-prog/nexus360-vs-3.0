@@ -1,7 +1,7 @@
 import React from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Tag, Check, X } from "lucide-react";
+import { Tag, Check, X, KanbanSquare } from "lucide-react";
 import { base44 } from "@/api/base44Client";
 import { toast } from "sonner";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -13,6 +13,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { FASES_KANBAN } from './EtiquetaFaseDialog';
 
 const CATEGORIAS_FIXAS = [
   { nome: 'venda', label: 'Venda', emoji: '💰', cor: 'bg-green-500', tipo: 'fixa', tipos_contato_aplicaveis: ['lead', 'cliente'], filas_aplicaveis: ['vendas'] },
