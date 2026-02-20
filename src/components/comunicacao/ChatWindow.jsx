@@ -1727,6 +1727,7 @@ ${conteudoMensagem}${dadosExtraidos?.observacoes_extraidas ? `\n\n📋 IA: ${dad
           cliente_telefone: contatoCompleto.telefone || '',
           cliente_email: contatoCompleto.email || '',
           vendedor: usuario?.full_name || '',
+          status: statusInicial || 'rascunho',
           valor_total: dadosExtraidos?.valor_total || 0,
           produtos: dadosExtraidos?.itens?.map(i => ({
             nome: i.nome_produto || '',
