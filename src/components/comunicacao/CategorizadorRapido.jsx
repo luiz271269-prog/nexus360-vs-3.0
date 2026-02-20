@@ -254,18 +254,27 @@ export default function CategorizadorRapido({ thread = null, contato = null, onU
           <DropdownMenuSeparator />
           
           {/* Todas as categorias (fixas + dinâmicas) */}
-          {todasCategorias.map(cat => (
-            <DropdownMenuCheckboxItem
-              key={cat.nome}
-              checked={categorias.includes(cat.nome)}
-              onCheckedChange={() => toggleCategoria(cat.nome)}
-            >
-              <div className="flex items-center gap-2">
-                <div className={`w-3 h-3 rounded-full ${cat.cor}`} />
-                <span>{cat.emoji} {cat.label}</span>
-              </div>
-            </DropdownMenuCheckboxItem>
-          ))}
+          {todasCategorias.map(cat => {
+            const faseAssociada = FASES_KANBAN.find(f => f.value === cat.kanban_fase_padrao);
+            return (
+              <DropdownMenuCheckboxItem
+                key={cat.nome}
+                checked={categorias.includes(cat.nome)}
+                onCheckedChange={() => toggleCategoria(cat.nome)}
+              >
+                <div className="flex items-center gap-2 flex-1">
+                  <div className={`w-3 h-3 rounded-full ${cat.cor}`} />
+                  <span>{cat.emoji} {cat.label}</span>
+                  {faseAssociada && (
+                    <span className={`ml-auto text-[9px] px-1.5 py-0.5 rounded border ${faseAssociada.color} flex items-center gap-0.5`}>
+                      <KanbanSquare className="w-2.5 h-2.5" />
+                      {faseAssociada.label}
+                    </span>
+                  )}
+                </div>
+              </DropdownMenuCheckboxItem>
+            );
+          })}
         </DropdownMenuContent>
       </DropdownMenu>
 
