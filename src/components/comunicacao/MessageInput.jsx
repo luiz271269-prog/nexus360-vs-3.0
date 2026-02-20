@@ -285,6 +285,15 @@ export default function MessageInput({
         onChange={(e) => e.target.files?.[0] && handleFileSelect(e.target.files[0], 'image')}
         style={{ display: 'none' }}
       />
+      {/* Input de câmera - apenas captura direta */}
+      <input
+        ref={cameraInputRef}
+        type="file"
+        accept="image/*"
+        capture="environment"
+        onChange={(e) => e.target.files?.[0] && handleFileSelect(e.target.files[0], 'image')}
+        style={{ display: 'none' }}
+      />
       <input
         ref={videoInputRef}
         type="file"
