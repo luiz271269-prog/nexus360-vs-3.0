@@ -30,6 +30,7 @@ import ErrorBoundary from "../components/comunicacao/ErrorBoundary";
 import NotificationSystem from "../components/comunicacao/NotificationSystem";
 import ContadorNaoAtribuidas from "../components/comunicacao/ContadorNaoAtribuidas";
 import ContatosRequerendoAtencaoKanban from "../components/comunicacao/ContatosRequerendoAtencaoKanban";
+import ContatosNaoAtribuidosKanban from "../components/comunicacao/ContatosNaoAtribuidosKanban";
 import { useDebounce } from "../components/lib/useDebounce";
 import { normalizarTelefone } from "../components/lib/phoneUtils";
 import {
