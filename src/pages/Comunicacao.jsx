@@ -2633,7 +2633,11 @@ export default function Comunicacao() {
                           setModoSelecaoMultipla={setModoSelecaoMultipla}
                           contatosSelecionados={contatosSelecionados}
                           setContatosSelecionados={setContatosSelecionados}
-                          onSelectInternalDestinations={handleInternalSelection} />
+                          onSelectInternalDestinations={handleInternalSelection}
+                          onFilterScopeChange={setFilterScope}
+                          onSelectedIntegrationChange={setSelectedIntegrationId}
+                          filterScope={filterScope}
+                          contatos={contatos} />
                       </div>
                     )}
                   </div>
