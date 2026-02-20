@@ -155,20 +155,70 @@ export default function CategorizadorRapido({ thread = null, contato = null, onU
     }
   };
 
+  const salvarFasePadrao = async (nomeCategoria, fase) => {
+    try {
+      const existente = categoriasDB.find(c => c.nome === nomeCategoria);
+      if (existente) {
+        await base44.entities.CategoriasMensagens.update(existente.id, { kanban_fase_padrao: fase || null });
+        queryClient.invalidateQueries({ queryKey: ['categorias-mensagens'] });
+        toast.success(`✅ Fase padrão atualizada`);
+      }
+    } catch (e) {
+      toast.error('Erro ao salvar fase');
+    }
+    setEditandoFaseDe(null);
+  };
+
   return (
     <div className="flex items-center gap-1.5 flex-wrap">
-      {/* Badges compactos das categorias ativas - ao lado do nome */}
+      {/* Badges compactos das categorias ativas */}
       {categorias.slice(0, 3).map(cat => {
         const config = todasCategorias.find(c => c.nome === cat);
         return (
-          <Badge 
-            key={cat}
-            className={`${config?.cor || 'bg-slate-400'} text-white border-0 px-1.5 py-0.5 text-[10px] font-medium cursor-pointer hover:opacity-80`}
-            onClick={() => toggleCategoria(cat)}
-            title={`${config?.label || cat} - Clique para remover`}
-          >
-            {config?.emoji || '🏷️'}
-          </Badge>
+          <div key={cat} className="relative group/badge">
+            <Badge 
+              className={`${config?.cor || 'bg-slate-400'} text-white border-0 px-1.5 py-0.5 text-[10px] font-medium cursor-pointer hover:opacity-80`}
+              onClick={() => toggleCategoria(cat)}
+              title={`${config?.label || cat} - Clique para remover`}
+            >
+              {config?.emoji || '🏷️'}
+            </Badge>
+            {/* Botão editar fase padrão (visível no hover) */}
+            <button
+              onClick={(e) => { e.stopPropagation(); setEditandoFaseDe(editandoFaseDe === cat ? null : cat); }}
+              className="absolute -top-2 -right-2 w-3.5 h-3.5 bg-white border border-slate-300 rounded-full items-center justify-center hidden group-hover/badge:flex shadow-sm hover:bg-slate-100"
+              title="Editar fase Kanban desta etiqueta"
+            >
+              <KanbanSquare className="w-2 h-2 text-slate-600" />
+            </button>
+            {/* Popover inline de escolha de fase */}
+            {editandoFaseDe === cat && (
+              <div className="absolute top-6 left-0 z-50 bg-white border border-slate-200 rounded-xl shadow-xl p-3 w-52" onClick={e => e.stopPropagation()}>
+                <p className="text-[10px] font-semibold text-slate-500 mb-2 uppercase tracking-wide">Fase padrão Kanban</p>
+                <div className="flex flex-wrap gap-1">
+                  {FASES_KANBAN.map(fase => (
+                    <button
+                      key={fase.value}
+                      onClick={() => salvarFasePadrao(cat, fase.value)}
+                      className={`text-[10px] px-2 py-0.5 rounded-full border transition-all ${
+                        config?.kanban_fase_padrao === fase.value
+                          ? fase.color + ' ring-1 ring-offset-1 ring-slate-300 font-semibold'
+                          : 'bg-slate-50 text-slate-500 border-slate-200 hover:bg-slate-100'
+                      }`}
+                    >
+                      {fase.label}
+                    </button>
+                  ))}
+                  <button
+                    onClick={() => salvarFasePadrao(cat, null)}
+                    className="text-[10px] px-2 py-0.5 rounded-full border bg-slate-50 text-slate-400 border-slate-200 hover:bg-red-50 hover:text-red-500"
+                  >
+                    ✕ Nenhuma
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
         );
       })}
       {categorias.length > 3 && (
