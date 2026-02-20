@@ -2460,13 +2460,6 @@ export default function Comunicacao() {
               </div>
             </div>
             <div className="flex items-center gap-3">
-              <ContadorNaoAtribuidas threads={threads} integracoes={integracoes} usuario={usuario}
-                onClickVerFila={() => { setFilterScope('unassigned'); setActiveTab('conversas'); }}
-                onClickConexao={(id) => { setFilterScope('unassigned'); setSelectedIntegrationId(id); setActiveTab('conversas'); }}
-                className="shadow-lg" />
-              <ContatosRequerendoAtencao usuario={usuario} contatos={contatos}
-                onSelecionarContato={(t) => { handleSelecionarThread(t); setActiveTab('conversas'); }}
-                variant="header" />
               {integracoes.length === 0 &&
                 <Button onClick={() => setMostrarInstrucoesWebhook(true)} variant="outline" size="sm"
                   className="border-white/30 text-white hover:bg-white/20">Configurar Webhook</Button>}
