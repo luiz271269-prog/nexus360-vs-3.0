@@ -451,7 +451,7 @@ export default function ChatSidebar({
             </Button>
           </div>
           
-          {/* ✅ BOTÕES AÇÃO - Não Atribuídos + Requer Atenção */}
+          {/* ✅ BOTÕES AÇÃO - Não Atribuídos + Contatos Parados */}
            <div className="flex gap-1">
              {onOpenKanbanNaoAtribuidos && (() => {
                const naoAtribuidos = threads?.filter(t => !t.assigned_user_id && t.contact_id && !t.is_contact_only).length || 0;
@@ -470,25 +470,29 @@ export default function ChatSidebar({
                  </Button>
                );
              })()}
-             {contatos && onOpenKanbanRequerAtencao && (() => {
-               const requerAtencao = contatos?.length || 0;
+             {onOpenKanbanRequerAtencao && (() => {
+               const threadsComProblema = threads?.filter(t => {
+                 const contato = t.contato;
+                 return contato && 
+                   (contato.days_inactive_inbound >= 2 || 
+                    contato.deal_risk > 0 || 
+                    contato.prioridadeLabel === 'CRITICO' || 
+                    contato.prioridadeLabel === 'ALTO');
+               }).length || 0;
+               
                return (
-                 <div className="flex-1 relative">
-                   <ContatosRequerendoAtencao 
-                     usuario={usuarioAtual} 
-                     contatos={contatos}
-                     onSelecionarContato={(t) => {
-                       onSelecionarThread(t);
-                     }}
-                     onOpenKanban={() => onOpenKanbanRequerAtencao()}
-                     variant="sidebar"
-                   />
-                   {requerAtencao > 0 && (
+                 <Button
+                   onClick={() => onOpenKanbanRequerAtencao()}
+                   className="flex-1 bg-gradient-to-r from-red-500 to-orange-600 hover:from-red-600 hover:to-orange-700 text-white border-0 h-7 text-[10px] px-2 flex items-center gap-1.5 font-semibold shadow-md relative"
+                 >
+                   <AlertTriangle className="w-3.5 h-3.5" />
+                   <span>Parados</span>
+                   {threadsComProblema > 0 && (
                      <Badge className="absolute -top-2 -right-2 bg-white text-red-600 text-[9px] font-bold px-1.5 h-5 min-w-5 flex items-center justify-center rounded-full shadow-lg">
-                       {requerAtencao}
+                       {threadsComProblema}
                      </Badge>
                    )}
-                 </div>
+                 </Button>
                );
              })()}
            </div>
