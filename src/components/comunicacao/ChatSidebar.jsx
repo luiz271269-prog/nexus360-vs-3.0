@@ -414,10 +414,10 @@ export default function ChatSidebar({
               }}
               variant="outline"
               size="sm"
-              className="bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-600 hover:to-blue-700 text-white border-0 h-7 text-[10px] px-1"
+              className="bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-600 hover:to-blue-700 text-white border-0 h-8 text-[10px] sm:text-xs px-1"
             >
-              <Send className="w-3 h-3 mr-0.5" />
-              Enviar
+              <Send className="w-3 h-3 sm:mr-0.5 flex-shrink-0" />
+              <span className="hidden xs:inline sm:inline">Enviar</span>
             </Button>
             <Button
               onClick={() => {
@@ -426,48 +426,48 @@ export default function ChatSidebar({
               }}
               variant="outline"
               size="sm"
-              className="bg-gradient-to-r from-orange-500 to-amber-600 hover:from-orange-600 hover:to-amber-700 text-white border-0 h-7 text-[10px] px-1"
+              className="bg-gradient-to-r from-orange-500 to-amber-600 hover:from-orange-600 hover:to-amber-700 text-white border-0 h-8 text-[10px] sm:text-xs px-1"
             >
-              <ArrowRightLeft className="w-3 h-3 mr-0.5" />
-              Transfer
+              <ArrowRightLeft className="w-3 h-3 sm:mr-0.5 flex-shrink-0" />
+              <span className="hidden xs:inline sm:inline">Transfer</span>
             </Button>
             <Button
               onClick={() => setCriarGrupoOpen(true)}
               variant="outline"
               size="sm"
-              className="bg-gradient-to-r from-slate-500 to-slate-600 hover:from-slate-600 hover:to-slate-700 text-white border-0 h-7 text-[10px] px-1"
+              className="bg-gradient-to-r from-slate-500 to-slate-600 hover:from-slate-600 hover:to-slate-700 text-white border-0 h-8 text-[10px] sm:text-xs px-1"
             >
-              <Plus className="w-3 h-3 mr-0.5" />
-              Grupo
+              <Plus className="w-3 h-3 sm:mr-0.5 flex-shrink-0" />
+              <span className="hidden xs:inline sm:inline">Grupo</span>
             </Button>
             <Button
               onClick={() => setAgendaIAOpen(true)}
               variant="outline"
               size="sm"
-              className="bg-gradient-to-r from-emerald-500 to-green-600 hover:from-emerald-600 hover:to-green-700 text-white border-0 h-7 text-[10px] px-1"
+              className="bg-gradient-to-r from-emerald-500 to-green-600 hover:from-emerald-600 hover:to-green-700 text-white border-0 h-8 text-[10px] sm:text-xs px-1"
             >
-              <CalendarCheck className="w-3 h-3 mr-0.5" />
-              Agenda
+              <CalendarCheck className="w-3 h-3 sm:mr-0.5 flex-shrink-0" />
+              <span className="hidden xs:inline sm:inline">Agenda</span>
             </Button>
           </div>
 
           <div className="h-px bg-purple-300/30 my-1.5" />
 
           {/* ✅ BOTÕES AÇÃO - Não Atribuídos + Contatos Parados */}
-           <div className="flex gap-1">
+           <div className="grid grid-cols-2 gap-1">
              {onOpenKanbanNaoAtribuidos && (() => {
                const naoAtribuidos = threads?.filter(t => !t.assigned_user_id && t.contact_id && !t.is_contact_only).length || 0;
                return (
                  <Button
                    onClick={() => onOpenKanbanNaoAtribuidos()}
-                   className="flex-1 bg-gradient-to-r from-red-500 to-orange-600 hover:from-red-600 hover:to-orange-700 text-white border-0 h-7 text-[10px] px-2 flex items-center justify-between font-semibold shadow-md"
+                   className="w-full bg-gradient-to-r from-red-500 to-orange-600 hover:from-red-600 hover:to-orange-700 text-white border-0 h-9 text-[10px] px-2 flex items-center justify-between font-semibold shadow-md"
                  >
-                   <span className="flex items-center gap-1.5">
-                     <AlertTriangle className="w-3.5 h-3.5" />
-                     <span>Não Atribuídos</span>
+                   <span className="flex items-center gap-1">
+                     <AlertTriangle className="w-3.5 h-3.5 flex-shrink-0" />
+                     <span className="truncate">Não Atribuídos</span>
                    </span>
                    {naoAtribuidos > 0 && (
-                     <Badge className="bg-white text-red-600 text-[9px] font-bold px-1.5 h-5 min-w-5 flex items-center justify-center rounded-full ml-1">
+                     <Badge className="bg-white text-red-600 text-[9px] font-bold px-1 h-5 min-w-5 flex items-center justify-center rounded-full ml-1 flex-shrink-0">
                        {naoAtribuidos}
                      </Badge>
                    )}
@@ -483,18 +483,18 @@ export default function ChatSidebar({
                     contato.prioridadeLabel === 'CRITICO' || 
                     contato.prioridadeLabel === 'ALTO');
                }).length || 0;
-               
+
                return (
                  <Button
                    onClick={() => onOpenKanbanRequerAtencao()}
-                   className="flex-1 bg-gradient-to-r from-red-500 to-orange-600 hover:from-red-600 hover:to-orange-700 text-white border-0 h-7 text-[10px] px-2 flex items-center justify-between font-semibold shadow-md"
+                   className="w-full bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 text-white border-0 h-9 text-[10px] px-2 flex items-center justify-between font-semibold shadow-md"
                  >
-                   <span className="flex items-center gap-1.5">
-                     <AlertTriangle className="w-3.5 h-3.5" />
-                     <span>Contatos Parados</span>
+                   <span className="flex items-center gap-1">
+                     <AlertTriangle className="w-3.5 h-3.5 flex-shrink-0" />
+                     <span className="truncate">Parados</span>
                    </span>
                    {threadsComProblema > 0 && (
-                     <Badge className="bg-white text-red-600 text-[9px] font-bold px-1.5 h-5 min-w-5 flex items-center justify-center rounded-full ml-1">
+                     <Badge className="bg-white text-amber-700 text-[9px] font-bold px-1 h-5 min-w-5 flex items-center justify-center rounded-full ml-1 flex-shrink-0">
                        {threadsComProblema}
                      </Badge>
                    )}
