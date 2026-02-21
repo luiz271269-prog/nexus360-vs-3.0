@@ -2747,6 +2747,7 @@ export default function Comunicacao() {
                         contatos={contatos}
                         onOpenKanbanNaoAtribuidos={() => { setMostrarKanbanNaoAtribuidos(true); setMobileView('chat'); }}
                         onOpenKanbanRequerAtencao={() => { setMostrarKanbanRequerAtencao(true); setMobileView('chat'); }} />
+                      )}
                     </div>
                   </div>
                 )}
