@@ -2697,7 +2697,37 @@ export default function Comunicacao() {
                       onAbrirDiagnostico={() => toast.info('💡 Use o Unificador Centralizado para corrigir duplicatas')}
                       onDuplicataDetectada={setDuplicataEncontrada} />
 
+                    {/* Toggle de visualização - MOBILE */}
+                    <div className="flex items-center gap-1 px-3 py-1.5 border-b border-slate-200 bg-slate-50 flex-shrink-0">
+                      <span className="text-[10px] text-slate-500 flex-1">Visualização:</span>
+                      <button
+                        onClick={() => { setSidebarViewMode('list'); localStorage.setItem('sidebarViewMode', 'list'); }}
+                        className={`p-2 rounded-md transition-colors ${sidebarViewMode === 'list' ? 'bg-orange-500 text-white' : 'text-slate-500 hover:bg-slate-200'}`}
+                        title="Lista"
+                      >
+                        <LayoutList className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={() => { setSidebarViewMode('kanban'); localStorage.setItem('sidebarViewMode', 'kanban'); }}
+                        className={`p-2 rounded-md transition-colors ${sidebarViewMode === 'kanban' ? 'bg-orange-500 text-white' : 'text-slate-500 hover:bg-slate-200'}`}
+                        title="Por instância (Kanban)"
+                      >
+                        <Columns className="w-4 h-4" />
+                      </button>
+                    </div>
+
                     <div className={`flex-1 overflow-y-auto transition-opacity duration-200 ${isPendingFilter ? 'opacity-50' : 'opacity-100'}`}>
+                      {sidebarViewMode === 'kanban' ? (
+                        <ChatSidebarKanban
+                          threads={threadsParaExibir}
+                          threadAtiva={threadAtiva}
+                          onSelecionarThread={handleSelecionarThreadMobile}
+                          onVoltar={() => setThreadAtiva(null)}
+                          usuarioAtual={usuario}
+                          integracoes={integracoes}
+                          atendentes={atendentes}
+                        />
+                      ) : (
                       <ChatSidebar
                         threads={threadsParaExibir}
                         threadAtiva={threadAtiva}
