@@ -193,99 +193,93 @@ INSTRUÇÕES:
   if (!visible) return null;
 
   return (
-    <div className="absolute bottom-full mb-2 left-2 right-2 z-50 rounded-xl shadow-2xl border border-purple-200 bg-white overflow-hidden" style={{ maxHeight: '320px' }}>
-      {/* Header */}
-      <div className="flex items-center justify-between px-3 py-2 border-b border-purple-100">
+    <div className="absolute bottom-full right-0 mb-2 z-50 w-full sm:w-[380px] rounded-2xl shadow-2xl border border-purple-200/80 bg-white/95 backdrop-blur-sm overflow-hidden"
+      style={{ maxHeight: '340px' }}>
+      
+      {/* Header compacto */}
+      <div className="flex items-center justify-between px-3 py-2 bg-gradient-to-r from-purple-600 to-indigo-600">
         <div className="flex items-center gap-2">
-          <div className="w-6 h-6 rounded-full bg-gradient-to-br from-purple-500 to-indigo-600 flex items-center justify-center">
-            <Sparkles className="w-3.5 h-3.5 text-white" />
-          </div>
-          <span className="text-xs font-semibold text-purple-800">Assistente IA</span>
+          <Sparkles className="w-3.5 h-3.5 text-white" />
+          <span className="text-xs font-semibold text-white">Assistente IA</span>
         </div>
 
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-1.5">
           {/* Seletor de Tom */}
           <div className="relative">
             <button
               type="button"
               onClick={() => setMostrarTons(!mostrarTons)}
-              className="flex items-center gap-1 px-2 py-1 text-xs rounded-full bg-purple-100 text-purple-700 hover:bg-purple-200 transition-colors"
+              className="flex items-center gap-1 px-2 py-0.5 text-[11px] rounded-full bg-white/20 text-white hover:bg-white/30 transition-colors"
             >
               <span>{TONS.find(t => t.id === tonSelecionado)?.label || '✨ Automático'}</span>
-              {mostrarTons ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+              {mostrarTons ? <ChevronUp className="w-2.5 h-2.5" /> : <ChevronDown className="w-2.5 h-2.5" />}
             </button>
 
             {mostrarTons && (
-              <div className="absolute bottom-full mb-1 right-0 bg-white rounded-xl shadow-xl border border-purple-100 z-50 py-1 min-w-[200px]">
+              <div className="absolute bottom-full mb-1 right-0 bg-white rounded-xl shadow-xl border border-purple-100 z-50 py-1 min-w-[190px]">
                 {TONS.map(ton => (
                   <button
                     key={ton.id}
                     type="button"
                     onClick={() => { setTonSelecionado(ton.id); setMostrarTons(false); setSugestoes([]); setRascunho(''); }}
                     className={cn(
-                      "w-full flex items-start gap-2 px-3 py-2 text-left hover:bg-purple-50 transition-colors",
+                      "w-full flex items-center gap-2 px-3 py-1.5 text-left hover:bg-purple-50 transition-colors",
                       tonSelecionado === ton.id && "bg-purple-50"
                     )}
                   >
-                    <div className="flex-1">
-                      <div className={cn("text-xs font-medium", tonSelecionado === ton.id ? "text-purple-700" : "text-slate-700")}>
-                        {ton.label}
-                      </div>
-                      <div className="text-xs text-slate-400">{ton.desc}</div>
-                    </div>
-                    {tonSelecionado === ton.id && <Check className="w-3.5 h-3.5 text-purple-600 mt-0.5" />}
+                    <span className={cn("text-xs font-medium flex-1", tonSelecionado === ton.id ? "text-purple-700" : "text-slate-700")}>
+                      {ton.label}
+                    </span>
+                    {tonSelecionado === ton.id && <Check className="w-3 h-3 text-purple-600" />}
                   </button>
                 ))}
               </div>
             )}
           </div>
 
-          <button
-            type="button"
-            onClick={onClose}
-            className="p-1 text-slate-400 hover:text-slate-600 transition-colors"
-          >
-            <X className="w-4 h-4" />
+          <button type="button" onClick={onClose} className="p-0.5 text-white/70 hover:text-white transition-colors">
+            <X className="w-3.5 h-3.5" />
           </button>
         </div>
       </div>
 
       {/* Abas */}
-      <div className="flex border-b border-purple-100">
+      <div className="flex border-b border-purple-100 bg-purple-50/50">
         <button
           type="button"
           onClick={() => setAba('sugestoes')}
           className={cn(
-            "flex-1 py-1.5 text-xs font-medium transition-colors",
+            "flex-1 py-1.5 text-[11px] font-medium transition-colors flex items-center justify-center gap-1",
             aba === 'sugestoes'
-              ? "text-purple-700 border-b-2 border-purple-500 bg-purple-50/50"
+              ? "text-purple-700 border-b-2 border-purple-500 bg-white"
               : "text-slate-500 hover:text-slate-700"
           )}
         >
-          <Zap className="w-3 h-3 inline mr-1" />
+          <Zap className="w-3 h-3" />
           Sugestões Rápidas
         </button>
         <button
           type="button"
           onClick={() => setAba('rascunho')}
           className={cn(
-            "flex-1 py-1.5 text-xs font-medium transition-colors",
+            "flex-1 py-1.5 text-[11px] font-medium transition-colors flex items-center justify-center gap-1",
             aba === 'rascunho'
-              ? "text-purple-700 border-b-2 border-purple-500 bg-purple-50/50"
+              ? "text-purple-700 border-b-2 border-purple-500 bg-white"
               : "text-slate-500 hover:text-slate-700"
           )}
         >
-          <Edit3 className="w-3 h-3 inline mr-1" />
+          <Edit3 className="w-3 h-3" />
           Gerar Rascunho
         </button>
       </div>
 
-      <div className="p-2">
+      {/* Conteúdo com scroll */}
+      <div className="p-2 overflow-y-auto" style={{ maxHeight: '230px' }}>
         {/* ABA SUGESTÕES */}
         {aba === 'sugestoes' && (
           <div>
             {carregando ? (
-              <div className="flex items-center justify-center gap-2 py-4 text-purple-600">
+              <div className="flex items-center justify-center gap-2 py-6 text-purple-600">
                 <Loader2 className="w-4 h-4 animate-spin" />
                 <span className="text-xs">Analisando conversa...</span>
               </div>
@@ -296,28 +290,28 @@ INSTRUÇÕES:
                     key={i}
                     type="button"
                     onClick={() => handleSelecionarSugestao(s)}
-                    className="w-full text-left px-3 py-2 rounded-lg bg-white border border-purple-100 hover:border-purple-400 hover:bg-purple-50 transition-all text-xs text-slate-700 shadow-sm group"
+                    className="w-full text-left px-3 py-2 rounded-xl bg-white border border-purple-100 hover:border-purple-400 hover:bg-purple-50 active:scale-[0.99] transition-all text-xs text-slate-700 shadow-sm group"
                   >
-                    <span className="text-purple-400 font-bold mr-1 group-hover:text-purple-600">{i + 1}.</span>
+                    <span className="text-purple-400 font-bold mr-1.5 group-hover:text-purple-600">{i + 1}.</span>
                     {s}
                   </button>
                 ))}
                 <button
                   type="button"
                   onClick={gerarSugestoes}
-                  className="w-full flex items-center justify-center gap-1 py-1.5 text-xs text-purple-500 hover:text-purple-700 transition-colors"
+                  className="w-full flex items-center justify-center gap-1 py-1.5 text-[11px] text-purple-500 hover:text-purple-700 transition-colors"
                 >
                   <RefreshCw className="w-3 h-3" />
                   Gerar novas sugestões
                 </button>
               </div>
             ) : (
-              <div className="text-center py-3">
+              <div className="text-center py-4">
                 <p className="text-xs text-slate-400 mb-2">Nenhuma sugestão gerada ainda</p>
                 <button
                   type="button"
                   onClick={gerarSugestoes}
-                  className="flex items-center gap-1 mx-auto px-3 py-1.5 rounded-full bg-purple-100 text-purple-700 hover:bg-purple-200 text-xs font-medium transition-colors"
+                  className="inline-flex items-center gap-1 px-4 py-1.5 rounded-full bg-gradient-to-r from-purple-500 to-indigo-600 text-white hover:opacity-90 text-xs font-medium transition-all shadow-sm"
                 >
                   <Sparkles className="w-3 h-3" />
                   Gerar Sugestões
@@ -330,20 +324,20 @@ INSTRUÇÕES:
         {/* ABA RASCUNHO */}
         {aba === 'rascunho' && (
           <div className="space-y-2">
-            <div className="flex gap-2">
+            <div className="flex gap-1.5">
               <input
                 type="text"
                 value={palavrasChave}
                 onChange={(e) => setPalavrasChave(e.target.value)}
-                placeholder="Palavras-chave ou tema (ex: prazo entrega, desconto...)"
-                className="flex-1 px-2 py-1.5 text-xs border border-purple-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-purple-400 bg-white"
+                placeholder="Tema ou palavras-chave (ex: prazo, desconto...)"
+                className="flex-1 px-2.5 py-1.5 text-xs border border-purple-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-purple-400 bg-white"
                 onKeyDown={(e) => e.key === 'Enter' && gerarRascunho()}
               />
               <button
                 type="button"
                 onClick={gerarRascunho}
                 disabled={carregandoRascunho}
-                className="px-3 py-1.5 text-xs bg-gradient-to-r from-purple-500 to-indigo-600 text-white rounded-lg hover:from-purple-600 hover:to-indigo-700 transition-all disabled:opacity-60 flex items-center gap-1 font-medium"
+                className="px-3 py-1.5 text-xs bg-gradient-to-r from-purple-500 to-indigo-600 text-white rounded-lg hover:opacity-90 transition-all disabled:opacity-60 flex items-center gap-1 font-medium shadow-sm"
               >
                 {carregandoRascunho ? <Loader2 className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3" />}
                 Gerar
@@ -361,13 +355,13 @@ INSTRUÇÕES:
                   value={rascunhoEditado}
                   onChange={(e) => setRascunhoEditado(e.target.value)}
                   rows={3}
-                  className="w-full px-2 py-1.5 text-xs border border-purple-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-purple-400 bg-white resize-none"
+                  className="w-full px-2.5 py-1.5 text-xs border border-purple-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-purple-400 bg-white resize-none"
                 />
                 <div className="flex gap-1.5">
                   <button
                     type="button"
                     onClick={handleUsarRascunho}
-                    className="flex-1 py-1.5 text-xs bg-gradient-to-r from-purple-500 to-indigo-600 text-white rounded-lg hover:from-purple-600 hover:to-indigo-700 transition-all font-medium flex items-center justify-center gap-1"
+                    className="flex-1 py-1.5 text-xs bg-gradient-to-r from-purple-500 to-indigo-600 text-white rounded-lg hover:opacity-90 transition-all font-medium flex items-center justify-center gap-1 shadow-sm"
                   >
                     <Check className="w-3 h-3" />
                     Usar Rascunho
@@ -375,7 +369,7 @@ INSTRUÇÕES:
                   <button
                     type="button"
                     onClick={gerarRascunho}
-                    className="px-2 py-1.5 text-xs border border-purple-200 text-purple-600 rounded-lg hover:bg-purple-50 transition-colors flex items-center gap-1"
+                    className="px-2.5 py-1.5 text-xs border border-purple-200 text-purple-600 rounded-lg hover:bg-purple-50 transition-colors flex items-center gap-1"
                   >
                     <RefreshCw className="w-3 h-3" />
                     Refazer
@@ -384,7 +378,7 @@ INSTRUÇÕES:
               </div>
             ) : (
               <p className="text-xs text-slate-400 text-center py-2">
-                Digite palavras-chave e clique em Gerar para criar um rascunho completo
+                Digite palavras-chave e clique em Gerar
               </p>
             )}
           </div>
