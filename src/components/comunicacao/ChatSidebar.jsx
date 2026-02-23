@@ -543,67 +543,6 @@ export default function ChatSidebar({
       />
 
       {/* ═══════════════════════════════════════════════════════════════════ */}
-      {/* SEÇÃO FIXA: MINHAS CONVERSAS */}
-      {/* ═══════════════════════════════════════════════════════════════════ */}
-      {!modoSelecao && (() => {
-        const norm = (v) => String(v || '').toLowerCase().trim();
-        const minhas = threadsSorted.filter(t =>
-          norm(t.assigned_user_id) === norm(usuarioAtual?.id)
-        );
-        if (minhas.length === 0) return null;
-
-        return (
-          <div className="border-b border-orange-200 bg-orange-50/60">
-            <div className="flex items-center gap-2 px-3 py-1.5 bg-gradient-to-r from-amber-500 to-orange-500">
-              <UserCheck className="w-3.5 h-3.5 text-white flex-shrink-0" />
-              <span className="text-white text-xs font-semibold flex-1">Minhas Conversas</span>
-              <span className="text-white/80 text-[10px] font-medium bg-white/20 rounded-full px-1.5 py-0.5">{minhas.length}</span>
-            </div>
-            {minhas.map((thread) => {
-              const isAtiva = threadAtiva?.id === thread.id;
-              const contato = thread.contato;
-              const hasUnread = getUnreadCount(thread, usuarioAtual?.id) > 0;
-
-              let nomeExibicao = "";
-              if (contato?.empresa) nomeExibicao += contato.empresa;
-              if (contato?.cargo) nomeExibicao += (nomeExibicao ? " - " : "") + contato.cargo;
-              if (contato?.nome && contato.nome !== contato?.telefone) nomeExibicao += (nomeExibicao ? " - " : "") + contato.nome;
-              if (!nomeExibicao) nomeExibicao = contato?.telefone || "Sem Nome";
-
-              return (
-                <div
-                  key={`minha-${thread.id}`}
-                  onClick={() => onSelecionarThread(thread)}
-                  className={`px-2 py-2 flex items-center gap-2.5 cursor-pointer transition-all border-b border-orange-100 hover:bg-orange-100/60 ${isAtiva ? 'bg-orange-100 border-l-4 border-l-orange-500' : 'border-l-2 border-l-orange-300'}`}
-                >
-                  <div className={`w-10 h-10 rounded-full flex-shrink-0 flex items-center justify-center text-white font-bold text-sm shadow-sm overflow-hidden ${hasUnread ? 'bg-gradient-to-br from-amber-400 to-orange-500' : 'bg-gradient-to-br from-slate-400 to-slate-500'}`}>
-                    {contato?.foto_perfil_url ? (
-                      <img src={contato.foto_perfil_url} alt="" className="w-full h-full object-cover" onError={(e) => { e.target.style.display = 'none'; }} />
-                    ) : nomeExibicao.charAt(0).toUpperCase()}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center justify-between gap-1">
-                      <p className={`text-xs font-semibold truncate ${hasUnread ? 'text-slate-900' : 'text-slate-700'}`}>{nomeExibicao}</p>
-                      <span className={`text-[9px] flex-shrink-0 ${hasUnread ? 'text-orange-600 font-medium' : 'text-slate-400'}`}>{formatarHorario(thread.last_message_at)}</span>
-                    </div>
-                    <p className="text-[10px] text-slate-500 truncate flex items-center gap-0.5 mt-0.5">
-                      {thread.last_message_sender === 'user' && <CheckCheck className="w-2.5 h-2.5 text-blue-500 flex-shrink-0" />}
-                      <span className="truncate">{thread.last_message_content || 'Sem mensagens'}</span>
-                    </p>
-                    {hasUnread && (
-                      <Badge className="rounded-full min-w-[16px] h-3.5 mt-0.5 flex items-center justify-center p-0 px-1 bg-gradient-to-r from-amber-400 to-red-500 text-white text-[9px] font-bold border-0">
-                        {getUnreadCount(thread, usuarioAtual?.id)}
-                      </Badge>
-                    )}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        );
-      })()}
-
-      {/* ═══════════════════════════════════════════════════════════════════ */}
       {/* LISTA NORMAL DE THREADS */}
       {/* ═══════════════════════════════════════════════════════════════════ */}
       {threadsSorted.map((thread, index) => {
