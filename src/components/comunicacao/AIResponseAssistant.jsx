@@ -80,14 +80,18 @@ export default function AIResponseAssistant({
       const estiloDetectado = tonSelecionado === 'auto' ? detectarEstiloContato() : tonSelecionado;
       const tonDesc = TONS.find(t => t.id === estiloDetectado)?.desc || '';
 
-      const result = await base44.integrations.Core.InvokeLLM({
+      const ultimaMsg = typeof ultimaMensagemCliente === 'string'
+      ? ultimaMensagemCliente
+      : (ultimaMensagemCliente?.content || '');
+
+    const result = await base44.integrations.Core.InvokeLLM({
         prompt: `Você é um assistente de vendas e atendimento ao cliente. Analise a conversa abaixo e gere 3 sugestões de resposta curtas e objetivas para o atendente.
 
 CONVERSA (contexto):
 ${contexto}
 
 ÚLTIMA MENSAGEM DO CLIENTE:
-${ultimaMensagemCliente?.content || ''}
+${ultimaMsg}
 
 NOME DO CLIENTE: ${nomeContato || 'Cliente'}
 
