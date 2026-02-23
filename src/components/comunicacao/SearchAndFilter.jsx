@@ -26,6 +26,8 @@ const TIPOS_CONTATO = [
 ];
 
 export default function SearchAndFilter({
+  sidebarViewMode,
+  onSidebarViewModeChange,
   searchTerm,
   onSearchChange,
   filterScope,
