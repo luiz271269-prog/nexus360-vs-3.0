@@ -137,14 +137,18 @@ INSTRUÇÕES:
       const estiloDetectado = tonSelecionado === 'auto' ? detectarEstiloContato() : tonSelecionado;
       const tonDesc = TONS.find(t => t.id === estiloDetectado)?.desc || '';
 
-      const result = await base44.integrations.Core.InvokeLLM({
+      const ultimaMsg = typeof ultimaMensagemCliente === 'string'
+      ? ultimaMensagemCliente
+      : (ultimaMensagemCliente?.content || '');
+
+    const result = await base44.integrations.Core.InvokeLLM({
         prompt: `Você é um assistente de vendas. Gere um rascunho de resposta completo para o atendente enviar ao cliente.
 
 CONVERSA (contexto):
 ${contexto}
 
 ÚLTIMA MENSAGEM DO CLIENTE:
-${ultimaMensagemCliente?.content || ''}
+${ultimaMsg}
 
 PALAVRAS-CHAVE / TEMA: ${palavrasChave || 'Responder adequadamente ao contexto'}
 
