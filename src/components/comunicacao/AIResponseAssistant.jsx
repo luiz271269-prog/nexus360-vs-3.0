@@ -1,387 +1,266 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { base44 } from '@/api/base44Client';
-import { Sparkles, Loader2, X, RefreshCw, ChevronDown, ChevronUp, Zap, Edit3, Check } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { useState, useEffect, useRef, useCallback } from "react";
+import { base44 } from "@/api/base44Client";
+import { Button } from "@/components/ui/button";
+import { Sparkles, Loader2, RefreshCw, ChevronDown, ChevronUp, Wand2, X } from "lucide-react";
+import { cn } from "@/lib/utils";
+import { toast } from "sonner";
 
 const TONS = [
-  { id: 'auto', label: '✨ Automático', desc: 'Adaptado ao estilo do contato' },
-  { id: 'formal', label: '👔 Formal', desc: 'Profissional e respeitoso' },
-  { id: 'amigavel', label: '😊 Amigável', desc: 'Caloroso e próximo' },
-  { id: 'direto', label: '⚡ Direto', desc: 'Conciso e objetivo' },
-  { id: 'empatico', label: '💙 Empático', desc: 'Compreensivo e acolhedor' },
+  { key: "contato", label: "Como o contato fala", emoji: "🪞" },
+  { key: "formal", label: "Formal", emoji: "👔" },
+  { key: "amigavel", label: "Amigável", emoji: "😊" },
+  { key: "objetiva", label: "Direto", emoji: "🎯" },
+  { key: "empatico", label: "Empático", emoji: "🤝" },
 ];
 
 export default function AIResponseAssistant({
-  thread,
-  mensagens = [],
-  nomeContato,
+  threadId,
+  contactId,
   ultimaMensagemCliente,
-  onSugestaoSelecionada,
-  onClose,
+  onUseResposta,
   visible,
+  onClose,
 }) {
   const [sugestoes, setSugestoes] = useState([]);
-  const [rascunho, setRascunho] = useState('');
-  const [palavrasChave, setPalavrasChave] = useState('');
-  const [tonSelecionado, setTonSelecionado] = useState('auto');
-  const [carregando, setCarregando] = useState(false);
-  const [carregandoRascunho, setCarregandoRascunho] = useState(false);
-  const [mostrarTons, setMostrarTons] = useState(false);
-  const [aba, setAba] = useState('sugestoes'); // 'sugestoes' | 'rascunho'
-  const [rascunhoEditado, setRascunhoEditado] = useState('');
-  const [ultimaThreadId, setUltimaThreadId] = useState(null);
-  const gerandoRef = useRef(false);
+  const [status, setStatus] = useState("idle"); // idle | loading | ready | error
+  const [tomSelecionado, setTomSelecionado] = useState("contato");
+  const [rascunhoKeywords, setRascunhoKeywords] = useState("");
+  const [gerandoRascunho, setGerandoRascunho] = useState(false);
+  const [expandido, setExpandido] = useState(true);
+  const [analise, setAnalise] = useState(null);
+  const seqRef = useRef(0);
+  const jaCarregouRef = useRef(null); // guarda a key da última carga
 
-  // Gerar sugestões automaticamente quando chega nova mensagem do cliente
-  useEffect(() => {
-    if (!visible || !ultimaMensagemCliente || !thread?.id) return;
-    if (gerandoRef.current) return;
-    // Só regera se mudou a thread ou a última mensagem
-    const key = `${thread.id}-${ultimaMensagemCliente?.id}`;
-    if (ultimaThreadId === key) return;
-    setUltimaThreadId(key);
-    gerarSugestoes();
-  }, [visible, ultimaMensagemCliente?.id, thread?.id]);
+  const loadKey = `${threadId}-${ultimaMensagemCliente}`;
 
-  const buildContext = useCallback(() => {
-    // Pega as últimas 20 mensagens para contexto
-    const ultimas = mensagens.slice(-20);
-    return ultimas.map(m => {
-      const quem = m.sender_type === 'contact' ? (nomeContato || 'Cliente') : 'Atendente';
-      return `${quem}: ${m.content || ''}`;
-    }).join('\n');
-  }, [mensagens, nomeContato]);
-
-  const detectarEstiloContato = useCallback(() => {
-    // Analisa o estilo das mensagens do contato para adaptar o tom
-    const msgContato = mensagens
-      .filter(m => m.sender_type === 'contact')
-      .slice(-10)
-      .map(m => m.content || '')
-      .join(' ');
-
-    const temEmoji = /[\u{1F300}-\u{1F9FF}]/u.test(msgContato);
-    const temGiriasInformais = /vc|blz|oi|ola|obg|vlw|tô|né|td|tudo/i.test(msgContato);
-    const temPontuacaoFormal = /[.!?]{1}$/.test(msgContato.trim());
-
-    if (temEmoji || temGiriasInformais) return 'amigavel';
-    if (temPontuacaoFormal && msgContato.length > 100) return 'formal';
-    return 'direto';
-  }, [mensagens]);
-
-  const gerarSugestoes = useCallback(async () => {
-    if (gerandoRef.current || !thread?.id) return;
-    gerandoRef.current = true;
-    setCarregando(true);
+  const gerarSugestoes = useCallback(async (force = false) => {
+    if (!threadId && !contactId) return;
+    const seq = ++seqRef.current;
+    setStatus("loading");
     setSugestoes([]);
+    setAnalise(null);
 
     try {
-      const contexto = buildContext();
-      const estiloDetectado = tonSelecionado === 'auto' ? detectarEstiloContato() : tonSelecionado;
-      const tonDesc = TONS.find(t => t.id === estiloDetectado)?.desc || '';
-
-      const result = await base44.integrations.Core.InvokeLLM({
-        prompt: `Você é um assistente de vendas e atendimento ao cliente. Analise a conversa abaixo e gere 3 sugestões de resposta curtas e objetivas para o atendente.
-
-CONVERSA (contexto):
-${contexto}
-
-ÚLTIMA MENSAGEM DO CLIENTE:
-${ultimaMensagemCliente?.content || ''}
-
-NOME DO CLIENTE: ${nomeContato || 'Cliente'}
-
-TOM DESEJADO: ${tonDesc || estiloDetectado}
-
-INSTRUÇÕES:
-- Gere exatamente 3 sugestões de resposta
-- Cada sugestão deve ser curta (1-3 frases), natural e adequada ao contexto
-- Adapte o tom/estilo baseado no histórico de mensagens do cliente
-- As sugestões devem ser variadas (ex: confirmar algo, pedir mais info, oferecer solução)
-- Não use placeholders como [nome] ou [produto], use o que está no contexto
-- Responda APENAS com o JSON abaixo`,
-        response_json_schema: {
-          type: 'object',
-          properties: {
-            sugestoes: {
-              type: 'array',
-              items: { type: 'string' },
-            },
-          },
-        },
+      const resultado = await base44.functions.invoke("gerarSugestoesRespostaContato", {
+        thread_id: threadId || null,
+        contact_id: contactId || null,
+        limit: 50,
+        language: "pt-BR",
+        tones: [tomSelecionado === "contato" ? "espelhar_contato" : tomSelecionado, "formal", "amigavel"],
+        force,
       });
 
-      if (result?.sugestoes?.length) {
-        setSugestoes(result.sugestoes.slice(0, 3));
+      if (seq !== seqRef.current) return;
+
+      if (resultado.data?.success && resultado.data.suggestions?.length) {
+        setSugestoes(
+          resultado.data.suggestions.map((s) => ({
+            texto: s.message,
+            tom: s.tone,
+            title: s.title,
+          }))
+        );
+        setAnalise(resultado.data.analysis || null);
+        setStatus("ready");
+        jaCarregouRef.current = loadKey;
+      } else {
+        throw new Error(resultado.data?.error || "Sem sugestões");
       }
-    } catch (err) {
-      console.error('[AIAssistant] Erro ao gerar sugestões:', err);
-    } finally {
-      setCarregando(false);
-      gerandoRef.current = false;
+    } catch {
+      if (seq !== seqRef.current) return;
+      setStatus("error");
+      // Fallback local
+      setSugestoes([
+        { texto: "Obrigado pela sua mensagem! Vou verificar e retorno em breve.", tom: "formal" },
+        { texto: "Entendido! Já estou verificando pra você 😊", tom: "amigavel" },
+        { texto: "Recebi. Aguarde um momento enquanto analiso.", tom: "objetiva" },
+      ]);
     }
-  }, [thread?.id, ultimaMensagemCliente, tonSelecionado, buildContext, detectarEstiloContato]);
+  }, [threadId, contactId, tomSelecionado, loadKey]);
 
-  const gerarRascunho = useCallback(async () => {
-    if (!thread?.id) return;
-    setCarregandoRascunho(true);
-    setRascunho('');
-    setRascunhoEditado('');
+  // Auto-gerar ao abrir ou quando chega nova mensagem do contato
+  useEffect(() => {
+    if (!visible) return;
+    if (jaCarregouRef.current === loadKey && status === "ready") return;
+    const t = setTimeout(() => gerarSugestoes(false), 300);
+    return () => clearTimeout(t);
+  }, [visible, loadKey]);
 
+  // Regerar ao mudar tom
+  useEffect(() => {
+    if (!visible || status === "idle") return;
+    const t = setTimeout(() => gerarSugestoes(true), 200);
+    return () => clearTimeout(t);
+  }, [tomSelecionado]);
+
+  const gerarRascunho = async () => {
+    if (!rascunhoKeywords.trim()) {
+      toast.error("Digite algumas palavras-chave para o rascunho");
+      return;
+    }
+    setGerandoRascunho(true);
     try {
-      const contexto = buildContext();
-      const estiloDetectado = tonSelecionado === 'auto' ? detectarEstiloContato() : tonSelecionado;
-      const tonDesc = TONS.find(t => t.id === estiloDetectado)?.desc || '';
+      const resultado = await base44.integrations.Core.InvokeLLM({
+        prompt: `Você é um assistente de comunicação empresarial.
+Gere UMA mensagem profissional e natural em português brasileiro.
 
-      const result = await base44.integrations.Core.InvokeLLM({
-        prompt: `Você é um assistente de vendas. Gere um rascunho de resposta completo para o atendente enviar ao cliente.
+Contexto da conversa: ${analise?.conversation_type || "atendimento geral"}
+Tom desejado: ${TONS.find((t) => t.key === tomSelecionado)?.label || "natural"}
+${analise?.contact_communication_style ? `Estilo do contato: ${analise.contact_communication_style}` : ""}
+Última mensagem do cliente: "${ultimaMensagemCliente || "não disponível"}"
 
-CONVERSA (contexto):
-${contexto}
+Palavras-chave para o rascunho: ${rascunhoKeywords}
 
-ÚLTIMA MENSAGEM DO CLIENTE:
-${ultimaMensagemCliente?.content || ''}
-
-PALAVRAS-CHAVE / TEMA: ${palavrasChave || 'Responder adequadamente ao contexto'}
-
-NOME DO CLIENTE: ${nomeContato || 'Cliente'}
-TOM: ${tonDesc || estiloDetectado}
-
-INSTRUÇÕES:
-- Gere um rascunho de resposta completo e profissional
-- Use o tom/estilo adequado ao cliente
-- Seja natural, não robótico
-- Se tiver palavras-chave, incorpore-as na resposta
-- Responda APENAS com o JSON`,
-        response_json_schema: {
-          type: 'object',
-          properties: {
-            rascunho: { type: 'string' },
-          },
-        },
+Escreva APENAS a mensagem final, sem aspas, sem explicações. Seja conciso e adequado ao contexto.`,
       });
 
-      if (result?.rascunho) {
-        setRascunho(result.rascunho);
-        setRascunhoEditado(result.rascunho);
+      if (resultado) {
+        const texto = typeof resultado === "string" ? resultado.trim() : resultado?.content?.trim();
+        if (texto) {
+          onUseResposta(texto);
+          setRascunhoKeywords("");
+          toast.success("Rascunho aplicado!");
+        }
       }
-    } catch (err) {
-      console.error('[AIAssistant] Erro ao gerar rascunho:', err);
+    } catch {
+      toast.error("Erro ao gerar rascunho");
     } finally {
-      setCarregandoRascunho(false);
+      setGerandoRascunho(false);
     }
-  }, [thread?.id, ultimaMensagemCliente, palavrasChave, tonSelecionado, buildContext, detectarEstiloContato]);
+  };
 
-  const handleSelecionarSugestao = useCallback((texto) => {
-    onSugestaoSelecionada(texto);
-    onClose();
-  }, [onSugestaoSelecionada, onClose]);
+  const refinarSugestao = async (sugestao) => {
+    try {
+      const resultado = await base44.integrations.Core.InvokeLLM({
+        prompt: `Reescreva a mensagem abaixo com tom "${TONS.find((t) => t.key === tomSelecionado)?.label}".
+${analise?.contact_communication_style ? `Adapte para o estilo de comunicação do contato: ${analise.contact_communication_style}` : ""}
+Mantenha o mesmo significado. Escreva APENAS a mensagem reescrita, sem aspas.
 
-  const handleUsarRascunho = useCallback(() => {
-    onSugestaoSelecionada(rascunhoEditado || rascunho);
-    onClose();
-  }, [rascunho, rascunhoEditado, onSugestaoSelecionada, onClose]);
+Mensagem original: "${sugestao}"`,
+      });
+
+      const texto = typeof resultado === "string" ? resultado.trim() : resultado?.content?.trim();
+      if (texto) {
+        onUseResposta(texto);
+        toast.success("Resposta refinada aplicada!");
+      }
+    } catch {
+      toast.error("Erro ao refinar");
+    }
+  };
 
   if (!visible) return null;
 
   return (
     <div className="border-t border-purple-200 bg-gradient-to-b from-purple-50 to-white">
       {/* Header */}
-      <div className="flex items-center justify-between px-3 py-2 border-b border-purple-100">
-        <div className="flex items-center gap-2">
-          <div className="w-6 h-6 rounded-full bg-gradient-to-br from-purple-500 to-indigo-600 flex items-center justify-center">
-            <Sparkles className="w-3.5 h-3.5 text-white" />
-          </div>
-          <span className="text-xs font-semibold text-purple-800">Assistente IA</span>
+      <div className="flex items-center justify-between px-3 py-1.5 bg-purple-600">
+        <div className="flex items-center gap-1.5">
+          <Sparkles className="w-3.5 h-3.5 text-white" />
+          <span className="text-white text-xs font-semibold">Assistente IA</span>
+          {analise?.conversation_type && (
+            <span className="text-purple-200 text-[10px]">· {analise.conversation_type}</span>
+          )}
         </div>
-
         <div className="flex items-center gap-1">
-          {/* Seletor de Tom */}
-          <div className="relative">
-            <button
-              type="button"
-              onClick={() => setMostrarTons(!mostrarTons)}
-              className="flex items-center gap-1 px-2 py-1 text-xs rounded-full bg-purple-100 text-purple-700 hover:bg-purple-200 transition-colors"
-            >
-              <span>{TONS.find(t => t.id === tonSelecionado)?.label || '✨ Automático'}</span>
-              {mostrarTons ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
-            </button>
-
-            {mostrarTons && (
-              <div className="absolute bottom-full mb-1 right-0 bg-white rounded-xl shadow-xl border border-purple-100 z-50 py-1 min-w-[200px]">
-                {TONS.map(ton => (
-                  <button
-                    key={ton.id}
-                    type="button"
-                    onClick={() => { setTonSelecionado(ton.id); setMostrarTons(false); setSugestoes([]); setRascunho(''); }}
-                    className={cn(
-                      "w-full flex items-start gap-2 px-3 py-2 text-left hover:bg-purple-50 transition-colors",
-                      tonSelecionado === ton.id && "bg-purple-50"
-                    )}
-                  >
-                    <div className="flex-1">
-                      <div className={cn("text-xs font-medium", tonSelecionado === ton.id ? "text-purple-700" : "text-slate-700")}>
-                        {ton.label}
-                      </div>
-                      <div className="text-xs text-slate-400">{ton.desc}</div>
-                    </div>
-                    {tonSelecionado === ton.id && <Check className="w-3.5 h-3.5 text-purple-600 mt-0.5" />}
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-
           <button
-            type="button"
-            onClick={onClose}
-            className="p-1 text-slate-400 hover:text-slate-600 transition-colors"
+            onClick={() => setExpandido((p) => !p)}
+            className="text-white/70 hover:text-white"
           >
-            <X className="w-4 h-4" />
+            {expandido ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronUp className="w-3.5 h-3.5" />}
+          </button>
+          <button onClick={onClose} className="text-white/70 hover:text-white">
+            <X className="w-3.5 h-3.5" />
           </button>
         </div>
       </div>
 
-      {/* Abas */}
-      <div className="flex border-b border-purple-100">
-        <button
-          type="button"
-          onClick={() => setAba('sugestoes')}
-          className={cn(
-            "flex-1 py-1.5 text-xs font-medium transition-colors",
-            aba === 'sugestoes'
-              ? "text-purple-700 border-b-2 border-purple-500 bg-purple-50/50"
-              : "text-slate-500 hover:text-slate-700"
-          )}
-        >
-          <Zap className="w-3 h-3 inline mr-1" />
-          Sugestões Rápidas
-        </button>
-        <button
-          type="button"
-          onClick={() => setAba('rascunho')}
-          className={cn(
-            "flex-1 py-1.5 text-xs font-medium transition-colors",
-            aba === 'rascunho'
-              ? "text-purple-700 border-b-2 border-purple-500 bg-purple-50/50"
-              : "text-slate-500 hover:text-slate-700"
-          )}
-        >
-          <Edit3 className="w-3 h-3 inline mr-1" />
-          Gerar Rascunho
-        </button>
-      </div>
-
-      <div className="p-2">
-        {/* ABA SUGESTÕES */}
-        {aba === 'sugestoes' && (
-          <div>
-            {carregando ? (
-              <div className="flex items-center justify-center gap-2 py-4 text-purple-600">
-                <Loader2 className="w-4 h-4 animate-spin" />
-                <span className="text-xs">Analisando conversa...</span>
-              </div>
-            ) : sugestoes.length > 0 ? (
-              <div className="space-y-1.5">
-                {sugestoes.map((s, i) => (
-                  <button
-                    key={i}
-                    type="button"
-                    onClick={() => handleSelecionarSugestao(s)}
-                    className="w-full text-left px-3 py-2 rounded-lg bg-white border border-purple-100 hover:border-purple-400 hover:bg-purple-50 transition-all text-xs text-slate-700 shadow-sm group"
-                  >
-                    <span className="text-purple-400 font-bold mr-1 group-hover:text-purple-600">{i + 1}.</span>
-                    {s}
-                  </button>
-                ))}
-                <button
-                  type="button"
-                  onClick={gerarSugestoes}
-                  className="w-full flex items-center justify-center gap-1 py-1.5 text-xs text-purple-500 hover:text-purple-700 transition-colors"
-                >
-                  <RefreshCw className="w-3 h-3" />
-                  Gerar novas sugestões
-                </button>
-              </div>
-            ) : (
-              <div className="text-center py-3">
-                <p className="text-xs text-slate-400 mb-2">Nenhuma sugestão gerada ainda</p>
-                <button
-                  type="button"
-                  onClick={gerarSugestoes}
-                  className="flex items-center gap-1 mx-auto px-3 py-1.5 rounded-full bg-purple-100 text-purple-700 hover:bg-purple-200 text-xs font-medium transition-colors"
-                >
-                  <Sparkles className="w-3 h-3" />
-                  Gerar Sugestões
-                </button>
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* ABA RASCUNHO */}
-        {aba === 'rascunho' && (
-          <div className="space-y-2">
-            <div className="flex gap-2">
-              <input
-                type="text"
-                value={palavrasChave}
-                onChange={(e) => setPalavrasChave(e.target.value)}
-                placeholder="Palavras-chave ou tema (ex: prazo entrega, desconto...)"
-                className="flex-1 px-2 py-1.5 text-xs border border-purple-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-purple-400 bg-white"
-                onKeyDown={(e) => e.key === 'Enter' && gerarRascunho()}
-              />
+      {expandido && (
+        <div className="px-3 py-2 space-y-2">
+          {/* Seletor de Tom */}
+          <div className="flex gap-1 flex-wrap">
+            {TONS.map((tom) => (
               <button
-                type="button"
-                onClick={gerarRascunho}
-                disabled={carregandoRascunho}
-                className="px-3 py-1.5 text-xs bg-gradient-to-r from-purple-500 to-indigo-600 text-white rounded-lg hover:from-purple-600 hover:to-indigo-700 transition-all disabled:opacity-60 flex items-center gap-1 font-medium"
+                key={tom.key}
+                onClick={() => setTomSelecionado(tom.key)}
+                className={cn(
+                  "text-[10px] px-2 py-0.5 rounded-full border transition-all",
+                  tomSelecionado === tom.key
+                    ? "bg-purple-600 text-white border-purple-600"
+                    : "bg-white text-slate-600 border-slate-300 hover:border-purple-400"
+                )}
               >
-                {carregandoRascunho ? <Loader2 className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3" />}
-                Gerar
+                {tom.emoji} {tom.label}
               </button>
-            </div>
+            ))}
+            <button
+              onClick={() => gerarSugestoes(true)}
+              disabled={status === "loading"}
+              className="text-[10px] px-2 py-0.5 rounded-full border border-slate-300 text-slate-500 hover:border-purple-400 hover:text-purple-600 transition-all"
+              title="Regerar sugestões"
+            >
+              <RefreshCw className={cn("w-3 h-3 inline", status === "loading" && "animate-spin")} />
+            </button>
+          </div>
 
-            {carregandoRascunho ? (
-              <div className="flex items-center justify-center gap-2 py-4 text-purple-600">
-                <Loader2 className="w-4 h-4 animate-spin" />
-                <span className="text-xs">Gerando rascunho...</span>
-              </div>
-            ) : rascunho ? (
-              <div className="space-y-2">
-                <textarea
-                  value={rascunhoEditado}
-                  onChange={(e) => setRascunhoEditado(e.target.value)}
-                  rows={3}
-                  className="w-full px-2 py-1.5 text-xs border border-purple-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-purple-400 bg-white resize-none"
-                />
-                <div className="flex gap-1.5">
+          {/* Sugestões rápidas */}
+          {status === "loading" && (
+            <div className="flex items-center gap-2 py-1">
+              <Loader2 className="w-4 h-4 animate-spin text-purple-500" />
+              <span className="text-xs text-slate-500">Analisando conversa...</span>
+            </div>
+          )}
+
+          {(status === "ready" || status === "error") && sugestoes.length > 0 && (
+            <div className="space-y-1">
+              {sugestoes.map((s, i) => (
+                <div
+                  key={i}
+                  className="group flex items-start gap-2 bg-white border border-purple-100 hover:border-purple-400 rounded-lg px-2 py-1.5 cursor-pointer transition-all hover:shadow-sm"
+                >
                   <button
-                    type="button"
-                    onClick={handleUsarRascunho}
-                    className="flex-1 py-1.5 text-xs bg-gradient-to-r from-purple-500 to-indigo-600 text-white rounded-lg hover:from-purple-600 hover:to-indigo-700 transition-all font-medium flex items-center justify-center gap-1"
+                    onClick={() => onUseResposta(s.texto)}
+                    className="flex-1 text-left"
                   >
-                    <Check className="w-3 h-3" />
-                    Usar Rascunho
+                    <p className="text-[11px] text-slate-700 leading-snug line-clamp-2">{s.texto}</p>
                   </button>
                   <button
-                    type="button"
-                    onClick={gerarRascunho}
-                    className="px-2 py-1.5 text-xs border border-purple-200 text-purple-600 rounded-lg hover:bg-purple-50 transition-colors flex items-center gap-1"
+                    onClick={() => refinarSugestao(s.texto)}
+                    title="Refinar com tom selecionado"
+                    className="opacity-0 group-hover:opacity-100 text-purple-400 hover:text-purple-600 flex-shrink-0 mt-0.5 transition-opacity"
                   >
-                    <RefreshCw className="w-3 h-3" />
-                    Refazer
+                    <Wand2 className="w-3 h-3" />
                   </button>
                 </div>
-              </div>
-            ) : (
-              <p className="text-xs text-slate-400 text-center py-2">
-                Digite palavras-chave e clique em Gerar para criar um rascunho completo
-              </p>
-            )}
+              ))}
+            </div>
+          )}
+
+          {/* Gerador de rascunho por palavras-chave */}
+          <div className="flex gap-1.5 items-center border-t border-purple-100 pt-2">
+            <input
+              type="text"
+              value={rascunhoKeywords}
+              onChange={(e) => setRascunhoKeywords(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && gerarRascunho()}
+              placeholder="Palavras-chave → gerar rascunho..."
+              className="flex-1 text-[11px] px-2 py-1 border border-slate-200 rounded-md focus:outline-none focus:ring-1 focus:ring-purple-400 bg-white"
+            />
+            <Button
+              type="button"
+              onClick={gerarRascunho}
+              disabled={gerandoRascunho || !rascunhoKeywords.trim()}
+              className="h-6 px-2 text-[10px] bg-purple-600 hover:bg-purple-700 text-white flex-shrink-0"
+            >
+              {gerandoRascunho ? (
+                <Loader2 className="w-3 h-3 animate-spin" />
+              ) : (
+                <Wand2 className="w-3 h-3" />
+              )}
+            </Button>
           </div>
-        )}
-      </div>
+        </div>
+      )}
     </div>
   );
 }
