@@ -311,6 +311,55 @@ export default function ChatSidebarKanban({ threads, threadAtiva, onSelecionarTh
       </div>
 
       <div className="flex gap-2 flex-1 overflow-x-auto p-2 bg-slate-100 min-h-0">
+        {kanbanMode === 'usuario' ? (
+          // ── MODO: POR ATENDENTE ──
+          colunasPorUsuario.map(coluna => {
+            const isMinhas = coluna.isMinhas;
+            const isSem = coluna.isSemAtendente;
+            const headerClass = isMinhas
+              ? 'bg-gradient-to-r from-amber-500 to-orange-500'
+              : isSem
+              ? 'bg-slate-500'
+              : 'bg-gradient-to-r from-indigo-500 to-blue-600';
+            const borderClass = isMinhas ? 'border-2 border-orange-400' : 'border border-slate-200';
+
+            return (
+              <div key={coluna.id} className={`flex flex-col flex-shrink-0 w-52 min-w-[200px] bg-slate-50 rounded-xl overflow-hidden shadow-sm ${borderClass} ${isMinhas ? 'sticky left-0 z-10 shadow-md' : ''}`}>
+                <div className={`${headerClass} px-3 py-2 flex items-center justify-between`}>
+                  <div className="flex items-center gap-1.5 min-w-0">
+                    {isMinhas ? (
+                      <UserCheck className="w-3.5 h-3.5 text-white flex-shrink-0" />
+                    ) : (
+                      <div className="w-5 h-5 rounded-full bg-white/30 flex items-center justify-center text-white text-[9px] font-bold flex-shrink-0">
+                        {coluna.nome.charAt(0).toUpperCase()}
+                      </div>
+                    )}
+                    <span className="text-white font-semibold text-xs truncate">{coluna.nome}</span>
+                  </div>
+                  <span className="text-white/80 text-[9px] flex-shrink-0">{coluna.threads.length}</span>
+                </div>
+                <div className="flex-1 overflow-y-auto p-1.5 space-y-1.5">
+                  {coluna.threads.length === 0 ? (
+                    <div className="text-center py-8 text-slate-400 text-xs">Sem conversas</div>
+                  ) : (
+                    coluna.threads.map(thread => (
+                      <ThreadCardKanban
+                        key={thread.id}
+                        thread={thread}
+                        isAtiva={threadAtiva?.id === thread.id}
+                        usuarioAtual={usuarioAtual}
+                        atendentes={atendentes}
+                        onSelecionarThread={onSelecionarThread}
+                        podeInteragir={true}
+                      />
+                    ))
+                  )}
+                </div>
+              </div>
+            );
+          })
+        ) : (
+          <>
         {/* ── COLUNA FIXA: Minhas Conversas ── */}
         <div className="flex flex-col flex-shrink-0 w-52 min-w-[200px] bg-slate-50 rounded-xl border-2 border-orange-400 overflow-hidden shadow-md sticky left-0 z-10">
           <div className="bg-gradient-to-r from-amber-500 to-orange-500 px-3 py-2 flex items-center justify-between">
