@@ -277,7 +277,18 @@ export default function MessageInput({
   const mostrarInterfaceBroadcast = modoSelecaoMultipla && contatosSelecionados.length > 0;
 
   return (
-    <form onSubmit={handleEnviar} className="bg-[#d6dfe1] text-gray-950 px-2 md:px-3 rounded-lg border-t flex-shrink-0 pb-safe" style={{ paddingBottom: 'max(0.5rem, env(safe-area-inset-bottom))' }}>
+    <form onSubmit={handleEnviar} className="bg-[#d6dfe1] text-gray-950 rounded-lg border-t flex-shrink-0 pb-safe" style={{ paddingBottom: 'max(0.5rem, env(safe-area-inset-bottom))' }}>
+      {/* Assistente IA integrado acima do input */}
+      <AIResponseAssistant
+        visible={mostrarSugestor}
+        thread={thread}
+        mensagens={[]}
+        nomeContato={nomeContato}
+        ultimaMensagemCliente={ultimaMensagemCliente}
+        onSugestaoSelecionada={(texto) => setMensagemTexto(texto)}
+        onClose={onToggleSugestor}
+      />
+      <div className="px-2 md:px-3">
       {/* Inputs ocultos para arquivos */}
       <input
         ref={imageInputRef}
