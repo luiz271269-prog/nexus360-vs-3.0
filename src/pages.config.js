@@ -123,6 +123,7 @@ import Usuarios from './pages/Usuarios';
 import Vendas from './pages/Vendas';
 import Vendedores from './pages/Vendedores';
 import WhatsAppTemplates from './pages/WhatsAppTemplates';
+import AnaliseAssistenteIA from './pages/AnaliseAssistenteIA';
 import __Layout from './Layout.jsx';
 
 
@@ -203,6 +204,7 @@ export const PAGES = {
     "Vendas": Vendas,
     "Vendedores": Vendedores,
     "WhatsAppTemplates": WhatsAppTemplates,
+    "AnaliseAssistenteIA": AnaliseAssistenteIA,
 }
 
 export const pagesConfig = {
