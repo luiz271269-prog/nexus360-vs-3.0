@@ -311,29 +311,49 @@ export default function ChatSidebarKanban({ threads, threadAtiva, onSelecionarTh
       </div>
 
       <div className="flex gap-2 flex-1 overflow-x-auto p-2 bg-slate-100 min-h-0">
+        {/* Coluna fixa: "Minhas Conversas" - SEMPRE VISÍVEL */}
+        <div className="flex flex-col flex-shrink-0 w-52 min-w-[200px] bg-slate-50 rounded-xl border-2 border-orange-400 overflow-hidden shadow-md sticky left-0 z-20">
+          <div className="bg-gradient-to-r from-amber-500 to-orange-500 px-3 py-2 flex items-center justify-between">
+            <div className="flex items-center gap-1.5 min-w-0">
+              <UserCheck className="w-3.5 h-3.5 text-white flex-shrink-0" />
+              <span className="text-white font-semibold text-xs truncate">Minhas Conversas</span>
+            </div>
+            <span className="text-white/80 text-[9px] flex-shrink-0">{minhasConversas.length}</span>
+          </div>
+          <div className="flex-1 overflow-y-auto p-1.5 space-y-1.5">
+            {minhasConversas.length === 0 ? (
+              <div className="text-center py-8 text-slate-400 text-xs">Nenhuma conversa atribuída</div>
+            ) : (
+              minhasConversas.map(thread => (
+                <ThreadCardKanban
+                  key={thread.id}
+                  thread={thread}
+                  isAtiva={threadAtiva?.id === thread.id}
+                  usuarioAtual={usuarioAtual}
+                  atendentes={atendentes}
+                  onSelecionarThread={onSelecionarThread}
+                  podeInteragir={true}
+                />
+              ))
+            )}
+          </div>
+        </div>
+
         {kanbanMode === 'usuario' ? (
           // ── MODO: POR ATENDENTE ──
-          colunasPorUsuario.map(coluna => {
-            const isMinhas = coluna.isMinhas;
+          colunasPorUsuario.filter(c => !c.isMinhas).map(coluna => {
             const isSem = coluna.isSemAtendente;
-            const headerClass = isMinhas
-              ? 'bg-gradient-to-r from-amber-500 to-orange-500'
-              : isSem
+            const headerClass = isSem
               ? 'bg-slate-500'
               : 'bg-gradient-to-r from-indigo-500 to-blue-600';
-            const borderClass = isMinhas ? 'border-2 border-orange-400' : 'border border-slate-200';
 
             return (
-              <div key={coluna.id} className={`flex flex-col flex-shrink-0 w-52 min-w-[200px] bg-slate-50 rounded-xl overflow-hidden shadow-sm ${borderClass} ${isMinhas ? 'sticky left-0 z-10 shadow-md' : ''}`}>
+              <div key={coluna.id} className="flex flex-col flex-shrink-0 w-52 min-w-[200px] bg-slate-50 rounded-xl border border-slate-200 overflow-hidden shadow-sm">
                 <div className={`${headerClass} px-3 py-2 flex items-center justify-between`}>
                   <div className="flex items-center gap-1.5 min-w-0">
-                    {isMinhas ? (
-                      <UserCheck className="w-3.5 h-3.5 text-white flex-shrink-0" />
-                    ) : (
-                      <div className="w-5 h-5 rounded-full bg-white/30 flex items-center justify-center text-white text-[9px] font-bold flex-shrink-0">
-                        {coluna.nome.charAt(0).toUpperCase()}
-                      </div>
-                    )}
+                    <div className="w-5 h-5 rounded-full bg-white/30 flex items-center justify-center text-white text-[9px] font-bold flex-shrink-0">
+                      {coluna.nome.charAt(0).toUpperCase()}
+                    </div>
                     <span className="text-white font-semibold text-xs truncate">{coluna.nome}</span>
                   </div>
                   <span className="text-white/80 text-[9px] flex-shrink-0">{coluna.threads.length}</span>
@@ -359,61 +379,59 @@ export default function ChatSidebarKanban({ threads, threadAtiva, onSelecionarTh
             );
           })
         ) : (
-          <>
-        {/* ── COLUNAS POR INTEGRAÇÃO ── */}
-        {colunas.map(coluna => {
-          const totalNaoLidas = coluna.threads.reduce((sum, t) => sum + getUnreadCount(t, usuarioAtual?.id), 0);
-          const headerCor = corConfig[coluna.cor] || 'bg-slate-600';
-          const dotCor = statusDot[coluna.status] || 'bg-slate-400';
+          // ── MODO: POR CANAL/INTEGRAÇÃO ──
+          colunas.map(coluna => {
+            const totalNaoLidas = coluna.threads.reduce((sum, t) => sum + getUnreadCount(t, usuarioAtual?.id), 0);
+            const headerCor = corConfig[coluna.cor] || 'bg-slate-600';
+            const dotCor = statusDot[coluna.status] || 'bg-slate-400';
 
-          return (
-            <div key={coluna.id} className="flex flex-col flex-shrink-0 w-52 min-w-[200px] bg-slate-50 rounded-xl border border-slate-200 overflow-hidden shadow-sm">
-              <div className={`${headerCor} px-3 py-2 flex items-center justify-between`}>
-                <div className="flex items-center gap-1.5 min-w-0">
-                  <div className={`w-2 h-2 rounded-full flex-shrink-0 ${dotCor}`} />
-                  <span className="text-white font-semibold text-xs truncate">{coluna.nome}</span>
+            return (
+              <div key={coluna.id} className="flex flex-col flex-shrink-0 w-52 min-w-[200px] bg-slate-50 rounded-xl border border-slate-200 overflow-hidden shadow-sm">
+                <div className={`${headerCor} px-3 py-2 flex items-center justify-between`}>
+                  <div className="flex items-center gap-1.5 min-w-0">
+                    <div className={`w-2 h-2 rounded-full flex-shrink-0 ${dotCor}`} />
+                    <span className="text-white font-semibold text-xs truncate">{coluna.nome}</span>
+                  </div>
+                  <div className="flex items-center gap-1 flex-shrink-0">
+                    {totalNaoLidas > 0 && (
+                      <Badge className="rounded-full min-w-[18px] h-4 flex items-center justify-center p-0 px-1 bg-white/30 text-white text-[9px] font-bold border-0">
+                        {totalNaoLidas}
+                      </Badge>
+                    )}
+                    <span className="text-white/70 text-[9px]">{coluna.threads.length}</span>
+                  </div>
                 </div>
-                <div className="flex items-center gap-1 flex-shrink-0">
-                  {totalNaoLidas > 0 && (
-                    <Badge className="rounded-full min-w-[18px] h-4 flex items-center justify-center p-0 px-1 bg-white/30 text-white text-[9px] font-bold border-0">
-                      {totalNaoLidas}
-                    </Badge>
+                <div className="flex-1 overflow-y-auto p-1.5 space-y-1.5">
+                  {coluna.threads.length === 0 ? (
+                    <div className="text-center py-8 text-slate-400 text-xs">Sem conversas</div>
+                  ) : (
+                    coluna.threads.map(thread => {
+                      const norm = (v) => String(v || '').toLowerCase().trim();
+                      const isAtribuidoOuTransferido =
+                        norm(thread.assigned_user_id) === norm(usuarioAtual?.id) ||
+                        norm(thread.transfer_requested_user_id) === norm(usuarioAtual?.id);
+                      const isGerente = ['gerente', 'coordenador', 'supervisor'].includes(usuarioAtual?.attendant_role);
+                      const isNaoAtribuida = !thread.assigned_user_id && !thread.assigned_user_name && !thread.assigned_user_email;
+                      const isCompartilhada = thread.shared_with_users?.includes(usuarioAtual?.id);
+                      const isInterno = thread.participants?.includes(usuarioAtual?.id);
+                      const podeInteragir = usuarioAtual?.role === 'admin' || isAtribuidoOuTransferido || isGerente || isNaoAtribuida || isCompartilhada || isInterno;
+                      return (
+                        <ThreadCardKanban
+                          key={thread.id}
+                          thread={thread}
+                          isAtiva={threadAtiva?.id === thread.id}
+                          usuarioAtual={usuarioAtual}
+                          atendentes={atendentes}
+                          onSelecionarThread={onSelecionarThread}
+                          podeInteragir={podeInteragir}
+                        />
+                      );
+                    })
                   )}
-                  <span className="text-white/70 text-[9px]">{coluna.threads.length}</span>
                 </div>
               </div>
-              <div className="flex-1 overflow-y-auto p-1.5 space-y-1.5">
-                {coluna.threads.length === 0 ? (
-                  <div className="text-center py-8 text-slate-400 text-xs">Sem conversas</div>
-                ) : (
-                  coluna.threads.map(thread => {
-                    const norm = (v) => String(v || '').toLowerCase().trim();
-                    const isAtribuidoOuTransferido =
-                      norm(thread.assigned_user_id) === norm(usuarioAtual?.id) ||
-                      norm(thread.transfer_requested_user_id) === norm(usuarioAtual?.id);
-                    const isGerente = ['gerente', 'coordenador', 'supervisor'].includes(usuarioAtual?.attendant_role);
-                    const isNaoAtribuida = !thread.assigned_user_id && !thread.assigned_user_name && !thread.assigned_user_email;
-                    const isCompartilhada = thread.shared_with_users?.includes(usuarioAtual?.id);
-                    const isInterno = thread.participants?.includes(usuarioAtual?.id);
-                    const podeInteragir = usuarioAtual?.role === 'admin' || isAtribuidoOuTransferido || isGerente || isNaoAtribuida || isCompartilhada || isInterno;
-                    return (
-                      <ThreadCardKanban
-                        key={thread.id}
-                        thread={thread}
-                        isAtiva={threadAtiva?.id === thread.id}
-                        usuarioAtual={usuarioAtual}
-                        atendentes={atendentes}
-                        onSelecionarThread={onSelecionarThread}
-                        podeInteragir={podeInteragir}
-                      />
-                    );
-                  })
-                )}
-              </div>
-            </div>
-          );
-        })}
-        </>
+            );
+          })
         )}
       </div>
 
