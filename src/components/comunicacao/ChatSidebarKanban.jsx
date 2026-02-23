@@ -216,6 +216,55 @@ export default function ChatSidebarKanban({ threads, threadAtiva, onSelecionarTh
     });
   }, [threads, integracoes]);
 
+  // Kanban por usuário: agrupar threads por atendente atribuído
+  const colunasPorUsuario = React.useMemo(() => {
+    const externas = threadsFiltradas.filter(t =>
+      t.thread_type === 'contact_external' || (!t.thread_type && t.contact_id)
+    );
+
+    const norm = (v) => String(v || '').toLowerCase().trim();
+    const mapa = {};
+
+    // Coluna "Minhas" sempre primeiro
+    mapa['__minhas__'] = { id: '__minhas__', nome: 'Minhas Conversas', isMinhas: true, threads: [] };
+
+    externas.forEach(thread => {
+      const uid = thread.assigned_user_id;
+      if (!uid) {
+        if (!mapa['__sem_atendente__']) {
+          mapa['__sem_atendente__'] = { id: '__sem_atendente__', nome: 'Não Atribuídas', isSemAtendente: true, threads: [] };
+        }
+        mapa['__sem_atendente__'].threads.push(thread);
+        return;
+      }
+
+      if (norm(uid) === norm(usuarioAtual?.id)) {
+        mapa['__minhas__'].threads.push(thread);
+        return;
+      }
+
+      if (!mapa[uid]) {
+        const atendente = atendentes.find(a => a.id === uid);
+        const nome = atendente?.full_name || atendente?.email || uid.substring(0, 8);
+        mapa[uid] = { id: uid, nome, threads: [], atendente };
+      }
+      mapa[uid].threads.push(thread);
+    });
+
+    Object.values(mapa).forEach(col => {
+      col.threads.sort((a, b) => new Date(b.last_message_at || 0) - new Date(a.last_message_at || 0));
+    });
+
+    // Ordenar: minhas primeiro, depois por nome, sem atendente por último
+    return Object.values(mapa).sort((a, b) => {
+      if (a.isMinhas) return -1;
+      if (b.isMinhas) return 1;
+      if (a.isSemAtendente) return 1;
+      if (b.isSemAtendente) return -1;
+      return a.nome.localeCompare(b.nome);
+    }).filter(c => c.threads.length > 0);
+  }, [threadsFiltradas, usuarioAtual, atendentes]);
+
   const corConfig = {
     blue: 'bg-blue-600', green: 'bg-green-600', purple: 'bg-purple-600',
     orange: 'bg-orange-600', pink: 'bg-pink-600', teal: 'bg-teal-600',
