@@ -193,7 +193,7 @@ INSTRUÇÕES:
   if (!visible) return null;
 
   return (
-    <div className="border-t border-purple-200 bg-gradient-to-b from-purple-50 to-white">
+    <div className="absolute bottom-full mb-2 left-2 right-2 z-50 rounded-xl shadow-2xl border border-purple-200 bg-white overflow-hidden" style={{ maxHeight: '320px' }}>
       {/* Header */}
       <div className="flex items-center justify-between px-3 py-2 border-b border-purple-100">
         <div className="flex items-center gap-2">
