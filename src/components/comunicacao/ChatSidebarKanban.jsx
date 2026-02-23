@@ -250,13 +250,13 @@ export default function ChatSidebarKanban({ threads, threadAtiva, onSelecionarTh
                   <div className={`w-2 h-2 rounded-full flex-shrink-0 ${dotCor}`} />
                   <span className="text-white font-semibold text-xs truncate">{coluna.nome}</span>
                 </div>
-                <div className="flex items-center gap-1 flex-shrink-0">
+                <div className="flex items-center gap-1.5 flex-shrink-0">
                   {totalNaoLidas > 0 && (
-                    <Badge className="rounded-full min-w-[18px] h-4 flex items-center justify-center p-0 px-1 bg-white/30 text-white text-[9px] font-bold border-0">
+                    <Badge className="rounded-full min-w-[18px] h-4 flex items-center justify-center p-0 px-1 bg-amber-400 text-white text-[9px] font-bold border-0">
                       {totalNaoLidas}
                     </Badge>
                   )}
-                  <span className="text-white/70 text-[9px]">{coluna.threads.length}</span>
+                  <span className="text-white/80 text-[9px] font-medium">{coluna.threads.length}</span>
                 </div>
               </div>
               <div className="flex-1 overflow-y-auto p-1.5 space-y-1.5">
