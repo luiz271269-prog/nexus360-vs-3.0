@@ -1,6 +1,6 @@
 import React from "react";
 import { format } from "date-fns";
-import { CheckCheck, Image, Video, Mic, FileText, MapPin, Phone as PhoneIcon, UserCheck, Badge as BadgeIcon } from "lucide-react";
+import { CheckCheck, Image, Video, Mic, FileText, MapPin, Phone as PhoneIcon, UserCheck, Badge as BadgeIcon, Columns, Users } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { getUserDisplayName } from "../lib/userHelpers";
 
