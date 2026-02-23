@@ -2669,22 +2669,7 @@ ${conteudoMensagem}${dadosExtraidos?.observacoes_extraidas ? `\n\n📋 IA: ${dad
         </div>
       )}
 
-      {/* NÍVEL 2: 🧠 ASSISTENTE IA (sugestões + rascunho por keywords + refinamento de tom) */}
-      {mostrarSugestor && !mostrarReativacaoRapida && (
-        <AIResponseAssistant
-          threadId={thread?.id}
-          contactId={thread?.contact_id}
-          ultimaMensagemCliente={ultimaMensagemCliente}
-          visible={mostrarSugestor}
-          onClose={() => setMostrarSugestor(false)}
-          onUseResposta={(texto) => {
-            // Copiar para área de transferência - o usuário cola no campo
-            navigator.clipboard.writeText(texto).then(() => {
-              toast.success('✅ Resposta copiada! Cole no campo de mensagem (Ctrl+V).');
-            });
-          }}
-        />
-      )}
+      {/* NÍVEL 2: 🧠 ASSISTENTE IA - renderizado dentro do MessageInput acima */}
 
       {/* Modal removido - agora usa MediaAttachmentSystem */}
 
