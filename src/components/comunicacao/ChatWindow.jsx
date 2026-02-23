@@ -2669,30 +2669,21 @@ ${conteudoMensagem}${dadosExtraidos?.observacoes_extraidas ? `\n\n📋 IA: ${dad
         </div>
       )}
 
-      {/* NÍVEL 2: 🧠 ANÁLISE COMPLETA (50 mensagens + comportamento) */}
-      {/* Aparece quando: cliente enviou mensagem nova, análise profunda */}
-      {mostrarSugestor && !mostrarReativacaoRapida && !thread?.metadata?.ultima_mensagem_origem === 'broadcast_massa' && (
-        <div className="px-3 pb-3">
-          <div className="mb-2 flex items-center gap-2 px-3 py-1.5 bg-green-50 border border-green-200 rounded-lg">
-            <div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse"></div>
-            <p className="text-xs text-green-700 font-medium">
-              🧠 Sequência 2: Análise completa (últimas 50 mensagens)
-            </p>
-          </div>
-          <div className="border-2 border-purple-200 rounded-lg bg-gradient-to-br from-purple-50 to-indigo-50 shadow-md">
-            <SugestorRespostasRapidas
-              mensagemCliente={ultimaMensagemCliente}
-              threadId={thread.id}
-              contactId={thread.contact_id}
-              onUseResposta={(conteudo) => {
-                setMostrarSugestor(false);
-                toast.success('🧠 Sugestão completa copiada! Cole no campo de mensagem.');
-                navigator.clipboard.writeText(conteudo);
-              }}
-              onClose={() => setMostrarSugestor(false)}
-            />
-          </div>
-        </div>
+      {/* NÍVEL 2: 🧠 ASSISTENTE IA (sugestões + rascunho por keywords + refinamento de tom) */}
+      {mostrarSugestor && !mostrarReativacaoRapida && (
+        <AIResponseAssistant
+          threadId={thread?.id}
+          contactId={thread?.contact_id}
+          ultimaMensagemCliente={ultimaMensagemCliente}
+          visible={mostrarSugestor}
+          onClose={() => setMostrarSugestor(false)}
+          onUseResposta={(texto) => {
+            // Copiar para área de transferência - o usuário cola no campo
+            navigator.clipboard.writeText(texto).then(() => {
+              toast.success('✅ Resposta copiada! Cole no campo de mensagem (Ctrl+V).');
+            });
+          }}
+        />
       )}
 
       {/* Modal removido - agora usa MediaAttachmentSystem */}
