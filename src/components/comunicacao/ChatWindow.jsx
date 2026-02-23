@@ -2118,20 +2118,10 @@ ${conteudoMensagem}${dadosExtraidos?.observacoes_extraidas ? `\n\n📋 IA: ${dad
 
   }
 
-  // ✅ NÃO bloquear a tela esperando contato - mostrar mensagens imediatamente
-
-  // Nome formatado: Empresa + Cargo + Nome
-  let nomeContato = "";
-  if (contatoCompleto?.empresa) nomeContato += contatoCompleto.empresa;
-  if (contatoCompleto?.cargo) nomeContato += (nomeContato ? " - " : "") + contatoCompleto.cargo;
-  if (contatoCompleto?.nome && contatoCompleto.nome !== contatoCompleto.telefone) {
-    nomeContato += (nomeContato ? " - " : "") + contatoCompleto.nome;
-  }
-  if (!nomeContato || nomeContato.trim() === '') {
-    nomeContato = contatoCompleto?.telefone || thread?.contato?.telefone || 'Contato';
-  }
-
-  const telefoneExibicao = contatoFallback?.telefone || contatoFallback?.celular || 'Sem telefone';
+  const contatoFallback = contatoCompleto || thread?.contato || null;
+  const _c = contatoFallback;
+  let nomeContato = [_c?.empresa, _c?.cargo, (_c?.nome !== _c?.telefone ? _c?.nome : null)].filter(Boolean).join(' - ') || _c?.telefone || 'Contato';
+  const telefoneExibicao = _c?.telefone || _c?.celular || 'Sem telefone';
 
   const tipoAtual = TIPOS_CONTATO.find((t) => t.value === contatoCompleto?.tipo_contato);
 
