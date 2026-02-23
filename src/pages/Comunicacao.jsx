@@ -1399,7 +1399,7 @@ export default function Comunicacao() {
     // 3. Enviar para servidor em background
     try {
       const contatoAtual = contatos.find((c) => c.id === threadAtiva.contact_id) || contatoPreCarregado;
-      const telefone = contatoAtual?.telefone || contatoAtual?.celular;
+      const telefone = contatoAtual?.telefone || contatoAtual?.celular || threadAtiva?.last_message_content && null;
 
       if (!telefone) {
         throw new Error('Contato sem telefone cadastrado');
