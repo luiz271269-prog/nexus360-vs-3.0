@@ -295,7 +295,7 @@ export default function ModalEnvioMassa({ isOpen, onClose, contatosSelecionados,
           </div>
         )}
 
-        <DialogFooter>
+        <DialogFooter className="flex items-center gap-2 justify-end">
           <Button
             variant="outline"
             onClick={onClose}
