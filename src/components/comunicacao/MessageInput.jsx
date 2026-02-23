@@ -283,7 +283,7 @@ export default function MessageInput({
       <AIResponseAssistant
         visible={mostrarSugestor}
         thread={thread}
-        mensagens={[]}
+        mensagens={mensagensContexto}
         nomeContato={nomeContato}
         ultimaMensagemCliente={ultimaMensagemCliente}
         onSugestaoSelecionada={(texto) => setMensagemTexto(texto)}
