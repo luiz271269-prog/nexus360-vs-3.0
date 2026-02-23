@@ -1709,31 +1709,23 @@ export default function ChatWindow({
     return () => container.removeEventListener('scroll', handleScroll);
   }, [thread?.id, thread?.contact_id, thread?.thread_type, hasMoreMessages, oldestLoadedTimestamp, queryClient]);
 
+  // ✅ Scroll só na TROCA de thread (não a cada nova mensagem)
+  const prevThreadIdRef = React.useRef(null);
+  const scrollDoneRef = React.useRef(false);
   React.useEffect(() => {
     if (!mensagens.length) return;
-
-    const primeiraLidaIndex = mensagens.findIndex(
-      (m) => m.sender_type === 'contact' && m.status !== 'lida' && m.status !== 'apagada'
-    );
-
-    // Delay maior para garantir DOM renderizado
-    const timer = setTimeout(() => {
-      if (primeiraLidaIndex !== -1 && thread?.unread_count > 0) {
-        if (unreadSeparatorRef.current) {
-          unreadSeparatorRef.current.scrollIntoView({
-            behavior: 'smooth',
-            block: 'center'
-          });
-        } else {
-          messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-        }
+    if (prevThreadIdRef.current !== thread?.id) { prevThreadIdRef.current = thread?.id; scrollDoneRef.current = false; }
+    if (scrollDoneRef.current) return;
+    const unreadIdx = mensagens.findIndex(m => m.sender_type === 'contact' && m.status !== 'lida' && m.status !== 'apagada');
+    const t = setTimeout(() => {
+      scrollDoneRef.current = true;
+      if (unreadIdx !== -1 && thread?.unread_count > 0 && unreadSeparatorRef.current) {
+        unreadSeparatorRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
       } else {
-        // ✅ Scroll para última mensagem (mais recente)
         messagesEndRef.current?.scrollIntoView({ behavior: 'instant' });
       }
-    }, 300);
-
-    return () => clearTimeout(timer);
+    }, 150);
+    return () => clearTimeout(t);
   }, [mensagens.length, thread?.id, thread?.unread_count]);
 
   // ✅ Buscar análise comportamental do contato
