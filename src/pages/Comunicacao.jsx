@@ -826,7 +826,7 @@ export default function Comunicacao() {
   const handleSelecionarThread = React.useCallback(async (threadData) => {
     // ✅ Aceita { id, contatoPreCarregado } ou thread direta
     const thread = threadData.id ? { id: threadData.id } : threadData;
-    const contatoPre = threadData.contatoPreCarregado || null;
+    const contatoPre = threadData.contatoPreCarregado || threadData.contato || null;
     
     console.log('🖱️ [Comunicacao] Selecionando:', thread.id, contatoPre ? '(com contato pré-carregado)' : '');
     
