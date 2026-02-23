@@ -273,8 +273,8 @@ INSTRUÇÕES:
         </button>
       </div>
 
-      {/* Conteúdo com scroll */}
-      <div className="p-2 overflow-y-auto" style={{ maxHeight: '230px' }}>
+      {/* Conteúdo sem altura fixa - cresce com o conteúdo */}
+      <div className="p-2">
         {/* ABA SUGESTÕES */}
         {aba === 'sugestoes' && (
           <div>
