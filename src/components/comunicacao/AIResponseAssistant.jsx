@@ -352,9 +352,15 @@ INSTRUÇÕES:
               <div className="space-y-2">
                 <textarea
                   value={rascunhoEditado}
-                  onChange={(e) => setRascunhoEditado(e.target.value)}
-                  rows={3}
-                  className="w-full px-2.5 py-1.5 text-xs border border-purple-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-purple-400 bg-white resize-none"
+                  onChange={(e) => {
+                    setRascunhoEditado(e.target.value);
+                    e.target.style.height = 'auto';
+                    e.target.style.height = e.target.scrollHeight + 'px';
+                  }}
+                  ref={(el) => {
+                    if (el) { el.style.height = 'auto'; el.style.height = el.scrollHeight + 'px'; }
+                  }}
+                  className="w-full px-2.5 py-1.5 text-xs border border-purple-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-purple-400 bg-white resize-none overflow-hidden"
                 />
                 <div className="flex gap-1.5">
                   <button
