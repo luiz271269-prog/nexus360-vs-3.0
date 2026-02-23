@@ -47,6 +47,7 @@ import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import EmojiPickerButton from './EmojiPickerButton';
 import SeletorPromocoesAtivas from '../automacao/SeletorPromocoesAtivas';
+import AIResponseAssistant from './AIResponseAssistant';
 
 export default function MessageInput({
   onSendMessage,
