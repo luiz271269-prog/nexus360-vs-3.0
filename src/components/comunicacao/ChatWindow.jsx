@@ -2118,16 +2118,7 @@ ${conteudoMensagem}${dadosExtraidos?.observacoes_extraidas ? `\n\n📋 IA: ${dad
 
   }
 
-  if (carregandoContato && !mostrarInterfaceBroadcast) {
-    return (
-      <div className="flex items-center justify-center h-full bg-slate-50">
-        <div className="text-center">
-          <Loader2 className="w-8 h-8 animate-spin text-orange-500 mx-auto mb-4" />
-          <p className="text-slate-600">Carregando informações do contato...</p>
-        </div>
-      </div>);
-
-  }
+  // ✅ NÃO bloquear a tela esperando contato - mostrar mensagens imediatamente
 
   // Nome formatado: Empresa + Cargo + Nome
   let nomeContato = "";
