@@ -280,16 +280,36 @@ export default function ChatSidebarKanban({ threads, threadAtiva, onSelecionarTh
 
   return (
     <div className="flex flex-col h-full min-h-0">
-      {threadAtiva && onVoltar && (
-        <div className="flex-shrink-0 px-2 py-1.5 bg-slate-800 border-b border-slate-700 flex items-center">
+      {/* Toolbar: voltar + toggle modo */}
+      <div className="flex-shrink-0 px-2 py-1.5 bg-slate-800 border-b border-slate-700 flex items-center justify-between gap-2">
+        {threadAtiva && onVoltar ? (
           <button onClick={onVoltar} className="flex items-center gap-1.5 text-white text-xs font-medium hover:text-amber-400 transition-colors">
             <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
             </svg>
-            Voltar ao Kanban
+            Voltar
+          </button>
+        ) : <span />}
+        <div className="flex items-center gap-1 bg-slate-700 rounded-lg p-0.5">
+          <button
+            onClick={() => setKanbanMode('integracao')}
+            className={`flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-medium transition-colors ${kanbanMode === 'integracao' ? 'bg-orange-500 text-white' : 'text-slate-300 hover:text-white'}`}
+            title="Por canal/integração"
+          >
+            <Columns className="w-3 h-3" />
+            Canal
+          </button>
+          <button
+            onClick={() => setKanbanMode('usuario')}
+            className={`flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-medium transition-colors ${kanbanMode === 'usuario' ? 'bg-orange-500 text-white' : 'text-slate-300 hover:text-white'}`}
+            title="Por atendente"
+          >
+            <Users className="w-3 h-3" />
+            Atendente
           </button>
         </div>
-      )}
+      </div>
+
       <div className="flex gap-2 flex-1 overflow-x-auto p-2 bg-slate-100 min-h-0">
         {/* ── COLUNA FIXA: Minhas Conversas ── */}
         <div className="flex flex-col flex-shrink-0 w-52 min-w-[200px] bg-slate-50 rounded-xl border-2 border-orange-400 overflow-hidden shadow-md sticky left-0 z-10">
