@@ -168,6 +168,42 @@ export default function ChatSidebarKanban({ threads, threadAtiva, onSelecionarTh
       .sort((a, b) => new Date(b.last_message_at || 0) - new Date(a.last_message_at || 0));
   }, [threadsFiltradas, usuarioAtual]);
 
+  // Agrupar threads externas por USUÁRIO
+  const colunasPorUsuario = React.useMemo(() => {
+    const externas = threadsFiltradas.filter(t =>
+      t.thread_type === 'contact_external' || (!t.thread_type && t.contact_id)
+    );
+
+    const mapa = {};
+
+    // Coluna para cada atendente que tem threads
+    externas.forEach(thread => {
+      const uid = thread.assigned_user_id || '__nao_atribuida__';
+      if (!mapa[uid]) {
+        const atendente = atendentes.find(a => a.id === uid);
+        mapa[uid] = {
+          id: uid,
+          nome: uid === '__nao_atribuida__' ? 'Não Atribuídas' : (atendente?.full_name || 'Desconhecido'),
+          avatar: uid === '__nao_atribuida__' ? '?' : (atendente?.full_name?.charAt(0)?.toUpperCase() || '?'),
+          cor: uid === '__nao_atribuida__' ? 'slate' : 'indigo',
+          threads: []
+        };
+      }
+      mapa[uid].threads.push(thread);
+    });
+
+    Object.values(mapa).forEach(col => {
+      col.threads.sort((a, b) => new Date(b.last_message_at || 0) - new Date(a.last_message_at || 0));
+    });
+
+    // Não-atribuídas primeiro, depois por nome
+    return Object.values(mapa).sort((a, b) => {
+      if (a.id === '__nao_atribuida__') return -1;
+      if (b.id === '__nao_atribuida__') return 1;
+      return a.nome.localeCompare(b.nome);
+    });
+  }, [threadsFiltradas, atendentes]);
+
   // Agrupar threads externas por integração
   const colunas = React.useMemo(() => {
     const externas = threadsFiltradas.filter(t =>
