@@ -106,7 +106,7 @@ function ThreadCardKanban({ thread, isAtiva, usuarioAtual, atendentes, onSelecio
   );
 }
 
-export default function ChatSidebarKanban({ threads, threadAtiva, onSelecionarThread, onVoltar, usuarioAtual, integracoes = [], atendentes = [] }) {
+export default function ChatSidebarKanban({ threads, threadAtiva, onSelecionarThread, onVoltar: _onVoltar, usuarioAtual, integracoes = [], atendentes = [] }) {
   // ✅ APLICAR MESMA LÓGICA DE VISIBILIDADE DO CHATWINDOW
   const threadsFiltradas = React.useMemo(() => {
     if (!usuarioAtual || threads.length === 0) return [];
