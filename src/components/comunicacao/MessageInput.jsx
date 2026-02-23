@@ -80,7 +80,8 @@ export default function MessageInput({
   enviandoBroadcast,
   progressoBroadcast,
   pastedImageFromParent,
-  onPastedImageChange
+  onPastedImageChange,
+  mensagensContexto = []
 }) {
   const [mensagemTexto, setMensagemTexto] = useState("");
   const [pastedImage, setPastedImage] = useState(null);
