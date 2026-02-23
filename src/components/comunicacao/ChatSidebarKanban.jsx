@@ -1,6 +1,6 @@
 import React from "react";
 import { format } from "date-fns";
-import { CheckCheck, Image, Video, Mic, FileText, MapPin, Phone as PhoneIcon, UserCheck, Badge as BadgeIcon, Layers, Users } from "lucide-react";
+import { CheckCheck, Image, Video, Mic, FileText, MapPin, Phone as PhoneIcon, UserCheck, Badge as BadgeIcon } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { getUserDisplayName } from "../lib/userHelpers";
 
@@ -107,7 +107,6 @@ function ThreadCardKanban({ thread, isAtiva, usuarioAtual, atendentes, onSelecio
 }
 
 export default function ChatSidebarKanban({ threads, threadAtiva, onSelecionarThread, onVoltar, usuarioAtual, integracoes = [], atendentes = [] }) {
-  const [modoAgrupamento, setModoAgrupamento] = React.useState('integracao'); // 'integracao' | 'usuario'
   // ✅ APLICAR MESMA LÓGICA DE VISIBILIDADE DO CHATWINDOW
   const threadsFiltradas = React.useMemo(() => {
     if (!usuarioAtual || threads.length === 0) return [];
@@ -167,42 +166,6 @@ export default function ChatSidebarKanban({ threads, threadAtiva, onSelecionarTh
       .filter(t => norm(t.assigned_user_id) === norm(usuarioAtual?.id))
       .sort((a, b) => new Date(b.last_message_at || 0) - new Date(a.last_message_at || 0));
   }, [threadsFiltradas, usuarioAtual]);
-
-  // Agrupar threads externas por USUÁRIO
-  const colunasPorUsuario = React.useMemo(() => {
-    const externas = threadsFiltradas.filter(t =>
-      t.thread_type === 'contact_external' || (!t.thread_type && t.contact_id)
-    );
-
-    const mapa = {};
-
-    // Coluna para cada atendente que tem threads
-    externas.forEach(thread => {
-      const uid = thread.assigned_user_id || '__nao_atribuida__';
-      if (!mapa[uid]) {
-        const atendente = atendentes.find(a => a.id === uid);
-        mapa[uid] = {
-          id: uid,
-          nome: uid === '__nao_atribuida__' ? 'Não Atribuídas' : (atendente?.full_name || 'Desconhecido'),
-          avatar: uid === '__nao_atribuida__' ? '?' : (atendente?.full_name?.charAt(0)?.toUpperCase() || '?'),
-          cor: uid === '__nao_atribuida__' ? 'slate' : 'indigo',
-          threads: []
-        };
-      }
-      mapa[uid].threads.push(thread);
-    });
-
-    Object.values(mapa).forEach(col => {
-      col.threads.sort((a, b) => new Date(b.last_message_at || 0) - new Date(a.last_message_at || 0));
-    });
-
-    // Não-atribuídas primeiro, depois por nome
-    return Object.values(mapa).sort((a, b) => {
-      if (a.id === '__nao_atribuida__') return -1;
-      if (b.id === '__nao_atribuida__') return 1;
-      return a.nome.localeCompare(b.nome);
-    });
-  }, [threadsFiltradas, atendentes]);
 
   // Agrupar threads externas por integração
   const colunas = React.useMemo(() => {
@@ -267,38 +230,16 @@ export default function ChatSidebarKanban({ threads, threadAtiva, onSelecionarTh
 
   return (
     <div className="flex flex-col h-full min-h-0">
-      {/* Toolbar: voltar + toggle agrupamento */}
-      <div className="flex-shrink-0 px-2 py-1.5 bg-slate-800 border-b border-slate-700 flex items-center justify-between gap-2">
-        {threadAtiva && onVoltar ? (
+      {threadAtiva && onVoltar && (
+        <div className="flex-shrink-0 px-2 py-1.5 bg-slate-800 border-b border-slate-700 flex items-center">
           <button onClick={onVoltar} className="flex items-center gap-1.5 text-white text-xs font-medium hover:text-amber-400 transition-colors">
             <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
             </svg>
-            Voltar
-          </button>
-        ) : <div />}
-
-        {/* Toggle de agrupamento */}
-        <div className="flex items-center gap-1 bg-slate-700 rounded-lg p-0.5">
-          <button
-            onClick={() => setModoAgrupamento('integracao')}
-            className={`flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-medium transition-colors ${modoAgrupamento === 'integracao' ? 'bg-amber-500 text-white' : 'text-slate-300 hover:text-white'}`}
-            title="Agrupar por conexão"
-          >
-            <Layers className="w-3 h-3" />
-            Conexão
-          </button>
-          <button
-            onClick={() => setModoAgrupamento('usuario')}
-            className={`flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-medium transition-colors ${modoAgrupamento === 'usuario' ? 'bg-amber-500 text-white' : 'text-slate-300 hover:text-white'}`}
-            title="Agrupar por atendente"
-          >
-            <Users className="w-3 h-3" />
-            Atendente
+            Voltar ao Kanban
           </button>
         </div>
-      </div>
-
+      )}
       <div className="flex gap-2 flex-1 overflow-x-auto p-2 bg-slate-100 min-h-0">
         {/* ── COLUNA FIXA: Minhas Conversas ── */}
         <div className="flex flex-col flex-shrink-0 w-52 min-w-[200px] bg-slate-50 rounded-xl border-2 border-orange-400 overflow-hidden shadow-md sticky left-0 z-10">
@@ -328,26 +269,17 @@ export default function ChatSidebarKanban({ threads, threadAtiva, onSelecionarTh
           </div>
         </div>
 
-        {/* ── COLUNAS ── */}
-        {(modoAgrupamento === 'usuario' ? colunasPorUsuario : colunas).map(coluna => {
+        {/* ── COLUNAS POR INTEGRAÇÃO ── */}
+        {colunas.map(coluna => {
           const totalNaoLidas = coluna.threads.reduce((sum, t) => sum + getUnreadCount(t, usuarioAtual?.id), 0);
-
-          // Header: integração usa cor dinâmica, usuário usa índigo/slate
-          const headerCor = modoAgrupamento === 'usuario'
-            ? (coluna.id === '__nao_atribuida__' ? 'bg-slate-500' : 'bg-indigo-600')
-            : (corConfig[coluna.cor] || 'bg-slate-600');
+          const headerCor = corConfig[coluna.cor] || 'bg-slate-600';
+          const dotCor = statusDot[coluna.status] || 'bg-slate-400';
 
           return (
             <div key={coluna.id} className="flex flex-col flex-shrink-0 w-52 min-w-[200px] bg-slate-50 rounded-xl border border-slate-200 overflow-hidden shadow-sm">
               <div className={`${headerCor} px-3 py-2 flex items-center justify-between`}>
                 <div className="flex items-center gap-1.5 min-w-0">
-                  {modoAgrupamento === 'usuario' ? (
-                    <div className="w-5 h-5 rounded-full bg-white/30 flex items-center justify-center text-white font-bold text-[10px] flex-shrink-0">
-                      {coluna.avatar || '?'}
-                    </div>
-                  ) : (
-                    <div className={`w-2 h-2 rounded-full flex-shrink-0 ${statusDot[coluna.status] || 'bg-slate-400'}`} />
-                  )}
+                  <div className={`w-2 h-2 rounded-full flex-shrink-0 ${dotCor}`} />
                   <span className="text-white font-semibold text-xs truncate">{coluna.nome}</span>
                 </div>
                 <div className="flex items-center gap-1 flex-shrink-0">
@@ -364,14 +296,16 @@ export default function ChatSidebarKanban({ threads, threadAtiva, onSelecionarTh
                   <div className="text-center py-8 text-slate-400 text-xs">Sem conversas</div>
                 ) : (
                   coluna.threads.map(thread => {
+                    // Calcular se pode interagir (mesmo sistema do ChatWindow)
                     const norm = (v) => String(v || '').toLowerCase().trim();
-                    const isAtribuidoOuTransferido =
+                    const isAtribuidoOuTransferido = 
                       norm(thread.assigned_user_id) === norm(usuarioAtual?.id) ||
                       norm(thread.transfer_requested_user_id) === norm(usuarioAtual?.id);
                     const isGerente = ['gerente', 'coordenador', 'supervisor'].includes(usuarioAtual?.attendant_role);
                     const isNaoAtribuida = !thread.assigned_user_id && !thread.assigned_user_name && !thread.assigned_user_email;
                     const isCompartilhada = thread.shared_with_users?.includes(usuarioAtual?.id);
                     const isInterno = thread.participants?.includes(usuarioAtual?.id);
+                    
                     const podeInteragir = usuarioAtual?.role === 'admin' || isAtribuidoOuTransferido || isGerente || isNaoAtribuida || isCompartilhada || isInterno;
 
                     return (
