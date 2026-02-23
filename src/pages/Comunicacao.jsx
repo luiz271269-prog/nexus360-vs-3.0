@@ -2370,7 +2370,7 @@ export default function Comunicacao() {
   const threadsParaExibir = temBuscaAtiva ? listaBusca : listaRecentes;
 
   const isManager = usuario?.role === 'admin' || usuario?.role === 'supervisor';
-  const contatoAtivo = threadAtiva ? contatos.find((c) => c.id === threadAtiva.contact_id) : null;
+  const contatoAtivo = threadAtiva ? (contatos.find((c) => c.id === threadAtiva.contact_id) || contatoPreCarregado) : null;
 
   // 📱 MOBILE: controle de "tela" ativa (lista ou chat)
   const [mobileView, setMobileView] = React.useState('lista'); // 'lista' | 'chat'
