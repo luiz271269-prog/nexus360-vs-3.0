@@ -1479,7 +1479,7 @@ export default function Comunicacao() {
 
       toast.error(`❌ Erro ao enviar: ${error.message}`);
     }
-  }, [threadAtiva, usuario, queryClient, contatos]);
+  }, [threadAtiva, usuario, queryClient, contatos, contatoPreCarregado]);
 
 
 
