@@ -1093,26 +1093,23 @@ export default function Comunicacao() {
         cliente_id: dadosContato.cliente_id || null
       });
 
-      // ✅ CIRÚRGICA P4: Validar can_send ANTES de criar thread
-      const integracaoAtiva = integracoes.find((i) => {
-        if (i.status !== 'conectado') return false;
-
-        // Admin pode usar qualquer integração ativa
-        if (usuario.role === 'admin') return true;
-
-        // ✅ CRÍTICO: Verificar can_view E can_send
-        const whatsappPerms = usuario.whatsapp_permissions || [];
-
-        // Sem restrições configuradas = libera (compatibilidade)
-        if (whatsappPerms.length === 0) return true;
-
-        // Buscar permissão específica para esta integração
-        const perm = whatsappPerms.find((p) => p.integration_id === i.id);
-
-        // ✅ AMBAS as permissões devem ser true
-        if (!perm) return false;
-        return perm.can_view === true && perm.can_send === true;
-      });
+      // ✅ Selecionar integração priorizando setor do usuário + corrigindo fallback
+      const _wPerms = usuario.whatsapp_permissions || [];
+      const _setor = usuario.attendant_sector || 'geral';
+      const integracaoAtiva = integracoes
+        .filter((i) => {
+          if (i.status !== 'conectado') return false;
+          if (usuario.role === 'admin') return true;
+          if (_wPerms.length === 0) return true;
+          const p = _wPerms.find((wp) => wp.integration_id === i.id);
+          if (!p) return true; // ✅ FIX: libera quando não há restrição específica
+          return p.can_view === true && p.can_send === true;
+        })
+        .sort((a, b) => {
+          const aM = a.setor_principal === _setor || a.setores_atendidos?.includes(_setor);
+          const bM = b.setor_principal === _setor || b.setores_atendidos?.includes(_setor);
+          return (bM ? 1 : 0) - (aM ? 1 : 0);
+        })[0] || null;
 
       if (!integracaoAtiva) {
         // Contato foi criado mas não há integração permitida
