@@ -2533,6 +2533,8 @@ export default function Comunicacao() {
               <div className="hidden md:flex h-full">
                 <div className={`border-r border-slate-200 bg-white flex flex-col overflow-hidden flex-shrink-0 transition-all duration-300 ${sidebarViewMode === 'kanban' ? (threadAtiva || (modoSelecaoMultipla && (contatosSelecionados.length > 0 || broadcastInterno)) || modoEnvioMassa) ? 'w-80' : 'w-full' : 'w-80'}`}>
                   <SearchAndFilter
+                    sidebarViewMode={sidebarViewMode}
+                    onSidebarViewModeChange={setSidebarViewMode}
                     searchTerm={searchTerm}
                     onSearchChange={setSearchTerm}
                     filterScope={filterScope}
@@ -2558,25 +2560,6 @@ export default function Comunicacao() {
                     isAdmin={usuario?.role === 'admin'}
                     onAbrirDiagnostico={() => toast.info('💡 Use o Unificador Centralizado para corrigir duplicatas')}
                     onDuplicataDetectada={setDuplicataEncontrada} />
-
-                  {/* Toggle de visualização */}
-                  <div className="flex items-center gap-1 px-2 py-1 border-b border-slate-200 bg-slate-50">
-                    <span className="text-[10px] text-slate-500 flex-1">Visualização:</span>
-                    <button
-                      onClick={() => { setSidebarViewMode('list'); localStorage.setItem('sidebarViewMode', 'list'); }}
-                      className={`p-1.5 rounded-md transition-colors ${sidebarViewMode === 'list' ? 'bg-orange-500 text-white' : 'text-slate-500 hover:bg-slate-200'}`}
-                      title="Lista"
-                    >
-                      <LayoutList className="w-3.5 h-3.5" />
-                    </button>
-                    <button
-                      onClick={() => { setSidebarViewMode('kanban'); localStorage.setItem('sidebarViewMode', 'kanban'); }}
-                      className={`p-1.5 rounded-md transition-colors ${sidebarViewMode === 'kanban' ? 'bg-orange-500 text-white' : 'text-slate-500 hover:bg-slate-200'}`}
-                      title="Por instância (Kanban)"
-                    >
-                      <Columns className="w-3.5 h-3.5" />
-                    </button>
-                  </div>
 
                   <div className={`flex-1 overflow-hidden transition-opacity duration-200 ${isPendingFilter ? 'opacity-50' : 'opacity-100'}`}>
                     {sidebarViewMode === 'kanban' ? (
