@@ -29,8 +29,7 @@ const formatarHorario = (timestamp) => {
 
 function ThreadCardKanban({ thread, isAtiva, usuarioAtual, atendentes, onSelecionarThread, podeInteragir }) {
   const contato = thread.contato;
-  const unreadCount = getUnreadCount(thread, usuarioAtual?.id);
-  const hasUnread = unreadCount > 0;
+  const hasUnread = getUnreadCount(thread, usuarioAtual?.id) > 0;
 
   let nomeExibicao = "";
   if (contato?.empresa) nomeExibicao += contato.empresa;
@@ -50,9 +49,6 @@ function ThreadCardKanban({ thread, isAtiva, usuarioAtual, atendentes, onSelecio
   const nomeAtendente = thread.assigned_user_id
     ? getUserDisplayName(thread.assigned_user_id, atendentes)
     : null;
-  const primeiroNomeAtendente = nomeAtendente && nomeAtendente !== 'Usuário não encontrado'
-    ? nomeAtendente.split(' ')[0]
-    : null;
 
   return (
     <div
@@ -60,58 +56,51 @@ function ThreadCardKanban({ thread, isAtiva, usuarioAtual, atendentes, onSelecio
       className={`bg-white rounded-lg border shadow-sm p-2.5 transition-all ${podeInteragir ? 'cursor-pointer hover:shadow-md hover:border-orange-300' : 'cursor-not-allowed opacity-50'} ${isAtiva ? 'border-orange-400 bg-orange-50' : 'border-slate-200'}`}
       title={!podeInteragir ? 'Sem permissão para acessar esta conversa' : ''}
     >
-      {/* Linha 1: Avatar + Conteúdo */}
-      <div className="flex items-start gap-2">
-        {/* Avatar com badge de não lidas sobreposto (igual ao ChatSidebar) */}
-        <div className="relative flex-shrink-0">
-          <div className={`w-10 h-10 rounded-full flex items-center justify-center text-white font-bold text-sm overflow-hidden ${hasUnread ? 'bg-gradient-to-br from-amber-400 to-orange-500' : 'bg-gradient-to-br from-slate-400 to-slate-500'}`}>
-            {contato?.foto_perfil_url ? (
-              <img src={contato.foto_perfil_url} alt="" className="w-full h-full object-cover" onError={(e) => { e.target.style.display = 'none'; }} />
-            ) : (
-              nomeExibicao.charAt(0).toUpperCase()
-            )}
-          </div>
-          {/* Badge de não lidas sobre o avatar - igual ao padrão do ChatSidebar */}
-          {hasUnread && (
-            <div className="absolute -top-1 -right-1 min-w-[18px] h-[18px] bg-gradient-to-r from-amber-400 to-red-500 rounded-full flex items-center justify-center px-1 border-2 border-white shadow-sm">
-              <span className="text-white text-[9px] font-bold leading-none">{unreadCount > 99 ? '99+' : unreadCount}</span>
-            </div>
+      {/* Linha 1: Avatar + Nome + Horário */}
+      <div className="flex items-start gap-2 mb-1.5">
+        <div className={`w-9 h-9 rounded-full flex-shrink-0 flex items-center justify-center text-white font-bold text-sm overflow-hidden ${hasUnread ? 'bg-gradient-to-br from-amber-400 to-orange-500' : 'bg-gradient-to-br from-slate-400 to-slate-500'}`}>
+          {contato?.foto_perfil_url ? (
+            <img src={contato.foto_perfil_url} alt="" className="w-full h-full object-cover" onError={(e) => { e.target.style.display = 'none'; }} />
+          ) : (
+            nomeExibicao.charAt(0).toUpperCase()
           )}
         </div>
-
         <div className="flex-1 min-w-0">
-          {/* Nome + Horário */}
-          <div className="flex items-center justify-between gap-1 mb-0.5">
+          <div className="flex items-center justify-between gap-1">
             <p className={`text-xs font-semibold truncate ${hasUnread ? 'text-slate-900' : 'text-slate-700'}`}>
               {nomeExibicao}
             </p>
-            <span className={`text-[9px] flex-shrink-0 ${hasUnread ? 'text-orange-600 font-semibold' : 'text-slate-400'}`}>
+            <span className={`text-[9px] flex-shrink-0 ${hasUnread ? 'text-orange-600 font-medium' : 'text-slate-400'}`}>
               {formatarHorario(thread.last_message_at)}
             </span>
           </div>
-
           {/* Preview da última mensagem */}
-          <p className="text-[10px] text-slate-500 truncate flex items-center gap-0.5 mb-1.5">
+          <p className="text-[10px] text-slate-500 truncate flex items-center gap-0.5 mt-0.5">
             {thread.last_message_sender === 'user' && <CheckCheck className="w-2.5 h-2.5 text-blue-500 flex-shrink-0" />}
             {thread.last_media_type === 'image' && <Image className="w-2.5 h-2.5 text-blue-500 flex-shrink-0" />}
             {thread.last_media_type === 'audio' && <Mic className="w-2.5 h-2.5 text-green-500 flex-shrink-0" />}
             {thread.last_media_type === 'document' && <FileText className="w-2.5 h-2.5 text-orange-500 flex-shrink-0" />}
             <span className="truncate">{thread.last_message_content || 'Sem mensagens'}</span>
           </p>
-
-          {/* Badges: tipo + atendente */}
-          <div className="flex items-center gap-1 flex-wrap">
-            <span className={`px-1.5 py-0.5 rounded-full text-[9px] font-semibold text-white ${tipoCfg.bg}`}>
-              {tipoCfg.label}
-            </span>
-            {primeiroNomeAtendente && (
-              <span className="px-1.5 py-0.5 rounded-full text-[9px] font-semibold text-white bg-indigo-500 flex items-center gap-0.5">
-                <UserCheck className="w-2.5 h-2.5" />
-                {primeiroNomeAtendente}
-              </span>
-            )}
-          </div>
         </div>
+      </div>
+
+      {/* Linha 2: Badges */}
+      <div className="flex items-center gap-1 flex-wrap">
+        <span className={`px-1.5 py-0.5 rounded-full text-[9px] font-semibold text-white ${tipoCfg.bg}`}>
+          {tipoCfg.label}
+        </span>
+        {hasUnread && (
+          <Badge className="rounded-full min-w-[16px] h-3.5 flex items-center justify-center p-0 px-1 bg-gradient-to-r from-amber-400 to-red-500 text-white text-[9px] font-bold border-0">
+            {getUnreadCount(thread, usuarioAtual?.id)}
+          </Badge>
+        )}
+        {nomeAtendente && nomeAtendente !== 'Usuário não encontrado' && (
+          <span className="px-1.5 py-0.5 rounded-full text-[9px] font-semibold text-white bg-indigo-500 flex items-center gap-0.5">
+            <UserCheck className="w-2.5 h-2.5" />
+            {nomeAtendente.split(' ')[0]}
+          </span>
+        )}
       </div>
     </div>
   );
@@ -237,6 +226,16 @@ export default function ChatSidebarKanban({ threads, threadAtiva, onSelecionarTh
 
   return (
     <div className="flex flex-col h-full min-h-0">
+      {threadAtiva && onVoltar && (
+        <div className="flex-shrink-0 px-2 py-1.5 bg-slate-800 border-b border-slate-700 flex items-center">
+          <button onClick={onVoltar} className="flex items-center gap-1.5 text-white text-xs font-medium hover:text-amber-400 transition-colors">
+            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+            </svg>
+            Voltar ao Kanban
+          </button>
+        </div>
+      )}
       <div className="flex gap-2 flex-1 overflow-x-auto p-2 bg-slate-100 min-h-0">
         {colunas.map(coluna => {
           const totalNaoLidas = coluna.threads.reduce((sum, t) => sum + getUnreadCount(t, usuarioAtual?.id), 0);
@@ -244,19 +243,19 @@ export default function ChatSidebarKanban({ threads, threadAtiva, onSelecionarTh
           const dotCor = statusDot[coluna.status] || 'bg-slate-400';
 
           return (
-            <div key={coluna.id} className="flex flex-col flex-shrink-0 w-64 min-w-[240px] bg-slate-50 rounded-xl border border-slate-200 overflow-hidden shadow-sm">
+            <div key={coluna.id} className="flex flex-col flex-shrink-0 w-52 min-w-[200px] bg-slate-50 rounded-xl border border-slate-200 overflow-hidden shadow-sm">
               <div className={`${headerCor} px-3 py-2 flex items-center justify-between`}>
                 <div className="flex items-center gap-1.5 min-w-0">
                   <div className={`w-2 h-2 rounded-full flex-shrink-0 ${dotCor}`} />
                   <span className="text-white font-semibold text-xs truncate">{coluna.nome}</span>
                 </div>
-                <div className="flex items-center gap-1.5 flex-shrink-0">
+                <div className="flex items-center gap-1 flex-shrink-0">
                   {totalNaoLidas > 0 && (
-                    <Badge className="rounded-full min-w-[18px] h-4 flex items-center justify-center p-0 px-1 bg-amber-400 text-white text-[9px] font-bold border-0">
+                    <Badge className="rounded-full min-w-[18px] h-4 flex items-center justify-center p-0 px-1 bg-white/30 text-white text-[9px] font-bold border-0">
                       {totalNaoLidas}
                     </Badge>
                   )}
-                  <span className="text-white/80 text-[9px] font-medium">{coluna.threads.length}</span>
+                  <span className="text-white/70 text-[9px]">{coluna.threads.length}</span>
                 </div>
               </div>
               <div className="flex-1 overflow-y-auto p-1.5 space-y-1.5">
