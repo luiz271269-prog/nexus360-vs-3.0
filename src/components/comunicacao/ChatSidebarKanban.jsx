@@ -244,7 +244,7 @@ export default function ChatSidebarKanban({ threads, threadAtiva, onSelecionarTh
           const dotCor = statusDot[coluna.status] || 'bg-slate-400';
 
           return (
-            <div key={coluna.id} className="flex flex-col flex-shrink-0 w-52 min-w-[200px] bg-slate-50 rounded-xl border border-slate-200 overflow-hidden shadow-sm">
+            <div key={coluna.id} className="flex flex-col flex-shrink-0 w-64 min-w-[240px] bg-slate-50 rounded-xl border border-slate-200 overflow-hidden shadow-sm">
               <div className={`${headerCor} px-3 py-2 flex items-center justify-between`}>
                 <div className="flex items-center gap-1.5 min-w-0">
                   <div className={`w-2 h-2 rounded-full flex-shrink-0 ${dotCor}`} />
