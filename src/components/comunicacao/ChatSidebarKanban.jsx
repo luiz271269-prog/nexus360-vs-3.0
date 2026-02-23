@@ -159,6 +159,14 @@ export default function ChatSidebarKanban({ threads, threadAtiva, onSelecionarTh
     });
   }, [threads, usuarioAtual]);
 
+  // Coluna fixa: "Minhas Conversas" (atribuídas ao usuário logado)
+  const minhasConversas = React.useMemo(() => {
+    const norm = (v) => String(v || '').toLowerCase().trim();
+    return threadsFiltradas
+      .filter(t => norm(t.assigned_user_id) === norm(usuarioAtual?.id))
+      .sort((a, b) => new Date(b.last_message_at || 0) - new Date(a.last_message_at || 0));
+  }, [threadsFiltradas, usuarioAtual]);
+
   // Agrupar threads externas por integração
   const colunas = React.useMemo(() => {
     const externas = threadsFiltradas.filter(t =>
@@ -189,7 +197,6 @@ export default function ChatSidebarKanban({ threads, threadAtiva, onSelecionarTh
       if (integId && mapa[integId]) {
         mapa[integId].threads.push(thread);
       } else {
-        // Thread sem integração conhecida → coluna "Outras"
         if (!mapa['outras']) {
           mapa['outras'] = { id: 'outras', nome: 'Outras', numero: '', status: 'desconectado', cor: 'slate', threads: [] };
         }
@@ -197,15 +204,12 @@ export default function ChatSidebarKanban({ threads, threadAtiva, onSelecionarTh
       }
     });
 
-    // Ordenar threads dentro de cada coluna por última mensagem
     Object.values(mapa).forEach(col => {
       col.threads.sort((a, b) => new Date(b.last_message_at || 0) - new Date(a.last_message_at || 0));
     });
 
-    // ✅ Filtrar coluna "Outras" só para ADM
     const isAdmin = usuarioAtual?.role === 'admin';
     return Object.values(mapa).filter(c => {
-      // Ocultar coluna "Outras" para não-admin
       if (c.id === 'outras' && !isAdmin) return false;
       return c.threads.length > 0 || integracoes.find(i => i.id === c.id);
     });
