@@ -2531,7 +2531,7 @@ export default function Comunicacao() {
               <>
               {/* ── DESKTOP: layout lado a lado ── */}
               <div className="hidden md:flex h-full">
-                <div className={`border-r border-slate-200 bg-white flex flex-col overflow-hidden flex-shrink-0 ${sidebarViewMode === 'kanban' ? (threadAtiva ? 'w-72' : 'w-full') : 'w-80'}`}>
+                <div className={`border-r border-slate-200 bg-white flex flex-col overflow-hidden flex-shrink-0 transition-all duration-300 ${sidebarViewMode === 'kanban' ? (threadAtiva || (modoSelecaoMultipla && (contatosSelecionados.length > 0 || broadcastInterno)) || modoEnvioMassa) ? 'w-80' : 'w-full' : 'w-80'}`}>
                   <SearchAndFilter
                     searchTerm={searchTerm}
                     onSearchChange={setSearchTerm}
