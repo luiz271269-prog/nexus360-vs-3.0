@@ -2643,8 +2643,8 @@ export default function Comunicacao() {
                           atendentes={atendentes} filterScope={filterScope} selectedIntegrationId={selectedIntegrationId}
                           selectedAttendantId={selectedAttendantId} contatoAtivo={contatoAtivo} />
                       </div>
-                      {showContactInfo && contatoAtivo &&
-                        <ContactInfoPanel contact={contatoAtivo} threadAtual={threadAtiva}
+                      {showContactInfo && (contatoAtivo || contatoPreCarregado) &&
+                        <ContactInfoPanel contact={contatoAtivo || contatoPreCarregado} threadAtual={threadAtiva}
                           onClose={() => setShowContactInfo(false)} onUpdate={handleAtualizarContato}
                           atendentes={atendentes} />}
                     </>
