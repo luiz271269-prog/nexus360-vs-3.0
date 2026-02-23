@@ -438,6 +438,7 @@ export default function SearchAndFilter({
             </div>
           </PopoverContent>
         </Popover>
+        </div>
       </div>
 
       {/* Chips de filtros ativos */}
