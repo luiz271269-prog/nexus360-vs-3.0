@@ -226,7 +226,6 @@ export default function ChatSidebarKanban({ threads, threadAtiva, onSelecionarTh
 
   return (
     <div className="flex flex-col h-full min-h-0">
-      {/* Botão "Voltar ao Kanban" NUNCA fica aqui - é responsabilidade do pai (Comunicacao.jsx) */}
       <div className="flex gap-2 flex-1 overflow-x-auto p-2 bg-slate-100 min-h-0">
         {colunas.map(coluna => {
           const totalNaoLidas = coluna.threads.reduce((sum, t) => sum + getUnreadCount(t, usuarioAtual?.id), 0);
