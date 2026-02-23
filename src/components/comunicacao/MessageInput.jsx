@@ -676,7 +676,7 @@ export default function MessageInput({
             )}
           </Button>
         )}
-      </div>
+        </div>
       </div>
     </form>
   );
