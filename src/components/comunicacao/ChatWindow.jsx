@@ -1581,7 +1581,7 @@ export default function ChatWindow({
 
   // marcarComoLidaMutation e marcarLidaAoResponder estão declarados ACIMA (antes de handleEnviarFromInput)
 
-  // ✅ INICIALIZAR oldestLoadedTimestamp quando mensagens carregam
+  // ✅ INICIALIZAR oldestLoadedTimestamp quando mensagens carregam (apenas na troca de thread)
   React.useEffect(() => {
     if (mensagens.length > 0) {
       const oldest = mensagens[0]?.sent_at || mensagens[0]?.created_date;
@@ -1591,7 +1591,7 @@ export default function ChatWindow({
       setOldestLoadedTimestamp(null);
       setHasMoreMessages(true);
     }
-  }, [mensagens.length, thread?.id]);
+  }, [thread?.id]); // ✅ CORRIGIDO: dependência apenas em thread?.id, não em mensagens.length
 
   // ✅ SCROLL LAZY: Detectar quando usuário sobe para buscar histórico
   React.useEffect(() => {
