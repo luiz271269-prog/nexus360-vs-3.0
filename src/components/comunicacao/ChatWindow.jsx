@@ -2131,7 +2131,7 @@ ${conteudoMensagem}${dadosExtraidos?.observacoes_extraidas ? `\n\n📋 IA: ${dad
     nomeContato = contatoCompleto?.telefone || thread?.contato?.telefone || 'Contato';
   }
 
-  const telefoneExibicao = contatoCompleto?.telefone || thread?.contato?.telefone || contatoCompleto?.celular || thread?.contato?.celular || 'Sem telefone';
+  const telefoneExibicao = contatoFallback?.telefone || contatoFallback?.celular || 'Sem telefone';
 
   const tipoAtual = TIPOS_CONTATO.find((t) => t.value === contatoCompleto?.tipo_contato);
 
