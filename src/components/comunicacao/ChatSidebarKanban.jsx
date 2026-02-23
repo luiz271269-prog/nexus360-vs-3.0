@@ -280,7 +280,7 @@ export default function ChatSidebarKanban({ threads, threadAtiva, onSelecionarTh
 
   return (
     <div className="flex flex-col h-full min-h-0">
-      {/* Toolbar: voltar + toggle modo */}
+      {/* Toolbar: voltar + busca + toggle modo */}
       <div className="flex-shrink-0 px-2 py-1.5 bg-slate-800 border-b border-slate-700 flex items-center justify-between gap-2">
         {threadAtiva && onVoltar ? (
           <button onClick={onVoltar} className="flex items-center gap-1.5 text-white text-xs font-medium hover:text-amber-400 transition-colors">
