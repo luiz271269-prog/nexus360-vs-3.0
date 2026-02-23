@@ -193,8 +193,7 @@ INSTRUÇÕES:
   if (!visible) return null;
 
   return (
-    <div className="absolute bottom-full right-0 mb-2 z-50 w-full sm:w-[380px] rounded-2xl shadow-2xl border border-purple-200/80 bg-white/95 backdrop-blur-sm overflow-hidden"
-      style={{ maxHeight: '340px' }}>
+    <div className="absolute bottom-full right-0 mb-2 z-50 w-full sm:w-[380px] rounded-2xl shadow-2xl border border-purple-200/80 bg-white/95 backdrop-blur-sm overflow-hidden">
       
       {/* Header compacto */}
       <div className="flex items-center justify-between px-3 py-2 bg-gradient-to-r from-purple-600 to-indigo-600">
