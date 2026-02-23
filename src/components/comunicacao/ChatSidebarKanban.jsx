@@ -328,17 +328,26 @@ export default function ChatSidebarKanban({ threads, threadAtiva, onSelecionarTh
           </div>
         </div>
 
-        {/* ── COLUNAS POR INTEGRAÇÃO ── */}
-        {colunas.map(coluna => {
+        {/* ── COLUNAS ── */}
+        {(modoAgrupamento === 'usuario' ? colunasPorUsuario : colunas).map(coluna => {
           const totalNaoLidas = coluna.threads.reduce((sum, t) => sum + getUnreadCount(t, usuarioAtual?.id), 0);
-          const headerCor = corConfig[coluna.cor] || 'bg-slate-600';
-          const dotCor = statusDot[coluna.status] || 'bg-slate-400';
+
+          // Header: integração usa cor dinâmica, usuário usa índigo/slate
+          const headerCor = modoAgrupamento === 'usuario'
+            ? (coluna.id === '__nao_atribuida__' ? 'bg-slate-500' : 'bg-indigo-600')
+            : (corConfig[coluna.cor] || 'bg-slate-600');
 
           return (
             <div key={coluna.id} className="flex flex-col flex-shrink-0 w-52 min-w-[200px] bg-slate-50 rounded-xl border border-slate-200 overflow-hidden shadow-sm">
               <div className={`${headerCor} px-3 py-2 flex items-center justify-between`}>
                 <div className="flex items-center gap-1.5 min-w-0">
-                  <div className={`w-2 h-2 rounded-full flex-shrink-0 ${dotCor}`} />
+                  {modoAgrupamento === 'usuario' ? (
+                    <div className="w-5 h-5 rounded-full bg-white/30 flex items-center justify-center text-white font-bold text-[10px] flex-shrink-0">
+                      {coluna.avatar || '?'}
+                    </div>
+                  ) : (
+                    <div className={`w-2 h-2 rounded-full flex-shrink-0 ${statusDot[coluna.status] || 'bg-slate-400'}`} />
+                  )}
                   <span className="text-white font-semibold text-xs truncate">{coluna.nome}</span>
                 </div>
                 <div className="flex items-center gap-1 flex-shrink-0">
@@ -355,16 +364,14 @@ export default function ChatSidebarKanban({ threads, threadAtiva, onSelecionarTh
                   <div className="text-center py-8 text-slate-400 text-xs">Sem conversas</div>
                 ) : (
                   coluna.threads.map(thread => {
-                    // Calcular se pode interagir (mesmo sistema do ChatWindow)
                     const norm = (v) => String(v || '').toLowerCase().trim();
-                    const isAtribuidoOuTransferido = 
+                    const isAtribuidoOuTransferido =
                       norm(thread.assigned_user_id) === norm(usuarioAtual?.id) ||
                       norm(thread.transfer_requested_user_id) === norm(usuarioAtual?.id);
                     const isGerente = ['gerente', 'coordenador', 'supervisor'].includes(usuarioAtual?.attendant_role);
                     const isNaoAtribuida = !thread.assigned_user_id && !thread.assigned_user_name && !thread.assigned_user_email;
                     const isCompartilhada = thread.shared_with_users?.includes(usuarioAtual?.id);
                     const isInterno = thread.participants?.includes(usuarioAtual?.id);
-                    
                     const podeInteragir = usuarioAtual?.role === 'admin' || isAtribuidoOuTransferido || isGerente || isNaoAtribuida || isCompartilhada || isInterno;
 
                     return (
