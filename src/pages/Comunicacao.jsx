@@ -1398,12 +1398,12 @@ export default function Comunicacao() {
 
     // 3. Enviar para servidor em background
     try {
-      const contatoAtual = contatos.find((c) => c.id === threadAtiva.contact_id) || contatoPreCarregado;
+      const _c = contatos.find((c) => c.id === threadAtiva.contact_id) || contatoPreCarregado;
+      const contatoAtual = (!_c?.telefone && !_c?.celular && threadAtiva.contact_id)
+        ? await base44.entities.Contact.get(threadAtiva.contact_id).catch(() => _c)
+        : _c;
       const telefone = contatoAtual?.telefone || contatoAtual?.celular;
-
-      if (!telefone) {
-        throw new Error('Contato sem telefone cadastrado');
-      }
+      if (!telefone) { throw new Error('Contato sem telefone cadastrado'); }
 
       const payload = {
         integration_id: integrationId,
