@@ -1957,42 +1957,7 @@ export default function Comunicacao() {
     console.log('[COMUNICACAO] 📊 Total de threads filtradas:', threadsFiltrados.length);
 
     // 🔍 LOG RESUMIDO: Threads bloqueadas por etapa
-    const bloqueadasPorEtapa = logsFiltragem.
-    filter((l) => !l.passou).
-    reduce((acc, log) => {
-      acc[log.etapa] = (acc[log.etapa] || 0) + 1;
-      return acc;
-    }, {});
 
-    if (Object.keys(bloqueadasPorEtapa).length > 0) {
-      console.log('[COMUNICACAO] 🚫 Threads bloqueadas por etapa:', bloqueadasPorEtapa);
-    }
-
-    // Expor logs para diagnóstico
-    window._logsFiltragem = logsFiltragem;
-
-    // 🔍 DIAGNÓSTICO: Threads de usuários que também são contatos
-    if (DEBUG_VIS) {
-      const threadsDeUsuariosContatos = threadsUnicas.filter((t) => {
-        if (!t.contact_id) return false;
-        const contato = contatosMap.get(t.contact_id);
-        if (!contato) return false;
-        return atendentes.some((a) =>
-        a.email?.toLowerCase() === contato.email?.toLowerCase() ||
-        a.full_name?.toLowerCase() === contato.nome?.toLowerCase()
-        );
-      });
-
-      if (threadsDeUsuariosContatos.length > 0) {
-        console.group('[COMUNICACAO] 🔍 THREADS DE USUÁRIOS-CONTATOS');
-        threadsDeUsuariosContatos.forEach((t) => {
-          const contato = contatosMap.get(t.contact_id);
-          const passou = threadsFiltrados.some((tf) => tf.id === t.id);
-          console.log(`${passou ? '✅' : '❌'} Thread ${t.id.substring(0, 8)} - ${contato?.nome} (${t.thread_type}) - ${passou ? 'PASSOU' : 'BLOQUEADO'}`);
-        });
-        console.groupEnd();
-      }
-    }
 
     // ═══════════════════════════════════════════════════════════════════════════
     // PARTE 2: COM BUSCA - Adicionar contatos sem thread e clientes sem contato
