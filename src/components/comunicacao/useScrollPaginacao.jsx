@@ -19,9 +19,11 @@ export default function useScrollPaginacao({
   const [loadingOlder, setLoadingOlder] = useState(false);
   const [hasMoreMessages, setHasMoreMessages] = useState(true);
   const [oldestLoadedTimestamp, setOldestLoadedTimestamp] = useState(null);
+  const [isHistoryStart, setIsHistoryStart] = useState(false); // ✅ FIX 6: Flag para "início do histórico"
   const chatContainerRef = useRef(null);
   const isLoadingOlderRef = useRef(false);
   const cachedThreadIdsRef = useRef({ contactId: null, threadIds: [] });
+  const abortControllerRef = useRef(null); // ✅ FIX 7: Cancelar requests ao trocar thread
 
   // ✅ FIX 1: Auto-reset ao trocar de thread (não depende do pai chamar initTimestamp)
   useEffect(() => {
