@@ -1175,108 +1175,98 @@ export default function ChatWindow({
 
   // marcarComoLidaMutation e marcarLidaAoResponder estão declarados ACIMA (antes de handleEnviarFromInput)
 
+  // Inicializar timestamp ao trocar de thread
   React.useEffect(() => {
-    if (mensagens.length > 0) { setOldestLoadedTimestamp(mensagens[0]?.sent_at || mensagens[0]?.created_date); setHasMoreMessages(mensagens.length === 20); }
-    else { setOldestLoadedTimestamp(null); setHasMoreMessages(true); }
+    if (mensagens.length > 0) {
+      setOldestLoadedTimestamp(mensagens[0]?.sent_at || mensagens[0]?.created_date);
+      setHasMoreMessages(true); // sempre true — pode ter histórico em threads antigas
+    } else {
+      setOldestLoadedTimestamp(null);
+      setHasMoreMessages(true);
+    }
   }, [thread?.id]);
 
-  // ✅ SCROLL LAZY: Detectar quando usuário sobe para buscar histórico
+  // SCROLL LAZY: ao chegar ≤150px do topo, busca 20 mensagens mais antigas
+  // Inclui TODAS as threads do contato buscadas no banco (não só a thread atual)
   React.useEffect(() => {
     const container = chatContainerRef.current;
     if (!container) return;
 
     const handleScroll = async () => {
-      // Ignorar se já está carregando ou não tem mais mensagens
       if (isLoadingOlderRef.current || !hasMoreMessages || !oldestLoadedTimestamp) return;
+      if (container.scrollTop > 150) return;
 
-      const { scrollTop } = container;
+      console.log('[SCROLL-UP] ⬆️ Próximo do topo - buscando mensagens antigas...');
+      isLoadingOlderRef.current = true;
+      setLoadingOlder(true);
 
-      // Detectar quando está próximo do TOPO (≤150px)
-      if (scrollTop <= 150) {
-        console.log('[SCROLL-UP] ⬆️ Próximo do topo - buscando mensagens antigas...');
-        
-        isLoadingOlderRef.current = true;
-        setLoadingOlder(true);
+      try {
+        const scrollHeightBefore = container.scrollHeight;
+        const scrollTopBefore = container.scrollTop;
 
-        try {
-          // Salvar posição atual antes de carregar mais
-          const scrollHeightBefore = container.scrollHeight;
-          const scrollTopBefore = container.scrollTop;
+        const isThreadInterna = thread?.thread_type === 'team_internal' || thread?.thread_type === 'sector_group';
+        let olderMessages = [];
 
-          // Buscar próximo bloco de mensagens antigas
-          const isThreadInterna = thread?.thread_type === 'team_internal' || thread?.thread_type === 'sector_group';
-          let olderMessages = [];
-
-          if (isThreadInterna) {
-            // Thread interna: busca simples
-            olderMessages = await base44.entities.Message.filter(
-              {
-                thread_id: thread.id,
-                sent_at: { $lt: oldestLoadedTimestamp }
-              },
-              '-sent_at',
-              20
-            );
-          } else {
-            // Thread externa: ✅ derivar IDs em memória (allThreads prop) — sem queries extras
-            const idsAdicionaisScrollUp = (() => {
-              if (!allThreads?.length) return [];
-              const contactId = thread.contact_id;
-              const ids = [];
-              allThreads.forEach(t => {
-                if (t.id === thread.id) return;
-                if (t.merged_into === thread.id && t.status === 'merged') { ids.push(t.id); return; }
-                if (contactId && t.contact_id === contactId && (t.status === 'aberta' || t.status === 'fechada')) ids.push(t.id);
+        if (isThreadInterna) {
+          olderMessages = await base44.entities.Message.filter(
+            { thread_id: thread.id, sent_at: { $lt: oldestLoadedTimestamp } },
+            '-sent_at', 20
+          );
+        } else {
+          // Buscar TODAS as threads do contato no banco — garante histórico completo
+          const contactId = thread?.contact_id;
+          let idsAdicionais = [];
+          if (contactId) {
+            try {
+              const todasThreads = await base44.entities.MessageThread.filter(
+                { contact_id: contactId }, '-created_date', 50
+              );
+              idsAdicionais = todasThreads.filter(t => t.id !== thread.id).map(t => t.id);
+            } catch (_) {
+              // fallback memória
+              (allThreads || []).forEach(t => {
+                if (t.id !== thread.id && t.contact_id === contactId) idsAdicionais.push(t.id);
               });
-              return [...new Set(ids)];
-            })();
-            const threadIdsParaBuscar = [thread.id, ...idsAdicionaisScrollUp];
-
-            olderMessages = await base44.entities.Message.filter(
-              {
-                thread_id: { $in: threadIdsParaBuscar },
-                sent_at: { $lt: oldestLoadedTimestamp }
-              },
-              '-sent_at',
-              20
-            );
+            }
           }
-
-          if (olderMessages.length === 0) {
-            console.log('[SCROLL-UP] 📭 Fim do histórico');
-            setHasMoreMessages(false);
-            return;
-          }
-
-          console.log('[SCROLL-UP] ✅ Carregadas', olderMessages.length, 'mensagens antigas');
-
-          // Atualizar cache INSERINDO NO INÍCIO
-          queryClient.setQueryData(['mensagens', thread.id], (antigas = []) => {
-            return [...olderMessages.reverse(), ...antigas];
-          });
-
-          // Atualizar timestamp da mais antiga
-          setOldestLoadedTimestamp(olderMessages[0]?.sent_at || olderMessages[0]?.created_date);
-
-          // ✅ MANTER POSIÇÃO VISUAL: Ajustar scroll após inserir mensagens
-          requestAnimationFrame(() => {
-            const scrollHeightAfter = container.scrollHeight;
-            const scrollDiff = scrollHeightAfter - scrollHeightBefore;
-            container.scrollTop = scrollTopBefore + scrollDiff;
-          });
-
-        } catch (error) {
-          console.error('[SCROLL-UP] ❌ Erro ao carregar antigas:', error);
-        } finally {
-          isLoadingOlderRef.current = false;
-          setLoadingOlder(false);
+          const threadIds = [thread.id, ...new Set(idsAdicionais)];
+          console.log('[SCROLL-UP] 🔍 Buscando em', threadIds.length, 'threads do contato');
+          olderMessages = await base44.entities.Message.filter(
+            { thread_id: { $in: threadIds }, sent_at: { $lt: oldestLoadedTimestamp } },
+            '-sent_at', 20
+          );
         }
+
+        if (olderMessages.length === 0) {
+          console.log('[SCROLL-UP] 📭 Fim do histórico');
+          setHasMoreMessages(false);
+          return;
+        }
+
+        console.log('[SCROLL-UP] ✅ Carregadas', olderMessages.length, 'mensagens antigas');
+
+        queryClient.setQueryData(['mensagens', thread.id], (antigas = []) => {
+          return [...olderMessages.reverse(), ...antigas];
+        });
+
+        setOldestLoadedTimestamp(olderMessages[olderMessages.length - 1]?.sent_at || olderMessages[0]?.sent_at);
+
+        requestAnimationFrame(() => {
+          const scrollHeightAfter = container.scrollHeight;
+          container.scrollTop = scrollTopBefore + (scrollHeightAfter - scrollHeightBefore);
+        });
+
+      } catch (error) {
+        console.error('[SCROLL-UP] ❌ Erro ao carregar antigas:', error);
+      } finally {
+        isLoadingOlderRef.current = false;
+        setLoadingOlder(false);
       }
     };
 
-    container.addEventListener('scroll', handleScroll);
+    container.addEventListener('scroll', handleScroll, { passive: true });
     return () => container.removeEventListener('scroll', handleScroll);
-  }, [thread?.id, thread?.contact_id, thread?.thread_type, hasMoreMessages, oldestLoadedTimestamp, queryClient]);
+  }, [thread?.id, thread?.contact_id, thread?.thread_type, hasMoreMessages, oldestLoadedTimestamp, queryClient, allThreads]);
 
   const prevThreadIdRef = React.useRef(null);
   const scrollDoneRef = React.useRef(false);
