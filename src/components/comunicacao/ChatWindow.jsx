@@ -534,166 +534,53 @@ export default function ChatWindow({
     return false;
   }, [usuario]);
 
-  const handleEnviarBroadcast = React.useCallback(async (opcoes = {}) => {
-    const {
-      texto = '',
-      mediaUrl = null,
-      mediaType = null,
-      mediaCaption = null,
-      isAudio = false
-    } = opcoes;
-
-    if (!podeEnviarMensagens) {
-      toast.error("❌ Você não tem permissão para enviar mensagens");
-      return;
-    }
-
-    // Validar: precisa ter texto OU mídia
-    const temTexto = texto.trim().length > 0;
-    const temMidia = !!mediaUrl;
-
-    if (!temTexto && !temMidia) {
-      toast.error("Digite uma mensagem ou anexe uma mídia");
-      return;
-    }
-
-    // ═══════════════════════════════════════════════════════════════════════
-    // MODO BROADCAST INTERNO (team_internal)
-    // ═══════════════════════════════════════════════════════════════════════
-    if (broadcastInterno && broadcastInterno.destinations) {
+  const handleEnviarBroadcast = React.useCallback(async ({ texto = '', mediaUrl = null, mediaType = null, mediaCaption = null, isAudio = false } = {}) => {
+    if (!podeEnviarMensagens) { toast.error("❌ Sem permissão para enviar mensagens"); return; }
+    if (!texto.trim() && !mediaUrl) { toast.error("Digite uma mensagem ou anexe uma mídia"); return; }
+    if (broadcastInterno?.destinations) {
       setEnviandoBroadcast(true);
       setProgressoBroadcast({ enviados: 0, erros: 0, total: broadcastInterno.destinations.length });
-
-      let enviados = 0;
-      let erros = 0;
-
+      let enviados = 0, erros = 0;
       for (const dest of broadcastInterno.destinations) {
         try {
-          if (!dest.thread_id || !usuario?.id) {
-            console.error(`[BROADCAST_INTERNO] ❌ Contexto inválido:`, dest);
-            erros++;
-            continue;
-          }
-
-          await base44.functions.invoke('sendInternalMessage', {
-            thread_id: dest.thread_id,
-            content: texto.trim() || (mediaUrl ? `[${mediaType}]` : ''),
-            media_type: mediaType || 'none',
-            media_url: mediaUrl,
-            media_caption: mediaCaption
-          });
+          if (!dest.thread_id || !usuario?.id) { erros++; continue; }
+          await base44.functions.invoke('sendInternalMessage', { thread_id: dest.thread_id, content: texto.trim() || (mediaUrl ? `[${mediaType}]` : ''), media_type: mediaType || 'none', media_url: mediaUrl, media_caption: mediaCaption });
           enviados++;
-        } catch (err) {
-          console.error(`Erro ao enviar interno para ${dest.name}:`, err);
-          erros++;
-        }
-
+        } catch (_) { erros++; }
         setProgressoBroadcast({ enviados, erros, total: broadcastInterno.destinations.length });
-        await new Promise((r) => setTimeout(r, 300));
+        await new Promise(r => setTimeout(r, 300));
       }
-
       setEnviandoBroadcast(false);
-
-      if (enviados > 0) {
-        toast.success(`✅ ${enviados} mensagem(ns) interna(s) enviada(s)!`);
-      }
-      if (erros > 0) {
-        toast.error(`❌ ${erros} erro(s) no envio interno`);
-      }
-
-      if (onCancelarSelecao) {
-        onCancelarSelecao();
-      }
-
-      if (onAtualizarMensagens) {
-        onAtualizarMensagens();
-      }
-
+      if (enviados > 0) toast.success(`✅ ${enviados} mensagem(ns) interna(s) enviada(s)!`);
+      if (erros > 0) toast.error(`❌ ${erros} erro(s) no envio interno`);
+      if (onCancelarSelecao) onCancelarSelecao();
+      if (onAtualizarMensagens) onAtualizarMensagens();
       return;
     }
-
-    // ═══════════════════════════════════════════════════════════════════════
-    // MODO BROADCAST EXTERNO (WhatsApp) - ✅ REFATORADO: Delega para função unificada
-    // ═══════════════════════════════════════════════════════════════════════
-    if (contatosSelecionados.length === 0) {
-      toast.error("Nenhum contato selecionado");
-      return;
-    }
-
+    if (contatosSelecionados.length === 0) { toast.error("Nenhum contato selecionado"); return; }
     setEnviandoBroadcast(true);
     setProgressoBroadcast({ enviados: 0, erros: 0, total: contatosSelecionados.length });
-
     try {
-      // 📝 Adicionar assinatura
       let mensagemFinal = texto.trim();
       const nomeAtendente = usuario?.display_name || usuario?.full_name;
-      if (nomeAtendente && usuario?.attendant_sector) {
-        const primeiroNome = nomeAtendente.split(' ')[0];
-        const setor = usuario.attendant_sector;
-        mensagemFinal = `${mensagemFinal}\n\n_~ ${primeiroNome} (${setor})_`;
-      }
-
-      // ✅ DELEGAR para função unificada
-      const contactIds = contatosSelecionados.map(c => c.contact_id || c.id);
-      
-      const resultado = await base44.functions.invoke('enviarCampanhaLote', {
-        contact_ids: contactIds,
-        modo: 'broadcast',
-        mensagem: mensagemFinal,
-        personalizar: false // já tem assinatura
-      });
-
+      if (nomeAtendente && usuario?.attendant_sector) mensagemFinal = `${mensagemFinal}\n\n_~ ${nomeAtendente.split(' ')[0]} (${usuario.attendant_sector})_`;
+      const resultado = await base44.functions.invoke('enviarCampanhaLote', { contact_ids: contatosSelecionados.map(c => c.contact_id || c.id), modo: 'broadcast', mensagem: mensagemFinal, personalizar: false });
       setEnviandoBroadcast(false);
-
       if (resultado.data?.success) {
-        const { enviados, erros, resultados: res } = resultado.data;
-        
-        if (enviados > 0) {
-          toast.success(`✅ ${enviados} mensagem(ns) enviada(s)!`);
-        }
-        if (erros > 0) {
-          toast.warning(`⚠️ ${erros} contato(s) com erro`);
-        }
-
-        setProgressoBroadcast({ enviados, erros, total: contactIds.length });
-
-        // ✅ Invalidar threads para refletir last_message atualizado na sidebar
+        const { enviados, erros } = resultado.data;
+        if (enviados > 0) toast.success(`✅ ${enviados} mensagem(ns) enviada(s)!`);
+        if (erros > 0) toast.warning(`⚠️ ${erros} contato(s) com erro`);
+        setProgressoBroadcast({ enviados, erros, total: contatosSelecionados.length });
         queryClient.invalidateQueries({ queryKey: ['threads-externas'] });
         queryClient.invalidateQueries({ queryKey: ['contacts'] });
-
-        // ✅ Se enviou para 1 contato, abrir a conversa automaticamente
-        if (enviados === 1 && res?.[0]?.contact_id) {
-          setTimeout(async () => {
-            try {
-              const threads = await base44.entities.MessageThread.filter({
-                contact_id: res[0].contact_id,
-                is_canonical: true
-              }, '-last_message_at', 1);
-              if (threads?.length > 0 && onAtualizarMensagens) {
-                onAtualizarMensagens();
-              }
-            } catch (_) {}
-          }, 800);
-        }
-      } else {
-        throw new Error(resultado.data?.error || 'Erro no envio em massa');
-      }
-
+      } else throw new Error(resultado.data?.error || 'Erro no envio em massa');
     } catch (error) {
-      console.error('[BROADCAST] Erro:', error);
       toast.error(`❌ Erro: ${error.message}`);
       setEnviandoBroadcast(false);
     }
-
-    // Cancelar modo seleção após envio
-    if (onCancelarSelecao) {
-      onCancelarSelecao();
-    }
-
-    if (onAtualizarMensagens) {
-      onAtualizarMensagens();
-    }
-  }, [podeEnviarMensagens, contatosSelecionados, broadcastInterno, usuario, onCancelarSelecao, onAtualizarMensagens, integracoes, canalSelecionado]);
+    if (onCancelarSelecao) onCancelarSelecao();
+    if (onAtualizarMensagens) onAtualizarMensagens();
+  }, [podeEnviarMensagens, contatosSelecionados, broadcastInterno, usuario, onCancelarSelecao, onAtualizarMensagens, queryClient]);
 
   const enviarAudio = React.useCallback(async (audioBlob) => {
     if (!podeEnviarAudios) {
