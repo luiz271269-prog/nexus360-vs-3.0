@@ -66,8 +66,8 @@ import { createPageUrl } from "@/utils";
 import { carregarTodasThreads, podeVerThreadInterna } from "../components/lib/internalThreadsService";
 
 
-// 🔧 DEBUG_VIS: Forçar ativado para diagnóstico
-const DEBUG_VIS = true;
+// 🔧 DEBUG_VIS: Desativado em produção para eliminar overhead de logs
+const DEBUG_VIS = false;
 
 export default function Comunicacao() {
   const { data: usuario, isLoading: isLoadingUsuario } = useQuery({
