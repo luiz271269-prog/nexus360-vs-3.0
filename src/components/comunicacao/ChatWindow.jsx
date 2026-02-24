@@ -58,7 +58,6 @@ import MessageBubble from "./MessageBubble";
 import { base44 } from "@/api/base44Client";
 import { toast } from "sonner";
 
-import SugestorRespostaBroadcast from './SugestorRespostaBroadcast';
 import AIResponseAssistant from './AIResponseAssistant';
 import { useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
