@@ -1164,44 +1164,60 @@ export default React.memo(function MessageBubble({
             message?.media_url.toLowerCase().includes('.xls')))) &&
 
             message?.media_url && message?.media_url !== 'pending_download' &&
-            <div className="overflow-hidden">
-                <button
-                onClick={() => window.open(message.media_url, '_blank', 'noopener,noreferrer')}
-                className="flex items-center gap-3 hover:bg-black/5 active:bg-black/10 transition-colors w-full text-left p-3 cursor-pointer">
-
-                  <div className="w-12 h-12 rounded-lg flex items-center justify-center flex-shrink-0 shadow-sm bg-blue-500">
-                    <FileIcon className="w-6 h-6 text-white" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium truncate mb-0.5 text-slate-900">
-                      📄 {message.media_caption || message.content?.replace(/[\[\]]/g, '').trim() || 'Documento'}
-                    </p>
-                    <div className="flex items-center gap-2">
-                      <p className="text-xs uppercase font-semibold text-blue-600">
-                        {(() => {
-                        const ext = message.media_url?.split('.').pop()?.split('?')[0]?.toLowerCase();
-                        return ext || 'PDF';
-                      })()}
-                      </p>
-                      <span className="text-xs text-slate-500">
-                        • Toque para abrir
-                      </span>
+            (() => {
+              const docUrl = message.media_url;
+              const ext = (docUrl?.split('.').pop()?.split('?')[0] || '').toLowerCase();
+              const isPdf = ext === 'pdf' || docUrl?.toLowerCase().includes('.pdf');
+              const nomeArquivo = message.media_caption || message.content?.replace(/[\[\]]/g, '').trim() || 'Documento';
+              
+              // Para PDFs: abrir inline via Google Docs Viewer (não força download)
+              const abrirPdf = () => {
+                if (isPdf) {
+                  const cleanUrl = docUrl.split('?')[0];
+                  const viewerUrl = `https://docs.google.com/viewer?url=${encodeURIComponent(cleanUrl)}&embedded=false`;
+                  window.open(viewerUrl, '_blank', 'noopener,noreferrer');
+                } else {
+                  window.open(docUrl, '_blank', 'noopener,noreferrer');
+                }
+              };
+              
+              return (
+                <div className="overflow-hidden">
+                  <button
+                    onClick={abrirPdf}
+                    className="flex items-center gap-3 hover:bg-black/5 active:bg-black/10 transition-colors w-full text-left p-3 cursor-pointer">
+                    <div className="w-12 h-12 rounded-lg flex items-center justify-center flex-shrink-0 shadow-sm bg-blue-500">
+                      <FileIcon className="w-6 h-6 text-white" />
                     </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium truncate mb-0.5 text-slate-900">
+                        📄 {nomeArquivo}
+                      </p>
+                      <div className="flex items-center gap-2">
+                        <p className="text-xs uppercase font-semibold text-blue-600">
+                          {ext || 'PDF'}
+                        </p>
+                        <span className="text-xs text-slate-500">
+                          • Toque para abrir
+                        </span>
+                      </div>
+                    </div>
+                    <Download className="w-5 h-5 flex-shrink-0 text-blue-500" />
+                  </button>
+                  
+                  <div className={cn("flex items-center justify-end gap-1 px-3 pb-2 pt-1 flex-wrap")}>
+                    <span className="text-[10px] text-slate-500">
+                      {format(new Date(message.sent_at || message.created_date), 'dd/MM HH:mm')}
+                    </span>
+                    {isOwn && message.status === 'enviando' && <Clock className="w-3 h-3 text-slate-400" />}
+                    {isOwn && message.status === 'enviada' && <Check className="w-3.5 h-3.5 text-slate-500" />}
+                    {isOwn && message.status === 'entregue' && <CheckCheck className="w-3.5 h-3.5 text-slate-600" />}
+                    {isOwn && message.status === 'lida' && <CheckCheck className="w-3.5 h-3.5 text-blue-500" />}
+                    {isOwn && message.status === 'falhou' && <AlertCircle className="w-3.5 h-3.5 text-red-500" />}
                   </div>
-                  <Download className="w-5 h-5 flex-shrink-0 text-blue-500" />
-                </button>
-                
-                <div className={cn("flex items-center justify-end gap-1 px-3 pb-2 pt-1 flex-wrap")}>
-                  <span className="text-[10px] text-slate-500">
-                    {format(new Date(message.sent_at || message.created_date), 'dd/MM HH:mm')}
-                  </span>
-                  {isOwn && message.status === 'enviando' && <Clock className="w-3 h-3 text-slate-400" />}
-                  {isOwn && message.status === 'enviada' && <Check className="w-3.5 h-3.5 text-slate-500" />}
-                  {isOwn && message.status === 'entregue' && <CheckCheck className="w-3.5 h-3.5 text-slate-600" />}
-                  {isOwn && message.status === 'lida' && <CheckCheck className="w-3.5 h-3.5 text-blue-500" />}
-                  {isOwn && message.status === 'falhou' && <AlertCircle className="w-3.5 h-3.5 text-red-500" />}
                 </div>
-              </div>
+              );
+            })()
             }
             
             {/* DOCUMENTO PENDENTE - Quando ainda está baixando */}
