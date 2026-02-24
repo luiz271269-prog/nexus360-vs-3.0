@@ -199,14 +199,19 @@ Deno.serve(async (req) => {
       statusFinal = 'token_invalido';
       detalhes = `Token inválido ou expirado (HTTP ${tokenProbe.httpStatus})`;
     }
-    // Instância conectada: probe retornou 200 com messageId (W-API enfileira mesmo sem WhatsApp conectado)
-    // MAS se retornou messageId = instância existe e token é válido. Para saber se WhatsApp está
-    // de fato conectado, só o webhook webhookDisconnected indica desconexão.
+    // W-API COMPORTAMENTO DESCOBERTO (2026-02-24):
+    // A W-API ENFILEIRA mensagens mesmo quando o WhatsApp não está conectado.
+    // Retorna HTTP 200 + messageId independente do estado de conexão do WhatsApp.
+    // PORTANTO: HTTP 200 = token válido + instância existe, MAS NÃO garante WhatsApp conectado.
+    // A única fonte de verdade é o webhook "webhookDisconnected" que atualiza o campo `status`
+    // no banco de dados. Se `status` = 'conectado' no banco + messageId retornado = provavelmente OK.
     else if (tokenProbe?.httpStatus === 200 && tokenProbe?.response?.messageId) {
       tokenValido = true;
-      conectado = true;
-      statusFinal = 'conectado';
-      detalhes = `Instância conectada e enviando (messageId: ${tokenProbe.response.messageId})`;
+      // Verificar status atual no banco como tie-breaker
+      const statusNoBanco = integracao.status;
+      conectado = statusNoBanco === 'conectado';
+      statusFinal = conectado ? 'conectado' : 'incerto';
+      detalhes = `Token válido e instância existe (messageId: ${tokenProbe.response.messageId}). W-API enfileira mesmo desconectado. Status no banco: "${statusNoBanco}". Use o webhook webhookDisconnected como fonte de verdade.`;
     }
     // Instância desconectada mas token válido: 403 "not connected" ou 400
     else if (tokenProbe?.httpStatus === 400 || tokenProbe?.httpStatus === 422) {
