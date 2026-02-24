@@ -1245,11 +1245,21 @@ export default function ChatWindow({
 
         console.log('[SCROLL-UP] ✅ Carregadas', olderMessages.length, 'mensagens antigas');
 
+        // ✅ DEDUPLICAÇÃO POR ID + CURSOR ESTRITO
         queryClient.setQueryData(['mensagens', thread.id], (antigas = []) => {
-          return [...olderMessages.reverse(), ...antigas];
+          const byId = new Map();
+          [...olderMessages.reverse(), ...antigas].forEach(m => {
+            if (m?.id) byId.set(m.id, m);
+          });
+          return Array.from(byId.values()).sort((a, b) =>
+            (a.sent_at || a.created_date || '').localeCompare(b.sent_at || b.created_date || '')
+          );
         });
 
-        setOldestLoadedTimestamp(olderMessages[olderMessages.length - 1]?.sent_at || olderMessages[0]?.sent_at);
+        // ✅ Cursor para próxima página = mais antiga DESSA batch (primeira após reverse)
+        const newOldest = olderMessages[0]?.sent_at || olderMessages[0]?.created_date;
+        console.log('[SCROLL-UP] 🔄 Novo cursor:', newOldest);
+        setOldestLoadedTimestamp(newOldest);
 
         requestAnimationFrame(() => {
           const scrollHeightAfter = container.scrollHeight;
