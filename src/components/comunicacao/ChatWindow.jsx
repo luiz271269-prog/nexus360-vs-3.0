@@ -147,18 +147,12 @@ export default function ChatWindow({
   const messagesEndRef = React.useRef(null);
   const unreadSeparatorRef = React.useRef(null);
   const fotoJaBuscada = React.useRef(new Set());
-  const [hasMoreMessages, setHasMoreMessages] = React.useState(true);
-  const [oldestLoadedTimestamp, setOldestLoadedTimestamp] = React.useState(null);
 
   // ✅ Hook de scroll pagination com AbortController fix
-  const { chatContainerRef, loadingOlder } = useScrollPaginacao({
+  const { chatContainerRef, loadingOlder, isHistoryStart, initTimestamp } = useScrollPaginacao({
     thread,
     queryClient,
-    allThreads,
-    oldestLoadedTimestamp,
-    setOldestLoadedTimestamp,
-    hasMoreMessages,
-    setHasMoreMessages
+    allThreads
   });
 
   // ═══════════════════════════════════════════════════════════════════════
