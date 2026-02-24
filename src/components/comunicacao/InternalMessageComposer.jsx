@@ -621,6 +621,196 @@ export default function InternalMessageComposer({ open, onClose, currentUser, on
                 </div>
               </div>
             </div>
+
+            {/* Mobile: Abas com conteúdo responsivo */}
+            <div className="sm:hidden flex flex-col flex-1 min-h-0">
+              <Tabs value={activeTab} onValueChange={setActiveTab} className="flex flex-col flex-1 min-h-0">
+                <TabsList className="grid w-full grid-cols-3 h-9 bg-slate-100 rounded-lg mb-2">
+                  <TabsTrigger value="usuarios" className="text-xs">
+                    👥 Usuários ({usuariosDisponiveis.length})
+                  </TabsTrigger>
+                  <TabsTrigger value="setores" className="text-xs">
+                    🏢 Setores ({setores.length})
+                  </TabsTrigger>
+                  <TabsTrigger value="grupos" className="text-xs">
+                    👫 Grupos ({grupos.length})
+                  </TabsTrigger>
+                </TabsList>
+
+                {/* Mobile: Abas de conteúdo */}
+                <div className="flex-1 min-h-0 overflow-hidden">
+                  {/* Aba Usuários */}
+                  <TabsContent value="usuarios" className="h-full overflow-y-auto m-0 p-0">
+                    <div className="space-y-1">
+                      {loadingUsers ? (
+                        <div className="flex items-center justify-center py-8">
+                          <Loader2 className="w-5 h-5 animate-spin text-cyan-600" />
+                        </div>
+                      ) : usuariosDisponiveis.length === 0 ? (
+                        <div className="text-center py-8 text-slate-500 text-xs">
+                          Nenhum usuário disponível
+                        </div>
+                      ) : (
+                        usuariosDisponiveis.map(usuario => {
+                          const isSelected = selectedUsers.includes(usuario.id);
+                          const setor = usuario.attendant_sector || 'geral';
+                          const nivel = usuario.attendant_role || usuario.role || 'pleno';
+                          const setorCfg = setorConfig[setor] || setorConfig['geral'];
+                          const nivelCfg = nivelConfig[nivel] || nivelConfig['pleno'];
+
+                          return (
+                            <button
+                              key={usuario.id}
+                              onClick={() => toggleUser(usuario.id)}
+                              className={`w-full flex items-center gap-2 px-2 py-1.5 rounded-lg transition-all text-left border text-xs ${
+                                isSelected 
+                                  ? 'bg-gradient-to-r from-cyan-50 to-blue-50 border-cyan-300 shadow-sm' 
+                                  : 'hover:bg-slate-50 border-transparent'
+                              }`}
+                            >
+                              <div className="flex-shrink-0">
+                                {isSelected ? (
+                                  <CheckSquare className="w-3 h-3 text-cyan-600" />
+                                ) : (
+                                  <Square className="w-3 h-3 text-slate-300" />
+                                )}
+                              </div>
+                              <div className={`w-7 h-7 ${setorCfg.cor} rounded-full flex items-center justify-center text-white font-bold text-[10px] shadow-sm flex-shrink-0`}>
+                                {(usuario.full_name || usuario.email || '?').charAt(0).toUpperCase()}
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <UsuarioDisplay 
+                                  usuario={usuario}
+                                  showRole={false}
+                                  showSector={false}
+                                  showAvatar={false}
+                                  variant="name-only"
+                                  className="text-xs font-medium text-slate-700 truncate"
+                                />
+                                <div className="flex items-center gap-1 flex-wrap mt-0.5">
+                                  <span className={`inline-flex items-center px-1 py-0.5 rounded-full text-[7px] font-medium text-white ${setorCfg.cor}`}>
+                                    {setorCfg.emoji} {setorCfg.label}
+                                  </span>
+                                  <span className={`inline-flex items-center px-1 py-0.5 rounded-full text-[7px] font-medium text-slate-600 bg-slate-100`}>
+                                    {nivelCfg.label}
+                                  </span>
+                                </div>
+                              </div>
+                            </button>
+                          );
+                        })
+                      )}
+                    </div>
+                  </TabsContent>
+
+                  {/* Aba Setores */}
+                  <TabsContent value="setores" className="h-full overflow-y-auto m-0 p-0">
+                    <div className="space-y-1">
+                      {setores.length === 0 ? (
+                        <div className="text-center py-8 text-slate-500 text-xs">
+                          Nenhum setor encontrado
+                        </div>
+                      ) : (
+                        setores.map(setor => {
+                          const isSelected = selectedSectors.includes(setor);
+                          const usuariosDoSetor = usuarios.filter(u => u.attendant_sector === setor);
+                          const setorCfg = setorConfig[setor] || setorConfig['geral'];
+                          
+                          return (
+                            <button
+                              key={setor}
+                              onClick={() => toggleSector(setor)}
+                              className={`w-full flex items-center gap-2 px-2 py-1.5 rounded-lg transition-all text-left border text-xs ${
+                                isSelected 
+                                  ? 'bg-gradient-to-r from-cyan-50 to-blue-50 border-cyan-300 shadow-sm' 
+                                  : 'hover:bg-slate-50 border-transparent'
+                              }`}
+                            >
+                              <div className="flex-shrink-0">
+                                {isSelected ? (
+                                  <CheckSquare className="w-3 h-3 text-cyan-600" />
+                                ) : (
+                                  <Square className="w-3 h-3 text-slate-300" />
+                                )}
+                              </div>
+                              <div className={`w-7 h-7 rounded-full ${setorCfg.cor} flex items-center justify-center text-white shadow-sm text-xs font-bold flex-shrink-0`}>
+                                {setorCfg.emoji}
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <div className="font-medium text-slate-700 truncate text-xs">
+                                  {setorCfg.emoji} {setorCfg.label}
+                                </div>
+                                <div className="text-[10px] text-slate-500">
+                                  {usuariosDoSetor.length} {usuariosDoSetor.length === 1 ? 'membro' : 'membros'}
+                                </div>
+                              </div>
+                            </button>
+                          );
+                        })
+                      )}
+                    </div>
+                  </TabsContent>
+
+                  {/* Aba Grupos */}
+                  <TabsContent value="grupos" className="h-full overflow-y-auto m-0 p-0">
+                    <div className="space-y-1">
+                      <Button
+                        onClick={() => setCriarGrupoOpen(true)}
+                        variant="outline"
+                        size="sm"
+                        className="w-full mb-2 border-cyan-200 hover:bg-cyan-50 hover:border-cyan-300 text-xs h-8"
+                      >
+                        <Plus className="w-3 h-3 mr-1" />
+                        Criar Grupo
+                      </Button>
+                      {loadingGroups ? (
+                        <div className="flex items-center justify-center py-8">
+                          <Loader2 className="w-5 h-5 animate-spin text-cyan-600" />
+                        </div>
+                      ) : grupos.length === 0 ? (
+                        <div className="text-center py-8 text-slate-500 text-xs">
+                          Nenhum grupo criado
+                        </div>
+                      ) : (
+                        grupos.map(grupo => {
+                          const isSelected = selectedGroups.includes(grupo.id);
+                          return (
+                            <button
+                              key={grupo.id}
+                              onClick={() => toggleGroup(grupo.id)}
+                              className={`w-full flex items-center gap-2 px-2 py-1.5 rounded-lg transition-all text-left border text-xs ${
+                                isSelected 
+                                  ? 'bg-gradient-to-r from-cyan-50 to-blue-50 border-cyan-300 shadow-sm' 
+                                  : 'hover:bg-slate-50 border-transparent'
+                              }`}
+                            >
+                              <div className="flex-shrink-0">
+                                {isSelected ? (
+                                  <CheckSquare className="w-3 h-3 text-cyan-600" />
+                                ) : (
+                                  <Square className="w-3 h-3 text-slate-300" />
+                                )}
+                              </div>
+                              <div className="w-7 h-7 rounded-full bg-gradient-to-br from-slate-400 to-slate-500 flex items-center justify-center text-white shadow-sm flex-shrink-0">
+                                <Users className="w-3 h-3" />
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <div className="font-medium text-slate-700 truncate text-xs">
+                                  {grupo.group_name || 'Grupo sem nome'}
+                                </div>
+                                <div className="text-[10px] text-slate-500">
+                                  {grupo.participants?.length || 0} {grupo.participants?.length === 1 ? 'membro' : 'membros'}
+                                </div>
+                              </div>
+                            </button>
+                          );
+                        })
+                      )}
+                    </div>
+                  </TabsContent>
+                </div>
+              </Tabs>
+            </div>
           </div>
         </DialogContent>
       </Dialog>
