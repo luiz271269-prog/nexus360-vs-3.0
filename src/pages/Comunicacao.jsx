@@ -384,7 +384,7 @@ export default function Comunicacao() {
   const contactIdsParaCarregar = React.useMemo(() => {
     if (!threads.length) return [];
     const ids = threads.map((t) => t.contact_id).filter((id) => id);
-    console.log('[COMUNICACAO] 🎯 IDs de contato para hidratar:', ids.length);
+
     return [...new Set(ids)]; // Remove duplicatas
   }, [threads]);
 
