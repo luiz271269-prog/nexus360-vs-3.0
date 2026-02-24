@@ -193,6 +193,7 @@ export default function useScrollPaginacao({
       } finally {
         isLoadingOlderRef.current = false;
         setLoadingOlder(false);
+        abortControllerRef.current = null;
       }
     };
 
