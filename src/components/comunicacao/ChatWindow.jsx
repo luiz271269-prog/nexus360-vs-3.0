@@ -59,6 +59,8 @@ import { base44 } from "@/api/base44Client";
 import { toast } from "sonner";
 
 import AIResponseAssistant from './AIResponseAssistant';
+import BroadcastRecipientsList from './BroadcastRecipientsList';
+import ChatSuggestions from './ChatSuggestions';
 import { useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import MediaAttachmentSystem from './MediaAttachmentSystem';
