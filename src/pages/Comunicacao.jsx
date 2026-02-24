@@ -447,7 +447,7 @@ export default function Comunicacao() {
     queryFn: async () => {
       if (!debouncedSearchTerm || debouncedSearchTerm.trim().length < 2) return [];
 
-      console.log(`[COMUNICACAO] 🔍 Buscando contatos (LIVRE): "${debouncedSearchTerm}"...`);
+
 
       try {
         // ✅ Busca livre via backend (SEM bloqueio de RLS/integração)
