@@ -2257,23 +2257,23 @@ export default function Comunicacao() {
         <NotificationSystem usuario={usuario} threads={threads} />
 
         {/* ── HEADER DESKTOP ── */}
-        <div className="hidden md:block bg-gradient-to-r px-8 from-slate-900 via-slate-800 to-slate-900 border-b border-slate-700/50 shadow-xl flex-shrink-0">
-          <div className="flex items-center justify-between py-3">
-            <div className="flex items-center gap-4">
-              <div className="w-12 h-12 bg-gradient-to-br from-amber-400 via-orange-500 to-red-500 rounded-xl flex items-center justify-center shadow-lg shadow-orange-500/30">
-                <MessageSquare className="w-7 h-7 text-white" />
+        <div className="hidden md:block bg-gradient-to-r px-4 from-slate-900 via-slate-800 to-slate-900 border-b border-slate-700/50 shadow-xl flex-shrink-0">
+          <div className="flex items-center justify-between py-2">
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 bg-gradient-to-br from-amber-400 via-orange-500 to-red-500 rounded-lg flex items-center justify-center shadow-lg shadow-orange-500/30">
+                <MessageSquare className="w-5 h-5 text-white" />
               </div>
               <div>
-                <h1 className="text-2xl font-bold bg-gradient-to-r from-amber-400 via-orange-500 to-red-500 bg-clip-text text-transparent">
-                  Central de Comunicacao
+                <h1 className="text-base font-bold bg-gradient-to-r from-amber-400 via-orange-500 to-red-500 bg-clip-text text-transparent leading-tight">
+                  Central de Comunicação
                 </h1>
-                <p className="text-sm text-slate-300">WhatsApp, Templates e Automação</p>
+                <p className="text-xs text-slate-400">WhatsApp, Templates e Automação</p>
               </div>
             </div>
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2">
               {integracoes.length === 0 &&
                 <Button onClick={() => setMostrarInstrucoesWebhook(true)} variant="outline" size="sm"
-                  className="border-white/30 text-white hover:bg-white/20">Configurar Webhook</Button>}
+                  className="border-white/30 text-white hover:bg-white/20 h-7 text-xs px-2">Configurar Webhook</Button>}
               <Button variant="outline" size="sm" onClick={() => {
                 queryClient.invalidateQueries({ queryKey: ['threads-externas'] });
                 queryClient.invalidateQueries({ queryKey: ['threads-internas'] });
@@ -2282,8 +2282,8 @@ export default function Comunicacao() {
                 queryClient.invalidateQueries({ queryKey: ['atendentes'] });
                 if (threadAtiva) queryClient.invalidateQueries({ queryKey: ['mensagens', threadAtiva.id] });
                 toast.info("🔄 Atualizando dados...");
-              }} className="bg-orange-500 text-white h-8 px-3 text-xs border border-white/30 hover:bg-white/20 rounded-md flex items-center gap-2">
-                <RefreshCw className="w-4 h-4" /> Atualizar
+              }} className="bg-orange-500 text-white h-7 px-2 text-xs border border-white/30 hover:bg-white/20 rounded-md flex items-center gap-1.5">
+                <RefreshCw className="w-3.5 h-3.5" /> Atualizar
               </Button>
             </div>
           </div>
