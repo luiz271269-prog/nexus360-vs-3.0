@@ -532,24 +532,7 @@ export default function Comunicacao() {
         .map((item) => item.contato).
         slice(0, 200); // ✅ AUMENTADO: 100 → 200 contatos
 
-        // 🔍 LOG CIRÚRGICO: Após filtro local (frontend)
-        console.log(`[COMUNICACAO] 📊 APÓS FILTRO FRONTEND - User: ${usuario.email}`, {
-          termo: debouncedSearchTerm,
-          antes_filtro: todosBD.length,
-          depois_filtro: resultados.length,
-          tem_everal_antes: todosBD.some(c => c.nome?.toLowerCase().includes('everal')),
-          tem_everal_depois: resultados.some(c => c.nome?.toLowerCase().includes('everal')),
-          everal_encontrados: resultados.filter(c => c.nome?.toLowerCase().includes('everal')).map(c => ({
-            nome: c.nome,
-            empresa: c.empresa,
-            telefone: c.telefone
-          })),
-          primeiros_5_filtrados: resultados.slice(0, 5).map(c => ({ 
-            nome: c.nome,
-            empresa: c.empresa,
-            telefone: c.telefone
-          }))
-        });
+
 
         return resultados;
       } catch (error) {
