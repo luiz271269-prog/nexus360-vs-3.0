@@ -235,19 +235,7 @@ export default function ChatWindow({
         norm(atendenteFidelizado) === norm(usuario.email) ||
         norm(atendenteFidelizado) === norm(usuario.full_name));
 
-        debugLog(`PRIORIDADE 2 (Fidelização ${campo})`, isFidelizado, {
-          'contato.campo': contatoCompleto?.[campo],
-          'usuario.id': usuario.id,
-          'usuario.email': usuario.email,
-          'usuario.full_name': usuario.full_name,
-          'setor_thread': thread?.sector_id,
-          'setor_usuario': usuario?.attendant_sector
-        });
-
-        if (isFidelizado) {
-          console.log(`[VISIBILIDADE] ✅ LIBERADO por FIDELIZAÇÃO (${campo}) - Usuário: ${usuario.email}`);
-          return true;
-        }
+        if (isFidelizado) return true;
       }
     } else if (carregandoContato) {
       // ✅ FIX CRÍTICO: Se contato ainda está carregando, NÃO BLOQUEAR prematuramente
