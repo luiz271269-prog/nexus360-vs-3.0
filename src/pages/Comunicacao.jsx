@@ -1954,7 +1954,7 @@ export default function Comunicacao() {
       return true;
     });
 
-    console.log('[COMUNICACAO] 📊 Total de threads filtradas:', threadsFiltrados.length);
+
 
     // 🔍 LOG RESUMIDO: Threads bloqueadas por etapa
 
