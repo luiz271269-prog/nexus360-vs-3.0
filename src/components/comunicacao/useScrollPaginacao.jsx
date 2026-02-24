@@ -144,8 +144,20 @@ export default function useScrollPaginacao({
     return () => container.removeEventListener('scroll', handleScroll);
   }, [thread?.id, thread?.contact_id, thread?.thread_type, hasMoreMessages, oldestLoadedTimestamp, queryClient, allThreads, setOldestLoadedTimestamp, setHasMoreMessages]);
 
+  // ✅ Inicializar o cursor quando as mensagens carregam
+  const initTimestamp = useCallback((messages) => {
+    if (messages && messages.length > 0) {
+      const oldest = messages[0]?.sent_at || messages[0]?.created_date;
+      setOldestLoadedTimestamp(oldest);
+      setHasMoreMessages(true);
+      setIsHistoryStart(false);
+    }
+  }, []);
+
   return {
     chatContainerRef,
-    loadingOlder
+    loadingOlder,
+    isHistoryStart,
+    initTimestamp
   };
 }
