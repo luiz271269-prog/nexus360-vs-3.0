@@ -14,13 +14,12 @@ import { useEffect, useRef, useState } from 'react';
 export default function useScrollPaginacao({
   thread,
   queryClient,
-  allThreads = [],
-  oldestLoadedTimestamp,
-  setOldestLoadedTimestamp,
-  hasMoreMessages,
-  setHasMoreMessages
+  allThreads = []
 }) {
   const [loadingOlder, setLoadingOlder] = useState(false);
+  const [oldestLoadedTimestamp, setOldestLoadedTimestamp] = useState(null);
+  const [hasMoreMessages, setHasMoreMessages] = useState(true);
+  const [isHistoryStart, setIsHistoryStart] = useState(false);
   const chatContainerRef = useRef(null);
   const isLoadingOlderRef = useRef(false);
   const abortControllerRef = useRef(null);
