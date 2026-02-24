@@ -2166,11 +2166,7 @@ export default function Comunicacao() {
     const resultadosBusca = [];
     const idsJaProcessados = new Set(); // ✅ ÚNICO filtro: evitar duplicatas EXATAS por ID
 
-    console.log('[BUSCA CRM] 📊 INÍCIO:', {
-      termo: debouncedSearchTerm,
-      contatos_total: contatosMap.size,
-      threads_filtradas: threadsFiltradas.length
-    });
+
 
     // ═══════════════════════════════════════════════════════════════════════════
     // ESTRATÉGIA: Processar CADA contato encontrado SEM consolidar por telefone
