@@ -1631,37 +1631,19 @@ export default function ChatWindow({
               20
             );
           } else {
-            // Thread externa: buscar de todas threads consolidadas
-            let threadIdsParaBuscar = [thread.id];
-
-            // Buscar merged + mesmo contato (igual query inicial)
-            try {
-              const threadsMerged = await base44.entities.MessageThread.filter(
-                { merged_into: thread.id, status: 'merged' },
-                '-created_date',
-                20
-              );
-              if (threadsMerged.length > 0) {
-                threadIdsParaBuscar.push(...threadsMerged.map(t => t.id));
-              }
-
-              if (thread.contact_id) {
-                const todasThreadsDoContato = await base44.entities.MessageThread.filter(
-                  {
-                    contact_id: thread.contact_id,
-                    status: { $in: ['aberta', 'fechada'] }
-                  },
-                  '-created_date',
-                  50
-                );
-                if (todasThreadsDoContato.length > 1) {
-                  const idsAdicionais = todasThreadsDoContato.map(t => t.id).filter(id => !threadIdsParaBuscar.includes(id));
-                  threadIdsParaBuscar.push(...idsAdicionais);
-                }
-              }
-            } catch (err) {
-              console.warn('[SCROLL-UP] ⚠️ Erro ao buscar threads consolidadas:', err.message);
-            }
+            // Thread externa: ✅ derivar IDs em memória (allThreads prop) — sem queries extras
+            const idsAdicionaisScrollUp = (() => {
+              if (!allThreads?.length) return [];
+              const contactId = thread.contact_id;
+              const ids = [];
+              allThreads.forEach(t => {
+                if (t.id === thread.id) return;
+                if (t.merged_into === thread.id && t.status === 'merged') { ids.push(t.id); return; }
+                if (contactId && t.contact_id === contactId && (t.status === 'aberta' || t.status === 'fechada')) ids.push(t.id);
+              });
+              return [...new Set(ids)];
+            })();
+            const threadIdsParaBuscar = [thread.id, ...idsAdicionaisScrollUp];
 
             olderMessages = await base44.entities.Message.filter(
               {
