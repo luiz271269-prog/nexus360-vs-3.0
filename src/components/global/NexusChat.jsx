@@ -17,6 +17,7 @@ import { format } from 'date-fns';
 import { toast } from 'sonner';
 
 import { AnimatePresence, motion } from 'framer-motion';
+import ReactMarkdown from 'react-markdown';
 
 export default function NexusChat({ isOpen, onToggle, agentContext = {}, agentSession = {} }) {
   const [mensagens, setMensagens] = useState([]);
