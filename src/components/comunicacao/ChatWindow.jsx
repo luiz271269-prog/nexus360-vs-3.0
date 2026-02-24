@@ -1178,16 +1178,12 @@ export default function ChatWindow({
 
   // marcarComoLidaMutation e marcarLidaAoResponder estão declarados ACIMA (antes de handleEnviarFromInput)
 
-  // Inicializar timestamp ao trocar de thread
+  // ✅ Inicializar o cursor quando as mensagens chegam
   React.useEffect(() => {
     if (mensagens.length > 0) {
-      setOldestLoadedTimestamp(mensagens[0]?.sent_at || mensagens[0]?.created_date);
-      setHasMoreMessages(true);
-    } else {
-      setOldestLoadedTimestamp(null);
-      setHasMoreMessages(true);
+      initTimestamp(mensagens);
     }
-  }, [thread?.id]);
+  }, [thread?.id, mensagens.length, initTimestamp]);
 
   const prevThreadIdRef = React.useRef(null);
   const scrollDoneRef = React.useRef(false);
