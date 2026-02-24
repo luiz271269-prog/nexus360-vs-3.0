@@ -148,6 +148,7 @@ export default function useScrollPaginacao({
         if (olderMessages.length === 0) {
           console.log('[SCROLL-UP] 📭 Fim do histórico');
           setHasMoreMessages(false);
+          setIsHistoryStart(true); // ✅ FIX 6: Marcar início do histórico
           return;
         }
 
