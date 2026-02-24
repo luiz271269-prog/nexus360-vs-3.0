@@ -4,16 +4,13 @@ import { base44 } from '@/api/base44Client';
 /**
  * Hook para paginação lazy de mensagens (WhatsApp style)
  * 
- * OTIMIZAÇÕES APLICADAS:
- * 1. Abertura rápida: busca mensagens da thread ativa imediatamente,
- *    merge/histórico chegam em background e atualizam via setMessages.
- * 2. Reutiliza threads já carregadas em memória (prop allThreads) para
- *    descobrir threadsMerged e threadsContato — elimina 2 queries ao DB.
- * 3. Memoiza idsAdicionais para scroll-up sem repetir queries de threads.
+ * Busca mensagens de TODAS as threads do contato — incluindo threads antigas
+ * que nunca foram mergeadas formalmente. Isso garante que o histórico completo
+ * seja exibido ao fazer scroll para cima.
  *
  * @param {string} threadId - ID da thread ativa
  * @param {boolean} isThreadInterna - Se é thread interna (team_internal/sector_group)
- * @param {Array} allThreads - Todas as threads já carregadas em memória (de Comunicacao.jsx)
+ * @param {Array} allThreads - Threads já em memória (usado como cache inicial, fallback para DB)
  */
 export const useMensagensPaginadas = (threadId, isThreadInterna = false, allThreads = []) => {
   const [messages, setMessages] = useState([]);
@@ -23,10 +20,9 @@ export const useMensagensPaginadas = (threadId, isThreadInterna = false, allThre
   const [isInitialLoading, setIsInitialLoading] = useState(false);
   const lastThreadId = useRef(null);
 
-  // ✅ OT #3: Memorizar idsAdicionais para não recalcular no fetchOlder
+  // Cache dos IDs adicionais para reutilizar no fetchOlder sem repetir queries
   const cachedIdsAdicionais = useRef([]);
 
-  // Reset quando troca thread
   const reset = useCallback(() => {
     setMessages([]);
     setOldestLoadedAt(null);
@@ -37,34 +33,58 @@ export const useMensagensPaginadas = (threadId, isThreadInterna = false, allThre
   }, []);
 
   /**
-   * ✅ OT #2: Derivar IDs de threads relacionadas DO ARRAY EM MEMÓRIA
-   * Evita 2 queries ao banco (threadsMerged + threadsContato)
+   * Resolve TODOS os IDs de threads relacionadas ao contato.
+   * 
+   * Estratégia:
+   * 1. Tenta usar allThreads em memória (rápido, zero queries)
+   * 2. Se allThreads está vazio ou incompleto, busca NO BANCO todas as threads
+   *    do mesmo contact_id — garante que threads antigas sejam incluídas.
    */
-  const resolverIdsAdicionaisEmMemoria = useCallback((threadId) => {
-    if (!allThreads?.length) return [];
-
+  const resolverIdsAdicionais = useCallback(async (threadId) => {
+    // Encontrar thread atual
     const threadAtual = allThreads.find(t => t.id === threadId);
     const contactId = threadAtual?.contact_id;
 
-    const idsAdicionais = [];
+    // Se é thread interna, não há IDs adicionais
+    if (!contactId) return [];
 
-    allThreads.forEach(t => {
-      if (t.id === threadId) return;
+    // Tentar resolver em memória primeiro
+    const idsEmMemoria = [];
+    if (allThreads?.length > 0) {
+      allThreads.forEach(t => {
+        if (t.id === threadId) return;
+        // Threads mergeadas nesta
+        if (t.merged_into === threadId && t.status === 'merged') {
+          idsEmMemoria.push(t.id);
+          return;
+        }
+        // Qualquer outra thread do mesmo contato (qualquer status)
+        if (t.contact_id === contactId) {
+          idsEmMemoria.push(t.id);
+        }
+      });
+    }
 
-      // Threads merged nesta (merged_into === threadId)
-      if (t.merged_into === threadId && t.status === 'merged') {
-        idsAdicionais.push(t.id);
-        return;
-      }
+    // Sempre buscar no banco para garantir threads antigas que podem não estar em memória
+    try {
+      const todasThreadsContato = await base44.entities.MessageThread.filter(
+        { contact_id: contactId },
+        '-created_date',
+        50
+      );
 
-      // Outras threads do mesmo contato (aberta/fechada)
-      if (contactId && t.contact_id === contactId &&
-          (t.status === 'aberta' || t.status === 'fechada')) {
-        idsAdicionais.push(t.id);
-      }
-    });
+      const idsDB = todasThreadsContato
+        .filter(t => t.id !== threadId)
+        .map(t => t.id);
 
-    return [...new Set(idsAdicionais)]; // dedup
+      // Unir IDs em memória + IDs do banco (dedup)
+      const todos = [...new Set([...idsEmMemoria, ...idsDB])];
+      console.log(`[PAGINACAO] 🔍 Threads adicionais para contato ${contactId.substring(0, 8)}: ${todos.length} (${idsEmMemoria.length} mem + ${idsDB.length} db)`);
+      return todos;
+    } catch (err) {
+      console.warn('[PAGINACAO] ⚠️ Falha ao buscar threads no banco, usando memória:', err.message);
+      return [...new Set(idsEmMemoria)];
+    }
   }, [allThreads]);
 
   // Carga inicial - últimas 20 mensagens
@@ -74,7 +94,6 @@ export const useMensagensPaginadas = (threadId, isThreadInterna = false, allThre
       return;
     }
 
-    // Se trocou de thread, resetar
     if (lastThreadId.current !== threadId) {
       reset();
       lastThreadId.current = threadId;
@@ -85,7 +104,7 @@ export const useMensagensPaginadas = (threadId, isThreadInterna = false, allThre
     try {
       console.log('[PAGINACAO] 🔄 Carregando inicial:', threadId.substring(0, 8));
 
-      // ─── Thread interna: busca simples, sem merge ───────────────────────
+      // Thread interna: busca simples
       if (isThreadInterna) {
         const msgs = await base44.entities.Message.filter(
           { thread_id: threadId },
@@ -101,37 +120,34 @@ export const useMensagensPaginadas = (threadId, isThreadInterna = false, allThre
         return;
       }
 
-      // ─── Thread externa: ✅ OT #1 ABERTURA RÁPIDA ────────────────────────
-      // Fase 1: buscar mensagens da thread ativa IMEDIATAMENTE (0 overhead)
+      // Thread externa: Fase 1 - mostrar mensagens da thread ativa imediatamente
       const msgsPrimarias = await base44.entities.Message.filter(
         { thread_id: threadId },
         '-sent_at',
         20
       );
 
-      // Mostrar as mensagens primárias já na tela sem esperar merges
       const reversedPrimarias = msgsPrimarias.reverse();
       setMessages(reversedPrimarias);
       setOldestLoadedAt(reversedPrimarias[0]?.sent_at || null);
-      setHasMore(msgsPrimarias.length === 20);
-      setIsInitialLoading(false); // ← libera spinner já aqui
+      setHasMore(true); // Sempre true inicialmente pois pode ter histórico em outras threads
+      setIsInitialLoading(false); // Libera spinner já aqui
 
-      // ✅ OT #2: Resolver IDs adicionais em MEMÓRIA (sem queries ao banco)
-      const idsAdicionaisMemoria = resolverIdsAdicionaisEmMemoria(threadId);
+      // Fase 2: buscar todas as threads do contato (inclui antigas do DB)
+      const idsAdicionais = await resolverIdsAdicionais(threadId);
+      cachedIdsAdicionais.current = idsAdicionais;
 
-      // Fase 2: se há threads adicionais, buscar em background e enriquecer
-      if (idsAdicionaisMemoria.length > 0) {
-        console.log('[PAGINACAO] 🔄 Background enrich:', idsAdicionaisMemoria.length, 'threads extras');
+      if (idsAdicionais.length > 0) {
+        console.log('[PAGINACAO] 🔄 Enriquecendo com', idsAdicionais.length, 'threads extras...');
 
         try {
           const msgsAdicionais = await base44.entities.Message.filter(
-            { thread_id: { $in: idsAdicionaisMemoria } },
+            { thread_id: { $in: idsAdicionais } },
             '-sent_at',
             20
           );
 
           if (msgsAdicionais.length > 0) {
-            // Mesclar com primárias, dedup por id, ordenar e cortar em 20
             setMessages(prev => {
               const mapa = new Map(prev.map(m => [m.id, m]));
               msgsAdicionais.forEach(m => mapa.set(m.id, m));
@@ -139,19 +155,24 @@ export const useMensagensPaginadas = (threadId, isThreadInterna = false, allThre
               merged.sort((a, b) => new Date(a.sent_at || 0) - new Date(b.sent_at || 0));
               const final = merged.slice(-20);
               setOldestLoadedAt(final[0]?.sent_at || null);
-              setHasMore(final.length === 20);
               return final;
             });
           }
         } catch (err) {
-          console.warn('[PAGINACAO] ⚠️ Enrich background falhou (não crítico):', err.message);
+          console.warn('[PAGINACAO] ⚠️ Enrich background falhou:', err.message);
         }
       }
 
-      // ✅ OT #3: Salvar IDs para reutilizar no fetchOlder (sem refazer queries)
-      cachedIdsAdicionais.current = idsAdicionaisMemoria;
+      // Verificar se há mais mensagens (considerando todas as threads)
+      const totalThreadIds = [threadId, ...idsAdicionais];
+      const totalMsgs = await base44.entities.Message.filter(
+        { thread_id: { $in: totalThreadIds } },
+        '-sent_at',
+        1
+      );
+      setHasMore(totalMsgs.length > 0); // Haverá mais ao paginar
 
-      console.log('[PAGINACAO] ✅ Inicial externa concluída. IDs extras:', idsAdicionaisMemoria.length);
+      console.log('[PAGINACAO] ✅ Inicial externa concluída. Threads consideradas:', totalThreadIds.length);
 
     } catch (error) {
       console.error('[PAGINACAO] ❌ Erro ao carregar inicial:', error);
@@ -160,7 +181,7 @@ export const useMensagensPaginadas = (threadId, isThreadInterna = false, allThre
     } finally {
       setIsInitialLoading(false);
     }
-  }, [threadId, isThreadInterna, reset, resolverIdsAdicionaisEmMemoria]);
+  }, [threadId, isThreadInterna, reset, resolverIdsAdicionais]);
 
   // Buscar mensagens mais antigas (scroll-up)
   const fetchOlder = useCallback(async () => {
@@ -171,7 +192,7 @@ export const useMensagensPaginadas = (threadId, isThreadInterna = false, allThre
     setIsLoadingMore(true);
 
     try {
-      console.log('[PAGINACAO] ⬆️ Buscando mensagens antigas...');
+      console.log('[PAGINACAO] ⬆️ Buscando mensagens antigas antes de', oldestLoadedAt);
 
       if (isThreadInterna) {
         const older = await base44.entities.Message.filter(
@@ -194,8 +215,15 @@ export const useMensagensPaginadas = (threadId, isThreadInterna = false, allThre
         console.log('[PAGINACAO] ✅ +', reversed.length, 'antigas (interna)');
 
       } else {
-        // ✅ OT #3: Reutilizar cachedIdsAdicionais — sem queries extras de thread
-        const threadIdsParaBuscar = [threadId, ...cachedIdsAdicionais.current];
+        // Reutilizar IDs em cache (já incluem todas as threads do contato do DB)
+        // Se cache vazio (ex: após reload), buscar novamente
+        let idsAdicionais = cachedIdsAdicionais.current;
+        if (idsAdicionais.length === 0) {
+          idsAdicionais = await resolverIdsAdicionais(threadId);
+          cachedIdsAdicionais.current = idsAdicionais;
+        }
+
+        const threadIdsParaBuscar = [threadId, ...idsAdicionais];
 
         const older = await base44.entities.Message.filter(
           {
@@ -208,14 +236,14 @@ export const useMensagensPaginadas = (threadId, isThreadInterna = false, allThre
 
         if (older.length === 0) {
           setHasMore(false);
-          console.log('[PAGINACAO] 📭 Sem mais mensagens antigas');
+          console.log('[PAGINACAO] 📭 Sem mais mensagens antigas em', threadIdsParaBuscar.length, 'threads');
           return;
         }
 
         const reversed = older.reverse();
         setMessages(prev => [...reversed, ...prev]);
         setOldestLoadedAt(reversed[0]?.sent_at);
-        console.log('[PAGINACAO] ✅ +', reversed.length, 'antigas (externa)');
+        console.log('[PAGINACAO] ✅ +', reversed.length, 'antigas em', threadIdsParaBuscar.length, 'threads');
       }
     } catch (error) {
       console.error('[PAGINACAO] ❌ Erro ao buscar antigas:', error);
@@ -223,7 +251,7 @@ export const useMensagensPaginadas = (threadId, isThreadInterna = false, allThre
     } finally {
       setIsLoadingMore(false);
     }
-  }, [threadId, isThreadInterna, oldestLoadedAt, hasMore, isLoadingMore]);
+  }, [threadId, isThreadInterna, oldestLoadedAt, hasMore, isLoadingMore, resolverIdsAdicionais]);
 
   return {
     messages,
