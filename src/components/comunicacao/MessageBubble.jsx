@@ -1239,7 +1239,7 @@ export default React.memo(function MessageBubble({
             }
 
             {/* TEXTO - ✅ RENDERIZAÇÃO SEGURA DE EMOJIS */}
-            {(!message?.media_url || message?.media_type === 'none') && message?.content != null && String(message.content || '').trim() !== '' && String(message.content) !== '[No content]' &&
+            {(!message?.media_url || message?.media_type === 'none') && message?.media_type !== 'document' && message?.content != null && String(message.content || '').trim() !== '' && String(message.content) !== '[No content]' &&
             <>
                 <div className={cn(
                 "break-words whitespace-pre-wrap",
