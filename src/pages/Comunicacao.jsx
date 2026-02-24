@@ -2245,13 +2245,7 @@ export default function Comunicacao() {
       idsJaProcessados.add(contactId); // ✅ Marcar como processado
     });
 
-    console.log('[BUSCA CRM] 📊 RESULTADO:', {
-      termo: debouncedSearchTerm,
-      contatos_processados: resultadosBusca.length,
-      com_thread: resultadosBusca.filter(r => !r.is_contact_only).length,
-      sem_thread: resultadosBusca.filter(r => r.is_contact_only).length,
-      com_everal: resultadosBusca.filter(r => r.contato?.nome?.toLowerCase().includes('everal')).length
-    });
+
 
     // ✅ ORDENAÇÃO CRM: Relevância (60%) + Completude (30%) + Recência (10%)
     return resultadosBusca.sort((a, b) => {
