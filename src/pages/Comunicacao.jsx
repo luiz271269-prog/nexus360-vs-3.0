@@ -413,13 +413,7 @@ export default function Comunicacao() {
           
           // 🔍 LOG CIRÚRGICO: Hidratação + Metadados
           const vazios = contatosNecessarios.filter(c => !c._meta?.tem_dados_basicos);
-          console.log(`[COMUNICACAO] 📊 HIDRATAÇÃO - User: ${usuario.email}`, {
-            recebidos_backend: todosContatos.length,
-            necessarios: contatosNecessarios.length,
-            solicitados: contactIdsParaCarregar.length,
-            vazios_count: vazios.length,
-            user_id_backend: response.data.user_id
-          });
+
           
           return contatosNecessarios; // ✅ PRESERVA _meta do backend
         }
