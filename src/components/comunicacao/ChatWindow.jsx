@@ -230,24 +230,6 @@ export default function ChatWindow({
         const atendenteFidelizado = contatoCompleto?.[campo];
 
         // 🔍 LOG EXTREMAMENTE DETALHADO para debug
-        if (atendenteFidelizado) {
-          const normAtendente = norm(atendenteFidelizado);
-          const normId = norm(usuario.id);
-          const normEmail = norm(usuario.email);
-          const normName = norm(usuario.full_name);
-
-          console.log(`[DEBUG FIDELIZAÇÃO] ${campo}:`, {
-            'valor_bruto': atendenteFidelizado,
-            'norm_atendente': normAtendente,
-            'norm_id': normId,
-            'norm_email': normEmail,
-            'norm_name': normName,
-            'match_id': normAtendente === normId,
-            'match_email': normAtendente === normEmail,
-            'match_name': normAtendente === normName
-          });
-        }
-
         const isFidelizado = atendenteFidelizado && (
         norm(atendenteFidelizado) === norm(usuario.id) ||
         norm(atendenteFidelizado) === norm(usuario.email) ||
