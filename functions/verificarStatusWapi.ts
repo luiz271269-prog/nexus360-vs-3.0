@@ -186,8 +186,11 @@ Deno.serve(async (req) => {
     let statusFinal = 'desconhecido';
     let detalhes = '';
 
+    // NOTA: os campos de resultados foram renomeados nesta versão
     const tokenProbe = resultados.token_probe;
     const audioProbe = resultados.audio_probe;
+    
+    console.log('[WAPI-STATUS] 🔬 tokenProbe:', JSON.stringify(tokenProbe));
 
     // Token inválido: 401 ou 403 no probe
     if (tokenProbe?.httpStatus === 401 || tokenProbe?.httpStatus === 403) {
