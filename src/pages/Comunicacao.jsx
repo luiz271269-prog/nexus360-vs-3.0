@@ -2050,28 +2050,6 @@ export default function Comunicacao() {
       });
     }
 
-    // 🔧 Expor dados intermediários para diagnóstico
-    window._diagnosticoData = {
-      threadsUnicas,
-      threadsNaoAtribuidasVisiveis,
-      duplicataEncontrada,
-      logsFiltragem, // 🆕 Logs detalhados de cada etapa
-      filtrosAtivos: {
-        scope: filterScope,
-        integracaoId: selectedIntegrationId,
-        atendenteId: selectedAttendantId,
-        tipoContato: selectedTipoContato,
-        tagContato: selectedTagContato,
-        categoria: selectedCategoria
-      },
-      estatisticas: {
-        totalThreadsUnicas: threadsUnicas.length,
-        threadsFiltradas: threadsFiltrados.length,
-        bloqueadas: threadsUnicas.length - threadsFiltrados.length,
-        bloqueadasPorEtapa
-      }
-    };
-
     return threadsFiltrados;
   }, [threads, contatos, clientes, atendentes, usuario, userPermissions, selectedAttendantId, selectedIntegrationId, selectedCategoria, selectedTipoContato, selectedTagContato, debouncedSearchTerm, mensagensComCategoria, matchBuscaGoogle, filterScope, duplicataEncontrada, effectiveScope, threadsNaoAtribuidasVisiveis, threadsAProcessar, contatosMap, contatosBuscados]);
 
