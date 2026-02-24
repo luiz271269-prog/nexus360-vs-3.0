@@ -28,8 +28,16 @@ export default function useScrollPaginacao({
   // ✅ FIX 1: Auto-reset ao trocar de thread (não depende do pai chamar initTimestamp)
   useEffect(() => {
     console.log('[SCROLL-THREAD-CHANGE] 🔄 Thread mudou:', thread?.id?.substring(0, 8));
+    
+    // ✅ FIX 7: Cancelar qualquer request pendente
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+      abortControllerRef.current = null;
+    }
+    
     setHasMoreMessages(true);
     setOldestLoadedTimestamp(null);
+    setIsHistoryStart(false);
     cachedThreadIdsRef.current = { contactId: null, threadIds: [] }; // Limpar cache
   }, [thread?.id, thread?.contact_id]);
 
