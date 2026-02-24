@@ -96,20 +96,20 @@ export default function ChatWindow({
   thread = null,
   mensagens = [],
   usuario = null,
-  contatoPreCarregado = null, // ✅ Contato já processado da lista de priorização
+  contatoPreCarregado = null,
   onEnviarMensagem,
   onSendMessageOptimistic,
-  onSendInternalMessageOptimistic, // ✅ NOVO: Handler otimista para mensagens internas
+  onSendInternalMessageOptimistic,
   onShowContactInfo,
   onAtualizarMensagens,
   integracoes = [],
   selectedCategoria = 'all',
-  // Props para seleção múltipla (broadcast)
   modoSelecaoMultipla = false,
   contatosSelecionados = [],
-  broadcastInterno = null, // { destinations: [...] } para broadcast interno
+  broadcastInterno = null,
   onCancelarSelecao,
-  atendentes = [], // ✅ PROP: Recebe lista completa de atendentes do pai (Comunicacao.jsx)
+  atendentes = [],
+  allThreads = [],
   filterScope = 'all',
   selectedIntegrationId = 'all',
   selectedAttendantId = null,
