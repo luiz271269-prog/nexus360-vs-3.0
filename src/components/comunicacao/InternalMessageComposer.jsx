@@ -308,14 +308,16 @@ export default function InternalMessageComposer({ open, onClose, currentUser, on
     }
   };
 
+  const [activeTab, setActiveTab] = React.useState('usuarios');
+
   return (
     <>
       <Dialog open={open} onOpenChange={onClose}>
-        <DialogContent className="max-w-4xl max-h-[90vh] flex flex-col">
-          <DialogHeader>
-            <DialogTitle className="flex items-center justify-between text-slate-800">
-              <div className="flex items-center gap-3">
-                <div className={`w-10 h-10 rounded-xl flex items-center justify-center shadow-md ${
+        <DialogContent className="w-[95vw] sm:max-w-4xl max-h-[90vh] flex flex-col p-3 sm:p-6">
+          <DialogHeader className="flex-shrink-0">
+            <DialogTitle className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-slate-800">
+              <div className="flex items-center gap-3 min-w-0">
+                <div className={`w-10 h-10 rounded-xl flex-shrink-0 flex items-center justify-center shadow-md ${
                   mode === 'delegate' 
                     ? 'bg-gradient-to-br from-orange-500 to-amber-600' 
                     : 'bg-gradient-to-br from-cyan-500 to-blue-600'
@@ -326,33 +328,36 @@ export default function InternalMessageComposer({ open, onClose, currentUser, on
                     <Users className="w-5 h-5 text-white" />
                   )}
                 </div>
-                <div>
-                  <div className="font-semibold">
+                <div className="min-w-0">
+                  <div className="font-semibold text-sm sm:text-base">
                     {mode === 'delegate' ? 'Transferir Responsabilidades' : 'Envio Interno - Equipe'}
                   </div>
-                  <div className="text-xs font-normal text-slate-500">
+                  <div className="text-xs font-normal text-slate-500 truncate">
                     {mode === 'delegate' 
                       ? (totalSelecionados === 0 ? 'Selecione para quem transferir' : `${totalSelecionados} selecionado(s)`)
-                      : (totalSelecionados === 0 ? 'Selecione destinatários' : totalSelecionados === 1 ? '1 destinatário selecionado' : `${totalSelecionados} destinatários selecionados`)
+                      : (totalSelecionados === 0 ? 'Selecione destinatários' : totalSelecionados === 1 ? '1 destinatário' : `${totalSelecionados} selecionados`)
                     }
                   </div>
                 </div>
               </div>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1 sm:gap-2 w-full sm:w-auto flex-wrap">
                 {mode === 'delegate' && delegacoesAtivas.length > 0 && (
                   <Button
                     onClick={handleRemoverDelegacao}
                     variant="outline"
-                    className="border-red-300 text-red-600 hover:bg-red-50"
+                    size="sm"
+                    className="border-red-300 text-red-600 hover:bg-red-50 text-xs h-8"
                   >
-                    <X className="w-4 h-4 mr-2" />
-                    Remover Delegação
+                    <X className="w-3 h-3 mr-1" />
+                    <span className="hidden sm:inline">Remover Delegação</span>
+                    <span className="sm:hidden">Remover</span>
                   </Button>
                 )}
                 <Button
                   onClick={handleConfirm}
+                  size="sm"
                   disabled={resolving || totalSelecionados === 0 || (mode === 'delegate' && !selectedOriginUser)}
-                  className={`shadow-md text-white ${
+                  className={`shadow-md text-white text-xs h-8 whitespace-nowrap ${
                     mode === 'delegate'
                       ? 'bg-gradient-to-r from-orange-500 to-amber-600 hover:from-orange-600 hover:to-amber-700'
                       : 'bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-600 hover:to-blue-700'
@@ -360,15 +365,15 @@ export default function InternalMessageComposer({ open, onClose, currentUser, on
                 >
                   {resolving ? (
                     <>
-                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                      {mode === 'delegate' ? 'Transferindo...' : 'Abrindo...'}
+                      <Loader2 className="w-3 h-3 mr-1 animate-spin" />
+                      <span className="hidden sm:inline">{mode === 'delegate' ? 'Transferindo...' : 'Abrindo...'}</span>
                     </>
                   ) : mode === 'delegate' ? (
-                    'Transferir'
+                    <span className="hidden sm:inline">Transferir</span>
                   ) : totalSelecionados === 1 ? (
-                    'Abrir Conversa'
+                    <span className="hidden sm:inline">Abrir Conversa</span>
                   ) : (
-                    `Enviar para ${totalSelecionados}`
+                    <span>Enviar ({totalSelecionados})</span>
                   )}
                 </Button>
               </div>
