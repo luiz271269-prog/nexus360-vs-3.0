@@ -23,7 +23,15 @@ export default function useScrollPaginacao({
   const isLoadingOlderRef = useRef(false);
   const cachedThreadIdsRef = useRef({ contactId: null, threadIds: [] });
 
-  // ✅ FIX: Reseta quando muda de thread
+  // ✅ FIX 1: Auto-reset ao trocar de thread (não depende do pai chamar initTimestamp)
+  useEffect(() => {
+    console.log('[SCROLL-THREAD-CHANGE] 🔄 Thread mudou:', thread?.id?.substring(0, 8));
+    setHasMoreMessages(true);
+    setOldestLoadedTimestamp(null);
+    cachedThreadIdsRef.current = { contactId: null, threadIds: [] }; // Limpar cache
+  }, [thread?.id, thread?.contact_id]);
+
+  // ✅ FIX 2: Função para inicializar cursor (ainda pode ser chamada pelo pai)
   const initTimestamp = (msgs) => {
     if (msgs?.length > 0) {
       const cursor = msgs[0]?.sent_at || msgs[0]?.created_date;
