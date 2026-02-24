@@ -1209,10 +1209,10 @@ export default React.memo(function MessageBubble({
             message?.media_type === 'document' ||
             message?.content === 'pdf' ||
             message?.content?.toLowerCase() === '[documento]' ||
-            message?.media_url && (
+            (message?.media_url && (
             message?.media_url.toLowerCase().includes('.pdf') ||
             message?.media_url.toLowerCase().includes('.doc') ||
-            message?.media_url.toLowerCase().includes('.xls'))) &&
+            message?.media_url.toLowerCase().includes('.xls')))) &&
 
             message?.media_url === 'pending_download' &&
             <div className="overflow-hidden px-3 py-3">
