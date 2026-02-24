@@ -1877,58 +1877,14 @@ ${conteudoMensagem}${dadosExtraidos?.observacoes_extraidas ? `\n\n📋 IA: ${dad
     const isThreadInterna = thread?.thread_type === 'team_internal' || thread?.thread_type === 'sector_group';
 
     if (isThreadInterna) {
-      console.log('[MENSAGENS_INTERNAS] 🔍 Total mensagens recebidas:', mensagensFiltradas.length);
-      console.log('[MENSAGENS_INTERNAS] 📋 Primeiras 3 mensagens:', mensagensFiltradas.slice(0, 3).map(m => ({
-        id: m.id?.substring(0, 8),
-        sender_type: m.sender_type,
-        recipient_type: m.recipient_type,
-        channel: m.channel,
-        visibility: m.visibility,
-        content: m.content?.substring(0, 30),
-        media_type: m.media_type
-      })));
-
-      const mensagensInternasProcessadas = mensagensFiltradas.filter((m) => {
-        // 🎯 REGRA CLARA: Mensagens internas são SEMPRE entre USUÁRIOS
-        // ✅ Validação tripla: channel, sender_type, recipient_type
-        const isInterna = 
-          m.channel === 'interno' && 
-          m.sender_type === 'user' && 
+      return mensagensFiltradas.filter((m) => {
+        const isInterna = m.channel === 'interno' && m.sender_type === 'user' &&
           (m.recipient_type === 'user' || m.recipient_type === 'group');
-
-        if (!isInterna) {
-          console.log('[MENSAGENS_INTERNAS] ❌ Rejeitada (não é interna):', {
-            id: m.id?.substring(0, 8),
-            channel: m.channel,
-            sender_type: m.sender_type,
-            recipient_type: m.recipient_type
-          });
-          return false;
-        }
-
-        // ✅ Validar conteúdo (texto OU mídia)
+        if (!isInterna) return false;
         const content = (m.content || '').trim();
         const hasMidia = (m.media_type && m.media_type !== 'none') || m.media_url;
-        const shouldShow = content.length > 0 || hasMidia;
-
-        if (!shouldShow) {
-          console.log('[MENSAGENS_INTERNAS] ❌ Rejeitada (sem conteúdo):', m.id?.substring(0, 8));
-          return false;
-        }
-
-        console.log('[MENSAGENS_INTERNAS] ✅ Aprovada:', {
-          id: m.id?.substring(0, 8),
-          sender: m.sender_id?.substring(0, 8),
-          recipient: m.recipient_id?.substring(0, 8) || 'GROUP',
-          has_content: content.length > 0,
-          has_midia: hasMidia
-        });
-
-        return true;
+        return content.length > 0 || hasMidia;
       });
-
-      console.log('[MENSAGENS_INTERNAS] 📊 RESULTADO:', mensagensInternasProcessadas.length, 'de', mensagensFiltradas.length);
-      return mensagensInternasProcessadas;
     }
 
     // ✅ Para threads externas (WhatsApp): aplicar filtros de limpeza existentes
