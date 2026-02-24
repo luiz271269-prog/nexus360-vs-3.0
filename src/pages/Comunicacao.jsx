@@ -603,58 +603,59 @@ export default function Comunicacao() {
   // ═══════════════════════════════════════════════════════════════════════════════
   const isThreadInterna = threadAtiva?.thread_type === 'team_internal' || threadAtiva?.thread_type === 'sector_group';
 
-  // ✅ NOVO: Query LAZY com paginação (carrega apenas 20 msgs iniciais)
+  // ✅ QUERY OTIMIZADA: 1 query para thread ativa + IDs extras resolvidos EM MEMÓRIA
   const { data: mensagens = [] } = useQuery({
     queryKey: ['mensagens', threadAtiva?.id],
     queryFn: async () => {
       if (!threadAtiva || isRateLimited) return [];
 
       try {
-        // ✅ BRANCH INTERNO: Busca simples, SEM merge
+        // BRANCH INTERNO: Busca simples, SEM merge
         if (isThreadInterna) {
-          console.log('[COMUNICACAO] 🔵 Thread interna - busca direta (SEM merge)');
           const ultimasMensagens = await base44.entities.Message.filter(
             { thread_id: threadAtiva.id },
             '-sent_at',
-            20 // ✅ LAZY: 500 → 20 (carrega mais ao scroll-up)
+            20
           );
-          console.log(`[COMUNICACAO] 📩 ${ultimasMensagens.length} mensagens internas carregadas`);
           return ultimasMensagens.reverse();
         }
 
-        // ⚡ OTIMIZAÇÃO: Buscar mensagens da thread atual IMEDIATAMENTE + outras em paralelo
-        const [msgsPrimarias, threadsMerged, threadsContato] = await Promise.all([
-          base44.entities.Message.filter({ thread_id: threadAtiva.id }, '-sent_at', 20),
-          base44.entities.MessageThread.filter({ merged_into: threadAtiva.id, status: 'merged' }, '-created_date', 10).catch(() => []),
-          threadAtiva.contact_id ? base44.entities.MessageThread.filter({ contact_id: threadAtiva.contact_id, status: { $in: ['aberta', 'fechada'] } }, '-created_date', 20).catch(() => []) : Promise.resolve([])
-        ]);
+        // ⚡ FASE 1: Buscar mensagens da thread ativa IMEDIATAMENTE (1 query)
+        const msgsPrimarias = await base44.entities.Message.filter(
+          { thread_id: threadAtiva.id },
+          '-sent_at',
+          20
+        );
 
-        const idsAdicionais = [
-          ...threadsMerged.map(t => t.id),
-          ...threadsContato.map(t => t.id).filter(id => id !== threadAtiva.id)
-        ].filter((id, i, arr) => arr.indexOf(id) === i);
+        // ✅ FASE 2: Resolver IDs adicionais EM MEMÓRIA (sem queries ao banco)
+        const idsAdicionais = (() => {
+          if (!threads?.length) return [];
+          const contactId = threadAtiva.contact_id;
+          const ids = [];
+          threads.forEach(t => {
+            if (t.id === threadAtiva.id) return;
+            if (t.merged_into === threadAtiva.id && t.status === 'merged') { ids.push(t.id); return; }
+            if (contactId && t.contact_id === contactId && (t.status === 'aberta' || t.status === 'fechada')) ids.push(t.id);
+          });
+          return [...new Set(ids)];
+        })();
 
-        let ultimasMensagens;
         if (idsAdicionais.length === 0) {
-          ultimasMensagens = msgsPrimarias;
-        } else {
-          const msgsAdicionais = await base44.entities.Message.filter({ thread_id: { $in: idsAdicionais } }, '-sent_at', 20);
-          const combined = Array.from(new Map([...msgsPrimarias, ...msgsAdicionais].map(m => [m.id, m])).values());
-          combined.sort((a, b) => new Date(b.sent_at || 0) - new Date(a.sent_at || 0));
-          ultimasMensagens = combined.slice(0, 20);
+          return msgsPrimarias.reverse();
         }
 
-        // ✅ REMOVIDO: Query de diagnóstico (mensagens recebidas) - não bloqueante
+        // Só busca msgs adicionais se há threads relacionadas (caso raro)
+        const msgsAdicionais = await base44.entities.Message.filter(
+          { thread_id: { $in: idsAdicionais } },
+          '-sent_at',
+          20
+        );
+        const combined = Array.from(new Map([...msgsPrimarias, ...msgsAdicionais].map(m => [m.id, m])).values());
+        combined.sort((a, b) => new Date(a.sent_at || 0) - new Date(b.sent_at || 0));
+        return combined.slice(-20);
 
-        if (DEBUG_VIS) {
-          console.log(`[COMUNICACAO] 📩 TOTAL Mensagens: ${ultimasMensagens.length} | Thread: ${threadAtiva.id}`);
-        }
-
-        return ultimasMensagens.reverse();
       } catch (error) {
-        // 🚫 DETECTAR 429 E ATIVAR COOL-DOWN
         if (error?.message?.includes('429') || error?.response?.status === 429) {
-          console.warn('[COMUNICACAO] ⚠️ 429 em mensagens! Ativando cool-down...');
           setIsRateLimited(true);
           setTimeout(() => setIsRateLimited(false), 10000);
           return [];
@@ -663,14 +664,11 @@ export default function Comunicacao() {
       }
     },
     enabled: !!threadAtiva && !isRateLimited,
-    refetchInterval: isThreadInterna ? 30000 : 20000, // Internas: 30s | Externas: 20s
+    refetchInterval: isThreadInterna ? 30000 : 20000,
     staleTime: 10000,
     retry: 2,
     retryDelay: 1000,
     refetchOnWindowFocus: true,
-    onError: (error) => {
-      console.error('[Comunicacao] Erro ao carregar mensagens:', error);
-    }
   });
 
   const { data: gotoIntegracoes = [] } = useQuery({
