@@ -98,7 +98,7 @@ export default function Comunicacao() {
   // ✅ NEXUS360: Construir permissões processadas
   const userPermissions = React.useMemo(() => {
     if (!usuario) return null;
-    console.log('[NEXUS360] 🔧 Construindo permissões para:', usuario.email);
+
     return permissionsService.buildUserPermissions(usuario, todasIntegracoes);
   }, [usuario, todasIntegracoes]);
 
