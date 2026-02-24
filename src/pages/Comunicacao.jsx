@@ -411,8 +411,7 @@ export default function Comunicacao() {
           const idsSet = new Set(contactIdsParaCarregar);
           const contatosNecessarios = todosContatos.filter((c) => idsSet.has(c.id));
           
-          // 🔍 LOG CIRÚRGICO: Hidratação + Metadados
-          const vazios = contatosNecessarios.filter(c => !c._meta?.tem_dados_basicos);
+
 
           
           return contatosNecessarios; // ✅ PRESERVA _meta do backend
