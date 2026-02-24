@@ -205,6 +205,7 @@ export default function useScrollPaginacao({
     chatContainerRef,
     loadingOlder,
     hasMoreMessages,
+    isHistoryStart, // ✅ FIX 6: Expor flag para "Início da conversa"
     oldestLoadedTimestamp,
     initTimestamp
   };
