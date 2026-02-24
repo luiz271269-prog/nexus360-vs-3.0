@@ -156,8 +156,15 @@ export default function useScrollPaginacao({
           });
         });
 
-        // ✅ CURSOR ESTRITO: sempre buscar ANTES do ponto anterior
-        setOldestLoadedTimestamp(olderMessages[0]?.sent_at || olderMessages[0]?.created_date);
+        // ✅ FIX 4: Cursor com proteção — validar que existe timestamp válido
+        const newCursor = olderMessages[0]?.sent_at || olderMessages[0]?.created_date;
+        if (!newCursor) {
+          console.warn('[SCROLL-UP] ⚠️ Mensagem sem timestamp! Fim do histórico.');
+          setHasMoreMessages(false);
+        } else {
+          setOldestLoadedTimestamp(newCursor);
+          console.log('[SCROLL-UP] 🔄 Novo cursor:', newCursor);
+        }
 
         // Manter posição visual após inserir mensagens no topo
         requestAnimationFrame(() => {
