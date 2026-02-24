@@ -4,6 +4,12 @@ import { base44 } from '@/api/base44Client';
 /**
  * Hook que detecta scroll no topo do chat e busca mais 20 mensagens antigas.
  * Inclui TODAS as threads do contato (busca no banco pelo contact_id).
+ * 
+ * ✅ FIXES:
+ * - Auto-reset ao trocar thread
+ * - Cache de threads adicionais para evitar múltiplas queries
+ * - Proteção contra cursor undefined
+ * - Ordenação explícita para evitar inconsistência
  */
 export default function useScrollPaginacao({
   thread,
@@ -15,6 +21,7 @@ export default function useScrollPaginacao({
   const [oldestLoadedTimestamp, setOldestLoadedTimestamp] = useState(null);
   const chatContainerRef = useRef(null);
   const isLoadingOlderRef = useRef(false);
+  const cachedThreadIdsRef = useRef({ contactId: null, threadIds: [] });
 
   // ✅ FIX: Reseta quando muda de thread
   const initTimestamp = (msgs) => {
