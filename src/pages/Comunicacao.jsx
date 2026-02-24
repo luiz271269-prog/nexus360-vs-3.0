@@ -622,54 +622,27 @@ export default function Comunicacao() {
           return ultimasMensagens.reverse();
         }
 
-        // ✅ BRANCH EXTERNO: Buscar histórico consolidado (thread atual + merged + MESMO CONTATO)
-        let threadIdsParaBuscar = [threadAtiva.id];
+        // ⚡ OTIMIZAÇÃO: Buscar mensagens da thread atual IMEDIATAMENTE + outras em paralelo
+        const [msgsPrimarias, threadsMerged, threadsContato] = await Promise.all([
+          base44.entities.Message.filter({ thread_id: threadAtiva.id }, '-sent_at', 20),
+          base44.entities.MessageThread.filter({ merged_into: threadAtiva.id, status: 'merged' }, '-created_date', 10).catch(() => []),
+          threadAtiva.contact_id ? base44.entities.MessageThread.filter({ contact_id: threadAtiva.contact_id, status: { $in: ['aberta', 'fechada'] } }, '-created_date', 20).catch(() => []) : Promise.resolve([])
+        ]);
 
-        try {
-          // Buscar threads merged OFICIALMENTE
-          const threadsMerged = await base44.entities.MessageThread.filter(
-            {
-              merged_into: threadAtiva.id,
-              status: 'merged'
-            },
-            '-created_date',
-            20
-          );
+        const idsAdicionais = [
+          ...threadsMerged.map(t => t.id),
+          ...threadsContato.map(t => t.id).filter(id => id !== threadAtiva.id)
+        ].filter((id, i, arr) => arr.indexOf(id) === i);
 
-          if (threadsMerged && threadsMerged.length > 0) {
-            console.log(`[COMUNICACAO] 🔀 Encontradas ${threadsMerged.length} threads merged oficialmente`);
-            threadIdsParaBuscar.push(...threadsMerged.map((t) => t.id));
-          }
-
-          // 🆕 BUSCAR TODAS AS THREADS DO MESMO CONTATO (unificação inteligente)
-          if (threadAtiva.contact_id) {
-            const todasThreadsDoContato = await base44.entities.MessageThread.filter(
-              {
-                contact_id: threadAtiva.contact_id,
-                status: { $in: ['aberta', 'fechada'] }
-              },
-              '-created_date',
-              50
-            );
-
-            if (todasThreadsDoContato && todasThreadsDoContato.length > 1) {
-              console.log(`[COMUNICACAO] 🔗 Encontradas ${todasThreadsDoContato.length} threads do mesmo contato - UNIFICANDO histórico`);
-              const idsAdicionais = todasThreadsDoContato.map((t) => t.id).filter((id) => !threadIdsParaBuscar.includes(id));
-              threadIdsParaBuscar.push(...idsAdicionais);
-            }
-          }
-        } catch (mergedErr) {
-          console.warn('[COMUNICACAO] ⚠️ Erro ao buscar threads para unificação:', mergedErr.message);
+        let ultimasMensagens;
+        if (idsAdicionais.length === 0) {
+          ultimasMensagens = msgsPrimarias;
+        } else {
+          const msgsAdicionais = await base44.entities.Message.filter({ thread_id: { $in: idsAdicionais } }, '-sent_at', 20);
+          const combined = Array.from(new Map([...msgsPrimarias, ...msgsAdicionais].map(m => [m.id, m])).values());
+          combined.sort((a, b) => new Date(b.sent_at || 0) - new Date(a.sent_at || 0));
+          ultimasMensagens = combined.slice(0, 20);
         }
-
-        console.log(`[COMUNICACAO] 📦 Buscando mensagens de ${threadIdsParaBuscar.length} thread(s) para histórico unificado`);
-
-        // ✅ QUERY: Todas as mensagens (thread atual + merged + mesmo contato)
-         const ultimasMensagens = await base44.entities.Message.filter(
-           { thread_id: { $in: threadIdsParaBuscar } },
-           '-sent_at',
-           20 // ✅ LAZY: 50 → 20 (carrega mais ao scroll-up)
-         );
 
         // ✅ REMOVIDO: Query de diagnóstico (mensagens recebidas) - não bloqueante
 
