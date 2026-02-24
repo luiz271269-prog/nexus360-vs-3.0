@@ -1687,174 +1687,50 @@ export default function ChatWindow({
     }
   }, [erro]);
 
+  // Handler global para criar oportunidade via chat (usado pelo MessageBubble)
   React.useEffect(() => {
-    window.handleCriarOportunidadeDeChat = async (mensagem, threadData, statusInicial, destino = 'orcamentos') => {
+    const criarOportunidade = async (mensagem, threadData, statusInicial, destino = 'orcamentos') => {
       if (!statusInicial) statusInicial = 'rascunho';
-      if (!contatoCompleto) {
-        toast.error('Aguarde o carregamento do contato');
-        return;
-      }
-
+      if (!contatoCompleto) { toast.error('Aguarde o carregamento do contato'); return; }
       const toastId = toast.loading('🤖 IA analisando e criando oportunidade...');
-
       try {
-        // Extrair dados com IA se houver texto
         let dadosExtraidos = null;
-        if (mensagem.content && mensagem.content.trim().length > 10) {
+        if (mensagem.content?.trim().length > 10) {
           try {
-            const resultado = await base44.integrations.Core.InvokeLLM({
-              prompt: `Analise esta mensagem de chat e extraia dados estruturados para criar um orçamento comercial.
-
-MENSAGEM DO CLIENTE:
-${mensagem.content}
-
-INSTRUÇÕES:
-1. Identifique produtos/serviços mencionados com quantidades e valores (se houver)
-2. Extraia condições de pagamento, prazos ou datas mencionadas
-3. Capture observações importantes ou requisitos específicos
-4. Se não houver dados claros, retorne campos vazios
-
-Retorne JSON estruturado.`,
-              response_json_schema: {
-                type: "object",
-                properties: {
-                  itens: {
-                    type: "array",
-                    items: {
-                      type: "object",
-                      properties: {
-                        nome_produto: { type: "string" },
-                        descricao: { type: "string" },
-                        quantidade: { type: "number" },
-                        valor_unitario: { type: "number" }
-                      }
-                    }
-                  },
-                  valor_total: { type: "number" },
-                  condicao_pagamento: { type: "string" },
-                  observacoes_extraidas: { type: "string" }
-                }
-              }
+            dadosExtraidos = await base44.integrations.Core.InvokeLLM({
+              prompt: `Analise esta mensagem e extraia dados para orçamento:\n${mensagem.content}\nRetorne JSON com itens (array com nome_produto, quantidade, valor_unitario), valor_total, condicao_pagamento, observacoes_extraidas.`,
+              response_json_schema: { type: "object", properties: { itens: { type: "array", items: { type: "object", properties: { nome_produto: { type: "string" }, quantidade: { type: "number" }, valor_unitario: { type: "number" } } } }, valor_total: { type: "number" }, condicao_pagamento: { type: "string" }, observacoes_extraidas: { type: "string" } } }
             });
-            dadosExtraidos = resultado;
-          } catch (_) { /* Continua sem dados da IA */ }
+          } catch (_) {}
         }
-
-        const tipoRemetente = mensagem.sender_type === 'user' ? 'Atendente' : 'Cliente';
-        const nomeRemetente = mensagem.sender_type === 'user'
-          ? (usuario?.full_name || 'Atendente')
-          : (contatoCompleto?.nome || 'Cliente');
-
-        const conteudoMensagem = mensagem.content || (
-          mensagem.media_type === 'audio' ? '[Áudio gravado]' :
-          mensagem.media_type === 'image' ? '[Imagem/Print]' :
-          mensagem.media_type === 'video' ? '[Vídeo]' :
-          mensagem.media_type === 'document' ? '[Documento]' : '[Mensagem sem texto]'
-        );
-
-        const observacoes = `[💬 Chat ${threadData.id?.slice(-8)} - ${new Date().toLocaleString('pt-BR')}]
-👤 ${nomeRemetente} (${tipoRemetente})
-
-${conteudoMensagem}${dadosExtraidos?.observacoes_extraidas ? `\n\n📋 IA: ${dadosExtraidos.observacoes_extraidas}` : ''}`;
-
-        // ====== ROTEAMENTO POR DESTINO ======
+        const nomeRemetente = mensagem.sender_type === 'user' ? (usuario?.full_name || 'Atendente') : (contatoCompleto?.nome || 'Cliente');
+        const conteudoMensagem = mensagem.content || `[${mensagem.media_type || 'Mídia'}]`;
+        const observacoes = `[💬 Chat ${threadData.id?.slice(-8)} - ${new Date().toLocaleString('pt-BR')}]\n👤 ${nomeRemetente}\n\n${conteudoMensagem}${dadosExtraidos?.observacoes_extraidas ? `\n\n📋 IA: ${dadosExtraidos.observacoes_extraidas}` : ''}`;
         if (destino === 'leads') {
-          // Criar/atualizar Contact como lead
-          if (threadData.contact_id) {
-            await base44.entities.Contact.update(threadData.contact_id, { tipo_contato: 'lead' });
-          }
-          // Criar registro de Cliente como lead
-          await base44.entities.Cliente.create({
-            razao_social: contatoCompleto.nome || contatoCompleto.empresa || 'Lead do Chat',
-            nome_fantasia: contatoCompleto.empresa || '',
-            telefone: contatoCompleto.telefone || '',
-            email: contatoCompleto.email || '',
-            status: 'novo_lead',
-            vendedor_id: usuario?.id || '',
-            observacoes: observacoes,
-            origem_campanha: { canal_entrada: 'whatsapp' }
-          });
+          if (threadData.contact_id) await base44.entities.Contact.update(threadData.contact_id, { tipo_contato: 'lead' });
+          await base44.entities.Cliente.create({ razao_social: contatoCompleto.nome || 'Lead do Chat', telefone: contatoCompleto.telefone || '', status: 'novo_lead', vendedor_id: usuario?.id || '', observacoes, origem_campanha: { canal_entrada: 'whatsapp' } });
           toast.dismiss(toastId);
-          toast.success('🎯 Lead criado no Funil de Leads!', {
-            duration: 5000,
-            action: { label: 'Ver Leads', onClick: () => navigate(createPageUrl('LeadsQualificados') + '?tab=leads') }
-          });
+          toast.success('🎯 Lead criado!', { duration: 5000, action: { label: 'Ver Leads', onClick: () => navigate(createPageUrl('LeadsQualificados') + '?tab=leads') } });
           return;
         }
-
         if (destino === 'clientes') {
-          await base44.entities.Cliente.create({
-            razao_social: contatoCompleto.nome || contatoCompleto.empresa || 'Cliente do Chat',
-            nome_fantasia: contatoCompleto.empresa || '',
-            telefone: contatoCompleto.telefone || '',
-            email: contatoCompleto.email || '',
-            status: 'Ativo',
-            vendedor_id: usuario?.id || '',
-            observacoes: observacoes,
-            origem_campanha: { canal_entrada: 'whatsapp' }
-          });
+          await base44.entities.Cliente.create({ razao_social: contatoCompleto.nome || 'Cliente do Chat', telefone: contatoCompleto.telefone || '', status: 'Ativo', vendedor_id: usuario?.id || '', observacoes, origem_campanha: { canal_entrada: 'whatsapp' } });
           toast.dismiss(toastId);
-          toast.success('👥 Cliente criado na Gestão de Clientes!', {
-            duration: 5000,
-            action: { label: 'Ver Clientes', onClick: () => navigate(createPageUrl('Clientes')) }
-          });
+          toast.success('👥 Cliente criado!', { duration: 5000, action: { label: 'Ver Clientes', onClick: () => navigate(createPageUrl('Clientes')) } });
           return;
         }
-
-        // destino === 'orcamentos' (padrão)
-        const response = await base44.functions.invoke('criarOportunidadeDoChat', {
-          message_id: mensagem.id,
-          thread_id: threadData.id,
-          contact_id: threadData.contact_id,
-          cliente_nome: contatoCompleto.nome || contatoCompleto.empresa || '',
-          cliente_telefone: contatoCompleto.telefone || '',
-          cliente_email: contatoCompleto.email || '',
-          vendedor: usuario?.full_name || '',
-          status: statusInicial || 'rascunho',
-          valor_total: dadosExtraidos?.valor_total || 0,
-          produtos: dadosExtraidos?.itens?.map(i => ({
-            nome: i.nome_produto || '',
-            descricao: i.descricao || '',
-            quantidade: i.quantidade || 1,
-            valor_unitario: i.valor_unitario || 0,
-            valor_total: (i.quantidade || 1) * (i.valor_unitario || 0)
-          })) || [],
-          observacoes,
-          media_url: mensagem.media_url || '',
-          media_type: mensagem.media_type || 'text'
-        });
-
+        const response = await base44.functions.invoke('criarOportunidadeDoChat', { message_id: mensagem.id, thread_id: threadData.id, contact_id: threadData.contact_id, cliente_nome: contatoCompleto.nome || '', cliente_telefone: contatoCompleto.telefone || '', cliente_email: contatoCompleto.email || '', vendedor: usuario?.full_name || '', status: statusInicial, valor_total: dadosExtraidos?.valor_total || 0, produtos: dadosExtraidos?.itens?.map(i => ({ nome: i.nome_produto || '', quantidade: i.quantidade || 1, valor_unitario: i.valor_unitario || 0, valor_total: (i.quantidade || 1) * (i.valor_unitario || 0) })) || [], observacoes, media_url: mensagem.media_url || '', media_type: mensagem.media_type || 'text' });
         if (!response?.data?.success) throw new Error(response?.data?.error || 'Erro ao criar');
-
         toast.dismiss(toastId);
-        toast.success(
-          `✅ Oportunidade ${response.data.numero_orcamento} criada no Kanban!`,
-          {
-            duration: 5000,
-            action: {
-              label: 'Ver Kanban',
-              onClick: () => navigate(createPageUrl('Orcamentos'))
-            }
-          }
-        );
-
-        // ✅ Sync: atualiza Kanban em tempo real se estiver aberto
+        toast.success(`✅ Oportunidade ${response.data.numero_orcamento} criada!`, { duration: 5000, action: { label: 'Ver Kanban', onClick: () => navigate(createPageUrl('Orcamentos')) } });
         window.dispatchEvent(new CustomEvent('orcamentos:refresh'));
-
-        if (dadosExtraidos?.itens?.length > 0) {
-          toast.success(`🤖 IA identificou ${dadosExtraidos.itens.length} item(ns)!`, { duration: 2000 });
-        }
-
       } catch (error) {
-        console.error('[CHAT] Erro ao criar oportunidade:', error);
         toast.dismiss(toastId);
         toast.error('Erro ao criar oportunidade: ' + error.message);
       }
     };
-
-    return () => {
-      delete window.handleCriarOportunidadeDeChat;
-    };
+    window.handleCriarOportunidadeDeChat = criarOportunidade;
+    return () => { delete window.handleCriarOportunidadeDeChat; };
   }, [contatoCompleto, usuario, navigate]);
 
   // 🎯 MEMOIZAÇÃO: Processar mensagens ANTES de qualquer early return
