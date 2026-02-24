@@ -74,6 +74,7 @@ import CentralInteligenciaContato, {
 './CentralInteligenciaContato';
 import MessageInput from './MessageInput';
 import AlertaPedidoTransferencia from './AlertaPedidoTransferencia';
+import useScrollPaginacao from './useScrollPaginacao';
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // 🎯 GETTER UNIFICADO: Contagem de não lidas (externo + interno)
