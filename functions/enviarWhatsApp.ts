@@ -473,11 +473,22 @@ Deno.serve(async (req) => {
             urlParaUsar = media_url.split('?')[0]; // Remove query params
           }
           
-          if (media_caption && media_caption.includes('.')) {
-            nomeArquivoSeguro = sanitizarFileName(media_caption, extensaoArquivo);
+          // ✅ PRIORIDADE: usar media_caption como nome do arquivo
+          // Se caption tem extensão válida, usar direto; se não, adicionar extensão baseada na URL
+          if (media_caption && media_caption.trim()) {
+            const captionLimpo = media_caption.trim().replace(/[\/:*?"<>|\\]/g, '_').slice(0, 100);
+            // Verificar se já tem extensão válida
+            const captionExt = captionLimpo.split('.').pop()?.toLowerCase();
+            const captionTemExt = captionExt && captionExt.length >= 2 && captionExt.length <= 5;
+            nomeArquivoSeguro = captionTemExt ? captionLimpo : `${captionLimpo}.${extensaoArquivo}`;
           } else {
-            const nomeBase = media_caption ? media_caption.replace(/[\/:*?"<>|\\]/g, '_').slice(0, 100) : 'documento';
-            nomeArquivoSeguro = `${nomeBase}.${extensaoArquivo}`;
+            // Tentar extrair nome do arquivo da URL
+            const nomeUrl = media_url?.split('/').pop()?.split('?')[0];
+            if (nomeUrl && nomeUrl.includes('.')) {
+              nomeArquivoSeguro = nomeUrl.slice(0, 100);
+            } else {
+              nomeArquivoSeguro = `documento.${extensaoArquivo}`;
+            }
           }
           
           // ✅ VALIDAÇÃO CRÍTICA: Garantir que fileName tem extensão
