@@ -220,7 +220,25 @@ export default function NexusChat({ isOpen, onToggle, agentContext = {}, agentSe
         </div>
         <div className={`flex-1 max-w-xs ${isUser ? 'text-right' : ''}`}>
           <div className={`inline-block p-3 rounded-lg text-sm ${getBackgroundColor()}`}>
-            <div className="whitespace-pre-wrap break-words">{mensagem.content}</div>
+            {isUser ? (
+              <div className="whitespace-pre-wrap break-words">{mensagem.content}</div>
+            ) : (
+              <ReactMarkdown
+                className="prose prose-sm max-w-none [&>*:first-child]:mt-0 [&>*:last-child]:mb-0 break-words"
+                components={{
+                  p: ({ children }) => <p className="my-1 leading-relaxed">{children}</p>,
+                  ul: ({ children }) => <ul className="my-1 ml-4 list-disc">{children}</ul>,
+                  ol: ({ children }) => <ol className="my-1 ml-4 list-decimal">{children}</ol>,
+                  li: ({ children }) => <li className="my-0.5">{children}</li>,
+                  strong: ({ children }) => <strong className="font-semibold">{children}</strong>,
+                  code: ({ inline, children }) => inline
+                    ? <code className="px-1 py-0.5 rounded bg-slate-100 text-slate-700 text-xs">{children}</code>
+                    : <pre className="bg-slate-900 text-slate-100 rounded p-2 text-xs overflow-x-auto my-1"><code>{children}</code></pre>,
+                }}
+              >
+                {mensagem.content}
+              </ReactMarkdown>
+            )}
           </div>
           <p className="text-xs text-gray-500 mt-1">
             {mensagem.timestamp ? format(new Date(mensagem.timestamp), 'HH:mm') : ''}
