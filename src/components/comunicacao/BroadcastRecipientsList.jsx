@@ -1,3 +1,4 @@
+// BroadcastRecipientsList - extracted from ChatWindow to reduce file size
 import React from "react";
 
 export default function BroadcastRecipientsList({ broadcastInterno, contatosSelecionados }) {
