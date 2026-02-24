@@ -231,41 +231,11 @@ export default function ChatWindow({
       return true; // Aguardando contato carregar — libera temporariamente
     }
 
-    // ═══════════════════════════════════════════════════════════════════════════
-    // PRIORIDADE 3: Gerente/Coordenador → SEMPRE pode enviar (mesmo após transferência)
-    // ═══════════════════════════════════════════════════════════════════════════
-    const isGerente = ['gerente', 'coordenador', 'supervisor'].includes(usuario.attendant_role);
-    debugLog('PRIORIDADE 3 (Gerente)', isGerente, {
-      'usuario.attendant_role': usuario?.attendant_role
-    });
+    if (['gerente', 'coordenador', 'supervisor'].includes(usuario.attendant_role)) return true;
 
-    if (isGerente) {
-      // ✅ GERENTES SEMPRE PODEM ENVIAR - mesmo se thread transferida para outro setor/usuário
-      return true;
-    }
-
-    // ═══════════════════════════════════════════════════════════════════════════
-    // PRIORIDADE 4: Thread NÃO ATRIBUÍDA → qualquer usuário pode (auto-atribui)
-    // ═══════════════════════════════════════════════════════════════════════════
     const isNaoAtribuida = !thread.assigned_user_id && !thread.assigned_user_name && !thread.assigned_user_email;
-    debugLog('PRIORIDADE 4 (Não atribuída)', isNaoAtribuida, {
-      'assigned_user_id': thread.assigned_user_id,
-      'assigned_user_name': thread.assigned_user_name,
-      'assigned_user_email': thread.assigned_user_email
-    });
-
     if (isNaoAtribuida) return true;
 
-    // ═══════════════════════════════════════════════════════════════════════════
-    // FALLBACK: Bloqueado (atribuída a outro, fidelizada a outro)
-    // ═══════════════════════════════════════════════════════════════════════════
-    debugLog('FALLBACK (Bloqueado)', false, {
-      'razão': 'Não passou em nenhuma prioridade',
-      'isAtribuidoAoUsuario': isAtribuidoAoUsuario,
-      'isGerente': isGerente,
-      'isNaoAtribuida': isNaoAtribuida,
-      'contatoCompleto': !!contatoCompleto
-    });
     return false;
   }, [usuario, thread, contatoCompleto, carregandoContato]);
 
