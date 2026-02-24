@@ -143,7 +143,7 @@ export default function useScrollPaginacao({
 
     container.addEventListener('scroll', handleScroll, { passive: true });
     return () => container.removeEventListener('scroll', handleScroll);
-  }, [thread?.id, thread?.contact_id, thread?.thread_type, hasMoreMessages, oldestLoadedTimestamp, queryClient, allThreads, setOldestLoadedTimestamp, setHasMoreMessages]);
+  }, [thread?.id, thread?.contact_id, thread?.thread_type, hasMoreMessages, oldestLoadedTimestamp, queryClient, allThreads]);
 
   // ✅ Inicializar o cursor quando as mensagens carregam
   const initTimestamp = useCallback((messages) => {
