@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
 
 /**
  * Hook que detecta scroll no topo do chat e busca mais 20 mensagens antigas.
