@@ -2679,8 +2679,8 @@ export default function Comunicacao() {
                   }}
                   contatos={contatos}
                   duplicataEncontrada={duplicataEncontrada}
-                  threadsUnicas={window._diagnosticoData?.threadsUnicas}
-                  threadsNaoAtribuidasVisiveis={window._diagnosticoData?.threadsNaoAtribuidasVisiveis} />
+                  threadsUnicas={undefined}
+                  threadsNaoAtribuidasVisiveis={undefined} />
 
                 
                 <DiagnosticoThreadsInvisiveis
