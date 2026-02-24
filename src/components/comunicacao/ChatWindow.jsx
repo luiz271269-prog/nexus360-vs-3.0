@@ -134,26 +134,18 @@ export default function ChatWindow({
   const [mediaRecorder, setMediaRecorder] = React.useState(null);
   const audioStreamRef = React.useRef(null);
   const [uploadingPastedFile, setUploadingPastedFile] = React.useState(false);
-
   const [mostrarSugestor, setMostrarSugestor] = React.useState(false);
   const [ultimaMensagemCliente, setUltimaMensagemCliente] = React.useState(null);
   const [mostrarReativacaoRapida, setMostrarReativacaoRapida] = React.useState(false);
   const [analiseComportamental, setAnaliseComportamental] = React.useState(null);
-
   const [canalSelecionado, setCanalSelecionado] = React.useState(null);
-
   const [mostrarMediaSystem, setMostrarMediaSystem] = React.useState(false);
-
-  // Estados para broadcast
   const [enviandoBroadcast, setEnviandoBroadcast] = React.useState(false);
   const [progressoBroadcast, setProgressoBroadcast] = React.useState({ enviados: 0, erros: 0, total: 0 });
-
   const messagesEndRef = React.useRef(null);
   const chatContainerRef = React.useRef(null);
   const unreadSeparatorRef = React.useRef(null);
   const fotoJaBuscada = React.useRef(new Set());
-
-  // ✅ LAZY PAGINATION: Estados para carregar histórico ao scroll-up
   const [loadingOlder, setLoadingOlder] = React.useState(false);
   const [hasMoreMessages, setHasMoreMessages] = React.useState(true);
   const [oldestLoadedTimestamp, setOldestLoadedTimestamp] = React.useState(null);
