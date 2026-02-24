@@ -1422,45 +1422,30 @@ export default function ChatWindow({
 
   // Handler global para criar oportunidade via chat (usado pelo MessageBubble)
   React.useEffect(() => {
-    const criarOportunidade = async (mensagem, threadData, statusInicial, destino = 'orcamentos') => {
-      if (!statusInicial) statusInicial = 'rascunho';
+    const criarOportunidade = async (mensagem, threadData, statusInicial = 'rascunho', destino = 'orcamentos') => {
       if (!contatoCompleto) { toast.error('Aguarde o carregamento do contato'); return; }
       const toastId = toast.loading('🤖 IA analisando e criando oportunidade...');
       try {
         let dadosExtraidos = null;
         if (mensagem.content?.trim().length > 10) {
-          try {
-            dadosExtraidos = await base44.integrations.Core.InvokeLLM({
-              prompt: `Analise esta mensagem e extraia dados para orçamento:\n${mensagem.content}\nRetorne JSON com itens (array com nome_produto, quantidade, valor_unitario), valor_total, condicao_pagamento, observacoes_extraidas.`,
-              response_json_schema: { type: "object", properties: { itens: { type: "array", items: { type: "object", properties: { nome_produto: { type: "string" }, quantidade: { type: "number" }, valor_unitario: { type: "number" } } } }, valor_total: { type: "number" }, condicao_pagamento: { type: "string" }, observacoes_extraidas: { type: "string" } } }
-            });
-          } catch (_) {}
+          try { dadosExtraidos = await base44.integrations.Core.InvokeLLM({ prompt: `Analise esta mensagem e extraia dados para orçamento:\n${mensagem.content}\nRetorne JSON com itens, valor_total, condicao_pagamento, observacoes_extraidas.`, response_json_schema: { type: "object", properties: { itens: { type: "array", items: { type: "object", properties: { nome_produto: { type: "string" }, quantidade: { type: "number" }, valor_unitario: { type: "number" } } } }, valor_total: { type: "number" }, condicao_pagamento: { type: "string" }, observacoes_extraidas: { type: "string" } } } }); } catch (_) {}
         }
-        const nomeRemetente = mensagem.sender_type === 'user' ? (usuario?.full_name || 'Atendente') : (contatoCompleto?.nome || 'Cliente');
-        const conteudoMensagem = mensagem.content || `[${mensagem.media_type || 'Mídia'}]`;
-        const observacoes = `[💬 Chat ${threadData.id?.slice(-8)} - ${new Date().toLocaleString('pt-BR')}]\n👤 ${nomeRemetente}\n\n${conteudoMensagem}${dadosExtraidos?.observacoes_extraidas ? `\n\n📋 IA: ${dadosExtraidos.observacoes_extraidas}` : ''}`;
+        const nomeRem = mensagem.sender_type === 'user' ? (usuario?.full_name || 'Atendente') : (contatoCompleto?.nome || 'Cliente');
+        const obs = `[💬 Chat ${threadData.id?.slice(-8)} - ${new Date().toLocaleString('pt-BR')}]\n👤 ${nomeRem}\n\n${mensagem.content || `[${mensagem.media_type || 'Mídia'}]`}${dadosExtraidos?.observacoes_extraidas ? `\n\n📋 IA: ${dadosExtraidos.observacoes_extraidas}` : ''}`;
         if (destino === 'leads') {
           if (threadData.contact_id) await base44.entities.Contact.update(threadData.contact_id, { tipo_contato: 'lead' });
-          await base44.entities.Cliente.create({ razao_social: contatoCompleto.nome || 'Lead do Chat', telefone: contatoCompleto.telefone || '', status: 'novo_lead', vendedor_id: usuario?.id || '', observacoes, origem_campanha: { canal_entrada: 'whatsapp' } });
-          toast.dismiss(toastId);
-          toast.success('🎯 Lead criado!', { duration: 5000, action: { label: 'Ver Leads', onClick: () => navigate(createPageUrl('LeadsQualificados') + '?tab=leads') } });
-          return;
+          await base44.entities.Cliente.create({ razao_social: contatoCompleto.nome || 'Lead do Chat', telefone: contatoCompleto.telefone || '', status: 'novo_lead', vendedor_id: usuario?.id || '', observacoes: obs, origem_campanha: { canal_entrada: 'whatsapp' } });
+          toast.dismiss(toastId); toast.success('🎯 Lead criado!', { duration: 5000, action: { label: 'Ver Leads', onClick: () => navigate(createPageUrl('LeadsQualificados') + '?tab=leads') } }); return;
         }
         if (destino === 'clientes') {
-          await base44.entities.Cliente.create({ razao_social: contatoCompleto.nome || 'Cliente do Chat', telefone: contatoCompleto.telefone || '', status: 'Ativo', vendedor_id: usuario?.id || '', observacoes, origem_campanha: { canal_entrada: 'whatsapp' } });
-          toast.dismiss(toastId);
-          toast.success('👥 Cliente criado!', { duration: 5000, action: { label: 'Ver Clientes', onClick: () => navigate(createPageUrl('Clientes')) } });
-          return;
+          await base44.entities.Cliente.create({ razao_social: contatoCompleto.nome || 'Cliente do Chat', telefone: contatoCompleto.telefone || '', status: 'Ativo', vendedor_id: usuario?.id || '', observacoes: obs, origem_campanha: { canal_entrada: 'whatsapp' } });
+          toast.dismiss(toastId); toast.success('👥 Cliente criado!', { duration: 5000, action: { label: 'Ver Clientes', onClick: () => navigate(createPageUrl('Clientes')) } }); return;
         }
-        const response = await base44.functions.invoke('criarOportunidadeDoChat', { message_id: mensagem.id, thread_id: threadData.id, contact_id: threadData.contact_id, cliente_nome: contatoCompleto.nome || '', cliente_telefone: contatoCompleto.telefone || '', cliente_email: contatoCompleto.email || '', vendedor: usuario?.full_name || '', status: statusInicial, valor_total: dadosExtraidos?.valor_total || 0, produtos: dadosExtraidos?.itens?.map(i => ({ nome: i.nome_produto || '', quantidade: i.quantidade || 1, valor_unitario: i.valor_unitario || 0, valor_total: (i.quantidade || 1) * (i.valor_unitario || 0) })) || [], observacoes, media_url: mensagem.media_url || '', media_type: mensagem.media_type || 'text' });
+        const response = await base44.functions.invoke('criarOportunidadeDoChat', { message_id: mensagem.id, thread_id: threadData.id, contact_id: threadData.contact_id, cliente_nome: contatoCompleto.nome || '', cliente_telefone: contatoCompleto.telefone || '', cliente_email: contatoCompleto.email || '', vendedor: usuario?.full_name || '', status: statusInicial, valor_total: dadosExtraidos?.valor_total || 0, produtos: dadosExtraidos?.itens?.map(i => ({ nome: i.nome_produto || '', quantidade: i.quantidade || 1, valor_unitario: i.valor_unitario || 0, valor_total: (i.quantidade || 1) * (i.valor_unitario || 0) })) || [], observacoes: obs, media_url: mensagem.media_url || '', media_type: mensagem.media_type || 'text' });
         if (!response?.data?.success) throw new Error(response?.data?.error || 'Erro ao criar');
-        toast.dismiss(toastId);
-        toast.success(`✅ Oportunidade ${response.data.numero_orcamento} criada!`, { duration: 5000, action: { label: 'Ver Kanban', onClick: () => navigate(createPageUrl('Orcamentos')) } });
+        toast.dismiss(toastId); toast.success(`✅ Oportunidade ${response.data.numero_orcamento} criada!`, { duration: 5000, action: { label: 'Ver Kanban', onClick: () => navigate(createPageUrl('Orcamentos')) } });
         window.dispatchEvent(new CustomEvent('orcamentos:refresh'));
-      } catch (error) {
-        toast.dismiss(toastId);
-        toast.error('Erro ao criar oportunidade: ' + error.message);
-      }
+      } catch (error) { toast.dismiss(toastId); toast.error('Erro ao criar oportunidade: ' + error.message); }
     };
     window.handleCriarOportunidadeDeChat = criarOportunidade;
     return () => { delete window.handleCriarOportunidadeDeChat; };
