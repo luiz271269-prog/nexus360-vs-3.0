@@ -436,10 +436,10 @@ export default function InternalMessageComposer({ open, onClose, currentUser, on
             </div>
           )}
 
-          <div className="flex-1 flex flex-col min-h-0">
-            {/* 3 Colunas Visíveis - Layout WhatsApp */}
-            <div className="flex-1 flex gap-3 min-h-0">
-              {/* Coluna 1: Usuários */}
+          <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
+            {/* Mobile: Abas | Desktop: 3 Colunas */}
+            <div className="hidden sm:flex flex-1 gap-3 min-h-0">
+              {/* Desktop: Coluna 1 - Usuários */}
               <div className="flex-1 flex flex-col border-r border-slate-200 pr-3">
                 <div className="flex items-center gap-2 mb-2 pb-2 border-b border-slate-200">
                   <Users className="w-4 h-4 text-cyan-600" />
