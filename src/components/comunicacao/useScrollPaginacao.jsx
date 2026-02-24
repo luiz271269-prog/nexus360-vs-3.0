@@ -93,11 +93,26 @@ export default function useScrollPaginacao({
 
         console.log('[SCROLL-UP] ✅ Carregadas', olderMessages.length, 'mensagens antigas');
 
+        // ✅ DEDUPLICAÇÃO CIRÚRGICA: Merge por ID sem duplicatas
         queryClient.setQueryData(['mensagens', thread.id], (antigas = []) => {
-          return [...olderMessages.reverse(), ...antigas];
+          const byId = new Map();
+          const novos = olderMessages.reverse();
+
+          [...novos, ...antigas].forEach(m => {
+            if (!m?.id) return;
+            byId.set(m.id, m);
+          });
+
+          // Manter ordenado por sent_at ASC (mais antigas primeiro)
+          return Array.from(byId.values()).sort((a, b) => {
+            const aTime = (a.sent_at || a.created_date || '').toString();
+            const bTime = (b.sent_at || b.created_date || '').toString();
+            return aTime.localeCompare(bTime);
+          });
         });
 
-        setOldestLoadedTimestamp(olderMessages[olderMessages.length - 1]?.sent_at || olderMessages[0]?.sent_at);
+        // ✅ CURSOR ESTRITO: sempre buscar ANTES do ponto anterior
+        setOldestLoadedTimestamp(olderMessages[0]?.sent_at || olderMessages[0]?.created_date);
 
         // Manter posição visual após inserir mensagens no topo
         requestAnimationFrame(() => {
