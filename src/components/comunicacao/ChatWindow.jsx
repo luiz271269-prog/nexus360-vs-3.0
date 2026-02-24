@@ -144,13 +144,21 @@ export default function ChatWindow({
   const [enviandoBroadcast, setEnviandoBroadcast] = React.useState(false);
   const [progressoBroadcast, setProgressoBroadcast] = React.useState({ enviados: 0, erros: 0, total: 0 });
   const messagesEndRef = React.useRef(null);
-  const chatContainerRef = React.useRef(null);
   const unreadSeparatorRef = React.useRef(null);
   const fotoJaBuscada = React.useRef(new Set());
-  const [loadingOlder, setLoadingOlder] = React.useState(false);
   const [hasMoreMessages, setHasMoreMessages] = React.useState(true);
   const [oldestLoadedTimestamp, setOldestLoadedTimestamp] = React.useState(null);
-  const isLoadingOlderRef = React.useRef(false);
+
+  // ✅ Hook de scroll pagination com AbortController fix
+  const { chatContainerRef, loadingOlder } = useScrollPaginacao({
+    thread,
+    queryClient,
+    allThreads,
+    oldestLoadedTimestamp,
+    setOldestLoadedTimestamp,
+    hasMoreMessages,
+    setHasMoreMessages
+  });
 
   // ═══════════════════════════════════════════════════════════════════════
   // ✅ NEXUS360 MIGRATION - VALIDAÇÃO DUPLA (Nexus360 + Legado Fallback)
@@ -1179,104 +1187,12 @@ export default function ChatWindow({
   React.useEffect(() => {
     if (mensagens.length > 0) {
       setOldestLoadedTimestamp(mensagens[0]?.sent_at || mensagens[0]?.created_date);
-      setHasMoreMessages(true); // sempre true — pode ter histórico em threads antigas
+      setHasMoreMessages(true);
     } else {
       setOldestLoadedTimestamp(null);
       setHasMoreMessages(true);
     }
   }, [thread?.id]);
-
-  // SCROLL LAZY: ao chegar ≤150px do topo, busca 20 mensagens mais antigas
-  // Inclui TODAS as threads do contato buscadas no banco (não só a thread atual)
-  React.useEffect(() => {
-    const container = chatContainerRef.current;
-    if (!container) return;
-
-    const handleScroll = async () => {
-      if (isLoadingOlderRef.current || !hasMoreMessages || !oldestLoadedTimestamp) return;
-      if (container.scrollTop > 150) return;
-
-      console.log('[SCROLL-UP] ⬆️ Próximo do topo - buscando mensagens antigas...');
-      isLoadingOlderRef.current = true;
-      setLoadingOlder(true);
-
-      try {
-        const scrollHeightBefore = container.scrollHeight;
-        const scrollTopBefore = container.scrollTop;
-
-        const isThreadInterna = thread?.thread_type === 'team_internal' || thread?.thread_type === 'sector_group';
-        let olderMessages = [];
-
-        if (isThreadInterna) {
-          olderMessages = await base44.entities.Message.filter(
-            { thread_id: thread.id, sent_at: { $lt: oldestLoadedTimestamp } },
-            '-sent_at', 20
-          );
-        } else {
-          // Buscar TODAS as threads do contato no banco — garante histórico completo
-          const contactId = thread?.contact_id;
-          let idsAdicionais = [];
-          if (contactId) {
-            try {
-              const todasThreads = await base44.entities.MessageThread.filter(
-                { contact_id: contactId }, '-created_date', 50
-              );
-              idsAdicionais = todasThreads.filter(t => t.id !== thread.id).map(t => t.id);
-            } catch (_) {
-              // fallback memória
-              (allThreads || []).forEach(t => {
-                if (t.id !== thread.id && t.contact_id === contactId) idsAdicionais.push(t.id);
-              });
-            }
-          }
-          const threadIds = [thread.id, ...new Set(idsAdicionais)];
-          console.log('[SCROLL-UP] 🔍 Buscando em', threadIds.length, 'threads do contato');
-          olderMessages = await base44.entities.Message.filter(
-            { thread_id: { $in: threadIds }, sent_at: { $lt: oldestLoadedTimestamp } },
-            '-sent_at', 20
-          );
-        }
-
-        if (olderMessages.length === 0) {
-          console.log('[SCROLL-UP] 📭 Fim do histórico');
-          setHasMoreMessages(false);
-          return;
-        }
-
-        console.log('[SCROLL-UP] ✅ Carregadas', olderMessages.length, 'mensagens antigas');
-
-        // ✅ DEDUPLICAÇÃO POR ID + CURSOR ESTRITO
-        queryClient.setQueryData(['mensagens', thread.id], (antigas = []) => {
-          const byId = new Map();
-          [...olderMessages.reverse(), ...antigas].forEach(m => {
-            if (m?.id) byId.set(m.id, m);
-          });
-          return Array.from(byId.values()).sort((a, b) =>
-            (a.sent_at || a.created_date || '').localeCompare(b.sent_at || b.created_date || '')
-          );
-        });
-
-        // ✅ Cursor para próxima página = mais antiga DESSA batch (primeira após reverse)
-        const newOldest = olderMessages[0]?.sent_at || olderMessages[0]?.created_date;
-        console.log('[SCROLL-UP] 🔄 Novo cursor:', newOldest);
-        setOldestLoadedTimestamp(newOldest);
-
-        requestAnimationFrame(() => {
-          const scrollHeightAfter = container.scrollHeight;
-          container.scrollTop = scrollTopBefore + (scrollHeightAfter - scrollHeightBefore);
-        });
-
-      } catch (error) {
-        console.error('[SCROLL-UP] ❌ Erro ao carregar antigas:', error);
-      } finally {
-        isLoadingOlderRef.current = false;
-        setLoadingOlder(false);
-      }
-    };
-
-    container.addEventListener('scroll', handleScroll, { passive: true });
-    return () => container.removeEventListener('scroll', handleScroll);
-  }, [thread?.id, thread?.contact_id, thread?.thread_type, hasMoreMessages, oldestLoadedTimestamp, queryClient, allThreads]);
 
   const prevThreadIdRef = React.useRef(null);
   const scrollDoneRef = React.useRef(false);
