@@ -1276,7 +1276,6 @@ export default function ChatWindow({
     return () => container.removeEventListener('scroll', handleScroll);
   }, [thread?.id, thread?.contact_id, thread?.thread_type, hasMoreMessages, oldestLoadedTimestamp, queryClient]);
 
-  // ✅ Scroll só na TROCA de thread (não a cada nova mensagem)
   const prevThreadIdRef = React.useRef(null);
   const scrollDoneRef = React.useRef(false);
   React.useEffect(() => {
@@ -1284,14 +1283,7 @@ export default function ChatWindow({
     if (prevThreadIdRef.current !== thread?.id) { prevThreadIdRef.current = thread?.id; scrollDoneRef.current = false; }
     if (scrollDoneRef.current) return;
     const unreadIdx = mensagens.findIndex(m => m.sender_type === 'contact' && m.status !== 'lida' && m.status !== 'apagada');
-    const t = setTimeout(() => {
-      scrollDoneRef.current = true;
-      if (unreadIdx !== -1 && thread?.unread_count > 0 && unreadSeparatorRef.current) {
-        unreadSeparatorRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      } else {
-        messagesEndRef.current?.scrollIntoView({ behavior: 'instant' });
-      }
-    }, 150);
+    const t = setTimeout(() => { scrollDoneRef.current = true; if (unreadIdx !== -1 && thread?.unread_count > 0 && unreadSeparatorRef.current) { unreadSeparatorRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' }); } else { messagesEndRef.current?.scrollIntoView({ behavior: 'instant' }); } }, 150);
     return () => clearTimeout(t);
   }, [mensagens.length, thread?.id, thread?.unread_count]);
 
