@@ -60,6 +60,21 @@ export default function useScrollPaginacao({
         const scrollHeightBefore = container.scrollHeight;
         const scrollTopBefore = container.scrollTop;
 
+        // ✅ Validação de permissão por usuário
+        if (usuario && usuario.role !== 'admin') {
+          const isThreadVisivelParaUsuario = 
+            thread?.assigned_user_id === usuario.id || 
+            (thread?.shared_with_users || []).includes(usuario.id);
+
+          if (!isThreadVisivelParaUsuario) {
+            const msg = '[SCROLL-UP] 🚫 Usuário sem permissão para esta thread';
+            console.warn(msg, { userId: usuario.id, threadId: thread?.id });
+            setPermissionError('Sem permissão para acessar histórico desta conversa');
+            setHasMoreMessages(false);
+            return;
+          }
+        }
+
         const isThreadInterna = thread?.thread_type === 'team_internal' || thread?.thread_type === 'sector_group';
         let olderMessages = [];
 
