@@ -460,18 +460,7 @@ export default function Comunicacao() {
         if (response?.data?.success) {
           todosBD = response.data.contatos || [];
           
-          // 🔍 LOG CIRÚRGICO: Busca por texto
-          console.log(`[COMUNICACAO] 📊 BUSCA LIVRE - User: ${usuario.email}`, {
-            termo: debouncedSearchTerm,
-            recebidos_backend: todosBD.length,
-            user_id_backend: response.data.user_id,
-            tem_everal: todosBD.some(c => c.nome?.toLowerCase().includes('everal')),
-            primeiros_5: todosBD.slice(0, 5).map(c => ({ 
-              nome: c.nome, 
-              telefone: c.telefone,
-              empresa: c.empresa
-            }))
-          });
+  
         } else {
           // Fallback: busca com RLS
           console.warn('[COMUNICACAO] ⚠️ Fallback para busca com RLS (busca de contatos)');
