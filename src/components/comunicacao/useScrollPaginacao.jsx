@@ -69,6 +69,7 @@ export default function useScrollPaginacao({
       }
       if (!hasMoreMessages) {
         console.log('[SCROLL] 📭 hasMoreMessages=false');
+        setIsHistoryStart(true); // ✅ FIX 6: Sinalizar início do histórico
         return;
       }
       if (!oldestLoadedTimestamp) {
@@ -81,6 +82,10 @@ export default function useScrollPaginacao({
       }
 
       console.log('[SCROLL-UP] ⬆️ ACIONANDO busca | scrollTop=', container.scrollTop, '| cursor=', oldestLoadedTimestamp);
+      
+      // ✅ FIX 7: Criar novo AbortController para este request
+      abortControllerRef.current = new AbortController();
+      
       isLoadingOlderRef.current = true;
       setLoadingOlder(true);
 
