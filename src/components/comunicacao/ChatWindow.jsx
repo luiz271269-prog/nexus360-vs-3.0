@@ -495,43 +495,13 @@ export default function ChatWindow({
   // ✅ REMOVIDO: handleAtribuirConversa - usa AtribuirConversaModal
 
   const autoAtribuirThreadSeNecessario = React.useCallback(async (threadAtual) => {
-    if (!threadAtual || !usuario) return;
-
-    const isThreadOrfa = !threadAtual.assigned_user_id && !threadAtual.assigned_user_email;
-
-    if (isThreadOrfa) {
-
-      try {
-        await base44.entities.MessageThread.update(threadAtual.id, {
-          assigned_user_id: usuario.id,
-          // ✅ assigned_user_name/email REMOVIDOS - buscados dinamicamente do User
-          status: 'aberta'
-        });
-
-        // Registrar log de atribuição automática
-        await base44.entities.AutomationLog.create({
-          acao: 'auto_atribuicao_resposta',
-          contato_id: threadAtual.contact_id,
-          thread_id: threadAtual.id,
-          usuario_id: usuario.id,
-          resultado: 'sucesso',
-          timestamp: new Date().toISOString(),
-          detalhes: {
-            mensagem: `Conversa auto-atribuída ao responder`,
-            atendente: usuario.full_name || usuario.email,
-            trigger: 'primeira_resposta'
-          },
-          origem: 'sistema',
-          prioridade: 'normal'
-        });
-
-        return true;
-      } catch (autoAssignError) {
-        console.warn('[CHAT] ⚠️ Erro na auto-atribuição:', autoAssignError.message);
-        return false;
-      }
-    }
-    return false;
+    if (!threadAtual || !usuario) return false;
+    if (threadAtual.assigned_user_id || threadAtual.assigned_user_email) return false;
+    try {
+      await base44.entities.MessageThread.update(threadAtual.id, { assigned_user_id: usuario.id, status: 'aberta' });
+      await base44.entities.AutomationLog.create({ acao: 'auto_atribuicao_resposta', contato_id: threadAtual.contact_id, thread_id: threadAtual.id, usuario_id: usuario.id, resultado: 'sucesso', timestamp: new Date().toISOString(), detalhes: { mensagem: 'Conversa auto-atribuída ao responder', atendente: usuario.full_name || usuario.email, trigger: 'primeira_resposta' }, origem: 'sistema', prioridade: 'normal' });
+      return true;
+    } catch (e) { console.warn('[CHAT] Auto-atribuição falhou:', e.message); return false; }
   }, [usuario]);
 
   const handleEnviarBroadcast = React.useCallback(async ({ texto = '', mediaUrl = null, mediaType = null, mediaCaption = null, isAudio = false } = {}) => {
