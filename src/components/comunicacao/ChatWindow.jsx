@@ -148,11 +148,12 @@ export default function ChatWindow({
   const unreadSeparatorRef = React.useRef(null);
   const fotoJaBuscada = React.useRef(new Set());
 
-  // ✅ Hook de scroll pagination com AbortController fix
-  const { chatContainerRef, loadingOlder, isHistoryStart, initTimestamp } = useScrollPaginacao({
+  // ✅ Hook de scroll pagination com AbortController + validação de usuário
+  const { chatContainerRef, loadingOlder, isHistoryStart, initTimestamp, permissionError } = useScrollPaginacao({
     thread,
     queryClient,
-    allThreads
+    allThreads,
+    usuario
   });
 
   // ═══════════════════════════════════════════════════════════════════════
