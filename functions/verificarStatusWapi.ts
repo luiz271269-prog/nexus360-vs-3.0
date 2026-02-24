@@ -63,57 +63,104 @@ Deno.serve(async (req) => {
 
     const resultados = {};
 
-    // ENDPOINT 1: /instance/status
+    // =========================================================================
+    // W-API: a documentação oficial (Postman) mostra que o endpoint de status
+    // correto usa o header Authorization: Bearer {TOKEN} e a URL base é
+    // https://api.w-api.app/v1 com instanceId como query param.
+    //
+    // Endpoints conhecidos (testados contra a API real):
+    // 1. POST /message/send-text  → funciona (envios confirmados nos logs)
+    // 2. GET /instance/status     → 404 (não documentado na coleção pública)
+    //
+    // Estratégia de verificação indireta: tentar enviar requisição ao endpoint
+    // de "check-number-status" ou fazer um GET simples que valide o token.
+    // Se retornar 200 = token válido. Se retornar 401/403 = token inválido.
+    // A W-API NÃO publica endpoint público de status de sessão.
+    // =========================================================================
+
+    // ENDPOINT 1: Tentar send-text com número inválido para validar token
+    // W-API retorna erro de número (não 401) se o token for válido
+    try {
+      const url = `${baseUrl}/message/send-text?instanceId=${instanceIdReal}`;
+      const r = await fetch(url, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ phone: '0000000000', message: 'ping-status-check', delayMessage: 0 }),
+        signal: AbortSignal.timeout(8000)
+      });
+      const bodyText = await r.text();
+      let data = null;
+      try { data = JSON.parse(bodyText); } catch (_) { data = bodyText; }
+      resultados.token_probe = {
+        url,
+        httpStatus: r.status,
+        response: data,
+        // 401/403 = token inválido; qualquer outra coisa (400, 422, etc.) = token OK
+        token_valido: r.status !== 401 && r.status !== 403,
+        nota: 'Probe via send-text com número fake para validar token'
+      };
+      console.log(`[WAPI-STATUS] token_probe (send-text) → ${r.status}:`, bodyText.substring(0, 300));
+    } catch (e) {
+      resultados.token_probe = { erro: e.message };
+    }
+
+    // ENDPOINT 2: Tentar enviar áudio (outro endpoint - valida se instância responde)
+    try {
+      const url = `${baseUrl}/message/send-audio?instanceId=${instanceIdReal}`;
+      const r = await fetch(url, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ phone: '0000000000', audio: 'https://example.com/test.ogg' }),
+        signal: AbortSignal.timeout(8000)
+      });
+      const bodyText = await r.text();
+      let data = null;
+      try { data = JSON.parse(bodyText); } catch (_) { data = bodyText; }
+      resultados.audio_probe = {
+        url,
+        httpStatus: r.status,
+        response: data,
+        token_valido: r.status !== 401 && r.status !== 403
+      };
+      console.log(`[WAPI-STATUS] audio_probe → ${r.status}:`, bodyText.substring(0, 300));
+    } catch (e) {
+      resultados.audio_probe = { erro: e.message };
+    }
+
+    // ENDPOINT 3: Tentar GET /instance/status (pode não existir, mas logar resposta real)
     try {
       const url = `${baseUrl}/instance/status?instanceId=${instanceIdReal}`;
       const r = await fetch(url, { method: 'GET', headers, signal: AbortSignal.timeout(8000) });
-      const body = await r.text();
+      const bodyText = await r.text();
       let data = null;
-      try { data = JSON.parse(body); } catch (_) { data = body; }
-      resultados.status = { url, httpStatus: r.status, response: data };
-      console.log(`[WAPI-STATUS] /instance/status → ${r.status}:`, body.substring(0, 300));
+      try { data = JSON.parse(bodyText); } catch (_) { data = bodyText; }
+      resultados.instance_status = {
+        url,
+        httpStatus: r.status,
+        response: data,
+        token_valido: r.status !== 401 && r.status !== 403
+      };
+      console.log(`[WAPI-STATUS] /instance/status → ${r.status}:`, bodyText.substring(0, 300));
     } catch (e) {
-      resultados.status = { erro: e.message };
+      resultados.instance_status = { erro: e.message };
     }
 
-    // ENDPOINT 2: /misc/connected
-    try {
-      const url = `${baseUrl}/misc/connected?instanceId=${instanceIdReal}`;
-      const r = await fetch(url, { method: 'GET', headers, signal: AbortSignal.timeout(8000) });
-      const body = await r.text();
-      let data = null;
-      try { data = JSON.parse(body); } catch (_) { data = body; }
-      resultados.connected = { url, httpStatus: r.status, response: data };
-      console.log(`[WAPI-STATUS] /misc/connected → ${r.status}:`, body.substring(0, 300));
-    } catch (e) {
-      resultados.connected = { erro: e.message };
-    }
-
-    // ENDPOINT 3: /instance/info
+    // ENDPOINT 4: Tentar GET /instance/info (alternativa)
     try {
       const url = `${baseUrl}/instance/info?instanceId=${instanceIdReal}`;
       const r = await fetch(url, { method: 'GET', headers, signal: AbortSignal.timeout(8000) });
-      const body = await r.text();
+      const bodyText = await r.text();
       let data = null;
-      try { data = JSON.parse(body); } catch (_) { data = body; }
-      resultados.info = { url, httpStatus: r.status, response: data };
-      console.log(`[WAPI-STATUS] /instance/info → ${r.status}:`, body.substring(0, 300));
+      try { data = JSON.parse(bodyText); } catch (_) { data = bodyText; }
+      resultados.instance_info = {
+        url,
+        httpStatus: r.status,
+        response: data,
+        token_valido: r.status !== 401 && r.status !== 403
+      };
+      console.log(`[WAPI-STATUS] /instance/info → ${r.status}:`, bodyText.substring(0, 300));
     } catch (e) {
-      resultados.info = { erro: e.message };
-    }
-
-    // ENDPOINT 4: /misc/check-number-status (para validar se token funciona)
-    try {
-      const numeroTeste = (integracao.numero_telefone || '554830452078').replace(/\D/g, '');
-      const url = `${baseUrl}/misc/check-number-status?instanceId=${instanceIdReal}&phoneNumber=${numeroTeste}`;
-      const r = await fetch(url, { method: 'GET', headers, signal: AbortSignal.timeout(8000) });
-      const body = await r.text();
-      let data = null;
-      try { data = JSON.parse(body); } catch (_) { data = body; }
-      resultados.checkNumber = { url, httpStatus: r.status, response: data, token_parece_valido: r.status !== 401 && r.status !== 403 };
-      console.log(`[WAPI-STATUS] /misc/check-number-status → ${r.status}:`, body.substring(0, 300));
-    } catch (e) {
-      resultados.checkNumber = { erro: e.message };
+      resultados.instance_info = { erro: e.message };
     }
 
     // ============================================================================
