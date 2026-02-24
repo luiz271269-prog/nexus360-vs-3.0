@@ -281,7 +281,7 @@ export default function Comunicacao() {
     queryFn: async () => {
       if (isRateLimited || !usuario) return [];
       try {
-        console.log('[COMUNICACAO] 🔍 Buscando threads LIVRES (sem filtro de integração/setor)...');
+
         
         // ✅ Busca GLOBAL via função backend (sem bloqueio de RLS)
         const response = await base44.functions.invoke('buscarThreadsLivre', {
