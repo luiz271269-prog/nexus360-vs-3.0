@@ -189,10 +189,8 @@ export default function ChatWindow({
     // ✅ NORMALIZAR: maiúsculas, espaços, acentos
     const norm = (v) => String(v || '').toLowerCase().trim();
 
-    // 🔍 DEBUG: Mostrar identidades sendo comparadas
-    const debugLog = (etapa, resultado, detalhes) => {
-      console.log(`[VISIBILIDADE-${usuario.email}] ${etapa}: ${resultado ? '✅' : '❌'}`, detalhes);
-    };
+    // eslint-disable-next-line no-unused-vars
+    const debugLog = () => {}; // DEBUG desativado em produção
 
     // ═══════════════════════════════════════════════════════════════════════════
     // PRIORIDADE 1: Thread ATRIBUÍDA ao usuário → SEMPRE PODE (chave mestra)
