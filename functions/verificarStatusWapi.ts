@@ -199,7 +199,9 @@ Deno.serve(async (req) => {
       statusFinal = 'token_invalido';
       detalhes = `Token inválido ou expirado (HTTP ${tokenProbe.httpStatus})`;
     }
-    // Instância conectada: probe retornou 200 com messageId
+    // Instância conectada: probe retornou 200 com messageId (W-API enfileira mesmo sem WhatsApp conectado)
+    // MAS se retornou messageId = instância existe e token é válido. Para saber se WhatsApp está
+    // de fato conectado, só o webhook webhookDisconnected indica desconexão.
     else if (tokenProbe?.httpStatus === 200 && tokenProbe?.response?.messageId) {
       tokenValido = true;
       conectado = true;
