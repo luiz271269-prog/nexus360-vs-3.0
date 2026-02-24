@@ -1627,7 +1627,7 @@ export default function Comunicacao() {
     const threadsUnicas = Array.from(threadMaisRecentePorContacto.values());
 
     if (DEBUG_VIS) {
-      console.log('[COMUNICACAO] 🎯 Threads processadas:', threadsUnicas.length, '| Busca ativa:', temBuscaPorTexto);
+
     }
 
     // Registrar IDs de contatos que já têm thread (para evitar duplicatas na busca)
