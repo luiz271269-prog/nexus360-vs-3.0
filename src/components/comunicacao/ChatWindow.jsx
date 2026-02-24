@@ -1790,16 +1790,6 @@ export default function ChatWindow({
         </div>
       }
 
-      {/* ✅ Indicador de carregamento de histórico (scroll-up) */}
-      {loadingOlder && (
-        <div className="px-4 py-2 bg-blue-50 border-b border-blue-200 flex-shrink-0">
-          <div className="flex items-center justify-center gap-2">
-            <Loader2 className="w-4 h-4 animate-spin text-blue-500" />
-            <p className="text-xs text-blue-600 font-medium">Carregando mensagens antigas...</p>
-          </div>
-        </div>
-      )}
-
       {erro &&
       <div className="px-4 py-2 bg-red-50 border-t border-red-200 flex-shrink-0">
           <Alert className="bg-transparent border-0 p-0">
