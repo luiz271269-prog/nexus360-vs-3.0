@@ -37,10 +37,25 @@ export default function useScrollPaginacao({
     if (!container) return;
 
     const handleScroll = async () => {
-      if (isLoadingOlderRef.current || !hasMoreMessages || !oldestLoadedTimestamp) return;
-      if (container.scrollTop > 150) return;
+      // ✅ DEBUG COMPLETO: Log cada condição
+      if (isLoadingOlderRef.current) {
+        console.log('[SCROLL] ⏸️ Já carregando...');
+        return;
+      }
+      if (!hasMoreMessages) {
+        console.log('[SCROLL] 📭 hasMoreMessages=false');
+        return;
+      }
+      if (!oldestLoadedTimestamp) {
+        console.log('[SCROLL] ❌ oldestLoadedTimestamp=null, ignorando');
+        return;
+      }
+      if (container.scrollTop > 150) {
+        console.log('[SCROLL] 📏 scrollTop=', container.scrollTop, '> 150');
+        return;
+      }
 
-      console.log('[SCROLL-UP] ⬆️ Próximo do topo - buscando mensagens antigas...');
+      console.log('[SCROLL-UP] ⬆️ ACIONANDO busca | scrollTop=', container.scrollTop, '| cursor=', oldestLoadedTimestamp);
       isLoadingOlderRef.current = true;
       setLoadingOlder(true);
 
