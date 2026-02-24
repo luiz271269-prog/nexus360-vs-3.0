@@ -88,29 +88,39 @@ export default function useScrollPaginacao({
             20
           );
         } else {
-          // Buscar TODAS as threads do contato no banco — garante histórico completo
+          // ✅ FIX 3: Cache de threads adicionais — não fazer query a cada scroll
           const contactId = thread?.contact_id;
-          let idsAdicionais = [];
+          let threadIds = [thread.id];
 
           if (contactId) {
-            try {
-              const todasThreads = await base44.entities.MessageThread.filter(
-                { contact_id: contactId },
-                '-created_date',
-                50
-              );
-              idsAdicionais = todasThreads
-                .filter(t => t.id !== thread.id)
-                .map(t => t.id);
-            } catch (_) {
-              // fallback: usar memória
-              allThreads.forEach(t => {
-                if (t.id !== thread.id && t.contact_id === contactId) idsAdicionais.push(t.id);
-              });
+            // Verificar se o cache é válido para este contact
+            if (cachedThreadIdsRef.current.contactId === contactId && cachedThreadIdsRef.current.threadIds.length > 0) {
+              console.log('[SCROLL-UP] 💾 Usando cache de threads');
+              threadIds = cachedThreadIdsRef.current.threadIds;
+            } else {
+              // Buscar threads do contato UMA VEZ
+              let idsAdicionais = [];
+              try {
+                const todasThreads = await base44.entities.MessageThread.filter(
+                  { contact_id: contactId },
+                  '-created_date',
+                  50
+                );
+                idsAdicionais = todasThreads
+                  .filter(t => t.id !== thread.id)
+                  .map(t => t.id);
+              } catch (_) {
+                // fallback: usar memória
+                allThreads.forEach(t => {
+                  if (t.id !== thread.id && t.contact_id === contactId) idsAdicionais.push(t.id);
+                });
+              }
+
+              threadIds = [thread.id, ...new Set(idsAdicionais)];
+              cachedThreadIdsRef.current = { contactId, threadIds };
             }
           }
 
-          const threadIds = [thread.id, ...new Set(idsAdicionais)];
           console.log('[SCROLL-UP] 🔍 Buscando em', threadIds.length, 'threads');
 
           olderMessages = await base44.entities.Message.filter(
