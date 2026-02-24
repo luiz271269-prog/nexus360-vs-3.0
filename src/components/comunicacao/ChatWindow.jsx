@@ -238,14 +238,7 @@ export default function ChatWindow({
         if (isFidelizado) return true;
       }
     } else if (carregandoContato) {
-      // ✅ FIX CRÍTICO: Se contato ainda está carregando, NÃO BLOQUEAR prematuramente
-      // Libera temporariamente para evitar "Sem permissão" enquanto carrega
-      debugLog('AGUARDANDO CONTATO', true, {
-        'carregandoContato': carregandoContato,
-        'contatoCompleto': 'null (ainda carregando)'
-      });
-      console.log(`[VISIBILIDADE] ⏳ Contato ainda carregando - liberando temporariamente`);
-      return true;
+      return true; // Aguardando contato carregar — libera temporariamente
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
