@@ -16,13 +16,18 @@ export default function useScrollPaginacao({
   const chatContainerRef = useRef(null);
   const isLoadingOlderRef = useRef(false);
 
-  // Reseta quando muda de thread
+  // ✅ FIX: Reseta quando muda de thread
   const initTimestamp = (msgs) => {
     if (msgs?.length > 0) {
-      setOldestLoadedTimestamp(msgs[0]?.sent_at || msgs[0]?.created_date || null);
-      setHasMoreMessages(true); // sempre true ao abrir — pode haver histórico em outras threads
+      const cursor = msgs[0]?.sent_at || msgs[0]?.created_date;
+      console.log('[SCROLL-INIT] ✅ Cursor=', cursor, '|', msgs.length, 'mensagens');
+      setOldestLoadedTimestamp(cursor);
+      setHasMoreMessages(true);
     } else {
-      setOldestLoadedTimestamp(null);
+      // ✅ CRÍTICO: Se sem mensagens, usar timestamp FUTURO para scroll-up funcionar
+      const futureTimestamp = new Date().toISOString();
+      console.log('[SCROLL-INIT] ⚠️ Sem msgs iniciais. Cursor=', futureTimestamp);
+      setOldestLoadedTimestamp(futureTimestamp);
       setHasMoreMessages(true);
     }
   };
