@@ -357,19 +357,6 @@ export default function Layout({ children, currentPageName }) {
   // Aplicar filtro de perfil
   const baseMenuItems = getMenuItemsParaPerfil(globalUsuario);
 
-  useEffect(() => {
-    carregarDadosGlobais();
-    checkAgentHealth();
-
-    const intervalDados = setInterval(carregarDadosGlobais, 5 * 60 * 1000); // ✅ Poll a cada 5min
-    const intervalAgent = setInterval(checkAgentHealth, 30000); // 30 segundos
-
-    return () => {
-      clearInterval(intervalDados);
-      clearInterval(intervalAgent);
-    };
-  }, []); // ✅ Throttle interno impede excesso de chamadas
-
   const checkAgentHealth = async () => {
     try {
       const runs = await base44.entities.AgentRun.filter({
@@ -454,6 +441,19 @@ export default function Layout({ children, currentPageName }) {
       setLoadingUsuario(false);
     }
   };
+
+  useEffect(() => {
+    carregarDadosGlobais();
+    checkAgentHealth();
+
+    const intervalDados = setInterval(carregarDadosGlobais, 5 * 60 * 1000); // ✅ Poll a cada 5min
+    const intervalAgent = setInterval(checkAgentHealth, 30000); // 30 segundos
+
+    return () => {
+      clearInterval(intervalDados);
+      clearInterval(intervalAgent);
+    };
+  }, []); // ✅ Throttle interno impede excesso de chamadas
 
   const menuItems = baseMenuItems.map((item) => ({
     ...item,
