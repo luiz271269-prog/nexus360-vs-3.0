@@ -397,7 +397,7 @@ export default function Comunicacao() {
     queryFn: async () => {
       if (contactIdsParaCarregar.length === 0) return [];
 
-      console.log(`[COMUNICACAO] 📎 Hidratando ${contactIdsParaCarregar.length} contatos (busca livre)...`);
+
 
       try {
         // ✅ Busca livre via backend (sem RLS - retorna TODOS os contatos COM _meta)
