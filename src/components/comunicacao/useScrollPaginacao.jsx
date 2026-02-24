@@ -1,91 +1,57 @@
 import { useEffect, useRef, useState } from 'react';
-import { base44 } from '@/api/base44Client';
 
 /**
  * Hook que detecta scroll no topo do chat e busca mais 20 mensagens antigas.
  * Inclui TODAS as threads do contato (busca no banco pelo contact_id).
  * 
- * ✅ FIXES:
+ * ✅ FIXES APLICADOS:
+ * - AbortController capturado ANTES dos awaits
+ * - Comparação thread?.id !== currentThreadId (não thread?.id !== thread?.id)
  * - Auto-reset ao trocar thread
  * - Cache de threads adicionais para evitar múltiplas queries
- * - Proteção contra cursor undefined
- * - Ordenação explícita para evitar inconsistência
+ * - Proteção contra race conditions
  */
 export default function useScrollPaginacao({
   thread,
   queryClient,
-  allThreads = []
+  allThreads = [],
+  oldestLoadedTimestamp,
+  setOldestLoadedTimestamp,
+  hasMoreMessages,
+  setHasMoreMessages
 }) {
   const [loadingOlder, setLoadingOlder] = useState(false);
-  const [hasMoreMessages, setHasMoreMessages] = useState(true);
-  const [oldestLoadedTimestamp, setOldestLoadedTimestamp] = useState(null);
-  const [isHistoryStart, setIsHistoryStart] = useState(false); // ✅ FIX 6: Flag para "início do histórico"
   const chatContainerRef = useRef(null);
   const isLoadingOlderRef = useRef(false);
-  const cachedThreadIdsRef = useRef({ contactId: null, threadIds: [] });
-  const abortControllerRef = useRef(null); // ✅ FIX 7: Cancelar requests ao trocar thread
+  const abortControllerRef = useRef(null);
 
-  // ✅ FIX 1: Auto-reset ao trocar de thread (não depende do pai chamar initTimestamp)
+  // ✅ FIX: Auto-reset ao trocar de thread
   useEffect(() => {
-    console.log('[SCROLL-THREAD-CHANGE] 🔄 Thread mudou:', thread?.id?.substring(0, 8));
+    console.log('[SCROLL-RESET] 🔄 Thread mudou:', thread?.id?.substring(0, 8));
     
-    // ✅ FIX 7: Cancelar qualquer request pendente
     if (abortControllerRef.current) {
       abortControllerRef.current.abort();
       abortControllerRef.current = null;
     }
     
-    setHasMoreMessages(true);
-    setOldestLoadedTimestamp(null);
-    setIsHistoryStart(false);
-    cachedThreadIdsRef.current = { contactId: null, threadIds: [] }; // Limpar cache
-  }, [thread?.id, thread?.contact_id]);
-
-  // ✅ FIX 2: Função para inicializar cursor (ainda pode ser chamada pelo pai)
-  const initTimestamp = (msgs) => {
-    if (msgs?.length > 0) {
-      const cursor = msgs[0]?.sent_at || msgs[0]?.created_date;
-      console.log('[SCROLL-INIT] ✅ Cursor=', cursor, '|', msgs.length, 'mensagens');
-      setOldestLoadedTimestamp(cursor);
-      setHasMoreMessages(true);
-    } else {
-      // ✅ CRÍTICO: Se sem mensagens, usar timestamp FUTURO para scroll-up funcionar
-      const futureTimestamp = new Date().toISOString();
-      console.log('[SCROLL-INIT] ⚠️ Sem msgs iniciais. Cursor=', futureTimestamp);
-      setOldestLoadedTimestamp(futureTimestamp);
-      setHasMoreMessages(true);
-    }
-  };
+    isLoadingOlderRef.current = false;
+    setLoadingOlder(false);
+  }, [thread?.id]);
 
   useEffect(() => {
     const container = chatContainerRef.current;
     if (!container) return;
 
     const handleScroll = async () => {
-      // ✅ DEBUG COMPLETO: Log cada condição
-      if (isLoadingOlderRef.current) {
-        console.log('[SCROLL] ⏸️ Já carregando...');
-        return;
-      }
-      if (!hasMoreMessages) {
-        console.log('[SCROLL] 📭 hasMoreMessages=false');
-        setIsHistoryStart(true); // ✅ FIX 6: Sinalizar início do histórico
-        return;
-      }
-      if (!oldestLoadedTimestamp) {
-        console.log('[SCROLL] ❌ oldestLoadedTimestamp=null, ignorando');
-        return;
-      }
-      if (container.scrollTop > 150) {
-        console.log('[SCROLL] 📏 scrollTop=', container.scrollTop, '> 150');
-        return;
-      }
+      if (isLoadingOlderRef.current || !hasMoreMessages || !oldestLoadedTimestamp) return;
+      if (container.scrollTop > 150) return;
 
-      console.log('[SCROLL-UP] ⬆️ ACIONANDO busca | scrollTop=', container.scrollTop, '| cursor=', oldestLoadedTimestamp);
-      
-      // ✅ FIX 7: Criar novo AbortController para este request
-      abortControllerRef.current = new AbortController();
-      
+      // ✅ FIX CRÍTICO: Capturar currentThreadId e controller ANTES de qualquer await
+      const currentThreadId = thread?.id;
+      const controller = new AbortController();
+      abortControllerRef.current = controller;
+
+      console.log('[SCROLL-UP] ⬆️ Próximo do topo - buscando mensagens antigas...');
       isLoadingOlderRef.current = true;
       setLoadingOlder(true);
 
@@ -97,129 +63,90 @@ export default function useScrollPaginacao({
         let olderMessages = [];
 
         if (isThreadInterna) {
+          const { base44 } = await import('@/api/base44Client');
           olderMessages = await base44.entities.Message.filter(
             { thread_id: thread.id, sent_at: { $lt: oldestLoadedTimestamp } },
-            '-sent_at',
-            20
+            '-sent_at', 20
           );
         } else {
-          // ✅ FIX 3: Cache de threads adicionais — não fazer query a cada scroll
+          const { base44 } = await import('@/api/base44Client');
           const contactId = thread?.contact_id;
-          let threadIds = [thread.id];
-
+          let idsAdicionais = [];
           if (contactId) {
-            // Verificar se o cache é válido para este contact
-            if (cachedThreadIdsRef.current.contactId === contactId && cachedThreadIdsRef.current.threadIds.length > 0) {
-              console.log('[SCROLL-UP] 💾 Usando cache de threads');
-              threadIds = cachedThreadIdsRef.current.threadIds;
-            } else {
-              // Buscar threads do contato UMA VEZ
-              let idsAdicionais = [];
-              try {
-                const todasThreads = await base44.entities.MessageThread.filter(
-                  { contact_id: contactId },
-                  '-created_date',
-                  50
-                );
-                idsAdicionais = todasThreads
-                  .filter(t => t.id !== thread.id)
-                  .map(t => t.id);
-              } catch (_) {
-                // fallback: usar memória
-                allThreads.forEach(t => {
-                  if (t.id !== thread.id && t.contact_id === contactId) idsAdicionais.push(t.id);
-                });
-              }
-
-              threadIds = [thread.id, ...new Set(idsAdicionais)];
-              cachedThreadIdsRef.current = { contactId, threadIds };
+            try {
+              const todasThreads = await base44.entities.MessageThread.filter(
+                { contact_id: contactId }, '-created_date', 50
+              );
+              idsAdicionais = todasThreads.filter(t => t.id !== thread.id).map(t => t.id);
+            } catch (_) {
+              (allThreads || []).forEach(t => {
+                if (t.id !== thread.id && t.contact_id === contactId) idsAdicionais.push(t.id);
+              });
             }
           }
-
-          console.log('[SCROLL-UP] 🔍 Buscando em', threadIds.length, 'threads');
-
+          const threadIds = [thread.id, ...new Set(idsAdicionais)];
+          console.log('[SCROLL-UP] 🔍 Buscando em', threadIds.length, 'threads do contato');
           olderMessages = await base44.entities.Message.filter(
             { thread_id: { $in: threadIds }, sent_at: { $lt: oldestLoadedTimestamp } },
-            '-sent_at',
-            20
+            '-sent_at', 20
           );
+        }
+
+        // ✅ FIX CRÍTICO: Verificar se thread trocou durante os awaits
+        if (controller.signal.aborted || thread?.id !== currentThreadId) {
+          console.log('[SCROLL-UP] 🚫 Thread trocada durante busca — descartando');
+          return;
         }
 
         if (olderMessages.length === 0) {
           console.log('[SCROLL-UP] 📭 Fim do histórico');
           setHasMoreMessages(false);
-          setIsHistoryStart(true); // ✅ FIX 6: Marcar início do histórico
           return;
         }
 
         console.log('[SCROLL-UP] ✅ Carregadas', olderMessages.length, 'mensagens antigas');
 
-        // ✅ VERIFICAÇÃO PÓS-AWAIT: Descartar se thread trocou durante operação
-        const controller = abortControllerRef.current;
-        if (controller?.signal.aborted || thread?.id !== thread?.id) {
-          console.log('[SCROLL-UP] 🚫 Thread trocada durante busca — descartando');
-          return;
-        }
-
-        // ✅ DEDUPLICAÇÃO CIRÚRGICA: Ordenar sem mutar array original
-        const sortedOlder = [...olderMessages].sort((a, b) => {
-          const aTime = (a.sent_at || a.created_date || '').toString();
-          const bTime = (b.sent_at || b.created_date || '').toString();
-          return aTime.localeCompare(bTime);
-        });
-
         queryClient.setQueryData(['mensagens', thread.id], (antigas = []) => {
           const byId = new Map();
-
-          [...sortedOlder, ...antigas].forEach(m => {
-            if (!m?.id) return;
-            byId.set(m.id, m);
+          [...olderMessages.reverse(), ...antigas].forEach(m => {
+            if (m?.id) byId.set(m.id, m);
           });
-
-          // Manter ordenado por sent_at ASC (mais antigas primeiro)
-          return Array.from(byId.values()).sort((a, b) => {
-            const aTime = (a.sent_at || a.created_date || '').toString();
-            const bTime = (b.sent_at || b.created_date || '').toString();
-            return aTime.localeCompare(bTime);
-          });
+          return Array.from(byId.values()).sort((a, b) =>
+            (a.sent_at || a.created_date || '').localeCompare(b.sent_at || b.created_date || '')
+          );
         });
 
-        // ✅ FIX 4: Cursor aponta para PRIMEIRA (mais antiga) do lote ANTES do reverse
-        const newCursor = sortedOlder[0]?.sent_at || sortedOlder[0]?.created_date;
-        if (!newCursor) {
-          console.warn('[SCROLL-UP] ⚠️ Mensagem sem timestamp! Fim do histórico.');
-          setHasMoreMessages(false);
-        } else {
-          setOldestLoadedTimestamp(newCursor);
-          console.log('[SCROLL-UP] 🔄 Novo cursor:', newCursor);
-        }
+        const newOldest = olderMessages[0]?.sent_at || olderMessages[0]?.created_date;
+        console.log('[SCROLL-UP] 🔄 Novo cursor:', newOldest);
+        setOldestLoadedTimestamp(newOldest);
 
-        // Manter posição visual após inserir mensagens no topo
         requestAnimationFrame(() => {
           const scrollHeightAfter = container.scrollHeight;
           container.scrollTop = scrollTopBefore + (scrollHeightAfter - scrollHeightBefore);
         });
 
       } catch (error) {
-        console.error('[SCROLL-UP] ❌ Erro ao carregar antigas:', error);
+        if (error?.name === 'AbortError') {
+          console.log('[SCROLL-UP] 🛑 Request abortado (thread trocada)');
+        } else {
+          console.error('[SCROLL-UP] ❌ Erro ao carregar antigas:', error);
+        }
       } finally {
-        isLoadingOlderRef.current = false;
-        setLoadingOlder(false);
-        abortControllerRef.current = null;
+        // ✅ Só libera o lock se este controller ainda é o atual
+        if (abortControllerRef.current === controller) {
+          isLoadingOlderRef.current = false;
+          setLoadingOlder(false);
+          abortControllerRef.current = null;
+        }
       }
     };
 
     container.addEventListener('scroll', handleScroll, { passive: true });
     return () => container.removeEventListener('scroll', handleScroll);
-    // ✅ FIX 5: Dependências mais completas para recriar listener quando thread muda
-  }, [thread, hasMoreMessages, oldestLoadedTimestamp, queryClient, allThreads]);
+  }, [thread?.id, thread?.contact_id, thread?.thread_type, hasMoreMessages, oldestLoadedTimestamp, queryClient, allThreads, setOldestLoadedTimestamp, setHasMoreMessages]);
 
   return {
     chatContainerRef,
-    loadingOlder,
-    hasMoreMessages,
-    isHistoryStart, // ✅ FIX 6: Expor flag para "Início da conversa"
-    oldestLoadedTimestamp,
-    initTimestamp
+    loadingOlder
   };
 }
