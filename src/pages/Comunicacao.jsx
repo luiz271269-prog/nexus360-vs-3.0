@@ -291,7 +291,7 @@ export default function Comunicacao() {
         });
 
         if (response?.data?.success) {
-          console.log('[COMUNICACAO] ✅ Threads externas via busca livre:', response.data.threads.length);
+
           return response.data.threads || [];
         }
 
