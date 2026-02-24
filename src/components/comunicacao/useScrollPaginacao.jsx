@@ -154,12 +154,24 @@ export default function useScrollPaginacao({
 
         console.log('[SCROLL-UP] ✅ Carregadas', olderMessages.length, 'mensagens antigas');
 
-        // ✅ DEDUPLICAÇÃO CIRÚRGICA: Merge por ID sem duplicatas
+        // ✅ VERIFICAÇÃO PÓS-AWAIT: Descartar se thread trocou durante operação
+        const controller = abortControllerRef.current;
+        if (controller?.signal.aborted || thread?.id !== thread?.id) {
+          console.log('[SCROLL-UP] 🚫 Thread trocada durante busca — descartando');
+          return;
+        }
+
+        // ✅ DEDUPLICAÇÃO CIRÚRGICA: Ordenar sem mutar array original
+        const sortedOlder = [...olderMessages].sort((a, b) => {
+          const aTime = (a.sent_at || a.created_date || '').toString();
+          const bTime = (b.sent_at || b.created_date || '').toString();
+          return aTime.localeCompare(bTime);
+        });
+
         queryClient.setQueryData(['mensagens', thread.id], (antigas = []) => {
           const byId = new Map();
-          const novos = olderMessages.reverse();
 
-          [...novos, ...antigas].forEach(m => {
+          [...sortedOlder, ...antigas].forEach(m => {
             if (!m?.id) return;
             byId.set(m.id, m);
           });
@@ -172,8 +184,8 @@ export default function useScrollPaginacao({
           });
         });
 
-        // ✅ FIX 4: Cursor com proteção — validar que existe timestamp válido
-        const newCursor = olderMessages[0]?.sent_at || olderMessages[0]?.created_date;
+        // ✅ FIX 4: Cursor aponta para PRIMEIRA (mais antiga) do lote ANTES do reverse
+        const newCursor = sortedOlder[0]?.sent_at || sortedOlder[0]?.created_date;
         if (!newCursor) {
           console.warn('[SCROLL-UP] ⚠️ Mensagem sem timestamp! Fim do histórico.');
           setHasMoreMessages(false);
