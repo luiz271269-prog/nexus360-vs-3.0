@@ -253,7 +253,7 @@ export default React.memo(function MessageBubble({
           {!isOwn && <div className="h-7 w-7 rounded-lg bg-slate-100 flex items-center justify-center mt-0.5">
             <div className="h-1.5 w-1.5 rounded-full bg-slate-400" />
           </div>}
-          <div className={cn("max-w-[50%] rounded-2xl px-4 py-2.5",
+          <div className={cn("max-w-[65%] rounded-2xl px-4 py-2.5",
           isOwn ? "bg-[#d9fdd3]" : "bg-white border border-slate-200")}>
             <p className="text-sm text-slate-800">{message.content || '📍 Localização'}</p>
           </div>
@@ -747,7 +747,7 @@ export default React.memo(function MessageBubble({
         }
 
         <div className={cn(
-          "max-w-[50%] min-w-0 w-fit",
+          "max-w-[65%]",
           "flex flex-col group relative"
         )}>
           {!isOwn && (thread?.thread_type === 'team_internal' || thread?.thread_type === 'sector_group' || message.channel === 'interno') && (() => {
