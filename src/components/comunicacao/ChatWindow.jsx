@@ -553,153 +553,38 @@ export default function ChatWindow({
   }, [podeEnviarMensagens, contatosSelecionados, broadcastInterno, usuario, onCancelarSelecao, onAtualizarMensagens, queryClient]);
 
   const enviarAudio = React.useCallback(async (audioBlob) => {
-    if (!podeEnviarAudios) {
-      toast.error("❌ Você não tem permissão para enviar áudios");
-      return;
-    }
-
-    setEnviando(true);
-    setErro(null);
-
+    if (!podeEnviarAudios) { toast.error("❌ Sem permissão para enviar áudios"); return; }
+    setEnviando(true); setErro(null);
     try {
-      // ═══════════════════════════════════════════════════════════════════
-      // USUÁRIO INTERNO: Usar handler otimista (igual texto/imagem)
-      // ═══════════════════════════════════════════════════════════════════
       if (thread?.thread_type === 'team_internal' || thread?.thread_type === 'sector_group') {
-        if (onSendInternalMessageOptimistic) {
-          onSendInternalMessageOptimistic({
-            audioBlob,
-            replyToMessage: mensagemResposta
-          });
-          setMensagemResposta(null);
-          setEnviando(false);
-        } else {
-          toast.error("Handler de envio interno não configurado");
-          setEnviando(false);
-        }
-        return;
+        if (onSendInternalMessageOptimistic) { onSendInternalMessageOptimistic({ audioBlob, replyToMessage: mensagemResposta }); setMensagemResposta(null); }
+        else toast.error("Handler de envio interno não configurado");
+        setEnviando(false); return;
       }
-
-      // ═══════════════════════════════════════════════════════════════════
-      // THREADS EXTERNAS (WhatsApp) - Lógica original
-      // ═══════════════════════════════════════════════════════════════════
-
       const timestamp = new Date().getTime();
-      const audioFile = new File([audioBlob], `audio-${timestamp}.ogg`, {
-        type: 'audio/ogg; codecs=opus',
-        lastModified: timestamp
-      });
-
+      const audioFile = new File([audioBlob], `audio-${timestamp}.ogg`, { type: 'audio/ogg; codecs=opus', lastModified: timestamp });
       toast.info('📤 Fazendo upload do áudio...');
-      const uploadResponse = await base44.integrations.Core.UploadFile({
-        file: audioFile
-      });
-
-      const audioUrl = uploadResponse.file_url;
-
-      // ═══════════════════════════════════════════════════════════════════
-      // MODO BROADCAST: Enviar áudio para múltiplos contatos
-      // ═══════════════════════════════════════════════════════════════════
+      const { file_url: audioUrl } = await base44.integrations.Core.UploadFile({ file: audioFile });
       if (modoSelecaoMultipla && contatosSelecionados.length > 0) {
-        toast.info('📤 Enviando áudio para os contatos selecionados...');
-
-        await handleEnviarBroadcast({
-          mediaUrl: audioUrl,
-          mediaType: 'audio',
-          isAudio: true
-        });
-
-        setEnviando(false);
-        return;
+        await handleEnviarBroadcast({ mediaUrl: audioUrl, mediaType: 'audio', isAudio: true });
+        setEnviando(false); return;
       }
-
-      // ═══════════════════════════════════════════════════════════════════
-      // MODO INDIVIDUAL: Enviar para um contato específico
-      // ═══════════════════════════════════════════════════════════════════
-      if (!thread || !usuario || carregandoContato) {
-        toast.error("Dados da conversa ou contato não disponíveis para enviar áudio.");
-        setEnviando(false);
-        return;
-      }
-
-      if (!contatoCompleto) {
-        toast.error('Contato não carregado. Por favor, recarregue a página.');
-        setEnviando(false);
-        return;
-      }
-
+      if (!thread || !usuario || carregandoContato || !contatoCompleto) { toast.error('Dados da conversa não disponíveis.'); setEnviando(false); return; }
       const telefone = contatoCompleto.telefone || contatoCompleto.celular;
-      if (!telefone) {
-        toast.error('Este contato não possui telefone cadastrado para enviar áudio.');
-        setEnviando(false);
-        return;
-      }
-
+      if (!telefone) { toast.error('Contato sem telefone.'); setEnviando(false); return; }
       const integrationIdParaUso = canalSelecionado || thread.whatsapp_integration_id;
-
-      // 🎯 AUTO-ATRIBUIÇÃO: Se thread sem dono, atribuir ao atendente
       await autoAtribuirThreadSeNecessario(thread);
-
-      const dadosEnvio = {
-        integration_id: integrationIdParaUso,
-        numero_destino: telefone,
-        audio_url: audioUrl,
-        media_type: 'audio'
-      };
-
-      if (mensagemResposta?.whatsapp_message_id) {
-        dadosEnvio.reply_to_message_id = mensagemResposta.whatsapp_message_id;
-      }
-
+      const dadosEnvio = { integration_id: integrationIdParaUso, numero_destino: telefone, audio_url: audioUrl, media_type: 'audio' };
+      if (mensagemResposta?.whatsapp_message_id) dadosEnvio.reply_to_message_id = mensagemResposta.whatsapp_message_id;
       const resultado = await base44.functions.invoke('enviarWhatsApp', dadosEnvio);
-
       if (resultado.data.success) {
-        await base44.entities.Message.create({
-          thread_id: thread.id,
-          sender_id: usuario.id,
-          sender_type: "user",
-          recipient_id: thread.contact_id,
-          recipient_type: "contact",
-          content: "[Áudio]",
-          channel: "whatsapp",
-          status: "enviada",
-          whatsapp_message_id: resultado.data.message_id,
-          sent_at: new Date().toISOString(),
-          media_url: audioUrl,
-          media_type: 'audio',
-          reply_to_message_id: mensagemResposta?.id || null,
-          metadata: {
-            whatsapp_integration_id: integrationIdParaUso
-          }
-        });
-
-        await base44.entities.MessageThread.update(thread.id, {
-          last_message_content: "[Áudio]",
-          last_message_at: new Date().toISOString(),
-          last_message_sender: "user",
-          last_human_message_at: new Date().toISOString(),
-          whatsapp_integration_id: integrationIdParaUso,
-          pre_atendimento_ativo: false
-        });
-
-        toast.success("✅ Áudio enviado com sucesso!");
-        setMensagemResposta(null);
-
-        if (onAtualizarMensagens) {
-          onAtualizarMensagens();
-        }
-      } else {
-        throw new Error(resultado.data.error || 'Erro desconhecido ao enviar áudio pelo WhatsApp');
-      }
-    } catch (error) {
-      console.error('[CHAT] ❌ Erro ao enviar áudio:', error);
-      const mensagemErro = error.message || 'Erro ao enviar áudio';
-      setErro(mensagemErro);
-      toast.error(mensagemErro);
-    } finally {
-      setEnviando(false);
-    }
-  }, [podeEnviarAudios, modoSelecaoMultipla, contatosSelecionados, broadcastInterno, handleEnviarBroadcast, thread, usuario, carregandoContato, contatoCompleto, canalSelecionado, mensagemResposta, onAtualizarMensagens, autoAtribuirThreadSeNecessario]);
+        await base44.entities.Message.create({ thread_id: thread.id, sender_id: usuario.id, sender_type: "user", recipient_id: thread.contact_id, recipient_type: "contact", content: "[Áudio]", channel: "whatsapp", status: "enviada", whatsapp_message_id: resultado.data.message_id, sent_at: new Date().toISOString(), media_url: audioUrl, media_type: 'audio', reply_to_message_id: mensagemResposta?.id || null, metadata: { whatsapp_integration_id: integrationIdParaUso } });
+        await base44.entities.MessageThread.update(thread.id, { last_message_content: "[Áudio]", last_message_at: new Date().toISOString(), last_message_sender: "user", last_human_message_at: new Date().toISOString(), whatsapp_integration_id: integrationIdParaUso, pre_atendimento_ativo: false });
+        toast.success("✅ Áudio enviado!"); setMensagemResposta(null);
+        if (onAtualizarMensagens) onAtualizarMensagens();
+      } else throw new Error(resultado.data.error || 'Erro ao enviar áudio');
+    } catch (error) { setErro(error.message); toast.error(error.message); } finally { setEnviando(false); }
+  }, [podeEnviarAudios, modoSelecaoMultipla, contatosSelecionados, handleEnviarBroadcast, thread, usuario, carregandoContato, contatoCompleto, canalSelecionado, mensagemResposta, onAtualizarMensagens, autoAtribuirThreadSeNecessario, onSendInternalMessageOptimistic]);
 
   const iniciarGravacaoAudio = React.useCallback(async () => {
     if (!podeEnviarAudios) {
