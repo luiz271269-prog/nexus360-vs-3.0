@@ -176,6 +176,7 @@ export default function useScrollPaginacao({
     chatContainerRef,
     loadingOlder,
     isHistoryStart,
-    initTimestamp
+    initTimestamp,
+    permissionError
   };
 }
