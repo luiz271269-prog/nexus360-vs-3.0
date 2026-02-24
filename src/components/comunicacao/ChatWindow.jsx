@@ -1150,70 +1150,25 @@ export default function ChatWindow({
   }, []);
 
   const apagarMensagensSelecionadas = React.useCallback(async () => {
-    if (!podeApagarMensagens) {
-      toast.error("❌ Você não tem permissão para apagar mensagens");
-      return;
-    }
-
-    if (mensagensSelecionadas.length === 0) {
-      toast.error("Selecione pelo menos uma mensagem para apagar.");
-      return;
-    }
-
-    if (!confirm(`Tem certeza que deseja apagar ${mensagensSelecionadas.length} mensagem(ns)? Esta ação é irreversível e tentará apagar para todos na conversa.`)) {
-      return;
-    }
-
+    if (!podeApagarMensagens) { toast.error("❌ Sem permissão para apagar mensagens"); return; }
+    if (mensagensSelecionadas.length === 0) { toast.error("Selecione pelo menos uma mensagem."); return; }
+    if (!confirm(`Apagar ${mensagensSelecionadas.length} mensagem(ns)? Irreversível.`)) return;
     setEnviando(true);
     try {
-      let sucessos = 0;
-      let erros = 0;
-
+      let sucessos = 0, erros = 0;
       for (const mensagemId of mensagensSelecionadas) {
         try {
-          const messageToDelete = mensagens.find((m) => m.id === mensagemId);
-          if (!messageToDelete || !messageToDelete.whatsapp_message_id) {
-            erros++;
-            continue;
-          }
-
-          const resultado = await base44.functions.invoke('apagarWhatsAppMessage', {
-            integration_id: thread.whatsapp_integration_id,
-            whatsapp_message_id: messageToDelete.whatsapp_message_id,
-            thread_id: thread.id,
-            message_db_id: messageToDelete.id
-          });
-
-          if (resultado.data.success) {
-            sucessos++;
-          } else {
-            erros++;
-          }
-        } catch (error) {
-          erros++;
-        }
+          const m = mensagens.find(msg => msg.id === mensagemId);
+          if (!m?.whatsapp_message_id) { erros++; continue; }
+          const r = await base44.functions.invoke('apagarWhatsAppMessage', { integration_id: thread.whatsapp_integration_id, whatsapp_message_id: m.whatsapp_message_id, thread_id: thread.id, message_db_id: m.id });
+          r.data.success ? sucessos++ : erros++;
+        } catch (_) { erros++; }
       }
-
-      if (sucessos > 0) {
-        toast.success(`✅ ${sucessos} mensagem(ns) apagada(s) do WhatsApp!`);
-      }
-
-      if (erros > 0) {
-        toast.error(`❌ ${erros} mensagem(ns) não puderam ser apagadas do WhatsApp.`);
-      }
-
-      setModoSelecao(false);
-      setMensagensSelecionadas([]);
-
-      if (onAtualizarMensagens) {
-        onAtualizarMensagens();
-      }
-    } catch (error) {
-      console.error('[CHAT] ❌ Erro geral ao apagar mensagens:', error);
-      toast.error(`Erro inesperado ao tentar apagar mensagens: ${error.message}`);
-    } finally {
-      setEnviando(false);
-    }
+      if (sucessos > 0) toast.success(`✅ ${sucessos} mensagem(ns) apagada(s)!`);
+      if (erros > 0) toast.error(`❌ ${erros} não puderam ser apagadas.`);
+      setModoSelecao(false); setMensagensSelecionadas([]);
+      if (onAtualizarMensagens) onAtualizarMensagens();
+    } catch (error) { toast.error(`Erro: ${error.message}`); } finally { setEnviando(false); }
   }, [podeApagarMensagens, mensagensSelecionadas, mensagens, thread, onAtualizarMensagens]);
 
   // marcarComoLidaMutation e marcarLidaAoResponder estão declarados ACIMA (antes de handleEnviarFromInput)
