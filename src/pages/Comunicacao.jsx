@@ -371,12 +371,7 @@ export default function Comunicacao() {
       return thread;
     });
     
-    console.log('[COMUNICACAO] 📊 Threads combinadas + análises:', {
-      externas: threadsExternas.length,
-      internas: threadsInternas.length,
-      total: enriquecidas.length,
-      com_analise: enriquecidas.filter(t => t._analiseComportamental).length
-    });
+
     
     return enriquecidas;
   }, [threadsExternas, threadsInternas, analisesComportamentais]);
