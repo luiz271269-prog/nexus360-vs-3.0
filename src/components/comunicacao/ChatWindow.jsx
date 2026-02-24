@@ -1139,30 +1139,14 @@ export default function ChatWindow({
   }, []);
 
   const ativarModoSelecao = React.useCallback(() => {
-    if (!podeApagarMensagens) {
-      toast.error("❌ Você não tem permissão para apagar mensagens");
-      return;
-    }
-
-    setModoSelecao(true);
-    setMensagensSelecionadas([]);
-    setMensagemResposta(null);
-    setMostrarSugestor(false);
+    if (!podeApagarMensagens) { toast.error("❌ Sem permissão para apagar mensagens"); return; }
+    setModoSelecao(true); setMensagensSelecionadas([]); setMensagemResposta(null); setMostrarSugestor(false);
   }, [podeApagarMensagens]);
 
-  const cancelarModoSelecao = React.useCallback(() => {
-    setModoSelecao(false);
-    setMensagensSelecionadas([]);
-  }, []);
+  const cancelarModoSelecao = React.useCallback(() => { setModoSelecao(false); setMensagensSelecionadas([]); }, []);
 
   const toggleSelecionarMensagem = React.useCallback((mensagemId) => {
-    setMensagensSelecionadas((prev) => {
-      if (prev.includes(mensagemId)) {
-        return prev.filter((id) => id !== mensagemId);
-      } else {
-        return [...prev, mensagemId];
-      }
-    });
+    setMensagensSelecionadas((prev) => prev.includes(mensagemId) ? prev.filter(id => id !== mensagemId) : [...prev, mensagemId]);
   }, []);
 
   const apagarMensagensSelecionadas = React.useCallback(async () => {
