@@ -165,53 +165,64 @@ Deno.serve(async (req) => {
 
     // ============================================================================
     // INTERPRETAR RESULTADOS
+    // 
+    // DESCOBERTA CRÍTICA (testado 2026-02-24):
+    // - W-API NÃO tem endpoint GET /instance/status (retorna 404)
+    // - W-API NÃO tem endpoint GET /instance/info (retorna 404)
+    // - Quando a instância está CONECTADA:
+    //   → POST /message/send-text retorna HTTP 200 com messageId
+    //   → POST /message/send-audio retorna HTTP 200 com messageId
+    //   → Se retornar 401/403: token inválido
+    //   → Se retornar 403 com "not connected": instância desconectada mas token válido
+    //
+    // CONCLUSÃO: A ÚNICA forma de verificar status é via probe de envio.
+    // Se a mensagem "enfileira" (HTTP 200 + messageId) = instância conectada ao WhatsApp.
+    // Webhook "webhookDisconnected" é enviado quando a sessão cai.
     // ============================================================================
     const agora = new Date().toISOString();
-    
-    const allUnauthorized = Object.values(resultados).every(
-      ep => ep?.httpStatus === 401 || ep?.httpStatus === 403 || ep?.erro
-    );
     
     let conectado = false;
     let tokenValido = false;
     let statusFinal = 'desconhecido';
     let detalhes = '';
 
-    if (allUnauthorized) {
+    const tokenProbe = resultados.token_probe;
+    const audioProbe = resultados.audio_probe;
+
+    // Token inválido: 401 ou 403 no probe
+    if (tokenProbe?.httpStatus === 401 || tokenProbe?.httpStatus === 403) {
       tokenValido = false;
       conectado = false;
       statusFinal = 'token_invalido';
-      detalhes = 'Token inválido ou expirado (401/403 em todos os endpoints)';
-    } else {
+      detalhes = `Token inválido ou expirado (HTTP ${tokenProbe.httpStatus})`;
+    }
+    // Instância conectada: probe retornou 200 com messageId
+    else if (tokenProbe?.httpStatus === 200 && tokenProbe?.response?.messageId) {
       tokenValido = true;
-      
-      // Tentar interpretar a resposta de cada endpoint
-      for (const [key, ep] of Object.entries(resultados)) {
-        if (!ep?.response || ep.httpStatus >= 400) continue;
-        const r = ep.response;
-        
-        if (r.connected === true || r.status === 'connected' || r.state === 'open' || r.isConnected === true) {
-          conectado = true;
-          detalhes = `Conectado (via ${key})`;
-          break;
-        }
-        if (r.connected === false || r.status === 'disconnected' || r.state === 'close') {
-          conectado = false;
-          detalhes = `Desconectado (via ${key})`;
-          break;
-        }
-        if (r.error === false) {
-          // W-API retorna error:false quando sucesso
-          conectado = true;
-          detalhes = `API respondeu sem erro (via ${key}) - assumindo conectado`;
-          break;
-        }
-      }
-
-      if (!detalhes) {
-        detalhes = 'Token válido mas status de conexão não determinado pelos endpoints';
-      }
-      statusFinal = conectado ? 'conectado' : 'desconectado';
+      conectado = true;
+      statusFinal = 'conectado';
+      detalhes = `Instância conectada e enviando (messageId: ${tokenProbe.response.messageId})`;
+    }
+    // Instância desconectada mas token válido: 403 "not connected" ou 400
+    else if (tokenProbe?.httpStatus === 400 || tokenProbe?.httpStatus === 422) {
+      const msg = JSON.stringify(tokenProbe.response || '').toLowerCase();
+      tokenValido = true;
+      conectado = msg.includes('connect') ? false : false;
+      statusFinal = 'desconectado';
+      detalhes = `Token válido, mas instância não conectada ao WhatsApp (HTTP ${tokenProbe.httpStatus})`;
+    }
+    // Erro de rede ou timeout
+    else if (tokenProbe?.erro) {
+      tokenValido = false;
+      conectado = false;
+      statusFinal = 'erro_rede';
+      detalhes = `Erro ao contactar W-API: ${tokenProbe.erro}`;
+    }
+    else {
+      tokenValido = true;
+      conectado = false;
+      statusFinal = 'desconhecido';
+      detalhes = `Resposta inesperada: HTTP ${tokenProbe?.httpStatus}`;
     }
 
     // Atualizar banco
