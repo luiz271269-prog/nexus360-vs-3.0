@@ -1274,8 +1274,13 @@ export default function ChatWindow({
       usuario?.role === 'admin' ||
       ['gerente', 'coordenador'].includes(usuario?.attendant_role);
 
-    // ✅ Para threads externas (WhatsApp)
+    // ✅ Para threads externas (WhatsApp): filtrar mensagens desta thread específica
     return mensagensFiltradas.filter((m) => {
+      // CRÍTICO: Garantir que a mensagem pertence à thread atual
+      if (m.thread_id !== thread?.id) {
+        return false;
+      }
+
       // Ocultar mensagens de outros atendentes se não tem permissão de ver todas
       if (
         !podeVerTodasMensagens &&
