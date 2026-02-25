@@ -255,7 +255,12 @@ export default function ChatSidebarKanban({ threads, threadAtiva, onSelecionarTh
       col.threads.sort((a, b) => new Date(b.last_message_at || 0) - new Date(a.last_message_at || 0));
     });
 
-    // Ordenar: minhas primeiro, não atribuídas segundo, depois pela ordem do array atendentes (cadastro)
+    // Garantir que "Não Atribuídas" sempre existe (mesmo sem threads)
+    if (!mapa['__sem_atendente__']) {
+      mapa['__sem_atendente__'] = { id: '__sem_atendente__', nome: 'Não Atribuídas', isSemAtendente: true, threads: [] };
+    }
+
+    // Ordenar: minhas primeiro (fixa), não atribuídas segundo (fixa), depois pela ordem do array atendentes (cadastro)
     return Object.values(mapa).sort((a, b) => {
       if (a.isMinhas) return -1;
       if (b.isMinhas) return 1;
@@ -267,7 +272,7 @@ export default function ChatSidebarKanban({ threads, threadAtiva, onSelecionarTh
       const posA = idxA === -1 ? 9999 : idxA;
       const posB = idxB === -1 ? 9999 : idxB;
       return posA - posB;
-    }).filter(c => c.threads.length > 0);
+    }).filter(c => c.isMinhas || c.isSemAtendente || c.threads.length > 0);
   }, [threadsFiltradas, usuarioAtual, atendentes]);
 
   const corConfig = {
