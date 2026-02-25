@@ -316,9 +316,14 @@ export default function InternalMessageComposer({ open, onClose, currentUser, on
     }
   };
 
+  // Fechar o modal pai ao abrir criar grupo (evita Dialog aninhado no mobile)
+  const handleAbrirCriarGrupo = () => {
+    setCriarGrupoOpen(true);
+  };
+
   return (
     <>
-      <Dialog open={open} onOpenChange={onClose}>
+      <Dialog open={open && !criarGrupoOpen} onOpenChange={onClose}>
         <DialogContent className="w-[98vw] sm:max-w-4xl h-[92vh] sm:h-[85vh] sm:max-h-[90vh] flex flex-col p-3 sm:p-6">
           <DialogHeader className="flex-shrink-0">
             <DialogTitle className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-slate-800">
