@@ -690,10 +690,10 @@ export default function InternalMessageComposer({ open, onClose, currentUser, on
                   </TabsTrigger>
                 </TabsList>
 
-                {/* Mobile: Abas de conteúdo */}
+                {/* Mobile: conteúdo por aba - renderização condicional simples (evita bug removeChild do Radix) */}
                 <div className="flex-1 min-h-0 overflow-y-auto">
                   {/* Aba Usuários */}
-                  <TabsContent value="usuarios" className="m-0 p-0">
+                  {activeTab === 'usuarios' && (
                     <div className="space-y-1">
                       {loadingUsers ? (
                         <div className="flex items-center justify-center py-8">
@@ -744,7 +744,7 @@ export default function InternalMessageComposer({ open, onClose, currentUser, on
                                   <span className={`inline-flex items-center px-1 py-0.5 rounded-full text-[7px] font-medium text-white ${setorCfg.cor}`}>
                                     {setorCfg.emoji} {setorCfg.label}
                                   </span>
-                                  <span className={`inline-flex items-center px-1 py-0.5 rounded-full text-[7px] font-medium text-slate-600 bg-slate-100`}>
+                                  <span className="inline-flex items-center px-1 py-0.5 rounded-full text-[7px] font-medium text-slate-600 bg-slate-100">
                                     {nivelCfg.label}
                                   </span>
                                 </div>
@@ -754,10 +754,10 @@ export default function InternalMessageComposer({ open, onClose, currentUser, on
                         })
                       )}
                     </div>
-                  </TabsContent>
+                  )}
 
                   {/* Aba Setores */}
-                  <TabsContent value="setores" className="m-0 p-0">
+                  {activeTab === 'setores' && (
                     <div className="space-y-1">
                       {setores.length === 0 ? (
                         <div className="text-center py-8 text-slate-500 text-xs">
@@ -802,10 +802,10 @@ export default function InternalMessageComposer({ open, onClose, currentUser, on
                         })
                       )}
                     </div>
-                  </TabsContent>
+                  )}
 
                   {/* Aba Grupos */}
-                  <TabsContent value="grupos" className="m-0 p-0">
+                  {activeTab === 'grupos' && (
                     <div className="space-y-1">
                       <Button
                         onClick={handleAbrirCriarGrupo}
@@ -860,7 +860,7 @@ export default function InternalMessageComposer({ open, onClose, currentUser, on
                         })
                       )}
                     </div>
-                  </TabsContent>
+                  )}
                 </div>
               </Tabs>
 
