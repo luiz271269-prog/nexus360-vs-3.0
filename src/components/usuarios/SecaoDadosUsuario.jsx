@@ -11,7 +11,7 @@ const SETORES = [
   { value: "vendas", label: "Vendas" },
   { value: "assistencia", label: "Assistência" },
   { value: "financeiro", label: "Financeiro" },
-  { value: "fornecedor", label: "Fornecedor" },
+  { value: "fornecedor", label: "Compras" },
   { value: "geral", label: "Geral" },
 ];
 
