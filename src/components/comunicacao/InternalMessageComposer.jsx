@@ -808,7 +808,7 @@ export default function InternalMessageComposer({ open, onClose, currentUser, on
                   <TabsContent value="grupos" className="m-0 p-0">
                     <div className="space-y-1">
                       <Button
-                        onClick={() => setCriarGrupoOpen(true)}
+                        onClick={handleAbrirCriarGrupo}
                         variant="outline"
                         size="sm"
                         className="w-full mb-2 border-cyan-200 hover:bg-cyan-50 hover:border-cyan-300 text-xs h-8"
