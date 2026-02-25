@@ -899,6 +899,7 @@ export default function InternalMessageComposer({ open, onClose, currentUser, on
         usuarios={usuarios}
         currentUser={currentUser}
         onSuccess={() => {
+          setCriarGrupoOpen(false);
           refetchGroups();
           toast.success('✅ Grupo criado com sucesso!');
         }}
