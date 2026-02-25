@@ -1308,7 +1308,9 @@ export default function ChatWindow({
 
       const conteudoInvalido = ['Mídia enviada', 'Media enviada', 'Adicionar', 'Referência', '[No content]', '[Message content missing]', '[Recovered message]', ''];
       if (conteudoInvalido.includes(content)) return false;
-      if (/^[\+\-\s\d@\.]+$/.test(content) && content.length < 50) return false;
+      // Bloquear apenas se parece um JID do WhatsApp (contém @) ou é número de telefone longo
+      if (/^[\+\-\s\d@\.]+$/.test(content) && content.length < 50 && content.includes('@')) return false;
+      if (/^\+?\d{10,}$/.test(content.replace(/[\s\-\.]/g, ''))) return false; // Telefone longo sem @
       if (content.startsWith('[Media type:')) return false;
 
       const tiposEspeciais = ['contact', 'location'];
