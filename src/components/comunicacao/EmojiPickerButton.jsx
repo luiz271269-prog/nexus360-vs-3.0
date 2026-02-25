@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
+import ReactDOM from 'react-dom';
 import { Button } from '@/components/ui/button';
 import { Smile } from 'lucide-react';
 import { cn } from '@/lib/utils';
