@@ -18,7 +18,6 @@ export default function InternalMessageComposer({ open, onClose, currentUser, on
   const [resolving, setResolving] = React.useState(false);
   const [criarGrupoOpen, setCriarGrupoOpen] = React.useState(false);
   const [selectedOriginUser, setSelectedOriginUser] = React.useState(originUserId || '');
-  const [activeTab, setActiveTab] = React.useState('usuarios');
 
   // Buscar todos os usuários via função (igual ao AtribuirConversaModal)
   const { data: usuarios = [], isLoading: loadingUsers } = useQuery({
