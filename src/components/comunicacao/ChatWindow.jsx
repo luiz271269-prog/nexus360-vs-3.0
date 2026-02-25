@@ -1268,8 +1268,14 @@ export default function ChatWindow({
       });
     }
 
-    // ✅ Para threads externas (WhatsApp): aplicar filtros de limpeza existentes
+    // ✅ Para threads externas (WhatsApp): mostrar APENAS mensagens do contato + do usuário atual
+    // Ocultar mensagens enviadas por OUTROS atendentes
     return mensagensFiltradas.filter((m) => {
+      // Ocultar mensagens de outros atendentes (não o usuário atual)
+      if (m.sender_type === 'user' && m.sender_id !== usuario?.id && !m.metadata?.optimistic) {
+        return false;
+      }
+
       if (m.metadata?.deleted) return true;
       if (m.metadata?.is_system_message) return true;
       if (m.metadata?.optimistic) return true;
