@@ -477,10 +477,7 @@ export default function Layout({ children, currentPageName }) {
         >
           <Menu className="h-5 w-5 text-white" />
         </button>
-        <Link to={createPageUrl("Comunicacao")} className="flex items-center gap-2">
-          <MessageSquare className="h-6 w-6 text-white" />
-          <span className="text-white font-semibold text-sm truncate max-w-[150px]">{currentPageName}</span>
-        </Link>
+        <span className="text-white font-semibold text-sm truncate max-w-[200px]">{currentPageName}</span>
         <UserAuthWidget usuario={globalUsuario} loadingUsuario={loadingUsuario} onLogout={handleLogout} />
       </header>
 
