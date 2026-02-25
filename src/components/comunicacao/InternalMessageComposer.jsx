@@ -309,8 +309,6 @@ export default function InternalMessageComposer({ open, onClose, currentUser, on
     }
   };
 
-  const [activeTab, setActiveTab] = React.useState('usuarios');
-
   return (
     <>
       <Dialog open={open} onOpenChange={onClose}>
