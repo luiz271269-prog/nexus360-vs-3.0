@@ -624,21 +624,51 @@ export default function InternalMessageComposer({ open, onClose, currentUser, on
 
             {/* Mobile: Abas com conteúdo responsivo */}
             <div className="sm:hidden flex flex-col flex-1 min-h-0">
+              {/* Selecionados badge no topo mobile */}
+              {totalSelecionados > 0 && (
+                <div className="flex items-center gap-1 flex-wrap mb-2 px-1">
+                  <span className="text-[10px] text-slate-500 font-medium">Selecionados:</span>
+                  {selectedUsers.map(uid => {
+                    const u = usuarios.find(x => x.id === uid);
+                    return (
+                      <span key={uid} onClick={() => toggleUser(uid)} className="inline-flex items-center gap-1 px-1.5 py-0.5 bg-cyan-100 text-cyan-700 rounded-full text-[10px] cursor-pointer">
+                        {(u?.full_name || 'User').split(' ')[0]}
+                        <X className="w-2 h-2" />
+                      </span>
+                    );
+                  })}
+                  {selectedSectors.map(s => (
+                    <span key={s} onClick={() => toggleSector(s)} className="inline-flex items-center gap-1 px-1.5 py-0.5 bg-blue-100 text-blue-700 rounded-full text-[10px] cursor-pointer">
+                      {setorConfig[s]?.emoji} {setorConfig[s]?.label || s}
+                      <X className="w-2 h-2" />
+                    </span>
+                  ))}
+                  {selectedGroups.map(gid => {
+                    const g = grupos.find(x => x.id === gid);
+                    return (
+                      <span key={gid} onClick={() => toggleGroup(gid)} className="inline-flex items-center gap-1 px-1.5 py-0.5 bg-slate-200 text-slate-700 rounded-full text-[10px] cursor-pointer">
+                        {g?.group_name || 'Grupo'}
+                        <X className="w-2 h-2" />
+                      </span>
+                    );
+                  })}
+                </div>
+              )}
               <Tabs value={activeTab} onValueChange={setActiveTab} className="flex flex-col flex-1 min-h-0">
-                <TabsList className="grid w-full grid-cols-3 h-9 bg-slate-100 rounded-lg mb-2">
-                  <TabsTrigger value="usuarios" className="text-xs">
-                    👥 Usuários ({usuariosDisponiveis.length})
+                <TabsList className="grid w-full grid-cols-3 h-9 bg-slate-100 rounded-lg mb-2 flex-shrink-0">
+                  <TabsTrigger value="usuarios" className="text-[10px] px-1">
+                    👥 ({usuariosDisponiveis.length}) {selectedUsers.length > 0 && <span className="ml-1 bg-cyan-500 text-white rounded-full w-4 h-4 inline-flex items-center justify-center text-[8px]">{selectedUsers.length}</span>}
                   </TabsTrigger>
-                  <TabsTrigger value="setores" className="text-xs">
-                    🏢 Setores ({setores.length})
+                  <TabsTrigger value="setores" className="text-[10px] px-1">
+                    🏢 ({setores.length}) {selectedSectors.length > 0 && <span className="ml-1 bg-cyan-500 text-white rounded-full w-4 h-4 inline-flex items-center justify-center text-[8px]">{selectedSectors.length}</span>}
                   </TabsTrigger>
-                  <TabsTrigger value="grupos" className="text-xs">
-                    👫 Grupos ({grupos.length})
+                  <TabsTrigger value="grupos" className="text-[10px] px-1">
+                    👫 ({grupos.length}) {selectedGroups.length > 0 && <span className="ml-1 bg-cyan-500 text-white rounded-full w-4 h-4 inline-flex items-center justify-center text-[8px]">{selectedGroups.length}</span>}
                   </TabsTrigger>
                 </TabsList>
 
                 {/* Mobile: Abas de conteúdo */}
-                <div className="flex-1 min-h-0 overflow-hidden">
+                <div className="flex-1 min-h-0 overflow-y-auto">
                   {/* Aba Usuários */}
                   <TabsContent value="usuarios" className="h-full overflow-y-auto m-0 p-0">
                     <div className="space-y-1">
