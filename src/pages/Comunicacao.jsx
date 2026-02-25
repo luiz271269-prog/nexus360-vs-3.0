@@ -580,37 +580,35 @@ export default function Comunicacao() {
           return ultimasMensagens.reverse();
         }
 
-        // ⚡ FASE 1: Buscar mensagens da thread ativa IMEDIATAMENTE (1 query)
+        // ⚡ Buscar apenas mensagens da thread ativa + threads MERGEADAS nela
+        // NÃO mesclar mensagens de outras threads do mesmo contato
+        // (cada thread é uma conversa independente de um atendente)
         const msgsPrimarias = await base44.entities.Message.filter(
           { thread_id: threadAtiva.id },
           '-sent_at',
           20
         );
 
-        // ✅ FASE 2: Resolver IDs adicionais EM MEMÓRIA (sem queries ao banco)
-        const idsAdicionais = (() => {
+        // ✅ Apenas threads MERGEADAS formalmente nesta thread (histórico consolidado)
+        const idsMergeadas = (() => {
           if (!threads?.length) return [];
-          const contactId = threadAtiva.contact_id;
           const ids = [];
           threads.forEach(t => {
-            if (t.id === threadAtiva.id) return;
-            if (t.merged_into === threadAtiva.id && t.status === 'merged') { ids.push(t.id); return; }
-            if (contactId && t.contact_id === contactId && (t.status === 'aberta' || t.status === 'fechada')) ids.push(t.id);
+            if (t.merged_into === threadAtiva.id && t.status === 'merged') ids.push(t.id);
           });
           return [...new Set(ids)];
         })();
 
-        if (idsAdicionais.length === 0) {
+        if (idsMergeadas.length === 0) {
           return msgsPrimarias.reverse();
         }
 
-        // Só busca msgs adicionais se há threads relacionadas (caso raro)
-        const msgsAdicionais = await base44.entities.Message.filter(
-          { thread_id: { $in: idsAdicionais } },
+        const msgsMergeadas = await base44.entities.Message.filter(
+          { thread_id: { $in: idsMergeadas } },
           '-sent_at',
           20
         );
-        const combined = Array.from(new Map([...msgsPrimarias, ...msgsAdicionais].map(m => [m.id, m])).values());
+        const combined = Array.from(new Map([...msgsPrimarias, ...msgsMergeadas].map(m => [m.id, m])).values());
         combined.sort((a, b) => new Date(a.sent_at || 0) - new Date(b.sent_at || 0));
         return combined.slice(-20);
 
