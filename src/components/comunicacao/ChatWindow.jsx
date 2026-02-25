@@ -1268,11 +1268,21 @@ export default function ChatWindow({
       });
     }
 
-    // ✅ Para threads externas (WhatsApp): mostrar APENAS mensagens do contato + do usuário atual
-    // Ocultar mensagens enviadas por OUTROS atendentes
+    // ✅ Permissão de visibilidade: admin/gerente/coordenador veem TODAS as mensagens
+    // senior/pleno/junior veem apenas suas mensagens + as do contato
+    const podeVerTodasMensagens =
+      usuario?.role === 'admin' ||
+      ['gerente', 'coordenador'].includes(usuario?.attendant_role);
+
+    // ✅ Para threads externas (WhatsApp)
     return mensagensFiltradas.filter((m) => {
-      // Ocultar mensagens de outros atendentes (não o usuário atual)
-      if (m.sender_type === 'user' && m.sender_id !== usuario?.id && !m.metadata?.optimistic) {
+      // Ocultar mensagens de outros atendentes se não tem permissão de ver todas
+      if (
+        !podeVerTodasMensagens &&
+        m.sender_type === 'user' &&
+        m.sender_id !== usuario?.id &&
+        !m.metadata?.optimistic
+      ) {
         return false;
       }
 
