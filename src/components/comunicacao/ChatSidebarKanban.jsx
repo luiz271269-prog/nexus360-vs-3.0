@@ -351,6 +351,7 @@ export default function ChatSidebarKanban({ threads, threadAtiva, onSelecionarTh
 
         {kanbanMode === 'usuario' ? (
           // ── MODO: POR ATENDENTE ──
+          // Minhas e Não Atribuídas são fixas (já renderizadas separado ou aqui)
           colunasPorUsuario.filter(c => !c.isMinhas).map(coluna => {
             const isSem = coluna.isSemAtendente;
             const headerClass = isSem
