@@ -86,22 +86,13 @@ export default function useScrollPaginacao({
           );
         } else {
           const { base44 } = await import('@/api/base44Client');
-          const contactId = thread?.contact_id;
-          let idsAdicionais = [];
-          if (contactId) {
-            try {
-              const todasThreads = await base44.entities.MessageThread.filter(
-                { contact_id: contactId }, '-created_date', 50
-              );
-              idsAdicionais = todasThreads.filter(t => t.id !== thread.id).map(t => t.id);
-            } catch (_) {
-              (allThreads || []).forEach(t => {
-                if (t.id !== thread.id && t.contact_id === contactId) idsAdicionais.push(t.id);
-              });
-            }
-          }
-          const threadIds = [thread.id, ...new Set(idsAdicionais)];
-          console.log('[SCROLL-UP] 🔍 Buscando em', threadIds.length, 'threads do contato');
+          // ✅ Apenas threads MERGEADAS formalmente nesta thread (não todas do contato)
+          const idsMergeadas = (allThreads || [])
+            .filter(t => t.merged_into === thread.id && t.status === 'merged')
+            .map(t => t.id);
+          
+          const threadIds = [thread.id, ...new Set(idsMergeadas)];
+          console.log('[SCROLL-UP] 🔍 Buscando em', threadIds.length, 'thread(s) (principal + mergeadas)');
           olderMessages = await base44.entities.Message.filter(
             { thread_id: { $in: threadIds }, sent_at: { $lt: oldestLoadedTimestamp } },
             '-sent_at', 20
