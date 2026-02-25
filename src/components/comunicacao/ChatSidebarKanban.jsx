@@ -255,13 +255,18 @@ export default function ChatSidebarKanban({ threads, threadAtiva, onSelecionarTh
       col.threads.sort((a, b) => new Date(b.last_message_at || 0) - new Date(a.last_message_at || 0));
     });
 
-    // Ordenar: minhas primeiro, depois por nome, sem atendente por último
+    // Ordenar: minhas primeiro, não atribuídas segundo, depois pela ordem do array atendentes (cadastro)
     return Object.values(mapa).sort((a, b) => {
       if (a.isMinhas) return -1;
       if (b.isMinhas) return 1;
-      if (a.isSemAtendente) return 1;
-      if (b.isSemAtendente) return -1;
-      return a.nome.localeCompare(b.nome);
+      if (a.isSemAtendente) return -1;
+      if (b.isSemAtendente) return 1;
+      // Preservar ordem do cadastro de atendentes
+      const idxA = atendentes.findIndex(at => at.id === a.id);
+      const idxB = atendentes.findIndex(at => at.id === b.id);
+      const posA = idxA === -1 ? 9999 : idxA;
+      const posB = idxB === -1 ? 9999 : idxB;
+      return posA - posB;
     }).filter(c => c.threads.length > 0);
   }, [threadsFiltradas, usuarioAtual, atendentes]);
 
