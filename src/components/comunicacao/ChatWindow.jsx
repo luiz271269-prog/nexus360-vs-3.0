@@ -162,78 +162,32 @@ export default function ChatWindow({
   const permNexus = usuario?.permissoes_acoes_nexus || {};
   const permLegado = usuario?.permissoes_comunicacao || {};
 
-  // ✅ LÓGICA CIRÚRGICA: Verificar se usuário pode interagir nesta thread
-  // Aplica hierarquia: Admin > Atribuição > Fidelização > Gerente > Não Atribuída
-  // 
-  // ⚠️ IMPORTANTE: Esta verificação DEVE retornar TRUE enquanto contatoCompleto
-  // ainda não carregou, para evitar bloqueio falso. A verificação final é feita
-  // quando contatoCompleto está disponível.
+  // ✅ LÓGICA DE PERMISSÃO PARA THREADS EXTERNAS (WhatsApp/contact_external):
+  // Qualquer usuário autenticado com permissão geral de envio pode enviar,
+  // independente de a thread estar atribuída a outro usuário.
+  // A atribuição é apenas para organização/responsabilidade, não bloqueio de envio.
+  //
+  // Para threads INTERNAS (team_internal/sector_group):
+  // Apenas participantes e admins podem interagir.
   const podeInteragirNaThread = React.useMemo(() => {
-    if (!usuario || !thread) {
-      console.log('[PODE_INTERAGIR] ❌ Falta usuário ou thread');
-      return false;
-    }
+    if (!usuario || !thread) return false;
 
     // Admin sempre pode
-    if (usuario.role === 'admin') {
-      console.log('[PODE_INTERAGIR] ✅ Admin - LIBERADO');
-      return true;
+    if (usuario.role === 'admin') return true;
+
+    const isThreadInterna = thread.thread_type === 'team_internal' || thread.thread_type === 'sector_group';
+
+    // Threads internas: verificar participação
+    if (isThreadInterna) {
+      const isParticipante = thread.participants?.includes(usuario.id);
+      return !!isParticipante;
     }
 
-    console.log(`[PODE_INTERAGIR] 🔍 Verificando usuário: ${usuario.email}, Thread: ${thread.id?.substring(0, 8)}, Carregando contato: ${carregandoContato}`);
-
-    // ✅ NORMALIZAR: maiúsculas, espaços, acentos
-    const norm = (v) => String(v || '').toLowerCase().trim();
-
-    // eslint-disable-next-line no-unused-vars
-    const debugLog = () => {}; // DEBUG desativado em produção
-
-    const isAtribuidoAoUsuario =
-      norm(thread.assigned_user_id) === norm(usuario.id) ||
-      norm(thread.assigned_user_email) === norm(usuario.email) ||
-      norm(thread.assigned_user_name) === norm(usuario.full_name) ||
-      norm(thread.transfer_requested_user_id) === norm(usuario.id);
-
-    if (isAtribuidoAoUsuario) return true;
-
-    // ═══════════════════════════════════════════════════════════════════════════
-    // PRIORIDADE 2: Contato FIDELIZADO ao usuário → SEMPRE PODE (chave mestra)
-    // ✅ CRÍTICO: Verifica TODOS os campos de fidelização em TODOS os setores
-    // ✅ FIX: Se contatoCompleto ainda não carregou E thread está atribuída ao usuário
-    //         (já verificado acima), libera. Se não está atribuída, aguarda carregar.
-    // ═══════════════════════════════════════════════════════════════════════════
-    if (contatoCompleto) {
-      const camposFidelizacao = [
-      'atendente_fidelizado_vendas',
-      'atendente_fidelizado_assistencia',
-      'atendente_fidelizado_financeiro',
-      'atendente_fidelizado_fornecedor',
-      'vendedor_responsavel'];
-
-
-      // Verificar QUALQUER campo de fidelização
-      for (const campo of camposFidelizacao) {
-        const atendenteFidelizado = contatoCompleto?.[campo];
-
-        // 🔍 LOG EXTREMAMENTE DETALHADO para debug
-        const isFidelizado = atendenteFidelizado && (
-        norm(atendenteFidelizado) === norm(usuario.id) ||
-        norm(atendenteFidelizado) === norm(usuario.email) ||
-        norm(atendenteFidelizado) === norm(usuario.full_name));
-
-        if (isFidelizado) return true;
-      }
-    } else if (carregandoContato) {
-      return true; // Aguardando contato carregar — libera temporariamente
-    }
-
-    if (['gerente', 'coordenador', 'supervisor'].includes(usuario.attendant_role)) return true;
-
-    const isNaoAtribuida = !thread.assigned_user_id && !thread.assigned_user_name && !thread.assigned_user_email;
-    if (isNaoAtribuida) return true;
-
-    return false;
-  }, [usuario, thread, contatoCompleto, carregandoContato]);
+    // ✅ Threads externas (WhatsApp/contact_external):
+    // SEMPRE liberado para qualquer usuário com permissão geral de envio.
+    // Obs: bloqueios por instância WhatsApp são verificados separadamente via podeEnviarPorInstancia.
+    return true;
+  }, [usuario, thread]);
 
   // ✅ FILTRAR INTEGRAÇÕES BASEADO NAS PERMISSÕES DO USUÁRIO
   const integracoesPermitidas = React.useMemo(() => {
