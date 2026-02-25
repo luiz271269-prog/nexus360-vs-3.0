@@ -240,12 +240,19 @@ export default function InternalMessageComposer({ open, onClose, currentUser, on
           )
         ]);
 
-        // Grupos já estão em memória — sem chamada extra
-        const groupsResults = selectedGroups.map(groupId => {
+        // Grupos já estão em memória — usar getOrCreateGroupThread para garantir thread válida
+        const groupsResults = await Promise.all(selectedGroups.map(async groupId => {
           const grupo = grupos.find(g => g.id === groupId);
           if (!grupo) return null;
-          return { type: 'group', thread_id: groupId, name: grupo.group_name || 'Grupo' };
-        });
+          try {
+            const result = await base44.functions.invoke('getOrCreateGroupThread', { group_id: groupId });
+            const thread = result?.data?.thread || result?.thread || grupo;
+            return { type: 'group', thread_id: thread.id || groupId, name: grupo.group_name || 'Grupo' };
+          } catch {
+            // fallback: usar o id do grupo diretamente
+            return { type: 'group', thread_id: groupId, name: grupo.group_name || 'Grupo' };
+          }
+        }));
 
         const destinations = [...usersResults, ...sectorsResults, ...groupsResults].filter(Boolean);
 
