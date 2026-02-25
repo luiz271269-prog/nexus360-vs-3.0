@@ -782,7 +782,7 @@ export default function InternalMessageComposer({ open, onClose, currentUser, on
                   </TabsContent>
 
                   {/* Aba Grupos */}
-                  <TabsContent value="grupos" className="h-full overflow-y-auto m-0 p-0">
+                  <TabsContent value="grupos" className="m-0 p-0">
                     <div className="space-y-1">
                       <Button
                         onClick={() => setCriarGrupoOpen(true)}
