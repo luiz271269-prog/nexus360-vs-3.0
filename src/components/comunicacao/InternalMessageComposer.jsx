@@ -654,15 +654,27 @@ export default function InternalMessageComposer({ open, onClose, currentUser, on
                 </div>
               )}
               <Tabs value={activeTab} onValueChange={setActiveTab} className="flex flex-col flex-1 min-h-0">
-                <TabsList className="grid w-full grid-cols-3 h-9 bg-slate-100 rounded-lg mb-2 flex-shrink-0">
-                  <TabsTrigger value="usuarios" className="text-[10px] px-1">
-                    👥 ({usuariosDisponiveis.length}) {selectedUsers.length > 0 && <span className="ml-1 bg-cyan-500 text-white rounded-full w-4 h-4 inline-flex items-center justify-center text-[8px]">{selectedUsers.length}</span>}
+                <TabsList className="grid w-full grid-cols-3 h-10 bg-slate-100 rounded-lg mb-2 flex-shrink-0">
+                  <TabsTrigger value="usuarios" className="flex flex-col items-center gap-0 py-1 px-1 text-[9px] leading-tight">
+                    <span>👥 Usuários</span>
+                    <span className="font-bold text-[10px]">
+                      ({usuariosDisponiveis.length})
+                      {selectedUsers.length > 0 && <span className="ml-1 bg-cyan-500 text-white rounded-full w-3.5 h-3.5 inline-flex items-center justify-center text-[7px]">{selectedUsers.length}</span>}
+                    </span>
                   </TabsTrigger>
-                  <TabsTrigger value="setores" className="text-[10px] px-1">
-                    🏢 ({setores.length}) {selectedSectors.length > 0 && <span className="ml-1 bg-cyan-500 text-white rounded-full w-4 h-4 inline-flex items-center justify-center text-[8px]">{selectedSectors.length}</span>}
+                  <TabsTrigger value="setores" className="flex flex-col items-center gap-0 py-1 px-1 text-[9px] leading-tight">
+                    <span>🏢 Setores</span>
+                    <span className="font-bold text-[10px]">
+                      ({setores.length})
+                      {selectedSectors.length > 0 && <span className="ml-1 bg-cyan-500 text-white rounded-full w-3.5 h-3.5 inline-flex items-center justify-center text-[7px]">{selectedSectors.length}</span>}
+                    </span>
                   </TabsTrigger>
-                  <TabsTrigger value="grupos" className="text-[10px] px-1">
-                    👫 ({grupos.length}) {selectedGroups.length > 0 && <span className="ml-1 bg-cyan-500 text-white rounded-full w-4 h-4 inline-flex items-center justify-center text-[8px]">{selectedGroups.length}</span>}
+                  <TabsTrigger value="grupos" className="flex flex-col items-center gap-0 py-1 px-1 text-[9px] leading-tight">
+                    <span>👫 Grupos</span>
+                    <span className="font-bold text-[10px]">
+                      ({grupos.length})
+                      {selectedGroups.length > 0 && <span className="ml-1 bg-cyan-500 text-white rounded-full w-3.5 h-3.5 inline-flex items-center justify-center text-[7px]">{selectedGroups.length}</span>}
+                    </span>
                   </TabsTrigger>
                 </TabsList>
 
