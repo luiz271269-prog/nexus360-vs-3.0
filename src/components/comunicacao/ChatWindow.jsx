@@ -1150,7 +1150,14 @@ export default function ChatWindow({
     }
     if (scrollDoneRef.current) return;
     const unreadIdx = mensagens.findIndex(m => m.sender_type === 'contact' && m.status !== 'lida' && m.status !== 'apagada');
-    const t = setTimeout(() => { scrollDoneRef.current = true; if (unreadIdx !== -1 && thread?.unread_count > 0 && unreadSeparatorRef.current) { unreadSeparatorRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' }); } else { messagesEndRef.current?.scrollIntoView({ behavior: 'instant' }); } }, 150);
+    const t = setTimeout(() => {
+      scrollDoneRef.current = true;
+      if (unreadIdx !== -1 && thread?.unread_count > 0 && unreadSeparatorRef.current) {
+        unreadSeparatorRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      } else {
+        messagesEndRef.current?.scrollIntoView({ behavior: 'instant' });
+      }
+    }, 200);
     return () => clearTimeout(t);
   }, [mensagens.length, thread?.id, thread?.unread_count]);
 
