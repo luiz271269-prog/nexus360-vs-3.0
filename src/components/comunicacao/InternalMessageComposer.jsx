@@ -577,7 +577,7 @@ export default function InternalMessageComposer({ open, onClose, currentUser, on
                   <h3 className="font-semibold text-sm text-slate-700">Grupos ({grupos.length})</h3>
                 </div>
                 <Button
-                  onClick={() => setCriarGrupoOpen(true)}
+                  onClick={handleAbrirCriarGrupo}
                   variant="outline"
                   size="sm"
                   className="mb-2 w-full border-cyan-200 hover:bg-cyan-50 hover:border-cyan-300 text-xs h-8"
