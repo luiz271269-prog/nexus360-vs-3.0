@@ -462,10 +462,11 @@ Deno.serve(async (req) => {
         let nomeArquivoSeguro;
         
         if (tipoMidiaReal === 'document') {
-          // ✅ Z-API DOCUMENTO - Payload correto segundo documentação oficial
-          // Endpoint: POST /instances/{instanceId}/token/{token}/send-document
-          // Corpo: { phone, document, fileName }
-          endpoint = `${baseUrl}/instances/${instanceId}/token/${token}/${config.endpoint}`;
+          // ✅ Z-API DOCUMENTO - Endpoint CORRETO segundo doc oficial:
+          // POST /instances/{instanceId}/token/{token}/send-document/{extension}
+          // A extensão é OBRIGATÓRIA no PATH (ex: /send-document/pdf)
+          const extParaPath = extrairExtensao(media_caption || media_url, 'document');
+          endpoint = `${baseUrl}/instances/${instanceId}/token/${token}/send-document/${extParaPath}`;
           
           // ✅ LIMPAR URL (igual imagens)
           let urlParaUsar = media_url;
