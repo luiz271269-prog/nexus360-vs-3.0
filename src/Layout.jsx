@@ -442,6 +442,17 @@ export default function Layout({ children, currentPageName }) {
     }
   };
 
+  // Redirecionar para Comunicacao no mobile ao abrir o app na raiz/dashboard
+  useEffect(() => {
+    const isMobile = window.innerWidth < 768;
+    const currentPath = window.location.pathname;
+    const comunicacaoPath = new URL(createPageUrl("Comunicacao"), window.location.origin).pathname;
+    const rootOrDashboard = currentPath === '/' || currentPath === new URL(createPageUrl("Dashboard"), window.location.origin).pathname;
+    if (isMobile && rootOrDashboard) {
+      navigate(createPageUrl("Comunicacao"), { replace: true });
+    }
+  }, []);
+
   useEffect(() => {
     carregarDadosGlobais();
     checkAgentHealth();
