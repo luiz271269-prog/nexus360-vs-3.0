@@ -1144,7 +1144,10 @@ export default function ChatWindow({
   const scrollDoneRef = React.useRef(false);
   React.useEffect(() => {
     if (!mensagens.length) return;
-    if (prevThreadIdRef.current !== thread?.id) { prevThreadIdRef.current = thread?.id; scrollDoneRef.current = false; }
+    if (prevThreadIdRef.current !== thread?.id) {
+      prevThreadIdRef.current = thread?.id;
+      scrollDoneRef.current = false; // Sempre resetar ao trocar de thread
+    }
     if (scrollDoneRef.current) return;
     const unreadIdx = mensagens.findIndex(m => m.sender_type === 'contact' && m.status !== 'lida' && m.status !== 'apagada');
     const t = setTimeout(() => { scrollDoneRef.current = true; if (unreadIdx !== -1 && thread?.unread_count > 0 && unreadSeparatorRef.current) { unreadSeparatorRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' }); } else { messagesEndRef.current?.scrollIntoView({ behavior: 'instant' }); } }, 150);
