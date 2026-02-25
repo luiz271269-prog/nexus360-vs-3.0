@@ -580,37 +580,15 @@ export default function Comunicacao() {
           return ultimasMensagens.reverse();
         }
 
-        // ⚡ Buscar apenas mensagens da thread ativa + threads MERGEADAS nela
-        // NÃO mesclar mensagens de outras threads do mesmo contato
-        // (cada thread é uma conversa independente de um atendente)
-        const msgsPrimarias = await base44.entities.Message.filter(
+        // ⚡ Buscar APENAS mensagens da thread atual
+        // Cada thread é uma conversa independente (não mesclar com outras)
+        const msgs = await base44.entities.Message.filter(
           { thread_id: threadAtiva.id },
           '-sent_at',
           20
         );
 
-        // ✅ Apenas threads MERGEADAS formalmente nesta thread (histórico consolidado)
-        const idsMergeadas = (() => {
-          if (!threads?.length) return [];
-          const ids = [];
-          threads.forEach(t => {
-            if (t.merged_into === threadAtiva.id && t.status === 'merged') ids.push(t.id);
-          });
-          return [...new Set(ids)];
-        })();
-
-        if (idsMergeadas.length === 0) {
-          return msgsPrimarias.reverse();
-        }
-
-        const msgsMergeadas = await base44.entities.Message.filter(
-          { thread_id: { $in: idsMergeadas } },
-          '-sent_at',
-          20
-        );
-        const combined = Array.from(new Map([...msgsPrimarias, ...msgsMergeadas].map(m => [m.id, m])).values());
-        combined.sort((a, b) => new Date(a.sent_at || 0) - new Date(b.sent_at || 0));
-        return combined.slice(-20);
+        return msgs.reverse();
 
       } catch (error) {
         if (error?.message?.includes('429') || error?.response?.status === 429) {
