@@ -60,19 +60,19 @@ export default function useScrollPaginacao({
         const scrollHeightBefore = container.scrollHeight;
         const scrollTopBefore = container.scrollTop;
 
-        // ✅ Validação de permissão por usuário
+        // ✅ Threads internas: apenas participantes podem ver o histórico
+        // ✅ Threads externas (WhatsApp/contact_external): qualquer usuário autenticado pode ver
         if (usuario && usuario.role !== 'admin') {
-          const isThreadVisivelParaUsuario = 
-            thread?.assigned_user_id === usuario.id || 
-            (thread?.shared_with_users || []).includes(usuario.id);
-
-          if (!isThreadVisivelParaUsuario) {
-            const msg = '[SCROLL-UP] 🚫 Usuário sem permissão para esta thread';
-            console.warn(msg, { userId: usuario.id, threadId: thread?.id });
-            setPermissionError('Sem permissão para acessar histórico desta conversa');
-            setHasMoreMessages(false);
-            return;
+          const isThreadInterna = thread?.thread_type === 'team_internal' || thread?.thread_type === 'sector_group';
+          if (isThreadInterna) {
+            const isParticipante = (thread?.participants || []).includes(usuario.id);
+            if (!isParticipante) {
+              setPermissionError('Sem permissão para acessar histórico desta conversa interna');
+              setHasMoreMessages(false);
+              return;
+            }
           }
+          // Threads externas: sem bloqueio — qualquer atendente pode ver/responder
         }
 
         const isThreadInterna = thread?.thread_type === 'team_internal' || thread?.thread_type === 'sector_group';
