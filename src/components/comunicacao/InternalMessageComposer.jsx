@@ -240,19 +240,12 @@ export default function InternalMessageComposer({ open, onClose, currentUser, on
           )
         ]);
 
-        // Grupos já estão em memória — usar getOrCreateGroupThread para garantir thread válida
-        const groupsResults = await Promise.all(selectedGroups.map(async groupId => {
+        // Grupos já estão em memória — sem chamada extra
+        const groupsResults = selectedGroups.map(groupId => {
           const grupo = grupos.find(g => g.id === groupId);
           if (!grupo) return null;
-          try {
-            const result = await base44.functions.invoke('getOrCreateGroupThread', { group_id: groupId });
-            const thread = result?.data?.thread || result?.thread || grupo;
-            return { type: 'group', thread_id: thread.id || groupId, name: grupo.group_name || 'Grupo' };
-          } catch {
-            // fallback: usar o id do grupo diretamente
-            return { type: 'group', thread_id: groupId, name: grupo.group_name || 'Grupo' };
-          }
-        }));
+          return { type: 'group', thread_id: groupId, name: grupo.group_name || 'Grupo' };
+        });
 
         const destinations = [...usersResults, ...sectorsResults, ...groupsResults].filter(Boolean);
 
@@ -316,14 +309,9 @@ export default function InternalMessageComposer({ open, onClose, currentUser, on
     }
   };
 
-  // Fechar o modal pai ao abrir criar grupo (evita Dialog aninhado no mobile)
-  const handleAbrirCriarGrupo = () => {
-    setCriarGrupoOpen(true);
-  };
-
   return (
     <>
-      <Dialog open={open && !criarGrupoOpen} onOpenChange={onClose}>
+      <Dialog open={open} onOpenChange={onClose}>
         <DialogContent className="w-[98vw] sm:max-w-4xl h-[92vh] sm:h-[85vh] sm:max-h-[90vh] flex flex-col p-3 sm:p-6">
           <DialogHeader className="flex-shrink-0">
             <DialogTitle className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-slate-800">
@@ -577,7 +565,7 @@ export default function InternalMessageComposer({ open, onClose, currentUser, on
                   <h3 className="font-semibold text-sm text-slate-700">Grupos ({grupos.length})</h3>
                 </div>
                 <Button
-                  onClick={handleAbrirCriarGrupo}
+                  onClick={() => setCriarGrupoOpen(true)}
                   variant="outline"
                   size="sm"
                   className="mb-2 w-full border-cyan-200 hover:bg-cyan-50 hover:border-cyan-300 text-xs h-8"
@@ -666,34 +654,22 @@ export default function InternalMessageComposer({ open, onClose, currentUser, on
                 </div>
               )}
               <Tabs value={activeTab} onValueChange={setActiveTab} className="flex flex-col flex-1 min-h-0">
-                <TabsList className="grid w-full grid-cols-3 h-10 bg-slate-100 rounded-lg mb-2 flex-shrink-0">
-                  <TabsTrigger value="usuarios" className="flex flex-col items-center gap-0 py-1 px-1 text-[9px] leading-tight">
-                    <span>👥 Usuários</span>
-                    <span className="font-bold text-[10px]">
-                      ({usuariosDisponiveis.length})
-                      {selectedUsers.length > 0 && <span className="ml-1 bg-cyan-500 text-white rounded-full w-3.5 h-3.5 inline-flex items-center justify-center text-[7px]">{selectedUsers.length}</span>}
-                    </span>
+                <TabsList className="grid w-full grid-cols-3 h-9 bg-slate-100 rounded-lg mb-2 flex-shrink-0">
+                  <TabsTrigger value="usuarios" className="text-[10px] px-1">
+                    👥 ({usuariosDisponiveis.length}) {selectedUsers.length > 0 && <span className="ml-1 bg-cyan-500 text-white rounded-full w-4 h-4 inline-flex items-center justify-center text-[8px]">{selectedUsers.length}</span>}
                   </TabsTrigger>
-                  <TabsTrigger value="setores" className="flex flex-col items-center gap-0 py-1 px-1 text-[9px] leading-tight">
-                    <span>🏢 Setores</span>
-                    <span className="font-bold text-[10px]">
-                      ({setores.length})
-                      {selectedSectors.length > 0 && <span className="ml-1 bg-cyan-500 text-white rounded-full w-3.5 h-3.5 inline-flex items-center justify-center text-[7px]">{selectedSectors.length}</span>}
-                    </span>
+                  <TabsTrigger value="setores" className="text-[10px] px-1">
+                    🏢 ({setores.length}) {selectedSectors.length > 0 && <span className="ml-1 bg-cyan-500 text-white rounded-full w-4 h-4 inline-flex items-center justify-center text-[8px]">{selectedSectors.length}</span>}
                   </TabsTrigger>
-                  <TabsTrigger value="grupos" className="flex flex-col items-center gap-0 py-1 px-1 text-[9px] leading-tight">
-                    <span>👫 Grupos</span>
-                    <span className="font-bold text-[10px]">
-                      ({grupos.length})
-                      {selectedGroups.length > 0 && <span className="ml-1 bg-cyan-500 text-white rounded-full w-3.5 h-3.5 inline-flex items-center justify-center text-[7px]">{selectedGroups.length}</span>}
-                    </span>
+                  <TabsTrigger value="grupos" className="text-[10px] px-1">
+                    👫 ({grupos.length}) {selectedGroups.length > 0 && <span className="ml-1 bg-cyan-500 text-white rounded-full w-4 h-4 inline-flex items-center justify-center text-[8px]">{selectedGroups.length}</span>}
                   </TabsTrigger>
                 </TabsList>
 
-                {/* Mobile: conteúdo por aba - renderização condicional simples (evita bug removeChild do Radix) */}
+                {/* Mobile: Abas de conteúdo */}
                 <div className="flex-1 min-h-0 overflow-y-auto">
                   {/* Aba Usuários */}
-                  {activeTab === 'usuarios' && (
+                  <TabsContent value="usuarios" className="m-0 p-0">
                     <div className="space-y-1">
                       {loadingUsers ? (
                         <div className="flex items-center justify-center py-8">
@@ -744,7 +720,7 @@ export default function InternalMessageComposer({ open, onClose, currentUser, on
                                   <span className={`inline-flex items-center px-1 py-0.5 rounded-full text-[7px] font-medium text-white ${setorCfg.cor}`}>
                                     {setorCfg.emoji} {setorCfg.label}
                                   </span>
-                                  <span className="inline-flex items-center px-1 py-0.5 rounded-full text-[7px] font-medium text-slate-600 bg-slate-100">
+                                  <span className={`inline-flex items-center px-1 py-0.5 rounded-full text-[7px] font-medium text-slate-600 bg-slate-100`}>
                                     {nivelCfg.label}
                                   </span>
                                 </div>
@@ -754,10 +730,10 @@ export default function InternalMessageComposer({ open, onClose, currentUser, on
                         })
                       )}
                     </div>
-                  )}
+                  </TabsContent>
 
                   {/* Aba Setores */}
-                  {activeTab === 'setores' && (
+                  <TabsContent value="setores" className="m-0 p-0">
                     <div className="space-y-1">
                       {setores.length === 0 ? (
                         <div className="text-center py-8 text-slate-500 text-xs">
@@ -802,13 +778,13 @@ export default function InternalMessageComposer({ open, onClose, currentUser, on
                         })
                       )}
                     </div>
-                  )}
+                  </TabsContent>
 
                   {/* Aba Grupos */}
-                  {activeTab === 'grupos' && (
+                  <TabsContent value="grupos" className="m-0 p-0">
                     <div className="space-y-1">
                       <Button
-                        onClick={handleAbrirCriarGrupo}
+                        onClick={() => setCriarGrupoOpen(true)}
                         variant="outline"
                         size="sm"
                         className="w-full mb-2 border-cyan-200 hover:bg-cyan-50 hover:border-cyan-300 text-xs h-8"
@@ -860,7 +836,7 @@ export default function InternalMessageComposer({ open, onClose, currentUser, on
                         })
                       )}
                     </div>
-                  )}
+                  </TabsContent>
                 </div>
               </Tabs>
 
@@ -899,7 +875,6 @@ export default function InternalMessageComposer({ open, onClose, currentUser, on
         usuarios={usuarios}
         currentUser={currentUser}
         onSuccess={() => {
-          setCriarGrupoOpen(false);
           refetchGroups();
           toast.success('✅ Grupo criado com sucesso!');
         }}
