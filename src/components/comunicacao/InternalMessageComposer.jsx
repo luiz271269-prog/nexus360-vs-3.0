@@ -840,6 +840,31 @@ export default function InternalMessageComposer({ open, onClose, currentUser, on
                   </TabsContent>
                 </div>
               </Tabs>
+
+              {/* Botão confirmar fixo no fundo mobile */}
+              <div className="flex-shrink-0 pt-2 border-t border-slate-200 mt-2">
+                <Button
+                  onClick={handleConfirm}
+                  disabled={resolving || totalSelecionados === 0 || (mode === 'delegate' && !selectedOriginUser)}
+                  className={`w-full h-11 text-sm font-semibold shadow-md text-white ${
+                    mode === 'delegate'
+                      ? 'bg-gradient-to-r from-orange-500 to-amber-600'
+                      : 'bg-gradient-to-r from-cyan-500 to-blue-600'
+                  } disabled:opacity-50`}
+                >
+                  {resolving ? (
+                    <><Loader2 className="w-4 h-4 mr-2 animate-spin" />{mode === 'delegate' ? 'Transferindo...' : 'Abrindo...'}</>
+                  ) : totalSelecionados === 0 ? (
+                    'Selecione ao menos 1 destinatário'
+                  ) : mode === 'delegate' ? (
+                    `Transferir para ${totalSelecionados}`
+                  ) : totalSelecionados === 1 ? (
+                    'Abrir Conversa'
+                  ) : (
+                    `Enviar para ${totalSelecionados} destinatários`
+                  )}
+                </Button>
+              </div>
             </div>
           </div>
         </DialogContent>
