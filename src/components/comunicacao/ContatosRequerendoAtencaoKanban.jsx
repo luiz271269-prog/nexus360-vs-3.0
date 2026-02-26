@@ -720,10 +720,10 @@ export default function ContatosRequerendoAtencaoKanban({ usuario, onSelecionarC
         <div className="flex-shrink-0 bg-white border-b border-slate-200 px-4 pb-3 space-y-2">
           <div className="grid grid-cols-4 gap-1.5">
             {[
-              { key: 'todos', label: 'TOTAL DE CONTATOS', value: statsABC.total, sub: 'em todos os tipos', accentColor: 'border-t-2 border-slate-500', valueColor: 'text-white', letter: null },
-              { key: 'A', label: 'CLASSE A —\nQUENTES', value: statsABC.classA, sub: 'score ≥ 70', accentColor: 'border-t-2 border-green-400', valueColor: 'text-green-400', letter: 'A', letterColor: 'text-green-400/15' },
-              { key: 'B', label: 'CLASSE B —\nMÉDIOS', value: statsABC.classB, sub: 'score 30–69', accentColor: 'border-t-2 border-yellow-400', valueColor: 'text-yellow-400', letter: 'B', letterColor: 'text-yellow-400/15' },
-              { key: 'C', label: 'CLASSE C —\nFRIOS', value: statsABC.classC, sub: 'score < 30', accentColor: 'border-t-2 border-blue-400', valueColor: 'text-blue-300', letter: 'C', letterColor: 'text-blue-300/15' },
+              { key: 'todos', label: 'TOTAL DE CONTATOS', value: statsABC.total, sub: 'em todos os tipos', accentColor: 'border-t-2 border-slate-500', valueColor: 'text-white', letter: null, tipos: statsABC.totalTipos },
+              { key: 'A', label: 'CLASSE A —\nQUENTES', value: statsABC.classA, sub: 'score ≥ 70', accentColor: 'border-t-2 border-green-400', valueColor: 'text-green-400', letter: 'A', letterColor: 'text-green-400/15', tipos: statsABC.tiposA },
+              { key: 'B', label: 'CLASSE B —\nMÉDIOS', value: statsABC.classB, sub: 'score 30–69', accentColor: 'border-t-2 border-yellow-400', valueColor: 'text-yellow-400', letter: 'B', letterColor: 'text-yellow-400/15', tipos: statsABC.tiposB },
+              { key: 'C', label: 'CLASSE C —\nFRIOS', value: statsABC.classC, sub: 'score < 30', accentColor: 'border-t-2 border-blue-400', valueColor: 'text-blue-300', letter: 'C', letterColor: 'text-blue-300/15', tipos: statsABC.tiposC },
             ].map(stat => (
               <button
                 key={stat.key}
@@ -738,7 +738,21 @@ export default function ContatosRequerendoAtencaoKanban({ usuario, onSelecionarC
                 )}
                 <p className="text-[8px] font-bold text-slate-400 uppercase tracking-wide leading-tight mb-2 whitespace-pre-line">{stat.label}</p>
                 <span className={`text-2xl font-black ${stat.valueColor} block mb-1`}>{stat.value}</span>
-                <p className="text-[8px] text-slate-500">{stat.sub}</p>
+                {/* Breakdown por tipo */}
+                <div className="flex flex-wrap gap-0.5 mt-1">
+                  {stat.tipos?.lead > 0 && (
+                    <span className="text-[7px] bg-amber-500/20 text-amber-300 px-1 rounded font-semibold">🎯{stat.tipos.lead}</span>
+                  )}
+                  {stat.tipos?.cliente > 0 && (
+                    <span className="text-[7px] bg-emerald-500/20 text-emerald-300 px-1 rounded font-semibold">⭐{stat.tipos.cliente}</span>
+                  )}
+                  {stat.tipos?.fornecedor > 0 && (
+                    <span className="text-[7px] bg-blue-500/20 text-blue-300 px-1 rounded font-semibold">🔧{stat.tipos.fornecedor}</span>
+                  )}
+                  {stat.tipos?.parceiro > 0 && (
+                    <span className="text-[7px] bg-purple-500/20 text-purple-300 px-1 rounded font-semibold">🤝{stat.tipos.parceiro}</span>
+                  )}
+                </div>
               </button>
             ))}
           </div>
