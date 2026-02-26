@@ -20,7 +20,11 @@ import {
   ChevronDown,
   ChevronRight,
   ArrowLeft,
-  Tag
+  Tag,
+  Flame,
+  Minus,
+  Snowflake,
+  Users
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useContatosInteligentes } from '../hooks/useContatosInteligentes';
