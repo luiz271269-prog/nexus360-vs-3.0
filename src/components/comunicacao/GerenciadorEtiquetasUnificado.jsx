@@ -554,6 +554,68 @@ export default function GerenciadorEtiquetasUnificado({ usuarioAtual }) {
               />
             </div>
 
+            {/* Separador ABC */}
+            <div className="border-t pt-3">
+              <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-3">Qualificação ABC</p>
+
+              {/* Participa ABC */}
+              <div className="flex items-center justify-between mb-3">
+                <div>
+                  <Label>Entra na Curva ABC?</Label>
+                  <p className="text-xs text-slate-500">Contribui para o score de qualificação do contato</p>
+                </div>
+                <Switch
+                  checked={formData.participa_abc}
+                  onCheckedChange={(v) => setFormData(prev => ({ ...prev, participa_abc: v }))}
+                />
+              </div>
+
+              {formData.participa_abc && (
+                <>
+                  {/* Peso */}
+                  <div className="space-y-2 mb-3">
+                    <Label>Peso de Qualificação ({formData.peso_qualificacao})</Label>
+                    <input
+                      type="range"
+                      min="-100"
+                      max="100"
+                      step="5"
+                      value={formData.peso_qualificacao}
+                      onChange={(e) => setFormData(prev => ({ ...prev, peso_qualificacao: Number(e.target.value) }))}
+                      className="w-full"
+                    />
+                    <div className="flex justify-between text-xs text-slate-400">
+                      <span>-100 (negativo)</span>
+                      <span className={`font-semibold ${formData.peso_qualificacao >= 70 ? 'text-green-600' : formData.peso_qualificacao >= 30 ? 'text-yellow-600' : formData.peso_qualificacao > 0 ? 'text-slate-600' : 'text-red-500'}`}>
+                        {formData.peso_qualificacao >= 70 ? 'Classe A' : formData.peso_qualificacao >= 30 ? 'Classe B' : formData.peso_qualificacao > 0 ? 'Classe C' : 'Negativo'}
+                      </span>
+                      <span>100 (máx A)</span>
+                    </div>
+                  </div>
+
+                  {/* Categoria ABC */}
+                  <div className="space-y-2">
+                    <Label>Categoria ABC</Label>
+                    <div className="flex gap-2">
+                      {FAIXAS_ABC.map(f => (
+                        <button
+                          key={f.value}
+                          onClick={() => setFormData(prev => ({ ...prev, categoria_abc: f.value }))}
+                          className={`flex-1 py-2 rounded-lg text-sm font-bold border-2 transition-all ${
+                            formData.categoria_abc === f.value
+                              ? `${f.color} text-white border-transparent`
+                              : 'bg-white border-slate-200 text-slate-600 hover:border-slate-400'
+                          }`}
+                        >
+                          {f.value === 'neutro' ? '—' : f.value}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </>
+              )}
+            </div>
+
             {/* Tipos de contato aplicáveis */}
             <div className="space-y-2">
               <Label>Aplicável a tipos de contato</Label>
