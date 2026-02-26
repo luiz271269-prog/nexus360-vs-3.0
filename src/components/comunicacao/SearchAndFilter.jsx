@@ -428,6 +428,19 @@ export default function SearchAndFilter({
             </div>
           </PopoverContent>
         </Popover>
+        </div>
+
+        {/* Campo de busca */}
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 w-4 h-4" />
+          <Input
+            type="text"
+            placeholder="Buscar nome, empresa, cargo, descrição..."
+            value={searchTerm}
+            onChange={(e) => onSearchChange(e.target.value)}
+            className="w-full pl-10 pr-4 py-2.5 bg-white border-slate-200 rounded-xl focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 transition-all"
+          />
+        </div>
       </div>
 
       {/* Chips de filtros ativos */}
