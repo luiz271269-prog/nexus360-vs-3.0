@@ -109,7 +109,10 @@ export default function GerenciadorEtiquetasUnificado({ usuarioAtual }) {
     categoria: 'outro',
     destaque: false,
     tipos_contato_aplicaveis: [],
-    ordem: 100
+    ordem: 100,
+    peso_qualificacao: 0,
+    categoria_abc: 'neutro',
+    participa_abc: false
   });
 
   const queryClient = useQueryClient();
