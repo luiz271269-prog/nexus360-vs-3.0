@@ -427,7 +427,7 @@ export default function SearchAndFilter({
               </div>
             </div>
           </PopoverContent>
-        </Popover>
+          </Popover>
         </div>{/* fim dos botões à esquerda */}
 
         {/* Campo de busca */}
