@@ -290,20 +290,12 @@ export default function ChatSidebarKanban({ threads, threadAtiva, onSelecionarTh
 
   return (
     <div className="flex flex-col h-full min-h-0">
-      {/* Toolbar: voltar + busca + toggle modo */}
-      <div className="flex-shrink-0 px-2 py-1.5 bg-slate-800 border-b border-slate-700 flex items-center justify-between gap-2">
-        {threadAtiva && onVoltar ? (
-          <button onClick={onVoltar} className="flex items-center gap-1.5 text-white text-xs font-medium hover:text-amber-400 transition-colors">
-            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
-            </svg>
-            Voltar
-          </button>
-        ) : <span />}
-        <div className="flex items-center gap-1 bg-slate-700 rounded-lg p-0.5">
+      {/* Toolbar: toggle modo Canal/Atendente */}
+      <div className="flex-shrink-0 px-2 py-1.5 bg-slate-100 border-b border-slate-200 flex items-center justify-end gap-2">
+        <div className="flex items-center gap-1 bg-white border border-slate-300 rounded-lg p-0.5 shadow-sm">
           <button
             onClick={() => setKanbanMode('integracao')}
-            className={`flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-medium transition-colors ${kanbanMode === 'integracao' ? 'bg-orange-500 text-white' : 'text-slate-300 hover:text-white'}`}
+            className={`flex items-center gap-1 px-3 py-1 rounded-md text-[10px] font-semibold transition-all ${kanbanMode === 'integracao' ? 'bg-orange-500 text-white shadow' : 'text-slate-500 hover:text-slate-800'}`}
             title="Por canal/integração"
           >
             <Columns className="w-3 h-3" />
@@ -311,7 +303,7 @@ export default function ChatSidebarKanban({ threads, threadAtiva, onSelecionarTh
           </button>
           <button
             onClick={() => setKanbanMode('usuario')}
-            className={`flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-medium transition-colors ${kanbanMode === 'usuario' ? 'bg-orange-500 text-white' : 'text-slate-300 hover:text-white'}`}
+            className={`flex items-center gap-1 px-3 py-1 rounded-md text-[10px] font-semibold transition-all ${kanbanMode === 'usuario' ? 'bg-orange-500 text-white shadow' : 'text-slate-500 hover:text-slate-800'}`}
             title="Por atendente"
           >
             <Users className="w-3 h-3" />
