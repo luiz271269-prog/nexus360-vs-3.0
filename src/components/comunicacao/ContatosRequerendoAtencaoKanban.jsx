@@ -485,6 +485,21 @@ export default function ContatosRequerendoAtencaoKanban({ usuario, onSelecionarC
               {item.prioridadeLabel}
             </Badge>
 
+            {/* Classe ABC */}
+            {(item.classe_abc && item.classe_abc !== 'none') && (() => {
+              const abcConfig = {
+                'A': { bg: 'bg-green-600', label: 'A' },
+                'B': { bg: 'bg-yellow-500', label: 'B' },
+                'C': { bg: 'bg-blue-500', label: 'C' },
+              };
+              const cfg = abcConfig[item.classe_abc];
+              return cfg ? (
+                <span className={`inline-flex items-center px-1 py-0 rounded text-[9px] font-black text-white ${cfg.bg} shadow-sm`}>
+                  {cfg.label}
+                </span>
+              ) : null;
+            })()}
+
             {/* Atendente */}
             <span className="inline-flex items-center gap-0.5 px-1 py-0 rounded-full text-[9px] font-semibold text-white bg-indigo-500 shadow-sm">
               <User className="w-2 h-2" />
