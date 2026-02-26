@@ -739,18 +739,18 @@ export default function ContatosRequerendoAtencaoKanban({ usuario, onSelecionarC
                 <p className="text-[8px] font-bold text-slate-400 uppercase tracking-wide leading-tight mb-2 whitespace-pre-line">{stat.label}</p>
                 <span className={`text-2xl font-black ${stat.valueColor} block mb-1`}>{stat.value}</span>
                 {/* Breakdown por tipo */}
-                <div className="flex flex-wrap gap-0.5 mt-1">
+                <div className="flex flex-col items-end gap-0.5 mt-1">
                   {stat.tipos?.lead > 0 && (
-                    <span className="text-[7px] bg-amber-500/20 text-amber-300 px-1 rounded font-semibold">🎯{stat.tipos.lead}</span>
+                    <span className="text-[10px] bg-amber-500/20 text-amber-300 px-1.5 py-0.5 rounded font-bold">🎯 {stat.tipos.lead}</span>
                   )}
                   {stat.tipos?.cliente > 0 && (
-                    <span className="text-[7px] bg-emerald-500/20 text-emerald-300 px-1 rounded font-semibold">⭐{stat.tipos.cliente}</span>
+                    <span className="text-[10px] bg-emerald-500/20 text-emerald-300 px-1.5 py-0.5 rounded font-bold">⭐ {stat.tipos.cliente}</span>
                   )}
                   {stat.tipos?.fornecedor > 0 && (
-                    <span className="text-[7px] bg-blue-500/20 text-blue-300 px-1 rounded font-semibold">🔧{stat.tipos.fornecedor}</span>
+                    <span className="text-[10px] bg-blue-500/20 text-blue-300 px-1.5 py-0.5 rounded font-bold">🔧 {stat.tipos.fornecedor}</span>
                   )}
                   {stat.tipos?.parceiro > 0 && (
-                    <span className="text-[7px] bg-purple-500/20 text-purple-300 px-1 rounded font-semibold">🤝{stat.tipos.parceiro}</span>
+                    <span className="text-[10px] bg-purple-500/20 text-purple-300 px-1.5 py-0.5 rounded font-bold">🤝 {stat.tipos.parceiro}</span>
                   )}
                 </div>
               </button>
