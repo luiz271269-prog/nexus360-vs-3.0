@@ -607,171 +607,94 @@ export default function ContatosRequerendoAtencaoKanban({ usuario, onSelecionarC
         {/* ✅ KANBAN COLUMNS */}
         <div className={`flex flex-col h-full min-h-0 transition-all ${chatAberto ? 'w-1/2' : 'w-full'}`}>
         {/* ✅ HEADER COM CONTROLES */}
-        <div className="flex-shrink-0 bg-white border-b-2 border-slate-200 p-4 space-y-3">
-          {/* Título */}
+        <div className="flex-shrink-0 bg-slate-800 border-b-2 border-slate-700 p-3 space-y-2">
+          {/* Linha 1: Título + botões */}
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               {onClose &&
-                <Button
-                  onClick={onClose}
-                  variant="ghost"
-                  size="sm"
-                  className="h-8 w-8 p-0 hover:bg-slate-200">
-
+                <Button onClick={onClose} variant="ghost" size="sm" className="h-7 w-7 p-0 hover:bg-white/20 text-white">
                   <X className="w-4 h-4" />
                 </Button>
-                }
-              <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-red-500 to-orange-500 flex items-center justify-center shadow-sm">
-                <AlertTriangle className="w-4 h-4 text-white" />
+              }
+              <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-red-500 to-orange-500 flex items-center justify-center shadow-sm">
+                <AlertTriangle className="w-3.5 h-3.5 text-white" />
               </div>
               <div>
-                <h2 className="font-bold text-base text-slate-800">Contatos Urgentes</h2>
-                <p className="text-xs text-slate-500">{totalAlertas} requerem atenção</p>
+                <h2 className="font-bold text-sm text-white">Contatos Urgentes</h2>
+                <p className="text-[10px] text-slate-400">{totalAlertas} requerem atenção</p>
               </div>
             </div>
-            <div className="flex items-center gap-2">
-              <Button
-                  onClick={() => setMostrarModalPromoAuto(true)}
-                  disabled={loading || totalAlertas === 0}
-                  className="h-7 text-xs bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white shadow-md disabled:opacity-50 px-3">
-                <Sparkles className="w-3.5 h-3.5 mr-1" />
-                Automático
+            <div className="flex items-center gap-1.5">
+              <div className="flex items-center gap-1 bg-slate-700 rounded px-2 py-1">
+                <Calendar className="w-3 h-3 text-slate-400" />
+                <Input
+                  type="number" min="1" max="90" value={diasInatividade}
+                  onChange={(e) => setDiasInatividade(Math.max(1, Math.min(90, parseInt(e.target.value) || 5)))}
+                  className="h-5 w-10 text-[10px] text-center bg-transparent border-0 text-white p-0 focus-visible:ring-0" />
+                <span className="text-[10px] text-slate-400">dias</span>
+                <button onClick={() => refetch()} className="text-[10px] text-amber-400 font-semibold hover:text-amber-300 ml-1">ok</button>
+              </div>
+              <Button onClick={() => setMostrarModalPromoAuto(true)} disabled={loading || totalAlertas === 0}
+                className="h-7 text-xs bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white shadow-md disabled:opacity-50 px-2">
+                <Sparkles className="w-3 h-3 mr-1" />Automático
               </Button>
-              <Button
-                  onClick={abrirEnvioMassa}
-                  disabled={contatosSelecionados.length === 0}
-                  className="h-7 text-xs bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 text-white shadow-md disabled:opacity-50 px-3">
-                <MessageSquare className="w-3.5 h-3.5 mr-1" />
-                Massa
+              <Button onClick={abrirEnvioMassa} disabled={contatosSelecionados.length === 0}
+                className="h-7 text-xs bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 text-white shadow-md disabled:opacity-50 px-2">
+                <MessageSquare className="w-3 h-3 mr-1" />Massa
               </Button>
-              <Button
-                  size="sm"
-                  variant="ghost"
-                  onClick={refetch}
-                  disabled={loading}
-                  className="h-7 w-7 p-0 hover:bg-slate-200">
+              <Button size="sm" variant="ghost" onClick={refetch} disabled={loading} className="h-7 w-7 p-0 hover:bg-white/20 text-white">
                 <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
               </Button>
             </div>
           </div>
 
-          {/* Configurações */}
-          <div className="space-y-2">
-            <div className="flex items-center gap-2">
-              <Calendar className="w-3.5 h-3.5 text-slate-500" />
-              <Input
-                  type="number"
-                  min="1"
-                  max="90"
-                  value={diasInatividade}
-                  onChange={(e) => {
-                    const dias = parseInt(e.target.value) || 5;
-                    setDiasInatividade(Math.max(1, Math.min(90, dias)));
-                  }}
-                  className="h-7 w-16 text-xs text-center" />
-
-              <span className="text-xs text-slate-600">dias inativos</span>
-              <Button
-                  size="sm"
-                  variant="ghost"
-                  onClick={() => refetch()}
-                  className="h-7 px-2 text-xs ml-auto">
-
-                Aplicar
-              </Button>
-            </div>
-
-            {/* Filtro de Etiquetas */}
-            {todasEtiquetas.length > 0 &&
-              <div className="space-y-1">
-                <label className="text-xs font-semibold text-slate-700 flex items-center gap-1.5">
-                  <Tag className="w-3 h-3" />
-                  Filtrar por etiquetas
-                </label>
-                <div className="flex flex-wrap gap-1">
-                  {todasEtiquetas.map((tag) =>
-                  <Button
-                    key={tag}
-                    size="sm"
-                    variant={etiquetasSelecionadas.includes(tag) ? 'default' : 'outline'}
-                    onClick={() => {
-                      setEtiquetasSelecionadas((prev) =>
-                      prev.includes(tag) ?
-                      prev.filter((t) => t !== tag) :
-                      [...prev, tag]
-                      );
-                    }}
-                    className={`h-6 px-2 text-xs ${
-                    etiquetasSelecionadas.includes(tag) ?
-                    'bg-gradient-to-r from-purple-500 to-pink-500 text-white' :
-                    ''}`
-                    }>
-
-                      {tag}
-                    </Button>
-                  )}
-                </div>
-              </div>
-              }
-          </div>
-        </div>
-
-        {/* Stats ABC + Filtros */}
-        <div className="flex-shrink-0 bg-white border-b border-slate-200 px-4 pb-3 space-y-2">
+          {/* Linha 2: Cards ABC */}
           <div className="grid grid-cols-4 gap-1.5">
             {[
-              { key: 'todos', label: 'TOTAL DE CONTATOS', value: statsABC.total, sub: 'em todos os tipos', accentColor: 'border-t-2 border-slate-500', valueColor: 'text-white', letter: null, tipos: statsABC.totalTipos },
-              { key: 'A', label: 'CLASSE A —\nQUENTES', value: statsABC.classA, sub: 'score ≥ 70', accentColor: 'border-t-2 border-green-400', valueColor: 'text-green-400', letter: 'A', letterColor: 'text-green-400/15', tipos: statsABC.tiposA },
-              { key: 'B', label: 'CLASSE B —\nMÉDIOS', value: statsABC.classB, sub: 'score 30–69', accentColor: 'border-t-2 border-yellow-400', valueColor: 'text-yellow-400', letter: 'B', letterColor: 'text-yellow-400/15', tipos: statsABC.tiposB },
-              { key: 'C', label: 'CLASSE C —\nFRIOS', value: statsABC.classC, sub: 'score < 30', accentColor: 'border-t-2 border-blue-400', valueColor: 'text-blue-300', letter: 'C', letterColor: 'text-blue-300/15', tipos: statsABC.tiposC }].
-              map((stat) =>
-              <button
-                key={stat.key}
-                onClick={() => setFiltroClasse(stat.key)} className="bg-slate-700 mx-16 py-1 text-left rounded-2xl relative overflow-hidden border-t-2 border-slate-500 transition-all hover:bg-slate-750 ring-2 ring-white/30">
-
-
-                {/* Marca d'água */}
+              { key: 'todos', label: 'TOTAL', value: statsABC.total, accentColor: 'border-t-2 border-slate-500', valueColor: 'text-white', letter: null, tipos: statsABC.totalTipos },
+              { key: 'A', label: 'CLASSE A — QUENTES', value: statsABC.classA, accentColor: 'border-t-2 border-green-400', valueColor: 'text-green-400', letter: 'A', letterColor: 'text-green-400/15', tipos: statsABC.tiposA },
+              { key: 'B', label: 'CLASSE B — MÉDIOS', value: statsABC.classB, accentColor: 'border-t-2 border-yellow-400', valueColor: 'text-yellow-400', letter: 'B', letterColor: 'text-yellow-400/15', tipos: statsABC.tiposB },
+              { key: 'C', label: 'CLASSE C — FRIOS', value: statsABC.classC, accentColor: 'border-t-2 border-blue-400', valueColor: 'text-blue-300', letter: 'C', letterColor: 'text-blue-300/15', tipos: statsABC.tiposC },
+            ].map((stat) =>
+              <button key={stat.key} onClick={() => setFiltroClasse(stat.key)}
+                className={`relative overflow-hidden bg-slate-700 ${stat.accentColor} rounded-lg p-2 text-left transition-all hover:bg-slate-600 ${filtroClasse === stat.key ? 'ring-2 ring-white/40 bg-slate-600' : 'opacity-80 hover:opacity-100'}`}>
                 {stat.letter &&
-                <span className={`absolute -bottom-2 -right-1 text-7xl font-black ${stat.letterColor} leading-none select-none pointer-events-none`}>
-                    {stat.letter}
-                  </span>
+                  <span className={`absolute -bottom-2 -right-1 text-6xl font-black ${stat.letterColor} leading-none select-none pointer-events-none`}>{stat.letter}</span>
                 }
-                <p className="text-[8px] font-bold text-slate-400 uppercase tracking-wide leading-tight mb-2 whitespace-pre-line">{stat.label}</p>
-                <span className={`text-2xl font-black ${stat.valueColor} block mb-1`}>{stat.value}</span>
-                {/* Breakdown por tipo */}
+                <p className="text-[8px] font-bold text-slate-400 uppercase tracking-wide leading-tight mb-1">{stat.label}</p>
+                <span className={`text-xl font-black ${stat.valueColor} block`}>{stat.value}</span>
                 <div className="flex flex-col items-end gap-0.5 mt-1">
-                  {stat.tipos?.lead > 0 &&
-                  <span className="text-[10px] bg-amber-500/20 text-amber-300 px-1.5 py-0.5 rounded font-bold">🎯 {stat.tipos.lead}</span>
-                  }
-                  {stat.tipos?.cliente > 0 &&
-                  <span className="text-[10px] bg-emerald-500/20 text-emerald-300 px-1.5 py-0.5 rounded font-bold">⭐ {stat.tipos.cliente}</span>
-                  }
-                  {stat.tipos?.fornecedor > 0 &&
-                  <span className="text-[10px] bg-blue-500/20 text-blue-300 px-1.5 py-0.5 rounded font-bold">🔧 {stat.tipos.fornecedor}</span>
-                  }
-                  {stat.tipos?.parceiro > 0 &&
-                  <span className="text-[10px] bg-purple-500/20 text-purple-300 px-1.5 py-0.5 rounded font-bold">🤝 {stat.tipos.parceiro}</span>
-                  }
+                  {stat.tipos?.lead > 0 && <span className="text-[10px] bg-amber-500/20 text-amber-300 px-1.5 py-0.5 rounded font-bold">🎯 {stat.tipos.lead}</span>}
+                  {stat.tipos?.cliente > 0 && <span className="text-[10px] bg-emerald-500/20 text-emerald-300 px-1.5 py-0.5 rounded font-bold">⭐ {stat.tipos.cliente}</span>}
+                  {stat.tipos?.fornecedor > 0 && <span className="text-[10px] bg-blue-500/20 text-blue-300 px-1.5 py-0.5 rounded font-bold">🔧 {stat.tipos.fornecedor}</span>}
+                  {stat.tipos?.parceiro > 0 && <span className="text-[10px] bg-purple-500/20 text-purple-300 px-1.5 py-0.5 rounded font-bold">🤝 {stat.tipos.parceiro}</span>}
                 </div>
               </button>
-              )}
+            )}
           </div>
-          <div className="flex gap-1 flex-wrap">
+
+          {/* Linha 3: Filtros de tipo + etiquetas */}
+          <div className="flex gap-1 flex-wrap items-center">
             {[
               { key: 'todos', label: '👥 Todos' },
               { key: 'lead', label: '🎯 Leads' },
               { key: 'cliente', label: '⭐ Clientes' },
               { key: 'fornecedor', label: '🔧 Fornec.' },
-              { key: 'parceiro', label: '🤝 Parceiros' }].
-              map((t) =>
-              <button
-                key={t.key}
-                onClick={() => setFiltroTipo(t.key)}
-                className={`px-2 py-1 rounded text-[10px] font-semibold transition-all ${filtroTipo === t.key ? 'bg-slate-700 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}>
-
+              { key: 'parceiro', label: '🤝 Parceiros' },
+            ].map((t) =>
+              <button key={t.key} onClick={() => setFiltroTipo(t.key)}
+                className={`px-2 py-0.5 rounded text-[10px] font-semibold transition-all ${filtroTipo === t.key ? 'bg-white text-slate-800' : 'bg-slate-700 text-slate-300 hover:bg-slate-600'}`}>
                 {t.label}
               </button>
-              )}
+            )}
+            {todasEtiquetas.map((tag) =>
+              <Button key={tag} size="sm"
+                variant={etiquetasSelecionadas.includes(tag) ? 'default' : 'outline'}
+                onClick={() => setEtiquetasSelecionadas((prev) => prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag])}
+                className={`h-5 px-2 text-[10px] ${etiquetasSelecionadas.includes(tag) ? 'bg-gradient-to-r from-purple-500 to-pink-500 text-white border-0' : 'border-slate-600 text-slate-300 hover:bg-slate-600'}`}>
+                {tag}
+              </Button>
+            )}
           </div>
         </div>
 
