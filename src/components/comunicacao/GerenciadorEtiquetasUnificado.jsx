@@ -74,6 +74,14 @@ const TIPOS_CONTATO = [
   { value: 'parceiro', label: 'Parceiro', emoji: '🤝' },
 ];
 
+// Faixas ABC
+const FAIXAS_ABC = [
+  { value: 'A', label: 'A', color: 'bg-green-500', description: 'Score ≥ 70 (Alto Valor)' },
+  { value: 'B', label: 'B', color: 'bg-yellow-500', description: '30 ≤ Score < 70 (Médio)' },
+  { value: 'C', label: 'C', color: 'bg-slate-400', description: 'Score < 30 (Baixo)' },
+  { value: 'neutro', label: 'Neutro', color: 'bg-slate-300', description: 'Não entra no cálculo ABC' },
+];
+
 // Etiquetas fixas padrão (seed inicial)
 const ETIQUETAS_FIXAS_PADRAO = [
   { nome: 'vip', label: 'VIP', emoji: '👑', cor: 'bg-yellow-500', tipo: 'fixa', setor: 'global', categoria: 'destaque', destaque: true, ordem: 1 },
