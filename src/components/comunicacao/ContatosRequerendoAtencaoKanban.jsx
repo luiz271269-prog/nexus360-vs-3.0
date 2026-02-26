@@ -681,6 +681,49 @@ export default function ContatosRequerendoAtencaoKanban({ usuario, onSelecionarC
                 </div>
               </div>
             )}
+          </div>
+        </div>
+
+        {/* Stats ABC + Filtros */}
+        <div className="flex-shrink-0 bg-white border-b border-slate-200 px-4 pb-3 space-y-2">
+          <div className="grid grid-cols-4 gap-1.5">
+            {[
+              { key: 'todos', label: 'TOTAL DE CONTATOS', value: statsABC.total, sub: 'em todos os tipos', border: '', valueColor: 'text-white' },
+              { key: 'A', label: 'CLASSE A — QUENTES', value: statsABC.classA, sub: 'score ≥ 70', border: 'border-b-2 border-green-500', valueColor: 'text-green-400', letter: 'A' },
+              { key: 'B', label: 'CLASSE B — MÉDIOS', value: statsABC.classB, sub: 'score 30–69', border: 'border-b-2 border-yellow-400', valueColor: 'text-yellow-400', letter: 'B' },
+              { key: 'C', label: 'CLASSE C — FRIOS', value: statsABC.classC, sub: 'score < 30', border: 'border-b-2 border-blue-400', valueColor: 'text-blue-300', letter: 'C' },
+            ].map(stat => (
+              <button
+                key={stat.key}
+                onClick={() => setFiltroClasse(stat.key)}
+                className={`bg-slate-800 ${stat.border} rounded-lg p-2.5 text-left transition-all hover:bg-slate-700 ${filtroClasse === stat.key ? 'ring-2 ring-white/40' : 'opacity-75 hover:opacity-100'}`}
+              >
+                <p className="text-[8px] font-bold text-slate-400 uppercase tracking-wide leading-tight mb-1">{stat.label}</p>
+                <div className="flex items-end justify-between">
+                  <span className={`text-xl font-black ${stat.valueColor}`}>{stat.value}</span>
+                  {stat.letter && <span className="text-2xl font-black text-white/10 leading-none">{stat.letter}</span>}
+                </div>
+                <p className="text-[8px] text-slate-500 mt-0.5">{stat.sub}</p>
+              </button>
+            ))}
+          </div>
+          <div className="flex gap-1 flex-wrap">
+            {[
+              { key: 'todos', label: '👥 Todos' },
+              { key: 'lead', label: '🎯 Leads' },
+              { key: 'cliente', label: '⭐ Clientes' },
+              { key: 'fornecedor', label: '🔧 Fornec.' },
+              { key: 'parceiro', label: '🤝 Parceiros' },
+            ].map(t => (
+              <button
+                key={t.key}
+                onClick={() => setFiltroTipo(t.key)}
+                className={`px-2 py-1 rounded text-[10px] font-semibold transition-all ${filtroTipo === t.key ? 'bg-slate-700 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
+              >
+                {t.label}
+              </button>
+            ))}
+          </div>
 
 
 
