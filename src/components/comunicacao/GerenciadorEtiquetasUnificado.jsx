@@ -404,6 +404,17 @@ export default function GerenciadorEtiquetasUnificado({ usuarioAtual }) {
                             {etq.destaque && (
                               <Star className="w-3 h-3 text-yellow-500 fill-yellow-500" />
                             )}
+                            {etq.participa_abc && etq.categoria_abc && etq.categoria_abc !== 'neutro' && (
+                              <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded text-white ${
+                                etq.categoria_abc === 'A' ? 'bg-green-500' :
+                                etq.categoria_abc === 'B' ? 'bg-yellow-500' : 'bg-slate-400'
+                              }`}>
+                                {etq.categoria_abc}
+                              </span>
+                            )}
+                            {etq.participa_abc && etq.peso_qualificacao !== undefined && etq.peso_qualificacao !== 0 && (
+                              <span className={`text-[10px] text-slate-500`}>{etq.peso_qualificacao > 0 ? '+' : ''}{etq.peso_qualificacao}</span>
+                            )}
                             
                             {/* Ações */}
                             <div className="absolute right-1 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 flex gap-1 transition-opacity">
