@@ -24,8 +24,8 @@ import {
   Flame,
   Minus,
   Snowflake,
-  Users
-} from 'lucide-react';
+  Users } from
+'lucide-react';
 import { toast } from 'sonner';
 import { useContatosInteligentes } from '../hooks/useContatosInteligentes';
 import { base44 } from '@/api/base44Client';
@@ -46,7 +46,7 @@ export default function ContatosRequerendoAtencaoKanban({ usuario, onSelecionarC
   const [etiquetasSelecionadas, setEtiquetasSelecionadas] = useState([]);
   const [filtroClasse, setFiltroClasse] = useState('todos'); // 'todos' | 'A' | 'B' | 'C'
   const [filtroTipo, setFiltroTipo] = useState('todos'); // 'todos' | 'lead' | 'cliente' | 'fornecedor' | 'parceiro'
-  
+
   // ✅ Estado para abrir chat lateral
   const [chatAberto, setChatAberto] = useState(null); // { thread, contato }
   const [mensagensChat, setMensagensChat] = useState([]);
@@ -79,16 +79,16 @@ export default function ContatosRequerendoAtencaoKanban({ usuario, onSelecionarC
     try {
       await refetchHook();
       toast.success('✅ Lista atualizada!');
-      
-      base44.functions.invoke('executarAnaliseDiariaContatos', {})
-        .then((resultado) => {
-          if (resultado?.data?.success) {
-            setTimeout(() => refetchHook(), 800);
-          }
-        })
-        .catch((error) => {
-          console.warn('[ContatosKanban] ⚠️ Análise em background falhou:', error.message);
-        });
+
+      base44.functions.invoke('executarAnaliseDiariaContatos', {}).
+      then((resultado) => {
+        if (resultado?.data?.success) {
+          setTimeout(() => refetchHook(), 800);
+        }
+      }).
+      catch((error) => {
+        console.warn('[ContatosKanban] ⚠️ Análise em background falhou:', error.message);
+      });
     } catch (error) {
       console.error('[ContatosKanban] ❌ Erro ao recarregar:', error);
       toast.error(`❌ ${error.message}`);
@@ -120,7 +120,7 @@ export default function ContatosRequerendoAtencaoKanban({ usuario, onSelecionarC
     const carregarAtendentes = async () => {
       try {
         const resultado = await base44.functions.invoke('listarUsuariosParaAtribuicao', {});
-        
+
         if (resultado?.data?.success && resultado?.data?.usuarios) {
           const map = {};
           resultado.data.usuarios.forEach((u) => {
@@ -150,9 +150,9 @@ export default function ContatosRequerendoAtencaoKanban({ usuario, onSelecionarC
     contatosComAlerta.forEach((item) => {
       const dias = item.days_inactive_inbound || 0;
       const topico = dias >= 90 ? '🔴 Críticos (90+ dias)' :
-        dias >= 60 ? '🟠 Alta Prioridade (60-89 dias)' :
-        dias >= 30 ? '🟡 Prioritários (30-59 dias)' :
-        '🟢 Monitorar (7-29 dias)';
+      dias >= 60 ? '🟠 Alta Prioridade (60-89 dias)' :
+      dias >= 30 ? '🟡 Prioritários (30-59 dias)' :
+      '🟢 Monitorar (7-29 dias)';
       grupos[topico].push(item);
     });
 
@@ -167,16 +167,16 @@ export default function ContatosRequerendoAtencaoKanban({ usuario, onSelecionarC
   // ✅ Calcular estatísticas ABC
   const statsABC = useMemo(() => {
     const contarTipos = (lista) => ({
-      lead: lista.filter(c => c.tipo_contato === 'lead').length,
-      cliente: lista.filter(c => c.tipo_contato === 'cliente').length,
-      fornecedor: lista.filter(c => c.tipo_contato === 'fornecedor').length,
-      parceiro: lista.filter(c => c.tipo_contato === 'parceiro').length,
+      lead: lista.filter((c) => c.tipo_contato === 'lead').length,
+      cliente: lista.filter((c) => c.tipo_contato === 'cliente').length,
+      fornecedor: lista.filter((c) => c.tipo_contato === 'fornecedor').length,
+      parceiro: lista.filter((c) => c.tipo_contato === 'parceiro').length
     });
 
     const total = contatosComAlerta.length;
-    const listaA = contatosComAlerta.filter(c => c.classe_abc === 'A' || (c.score_abc >= 70));
-    const listaB = contatosComAlerta.filter(c => c.classe_abc === 'B' || (c.score_abc >= 30 && c.score_abc < 70));
-    const listaC = contatosComAlerta.filter(c => c.classe_abc === 'C' || (c.score_abc < 30 && c.score_abc !== undefined && c.score_abc !== null));
+    const listaA = contatosComAlerta.filter((c) => c.classe_abc === 'A' || c.score_abc >= 70);
+    const listaB = contatosComAlerta.filter((c) => c.classe_abc === 'B' || c.score_abc >= 30 && c.score_abc < 70);
+    const listaC = contatosComAlerta.filter((c) => c.classe_abc === 'C' || c.score_abc < 30 && c.score_abc !== undefined && c.score_abc !== null);
 
     return {
       total,
@@ -186,31 +186,31 @@ export default function ContatosRequerendoAtencaoKanban({ usuario, onSelecionarC
       classB: listaB.length,
       tiposB: contarTipos(listaB),
       classC: listaC.length,
-      tiposC: contarTipos(listaC),
+      tiposC: contarTipos(listaC)
     };
   }, [contatosComAlerta]);
 
   // ✅ Filtrar por etiquetas, classe ABC e tipo
   const contatosFiltrados = useMemo(() => {
     let lista = contatosComAlerta;
-    
+
     if (filtroClasse !== 'todos') {
-      lista = lista.filter(item => {
+      lista = lista.filter((item) => {
         const score = item.score_abc ?? 0;
         if (filtroClasse === 'A') return item.classe_abc === 'A' || score >= 70;
-        if (filtroClasse === 'B') return item.classe_abc === 'B' || (score >= 30 && score < 70);
+        if (filtroClasse === 'B') return item.classe_abc === 'B' || score >= 30 && score < 70;
         if (filtroClasse === 'C') return item.classe_abc === 'C' || score < 30;
         return true;
       });
     }
 
     if (filtroTipo !== 'todos') {
-      lista = lista.filter(item => item.tipo_contato === filtroTipo);
+      lista = lista.filter((item) => item.tipo_contato === filtroTipo);
     }
 
     if (etiquetasSelecionadas.length > 0) {
-      lista = lista.filter(item =>
-        item.tags && item.tags.some(tag => etiquetasSelecionadas.includes(tag))
+      lista = lista.filter((item) =>
+      item.tags && item.tags.some((tag) => etiquetasSelecionadas.includes(tag))
       );
     }
 
@@ -220,9 +220,9 @@ export default function ContatosRequerendoAtencaoKanban({ usuario, onSelecionarC
   // ✅ Obter todas as etiquetas únicas
   const todasEtiquetas = useMemo(() => {
     const tags = new Set();
-    contatosComAlerta.forEach(item => {
+    contatosComAlerta.forEach((item) => {
       if (item.tags && Array.isArray(item.tags)) {
-        item.tags.forEach(tag => tags.add(tag));
+        item.tags.forEach((tag) => tags.add(tag));
       }
     });
     return Array.from(tags).sort();
@@ -239,9 +239,9 @@ export default function ContatosRequerendoAtencaoKanban({ usuario, onSelecionarC
     contatosFiltrados.forEach((item) => {
       const dias = item.days_inactive_inbound || 0;
       const topico = dias >= 90 ? '🔴 Críticos (90+ dias)' :
-        dias >= 60 ? '🟠 Alta Prioridade (60-89 dias)' :
-        dias >= 30 ? '🟡 Prioritários (30-59 dias)' :
-        '🟢 Monitorar (7-29 dias)';
+      dias >= 60 ? '🟠 Alta Prioridade (60-89 dias)' :
+      dias >= 30 ? '🟡 Prioritários (30-59 dias)' :
+      '🟢 Monitorar (7-29 dias)';
       grupos[topico].push(item);
     });
 
@@ -276,19 +276,19 @@ export default function ContatosRequerendoAtencaoKanban({ usuario, onSelecionarC
   };
 
   const toggleSelecionarGrupo = (itemsDoGrupo) => {
-    const idsGrupo = itemsDoGrupo.map(i => i.contact_id || i.id);
-    const todosDoGrupoJaSelecionados = idsGrupo.every(id => 
-      contatosSelecionados.some(c => (c.contact_id || c.id) === id)
+    const idsGrupo = itemsDoGrupo.map((i) => i.contact_id || i.id);
+    const todosDoGrupoJaSelecionados = idsGrupo.every((id) =>
+    contatosSelecionados.some((c) => (c.contact_id || c.id) === id)
     );
 
     if (todosDoGrupoJaSelecionados) {
-      setContatosSelecionados(prev => 
-        prev.filter(c => !idsGrupo.includes(c.contact_id || c.id))
+      setContatosSelecionados((prev) =>
+      prev.filter((c) => !idsGrupo.includes(c.contact_id || c.id))
       );
     } else {
-      const idsJaSelecionados = new Set(contatosSelecionados.map(c => c.contact_id || c.id));
-      const novosContatos = itemsDoGrupo.filter(i => !idsJaSelecionados.has(i.contact_id || i.id));
-      setContatosSelecionados(prev => [...prev, ...novosContatos]);
+      const idsJaSelecionados = new Set(contatosSelecionados.map((c) => c.contact_id || c.id));
+      const novosContatos = itemsDoGrupo.filter((i) => !idsJaSelecionados.has(i.contact_id || i.id));
+      setContatosSelecionados((prev) => [...prev, ...novosContatos]);
     }
   };
 
@@ -312,20 +312,20 @@ export default function ContatosRequerendoAtencaoKanban({ usuario, onSelecionarC
 
   const getPrioridadeCor = (label) => {
     switch (label) {
-      case 'CRITICO': return 'bg-red-500';
-      case 'ALTO': return 'bg-orange-500';
-      case 'MEDIO': return 'bg-yellow-500';
-      default: return 'bg-blue-500';
+      case 'CRITICO':return 'bg-red-500';
+      case 'ALTO':return 'bg-orange-500';
+      case 'MEDIO':return 'bg-yellow-500';
+      default:return 'bg-blue-500';
     }
   };
 
   const getBucketCor = (bucket) => {
     switch (bucket) {
-      case 'active': return 'bg-green-500';
-      case '30': return 'bg-yellow-500';
-      case '60': return 'bg-orange-500';
-      case '90+': return 'bg-red-500';
-      default: return 'bg-slate-500';
+      case 'active':return 'bg-green-500';
+      case '30':return 'bg-yellow-500';
+      case '60':return 'bg-orange-500';
+      case '90+':return 'bg-red-500';
+      default:return 'bg-slate-500';
     }
   };
 
@@ -407,7 +407,7 @@ export default function ContatosRequerendoAtencaoKanban({ usuario, onSelecionarC
                 '-sent_at',
                 200
               );
-              
+
               setChatAberto({
                 thread: threads[0],
                 contato: {
@@ -430,15 +430,15 @@ export default function ContatosRequerendoAtencaoKanban({ usuario, onSelecionarC
           }
         }}
         className={`px-2 py-2 flex items-center gap-3 cursor-pointer transition-all border-b border-slate-100 hover:bg-gradient-to-r hover:from-amber-50 hover:to-orange-50 ${
-          estaSelecionado ? 'bg-orange-100 border-l-4 border-l-orange-500' : ''
-        }`}
-      >
+        estaSelecionado ? 'bg-orange-100 border-l-4 border-l-orange-500' : ''}`
+        }>
+
         {/* Checkbox */}
         <div className="flex-shrink-0" onClick={(e) => e.stopPropagation()}>
           <Checkbox
             checked={estaSelecionado}
-            onCheckedChange={() => toggleSelecaoContato(item)}
-          />
+            onCheckedChange={() => toggleSelecaoContato(item)} />
+
         </div>
 
         {/* Avatar */}
@@ -464,18 +464,18 @@ export default function ContatosRequerendoAtencaoKanban({ usuario, onSelecionarC
           </p>
 
           {/* Linha 3: Etiquetas - text-[8px] */}
-          {item.tags && item.tags.length > 0 && (
-            <div className="flex items-center gap-0.5 flex-wrap">
-              {item.tags.slice(0, 3).map((tag) => (
-                <Badge key={tag} className="bg-gradient-to-r from-purple-500 to-pink-500 text-white text-[8px] px-1.5 py-0 h-4">
+          {item.tags && item.tags.length > 0 &&
+          <div className="flex items-center gap-0.5 flex-wrap">
+              {item.tags.slice(0, 3).map((tag) =>
+            <Badge key={tag} className="bg-gradient-to-r from-purple-500 to-pink-500 text-white text-[8px] px-1.5 py-0 h-4">
                   {tag}
                 </Badge>
-              ))}
-              {item.tags.length > 3 && (
-                <span className="text-[8px] text-slate-500 font-semibold">+{item.tags.length - 3}</span>
-              )}
+            )}
+              {item.tags.length > 3 &&
+            <span className="text-[8px] text-slate-500 font-semibold">+{item.tags.length - 3}</span>
+            }
             </div>
-          )}
+          }
 
           {/* Linha 4: Badges compactas - text-[9px] (9px semibold) */}
           <div className="flex items-center gap-0.5 flex-wrap">
@@ -493,8 +493,8 @@ export default function ContatosRequerendoAtencaoKanban({ usuario, onSelecionarC
               return (
                 <span className={`inline-flex items-center gap-0.5 px-1 py-0 rounded-full text-[9px] font-semibold text-white ${cfg.bg} shadow-sm`}>
                   {cfg.emoji} {cfg.label}
-                </span>
-              );
+                </span>);
+
             })()}
 
             {/* Prioridade */}
@@ -503,18 +503,18 @@ export default function ContatosRequerendoAtencaoKanban({ usuario, onSelecionarC
             </Badge>
 
             {/* Classe ABC */}
-            {(item.classe_abc && item.classe_abc !== 'none') && (() => {
+            {item.classe_abc && item.classe_abc !== 'none' && (() => {
               const abcConfig = {
                 'A': { bg: 'bg-green-600', label: 'A' },
                 'B': { bg: 'bg-yellow-500', label: 'B' },
-                'C': { bg: 'bg-blue-500', label: 'C' },
+                'C': { bg: 'bg-blue-500', label: 'C' }
               };
               const cfg = abcConfig[item.classe_abc];
-              return cfg ? (
-                <span className={`inline-flex items-center px-1 py-0 rounded text-[9px] font-black text-white ${cfg.bg} shadow-sm`}>
+              return cfg ?
+              <span className={`inline-flex items-center px-1 py-0 rounded text-[9px] font-black text-white ${cfg.bg} shadow-sm`}>
                   {cfg.label}
-                </span>
-              ) : null;
+                </span> :
+              null;
             })()}
 
             {/* Atendente */}
@@ -524,8 +524,8 @@ export default function ContatosRequerendoAtencaoKanban({ usuario, onSelecionarC
             </span>
           </div>
         </div>
-      </div>
-    );
+      </div>);
+
   };
 
   return (
@@ -538,21 +538,21 @@ export default function ContatosRequerendoAtencaoKanban({ usuario, onSelecionarC
           setMostrarModalPromoAuto(false);
           toast.info('🔄 Atualizando lista de contatos...');
           setTimeout(() => refetch(), 1000);
-        }}
-      />
+        }} />
+
 
       {/* Modal de Análise IA */}
-      {contatoAnaliseAberto && (
-        <>
-          <div 
-            className="fixed inset-0 z-50 bg-black/20 backdrop-blur-sm" 
-            onClick={() => setContatoAnaliseAberto(null)} 
-          />
+      {contatoAnaliseAberto &&
+      <>
+          <div
+          className="fixed inset-0 z-50 bg-black/20 backdrop-blur-sm"
+          onClick={() => setContatoAnaliseAberto(null)} />
+
           <div className="fixed inset-0 z-50 flex items-center justify-center pointer-events-none">
-            <div 
-              className="w-96 bg-white rounded-xl shadow-2xl border border-slate-200 overflow-hidden pointer-events-auto"
-              onClick={(e) => e.stopPropagation()}
-            >
+            <div
+            className="w-96 bg-white rounded-xl shadow-2xl border border-slate-200 overflow-hidden pointer-events-auto"
+            onClick={(e) => e.stopPropagation()}>
+
               <div className="bg-gradient-to-r from-purple-600 to-indigo-600 px-6 py-4 flex items-center justify-between">
                 <div className="flex items-center gap-2 text-white">
                   <Brain className="w-5 h-5" />
@@ -562,46 +562,46 @@ export default function ContatosRequerendoAtencaoKanban({ usuario, onSelecionarC
                   </div>
                 </div>
                 <Button
-                  onClick={() => setContatoAnaliseAberto(null)}
-                  variant="ghost"
-                  size="icon"
-                  className="h-6 w-6 hover:bg-white/20 text-white">
+                onClick={() => setContatoAnaliseAberto(null)}
+                variant="ghost"
+                size="icon"
+                className="h-6 w-6 hover:bg-white/20 text-white">
                   <X className="w-4 h-4" />
                 </Button>
               </div>
 
-              {analiseCarregando ? (
-                <div className="p-8 text-center">
+              {analiseCarregando ?
+            <div className="p-8 text-center">
                   <Loader2 className="w-8 h-8 animate-spin mx-auto text-purple-600 mb-3" />
                   <p className="text-sm text-slate-600">Analisando...</p>
-                </div>
-              ) : !dadosAnalise ? (
-                <div className="p-6 text-center">
+                </div> :
+            !dadosAnalise ?
+            <div className="p-6 text-center">
                   <Brain className="w-12 h-12 mx-auto mb-3 text-slate-400" />
                   <p className="text-sm text-slate-600">Sem análise disponível</p>
-                </div>
-              ) : (
-                <div className="p-6 space-y-4 max-h-[500px] overflow-y-auto">
+                </div> :
+
+            <div className="p-6 space-y-4 max-h-[500px] overflow-y-auto">
                   <div className="bg-gradient-to-r from-slate-50 to-slate-100 rounded-lg p-4">
                     <p className="text-xs font-bold text-slate-700 mb-2">PRIORIDADE</p>
                     <div className="w-full bg-slate-300 rounded-full h-2">
-                      <div 
-                        className={`h-2 rounded-full transition-all ${
-                          dadosAnalise.priority_score > 70 ? 'bg-red-500' :
-                          dadosAnalise.priority_score > 40 ? 'bg-orange-500' :
-                          'bg-green-500'
-                        }`}
-                        style={{ width: `${dadosAnalise.priority_score}%` }}
-                      />
+                      <div
+                    className={`h-2 rounded-full transition-all ${
+                    dadosAnalise.priority_score > 70 ? 'bg-red-500' :
+                    dadosAnalise.priority_score > 40 ? 'bg-orange-500' :
+                    'bg-green-500'}`
+                    }
+                    style={{ width: `${dadosAnalise.priority_score}%` }} />
+
                     </div>
                     <p className="text-xs text-slate-600 mt-2">Score: {dadosAnalise.priority_score || 0}/100</p>
                   </div>
                 </div>
-              )}
+            }
             </div>
           </div>
         </>
-      )}
+      }
 
       <div className="flex h-full min-h-0 bg-slate-50">
         {/* ✅ KANBAN COLUMNS */}
@@ -611,16 +611,16 @@ export default function ContatosRequerendoAtencaoKanban({ usuario, onSelecionarC
           {/* Título */}
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              {onClose && (
+              {onClose &&
                 <Button
                   onClick={onClose}
                   variant="ghost"
                   size="sm"
-                  className="h-8 w-8 p-0 hover:bg-slate-200"
-                >
+                  className="h-8 w-8 p-0 hover:bg-slate-200">
+
                   <X className="w-4 h-4" />
                 </Button>
-              )}
+                }
               <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-red-500 to-orange-500 flex items-center justify-center shadow-sm">
                 <AlertTriangle className="w-4 h-4 text-white" />
               </div>
@@ -631,25 +631,25 @@ export default function ContatosRequerendoAtencaoKanban({ usuario, onSelecionarC
             </div>
             <div className="flex items-center gap-2">
               <Button
-                onClick={() => setMostrarModalPromoAuto(true)}
-                disabled={loading || totalAlertas === 0}
-                className="h-7 text-xs bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white shadow-md disabled:opacity-50 px-3">
+                  onClick={() => setMostrarModalPromoAuto(true)}
+                  disabled={loading || totalAlertas === 0}
+                  className="h-7 text-xs bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white shadow-md disabled:opacity-50 px-3">
                 <Sparkles className="w-3.5 h-3.5 mr-1" />
                 Automático
               </Button>
               <Button
-                onClick={abrirEnvioMassa}
-                disabled={contatosSelecionados.length === 0}
-                className="h-7 text-xs bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 text-white shadow-md disabled:opacity-50 px-3">
+                  onClick={abrirEnvioMassa}
+                  disabled={contatosSelecionados.length === 0}
+                  className="h-7 text-xs bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 text-white shadow-md disabled:opacity-50 px-3">
                 <MessageSquare className="w-3.5 h-3.5 mr-1" />
                 Massa
               </Button>
               <Button
-                size="sm"
-                variant="ghost"
-                onClick={refetch}
-                disabled={loading}
-                className="h-7 w-7 p-0 hover:bg-slate-200">
+                  size="sm"
+                  variant="ghost"
+                  onClick={refetch}
+                  disabled={loading}
+                  className="h-7 w-7 p-0 hover:bg-slate-200">
                 <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
               </Button>
             </div>
@@ -660,59 +660,59 @@ export default function ContatosRequerendoAtencaoKanban({ usuario, onSelecionarC
             <div className="flex items-center gap-2">
               <Calendar className="w-3.5 h-3.5 text-slate-500" />
               <Input
-                type="number"
-                min="1"
-                max="90"
-                value={diasInatividade}
-                onChange={(e) => {
-                  const dias = parseInt(e.target.value) || 5;
-                  setDiasInatividade(Math.max(1, Math.min(90, dias)));
-                }}
-                className="h-7 w-16 text-xs text-center"
-              />
+                  type="number"
+                  min="1"
+                  max="90"
+                  value={diasInatividade}
+                  onChange={(e) => {
+                    const dias = parseInt(e.target.value) || 5;
+                    setDiasInatividade(Math.max(1, Math.min(90, dias)));
+                  }}
+                  className="h-7 w-16 text-xs text-center" />
+
               <span className="text-xs text-slate-600">dias inativos</span>
               <Button
-                size="sm"
-                variant="ghost"
-                onClick={() => refetch()}
-                className="h-7 px-2 text-xs ml-auto"
-              >
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => refetch()}
+                  className="h-7 px-2 text-xs ml-auto">
+
                 Aplicar
               </Button>
             </div>
 
             {/* Filtro de Etiquetas */}
-            {todasEtiquetas.length > 0 && (
+            {todasEtiquetas.length > 0 &&
               <div className="space-y-1">
                 <label className="text-xs font-semibold text-slate-700 flex items-center gap-1.5">
                   <Tag className="w-3 h-3" />
                   Filtrar por etiquetas
                 </label>
                 <div className="flex flex-wrap gap-1">
-                  {todasEtiquetas.map((tag) => (
-                    <Button
-                      key={tag}
-                      size="sm"
-                      variant={etiquetasSelecionadas.includes(tag) ? 'default' : 'outline'}
-                      onClick={() => {
-                        setEtiquetasSelecionadas(prev =>
-                          prev.includes(tag)
-                            ? prev.filter(t => t !== tag)
-                            : [...prev, tag]
-                        );
-                      }}
-                      className={`h-6 px-2 text-xs ${
-                        etiquetasSelecionadas.includes(tag)
-                          ? 'bg-gradient-to-r from-purple-500 to-pink-500 text-white'
-                          : ''
-                      }`}
-                    >
+                  {todasEtiquetas.map((tag) =>
+                  <Button
+                    key={tag}
+                    size="sm"
+                    variant={etiquetasSelecionadas.includes(tag) ? 'default' : 'outline'}
+                    onClick={() => {
+                      setEtiquetasSelecionadas((prev) =>
+                      prev.includes(tag) ?
+                      prev.filter((t) => t !== tag) :
+                      [...prev, tag]
+                      );
+                    }}
+                    className={`h-6 px-2 text-xs ${
+                    etiquetasSelecionadas.includes(tag) ?
+                    'bg-gradient-to-r from-purple-500 to-pink-500 text-white' :
+                    ''}`
+                    }>
+
                       {tag}
                     </Button>
-                  ))}
+                  )}
                 </div>
               </div>
-            )}
+              }
           </div>
         </div>
 
@@ -723,38 +723,38 @@ export default function ContatosRequerendoAtencaoKanban({ usuario, onSelecionarC
               { key: 'todos', label: 'TOTAL DE CONTATOS', value: statsABC.total, sub: 'em todos os tipos', accentColor: 'border-t-2 border-slate-500', valueColor: 'text-white', letter: null, tipos: statsABC.totalTipos },
               { key: 'A', label: 'CLASSE A —\nQUENTES', value: statsABC.classA, sub: 'score ≥ 70', accentColor: 'border-t-2 border-green-400', valueColor: 'text-green-400', letter: 'A', letterColor: 'text-green-400/15', tipos: statsABC.tiposA },
               { key: 'B', label: 'CLASSE B —\nMÉDIOS', value: statsABC.classB, sub: 'score 30–69', accentColor: 'border-t-2 border-yellow-400', valueColor: 'text-yellow-400', letter: 'B', letterColor: 'text-yellow-400/15', tipos: statsABC.tiposB },
-              { key: 'C', label: 'CLASSE C —\nFRIOS', value: statsABC.classC, sub: 'score < 30', accentColor: 'border-t-2 border-blue-400', valueColor: 'text-blue-300', letter: 'C', letterColor: 'text-blue-300/15', tipos: statsABC.tiposC },
-            ].map(stat => (
+              { key: 'C', label: 'CLASSE C —\nFRIOS', value: statsABC.classC, sub: 'score < 30', accentColor: 'border-t-2 border-blue-400', valueColor: 'text-blue-300', letter: 'C', letterColor: 'text-blue-300/15', tipos: statsABC.tiposC }].
+              map((stat) =>
               <button
                 key={stat.key}
-                onClick={() => setFiltroClasse(stat.key)}
-                className={`relative overflow-hidden bg-slate-800 ${stat.accentColor} rounded-lg p-3 text-left transition-all hover:bg-slate-750 ${filtroClasse === stat.key ? 'ring-2 ring-white/30 bg-slate-700' : 'opacity-80 hover:opacity-100'}`}
-              >
+                onClick={() => setFiltroClasse(stat.key)} className="bg-slate-700 mx-16 py-1 text-left rounded-2xl relative overflow-hidden border-t-2 border-slate-500 transition-all hover:bg-slate-750 ring-2 ring-white/30">
+
+
                 {/* Marca d'água */}
-                {stat.letter && (
-                  <span className={`absolute -bottom-2 -right-1 text-7xl font-black ${stat.letterColor} leading-none select-none pointer-events-none`}>
+                {stat.letter &&
+                <span className={`absolute -bottom-2 -right-1 text-7xl font-black ${stat.letterColor} leading-none select-none pointer-events-none`}>
                     {stat.letter}
                   </span>
-                )}
+                }
                 <p className="text-[8px] font-bold text-slate-400 uppercase tracking-wide leading-tight mb-2 whitespace-pre-line">{stat.label}</p>
                 <span className={`text-2xl font-black ${stat.valueColor} block mb-1`}>{stat.value}</span>
                 {/* Breakdown por tipo */}
                 <div className="flex flex-col items-end gap-0.5 mt-1">
-                  {stat.tipos?.lead > 0 && (
-                    <span className="text-[10px] bg-amber-500/20 text-amber-300 px-1.5 py-0.5 rounded font-bold">🎯 {stat.tipos.lead}</span>
-                  )}
-                  {stat.tipos?.cliente > 0 && (
-                    <span className="text-[10px] bg-emerald-500/20 text-emerald-300 px-1.5 py-0.5 rounded font-bold">⭐ {stat.tipos.cliente}</span>
-                  )}
-                  {stat.tipos?.fornecedor > 0 && (
-                    <span className="text-[10px] bg-blue-500/20 text-blue-300 px-1.5 py-0.5 rounded font-bold">🔧 {stat.tipos.fornecedor}</span>
-                  )}
-                  {stat.tipos?.parceiro > 0 && (
-                    <span className="text-[10px] bg-purple-500/20 text-purple-300 px-1.5 py-0.5 rounded font-bold">🤝 {stat.tipos.parceiro}</span>
-                  )}
+                  {stat.tipos?.lead > 0 &&
+                  <span className="text-[10px] bg-amber-500/20 text-amber-300 px-1.5 py-0.5 rounded font-bold">🎯 {stat.tipos.lead}</span>
+                  }
+                  {stat.tipos?.cliente > 0 &&
+                  <span className="text-[10px] bg-emerald-500/20 text-emerald-300 px-1.5 py-0.5 rounded font-bold">⭐ {stat.tipos.cliente}</span>
+                  }
+                  {stat.tipos?.fornecedor > 0 &&
+                  <span className="text-[10px] bg-blue-500/20 text-blue-300 px-1.5 py-0.5 rounded font-bold">🔧 {stat.tipos.fornecedor}</span>
+                  }
+                  {stat.tipos?.parceiro > 0 &&
+                  <span className="text-[10px] bg-purple-500/20 text-purple-300 px-1.5 py-0.5 rounded font-bold">🤝 {stat.tipos.parceiro}</span>
+                  }
                 </div>
               </button>
-            ))}
+              )}
           </div>
           <div className="flex gap-1 flex-wrap">
             {[
@@ -762,39 +762,39 @@ export default function ContatosRequerendoAtencaoKanban({ usuario, onSelecionarC
               { key: 'lead', label: '🎯 Leads' },
               { key: 'cliente', label: '⭐ Clientes' },
               { key: 'fornecedor', label: '🔧 Fornec.' },
-              { key: 'parceiro', label: '🤝 Parceiros' },
-            ].map(t => (
+              { key: 'parceiro', label: '🤝 Parceiros' }].
+              map((t) =>
               <button
                 key={t.key}
                 onClick={() => setFiltroTipo(t.key)}
-                className={`px-2 py-1 rounded text-[10px] font-semibold transition-all ${filtroTipo === t.key ? 'bg-slate-700 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
-              >
+                className={`px-2 py-1 rounded text-[10px] font-semibold transition-all ${filtroTipo === t.key ? 'bg-slate-700 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}>
+
                 {t.label}
               </button>
-            ))}
+              )}
           </div>
         </div>
 
         {/* ✅ KANBAN COLUMNS */}
-        {loading ? (
+        {loading ?
           <div className="flex-1 flex items-center justify-center">
             <div className="text-center">
               <Loader2 className="w-8 h-8 animate-spin text-orange-500 mx-auto mb-3" />
               <p className="text-sm font-medium text-slate-700">Carregando contatos...</p>
             </div>
-          </div>
-        ) : totalAlertas === 0 ? (
+          </div> :
+          totalAlertas === 0 ?
           <div className="flex-1 flex items-center justify-center">
             <div className="text-center">
               <Target className="w-12 h-12 text-green-600 mx-auto mb-3" />
               <p className="text-sm font-bold text-slate-800">Tudo sob controle!</p>
               <p className="text-xs text-slate-500 mt-1">Nenhum contato requer atenção imediata</p>
             </div>
-          </div>
-        ) : (
+          </div> :
+
           <div className="flex-1 overflow-x-auto p-4 space-x-4 flex">
-            {Object.entries(grupos).map(([nomeColuna, items]) => (
-              <div key={nomeColuna} className="flex-shrink-0 w-72 rounded-lg overflow-hidden flex flex-col">
+            {Object.entries(grupos).map(([nomeColuna, items]) =>
+            <div key={nomeColuna} className="flex-shrink-0 w-72 rounded-lg overflow-hidden flex flex-col">
                 {/* Header da Coluna - 14px */}
                 <div className="bg-gradient-to-r from-purple-600 to-indigo-600 px-4 py-3 rounded-t-lg shadow-md">
                   <div className="flex items-center justify-between gap-2">
@@ -803,38 +803,38 @@ export default function ContatosRequerendoAtencaoKanban({ usuario, onSelecionarC
                       <Badge className="bg-white/30 text-white text-xs font-bold">
                         {items.length}
                       </Badge>
-                      {items.length > 0 && (
-                        <button
-                          onClick={() => toggleSelecionarGrupo(items)}
-                          className="text-white hover:bg-white/20 rounded px-2 py-1 transition-colors text-sm font-medium"
-                        >
-                          {items.every(i => contatosSelecionados.some(c => (c.contact_id || c.id) === (i.contact_id || i.id))) 
-                            ? '❌' 
-                            : '✅'}
+                      {items.length > 0 &&
+                    <button
+                      onClick={() => toggleSelecionarGrupo(items)}
+                      className="text-white hover:bg-white/20 rounded px-2 py-1 transition-colors text-sm font-medium">
+
+                          {items.every((i) => contatosSelecionados.some((c) => (c.contact_id || c.id) === (i.contact_id || i.id))) ?
+                      '❌' :
+                      '✅'}
                         </button>
-                      )}
+                    }
                     </div>
                   </div>
                 </div>
 
                 {/* Cards */}
                 <div className="flex-1 overflow-y-auto p-3 space-y-2 scrollbar-custom bg-white rounded-b-lg shadow-sm border border-slate-200 border-t-0">
-                  {items.length === 0 ? (
-                    <div className="text-center py-8 text-slate-400 text-xs">
+                  {items.length === 0 ?
+                <div className="text-center py-8 text-slate-400 text-xs">
                       Sem contatos
-                    </div>
-                  ) : (
-                    items.map(renderContatoCard)
-                  )}
+                    </div> :
+
+                items.map(renderContatoCard)
+                }
                 </div>
               </div>
-            ))}
+            )}
           </div>
-        )}
+          }
       </div>
 
       {/* ✅ CHAT LATERAL */}
-      {chatAberto && (
+      {chatAberto &&
         <div className="w-1/2 border-l border-slate-200 bg-white flex flex-col overflow-hidden">
           {/* Header do Chat */}
           <div className="flex-shrink-0 bg-gradient-to-r from-slate-800 to-slate-700 px-4 py-3 flex items-center justify-between border-b border-slate-600">
@@ -843,8 +843,8 @@ export default function ContatosRequerendoAtencaoKanban({ usuario, onSelecionarC
                 onClick={() => setChatAberto(null)}
                 variant="ghost"
                 size="sm"
-                className="h-8 w-8 p-0 hover:bg-white/20 text-white flex-shrink-0"
-              >
+                className="h-8 w-8 p-0 hover:bg-white/20 text-white flex-shrink-0">
+
                 <ArrowLeft className="w-4 h-4" />
               </Button>
               <div className="w-10 h-10 rounded-full flex items-center justify-center text-white font-bold text-lg shadow-md bg-gradient-to-br from-amber-400 via-orange-500 to-red-500 flex-shrink-0">
@@ -862,44 +862,44 @@ export default function ContatosRequerendoAtencaoKanban({ usuario, onSelecionarC
           </div>
 
           {/* Chat Window */}
-          {carregandoMensagens ? (
-            <div className="flex-1 flex items-center justify-center">
+          {carregandoMensagens ?
+          <div className="flex-1 flex items-center justify-center">
               <Loader2 className="w-8 h-8 animate-spin text-orange-500" />
-            </div>
-          ) : (
-            <ChatWindow
-              thread={chatAberto.thread}
-              mensagens={mensagensChat}
-              usuario={usuario}
-              contatoPreCarregado={chatAberto.contato}
-              onEnviarMensagem={async () => {}}
-              onSendMessageOptimistic={async () => {}}
-              onSendInternalMessageOptimistic={async () => {}}
-              onShowContactInfo={() => {}}
-              onAtualizarMensagens={async () => {
-                const mensagens = await base44.entities.Message.filter(
-                  { thread_id: chatAberto.thread.id },
-                  '-sent_at',
-                  200
-                );
-                setMensagensChat(mensagens.reverse());
-              }}
-              integracoes={[]}
-              selectedCategoria="all"
-              modoSelecaoMultipla={false}
-              contatosSelecionados={[]}
-              broadcastInterno={null}
-              onCancelarSelecao={() => {}}
-              atendentes={[]}
-              filterScope="all"
-              selectedIntegrationId="all"
-              selectedAttendantId={null}
-              contatoAtivo={chatAberto.contato}
-            />
-          )}
+            </div> :
+
+          <ChatWindow
+            thread={chatAberto.thread}
+            mensagens={mensagensChat}
+            usuario={usuario}
+            contatoPreCarregado={chatAberto.contato}
+            onEnviarMensagem={async () => {}}
+            onSendMessageOptimistic={async () => {}}
+            onSendInternalMessageOptimistic={async () => {}}
+            onShowContactInfo={() => {}}
+            onAtualizarMensagens={async () => {
+              const mensagens = await base44.entities.Message.filter(
+                { thread_id: chatAberto.thread.id },
+                '-sent_at',
+                200
+              );
+              setMensagensChat(mensagens.reverse());
+            }}
+            integracoes={[]}
+            selectedCategoria="all"
+            modoSelecaoMultipla={false}
+            contatosSelecionados={[]}
+            broadcastInterno={null}
+            onCancelarSelecao={() => {}}
+            atendentes={[]}
+            filterScope="all"
+            selectedIntegrationId="all"
+            selectedAttendantId={null}
+            contatoAtivo={chatAberto.contato} />
+
+          }
         </div>
-      )}
+        }
     </div>
-    </>
-  );
+    </>);
+
 }
