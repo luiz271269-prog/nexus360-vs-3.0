@@ -428,7 +428,7 @@ export default function SearchAndFilter({
             </div>
           </PopoverContent>
         </Popover>
-        </div>
+        </div>{/* fim dos botões à esquerda */}
 
         {/* Campo de busca */}
         <div className="relative flex-1">
