@@ -44,6 +44,8 @@ export default function ContatosRequerendoAtencaoKanban({ usuario, onSelecionarC
   const [analiseCarregando, setAnaliseCarregando] = useState(false);
   const [dadosAnalise, setDadosAnalise] = useState(null);
   const [etiquetasSelecionadas, setEtiquetasSelecionadas] = useState([]);
+  const [filtroClasse, setFiltroClasse] = useState('todos'); // 'todos' | 'A' | 'B' | 'C'
+  const [filtroTipo, setFiltroTipo] = useState('todos'); // 'todos' | 'lead' | 'cliente' | 'fornecedor' | 'parceiro'
   
   // ✅ Estado para abrir chat lateral
   const [chatAberto, setChatAberto] = useState(null); // { thread, contato }
