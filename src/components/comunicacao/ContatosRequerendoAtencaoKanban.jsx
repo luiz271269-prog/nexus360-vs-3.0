@@ -724,16 +724,9 @@ export default function ContatosRequerendoAtencaoKanban({ usuario, onSelecionarC
               </button>
             ))}
           </div>
-
-
-
-
-
-
           </div>
-        </div>
 
-        {/* ✅ KANBAN COLUMNS */}
+          {/* ✅ KANBAN COLUMNS */}
         {loading ? (
           <div className="flex-1 flex items-center justify-center">
             <div className="text-center">
