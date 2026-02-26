@@ -440,6 +440,7 @@ export default function SearchAndFilter({
           </PopoverContent>
         </Popover>
       </div>
+      </div>
 
       {/* Chips de filtros ativos */}
       <AnimatePresence>
