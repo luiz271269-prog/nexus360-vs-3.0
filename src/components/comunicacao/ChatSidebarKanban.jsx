@@ -107,7 +107,7 @@ function ThreadCardKanban({ thread, isAtiva, usuarioAtual, atendentes, onSelecio
 }
 
 export default function ChatSidebarKanban({ threads, threadAtiva, onSelecionarThread, onVoltar, usuarioAtual, integracoes = [], atendentes = [] }) {
-  const [kanbanMode, setKanbanMode] = React.useState('integracao'); // 'integracao' | 'usuario'
+  const [kanbanMode, setKanbanMode] = React.useState('usuario'); // 'integracao' | 'usuario'
   // ✅ APLICAR MESMA LÓGICA DE VISIBILIDADE DO CHATWINDOW
   const threadsFiltradas = React.useMemo(() => {
     if (!usuarioAtual || threads.length === 0) return [];
@@ -245,7 +245,7 @@ export default function ChatSidebarKanban({ threads, threadAtiva, onSelecionarTh
 
       if (!mapa[uid]) {
         const atendente = atendentes.find(a => a.id === uid);
-        const nome = atendente?.full_name || atendente?.email || uid.substring(0, 8);
+        const nome = atendente?.full_name || atendente?.display_name || uid.substring(0, 8);
         mapa[uid] = { id: uid, nome, threads: [], atendente };
       }
       mapa[uid].threads.push(thread);
