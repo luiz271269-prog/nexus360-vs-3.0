@@ -291,7 +291,7 @@ export default function ChatSidebarKanban({ threads, threadAtiva, onSelecionarTh
   return (
     <div className="flex flex-col h-full min-h-0">
       {/* Toolbar: toggle modo Canal/Atendente */}
-      <div className="flex-shrink-0 px-2 py-1.5 bg-slate-100 border-b border-slate-200 flex items-center justify-end gap-2">
+      <div className="flex-shrink-0 px-2 py-1.5 bg-slate-100 border-b border-slate-200 flex items-center justify-start gap-2">
         <div className="flex items-center gap-1 bg-white border border-slate-300 rounded-lg p-0.5 shadow-sm">
           <button
             onClick={() => setKanbanMode('integracao')}
