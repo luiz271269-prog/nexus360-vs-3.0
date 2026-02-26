@@ -166,11 +166,28 @@ export default function ContatosRequerendoAtencaoKanban({ usuario, onSelecionarC
 
   // ✅ Calcular estatísticas ABC
   const statsABC = useMemo(() => {
+    const contarTipos = (lista) => ({
+      lead: lista.filter(c => c.tipo_contato === 'lead').length,
+      cliente: lista.filter(c => c.tipo_contato === 'cliente').length,
+      fornecedor: lista.filter(c => c.tipo_contato === 'fornecedor').length,
+      parceiro: lista.filter(c => c.tipo_contato === 'parceiro').length,
+    });
+
     const total = contatosComAlerta.length;
-    const classA = contatosComAlerta.filter(c => c.classe_abc === 'A' || (c.score_abc >= 70)).length;
-    const classB = contatosComAlerta.filter(c => c.classe_abc === 'B' || (c.score_abc >= 30 && c.score_abc < 70)).length;
-    const classC = contatosComAlerta.filter(c => c.classe_abc === 'C' || (c.score_abc < 30 && c.score_abc !== undefined && c.score_abc !== null)).length;
-    return { total, classA, classB, classC };
+    const listaA = contatosComAlerta.filter(c => c.classe_abc === 'A' || (c.score_abc >= 70));
+    const listaB = contatosComAlerta.filter(c => c.classe_abc === 'B' || (c.score_abc >= 30 && c.score_abc < 70));
+    const listaC = contatosComAlerta.filter(c => c.classe_abc === 'C' || (c.score_abc < 30 && c.score_abc !== undefined && c.score_abc !== null));
+
+    return {
+      total,
+      totalTipos: contarTipos(contatosComAlerta),
+      classA: listaA.length,
+      tiposA: contarTipos(listaA),
+      classB: listaB.length,
+      tiposB: contarTipos(listaB),
+      classC: listaC.length,
+      tiposC: contarTipos(listaC),
+    };
   }, [contatosComAlerta]);
 
   // ✅ Filtrar por etiquetas, classe ABC e tipo
