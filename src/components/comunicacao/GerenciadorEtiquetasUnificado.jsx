@@ -228,7 +228,10 @@ export default function GerenciadorEtiquetasUnificado({ usuarioAtual }) {
       categoria: etq.categoria || 'outro',
       destaque: etq.destaque || false,
       tipos_contato_aplicaveis: etq.tipos_contato_aplicaveis || [],
-      ordem: etq.ordem || 100
+      ordem: etq.ordem || 100,
+      peso_qualificacao: etq.peso_qualificacao ?? 0,
+      categoria_abc: etq.categoria_abc || 'neutro',
+      participa_abc: etq.participa_abc || false
     });
     setModalAberto(true);
   };
