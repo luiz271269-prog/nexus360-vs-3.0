@@ -247,7 +247,7 @@ export default function SearchAndFilter({
               </button>
             </PopoverTrigger>
 
-            <PopoverContent className="w-80 p-0" align="end">
+            <PopoverContent className="w-80 p-0" align="start">
             <div className="p-3 border-b bg-gradient-to-r from-slate-800 to-slate-700 rounded-t-lg">
               <div className="flex items-center justify-between">
                 <h3 className="font-semibold text-white flex items-center gap-2">
