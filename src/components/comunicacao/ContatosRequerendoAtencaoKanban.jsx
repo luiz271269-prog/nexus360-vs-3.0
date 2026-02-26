@@ -703,22 +703,25 @@ export default function ContatosRequerendoAtencaoKanban({ usuario, onSelecionarC
         <div className="flex-shrink-0 bg-white border-b border-slate-200 px-4 pb-3 space-y-2">
           <div className="grid grid-cols-4 gap-1.5">
             {[
-              { key: 'todos', label: 'TOTAL DE CONTATOS', value: statsABC.total, sub: 'em todos os tipos', border: '', valueColor: 'text-white' },
-              { key: 'A', label: 'CLASSE A — QUENTES', value: statsABC.classA, sub: 'score ≥ 70', border: 'border-b-2 border-green-500', valueColor: 'text-green-400', letter: 'A' },
-              { key: 'B', label: 'CLASSE B — MÉDIOS', value: statsABC.classB, sub: 'score 30–69', border: 'border-b-2 border-yellow-400', valueColor: 'text-yellow-400', letter: 'B' },
-              { key: 'C', label: 'CLASSE C — FRIOS', value: statsABC.classC, sub: 'score < 30', border: 'border-b-2 border-blue-400', valueColor: 'text-blue-300', letter: 'C' },
+              { key: 'todos', label: 'TOTAL DE CONTATOS', value: statsABC.total, sub: 'em todos os tipos', accentColor: 'border-t-2 border-slate-500', valueColor: 'text-white', letter: null },
+              { key: 'A', label: 'CLASSE A —\nQUENTES', value: statsABC.classA, sub: 'score ≥ 70', accentColor: 'border-t-2 border-green-400', valueColor: 'text-green-400', letter: 'A', letterColor: 'text-green-400/15' },
+              { key: 'B', label: 'CLASSE B —\nMÉDIOS', value: statsABC.classB, sub: 'score 30–69', accentColor: 'border-t-2 border-yellow-400', valueColor: 'text-yellow-400', letter: 'B', letterColor: 'text-yellow-400/15' },
+              { key: 'C', label: 'CLASSE C —\nFRIOS', value: statsABC.classC, sub: 'score < 30', accentColor: 'border-t-2 border-blue-400', valueColor: 'text-blue-300', letter: 'C', letterColor: 'text-blue-300/15' },
             ].map(stat => (
               <button
                 key={stat.key}
                 onClick={() => setFiltroClasse(stat.key)}
-                className={`bg-slate-800 ${stat.border} rounded-lg p-2.5 text-left transition-all hover:bg-slate-700 ${filtroClasse === stat.key ? 'ring-2 ring-white/40' : 'opacity-75 hover:opacity-100'}`}
+                className={`relative overflow-hidden bg-slate-800 ${stat.accentColor} rounded-lg p-3 text-left transition-all hover:bg-slate-750 ${filtroClasse === stat.key ? 'ring-2 ring-white/30 bg-slate-700' : 'opacity-80 hover:opacity-100'}`}
               >
-                <p className="text-[8px] font-bold text-slate-400 uppercase tracking-wide leading-tight mb-1">{stat.label}</p>
-                <div className="flex items-end justify-between">
-                  <span className={`text-xl font-black ${stat.valueColor}`}>{stat.value}</span>
-                  {stat.letter && <span className="text-2xl font-black text-white/10 leading-none">{stat.letter}</span>}
-                </div>
-                <p className="text-[8px] text-slate-500 mt-0.5">{stat.sub}</p>
+                {/* Marca d'água */}
+                {stat.letter && (
+                  <span className={`absolute -bottom-2 -right-1 text-7xl font-black ${stat.letterColor} leading-none select-none pointer-events-none`}>
+                    {stat.letter}
+                  </span>
+                )}
+                <p className="text-[8px] font-bold text-slate-400 uppercase tracking-wide leading-tight mb-2 whitespace-pre-line">{stat.label}</p>
+                <span className={`text-2xl font-black ${stat.valueColor} block mb-1`}>{stat.value}</span>
+                <p className="text-[8px] text-slate-500">{stat.sub}</p>
               </button>
             ))}
           </div>
