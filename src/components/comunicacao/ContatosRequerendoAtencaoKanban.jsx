@@ -164,12 +164,41 @@ export default function ContatosRequerendoAtencaoKanban({ usuario, onSelecionarC
     return grupos;
   };
 
-  // ✅ Filtrar por etiquetas selecionadas
-  const contatosFiltrados = etiquetasSelecionadas.length > 0
-    ? contatosComAlerta.filter(item => 
+  // ✅ Calcular estatísticas ABC
+  const statsABC = useMemo(() => {
+    const total = contatosComAlerta.length;
+    const classA = contatosComAlerta.filter(c => c.classe_abc === 'A' || (c.score_abc >= 70)).length;
+    const classB = contatosComAlerta.filter(c => c.classe_abc === 'B' || (c.score_abc >= 30 && c.score_abc < 70)).length;
+    const classC = contatosComAlerta.filter(c => c.classe_abc === 'C' || (c.score_abc < 30 && c.score_abc !== undefined && c.score_abc !== null)).length;
+    return { total, classA, classB, classC };
+  }, [contatosComAlerta]);
+
+  // ✅ Filtrar por etiquetas, classe ABC e tipo
+  const contatosFiltrados = useMemo(() => {
+    let lista = contatosComAlerta;
+    
+    if (filtroClasse !== 'todos') {
+      lista = lista.filter(item => {
+        const score = item.score_abc ?? 0;
+        if (filtroClasse === 'A') return item.classe_abc === 'A' || score >= 70;
+        if (filtroClasse === 'B') return item.classe_abc === 'B' || (score >= 30 && score < 70);
+        if (filtroClasse === 'C') return item.classe_abc === 'C' || score < 30;
+        return true;
+      });
+    }
+
+    if (filtroTipo !== 'todos') {
+      lista = lista.filter(item => item.tipo_contato === filtroTipo);
+    }
+
+    if (etiquetasSelecionadas.length > 0) {
+      lista = lista.filter(item =>
         item.tags && item.tags.some(tag => etiquetasSelecionadas.includes(tag))
-      )
-    : contatosComAlerta;
+      );
+    }
+
+    return lista;
+  }, [contatosComAlerta, filtroClasse, filtroTipo, etiquetasSelecionadas]);
 
   // ✅ Obter todas as etiquetas únicas
   const todasEtiquetas = useMemo(() => {
