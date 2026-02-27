@@ -649,27 +649,25 @@ export default function ContatosRequerendoAtencaoKanban({ usuario, onSelecionarC
           </div>
 
           {/* Linha 2: Cards ABC */}
-          <div className="grid grid-cols-4 gap-1">
+          <div className="grid grid-cols-4 gap-1.5">
             {[
-              { key: 'todos', label: 'TOTAL', value: statsABC.total, accentColor: 'border-t border-slate-500', valueColor: 'text-white', letter: null, tipos: statsABC.totalTipos },
-              { key: 'A', label: 'A — QUENTES', value: statsABC.classA, accentColor: 'border-t border-green-400', valueColor: 'text-green-400', letter: 'A', letterColor: 'text-green-400/15', tipos: statsABC.tiposA },
-              { key: 'B', label: 'B — MÉDIOS', value: statsABC.classB, accentColor: 'border-t border-yellow-400', valueColor: 'text-yellow-400', letter: 'B', letterColor: 'text-yellow-400/15', tipos: statsABC.tiposB },
-              { key: 'C', label: 'C — FRIOS', value: statsABC.classC, accentColor: 'border-t border-blue-400', valueColor: 'text-blue-300', letter: 'C', letterColor: 'text-blue-300/15', tipos: statsABC.tiposC },
+              { key: 'todos', label: 'TOTAL', value: statsABC.total, accentColor: 'border-t-2 border-slate-500', valueColor: 'text-white', letter: null, tipos: statsABC.totalTipos },
+              { key: 'A', label: 'CLASSE A — QUENTES', value: statsABC.classA, accentColor: 'border-t-2 border-green-400', valueColor: 'text-green-400', letter: 'A', letterColor: 'text-green-400/15', tipos: statsABC.tiposA },
+              { key: 'B', label: 'CLASSE B — MÉDIOS', value: statsABC.classB, accentColor: 'border-t-2 border-yellow-400', valueColor: 'text-yellow-400', letter: 'B', letterColor: 'text-yellow-400/15', tipos: statsABC.tiposB },
+              { key: 'C', label: 'CLASSE C — FRIOS', value: statsABC.classC, accentColor: 'border-t-2 border-blue-400', valueColor: 'text-blue-300', letter: 'C', letterColor: 'text-blue-300/15', tipos: statsABC.tiposC },
             ].map((stat) =>
               <button key={stat.key} onClick={() => setFiltroClasse(stat.key)}
-                className={`relative overflow-hidden bg-slate-700 ${stat.accentColor} rounded px-1.5 py-1 text-left transition-all hover:bg-slate-600 ${filtroClasse === stat.key ? 'ring-1 ring-white/40 bg-slate-600' : 'opacity-80 hover:opacity-100'}`}>
+                className={`relative overflow-hidden bg-slate-700 ${stat.accentColor} rounded-lg p-2 text-left transition-all hover:bg-slate-600 ${filtroClasse === stat.key ? 'ring-2 ring-white/40 bg-slate-600' : 'opacity-80 hover:opacity-100'}`}>
                 {stat.letter &&
-                  <span className={`absolute -bottom-1 -right-0.5 text-4xl font-black ${stat.letterColor} leading-none select-none pointer-events-none`}>{stat.letter}</span>
+                  <span className={`absolute -bottom-2 -right-1 text-6xl font-black ${stat.letterColor} leading-none select-none pointer-events-none`}>{stat.letter}</span>
                 }
-                <p className="text-[7px] font-bold text-slate-400 uppercase tracking-wide leading-tight mb-0.5">{stat.label}</p>
-                <div className="flex items-center justify-between gap-1">
-                  <span className={`text-base font-black ${stat.valueColor}`}>{stat.value}</span>
-                  <div className="flex flex-col items-end gap-0.5">
-                    {stat.tipos?.lead > 0 && <span className="text-[8px] bg-amber-500/20 text-amber-300 px-1 rounded font-bold leading-tight">🎯{stat.tipos.lead}</span>}
-                    {stat.tipos?.cliente > 0 && <span className="text-[8px] bg-emerald-500/20 text-emerald-300 px-1 rounded font-bold leading-tight">⭐{stat.tipos.cliente}</span>}
-                    {stat.tipos?.fornecedor > 0 && <span className="text-[8px] bg-blue-500/20 text-blue-300 px-1 rounded font-bold leading-tight">🔧{stat.tipos.fornecedor}</span>}
-                    {stat.tipos?.parceiro > 0 && <span className="text-[8px] bg-purple-500/20 text-purple-300 px-1 rounded font-bold leading-tight">🤝{stat.tipos.parceiro}</span>}
-                  </div>
+                <p className="text-[8px] font-bold text-slate-400 uppercase tracking-wide leading-tight mb-1">{stat.label}</p>
+                <span className={`text-xl font-black ${stat.valueColor} block`}>{stat.value}</span>
+                <div className="flex flex-col items-end gap-0.5 mt-1">
+                  {stat.tipos?.lead > 0 && <span className="text-[10px] bg-amber-500/20 text-amber-300 px-1.5 py-0.5 rounded font-bold">🎯 {stat.tipos.lead}</span>}
+                  {stat.tipos?.cliente > 0 && <span className="text-[10px] bg-emerald-500/20 text-emerald-300 px-1.5 py-0.5 rounded font-bold">⭐ {stat.tipos.cliente}</span>}
+                  {stat.tipos?.fornecedor > 0 && <span className="text-[10px] bg-blue-500/20 text-blue-300 px-1.5 py-0.5 rounded font-bold">🔧 {stat.tipos.fornecedor}</span>}
+                  {stat.tipos?.parceiro > 0 && <span className="text-[10px] bg-purple-500/20 text-purple-300 px-1.5 py-0.5 rounded font-bold">🤝 {stat.tipos.parceiro}</span>}
                 </div>
               </button>
             )}
