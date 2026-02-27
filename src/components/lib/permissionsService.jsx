@@ -911,9 +911,11 @@ export function aplicarFiltroEscopo(threads, escopo, userPermissions) {
       return threads.filter(t => {
         const isAtribuido = isAtribuidoAoUsuario(userPermissions, t);
         const isFidelizado = t.contato && isFidelizadoAoUsuario(userPermissions, t.contato);
-        // ✅ HISTÓRICO: shared_with_users = campo real no schema, populado ao transferir
-        // Garante que mensagens antigas NUNCA somem da visão do usuário que já as atendeu
-        const estaNoHistorico = t.shared_with_users?.includes(userPermissions.id);
+        // ✅ HISTÓRICO: cobre shared_with_users + atendentes_historico
+        const uid = userPermissions.id;
+        const estaNoHistorico =
+          t.shared_with_users?.includes(uid) ||
+          t.atendentes_historico?.includes(uid);
         return isAtribuido || isFidelizado || estaNoHistorico;
       });
     
