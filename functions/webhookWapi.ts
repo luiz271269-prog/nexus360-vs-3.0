@@ -461,7 +461,23 @@ async function handleConnectionStatus(payload, base44) {
 }
 
 async function handleMessageUpdate(dados, base44) {
-  if (!dados.messageId) return jsonOk({});
+  if (!dados.messageId) return jsonOk({ skipped: 'no_message_id' });
+  
+  const statusMap = { 
+    'READ': 'lida', 'read': 'lida', '3': 'lida', 3: 'lida',
+    'DELIVERED': 'entregue', 'delivered': 'entregue', '2': 'entregue', 2: 'entregue',
+    'SENT': 'enviada', 'sent': 'enviada', '1': 'enviada', 1: 'enviada',
+    'FAILED': 'falhou', 'failed': 'falhou', 'ERROR': 'falhou', 'error': 'falhou'
+  };
+  
+  const novoStatus = statusMap[dados.status] ?? statusMap[String(dados.status)] ?? null;
+  
+  console.log(`[WAPI] 📬 Status update: msgId=${dados.messageId} status=${dados.status} → ${novoStatus || 'ignorado'}`);
+  
+  if (!novoStatus) {
+    return jsonOk({ processed: 'status_update', skipped: 'unknown_status', raw_status: dados.status });
+  }
+  
   try {
     const mensagens = await base44.asServiceRole.entities.Message.filter(
       { whatsapp_message_id: dados.messageId },
@@ -470,18 +486,25 @@ async function handleMessageUpdate(dados, base44) {
     );
     
     if (mensagens && mensagens.length > 0) {
-      const statusMap = { 
-        'READ': 'lida', 'read': 'lida', '3': 'lida',
-        'DELIVERED': 'entregue', 'delivered': 'entregue', '2': 'entregue',
-        'SENT': 'enviada', 'sent': 'enviada', '1': 'enviada'
-      };
-      const novoStatus = statusMap[dados.status] || statusMap[String(dados.status)];
-      if (novoStatus) {
+      // Apenas atualizar se for um status "mais avançado" (evitar regressão)
+      const ordemStatus = { 'enviando': 0, 'enviada': 1, 'entregue': 2, 'lida': 3 };
+      const statusAtual = mensagens[0].status;
+      const ordemAtual = ordemStatus[statusAtual] ?? 0;
+      const ordemNova = ordemStatus[novoStatus] ?? 0;
+      
+      if (ordemNova >= ordemAtual) {
         await base44.asServiceRole.entities.Message.update(mensagens[0].id, { status: novoStatus });
+        console.log(`[WAPI] ✅ Status atualizado: ${statusAtual} → ${novoStatus} (msg: ${mensagens[0].id})`);
+      } else {
+        console.log(`[WAPI] ⏭️ Status não regredido: ${statusAtual} ≥ ${novoStatus}`);
       }
+    } else {
+      console.log(`[WAPI] ⚠️ Mensagem não encontrada para messageId: ${dados.messageId}`);
     }
-  } catch (e) {}
-  return jsonOk({ processed: 'status_update', provider: 'w_api' });
+  } catch (e) {
+    console.error('[WAPI] ❌ Erro ao atualizar status:', e.message);
+  }
+  return jsonOk({ processed: 'status_update', provider: 'w_api', new_status: novoStatus });
 }
 
 // ============================================================================
