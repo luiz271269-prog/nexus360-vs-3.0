@@ -224,6 +224,22 @@ export const isNaoAtribuida = (thread) => {
 };
 
 /**
+ * Verifica se o usuário já participou desta thread em algum momento.
+ * Cobre: shared_with_users, atendentes_historico, metadata.atendentes_anteriores, ultimo_atendente_id
+ */
+export const usuarioJaParticipouDaThread = (usuario, thread) => {
+  if (!usuario || !thread) return false;
+  const uid = usuario.id;
+
+  if (Array.isArray(thread.shared_with_users) && thread.shared_with_users.includes(uid)) return true;
+  if (Array.isArray(thread.atendentes_historico) && thread.atendentes_historico.includes(uid)) return true;
+  if (Array.isArray(thread.metadata?.atendentes_anteriores) && thread.metadata.atendentes_anteriores.includes(uid)) return true;
+  if (thread.ultimo_atendente_id && usuarioCorresponde(usuario, thread.ultimo_atendente_id)) return true;
+
+  return false;
+};
+
+/**
  * Verifica se o usuário já conversou com este contato/thread
  * Analisa o campo ultimo_atendente_id ou mensagens anteriores
  */
