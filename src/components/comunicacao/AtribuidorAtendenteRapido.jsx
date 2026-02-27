@@ -131,9 +131,21 @@ export default function AtribuidorAtendenteRapido({
           }
         }
 
-        await base44.entities.MessageThread.update(thread.id, {
+        // ✅ HISTÓRICO: Ao transferir, adicionar atendente anterior ao shared_with_users
+        // Garante que quem já atendeu NUNCA perde visibilidade da conversa
+        const updatePayload = {
           assigned_user_id: atendente ? atendente.id : null
-        });
+        };
+
+        if (thread.assigned_user_id && thread.assigned_user_id !== (atendente?.id || null)) {
+          // Há troca real de atendente — preservar o anterior
+          const sharedAtual = thread.shared_with_users || [];
+          if (!sharedAtual.includes(thread.assigned_user_id)) {
+            updatePayload.shared_with_users = [...sharedAtual, thread.assigned_user_id];
+          }
+        }
+
+        await base44.entities.MessageThread.update(thread.id, updatePayload);
         toast.success(`✅ Conversa ${atendente ? `atribuída a ${atendente.full_name || atendente.email}` : 'liberada'}`);
       }
       // ═══════════════════════════════════════════════════════════════════════
