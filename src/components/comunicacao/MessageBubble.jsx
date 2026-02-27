@@ -1347,15 +1347,15 @@ export default React.memo(function MessageBubble({
                 <span className="text-[11px] text-slate-500">
                   {format(new Date(message.sent_at || message.created_date), 'dd/MM HH:mm')}
                 </span>
-                {isOwn &&
-                <>
-                    {message.status === 'enviando' && <Clock className="w-[16px] h-[16px] text-slate-400" />}
-                    {message.status === 'enviada' && <Check className="w-[16px] h-[16px] text-slate-500" />}
-                    {message.status === 'entregue' && <CheckCheck className="w-[16px] h-[16px] text-slate-600" />}
-                    {message.status === 'lida' && <CheckCheck className="w-[16px] h-[16px] text-blue-500" />}
-                    {message.status === 'falhou' && <AlertCircle className="w-[16px] h-[16px] text-red-500" />}
-                  </>
-                }
+                {isOwn && (() => {
+                  if (message.status === 'enviando') return <Clock className="w-[14px] h-[14px] text-slate-400" />;
+                  if (message.status === 'enviada') return <Check className="w-[14px] h-[14px] text-slate-400" />;
+                  if (message.status === 'entregue') return <CheckCheck className="w-[14px] h-[14px] text-slate-400" />;
+                  if (message.status === 'lida') return <CheckCheck className="w-[14px] h-[14px] text-blue-500" />;
+                  if (message.status === 'falhou') return <AlertCircle className="w-[14px] h-[14px] text-red-500" />;
+                  // sem status definido: mostrar entregue (padrão WhatsApp)
+                  return <CheckCheck className="w-[14px] h-[14px] text-slate-400" />;
+                })()}
                 </div>
               </>
             }
