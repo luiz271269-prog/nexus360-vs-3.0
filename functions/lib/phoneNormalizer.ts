@@ -1,96 +1,102 @@
 // ============================================================================
-// NORMALIZADOR ÚNICO DE TELEFONE - E.164
+// NORMALIZADOR ÚNICO DE TELEFONE - FONTE DE VERDADE
 // ============================================================================
-// Usar em TODOS os pontos: webhooks, importação, busca, criação manual
-// Garante formato único: +55XXXXXXXXXXX
+// REGRA: Esta é a ÚNICA função de normalização de telefone em todo o sistema.
+// Todos os outros arquivos devem importar DAQUI.
+// Não criar cópias inline em webhooks, funções ou componentes.
 // ============================================================================
 
 /**
- * Normaliza telefone para formato E.164 canônico
+ * Normaliza telefone para formato E.164 canônico: +55XXXXXXXXXXX
+ * 
+ * Regras:
+ * - Remove @s.whatsapp.net, @lid, etc.
+ * - Adiciona DDI 55 se não tiver
+ * - Celulares brasileiros (12 dígitos com 55): adiciona dígito 9 se começar com 6,7,8,9
+ * - Telefones fixos (começa com 2,3,4,5): NÃO adiciona o 9
+ * - Retorna sempre COM + (ex: +5548999322400)
+ * 
  * @param {string} telefone - Telefone em qualquer formato
- * @param {string} defaultCountryCode - Código do país padrão (default: '55')
  * @returns {string|null} - Telefone normalizado (+55XXXXXXXXXXX) ou null se inválido
  */
-export function normalizePhone(telefone, defaultCountryCode = '55') {
+export function normalizarTelefone(telefone) {
   if (!telefone) return null;
-  
-  // Remove tudo que não é número
-  let apenasNumeros = String(telefone)
-    .split('@')[0] // Remove @s.whatsapp.net
-    .replace(/\D/g, ''); // Remove não-dígitos
-  
+
+  // Remove sufixos do WhatsApp (@s.whatsapp.net, @lid, @g.us, etc.)
+  let apenasNumeros = String(telefone).split('@')[0].replace(/\D/g, '');
+
   if (!apenasNumeros || apenasNumeros.length < 10) return null;
-  
-  // Remove leading zeros (alguns sistemas enviam 0XX...)
+
+  // Remove zeros à esquerda
   apenasNumeros = apenasNumeros.replace(/^0+/, '');
-  
-  // Se já começa com código do país, mantém
-  if (apenasNumeros.startsWith(defaultCountryCode)) {
-    // Valida comprimento (BR: 13 dígitos com DDI)
-    if (apenasNumeros.length === 12 || apenasNumeros.length === 13) {
-      return '+' + apenasNumeros;
+
+  // Adicionar DDI Brasil se não tiver
+  if (!apenasNumeros.startsWith('55')) {
+    if (apenasNumeros.length === 10 || apenasNumeros.length === 11) {
+      apenasNumeros = '55' + apenasNumeros;
     }
-    return null;
   }
-  
-  // Se não tem DDI, adiciona
-  if (apenasNumeros.length === 10 || apenasNumeros.length === 11) {
-    return '+' + defaultCountryCode + apenasNumeros;
+
+  // Celular brasileiro com 12 dígitos (55 + DDD(2) + número(8)):
+  // Verificar se é celular e adicionar o dígito 9
+  if (apenasNumeros.startsWith('55') && apenasNumeros.length === 12) {
+    const primeiroDigitoNumero = apenasNumeros[4]; // após 55 + DDD(2)
+    if (['6', '7', '8', '9'].includes(primeiroDigitoNumero)) {
+      // É celular - adiciona 9
+      apenasNumeros = apenasNumeros.substring(0, 4) + '9' + apenasNumeros.substring(4);
+    }
+    // Se começa com 2,3,4,5 é telefone fixo - não adiciona 9
   }
-  
-  // Caso especial: 12 dígitos sem DDI (improvável, mas cobre)
-  if (apenasNumeros.length === 12) {
-    return '+' + apenasNumeros;
-  }
-  
-  return null;
+
+  return '+' + apenasNumeros;
 }
 
 /**
- * Compara se dois telefones são o mesmo (após normalização)
+ * Gera todas as variações possíveis de um telefone normalizado
+ * para busca tolerante a erros de formato no banco de dados
+ * 
+ * @param {string} telefoneNormalizado - Telefone já normalizado (+55...)
+ * @returns {string[]} - Array de variações únicas
+ */
+export function gerarVariacoesTelefone(telefoneNormalizado) {
+  if (!telefoneNormalizado) return [];
+  const base = telefoneNormalizado.replace(/\D/g, '');
+  const variacoes = new Set([telefoneNormalizado, base]);
+
+  if (base.startsWith('55')) {
+    // 13 dígitos (com 9): adicionar versão sem o 9
+    if (base.length === 13) {
+      const sem9 = base.substring(0, 4) + base.substring(5);
+      variacoes.add('+' + sem9);
+      variacoes.add(sem9);
+    }
+    // 12 dígitos (sem 9): adicionar versão com o 9
+    if (base.length === 12) {
+      const com9 = base.substring(0, 4) + '9' + base.substring(4);
+      variacoes.add('+' + com9);
+      variacoes.add(com9);
+    }
+    // Variação explícita com +55
+    variacoes.add('+55' + base.substring(2));
+  }
+
+  return [...variacoes];
+}
+
+/**
+ * Compara dois telefones após normalização
  */
 export function isSamePhone(phone1, phone2) {
-  const normalized1 = normalizePhone(phone1);
-  const normalized2 = normalizePhone(phone2);
-  
-  if (!normalized1 || !normalized2) return false;
-  return normalized1 === normalized2;
+  const n1 = normalizarTelefone(phone1);
+  const n2 = normalizarTelefone(phone2);
+  if (!n1 || !n2) return false;
+  return n1 === n2;
 }
 
 /**
- * Extrai informações do telefone normalizado
+ * Formata para exibição (garante o +)
  */
-export function parsePhone(telefone) {
-  const normalized = normalizePhone(telefone);
-  if (!normalized) return null;
-  
-  const digits = normalized.replace('+', '');
-  
-  // Brasil: +55 (DDD) NÚMERO
-  if (digits.startsWith('55') && digits.length === 13) {
-    return {
-      e164: normalized,
-      countryCode: '55',
-      areaCode: digits.substring(2, 4),
-      number: digits.substring(4),
-      formatted: `+55 (${digits.substring(2, 4)}) ${digits.substring(4, 9)}-${digits.substring(9)}`
-    };
-  }
-  
-  if (digits.startsWith('55') && digits.length === 12) {
-    return {
-      e164: normalized,
-      countryCode: '55',
-      areaCode: digits.substring(2, 4),
-      number: digits.substring(4),
-      formatted: `+55 (${digits.substring(2, 4)}) ${digits.substring(4, 8)}-${digits.substring(8)}`
-    };
-  }
-  
-  // Genérico
-  return {
-    e164: normalized,
-    countryCode: digits.substring(0, 2),
-    number: digits.substring(2)
-  };
+export function formatarTelefoneExibicao(telefone) {
+  const normalizado = normalizarTelefone(telefone);
+  return normalizado || String(telefone || '');
 }
