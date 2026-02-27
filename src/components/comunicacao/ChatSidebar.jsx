@@ -834,9 +834,16 @@ export default function ChatSidebar({
                     <span className="text-slate-400 italic">Sem conversa ativa</span>
                   ) : (
                     <>
-                      {thread.last_message_sender === 'user' && (
-                        <CheckCheck className="w-3 h-3 text-blue-500 flex-shrink-0" />
-                      )}
+                      {thread.last_message_sender === 'user' && (() => {
+                        const status = thread.last_message_status;
+                        if (status === 'lida') return <CheckCheck className="w-3 h-3 text-blue-500 flex-shrink-0" />;
+                        if (status === 'entregue') return <CheckCheck className="w-3 h-3 text-slate-400 flex-shrink-0" />;
+                        if (status === 'enviada') return <Check className="w-3 h-3 text-slate-400 flex-shrink-0" />;
+                        if (status === 'enviando') return <Clock className="w-3 h-3 text-slate-300 flex-shrink-0" />;
+                        if (status === 'falhou') return <AlertCircle className="w-3 h-3 text-red-500 flex-shrink-0" />;
+                        // fallback: duplo check padrão
+                        return <CheckCheck className="w-3 h-3 text-slate-400 flex-shrink-0" />;
+                      })()}
                       {thread.last_media_type === 'image' && <Image className="w-3 h-3 text-blue-500 flex-shrink-0" />}
                       {thread.last_media_type === 'video' && <Video className="w-3 h-3 text-purple-500 flex-shrink-0" />}
                       {thread.last_media_type === 'audio' && <Mic className="w-3 h-3 text-green-500 flex-shrink-0" />}
