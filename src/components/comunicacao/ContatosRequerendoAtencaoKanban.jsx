@@ -759,29 +759,15 @@ export default function ContatosRequerendoAtencaoKanban({ usuario, onSelecionarC
       {/* ✅ CHAT LATERAL */}
       {chatAberto &&
         <div className="w-1/2 border-l border-slate-200 bg-white flex flex-col overflow-hidden">
-          {/* Header do Chat */}
-          <div className="flex-shrink-0 bg-gradient-to-r from-slate-800 to-slate-700 px-4 py-3 flex items-center justify-between border-b border-slate-600">
-            <div className="flex items-center gap-3 min-w-0">
-              <Button
-                onClick={() => setChatAberto(null)}
-                variant="ghost"
-                size="sm"
-                className="h-8 w-8 p-0 hover:bg-white/20 text-white flex-shrink-0">
-
-                <ArrowLeft className="w-4 h-4" />
-              </Button>
-              <div className="w-10 h-10 rounded-full flex items-center justify-center text-white font-bold text-lg shadow-md bg-gradient-to-br from-amber-400 via-orange-500 to-red-500 flex-shrink-0">
-                {chatAberto.contato.nome?.charAt(0)?.toUpperCase() || '?'}
-              </div>
-              <div className="min-w-0">
-                <h3 className="font-semibold text-white text-sm truncate">
-                  {chatAberto.contato.empresa || chatAberto.contato.nome}
-                </h3>
-                <p className="text-xs text-slate-300 truncate">
-                  {chatAberto.contato.cargo ? `${chatAberto.contato.cargo} - ` : ''}{chatAberto.contato.nome}
-                </p>
-              </div>
-            </div>
+          {/* Botão de voltar sobreposto ao header do ChatWindow */}
+          <div className="flex-shrink-0 relative">
+            <button
+              onClick={() => setChatAberto(null)}
+              className="absolute left-2 top-1/2 -translate-y-1/2 z-10 h-8 w-8 flex items-center justify-center rounded-full bg-black/30 hover:bg-black/50 text-white transition-all"
+              style={{ top: '20px' }}
+              title="Voltar">
+              <ArrowLeft className="w-4 h-4" />
+            </button>
           </div>
 
           {/* Chat Window */}
