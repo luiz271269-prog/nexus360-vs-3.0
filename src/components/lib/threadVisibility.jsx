@@ -331,6 +331,17 @@ export const canUserSeeThreadBase = (usuario, thread, mensagensThread = []) => {
     return true;
   }
 
+  // 🔑 PRIORIDADE #2.5: HISTÓRICO DE ATENDIMENTO
+  // → Usuário já esteve nesta conversa (shared_with_users = ex-atendentes)
+  const estaNoHistorico =
+    thread.shared_with_users?.includes(usuario.id) ||
+    thread.atendentes_historico?.includes(usuario.id) ||
+    thread.metadata?.atendentes_anteriores?.includes(usuario.id);
+
+  if (estaNoHistorico) {
+    return true;
+  }
+
   // 🛑 BLOQUEIO ABSOLUTO: Contato fidelizado a OUTRO usuário
   // → Só o dono vê (bloqueia todos outros - inclui admin/gerente)
   if (contato?.is_cliente_fidelizado) {
