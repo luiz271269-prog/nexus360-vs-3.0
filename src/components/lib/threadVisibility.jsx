@@ -500,6 +500,16 @@ export const canUserSeeThreadWithFilters = (usuario, thread, filtros = {}) => {
     return true;
   }
 
+  // PRIORIDADE 1.5: HISTÓRICO (shared_with_users / atendentes_historico)
+  const estaNoHistoricoW =
+    thread.shared_with_users?.includes(usuario.id) ||
+    thread.atendentes_historico?.includes(usuario.id) ||
+    thread.metadata?.atendentes_anteriores?.includes(usuario.id);
+
+  if (estaNoHistoricoW) {
+    return true;
+  }
+
   // PRIORIDADE 2: Contato FIDELIZADO ao usuário → SEMPRE VÊ
   // ✅ CRÍTICO: Fidelização ignora integração, setor, conexão
   if (fidelizado) {
