@@ -93,6 +93,7 @@ function deveIgnorar(payload, classification) {
 
   if (classification === 'ignore') return 'evento_desconhecido';
   if (classification === 'system-status') return null;
+  if (classification === 'system-status-delivery') return null; // processar delivery events
   if (classification === 'connection-status') return null;
 
   const tipo = String(payload.type ?? payload.event ?? '').toLowerCase();
