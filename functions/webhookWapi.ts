@@ -62,12 +62,15 @@ function classifyWapiEvent(payload) {
     return 'connection-status';
   }
 
-  // IMPORTANTE: eventos de status de entrega precisam ser processados (não ignorados como 'system-status')
-  // system-status é reservado para eventos internos do sistema que não têm messageId
-  if (evento.includes('delivery') || evento.includes('ack') || evento.includes('status')) {
-    // Se tem messageId ou ids[], é um evento de status de mensagem válido → processar
+  // webhookDelivery = evento de confirmação de entrega (fromMe: true), SEMPRE tratar como status update
+  if (evento === 'webhookdelivery' || evento === 'webhookdelivered') {
+    return 'system-status-delivery';
+  }
+
+  // Outros eventos de status/ack/delivery (sem ser o webhookDelivery da W-API)
+  if (evento.includes('delivery') || evento.includes('ack') || evento.includes('messagestatuscallback')) {
     if (payload.messageId || (Array.isArray(payload.ids) && payload.ids.length > 0) || payload.id) {
-      return 'system-status-delivery'; // classificação especial para routing correto
+      return 'system-status-delivery';
     }
     return 'system-status';
   }
