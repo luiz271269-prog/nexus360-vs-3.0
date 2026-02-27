@@ -62,8 +62,14 @@ function classifyWapiEvent(payload) {
     return 'connection-status';
   }
 
-  // webhookDelivery = evento de confirmação de entrega (fromMe: true), SEMPRE tratar como status update
+  // webhookDelivery = evento de confirmação de entrega da W-API (fromMe: true)
+  // SEMPRE tratar como status update, NUNCA como mensagem recebida
   if (evento === 'webhookdelivery' || evento === 'webhookdelivered') {
+    return 'system-status-delivery';
+  }
+
+  // Qualquer evento com fromMe: true É uma confirmação de envio (nunca mensagem nova)
+  if (payload.fromMe === true && payload.messageId) {
     return 'system-status-delivery';
   }
 
