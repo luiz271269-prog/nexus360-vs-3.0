@@ -160,11 +160,17 @@ export default function ChatSidebarKanban({ threads, threadAtiva, onSelecionarTh
     });
   }, [threads, usuarioAtual]);
 
-  // Coluna fixa: "Minhas Conversas" (atribuídas ao usuário logado)
+  // Coluna fixa: "Minhas Conversas"
+  // Inclui: atribuídas ao usuário + shared_with_users + atendentes_historico
   const minhasConversas = React.useMemo(() => {
     const norm = (v) => String(v || '').toLowerCase().trim();
     return threadsFiltradas
-      .filter(t => norm(t.assigned_user_id) === norm(usuarioAtual?.id))
+      .filter(t => {
+        if (norm(t.assigned_user_id) === norm(usuarioAtual?.id)) return true;
+        if (t.shared_with_users?.includes(usuarioAtual?.id)) return true;
+        if (t.atendentes_historico?.includes(usuarioAtual?.id)) return true;
+        return false;
+      })
       .sort((a, b) => new Date(b.last_message_at || 0) - new Date(a.last_message_at || 0));
   }, [threadsFiltradas, usuarioAtual]);
 
