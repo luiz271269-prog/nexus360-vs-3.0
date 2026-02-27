@@ -178,15 +178,23 @@ function normalizarPayload(payload) {
       return { type: 'connection', instanceId, status: payload.connected ? 'conectado' : 'desconectado' };
     }
 
-    // W-API: webhookDelivery = confirmação de entrega da mensagem enviada (fromMe: true)
-    // Contém o messageId da mensagem original e o status de entrega
-    if (tipo === 'webhookdelivery' || tipo === 'webhookdelivered' || tipo.includes('messagestatuscallback') || tipo.includes('delivery') || tipo.includes('ack')) {
+    // ⚠️ IMPORTANTE: Detectar se é MENSAGEM REAL antes de tratar como status update
+    // Mensagem real tem: messageId + phone + conteúdo + fromMe=false
+    const temConteudoMensagem = payload.text || payload.body || payload.msgContent || payload.message;
+    const temIndicadoresMensagem = payload.pushName || payload.senderName;
+    const ehMensagemReal = payload.messageId &&
+                           payload.phone &&
+                           payload.fromMe === false &&
+                           (temConteudoMensagem || temIndicadoresMensagem);
+
+    // Status de mensagem - APENAS se NÃO for mensagem real
+    // webhookDelivery/messagestatuscallback geralmente vem com fromMe=true ou array "ids" sem phone
+    if (!ehMensagemReal && (tipo === 'webhookdelivery' || tipo === 'webhookdelivered' || tipo.includes('messagestatuscallback') || tipo.includes('delivery') || tipo.includes('ack') || payload.fromMe === true)) {
       const msgId = (Array.isArray(payload.ids) && payload.ids[0]) ||
                     payload.messageId ||
                     payload.id ||
                     payload.key?.id ||
                     null;
-      // W-API webhookDelivery: fromMe=true + messageId = confirmação da mensagem enviada
       // status pode ser numérico (1=sent, 2=delivered, 3=read) ou string
       // Para webhookDelivery sem campo status explícito, inferir como "entregue"
       const rawStatus = payload.status ?? payload.ack ?? payload.deliveryStatus ?? (tipo === 'webhookdelivery' ? 2 : null);
