@@ -249,6 +249,15 @@ export default function ChatSidebarKanban({ threads, threadAtiva, onSelecionarTh
         return;
       }
 
+      // Também inclui histórico (shared/atendentes_historico) sem duplicar
+      const jaEmMinhas =
+        thread.shared_with_users?.includes(usuarioAtual?.id) ||
+        thread.atendentes_historico?.includes(usuarioAtual?.id);
+      if (jaEmMinhas && !mapa['__minhas__'].threads.find(t => t.id === thread.id)) {
+        mapa['__minhas__'].threads.push(thread);
+        return;
+      }
+
       if (!mapa[uid]) {
         const atendente = atendentes.find(a => a.id === uid);
         const nome = atendente?.full_name || atendente?.display_name || uid.substring(0, 8);
