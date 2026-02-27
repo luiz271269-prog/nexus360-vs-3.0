@@ -174,20 +174,50 @@ export default function ChatSidebarKanban({ threads, threadAtiva, onSelecionarTh
       .sort((a, b) => new Date(b.last_message_at || 0) - new Date(a.last_message_at || 0));
   }, [threadsFiltradas, usuarioAtual]);
 
+  // Integrações visíveis para o usuário atual
+  const integracoesVisiveis = React.useMemo(() => {
+    if (!usuarioAtual || integracoes.length === 0) return integracoes;
+    if (usuarioAtual.role === 'admin') return integracoes;
+
+    // Se o usuário tem lista restrita de integrações visíveis, filtrar
+    const integracoesPermitidas = usuarioAtual.integracoes_visiveis || usuarioAtual.whatsapp_permissions?.integracoes_visiveis;
+    if (integracoesPermitidas && integracoesPermitidas.length > 0) {
+      return integracoes.filter(i => integracoesPermitidas.includes(i.id));
+    }
+
+    // Gerente/Coordenador vê todas
+    if (['gerente', 'coordenador', 'supervisor'].includes(usuarioAtual.attendant_role)) return integracoes;
+
+    // Atendente normal: mostrar apenas integrações onde tem conversas atribuídas a ele
+    const idsComMinhas = new Set(
+      threadsFiltradas
+        .filter(t => t.assigned_user_id === usuarioAtual.id || t.shared_with_users?.includes(usuarioAtual.id) || t.atendentes_historico?.includes(usuarioAtual.id))
+        .map(t => t.whatsapp_integration_id)
+        .filter(Boolean)
+    );
+    return integracoes.filter(i => idsComMinhas.has(i.id));
+  }, [integracoes, usuarioAtual, threadsFiltradas]);
+
   // Agrupar threads externas por integração
   const colunas = React.useMemo(() => {
     const externas = threadsFiltradas.filter(t =>
       t.thread_type === 'contact_external' || (!t.thread_type && t.contact_id)
     );
 
-    if (integracoes.length === 0) {
-      return [{ id: 'sem_integracao', nome: 'Conversas', numero: '', threads: externas, status: 'desconectado' }];
+    if (integracoesVisiveis.length === 0) {
+      // Sem integrações visíveis: mostrar apenas as threads do próprio usuário
+      const minhas = externas.filter(t =>
+        t.assigned_user_id === usuarioAtual?.id ||
+        !t.assigned_user_id
+      );
+      return [{ id: 'sem_integracao', nome: 'Conversas', numero: '', threads: minhas, status: 'desconectado' }];
     }
 
     const mapa = {};
+    const idsVisiveis = new Set(integracoesVisiveis.map(i => i.id));
 
-    // Criar coluna para cada integração
-    integracoes.forEach(int => {
+    // Criar coluna para cada integração visível
+    integracoesVisiveis.forEach(int => {
       mapa[int.id] = {
         id: int.id,
         nome: int.nome_instancia,
@@ -198,16 +228,19 @@ export default function ChatSidebarKanban({ threads, threadAtiva, onSelecionarTh
       };
     });
 
-    // Distribuir threads nas colunas
+    // Distribuir threads nas colunas apenas para integrações visíveis
     externas.forEach(thread => {
       const integId = thread.whatsapp_integration_id;
       if (integId && mapa[integId]) {
         mapa[integId].threads.push(thread);
-      } else {
-        if (!mapa['outras']) {
-          mapa['outras'] = { id: 'outras', nome: 'Outras', numero: '', status: 'desconectado', cor: 'slate', threads: [] };
+      } else if (!integId || !idsVisiveis.has(integId)) {
+        // Thread sem integração ou de integração não visível: só admin vê na coluna "Outras"
+        if (usuarioAtual?.role === 'admin') {
+          if (!mapa['outras']) {
+            mapa['outras'] = { id: 'outras', nome: 'Outras', numero: '', status: 'desconectado', cor: 'slate', threads: [] };
+          }
+          mapa['outras'].threads.push(thread);
         }
-        mapa['outras'].threads.push(thread);
       }
     });
 
@@ -215,12 +248,8 @@ export default function ChatSidebarKanban({ threads, threadAtiva, onSelecionarTh
       col.threads.sort((a, b) => new Date(b.last_message_at || 0) - new Date(a.last_message_at || 0));
     });
 
-    const isAdmin = usuarioAtual?.role === 'admin';
-    return Object.values(mapa).filter(c => {
-      if (c.id === 'outras' && !isAdmin) return false;
-      return c.threads.length > 0 || integracoes.find(i => i.id === c.id);
-    });
-  }, [threads, integracoes]);
+    return Object.values(mapa).filter(c => c.threads.length > 0 || integracoesVisiveis.find(i => i.id === c.id));
+  }, [threadsFiltradas, integracoesVisiveis, usuarioAtual]);
 
   // Kanban por usuário: agrupar threads por atendente atribuído
   const colunasPorUsuario = React.useMemo(() => {
