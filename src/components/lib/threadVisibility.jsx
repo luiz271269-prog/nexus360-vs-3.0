@@ -500,11 +500,9 @@ export const canUserSeeThreadWithFilters = (usuario, thread, filtros = {}) => {
     return true;
   }
 
-  // PRIORIDADE 1.5: HISTÓRICO (shared_with_users / atendentes_historico)
-  const estaNoHistoricoW =
-    thread.shared_with_users?.includes(usuario.id) ||
-    thread.atendentes_historico?.includes(usuario.id) ||
-    thread.metadata?.atendentes_anteriores?.includes(usuario.id);
+  // PRIORIDADE 1.5: HISTÓRICO (shared_with_users — campo real do schema)
+  // Garante que quem já atendeu nunca perde visibilidade após transferência
+  const estaNoHistoricoW = thread.shared_with_users?.includes(usuario.id);
 
   if (estaNoHistoricoW) {
     return true;
@@ -537,9 +535,9 @@ export const canUserSeeThreadWithFilters = (usuario, thread, filtros = {}) => {
 
   // A. Aba "Minhas Conversas" (scope = 'my')
   if (filtros.scope === 'my') {
-    // Atribuição e fidelização já foram checadas no topo (PRIORIDADES ABSOLUTAS)
-    // Se chegou aqui, não é atribuída nem fidelizada ao usuário
-    return false;
+    // ✅ CRÍTICO: histórico também conta como "minha conversa"
+    // Sem isso, conversas transferidas desaparecem da aba "my"
+    return thread.shared_with_users?.includes(usuario.id) || false;
   }
 
   // ═══════════════════════════════════════════════════════════════════════
