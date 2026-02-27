@@ -347,9 +347,8 @@ export const canUserSeeThreadBase = (usuario, thread, mensagensThread = []) => {
     return true;
   }
 
-  // 🔑 PRIORIDADE #2.5: HISTÓRICO — shared_with_users (campo real do schema)
-  // Populado automaticamente ao transferir conversa no AtribuidorAtendenteRapido
-  if (thread.shared_with_users?.includes(usuario.id)) {
+  // 🔑 PRIORIDADE #2.5: HISTÓRICO — usuário já participou desta thread
+  if (usuarioJaParticipouDaThread(usuario, thread)) {
     return true;
   }
 
@@ -511,11 +510,8 @@ export const canUserSeeThreadWithFilters = (usuario, thread, filtros = {}) => {
     return true;
   }
 
-  // PRIORIDADE 1.5: HISTÓRICO (shared_with_users — campo real do schema)
-  // Garante que quem já atendeu nunca perde visibilidade após transferência
-  const estaNoHistoricoW = thread.shared_with_users?.includes(usuario.id);
-
-  if (estaNoHistoricoW) {
+  // PRIORIDADE 1.5: HISTÓRICO — usuário já participou desta thread
+  if (usuarioJaParticipouDaThread(usuario, thread)) {
     return true;
   }
 
@@ -548,7 +544,10 @@ export const canUserSeeThreadWithFilters = (usuario, thread, filtros = {}) => {
   if (filtros.scope === 'my') {
     // ✅ CRÍTICO: histórico também conta como "minha conversa"
     // Sem isso, conversas transferidas desaparecem da aba "my"
-    return thread.shared_with_users?.includes(usuario.id) || false;
+    if (usuarioJaParticipouDaThread(usuario, thread)) {
+      return true;
+    }
+    return false;
   }
 
   // ═══════════════════════════════════════════════════════════════════════
@@ -689,8 +688,8 @@ export const verificarBloqueioThread = (usuario, thread, contato = null) => {
   // PRIORIDADE 1.5: HISTÓRICO DE ATENDIMENTO - usuário já atendeu esta conversa
   // shared_with_users preserva ex-atendentes após transferência
   // ═══════════════════════════════════════════════════════════════════════════════
-  if (thread.shared_with_users?.includes(usuario.id)) {
-    console.log(`[BLOQUEIO] ✅ LIBERADO - Usuário no histórico (shared_with_users): ${usuario.email}`);
+  if (usuarioJaParticipouDaThread(usuario, thread)) {
+    console.log(`[BLOQUEIO] ✅ LIBERADO - Usuário JÁ PARTICIPOU (histórico): ${usuario.email}`);
     return { bloqueado: false, motivo: null, atendenteResponsavel: null };
   }
 
@@ -828,6 +827,7 @@ export default {
   isFidelizadoAoUsuario,
   isNaoAtribuida,
   usuarioJaConversouComContato,
+  usuarioJaParticipouDaThread,
   canUserSeeThreadBase,
   canUserSeeThreadWithFilters,
   filtrarAtendentesVisiveis,
