@@ -62,7 +62,13 @@ function classifyWapiEvent(payload) {
     return 'connection-status';
   }
 
+  // IMPORTANTE: eventos de status de entrega precisam ser processados (não ignorados como 'system-status')
+  // system-status é reservado para eventos internos do sistema que não têm messageId
   if (evento.includes('delivery') || evento.includes('ack') || evento.includes('status')) {
+    // Se tem messageId ou ids[], é um evento de status de mensagem válido → processar
+    if (payload.messageId || (Array.isArray(payload.ids) && payload.ids.length > 0) || payload.id) {
+      return 'system-status-delivery'; // classificação especial para routing correto
+    }
     return 'system-status';
   }
 
