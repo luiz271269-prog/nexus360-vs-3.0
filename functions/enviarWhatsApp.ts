@@ -157,9 +157,33 @@ function detectarTipoMidia(url, tipoInformado) {
 }
 
 // Formatar número de telefone (apenas dígitos)
+// Trata diferença entre celular (11 dígitos com DDD) e fixo (10 dígitos com DDD)
 function formatarNumero(numero) {
   if (!numero) return '';
-  return String(numero).replace(/\D/g, '');
+  // Remover tudo que não é dígito e o prefixo +
+  let digits = String(numero).replace(/\D/g, '');
+  
+  // Remover prefixo 55 (Brasil) se presente no início
+  if (digits.startsWith('55') && digits.length > 11) {
+    digits = digits.slice(2);
+  }
+  
+  // Brasil: DDD (2 dígitos) + número
+  // Celular: DDD + 9 + 8 dígitos = 11 dígitos total
+  // Fixo:    DDD + 8 dígitos = 10 dígitos total
+  // Se tiver 11 dígitos e o 3º dígito for '9', é celular → manter
+  // Se tiver 10 dígitos, é fixo → manter como está (NÃO adicionar 9)
+  
+  // Recolocar o 55 para envio internacional
+  return '55' + digits;
+}
+
+// Detectar se é número fixo brasileiro (DDD + 8 dígitos = 10 dígitos sem código do país)
+function isNumeroFixo(numero) {
+  const digits = String(numero).replace(/\D/g, '').replace(/^55/, '');
+  // Fixo: 10 dígitos (DDD 2 + número 8)
+  // Celular: 11 dígitos (DDD 2 + 9 + número 8)
+  return digits.length === 10;
 }
 
 Deno.serve(async (req) => {
