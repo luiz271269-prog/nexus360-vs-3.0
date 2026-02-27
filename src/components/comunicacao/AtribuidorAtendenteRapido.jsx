@@ -138,11 +138,12 @@ export default function AtribuidorAtendenteRapido({
         };
 
         if (thread.assigned_user_id && thread.assigned_user_id !== (atendente?.id || null)) {
-          // Há troca real de atendente — preservar o anterior
-          const sharedAtual = thread.shared_with_users || [];
-          if (!sharedAtual.includes(thread.assigned_user_id)) {
-            updatePayload.shared_with_users = [...sharedAtual, thread.assigned_user_id];
-          }
+          // Há troca real de atendente — preservar o anterior em ambos os campos
+          const prevId = thread.assigned_user_id;
+          const sharedAtual = Array.isArray(thread.shared_with_users) ? thread.shared_with_users : [];
+          const historicoAtual = Array.isArray(thread.atendentes_historico) ? thread.atendentes_historico : [];
+          updatePayload.shared_with_users = [...new Set([...sharedAtual, prevId])];
+          updatePayload.atendentes_historico = [...new Set([...historicoAtual, prevId])];
         }
 
         await base44.entities.MessageThread.update(thread.id, updatePayload);
