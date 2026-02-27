@@ -913,9 +913,14 @@ export function aplicarFiltroEscopo(threads, escopo, userPermissions) {
       return threads.filter(t => {
         const isAtribuido = isAtribuidoAoUsuario(userPermissions, t);
         const isFidelizado = t.contato && isFidelizadoAoUsuario(userPermissions, t.contato);
-        // ✅ Também incluir threads compartilhadas com o usuário
-        const isCompartilhada = t.shared_with_users?.includes(userPermissions.id);
-        return isAtribuido || isFidelizado || isCompartilhada;
+        // ✅ HISTÓRICO: usuário já atendeu esta conversa antes (ex-atribuído/transferência/compartilhado)
+        // Garante que mensagens antigas NUNCA somem da visão do usuário que já as atendeu
+        const userId = userPermissions.id;
+        const estaNoHistorico =
+          t.shared_with_users?.includes(userId) ||
+          t.atendentes_historico?.includes(userId) ||
+          t.metadata?.atendentes_anteriores?.includes(userId);
+        return isAtribuido || isFidelizado || estaNoHistorico;
       });
     
     case 'sem_assigned_user_id':
