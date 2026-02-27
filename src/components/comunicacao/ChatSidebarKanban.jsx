@@ -251,7 +251,10 @@ export default function ChatSidebarKanban({ threads, threadAtiva, onSelecionarTh
     return Object.values(mapa).filter(c => c.threads.length > 0 || integracoesVisiveis.find(i => i.id === c.id));
   }, [threadsFiltradas, integracoesVisiveis, usuarioAtual]);
 
+  const isAdmin = usuarioAtual?.role === 'admin';
+  const isGerente = ['gerente', 'coordenador', 'supervisor'].includes(usuarioAtual?.attendant_role);
   // Kanban por usuário: agrupar threads por atendente atribuído
+  // Não-admin/não-gerente vê apenas "Minhas" + "Não Atribuídas"
   const colunasPorUsuario = React.useMemo(() => {
     const externas = threadsFiltradas.filter(t =>
       t.thread_type === 'contact_external' || (!t.thread_type && t.contact_id)
@@ -265,34 +268,45 @@ export default function ChatSidebarKanban({ threads, threadAtiva, onSelecionarTh
 
     externas.forEach(thread => {
       const uid = thread.assigned_user_id;
+
+      // Verificar se é "minha": atribuída, histórico ou shared
+      const isMinhaThread =
+        norm(uid) === norm(usuarioAtual?.id) ||
+        thread.shared_with_users?.includes(usuarioAtual?.id) ||
+        thread.atendentes_historico?.includes(usuarioAtual?.id);
+
+      if (isMinhaThread) {
+        if (!mapa['__minhas__'].threads.find(t => t.id === thread.id)) {
+          mapa['__minhas__'].threads.push(thread);
+        }
+        // Se ainda assim está atribuída a outro E é gerente/admin, também cria coluna do outro
+        if (!isAdmin && !isGerente) return;
+        if (norm(uid) === norm(usuarioAtual?.id) || !uid) return;
+      }
+
       if (!uid) {
         if (!mapa['__sem_atendente__']) {
           mapa['__sem_atendente__'] = { id: '__sem_atendente__', nome: 'Não Atribuídas', isSemAtendente: true, threads: [] };
         }
-        mapa['__sem_atendente__'].threads.push(thread);
+        if (!mapa['__sem_atendente__'].threads.find(t => t.id === thread.id)) {
+          mapa['__sem_atendente__'].threads.push(thread);
+        }
         return;
       }
 
-      if (norm(uid) === norm(usuarioAtual?.id)) {
-        mapa['__minhas__'].threads.push(thread);
-        return;
-      }
+      // Colunas de outros atendentes: apenas para admin/gerente
+      if (!isAdmin && !isGerente) return;
 
-      // Também inclui histórico (shared/atendentes_historico) sem duplicar
-      const jaEmMinhas =
-        thread.shared_with_users?.includes(usuarioAtual?.id) ||
-        thread.atendentes_historico?.includes(usuarioAtual?.id);
-      if (jaEmMinhas && !mapa['__minhas__'].threads.find(t => t.id === thread.id)) {
-        mapa['__minhas__'].threads.push(thread);
-        return;
+      if (norm(uid) !== norm(usuarioAtual?.id)) {
+        if (!mapa[uid]) {
+          const atendente = atendentes.find(a => a.id === uid);
+          const nome = atendente?.full_name || atendente?.display_name || uid.substring(0, 8);
+          mapa[uid] = { id: uid, nome, threads: [], atendente };
+        }
+        if (!mapa[uid].threads.find(t => t.id === thread.id)) {
+          mapa[uid].threads.push(thread);
+        }
       }
-
-      if (!mapa[uid]) {
-        const atendente = atendentes.find(a => a.id === uid);
-        const nome = atendente?.full_name || atendente?.display_name || uid.substring(0, 8);
-        mapa[uid] = { id: uid, nome, threads: [], atendente };
-      }
-      mapa[uid].threads.push(thread);
     });
 
     Object.values(mapa).forEach(col => {
@@ -304,20 +318,16 @@ export default function ChatSidebarKanban({ threads, threadAtiva, onSelecionarTh
       mapa['__sem_atendente__'] = { id: '__sem_atendente__', nome: 'Não Atribuídas', isSemAtendente: true, threads: [] };
     }
 
-    // Ordenar: minhas primeiro (fixa), não atribuídas segundo (fixa), depois pela ordem do array atendentes (cadastro)
     return Object.values(mapa).sort((a, b) => {
       if (a.isMinhas) return -1;
       if (b.isMinhas) return 1;
       if (a.isSemAtendente) return -1;
       if (b.isSemAtendente) return 1;
-      // Preservar ordem do cadastro de atendentes
       const idxA = atendentes.findIndex(at => at.id === a.id);
       const idxB = atendentes.findIndex(at => at.id === b.id);
-      const posA = idxA === -1 ? 9999 : idxA;
-      const posB = idxB === -1 ? 9999 : idxB;
-      return posA - posB;
+      return (idxA === -1 ? 9999 : idxA) - (idxB === -1 ? 9999 : idxB);
     }).filter(c => c.isMinhas || c.isSemAtendente || c.threads.length > 0);
-  }, [threadsFiltradas, usuarioAtual, atendentes]);
+  }, [threadsFiltradas, usuarioAtual, atendentes, isAdmin, isGerente]);
 
   const corConfig = {
     blue: 'bg-blue-600', green: 'bg-green-600', purple: 'bg-purple-600',
