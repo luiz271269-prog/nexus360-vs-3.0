@@ -656,6 +656,20 @@ export const verificarBloqueioThread = (usuario, thread, contato = null) => {
   }
 
   // ═══════════════════════════════════════════════════════════════════════════════
+  // PRIORIDADE 1.5: HISTÓRICO DE ATENDIMENTO - usuário já atendeu esta conversa
+  // shared_with_users preserva ex-atendentes após transferência
+  // ═══════════════════════════════════════════════════════════════════════════════
+  const estaNoHistorico =
+    thread.shared_with_users?.includes(usuario.id) ||
+    thread.atendentes_historico?.includes(usuario.id) ||
+    thread.metadata?.atendentes_anteriores?.includes(usuario.id);
+
+  if (estaNoHistorico) {
+    console.log(`[BLOQUEIO] ✅ LIBERADO - Usuário no histórico da conversa: ${usuario.email}`);
+    return { bloqueado: false, motivo: null, atendenteResponsavel: null };
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════════
   // PRIORIDADE 2: Contato FIDELIZADO ao usuário → NUNCA bloqueia (ignora TUDO)
   // ═══════════════════════════════════════════════════════════════════════════════
   const isFidelizado = contato && isFidelizadoAoUsuario(usuario, contato);
