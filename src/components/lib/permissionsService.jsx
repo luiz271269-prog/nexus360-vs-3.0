@@ -585,13 +585,17 @@ export const VISIBILITY_MATRIX = [
     priority: 2.5,
     name: 'historico_atendimento',
     check: (userPerms, thread, contact) => {
-      // ✅ REGRA CRÍTICA: shared_with_users é o campo real no schema do MessageThread
-      // Ao transferir uma conversa, o ex-atendente é adicionado aqui
-      // Garante visibilidade permanente do histórico após transferência
-      if (thread.shared_with_users?.includes(userPerms.id)) {
+      // ✅ Cobre todos os campos de histórico (shared_with_users, atendentes_historico, metadata.atendentes_anteriores, ultimo_atendente_id)
+      const uid = userPerms.id;
+      const jaParticipou =
+        thread.shared_with_users?.includes(uid) ||
+        thread.atendentes_historico?.includes(uid) ||
+        thread.metadata?.atendentes_anteriores?.includes(uid);
+
+      if (jaParticipou) {
         return {
           visible: true,
-          motivo: 'Usuário já atendeu esta conversa (shared_with_users)',
+          motivo: 'Usuário já atendeu esta conversa (histórico)',
           decision_path: ['ALLOW:historico_atendimento'],
           reason_code: 'HISTORY_ACCESS'
         };
