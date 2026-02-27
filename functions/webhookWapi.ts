@@ -11,7 +11,7 @@ import { createClientFromRequest } from 'npm:@base44/sdk@0.8.4';
 // ║  • req.clone() OBRIGATÓRIO para asServiceRole funcionar              ║
 // ╚════════════════════════════════════════════════════════════════════════╝
 
-const VERSION = 'v25.0.0-CLONE-FIX';
+const VERSION = 'v25.1.0-DELIVERY-FIX';
 const BUILD_DATE = '2026-01-07T14:30:00';
 const DEPLOYMENT_ID = 'WAPI_CLONE_FIX_2026_01_07';
 const ARCHITECTURE = 'PORTEIRO-CEGO';
