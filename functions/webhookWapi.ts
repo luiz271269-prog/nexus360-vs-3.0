@@ -169,12 +169,20 @@ function normalizarPayload(payload) {
       return { type: 'connection', instanceId, status: payload.connected ? 'conectado' : 'desconectado' };
     }
 
-    if (tipo.includes('messagestatuscallback') || tipo.includes('webhookdelivery') || tipo.includes('delivery')) {
+    // W-API envia status de entrega com eventos: messageStatusCallback, webhookDelivery, delivery, ack
+    // O campo de status pode ser numérico (1=sent,2=delivered,3=read) ou string
+    if (tipo.includes('messagestatuscallback') || tipo.includes('webhookdelivery') || tipo.includes('delivery') || tipo.includes('ack')) {
+      const msgId = (Array.isArray(payload.ids) && payload.ids[0]) ||
+                    payload.messageId ||
+                    payload.id ||
+                    payload.key?.id ||
+                    null;
+      const rawStatus = payload.status ?? payload.ack ?? payload.deliveryStatus ?? null;
       return {
         type: 'message_update',
         instanceId,
-        messageId: payload.ids?.[0] || payload.messageId || payload.key?.id || null,
-        status: payload.status || payload.ack
+        messageId: msgId,
+        status: rawStatus
       };
     }
 
