@@ -888,7 +888,9 @@ export function aplicarFiltroEscopo(threads, escopo, userPermissions) {
       return threads.filter(t => {
         const isAtribuido = isAtribuidoAoUsuario(userPermissions, t);
         const isFidelizado = t.contato && isFidelizadoAoUsuario(userPermissions, t.contato);
-        return isAtribuido || isFidelizado;
+        // ✅ Também incluir threads compartilhadas com o usuário
+        const isCompartilhada = t.shared_with_users?.includes(userPermissions.id);
+        return isAtribuido || isFidelizado || isCompartilhada;
       });
     
     case 'sem_assigned_user_id':
