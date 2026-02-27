@@ -5,6 +5,5 @@ export { normalizarTelefone, isSamePhone as compararTelefones, formatarTelefoneE
 
 export function extrairTelefoneDeJID(jid) {
   if (!jid) return null;
-  const { normalizarTelefone } = require('./phoneNormalizer.js');
-  return normalizarTelefone(jid);
+  return jid.split('@')[0].replace(/\D/g, '');
 }
