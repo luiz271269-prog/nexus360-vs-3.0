@@ -288,8 +288,16 @@ Deno.serve(async (req) => {
     const clientToken = integracao.security_client_token_header;
     const baseUrl = isWAPI ? WAPI_BASE_URL : integracao.base_url_provider;
     
-    // Formatar número (W-API prefere apenas dígitos)
+    // Formatar número (com código do país 55 para Brasil)
     const numeroFormatado = formatarNumero(numero_destino);
+    const ehFixo = isNumeroFixo(numero_destino);
+    
+    console.log(`[ENVIAR-WHATSAPP-UNIFICADO] 📞 Número: ${numero_destino} → ${numeroFormatado} | Tipo: ${ehFixo ? 'FIXO (10 dígitos)' : 'CELULAR (11 dígitos)'}`);
+    
+    if (ehFixo) {
+      console.warn(`[ENVIAR-WHATSAPP-UNIFICADO] ⚠️ NÚMERO FIXO DETECTADO: Números fixos não têm WhatsApp. Verifique se o número está correto.`);
+      console.warn(`[ENVIAR-WHATSAPP-UNIFICADO] ⚠️ Número fixo: ${numeroFormatado} | Dígitos (sem 55): ${String(numero_destino).replace(/\D/g, '').replace(/^55/, '')}`);
+    }
 
     let endpoint;
     let body;
