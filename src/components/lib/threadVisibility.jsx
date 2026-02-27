@@ -331,14 +331,9 @@ export const canUserSeeThreadBase = (usuario, thread, mensagensThread = []) => {
     return true;
   }
 
-  // 🔑 PRIORIDADE #2.5: HISTÓRICO DE ATENDIMENTO
-  // → Usuário já esteve nesta conversa (shared_with_users = ex-atendentes)
-  const estaNoHistorico =
-    thread.shared_with_users?.includes(usuario.id) ||
-    thread.atendentes_historico?.includes(usuario.id) ||
-    thread.metadata?.atendentes_anteriores?.includes(usuario.id);
-
-  if (estaNoHistorico) {
+  // 🔑 PRIORIDADE #2.5: HISTÓRICO — shared_with_users (campo real do schema)
+  // Populado automaticamente ao transferir conversa no AtribuidorAtendenteRapido
+  if (thread.shared_with_users?.includes(usuario.id)) {
     return true;
   }
 
