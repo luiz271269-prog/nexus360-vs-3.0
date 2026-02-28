@@ -115,7 +115,8 @@ export default function ChatWindow({
   filterScope = 'all',
   selectedIntegrationId = 'all',
   selectedAttendantId = null,
-  contatoAtivo = null
+  contatoAtivo = null,
+  onFecharChat = null
 }) {
   const queryClient = useQueryClient(); // ✅ CRÍTICO: Hook do React Query
 
