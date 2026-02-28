@@ -59,7 +59,7 @@ import DiagnosticoComparativoThreads from "../components/comunicacao/Diagnostico
 import LogsFiltragemViewer from "../components/comunicacao/LogsFiltragemViewer";
 import DiagnosticoMensagensInternas from "../components/comunicacao/DiagnosticoMensagensInternas";
 import DiagnosticoVisibilidadeContato from "../components/comunicacao/DiagnosticoVisibilidadeContato";
-
+import DesktopChatArea from "../components/comunicacao/DesktopChatArea";
 
 import { useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
