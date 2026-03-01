@@ -1568,7 +1568,7 @@ export default function ChatWindow({
                 <span className="text-xs font-medium hidden sm:inline">Detalhes</span>
               </button>
 
-              {/* Botão Fechar (Kanban desktop) */}
+              {/* Botão Fechar/Voltar */}
               {onFecharChat && (
                 <button
                   onClick={onFecharChat}
