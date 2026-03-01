@@ -25,7 +25,9 @@ export default function DesktopChatArea({
 
         {/* Overlay do chat sobre o kanban */}
         {(hasActiveChat || hasMassaSend) && (
-          <div className="absolute inset-y-0 right-0 z-30 flex pointer-events-none" style={{ left: '212px' }}>
+          <div className="absolute inset-0 z-30 flex pointer-events-none">
+            {/* Área transparente à esquerda (1 coluna fixa "Minhas Conversas" ~212px) */}
+            <div className="flex-shrink-0 pointer-events-none" style={{ width: '212px' }} />
             {/* Chat flutuando sobre as colunas restantes */}
             <div className="flex-1 flex pointer-events-auto shadow-2xl border-l border-slate-300 bg-white">
               {hasMassaSend ? (
