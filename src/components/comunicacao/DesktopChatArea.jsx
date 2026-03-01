@@ -86,19 +86,19 @@ export default function DesktopChatArea({
       ) : hasActiveChat ? (
         <>
           <div className="flex-1 overflow-hidden relative">
-            <ChatWindow thread={threadAtiva} mensagens={mensagens} usuario={usuario}
-              contatoPreCarregado={contatoPreCarregado} onEnviarMensagem={async () => {}}
-              onSendMessageOptimistic={handleEnviarMensagemOtimista}
-              onSendInternalMessageOptimistic={handleEnviarMensagemInternaOtimista}
-              onShowContactInfo={() => setShowContactInfo(!showContactInfo)}
-              onAtualizarMensagens={handleAtualizarMensagens} integracoes={integracoes}
-              selectedCategoria={selectedCategoria} modoSelecaoMultipla={modoSelecaoMultipla}
-              contatosSelecionados={contatosSelecionados} broadcastInterno={broadcastInterno}
-              onCancelarSelecao={() => { setModoSelecaoMultipla(false); setContatosSelecionados([]); setBroadcastInterno(null); }}
-              atendentes={atendentes} filterScope={filterScope} selectedIntegrationId={selectedIntegrationId}
-              selectedAttendantId={selectedAttendantId} contatoAtivo={contatoAtivo}
-              onFecharChat={null} />
-          </div>
+                    <ChatWindow thread={threadAtiva} mensagens={mensagens} usuario={usuario}
+                      contatoPreCarregado={contatoPreCarregado} onEnviarMensagem={async () => {}}
+                      onSendMessageOptimistic={handleEnviarMensagemOtimista}
+                      onSendInternalMessageOptimistic={handleEnviarMensagemInternaOtimista}
+                      onShowContactInfo={() => setShowContactInfo(!showContactInfo)}
+                      onAtualizarMensagens={handleAtualizarMensagens} integracoes={integracoes}
+                      selectedCategoria={selectedCategoria} modoSelecaoMultipla={modoSelecaoMultipla}
+                      contatosSelecionados={contatosSelecionados} broadcastInterno={broadcastInterno}
+                      onCancelarSelecao={() => { setModoSelecaoMultipla(false); setContatosSelecionados([]); setBroadcastInterno(null); }}
+                      atendentes={atendentes} filterScope={filterScope} selectedIntegrationId={selectedIntegrationId}
+                      selectedAttendantId={selectedAttendantId} contatoAtivo={contatoAtivo}
+                      onFecharChat={() => setThreadAtiva(null)} />
+                  </div>
           {showContactInfo && (contatoAtivo || contatoPreCarregado) &&
             <ContactInfoPanel contact={contatoAtivo || contatoPreCarregado} threadAtual={threadAtiva}
               onClose={() => setShowContactInfo(false)} onUpdate={handleAtualizarContato}
