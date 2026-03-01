@@ -1639,7 +1639,7 @@ export default function ChatWindow({
 
         {/* Banner de Status da Integração */}
         {!mostrarInterfaceBroadcast && thread?.whatsapp_integration_id && userPermissions && (
-          <div className="px-4 pt-1">
+          <div className="px-4">
             <IntegrationStatusBanner 
               integrationId={thread.whatsapp_integration_id}
               userPermissions={userPermissions}
@@ -1649,7 +1649,7 @@ export default function ChatWindow({
 
         {/* Alerta de Pedido de Transferência - Micro-URA */}
         {!mostrarInterfaceBroadcast && thread &&
-        <div className="px-4 pt-1">
+        <div className="px-4">
               <AlertaPedidoTransferencia
           thread={thread}
           atendentes={atendentes}
