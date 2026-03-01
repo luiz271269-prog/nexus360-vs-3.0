@@ -1639,49 +1639,43 @@ export default function ChatWindow({
 
         {/* Banner de Status da Integração */}
         {!mostrarInterfaceBroadcast && thread?.whatsapp_integration_id && userPermissions && (
-          <div className="px-4">
-            <IntegrationStatusBanner 
-              integrationId={thread.whatsapp_integration_id}
-              userPermissions={userPermissions}
-            />
-          </div>
+          <IntegrationStatusBanner 
+            integrationId={thread.whatsapp_integration_id}
+            userPermissions={userPermissions}
+          />
         )}
 
         {/* Alerta de Pedido de Transferência - Micro-URA */}
-        {!mostrarInterfaceBroadcast && thread &&
-        <div className="px-4">
-              <AlertaPedidoTransferencia
-          thread={thread}
-          atendentes={atendentes}
-          usuarioAtual={usuario}
-          onTransferirAgora={async () => {
-            const sector_id = thread.transfer_requested_sector_id;
-            const user_id = thread.transfer_requested_user_id;
-
-            if (user_id) {
-              await base44.entities.MessageThread.update(thread.id, {
-                assigned_user_id: user_id,
-                sector_id: sector_id || thread.sector_id,
-                transfer_pending: false,
-                transfer_confirmed: false
-              });
-            } else if (sector_id) {
-              await base44.entities.MessageThread.update(thread.id, {
-                sector_id: sector_id,
-                transfer_pending: false,
-                transfer_confirmed: false
-              });
-            }
-
-            if (onAtualizarMensagens) onAtualizarMensagens();
-            toast.success('✅ Conversa transferida!');
-          }}
-          onCancelar={() => {
-            if (onAtualizarMensagens) onAtualizarMensagens();
-          }} />
-
-          </div>
-      }
+        {!mostrarInterfaceBroadcast && thread && (
+          <AlertaPedidoTransferencia
+            thread={thread}
+            atendentes={atendentes}
+            usuarioAtual={usuario}
+            onTransferirAgora={async () => {
+              const sector_id = thread.transfer_requested_sector_id;
+              const user_id = thread.transfer_requested_user_id;
+              if (user_id) {
+                await base44.entities.MessageThread.update(thread.id, {
+                  assigned_user_id: user_id,
+                  sector_id: sector_id || thread.sector_id,
+                  transfer_pending: false,
+                  transfer_confirmed: false
+                });
+              } else if (sector_id) {
+                await base44.entities.MessageThread.update(thread.id, {
+                  sector_id: sector_id,
+                  transfer_pending: false,
+                  transfer_confirmed: false
+                });
+              }
+              if (onAtualizarMensagens) onAtualizarMensagens();
+              toast.success('✅ Conversa transferida!');
+            }}
+            onCancelar={() => {
+              if (onAtualizarMensagens) onAtualizarMensagens();
+            }}
+          />
+        )}
 
         {mensagemResposta && !mostrarInterfaceBroadcast &&
       <div className="px-4 py-2 bg-blue-50 border-b border-blue-200 flex-shrink-0">
