@@ -2485,33 +2485,22 @@ export default function Comunicacao() {
 
                     <div className={`flex-1 overflow-y-auto transition-opacity duration-200 ${isPendingFilter ? 'opacity-50' : 'opacity-100'}`}>
                       {sidebarViewMode === 'kanban' ? (
-                        <ChatSidebarKanban
-                          threads={threadsParaExibir}
-                          threadAtiva={threadAtiva}
-                          onSelecionarThread={handleSelecionarThreadMobile}
-                          onVoltar={() => setThreadAtiva(null)}
-                          usuarioAtual={usuario}
-                          integracoes={integracoes}
-                          atendentes={atendentes}
-                        />
+                        <ChatSidebarKanban threads={threadsParaExibir} threadAtiva={threadAtiva}
+                          onSelecionarThread={(t) => { handleSelecionarThreadMobile(t); setMobileView('chat'); }}
+                          onVoltar={() => setThreadAtiva(null)} usuarioAtual={usuario}
+                          integracoes={integracoes} atendentes={atendentes}
+                          onSelectInternalDestinations={(sel) => { handleInternalSelection(sel); setMobileView('chat'); }}
+                          onOpenKanbanNaoAtribuidos={() => { setMostrarKanbanNaoAtribuidos(true); setMobileView('chat'); }}
+                          onOpenKanbanRequerAtencao={() => { setMostrarKanbanRequerAtencao(true); setMobileView('chat'); }} />
                       ) : (
-                      <ChatSidebar
-                        threads={threadsParaExibir}
-                        threadAtiva={threadAtiva}
-                        onSelecionarThread={handleSelecionarThreadMobile}
-                        loading={loadingTopics}
-                        usuarioAtual={usuario}
-                        integracoes={integracoes}
-                        atendentes={atendentes}
-                        modoSelecaoMultipla={modoSelecaoMultipla}
-                        setModoSelecaoMultipla={setModoSelecaoMultipla}
-                        contatosSelecionados={contatosSelecionados}
-                        setContatosSelecionados={setContatosSelecionados}
+                      <ChatSidebar threads={threadsParaExibir} threadAtiva={threadAtiva}
+                        onSelecionarThread={handleSelecionarThreadMobile} loading={loadingTopics}
+                        usuarioAtual={usuario} integracoes={integracoes} atendentes={atendentes}
+                        modoSelecaoMultipla={modoSelecaoMultipla} setModoSelecaoMultipla={setModoSelecaoMultipla}
+                        contatosSelecionados={contatosSelecionados} setContatosSelecionados={setContatosSelecionados}
                         onSelectInternalDestinations={(sel) => { handleInternalSelection(sel); setMobileView('chat'); }}
-                        onFilterScopeChange={setFilterScope}
-                        onSelectedIntegrationChange={setSelectedIntegrationId}
-                        filterScope={filterScope}
-                        contatos={contatos}
+                        onFilterScopeChange={setFilterScope} onSelectedIntegrationChange={setSelectedIntegrationId}
+                        filterScope={filterScope} contatos={contatos}
                         onOpenKanbanNaoAtribuidos={() => { setMostrarKanbanNaoAtribuidos(true); setMobileView('chat'); }}
                         onOpenKanbanRequerAtencao={() => { setMostrarKanbanRequerAtencao(true); setMobileView('chat'); }} />
                       )}
