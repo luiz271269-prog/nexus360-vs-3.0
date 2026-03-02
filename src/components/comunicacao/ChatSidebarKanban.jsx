@@ -417,16 +417,32 @@ export default function ChatSidebarKanban({ threads, threadAtiva, onSelecionarTh
 
         <div className="h-px bg-purple-300/30" />
 
-        {/* Toggle Canal/Atendente */}
-        <div className="flex items-center gap-1 bg-white border border-slate-300 rounded-lg p-0.5 shadow-sm w-fit">
-          <button onClick={() => setKanbanMode('integracao')}
-            className={`flex items-center gap-1 px-3 py-1 rounded-md text-[10px] font-semibold transition-all ${kanbanMode === 'integracao' ? 'bg-orange-500 text-white shadow' : 'text-slate-500 hover:text-slate-800'}`}>
-            <Columns className="w-3 h-3" />Canal
-          </button>
-          <button onClick={() => setKanbanMode('usuario')}
-            className={`flex items-center gap-1 px-3 py-1 rounded-md text-[10px] font-semibold transition-all ${kanbanMode === 'usuario' ? 'bg-orange-500 text-white shadow' : 'text-slate-500 hover:text-slate-800'}`}>
-            <Users className="w-3 h-3" />Atendente
-          </button>
+        {/* Toggle Canal/Atendente + Parados */}
+        <div className="flex items-center gap-1.5 flex-wrap">
+          <div className="flex items-center gap-1 bg-white border border-slate-300 rounded-lg p-0.5 shadow-sm">
+            <button onClick={() => setKanbanMode('integracao')}
+              className={`flex items-center gap-1 px-2.5 py-1 rounded-md text-[10px] font-semibold transition-all ${kanbanMode === 'integracao' ? 'bg-orange-500 text-white shadow' : 'text-slate-500 hover:text-slate-800'}`}>
+              <Columns className="w-3 h-3" />Canal
+            </button>
+            <button onClick={() => setKanbanMode('usuario')}
+              className={`flex items-center gap-1 px-2.5 py-1 rounded-md text-[10px] font-semibold transition-all ${kanbanMode === 'usuario' ? 'bg-orange-500 text-white shadow' : 'text-slate-500 hover:text-slate-800'}`}>
+              <Users className="w-3 h-3" />Atendente
+            </button>
+          </div>
+          {onOpenKanbanRequerAtencao && (() => {
+            const threadsComProblema = threads?.filter(t => {
+              const c = t.contato;
+              return c && (c.days_inactive_inbound >= 2 || c.deal_risk > 0 || c.prioridadeLabel === 'CRITICO' || c.prioridadeLabel === 'ALTO');
+            }).length || 0;
+            return (
+              <button onClick={onOpenKanbanRequerAtencao}
+                className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-semibold bg-amber-500 hover:bg-amber-600 text-white shadow-sm transition-all">
+                <AlertTriangle className="w-3 h-3 flex-shrink-0" />
+                <span>Parados</span>
+                {threadsComProblema > 0 && <span className="bg-white text-amber-700 text-[9px] font-bold px-1 h-4 min-w-4 flex items-center justify-center rounded-full ml-0.5">{threadsComProblema}</span>}
+              </button>
+            );
+          })()}
         </div>
       </div>
 
