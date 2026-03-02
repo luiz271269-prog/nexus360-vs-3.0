@@ -1574,8 +1574,7 @@ export default function ChatWindow({
                   onClick={onFecharChat}
                   className="bg-gradient-to-br from-slate-700 to-slate-800 text-white rounded-lg px-2 py-1.5 shadow-md flex items-center gap-1.5 hover:from-slate-800 hover:to-slate-900 hover:shadow-lg transition-all"
                   title="Fechar chat">
-                  <ChevronLeft className="w-3.5 h-3.5" />
-                  <span className="text-xs font-medium hidden sm:inline">Fechar</span>
+                  <X className="w-3.5 h-3.5" />
                 </button>
               )}
             </div>
