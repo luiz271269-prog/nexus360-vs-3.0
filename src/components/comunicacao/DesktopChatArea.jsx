@@ -3,6 +3,24 @@ import ChatWindow from "./ChatWindow";
 import ContactInfoPanel from "./ContactInfoPanel";
 import EmptyState from "./EmptyState";
 
+function useHeaderHeight() {
+  const [top, setTop] = React.useState(0);
+  React.useEffect(() => {
+    const update = () => {
+      // Pegar o header mais próximo acima da área de conversas
+      const header = document.querySelector('header, [class*="header"], .flex-shrink-0');
+      if (header) {
+        const rect = header.getBoundingClientRect();
+        setTop(rect.bottom);
+      }
+    };
+    update();
+    window.addEventListener('resize', update);
+    return () => window.removeEventListener('resize', update);
+  }, []);
+  return top;
+}
+
 export default function DesktopChatArea({
   modoEnvioMassa, contatosParaEnvioMassa, modoSelecaoMultipla, contatosSelecionados, broadcastInterno,
   threadAtiva, criandoNovoContato, mensagens, usuario, contatoPreCarregado,
