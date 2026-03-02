@@ -733,7 +733,7 @@ export default function InternalMessageComposer({ open, onClose, currentUser, on
                   </TabsContent>
 
                   {/* Aba Setores */}
-                  <TabsContent value="setores" className="m-0 p-0">
+                  <TabsContent value="setores" forceMount className={`m-0 p-0 ${activeTab !== 'setores' ? 'hidden' : ''}`}>
                     <div className="space-y-1">
                       {setores.length === 0 ? (
                         <div className="text-center py-8 text-slate-500 text-xs">
