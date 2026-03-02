@@ -63,40 +63,34 @@ export default function DesktopChatArea({
     </>
   );
 
-  // Modo kanban: sidebar sempre ocupa tudo, chat flutua como drawer à direita
+  // Modo kanban: Kanban ocupa tudo, chat flutua lado a lado SEM cobrir o kanban
   if (isKanban) {
     return (
       <div className="flex-1 flex overflow-hidden relative">
-        {/* Kanban sempre visível atrás - ocupa todo o espaço */}
+        {/* Kanban sempre visível e acessível - ocupa todo o espaço */}
         <div className="flex-1 overflow-hidden" />
 
-        {/* Drawer flutuante à direita */}
+        {/* Chat flutuante fixo à direita, sem backdrop, kanban continua acessível */}
         {showFloating && (
-          <>
-            {/* Backdrop semitransparente */}
-            <div
-              className="absolute inset-0 z-20 bg-black/20 pointer-events-auto"
-              onClick={fecharChat}
-            />
-            {/* Painel flutuante */}
-            <div className="absolute top-0 right-0 bottom-0 z-30 flex shadow-2xl"
-              style={{ width: 'min(680px, 75%)' }}>
-              {chatContent}
-            </div>
-          </>
+          <div
+            className="absolute top-0 right-0 bottom-0 z-30 flex shadow-2xl border-l-2 border-orange-400 rounded-l-xl overflow-hidden"
+            style={{ width: '480px' }}
+          >
+            {chatContent}
+          </div>
         )}
       </div>
     );
   }
 
-  // Modo lista: chat flutua como drawer à direita sobre a sidebar
+  // Modo lista: layout normal lado a lado
   return (
-    <div className="flex-1 flex overflow-hidden relative">
-      {/* Fundo vazio quando não há chat ativo */}
-      {!showFloating && !criandoNovoContato && <EmptyState />}
-
-      {/* Criar novo contato */}
-      {!showFloating && criandoNovoContato && (
+    <div className="flex-1 flex overflow-hidden">
+      {hasMassaSend ? (
+        <div className="flex-1 flex">{chatContent}</div>
+      ) : showFloating ? (
+        <div className="flex-1 flex">{chatContent}</div>
+      ) : criandoNovoContato ? (
         <>
           <EmptyState message={contactInitialData ? "Criar Contato do Cliente" : "Criar Novo Contato"}
             subtitle={contactInitialData ? `Cliente: ${contactInitialData.empresa || contactInitialData.nome}` : "Preencha as informações ao lado"} />
@@ -105,20 +99,8 @@ export default function DesktopChatArea({
             onClose={() => {}}
             onUpdate={handleCriarNovoContato} atendentes={atendentes} />
         </>
-      )}
-
-      {/* Drawer flutuante à direita */}
-      {showFloating && (
-        <>
-          <div
-            className="absolute inset-0 z-20 bg-black/20 pointer-events-auto"
-            onClick={fecharChat}
-          />
-          <div className="absolute top-0 right-0 bottom-0 z-30 flex shadow-2xl"
-            style={{ width: 'min(680px, 75%)' }}>
-            {chatContent}
-          </div>
-        </>
+      ) : (
+        <EmptyState />
       )}
     </div>
   );
