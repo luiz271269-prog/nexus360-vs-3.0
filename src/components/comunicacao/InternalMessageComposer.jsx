@@ -781,7 +781,7 @@ export default function InternalMessageComposer({ open, onClose, currentUser, on
                   </TabsContent>
 
                   {/* Aba Grupos */}
-                  <TabsContent value="grupos" className="m-0 p-0">
+                  <TabsContent value="grupos" forceMount className={`m-0 p-0 ${activeTab !== 'grupos' ? 'hidden' : ''}`}>
                     <div className="space-y-1">
                       <Button
                         onClick={() => setCriarGrupoOpen(true)}
