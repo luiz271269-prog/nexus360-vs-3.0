@@ -409,46 +409,28 @@ export default function ChatSidebar({
           
           <div className="grid grid-cols-4 gap-1">
             <Button
-              onClick={() => {
-                setDelegateMode(false);
-                setInternalComposerOpen(true);
-              }}
-              variant="outline"
-              size="sm"
-              className="bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-600 hover:to-blue-700 text-white border-0 h-8 text-[10px] sm:text-xs px-1"
-            >
-              <Send className="w-3 h-3 sm:mr-0.5 flex-shrink-0" />
-              <span className="hidden xs:inline sm:inline">Enviar</span>
+              onClick={() => { setDelegateMode(false); setInternalComposerOpen(true); }}
+              variant="outline" size="sm"
+              className="bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-600 hover:to-blue-700 text-white border-0 h-8 text-[10px] px-1">
+              <Send className="w-3 h-3 mr-0.5 flex-shrink-0" /><span>Enviar</span>
             </Button>
             <Button
-              onClick={() => {
-                setDelegateMode(true);
-                setInternalComposerOpen(true);
-              }}
-              variant="outline"
-              size="sm"
-              className="bg-gradient-to-r from-orange-500 to-amber-600 hover:from-orange-600 hover:to-amber-700 text-white border-0 h-8 text-[10px] sm:text-xs px-1"
-            >
-              <ArrowRightLeft className="w-3 h-3 sm:mr-0.5 flex-shrink-0" />
-              <span className="hidden xs:inline sm:inline">Transfer</span>
+              onClick={() => { setDelegateMode(true); setInternalComposerOpen(true); }}
+              variant="outline" size="sm"
+              className="bg-gradient-to-r from-orange-500 to-amber-600 hover:from-orange-600 hover:to-amber-700 text-white border-0 h-8 text-[10px] px-1">
+              <ArrowRightLeft className="w-3 h-3 mr-0.5 flex-shrink-0" /><span>Transfer</span>
             </Button>
             <Button
               onClick={() => setCriarGrupoOpen(true)}
-              variant="outline"
-              size="sm"
-              className="bg-gradient-to-r from-slate-500 to-slate-600 hover:from-slate-600 hover:to-slate-700 text-white border-0 h-8 text-[10px] sm:text-xs px-1"
-            >
-              <Plus className="w-3 h-3 sm:mr-0.5 flex-shrink-0" />
-              <span className="hidden xs:inline sm:inline">Grupo</span>
+              variant="outline" size="sm"
+              className="bg-gradient-to-r from-slate-500 to-slate-600 hover:from-slate-600 hover:to-slate-700 text-white border-0 h-8 text-[10px] px-1">
+              <Plus className="w-3 h-3 mr-0.5 flex-shrink-0" /><span>Grupo</span>
             </Button>
             <Button
               onClick={() => setAgendaIAOpen(true)}
-              variant="outline"
-              size="sm"
-              className="bg-gradient-to-r from-emerald-500 to-green-600 hover:from-emerald-600 hover:to-green-700 text-white border-0 h-8 text-[10px] sm:text-xs px-1"
-            >
-              <CalendarCheck className="w-3 h-3 sm:mr-0.5 flex-shrink-0" />
-              <span className="hidden xs:inline sm:inline">Agenda</span>
+              variant="outline" size="sm"
+              className="bg-gradient-to-r from-emerald-500 to-green-600 hover:from-emerald-600 hover:to-green-700 text-white border-0 h-8 text-[10px] px-1">
+              <CalendarCheck className="w-3 h-3 mr-0.5 flex-shrink-0" /><span>Agenda</span>
             </Button>
           </div>
 
