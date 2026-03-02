@@ -353,24 +353,79 @@ export default function ChatSidebarKanban({ threads, threadAtiva, onSelecionarTh
 
   return (
     <div className="flex flex-col h-full min-h-0">
-      {/* Toolbar: toggle modo Canal/Atendente */}
-      <div className="flex-shrink-0 px-2 py-1.5 bg-slate-100 border-b border-slate-200 flex items-center justify-start gap-2">
-        <div className="flex items-center gap-1 bg-white border border-slate-300 rounded-lg p-0.5 shadow-sm">
-          <button
-            onClick={() => setKanbanMode('integracao')}
-            className={`flex items-center gap-1 px-3 py-1 rounded-md text-[10px] font-semibold transition-all ${kanbanMode === 'integracao' ? 'bg-orange-500 text-white shadow' : 'text-slate-500 hover:text-slate-800'}`}
-            title="Por canal/integração"
-          >
-            <Columns className="w-3 h-3" />
-            Canal
+      {/* Toolbar: Equipe Interna + Botões de Ação + toggle Canal/Atendente */}
+      <div className="flex-shrink-0 bg-purple-50/80 backdrop-blur-sm border-b border-purple-200 px-2 py-1.5 space-y-1.5">
+        {/* Cabeçalho Equipe Interna */}
+        <div className="flex items-center gap-2">
+          <div className="w-8 h-8 rounded-full flex items-center justify-center text-white shadow-sm bg-gradient-to-br from-purple-500 to-indigo-600">
+            <MessagesSquare className="w-4 h-4" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <h3 className="font-semibold text-slate-900 text-xs truncate">Equipe interna</h3>
+            <p className="text-[10px] text-slate-600 truncate">Envio 1:1 / Setores / Grupos</p>
+          </div>
+        </div>
+
+        {/* Botões de ação */}
+        <div className="grid grid-cols-4 gap-1">
+          <Button onClick={() => { setDelegateMode(false); setInternalComposerOpen(true); }} variant="outline" size="sm"
+            className="bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-600 hover:to-blue-700 text-white border-0 h-8 text-[10px] px-1">
+            <Send className="w-3 h-3 mr-0.5 flex-shrink-0" /><span>Enviar</span>
+          </Button>
+          <Button onClick={() => { setDelegateMode(true); setInternalComposerOpen(true); }} variant="outline" size="sm"
+            className="bg-gradient-to-r from-orange-500 to-amber-600 hover:from-orange-600 hover:to-amber-700 text-white border-0 h-8 text-[10px] px-1">
+            <ArrowRightLeft className="w-3 h-3 mr-0.5 flex-shrink-0" /><span>Transfer</span>
+          </Button>
+          <Button onClick={() => setCriarGrupoOpen(true)} variant="outline" size="sm"
+            className="bg-gradient-to-r from-slate-500 to-slate-600 hover:from-slate-600 hover:to-slate-700 text-white border-0 h-8 text-[10px] px-1">
+            <Plus className="w-3 h-3 mr-0.5 flex-shrink-0" /><span>Grupo</span>
+          </Button>
+          <Button onClick={() => setAgendaIAOpen(true)} variant="outline" size="sm"
+            className="bg-gradient-to-r from-emerald-500 to-green-600 hover:from-emerald-600 hover:to-green-700 text-white border-0 h-8 text-[10px] px-1">
+            <CalendarCheck className="w-3 h-3 mr-0.5 flex-shrink-0" /><span>Agenda</span>
+          </Button>
+        </div>
+
+        <div className="h-px bg-purple-300/30" />
+
+        {/* Não Atribuídos + Parados */}
+        <div className="grid grid-cols-2 gap-1">
+          {onOpenKanbanNaoAtribuidos && (() => {
+            const naoAtribuidos = threads?.filter(t => !t.assigned_user_id && t.contact_id && !t.is_contact_only).length || 0;
+            return (
+              <Button onClick={onOpenKanbanNaoAtribuidos}
+                className="w-full bg-gradient-to-r from-red-500 to-orange-600 hover:from-red-600 hover:to-orange-700 text-white border-0 h-9 text-[10px] px-2 flex items-center justify-between font-semibold shadow-md">
+                <span className="flex items-center gap-1"><AlertTriangle className="w-3.5 h-3.5 flex-shrink-0" /><span className="truncate">Não Atribuídos</span></span>
+                {naoAtribuidos > 0 && <Badge className="bg-white text-red-600 text-[9px] font-bold px-1 h-5 min-w-5 flex items-center justify-center rounded-full ml-1 flex-shrink-0">{naoAtribuidos}</Badge>}
+              </Button>
+            );
+          })()}
+          {onOpenKanbanRequerAtencao && (() => {
+            const threadsComProblema = threads?.filter(t => {
+              const c = t.contato;
+              return c && (c.days_inactive_inbound >= 2 || c.deal_risk > 0 || c.prioridadeLabel === 'CRITICO' || c.prioridadeLabel === 'ALTO');
+            }).length || 0;
+            return (
+              <Button onClick={onOpenKanbanRequerAtencao}
+                className="w-full bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 text-white border-0 h-9 text-[10px] px-2 flex items-center justify-between font-semibold shadow-md">
+                <span className="flex items-center gap-1"><AlertTriangle className="w-3.5 h-3.5 flex-shrink-0" /><span className="truncate">Parados</span></span>
+                {threadsComProblema > 0 && <Badge className="bg-white text-amber-700 text-[9px] font-bold px-1 h-5 min-w-5 flex items-center justify-center rounded-full ml-1 flex-shrink-0">{threadsComProblema}</Badge>}
+              </Button>
+            );
+          })()}
+        </div>
+
+        <div className="h-px bg-purple-300/30" />
+
+        {/* Toggle Canal/Atendente */}
+        <div className="flex items-center gap-1 bg-white border border-slate-300 rounded-lg p-0.5 shadow-sm w-fit">
+          <button onClick={() => setKanbanMode('integracao')}
+            className={`flex items-center gap-1 px-3 py-1 rounded-md text-[10px] font-semibold transition-all ${kanbanMode === 'integracao' ? 'bg-orange-500 text-white shadow' : 'text-slate-500 hover:text-slate-800'}`}>
+            <Columns className="w-3 h-3" />Canal
           </button>
-          <button
-            onClick={() => setKanbanMode('usuario')}
-            className={`flex items-center gap-1 px-3 py-1 rounded-md text-[10px] font-semibold transition-all ${kanbanMode === 'usuario' ? 'bg-orange-500 text-white shadow' : 'text-slate-500 hover:text-slate-800'}`}
-            title="Por atendente"
-          >
-            <Users className="w-3 h-3" />
-            Atendente
+          <button onClick={() => setKanbanMode('usuario')}
+            className={`flex items-center gap-1 px-3 py-1 rounded-md text-[10px] font-semibold transition-all ${kanbanMode === 'usuario' ? 'bg-orange-500 text-white shadow' : 'text-slate-500 hover:text-slate-800'}`}>
+            <Users className="w-3 h-3" />Atendente
           </button>
         </div>
       </div>
