@@ -1514,7 +1514,7 @@ export default function ChatWindow({
             </div>
 
             {/* Componentes de Inteligência Comprimidos + Ações */}
-            <div className="flex items-center gap-2 flex-shrink-0">
+            <div className="flex items-center gap-1 flex-shrink-0">
               <CentralInteligenciaContato
               contato={contatoCompleto}
               variant="mini"
@@ -1525,16 +1525,13 @@ export default function ChatWindow({
               contato={contatoCompleto}
               onUpdate={onAtualizarMensagens} />
 
-
-
               {/* Botão Transferir */}
               {podeTransferirConversas &&
             <button
               onClick={() => setMostrarModalAtribuicao(true)}
-              className="bg-gradient-to-br from-amber-500 to-amber-600 text-white rounded-lg px-2 py-1.5 shadow-md flex items-center gap-1.5 hover:shadow-lg transition-all hover:from-amber-600 hover:to-amber-700"
-              title="Transferir responsabilidade da conversa">
+              className="bg-gradient-to-br from-amber-500 to-amber-600 text-white rounded-lg p-1.5 shadow-md flex items-center justify-center hover:shadow-lg transition-all hover:from-amber-600 hover:to-amber-700"
+              title="Transferir conversa">
                      <Users className="w-3.5 h-3.5" />
-                     <span className="text-xs font-medium hidden sm:inline">Transferir</span>
                 </button>
             }
 
@@ -1542,10 +1539,9 @@ export default function ChatWindow({
               {podeTransferirConversas &&
             <button
               onClick={() => setMostrarModalCompartilhamento(true)}
-              className="bg-gradient-to-br from-blue-500 to-blue-600 text-white rounded-lg px-2 py-1.5 shadow-md flex items-center gap-1.5 hover:shadow-lg transition-all hover:from-blue-600 hover:to-blue-700"
-              title="Compartilhar conversa com outros atendentes">
+              className="bg-gradient-to-br from-blue-500 to-blue-600 text-white rounded-lg p-1.5 shadow-md flex items-center justify-center hover:shadow-lg transition-all hover:from-blue-600 hover:to-blue-700"
+              title="Compartilhar conversa">
                      <UserPlus className="w-3.5 h-3.5" />
-                     <span className="text-xs font-medium hidden sm:inline">Compartilhar</span>
                 </button>
             }
 
@@ -1554,25 +1550,25 @@ export default function ChatWindow({
             <button
               onClick={() => marcarComoLidaMutation.mutate()}
               disabled={marcarComoLidaMutation.isPending}
-              className="bg-gradient-to-br from-green-500 to-green-600 text-white rounded-lg px-2 py-1.5 shadow-md flex items-center gap-1.5 hover:from-green-600 hover:to-green-700 hover:shadow-lg transition-all disabled:opacity-50">
+              className="bg-gradient-to-br from-green-500 to-green-600 text-white rounded-lg p-1.5 shadow-md flex items-center justify-center hover:from-green-600 hover:to-green-700 hover:shadow-lg transition-all disabled:opacity-50"
+              title={`Marcar como lida (${getUnreadCount(thread, usuario?.id)})`}>
                   <CheckSquare className="w-3.5 h-3.5" />
-                  <span className="text-xs font-medium hidden sm:inline">Lida ({getUnreadCount(thread, usuario?.id)})</span>
                 </button>
             }
 
               {/* Botão Ver Detalhes */}
               <button
               onClick={onShowContactInfo}
-              className="bg-gradient-to-br from-slate-600 to-slate-700 text-white rounded-lg px-2 py-1.5 shadow-md flex items-center gap-1.5 hover:from-slate-700 hover:to-slate-800 hover:shadow-lg transition-all">
+              className="bg-gradient-to-br from-slate-600 to-slate-700 text-white rounded-lg p-1.5 shadow-md flex items-center justify-center hover:from-slate-700 hover:to-slate-800 hover:shadow-lg transition-all"
+              title="Ver detalhes">
                 <Info className="w-3.5 h-3.5" />
-                <span className="text-xs font-medium hidden sm:inline">Detalhes</span>
               </button>
 
-              {/* Botão Fechar/Voltar */}
+              {/* Botão Fechar - sempre visível se disponível */}
               {onFecharChat && (
                 <button
                   onClick={onFecharChat}
-                  className="bg-gradient-to-br from-slate-700 to-slate-800 text-white rounded-lg px-2 py-1.5 shadow-md flex items-center gap-1.5 hover:from-slate-800 hover:to-slate-900 hover:shadow-lg transition-all"
+                  className="bg-gradient-to-br from-red-500 to-red-600 text-white rounded-lg p-1.5 shadow-md flex items-center justify-center hover:from-red-600 hover:to-red-700 hover:shadow-lg transition-all"
                   title="Fechar chat">
                   <X className="w-3.5 h-3.5" />
                 </button>
