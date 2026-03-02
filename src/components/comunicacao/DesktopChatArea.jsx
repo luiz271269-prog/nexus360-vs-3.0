@@ -69,16 +69,18 @@ export default function DesktopChatArea({
       <>
         {showFloating && (
           <div
-            className="fixed right-0 bottom-0 z-50 flex flex-col shadow-2xl border-l-2 border-orange-400 bg-white"
-            style={{ width: '480px', top: 0 }}
+            className="fixed right-0 bottom-0 z-40 flex flex-col shadow-2xl border-l-2 border-orange-400 bg-white"
+            style={{ width: '480px', top: 0, paddingTop: 0 }}
           >
             {/* Botão fechar */}
             <button
               onClick={fecharChat}
-              className="absolute top-2 left-[-36px] z-10 w-7 h-7 bg-orange-500 hover:bg-orange-600 text-white rounded-l-lg flex items-center justify-center text-xs shadow-lg"
+              className="absolute top-1/2 left-[-28px] z-10 w-7 h-14 bg-orange-500 hover:bg-orange-600 text-white rounded-l-lg flex items-center justify-center text-xs shadow-lg -translate-y-1/2"
               title="Fechar chat"
             >✕</button>
-            {chatContent}
+            <div className="flex flex-col h-full overflow-hidden">
+              {chatContent}
+            </div>
           </div>
         )}
       </>
