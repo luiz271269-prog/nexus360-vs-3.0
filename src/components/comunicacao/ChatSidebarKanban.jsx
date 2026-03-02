@@ -111,8 +111,12 @@ function ThreadCardKanban({ thread, isAtiva, usuarioAtual, atendentes, onSelecio
   );
 }
 
-export default function ChatSidebarKanban({ threads, threadAtiva, onSelecionarThread, onVoltar, usuarioAtual, integracoes = [], atendentes = [] }) {
+export default function ChatSidebarKanban({ threads, threadAtiva, onSelecionarThread, onVoltar, usuarioAtual, integracoes = [], atendentes = [], onOpenKanbanNaoAtribuidos, onOpenKanbanRequerAtencao, onSelectInternalDestinations }) {
   const [kanbanMode, setKanbanMode] = React.useState('usuario'); // 'integracao' | 'usuario'
+  const [internalComposerOpen, setInternalComposerOpen] = React.useState(false);
+  const [delegateMode, setDelegateMode] = React.useState(false);
+  const [criarGrupoOpen, setCriarGrupoOpen] = React.useState(false);
+  const [agendaIAOpen, setAgendaIAOpen] = React.useState(false);
   // ✅ APLICAR MESMA LÓGICA DE VISIBILIDADE DO CHATWINDOW
   const threadsFiltradas = React.useMemo(() => {
     if (!usuarioAtual || threads.length === 0) return [];
