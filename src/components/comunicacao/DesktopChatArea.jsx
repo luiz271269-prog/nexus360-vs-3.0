@@ -67,16 +67,15 @@ export default function DesktopChatArea({
   if (isKanban) {
     return (
       <>
-        {/* Chat flutuante fixo na direita sobre o kanban, sem tirar espaço do layout */}
         {showFloating && (
           <div
-            className="fixed top-0 right-0 bottom-0 z-50 flex flex-col shadow-2xl border-l-2 border-orange-400 bg-white"
-            style={{ width: '480px', top: 'var(--chat-top, 0px)' }}
+            className="fixed right-0 bottom-0 z-50 flex flex-col shadow-2xl border-l-2 border-orange-400 bg-white"
+            style={{ width: '480px', top: 0 }}
           >
             {/* Botão fechar */}
             <button
               onClick={fecharChat}
-              className="absolute top-2 left-2 z-10 w-7 h-7 bg-slate-800/80 hover:bg-slate-900 text-white rounded-full flex items-center justify-center text-xs shadow-lg"
+              className="absolute top-2 left-[-36px] z-10 w-7 h-7 bg-orange-500 hover:bg-orange-600 text-white rounded-l-lg flex items-center justify-center text-xs shadow-lg"
               title="Fechar chat"
             >✕</button>
             {chatContent}
