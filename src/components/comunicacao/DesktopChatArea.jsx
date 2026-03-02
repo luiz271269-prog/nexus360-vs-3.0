@@ -81,6 +81,8 @@ export default function DesktopChatArea({
     </>
   );
 
+  const headerHeight = useHeaderHeight();
+
   // Modo kanban: chat flutua como painel fixo overlay sobre o kanban
   if (isKanban) {
     return (
@@ -88,7 +90,7 @@ export default function DesktopChatArea({
         {showFloating && (
           <div
             className="fixed right-0 bottom-0 z-40 flex flex-col shadow-2xl border-l-2 border-orange-400 bg-white"
-            style={{ width: '480px', top: 0, paddingTop: 0 }}
+            style={{ width: '480px', top: headerHeight || 0 }}
           >
             {/* Botão fechar */}
             <button
