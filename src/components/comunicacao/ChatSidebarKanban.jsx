@@ -556,6 +556,30 @@ export default function ChatSidebarKanban({ threads, threadAtiva, onSelecionarTh
         )}
       </div>
 
+      {/* Modals */}
+      <InternalMessageComposer
+        open={internalComposerOpen}
+        onClose={() => { setInternalComposerOpen(false); setDelegateMode(false); }}
+        currentUser={usuarioAtual}
+        mode={delegateMode ? 'delegate' : 'compose'}
+        onSelectDestinations={(selection) => {
+          setInternalComposerOpen(false);
+          setDelegateMode(false);
+          if (onSelectInternalDestinations) onSelectInternalDestinations(selection);
+        }}
+      />
+      <CriarGrupoModal
+        open={criarGrupoOpen}
+        onClose={() => setCriarGrupoOpen(false)}
+        usuarios={atendentes}
+        currentUser={usuarioAtual}
+        onSuccess={() => { setCriarGrupoOpen(false); toast.success('✅ Grupo criado!'); }}
+      />
+      <AgendaIAUnificada
+        open={agendaIAOpen}
+        onClose={() => setAgendaIAOpen(false)}
+        usuario={usuarioAtual}
+      />
     </div>
   );
 }
