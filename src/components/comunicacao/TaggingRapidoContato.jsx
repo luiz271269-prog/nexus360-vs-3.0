@@ -88,9 +88,7 @@ const TaggingRapidoContatoMemo = ({ contactId, etiquetasAtuais = [], etiquetasDi
 
           {/* Lista de etiquetas disponíveis */}
           <div className="max-h-64 overflow-y-auto border-t pt-3 space-y-1.5">
-            {carregando ? (
-              <p className="text-xs text-slate-500">Carregando...</p>
-            ) : etiquetasDisponiveis.length === 0 ? (
+            {etiquetasDisponiveis.length === 0 ? (
               <p className="text-xs text-slate-500">Nenhuma etiqueta disponível</p>
             ) : (
               etiquetasDisponiveis.map(tag => (
