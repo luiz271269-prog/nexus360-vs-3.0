@@ -402,21 +402,29 @@ Deno.serve(async (req) => {
       return jsonBadRequest({ success: false, error: 'metodo_nao_suportado' });
     }
 
-    let base44;
-    try {
-      base44 = createClientFromRequest(req.clone());
-    } catch (e) {
-      console.error(`[${VERSION}] SDK init error:`, e?.message || e);
-      return jsonServerError({ success: false, error: 'sdk_init_error' });
-    }
-
+    // ✅ LER BODY PRIMEIRO (req.text() consome o stream)
+    let body;
     let payload;
     try {
-      const body = await req.text();
+      body = await req.text();
       if (!body) return jsonOk({ success: true, ignored: true, reason: 'sem_corpo' });
       payload = JSON.parse(body);
     } catch (e) {
       return jsonBadRequest({ success: false, error: 'json_invalido' });
+    }
+
+    // ✅ RECRIAR REQUEST com body para o SDK
+    let base44;
+    try {
+      const reqForSdk = new Request(req.url, {
+        method: req.method,
+        headers: req.headers,
+        body: body,
+      });
+      base44 = createClientFromRequest(reqForSdk);
+    } catch (e) {
+      console.error(`[${VERSION}] SDK init error:`, e?.message || e);
+      return jsonServerError({ success: false, error: 'sdk_init_error' });
     }
 
     console.log(`[${VERSION}] 📥 Payload recebido (1/2):`, JSON.stringify(payload).substring(0, 1000));
