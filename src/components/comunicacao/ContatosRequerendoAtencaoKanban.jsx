@@ -117,12 +117,12 @@ export default function ContatosRequerendoAtencaoKanban({ usuario, onSelecionarC
     }
   }, [usuario]);
 
-  // ✅ Carregar atendentes
+  // ✅ Carregar atendentes + etiquetas (UMA VEZ)
   useEffect(() => {
-    const carregarAtendentes = async () => {
+    const carregarDados = async () => {
       try {
+        // Carregar atendentes
         const resultado = await base44.functions.invoke('listarUsuariosParaAtribuicao', {});
-
         if (resultado?.data?.success && resultado?.data?.usuarios) {
           const map = {};
           resultado.data.usuarios.forEach((u) => {
@@ -130,15 +130,19 @@ export default function ContatosRequerendoAtencaoKanban({ usuario, onSelecionarC
           });
           setUsuariosMap(map);
         }
+
+        // Carregar etiquetas UMA VEZ
+        const etiquetas = await base44.entities.EtiquetaContato.list('-peso_qualificacao', 100);
+        setEtiquetasDisponiveis(etiquetas || []);
       } catch (error) {
-        console.error('[ContatosKanban] Erro ao carregar atendentes:', error);
+        console.error('[ContatosKanban] Erro ao carregar dados:', error);
       }
     };
 
     if (contatosComAlerta.length > 0) {
-      carregarAtendentes();
+      carregarDados();
     }
-  }, [contatosComAlerta]);
+  }, []);
 
   // ✅ Agrupamento único por Prioridade (baseado em dias inativos)
   const agruparPorPrioridade = () => {
