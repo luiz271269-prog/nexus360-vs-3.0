@@ -721,7 +721,7 @@ async function handleMessage(dados, payloadBruto, base44) {
   try {
     console.log(`[${VERSION}] 🎯 Chamando função CENTRALIZADA para contato: ${dados.from}`);
     
-    const resultado = await base44.asServiceRole.functions.invoke('getOrCreateContactCentralized', {
+    const resultado = await base44.functions.invoke('getOrCreateContactCentralized', {
       telefone: dados.from,
       pushName: dados.pushName || null,
       profilePicUrl: null,
