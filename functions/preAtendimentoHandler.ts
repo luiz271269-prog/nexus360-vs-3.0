@@ -1,304 +1,296 @@
-import { createClientFromRequest } from 'npm:@base44/sdk@0.8.4';
-import { FluxoController } from './preAtendimento/fluxoController.js';
-import { RetryHandler, circuitBreakers } from './lib/retryHandler.js';
-import { ErrorHandler } from './lib/errorHandler.js';
+// redeploy: 2026-03-03T15:10
+import { createClientFromRequest } from 'npm:@base44/sdk@0.8.20';
 
-/**
- * ╔══════════════════════════════════════════════════════════════╗
- * ║  PRÉ-ATENDIMENTO HANDLER - VERSÃO COMPLETA E ROBUSTA        ║
- * ║  ✅ Máquina de estados completa                              ║
- * ║  ✅ Validação de inputs                                      ║
- * ║  ✅ Integração com roteamento inteligente                    ║
- * ║  ✅ Tratamento de erros e fallbacks                          ║
- * ║  ✅ Timeouts e cancelamentos                                 ║
- * ╚══════════════════════════════════════════════════════════════╝
- */
+// ============================================================================
+// PRÉ-ATENDIMENTO HANDLER v11.0.0-INLINE
+// Sem nenhum import local - tudo inlinado
+// ============================================================================
 
-Deno.serve(async (req) => {
-  const headers = {
-    'Content-Type': 'application/json',
-    'Access-Control-Allow-Origin': '*'
+// --- Inline: emojiHelper (processTextWithEmojis only) ---
+function processTextWithEmojis(text) {
+  if (!text || typeof text !== 'string') return '';
+  return text.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F-\x9F]/g, '').replace(/\s+/g, ' ').trim();
+}
+
+// --- Inline: MenuBuilder ---
+function construirMenuBoasVindas(nomeContato) {
+  const nome = nomeContato && !/^\d+$/.test(nomeContato) ? nomeContato.split(' ')[0] : '';
+  const hora = new Date().getHours();
+  const saudacao = hora < 12 ? 'bom dia' : (hora < 18 ? 'boa tarde' : 'boa noite');
+  return `👋 Olá${nome ? ` ${nome}` : ''}! ${saudacao}!\n\nEstou aqui para te conectar com a equipe certa.\n\n🎯 *Para qual setor você gostaria de falar?*\n\n1️⃣ 💼 Vendas\n2️⃣ 💰 Financeiro\n3️⃣ 🔧 Suporte Técnico\n4️⃣ 📦 Fornecedores\n\nDigite o número da opção:`;
+}
+
+// --- Inline: enviarMensagem ---
+async function enviarMensagem(base44, contact, integrationId, texto) {
+  try {
+    await base44.asServiceRole.functions.invoke('enviarWhatsApp', {
+      integration_id: integrationId,
+      numero_destino: contact.telefone,
+      mensagem: processTextWithEmojis(texto)
+    });
+  } catch (e) {
+    console.error('[PRE-ATENDIMENTO] Falha ao enviar msg:', e.message);
+  }
+}
+
+async function atualizarEstado(base44, threadId, novoEstado, setorId = undefined) {
+  const updateData = {
+    pre_atendimento_state: novoEstado,
+    pre_atendimento_last_interaction: new Date().toISOString(),
+    pre_atendimento_timeout_at: new Date(Date.now() + 10 * 60 * 1000).toISOString()
   };
+  if (setorId !== undefined) updateData.sector_id = setorId;
+  await base44.asServiceRole.entities.MessageThread.update(threadId, updateData);
+}
+
+// --- Inline: FluxoController ---
+async function processarEstadoINIT(base44, thread, contact, whatsappIntegrationId, user_input = null, intent_context = null) {
+  console.log('[FLUXO] INIT | Input:', user_input?.content, '| IA:', intent_context ? 'Sim' : 'Não');
+
+  // Fast-track via IA
+  if (intent_context?.sector_slug && intent_context.confidence >= 70) {
+    const msg = `✅ Entendi! Vou te direcionar para *${intent_context.sector_slug.toUpperCase()}*.`;
+    await enviarMensagem(base44, contact, whatsappIntegrationId, msg);
+    await atualizarEstado(base44, thread.id, 'WAITING_ATTENDANT_CHOICE', intent_context.sector_slug);
+    thread = await base44.asServiceRole.entities.MessageThread.get(thread.id);
+    return await processarWAITING_ATTENDANT_CHOICE(base44, thread, contact, { type: 'system', content: '' }, whatsappIntegrationId);
+  }
+
+  // Sticky setor
+  if (thread.sector_id && !intent_context) {
+    const msgSticky = `Olá novamente, ${contact.nome}! 👋\n\nVi que seu último atendimento foi em *${thread.sector_id.toUpperCase()}*. Deseja continuar por lá?\n\n1️⃣ Sim, continuar\n2️⃣ Não, outro assunto`;
+    await enviarMensagem(base44, contact, whatsappIntegrationId, msgSticky);
+    await atualizarEstado(base44, thread.id, 'WAITING_STICKY_DECISION');
+    return { success: true, mode: 'sticky' };
+  }
+
+  // Menu padrão
+  const menu = construirMenuBoasVindas(contact.nome);
+  await enviarMensagem(base44, contact, whatsappIntegrationId, menu);
+  await atualizarEstado(base44, thread.id, 'WAITING_SECTOR_CHOICE');
+  return { success: true, mode: 'menu' };
+}
+
+async function processarWAITING_STICKY_DECISION(base44, thread, contact, user_input, whatsappIntegrationId) {
+  const entrada = (user_input.content || user_input.id || '').toLowerCase();
+
+  if (['sim', '1', 'quero'].some(x => entrada.includes(x))) {
+    await enviarMensagem(base44, contact, whatsappIntegrationId, `Combinado! Retornando para *${thread.sector_id}*...`);
+    await atualizarEstado(base44, thread.id, 'WAITING_ATTENDANT_CHOICE', thread.sector_id);
+    thread = await base44.asServiceRole.entities.MessageThread.get(thread.id);
+    return await processarWAITING_ATTENDANT_CHOICE(base44, thread, contact, { type: 'system' }, whatsappIntegrationId);
+  }
+
+  if (['nao', 'não', '2', 'menu', 'outro'].some(x => entrada.includes(x))) {
+    await base44.asServiceRole.entities.MessageThread.update(thread.id, {
+      pre_atendimento_state: 'INIT',
+      sector_id: null,
+      assigned_user_id: null
+    });
+    thread = await base44.asServiceRole.entities.MessageThread.get(thread.id);
+    return await processarEstadoINIT(base44, thread, contact, whatsappIntegrationId, null, null);
+  }
+
+  // Fallback
+  thread = await base44.asServiceRole.entities.MessageThread.get(thread.id);
+  return await processarEstadoINIT(base44, thread, contact, whatsappIntegrationId, null, null);
+}
+
+async function processarWAITING_SECTOR_CHOICE(base44, thread, contact, user_input, whatsappIntegrationId) {
+  const entrada = (user_input.content || user_input.id || '').toLowerCase().trim();
+  let setor = null;
+
+  if (['1', 'vendas', 'comercial'].some(k => entrada.includes(k))) setor = 'vendas';
+  else if (['2', 'financeiro', 'fat', 'boleto'].some(k => entrada.includes(k))) setor = 'financeiro';
+  else if (['3', 'suporte', 'tecnico', 'ajuda', 'assistencia'].some(k => entrada.includes(k))) setor = 'assistencia';
+  else if (['4', 'fornecedor', 'compras'].some(k => entrada.includes(k))) setor = 'fornecedor';
+
+  if (setor) {
+    await enviarMensagem(base44, contact, whatsappIntegrationId, `Você escolheu: *${setor.toUpperCase()}*.\nBuscando atendentes...`);
+    await atualizarEstado(base44, thread.id, 'WAITING_ATTENDANT_CHOICE', setor);
+    thread = await base44.asServiceRole.entities.MessageThread.get(thread.id);
+    return await processarWAITING_ATTENDANT_CHOICE(base44, thread, contact, { type: 'system' }, whatsappIntegrationId);
+  }
+
+  await enviarMensagem(base44, contact, whatsappIntegrationId, "❌ Opção inválida. Digite o número ou nome do setor.\n\n" + construirMenuBoasVindas(contact.nome));
+  return { success: false };
+}
+
+async function processarWAITING_ATTENDANT_CHOICE(base44, thread, contact, user_input, whatsappIntegrationId) {
+  const setor = thread.sector_id;
+  try {
+    const rota = await base44.asServiceRole.functions.invoke('roteamentoInteligente', {
+      thread_id: thread.id,
+      contact_id: contact.id,
+      sector: setor,
+      whatsapp_integration_id: whatsappIntegrationId,
+      check_only: false
+    });
+
+    if (rota.data?.success && rota.data?.atendente_id) {
+      const atendenteNome = rota.data.atendente_nome || 'um atendente';
+      await enviarMensagem(base44, contact, whatsappIntegrationId, `🥳 Encontrei o atendente *${atendenteNome}* para você! Transferindo...`);
+      await base44.asServiceRole.entities.MessageThread.update(thread.id, {
+        pre_atendimento_state: 'COMPLETED',
+        pre_atendimento_ativo: false,
+        pre_atendimento_completed_at: new Date().toISOString()
+      });
+      return { success: true, allocated: true };
+    }
+
+    const msgFila = `No momento, todos os atendentes de *${setor || 'geral'}* estão ocupados. 😕\n\nDeseja aguardar na fila?\n\n1️⃣ Sim, entrar na fila\n2️⃣ Escolher outro setor`;
+    await enviarMensagem(base44, contact, whatsappIntegrationId, msgFila);
+    await atualizarEstado(base44, thread.id, 'WAITING_QUEUE_DECISION');
+    return { success: true, waiting_queue: true };
+
+  } catch (e) {
+    console.error('[FLUXO] Erro no roteamento:', e.message);
+    await enviarMensagem(base44, contact, whatsappIntegrationId, "Houve um erro técnico. Vamos tentar novamente.");
+    return { success: false, error: e.message };
+  }
+}
+
+async function processarWAITING_QUEUE_DECISION(base44, thread, contact, user_input, whatsappIntegrationId) {
+  const entrada = (user_input.content || user_input.id || '').toLowerCase();
+
+  if (['sim', '1'].some(x => entrada.includes(x))) {
+    await base44.asServiceRole.functions.invoke('gerenciarFila', {
+      action: 'enqueue',
+      thread_id: thread.id,
+      setor: thread.sector_id,
+      metadata: { nome: contact.nome }
+    });
+    await enviarMensagem(base44, contact, whatsappIntegrationId, `✅ Você está na fila! Assim que alguém liberar, você será chamado.`);
+    await base44.asServiceRole.entities.MessageThread.update(thread.id, {
+      pre_atendimento_state: 'COMPLETED',
+      pre_atendimento_ativo: false,
+      pre_atendimento_completed_at: new Date().toISOString()
+    });
+    return { success: true, queued: true };
+  }
+
+  thread = await base44.asServiceRole.entities.MessageThread.get(thread.id);
+  return await processarEstadoINIT(base44, thread, contact, whatsappIntegrationId, null, null);
+}
+
+// ============================================================================
+// HANDLER PRINCIPAL
+// ============================================================================
+Deno.serve(async (req) => {
+  const headers = { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' };
 
   if (req.method === 'OPTIONS') {
     return new Response(null, { status: 204, headers });
   }
 
+  let base44;
   try {
-    const base44 = createClientFromRequest(req);
-    const payload = await req.json();
+    base44 = createClientFromRequest(req);
+  } catch (e) {
+    return Response.json({ success: false, error: 'sdk_init_error' }, { status: 500 });
+  }
 
-    console.log('[PRE-ATENDIMENTO] 📥 Payload recebido:', payload);
+  let payload;
+  try {
+    payload = await req.json();
+  } catch (e) {
+    return Response.json({ success: false, error: 'invalid_json' }, { status: 400 });
+  }
 
-    // ═══════════════════════════════════════════════════════════
-    // 1. NORMALIZAÇÃO DE ENTRADA (Contrato Único)
-    // ═══════════════════════════════════════════════════════════
-    const { thread_id, contact_id, whatsapp_integration_id } = payload;
-    
+  try {
+    const { thread_id, contact_id, whatsapp_integration_id, user_input, intent_context } = payload;
+
     if (!thread_id || !contact_id) {
-      throw new Error('thread_id e contact_id são obrigatórios');
+      return Response.json({ success: false, error: 'thread_id e contact_id são obrigatórios' }, { status: 400 });
     }
-    
-    // user_input já deve vir normalizado do inboundCore
-    const user_input = payload.user_input || { type: 'text', content: '' };
-    const intent_context = payload.intent_context || null;
-    
-    console.log('[PRE-ATENDIMENTO] 📝 User Input recebido:', user_input);
 
-    // ═══════════════════════════════════════════════════════════
-    // BUSCAR THREAD E CONTACT
-    // ═══════════════════════════════════════════════════════════
-    
-    // ═══════════════════════════════════════════════════════════
-    // 2. BUSCAR THREAD E CONTACT
-    // ═══════════════════════════════════════════════════════════
-    let [thread, contact] = await RetryHandler.executeWithRetry(
-      async () => {
-        const t = await base44.asServiceRole.entities.MessageThread.get(thread_id);
-        const c = await base44.asServiceRole.entities.Contact.get(contact_id);
-        return [t, c];
-      },
-      {
-        maxRetries: 2,
-        circuitBreaker: circuitBreakers.database
-      }
-    );
+    const userInput = user_input || { type: 'text', content: '' };
 
-    console.log('[PRE-ATENDIMENTO] Thread carregada:', {
-      id: thread.id,
-      estado: thread.pre_atendimento_state,
-      ativo: thread.pre_atendimento_ativo
-    });
+    let [thread, contact] = await Promise.all([
+      base44.asServiceRole.entities.MessageThread.get(thread_id),
+      base44.asServiceRole.entities.Contact.get(contact_id)
+    ]);
 
-    // ═══════════════════════════════════════════════════════════
-    // 3. POLÍTICA DE LIBERTAÇÃO (DIVÓRCIO AUTOMÁTICO) - v10 AGRESSIVO
-    // ═══════════════════════════════════════════════════════════
-    // Se o inboundCore mandou rodar, é porque o humano não está ativo agora.
-    // Se a thread estava finalizada, precisamos RESETAR tudo e LIMPAR o atendente.
+    console.log('[PRE-ATENDIMENTO] Thread:', thread.id, '| Estado:', thread.pre_atendimento_state);
+
+    // Política de libertação
     if (['COMPLETED', 'CANCELLED', 'TIMEOUT'].includes(thread.pre_atendimento_state)) {
-
-      console.log('[PRE-ATENDIMENTO] 🔓 Destravando contato. Limpando atendente anterior.');
-
-      // 1. Limpa o atendente (ex: Solta o Luiz do Tiago)
-      // 2. Reseta para INIT
-      // 3. Salva e Recarrega (Garante que a memória esteja limpa)
       await base44.asServiceRole.entities.MessageThread.update(thread.id, {
         pre_atendimento_state: 'INIT',
         pre_atendimento_ativo: true,
         pre_atendimento_started_at: new Date().toISOString(),
         pre_atendimento_completed_at: null,
-        assigned_user_id: null,  // <--- O PULO DO GATO: Liberta do atendente anterior
+        assigned_user_id: null,
         sector_id: null
       });
-
       thread = await base44.asServiceRole.entities.MessageThread.get(thread_id);
-      console.log('[PRE-ATENDIMENTO] ✅ Thread resetada para INIT. Contato livre para novo roteamento.');
     }
 
-    // ═══════════════════════════════════════════════════════════
-    // 4. VERIFICAÇÃO DE TIMEOUT E CORREÇÃO DE MEMÓRIA
-    // ═══════════════════════════════════════════════════════════
-    if (thread.pre_atendimento_timeout_at) {
-      const timeoutDate = new Date(thread.pre_atendimento_timeout_at);
-      const now = new Date();
-      
-      if (now >= timeoutDate && thread.pre_atendimento_state !== 'INIT') {
-        console.log('[PRE-ATENDIMENTO] ⏰ Timeout detectado. Resetando para INIT.');
+    // Verificação de timeout
+    if (thread.pre_atendimento_timeout_at && thread.pre_atendimento_state !== 'INIT') {
+      if (new Date() >= new Date(thread.pre_atendimento_timeout_at)) {
         await base44.asServiceRole.entities.MessageThread.update(thread.id, {
           pre_atendimento_state: 'INIT',
           pre_atendimento_ativo: true,
           pre_atendimento_timeout_at: null,
           pre_atendimento_started_at: new Date().toISOString()
         });
-        // CRÍTICO: Recarregar thread após reset de estado
         thread = await base44.asServiceRole.entities.MessageThread.get(thread_id);
-        console.log('[PRE-ATENDIMENTO] Estado resetado na memória após timeout');
       }
     }
 
-    // ═══════════════════════════════════════════════════════════
-    // BUSCAR INTEGRAÇÃO WHATSAPP
-    // ═══════════════════════════════════════════════════════════
-    
+    // Buscar integração
     let whatsappIntegration = payload.whatsappIntegration || null;
-    
     if (!whatsappIntegration && whatsapp_integration_id) {
       whatsappIntegration = await base44.asServiceRole.entities.WhatsAppIntegration.get(whatsapp_integration_id);
     }
-    
     if (!whatsappIntegration) {
-      const integracoes = await base44.asServiceRole.entities.WhatsAppIntegration.filter({
-        status: 'conectado'
-      });
-      if (integracoes.length > 0) {
-        whatsappIntegration = integracoes[0];
-      } else {
-        throw new Error('Nenhuma integração WhatsApp ativa encontrada');
-      }
+      const integracoes = await base44.asServiceRole.entities.WhatsAppIntegration.filter({ status: 'conectado' }, '-created_date', 1);
+      if (integracoes.length > 0) whatsappIntegration = integracoes[0];
+      else return Response.json({ success: false, error: 'Nenhuma integração WhatsApp ativa' }, { status: 500 });
     }
 
-    console.log('[PRE-ATENDIMENTO] Integração WhatsApp:', whatsappIntegration.id);
-
-    // ═══════════════════════════════════════════════════════════
-    // PROCESSAR BASEADO NO ESTADO ATUAL
-    // ═══════════════════════════════════════════════════════════
-    
-    let resultado;
     const estadoAtual = thread.pre_atendimento_state || 'INIT';
-
     console.log('[PRE-ATENDIMENTO] Processando estado:', estadoAtual);
 
+    let resultado;
     switch (estadoAtual) {
       case 'INIT':
-        resultado = await FluxoController.processarEstadoINIT(
-          base44,
-          thread,
-          contact,
-          whatsappIntegration.id,
-          user_input,
-          intent_context
-        );
+        resultado = await processarEstadoINIT(base44, thread, contact, whatsappIntegration.id, userInput, intent_context);
         break;
-
       case 'WAITING_SECTOR_CHOICE':
-        resultado = await FluxoController.processarWAITING_SECTOR_CHOICE(
-          base44,
-          thread,
-          contact,
-          user_input,
-          whatsappIntegration.id
-        );
+        resultado = await processarWAITING_SECTOR_CHOICE(base44, thread, contact, userInput, whatsappIntegration.id);
         break;
-
       case 'WAITING_STICKY_DECISION':
-        resultado = await FluxoController.processarWAITING_STICKY_DECISION(
-          base44,
-          thread,
-          contact,
-          user_input,
-          whatsappIntegration.id
-        );
+        resultado = await processarWAITING_STICKY_DECISION(base44, thread, contact, userInput, whatsappIntegration.id);
         break;
-
       case 'WAITING_ATTENDANT_CHOICE':
-        resultado = await FluxoController.processarWAITING_ATTENDANT_CHOICE(
-          base44,
-          thread,
-          contact,
-          user_input,
-          whatsappIntegration.id
-        );
+        resultado = await processarWAITING_ATTENDANT_CHOICE(base44, thread, contact, userInput, whatsappIntegration.id);
         break;
-
       case 'WAITING_QUEUE_DECISION':
-        resultado = await FluxoController.processarWAITING_QUEUE_DECISION(
-          base44,
-          thread,
-          contact,
-          user_input,
-          whatsappIntegration.id
-        );
+        resultado = await processarWAITING_QUEUE_DECISION(base44, thread, contact, userInput, whatsappIntegration.id);
         break;
-
-      case 'TRANSFERRING':
-        resultado = {
-          success: false,
-          erro: 'Thread em processo de transferência'
-        };
-        break;
-
-      case 'COMPLETED':
-        // COMPLETED já foi tratado antes do switch com política de reabertura
-        console.log('[PRE-ATENDIMENTO] Estado COMPLETED no switch (deveria ter sido tratado antes)');
-        resultado = {
-          success: false,
-          erro: 'Pré-atendimento concluído e ainda ativo',
-          proximo_estado: 'COMPLETED'
-        };
-        break;
-
-      case 'CANCELLED':
-        resultado = {
-          success: false,
-          erro: 'Pré-atendimento foi cancelado'
-        };
-        break;
-
-      case 'TIMEOUT':
-        // TIMEOUT já foi tratado antes do switch, não deveria chegar aqui
-        console.log('[PRE-ATENDIMENTO] Estado TIMEOUT detectado no switch (deveria ter sido resetado antes)');
-        await base44.asServiceRole.entities.MessageThread.update(thread.id, {
-          pre_atendimento_state: 'INIT',
-          pre_atendimento_ativo: true,
-          pre_atendimento_timeout_at: null
-        });
-        // Recarregar thread após atualização
-        thread = await base44.asServiceRole.entities.MessageThread.get(thread.id);
-        resultado = await FluxoController.processarEstadoINIT(
-          base44,
-          thread,
-          contact,
-          whatsappIntegration.id,
-          user_input
-        );
-        break;
-
       default:
-        throw new Error(`Estado desconhecido: ${estadoAtual}`);
+        resultado = { success: false, erro: `Estado desconhecido: ${estadoAtual}` };
     }
 
-    // ═══════════════════════════════════════════════════════════
-    // LOG DE AUTOMAÇÃO
-    // ═══════════════════════════════════════════════════════════
-    
-    await RetryHandler.executeWithRetry(
-      async () => {
-        await base44.asServiceRole.entities.AutomationLog.create({
-          acao: 'pre_atendimento_step',
-          thread_id: thread.id,
-          contact_id: contact.id,
-          resultado: resultado.success ? 'sucesso' : 'erro',
-          timestamp: new Date().toISOString(),
-          detalhes: {
-            estado_inicial: estadoAtual,
-            estado_final: resultado.proximo_estado || estadoAtual,
-            user_input,
-            resultado
-          }
-        });
-      },
-      {
-        maxRetries: 1,
-        circuitBreaker: circuitBreakers.database
-      }
-    );
+    // Log de automação (não-crítico)
+    try {
+      await base44.asServiceRole.entities.AutomationLog.create({
+        acao: 'pre_atendimento_step',
+        thread_id: thread.id,
+        contact_id: contact.id,
+        resultado: resultado.success ? 'sucesso' : 'erro',
+        timestamp: new Date().toISOString(),
+        detalhes: { estado_inicial: estadoAtual, user_input: userInput, resultado }
+      });
+    } catch (e) {}
 
-    console.log('[PRE-ATENDIMENTO] ✅ Processamento concluído:', resultado);
-
-    return Response.json(
-      {
-        success: resultado.success,
-        estado_atual: estadoAtual,
-        proximo_estado: resultado.proximo_estado,
-        resultado
-      },
-      { status: 200, headers }
-    );
+    console.log('[PRE-ATENDIMENTO] ✅ Concluído:', resultado);
+    return Response.json({ success: resultado.success !== false, estado_atual: estadoAtual, resultado }, { status: 200, headers });
 
   } catch (error) {
-    const errorInfo = ErrorHandler.handle(error, {
-      function: 'preAtendimentoHandler'
-    });
-
-    console.error('[PRE-ATENDIMENTO] ❌ Erro:', errorInfo);
-
-    return Response.json(
-      {
-        success: false,
-        error: errorInfo.userMessage,
-        details: errorInfo.message
-      },
-      { status: 500, headers }
-    );
+    console.error('[PRE-ATENDIMENTO] ❌ Erro:', error.message);
+    return Response.json({ success: false, error: error.message }, { status: 500, headers });
   }
 });
