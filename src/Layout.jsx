@@ -203,7 +203,6 @@ function SideBar({ isOpen, menuItems, contadoresLembretes, usuario, loadingUsuar
           <UserAuthWidget usuario={usuario} loadingUsuario={loadingUsuario} onLogout={onLogout} />
         </div>
       </aside>
-    </TooltipProvider>
   );
 }
 
