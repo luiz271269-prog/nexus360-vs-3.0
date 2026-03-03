@@ -26,11 +26,7 @@ const TaggingRapidoContatoMemo = ({ contactId, etiquetasAtuais = [], etiquetasDi
   const handleSalvar = async () => {
     setSalvando(true);
     try {
-      // Atualizar contact com tags
-      await base44.entities.Contact.update(contactId, {
-        tags: etiquetasSelecionadas
-      });
-      
+      await base44.entities.Contact.update(contactId, { tags: etiquetasSelecionadas });
       toast.success('✅ Etiquetas atualizadas');
       if (onTagsUpdated) onTagsUpdated(etiquetasSelecionadas);
     } catch (error) {
@@ -41,9 +37,9 @@ const TaggingRapidoContatoMemo = ({ contactId, etiquetasAtuais = [], etiquetasDi
     }
   };
 
-  const getTagInfo = (tagId) => {
+  const getTagInfo = useMemo(() => (tagId) => {
     return etiquetasDisponiveis.find(e => e.id === tagId || e.nome === tagId);
-  };
+  }, [etiquetasDisponiveis]);
 
   return (
     <Popover>
