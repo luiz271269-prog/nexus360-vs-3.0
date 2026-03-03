@@ -130,12 +130,13 @@ export default function ModalEnvioPromocoesAutomaticas({
     if (!confirmacao) return;
 
     setEnviando(true);
+    setEnvioProgress({ enviados: 0, total: contatosSelecionados.length, percentual: 0 });
 
     try {
       const contactIds = contatosSelecionados.map(c => c.contact_id || c.id);
 
       toast.loading(
-        `📤 Enviando saudações para ${contactIds.length} contatos...`, 
+        `📤 Iniciando envio para ${contactIds.length} contatos...`, 
         { id: 'envio-promo-auto' }
       );
 
@@ -144,12 +145,21 @@ export default function ModalEnvioPromocoesAutomaticas({
         modo: 'promocao',
         delay_minutos: delayMinutos,
         texto_saudacao_custom: textoSaudacao !== 'Olá {{nome}}! Tudo bem? 😊' ? textoSaudacao : null,
-        integration_id: instanciaSelected
+        integration_id: instanciaSelected,
+        mostrar_como_mensagens: mostrarComoMensagens
       });
 
       if (resultado.data?.success) {
+        // ✅ Simular progresso do envio
+        const enviados = resultado.data.enviados || 0;
+        setEnvioProgress({ 
+          enviados, 
+          total: contactIds.length, 
+          percentual: Math.round((enviados / contactIds.length) * 100) 
+        });
+
         toast.success(
-          `✅ ${resultado.data.enviados} saudações enviadas!\n` +
+          `✅ ${enviados} saudações enfileiradas!\n` +
           `⏰ Promoções serão enviadas em ${delayMinutos} minuto(s)`,
           { id: 'envio-promo-auto', duration: 5000 }
         );
@@ -161,8 +171,10 @@ export default function ModalEnvioPromocoesAutomaticas({
           );
         }
 
-        onClose();
-        if (onEnvioCompleto) onEnvioCompleto();
+        setTimeout(() => {
+          onClose();
+          if (onEnvioCompleto) onEnvioCompleto();
+        }, 2000);
       } else {
         throw new Error(resultado.data?.error || 'Erro ao enviar');
       }
