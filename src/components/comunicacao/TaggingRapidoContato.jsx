@@ -118,4 +118,4 @@ const TaggingRapidoContato = ({ contactId, etiquetasAtuais = [], etiquetasDispon
   );
 };
 
-export default TaggingRapidoContatoMemo;
+export default React.memo(TaggingRapidoContato);
