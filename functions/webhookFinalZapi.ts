@@ -1,24 +1,5 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.4';
-
-// Inlined normalizarTelefone (local imports not supported in Deno deploy)
-function normalizarTelefone(telefone) {
-  if (!telefone) return null;
-  let apenasNumeros = String(telefone).split('@')[0].replace(/\D/g, '');
-  if (!apenasNumeros || apenasNumeros.length < 10) return null;
-  apenasNumeros = apenasNumeros.replace(/^0+/, '');
-  if (!apenasNumeros.startsWith('55')) {
-    if (apenasNumeros.length === 10 || apenasNumeros.length === 11) {
-      apenasNumeros = '55' + apenasNumeros;
-    }
-  }
-  if (apenasNumeros.startsWith('55') && apenasNumeros.length === 12) {
-    const primeiroDigitoNumero = apenasNumeros[4];
-    if (['6', '7', '8', '9'].includes(primeiroDigitoNumero)) {
-      apenasNumeros = apenasNumeros.substring(0, 4) + '9' + apenasNumeros.substring(4);
-    }
-  }
-  return '+' + apenasNumeros;
-}
+import { normalizarTelefone } from './lib/phoneNormalizer.js';
 
 // ============================================================================
 // WEBHOOK WHATSAPP Z-API - v10.0.0 INGESTÃO PURA + CÉREBRO ISOLADO
@@ -404,34 +385,21 @@ Deno.serve(async (req) => {
       return jsonBadRequest({ success: false, error: 'metodo_nao_suportado' });
     }
 
-    // Ler body ANTES de qualquer clone (body só pode ser lido uma vez)
-    let body;
+    let base44;
     try {
-      body = await req.text();
-      if (!body) return jsonOk({ success: true, ignored: true, reason: 'sem_corpo' });
+      base44 = createClientFromRequest(req.clone());
     } catch (e) {
-      return jsonBadRequest({ success: false, error: 'body_read_error' });
+      console.error(`[${VERSION}] SDK init error:`, e?.message || e);
+      return jsonServerError({ success: false, error: 'sdk_init_error' });
     }
 
     let payload;
     try {
+      const body = await req.text();
+      if (!body) return jsonOk({ success: true, ignored: true, reason: 'sem_corpo' });
       payload = JSON.parse(body);
     } catch (e) {
       return jsonBadRequest({ success: false, error: 'json_invalido' });
-    }
-
-    // Recriar Request com body para o SDK (req original já foi consumido)
-    let base44;
-    try {
-      const reqForSdk = new Request(req.url, {
-        method: req.method,
-        headers: req.headers,
-        body: body,
-      });
-      base44 = createClientFromRequest(reqForSdk);
-    } catch (e) {
-      console.error(`[${VERSION}] SDK init error:`, e?.message || e);
-      return jsonServerError({ success: false, error: 'sdk_init_error' });
     }
 
     console.log(`[${VERSION}] 📥 Payload recebido (1/2):`, JSON.stringify(payload).substring(0, 1000));
@@ -721,7 +689,7 @@ async function handleMessage(dados, payloadBruto, base44) {
   try {
     console.log(`[${VERSION}] 🎯 Chamando função CENTRALIZADA para contato: ${dados.from}`);
     
-    const resultado = await base44.functions.invoke('getOrCreateContactCentralized', {
+    const resultado = await base44.asServiceRole.functions.invoke('getOrCreateContactCentralized', {
       telefone: dados.from,
       pushName: dados.pushName || null,
       profilePicUrl: null,
