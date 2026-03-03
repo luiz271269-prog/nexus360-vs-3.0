@@ -88,12 +88,13 @@ export default function ModalEnvioMassa({ isOpen, onClose, contatosSelecionados,
       });
 
       const resultado = await base44.functions.invoke('enviarMensagemMassa', {
-        contact_ids: contatosSelecionados.map(c => c.contact_id || c.id),
-        mensagem: mensagemTexto,
-        personalizar: true,
-        media_url: finalMediaUrl,
-        media_type: tipoMidia,
-        media_caption: legendaMidia
+       contact_ids: contatosSelecionados.map(c => c.contact_id || c.id),
+       mensagem: mensagemTexto,
+       personalizar: true,
+       media_url: finalMediaUrl,
+       media_type: tipoMidia,
+       media_caption: legendaMidia,
+       usar_atendente_fidelizado: true
       });
 
       if (resultado.data?.success) {
@@ -188,7 +189,7 @@ export default function ModalEnvioMassa({ isOpen, onClose, contatosSelecionados,
              💡 Placeholders disponíveis: <code className="bg-slate-100 px-1 rounded">{'{{nome}}'}</code>, <code className="bg-slate-100 px-1 rounded">{'{{empresa}}'}</code>, <code className="bg-slate-100 px-1 rounded">{'{{atendente}}'}</code>
            </p>
            <p className="text-xs text-slate-400 italic">
-             ✨ <code className="bg-slate-100 px-1 rounded">{'{{atendente}}'}</code> será substituído pelo seu primeiro nome automaticamente — humaniza a conversa e reduz spam.
+             ✨ <code className="bg-slate-100 px-1 rounded">{'{{atendente}}'}</code> será substituído pelo nome do atendente fidelizado do contato — humaniza a conversa.
            </p>
            <p className="text-xs text-slate-600">
              {mensagem.length} caracteres
