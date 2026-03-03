@@ -114,6 +114,11 @@ export default function DesktopChatArea({
   );
 
   const headerHeight = useHeaderHeight();
+  const { pos, onMouseDown } = useDraggablePanel(headerHeight);
+
+  const panelTop = pos.top !== null ? pos.top : (headerHeight || 0);
+  // Panel height: 80vh from its top position, leaving some bottom gap
+  const panelHeight = `calc(100vh - ${panelTop}px - 32px)`;
 
   // Modo kanban: chat flutua como painel fixo overlay sobre o kanban
   if (isKanban) {
@@ -121,16 +126,25 @@ export default function DesktopChatArea({
       <>
         {showFloating && (
           <div
-            className="fixed right-0 bottom-0 z-40 flex flex-col shadow-2xl border-l-2 border-orange-400 bg-white"
-            style={{ width: '480px', top: headerHeight || 0 }}
+            data-drag-panel
+            className="fixed right-0 z-40 flex flex-col shadow-2xl border-l-2 border-orange-400 bg-white"
+            style={{ width: '480px', top: panelTop, height: panelHeight }}
           >
+            {/* Drag handle */}
+            <div
+              onMouseDown={onMouseDown}
+              className="absolute top-0 left-0 right-0 h-5 cursor-ns-resize z-20 flex items-center justify-center select-none"
+              title="Arrastar"
+            >
+              <div className="w-12 h-1 bg-orange-300 rounded-full" />
+            </div>
             {/* Botão fechar */}
             <button
               onClick={fecharChat}
               className="absolute top-1/2 left-[-28px] z-10 w-7 h-14 bg-orange-500 hover:bg-orange-600 text-white rounded-l-lg flex items-center justify-center text-xs shadow-lg -translate-y-1/2"
               title="Fechar chat"
             >✕</button>
-            <div className="flex flex-col h-full overflow-hidden">
+            <div className="flex flex-col h-full overflow-hidden pt-5">
               {chatContent}
             </div>
           </div>
