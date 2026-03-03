@@ -1,33 +1,19 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Tag, X, Check } from 'lucide-react';
+import { Tag, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { base44 } from '@/api/base44Client';
 
-export default function TaggingRapidoContato({ contactId, etiquetasAtuais = [], onTagsUpdated }) {
-  const [etiquetasDisponiveis, setEtiquetasDisponiveis] = useState([]);
+// ✅ Memoização para evitar re-renders
+const TaggingRapidoContatoMemo = ({ contactId, etiquetasAtuais = [], etiquetasDisponiveis = [], onTagsUpdated }) => {
   const [etiquetasSelecionadas, setEtiquetasSelecionadas] = useState([]);
-  const [carregando, setCarregando] = useState(false);
   const [salvando, setSalvando] = useState(false);
 
   useEffect(() => {
-    carregarEtiquetas();
     setEtiquetasSelecionadas(etiquetasAtuais || []);
-  }, [contactId, etiquetasAtuais]);
-
-  const carregarEtiquetas = async () => {
-    setCarregando(true);
-    try {
-      const etiquetas = await base44.entities.EtiquetaContato.list('-peso_qualificacao', 100);
-      setEtiquetasDisponiveis(etiquetas || []);
-    } catch (error) {
-      console.error('[TaggingRapido] Erro ao carregar etiquetas:', error);
-    } finally {
-      setCarregando(false);
-    }
-  };
+  }, [etiquetasAtuais]);
 
   const handleToggleTag = (tagId) => {
     setEtiquetasSelecionadas(prev => 
