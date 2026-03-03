@@ -453,10 +453,22 @@ export default function ContatosRequerendoAtencaoKanban({ usuario, onSelecionarC
         </div>
 
         <div className="flex-1 min-w-0">
-          {/* Linha 1: Nome - text-sm (14px semibold) */}
-          <h3 className="font-semibold truncate text-sm text-slate-900 mb-0.5">
-            {nomeExibicao}
-          </h3>
+           {/* Linha 1: Nome + Botão Tag - text-sm (14px semibold) */}
+           <div className="flex items-center justify-between gap-2">
+             <h3 className="font-semibold truncate text-sm text-slate-900 mb-0.5 flex-1">
+               {nomeExibicao}
+             </h3>
+             <div onClick={(e) => e.stopPropagation()} className="flex-shrink-0">
+               <TaggingRapidoContato 
+                 contactId={contatoId}
+                 etiquetasAtuais={item.tags || []}
+                 onTagsUpdated={(novasTags) => {
+                   // Atualiza as tags na exibição
+                   item.tags = novasTags;
+                 }}
+               />
+             </div>
+           </div>
 
           {/* Linha 2: Data última mensagem - text-xs (12px regular) */}
           <p className="text-xs text-slate-500 truncate mb-0.5 flex items-center gap-1">
