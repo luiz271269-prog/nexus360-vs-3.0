@@ -101,12 +101,15 @@ Deno.serve(async (req) => {
           continue;
         }
 
+        // ✅ Resolver placeholders com contexto do contato
+        const atendenteFidelizado = contato.atendente_fidelizado_vendas || nomeAtendente;
         const mensagemFinal = personalizar
           ? mensagem
               .replace(/\{\{nome\}\}/gi, contato.nome || 'Cliente')
               .replace(/\{\{empresa\}\}/gi, contato.empresa || '')
-              .replace(/\{\{atendente\}\}/gi, nomeAtendente)
-              .replace(/\{\{usuario\}\}/gi, nomeAtendente)
+              .replace(/\{\{atendente\}\}/gi, atendenteFidelizado)
+              .replace(/\{\{usuario\}\}/gi, atendenteFidelizado)
+              .replace(/\{\{tipo_contato\}\}/gi, contato.tipo_contato || 'cliente')
           : mensagem;
 
         await base44.asServiceRole.entities.WorkQueueItem.create({
