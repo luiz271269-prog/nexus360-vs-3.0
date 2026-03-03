@@ -255,8 +255,8 @@ Deno.serve(async (req) => {
           });
           enfileirados++;
 
-          // Anti-rate-limit apenas no modo promoção (envio síncrono da saudação)
-          await new Promise(r => setTimeout(r, 600));
+          // ✅ Delay aleatório 3-12s (anti-detecção spam, simula humano)
+          await new Promise(r => setTimeout(r, delayAlatorio()));
 
         } catch (error) {
           console.error(`[CAMPANHA-LOTE] ❌ ${contato.nome}:`, error.message);
