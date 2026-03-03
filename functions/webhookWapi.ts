@@ -1,4 +1,5 @@
-import { createClientFromRequest } from 'npm:@base44/sdk@0.8.4';
+// redeploy: 2026-03-03T15:30
+import { createClientFromRequest } from 'npm:@base44/sdk@0.8.20';
 
 // ╔════════════════════════════════════════════════════════════════════════╗
 // ║  WEBHOOK WHATSAPP W-API - v25.0.0-CLONE-FIX                           ║
