@@ -542,6 +542,27 @@ export default function ModalEnvioPromocoesAutomaticas({
         </Tabs>
 
         <DialogFooter className="border-t pt-4">
+          {/* Progress bar durante envio */}
+          {enviando && (
+            <div className="w-full space-y-2 mb-4">
+              <div className="flex items-center justify-between text-sm">
+                <span className="font-medium text-slate-700">
+                  📤 Enfileirando: {envioProgress.enviados} de {envioProgress.total}
+                </span>
+                <span className="text-slate-600">{envioProgress.percentual}%</span>
+              </div>
+              <div className="w-full bg-slate-200 rounded-full h-2 overflow-hidden">
+                <div 
+                  className="bg-gradient-to-r from-purple-600 to-indigo-600 h-full transition-all duration-300"
+                  style={{ width: `${envioProgress.percentual}%` }}
+                />
+              </div>
+              <p className="text-xs text-slate-500">
+                💡 Acompanhe os envios na barra de contatos {mostrarComoMensagens && '(como mensagens)'}
+              </p>
+            </div>
+          )}
+          
           <div className="flex items-center justify-between w-full">
             <div className="text-sm text-slate-600">
               <CheckCircle2 className="w-4 h-4 inline text-green-600 mr-1" />
