@@ -477,6 +477,13 @@ export default function ContatosRequerendoAtencaoKanban({ usuario, onSelecionarC
             </div>
           }
 
+          {/* Linha 3: Vendedor Responsável */}
+          {assignedId && (
+            <div className="text-[9px] text-slate-600 bg-slate-100 rounded px-1.5 py-0.5 inline-block max-w-full truncate">
+              💼 {atendenteNome}
+            </div>
+          )}
+
           {/* Linha 4: Badges compactas - text-[9px] (9px semibold) */}
           <div className="flex items-center gap-0.5 flex-wrap">
             {/* Tipo Contato */}
