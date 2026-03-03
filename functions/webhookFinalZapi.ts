@@ -387,7 +387,7 @@ Deno.serve(async (req) => {
 
     let base44;
     try {
-      base44 = createClientFromRequest(req.clone());
+      base44 = createClientFromRequest(req);
     } catch (e) {
       console.error(`[${VERSION}] SDK init error:`, e?.message || e);
       return jsonServerError({ success: false, error: 'sdk_init_error' });
