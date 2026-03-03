@@ -120,7 +120,8 @@ export default function ModalEnvioPromocoesAutomaticas({
         contact_ids: contactIds,
         modo: 'promocao',
         delay_minutos: delayMinutos,
-        texto_saudacao_custom: textoSaudacao !== 'Olá {{nome}}! Tudo bem? 😊' ? textoSaudacao : null
+        texto_saudacao_custom: textoSaudacao !== 'Olá {{nome}}! Tudo bem? 😊' ? textoSaudacao : null,
+        integration_id: instanciaSelected
       });
 
       if (resultado.data?.success) {
