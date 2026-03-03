@@ -37,6 +37,11 @@ export default function ModalEnvioPromocoesAutomaticas({
   const [delayMinutos, setDelayMinutos] = useState(5);
   const [promocaoAtiva, setPromocaoAtiva] = useState(null);
   const [carregandoPromocao, setCarregandoPromocao] = useState(false);
+  
+  // ✅ Seleção de instância
+  const [instancias, setInstancias] = useState([]);
+  const [carregandoInstancias, setCarregandoInstancias] = useState(false);
+  const [instanciaSelected, setInstanciaSelected] = useState('');
 
   // ✅ Carregar promoção ativa ao abrir
   useEffect(() => {
