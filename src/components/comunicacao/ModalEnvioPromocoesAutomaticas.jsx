@@ -70,19 +70,36 @@ export default function ModalEnvioPromocoesAutomaticas({
   const carregarPromocaoAtiva = async () => {
     setCarregandoPromocao(true);
     try {
-      const promocoes = await base44.entities.Promotion.filter({
-        is_active: true,
-        expires_at: { $gte: new Date().toISOString() }
-      }, '-priority', 1);
+      // ✅ Tentar com restrição de data/status primeiro
+      let promocoes = await base44.entities.Promotion.filter({
+        is_active: true
+      }, '-priority', 50);
+
+      // ✅ Filtrar apenas promoções que não expiraram (se tiverem expires_at)
+      const agora = new Date();
+      promocoes = promocoes.filter(p => 
+        !p.expires_at || new Date(p.expires_at) > agora
+      );
+
+      // ✅ Se não encontrou com is_active, busca qualquer promoção válida
+      if (promocoes.length === 0) {
+        console.log('[ModalPromoAuto] Nenhuma com is_active, buscando todas...');
+        const todasPromocoes = await base44.entities.Promotion.list('-priority', 50);
+        promocoes = todasPromocoes.filter(p => 
+          !p.expires_at || new Date(p.expires_at) > agora
+        );
+      }
 
       if (promocoes.length > 0) {
         setPromocaoAtiva(promocoes[0]);
+        console.log(`[ModalPromoAuto] ✅ Promoção carregada: ${promocoes[0].titulo}`);
       } else {
-        toast.warning('⚠️ Nenhuma promoção ativa encontrada');
+        console.warn('[ModalPromoAuto] ⚠️ Nenhuma promoção encontrada no banco');
+        toast.warning('⚠️ Nenhuma promoção ativa encontrada. Crie uma promoção antes de enviar.');
       }
     } catch (error) {
       console.error('[ModalPromoAuto] Erro ao carregar promoção:', error);
-      toast.error('Erro ao carregar promoções');
+      toast.error(`Erro ao carregar: ${error.message}`);
     } finally {
       setCarregandoPromocao(false);
     }
