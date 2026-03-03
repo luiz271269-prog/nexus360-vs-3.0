@@ -90,39 +90,35 @@ Deno.serve(async (req) => {
   const variacoes = gerarVariacoesTelefone(telefoneNormalizado);
   console.log(`[${VERSION}] 🔍 Buscando com ${variacoes.length} variações`);
 
-  // BUSCA SEQUENCIAL (early return quando encontrar)
+  // BUSCA RIGOROSA (apenas versão normalizada EXATA)
   let contatoExistente = null;
   
   try {
-    for (const variacao of variacoes) {
-      if (contatoExistente) break;
+    // ✅ FIX: Buscar APENAS pela versão normalizada exata (+55...)
+    // NÃO usar múltiplas variações pois pode encontrar contato errado!
+    console.log(`[${VERSION}] 🔍 Buscando pelo telefone NORMALIZADO exato: "${telefoneNormalizado}"`);
+    
+    try {
+      const resultado = await base44.asServiceRole.entities.Contact.filter(
+        { telefone: telefoneNormalizado },
+        '-created_date',
+        1
+      );
       
-      console.log(`[${VERSION}] 🔍 Testando variação ${variacoes.indexOf(variacao) + 1}/${variacoes.length}: "${variacao}"`);
+      console.log(`[${VERSION}] 📊 Query retornou: ${resultado?.length || 0} resultado(s)`);
       
-      try {
-        const resultado = await base44.asServiceRole.entities.Contact.filter(
-          { telefone: variacao },
-          '-created_date',
-          1
-        );
-        
-        console.log(`[${VERSION}] 📊 Query retornou: ${resultado?.length || 0} resultado(s)`);
-        
-        if (resultado && resultado.length > 0) {
-          contatoExistente = resultado[0];
-          console.log(`[${VERSION}] ✅ ENCONTRADO! ID: ${contatoExistente.id} | Nome: ${contatoExistente.nome} | Tel DB: "${contatoExistente.telefone}"`);
-          break;
-        } else {
-          console.log(`[${VERSION}] ⏭️ Variação "${variacao}" → Nenhum resultado`);
-        }
-      } catch (searchErr) {
-        console.error(`[${VERSION}] ❌ ERRO CRÍTICO ao buscar "${variacao}":`, searchErr.message);
-        console.error(`[${VERSION}] ❌ Stack:`, searchErr.stack);
+      if (resultado && resultado.length > 0) {
+        contatoExistente = resultado[0];
+        console.log(`[${VERSION}] ✅ ENCONTRADO! ID: ${contatoExistente.id} | Nome: ${contatoExistente.nome} | Tel DB: "${contatoExistente.telefone}"`);
+      } else {
+        console.log(`[${VERSION}] ⏭️ Nenhum contato com telefone "${telefoneNormalizado}"`);
       }
+    } catch (searchErr) {
+      console.error(`[${VERSION}] ❌ ERRO ao buscar "${telefoneNormalizado}":`, searchErr.message);
+      console.error(`[${VERSION}] ❌ Stack:`, searchErr.stack);
     }
     
     if (!contatoExistente) {
-      console.log(`[${VERSION}] ⚠️ NENHUMA VARIAÇÃO ENCONTRADA após ${variacoes.length} tentativas`);
       console.log(`[${VERSION}] 🆕 Criando NOVO contato com telefone: "${telefoneNormalizado}"`);
     }
   } catch (e) {
