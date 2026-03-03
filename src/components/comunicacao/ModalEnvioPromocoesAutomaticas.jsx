@@ -42,6 +42,10 @@ export default function ModalEnvioPromocoesAutomaticas({
   const [instancias, setInstancias] = useState([]);
   const [carregandoInstancias, setCarregandoInstancias] = useState(false);
   const [instanciaSelected, setInstanciaSelected] = useState('');
+  
+  // ✅ Tracking de envio
+  const [envioProgress, setEnvioProgress] = useState({ enviados: 0, total: 0, percentual: 0 });
+  const [mostrarComoMensagens, setMostrarComoMensagens] = useState(true);
 
   // ✅ Carregar promoção ativa e instâncias ao abrir
   useEffect(() => {
