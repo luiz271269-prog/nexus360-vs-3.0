@@ -313,6 +313,34 @@ export default function ModalEnvioPromocoesAutomaticas({
 
           {/* TAB: CONFIGURAÇÃO */}
           <TabsContent value="configuracao" className="flex-1 overflow-y-auto space-y-4 mt-4">
+            {/* Seleção de Instância */}
+            <div className="space-y-2">
+              <Label className="flex items-center gap-2">
+                <Smartphone className="w-4 h-4" />
+                Instância WhatsApp
+              </Label>
+              <Select value={instanciaSelected} onValueChange={setInstanciaSelected}>
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Selecionar instância..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {instancias.map(inst => (
+                    <SelectItem key={inst.id} value={inst.id}>
+                      <div className="flex items-center gap-2">
+                        <Badge variant={inst.status === 'conectado' ? 'default' : 'outline'} className="text-xs">
+                          {inst.status === 'conectado' ? '🟢' : '🔴'}
+                        </Badge>
+                        {inst.nome_instancia} ({inst.numero_telefone})
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-slate-500">
+                📱 Escolha qual instância WhatsApp será usada para enviar as mensagens
+              </p>
+            </div>
+
             {/* Texto da Saudação */}
             <div className="space-y-2">
               <Label htmlFor="saudacao">Texto da Saudação Personalizada</Label>
