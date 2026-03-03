@@ -467,8 +467,8 @@ export default function ContatosRequerendoAtencaoKanban({ usuario, onSelecionarC
                <TaggingRapidoContato 
                  contactId={contatoId}
                  etiquetasAtuais={item.tags || []}
+                 etiquetasDisponiveis={etiquetasDisponiveis}
                  onTagsUpdated={(novasTags) => {
-                   // Atualiza as tags na exibição
                    item.tags = novasTags;
                  }}
                />
