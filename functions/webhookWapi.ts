@@ -47,7 +47,26 @@ const jsonOk = (data, extra = {}) =>
 const jsonErr = (error, status = 500) => 
   Response.json({ success: false, error }, { status, headers: corsHeaders });
 
-import { normalizarTelefone } from './lib/phoneNormalizer.js';
+// Inline phone normalizer (no local imports allowed in Deno deploy)
+function normalizarTelefone(telefone) {
+  if (!telefone) return null;
+  let num = String(telefone).replace(/\D/g, '');
+  if (!num) return null;
+  // Remove sufixos como @s.whatsapp.net
+  num = num.split('@')[0];
+  if (num.length < 8) return null;
+  // Adicionar código do Brasil se ausente
+  if (!num.startsWith('55') && num.length <= 11) num = '55' + num;
+  // Inserir dígito 9 para celulares brasileiros sem ele (DDD + 8 dígitos)
+  if (num.startsWith('55') && num.length === 12) {
+    const ddd = num.substring(2, 4);
+    const numero = num.substring(4);
+    if (numero.length === 8 && !numero.startsWith('9')) {
+      num = '55' + ddd + '9' + numero;
+    }
+  }
+  return '+' + num;
+}
 
 // ============================================================================
 // CLASSIFICADOR
