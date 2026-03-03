@@ -118,8 +118,7 @@ function NavItem({ href, icon: Icon, label, badge, badgeColor, lembretesCount })
 
 function SideBar({ isOpen, menuItems, contadoresLembretes, usuario, loadingUsuario, onLogout, onOpenNexus, agentSession, onToggle }) {
   return (
-    <TooltipProvider>
-      <aside
+    <aside
         className={`fixed inset-y-0 left-0 z-50 w-20 bg-gradient-to-b from-slate-900 via-slate-800 to-slate-900 text-white transform ${
           isOpen ? 'translate-x-0' : '-translate-x-full'
         } transition-transform duration-300 ease-in-out md:relative md:translate-x-0 flex flex-col border-r border-slate-700/50`}
