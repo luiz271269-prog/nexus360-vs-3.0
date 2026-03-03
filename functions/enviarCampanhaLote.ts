@@ -65,11 +65,26 @@ Deno.serve(async (req) => {
     }
 
     // ── Integração conectada ─────────────────────────────────────────────────
-    const integrations = await base44.asServiceRole.entities.WhatsAppIntegration.filter({ status: 'conectado' });
-    if (!integrations.length) {
-      return Response.json({ success: false, error: 'Nenhuma integração WhatsApp conectada' }, { status: 400 });
+    let integration;
+    
+    if (integration_id) {
+      // Usar integração específica se fornecida
+      const integrations = await base44.asServiceRole.entities.WhatsAppIntegration.filter({ 
+        id: integration_id, 
+        status: 'conectado' 
+      });
+      if (!integrations.length) {
+        return Response.json({ success: false, error: 'Instância selecionada não está conectada' }, { status: 400 });
+      }
+      integration = integrations[0];
+    } else {
+      // Fallback: primeira instância conectada
+      const integrations = await base44.asServiceRole.entities.WhatsAppIntegration.filter({ status: 'conectado' });
+      if (!integrations.length) {
+        return Response.json({ success: false, error: 'Nenhuma integração WhatsApp conectada' }, { status: 400 });
+      }
+      integration = integrations[0];
     }
-    const integration = integrations[0];
 
     // ── Usuário atual (para sender_id e {{atendente}}) ───────────────────────
     let senderId = 'system';
