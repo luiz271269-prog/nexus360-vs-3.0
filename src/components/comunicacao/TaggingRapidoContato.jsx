@@ -11,14 +11,19 @@ const TaggingRapidoContato = ({ contactId, etiquetasAtuais = [], etiquetasDispon
   const [salvando, setSalvando] = useState(false);
 
   useEffect(() => {
-    setEtiquetasSelecionadas(etiquetasAtuais || []);
-  }, [etiquetasAtuais]);
+    // Garantir que sempre usa slug (nome)
+    const slugs = (etiquetasAtuais || []).map(tag => {
+      const etiqueta = etiquetasDisponiveis.find(e => e.id === tag || e.nome === tag);
+      return etiqueta?.nome || tag;
+    });
+    setEtiquetasSelecionadas(slugs);
+  }, [etiquetasAtuais, etiquetasDisponiveis]);
 
-  const handleToggleTag = (tagId) => {
+  const handleToggleTag = (tagSlug) => {
     setEtiquetasSelecionadas(prev => 
-      prev.includes(tagId)
-        ? prev.filter(t => t !== tagId)
-        : [...prev, tagId]
+      prev.includes(tagSlug)
+        ? prev.filter(t => t !== tagSlug)
+        : [...prev, tagSlug]
     );
   };
 
@@ -36,8 +41,8 @@ const TaggingRapidoContato = ({ contactId, etiquetasAtuais = [], etiquetasDispon
     }
   };
 
-  const getTagInfo = (tagId) => {
-    return etiquetasDisponiveis.find(e => e.id === tagId || e.nome === tagId);
+  const getTagInfo = (tagSlug) => {
+    return etiquetasDisponiveis.find(e => e.nome === tagSlug);
   };
 
   return (
@@ -69,15 +74,15 @@ const TaggingRapidoContato = ({ contactId, etiquetasAtuais = [], etiquetasDispon
           {/* Etiquetas selecionadas */}
           {etiquetasSelecionadas.length > 0 && (
             <div className="flex flex-wrap gap-1.5">
-              {etiquetasSelecionadas.map(tagId => {
-                const tagInfo = getTagInfo(tagId);
+              {etiquetasSelecionadas.map(tagSlug => {
+                const tagInfo = getTagInfo(tagSlug);
                 return (
                   <Badge 
-                    key={tagId}
+                    key={tagSlug}
                     className="text-xs cursor-pointer flex items-center gap-1"
-                    onClick={() => handleToggleTag(tagId)}
+                    onClick={() => handleToggleTag(tagSlug)}
                   >
-                    {tagInfo?.nome || tagId}
+                    {tagInfo?.emoji || '🏷️'} {tagInfo?.label || tagSlug}
                     <X className="w-2.5 h-2.5" />
                   </Badge>
                 );
@@ -92,20 +97,20 @@ const TaggingRapidoContato = ({ contactId, etiquetasAtuais = [], etiquetasDispon
             ) : (
               etiquetasDisponiveis.map(tag => (
                 <label 
-                  key={tag.id}
+                  key={tag.nome}
                   className="flex items-center gap-2 p-2 rounded hover:bg-slate-50 cursor-pointer"
                 >
                   <input
                     type="checkbox"
-                    checked={etiquetasSelecionadas.includes(tag.id) || etiquetasSelecionadas.includes(tag.nome)}
-                    onChange={() => handleToggleTag(tag.id || tag.nome)}
+                    checked={etiquetasSelecionadas.includes(tag.nome)}
+                    onChange={() => handleToggleTag(tag.nome)}
                     className="w-4 h-4 rounded"
                   />
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm text-slate-700 truncate">{tag.nome}</p>
+                    <p className="text-sm text-slate-700 truncate">{tag.emoji} {tag.label}</p>
                     <p className="text-xs text-slate-500">
-                      {tag.classe_abc && `${tag.classe_abc} • `}
-                      Score: {tag.peso_qualificacao || 0}
+                      {tag.participa_abc && tag.categoria_abc && `${tag.categoria_abc} • `}
+                      Peso: {tag.peso_qualificacao ?? 0}
                     </p>
                   </div>
                 </label>

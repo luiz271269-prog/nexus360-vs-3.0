@@ -75,15 +75,15 @@ export default function SeletorEtiquetasContato({
     return etiquetasDB.filter(e => e.destaque === true);
   }, [etiquetasDB]);
 
-  // Toggle etiqueta no contato
-  const toggleEtiqueta = async (nomeEtiqueta) => {
+  // Toggle etiqueta no contato (usando slug, não nome)
+  const toggleEtiqueta = async (slugEtiqueta) => {
     if (disabled || salvando) return;
 
     // Modo filtro
     if (onTagsChange) {
-      const novas = selectedTags.includes(nomeEtiqueta)
-        ? selectedTags.filter(t => t !== nomeEtiqueta)
-        : [...selectedTags, nomeEtiqueta];
+      const novas = selectedTags.includes(slugEtiqueta)
+        ? selectedTags.filter(t => t !== slugEtiqueta)
+        : [...selectedTags, slugEtiqueta];
       onTagsChange(novas);
       return;
     }
@@ -93,15 +93,15 @@ export default function SeletorEtiquetasContato({
 
     setSalvando(true);
     try {
-      const novasEtiquetas = etiquetasAtuais.includes(nomeEtiqueta)
-        ? etiquetasAtuais.filter(e => e !== nomeEtiqueta)
-        : [...etiquetasAtuais, nomeEtiqueta];
+      const novasEtiquetas = etiquetasAtuais.includes(slugEtiqueta)
+        ? etiquetasAtuais.filter(e => e !== slugEtiqueta)
+        : [...etiquetasAtuais, slugEtiqueta];
 
       await base44.entities.Contact.update(contato.id, { tags: novasEtiquetas });
 
       // Atualizar contador de uso
-      const etq = etiquetasDB.find(e => e.nome === nomeEtiqueta);
-      if (etq && !etiquetasAtuais.includes(nomeEtiqueta)) {
+      const etq = etiquetasDB.find(e => e.nome === slugEtiqueta);
+      if (etq && !etiquetasAtuais.includes(slugEtiqueta)) {
         await base44.entities.EtiquetaContato.update(etq.id, {
           uso_count: (etq.uso_count || 0) + 1
         });
@@ -110,8 +110,8 @@ export default function SeletorEtiquetasContato({
       queryClient.invalidateQueries({ queryKey: ['contatos'] });
       queryClient.invalidateQueries({ queryKey: ['etiquetas-contato'] });
 
-      const config = etiquetasDB.find(e => e.nome === nomeEtiqueta);
-      toast.success(`${config?.emoji || '🏷️'} ${novasEtiquetas.includes(nomeEtiqueta) ? 'Adicionada' : 'Removida'}`);
+      const config = etiquetasDB.find(e => e.nome === slugEtiqueta);
+      toast.success(`${config?.emoji || '🏷️'} ${novasEtiquetas.includes(slugEtiqueta) ? 'Adicionada' : 'Removida'}`);
 
       if (onUpdate) onUpdate();
     } catch (error) {

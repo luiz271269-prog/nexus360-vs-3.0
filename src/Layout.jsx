@@ -251,6 +251,7 @@ export default function Layout({ children, currentPageName }) {
     { name: "Gerenciamento de Usuários", icon: UserCog, page: "Usuarios" },
     { name: "Ferramentas de Migração", icon: Activity, page: "FerramentasMigracao" },
     { name: "Auditoria", icon: Shield, page: "Auditoria" }
+    // ⚠️ DEPRECATED: TagManager removido do menu - usar GerenciadorEtiquetasUnificado em Automações
   ];
 
   // Função para obter os itens de menu baseado no perfil do usuário
