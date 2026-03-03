@@ -1,22 +1,5 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.4';
-
-// Inline phone normalizer (no local imports allowed in Deno deploy)
-function normalizarTelefone(telefone) {
-  if (!telefone) return null;
-  let num = String(telefone).replace(/\D/g, '');
-  if (!num) return null;
-  num = num.split('@')[0];
-  if (num.length < 8) return null;
-  if (!num.startsWith('55') && num.length <= 11) num = '55' + num;
-  if (num.startsWith('55') && num.length === 12) {
-    const ddd = num.substring(2, 4);
-    const numero = num.substring(4);
-    if (numero.length === 8 && !numero.startsWith('9')) {
-      num = '55' + ddd + '9' + numero;
-    }
-  }
-  return '+' + num;
-}
+import { normalizarTelefone } from './lib/phoneNormalizer.js';
 
 // ============================================================================
 // WEBHOOK WHATSAPP Z-API - v10.0.0 INGESTÃO PURA + CÉREBRO ISOLADO
@@ -402,29 +385,21 @@ Deno.serve(async (req) => {
       return jsonBadRequest({ success: false, error: 'metodo_nao_suportado' });
     }
 
-    // ✅ LER BODY PRIMEIRO (req.text() consome o stream)
-    let body;
+    let base44;
+    try {
+      base44 = createClientFromRequest(req.clone());
+    } catch (e) {
+      console.error(`[${VERSION}] SDK init error:`, e?.message || e);
+      return jsonServerError({ success: false, error: 'sdk_init_error' });
+    }
+
     let payload;
     try {
-      body = await req.text();
+      const body = await req.text();
       if (!body) return jsonOk({ success: true, ignored: true, reason: 'sem_corpo' });
       payload = JSON.parse(body);
     } catch (e) {
       return jsonBadRequest({ success: false, error: 'json_invalido' });
-    }
-
-    // ✅ RECRIAR REQUEST com body para o SDK
-    let base44;
-    try {
-      const reqForSdk = new Request(req.url, {
-        method: req.method,
-        headers: req.headers,
-        body: body,
-      });
-      base44 = createClientFromRequest(reqForSdk);
-    } catch (e) {
-      console.error(`[${VERSION}] SDK init error:`, e?.message || e);
-      return jsonServerError({ success: false, error: 'sdk_init_error' });
     }
 
     console.log(`[${VERSION}] 📥 Payload recebido (1/2):`, JSON.stringify(payload).substring(0, 1000));

@@ -47,26 +47,7 @@ const jsonOk = (data, extra = {}) =>
 const jsonErr = (error, status = 500) => 
   Response.json({ success: false, error }, { status, headers: corsHeaders });
 
-// Inline phone normalizer (no local imports allowed in Deno deploy)
-function normalizarTelefone(telefone) {
-  if (!telefone) return null;
-  let num = String(telefone).replace(/\D/g, '');
-  if (!num) return null;
-  // Remove sufixos como @s.whatsapp.net
-  num = num.split('@')[0];
-  if (num.length < 8) return null;
-  // Adicionar código do Brasil se ausente
-  if (!num.startsWith('55') && num.length <= 11) num = '55' + num;
-  // Inserir dígito 9 para celulares brasileiros sem ele (DDD + 8 dígitos)
-  if (num.startsWith('55') && num.length === 12) {
-    const ddd = num.substring(2, 4);
-    const numero = num.substring(4);
-    if (numero.length === 8 && !numero.startsWith('9')) {
-      num = '55' + ddd + '9' + numero;
-    }
-  }
-  return '+' + num;
-}
+import { normalizarTelefone } from './lib/phoneNormalizer.js';
 
 // ============================================================================
 // CLASSIFICADOR
@@ -1040,32 +1021,28 @@ Deno.serve(async (req) => {
     });
   }
 
-  // ✅ LER BODY PRIMEIRO (req.text() consome o stream — clone depois é inválido)
-  let body;
+  // ✅ AUTH: SDK Base44 com req.clone() OBRIGATÓRIO
+  // SEM .clone(), o asServiceRole FALHA com erro de token
+  let base44;
+  try {
+    base44 = createClientFromRequest(req.clone());
+    console.log('[WAPI-AUTH] ✅ Cliente Base44 criado com req.clone() (asServiceRole habilitado)');
+  } catch (e) {
+    console.error('[WAPI] 🔴 FATAL AUTH ERROR:', e.message);
+    console.error('[WAPI] 🔴 Stack:', e.stack);
+    return jsonErr(`auth_error: ${e.message}`, 500);
+  }
+
   let payload;
   try {
-    body = await req.text();
+    const body = await req.text();
     if (!body) return jsonOk({ ignored: true });
     payload = JSON.parse(body);
+
     console.log('[WAPI] 📥 Event:', payload.event, '| Type:', payload.type);
     console.log('[WAPI] 📥 Payload:', JSON.stringify(payload).substring(0, 1500));
   } catch (e) {
     return jsonErr('JSON invalido', 200);
-  }
-
-  // ✅ RECRIAR REQUEST com body para o SDK (req original já foi consumido pelo .text())
-  let base44;
-  try {
-    const reqForSdk = new Request(req.url, {
-      method: req.method,
-      headers: req.headers,
-      body: body,
-    });
-    base44 = createClientFromRequest(reqForSdk);
-    console.log('[WAPI-AUTH] ✅ Cliente Base44 criado (body preservado)');
-  } catch (e) {
-    console.error('[WAPI] 🔴 FATAL AUTH ERROR:', e.message);
-    return jsonErr(`auth_error: ${e.message}`, 500);
   }
 
   const classification = classifyWapiEvent(payload);
