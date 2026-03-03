@@ -188,14 +188,14 @@ Deno.serve(async (req) => {
             });
           }
 
-          // Saudação personalizada
-          const saudacao = texto_saudacao_custom
-            ? texto_saudacao_custom
-                .replace(/\{\{nome\}\}/gi, contato.nome || 'Cliente')
-                .replace(/\{\{empresa\}\}/gi, contato.empresa || '')
-                .replace(/\{\{atendente\}\}/gi, nomeAtendente)
-                .replace(/\{\{usuario\}\}/gi, nomeAtendente)
-            : `Olá ${contato.nome || 'Cliente'}! Tudo bem? 😊`;
+          // ✅ Saudação com variação aleatória (anti-spam) + atendente fidelizado
+          const atendenteFidelizado = contato.atendente_fidelizado_vendas || nomeAtendente;
+          const saudacaoTemplate = texto_saudacao_custom || saudacaoAleatoria();
+          const saudacao = saudacaoTemplate
+            .replace(/\{\{nome\}\}/gi, contato.nome || 'Cliente')
+            .replace(/\{\{empresa\}\}/gi, contato.empresa || '')
+            .replace(/\{\{atendente\}\}/gi, atendenteFidelizado)
+            .replace(/\{\{usuario\}\}/gi, atendenteFidelizado);
 
           const respSaudacao = await base44.asServiceRole.functions.invoke('enviarWhatsApp', {
             integration_id: integration.id,
