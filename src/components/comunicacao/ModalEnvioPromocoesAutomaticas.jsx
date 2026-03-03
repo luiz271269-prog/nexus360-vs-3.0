@@ -417,6 +417,24 @@ export default function ModalEnvioPromocoesAutomaticas({
               </p>
             </div>
 
+            {/* Opção: Mostrar como mensagens no chat */}
+            <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
+              <label className="flex items-center gap-3 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={mostrarComoMensagens}
+                  onChange={(e) => setMostrarComoMensagens(e.target.checked)}
+                  className="w-4 h-4 rounded border-slate-300"
+                />
+                <div className="flex-1">
+                  <p className="font-medium text-blue-900">Exibir envios como mensagens</p>
+                  <p className="text-xs text-blue-700 mt-0.5">
+                    ✓ Mostra saudações e promoções na barra de contatos para acompanhamento em tempo real
+                  </p>
+                </div>
+              </label>
+            </div>
+
             {/* Promoção que será enviada */}
             <div className="space-y-2">
               <Label>Promoção que Será Enviada</Label>
