@@ -1040,12 +1040,11 @@ Deno.serve(async (req) => {
     });
   }
 
-  // ✅ AUTH: SDK Base44 com req.clone() OBRIGATÓRIO
-  // SEM .clone(), o asServiceRole FALHA com erro de token
+  // ✅ AUTH: SDK Base44 0.8.20 - req direto (sem clone)
   let base44;
   try {
-    base44 = createClientFromRequest(req.clone());
-    console.log('[WAPI-AUTH] ✅ Cliente Base44 criado com req.clone() (asServiceRole habilitado)');
+    base44 = createClientFromRequest(req);
+    console.log('[WAPI-AUTH] ✅ Cliente Base44 criado (asServiceRole habilitado)');
   } catch (e) {
     console.error('[WAPI] 🔴 FATAL AUTH ERROR:', e.message);
     console.error('[WAPI] 🔴 Stack:', e.stack);
