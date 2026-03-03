@@ -2229,7 +2229,7 @@ export default function Comunicacao() {
 
   return (
     <ErrorBoundary>
-      <div className="h-full flex flex-col bg-gradient-to-br from-amber-50 via-orange-50/30 to-red-50/20 overflow-hidden">
+      <div className="h-[100dvh] md:h-screen flex flex-col bg-gradient-to-br from-amber-50 via-orange-50/30 to-red-50/20 overflow-hidden">
         <NotificationSystem usuario={usuario} threads={threads} />
 
         {/* ── HEADER DESKTOP ── */}
