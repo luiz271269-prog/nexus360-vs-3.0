@@ -1039,22 +1039,17 @@ Deno.serve(async (req) => {
     });
   }
 
-  // ✅ AUTH: SDK Base44 com req.clone() OBRIGATÓRIO
-  // SEM .clone(), o asServiceRole FALHA com erro de token
-  let base44;
+  // Ler body ANTES de criar SDK (body só pode ser lido uma vez)
+  let body;
   try {
-    base44 = createClientFromRequest(req.clone());
-    console.log('[WAPI-AUTH] ✅ Cliente Base44 criado com req.clone() (asServiceRole habilitado)');
+    body = await req.text();
+    if (!body) return jsonOk({ ignored: true });
   } catch (e) {
-    console.error('[WAPI] 🔴 FATAL AUTH ERROR:', e.message);
-    console.error('[WAPI] 🔴 Stack:', e.stack);
-    return jsonErr(`auth_error: ${e.message}`, 500);
+    return jsonErr('body_read_error', 400);
   }
 
   let payload;
   try {
-    const body = await req.text();
-    if (!body) return jsonOk({ ignored: true });
     payload = JSON.parse(body);
 
     console.log('[WAPI] 📥 Event:', payload.event, '| Type:', payload.type);
