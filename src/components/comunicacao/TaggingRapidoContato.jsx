@@ -117,4 +117,6 @@ const TaggingRapidoContatoMemo = ({ contactId, etiquetasAtuais = [], etiquetasDi
       </PopoverContent>
     </Popover>
   );
-}
+};
+
+export default TaggingRapidoContatoMemo;
