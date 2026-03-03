@@ -1,6 +1,24 @@
-// redeploy: 2026-03-03
+// redeploy: 2026-03-03T13:30
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.20';
-import { normalizarTelefone } from './lib/phoneNormalizer';
+
+function normalizarTelefone(telefone) {
+  if (!telefone) return null;
+  let apenasNumeros = String(telefone).split('@')[0].replace(/\D/g, '');
+  if (!apenasNumeros || apenasNumeros.length < 10) return null;
+  apenasNumeros = apenasNumeros.replace(/^0+/, '');
+  if (!apenasNumeros.startsWith('55')) {
+    if (apenasNumeros.length === 10 || apenasNumeros.length === 11) {
+      apenasNumeros = '55' + apenasNumeros;
+    }
+  }
+  if (apenasNumeros.startsWith('55') && apenasNumeros.length === 12) {
+    const primeiroDigitoNumero = apenasNumeros[4];
+    if (['6', '7', '8', '9'].includes(primeiroDigitoNumero)) {
+      apenasNumeros = apenasNumeros.substring(0, 4) + '9' + apenasNumeros.substring(4);
+    }
+  }
+  return '+' + apenasNumeros;
+}
 
 // ============================================================================
 // WEBHOOK WHATSAPP Z-API - v10.0.0 INGESTÃO PURA + CÉREBRO ISOLADO
