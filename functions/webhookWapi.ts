@@ -1021,28 +1021,32 @@ Deno.serve(async (req) => {
     });
   }
 
-  // ✅ AUTH: SDK Base44 com req.clone() OBRIGATÓRIO
-  // SEM .clone(), o asServiceRole FALHA com erro de token
-  let base44;
-  try {
-    base44 = createClientFromRequest(req.clone());
-    console.log('[WAPI-AUTH] ✅ Cliente Base44 criado com req.clone() (asServiceRole habilitado)');
-  } catch (e) {
-    console.error('[WAPI] 🔴 FATAL AUTH ERROR:', e.message);
-    console.error('[WAPI] 🔴 Stack:', e.stack);
-    return jsonErr(`auth_error: ${e.message}`, 500);
-  }
-
+  // ✅ LER BODY PRIMEIRO (req.text() consome o stream — clone depois é inválido)
+  let body;
   let payload;
   try {
-    const body = await req.text();
+    body = await req.text();
     if (!body) return jsonOk({ ignored: true });
     payload = JSON.parse(body);
-
     console.log('[WAPI] 📥 Event:', payload.event, '| Type:', payload.type);
     console.log('[WAPI] 📥 Payload:', JSON.stringify(payload).substring(0, 1500));
   } catch (e) {
     return jsonErr('JSON invalido', 200);
+  }
+
+  // ✅ RECRIAR REQUEST com body para o SDK (req original já foi consumido pelo .text())
+  let base44;
+  try {
+    const reqForSdk = new Request(req.url, {
+      method: req.method,
+      headers: req.headers,
+      body: body,
+    });
+    base44 = createClientFromRequest(reqForSdk);
+    console.log('[WAPI-AUTH] ✅ Cliente Base44 criado (body preservado)');
+  } catch (e) {
+    console.error('[WAPI] 🔴 FATAL AUTH ERROR:', e.message);
+    return jsonErr(`auth_error: ${e.message}`, 500);
   }
 
   const classification = classifyWapiEvent(payload);
