@@ -33,6 +33,7 @@ import { createPageUrl } from '@/utils';
 import ModalEnvioPromocoesAutomaticas from './ModalEnvioPromocoesAutomaticas';
 import DiagnosticoDiasInativos from './DiagnosticoDiasInativos';
 import ChatWindow from './ChatWindow';
+import TaggingRapidoContato from './TaggingRapidoContato';
 
 export default function ContatosRequerendoAtencaoKanban({ usuario, onSelecionarContato, onClose }) {
   const [diasInatividade, setDiasInatividade] = useState(5);
