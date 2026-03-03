@@ -186,10 +186,10 @@ export default function ModalEnvioMassa({ isOpen, onClose, contatosSelecionados,
             className="resize-none"
           />
            <p className="text-xs text-slate-500">
-             💡 Placeholders disponíveis: <code className="bg-slate-100 px-1 rounded">{'{{nome}}'}</code>, <code className="bg-slate-100 px-1 rounded">{'{{empresa}}'}</code>, <code className="bg-slate-100 px-1 rounded">{'{{atendente}}'}</code>
+             💡 Placeholders: <code className="bg-slate-100 px-1 rounded">{'{{nome}}'}</code> <code className="bg-slate-100 px-1 rounded">{'{{empresa}}'}</code> <code className="bg-slate-100 px-1 rounded">{'{{atendente}}'}</code> <code className="bg-slate-100 px-1 rounded">{'{{tipo_contato}}'}</code>
            </p>
            <p className="text-xs text-slate-400 italic">
-             ✨ <code className="bg-slate-100 px-1 rounded">{'{{atendente}}'}</code> será substituído pelo nome do atendente fidelizado do contato — humaniza a conversa.
+             ✨ Saudação com variações aleatórias + {{atendente}} personalizado reduz detecção spam
            </p>
            <p className="text-xs text-slate-600">
              {mensagem.length} caracteres
