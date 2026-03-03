@@ -8,6 +8,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Tag, Plus, Trash2, TrendingUp, Users, Target } from 'lucide-react';
 import { toast } from 'sonner';
 
+/**
+ * ⚠️ DEPRECATED: Use GerenciadorEtiquetasUnificado em /components/comunicacao/
+ * Este componente mantido para compatibilidade (migrado para EtiquetaContato)
+ */
 export default function TagManager() {
   const [tags, setTags] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -20,11 +24,12 @@ export default function TagManager() {
 
   const carregarTags = async () => {
     try {
-      const data = await base44.entities.Tag.list('-created_date', 100);
+      // Migrado para EtiquetaContato (unificação de etiquetas)
+      const data = await base44.entities.EtiquetaContato.filter({ migrado_de_tag: true }, '-created_date', 100);
       setTags(data);
     } catch (error) {
-      console.error('Erro ao carregar tags:', error);
-      toast.error('Erro ao carregar tags');
+      console.error('Erro ao carregar etiquetas:', error);
+      toast.error('Erro ao carregar etiquetas');
     }
     setLoading(false);
   };
@@ -32,45 +37,45 @@ export default function TagManager() {
   const handleSalvar = async (tagData) => {
     try {
       if (editingTag) {
-        await base44.entities.Tag.update(editingTag.id, tagData);
-        toast.success('Tag atualizada!');
+        await base44.entities.EtiquetaContato.update(editingTag.id, tagData);
+        toast.success('Etiqueta atualizada!');
       } else {
-        await base44.entities.Tag.create(tagData);
-        toast.success('Tag criada!');
+        await base44.entities.EtiquetaContato.create({
+          ...tagData,
+          migrado_de_tag: false,
+          tipo: 'personalizada'
+        });
+        toast.success('Etiqueta criada!');
       }
       setShowForm(false);
       setEditingTag(null);
       await carregarTags();
     } catch (error) {
-      console.error('Erro ao salvar tag:', error);
-      toast.error('Erro ao salvar tag');
+      console.error('Erro ao salvar etiqueta:', error);
+      toast.error('Erro ao salvar etiqueta');
     }
   };
 
   const handleExcluir = async (tagId) => {
-    if (!confirm('Tem certeza que deseja excluir esta tag?')) return;
+    if (!confirm('Tem certeza que deseja excluir esta etiqueta?')) return;
 
     try {
-      await base44.entities.Tag.delete(tagId);
-      toast.success('Tag excluída!');
+      await base44.entities.EtiquetaContato.delete(tagId);
+      toast.success('Etiqueta excluída!');
       await carregarTags();
     } catch (error) {
-      console.error('Erro ao excluir tag:', error);
-      toast.error('Erro ao excluir tag');
+      console.error('Erro ao excluir etiqueta:', error);
+      toast.error('Erro ao excluir etiqueta');
     }
   };
 
   const handleAnalisarPerformance = async (tagId) => {
     try {
-      const response = await base44.functions.invoke('tagManager', {
-        action: 'analyze_tag_performance',
-        tag_id: tagId
-      });
-
-      if (response.data.success) {
-        const { tag_nome, total_contatos, taxa_conversao, valor_medio_venda } = response.data;
+      const tag = tags.find(t => t.id === tagId);
+      if (tag && tag.metricas) {
+        const { total_contatos, taxa_conversao, valor_medio_venda } = tag.metricas;
         toast.success(
-          `📊 ${tag_nome}\n` +
+          `📊 ${tag.label}\n` +
           `👥 ${total_contatos} contatos\n` +
           `📈 ${taxa_conversao.toFixed(1)}% conversão\n` +
           `💰 R$ ${valor_medio_venda.toFixed(2)} ticket médio`
@@ -100,33 +105,33 @@ export default function TagManager() {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        {tags.map((tag) => (
-          <Card key={tag.id} className="hover:shadow-lg transition-shadow">
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <div 
-                    className="w-3 h-3 rounded-full"
-                    style={{ backgroundColor: tag.cor }}
-                  />
-                  <CardTitle className="text-lg">{tag.nome}</CardTitle>
-                </div>
-                <Badge className={tag.ativa ? 'bg-green-500' : 'bg-slate-400'}>
-                  {tag.ativa ? 'Ativa' : 'Inativa'}
-                </Badge>
-              </div>
-            </CardHeader>
-            <CardContent>
-              <p className="text-sm text-slate-600 mb-4">{tag.descricao}</p>
-              
-              <div className="space-y-2 mb-4">
-                <div className="flex items-center justify-between text-sm">
-                  <span className="flex items-center gap-1">
-                    <Users className="w-4 h-4 text-blue-500" />
-                    Contatos
-                  </span>
-                  <span className="font-semibold">{tag.metricas?.total_contatos || 0}</span>
-                </div>
+         {tags.map((tag) => (
+           <Card key={tag.id} className="hover:shadow-lg transition-shadow">
+             <CardHeader>
+               <div className="flex items-center justify-between">
+                 <div className="flex items-center gap-2">
+                   <span className="text-xl">{tag.emoji || '🏷️'}</span>
+                   <div>
+                     <CardTitle className="text-lg">{tag.label}</CardTitle>
+                     <p className="text-xs text-slate-500">{tag.nome}</p>
+                   </div>
+                 </div>
+                 <Badge className={tag.ativa ? 'bg-green-500' : 'bg-slate-400'}>
+                   {tag.ativa ? 'Ativa' : 'Inativa'}
+                 </Badge>
+               </div>
+             </CardHeader>
+             <CardContent>
+               <p className="text-sm text-slate-600 mb-4">{tag.descricao}</p>
+
+               <div className="space-y-2 mb-4">
+                 <div className="flex items-center justify-between text-sm">
+                   <span className="flex items-center gap-1">
+                     <Users className="w-4 h-4 text-blue-500" />
+                     Contatos
+                   </span>
+                   <span className="font-semibold">{tag.metricas?.total_contatos || 0}</span>
+                 </div>
                 
                 <div className="flex items-center justify-between text-sm">
                   <span className="flex items-center gap-1">
@@ -198,12 +203,15 @@ export default function TagManager() {
 function TagFormModal({ tag, onSave, onCancel }) {
   const [formData, setFormData] = useState(tag || {
     nome: '',
-    categoria: 'custom',
+    label: '',
+    categoria: 'outro',
     descricao: '',
-    cor: '#3B82F6',
+    cor: 'bg-slate-400',
+    emoji: '🏷️',
     ativa: true,
-    regras_automaticas: {
-      aplicar_automaticamente: false,
+    tipo: 'personalizada',
+    automacao_ativa: false,
+    regras_automacao: {
       condicoes: []
     }
   });
@@ -217,17 +225,26 @@ function TagFormModal({ tag, onSave, onCancel }) {
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
       <Card className="w-full max-w-2xl max-h-[90vh] overflow-y-auto">
         <CardHeader>
-          <CardTitle>{tag ? 'Editar Tag' : 'Nova Tag'}</CardTitle>
+          <CardTitle>{tag ? 'Editar Etiqueta' : 'Nova Etiqueta'}</CardTitle>
+          <p className="text-xs text-slate-500 mt-1">📌 Componente unificado (migrado de Tag)</p>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <label className="block text-sm font-medium mb-1">Nome da Tag</label>
+              <label className="block text-sm font-medium mb-1">Nome de Exibição</label>
+              <Input
+                value={formData.label}
+                onChange={(e) => setFormData({...formData, label: e.target.value})}
+                placeholder="ex: Cliente VIP"
+                required
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1">Nome Normalizado (slug)</label>
               <Input
                 value={formData.nome}
-                onChange={(e) => setFormData({...formData, nome: e.target.value})}
+                onChange={(e) => setFormData({...formData, nome: e.target.value.toLowerCase().replace(/\s+/g, '_')})}
                 placeholder="ex: cliente_vip"
-                required
               />
             </div>
 
@@ -241,12 +258,13 @@ function TagFormModal({ tag, onSave, onCancel }) {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="segmentacao">Segmentação</SelectItem>
-                  <SelectItem value="comportamento">Comportamento</SelectItem>
+                  <SelectItem value="destaque">Destaque</SelectItem>
                   <SelectItem value="status">Status</SelectItem>
-                  <SelectItem value="campanha">Campanha</SelectItem>
+                  <SelectItem value="comportamento">Comportamento</SelectItem>
+                  <SelectItem value="prioridade">Prioridade</SelectItem>
+                  <SelectItem value="segmentacao">Segmentação</SelectItem>
                   <SelectItem value="produto">Produto</SelectItem>
-                  <SelectItem value="custom">Personalizada</SelectItem>
+                  <SelectItem value="outro">Outro</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -261,12 +279,20 @@ function TagFormModal({ tag, onSave, onCancel }) {
             </div>
 
             <div>
-              <label className="block text-sm font-medium mb-1">Cor</label>
-              <input
-                type="color"
+              <label className="block text-sm font-medium mb-1">Emoji</label>
+              <Input
+                value={formData.emoji}
+                onChange={(e) => setFormData({...formData, emoji: e.target.value})}
+                placeholder="🏷️"
+                maxLength="2"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1">Cor (Tailwind ou Hex)</label>
+              <Input
                 value={formData.cor}
                 onChange={(e) => setFormData({...formData, cor: e.target.value})}
-                className="w-full h-10 rounded border"
+                placeholder="bg-slate-400 ou #3b82f6"
               />
             </div>
 
@@ -285,7 +311,7 @@ function TagFormModal({ tag, onSave, onCancel }) {
                 Cancelar
               </Button>
               <Button type="submit">
-                {tag ? 'Atualizar' : 'Criar'} Tag
+                {tag ? 'Atualizar' : 'Criar'} Etiqueta
               </Button>
             </div>
           </form>
