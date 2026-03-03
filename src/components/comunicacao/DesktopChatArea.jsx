@@ -7,7 +7,6 @@ function useHeaderHeight() {
   const [top, setTop] = React.useState(0);
   React.useEffect(() => {
     const update = () => {
-      // Pegar o header mais próximo acima da área de conversas
       const header = document.querySelector('header, [class*="header"], .flex-shrink-0');
       if (header) {
         const rect = header.getBoundingClientRect();
@@ -19,6 +18,39 @@ function useHeaderHeight() {
     return () => window.removeEventListener('resize', update);
   }, []);
   return top;
+}
+
+function useDraggablePanel(initialTop) {
+  const [pos, setPos] = React.useState({ top: null, bottom: 0 });
+  const dragging = React.useRef(false);
+  const startY = React.useRef(0);
+  const startTop = React.useRef(0);
+
+  const onMouseDown = React.useCallback((e) => {
+    dragging.current = true;
+    startY.current = e.clientY;
+    const el = e.currentTarget.closest('[data-drag-panel]');
+    startTop.current = el ? el.getBoundingClientRect().top : (pos.top ?? initialTop ?? 0);
+    e.preventDefault();
+  }, [pos.top, initialTop]);
+
+  React.useEffect(() => {
+    const onMouseMove = (e) => {
+      if (!dragging.current) return;
+      const delta = e.clientY - startY.current;
+      const newTop = Math.max(0, startTop.current + delta);
+      setPos({ top: newTop, bottom: 'auto' });
+    };
+    const onMouseUp = () => { dragging.current = false; };
+    window.addEventListener('mousemove', onMouseMove);
+    window.addEventListener('mouseup', onMouseUp);
+    return () => {
+      window.removeEventListener('mousemove', onMouseMove);
+      window.removeEventListener('mouseup', onMouseUp);
+    };
+  }, []);
+
+  return { pos, onMouseDown };
 }
 
 export default function DesktopChatArea({
