@@ -43,12 +43,29 @@ export default function ModalEnvioPromocoesAutomaticas({
   const [carregandoInstancias, setCarregandoInstancias] = useState(false);
   const [instanciaSelected, setInstanciaSelected] = useState('');
 
-  // ✅ Carregar promoção ativa ao abrir
+  // ✅ Carregar promoção ativa e instâncias ao abrir
   useEffect(() => {
     if (isOpen) {
       carregarPromocaoAtiva();
+      carregarInstancias();
     }
   }, [isOpen]);
+
+  const carregarInstancias = async () => {
+    setCarregandoInstancias(true);
+    try {
+      const insts = await base44.entities.WhatsAppIntegration.filter({ status: 'conectado' });
+      setInstancias(insts);
+      if (insts.length > 0) {
+        setInstanciaSelected(insts[0].id);
+      }
+    } catch (error) {
+      console.error('[ModalPromoAuto] Erro ao carregar instâncias:', error);
+      toast.error('Erro ao carregar instâncias WhatsApp');
+    } finally {
+      setCarregandoInstancias(false);
+    }
+  };
 
   const carregarPromocaoAtiva = async () => {
     setCarregandoPromocao(true);
