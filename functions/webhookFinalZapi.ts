@@ -1,5 +1,5 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.4';
-import { normalizarTelefone } from './lib/phoneNormalizer.js';
+import { normalizarTelefone } from './lib/phoneNormalizer';
 
 // ============================================================================
 // WEBHOOK WHATSAPP Z-API - v10.0.0 INGESTÃO PURA + CÉREBRO ISOLADO
