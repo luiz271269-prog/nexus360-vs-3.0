@@ -8,6 +8,7 @@ import InternalMessageComposer from "./InternalMessageComposer";
 import CriarGrupoModal from "./CriarGrupoModal";
 import AgendaIAUnificada from "./AgendaIAUnificada";
 import { toast } from "sonner";
+import { base44 } from "@/api/base44Client";
 
 const getUnreadCount = (thread, currentUserId) => {
   if (!thread) return 0;
