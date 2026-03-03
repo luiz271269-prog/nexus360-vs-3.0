@@ -1058,6 +1058,21 @@ Deno.serve(async (req) => {
     return jsonErr('JSON invalido', 200);
   }
 
+  // Criar SDK com body recriado (req original já foi consumido)
+  let base44;
+  try {
+    const reqForSdk = new Request(req.url, {
+      method: req.method,
+      headers: req.headers,
+      body: body,
+    });
+    base44 = createClientFromRequest(reqForSdk);
+    console.log('[WAPI-AUTH] ✅ Cliente Base44 criado');
+  } catch (e) {
+    console.error('[WAPI] 🔴 FATAL AUTH ERROR:', e.message);
+    return jsonErr(`auth_error: ${e.message}`, 500);
+  }
+
   const classification = classifyWapiEvent(payload);
   console.log('[WAPI] 📊 Classification:', classification, '| Event:', payload.event || payload.type);
   
