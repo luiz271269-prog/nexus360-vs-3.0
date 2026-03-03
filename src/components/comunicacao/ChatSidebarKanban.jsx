@@ -518,15 +518,21 @@ export default function ChatSidebarKanban({ threads, threadAtiva, onSelecionarTh
 
         {kanbanMode === 'usuario' ? (
           // ── MODO: POR ATENDENTE ──
-          // Minhas e Não Atribuídas são fixas (já renderizadas separado ou aqui)
           colunasPorUsuario.filter(c => !c.isMinhas).map(coluna => {
             const isSem = coluna.isSemAtendente;
             const headerClass = isSem
               ? 'bg-slate-600'
               : 'bg-gradient-to-r from-indigo-500 to-blue-600';
+            const isDragOver = dragOverColuna === coluna.id;
 
             return (
-              <div key={coluna.id} className={`flex flex-col flex-shrink-0 w-52 min-w-[200px] bg-slate-50 rounded-xl overflow-hidden shadow-sm ${isSem ? 'border-2 border-slate-400 sticky left-[216px] z-10' : 'border border-slate-200'}`}>
+              <div
+                key={coluna.id}
+                onDragOver={(e) => handleDragOver(e, coluna.id)}
+                onDragLeave={handleDragLeave}
+                onDrop={(e) => handleDrop(e, coluna.id)}
+                className={`flex flex-col flex-shrink-0 w-52 min-w-[200px] rounded-xl overflow-hidden shadow-sm transition-all ${isSem ? 'border-2 border-slate-400 sticky left-[216px] z-10' : 'border border-slate-200'} ${isDragOver ? 'ring-2 ring-orange-400 bg-orange-50 scale-[1.02]' : 'bg-slate-50'}`}
+              >
                 <div className={`${headerClass} px-3 py-2 flex items-center justify-between`}>
                   <div className="flex items-center gap-1.5 min-w-0">
                     <div className="w-5 h-5 rounded-full bg-white/30 flex items-center justify-center text-white text-[9px] font-bold flex-shrink-0">
@@ -536,9 +542,11 @@ export default function ChatSidebarKanban({ threads, threadAtiva, onSelecionarTh
                   </div>
                   <span className="text-white/80 text-[9px] flex-shrink-0">{coluna.threads.length}</span>
                 </div>
-                <div className="flex-1 overflow-y-auto p-1.5 space-y-1.5">
+                <div className="flex-1 overflow-y-auto p-1.5 space-y-1.5 min-h-[60px]">
                   {coluna.threads.length === 0 ? (
-                    <div className="text-center py-8 text-slate-400 text-xs">Sem conversas</div>
+                    <div className={`text-center py-8 text-xs ${isDragOver ? 'text-orange-400 font-semibold' : 'text-slate-400'}`}>
+                      {isDragOver ? 'Solte aqui ↓' : 'Sem conversas'}
+                    </div>
                   ) : (
                     coluna.threads.map(thread => (
                       <ThreadCardKanban
@@ -549,8 +557,12 @@ export default function ChatSidebarKanban({ threads, threadAtiva, onSelecionarTh
                         atendentes={atendentes}
                         onSelecionarThread={onSelecionarThread}
                         podeInteragir={true}
+                        onDragStart={isSem ? undefined : handleDragStart}
                       />
                     ))
+                  )}
+                  {isDragOver && coluna.threads.length > 0 && (
+                    <div className="text-center py-2 text-orange-400 text-xs font-semibold border-t border-orange-200">Solte aqui ↓</div>
                   )}
                 </div>
               </div>
