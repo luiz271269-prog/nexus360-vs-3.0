@@ -120,6 +120,60 @@ export default function ChatSidebarKanban({ threads, threadAtiva, onSelecionarTh
   const [delegateMode, setDelegateMode] = React.useState(false);
   const [criarGrupoOpen, setCriarGrupoOpen] = React.useState(false);
   const [agendaIAOpen, setAgendaIAOpen] = React.useState(false);
+  const [dragOverColuna, setDragOverColuna] = React.useState(null);
+  const dragThreadRef = React.useRef(null);
+
+  const handleDragStart = React.useCallback((e, thread) => {
+    dragThreadRef.current = thread;
+    e.dataTransfer.effectAllowed = 'move';
+  }, []);
+
+  const handleDragOver = React.useCallback((e, colunaId) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    setDragOverColuna(colunaId);
+  }, []);
+
+  const handleDragLeave = React.useCallback(() => {
+    setDragOverColuna(null);
+  }, []);
+
+  const handleDrop = React.useCallback(async (e, colunaId) => {
+    e.preventDefault();
+    setDragOverColuna(null);
+    const thread = dragThreadRef.current;
+    dragThreadRef.current = null;
+    if (!thread) return;
+
+    // Determinar novo assigned_user_id
+    const novoAtendente = colunaId === '__sem_atendente__' ? null : colunaId;
+
+    // Não fazer nada se não mudou
+    if ((thread.assigned_user_id || null) === novoAtendente) return;
+
+    // Verificar permissão: apenas admin/gerente podem reatribuir
+    const isAdminUser = usuarioAtual?.role === 'admin';
+    const isGerenteUser = ['gerente', 'coordenador', 'supervisor'].includes(usuarioAtual?.attendant_role);
+    if (!isAdminUser && !isGerenteUser) {
+      toast.error('Sem permissão para reatribuir conversas');
+      return;
+    }
+
+    try {
+      await base44.entities.MessageThread.update(thread.id, {
+        assigned_user_id: novoAtendente || null,
+        assigned_user_name: novoAtendente
+          ? (atendentes.find(a => a.id === novoAtendente)?.full_name || null)
+          : null,
+      });
+      const nomeAtendente = novoAtendente
+        ? (atendentes.find(a => a.id === novoAtendente)?.full_name || 'Atendente')
+        : 'Não Atribuída';
+      toast.success(`✅ Conversa atribuída a: ${nomeAtendente}`);
+    } catch (err) {
+      toast.error('Erro ao reatribuir conversa');
+    }
+  }, [usuarioAtual, atendentes]);
   // ✅ APLICAR MESMA LÓGICA DE VISIBILIDADE DO CHATWINDOW
   const threadsFiltradas = React.useMemo(() => {
     if (!usuarioAtual || threads.length === 0) return [];
