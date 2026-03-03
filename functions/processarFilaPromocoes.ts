@@ -1,5 +1,5 @@
-import { createClientFromRequest } from 'npm:@base44/sdk@0.8.6';
-import { sendPromotion, readLastPromoIds, writeLastPromoIds } from './lib/promotionEngine.js';
+import { createClientFromRequest } from 'npm:@base44/sdk@0.8.20';
+import { sendPromotion, readLastPromoIds, writeLastPromoIds } from './lib/promotionEngine';
 
 // ============================================================================
 // PROCESSADOR DA FILA DE PROMOÇÕES
