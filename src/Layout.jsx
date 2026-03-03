@@ -39,12 +39,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
+
 import NexusChat from "../components/global/NexusChat";
 import LembreteFlutuanteIA from "../components/global/LembreteFlutuanteIA";
 import NotificationSystem from "../components/comunicacao/NotificationSystem";
