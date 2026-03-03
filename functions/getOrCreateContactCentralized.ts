@@ -1,17 +1,47 @@
-import { createClientFromRequest } from 'npm:@base44/sdk@0.8.4';
-import { normalizarTelefone, gerarVariacoesTelefone } from './lib/phoneNormalizer.js';
+// redeploy: 2026-03-03T14:40
+import { createClientFromRequest } from 'npm:@base44/sdk@0.8.20';
 
 // ============================================================================
 // FUNÇÃO CENTRALIZADORA ÚNICA - CONTATO (ANTI-DUPLICAÇÃO)
 // ============================================================================
-// ✅ REGRA ABSOLUTA: Esta é a ÚNICA forma de criar/buscar contatos no sistema
-// ✅ Garante 6 variações de telefone para busca universal
-// ✅ Normalização única e consistente
-// ============================================================================
-
 const VERSION = 'v1.0.0-CENTRALIZED-CONTACT';
 
-// normalizarTelefone e gerarVariacoesTelefone importados de ./lib/phoneNormalizer.js
+// --- Inline: phone utils (NO local imports in Deno Edge) ---
+function normalizarTelefone(telefone) {
+  if (!telefone) return null;
+  let n = String(telefone).split('@')[0].replace(/\D/g, '');
+  if (!n || n.length < 10) return null;
+  n = n.replace(/^0+/, '');
+  if (!n.startsWith('55')) {
+    if (n.length === 10 || n.length === 11) n = '55' + n;
+  }
+  if (n.startsWith('55') && n.length === 12) {
+    const d = n[4];
+    if (['6','7','8','9'].includes(d)) n = n.substring(0, 4) + '9' + n.substring(4);
+  }
+  return '+' + n;
+}
+
+function gerarVariacoesTelefone(telefoneNormalizado) {
+  if (!telefoneNormalizado) return [];
+  const base = telefoneNormalizado.replace(/\D/g, '');
+  const variacoes = new Set([telefoneNormalizado, base]);
+  if (base.startsWith('55')) {
+    if (base.length === 13) {
+      const sem9 = base.substring(0, 4) + base.substring(5);
+      variacoes.add('+' + sem9);
+      variacoes.add(sem9);
+    }
+    if (base.length === 12) {
+      const com9 = base.substring(0, 4) + '9' + base.substring(4);
+      variacoes.add('+' + com9);
+      variacoes.add(com9);
+    }
+    variacoes.add('+55' + base.substring(2));
+  }
+  return [...variacoes];
+}
+// --- End inline ---
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
