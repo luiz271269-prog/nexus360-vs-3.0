@@ -1,7 +1,7 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.6';
 
 // ============================================================================
-// ENVIO DE CAMPANHAS - ARQUITETURA ASSÍNCRONA (SAFE BATCH)
+// ENVIO DE CAMPANHAS - ARQUITETURA ASSÍNCRONA (SAFE BATCH) v2
 // ============================================================================
 // Modo BROADCAST: enfileira WorkQueueItems instantaneamente → worker envia por baixo
 // Modo PROMOÇÃO:  envia saudação imediata + enfileira promoção com delay
@@ -9,7 +9,27 @@ import { createClientFromRequest } from 'npm:@base44/sdk@0.8.6';
 // ✅ Sem timeout: qualquer volume de contatos retorna em ~1-3s
 // ✅ Worker (processarFilaBroadcast) roda a cada 5min e processa em lotes de 20
 // ✅ Controle de cooldown via last_any_promo_sent_at
+// ✅ NOVO: Delay aleatório 3-12s, 5 variações de saudação, contexto contato
 // ============================================================================
+
+// ✅ Variações de saudação para anti-detecção spam
+const SAUDACOES_VARIACOES = [
+  'Olá {nome}! Tudo bem? 😊',
+  'Oi {nome}, como vai?',
+  'Bom dia {nome}! 👋',
+  'E aí {nome}? Tudo certo?',
+  'Opa {nome}! Beleza? 🙂'
+];
+
+// Gerar delay aleatório entre 3s e 12s (simula comportamento humano)
+function delayAlatorio() {
+  return Math.floor(Math.random() * 9000) + 3000; // 3-12s
+}
+
+// Selecionar saudação aleatória (anti-detecção)
+function saudacaoAleatoria() {
+  return SAUDACOES_VARIACOES[Math.floor(Math.random() * SAUDACOES_VARIACOES.length)];
+}
 
 Deno.serve(async (req) => {
   const base44 = createClientFromRequest(req);
