@@ -46,7 +46,8 @@ Deno.serve(async (req) => {
       media_url = null,
       media_type = 'none',
       media_caption = null,
-      integration_id = null
+      integration_id = null,
+      mostrar_como_mensagens = true
     } = body;
 
     console.log(`[CAMPANHA-LOTE] Payload:`, {
