@@ -1,3 +1,4 @@
+// redeploy: 2026-03-03
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.20';
 import { normalizarTelefone } from './lib/phoneNormalizer';
 
