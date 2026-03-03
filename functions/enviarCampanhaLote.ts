@@ -45,7 +45,8 @@ Deno.serve(async (req) => {
       texto_saudacao_custom = null,
       media_url = null,
       media_type = 'none',
-      media_caption = null
+      media_caption = null,
+      integration_id = null
     } = body;
 
     console.log(`[CAMPANHA-LOTE] Payload:`, {
