@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -6,8 +6,7 @@ import { Tag, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { base44 } from '@/api/base44Client';
 
-// ✅ Memoização para evitar re-renders
-const TaggingRapidoContatoMemo = ({ contactId, etiquetasAtuais = [], etiquetasDisponiveis = [], onTagsUpdated }) => {
+const TaggingRapidoContato = ({ contactId, etiquetasAtuais = [], etiquetasDisponiveis = [], onTagsUpdated }) => {
   const [etiquetasSelecionadas, setEtiquetasSelecionadas] = useState([]);
   const [salvando, setSalvando] = useState(false);
 
@@ -37,9 +36,9 @@ const TaggingRapidoContatoMemo = ({ contactId, etiquetasAtuais = [], etiquetasDi
     }
   };
 
-  const getTagInfo = useMemo(() => (tagId) => {
+  const getTagInfo = (tagId) => {
     return etiquetasDisponiveis.find(e => e.id === tagId || e.nome === tagId);
-  }, [etiquetasDisponiveis]);
+  };
 
   return (
     <Popover>
