@@ -48,7 +48,25 @@ const jsonOk = (data, extra = {}) =>
 const jsonErr = (error, status = 500) => 
   Response.json({ success: false, error }, { status, headers: corsHeaders });
 
-import { normalizarTelefone } from './lib/phoneNormalizer.js';
+// Inline: normalizarTelefone (sem imports locais)
+function normalizarTelefone(telefone) {
+  if (!telefone) return null;
+  let apenasNumeros = String(telefone).split('@')[0].replace(/\D/g, '');
+  if (!apenasNumeros || apenasNumeros.length < 10) return null;
+  apenasNumeros = apenasNumeros.replace(/^0+/, '');
+  if (!apenasNumeros.startsWith('55')) {
+    if (apenasNumeros.length === 10 || apenasNumeros.length === 11) {
+      apenasNumeros = '55' + apenasNumeros;
+    }
+  }
+  if (apenasNumeros.startsWith('55') && apenasNumeros.length === 12) {
+    const primeiroDigito = apenasNumeros[4];
+    if (['6', '7', '8', '9'].includes(primeiroDigito)) {
+      apenasNumeros = apenasNumeros.substring(0, 4) + '9' + apenasNumeros.substring(4);
+    }
+  }
+  return '+' + apenasNumeros;
+}
 
 // ============================================================================
 // CLASSIFICADOR
