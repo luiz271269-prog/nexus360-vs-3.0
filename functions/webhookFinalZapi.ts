@@ -404,21 +404,34 @@ Deno.serve(async (req) => {
       return jsonBadRequest({ success: false, error: 'metodo_nao_suportado' });
     }
 
-    let base44;
+    // Ler body ANTES de qualquer clone (body só pode ser lido uma vez)
+    let body;
     try {
-      base44 = createClientFromRequest(req.clone());
+      body = await req.text();
+      if (!body) return jsonOk({ success: true, ignored: true, reason: 'sem_corpo' });
     } catch (e) {
-      console.error(`[${VERSION}] SDK init error:`, e?.message || e);
-      return jsonServerError({ success: false, error: 'sdk_init_error' });
+      return jsonBadRequest({ success: false, error: 'body_read_error' });
     }
 
     let payload;
     try {
-      const body = await req.text();
-      if (!body) return jsonOk({ success: true, ignored: true, reason: 'sem_corpo' });
       payload = JSON.parse(body);
     } catch (e) {
       return jsonBadRequest({ success: false, error: 'json_invalido' });
+    }
+
+    // Recriar Request com body para o SDK (req original já foi consumido)
+    let base44;
+    try {
+      const reqForSdk = new Request(req.url, {
+        method: req.method,
+        headers: req.headers,
+        body: body,
+      });
+      base44 = createClientFromRequest(reqForSdk);
+    } catch (e) {
+      console.error(`[${VERSION}] SDK init error:`, e?.message || e);
+      return jsonServerError({ success: false, error: 'sdk_init_error' });
     }
 
     console.log(`[${VERSION}] 📥 Payload recebido (1/2):`, JSON.stringify(payload).substring(0, 1000));
