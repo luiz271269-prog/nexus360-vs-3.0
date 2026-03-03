@@ -72,6 +72,7 @@ export default function ContatosRequerendoAtencaoKanban({ usuario, onSelecionarC
   });
 
   const [analisandoContatos, setAnalisandoContatos] = useState(false);
+  const [etiquetasDisponiveis, setEtiquetasDisponiveis] = useState([]);
   const loading = hookLoading || analisandoContatos;
 
   // ✅ Refetch rápido + análise em background
