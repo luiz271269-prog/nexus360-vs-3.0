@@ -18,7 +18,9 @@ import {
   CheckCircle2,
   Settings,
   Eye,
-  Smartphone
+  Smartphone,
+  Eye as EyeOff,
+  Check
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { base44 } from '@/api/base44Client';
