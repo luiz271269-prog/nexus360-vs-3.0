@@ -33,7 +33,7 @@ const formatarHorario = (timestamp) => {
   } catch { return ""; }
 };
 
-function ThreadCardKanban({ thread, isAtiva, usuarioAtual, atendentes, onSelecionarThread, podeInteragir, isDragging, onMouseDown }) {
+function ThreadCardKanban({ thread, isAtiva, usuarioAtual, atendentes, onSelecionarThread, podeInteragir, onDragStart }) {
   const contato = thread.contato;
   const hasUnread = getUnreadCount(thread, usuarioAtual?.id) > 0;
 
@@ -58,15 +58,11 @@ function ThreadCardKanban({ thread, isAtiva, usuarioAtual, atendentes, onSelecio
 
   return (
     <div
-      onMouseDown={onMouseDown ? (e) => onMouseDown(e, thread) : undefined}
+      draggable={!!onDragStart}
+      onDragStart={onDragStart ? (e) => onDragStart(e, thread) : undefined}
       onClick={() => podeInteragir && onSelecionarThread(thread)}
-      className={`rounded-lg border shadow-sm p-2.5 transition-all select-none
-        ${onMouseDown ? 'cursor-grab active:cursor-grabbing' : ''}
-        ${podeInteragir && !onMouseDown ? 'cursor-pointer hover:shadow-md hover:border-orange-300' : ''}
-        ${!podeInteragir ? 'cursor-not-allowed opacity-50' : ''}
-        ${isDragging ? 'opacity-40 scale-95' : ''}
-        ${isAtiva ? 'border-orange-500 bg-orange-50 shadow-md shadow-orange-200 scale-[1.03] z-10 relative ring-2 ring-orange-400 ring-offset-1' : 'bg-white border-slate-200'}`}
-      title={!podeInteragir ? 'Sem permissão para acessar esta conversa' : (onMouseDown ? 'Arraste para reatribuir' : '')}
+      className={`rounded-lg border shadow-sm p-2.5 transition-all ${onDragStart ? 'cursor-grab active:cursor-grabbing' : ''} ${podeInteragir && !onDragStart ? 'cursor-pointer hover:shadow-md hover:border-orange-300' : ''} ${!podeInteragir ? 'cursor-not-allowed opacity-50' : ''} ${isAtiva ? 'border-orange-500 bg-orange-50 shadow-md shadow-orange-200 scale-[1.03] z-10 relative ring-2 ring-orange-400 ring-offset-1' : 'bg-white border-slate-200'}`}
+      title={!podeInteragir ? 'Sem permissão para acessar esta conversa' : ''}
     >
       {/* Linha 1: Avatar + Nome + Horário */}
       <div className="flex items-start gap-2 mb-1.5">
@@ -118,153 +114,120 @@ function ThreadCardKanban({ thread, isAtiva, usuarioAtual, atendentes, onSelecio
   );
 }
 
-// Ghost card que segue o mouse durante o drag
-function DragGhost({ thread, position }) {
-  if (!thread || !position) return null;
-  const contato = thread.contato;
-  let nomeExibicao = contato?.empresa || contato?.nome || contato?.telefone || "Contato";
-
-  return (
-    <div
-      style={{
-        position: 'fixed',
-        left: position.x + 12,
-        top: position.y + 12,
-        zIndex: 9999,
-        pointerEvents: 'none',
-        width: 180,
-        opacity: 0.9,
-        transform: 'rotate(3deg)',
-      }}
-      className="rounded-lg border-2 border-orange-400 bg-orange-50 shadow-2xl p-2.5"
-    >
-      <div className="flex items-center gap-2">
-        <div className="w-7 h-7 rounded-full flex-shrink-0 flex items-center justify-center text-white font-bold text-xs bg-gradient-to-br from-orange-400 to-amber-500">
-          {nomeExibicao.charAt(0).toUpperCase()}
-        </div>
-        <p className="text-xs font-semibold truncate text-slate-800">{nomeExibicao}</p>
-      </div>
-    </div>
-  );
-}
-
 export default function ChatSidebarKanban({ threads, threadAtiva, onSelecionarThread, onVoltar, usuarioAtual, integracoes = [], atendentes = [], onOpenKanbanNaoAtribuidos, onOpenKanbanRequerAtencao, onSelectInternalDestinations }) {
-  const [kanbanMode, setKanbanMode] = React.useState('usuario');
+  const [kanbanMode, setKanbanMode] = React.useState('usuario'); // 'integracao' | 'usuario'
   const [internalComposerOpen, setInternalComposerOpen] = React.useState(false);
   const [delegateMode, setDelegateMode] = React.useState(false);
   const [criarGrupoOpen, setCriarGrupoOpen] = React.useState(false);
   const [agendaIAOpen, setAgendaIAOpen] = React.useState(false);
+  const [dragOverColuna, setDragOverColuna] = React.useState(null);
+  const dragThreadRef = React.useRef(null);
 
-  // Drag state usando mouse events
-  const [draggingThread, setDraggingThread] = React.useState(null);
-  const [mousePos, setMousePos] = React.useState({ x: 0, y: 0 });
-  const [hoveredColuna, setHoveredColuna] = React.useState(null);
-  const [isDraggingActive, setIsDraggingActive] = React.useState(false);
-  const dragStartPos = React.useRef(null);
-  const colunaRefs = React.useRef({});
+  const handleDragStart = React.useCallback((e, thread) => {
+    dragThreadRef.current = thread;
+    e.dataTransfer.effectAllowed = 'move';
+  }, []);
 
-  const isAdmin = usuarioAtual?.role === 'admin';
-  const isGerente = ['gerente', 'coordenador', 'supervisor'].includes(usuarioAtual?.attendant_role);
-  const podeReatribuir = isAdmin || isGerente;
-
-  const handleMouseDown = React.useCallback((e, thread) => {
-    if (!podeReatribuir) return;
+  const handleDragOver = React.useCallback((e, colunaId) => {
     e.preventDefault();
-    dragStartPos.current = { x: e.clientX, y: e.clientY };
-    setMousePos({ x: e.clientX, y: e.clientY });
-    setDraggingThread(thread);
-  }, [podeReatribuir]);
+    e.dataTransfer.dropEffect = 'move';
+    setDragOverColuna(colunaId);
+  }, []);
 
-  React.useEffect(() => {
-    if (!draggingThread) return;
+  const handleDragLeave = React.useCallback(() => {
+    setDragOverColuna(null);
+  }, []);
 
-    const onMouseMove = (e) => {
-      setMousePos({ x: e.clientX, y: e.clientY });
+  const handleDrop = React.useCallback(async (e, colunaId) => {
+    e.preventDefault();
+    setDragOverColuna(null);
+    const thread = dragThreadRef.current;
+    dragThreadRef.current = null;
+    if (!thread) return;
 
-      if (!isDraggingActive) {
-        const dx = Math.abs(e.clientX - (dragStartPos.current?.x || 0));
-        const dy = Math.abs(e.clientY - (dragStartPos.current?.y || 0));
-        if (dx > 5 || dy > 5) {
-          setIsDraggingActive(true);
-        }
-      }
+    // Determinar novo assigned_user_id
+    const novoAtendente = colunaId === '__sem_atendente__' ? null : colunaId;
 
-      // Detectar qual coluna está sendo hovereada
-      if (isDraggingActive) {
-        let found = null;
-        Object.entries(colunaRefs.current).forEach(([colunaId, el]) => {
-          if (!el) return;
-          const rect = el.getBoundingClientRect();
-          if (e.clientX >= rect.left && e.clientX <= rect.right && e.clientY >= rect.top && e.clientY <= rect.bottom) {
-            found = colunaId;
-          }
-        });
-        setHoveredColuna(found);
-      }
-    };
+    // Não fazer nada se não mudou
+    if ((thread.assigned_user_id || null) === novoAtendente) return;
 
-    const onMouseUp = async (e) => {
-      const thread = draggingThread;
-      const targetColuna = hoveredColuna;
-      setDraggingThread(null);
-      setIsDraggingActive(false);
-      setHoveredColuna(null);
-      dragStartPos.current = null;
+    // Verificar permissão: apenas admin/gerente podem reatribuir
+    const isAdminUser = usuarioAtual?.role === 'admin';
+    const isGerenteUser = ['gerente', 'coordenador', 'supervisor'].includes(usuarioAtual?.attendant_role);
+    if (!isAdminUser && !isGerenteUser) {
+      toast.error('Sem permissão para reatribuir conversas');
+      return;
+    }
 
-      if (!targetColuna || !isDraggingActive) return;
-
-      const novoAtendente = targetColuna === '__sem_atendente__' ? null : targetColuna;
-      if ((thread.assigned_user_id || null) === (novoAtendente || null)) return;
-
-      try {
-        const atendente = atendentes.find(a => a.id === novoAtendente);
-        await base44.entities.MessageThread.update(thread.id, {
-          assigned_user_id: novoAtendente || null,
-          assigned_user_name: atendente?.full_name || null,
-        });
-        const nomeAtendente = atendente?.full_name || 'Não Atribuída';
-        toast.success(`✅ Conversa atribuída a: ${nomeAtendente}`);
-      } catch (err) {
-        toast.error('Erro ao reatribuir conversa');
-      }
-    };
-
-    window.addEventListener('mousemove', onMouseMove);
-    window.addEventListener('mouseup', onMouseUp);
-    return () => {
-      window.removeEventListener('mousemove', onMouseMove);
-      window.removeEventListener('mouseup', onMouseUp);
-    };
-  }, [draggingThread, isDraggingActive, hoveredColuna, atendentes]);
-
+    try {
+      await base44.entities.MessageThread.update(thread.id, {
+        assigned_user_id: novoAtendente || null,
+        assigned_user_name: novoAtendente
+          ? (atendentes.find(a => a.id === novoAtendente)?.full_name || null)
+          : null,
+      });
+      const nomeAtendente = novoAtendente
+        ? (atendentes.find(a => a.id === novoAtendente)?.full_name || 'Atendente')
+        : 'Não Atribuída';
+      toast.success(`✅ Conversa atribuída a: ${nomeAtendente}`);
+    } catch (err) {
+      toast.error('Erro ao reatribuir conversa');
+    }
+  }, [usuarioAtual, atendentes]);
   // ✅ APLICAR MESMA LÓGICA DE VISIBILIDADE DO CHATWINDOW
   const threadsFiltradas = React.useMemo(() => {
     if (!usuarioAtual || threads.length === 0) return [];
+
+    // Admin vê tudo
     if (usuarioAtual.role === 'admin') return threads;
 
+    // Filtrar threads visíveis para o usuário
     return threads.filter(thread => {
       if (!thread) return false;
+
+      // Normalizar função
       const norm = (v) => String(v || '').toLowerCase().trim();
 
+      // P1: Atribuído ao usuário → sempre visível
       if (
         norm(thread.assigned_user_id) === norm(usuarioAtual.id) ||
         norm(thread.assigned_user_email) === norm(usuarioAtual.email) ||
         norm(thread.assigned_user_name) === norm(usuarioAtual.full_name) ||
         norm(thread.transfer_requested_user_id) === norm(usuarioAtual.id)
-      ) return true;
+      ) {
+        return true;
+      }
 
-      if (['gerente', 'coordenador', 'supervisor'].includes(usuarioAtual.attendant_role)) return true;
-      if (!thread.assigned_user_id && !thread.assigned_user_name && !thread.assigned_user_email) return true;
-      if (thread.shared_with_users?.includes(usuarioAtual.id)) return true;
+      // P2: Gerente/Coordenador → vê tudo
+      if (['gerente', 'coordenador', 'supervisor'].includes(usuarioAtual.attendant_role)) {
+        return true;
+      }
+
+      // P3: Thread não atribuída → qualquer usuário vê
+      if (!thread.assigned_user_id && !thread.assigned_user_name && !thread.assigned_user_email) {
+        return true;
+      }
+
+      // P4: Compartilhada com o usuário
+      if (thread.shared_with_users?.includes(usuarioAtual.id)) {
+        return true;
+      }
+
+      // P5: Threads internas (team_internal) onde é participante
       if (
         (thread.thread_type === 'team_internal' || thread.thread_type === 'sector_group') &&
         thread.participants?.includes(usuarioAtual.id)
-      ) return true;
+      ) {
+        return true;
+      }
 
+      // Bloqueado: atribuída a outro usuário
       return false;
     });
   }, [threads, usuarioAtual]);
 
+  // Coluna fixa: "Minhas Conversas"
+  // Inclui: atribuídas ao usuário + shared_with_users + atendentes_historico
   const minhasConversas = React.useMemo(() => {
     const norm = (v) => String(v || '').toLowerCase().trim();
     return threadsFiltradas
@@ -277,17 +240,21 @@ export default function ChatSidebarKanban({ threads, threadAtiva, onSelecionarTh
       .sort((a, b) => new Date(b.last_message_at || 0) - new Date(a.last_message_at || 0));
   }, [threadsFiltradas, usuarioAtual]);
 
+  // Integrações visíveis para o usuário atual
   const integracoesVisiveis = React.useMemo(() => {
     if (!usuarioAtual || integracoes.length === 0) return integracoes;
     if (usuarioAtual.role === 'admin') return integracoes;
 
+    // Se o usuário tem lista restrita de integrações visíveis, filtrar
     const integracoesPermitidas = usuarioAtual.integracoes_visiveis || usuarioAtual.whatsapp_permissions?.integracoes_visiveis;
     if (integracoesPermitidas && integracoesPermitidas.length > 0) {
       return integracoes.filter(i => integracoesPermitidas.includes(i.id));
     }
 
+    // Gerente/Coordenador vê todas
     if (['gerente', 'coordenador', 'supervisor'].includes(usuarioAtual.attendant_role)) return integracoes;
 
+    // Atendente normal: mostrar apenas integrações onde tem conversas atribuídas a ele
     const idsComMinhas = new Set(
       threadsFiltradas
         .filter(t => t.assigned_user_id === usuarioAtual.id || t.shared_with_users?.includes(usuarioAtual.id) || t.atendentes_historico?.includes(usuarioAtual.id))
@@ -297,28 +264,43 @@ export default function ChatSidebarKanban({ threads, threadAtiva, onSelecionarTh
     return integracoes.filter(i => idsComMinhas.has(i.id));
   }, [integracoes, usuarioAtual, threadsFiltradas]);
 
+  // Agrupar threads externas por integração
   const colunas = React.useMemo(() => {
     const externas = threadsFiltradas.filter(t =>
       t.thread_type === 'contact_external' || (!t.thread_type && t.contact_id)
     );
 
     if (integracoesVisiveis.length === 0) {
-      const minhas = externas.filter(t => t.assigned_user_id === usuarioAtual?.id || !t.assigned_user_id);
+      // Sem integrações visíveis: mostrar apenas as threads do próprio usuário
+      const minhas = externas.filter(t =>
+        t.assigned_user_id === usuarioAtual?.id ||
+        !t.assigned_user_id
+      );
       return [{ id: 'sem_integracao', nome: 'Conversas', numero: '', threads: minhas, status: 'desconectado' }];
     }
 
     const mapa = {};
     const idsVisiveis = new Set(integracoesVisiveis.map(i => i.id));
 
+    // Criar coluna para cada integração visível
     integracoesVisiveis.forEach(int => {
-      mapa[int.id] = { id: int.id, nome: int.nome_instancia, numero: int.numero_telefone || '', status: int.status, cor: int.cor_chat || 'blue', threads: [] };
+      mapa[int.id] = {
+        id: int.id,
+        nome: int.nome_instancia,
+        numero: int.numero_telefone || '',
+        status: int.status,
+        cor: int.cor_chat || 'blue',
+        threads: []
+      };
     });
 
+    // Distribuir threads nas colunas apenas para integrações visíveis
     externas.forEach(thread => {
       const integId = thread.whatsapp_integration_id;
       if (integId && mapa[integId]) {
         mapa[integId].threads.push(thread);
       } else if (!integId || !idsVisiveis.has(integId)) {
+        // Thread sem integração ou de integração não visível: só admin vê na coluna "Outras"
         if (usuarioAtual?.role === 'admin') {
           if (!mapa['outras']) {
             mapa['outras'] = { id: 'outras', nome: 'Outras', numero: '', status: 'desconectado', cor: 'slate', threads: [] };
@@ -335,6 +317,10 @@ export default function ChatSidebarKanban({ threads, threadAtiva, onSelecionarTh
     return Object.values(mapa).filter(c => c.threads.length > 0 || integracoesVisiveis.find(i => i.id === c.id));
   }, [threadsFiltradas, integracoesVisiveis, usuarioAtual]);
 
+  const isAdmin = usuarioAtual?.role === 'admin';
+  const isGerente = ['gerente', 'coordenador', 'supervisor'].includes(usuarioAtual?.attendant_role);
+  // Kanban por usuário: agrupar threads por atendente atribuído
+  // Não-admin/não-gerente vê apenas "Minhas" + "Não Atribuídas"
   const colunasPorUsuario = React.useMemo(() => {
     const externas = threadsFiltradas.filter(t =>
       t.thread_type === 'contact_external' || (!t.thread_type && t.contact_id)
@@ -343,10 +329,13 @@ export default function ChatSidebarKanban({ threads, threadAtiva, onSelecionarTh
     const norm = (v) => String(v || '').toLowerCase().trim();
     const mapa = {};
 
+    // Coluna "Minhas" sempre primeiro
     mapa['__minhas__'] = { id: '__minhas__', nome: 'Minhas Conversas', isMinhas: true, threads: [] };
 
     externas.forEach(thread => {
       const uid = thread.assigned_user_id;
+
+      // Verificar se é "minha": atribuída, histórico ou shared
       const isMinhaThread =
         norm(uid) === norm(usuarioAtual?.id) ||
         thread.shared_with_users?.includes(usuarioAtual?.id) ||
@@ -356,6 +345,7 @@ export default function ChatSidebarKanban({ threads, threadAtiva, onSelecionarTh
         if (!mapa['__minhas__'].threads.find(t => t.id === thread.id)) {
           mapa['__minhas__'].threads.push(thread);
         }
+        // Se ainda assim está atribuída a outro E é gerente/admin, também cria coluna do outro
         if (!isAdmin && !isGerente) return;
         if (norm(uid) === norm(usuarioAtual?.id) || !uid) return;
       }
@@ -370,6 +360,7 @@ export default function ChatSidebarKanban({ threads, threadAtiva, onSelecionarTh
         return;
       }
 
+      // Colunas de outros atendentes: apenas para admin/gerente
       if (!isAdmin && !isGerente) return;
 
       if (norm(uid) !== norm(usuarioAtual?.id)) {
@@ -388,6 +379,7 @@ export default function ChatSidebarKanban({ threads, threadAtiva, onSelecionarTh
       col.threads.sort((a, b) => new Date(b.last_message_at || 0) - new Date(a.last_message_at || 0));
     });
 
+    // Garantir que "Não Atribuídas" sempre existe (mesmo sem threads)
     if (!mapa['__sem_atendente__']) {
       mapa['__sem_atendente__'] = { id: '__sem_atendente__', nome: 'Não Atribuídas', isSemAtendente: true, threads: [] };
     }
@@ -417,13 +409,8 @@ export default function ChatSidebarKanban({ threads, threadAtiva, onSelecionarTh
   };
 
   return (
-    <div className="flex flex-col h-full min-h-0" style={{ userSelect: isDraggingActive ? 'none' : undefined }}>
-      {/* Ghost que segue o mouse */}
-      {isDraggingActive && draggingThread && (
-        <DragGhost thread={draggingThread} position={mousePos} />
-      )}
-
-      {/* Toolbar */}
+    <div className="flex flex-col h-full min-h-0">
+      {/* Toolbar: Equipe Interna + Botões de Ação + toggle Canal/Atendente */}
       <div className="flex-shrink-0 bg-purple-50/80 backdrop-blur-sm border-b border-purple-200 px-2 py-1.5 space-y-1.5">
         {/* Cabeçalho Equipe Interna */}
         <div className="flex items-center gap-2">
@@ -501,12 +488,8 @@ export default function ChatSidebarKanban({ threads, threadAtiva, onSelecionarTh
       </div>
 
       <div className="flex gap-2 flex-1 overflow-x-auto p-2 bg-slate-100 min-h-0">
-        {/* Coluna fixa: "Minhas Conversas" */}
-        <div
-          ref={el => colunaRefs.current['__minhas__'] = el}
-          className={`flex flex-col flex-shrink-0 w-52 min-w-[200px] rounded-xl border-2 overflow-hidden shadow-md sticky left-0 z-20 transition-all
-            ${hoveredColuna === '__minhas__' && isDraggingActive ? 'border-orange-500 bg-orange-50 ring-2 ring-orange-400 scale-[1.02]' : 'border-orange-400 bg-slate-50'}`}
-        >
+        {/* Coluna fixa: "Minhas Conversas" - SEMPRE VISÍVEL */}
+        <div className="flex flex-col flex-shrink-0 w-52 min-w-[200px] bg-slate-50 rounded-xl border-2 border-orange-400 overflow-hidden shadow-md sticky left-0 z-20">
           <div className="bg-gradient-to-r from-amber-500 to-orange-500 px-3 py-2 flex items-center justify-between">
             <div className="flex items-center gap-1.5 min-w-0">
               <UserCheck className="w-3.5 h-3.5 text-white flex-shrink-0" />
@@ -514,11 +497,9 @@ export default function ChatSidebarKanban({ threads, threadAtiva, onSelecionarTh
             </div>
             <span className="text-white/80 text-[9px] flex-shrink-0">{minhasConversas.length}</span>
           </div>
-          <div className="flex-1 overflow-y-auto p-1.5 space-y-1.5 min-h-[60px]">
+          <div className="flex-1 overflow-y-auto p-1.5 space-y-1.5">
             {minhasConversas.length === 0 ? (
-              <div className={`text-center py-8 text-xs ${hoveredColuna === '__minhas__' && isDraggingActive ? 'text-orange-400 font-semibold' : 'text-slate-400'}`}>
-                {hoveredColuna === '__minhas__' && isDraggingActive ? 'Solte aqui ↓' : 'Nenhuma conversa atribuída'}
-              </div>
+              <div className="text-center py-8 text-slate-400 text-xs">Nenhuma conversa atribuída</div>
             ) : (
               minhasConversas.map(thread => (
                 <ThreadCardKanban
@@ -529,29 +510,28 @@ export default function ChatSidebarKanban({ threads, threadAtiva, onSelecionarTh
                   atendentes={atendentes}
                   onSelecionarThread={onSelecionarThread}
                   podeInteragir={true}
-                  isDragging={draggingThread?.id === thread.id && isDraggingActive}
                 />
               ))
-            )}
-            {hoveredColuna === '__minhas__' && isDraggingActive && minhasConversas.length > 0 && (
-              <div className="text-center py-2 text-orange-400 text-xs font-semibold border-t border-orange-200">Solte aqui ↓</div>
             )}
           </div>
         </div>
 
         {kanbanMode === 'usuario' ? (
+          // ── MODO: POR ATENDENTE ──
           colunasPorUsuario.filter(c => !c.isMinhas).map(coluna => {
             const isSem = coluna.isSemAtendente;
-            const headerClass = isSem ? 'bg-slate-600' : 'bg-gradient-to-r from-indigo-500 to-blue-600';
-            const isHovered = hoveredColuna === coluna.id && isDraggingActive;
+            const headerClass = isSem
+              ? 'bg-slate-600'
+              : 'bg-gradient-to-r from-indigo-500 to-blue-600';
+            const isDragOver = dragOverColuna === coluna.id;
 
             return (
               <div
                 key={coluna.id}
-                ref={el => colunaRefs.current[coluna.id] = el}
-                className={`flex flex-col flex-shrink-0 w-52 min-w-[200px] rounded-xl overflow-hidden shadow-sm transition-all
-                  ${isSem ? 'border-2 border-slate-400 sticky left-[216px] z-10' : 'border border-slate-200'}
-                  ${isHovered ? 'ring-2 ring-orange-400 bg-orange-50 scale-[1.02]' : 'bg-slate-50'}`}
+                onDragOver={(e) => handleDragOver(e, coluna.id)}
+                onDragLeave={handleDragLeave}
+                onDrop={(e) => handleDrop(e, coluna.id)}
+                className={`flex flex-col flex-shrink-0 w-52 min-w-[200px] rounded-xl overflow-hidden shadow-sm transition-all ${isSem ? 'border-2 border-slate-400 sticky left-[216px] z-10' : 'border border-slate-200'} ${isDragOver ? 'ring-2 ring-orange-400 bg-orange-50 scale-[1.02]' : 'bg-slate-50'}`}
               >
                 <div className={`${headerClass} px-3 py-2 flex items-center justify-between`}>
                   <div className="flex items-center gap-1.5 min-w-0">
@@ -564,8 +544,8 @@ export default function ChatSidebarKanban({ threads, threadAtiva, onSelecionarTh
                 </div>
                 <div className="flex-1 overflow-y-auto p-1.5 space-y-1.5 min-h-[60px]">
                   {coluna.threads.length === 0 ? (
-                    <div className={`text-center py-8 text-xs ${isHovered ? 'text-orange-400 font-semibold' : 'text-slate-400'}`}>
-                      {isHovered ? 'Solte aqui ↓' : 'Sem conversas'}
+                    <div className={`text-center py-8 text-xs ${isDragOver ? 'text-orange-400 font-semibold' : 'text-slate-400'}`}>
+                      {isDragOver ? 'Solte aqui ↓' : 'Sem conversas'}
                     </div>
                   ) : (
                     coluna.threads.map(thread => (
@@ -577,12 +557,11 @@ export default function ChatSidebarKanban({ threads, threadAtiva, onSelecionarTh
                         atendentes={atendentes}
                         onSelecionarThread={onSelecionarThread}
                         podeInteragir={true}
-                        isDragging={draggingThread?.id === thread.id && isDraggingActive}
-                        onMouseDown={podeReatribuir ? handleMouseDown : undefined}
+                        onDragStart={isSem ? undefined : handleDragStart}
                       />
                     ))
                   )}
-                  {isHovered && coluna.threads.length > 0 && (
+                  {isDragOver && coluna.threads.length > 0 && (
                     <div className="text-center py-2 text-orange-400 text-xs font-semibold border-t border-orange-200">Solte aqui ↓</div>
                   )}
                 </div>
@@ -590,6 +569,7 @@ export default function ChatSidebarKanban({ threads, threadAtiva, onSelecionarTh
             );
           })
         ) : (
+          // ── MODO: POR CANAL/INTEGRAÇÃO ──
           colunas.map(coluna => {
             const totalNaoLidas = coluna.threads.reduce((sum, t) => sum + getUnreadCount(t, usuarioAtual?.id), 0);
             const headerCor = corConfig[coluna.cor] || 'bg-slate-600';
@@ -620,11 +600,11 @@ export default function ChatSidebarKanban({ threads, threadAtiva, onSelecionarTh
                       const isAtribuidoOuTransferido =
                         norm(thread.assigned_user_id) === norm(usuarioAtual?.id) ||
                         norm(thread.transfer_requested_user_id) === norm(usuarioAtual?.id);
-                      const isGerenteLocal = ['gerente', 'coordenador', 'supervisor'].includes(usuarioAtual?.attendant_role);
+                      const isGerente = ['gerente', 'coordenador', 'supervisor'].includes(usuarioAtual?.attendant_role);
                       const isNaoAtribuida = !thread.assigned_user_id && !thread.assigned_user_name && !thread.assigned_user_email;
                       const isCompartilhada = thread.shared_with_users?.includes(usuarioAtual?.id);
                       const isInterno = thread.participants?.includes(usuarioAtual?.id);
-                      const podeInteragir = usuarioAtual?.role === 'admin' || isAtribuidoOuTransferido || isGerenteLocal || isNaoAtribuida || isCompartilhada || isInterno;
+                      const podeInteragir = usuarioAtual?.role === 'admin' || isAtribuidoOuTransferido || isGerente || isNaoAtribuida || isCompartilhada || isInterno;
                       return (
                         <ThreadCardKanban
                           key={thread.id}
