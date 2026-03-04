@@ -397,13 +397,11 @@ export default function Comunicacao() {
     queryFn: async () => {
       if (contactIdsParaCarregar.length === 0) return [];
 
-
-
       try {
         // ✅ Busca livre via backend (sem RLS - retorna TODOS os contatos COM _meta)
         const response = await base44.functions.invoke('buscarContatosLivre', {
           searchTerm: null,
-          limit: 1000
+          limit: 500
         });
 
         if (response?.data?.success) {
