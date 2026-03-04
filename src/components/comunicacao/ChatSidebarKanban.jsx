@@ -653,7 +653,7 @@ export default function ChatSidebarKanban({ threads, threadAtiva, onSelecionarTh
 
       <div className="flex gap-2 flex-1 overflow-x-auto p-2 bg-slate-100 min-h-0">
         {/* Coluna fixa: "Minhas Conversas" - layout lista igual ChatSidebar */}
-        <div className="flex flex-col flex-shrink-0 w-64 min-w-[240px] bg-white rounded-xl border-2 border-orange-400 overflow-hidden shadow-md sticky left-0 z-20">
+        <div className="flex flex-col flex-shrink-0 w-72 min-w-[280px] bg-white rounded-xl border-2 border-orange-400 overflow-hidden shadow-md sticky left-0 z-20">
           <div className="bg-gradient-to-r from-amber-500 to-orange-500 px-3 py-2 flex items-center justify-between">
             <div className="flex items-center gap-1.5 min-w-0">
               <UserCheck className="w-3.5 h-3.5 text-white flex-shrink-0" />
