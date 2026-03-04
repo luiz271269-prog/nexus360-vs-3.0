@@ -701,9 +701,9 @@ export default function ContatosRequerendoAtencaoKanban({ usuario, onSelecionarC
             </div>
           </div> :
 
-          <div className="flex-1 overflow-x-auto p-4 space-x-4 flex">
+          <div className="flex-1 overflow-x-auto p-3 gap-3 flex">
             {Object.entries(grupos).map(([nomeColuna, items]) =>
-            <div key={nomeColuna} className="flex-shrink-0 w-72 rounded-lg overflow-hidden flex flex-col">
+            <div key={nomeColuna} className="flex-shrink-0 w-64 rounded-lg overflow-hidden flex flex-col">
                 {/* Header da Coluna - 14px */}
                 <div className="bg-gradient-to-r from-purple-600 to-indigo-600 px-4 py-3 rounded-t-lg shadow-md">
                   <div className="flex items-center justify-between gap-2">
