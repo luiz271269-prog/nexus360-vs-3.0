@@ -64,7 +64,7 @@ import DesktopChatArea from "../components/comunicacao/DesktopChatArea";
 import { useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import { carregarTodasThreads, podeVerThreadInterna } from "../components/lib/internalThreadsService";
-
+import { useBuscaThreadsCanonicos } from "../components/comunicacao/useBuscaThreadsCanonicos";
 
 // 🔧 DEBUG_VIS: Desativado em produção para eliminar overhead de logs
 const DEBUG_VIS = false;
