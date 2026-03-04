@@ -420,6 +420,7 @@ export default function ChatSidebarKanban({ threads, threadAtiva, onSelecionarTh
             <AlertTriangle className="w-3 h-3 flex-shrink-0" />Urgentes
           </Button>
         )}
+        </div>
       </div>
 
       <div className="flex gap-2 flex-1 overflow-x-auto p-2 bg-slate-100 min-h-0">
