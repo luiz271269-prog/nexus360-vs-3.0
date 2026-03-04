@@ -16,7 +16,6 @@ import { useEtiquetasContato } from "./SeletorEtiquetasContato";
 import AtribuidorAtendenteRapido from "./AtribuidorAtendenteRapido";
 import { getAtendenteFidelizadoAtualizado } from "../lib/userMatcher";
 import { toast } from "sonner";
-import KanbanNavBar from "./KanbanNavBar";
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
@@ -512,39 +511,78 @@ export default function ChatSidebarKanban({
       {/* ════ PAINEL DIREITO: Visualizações Kanban ════ */}
       <div className="flex flex-col flex-1 min-w-0 overflow-hidden bg-slate-100">
 
-        {/* Toolbar Topo com controles */}
-         <div className="flex-shrink-0 bg-white border-b border-slate-200 px-3 py-2 flex items-center gap-2 flex-wrap">
-           {/* Toggle Lista / Kanban */}
-           {sidebarViewMode && onSidebarViewModeChange && (
-             <div className="flex items-center gap-0.5 bg-slate-100 border border-slate-200 rounded-lg p-0.5">
-               <button
-                 onClick={() => { onSidebarViewModeChange('list'); localStorage.setItem('sidebarViewMode', 'list'); }}
-                 className={`flex items-center gap-1 px-2.5 py-1.5 rounded-md text-[11px] font-semibold transition-all ${sidebarViewMode === 'list' ? 'bg-orange-500 text-white shadow' : 'text-slate-500 hover:text-slate-800 hover:bg-white'}`}
-                 title="Lista"
-               >
-                 <LayoutList className="w-3.5 h-3.5" />Lista
-               </button>
-               <button
-                 onClick={() => { onSidebarViewModeChange('kanban'); localStorage.setItem('sidebarViewMode', 'kanban'); }}
-                 className={`flex items-center gap-1 px-2.5 py-1.5 rounded-md text-[11px] font-semibold transition-all ${sidebarViewMode === 'kanban' ? 'bg-orange-500 text-white shadow' : 'text-slate-500 hover:text-slate-800 hover:bg-white'}`}
-                 title="Kanban"
-               >
-                 <Columns className="w-3.5 h-3.5" />Kanban
-               </button>
-             </div>
-           )}
-         </div>
+        {/* Toolbar: toggle de visualização */}
+        <div className="flex-shrink-0 bg-white border-b border-slate-200 px-3 py-2 flex items-center gap-2 flex-wrap">
 
-         {/* Barra de navegação Kanban - sempre visível */}
-         <KanbanNavBar
-           kanbanMode={kanbanMode}
-           onModeChange={setKanbanMode}
-           threadCount={threads?.length || 0}
-           unassignedCount={threads?.filter(t => !t.assigned_user_id && t.contact_id && !t.is_contact_only).length || 0}
-           modoSelecaoMultipla={modoSelecaoMultipla}
-           onModoSelecaoMultiplaChange={onModoSelecaoMultiplaChange}
-           onOpenKanbanNaoAtribuidos={onOpenKanbanNaoAtribuidos}
-         />
+          {/* Toggle Lista / Kanban */}
+          {sidebarViewMode && onSidebarViewModeChange && (
+            <div className="flex items-center gap-0.5 bg-slate-100 border border-slate-200 rounded-lg p-0.5">
+              <button
+                onClick={() => { onSidebarViewModeChange('list'); localStorage.setItem('sidebarViewMode', 'list'); }}
+                className={`flex items-center gap-1 px-2.5 py-1.5 rounded-md text-[11px] font-semibold transition-all ${sidebarViewMode === 'list' ? 'bg-orange-500 text-white shadow' : 'text-slate-500 hover:text-slate-800 hover:bg-white'}`}
+                title="Lista"
+              >
+                <LayoutList className="w-3.5 h-3.5" />Lista
+              </button>
+              <button
+                onClick={() => { onSidebarViewModeChange('kanban'); localStorage.setItem('sidebarViewMode', 'kanban'); }}
+                className={`flex items-center gap-1 px-2.5 py-1.5 rounded-md text-[11px] font-semibold transition-all ${sidebarViewMode === 'kanban' ? 'bg-orange-500 text-white shadow' : 'text-slate-500 hover:text-slate-800 hover:bg-white'}`}
+                title="Kanban"
+              >
+                <Columns className="w-3.5 h-3.5" />Kanban
+              </button>
+            </div>
+          )}
+
+          {/* Seleção múltipla */}
+          {onModoSelecaoMultiplaChange && (
+            <button
+              onClick={() => onModoSelecaoMultiplaChange(!modoSelecaoMultipla)}
+              className={`flex items-center gap-1 px-3 py-1.5 rounded-md text-[11px] font-semibold transition-all border ${modoSelecaoMultipla ? 'bg-orange-500 text-white border-orange-500 shadow' : 'text-slate-500 bg-slate-50 border-slate-200 hover:bg-slate-100'}`}
+              title="Selecionar múltiplos para envio em massa"
+            >
+              <CheckSquare className="w-3.5 h-3.5" />Selecionar
+            </button>
+          )}
+
+          <div className="h-5 w-px bg-slate-200" />
+
+          {/* Não Atribuídos */}
+          {onOpenKanbanNaoAtribuidos && (() => {
+            const cnt = threads?.filter(t => !t.assigned_user_id && t.contact_id && !t.is_contact_only).length || 0;
+            return (
+              <Button onClick={onOpenKanbanNaoAtribuidos} size="sm"
+                className="bg-gradient-to-r from-red-500 to-orange-600 hover:from-red-600 hover:to-orange-700 text-white border-0 h-8 text-xs px-2.5 flex items-center gap-1 font-semibold shadow-sm">
+                <AlertTriangle className="w-3.5 h-3.5 flex-shrink-0" />Não Atribuídos
+                {cnt > 0 && <Badge className="bg-white text-red-600 text-[9px] font-bold px-1 h-4 min-w-4 flex items-center justify-center rounded-full ml-0.5">{cnt}</Badge>}
+              </Button>
+            );
+          })()}
+
+          <div className="h-5 w-px bg-slate-200" />
+
+          {/* Toggle 3 visualizações */}
+          <div className="flex items-center gap-0.5 bg-slate-100 border border-slate-200 rounded-lg p-0.5">
+            <button onClick={() => setKanbanMode('parados')}
+              className={`flex items-center gap-1 px-3 py-1.5 rounded-md text-[11px] font-semibold transition-all ${kanbanMode === 'parados' ? 'bg-yellow-500 text-white shadow' : 'text-slate-500 hover:text-slate-800 hover:bg-white'}`}>
+              <Pause className="w-3 h-3" />Parados
+            </button>
+            <button onClick={() => setKanbanMode('usuario')}
+              className={`flex items-center gap-1 px-3 py-1.5 rounded-md text-[11px] font-semibold transition-all ${kanbanMode === 'usuario' ? 'bg-indigo-500 text-white shadow' : 'text-slate-500 hover:text-slate-800 hover:bg-white'}`}>
+              <Users className="w-3 h-3" />Atendente
+            </button>
+            <button onClick={() => setKanbanMode('integracao')}
+              className={`flex items-center gap-1 px-3 py-1.5 rounded-md text-[11px] font-semibold transition-all ${kanbanMode === 'integracao' ? 'bg-orange-500 text-white shadow' : 'text-slate-500 hover:text-slate-800 hover:bg-white'}`}>
+              <Columns className="w-3 h-3" />Canal
+            </button>
+          </div>
+
+          {/* Urgentes */}
+          <button onClick={() => setKanbanMode('urgentes')}
+            className={`flex items-center gap-1 px-3 py-1.5 rounded-md text-[11px] font-semibold transition-all ${kanbanMode === 'urgentes' ? 'bg-purple-600 text-white shadow' : 'text-amber-700 bg-amber-50 border border-amber-200 hover:bg-amber-100'}`}>
+            <Zap className="w-3.5 h-3.5 flex-shrink-0" />Urgentes
+          </button>
+        </div>
 
         {/* Colunas Kanban */}
         <div className="flex gap-2 flex-1 overflow-x-auto p-2 min-h-0">

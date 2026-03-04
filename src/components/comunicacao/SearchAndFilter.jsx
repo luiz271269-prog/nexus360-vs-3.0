@@ -5,7 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { 
   Search, UserPlus, User, Users, Phone, Tag, Check, Filter, X, 
   ChevronDown, Building2, Target, Truck, Handshake, HelpCircle, 
-  CheckSquare, AlertCircle
+  CheckSquare, AlertCircle, LayoutList, Columns, List
 } from 'lucide-react';
 import { normalizarTelefone } from '../lib/phoneUtils';
 import { CATEGORIAS_FIXAS } from './CategorizadorRapido';
@@ -394,6 +394,32 @@ export default function SearchAndFilter({
             </div>
           </PopoverContent>
           </Popover>
+
+          {/* Botão de Vista (Lista vs Kanban) */}
+          <Button
+            variant={sidebarViewMode === 'list' ? 'default' : 'outline'}
+            size="icon"
+            onClick={() => onSidebarViewModeChange?.(sidebarViewMode === 'list' ? 'kanban' : 'list')}
+            className="h-10 w-10 p-1.5"
+            title={sidebarViewMode === 'list' ? 'Mudar para Kanban' : 'Mudar para Lista'}
+          >
+            {sidebarViewMode === 'list' ? (
+              <Columns className="w-4 h-4" />
+            ) : (
+              <List className="w-4 h-4" />
+            )}
+          </Button>
+
+          {/* Botão Seleção Múltipla */}
+          <Button
+            variant={modoSelecaoMultipla ? 'default' : 'outline'}
+            size="icon"
+            onClick={() => onModoSelecaoMultiplaChange?.(!modoSelecaoMultipla)}
+            className="h-10 w-10 p-1.5"
+            title={modoSelecaoMultipla ? 'Desativar seleção' : 'Ativar seleção múltipla'}
+          >
+            <CheckSquare className="w-4 h-4" />
+          </Button>
           </div>{/* fim dos botões à esquerda */}
 
           {/* Campo de busca */}
