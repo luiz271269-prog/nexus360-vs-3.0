@@ -878,7 +878,8 @@ async function handleMessage(dados, payloadBruto, base44) {
       sender_id: contato.id,
       sender_type: 'contact',
       content: dados.content,
-      media_url: dados.downloadSpec ? 'pending_download' : null,
+      media_url: dados.downloadSpec ? 'pending_download'
+               : (dados.mediaType !== 'none' ? 'failed_download' : null),
       media_type: dados.mediaType,
       media_caption: dados.mediaCaption ?? null,
       channel: 'whatsapp',
