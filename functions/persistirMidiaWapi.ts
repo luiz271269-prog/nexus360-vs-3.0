@@ -74,7 +74,10 @@ Deno.serve(async (req) => {
 
   try {
     const base44 = createClientFromRequest(req);
-    const payload = await req.json();
+    // ✅ CRÍTICO: req.json() pode falhar se o body veio via invoke do SDK
+    // O SDK Base44 encapsula os parâmetros dentro de um campo "payload"
+    const bodyRaw = await req.json();
+    const payload = bodyRaw?.payload ?? bodyRaw;
     
     console.log('[PERSISTIR-MIDIA-WAPI] 📦 Payload recebido:', {
       message_id: payload.message_id,
