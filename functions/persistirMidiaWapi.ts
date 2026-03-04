@@ -48,13 +48,9 @@ async function obterLinkDownloadWapi(downloadSpec, instanceId, token) {
 // 5. Atualiza Message.media_url com URL permanente
 // ============================================================================
 
-const VERSION = 'v3.0.0-SERVERLESS-SAFE';
-const MAX_RETRIES = 2;
-const RETRY_DELAY = 2000;
+const VERSION = 'v3.1.0-FIXED';
 
-async function sleep(ms) {
-  return new Promise(resolve => setTimeout(resolve, ms));
-}
+// Força redeploy: sem imports locais, sem export, 100% standalone
 
 Deno.serve(async (req) => {
   const headers = {
