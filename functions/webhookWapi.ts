@@ -1075,10 +1075,10 @@ Deno.serve(async (req) => {
     });
   }
 
-  // ✅ AUTH: SDK Base44 0.8.20 - req direto (sem clone)
+  // ✅ AUTH: SDK Base44 0.8.20 - req.clone() OBRIGATÓRIO para asServiceRole
   let base44;
   try {
-    base44 = createClientFromRequest(req);
+    base44 = createClientFromRequest(req.clone());
     console.log('[WAPI-AUTH] ✅ Cliente Base44 criado (asServiceRole habilitado)');
   } catch (e) {
     console.error('[WAPI] 🔴 FATAL AUTH ERROR:', e.message);
