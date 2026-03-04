@@ -81,8 +81,14 @@ export async function processarMidiaWapi(messageContent, instanceId, token) {
  * Retorna fileLink temporario que deve ser baixado imediatamente
  */
 export async function obterLinkDownloadWapi(downloadSpec, instanceId, token) {
+  // ✅ FALLBACK: Áudios PTT frequentemente chegam sem mediaKey/directPath
+  // Se não tem as chaves para API de download, usar URL direta do payload (temporária mas funcional)
   if (!downloadSpec.mediaKey || !downloadSpec.directPath) {
-    throw new Error("Dados insuficientes: mediaKey e directPath sao obrigatorios.");
+    if (downloadSpec.url) {
+      console.warn(`[W-API Handler] ⚠️ Sem mediaKey/directPath para ${downloadSpec.type} - usando URL direta do payload`);
+      return downloadSpec.url;
+    }
+    throw new Error(`Dados insuficientes para ${downloadSpec.type}: sem mediaKey, directPath nem url.`);
   }
 
   const url = `https://api.w-api.app/v1/message/download-media?instanceId=${instanceId}`;
@@ -104,6 +110,11 @@ export async function obterLinkDownloadWapi(downloadSpec, instanceId, token) {
   const data = await response.json();
 
   if (data.error || !data.fileLink) {
+    // ✅ FALLBACK: Se W-API falhou em gerar o link, tentar URL direta
+    if (downloadSpec.url) {
+      console.warn(`[W-API Handler] ⚠️ download-media falhou: ${JSON.stringify(data)} - usando URL direta`);
+      return downloadSpec.url;
+    }
     throw new Error(`W-API Error: ${JSON.stringify(data)}`);
   }
 

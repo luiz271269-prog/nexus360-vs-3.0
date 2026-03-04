@@ -82,7 +82,13 @@ Deno.serve(async (req) => {
       console.log('[PERSISTIR-MIDIA-WAPI] fileLink obtido:', media_url?.substring(0, 80));
     } catch (wapiError) {
       console.error('[PERSISTIR-MIDIA-WAPI] Erro ao obter fileLink:', wapiError.message);
-      throw wapiError;
+      // ✅ FALLBACK FINAL: usar URL direta do downloadSpec se disponível
+      if (downloadSpec.url) {
+        console.warn('[PERSISTIR-MIDIA-WAPI] ⚠️ Usando URL direta como fallback final:', downloadSpec.url?.substring(0, 80));
+        media_url = downloadSpec.url;
+      } else {
+        throw wapiError;
+      }
     }
 
     const is_base64 = false;
@@ -90,8 +96,8 @@ Deno.serve(async (req) => {
     const mediaType = downloadSpec.type;
     
     if (!media_url) {
-      console.error('[PERSISTIR-MIDIA-WAPI] ❌ W-API não retornou fileLink nem base64:', downloadData);
-      throw new Error('W-API não retornou mídia');
+      console.error('[PERSISTIR-MIDIA-WAPI] ❌ W-API não retornou nenhuma URL de mídia');
+      throw new Error('W-API não retornou mídia: sem fileLink nem URL direta');
     }
 
     console.log('[PERSISTIR-MIDIA-WAPI] 📥 Iniciando processamento:', {
